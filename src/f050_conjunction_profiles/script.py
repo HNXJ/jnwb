@@ -2,7 +2,10 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pandas as pd
-from pathlib import Path
+import hashlib
+import json
+import subprocess
+from datetime import datetime
 from scipy.ndimage import gaussian_filter1d
 from src.analysis.io.loader import DataLoader
 
@@ -72,31 +75,73 @@ def plot_conjunction_exemplar(loader, unit_id, area, stats_row, output_path):
     fig.update_yaxes(title_text="Firing Rate (Hz)", row=1, col=1)
     fig.write_html(str(output_path))
 
+def audit_mapping(df, loader):
+    """Verifies anatomical mapping for all units in a dataframe."""
+    results = []
+    unique_ids = df['id'].unique()
+    print(f"[action] Auditing mapping for {len(unique_ids)} unique units...")
+    for unit_id in unique_ids:
+        parts = unit_id.split('-')
+        session = parts[0]
+        probe = int(parts[1].replace('probe', ''))
+        unit_idx = int(parts[2].replace('unit', ''))
+        area, status, warn = loader.resolve_unit_area(session, probe, unit_idx, allow_heuristic=True)
+        results.append({
+            'id': unit_id,
+            'session': session,
+            'probe': probe,
+            'unit_idx': unit_idx,
+            'resolved_area': area,
+            'mapping_status': status,
+            'is_figure_grade': "metadata_resolved" in status,
+            'warning': warn
+        })
+    return pd.DataFrame(results)
+
 from scipy.stats import wilcoxon, binomtest
 
 def run_f050():
     print(f"""[action] Starting Figure 50: Conjunction Hardening Cycle...""")
     loader = DataLoader()
-    output_dir = loader.get_output_dir("f050_conjunction_profiles")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    output_dir = loader.get_output_dir("f050_conjunction_profiles") / timestamp
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # 1. LOAD DATA
-    rep_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/repetition_profiles_spk.csv")
-    om_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv")
+    rep_path = "outputs/oglo-8figs/f048-profile-analysis/repetition_profiles_spk.csv"
+    om_path = "outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv"
+    rep_df = pd.read_csv(rep_path)
+    om_df = pd.read_csv(om_path)
     
-    # Identify Omission-Positive Units
-    om_positive_ids = set(om_df[om_df['is_omission_positive']]['id'].unique())
+    # Perform Unit Mapping Audit
+    full_unit_list = pd.concat([rep_df[['id']], om_df[['id']]]).drop_duplicates()
+    mapping_audit = audit_mapping(full_unit_list, loader)
+    mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
+    # Summary CSVs
+    mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
+    mapping_audit.groupby(['resolved_area', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_area.csv", index=False)
+
+    # Filter for Figure-Grade
+    figure_grade_ids = mapping_audit[mapping_audit['is_figure_grade']]['id'].unique()
+    print(f"[action] Restricted analysis to {len(figure_grade_ids)} figure-grade units.")
     
-    # 2. PIVOT & SCORE
-    pivoted = rep_df.pivot(index=['id', 'area'], columns='family', values=['p1_value', 'p3_value', 'p3_over_p1'])
+    # Identify Omission-Positive Units (Audit mapping)
+    om_df = om_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
+    om_positive_ids = set(om_df[om_df['is_omission_positive'] & om_df['is_figure_grade']]['id'].unique())
+    # 2. PIVOT & SCORE (Restricted to figure-grade)
+    figure_grade_rep = rep_df[rep_df['id'].isin(figure_grade_ids)].copy()
+    pivoted = figure_grade_rep.pivot(index=['id'], columns='family', values=['p1_value', 'p3_value', 'p3_over_p1'])
     pivoted.columns = [f"{col[1].lower()}_{col[0].replace('_value', '')}" for col in pivoted.columns]
     pivoted = pivoted.reset_index().rename(columns={
         'axab_p3_over_p1': 'axab_ratio',
         'bxba_p3_over_p1': 'bxba_ratio',
         'rxrr_p3_over_p1': 'rxrr_ratio'
     })
+    # Add back area and status
+    pivoted = pivoted.merge(mapping_audit[['id', 'resolved_area', 'mapping_status']], on='id')
+    pivoted = pivoted.rename(columns={'resolved_area': 'area'})
     
     # Selectivity Score
-    # Reward facilitation in A/B, penalize facilitation in R
     axab_diff = pivoted['axab_p3'] - pivoted['axab_p1']
     bxba_diff = pivoted['bxba_p3'] - pivoted['bxba_p1']
     rxrr_diff = pivoted['rxrr_p3'] - pivoted['rxrr_p1']
@@ -104,7 +149,6 @@ def run_f050():
     
     # 3. TRIAL-LEVEL STATISTICAL HARDENING
     print(f"""[action] Running trial-level statistical hardening...""")
-    
     target_units = pivoted[pivoted['axab_ratio'] > 1.0].id.unique()
     
     hardened_results = []
@@ -116,38 +160,35 @@ def run_f050():
             p1_trials = np.mean(spk[:, 1000:1515], axis=1)
             p3_trials = np.mean(spk[:, 3062:3577], axis=1)
             
-            
             if np.all(p1_trials == p3_trials): 
                 p = 1.0
             else:
                 try:
-                    # Test if p3 > p1
                     res = wilcoxon(p3_trials, p1_trials, alternative='greater' if cond != 'RXRR' else 'two-sided')
                     p = res.pvalue
                 except: p = 1.0
             unit_stats[f'p_{cond.lower()}'] = p
         hardened_results.append(unit_stats)
-    
-    hardened_df = pd.DataFrame(hardened_results)
-    pivoted = pivoted.merge(hardened_df, on='id', how='left')
+    if hardened_results:
+        hardened_df = pd.DataFrame(hardened_results)
+        pivoted = pivoted.merge(hardened_df, on='id', how='left')
     
     # 4. FINAL LOGICAL CLASSES
-    
     pivoted['is_hardened'] = (pivoted['p_axab'] < 0.1) & (pivoted['p_bxba'] < 0.1) & (pivoted['p_rxrr'] > 0.05)
     pivoted['is_omission_overlap'] = pivoted['id'].isin(om_positive_ids)
     
     # 5. AREA ENRICHMENT & OVERLAP
-    print(f"""[action] Computing Area Enrichment & Overlap...""")
+    print(f"""[action] Computing Area Enrichment & Overlap (Figure-Grade only)...""")
     enrich_rows = []
-    global_rate = pivoted['is_hardened'].sum() / len(pivoted)
+    global_rate = pivoted['is_hardened'].sum() / len(pivoted) if not pivoted.empty else 0
     
-    for area in loader.CANONICAL_AREAS:
+    areas = loader.CANONICAL_AREAS + ["V3"]
+    for area in areas:
         a_df = pivoted[pivoted['area'] == area]
         n_area = len(a_df)
         n_hard = a_df['is_hardened'].sum()
         n_overlap = a_df[a_df['is_hardened']]['is_omission_overlap'].sum()
         
-        # Binomial enrichment p-value
         if n_area > 0 and global_rate > 0:
             res = binomtest(n_hard, n_area, global_rate, alternative='greater')
             p_enrich = res.pvalue
@@ -167,25 +208,12 @@ def run_f050():
     # 6. SUMMARY OUTPUTS
     pivoted.to_csv(output_dir / "conjunction_hardened_manifest.csv", index=False)
     
-    print("\n--- HARDENED CONJUNCTION SUMMARY ---")
-    print(f"Statistically Hardened (p<0.05 in A+B, p>0.05 in R): {pivoted['is_hardened'].sum()}")
-    print(f"Total Omission Overlap: {pivoted[pivoted['is_hardened']]['is_omission_overlap'].sum()}")
-    print("\nEnrichment (Top Areas):")
-    print(enrich_df.sort_values('enrichment_ratio', ascending=False).head(5))
-    
     # 7. SUMMARY FIGURE
     print(f"""[action] Generating Summary Figure...""")
     fig = make_subplots(rows=1, cols=2, subplot_titles=["Area Enrichment", "Omission Overlap"])
-    
-    # Enrichment Bar
-    fig.add_trace(go.Bar(x=enrich_df['area'], y=enrich_df['enrichment_ratio'], 
-                         marker_color='royalblue', name='Enrichment Ratio'), row=1, col=1)
-    
-    # Overlap Pie/Bar
-    fig.add_trace(go.Bar(x=enrich_df['area'], y=enrich_df['overlap_prop'], 
-                         marker_color='indianred', name='Omission Overlap %'), row=1, col=2)
-    
-    fig.update_layout(template="plotly_white", title="Conjunction Hardening Summary", height=500)
+    fig.add_trace(go.Bar(x=enrich_df['area'], y=enrich_df['enrichment_ratio'], marker_color='royalblue', name='Enrichment Ratio'), row=1, col=1)
+    fig.add_trace(go.Bar(x=enrich_df['area'], y=enrich_df['overlap_prop'], marker_color='indianred', name='Omission Overlap %'), row=1, col=2)
+    fig.update_layout(template="plotly_white", title=f"Conjunction Summary (Truth: {timestamp})", height=500)
     fig.write_html(str(output_dir / "conjunction_summary_hardened.html"))
 
     # 8. TOP 3 EXEMPLARS (Hardened + Scored)
@@ -193,7 +221,40 @@ def run_f050():
     for i, (_, row) in enumerate(top_3.iterrows()):
         plot_conjunction_exemplar(loader, row['id'], row['area'], row, output_dir / f"hardened_exemplar_{i}_{row['id']}.html")
 
-    print(f"""[action] Figure 50 Hardening Complete.""")
+    # 9. MANIFEST
+    try:
+        git_head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], encoding='utf8').strip()
+    except Exception:
+        git_head = "unknown"
+
+    outputs = [f for f in output_dir.glob("*") if f.is_file() and f.name != "f050_manifest.json"]
+    output_hashes = {f.name: hashlib.sha256(open(f, "rb").read()).hexdigest() for f in outputs}
+
+    manifest = {
+        'timestamp': timestamp,
+        'script': "src/f050_conjunction_profiles/script.py",
+        'repo_head': git_head,
+        'truth_status': "truth_safe_unverified",
+        'mapping_caveat': "local channel -> area is currently metadata_resolved_equal_segment (equal-segment inferred)",
+        'figure_grade_inclusion_criteria': "metadata_resolved_*",
+        'inclusion_statuses': ["metadata_resolved_equal_segment"],
+        'excluded_statuses': ["heuristic_fallback", "unresolved_metadata", "unknown_area"],
+        'inputs': {
+            'repetition_profiles_spk': {"path": rep_path, "rows": len(rep_df)},
+            'omission_profiles_spk': {"path": om_path, "rows": len(om_df)}
+        },
+        'unit_counts': {
+            'total_unique': len(mapping_audit),
+            'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
+            'heuristic_fallback': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum()),
+            'hardened_conjunctions': int(pivoted['is_hardened'].sum())
+        },
+        'output_hashes': output_hashes
+    }
+    with open(output_dir / "f050_manifest.json", 'w') as f:
+        json.dump(manifest, f, indent=4)
+
+    print(f"""[action] Figure 50 Hardening Complete. Manifest: {output_dir / 'f050_manifest.json'}""")
 
 if __name__ == "__main__":
     run_f050()
