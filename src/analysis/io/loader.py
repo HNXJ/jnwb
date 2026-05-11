@@ -36,6 +36,11 @@ class DataLoader:
         self.mapping_file = Path(mapping_file) if mapping_file else root / "context" / "overview" / "session-area-mapping.md"
         self.area_map = self._parse_mapping()
         self.eye_mapper = EyeDataMapper()
+
+        # Metadata cache for unit anatomical assignment
+        self.unit_metadata_cache = {}
+        self.unit_count_cache = {}
+
         log.action(f"Initialized DataLoader (NPY) with mapping from {self.mapping_file}")
 
     def get_eye_data_path(self, session: str) -> Path:
@@ -89,6 +94,85 @@ class DataLoader:
                             log.warning(f"Area '{area_raw}' (normalized to '{area}') in session {session} is NOT canonical and will be skipped.")
         return dict(area_map)
 
+    def _get_unit_metadata(self, session: str):
+        """Loads and caches unit metadata for a session."""
+        if session in self.unit_metadata_cache:
+            return self.unit_metadata_cache[session]
+
+        meta_dir = self.data_dir.parent / "metadata"
+        csv_path = meta_dir / f"units_ses-{session}.csv"
+
+        if csv_path.exists():
+            df = pd.read_csv(csv_path)
+            self.unit_metadata_cache[session] = df
+            return df
+        return None
+
+    def _get_probe_unit_count(self, session: str, probe: int) -> int:
+        """Returns number of units for a specific probe in a session."""
+        key = (session, probe)
+        if key in self.unit_count_cache:
+            return self.unit_count_cache[key]
+
+        # Use AXAB as reference file for unit counts
+        filename = f"ses{session}-units-probe{probe}-spk-AXAB.npy"
+        file_path = self.data_dir / filename
+        if file_path.exists():
+            arr = np.load(file_path, mmap_mode='r')
+            count = arr.shape[1]
+            self.unit_count_cache[key] = count
+            return count
+        return 0
+
+    def resolve_unit_area(self, session: str, probe: int, unit_idx: int, allow_heuristic: bool = False):
+        """
+        Resolves the anatomical area for a unit using peak_channel_id metadata.
+        Returns: (normalized_area, status, warning)
+        """
+        df = self._get_unit_metadata(session)
+        if df is not None:
+            # Calculate global index (assumes CSV is ordered by probe)
+            offset = 0
+            for p in range(probe):
+                offset += self._get_probe_unit_count(session, p)
+
+            global_idx = offset + unit_idx
+            if global_idx < len(df):
+                row = df.iloc[global_idx]
+                peak_ch = row["peak_channel_id"]
+                if pd.isna(peak_ch):
+                    return None, "unresolved_metadata", "peak_channel_id is NaN"
+
+                # Global to local channel mapping
+                p_idx = int(peak_ch // 128)
+                local_ch = int(peak_ch % 128)
+
+                if p_idx != probe:
+                    return None, "unresolved_metadata", f"Peak channel {peak_ch} on probe {p_idx} mismatch with data probe {probe}"
+
+                # Search mapping for this probe
+                for area_name, entries in self.area_map.items():
+                    for entry in entries:
+                        if entry["session"] == session and entry["probe"] == probe:
+                            if entry["start_ch"] <= local_ch < entry["end_ch"]:
+                                return area_name, "metadata_resolved", None
+
+                return None, "unresolved_metadata", f"Channel {local_ch} does not map to canonical area segment"
+
+        if allow_heuristic:
+            # Fallback to linear partition (legacy logic)
+            # Find the area entry to get boundaries
+            for area_name, entries in self.area_map.items():
+                for entry in entries:
+                    if entry["session"] == session and entry["probe"] == probe:
+                        n_units = self._get_probe_unit_count(session, probe)
+                        u_start = int(n_units * (entry["start_ch"] / entry["total_ch"]))
+                        u_end = int(n_units * (entry["end_ch"] / entry["total_ch"]))
+                        if u_start <= unit_idx < u_end:
+                            return area_name, "heuristic_resolved", "Metadata missing; used linear partition"
+
+        return None, "unmapped", "No metadata or heuristic match"
+
     def get_omission_onset(self, condition: str):
         """Returns the onset of the omission relative to p1 start (ms)."""
         # Family-aware timing
@@ -128,13 +212,12 @@ class DataLoader:
 
         return data_list
 
-    def _load_data(self, mode, condition, area, session: str = None):
+    def _load_data(self, mode, condition, area, session: str = None, allow_heuristic: bool = True):
         """Internal raw loader."""
         if area not in self.area_map: return None
         area_entries = self.area_map[area]
         data_list = []
         for entry in area_entries:
-            # Filter by session if provided
             if session and entry["session"] != session:
                 continue
 
@@ -147,16 +230,32 @@ class DataLoader:
                     if mode == "lfp":
                         arr_slice = arr[:, start_ch:end_ch, :]
                     else:
-                        # Heuristic SPK assignment (Loud Warning required by protocol)
-                        log.warning(f"SPK unit-area assignment for {ses} {area} (Probe {p}) is HEURISTIC. Metadata 'peak_channel_id' validation deferred.")
-                        u_start = int(arr.shape[1] * (start_ch / total_ch))
-                        u_end = int(arr.shape[1] * (end_ch / total_ch))
-                        arr_slice = arr[:, u_start:u_end, :]
+                        # SPK: Resolve units by metadata
+                        n_units = arr.shape[1]
+                        selected_indices = []
+                        metadata_count = 0
+
+                        for u_idx in range(n_units):
+                            res_area, status, _ = self.resolve_unit_area(ses, p, u_idx, allow_heuristic=allow_heuristic)
+                            if res_area == area:
+                                selected_indices.append(u_idx)
+                                if status == "metadata_resolved":
+                                    metadata_count += 1
+
+                        if not selected_indices:
+                            continue
+
+                        # Log summary for this probe-area entry
+                        if metadata_count < len(selected_indices):
+                            log.warning(f"SPK mapping for {ses} {area} (Probe {p}) partially HEURISTIC ({metadata_count}/{len(selected_indices)} metadata-resolved)")
+
+                        arr_slice = arr[:, selected_indices, :]
                     data_list.append(arr_slice)
-                except Exception: pass
+                except Exception as e:
+                    log.error(f"Error loading {filename}: {e}")
         return data_list
 
-    def get_units_by_area(self, area: str) -> list:
+    def get_units_by_area(self, area: str, allow_heuristic: bool = True) -> list:
         """Returns a list of unit identifiers available for the specified area."""
         if area not in self.area_map:
             log.warning(f"Area {area} not found in mapping.")
@@ -168,27 +267,22 @@ class DataLoader:
             if ses in self.BLACKLISTED_SESSIONS:
                 continue
             p = entry["probe"]
-            start_ch = entry["start_ch"]
-            end_ch = entry["end_ch"]
-            total_ch = entry["total_ch"]
 
-            # Check for file availability to get actual unit count
-            filename = f"ses{ses}-units-probe{p}-spk-AXAB.npy" # Use AXAB as reference for unit counts
-            file_path = self.data_dir / filename
-            if file_path.exists():
-                try:
-                    arr = np.load(file_path, mmap_mode='r')
-                    n_total_units = arr.shape[1]
+            n_units = self._get_probe_unit_count(ses, p)
+            if n_units > 0:
+                metadata_count = 0
+                entry_units = []
+                for u_idx in range(n_units):
+                    res_area, status, _ = self.resolve_unit_area(ses, p, u_idx, allow_heuristic=allow_heuristic)
+                    if res_area == area:
+                        entry_units.append(f"{ses}-probe{p}-unit{u_idx}")
+                        if status == "metadata_resolved":
+                            metadata_count += 1
 
-                    # Heuristic fallback warning
-                    log.warning(f"Unit indexing for {ses} {area} (Probe {p}) is HEURISTIC. Metadata alignment not confirmed.")
-                    u_start = int(n_total_units * (start_ch / total_ch))
-                    u_end = int(n_total_units * (end_ch / total_ch))
-
-                    for u_idx in range(u_start, u_end):
-                        units.append(f"{ses}-probe{p}-unit{u_idx}")
-                except Exception as e:
-                    log.error(f"Failed to read unit count from {filename}: {e}")
+                if entry_units:
+                    if metadata_count < len(entry_units):
+                        log.warning(f"Unit list for {ses} {area} (Probe {p}) partially HEURISTIC ({metadata_count}/{len(entry_units)} metadata-resolved)")
+                    units.extend(entry_units)
 
         log.info(f"Found {len(units)} units for area {area}")
         return units
