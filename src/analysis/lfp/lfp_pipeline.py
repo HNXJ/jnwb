@@ -11,6 +11,7 @@ def get_lfp_signal(
     area: str, 
     condition: str,
     align_to: str = 'omission',
+    allow_channel_trim: bool = False,
     **kwargs
 ) -> np.ndarray:
     """
@@ -33,24 +34,26 @@ def get_lfp_signal(
         
     # Concatenate trials across sessions
     # data_list entries are (trials, area_channels, time)
-    # They should have the same number of area_channels if they share the same area mapping logic
-    # But wait, different probes might have different number of channels in the same area.
-    # Actually, our mapping logic uses start_ch/end_ch which should be consistent?
-    # No, it calculates n_channels based on LINSPACE. 
-    # Let's just padding/trimming channels or only taking min if mismatch?
-    # User brief says "one shared area mapping".
     
-    # For now, assume area_channels match or we force them to match.
-    # Actually, many areas will have same channel count if we split 128 channels into N areas.
+    # Task 3: Explicit Channel Trimming Policy
+    ch_counts = [arr.shape[1] for arr in data_list]
+    min_ch = min(ch_counts)
+    max_ch = max(ch_counts)
     
-    # To be safe, find min channels
-    min_ch = min(arr.shape[1] for arr in data_list)
+    if min_ch != max_ch:
+        if not allow_channel_trim:
+            raise ValueError(f"Mismatched channel counts for area {area}: {ch_counts}. "
+                             f"Set allow_channel_trim=True to proceed with {min_ch} channels.")
+        
+        log.warning(f"TRIMMING CHANNELS for area {area}. Counts: {ch_counts} -> {min_ch}. "
+                    f"Warning: Laminar/depth interpretation may be affected by data loss.")
+    
     aligned_data = [arr[:, :min_ch, :] for arr in data_list]
     
     final_arr = np.concatenate(aligned_data, axis=0)
     return final_arr
 
-def run_lfp_spectral_pipeline(area: str, condition: str):
+def run_lfp_spectral_pipeline(area: str, condition: str, allow_channel_trim: bool = False):
     """
     Complete flow: Load -> Preprocess -> TFR -> Normalize -> Band Collapse
     """
@@ -59,7 +62,7 @@ def run_lfp_spectral_pipeline(area: str, condition: str):
     
     # 1. Load aligned to omission
     log.progress(f"Running Spectral Pipeline for {area} - {condition}")
-    lfp = get_lfp_signal(area, condition, align_to="omission", pre_ms=2000, post_ms=2000)
+    lfp = get_lfp_signal(area, condition, align_to="omission", pre_ms=2000, post_ms=2000, allow_channel_trim=allow_channel_trim)
     if lfp.size == 0: return None
     
     # 2. Preprocess

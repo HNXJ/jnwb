@@ -17,6 +17,18 @@ class DataLoader:
     CANONICAL_AREAS = ["V1", "V2", "V3d", "V3a", "V4", "MT", "MST", "TEO", "FST", "FEF", "PFC"]
     BLACKLISTED_SESSIONS = ["230901"] # Session 5 (PFC) clipping artifact
     
+    def normalize_area(self, area: str) -> str:
+        """
+        Normalizes area labels to canonical set.
+        - DP -> V4
+        - V3 (exact) -> V3
+        - Substrings are not allowed; must be exact or explicit alias.
+        """
+        area = area.strip()
+        if area == "DP": return "V4"
+        if "DP (" in area or " (V4)" in area: return "V4"
+        return area
+    
     def __init__(self, data_dir: str = None, mapping_file: str = None):
         # Resolve paths relative to repo root
         root = Path(__file__).parent.parent.parent.parent
@@ -53,16 +65,18 @@ class DataLoader:
                         continue
                     probe = int(parts[1])
                     areas = [a.strip() for a in parts[2].split(",")]
-                    # Alias DP to V4
-                    areas = ["V4" if "DP" in a else a for a in areas]
                     total_ch = int(parts[3])
                     
                     n_areas = len(areas)
                     boundaries = np.linspace(0, total_ch, n_areas + 1, dtype=int)
                     
-                    for i, area in enumerate(areas):
-                        # Filter for canonical areas
-                        if any(a in area for a in self.CANONICAL_AREAS):
+                    for i, area_raw in enumerate(areas):
+                        area = self.normalize_area(area_raw)
+                        # Filter for canonical areas or V3 (exact match)
+                        if area in self.CANONICAL_AREAS or area == "V3":
+                            if area == "V3":
+                                log.warning(f"Session {session} Probe {probe} uses generic V3. This area is loaded but remains UNRESOLVED (not split into V3d/V3a).")
+                                
                             start_ch, end_ch = boundaries[i], boundaries[i+1]
                             area_map[area].append({
                                 "session": session,
@@ -131,7 +145,8 @@ class DataLoader:
                     if mode == "lfp":
                         arr_slice = arr[:, start_ch:end_ch, :]
                     else:
-                        # Improved SPK assignment: use total_ch from mapping
+                        # Heuristic SPK assignment (Loud Warning required by protocol)
+                        log.warning(f"SPK unit-area assignment for {ses} {area} (Probe {p}) is HEURISTIC. Metadata 'peak_channel_id' validation deferred.")
                         u_start = int(arr.shape[1] * (start_ch / total_ch))
                         u_end = int(arr.shape[1] * (end_ch / total_ch))
                         arr_slice = arr[:, u_start:u_end, :]
@@ -162,6 +177,9 @@ class DataLoader:
                 try:
                     arr = np.load(file_path, mmap_mode='r')
                     n_total_units = arr.shape[1]
+                    
+                    # Heuristic fallback warning
+                    log.warning(f"Unit indexing for {ses} {area} (Probe {p}) is HEURISTIC. Metadata alignment not confirmed.")
                     u_start = int(n_total_units * (start_ch / total_ch))
                     u_end = int(n_total_units * (end_ch / total_ch))
                     

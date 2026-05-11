@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import permutation_test, ttest_ind
 from statsmodels.stats.multitest import multipletests
+from src.analysis.io.logger import log
 
 def get_significance_tier(p_value):
     """
@@ -34,11 +35,15 @@ def format_stats_proof(test_name, p_value, n_sessions, n_units):
     proof = f"[{test_name}] p={p_value:.2e} ({tier_name}) | N={n_sessions}S/{n_units}U"
     return proof, stars
 
-def run_permutation_test(data_a, data_b, n_permutations=1000):
+def run_permutation_test(data_a, data_b, n_permutations=1000, unit_of_inference="trial"):
     """
     Performs a 2-sample permutation test on the difference of means.
     data_a, data_b: (n_trials, ...) arrays.
+    unit_of_inference: 'trial' (descriptive) or 'session' (population inference).
     """
+    if unit_of_inference == "trial":
+        log.warning("Unit of inference is 'TRIAL'. Pooled trial-level inference is DESCRIPTIVE and risks pseudoreplication. Session-level hierarchy is not modeled.")
+        
     def statistic(x, y, axis):
         return np.mean(x, axis=axis) - np.mean(y, axis=axis)
     
