@@ -6,7 +6,7 @@ from src.analysis.io.logger import log
 def get_significance_tier(p_value):
     """
     Assigns a Significance Tier (S_k) based on logarithmic resolution.
-    
+
     Tiers:
     - Null: p >= 0.5
     - Insignificant: 0.5 > p >= 0.05
@@ -17,14 +17,14 @@ def get_significance_tier(p_value):
         return "Null", 0, ""
     if p_value >= 0.05:
         return "Insignificant", 0, "n.s."
-    
+
     if p_value < 1e-10: # Cap at Sig-10 for sanity
         return "Sig-10+", 10, "**********"
-        
+
     k = int(np.floor(-np.log10(p_value)))
     if k == 1:
         return "Sig-1", 1, "*"
-    
+
     return f"Sig-{k}", k, "*" * k
 
 def format_stats_proof(test_name, p_value, n_sessions, n_units):
@@ -41,15 +41,18 @@ def run_permutation_test(data_a, data_b, n_permutations=1000, unit_of_inference=
     data_a, data_b: (n_trials, ...) arrays.
     unit_of_inference: 'trial' (descriptive) or 'session' (population inference).
     """
+    if unit_of_inference not in ["trial", "session"]:
+        raise ValueError(f"Invalid unit_of_inference: {unit_of_inference}. Must be 'trial' or 'session'.")
+
     if unit_of_inference == "trial":
         log.warning("Unit of inference is 'TRIAL'. Pooled trial-level inference is DESCRIPTIVE and risks pseudoreplication. Session-level hierarchy is not modeled.")
-        
+
     def statistic(x, y, axis):
         return np.mean(x, axis=axis) - np.mean(y, axis=axis)
-    
-    res = permutation_test((data_a, data_b), statistic, 
-                           permutation_type='independent', 
-                           vectorized=True, 
+
+    res = permutation_test((data_a, data_b), statistic,
+                           permutation_type='independent',
+                           vectorized=True,
                            n_resamples=n_permutations)
     return res.pvalue, res.statistic
 
