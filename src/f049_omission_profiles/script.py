@@ -2,7 +2,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import pandas as pd
-from pathlib import Path
+import hashlib
+import json
+from datetime import datetime
 from scipy.ndimage import gaussian_filter1d
 from src.analysis.io.loader import DataLoader
 from src.analysis.profile_search import ProfileSearcher
@@ -111,22 +113,55 @@ class OmissionPlotter:
             color = "rgba(100, 100, 100, 0.1)" if onset == om_onset else "rgba(0, 100, 250, 0.1)"
             fig.add_vrect(x0=onset, x1=onset+515, fillcolor=color, layer="below", line_width=0, row=row, col=col)
 
+def audit_mapping(df, loader):
+    """Verifies anatomical mapping for all units in a dataframe."""
+    results = []
+    unique_ids = df['id'].unique()
+    print(f"[action] Auditing mapping for {len(unique_ids)} unique units...")
+    for unit_id in unique_ids:
+        parts = unit_id.split('-')
+        session = parts[0]
+        probe = int(parts[1].replace('probe', ''))
+        unit_idx = int(parts[2].replace('unit', ''))
+        
+        area, status, warn = loader.resolve_unit_area(session, probe, unit_idx, allow_heuristic=True)
+        results.append({
+            'id': unit_id,
+            'session': session,
+            'probe': probe,
+            'unit_idx': unit_idx,
+            'resolved_area': area,
+            'mapping_status': status,
+            'is_figure_grade': "metadata_resolved" in status,
+            'warning': warn
+        })
+    return pd.DataFrame(results)
+
 def run_f049():
     print(f"""[action] Starting Figure 49: Omission Profile production...""")
     plotter = OmissionPlotter()
     loader = plotter.loader
-    output_dir = loader.get_output_dir("f049_omission_profiles")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    output_dir = loader.get_output_dir("f049_omission_profiles") / timestamp
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Load Audited Manifests
+    # Load Audited Manifests from f048
     rep_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/repetition_profiles_spk.csv")
     om_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv")
     audit_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/repetition_audit_table.csv")
 
+    # Perform Unit Mapping Audit
+    full_unit_list = pd.concat([rep_df[['id']], om_df[['id']]]).drop_duplicates()
+    mapping_audit = audit_mapping(full_unit_list, loader)
+    mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
+    
+    # Summary by session/probe
+    mapping_summary = mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count')
+    mapping_summary.to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
+
     # 1. REPETITION EXEMPLARS
-    print(f"""[action] Generating Repetition Exemplars...""")
+    print(f"""[action] Generating Repetition Exemplars (Metadata-Resolved only)...""")
     rep_families = ["AXAB", "BXBA", "RXRR"]
-    # We want 3 rows (families) x 2 cols (Facilitator, Suppressor)
-    # Each cell has 2 rows (Raster, PSTH)
     fig_rep = make_subplots(
         rows=6, cols=2, 
         vertical_spacing=0.03, horizontal_spacing=0.05,
@@ -136,15 +171,23 @@ def run_f049():
 
     for i, fam in enumerate(rep_families):
         fam_df = rep_df[rep_df['family'] == fam]
-        fac = fam_df.sort_values('p3_over_p1', ascending=False).iloc[0]
-        sup = fam_df.sort_values('p3_over_p1', ascending=True).iloc[0]
+        # Merge with audit to filter for figure-grade
+        fam_df = fam_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
+        
+        # Priority: Metadata-resolved facilitators/suppressors
+        figure_grade_df = fam_df[fam_df['is_figure_grade']]
+        if figure_grade_df.empty:
+            print(f"[warning] No figure-grade units found for family {fam}. Using best available.")
+            figure_grade_df = fam_df
+            
+        fac = figure_grade_df.sort_values('p3_over_p1', ascending=False).iloc[0]
+        sup = figure_grade_df.sort_values('p3_over_p1', ascending=True).iloc[0]
         
         for j, unit in enumerate([fac, sup]):
             col = j + 1
             row_raster = i * 2 + 1
             row_psth = i * 2 + 2
             
-            # Helper to add to global fig
             spk = loader.load_unit_spikes(unit['id'], condition=fam)
             if spk is None: continue
             
@@ -164,44 +207,44 @@ def run_f049():
                 showlegend=False
             ), row=row_psth, col=col)
             
-            # Visual Grammar
             plotter._add_task_shading_to_subplot(fig_rep, ProfileSearcher.OMISSION_FAMILIES['p2'], row_psth, col)
             
-            # Label
+            # Label includes Mapping Status
             fig_rep.add_annotation(
                 x=0.05, y=0.9, xref=f"x{row_psth if (row_psth*2 + col - 2) > 0 else ''} domain", 
                 yref=f"y{row_psth if (row_psth*2 + col - 2) > 0 else ''} domain",
-                text=f"{unit['id']}<br>{unit['area']}", showarrow=False, align="left"
+                text=f"{unit['id']}<br>{unit['resolved_area']}<br>({unit['mapping_status']})", 
+                showarrow=False, align="left", font=dict(size=10)
             )
 
-    fig_rep.update_layout(height=1200, width=1000, title_text="Repetition Scaling Profiles (p1 vs p3)", template="plotly_white")
+    fig_rep.update_layout(height=1200, width=1000, title_text=f"Repetition Scaling Profiles (Truth: {timestamp})", template="plotly_white")
     fig_rep.write_html(str(output_dir / "repetition_exemplars.html"))
 
     # 2. OMISSION EXEMPLARS
     print(f"""[action] Generating Omission Exemplars...""")
-    # 3 families (p2, p3, p4) x 1 col
     fig_om = make_subplots(rows=6, cols=1, row_heights=[0.1, 0.2, 0.1, 0.2, 0.1, 0.2], vertical_spacing=0.05)
     
     for i, fam in enumerate(['p2', 'p3', 'p4']):
         f_df = om_df[om_df['family'] == fam]
-        top = f_df.sort_values('effect_size', ascending=False).iloc[0]
+        f_df = f_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
+        
+        figure_grade_df = f_df[f_df['is_figure_grade']]
+        if figure_grade_df.empty: figure_grade_df = f_df
+        
+        top = figure_grade_df.sort_values('effect_size', ascending=False).iloc[0]
         cfg = ProfileSearcher.OMISSION_FAMILIES[fam]
         
         row_raster = i * 2 + 1
         row_psth = i * 2 + 2
         
-        # Load Omission and Control
         om_spk = loader.load_unit_spikes(top['id'], condition=cfg['omission'][0])
         ctrl_spk = loader.load_unit_spikes(top['id'], condition=cfg['control'][0])
         
         if om_spk is not None:
             indices, times = np.where(om_spk > 0)
             fig_om.add_trace(go.Scatter(x=plotter.time[times], y=indices, mode='markers', marker=dict(size=1, color='gray', opacity=0.3), showlegend=False), row=row_raster, col=1)
-            
             om_rate = gaussian_filter1d(np.mean(om_spk, axis=0) * 1000, sigma=20)
             fig_om.add_trace(go.Scatter(x=plotter.time, y=om_rate, mode='lines', line=dict(color='red', width=2), name='Omission'), row=row_psth, col=1)
-            
-            # Segment coloring
             onset = cfg['onset']
             base_mask = (plotter.time >= onset - 250) & (plotter.time < onset)
             fig_om.add_trace(go.Scatter(x=plotter.time[base_mask], y=om_rate[base_mask], mode='lines', line=dict(color='orange', width=3), showlegend=False), row=row_psth, col=1)
@@ -211,24 +254,49 @@ def run_f049():
             fig_om.add_trace(go.Scatter(x=plotter.time, y=ctrl_rate, mode='lines', line=dict(color='black', dash='dash', width=1.5), name='Control'), row=row_psth, col=1)
 
         plotter._add_task_shading_to_subplot(fig_om, cfg, row_psth, 1)
+        fig_om.add_annotation(x=0.05, y=0.9, xref=f"x{row_psth} domain", yref=f"y{row_psth} domain", text=f"{top['id']} {top['resolved_area']} ({top['mapping_status']})", showarrow=False)
 
     fig_om.update_layout(height=1000, width=800, title_text="Omission Selectivity Profiles", template="plotly_white")
     fig_om.write_html(str(output_dir / "omission_exemplars.html"))
 
-    # 3. POPULATION SUMMARY
-    print(f"""[action] Generating Population Summary...""")
-    # (Simplified summary)
-    fig_sum = go.Figure()
-    for area in loader.CANONICAL_AREAS:
-        a_data = audit_df[audit_df['area'] == area]
-        if a_data.empty: continue
-        fig_sum.add_trace(go.Bar(x=[area], y=[a_data['gt_1'].sum()], name='Facilitation', marker_color='royalblue'))
-        fig_sum.add_trace(go.Bar(x=[area], y=[a_data['lt_1'].sum()], name='Suppression', marker_color='indianred'))
+    # 3. POPULATION SUMMARY (Metadata-Resolved only)
+    print(f"""[action] Generating Population Summary (Metadata-Resolved only)...""")
+    # Re-aggregate from audited rep_df
+    rep_df = rep_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
+    figure_grade_rep = rep_df[rep_df['is_figure_grade']].copy()
     
-    fig_sum.update_layout(barmode='group', title="Repetition Scaling by Area", template="plotly_white")
+    # Calculate counts (simple gt_1 / lt_1)
+    figure_grade_rep['gt_1'] = figure_grade_rep['p3_over_p1'] > 1.0
+    figure_grade_rep['lt_1'] = figure_grade_rep['p3_over_p1'] < 1.0
+    
+    fig_sum = go.Figure()
+    areas = loader.CANONICAL_AREAS + ["V3"] # Include V3
+    for area in areas:
+        a_data = figure_grade_rep[figure_grade_rep['resolved_area'] == area]
+        if a_data.empty: continue
+        fig_sum.add_trace(go.Bar(x=[area], y=[a_data['gt_1'].sum()], name='Facilitation', marker_color='royalblue', showlegend=(area==areas[0])))
+        fig_sum.add_trace(go.Bar(x=[area], y=[a_data['lt_1'].sum()], name='Suppression', marker_color='indianred', showlegend=(area==areas[0])))
+    
+    fig_sum.update_layout(barmode='group', title="Repetition Scaling by Area (Metadata Resolved)", template="plotly_white", xaxis_title="Area", yaxis_title="Unit Count")
     fig_sum.write_html(str(output_dir / "profile_population_summary.html"))
 
-    print(f"""[action] Figure 49 generation complete.""")
+    # 4. MANIFEST
+    manifest = {
+        'timestamp': timestamp,
+        'script': "src/f049_omission_profiles/script.py",
+        'head': "868607a",
+        'figure_grade_criteria': "metadata_resolved_*",
+        'unit_counts': {
+            'total': len(mapping_audit),
+            'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
+            'heuristic': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum())
+        },
+        'outputs': [str(f.name) for f in output_dir.glob("*")]
+    }
+    with open(output_dir / "f049_manifest.json", 'w') as f:
+        json.dump(manifest, f, indent=4)
+
+    print(f"""[action] Figure 49 generation complete. Manifest: {output_dir / 'f049_manifest.json'}""")
 
 if __name__ == "__main__":
     run_f049()
