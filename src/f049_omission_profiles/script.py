@@ -299,6 +299,7 @@ def run_f049():
         'repo_head': git_head,
         'truth_status': "truth_safe_unverified",
         'mapping_caveat': "local channel -> area is currently metadata_resolved_equal_segment (equal-segment inferred), not fully anatomical explicit-range",
+        'inference_caveat': "higher-order omission claims are NOT manuscript-ready; they are analysis-hardened but still need session-aware hierarchy inference and anatomical confirmation",
         'figure_grade_inclusion_criteria': "metadata_resolved_*",
         'inclusion_statuses': ["metadata_resolved_equal_segment"],
         'excluded_statuses': ["heuristic_fallback", "unresolved_metadata", "unknown_area"],
