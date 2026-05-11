@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import hashlib
 import json
+import subprocess
 from datetime import datetime
 from scipy.ndimage import gaussian_filter1d
 from src.analysis.io.loader import DataLoader
@@ -281,17 +282,38 @@ def run_f049():
     fig_sum.write_html(str(output_dir / "profile_population_summary.html"))
 
     # 4. MANIFEST
+    try:
+        git_head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], encoding='utf8').strip()
+    except Exception:
+        git_head = "unknown"
+
+    outputs = [f for f in output_dir.glob("*") if f.is_file() and f.name != "f049_manifest.json"]
+    output_hashes = {}
+    for out_file in outputs:
+        with open(out_file, "rb") as f:
+            output_hashes[out_file.name] = hashlib.sha256(f.read()).hexdigest()
+
     manifest = {
         'timestamp': timestamp,
         'script': "src/f049_omission_profiles/script.py",
-        'head': "868607a",
-        'figure_grade_criteria': "metadata_resolved_*",
-        'unit_counts': {
-            'total': len(mapping_audit),
-            'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
-            'heuristic': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum())
+        'repo_head': git_head,
+        'truth_status': "truth_safe_unverified",
+        'mapping_caveat': "local channel -> area is currently metadata_resolved_equal_segment (equal-segment inferred), not fully anatomical explicit-range",
+        'figure_grade_inclusion_criteria': "metadata_resolved_*",
+        'inclusion_statuses': ["metadata_resolved_equal_segment"],
+        'excluded_statuses': ["heuristic_fallback", "unresolved_metadata", "unknown_area"],
+        'inputs': {
+            'repetition_profiles_spk': {"path": "outputs/oglo-8figs/f048-profile-analysis/repetition_profiles_spk.csv", "rows": len(rep_df)},
+            'omission_profiles_spk': {"path": "outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv", "rows": len(om_df)},
+            'repetition_audit_table': {"path": "outputs/oglo-8figs/f048-profile-analysis/repetition_audit_table.csv", "rows": len(audit_df)}
         },
-        'outputs': [str(f.name) for f in output_dir.glob("*")]
+        'unit_counts': {
+            'total_unique': len(mapping_audit),
+            'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
+            'heuristic_fallback': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum()),
+            'unresolved_metadata': int((mapping_audit['mapping_status'] == 'unresolved_metadata').sum())
+        },
+        'output_hashes': output_hashes
     }
     with open(output_dir / "f049_manifest.json", 'w') as f:
         json.dump(manifest, f, indent=4)
