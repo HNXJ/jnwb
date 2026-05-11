@@ -156,9 +156,9 @@ def run_f049():
     mapping_audit = audit_mapping(full_unit_list, loader)
     mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
     
-    # Summary by session/probe
-    mapping_summary = mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count')
-    mapping_summary.to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
+    # Summary CSVs
+    mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
+    mapping_audit.groupby(['resolved_area', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_area.csv", index=False)
 
     # 1. REPETITION EXEMPLARS
     print(f"""[action] Generating Repetition Exemplars (Metadata-Resolved only)...""")
