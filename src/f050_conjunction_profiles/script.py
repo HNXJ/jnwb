@@ -113,9 +113,13 @@ def run_f050():
     rep_df = pd.read_csv(rep_path)
     om_df = pd.read_csv(om_path)
     
-    # Perform Unit Mapping Audit
-    full_unit_list = pd.concat([rep_df[['id']], om_df[['id']]]).drop_duplicates()
-    mapping_audit = audit_mapping(full_unit_list, loader)
+    # Use the hardened mapping status from f048 directly
+    print(f"[action] Leveraging metadata audit from f048...")
+    mapping_audit = pd.concat([
+        rep_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']],
+        om_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']]
+    ]).drop_duplicates('id').rename(columns={'unit': 'unit_idx'})
+    
     mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
     # Summary CSVs
     mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
@@ -126,7 +130,6 @@ def run_f050():
     print(f"[action] Restricted analysis to {len(figure_grade_ids)} figure-grade units.")
     
     # Identify Omission-Positive Units (Audit mapping)
-    om_df = om_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
     om_positive_ids = set(om_df[om_df['is_omission_positive'] & om_df['is_figure_grade']]['id'].unique())
     # 2. PIVOT & SCORE (Restricted to figure-grade)
     figure_grade_rep = rep_df[rep_df['id'].isin(figure_grade_ids)].copy()

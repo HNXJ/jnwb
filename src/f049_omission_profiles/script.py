@@ -151,9 +151,13 @@ def run_f049():
     om_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv")
     audit_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/repetition_audit_table.csv")
 
-    # Perform Unit Mapping Audit
-    full_unit_list = pd.concat([rep_df[['id']], om_df[['id']]]).drop_duplicates()
-    mapping_audit = audit_mapping(full_unit_list, loader)
+    # Use the hardened mapping status from f048 directly
+    print(f"[action] Leveraging metadata audit from f048...")
+    mapping_audit = pd.concat([
+        rep_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']],
+        om_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']]
+    ]).drop_duplicates('id').rename(columns={'unit': 'unit_idx'})
+    
     mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
     
     # Summary CSVs
@@ -172,8 +176,6 @@ def run_f049():
 
     for i, fam in enumerate(rep_families):
         fam_df = rep_df[rep_df['family'] == fam]
-        # Merge with audit to filter for figure-grade
-        fam_df = fam_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
         
         # Priority: Metadata-resolved facilitators/suppressors
         figure_grade_df = fam_df[fam_df['is_figure_grade']]
@@ -227,7 +229,7 @@ def run_f049():
     
     for i, fam in enumerate(['p2', 'p3', 'p4']):
         f_df = om_df[om_df['family'] == fam]
-        f_df = f_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
+        
         
         figure_grade_df = f_df[f_df['is_figure_grade']]
         if figure_grade_df.empty: figure_grade_df = f_df
@@ -263,7 +265,6 @@ def run_f049():
     # 3. POPULATION SUMMARY (Metadata-Resolved only)
     print(f"""[action] Generating Population Summary (Metadata-Resolved only)...""")
     # Re-aggregate from audited rep_df
-    rep_df = rep_df.merge(mapping_audit[['id', 'resolved_area', 'mapping_status', 'is_figure_grade']], on='id')
     figure_grade_rep = rep_df[rep_df['is_figure_grade']].copy()
     
     # Calculate counts (simple gt_1 / lt_1)

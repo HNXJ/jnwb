@@ -41,7 +41,7 @@ class ProfileSearcher:
         areas = areas or self.loader.CANONICAL_AREAS
         results = []
         
-        # 1. Build a map of session-probe to areas
+        # 1. Build a map of session-probe to areas (for LFP which still uses area-based averaging)
         sp_map = {}
         for area in areas:
             for entry in self.loader.area_map.get(area, []):
@@ -62,28 +62,44 @@ class ProfileSearcher:
                 
                 if not om_data or not ctrl_data: continue
                 
-                # Process each area entry in this probe
-                for entry in entries:
-                    area = [a for a, e in self.loader.area_map.items() if any(x == entry for x in e)][0]
-                    
-                    if mode == "spk":
-                        # Extract units
-                        u_start = int(om_data[0].shape[1] * (entry['start_ch'] / entry['total_ch']))
-                        u_end = int(om_data[0].shape[1] * (entry['end_ch'] / entry['total_ch']))
+                if mode == "spk":
+                    # SPK: Process ALL units in the probe and resolve their area
+                    n_units = om_data[0].shape[1]
+                    for u_idx in range(n_units):
+                        # Resolve mapping status
+                        res_area, status, caveat = self.loader.resolve_unit_area(ses, probe, u_idx, allow_heuristic=True)
                         
-                        for u_idx in range(u_start, u_end):
-                            uid = f"{ses}-probe{probe}-unit{u_idx}"
-                            # Average across trials (0) and time (2) for this unit (1)
-                            om_rate = np.mean([np.mean(arr[:, u_idx, wins['omission']]) for arr in om_data]) * 1000
-                            ctrl_rate = np.mean([np.mean(arr[:, u_idx, wins['omission']]) for arr in ctrl_data]) * 1000
-                            effect = om_rate - ctrl_rate
-                            results.append({
-                                'type': 'spk', 'id': uid, 'area': area, 'family': family,
-                                'omission_rate': om_rate, 'control_rate': ctrl_rate, 'effect_size': effect,
-                                'is_omission_positive': effect > 2.0 and om_rate > 1.0
-                            })
-                    else:
-                        # LFP branch (Average across channels in area)
+                        # Filter for requested areas if specified
+                        if areas and res_area not in areas:
+                            continue
+                            
+                        uid = f"{ses}-probe{probe}-unit{u_idx}"
+                        # Average across trials (0) and time (2) for this unit (1)
+                        om_rate = np.mean([np.mean(arr[:, u_idx, wins['omission']]) for arr in om_data]) * 1000
+                        ctrl_rate = np.mean([np.mean(arr[:, u_idx, wins['omission']]) for arr in ctrl_data]) * 1000
+                        effect = om_rate - ctrl_rate
+                        
+                        results.append({
+                            'type': 'spk', 
+                            'id': uid, 
+                            'session': ses,
+                            'probe': probe,
+                            'unit': u_idx,
+                            'area': res_area, # Figure-grade area
+                            'resolved_area': res_area,
+                            'mapping_status': status,
+                            'mapping_caveat': caveat,
+                            'is_figure_grade': status.startswith("metadata_resolved"),
+                            'family': family,
+                            'omission_rate': om_rate, 
+                            'control_rate': ctrl_rate, 
+                            'effect_size': effect,
+                            'is_omission_positive': effect > 2.0 and om_rate > 1.0
+                        })
+                else:
+                    # LFP branch (Average across channels in area) - remains based on inherited map
+                    for entry in entries:
+                        area = entry.get('area') or [a for a, e in self.loader.area_map.items() if any(x == entry for x in e)][0]
                         ch_start, ch_end = entry['start_ch'], entry['end_ch']
                         for b_name in ['Theta', 'Alpha', 'Beta', 'Gamma']:
                             om_p = np.mean([list(get_band_power(np.mean(arr[:, ch_start:ch_end, wins['omission']], axis=(0,1)).reshape(1, -1))[b_name])[0] for arr in om_data])
@@ -130,7 +146,9 @@ class ProfileSearcher:
         # Activity Guard Threshold (Hz)
         MIN_ACTIVITY = 1.0 
         
-        for (ses, probe), entries in self._get_sp_map(areas).items():
+        # For repetition, we use the session-probe map to iterate over data
+        sp_map = self._get_sp_map(areas)
+        for (ses, probe), _ in sp_map.items():
             print(f"""[action] Processing {mode} Repetition batch: Session {ses}, Probe {probe}""")
             
             for cond in families:
@@ -138,49 +156,63 @@ class ProfileSearcher:
                 if not data_list: continue
                 arr = data_list[0] 
                 
-                for entry in entries:
-                    area = entry['area']
-                    
-                    if mode == "spk":
-                        u_start = int(arr.shape[1] * (entry['start_ch'] / entry['total_ch']))
-                        u_end = int(arr.shape[1] * (entry['end_ch'] / entry['total_ch']))
+                if mode == "spk":
+                    n_units = arr.shape[1]
+                    for u_idx in range(n_units):
+                        # Resolve mapping status
+                        res_area, status, caveat = self.loader.resolve_unit_area(ses, probe, u_idx, allow_heuristic=True)
                         
-                        for u_idx in range(u_start, u_end):
-                            uid = f"{ses}-probe{probe}-unit{u_idx}"
+                        # Filter for requested areas if specified
+                        if areas and res_area not in areas:
+                            continue
                             
-                            p1 = np.mean(arr[:, u_idx, wins['p1']]) * 1000
-                            d1 = np.mean(arr[:, u_idx, wins['d1']]) * 1000
-                            p3 = np.mean(arr[:, u_idx, wins['p3']]) * 1000
-                            d3 = np.mean(arr[:, u_idx, wins['d3']]) * 1000
-                            
-                            # Denominator safety: if p1 < 0.1, set ratio to 1.0 if p3 also low, or cap it.
-                            # Better: use a guard that requires at least MIN_ACTIVITY in p1 OR p3.
-                            if (p1 + p3) < MIN_ACTIVITY: continue 
-                            
-                            p3_over_p1 = p3 / p1 if p1 > 0.1 else (p3 / 0.1 if p3 > 0 else 1.0)
-                            d3_over_d1 = d3 / d1 if d1 > 0.1 else (d3 / 0.1 if d3 > 0 else 1.0)
-                            
-                            results.append({
-                                'family': cond, 'id': uid, 'area': area,
-                                'p1_value': p1, 'p3_value': p3,
-                                'd1_value': d1, 'd3_value': d3,
-                                'p3_over_p1': p3_over_p1, 'd3_over_d1': d3_over_d1,
-                                'p3_minus_p1': p3 - p1, 'd3_minus_d1': d3 - d1,
-                                'gt_1': p3_over_p1 > 1.0,
-                                'gt_1p5': p3_over_p1 > 1.5,
-                                'gt_2': p3_over_p1 > 2.0,
-                                'lt_1': p3_over_p1 < 1.0,
-                                'lt_0p67': p3_over_p1 < 0.67,
-                                'lt_0p5': p3_over_p1 < 0.5,
-                                'd_gt_1': d3_over_d1 > 1.0,
-                                'd_gt_1p5': d3_over_d1 > 1.5,
-                                'd_gt_2': d3_over_d1 > 2.0,
-                                'd_lt_1': d3_over_d1 < 1.0,
-                                'd_lt_0p67': d3_over_d1 < 0.67,
-                                'd_lt_0p5': d3_over_d1 < 0.5
-                            })
-                    else:
-                        # LFP branch... (simplified for now)
+                        uid = f"{ses}-probe{probe}-unit{u_idx}"
+                        
+                        p1 = np.mean(arr[:, u_idx, wins['p1']]) * 1000
+                        d1 = np.mean(arr[:, u_idx, wins['d1']]) * 1000
+                        p3 = np.mean(arr[:, u_idx, wins['p3']]) * 1000
+                        d3 = np.mean(arr[:, u_idx, wins['d3']]) * 1000
+                        
+                        # Denominator safety
+                        if (p1 + p3) < MIN_ACTIVITY: continue 
+                        
+                        p3_over_p1 = p3 / p1 if p1 > 0.1 else (p3 / 0.1 if p3 > 0 else 1.0)
+                        d3_over_d1 = d3 / d1 if d1 > 0.1 else (d3 / 0.1 if d3 > 0 else 1.0)
+                        
+                        results.append({
+                            'family': cond, 
+                            'id': uid, 
+                            'session': ses,
+                            'probe': probe,
+                            'unit': u_idx,
+                            'area': res_area,
+                            'resolved_area': res_area,
+                            'mapping_status': status,
+                            'mapping_caveat': caveat,
+                            'is_figure_grade': status.startswith("metadata_resolved"),
+                            'p1_value': p1, 'p3_value': p3,
+                            'd1_value': d1, 'd3_value': d3,
+                            'p3_over_p1': p3_over_p1, 'd3_over_d1': d3_over_d1,
+                            'p3_minus_p1': p3 - p1, 'd3_minus_d1': d3 - d1,
+                            'gt_1': p3_over_p1 > 1.0,
+                            'gt_1p5': p3_over_p1 > 1.5,
+                            'gt_2': p3_over_p1 > 2.0,
+                            'lt_1': p3_over_p1 < 1.0,
+                            'lt_0p67': p3_over_p1 < 0.67,
+                            'lt_0p5': p3_over_p1 < 0.5,
+                            'd_gt_1': d3_over_d1 > 1.0,
+                            'd_gt_1p5': d3_over_d1 > 1.5,
+                            'd_gt_2': d3_over_d1 > 2.0,
+                            'd_lt_1': d3_over_d1 < 1.0,
+                            'd_lt_0p67': d3_over_d1 < 0.67,
+                            'd_lt_0p5': d3_over_d1 < 0.5
+                        })
+                else:
+                    # LFP branch... (remains simplified for now, uses entries to average)
+                    entries = sp_map.get((ses, probe), [])
+                    for entry in entries:
+                        area = entry['area']
+                        # ... existing LFP logic could go here if needed
                         pass
         return pd.DataFrame(results)
 
