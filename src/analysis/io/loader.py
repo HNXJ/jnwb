@@ -131,46 +131,59 @@ class DataLoader:
         """
         df = self._get_unit_metadata(session)
         if df is not None:
-            # Calculate global index (assumes CSV is ordered by probe)
-            offset = 0
-            for p in range(probe):
-                offset += self._get_probe_unit_count(session, p)
+            # Validate session counts
+            n_total_spk_units = 0
+            probe_offsets = {}
+            for p in range(5): # Check up to 5 probes
+                count = self._get_probe_unit_count(session, p)
+                if count > 0:
+                    probe_offsets[p] = n_total_spk_units
+                    n_total_spk_units += count
+            
+            if len(df) != n_total_spk_units:
+                log.warning(f"Session {session} metadata row count ({len(df)}) mismatch with total SPK unit count across probes ({n_total_spk_units}). Indexing may be shifted.")
 
+            if probe not in probe_offsets:
+                return None, "unmapped", f"Probe {probe} not found for session {session}"
+                
+            offset = probe_offsets[probe]
             global_idx = offset + unit_idx
+            
             if global_idx < len(df):
                 row = df.iloc[global_idx]
                 peak_ch = row["peak_channel_id"]
                 if pd.isna(peak_ch):
                     return None, "unresolved_metadata", "peak_channel_id is NaN"
-
+                
                 # Global to local channel mapping
                 p_idx = int(peak_ch // 128)
                 local_ch = int(peak_ch % 128)
-
+                
                 if p_idx != probe:
                     return None, "unresolved_metadata", f"Peak channel {peak_ch} on probe {p_idx} mismatch with data probe {probe}"
-
+                
                 # Search mapping for this probe
                 for area_name, entries in self.area_map.items():
                     for entry in entries:
                         if entry["session"] == session and entry["probe"] == probe:
                             if entry["start_ch"] <= local_ch < entry["end_ch"]:
-                                return area_name, "metadata_resolved", None
-
+                                # Since boundaries are currently derived via np.linspace, status is equal_segment
+                                return area_name, "metadata_resolved_equal_segment", None
+                
                 return None, "unresolved_metadata", f"Channel {local_ch} does not map to canonical area segment"
-
+        
         if allow_heuristic:
             # Fallback to linear partition (legacy logic)
-            # Find the area entry to get boundaries
             for area_name, entries in self.area_map.items():
                 for entry in entries:
                     if entry["session"] == session and entry["probe"] == probe:
                         n_units = self._get_probe_unit_count(session, probe)
-                        u_start = int(n_units * (entry["start_ch"] / entry["total_ch"]))
-                        u_end = int(n_units * (entry["end_ch"] / entry["total_ch"]))
-                        if u_start <= unit_idx < u_end:
-                            return area_name, "heuristic_resolved", "Metadata missing; used linear partition"
-
+                        if n_units > 0:
+                            u_start = int(n_units * (entry["start_ch"] / entry["total_ch"]))
+                            u_end = int(n_units * (entry["end_ch"] / entry["total_ch"]))
+                            if u_start <= unit_idx < u_end:
+                                return area_name, "heuristic_fallback", "Metadata missing; used linear partition"
+                            
         return None, "unmapped", "No metadata or heuristic match"
 
     def get_omission_onset(self, condition: str):
@@ -212,7 +225,7 @@ class DataLoader:
 
         return data_list
 
-    def _load_data(self, mode, condition, area, session: str = None, allow_heuristic: bool = True):
+    def _load_data(self, mode, condition, area, session: str = None, allow_heuristic: bool = False):
         """Internal raw loader."""
         if area not in self.area_map: return None
         area_entries = self.area_map[area]
@@ -239,7 +252,7 @@ class DataLoader:
                             res_area, status, _ = self.resolve_unit_area(ses, p, u_idx, allow_heuristic=allow_heuristic)
                             if res_area == area:
                                 selected_indices.append(u_idx)
-                                if status == "metadata_resolved":
+                                if "metadata_resolved" in status:
                                     metadata_count += 1
 
                         if not selected_indices:
@@ -255,7 +268,7 @@ class DataLoader:
                     log.error(f"Error loading {filename}: {e}")
         return data_list
 
-    def get_units_by_area(self, area: str, allow_heuristic: bool = True) -> list:
+    def get_units_by_area(self, area: str, allow_heuristic: bool = False) -> list:
         """Returns a list of unit identifiers available for the specified area."""
         if area not in self.area_map:
             log.warning(f"Area {area} not found in mapping.")
@@ -276,7 +289,7 @@ class DataLoader:
                     res_area, status, _ = self.resolve_unit_area(ses, p, u_idx, allow_heuristic=allow_heuristic)
                     if res_area == area:
                         entry_units.append(f"{ses}-probe{p}-unit{u_idx}")
-                        if status == "metadata_resolved":
+                        if "metadata_resolved" in status:
                             metadata_count += 1
 
                 if entry_units:
