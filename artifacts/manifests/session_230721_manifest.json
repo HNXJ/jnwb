@@ -1,0 +1,97 @@
+{
+  "session_id": "230721",
+  "subject_id": "NHP_A",
+  "recording_date": null,
+  "manifest_version": "1.0",
+  "has_spk": true,
+  "has_muae": false,
+  "has_lfp": true,
+  "has_behavior": false,
+  "sampling_rates": {
+    "LFP": 1000.0,
+    "SPK": 30000.0
+  },
+  "conditions": [
+    {
+      "code": "AXAB",
+      "label": "Standard Omission P2",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 2,
+      "is_matched_control": false
+    },
+    {
+      "code": "AAXB",
+      "label": "Standard Omission P3",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 3,
+      "is_matched_control": false
+    },
+    {
+      "code": "AAAX",
+      "label": "Standard Omission P4",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 4,
+      "is_matched_control": false
+    },
+    {
+      "code": "AAAB",
+      "label": "Standard Control",
+      "trial_count": 40,
+      "is_omission": false,
+      "omission_slot": null,
+      "is_matched_control": false
+    }
+  ],
+  "p1_epoch_ms": [
+    -1000.0,
+    5000.0
+  ],
+  "omission_onsets_ms": {
+    "2": 1031.0,
+    "3": 2062.0,
+    "4": 3093.0
+  },
+  "tfr_baseline_ms": [
+    -500.0,
+    0.0
+  ],
+  "area_mappings": [
+    {
+      "area": "V1",
+      "probe": 0,
+      "start_ch": 0,
+      "end_ch": 64,
+      "resolution_status": "validated"
+    },
+    {
+      "area": "V2",
+      "probe": 0,
+      "start_ch": 64,
+      "end_ch": 128,
+      "resolution_status": "validated"
+    },
+    {
+      "area": "V3d",
+      "probe": 1,
+      "start_ch": 0,
+      "end_ch": 64,
+      "resolution_status": "validated"
+    },
+    {
+      "area": "V3a",
+      "probe": 1,
+      "start_ch": 64,
+      "end_ch": 128,
+      "resolution_status": "validated"
+    }
+  ],
+  "units": [],
+  "generated_at": "2026-05-12T17:54:05.383325",
+  "generated_by": "build_session_manifest.py",
+  "git_commit": "d333bc6e21c4a275da0e6219594b06dea4e203d8",
+  "truth_status": "truth_safe_unverified",
+  "warnings": []
+}

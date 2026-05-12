@@ -1,5 +1,5 @@
 # FigureRegistry Mismatch Report
-- Generated: 2026-05-12 16:24
+- Generated: 2026-05-12 17:50
 - Total Registry Entries: 47
 - Total f* Folders in src/: 51
 
