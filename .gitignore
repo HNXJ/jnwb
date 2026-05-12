@@ -32,3 +32,6 @@ dashboard/dist/
 dashboard/.env
 dashboard/public/figures/
 
+# Gallery
+gallery_dist/
+gallery/

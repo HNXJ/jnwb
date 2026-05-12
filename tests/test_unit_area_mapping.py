@@ -40,7 +40,7 @@ def test_allow_heuristic_behavior(loader):
     session = "230629"
     area, status, _ = loader.resolve_unit_area(session, 0, 0, allow_heuristic=False)
     assert area is None
-    assert status == "unmapped"
+    assert status == "unknown_area"
     
     area, status, _ = loader.resolve_unit_area(session, 0, 0, allow_heuristic=True)
     assert area is not None
