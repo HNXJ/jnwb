@@ -46,9 +46,9 @@ print(f"""[result] TFR shape: {tfr_db.shape}""")
 ```
 
 ## Files
-- [loader.py](file:///D:/drive/omission/src/analysis/io/loader.py) — Data access
-- [lfp_pipeline.py](file:///D:/drive/omission/src/analysis/lfp/lfp_pipeline.py) — Core implementation
-- [OmissionPlotter](file:///D:/drive/omission/src/analysis/visualization/plotting.py) — Visualization
+- [loader.py](file:///omission/src/analysis/io/loader.py) — Data access
+- [lfp_pipeline.py](file:///omission/src/analysis/lfp/lfp_pipeline.py) — Core implementation
+- [OmissionPlotter](file:///omission/src/analysis/visualization/plotting.py) — Visualization
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

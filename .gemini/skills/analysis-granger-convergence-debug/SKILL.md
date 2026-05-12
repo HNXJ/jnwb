@@ -44,8 +44,8 @@ for order in [5, 10, 20]:
 ```
 
 ## Files
-- [debug_granger_convergence.py](file:///D:/drive/omission/codes/scripts/debug_granger_convergence.py) — Source
-- [math-neuro-omission-connectivity-metrics](file:///D:/drive/omission/.gemini/skills/math-neuro-omission-connectivity-metrics/SKILL.md) — Theory
+- [debug_granger_convergence.py](file:///omission/codes/scripts/debug_granger_convergence.py) — Source
+- [math-neuro-omission-connectivity-metrics](file:///omission/.gemini/skills/math-neuro-omission-connectivity-metrics/SKILL.md) — Theory
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

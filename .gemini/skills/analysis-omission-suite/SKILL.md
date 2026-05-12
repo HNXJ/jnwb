@@ -31,7 +31,7 @@ print(f"""[result] Check outputs/oglo-8figs/f038/""")
 ```
 
 ## Files
-- [run_pipeline.py](file:///D:/drive/omission/src/scripts/run_pipeline.py) — Master executor
+- [run_pipeline.py](file:///omission/src/scripts/run_pipeline.py) — Master executor
 - [src/f0xx_*/script.py] — Per-figure entrypoints
 
 ## 2. Solution Architecture

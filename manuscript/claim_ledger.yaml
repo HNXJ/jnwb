@@ -1,0 +1,24 @@
+# Omission Project Claim Ledger
+# Format: ClaimID: [Status, Evidence, Confidence]
+
+claims:
+  - id: CLM-001
+    title: Spectral Omission (V3/V4)
+    status: PENDING_VALIDATION
+    evidence: outputs/oglo-8figs/f049-omission-profiles/
+    confidence: 0.85
+    notes: High-density gamma omission in deep layers of V3d.
+
+  - id: CLM-002
+    title: PV/SST Asymmetry
+    status: HYPOTHESIS
+    evidence: N/A
+    confidence: 0.50
+    notes: Proposed PV-lead inhibition in V1 during spectral gaps.
+
+  - id: CLM-003
+    title: Omission Profile Consistency
+    status: VERIFIED_AUDIT
+    evidence: artifacts/registry_audit.json
+    confidence: 0.95
+    notes: Figure registry matches 100% of Phase 6 folders.

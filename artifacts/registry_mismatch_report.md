@@ -1,24 +1,23 @@
 # FigureRegistry Mismatch Report
-
+- Generated: 2026-05-12 15:10
 - Total Registry Entries: 47
-- Total f* Folders in src/: 51
+- Total f* Folders in src/: 50
 
-## Unregistered Folders
+## Unregistered Folders (Orphans)
 - `f028_state_manifolds`
 - `f029_info_bottleneck`
 - `f030_putative_cell_type`
-- `figures`
 
-## Missing Folders
+## Missing Folders (Registry points to non-existent src/)
 None
 
-## ID Multiplicity
+## ID Multiplicity (Multiple folders for one ID)
 ### f028
-- Folders: `f028_spectral_identity`, `f028_state_manifolds`
-- Primary: `src/f028_spectral_identity`
+- `f028_spectral_identity` (Primary)
+- `f028_state_manifolds`
 ### f029
-- Folders: `f029_effective_connectivity`, `f029_info_bottleneck`
-- Primary: `src/f029_effective_connectivity`
+- `f029_effective_connectivity` (Primary)
+- `f029_info_bottleneck`
 ### f030
-- Folders: `f030_putative_cell_type`, `f030_recurrence_dynamics`
-- Primary: `src/f030_recurrence_dynamics`
+- `f030_putative_cell_type`
+- `f030_recurrence_dynamics` (Primary)

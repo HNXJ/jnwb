@@ -36,7 +36,7 @@ print(f"""[result] Top 10 PFC O+ indices: {top_o_pfc}""")
 ```
 
 ## Files
-- [putative_classification.py](file:///D:/drive/omission/src/analysis/spiking/putative_classification.py) — Core logic
+- [putative_classification.py](file:///omission/src/analysis/spiking/putative_classification.py) — Core logic
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

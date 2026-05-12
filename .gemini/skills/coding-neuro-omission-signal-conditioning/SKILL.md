@@ -41,7 +41,7 @@ print(f"""[result] Z-PSTH shape: {z_psth.shape}""")
 ```
 
 ## Files
-- [signal_processing.py](file:///D:/drive/omission/src/analysis/signal_processing.py) — Implementation
+- [signal_processing.py](file:///omission/src/analysis/signal_processing.py) — Implementation
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

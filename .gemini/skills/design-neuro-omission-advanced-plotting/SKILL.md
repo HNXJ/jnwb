@@ -41,7 +41,7 @@ fig.write_html("output/figure.html", include_plotlyjs='cdn')
 ```
 
 ## Files
-- [plotting.py](file:///D:/drive/omission/src/analysis/visualization/plotting.py) — OmissionPlotter
+- [plotting.py](file:///omission/src/analysis/visualization/plotting.py) — OmissionPlotter
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

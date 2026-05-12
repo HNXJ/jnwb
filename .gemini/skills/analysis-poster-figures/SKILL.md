@@ -33,7 +33,7 @@ print(f"""[result] Poster figure exported""")
 ```
 
 ## Files
-- [poster_figures.py](file:///D:/drive/omission/src/figures/poster_figures.py) — Implementation
+- [poster_figures.py](file:///omission/src/figures/poster_figures.py) — Implementation
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

@@ -34,7 +34,7 @@ for t in trials:
 ```
 
 ## Files
-- [bhv_parser.py](file:///D:/drive/omission/src/extract/bhv_parser.py) — Core logic
+- [bhv_parser.py](file:///omission/src/extract/bhv_parser.py) — Core logic
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

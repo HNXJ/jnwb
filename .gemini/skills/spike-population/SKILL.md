@@ -35,7 +35,7 @@ print(f"""[result] Trace shape: {traces.shape}""")
 ```
 
 ## Files
-- [src/analysis/spiking/*](file:///D:/drive/omission/src/analysis/spiking/) — Core algorithms
+- [src/analysis/spiking/*](file:///omission/src/analysis/spiking/) — Core algorithms
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

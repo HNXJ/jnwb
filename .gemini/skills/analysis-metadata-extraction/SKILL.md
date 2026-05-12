@@ -33,7 +33,7 @@ with pynwb.NWBHDF5IO('ses-230818.nwb', 'r') as io:
 ```
 
 ## Files
-- [extract_trial_metadata.py](file:///D:/drive/omission/codes/scripts/extract_trial_metadata.py) — Source
+- [extract_trial_metadata.py](file:///omission/codes/scripts/extract_trial_metadata.py) — Source
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

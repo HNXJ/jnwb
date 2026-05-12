@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-05-12T15:10:07.216715",
+  "registry_count": 47,
+  "folder_count": 50,
+  "orphans": [
+    "f028_state_manifolds",
+    "f029_info_bottleneck",
+    "f030_putative_cell_type"
+  ],
+  "missing": [],
+  "multiplicity": {
+    "f028": [
+      "f028_spectral_identity",
+      "f028_state_manifolds"
+    ],
+    "f029": [
+      "f029_effective_connectivity",
+      "f029_info_bottleneck"
+    ],
+    "f030": [
+      "f030_putative_cell_type",
+      "f030_recurrence_dynamics"
+    ]
+  }
+}

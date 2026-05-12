@@ -26,13 +26,13 @@ Generates a data completeness matrix across all NWB sessions. Tracks presence of
 ## Example
 ```python
 from src.audit.availability import run_availability_audit
-report = run_availability_audit("D:/drive/omission/data/nwb/")
+report = run_availability_audit("D:/workspace/omission/data/nwb/")
 print(f"""[result] Report saved to {report}""")
 ```
 
 ## Files
-- [DATA_AVAILABILITY_SUMMARY.md](file:///D:/drive/omission/data/nwb/DATA_AVAILABILITY_SUMMARY.md) — Living document
-- [availability.py](file:///D:/drive/omission/src/audit/availability.py) — Core audit
+- [DATA_AVAILABILITY_SUMMARY.md](file:///omission/data/nwb/DATA_AVAILABILITY_SUMMARY.md) — Living document
+- [availability.py](file:///omission/src/audit/availability.py) — Core audit
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

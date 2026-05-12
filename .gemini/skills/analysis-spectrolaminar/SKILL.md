@@ -34,7 +34,7 @@ print(f"""[result] L4 crossover at channel {l4}""")
 ```
 
 ## Files
-- [vflip2_mapping.py](file:///D:/drive/omission/codes/functions/vflip2_mapping.py) — Core
+- [vflip2_mapping.py](file:///omission/codes/functions/vflip2_mapping.py) — Core
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

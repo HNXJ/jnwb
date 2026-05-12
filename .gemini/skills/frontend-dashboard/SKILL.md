@@ -25,12 +25,12 @@ React-based Omission Dashboard: figure hosting, iframe scaling, gallery view, an
 
 ## Commands
 ```bash
-cd D:/drive/omission/dashboard
+cd D:/workspace/omission/dashboard
 npm run dev
 ```
 
 ## Files
-- [App.jsx](file:///D:/drive/omission/dashboard/src/App.jsx) — Main dashboard logic
+- [App.jsx](file:///omission/dashboard/src/App.jsx) — Main dashboard logic
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

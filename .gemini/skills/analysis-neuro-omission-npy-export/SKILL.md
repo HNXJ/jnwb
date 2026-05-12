@@ -46,8 +46,8 @@ print(f"""[result] Exported to data/arrays/""")
 ```
 
 ## Files
-- [npy_io.py](file:///D:/drive/omission/src/export/npy_io.py) — Block reading
-- [npy_orchestrator.py](file:///D:/drive/omission/src/export/npy_orchestrator.py) — Main loop
+- [npy_io.py](file:///omission/src/export/npy_io.py) — Block reading
+- [npy_orchestrator.py](file:///omission/src/export/npy_orchestrator.py) — Main loop
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

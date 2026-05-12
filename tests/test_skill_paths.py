@@ -32,6 +32,7 @@ def test_skill_paths():
         links = link_pattern.findall(content)
         
         for link in links:
+            print(f"[debug] Found link: {link}")
             # We assume the link should be absolute on the host or relative to root
             # Most Antigravity links are absolute. We check if they exist.
             # To make it portable, we check if the link *contains* the repo root's basename 

@@ -41,7 +41,7 @@ print(f"""[result] MMFF trace shape: {smoothed.shape}""")
 ```
 
 ## Files
-- [loader.py](file:///D:/drive/omission/src/analysis/io/loader.py) — Canonical loader
+- [loader.py](file:///omission/src/analysis/io/loader.py) — Canonical loader
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

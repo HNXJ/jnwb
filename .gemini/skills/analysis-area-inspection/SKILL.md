@@ -31,7 +31,7 @@ print(f"""[flag] V3/V4 entries: {len(df[df['area'] == 'V3/V4'])}""")
 ```
 
 ## Files
-- [omission_units_layered.csv](file:///D:/drive/omission/checkpoints/omission_units_layered.csv) — Primary data source
+- [omission_units_layered.csv](file:///omission/checkpoints/omission_units_layered.csv) — Primary data source
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

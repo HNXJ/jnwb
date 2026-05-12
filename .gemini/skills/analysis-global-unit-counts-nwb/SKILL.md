@@ -41,7 +41,7 @@ print(f"""[result] {dict(counts)}""")
 ```
 
 ## Files
-- [nwb-analysis](file:///D:/drive/omission/.gemini/skills/nwb-analysis/SKILL.md) — Broader NWB skill
+- [nwb-analysis](file:///omission/.gemini/skills/nwb-analysis/SKILL.md) — Broader NWB skill
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

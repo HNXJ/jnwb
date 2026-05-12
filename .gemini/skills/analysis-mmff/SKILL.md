@@ -41,8 +41,8 @@ print(f"""[result] MMFF computed for {len(mmff_data)} areas""")
 ```
 
 ## Files
-- [omission_hierarchy_utils.py](file:///D:/drive/omission/codes/functions/omission_hierarchy_utils.py) — Core functions
-- [compute_mean_matched_fano.py](file:///D:/drive/omission/codes/scripts/compute_mean_matched_fano.py) — Orchestrator
+- [omission_hierarchy_utils.py](file:///omission/codes/functions/omission_hierarchy_utils.py) — Core functions
+- [compute_mean_matched_fano.py](file:///omission/codes/scripts/compute_mean_matched_fano.py) — Orchestrator
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

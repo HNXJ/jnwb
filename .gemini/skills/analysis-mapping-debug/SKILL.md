@@ -36,7 +36,7 @@ print(f"""[trace] Unit 42: ch={chan_id}, probe={probe_id}, raw={raw_loc}""")
 ```
 
 ## Files
-- [debug_mapping.py](file:///D:/drive/omission/codes/scripts/debug_mapping.py) — Source
+- [debug_mapping.py](file:///omission/codes/scripts/debug_mapping.py) — Source
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

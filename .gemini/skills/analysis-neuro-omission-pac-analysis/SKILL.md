@@ -33,7 +33,7 @@ print(f"""[result] MI = {mi:.6f}""")
 ```
 
 ## Files
-- [script.py](file:///D:/drive/omission/src/f019_pac_analysis/script.py) — Core implementation
+- [script.py](file:///omission/src/f019_pac_analysis/script.py) — Core implementation
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

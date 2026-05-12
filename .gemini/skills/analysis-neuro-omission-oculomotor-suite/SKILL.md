@@ -36,7 +36,7 @@ print(f"""[result] {len(microsaccades)} microsaccades""")
 ```
 
 ## Files
-- [EyeDataMapper.py](file:///D:/drive/omission/src/utils/EyeDataMapper.py) — NWB-BHV correlator
+- [EyeDataMapper.py](file:///omission/src/analysis/io/eye_mapper.py) — NWB-BHV correlator
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

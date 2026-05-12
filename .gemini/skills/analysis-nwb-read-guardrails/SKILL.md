@@ -39,7 +39,7 @@ print(f"""[result] Loaded V1 LFP: {v1_lfp.shape}""")
 ```
 
 ## Files
-- [data_loader.py](file:///D:/drive/omission/src/core/data_loader.py) — Canonical loader
+- [data_loader.py](file:///omission/src/core/data_loader.py) — Canonical loader
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

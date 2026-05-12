@@ -33,7 +33,7 @@ print(f"""[result] Max decoding accuracy: {max(accuracy):.2%}""")
 ```
 
 ## Files
-- [script.py](file:///D:/drive/omission/src/f021_pupil_decoding/script.py) — Core implementation
+- [script.py](file:///omission/src/f021_pupil_decoding/script.py) — Core implementation
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

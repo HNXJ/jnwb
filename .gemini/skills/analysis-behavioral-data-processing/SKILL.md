@@ -38,8 +38,8 @@ print(f"""[result] Trial 5: {len(saccade_idx)} saccades""")
 ```
 
 ## Files
-- [behavioral_utils.py](file:///D:/drive/omission/codes/functions/behavioral_utils.py) — Core implementation
-- [EyeDataMapper.py](file:///D:/drive/omission/src/utils/eye_data_mapper.py) — NWB-BHV correlator
+- [behavioral_utils.py](file:///omission/codes/functions/behavioral_utils.py) — Core implementation
+- [EyeDataMapper.py](file:///omission/src/analysis/io/eye_mapper.py) — NWB-BHV correlator
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.

@@ -25,30 +25,34 @@ def get_context(name, num):
 
     return how_performed, input_data, interpretation
 
-for d in os.listdir(base_dir):
-    d_path = os.path.join(base_dir, d)
-    if os.path.isdir(d_path) and re.match(r"^f\d{3}-", d):
-        match = re.match(r"^f(\d{3})-(.*)", d)
-        num_str = match.group(1)
-        num = int(num_str)
-        name = match.group(2).replace("-", " ").title()
-        
-        how_performed, input_data, interpretation = get_context(name, num)
-        
-        md_content = f"""# Figure {num_str}: {name}
-
+def main():
+    for d in os.listdir(base_dir):
+        d_path = os.path.join(base_dir, d)
+        if os.path.isdir(d_path) and re.match(r"^f\d{3}-", d):
+            match = re.match(r"^f(\d{3})-(.*)", d)
+            num_str = match.group(1)
+            num = int(num_str)
+            name = match.group(2).replace("-", " ").title()
+            
+            how_performed, input_data, interpretation = get_context(name, num)
+            
+            md_content = f"""# Figure {num_str}: {name}
+    
 ## How this analysis was performed
 {how_performed}
-
+    
 ## What is the input
 {input_data}
-
+    
 ## Interpretation and possible next steps
 {interpretation}
 """
-        readme_path = os.path.join(d_path, "README.md")
-        with open(readme_path, "w") as f:
-            f.write(md_content)
-        print(f"Generated README for {d}")
+            readme_path = os.path.join(d_path, "README.md")
+            with open(readme_path, "w") as f:
+                f.write(md_content)
+            print(f"Generated README for {d}")
 
-print("All READMEs generated successfully.")
+    print("All READMEs generated successfully.")
+
+if __name__ == "__main__":
+    main()

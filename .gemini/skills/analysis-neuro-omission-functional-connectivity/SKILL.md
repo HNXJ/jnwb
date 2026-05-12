@@ -37,7 +37,7 @@ print(f"""[result] Harmony matrix shape: {harmony.shape}""")
 ```
 
 ## Files
-- [lfp_connectivity.py](file:///D:/drive/omission/src/analysis/lfp/lfp_connectivity.py) — Core implementation
+- [lfp_connectivity.py](file:///omission/src/analysis/lfp/lfp_connectivity.py) — Core implementation
 
 ## 2. Solution Architecture
 Executes the analytical pipeline using the standardized Omission hierarchy.
