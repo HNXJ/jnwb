@@ -1,9 +1,10 @@
 # FigureRegistry Mismatch Report
-- Generated: 2026-05-12 15:10
+- Generated: 2026-05-12 16:24
 - Total Registry Entries: 47
-- Total f* Folders in src/: 50
+- Total f* Folders in src/: 51
 
 ## Unregistered Folders (Orphans)
+- `f021_pupil_decoding`
 - `f028_state_manifolds`
 - `f029_info_bottleneck`
 - `f030_putative_cell_type`
@@ -12,6 +13,9 @@
 None
 
 ## ID Multiplicity (Multiple folders for one ID)
+### f021
+- `f021_madelamo` (Primary)
+- `f021_pupil_decoding`
 ### f028
 - `f028_spectral_identity` (Primary)
 - `f028_state_manifolds`

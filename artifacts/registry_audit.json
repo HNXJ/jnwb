@@ -1,14 +1,19 @@
 {
-  "timestamp": "2026-05-12T15:10:07.216715",
+  "timestamp": "2026-05-12T16:24:56.568585",
   "registry_count": 47,
-  "folder_count": 50,
+  "folder_count": 51,
   "orphans": [
+    "f021_pupil_decoding",
     "f028_state_manifolds",
     "f029_info_bottleneck",
     "f030_putative_cell_type"
   ],
   "missing": [],
   "multiplicity": {
+    "f021": [
+      "f021_madelamo",
+      "f021_pupil_decoding"
+    ],
     "f028": [
       "f028_spectral_identity",
       "f028_state_manifolds"
