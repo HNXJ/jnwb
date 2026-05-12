@@ -6,6 +6,7 @@ import hashlib
 import json
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from scipy.ndimage import gaussian_filter1d
 from src.analysis.io.loader import DataLoader
 from src.analysis.profile_search import ProfileSearcher
@@ -147,22 +148,19 @@ def run_f049():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Load Audited Manifests from f048
-    rep_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/repetition_profiles_spk.csv")
-    om_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv")
-    audit_df = pd.read_csv("outputs/oglo-8figs/f048-profile-analysis/repetition_audit_table.csv")
+    f048_dir = Path("outputs/oglo-8figs/f048-profile-analysis")
+    rep_df = pd.read_csv(f048_dir / "repetition_profiles_spk.csv")
+    om_df = pd.read_csv(f048_dir / "omission_profiles_spk.csv")
+    audit_df = pd.read_csv(f048_dir / "repetition_audit_table.csv")
 
     # Use the hardened mapping status from f048 directly
-    print(f"[action] Leveraging metadata audit from f048...")
-    mapping_audit = pd.concat([
-        rep_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']],
-        om_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']]
-    ]).drop_duplicates('id').rename(columns={'unit': 'unit_idx'})
-    
+    print(f"[action] Leveraging canonical unit registry from f048...")
+    mapping_audit = pd.read_csv(f048_dir / "mapping_status_by_unit.csv")
     mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
     
     # Summary CSVs
     mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
-    mapping_audit.groupby(['resolved_area', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_area.csv", index=False)
+    mapping_audit.groupby(['area', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_area.csv", index=False)
 
     # 1. REPETITION EXEMPLARS
     print(f"""[action] Generating Repetition Exemplars (Metadata-Resolved only)...""")
@@ -216,7 +214,7 @@ def run_f049():
             fig_rep.add_annotation(
                 x=0.05, y=0.9, xref=f"x{row_psth if (row_psth*2 + col - 2) > 0 else ''} domain", 
                 yref=f"y{row_psth if (row_psth*2 + col - 2) > 0 else ''} domain",
-                text=f"{unit['id']}<br>{unit['resolved_area']}<br>({unit['mapping_status']})", 
+                text=f"{unit['id']}<br>{unit['area']}<br>({unit['mapping_status']})", 
                 showarrow=False, align="left", font=dict(size=10)
             )
 
@@ -257,7 +255,7 @@ def run_f049():
             fig_om.add_trace(go.Scatter(x=plotter.time, y=ctrl_rate, mode='lines', line=dict(color='black', dash='dash', width=1.5), name='Control'), row=row_psth, col=1)
 
         plotter._add_task_shading_to_subplot(fig_om, cfg, row_psth, 1)
-        fig_om.add_annotation(x=0.05, y=0.9, xref=f"x{row_psth} domain", yref=f"y{row_psth} domain", text=f"{top['id']} {top['resolved_area']} ({top['mapping_status']})", showarrow=False)
+        fig_om.add_annotation(x=0.05, y=0.9, xref=f"x{row_psth} domain", yref=f"y{row_psth} domain", text=f"{top['id']} {top['area']} ({top['mapping_status']})", showarrow=False)
 
     fig_om.update_layout(height=1000, width=800, title_text="Omission Selectivity Profiles", template="plotly_white")
     fig_om.write_html(str(output_dir / "omission_exemplars.html"))
@@ -274,7 +272,7 @@ def run_f049():
     fig_sum = go.Figure()
     areas = loader.CANONICAL_AREAS + ["V3"] # Include V3
     for area in areas:
-        a_data = figure_grade_rep[figure_grade_rep['resolved_area'] == area]
+        a_data = figure_grade_rep[figure_grade_rep['area'] == area]
         if a_data.empty: continue
         fig_sum.add_trace(go.Bar(x=[area], y=[a_data['gt_1'].sum()], name='Facilitation', marker_color='royalblue', showlegend=(area==areas[0])))
         fig_sum.add_trace(go.Bar(x=[area], y=[a_data['lt_1'].sum()], name='Suppression', marker_color='indianred', showlegend=(area==areas[0])))
@@ -313,8 +311,7 @@ def run_f049():
             'total_unique': len(mapping_audit),
             'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
             'heuristic_fallback': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum()),
-            'unresolved_metadata': int((mapping_audit['mapping_status'] == 'unresolved_metadata').sum()),
-            'unknown_area': int((mapping_audit['mapping_status'] == 'unknown_area').sum())
+            'unresolved_metadata': int((mapping_audit['mapping_status'] == 'unresolved_metadata').sum())
         },
         'output_hashes': output_hashes
     }

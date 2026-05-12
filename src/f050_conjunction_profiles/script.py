@@ -6,6 +6,7 @@ import hashlib
 import json
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from scipy.ndimage import gaussian_filter1d
 from src.analysis.io.loader import DataLoader
 
@@ -108,22 +109,17 @@ def run_f050():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # 1. LOAD DATA
-    rep_path = "outputs/oglo-8figs/f048-profile-analysis/repetition_profiles_spk.csv"
-    om_path = "outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv"
-    rep_df = pd.read_csv(rep_path)
-    om_df = pd.read_csv(om_path)
+    f048_dir = Path("outputs/oglo-8figs/f048-profile-analysis")
+    rep_df = pd.read_csv(f048_dir / "repetition_profiles_spk.csv")
+    om_df = pd.read_csv(f048_dir / "omission_profiles_spk.csv")
     
     # Use the hardened mapping status from f048 directly
-    print(f"[action] Leveraging metadata audit from f048...")
-    mapping_audit = pd.concat([
-        rep_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']],
-        om_df[['id', 'session', 'probe', 'unit', 'resolved_area', 'mapping_status', 'is_figure_grade']]
-    ]).drop_duplicates('id').rename(columns={'unit': 'unit_idx'})
-    
+    print(f"[action] Leveraging canonical unit registry from f048...")
+    mapping_audit = pd.read_csv(f048_dir / "mapping_status_by_unit.csv")
     mapping_audit.to_csv(output_dir / "mapping_status_by_unit.csv", index=False)
     # Summary CSVs
     mapping_audit.groupby(['session', 'probe', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_session_probe.csv", index=False)
-    mapping_audit.groupby(['resolved_area', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_area.csv", index=False)
+    mapping_audit.groupby(['area', 'mapping_status']).size().reset_index(name='count').to_csv(output_dir / "mapping_status_by_area.csv", index=False)
 
     # Filter for Figure-Grade
     figure_grade_ids = mapping_audit[mapping_audit['is_figure_grade']]['id'].unique()
@@ -141,9 +137,7 @@ def run_f050():
         'rxrr_p3_over_p1': 'rxrr_ratio'
     })
     # Add back area and status
-    pivoted = pivoted.merge(mapping_audit[['id', 'resolved_area', 'mapping_status']], on='id')
-    pivoted = pivoted.rename(columns={'resolved_area': 'area'})
-    
+    pivoted = pivoted.merge(mapping_audit[['id', 'area', 'mapping_status']], on='id')
     # Selectivity Score
     axab_diff = pivoted['axab_p3'] - pivoted['axab_p1']
     bxba_diff = pivoted['bxba_p3'] - pivoted['bxba_p1']
@@ -245,15 +239,14 @@ def run_f050():
         'inclusion_statuses': ["metadata_resolved_equal_segment"],
         'excluded_statuses': ["heuristic_fallback", "unresolved_metadata", "unknown_area"],
         'inputs': {
-            'repetition_profiles_spk': {"path": rep_path, "rows": len(rep_df)},
-            'omission_profiles_spk': {"path": om_path, "rows": len(om_df)}
+            'repetition_profiles_spk': {"path": str(f048_dir / "repetition_profiles_spk.csv"), "rows": len(rep_df)},
+            'omission_profiles_spk': {"path": str(f048_dir / "omission_profiles_spk.csv"), "rows": len(om_df)},
+            'mapping_registry': {"path": str(f048_dir / "mapping_status_by_unit.csv"), "rows": len(mapping_audit)}
         },
         'unit_counts': {
             'total_unique': len(mapping_audit),
             'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
             'heuristic_fallback': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum()),
-            'unresolved_metadata': int((mapping_audit['mapping_status'] == 'unresolved_metadata').sum()),
-            'unknown_area': int((mapping_audit['mapping_status'] == 'unknown_area').sum()),
             'hardened_conjunctions': int(pivoted['is_hardened'].sum())
         },
         'output_hashes': output_hashes

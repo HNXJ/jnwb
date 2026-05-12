@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 
 # --- Configuration ---
-OUTPUT_DIR = Path("D:/drive/outputs/oglo-8figs")
-DASHBOARD_DATA = Path("D:/drive/omission/dashboard/src/data")
+OUTPUT_DIR = Path("outputs/oglo-8figs")
+DASHBOARD_DATA = Path("dashboard/src/data")
 SCOREBOARD_FILE = DASHBOARD_DATA / "scoreboard.json"
 MANIFEST_FILE = DASHBOARD_DATA / "manifest.json"
 

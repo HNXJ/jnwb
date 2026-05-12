@@ -130,6 +130,16 @@ class DataLoader:
         Returns: (normalized_area, status, warning)
         """
         df = self._get_unit_metadata(session)
+        
+        # 1. Determine if this probe has ANY mapping info in area_map
+        probe_has_mapping = False
+        probe_entries = []
+        for area_name, entries in self.area_map.items():
+            for entry in entries:
+                if entry["session"] == session and entry["probe"] == probe:
+                    probe_has_mapping = True
+                    probe_entries.append((area_name, entry))
+
         if df is not None:
             # Validate session counts
             n_total_spk_units = 0
@@ -143,48 +153,47 @@ class DataLoader:
             if len(df) != n_total_spk_units:
                 log.warning(f"Session {session} metadata row count ({len(df)}) mismatch with total SPK unit count across probes ({n_total_spk_units}). Indexing may be shifted.")
 
-            if probe not in probe_offsets:
-                return None, "unmapped", f"Probe {probe} not found for session {session}"
+            if probe in probe_offsets:
+                offset = probe_offsets[probe]
+                global_idx = offset + unit_idx
                 
-            offset = probe_offsets[probe]
-            global_idx = offset + unit_idx
-            
-            if global_idx < len(df):
-                row = df.iloc[global_idx]
-                peak_ch = row["peak_channel_id"]
-                if pd.isna(peak_ch):
-                    return None, "unresolved_metadata", "peak_channel_id is NaN"
-                
-                # Global to local channel mapping
-                p_idx = int(peak_ch // 128)
-                local_ch = int(peak_ch % 128)
-                
-                if p_idx != probe:
-                    return None, "unresolved_metadata", f"Peak channel {peak_ch} on probe {p_idx} mismatch with data probe {probe}"
-                
-                # Search mapping for this probe
-                for area_name, entries in self.area_map.items():
-                    for entry in entries:
-                        if entry["session"] == session and entry["probe"] == probe:
-                            if entry["start_ch"] <= local_ch < entry["end_ch"]:
-                                # Since boundaries are currently derived via np.linspace, status is equal_segment
-                                return area_name, "metadata_resolved_equal_segment", None
-                
-                return None, "unknown_area", f"Channel {local_ch} does not map to canonical area segment"
+                if global_idx < len(df):
+                    row = df.iloc[global_idx]
+                    peak_ch = row["peak_channel_id"]
+                    if pd.isna(peak_ch):
+                        return None, "unresolved_metadata", "peak_channel_id is NaN"
+                    
+                    # Global to local channel mapping
+                    p_idx = int(peak_ch // 128)
+                    local_ch = int(peak_ch % 128)
+                    
+                    if p_idx != probe:
+                        return None, "unresolved_metadata", f"Peak channel {peak_ch} on probe {p_idx} mismatch with data probe {probe}"
+                    
+                    # Search mapping for this probe
+                    for area_name, entry in probe_entries:
+                        if entry["start_ch"] <= local_ch < entry["end_ch"]:
+                            # Since boundaries are currently derived via np.linspace, status is equal_segment
+                            return area_name, "metadata_resolved_equal_segment", None
+                    
+                    # If we have mapping for the probe but the channel didn't hit an area
+                    if probe_has_mapping:
+                        return None, "unknown_area", f"Channel {local_ch} does not map to canonical area segment"
         
-        if allow_heuristic:
-            # Fallback to linear partition (legacy logic)
-            for area_name, entries in self.area_map.items():
-                for entry in entries:
-                    if entry["session"] == session and entry["probe"] == probe:
-                        n_units = self._get_probe_unit_count(session, probe)
-                        if n_units > 0:
-                            u_start = int(n_units * (entry["start_ch"] / entry["total_ch"]))
-                            u_end = int(n_units * (entry["end_ch"] / entry["total_ch"]))
-                            if u_start <= unit_idx < u_end:
-                                return area_name, "heuristic_fallback", "Metadata missing; used linear partition"
+        # 2. Heuristic fallback (only if allowed)
+        if allow_heuristic and probe_has_mapping:
+            for area_name, entry in probe_entries:
+                n_units = self._get_probe_unit_count(session, probe)
+                if n_units > 0:
+                    u_start = int(n_units * (entry["start_ch"] / entry["total_ch"]))
+                    u_end = int(n_units * (entry["end_ch"] / entry["total_ch"]))
+                    if u_start <= unit_idx < u_end:
+                        return area_name, "heuristic_fallback", "Metadata missing; used linear partition"
                             
-        return None, "unmapped", "No metadata or heuristic match"
+        # 3. Final Fallback: Unmapped or No Match
+        if not probe_has_mapping:
+            return None, "unmapped", f"Probe {probe} not found in mapping file for session {session}"
+        return None, "unknown_area", "No metadata or heuristic match within defined segments"
 
     def get_omission_onset(self, condition: str):
         """Returns the onset of the omission relative to p1 start (ms)."""

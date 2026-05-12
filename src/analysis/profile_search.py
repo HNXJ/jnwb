@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from src.analysis.io.loader import DataLoader
 from src.analysis.io.logger import log
+import re
 import scipy.signal as signal
 
 def get_band_power(lfp, fs=1000):
@@ -32,6 +33,16 @@ class ProfileSearcher:
         self.loader = loader or DataLoader()
         self.BASE_OFFSET = 1000
 
+    def _get_all_spk_sessions_probes(self):
+        """Scans the data directory for all unique session-probe pairs available in SPK format."""
+        sp_set = set()
+        for f in self.loader.data_dir.glob("ses*-units-probe*-spk-AXAB.npy"):
+            # AXAB is the reference condition for discovery
+            match = re.search(r"ses(\d+)-units-probe(\d+)-spk-", f.name)
+            if match:
+                sp_set.add((match.group(1), int(match.group(2))))
+        return sorted(list(sp_set))
+
     def _get_windows(self, onset_ms):
         om_start = self.BASE_OFFSET + int(onset_ms)
         return {'omission': slice(om_start, om_start + 515), 'baseline': slice(om_start - 515, om_start)}
@@ -39,19 +50,25 @@ class ProfileSearcher:
     def search_omission_profiles(self, mode="spk", areas=None):
         """Batch-optimized search for omission sensitivity."""
         discovery_mode = areas is None
-        search_areas = areas or list(self.loader.area_map.keys())
         results = []
         
-        # 1. Build a map of session-probe to areas
-        sp_map = {}
-        for area in search_areas:
-            for entry in self.loader.area_map.get(area, []):
-                key = (entry['session'], entry['probe'])
-                if key not in sp_map: sp_map[key] = []
-                sp_map[key].append(entry)
+        # 1. Build a map of session-probe to process
+        if discovery_mode:
+            # Filesystem-based discovery
+            sp_list = self._get_all_spk_sessions_probes()
+        else:
+            # Mapping-based search
+            search_areas = areas
+            sp_map = {}
+            for area in search_areas:
+                for entry in self.loader.area_map.get(area, []):
+                    key = (entry['session'], entry['probe'])
+                    if key not in sp_map: sp_map[key] = []
+                    sp_map[key].append(entry)
+            sp_list = list(sp_map.keys())
 
         # 2. Iterate through session-probes
-        for (ses, probe), entries in sp_map.items():
+        for (ses, probe) in sp_list:
             print(f"""[action] Processing {mode} batch: Session {ses}, Probe {probe}""")
             
             for family, cfg in self.OMISSION_FAMILIES.items():
@@ -70,8 +87,8 @@ class ProfileSearcher:
                         # Resolve mapping status
                         res_area, status, caveat = self.loader.resolve_unit_area(ses, probe, u_idx, allow_heuristic=True)
                         
-                        # Filter for requested areas if specified (only if NOT in discovery mode)
-                        if not discovery_mode and res_area not in search_areas:
+                        # Filter for requested areas if NOT in discovery mode
+                        if not discovery_mode and res_area not in areas:
                             continue
                             
                         uid = f"{ses}-probe{probe}-unit{u_idx}"
@@ -86,7 +103,7 @@ class ProfileSearcher:
                             'session': ses,
                             'probe': probe,
                             'unit': u_idx,
-                            'area': res_area, # Figure-grade area
+                            'area': res_area, # Figure-grade area (may be None)
                             'resolved_area': res_area,
                             'mapping_status': status,
                             'mapping_caveat': caveat,
@@ -98,7 +115,9 @@ class ProfileSearcher:
                             'is_omission_positive': effect > 2.0 and om_rate > 1.0
                         })
                 else:
-                    # LFP branch (Average across channels in area) - remains based on inherited map
+                    # LFP branch (Only if areas is not None, as LFP needs area boundaries)
+                    if discovery_mode: continue 
+                    entries = sp_map.get((ses, probe), [])
                     for entry in entries:
                         area = entry.get('area') or [a for a, e in self.loader.area_map.items() if any(x == entry for x in e)][0]
                         ch_start, ch_end = entry['start_ch'], entry['end_ch']
@@ -127,30 +146,28 @@ class ProfileSearcher:
     def search_repetition_profiles(self, mode="spk", areas=None):
         """
         Primary analysis for sequence-position scaling (Repetition Profile).
-        Compares p3 vs p1 and d3 vs d1 within the same trial/condition.
-        Includes activity guards to prevent near-zero denominator artifacts.
         """
         discovery_mode = areas is None
-        search_areas = areas or list(self.loader.area_map.keys())
         results = []
         
-        # Repetition Scaling Families (all are p2 omission sequences)
+        # 1. Build a list of session-probe to process
+        if discovery_mode:
+            sp_list = self._get_all_spk_sessions_probes()
+        else:
+            sp_map = self._get_sp_map(areas)
+            sp_list = list(sp_map.keys())
+
+        # Repetition Scaling Families
         families = ["AXAB", "BXBA", "RXRR"]
-        
-        # Windows (ms relative to BASE_OFFSET)
         wins = {
             'p1': slice(self.BASE_OFFSET, self.BASE_OFFSET + 515),
             'd1': slice(self.BASE_OFFSET + 515, self.BASE_OFFSET + 1031),
             'p3': slice(self.BASE_OFFSET + 2062, self.BASE_OFFSET + 2577),
             'd3': slice(self.BASE_OFFSET + 2577, self.BASE_OFFSET + 3093)
         }
-        
-        # Activity Guard Threshold (Hz)
         MIN_ACTIVITY = 1.0 
         
-        # For repetition, we use the session-probe map to iterate over data
-        sp_map = self._get_sp_map(search_areas)
-        for (ses, probe), _ in sp_map.items():
+        for (ses, probe) in sp_list:
             print(f"""[action] Processing {mode} Repetition batch: Session {ses}, Probe {probe}""")
             
             for cond in families:
@@ -164,8 +181,8 @@ class ProfileSearcher:
                         # Resolve mapping status
                         res_area, status, caveat = self.loader.resolve_unit_area(ses, probe, u_idx, allow_heuristic=True)
                         
-                        # Filter for requested areas if specified (only if NOT in discovery mode)
-                        if not discovery_mode and res_area not in search_areas:
+                        # Filter for requested areas if NOT in discovery mode
+                        if not discovery_mode and res_area not in areas:
                             continue
                             
                         uid = f"{ses}-probe{probe}-unit{u_idx}"
@@ -209,13 +226,6 @@ class ProfileSearcher:
                             'd_lt_0p67': d3_over_d1 < 0.67,
                             'd_lt_0p5': d3_over_d1 < 0.5
                         })
-                else:
-                    # LFP branch... (remains simplified for now, uses entries to average)
-                    entries = sp_map.get((ses, probe), [])
-                    for entry in entries:
-                        area = entry['area']
-                        # ... existing LFP logic could go here if needed
-                        pass
         return pd.DataFrame(results)
 
     def _get_sp_map(self, areas):
@@ -224,7 +234,6 @@ class ProfileSearcher:
             for entry in self.loader.area_map.get(area, []):
                 key = (entry['session'], entry['probe'])
                 if key not in sp_map: sp_map[key] = []
-                # Ensure entry has area field for easier access
                 e_copy = entry.copy()
                 e_copy['area'] = area
                 sp_map[key].append(e_copy)
