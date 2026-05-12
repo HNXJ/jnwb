@@ -170,7 +170,7 @@ class DataLoader:
                                 # Since boundaries are currently derived via np.linspace, status is equal_segment
                                 return area_name, "metadata_resolved_equal_segment", None
                 
-                return None, "unresolved_metadata", f"Channel {local_ch} does not map to canonical area segment"
+                return None, "unknown_area", f"Channel {local_ch} does not map to canonical area segment"
         
         if allow_heuristic:
             # Fallback to linear partition (legacy logic)

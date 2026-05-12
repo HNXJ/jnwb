@@ -252,6 +252,8 @@ def run_f050():
             'total_unique': len(mapping_audit),
             'figure_grade': int(mapping_audit['is_figure_grade'].sum()),
             'heuristic_fallback': int((mapping_audit['mapping_status'] == 'heuristic_fallback').sum()),
+            'unresolved_metadata': int((mapping_audit['mapping_status'] == 'unresolved_metadata').sum()),
+            'unknown_area': int((mapping_audit['mapping_status'] == 'unknown_area').sum()),
             'hardened_conjunctions': int(pivoted['is_hardened'].sum())
         },
         'output_hashes': output_hashes

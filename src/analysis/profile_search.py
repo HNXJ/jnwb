@@ -38,12 +38,13 @@ class ProfileSearcher:
 
     def search_omission_profiles(self, mode="spk", areas=None):
         """Batch-optimized search for omission sensitivity."""
-        areas = areas or self.loader.CANONICAL_AREAS
+        discovery_mode = areas is None
+        search_areas = areas or list(self.loader.area_map.keys())
         results = []
         
-        # 1. Build a map of session-probe to areas (for LFP which still uses area-based averaging)
+        # 1. Build a map of session-probe to areas
         sp_map = {}
-        for area in areas:
+        for area in search_areas:
             for entry in self.loader.area_map.get(area, []):
                 key = (entry['session'], entry['probe'])
                 if key not in sp_map: sp_map[key] = []
@@ -69,8 +70,8 @@ class ProfileSearcher:
                         # Resolve mapping status
                         res_area, status, caveat = self.loader.resolve_unit_area(ses, probe, u_idx, allow_heuristic=True)
                         
-                        # Filter for requested areas if specified
-                        if areas and res_area not in areas:
+                        # Filter for requested areas if specified (only if NOT in discovery mode)
+                        if not discovery_mode and res_area not in search_areas:
                             continue
                             
                         uid = f"{ses}-probe{probe}-unit{u_idx}"
@@ -129,7 +130,8 @@ class ProfileSearcher:
         Compares p3 vs p1 and d3 vs d1 within the same trial/condition.
         Includes activity guards to prevent near-zero denominator artifacts.
         """
-        areas = areas or self.loader.CANONICAL_AREAS
+        discovery_mode = areas is None
+        search_areas = areas or list(self.loader.area_map.keys())
         results = []
         
         # Repetition Scaling Families (all are p2 omission sequences)
@@ -147,7 +149,7 @@ class ProfileSearcher:
         MIN_ACTIVITY = 1.0 
         
         # For repetition, we use the session-probe map to iterate over data
-        sp_map = self._get_sp_map(areas)
+        sp_map = self._get_sp_map(search_areas)
         for (ses, probe), _ in sp_map.items():
             print(f"""[action] Processing {mode} Repetition batch: Session {ses}, Probe {probe}""")
             
@@ -162,8 +164,8 @@ class ProfileSearcher:
                         # Resolve mapping status
                         res_area, status, caveat = self.loader.resolve_unit_area(ses, probe, u_idx, allow_heuristic=True)
                         
-                        # Filter for requested areas if specified
-                        if areas and res_area not in areas:
+                        # Filter for requested areas if specified (only if NOT in discovery mode)
+                        if not discovery_mode and res_area not in search_areas:
                             continue
                             
                         uid = f"{ses}-probe{probe}-unit{u_idx}"
