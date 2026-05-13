@@ -1,7 +1,6 @@
 # Data and figures (Anchored to root)
 /data/
 /figures/
-/outputs/
 Export_Staging/
 context_for_agents/
 plans_for_agents/
@@ -33,5 +32,6 @@ dashboard/.env
 dashboard/public/figures/
 
 # Gallery
-gallery_dist/
-gallery/
+/gallery_dist/
+/gallery/
+/outputs/
