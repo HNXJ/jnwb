@@ -1,6 +1,6 @@
 {
   "session_id": "230831",
-  "subject_id": "NHP_A",
+  "subject_id": "NHP_B",
   "recording_date": null,
   "manifest_version": "1.0",
   "has_spk": true,
@@ -14,7 +14,7 @@
   "conditions": [
     {
       "code": "AXAB",
-      "label": "Standard Omission P2",
+      "label": "Omission P2 (A)",
       "trial_count": 40,
       "is_omission": true,
       "omission_slot": 2,
@@ -22,7 +22,7 @@
     },
     {
       "code": "AAXB",
-      "label": "Standard Omission P3",
+      "label": "Omission P3 (A)",
       "trial_count": 40,
       "is_omission": true,
       "omission_slot": 3,
@@ -30,7 +30,7 @@
     },
     {
       "code": "AAAX",
-      "label": "Standard Omission P4",
+      "label": "Omission P4 (A)",
       "trial_count": 40,
       "is_omission": true,
       "omission_slot": 4,
@@ -38,7 +38,71 @@
     },
     {
       "code": "AAAB",
-      "label": "Standard Control",
+      "label": "Control (A)",
+      "trial_count": 40,
+      "is_omission": false,
+      "omission_slot": null,
+      "is_matched_control": false
+    },
+    {
+      "code": "BXBA",
+      "label": "Omission P2 (B)",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 2,
+      "is_matched_control": false
+    },
+    {
+      "code": "BBXA",
+      "label": "Omission P3 (B)",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 3,
+      "is_matched_control": false
+    },
+    {
+      "code": "BBBX",
+      "label": "Omission P4 (B)",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 4,
+      "is_matched_control": false
+    },
+    {
+      "code": "BBBA",
+      "label": "Control (B)",
+      "trial_count": 40,
+      "is_omission": false,
+      "omission_slot": null,
+      "is_matched_control": false
+    },
+    {
+      "code": "RXRR",
+      "label": "Omission P2 (R)",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 2,
+      "is_matched_control": false
+    },
+    {
+      "code": "RRXR",
+      "label": "Omission P3 (R)",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 3,
+      "is_matched_control": false
+    },
+    {
+      "code": "RRRX",
+      "label": "Omission P4 (R)",
+      "trial_count": 40,
+      "is_omission": true,
+      "omission_slot": 4,
+      "is_matched_control": false
+    },
+    {
+      "code": "RRRR",
+      "label": "Control (R)",
       "trial_count": 40,
       "is_omission": false,
       "omission_slot": null,
@@ -96,9 +160,9 @@
     }
   ],
   "units": [],
-  "generated_at": "2026-05-12T17:54:09.995537",
+  "generated_at": "2026-05-13T11:43:52.920120",
   "generated_by": "build_session_manifest.py",
-  "git_commit": "d333bc6e21c4a275da0e6219594b06dea4e203d8",
+  "git_commit": "17ee3ebe485399499b6fe31dd929aa85551aede4",
   "truth_status": "truth_safe_unverified",
   "warnings": []
 }

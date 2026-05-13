@@ -34,14 +34,27 @@ class DataLoader:
         root = Path(__file__).parent.parent.parent.parent
         self.data_dir = Path(data_dir) if data_dir else root.parent / "data" / "arrays"
         self.mapping_file = Path(mapping_file) if mapping_file else root / "context" / "overview" / "session-area-mapping.md"
+        self.subject_file = root / "context" / "overview" / "subjects.json"
+        
         self.area_map = self._parse_mapping()
         self.eye_mapper = EyeDataMapper()
+        
+        # Load subject map
+        self.subject_map = {}
+        if self.subject_file.exists():
+            import json
+            with open(self.subject_file, "r") as f:
+                self.subject_map = json.load(f)
 
         # Metadata cache for unit anatomical assignment
         self.unit_metadata_cache = {}
         self.unit_count_cache = {}
 
         log.action(f"Initialized DataLoader (NPY) with mapping from {self.mapping_file}")
+
+    def get_subject_id(self, session: str) -> str:
+        """Returns the subject ID for a given session."""
+        return self.subject_map.get(session, "Unknown")
 
     def get_eye_data_path(self, session: str) -> Path:
         """Resolves the exact .bhv2.mat file specifically for oculomotor (EYE) analysis."""

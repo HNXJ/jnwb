@@ -11,29 +11,42 @@ def get_git_revision_hash() -> str:
     except:
         return None
 
-def build_manifest(session_id, out_dir, fixture_mode=False):
-    print(f"[action] Building manifest for session {session_id} (Fixture: {fixture_mode})")
+def build_manifest(session_id, out_dir, fixture_mode=False, no_meta=False):
+    print(f"[action] Building manifest for session {session_id} (Fixture: {fixture_mode}, NoMeta: {no_meta})")
     
     loader = DataLoader()
     
     # Initialize Manifest
     manifest = SessionManifest(
         session_id=session_id,
-        subject_id="FixtureSubject" if fixture_mode else "NHP_A", # Placeholder until real subject metadata is wired
-        git_commit=get_git_revision_hash()
+        subject_id="FixtureSubject" if fixture_mode else loader.get_subject_id(session_id),
+        git_commit=get_git_revision_hash() if not no_meta else "REDACTED_FOR_IDEMPOTENCY"
     )
+    if no_meta:
+        manifest.generated_at = "2026-01-01T00:00:00"
     
     # 1. Signals (Heuristic for now)
     manifest.has_lfp = True
     manifest.has_spk = not fixture_mode # In fixture mode, assume no units unless simulated
     manifest.sampling_rates = {"LFP": 1000.0, "SPK": 30000.0}
     
-    # 2. Conditions (Canonical list)
+    # 2. Conditions (Full OGLO Suite)
     conditions = [
-        ("AXAB", "Standard Omission P2", True, 2),
-        ("AAXB", "Standard Omission P3", True, 3),
-        ("AAAX", "Standard Omission P4", True, 4),
-        ("AAAB", "Standard Control", False, None)
+        # A-Family
+        ("AXAB", "Omission P2 (A)", True, 2),
+        ("AAXB", "Omission P3 (A)", True, 3),
+        ("AAAX", "Omission P4 (A)", True, 4),
+        ("AAAB", "Control (A)", False, None),
+        # B-Family
+        ("BXBA", "Omission P2 (B)", True, 2),
+        ("BBXA", "Omission P3 (B)", True, 3),
+        ("BBBX", "Omission P4 (B)", True, 4),
+        ("BBBA", "Control (B)", False, None),
+        # R-Family
+        ("RXRR", "Omission P2 (R)", True, 2),
+        ("RRXR", "Omission P3 (R)", True, 3),
+        ("RRRX", "Omission P4 (R)", True, 4),
+        ("RRRR", "Control (R)", False, None)
     ]
     for code, label, is_om, slot in conditions:
         manifest.conditions.append(ConditionInfo(
@@ -61,11 +74,9 @@ def build_manifest(session_id, out_dir, fixture_mode=False):
         if df is not None:
             manifest.has_spk = True
             for i, row in df.iterrows():
-                # We need to find which probe this unit belongs to
-                # For now, use the same logic as loader.resolve_unit_area
-                area, status, _ = loader.resolve_unit_area(session_id, 1, i, allow_heuristic=True) # Dummy probe 1 check
-                # This part is complex because the CSV is global. 
-                # For manifest purposes, we'll just store the ones we can resolve.
+                # For manifest purposes, we'll store resolved ones.
+                # Heuristic: assume probe 1 for now if not specified
+                area, status, _ = loader.resolve_unit_area(session_id, 1, i, allow_heuristic=True)
                 if area:
                     manifest.units.append(UnitMetadata(
                         unit_id=f"{session_id}-unit{i}",
@@ -90,6 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--out", default="artifacts/manifests")
     parser.add_argument("--fixture", action="store_true")
+    parser.add_argument("--no-meta", action="store_true", help="Strip timestamps and Git SHAs for idempotency")
     args = parser.parse_args()
     
-    build_manifest(args.session_id, args.out, args.fixture)
+    build_manifest(args.session_id, args.out, args.fixture, args.no_meta)

@@ -37,8 +37,6 @@ claims:
     signal_classes: ["SPK"]
     time_bases: ["omission-relative"]
     required_artifacts: ["f038_layer_granger"]
-    current_artifacts: []
-    artifact_hashes: []
     required_validation: ["Granger causality directionality"]
     risks: ["Feedback vs Feedforward ambiguity"]
     next_action: "Run f038 pipeline on Phase 2 data"
@@ -104,8 +102,6 @@ claims:
     signal_classes: ["SPK"]
     time_bases: ["p1-relative"]
     required_artifacts: ["f017_prediction_errors"]
-    current_artifacts: []
-    artifact_hashes: []
     required_validation: ["Contrast-response scaling"]
     risks: ["Arousal effects"]
     next_action: "Analyze pupil-linked gain"
