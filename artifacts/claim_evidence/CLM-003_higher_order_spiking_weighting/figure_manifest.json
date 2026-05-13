@@ -1,0 +1,8 @@
+{
+    "data_files": [
+        "unit_response_summary.csv",
+        "area_group_summary.csv",
+        "session_area_group_summary.csv"
+    ],
+    "figures": []
+}

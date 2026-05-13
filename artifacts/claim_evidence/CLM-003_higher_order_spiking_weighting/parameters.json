@@ -1,0 +1,9 @@
+{
+    "omission_window": [1031, 1531],
+    "baseline_window": [531, 1031],
+    "min_omission_rate": 2.0,
+    "min_percent_increase": 0.20,
+    "min_effect_size": 2.0,
+    "blacklisted_sessions": ["230901"],
+    "unresolved_areas": ["V3"]
+}

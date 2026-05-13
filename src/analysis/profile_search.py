@@ -5,6 +5,7 @@ from src.analysis.io.loader import DataLoader
 from src.analysis.io.logger import log
 import re
 import scipy.signal as signal
+from src.analysis.spiking.stats import classify_omission_units
 
 def get_band_power(lfp, fs=1000):
     """Computes power in canonical bands."""
@@ -48,7 +49,14 @@ class ProfileSearcher:
         return {'omission': slice(om_start, om_start + 515), 'baseline': slice(om_start - 515, om_start)}
 
     def search_omission_profiles(self, mode="spk", areas=None):
-        """Batch-optimized search for omission sensitivity."""
+        """
+        Batch-optimized search for omission sensitivity.
+
+        NOTE: 'is_omission_positive' (O+) is a broad descriptive screen based on firing rate thresholds.
+        It is NOT equivalent to robust X-neuron classification. This flag indicates a significant 
+        descriptive effect size (>2.0Hz increase and >20% change) but does not imply stimulus-specificity 
+        or multiple-comparison validated robust coding unless further filtered.
+        """
         discovery_mode = areas is None
         results = []
         
@@ -95,7 +103,11 @@ class ProfileSearcher:
                         # Average across trials (0) and time (2) for this unit (1)
                         om_rate = np.mean([np.mean(arr[:, u_idx, wins['omission']]) for arr in om_data]) * 1000
                         ctrl_rate = np.mean([np.mean(arr[:, u_idx, wins['omission']]) for arr in ctrl_data]) * 1000
+                        base_rate = np.mean([np.mean(arr[:, u_idx, wins['baseline']]) for arr in om_data]) * 1000
                         effect = om_rate - ctrl_rate
+                        
+                        # Use unified classification
+                        is_o_plus = classify_omission_units(rates={'omission': om_rate, 'baseline': base_rate, 'control': ctrl_rate})
                         
                         results.append({
                             'type': 'spk', 
@@ -107,12 +119,14 @@ class ProfileSearcher:
                             'resolved_area': res_area,
                             'mapping_status': status,
                             'mapping_caveat': caveat,
+                            'is_blacklisted': status == "blacklisted",
                             'is_figure_grade': status.startswith("metadata_resolved"),
                             'family': family,
                             'omission_rate': om_rate, 
                             'control_rate': ctrl_rate, 
+                            'baseline_rate': base_rate,
                             'effect_size': effect,
-                            'is_omission_positive': effect > 2.0 and om_rate > 1.0
+                            'is_omission_positive': is_o_plus
                         })
                 else:
                     # LFP branch (Only if areas is not None, as LFP needs area boundaries)

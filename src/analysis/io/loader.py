@@ -142,6 +142,10 @@ class DataLoader:
         Resolves the anatomical area for a unit using peak_channel_id metadata.
         Returns: (normalized_area, status, warning)
         """
+        # 0. Check for blacklisting
+        if session in self.BLACKLISTED_SESSIONS:
+            return None, "blacklisted", f"Session {session} is blacklisted (reason: clipping/artifact)"
+
         df = self._get_unit_metadata(session)
         
         # 1. Determine if this probe has ANY mapping info in area_map
@@ -205,7 +209,7 @@ class DataLoader:
                             
         # 3. Final Fallback: Unmapped or No Match
         if not probe_has_mapping:
-            return None, "unmapped", f"Probe {probe} not found in mapping file for session {session}"
+            return None, "unresolved_no_probe_mapping", f"Probe {probe} not found in mapping file for session {session}"
         return None, "unknown_area", "No metadata or heuristic match within defined segments"
 
     def get_omission_onset(self, condition: str):

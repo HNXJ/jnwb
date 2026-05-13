@@ -32,14 +32,16 @@ claims:
 
   - id: CLM-003
     claim: omission_spiking_higher_order_weighted
-    status: proposed
+    status: prototype_evidence
     truth_status: truth_safe_unverified
     signal_classes: ["SPK"]
     time_bases: ["omission-relative"]
-    required_artifacts: ["f038_layer_granger"]
-    required_validation: ["Granger causality directionality"]
-    risks: ["Feedback vs Feedforward ambiguity"]
-    next_action: "Run f038 pipeline on Phase 2 data"
+    required_artifacts: ["artifacts/claim_evidence/CLM-003_higher_order_spiking_weighting/"]
+    current_artifacts: ["artifacts/claim_evidence/CLM-003_higher_order_spiking_weighting/unit_response_summary.csv"]
+    artifact_hashes: ["artifacts/claim_evidence/CLM-003_higher_order_spiking_weighting/hashes.sha256"]
+    required_validation: ["Session-level inferential validation", "Leave-one-session-out cross-validation"]
+    risks: ["Feedback vs Feedforward ambiguity", "Session-level variance", "Broad O+ screen (not robust X)", "Heuristic-dependent lower visual results"]
+    next_action: "Perform session-level stability audit (f047)"
 
   - id: CLM-004
     claim: lfp_effects_broad_low_frequency

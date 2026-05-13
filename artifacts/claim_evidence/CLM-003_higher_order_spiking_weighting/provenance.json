@@ -1,0 +1,17 @@
+{
+    "timestamp": "20260513-1655",
+    "claim_id": "CLM-003",
+    "repo_head": "568d22b8e6386c88fc17984c43af7c6acf36b2cc",
+    "truth_status": "truth_safe_unverified",
+    "description": "Evidence for higher-order spiking weighting in omission processing.",
+    "caveats": [
+        "Broad O+ screen, not robust X neurons",
+        "Blacklisted sessions (230901) excluded",
+        "Generic V3 unresolved and excluded from hierarchy totals",
+        "Heuristic fallback sensitivity is high in lower visual areas",
+        "Patterns are highly session-dependent"
+    ],
+    "source_output": "outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv",
+    "generation_method": "curated from ignored pipeline output via accounting reconciliation script",
+    "artifact_status": "descriptive_prototype"
+}

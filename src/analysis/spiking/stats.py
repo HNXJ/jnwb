@@ -223,14 +223,28 @@ def detect_ramping_units(spk_arr: np.ndarray, window=(1531, 2031)):
         
     return np.array(slopes), np.array(r_squared)
 
-def classify_omission_units(spk_dict: dict, baseline_window=(531, 1031), omission_window=(1031, 1531)):
+def classify_omission_units(spk_dict: dict = None, baseline_window=(531, 1031), omission_window=(1031, 1531), rates=None):
     """
-    Classifies units as Omission-Driven (O+) based on the prediction error window.
-    spk_dict: {condition: (trials, units, time)}
-    For 2nd Omission (AXAB):
-        O+ if FR(AXAB, p2) > FR(AXAB, d1)
+    Classifies units as Omission-Positive (O+) based on the prediction error window.
+    Supports either a spk_dict (for single array analysis) or pre-calculated rates.
+    
+    Unified criteria:
+    1. Omission rate > 2.0 Hz
+    2. Omission rate > 1.2 * Baseline rate (20% increase)
+    3. Omission rate - Control rate > 2.0 Hz (Effect size)
+    
+    NOTE: This is a broad descriptive screen. It is NOT equivalent to robust X-neuron 
+    classification. It indicates a candidate omission-sensitive response in a 500ms window.
     """
-    if "AXAB" not in spk_dict:
+    if rates is not None:
+        om_rate = rates.get('omission', 0)
+        base_rate = rates.get('baseline', 0)
+        ctrl_rate = rates.get('control', om_rate) # Default to om_rate if no control
+        
+        is_o_plus = (om_rate > 2.0) and (om_rate > 1.2 * base_rate) and (om_rate - ctrl_rate > 2.0)
+        return is_o_plus
+
+    if spk_dict is None or "AXAB" not in spk_dict:
         log.warning("AXAB missing for O+ classification")
         return {}
         
@@ -243,8 +257,7 @@ def classify_omission_units(spk_dict: dict, baseline_window=(531, 1031), omissio
     
     classification = {}
     for u in range(n_units):
-        # O+ Criteria: Significant increase in omission window
-        # We use a simple threshold for now: > 20% increase and > 2Hz
+        # We don't have control rate here, so we just use base/omit
         is_o_plus = (fr_omit[u] > 1.2 * fr_base[u]) and (fr_omit[u] > 2.0)
         classification[u] = "O+" if is_o_plus else "Other"
         
