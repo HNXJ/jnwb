@@ -9,6 +9,7 @@ from src.analysis.contracts.bounded_slice import (
     make_bounded_fixture_slice,
     load_bounded_real_slice
 )
+from src.analysis.contracts.manifest_scaffold import ManifestScaffoldCandidate, ManifestScaffoldReport
 from src.analysis.contracts.constants import *
 
 __all__ = [
@@ -29,5 +30,7 @@ __all__ = [
     "BoundedSliceRequest",
     "BoundedSliceResult",
     "make_bounded_fixture_slice",
-    "load_bounded_real_slice"
+    "load_bounded_real_slice",
+    "ManifestScaffoldCandidate",
+    "ManifestScaffoldReport"
 ]

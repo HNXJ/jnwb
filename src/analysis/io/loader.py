@@ -1013,6 +1013,226 @@ class DataLoader:
         else:
             return make_bounded_fixture_slice(req)
 
+    def scaffold_session_manifests(self, data_root: Optional[Union[str, Path]] = None, session_id: Optional[str] = None) -> Any:
+        """
+        Phase 2K session manifest production validator/scaffold helper.
+        Scans metadata-like files under data_root and produces a ManifestScaffoldReport.
+        Strictly avoids scanning/opening raw binary arrays.
+        """
+        from src.analysis.contracts.manifest_scaffold import ManifestScaffoldCandidate, ManifestScaffoldReport
+        import re
+        import csv
+        import json
+        
+        root_path = Path(data_root) if data_root else self.get_data_root()
+        if not root_path or not root_path.exists():
+            return ManifestScaffoldReport(
+                data_root=str(root_path) if root_path else None,
+                candidates=[],
+                skipped=True,
+                warnings=["Data root unavailable or does not exist."],
+                errors=[]
+            )
+            
+        # Discover all metadata files recursively/shallowly
+        candidate_files = []
+        raw_files = []
+        known_subdirs = ["manifests", "metadata", "session_manifests", "behavior", "arrays", "nwb"]
+        
+        # Check root itself
+        try:
+            for entry in os.scandir(root_path):
+                if entry.is_file():
+                    p = Path(entry.path)
+                    ext = p.suffix.lower()
+                    if ext in [".nwb", ".mat", ".h5", ".hdf5", ".npy", ".npz"]:
+                        raw_files.append(p)
+                    elif ext in [".json", ".csv", ".tsv", ".yaml", ".yml", ".txt", ".md"]:
+                        candidate_files.append(p)
+        except Exception as e:
+            return ManifestScaffoldReport(
+                data_root=str(root_path),
+                candidates=[],
+                skipped=False,
+                warnings=[],
+                errors=[f"Error scanning data_root: {e}"]
+            )
+
+        # Check known subdirectories
+        for subdir in known_subdirs:
+            subdir_path = root_path / subdir
+            if subdir_path.exists() and subdir_path.is_dir():
+                try:
+                    for entry in os.scandir(subdir_path):
+                        if entry.is_file():
+                            p = Path(entry.path)
+                            ext = p.suffix.lower()
+                            if ext in [".nwb", ".mat", ".h5", ".hdf5", ".npy", ".npz"]:
+                                raw_files.append(p)
+                            elif ext in [".json", ".csv", ".tsv", ".yaml", ".yml", ".txt", ".md"]:
+                                candidate_files.append(p)
+                except Exception:
+                    pass
+
+        # Identify candidate session IDs from file names
+        sessions = set()
+        for p in candidate_files + raw_files:
+            file_name = p.name.lower()
+            session_match = re.search(r"(\d{6})", p.name)
+            if session_match:
+                sessions.add(session_match.group(1))
+            elif "fixture" in file_name:
+                sessions.add("fixture")
+                
+        if session_id:
+            if session_id in sessions:
+                sessions = {session_id}
+            else:
+                sessions = set()
+
+        candidates = []
+        for s_id in sorted(list(sessions)):
+            source_files = []
+            warnings = []
+            errors = []
+            detected_fields = {
+                "subject": False,
+                "recording_date": False,
+                "trial_counts": False,
+                "unit_counts": False,
+                "channel_counts": False,
+                "area_mappings": False
+            }
+            inferred_subject = None
+            inferred_recording_date = None
+            signal_availability = {"SPK": False, "MUAe": False, "LFP": False}
+            trial_count_sources = []
+            unit_count_sources = []
+            channel_count_sources = []
+            area_mapping_sources = []
+
+            # 1. Determine Signal Availability from Raw File Existence
+            for r_file in raw_files:
+                r_name = r_file.name.lower()
+                r_sess = re.search(r"(\d{6})", r_file.name)
+                r_id = r_sess.group(1) if r_sess else ("fixture" if "fixture" in r_name else None)
+                if r_id == s_id:
+                    if "spk" in r_name or "units" in r_name or "spike" in r_name:
+                        signal_availability["SPK"] = True
+                    elif "mua" in r_name:
+                        signal_availability["MUAe"] = True
+                    elif "lfp" in r_name:
+                        signal_availability["LFP"] = True
+
+            # 2. Inspect Metadata Files
+            s_metadata_files = []
+            for m_file in candidate_files:
+                m_name = m_file.name.lower()
+                m_sess = re.search(r"(\d{6})", m_file.name)
+                m_id = m_sess.group(1) if m_sess else ("fixture" if "fixture" in m_name else None)
+                if m_id == s_id:
+                    s_metadata_files.append(m_file)
+
+            for m_file in s_metadata_files:
+                m_name = m_file.name.lower()
+                source_files.append(m_file.name)
+                
+                # Check JSON metadata
+                if m_file.suffix.lower() == ".json":
+                    try:
+                        with open(m_file, "r") as f:
+                            data = json.load(f)
+                        if isinstance(data, dict):
+                            if "subject" in data or "subject_id" in data:
+                                inferred_subject = data.get("subject") or data.get("subject_id")
+                                detected_fields["subject"] = True
+                            if "recording_date" in data:
+                                inferred_recording_date = data.get("recording_date")
+                                detected_fields["recording_date"] = True
+                            if "trial_counts_by_condition" in data or "conditions" in data:
+                                detected_fields["trial_counts"] = True
+                                trial_count_sources.append(m_file.name)
+                            if "unit_counts_by_area" in data or "units" in data:
+                                detected_fields["unit_counts"] = True
+                                unit_count_sources.append(m_file.name)
+                            if "channel_counts_by_area" in data:
+                                detected_fields["channel_counts"] = True
+                                channel_count_sources.append(m_file.name)
+                            if "area_mappings" in data:
+                                detected_fields["area_mappings"] = True
+                                area_mapping_sources.append(m_file.name)
+                            if "signal_availability" in data:
+                                sa = data.get("signal_availability")
+                                if isinstance(sa, dict):
+                                    for k, v in sa.items():
+                                        if k in signal_availability:
+                                            signal_availability[k] = signal_availability[k] or v
+                    except Exception as e:
+                        warnings.append(f"Failed to read/parse json metadata file '{m_file.name}': {e}")
+                        
+                # Check CSV/TSV metadata
+                elif m_file.suffix.lower() in [".csv", ".tsv"]:
+                    delim = "\t" if m_file.suffix.lower() == ".tsv" else ","
+                    try:
+                        # Open and read lines to parse header and records safely
+                        with open(m_file, "r", newline="", encoding="utf-8") as f:
+                            reader = csv.DictReader(f, delimiter=delim)
+                            headers = reader.fieldnames or []
+                            
+                            # Determine unit metadata or area mapping
+                            is_unit_metadata = any(h in ["unit_id", "peak_channel_id", "local_idx"] for h in headers)
+                            
+                            if is_unit_metadata:
+                                detected_fields["unit_counts"] = True
+                                unit_count_sources.append(m_file.name)
+                                detected_fields["area_mappings"] = True
+                                area_mapping_sources.append(m_file.name)
+                                
+                                # Inspect CSV content for area names and warnings
+                                for row in reader:
+                                    area = row.get("area") or row.get("area_label") or ""
+                                    area = area.strip()
+                                    if area in ["DP", "DP (V4)"]:
+                                        warnings.append(f"Area 'DP' (or 'DP (V4)') detected in '{m_file.name}' must be normalized to 'V4' according to contracts.")
+                                    elif area == "V3":
+                                        warnings.append(f"Area 'V3' is UNRESOLVED generic V3 inside '{m_file.name}'.")
+                    except Exception as e:
+                        warnings.append(f"Failed to read/parse csv metadata file '{m_file.name}': {e}")
+
+            # 3. Add Warnings for Missing Required Fields
+            if not detected_fields["subject"]:
+                warnings.append("Missing required field: subject")
+            if not detected_fields["recording_date"]:
+                warnings.append("Missing field: recording_date")
+            if not detected_fields["area_mappings"]:
+                warnings.append("Missing field: area_mappings")
+
+            candidate = ManifestScaffoldCandidate(
+                session_id=s_id,
+                source_files=sorted(list(set(source_files))),
+                detected_fields=detected_fields,
+                inferred_subject=inferred_subject,
+                inferred_recording_date=inferred_recording_date,
+                signal_availability=signal_availability,
+                trial_count_sources=sorted(list(set(trial_count_sources))),
+                unit_count_sources=sorted(list(set(unit_count_sources))),
+                channel_count_sources=sorted(list(set(channel_count_sources))),
+                area_mapping_sources=sorted(list(set(area_mapping_sources))),
+                warnings=sorted(list(set(warnings))),
+                errors=sorted(list(set(errors))),
+                truth_status="truth_safe_unverified"
+            )
+            candidates.append(candidate)
+
+        return ManifestScaffoldReport(
+            data_root=str(root_path),
+            candidates=candidates,
+            skipped=False,
+            warnings=[],
+            errors=[],
+            truth_status="truth_safe_unverified"
+        )
+
 
 
 
