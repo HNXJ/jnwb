@@ -971,5 +971,48 @@ class DataLoader:
             fill_value=fill_value
         )
 
+    def load_bounded_signal_slice(
+        self,
+        request: Union[Any, str] = None,
+        *,
+        signal_class: Optional[str] = None,
+        source_path: Optional[str] = None,
+        max_trials: int = 1,
+        max_units_or_channels: int = 2,
+        max_timepoints: int = 100,
+        max_bytes: int = 1048576,
+        allow_real_data: bool = False
+    ) -> Any:
+        """
+        Phase 2I Bounded Real-Data SignalBlock slice smoke.
+        Default is safe, returning a fixture block or skipping.
+        """
+        from src.analysis.contracts.bounded_slice import (
+            BoundedSliceRequest,
+            make_bounded_fixture_slice,
+            load_bounded_real_slice
+        )
+        
+        if isinstance(request, BoundedSliceRequest):
+            req = request
+        else:
+            session_id = request if isinstance(request, str) else "fixture_session"
+            req = BoundedSliceRequest(
+                session_id=session_id,
+                signal_class=signal_class or "SPK",
+                source_path=source_path,
+                max_trials=max_trials,
+                max_units_or_channels=max_units_or_channels,
+                max_timepoints=max_timepoints,
+                max_bytes=max_bytes,
+                allow_real_data=allow_real_data
+            )
+            
+        if req.allow_real_data:
+            return load_bounded_real_slice(req)
+        else:
+            return make_bounded_fixture_slice(req)
+
+
 
 
