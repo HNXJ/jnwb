@@ -1,5 +1,5 @@
 {
-  "session_id": "230630",
+  "session_id": "230719",
   "subject_id": "FixtureSubject",
   "recording_date": null,
   "manifest_version": "1.0",
@@ -125,15 +125,29 @@
   "area_mappings": [
     {
       "area": "V1",
-      "probe": 2,
+      "probe": 0,
+      "start_ch": 0,
+      "end_ch": 64,
+      "resolution_status": "validated"
+    },
+    {
+      "area": "V2",
+      "probe": 0,
       "start_ch": 64,
       "end_ch": 128,
       "resolution_status": "validated"
     },
     {
-      "area": "PFC",
-      "probe": 0,
+      "area": "V3d",
+      "probe": 2,
       "start_ch": 0,
+      "end_ch": 64,
+      "resolution_status": "validated"
+    },
+    {
+      "area": "V3a",
+      "probe": 2,
+      "start_ch": 64,
       "end_ch": 128,
       "resolution_status": "validated"
     },
@@ -141,30 +155,14 @@
       "area": "V4",
       "probe": 1,
       "start_ch": 0,
-      "end_ch": 64,
-      "resolution_status": "validated"
-    },
-    {
-      "area": "MT",
-      "probe": 1,
-      "start_ch": 64,
       "end_ch": 128,
       "resolution_status": "validated"
-    },
-    {
-      "area": "V3",
-      "probe": 2,
-      "start_ch": 0,
-      "end_ch": 64,
-      "resolution_status": "unresolved"
     }
   ],
   "units": [],
-  "generated_at": "2026-05-20T16:31:14.307301",
+  "generated_at": "2026-05-14T12:21:27.579640",
   "generated_by": "build_session_manifest.py",
   "git_commit": "c22299c46e02ef01447b54ad5f50312e8f4eeed4",
   "truth_status": "truth_safe_unverified",
-  "warnings": [
-    "Area V3 on Probe 2 is UNRESOLVED generic V3."
-  ]
+  "warnings": []
 }

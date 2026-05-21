@@ -34,3 +34,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Pipeline contract alias — run_pipeline.py imports run_f038
+run_f038 = main

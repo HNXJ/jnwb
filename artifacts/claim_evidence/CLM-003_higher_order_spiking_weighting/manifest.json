@@ -1,0 +1,22 @@
+{
+    "artifact_id": "CLM-003_higher_order_spiking_weighting",
+    "claim_id": "CLM-003",
+    "title": "Higher-Order Spiking Weighting in Omission Processing",
+    "validation_status": "truth_safe_unverified",
+    "biological_claim_status": "provisional_not_validated",
+    "source_script": "curated from ignored pipeline output (f048)",
+    "git_commit": "c22299c46e02ef01447b54ad5f50312e8f4eeed4",
+    "created_at": "2026-05-14T17:22:00Z",
+    "input_files": ["outputs/oglo-8figs/f048-profile-analysis/omission_profiles_spk.csv"],
+    "output_files": {
+        "unit_response_summary.csv": "7d3c551a30654f82ff5efdefc12e8fc630ea0e2ece9adc2df9d94fd0561ca33b",
+        "area_group_summary.csv": "011f6a5251e87060f129d443119e87aa3e5e3c2303c794b36e614607ec8217c4",
+        "session_area_group_summary.csv": "abbbb70a5485f8bd269a7d80dbdf95ce487aa525b33c045782c2057fd630292c"
+    },
+    "limitations": [
+        "Broad O+ screen, not robust X neurons",
+        "Blacklisted sessions (230901) excluded",
+        "Generic V3 unresolved and excluded from hierarchy totals",
+        "Heuristic fallback sensitivity is high in lower visual areas"
+    ]
+}

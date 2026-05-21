@@ -16,7 +16,9 @@ PENALTY_DOCS = 20         # Missing README or src ref
 
 # Use relative paths from repo root
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-OUTPUTS_DIR = os.path.join(REPO_ROOT, '../outputs/oglo-8figs')
+OUTPUTS_DIR = os.path.join(REPO_ROOT, 'outputs/oglo-8figs')
+if not os.path.exists(OUTPUTS_DIR):
+    OUTPUTS_DIR = os.path.join(REPO_ROOT, '../outputs/oglo-8figs')
 SCOREBOARD_PATH = os.path.join(REPO_ROOT, 'dashboard/src/data/scoreboard.json')
 
 class GPAAuditor:

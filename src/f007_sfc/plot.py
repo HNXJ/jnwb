@@ -65,9 +65,9 @@ def plot_circular_sfc(results: dict, output_dir: str):
 
         fig.update_layout(
             title=f"Figure f007: {area} Phase-Locking (SFC) {stats['stars']}",
-            template="plotly_dark",
-            paper_bgcolor="#111111",
-            font_color="#CFB87C",
+            template="plotly_white",
+            paper_bgcolor="#FFFFFF",
+            font_color="#000000",
             height=900,
             width=900,
             showlegend=True
@@ -75,9 +75,9 @@ def plot_circular_sfc(results: dict, output_dir: str):
         
         # Update all polar axes
         fig.update_polars(
-            bgcolor="#1a1a1a",
-            angularaxis=dict(gridcolor="gray", linecolor="white", tickfont_size=10),
-            radialaxis=dict(gridcolor="gray", linecolor="white", showticklabels=False)
+            bgcolor="#FFFFFF",
+            angularaxis=dict(gridcolor="lightgray", linecolor="black", tickfont_size=10),
+            radialaxis=dict(gridcolor="lightgray", linecolor="black", showticklabels=False)
         )
 
         filename = f"f007_circular_sfc_{area}.html"

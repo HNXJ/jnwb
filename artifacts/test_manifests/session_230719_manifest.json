@@ -160,9 +160,9 @@
     }
   ],
   "units": [],
-  "generated_at": "2026-05-13T17:11:52.341544",
+  "generated_at": "2026-05-20T16:31:14.407190",
   "generated_by": "build_session_manifest.py",
-  "git_commit": "b1f74531cbd6d3b44bdaf8c317af3765e08681f3",
+  "git_commit": "c22299c46e02ef01447b54ad5f50312e8f4eeed4",
   "truth_status": "truth_safe_unverified",
   "warnings": []
 }
