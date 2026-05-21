@@ -379,3 +379,135 @@ class DataLoader:
 
     def close_all(self):
         pass
+
+    def load_session_manifest_fixture(self, session_id: str):
+        """
+        Loads a session manifest fixture safely, runs validation,
+        handles DP normalization, and verifies truth status.
+        """
+        from src.analysis.contracts import SessionManifest
+        import json
+        
+        # Resolve paths
+        root = Path(__file__).parent.parent.parent.parent
+        search_paths = [
+            root / "artifacts" / "test_manifests" / f"session_{session_id}_manifest.json",
+            root / "tests" / "fixtures" / "manifests" / f"session_{session_id}_manifest.json",
+            root / "tests" / "fixtures" / "manifests" / f"{session_id}.json"
+        ]
+        
+        manifest_path = None
+        for path in search_paths:
+            if path.exists():
+                manifest_path = path
+                break
+                
+        if not manifest_path:
+            raise FileNotFoundError(f"Fixture manifest not found for session '{session_id}'.")
+            
+        with open(manifest_path, "r") as f:
+            data = json.load(f)
+            
+        manifest = SessionManifest.from_dict(data)
+        
+        # Normalize DP to V4
+        # Normalize in area_mappings
+        for mapping in manifest.area_mappings:
+            mapping.area = SessionManifest.normalize_area(mapping.area)
+        # Normalize in units
+        for unit in manifest.units:
+            unit.area = SessionManifest.normalize_area(unit.area)
+        # Normalize dict keys
+        for d in [manifest.channel_counts_by_area, manifest.unit_counts_by_area, manifest.area_resolution_status]:
+            if d:
+                for k in list(d.keys()):
+                    norm_k = SessionManifest.normalize_area(k)
+                    if norm_k != k:
+                        d[norm_k] = d.pop(k)
+                        
+        # Validate manifest rules
+        errors = manifest.validate()
+        if errors:
+            raise ValueError(f"Manifest validation failed for session {session_id}: {errors}")
+            
+        return manifest
+
+    def resolve_unit_area_manifest(self, manifest, probe: int, unit_idx: int, allow_heuristic: bool = False):
+        """Resolves the anatomical area for a unit using the loaded manifest."""
+        # 1. Search in manifest.units
+        for u in manifest.units:
+            if u.probe == probe and u.local_idx == unit_idx:
+                return u.area, u.resolution_status, None
+
+        # 2. Try using unit_peak_or_anchor_channels and area_mappings
+        peak_ch = None
+        unit_id = f"{manifest.session_id}-probe{probe}-unit{unit_idx}"
+        if manifest.unit_peak_or_anchor_channels and unit_id in manifest.unit_peak_or_anchor_channels:
+            peak_ch = manifest.unit_peak_or_anchor_channels[unit_id]
+        
+        if peak_ch is not None:
+            for mapping in manifest.area_mappings:
+                if mapping.probe == probe and mapping.start_ch <= peak_ch < mapping.end_ch:
+                    return mapping.area, f"metadata_resolved_{mapping.resolution_status}", None
+
+        # 3. Heuristic fallback: linear partition
+        if allow_heuristic:
+            probe_mappings = [m for m in manifest.area_mappings if m.probe == probe]
+            if probe_mappings:
+                total_units = 0
+                for u in manifest.units:
+                    if u.probe == probe:
+                        total_units = max(total_units, u.local_idx + 1)
+                if total_units == 0 and manifest.unit_counts_by_area:
+                    total_units = sum(manifest.unit_counts_by_area.values())
+                if total_units == 0:
+                    total_units = 10 # Default fallback count for fixture testing
+
+                for mapping in probe_mappings:
+                    total_ch = 128
+                    u_start = int(total_units * (mapping.start_ch / total_ch))
+                    u_end = int(total_units * (mapping.end_ch / total_ch))
+                    if u_start <= unit_idx < u_end:
+                        return mapping.area, "heuristic_fallback", "Metadata missing; used linear partition"
+
+        return None, "unknown_area", "Could not resolve unit from manifest mappings"
+
+    def make_signal_block(
+        self,
+        data,
+        dims,
+        signal_class,
+        session_id,
+        condition,
+        time_base,
+        alignment_event,
+        window_ms,
+        sampling_rate,
+        unit_or_channel_ids,
+        area_labels,
+        baseline_ms=None,
+        area_resolution_status=None,
+        source_files=None,
+        provenance=None,
+        truth_status="truth_safe_unverified"
+    ):
+        """Constructs and validates a SignalBlock."""
+        from src.analysis.contracts import make_signal_block
+        return make_signal_block(
+            data=data,
+            dims=dims,
+            signal_class=signal_class,
+            session_id=session_id,
+            condition=condition,
+            time_base=time_base,
+            alignment_event=alignment_event,
+            window_ms=window_ms,
+            sampling_rate=sampling_rate,
+            unit_or_channel_ids=unit_or_channel_ids,
+            area_labels=area_labels,
+            baseline_ms=baseline_ms,
+            area_resolution_status=area_resolution_status,
+            source_files=source_files,
+            provenance=provenance,
+            truth_status=truth_status
+        )

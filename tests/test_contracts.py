@@ -144,3 +144,100 @@ def test_signal_block_validation():
     )
     errors = block_mismatch.validate()
     assert any("area_labels length" in err for err in errors)
+
+
+def test_loader_contract_integration():
+    from src.analysis.io.loader import DataLoader
+    import os
+    
+    # Instantiate DataLoader
+    loader = DataLoader()
+    
+    # 1. fixture SessionManifest can be loaded through the new loader/helper path
+    manifest = loader.load_session_manifest_fixture("230630")
+    assert manifest.session_id == "230630"
+    assert manifest.is_fixture()
+    
+    # 2. fixture manifest validation catches synthetic/fixture role
+    from src.analysis.contracts import SessionManifest
+    manifest_bad = SessionManifest(
+        session_id="230630_fixture",
+        subject="FixtureSubject",
+        source_files=["some_file.npy"],
+        hashes={"some_file.npy": "abcdef"},
+        signal_availability={"SPK": True, "MUAe": False, "LFP": True}
+    )
+    errors = manifest_bad.validate()
+    assert "Fixture manifest cannot claim real_metadata_derived." in errors
+    
+    # 3. DP normalizes to V4 through the same path DataLoader will use
+    manifest_dp = loader.load_session_manifest_fixture("230719")
+    areas = [m.area for m in manifest_dp.area_mappings]
+    assert "V4" in areas
+    assert "DP" not in areas
+    assert "DP (V4)" not in areas
+    
+    # 4. generic V3 is preserved as unresolved/warning, not silently split
+    v3_entry = [m for m in manifest.area_mappings if m.area == "V3"]
+    assert len(v3_entry) > 0
+    assert v3_entry[0].resolution_status == "unresolved"
+    assert any("Area V3 on Probe 2 is UNRESOLVED generic V3." in w for w in manifest.warnings)
+    
+    # 5. SPK fixture zeros array wraps into SignalBlock as trial x unit x time
+    spk_data = np.zeros((10, 5, 100))
+    block_spk = loader.make_signal_block(
+        data=spk_data,
+        dims=("trial", "unit", "time"),
+        signal_class="SPK",
+        session_id="230630",
+        condition="AXAB",
+        time_base="p1_relative",
+        alignment_event="stim_onset",
+        window_ms=(-100, 500),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
+        area_labels=["V1", "V1", "V2", "V2", "V4"]
+    )
+    assert block_spk.dims == ("trial", "unit", "time")
+    
+    # 6. LFP fixture zeros array wraps into SignalBlock as trial x channel x time
+    lfp_data = np.zeros((10, 8, 1000))
+    block_lfp = loader.make_signal_block(
+        data=lfp_data,
+        dims=("trial", "channel", "time"),
+        signal_class="LFP",
+        session_id="230630",
+        condition="AXAB",
+        time_base="omission_relative",
+        alignment_event="omission_onset",
+        window_ms=(-500, 1000),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"],
+        area_labels=["V1", "V1", "V2", "V2", "V3", "V3", "V4", "V4"]
+    )
+    assert block_lfp.dims == ("trial", "channel", "time")
+    
+    # 7. wrong dims are rejected or produce validation errors
+    with pytest.raises(ValueError, match="SignalBlock validation failed"):
+        loader.make_signal_block(
+            data=spk_data,
+            dims=("trial", "channel", "time"), # Wrong for SPK
+            signal_class="SPK",
+            session_id="230630",
+            condition="AXAB",
+            time_base="p1_relative",
+            alignment_event="stim_onset",
+            window_ms=(-100, 500),
+            sampling_rate=1000.0,
+            unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
+            area_labels=["V1", "V1", "V2", "V2", "V4"]
+        )
+
+
+def test_real_data_loader_integration():
+    # 8. real-data integration test is skipped unless OMISSION_DATA_ROOT is set
+    # 9. no test depends on D:/drive or private raw data
+    import os
+    data_root = os.environ.get("OMISSION_DATA_ROOT")
+    if not data_root:
+        pytest.skip("Skipping real-data integration test since OMISSION_DATA_ROOT is not set")

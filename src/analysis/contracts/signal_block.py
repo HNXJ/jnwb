@@ -76,3 +76,45 @@ class SignalBlock:
             errors.append("Truth status must remain 'truth_safe_unverified'.")
             
         return errors
+
+
+def make_signal_block(
+    data: Any,
+    dims: Tuple[str, ...],
+    signal_class: str,
+    session_id: str,
+    condition: str,
+    time_base: str,
+    alignment_event: str,
+    window_ms: Tuple[int, int],
+    sampling_rate: float,
+    unit_or_channel_ids: List[str],
+    area_labels: List[str],
+    baseline_ms: Optional[Tuple[int, int]] = None,
+    area_resolution_status: Optional[Dict[str, str]] = None,
+    source_files: Optional[List[str]] = None,
+    provenance: Optional[Dict[str, Any]] = None,
+    truth_status: str = "truth_safe_unverified"
+) -> SignalBlock:
+    block = SignalBlock(
+        data=data,
+        dims=dims,
+        signal_class=signal_class,
+        session_id=session_id,
+        condition=condition,
+        time_base=time_base,
+        alignment_event=alignment_event,
+        window_ms=window_ms,
+        sampling_rate=sampling_rate,
+        unit_or_channel_ids=unit_or_channel_ids,
+        area_labels=area_labels,
+        baseline_ms=baseline_ms,
+        area_resolution_status=area_resolution_status or {},
+        source_files=source_files or [],
+        provenance=provenance or {},
+        truth_status=truth_status
+    )
+    errors = block.validate()
+    if errors:
+        raise ValueError(f"SignalBlock validation failed: {errors}")
+    return block
