@@ -713,3 +713,187 @@ class DataLoader:
             "truth_status": raw_manifest.truth_status
         }
 
+    def discover_data_sources(self, data_root: Optional[Path] = None, session_id: Optional[str] = None):
+        """
+        Phase 2F data source discovery scaffold.
+        Scans shallow known folders inside data_root to classify and index files
+        without opening or reading high-density neural array payloads.
+        """
+        from src.analysis.contracts.data_source_index import DataSourceIndex, DataSourceRecord
+        import os
+        import re
+
+        root_path = data_root or self.get_data_root()
+        if not root_path or not root_path.exists():
+            return DataSourceIndex(
+                data_root=str(root_path) if root_path else None,
+                records=[],
+                warnings=[],
+                errors=["Data root unavailable."],
+                truth_status="truth_safe_unverified"
+            )
+
+        records = []
+        warnings = []
+        errors = []
+
+        # Shallow known folders to scan
+        known_subdirs = ["manifests", "metadata", "session_manifests", "behavior", "arrays", "nwb"]
+        
+        # Gather candidate files (shallow: only root and known subdirectories)
+        candidate_files = []
+        
+        # Check root itself (files only)
+        try:
+            for entry in os.scandir(root_path):
+                if entry.is_file():
+                    candidate_files.append(Path(entry.path))
+        except Exception as e:
+            errors.append(f"Error scanning data_root: {e}")
+
+        # Check known subdirectories
+        for subdir in known_subdirs:
+            subdir_path = root_path / subdir
+            if subdir_path.exists() and subdir_path.is_dir():
+                try:
+                    for entry in os.scandir(subdir_path):
+                        if entry.is_file():
+                            candidate_files.append(Path(entry.path))
+                except Exception as e:
+                    warnings.append(f"Error scanning subdirectory '{subdir}': {e}")
+
+        for p in candidate_files:
+            file_name = p.name.lower()
+            ext = p.suffix.lower()
+            
+            # Size check from directory metadata
+            try:
+                size_bytes = p.stat().st_size
+            except Exception:
+                size_bytes = None
+
+            # 1. Parse session_id
+            parsed_session = None
+            session_match = re.search(r"(\d{6})", p.name)
+            if session_match:
+                parsed_session = session_match.group(1)
+            elif "fixture" in file_name:
+                parsed_session = "fixture"
+
+            # Filter by session_id if requested
+            if session_id and parsed_session != session_id:
+                continue
+
+            # 2. Determine Role
+            role = "unknown"
+            if "manifest" in file_name:
+                role = "manifest"
+            elif ext in [".json", ".csv", ".tsv", ".yaml", ".yml", ".txt", ".md"] and any(x in p.parts for x in ["metadata", "manifests", "session_manifests"]):
+                role = "metadata"
+                if "manifest" in file_name:
+                    role = "manifest"
+            elif "behavior" in file_name or "bhv" in file_name or "eye" in file_name or "behavior" in p.parts:
+                role = "behavior"
+            elif ext in [".nwb", ".mat", ".h5", ".hdf5", ".npy", ".npz"]:
+                role = "raw_neural_array"
+            else:
+                role = "unknown"
+
+            # 3. Determine Signal Class
+            signal_class = None
+            if "spk" in file_name or "sua" in file_name or "spike" in file_name:
+                signal_class = "SPK"
+            elif "mua" in file_name:
+                signal_class = "MUAe"
+            elif "lfp" in file_name:
+                signal_class = "LFP"
+            elif role == "behavior":
+                signal_class = "behavior"
+
+            # 4. Enforce read policies and statuses
+            readable_for_phase2 = True
+            reason_not_read = None
+            
+            if ext in [".nwb", ".mat", ".h5", ".hdf5", ".npy", ".npz"]:
+                readable_for_phase2 = False
+                reason_not_read = "Blocked raw neural payload under Phase 2 doctrine."
+                source_status = "discovered_raw_blocked"
+            elif role == "manifest":
+                source_status = "discovered_manifest"
+            elif role == "metadata" or role == "behavior":
+                source_status = "discovered_metadata"
+            else:
+                source_status = "ambiguous" if ext == ".json" else "invalid"
+
+            record = DataSourceRecord(
+                path=str(p),
+                session_id=parsed_session,
+                signal_class=signal_class,
+                file_type=ext,
+                size_bytes=size_bytes,
+                role=role,
+                readable_for_phase2=readable_for_phase2,
+                reason_not_read=reason_not_read,
+                source_status=source_status,
+                warnings=[],
+                truth_status="truth_safe_unverified"
+            )
+            records.append(record)
+
+        return DataSourceIndex(
+            data_root=str(root_path) if root_path else None,
+            records=records,
+            warnings=warnings,
+            errors=errors,
+            truth_status="truth_safe_unverified"
+        )
+
+    def get_signal_source_status(self, session_id: str, signal_class: str, *, data_root: Optional[Path] = None) -> dict:
+        """
+        Retrieves the discovery and availability status of a specific signal class for a session
+        without loading the raw neural array payload.
+        """
+        root_path = data_root or self.get_data_root()
+        if not root_path or not root_path.exists():
+            return {
+                "status": "unavailable",
+                "session_id": session_id,
+                "signal_class": signal_class,
+                "path": None,
+                "size_bytes": None,
+                "warnings": ["Data root unavailable."],
+                "truth_status": "truth_safe_unverified"
+            }
+            
+        index = self.discover_data_sources(root_path, session_id=session_id)
+        
+        # Search for record matching the signal class
+        matching_record = None
+        for record in index.records:
+            if record.signal_class == signal_class:
+                matching_record = record
+                break
+                
+        if matching_record:
+            status = "discovered_candidate" if matching_record.role == "raw_neural_array" else matching_record.source_status
+            return {
+                "status": status,
+                "session_id": session_id,
+                "signal_class": signal_class,
+                "path": matching_record.path,
+                "size_bytes": matching_record.size_bytes,
+                "warnings": matching_record.warnings,
+                "truth_status": "truth_safe_unverified"
+            }
+            
+        return {
+            "status": "unavailable",
+            "session_id": session_id,
+            "signal_class": signal_class,
+            "path": None,
+            "size_bytes": None,
+            "warnings": [f"No source files found for session {session_id} signal {signal_class}."],
+            "truth_status": "truth_safe_unverified"
+        }
+
+
