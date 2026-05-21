@@ -10,10 +10,13 @@ def test_core_imports():
     try:
         from src.analysis.registry import FigureRegistry
         from src.analysis.io.logger import log
+        from src.analysis.contracts import SessionManifest, SignalBlock
         # Check if basic attributes exist
         assert hasattr(FigureRegistry, 'FIGURE_DATA')
         # log is an instance of OmissionLogger
         assert hasattr(log, 'info')
+        assert SessionManifest is not None
+        assert SignalBlock is not None
     except ImportError as e:
         pytest.fail(f"Core module import failed: {e}")
 

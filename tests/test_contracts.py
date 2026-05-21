@@ -1,0 +1,146 @@
+import pytest
+import numpy as np
+from src.analysis.contracts import SessionManifest, SignalBlock
+
+def test_session_manifest_validation_and_methods():
+    # 1. SessionManifest loads fixture manifest and validates required fields
+    manifest = SessionManifest(
+        session_id="230630_fixture",
+        subject="FixtureSubject",
+        signal_availability={"SPK": True, "MUAe": False, "LFP": True}
+    )
+    
+    errors = manifest.validate()
+    assert not errors, f"Validation failed: {errors}"
+    assert manifest.is_fixture()
+    assert not manifest.is_real_metadata_derived()
+    
+    # 2. DP normalizes to V4
+    assert SessionManifest.normalize_area("DP") == "V4"
+    assert SessionManifest.normalize_area("DP (V4)") == "V4"
+    assert SessionManifest.normalize_area("V1") == "V1"
+    
+    # 3. generic V3 triggers warning / unresolved status
+    manifest_v3 = SessionManifest(
+        session_id="230630_fixture",
+        subject="FixtureSubject",
+        channel_counts_by_area={"V3": 64},
+        area_resolution_status={"V3": "unresolved"},
+        signal_availability={"SPK": True, "MUAe": False, "LFP": True}
+    )
+    errors = manifest_v3.validate()
+    assert not errors, f"Validation errors: {errors}"
+    assert any("Area V3 is UNRESOLVED generic V3." in w for w in manifest_v3.warnings)
+
+    # 4. fixture manifest cannot claim real_metadata_derived
+    manifest_claims = SessionManifest(
+        session_id="230630_fixture",
+        subject="FixtureSubject",
+        source_files=["some_file.npy"],
+        hashes={"some_file.npy": "abcdef"},
+        signal_availability={"SPK": True, "MUAe": False, "LFP": True}
+    )
+    assert manifest_claims.is_fixture()
+    assert not manifest_claims.is_real_metadata_derived()
+    errors = manifest_claims.validate()
+    assert "Fixture manifest cannot claim real_metadata_derived." in errors
+
+    # 5. truth_status defaults to truth_safe_unverified
+    assert manifest.truth_status == "truth_safe_unverified"
+
+
+def test_signal_block_validation():
+    # Helper dummy data
+    spk_data = np.zeros((10, 5, 100)) # 10 trials, 5 units, 100 time points
+    lfp_data = np.zeros((10, 8, 1000)) # 10 trials, 8 channels, 1000 time points
+    
+    # 1. SignalBlock validates SPK shape trial x unit x time
+    block_spk = SignalBlock(
+        data=spk_data,
+        dims=("trial", "unit", "time"),
+        signal_class="SPK",
+        session_id="230630_fixture",
+        condition="AXAB",
+        time_base="p1_relative",
+        alignment_event="stim_onset",
+        window_ms=(-100, 500),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
+        area_labels=["V1", "V1", "V2", "V2", "V4"]
+    )
+    errors = block_spk.validate()
+    assert not errors, f"SPK validation failed: {errors}"
+    
+    # 2. SignalBlock validates LFP/MUAe shape trial x channel x time
+    block_lfp = SignalBlock(
+        data=lfp_data,
+        dims=("trial", "channel", "time"),
+        signal_class="LFP",
+        session_id="230630_fixture",
+        condition="AXAB",
+        time_base="omission_relative",
+        alignment_event="omission_onset",
+        window_ms=(-500, 1000),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"],
+        area_labels=["V1", "V1", "V2", "V2", "V3", "V3", "V4", "V4"]
+    )
+    errors = block_lfp.validate()
+    assert not errors, f"LFP validation failed: {errors}"
+    # check that generic V3 triggered a warning
+    assert any("Area labels contain generic unresolved V3." in w for w in block_lfp.warnings)
+    
+    # 3. SignalBlock rejects or reports wrong dims for signal class
+    block_bad_dims = SignalBlock(
+        data=spk_data,
+        dims=("trial", "channel", "time"), # Expected ("trial", "unit", "time")
+        signal_class="SPK",
+        session_id="230630_fixture",
+        condition="AXAB",
+        time_base="p1_relative",
+        alignment_event="stim_onset",
+        window_ms=(-100, 500),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
+        area_labels=["V1", "V1", "V2", "V2", "V4"]
+    )
+    errors = block_bad_dims.validate()
+    assert any("Expected dims" in err for err in errors)
+    
+    # 4. SignalBlock preserves time_base distinction
+    assert block_spk.time_base == "p1_relative"
+    assert block_lfp.time_base == "omission_relative"
+    
+    # Check invalid time base
+    block_bad_tb = SignalBlock(
+        data=spk_data,
+        dims=("trial", "unit", "time"),
+        signal_class="SPK",
+        session_id="230630_fixture",
+        condition="AXAB",
+        time_base="invalid_time_base",
+        alignment_event="stim_onset",
+        window_ms=(-100, 500),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
+        area_labels=["V1", "V1", "V2", "V2", "V4"]
+    )
+    errors = block_bad_tb.validate()
+    assert any("Invalid time_base" in err for err in errors)
+    
+    # Check area label length mismatch
+    block_mismatch = SignalBlock(
+        data=spk_data,
+        dims=("trial", "unit", "time"),
+        signal_class="SPK",
+        session_id="230630_fixture",
+        condition="AXAB",
+        time_base="p1_relative",
+        alignment_event="stim_onset",
+        window_ms=(-100, 500),
+        sampling_rate=1000.0,
+        unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
+        area_labels=["V1", "V1"] # Expecting 5 labels
+    )
+    errors = block_mismatch.validate()
+    assert any("area_labels length" in err for err in errors)
