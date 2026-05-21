@@ -172,21 +172,9 @@ def main():
         if not d_root.exists():
             print(f"Warning: Data root path '{d_root}' does not exist. Skipping scan.")
         else:
-            # Look for JSON files. To remain bounded and fast, search manifests/ folder or files containing "manifest"
-            candidate_files = []
-            
-            # Check manifests subdirectory first (canonical placement)
-            manifests_dir = d_root / "manifests"
-            if manifests_dir.exists() and manifests_dir.is_dir():
-                candidate_files.extend(list(manifests_dir.glob("*.json")))
-            else:
-                # Fallback: glob files containing 'manifest' in name under the root (limit depth to 2 to avoid scanning massive subtrees)
-                for p in d_root.glob("*.json"):
-                    if "manifest" in p.name.lower():
-                        candidate_files.append(p)
-                for p in d_root.glob("*/*.json"):
-                    if "manifest" in p.name.lower():
-                        candidate_files.append(p)
+            from src.analysis.io.loader import DataLoader
+            loader = DataLoader()
+            candidate_files = loader.discover_session_manifest_paths(d_root)
             
             # Filter by session if specified
             if session_id:

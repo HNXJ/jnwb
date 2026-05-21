@@ -1,10 +1,12 @@
 # core
 import os
 import re
+import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from collections import defaultdict
+from typing import Optional, List, Dict, Any, Union
 from src.analysis.io.logger import log
 from src.analysis.io.eye_mapper import EyeDataMapper
 
@@ -511,3 +513,203 @@ class DataLoader:
             provenance=provenance,
             truth_status=truth_status
         )
+
+    def get_data_root(self) -> Optional[Path]:
+        """Returns the data root path from OMISSION_DATA_ROOT environment variable, or None if absent."""
+        env_val = os.environ.get("OMISSION_DATA_ROOT")
+        if env_val:
+            return Path(env_val)
+        return None
+
+    def discover_session_manifest_paths(self, data_root: Optional[Path] = None) -> list:
+        """
+        Scans data_root recursively for candidate session manifest files.
+        Only inspects metadata/manifests config-like JSON files.
+        """
+        root_path = data_root or self.get_data_root()
+        if not root_path or not root_path.exists():
+            return []
+            
+        candidate_paths = []
+        # Checks manifests/ metadata/ session_manifests/ folders first
+        search_dirs = [root_path / "manifests", root_path / "metadata", root_path / "session_manifests"]
+        for s_dir in search_dirs:
+            if s_dir.exists() and s_dir.is_dir():
+                candidate_paths.extend(list(s_dir.glob("*.json")))
+                
+        # Also check root_path itself for manifest-like files
+        for p in root_path.glob("*.json"):
+            if "manifest" in p.name.lower():
+                candidate_paths.append(p)
+        for p in root_path.glob("*/*.json"):
+            if "manifest" in p.name.lower():
+                candidate_paths.append(p)
+                
+        return sorted(list(set(candidate_paths)))
+
+    def load_session_manifest(self, session_id: str, *, data_root: Optional[Path] = None, allow_fixture: bool = False):
+        """
+        Loads a session manifest by scanning the data_root candidate locations.
+        If allow_fixture=True and no real manifest is found, falls back to the fixture path.
+        """
+        from src.analysis.contracts import SessionManifest
+        import json
+        
+        # 1. Discover all manifests in data_root
+        root_path = data_root or self.get_data_root()
+        candidates = []
+        if root_path and root_path.exists():
+            all_manifests = self.discover_session_manifest_paths(root_path)
+            for p in all_manifests:
+                if session_id in p.name:
+                    candidates.append(p)
+                    
+        manifest_path = None
+        if candidates:
+            candidates = sorted(list(set(candidates)))
+            if len(candidates) > 1:
+                log.warning(f"Multiple candidate manifests found for session '{session_id}': {[p.name for p in candidates]}. Selecting deterministically.")
+            
+            # Deterministic selection: prefer f"session_{session_id}_manifest.json"
+            for p in candidates:
+                if f"session_{session_id}_manifest.json" in p.name:
+                    manifest_path = p
+                    break
+            if not manifest_path:
+                for p in candidates:
+                    if f"{session_id}_manifest.json" in p.name:
+                        manifest_path = p
+                        break
+            if not manifest_path:
+                manifest_path = candidates[0]
+                
+        # 2. Fallback to fixture if allowed and no real manifest found
+        if not manifest_path:
+            if allow_fixture:
+                try:
+                    return self.load_session_manifest_fixture(session_id)
+                except FileNotFoundError:
+                    return None
+            return None
+            
+        # 3. Load the chosen real manifest
+        with open(manifest_path, "r") as f:
+            data = json.load(f)
+            
+        manifest = SessionManifest.from_dict(data)
+        
+        # Normalize DP to V4
+        for mapping in manifest.area_mappings:
+            mapping.area = SessionManifest.normalize_area(mapping.area)
+        for unit in manifest.units:
+            unit.area = SessionManifest.normalize_area(unit.area)
+        for d in [manifest.channel_counts_by_area, manifest.unit_counts_by_area, manifest.area_resolution_status]:
+            if d:
+                for k in list(d.keys()):
+                    norm_k = SessionManifest.normalize_area(k)
+                    if norm_k != k:
+                        d[norm_k] = d.pop(k)
+                        
+        return manifest
+
+    def validate_session_manifest(self, session_id: str, *, data_root: Optional[Path] = None) -> dict:
+        """
+        Validates the session manifest for the given session_id.
+        Returns a validation status dictionary.
+        """
+        from src.analysis.contracts import SessionManifest
+        import json
+        
+        root_path = data_root or self.get_data_root()
+        if not root_path or not root_path.exists():
+            return {
+                "status": "unavailable",
+                "session_id": session_id,
+                "manifest_path": None,
+                "errors": ["Data root unavailable."],
+                "warnings": [],
+                "truth_status": None
+            }
+            
+        # Discover candidate manifest files for this session
+        all_manifests = self.discover_session_manifest_paths(root_path)
+        candidates = [p for p in all_manifests if session_id in p.name]
+        
+        if not candidates:
+            return {
+                "status": "invalid",
+                "session_id": session_id,
+                "manifest_path": None,
+                "errors": [f"No candidate manifest file found for session '{session_id}'."],
+                "warnings": [],
+                "truth_status": None
+            }
+            
+        # Check for ambiguity
+        is_ambiguous = len(candidates) > 1
+        warnings = []
+        if is_ambiguous:
+            warnings.append(f"Multiple candidate manifests found for session '{session_id}': {[p.name for p in candidates]}")
+            
+        # Deterministic path selection
+        manifest_path = None
+        for p in candidates:
+            if f"session_{session_id}_manifest.json" in p.name:
+                manifest_path = p
+                break
+        if not manifest_path:
+            for p in candidates:
+                if f"{session_id}_manifest.json" in p.name:
+                    manifest_path = p
+                    break
+        if not manifest_path:
+            manifest_path = candidates[0]
+            
+        try:
+            with open(manifest_path, "r") as f:
+                data = json.load(f)
+            raw_manifest = SessionManifest.from_dict(data)
+        except Exception as e:
+            return {
+                "status": "invalid",
+                "session_id": session_id,
+                "manifest_path": str(manifest_path),
+                "errors": [f"Failed to load or parse manifest JSON: {e}"],
+                "warnings": warnings,
+                "truth_status": None
+            }
+            
+        errors = raw_manifest.validate()
+        
+        # Guard: check if fixture manifest is placed under real data root
+        if raw_manifest.is_fixture():
+            errors.append("Fixture/Synthetic manifest found in real data directory.")
+            
+        # Check DP to V4 mappings
+        for m in raw_manifest.area_mappings:
+            if m.area in ["DP", "DP (V4)"]:
+                errors.append(f"Area {m.area} is not normalized to V4 in area_mappings.")
+        for area in raw_manifest.channel_counts_by_area.keys():
+            if area in ["DP", "DP (V4)"]:
+                errors.append(f"Area {area} is not normalized to V4 in channel_counts_by_area.")
+                
+        # warnings from the manifest itself
+        warnings.extend(raw_manifest.warnings)
+        
+        # Status determination
+        if errors:
+            status = "invalid"
+        elif is_ambiguous:
+            status = "ambiguous"
+        else:
+            status = "valid"
+            
+        return {
+            "status": status,
+            "session_id": session_id,
+            "manifest_path": str(manifest_path) if manifest_path else None,
+            "errors": errors,
+            "warnings": warnings,
+            "truth_status": raw_manifest.truth_status
+        }
+
