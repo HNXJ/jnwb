@@ -168,3 +168,146 @@ def test_no_private_paths():
     result = make_bounded_fixture_slice(req)
     assert result.raw_array_contents_read is False
     assert "D:/drive" not in (result.source_path or "")
+
+def test_npy_blocked_without_allow_real_data(tmp_path):
+    # 1. .npy read is blocked without allow_real_data.
+    import numpy as np
+    dummy_file = tmp_path / "test.npy"
+    np.save(dummy_file, np.ones((2, 2, 2)))
+    
+    req = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(dummy_file),
+        allow_real_data=False
+    )
+    result = load_bounded_real_slice(req)
+    assert result.status == "skipped"
+    assert result.signal_block is None
+
+def test_missing_npy_path_returns_unavailable():
+    # 2. Missing .npy path returns unavailable/invalid.
+    req = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path="nonexistent.npy",
+        allow_real_data=True
+    )
+    result = load_bounded_real_slice(req)
+    assert result.status == "unavailable"
+    assert result.signal_block is None
+
+def test_non_npy_extension_remains_blocked(tmp_path):
+    # 3. Non-.npy extension remains blocked.
+    dummy_file = tmp_path / "test.txt"
+    dummy_file.write_text("hello")
+    req = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(dummy_file),
+        allow_real_data=True
+    )
+    result = load_bounded_real_slice(req)
+    assert result.status == "blocked"
+
+def test_npz_remains_blocked(tmp_path):
+    # 4. .npz remains blocked.
+    import numpy as np
+    dummy_file = tmp_path / "test.npz"
+    np.savez(dummy_file, a=np.ones((2, 2, 2)))
+    req = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(dummy_file),
+        allow_real_data=True
+    )
+    result = load_bounded_real_slice(req)
+    assert result.status == "blocked"
+    assert "explicitly blocked" in "".join(result.errors)
+
+def test_other_raw_blocked(tmp_path):
+    # 5. .nwb, .mat, .h5, .hdf5 remain blocked.
+    for ext in [".nwb", ".mat", ".h5", ".hdf5"]:
+        dummy_file = tmp_path / f"test{ext}"
+        dummy_file.write_text("hello")
+        req = BoundedSliceRequest(
+            session_id="test_session",
+            signal_class="SPK",
+            source_path=str(dummy_file),
+            allow_real_data=True
+        )
+        result = load_bounded_real_slice(req)
+        assert result.status == "blocked"
+        assert "explicitly blocked" in "".join(result.errors)
+
+def test_oversized_npy_blocked(tmp_path):
+    # 6. Oversized .npy relative to max_bytes is blocked.
+    import numpy as np
+    dummy_file = tmp_path / "test.npy"
+    np.save(dummy_file, np.ones((5, 5, 5)))
+    req = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(dummy_file),
+        allow_real_data=True,
+        max_bytes=10  # extremely low limit
+    )
+    result = load_bounded_real_slice(req)
+    assert result.status == "blocked"
+    assert any("exceeds request limit" in e for e in result.errors)
+
+def test_tiny_npy_bounded_slice_read(tmp_path):
+    # 7. Tiny tmp_path .npy rank-3 array reads only bounded slice.
+    # 8. SPK .npy slice returns SignalBlock dims trial,unit,time.
+    # 9. LFP .npy slice returns SignalBlock dims trial,channel,time.
+    # 10. raw_array_contents_read=True only for successful bounded .npy read.
+    # 11. Provenance says bounded tiny npy slice and no full file read intended.
+    import numpy as np
+    dummy_file = tmp_path / "test.npy"
+    large_arr = np.ones((10, 10, 200))
+    np.save(dummy_file, large_arr)
+
+    # Test SPK Dims & Bounds
+    req_spk = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(dummy_file),
+        allow_real_data=True,
+        max_trials=3,
+        max_units_or_channels=4,
+        max_timepoints=50
+    )
+    result_spk = load_bounded_real_slice(req_spk)
+    assert result_spk.status == "loaded_bounded_slice"
+    assert result_spk.raw_array_contents_read is True
+    assert result_spk.signal_block is not None
+    block_spk = result_spk.signal_block
+    assert block_spk.data.shape == (3, 4, 50)
+    assert block_spk.dims == ("trial", "unit", "time")
+    assert block_spk.provenance["type"] == "bounded_tiny_npy_slice"
+    assert block_spk.provenance["no_full_file_read_intended"] is True
+
+    # Test LFP Dims
+    req_lfp = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="LFP",
+        source_path=str(dummy_file),
+        allow_real_data=True,
+        max_trials=2,
+        max_units_or_channels=3,
+        max_timepoints=30
+    )
+    result_lfp = load_bounded_real_slice(req_lfp)
+    assert result_lfp.status == "loaded_bounded_slice"
+    block_lfp = result_lfp.signal_block
+    assert block_lfp.data.shape == (2, 3, 30)
+    assert block_lfp.dims == ("trial", "channel", "time")
+
+def test_cli_tiny_npy_smoke(monkeypatch):
+    # 14. CLI allowlisted tiny .npy smoke succeeds only when explicitly allowed.
+    import sys
+    from scripts.validate_bounded_signal_slice import main
+    monkeypatch.setattr(sys, "argv", ["validate_bounded_signal_slice.py", "--tiny-npy-smoke"])
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 0

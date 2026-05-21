@@ -238,13 +238,17 @@ def load_bounded_real_slice(request: BoundedSliceRequest) -> BoundedSliceResult:
             truth_status=request.truth_status
         )
 
+    if ext == ".npy":
+        from src.analysis.contracts.tiny_readers import read_tiny_npy_slice
+        return read_tiny_npy_slice(request)
+
     if ext in raw_extensions:
         return BoundedSliceResult(
             status="blocked",
             request=req_dict,
             signal_block=None,
-            errors=[],
-            warnings=["Raw real-data slicing not implemented yet under Phase 2I doctrine."],
+            errors=[f"Raw format '{ext}' is explicitly blocked under Phase 2J infrastructure doctrine."],
+            warnings=["Raw real-data slicing not implemented yet for this format."],
             bytes_read_estimate=0,
             source_path=request.source_path,
             raw_array_contents_read=False,
