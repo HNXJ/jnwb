@@ -1,6 +1,7 @@
 from src.analysis.contracts.session_manifest import SessionManifest, ConditionInfo, AreaMapping, UnitMetadata
 from src.analysis.contracts.signal_block import SignalBlock, make_signal_block
 from src.analysis.contracts.data_source_index import DataSourceRecord, DataSourceIndex
+from src.analysis.contracts.fixture_signal_blocks import make_fixture_signal_block, make_fixture_signal_blocks_for_all_signals
 from src.analysis.contracts.constants import *
 
 __all__ = [
@@ -11,5 +12,7 @@ __all__ = [
     "SignalBlock", 
     "make_signal_block",
     "DataSourceRecord",
-    "DataSourceIndex"
+    "DataSourceIndex",
+    "make_fixture_signal_block",
+    "make_fixture_signal_blocks_for_all_signals"
 ]

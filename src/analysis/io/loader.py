@@ -896,4 +896,80 @@ class DataLoader:
             "truth_status": "truth_safe_unverified"
         }
 
+    def make_fixture_signal_block(
+        self,
+        signal_class: str,
+        session_id: str = "fixture_session",
+        condition: str = "AAAB",
+        n_trials: int = 2,
+        n_units_or_channels: int = 3,
+        n_time: int = 10,
+        time_base: str = "p1_relative",
+        alignment_event: str = "p1_onset",
+        window_ms: Tuple[int, int] = (-1000, 4000),
+        baseline_ms: Optional[Tuple[int, int]] = None,
+        sampling_rate: Optional[float] = None,
+        area_labels: Optional[List[str]] = None,
+        area_resolution_status: Optional[Union[List[str], Dict[str, str]]] = None,
+        fill_value: float = 0.0
+    ):
+        """
+        Wrapper to generate a pure synthetic fixture SignalBlock.
+        """
+        from src.analysis.contracts.fixture_signal_blocks import make_fixture_signal_block
+        return make_fixture_signal_block(
+            signal_class=signal_class,
+            session_id=session_id,
+            condition=condition,
+            n_trials=n_trials,
+            n_units_or_channels=n_units_or_channels,
+            n_time=n_time,
+            time_base=time_base,
+            alignment_event=alignment_event,
+            window_ms=window_ms,
+            baseline_ms=baseline_ms,
+            sampling_rate=sampling_rate,
+            area_labels=area_labels,
+            area_resolution_status=area_resolution_status,
+            fill_value=fill_value
+        )
+
+    def load_fixture_signal_block(
+        self,
+        signal_class: str,
+        session_id: str = "fixture_session",
+        condition: str = "AAAB",
+        n_trials: int = 2,
+        n_units_or_channels: int = 3,
+        n_time: int = 10,
+        time_base: str = "p1_relative",
+        alignment_event: str = "p1_onset",
+        window_ms: Tuple[int, int] = (-1000, 4000),
+        baseline_ms: Optional[Tuple[int, int]] = None,
+        sampling_rate: Optional[float] = None,
+        area_labels: Optional[List[str]] = None,
+        area_resolution_status: Optional[Union[List[str], Dict[str, str]]] = None,
+        fill_value: float = 0.0
+    ):
+        """
+        Wrapper to load/generate a pure synthetic fixture SignalBlock.
+        """
+        return self.make_fixture_signal_block(
+            signal_class=signal_class,
+            session_id=session_id,
+            condition=condition,
+            n_trials=n_trials,
+            n_units_or_channels=n_units_or_channels,
+            n_time=n_time,
+            time_base=time_base,
+            alignment_event=alignment_event,
+            window_ms=window_ms,
+            baseline_ms=baseline_ms,
+            sampling_rate=sampling_rate,
+            area_labels=area_labels,
+            area_resolution_status=area_resolution_status,
+            fill_value=fill_value
+        )
+
+
 
