@@ -1,6 +1,15 @@
 import pytest
 import numpy as np
 from src.analysis.contracts import SessionManifest, SignalBlock
+from src.analysis.contracts.constants import (
+    TRUTH_SAFE_UNVERIFIED,
+    ALLOWED_SIGNAL_CLASSES,
+    ALLOWED_TIME_BASES,
+    AREA_ALIASES,
+    GENERIC_UNRESOLVED_AREAS,
+    REQUIRED_SESSION_MANIFEST_FIELDS,
+    REQUIRED_SIGNAL_BLOCK_FIELDS
+)
 
 def test_session_manifest_validation_and_methods():
     # 1. SessionManifest loads fixture manifest and validates required fields
@@ -232,6 +241,31 @@ def test_loader_contract_integration():
             unit_or_channel_ids=["u1", "u2", "u3", "u4", "u5"],
             area_labels=["V1", "V1", "V2", "V2", "V4"]
         )
+    
+def test_metadata_contract_constants_convergence():
+    # 1. Verify constants are defined correctly
+    assert TRUTH_SAFE_UNVERIFIED == "truth_safe_unverified"
+    assert "SPK" in ALLOWED_SIGNAL_CLASSES
+    assert "LFP" in ALLOWED_SIGNAL_CLASSES
+    assert "p1_relative" in ALLOWED_TIME_BASES
+    assert "omission_relative" in ALLOWED_TIME_BASES
+    assert AREA_ALIASES["DP"] == "V4"
+    assert "V3" in GENERIC_UNRESOLVED_AREAS
+    
+    # 2. Verify SessionManifest's default and normalization are using the constants
+    manifest = SessionManifest(
+        session_id="constant_test_session",
+        subject="FixtureSubject",
+        signal_availability={"SPK": True, "MUAe": False, "LFP": True}
+    )
+    assert manifest.truth_status == TRUTH_SAFE_UNVERIFIED
+    assert SessionManifest.normalize_area("DP") == AREA_ALIASES["DP"]
+    
+    # 3. Verify required fields are present
+    assert "session_id" in REQUIRED_SESSION_MANIFEST_FIELDS
+    assert "subject" in REQUIRED_SESSION_MANIFEST_FIELDS
+    assert "truth_status" in REQUIRED_SESSION_MANIFEST_FIELDS
+    assert "data" in REQUIRED_SIGNAL_BLOCK_FIELDS
 
 
 def test_real_data_loader_integration():

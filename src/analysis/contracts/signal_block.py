@@ -1,5 +1,13 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional, Any
+from src.analysis.contracts.constants import (
+    TRUTH_SAFE_UNVERIFIED,
+    ALLOWED_SIGNAL_CLASSES,
+    ALLOWED_TIME_BASES,
+    GENERIC_UNRESOLVED_AREAS,
+    SIGNAL_CLASS_DIMS,
+    REQUIRED_SIGNAL_BLOCK_FIELDS
+)
 
 @dataclass
 class SignalBlock:
@@ -19,20 +27,31 @@ class SignalBlock:
     source_files: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     provenance: Dict[str, Any] = field(default_factory=dict)
-    truth_status: str = "truth_safe_unverified"
+    truth_status: str = TRUTH_SAFE_UNVERIFIED
 
     def validate(self) -> List[str]:
         errors = []
         
-        # 1. signal_class allowed values: SPK, SUA, MUAe, LFP, behavior, metadata, model
-        allowed_signals = {"SPK", "SUA", "MUAe", "LFP", "behavior", "metadata", "model"}
-        if self.signal_class not in allowed_signals:
-            errors.append(f"Invalid signal_class '{self.signal_class}'. Must be one of {allowed_signals}.")
+        # 0. Check required fields
+        for field_name in REQUIRED_SIGNAL_BLOCK_FIELDS:
+            val = getattr(self, field_name, None)
+            if field_name == "data":
+                if val is None:
+                    errors.append("Field 'data' is required.")
+            else:
+                if not val:
+                    if field_name == "truth_status":
+                        errors.append("Truth status must be specified.")
+                    else:
+                        errors.append(f"Field '{field_name}' is required.")
+        
+        # 1. signal_class allowed values
+        if self.signal_class and self.signal_class not in ALLOWED_SIGNAL_CLASSES:
+            errors.append(f"Invalid signal_class '{self.signal_class}'. Must be one of {ALLOWED_SIGNAL_CLASSES}.")
             
-        # 2. time_base allowed values: p1_relative, omission_relative, other_declared
-        allowed_time_bases = {"p1_relative", "omission_relative", "other_declared"}
-        if self.time_base not in allowed_time_bases:
-            errors.append(f"Invalid time_base '{self.time_base}'. Must be one of {allowed_time_bases}.")
+        # 2. time_base allowed values
+        if self.time_base and self.time_base not in ALLOWED_TIME_BASES:
+            errors.append(f"Invalid time_base '{self.time_base}'. Must be one of {ALLOWED_TIME_BASES}.")
             
         # 3. dims must match signal_class expectation when data has shape:
         # SPK/SUA -> trial, unit, time
@@ -42,12 +61,8 @@ class SignalBlock:
             if len(self.dims) != len(shape):
                 errors.append(f"Dimension length {len(self.dims)} must match data shape rank {len(shape)}.")
             
-            if self.signal_class in ["SPK", "SUA"]:
-                expected_dims = ("trial", "unit", "time")
-                if tuple(self.dims) != expected_dims:
-                    errors.append(f"Expected dims {expected_dims} for signal_class '{self.signal_class}', got {self.dims}.")
-            elif self.signal_class in ["MUAe", "LFP"]:
-                expected_dims = ("trial", "channel", "time")
+            if self.signal_class in SIGNAL_CLASS_DIMS:
+                expected_dims = SIGNAL_CLASS_DIMS[self.signal_class]
                 if tuple(self.dims) != expected_dims:
                     errors.append(f"Expected dims {expected_dims} for signal_class '{self.signal_class}', got {self.dims}.")
                     
@@ -61,7 +76,7 @@ class SignalBlock:
         # 5. warnings required if area labels contain generic V3
         has_generic_v3 = False
         for area in self.area_labels:
-            if area.strip() == "V3":
+            if area.strip() in GENERIC_UNRESOLVED_AREAS:
                 has_generic_v3 = True
                 break
         if has_generic_v3:
@@ -72,8 +87,8 @@ class SignalBlock:
         # 6. truth_status must remain truth_safe_unverified unless explicitly validated later
         if not self.truth_status:
             errors.append("Truth status must be specified.")
-        elif self.truth_status != "truth_safe_unverified":
-            errors.append("Truth status must remain 'truth_safe_unverified'.")
+        elif self.truth_status != TRUTH_SAFE_UNVERIFIED:
+            errors.append(f"Truth status must remain '{TRUTH_SAFE_UNVERIFIED}'.")
             
         return errors
 

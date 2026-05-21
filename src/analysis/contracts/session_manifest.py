@@ -1,6 +1,12 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime
+from src.analysis.contracts.constants import (
+    TRUTH_SAFE_UNVERIFIED,
+    AREA_ALIASES,
+    GENERIC_UNRESOLVED_AREAS,
+    REQUIRED_SESSION_MANIFEST_FIELDS
+)
 
 @dataclass
 class ConditionInfo:
@@ -76,7 +82,7 @@ class SessionManifest:
     generated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     generated_by: str = "build_session_manifest.py"
     git_commit: Optional[str] = None
-    truth_status: str = "truth_safe_unverified"
+    truth_status: str = TRUTH_SAFE_UNVERIFIED
     warnings: List[str] = field(default_factory=list)
 
     def __post_init__(self):
@@ -102,9 +108,7 @@ class SessionManifest:
     @staticmethod
     def normalize_area(area: str) -> str:
         area = area.strip()
-        if area in ["DP", "DP (V4)"]:
-            return "V4"
-        return area
+        return AREA_ALIASES.get(area, area)
 
     def is_fixture(self) -> bool:
         return self.subject == "FixtureSubject" or self.session_id in ["230630_fixture", "230719_fixture"]
@@ -117,27 +121,32 @@ class SessionManifest:
     def validate(self) -> List[str]:
         errors = []
         
-        # 1. subject and session_id required
-        if not self.subject:
-            errors.append("Subject is required.")
-        if not self.session_id:
-            errors.append("Session ID is required.")
+        # 1. required fields
+        for field_name in REQUIRED_SESSION_MANIFEST_FIELDS:
+            val = getattr(self, field_name, None)
+            if not val:
+                if field_name == "subject":
+                    errors.append("Subject is required.")
+                elif field_name == "session_id":
+                    errors.append("Session ID is required.")
+                elif field_name == "truth_status":
+                    errors.append("Truth status must be specified.")
+                else:
+                    errors.append(f"Field '{field_name}' is required.")
             
-        # 2. truth_status must exist
-        if not self.truth_status:
-            errors.append("Truth status must be specified.")
-        elif self.truth_status != "truth_safe_unverified":
-            errors.append("Truth status must remain 'truth_safe_unverified' under Phase 2 doctrine.")
+        # 2. truth_status constraints
+        if self.truth_status and self.truth_status != TRUTH_SAFE_UNVERIFIED:
+            errors.append(f"Truth status must remain '{TRUTH_SAFE_UNVERIFIED}' under Phase 2 doctrine.")
 
         # 3. generic V3 must produce a warning unless explicitly resolved
         has_generic_v3 = False
         for area in self.channel_counts_by_area.keys():
-            if self.normalize_area(area) == "V3" and self.area_resolution_status.get(area) != "resolved":
+            if self.normalize_area(area) in GENERIC_UNRESOLVED_AREAS and self.area_resolution_status.get(area) != "resolved":
                 has_generic_v3 = True
         
         # Check area mappings for generic V3
         for m in self.area_mappings:
-            if self.normalize_area(m.area) == "V3" and m.resolution_status != "resolved":
+            if self.normalize_area(m.area) in GENERIC_UNRESOLVED_AREAS and m.resolution_status != "resolved":
                 has_generic_v3 = True
 
         if has_generic_v3:
