@@ -160,9 +160,9 @@
     }
   ],
   "units": [],
-  "generated_at": "2026-05-20T16:31:14.307301",
+  "generated_at": "2026-05-20T23:09:29.037629",
   "generated_by": "build_session_manifest.py",
-  "git_commit": "c22299c46e02ef01447b54ad5f50312e8f4eeed4",
+  "git_commit": "afe70de1d3e84e5d51c0b8dd919ed448de2996d1",
   "truth_status": "truth_safe_unverified",
   "warnings": [
     "Area V3 on Probe 2 is UNRESOLVED generic V3."
