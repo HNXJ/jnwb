@@ -1,0 +1,14 @@
+session_id,n_files,n_metadata_files,n_array_files,has_spk,has_muae,has_lfp,has_behavior,has_manifest,has_condition_metadata,conditions_detected,missing_core_conditions,warnings,truth_status
+230629,61,0,61,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230630,86,1,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
+230714,61,0,61,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230719,73,0,73,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,"Probe 1 uses DP alias, normalized to V4.",truth_safe_unverified
+230720,61,0,61,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230721,61,0,61,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230816,85,0,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
+230818,86,1,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230823,85,0,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
+230825,85,0,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230830,86,1,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
+230831,85,0,85,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified
+230901,73,0,73,True,False,True,False,False,False,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,None,truth_safe_unverified

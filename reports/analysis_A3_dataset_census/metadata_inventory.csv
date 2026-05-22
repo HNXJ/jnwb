@@ -1,0 +1,4 @@
+session_id,basename,extension,detected_metadata_role,detected_columns_or_keys,has_area_tokens,has_condition_tokens,has_trial_tokens,has_unit_tokens,has_channel_tokens,warnings,truth_status
+230630,units_ses-230630.csv,.csv,metadata,"id,waveform_duration,waveform_halfwidth,firing_rate,presence_ratio,snr,peak_channel_id",False,False,False,False,True,None,truth_safe_unverified
+230818,units_ses-230818.csv,.csv,metadata,"id,waveform_duration,waveform_halfwidth,firing_rate,presence_ratio,snr,peak_channel_id",False,False,False,False,True,None,truth_safe_unverified
+230830,units_ses-230830.csv,.csv,metadata,"id,waveform_duration,waveform_halfwidth,firing_rate,presence_ratio,snr,peak_channel_id",False,False,False,False,True,None,truth_safe_unverified
