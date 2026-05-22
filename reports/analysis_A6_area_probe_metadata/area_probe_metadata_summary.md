@@ -7,8 +7,7 @@ This analytical command center report summarizes Phase A6 anatomical mappings li
 - **Total Sessions Mapped**: 13
 - **Sessions with Fully Resolved Metadata**: 3
 - **Sessions Lacking Unit Metadata CSVs**: 10
-- **Probes Resolved deterministically**: 60
-- **LFP Channels Mapped**: 476 channels
+- **Probes Mapped**: 60
 - **Generic V3 Labels Encountered**: 4 (retains `unresolved_generic_v3` status)
 - **DP -> V4 Aliases Applied**: 1 (aliased DP/DP (V4) -> V4)
 
@@ -17,25 +16,46 @@ This analytical command center report summarizes Phase A6 anatomical mappings li
 - **Provenance**: Mapped based on the canonical `session-area-mapping.md` logic allocating 128 channel offsets sequentially per active probe.
 - **Validation**: All LFP/MUAe file dimensions in A5 shape inventory have been audited to confirm no channel count contradictions.
 
-## Anatomical Mappings & Axis Resolution Statuses
-- **Metadata-Resolved Channels/Probes (`metadata_resolved_channel`)**: 366 (Single-area probes with deterministic 0-128 boundaries)
-- **Heuristic Equal Segment (`heuristic_equal_segment`)**: 0 (Multi-area probes partitioned equally using equal area segmentations)
-- **Generic V3 (`unresolved_generic_v3`)**: 110 (Probes containing exact V3 labels left split-unresolved)
-- **Unmapped (`unmapped_no_metadata`)**: 4370 (No mapping information available)
+## Denominator Split Analytics
 
-## Unit-Axis Join Status Summary
-- **`invalid_peak_channel`**: 0
-- **`missing_peak_channel`**: 0
-- **`missing_unit_metadata`**: 4370
-- **`not_applicable`**: 0
-- **`row_order_assumed_unvalidated`**: 0
-- **`row_order_provenance_confirmed`**: 1482
-- **`unit_id_join`**: 0
-- **`unresolved_unit_axis_order`**: 0
+### Probe Area Resolution Status Counts (`probe_area_resolution_status_counts`)
+- **`heuristic_equal_segment`**: 0 probes
+- **`metadata_resolved_channel`**: 9 probes
+- **`metadata_resolved_equal_segment`**: 47 probes
+- **`unmapped_no_metadata`**: 0 probes
+- **`unresolved_generic_v3`**: 4 probes
 
-- **Metadata-Resolved Units**: 1432
-- **Heuristic Units**: 0
-- **Unresolved Units**: 4480
+### LFP Channel Area Resolution Status Counts (`lfp_channel_area_resolution_status_counts`)
+- **`heuristic_equal_segment`**: 0 channels
+- **`metadata_resolved_channel`**: 1152 channels
+- **`metadata_resolved_equal_segment`**: 2965 channels
+- **`unmapped_no_metadata`**: 0 channels
+- **`unresolved_generic_v3`**: 235 channels
+
+### SPK Unit Area Resolution Status Counts (`spk_unit_area_resolution_status_counts`)
+- **`heuristic_equal_segment`**: 0 units
+- **`invalid_probe`**: 0 units
+- **`metadata_resolved_channel`**: 0 units
+- **`metadata_resolved_equal_segment`**: 0 units
+- **`provisional_unit_area_from_count_matched_row_order`**: 1376 units
+- **`unknown_area`**: 0 units
+- **`unmapped_no_metadata`**: 4370 units
+- **`unresolved_generic_v3`**: 106 units
+
+### Unit-Axis Join Status Counts (`unit_axis_join_status_counts`)
+- **`invalid_peak_channel`**: 0 units
+- **`missing_peak_channel`**: 0 units
+- **`missing_unit_metadata`**: 4370 units
+- **`not_applicable`**: 0 units
+- **`row_order_assumed_unvalidated`**: 0 units
+- **`row_order_count_matched_unvalidated`**: 1482 units
+- **`row_order_provenance_confirmed`**: 0 units
+- **`unit_id_join`**: 0 units
+- **`unresolved_unit_axis_order`**: 0 units
+
+### Unit Area Manuscript-Safe Counts (`unit_area_manuscript_safe_counts`)
+- **`false`**: 5852 units
+- **`true`**: 0 units
 
 ## Session Metadata Inventory
 | Session ID | Subject ID | Recording Date | Metadata Status | Warnings / Context |

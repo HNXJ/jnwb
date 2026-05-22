@@ -154,7 +154,8 @@ For a mixed case boundaries are calculated using np.linspace(0, 128, n_labels + 
         "--a5-dir", str(a5_dir),
         "--out-dir", str(out_dir),
         "--mapping-file", str(mapping_file),
-        "--subjects-file", str(subjects_file)
+        "--subjects-file", str(subjects_file),
+        "--provenance-confirmed-sessions", "230630"
     ]
     
     with patch.object(sys, "argv", test_args):
@@ -539,3 +540,189 @@ def test_area_probe_metadata_integration_with_heuristic(tmp_path):
     u5 = units_inv[units_inv["unit_index"] == 5].iloc[0]
     assert u5["canonical_area_label"] == "V2"
     assert u5["area_resolution_status"] == "heuristic_equal_segment"
+
+def test_a6_1_provenance_and_safety(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    metadata_dir = data_root / "metadata"
+    metadata_dir.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    # 10 units expected from SPK shape
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 10, 1000)", "SPK", "AAAB"])
+        
+    # Write a units CSV with matching count of 10 rows
+    units_file = metadata_dir / "units_ses-230630.csv"
+    with open(units_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["unit_id", "peak_channel_id", "snr", "presence_ratio"])
+        for idx in range(10):
+            writer.writerow([idx, 10, 3.5, 0.99])
+            
+    # Run 1: WITHOUT explicit provenance confirmation
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file)
+    ]
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    units_inv = pd.read_csv(out_dir / "unit_area_inventory.csv")
+    assert (units_inv["unit_axis_join_status"] == "row_order_count_matched_unvalidated").all()
+    assert (units_inv["manuscript_safe_unit_area"] == False).all()
+    assert (units_inv["area_resolution_status"] == "provisional_unit_area_from_count_matched_row_order").all()
+    
+    # Run 2: WITH command-line provenance confirmation
+    test_args_prov = test_args + ["--provenance-confirmed-sessions", "230630"]
+    with patch.object(sys, "argv", test_args_prov):
+        build_area_probe_metadata()
+        
+    units_inv_prov = pd.read_csv(out_dir / "unit_area_inventory.csv")
+    assert (units_inv_prov["unit_axis_join_status"] == "row_order_provenance_confirmed").all()
+    assert (units_inv_prov["manuscript_safe_unit_area"] == True).all()
+    assert (units_inv_prov["area_resolution_status"] == "metadata_resolved_channel").all()
+    
+    # Run 3: WITH provenance JSON file in metadata
+    prov_json_file = metadata_dir / "units_ses-230630_provenance.json"
+    prov_json_file.write_text('{"provenance_confirmed": true}', encoding="utf-8")
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    units_inv_file = pd.read_csv(out_dir / "unit_area_inventory.csv")
+    assert (units_inv_file["unit_axis_join_status"] == "row_order_provenance_confirmed").all()
+    assert (units_inv_file["manuscript_safe_unit_area"] == True).all()
+    prov_json_file.unlink() # cleanup
+
+def test_a6_1_unit_id_join_preference(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    metadata_dir = data_root / "metadata"
+    metadata_dir.mkdir()
+    manifests_dir = data_root / "manifests"
+    manifests_dir.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    # 2 units expected from SPK shape
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 2, 1000)", "SPK", "AAAB"])
+        
+    # Write session manifest JSON with units mapping
+    manifest_file = manifests_dir / "session_230630_manifest.json"
+    manifest_data = {
+        "units": [
+            {"probe": 0, "local_index": 0, "unit_id": "unit_A"},
+            {"probe": 0, "local_index": 1, "unit_id": "unit_B"}
+        ]
+    }
+    with open(manifest_file, "w") as f:
+        json.dump(manifest_data, f)
+        
+    # Write units CSV with unit_id column matching manifest unit_ids
+    units_file = metadata_dir / "units_ses-230630.csv"
+    with open(units_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["unit_id", "peak_channel_id", "snr", "presence_ratio"])
+        writer.writeheader()
+        writer.writerow({"unit_id": "unit_A", "peak_channel_id": 10, "snr": 3.5, "presence_ratio": 0.99})
+        writer.writerow({"unit_id": "unit_B", "peak_channel_id": 20, "snr": 3.5, "presence_ratio": 0.99})
+        
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file)
+    ]
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    units_inv = pd.read_csv(out_dir / "unit_area_inventory.csv")
+    assert (units_inv["unit_axis_join_status"] == "unit_id_join").all()
+    assert (units_inv["manuscript_safe_unit_area"] == True).all()
+    assert (units_inv["area_resolution_status"] == "metadata_resolved_channel").all()
+
+def test_a6_1_summary_json_denominators(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    metadata_dir = data_root / "metadata"
+    metadata_dir.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 5, 1000)", "SPK", "AAAB"])
+        
+    units_file = metadata_dir / "units_ses-230630.csv"
+    with open(units_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["unit_id", "peak_channel_id", "snr", "presence_ratio"])
+        for idx in range(5):
+            writer.writerow([idx, 10, 3.5, 0.99])
+            
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file)
+    ]
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    with open(out_dir / "area_probe_metadata_summary.json", "r") as f:
+        summary_json = json.load(f)
+        
+    assert summary_json["truth_status"] == "truth_safe_unverified"
+    
+    # Check that split denominator counts are present and populated
+    assert "probe_area_resolution_status_counts" in summary_json
+    assert "lfp_channel_area_resolution_status_counts" in summary_json
+    assert "spk_unit_area_resolution_status_counts" in summary_json
+    assert "unit_axis_join_status_counts" in summary_json
+    assert "unit_area_manuscript_safe_counts" in summary_json
+    
+    assert summary_json["probe_area_resolution_status_counts"]["metadata_resolved_channel"] == 1
+    assert summary_json["spk_unit_area_resolution_status_counts"]["provisional_unit_area_from_count_matched_row_order"] == 5
+    assert summary_json["unit_axis_join_status_counts"]["row_order_count_matched_unvalidated"] == 5
+    assert summary_json["unit_area_manuscript_safe_counts"]["false"] == 5

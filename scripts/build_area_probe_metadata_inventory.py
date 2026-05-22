@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument("--mapping-file", help="Path to master session-area-mapping.md")
     parser.add_argument("--subjects-file", help="Path to subjects.json")
     parser.add_argument("--allow-heuristic", action="store_true", help="Allow linear partition heuristic fallback when unit metadata CSV is missing or unresolved")
+    parser.add_argument("--provenance-confirmed-sessions", nargs="*", default=[], help="List of sessions where row order provenance is confirmed explicitly")
     return parser.parse_args()
 
 def normalize_area(area: str) -> str:
@@ -176,22 +177,49 @@ def main():
     signal_semantics_records = []
     warning_records = []
     
-    # Counters for JSON summary
-    metadata_resolved_channel_count = 0
-    metadata_resolved_equal_segment_count = 0
-    heuristic_equal_segment_count = 0
-    unresolved_generic_v3_count = 0
-    unmapped_no_metadata_count = 0
+    # Split summary counts by denominator
+    probe_area_resolution_status_counts = {
+        "metadata_resolved_channel": 0,
+        "metadata_resolved_equal_segment": 0,
+        "heuristic_equal_segment": 0,
+        "unresolved_generic_v3": 0,
+        "unmapped_no_metadata": 0
+    }
     
-    unit_join_counts = {
+    lfp_channel_area_resolution_status_counts = {
+        "metadata_resolved_channel": 0,
+        "metadata_resolved_equal_segment": 0,
+        "heuristic_equal_segment": 0,
+        "unresolved_generic_v3": 0,
+        "unmapped_no_metadata": 0
+    }
+    
+    spk_unit_area_resolution_status_counts = {
+        "metadata_resolved_channel": 0,
+        "metadata_resolved_equal_segment": 0,
+        "provisional_unit_area_from_count_matched_row_order": 0,
+        "heuristic_equal_segment": 0,
+        "unresolved_generic_v3": 0,
+        "unmapped_no_metadata": 0,
+        "invalid_probe": 0,
+        "unknown_area": 0
+    }
+    
+    unit_axis_join_status_counts = {
         "unit_id_join": 0,
         "row_order_provenance_confirmed": 0,
+        "row_order_count_matched_unvalidated": 0,
         "row_order_assumed_unvalidated": 0,
         "missing_unit_metadata": 0,
         "missing_peak_channel": 0,
         "invalid_peak_channel": 0,
         "unresolved_unit_axis_order": 0,
         "not_applicable": 0
+    }
+    
+    unit_area_manuscript_safe_counts = {
+        "true": 0,
+        "false": 0
     }
     
     sessions_lacking_metadata_count = 0
@@ -303,15 +331,15 @@ def main():
                 
         # Load unit metadata DataFrame if available
         df_units = None
+        counts_match = False
         provenance_confirmed = False
         if has_units_csv and not channel_contradiction:
             try:
                 df_units = pd.read_csv(csv_path)
-                # Verify row-order provenance
                 if len(df_units) == n_total_spk_units:
-                    provenance_confirmed = True
+                    counts_match = True
                 else:
-                    msg = f"Session {s_id} units CSV row count ({len(df_units)}) mismatches A5 units sum ({n_total_spk_units}). Provenance unconfirmed."
+                    msg = f"Session {s_id} units CSV row count ({len(df_units)}) mismatches A5 units sum ({n_total_spk_units})."
                     s_warns.append(msg)
                     warning_records.append({
                         "session_id": s_id,
@@ -326,6 +354,7 @@ def main():
         # Check if unit_id exists on both sides (manifest-side vs CSV-side)
         join_by_unit_id_possible = False
         manifest_units = []
+        manifest_provenance_confirmed = False
         manifest_path = Path(args.data_root) / "manifests" / f"session_{s_id}_manifest.json"
         if not manifest_path.exists():
             manifest_path = Path(args.data_root) / "manifests" / f"{s_id}.json"
@@ -334,6 +363,8 @@ def main():
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     manifest_data = json.load(f)
+                    if manifest_data.get("row_order_provenance_confirmed") is True or manifest_data.get("unit_row_order_provenance_confirmed") is True:
+                        manifest_provenance_confirmed = True
                     manifest_units = manifest_data.get("units", [])
                     if manifest_units and isinstance(manifest_units, list):
                         first = manifest_units[0]
@@ -341,6 +372,17 @@ def main():
                             join_by_unit_id_possible = True
             except Exception:
                 pass
+                
+        # Check if explicit provenance file exists
+        prov_file_exists = (Path(args.data_root) / "metadata" / f"units_ses-{s_id}_provenance.json").exists()
+        
+        if counts_match:
+            if (
+                manifest_provenance_confirmed
+                or s_id in getattr(args, "provenance_confirmed_sessions", [])
+                or prov_file_exists
+            ):
+                provenance_confirmed = True
                 
         # Build CSV-side units map by ID
         csv_id_col = None
@@ -374,18 +416,16 @@ def main():
                 if canonical_area == "V3":
                     res_status = "unresolved_generic_v3"
                     generic_v3_count += 1
-                    unresolved_generic_v3_count += 1
                 elif entry["is_multi_area"]:
                     if explicit_equal:
                         res_status = "metadata_resolved_equal_segment"
-                        metadata_resolved_equal_segment_count += 1
                     else:
                         res_status = "heuristic_equal_segment"
-                        heuristic_equal_segment_count += 1
                 else:
                     # Single area mapped deterministically to entire probe
                     res_status = "metadata_resolved_channel"
-                    metadata_resolved_channel_count += 1
+                    
+                probe_area_resolution_status_counts[res_status] += 1
                     
                 probe_area_records.append({
                     "session_id": s_id,
@@ -428,6 +468,7 @@ def main():
                                 ch_status = "metadata_resolved_channel"
                             break
                         
+                lfp_channel_area_resolution_status_counts[ch_status] += 1
                 channel_area_records.append({
                     "session_id": s_id,
                     "signal_class": "LFP",
@@ -524,8 +565,8 @@ def main():
                             u_status = "unmapped_no_metadata"
                             join_status = "missing_peak_channel"
                             
-                    elif provenance_confirmed:
-                        join_status = "row_order_provenance_confirmed"
+                    elif counts_match:
+                        join_status = "row_order_provenance_confirmed" if provenance_confirmed else "row_order_count_matched_unvalidated"
                         offset = probe_offsets[p_id]
                         global_idx = offset + u_idx
                         
@@ -559,6 +600,8 @@ def main():
                                             u_raw = entry["raw_area"]
                                             if u_area == "V3":
                                                 u_status = "unresolved_generic_v3"
+                                            elif not provenance_confirmed:
+                                                u_status = "provisional_unit_area_from_count_matched_row_order"
                                             elif entry["is_multi_area"]:
                                                 if explicit_equal:
                                                     u_status = "metadata_resolved_equal_segment"
@@ -616,19 +659,16 @@ def main():
                         u_status = "unmapped_no_metadata"
                         u_warns.append("No unit metadata CSV file found")
                         
+                # Determine manuscript safety
+                is_safe = "false"
+                if join_status in ["unit_id_join", "row_order_provenance_confirmed"]:
+                    if u_status in ["metadata_resolved_channel", "metadata_resolved_equal_segment"]:
+                        is_safe = "true"
+                
                 # Update status counts
-                if u_status == "metadata_resolved_channel":
-                    metadata_resolved_channel_count += 1
-                elif u_status == "metadata_resolved_equal_segment":
-                    metadata_resolved_equal_segment_count += 1
-                elif u_status == "heuristic_equal_segment":
-                    heuristic_equal_segment_count += 1
-                elif u_status == "unresolved_generic_v3":
-                    unresolved_generic_v3_count += 1
-                elif u_status == "unmapped_no_metadata":
-                    unmapped_no_metadata_count += 1
-                    
-                unit_join_counts[join_status] = unit_join_counts.get(join_status, 0) + 1
+                spk_unit_area_resolution_status_counts[u_status] = spk_unit_area_resolution_status_counts.get(u_status, 0) + 1
+                unit_axis_join_status_counts[join_status] = unit_axis_join_status_counts.get(join_status, 0) + 1
+                unit_area_manuscript_safe_counts[is_safe] = unit_area_manuscript_safe_counts.get(is_safe, 0) + 1
                 
                 unit_area_records.append({
                     "session_id": s_id,
@@ -643,6 +683,7 @@ def main():
                     "area_group": get_area_group(u_area) if u_area else "Unknown",
                     "area_resolution_status": u_status,
                     "unit_axis_join_status": join_status,
+                    "manuscript_safe_unit_area": is_safe,
                     "source_file": csv_name if has_units_csv else "session-area-mapping.md",
                     "warnings": "; ".join(u_warns) if u_warns else "None"
                 })
@@ -732,7 +773,7 @@ def main():
         "session_id", "unit_id", "unit_index", "sorting_quality_or_status",
         "peak_channel_or_status", "anchor_channel_or_status", "probe_id_or_status",
         "raw_area_label", "canonical_area_label", "area_group", "area_resolution_status",
-        "unit_axis_join_status", "source_file", "warnings"
+        "unit_axis_join_status", "manuscript_safe_unit_area", "source_file", "warnings"
     ], unit_area_records)
     
     save_csv(out_dir / "signal_axis_semantics_inventory.csv", [
@@ -745,12 +786,6 @@ def main():
         "session_id", "probe_id", "warning_type", "detail", "truth_status"
     ], warning_records)
     
-    # Calculate resolved/heuristic/unresolved unit counts
-    total_spk_units = len(unit_area_records)
-    metadata_resolved_units = metadata_resolved_channel_count + metadata_resolved_equal_segment_count
-    heuristic_units = heuristic_equal_segment_count
-    unresolved_units = unresolved_generic_v3_count + unmapped_no_metadata_count
-    
     # Save JSON summary
     summary_json = {
         "truth_status": TRUTH_SAFE_UNVERIFIED,
@@ -760,15 +795,11 @@ def main():
         "probes_resolved": probes_resolved_count,
         "channels_per_probe": CHANNELS_PER_PROBE,
         "channels_per_probe_provenance": "session-area-mapping.md lists sequential 128 channels per probe (e.g. 0-127, 128-255).",
-        "metadata_resolved_channel_count": metadata_resolved_channel_count,
-        "metadata_resolved_equal_segment_count": metadata_resolved_equal_segment_count,
-        "heuristic_equal_segment_count": heuristic_equal_segment_count,
-        "unresolved_generic_v3_count": unresolved_generic_v3_count,
-        "unmapped_no_metadata_count": unmapped_no_metadata_count,
-        "unit_axis_join_status_counts": unit_join_counts,
-        "metadata_resolved_units": metadata_resolved_units,
-        "heuristic_units": heuristic_units,
-        "unresolved_units": unresolved_units,
+        "probe_area_resolution_status_counts": probe_area_resolution_status_counts,
+        "lfp_channel_area_resolution_status_counts": lfp_channel_area_resolution_status_counts,
+        "spk_unit_area_resolution_status_counts": spk_unit_area_resolution_status_counts,
+        "unit_axis_join_status_counts": unit_axis_join_status_counts,
+        "unit_area_manuscript_safe_counts": unit_area_manuscript_safe_counts,
         "generic_v3_labels_encountered": generic_v3_count,
         "dp_v4_aliases_applied": dp_v4_count,
         "one_probe_one_area_assumption_used": False,
@@ -787,9 +818,25 @@ def main():
             f"| `{row['session_id']}` | `{row['subject_id_or_status']}` | `{row['recording_date_or_status']}` | `{row['metadata_status']}` | `{row['warnings']}` |"
         )
         
+    probe_status_rows = []
+    for k, v in sorted(probe_area_resolution_status_counts.items()):
+        probe_status_rows.append(f"- **`{k}`**: {v} probes")
+        
+    lfp_status_rows = []
+    for k, v in sorted(lfp_channel_area_resolution_status_counts.items()):
+        lfp_status_rows.append(f"- **`{k}`**: {v} channels")
+        
+    spk_status_rows = []
+    for k, v in sorted(spk_unit_area_resolution_status_counts.items()):
+        spk_status_rows.append(f"- **`{k}`**: {v} units")
+        
     join_rows = []
-    for k, v in sorted(unit_join_counts.items()):
-        join_rows.append(f"- **`{k}`**: {v}")
+    for k, v in sorted(unit_axis_join_status_counts.items()):
+        join_rows.append(f"- **`{k}`**: {v} units")
+        
+    safe_rows = []
+    for k, v in sorted(unit_area_manuscript_safe_counts.items()):
+        safe_rows.append(f"- **`{k}`**: {v} units")
         
     md_content = f"""# Omission Phase A6 Area/Probe Metadata Inventory
 **Truth Status**: `{TRUTH_SAFE_UNVERIFIED}`
@@ -800,8 +847,7 @@ This analytical command center report summarizes Phase A6 anatomical mappings li
 - **Total Sessions Mapped**: {summary_json['total_sessions']}
 - **Sessions with Fully Resolved Metadata**: {summary_json['sessions_with_resolved_metadata']}
 - **Sessions Lacking Unit Metadata CSVs**: {summary_json['sessions_lacking_metadata']}
-- **Probes Resolved deterministically**: {summary_json['probes_resolved']}
-- **LFP Channels Mapped**: {metadata_resolved_channel_count + heuristic_equal_segment_count + unresolved_generic_v3_count} channels
+- **Probes Mapped**: {summary_json['probes_resolved']}
 - **Generic V3 Labels Encountered**: {summary_json['generic_v3_labels_encountered']} (retains `unresolved_generic_v3` status)
 - **DP -> V4 Aliases Applied**: {summary_json['dp_v4_aliases_applied']} (aliased DP/DP (V4) -> V4)
 
@@ -810,18 +856,22 @@ This analytical command center report summarizes Phase A6 anatomical mappings li
 - **Provenance**: Mapped based on the canonical `session-area-mapping.md` logic allocating 128 channel offsets sequentially per active probe.
 - **Validation**: All LFP/MUAe file dimensions in A5 shape inventory have been audited to confirm no channel count contradictions.
 
-## Anatomical Mappings & Axis Resolution Statuses
-- **Metadata-Resolved Channels/Probes (`metadata_resolved_channel`)**: {metadata_resolved_channel_count} (Single-area probes with deterministic 0-128 boundaries)
-- **Heuristic Equal Segment (`heuristic_equal_segment`)**: {heuristic_equal_segment_count} (Multi-area probes partitioned equally using equal area segmentations)
-- **Generic V3 (`unresolved_generic_v3`)**: {unresolved_generic_v3_count} (Probes containing exact V3 labels left split-unresolved)
-- **Unmapped (`unmapped_no_metadata`)**: {unmapped_no_metadata_count} (No mapping information available)
+## Denominator Split Analytics
 
-## Unit-Axis Join Status Summary
+### Probe Area Resolution Status Counts (`probe_area_resolution_status_counts`)
+{chr(10).join(probe_status_rows)}
+
+### LFP Channel Area Resolution Status Counts (`lfp_channel_area_resolution_status_counts`)
+{chr(10).join(lfp_status_rows)}
+
+### SPK Unit Area Resolution Status Counts (`spk_unit_area_resolution_status_counts`)
+{chr(10).join(spk_status_rows)}
+
+### Unit-Axis Join Status Counts (`unit_axis_join_status_counts`)
 {chr(10).join(join_rows)}
 
-- **Metadata-Resolved Units**: {summary_json['metadata_resolved_units']}
-- **Heuristic Units**: {summary_json['heuristic_units']}
-- **Unresolved Units**: {summary_json['unresolved_units']}
+### Unit Area Manuscript-Safe Counts (`unit_area_manuscript_safe_counts`)
+{chr(10).join(safe_rows)}
 
 ## Session Metadata Inventory
 | Session ID | Subject ID | Recording Date | Metadata Status | Warnings / Context |
