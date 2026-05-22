@@ -88,9 +88,12 @@ def test_area_probe_metadata_integration(tmp_path):
     with open(subjects_file, "w") as f:
         json.dump(subjects_content, f)
         
-    # 2. Mapping markdown
+    # 2. Mapping markdown (with explicit equal segmentation rule declared)
     mapping_file = tmp_path / "session-area-mapping.md"
     mapping_content = """# Session-Area Mapping
+This mapping table uses equal segmentation partitioning. Labels like V1, V2 imply a 50/50 split of the 128 channels.
+For a mixed case boundaries are calculated using np.linspace(0, 128, n_labels + 1).
+
 | Session | Probe | Area | Total Ch |
 | :--- | :--- | :--- | :--- |
 | 230630 | 0 | V1, V2 | 128 |
@@ -211,7 +214,7 @@ def test_area_probe_metadata_integration(tmp_path):
     assert u14_row.iloc[0]["area_resolution_status"] == "invalid_probe"
     
     # SPK unit area assignment uses peak/anchor channel if provided
-    # unit 0 is peak ch 30 -> V1
+    # unit 0 is peak ch 30 -> V1 (is_multi_area and explicit_equal was true -> metadata_resolved_equal_segment)
     u0_row = units_inv[units_inv["unit_id"] == "ses-230630_probe0_unit0"]
     assert u0_row.iloc[0]["canonical_area_label"] == "V1"
     assert u0_row.iloc[0]["area_resolution_status"] == "metadata_resolved_equal_segment"
@@ -262,6 +265,228 @@ def test_area_probe_metadata_integration(tmp_path):
         summary_json = json.load(f)
     assert summary_json["truth_status"] == "truth_safe_unverified"
     assert summary_json["raw_payload_or_npy_payload_read"] is False
+
+def test_area_probe_metadata_inferred_vs_explicit_equal_segmentation(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    # Mapping table WITHOUT explicit equal segmentation declaration
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | V1, V2 | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 10, 1000)", "SPK", "AAAB"])
+        
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file),
+        "--allow-heuristic"
+    ]
+    
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    # Read probe inventory and verify that multi-area segment defaults to heuristic_equal_segment
+    probe_inv = pd.read_csv(out_dir / "probe_area_inventory.csv")
+    assert (probe_inv["area_resolution_status"] == "heuristic_equal_segment").all()
+
+def test_explicit_channel_boundaries(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    # Mapping table with PFC (single area -> explicit channel boundaries 0-128 exist)
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 10, 1000)", "SPK", "AAAB"])
+        
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file)
+    ]
+    
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    # Single-area probe has explicit boundaries, returns metadata_resolved_channel
+    probe_inv = pd.read_csv(out_dir / "probe_area_inventory.csv")
+    assert (probe_inv["area_resolution_status"] == "metadata_resolved_channel").all()
+
+def test_unit_csv_row_order_mapping_rejected_without_provenance(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    metadata_dir = data_root / "metadata"
+    metadata_dir.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    # 10 units expected from SPK shape, but CSV only has 5 rows -> provenance mismatch!
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 10, 1000)", "SPK", "AAAB"])
+        
+    units_file = metadata_dir / "units_ses-230630.csv"
+    with open(units_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "peak_channel_id", "snr", "presence_ratio"])
+        for idx in range(5):
+            writer.writerow([idx, 10, 3.5, 0.99])
+            
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file)
+    ]
+    
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    # Read units table and verify that it has unresolved_unit_axis_order and unmapped_no_metadata
+    units_inv = pd.read_csv(out_dir / "unit_area_inventory.csv")
+    assert (units_inv["unit_axis_join_status"] == "unresolved_unit_axis_order").all()
+    assert (units_inv["area_resolution_status"] == "unmapped_no_metadata").all()
+
+def test_unresolved_unit_axis_order_blocks_metadata_resolved(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    metadata_dir = data_root / "metadata"
+    metadata_dir.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    # 10 units expected, CSV has 5 rows -> blocks metadata-resolved unit-area mapping
+    # But since --allow-heuristic is active, it falls back to heuristic_equal_segment
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 10, 1000)", "SPK", "AAAB"])
+        
+    units_file = metadata_dir / "units_ses-230630.csv"
+    with open(units_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "peak_channel_id", "snr", "presence_ratio"])
+        for idx in range(5):
+            writer.writerow([idx, 10, 3.5, 0.99])
+            
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file),
+        "--allow-heuristic"
+    ]
+    
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    units_inv = pd.read_csv(out_dir / "unit_area_inventory.csv")
+    assert (units_inv["unit_axis_join_status"] == "unresolved_unit_axis_order").all()
+    assert (units_inv["area_resolution_status"] == "heuristic_equal_segment").all()
+
+def test_no_absolute_paths_in_defaults():
+    import inspect
+    from scripts import build_area_probe_metadata_inventory
+    
+    # Inspect build_area_probe_metadata_inventory source code
+    source = inspect.getsource(build_area_probe_metadata_inventory)
+    
+    # Check that no hardcoded absolute drive letters are defined as string constants (outside comments/recepits)
+    # The default args in parse_args should be relative
+    for line in source.splitlines():
+        if "default=" in line or "parser.add_argument" in line:
+            assert "D:\\" not in line
+            assert "C:\\" not in line
+            assert "/Users/" not in line
+
+def test_summary_json_contains_truth_safe_unverified(tmp_path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    a5_dir = tmp_path / "a5_reports"
+    a5_dir.mkdir()
+    out_dir = tmp_path / "a6_reports"
+    
+    mapping_file = tmp_path / "session-area-mapping.md"
+    mapping_content = """# Session-Area Mapping
+| Session | Probe | Area | Total Ch |
+| :--- | :--- | :--- | :--- |
+| 230630 | 0 | PFC | 128 |
+"""
+    mapping_file.write_text(mapping_content, encoding="utf-8")
+    
+    a5_inventory_path = a5_dir / "signal_shape_inventory.csv"
+    with open(a5_inventory_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["session_id", "basename", "extension", "shape", "signal_class_inferred", "condition_inferred"])
+        writer.writerow(["230630", "ses230630-probe0-spk-AAAB.npy", ".npy", "(40, 10, 1000)", "SPK", "AAAB"])
+        
+    test_args = [
+        "build_area_probe_metadata_inventory.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--out-dir", str(out_dir),
+        "--mapping-file", str(mapping_file)
+    ]
+    
+    with patch.object(sys, "argv", test_args):
+        build_area_probe_metadata()
+        
+    with open(out_dir / "area_probe_metadata_summary.json", "r") as f:
+        summary_json = json.load(f)
+        
+    assert summary_json["truth_status"] == "truth_safe_unverified"
 
 def test_area_probe_metadata_integration_with_heuristic(tmp_path):
     # Test heuristic path with --allow-heuristic

@@ -1,8 +1,24 @@
 {
   "session_id": "230630",
+  "subject": "FixtureSubject",
   "subject_id": "FixtureSubject",
   "recording_date": null,
+  "task": null,
   "manifest_version": "1.0",
+  "condition_code_map": {},
+  "trial_counts_by_condition": {},
+  "probe_ids": [],
+  "area_by_probe_channel_range": {},
+  "channel_counts_by_area": {},
+  "unit_counts_by_area": {},
+  "unit_peak_or_anchor_channels": null,
+  "area_resolution_status": {},
+  "exclusions": [],
+  "signal_availability": {
+    "SPK": false,
+    "MUAe": false,
+    "LFP": false
+  },
   "has_spk": false,
   "has_muae": false,
   "has_lfp": true,
@@ -160,9 +176,11 @@
     }
   ],
   "units": [],
-  "generated_at": "2026-05-21T00:08:51.160507",
+  "source_files": [],
+  "hashes": {},
+  "generated_at": "2026-05-22T15:05:38.669757",
   "generated_by": "build_session_manifest.py",
-  "git_commit": "3bd729289957e73df0feadc44a3cc934a915778c",
+  "git_commit": "7eadc22b96f6b54fdd9c6fbc0584978c9f07d230",
   "truth_status": "truth_safe_unverified",
   "warnings": [
     "Area V3 on Probe 2 is UNRESOLVED generic V3."
