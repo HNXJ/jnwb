@@ -169,7 +169,7 @@ def render_md_report(results_list: list) -> str:
         }
         
         for check, status in r["checks"].items():
-            status_emoji = "✅ Passed" if status == "passed" else ("⚠️ Warning" if status == "warn" else "❌ Failed")
+            status_emoji = "[Passed]" if status == "passed" else ("[Warning]" if status == "warn" else "[Failed]")
             lines.append(f"| `{check}` | {status_emoji} | {check_desc.get(check, '')} |")
         lines.append("")
 
