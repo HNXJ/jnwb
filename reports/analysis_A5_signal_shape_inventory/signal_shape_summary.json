@@ -1,0 +1,27 @@
+{
+  "truth_status": "truth_safe_unverified",
+  "total_sessions": 13,
+  "sessions": [
+    "230629",
+    "230630",
+    "230714",
+    "230719",
+    "230720",
+    "230721",
+    "230816",
+    "230818",
+    "230823",
+    "230825",
+    "230830",
+    "230831",
+    "230901"
+  ],
+  "npy_shape_inspected_count": 972,
+  "blocked_raw_formats_count": 13,
+  "unexpected_shapes_count": 0,
+  "sessions_ready_for_A6": 13,
+  "spk_complete_sessions_count": 13,
+  "lfp_complete_sessions_count": 13,
+  "muae_complete_sessions_count": 0,
+  "warnings_count": 0
+}
