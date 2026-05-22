@@ -1,0 +1,14 @@
+session_id,n_conditions_detected,conditions_detected,missing_conditions,has_all_A_family,has_all_B_family,has_all_R_family,has_all_p2_omissions,has_all_p3_omissions,has_all_p4_omissions,readiness_for_A5,warnings,truth_status
+230629,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230630,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230714,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230719,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230720,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230721,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230816,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230818,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230823,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230825,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230830,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230831,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
+230901,12,"AAAB,AAAX,AAXB,AXAB,BBBA,BBBX,BBXA,BXBA,RRRR,RRRX,RRXR,RXRR",None,yes,yes,yes,yes,yes,yes,yes,None,truth_safe_unverified
