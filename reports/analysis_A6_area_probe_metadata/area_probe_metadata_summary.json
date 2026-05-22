@@ -1,0 +1,16 @@
+{
+  "truth_status": "truth_safe_unverified",
+  "total_sessions": 13,
+  "sessions_with_resolved_metadata": 3,
+  "sessions_lacking_metadata": 10,
+  "probes_resolved": 60,
+  "lfp_channels_resolved": 4352,
+  "lfp_channels_unresolved": 0,
+  "spk_units_resolved": 1482,
+  "spk_units_unresolved": 4370,
+  "generic_v3_labels_encountered": 4,
+  "dp_v4_aliases_applied": 1,
+  "one_probe_one_area_assumption_used": false,
+  "equal_segment_heuristic_used": false,
+  "raw_payload_or_npy_payload_read": false
+}

@@ -1,0 +1,14 @@
+session_id,subject_id_or_status,recording_date_or_status,indexed_in_A5,spk_available,lfp_available,muae_available,metadata_source,metadata_status,warnings
+230629,NHP_A,2023-06-29,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230630,NHP_A,2023-06-30,yes,yes,yes,no,session-area-mapping.md + units_ses-230630.csv,resolved,None
+230714,NHP_A,2023-07-14,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230719,NHP_A,2023-07-19,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230720,NHP_A,2023-07-20,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230721,NHP_A,2023-07-21,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230816,NHP_B,2023-08-16,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230818,NHP_B,2023-08-18,yes,yes,yes,no,session-area-mapping.md + units_ses-230818.csv,resolved,None
+230823,NHP_B,2023-08-23,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230825,NHP_B,2023-08-25,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230830,NHP_B,2023-08-30,yes,yes,yes,no,session-area-mapping.md + units_ses-230830.csv,resolved,None
+230831,NHP_B,2023-08-31,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
+230901,NHP_B,2023-09-01,yes,yes,yes,no,session-area-mapping.md,partial_no_unit_metadata,No unit metadata CSV found; unit resolution unmapped
