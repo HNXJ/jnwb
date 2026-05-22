@@ -311,3 +311,119 @@ def test_cli_tiny_npy_smoke(monkeypatch):
     with pytest.raises(SystemExit) as excinfo:
         main()
     assert excinfo.value.code == 0
+
+
+def test_semantic_mismatch_guards(tmp_path):
+    import numpy as np
+    
+    # Create different types of dummy files
+    spk_file = tmp_path / "ses230630-units-probe0-spk-RRXR.npy"
+    lfp_file = tmp_path / "ses230630-probe0-lfp-RRXR.npy"
+    mua_file = tmp_path / "ses230630-probe0-mua-RRXR.npy"
+    unknown_file = tmp_path / "ses230630-probe0-other.npy"
+    
+    dummy_arr = np.ones((2, 2, 10))
+    np.save(spk_file, dummy_arr)
+    np.save(lfp_file, dummy_arr)
+    np.save(mua_file, dummy_arr)
+    np.save(unknown_file, dummy_arr)
+    
+    # 1. SPK file token with requested LFP is blocked before read.
+    req1 = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="LFP",
+        source_path=str(spk_file),
+        allow_real_data=True
+    )
+    res1 = load_bounded_real_slice(req1)
+    assert res1.status == "blocked"
+    assert "signal_class_source_mismatch" in res1.errors
+    # 7. raw_array_contents_read is False on mismatch.
+    assert res1.raw_array_contents_read is False
+
+    # 2. LFP file token with requested SPK is blocked before read.
+    req2 = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(lfp_file),
+        allow_real_data=True
+    )
+    res2 = load_bounded_real_slice(req2)
+    assert res2.status == "blocked"
+    assert "signal_class_source_mismatch" in res2.errors
+    assert res2.raw_array_contents_read is False
+
+    # 3. MUAe file token with requested SPK is blocked before read.
+    req3 = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(mua_file),
+        allow_real_data=True
+    )
+    res3 = load_bounded_real_slice(req3)
+    assert res3.status == "blocked"
+    assert "signal_class_source_mismatch" in res3.errors
+    assert res3.raw_array_contents_read is False
+
+    # 4. SPK file token with requested SPK succeeds for tiny tmp_path npy.
+    req4 = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(spk_file),
+        allow_real_data=True
+    )
+    res4 = load_bounded_real_slice(req4)
+    assert res4.status == "loaded_bounded_slice"
+    assert res4.raw_array_contents_read is True
+    assert res4.signal_block is not None
+
+    # 5. SPK file token with requested SUA is allowed with warning
+    req5 = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SUA",
+        source_path=str(spk_file),
+        allow_real_data=True
+    )
+    res5 = load_bounded_real_slice(req5)
+    assert res5.status == "loaded_bounded_slice"
+    assert res5.raw_array_contents_read is True
+    assert any("compatible with requested SUA" in w for w in res5.warnings)
+
+    # 6. Unknown filename token can proceed with warning if all other gates pass.
+    req6 = BoundedSliceRequest(
+        session_id="test_session",
+        signal_class="SPK",
+        source_path=str(unknown_file),
+        allow_real_data=True
+    )
+    res6 = load_bounded_real_slice(req6)
+    assert res6.status == "loaded_bounded_slice"
+    assert res6.raw_array_contents_read is True
+    assert any("Unknown signal class compatibility" in w for w in res6.warnings)
+
+    # 9. No private D:/drive path in tests.
+    assert "D:/drive" not in str(spk_file)
+    # 10. No production raw data in tests.
+
+
+def test_cli_semantic_mismatch_blocked(monkeypatch, tmp_path):
+    # 8. CLI returns blocked report for mismatched source/signal class.
+    import sys
+    import numpy as np
+    from scripts.validate_bounded_signal_slice import main
+    
+    spk_file = tmp_path / "ses230630-units-probe0-spk-RRXR.npy"
+    dummy_arr = np.ones((2, 2, 10))
+    np.save(spk_file, dummy_arr)
+    
+    monkeypatch.setattr(sys, "argv", [
+        "validate_bounded_signal_slice.py",
+        "--allow-real-data",
+        "--source-path", str(spk_file),
+        "--signal-class", "LFP"
+    ])
+    
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 0
+

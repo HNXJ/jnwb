@@ -47,6 +47,49 @@ def can_read_tiny_npy_slice(request: BoundedSliceRequest) -> Tuple[bool, List[st
     return len(errors) == 0, errors
 
 
+def infer_signal_class_from_path(path: str) -> str | None:
+    """
+    Infers the compatible signal class from filename/path tokens.
+    Rules:
+    - filename/path tokens containing `spk`, `spike`, `unit`, `units`, `sua` imply SPK/SUA-compatible (returns 'SPK').
+    - tokens containing `lfp` imply LFP-compatible (returns 'LFP').
+    - tokens containing `mua`, `muae` imply MUAe-compatible (returns 'MUAe').
+    - unknown returns None and emits warning.
+    """
+    import warnings
+    from pathlib import Path
+    name = Path(path).name.lower()
+    if any(tok in name for tok in ("spk", "spike", "unit", "units", "sua")):
+        return "SPK"
+    if "lfp" in name:
+        return "LFP"
+    if any(tok in name for tok in ("mua", "muae")):
+        return "MUAe"
+    
+    warnings.warn(f"Could not infer signal class compatibility from path tokens: {name}")
+    return None
+
+
+def is_compatible_signal_class(inferred: str | None, requested: str) -> bool:
+    """
+    Checks if inferred signal class from filename tokens is compatible with the requested signal class.
+    Rules:
+    - SPK and SUA are compatible with each other.
+    - LFP must not be accepted for SPK/unit files.
+    - MUAe must not be accepted for SPK/unit files.
+    - Unknown (inferred is None) is allowed to proceed with warning.
+    """
+    if inferred is None:
+        return True
+    if inferred == "SPK":
+        return requested in ("SPK", "SUA")
+    if inferred == "LFP":
+        return requested == "LFP"
+    if inferred == "MUAe":
+        return requested == "MUAe"
+    return False
+
+
 def read_tiny_npy_slice(request: BoundedSliceRequest) -> BoundedSliceResult:
     """
     Reads a highly bounded slice from an allowlisted local .npy file.
@@ -119,6 +162,31 @@ def read_tiny_npy_slice(request: BoundedSliceRequest) -> BoundedSliceResult:
                 raw_array_contents_read=False,
                 truth_status=request.truth_status
             )
+
+    # Infer source signal class and validate semantic compatibility
+    inferred = infer_signal_class_from_path(request.source_path)
+    if not is_compatible_signal_class(inferred, request.signal_class):
+        return BoundedSliceResult(
+            status="blocked",
+            request=req_dict,
+            signal_block=None,
+            errors=["signal_class_source_mismatch"],
+            warnings=[
+                f"Requested signal_class '{request.signal_class}' is incompatible with inferred class '{inferred}' from source path '{request.source_path}'."
+            ],
+            bytes_read_estimate=0,
+            source_path=request.source_path,
+            raw_array_contents_read=False,
+            truth_status=request.truth_status
+        )
+
+    warnings_list = []
+    if inferred is None:
+        warnings_list.append(f"Unknown signal class compatibility for source path: {request.source_path}")
+    elif inferred == "SPK" and request.signal_class == "SUA":
+        warnings_list.append(
+            "Source file contains SPK/units, which is compatible with requested SUA but may have different unit-level semantics."
+        )
 
     try:
         path = Path(request.source_path)
@@ -195,7 +263,7 @@ def read_tiny_npy_slice(request: BoundedSliceRequest) -> BoundedSliceResult:
             baseline_ms=None,
             area_resolution_status={uid: "real_metadata_derived" for uid in unit_or_channel_ids},
             source_files=[path.name],
-            warnings=[],
+            warnings=warnings_list,
             provenance=provenance,
             truth_status=TRUTH_SAFE_UNVERIFIED
         )
@@ -205,7 +273,7 @@ def read_tiny_npy_slice(request: BoundedSliceRequest) -> BoundedSliceResult:
             request=req_dict,
             signal_block=block,
             errors=[],
-            warnings=[],
+            warnings=warnings_list,
             bytes_read_estimate=bytes_read,
             source_path=request.source_path,
             raw_array_contents_read=True,

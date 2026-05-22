@@ -2,7 +2,7 @@
   "status": "loaded_bounded_slice",
   "request": {
     "session_id": "cli_smoke_session",
-    "signal_class": "LFP",
+    "signal_class": "SPK",
     "source_path": "D:\\workspace\\data\\arrays\\ses230630-units-probe0-spk-RRXR.npy",
     "max_trials": 1,
     "max_units_or_channels": 2,
@@ -19,11 +19,11 @@
   "truth_status": "truth_safe_unverified",
   "has_signal_block": true,
   "signal_block_summary": {
-    "signal_class": "LFP",
+    "signal_class": "SPK",
     "session_id": "cli_smoke_session",
     "dims": [
       "trial",
-      "channel",
+      "unit",
       "time"
     ],
     "shape": [
