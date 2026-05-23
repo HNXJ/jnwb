@@ -1,0 +1,7 @@
+contrast_name,condition_set,contrast_type,test_window,control_window,matched_control_condition,correction_required,notes
+stimulus_vs_baseline,All,within-unit,stimulus_p1,baseline_fx,None,Bonferroni-Holm,Stimulus activation check
+omission_vs_local_baseline,Omission conditions,within-unit,omission_local_window,late_pre_omission_baseline,None,Bonferroni-Holm,Omission response check
+omission_vs_matched_stimulus,Omission conditions,cross-condition,omission_local_window,matched_stimulus_window,Matched control,FDR BH,Omission vs stimulus baseline check
+slot_specific_omission,Omission conditions,slot-comparison,omission_local_window,matched_control_slot,Matched control,FDR BH,Slot specific omission contrasts
+family_specific_contrast,A/B/R families,family-comparison,omission_local_window,baseline_fx,None,FDR BH,Contrast family comparisons
+post_omission_gain_hypothesis,Omission conditions,hypothesis_only,post_omission_delay,late_pre_omission_baseline,None,None,"Post-omission gain contrast, hypothesis_only"

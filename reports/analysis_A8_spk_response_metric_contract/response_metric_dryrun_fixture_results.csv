@@ -1,0 +1,6 @@
+session_id,unit_id,condition,fr_baseline_fx,fr_stimulus_p1,fr_omission_p2,fr_omission_baseline,fr_control_omission,delta_stimulus_vs_baseline,delta_omission_vs_baseline,delta_omission_vs_matched_stimulus,post_omission_gain_index_prototype,candidate_prototype_label,output_class,biological_interpretation_allowed
+dry_run_fixture,unit_0,AXAB,0.300,0.847,17.232,1.500,1.224,0.547,15.732,16.008,-0.114,X_candidate,prototype_metric_output,false
+dry_run_fixture,unit_1,AXAB,0.900,23.258,1.224,0.750,1.036,22.358,0.474,0.188,0.103,S+,prototype_metric_output,false
+dry_run_fixture,unit_2,AXAB,21.100,0.000,20.998,19.750,19.021,-21.100,1.248,1.977,0.612,S-,prototype_metric_output,false
+dry_run_fixture,unit_3,AXAB,19.100,18.362,0.000,22.500,19.680,-0.738,-22.500,-19.680,-2.777,O-,prototype_metric_output,false
+dry_run_fixture,unit_4,AXAB,3.100,2.919,3.296,2.250,4.143,-0.181,1.046,-0.847,0.522,O+,prototype_metric_output,false
