@@ -1,0 +1,11 @@
+{
+  "data_root": "D:\\workspace\\data",
+  "out_dir": "reports/analysis_A8_1_spk_response_metrics",
+  "unit_batch_size": 64,
+  "max_sessions": null,
+  "max_units_per-file": null,
+  "dry_run": false,
+  "q_threshold": 0.05,
+  "effect_threshold": 0.3,
+  "git_commit": "566d603d0ec1436edb948e53bd0fdb9de0265e19"
+}

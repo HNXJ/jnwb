@@ -1,0 +1,14 @@
+session_id,n_units_evaluated,n_trials_used,n_S_plus_candidate,n_S_minus_candidate,n_O_plus_candidate,n_O_minus_candidate,n_X_candidate,n_null_or_unclassified,correction_scope,biological_interpretation_allowed,area_hierarchy_allowed,manuscript_safe_response_class,warnings
+230629,354,84668,107,56,0,0,0,191,within_session_all_units_all_primary_contrasts,false,false,false,None
+230630,88,27555,42,23,0,0,0,23,within_session_all_units_all_primary_contrasts,false,false,false,None
+230714,423,362235,248,14,0,0,0,161,within_session_all_units_all_primary_contrasts,false,false,false,None
+230719,288,251490,123,8,0,0,0,157,within_session_all_units_all_primary_contrasts,false,false,false,None
+230720,181,191468,97,3,0,0,0,81,within_session_all_units_all_primary_contrasts,false,false,false,None
+230721,220,168693,20,30,0,0,0,170,within_session_all_units_all_primary_contrasts,false,false,false,None
+230816,141,312375,67,32,0,0,0,42,within_session_all_units_all_primary_contrasts,false,false,false,None
+230818,192,357331,76,32,9,14,22,39,within_session_all_units_all_primary_contrasts,false,false,false,None
+230823,193,204976,67,89,0,0,0,37,within_session_all_units_all_primary_contrasts,false,false,false,None
+230825,173,277415,47,74,0,0,0,52,within_session_all_units_all_primary_contrasts,false,false,false,None
+230830,513,428022,64,30,0,0,0,419,within_session_all_units_all_primary_contrasts,false,false,false,None
+230831,247,327040,67,72,0,0,0,108,within_session_all_units_all_primary_contrasts,false,false,false,None
+230901,508,396024,72,57,0,0,0,379,within_session_all_units_all_primary_contrasts,false,false,false,None

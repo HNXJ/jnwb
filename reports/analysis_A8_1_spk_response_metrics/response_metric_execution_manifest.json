@@ -1,0 +1,29 @@
+{
+  "artifact_id": "A8_1_spk_response_metrics_execution",
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "candidate_metric_execution_not_biological_claim",
+  "git_commit": "566d603d0ec1436edb948e53bd0fdb9de0265e19",
+  "payload_read_policy": "batched_memmap_streaming",
+  "generated_files": [
+    "response_metric_execution_parameters.json",
+    "unit_response_metrics_long.csv",
+    "unit_candidate_labels.csv",
+    "session_candidate_summary_no_area.csv",
+    "condition_slot_family_summary_no_area.csv",
+    "correction_scope_summary.csv",
+    "response_metric_execution_warnings.csv",
+    "response_metric_execution_manifest.json",
+    "response_metric_execution_summary.json",
+    "response_metric_execution_summary.md"
+  ],
+  "hashes": {
+    "response_metric_execution_parameters.json": "f25f99966acc6cbe4ae96989645a21b93f323fd8d848884cec9545d8f4315271",
+    "unit_response_metrics_long.csv": "b0d6746ebfdeb015fd1600f5ad4c03394237288e71528a0c3356513508de520b",
+    "unit_candidate_labels.csv": "b3eb8ee4efec47eda03e0566f1ff5e2cfb1dbe4950ef3ad0238d9690836a2f0a",
+    "session_candidate_summary_no_area.csv": "160c0c7dc594d08d7a06ccae9d254dd7f875f635025dcf4a7c91ff8fd6fe9193",
+    "condition_slot_family_summary_no_area.csv": "5b3ef6c094c1f105c62f138d47401ec24e431d553cdf159eeacf0428085ff962",
+    "correction_scope_summary.csv": "a7045c2942bd82763737d055b76815781f0dfc57acbbdb71ad0a8c256373cd0f",
+    "response_metric_execution_warnings.csv": "c19dab50ab32de5a67373e9750c12a218ace2aed144d89e07bbe1486bfd92b26",
+    "response_metric_execution_summary.json": "4f4eb44c5968123a87493ff86091db7998f083a7a1732f16c1fe6ca64f46171c"
+  }
+}

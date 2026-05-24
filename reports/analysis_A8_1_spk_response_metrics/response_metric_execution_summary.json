@@ -1,0 +1,36 @@
+{
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "candidate_metric_execution_not_biological_claim",
+  "n_sessions_processed": 13,
+  "n_spk_files_processed": 396,
+  "n_units_evaluated": 508,
+  "n_trials_used": 29430,
+  "n_primary_contrasts": 113208,
+  "correction_method": "Benjamini-Hochberg FDR",
+  "correction_scopes": [
+    "within_session_all_units_all_primary_contrasts",
+    "global_all_units_all_primary_contrasts",
+    "per_metric_family"
+  ],
+  "raw_h5_reads": 0,
+  "full_npy_payload_loads": 0,
+  "memmap_batch_processing": true,
+  "biological_interpretation_allowed": false,
+  "area_hierarchy_allowed": false,
+  "manuscript_safe_response_class": false,
+  "manuscript_safe_unit_area_count": 0,
+  "blocked_claims": [
+    "final S+/S-/O+/O-/X biological classifications",
+    "sparse omission-linked spiking claim",
+    "higher-order-weighted spiking claim",
+    "area-wise response class counts",
+    "FEF/PFC enrichment",
+    "manuscript result promotion"
+  ],
+  "allowed_claims": [
+    "unit-level candidate response metric calculations",
+    "paired and cross-condition raw p-values and effect sizes",
+    "Benjamini-Hochberg corrected q-values",
+    "session-level aggregate candidate counts"
+  ]
+}

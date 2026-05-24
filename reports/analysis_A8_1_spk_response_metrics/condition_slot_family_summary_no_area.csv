@@ -1,0 +1,6 @@
+family,omission_slot,n_units_evaluated,n_S_plus_candidate,n_S_minus_candidate,n_O_plus_candidate,n_O_minus_candidate,n_X_candidate,n_null_or_unclassified,biological_interpretation_allowed,area_hierarchy_allowed,manuscript_safe_response_class
+A-family,p4,110,48,28,0,0,0,34,false,false,false
+A-family,None,3521,1097,520,9,14,22,1859,false,false,false
+B-family,None,3521,1097,520,9,14,22,1859,false,false,false
+R-family,p4,179,76,32,9,14,22,26,false,false,false
+R-family,None,3521,1097,520,9,14,22,1859,false,false,false

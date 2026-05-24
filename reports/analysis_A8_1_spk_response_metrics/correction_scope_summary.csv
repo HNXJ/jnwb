@@ -1,0 +1,4 @@
+correction_scope,correction_method,total_contrasts_evaluated,significant_contrasts_count,q_threshold,notes
+within_session_all_units_all_primary_contrasts,Benjamini-Hochberg FDR,113208,26028,0.05,Scope significance analysis
+global_all_units_all_primary_contrasts,Benjamini-Hochberg FDR,113208,26083,0.05,Scope significance analysis
+per_metric_family,Benjamini-Hochberg FDR,113208,27325,0.05,Scope significance analysis
