@@ -1,0 +1,9 @@
+{
+  "a6_dir": "reports/analysis_A6_area_probe_metadata",
+  "a8_1_dir": "reports/analysis_A8_1_spk_response_metrics",
+  "a8_2_dir": "reports/analysis_A8_2_spk_response_metric_sensitivity",
+  "out_dir": "reports/analysis_A8_3_unit_area_mapping_diagnostic",
+  "git_commit": "d911456124ad79edc583d4d9c255473968658853",
+  "generated_at": "2026-05-24T22:02:55.743174+00:00",
+  "truth_status": "truth_safe_unverified"
+}
