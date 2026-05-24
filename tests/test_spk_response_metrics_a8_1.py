@@ -519,3 +519,54 @@ def test_warning_aggregation_outputs_expected_columns(mock_a5_a6_a7_setup, monke
         assert len(rows) > 0
         assert rows[0]["session_id"] == "230630"
         assert rows[0]["warning_type"] == "missing_control"
+
+def test_long_metric_row_counts_match_csv_and_glossary(mock_a5_a6_a7_setup, monkeypatch):
+    a5_dir = mock_a5_a6_a7_setup["a5_dir"]
+    a6_dir = mock_a5_a6_a7_setup["a6_dir"]
+    a7_dir = mock_a5_a6_a7_setup["a7_dir"]
+    a8_dir = mock_a5_a6_a7_setup["a8_dir"]
+    data_root = mock_a5_a6_a7_setup["data_root"]
+    out_dir = mock_a5_a6_a7_setup["out_dir"]
+
+    monkeypatch.setattr("scripts.run_spk_response_metrics_a8_1.get_git_commit", lambda: "mock_commit_a8_1")
+
+    test_args = [
+        "run_spk_response_metrics_a8_1.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--a6-dir", str(a6_dir),
+        "--a7-dir", str(a7_dir),
+        "--a8-dir", str(a8_dir),
+        "--out-dir", str(out_dir)
+    ]
+    with patch("sys.argv", test_args):
+        main()
+
+    # Read long CSV rows
+    with open(out_dir / "unit_response_metrics_long.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        long_rows = list(reader)
+        
+    # Read labels CSV rows
+    with open(out_dir / "unit_candidate_labels.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        label_rows = list(reader)
+
+    # Read summary JSON
+    with open(out_dir / "response_metric_execution_summary.json", "r", encoding="utf-8") as f:
+        summary = json.load(f)
+
+    # Assert exact row match
+    assert len(long_rows) == summary["n_long_metric_rows_total"]
+    assert len(label_rows) == summary["n_unit_candidate_label_rows"]
+
+    primary_count = sum(1 for r in long_rows if r["contrast_name"] in [
+        "stimulus_vs_baseline", "omission_vs_local_baseline", "omission_vs_matched_stimulus"
+    ])
+    auxiliary_count = sum(1 for r in long_rows if r["contrast_name"] not in [
+        "stimulus_vs_baseline", "omission_vs_local_baseline", "omission_vs_matched_stimulus"
+    ])
+
+    assert primary_count == summary["n_primary_contrast_rows"]
+    assert auxiliary_count == summary["n_nonprimary_or_auxiliary_metric_rows"]
+    assert summary["n_long_metric_rows_total"] == primary_count + auxiliary_count

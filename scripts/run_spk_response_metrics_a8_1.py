@@ -651,7 +651,7 @@ def main():
                 if l not in unit_labels_records[key]["candidate_labels"]:
                     unit_labels_records[key]["candidate_labels"].append(l)
             if basis_list:
-                unit_labels_records[key]["candidate_label_basis"] = "; ".join(set(basis_list))
+                unit_labels_records[key]["candidate_label_basis"] = "; ".join(sorted(set(basis_list)))
 
     # Resolve Primary candidate label chosen by deterministic priority
     # X_candidate > O_plus_candidate/O_minus_candidate > S_plus_candidate/S_minus_candidate > null_or_unclassified
@@ -1034,8 +1034,14 @@ def main():
 
     # Save Output 7: response_metric_execution_summary.json
     n_safe_units_count_A6 = 0 # manuscript_safe_unit_area from A6 remains false, so count is 0
-    n_metric_rows = len(long_records)
-    n_primary_contrast_rows = n_metric_rows
+    n_long_metric_rows_total = len(long_records)
+    n_primary_contrast_rows = sum(1 for r in long_records if r["contrast_name"] in [
+        "stimulus_vs_baseline", "omission_vs_local_baseline", "omission_vs_matched_stimulus"
+    ])
+    n_nonprimary_or_auxiliary_metric_rows = sum(1 for r in long_records if r["contrast_name"] not in [
+        "stimulus_vs_baseline", "omission_vs_local_baseline", "omission_vs_matched_stimulus"
+    ])
+    n_unit_candidate_label_rows = len(unit_labels_records)
     global_unit_trial_obs = sum(item["n_unit_trial_observations"] for item in unit_labels_records.values())
 
     glossary = {
@@ -1043,8 +1049,10 @@ def main():
         "n_unique_units_by_session": "Number of unique unit records within a specific recording session.",
         "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
         "n_unit_trial_observations": "Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures).",
-        "n_metric_rows": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
-        "n_primary_contrast_rows": "Total number of condition-level statistical contrasts computed (equal to n_metric_rows)."
+        "n_long_metric_rows_total": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+        "n_primary_contrast_rows": "Number of rows in the long-format database representing primary statistical contrast tests.",
+        "n_nonprimary_or_auxiliary_metric_rows": "Number of rows in the long-format database representing auxiliary/hypothesis metrics without primary statistical contrast tests.",
+        "n_unit_candidate_label_rows": "Total number of unique candidate label rows in the unit candidate labels database (unit_candidate_labels.csv)."
     }
 
     summary_json = {
@@ -1055,8 +1063,10 @@ def main():
         "n_unique_units_global": n_unique_units_global,
         "n_raw_behavioral_trials": n_trials_used,
         "n_unit_trial_observations": global_unit_trial_obs,
-        "n_metric_rows": n_metric_rows,
+        "n_long_metric_rows_total": n_long_metric_rows_total,
         "n_primary_contrast_rows": n_primary_contrast_rows,
+        "n_nonprimary_or_auxiliary_metric_rows": n_nonprimary_or_auxiliary_metric_rows,
+        "n_unit_candidate_label_rows": n_unit_candidate_label_rows,
         "correction_method": "Benjamini-Hochberg FDR",
         "correction_scopes": [
             "within_session_all_units_all_primary_contrasts",
@@ -1139,8 +1149,10 @@ This summary report validates that Phase A8.1 SPK response metrics, statistical 
 - **Total Unique Units Evaluated (Global)**: {summary_json['n_unique_units_global']} units
 - **Total Raw Behavioral Trials Processed**: {summary_json['n_raw_behavioral_trials']} trials
 - **Total Unit-Trial Observations**: {summary_json['n_unit_trial_observations']} unit-trial-condition exposures
-- **Total Metric Rows Generated**: {summary_json['n_metric_rows']} rows
-- **Total Contrasts Computed**: {summary_json['n_primary_contrast_rows']} contrasts
+- **Total Metric Rows Generated (Long CSV)**: {summary_json['n_long_metric_rows_total']} rows
+- **Total Primary Contrast Rows**: {summary_json['n_primary_contrast_rows']} rows
+- **Total Non-Primary/Auxiliary Metric Rows**: {summary_json['n_nonprimary_or_auxiliary_metric_rows']} rows
+- **Total Candidate Label Rows (Labels CSV)**: {summary_json['n_unit_candidate_label_rows']} rows
 - **Multiple-Comparison Correction**: Benjamini-Hochberg FDR
 - **Raw HDF5 Reads**: {summary_json['raw_h5_reads']} (Zero-tolerance passed)
 - **Full NumPy Array Memory Loads**: 0 (Batch-wise memmap streaming verified)
@@ -1153,8 +1165,10 @@ This summary report validates that Phase A8.1 SPK response metrics, statistical 
 | **`n_unique_units_by_session`** | Number of unique unit records within a specific recording session. |
 | **`n_raw_behavioral_trials`** | Number of raw behavioral trials recorded in a single condition session file. |
 | **`n_unit_trial_observations`** | Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures). |
-| **`n_metric_rows`** | Total number of rows in the long-format metrics database (unit_response_metrics_long.csv). |
-| **`n_primary_contrast_rows`** | Total number of condition-level statistical contrasts computed (equal to n_metric_rows). |
+| **`n_long_metric_rows_total`** | Total number of rows in the long-format metrics database (unit_response_metrics_long.csv). |
+| **`n_primary_contrast_rows`** | Number of rows in the long-format database representing primary statistical contrast tests. |
+| **`n_nonprimary_or_auxiliary_metric_rows`** | Number of rows in the long-format database representing auxiliary/hypothesis metrics without primary statistical contrast tests. |
+| **`n_unit_candidate_label_rows`** | Total number of unique candidate label rows in the unit candidate labels database (unit_candidate_labels.csv). |
 
 ## Candidate Response Class Summary (Session-Level Aggregates Only)
 All unit classifications are strictly candidate and labeled with the suffix `_candidate`:

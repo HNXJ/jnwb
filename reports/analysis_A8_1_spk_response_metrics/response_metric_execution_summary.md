@@ -10,8 +10,10 @@ This summary report validates that Phase A8.1 SPK response metrics, statistical 
 - **Total Unique Units Evaluated (Global)**: 3521 units
 - **Total Raw Behavioral Trials Processed**: 29430 trials
 - **Total Unit-Trial Observations**: 3389292 unit-trial-condition exposures
-- **Total Metric Rows Generated**: 39980 rows
-- **Total Contrasts Computed**: 39980 contrasts
+- **Total Metric Rows Generated (Long CSV)**: 39980 rows
+- **Total Primary Contrast Rows**: 39232 rows
+- **Total Non-Primary/Auxiliary Metric Rows**: 748 rows
+- **Total Candidate Label Rows (Labels CSV)**: 3521 rows
 - **Multiple-Comparison Correction**: Benjamini-Hochberg FDR
 - **Raw HDF5 Reads**: 0 (Zero-tolerance passed)
 - **Full NumPy Array Memory Loads**: 0 (Batch-wise memmap streaming verified)
@@ -24,8 +26,10 @@ This summary report validates that Phase A8.1 SPK response metrics, statistical 
 | **`n_unique_units_by_session`** | Number of unique unit records within a specific recording session. |
 | **`n_raw_behavioral_trials`** | Number of raw behavioral trials recorded in a single condition session file. |
 | **`n_unit_trial_observations`** | Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures). |
-| **`n_metric_rows`** | Total number of rows in the long-format metrics database (unit_response_metrics_long.csv). |
-| **`n_primary_contrast_rows`** | Total number of condition-level statistical contrasts computed (equal to n_metric_rows). |
+| **`n_long_metric_rows_total`** | Total number of rows in the long-format metrics database (unit_response_metrics_long.csv). |
+| **`n_primary_contrast_rows`** | Number of rows in the long-format database representing primary statistical contrast tests. |
+| **`n_nonprimary_or_auxiliary_metric_rows`** | Number of rows in the long-format database representing auxiliary/hypothesis metrics without primary statistical contrast tests. |
+| **`n_unit_candidate_label_rows`** | Total number of unique candidate label rows in the unit candidate labels database (unit_candidate_labels.csv). |
 
 ## Candidate Response Class Summary (Session-Level Aggregates Only)
 All unit classifications are strictly candidate and labeled with the suffix `_candidate`:

@@ -6,8 +6,10 @@
   "n_unique_units_global": 3521,
   "n_raw_behavioral_trials": 29430,
   "n_unit_trial_observations": 3389292,
-  "n_metric_rows": 39980,
-  "n_primary_contrast_rows": 39980,
+  "n_long_metric_rows_total": 39980,
+  "n_primary_contrast_rows": 39232,
+  "n_nonprimary_or_auxiliary_metric_rows": 748,
+  "n_unit_candidate_label_rows": 3521,
   "correction_method": "Benjamini-Hochberg FDR",
   "correction_scopes": [
     "within_session_all_units_all_primary_contrasts",
@@ -40,7 +42,9 @@
     "n_unique_units_by_session": "Number of unique unit records within a specific recording session.",
     "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
     "n_unit_trial_observations": "Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures).",
-    "n_metric_rows": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
-    "n_primary_contrast_rows": "Total number of condition-level statistical contrasts computed (equal to n_metric_rows)."
+    "n_long_metric_rows_total": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+    "n_primary_contrast_rows": "Number of rows in the long-format database representing primary statistical contrast tests.",
+    "n_nonprimary_or_auxiliary_metric_rows": "Number of rows in the long-format database representing auxiliary/hypothesis metrics without primary statistical contrast tests.",
+    "n_unit_candidate_label_rows": "Total number of unique candidate label rows in the unit candidate labels database (unit_candidate_labels.csv)."
   }
 }
