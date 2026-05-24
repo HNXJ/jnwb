@@ -7,13 +7,25 @@ This summary report validates that Phase A8.1 SPK response metrics, statistical 
 ## Summary Analytics
 - **Total Sessions Processed**: 13
 - **Total SPK NumPy Files Processed**: 396 files
-- **Total Units Evaluated**: 508 units
-- **Total Trials Processed**: 29430 trials
-- **Total Contrasts Computed**: 113208 contrasts
+- **Total Unique Units Evaluated (Global)**: 3521 units
+- **Total Raw Behavioral Trials Processed**: 29430 trials
+- **Total Unit-Trial Observations**: 3389292 unit-trial-condition exposures
+- **Total Metric Rows Generated**: 39980 rows
+- **Total Contrasts Computed**: 39980 contrasts
 - **Multiple-Comparison Correction**: Benjamini-Hochberg FDR
 - **Raw HDF5 Reads**: 0 (Zero-tolerance passed)
 - **Full NumPy Array Memory Loads**: 0 (Batch-wise memmap streaming verified)
 - **Manuscript Safe Unit Areas**: 0 units
+
+## Denominator Glossary
+| Term | Definition |
+| :--- | :--- |
+| **`n_unique_units_global`** | Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions. |
+| **`n_unique_units_by_session`** | Number of unique unit records within a specific recording session. |
+| **`n_raw_behavioral_trials`** | Number of raw behavioral trials recorded in a single condition session file. |
+| **`n_unit_trial_observations`** | Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures). |
+| **`n_metric_rows`** | Total number of rows in the long-format metrics database (unit_response_metrics_long.csv). |
+| **`n_primary_contrast_rows`** | Total number of condition-level statistical contrasts computed (equal to n_metric_rows). |
 
 ## Candidate Response Class Summary (Session-Level Aggregates Only)
 All unit classifications are strictly candidate and labeled with the suffix `_candidate`:

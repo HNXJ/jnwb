@@ -2,7 +2,7 @@
   "artifact_id": "A8_1_spk_response_metrics_execution",
   "truth_status": "truth_safe_unverified",
   "validation_status": "candidate_metric_execution_not_biological_claim",
-  "git_commit": "566d603d0ec1436edb948e53bd0fdb9de0265e19",
+  "git_commit": "b978a74e2a019d1d2786fad439cd2ddd6f830ef4",
   "payload_read_policy": "batched_memmap_streaming",
   "generated_files": [
     "response_metric_execution_parameters.json",
@@ -12,18 +12,30 @@
     "condition_slot_family_summary_no_area.csv",
     "correction_scope_summary.csv",
     "response_metric_execution_warnings.csv",
+    "warning_summary_by_session_condition_slot.csv",
     "response_metric_execution_manifest.json",
     "response_metric_execution_summary.json",
     "response_metric_execution_summary.md"
   ],
   "hashes": {
-    "response_metric_execution_parameters.json": "f25f99966acc6cbe4ae96989645a21b93f323fd8d848884cec9545d8f4315271",
-    "unit_response_metrics_long.csv": "b0d6746ebfdeb015fd1600f5ad4c03394237288e71528a0c3356513508de520b",
-    "unit_candidate_labels.csv": "b3eb8ee4efec47eda03e0566f1ff5e2cfb1dbe4950ef3ad0238d9690836a2f0a",
-    "session_candidate_summary_no_area.csv": "160c0c7dc594d08d7a06ccae9d254dd7f875f635025dcf4a7c91ff8fd6fe9193",
-    "condition_slot_family_summary_no_area.csv": "5b3ef6c094c1f105c62f138d47401ec24e431d553cdf159eeacf0428085ff962",
+    "response_metric_execution_parameters.json": "4db79d20a7cf1b1fce3894895bed8bd376ecdb397cb8ebe4515ec6e22e58b98d",
+    "unit_response_metrics_long.csv": "265de2967807ec32c6ec16be13fd95cb4a3fe4063c4e46eeeb6d2f702664ea49",
+    "unit_candidate_labels.csv": "eb7a6a4323b7bd01fb30e022253cfff94d6f6399d0bd4acbd0ac7849690f2f45",
+    "session_candidate_summary_no_area.csv": "7bef5ad4c948b126c09f6b14896782d6b7df51dab798aa66bacfb213f7731e75",
+    "condition_slot_family_summary_no_area.csv": "ee50deb0bc2140be94168168148a5d68ce8ea6496f7476363826a52e6c53595e",
     "correction_scope_summary.csv": "a7045c2942bd82763737d055b76815781f0dfc57acbbdb71ad0a8c256373cd0f",
     "response_metric_execution_warnings.csv": "c19dab50ab32de5a67373e9750c12a218ace2aed144d89e07bbe1486bfd92b26",
-    "response_metric_execution_summary.json": "4f4eb44c5968123a87493ff86091db7998f083a7a1732f16c1fe6ca64f46171c"
+    "warning_summary_by_session_condition_slot.csv": "889d8a635671a528934fc35ce1a598e3aece20a0e0f130c3156de333f77f1739",
+    "response_metric_execution_manifest.json": "f1d2bda49643b35fd36f484c609e9ddba031b141a038debdcc63e52708acae14",
+    "response_metric_execution_summary.json": "7e96c9a54ac64568a18d89a09e441b0c97a06ab3c6d7bccfc660c3d2355af306",
+    "response_metric_execution_summary.md": "7378fccfe09551eed604e6da5f6b73765a1f38f863dba5090bc9cf8a75a9b0ce"
+  },
+  "denominator_glossary": {
+    "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
+    "n_unique_units_by_session": "Number of unique unit records within a specific recording session.",
+    "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
+    "n_unit_trial_observations": "Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures).",
+    "n_metric_rows": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+    "n_primary_contrast_rows": "Total number of condition-level statistical contrasts computed (equal to n_metric_rows)."
   }
 }

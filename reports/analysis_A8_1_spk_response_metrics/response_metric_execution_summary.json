@@ -3,9 +3,11 @@
   "validation_status": "candidate_metric_execution_not_biological_claim",
   "n_sessions_processed": 13,
   "n_spk_files_processed": 396,
-  "n_units_evaluated": 508,
-  "n_trials_used": 29430,
-  "n_primary_contrasts": 113208,
+  "n_unique_units_global": 3521,
+  "n_raw_behavioral_trials": 29430,
+  "n_unit_trial_observations": 3389292,
+  "n_metric_rows": 39980,
+  "n_primary_contrast_rows": 39980,
   "correction_method": "Benjamini-Hochberg FDR",
   "correction_scopes": [
     "within_session_all_units_all_primary_contrasts",
@@ -32,5 +34,13 @@
     "paired and cross-condition raw p-values and effect sizes",
     "Benjamini-Hochberg corrected q-values",
     "session-level aggregate candidate counts"
-  ]
+  ],
+  "denominator_glossary": {
+    "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
+    "n_unique_units_by_session": "Number of unique unit records within a specific recording session.",
+    "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
+    "n_unit_trial_observations": "Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures).",
+    "n_metric_rows": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+    "n_primary_contrast_rows": "Total number of condition-level statistical contrasts computed (equal to n_metric_rows)."
+  }
 }

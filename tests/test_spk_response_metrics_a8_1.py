@@ -365,3 +365,157 @@ def test_missing_control_warning(mock_a5_a6_a7_setup, monkeypatch):
         warnings = list(reader)
         assert len(warnings) > 0
         assert any(w["warning_type"] == "missing_control" for w in warnings)
+
+def test_global_unique_units_not_confused_with_session_units(mock_a5_a6_a7_setup, monkeypatch):
+    # Ensures global unique units matches len(unit_labels_records) and is not shadowed by session unit counts
+    a5_dir = mock_a5_a6_a7_setup["a5_dir"]
+    a6_dir = mock_a5_a6_a7_setup["a6_dir"]
+    a7_dir = mock_a5_a6_a7_setup["a7_dir"]
+    a8_dir = mock_a5_a6_a7_setup["a8_dir"]
+    data_root = mock_a5_a6_a7_setup["data_root"]
+    out_dir = mock_a5_a6_a7_setup["out_dir"]
+
+    monkeypatch.setattr("scripts.run_spk_response_metrics_a8_1.get_git_commit", lambda: "mock_commit_a8_1")
+
+    test_args = [
+        "run_spk_response_metrics_a8_1.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--a6-dir", str(a6_dir),
+        "--a7-dir", str(a7_dir),
+        "--a8-dir", str(a8_dir),
+        "--out-dir", str(out_dir)
+    ]
+    with patch("sys.argv", test_args):
+        main()
+
+    with open(out_dir / "response_metric_execution_summary.json", "r", encoding="utf-8") as f:
+        summary = json.load(f)
+        # In our mock setup we have exactly 5 mock units in session 230630.
+        # Global unique units should be exactly 5, and NOT shadowed by anything else.
+        assert summary["n_unique_units_global"] == 5
+
+def test_trial_count_semantics_are_explicit(mock_a5_a6_a7_setup, monkeypatch):
+    # Verifies that trial dimensions are correctly mapped to explicit semantic labels
+    a5_dir = mock_a5_a6_a7_setup["a5_dir"]
+    a6_dir = mock_a5_a6_a7_setup["a6_dir"]
+    a7_dir = mock_a5_a6_a7_setup["a7_dir"]
+    a8_dir = mock_a5_a6_a7_setup["a8_dir"]
+    data_root = mock_a5_a6_a7_setup["data_root"]
+    out_dir = mock_a5_a6_a7_setup["out_dir"]
+
+    monkeypatch.setattr("scripts.run_spk_response_metrics_a8_1.get_git_commit", lambda: "mock_commit_a8_1")
+
+    test_args = [
+        "run_spk_response_metrics_a8_1.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--a6-dir", str(a6_dir),
+        "--a7-dir", str(a7_dir),
+        "--a8-dir", str(a8_dir),
+        "--out-dir", str(out_dir)
+    ]
+    with patch("sys.argv", test_args):
+        main()
+
+    # Read long database
+    with open(out_dir / "unit_response_metrics_long.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames
+        assert "n_raw_behavioral_trials" in headers
+        assert "n_trials" not in headers
+
+    # Read summary JSON
+    with open(out_dir / "response_metric_execution_summary.json", "r", encoding="utf-8") as f:
+        summary = json.load(f)
+        assert "n_raw_behavioral_trials" in summary
+        assert "n_unit_trial_observations" in summary
+        assert "n_trials_used" not in summary
+
+def test_candidate_session_counts_sum_to_session_units(mock_a5_a6_a7_setup, monkeypatch):
+    # Ensures S+, S-, O+, O-, X, and null counts in session_candidate_summary_no_area.csv sum exactly to n_unique_units_by_session.
+    a5_dir = mock_a5_a6_a7_setup["a5_dir"]
+    a6_dir = mock_a5_a6_a7_setup["a6_dir"]
+    a7_dir = mock_a5_a6_a7_setup["a7_dir"]
+    a8_dir = mock_a5_a6_a7_setup["a8_dir"]
+    data_root = mock_a5_a6_a7_setup["data_root"]
+    out_dir = mock_a5_a6_a7_setup["out_dir"]
+
+    monkeypatch.setattr("scripts.run_spk_response_metrics_a8_1.get_git_commit", lambda: "mock_commit_a8_1")
+
+    test_args = [
+        "run_spk_response_metrics_a8_1.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--a6-dir", str(a6_dir),
+        "--a7-dir", str(a7_dir),
+        "--a8-dir", str(a8_dir),
+        "--out-dir", str(out_dir)
+    ]
+    with patch("sys.argv", test_args):
+        main()
+
+    with open(out_dir / "session_candidate_summary_no_area.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            n_eval = int(r["n_unique_units_by_session"])
+            n_s_plus = int(r["n_S_plus_candidate"])
+            n_s_minus = int(r["n_S_minus_candidate"])
+            n_o_plus = int(r["n_O_plus_candidate"])
+            n_o_minus = int(r["n_O_minus_candidate"])
+            n_x_omit = int(r["n_X_candidate"])
+            n_null = int(r["n_null_or_unclassified"])
+            assert n_eval == (n_s_plus + n_s_minus + n_o_plus + n_o_minus + n_x_omit + n_null)
+
+def test_warning_aggregation_outputs_expected_columns(mock_a5_a6_a7_setup, monkeypatch):
+    # Validates structure and content of warning_summary_by_session_condition_slot.csv
+    a5_dir = mock_a5_a6_a7_setup["a5_dir"]
+    a6_dir = mock_a5_a6_a7_setup["a6_dir"]
+    a7_dir = mock_a5_a6_a7_setup["a7_dir"]
+    a8_dir = mock_a5_a6_a7_setup["a8_dir"]
+    data_root = mock_a5_a6_a7_setup["data_root"]
+    out_dir = mock_a5_a6_a7_setup["out_dir"]
+
+    # Delete the control file ses230630-units-probe0-spk-AAAB.npy to trigger missing control warning
+    a7_csv = a7_dir / "spk_smoke_file_inventory.csv"
+    with open(a7_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "session_id", "condition", "signal_class", "source_file", "shape", "dims",
+            "n_trials", "n_units", "n_timepoints", "time_axis_status",
+            "p1_relative_possible", "omission_relative_possible", "payload_read_policy", "warnings"
+        ])
+        writer.writerow([
+            "230630", "AXAB", "SPK", "ses230630-units-probe0-spk-AXAB.npy", "(20, 5, 6000)", "trial, unit, time",
+            "20", "5", "6000", "valid_timebase_6000ms", "true", "true", "memmap", "None"
+        ])
+
+    monkeypatch.setattr("scripts.run_spk_response_metrics_a8_1.get_git_commit", lambda: "mock_commit_a8_1")
+
+    test_args = [
+        "run_spk_response_metrics_a8_1.py",
+        "--data-root", str(data_root),
+        "--a5-dir", str(a5_dir),
+        "--a6-dir", str(a6_dir),
+        "--a7-dir", str(a7_dir),
+        "--a8-dir", str(a8_dir),
+        "--out-dir", str(out_dir)
+    ]
+    with patch("sys.argv", test_args):
+        main()
+
+    # Read warning summary CSV
+    with open(out_dir / "warning_summary_by_session_condition_slot.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames
+        expected_cols = [
+            "session_id", "family", "condition", "omission_slot", "contrast_name",
+            "warning_type", "n_warnings", "affected_metric_rows", "affected_units_if_available",
+            "action_recommendation"
+        ]
+        assert all(col in headers for col in expected_cols)
+        
+        rows = list(reader)
+        assert len(rows) > 0
+        assert rows[0]["session_id"] == "230630"
+        assert rows[0]["warning_type"] == "missing_control"

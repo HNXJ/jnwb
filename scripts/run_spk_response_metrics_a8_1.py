@@ -246,7 +246,7 @@ def main():
     
     n_sessions_processed = 0
     n_spk_files_processed = 0
-    n_units_evaluated = 0
+    n_unique_units_global = 0
     n_trials_used = 0
     n_payload_policy_violations = 0
     n_raw_h5_reads = 0
@@ -475,22 +475,22 @@ def main():
                             # Initial setup in labels map
                             key = (session_id, u_idx)
                             if key not in unit_labels_records:
-                                n_units_evaluated = max(n_units_evaluated, u_idx + 1)
+                                n_unique_units_global = max(n_unique_units_global, u_idx + 1)
                                 unit_labels_records[key] = {
                                     "session_id": session_id,
                                     "source_file": basename,
                                     "unit_axis_index": u_idx,
                                     "n_conditions_available": 0,
-                                    "n_trials_total_used": 0,
+                                    "n_unit_trial_observations": 0,
                                     "candidate_labels": [],
                                     "primary_candidate_label": "null_or_unclassified",
                                     "candidate_label_basis": "No active phenotype detected"
                                 }
                             
                             unit_labels_records[key]["n_conditions_available"] += 1
-                            unit_labels_records[key]["n_trials_total_used"] += n_trials
+                            unit_labels_records[key]["n_unit_trial_observations"] += n_trials
 
-                    n_units_evaluated = len(unit_labels_records)
+                    n_unique_units_global = len(unit_labels_records)
 
                 except Exception as e:
                     warnings_records.append({
@@ -715,7 +715,7 @@ def main():
                 "time_base": t_base,
                 "window_ms": w_ms,
                 "baseline_ms": b_ms,
-                "n_trials": n_trials,
+                "n_raw_behavioral_trials": n_trials,
                 "rate_hz": f"{rate:.3f}",
                 "contrast_name": c_name,
                 "contrast_value_hz": f"{rate:.3f}",
@@ -734,7 +734,7 @@ def main():
     long_fields = [
         "session_id", "source_file", "condition", "family", "omission_slot",
         "unit_axis_index", "metric_name", "window_name", "alignment_event",
-        "time_base", "window_ms", "baseline_ms", "n_trials", "rate_hz",
+        "time_base", "window_ms", "baseline_ms", "n_raw_behavioral_trials", "rate_hz",
         "contrast_name", "contrast_value_hz", "effect_size_name", "effect_size_value",
         "raw_p_value", "q_value", "correction_scope", "candidate_threshold_passed",
         "biological_interpretation_allowed", "area_hierarchy_allowed",
@@ -762,7 +762,7 @@ def main():
             "source_file": item["source_file"],
             "unit_axis_index": u_idx,
             "n_conditions_available": item["n_conditions_available"],
-            "n_trials_total_used": item["n_trials_total_used"],
+            "n_unit_trial_observations": item["n_unit_trial_observations"],
             "candidate_labels": item["candidate_labels"],
             "primary_candidate_label": item["primary_candidate_label"],
             "candidate_label_basis": item["candidate_label_basis"],
@@ -779,7 +779,7 @@ def main():
 
     label_fields = [
         "session_id", "source_file", "unit_axis_index", "n_conditions_available",
-        "n_trials_total_used", "candidate_labels", "primary_candidate_label",
+        "n_unit_trial_observations", "candidate_labels", "primary_candidate_label",
         "candidate_label_basis", "q_threshold", "effect_size_threshold",
         "correction_scope", "manuscript_safe_response_class", "biological_interpretation_allowed",
         "area_hierarchy_allowed", "unit_area_join_status_from_A6", "manuscript_safe_unit_area_from_A6", "warnings"
@@ -796,8 +796,8 @@ def main():
     for s_id in session_ids:
         s_items = [v for k, v in unit_labels_records.items() if k[0] == s_id]
         
-        n_units_evaluated = len(s_items)
-        n_trials_used_s = sum(v["n_trials_total_used"] for v in s_items)
+        n_unique_units_by_session = len(s_items)
+        n_trials_used_s = sum(v["n_unit_trial_observations"] for v in s_items)
         
         n_s_plus = sum(1 for v in s_items if v["primary_candidate_label"] == "S_plus_candidate")
         n_s_minus = sum(1 for v in s_items if v["primary_candidate_label"] == "S_minus_candidate")
@@ -808,8 +808,8 @@ def main():
 
         session_summaries.append({
             "session_id": s_id,
-            "n_units_evaluated": n_units_evaluated,
-            "n_trials_used": n_trials_used_s,
+            "n_unique_units_by_session": n_unique_units_by_session,
+            "n_unit_trial_observations": n_trials_used_s,
             "n_S_plus_candidate": n_s_plus,
             "n_S_minus_candidate": n_s_minus,
             "n_O_plus_candidate": n_o_plus,
@@ -824,7 +824,7 @@ def main():
         })
 
     session_summary_fields = [
-        "session_id", "n_units_evaluated", "n_trials_used",
+        "session_id", "n_unique_units_by_session", "n_unit_trial_observations",
         "n_S_plus_candidate", "n_S_minus_candidate", "n_O_plus_candidate",
         "n_O_minus_candidate", "n_X_candidate", "n_null_or_unclassified",
         "correction_scope", "biological_interpretation_allowed",
@@ -861,7 +861,7 @@ def main():
             cond_summaries.append({
                 "family": family_name,
                 "omission_slot": slot_name,
-                "n_units_evaluated": n_units,
+                "n_unique_units_by_session": n_units,
                 "n_S_plus_candidate": n_s_plus,
                 "n_S_minus_candidate": n_s_minus,
                 "n_O_plus_candidate": n_o_plus,
@@ -874,7 +874,7 @@ def main():
             })
 
     cond_summary_fields = [
-        "family", "omission_slot", "n_units_evaluated",
+        "family", "omission_slot", "n_unique_units_by_session",
         "n_S_plus_candidate", "n_S_minus_candidate", "n_O_plus_candidate",
         "n_O_minus_candidate", "n_X_candidate", "n_null_or_unclassified",
         "biological_interpretation_allowed", "area_hierarchy_allowed", "manuscript_safe_response_class"
@@ -942,17 +942,121 @@ def main():
         if warnings_records:
             writer.writerows(warnings_records)
 
+    # Save Output 6b: warning_summary_by_session_condition_slot.csv
+    warning_aggregations = {}
+    for wr in warnings_records:
+        s_id = wr["session_id"]
+        f_name = wr["file"] or ""
+        w_type = wr["warning_type"]
+        msg = wr["message"]
+        
+        # Parse condition, family, omission_slot
+        condition = "Unknown"
+        for cond in CONDITIONS:
+            if cond in f_name or cond in msg:
+                condition = cond
+                break
+        
+        family = get_condition_family(condition)
+        om_slot = get_omission_position(condition)
+        
+        # Determine contrast name based on warning type/message
+        contrast_name = "all_primary"
+        if "control" in w_type or "control" in msg.lower():
+            contrast_name = "omission_vs_control"
+        elif "baseline" in msg.lower():
+            contrast_name = "omission_vs_baseline"
+        
+        # We group by: (session_id, family, condition, omission_slot, contrast_name, w_type)
+        group_key = (s_id, family, condition, om_slot, contrast_name, w_type)
+        if group_key not in warning_aggregations:
+            warning_aggregations[group_key] = {
+                "n_warnings": 0,
+                "messages": set()
+            }
+        warning_aggregations[group_key]["n_warnings"] += 1
+        warning_aggregations[group_key]["messages"].add(msg)
+
+    # Compute affected units and metric rows for each group
+    session_unit_counts = {}
+    for s_id in session_ids:
+        s_items = [v for k, v in unit_labels_records.items() if k[0] == s_id]
+        session_unit_counts[s_id] = len(s_items) if s_items else 0
+
+    warning_summaries = []
+    for group_key, info in warning_aggregations.items():
+        s_id, family, condition, om_slot, contrast_name, w_type = group_key
+        n_warn = info["n_warnings"]
+        msg_sample = next(iter(info["messages"])) if info["messages"] else ""
+        
+        # Estimate affected units and metric rows
+        n_units_session = session_unit_counts.get(s_id, 0)
+        affected_units = n_units_session if w_type == "load_failed" else 0
+        
+        # Metric rows: if load failed, all 6 contrasts for all units under this condition are affected
+        # If control load failed, omission_vs_control contrast is affected for all units under this condition (1 contrast per unit)
+        if w_type == "load_failed":
+            affected_rows = n_units_session * 6
+        elif "control" in w_type or "control" in msg_sample.lower():
+            affected_rows = n_units_session * 1
+        else:
+            affected_rows = n_units_session
+            
+        # Recommendation
+        rec = "Exclude or stratify this session/slot in sensitivity sweeps."
+        if w_type == "load_failed":
+            rec = "Verify file integrity, check shape and trial dimensions."
+        elif w_type == "h5_blocked":
+            rec = "Verify code behavior to ensure no raw HDF5 reads are made."
+            
+        warning_summaries.append({
+            "session_id": s_id,
+            "family": family,
+            "condition": condition,
+            "omission_slot": om_slot,
+            "contrast_name": contrast_name,
+            "warning_type": w_type,
+            "n_warnings": n_warn,
+            "affected_metric_rows": affected_rows,
+            "affected_units_if_available": affected_units,
+            "action_recommendation": rec
+        })
+
+    warning_summary_fields = [
+        "session_id", "family", "condition", "omission_slot", "contrast_name",
+        "warning_type", "n_warnings", "affected_metric_rows", "affected_units_if_available",
+        "action_recommendation"
+    ]
+    with open(out_dir / "warning_summary_by_session_condition_slot.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=warning_summary_fields)
+        writer.writeheader()
+        writer.writerows(warning_summaries)
+
     # Save Output 7: response_metric_execution_summary.json
     n_safe_units_count_A6 = 0 # manuscript_safe_unit_area from A6 remains false, so count is 0
-    
+    n_metric_rows = len(long_records)
+    n_primary_contrast_rows = n_metric_rows
+    global_unit_trial_obs = sum(item["n_unit_trial_observations"] for item in unit_labels_records.values())
+
+    glossary = {
+        "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
+        "n_unique_units_by_session": "Number of unique unit records within a specific recording session.",
+        "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
+        "n_unit_trial_observations": "Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures).",
+        "n_metric_rows": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+        "n_primary_contrast_rows": "Total number of condition-level statistical contrasts computed (equal to n_metric_rows)."
+    }
+
     summary_json = {
         "truth_status": TRUTH_SAFE_UNVERIFIED,
         "validation_status": "candidate_metric_execution_not_biological_claim",
         "n_sessions_processed": n_sessions_processed,
         "n_spk_files_processed": n_spk_files_processed,
-        "n_units_evaluated": n_units_evaluated,
-        "n_trials_used": n_trials_used,
-        "n_primary_contrasts": len(metrics_records)*6,
+        "n_unique_units_global": n_unique_units_global,
+        "n_raw_behavioral_trials": n_trials_used,
+        "n_unit_trial_observations": global_unit_trial_obs,
+        "n_metric_rows": n_metric_rows,
+        "n_primary_contrast_rows": n_primary_contrast_rows,
         "correction_method": "Benjamini-Hochberg FDR",
         "correction_scopes": [
             "within_session_all_units_all_primary_contrasts",
@@ -979,7 +1083,8 @@ def main():
             "paired and cross-condition raw p-values and effect sizes",
             "Benjamini-Hochberg corrected q-values",
             "session-level aggregate candidate counts"
-        ]
+        ],
+        "denominator_glossary": glossary
     }
 
     with open(out_dir / "response_metric_execution_summary.json", "w", encoding="utf-8") as f:
@@ -994,6 +1099,7 @@ def main():
         "condition_slot_family_summary_no_area.csv",
         "correction_scope_summary.csv",
         "response_metric_execution_warnings.csv",
+        "warning_summary_by_session_condition_slot.csv",
         "response_metric_execution_manifest.json",
         "response_metric_execution_summary.json",
         "response_metric_execution_summary.md"
@@ -1014,7 +1120,8 @@ def main():
         "git_commit": get_git_commit(),
         "payload_read_policy": "batched_memmap_streaming",
         "generated_files": generated_files,
-        "hashes": hashes_dict
+        "hashes": hashes_dict,
+        "denominator_glossary": glossary
     }
     with open(out_dir / "response_metric_execution_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest_json, f, indent=2)
@@ -1029,13 +1136,25 @@ This summary report validates that Phase A8.1 SPK response metrics, statistical 
 ## Summary Analytics
 - **Total Sessions Processed**: {summary_json['n_sessions_processed']}
 - **Total SPK NumPy Files Processed**: {summary_json['n_spk_files_processed']} files
-- **Total Units Evaluated**: {summary_json['n_units_evaluated']} units
-- **Total Trials Processed**: {summary_json['n_trials_used']} trials
-- **Total Contrasts Computed**: {summary_json['n_primary_contrasts']} contrasts
+- **Total Unique Units Evaluated (Global)**: {summary_json['n_unique_units_global']} units
+- **Total Raw Behavioral Trials Processed**: {summary_json['n_raw_behavioral_trials']} trials
+- **Total Unit-Trial Observations**: {summary_json['n_unit_trial_observations']} unit-trial-condition exposures
+- **Total Metric Rows Generated**: {summary_json['n_metric_rows']} rows
+- **Total Contrasts Computed**: {summary_json['n_primary_contrast_rows']} contrasts
 - **Multiple-Comparison Correction**: Benjamini-Hochberg FDR
 - **Raw HDF5 Reads**: {summary_json['raw_h5_reads']} (Zero-tolerance passed)
 - **Full NumPy Array Memory Loads**: 0 (Batch-wise memmap streaming verified)
 - **Manuscript Safe Unit Areas**: 0 units
+
+## Denominator Glossary
+| Term | Definition |
+| :--- | :--- |
+| **`n_unique_units_global`** | Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions. |
+| **`n_unique_units_by_session`** | Number of unique unit records within a specific recording session. |
+| **`n_raw_behavioral_trials`** | Number of raw behavioral trials recorded in a single condition session file. |
+| **`n_unit_trial_observations`** | Sum of trials accumulated across all evaluated units and conditions (unit-condition-trial exposures). |
+| **`n_metric_rows`** | Total number of rows in the long-format metrics database (unit_response_metrics_long.csv). |
+| **`n_primary_contrast_rows`** | Total number of condition-level statistical contrasts computed (equal to n_metric_rows). |
 
 ## Candidate Response Class Summary (Session-Level Aggregates Only)
 All unit classifications are strictly candidate and labeled with the suffix `_candidate`:

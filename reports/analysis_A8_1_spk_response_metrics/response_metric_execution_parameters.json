@@ -7,5 +7,5 @@
   "dry_run": false,
   "q_threshold": 0.05,
   "effect_threshold": 0.3,
-  "git_commit": "566d603d0ec1436edb948e53bd0fdb9de0265e19"
+  "git_commit": "b978a74e2a019d1d2786fad439cd2ddd6f830ef4"
 }
