@@ -2,7 +2,7 @@
   "artifact_id": "A8_2_spk_response_metric_sensitivity",
   "truth_status": "truth_safe_unverified",
   "validation_status": "candidate_metric_execution_not_biological_claim",
-  "git_commit": "6ee763a4a04b9cfc7786758857285914daa40854",
+  "git_commit": "82611952538d142e2c173e9187679c1a626722fa",
   "payload_read_policy": "batched_memmap_streaming",
   "generated_files": [
     "sensitivity_execution_parameters.json",
@@ -17,11 +17,11 @@
     "warning_impact_on_sensitivity.csv"
   ],
   "hashes": {
-    "sensitivity_execution_parameters.json": "8b25eeee3290ac6118c09977f0851692e4876238f9b994789aba93897531acf2",
-    "sensitivity_execution_summary.json": "b6bfa40282f47455ab69e70998b52c500ddf6ce5917567f225ab72f0f7c6d634",
-    "sensitivity_execution_summary.md": "2dbf0c0b443f89d756e82d4eaf001c52fcd2c731e416c84e882ca2d24e4fc256",
+    "sensitivity_execution_parameters.json": "de0640dfe6abcde015becd59a3aee1d0e14475105a6d413ac3f07bba98d1b1e4",
+    "sensitivity_execution_summary.json": "278a742452d3288a9097cab274e81a099f0cfdcc122a58ba0310bf7745aa1d6b",
+    "sensitivity_execution_summary.md": "bfd5c0e650b03eea807eb2215731d063a370e81429512c9663548dd6304f539e",
     "sensitivity_grid_realized.csv": "e27edda2152e13b12dc7a23b2de8190e9fc268c3b438a111a5ce1583146c45eb",
-    "candidate_label_stability_by_unit.csv": "ca9302180e705690a52fd91b123f1b2c7573d4a495a97c7d22d6e35f2dc316ae",
+    "candidate_label_stability_by_unit.csv": "7377cc66553b16e21d90d4957a4c81778caff7a76bd3b7c83acf0f055bb7d997",
     "candidate_label_stability_by_session.csv": "61f8f3d1f64e7a0e5e676920c88a18cbf7576dad281e9c490bf57ff4515bbf9e",
     "candidate_label_stability_by_family_slot.csv": "bd391dc5aeda79a97839b856487d95ee6bbcc90419c6d72bdaba4f235b7c1b4b",
     "x_candidate_stability_table.csv": "cd72048f6144631b81ebbe2dd483f9675c7eebfc365ae8b9dc612d4ea78fce8d",
@@ -31,6 +31,9 @@
   "denominator_glossary": {
     "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
     "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
-    "total_x_candidates_robust": "Total number of unique units that survive and are classified as X_candidate across 6 or more sweep configurations."
+    "n_long_metric_rows_total": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+    "n_primary_contrast_rows": "Number of rows in the long-format database representing primary statistical contrast tests.",
+    "n_nonprimary_or_auxiliary_metric_rows": "Number of rows in the long-format database representing auxiliary/hypothesis metrics without primary statistical contrast tests.",
+    "n_unit_candidate_label_rows": "Total number of unique candidate label rows in the unit candidate labels database (unit_candidate_labels.csv)."
   }
 }

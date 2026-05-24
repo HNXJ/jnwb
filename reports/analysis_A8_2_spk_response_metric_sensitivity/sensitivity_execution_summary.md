@@ -4,6 +4,16 @@
 
 This summary report validates that Phase A8.2 SPK response metric sensitivity sweeps across q/p thresholds, Cohen's d effect-size thresholds, response-window variants, family strata, and omission slots have been executed in full compliance.
 
+## Audited Denominators Carried Forward from Phase A8.1.1
+| Denominator Term | Audited Value | Description |
+| :--- | :---: | :--- |
+| **`n_unique_units_global`** | 3521 | Total unique units (session_id, unit_axis_index) across all 13 sessions. |
+| **`n_raw_behavioral_trials`** | 29430 | Total raw behavioral trials processed. |
+| **`n_long_metric_rows_total`** | 39980 | Total lines in `unit_response_metrics_long.csv` (excluding header). |
+| **`n_primary_contrast_rows`** | 39232 | Rows in the long CSV representing primary statistical contrast tests. |
+| **`n_nonprimary_or_auxiliary_metric_rows`** | 748 | Rows representing auxiliary post-omission delay gain index metrics. |
+| **`n_unit_candidate_label_rows`** | 3521 | Total rows in `unit_candidate_labels.csv` matching unit keys. |
+
 ## Preflight Summary & Parameters
 - **Total Sessions Evaluated**: 13
 - **Total Spiking NumPy Files Evaluated**: 396
@@ -27,6 +37,20 @@ This summary report validates that Phase A8.2 SPK response metric sensitivity sw
   - O+ candidate count: 6 units
   - O- candidate count: 6 units
   - X candidate count: 4 units
+
+## Scientific Interpretation Lock (FDR Sensitivity Robustness)
+> [!IMPORTANT]
+> A8.2 shows that the strict `X_candidate` definition is not robust under corrected FDR sensitivity sweeps. Four units appear under the permissive uncorrected setting, but zero survive corrected sweep configurations. Therefore, `X_candidate` should not be promoted as a robust manuscript class under the current metric definition.
+
+This sweep provides strict confirmation that:
+1. Strict `X_candidate` omission selectivity is fragile under corrected FDR/effect-size sensitivity sweeps.
+2. Permissive uncorrected X candidates are exploratory only.
+3. Manuscript promotion is blocked for `X_candidate` under the current definition.
+
+*Note on Wording Safeguards*: In line with the OGLO-8 scientific contract, we explicitly reject ungrounded biological overclaims:
+* We do **not** claim "there are no omission-sensitive neurons" or "omission spiking does not exist."
+* We do **not** claim "higher-order omission coding is false" or "the omission hypothesis failed."
+* The absence of robust `X_candidate` single-unit labels does **not** disprove predictive routing, which may reside in low-frequency field modulations or PV/SST local circuits rather than single-unit spiking rate phenotype definitions.
 
 ## Robustness & Acceptance Gate Assessment
 

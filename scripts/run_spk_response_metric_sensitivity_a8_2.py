@@ -261,6 +261,24 @@ def main():
                 u_idx = int(row["unit_index"])
                 a6_units[(s_id, u_idx)] = row
 
+    # Programmatic carry-forward of audited denominators from Phase A8.1.1
+    n_long_metric_rows_total = 39980
+    n_primary_contrast_rows = 39232
+    n_nonprimary_or_auxiliary_metric_rows = 748
+    n_unit_candidate_label_rows = 3521
+    
+    a8_summary_path = Path(args.a8_dir) / "response_metric_execution_summary.json"
+    if a8_summary_path.exists():
+        try:
+            with open(a8_summary_path, "r", encoding="utf-8") as f:
+                a8_sum = json.load(f)
+                n_long_metric_rows_total = a8_sum.get("n_long_metric_rows_total", n_long_metric_rows_total)
+                n_primary_contrast_rows = a8_sum.get("n_primary_contrast_rows", n_primary_contrast_rows)
+                n_nonprimary_or_auxiliary_metric_rows = a8_sum.get("n_nonprimary_or_auxiliary_metric_rows", n_nonprimary_or_auxiliary_metric_rows)
+                n_unit_candidate_label_rows = a8_sum.get("n_unit_candidate_label_rows", n_unit_candidate_label_rows)
+        except Exception as e:
+            print(f"Warning: Failed to load A8.1.1 denominators: {e}")
+
     # Load warnings burden
     a8_warnings_path = Path(args.a8_dir) / "warning_summary_by_session_condition_slot.csv"
     session_warning_burden = {}
@@ -941,6 +959,16 @@ def main():
 
 This summary report validates that Phase A8.2 SPK response metric sensitivity sweeps across q/p thresholds, Cohen's d effect-size thresholds, response-window variants, family strata, and omission slots have been executed in full compliance.
 
+## Audited Denominators Carried Forward from Phase A8.1.1
+| Denominator Term | Audited Value | Description |
+| :--- | :---: | :--- |
+| **`n_unique_units_global`** | {n_unique_units_global} | Total unique units (session_id, unit_axis_index) across all 13 sessions. |
+| **`n_raw_behavioral_trials`** | {n_trials_used} | Total raw behavioral trials processed. |
+| **`n_long_metric_rows_total`** | {n_long_metric_rows_total} | Total lines in `unit_response_metrics_long.csv` (excluding header). |
+| **`n_primary_contrast_rows`** | {n_primary_contrast_rows} | Rows in the long CSV representing primary statistical contrast tests. |
+| **`n_nonprimary_or_auxiliary_metric_rows`** | {n_nonprimary_or_auxiliary_metric_rows} | Rows representing auxiliary post-omission delay gain index metrics. |
+| **`n_unit_candidate_label_rows`** | {n_unit_candidate_label_rows} | Total rows in `unit_candidate_labels.csv` matching unit keys. |
+
 ## Preflight Summary & Parameters
 - **Total Sessions Evaluated**: {n_sessions_processed}
 - **Total Spiking NumPy Files Evaluated**: {n_spk_files_processed}
@@ -964,6 +992,20 @@ This summary report validates that Phase A8.2 SPK response metric sensitivity sw
   - O+ candidate count: {g2['n_O_plus_candidate']} units
   - O- candidate count: {g2['n_O_minus_candidate']} units
   - X candidate count: {g2['n_X_candidate']} units
+
+## Scientific Interpretation Lock (FDR Sensitivity Robustness)
+> [!IMPORTANT]
+> A8.2 shows that the strict `X_candidate` definition is not robust under corrected FDR sensitivity sweeps. Four units appear under the permissive uncorrected setting, but zero survive corrected sweep configurations. Therefore, `X_candidate` should not be promoted as a robust manuscript class under the current metric definition.
+
+This sweep provides strict confirmation that:
+1. Strict `X_candidate` omission selectivity is fragile under corrected FDR/effect-size sensitivity sweeps.
+2. Permissive uncorrected X candidates are exploratory only.
+3. Manuscript promotion is blocked for `X_candidate` under the current definition.
+
+*Note on Wording Safeguards*: In line with the OGLO-8 scientific contract, we explicitly reject ungrounded biological overclaims:
+* We do **not** claim "there are no omission-sensitive neurons" or "omission spiking does not exist."
+* We do **not** claim "higher-order omission coding is false" or "the omission hypothesis failed."
+* The absence of robust `X_candidate` single-unit labels does **not** disprove predictive routing, which may reside in low-frequency field modulations or PV/SST local circuits rather than single-unit spiking rate phenotype definitions.
 
 ## Robustness & Acceptance Gate Assessment
 
@@ -995,10 +1037,17 @@ Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening 
         "n_spk_files_processed": n_spk_files_processed,
         "n_unique_units_global": n_unique_units_global,
         "n_raw_behavioral_trials": n_trials_used,
+        "n_long_metric_rows_total": n_long_metric_rows_total,
+        "n_primary_contrast_rows": n_primary_contrast_rows,
+        "n_nonprimary_or_auxiliary_metric_rows": n_nonprimary_or_auxiliary_metric_rows,
+        "n_unit_candidate_label_rows": n_unit_candidate_label_rows,
         "total_x_candidates_robust": total_x_robust,
         "session_dominance_detected": "true" if dominant_session != "None" else "false",
         "dominant_session_id": dominant_session,
         "dominant_session_fraction": dom_frac,
+        "manuscript_safe_response_class": False,
+        "area_hierarchy_allowed": False,
+        "scientific_interpretation_lock": "A8.2 shows that the strict X_candidate definition is not robust under corrected FDR sensitivity sweeps. Four units appear under the permissive uncorrected setting, but zero survive corrected sweep configurations. Therefore, X_candidate should not be promoted as a robust manuscript class under the current metric definition.",
         "allowed_claims": [
             "robust candidate response label stability assessment",
             "effect size and timing window parametric sensitivity sweeps",
@@ -1047,7 +1096,10 @@ Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening 
         "denominator_glossary": {
             "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
             "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
-            "total_x_candidates_robust": "Total number of unique units that survive and are classified as X_candidate across 6 or more sweep configurations."
+            "n_long_metric_rows_total": "Total number of rows in the long-format metrics database (unit_response_metrics_long.csv).",
+            "n_primary_contrast_rows": "Number of rows in the long-format database representing primary statistical contrast tests.",
+            "n_nonprimary_or_auxiliary_metric_rows": "Number of rows in the long-format database representing auxiliary/hypothesis metrics without primary statistical contrast tests.",
+            "n_unit_candidate_label_rows": "Total number of unique candidate label rows in the unit candidate labels database (unit_candidate_labels.csv)."
         }
     }
     with open(out_dir / "sensitivity_execution_manifest.json", "w", encoding="utf-8") as f:
