@@ -1,0 +1,36 @@
+{
+  "artifact_id": "A8_2_spk_response_metric_sensitivity",
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "candidate_metric_execution_not_biological_claim",
+  "git_commit": "6ee763a4a04b9cfc7786758857285914daa40854",
+  "payload_read_policy": "batched_memmap_streaming",
+  "generated_files": [
+    "sensitivity_execution_parameters.json",
+    "sensitivity_execution_summary.json",
+    "sensitivity_execution_summary.md",
+    "sensitivity_grid_realized.csv",
+    "candidate_label_stability_by_unit.csv",
+    "candidate_label_stability_by_session.csv",
+    "candidate_label_stability_by_family_slot.csv",
+    "x_candidate_stability_table.csv",
+    "threshold_window_sensitivity_matrix.csv",
+    "warning_impact_on_sensitivity.csv"
+  ],
+  "hashes": {
+    "sensitivity_execution_parameters.json": "8b25eeee3290ac6118c09977f0851692e4876238f9b994789aba93897531acf2",
+    "sensitivity_execution_summary.json": "b6bfa40282f47455ab69e70998b52c500ddf6ce5917567f225ab72f0f7c6d634",
+    "sensitivity_execution_summary.md": "2dbf0c0b443f89d756e82d4eaf001c52fcd2c731e416c84e882ca2d24e4fc256",
+    "sensitivity_grid_realized.csv": "e27edda2152e13b12dc7a23b2de8190e9fc268c3b438a111a5ce1583146c45eb",
+    "candidate_label_stability_by_unit.csv": "ca9302180e705690a52fd91b123f1b2c7573d4a495a97c7d22d6e35f2dc316ae",
+    "candidate_label_stability_by_session.csv": "61f8f3d1f64e7a0e5e676920c88a18cbf7576dad281e9c490bf57ff4515bbf9e",
+    "candidate_label_stability_by_family_slot.csv": "bd391dc5aeda79a97839b856487d95ee6bbcc90419c6d72bdaba4f235b7c1b4b",
+    "x_candidate_stability_table.csv": "cd72048f6144631b81ebbe2dd483f9675c7eebfc365ae8b9dc612d4ea78fce8d",
+    "threshold_window_sensitivity_matrix.csv": "c7dfbd240b530e8dff2b40a994d84a213312da75198bb396a3af0cfad9a5ce68",
+    "warning_impact_on_sensitivity.csv": "0f75fa4c6b0cb7812617b076306aa204301eada633f73dc7aad91d0cf9feff90"
+  },
+  "denominator_glossary": {
+    "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
+    "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
+    "total_x_candidates_robust": "Total number of unique units that survive and are classified as X_candidate across 6 or more sweep configurations."
+  }
+}

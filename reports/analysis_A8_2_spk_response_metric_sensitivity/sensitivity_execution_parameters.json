@@ -1,0 +1,14 @@
+{
+  "data_root": "D:\\workspace\\data",
+  "a5_dir": "reports/analysis_A5_signal_shape_inventory",
+  "a6_dir": "reports/analysis_A6_area_probe_metadata",
+  "a7_dir": "reports/analysis_A7_spk_psth_smoke",
+  "a8_dir": "reports/analysis_A8_1_spk_response_metrics",
+  "out_dir": "reports/analysis_A8_2_spk_response_metric_sensitivity",
+  "plan_dir": "reports/analysis_A8_2_spk_response_metric_sensitivity_plan",
+  "unit_batch_size": 64,
+  "max_sessions": null,
+  "max_units_per_file": null,
+  "dry_run": false,
+  "git_commit": "6ee763a4a04b9cfc7786758857285914daa40854"
+}

@@ -1,0 +1,27 @@
+{
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "candidate_metric_execution_not_biological_claim",
+  "n_sessions_processed": 13,
+  "n_spk_files_processed": 396,
+  "n_unique_units_global": 3521,
+  "n_raw_behavioral_trials": 29430,
+  "total_x_candidates_robust": 0,
+  "session_dominance_detected": "false",
+  "dominant_session_id": "None",
+  "dominant_session_fraction": 0.0,
+  "allowed_claims": [
+    "robust candidate response label stability assessment",
+    "effect size and timing window parametric sensitivity sweeps",
+    "session-level and slot-level candidate counts stratification"
+  ],
+  "blocked_claims": [
+    "final S+/S-/O+/O-/X biological classifications",
+    "manuscript area enrichment and hierarchy claims",
+    "population prevalence manuscript assertions"
+  ],
+  "denominator_glossary": {
+    "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
+    "n_raw_behavioral_trials": "Number of raw behavioral trials recorded in a single condition session file.",
+    "total_x_candidates_robust": "Total number of unique units that survive and are classified as X_candidate across 6 or more sweep configurations."
+  }
+}

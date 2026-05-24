@@ -1,0 +1,6 @@
+family,omission_slot,n_unique_units_available,grid_1_S_plus_candidate_count,grid_1_S_minus_candidate_count,grid_1_O_plus_candidate_count,grid_1_O_minus_candidate_count,grid_1_X_candidate_count
+A-family,p4,110,4,21,0,0,0
+A-family,None,3521,571,522,3,6,0
+B-family,None,3521,571,522,3,6,0
+R-family,p4,179,82,18,3,6,0
+R-family,None,3521,571,522,3,6,0

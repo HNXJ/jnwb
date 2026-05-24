@@ -1,0 +1,13 @@
+grid_index,alpha_level,q_scope,cohens_d_minimum,omission_window,slot_stratification,family_stratification,n_S_plus_candidate,n_S_minus_candidate,n_O_plus_candidate,n_O_minus_candidate,n_X_candidate,n_null_or_unclassified
+1,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1500,all,all,571,522,3,6,0,2419
+2,0.05,none (p_uncorrected),0.0,1000-1500,all,all,714,872,6,6,4,1919
+3,0.01,within_session_all_units_all_primary_contrasts,0.5,1000-1500,all,all,457,370,1,3,0,2690
+4,0.05,global_all_units_all_primary_contrasts,0.3,1000-1500,all,all,574,529,3,5,0,2410
+5,0.01,global_all_units_all_primary_contrasts,0.5,1000-1500,all,all,461,372,1,3,0,2684
+6,0.05,per_metric_family,0.3,1000-1500,all,all,576,529,2,3,0,2411
+7,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1300,all,all,573,522,1,5,0,2420
+8,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1700,all,all,571,522,4,6,0,2418
+9,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1500,p2,all,576,523,0,0,0,2422
+10,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1500,p3,all,576,523,0,0,0,2422
+11,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1500,p4,all,571,522,3,6,0,2419
+12,0.05,within_session_all_units_all_primary_contrasts,0.3,1000-1500,all,A+B,550,476,0,0,0,2495
