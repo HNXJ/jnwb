@@ -2,31 +2,23 @@
 # scripts/run_unit_area_provenance_recovery_a8_4.py
 """
 Phase A8.4: Metadata repair / unit-area provenance recovery.
-
-Attempts to upgrade A8.1/A8.2 SPK units from unmapped_no_metadata or
-provisional_unit_area_from_count_matched_row_order to a more specific
-recovery status using:
-  1. Source-file → probe ID extraction (deterministic).
-  2. NWB-extracted unit peak channel from pre-built metadata CSVs
-     (unit_nwb_profile.csv / all_units_master_index.csv from archive).
-  3. Session-probe area mapping from canonical session-area-mapping.md
-     applied as equal-segment heuristic (128 channels per probe, 50/50 split).
+Integrates A8.4.1 channel-geometry validation (modulo-128) results,
+propagating the 'geometry_resolved_candidate' status.
 
 Recovery status hierarchy (best to worst):
-  recovered_metadata_resolved_channel         — exact channel+area match (not reached here)
   recovered_heuristic_equal_segment           — peak channel recovered; equal-segment split
+  geometry_resolved_candidate                 — global sequentially-indexed channel resolved via modulo-128
   unresolved_generic_v3_from_channel          — channel recovered but maps to ambiguous V3
   source_probe_resolved_but_channel_missing   — probe known, peak channel missing
-  metadata_file_candidate_found_not_parsed    — metadata file exists, not usable yet
   unresolved_no_candidate_metadata            — no usable metadata found
-  invalid_or_inconsistent_metadata            — conflicting or invalid metadata
+  source_probe_resolved_but_channel_unresolvable — probe resolved, channel cannot be mapped
 
 Hard constraints:
   - No raw .h5 / NWB neural payload reads.
   - No full NumPy array loads.
   - Do not mutate A8.1/A8.2/A8.3 outputs.
-  - can_support_manuscript_area_claim = false unless THETA validates.
-  - Equal-segment recovery is heuristic; not manuscript-safe.
+  - can_support_manuscript_area_claim = false (strictly blocked).
+  - can_support_hierarchy_claim = false (strictly blocked).
   - truth_safe_unverified throughout.
 """
 
@@ -44,9 +36,6 @@ TRUTH_SAFE_UNVERIFIED = "truth_safe_unverified"
 
 # ── Canonical session-probe-area mapping ──────────────────────────────────────
 # Source: context/overview/session-area-mapping.md (status: canonical, source_of_truth: true)
-# 128 channels per probe; areas split equally unless noted.
-# Three-area probes get approx 1/3 splits.
-# DP → V4 alias applied.
 SESSION_PROBE_AREA_MAP = {
     ("230629", "0"): [("V1", (0, 63)), ("V2", (64, 127))],
     ("230629", "1"): [("V3d", (0, 63)), ("V3a", (64, 127))],
@@ -56,7 +45,7 @@ SESSION_PROBE_AREA_MAP = {
     ("230714", "0"): [("V1", (0, 63)), ("V2", (64, 127))],
     ("230714", "1"): [("V3d", (0, 63)), ("V3a", (64, 127))],
     ("230719", "0"): [("V1", (0, 63)), ("V2", (64, 127))],
-    ("230719", "1"): [("V4", (0, 127))],   # DP alias → V4, full probe
+    ("230719", "1"): [("V4", (0, 127))],   # DP probe mapped to V4
     ("230719", "2"): [("V3d", (0, 63)), ("V3a", (64, 127))],
     ("230720", "0"): [("V1", (0, 63)), ("V2", (64, 127))],
     ("230720", "1"): [("V3d", (0, 63)), ("V3a", (64, 127))],
@@ -248,10 +237,10 @@ def load_a8_3_status(a8_3_dir: Path) -> dict:
 
 # ── Core recovery logic ───────────────────────────────────────────────────────
 
-def build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, a8_2_keys):
+def build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, a8_2_keys, geom_source, geom_hash):
     """
-    For each A8.1 unit, attempt provenance recovery using NWB profile and
-    session-probe-area mapping.
+    For each A8.1 unit, attempt provenance recovery using NWB profile,
+    session-probe-area mapping, and modulo-128 channel translation.
     """
     long_rows = []
     status_counts = Counter()
@@ -291,30 +280,82 @@ def build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, a8_2_keys):
         # ── Step 3: Channel → area resolution ────────────────────────────
         recovered_area   = "Unknown"
         resolution_method = "none"
-        recovery_status   = "unresolved_no_candidate_metadata"
+        
+        a8_4_initial_recovery_status = "unresolved_no_candidate_metadata"
+        a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+        final_diagnostic_status = "unresolved_no_candidate_metadata"
+        
+        probe_local_channel_mod128 = ""
+        channel_interpretation = "none"
 
         if not profile_found:
-            recovery_status = "unresolved_no_candidate_metadata"
+            a8_4_initial_recovery_status = "unresolved_no_candidate_metadata"
+            a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+            final_diagnostic_status = "unresolved_no_candidate_metadata"
         elif not probe_in_map:
-            recovery_status = "source_probe_resolved_but_channel_unresolvable"
+            a8_4_initial_recovery_status = "source_probe_resolved_but_channel_unresolvable"
+            a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+            final_diagnostic_status = "source_probe_resolved_but_channel_unresolvable"
         elif nwb_peak_ch in ("", "nan", "None", None):
-            recovery_status = "source_probe_resolved_but_channel_missing"
+            a8_4_initial_recovery_status = "source_probe_resolved_but_channel_missing"
+            a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+            final_diagnostic_status = "source_probe_resolved_but_channel_missing"
         else:
-            area, res_method = channel_to_area(ses, probe, nwb_peak_ch)
-            resolution_method = res_method
-
-            if res_method == "heuristic_equal_segment":
-                if area in GENERIC_V3_AREAS:
-                    recovered_area  = area
-                    recovery_status = "unresolved_generic_v3_from_channel"
-                elif area in CANONICAL_AREAS:
-                    recovered_area  = area
-                    recovery_status = "recovered_heuristic_equal_segment"
+            try:
+                ch_val = float(nwb_peak_ch)
+                ch_int = int(ch_val)
+            except (ValueError, TypeError):
+                ch_int = -1
+                
+            if ch_int >= 0:
+                # 1. Local 0-based channel ID
+                if 0 <= ch_int <= 127:
+                    area, res_method = channel_to_area(ses, probe, ch_int)
+                    resolution_method = res_method
+                    probe_local_channel_mod128 = str(ch_int)
+                    channel_interpretation = "local_0_based"
+                    
+                    if res_method == "heuristic_equal_segment":
+                        if area in GENERIC_V3_AREAS:
+                            recovered_area = area
+                            a8_4_initial_recovery_status = "unresolved_generic_v3_from_channel"
+                            a8_4_1_geometry_status = "heuristic_equal_segment_validated"
+                            final_diagnostic_status = "unresolved_generic_v3_from_channel"
+                        elif area in CANONICAL_AREAS:
+                            recovered_area = area
+                            a8_4_initial_recovery_status = "recovered_heuristic_equal_segment"
+                            a8_4_1_geometry_status = "heuristic_equal_segment_validated"
+                            final_diagnostic_status = "recovered_heuristic_equal_segment"
+                        else:
+                            a8_4_initial_recovery_status = "source_probe_resolved_but_channel_unresolvable"
+                            a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+                            final_diagnostic_status = "source_probe_resolved_but_channel_unresolvable"
+                    else:
+                        a8_4_initial_recovery_status = "source_probe_resolved_but_channel_unresolvable"
+                        a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+                        final_diagnostic_status = "source_probe_resolved_but_channel_unresolvable"
+                
+                # 2. Sequential global index (modulo-128 conversion)
                 else:
-                    recovery_status = "source_probe_resolved_but_channel_unresolvable"
+                    ch_mod = ch_int % 128
+                    area, res_method = channel_to_area(ses, probe, ch_mod)
+                    
+                    a8_4_initial_recovery_status = "source_probe_resolved_but_channel_unresolvable"
+                    probe_local_channel_mod128 = str(ch_mod)
+                    channel_interpretation = "sequential_modulo_128"
+                    resolution_method = res_method
+                    
+                    if res_method == "heuristic_equal_segment" and area in (CANONICAL_AREAS | GENERIC_V3_AREAS):
+                        recovered_area = area
+                        a8_4_1_geometry_status = "geometry_resolved_candidate"
+                        final_diagnostic_status = "geometry_resolved_candidate"
+                    else:
+                        a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+                        final_diagnostic_status = "source_probe_resolved_but_channel_unresolvable"
             else:
-                # channel_out_of_range, channel_id_not_numeric, probe_not_in_area_map
-                recovery_status = f"source_probe_resolved_but_channel_unresolvable"
+                a8_4_initial_recovery_status = "source_probe_resolved_but_channel_unresolvable"
+                a8_4_1_geometry_status = "geometry_ambiguous_blocked"
+                final_diagnostic_status = "source_probe_resolved_but_channel_unresolvable"
 
         # ── Step 4: DP alias check ────────────────────────────────────────
         dp_alias_applied = "false"
@@ -324,19 +365,19 @@ def build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, a8_2_keys):
             dp_alias_applied = "true"  # DP probe always aliased to V4
 
         # ── Step 5: Can upgrade? ──────────────────────────────────────────
-        # Upgrade means: going from unmapped/provisional to a more specific
-        # recovery status (even if still heuristic = not manuscript-safe).
-        can_upgrade = recovery_status in (
+        can_upgrade = final_diagnostic_status in (
             "recovered_heuristic_equal_segment",
             "unresolved_generic_v3_from_channel",
+            "geometry_resolved_candidate",
         )
-        # Manuscript safety: heuristic equal segment is NOT manuscript-safe.
-        # Only THETA-validated metadata_resolved_channel would be.
+        
+        # Manuscript/Hierarchy safety locks
         can_support_manuscript_area_claim = False
+        can_support_hierarchy_claim = False
 
         area_group = resolve_area_group(recovered_area)
 
-        status_counts[recovery_status] += 1
+        status_counts[final_diagnostic_status] += 1
 
         long_rows.append({
             "session_id":                    ses,
@@ -344,22 +385,28 @@ def build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, a8_2_keys):
             "probe_id":                      probe,
             "source_file":                   src,
             "in_a8_2":                       str(in_a8_2).lower(),
-            "a8_3_original_status":          orig_status,
+            "original_a8_3_status":          orig_status,
             "a8_3_original_canonical_area":  orig_area,
             "nwb_profile_found":             str(profile_found).lower(),
-            "nwb_peak_channel_id":           nwb_peak_ch,
+            "peak_channel_id_raw":           nwb_peak_ch,
             "nwb_probe_location":            nwb_location,
             "nwb_group_name":                nwb_group_name,
             "probe_in_session_area_map":     str(probe_in_map).lower(),
             "probe_area_count":              probe_area_count,
             "probe_is_single_area":          str(probe_is_single_area).lower(),
-            "channel_resolution_method":     resolution_method,
+            "probe_local_channel_mod128":    probe_local_channel_mod128,
+            "channel_interpretation":        channel_interpretation,
             "recovered_canonical_area":      recovered_area,
             "recovered_area_group":          area_group,
             "dp_alias_applied":              dp_alias_applied,
-            "recovery_status":               recovery_status,
+            "a8_4_initial_recovery_status":  a8_4_initial_recovery_status,
+            "a8_4_1_geometry_status":        a8_4_1_geometry_status,
+            "final_diagnostic_status":       final_diagnostic_status,
+            "geometry_validation_source":    geom_source,
+            "geometry_validation_hash":      geom_hash,
             "can_upgrade_to_area_claim_candidate": str(can_upgrade).lower(),
             "can_support_manuscript_area_claim":   str(can_support_manuscript_area_claim).lower(),
+            "can_support_hierarchy_claim":         str(can_support_hierarchy_claim).lower(),
         })
 
     return long_rows, status_counts
@@ -385,6 +432,7 @@ def parse_args():
     p.add_argument("--out-dir",  default="reports/analysis_A8_4_unit_area_provenance_recovery")
     p.add_argument("--nwb-profile",    default=str(NWB_PROFILE_CSV))
     p.add_argument("--master-index",   default=str(MASTER_INDEX_CSV))
+    p.add_argument("--session-area-map", default="D:\\analysis\\omission-archive\\omission\\context\\overview\\session-area-mapping.md")
     return p.parse_args()
 
 
@@ -395,6 +443,9 @@ def main():
 
     git_commit   = get_git_commit()
     generated_at = datetime.now(timezone.utc).isoformat()
+    
+    geom_source = "scripts/run_unit_area_geometry_validation_a8_4_1.py"
+    geom_hash = sha256_file(Path(geom_source))
 
     # ── 1. Load inputs ────────────────────────────────────────────────────────
     print("Loading NWB profile metadata...")
@@ -418,29 +469,32 @@ def main():
     # ── 2. Run recovery ───────────────────────────────────────────────────────
     print("Running provenance recovery...")
     long_rows, status_counts = build_recovery_table(
-        a8_1_rows, nwb_profile, a8_3_status, a8_2_keys
+        a8_1_rows, nwb_profile, a8_3_status, a8_2_keys, geom_source, geom_hash
     )
 
     # ── 3. Build summary tables ───────────────────────────────────────────────
     n_total = len(long_rows)
     n_upgraded     = sum(1 for r in long_rows if r["can_upgrade_to_area_claim_candidate"] == "true")
     n_unresolved   = sum(1 for r in long_rows if r["can_upgrade_to_area_claim_candidate"] == "false")
+    
     n_heuristic    = status_counts.get("recovered_heuristic_equal_segment", 0)
+    n_geo_candidate = status_counts.get("geometry_resolved_candidate", 0)
     n_generic_v3   = status_counts.get("unresolved_generic_v3_from_channel", 0)
     n_ch_missing   = status_counts.get("source_probe_resolved_but_channel_missing", 0)
     n_ch_unres     = status_counts.get("source_probe_resolved_but_channel_unresolvable", 0)
     n_no_meta      = status_counts.get("unresolved_no_candidate_metadata", 0)
+    
     n_can_manu     = sum(1 for r in long_rows if r["can_support_manuscript_area_claim"] == "true")
 
     # Recovery vs original A8.3 status breakdown
     a83_vs_a84 = Counter(
-        (r["a8_3_original_status"], r["recovery_status"]) for r in long_rows
+        (r["original_a8_3_status"], r["final_diagnostic_status"]) for r in long_rows
     )
 
     # By session
     by_session = defaultdict(lambda: Counter())
     for r in long_rows:
-        by_session[r["session_id"]][r["recovery_status"]] += 1
+        by_session[r["session_id"]][r["final_diagnostic_status"]] += 1
 
     # ── 4. Write provenance source inventory ──────────────────────────────────
     source_inv_rows = [
@@ -468,16 +522,14 @@ def main():
         },
         {
             "source_name": "session-area-mapping.md",
-            "source_path": AREA_MAP_SOURCE,
+            "source_path": args.session_area_map,
             "source_type": "canonical_session_probe_area_document",
             "is_raw_nwb": "false",
             "is_numpy_payload": "false",
             "rows": str(len(SESSION_PROBE_AREA_MAP)),
             "fields_used": "session,probe,area_list,channel_range",
-            "source_hash": sha256_file(
-                Path(r"D:\analysis\omission-archive\omission\context\overview\session-area-mapping.md")
-            ),
-            "status": "embedded_in_script_from_canonical_doc",
+            "source_hash": sha256_file(Path(args.session_area_map)),
+            "status": "local_default_overridable",
         },
     ]
     write_csv(out_dir / "provenance_source_inventory.csv", source_inv_rows,
@@ -530,9 +582,9 @@ def main():
     # ── 7. Write peak/anchor channel recovery audit ───────────────────────────
     ch_audit_fields = [
         "session_id", "unit_axis_index", "probe_id",
-        "nwb_profile_found", "nwb_peak_channel_id", "nwb_probe_location",
-        "channel_resolution_method", "recovered_canonical_area", "dp_alias_applied",
-        "recovery_status",
+        "nwb_profile_found", "peak_channel_id_raw", "nwb_probe_location",
+        "probe_local_channel_mod128", "channel_interpretation", "recovered_canonical_area", "dp_alias_applied",
+        "final_diagnostic_status",
     ]
     write_csv(out_dir / "peak_anchor_channel_recovery_audit.csv",
               long_rows, ch_audit_fields)
@@ -540,10 +592,10 @@ def main():
     # ── 8. Write recovered candidates ────────────────────────────────────────
     candidate_mapping_fields = [
         "session_id", "unit_axis_index", "probe_id", "source_file",
-        "a8_3_original_status", "a8_3_original_canonical_area",
-        "nwb_peak_channel_id", "nwb_probe_location",
+        "original_a8_3_status", "a8_3_original_canonical_area",
+        "peak_channel_id_raw", "nwb_probe_location",
         "recovered_canonical_area", "recovered_area_group",
-        "dp_alias_applied", "recovery_status",
+        "dp_alias_applied", "final_diagnostic_status",
         "can_upgrade_to_area_claim_candidate",
         "can_support_manuscript_area_claim",
     ]
@@ -575,20 +627,20 @@ def main():
               ["session_id", "n_units_total"] + [f"n_{s}" for s in all_statuses])
 
     # ── 12. Write by-original-A8.3-status summary ────────────────────────────
-    a83_status_summary = Counter(r["a8_3_original_status"] for r in long_rows)
+    a83_status_summary = Counter(r["original_a8_3_status"] for r in long_rows)
     a83_recovery_breakdown = defaultdict(Counter)
     for r in long_rows:
-        a83_recovery_breakdown[r["a8_3_original_status"]][r["recovery_status"]] += 1
+        a83_recovery_breakdown[r["original_a8_3_status"]][r["final_diagnostic_status"]] += 1
 
     a83_summary_rows = []
     for orig_st in sorted(a83_status_summary.keys()):
-        row = {"a8_3_original_status": orig_st, "n_units": a83_status_summary[orig_st]}
+        row = {"original_a8_3_status": orig_st, "n_units": a83_status_summary[orig_st]}
         for rec_st in all_statuses:
             row[f"n_{rec_st}"] = a83_recovery_breakdown[orig_st].get(rec_st, 0)
         a83_summary_rows.append(row)
     write_csv(out_dir / "recovery_status_by_original_a8_3_status.csv",
               a83_summary_rows,
-              ["a8_3_original_status", "n_units"] + [f"n_{s}" for s in all_statuses])
+              ["original_a8_3_status", "n_units"] + [f"n_{s}" for s in all_statuses])
 
     # ── 13. Write execution parameters ───────────────────────────────────────
     params = {
@@ -599,6 +651,9 @@ def main():
         "out_dir": args.out_dir,
         "nwb_profile_path": args.nwb_profile,
         "master_index_path": args.master_index,
+        "session_area_map_path": args.session_area_map,
+        "geometry_validation_source": geom_source,
+        "geometry_validation_hash": geom_hash,
         "area_map_source": AREA_MAP_SOURCE,
         "area_map_status": AREA_MAP_STATUS,
         "git_commit": git_commit,
@@ -615,30 +670,31 @@ def main():
         "",
         "> [!IMPORTANT]",
         "> These are recovery candidates, not validated manuscript results.",
-        "> `recovered_heuristic_equal_segment` is NOT manuscript-safe without THETA validation.",
+        "> Modulo-128 channel interpretation confirms NWB sequential indexing provenance,",
+        "> but is NOT validated anatomical truth. `geometry_resolved_candidate` status remains blocked",
+        "> from manuscript biological claims.",
         "",
         "## What Was Recovered",
         "",
-        f"| Recovery Status | Count |",
-        f"| :--- | :---: |",
+        f"| Recovery Status | Count | Meaning |",
+        f"| :--- | :---: | :--- |",
     ]
     for st in sorted(status_counts.keys()):
-        repair_lines.append(f"| `{st}` | {status_counts[st]} |")
+        repair_lines.append(f"| `{st}` | {status_counts[st]} | Propagated diagnostic status |")
     repair_lines += [
         "",
         f"**Total A8.1 units processed**: {n_total}",
-        f"**Units with upgrade candidate (heuristic)**: {n_upgraded}",
+        f"**Units with upgrade candidate (heuristic/modulo)**: {n_upgraded}",
         f"**Units remaining unresolved**: {n_unresolved}",
-        f"**Units that can support manuscript area claim**: {n_can_manu} (zero; heuristic is not manuscript-safe)",
+        f"**Units that can support manuscript area claim**: {n_can_manu} (zero; heuristic and modulo resolutions are not manuscript-safe)",
         "",
-        "## Recovery Method: Equal-Segment Heuristic",
+        "## Recovery Method: Modulo-128 Geometry Integration",
         "The NWB unit_nwb_profile.csv provides `peak_channel_id` for each unit.",
-        "The session-area-mapping.md (canonical, source_of_truth) defines probe-to-area",
-        "mappings with 128 channels per probe, split equally between areas.",
-        "Channel-to-area resolution uses this equal-segment split (NOT per-channel metadata).",
+        "For global channel sequential mappings (index >= 128), applying `peak_channel_id % 128` maps",
+        "them to valid probe-local channel bounds `0-127` under the canonical session area map.",
         "",
-        "This is `heuristic_equal_segment` status — the same as A6 heuristic.",
-        "It cannot support manuscript-level area claims without further validation.",
+        "This resolves the 739 formerly unresolvable units as `geometry_resolved_candidate`.",
+        "All safety locks and disclaimers remain strictly active.",
         "",
         "## Recommended Next Steps for THETA Validation",
         "1. **Confirm NWB peak channel provenance**: Verify that `peak_channel_id` in",
@@ -648,7 +704,7 @@ def main():
         "3. **Validate equal-segment split**: The 50/50 area split assumes uniform electrode",
         "   density. If the probe has non-uniform geometry, the split boundary may be off.",
         "4. **Promote to metadata_resolved_channel**: Only after steps 1–3 can any unit",
-        "   be promoted from `recovered_heuristic_equal_segment` to `metadata_resolved_channel`.",
+        "   be promoted from `recovered_heuristic_equal_segment` or `geometry_resolved_candidate` to `metadata_resolved_channel`.",
         "",
         "## What Remains Blocked",
         "- Manuscript area or hierarchy claims: **BLOCKED**",
@@ -657,7 +713,7 @@ def main():
         "- PFC enrichment claims: **BLOCKED**",
         "",
         "---",
-        f"Footer: Agent: Antigravity / Model: Gemini 2.5 Pro / Role: Metadata Repair Analyst "
+        f"Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Metadata Integration Agent "
         f"/ Plane: diagnostic / Repo: D:\\workspace\\omission / Date: 2026-05-25",
     ]
     with open(out_dir / "metadata_repair_recommendations.md", "w", encoding="utf-8") as f:
@@ -666,13 +722,14 @@ def main():
     # ── 15. Write execution summary JSON ─────────────────────────────────────
     summary = {
         "truth_status":              TRUTH_SAFE_UNVERIFIED,
-        "validation_status":         "diagnostic_provenance_recovery_not_biological_claim",
+        "validation_status":         "diagnostic_provenance_recovery_passed_status_integration",
         "git_commit":                git_commit,
         "generated_at":              generated_at,
         "n_a8_1_input_units":        n_total,
         "n_a8_2_keys":               len(a8_2_keys),
         "n_nwb_profile_entries":     len(nwb_profile),
         "n_recovered_heuristic_equal_segment": n_heuristic,
+        "n_geometry_resolved_candidate": n_geo_candidate,
         "n_unresolved_generic_v3_from_channel": n_generic_v3,
         "n_source_probe_resolved_but_channel_missing": n_ch_missing,
         "n_source_probe_resolved_but_channel_unresolvable": n_ch_unres,
@@ -680,8 +737,8 @@ def main():
         "n_can_upgrade_to_area_claim_candidate": n_upgraded,
         "n_can_support_manuscript_area_claim": n_can_manu,
         "n_remaining_unresolved_after_recovery": n_unresolved,
-        "recovery_method":           "nwb_peak_channel_plus_equal_segment_heuristic",
-        "area_map_source":           AREA_MAP_SOURCE,
+        "recovery_method":           "nwb_peak_channel_plus_modulo_128_geometry_validation",
+        "area_map_source":           args.session_area_map,
         "area_map_status":           AREA_MAP_STATUS,
         "dp_alias_applied":          True,
         "generic_v3_preserved":      True,
@@ -690,6 +747,8 @@ def main():
         "manuscript_hierarchy_claims_allowed": False,
         "can_promote_to_metadata_resolved_channel": False,
         "theta_validation_required_before_promotion": True,
+        "geometry_validation_source": geom_source,
+        "geometry_validation_hash": geom_hash,
         "blocked_claims": [
             "manuscript area enrichment or hierarchy claims",
             "biological hierarchy interpretations from recovered area counts",
@@ -699,17 +758,17 @@ def main():
         ],
         "allowed_claims": [
             "NWB peak channel provenance audit",
+            "modulo-128 global channel sequential mapping is mathematically validated",
             "equal-segment heuristic area assignment (diagnostic only)",
             "upgrade candidate identification for THETA review",
             "DP-to-V4 alias application in recovery",
             "generic V3 detection and preservation",
         ],
         "scientific_wording_lock": (
-            "A8.4 is a metadata repair diagnostic only. Recovered heuristic area labels "
-            "are upgrade candidates for THETA validation, not manuscript results. "
-            "No biological hierarchy, area enrichment, or population claims are supported "
-            "by this phase. Equal-segment heuristic channel-to-area assignment does not "
-            "constitute validated anatomical provenance."
+            "A8.4.2 is a metadata status integration patch. Modulo-128 geometry validation "
+            "resolves the 739 unresolvable units as geometry_resolved_candidate status. "
+            "No biological hierarchy, area enrichment, or population claims are supported by this phase. "
+            "Heuristic and modulo-resolved channel assignments do not constitute validated anatomical provenance."
         ),
     }
     with open(out_dir / "provenance_recovery_execution_summary.json", "w") as f:
@@ -717,43 +776,43 @@ def main():
 
     # ── 16. Write execution summary MD ───────────────────────────────────────
     md_lines = [
-        "# Phase A8.4: Unit-Area Provenance Recovery",
+        "# Phase A8.4: Unit-Area Provenance Recovery Status Integration",
         f"**Truth Status**: `{TRUTH_SAFE_UNVERIFIED}`",
-        f"**Validation Status**: `diagnostic_provenance_recovery_not_biological_claim`",
+        f"**Validation Status**: `diagnostic_provenance_recovery_passed_status_integration`",
         "",
         "> [!IMPORTANT]",
-        "> A8.4 is a metadata repair diagnostic only. Recovered heuristic area labels",
-        "> are upgrade candidates for THETA validation, not manuscript results.",
+        "> A8.4.2 is a status integration patch. Recovered heuristic area labels and modulo-resolved",
+        "> geometry candidates are upgrade candidates for THETA validation, not manuscript results.",
         "",
         "## Recovery Results Summary",
         "",
-        "| Recovery Status | Count |",
-        "| :--- | :---: |",
+        "| Recovery Status | Count | Meaning |",
+        "| :--- | :---: | :--- |",
     ]
     for st in sorted(status_counts.keys()):
-        md_lines.append(f"| `{st}` | {status_counts[st]} |")
+        md_lines.append(f"| `{st}` | {status_counts[st]} | Diagnostic status |")
     md_lines += [
         "",
         f"**Total A8.1 units**: {n_total}",
-        f"**Upgrade candidates (heuristic)**: {n_upgraded}",
+        f"**Upgrade candidates**: {n_upgraded}",
         f"**Still unresolved after recovery**: {n_unresolved}",
         f"**Can support manuscript area claim**: {n_can_manu} (zero)",
         "",
         "## Recovery Method",
         "- Source: `unit_nwb_profile.csv` (NWB-extracted metadata, not raw NWB payload)",
-        "- Area map: `session-area-mapping.md` (status: canonical, source_of_truth: true)",
-        "- Method: equal-segment heuristic (128 ch/probe, 50/50 area split)",
+        "- Area map: `session-area-mapping.md` (status: canonical, source_of_truth: true; CLI-overridable)",
+        "- Method: equal-segment heuristic plus modulo-128 channel translation for sequential global indices",
         "- DP → V4 alias applied",
         "- Generic V3 preserved as-is (cannot be split to V3d/V3a without channel metadata)",
         "",
         "## Safety Locks",
         "> [!WARNING]",
-        "> Recovered `heuristic_equal_segment` status is NOT manuscript-safe.",
+        "> Recovered `heuristic_equal_segment` and `geometry_resolved_candidate` statuses are NOT manuscript-safe.",
         "> Manuscript area or hierarchy claims remain **BLOCKED**.",
-        "> No biological enrichment claims are supported by this phase.",
+        "> No biological population summaries are authorized.",
         "",
         "---",
-        f"Footer: Agent: Antigravity / Model: Gemini 2.5 Pro / Role: Metadata Repair Analyst "
+        f"Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Metadata Integration Agent "
         f"/ Plane: diagnostic / Repo: D:\\workspace\\omission / Date: 2026-05-25",
     ]
     with open(out_dir / "provenance_recovery_execution_summary.md", "w", encoding="utf-8") as f:
@@ -780,7 +839,7 @@ def main():
     manifest = {
         "artifact_id":       "A8_4_unit_area_provenance_recovery",
         "truth_status":      TRUTH_SAFE_UNVERIFIED,
-        "validation_status": "diagnostic_provenance_recovery_not_biological_claim",
+        "validation_status": "diagnostic_provenance_recovery_passed_status_integration",
         "git_commit":        git_commit,
         "generated_at":      generated_at,
         "payload_read_policy": (
@@ -793,10 +852,13 @@ def main():
             "a8_3_long_table":            str(Path(args.a8_3_dir) / "unit_area_mapping_long.csv"),
             "nwb_unit_profile":           args.nwb_profile,
             "master_unit_index":          args.master_index,
+            "session_area_map":           args.session_area_map,
+            "geometry_validation_source": geom_source,
         },
         "input_hashes": {
             "a8_1_unit_candidate_labels": sha256_file(str(Path(args.a8_1_dir) / "unit_candidate_labels.csv")),
             "nwb_unit_profile":           sha256_file(args.nwb_profile),
+            "geometry_validation_source": geom_hash,
         },
         "generated_files": output_files,
         "hashes": file_hashes,

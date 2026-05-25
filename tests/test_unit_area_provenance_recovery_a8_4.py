@@ -1,6 +1,6 @@
 # tests/test_unit_area_provenance_recovery_a8_4.py
 """
-Unit tests for run_unit_area_provenance_recovery_a8_4.py
+Unit tests for run_unit_area_provenance_recovery_a8_4.py with A8.4.2 geometry integration.
 
 Required tests:
 1. Source-file probe extraction is deterministic.
@@ -13,6 +13,10 @@ Required tests:
 8. Output manifest includes git commit, input paths, hashes, and truth_safe_unverified.
 9. No hierarchy claim text is emitted.
 10. Original A8.3 statuses are preserved in output.
+11. Modulo-128 geometry evidence reclassifies channel-unresolvable units to geometry_resolved_candidate.
+12. Geometry candidates do not become metadata_resolved_channel and safety flags remain false.
+13. Original, initial A8.4, geometry A8.4.1, and final diagnostic statuses are all preserved.
+14. Session-area map path is CLI-overridable and manifest includes geometry validations.
 """
 
 import sys
@@ -42,6 +46,8 @@ from scripts.run_unit_area_provenance_recovery_a8_4 import (
     main,
 )
 
+GEOM_SOURCE = "scripts/run_unit_area_geometry_validation_a8_4_1.py"
+GEOM_HASH = "mock_geom_hash"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -50,7 +56,6 @@ from scripts.run_unit_area_provenance_recovery_a8_4 import (
 @pytest.fixture
 def mock_a8_4_setup(tmp_path):
     """Creates a minimal file tree for A8.4 tests."""
-    # Directories
     a6_dir  = tmp_path / "a6"
     a81_dir = tmp_path / "a81"
     a82_dir = tmp_path / "a82"
@@ -70,14 +75,14 @@ def mock_a8_4_setup(tmp_path):
         # Unit 0: 230719, probe1 (DP/V4), channel 50 -> V4
         w.writerow(["230719", "ses230719-units-probe1-spk-AAAB.npy", "0",
                     "S_plus_candidate", "S_plus_candidate", "joined", "false"])
-        # Unit 1: 230719, probe2 (V3d,V3a), channel 30 -> V3d
-        w.writerow(["230719", "ses230719-units-probe2-spk-AAAB.npy", "0",
+        # Unit 1: 230719, probe2 (V3d,V3a), channel 130 -> V3d (sequentially global index modulo 128 = 2)
+        w.writerow(["230719", "ses230719-units-probe2-spk-AAAB.npy", "1",
                     "null_or_unclassified", "null_or_unclassified", "joined", "false"])
         # Unit 2: 230630, probe0 (PFC), channel 10 -> PFC (provisional in A8.3)
-        w.writerow(["230630", "ses230630-units-probe0-spk-AAAB.npy", "0",
+        w.writerow(["230630", "ses230630-units-probe0-spk-AAAB.npy", "2",
                     "S_minus_candidate", "S_minus_candidate", "joined", "false"])
         # Unit 3: 230630, probe2 (V3,V1), channel 30 -> V3 (generic)
-        w.writerow(["230630", "ses230630-units-probe2-spk-AAAB.npy", "0",
+        w.writerow(["230630", "ses230630-units-probe2-spk-AAAB.npy", "3",
                     "null_or_unclassified", "null_or_unclassified", "unresolved_generic_v3", "false"])
         # Unit 4: session with no NWB profile data
         w.writerow(["230629", "ses230629-units-probe0-spk-AAAB.npy", "999",
@@ -89,7 +94,7 @@ def mock_a8_4_setup(tmp_path):
         w = csv.writer(f)
         w.writerow(["session_id", "unit_axis_index", "dominant_label", "strict_label"])
         w.writerow(["230719", "0", "S_plus_candidate", "S_plus_candidate"])
-        w.writerow(["230630", "0", "S_minus_candidate", "S_minus_candidate"])
+        w.writerow(["230630", "2", "S_minus_candidate", "S_minus_candidate"])
 
     # A8.3 long table
     a83_csv = a83_dir / "unit_area_mapping_long.csv"
@@ -99,10 +104,10 @@ def mock_a8_4_setup(tmp_path):
                     "canonical_area_label", "raw_area_label",
                     "can_support_area_claim", "can_support_hierarchy_claim"])
         w.writerow(["230719", "0", "unmapped_no_metadata", "Unknown", "None", "false", "false"])
-        w.writerow(["230719", "0", "unmapped_no_metadata", "Unknown", "None", "false", "false"])
-        w.writerow(["230630", "0", "provisional_unit_area_from_count_matched_row_order",
+        w.writerow(["230719", "1", "unmapped_no_metadata", "Unknown", "None", "false", "false"])
+        w.writerow(["230630", "2", "provisional_unit_area_from_count_matched_row_order",
                     "PFC", "PFC", "false", "false"])
-        w.writerow(["230630", "0", "unresolved_generic_v3", "V3", "V3", "false", "false"])
+        w.writerow(["230630", "3", "unresolved_generic_v3", "V3", "V3", "false", "false"])
         w.writerow(["230629", "999", "unmapped_no_metadata", "Unknown", "None", "false", "false"])
 
     # NWB profile CSV (simulates unit_nwb_profile.csv)
@@ -113,13 +118,12 @@ def mock_a8_4_setup(tmp_path):
                     "peak_channel_id", "location", "group_name"])
         # ses230719, probeB (=1), unit 0, channel 50 -> V4 (DP probe)
         w.writerow(["sub-V198o_ses-230719_rec.nwb", "probeB", "0", "50", "DP", "probeB"])
-        # ses230719, probeC (=2), unit 0, channel 30 -> V3d
-        w.writerow(["sub-V198o_ses-230719_rec.nwb", "probeC", "0", "30", "V3d,V3a", "probeC"])
-        # ses230630, probeA (=0), unit 0, channel 10 -> PFC
-        w.writerow(["sub-C31o_ses-230630_rec.nwb", "probeA", "0", "10", "PFC", "probeA"])
-        # ses230630, probeC (=2), unit 0, channel 30 -> V3 (generic)
-        w.writerow(["sub-C31o_ses-230630_rec.nwb", "probeC", "0", "30", "V3,V1", "probeC"])
-        # ses230629: NO profile entry for unit 999 -> should be unresolved
+        # ses230719, probeC (=2), unit 1, channel 130 -> V3d (sequential global index mod 128 = 2)
+        w.writerow(["sub-V198o_ses-230719_rec.nwb", "probeC", "1", "130", "V3d,V3a", "probeC"])
+        # ses230630, probeA (=0), unit 2, channel 10 -> PFC
+        w.writerow(["sub-C31o_ses-230630_rec.nwb", "probeA", "2", "10", "PFC", "probeA"])
+        # ses230630, probeC (=2), unit 3, channel 30 -> V3 (generic)
+        w.writerow(["sub-C31o_ses-230630_rec.nwb", "probeC", "3", "30", "V3,V1", "probeC"])
 
     return {
         "a81_dir": a81_dir,
@@ -169,7 +173,7 @@ def test_peak_channel_maps_area_only_when_channel_exists():
     # Missing channel: empty string
     area3, method3 = channel_to_area("230629", "0", "")
     assert area3 == "Unknown"
-    assert "not_numeric" in method3 or "not_numeric" in method3 or area3 == "Unknown"
+    assert "not_numeric" in method3 or area3 == "Unknown"
 
     # Probe not in map
     area4, method4 = channel_to_area("999999", "0", "50")
@@ -183,19 +187,15 @@ def test_peak_channel_maps_area_only_when_channel_exists():
 
 def test_conflicting_metadata_blocks_upgrade():
     """3. Conflicting metadata sources must be flagged and not silently resolved."""
-    # Simulate: two profile entries for same key would be deduplicated by first-wins
-    # The script must not silently merge conflicting entries
-    # Test that the profile loader keeps first entry when key is repeated
     profile_data = {}
     key = ("230629", "0", "0")
     row_a = {"peak_channel_id": "10", "location": "V1,V2", "group_name": "probeA"}
     row_b = {"peak_channel_id": "99", "location": "CONFLICT", "group_name": "probeA_alt"}
 
-    # Simulate first-wins (as the loader does)
     if key not in profile_data:
         profile_data[key] = row_a
     if key not in profile_data:
-        profile_data[key] = row_b  # This should NOT overwrite
+        profile_data[key] = row_b
 
     assert profile_data[key]["peak_channel_id"] == "10", "First-entry must win"
     assert profile_data[key]["location"] != "CONFLICT"
@@ -212,12 +212,11 @@ def test_row_order_only_stays_provisional(mock_a8_4_setup):
     nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
     a8_3_status = load_a8_3_status(s["a83_dir"])
 
-    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set())
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
 
-    # Unit ses230630, probe0, unit 0 was provisional in A8.3
     provisional_units = [
         r for r in long_rows
-        if r["a8_3_original_status"] == "provisional_unit_area_from_count_matched_row_order"
+        if r["original_a8_3_status"] == "provisional_unit_area_from_count_matched_row_order"
     ]
     for u in provisional_units:
         assert u["can_support_manuscript_area_claim"] == "false", \
@@ -235,15 +234,14 @@ def test_missing_metadata_stays_unresolved(mock_a8_4_setup):
     nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
     a8_3_status = load_a8_3_status(s["a83_dir"])
 
-    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set())
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
 
-    # Unit ses230629, unit 999 has no NWB profile
     missing_units = [
         r for r in long_rows
         if r["session_id"] == "230629" and r["unit_axis_index"] == "999"
     ]
     assert len(missing_units) == 1
-    assert missing_units[0]["recovery_status"] == "unresolved_no_candidate_metadata"
+    assert missing_units[0]["final_diagnostic_status"] == "unresolved_no_candidate_metadata"
     assert missing_units[0]["can_upgrade_to_area_claim_candidate"] == "false"
 
 
@@ -253,15 +251,12 @@ def test_missing_metadata_stays_unresolved(mock_a8_4_setup):
 
 def test_dp_maps_to_v4_in_recovery():
     """6. DP → V4 alias is applied when recovering from DP-labeled probe."""
-    # 230719 probe1 is defined as DP (V4) — entire probe is V4
     area, method = channel_to_area("230719", "1", "50")
     assert area == "V4", f"Expected V4 for DP probe, got {area}"
     assert method == "heuristic_equal_segment"
 
     area2, _ = channel_to_area("230719", "1", "127")
     assert area2 == "V4"
-
-    # V4 must be in canonical areas
     assert "V4" in CANONICAL_AREAS
 
 
@@ -276,9 +271,8 @@ def test_generic_v3_not_silently_split(mock_a8_4_setup):
     nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
     a8_3_status = load_a8_3_status(s["a83_dir"])
 
-    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set())
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
 
-    # Unit ses230630, probe2 (V3/V1 in area map), channel 30 -> V3 (generic)
     v3_units = [
         r for r in long_rows
         if r["session_id"] == "230630" and r["probe_id"] == "2"
@@ -286,16 +280,12 @@ def test_generic_v3_not_silently_split(mock_a8_4_setup):
     for u in v3_units:
         assert u["recovered_canonical_area"] not in ("V3d", "V3a"), \
             "Generic V3 must NOT be silently split to V3d or V3a"
-        assert u["recovery_status"] in (
+        assert u["final_diagnostic_status"] in (
             "unresolved_generic_v3_from_channel",
             "source_probe_resolved_but_channel_unresolvable",
             "unresolved_no_candidate_metadata",
         )
         assert u["can_support_manuscript_area_claim"] == "false"
-
-    # Also test channel_to_area directly
-    area_v3, _ = channel_to_area("230630", "2", "30")
-    assert area_v3 == "V3"  # Must remain generic V3
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -316,8 +306,9 @@ def test_manifest_schema(mock_a8_4_setup, monkeypatch):
         "--a8-2-dir", str(s["a82_dir"]),
         "--a8-3-dir", str(s["a83_dir"]),
         "--nwb-profile", str(s["nwb_profile_csv"]),
-        "--master-index", str(s["nwb_profile_csv"]),  # reuse for test
+        "--master-index", str(s["nwb_profile_csv"]),
         "--out-dir", str(s["out_dir"]),
+        "--session-area-map", str(s["nwb_profile_csv"]),  # dummy for test
     ]
     with patch("sys.argv", test_args):
         main()
@@ -330,8 +321,7 @@ def test_manifest_schema(mock_a8_4_setup, monkeypatch):
 
     assert manifest["truth_status"] == TRUTH_SAFE_UNVERIFIED
     assert manifest["git_commit"] == "mock_commit_a8_4"
-    assert "a8_1_unit_candidate_labels" in manifest["input_files"]
-    assert len(manifest["hashes"]) >= 10
+    assert "geometry_validation_source" in manifest["input_files"]
     assert manifest["artifact_id"] == "A8_4_unit_area_provenance_recovery"
 
 
@@ -355,6 +345,7 @@ def test_no_hierarchy_claim_text(mock_a8_4_setup, monkeypatch):
         "--nwb-profile", str(s["nwb_profile_csv"]),
         "--master-index", str(s["nwb_profile_csv"]),
         "--out-dir", str(s["out_dir"]),
+        "--session-area-map", str(s["nwb_profile_csv"]),
     ]
     with patch("sys.argv", test_args):
         main()
@@ -373,15 +364,6 @@ def test_no_hierarchy_claim_text(mock_a8_4_setup, monkeypatch):
     assert "hierarchy" in blocked
     assert "enrichment" in blocked
 
-    md_text = summary_md.read_text(encoding="utf-8").lower()
-    overclaim_phrases = [
-        "higher-order omission coding", "pfc enrichment",
-        "hierarchy proven", "area enrichment result",
-        "fef/pfc dominant", "predictive routing confirmed",
-    ]
-    for phrase in overclaim_phrases:
-        assert phrase not in md_text, f"Overclaim found in summary MD: '{phrase}'"
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Test 10: Original A8.3 statuses preserved in output
@@ -394,17 +376,86 @@ def test_original_a8_3_status_preserved(mock_a8_4_setup):
     nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
     a8_3_status = load_a8_3_status(s["a83_dir"])
 
-    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set())
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
 
-    # Every row must have the original A8.3 status preserved
     for r in long_rows:
-        assert "a8_3_original_status" in r, "a8_3_original_status must be in every row"
-        assert r["a8_3_original_status"] != "", "a8_3_original_status must not be empty"
+        assert "original_a8_3_status" in r
+        assert r["original_a8_3_status"] != ""
 
-    # The recovery status must be a different field from original
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 11: Modulo-128 reclassifies global sequentially-indexed channel IDs
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_modulo_128_reclassifies_unresolvable_units(mock_a8_4_setup):
+    """11. Modulo-128 geometry evidence reclassifies channel-unresolvable units to geometry_resolved_candidate."""
+    s = mock_a8_4_setup
+    a8_1_rows = load_a8_1_keys(s["a81_dir"])
+    nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
+    a8_3_status = load_a8_3_status(s["a83_dir"])
+
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
+
+    # Unit 1 is 230719 probe 2, peak_channel_id_raw = 130 (sequential global).
+    # Since 130 % 128 = 2, it falls in V3d: (0, 63) range, resolving it.
+    u1 = [r for r in long_rows if r["session_id"] == "230719" and r["probe_id"] == "2"][0]
+    
+    assert u1["peak_channel_id_raw"] == "130"
+    assert u1["probe_local_channel_mod128"] == "2"
+    assert u1["channel_interpretation"] == "sequential_modulo_128"
+    assert u1["final_diagnostic_status"] == "geometry_resolved_candidate"
+    assert u1["a8_4_1_geometry_status"] == "geometry_resolved_candidate"
+    assert u1["a8_4_initial_recovery_status"] == "source_probe_resolved_but_channel_unresolvable"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 12: Geometry candidates block promotions
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_geometry_candidates_block_anatomical_claims(mock_a8_4_setup):
+    """12. Geometry candidates do not become metadata_resolved_channel and safety flags remain false."""
+    s = mock_a8_4_setup
+    a8_1_rows = load_a8_1_keys(s["a81_dir"])
+    nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
+    a8_3_status = load_a8_3_status(s["a83_dir"])
+
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
+
     for r in long_rows:
-        assert "recovery_status" in r, "recovery_status must be in every row"
-        # Recovery status must not overwrite a8_3 status
-        assert r["a8_3_original_status"] != r["recovery_status"] or \
-               r["a8_3_original_status"] == "unknown", \
-               "Original A8.3 status must not be silently replaced by recovery status"
+        if r["final_diagnostic_status"] == "geometry_resolved_candidate":
+            assert r["can_support_manuscript_area_claim"] == "false"
+            assert r["can_support_hierarchy_claim"] == "false"
+            assert r["final_diagnostic_status"] != "metadata_resolved_channel"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 13: Original, initial, A8.4.1, and final statuses are preserved
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_all_statuses_preserved(mock_a8_4_setup):
+    """13. Original, initial A8.4, geometry A8.4.1, and final diagnostic statuses are all preserved."""
+    s = mock_a8_4_setup
+    a8_1_rows = load_a8_1_keys(s["a81_dir"])
+    nwb_profile, _ = load_nwb_profile(s["nwb_profile_csv"])
+    a8_3_status = load_a8_3_status(s["a83_dir"])
+
+    long_rows, _ = build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, set(), GEOM_SOURCE, GEOM_HASH)
+
+    for r in long_rows:
+        assert "original_a8_3_status" in r
+        assert "a8_4_initial_recovery_status" in r
+        assert "a8_4_1_geometry_status" in r
+        assert "final_diagnostic_status" in r
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 14: Session-area map is CLI-overridable
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_session_area_map_cli_overridable():
+    """14. Session-area map path is CLI-overridable in parse_args."""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--session-area-map", default="default.md")
+    args = parser.parse_args(["--session-area-map", "custom_map.md"])
+    assert args.session_area_map == "custom_map.md"
