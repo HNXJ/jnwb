@@ -1,0 +1,39 @@
+{
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "geometry_validation_passed_not_biological_claim",
+  "git_commit": "6c832a11dbbbaa9f09a1970b3065dedd4e1ed70b",
+  "generated_at": "2026-05-25T16:01:57.207194+00:00",
+  "n_a8_1_units_processed": 3521,
+  "n_geometry_resolved_candidate": 739,
+  "n_heuristic_equal_segment_validated": 2736,
+  "n_geometry_ambiguous_blocked": 46,
+  "n_unresolved_739_processed": 739,
+  "n_unresolved_739_resolved_via_modulo": 739,
+  "channel_range_audited": {
+    "probe_local_bounds": "0-127",
+    "global_sequential_bounds": "0-383",
+    "provenance_inferred": "NWB peak_channel_id uses global sequential index across probes"
+  },
+  "portability_audit_summary": {
+    "n_hardcoded_paths_detected": 5,
+    "n_cli_overrides_supported": 4,
+    "blocker_classification": "local_default_overridable",
+    "refactoring_action_recommended": "Convert NWB_ARCHIVE_BASE in run_unit_area_provenance_recovery_a8_4.py to a relative path default"
+  },
+  "manuscript_hierarchy_claims_allowed": false,
+  "can_promote_to_metadata_resolved_channel": false,
+  "theta_validation_required_before_promotion": true,
+  "allowed_claims": [
+    "Modulo 128 global channel sequential mapping is mathematically validated for the 739 unresolvable units",
+    "Unresolved 739 units mapped as geometry_resolved_candidate",
+    "DP to V4 probe level alias validated in range tables",
+    "Hardcoded default paths identified and documented as portability blocker"
+  ],
+  "blocked_claims": [
+    "biological hierarchy claims",
+    "manuscript-safe area enrichment claims",
+    "FEF or PFC population dominance claims",
+    "promotion of candidates to metadata_resolved_channel anatomical truth"
+  ],
+  "scientific_wording_lock": "A8.4.1 is a geometry and channel indexing validation only. Channel resolution of the 739 units via modulo 128 maps them to geometry_resolved_candidate status. This confirms NWB indexing provenance but is not validated anatomical truth. No biological hierarchy or population claims are supported."
+}

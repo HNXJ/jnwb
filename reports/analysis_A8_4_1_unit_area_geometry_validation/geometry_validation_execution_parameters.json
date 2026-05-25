@@ -1,0 +1,9 @@
+{
+  "a8_4_dir": "reports/analysis_A8_4_unit_area_provenance_recovery",
+  "out_dir": "reports/analysis_A8_4_1_unit_area_geometry_validation",
+  "recovery_script": "scripts/run_unit_area_provenance_recovery_a8_4.py",
+  "session_area_map_path": "D:\\analysis\\omission-archive\\omission\\context\\overview\\session-area-mapping.md",
+  "git_commit": "6c832a11dbbbaa9f09a1970b3065dedd4e1ed70b",
+  "generated_at": "2026-05-25T16:01:57.207194+00:00",
+  "truth_status": "truth_safe_unverified"
+}
