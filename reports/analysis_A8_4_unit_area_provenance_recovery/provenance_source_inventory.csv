@@ -1,0 +1,4 @@
+source_name,source_path,source_type,is_raw_nwb,is_numpy_payload,rows,fields_used,source_hash,status
+unit_nwb_profile.csv,D:\analysis\omission-archive\omission\outputs\unit_nwb_profile.csv,nwb_extracted_unit_metadata_csv,false,false,6040,"peak_channel_id,location,group_name",0cfa63ecd6fad96b36a25a1cfcea6bcc290f13af3d7fbe4155fa02311f2ba3d0,loaded
+all_units_master_index.csv,D:\analysis\omission-archive\omission\outputs\all_units_master_index.csv,nwb_extracted_unit_index_csv,false,false,6040,"session,probe,unit_idx",b98008749da2dd1ce471e9fb035978957f5858ea973e1b435d3185c8fc8307bb,available_not_directly_loaded
+session-area-mapping.md,context/overview/session-area-mapping.md,canonical_session_probe_area_document,false,false,34,"session,probe,area_list,channel_range",2f717b13d7eaca03a5be3907dd64519ea9573d3f17a5403a5b99001bfef54ffa,embedded_in_script_from_canonical_doc

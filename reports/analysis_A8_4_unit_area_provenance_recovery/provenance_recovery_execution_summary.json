@@ -1,0 +1,42 @@
+{
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "diagnostic_provenance_recovery_not_biological_claim",
+  "git_commit": "29e6c9e32a9765a46aa66d5cc6f699e06a102d7d",
+  "generated_at": "2026-05-25T14:19:00.754344+00:00",
+  "n_a8_1_input_units": 3521,
+  "n_a8_2_keys": 3521,
+  "n_nwb_profile_entries": 6040,
+  "n_recovered_heuristic_equal_segment": 2736,
+  "n_unresolved_generic_v3_from_channel": 0,
+  "n_source_probe_resolved_but_channel_missing": 0,
+  "n_source_probe_resolved_but_channel_unresolvable": 739,
+  "n_unresolved_no_candidate_metadata": 46,
+  "n_can_upgrade_to_area_claim_candidate": 2736,
+  "n_can_support_manuscript_area_claim": 0,
+  "n_remaining_unresolved_after_recovery": 785,
+  "recovery_method": "nwb_peak_channel_plus_equal_segment_heuristic",
+  "area_map_source": "context/overview/session-area-mapping.md",
+  "area_map_status": "canonical",
+  "dp_alias_applied": true,
+  "generic_v3_preserved": true,
+  "manuscript_safe_response_class": false,
+  "area_hierarchy_allowed": false,
+  "manuscript_hierarchy_claims_allowed": false,
+  "can_promote_to_metadata_resolved_channel": false,
+  "theta_validation_required_before_promotion": true,
+  "blocked_claims": [
+    "manuscript area enrichment or hierarchy claims",
+    "biological hierarchy interpretations from recovered area counts",
+    "PFC or FEF enrichment claims from provisional or heuristic labels",
+    "area-stratified population-level selectivity claims",
+    "promotion of X_candidate to higher-order omission hierarchy"
+  ],
+  "allowed_claims": [
+    "NWB peak channel provenance audit",
+    "equal-segment heuristic area assignment (diagnostic only)",
+    "upgrade candidate identification for THETA review",
+    "DP-to-V4 alias application in recovery",
+    "generic V3 detection and preservation"
+  ],
+  "scientific_wording_lock": "A8.4 is a metadata repair diagnostic only. Recovered heuristic area labels are upgrade candidates for THETA validation, not manuscript results. No biological hierarchy, area enrichment, or population claims are supported by this phase. Equal-segment heuristic channel-to-area assignment does not constitute validated anatomical provenance."
+}

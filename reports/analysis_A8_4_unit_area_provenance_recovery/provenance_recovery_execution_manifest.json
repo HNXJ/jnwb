@@ -1,0 +1,49 @@
+{
+  "artifact_id": "A8_4_unit_area_provenance_recovery",
+  "truth_status": "truth_safe_unverified",
+  "validation_status": "diagnostic_provenance_recovery_not_biological_claim",
+  "git_commit": "29e6c9e32a9765a46aa66d5cc6f699e06a102d7d",
+  "generated_at": "2026-05-25T14:19:00.754344+00:00",
+  "payload_read_policy": "csv_metadata_streaming_only; no raw h5/nwb neural payloads; no full numpy array loads",
+  "input_files": {
+    "a8_1_unit_candidate_labels": "reports\\analysis_A8_1_spk_response_metrics\\unit_candidate_labels.csv",
+    "a8_2_stability_by_unit": "reports\\analysis_A8_2_spk_response_metric_sensitivity\\candidate_label_stability_by_unit.csv",
+    "a8_3_long_table": "reports\\analysis_A8_3_unit_area_mapping_diagnostic\\unit_area_mapping_long.csv",
+    "nwb_unit_profile": "D:\\analysis\\omission-archive\\omission\\outputs\\unit_nwb_profile.csv",
+    "master_unit_index": "D:\\analysis\\omission-archive\\omission\\outputs\\all_units_master_index.csv"
+  },
+  "input_hashes": {
+    "a8_1_unit_candidate_labels": "13ce89584062394793c35f280c62afb12c50cae0982ba4ac00274dc71466234d",
+    "nwb_unit_profile": "0cfa63ecd6fad96b36a25a1cfcea6bcc290f13af3d7fbe4155fa02311f2ba3d0"
+  },
+  "generated_files": [
+    "provenance_recovery_execution_parameters.json",
+    "provenance_recovery_execution_summary.json",
+    "provenance_recovery_execution_summary.md",
+    "provenance_source_inventory.csv",
+    "candidate_metadata_files.csv",
+    "unit_key_to_source_file_probe_audit.csv",
+    "peak_anchor_channel_recovery_audit.csv",
+    "recovered_unit_area_mapping_candidates.csv",
+    "unresolved_after_recovery.csv",
+    "unit_area_provenance_recovery_long.csv",
+    "recovery_status_by_session.csv",
+    "recovery_status_by_original_a8_3_status.csv",
+    "metadata_repair_recommendations.md"
+  ],
+  "hashes": {
+    "provenance_recovery_execution_parameters.json": "fa75c899fe6cc109cbeb78418f65b67928f499bf2beae340d5b56e3146e7cf63",
+    "provenance_recovery_execution_summary.json": "ea3ade37b8421b9d0c535072ece9ea0147d71a84b8d93d27ada9dd601706d0b7",
+    "provenance_recovery_execution_summary.md": "c62442b5f1fa44f79b4503a55af068af6c607ae535c64b5676f890126dfab1e6",
+    "provenance_source_inventory.csv": "5b5707e0546a5a55d516d2235d0d3a7e0bc8387b359eb35fdd12c8c58fb59bc1",
+    "candidate_metadata_files.csv": "c0eb8758c71212db38290119d021e9187466259c47ae5511a50cad5a0cb3e381",
+    "unit_key_to_source_file_probe_audit.csv": "0d608e94e55fce268fca0c8e27d39929f590e4199ab8425937060bd11ebc9574",
+    "peak_anchor_channel_recovery_audit.csv": "698e26995fec97e1ba1bd96df05b93d2342be20acec7cc3324e7d72eb4f96a9e",
+    "recovered_unit_area_mapping_candidates.csv": "cc82df7f6e1e41c19d40bba9be6c9ef6d8af614fa8190934f6bd76de613c566c",
+    "unresolved_after_recovery.csv": "a464eaae6dce243759190cf33ba341d40872ffca53f0e092de34bb860b632a44",
+    "unit_area_provenance_recovery_long.csv": "c615ea7d2a5d891dac94d7bd82590f27a8e74ee2e33c05b476c9dd61145f1cd4",
+    "recovery_status_by_session.csv": "473b1977540f00b40d9fbfc6e6267618de858dc20d5c93d88891c8af2793309b",
+    "recovery_status_by_original_a8_3_status.csv": "73d272b7c06802331704c01da612856190d77184e5254b095e85a967b23f8840",
+    "metadata_repair_recommendations.md": "49ade2c26e096f5d36efbfb6b07ad3c78680f2fa7105b396292f2bd81daa7d90"
+  }
+}

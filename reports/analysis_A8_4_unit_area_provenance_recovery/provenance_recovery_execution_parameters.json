@@ -1,0 +1,14 @@
+{
+  "a6_dir": "reports/analysis_A6_area_probe_metadata",
+  "a8_1_dir": "reports/analysis_A8_1_spk_response_metrics",
+  "a8_2_dir": "reports/analysis_A8_2_spk_response_metric_sensitivity",
+  "a8_3_dir": "reports/analysis_A8_3_unit_area_mapping_diagnostic",
+  "out_dir": "reports/analysis_A8_4_unit_area_provenance_recovery",
+  "nwb_profile_path": "D:\\analysis\\omission-archive\\omission\\outputs\\unit_nwb_profile.csv",
+  "master_index_path": "D:\\analysis\\omission-archive\\omission\\outputs\\all_units_master_index.csv",
+  "area_map_source": "context/overview/session-area-mapping.md",
+  "area_map_status": "canonical",
+  "git_commit": "29e6c9e32a9765a46aa66d5cc6f699e06a102d7d",
+  "generated_at": "2026-05-25T14:19:00.754344+00:00",
+  "truth_status": "truth_safe_unverified"
+}
