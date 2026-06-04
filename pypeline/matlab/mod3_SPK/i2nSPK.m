@@ -163,45 +163,7 @@ if ~exist('rez', 'var')
     load([spk_file_path_itt filesep 'rez2.mat']);
 end
 
-unit_idents = unique(rez.st3(:,2))';
-if numel(unit_idents) > 2
-
-    spike_times = cell(1, numel(unit_idents));
-    ctr_i=0;
-    for kk = unit_idents
-        ctr_i = ctr_i + 1;
-        spike_times{ctr_i} = (rez.st3(rez.st3(:,2)==kk,1)./recdev.sampling_rate).';
-
-        % isi measures
-        temp_isi = diff(spike_times{ctr_i});
-        isi_mean(ctr_i) = mean(temp_isi);
-        isi_cv(ctr_i) = std(temp_isi) / isi_mean(ctr_i);
-        isi_0 = temp_isi(1:end-1);
-        isi_1 = temp_isi(2:end);
-        isi_lv(ctr_i) = (3/(numel(temp_isi)-1)) * sum(((isi_0-isi_1)./(isi_0+isi_1)).^2);
-
-        clear isi_0 isi_1 temp_isi
-    end
-
-    % grab spike times and indices
-    [spike_times_vector, spike_times_index] = util.create_indexed_column(spike_times);
-    spike_times_index_2 = spike_times_index.data(:);
-    spike_times_vector_2 = spike_times_vector.data(:);
-
-    % grab the waveforms
-    mean_wave = readNPY([spk_file_path_itt 'mean_waveforms.npy']);
-    mean_wave_reshape = [];
-    for kk = 1 : numel(unit_idents)
-        mean_wave_reshape = [mean_wave_reshape, squeeze(mean_wave(kk,:,:)).'];
-    end
-
-    clear mean_wave
-
-    % grab spike templates/amps
-    spike_amplitudes = readNPY([spk_file_path_itt 'amplitudes.npy']);
-    spike_amplitudes_index = spike_times_index.data(:);
-
-    % grab the metrics
+    % grab the metrics first to know which units to keep
     fid = fopen([spk_file_path_itt 'metrics_test.csv'],'rt');
     C = textscan(fid, '%f %f %f %f %f %f %f %f %f %f %f %f %f %f %s %s %f %f %f %f %f %f %f %f %f %f %f', ...
         'Delimiter', ',', 'HeaderLines', 1, 'EmptyValue', NaN);
@@ -213,29 +175,87 @@ if numel(unit_idents) > 2
 
     clear C
 
-    % generate other indices
-    waveform_mean_index = probe.num_channels:probe.num_channels:probe.num_channels*numel(unit_idents);
-    local_index = 0:numel(unit_idents)-1; local_index = local_index';
+    % Only keep units listed in cluster_id (0-based)
+    unit_idents = cluster_id + 1; % 1-based indices matching MATLAB
+    
+    if numel(unit_idents) > 2
 
-    % grab noise units
-    fid = fopen([spk_file_path_itt 'cluster_group.tsv.v2'],'rt');
-    C = textscan(fid, '%f %s', 'Delimiter', ',', 'HeaderLines', 1);
-    fclose(fid);
-    [quality_cluster_id, quality] = deal(C{:});
-    quality = quality(ismember(quality_cluster_id, cluster_id));
-    quality = single(strcmp(quality, 'good'));
+        % Read postprocessed spike times and clusters (which match amplitudes.npy)
+        st = double(readNPY([spk_file_path_itt 'spike_times.npy'])) / recdev.sampling_rate;
+        clu = double(readNPY([spk_file_path_itt 'spike_clusters.npy'])) + 1; % 1-based index
+        spike_amplitudes_raw = readNPY([spk_file_path_itt 'amplitudes.npy']);
 
-    clear quality_cluster_id C
+        spike_times = cell(1, numel(unit_idents));
+        spike_amps = cell(1, numel(unit_idents));
+        
+        ctr_i = 0;
+        for kk = unit_idents'
+            ctr_i = ctr_i + 1;
+            spike_times{ctr_i} = st(clu == kk).';
+            spike_amps{ctr_i} = spike_amplitudes_raw(clu == kk).';
+
+            % isi measures
+            temp_isi = diff(spike_times{ctr_i});
+            if isempty(temp_isi)
+                isi_mean(ctr_i) = NaN;
+                isi_cv(ctr_i) = NaN;
+                isi_lv(ctr_i) = NaN;
+            else
+                isi_mean(ctr_i) = mean(temp_isi);
+                isi_cv(ctr_i) = std(temp_isi) / isi_mean(ctr_i);
+                if length(temp_isi) > 1
+                    isi_0 = temp_isi(1:end-1);
+                    isi_1 = temp_isi(2:end);
+                    isi_lv(ctr_i) = (3/(numel(temp_isi)-1)) * sum(((isi_0-isi_1)./(isi_0+isi_1)).^2);
+                else
+                    isi_lv(ctr_i) = NaN;
+                end
+            end
+        end
+
+        % grab spike times and indices
+        [spike_times_vector, spike_times_index] = util.create_indexed_column(spike_times);
+        spike_times_index_2 = spike_times_index.data(:);
+        spike_times_vector_2 = spike_times_vector.data(:);
+
+        [spike_amps_vector, spike_amps_index] = util.create_indexed_column(spike_amps);
+        spike_amplitudes = spike_amps_vector.data(:);
+        spike_amplitudes_index = spike_times_index_2;
+
+        % grab the waveforms
+        mean_wave = readNPY([spk_file_path_itt 'mean_waveforms.npy']);
+        mean_wave_reshape = [];
+        for kk = unit_idents'
+            mean_wave_reshape = [mean_wave_reshape, squeeze(mean_wave(kk,:,:)).'];
+        end
+
+        clear mean_wave
+
+        % generate other indices
+        waveform_mean_index = probe.num_channels:probe.num_channels:probe.num_channels*numel(unit_idents);
+        local_index = 0:numel(unit_idents)-1; local_index = local_index';
+
+        % grab noise units
+        fid = fopen([spk_file_path_itt 'cluster_group.tsv.v2'],'rt');
+        C = textscan(fid, '%f %s', 'Delimiter', ',', 'HeaderLines', 1);
+        fclose(fid);
+        [quality_cluster_id, quality] = deal(C{:});
+        quality = quality(ismember(quality_cluster_id, cluster_id));
+        quality = single(strcmp(quality, 'good'));
+
+        clear quality_cluster_id C
+
 
     % gen colnames
     colnames = {'snr';'cumulative_drift';'peak_channel_id';'quality';'local_index';'spread';'max_drift';'waveform_duration';'amplitude'; ...
         'amplitude_cutoff';'firing_rate';'nn_hit_rate';'nn_miss_rate';'silhouette_score';'isi_violations';'isolation_distance';'cluster_id'; ...
         'velocity_below';'repolarization_slope';'velocity_above';'l_ratio';'waveform_halfwidth';'presence_ratio';'PT_ratio';'recovery_slope';'d_prime'; ...
-        'isi_mean';'isi_cv';'isi_lv';'waveform_mean_index';'spike_amplitudes_index'};
+        'isi_mean';'isi_cv';'isi_lv';'waveform_mean';'spike_amplitudes'};
 
     if ~isempty(nwb.units)
 
-        waveform_mean_index     = [nwb.units.vectordata.get('waveform_mean_index').data(:); waveform_mean_index' + nwb.units.vectordata.get('waveform_mean_index').data(numel(nwb.units.vectordata.get('waveform_mean_index').data))];
+        waveform_mean_index_data = nwb.units.vectordata.get('waveform_mean_index').data(:);
+        waveform_mean_index     = [waveform_mean_index_data; waveform_mean_index' + waveform_mean_index_data(end)];
         PT_ratio                = [nwb.units.vectordata.get('PT_ratio').data(:); PT_ratio];
         amplitude               = [nwb.units.vectordata.get('amplitude').data(:); amplitude];
         amplitude_cutoff        = [nwb.units.vectordata.get('amplitude_cutoff').data(:); amplitude_cutoff ];
@@ -268,7 +288,6 @@ if numel(unit_idents) > 2
         isi_lv                  = [nwb.units.vectordata.get('isi_lv').data(:); isi_lv'];
         spike_amplitudes        = [nwb.units.vectordata.get('spike_amplitudes').data(:); spike_amplitudes];
 
-        nwb.units.vectordata.set('waveform_mean_index', types.hdmf_common.VectorData('description', 'placeholder', 'data', waveform_mean_index));
         nwb.units.vectordata.set('PT_ratio', types.hdmf_common.VectorData('description', 'placeholder', 'data', PT_ratio));
         nwb.units.vectordata.set('amplitude', types.hdmf_common.VectorData('description', 'placeholder', 'data', amplitude));
         nwb.units.vectordata.set('amplitude_cutoff', types.hdmf_common.VectorData('description', 'placeholder', 'data', amplitude_cutoff));
@@ -290,7 +309,6 @@ if numel(unit_idents) > 2
         nwb.units.vectordata.set('repolarization_slope', types.hdmf_common.VectorData('description', 'placeholder', 'data', repolarization_slope));
         nwb.units.vectordata.set('silhouette_score', types.hdmf_common.VectorData('description', 'placeholder', 'data', silhouette_score));
         nwb.units.vectordata.set('snr', types.hdmf_common.VectorData('description', 'placeholder', 'data', snr));
-        nwb.units.vectordata.set('spike_amplitudes_index', types.hdmf_common.VectorData('description', 'placeholder', 'data', spike_amplitudes_index));
         nwb.units.vectordata.set('spread', types.hdmf_common.VectorData('description', 'placeholder', 'data', spread));
         nwb.units.vectordata.set('velocity_above', types.hdmf_common.VectorData('description', 'placeholder', 'data', velocity_above));
         nwb.units.vectordata.set('velocity_below', types.hdmf_common.VectorData('description', 'placeholder', 'data', velocity_below));
@@ -299,7 +317,10 @@ if numel(unit_idents) > 2
         nwb.units.vectordata.set('isi_mean', types.hdmf_common.VectorData('description', 'placeholder', 'data', isi_mean));
         nwb.units.vectordata.set('isi_cv', types.hdmf_common.VectorData('description', 'placeholder', 'data', isi_cv));
         nwb.units.vectordata.set('isi_lv', types.hdmf_common.VectorData('description', 'placeholder', 'data', isi_lv));
-        nwb.units.vectordata.set('spike_amplitudes', types.hdmf_common.VectorData('description', 'placeholder', 'data', spike_amplitudes));
+
+        savdp = types.hdmf_common.VectorData('description', 'placeholder', 'data', spike_amplitudes);
+        nwb.units.vectordata.set('spike_amplitudes', savdp);
+        nwb.units.vectordata.set('spike_amplitudes_index', types.hdmf_common.VectorIndex('description', 'placeholder', 'data', spike_amplitudes_index, 'target', types.untyped.ObjectView(savdp)));
 
         spike_times_vector      = [nwb.units.spike_times.data(:); spike_times_vector_2];
         spike_times_index       = [nwb.units.spike_times_index.data(:); spike_times_index_2 + nwb.units.spike_times_index.data(numel(nwb.units.spike_times_index.data(:)))];
@@ -311,21 +332,26 @@ if numel(unit_idents) > 2
         nwb.units.spike_times = spike_times_vector;
         nwb.units.spike_times_index = spike_times_index;
         nwb.units.waveform_mean = mean_wave_reshape;
+        nwb.units.vectordata.set('waveform_mean_index', types.hdmf_common.VectorIndex('data', types.untyped.DataPipe('maxsize', Inf, 'data', waveform_mean_index), 'description', 'placeholder', 'target', types.untyped.ObjectView(mean_wave_reshape)));
 
         nwb.units.id = types.hdmf_common.ElementIdentifiers('data', types.untyped.DataPipe('maxsize', Inf, 'data', int64(0:numel(quality) - 1)));
 
     else
 
         stvdp = types.hdmf_common.VectorData('data', types.untyped.DataPipe('maxsize', Inf, 'data', spike_times_vector_2), 'description', 'placeholder');
-        % change spike times and index to datapipe...
+        wmvdp = types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', [Inf Inf], 'data', mean_wave_reshape),  'description', 'placeholder');
+        savdp = types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', spike_amplitudes),         'description', 'placeholder');
+        
         nwb.units = types.core.Units( ...
             'description',              'kilosorted and AllenSDK ecephys processed units', ...
             'colnames',                 colnames, ...
             'id',                       types.hdmf_common.ElementIdentifiers('data', types.untyped.DataPipe('maxsize', Inf, 'data', int64(0:numel(quality) - 1))), ...
             'spike_times',              stvdp, ...
             'spike_times_index',        types.hdmf_common.VectorIndex('data',   types.untyped.DataPipe('maxsize', Inf, 'data', spike_times_index_2),       'description', 'placeholder', 'target', types.untyped.ObjectView(stvdp)), ...
-            'waveform_mean',            types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', [Inf Inf], 'data', mean_wave_reshape),  'description', 'placeholder'), ...
-            'waveform_mean_index',      types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', waveform_mean_index),       'description', 'placeholder'), ...
+            'waveform_mean',            wmvdp, ...
+            'waveform_mean_index',      types.hdmf_common.VectorIndex('data',   types.untyped.DataPipe('maxsize', Inf, 'data', waveform_mean_index),       'description', 'placeholder', 'target', types.untyped.ObjectView(wmvdp)), ...
+            'spike_amplitudes',         savdp, ...
+            'spike_amplitudes_index',   types.hdmf_common.VectorIndex('data',   types.untyped.DataPipe('maxsize', Inf, 'data', spike_amplitudes_index),    'description', 'placeholder', 'target', types.untyped.ObjectView(savdp)), ...
             'PT_ratio',                 types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', PT_ratio),                  'description', 'placeholder'), ...
             'amplitude',                types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', amplitude),                 'description', 'placeholder'), ...
             'amplitude_cutoff',         types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', amplitude_cutoff),          'description', 'placeholder'), ...
@@ -347,7 +373,6 @@ if numel(unit_idents) > 2
             'repolarization_slope',     types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', repolarization_slope),      'description', 'placeholder'), ...
             'silhouette_score',         types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', silhouette_score),          'description', 'placeholder'), ...
             'snr',                      types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', snr),                       'description', 'placeholder'), ...
-            'spike_amplitudes_index',   types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', spike_amplitudes_index),    'description', 'placeholder'), ...
             'spread',                   types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', spread),                    'description', 'placeholder'), ...
             'velocity_above',           types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', velocity_above),            'description', 'placeholder'), ...
             'velocity_below',           types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', velocity_below),            'description', 'placeholder'), ...
@@ -357,10 +382,6 @@ if numel(unit_idents) > 2
             'isi_cv',                   types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', isi_cv),                    'description', 'placeholder'), ...
             'isi_lv',                   types.hdmf_common.VectorData('data',    types.untyped.DataPipe('maxsize', Inf, 'data', isi_lv),                    'description', 'placeholder') ...
             );
-
-        %nwbExport(nwb, [pp.NWB_DATA nwb.identifier '.nwb']);
-
-        nwb.units.vectordata.set('spike_amplitudes', types.hdmf_common.VectorData('description', 'placeholder', 'data', types.untyped.DataPipe('maxsize', Inf, 'data', spike_amplitudes)));
 
     end
 else
@@ -424,7 +445,7 @@ if probe.last_probe
 
     spike_times_indices = abs(spike_times_indices);
     for kk = 1 : numel(unit_idents)
-        conv_data(kk, round(nwb.units.spike_times.data(find(spike_times_indices==kk))*probe.downsample_fs))   = 1;
+        conv_data(kk, 1 + round(nwb.units.spike_times.data(find(spike_times_indices==kk))*probe.downsample_fs))   = 1;
     end
 
     rasters = int16(conv_data);

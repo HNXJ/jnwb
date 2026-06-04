@@ -75,7 +75,7 @@ function intan2nwb(ID,IMAGE_TOKEN,varargin)
     
         % Skip files already processed if desired
         if (exist([pp.DATA_DEST '_6_NWB_DATA' filesep recording_info.Identifier{ii} '.nwb'], 'file') & skip_completed) | ...
-                recording_info.Preprocessor_Ignore_Flag(ii) == 1
+                (recording_info.Preprocessor_Ignore_Flag(ii) == 1 && isempty(this_ident))
             
             continue;
         end
@@ -150,6 +150,7 @@ function intan2nwb(ID,IMAGE_TOKEN,varargin)
         nwb.general_lab                     = recording_info.Lab{ii};
         nwb.general_session_id              = recording_info.Identifier{ii};
         nwb.general_experiment_description  = recording_info.Experiment_Description{ii};
+        nwb.session_description             = recording_info.Experiment_Description{ii};
     
         num_recording_devices = sum(strcmp(recording_info.Identifier, recording_info.Identifier{ii}));
     
@@ -342,7 +343,8 @@ function intan2nwb(ID,IMAGE_TOKEN,varargin)
                             '', ...
                             ':robot_face:');
                     end
-                catch
+                catch E
+                    disp(getReport(E));
                     warning('Kilosort failed.');
                     ttt = toc;
                     if send_slack_alerts
