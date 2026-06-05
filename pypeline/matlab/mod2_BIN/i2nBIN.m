@@ -35,7 +35,19 @@ end
 NUM_CHANNELS = probe.num_channels;
 num_samples = recdev.num_samples;
 
-mex mergeBinaryFiles.cpp
+if exist('mergeBinaryFiles', 'file') ~= 3
+    cpp_path = which('mergeBinaryFiles.cpp');
+    if isempty(cpp_path)
+        this_dir = fileparts(mfilename('fullpath'));
+        cpp_path = fullfile(this_dir, 'mergeBinaryFiles.cpp');
+    end
+    if exist(cpp_path, 'file')
+        fprintf('\nCompiling mex binary conversion function...\n');
+        mex(cpp_path, '-outdir', fileparts(cpp_path));
+    else
+        error('mergeBinaryFiles MEX file is not compiled and mergeBinaryFiles.cpp could not be found.');
+    end
+end
 fprintf('\nRunning mex binary conversion function.\n');
 mergeBinaryFiles(NUM_CHANNELS, num_samples, char(fullfile(in_file_path)), port_letter, char(fullfile(file_name)));
 
