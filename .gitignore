@@ -1,37 +1,63 @@
-# Data and figures (Anchored to root)
-/data/
-/figures/
-Export_Staging/
-context_for_agents/
-plans_for_agents/
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.pyc
 
-# Binary & Large Data Files (Global)
-*.npy
-*.pkl
-*.h5
+# environments
+.venv/
+venv/
+env/
+
+# data / derived data
+data/
+outputs/
+figures/
+reports/
+artifacts/
+checkpoints/
+*.nwb
 *.mat
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
 *.bin
 *.pt
 *.onnx
+*.csv
 
-# Python caches
-__pycache__/
-*.pyc
+# generated web/gallery/dashboard
+dashboard/
+gallery/
+gallery_dist/
+gallery_src/
+*.html
+*.svg
+*.png
 
-# IDE/Editor files
+# scratch/local
+scratch/
+.claude/settings.local.json
+.env
+.env.*
+*.log
+*.asv
+*.mexw64
+*.mlx
+
+# Agent workspace / IDE
+!/.gemini/
+!/.gemini/skills/
+.claude/
 .vscode/
 .idea/
-
-# OS files
 .DS_Store
-
-# Dashboard
-dashboard/node_modules/
-dashboard/dist/
-dashboard/.env
-dashboard/public/figures/
-
-# Gallery
-/gallery_dist/
-/gallery/
-/outputs/
+Export_Staging/
+context_for_agents/
+plans_for_agents/

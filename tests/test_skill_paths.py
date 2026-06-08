@@ -59,3 +59,44 @@ if __name__ == "__main__":
         print("Success: All skill paths verified.")
     except Exception as e:
         print(f"Error: {e}")
+
+
+def test_skill_required_sections_selected():
+    """Validate that the four relevant SKILL.md files contain the mandatory subsections.
+
+    Required subsections (case‑insensitive):
+    - Trigger / Scope
+    - Required Tools / Commands
+    - Stop Conditions / Blocker Codes
+    - Final Report Requirements
+    """
+    repo_root = Path(__file__).parent.parent.absolute()
+    skills_dir = repo_root / ".gemini" / "skills"
+
+    selected = {
+        "analysis-nwb-read-guardrails",
+        "analysis-nwb-data-availability-report",
+        "analysis-manifest-validation",
+        "theta-report-receipt-audit",
+    }
+
+    required = [
+        r"Trigger / Scope",
+        r"Required Tools / Commands",
+        r"Stop Conditions / Blocker Codes",
+        r"Final Report Requirements",
+    ]
+
+    missing = []
+    for skill_dir in skills_dir.iterdir():
+        if skill_dir.name not in selected:
+            continue
+        skill_file = skill_dir / "SKILL.md"
+        if not skill_file.exists():
+            missing.append(f"{skill_dir.name}: SKILL.md missing")
+            continue
+        content = skill_file.read_text(encoding="utf-8")
+        for pattern in required:
+            if not re.search(pattern, content, flags=re.IGNORECASE):
+                missing.append(f"{skill_dir.name}: missing '{pattern}'")
+    assert not missing, f"Required subsections missing: {missing}"
