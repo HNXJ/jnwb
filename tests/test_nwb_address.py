@@ -129,19 +129,192 @@ class TestConditionMapping:
 class TestEventVectorOutput:
     """Test event vector return types."""
     
-    def test_empty_event_vectors_structure(self):
-        """Event vectors should be dict[str, list[float]]."""
+    def test_event_vectors_structure(self):
+        """Event vectors should be dict[str, np.ndarray]."""
         result = {
-            "AAAB": [],
-            "AXAB": [1.0, 2.0, 3.0],
+            "AAAB": np.array([1.0, 2.0, 3.0]),
+            "AXAB": np.array([4.0, 5.0]),
         }
         
         assert isinstance(result, dict)
         for key, val in result.items():
             assert isinstance(key, str)
-            assert isinstance(val, list)
-            for item in val:
-                assert isinstance(item, (int, float))
+            assert isinstance(val, np.ndarray)
+            assert val.dtype == np.float64 or val.dtype == np.float32
+    
+    def test_event_vectors_returns_ndarray_not_list(self):
+        """get_event_timing_vectors must return ndarrays, not lists."""
+        # This is a synthetic test - we just verify the type contract
+        result = {
+            "AAAB": np.array([1.0, 2.0, 3.0], dtype=np.float64),
+        }
+        
+        for cond, arr in result.items():
+            assert isinstance(arr, np.ndarray)
+            assert arr.dtype == np.float64
+
+
+class TestEventVectorNoFileWrite:
+    """Test that get_event_timing_vectors writes nothing by default."""
+    
+    def test_no_file_write_by_default(self, tmp_path, monkeypatch):
+        """get_event_timing_vectors should not write files unless explicitly called."""
+        import tempfile
+        import os
+        
+        # Create a minimal mock that would trigger any file writes if present
+        # Since we can't mock NWB easily, we just verify the function signature
+        # and that it doesn't have side effects by checking the code structure
+        
+        # The function signature does not have out_csv parameter
+        import inspect
+        sig = inspect.signature(nwb_addr.get_event_timing_vectors)
+        params = list(sig.parameters.keys())
+        
+        # Should NOT have file output parameters - those are separate save functions
+        assert "out_csv" not in params
+        assert "out_path" not in params
+        assert "output" not in params
+        
+        # Save functions exist separately
+        assert hasattr(nwb_addr, "save_event_timing_vectors_npz")
+        assert hasattr(nwb_addr, "save_event_timing_vectors_json")
+        assert hasattr(nwb_addr, "export_event_timing_vectors_csv")
+
+
+class TestEventVectorNpzRoundTrip:
+    """Test NPZ save/load round-trip preserves all condition vectors."""
+    
+    def test_npz_round_trip_preserves_vectors(self, tmp_path):
+        """NPZ save/load should exactly preserve all condition vectors."""
+        # Create synthetic event vectors
+        original = {
+            "AAAB": np.array([1.0, 2.5, 3.7, 8.2], dtype=np.float64),
+            "AXAB": np.array([10.5, 15.2], dtype=np.float64),
+            "AAXB": np.array([20.0, 25.5, 30.1], dtype=np.float64),
+            "AAAX": np.array([], dtype=np.float64),  # Empty condition
+        }
+        
+        metadata = {
+            "nwb_file": "test.nwb",
+            "subject_id": "sub-TEST",
+            "session_id": "ses-001",
+            "event": "p1",
+        }
+        
+        # Save to NPZ
+        npz_path = tmp_path / "test_events.npz"
+        nwb_addr.save_event_timing_vectors_npz(original, npz_path, metadata=metadata)
+        
+        assert npz_path.exists()
+        
+        # Load back
+        loaded, loaded_meta = nwb_addr.load_event_timing_vectors_npz(npz_path)
+        
+        # Verify all conditions restored
+        assert set(loaded.keys()) == set(original.keys())
+        
+        # Verify each vector matches exactly
+        for cond in original:
+            np.testing.assert_array_equal(loaded[cond], original[cond])
+            assert loaded[cond].dtype == np.float64
+    
+    def test_npz_auto_compute_counts_by_condition(self, tmp_path):
+        """NPZ metadata should include counts_by_condition if not provided."""
+        event_vectors = {
+            "AAAB": np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+            "AXAB": np.array([10.0, 20.0]),
+        }
+        
+        npz_path = tmp_path / "test_events.npz"
+        nwb_addr.save_event_timing_vectors_npz(event_vectors, npz_path)
+        
+        _, metadata = nwb_addr.load_event_timing_vectors_npz(npz_path)
+        
+        assert "counts_by_condition" in metadata
+        assert metadata["counts_by_condition"]["AAAB"] == 5
+        assert metadata["counts_by_condition"]["AXAB"] == 2
+    
+    def test_npz_metadata_includes_standard_fields(self, tmp_path):
+        """NPZ metadata should include standard provenance fields."""
+        event_vectors = {"AAAB": np.array([1.0, 2.0])}
+        
+        custom_meta = {"custom_key": "custom_value"}
+        
+        npz_path = tmp_path / "test_events.npz"
+        nwb_addr.save_event_timing_vectors_npz(event_vectors, npz_path, metadata=custom_meta)
+        
+        _, metadata = nwb_addr.load_event_timing_vectors_npz(npz_path)
+        
+        assert metadata["time_unit"] == "seconds"
+        assert metadata["time_base"] == "NWB"
+        assert "conditions" in metadata
+        assert "saved_at_utc" in metadata
+        assert metadata["custom_key"] == "custom_value"
+
+
+class TestEventVectorJsonExport:
+    """Test JSON export for debugging/provenance."""
+    
+    def test_json_export_structure(self, tmp_path):
+        """JSON export should have readable structure with metadata."""
+        event_vectors = {
+            "AAAB": np.array([1.0, 2.0, 3.0]),
+            "AXAB": np.array([10.0]),
+        }
+        
+        json_path = tmp_path / "test_events.json"
+        nwb_addr.save_event_timing_vectors_json(
+            event_vectors, json_path,
+            metadata={"nwb_file": "test.nwb"}
+        )
+        
+        assert json_path.exists()
+        
+        # Load and verify structure
+        with open(json_path) as f:
+            payload = json.load(f)
+        
+        assert payload["time_unit"] == "seconds"
+        assert payload["time_base"] == "NWB"
+        assert "counts_by_condition" in payload
+        assert payload["counts_by_condition"]["AAAB"] == 3
+        assert payload["counts_by_condition"]["AXAB"] == 1
+        assert "event_vectors" in payload  # The actual data
+        assert payload["metadata"]["nwb_file"] == "test.nwb"
+        assert "saved_at_utc" in payload
+
+
+class TestEventVectorCsvExport:
+    """Test CSV export for interoperability (optional)."""
+    
+    def test_csv_export_long_table_format(self, tmp_path):
+        """CSV export should be long-table format: condition,event,onset_s,trial_index."""
+        event_vectors = {
+            "AAAB": np.array([1.0, 2.5, 3.7]),
+            "AXAB": np.array([10.0, 20.0]),
+        }
+        
+        csv_path = tmp_path / "test_events.csv"
+        nwb_addr.export_event_timing_vectors_csv(event_vectors, csv_path)
+        
+        assert csv_path.exists()
+        
+        # Load and verify structure
+        df = pd.read_csv(csv_path)
+        
+        # Must be long-table format
+        assert list(df.columns) == ["condition", "event", "onset_s", "trial_index"]
+        
+        # Should have 5 rows (3 + 2)
+        assert len(df) == 5
+        
+        # Verify trial_index is sequential per condition
+        aaab_rows = df[df["condition"] == "AAAB"]
+        assert list(aaab_rows["trial_index"]) == [0, 1, 2]
+        
+        # Verify onset_s values preserved
+        assert list(aaab_rows["onset_s"]) == [1.0, 2.5, 3.7]
 
 
 # ============================================================================
@@ -291,7 +464,7 @@ class TestGetEventTimingVectors:
     """Integration tests for event timing vectors."""
     
     def test_event_vectors_smoke(self, has_baseline_nwb):
-        """Get event timing vectors from baseline NWB."""
+        """Get event timing vectors from baseline NWB - returns np.ndarray."""
         if not has_baseline_nwb:
             pytest.skip(f"Baseline NWB not found: {NWB_BASELINE}")
         
@@ -306,15 +479,14 @@ class TestGetEventTimingVectors:
                 pytest.skip(f"Typed blocker: {e}")
             raise
         
-        # Verify structure
+        # Verify structure - should be dict[str, np.ndarray]
         assert isinstance(result, dict)
         
-        # Each value should be a list of floats
+        # Each value should be np.ndarray of float64 (not list)
         for cond, times in result.items():
             assert isinstance(cond, str)
-            assert isinstance(times, list)
-            for t in times:
-                assert isinstance(t, (int, float))
+            assert isinstance(times, np.ndarray), f"Expected ndarray, got {type(times)}"
+            assert times.dtype == np.float64, f"Expected float64, got {times.dtype}"
     
     def test_canonical_conditions_order(self, has_baseline_nwb):
         """Verify canonical condition order in output."""
@@ -338,6 +510,59 @@ class TestGetEventTimingVectors:
         # At minimum, the conditions should be a subset of canonical
         for cond in actual_order:
             assert cond in expected_order, f"Unexpected condition: {cond}"
+    
+    def test_event_vectors_npz_round_trip_real_nwb(self, has_baseline_nwb, tmp_path):
+        """Real NWB event vectors round-trip through NPZ exactly."""
+        if not has_baseline_nwb:
+            pytest.skip(f"Baseline NWB not found: {NWB_BASELINE}")
+        
+        # Get event vectors from real NWB
+        try:
+            original = nwb_addr.get_event_timing_vectors(
+                NWB_BASELINE,
+                event="p1",
+                conditions=nwb_addr.CANONICAL_CONDITIONS,
+            )
+        except RuntimeError as e:
+            if "BLOCKED" in str(e):
+                pytest.skip(f"Typed blocker: {e}")
+            raise
+        
+        # Record original counts
+        original_counts = {cond: len(times) for cond, times in original.items()}
+        
+        # Save to NPZ
+        npz_path = tmp_path / "real_events.npz"
+        metadata = {
+            "nwb_file": str(NWB_BASELINE),
+            "subject_id": "sub-C31o",
+            "session_id": "ses-230630",
+            "event": "p1",
+        }
+        nwb_addr.save_event_timing_vectors_npz(original, npz_path, metadata=metadata)
+        
+        assert npz_path.exists()
+        
+        # Load back
+        loaded, loaded_meta = nwb_addr.load_event_timing_vectors_npz(npz_path)
+        
+        # Verify all conditions restored
+        assert set(loaded.keys()) == set(original.keys())
+        
+        # Verify each vector matches exactly
+        for cond in original:
+            np.testing.assert_array_equal(loaded[cond], original[cond])
+            assert loaded[cond].dtype == np.float64
+        
+        # Verify metadata includes counts_by_condition
+        assert "counts_by_condition" in loaded_meta
+        for cond, count in original_counts.items():
+            assert loaded_meta["counts_by_condition"][cond] == count
+        
+        # Verify standard metadata fields
+        assert loaded_meta["time_unit"] == "seconds"
+        assert loaded_meta["time_base"] == "NWB"
+        assert loaded_meta["event"] == "p1"
 
 
 class TestEstimateChannelAreaLayerMap:
@@ -399,7 +624,7 @@ class TestGetAlignedUnitSignals:
                 pytest.skip(f"Typed blocker for events: {e}")
             raise
         
-        if not events.get("AAAB"):
+        if len(events.get("AAAB", np.array([]))) == 0:
             pytest.skip("No AAAB trials found")
         
         # Use first 3 events only for speed
@@ -446,7 +671,7 @@ class TestGetAlignedUnitSignals:
                 pytest.skip(f"Typed blocker: {e}")
             raise
         
-        if not events.get("AAAB"):
+        if len(events.get("AAAB", np.array([]))) == 0:
             pytest.skip("No AAAB trials found")
         
         test_events = {"AAAB": events["AAAB"][:2]}

@@ -12,6 +12,7 @@ All functions use PyNWB read-only access. No NWB mutation.
 
 from __future__ import annotations
 
+import datetime
 import json
 import warnings
 from pathlib import Path
@@ -637,10 +638,12 @@ def get_event_timing_vectors(
     nwb_path: str | Path,
     event: Literal["p1", "flash"] = "p1",
     conditions: Sequence[str] | None = None,
-) -> dict[str, list[float]]:
+) -> dict[str, np.ndarray]:
     """Get event timing vectors by condition from NWB.
     
-    Returns dict mapping condition code to list of event times (seconds).
+    Returns dict mapping condition code to ndarray of event times (seconds).
+    
+    This function does NOT write files by default. Use save helpers for persistence.
     
     Typed blockers:
     - BLOCKED_EVENTS_TABLE_MISSING
@@ -705,25 +708,173 @@ def get_event_timing_vectors(
         condition_numbers = table[cond_col][:]
         onsets = table[onset_col][:]
         
-        # Build result
-        result: dict[str, list[float]] = {cond: [] for cond in target_conditions}
+        # Build result as dict of lists first, then convert to ndarrays
+        result_lists: dict[str, list[float]] = {cond: [] for cond in target_conditions}
         
         # Map condition numbers to codes
         for i, cond_num in enumerate(condition_numbers):
             code = NUMBER_TO_CONDITION.get(int(float(cond_num)))
-            if code and code in result:
-                result[code].append(float(onsets[i]))
+            if code and code in result_lists:
+                result_lists[code].append(float(onsets[i]))
         
         # Check for missing conditions
-        missing = [c for c in target_conditions if not result[c]]
+        missing = [c for c in target_conditions if not result_lists[c]]
         if missing:
             warns.append(_warn("MISSING_CONDITIONS", f"No trials for conditions: {missing}"))
+        
+        # Convert to ndarrays for efficient runtime use
+        result: dict[str, np.ndarray] = {
+            cond: np.array(times, dtype=np.float64)
+            for cond, times in result_lists.items()
+        }
         
         return result
         
     finally:
         if io is not None:
             io.close()
+
+
+def save_event_timing_vectors_npz(
+    event_vectors: dict[str, np.ndarray],
+    out_path: str | Path,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Save event timing vectors to NPZ format (efficient binary storage).
+    
+    Each condition gets its own array in the NPZ archive.
+    Metadata is embedded as a JSON-serialized string under key 'metadata_json'.
+    
+    Preferred path format:
+        outputs/data_index/event_timing_vectors_<subject>_<session>.npz
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Build save dict: one array per condition
+    save_dict: dict[str, np.ndarray] = {}
+    
+    # Store each condition vector
+    for cond, times in event_vectors.items():
+        # Sanitize key for NPZ (replace non-alphanumeric with underscore)
+        safe_key = "".join(c if c.isalnum() else "_" for c in cond)
+        save_dict[safe_key] = times
+    
+    # Build and store metadata
+    meta = dict(metadata) if metadata else {}
+    
+    # Auto-compute counts_by_condition if not provided
+    if "counts_by_condition" not in meta:
+        meta["counts_by_condition"] = {
+            cond: len(times) for cond, times in event_vectors.items()
+        }
+    
+    # Add standard fields
+    meta["conditions"] = list(event_vectors.keys())
+    meta["time_unit"] = meta.get("time_unit", "seconds")
+    meta["time_base"] = meta.get("time_base", "NWB")
+    meta["saved_at_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
+    save_dict["metadata_json"] = np.array(json.dumps(meta, indent=2), dtype=np.str_)
+    
+    np.savez_compressed(out_path, **save_dict)
+
+
+def load_event_timing_vectors_npz(
+    path: str | Path,
+) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    """Load event timing vectors from NPZ format.
+    
+    Returns:
+        (event_vectors_dict, metadata_dict)
+    
+    Condition keys are restored to their original form.
+    """
+    path = Path(path)
+    
+    with np.load(path, allow_pickle=False) as data:
+        # Extract metadata
+        metadata_json = str(data["metadata_json"])
+        metadata = json.loads(metadata_json)
+        
+        # Extract event vectors (skip metadata_json key)
+        event_vectors: dict[str, np.ndarray] = {}
+        for key in data.files:
+            if key == "metadata_json":
+                continue
+            # Restore original condition key from metadata if available
+            original_key = key
+            if "conditions" in metadata:
+                for cond in metadata["conditions"]:
+                    safe_cond = "".join(c if c.isalnum() else "_" for c in cond)
+                    if safe_cond == key:
+                        original_key = cond
+                        break
+            event_vectors[original_key] = data[key]
+        
+        return event_vectors, metadata
+
+
+def save_event_timing_vectors_json(
+    event_vectors: dict[str, np.ndarray],
+    out_path: str | Path,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Save event timing vectors to JSON (human-readable, for debugging/provenance).
+    
+    This is for inspection and debugging only - use NPZ for normal storage.
+    
+    Preferred path format:
+        outputs/data_index/event_timing_vectors_<subject>_<session>.json
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    payload: dict[str, Any] = {
+        "time_unit": "seconds",
+        "time_base": "NWB",
+        "conditions": list(event_vectors.keys()),
+        "counts_by_condition": {
+            cond: len(times) for cond, times in event_vectors.items()
+        },
+        "event_vectors": {
+            cond: times.tolist() for cond, times in event_vectors.items()
+        },
+        "metadata": dict(metadata) if metadata else {},
+        "saved_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+
+def export_event_timing_vectors_csv(
+    event_vectors: dict[str, np.ndarray],
+    out_path: str | Path,
+) -> None:
+    """Export event timing vectors to CSV long-table format (for interoperability only).
+    
+    This is OPTIONAL and should not be used by downstream analysis code.
+    Use NPZ for normal storage - this is only for external tool compatibility.
+    
+    CSV format:
+        condition,event,onset_s,trial_index
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    rows: list[dict[str, Any]] = []
+    for cond, times in event_vectors.items():
+        for trial_idx, onset_s in enumerate(times):
+            rows.append({
+                "condition": cond,
+                "event": "p1",  # Default, can be parameterized if needed
+                "onset_s": float(onset_s),
+                "trial_index": trial_idx,
+            })
+    
+    df = pd.DataFrame(rows)
+    df.to_csv(out_path, index=False)
 
 
 # ============================================================================
