@@ -98,7 +98,7 @@ print(f'\nSmoke conditions: {list(smoke_events.keys())}')
 
 # Cell 4: Bounded LFP Extraction (Memory-Safe)
 WINDOW_PRE = 500
-WINDOW_POST = 1000
+WINDOW_POST = 1300  # Increased from 1000 to 1300 for MNE multitaper (needs >=1750 samples total)
 
 window_spec = WindowSpec(pre_ms=-WINDOW_PRE, post_ms=WINDOW_POST)
 channel_filter = {'channel_indices': SMOKE_CHANNELS}
@@ -125,7 +125,7 @@ try:
     print(f'\n  SUCCESS (took {extraction_time:.1f}s):')
     for cond, arr in lfp_epochs.items():
         print(f'    {cond}: shape {arr.shape}, dtype {arr.dtype}')
-        print(f'      Range: [{arr.min():.2f}, {arr.max():.2f}] µV')
+        print(f'      Range: [{arr.min():.2f}, {arr.max():.2f}] uV')
         print(f'      Nonzero: {np.any(arr != 0)}')
     
     first_cond = list(lfp_epochs.keys())[0]
@@ -249,7 +249,7 @@ print(f'    Finite: {np.all(np.isfinite(bp_array))}')
 if not np.any(bp_array > 0):
     raise RuntimeError('BLOCKED_ZERO_BANDPOWER: All band-power values are zero')
 
-print(f'\n  ✓ Real nonzero band-power verified')
+    print(f'\n  [OK] Real nonzero band-power verified')
 
 # Cell 6: Create Inventory Table
 inventory_rows = []

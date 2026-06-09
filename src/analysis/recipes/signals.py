@@ -305,13 +305,36 @@ def get_lfp_epochs(
                 f"No acquisition series matching '{signal_name_hint}'"
             )
         
-        # Get sampling rate
+        # Get sampling rate - try explicit rate first, then infer from timestamps
         fs = getattr(lfp_series, "rate", None)
+        fs_inferred = False
+        
         if fs is None:
-            raise RuntimeError(
-                f"{BLOCKED_SIGNAL_RATE_MISSING}: "
-                f"Series '{lfp_name}' lacks sampling rate"
-            )
+            # Try to infer from timestamps
+            timestamps = getattr(lfp_series, "timestamps", None)
+            if timestamps is not None and len(timestamps) > 1:
+                try:
+                    # Sample first 1000 timestamps to estimate dt
+                    ts_sample = timestamps[:min(1000, len(timestamps))]
+                    dts = np.diff(ts_sample)
+                    median_dt = np.median(dts)
+                    
+                    if median_dt > 0 and np.allclose(dts, median_dt, rtol=0.01):
+                        # Regular sampling - infer rate
+                        fs = 1.0 / median_dt
+                        fs_inferred = True
+                        warns.append(_warn(
+                            "RATE_INFERRED_FROM_TIMESTAMPS",
+                            f"Series '{lfp_name}' rate inferred from timestamps: {fs:.2f} Hz (dt={median_dt:.6f}s)"
+                        ))
+                except Exception:
+                    pass
+            
+            if fs is None:
+                raise RuntimeError(
+                    f"{BLOCKED_SIGNAL_RATE_MISSING}: "
+                    f"Series '{lfp_name}' lacks sampling rate and cannot be inferred from timestamps"
+                )
         
         # Determine channel selection
         n_channels_total = lfp_series.data.shape[1] if hasattr(lfp_series.data, 'shape') else 0

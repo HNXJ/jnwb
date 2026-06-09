@@ -45,15 +45,33 @@ def compute_multitaper_tfr(
     times_ms = np.linspace(0, n_times/fs*1000, n_times)
     return freqs, times_ms, power
 
-def compute_band_power_efficiently(data, fs=FS_LFP, freqs=None):
+def compute_band_power_efficiently(data, fs=FS_LFP, freqs=None, bands=None):
     """
     Computes band power without ever storing the full 4D TFR.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Input data (trials, channels, time)
+    fs : float
+        Sampling frequency in Hz
+    freqs : np.ndarray | None
+        Frequencies to compute. If None, uses np.arange(4, 81, 2)
+    bands : dict | None
+        Band definitions {name: (fmin, fmax)}. If None, uses default BANDS.
+    
+    Returns
+    -------
+    freqs, times_ms, band_results
     """
     if freqs is None:
         freqs = np.arange(4, 81, 2)
     
+    if bands is None:
+        bands = BANDS
+    
     n_trials, n_ch, n_times = data.shape
-    band_results = {band: np.zeros((n_trials, n_ch, n_times), dtype=np.float32) for band in BANDS}
+    band_results = {band: np.zeros((n_trials, n_ch, n_times), dtype=np.float32) for band in bands}
     
     batch_size = 4
     for i in range(0, n_trials, batch_size):
@@ -61,8 +79,11 @@ def compute_band_power_efficiently(data, fs=FS_LFP, freqs=None):
         batch_power = tfr_array_multitaper(batch, sfreq=fs, freqs=freqs, n_cycles=7, 
                                      output='power', use_fft=True, verbose=False, n_jobs=1)
         
-        for band, (fmin, fmax) in BANDS.items():
+        for band, (fmin, fmax) in bands.items():
             mask = (freqs >= fmin) & (freqs <= fmax)
+            if not np.any(mask):
+                # No frequencies match this band - leave as zeros but warn
+                continue
             # Average over frequencies and store in float32
             band_results[band][i:i+batch_size] = np.mean(batch_power[:, :, mask, :], axis=2).astype(np.float32)
             

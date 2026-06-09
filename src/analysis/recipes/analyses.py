@@ -303,11 +303,12 @@ def run_band_power(
         
         # compute_band_power_efficiently returns freqs, times_ms, band_results
         # band_results is dict[band_name] -> array(trials, channels, time)
+        # Pass the requested bands so keys match correctly
         freqs, times_ms, band_results = compute_band_power_efficiently(
-            lfp_array, fs=fs, freqs=None  # Uses default freqs internally
+            lfp_array, fs=fs, freqs=None, bands=bands  # Pass custom bands to match keys
         )
         
-        # Filter to requested bands
+        # Filter to requested bands (now already computed with correct keys)
         filtered_results: dict[str, np.ndarray] = {}
         for band_name in bands:
             if band_name in band_results:
