@@ -178,9 +178,9 @@
   "units": [],
   "source_files": [],
   "hashes": {},
-  "generated_at": "2026-05-22T15:40:11.365714",
+  "generated_at": "2026-06-08T16:56:58.314840",
   "generated_by": "build_session_manifest.py",
-  "git_commit": "cd3e853c99771aed9b69701bd65f8fc3df04e606",
+  "git_commit": "0320d734519e532fd3bd53feb50fe0b5d073f947",
   "truth_status": "truth_safe_unverified",
   "warnings": []
 }
