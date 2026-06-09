@@ -15,6 +15,10 @@ import pandas as pd
 
 from src.analysis.io.nwb_address import get_aligned_unit_signals, _open_nwb
 from src.analysis.recipes.specs import WindowSpec
+from src.analysis.io.nwb_rate_resolver import (
+    resolve_nwb_timeseries_rate,
+    BLOCKED_LFP_RATE_UNRESOLVED,
+)
 
 
 # Typed blocker codes
@@ -305,36 +309,29 @@ def get_lfp_epochs(
                 f"No acquisition series matching '{signal_name_hint}'"
             )
         
-        # Get sampling rate - try explicit rate first, then infer from timestamps
-        fs = getattr(lfp_series, "rate", None)
-        fs_inferred = False
+        # Get sampling rate using resolver (read-only, no NWB mutation)
+        series_path = f"acquisition/{lfp_name}"
+        fs, rate_meta = resolve_nwb_timeseries_rate(
+            lfp_series,
+            series_path=series_path,
+            trusted_fallback_hz=None,  # Do not use fallback - require explicit resolution
+        )
         
         if fs is None:
-            # Try to infer from timestamps
-            timestamps = getattr(lfp_series, "timestamps", None)
-            if timestamps is not None and len(timestamps) > 1:
-                try:
-                    # Sample first 1000 timestamps to estimate dt
-                    ts_sample = timestamps[:min(1000, len(timestamps))]
-                    dts = np.diff(ts_sample)
-                    median_dt = np.median(dts)
-                    
-                    if median_dt > 0 and np.allclose(dts, median_dt, rtol=0.01):
-                        # Regular sampling - infer rate
-                        fs = 1.0 / median_dt
-                        fs_inferred = True
-                        warns.append(_warn(
-                            "RATE_INFERRED_FROM_TIMESTAMPS",
-                            f"Series '{lfp_name}' rate inferred from timestamps: {fs:.2f} Hz (dt={median_dt:.6f}s)"
-                        ))
-                except Exception:
-                    pass
-            
-            if fs is None:
-                raise RuntimeError(
-                    f"{BLOCKED_SIGNAL_RATE_MISSING}: "
-                    f"Series '{lfp_name}' lacks sampling rate and cannot be inferred from timestamps"
-                )
+            # Rate unresolvable - raise typed blocker with diagnostics
+            warn_summary = "; ".join(rate_meta.get("warnings", []))
+            raise RuntimeError(
+                f"{BLOCKED_LFP_RATE_UNRESOLVED}: "
+                f"Series '{lfp_name}' lacks sampling rate. "
+                f"Resolver source: {rate_meta.get('source', 'unknown')}. "
+                f"Diagnostics: {warn_summary}"
+            )
+        
+        # Record rate source for provenance
+        warns.append(_warn(
+            "RATE_RESOLVED",
+            f"Series '{lfp_name}' rate={fs:.2f}Hz source={rate_meta.get('source', 'unknown')}"
+        ))
         
         # Determine channel selection
         n_channels_total = lfp_series.data.shape[1] if hasattr(lfp_series.data, 'shape') else 0
