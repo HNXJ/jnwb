@@ -1,4 +1,0 @@
-file_name,full_path,relevance,parsed,units_matched
-unit_nwb_profile.csv,D:\analysis\omission-archive\omission\outputs\unit_nwb_profile.csv,contains peak_channel_id and location for all NWB units,true,3475
-all_units_master_index.csv,D:\analysis\omission-archive\omission\outputs\all_units_master_index.csv,"maps (session, probe, unit_idx) to source NWB file",false,0
-sub-*_ses-*_rec.nwb,D:\analysis\nwb,primary NWB files with units table; 13 sessions present,false - raw NWB payload read not authorized,0

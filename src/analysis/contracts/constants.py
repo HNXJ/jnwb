@@ -2,6 +2,67 @@
 
 TRUTH_SAFE_UNVERIFIED = "truth_safe_unverified"
 
+# ============================================================================
+# Event Code Constants (MonkeyLogic Behavioral Codes)
+# ============================================================================
+
+# Event codes for trial timing and stimulus presentation
+EVENT_CODE_FIXATION_CUE = 100  # "fix cue appearance" - NOT p1 stimulus
+EVENT_CODE_P1_STIMULUS = 101   # "task_event_2" - p1 stimulus onset (CORRECT ANCHOR)
+EVENT_CODE_P2_STIMULUS = 102  # "task_event_3" - p2 stimulus
+EVENT_CODE_P3_STIMULUS = 103   # "task_event_4" - p3/omission stimulus position
+EVENT_CODE_P4_STIMULUS = 104   # "task_event_5" - p4 stimulus
+EVENT_CODE_TRIAL_START = 9      # Trial start
+EVENT_CODE_TRIAL_END = 50       # Trial end
+EVENT_CODE_REWARD = 96          # Reward delivery
+EVENT_CODE_END_CODE = 50        # End code
+
+# Event code to stimulus position mapping
+EVENT_CODE_TO_STIMULUS_POS = {
+    EVENT_CODE_FIXATION_CUE: "fixation",
+    EVENT_CODE_P1_STIMULUS: "p1",
+    EVENT_CODE_P2_STIMULUS: "p2", 
+    EVENT_CODE_P3_STIMULUS: "p3",
+    EVENT_CODE_P4_STIMULUS: "p4",
+}
+
+# ============================================================================
+# Condition Constants
+# ============================================================================
+
+AAXB_CONDITION_NUMBER = 4  # Condition number for AAXB in task_condition_number column
+
+# AAXB omission timing (ms from p1 onset)
+# p1 (0ms) -> d1 (531ms) -> p2 (1031ms) -> d2 (1562ms) -> p3/omission (2062ms)
+AAXB_OMISSION_OFFSET_MS = 2062
+AAXB_OMISSION_SLOT = "p3"  # Omission occurs at presentation 3 in AAXB
+
+# Condition number to label mapping (canonical)
+CONDITION_NUMBER_MAP = {
+    1: "AAAB",
+    2: "AAAB",  # Both 1 and 2 are AAAB (frequent)
+    3: "AXAB",
+    4: "AAXB",  # Rare, p3 omission
+    5: "AAAX",  # Rare, p4 omission
+    6: "BBBA",
+    7: "BBBA",  # Both 6 and 7 are BBBA (frequent)
+    8: "BXBA",
+    9: "BBXA",
+    10: "BBBX",
+}
+
+# Inverse mapping (label to condition numbers)
+CONDITION_LABEL_TO_NUMBERS = {
+    "AAAB": [1, 2],
+    "AXAB": [3],
+    "AAXB": [4],
+    "AAAX": [5],
+    "BBBA": [6, 7],
+    "BXBA": [8],
+    "BBXA": [9],
+    "BBBX": [10],
+}
+
 ALLOWED_SIGNAL_CLASSES = ("SPK", "SUA", "MUAe", "LFP", "behavior", "metadata", "model")
 
 ALLOWED_TIME_BASES = ("p1_relative", "omission_relative", "other_declared")

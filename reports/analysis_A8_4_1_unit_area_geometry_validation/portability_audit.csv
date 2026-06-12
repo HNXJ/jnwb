@@ -1,5 +1,0 @@
-variable_name,value,classification,portable,reconciliation_steps
-NWB_ARCHIVE_BASE,D:\analysis\omission-archive\omission\outputs,local_default_overridable,false,Override via CLI parameters --nwb-profile and --master-index; refactor default to relative path
-NWB_PROFILE_CSV,NWB_ARCHIVE_BASE / 'unit_nwb_profile.csv',local_default_overridable,false,Override via CLI parameter --nwb-profile; refactor to relative path
-MASTER_INDEX_CSV,NWB_ARCHIVE_BASE / 'all_units_master_index.csv',local_default_overridable,false,Override via CLI parameter --master-index; refactor to relative path
-embedded_source_hash,session-area-mapping.md SHA256,embedded_source_hash_only,true,None required; hash checks document the exact domain code state

@@ -1,9 +1,0 @@
-check,count,status
-A8.1_keys_total,3521,info
-A8.2_keys_total,3521,info
-A8.3_long_rows_total,3521,info
-keys_in_A8.1_not_in_A8.2,0,PASS
-keys_in_A8.2_not_in_A8.1,0,PASS
-A8.1_keys_all_in_A8.3_long,0,PASS
-A8.2_keys_all_in_A8.3_long,0,PASS
-duplicate_long_rows,0,PASS

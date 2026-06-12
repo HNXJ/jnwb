@@ -1,3 +1,0 @@
-source_name,source_type,resolution_level,units_matched,status
-unit_nwb_profile.csv,nwb_extracted_unit_metadata_csv,unit_level_peak_channel,3475,validated_via_sequential_modulo
-session-area-mapping.md,canonical_session_probe_area_document,probe_level_channel_boundaries,3521,canonical_source_of_truth

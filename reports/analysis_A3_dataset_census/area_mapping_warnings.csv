@@ -1,6 +1,0 @@
-session_id,source_basename,warning_type,detail,truth_status
-230630,session-area-mapping.md,unresolved_v3,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
-230719,session-area-mapping.md,dp_to_v4,"Probe 1 uses DP alias, normalized to V4.",truth_safe_unverified
-230816,session-area-mapping.md,unresolved_v3,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
-230823,session-area-mapping.md,unresolved_v3,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified
-230830,session-area-mapping.md,unresolved_v3,Probe 2 uses generic V3. This area remains UNRESOLVED (not split into V3d/V3a).,truth_safe_unverified

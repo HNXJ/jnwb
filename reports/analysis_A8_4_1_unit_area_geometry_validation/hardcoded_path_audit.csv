@@ -1,6 +1,0 @@
-file_path,line_number,pattern_matched,content,relevance
-scripts\run_unit_area_provenance_recovery_a8_4.py,104,"NWB_ARCHIVE_BASE\s*=\s*Path\(r?""([^""]+)""\)","NWB_ARCHIVE_BASE = Path(r""D:\analysis\omission-archive\omission\outputs"")",Hardcoded constant or default for NWB_ARCHIVE_BASE
-scripts\run_unit_area_provenance_recovery_a8_4.py,104,D:\\analysis\\omission-archive,"NWB_ARCHIVE_BASE = Path(r""D:\analysis\omission-archive\omission\outputs"")",Hardcoded constant or default for hardcoded_archive_reference
-scripts\run_unit_area_provenance_recovery_a8_4.py,105,NWB_PROFILE_CSV\s*=\s*(.+),"NWB_PROFILE_CSV  = NWB_ARCHIVE_BASE / ""unit_nwb_profile.csv""",Hardcoded constant or default for NWB_PROFILE_CSV
-scripts\run_unit_area_provenance_recovery_a8_4.py,106,MASTER_INDEX_CSV\s*=\s*(.+),"MASTER_INDEX_CSV = NWB_ARCHIVE_BASE / ""all_units_master_index.csv""",Hardcoded constant or default for MASTER_INDEX_CSV
-scripts\run_unit_area_provenance_recovery_a8_4.py,478,D:\\analysis\\omission-archive,"Path(r""D:\analysis\omission-archive\omission\context\overview\session-area-mapping.md"")",Hardcoded constant or default for hardcoded_archive_reference

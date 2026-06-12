@@ -13,13 +13,16 @@ htmlcov/
 venv/
 env/
 
-# data / derived data
+# data / derived / generated (not source)
 data/
 outputs/
-figures/
 reports/
 artifacts/
 checkpoints/
+scratch/
+Export_Staging/
+context_for_agents/
+plans_for_agents/
 *.nwb
 *.mat
 *.h5
@@ -31,9 +34,15 @@ checkpoints/
 *.pt
 *.onnx
 *.csv
+*.log
+*.sha256
 
-# generated web/gallery/dashboard
-dashboard/
+# figures: keep .py figure scripts under src/, ignore rendered outputs
+figures/
+!figures/**/*.py
+
+# generated web/gallery/dashboard assets
+dashboard/public/
 gallery/
 gallery_dist/
 gallery_src/
@@ -41,23 +50,30 @@ gallery_src/
 *.svg
 *.png
 
-# scratch/local
-scratch/
-.claude/settings.local.json
-.env
-.env.*
-*.log
+# non-source formats (repo is code + ipynb + markdown only)
+*.json
 *.asv
 *.mexw64
 *.mlx
+*.m
+*.tex
+*.ini
+
+# scratch / agent temp scripts
+run_schema_test.py
+scripts/_*.py
+
+# local
+.claude/settings.local.json
+.env
+.env.*
+.DS_Store
 
 # Agent workspace / IDE
-!/.gemini/
-!/.gemini/skills/
 .claude/
 .vscode/
 .idea/
-.DS_Store
-Export_Staging/
-context_for_agents/
-plans_for_agents/
+
+# Keep gemini skills source
+!/.gemini/
+!/.gemini/skills/
