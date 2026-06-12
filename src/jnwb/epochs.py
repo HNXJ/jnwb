@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Iterator
 from typing import Iterable
 
@@ -78,30 +79,10 @@ def _path_by_session(nwbfiles: Iterable[NWBFileRecord]) -> dict[str, NWBFileReco
     return {session_key_from_record(rec): rec for rec in nwbfiles}
 
 
-def _load_session_spk(
-    rec: NWBFileRecord,
-    signal_addr: SignalAddress,
-    skey: str,
-    events: list[dict],
-    window_ms: tuple[int, int],
-    bin_ms: float,
-) -> tuple[np.ndarray, pd.DataFrame, pd.DataFrame]:
-    event_times = np.array([e["onset_s"] for e in events], dtype=np.float64)
-    unit_ids = signal_addr.ids_by_session[skey]
-
-    NWBHDF5IO = _require_pynwb()
-    io = NWBHDF5IO(rec.path, "r", load_namespaces=True)
-    try:
-        nwbfile = io.read()
-        units_table = nwbfile.units
-        unit_indices = _unit_row_indices(units_table, unit_ids)
-        session_data = _extract_spk_epoch(units_table, unit_indices, event_times, window_ms, bin_ms)
-    finally:
-        io.close()
-
-    trial_rows = [
+def _trial_metadata_rows(events: list[dict], skey: str, trial_offset: int = 0) -> list[dict]:
+    return [
         {
-            "trial_global": t_idx,
+            "trial_global": trial_offset + t_idx,
             "trial_in_session": t_idx,
             "session_id": skey,
             "condition": ev["condition"],
@@ -113,56 +94,87 @@ def _load_session_spk(
         for t_idx, ev in enumerate(events)
     ]
 
-    signal_rows = [
-        {
-            "session_id": skey,
-            "signal_id": uid,
-            "global_unit_index": local_idx,
-            "signal_class": signal_addr.signal,
-            "area": signal_addr.area_by_id[skey].get(uid),
-            "layer": signal_addr.layer_by_id[skey].get(uid),
-            "probe": signal_addr.probe_by_id[skey].get(uid),
-        }
-        for local_idx, uid in enumerate(unit_ids)
-    ]
 
-    return session_data, pd.DataFrame(trial_rows), pd.DataFrame(signal_rows)
+def _signal_metadata_rows(signal_addr: SignalAddress, skey: str) -> pd.DataFrame:
+    unit_ids = signal_addr.ids_by_session[skey]
+    return pd.DataFrame(
+        [
+            {
+                "session_id": skey,
+                "signal_id": uid,
+                "global_unit_index": local_idx,
+                "signal_class": signal_addr.signal,
+                "area": signal_addr.area_by_id[skey].get(uid),
+                "layer": signal_addr.layer_by_id[skey].get(uid),
+                "probe": signal_addr.probe_by_id[skey].get(uid),
+            }
+            for local_idx, uid in enumerate(unit_ids)
+        ]
+    )
 
 
-def _make_batch(
-    data: np.ndarray,
-    time_centers: np.ndarray,
-    trial_df: pd.DataFrame,
-    signal_df: pd.DataFrame,
-    spec: EpochSpec,
+def _iter_spk_session_chunks(
+    rec: NWBFileRecord,
     signal_addr: SignalAddress,
     event_addr: EventAddress,
     skey: str,
+    events: list[dict],
+    window_ms: tuple[int, int],
+    bin_ms: float,
+    chunk_size: int,
+    spec: EpochSpec,
+    time_centers: np.ndarray,
     backend: str,
-    chunk_start: int | None = None,
-    chunk_end: int | None = None,
-) -> EpochBatch:
-    manifest = {
-        "spec": spec.to_dict(),
-        "shape": tuple(data.shape),
-        "dtype": str(data.dtype),
-        "sessions": [skey],
-        "session_id": skey,
-        "conditions": event_addr.conditions,
-        "bin_ms": spec.bin_ms,
-        "anchor": event_addr.anchor,
-        "p1_code": event_addr.p1_code,
-    }
-    if chunk_start is not None:
-        manifest["chunk_start"] = chunk_start
-        manifest["chunk_end"] = chunk_end
-    return EpochBatch(
-        data=to_backend(data, backend),
-        time_ms=to_backend(time_centers, backend),
-        trial_metadata=trial_df.reset_index(drop=True),
-        signal_metadata=signal_df,
-        manifest=manifest,
-    )
+    fail_on_empty: bool,
+) -> Iterator[EpochBatch]:
+    """Yield trial chunks for one session without allocating the full session array."""
+    unit_ids = signal_addr.ids_by_session[skey]
+    signal_df = _signal_metadata_rows(signal_addr, skey)
+    n_trials = len(events)
+    if n_trials == 0:
+        if fail_on_empty:
+            raise JnwbBlockedError(f"No events for session {skey}", code=BLOCKED_EMPTY_EPOCHS)
+        return
+
+    effective_chunk = n_trials if chunk_size <= 0 else chunk_size
+    NWBHDF5IO = _require_pynwb()
+    io = NWBHDF5IO(rec.path, "r", load_namespaces=True)
+    try:
+        nwbfile = io.read()
+        units_table = nwbfile.units
+        unit_indices = _unit_row_indices(units_table, unit_ids)
+
+        for start in range(0, n_trials, effective_chunk):
+            end = min(start + effective_chunk, n_trials)
+            chunk_events = events[start:end]
+            event_times = np.array([e["onset_s"] for e in chunk_events], dtype=np.float64)
+            data = _extract_spk_epoch(units_table, unit_indices, event_times, window_ms, bin_ms)
+            if data.size == 0 and fail_on_empty:
+                raise JnwbBlockedError(f"Empty epochs for {skey}", code=BLOCKED_EMPTY_EPOCHS)
+
+            trial_df = pd.DataFrame(_trial_metadata_rows(chunk_events, skey, trial_offset=start))
+            manifest = {
+                "spec": spec.to_dict(),
+                "shape": tuple(data.shape),
+                "dtype": str(data.dtype),
+                "sessions": [skey],
+                "session_id": skey,
+                "conditions": event_addr.conditions,
+                "bin_ms": spec.bin_ms,
+                "anchor": event_addr.anchor,
+                "p1_code": event_addr.p1_code,
+                "chunk_start": start,
+                "chunk_end": end,
+            }
+            yield EpochBatch(
+                data=to_backend(data, backend),
+                time_ms=to_backend(time_centers, backend),
+                trial_metadata=trial_df.reset_index(drop=True),
+                signal_metadata=signal_df,
+                manifest=manifest,
+            )
+    finally:
+        io.close()
 
 
 def load_epochs(
@@ -175,11 +187,11 @@ def load_epochs(
     bin_ms: float | None = None,
     fail_on_empty: bool = True,
 ) -> EpochBatch | Iterator[EpochBatch]:
-    """Load trial-preserving epochs in session-scoped chunks.
+    """Load trial-preserving epochs in bounded-memory chunks.
 
-    SPK returns trial x unit x time per session (binned spike counts, not smoothed).
-    Multi-session calls return an iterator of per-session (or per-chunk) batches to
-    avoid allocating a dense global unit axis across sessions.
+    SPK returns trial x unit x time per chunk (binned spike counts, not smoothed).
+    Multi-chunk or multi-session calls return a lazy iterator; only one chunk is
+    materialized at a time.
     """
     file_list = list(nwbfiles)
     path_map = _path_by_session(file_list)
@@ -215,7 +227,6 @@ def load_epochs(
     )
 
     _, time_centers = _bin_edges(window_ms, bin_ms)
-    multi_session = len(signal_addr.sessions) > 1
 
     def _iter_batches() -> Iterator[EpochBatch]:
         for skey in signal_addr.sessions:
@@ -227,42 +238,27 @@ def load_epochs(
             if rec is None:
                 raise JnwbBlockedError(f"No NWB record for session {skey}")
 
-            data, trial_df, signal_df = _load_session_spk(
-                rec, signal_addr, skey, events, window_ms, bin_ms
+            yield from _iter_spk_session_chunks(
+                rec,
+                signal_addr,
+                event_addr,
+                skey,
+                events,
+                window_ms,
+                bin_ms,
+                chunk_size,
+                spec,
+                time_centers,
+                backend,
+                fail_on_empty,
             )
-            if data.size == 0 and fail_on_empty:
-                raise JnwbBlockedError(f"Empty epochs for {skey}", code=BLOCKED_EMPTY_EPOCHS)
 
-            n_trials = data.shape[0]
-            if chunk_size <= 0 or chunk_size >= n_trials:
-                yield _make_batch(
-                    data, time_centers, trial_df, signal_df, spec,
-                    signal_addr, event_addr, skey, backend,
-                )
-            else:
-                for start in range(0, n_trials, chunk_size):
-                    end = min(start + chunk_size, n_trials)
-                    chunk = data[start:end]
-                    if fail_on_empty and chunk.size == 0:
-                        raise JnwbBlockedError("Empty chunk", code=BLOCKED_EMPTY_EPOCHS)
-                    yield _make_batch(
-                        chunk,
-                        time_centers,
-                        trial_df.iloc[start:end],
-                        signal_df,
-                        spec,
-                        signal_addr,
-                        event_addr,
-                        skey,
-                        backend,
-                        chunk_start=start,
-                        chunk_end=end,
-                    )
-
-    batches = list(_iter_batches())
-    if not batches:
+    gen = _iter_batches()
+    try:
+        first = next(gen)
+    except StopIteration:
         if fail_on_empty:
-            raise JnwbBlockedError("No trials loaded", code=BLOCKED_EMPTY_EPOCHS)
+            raise JnwbBlockedError("No trials loaded", code=BLOCKED_EMPTY_EPOCHS) from None
         return EpochBatch(
             data=np.zeros((0, 0, 0)),
             time_ms=np.array([]),
@@ -271,6 +267,9 @@ def load_epochs(
             manifest={"spec": spec.to_dict(), "empty": True},
         )
 
-    if multi_session or len(batches) > 1:
-        return iter(batches)
-    return batches[0]
+    try:
+        second = next(gen)
+    except StopIteration:
+        return first
+
+    return itertools.chain([first, second], gen)

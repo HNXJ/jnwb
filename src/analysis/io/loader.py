@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from collections import defaultdict
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, Tuple
 from src.analysis.io.logger import log
 from src.analysis.io.eye_mapper import EyeDataMapper
 
