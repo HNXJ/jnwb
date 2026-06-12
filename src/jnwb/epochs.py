@@ -9,6 +9,13 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from .analog import (
+    analog_signal_metadata_rows,
+    extract_analog_epoch_chunk,
+    get_sampling_rate_hz,
+    resolve_timeseries_from_path,
+    trial_metadata_rows,
+)
 from .backends import to_backend
 from .errors import BLOCKED_EMPTY_EPOCHS, BLOCKED_SESSION_SILENTLY_DROPPED, JnwbBlockedError
 from .files import NWBFileRecord, _require_pynwb, session_key_from_record
@@ -177,6 +184,77 @@ def _iter_spk_session_chunks(
         io.close()
 
 
+def _iter_analog_session_chunks(
+    rec: NWBFileRecord,
+    signal_addr: SignalAddress,
+    event_addr: EventAddress,
+    skey: str,
+    events: list[dict],
+    window_ms: tuple[int, int],
+    chunk_size: int,
+    spec: EpochSpec,
+    backend: str,
+    fail_on_empty: bool,
+) -> Iterator[EpochBatch]:
+    """Yield trial chunks for LFP/MUAe without loading the full session."""
+    n_trials = len(events)
+    if n_trials == 0:
+        if fail_on_empty:
+            raise JnwbBlockedError(f"No events for session {skey}", code=BLOCKED_EMPTY_EPOCHS)
+        return
+
+    object_path = signal_addr.object_paths.get(skey, "")
+    channel_ids = [int(ch) for ch in signal_addr.ids_by_session[skey]]
+    effective_chunk = n_trials if chunk_size <= 0 else chunk_size
+
+    NWBHDF5IO = _require_pynwb()
+    io = NWBHDF5IO(rec.path, "r", load_namespaces=True)
+    try:
+        nwbfile = io.read()
+        ts = resolve_timeseries_from_path(nwbfile, object_path)
+        fs = signal_addr.sampling_rate_by_session.get(skey) or get_sampling_rate_hz(ts)
+        units = getattr(ts, "unit", None)
+        polarity = getattr(ts, "description", None) or "unknown"
+        signal_df = analog_signal_metadata_rows(
+            signal_addr, skey, object_path, float(fs), units, polarity=str(polarity)
+        )
+
+        for start in range(0, n_trials, effective_chunk):
+            end = min(start + effective_chunk, n_trials)
+            chunk_events = events[start:end]
+            event_times = np.array([e["onset_s"] for e in chunk_events], dtype=np.float64)
+            data, time_ms = extract_analog_epoch_chunk(
+                ts, channel_ids, event_times, window_ms, fs=fs, fail_on_oob=True
+            )
+            if data.size == 0 and fail_on_empty:
+                raise JnwbBlockedError(f"Empty analog epochs for {skey}", code=BLOCKED_EMPTY_EPOCHS)
+
+            trial_df = pd.DataFrame(trial_metadata_rows(chunk_events, skey, trial_offset=start))
+            manifest = {
+                "spec": spec.to_dict(),
+                "shape": tuple(data.shape),
+                "dtype": str(data.dtype),
+                "sessions": [skey],
+                "session_id": skey,
+                "conditions": event_addr.conditions,
+                "sampling_rate_hz": fs,
+                "object_path": object_path,
+                "anchor": event_addr.anchor,
+                "p1_code": event_addr.p1_code,
+                "chunk_start": start,
+                "chunk_end": end,
+            }
+            yield EpochBatch(
+                data=to_backend(data, backend),
+                time_ms=to_backend(time_ms, backend),
+                trial_metadata=trial_df.reset_index(drop=True),
+                signal_metadata=signal_df,
+                manifest=manifest,
+            )
+    finally:
+        io.close()
+
+
 def load_epochs(
     nwbfiles: Iterable[NWBFileRecord],
     signal_addr: SignalAddress,
@@ -190,8 +268,8 @@ def load_epochs(
     """Load trial-preserving epochs in bounded-memory chunks.
 
     SPK returns trial x unit x time per chunk (binned spike counts, not smoothed).
-    Multi-chunk or multi-session calls return a lazy iterator; only one chunk is
-    materialized at a time.
+    LFP/MUAe return trial x channel x time at native sampling rate.
+    Multi-chunk or multi-session calls return a lazy iterator.
     """
     file_list = list(nwbfiles)
     path_map = _path_by_session(file_list)
@@ -209,10 +287,12 @@ def load_epochs(
         if bin_ms is None:
             bin_ms = 1.0
         shape_contract = "trial x unit x time"
-    else:
+    elif signal_addr.signal in ("LFP", "MUAe"):
         shape_contract = "trial x channel x time"
+        bin_ms = None
+    else:
         raise JnwbBlockedError(
-            f"{signal_addr.signal} epoch loading not yet implemented",
+            f"Unsupported signal class: {signal_addr.signal}",
             code="BLOCKED_SIGNAL_LOAD_NOT_IMPLEMENTED",
         )
 
@@ -226,8 +306,6 @@ def load_epochs(
         backend=backend,
     )
 
-    _, time_centers = _bin_edges(window_ms, bin_ms)
-
     def _iter_batches() -> Iterator[EpochBatch]:
         for skey in signal_addr.sessions:
             events = event_addr.events_by_session.get(skey, [])
@@ -238,20 +316,37 @@ def load_epochs(
             if rec is None:
                 raise JnwbBlockedError(f"No NWB record for session {skey}")
 
-            yield from _iter_spk_session_chunks(
-                rec,
-                signal_addr,
-                event_addr,
-                skey,
-                events,
-                window_ms,
-                bin_ms,
-                chunk_size,
-                spec,
-                time_centers,
-                backend,
-                fail_on_empty,
-            )
+            if signal_addr.signal == "SPK":
+                if bin_ms is None:
+                    raise ValueError("bin_ms required for SPK")
+                _, time_centers = _bin_edges(window_ms, bin_ms)
+                yield from _iter_spk_session_chunks(
+                    rec,
+                    signal_addr,
+                    event_addr,
+                    skey,
+                    events,
+                    window_ms,
+                    bin_ms,
+                    chunk_size,
+                    spec,
+                    time_centers,
+                    backend,
+                    fail_on_empty,
+                )
+            else:
+                yield from _iter_analog_session_chunks(
+                    rec,
+                    signal_addr,
+                    event_addr,
+                    skey,
+                    events,
+                    window_ms,
+                    chunk_size,
+                    spec,
+                    backend,
+                    fail_on_empty,
+                )
 
     gen = _iter_batches()
     try:

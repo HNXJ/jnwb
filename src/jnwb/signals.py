@@ -7,6 +7,7 @@ from typing import Iterable, Literal
 
 import numpy as np
 
+from .analog import get_sampling_rate_hz, get_timeseries_channel_count, resolve_timeseries_from_path
 from .errors import (
     BLOCKED_AREA_METADATA_MISSING,
     BLOCKED_SIGNAL_UNAVAILABLE,
@@ -190,31 +191,39 @@ def address_signals(
                     warnings.append(f"{skey}: {signal} series not found")
                     continue
 
+                ts = resolve_timeseries_from_path(nwbfile, obj_path)
+                n_ch = get_timeseries_channel_count(ts)
+                if rate is None:
+                    try:
+                        rate = get_sampling_rate_hz(ts)
+                    except JnwbBlockedError:
+                        rate = None
+                ts_units = getattr(ts, "unit", None)
+
                 electrodes = getattr(nwbfile, "electrodes", None)
-                n_ch = len(electrodes) if electrodes is not None else 0
-                if n_ch == 0:
-                    warnings.append(f"{skey}: no electrodes for {signal}")
-                    continue
-
-                ids = list(range(n_ch))
-                area_map = {}
-                layer_map = {}
-                probe_map = {}
-
                 elec_cols = list(electrodes.colnames) if electrodes is not None else []
-                for ch in ids:
+
+                ids: list[int] = []
+                area_map: dict[int, str | None] = {}
+                layer_map: dict[int, str | None] = {}
+                probe_map: dict[int, str | None] = {}
+
+                for ch in range(n_ch):
                     area = None
                     layer = None
                     probe = None
-                    if "location" in elec_cols:
-                        loc = electrodes["location"][ch]
-                        if loc is not None and str(loc) not in ("nan", "None", ""):
-                            area = str(loc)
-                    if "group" in elec_cols:
-                        grp = electrodes["group"][ch]
-                        probe = str(getattr(grp, "name", grp))
+                    if electrodes is not None and ch < len(electrodes):
+                        if "location" in elec_cols:
+                            loc = electrodes["location"][ch]
+                            if loc is not None and str(loc) not in ("nan", "None", ""):
+                                area = str(loc)
+                        if "group" in elec_cols:
+                            grp = electrodes["group"][ch]
+                            probe = str(getattr(grp, "name", grp))
 
                     if area_filter is not None and area not in area_filter:
+                        continue
+                    if layer_filter is not None and layer not in layer_filter:
                         continue
                     if require_area and area is None:
                         raise JnwbBlockedError(
@@ -222,20 +231,17 @@ def address_signals(
                             code=BLOCKED_AREA_METADATA_MISSING,
                         )
 
+                    ids.append(ch)
                     area_map[ch] = area
                     layer_map[ch] = layer
                     probe_map[ch] = probe
 
-                if not area_map:
+                    if max_items is not None and len(ids) >= max_items:
+                        break
+
+                if not ids:
                     warnings.append(f"{skey}: no channels matched filters")
                     continue
-
-                ids = list(area_map.keys())
-                if max_items is not None:
-                    ids = ids[:max_items]
-                    area_map = {k: area_map[k] for k in ids}
-                    layer_map = {k: layer_map[k] for k in ids}
-                    probe_map = {k: probe_map[k] for k in ids}
 
                 object_paths[skey] = obj_path
                 ids_by_session[skey] = ids
@@ -243,6 +249,8 @@ def address_signals(
                 layer_by_id[skey] = layer_map
                 probe_by_id[skey] = probe_map
                 sampling_rate_by_session[skey] = rate
+                if ts_units is not None:
+                    units_label = str(ts_units)
 
             sessions_out.append(skey)
             source_paths.append(rec.path)
