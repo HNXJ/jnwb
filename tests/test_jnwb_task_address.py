@@ -29,6 +29,18 @@ def test_condition_numbers_for_afamily():
     assert nums == [1, 2, 3, 4, 5]
 
 
+def test_condition_numbers_for_rfamily():
+    from src.analysis.contracts.constants import CONDITION_NUMBER_MAP
+
+    nums = condition_numbers_for_labels(["RRRR", "RXRR", "RRXR", "RRRX"])
+    assert 11 in nums and 26 in nums
+    assert 27 in nums and 34 in nums
+    assert 35 in nums and 41 in nums
+    assert 50 in nums
+    assert CONDITION_NUMBER_MAP[50] == "RRRX"
+    assert CONDITION_NUMBER_MAP[35] == "RRXR"
+
+
 def test_filter_p1_events_uses_code101():
     df = pd.DataFrame(
         {

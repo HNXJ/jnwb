@@ -46,6 +46,29 @@ Executes the analytical pipeline using the standardized Omission hierarchy.
 - **Input**: NWB data or Numpy arrays via DataLoader.
 - **Output**: Interactive HTML/SVG figures saved to `D:/drive/outputs/oglo-8figs/`.
 
+## Trigger / Scope
+- Triggered when reading NWB or `.npy` signals for omission analysis.
+- Applies to all sessions, modalities (SPK/LFP/MUAe), and condition-aligned extractions.
+- Prefer `import jnwb` for new work; legacy `DataLoader` paths remain for migration only.
+
+## Required Tools / Commands
+- Python 3.14+
+- `import jnwb` or `src/analysis/io/loader.py` (legacy)
+- `python -m pytest -q tests/test_jnwb_*.py` for address-layer smoke
+- PyNWB read-only access to session `.nwb` files
+
+## Stop Conditions / Blocker Codes
+- `BLOCKED_PYNWB_UNAVAILABLE`: PyNWB not installed.
+- `BLOCKED_SIGNAL_UNAVAILABLE`: requested modality missing in NWB.
+- `BLOCKED_CODE100_AS_P1`: fixation cue used as p1 anchor.
+- `BLOCKED_EMPTY_EPOCHS`: zero trials or zero units/channels after filtering.
+- `BLOCKED_SESSION_SILENTLY_DROPPED`: session mismatch between signal and event addresses.
+
+## Final Report Requirements
+- Report session IDs, signal class, condition set, anchor code, and array shapes.
+- Include typed blocker code if extraction blocked (never return empty success).
+- State whether data were lazy-loaded / chunked and peak memory policy used.
+
 ## 3. Skills/Tools
 - Python 3.14
 - canonical LFP/Spike loaders (`src/analysis/io/loader.py`)

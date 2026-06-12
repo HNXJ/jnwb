@@ -37,7 +37,7 @@ AAXB_CONDITION_NUMBER = 4  # Condition number for AAXB in task_condition_number 
 AAXB_OMISSION_OFFSET_MS = 2062
 AAXB_OMISSION_SLOT = "p3"  # Omission occurs at presentation 3 in AAXB
 
-# Condition number to label mapping (canonical)
+# Condition number to label mapping (canonical; includes R-family controls)
 CONDITION_NUMBER_MAP = {
     1: "AAAB",
     2: "AAAB",  # Both 1 and 2 are AAAB (frequent)
@@ -49,6 +49,10 @@ CONDITION_NUMBER_MAP = {
     8: "BXBA",
     9: "BBXA",
     10: "BBBX",
+    **{n: "RRRR" for n in range(11, 27)},
+    **{n: "RXRR" for n in range(27, 35)},
+    **{n: "RRXR" for n in (35, 37, 39, 41)},
+    **{n: "RRRX" for n in (36, 38, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50)},
 }
 
 # Inverse mapping (label to condition numbers)
@@ -61,6 +65,10 @@ CONDITION_LABEL_TO_NUMBERS = {
     "BXBA": [8],
     "BBXA": [9],
     "BBBX": [10],
+    "RRRR": list(range(11, 27)),
+    "RXRR": list(range(27, 35)),
+    "RRXR": [35, 37, 39, 41],
+    "RRRX": [36, 38, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50],
 }
 
 ALLOWED_SIGNAL_CLASSES = ("SPK", "SUA", "MUAe", "LFP", "behavior", "metadata", "model")

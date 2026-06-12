@@ -39,6 +39,27 @@ Executes the analytical pipeline using the standardized Omission hierarchy.
 - **Input**: NWB data or Numpy arrays via DataLoader.
 - **Output**: Interactive HTML/SVG figures saved to `D:/drive/outputs/oglo-8figs/`.
 
+## Trigger / Scope
+- Triggered before multi-session analysis to inventory NWB completeness.
+- Scans all `.nwb` files under a configured root for SPK, LFP, MUAe, eye, and reward availability.
+- Produces exclusion lists for sessions missing required modalities.
+
+## Required Tools / Commands
+- Python 3.14+
+- `src/audit/availability.py` or `jnwb.list_nwb_files` + `jnwb.inspect_nwb`
+- `python -m pytest -q tests/test_skill_paths.py` after skill doc edits
+
+## Stop Conditions / Blocker Codes
+- `BLOCKED_NWB_ROOT_MISSING`: no NWB directory or zero `.nwb` files found.
+- `BLOCKED_NO_UNITS`: SPK requested but units table empty.
+- `BLOCKED_SIGNAL_UNAVAILABLE`: LFP/MUAe series not discoverable in NWB.
+- `BLOCKED_SESSION_BLACKLISTED`: session on exclusion list (e.g. clipping artifact).
+
+## Final Report Requirements
+- Write `DATA_AVAILABILITY_SUMMARY.md` or CSV inventory with per-session SPK/LFP/MUAe flags.
+- Include session_id, subject, file path, and unit/channel counts where available.
+- List excluded sessions with explicit reason codes.
+
 ## 3. Skills/Tools
 - Python 3.14
 - canonical LFP/Spike loaders (`src/analysis/io/loader.py`)
