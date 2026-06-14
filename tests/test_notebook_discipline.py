@@ -15,6 +15,7 @@ JNWB_NOTEBOOKS = [
     REPO_ROOT / "notebooks" / "00_jnwb_discovery_and_addressing.ipynb",
     REPO_ROOT / "notebooks" / "01_jnwb_epoch_artifacts.ipynb",
     REPO_ROOT / "notebooks" / "02_f005_from_artifacts.ipynb",
+    REPO_ROOT / "notebooks" / "03_jnwb_visual_qc.ipynb",
 ]
 
 FORBIDDEN_PRIVATE_IMPORTS = (
@@ -37,6 +38,9 @@ CORE_JNWB_API_BY_NOTEBOOK: dict[str, list[str]] = {
     ],
     "02_f005_from_artifacts.ipynb": [
         "load_epoch_artifact",
+    ],
+    "03_jnwb_visual_qc.ipynb": [
+        "run_visual_qc",
     ],
 }
 
