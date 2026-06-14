@@ -37,8 +37,9 @@ plans_for_agents/
 *.log
 *.sha256
 
-# figures: keep .py figure scripts under src/, ignore rendered outputs
-figures/
+# figures: ignore rendered outputs; keep figure wrapper scripts
+figures/*
+!figures/*.py
 !figures/**/*.py
 
 # generated web/gallery/dashboard assets
