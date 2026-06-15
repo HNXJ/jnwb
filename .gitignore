@@ -78,3 +78,7 @@ scripts/_*.py
 # Keep gemini skills source
 !/.gemini/
 !/.gemini/skills/
+
+# Local configuration files
+notebooks/local_config.py
+
