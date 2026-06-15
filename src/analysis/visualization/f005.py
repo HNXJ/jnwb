@@ -102,6 +102,18 @@ class F005LoadedInputs:
     bin_ms: float
 
 
+def _find_manifest_for_artifact(epochs_path: Path) -> Path | None:
+    """Find manifest file for an artifact, trying multiple naming patterns."""
+    candidates = [
+        epochs_path.with_name(epochs_path.stem + "_manifest.json"),
+        epochs_path.with_name("afamily_spk_p1_epochs_manifest.json"),  # build_f005 default
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
 def validate_f005_input_paths(
     epochs_path: str | Path,
     classification_path: str | Path,
@@ -110,7 +122,11 @@ def validate_f005_input_paths(
 ) -> tuple[Path, Path, Path | None]:
     epochs_path = Path(epochs_path)
     classification_path = Path(classification_path)
-    manifest_path = Path(manifest_path) if manifest_path else epochs_path.with_name(epochs_path.stem + "_manifest.json")
+    
+    if manifest_path:
+        manifest_path = Path(manifest_path)
+    else:
+        manifest_path = _find_manifest_for_artifact(epochs_path)
 
     if not epochs_path.exists():
         raise F005FigureBlockedError(
@@ -124,9 +140,9 @@ def validate_f005_input_paths(
             code=BLOCKED_F005_CLASSIFICATION_MISSING,
             details={"classify_command": CLASSIFY_COMMAND},
         )
-    if not manifest_path.exists():
+    if not manifest_path or not manifest_path.exists():
         raise F005FigureBlockedError(
-            f"Artifact manifest not found: {manifest_path}",
+            f"Artifact manifest not found for: {epochs_path}",
             code=BLOCKED_F005_MANIFEST_MISSING,
             details={"build_command": EPOCH_BUILD_COMMAND},
         )

@@ -680,14 +680,26 @@ def main():
     # Load data
     print(f"\nLoading epochs: {args.epochs_p1}")
     p1_data = np.load(args.epochs_p1, allow_pickle=True)
-    spk_epochs_p1 = p1_data["spk_epochs"]
+    
+    # Handle both old 'spk_epochs' key and new signal-specific keys
+    if "spk_epochs" in p1_data:
+        spk_epochs_p1 = p1_data["spk_epochs"]
+        spk_keys = ["spk_epochs"]
+    else:
+        # Find all signal-specific keys (multi-session artifacts)
+        spk_keys = sorted([k for k in p1_data.files if k.startswith("spk_epochs__")])
+        if not spk_keys:
+            raise KeyError("No spk_epochs or spk_epochs__* keys found in artifact")
+        spk_epochs_p1 = p1_data[spk_keys[0]]
+        print(f"  Found {len(spk_keys)} session(s): {spk_keys[:3]}...")
+    
     time_axis_ms = p1_data["time_axis_ms"]
 
-    trial_conditions = None
-    if "condition_labels" in p1_data:
+    trial_conditions_json = None
+    if "trial_metadata_json" in p1_data:
+        trial_conditions_json = json.loads(str(p1_data["trial_metadata_json"]))
+    elif "condition_labels" in p1_data:
         trial_conditions = p1_data["condition_labels"]
-    elif "trial_conditions" in p1_data:
-        trial_conditions = p1_data["trial_conditions"]
 
     anchor_provenance = {
         "anchor_code": int(p1_data["anchor_code"]) if "anchor_code" in p1_data else 101,
@@ -696,36 +708,104 @@ def main():
     if "anchor_type" in p1_data:
         anchor_provenance["anchor_type"] = str(p1_data["anchor_type"])
 
-    print(f"  Shape: {spk_epochs_p1.shape}")
     print(f"  Time axis: {time_axis_ms[0]} to {time_axis_ms[-1]} ms")
-    if trial_conditions is not None:
-        print(f"  Condition labels: {np.unique(trial_conditions)}")
 
     spk_epochs_omission = None
     if args.epochs_omission and args.epochs_omission.exists():
         print(f"\nLoading omission epochs: {args.epochs_omission}")
         om_data = np.load(args.epochs_omission, allow_pickle=True)
-        spk_epochs_omission = om_data["spk_epochs"]
+        if "spk_epochs" in om_data:
+            spk_epochs_omission = om_data["spk_epochs"]
+        else:
+            spk_keys = [k for k in om_data.files if k.startswith("spk_epochs__")]
+            if spk_keys:
+                spk_epochs_omission = om_data[spk_keys[0]]
         print(f"  Shape: {spk_epochs_omission.shape}")
     
     print(f"\nLoading unit metadata: {args.unit_metadata}")
-    unit_metadata = pd.read_csv(args.unit_metadata)
-    print(f"  Units: {len(unit_metadata)}")
+    unit_metadata_all = pd.read_csv(args.unit_metadata)
+    print(f"  Total units: {len(unit_metadata_all)}")
     
     # Configure
     config = ClassificationConfig(min_trials=args.min_trials)
     
-    # Classify
-    print("\nClassifying units...")
-    classification_table, manifest = classify_units_from_epochs(
-        spk_epochs_p1=spk_epochs_p1,
-        spk_epochs_omission=spk_epochs_omission,
-        time_axis_ms=time_axis_ms,
-        unit_metadata=unit_metadata,
-        trial_conditions=trial_conditions,
-        config=config,
-        anchor_provenance=anchor_provenance,
-    )
+    # For multi-session: process each session separately
+    all_tables = []
+    all_manifests = []
+    
+    for spk_key in spk_keys:
+        spk_epochs_p1 = p1_data[spk_key]
+        session = spk_key.replace("spk_epochs__", "") if spk_key.startswith("spk_epochs__") else "unknown"
+        
+        # Get unit metadata for this session
+        session_mask = unit_metadata_all["session_id"] == session if "session_id" in unit_metadata_all.columns else pd.Series([True] * len(unit_metadata_all))
+        unit_metadata = unit_metadata_all[session_mask].reset_index(drop=True)
+        
+        n_units_data = spk_epochs_p1.shape[1]
+        n_units_meta = len(unit_metadata)
+        
+        if n_units_meta == 0:
+            print(f"\n  SKIPPING {session}: no metadata found ({n_units_data} units in data)")
+            continue
+        
+        if n_units_data != n_units_meta:
+            print(f"  WARNING: {session} data has {n_units_data} units but metadata has {n_units_meta}")
+            # Use min of both
+            unit_metadata = unit_metadata.iloc[:n_units_data] if n_units_meta > n_units_data else unit_metadata
+        
+        # Get trial conditions for this session from trial metadata JSON
+        trial_conditions = None
+        if trial_conditions_json:
+            session_trials = [t for t in trial_conditions_json if t.get("session_id") == session]
+            trial_conditions = np.array([t.get("condition", "?") for t in session_trials])
+            if len(trial_conditions) != spk_epochs_p1.shape[0]:
+                print(f"  WARNING: {session} trial count mismatch: {len(trial_conditions)} vs {spk_epochs_p1.shape[0]}")
+        
+        print(f"\n  Classifying {session}: {spk_epochs_p1.shape}")
+        
+        classification_table, manifest = classify_units_from_epochs(
+            spk_epochs_p1=spk_epochs_p1,
+            spk_epochs_omission=None,
+            time_axis_ms=time_axis_ms,
+            unit_metadata=unit_metadata,
+            trial_conditions=trial_conditions,
+            config=config,
+            anchor_provenance=anchor_provenance,
+        )
+        all_tables.append(classification_table)
+        all_manifests.append(manifest)
+    
+    # Handle case where no sessions were processed
+    if not all_tables:
+        print("\nERROR: No sessions could be classified (metadata missing for all sessions)")
+        return 1
+    
+    # Combine results
+    classification_table = pd.concat(all_tables, ignore_index=True)
+    
+    # Combine manifest summaries
+    total_n = sum(m["classification_summary"]["n_units"] for m in all_manifests)
+    total_s_plus = sum(m["classification_summary"]["n_s_plus"] for m in all_manifests)
+    total_s_minus = sum(m["classification_summary"]["n_s_minus"] for m in all_manifests)
+    total_ox = sum(m["classification_summary"]["n_ox"] for m in all_manifests)
+    
+    display_class_counts = classification_table["display_class"].value_counts().to_dict()
+    
+    manifest = {
+        "created_at": datetime.now().isoformat(),
+        "anchor_code": 101,
+        "time_base": "p1_relative",
+        "config": all_manifests[0]["config"] if all_manifests else {},
+        "classification_summary": {
+            "n_units": total_n,
+            "n_s_plus": total_s_plus,
+            "n_s_minus": total_s_minus,
+            "n_ox": total_ox,
+            "n_sessions_processed": len(all_manifests),
+            "n_sessions_total": len(spk_keys),
+        },
+        "display_class_counts": display_class_counts,
+    }
 
     # Save outputs
     args.output.mkdir(parents=True, exist_ok=True)
