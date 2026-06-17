@@ -1,0 +1,218 @@
+# Skill: SpSAM (Spike-Spectral Attention Mechanism)
+
+## Context
+**STATUS: METHOD_PENDING**
+
+SpSAM is a multi-modal attention mechanism that integrates spiking activity (sparse, high temporal resolution) with spectral features (dense, band-specific) to identify predictive encoding of omission-sensitive state changes across cortical hierarchy.
+
+**Current Status**:
+- Conceptual framework: ✓ Complete (Figure 10 design)
+- Tensor definitions: ✓ Drafted
+- Local SAM (single area): ✓ Pseudocode exists
+- Area-aware SAM: ✗ Not yet implemented
+- Global SAM (full hierarchy): ✗ Not yet implemented
+- Validation: ✗ Not yet validated against real data
+
+## Invariants (SCIENTIFIC)
+
+1. **Input Tensor Specifications**:
+   - **Spikes**: (n_trials, n_units, n_timepoints) binary/spike-count
+   - **LFP**: (n_trials, n_channels, n_timepoints) continuous voltage
+   - **Spectral (TFR)**: (n_trials, n_freqs, n_timepoints) power values (dB)
+   - All three modalities aligned to same timebase (1kHz)
+
+2. **SAM Modes**:
+   - **Local SAM**: Single area, integrate spikes + spectral within area
+   - **Area SAM**: Compute SAM separately per area, compare across hierarchy
+   - **Global SAM**: Weight area-SAM values by inter-area coupling strength
+   - **Lag SAM** (optional): Shift spectral/spike relative to each other to find optimal lag
+
+3. **Lag Sign Convention** (CRITICAL):
+   - **Positive lag**: Spikes lead spectral power (spikes predict spectral change)
+   - **Negative lag**: Spectral leads spikes (spectral predicts spiking)
+   - Use **cross-correlation** to find peak lag per unit-channel pair
+   - Report lag sign explicitly in output tensors
+
+4. **Attention Mechanism**:
+   - SAM weight ∈ [0, 1] (normalized across trials/units)
+   - High SAM: This unit/spectral feature strongly attends to omission-sensitive state
+   - Low SAM: This unit/feature is independent of omission
+   - Aggregation: Sum over units/channels weighted by attention
+
+5. **Hierarchy Constraints**:
+   - Lower-order areas (V1, V2): SAM should peak in early phases (p1/p2)
+   - Higher-order areas (PFC, FEF): SAM should peak in later phases (p3/p4/d1)
+   - Do NOT invert this expectation without strong justification
+
+## Procedures
+
+### When to Use
+Use SpSAM when:
+- [ ] Full-sequence epochs are recovered (BLOCKING dependency)
+- [ ] All 13 sessions have validated LFP + SPK + TFR tensors
+- [ ] You want to identify omission-predictive neural signatures across hierarchy
+- [ ] You're preparing Figure 10 (integrative omission routing model)
+
+### How to Run (PROPOSED INTERFACE)
+
+```bash
+# Local SAM: Single area
+python scripts/compute_spsam_local.py \
+  --area V1 \
+  --epochs outputs/epochs_full_sequence/ \
+  --tfr outputs/tfr_baseline_normalized/ \
+  --lag-range -100 100 \
+  --output-dir outputs/spsam_local/
+
+# Area-aware SAM: All areas
+python scripts/compute_spsam_area_aware.py \
+  --epochs outputs/epochs_full_sequence/ \
+  --tfr outputs/tfr_baseline_normalized/ \
+  --areas V1 V2 V3d V3a V4 MT MST TEO FST FEF PFC \
+  --output-dir outputs/spsam_area_aware/
+
+# Global SAM: Full hierarchy integration
+python scripts/compute_spsam_global.py \
+  --spsam-local outputs/spsam_local/ \
+  --coupling outputs/granger_connectivity/ \
+  --output-dir outputs/spsam_global/
+```
+
+### Expected Outputs (Tensor Definitions)
+
+```
+outputs/spsam_local/
+├── V1_spsam_local.npy          (n_sessions, n_units, n_timepoints) — Local SAM weights
+├── V1_lag_peaks.npy             (n_sessions, n_units, n_channels) — Optimal lag per unit-channel
+├── V1_lag_signs.npy             (n_sessions, n_units, n_channels) — +1 (spikes lead) or -1 (spectral leads)
+├── V2_spsam_local.npy
+├── ...
+
+outputs/spsam_area_aware/
+├── spsam_by_area.npy            (n_areas, n_timepoints) — Area-level SAM summary
+├── hierarchy_comparison.json     (lower vs. higher order phase timing)
+
+outputs/spsam_global/
+├── spsam_global_weighted.npy    (n_timepoints,) — Hierarchy-weighted global SAM
+├── area_contributions.npy        (n_areas,) — Which areas dominate global SAM
+├── figure_10_data.json           (all tensors for visualization)
+```
+
+### Success Criteria (VALIDATION REQUIRED)
+
+- [ ] Local SAM peaks at expected phases (V1:p1/p2, PFC:p3/p4)
+- [ ] Lag signs consistent with known connectivity (lower→higher areas lag negative)
+- [ ] Omission > Control comparison shows significant SAM differences
+- [ ] Across-session consistency: SAM shapes similar despite trial-to-trial noise
+- [ ] Interpretability: Top-SAM units are known omission-responsive cells (from literature)
+
+## Scientific Rationale
+
+**Omission perturbs low-frequency state broadly** (your doctrine).
+**But spiking is sparse and selective.**
+
+SpSAM answers: **"Which neurons/spectral modes jointly predict omission-sensitive state changes?"**
+
+Example interpretation:
+- High local SAM in V1: V1 neurons synchronize their spikes with alpha power oscillations during omission
+- High area SAM in PFC: PFC is globally synchronized across units; behaves as unified omission detector
+- High global SAM at p3/p4: Hierarchy is "tuned in" to expect stimulus at p3, then omission surprise arrives
+
+## Tensor Mathematics (Pseudocode)
+
+```python
+# Local SAM (pseudocode)
+def compute_local_spsam(spikes, lfp, tfr, area):
+    """
+    spikes: (n_trials, n_units, n_timepoints)
+    tfr: (n_trials, n_freqs, n_timepoints)
+
+    Returns: spsam (n_units, n_timepoints) attention weights
+    """
+    spsam = np.zeros((spikes.shape[1], spikes.shape[2]))
+
+    for unit_idx in range(spikes.shape[1]):
+        spikes_unit = spikes[:, unit_idx, :]  # (n_trials, n_timepoints)
+
+        for freq_idx in range(tfr.shape[1]):
+            tfr_freq = tfr[:, freq_idx, :]  # (n_trials, n_timepoints)
+
+            # Cross-correlation across trials
+            cc = np.corrcoef(spikes_unit.flatten(), tfr_freq.flatten())
+
+            # Find lag with peak correlation
+            lag = find_peak_lag(spikes_unit, tfr_freq)
+
+            # Attention weight: normalized correlation at peak lag
+            spsam[unit_idx, :] += abs(cc[lag])
+
+    # Normalize across trials
+    spsam = (spsam - spsam.min()) / (spsam.max() - spsam.min())
+    return spsam
+
+# Hierarchy integration (pseudocode)
+def compute_global_spsam(spsam_areas, granger_conn):
+    """
+    spsam_areas: dict {area: spsam_local}
+    granger_conn: (n_areas, n_areas, n_freqs) — directional coupling
+
+    Returns: spsam_global (n_timepoints,) — weighted hierarchy aggregate
+    """
+    # Weight each area's SAM by its hierarchical position
+    hierarchy_weights = compute_hierarchy_weights(granger_conn)
+
+    spsam_global = sum(
+        hierarchy_weights[area] * spsam_areas[area].mean(axis=0)
+        for area in spsam_areas.keys()
+    )
+    return spsam_global
+```
+
+## Testing Strategy
+
+Create `tests/test_spsam.py`:
+```python
+def test_spsam_output_shape():
+    """Local SAM produces (n_units, n_timepoints)."""
+
+def test_lag_sign_convention():
+    """Positive lag = spikes lead; negative lag = spectral leads."""
+
+def test_omission_vs_control():
+    """Omission conditions show higher SAM than controls."""
+
+def test_hierarchy_phase_ordering():
+    """V1 SAM peaks at p1/p2; PFC SAM peaks at p3/p4."""
+
+def test_cross_session_consistency():
+    """SAM tensor shapes identical across 13 sessions."""
+```
+
+## Implementation Dependencies
+
+**Blocking**: [[full-sequence-epoch-recovery.skill]]
+**Requires**:
+- Full-sequence epochs (LFP, SPK)
+- Time-frequency representations (TFR baseline-normalized)
+- Granger connectivity estimates (for global SAM weighting)
+
+**Estimated Effort**: 10 days (exploratory method development)
+
+## Related Skills
+- [[full-sequence-epoch-recovery]] — Prerequisite (provides epochs)
+- [[lfp-time-frequency-routing]] — Provides TFR inputs
+- [[granger-connectivity-analysis]] — Provides hierarchy weighting
+- [[figure-roadmap]] — Figure 10 depends on SpSAM
+
+## Version Control
+
+**Status**: **METHOD_PENDING** (awaiting epoch recovery)
+**Priority**: HIGH (core integrative mechanism for Figure 10)
+**Blocking**: Figure 10 generation
+**Author**: Claude (Haiku 4.5) + Antigravity (doctrine/interpretation)
+**Date**: 2026-06-16
+
+---
+
+**BOTTOM LINE**: SpSAM formalization is pending epoch recovery. Once epochs exist, this becomes the second-highest-priority scientific skill. It directly addresses how omission-sensitive state changes manifest across the hierarchy (your key doctrine).
+

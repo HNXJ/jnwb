@@ -6,6 +6,34 @@
 
 ---
 
+## CRITICAL BLOCKING SKILLS (HIGHEST PRIORITY)
+
+### 0. Full-Sequence Epoch Recovery
+**Script**: `scripts/recover_full_sequence_epochs.py` (NOT YET CREATED)  
+**Purpose**: Extract aligned p1/p2/p3/p4/d1-d4 phases for all 156 session-condition pairs from raw NWB data.  
+**Status**: **METHOD_PENDING** → **CRITICAL BLOCKING**  
+**Blocking**: Figures 4–10 (all downstream science)  
+**Scientific Impact**: Once complete, project readiness jumps from 60→90 in ~30 days
+
+**Why It Matters**:
+- All Figure 4–10 analysis depends on aligned epochs
+- Epochs are the foundational substrate for TFR, Granger, PAC, ghost signals, state manifolds, SpSAM
+- Multi-session consistency is non-negotiable (one bad epoch ruins cross-session averaging)
+- Omission science is **phase-specific**: off-by-one-sample can smear 30dB effects
+
+**Key Invariants**:
+- Preserve phase ordering (p1: [-250, -50]ms; p2–p4: 250ms windows; d1–d4: 500ms dynamics)
+- All sessions → identical (n_trials, 128, 6000) dimensions
+- No NaN-padding; fail loudly instead
+- Condition-specific alignment (omissions align to omission_time, not stimulus)
+
+**Estimated Effort**: 6 days total
+- Phase 1 (single-session): 3 days
+- Phase 2 (multi-session): 2 days
+- Phase 3 (validation): 1 day
+
+---
+
 ## ACTIVE SKILLS
 
 ### 1. A4 Trial-Count Validation
@@ -111,6 +139,18 @@ The `.gemini/skills/` directory contains ~20 legacy skills from earlier developm
 
 ---
 
+## TOP PRIORITY SKILLS (FROM THETA ASSESSMENT)
+
+These five skills directly unblock scientific bottlenecks. Prioritize in this order:
+
+1. **Full-Sequence Epoch Recovery** ← **HIGHEST PRIORITY** (See above)
+2. **SpSAM** (Spike-Spectral Attention Mechanism) — `skills/analysis/spsam.skill` ✓ Created
+3. **Figure Roadmap** (Figures 4–10 status tracker) — `skills/figures/figure-roadmap.skill` ✓ Created
+4. **Omission Local Windows** (Stimulus-specific analysis windows)
+5. **Harmony Validation** (Multi-area coordination metrics)
+
+---
+
 ## SKILLS NOT YET DOCUMENTED
 
 ### Potential Skills to Formalize
@@ -125,22 +165,26 @@ The `.gemini/skills/` directory contains ~20 legacy skills from earlier developm
 
 ---
 
-## RECOMMENDED SKILL REFRESH PLAN
+## RECOMMENDED SKILL REFRESH PLAN (FROM THETA ASSESSMENT)
 
-**Priority 1 (Do Now)**:
-1. Update `.gemini/skills/` paths: `D:/drive` → `D:\workspace`
-2. Create `skills/analysis/a4-trial-count-validation.skill` (formalizes current A4 work)
-3. Create `skills/analysis/jnwb-qc.skill` (formalizes JNWB suite)
+**CRITICAL (Unblock Science)**:
+1. ✅ Create `skills/epochs/full-sequence-epoch-recovery.skill` — **HIGHEST PRIORITY** (6 days, unblocks Figs 4–10)
+2. ✅ Create `skills/analysis/spsam.skill` — SpSAM mechanism (METHOD_PENDING, depends on epochs)
+3. ✅ Create `skills/figures/figure-roadmap.skill` — Figure 4–10 status tracker
+4. [ ] Create `skills/analysis/omission-local-windows.skill` — Stimulus-specific analysis windows
+5. [ ] Create `skills/analysis/harmony-validation.skill` — Multi-area coordination metrics
 
-**Priority 2 (This Quarter)**:
-1. Consolidate duplicate behavioral/oculomotor skills
-2. Formalize SPK/SUA skill from f001-f037 modules
-3. Create LFP time-frequency routing skill
+**Secondary (Infrastructure)**:
+1. [ ] Update `.gemini/skills/` paths: `D:/drive` → `D:\workspace`
+2. [ ] Consolidate duplicate behavioral/oculomotor skills (5–6 can merge)
+3. [ ] Formalize SPK/SUA skill from f001-f037 modules
 
-**Priority 3 (Future)**:
-1. Archive non-essential legacy skills
-2. Create unified "Omission Neural Analysis" meta-skill hierarchy
-3. Add cloud-based skill sharing for reproducibility
+**Future (Maintenance)**:
+1. [ ] Archive non-essential legacy skills
+2. [ ] Create unified "Omission Neural Analysis" meta-skill hierarchy
+3. [ ] Reorganize `skills/` into subdirectories (governance, epochs, spiking, lfp, laminar, figures, validation, manuscript)
+
+**Critical Note**: Do NOT create additional behavioral or PAC documentation until epoch recovery is ACTIVE. Scientific readiness remains ~60/100 until then.
 
 ---
 

@@ -1,0 +1,295 @@
+# Skill: Figure Roadmap (Figures 4–10)
+
+## Context
+The figure roadmap is the scientific backbone of the Omission project. Figures 1–3 are complete (foundational anatomy/task/behavior). **Figures 4–10 are conceptually designed but blocked on epoch recovery.**
+
+This skill documents the status, dependencies, and success criteria for each figure in the hierarchy.
+
+## Figure Status Matrix
+
+| Figure | Title | Status | Blocker | Deps | Est. Days |
+|--------|-------|--------|---------|------|-----------|
+| **4** | V1-PFC LFP Band Power (Omission vs. Control) | BLOCKED | Epochs | A4, Epochs | 2 |
+| **5** | Spectral Granger Causality (Hierarchy) | BLOCKED | Epochs | Epochs, F4 | 3 |
+| **6** | Spike-Field Coherence by Layer | BLOCKED | Epochs | Epochs, F4 | 3 |
+| **7** | PAC: Alpha-Gamma Coupling Across Areas | BLOCKED | Epochs | Epochs, F4 | 2 |
+| **8** | Ghost Signals: Predictive Representation | BLOCKED | Epochs | Epochs, F4 | 3 |
+| **9** | State Manifold Trajectories | BLOCKED | Epochs | Epochs, F8 | 3 |
+| **10** | SpSAM: Integrated Omission Routing | BLOCKED | Epochs | Epochs, F5, F6, SpSAM | 5 |
+
+---
+
+## FIGURE 4: V1-PFC LFP Band Power
+
+**Title**: "Omission Suppresses Alpha; Boosts Delta in Distributed Hierarchy"
+**Status**: BLOCKED
+**Scientific Question**: Which frequency bands encode omission-sensitive state change across V1→PFC hierarchy?
+
+### Invariants
+- Compare AXAB (p2 omission) vs. AAAB control within A-family
+- Compute power in canonical bands (Delta: 1–4 Hz, Theta: 5–8 Hz, Alpha: 8–12 Hz, Gamma: 30–60 Hz)
+- Baseline normalize to p1 phase (pre-stimulus)
+- Report effect sizes (Cohen's d across trials)
+- Layer-specific comparisons (L4 granular input vs. L5 output)
+
+### Expected Result
+- **V1**: Alpha suppression at p2/p3 (omission surprise)
+- **PFC**: Delta increase at p3/p4 (post-surprise state)
+- **Hierarchy**: Progressive phase shift (V1 earlier; PFC delayed)
+
+### Inputs
+- Full-sequence epochs (LFP, all areas, all conditions)
+- A4 trial-count validation (trial counts per condition)
+
+### Outputs
+- `outputs/figures/f4_band_power_matrix.npy` — (n_areas, n_bands, n_timepoints)
+- `outputs/figures/f4_omission_effect_sizes.json` — Cohen's d per area/band
+- `outputs/figures/f4_summary_figure.html` — Interactive comparison plot
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` (must be ACTIVE)
+
+---
+
+## FIGURE 5: Spectral Granger Causality
+
+**Title**: "Omission Breaks Forward Prediction; Strengthens Feedback"
+**Status**: BLOCKED
+**Scientific Question**: Which direction (forward vs. feedback) dominates omission-sensitive state routing?
+
+### Invariants
+- Use Wilson's spectral Granger causality method
+- Compare omission vs. control conditions
+- Compute causality in frequency bands (not broadband)
+- Report bidirectional causality (V1→PFC and PFC→V1)
+- Quantify surprise-evoked changes in causality strength
+
+### Expected Result
+- **Baseline (pre-omission)**: Forward causality dominates (V1→higher areas)
+- **Omission (p2/p3)**: Feedback causality increases (PFC→V1)
+- **Recovery (d1/d2)**: Forward causality re-established
+- **Interpretation**: Omission breaks predictive feedforward; triggers error feedback
+
+### Inputs
+- Full-sequence LFP epochs
+- Spectral estimates from Figure 4
+
+### Outputs
+- `outputs/figures/f5_granger_causality_matrix.npy` — (n_area_pairs, n_freqs, n_timepoints)
+- `outputs/figures/f5_directional_change.json` — Forward vs. feedback quantification
+- `outputs/figures/f5_causality_flow_diagram.html` — Network visualization
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` (must be ACTIVE)
+
+---
+
+## FIGURE 6: Spike-Field Coherence by Layer
+
+**Title**: "Laminar Substrate of Omission Encoding"
+**Status**: BLOCKED
+**Scientific Question**: Which layers encode omission via synchronized spike-LFP coupling?
+
+### Invariants
+- Compute coherence between single units and local LFP (within-area)
+- Stratify by layer (L2/3, L4, L5, L6)
+- Use phase-locking value (PLV) to quantify coherence
+- Compare omission-responsive units (from spike sorting) to non-responsive
+
+### Expected Result
+- **L4** (thalamic input): High coherence during stimulus (p2/p3)
+- **L5** (corticofugal output): High coherence to PFC during omission surprise
+- **L1** (top-down feedback): Feedback coherence increases post-omission
+
+### Inputs
+- Full-sequence epochs (SPK, LFP)
+- Unit sorting quality metrics (spike waveforms, refractory violations)
+- Laminar assignment (from probes)
+
+### Outputs
+- `outputs/figures/f6_spike_lfp_coherence.npy` — (n_layers, n_freqs, n_timepoints)
+- `outputs/figures/f6_layer_comparison.json` — Per-layer statistics
+- `outputs/figures/f6_laminar_heatmap.html` — Layer × time × frequency interactive
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` (must be ACTIVE)
+
+---
+
+## FIGURE 7: PAC (Phase-Amplitude Coupling)
+
+**Title**: "Gamma Modulation by Theta Phase During Omission"
+**Status**: BLOCKED
+**Scientific Question**: How does omission modulate cross-frequency coupling (low-frequency phase → high-frequency amplitude)?
+
+### Invariants
+- Compute PAC: theta phase (5–8 Hz) → gamma amplitude (30–60 Hz)
+- Use mean vector length (MVL) as PAC metric
+- Separate by condition (omission vs. control)
+- Report PAC strength per area
+
+### Expected Result
+- **Control (AAAB)**: Baseline theta-gamma coupling in V1
+- **Omission (AXAB at p2)**: Coupling **decreases** (disrupted oscillatory state)
+- **PFC**: Maintained or increased coupling (error signaling)
+
+### Inputs
+- Full-sequence LFP epochs
+- Filtered signals (theta, gamma bands)
+
+### Outputs
+- `outputs/figures/f7_pac_strength.npy` — (n_areas, n_timepoints)
+- `outputs/figures/f7_pac_comodulogram.html` — Phase-amplitude coupling heatmap
+- `outputs/figures/f7_omission_pac_change.json` — Effect sizes
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` (must be ACTIVE)
+
+---
+
+## FIGURE 8: Ghost Signals (Predictive Representation)
+
+**Title**: "Omission-Evoked Ghost Signals: Predictive Coding in Silence"
+**Status**: BLOCKED
+**Scientific Question**: Do neurons encode the *predicted* but absent stimulus (ghost signal)?
+
+### Invariants
+- Compare neural response at p2 time in AXAB (omission at p2) vs. AAAB (stimulus at p2)
+- Hypothesis: Neurons in AXAB show response signatures of expected stimulus
+- Use decoding (SVM, LDA) to classify stimulus vs. omission from neural activity
+- Quantify predictive information content
+
+### Expected Result
+- **Decodable ghost signal**: AXAB neural response contains information about absent stimulus
+- **V1 > PFC** sensitivity (V1 has stronger sensory predictions)
+- **Layer 5 specificity**: Output layers show strongest ghost signals
+
+### Inputs
+- Full-sequence SPK epochs (sorted, labeled units)
+- Stimulus/omission labels from task structure
+
+### Outputs
+- `outputs/figures/f8_ghost_signal_decoding.npy` — Classification accuracy per area/layer
+- `outputs/figures/f8_ghost_response_psth.html` — PSTH comparison
+- `outputs/figures/f8_decoding_curves.json` — Decoding performance by time
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` (must be ACTIVE)
+
+---
+
+## FIGURE 9: State Manifold Trajectories
+
+**Title**: "Omission Alters Cortical State Manifold Geometry"
+**Status**: BLOCKED
+**Scientific Question**: How does omission reshape population-level neural state space?
+
+### Invariants
+- Dimensionality reduction (PCA, UMAP) on population spike rates
+- Compare manifold trajectory shapes: AAAB (control) vs. AXAB (omission)
+- Quantify trajectory curvature, distance metrics in manifold space
+- Report manifold predictability (can we decode omission timing from trajectory shape?)
+
+### Expected Result
+- **Control trajectory**: Smooth progression through state space (stimulus → response → return)
+- **Omission trajectory**: Abrupt deflection (missing stimulus creates novel state)
+- **Cross-area consistency**: Manifold deflection appears in V1, PFC, higher areas
+
+### Inputs
+- Full-sequence SPK epochs (population firing rates)
+- Dimensionality reduction parameters (n_dims=2-3)
+
+### Outputs
+- `outputs/figures/f9_manifold_trajectories.html` — 3D interactive trajectory plot
+- `outputs/figures/f9_manifold_metrics.json` — Curvature, distance, predictability
+- `outputs/figures/f9_trajectory_distance_heatmap.npy` — Manifold distance by time
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` (must be ACTIVE)
+
+---
+
+## FIGURE 10: SpSAM (Integrated Omission Routing)
+
+**Title**: "Spike-Spectral Attention Mechanism: How Hierarchy Responds to Omission"
+**Status**: BLOCKED
+**Scientific Question**: Which neurons/spectral modes jointly predict omission-sensitive state changes? How does hierarchy weight predictions?
+
+### Invariants
+- Integrate spiking + LFP spectral power (SpSAM mechanism)
+- Compute attention weights per unit/frequency across hierarchy
+- Compare omission vs. control SAM signatures
+- Quantify lag relationships: Do spikes lead spectral changes (prediction) or follow (response)?
+
+### Expected Result
+- **Local SAM peaks**: V1 at p1/p2 (sensory prediction); PFC at p3/p4 (error response)
+- **Lag signs**: V1 spikes lead alpha (predictive); PFC spikes lag theta (error-responsive)
+- **Global SAM**: Hierarchy jointly weighs predictions; integrated signal stronger than individual areas
+
+### Inputs
+- Full-sequence epochs (SPK, LFP)
+- SpSAM tensors (computed per [[spsam.skill]])
+- Granger connectivity (hierarchy structure)
+
+### Outputs
+- `outputs/figures/f10_spsam_local.npy` — (n_areas, n_units, n_timepoints)
+- `outputs/figures/f10_spsam_global_weighted.npy` — (n_timepoints,)
+- `outputs/figures/f10_lag_heatmap.html` — Spike-spectral lag by unit/area
+- `outputs/figures/f10_hierarchy_integration.html` — Multi-panel integrative figure
+
+### Blocking Dependency
+✗ `[[full-sequence-epoch-recovery]]` ✗ `[[spsam.skill]]` (both must be ACTIVE)
+
+---
+
+## CRITICAL PATH ANALYSIS
+
+```
+EPOCH RECOVERY (BLOCKER)
+    ↓
+    ├→ Figure 4: Band Power (2 days)
+    │   ├→ Figure 5: Granger Causality (3 days)
+    │   ├→ Figure 6: Spike-Field Coherence (3 days)
+    │   ├→ Figure 7: PAC (2 days)
+    │   └→ Figure 8: Ghost Signals (3 days)
+    │       └→ Figure 9: Manifold (3 days)
+    │
+    └→ SpSAM DEVELOPMENT (10 days)
+        └→ Figure 10: Integration (5 days)
+
+Critical Path: Epochs → F4 → F5/F6/F7/F8 → F9 → [Parallel: SpSAM] → F10
+Total Days (Sequential): ~30 days from epoch recovery
+```
+
+---
+
+## WHEN TO RUN THIS ROADMAP
+
+**Not Yet**: Figure 4 cannot run until epochs are recovered.
+**Timing**: Run in order F4 → F5 → F6 → F7 → F8 → F9 → F10.
+**Parallelization**: F5, F6, F7, F8 can run in parallel (all depend on epochs + F4).
+
+---
+
+## SUCCESS METRICS (PROJECT COMPLETION)
+
+| Target | Current | Success Criteria |
+|--------|---------|------------------|
+| Figures 4–10 Generated | 0/7 | 7/7 (100%) |
+| All Figures Pass Validation | 0/7 | 7/7 with p<0.05 effects |
+| Scientific Claims Supported | TBD | All main hypotheses testable |
+| Project Readiness | 60/100 | 90/100 |
+
+---
+
+## Version Control
+
+**Status**: **ACTIVE** (roadmap defined, execution blocked on epochs)
+**Author**: Claude (Haiku 4.5) + Antigravity (scientific design)
+**Date**: 2026-06-16
+**Next Update**: After epoch recovery begins
+
+---
+
+**BOTTOM LINE**: Figures 4–10 are scientifically sound and execution-ready. The *only* blocker is full-sequence epoch recovery. Once that completes, project scientific readiness jumps from 60→90 within ~30 days of parallel figure generation.
+
