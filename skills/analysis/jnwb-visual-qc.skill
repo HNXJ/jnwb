@@ -1,0 +1,140 @@
+# Skill: JNWB Visual QC Suite
+
+## Context
+The JNWB (JaxNWB) Visual QC suite provides NWB-native quality control inspection tools for LFP and spike data across recording sessions. It generates interactive HTML dashboards for epoch-level and unit-level auditing without reading full neural array payloads.
+
+**Key Facts**:
+- **Data Source**: NWB files (NeuropixelsProbe-style structured data)
+- **Output**: Interactive HTML dashboards with plots and statistics
+- **Scope**: Multi-session, multi-probe electrode inspection
+- **Truth Status**: `truth_safe_unverified` (descriptive only)
+
+## Invariants
+
+1. **NWB Structure**: Uses canonical NWB AnalogSeries and Units tables
+2. **No Payload Copy**: Inspects NWB structure via mmap, does not copy arrays to repo
+3. **Epoch Alignment**: Respects omission window timing (1000-1500ms)
+4. **Signal Class Preservation**: LFP ≠ SPK (never mixes)
+5. **Session Independence**: Each session produces independent QC outputs
+
+## Procedures
+
+### When to Use
+Use JNWB QC when:
+- Validating NWB data integrity across sessions
+- Inspecting analog epochs for continuity/drift
+- Auditing unit clustering quality (spike waveforms)
+- Checking multi-probe synchronization
+- Preparing data for downstream analysis
+
+### How to Run
+
+```bash
+# Generate full multi-session QC suite
+python scripts/run_jnwb_visual_qc.py \
+  --data-root D:\workspace\data \
+  --output-dir outputs/jnwb_visual_qc
+
+# Single-session inspection
+python scripts/run_jnwb_visual_qc.py \
+  --session 230629 \
+  --output-dir outputs/jnwb_visual_qc
+```
+
+### Expected Outputs
+- `jnwb_visual_qc_multisession/index.html` — Master dashboard (all sessions)
+- `session_230629_lfp_qc.html` — Session-specific LFP inspection
+- `session_230629_spike_qc.html` — Unit clustering/waveform review
+- `summary_statistics.json` — Global QC metrics
+
+### Success Criteria
+- All sessions have valid NWB file paths
+- LFP channels: continuous, no NaN blocks > 100ms
+- Spike waveforms: <2% artifact clusters
+- Omission epochs properly aligned to trial timings
+
+### Example: Interpreting Results
+
+```python
+import json
+
+# Check global QC metrics
+with open('outputs/jnwb_visual_qc/summary_statistics.json') as f:
+    stats = json.load(f)
+
+print(f"Sessions processed: {stats['n_sessions']}")
+print(f"Total units: {stats['total_units']}")
+print(f"LFP data quality: {stats['lfp_continuity_pct']}%")
+print(f"Spike artifact ratio: {stats['artifact_cluster_ratio']:.2%}")
+```
+
+## Related Skills
+- [[a4-trial-count-validation]] — Prerequisite (data completeness)
+- [[nwb-analog-epochs-smoke]] — Lower-level epoch validation
+- [[analysis-behavioral-data-processing]] — Eye/pupil correlation (optional)
+
+## Testing
+
+Smoke test for NWB analog epochs:
+```bash
+python scripts/smoke_jnwb_analog_epochs.py
+python -m pytest tests/test_bounded_signal_slice.py::test_cli_tiny_npy_smoke -v
+```
+
+Core validation notebooks:
+- `notebooks/03_jnwb_visual_qc.ipynb` — Interactive exploration
+- `notebooks/00_jnwb_discovery_and_addressing.ipynb` — Discovery phase
+
+## Key Files
+
+| File | Role |
+|------|------|
+| `scripts/run_jnwb_visual_qc.py` | Main QC orchestrator |
+| `scripts/smoke_jnwb_analog_epochs.py` | Epoch validation |
+| `jnwb/__init__.py` | JaxNWB integration module |
+| `notebooks/03_jnwb_visual_qc.ipynb` | Interactive guide |
+| `outputs/jnwb_visual_qc/` | Generated dashboards |
+
+## Important Notes
+
+- **Do Not**: Copy raw NWB files into repo (reference via $OMISSION_DATA_ROOT only)
+- **Do Not**: Modify original NWB files
+- **Do Preserve**: Original NWB structure (no schema changes)
+- **Do Check**: Timestamp alignment across probes (critical for multi-probe analysis)
+- **Do Report**: Any NaNs or discontinuities found in continuous data
+
+## Configuration
+
+**Environment Variable**:
+```bash
+$env:OMISSION_DATA_ROOT = "D:\workspace\data"
+```
+
+**NWB File Naming Convention**:
+```
+{data_root}/nwb/ses-{YYMMDD}.nwb
+Example: D:\workspace\data\nwb\ses-230629.nwb
+```
+
+**Supported Data Types**:
+- LFP: `AnalogSeries` with timestamps
+- Spikes: `Units` table with spike times
+- Probes: Multi-electrode array (Neuropixels-compatible)
+
+## Performance Notes
+
+- Multi-session processing: ~5-10 min for 13 sessions
+- HTML generation: ~2-5 min total
+- Memory: <4GB for typical 8-probe sessions
+- Bottleneck: NWB file I/O (use local SSD if available)
+
+## Version Control
+
+**Last Updated**: 2026-06-16
+**Author**: Claude (Haiku 4.5) — Integration from Antigravity
+**Status**: ACTIVE — Production ready for data validation
+
+**Related Commits**:
+- ea450bb: Added A4 trial-count validation (prerequisite)
+- Earlier: JNWB discovery & epoch validation infrastructure
+
