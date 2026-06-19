@@ -1,12 +1,17 @@
 """
 generate_all_rasters_expanded.py
 ================================
-Generates full raster-trace-SEM suites for A, B, and R condition families:
-  1. One stable S+ neuron per area (highest SNR)
-  2. One stable S- neuron per area (highest SNR)
-  3. All stable omission neurons (N=70)
+Generates standardized full raster-trace-SEM suites for A, B, and R condition families:
+  1. All stable omission neurons (N=70)
+  2. All stable stimulus-negative neurons (N=33, since 33 <= 50)
+  3. Top 50 stable stimulus-positive units (balanced across the 11 brain areas)
 
-Outputs saved to: outputs/omission_rasters/
+Features:
+  - Aligns rasters to exactly 40 trials.
+  - Generates A, B, and R condition family plots (covering all 12 condition groups).
+  - Displays unit-id, session, area, and waveform details.
+  - Plots the mean waveform of the unit.
+  - Saves figures in SVG format.
 """
 
 import os
@@ -101,28 +106,27 @@ def main():
     df = pd.read_csv(METADATA_CSV)
     stable = df[df["is_stable"]].copy()
     
-    # 1. Select all omission neurons
+    # 1. Select all stable omission neurons
     om_units = stable[stable["group"] == "omission"].copy()
     om_units["target_group"] = "omission"
     
-    # 2. Select one S+ neuron per area (highest SNR)
+    # 2. Select top 50 stable stimulus positive units (balanced across the 11 areas)
+    sp_df = stable[stable["group"] == "stimulus_positive"].copy()
+    areas_sp = sorted(list(sp_df["area"].unique()))
+    sp_by_area = {area: sp_df[sp_df["area"] == area].sort_values("snr", ascending=False).to_dict("records") for area in areas_sp}
+    
     sp_list = []
-    for area in stable["area"].unique():
-        area_sp = stable[(stable["area"] == area) & (stable["group"] == "stimulus_positive")]
-        if len(area_sp) > 0:
-            best_unit = area_sp.sort_values("snr", ascending=False).iloc[0]
-            sp_list.append(best_unit)
+    while len(sp_list) < 50 and any(len(lst) > 0 for lst in sp_by_area.values()):
+        for area in areas_sp:
+            if len(sp_list) >= 50:
+                break
+            if sp_by_area[area]:
+                sp_list.append(sp_by_area[area].pop(0))
     sp_units = pd.DataFrame(sp_list)
     sp_units["target_group"] = "stim_positive"
     
-    # 3. Select one S- neuron per area (highest SNR)
-    sn_list = []
-    for area in stable["area"].unique():
-        area_sn = stable[(stable["area"] == area) & (stable["group"] == "stimulus_negative")]
-        if len(area_sn) > 0:
-            best_unit = area_sn.sort_values("snr", ascending=False).iloc[0]
-            sn_list.append(best_unit)
-    sn_units = pd.DataFrame(sn_list)
+    # 3. Select all stable stimulus negative units (33 units <= 50)
+    sn_units = stable[stable["group"] == "stimulus_negative"].copy()
     sn_units["target_group"] = "stim_negative"
     
     # Combine selected units
@@ -136,10 +140,10 @@ def main():
     log.action(f"S- neurons: {len(sn_units)}")
     
     nwb_map = get_nwb_file_map()
-    
-    # Group by session
-    sessions = targets.groupby("session_id")
     time_bins = np.arange(-1000, 4001)
+    
+    # Group targets by session for NWB access efficiency
+    sessions = targets.groupby("session_id")
     
     for sess_id, group in sessions:
         if sess_id not in nwb_map:
@@ -162,7 +166,10 @@ def main():
                 row = units_df.loc[uid]
                 spike_times = row['spike_times']
                 
-                # Plot each family
+                # Retrieve waveform mean if present in NWB
+                wf_mean = row.get("waveform_mean", None)
+                
+                # Generate A, B, and R families
                 for fam_name, fam_cfg in FAMILIES.items():
                     conds_to_plot = fam_cfg["conds"]
                     codes_cfg = fam_cfg["codes"]
@@ -177,9 +184,13 @@ def main():
                     for cond, ons in onsets.items():
                         if len(ons) == 0:
                             continue
-                        spike_matrix = np.zeros((len(ons), len(time_bins)))
+                        
+                        # Limit to exactly 40 trials
+                        ons_sliced = ons[:40]
+                        spike_matrix = np.zeros((len(ons_sliced), len(time_bins)))
                         aligned_spikes = []
-                        for trial_idx, t_onset in enumerate(ons):
+                        
+                        for trial_idx, t_onset in enumerate(ons_sliced):
                             t_start = t_onset - 1.0
                             t_end = t_onset + 4.0
                             trial_spk = spike_times[(spike_times >= t_start) & (spike_times <= t_end)]
@@ -193,17 +204,28 @@ def main():
                         
                         mean_rate = np.mean(spike_matrix, axis=0) * 1000.0
                         std_rate = np.std(spike_matrix, axis=0) * 1000.0
-                        sem_rate = std_rate / np.sqrt(len(ons))
+                        sem_rate = std_rate / np.sqrt(len(ons_sliced))
                         
                         sdfs[cond] = ndimage.gaussian_filter1d(mean_rate, sigma=40.0)
                         sems[cond] = ndimage.gaussian_filter1d(sem_rate, sigma=40.0)
                         
-                    # Plot panels
-                    fig, axes = plt.subplots(5, 1, figsize=(10, 14), sharex=True, 
-                                             gridspec_kw={'height_ratios': [1, 1, 1, 1, 3.5]})
+                    # Create 2-column Matplotlib layout
+                    # Column 0: Rasters & PSTH
+                    # Column 1: Waveform and metadata details
+                    fig = plt.figure(figsize=(13, 14), facecolor="white")
+                    gs = fig.add_gridspec(5, 2, width_ratios=[3, 1], height_ratios=[1, 1, 1, 1, 3.5])
                     
+                    axes_raster = [fig.add_subplot(gs[i, 0]) for i in range(4)]
+                    ax_psth = fig.add_subplot(gs[4, 0])
+                    ax_text = fig.add_subplot(gs[0:4, 1])
+                    ax_text.axis('off')
+                    
+                    ax_wf = fig.add_subplot(gs[4, 1])
+                    
+                    # 1. Plot Rasters
                     for ax_idx, cond in enumerate(conds_to_plot):
-                        ax = axes[ax_idx]
+                        ax = axes_raster[ax_idx]
+                        # Plot shaded stimulus slots
                         for start, end, color in SLOT_COLORS:
                             ax.axvspan(start, end, color=color, alpha=0.8, zorder=0)
                         for marker in [0, 1031, 2062, 3093]:
@@ -212,15 +234,18 @@ def main():
                         if cond in rasters:
                             for trial_idx, trial_spikes in enumerate(rasters[cond]):
                                 ax.vlines(trial_spikes, trial_idx - 0.4, trial_idx + 0.4, colors="black", linewidth=0.5)
-                            ax.set_ylim(-1, len(rasters[cond]))
                         
-                        ax.set_title(f"{cond} Raster", fontsize=11, pad=3)
+                        # Limit to exactly 40 trials aligned
+                        ax.set_ylim(-1, 40)
+                        ax.set_title(f"{cond} Raster (N={len(rasters.get(cond, []))} trials)", fontsize=11, pad=3)
                         ax.set_ylabel("Trials", fontsize=9)
                         ax.set_xlim(-1000, 4000)
                         ax.spines['top'].set_visible(False)
                         ax.spines['right'].set_visible(False)
+                        ax.tick_params(labelbottom=False)
                         
-                    ax_psth = axes[4]
+                    # 2. Plot PSTH
+                    # Shaded stimulus slots
                     for start, end, color in SLOT_COLORS:
                         ax_psth.axvspan(start, end, color=color, alpha=0.8, zorder=0)
                     for marker in [0, 1031, 2062, 3093]:
@@ -233,17 +258,60 @@ def main():
                                 ax_psth.fill_between(time_bins, sdfs[cond] - sems[cond], sdfs[cond] + sems[cond], 
                                                      color=colors_cfg[cond], alpha=0.15, zorder=2)
                                 
-                    ax_psth.legend(loc="upper center", bbox_to_anchor=(0.5, 1.05), ncol=4, frameon=False)
-                    ax_psth.set_xlabel("Time from p1 onset (ms)")
-                    ax_psth.set_ylabel("FR (Hz)")
+                    ax_psth.legend(loc="upper center", bbox_to_anchor=(0.5, 1.08), ncol=4, frameon=False, fontsize=10)
+                    ax_psth.set_xlabel("Time from p1 onset (ms)", fontsize=10)
+                    ax_psth.set_ylabel("FR (Hz)", fontsize=10)
+                    ax_psth.set_xlim(-1000, 4000)
                     ax_psth.spines['top'].set_visible(False)
                     ax_psth.spines['right'].set_visible(False)
                     
-                    plt.suptitle(f"{t_grp.replace('_', ' ').capitalize()} Neuron | Session {sess_id} | Area {area} | Unit {uid} | Family {fam_name}", fontsize=14, fontweight='bold', y=0.98)
+                    # 3. Waveform Plot
+                    if wf_mean is not None:
+                        # Aesthetic: Gold `#CFB87C` for S+/S-, Violet `#9400D3` for Omissions
+                        wf_color = "#9400D3" if t_grp == "omission" else "#CFB87C"
+                        ax_wf.plot(wf_mean, color=wf_color, linewidth=2.0)
+                        ax_wf.set_title("Mean Waveform", fontsize=10, fontweight="bold", pad=5)
+                        ax_wf.set_xlabel("Samples", fontsize=8)
+                        ax_wf.set_ylabel("Amplitude (µV)", fontsize=8)
+                        ax_wf.spines['top'].set_visible(False)
+                        ax_wf.spines['right'].set_visible(False)
+                    else:
+                        ax_wf.text(0.5, 0.5, "No Waveform\nData", ha="center", va="center", fontsize=10)
+                        ax_wf.axis('off')
+                        
+                    # 4. Metadata details text box
+                    layer_val = unit_row.get("layer", "unresolved")
+                    snr_val = unit_row.get("snr", 0.0)
+                    fr_val = unit_row.get("firing_rate", 0.0)
+                    wf_cls = unit_row.get("waveform_class", "unknown")
+                    wf_dur = unit_row.get("waveform_duration", 0.0)
+                    
+                    info_text = (
+                        f"**Unit metadata:**\n"
+                        f"• NWB Unit ID: {uid}\n"
+                        f"• Session: {sess_id}\n"
+                        f"• Area: {area}\n"
+                        f"• Layer: {layer_val}\n"
+                        f"• Type: {t_grp.replace('_', ' ').capitalize()}\n"
+                        f"• SNR: {snr_val:.2f}\n"
+                        f"• Mean FR: {fr_val:.2f} Hz\n"
+                        f"• Waveform: {wf_cls}\n"
+                        f"• Duration: {wf_dur:.1f} ms"
+                    )
+                    # Convert markdown-style bullet points to standard matplotlib-friendly format
+                    info_text_clean = info_text.replace("**", "").replace("• ", "  ")
+                    ax_text.text(0.05, 0.9, info_text_clean, fontsize=9.5, verticalalignment='top',
+                                 bbox=dict(boxstyle="round,pad=0.6", facecolor="#FDFDFD", edgecolor="#E0E0E0", alpha=0.95))
+                    
+                    # Figure title and layout adjustments
+                    grp_title = t_grp.replace('_', ' ').capitalize()
+                    plt.suptitle(f"{grp_title} Neuron | Session {sess_id} | Area {area} | Unit {uid} | {fam_name}-Family", 
+                                 fontsize=13, fontweight='bold', y=0.98)
+                    
                     plt.tight_layout()
                     
-                    save_name = f"{t_grp}_{area.replace(', ', '_')}_ses{sess_id}_unit{uid}_{fam_name}_family.png"
-                    plt.savefig(f"{OUTPUT_DIR}/{save_name}", dpi=150, facecolor='white')
+                    save_name = f"{t_grp}_{area.replace(', ', '_')}_ses{sess_id}_unit{uid}_{fam_name}_family.svg"
+                    plt.savefig(f"{OUTPUT_DIR}/{save_name}", format="svg", facecolor='white')
                     plt.close()
                     
     print("\nDone generating all expanded rasters.")
