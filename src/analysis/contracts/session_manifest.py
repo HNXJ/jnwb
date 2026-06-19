@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime
+from src.analysis.contracts.base import ContractMixin
 from src.analysis.contracts.constants import (
     TRUTH_SAFE_UNVERIFIED,
     AREA_ALIASES,
@@ -35,7 +36,7 @@ class UnitMetadata:
     resolution_status: str
 
 @dataclass
-class SessionManifest:
+class SessionManifest(ContractMixin):
     session_id: str
     subject: str = ""
     subject_id: str = ""
@@ -122,21 +123,10 @@ class SessionManifest:
         errors = []
         
         # 1. required fields
-        for field_name in REQUIRED_SESSION_MANIFEST_FIELDS:
-            val = getattr(self, field_name, None)
-            if not val:
-                if field_name == "subject":
-                    errors.append("Subject is required.")
-                elif field_name == "session_id":
-                    errors.append("Session ID is required.")
-                elif field_name == "truth_status":
-                    errors.append("Truth status must be specified.")
-                else:
-                    errors.append(f"Field '{field_name}' is required.")
+        errors.extend(self._validate_required_fields(REQUIRED_SESSION_MANIFEST_FIELDS))
             
         # 2. truth_status constraints
-        if self.truth_status and self.truth_status != TRUTH_SAFE_UNVERIFIED:
-            errors.append(f"Truth status must remain '{TRUTH_SAFE_UNVERIFIED}' under Phase 2 doctrine.")
+        errors.extend(self._validate_truth_status())
 
         # 3. generic V3 must produce a warning unless explicitly resolved
         has_generic_v3 = False
@@ -171,9 +161,7 @@ class SessionManifest:
 
         return errors
 
-    def to_dict(self) -> dict:
-        import dataclasses
-        return dataclasses.asdict(self)
+
 
     @classmethod
     def from_dict(cls, d: dict) -> 'SessionManifest':

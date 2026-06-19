@@ -61,3 +61,29 @@ def write_csv(path, rows, fieldnames):
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def resolve_context_path(rel_path, required=True):
+    """Resolve a path relative to the context directory, handling flattened layout (double-underscore) fallbacks."""
+    root = Path(__file__).parent.parent.parent.parent
+    path_parts = Path(rel_path).parts
+    
+    # 1. Flattened canonical location (e.g. overview__session-area-mapping.md):
+    flattened_name = "__".join(path_parts)
+    flat_path = root / "context" / "specs" / flattened_name
+    if flat_path.exists():
+        return flat_path
+
+    # 2. Segmented location under specs (e.g. context/specs/overview/session-area-mapping.md):
+    spec_path = root / "context" / "specs" / Path(rel_path)
+    if spec_path.exists():
+        return spec_path
+
+    # 3. Legacy context location (e.g. context/overview/session-area-mapping.md):
+    legacy_path = root / "context" / Path(rel_path)
+    if legacy_path.exists():
+        return legacy_path
+
+    if required:
+        raise FileNotFoundError(f"Could not resolve required context path: {rel_path}")
+    return flat_path

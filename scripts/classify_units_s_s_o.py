@@ -86,43 +86,12 @@ MIN_TRIALS_DEFAULT = 8
 # Statistical Utilities
 # ============================================================================
 
+from src.analysis.stats.multitest import benjamini_hochberg
+
 def benjamini_hochberg_fdr(p_values: np.ndarray, alpha: float = 0.05) -> np.ndarray:
-    """Apply Benjamini-Hochberg FDR correction to p-values.
-    
-    Args:
-        p_values: Array of p-values (may contain NaN)
-        alpha: FDR level (default 0.05)
-        
-    Returns:
-        Array of FDR-corrected p-values (q-values), NaN where input was NaN
-    """
-    p_values = np.asarray(p_values)
-    mask = np.isfinite(p_values)
-    p_valid = p_values[mask]
-    
-    if len(p_valid) == 0:
-        return np.full_like(p_values, np.nan)
-    
-    # Sort p-values
-    sort_idx = np.argsort(p_valid)
-    p_sorted = p_valid[sort_idx]
-    n = len(p_sorted)
-    
-    # BH procedure: find largest k such that p_k <= (k/m) * alpha
-    # Then reject all H_i for i <= k
-    # q-values: p_i * m / i (with monotonicity enforcement)
-    q_sorted = np.minimum.accumulate(p_sorted[::-1] * n / np.arange(n, 0, -1))[::-1]
-    q_sorted = np.minimum(q_sorted, 1.0)  # Cap at 1
-    
-    # Unsort
-    q_valid = np.empty_like(p_sorted)
-    q_valid[sort_idx] = q_sorted
-    
-    # Fill back into original array
-    q_values = np.full_like(p_values, np.nan)
-    q_values[mask] = q_valid
-    
-    return q_values
+    """Apply Benjamini-Hochberg FDR correction to p-values."""
+    return benjamini_hochberg(p_values)
+
 
 
 def rank_biserial_correlation(wilcoxon_statistic: float, n: int) -> float:

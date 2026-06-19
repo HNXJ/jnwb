@@ -909,7 +909,8 @@ def estimate_channel_area_layer_map(
         
         n_electrodes = len(electrodes)
         electrode_cols = list(electrodes.colnames)
-        
+        from collections import defaultdict
+        group_counters = defaultdict(int)
         rows: list[dict] = []
         
         for ch_idx in range(n_electrodes):
@@ -947,15 +948,10 @@ def estimate_channel_area_layer_map(
                     continue
             
             # Compute local channel index within probe
-            # Need to count channels in same group before this one
-            local_idx = 0
-            for i in range(ch_idx):
-                if "group" in electrode_cols:
-                    other_group = electrodes["group"][i]
-                    other_name = getattr(other_group, "name", str(other_group))
-                    if other_name == row["electrode_group"]:
-                        local_idx += 1
-            row["channel_index_local"] = local_idx
+            group_name_key = row["electrode_group"]
+            row["channel_index_local"] = group_counters[group_name_key]
+            group_counters[group_name_key] += 1
+
             
             # Get area
             area = "unresolved"

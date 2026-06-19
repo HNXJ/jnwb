@@ -9,6 +9,7 @@ from collections import defaultdict
 from typing import Optional, List, Dict, Any, Union, Tuple
 from src.analysis.io.logger import log
 from src.analysis.io.eye_mapper import EyeDataMapper
+from src.analysis.io.utils import resolve_context_path
 
 class DataLoader:
     """
@@ -35,34 +36,16 @@ class DataLoader:
         # Resolve paths relative to repo root
         root = Path(__file__).parent.parent.parent.parent
         self.data_dir = Path(data_dir) if data_dir else root.parent / "data" / "arrays"
-        # Context-path migration: after reorganizing `context/`, the canonical
-        # mapping file may live at different paths.
         if mapping_file is not None:
             self.mapping_file = Path(mapping_file)
         else:
-            candidates = [
-                # Flattened canonical location after context/specs flatten:
-                root / "context" / "specs" / "overview__session-area-mapping.md",
-                # Pre-flatten canonical location (still some branches/tools):
-                root / "context" / "specs" / "overview" / "session-area-mapping.md",
-                # Legacy location:
-                root / "context" / "overview" / "session-area-mapping.md",
-            ]
-            self.mapping_file = next((p for p in candidates if p.exists()), candidates[0])
+            self.mapping_file = resolve_context_path("overview/session-area-mapping.md", required=True)
 
         if mapping_file is not None:
             # Keep legacy behavior: allow callers to override only mapping_file.
-            subject_candidates = [root / "context" / "overview" / "subjects.json"]
+            self.subject_file = root / "context" / "overview" / "subjects.json"
         else:
-            subject_candidates = [
-                # Flattened canonical location:
-                root / "context" / "specs" / "overview__subjects.json",
-                # Pre-flatten canonical:
-                root / "context" / "specs" / "overview" / "subjects.json",
-                # Legacy:
-                root / "context" / "overview" / "subjects.json",
-            ]
-        self.subject_file = next((p for p in subject_candidates if p.exists()), subject_candidates[-1])
+            self.subject_file = resolve_context_path("overview/subjects.json", required=True)
         
         self.area_map = self._parse_mapping()
         self.eye_mapper = EyeDataMapper()
@@ -77,6 +60,7 @@ class DataLoader:
         # Metadata cache for unit anatomical assignment
         self.unit_metadata_cache = {}
         self.unit_count_cache = {}
+        self.session_offsets_cache = {}
 
         log.action(f"Initialized DataLoader (NPY) with mapping from {self.mapping_file}")
 
@@ -186,17 +170,20 @@ class DataLoader:
                     probe_entries.append((area_name, entry))
 
         if df is not None:
-            # Validate session counts
-            n_total_spk_units = 0
-            probe_offsets = {}
-            for p in range(5): # Check up to 5 probes
-                count = self._get_probe_unit_count(session, p)
-                if count > 0:
-                    probe_offsets[p] = n_total_spk_units
-                    n_total_spk_units += count
+            if session not in self.session_offsets_cache:
+                n_total_spk_units = 0
+                probe_offsets = {}
+                for p in range(5): # Check up to 5 probes
+                    count = self._get_probe_unit_count(session, p)
+                    if count > 0:
+                        probe_offsets[p] = n_total_spk_units
+                        n_total_spk_units += count
+                
+                if len(df) != n_total_spk_units:
+                    log.warning(f"Session {session} metadata row count ({len(df)}) mismatch with total SPK unit count across probes ({n_total_spk_units}). Indexing may be shifted.")
+                self.session_offsets_cache[session] = (probe_offsets, n_total_spk_units)
             
-            if len(df) != n_total_spk_units:
-                log.warning(f"Session {session} metadata row count ({len(df)}) mismatch with total SPK unit count across probes ({n_total_spk_units}). Indexing may be shifted.")
+            probe_offsets, n_total_spk_units = self.session_offsets_cache[session]
 
             if probe in probe_offsets:
                 offset = probe_offsets[probe]

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional, Any
+from src.analysis.contracts.base import ContractMixin
 from src.analysis.contracts.constants import (
     TRUTH_SAFE_UNVERIFIED,
     ALLOWED_SIGNAL_CLASSES,
@@ -10,7 +11,7 @@ from src.analysis.contracts.constants import (
 )
 
 @dataclass
-class SignalBlock:
+class SignalBlock(ContractMixin):
     data: Any
     dims: Tuple[str, ...]
     signal_class: str
@@ -33,17 +34,7 @@ class SignalBlock:
         errors = []
         
         # 0. Check required fields
-        for field_name in REQUIRED_SIGNAL_BLOCK_FIELDS:
-            val = getattr(self, field_name, None)
-            if field_name == "data":
-                if val is None:
-                    errors.append("Field 'data' is required.")
-            else:
-                if not val:
-                    if field_name == "truth_status":
-                        errors.append("Truth status must be specified.")
-                    else:
-                        errors.append(f"Field '{field_name}' is required.")
+        errors.extend(self._validate_required_fields(REQUIRED_SIGNAL_BLOCK_FIELDS))
         
         # 1. signal_class allowed values
         if self.signal_class and self.signal_class not in ALLOWED_SIGNAL_CLASSES:
@@ -85,10 +76,7 @@ class SignalBlock:
                 self.warnings.append(msg)
                 
         # 6. truth_status must remain truth_safe_unverified unless explicitly validated later
-        if not self.truth_status:
-            errors.append("Truth status must be specified.")
-        elif self.truth_status != TRUTH_SAFE_UNVERIFIED:
-            errors.append(f"Truth status must remain '{TRUTH_SAFE_UNVERIFIED}'.")
+        errors.extend(self._validate_truth_status())
             
         return errors
 

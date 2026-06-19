@@ -26,12 +26,8 @@ P4_ONSET_MS = 3093
 TRUTH_SAFE_UNVERIFIED = "truth_safe_unverified"
 CONDITIONS = ["AAAB", "AXAB", "AAXB", "AAAX", "BBBA", "BXBA", "BBXA", "BBBX", "RRRR", "RXRR", "RRXR", "RRRX"]
 
-def get_git_commit():
-    try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        return res.stdout.strip()
-    except Exception:
-        return "4d87215d2134a01d1e77bc11ab24102975b5375f"
+from src.analysis.provenance import get_git_commit, sha256_file
+from _response_metric_common import locate_file_recursively
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Phase A8 SPK Response Metric Contract")
@@ -47,22 +43,8 @@ def parse_args():
 
 from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
 
-def locate_file_recursively(data_root, filename):
-    for p in Path(data_root).rglob(filename):
-        if p.is_file() and p.suffix.lower() == ".npy":
-            return p
-    return None
-
 def compute_sha256(file_path):
-    import hashlib
-    sha256_hash = hashlib.sha256()
-    try:
-        with open(file_path, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
-    except Exception:
-        return "unknown_hash"
+    return sha256_file(file_path)
 
 def generate_synthetic_spikes(condition, trials=20, units=5, timepoints=6000):
     """

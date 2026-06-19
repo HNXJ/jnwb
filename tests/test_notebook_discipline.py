@@ -138,3 +138,15 @@ def test_public_jnwb_all_subset_of_package():
     for name in CORE_JNWB_API:
         assert hasattr(jnwb, name), f"jnwb missing public API: {name}"
         assert name in jnwb.__all__
+
+
+@pytest.mark.parametrize("notebook_path", JNWB_NOTEBOOKS, ids=[p.name for p in JNWB_NOTEBOOKS])
+def test_notebook_execution_count_present(notebook_path: Path):
+    nb = _load_notebook(notebook_path)
+    for idx, cell in enumerate(nb.get("cells", [])):
+        if cell.get("cell_type") == "code":
+            source = "".join(cell.get("source", [])).strip()
+            if source:
+                exec_count = cell.get("execution_count")
+                assert exec_count is not None, f"{notebook_path.name} cell at index {idx} has not been executed (missing execution count)"
+

@@ -27,12 +27,8 @@ P4_ONSET_MS = 3093
 TRUTH_SAFE_UNVERIFIED = "truth_safe_unverified"
 CONDITIONS = ["AAAB", "AXAB", "AAXB", "AAAX", "BBBA", "BXBA", "BBXA", "BBBX", "RRRR", "RXRR", "RRXR", "RRRX"]
 
-def get_git_commit():
-    try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        return res.stdout.strip()
-    except Exception:
-        return "566d603d0ec1436edb948e53bd0fdb9de0265e19"
+from src.analysis.provenance import get_git_commit, sha256_file
+from src.analysis.stats.multitest import benjamini_hochberg as benjamini_hochberg_correction
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Phase A8.1 SPK Candidate Firing Rate Metrics Execution")
@@ -45,69 +41,18 @@ def parse_args():
     parser.add_argument("--unit-batch-size", type=int, default=64, help="Unit batch size for memmap streaming")
     parser.add_argument("--max-sessions", type=int, default=None, help="Optional sessions limit for profiling")
     parser.add_argument("--max-units-per-file", type=int, default=None, help="Optional units limit for profiling")
-    parser.add_argument("--dry-run", type=str, default="false", help="If true, skip real calculations")
+    parser.add_argument("--dry-run", action="store_true", help="Skip real calculations")
     parser.add_argument("--q-threshold", type=float, default=0.05, help="BH FDR q-value significance threshold")
     parser.add_argument("--effect-threshold", type=float, default=0.3, help="Minimum standardized effect size (Cohen's d)")
     return parser.parse_args()
 
 from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
 
-def locate_file_recursively(data_root, filename):
-    for p in Path(data_root).rglob(filename):
-        if p.is_file() and p.suffix.lower() == ".npy":
-            return p
-    return None
+from _response_metric_common import locate_file_recursively, compute_cohens_d
 
 def compute_sha256(file_path):
-    import hashlib
-    sha256_hash = hashlib.sha256()
-    try:
-        with open(file_path, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
-    except Exception:
-        return "unknown_hash"
+    return sha256_file(file_path)
 
-def benjamini_hochberg_correction(p_values):
-    """Computes adjusted q-values using Benjamini-Hochberg FDR correction."""
-    p_arr = np.array(p_values, dtype=float)
-    n = len(p_arr)
-    if n == 0:
-        return p_arr
-    
-    # Handle NaNs: ignore them in ranking, set their q-value to 1.0
-    nan_mask = np.isnan(p_arr)
-    p_clean = p_arr[~nan_mask]
-    n_clean = len(p_clean)
-    if n_clean == 0:
-        return p_arr
-    
-    sort_idx = np.argsort(p_clean)
-    sorted_p = p_clean[sort_idx]
-    
-    q_vals = np.zeros(n_clean)
-    min_q = 1.0
-    for i in range(n_clean - 1, -1, -1):
-        p_val = sorted_p[i]
-        rank = i + 1
-        q_val = p_val * n_clean / rank
-        min_q = min(min_q, q_val)
-        q_vals[i] = min_q
-        
-    adjusted_p = np.zeros(n_clean)
-    adjusted_p[sort_idx] = q_vals
-    
-    result = np.full(n, np.nan)
-    result[~nan_mask] = adjusted_p
-    return result
-
-def compute_cohens_d(x, y):
-    """Computes standardized effect size (Cohen's d) across trials."""
-    mx, my = np.mean(x), np.mean(y)
-    vx, vy = np.var(x, ddof=1), np.var(y, ddof=1)
-    pooled_std = np.sqrt((vx + vy) / 2.0) + 1e-8
-    return (mx - my) / pooled_std
 
 def classify_prototype_unit(rates):
     """
@@ -163,7 +108,7 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    dry_run = args.dry_run.lower() == "true"
+    dry_run = args.dry_run
 
     # 1. response_metric_execution_parameters.json
     parameters = {
