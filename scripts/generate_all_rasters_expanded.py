@@ -2,9 +2,10 @@
 generate_all_rasters_expanded.py
 ================================
 Generates standardized full raster-trace-SEM suites for A, B, and R condition families:
-  1. All stable omission neurons (N=70)
-  2. All stable stimulus-negative neurons (N=33, since 33 <= 50)
-  3. Top 50 stable stimulus-positive units (balanced across the 11 brain areas)
+  1. Strict omission-selective units: stable units showing a significant increase
+     during omission relative to standard control trials (diff >= 4.0 Hz, Mann-Whitney p < 0.01).
+  2. Top 50 stable stimulus-positive units (balanced across the 11 areas).
+  3. Top 50 stable stimulus-negative units (all 33 available stable units).
 
 Features:
   - Aligns rasters to exactly 40 trials.
@@ -21,6 +22,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.ndimage as ndimage
 from pynwb import NWBHDF5IO
+from scipy.stats import mannwhitneyu
 from src.analysis.io.logger import log
 
 NWB_DIR = "D:/analysis/nwb"
@@ -30,6 +32,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 FAMILIES = {
     "A": {
+        "ctrl": "AAAB",
         "conds": ["AAAB", "AXAB", "AAXB", "AAAX"],
         "codes": {
             "AAAB": [1, 2],
@@ -42,9 +45,15 @@ FAMILIES = {
             "AXAB": "#4CAF50",
             "AAXB": "#FF9800",
             "AAAX": "#E53935",
+        },
+        "slots": {
+            2: {"cond": "AXAB", "window": (1031, 1531), "codes": [3], "ctrl_codes": [1, 2]},
+            3: {"cond": "AAXB", "window": (2062, 2562), "codes": [4], "ctrl_codes": [1, 2]},
+            4: {"cond": "AAAX", "window": (3093, 3593), "codes": [5], "ctrl_codes": [1, 2]}
         }
     },
     "B": {
+        "ctrl": "BBBA",
         "conds": ["BBBA", "BXBA", "BBXA", "BBBX"],
         "codes": {
             "BBBA": [6, 7],
@@ -57,9 +66,15 @@ FAMILIES = {
             "BXBA": "#8E24AA",
             "BBXA": "#FFB300",
             "BBBX": "#D81B60",
+        },
+        "slots": {
+            2: {"cond": "BXBA", "window": (1031, 1531), "codes": [8], "ctrl_codes": [6, 7]},
+            3: {"cond": "BBXA", "window": (2062, 2562), "codes": [9], "ctrl_codes": [6, 7]},
+            4: {"cond": "BBBX", "window": (3093, 3593), "codes": [10], "ctrl_codes": [6, 7]}
         }
     },
     "R": {
+        "ctrl": "RRRR",
         "conds": ["RRRR", "RXRR", "RRXR", "RRRX"],
         "codes": {
             "RRRR": list(range(11, 27)),
@@ -72,6 +87,11 @@ FAMILIES = {
             "RXRR": "#0E9F58",
             "RRXR": "#3E9BE5",
             "RRRX": "#D9541F",
+        },
+        "slots": {
+            2: {"cond": "RXRR", "window": (1031, 1531), "codes": [27, 28, 29, 30, 31, 32, 33, 34], "ctrl_codes": list(range(11, 27))},
+            3: {"cond": "RRXR", "window": (2062, 2562), "codes": [35, 37, 39, 41], "ctrl_codes": list(range(11, 27))},
+            4: {"cond": "RRRX", "window": (3093, 3593), "codes": [36, 38, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50], "ctrl_codes": list(range(11, 27))}
         }
     }
 }
@@ -106,11 +126,90 @@ def main():
     df = pd.read_csv(METADATA_CSV)
     stable = df[df["is_stable"]].copy()
     
-    # 1. Select all stable omission neurons
-    om_units = stable[stable["group"] == "omission"].copy()
+    nwb_map = get_nwb_file_map()
+    time_bins = np.arange(-1000, 4001)
+    
+    log.action("Performing strict trial-by-trial omission selectivity audit...")
+    strict_omission_records = []
+    
+    # Audit stable units for true omission selectivity
+    for sess_id, group in stable.groupby("session_id"):
+        sess_id_str = str(sess_id)
+        if sess_id_str not in nwb_map:
+            continue
+        nwb_path = nwb_map[sess_id_str]
+        
+        with NWBHDF5IO(nwb_path, 'r', load_namespaces=True) as io:
+            nwb = io.read()
+            intervals_df = nwb.intervals['omission_glo_passive'].to_dataframe()
+            units_df = nwb.units.to_dataframe()
+            
+            for _, u_row in group.iterrows():
+                uid = int(u_row["unit_id"])
+                row = units_df.loc[uid]
+                spike_times = row['spike_times']
+                
+                unit_results = []
+                for fam_name, fam_cfg in FAMILIES.items():
+                    for slot, slot_cfg in fam_cfg["slots"].items():
+                        om_ons = get_onsets(intervals_df, slot_cfg["codes"])
+                        ctrl_ons = get_onsets(intervals_df, slot_cfg["ctrl_codes"])
+                        
+                        if len(om_ons) < 5 or len(ctrl_ons) < 5:
+                            continue
+                            
+                        w_start, w_end = slot_cfg["window"]
+                        om_rates = []
+                        for ons in om_ons:
+                            t0 = ons + w_start / 1000.0
+                            t1 = ons + w_end / 1000.0
+                            spk = len(spike_times[(spike_times >= t0) & (spike_times <= t1)])
+                            om_rates.append(spk / ((w_end - w_start) / 1000.0))
+                            
+                        ctrl_rates = []
+                        for ons in ctrl_ons:
+                            t0 = ons + w_start / 1000.0
+                            t1 = ons + w_end / 1000.0
+                            spk = len(spike_times[(spike_times >= t0) & (spike_times <= t1)])
+                            ctrl_rates.append(spk / ((w_end - w_start) / 1000.0))
+                            
+                        om_mean = np.mean(om_rates)
+                        ctrl_mean = np.mean(ctrl_rates)
+                        diff = om_mean - ctrl_mean
+                        
+                        try:
+                            stat, p_val = mannwhitneyu(om_rates, ctrl_rates, alternative='greater')
+                        except Exception:
+                            p_val = 1.0
+                            
+                        unit_results.append({
+                            "family": fam_name,
+                            "slot": slot,
+                            "diff": diff,
+                            "p_val": p_val
+                        })
+                
+                if unit_results:
+                    best_res = max(unit_results, key=lambda x: x["diff"])
+                    if best_res["diff"] >= 4.0 and best_res["p_val"] < 0.01:
+                        strict_omission_records.append({
+                            "session_id": int(sess_id_str),
+                            "unit_id": uid,
+                            "max_diff": best_res["diff"],
+                            "p_val": best_res["p_val"]
+                        })
+                        
+    strict_omission_df = pd.DataFrame(strict_omission_records)
+    log.action(f"Strict omission selectivity audit completed: found {len(strict_omission_df)} units passing strict criteria.")
+    
+    # 1. Select the strictly audited omission units
+    if len(strict_omission_df) > 0:
+        om_units = stable.merge(strict_omission_df, on=["session_id", "unit_id"])
+    else:
+        om_units = pd.DataFrame(columns=stable.columns)
     om_units["target_group"] = "omission"
     
-    # 2. Select top 50 stable stimulus positive units (balanced across the 11 areas)
+    # 2. Select top 50 stable stimulus positive units (balanced across areas)
     sp_df = stable[stable["group"] == "stimulus_positive"].copy()
     areas_sp = sorted(list(sp_df["area"].unique()))
     sp_by_area = {area: sp_df[sp_df["area"] == area].sort_values("snr", ascending=False).to_dict("records") for area in areas_sp}
@@ -122,11 +221,22 @@ def main():
                 break
             if sp_by_area[area]:
                 sp_list.append(sp_by_area[area].pop(0))
-    sp_units = pd.DataFrame(sp_list)
+    sp_units = pd.DataFrame(sp_list) if sp_list else pd.DataFrame(columns=stable.columns)
     sp_units["target_group"] = "stim_positive"
     
-    # 3. Select all stable stimulus negative units (33 units <= 50)
-    sn_units = stable[stable["group"] == "stimulus_negative"].copy()
+    # 3. Select top 50 stable stimulus negative units (balanced across areas)
+    sn_df = stable[stable["group"] == "stimulus_negative"].copy()
+    areas_sn = sorted(list(sn_df["area"].unique()))
+    sn_by_area = {area: sn_df[sn_df["area"] == area].sort_values("snr", ascending=False).to_dict("records") for area in areas_sn}
+    
+    sn_list = []
+    while len(sn_list) < 50 and any(len(lst) > 0 for lst in sn_by_area.values()):
+        for area in areas_sn:
+            if len(sn_list) >= 50:
+                break
+            if sn_by_area[area]:
+                sn_list.append(sn_by_area[area].pop(0))
+    sn_units = pd.DataFrame(sn_list) if sn_list else pd.DataFrame(columns=stable.columns)
     sn_units["target_group"] = "stim_negative"
     
     # Combine selected units
@@ -135,12 +245,9 @@ def main():
     targets["unit_id"] = targets["unit_id"].astype(int)
     
     log.action(f"Total units selected for plotting: {len(targets)}")
-    log.action(f"Omission neurons: {len(om_units)}")
+    log.action(f"Strict omission neurons: {len(om_units)}")
     log.action(f"S+ neurons: {len(sp_units)}")
     log.action(f"S- neurons: {len(sn_units)}")
-    
-    nwb_map = get_nwb_file_map()
-    time_bins = np.arange(-1000, 4001)
     
     # Group targets by session for NWB access efficiency
     sessions = targets.groupby("session_id")
@@ -165,8 +272,6 @@ def main():
                 
                 row = units_df.loc[uid]
                 spike_times = row['spike_times']
-                
-                # Retrieve waveform mean if present in NWB
                 wf_mean = row.get("waveform_mean", None)
                 
                 # Generate A, B, and R families
@@ -210,8 +315,6 @@ def main():
                         sems[cond] = ndimage.gaussian_filter1d(sem_rate, sigma=40.0)
                         
                     # Create 2-column Matplotlib layout
-                    # Column 0: Rasters & PSTH
-                    # Column 1: Waveform and metadata details
                     fig = plt.figure(figsize=(13, 14), facecolor="white")
                     gs = fig.add_gridspec(5, 2, width_ratios=[3, 1], height_ratios=[1, 1, 1, 1, 3.5])
                     
@@ -219,13 +322,11 @@ def main():
                     ax_psth = fig.add_subplot(gs[4, 0])
                     ax_text = fig.add_subplot(gs[0:4, 1])
                     ax_text.axis('off')
-                    
                     ax_wf = fig.add_subplot(gs[4, 1])
                     
                     # 1. Plot Rasters
                     for ax_idx, cond in enumerate(conds_to_plot):
                         ax = axes_raster[ax_idx]
-                        # Plot shaded stimulus slots
                         for start, end, color in SLOT_COLORS:
                             ax.axvspan(start, end, color=color, alpha=0.8, zorder=0)
                         for marker in [0, 1031, 2062, 3093]:
@@ -235,7 +336,6 @@ def main():
                             for trial_idx, trial_spikes in enumerate(rasters[cond]):
                                 ax.vlines(trial_spikes, trial_idx - 0.4, trial_idx + 0.4, colors="black", linewidth=0.5)
                         
-                        # Limit to exactly 40 trials aligned
                         ax.set_ylim(-1, 40)
                         ax.set_title(f"{cond} Raster (N={len(rasters.get(cond, []))} trials)", fontsize=11, pad=3)
                         ax.set_ylabel("Trials", fontsize=9)
@@ -245,7 +345,6 @@ def main():
                         ax.tick_params(labelbottom=False)
                         
                     # 2. Plot PSTH
-                    # Shaded stimulus slots
                     for start, end, color in SLOT_COLORS:
                         ax_psth.axvspan(start, end, color=color, alpha=0.8, zorder=0)
                     for marker in [0, 1031, 2062, 3093]:
@@ -267,7 +366,6 @@ def main():
                     
                     # 3. Waveform Plot
                     if wf_mean is not None:
-                        # Aesthetic: Gold `#CFB87C` for S+/S-, Violet `#9400D3` for Omissions
                         wf_color = "#9400D3" if t_grp == "omission" else "#CFB87C"
                         ax_wf.plot(wf_mean, color=wf_color, linewidth=2.0)
                         ax_wf.set_title("Mean Waveform", fontsize=10, fontweight="bold", pad=5)
@@ -298,12 +396,11 @@ def main():
                         f"• Waveform: {wf_cls}\n"
                         f"• Duration: {wf_dur:.1f} ms"
                     )
-                    # Convert markdown-style bullet points to standard matplotlib-friendly format
                     info_text_clean = info_text.replace("**", "").replace("• ", "  ")
                     ax_text.text(0.05, 0.9, info_text_clean, fontsize=9.5, verticalalignment='top',
                                  bbox=dict(boxstyle="round,pad=0.6", facecolor="#FDFDFD", edgecolor="#E0E0E0", alpha=0.95))
                     
-                    # Figure title and layout adjustments
+                    # Figure title
                     grp_title = t_grp.replace('_', ' ').capitalize()
                     plt.suptitle(f"{grp_title} Neuron | Session {sess_id} | Area {area} | Unit {uid} | {fam_name}-Family", 
                                  fontsize=13, fontweight='bold', y=0.98)
