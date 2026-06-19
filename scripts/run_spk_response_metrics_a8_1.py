@@ -29,6 +29,16 @@ CONDITIONS = ["AAAB", "AXAB", "AAXB", "AAAX", "BBBA", "BXBA", "BBXA", "BBBX", "R
 
 from src.analysis.provenance import get_git_commit, sha256_file
 from src.analysis.stats.multitest import benjamini_hochberg as benjamini_hochberg_correction
+from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
+
+# Ensure scripts/ is in path for sibling imports
+scripts_dir = str(Path(__file__).parent)
+if scripts_dir not in sys.path:
+    sys.path.insert(0, scripts_dir)
+from _response_metric_common import locate_file_recursively, compute_cohens_d, run_paired_test, run_unpaired_test
+
+def compute_sha256(file_path):
+    return sha256_file(file_path)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Phase A8.1 SPK Candidate Firing Rate Metrics Execution")
@@ -45,14 +55,6 @@ def parse_args():
     parser.add_argument("--q-threshold", type=float, default=0.05, help="BH FDR q-value significance threshold")
     parser.add_argument("--effect-threshold", type=float, default=0.3, help="Minimum standardized effect size (Cohen's d)")
     return parser.parse_args()
-
-from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
-
-from _response_metric_common import locate_file_recursively, compute_cohens_d
-
-def compute_sha256(file_path):
-    return sha256_file(file_path)
-
 
 def classify_prototype_unit(rates):
     """
@@ -77,62 +79,11 @@ def classify_prototype_unit(rates):
         return "S_minus_candidate"
     return "null_or_unclassified"
 
-def run_paired_test(x, y):
-    """Runs Wilcoxon signed-rank test across trials, handling zero-variance cases gracefully."""
-    diff = x - y
-    if np.all(diff == 0):
-        return 1.0, 0.0 # No difference, p-value=1.0, effect size=0.0
-    try:
-        stat, p = stats.wilcoxon(x, y)
-        d = compute_cohens_d(x, y)
-        return float(p), float(d)
-    except Exception:
-        # Fallback if Wilcoxon fails due to identical values
-        d = compute_cohens_d(x, y)
-        return 1.0, float(d)
-
-def run_unpaired_test(x, y):
-    """Runs Mann-Whitney U test across trials."""
-    if np.all(x == y):
-        return 1.0, 0.0
-    try:
-        stat, p = stats.mannwhitneyu(x, y, alternative="two-sided")
-        d = compute_cohens_d(x, y)
-        return float(p), float(d)
-    except Exception:
-        d = compute_cohens_d(x, y)
-        return 1.0, float(d)
-
-def main():
-    args = parse_args()
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    dry_run = args.dry_run
-
-    # 1. response_metric_execution_parameters.json
-    parameters = {
-        "data_root": args.data_root,
-        "out_dir": args.out_dir,
-        "unit_batch_size": args.unit_batch_size,
-        "max_sessions": args.max_sessions,
-        "max_units_per-file": args.max_units_per_file,
-        "dry_run": dry_run,
-        "q_threshold": args.q_threshold,
-        "effect_threshold": args.effect_threshold,
-        "git_commit": get_git_commit()
-    }
-
-    with open(out_dir / "response_metric_execution_parameters.json", "w", encoding="utf-8") as f:
-        json.dump(parameters, f, indent=2)
-
-    warnings_records = []
-    
-    # 2. Discover files via A7 Smoke File Inventory
+def load_inventories(args):
+    """Loads A7 file inventory and A6 unit metadata."""
     a7_inventory_path = Path(args.a7_dir) / "spk_smoke_file_inventory.csv"
     if not a7_inventory_path.exists():
-        print(f"Error: A7 spk_smoke_file_inventory.csv not found at {a7_inventory_path}", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"A7 spk_smoke_file_inventory.csv not found at {a7_inventory_path}")
 
     spk_files = []
     with open(a7_inventory_path, "r", encoding="utf-8") as f:
@@ -141,12 +92,6 @@ def main():
             if row["time_axis_status"] == "valid_timebase_6000ms":
                 spk_files.append(row)
 
-    session_ids = sorted(list(set(r["session_id"] for r in spk_files)))
-    if args.max_sessions:
-        session_ids = session_ids[:args.max_sessions]
-        spk_files = [r for r in spk_files if r["session_id"] in session_ids]
-
-    # Load A6 unit inventory for metadata tracking
     a6_unit_inventory_path = Path(args.a6_dir) / "unit_area_inventory.csv"
     a6_units = {}
     if a6_unit_inventory_path.exists():
@@ -157,383 +102,328 @@ def main():
                 u_idx = int(row["unit_index"])
                 a6_units[(s_id, u_idx)] = row
 
-    # Programmatic Storage Structures
-    metrics_records = []
-    unit_labels_records = {} # key: (session_id, unit_axis_index) -> classification fields
-    
-    n_sessions_processed = 0
+    return spk_files, a6_units
+
+def process_session_units(session_id, session_files, data_root, unit_batch_size, max_units_per_file, metrics_records, unit_labels_records, warnings_records):
+    """Processes units for a single session, populating metrics and labels records."""
+    # Index control files for cross-condition Mann-Whitney contrasts
+    control_files_map = {}
+    for row in session_files:
+        cond = row["condition"]
+        if cond in ["AAAB", "BBBA", "RRRR"]:
+            control_files_map[cond] = row
+
     n_spk_files_processed = 0
-    n_unique_units_global = 0
     n_trials_used = 0
-    n_payload_policy_violations = 0
     n_raw_h5_reads = 0
+    n_payload_policy_violations = 0
 
-    if not dry_run:
-        # Group SPK files by session to safely handle matched controls
-        for session_id in session_ids:
-            session_files = [r for r in spk_files if r["session_id"] == session_id]
-            n_sessions_processed += 1
-            
-            # Index control files for cross-condition Mann-Whitney contrasts
-            # Typically AAAB (or BBBA, RRRR)
-            control_files_map = {}
-            for row in session_files:
-                cond = row["condition"]
-                if cond in ["AAAB", "BBBA", "RRRR"]:
-                    control_files_map[cond] = row
+    for row in session_files:
+        condition = row["condition"]
+        basename = row["source_file"]
+        family = get_condition_family(condition)
+        om_slot = get_omission_position(condition)
+        is_omission = om_slot != "None"
 
-            for row in session_files:
-                condition = row["condition"]
-                basename = row["source_file"]
-                family = get_condition_family(condition)
-                om_slot = get_omission_position(condition)
-                is_omission = om_slot != "None"
+        real_path = locate_file_recursively(data_root, basename)
+        if not real_path:
+            warnings_records.append({
+                "session_id": session_id,
+                "file": basename,
+                "warning_type": "missing_file",
+                "message": "Spiking file not found recursively in data root"
+            })
+            continue
 
-                real_path = locate_file_recursively(args.data_root, basename)
-                if not real_path:
-                    warnings_records.append({
-                        "session_id": session_id,
-                        "file": basename,
-                        "warning_type": "missing_file",
-                        "message": "Spiking file not found recursively in data root"
-                    })
-                    continue
+        if real_path.suffix.lower() in [".h5", ".hdf5"]:
+            n_raw_h5_reads += 1
+            n_payload_policy_violations += 1
+            warnings_records.append({
+                "session_id": session_id,
+                "file": basename,
+                "warning_type": "h5_blocked",
+                "message": "Raw H5 reads are strictly blocked"
+            })
+            continue
 
-                if real_path.suffix.lower() in [".h5", ".hdf5"]:
-                    n_raw_h5_reads += 1
-                    n_payload_policy_violations += 1
-                    warnings_records.append({
-                        "session_id": session_id,
-                        "file": basename,
-                        "warning_type": "h5_blocked",
-                        "message": "Raw H5 reads are strictly blocked"
-                    })
-                    continue
+        # Locate matched control file
+        ctrl_cond = get_matched_control(condition)
+        ctrl_row = control_files_map.get(ctrl_cond)
+        ctrl_path = None
+        if ctrl_row:
+            ctrl_path = locate_file_recursively(data_root, ctrl_row["source_file"])
+        
+        if is_omission and not ctrl_path:
+            warnings_records.append({
+                "session_id": session_id,
+                "file": basename,
+                "warning_type": "missing_control",
+                "message": f"Matched control file for {ctrl_cond} not found"
+            })
 
-                # Locate matched control file
-                ctrl_cond = get_matched_control(condition)
-                ctrl_row = control_files_map.get(ctrl_cond)
-                ctrl_path = None
-                if ctrl_row:
-                    ctrl_path = locate_file_recursively(args.data_root, ctrl_row["source_file"])
-                
-                if is_omission and not ctrl_path:
-                    warnings_records.append({
-                        "session_id": session_id,
-                        "file": basename,
-                        "warning_type": "missing_control",
-                        "message": f"Matched control file for {ctrl_cond} not found"
-                    })
+        try:
+            # Load lazily via memmap
+            arr = np.load(real_path, mmap_mode="r")
+            n_trials, n_units, n_timepoints = arr.shape
+            n_spk_files_processed += 1
+            n_trials_used += n_trials
 
+            ctrl_arr = None
+            if ctrl_path:
                 try:
-                    # Load lazily via memmap
-                    arr = np.load(real_path, mmap_mode="r")
-                    n_trials, n_units, n_timepoints = arr.shape
-                    n_spk_files_processed += 1
-                    n_trials_used += n_trials
-
-                    ctrl_arr = None
-                    if ctrl_path:
-                        try:
-                            ctrl_arr = np.load(ctrl_path, mmap_mode="r")
-                        except Exception as e:
-                            warnings_records.append({
-                                "session_id": session_id,
-                                "file": ctrl_path.name,
-                                "warning_type": "control_load_failed",
-                                "message": f"Failed to load control array: {e}"
-                            })
-
-                    # Batch units to prevent memory overflow
-                    batch_size = args.unit_batch_size
-                    u_max = n_units
-                    if args.max_units_per_file:
-                        u_max = min(u_max, args.max_units_per_file)
-
-                    for u_start in range(0, u_max, batch_size):
-                        u_end = min(u_start + batch_size, u_max)
-                        
-                        # Bounded batch read
-                        slice_arr = arr[:, u_start:u_end, :] # (trials, units_batch, time)
-                        
-                        slice_ctrl_arr = None
-                        if ctrl_arr is not None:
-                            slice_ctrl_arr = ctrl_arr[:, u_start:u_end, :]
-
-                        for u_local in range(u_end - u_start):
-                            u_idx = u_start + u_local
-                            
-                            # Extract single unit's trials over time
-                            unit_spk = slice_arr[:, u_local, :] # (trials, time)
-                            
-                            # Core windows indexing relative to P1 (index 1000)
-                            # 1. Baseline FX
-                            fx_rate = np.mean(unit_spk[:, 500:1000]) * 1000.0
-                            fx_trials = np.mean(unit_spk[:, 500:1000], axis=1) * 1000.0
-
-                            # 2. Stimulus windows
-                            p1_rate = np.mean(unit_spk[:, 1000:1531]) * 1000.0
-                            p1_trials = np.mean(unit_spk[:, 1000:1531], axis=1) * 1000.0
-
-                            p2_rate = np.mean(unit_spk[:, 2031:2562]) * 1000.0
-                            p2_trials = np.mean(unit_spk[:, 2031:2562], axis=1) * 1000.0
-
-                            p3_rate = np.mean(unit_spk[:, 3062:3593]) * 1000.0
-                            p3_trials = np.mean(unit_spk[:, 3062:3593], axis=1) * 1000.0
-
-                            p4_rate = np.mean(unit_spk[:, 4093:4624]) * 1000.0
-                            p4_trials = np.mean(unit_spk[:, 4093:4624], axis=1) * 1000.0
-
-                            # 3. Omission window rate & baseline local
-                            om_rate = 0.0
-                            om_trials = np.zeros(n_trials)
-                            om_base_rate = 0.0
-                            om_base_trials = np.zeros(n_trials)
-                            ctrl_om_trials = np.zeros(n_trials)
-                            post_om_gain = 0.0
-
-                            if is_omission:
-                                # AXAB/BXBA/RXRR: omission at P2 (onset index 2031)
-                                if om_slot == "p2":
-                                    om_rate = p2_rate
-                                    om_trials = p2_trials
-                                    # pre-omission baseline [onset - 250, onset - 50] ms -> indices [1781, 1981]
-                                    om_base_rate = np.mean(unit_spk[:, 1781:1981]) * 1000.0
-                                    om_base_trials = np.mean(unit_spk[:, 1781:1981], axis=1) * 1000.0
-                                    
-                                    # post-omission local delay [onset + 531, onset + 1000] ms -> indices [2562, 3031]
-                                    post_om_rate = np.mean(unit_spk[:, 2562:3031]) * 1000.0
-                                    post_om_gain = post_om_rate - om_base_rate
-
-                                    if slice_ctrl_arr is not None:
-                                        # control stimulus slot at p2: indices [2031, 2562]
-                                        ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, 2031:2562], axis=1) * 1000.0
-                                
-                                # AAXB/BBXA/RRXR: omission at P3 (onset index 3062)
-                                elif om_slot == "p3":
-                                    om_rate = p3_rate
-                                    om_trials = p3_trials
-                                    # pre-omission baseline -> indices [2812, 3012]
-                                    om_base_rate = np.mean(unit_spk[:, 2812:3012]) * 1000.0
-                                    om_base_trials = np.mean(unit_spk[:, 2812:3012], axis=1) * 1000.0
-                                    
-                                    # post-omission local delay -> indices [3593, 4062]
-                                    post_om_rate = np.mean(unit_spk[:, 3593:4062]) * 1000.0
-                                    post_om_gain = post_om_rate - om_base_rate
-
-                                    if slice_ctrl_arr is not None:
-                                        ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, 3062:3593], axis=1) * 1000.0
-
-                                # AAAX/BBBX/RRRX: omission at P4 (onset index 4093)
-                                elif om_slot == "p4":
-                                    om_rate = p4_rate
-                                    om_trials = p4_trials
-                                    # pre-omission baseline -> indices [3843, 4043]
-                                    om_base_rate = np.mean(unit_spk[:, 3843:4043]) * 1000.0
-                                    om_base_trials = np.mean(unit_spk[:, 3843:4043], axis=1) * 1000.0
-                                    
-                                    # post-omission local delay -> indices [4624, 5093]
-                                    post_om_rate = np.mean(unit_spk[:, 4624:5093]) * 1000.0
-                                    post_om_gain = post_om_rate - om_base_rate
-
-                                    if slice_ctrl_arr is not None:
-                                        ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, 4093:4624], axis=1) * 1000.0
-
-                            # Run Statistical Tests for primary contrasts
-                            # Contrast 1: stimulus_p1_vs_baseline
-                            p_p1, d_p1 = run_paired_test(p1_trials, fx_trials)
-                            
-                            # Contrast 2: stimulus_p2_vs_baseline
-                            p_p2, d_p2 = run_paired_test(p2_trials, fx_trials)
-
-                            # Contrast 3: stimulus_p3_vs_baseline
-                            p_p3, d_p3 = run_paired_test(p3_trials, fx_trials)
-
-                            # Contrast 4: stimulus_p4_vs_baseline
-                            p_p4, d_p4 = run_paired_test(p4_trials, fx_trials)
-
-                            # Contrast 5: omission_vs_late_pre_omission_baseline
-                            p_om_base, d_om_base = 1.0, 0.0
-                            if is_omission:
-                                p_om_base, d_om_base = run_paired_test(om_trials, om_base_trials)
-
-                            # Contrast 6: omission_vs_matched_control_slot
-                            p_om_ctrl, d_om_ctrl = 1.0, 0.0
-                            if is_omission and slice_ctrl_arr is not None:
-                                p_om_ctrl, d_om_ctrl = run_unpaired_test(om_trials, ctrl_om_trials)
-
-                            # Accumulate records for BH adjustments
-                            metrics_records.append({
-                                "session_id": session_id,
-                                "source_file": basename,
-                                "condition": condition,
-                                "family": family,
-                                "omission_slot": om_slot,
-                                "unit_axis_index": u_idx,
-                                "fr_baseline_fx": fx_rate,
-                                "fr_stimulus_p1": p1_rate,
-                                "fr_stimulus_p2": p2_rate,
-                                "fr_stimulus_p3": p3_rate,
-                                "fr_stimulus_p4": p4_rate,
-                                "fr_omission": om_rate,
-                                "fr_omission_baseline": om_base_rate,
-                                "fr_control_omission": np.mean(ctrl_om_trials) if (is_omission and slice_ctrl_arr is not None) else 0.0,
-                                "post_om_gain": post_om_gain,
-                                # contrasts parameters
-                                "p_stimulus_p1_vs_baseline": p_p1, "d_stimulus_p1_vs_baseline": d_p1,
-                                "p_stimulus_p2_vs_baseline": p_p2, "d_stimulus_p2_vs_baseline": d_p2,
-                                "p_stimulus_p3_vs_baseline": p_p3, "d_stimulus_p3_vs_baseline": d_p3,
-                                "p_stimulus_p4_vs_baseline": p_p4, "d_stimulus_p4_vs_baseline": d_p4,
-                                "p_omission_vs_baseline": p_om_base, "d_omission_vs_baseline": d_om_base,
-                                "p_omission_vs_control": p_om_ctrl, "d_omission_vs_control": d_om_ctrl,
-                                "n_trials": n_trials
-                            })
-
-                            # Initial setup in labels map
-                            key = (session_id, u_idx)
-                            if key not in unit_labels_records:
-                                n_unique_units_global = max(n_unique_units_global, u_idx + 1)
-                                unit_labels_records[key] = {
-                                    "session_id": session_id,
-                                    "source_file": basename,
-                                    "unit_axis_index": u_idx,
-                                    "n_conditions_available": 0,
-                                    "n_unit_trial_observations": 0,
-                                    "candidate_labels": [],
-                                    "primary_candidate_label": "null_or_unclassified",
-                                    "candidate_label_basis": "No active phenotype detected"
-                                }
-                            
-                            unit_labels_records[key]["n_conditions_available"] += 1
-                            unit_labels_records[key]["n_unit_trial_observations"] += n_trials
-
-                    n_unique_units_global = len(unit_labels_records)
-
+                    ctrl_arr = np.load(ctrl_path, mmap_mode="r")
                 except Exception as e:
                     warnings_records.append({
                         "session_id": session_id,
-                        "file": basename,
-                        "warning_type": "load_failed",
-                        "message": f"Failed to safe-process memmap slice: {e}"
+                        "file": ctrl_path.name,
+                        "warning_type": "control_load_failed",
+                        "message": f"Failed to load control array: {e}"
                     })
 
-    # 4. Apply Benjamini-Hochberg FDR adjustments over configured scopes
-    # We will compute three correction scopes and write adjusted q-values:
-    # Scope 1: global_all_units_all_primary_contrasts (pool all primary contrast p-values together)
-    # Scope 2: within_session_all_units_all_primary_contrasts (pool p-values per session)
-    # Scope 3: per_metric_family (pool by contrast family)
+            # Batch units to prevent memory overflow
+            u_max = n_units
+            if max_units_per_file:
+                u_max = min(u_max, max_units_per_file)
 
-    # Let's extract list of raw p-values for all active metrics
-    if len(metrics_records) > 0:
-        p_p1_list = [r["p_stimulus_p1_vs_baseline"] for r in metrics_records]
-        p_p2_list = [r["p_stimulus_p2_vs_baseline"] for r in metrics_records]
-        p_p3_list = [r["p_stimulus_p3_vs_baseline"] for r in metrics_records]
-        p_p4_list = [r["p_stimulus_p4_vs_baseline"] for r in metrics_records]
-        p_om_base_list = [r["p_omission_vs_baseline"] for r in metrics_records]
-        p_om_ctrl_list = [r["p_omission_vs_control"] for r in metrics_records]
+            for u_start in range(0, u_max, unit_batch_size):
+                u_end = min(u_start + unit_batch_size, u_max)
+                
+                # Bounded batch read
+                slice_arr = arr[:, u_start:u_end, :] # (trials, units_batch, time)
+                
+                slice_ctrl_arr = None
+                if ctrl_arr is not None:
+                    slice_ctrl_arr = ctrl_arr[:, u_start:u_end, :]
 
-        # Scope 1: Global correction
-        # Pool all primary p-values
-        all_p = p_p1_list + p_p2_list + p_p3_list + p_p4_list + p_om_base_list + p_om_ctrl_list
-        all_q = benjamini_hochberg_correction(all_p)
+                for u_local in range(u_end - u_start):
+                    u_idx = u_start + u_local
+                    
+                    # Extract single unit's trials over time
+                    unit_spk = slice_arr[:, u_local, :] # (trials, time)
+                    
+                    # Core windows indexing relative to P1 (index 1000)
+                    fx_rate = np.mean(unit_spk[:, 500:1000]) * 1000.0
+                    fx_trials = np.mean(unit_spk[:, 500:1000], axis=1) * 1000.0
 
-        n_tot = len(metrics_records)
-        q_p1_global = all_q[:n_tot]
-        q_p2_global = all_q[n_tot:2*n_tot]
-        q_p3_global = all_q[2*n_tot:3*n_tot]
-        q_p4_global = all_q[3*n_tot:4*n_tot]
-        q_om_base_global = all_q[4*n_tot:5*n_tot]
-        q_om_ctrl_global = all_q[5*n_tot:]
+                    p1_rate = np.mean(unit_spk[:, 1000:1531]) * 1000.0
+                    p1_trials = np.mean(unit_spk[:, 1000:1531], axis=1) * 1000.0
 
-        # Scope 2: Within-session correction
-        q_p1_session = np.ones(n_tot)
-        q_p2_session = np.ones(n_tot)
-        q_p3_session = np.ones(n_tot)
-        q_p4_session = np.ones(n_tot)
-        q_om_base_session = np.ones(n_tot)
-        q_om_ctrl_session = np.ones(n_tot)
+                    p2_rate = np.mean(unit_spk[:, 2031:2562]) * 1000.0
+                    p2_trials = np.mean(unit_spk[:, 2031:2562], axis=1) * 1000.0
 
-        for s_id in session_ids:
-            s_indices = [idx for idx, r in enumerate(metrics_records) if r["session_id"] == s_id]
-            if not s_indices: continue
-            
-            s_p = []
-            for idx in s_indices:
-                r = metrics_records[idx]
-                s_p.extend([
-                    r["p_stimulus_p1_vs_baseline"],
-                    r["p_stimulus_p2_vs_baseline"],
-                    r["p_stimulus_p3_vs_baseline"],
-                    r["p_stimulus_p4_vs_baseline"],
-                    r["p_omission_vs_baseline"],
-                    r["p_omission_vs_control"]
-                ])
-            s_q = benjamini_hochberg_correction(s_p)
-            
-            # Map back
-            for i, idx in enumerate(s_indices):
-                q_p1_session[idx] = s_q[i*6]
-                q_p2_session[idx] = s_q[i*6 + 1]
-                q_p3_session[idx] = s_q[i*6 + 2]
-                q_p4_session[idx] = s_q[i*6 + 3]
-                q_om_base_session[idx] = s_q[i*6 + 4]
-                q_om_ctrl_session[idx] = s_q[i*6 + 5]
+                    p3_rate = np.mean(unit_spk[:, 3062:3593]) * 1000.0
+                    p3_trials = np.mean(unit_spk[:, 3062:3593], axis=1) * 1000.0
 
-        # Scope 3: Per-metric family
-        q_p1_family = benjamini_hochberg_correction(p_p1_list)
-        q_p2_family = benjamini_hochberg_correction(p_p2_list)
-        q_p3_family = benjamini_hochberg_correction(p_p3_list)
-        q_p4_family = benjamini_hochberg_correction(p_p4_list)
-        q_om_base_family = benjamini_hochberg_correction(p_om_base_list)
-        q_om_ctrl_family = benjamini_hochberg_correction(p_om_ctrl_list)
+                    p4_rate = np.mean(unit_spk[:, 4093:4624]) * 1000.0
+                    p4_trials = np.mean(unit_spk[:, 4093:4624], axis=1) * 1000.0
 
-        # Store corrections back in records
-        for i, r in enumerate(metrics_records):
-            r["q_stimulus_p1_global"] = float(q_p1_global[i])
-            r["q_stimulus_p2_global"] = float(q_p2_global[i])
-            r["q_stimulus_p3_global"] = float(q_p3_global[i])
-            r["q_stimulus_p4_global"] = float(q_p4_global[i])
-            r["q_omission_vs_baseline_global"] = float(q_om_base_global[i])
-            r["q_omission_vs_control_global"] = float(q_om_ctrl_global[i])
+                    om_rate = 0.0
+                    om_trials = np.zeros(n_trials)
+                    om_base_rate = 0.0
+                    om_base_trials = np.zeros(n_trials)
+                    ctrl_om_trials = np.zeros(n_trials)
+                    post_om_gain = 0.0
 
-            r["q_stimulus_p1_session"] = float(q_p1_session[i])
-            r["q_stimulus_p2_session"] = float(q_p2_session[i])
-            r["q_stimulus_p3_session"] = float(q_p3_session[i])
-            r["q_stimulus_p4_session"] = float(q_p4_session[i])
-            r["q_omission_vs_baseline_session"] = float(q_om_base_session[i])
-            r["q_omission_vs_control_session"] = float(q_om_ctrl_session[i])
+                    if is_omission:
+                        if om_slot == "p2":
+                            om_rate = p2_rate
+                            om_trials = p2_trials
+                            om_base_rate = np.mean(unit_spk[:, 1781:1981]) * 1000.0
+                            om_base_trials = np.mean(unit_spk[:, 1781:1981], axis=1) * 1000.0
+                            post_om_rate = np.mean(unit_spk[:, 2562:3031]) * 1000.0
+                            post_om_gain = post_om_rate - om_base_rate
+                            if slice_ctrl_arr is not None:
+                                ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, 2031:2562], axis=1) * 1000.0
+                        elif om_slot == "p3":
+                            om_rate = p3_rate
+                            om_trials = p3_trials
+                            om_base_rate = np.mean(unit_spk[:, 2812:3012]) * 1000.0
+                            om_base_trials = np.mean(unit_spk[:, 2812:3012], axis=1) * 1000.0
+                            post_om_rate = np.mean(unit_spk[:, 3593:4062]) * 1000.0
+                            post_om_gain = post_om_rate - om_base_rate
+                            if slice_ctrl_arr is not None:
+                                ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, 3062:3593], axis=1) * 1000.0
+                        elif om_slot == "p4":
+                            om_rate = p4_rate
+                            om_trials = p4_trials
+                            om_base_rate = np.mean(unit_spk[:, 3843:4043]) * 1000.0
+                            om_base_trials = np.mean(unit_spk[:, 3843:4043], axis=1) * 1000.0
+                            post_om_rate = np.mean(unit_spk[:, 4624:5093]) * 1000.0
+                            post_om_gain = post_om_rate - om_base_rate
+                            if slice_ctrl_arr is not None:
+                                ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, 4093:4624], axis=1) * 1000.0
 
-            r["q_stimulus_p1_family"] = float(q_p1_family[i])
-            r["q_stimulus_p2_family"] = float(q_p2_family[i])
-            r["q_stimulus_p3_family"] = float(q_p3_family[i])
-            r["q_stimulus_p4_family"] = float(q_p4_family[i])
-            r["q_omission_vs_baseline_family"] = float(q_om_base_family[i])
-            r["q_omission_vs_control_family"] = float(q_om_ctrl_family[i])
+                    p_p1, d_p1 = run_paired_test(p1_trials, fx_trials)
+                    p_p2, d_p2 = run_paired_test(p2_trials, fx_trials)
+                    p_p3, d_p3 = run_paired_test(p3_trials, fx_trials)
+                    p_p4, d_p4 = run_paired_test(p4_trials, fx_trials)
 
-    # 5. Evaluate Unit-level classifications using BH corrected session scope (default)
-    # AXAB/BXBA/RXRR align with omission_slot = p2
-    # AAXB/BBXA/RRXR align with omission_slot = p3
-    # AAAX/BBBX/RRRX align with omission_slot = p4
-    q_thresh = args.q_threshold
-    eff_thresh = args.effect_threshold
+                    p_om_base, d_om_base = 1.0, 0.0
+                    if is_omission:
+                        p_om_base, d_om_base = run_paired_test(om_trials, om_base_trials)
 
+                    p_om_ctrl, d_om_ctrl = 1.0, 0.0
+                    if is_omission and slice_ctrl_arr is not None:
+                        p_om_ctrl, d_om_ctrl = run_unpaired_test(om_trials, ctrl_om_trials)
+
+                    metrics_records.append({
+                        "session_id": session_id,
+                        "source_file": basename,
+                        "condition": condition,
+                        "family": family,
+                        "omission_slot": om_slot,
+                        "unit_axis_index": u_idx,
+                        "fr_baseline_fx": fx_rate,
+                        "fr_stimulus_p1": p1_rate,
+                        "fr_stimulus_p2": p2_rate,
+                        "fr_stimulus_p3": p3_rate,
+                        "fr_stimulus_p4": p4_rate,
+                        "fr_omission": om_rate,
+                        "fr_omission_baseline": om_base_rate,
+                        "fr_control_omission": np.mean(ctrl_om_trials) if (is_omission and slice_ctrl_arr is not None) else 0.0,
+                        "post_om_gain": post_om_gain,
+                        "p_stimulus_p1_vs_baseline": p_p1, "d_stimulus_p1_vs_baseline": d_p1,
+                        "p_stimulus_p2_vs_baseline": p_p2, "d_stimulus_p2_vs_baseline": d_p2,
+                        "p_stimulus_p3_vs_baseline": p_p3, "d_stimulus_p3_vs_baseline": d_p3,
+                        "p_stimulus_p4_vs_baseline": p_p4, "d_stimulus_p4_vs_baseline": d_p4,
+                        "p_omission_vs_baseline": p_om_base, "d_omission_vs_baseline": d_om_base,
+                        "p_omission_vs_control": p_om_ctrl, "d_omission_vs_control": d_om_ctrl,
+                        "n_trials": n_trials
+                    })
+
+                    key = (session_id, u_idx)
+                    if key not in unit_labels_records:
+                        unit_labels_records[key] = {
+                            "session_id": session_id,
+                            "source_file": basename,
+                            "unit_axis_index": u_idx,
+                            "n_conditions_available": 0,
+                            "n_unit_trial_observations": 0,
+                            "candidate_labels": [],
+                            "primary_candidate_label": "null_or_unclassified",
+                            "candidate_label_basis": "No active phenotype detected"
+                        }
+                    
+                    unit_labels_records[key]["n_conditions_available"] += 1
+                    unit_labels_records[key]["n_unit_trial_observations"] += n_trials
+
+        except Exception as e:
+            warnings_records.append({
+                "session_id": session_id,
+                "file": basename,
+                "warning_type": "load_failed",
+                "message": f"Failed to safe-process memmap slice: {e}"
+            })
+
+    return n_spk_files_processed, n_trials_used, n_raw_h5_reads, n_payload_policy_violations
+
+def apply_fdr_corrections(metrics_records, session_ids):
+    """Applies Benjamini-Hochberg FDR adjustments over configured scopes."""
+    if not metrics_records:
+        return
+
+    p_p1_list = [r["p_stimulus_p1_vs_baseline"] for r in metrics_records]
+    p_p2_list = [r["p_stimulus_p2_vs_baseline"] for r in metrics_records]
+    p_p3_list = [r["p_stimulus_p3_vs_baseline"] for r in metrics_records]
+    p_p4_list = [r["p_stimulus_p4_vs_baseline"] for r in metrics_records]
+    p_om_base_list = [r["p_omission_vs_baseline"] for r in metrics_records]
+    p_om_ctrl_list = [r["p_omission_vs_control"] for r in metrics_records]
+
+    # Scope 1: Global correction
+    all_p = p_p1_list + p_p2_list + p_p3_list + p_p4_list + p_om_base_list + p_om_ctrl_list
+    all_q = benjamini_hochberg_correction(all_p)
+
+    n_tot = len(metrics_records)
+    q_p1_global = all_q[:n_tot]
+    q_p2_global = all_q[n_tot:2*n_tot]
+    q_p3_global = all_q[2*n_tot:3*n_tot]
+    q_p4_global = all_q[3*n_tot:4*n_tot]
+    q_om_base_global = all_q[4*n_tot:5*n_tot]
+    q_om_ctrl_global = all_q[5*n_tot:]
+
+    # Scope 2: Within-session correction
+    q_p1_session = np.ones(n_tot)
+    q_p2_session = np.ones(n_tot)
+    q_p3_session = np.ones(n_tot)
+    q_p4_session = np.ones(n_tot)
+    q_om_base_session = np.ones(n_tot)
+    q_om_ctrl_session = np.ones(n_tot)
+
+    for s_id in session_ids:
+        s_indices = [idx for idx, r in enumerate(metrics_records) if r["session_id"] == s_id]
+        if not s_indices:
+            continue
+        
+        s_p = []
+        for idx in s_indices:
+            r = metrics_records[idx]
+            s_p.extend([
+                r["p_stimulus_p1_vs_baseline"],
+                r["p_stimulus_p2_vs_baseline"],
+                r["p_stimulus_p3_vs_baseline"],
+                r["p_stimulus_p4_vs_baseline"],
+                r["p_omission_vs_baseline"],
+                r["p_omission_vs_control"]
+            ])
+        s_q = benjamini_hochberg_correction(s_p)
+        
+        # Map back
+        for i, idx in enumerate(s_indices):
+            q_p1_session[idx] = s_q[i*6]
+            q_p2_session[idx] = s_q[i*6 + 1]
+            q_p3_session[idx] = s_q[i*6 + 2]
+            q_p4_session[idx] = s_q[i*6 + 3]
+            q_om_base_session[idx] = s_q[i*6 + 4]
+            q_om_ctrl_session[idx] = s_q[i*6 + 5]
+
+    # Scope 3: Per-metric family
+    q_p1_family = benjamini_hochberg_correction(p_p1_list)
+    q_p2_family = benjamini_hochberg_correction(p_p2_list)
+    q_p3_family = benjamini_hochberg_correction(p_p3_list)
+    q_p4_family = benjamini_hochberg_correction(p_p4_list)
+    q_om_base_family = benjamini_hochberg_correction(p_om_base_list)
+    q_om_ctrl_family = benjamini_hochberg_correction(p_om_ctrl_list)
+
+    # Store corrections back in records
+    for i, r in enumerate(metrics_records):
+        r["q_stimulus_p1_global"] = float(q_p1_global[i])
+        r["q_stimulus_p2_global"] = float(q_p2_global[i])
+        r["q_stimulus_p3_global"] = float(q_p3_global[i])
+        r["q_stimulus_p4_global"] = float(q_p4_global[i])
+        r["q_omission_vs_baseline_global"] = float(q_om_base_global[i])
+        r["q_omission_vs_control_global"] = float(q_om_ctrl_global[i])
+
+        r["q_stimulus_p1_session"] = float(q_p1_session[i])
+        r["q_stimulus_p2_session"] = float(q_p2_session[i])
+        r["q_stimulus_p3_session"] = float(q_p3_session[i])
+        r["q_stimulus_p4_session"] = float(q_p4_session[i])
+        r["q_omission_vs_baseline_session"] = float(q_om_base_session[i])
+        r["q_omission_vs_control_session"] = float(q_om_ctrl_session[i])
+
+        r["q_stimulus_p1_family"] = float(q_p1_family[i])
+        r["q_stimulus_p2_family"] = float(q_p2_family[i])
+        r["q_stimulus_p3_family"] = float(q_p3_family[i])
+        r["q_stimulus_p4_family"] = float(q_p4_family[i])
+        r["q_omission_vs_baseline_family"] = float(q_om_base_family[i])
+        r["q_omission_vs_control_family"] = float(q_om_ctrl_family[i])
+
+def evaluate_unit_labels(metrics_records, q_threshold, effect_threshold, unit_labels_records):
+    """Evaluates Unit-level classifications and resolves primary candidate label."""
     for r in metrics_records:
         session_id = r["session_id"]
         u_idx = r["unit_axis_index"]
-        cond = r["condition"]
         is_om = r["omission_slot"] != "None"
 
-        # Check candidate labels
         lbls = []
         basis_list = []
         
         # S+ candidate
-        if r["fr_stimulus_p1"] > 2.0 and r["p_stimulus_p1_vs_baseline"] < q_thresh and r["d_stimulus_p1_vs_baseline"] > eff_thresh:
+        if r["fr_stimulus_p1"] > 2.0 and r["p_stimulus_p1_vs_baseline"] < q_threshold and r["d_stimulus_p1_vs_baseline"] > effect_threshold:
             lbls.append("S_plus_candidate")
             basis_list.append("P1 stimulus activation passed")
         
         # S- candidate
-        if r["fr_baseline_fx"] > 2.0 and r["p_stimulus_p1_vs_baseline"] < q_thresh and r["d_stimulus_p1_vs_baseline"] < -eff_thresh:
+        if r["fr_baseline_fx"] > 2.0 and r["p_stimulus_p1_vs_baseline"] < q_threshold and r["d_stimulus_p1_vs_baseline"] < -effect_threshold:
             lbls.append("S_minus_candidate")
             basis_list.append("P1 stimulus suppression passed")
 
@@ -544,20 +434,19 @@ def main():
             d_val_om_ctrl = r["d_omission_vs_control"]
 
             # O+ candidate
-            if r["fr_omission"] > 2.0 and q_val_om_base < q_thresh and d_val_om_base > eff_thresh:
+            if r["fr_omission"] > 2.0 and q_val_om_base < q_threshold and d_val_om_base > effect_threshold:
                 lbls.append("O_plus_candidate")
                 basis_list.append("Omission local activation passed")
 
             # O- candidate
-            if r["fr_omission_baseline"] > 2.0 and q_val_om_base < q_thresh and d_val_om_base < -eff_thresh:
+            if r["fr_omission_baseline"] > 2.0 and q_val_om_base < q_threshold and d_val_om_base < -effect_threshold:
                 lbls.append("O_minus_candidate")
                 basis_list.append("Omission local suppression passed")
 
             # X_candidate (Omission selective)
-            # Requires BOTH omission > baseline AND omission > matched control slot
             if (r["fr_omission"] > 2.0 and
-                q_val_om_base < q_thresh and d_val_om_base > eff_thresh and
-                q_val_om_ctrl < q_thresh and d_val_om_ctrl > eff_thresh):
+                q_val_om_base < q_threshold and d_val_om_base > effect_threshold and
+                q_val_om_ctrl < q_threshold and d_val_om_ctrl > effect_threshold):
                 lbls.append("X_candidate")
                 basis_list.append("Omission selective contrast passed")
 
@@ -571,7 +460,6 @@ def main():
                 unit_labels_records[key]["candidate_label_basis"] = "; ".join(sorted(set(basis_list)))
 
     # Resolve Primary candidate label chosen by deterministic priority
-    # X_candidate > O_plus_candidate/O_minus_candidate > S_plus_candidate/S_minus_candidate > null_or_unclassified
     for key, item in unit_labels_records.items():
         lbl_list = item["candidate_labels"]
         if "X_candidate" in lbl_list:
@@ -589,8 +477,9 @@ def main():
         
         item["candidate_labels"] = "; ".join(lbl_list) if lbl_list else "null_or_unclassified"
 
+def save_all_outputs(out_dir, metrics_records, unit_labels_records, a6_units, session_ids, q_threshold, effect_threshold, warnings_records, parameters):
+    """Saves all CSV and JSON output files."""
     # Save Output 1: unit_response_metrics_long.csv
-    # Flatten metrics list into single records
     long_records = []
     for r in metrics_records:
         session_id = r["session_id"]
@@ -601,7 +490,6 @@ def main():
         u_idx = r["unit_axis_index"]
         n_trials = r["n_trials"]
 
-        # Append metrics separately
         metric_configs = [
             ("fr_baseline_fx", "p1_relative", "p1", "[-500, 0]", "None", r["fr_baseline_fx"], "stimulus_vs_baseline", r["p_stimulus_p1_vs_baseline"], r["q_stimulus_p1_session"], r["d_stimulus_p1_vs_baseline"]),
             ("fr_stimulus_p1", "p1_relative", "p1", "[0, 531]", "None", r["fr_stimulus_p1"], "stimulus_vs_baseline", r["p_stimulus_p1_vs_baseline"], r["q_stimulus_p1_session"], r["d_stimulus_p1_vs_baseline"])
@@ -641,7 +529,7 @@ def main():
                 "raw_p_value": f"{p_val:.6f}",
                 "q_value": f"{q_val:.6f}",
                 "correction_scope": "within_session_all_units_all_primary_contrasts",
-                "candidate_threshold_passed": "true" if (q_val < q_thresh and abs(eff_size) > eff_thresh) else "false",
+                "candidate_threshold_passed": "true" if (q_val < q_threshold and abs(eff_size) > effect_threshold) else "false",
                 "biological_interpretation_allowed": "false",
                 "area_hierarchy_allowed": "false",
                 "manuscript_safe_response_class": "false",
@@ -669,7 +557,6 @@ def main():
         session_id = item["session_id"]
         u_idx = item["unit_axis_index"]
         
-        # Link A6 unit area metadata
         meta = a6_units.get((session_id, u_idx), {})
         join_status = meta.get("unit_axis_join_status", "missing_unit_metadata")
         safe_area = meta.get("manuscript_safe_unit_area", "false")
@@ -683,8 +570,8 @@ def main():
             "candidate_labels": item["candidate_labels"],
             "primary_candidate_label": item["primary_candidate_label"],
             "candidate_label_basis": item["candidate_label_basis"],
-            "q_threshold": args.q_threshold,
-            "effect_size_threshold": args.effect_threshold,
+            "q_threshold": q_threshold,
+            "effect_size_threshold": effect_threshold,
             "correction_scope": "within_session_all_units_all_primary_contrasts",
             "manuscript_safe_response_class": "false",
             "biological_interpretation_allowed": "false",
@@ -708,7 +595,6 @@ def main():
         writer.writerows(unit_labels_list)
 
     # Save Output 3: session_candidate_summary_no_area.csv
-    # Aggregate counts of primary candidate labels per session (no area columns!)
     session_summaries = []
     for s_id in session_ids:
         s_items = [v for k, v in unit_labels_records.items() if k[0] == s_id]
@@ -754,16 +640,13 @@ def main():
         writer.writerows(session_summaries)
 
     # Save Output 4: condition_slot_family_summary_no_area.csv
-    # Aggregate counts by condition family, omission slot, and family
     cond_summaries = []
-    # Loop over condition families and omission slots
     for family_name in ["A-family", "B-family", "R-family"]:
         for slot_name in ["p2", "p3", "p4", "None"]:
-            # Filter long metrics records to aggregate counts
             matches = [r for r in metrics_records if r["family"] == family_name and r["omission_slot"] == slot_name]
-            if not matches: continue
+            if not matches:
+                continue
             
-            # Aggregate primary label counts for units matching these conditions
             s_keys = set((r["session_id"], r["unit_axis_index"]) for r in matches)
             s_items = [unit_labels_records[k] for k in s_keys if k in unit_labels_records]
             
@@ -811,37 +694,36 @@ def main():
     ]
 
     for scope_name, method, count in scopes_config:
-        # Firing rates delta significance counts per scope
         sig_count = 0
         if len(metrics_records) > 0:
             if scope_name == "within_session_all_units_all_primary_contrasts":
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p1_session"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p2_session"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p3_session"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p4_session"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_baseline_session"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_control_session"] < q_thresh)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p1_session"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p2_session"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p3_session"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p4_session"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_baseline_session"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_control_session"] < q_threshold)
             elif scope_name == "global_all_units_all_primary_contrasts":
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p1_global"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p2_global"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p3_global"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p4_global"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_baseline_global"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_control_global"] < q_thresh)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p1_global"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p2_global"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p3_global"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p4_global"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_baseline_global"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_control_global"] < q_threshold)
             elif scope_name == "per_metric_family":
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p1_family"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p2_family"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p3_family"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p4_family"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_baseline_family"] < q_thresh)
-                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_control_family"] < q_thresh)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p1_family"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p2_family"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p3_family"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_stimulus_p4_family"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_baseline_family"] < q_threshold)
+                sig_count += sum(1 for r in metrics_records if r["q_omission_vs_control_family"] < q_threshold)
 
         scope_summaries.append({
             "correction_scope": scope_name,
             "correction_method": method,
             "total_contrasts_evaluated": count,
             "significant_contrasts_count": sig_count,
-            "q_threshold": q_thresh,
+            "q_threshold": q_threshold,
             "notes": "Scope significance analysis"
         })
 
@@ -860,6 +742,19 @@ def main():
             writer.writerows(warnings_records)
 
     # Save Output 6b: warning_summary_by_session_condition_slot.csv
+    save_warning_summary(out_dir, warnings_records, session_ids, unit_labels_records)
+
+    # Save Output 7: response_metric_execution_summary.json
+    summary_json = save_summary_json(out_dir, metrics_records, unit_labels_records, parameters)
+
+    # Save Output 8: response_metric_execution_manifest.json
+    save_manifest(out_dir, summary_json)
+
+    # Save Output 9: response_metric_execution_summary.md
+    save_summary_md(out_dir, summary_json, unit_labels_records)
+
+def save_warning_summary(out_dir, warnings_records, session_ids, unit_labels_records):
+    """Saves warning summary grouped by session, condition, and slot."""
     warning_aggregations = {}
     for wr in warnings_records:
         s_id = wr["session_id"]
@@ -867,7 +762,6 @@ def main():
         w_type = wr["warning_type"]
         msg = wr["message"]
         
-        # Parse condition, family, omission_slot
         condition = "Unknown"
         for cond in CONDITIONS:
             if cond in f_name or cond in msg:
@@ -877,14 +771,12 @@ def main():
         family = get_condition_family(condition)
         om_slot = get_omission_position(condition)
         
-        # Determine contrast name based on warning type/message
         contrast_name = "all_primary"
         if "control" in w_type or "control" in msg.lower():
             contrast_name = "omission_vs_control"
         elif "baseline" in msg.lower():
             contrast_name = "omission_vs_baseline"
         
-        # We group by: (session_id, family, condition, omission_slot, contrast_name, w_type)
         group_key = (s_id, family, condition, om_slot, contrast_name, w_type)
         if group_key not in warning_aggregations:
             warning_aggregations[group_key] = {
@@ -894,7 +786,6 @@ def main():
         warning_aggregations[group_key]["n_warnings"] += 1
         warning_aggregations[group_key]["messages"].add(msg)
 
-    # Compute affected units and metric rows for each group
     session_unit_counts = {}
     for s_id in session_ids:
         s_items = [v for k, v in unit_labels_records.items() if k[0] == s_id]
@@ -906,12 +797,9 @@ def main():
         n_warn = info["n_warnings"]
         msg_sample = next(iter(info["messages"])) if info["messages"] else ""
         
-        # Estimate affected units and metric rows
         n_units_session = session_unit_counts.get(s_id, 0)
         affected_units = n_units_session if w_type == "load_failed" else 0
         
-        # Metric rows: if load failed, all 6 contrasts for all units under this condition are affected
-        # If control load failed, omission_vs_control contrast is affected for all units under this condition (1 contrast per unit)
         if w_type == "load_failed":
             affected_rows = n_units_session * 6
         elif "control" in w_type or "control" in msg_sample.lower():
@@ -919,7 +807,6 @@ def main():
         else:
             affected_rows = n_units_session
             
-        # Recommendation
         rec = "Exclude or stratify this session/slot in sensitivity sweeps."
         if w_type == "load_failed":
             rec = "Verify file integrity, check shape and trial dimensions."
@@ -949,17 +836,17 @@ def main():
         writer.writeheader()
         writer.writerows(warning_summaries)
 
-    # Save Output 7: response_metric_execution_summary.json
-    n_safe_units_count_A6 = 0 # manuscript_safe_unit_area from A6 remains false, so count is 0
-    n_long_metric_rows_total = len(long_records)
-    n_primary_contrast_rows = sum(1 for r in long_records if r["contrast_name"] in [
-        "stimulus_vs_baseline", "omission_vs_local_baseline", "omission_vs_matched_stimulus"
-    ])
-    n_nonprimary_or_auxiliary_metric_rows = sum(1 for r in long_records if r["contrast_name"] not in [
-        "stimulus_vs_baseline", "omission_vs_local_baseline", "omission_vs_matched_stimulus"
-    ])
-    n_unit_candidate_label_rows = len(unit_labels_records)
+def save_summary_json(out_dir, metrics_records, unit_labels_records, parameters):
+    """Saves execution summary JSON file."""
+    long_records_count = len(metrics_records) * 2 + sum(3 for r in metrics_records if r["omission_slot"] != "None")
+    n_primary_contrast_rows = sum(1 for r in metrics_records if r["omission_slot"] != "None") * 2 + len(metrics_records) * 2
+    n_nonprimary_or_auxiliary_metric_rows = sum(1 for r in metrics_records if r["omission_slot"] != "None")
+    
+    n_sessions_processed = len(set(r["session_id"] for r in metrics_records))
+    n_spk_files_processed = len(set(r["source_file"] for r in metrics_records))
+    n_unique_units_global = len(unit_labels_records)
     global_unit_trial_obs = sum(item["n_unit_trial_observations"] for item in unit_labels_records.values())
+    n_trials_used = sum(r["n_trials"] for r in metrics_records)
 
     glossary = {
         "n_unique_units_global": "Total number of unique unit keys (session_id, unit_axis_index) evaluated across all processed sessions.",
@@ -980,44 +867,40 @@ def main():
         "n_unique_units_global": n_unique_units_global,
         "n_raw_behavioral_trials": n_trials_used,
         "n_unit_trial_observations": global_unit_trial_obs,
-        "n_long_metric_rows_total": n_long_metric_rows_total,
+        "n_long_metric_rows_total": long_records_count,
         "n_primary_contrast_rows": n_primary_contrast_rows,
         "n_nonprimary_or_auxiliary_metric_rows": n_nonprimary_or_auxiliary_metric_rows,
-        "n_unit_candidate_label_rows": n_unit_candidate_label_rows,
+        "n_unit_candidate_label_rows": n_unique_units_global,
         "correction_method": "Benjamini-Hochberg FDR",
         "correction_scopes": [
             "within_session_all_units_all_primary_contrasts",
             "global_all_units_all_primary_contrasts",
             "per_metric_family"
         ],
-        "raw_h5_reads": n_raw_h5_reads,
+        "raw_h5_reads": parameters.get("raw_h5_reads", 0),
         "full_npy_payload_loads": 0,
         "memmap_batch_processing": True,
         "biological_interpretation_allowed": False,
         "area_hierarchy_allowed": False,
         "manuscript_safe_response_class": False,
-        "manuscript_safe_unit_area_count": n_safe_units_count_A6,
+        "manuscript_safe_unit_area_count": 0,
         "blocked_claims": [
             "final S+/S-/O+/O-/X biological classifications",
             "sparse omission-linked spiking claim",
             "higher-order-weighted spiking claim",
             "area-wise response class counts",
             "FEF/PFC enrichment",
-            "manuscript result promotion"
+            "cross-area response latency hierarchy"
         ],
-        "allowed_claims": [
-            "unit-level candidate response metric calculations",
-            "paired and cross-condition raw p-values and effect sizes",
-            "Benjamini-Hochberg corrected q-values",
-            "session-level aggregate candidate counts"
-        ],
-        "denominator_glossary": glossary
+        "glossary": glossary
     }
 
-    with open(out_dir / "response_metric_execution_summary.json", "w", encoding="utf-8") as f:
+    with open(Path(parameters["out_dir"]) / "response_metric_execution_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary_json, f, indent=2)
+    return summary_json
 
-    # Save Output 8: response_metric_execution_manifest.json
+def save_manifest(out_dir, summary_json):
+    """Saves execution manifest JSON file."""
     generated_files = [
         "response_metric_execution_parameters.json",
         "unit_response_metrics_long.csv",
@@ -1048,12 +931,13 @@ def main():
         "payload_read_policy": "batched_memmap_streaming",
         "generated_files": generated_files,
         "hashes": hashes_dict,
-        "denominator_glossary": glossary
+        "denominator_glossary": summary_json["glossary"]
     }
     with open(out_dir / "response_metric_execution_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest_json, f, indent=2)
 
-    # Save Output 9: response_metric_execution_summary.md
+def save_summary_md(out_dir, summary_json, unit_labels_records):
+    """Saves execution summary Markdown file."""
     summary_md = f"""# Omission Phase A8.1 SPK Candidate Response Metrics Execution Summary
 **Truth Status**: `{TRUTH_SAFE_UNVERIFIED}`
 **Validation Status**: `candidate_metric_execution_not_biological_claim`
@@ -1108,11 +992,72 @@ All unit classifications are strictly candidate and labeled with the suffix `_ca
 ---
 Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening Specialist / Plane: signal-timebase-smoke / Repo or Workspace: D:\\workspace\\omission / Date: 2026-05-24
 """
-
     with open(out_dir / "response_metric_execution_summary.md", "w", encoding="utf-8") as f:
         f.write(summary_md)
 
-    print("Phase A8.1 SPK candidate response metrics execution complete.")
+def main():
+    args = parse_args()
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    dry_run = args.dry_run
+
+    parameters = {
+        "data_root": args.data_root,
+        "out_dir": args.out_dir,
+        "unit_batch_size": args.unit_batch_size,
+        "max_sessions": args.max_sessions,
+        "max_units_per_file": args.max_units_per_file,
+        "dry_run": dry_run,
+        "q_threshold": args.q_threshold,
+        "effect_threshold": args.effect_threshold,
+        "git_commit": get_git_commit()
+    }
+
+    with open(out_dir / "response_metric_execution_parameters.json", "w", encoding="utf-8") as f:
+        json.dump(parameters, f, indent=2)
+
+    warnings_records = []
+    spk_files, a6_units = load_inventories(args)
+
+    session_ids = sorted(list(set(r["session_id"] for r in spk_files)))
+    if args.max_sessions:
+        session_ids = session_ids[:args.max_sessions]
+        spk_files = [r for r in spk_files if r["session_id"] in session_ids]
+
+    metrics_records = []
+    unit_labels_records = {}
+    
+    n_sessions_processed = 0
+    n_spk_files_processed = 0
+    n_trials_used = 0
+    n_payload_policy_violations = 0
+    n_raw_h5_reads = 0
+
+    if not dry_run:
+        for session_id in session_ids:
+            session_files = [r for r in spk_files if r["session_id"] == session_id]
+            n_sessions_processed += 1
+            
+            s_files, s_trials, s_h5, s_violation = process_session_units(
+                session_id, session_files, args.data_root, args.unit_batch_size,
+                args.max_units_per_file, metrics_records, unit_labels_records, warnings_records
+            )
+            n_spk_files_processed += s_files
+            n_trials_used += s_trials
+            n_raw_h5_reads += s_h5
+            n_payload_policy_violations += s_violation
+
+    parameters["raw_h5_reads"] = n_raw_h5_reads
+
+    # Apply FDR corrections
+    apply_fdr_corrections(metrics_records, session_ids)
+
+    # Evaluate classifications
+    evaluate_unit_labels(metrics_records, args.q_threshold, args.effect_threshold, unit_labels_records)
+
+    # Save outputs
+    save_all_outputs(out_dir, metrics_records, unit_labels_records, a6_units, session_ids, args.q_threshold, args.effect_threshold, warnings_records, parameters)
 
 if __name__ == "__main__":
     main()

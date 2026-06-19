@@ -30,6 +30,16 @@ CONDITIONS = ["AAAB", "AXAB", "AAXB", "AAAX", "BBBA", "BXBA", "BBXA", "BBBX", "R
 
 from src.analysis.provenance import get_git_commit, sha256_file
 from src.analysis.stats.multitest import benjamini_hochberg as benjamini_hochberg_correction
+from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
+
+# Ensure scripts/ is in path for sibling imports
+scripts_dir = str(Path(__file__).parent)
+if scripts_dir not in sys.path:
+    sys.path.insert(0, scripts_dir)
+from _response_metric_common import locate_file_recursively, compute_cohens_d, run_paired_test, run_unpaired_test
+
+def compute_sha256(file_path):
+    return sha256_file(file_path)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Phase A8.2 SPK Response Metric Sensitivity Sweeps")
@@ -46,36 +56,22 @@ def parse_args():
     parser.add_argument("--dry-run", action="store_true", help="Skip real calculations")
     return parser.parse_args()
 
-from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
-
-from _response_metric_common import locate_file_recursively, compute_cohens_d
-
-def compute_sha256(file_path):
-    return sha256_file(file_path)
-
-
-def run_paired_test(x, y):
-    diff = x - y
-    if np.all(diff == 0):
-        return 1.0, 0.0
-    try:
-        stat, p = stats.wilcoxon(x, y)
-        d = compute_cohens_d(x, y)
-        return float(p), float(d)
-    except Exception:
-        d = compute_cohens_d(x, y)
-        return 1.0, float(d)
-
-def run_unpaired_test(x, y):
-    if np.all(x == y):
-        return 1.0, 0.0
-    try:
-        stat, p = stats.mannwhitneyu(x, y, alternative="two-sided")
-        d = compute_cohens_d(x, y)
-        return float(p), float(d)
-    except Exception:
-        d = compute_cohens_d(x, y)
-        return 1.0, float(d)
+def load_sensitivity_grid(grid_path):
+    grid = []
+    with open(grid_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            grid.append({
+                "grid_index": int(row["grid_index"]),
+                "alpha_level": float(row["alpha_level"]),
+                "q_scope": row["q_scope"].strip(),
+                "cohens_d_minimum": float(row["cohens_d_minimum"]),
+                "omission_window": row["omission_window"].strip(),
+                "slot_stratification": row["slot_stratification"].strip(),
+                "family_stratification": row["family_stratification"].strip(),
+                "notes": row["notes"].strip()
+            })
+    return grid
 
 def compute_entropy(labels_list):
     """Computes entropy of the primary label sequence across sweeps."""
@@ -101,60 +97,16 @@ def resolve_priority_label(labels_set):
     else:
         return "null_or_unclassified"
 
-def load_sensitivity_grid(grid_path):
-    grid = []
-    with open(grid_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            grid.append({
-                "grid_index": int(row["grid_index"]),
-                "alpha_level": float(row["alpha_level"]),
-                "q_scope": row["q_scope"].strip(),
-                "cohens_d_minimum": float(row["cohens_d_minimum"]),
-                "omission_window": row["omission_window"].strip(),
-                "slot_stratification": row["slot_stratification"].strip(),
-                "family_stratification": row["family_stratification"].strip(),
-                "notes": row["notes"].strip()
-            })
-    return grid
-
-def main():
-    args = parse_args()
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    dry_run = args.dry_run
-
-    # Save Output 1: sensitivity_execution_parameters.json
-    parameters = {
-        "data_root": args.data_root,
-        "a5_dir": args.a5_dir,
-        "a6_dir": args.a6_dir,
-        "a7_dir": args.a7_dir,
-        "a8_dir": args.a8_dir,
-        "out_dir": args.out_dir,
-        "plan_dir": args.plan_dir,
-        "unit_batch_size": args.unit_batch_size,
-        "max_sessions": args.max_sessions,
-        "max_units_per_file": args.max_units_per_file,
-        "dry_run": dry_run,
-        "git_commit": get_git_commit()
-    }
-    with open(out_dir / "sensitivity_execution_parameters.json", "w", encoding="utf-8") as f:
-        json.dump(parameters, f, indent=2)
-
-    # Load sensitivity grid
+def load_inventories_and_grid(args):
+    """Loads input inventories, metadata, sensitivity grid, and warning burdens."""
     grid_path = Path(args.plan_dir) / "sensitivity_grid.csv"
     if not grid_path.exists():
-        print(f"Error: sensitivity_grid.csv not found at {grid_path}", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"sensitivity_grid.csv not found at {grid_path}")
     grid = load_sensitivity_grid(grid_path)
 
-    # 1. Discover files via A7 inventory
     a7_inventory_path = Path(args.a7_dir) / "spk_smoke_file_inventory.csv"
     if not a7_inventory_path.exists():
-        print(f"Error: A7 spk_smoke_file_inventory.csv not found at {a7_inventory_path}", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"A7 spk_smoke_file_inventory.csv not found at {a7_inventory_path}")
 
     spk_files = []
     with open(a7_inventory_path, "r", encoding="utf-8") as f:
@@ -163,12 +115,6 @@ def main():
             if row["time_axis_status"] == "valid_timebase_6000ms":
                 spk_files.append(row)
 
-    session_ids = sorted(list(set(r["session_id"] for r in spk_files)))
-    if args.max_sessions:
-        session_ids = session_ids[:args.max_sessions]
-        spk_files = [r for r in spk_files if r["session_id"] in session_ids]
-
-    # Load A6 unit inventory
     a6_unit_inventory_path = Path(args.a6_dir) / "unit_area_inventory.csv"
     a6_units = {}
     if a6_unit_inventory_path.exists():
@@ -179,25 +125,6 @@ def main():
                 u_idx = int(row["unit_index"])
                 a6_units[(s_id, u_idx)] = row
 
-    # Programmatic carry-forward of audited denominators from Phase A8.1.1
-    n_long_metric_rows_total = 39980
-    n_primary_contrast_rows = 39232
-    n_nonprimary_or_auxiliary_metric_rows = 748
-    n_unit_candidate_label_rows = 3521
-    
-    a8_summary_path = Path(args.a8_dir) / "response_metric_execution_summary.json"
-    if a8_summary_path.exists():
-        try:
-            with open(a8_summary_path, "r", encoding="utf-8") as f:
-                a8_sum = json.load(f)
-                n_long_metric_rows_total = a8_sum.get("n_long_metric_rows_total", n_long_metric_rows_total)
-                n_primary_contrast_rows = a8_sum.get("n_primary_contrast_rows", n_primary_contrast_rows)
-                n_nonprimary_or_auxiliary_metric_rows = a8_sum.get("n_nonprimary_or_auxiliary_metric_rows", n_nonprimary_or_auxiliary_metric_rows)
-                n_unit_candidate_label_rows = a8_sum.get("n_unit_candidate_label_rows", n_unit_candidate_label_rows)
-        except Exception as e:
-            print(f"Warning: Failed to load A8.1.1 denominators: {e}")
-
-    # Load warnings burden
     a8_warnings_path = Path(args.a8_dir) / "warning_summary_by_session_condition_slot.csv"
     session_warning_burden = {}
     if a8_warnings_path.exists():
@@ -208,190 +135,188 @@ def main():
                 n_warn = int(row["n_warnings"])
                 session_warning_burden[s_id] = session_warning_burden.get(s_id, 0) + n_warn
 
-    # Programmatic Storage Structures for pre-computed metrics under three timing windows
-    # Window options: "1000-1500" (canonical), "1000-1300" (narrow), "1000-1700" (wide)
-    # We store computed rates and trial vectors for each unit condition key
-    unit_condition_metrics = {}
-    unique_units_map = {} # (session_id, u_idx) -> source_file
+    # Load A8.1 summary json denominators
+    a8_sums = {
+        "n_long_metric_rows_total": 39980,
+        "n_primary_contrast_rows": 39232,
+        "n_nonprimary_or_auxiliary_metric_rows": 748,
+        "n_unit_candidate_label_rows": 3521
+    }
+    a8_summary_path = Path(args.a8_dir) / "response_metric_execution_summary.json"
+    if a8_summary_path.exists():
+        try:
+            with open(a8_summary_path, "r", encoding="utf-8") as f:
+                a8_sum = json.load(f)
+                a8_sums["n_long_metric_rows_total"] = a8_sum.get("n_long_metric_rows_total", 39980)
+                a8_sums["n_primary_contrast_rows"] = a8_sum.get("n_primary_contrast_rows", 39232)
+                a8_sums["n_nonprimary_or_auxiliary_metric_rows"] = a8_sum.get("n_nonprimary_or_auxiliary_metric_rows", 748)
+                a8_sums["n_unit_candidate_label_rows"] = a8_sum.get("n_unit_candidate_label_rows", 3521)
+        except Exception as e:
+            print(f"Warning: Failed to load A8.1.1 denominators: {e}")
 
-    n_sessions_processed = 0
+    return grid, spk_files, a6_units, session_warning_burden, a8_sums
+
+def precompute_session_metrics(session_id, session_files, data_root, unit_batch_size, max_units_per_file, unit_condition_metrics, unique_units_map):
+    """Precomputes metrics for all units in a session across three timing windows."""
+    control_files_map = {}
+    for row in session_files:
+        cond = row["condition"]
+        if cond in ["AAAB", "BBBA", "RRRR"]:
+            control_files_map[cond] = row
+
     n_spk_files_processed = 0
     n_trials_used = 0
-    n_unique_units_global = 0
 
-    if not dry_run:
-        for session_id in session_ids:
-            session_files = [r for r in spk_files if r["session_id"] == session_id]
-            n_sessions_processed += 1
-            
-            control_files_map = {}
-            for row in session_files:
-                cond = row["condition"]
-                if cond in ["AAAB", "BBBA", "RRRR"]:
-                    control_files_map[cond] = row
+    for row in session_files:
+        condition = row["condition"]
+        basename = row["source_file"]
+        family = get_condition_family(condition)
+        om_slot = get_omission_position(condition)
+        is_omission = om_slot != "None"
 
-            for row in session_files:
-                condition = row["condition"]
-                basename = row["source_file"]
-                family = get_condition_family(condition)
-                om_slot = get_omission_position(condition)
-                is_omission = om_slot != "None"
+        real_path = locate_file_recursively(data_root, basename)
+        if not real_path:
+            continue
 
-                real_path = locate_file_recursively(args.data_root, basename)
-                if not real_path:
-                    continue
+        if real_path.suffix.lower() in [".h5", ".hdf5"]:
+            continue
 
-                if real_path.suffix.lower() in [".h5", ".hdf5"]:
-                    continue
+        ctrl_cond = get_matched_control(condition)
+        ctrl_row = control_files_map.get(ctrl_cond)
+        ctrl_path = None
+        if ctrl_row:
+            ctrl_path = locate_file_recursively(data_root, ctrl_row["source_file"])
 
-                ctrl_cond = get_matched_control(condition)
-                ctrl_row = control_files_map.get(ctrl_cond)
-                ctrl_path = None
-                if ctrl_row:
-                    ctrl_path = locate_file_recursively(args.data_root, ctrl_row["source_file"])
+        try:
+            arr = np.load(real_path, mmap_mode="r")
+            n_trials, n_units, n_timepoints = arr.shape
+            n_spk_files_processed += 1
+            n_trials_used += n_trials
 
+            ctrl_arr = None
+            if ctrl_path:
                 try:
-                    arr = np.load(real_path, mmap_mode="r")
-                    n_trials, n_units, n_timepoints = arr.shape
-                    n_spk_files_processed += 1
-                    n_trials_used += n_trials
+                    ctrl_arr = np.load(ctrl_path, mmap_mode="r")
+                except Exception:
+                    pass
 
-                    ctrl_arr = None
-                    if ctrl_path:
-                        try:
-                            ctrl_arr = np.load(ctrl_path, mmap_mode="r")
-                        except Exception:
-                            pass
+            u_max = n_units
+            if max_units_per_file:
+                u_max = min(u_max, max_units_per_file)
 
-                    # Stream units
-                    batch_size = args.unit_batch_size
-                    u_max = n_units
-                    if args.max_units_per_file:
-                        u_max = min(u_max, args.max_units_per_file)
+            for u_start in range(0, u_max, unit_batch_size):
+                u_end = min(u_start + unit_batch_size, u_max)
+                slice_arr = arr[:, u_start:u_end, :]
+                slice_ctrl_arr = None
+                if ctrl_arr is not None:
+                    slice_ctrl_arr = ctrl_arr[:, u_start:u_end, :]
 
-                    for u_start in range(0, u_max, batch_size):
-                        u_end = min(u_start + batch_size, u_max)
-                        slice_arr = arr[:, u_start:u_end, :]
-                        slice_ctrl_arr = None
-                        if ctrl_arr is not None:
-                            slice_ctrl_arr = ctrl_arr[:, u_start:u_end, :]
+                for u_local in range(u_end - u_start):
+                    u_idx = u_start + u_local
+                    unit_key = (session_id, u_idx)
+                    unique_units_map[unit_key] = basename
 
-                        for u_local in range(u_end - u_start):
-                            u_idx = u_start + u_local
-                            unit_key = (session_id, u_idx)
-                            unique_units_map[unit_key] = basename
+                    unit_spk = slice_arr[:, u_local, :]
 
-                            unit_spk = slice_arr[:, u_local, :]
+                    fx_rate = np.mean(unit_spk[:, 500:1000]) * 1000.0
+                    fx_trials = np.mean(unit_spk[:, 500:1000], axis=1) * 1000.0
 
-                            # Stimulus milestones (invariant across omission windows)
-                            fx_rate = np.mean(unit_spk[:, 500:1000]) * 1000.0
-                            fx_trials = np.mean(unit_spk[:, 500:1000], axis=1) * 1000.0
+                    p1_rate = np.mean(unit_spk[:, 1000:1531]) * 1000.0
+                    p1_trials = np.mean(unit_spk[:, 1000:1531], axis=1) * 1000.0
 
-                            p1_rate = np.mean(unit_spk[:, 1000:1531]) * 1000.0
-                            p1_trials = np.mean(unit_spk[:, 1000:1531], axis=1) * 1000.0
+                    p2_rate = np.mean(unit_spk[:, 2031:2562]) * 1000.0
+                    p2_trials = np.mean(unit_spk[:, 2031:2562], axis=1) * 1000.0
 
-                            p2_rate = np.mean(unit_spk[:, 2031:2562]) * 1000.0
-                            p2_trials = np.mean(unit_spk[:, 2031:2562], axis=1) * 1000.0
+                    p3_rate = np.mean(unit_spk[:, 3062:3593]) * 1000.0
+                    p3_trials = np.mean(unit_spk[:, 3062:3593], axis=1) * 1000.0
 
-                            p3_rate = np.mean(unit_spk[:, 3062:3593]) * 1000.0
-                            p3_trials = np.mean(unit_spk[:, 3062:3593], axis=1) * 1000.0
+                    p4_rate = np.mean(unit_spk[:, 4093:4624]) * 1000.0
+                    p4_trials = np.mean(unit_spk[:, 4093:4624], axis=1) * 1000.0
 
-                            p4_rate = np.mean(unit_spk[:, 4093:4624]) * 1000.0
-                            p4_trials = np.mean(unit_spk[:, 4093:4624], axis=1) * 1000.0
+                    p_p1, d_p1 = run_paired_test(p1_trials, fx_trials)
+                    p_p2, d_p2 = run_paired_test(p2_trials, fx_trials)
+                    p_p3, d_p3 = run_paired_test(p3_trials, fx_trials)
+                    p_p4, d_p4 = run_paired_test(p4_trials, fx_trials)
 
-                            # Pre-compute stimulus raw test values
-                            p_p1, d_p1 = run_paired_test(p1_trials, fx_trials)
-                            p_p2, d_p2 = run_paired_test(p2_trials, fx_trials)
-                            p_p3, d_p3 = run_paired_test(p3_trials, fx_trials)
-                            p_p4, d_p4 = run_paired_test(p4_trials, fx_trials)
+                    window_variants = ["1000-1500", "1000-1300", "1000-1700"]
+                    for w_var in window_variants:
+                        om_rate = 0.0
+                        om_base_rate = 0.0
+                        ctrl_om_rate = 0.0
+                        p_om_base, d_om_base = 1.0, 0.0
+                        p_om_ctrl, d_om_ctrl = 1.0, 0.0
+                        om_trials = np.zeros(n_trials)
+                        om_base_trials = np.zeros(n_trials)
+                        ctrl_om_trials = np.zeros(n_trials)
+                        post_om_gain = 0.0
 
-                            # alternate window evaluations
-                            window_variants = ["1000-1500", "1000-1300", "1000-1700"]
-                            for w_var in window_variants:
-                                om_rate = 0.0
-                                om_base_rate = 0.0
-                                ctrl_om_rate = 0.0
-                                p_om_base, d_om_base = 1.0, 0.0
-                                p_om_ctrl, d_om_ctrl = 1.0, 0.0
-                                om_trials = np.zeros(n_trials)
-                                om_base_trials = np.zeros(n_trials)
-                                ctrl_om_trials = np.zeros(n_trials)
-                                post_om_gain = 0.0
+                        if is_omission:
+                            if om_slot == "p2":
+                                onset = 2031
+                                base_start, base_end = 1781, 1981
+                                post_start, post_end = 2562, 3031
+                            elif om_slot == "p3":
+                                onset = 3062
+                                base_start, base_end = 2812, 3012
+                                post_start, post_end = 3593, 4062
+                            elif om_slot == "p4":
+                                onset = 4093
+                                base_start, base_end = 3843, 4043
+                                post_start, post_end = 4624, 5093
 
-                                if is_omission:
-                                    # Setup onset and baseline indices based on omission slot
-                                    if om_slot == "p2":
-                                        onset = 2031
-                                        base_start, base_end = 1781, 1981
-                                        post_start, post_end = 2562, 3031
-                                    elif om_slot == "p3":
-                                        onset = 3062
-                                        base_start, base_end = 2812, 3012
-                                        post_start, post_end = 3593, 4062
-                                    elif om_slot == "p4":
-                                        onset = 4093
-                                        base_start, base_end = 3843, 4043
-                                        post_start, post_end = 4624, 5093
+                            if w_var == "1000-1500":
+                                om_dur = 531
+                            elif w_var == "1000-1300":
+                                om_dur = 300
+                            elif w_var == "1000-1700":
+                                om_dur = 700
 
-                                    # alternate window durations
-                                    if w_var == "1000-1500":
-                                        om_dur = 531
-                                    elif w_var == "1000-1300":
-                                        om_dur = 300
-                                    elif w_var == "1000-1700":
-                                        om_dur = 700
+                            om_rate = np.mean(unit_spk[:, onset:onset+om_dur]) * 1000.0
+                            om_trials = np.mean(unit_spk[:, onset:onset+om_dur], axis=1) * 1000.0
 
-                                    om_rate = np.mean(unit_spk[:, onset:onset+om_dur]) * 1000.0
-                                    om_trials = np.mean(unit_spk[:, onset:onset+om_dur], axis=1) * 1000.0
+                            om_base_rate = np.mean(unit_spk[:, base_start:base_end]) * 1000.0
+                            om_base_trials = np.mean(unit_spk[:, base_start:base_end], axis=1) * 1000.0
 
-                                    om_base_rate = np.mean(unit_spk[:, base_start:base_end]) * 1000.0
-                                    om_base_trials = np.mean(unit_spk[:, base_start:base_end], axis=1) * 1000.0
+                            post_om_rate = np.mean(unit_spk[:, post_start:post_end]) * 1000.0
+                            post_om_gain = post_om_rate - om_base_rate
 
-                                    post_om_rate = np.mean(unit_spk[:, post_start:post_end]) * 1000.0
-                                    post_om_gain = post_om_rate - om_base_rate
+                            if slice_ctrl_arr is not None:
+                                ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, onset:onset+om_dur], axis=1) * 1000.0
+                                ctrl_om_rate = np.mean(ctrl_om_trials)
 
-                                    if slice_ctrl_arr is not None:
-                                        ctrl_om_trials = np.mean(slice_ctrl_arr[:, u_local, onset:onset+om_dur], axis=1) * 1000.0
-                                        ctrl_om_rate = np.mean(ctrl_om_trials)
+                            p_om_base, d_om_base = run_paired_test(om_trials, om_base_trials)
+                            if slice_ctrl_arr is not None:
+                                p_om_ctrl, d_om_ctrl = run_unpaired_test(om_trials, ctrl_om_trials)
 
-                                    p_om_base, d_om_base = run_paired_test(om_trials, om_base_trials)
-                                    if slice_ctrl_arr is not None:
-                                        p_om_ctrl, d_om_ctrl = run_unpaired_test(om_trials, ctrl_om_trials)
+                        metric_key = (session_id, u_idx, condition, w_var)
+                        unit_condition_metrics[metric_key] = {
+                            "fx_rate": fx_rate,
+                            "p1_rate": p1_rate,
+                            "p2_rate": p2_rate,
+                            "p3_rate": p3_rate,
+                            "p4_rate": p4_rate,
+                            "om_rate": om_rate,
+                            "om_base_rate": om_base_rate,
+                            "ctrl_om_rate": ctrl_om_rate,
+                            "post_om_gain": post_om_gain,
+                            "p_p1": p_p1, "d_p1": d_p1,
+                            "p_p2": p_p2, "d_p2": d_p2,
+                            "p_p3": p_p3, "d_p3": d_p3,
+                            "p_p4": p_p4, "d_p4": d_p4,
+                            "p_om_base": p_om_base, "d_om_base": d_om_base,
+                            "p_om_ctrl": p_om_ctrl, "d_om_ctrl": d_om_ctrl,
+                            "n_trials": n_trials,
+                            "family": family,
+                            "omission_slot": om_slot,
+                            "basename": basename
+                        }
+        except Exception as e:
+            print(f"Warning: Failed to process slice for file {basename}: {e}")
 
-                                # Store precomputed metrics
-                                metric_key = (session_id, u_idx, condition, w_var)
-                                unit_condition_metrics[metric_key] = {
-                                    "fx_rate": fx_rate,
-                                    "p1_rate": p1_rate,
-                                    "p2_rate": p2_rate,
-                                    "p3_rate": p3_rate,
-                                    "p4_rate": p4_rate,
-                                    "om_rate": om_rate,
-                                    "om_base_rate": om_base_rate,
-                                    "ctrl_om_rate": ctrl_om_rate,
-                                    "post_om_gain": post_om_gain,
-                                    "p_p1": p_p1, "d_p1": d_p1,
-                                    "p_p2": p_p2, "d_p2": d_p2,
-                                    "p_p3": p_p3, "d_p3": d_p3,
-                                    "p_p4": p_p4, "d_p4": d_p4,
-                                    "p_om_base": p_om_base, "d_om_base": d_om_base,
-                                    "p_om_ctrl": p_om_ctrl, "d_om_ctrl": d_om_ctrl,
-                                    "n_trials": n_trials,
-                                    "family": family,
-                                    "omission_slot": om_slot,
-                                    "basename": basename
-                                }
-                except Exception as e:
-                    print(f"Warning: Failed to process slice for file {basename}: {e}")
+    return n_spk_files_processed, n_trials_used
 
-        n_unique_units_global = len(unique_units_map)
-
-    # 2. Execute Sensitivity Sweeps over Grid
-    realized_grid = []
-    unit_label_history = {} # (session_id, u_idx) -> list of primary candidate labels across sweeps
-    for unit_key in unique_units_map.keys():
-        unit_label_history[unit_key] = []
-
+def run_sensitivity_sweeps(grid, unit_condition_metrics, unique_units_map, unit_label_history, realized_grid):
+    """Executes sensitivity sweeps over the grid."""
     for idx, sweep in enumerate(grid):
         g_idx = sweep["grid_index"]
         alpha = sweep["alpha_level"]
@@ -401,28 +326,22 @@ def main():
         slot_strat = sweep["slot_stratification"]
         family_strat = sweep["family_stratification"]
 
-        # Step 2a: Filter unit conditions matching stratification
         evaluated_keys = []
         for key, m in unit_condition_metrics.items():
             s_id, u_idx, cond, w_val = key
             if w_val != om_win:
                 continue
             
-            # Slot stratification check
             if slot_strat != "all":
                 if m["omission_slot"] != slot_strat and m["omission_slot"] != "None":
                     continue
             
-            # Family stratification check
             if family_strat == "A+B":
                 if m["family"] not in ["A-family", "B-family"]:
                     continue
             
             evaluated_keys.append(key)
 
-        # Step 2b: Apply FDR corrections on raw p-values within stratification scope
-        # We need to map raw p-values to corrected q-values
-        # There are 6 primary contrasts: p1, p2, p3, p4, om_base, om_ctrl
         raw_p_list = []
         for key in evaluated_keys:
             m = unit_condition_metrics[key]
@@ -430,12 +349,11 @@ def main():
             if m["omission_slot"] != "None":
                 raw_p_list.extend([m["p_om_base"], m["p_om_ctrl"]])
 
-        q_list = np.array(raw_p_list) # Default uncorrected
+        q_list = np.array(raw_p_list)
         if q_scope != "none (p_uncorrected)":
             if q_scope == "global_all_units_all_primary_contrasts":
                 q_list = benjamini_hochberg_correction(raw_p_list)
             elif q_scope == "within_session_all_units_all_primary_contrasts":
-                # Correct per session
                 q_map = np.ones(len(raw_p_list))
                 session_p_indices = {}
                 ptr = 0
@@ -452,7 +370,6 @@ def main():
                         q_map[i] = q_val
                 q_list = q_map
             elif q_scope == "per_metric_family":
-                # Group by contrast type
                 q_map = np.ones(len(raw_p_list))
                 ptr = 0
                 family_p_indices = {"stimulus": [], "om_base": [], "om_ctrl": []}
@@ -473,9 +390,8 @@ def main():
                             q_map[i] = q_val
                 q_list = q_map
 
-        # Map q-values back to metrics
         ptr = 0
-        sweep_q_values = {} # key -> q_p1, q_p2, q_p3, q_p4, q_om_base, q_om_ctrl
+        sweep_q_values = {}
         for key in evaluated_keys:
             m = unit_condition_metrics[key]
             q_p1 = q_list[ptr]
@@ -495,8 +411,7 @@ def main():
                 "q_om_base": q_om_base, "q_om_ctrl": q_om_ctrl
             }
 
-        # Step 2c: Classify conditions & resolve unit labels
-        sweep_unit_labels = {} # (session_id, u_idx) -> set of condition-level labels
+        sweep_unit_labels = {}
         for unit_key in unique_units_map.keys():
             sweep_unit_labels[unit_key] = set()
 
@@ -506,28 +421,22 @@ def main():
             q_info = sweep_q_values[key]
             is_om = m["omission_slot"] != "None"
 
-            # Threshold check helper
             def sig_check(p_val, q_val):
                 if q_scope == "none (p_uncorrected)":
                     return p_val < alpha
                 return q_val < alpha
 
             lbls = []
-            # S+
             if m["p1_rate"] > 2.0 and sig_check(m["p_p1"], q_info["q_p1"]) and m["d_p1"] > d_min:
                 lbls.append("S_plus_candidate")
-            # S-
             if m["fx_rate"] > 2.0 and sig_check(m["p_p1"], q_info["q_p1"]) and m["d_p1"] < -d_min:
                 lbls.append("S_minus_candidate")
 
             if is_om:
-                # O+
                 if m["om_rate"] > 2.0 and sig_check(m["p_om_base"], q_info["q_om_base"]) and m["d_om_base"] > d_min:
                     lbls.append("O_plus_candidate")
-                # O-
                 if m["om_base_rate"] > 2.0 and sig_check(m["p_om_base"], q_info["q_om_base"]) and m["d_om_base"] < -d_min:
                     lbls.append("O_minus_candidate")
-                # X
                 if (m["om_rate"] > 2.0 and
                     sig_check(m["p_om_base"], q_info["q_om_base"]) and m["d_om_base"] > d_min and
                     sig_check(m["p_om_ctrl"], q_info["q_om_ctrl"]) and m["d_om_ctrl"] > d_min):
@@ -537,7 +446,6 @@ def main():
             for l in lbls:
                 sweep_unit_labels[unit_key].add(l)
 
-        # Resolve primary candidate label per unit under this sweep
         sweep_counts = {"S_plus": 0, "S_minus": 0, "O_plus": 0, "O_minus": 0, "X": 0, "null": 0}
         for unit_key, labels_set in sweep_unit_labels.items():
             primary_lbl = resolve_priority_label(labels_set)
@@ -556,7 +464,6 @@ def main():
             else:
                 sweep_counts["null"] += 1
 
-        # Realized grid rows
         realized_grid.append({
             "grid_index": g_idx,
             "alpha_level": alpha,
@@ -573,6 +480,8 @@ def main():
             "n_null_or_unclassified": sweep_counts["null"]
         })
 
+def save_all_outputs(out_dir, realized_grid, unit_label_history, unique_units_map, a6_units, session_warning_burden, session_ids, parameters, a8_sums, grid, unit_condition_metrics):
+    """Saves all CSV, JSON, and Markdown output files."""
     # Save Output 4: sensitivity_grid_realized.csv
     grid_fields = [
         "grid_index", "alpha_level", "q_scope", "cohens_d_minimum", "omission_window",
@@ -586,13 +495,11 @@ def main():
         writer.writerows(realized_grid)
 
     # Save Output 5: candidate_label_stability_by_unit.csv
-    # Contains stability metrics for each of the 3521 units
     unit_stabilities = []
-    x_candidates_robust = [] # Track robust X units specifically
+    x_candidates_robust = []
     for unit_key, labels in unit_label_history.items():
         s_id, u_idx = unit_key
         
-        # Calculate sweep frequencies
         n_S_plus = sum(1 for l in labels if l == "S_plus_candidate")
         n_S_minus = sum(1 for l in labels if l == "S_minus_candidate")
         n_O_plus = sum(1 for l in labels if l == "O_plus_candidate")
@@ -601,14 +508,9 @@ def main():
         
         entropy = compute_entropy(labels)
         
-        # Resolve dominant label (mode)
         unique_lbls, counts = np.unique(labels, return_counts=True)
         dominant = unique_lbls[np.argmax(counts)] if len(labels) > 0 else "null_or_unclassified"
         
-        # Resolve strict and permissive labels
-        # Conservative sweeps are corrected scopes (where q_scope is not uncorrected/none)
-        # Strict: survives corrected FDR scopes (Grid 1, 3, 4, 5, 6 etc.)
-        # Permissive: any uncorrected or liberal sweep (like grid 2)
         strict = "null_or_unclassified"
         corrected_indices = [i for i, sw in enumerate(grid) if sw["q_scope"] != "none (p_uncorrected)"]
         corrected_labels = [labels[i] for i in corrected_indices if i < len(labels)]
@@ -624,7 +526,7 @@ def main():
         elif "S_minus_candidate" in corrected_labels:
             strict = "S_minus_candidate"
 
-        permissive = resolve_priority_label(set(labels)) # Permissive is the priority across any sweep setting
+        permissive = resolve_priority_label(set(labels))
 
         unit_stabilities.append({
             "session_id": s_id,
@@ -640,7 +542,7 @@ def main():
             "permissive_label": permissive
         })
 
-        if n_X >= 6: # Appears in at least half of the sweeps
+        if n_X >= 6:
             x_candidates_robust.append(unit_key)
 
     unit_fields = [
@@ -654,16 +556,15 @@ def main():
         writer.writerows(unit_stabilities)
 
     # Save Output 6: candidate_label_stability_by_session.csv
-    # Computes average unit entropy, robust units fraction, and warnings burden per session
     session_stabilities = []
     for s_id in session_ids:
         s_units = [u for u in unit_stabilities if u["session_id"] == s_id]
-        if not s_units: continue
+        if not s_units:
+            continue
         
         n_units = len(s_units)
         avg_entropy = np.mean([float(u["entropy_score"]) for u in s_units])
         
-        # A unit is "stable" if it retains its dominant label in at least 10 sweeps (high stability)
         stable_count = 0
         for u in s_units:
             dom = u["dominant_label"]
@@ -674,7 +575,6 @@ def main():
             elif dom == "O_minus_candidate": match_sweeps = u["n_sweeps_O_minus"]
             elif dom == "X_candidate": match_sweeps = u["n_sweeps_X"]
             else:
-                # Null or unclassified
                 match_sweeps = 12 - (u["n_sweeps_S_plus"] + u["n_sweeps_S_minus"] + u["n_sweeps_O_plus"] + u["n_sweeps_O_minus"] + u["n_sweeps_X"])
             if match_sweeps >= 10:
                 stable_count += 1
@@ -703,21 +603,17 @@ def main():
         writer.writerows(session_stabilities)
 
     # Save Output 7: candidate_label_stability_by_family_slot.csv
-    # Evaluates slot and family stratification stability for canonical sweep (Grid 1)
     family_slot_counts = []
-    # Stratify by condition family and omission slot
     for fam in ["A-family", "B-family", "R-family"]:
         for slot in ["p2", "p3", "p4", "None"]:
             matches = [m for m in unit_condition_metrics.values() if m["family"] == fam and m["omission_slot"] == slot]
-            if not matches: continue
+            if not matches:
+                continue
             
-            # Unique unit keys matching this group
             s_keys = set((s_id, u_idx) for (s_id, u_idx, cond, w_val), m in unit_condition_metrics.items() if m["family"] == fam and m["omission_slot"] == slot)
             
-            # Resolve how many X/O+/O- labels are assigned under Grid 1
             n_x, n_o_plus, n_o_minus = 0, 0, 0
             for u_key in s_keys:
-                s_idx = list(unique_units_map.keys()).index(u_key)
                 grid_1_lbl = unit_label_history[u_key][0]
                 if grid_1_lbl == "X_candidate": n_x += 1
                 elif grid_1_lbl == "O_plus_candidate": n_o_plus += 1
@@ -746,14 +642,12 @@ def main():
         writer.writerows(family_slot_counts)
 
     # Save Output 8: x_candidate_stability_table.csv
-    # Specific diagnostics for robust X candidate units
     x_stability_records = []
     for unit_key in x_candidates_robust:
         s_id, u_idx = unit_key
         hist = unit_label_history[unit_key]
         n_sweeps = sum(1 for l in hist if l == "X_candidate")
         
-        # Fetch effect sizes and raw p-values for canonical window
         avg_d_om_base, avg_d_om_ctrl = [], []
         for key, m in unit_condition_metrics.items():
             if key[0] == s_id and key[1] == u_idx and key[3] == "1000-1500" and m["omission_slot"] != "None":
@@ -764,8 +658,7 @@ def main():
         mean_d_ctrl = np.mean(avg_d_om_ctrl) if avg_d_om_ctrl else 0.0
         w_burden = session_warning_burden.get(s_id, 0)
         
-        # Manuscript suitability flags
-        survives_FDR = "true" if hist[0] == "X_candidate" or hist[3] == "X_candidate" else "false" # grids 1 or 4
+        survives_FDR = "true" if hist[0] == "X_candidate" or hist[3] == "X_candidate" else "false"
         has_min_effect = "true" if abs(mean_d_base) >= 0.3 and abs(mean_d_ctrl) >= 0.3 else "false"
         warn_free = "true" if w_burden == 0 else "false"
         
@@ -793,7 +686,6 @@ def main():
         writer.writerows(x_stability_records)
 
     # Save Output 9: threshold_window_sensitivity_matrix.csv
-    # Cross-tabulates S+, S-, O+, O-, X counts across select sweep configurations
     matrix_records = []
     for sweep in realized_grid:
         matrix_records.append({
@@ -820,9 +712,7 @@ def main():
         writer.writerows(matrix_records)
 
     # Save Output 10: warning_impact_on_sensitivity.csv
-    # Evaluates how warning burden correlates with unit label stability
     warning_impacts = []
-    # Group units by warning burden category: 0 warnings, 1-10 warnings, >10 warnings
     categories = [
         ("warn_free", lambda w: w == 0),
         ("moderate_warnings", lambda w: 0 < w <= 10),
@@ -830,7 +720,8 @@ def main():
     ]
     for cat_name, cond_fn in categories:
         cat_units = [u for u in unit_stabilities if cond_fn(session_warning_burden.get(u["session_id"], 0))]
-        if not cat_units: continue
+        if not cat_units:
+            continue
         
         n_tot_cat = len(cat_units)
         n_x_robust = sum(1 for u in cat_units if u["n_sweeps_X"] >= 6)
@@ -850,8 +741,11 @@ def main():
         writer.writeheader()
         writer.writerows(warning_impacts)
 
-    # Step 3: Write Markdown report
-    # We load robust X units to verify session dominance
+    # Save summary report MD and JSON
+    save_summary_reports(out_dir, realized_grid, x_candidates_robust, unique_units_map, unit_label_history, session_ids, session_warning_burden, parameters, a8_sums)
+
+def save_summary_reports(out_dir, realized_grid, x_candidates_robust, unique_units_map, unit_label_history, session_ids, session_warning_burden, parameters, a8_sums):
+    """Saves summary report Markdown and JSON files."""
     session_x_counts = {}
     for key in x_candidates_robust:
         s_id = key[0]
@@ -866,11 +760,15 @@ def main():
         if dom_frac >= 0.75:
             dominant_session = max_s_id
 
-    # Compute realized counts for Grid 1 (baseline) vs Grid 2 (uncorrected)
     g1 = realized_grid[0]
     g2 = realized_grid[1]
 
-    # Save Output 3: sensitivity_execution_summary.md
+    n_sessions_processed = len(session_ids)
+    n_spk_files_processed = len(set(unique_units_map.values()))
+    n_unique_units_global = len(unique_units_map)
+    n_trials_used = parameters.get("n_trials_used", 29430)
+
+    # MD Report
     summary_md = f"""# Phase A8.2: SPK Response Metric Sensitivity Sweeps Summary Report
 **Truth Status**: `{TRUTH_SAFE_UNVERIFIED}`
 **Validation Status**: `candidate_metric_execution_not_biological_claim`
@@ -882,10 +780,10 @@ This summary report validates that Phase A8.2 SPK response metric sensitivity sw
 | :--- | :---: | :--- |
 | **`n_unique_units_global`** | {n_unique_units_global} | Total unique units (session_id, unit_axis_index) across all 13 sessions. |
 | **`n_raw_behavioral_trials`** | {n_trials_used} | Total raw behavioral trials processed. |
-| **`n_long_metric_rows_total`** | {n_long_metric_rows_total} | Total lines in `unit_response_metrics_long.csv` (excluding header). |
-| **`n_primary_contrast_rows`** | {n_primary_contrast_rows} | Rows in the long CSV representing primary statistical contrast tests. |
-| **`n_nonprimary_or_auxiliary_metric_rows`** | {n_nonprimary_or_auxiliary_metric_rows} | Rows representing auxiliary post-omission delay gain index metrics. |
-| **`n_unit_candidate_label_rows`** | {n_unit_candidate_label_rows} | Total rows in `unit_candidate_labels.csv` matching unit keys. |
+| **`n_long_metric_rows_total`** | {a8_sums['n_long_metric_rows_total']} | Total lines in `unit_response_metrics_long.csv` (excluding header). |
+| **`n_primary_contrast_rows`** | {a8_sums['n_primary_contrast_rows']} | Rows in the long CSV representing primary statistical contrast tests. |
+| **`n_nonprimary_or_auxiliary_metric_rows`** | {a8_sums['n_nonprimary_or_auxiliary_metric_rows']} | Rows representing auxiliary post-omission delay gain index metrics. |
+| **`n_unit_candidate_label_rows`** | {a8_sums['n_unit_candidate_label_rows']} | Total rows in `unit_candidate_labels.csv` matching unit keys. |
 
 ## Preflight Summary & Parameters
 - **Total Sessions Evaluated**: {n_sessions_processed}
@@ -912,7 +810,7 @@ This summary report validates that Phase A8.2 SPK response metric sensitivity sw
   - X candidate count: {g2['n_X_candidate']} units
 
 ## Scientific Interpretation Lock (FDR Sensitivity Robustness)
-> [!IMPORTANT]
+> [Spacer]
 > A8.2 shows that the strict `X_candidate` definition is not robust under corrected FDR sensitivity sweeps. Four units appear under the permissive uncorrected setting, but zero survive corrected sweep configurations. Therefore, `X_candidate` should not be promoted as a robust manuscript class under the current metric definition.
 
 This sweep provides strict confirmation that:
@@ -947,7 +845,7 @@ Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening 
     with open(out_dir / "sensitivity_execution_summary.md", "w", encoding="utf-8") as f:
         f.write(summary_md)
 
-    # Save Output 2: sensitivity_execution_summary.json
+    # JSON Summary
     summary_json = {
         "truth_status": TRUTH_SAFE_UNVERIFIED,
         "validation_status": "candidate_metric_execution_not_biological_claim",
@@ -955,10 +853,10 @@ Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening 
         "n_spk_files_processed": n_spk_files_processed,
         "n_unique_units_global": n_unique_units_global,
         "n_raw_behavioral_trials": n_trials_used,
-        "n_long_metric_rows_total": n_long_metric_rows_total,
-        "n_primary_contrast_rows": n_primary_contrast_rows,
-        "n_nonprimary_or_auxiliary_metric_rows": n_nonprimary_or_auxiliary_metric_rows,
-        "n_unit_candidate_label_rows": n_unit_candidate_label_rows,
+        "n_long_metric_rows_total": a8_sums["n_long_metric_rows_total"],
+        "n_primary_contrast_rows": a8_sums["n_primary_contrast_rows"],
+        "n_nonprimary_or_auxiliary_metric_rows": a8_sums["n_nonprimary_or_auxiliary_metric_rows"],
+        "n_unit_candidate_label_rows": a8_sums["n_unit_candidate_label_rows"],
         "total_x_candidates_robust": total_x_robust,
         "session_dominance_detected": "true" if dominant_session != "None" else "false",
         "dominant_session_id": dominant_session,
@@ -985,7 +883,7 @@ Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening 
     with open(out_dir / "sensitivity_execution_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary_json, f, indent=2)
 
-    # Save Output 11: sensitivity_execution_manifest.json
+    # Manifest
     generated_files = [
         "sensitivity_execution_parameters.json",
         "sensitivity_execution_summary.json",
@@ -1022,6 +920,72 @@ Footer: Agent: Antigravity / Model: Gemini 3.5 Flash / Role: Codebase Hardening 
     }
     with open(out_dir / "sensitivity_execution_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
+
+def main():
+    args = parse_args()
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    dry_run = args.dry_run
+
+    parameters = {
+        "data_root": args.data_root,
+        "a5_dir": args.a5_dir,
+        "a6_dir": args.a6_dir,
+        "a7_dir": args.a7_dir,
+        "a8_dir": args.a8_dir,
+        "out_dir": args.out_dir,
+        "plan_dir": args.plan_dir,
+        "unit_batch_size": args.unit_batch_size,
+        "max_sessions": args.max_sessions,
+        "max_units_per_file": args.max_units_per_file,
+        "dry_run": dry_run,
+        "git_commit": get_git_commit()
+    }
+    with open(out_dir / "sensitivity_execution_parameters.json", "w", encoding="utf-8") as f:
+        json.dump(parameters, f, indent=2)
+
+    grid, spk_files, a6_units, session_warning_burden, a8_sums = load_inventories_and_grid(args)
+
+    session_ids = sorted(list(set(r["session_id"] for r in spk_files)))
+    if args.max_sessions:
+        session_ids = session_ids[:args.max_sessions]
+        spk_files = [r for r in spk_files if r["session_id"] in session_ids]
+
+    unit_condition_metrics = {}
+    unique_units_map = {}
+
+    n_sessions_processed = 0
+    n_spk_files_processed = 0
+    n_trials_used = 0
+
+    if not dry_run:
+        for session_id in session_ids:
+            session_files = [r for r in spk_files if r["session_id"] == session_id]
+            n_sessions_processed += 1
+            
+            s_files, s_trials = precompute_session_metrics(
+                session_id, session_files, args.data_root, args.unit_batch_size,
+                args.max_units_per_file, unit_condition_metrics, unique_units_map
+            )
+            n_spk_files_processed += s_files
+            n_trials_used += s_trials
+
+    parameters["n_trials_used"] = n_trials_used
+
+    realized_grid = []
+    unit_label_history = {}
+    for unit_key in unique_units_map.keys():
+        unit_label_history[unit_key] = []
+
+    # Run sweeps
+    run_sensitivity_sweeps(grid, unit_condition_metrics, unique_units_map, unit_label_history, realized_grid)
+
+    # Save outputs
+    save_all_outputs(
+        out_dir, realized_grid, unit_label_history, unique_units_map, a6_units,
+        session_warning_burden, session_ids, parameters, a8_sums, grid, unit_condition_metrics
+    )
 
     print("Phase A8.2 SPK response metric sensitivity sweeps complete.")
 

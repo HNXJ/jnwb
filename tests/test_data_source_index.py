@@ -120,7 +120,8 @@ def test_signal_class_classification_by_tokens(tmp_path):
 
 def test_cli_skips_cleanly_without_data_root(monkeypatch):
     monkeypatch.delenv("OMISSION_DATA_ROOT", raising=False)
-    cmd = [sys.executable, "scripts/validate_data_source_index.py"]
+    cli_script = project_root / "scripts" / "validate_data_source_index.py"
+    cmd = [sys.executable, str(cli_script)]
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0
     assert "SKIPPING" in res.stdout
@@ -141,9 +142,10 @@ def test_cli_writes_report_to_tmp_path(tmp_path):
         json.dump(manifest_data, f)
         
     out_file = tmp_path / "report.md"
+    cli_script = project_root / "scripts" / "validate_data_source_index.py"
     cmd = [
         sys.executable, 
-        "scripts/validate_data_source_index.py", 
+        str(cli_script), 
         "--data-root", str(tmp_path), 
         "--out", str(out_file)
     ]

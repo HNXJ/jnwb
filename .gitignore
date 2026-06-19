@@ -68,6 +68,7 @@ gallery_src/
 # scratch / agent temp scripts
 run_schema_test.py
 scripts/_*.py
+!scripts/_response_metric_common.py
 
 # local
 .claude/settings.local.json
