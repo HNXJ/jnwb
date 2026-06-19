@@ -19,20 +19,14 @@ REPO_ROOT = Path(r"D:/workspace/omission")
 BATCH_ROOT = REPO_ROOT / "outputs/data_index/batch_13nwb"
 OUTPUT_ROOT = REPO_ROOT / "outputs/publication_figures/fig04_09_reconstruction/figure_07"
 
-def get_git_info():
-    try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout.strip()
-        branch = subprocess.run(["git", "branch", "--show-current"], cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout.strip()
-        return {"sha": sha, "branch": branch}
-    except Exception:
-        return {"sha": "unknown", "branch": "unknown"}
+from src.analysis.io.utils import get_git_info
 
 def main():
     print("=" * 70)
     print("FIGURE 7: Omission-Centered TFR / LFP")
     print("=" * 70)
     
-    git_info = get_git_info()
+    git_info = get_git_info(cwd=REPO_ROOT)
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
     (OUTPUT_ROOT / "arrays").mkdir(exist_ok=True)
     (OUTPUT_ROOT / "tables").mkdir(exist_ok=True)

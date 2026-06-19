@@ -50,35 +50,7 @@ def parse_args():
     parser.add_argument("--dry-run", type=str, default="false", help="If true, skip real calculations")
     return parser.parse_args()
 
-def get_condition_family(condition):
-    cond_upper = condition.upper()
-    if any(tok in cond_upper for tok in ["AAAB", "AXAB", "AAXB", "AAAX"]):
-        return "A-family"
-    elif any(tok in cond_upper for tok in ["BBBA", "BXBA", "BBXA", "BBBX"]):
-        return "B-family"
-    elif any(tok in cond_upper for tok in ["RRRR", "RXRR", "RRXR", "RRRX"]):
-        return "R-family"
-    return "Unknown"
-
-def get_omission_position(condition):
-    cond_upper = condition.upper()
-    if any(tok in cond_upper for tok in ["AXAB", "BXBA", "RXRR"]):
-        return "p2"
-    elif any(tok in cond_upper for tok in ["AAXB", "BBXA", "RRXR"]):
-        return "p3"
-    elif any(tok in cond_upper for tok in ["AAAX", "BBBX", "RRRX"]):
-        return "p4"
-    return "None"
-
-def get_matched_control(condition):
-    cond_upper = condition.upper()
-    if any(tok in cond_upper for tok in ["AAAB", "AXAB", "AAXB", "AAAX"]):
-        return "AAAB"
-    elif any(tok in cond_upper for tok in ["BBBA", "BXBA", "BBXA", "BBBX"]):
-        return "BBBA"
-    elif any(tok in cond_upper for tok in ["RRRR", "RXRR", "RRXR", "RRRX"]):
-        return "RRRR"
-    return "Unknown"
+from src.analysis.contracts import get_condition_family, get_omission_position, get_matched_control
 
 def locate_file_recursively(data_root, filename):
     for p in Path(data_root).rglob(filename):

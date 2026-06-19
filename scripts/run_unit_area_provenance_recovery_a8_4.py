@@ -97,24 +97,7 @@ MASTER_INDEX_CSV = NWB_ARCHIVE_BASE / "all_units_master_index.csv"
 
 # ── Utility functions ─────────────────────────────────────────────────────────
 
-def get_git_commit():
-    try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"],
-                             capture_output=True, text=True, check=True)
-        return res.stdout.strip()
-    except Exception:
-        return "unknown"
-
-
-def sha256_file(path):
-    h = hashlib.sha256()
-    try:
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(65536), b""):
-                h.update(chunk)
-        return h.hexdigest()
-    except Exception:
-        return "hash_unavailable"
+from src.analysis.io.utils import get_git_commit, sha256_file, write_csv
 
 
 def extract_probe_id(source_file: str) -> str:
@@ -412,13 +395,6 @@ def build_recovery_table(a8_1_rows, nwb_profile, a8_3_status, a8_2_keys, geom_so
     return long_rows, status_counts
 
 
-# ── Output writers ────────────────────────────────────────────────────────────
-
-def write_csv(path: Path, rows: list, fieldnames: list):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

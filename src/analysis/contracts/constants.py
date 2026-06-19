@@ -139,3 +139,42 @@ REQUIRED_SIGNAL_BLOCK_FIELDS = (
     "truth_status"
 )
 
+
+def get_condition_family(condition):
+    if not condition:
+        return "Unknown"
+    cond_upper = condition.upper()
+    if any(tok in cond_upper for tok in ["AAAB", "AXAB", "AAXB", "AAAX"]):
+        return "A-family"
+    elif any(tok in cond_upper for tok in ["BBBA", "BXBA", "BBXA", "BBBX"]):
+        return "B-family"
+    elif any(tok in cond_upper for tok in ["RRRR", "RXRR", "RRXR", "RRRX"]):
+        return "R-family"
+    return "Unknown"
+
+
+def get_omission_position(condition):
+    if not condition:
+        return "None"
+    cond_upper = condition.upper()
+    if any(tok in cond_upper for tok in ["AXAB", "BXBA", "RXRR"]):
+        return "p2"
+    elif any(tok in cond_upper for tok in ["AAXB", "BBXA", "RRXR"]):
+        return "p3"
+    elif any(tok in cond_upper for tok in ["AAAX", "BBBX", "RRRX"]):
+        return "p4"
+    return "None"
+
+
+def get_matched_control(condition):
+    if not condition:
+        return "Unknown"
+    cond_upper = condition.upper()
+    if any(tok in cond_upper for tok in ["AAAB", "AXAB", "AAXB", "AAAX"]):
+        return "AAAB"
+    elif any(tok in cond_upper for tok in ["BBBA", "BXBA", "BBXA", "BBBX"]):
+        return "BBBA"
+    elif any(tok in cond_upper for tok in ["RRRR", "RXRR", "RRXR", "RRRX"]):
+        return "RRRR"
+    return "Unknown"
+

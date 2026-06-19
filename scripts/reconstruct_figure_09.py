@@ -18,13 +18,7 @@ import numpy as np
 REPO_ROOT = Path(r"D:/workspace/omission")
 OUTPUT_ROOT = REPO_ROOT / "outputs/publication_figures/fig04_09_reconstruction/figure_09"
 
-def get_git_info():
-    try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout.strip()
-        branch = subprocess.run(["git", "branch", "--show-current"], cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout.strip()
-        return {"sha": sha, "branch": branch}
-    except Exception:
-        return {"sha": "unknown", "branch": "unknown"}
+from src.analysis.io.utils import get_git_info
 
 def main():
     print("=" * 70)
@@ -38,7 +32,7 @@ def main():
     print("  - No causality claims without further validation")
     print("  - Beta/gamma harmony matrices as primary visualization")
     
-    git_info = get_git_info()
+    git_info = get_git_info(cwd=REPO_ROOT)
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
     (OUTPUT_ROOT / "arrays").mkdir(exist_ok=True)
     (OUTPUT_ROOT / "tables").mkdir(exist_ok=True)

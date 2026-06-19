@@ -62,23 +62,7 @@ VALID_RESOLUTION_STATUSES = {
 }
 
 
-def get_git_commit():
-    try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        return res.stdout.strip()
-    except Exception:
-        return "unknown"
-
-
-def sha256_file(path):
-    h = hashlib.sha256()
-    try:
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(65536), b""):
-                h.update(chunk)
-        return h.hexdigest()
-    except Exception:
-        return "hash_unavailable"
+from src.analysis.io.utils import get_git_commit, sha256_file, write_csv
 
 
 def parse_args():
@@ -346,11 +330,6 @@ def build_join_integrity_report(a8_1_keys, a8_2_keys, long_rows, a8_2_only, a8_1
     return rows
 
 
-def write_csv(path, rows, fieldnames):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def main():

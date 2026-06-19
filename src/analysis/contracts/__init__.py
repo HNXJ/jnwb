@@ -32,5 +32,8 @@ __all__ = [
     "make_bounded_fixture_slice",
     "load_bounded_real_slice",
     "ManifestScaffoldCandidate",
-    "ManifestScaffoldReport"
+    "ManifestScaffoldReport",
+    "get_condition_family",
+    "get_omission_position",
+    "get_matched_control"
 ]
