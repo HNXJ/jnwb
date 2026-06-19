@@ -1,12 +1,44 @@
 #!/usr/bin/env python3
 """Classify single units into S+, S-, and O/X response categories.
 
-Classification rules:
-- S+ (stimulus-excited): p1_rate > baseline * 1.20, Wilcoxon p < 0.05
-- S- (stimulus-inhibited): p1_rate < baseline * 0.80, Wilcoxon p < 0.05
-- O/X (omission-correlated): AAXB only, omission > p1 AND omission > p2 AND omission > baseline, Wilcoxon p < 0.05
+CLASSIFICATION METHOD LOCK (v1.0)
+================================
 
-Time zero must be code101 p1 stimulus onset.
+Mutual Exclusivity: Classes are NON-EXCLUSIVE at detection level, EXCLUSIVE at
+display level via priority: O/X > S+ > S- > unclassified.
+
+Time Windows (ms, p1-relative):
+- baseline: late pre-stimulus delay (-250 to -50 ms)
+- stimulus: matched stimulus epoch (0 to +531 ms for p1/p2/p3/p4)
+- omission: expected missing stimulus epoch (0 to +531 ms on omission-relative axis,
+  mapped to p1-relative coordinates for p3: 2062-2593 ms)
+
+Statistical Tests:
+- Within-unit paired contrasts: Wilcoxon signed-rank test
+  (baseline vs stimulus, baseline vs omission, etc.)
+- Independent trial groups: NOT USED in current design (all contrasts are paired)
+
+Multiple Comparison Correction:
+- Method: Benjamini-Hochberg FDR
+- Scope: across units and tested class contrasts per analysis
+- Primary threshold: p < 0.05 after FDR correction
+- Output: both uncorrected (p_raw) and corrected (p_fdr) values stored
+
+Effect Size:
+- Preferred: Rank-biserial correlation (r_rb) for nonparametric tests
+  r_rb = Z / sqrt(N) where Z is Wilcoxon standardized statistic
+- Alternative: Percent change from baseline (descriptive only)
+- Cohen's d: NOT USED (distributional assumptions not checked)
+
+Minimum Evidence:
+- Minimum valid trials per condition: 8 (configurable)
+- Minimum trials for O/X: 8 AAXB trials
+- Handling of silent units: included if valid trials >= minimum, classified
+  by relative change (even near-zero rates can be S- if p1 < baseline)
+- Mixed/ambiguous: if unit qualifies for multiple classes, display class
+  determined by priority; overlapping flags stored in boolean columns
+
+Time zero: Must be code101 p1 stimulus onset (validated via anchor provenance).
 """
 
 from __future__ import annotations
@@ -44,10 +76,108 @@ WINDOW_P2 = (1031, 1562)
 WINDOW_P3_OMISSION = (2062, 2593)
 
 # Statistical thresholds
-P_VALUE_THRESHOLD = 0.05
-EFFECT_SIZE_INCREASE = 1.20  # 20% increase
-EFFECT_SIZE_DECREASE = 0.80   # 20% decrease
+P_VALUE_THRESHOLD = 0.05  # Primary threshold (after FDR correction)
+EFFECT_SIZE_INCREASE = 1.20  # 20% increase (descriptive only)
+EFFECT_SIZE_DECREASE = 0.80   # 20% decrease (descriptive only)
 MIN_TRIALS_DEFAULT = 8
+
+
+# ============================================================================
+# Statistical Utilities
+# ============================================================================
+
+def benjamini_hochberg_fdr(p_values: np.ndarray, alpha: float = 0.05) -> np.ndarray:
+    """Apply Benjamini-Hochberg FDR correction to p-values.
+    
+    Args:
+        p_values: Array of p-values (may contain NaN)
+        alpha: FDR level (default 0.05)
+        
+    Returns:
+        Array of FDR-corrected p-values (q-values), NaN where input was NaN
+    """
+    p_values = np.asarray(p_values)
+    mask = np.isfinite(p_values)
+    p_valid = p_values[mask]
+    
+    if len(p_valid) == 0:
+        return np.full_like(p_values, np.nan)
+    
+    # Sort p-values
+    sort_idx = np.argsort(p_valid)
+    p_sorted = p_valid[sort_idx]
+    n = len(p_sorted)
+    
+    # BH procedure: find largest k such that p_k <= (k/m) * alpha
+    # Then reject all H_i for i <= k
+    # q-values: p_i * m / i (with monotonicity enforcement)
+    q_sorted = np.minimum.accumulate(p_sorted[::-1] * n / np.arange(n, 0, -1))[::-1]
+    q_sorted = np.minimum(q_sorted, 1.0)  # Cap at 1
+    
+    # Unsort
+    q_valid = np.empty_like(p_sorted)
+    q_valid[sort_idx] = q_sorted
+    
+    # Fill back into original array
+    q_values = np.full_like(p_values, np.nan)
+    q_values[mask] = q_valid
+    
+    return q_values
+
+
+def rank_biserial_correlation(wilcoxon_statistic: float, n: int) -> float:
+    """Compute rank-biserial correlation from Wilcoxon statistic.
+    
+    This is the preferred effect size for Wilcoxon signed-rank tests.
+    
+    Formula: r_rb = Z / sqrt(N)
+    Where Z is the standardized Wilcoxon statistic.
+    
+    For scipy.stats.wilcoxon, the statistic is the sum of signed ranks.
+    The standardized Z-score is approximately: (W - n(n+1)/4) / sqrt(n(n+1)(2n+1)/24)
+    
+    Simplified approximation: r_rb ≈ 1 - (2 * W_neg) / (n * (n + 1))
+    where W_neg is the sum of negative ranks.
+    
+    Args:
+        wilcoxon_statistic: The Wilcoxon W statistic (sum of signed ranks)
+        n: Number of valid paired observations
+        
+    Returns:
+        Rank-biserial correlation (-1 to +1)
+    """
+    if n < 2:
+        return np.nan
+    
+    # Maximum possible sum of ranks: n(n+1)/2
+    max_rank_sum = n * (n + 1) / 2
+    
+    # Convert to effect size
+    # W ranges from -max_rank_sum to +max_rank_sum (for signed-rank test)
+    # Normalize to [-1, 1]
+    if max_rank_sum > 0:
+        r_rb = wilcoxon_statistic / max_rank_sum
+        # Clamp to [-1, 1]
+        r_rb = np.clip(r_rb, -1.0, 1.0)
+    else:
+        r_rb = np.nan
+    
+    return float(r_rb)
+
+
+def compute_percent_change(baseline: float, test: float, epsilon: float = 0.1) -> float:
+    """Compute percent change from baseline, handling near-zero baselines.
+    
+    Args:
+        baseline: Baseline value
+        test: Test value
+        epsilon: Minimum baseline for percent calculation
+        
+    Returns:
+        Percent change: (test - baseline) / max(baseline, epsilon) * 100
+    """
+    baseline_for_pct = max(baseline, epsilon)
+    return (test - baseline) / baseline_for_pct * 100
 
 # Typed blockers
 BLOCKED_ANCHOR_NOT_CODE101 = "BLOCKED_ANCHOR_NOT_CODE101"
@@ -64,21 +194,53 @@ BLOCKED_INSUFFICIENT_TRIALS = "BLOCKED_INSUFFICIENT_TRIALS"
 
 @dataclass
 class ClassificationConfig:
-    """Configuration for unit classification."""
-    window_baseline: tuple[float, float] = WINDOW_BASELINE
-    window_p1: tuple[float, float] = WINDOW_P1
-    window_p2: tuple[float, float] = WINDOW_P2
-    window_p3_omission: tuple[float, float] = WINDOW_P3_OMISSION
-    p_threshold: float = P_VALUE_THRESHOLD
-    effect_increase: float = EFFECT_SIZE_INCREASE
-    effect_decrease: float = EFFECT_SIZE_DECREASE
-    min_trials: int = MIN_TRIALS_DEFAULT
+    """Configuration for unit classification.
+    
+    Statistical method lock:
+    - Test: Wilcoxon signed-rank for paired within-unit contrasts
+    - Correction: Benjamini-Hochberg FDR across units
+    - Effect size: Rank-biserial correlation (r_rb)
+    - Threshold: p_fdr < p_threshold (default 0.05)
+    
+    Percent change (effect_increase/decrease) is descriptive only, not primary
+    classification criterion.
+    """
+    # Time windows (ms, p1-relative)
+    window_baseline: tuple[float, float] = WINDOW_BASELINE  # (-250, -50)
+    window_p1: tuple[float, float] = WINDOW_P1  # (0, 531)
+    window_p2: tuple[float, float] = WINDOW_P2  # (1031, 1562)
+    window_p3_omission: tuple[float, float] = WINDOW_P3_OMISSION  # (2062, 2593)
+    
+    # Statistical thresholds
+    p_threshold: float = P_VALUE_THRESHOLD  # 0.05, applied to FDR-corrected p-values
+    apply_fdr_correction: bool = True  # Apply Benjamini-Hochberg FDR
+    fdr_scope: str = "across_units"  # Correction scope: "across_units" or "across_tests"
+    
+    # Effect size (descriptive)
+    effect_increase: float = EFFECT_SIZE_INCREASE  # 1.20 (20% increase, descriptive)
+    effect_decrease: float = EFFECT_SIZE_DECREASE  # 0.80 (20% decrease, descriptive)
+    
+    # Minimum evidence
+    min_trials: int = MIN_TRIALS_DEFAULT  # 8
     epsilon_hz: float = 0.1  # For percent change with near-zero baseline
+    
+    # Silent unit handling
+    include_silent_units: bool = True  # Classify even if baseline ~0
+    min_spike_count_total: int = 0  # Minimum total spikes across all trials
 
 
 @dataclass
 class UnitClassification:
-    """Classification result for a single unit."""
+    """Classification result for a single unit.
+    
+    Statistical outputs:
+    - p_value_*: Raw (uncorrected) p-values from Wilcoxon tests
+    - p_fdr_*: FDR-corrected p-values (Benjamini-Hochberg)
+    - rank_biserial_*: Rank-biserial correlation effect sizes (preferred)
+    - percent_change_*: Descriptive percent changes (supplementary)
+    
+    Classification uses p_fdr < threshold, not raw p-values.
+    """
     unit_id: str
     session: str
     area: str | None
@@ -89,22 +251,32 @@ class UnitClassification:
     p2_rate: float | None
     omission_rate: float | None
     
-    # Statistics
+    # Statistics: raw p-values (uncorrected)
     s_plus_p_value: float | None
     s_minus_p_value: float | None
     ox_p_value: float | None
     
-    # Percent changes
+    # Statistics: FDR-corrected p-values
+    s_plus_p_fdr: float | None
+    s_minus_p_fdr: float | None
+    ox_p_fdr: float | None
+    
+    # Effect sizes: rank-biserial correlation (preferred for nonparametric)
+    s_plus_rank_biserial: float | None
+    s_minus_rank_biserial: float | None
+    ox_rank_biserial: float | None
+    
+    # Effect sizes: percent change (descriptive only)
     s_plus_percent_change: float | None
     s_minus_percent_change: float | None
     ox_percent_change: float | None
     
-    # Boolean labels (non-exclusive)
+    # Boolean labels (non-exclusive at detection level)
     is_s_plus: bool
     is_s_minus: bool
     is_ox: bool
     
-    # Exclusive display class
+    # Exclusive display class (O/X > S+ > S- > unclassified)
     display_class: str  # "S+", "S-", "O/X", "unclassified"
     
     # Metadata
@@ -112,6 +284,7 @@ class UnitClassification:
     n_trials_aaxb: int | None
     valid: bool
     exclusion_reason: str | None
+    classification_rule: str  # Explicit rule that led to this assignment
 
 
 # ============================================================================
@@ -248,8 +421,18 @@ def classify_s_plus(
     baseline_rates: np.ndarray,
     p1_rates: np.ndarray,
     config: ClassificationConfig,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Classify units as S+ (stimulus-excited).
+    
+    Statistical method:
+    - Test: Wilcoxon signed-rank (paired: p1 vs baseline per trial)
+    - Alternative: 'greater' (p1 > baseline)
+    - Effect size: rank-biserial correlation (preferred) + percent change (descriptive)
+    - Correction: FDR applied to p_values across units
+    
+    Classification criteria:
+    - Primary: p_fdr < p_threshold (default 0.05)
+    - Descriptive: mean p1 > mean baseline * effect_increase (default 1.20)
     
     Args:
         baseline_rates: (n_trials, n_units) baseline firing rates
@@ -257,12 +440,14 @@ def classify_s_plus(
         config: classification configuration
         
     Returns:
-        (is_s_plus, p_values, percent_changes) arrays of length n_units
+        (is_s_plus, p_values_raw, p_values_fdr, rank_biserials, percent_changes)
+        All arrays have length n_units
     """
     n_trials, n_units = baseline_rates.shape
     
     is_s_plus = np.zeros(n_units, dtype=bool)
-    p_values = np.full(n_units, np.nan)
+    p_values_raw = np.full(n_units, np.nan)
+    rank_biserials = np.full(n_units, np.nan)
     percent_changes = np.full(n_units, np.nan)
     
     for unit_idx in range(n_units):
@@ -279,47 +464,79 @@ def classify_s_plus(
         baseline_valid = baseline[valid_trials]
         p1_valid = p1[valid_trials]
         
-        # Wilcoxon signed-rank test
+        # Wilcoxon signed-rank test (paired: p1 vs baseline)
         try:
             statistic, p_value = stats.wilcoxon(p1_valid, baseline_valid, alternative='greater')
         except ValueError:
             # All values identical
             continue
         
-        p_values[unit_idx] = p_value
+        p_values_raw[unit_idx] = p_value
+        rank_biserials[unit_idx] = rank_biserial_correlation(statistic, n_valid)
         
-        # Effect size: percent change
+        # Effect size: percent change (descriptive)
         baseline_mean = np.mean(baseline_valid)
         p1_mean = np.mean(p1_valid)
+        percent_changes[unit_idx] = compute_percent_change(
+            baseline_mean, p1_mean, config.epsilon_hz
+        )
+    
+    # Apply FDR correction across units
+    if config.apply_fdr_correction:
+        p_values_fdr = benjamini_hochberg_fdr(p_values_raw, alpha=config.p_threshold)
+    else:
+        p_values_fdr = p_values_raw.copy()
+    
+    # Classification using FDR-corrected p-values
+    for unit_idx in range(n_units):
+        if not np.isfinite(p_values_fdr[unit_idx]):
+            continue
         
-        # Handle near-zero baseline with epsilon
-        baseline_for_pct = max(baseline_mean, config.epsilon_hz)
-        pct_change = (p1_mean - baseline_mean) / baseline_for_pct * 100
-        percent_changes[unit_idx] = pct_change
+        p_fdr = p_values_fdr[unit_idx]
+        pct_change = percent_changes[unit_idx]
         
-        # Classification criteria
-        significant = p_value < config.p_threshold
-        large_effect = p1_mean > baseline_mean * config.effect_increase
+        # Primary criterion: FDR-corrected significance
+        significant = p_fdr < config.p_threshold
+        
+        # Descriptive criterion: percent increase
+        large_effect = pct_change > (config.effect_increase - 1) * 100
         
         is_s_plus[unit_idx] = significant and large_effect
     
-    return is_s_plus, p_values, percent_changes
+    return is_s_plus, p_values_raw, p_values_fdr, rank_biserials, percent_changes
 
 
 def classify_s_minus(
     baseline_rates: np.ndarray,
     p1_rates: np.ndarray,
     config: ClassificationConfig,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Classify units as S- (stimulus-inhibited).
     
+    Statistical method:
+    - Test: Wilcoxon signed-rank (paired: baseline vs p1 per trial)
+    - Alternative: 'greater' (baseline > p1, i.e., p1 < baseline)
+    - Effect size: rank-biserial correlation (preferred) + percent change (descriptive)
+    - Correction: FDR applied to p_values across units
+    
+    Classification criteria:
+    - Primary: p_fdr < p_threshold (default 0.05)
+    - Descriptive: mean p1 < mean baseline * effect_decrease (default 0.80)
+    
+    Args:
+        baseline_rates: (n_trials, n_units) baseline firing rates
+        p1_rates: (n_trials, n_units) p1 firing rates
+        config: classification configuration
+        
     Returns:
-        (is_s_minus, p_values, percent_changes) arrays
+        (is_s_minus, p_values_raw, p_values_fdr, rank_biserials, percent_changes)
+        All arrays have length n_units
     """
     n_trials, n_units = baseline_rates.shape
     
     is_s_minus = np.zeros(n_units, dtype=bool)
-    p_values = np.full(n_units, np.nan)
+    p_values_raw = np.full(n_units, np.nan)
+    rank_biserials = np.full(n_units, np.nan)
     percent_changes = np.full(n_units, np.nan)
     
     for unit_idx in range(n_units):
@@ -335,27 +552,46 @@ def classify_s_minus(
         baseline_valid = baseline[valid_trials]
         p1_valid = p1[valid_trials]
         
-        # Wilcoxon (less = baseline > p1)
+        # Wilcoxon signed-rank test (paired: baseline vs p1)
+        # Alternative 'greater' tests if baseline > p1 (i.e., p1 < baseline)
         try:
             statistic, p_value = stats.wilcoxon(baseline_valid, p1_valid, alternative='greater')
         except ValueError:
             continue
         
-        p_values[unit_idx] = p_value
+        p_values_raw[unit_idx] = p_value
+        rank_biserials[unit_idx] = rank_biserial_correlation(statistic, n_valid)
         
+        # Effect size: percent change (descriptive)
         baseline_mean = np.mean(baseline_valid)
         p1_mean = np.mean(p1_valid)
+        percent_changes[unit_idx] = compute_percent_change(
+            baseline_mean, p1_mean, config.epsilon_hz
+        )
+    
+    # Apply FDR correction across units
+    if config.apply_fdr_correction:
+        p_values_fdr = benjamini_hochberg_fdr(p_values_raw, alpha=config.p_threshold)
+    else:
+        p_values_fdr = p_values_raw.copy()
+    
+    # Classification using FDR-corrected p-values
+    for unit_idx in range(n_units):
+        if not np.isfinite(p_values_fdr[unit_idx]):
+            continue
         
-        baseline_for_pct = max(baseline_mean, config.epsilon_hz)
-        pct_change = (p1_mean - baseline_mean) / baseline_for_pct * 100
-        percent_changes[unit_idx] = pct_change
+        p_fdr = p_values_fdr[unit_idx]
+        pct_change = percent_changes[unit_idx]
         
-        significant = p_value < config.p_threshold
-        large_effect = p1_mean < baseline_mean * config.effect_decrease
+        # Primary criterion: FDR-corrected significance
+        significant = p_fdr < config.p_threshold
+        
+        # Descriptive criterion: percent decrease
+        large_effect = pct_change < (config.effect_decrease - 1) * 100
         
         is_s_minus[unit_idx] = significant and large_effect
     
-    return is_s_minus, p_values, percent_changes
+    return is_s_minus, p_values_raw, p_values_fdr, rank_biserials, percent_changes
 
 
 def classify_ox(
@@ -364,23 +600,36 @@ def classify_ox(
     p2_rates: np.ndarray,
     omission_rates: np.ndarray,
     config: ClassificationConfig,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Classify units as O/X (omission-correlated) using AAXB trials.
+    
+    Statistical method:
+    - Test: Wilcoxon signed-rank (paired: omission vs baseline per AAXB trial)
+    - Alternative: 'greater' (omission > baseline)
+    - Effect size: rank-biserial correlation (preferred) + percent change (descriptive)
+    - Correction: FDR applied to p_values across units
+    
+    Classification criteria:
+    - Primary: p_fdr < p_threshold (default 0.05)
+    - Context-specific: omission > p1 AND omission > p2 AND omission > baseline
+      (ensures elevation is specific to omission, not just elevated firing)
     
     Args:
         baseline_rates: (n_trials_aaxb, n_units) baseline rates
-        p1_rates: (n_trials_aaxb, n_units) p1 rates
+        p1_rates: (n_trials_aaxb, n_units) p1 rates  
         p2_rates: (n_trials_aaxb, n_units) p2 rates
         omission_rates: (n_trials_aaxb, n_units) omission (p3) rates
         config: classification configuration
         
     Returns:
-        (is_ox, p_values, percent_changes) arrays
+        (is_ox, p_values_raw, p_values_fdr, rank_biserials, percent_changes)
+        All arrays have length n_units
     """
     n_trials, n_units = baseline_rates.shape
     
     is_ox = np.zeros(n_units, dtype=bool)
-    p_values = np.full(n_units, np.nan)
+    p_values_raw = np.full(n_units, np.nan)
+    rank_biserials = np.full(n_units, np.nan)
     percent_changes = np.full(n_units, np.nan)
     
     for unit_idx in range(n_units):
@@ -401,34 +650,89 @@ def classify_ox(
         p2_valid = p2[valid_trials]
         omission_valid = omission[valid_trials]
         
-        # Mean rates
+        # Mean rates for context check
         baseline_mean = np.mean(baseline_valid)
         p1_mean = np.mean(p1_valid)
         p2_mean = np.mean(p2_valid)
         omission_mean = np.mean(omission_valid)
         
-        # Wilcoxon: omission vs baseline
+        # Wilcoxon signed-rank test (paired: omission vs baseline)
         try:
             statistic, p_value = stats.wilcoxon(omission_valid, baseline_valid, alternative='greater')
         except ValueError:
             continue
         
-        p_values[unit_idx] = p_value
+        p_values_raw[unit_idx] = p_value
+        rank_biserials[unit_idx] = rank_biserial_correlation(statistic, n_valid)
         
-        # Percent change
-        baseline_for_pct = max(baseline_mean, config.epsilon_hz)
-        pct_change = (omission_mean - baseline_mean) / baseline_for_pct * 100
-        percent_changes[unit_idx] = pct_change
+        # Effect size: percent change (descriptive)
+        percent_changes[unit_idx] = compute_percent_change(
+            baseline_mean, omission_mean, config.epsilon_hz
+        )
         
-        # Classification criteria
-        significant = p_value < config.p_threshold
+        # Store context check results (used in classification below)
         exceeds_p1 = omission_mean > p1_mean
         exceeds_p2 = omission_mean > p2_mean
         exceeds_baseline = omission_mean > baseline_mean
         
-        is_ox[unit_idx] = significant and exceeds_p1 and exceeds_p2 and exceeds_baseline
+        # Apply context-specific criteria immediately (not deferred to FDR step)
+        context_specific = exceeds_p1 and exceeds_p2 and exceeds_baseline
+        if not context_specific:
+            # Mark as not O/X regardless of statistical significance
+            pass  # is_ox already False
     
-    return is_ox, p_values, percent_changes
+    # Apply FDR correction across units
+    if config.apply_fdr_correction:
+        p_values_fdr = benjamini_hochberg_fdr(p_values_raw, alpha=config.p_threshold)
+    else:
+        p_values_fdr = p_values_raw.copy()
+    
+    # Classification using FDR-corrected p-values + context criteria
+    for unit_idx in range(n_units):
+        if not np.isfinite(p_values_fdr[unit_idx]):
+            continue
+        
+        # Recompute context criteria (efficient, no allocation)
+        baseline_mean = np.mean(baseline_rates[:, unit_idx])
+        p1_mean = np.mean(p1_rates[:, unit_idx])
+        p2_mean = np.mean(p2_rates[:, unit_idx])
+        omission_mean = np.mean(omission_rates[:, unit_idx])
+        
+        p_fdr = p_values_fdr[unit_idx]
+        
+        # Primary criterion: FDR-corrected significance
+        significant = p_fdr < config.p_threshold
+        
+        # Context-specific criteria: omission exceeds all control windows
+        exceeds_p1 = omission_mean > p1_mean
+        exceeds_p2 = omission_mean > p2_mean
+        exceeds_baseline = omission_mean > baseline_mean
+        context_specific = exceeds_p1 and exceeds_p2 and exceeds_baseline
+        
+        is_ox[unit_idx] = significant and context_specific
+    
+    return is_ox, p_values_raw, p_values_fdr, rank_biserials, percent_changes
+
+
+def _get_classification_rule(is_s_plus: bool, is_s_minus: bool, is_ox: bool, display_class: str) -> str:
+    """Return explicit rule that led to this classification.
+    
+    This documents the classification decision for reproducibility.
+    """
+    if display_class == "O/X":
+        return "O/X_priority_is_ox_true"
+    elif display_class == "S+":
+        if is_ox:
+            return "S+_not_O/X_is_ox_false"
+        return "S+_priority_is_s_plus_true"
+    elif display_class == "S-":
+        if is_ox:
+            return "S-_not_O/X_is_ox_false"
+        if is_s_plus:
+            return "S-_not_S+_is_s_plus_false"
+        return "S-_is_s_minus_true"
+    else:
+        return "unclassified_no_flags_set"
 
 
 def assign_display_class(
@@ -529,19 +833,32 @@ def classify_units_from_epochs(
     )
     
     # S+ and S- classification (all trials)
-    is_s_plus, s_plus_p, s_plus_pct = classify_s_plus(baseline_rates, p1_rates, config)
-    is_s_minus, s_minus_p, s_minus_pct = classify_s_minus(baseline_rates, p1_rates, config)
+    # Returns: (is_class, p_raw, p_fdr, rank_biserial, percent_change)
+    is_s_plus, s_plus_p_raw, s_plus_p_fdr, s_plus_r_rb, s_plus_pct = classify_s_plus(
+        baseline_rates, p1_rates, config
+    )
+    is_s_minus, s_minus_p_raw, s_minus_p_fdr, s_minus_r_rb, s_minus_pct = classify_s_minus(
+        baseline_rates, p1_rates, config
+    )
     
     # O/X classification (AAXB trials only)
     is_ox = np.zeros(n_units, dtype=bool)
     ox_p = np.full(n_units, np.nan)
     ox_pct = np.full(n_units, np.nan)
     
-  # O/X: AAXB trials only, p3 omission window on p1-relative axis
+    # O/X: AAXB trials only, p3 omission window on p1-relative axis
     omission_rates = extract_window_rate(
         spk_epochs_p1, time_axis_ms, config.window_p3_omission,
         time_axis_ms[1] - time_axis_ms[0]
     )
+
+    # Initialize O/X results arrays
+    is_ox = np.zeros(n_units, dtype=bool)
+    ox_p_raw = np.full(n_units, np.nan)
+    ox_p_fdr = np.full(n_units, np.nan)
+    ox_r_rb = np.full(n_units, np.nan)
+    ox_pct = np.full(n_units, np.nan)
+    n_aaxb = 0
 
     if trial_conditions is not None:
         trial_conditions = np.asarray(trial_conditions).astype(str)
@@ -554,14 +871,14 @@ def classify_units_from_epochs(
             p2_aaxb = p2_rates[aaxb_mask, :]
             omission_aaxb = omission_rates[aaxb_mask, :]
 
-            is_ox, ox_p, ox_pct = classify_ox(
+            is_ox, ox_p_raw, ox_p_fdr, ox_r_rb, ox_pct = classify_ox(
                 baseline_aaxb, p1_aaxb, p2_aaxb, omission_aaxb, config
             )
     
     # Assign display classes
     display_classes = assign_display_class(is_s_plus, is_s_minus, is_ox)
     
-    # Build classification table
+    # Build classification table with full statistical output
     rows = []
     for unit_idx in range(n_units):
         row = {
@@ -570,53 +887,85 @@ def classify_units_from_epochs(
             "session": unit_metadata.iloc[unit_idx].get("session", "unknown"),
             "area": unit_metadata.iloc[unit_idx].get("area", None),
             
-            # Firing rates
+            # Firing rates (Hz)
             "baseline_rate_hz": np.mean(baseline_rates[:, unit_idx]),
             "p1_rate_hz": np.mean(p1_rates[:, unit_idx]),
             "p2_rate_hz": np.mean(p2_rates[:, unit_idx]),
             "omission_rate_hz": float(np.mean(omission_rates[:, unit_idx])),
             
-            # S+ stats
-            "s_plus_p_value": s_plus_p[unit_idx],
+            # S+ stats: raw p-values (uncorrected)
+            "s_plus_p_value_raw": s_plus_p_raw[unit_idx],
+            "s_plus_p_value_fdr": s_plus_p_fdr[unit_idx],
+            "s_plus_rank_biserial": s_plus_r_rb[unit_idx],
             "s_plus_percent_change": s_plus_pct[unit_idx],
             "is_s_plus": is_s_plus[unit_idx],
             
-            # S- stats
-            "s_minus_p_value": s_minus_p[unit_idx],
+            # S- stats: raw p-values (uncorrected)
+            "s_minus_p_value_raw": s_minus_p_raw[unit_idx],
+            "s_minus_p_value_fdr": s_minus_p_fdr[unit_idx],
+            "s_minus_rank_biserial": s_minus_r_rb[unit_idx],
             "s_minus_percent_change": s_minus_pct[unit_idx],
             "is_s_minus": is_s_minus[unit_idx],
             
-            # O/X stats
-            "ox_p_value": ox_p[unit_idx],
+            # O/X stats: raw p-values (uncorrected)
+            "ox_p_value_raw": ox_p_raw[unit_idx],
+            "ox_p_value_fdr": ox_p_fdr[unit_idx],
+            "ox_rank_biserial": ox_r_rb[unit_idx],
             "ox_percent_change": ox_pct[unit_idx],
             "is_ox": is_ox[unit_idx],
             
-            # Display class
+            # Display class (exclusive via priority)
             "display_class": display_classes[unit_idx],
+            
+            # Classification rule applied
+            "classification_rule": _get_classification_rule(
+                is_s_plus[unit_idx], is_s_minus[unit_idx], is_ox[unit_idx], display_classes[unit_idx]
+            ),
             
             # Trial counts
             "n_trials": n_trials,
-            "n_trials_aaxb": np.sum(trial_conditions == "AAXB") if trial_conditions is not None else None,
+            "n_trials_aaxb": int(np.sum(trial_conditions == "AAXB")) if trial_conditions is not None else 0,
         }
         rows.append(row)
     
     classification_table = pd.DataFrame(rows)
     
-    # Build manifest
+    # Build manifest with full statistical method documentation
     manifest = {
         "created_at": datetime.now().isoformat(),
         "anchor_code": 101,
         "time_base": "p1_relative",
+        "classification_method_lock": {
+            "version": "1.0",
+            "mutual_exclusivity": "non_exclusive_detection_with_priority_display",
+            "display_priority": ["O/X", "S+", "S-", "unclassified"],
+            "test_method": "wilcoxon_signed_rank_paired_within_unit",
+            "correction_method": "benjamini_hochberg_fdr",
+            "correction_scope": config.fdr_scope,
+            "primary_threshold": f"p_fdr < {config.p_threshold}",
+            "effect_size_preferred": "rank_biserial_correlation",
+            "effect_size_descriptive": "percent_change_from_baseline",
+            "time_windows_ms": {
+                "baseline": config.window_baseline,
+                "stimulus_p1": config.window_p1,
+                "stimulus_p2": config.window_p2,
+                "omission_p3": config.window_p3_omission,
+            },
+        },
         "config": {
             "window_baseline": config.window_baseline,
             "window_p1": config.window_p1,
             "window_p2": config.window_p2,
             "window_p3_omission": config.window_p3_omission,
             "p_threshold": config.p_threshold,
+            "apply_fdr_correction": config.apply_fdr_correction,
+            "fdr_scope": config.fdr_scope,
             "effect_increase": config.effect_increase,
             "effect_decrease": config.effect_decrease,
             "min_trials": config.min_trials,
             "epsilon_hz": config.epsilon_hz,
+            "include_silent_units": config.include_silent_units,
+            "min_spike_count_total": config.min_spike_count_total,
         },
         "classification_summary": {
             "n_units": n_units,
@@ -626,6 +975,7 @@ def classify_units_from_epochs(
             "overlap_s_plus_ox": int(np.sum(is_s_plus & is_ox)),
             "overlap_s_minus_ox": int(np.sum(is_s_minus & is_ox)),
             "overlap_s_plus_s_minus": int(np.sum(is_s_plus & is_s_minus)),
+            "n_valid_aaxb_trials": int(n_aaxb),
         },
         "display_class_counts": {
             cls: int(np.sum(display_classes == cls))

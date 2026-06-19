@@ -1,0 +1,9 @@
+numpy
+plotly
+pandas
+pynwb
+fastapi
+uvicorn
+h5py
+nitime
+scipy

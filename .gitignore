@@ -7,6 +7,7 @@ __pycache__/
 .coverage
 htmlcov/
 *.pyc
+*.egg-info/
 
 # environments
 .venv/
@@ -23,6 +24,7 @@ scratch/
 Export_Staging/
 context_for_agents/
 plans_for_agents/
+local/
 *.nwb
 *.mat
 *.h5
@@ -50,6 +52,9 @@ gallery_src/
 *.html
 *.svg
 *.png
+*.jpg
+*.jpeg
+*.h5py
 
 # non-source formats (repo is code + ipynb + markdown only)
 *.json
@@ -81,4 +86,3 @@ scripts/_*.py
 
 # Local configuration files
 notebooks/local_config.py
-

@@ -149,14 +149,15 @@ def test_synthetic_s_plus_unit_classified():
     # P1: higher rate (>20% increase, statistically significant)
     p1_rates = np.random.poisson(8, size=(n_trials, n_units)).astype(float)
     
-    is_s_plus, p_values, pct_changes = classify_s_plus(
+    is_s_plus, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_s_plus(
         baseline_rates, p1_rates, config
     )
     
     # Should classify as S+
     assert bool(is_s_plus[0])
-    assert p_values[0] < config.p_threshold
+    assert p_values_fdr[0] < config.p_threshold  # Check FDR-corrected
     assert pct_changes[0] > 0
+    assert np.isfinite(rank_biserials[0])  # Rank-biserial computed
 
 
 def test_synthetic_non_s_plus_unit_rejected():
@@ -171,7 +172,7 @@ def test_synthetic_non_s_plus_unit_rejected():
     baseline_rates = np.random.poisson(5, size=(n_trials, n_units)).astype(float)
     p1_rates = np.random.poisson(5, size=(n_trials, n_units)).astype(float)
     
-    is_s_plus, p_values, pct_changes = classify_s_plus(
+    is_s_plus, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_s_plus(
         baseline_rates, p1_rates, config
     )
     
@@ -196,13 +197,13 @@ def test_synthetic_s_minus_unit_classified():
     # P1: lower rate (<80% of baseline, statistically significant)
     p1_rates = np.random.poisson(4, size=(n_trials, n_units)).astype(float)
     
-    is_s_minus, p_values, pct_changes = classify_s_minus(
+    is_s_minus, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_s_minus(
         baseline_rates, p1_rates, config
     )
     
     # Should classify as S-
     assert bool(is_s_minus[0])
-    assert p_values[0] < config.p_threshold
+    assert p_values_fdr[0] < config.p_threshold  # Check FDR-corrected
     assert pct_changes[0] < 0
 
 
@@ -217,7 +218,7 @@ def test_synthetic_non_s_minus_unit_rejected():
     baseline_rates = np.random.poisson(5, size=(n_trials, n_units)).astype(float)
     p1_rates = np.random.poisson(5, size=(n_trials, n_units)).astype(float)
     
-    is_s_minus, p_values, pct_changes = classify_s_minus(
+    is_s_minus, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_s_minus(
         baseline_rates, p1_rates, config
     )
     
@@ -244,13 +245,13 @@ def test_synthetic_ox_unit_classified():
     # High omission rate
     omission_rates = np.random.poisson(10, size=(n_trials, n_units)).astype(float)
     
-    is_ox, p_values, pct_changes = classify_ox(
+    is_ox, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_ox(
         baseline_rates, p1_rates, p2_rates, omission_rates, config
     )
     
     # Should classify as O/X
     assert bool(is_ox[0])
-    assert p_values[0] < config.p_threshold
+    assert p_values_fdr[0] < config.p_threshold  # Check FDR-corrected
 
 
 def test_ox_requires_exceeding_p1_and_p2():
@@ -265,7 +266,7 @@ def test_ox_requires_exceeding_p1_and_p2():
     p2_rates = np.random.poisson(10, size=(n_trials, n_units)).astype(float)  # High p2
     omission_rates = np.random.poisson(8, size=(n_trials, n_units)).astype(float)  # Less than p1/p2
     
-    is_ox, p_values, pct_changes = classify_ox(
+    is_ox, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_ox(
         baseline_rates, p1_rates, p2_rates, omission_rates, config
     )
     
@@ -285,7 +286,7 @@ def test_ox_requires_exceeding_baseline():
     p2_rates = np.random.poisson(4, size=(n_trials, n_units)).astype(float)
     omission_rates = np.random.poisson(10, size=(n_trials, n_units)).astype(float)  # Less than baseline
     
-    is_ox, p_values, pct_changes = classify_ox(
+    is_ox, p_values_raw, p_values_fdr, rank_biserials, pct_changes = classify_ox(
         baseline_rates, p1_rates, p2_rates, omission_rates, config
     )
     

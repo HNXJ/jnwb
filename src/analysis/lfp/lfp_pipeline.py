@@ -84,7 +84,11 @@ def run_lfp_spectral_pipeline(area: str, condition: str, allow_channel_trim: boo
     # 4. Average across trials and channels for pop summary
     # We'll re-calculate TFR on averaged data for the heatmap to be super efficient
     avg_lfp = np.mean(lfp_clean, axis=(0, 1), keepdims=True)
-    f_sum, t_sum, p_sum = compute_multitaper_tfr(avg_lfp)
+    f_sum, t_sum, p_sum = compute_multitaper_tfr(
+        avg_lfp,
+        use_band_dependent_n_cycles=True,
+        band_time_support_ms=None,
+    )
     # p_sum shape is (1, 1, freqs, times)
 
     # Baseline Normalize the summary TFR (dB)

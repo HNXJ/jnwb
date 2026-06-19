@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from scipy import ndimage
 
 from scripts.classify_units_s_s_o import (
     BLOCKED_ANCHOR_CODE100,
@@ -237,18 +238,97 @@ def load_f005_inputs(
 
 
 def _baseline_window_mask(time_ms: np.ndarray) -> np.ndarray:
+    """Mask for baseline window (-500 to 0 ms relative to p1)."""
     return (time_ms >= -500) & (time_ms < 0)
 
 
-def _hz_traces(data: np.ndarray, bin_ms: float) -> np.ndarray:
-    return data / (bin_ms / 1000.0)
+def _gaussian_smooth_1d(trace: np.ndarray, sigma_ms: float, bin_ms: float) -> np.ndarray:
+    """Apply Gaussian smoothing to a 1D trace.
+    
+    Args:
+        trace: 1D array to smooth
+        sigma_ms: Gaussian sigma in milliseconds
+        bin_ms: Bin size in milliseconds
+        
+    Returns:
+        Smoothed trace (same length as input)
+    """
+    if sigma_ms <= 0:
+        return trace
+    
+    # Convert sigma from ms to bins
+    sigma_bins = sigma_ms / bin_ms
+    
+    # Create Gaussian kernel
+    # Kernel size: 6 sigma (3 on each side) is sufficient for 99.7% of mass
+    kernel_radius = int(np.ceil(3 * sigma_bins))
+    kernel_size = 2 * kernel_radius + 1
+    kernel = np.exp(-0.5 * (np.arange(kernel_size) - kernel_radius) ** 2 / sigma_bins ** 2)
+    kernel = kernel / kernel.sum()  # Normalize
+    
+    # Convolve with 'same' mode to preserve length
+    from scipy.ndimage import convolve1d
+    smoothed = convolve1d(trace, kernel, mode='constant', cval=0.0)
+    
+    return smoothed
+
+
+def _hz_traces(data: np.ndarray, bin_ms: float, sigma_ms: float = 25.0) -> np.ndarray:
+    """Convert spike counts to Hz and apply Gaussian smoothing.
+    
+    Pipeline: raw counts -> Hz conversion -> Gaussian smoothing
+    
+    Args:
+        data: Spike count array (..., n_time)
+        bin_ms: Bin width in milliseconds
+        sigma_ms: Gaussian smoothing sigma in milliseconds (default 25 ms)
+        
+    Returns:
+        Smoothed firing rate in Hz
+    """
+    # Convert to Hz
+    hz_data = data / (bin_ms / 1000.0)
+    
+    # Apply Gaussian smoothing along time axis
+    if hz_data.ndim == 1:
+        return _gaussian_smooth_1d(hz_data, sigma_ms, bin_ms)
+    elif hz_data.ndim == 3:
+        # (n_trials, n_units, n_time)
+        n_trials, n_units, n_time = hz_data.shape
+        smoothed = np.zeros_like(hz_data)
+        for trial_idx in range(n_trials):
+            for unit_idx in range(n_units):
+                smoothed[trial_idx, unit_idx, :] = _gaussian_smooth_1d(
+                    hz_data[trial_idx, unit_idx, :], sigma_ms, bin_ms
+                )
+        return smoothed
+    else:
+        # Fallback: no smoothing for unexpected dimensions
+        return hz_data
 
 
 def compute_class_condition_psths(
     inputs: F005LoadedInputs,
     display_class: str,
+    sigma_ms: float = 25.0,
 ) -> dict[str, dict[str, np.ndarray | int]]:
-    """Mean ± SEM PSTH per A-family condition for one display class."""
+    """Mean ± SEM PSTH per A-family condition for one display class.
+    
+    Pipeline:
+    1. Extract spike counts for trials of this condition
+    2. Convert to Hz (counts / bin_duration_sec)
+    3. Apply Gaussian smoothing (σ = sigma_ms, default 25 ms)
+    4. Subtract baseline (-500 to 0 ms relative to p1)
+    5. Average across trials and units
+    
+    Args:
+        inputs: F005LoadedInputs with epochs and classification
+        display_class: Class to compute PSTH for (S+, S-, O/X)
+        sigma_ms: Gaussian smoothing sigma in milliseconds
+        
+    Returns:
+        Dictionary mapping condition to PSTH curves with mean, sem, n_units, time_ms
+    """
     bin_ms = inputs.bin_ms
     curves: dict[str, dict[str, np.ndarray | int]] = {}
     time_ms_ref: np.ndarray | None = None
@@ -274,12 +354,17 @@ def compute_class_condition_psths(
             time_ms = sess["time_ms"]
             if time_ms_ref is None:
                 time_ms_ref = time_ms
-            rates = _hz_traces(data, bin_ms)
+            
+            # Convert to Hz with Gaussian smoothing
+            rates = _hz_traces(data, bin_ms, sigma_ms=sigma_ms)
+            
+            # Baseline subtraction (-500 to 0 ms relative to p1)
             base_mask = _baseline_window_mask(time_ms)
             if base_mask.any():
                 baseline = rates[:, :, base_mask].mean(axis=(0, 2), keepdims=True)
                 rates = rates - baseline
 
+            # Average across trials, keep per-unit traces
             unit_traces.append(rates.mean(axis=0))
 
         if not unit_traces or time_ms_ref is None:
@@ -294,7 +379,12 @@ def compute_class_condition_psths(
         n_units = int(stacked.shape[0])
         mean = stacked.mean(axis=0)
         sem = stacked.std(axis=0, ddof=1) / np.sqrt(n_units) if n_units > 1 else np.zeros_like(mean)
-        curves[condition] = {"mean": mean, "sem": sem, "n_units": n_units, "time_ms": time_ms_ref}
+        curves[condition] = {
+            "mean": mean,
+            "sem": sem,
+            "n_units": n_units,
+            "time_ms": time_ms_ref,
+        }
 
     return curves
 
@@ -318,7 +408,19 @@ def build_f005_category_figure(
     *,
     allow_unknown_area: bool = False,
     title: str = "f005 Single-Unit PSTH Categories (A-family, p1-aligned)",
+    sigma_ms: float = 25.0,
 ) -> go.Figure:
+    """Build f005 category PSTH figure with publication-grade smoothing.
+    
+    Args:
+        inputs: F005LoadedInputs with classification and epochs
+        allow_unknown_area: If True, show figure even with all-unknown areas
+        title: Figure title
+        sigma_ms: Gaussian smoothing sigma in milliseconds (default 25 ms)
+        
+    Returns:
+        Plotly figure object
+    """
     area_counts = compute_area_counts_by_class(inputs.classification)
     has_area_bars = (not allow_unknown_area) and any(len(v) > 0 for v in area_counts.values())
 
@@ -329,18 +431,22 @@ def build_f005_category_figure(
         cols=cols,
         shared_xaxes=True,
         column_widths=col_widths,
-        vertical_spacing=0.06,
-        horizontal_spacing=0.05,
+        vertical_spacing=0.08,  # Increased from 0.06 to reduce label overlap
+        horizontal_spacing=0.08,  # Increased from 0.05
         subplot_titles=[label for _, label in CLASS_ROWS],
     )
 
+    # Full-sequence time range: -500 to 4124 ms
+    # x_max should cover the full sequence
     x_max = max(
         (sess["time_ms"].max() for sess in inputs.sessions),
-        default=4000.0,
+        default=4124.0,
     )
+    x_max = min(x_max, 4200.0)  # Cap at 4200 ms
 
     for row_idx, (display_class, _) in enumerate(CLASS_ROWS, start=1):
-        curves = compute_class_condition_psths(inputs, display_class)
+        # Compute PSTHs with Gaussian smoothing
+        curves = compute_class_condition_psths(inputs, display_class, sigma_ms=sigma_ms)
         n_units_class = int(
             (inputs.classification["display_class"] == display_class).sum()
         )
@@ -353,6 +459,8 @@ def build_f005_category_figure(
             mean = np.asarray(curve["mean"])
             sem = np.asarray(curve["sem"])
             color = CONDITION_COLORS[condition]
+            
+            # Add SEM ribbon
             fig.add_trace(
                 go.Scatter(
                     x=time_ms,
@@ -379,6 +487,8 @@ def build_f005_category_figure(
                 row=row_idx,
                 col=1,
             )
+            
+            # Add mean trace
             fig.add_trace(
                 go.Scatter(
                     x=time_ms,
@@ -393,28 +503,79 @@ def build_f005_category_figure(
                 col=1,
             )
 
+        # Add event slot backgrounds (stimulus epochs)
         for slot, (x0, x1) in EVENT_SLOTS_MS.items():
+            # Light gray for stimulus epochs, slightly darker for omission
+            if slot == "p1":
+                fillcolor = "rgba(200, 200, 200, 0.1)"
+            else:
+                fillcolor = "rgba(200, 200, 200, 0.05)"
+            
             fig.add_vrect(
                 x0=x0,
                 x1=x1,
-                fillcolor="lightgray",
-                opacity=0.12,
+                fillcolor=fillcolor,
+                opacity=0.5,
                 line_width=0,
                 row=row_idx,
                 col=1,
             )
-        fig.add_vline(x=0, line_dash="dash", line_color="black", row=row_idx, col=1)
-        fig.update_yaxes(title_text="Δ rate (Hz)", row=row_idx, col=1)
+        
+        # Add vertical lines at event boundaries
+        fig.add_vline(x=0, line_dash="solid", line_color="black", line_width=1.5, row=row_idx, col=1)
+        for boundary_ms in [531, 1031, 1562, 2062, 2593, 3093, 3624]:
+            fig.add_vline(
+                x=boundary_ms, 
+                line_dash="dot", 
+                line_color="gray", 
+                line_width=0.5,
+                row=row_idx,
+                col=1,
+            )
+        
+        # Add omission highlights per condition
+        # AXAB: p2 omission (1031-1562 ms)
+        # AAXB: p3 omission (2062-2593 ms)  
+        # AAAX: p4 omission (3093-3624 ms)
+        omission_slots = {
+            "AXAB": (1031, 1562),
+            "AAXB": (2062, 2593),
+            "AAAX": (3093, 3624),
+        }
+        
+        for condition, (om_start, om_end) in omission_slots.items():
+            fig.add_vrect(
+                x0=om_start,
+                x1=om_end,
+                fillcolor=CONDITION_COLORS[condition],
+                opacity=0.05,  # Very subtle highlight
+                line_width=0,
+                row=row_idx,
+                col=1,
+            )
+        
+        # Y-axis label
+        fig.update_yaxes(
+            title_text="Δ rate (Hz)",
+            tickfont=dict(size=10),
+            row=row_idx,
+            col=1,
+        )
+        
+        # Class count annotation (top-left of panel)
         fig.add_annotation(
-            text=f"N={n_units_class}",
+            text=f"N={n_units_class} units",
             xref="paper",
             yref="paper",
-            x=0.01,
-            y=1.0 - (row_idx - 1) / 3,
+            x=0.02,
+            y=0.98 - (row_idx - 1) * 0.33,  # Position in subplot
             showarrow=False,
-            font=dict(size=10),
+            font=dict(size=11, color="black"),
+            bgcolor="rgba(255, 255, 255, 0.8)",
+            borderpad=2,
         )
 
+        # Area count bars (column 2)
         if has_area_bars:
             counts = area_counts.get(display_class, pd.Series(dtype=int))
             fig.add_trace(
@@ -423,20 +584,72 @@ def build_f005_category_figure(
                     y=counts.values.tolist(),
                     marker_color="#CFB87C",
                     showlegend=False,
+                    text=counts.values.tolist(),
+                    textposition="auto",
                 ),
                 row=row_idx,
                 col=2,
             )
-            fig.update_yaxes(title_text="Units", row=row_idx, col=2)
+            fig.update_yaxes(
+                title_text="N units",
+                tickfont=dict(size=9),
+                row=row_idx,
+                col=2,
+            )
+            fig.update_xaxes(
+                tickangle=45,
+                tickfont=dict(size=8),
+                row=row_idx,
+                col=2,
+            )
 
-    fig.update_xaxes(title_text="Time from p1 (ms)", range=[-1000, min(x_max, 4200)], row=3, col=1)
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        height=900,
-        width=1100 if has_area_bars else 900,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=1),
+    # X-axis: full sequence from -500 to 4124 ms (or data max)
+    fig.update_xaxes(
+        title_text="Time from p1 onset (ms)",
+        range=[-500, x_max],
+        tickvals=[-500, 0, 531, 1031, 1562, 2062, 2593, 3093, 3624, 4124],
+        ticktext=["-500", "0\n(p1)", "531", "1031\n(p2)", "1562", "2062\n(p3)", 
+                  "2593", "3093\n(p4)", "3624", "4124"],
+        tickfont=dict(size=9),
+        row=3,
+        col=1,
     )
+    
+    # Layout improvements
+    fig.update_layout(
+        title=dict(
+            text=title,
+            font=dict(size=14),
+            x=0.5,
+            xanchor="center",
+        ),
+        template="plotly_white",
+        height=950,  # Slightly taller
+        width=1200 if has_area_bars else 900,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0.5,
+            xanchor="center",
+            font=dict(size=11),
+        ),
+        margin=dict(l=60, r=40, t=100, b=60),  # Better margins
+    )
+    
+    # Add annotation about smoothing
+    fig.add_annotation(
+        text=f"Gaussian smoothing: σ = {sigma_ms} ms",
+        xref="paper",
+        yref="paper",
+        x=0.99,
+        y=0.01,
+        showarrow=False,
+        font=dict(size=9, color="gray"),
+        xanchor="right",
+        yanchor="bottom",
+    )
+    
     return fig
 
 
@@ -553,13 +766,34 @@ def run_f005_figure(
     manifest_path: str | Path,
     qa_csv_path: str | Path | None = None,
     allow_unknown_area: bool = False,
+    smoothing_sigma_ms: float = 25.0,
 ) -> dict[str, Any]:
+    """Generate f005 figure with publication-grade smoothing.
+    
+    Args:
+        epochs_path: Path to epoch artifact NPZ file
+        classification_path: Path to classification CSV
+        output_png: Output PNG path
+        output_svg: Output SVG path
+        output_html: Output HTML path
+        manifest_path: Output manifest JSON path
+        qa_csv_path: QA CSV output path (optional)
+        allow_unknown_area: Allow all-unknown areas
+        smoothing_sigma_ms: Gaussian smoothing sigma in ms (default 25)
+        
+    Returns:
+        Manifest dictionary with all metadata
+    """
     inputs = load_f005_inputs(
         epochs_path,
         classification_path,
         allow_unknown_area=allow_unknown_area,
     )
-    fig = build_f005_category_figure(inputs, allow_unknown_area=allow_unknown_area)
+    fig = build_f005_category_figure(
+        inputs, 
+        allow_unknown_area=allow_unknown_area,
+        sigma_ms=smoothing_sigma_ms,
+    )
     summary = summarize_f005_counts(inputs)
     figure_outputs = save_f005_figure_outputs(
         fig,

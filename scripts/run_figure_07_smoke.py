@@ -195,12 +195,18 @@ except RuntimeError as e:
     sys.exit(0)  # Graceful exit with blocker documented
 
 # Cell 5: Compute Band-Power (Efficient, No Full TFR Storage)
+#
+# Low-frequency definition (Figure 7–9 spec):
+# - Theta+ only: 4–8 Hz
+# - No true delta (0–4 Hz) for now
+#
 SMOKE_BANDS = {
+    'theta': (4, 8),
     'alpha': (8, 12),
     'beta_L': (12, 20),
     'beta_H': (20, 30),
     'gamma_L': (32, 50),
-    'gamma_M': (50, 90)
+    'gamma_M': (50, 90),
 }
 
 print(f'\n=== COMPUTING BAND-POWER ===')
@@ -213,7 +219,10 @@ band_power = run_band_power(
     lfp_epochs=lfp_epochs,
     fs=1000.0,
     bands=SMOKE_BANDS,
-    baseline_ms=None  # Raw power for smoke
+    # dB baseline is defined relative to fixation (fx): (-500, 0) ms relative to P1.
+    # run_band_power -> compute_band_power_efficiently uses a time axis starting at 0 ms
+    # at the window start (-WINDOW_PRE). So fx maps to (0, WINDOW_PRE) in the internal axis.
+    baseline_ms=(0.0, float(WINDOW_PRE)),
 )
 
 computation_time = time.time() - computation_start
@@ -222,11 +231,11 @@ print(f'\n  SUCCESS (took {computation_time:.1f}s):')
 for cond, bands in band_power.items():
     print(f'    {cond}:')
     for band_name, arr in bands.items():
-        print(f'      {band_name}: shape {arr.shape}, nonzero={np.any(arr > 0)}')
+        print(f'      {band_name}: shape {arr.shape}, nonzero_abs_eps={np.any(np.abs(arr) > 1e-12)}')
 
 # Stack into single array: condition × trial × channel × band × time
 first_cond = list(band_power.keys())[0]
-n_trials, n_channels, n_time = band_power[first_cond]['alpha'].shape
+n_trials, n_channels, n_time = band_power[first_cond]['alpha_db'].shape
 n_bands = len(SMOKE_BANDS)
 n_conditions = len(band_power)
 
@@ -235,19 +244,19 @@ bp_array = np.zeros((n_conditions, n_trials, n_channels, n_bands, n_time))
 
 for i, (cond, bands) in enumerate(band_power.items()):
     for j, band_name in enumerate(band_names):
-        bp_array[i, :, :, j, :] = bands[band_name]
+        bp_array[i, :, :, j, :] = bands[f"{band_name}_db"]
 
 print(f'\n  Combined array shape: {bp_array.shape}')
 print(f'    (condition × trial × channel × band × time)')
 print(f'    = ({n_conditions} × {n_trials} × {n_channels} × {n_bands} × {n_time})')
 print(f'    Total elements: {bp_array.size:,}')
 print(f'    Memory: {bp_array.nbytes / 1024**2:.2f} MB')
-print(f'    Nonzero: {np.any(bp_array > 0)}')
+print(f'    Nonzero_abs_eps: {np.any(np.abs(bp_array) > 1e-12)}')
 print(f'    Finite: {np.all(np.isfinite(bp_array))}')
 
 # Verify nonzero
-if not np.any(bp_array > 0):
-    raise RuntimeError('BLOCKED_ZERO_BANDPOWER: All band-power values are zero')
+if not np.any(np.abs(bp_array) > 1e-12):
+    raise RuntimeError('BLOCKED_ZERO_BANDPOWER: All band-power values are ~0')
 
     print(f'\n  [OK] Real nonzero band-power verified')
 
@@ -256,7 +265,7 @@ inventory_rows = []
 
 for cond_idx, (cond, bands) in enumerate(band_power.items()):
     for band_idx, band_name in enumerate(band_names):
-        arr = bands[band_name]
+        arr = bands[f"{band_name}_db"]
         inventory_rows.append({
             'condition': cond,
             'band': band_name,
@@ -267,7 +276,7 @@ for cond_idx, (cond, bands) in enumerate(band_power.items()):
             'std_power': float(arr.std()),
             'min_power': float(arr.min()),
             'max_power': float(arr.max()),
-            'nonzero': bool(np.any(arr > 0)),
+            'nonzero': bool(np.any(np.abs(arr) > 1e-12)),
             'finite': bool(np.all(np.isfinite(arr)))
         })
 
@@ -304,7 +313,7 @@ saved_paths['bandpower'] = str(bp_path)
 print(f'\nSaved band-power: {bp_path}')
 print(f'  Shape: {bp_array.shape}')
 print(f'  File size: {bp_path.stat().st_size / 1024:.1f} KB')
-print(f'  Nonzero: {np.any(bp_array > 0)}')
+print(f'  Nonzero_abs_eps: {np.any(np.abs(bp_array) > 1e-12)}')
 
 # Save inventory
 inv_path = OUTPUT_ROOT / 'tables/fig07_tfr_inventory_smoke.csv'
@@ -330,7 +339,7 @@ html_content = f'''<!DOCTYPE html>
 <div class="claim-box">
 <strong>Claim Status:</strong> truth_safe_unverified (computational scaffold)<br>
 <strong>Signal:</strong> LFP band-power (efficient, no full TFR)<br>
-<strong>Nonzero check:</strong> {np.any(bp_array > 0)}<br>
+<strong>Nonzero check:</strong> {np.any(np.abs(bp_array) > 1e-12)}<br>
 <strong>Finite check:</strong> {np.all(np.isfinite(bp_array))}<br>
 <strong>Method:</strong> Bounded extraction + efficient band-power computation
 </div>
@@ -356,7 +365,7 @@ html_content = f'''<!DOCTYPE html>
 <tr><td>Area</td><td>{SMOKE_AREA}</td></tr>
 <tr><td>Total elements</td><td>{bp_array.size:,}</td></tr>
 <tr><td>Memory</td><td>{bp_array.nbytes / 1024**2:.2f} MB</td></tr>
-<tr><td>Nonzero</td><td>{np.any(bp_array > 0)}</td></tr>
+<tr><td>Nonzero_abs_eps</td><td>{np.any(np.abs(bp_array) > 1e-12)}</td></tr>
 <tr><td>All finite</td><td>{np.all(np.isfinite(bp_array))}</td></tr>
 <tr><td>Mean power</td><td>{bp_array.mean():.6f}</td></tr>
 <tr><td>Max power</td><td>{bp_array.max():.6f}</td></tr>
@@ -417,7 +426,7 @@ manifest = {
     'band_freqs_hz': SMOKE_BANDS,
     'mne_version': mne_version,
     'has_real_bandpower': True,
-    'nonzero_check': bool(np.any(bp_array > 0)),
+    'nonzero_check': bool(np.any(np.abs(bp_array) > 1e-12)),
     'finite_check': bool(np.all(np.isfinite(bp_array))),
     'array_shape': list(bp_array.shape),
     'array_shape_description': 'condition x trial x channel x band x time',
@@ -453,7 +462,7 @@ print(f'Status: SMOKE_PASS_REAL_BANDPOWER')
 print(f'MNE: {mne_version}')
 print(f'Runtime: {total_time:.1f}s')
 print(f'Array: {bp_array.shape} ({bp_array.nbytes/1024**2:.2f} MB)')
-print(f'Nonzero: {np.any(bp_array > 0)}')
+print(f'Nonzero_abs_eps: {np.any(np.abs(bp_array) > 1e-12)}')
 print(f'\nOutputs:')
 for k, v in saved_paths.items():
     print(f'  {k}: {v}')

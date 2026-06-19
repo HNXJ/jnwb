@@ -35,7 +35,7 @@ from collections import Counter, defaultdict
 TRUTH_SAFE_UNVERIFIED = "truth_safe_unverified"
 
 # ── Canonical session-probe-area mapping ──────────────────────────────────────
-# Source: context/overview/session-area-mapping.md (status: canonical, source_of_truth: true)
+# Source: context/specs/overview__session-area-mapping.md (status: canonical, source_of_truth: true)
 SESSION_PROBE_AREA_MAP = {
     ("230629", "0"): [("V1", (0, 63)), ("V2", (64, 127))],
     ("230629", "1"): [("V3d", (0, 63)), ("V3a", (64, 127))],
@@ -73,7 +73,7 @@ SESSION_PROBE_AREA_MAP = {
     ("230901", "1"): [("MT", (0, 63)), ("MST", (64, 127))],
 }
 
-AREA_MAP_SOURCE = "context/overview/session-area-mapping.md"
+AREA_MAP_SOURCE = "context/specs/overview__session-area-mapping.md"
 AREA_MAP_STATUS = "canonical"
 
 CANONICAL_AREAS = frozenset(

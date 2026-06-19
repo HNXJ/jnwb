@@ -29,7 +29,7 @@ All analytical and instructional operations MUST align with the **Figure Registr
 - **Library**: Plotly (HTML interactive export only).
 
 ## 4. Skills
-Refer to [docs/skills/](file:///D:/workspace/omission/docs/skills/) for executable operator contracts. All conceptual notes in `context/skills/` are legacy.
+Refer to [docs/skills/](file:///D:/workspace/omission/docs/skills/) for executable operator contracts. All conceptual notes in `context/specs/` (historical) are legacy.
 
 ## 5. Doctrines
 ### 5.1 Evidence and Receipt Doctrine

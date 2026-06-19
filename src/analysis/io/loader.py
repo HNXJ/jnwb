@@ -35,8 +35,34 @@ class DataLoader:
         # Resolve paths relative to repo root
         root = Path(__file__).parent.parent.parent.parent
         self.data_dir = Path(data_dir) if data_dir else root.parent / "data" / "arrays"
-        self.mapping_file = Path(mapping_file) if mapping_file else root / "context" / "overview" / "session-area-mapping.md"
-        self.subject_file = root / "context" / "overview" / "subjects.json"
+        # Context-path migration: after reorganizing `context/`, the canonical
+        # mapping file may live at different paths.
+        if mapping_file is not None:
+            self.mapping_file = Path(mapping_file)
+        else:
+            candidates = [
+                # Flattened canonical location after context/specs flatten:
+                root / "context" / "specs" / "overview__session-area-mapping.md",
+                # Pre-flatten canonical location (still some branches/tools):
+                root / "context" / "specs" / "overview" / "session-area-mapping.md",
+                # Legacy location:
+                root / "context" / "overview" / "session-area-mapping.md",
+            ]
+            self.mapping_file = next((p for p in candidates if p.exists()), candidates[0])
+
+        if mapping_file is not None:
+            # Keep legacy behavior: allow callers to override only mapping_file.
+            subject_candidates = [root / "context" / "overview" / "subjects.json"]
+        else:
+            subject_candidates = [
+                # Flattened canonical location:
+                root / "context" / "specs" / "overview__subjects.json",
+                # Pre-flatten canonical:
+                root / "context" / "specs" / "overview" / "subjects.json",
+                # Legacy:
+                root / "context" / "overview" / "subjects.json",
+            ]
+        self.subject_file = next((p for p in subject_candidates if p.exists()), subject_candidates[-1])
         
         self.area_map = self._parse_mapping()
         self.eye_mapper = EyeDataMapper()

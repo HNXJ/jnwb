@@ -55,4 +55,4 @@ python -m src.main --run-all
 
 ## 📄 Documentation
 
-Refer to `context/INDEX.md` for a comprehensive directory of all active documentation and specifications.
+Refer to `context/specs/root_files__INDEX.md` for a comprehensive directory of all active documentation and specifications.

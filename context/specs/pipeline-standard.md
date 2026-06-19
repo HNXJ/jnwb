@@ -3,9 +3,9 @@ status: canonical
 scope: specs
 source_of_truth: true
 supersedes:
-  - context/plans/nwb-pipeline-standard.md
-  - context/plans/lfp-nwb-pipeline-standard.md
-  - context/plans/15-step-lfp-pipeline.md
+  - context/specs/archive__legacy-plans__nwb-pipeline-standard.md
+  - context/specs/archive__legacy-plans__lfp-nwb-pipeline-standard.md
+  - context/specs/archive__legacy-plans__15-step-lfp-pipeline.md
 last_reviewed: 2026-04-06
 ---
 

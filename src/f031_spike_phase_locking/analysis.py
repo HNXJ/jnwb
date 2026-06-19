@@ -1,45 +1,52 @@
-# beta
+import pandas as pd
 import numpy as np
-from src.analysis.io.loader import DataLoader
+import os
 from src.analysis.io.logger import log
-from src.analysis.lfp.sfc import calculate_plv, get_matched_sfc_data
 
-def analyze_spike_phase_locking(loader: DataLoader, areas: list, condition="AXAB"):
+def analyze_spike_phase_locking(spsam_dir: str = "outputs/spsam"):
     """
-    Computes Spike-Field Phase Locking Value (PLV) spectrum for each area.
-    Aggregates across all units in the area.
+    Loads grand_unit_lfp_coupling.csv and computes mean + SEM of PLV across 7 frequency bands.
+    Returns nested dictionary of PLV profiles grouped by context and waveform class.
     """
-    results = {}
-    freqs = np.logspace(np.log10(4), np.log10(80), 12) # Theta to Gamma
+    coupling_path = os.path.join(spsam_dir, "grand_unit_lfp_coupling.csv")
+    if not os.path.exists(coupling_path):
+        log.warning(f"Grand coupling table not found at {coupling_path}")
+        return None
+        
+    log.info(f"Loading SpSAM coupling data from {coupling_path}")
+    df = pd.read_csv(coupling_path)
     
-    for area in areas:
-        log.info(f"Computing PLV Spectrum for {area} in {condition}")
-        # Get all units for this area
-        area_units = []
-        for entry in loader.area_map.get(area, []):
-            ses = entry["session"]; p = entry["probe"]; u_idx = entry["local_idx"]
-            # We need to find unit indices. Let's assume selection of top units for efficiency.
-            from src.analysis.lfp.sfc import select_top_units
-            units = select_top_units(loader, area, mode="omission", top_n=5)
-            area_units.extend(units)
+    bands = ["theta", "alpha", "beta1", "beta2", "gamma1", "gamma2", "gamma3"]
+    freq_centers = [6.0, 10.0, 16.0, 25.0, 42.5, 72.5, 120.0]
+    
+    results = {}
+    
+    # Analyze by Context & Waveform Class
+    for context in df["context"].unique():
+        results[context] = {}
+        for wf in ["narrow", "wide"]:
+            sub = df[(df["context"] == context) & (df["wf_class"] == wf)]
+            if len(sub) == 0:
+                continue
+                
+            means = []
+            sems = []
+            for b in bands:
+                col = f"{b}_plv"
+                vals = sub[col].dropna()
+                if len(vals) > 0:
+                    means.append(vals.mean())
+                    sems.append(vals.std() / np.sqrt(len(vals)))
+                else:
+                    means.append(0.0)
+                    sems.append(0.0)
             
-        area_plv = []
-        for unit in area_units:
-            lfp, spk = get_matched_sfc_data(loader, unit)
-            if lfp is None: continue
-            
-            unit_spectrum = []
-            for f in freqs:
-                bw = max(2.0, f * 0.2)
-                plv, _ = calculate_plv(lfp, spk, fs=1000, freq_band=(f-bw/2, f+bw/2))
-                unit_spectrum.append(plv)
-            area_plv.append(unit_spectrum)
-            
-        if area_plv:
-            results[area] = {
-                "freqs": freqs,
-                "plv_mean": np.mean(area_plv, axis=0),
-                "plv_sem": np.std(area_plv, axis=0) / np.sqrt(len(area_plv))
+            results[context][wf] = {
+                "freqs": freq_centers,
+                "plv_mean": np.array(means),
+                "plv_sem": np.array(sems),
+                "count": len(sub)
             }
+            log.action(f"Context: {context} | Class: {wf} | N={len(sub)} units")
             
     return results

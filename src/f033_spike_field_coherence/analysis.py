@@ -1,39 +1,53 @@
-# beta
-import numpy as np
-import scipy.signal
-from src.analysis.io.loader import DataLoader
+import pandas as pd
+import os
 from src.analysis.io.logger import log
-from src.analysis.lfp.sfc import select_top_units, get_matched_sfc_data
 
-def analyze_spike_field_coherence(loader: DataLoader, areas: list, condition="AXAB"):
+def analyze_spike_field_coherence(spsam_dir: str = "outputs/spsam"):
     """
-    Computes Spike-Field Coherence (SFC) spectrum using multi-taper or Welch proxy.
+    Loads grand_unit_lfp_coupling.csv and extracts coupling strength (PLV)
+    across contexts (standard, omission, flash, baseline) for major areas.
     """
+    coupling_path = os.path.join(spsam_dir, "grand_unit_lfp_coupling.csv")
+    if not os.path.exists(coupling_path):
+        log.warning(f"Grand coupling table not found at {coupling_path}")
+        return None
+        
+    log.info(f"Loading SpSAM coupling data from {coupling_path}")
+    df = pd.read_csv(coupling_path)
+    
+    # Standardize area labels (exclude generic probe labels)
+    valid_areas = ["V1", "V2", "V4", "MT", "PFC", "FEF"]
+    df = df[df["area"].isin(valid_areas)]
+    
     results = {}
     
-    for area in areas:
-        log.info(f"Computing SFC for {area} in {condition}")
-        units = select_top_units(loader, area, mode="omission", top_n=5)
+    # Extract mean + SEM for each area, context, and band
+    bands = ["theta", "alpha", "beta1", "beta2", "gamma1", "gamma2", "gamma3"]
+    
+    for area in df["area"].unique():
+        results[area] = {}
+        area_df = df[df["area"] == area]
         
-        area_coh = []
-        for unit in units:
-            lfp, spk = get_matched_sfc_data(loader, unit)
-            if lfp is None: continue
-            
-            # Welch-based coherence proxy
-            # Average across trials
-            coh_trials = []
-            for tr in range(lfp.shape[0]):
-                f, Cxy = scipy.signal.coherence(lfp[tr], spk[tr], fs=1000, nperseg=256)
-                coh_trials.append(Cxy)
+        for context in ["baseline", "standard", "flash", "omission"]:
+            context_df = area_df[area_df["context"] == context]
+            if len(context_df) == 0:
+                continue
                 
-            area_coh.append(np.mean(coh_trials, axis=0))
-            
-        if area_coh:
-            results[area] = {
-                "freqs": f,
-                "coh_mean": np.mean(area_coh, axis=0),
-                "coh_sem": np.std(area_coh, axis=0) / np.sqrt(len(area_coh))
-            }
-            
+            results[area][context] = {}
+            for b in bands:
+                col = f"{b}_plv"
+                vals = context_df[col].dropna()
+                if len(vals) > 0:
+                    results[area][context][b] = {
+                        "mean": vals.mean(),
+                        "sem": vals.std() / (len(vals) ** 0.5),
+                        "count": len(vals)
+                    }
+                else:
+                    results[area][context][b] = {
+                        "mean": 0.0,
+                        "sem": 0.0,
+                        "count": 0
+                    }
+                    
     return results
