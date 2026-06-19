@@ -16,13 +16,13 @@ def default_band_time_support_ms(band_name: str) -> float:
     Goal: low-frequency (Theta) estimates require longer support than
     alpha/beta/gamma to avoid unstable power estimates.
     """
-    # Project-specific bands currently available: Theta/Alpha/Beta/Gamma.
+    # Project-specific bands currently available: Theta/Alpha/l-beta/h-beta/Gamma_L/Gamma_H.
     # Theta is treated as the "low-frequency" stable branch.
     if band_name == "Theta":
-        return 1200.0  # ~3-9 cycles for 4-8 Hz (enough for stability)
-    if band_name in ("Alpha", "Beta"):
+        return 1200.0  # ~3-9 cycles for 3-7 Hz (enough for stability)
+    if band_name in ("Alpha", "Beta", "l-beta", "h-beta"):
         return 200.0
-    if band_name == "Gamma":
+    if band_name in ("Gamma", "Gamma_L", "Gamma_H"):
         return 150.0
     # Fallback (short support)
     return 200.0

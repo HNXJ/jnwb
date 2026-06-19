@@ -80,10 +80,12 @@ OMISSION_PATCH_WINDOWS_MS: Dict[str, Tuple[int, int]] = {
 
 # Standard Frequency Bands
 BANDS: Dict[str, Tuple[int, int]] = {
-    "Theta": (4, 8),
-    "Alpha": (8, 13),
-    "Beta": (13, 30),    # widened per 15-step protocol
-    "Gamma": (35, 70)
+    "Theta": (3, 7),
+    "Alpha": (8, 12),
+    "l-beta": (14, 20),
+    "h-beta": (20, 30),
+    "Gamma_L": (32, 80),
+    "Gamma_H": (80, 200)
 }
 
 # All OGLO conditions
