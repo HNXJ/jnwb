@@ -17,20 +17,36 @@ must use pure-white backgrounds and the Gold/Violet palette.
 
 ## 1. Mandatory Aesthetic Protocol
 
-| Token | Color | Use |
-|-------|-------|-----|
-| `GOLD = "#CFB87C"` | Gold | Sink / Stimulus signals, p1 markers |
-| `VIOLET = "#9400D3"` | Dark violet | Source / Omission signals, p2–p4 markers |
-| `WHITE = "#FFFFFF"` | White | **ALWAYS** paper/plot background |
-| `GRAY = "#D3D3D3"` | Light gray | Grid lines, delay epochs |
-| `TEAL = "#00FFCC"` | Teal | p3 slot markers |
-| `ORANGE = "#FF5E00"` | Bright orange | p4 slot markers |
+Canonical ordered palette — source of truth: `src/analysis/lfp/lfp_constants.py`.
+
+| Index | Token | Hex | Default use |
+|------:|-------|-----|-------------|
+| 0 | GOLD | `#CFB87C` | Theta; p1; RRRR |
+| 1 | BLUE | `#2563EB` | Alpha; AAAB |
+| 2 | VIOLET | `#8F00FF` | l-beta; p2 |
+| 3 | RED | `#DC2626` | h-beta |
+| 4 | GREEN | `#16A34A` | Gamma_L |
+| 5 | BLACK | `#000000` | Gamma_H |
+| 6 | PINK | `#FF1493` | Omission markers |
+| 7 | BROWN | `#8B4513` | tertiary series |
+| 8 | TEAL | `#00FFCC` | p3 |
+| 9 | ORANGE | `#FF5E00` | p4; BBBA |
+| 10 | RED_BEIGE | `#C9A88A` | warm neutral |
+| 11 | GRAY | `#D3D3D3` | delays, grid |
+| 12 | WHITE | `#FFFFFF` | **always** paper/plot background |
 
 ```python
-from src.analysis.lfp.lfp_constants import GOLD, VIOLET, WHITE, GRAY, TEAL, ORANGE
+from src.analysis.lfp.lfp_constants import (
+    GOLD, BLUE, VIOLET, RED, GREEN, BLACK, PINK, BROWN, TEAL, ORANGE, RED_BEIGE, GRAY, WHITE,
+    omission_palette_hex, colors_for_bands,
+)
+
+band_colors = colors_for_bands()  # maps BANDS -> palette index 0..5
 ```
 
 > **Hard Rule**: Paper background = `#FFFFFF`. Never `"plotly_dark"` or `"seaborn"`.
+> **Hard Rule**: Assign series colors by `OMISSION_PALETTE_ORDER` index; do not invent ad-hoc hex.
+> **Hard Rule**: Include maximal stats on figures (N sessions, n trials/units, test, p, windows).
 
 ---
 

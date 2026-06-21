@@ -65,16 +65,10 @@ Unless project-specific Omission colors (Section 4) are required, use:
 | **d4** | 3624 to 4124 | Delay 4 |
 
 ### Omission Color System
-- **Event Patches**: p1=GOLD, p2=VIOLET, p3=TEAL, p4=ORANGE, Omission=PINK.
-- **Conditions**: 
-  - **AAAB**: Blue (`#0072B2`)
-  - **BBBA**: Vermillion (`#D55E00`)
-  - **RRRR**: Gold/Yellow (`#F0E442`)
-- **Spectral Bands**:
-  - **Theta**: Red
-  - **Alpha**: Orange
-  - **Beta**: Violet (Top-down)
-  - **Gamma**: Gold (Bottom-up)
+- **Ordered palette** (index 0..12): GOLD, BLUE, VIOLET, RED, GREEN, BLACK, PINK, BROWN, TEAL, ORANGE, RED_BEIGE, GRAY, WHITE — see `lfp_constants.OMISSION_PALETTE_ORDER`.
+- **Event Patches**: p1=GOLD, p2=VIOLET, p3=TEAL, p4=ORANGE, d*=GRAY, Omission=PINK.
+- **Spectral Bands** (by palette index): Theta=GOLD, Alpha=BLUE, l-beta=VIOLET, h-beta=RED, Gamma_L=GREEN, Gamma_H=BLACK.
+- **Conditions**: AAAB=BLUE, BBBA=ORANGE, RRRR=GOLD (extend by palette index for other families).
 
 ## 5. Implementation Notes
 - **Source of Truth**: `codes/functions/lfp/lfp_constants.py`.

@@ -11,16 +11,70 @@ from typing import Dict, Tuple, List, Any
 # Canonical LFP sampling rate — propagated to lfp_tfr, lfp_preproc
 FS_LFP: float = 1000.0
 
-# Project Aesthetic: Madelane Golden Dark + Violet
+# Project Aesthetic: Madelane Golden Dark + ordered omission palette
 GOLD = "#CFB87C"
-BLACK = "#000000"
+BLUE = "#2563EB"
 VIOLET = "#8F00FF"
+RED = "#DC2626"
+GREEN = "#16A34A"
+BLACK = "#000000"
 PINK = "#FF1493"
+BROWN = "#8B4513"
 TEAL = "#00FFCC"
 ORANGE = "#FF5E00"
+RED_BEIGE = "#C9A88A"
 GRAY = "#D3D3D3"
 WHITE = "#FFFFFF"
 SLATE = "#444444"
+
+# Canonical ordered palette for bands, conditions, and series (index 0..12).
+# Assign by position; do not invent ad-hoc colors outside this list.
+OMISSION_PALETTE_ORDER: List[str] = [
+    "GOLD",
+    "BLUE",
+    "VIOLET",
+    "RED",
+    "GREEN",
+    "BLACK",
+    "PINK",
+    "BROWN",
+    "TEAL",
+    "ORANGE",
+    "RED_BEIGE",
+    "GRAY",
+    "WHITE",
+]
+
+OMISSION_PALETTE: Dict[str, str] = {
+    "GOLD": GOLD,
+    "BLUE": BLUE,
+    "VIOLET": VIOLET,
+    "RED": RED,
+    "GREEN": GREEN,
+    "BLACK": BLACK,
+    "PINK": PINK,
+    "BROWN": BROWN,
+    "TEAL": TEAL,
+    "ORANGE": ORANGE,
+    "RED_BEIGE": RED_BEIGE,
+    "GRAY": GRAY,
+    "WHITE": WHITE,
+}
+
+
+def omission_palette_hex(index: int) -> str:
+    """Return palette hex by 0-based index (wraps if index >= len)."""
+    name = OMISSION_PALETTE_ORDER[index % len(OMISSION_PALETTE_ORDER)]
+    return OMISSION_PALETTE[name]
+
+
+def colors_for_bands(
+    bands: Dict[str, Tuple[int, int]] | None = None,
+) -> Dict[str, str]:
+    """Map band names to palette colors in canonical band order."""
+    if bands is None:
+        bands = BANDS
+    return {name: omission_palette_hex(i) for i, name in enumerate(bands.keys())}
 
 # --- Area Naming and Hierarchy ---
 CANONICAL_AREAS: List[str] = ['V1', 'V2', 'V3d', 'V3a', 'V4', 'MT', 'MST', 'TEO', 'FST', 'FEF', 'PFC']
