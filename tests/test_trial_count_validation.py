@@ -5,6 +5,31 @@ import csv
 import json
 from pathlib import Path
 
+@pytest.fixture(scope="module", autouse=True)
+def ensure_validation_files():
+    out_dir = Path('reports/analysis_A4_trial_count_validation')
+    required = [
+        'trial_count_matrix.csv',
+        'condition_balance_summary.csv',
+        'session_condition_completeness.csv',
+        'trial_count_validation_summary.md',
+        'trial_count_validation_summary.json'
+    ]
+    if not all((out_dir / fname).exists() for fname in required):
+        import subprocess
+        import sys
+        a3_dir = Path("reports/analysis_A3_dataset_census")
+        if not (a3_dir / "signal_file_inventory.csv").exists():
+            subprocess.run([
+                sys.executable,
+                "scripts/build_dataset_census.py",
+                "--data-root", "D:\\workspace\\data"
+            ], check=True)
+        subprocess.run([
+            sys.executable,
+            "scripts/build_trial_count_validation.py"
+        ], check=True)
+
 
 def test_all_12_conditions_detected():
     """Test that all 12 conditions are detected."""

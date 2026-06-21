@@ -157,7 +157,21 @@ def main():
     write_csv(out_dir / "condition_balance_summary.csv", ['session_id', 'family', 'omission_position', 'omission_condition', 'matched_control', 'omission_trial_count', 'control_trial_count', 'balance_status', 'ratio_omission_to_control', 'warnings', 'truth_status'], balance)
     write_csv(out_dir / "session_condition_completeness.csv", ['session_id', 'n_conditions_detected', 'conditions_detected', 'missing_conditions', 'has_all_A_family', 'has_all_B_family', 'has_all_R_family', 'has_all_p2_omissions', 'has_all_p3_omissions', 'has_all_p4_omissions', 'readiness_for_A5', 'warnings', 'truth_status'], completeness)
     ready = sum(1 for r in completeness if r['readiness_for_A5'] == 'ready_for_A5')
-    print(f"[A4] ✅ Complete. {ready}/{len(completeness)} sessions ready for A5")
+    
+    # Write JSON summary
+    summary_json = {
+        "truth_status": "truth_safe_unverified",
+        "sessions_analyzed": len(completeness),
+        "sessions_ready_for_a5": ready
+    }
+    with open(out_dir / "trial_count_validation_summary.json", "w") as f:
+        json.dump(summary_json, f, indent=4)
+        
+    # Write MD summary
+    with open(out_dir / "trial_count_validation_summary.md", "w") as f:
+        f.write(f"# Trial Count Validation Summary\n\n- Sessions ready for A5: {ready}/{len(completeness)}\n")
+        
+    print(f"[A4] OK. Complete. {ready}/{len(completeness)} sessions ready for A5")
 
 if __name__ == "__main__":
     main()
