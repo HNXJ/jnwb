@@ -157,8 +157,16 @@ def test_signal_block_validation():
 
 def test_loader_contract_integration():
     from src.analysis.io.loader import DataLoader
+    from src.scripts.build_session_manifest import build_manifest
+    from pathlib import Path
     import os
     
+    # Ensure fixture manifests are built if they do not exist
+    out_dir = Path("artifacts/test_manifests")
+    for session_id in ["230630", "230719"]:
+        if not (out_dir / f"session_{session_id}_manifest.json").exists():
+            build_manifest(session_id, str(out_dir), fixture_mode=True)
+            
     # Instantiate DataLoader
     loader = DataLoader()
     
