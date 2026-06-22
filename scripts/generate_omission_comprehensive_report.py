@@ -51,14 +51,18 @@ def build_report():
     md.append("Below is the summary of non-parametric ANOVA (Kruskal-Wallis H-test comparing Pre-omission, Omission, and Post-omission epochs, df=2) and paired Wilcoxon signed-rank test (comparing Omission to Pre-omission) for all canonical areas and layers.")
     
     md.append("\n### TFR Omission Statistics Table")
-    md.append("| Area | Layer | Band | N (slot) | KW H-stat | KW p-val | Wilcoxon p-val | Significant? |")
-    md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+    md.append("| Area | Layer | Band | N (slot) | Pre Mean±SEM | Om Mean±SEM | Wilc Z | Wilc p | Paired Z | Paired p | Significant? |")
+    md.append("| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :--- | :---: | :--- | :--- |")
     
     for idx, row in df_tfr.iterrows():
         sig_str = "**YES**" if row["sig_kw"] and row["sig_wilc"] else "No"
-        kw_p_str = f"{row['kw_p']:.2e}" if row['kw_p'] > 0 else "0.00"
         wilc_p_str = f"{row['wilcoxon_p']:.2e}" if row['wilcoxon_p'] > 0 else "0.00"
-        md.append(f"| {row['area']} | {row['layer']} | {row['band']} | {row['N_per_slot']} | {row['kw_h']:.2f} | {kw_p_str} | {wilc_p_str} | {sig_str} |")
+        paired_p_str = f"{row['paired_p_val']:.2e}" if row['paired_p_val'] > 0 else "0.00"
+        pre_str = f"{row['mean_pre']:.3f}±{row['sem_pre']:.3f}"
+        om_str = f"{row['mean_omission']:.3f}±{row['sem_omission']:.3f}"
+        w_z_str = f"{row['wilcoxon_z']:+.2f}"
+        p_z_str = f"{row['z_score_om_vs_pre']:+.2f}"
+        md.append(f"| {row['area']} | {row['layer']} | {row['band']} | {row['N_per_slot']} | {pre_str} | {om_str} | {w_z_str} | {wilc_p_str} | {p_z_str} | {paired_p_str} | {sig_str} |")
         
     md.append("\n## 2. Single-Unit Responsive Categories")
     md.append("Proportion of single-unit classifications among the vetted Stable-Plus population ($FR > 1$ Hz, $SNR > 0.8$, 100% presence). Categories are:")

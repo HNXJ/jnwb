@@ -207,7 +207,7 @@ def run_pipeline():
             
             # Concatenate trials for each slot
             slot_data = {}
-            for slot in [2, 3, 4]:
+            for slot in [2, 3]:
                 if slot_trials[slot]:
                     slot_data[slot] = np.concatenate(slot_trials[slot], axis=0)
                 else:
@@ -215,7 +215,7 @@ def run_pipeline():
                     
             # Determine maximum possible equal N
             n_trials_per_slot = {s: d.shape[0] for s, d in slot_data.items()}
-            print(f"  {layer_name} trial counts: {n_trials_per_slot}")
+            print(f"  {layer_name} trial counts (Slots 2 & 3): {n_trials_per_slot}")
             
             if min(n_trials_per_slot.values()) == 0:
                 print(f"  One of the slots has 0 trials for {area} {layer_name}. Skipping.")
@@ -230,25 +230,19 @@ def run_pipeline():
                 idx = rng.choice(data.shape[0], size=N, replace=False)
                 subsampled_data[slot] = data[idx]
                 
-            # Pool trials (shape: (3 * N, n_freqs, n_times))
-            pooled_trials = np.concatenate([subsampled_data[s] for s in [2, 3, 4]], axis=0)
+            # Pool trials (shape: (2 * N, n_freqs, n_times))
+            pooled_trials = np.concatenate([subsampled_data[s] for s in [2, 3]], axis=0)
             
             # Calculate band power traces
             band_traces = {}
             for band_name, (fmin, fmax) in BANDS.items():
                 freq_mask = (FREQS_HZ >= fmin) & (FREQS_HZ <= fmax)
                 # Average across frequencies for each trial
-                # shape: (3 * N, n_times)
+                # shape: (2 * N, n_times)
                 trial_band_power = np.nanmean(pooled_trials[:, freq_mask, :], axis=1)
                 
                 mean_trace = np.nanmean(trial_band_power, axis=0)
-                sem_trace = np.nanstd(trial_band_power, axis=0) / np.sqrt(N * 3)
-                
-                band_traces[band_name] = {
-                    "mean": mean_trace,
-                    "sem": sem_trace,
-                    "trial_power": trial_band_power
-                }
+                sem_trace = np.nanstd(trial_band_power, axis=0) / np.sqrt(N * 2)
                 
                 # Perform statistics
                 # Epochs: Pre-omission [-500, 0] ms, Omission [0, 500] ms, Post-omission [500, 1000] ms
@@ -260,23 +254,71 @@ def run_pipeline():
                 val_om = np.nanmean(trial_band_power[:, t_mask_om], axis=1)
                 val_post = np.nanmean(trial_band_power[:, t_mask_post], axis=1)
                 
+                mean_pre_val = float(np.nanmean(val_pre))
+                sem_pre_val = float(np.nanstd(val_pre) / np.sqrt(len(val_pre)))
+                mean_om_val = float(np.nanmean(val_om))
+                sem_om_val = float(np.nanstd(val_om) / np.sqrt(len(val_om)))
+                mean_post_val = float(np.nanmean(val_post))
+                sem_post_val = float(np.nanstd(val_post) / np.sqrt(len(val_post)))
+                
                 # Kruskal-Wallis H-test
                 h_stat, kw_p = stats.kruskal(val_pre, val_om, val_post)
                 
                 # Wilcoxon signed-rank test (paired: Omission vs Pre-omission)
                 wilc_stat, wilc_p = stats.wilcoxon(val_om, val_pre)
                 
+                # Paired parametric Z-score and p-value
+                diff = val_om - val_pre
+                diff_std = np.nanstd(diff)
+                z_score_om_vs_pre = float(np.nanmean(diff) / (diff_std / np.sqrt(len(val_om)))) if diff_std > 1e-10 else 0.0
+                paired_p_val = float(2 * (1 - stats.norm.cdf(np.abs(z_score_om_vs_pre)))) if np.isfinite(z_score_om_vs_pre) else 1.0
+                
+                # Wilcoxon Z-statistic (normal approximation)
+                diff_nonzero = diff[diff != 0.0]
+                n_diff = len(diff_nonzero)
+                if n_diff > 0:
+                    abs_diff = np.abs(diff_nonzero)
+                    ranks = stats.rankdata(abs_diff)
+                    signs = np.sign(diff_nonzero)
+                    w_stat = np.sum(ranks[signs > 0])
+                    mu_w = n_diff * (n_diff + 1) / 4.0
+                    unique_ranks, count_ranks = np.unique(ranks, return_counts=True)
+                    tie_term = np.sum(count_ranks**3 - count_ranks) / 48.0
+                    var_w = (n_diff * (n_diff + 1) * (2 * n_diff + 1) / 24.0) - tie_term
+                    wilcoxon_z = float((w_stat - mu_w) / np.sqrt(var_w)) if var_w > 0.0 else 0.0
+                else:
+                    wilcoxon_z = 0.0
+                
+                band_traces[band_name] = {
+                    "mean": mean_trace,
+                    "sem": sem_trace,
+                    "trial_power": trial_band_power,
+                    "wilcoxon_z": wilcoxon_z,
+                    "z_score_om_vs_pre": z_score_om_vs_pre,
+                    "wilcoxon_p": wilc_p,
+                    "paired_p_val": paired_p_val
+                }
+                
                 stats_records.append({
                     "area": area,
                     "layer": layer_key,
                     "band": band_name,
                     "N_per_slot": int(N),
-                    "total_N": int(N * 3),
+                    "total_N": int(N * 2),
+                    "mean_pre": mean_pre_val,
+                    "sem_pre": sem_pre_val,
+                    "mean_omission": mean_om_val,
+                    "sem_omission": sem_om_val,
+                    "mean_post": mean_post_val,
+                    "sem_post": sem_post_val,
                     "kw_h": float(h_stat),
                     "kw_p": float(kw_p),
                     "kw_df": 2,
                     "wilcoxon_stat": float(wilc_stat),
-                    "wilcoxon_p": float(wilc_p)
+                    "wilcoxon_p": float(wilc_p),
+                    "wilcoxon_z": wilcoxon_z,
+                    "z_score_om_vs_pre": z_score_om_vs_pre,
+                    "paired_p_val": paired_p_val
                 })
                 
             # Create Plotly interactive line traces plot
@@ -286,6 +328,10 @@ def run_pipeline():
                 color = BAND_COLORS[band_name]
                 mean_val = traces["mean"]
                 sem_val = traces["sem"]
+                wilcoxon_z = traces["wilcoxon_z"]
+                z_score_om_vs_pre = traces["z_score_om_vs_pre"]
+                wilc_p = traces["wilcoxon_p"]
+                paired_p_val = traces["paired_p_val"]
                 
                 # Shaded SEM area
                 fig.add_trace(go.Scatter(
@@ -305,12 +351,12 @@ def run_pipeline():
                     y=mean_val,
                     mode='lines',
                     line=dict(color=color, width=2.5),
-                    name=band_name
+                    name=f"{band_name} (Wilc Z={wilcoxon_z:+.2f}, p={wilc_p:.2e}; Paired Z={z_score_om_vs_pre:+.2f}, p={paired_p_val:.2e})"
                 ))
                 
             # Standard formatting
             fig.update_layout(
-                title=f"Unified Omission-Aligned TFR Traces: {area} {layer_key.capitalize()} (N={N} per slot, Total N={N*3})",
+                title=f"Unified Omission-Aligned TFR Traces: {area} {layer_key.capitalize()} (N={N} per slot, Total N={N*2})",
                 xaxis_title="Time relative to omission onset (ms)",
                 yaxis_title="Relative Power (dB)",
                 plot_bgcolor='#FFFFFF',
@@ -326,7 +372,7 @@ def run_pipeline():
                     zerolinecolor='#D0D0D0'
                 ),
                 legend=dict(
-                    title="Frequency Bands",
+                    title="Frequency Bands (Omission Stats)",
                     bordercolor='#E0E0E0',
                     borderwidth=1
                 )
@@ -349,17 +395,24 @@ def run_pipeline():
         json.dump(layer_masks_cache, f, indent=2)
     print("Saved updated layer masks cache to disk.")
 
-    # Export statistics to JSON
+    # Export statistics to JSON & CSV
+    import csv
     with open(OUTPUT_DIR / "omission_aligned_tfr_stats.json", "w") as f:
         json.dump(stats_records, f, indent=2)
     print("Exported statistics report to JSON.")
 
+    csv_keys = ["area", "layer", "band", "N_per_slot", "total_N", "mean_pre", "sem_pre", "mean_omission", "sem_omission", "mean_post", "sem_post", "kw_h", "kw_p", "kw_df", "wilcoxon_stat", "wilcoxon_p", "wilcoxon_z", "z_score_om_vs_pre", "paired_p_val"]
+    with open(OUTPUT_DIR / "omission_aligned_tfr_stats.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=csv_keys)
+        writer.writeheader()
+        writer.writerows(stats_records)
+    print("Exported statistics report to CSV.")
     
     # Print summary Markdown table
-    print("\n| Area | Layer | Band | N (slot) | KW H-stat | KW p-val | Wilcoxon p-val |")
-    print("| --- | --- | --- | --- | --- | --- | --- |")
+    print("\n| Area | Layer | Band | N | Pre Mean±SEM | Om Mean±SEM | Post Mean±SEM | Wilc Z | Wilc p | Paired Z | Paired p |")
+    print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for r in stats_records:
-        print(f"| {r['area']} | {r['layer']} | {r['band']} | {r['N_per_slot']} | {r['kw_h']:.2f} | {r['kw_p']:.2e} | {r['wilcoxon_p']:.2e} |")
+        print(f"| {r['area']} | {r['layer']} | {r['band']} | {r['total_N']} | {r['mean_pre']:.3f}±{r['sem_pre']:.3f} | {r['mean_omission']:.3f}±{r['sem_omission']:.3f} | {r['mean_post']:.3f}±{r['sem_post']:.3f} | {r['wilcoxon_z']:+.2f} | {r['wilcoxon_p']:.2e} | {r['z_score_om_vs_pre']:+.2f} | {r['paired_p_val']:.2e} |")
 
 if __name__ == "__main__":
     run_pipeline()
