@@ -7,6 +7,8 @@ Files:
 - `04_method_crosswalk_table.md`
 - `05_report_f001_f025.md`
 - `06_empirical_synthesis_f026_f033.md`
+- `07_authoritative_data_topology_single_units.md`
+- `08_pie_charts_summary_provenance.md`
 - `README.md`
 
 Main sources:

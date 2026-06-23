@@ -65,6 +65,34 @@ gallery_src/
 *.tex
 *.ini
 
+# large binary/archive/document formats: never push raw data dumps
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.parquet
+*.feather
+*.mp4
+*.mov
+*.avi
+*.wav
+*.flac
+*.tiff
+*.tif
+*.bmp
+*.gif
+*.pdf
+*.xlsx
+*.xls
+*.docx
+*.pptx
+*.sqlite
+*.sqlite3
+*.db
+.ipynb_checkpoints/
+
 # scratch / agent temp scripts
 run_schema_test.py
 scripts/_*.py

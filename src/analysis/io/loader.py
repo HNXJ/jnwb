@@ -39,13 +39,13 @@ class DataLoader:
         if mapping_file is not None:
             self.mapping_file = Path(mapping_file)
         else:
-            self.mapping_file = resolve_context_path("overview/session-area-mapping.md", required=True)
+            self.mapping_file = resolve_context_path("overview/session-area-mapping.md", required=False)
 
         if mapping_file is not None:
             # Keep legacy behavior: allow callers to override only mapping_file.
             self.subject_file = root / "context" / "overview" / "subjects.json"
         else:
-            self.subject_file = resolve_context_path("overview/subjects.json", required=True)
+            self.subject_file = resolve_context_path("overview/subjects.json", required=False)
         
         self.area_map = self._parse_mapping()
         self.eye_mapper = EyeDataMapper()
