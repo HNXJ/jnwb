@@ -303,14 +303,16 @@ class SpectralRelationsPipeline:
         results = []
 
         areas = list(area_data.keys())
+        pairs = list(combinations(areas, 2))
 
-        for area1, area2 in combinations(areas, 2):
+        for area1, area2 in pairs:
             try:
                 # area_data[area] is a dict of {probe: [files]}
                 probe_dict1 = area_data[area1]
                 probe_dict2 = area_data[area2]
 
                 if not probe_dict1 or not probe_dict2:
+                    log.debug(f"Skipped {area1}-{area2}: empty probe dict")
                     continue
 
                 # Get first probe's first file for each area
@@ -318,6 +320,7 @@ class SpectralRelationsPipeline:
                 probe2_files = list(probe_dict2.values())[0]
 
                 if not probe1_files or not probe2_files:
+                    log.debug(f"Skipped {area1}-{area2}: no files")
                     continue
 
                 # Load TFR data
@@ -329,13 +332,19 @@ class SpectralRelationsPipeline:
                 band2 = self.extract_band_power(tfr2, band_name)
 
                 if band1 is None or band2 is None:
+                    log.debug(f"Skipped {area1}-{area2}: band extraction returned None")
                     continue
 
                 # Extract time windows
                 data1 = self.extract_time_window(band1, window_name)
                 data2 = self.extract_time_window(band2, window_name)
 
-                if data1 is None or data2 is None or data1.shape[1] < 5:
+                if data1 is None or data2 is None:
+                    log.debug(f"Skipped {area1}-{area2}: window extraction returned None")
+                    continue
+
+                if data1.shape[1] < 5:
+                    log.debug(f"Skipped {area1}-{area2}: insufficient time points ({data1.shape[1]} < 5)")
                     continue
 
                 # CRITICAL FIX: Average across channels to handle variable channel counts
@@ -365,7 +374,10 @@ class SpectralRelationsPipeline:
                 })
 
             except Exception as e:
-                log.debug(f"Error {area1}-{area2}: {e}")
+                log.error(f"Exception computing {area1}-{area2} ({band_name}, {window_name}): {e}")
+
+        if len(results) == 0 and len(pairs) > 0:
+            log.warning(f"Q1 computed 0 results from {len(pairs)} pairs for {band_name}/{window_name}")
 
         return results
 

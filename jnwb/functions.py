@@ -43,9 +43,7 @@ def tfr_trial_average(session: OmissionSession, area: str, condition: str = 'AAA
     Returns:
         Dictionary with mean power, SEM, and n_trials
     """
-    log.info(f"Trial-averaging {area} {condition} phase={phase}")
-    # TODO: Load TFR → filter epochs → average
-    return {'status': 'queued', 'area': area, 'condition': condition}
+    raise NotImplementedError("TFR file loading pipeline incomplete. Use TFRAnalyzer.trial_average() directly.")
 
 
 def tfr_compare_conditions(session: OmissionSession, area: str, condition1: str,
@@ -65,9 +63,7 @@ def tfr_compare_conditions(session: OmissionSession, area: str, condition1: str,
     Returns:
         Dictionary with statistics (parametric, non-parametric, FDR, effect size)
     """
-    log.info(f"Comparing {condition1} vs {condition2} in {area} ({band} band)")
-    # TODO: Load both TFRs → extract band → compare with TFRAnalyzer.compare_conditions()
-    return {'status': 'queued'}
+    raise NotImplementedError("TFR comparison requires TFR file loading pipeline. Use TFRAnalyzer.compare_conditions() directly.")
 
 
 def tfr_correlate_areas(session: OmissionSession, area1: str, area2: str,
@@ -87,9 +83,7 @@ def tfr_correlate_areas(session: OmissionSession, area1: str, area2: str,
     Returns:
         Dictionary with correlation, effect size, and significance
     """
-    log.info(f"Correlating {area1}-{area2} in {band} band ({condition})")
-    # TODO: Load both TFRs → extract band → correlate with TFRAnalyzer.correlate_areas()
-    return {'status': 'queued'}
+    raise NotImplementedError("TFR correlation requires TFR file loading pipeline. Use TFRAnalyzer.correlate_areas() directly.")
 
 
 def tfr_spectrolaminar(session: OmissionSession, area: str, condition: str = 'AAAB',
@@ -108,9 +102,7 @@ def tfr_spectrolaminar(session: OmissionSession, area: str, condition: str = 'AA
     Returns:
         Dictionary with per-layer power and inter-layer comparison stats
     """
-    log.info(f"Spectrolaminar analysis: {area} {condition}")
-    # TODO: Load TFR → split by layer → compare with stats
-    return {'status': 'queued'}
+    raise NotImplementedError("Spectrolaminar analysis requires layer_masks and TFR pipeline. Use TFRAnalyzer.by_layer() directly.")
 
 
 def tfr_permutation_test(session: OmissionSession, area: str, condition1: str,
@@ -130,9 +122,7 @@ def tfr_permutation_test(session: OmissionSession, area: str, condition1: str,
     Returns:
         Dictionary with observed difference, p-value, and permutation distribution
     """
-    log.info(f"Permutation test: {condition1} vs {condition2} ({n_permutations} perms)")
-    # TODO: Load TFRs → flatten → permutation test with StatisticalAnalysis.permutation_test()
-    return {'status': 'queued'}
+    raise NotImplementedError("TFR permutation test requires TFR file loading. Use StatisticalAnalysis.permutation_test() directly.")
 
 
 # ============================================================================
@@ -156,9 +146,7 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
     Returns:
         Dictionary with raster data for plotting
     """
-    log.info(f"Raster plot: unit {unit_id} {condition} phase={phase}")
-    # TODO: Get spike times + trial onsets → UnitAnalyzer.raster()
-    return {'status': 'queued'}
+    raise NotImplementedError("Raster plotting requires spike time extraction from NWB. Use UnitAnalyzer.raster() directly.")
 
 
 def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition: str = 'AAAB',
@@ -178,9 +166,7 @@ def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition:
     Returns:
         Dictionary with PSTH, CI, and bootstrap statistics
     """
-    log.info(f"PSTH: unit {unit_id} {condition} phase={phase} ({bin_size_ms}ms bins)")
-    # TODO: Get spike times → UnitAnalyzer.psth()
-    return {'status': 'queued'}
+    raise NotImplementedError("PSTH analysis requires spike time extraction from NWB. Use UnitAnalyzer.psth() directly.")
 
 
 def autocorrelogram(session: OmissionSession, unit_id: Union[int, str],
@@ -198,9 +184,7 @@ def autocorrelogram(session: OmissionSession, unit_id: Union[int, str],
     Returns:
         Dictionary with ACG, refractory period p-value, and is_single_unit flag
     """
-    log.info(f"Autocorrelogram: unit {unit_id} (max lag {max_lag_ms}ms)")
-    # TODO: Get spike times → UnitAnalyzer.autocorrelogram()
-    return {'status': 'queued'}
+    raise NotImplementedError("Autocorrelogram requires spike time extraction from NWB. Use UnitAnalyzer.autocorrelogram() directly.")
 
 
 # ============================================================================
@@ -261,9 +245,7 @@ def unit_quality_scores(session: OmissionSession, unit_id: Union[int, str]) -> D
     Returns:
         Dictionary with quality scores
     """
-    log.info(f"Quality metrics: unit {unit_id}")
-    # TODO: Get unit properties → UnitAnalyzer.quality_metrics()
-    return {'status': 'queued'}
+    raise NotImplementedError("Unit quality metrics require waveform and metadata from NWB. Use UnitAnalyzer.quality_metrics() directly.")
 
 
 def unit_channel_mapping(session: OmissionSession, area: Optional[str] = None) -> pd.DataFrame:
@@ -550,9 +532,7 @@ def noise_vs_signal(session: OmissionSession, unit_id: Union[int, str]) -> Dict:
     Returns:
         Dictionary with SNR, waveform metrics, and quality assessment
     """
-    log.info(f"SNR analysis: unit {unit_id}")
-    # TODO: Get waveform metrics → compute SNR
-    return {'status': 'queued'}
+    raise NotImplementedError("SNR analysis requires waveform extraction from NWB. Use UnitAnalyzer.quality_metrics() directly.")
 
 
 def cross_modal_comparison(tfr_data: np.ndarray, spike_data: np.ndarray,
@@ -570,9 +550,7 @@ def cross_modal_comparison(tfr_data: np.ndarray, spike_data: np.ndarray,
     Returns:
         Dictionary with correlation, lag, and modality comparison statistics
     """
-    log.info(f"Cross-modal comparison: TFR vs spike networks")
-    # TODO: Compute cross-correlation across lag range → statistics
-    return {'status': 'queued'}
+    raise NotImplementedError("Cross-modal comparison requires aligned TFR and spike data pipelines. Use StatisticalAnalysis.correlate() with lag iteration.")
 
 
 # ============================================================================
