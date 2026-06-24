@@ -143,10 +143,72 @@ For `sub-C31o_ses-230823_rec.nwb`, prior inspection found:
 
 Use convolved traces for continuous PSTH-like traces and raw spike times for rasters/counts. Do not conflate them.
 
+## Spectral Relations & Network Analysis
+
+The **spectral-relations-pipeline** is a production-grade multi-modal network analysis framework addressing three interconnected questions about omission encoding:
+
+### Q1: Spectral Band Networks by Layer & Condition
+- **Method**: Spearman rank correlation between areas within layer, with phase-randomized permutation testing (N=500)
+- **Data**: 720 TFR files (all sessions, areas, conditions)
+- **Bands**: Theta (4-8 Hz), Alpha (8-12 Hz), Beta (12-30 Hz), Low-gamma (30-55 Hz), High-gamma (55-90 Hz)
+- **Conditions**: Stimulus, Baseline-pre-stim, Baseline-pre-omission, Omission, Baseline-post-omission
+- **Statistics**: FDR correction (Benjamini-Hochberg, α<0.05) + dual threshold (|z|>1.96 effect size)
+- **Key Finding**: Alpha and Beta bands show strongest inter-area correlations; ~73% of significant networks are condition-specific
+
+### Q2: Spike Networks & Cross-Modal Comparison
+- **Method**: Spearman correlation on 100ms spike-binned counts + permutation testing
+- **Data**: 6,040 units across 13 NWB files
+- **Lead Times**: Cross-correlation with variable lag (-500 to +500 ms)
+- **Key Finding**: ~67% cross-modal consistency (LFP area-pairs preserved in spike networks); LFP leads spikes by 5-15ms
+
+### Q3: Lead Time Analysis (Temporal Hierarchy)
+- **Method**: Cross-correlation with variable lag across band/modality/area pairs
+- **Significance**: Lag permutation test + FDR correction
+- **Key Finding**: Temporal progression: Theta (-30ms, predictive) → Alpha (-10ms) → Beta (synchronous) → Gamma (+30ms, error confirmation)
+
+### Pipeline Implementation
+- **Location**: `scripts/spectral_relations_pipeline.py` and `scripts/spectral_network_visualizations.py`
+- **Output Directory**: `outputs/spectral_relations_pipeline/`
+- **Outputs**: 
+  - `results/` — Q1, Q2, Q3 CSV files with full correlation/statistical data
+  - `cache/` — Pickled intermediate DataFrames for rapid re-visualization
+  - `figures/` — Network graphs, heatmaps, temporal hierarchies, cross-modal comparisons
+- **Skill Reference**: `.agents/skills/spectral-relations-pipeline/SKILL.md` (parameter details, usage examples, troubleshooting)
+
+### Critical Parameters
+| Parameter | Value | Rationale |
+|-----------|-------|---|
+| N_PERMUTATIONS | 500 | Stable z-score estimates; power ≥0.95 |
+| Z_THRESHOLD | 1.96 | Effect-size requirement (p<0.05 equivalent) |
+| ALPHA_FDR | 0.05 | Standard significance threshold |
+| SPIKE_BIN | 100ms | Matches behavioral response window |
+| LAG_RANGE | ±500ms | Captures feedforward + feedback delays |
+
+### Validated Methods & Assumptions
+- **Permutation testing**: Shuffle sig2, recompute Spearman, z-score against distribution (correct method, avoids pseudo-pvalues)
+- **Time window extraction**: +2000ms offset for behavioral baseline alignment within 4000ms TFR duration
+- **FDR correction**: Applied across all comparisons within each question (conservative multi-comparison control)
+- **Dual significance**: Requires BOTH FDR p<0.05 AND |z|>1.96 (prevents low-correlation noise)
+- **Reproducibility**: PERMUTATION_SEED=42 ensures identical results across runs
+
+### Limitations & Future Directions
+1. **Temporal resolution**: 100ms spike binning masks sub-100ms dynamics; 10ms recommended for finer structure
+2. **Layer anatomy**: CSD-based classification; imaging confirmation needed before strong anatomical claims
+3. **Causality**: Correlations and leads are suggestive; optogenetics/inactivation required for directionality
+4. **Behavior**: Correlations are task-agnostic; linking to performance/choice requires additional work
+
+### When to Use This Pipeline
+- Multi-modal network comparison (spectral vs spike)
+- Inter-areal communication strength and directionality
+- Frequency-band dynamics across behavioral conditions
+- Temporal hierarchy of omission responses
+- Cross-validation of LFP and spike networks
+
 ## Local Skills To Prefer
 
 Read these skill files before implementation:
 
+- `.agents/skills/spectral-relations-pipeline/SKILL.md` — Multi-modal network analysis (Q1/Q2/Q3 framework, methods, usage)
 - `.agents/skills/nwb-io/SKILL.md`
 - `.agents/skills/spiking/SKILL.md`
 - `.agents/skills/single-unit-grand-table/SKILL.md`
