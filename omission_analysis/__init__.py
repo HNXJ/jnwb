@@ -123,9 +123,74 @@ def batch_read(nwb_dir: Union[str, Path], pattern: str = '*.nwb',
     return sessions
 
 
+# Import analyzers (4 canonical objects)
+from .analyzers import (
+    TFRAnalyzer,
+    UnitAnalyzer,
+    PopulationAnalyzer,
+)
+from .statistics import StatisticalAnalysis
+
+# Import 20 canonical functions
+from .functions import (
+    # TFR functions (1-5)
+    tfr_trial_average,
+    tfr_compare_conditions,
+    tfr_correlate_areas,
+    tfr_spectrolaminar,
+    tfr_permutation_test,
+    # Raster & PSTH (6-8)
+    raster_plot,
+    psth_analysis,
+    autocorrelogram,
+    # Unit finding (9-11)
+    find_units,
+    unit_quality_scores,
+    unit_channel_mapping,
+    # Population (12-15)
+    pie_charts,
+    compare_populations,
+    population_by_area,
+    network_connectivity,
+    # Batch (16-18)
+    units_across_sessions,
+    lfp_channel_areas,
+    summary_report,
+    # Advanced (19-20)
+    noise_vs_signal,
+    cross_modal_comparison,
+)
+
 # Export main classes and functions
 __all__ = [
+    # Core
     'read',
     'batch_read',
     'OmissionSession',
+    # 4 Canonical Objects
+    'TFRAnalyzer',
+    'UnitAnalyzer',
+    'PopulationAnalyzer',
+    'StatisticalAnalysis',
+    # 20 Canonical Functions
+    'tfr_trial_average',
+    'tfr_compare_conditions',
+    'tfr_correlate_areas',
+    'tfr_spectrolaminar',
+    'tfr_permutation_test',
+    'raster_plot',
+    'psth_analysis',
+    'autocorrelogram',
+    'find_units',
+    'unit_quality_scores',
+    'unit_channel_mapping',
+    'pie_charts',
+    'compare_populations',
+    'population_by_area',
+    'network_connectivity',
+    'units_across_sessions',
+    'lfp_channel_areas',
+    'summary_report',
+    'noise_vs_signal',
+    'cross_modal_comparison',
 ]
