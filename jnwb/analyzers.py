@@ -74,6 +74,22 @@ class TFRAnalyzer:
             return np.take(tfr_data, np.where(band_mask)[0], axis=freq_axis).mean(axis=freq_axis)
 
     @staticmethod
+    def average_across_channels(band_power: np.ndarray) -> np.ndarray:
+        """
+        Average power across channels to get area-level representation.
+
+        CRITICAL FIX: Handles variable channel counts (TFR files have 3-82 channels per condition).
+        Returns single area-level representation for inter-area correlation.
+
+        Args:
+            band_power: (channels, time, trials) array
+
+        Returns:
+            (time, trials) - area-level power representation
+        """
+        return band_power.mean(axis=0)
+
+    @staticmethod
     def trial_average(tfr_data: np.ndarray, epochs: pd.DataFrame = None) -> Dict:
         """
         Trial-average TFR power.

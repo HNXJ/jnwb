@@ -306,8 +306,16 @@ class SpectralRelationsPipeline:
 
         for area1, area2 in combinations(areas, 2):
             try:
-                probe1_files = area_data[area1]
-                probe2_files = area_data[area2]
+                # area_data[area] is a dict of {probe: [files]}
+                probe_dict1 = area_data[area1]
+                probe_dict2 = area_data[area2]
+
+                if not probe_dict1 or not probe_dict2:
+                    continue
+
+                # Get first probe's first file for each area
+                probe1_files = list(probe_dict1.values())[0]  # First probe's files
+                probe2_files = list(probe_dict2.values())[0]
 
                 if not probe1_files or not probe2_files:
                     continue
@@ -330,9 +338,14 @@ class SpectralRelationsPipeline:
                 if data1 is None or data2 is None or data1.shape[1] < 5:
                     continue
 
-                # Flatten
-                data1_flat = data1.reshape(-1)
-                data2_flat = data2.reshape(-1)
+                # CRITICAL FIX: Average across channels to handle variable channel counts
+                # Input: (channels, time, trials) → Output: (time, trials)
+                data1_area = data1.mean(axis=0)  # Average channels
+                data2_area = data2.mean(axis=0)
+
+                # Flatten for correlation
+                data1_flat = data1_area.reshape(-1)
+                data2_flat = data2_area.reshape(-1)
 
                 # Compute correlation with permutation test
                 corr_result = self.compute_permutation_correlation(data1_flat, data2_flat)

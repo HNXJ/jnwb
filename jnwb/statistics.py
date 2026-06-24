@@ -116,7 +116,7 @@ class StatisticalAnalysis:
 
         # FDR correction (conservative: treat as part of multiple-comparison family)
         pvals = [result['parametric']['pval'], result['non_parametric']['pval']]
-        fdr_pvals = stats.false_discovery_control(pvals, method='fdr_bh')
+        fdr_pvals = stats.false_discovery_control(pvals, method='bh')
 
         result['fdr_pval_parametric'] = float(fdr_pvals[0])
         result['fdr_pval_nonparametric'] = float(fdr_pvals[1])
@@ -173,7 +173,7 @@ class StatisticalAnalysis:
 
         # FDR correction
         pvals = [result['parametric']['pval'], result['non_parametric']['pval']]
-        fdr_pvals = stats.false_discovery_control(pvals, method='fdr_bh')
+        fdr_pvals = stats.false_discovery_control(pvals, method='bh')
 
         result['fdr_pval_parametric'] = float(fdr_pvals[0])
         result['fdr_pval_nonparametric'] = float(fdr_pvals[1])
@@ -229,7 +229,7 @@ class StatisticalAnalysis:
 
         # FDR correction
         pvals = [result['parametric']['pval'], result['non_parametric']['pval']]
-        fdr_pvals = stats.false_discovery_control(pvals, method='fdr_bh')
+        fdr_pvals = stats.false_discovery_control(pvals, method='bh')
 
         result['fdr_pval_parametric'] = float(fdr_pvals[0])
         result['fdr_pval_nonparametric'] = float(fdr_pvals[1])
