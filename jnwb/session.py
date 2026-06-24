@@ -157,10 +157,12 @@ class OmissionSession:
             >>> p2_omission = session.get_epochs(phase=3, condition='AAXB')
             >>> all_p1 = session.get_epochs(phase=2)
         """
-        if self._intervals_df is None:
+        if self._intervals_df is None or len(self._intervals_df) == 0:
+            log.warning(f"No interval data available (context: {self.context})")
             return pd.DataFrame()
 
         epochs = self._intervals_df.copy()
+        initial_count = len(epochs)
 
         if correct_only and 'correct' in epochs.columns:
             epochs = epochs[epochs['correct'] == 1.0]

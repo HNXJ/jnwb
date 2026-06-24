@@ -286,16 +286,30 @@ class UnitAnalyzer:
         Returns:
             Dictionary with ACG and refractory period statistics
         """
+        if len(spike_times) < 10:
+            return {
+                'error': 'Insufficient spikes for ACG',
+                'n_spikes': len(spike_times),
+            }
+
         max_lag_sec = max_lag_ms / 1000
         bin_sec = bin_size_ms / 1000
 
         # Compute ACG
         acg, lag_times = UnitAnalyzer._acg_pearson(spike_times, max_lag_sec, bin_sec)
 
+        if len(acg) == 0:
+            return {'error': 'ACG computation failed'}
+
         # Refractory period: spike count in first 5ms vs. 10-15ms baseline
         ref_period_idx = int(5 / bin_size_ms)
         baseline_idx_start = int(10 / bin_size_ms)
         baseline_idx_end = int(15 / bin_size_ms)
+
+        # BOUNDS CHECKING
+        ref_period_idx = min(ref_period_idx, len(acg) - 1)
+        baseline_idx_start = min(baseline_idx_start, len(acg) - 1)
+        baseline_idx_end = min(baseline_idx_end, len(acg))
 
         ref_count = acg[ref_period_idx]
         baseline_count = np.mean(acg[baseline_idx_start:baseline_idx_end])

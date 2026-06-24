@@ -223,10 +223,29 @@ def find_units(session: OmissionSession, quality: str = 'stable_plus',
 
     Returns:
         Filtered units DataFrame
+
+    Example:
+        >>> stable_v1 = jnwb.find_units(session, quality='stable_plus', area='V1')
+        >>> high_fr = jnwb.find_units(session, firing_rate_range=(20, 100))
     """
-    log.info(f"Finding units: quality={quality}, area={area}, fr={firing_rate_range}")
-    return session.find_single_units(quality=quality, area=area,
-                                     firing_rate_range=firing_rate_range)
+    try:
+        # Validate inputs
+        if not isinstance(session, OmissionSession):
+            return pd.DataFrame()  # Return empty DataFrame instead of error
+
+        if session._units_df is None or len(session._units_df) == 0:
+            log.warning("No units found in session")
+            return pd.DataFrame()
+
+        log.info(f"Finding units: quality={quality}, area={area}, fr={firing_rate_range}")
+        result = session.find_single_units(quality=quality, area=area,
+                                           firing_rate_range=firing_rate_range)
+        log.info(f"Found {len(result)} matching units")
+        return result
+
+    except Exception as e:
+        log.error(f"Error finding units: {e}")
+        return pd.DataFrame()
 
 
 def unit_quality_scores(session: OmissionSession, unit_id: Union[int, str]) -> Dict:
@@ -286,9 +305,24 @@ def pie_charts(session: OmissionSession, criteria: Optional[Dict] = None,
 
     Returns:
         Dictionary with counts and percentages for pie charts
+
+    Example:
+        >>> pies = jnwb.pie_charts(session, criteria={'is_stable_plus': True}, by_area=True)
+        >>> print(f"Total stable+ units: {pies['total']}")
     """
-    log.info(f"Pie charts: criteria={criteria}, by_area={by_area}, by_layer={by_layer}")
-    return session.pie_charts(criteria=criteria, by_area=by_area)
+    try:
+        log.info(f"Pie charts: criteria={criteria}, by_area={by_area}, by_layer={by_layer}")
+
+        if session._units_df is None or len(session._units_df) == 0:
+            return {'error': 'No units in session'}
+
+        result = session.pie_charts(criteria=criteria, by_area=by_area)
+        log.info(f"Pie chart: {result}")
+        return result
+
+    except Exception as e:
+        log.error(f"Error generating pie charts: {e}")
+        return {'error': str(e)}
 
 
 def compare_populations(session: OmissionSession, criteria1: Dict, criteria2: Dict,
@@ -296,39 +330,63 @@ def compare_populations(session: OmissionSession, criteria1: Dict, criteria2: Di
     """
     Function 13: Compare two unit populations.
 
-    Automatic t-test + Mann-Whitney U + Cohen's d + effect size
+    Automatic t-test + Mann-Whitney U + Cohen's d + FDR correction
 
     Args:
         session: OmissionSession
-        criteria1: First group filter
+        criteria1: First group filter (e.g., {'area': 'V1', 'is_stable_plus': True})
         criteria2: Second group filter
         metric: Metric to compare ('firing_rate', 'waveform_duration', etc.)
 
     Returns:
-        Dictionary with comparison statistics
+        Dictionary with comparison statistics (parametric, non-parametric, FDR-corrected)
+
+    Example:
+        >>> comp = jnwb.compare_populations(session,
+        ...     criteria1={'area': 'V1', 'is_stable_plus': True},
+        ...     criteria2={'area': 'V4', 'is_stable_plus': True},
+        ...     metric='firing_rate')
     """
-    log.info(f"Population comparison: {metric}")
-    units_all = session._units_df
+    try:
+        log.info(f"Population comparison: {metric}")
 
-    # Filter
-    group1 = units_all.copy()
-    group2 = units_all.copy()
+        if session._units_df is None or len(session._units_df) == 0:
+            return {'error': 'No units in session'}
 
-    for k, v in criteria1.items():
-        if k in group1.columns:
-            if isinstance(v, tuple):
-                group1 = group1[(group1[k] >= v[0]) & (group1[k] <= v[1])]
-            else:
-                group1 = group1[group1[k] == v]
+        units_all = session._units_df.copy()
 
-    for k, v in criteria2.items():
-        if k in group2.columns:
-            if isinstance(v, tuple):
-                group2 = group2[(group2[k] >= v[0]) & (group2[k] <= v[1])]
-            else:
-                group2 = group2[group2[k] == v]
+        # Validate metric exists
+        if metric not in units_all.columns:
+            return {'error': f'Metric {metric} not found in units table'}
 
-    return PopulationAnalyzer.compare_criteria(group1, group2, metric=metric)
+        # Filter group 1
+        group1 = units_all.copy()
+        for k, v in criteria1.items():
+            if k in group1.columns:
+                if isinstance(v, tuple) and len(v) == 2:
+                    group1 = group1[(group1[k] >= v[0]) & (group1[k] <= v[1])]
+                else:
+                    group1 = group1[group1[k] == v]
+
+        # Filter group 2
+        group2 = units_all.copy()
+        for k, v in criteria2.items():
+            if k in group2.columns:
+                if isinstance(v, tuple) and len(v) == 2:
+                    group2 = group2[(group2[k] >= v[0]) & (group2[k] <= v[1])]
+                else:
+                    group2 = group2[group2[k] == v]
+
+        if len(group1) == 0 or len(group2) == 0:
+            return {'error': f'Empty groups: group1={len(group1)}, group2={len(group2)}'}
+
+        log.info(f"Comparing {metric}: group1={len(group1)} units, group2={len(group2)} units")
+        result = PopulationAnalyzer.compare_criteria(group1, group2, metric=metric)
+        return result
+
+    except Exception as e:
+        log.error(f"Error comparing populations: {e}")
+        return {'error': str(e)}
 
 
 def population_by_area(session: OmissionSession, metric: str = 'firing_rate') -> Dict:
@@ -406,12 +464,27 @@ def lfp_channel_areas(session: OmissionSession, area: Optional[str] = None) -> p
 
     Returns:
         DataFrame with channel_id, area, layer
+
+    Example:
+        >>> lfp_map = jnwb.lfp_channel_areas(session, area='V1')
     """
-    log.info(f"LFP channel mapping: area={area}")
-    mapping = session.lfp_channel_areas()
-    if area and 'area' in mapping.columns:
-        mapping = mapping[mapping['area'] == area]
-    return mapping
+    try:
+        log.info(f"LFP channel mapping: area={area}")
+
+        if session._electrodes_df is None or len(session._electrodes_df) == 0:
+            return pd.DataFrame()
+
+        mapping = session.lfp_channel_areas()
+
+        if area and 'area' in mapping.columns:
+            mapping = mapping[mapping['area'] == area]
+
+        log.info(f"Found {len(mapping)} channels" + (f" in {area}" if area else ""))
+        return mapping
+
+    except Exception as e:
+        log.error(f"Error mapping LFP channels: {e}")
+        return pd.DataFrame()
 
 
 def summary_report(session: OmissionSession, output_dir: Optional[str] = None) -> Dict:
@@ -426,21 +499,38 @@ def summary_report(session: OmissionSession, output_dir: Optional[str] = None) -
 
     Returns:
         Dictionary with summary statistics
+
+    Example:
+        >>> summary = jnwb.summary_report(session)
+        >>> print(f"Session: {summary['file']}")
+        >>> print(f"Stable+ units: {summary['n_stable_plus']}")
     """
-    log.info(f"Summary report: {session.nwb_path.name}")
+    try:
+        log.info(f"Summary report: {session.nwb_path.name}")
 
-    info = session.info()
-    units = session._units_df
+        info = session.info()
+        units = session._units_df
 
-    summary = {
-        **info,
-        'n_stable_plus': len(units[units.get('stable_plus', False)]) if units is not None else 0,
-        'n_stable': len(units[(units.get('is_stable', False)) & ~units.get('stable_plus', False)]) if units is not None else 0,
-        'firing_rate_mean': float(units['firing_rate'].mean()) if units is not None and 'firing_rate' in units.columns else 0,
-        'firing_rate_std': float(units['firing_rate'].std()) if units is not None and 'firing_rate' in units.columns else 0,
-    }
+        if units is None or len(units) == 0:
+            return {**info, 'error': 'No units in session'}
 
-    return summary
+        # Safely calculate statistics
+        summary = {
+            **info,
+            'n_stable_plus': int((units.get('stable_plus', pd.Series(False)) == True).sum()),
+            'n_stable': int(((units.get('is_stable', pd.Series(False)) == True) &
+                            (units.get('stable_plus', pd.Series(False)) == False)).sum()),
+            'firing_rate_mean': float(units['firing_rate'].mean()) if 'firing_rate' in units.columns else 0,
+            'firing_rate_std': float(units['firing_rate'].std()) if 'firing_rate' in units.columns else 0,
+            'firing_rate_median': float(units['firing_rate'].median()) if 'firing_rate' in units.columns else 0,
+        }
+
+        log.info(f"Summary: {summary['n_units']} total units, {summary['n_stable_plus']} stable+")
+        return summary
+
+    except Exception as e:
+        log.error(f"Error generating summary: {e}")
+        return {'error': str(e)}
 
 
 # ============================================================================
