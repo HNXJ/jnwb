@@ -146,7 +146,51 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
     Returns:
         Dictionary with raster data for plotting
     """
-    raise NotImplementedError("Raster plotting requires spike time extraction from NWB. Use UnitAnalyzer.raster() directly.")
+    try:
+        if not isinstance(session, OmissionSession):
+            return {'error': 'Invalid session'}
+
+        # Get spike times for unit
+        spike_times = session.get_spike_times(unit_id)
+        if spike_times is None or len(spike_times) == 0:
+            return {'error': f'No spikes for unit {unit_id}'}
+
+        # Get trial onsets
+        epochs = session.get_epochs(condition=condition, phase=phase)
+        if epochs is None or len(epochs) == 0:
+            return {'error': f'No trials: {condition} phase={phase}'}
+
+        # Align spikes to trial onsets
+        raster_data = []
+        window_start_s = window_ms[0] / 1000.0
+        window_end_s = window_ms[1] / 1000.0
+
+        for trial_idx, epoch_row in epochs.iterrows():
+            onset_time = epoch_row['start_time']
+            spikes_in_window = spike_times[
+                (spike_times >= onset_time + window_start_s) &
+                (spike_times <= onset_time + window_end_s)
+            ]
+            spike_times_rel_ms = (spikes_in_window - onset_time) * 1000.0
+
+            for spike_time_ms in spike_times_rel_ms:
+                raster_data.append({
+                    'trial_id': int(trial_idx),
+                    'spike_time_ms': float(spike_time_ms),
+                })
+
+        log.info(f"Raster: {len(raster_data)} spikes, {len(epochs)} trials")
+        return {
+            'unit_id': unit_id,
+            'condition': condition,
+            'phase': phase,
+            'n_trials': len(epochs),
+            'n_spikes': len(raster_data),
+            'raster_data': raster_data,
+        }
+    except Exception as e:
+        log.error(f"Raster error: {e}")
+        return {'error': str(e)}
 
 
 def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition: str = 'AAAB',
@@ -166,7 +210,56 @@ def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition:
     Returns:
         Dictionary with PSTH, CI, and bootstrap statistics
     """
-    raise NotImplementedError("PSTH analysis requires spike time extraction from NWB. Use UnitAnalyzer.psth() directly.")
+    try:
+        if not isinstance(session, OmissionSession):
+            return {'error': 'Invalid session'}
+
+        spike_times = session.get_spike_times(unit_id)
+        if spike_times is None or len(spike_times) == 0:
+            return {'error': f'No spikes for unit {unit_id}'}
+
+        epochs = session.get_epochs(condition=condition, phase=phase)
+        if epochs is None or len(epochs) == 0:
+            return {'error': f'No trials: {condition} phase={phase}'}
+
+        # Build spike counts per bin
+        window_ms = (-1000, 2000)  # Standard window
+        window_start_s = window_ms[0] / 1000.0
+        window_end_s = window_ms[1] / 1000.0
+        bin_size_s = bin_size_ms / 1000.0
+
+        n_bins = int((window_end_s - window_start_s) / bin_size_s)
+        bin_edges = np.linspace(window_start_s, window_end_s, n_bins + 1)
+        psth_counts = np.zeros(n_bins)
+
+        for _, epoch_row in epochs.iterrows():
+            onset_time = epoch_row['start_time']
+            spikes_in_window = spike_times[
+                (spike_times >= onset_time + window_start_s) &
+                (spike_times <= onset_time + window_end_s)
+            ]
+            spike_times_rel = spikes_in_window - onset_time
+            counts, _ = np.histogram(spike_times_rel, bins=bin_edges)
+            psth_counts += counts
+
+        # Convert to rate (spikes/sec)
+        psth_rate = (psth_counts / len(epochs)) / bin_size_s
+        baseline_rate = np.mean(psth_rate[:int(n_bins * 0.25)])  # First 25% as baseline
+
+        log.info(f"PSTH: {len(epochs)} trials, baseline={baseline_rate:.2f} Hz")
+        return {
+            'unit_id': unit_id,
+            'condition': condition,
+            'phase': phase,
+            'bin_size_ms': bin_size_ms,
+            'n_trials': len(epochs),
+            'psth_rate_hz': psth_rate.tolist(),
+            'baseline_rate_hz': float(baseline_rate),
+            'bin_times_ms': bin_edges[:-1].tolist(),
+        }
+    except Exception as e:
+        log.error(f"PSTH error: {e}")
+        return {'error': str(e)}
 
 
 def autocorrelogram(session: OmissionSession, unit_id: Union[int, str],
@@ -184,7 +277,30 @@ def autocorrelogram(session: OmissionSession, unit_id: Union[int, str],
     Returns:
         Dictionary with ACG, refractory period p-value, and is_single_unit flag
     """
-    raise NotImplementedError("Autocorrelogram requires spike time extraction from NWB. Use UnitAnalyzer.autocorrelogram() directly.")
+    try:
+        if not isinstance(session, OmissionSession):
+            return {'error': 'Invalid session'}
+
+        spike_times = session.get_spike_times(unit_id)
+        if spike_times is None or len(spike_times) == 0:
+            return {'error': f'No spikes for unit {unit_id}'}
+
+        # Use UnitAnalyzer to compute ACG
+        acg_result = UnitAnalyzer.autocorrelogram(spike_times, max_lag_ms=max_lag_ms)
+
+        if 'error' in acg_result:
+            return acg_result
+
+        log.info(f"ACG: unit {unit_id}, {len(spike_times)} spikes, max_lag={max_lag_ms}ms")
+        return {
+            'unit_id': unit_id,
+            'max_lag_ms': max_lag_ms,
+            'n_spikes': len(spike_times),
+            **acg_result,  # Include acg, lag_times, and other fields
+        }
+    except Exception as e:
+        log.error(f"ACG error: {e}")
+        return {'error': str(e)}
 
 
 # ============================================================================

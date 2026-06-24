@@ -74,20 +74,49 @@ class TFRAnalyzer:
             return np.take(tfr_data, np.where(band_mask)[0], axis=freq_axis).mean(axis=freq_axis)
 
     @staticmethod
-    def average_across_channels(band_power: np.ndarray) -> np.ndarray:
+    def average_across_channels(band_power: np.ndarray, layer_mask: Optional[Dict] = None) -> np.ndarray:
         """
-        Average power across channels to get area-level representation.
+        Average power across channels with optional layer preservation.
 
         CRITICAL FIX: Handles variable channel counts (TFR files have 3-82 channels per condition).
-        Returns single area-level representation for inter-area correlation.
+        If layer_mask provided, averages separately by layer (superficial/deep), preserving anatomy.
+        If no mask, returns global average (loses layer structure - legacy behavior).
 
         Args:
             band_power: (channels, time, trials) array
+            layer_mask: Optional dict with 'superficial_mask' and 'deep_mask' boolean arrays
 
         Returns:
-            (time, trials) - area-level power representation
+            (time, trials) if no layer_mask - global average (WARNING: loses layer info)
+            (2, time, trials) if layer_mask - preserves layer structure
         """
-        return band_power.mean(axis=0)
+        if layer_mask is None:
+            # Legacy: global average (WARNING: loses layer structure)
+            return band_power.mean(axis=0)
+
+        # Layer-aware: aggregate within layers separately
+        superficial_mask = np.array(layer_mask.get('superficial_mask', []), dtype=bool)
+        deep_mask = np.array(layer_mask.get('deep_mask', []), dtype=bool)
+
+        # Ensure masks match channel count
+        n_channels = band_power.shape[0]
+        if len(superficial_mask) != n_channels or len(deep_mask) != n_channels:
+            # Mask size mismatch - fall back to global average
+            return band_power.mean(axis=0)
+
+        # Average within each layer (handle empty masks)
+        if superficial_mask.any():
+            superficial_power = band_power[superficial_mask, :, :].mean(axis=0)
+        else:
+            superficial_power = np.zeros((band_power.shape[1], band_power.shape[2]))
+
+        if deep_mask.any():
+            deep_power = band_power[deep_mask, :, :].mean(axis=0)
+        else:
+            deep_power = np.zeros((band_power.shape[1], band_power.shape[2]))
+
+        # Return (2, time, trials) to preserve layer distinction
+        return np.stack([superficial_power, deep_power], axis=0)
 
     @staticmethod
     def trial_average(tfr_data: np.ndarray, epochs: pd.DataFrame = None) -> Dict:
