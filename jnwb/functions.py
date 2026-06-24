@@ -1,7 +1,7 @@
 """
 20 Canonical Functions: Clean API for All Analysis Types
 
-Each function: omission_analysis.<function>(<inputs>, <context>, <parameters>)
+Each function: jnwb.<function>(<inputs>, <context>, <parameters>)
 - Automatic parametric + non-parametric statistics
 - FDR correction
 - Publication-ready outputs

@@ -1,10 +1,10 @@
-# omission_analysis Architecture: 20 Functions + 4 Objects
+# jnwb Architecture: 20 Functions + 4 Objects
 
 Complete, production-grade API for omission experiment analysis.
 
 ## Core Design
 
-**Philosophy**: `omission_analysis.<function>(<data>, <context>, <parameters>)`
+**Philosophy**: `jnwb.<function>(<data>, <context>, <parameters>)`
 
 Every analysis automatically provides:
 - ✓ Parametric statistics (t-test, ANOVA, Pearson r, etc.)
@@ -29,7 +29,7 @@ Time-Frequency Representation analysis
 
 **Example:**
 ```python
-from omission_analysis import TFRAnalyzer
+from jnwb import TFRAnalyzer
 
 alpha_power = TFRAnalyzer.extract_band(tfr_data, 'alpha')
 avg = TFRAnalyzer.trial_average(alpha_power)
@@ -50,7 +50,7 @@ Single-unit spike analysis
 
 **Example:**
 ```python
-from omission_analysis import UnitAnalyzer
+from jnwb import UnitAnalyzer
 
 raster_data = UnitAnalyzer.raster(spike_times, trial_onsets, window_ms=(-500, 2000))
 psth_result = UnitAnalyzer.psth(spike_times, trial_onsets, bin_size_ms=10)
@@ -74,7 +74,7 @@ Population-level statistics
 
 **Example:**
 ```python
-from omission_analysis import PopulationAnalyzer
+from jnwb import PopulationAnalyzer
 
 comparison = PopulationAnalyzer.compare_criteria(v1_units, v4_units, metric='firing_rate')
 # Returns: {'group1_mean': 5.2, 'group2_mean': 8.1, 'statistics': {...parametric, non_parametric, FDR...}}
@@ -101,7 +101,7 @@ Automatic parametric + non-parametric testing
 
 **Example:**
 ```python
-from omission_analysis import StatisticalAnalysis
+from jnwb import StatisticalAnalysis
 
 # Independent groups comparison
 result = StatisticalAnalysis.compare_groups(v1_data, v4_data, paired=False)
@@ -141,33 +141,33 @@ perm_result = StatisticalAnalysis.permutation_test(group1, group2, n_permutation
 **1. tfr_trial_average()**
 Trial-averaged TFR power by condition
 ```python
-avg = omission_analysis.tfr_trial_average(session, area='V1', condition='AAXB', phase=3, band='alpha')
+avg = jnwb.tfr_trial_average(session, area='V1', condition='AAXB', phase=3, band='alpha')
 ```
 
 **2. tfr_compare_conditions()**
 Compare TFR power between conditions (parametric + non-parametric + FDR)
 ```python
-stats = omission_analysis.tfr_compare_conditions(session, area='V4', condition1='AAAB', condition2='AAXB', band='beta')
+stats = jnwb.tfr_compare_conditions(session, area='V4', condition1='AAAB', condition2='AAXB', band='beta')
 # Returns: {'parametric': {...}, 'non_parametric': {...}, 'fdr_pval_parametric': ..., 'fdr_pval_nonparametric': ...}
 ```
 
 **3. tfr_correlate_areas()**
 Inter-area TFR correlation with dual stats
 ```python
-corr = omission_analysis.tfr_correlate_areas(session, area1='V1', area2='V4', band='alpha', condition='AAXB')
+corr = jnwb.tfr_correlate_areas(session, area1='V1', area2='V4', band='alpha', condition='AAXB')
 ```
 
 **4. tfr_spectrolaminar()**
 Layer-wise spectral analysis
 ```python
-layer_stats = omission_analysis.tfr_spectrolaminar(session, area='MT', condition='omission')
+layer_stats = jnwb.tfr_spectrolaminar(session, area='MT', condition='omission')
 # Returns: {'superficial': {...power stats...}, 'deep': {...power stats...}, 'comparison': {...stats...}}
 ```
 
 **5. tfr_permutation_test()**
 Permutation test for TFR differences
 ```python
-perm_result = omission_analysis.tfr_permutation_test(session, area='V1', condition1='AAAB', condition2='AAXB', n_permutations=5000)
+perm_result = jnwb.tfr_permutation_test(session, area='V1', condition1='AAAB', condition2='AAXB', n_permutations=5000)
 ```
 
 ### Raster & PSTH (6-8)
@@ -175,21 +175,21 @@ perm_result = omission_analysis.tfr_permutation_test(session, area='V1', conditi
 **6. raster_plot()**
 Spike raster aligned to phase onset
 ```python
-raster = omission_analysis.raster_plot(session, unit_id=42, condition='AAXB', phase=3, window_ms=(-1000, 2000))
+raster = jnwb.raster_plot(session, unit_id=42, condition='AAXB', phase=3, window_ms=(-1000, 2000))
 # Returns: {'raster': [...spike times per trial...], 'n_trials': 50, 'n_spikes': 1234}
 ```
 
 **7. psth_analysis()**
 Peristimulus time histogram with bootstrap CI
 ```python
-psth = omission_analysis.psth_analysis(session, unit_id=42, condition='AAXB', phase=3, bin_size_ms=10)
+psth = jnwb.psth_analysis(session, unit_id=42, condition='AAXB', phase=3, bin_size_ms=10)
 # Returns: {'psth': array, 'sem': array, 'bin_centers': array, 'bootstrap_ci': {...}}
 ```
 
 **8. autocorrelogram()**
 Unit autocorrelogram with refractory period test
 ```python
-acg = omission_analysis.autocorrelogram(session, unit_id=42, max_lag_ms=100)
+acg = jnwb.autocorrelogram(session, unit_id=42, max_lag_ms=100)
 # Returns: {'acg': array, 'refractory_period_violation': 0.0003, 'is_single_unit': True}
 ```
 
@@ -198,21 +198,21 @@ acg = omission_analysis.autocorrelogram(session, unit_id=42, max_lag_ms=100)
 **9. find_units()**
 Find units by quality/area/firing rate
 ```python
-units = omission_analysis.find_units(session, quality='stable_plus', area='V1', firing_rate_range=(1, 200))
+units = jnwb.find_units(session, quality='stable_plus', area='V1', firing_rate_range=(1, 200))
 # Returns: DataFrame of matching units
 ```
 
 **10. unit_quality_scores()**
 Unit quality metrics (SNR, refractory violations, stability)
 ```python
-quality = omission_analysis.unit_quality_scores(session, unit_id=42)
+quality = jnwb.unit_quality_scores(session, unit_id=42)
 # Returns: {'refr_violations_pct': 1.2, 'is_good_single_unit': True, 'fano_factor': 1.05, ...}
 ```
 
 **11. unit_channel_mapping()**
 Map units to recording channels
 ```python
-mapping = omission_analysis.unit_channel_mapping(session, area='V1')
+mapping = jnwb.unit_channel_mapping(session, area='V1')
 # Returns: DataFrame with unit_id, channel_id, area, layer
 ```
 
@@ -221,14 +221,14 @@ mapping = omission_analysis.unit_channel_mapping(session, area='V1')
 **12. pie_charts()**
 Population pie charts
 ```python
-pies = omission_analysis.pie_charts(session, criteria={'is_stable_plus': True}, by_area=True)
+pies = jnwb.pie_charts(session, criteria={'is_stable_plus': True}, by_area=True)
 # Returns: {'counts': {...}, 'percentages': {...}, 'total': 250}
 ```
 
 **13. compare_populations()**
 Compare two unit populations (parametric + non-parametric + FDR)
 ```python
-comp = omission_analysis.compare_populations(session, 
+comp = jnwb.compare_populations(session, 
                                               criteria1={'is_stable_plus': True, 'area': 'V1'},
                                               criteria2={'is_stable_plus': True, 'area': 'V4'},
                                               metric='firing_rate')
@@ -238,14 +238,14 @@ comp = omission_analysis.compare_populations(session,
 **14. population_by_area()**
 Population statistics by brain area (ANOVA + Kruskal-Wallis)
 ```python
-by_area = omission_analysis.population_by_area(session, metric='waveform_duration')
+by_area = jnwb.population_by_area(session, metric='waveform_duration')
 # Returns: {'areas': [...], 'per_area': {...}, 'comparison': {...ANOVA, K-W, eta², FDR...}}
 ```
 
 **15. network_connectivity()**
 Network graph analysis from correlation matrix
 ```python
-net = omission_analysis.network_connectivity(session, correlation_matrix, threshold=0.3)
+net = jnwb.network_connectivity(session, correlation_matrix, threshold=0.3)
 # Returns: {'n_nodes': 7, 'n_edges': 12, 'density': 0.57, 'mean_degree': 3.4}
 ```
 
@@ -254,21 +254,21 @@ net = omission_analysis.network_connectivity(session, correlation_matrix, thresh
 **16. units_across_sessions()**
 Collect matching units across multiple sessions
 ```python
-all_units = omission_analysis.units_across_sessions(sessions, criteria={'quality': 'stable_plus'})
+all_units = jnwb.units_across_sessions(sessions, criteria={'quality': 'stable_plus'})
 # Returns: DataFrame with session_id added
 ```
 
 **17. lfp_channel_areas()**
 Map LFP channels to brain areas
 ```python
-lfp_map = omission_analysis.lfp_channel_areas(session, area='V1')
+lfp_map = jnwb.lfp_channel_areas(session, area='V1')
 # Returns: DataFrame with channel_id, area, layer
 ```
 
 **18. summary_report()**
 Generate comprehensive session summary
 ```python
-summary = omission_analysis.summary_report(session, output_dir='/tmp/')
+summary = jnwb.summary_report(session, output_dir='/tmp/')
 # Returns: {'file': ..., 'n_units': 368, 'n_stable_plus': 45, 'firing_rate_mean': 5.2, ...}
 ```
 
@@ -277,14 +277,14 @@ summary = omission_analysis.summary_report(session, output_dir='/tmp/')
 **19. noise_vs_signal()**
 Signal-to-noise ratio analysis
 ```python
-snr = omission_analysis.noise_vs_signal(session, unit_id=42)
+snr = jnwb.noise_vs_signal(session, unit_id=42)
 # Returns: {'snr_db': 8.5, 'is_good_unit': True, ...waveform metrics...}
 ```
 
 **20. cross_modal_comparison()**
 Compare LFP (TFR) vs spike-based networks
 ```python
-xmodal = omission_analysis.cross_modal_comparison(tfr_array, spike_array, lag_range_ms=(-500, 500))
+xmodal = jnwb.cross_modal_comparison(tfr_array, spike_array, lag_range_ms=(-500, 500))
 # Returns: {'correlation': ..., 'lag_ms': ..., 'lfp_leads_spikes': True, ...stats...}
 ```
 
@@ -294,7 +294,7 @@ xmodal = omission_analysis.cross_modal_comparison(tfr_array, spike_array, lag_ra
 
 ### Load and Explore
 ```python
-import omission_analysis as oa
+import jnwb as oa
 
 # Load session
 session = oa.read('sub-C31o_ses-230823_rec.nwb')
@@ -403,7 +403,7 @@ result = {
 ## File Structure
 
 ```
-omission_analysis/
+jnwb/
 ├── __init__.py          # Main API: 4 objects + 20 functions + session reader
 ├── session.py           # OmissionSession class
 ├── statistics.py        # StatisticalAnalysis object (dual testing + FDR)

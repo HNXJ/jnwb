@@ -34,7 +34,7 @@ class OmissionSession:
     - Spectrolaminar (layer-wise) analysis
 
     Example:
-        >>> import omission_analysis as oa
+        >>> import jnwb as oa
         >>> session = oa.read('sub-C31o_ses-230823_rec.nwb')
         >>> session.trial_averaged_plot(area='V1', phase=2, condition='AAXB')
         >>> units = session.find_single_units(quality='stable_plus', area='V1')

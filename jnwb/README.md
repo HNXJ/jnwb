@@ -1,11 +1,11 @@
-# omission_analysis: Object-Oriented Grammar for NWB Analysis
+# jnwb: Object-Oriented Grammar for NWB Analysis
 
 Clean, object-oriented interface for omission experiment analysis. Fast shortcuts for all common analysis types.
 
 ## Quick Start
 
 ```python
-import omission_analysis as oa
+import jnwb as oa
 
 # Load a session
 session = oa.read('sub-C31o_ses-230823_rec.nwb')
@@ -186,7 +186,7 @@ for sess in sessions:
 ## File Structure
 
 ```
-omission_analysis/
+jnwb/
 ├── __init__.py          # Main API exports (read, batch_read, OmissionSession)
 ├── session.py           # OmissionSession class with all analysis methods
 └── README.md            # This file
@@ -216,7 +216,7 @@ omission_analysis/
 To add custom analysis methods:
 
 ```python
-from omission_analysis import OmissionSession
+from jnwb import OmissionSession
 
 class MyAnalysis(OmissionSession):
     def custom_analysis(self, param1, param2):

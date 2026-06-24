@@ -1,4 +1,4 @@
-# omission_analysis Complete API Reference
+# jnwb Complete API Reference
 
 **20 Canonical Functions + 4 Canonical Objects + Automatic Dual Statistics**
 
@@ -7,7 +7,7 @@
 ## Import Guide
 
 ```python
-import omission_analysis as oa
+import jnwb as oa
 
 # Access functions directly
 oa.tfr_trial_average(...)
@@ -477,7 +477,7 @@ Every comparative analysis returns this structure:
 ### Complete Workflow
 
 ```python
-import omission_analysis as oa
+import jnwb as oa
 
 # 1. Load session
 session = oa.read('sub-C31o_ses-230823_rec.nwb')
@@ -531,7 +531,7 @@ print(f"Total V1 stable+ units: {len(all_units)}")
 ### Direct Object Usage
 
 ```python
-from omission_analysis import TFRAnalyzer, StatisticalAnalysis
+from jnwb import TFRAnalyzer, StatisticalAnalysis
 
 # Extract band
 band_power = TFRAnalyzer.extract_band(tfr_data, band='alpha')
