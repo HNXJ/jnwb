@@ -227,32 +227,69 @@ But **execution** is incomplete:
 
 ---
 
-## Path to 80/100
+## Path to 80/100 (Validated Roadmap)
 
-### To reach 80/100, need:
+### Current State: 72/100
+- ✅ Error handling: 75/100
+- ✅ API design: 90/100
+- ❌ Data pipeline: 0/100 (TFR/spike loading stubbed)
+- ❌ Tests: 0/100
 
-1. **Implement TFR loading pipeline** (+10 points)
-   - Discover TFR files by pattern
-   - Load .npy arrays
+### Critical Path to 80/100
+
+**PHASE 1: Data Pipeline (Blockers)** → 72 → 78/100
+1. **Implement TFR loading pipeline** (+5 points)
+   - Discover TFR files by pattern (D:/workspace/data/tfr_arrays/)
+   - Load .npy arrays with proper shape validation
    - Map to session/area/condition
-   - Cache in memory
+   - Cache metadata index for reuse
 
-2. **Implement spike extraction from NWB** (+8 points)
-   - Extract spike_times from units table
-   - Filter by unit type (SPK/MUA/LFP)
-   - Map to behavior epochs
+2. **Implement NWB spike extraction** (+4 points)
+   - Extract spike_times from NWB units table
+   - Filter by signal type (SPK/MUA/LFP)
+   - Align with behavior epochs
+   - Cache spike indices
 
-3. **Complete raster_plot() and psth_analysis() functions** (+5 points)
-   - Wire analyzers to data loading
-   - Handle edge cases
+3. **Wire analyzers to data pipeline** (+2 points)
+   - Connect tfr_trial_average() to TFR loader
+   - Connect raster_plot/psth_analysis() to spike loader
+   - Test end-to-end flows
 
-4. **Add validation and bounds checking** (+4 points)
-   - Already done partially
-   - Needs TFR functions to benefit
+**PHASE 2: Testing & Validation** → 78 → 80/100
+4. **Add unit tests** (+3 points)
+   - TFR loading edge cases
+   - Spike extraction correctness
+   - Analyzer output validation
+   - Prevent regressions
 
-5. **Optimize performance** (+3 points)
+5. **Mark incomplete functions NotImplementedError** (quality improvement)
+   - Replace `{'status': 'queued'}` with explicit NotImplementedError
+   - Fail loudly instead of silently
+
+**PHASE 3: Optimization (Not Yet)** → 80 → 85/100
+6. **Performance optimization** (future work)
    - Cache TFR metadata
    - Vectorize epoch loops
+   - Memory-map large arrays
+
+---
+
+## Why This Order Matters
+
+**Data pipeline FIRST** (not tests):
+- ✅ Blocks everything else
+- ✅ Tests are impossible without working functions
+- ✅ Enables real validation
+
+**Tests BEFORE optimization**:
+- ✅ Prevents regressions
+- ✅ Correctness > speed
+- ✅ Premature optimization wastes time
+
+**NOT optimization first**:
+- ❌ Optimizing incomplete code is waste
+- ❌ No tests means optimizations break later
+- ❌ Wrong priority order
 
 ---
 
@@ -281,20 +318,30 @@ jnwb/session.py          ✏️  Added logging to get_epochs()
 ## Verdict
 
 **Current State**: 72/100
-- Error handling: good
-- Data loading: incomplete
-- API design: excellent
-- Implementation: ~60% done
+- Error handling: 75/100 (improved from 55)
+- Data loading: 20-35/100 (incomplete, blocking)
+- API design: 90/100 (excellent)
+- Implementation: 60/100 (~60% complete, ~40% stubbed)
+- Tests: 10/100 (effectively absent)
 
-**Feasible to reach 80/100**: Yes
-- Requires implementing TFR loading
-- Requires NWB spike extraction
-- Requires connecting data pipeline to analyzers
+**User's Revised Assessment** (external validation):
+- Agreed: Architecture is 88/100, Execution is 74/100
+- Agreed: TFR pipeline is the biggest blocker
+- Agreed: Silent failures are critical problem
+- Agreed: Zero tests prevent 90+ scores
+- Recommended priority: Data pipeline → Tests → Optimization
 
-**Will hit 100/100**: Unlikely without significant work
-- Would need production-grade performance optimization
-- Would need comprehensive test suite
-- Would need tuning for large-scale data
+**Feasible to reach 80/100**: YES
+- Requires TFR loading pipeline (+5 pts)
+- Requires NWB spike extraction (+4 pts)
+- Requires tests on working paths (+3 pts)
+- Realistic: 72 + 5 + 4 + 3 = **84/100** possible with disciplined work
+
+**Will NOT hit 100/100 soon**:
+- Would need production-grade optimization
+- Would need comprehensive test suite (50+ tests)
+- Would need session-aware inference infrastructure
+- Would need performance tuning for large datasets
 
 ---
 
