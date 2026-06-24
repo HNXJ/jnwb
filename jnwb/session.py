@@ -68,7 +68,62 @@ class OmissionSession:
 
             # Cache units
             if nwb.units is not None:
-                self._units_df = nwb.units.to_dataframe()
+                self._units_df = nwb.units.to_dataframe().copy()
+
+                # Enrich units with area info from electrode location (while file is open)
+                if nwb.electrodes is not None:
+                    elec_df = nwb.electrodes.to_dataframe().copy()
+
+                    # Map peak_channel_id to electrode location (area)
+                    if 'peak_channel_id' in self._units_df.columns and 'location' in elec_df.columns:
+                        # Create a mapping from electrode index to area
+                        chan_to_area = {}
+                        for idx, row in elec_df.iterrows():
+                            try:
+                                chan_to_area[float(idx)] = row['location']
+                            except:
+                                pass
+
+                        # Add area column by mapping peak_channel_id
+                        self._units_df['area'] = self._units_df['peak_channel_id'].apply(
+                            lambda x: chan_to_area.get(float(x), None) if pd.notna(x) else None
+                        )
+
+                        # Extract main area (first part of location string if comma-separated)
+                        self._units_df['area'] = self._units_df['area'].apply(
+                            lambda x: str(x).split(',')[0].strip() if pd.notna(x) else None
+                        )
+
+                    # Add layer as placeholder (would need layer_masks.json for proper assignment)
+                    if 'z' in elec_df.columns and 'peak_channel_id' in self._units_df.columns:
+                        chan_to_z = {}
+                        for idx, row in elec_df.iterrows():
+                            try:
+                                chan_to_z[float(idx)] = row['z']
+                            except:
+                                pass
+
+                        z_vals = self._units_df['peak_channel_id'].apply(
+                            lambda x: chan_to_z.get(float(x), 500) if pd.notna(x) else 500
+                        )
+                        # Simple heuristic: deep/shallow based on z coordinate
+                        self._units_df['layer'] = 'Unknown'
+                        self._units_df.loc[z_vals > 1000, 'layer'] = 'Deep'
+                        self._units_df.loc[z_vals <= 1000, 'layer'] = 'Superficial'
+                    else:
+                        self._units_df['layer'] = 'Unknown'
+
+            # Ensure numeric columns are properly typed (after loading from NWB)
+            for col in ['firing_rate', 'waveform_duration', 'quality', 'peak_channel_id']:
+                if col in self._units_df.columns:
+                    self._units_df[col] = pd.to_numeric(self._units_df[col], errors='coerce')
+
+            # Create quality boolean columns from quality values
+            if self._units_df is not None and 'quality' in self._units_df.columns:
+                # quality == 1.0 means good/stable units
+                self._units_df['is_stable'] = self._units_df['quality'] >= 1.0
+                # For now, stable_plus = is_stable (could be refined with additional criteria)
+                self._units_df['stable_plus'] = self._units_df['is_stable']
 
             # Cache electrodes
             if nwb.electrodes is not None:
@@ -83,6 +138,7 @@ class OmissionSession:
                 'subject_id': nwb.subject.subject_id if nwb.subject else None,
                 'session_start': nwb.session_start_time,
                 'session_description': nwb.session_description,
+                'n_units': len(self._units_df) if self._units_df is not None else 0,
             }
 
     # ========================================================================
@@ -188,6 +244,52 @@ class OmissionSession:
 
         return epochs
 
+    def get_spike_times(self, unit_id: Union[int, str]) -> Optional[np.ndarray]:
+        """
+        Get spike times for a single unit.
+
+        Args:
+            unit_id: Unit cluster ID
+
+        Returns:
+            Array of spike times (in seconds), or None if unit not found
+
+        Example:
+            >>> spikes = session.get_spike_times(unit_id=42)
+            >>> print(f"Unit 42: {len(spikes)} spikes")
+        """
+        if self._units_df is None or len(self._units_df) == 0:
+            log.warning("No units in session")
+            return None
+
+        # Find the unit row (handle both cluster_id and unit_id columns)
+        if 'cluster_id' in self._units_df.columns:
+            unit_col = 'cluster_id'
+        elif 'unit_id' in self._units_df.columns:
+            unit_col = 'unit_id'
+        else:
+            log.error("No unit_id or cluster_id column in units table")
+            return None
+
+        # Convert to numeric for comparison
+        unit_id_numeric = float(unit_id) if isinstance(unit_id, (int, str)) else unit_id
+
+        # Find matching unit row
+        matching = self._units_df[pd.to_numeric(self._units_df[unit_col], errors='coerce') == unit_id_numeric]
+
+        if len(matching) == 0:
+            log.warning(f"Unit {unit_id} not found")
+            return None
+
+        # Get spike_times from the first matching row
+        spike_times = matching.iloc[0]['spike_times']
+
+        if spike_times is None or len(spike_times) == 0:
+            log.warning(f"Unit {unit_id}: no spike times")
+            return None
+
+        return np.array(spike_times)
+
     # ========================================================================
     # ANALYSIS METHODS: PLOTTING
     # ========================================================================
@@ -291,7 +393,7 @@ class OmissionSession:
 
     def channel_unit_mapping(self) -> pd.DataFrame:
         """
-        Map recording channels to single units via peak_channel_global.
+        Map recording channels to single units via peak_channel.
 
         Quick reference: which unit was recorded on which channel?
 
@@ -308,9 +410,19 @@ class OmissionSession:
 
         units = self._units_df.copy()
 
-        mapping = units[[
-            'cluster_id', 'peak_channel_global', 'area', 'layer'
-        ]].rename(columns={'cluster_id': 'unit_id', 'peak_channel_global': 'channel_id'})
+        # Use peak_channel_id (from NWB) or peak_channel_global (from external metadata)
+        peak_channel_col = 'peak_channel_global' if 'peak_channel_global' in units.columns else 'peak_channel_id'
+
+        cols_to_use = ['cluster_id', peak_channel_col, 'area', 'layer']
+        # Only include columns that exist
+        cols_to_use = [c for c in cols_to_use if c in units.columns]
+
+        if len(cols_to_use) < 4:
+            log.warning(f"Missing columns for mapping. Have: {cols_to_use}")
+            return pd.DataFrame()
+
+        mapping = units[cols_to_use].copy()
+        mapping = mapping.rename(columns={'cluster_id': 'unit_id', peak_channel_col: 'channel_id'})
 
         return mapping.reset_index(drop=True)
 

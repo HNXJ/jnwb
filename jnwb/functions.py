@@ -340,6 +340,11 @@ def find_units(session: OmissionSession, quality: str = 'stable_plus',
         log.info(f"Finding units: quality={quality}, area={area}, fr={firing_rate_range}")
         result = session.find_single_units(quality=quality, area=area,
                                            firing_rate_range=firing_rate_range)
+
+        # Ensure unit_id column exists (rename from cluster_id if needed)
+        if 'cluster_id' in result.columns and 'unit_id' not in result.columns:
+            result = result.rename(columns={'cluster_id': 'unit_id'})
+
         log.info(f"Found {len(result)} matching units")
         return result
 
