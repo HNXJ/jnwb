@@ -22,7 +22,7 @@ from jnwb.functions import (
     population_by_area,
     units_across_sessions,
 )
-from jnwb.analyzers import PopulationAnalyzer
+from jnwb.analyzers import PopulationAnalyzer, TFRAnalyzer
 
 
 class TestPopulationAnalyzer(unittest.TestCase):
@@ -204,6 +204,48 @@ class TestDataFrameOperations(unittest.TestCase):
 
         stable_not_mua = df[(df['is_stable'] == True) & (df['is_mua'] == False)]
         self.assertEqual(len(stable_not_mua), 3)  # Units 1, 2, 4
+
+
+class TestLayerAwareAnalysis(unittest.TestCase):
+    """Test layer-aware TFR analysis."""
+
+    def test_average_without_layer_mask(self):
+        """Test channel averaging without layer info (legacy behavior)."""
+        band_power = np.random.randn(44, 99, 500)
+        result = TFRAnalyzer.average_across_channels(band_power, layer_mask=None)
+
+        # Should return (time, trials)
+        self.assertEqual(result.shape, (99, 500))
+
+    def test_average_with_layer_mask(self):
+        """Test layer-aware channel averaging."""
+        band_power = np.random.randn(128, 99, 500)
+
+        # Create layer mask: 62 superficial, 64 deep
+        layer_mask = {
+            'superficial_mask': [True] * 62 + [False] * 66,
+            'deep_mask': [False] * 62 + [True] * 64 + [False] * 2,
+        }
+
+        result = TFRAnalyzer.average_across_channels(band_power, layer_mask=layer_mask)
+
+        # Should return (2, time, trials) to preserve layers
+        self.assertEqual(result.shape, (2, 99, 500))
+
+    def test_layer_mask_size_mismatch(self):
+        """Test fallback when layer mask size doesn't match channels."""
+        band_power = np.random.randn(44, 99, 500)
+
+        # Wrong-sized layer mask
+        layer_mask = {
+            'superficial_mask': [True] * 50,
+            'deep_mask': [False] * 50,
+        }
+
+        result = TFRAnalyzer.average_across_channels(band_power, layer_mask=layer_mask)
+
+        # Should fall back to global average
+        self.assertEqual(result.shape, (99, 500))
 
 
 class TestErrorHandling(unittest.TestCase):
