@@ -123,6 +123,15 @@ def batch_read(nwb_dir: Union[str, Path], pattern: str = '*.nwb',
     return sessions
 
 
+# Import metadata functions (unit extraction and classification)
+from .metadata import (
+    get_all_units_metadata,
+    classify_unit_quality,
+    unit_census_report,
+    get_snr_analysis,
+    electrode_inventory,
+)
+
 # Import analyzers (4 canonical objects)
 from .analyzers import (
     TFRAnalyzer,
@@ -167,6 +176,12 @@ __all__ = [
     'read',
     'batch_read',
     'OmissionSession',
+    # Metadata extraction (migrated from X-files)
+    'get_all_units_metadata',
+    'classify_unit_quality',
+    'unit_census_report',
+    'get_snr_analysis',
+    'electrode_inventory',
     # 4 Canonical Objects
     'TFRAnalyzer',
     'UnitAnalyzer',

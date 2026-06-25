@@ -218,13 +218,20 @@ class OmissionSession:
             return pd.DataFrame()
 
         epochs = self._intervals_df.copy()
-        initial_count = len(epochs)
+
+        # Convert columns to numeric (NWB stores them as strings '1.0', '2.0', etc.)
+        if 'correct' in epochs.columns:
+            epochs['correct'] = pd.to_numeric(epochs['correct'], errors='coerce')
+        if 'stimulus_number' in epochs.columns:
+            epochs['stimulus_number'] = pd.to_numeric(epochs['stimulus_number'], errors='coerce')
+        if 'task_condition_number' in epochs.columns:
+            epochs['task_condition_number'] = pd.to_numeric(epochs['task_condition_number'], errors='coerce')
 
         if correct_only and 'correct' in epochs.columns:
             epochs = epochs[epochs['correct'] == 1.0]
 
         if phase is not None and 'stimulus_number' in epochs.columns:
-            epochs = epochs[epochs['stimulus_number'] == phase]
+            epochs = epochs[epochs['stimulus_number'] == float(phase)]
 
         if condition is not None:
             if isinstance(condition, str):
@@ -235,9 +242,9 @@ class OmissionSession:
                     'RRRR': list(range(11, 27)), 'RXRR': list(range(27, 35)),
                     'RRXR': [35, 37, 39, 41], 'RRRX': [36, 38, 40] + list(range(42, 51))
                 }
-                condition_codes = condition_map.get(condition, [])
+                condition_codes = [float(c) for c in condition_map.get(condition, [])]
             else:
-                condition_codes = [condition]
+                condition_codes = [float(condition)]
 
             if 'task_condition_number' in epochs.columns:
                 epochs = epochs[epochs['task_condition_number'].isin(condition_codes)]
