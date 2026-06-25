@@ -123,7 +123,7 @@ def batch_read(nwb_dir: Union[str, Path], pattern: str = '*.nwb',
     return sessions
 
 
-# Import metadata and spiking functions
+# Import metadata, spiking, and diagnostics functions
 from .metadata import (
     get_all_units_metadata,
     classify_unit_quality,
@@ -136,6 +136,11 @@ from .spiking import (
     classify_response_significance,
     classify_omission_response,
     phase_locking_index,
+)
+from .diagnostics import (
+    audit_session,
+    compare_sessions,
+    print_audit_report,
 )
 
 # Import analyzers (4 canonical objects)
@@ -193,6 +198,10 @@ __all__ = [
     'classify_response_significance',
     'classify_omission_response',
     'phase_locking_index',
+    # Diagnostics and QC (migrated from X-files)
+    'audit_session',
+    'compare_sessions',
+    'print_audit_report',
     # 4 Canonical Objects
     'TFRAnalyzer',
     'UnitAnalyzer',
