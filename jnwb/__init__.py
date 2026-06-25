@@ -143,6 +143,9 @@ from .diagnostics import (
     print_audit_report,
 )
 
+# Category D: Figure generation (comprehensive visualization)
+from . import viz
+
 # Y-files: New orthogonal jnwb modules (spectral and visualization)
 from . import spectral
 from . import visual_qc
@@ -206,6 +209,8 @@ __all__ = [
     'audit_session',
     'compare_sessions',
     'print_audit_report',
+    # Figure generation (Category D: comprehensive visualization)
+    'viz',
     # Spectral analysis (Y-file: new orthogonal module)
     'spectral',
     # Visual QC (Y-file: new orthogonal module)
