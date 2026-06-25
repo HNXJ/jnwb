@@ -143,6 +143,10 @@ from .diagnostics import (
     print_audit_report,
 )
 
+# Y-files: New orthogonal jnwb modules (spectral and visualization)
+from . import spectral
+from . import visual_qc
+
 # Import analyzers (4 canonical objects)
 from .analyzers import (
     TFRAnalyzer,
@@ -202,6 +206,10 @@ __all__ = [
     'audit_session',
     'compare_sessions',
     'print_audit_report',
+    # Spectral analysis (Y-file: new orthogonal module)
+    'spectral',
+    # Visual QC (Y-file: new orthogonal module)
+    'visual_qc',
     # 4 Canonical Objects
     'TFRAnalyzer',
     'UnitAnalyzer',
