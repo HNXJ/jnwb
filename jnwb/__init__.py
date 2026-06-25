@@ -40,7 +40,9 @@ Version: 1.0.0
 """
 
 __version__ = '1.0.0'
+__release_date__ = '2026-06-25'
 __author__ = 'Claude Code'
+__status__ = 'Stable - Public API Frozen'
 
 import logging
 from pathlib import Path
@@ -123,6 +125,41 @@ def batch_read(nwb_dir: Union[str, Path], pattern: str = '*.nwb',
     return sessions
 
 
+# ============================================================================
+# v1.0.0 PUBLIC API (FROZEN)
+# These 13 core objects are immutable and stable until v2.0
+# ============================================================================
+
+# Ontology objects (frozen public API)
+from .ontology import (
+    Query,
+    Dataset,
+    AlignedDataset,
+    Alignment,
+    EpochCollection,
+    Question,
+    Result,
+    Interpretation,
+    Figure,
+    Provenance,
+    Lineage,
+)
+
+# Factory functions (bridge to OmissionSession)
+from .factories import (
+    dataset_from_session,
+    aligned_dataset_from_dataset,
+    epochs_from_aligned_dataset,
+    result_from_psth_analysis,
+    result_from_tfr_analysis,
+    result_from_decoding_analysis,
+    figure_from_result,
+)
+
+# ============================================================================
+# LEGACY API (for backwards compatibility)
+# ============================================================================
+
 # Import metadata, spiking, and diagnostics functions
 from .metadata import (
     get_all_units_metadata,
@@ -190,6 +227,33 @@ from .functions import (
 
 # Export main classes and functions
 __all__ = [
+    # ========================================================================
+    # v1.0.0 PUBLIC API (FROZEN)
+    # ========================================================================
+    # Core ontology objects (immutable, stable, part of v1.0 contract)
+    'Query',
+    'Dataset',
+    'AlignedDataset',
+    'Alignment',
+    'EpochCollection',
+    'Question',
+    'Result',
+    'Interpretation',
+    'Figure',
+    'Provenance',
+    'Lineage',
+    # Factory functions (public interface to ontology)
+    'dataset_from_session',
+    'aligned_dataset_from_dataset',
+    'epochs_from_aligned_dataset',
+    'result_from_psth_analysis',
+    'result_from_tfr_analysis',
+    'result_from_decoding_analysis',
+    'figure_from_result',
+
+    # ========================================================================
+    # LEGACY API (backwards compatibility)
+    # ========================================================================
     # Core
     'read',
     'batch_read',
