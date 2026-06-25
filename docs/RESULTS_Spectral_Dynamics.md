@@ -1,6 +1,0 @@
-## Results: Spectral State Modulation and Harmony
-
-Omission triggers broad-spectrum changes in local field potentials across the entire hierarchy (V1, V2, V3d, V3a, V4, MT, MST, TEO, FST, FEF, PFC), contrasting sharply with the sparse spiking signal. Across these 11 areas, we observe a consistent suppression of low-frequency (Theta, Alpha, Beta) power, which is most pronounced in intermediate and high-order areas compared to primary visual cortex.
-
-### Spectral Harmony and Spike-Field Coupling
-Cross-Area Canonical Correlation Analysis (CCA) revealed a consistent breakdown in spectral harmony during omission, defined by a "spectral flip": while stimulus presentation is characterized by high Gamma-band correlation across the hierarchy, omission windows are dominated by high Beta-band correlation. Furthermore, the coupling between LFP oscillations and spiking (Spike-Field Coherence) shifts from a stimulus-locked Gamma synchronization pattern in sensory-dominant areas (V1-V4) to a distributed Beta-structured rhythmic state in higher-order cortex (FEF, PFC). This fundamental reorganization of spectral harmony signals the derailment of the hierarchical predictive routing circuit when the expected input fails to arrive.

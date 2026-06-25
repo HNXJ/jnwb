@@ -1,2 +1,0 @@
-recursive-include pypeline/matlab *
-recursive-include pypeline *

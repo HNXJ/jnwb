@@ -1,7 +1,0 @@
-## Methods: Probe Geometry and Hierarchical Channel Mapping
-
-Neural data were acquired from multi-area, dense laminar macaque electrophysiology experiments. High-density laminar probes (e.g., 32- or 64-channel arrays) were targeted to cortical areas V1, V2, V3d, V3a, V4, MT, MST, TEO, FST, FEF, and PFC. Probe geometry and session-specific area assignments were resolved using high-resolution histological reconstruction cross-referenced with recording metadata and repository mapping tables. 
-
-To ensure precise laminar and inter-areal spatial assignment, we implemented a hierarchical channel mapping strategy. When a single probe spanned multiple cortical areas (common in deep-layer or multi-area recordings), the probe's channel axis was partitioned into contiguous segments based on the reconstructed cortical thickness and laminar boundaries. This segmentation was rigidly enforced across data modalities: LFP and MUAe were analyzed according to these channel-partitioned segments, while spike-sorted single units were assigned to specific areas based on their peak-firing-rate channel. 
-
-Area assignments strictly followed the hierarchical order: V1 -> V2 -> V3d/a -> V4 -> MT/MST -> TEO/FST -> FEF -> PFC. The alias rule `DP -> V4` was strictly applied, and V3 labels were resolved into distinct V3d and V3a compartments to maintain hierarchy resolution. This granular mapping ensured that all subsequent connectivity and spectral estimates were anchored to specific laminar or inter-areal contexts, preventing contamination from neighboring cortical modules.

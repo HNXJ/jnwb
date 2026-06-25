@@ -1,58 +1,68 @@
-# Omission: Hierarchical Visual Prediction Pipeline
+# Omission: Single-Unit & Spectral Analysis
 
-Canonical repository for the **Omission** project, implementing a large-scale neurophysiological investigation into hierarchical V1-PFC (1-11) visual prediction. This repository isolates "ghost signals" — top-down neural representations of predicted but absent stimuli — across the cortical hierarchy.
+Production repository for the **Omission** project — hierarchical visual prediction and omission response in V1, PFC, MT/MST, and FEF across 13 recording sessions.
 
-## 🏗️ Repository Architecture
+## 📁 Structure
 
-- **`src/`**: Modular analytical logic and figure generators.
-  - `analysis/`: Functional core (LFP, Spiking, IO, Visualization).
-  - `f001_theory/` through `f050_laminar_analysis/`: Canonical standardized analysis modules for publication figures.
-    - **1-11**: Core Spiking, Spectral, and Laminar Routing.
-    - **12-15**: Functional Connectivity (MI) and Network Dynamics.
-    - **16**: Impedance Tensor Estimation.
-    - **17-25**: Surprise Scaling, Ghost Signals, PAC, Effective Connectivity, Pupil Decoding.
-    - **26-50**: State Dynamics, Identity Coding, Cross-Area Manifolds, and Laminar Refinements.
-  - `scripts/`: Pipeline entrypoints (e.g., `run_pipeline.py`).
-- **`context/`**: Foundational mandates, session-area mapping, and session-by-session logs.
-  - `overview/`: Project purpose, data availability, and anatomical area mappings.
-  - `specs/`: Canonical task definitions, 15-step pipeline standards, and style mandates.
-  - `analysis/`: Strategic roadmaps and methodology-specific sub-documentation.
-  - `operations/`: Troubleshooting logs and implementation history.
+**Core Analysis Module:**
+- **`jnwb/`** — Production-grade NWB analysis framework
+  - `session.py` — Session loader, NWB access, area/layer enrichment
+  - `functions.py` — Spike extraction, rasters, PSTHs, population analysis
+  - `addressing.py` — Unit/channel mapping, addressing schemes
+  - `tests/` — Validation suite (real NWB data)
 
-## 🚀 Canonical Pipeline
+**Project Context & Documentation:**
+- **`context/info/`** — Authoritative data topology, NWB event model, condition groups
+- **`context/sessions/`** — Per-session logs and maps
 
-The master pipeline implements a rigorous **15-step LFP-NWB protocol** to generate publication-grade results from raw neurophysiological data.
+**Infrastructure & Outputs:**
+- **`.agents/skills/`** — Agent skill definitions (spectral-relations pipeline, NWB-IO, spiking, etc.)
+- **`outputs/`** — Analysis results, figures, archive, documentation
+  - `publication_figures/` — Grand database, waveforms, layer masks
+  - `archive/` — Legacy code, notebooks, execution logs (refactorization in progress)
+  - `docs/` — Markdown handouts and specifications
 
-1. **Validation**: NWB schema enforcement.
-2. **Events**: Omission window and ghost signal encoding.
-3. **QC**: Per-channel variance/noise check + Bipolar referencing.
-4. **Extraction**: Matched epoch alignment.
-5. **Normalization**: dB relative to [-250, -50]ms baseline.
-6. **TFR**: Time-Frequency Representations (Hanning/Spectrogram).
-7. **Contrast**: Omission vs. Control Δ-power.
-8. **Correlation**: Inter-area spectral correlation.
-9. **Coherence**: Phase-Locking Value (PLV) spectra.
-10. **Network**: Band-limited adjacency matrices.
-11. **Granger**: Directional causality (Wilson method).
-12. **Statistics**: 2D Cluster-based permutation testing.
-13. **Hierarchy**: Tier-based (Low/Mid/High) aggregation.
-14. **Adaptation**: Post-surprise quenching tracking.
-15. **Manifest**: Reproducibility JSON + Summary CSV.
+**Testing & Config:**
+- **`tests/`** — Unit tests for jnwb functions
+- `setup.py`, `pyproject.toml` — Python package config
 
-Run the full pipeline:
-```bash
-python -m src.main --run-all
+## 🚀 Quick Start
+
+```python
+from jnwb import OmissionSession
+
+# Load session with area/layer enrichment
+session = OmissionSession("sub-C31o_ses-230823_rec.nwb")
+
+# Get epochs for a condition
+epochs = session.get_epochs(
+    phase=2,  # p1 (stimulus_number=2)
+    condition_numbers=[1, 2],  # AAAB condition
+    correct=True
+)
+
+# Extract spikes
+spike_times = session.get_spike_times(unit_id=15)
+
+# Plot raster
+from jnwb.functions import raster_plot
+raster_plot(session, unit_id=15, epochs=epochs)
 ```
 
-## 🛠️ Engineering Standards
+## 📊 Current Status
 
-- **Python Environment**: Python 3.14 exclusively.
-- **Plotting**: Interactive Plotly HTML (Kaleido-Free).
-- **Aesthetic**: Madelane Golden Dark theme (`#CFB87C` / `#9400D3`).
-- **Statistical Hygiene**: Cluster-based permutation for FWER control; Functional SNR > 1.0 thresholding.
-- **Root Hygiene**: No new files on root; operations restricted to proper subdirectories.
-- **Verbosity**: Extreme code verbosity (every operation must be printed/logged).
+**Real-data validation (13 NWB sessions):**
+- ✅ 6/11 core functions validated
+- ✅ Area/layer enrichment via peak_channel_id mapping
+- ⚠️ Epoch filtering: type mismatch fix pending
+- 📋 Milestone A: 87→90 (raster/PSTH unlock after epoch fix)
+- 📋 Milestone B: 90→92 (spectral pipeline completion)
 
-## 📄 Documentation
+**Refactorization:**
+- See `outputs/REFACTORIZATION_CLASSIFICATION.md` for legacy code assessment (X/Y/Z/W system)
 
-Refer to `context/specs/root_files__INDEX.md` for a comprehensive directory of all active documentation and specifications.
+## 📖 Documentation
+
+- **Data topology**: `context/info/07_authoritative_data_topology_single_units.md`
+- **Figure provenance**: `context/info/08_pie_charts_summary_provenance.md`
+- **Agent skills**: `.agents/skills/*/SKILL.md`

@@ -1,5 +1,0 @@
-## Results: Hierarchical Spiking Sparsity and Omission Motifs
-
-Our analysis of the full cortical hierarchy (V1, V2, V3d, V3a, V4, MT, MST, TEO, FST, FEF, PFC) reveals that omission-sensitive spiking is a highly selective phenomenon. While stimulus-modulated populations (N=2071 stim-excited; N=1382 stim-inhibited) show robust firing to actual stimuli, the majority of units remain unresponsive during the omission window. 
-
-We identified a distinct subset of approximately 20 'X-neurons'—predominantly localized to high-order cortical areas (TEO, FST, FEF, PFC)—that exhibit significant firing rate increases during the omission interval. This hierarchical segregation is striking: primary sensory areas (V1, V2) exhibit negligible omission-linked spiking, serving as conduits for sensory drive rather than error signal generators. In contrast, higher-order areas appear specialized for transforming contextual violations into explicit neural events. This functional dissociation across the 11-area hierarchy demonstrates that the spiking response to omission is not a monolithic sensory error signal, but a late, highly selective hierarchical computation.
