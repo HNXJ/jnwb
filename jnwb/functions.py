@@ -161,12 +161,15 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
             return {'error': f'No trials: {condition} phase={phase}'}
 
         # Align spikes to trial onsets
+        # Group by trial_num to get unique trials (epochs are event-level, not trial-level)
         raster_data = []
         window_start_s = window_ms[0] / 1000.0
         window_end_s = window_ms[1] / 1000.0
 
-        for trial_idx, epoch_row in epochs.iterrows():
-            onset_time = epoch_row['start_time']
+        trial_groups = epochs.groupby('trial_num')
+        for trial_num, trial_events in trial_groups:
+            # Use the first event's start_time as the trial onset
+            onset_time = trial_events.iloc[0]['start_time']
             spikes_in_window = spike_times[
                 (spike_times >= onset_time + window_start_s) &
                 (spike_times <= onset_time + window_end_s)
@@ -175,16 +178,17 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
 
             for spike_time_ms in spike_times_rel_ms:
                 raster_data.append({
-                    'trial_id': int(trial_idx),
+                    'trial_id': int(float(trial_num)),
                     'spike_time_ms': float(spike_time_ms),
                 })
 
-        log.info(f"Raster: {len(raster_data)} spikes, {len(epochs)} trials")
+        n_trials = len(trial_groups)
+        log.info(f"Raster: {len(raster_data)} spikes, {n_trials} trials")
         return {
             'unit_id': unit_id,
             'condition': condition,
             'phase': phase,
-            'n_trials': len(epochs),
+            'n_trials': n_trials,
             'n_spikes': len(raster_data),
             'raster_data': raster_data,
         }
@@ -232,8 +236,11 @@ def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition:
         bin_edges = np.linspace(window_start_s, window_end_s, n_bins + 1)
         psth_counts = np.zeros(n_bins)
 
-        for _, epoch_row in epochs.iterrows():
-            onset_time = epoch_row['start_time']
+        # Group by trial_num to get unique trials (epochs are event-level, not trial-level)
+        trial_groups = epochs.groupby('trial_num')
+        for trial_num, trial_events in trial_groups:
+            # Use the first event's start_time as the trial onset
+            onset_time = trial_events.iloc[0]['start_time']
             spikes_in_window = spike_times[
                 (spike_times >= onset_time + window_start_s) &
                 (spike_times <= onset_time + window_end_s)
@@ -243,16 +250,17 @@ def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition:
             psth_counts += counts
 
         # Convert to rate (spikes/sec)
-        psth_rate = (psth_counts / len(epochs)) / bin_size_s
+        n_trials = len(trial_groups)
+        psth_rate = (psth_counts / n_trials) / bin_size_s
         baseline_rate = np.mean(psth_rate[:int(n_bins * 0.25)])  # First 25% as baseline
 
-        log.info(f"PSTH: {len(epochs)} trials, baseline={baseline_rate:.2f} Hz")
+        log.info(f"PSTH: {n_trials} trials, baseline={baseline_rate:.2f} Hz")
         return {
             'unit_id': unit_id,
             'condition': condition,
             'phase': phase,
             'bin_size_ms': bin_size_ms,
-            'n_trials': len(epochs),
+            'n_trials': n_trials,
             'psth_rate_hz': psth_rate.tolist(),
             'baseline_rate_hz': float(baseline_rate),
             'bin_times_ms': bin_edges[:-1].tolist(),
