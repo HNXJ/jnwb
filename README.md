@@ -63,6 +63,7 @@ raster_plot(session, unit_id=15, epochs=epochs)
 
 ## 📖 Documentation
 
+- **[COOKBOOK.md](COOKBOOK.md)** — Working code + real output for every `jnwb` function (spiking, LFP, population, statistics)
 - **Data topology**: `context/info/07_authoritative_data_topology_single_units.md`
 - **Figure provenance**: `context/info/08_pie_charts_summary_provenance.md`
 - **Agent skills**: `.agents/skills/*/SKILL.md`
