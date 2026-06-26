@@ -269,20 +269,27 @@ class OmissionSession:
             log.warning("No units in session")
             return None
 
-        # Find the unit row (handle both cluster_id and unit_id columns)
-        if 'cluster_id' in self._units_df.columns:
-            unit_col = 'cluster_id'
-        elif 'unit_id' in self._units_df.columns:
-            unit_col = 'unit_id'
-        else:
-            log.error("No unit_id or cluster_id column in units table")
-            return None
-
         # Convert to numeric for comparison
         unit_id_numeric = float(unit_id) if isinstance(unit_id, (int, str)) else unit_id
 
-        # Find matching unit row
-        matching = self._units_df[pd.to_numeric(self._units_df[unit_col], errors='coerce') == unit_id_numeric]
+        matching = pd.DataFrame()
+        # First check index lookup
+        if self._units_df.index.name == 'id' or 'id' in self._units_df.columns or self._units_df.index.name is None:
+            if unit_id_numeric in self._units_df.index:
+                matching = self._units_df.loc[[unit_id_numeric]]
+
+        if len(matching) == 0:
+            # Find the unit row (handle both cluster_id and unit_id columns)
+            if 'cluster_id' in self._units_df.columns:
+                unit_col = 'cluster_id'
+            elif 'unit_id' in self._units_df.columns:
+                unit_col = 'unit_id'
+            else:
+                log.error("No unit_id or cluster_id column in units table")
+                return None
+
+            # Find matching unit row by column
+            matching = self._units_df[pd.to_numeric(self._units_df[unit_col], errors='coerce') == unit_id_numeric]
 
         if len(matching) == 0:
             log.warning(f"Unit {unit_id} not found")
