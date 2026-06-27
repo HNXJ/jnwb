@@ -238,3 +238,46 @@ class MyAnalysis(OmissionSession):
 **Date**: 2025-06-24  
 **Version**: 1.0.0  
 **Status**: Core API ready, implementation in progress
+
+---
+
+## MCP Server Setup
+
+The `jnwb` package includes a built-in Model Context Protocol (MCP) server for integration with Claude and other MCP-compatible agents/clients.
+
+### Tools Provided
+1. `inspect_nwb` — Inspect NWB file structure, metadata, groups, datasets, and neurodata_types.
+2. `get_event_codes_and_timings` — Extract all event/trial codes and timestamps with auto-discovery.
+3. `prepare_signal_reference` — Prepare a lazy metadata reference for large signal/ephys datasets without loading data arrays into memory.
+
+### Setup and Dependencies
+
+The MCP server depends on:
+* `mcp` (Model Context Protocol Python SDK)
+* `h5py` (HDF5 file system backend)
+* `pynwb` (NWB standard library)
+* `pandas` (Data processing)
+* `numpy` (Numerical backend)
+
+To install the required dependencies:
+```bash
+pip install mcp h5py pynwb pandas numpy
+```
+
+### Running the Server
+The MCP server communicates over standard input/output (stdio). Run it directly using Python:
+```bash
+python -m jnwb.mcp_server
+```
+
+To configure it in Claude Desktop, add the following to your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "jnwb-mcp-server": {
+      "command": "python",
+      "args": ["-m", "jnwb.mcp_server"]
+    }
+  }
+}
+```
