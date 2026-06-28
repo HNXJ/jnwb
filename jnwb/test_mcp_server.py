@@ -1,7 +1,7 @@
 import os
 import unittest
 from pathlib import Path
-from jnwb.mcp_server import inspect_nwb, get_event_codes_and_timings, prepare_signal_reference
+from jnwb.mcp_server import inspect_nwb, get_event_codes_and_timings, prepare_signal_reference, add_tool
 
 # Use a real NWB file from the analysis folder for testing
 TEST_NWB = "D:/analysis/nwb/sub-C31o_ses-230831_rec.nwb"
@@ -103,6 +103,45 @@ class TestMCPServer(unittest.TestCase):
         res = prepare_signal_reference(self.file_path, "/non/existent/path")
         self.assertIn("error", res)
         self.assertEqual(res["error_type"], "PathNotFound")
+
+    def test_add_tool_syntax_error(self):
+        res = add_tool("def invalid_syntax(:")
+        self.assertIn("error", res)
+        self.assertEqual(res["error_type"], "ParseError")
+
+    def test_add_tool_no_function(self):
+        res = add_tool("x = 42\nprint(x)")
+        self.assertIn("error", res)
+        self.assertEqual(res["error_type"], "ParseError")
+
+    def test_add_tool_success_and_cleanup(self):
+        # Backup the current server file content
+        server_path = Path(__file__).parent / "mcp_server.py"
+        original_content = server_path.read_text()
+        
+        new_tool_code = '''
+def test_temp_dummy_tool(a: int) -> str:
+    """A dummy test tool."""
+    return f"val_{a}"
+'''
+        try:
+            res = add_tool(new_tool_code)
+            self.assertEqual(res.get("status"), "success")
+            self.assertEqual(res.get("added_tool"), "test_temp_dummy_tool")
+            
+            # Check if it was written to file
+            updated_content = server_path.read_text()
+            self.assertIn("def test_temp_dummy_tool", updated_content)
+            self.assertIn("@mcp.tool()", updated_content)
+            
+            # Try adding again to verify duplicate error
+            dup_res = add_tool(new_tool_code)
+            self.assertIn("error", dup_res)
+            self.assertEqual(dup_res["error_type"], "DuplicateTool")
+            
+        finally:
+            # Revert changes to keep repo clean
+            server_path.write_text(original_content)
 
 if __name__ == "__main__":
     unittest.main()

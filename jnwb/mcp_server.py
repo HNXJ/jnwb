@@ -300,6 +300,80 @@ def prepare_signal_reference(file_path: str, dataset_path: str) -> Dict[str, Any
             "error_type": "Unknown"
         }
 
+@mcp.tool()
+def add_tool(code: str) -> Dict[str, Any]:
+    """
+    Validate and permanently add a new Python tool to the MCP server.
+    
+    Args:
+        code: Python source code of the tool (must define at least one function).
+        
+    Returns:
+        Structured JSON confirming registration or error dictionary.
+    """
+    import ast
+    try:
+        parsed = ast.parse(code)
+    except SyntaxError as e:
+        return {
+            "error": f"Syntax error in code: {str(e)}",
+            "error_type": "ParseError"
+        }
+        
+    func_defs = [node for node in parsed.body if isinstance(node, ast.FunctionDef)]
+    if not func_defs:
+        return {
+            "error": "Code must contain at least one function definition (def my_func(...):)",
+            "error_type": "ParseError"
+        }
+        
+    func_name = func_defs[0].name
+    
+    # Check decorator list
+    has_decorator = False
+    for decorator in func_defs[0].decorator_list:
+        if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
+            if decorator.func.attr == 'tool':
+                has_decorator = True
+        elif isinstance(decorator, ast.Attribute) and decorator.attr == 'tool':
+            has_decorator = True
+            
+    formatted_code = code.strip()
+    if not has_decorator:
+        formatted_code = f"@mcp.tool()\n{formatted_code}"
+        
+    # Read the current file and write it back with the new tool inserted
+    server_file = Path(__file__)
+    try:
+        content = server_file.read_text()
+        
+        # Check for duplication
+        if f"def {func_name}" in content:
+            return {
+                "error": f"A function named '{func_name}' already exists in the MCP server.",
+                "error_type": "DuplicateTool"
+            }
+            
+        main_marker = 'if __name__ == "__main__":'
+        if main_marker in content:
+            parts = content.split(main_marker)
+            new_content = parts[0] + formatted_code + "\n\n" + main_marker + parts[1]
+        else:
+            new_content = content + "\n\n" + formatted_code + "\n"
+            
+        server_file.write_text(new_content)
+        
+        return {
+            "status": "success",
+            "added_tool": func_name,
+            "message": f"Tool '{func_name}' has been successfully validated and appended to the MCP server. Please restart the MCP server to load the new tool."
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to modify MCP server code: {str(e)}",
+            "error_type": "Unknown"
+        }
+
 if __name__ == "__main__":
     # Run the server via standard input/output transport
     mcp.run()
