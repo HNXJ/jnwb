@@ -63,58 +63,70 @@ class StatisticalAnalysis:
         result = {
             'n1': len(valid1),
             'n2': len(valid2),
-            'mean1': np.mean(valid1),
-            'mean2': np.mean(valid2),
+            'mean1': np.mean(valid1) if len(valid1) > 0 else np.nan,
+            'mean2': np.mean(valid2) if len(valid2) > 0 else np.nan,
             'std1': np.std(valid1, ddof=1) if len(valid1) > 1 else np.nan,
             'std2': np.std(valid2, ddof=1) if len(valid2) > 1 else np.nan,
+            'sem1': stats.sem(valid1) if len(valid1) > 0 else np.nan,
+            'sem2': stats.sem(valid2) if len(valid2) > 0 else np.nan,
+            'median1': np.median(valid1) if len(valid1) > 0 else np.nan,
+            'median2': np.median(valid2) if len(valid2) > 0 else np.nan,
+            'iqr1': stats.iqr(valid1) if len(valid1) > 0 else np.nan,
+            'iqr2': stats.iqr(valid2) if len(valid2) > 0 else np.nan,
+            'mad1': stats.median_abs_deviation(valid1) if len(valid1) > 0 else np.nan,
+            'mad2': stats.median_abs_deviation(valid2) if len(valid2) > 0 else np.nan,
         }
 
         if paired and len(valid1) == len(valid2):
             # Paired tests
             t_stat, t_pval = stats.ttest_rel(valid1, valid2)
             w_stat, w_pval = stats.wilcoxon(valid1, valid2)
+            df = len(valid1) - 1
 
             result.update({
                 'parametric': {
                     'test': 'paired_t_test',
-                    'statistic': float(t_stat),
-                    'pval': float(t_pval),
+                    'statistic': float(t_stat) if not np.isnan(t_stat) else 0.0,
+                    'pval': float(t_pval) if not np.isnan(t_pval) else 1.0,
+                    'df': int(df),
                     'effect_size': float(np.mean(valid1 - valid2) / np.std(valid1 - valid2, ddof=1) if len(valid1) > 1 else 0),
                 },
                 'non_parametric': {
                     'test': 'wilcoxon',
-                    'statistic': float(w_stat),
-                    'pval': float(w_pval),
+                    'statistic': float(w_stat) if not np.isnan(w_stat) else 0.0,
+                    'pval': float(w_pval) if not np.isnan(w_pval) else 1.0,
                 },
             })
         else:
             # Independent tests
             t_stat, t_pval = stats.ttest_ind(valid1, valid2)
             u_stat, u_pval = stats.mannwhitneyu(valid1, valid2, alternative='two-sided')
+            df = len(valid1) + len(valid2) - 2
 
             # Cohen's d
             pooled_std = np.sqrt(
                 ((len(valid1) - 1) * np.var(valid1, ddof=1) +
                  (len(valid2) - 1) * np.var(valid2, ddof=1)) /
-                (len(valid1) + len(valid2) - 2)
-            )
+                df
+            ) if df > 0 else 0.0
             cohens_d = (np.mean(valid1) - np.mean(valid2)) / pooled_std if pooled_std > 0 else 0
 
             result.update({
                 'parametric': {
                     'test': 'independent_t_test',
-                    'statistic': float(t_stat),
-                    'pval': float(t_pval),
+                    'statistic': float(t_stat) if not np.isnan(t_stat) else 0.0,
+                    'pval': float(t_pval) if not np.isnan(t_pval) else 1.0,
+                    'df': int(df),
                     'effect_size': float(cohens_d),
                 },
                 'non_parametric': {
                     'test': 'mann_whitney_u',
-                    'statistic': float(u_stat),
-                    'pval': float(u_pval),
+                    'statistic': float(u_stat) if not np.isnan(u_stat) else 0.0,
+                    'pval': float(u_pval) if not np.isnan(u_pval) else 1.0,
                 },
             })
 
-        # FDR correction (conservative: treat as part of multiple-comparison family)
+        # FDR correction
         pvals = [result['parametric']['pval'], result['non_parametric']['pval']]
         fdr_pvals = stats.false_discovery_control(pvals, method='bh')
 
@@ -147,27 +159,38 @@ class StatisticalAnalysis:
         h_stat, h_pval = stats.kruskal(*group_data)
 
         # Effect size: eta-squared
-        grand_mean = np.concatenate(group_data).mean()
+        grand_mean = np.concatenate(group_data).mean() if len(group_data) > 0 else 0
         ss_between = sum(len(g) * (np.mean(g) - grand_mean) ** 2 for g in group_data)
         ss_total = sum(np.sum((g - grand_mean) ** 2) for g in group_data)
         eta_squared = ss_between / ss_total if ss_total > 0 else 0
+
+        k = len(group_data)
+        n_total = sum(len(g) for g in group_data)
+        df_between = k - 1
+        df_within = n_total - k
 
         result = {
             'n_groups': len(group_names),
             'group_names': group_names,
             'group_sizes': [len(g) for g in group_data],
-            'group_means': [np.mean(g) for g in group_data],
+            'group_means': [np.mean(g) if len(g) > 0 else np.nan for g in group_data],
             'group_stds': [np.std(g, ddof=1) if len(g) > 1 else np.nan for g in group_data],
+            'group_sems': [stats.sem(g) if len(g) > 0 else np.nan for g in group_data],
+            'group_medians': [np.median(g) if len(g) > 0 else np.nan for g in group_data],
+            'group_iqrs': [stats.iqr(g) if len(g) > 0 else np.nan for g in group_data],
+            'group_mads': [stats.median_abs_deviation(g) if len(g) > 0 else np.nan for g in group_data],
             'parametric': {
                 'test': 'one_way_anova',
-                'statistic': float(f_stat),
-                'pval': float(f_pval),
+                'statistic': float(f_stat) if not np.isnan(f_stat) else 0.0,
+                'pval': float(f_pval) if not np.isnan(f_pval) else 1.0,
+                'df_between': int(df_between),
+                'df_within': int(df_within),
                 'effect_size': float(eta_squared),
             },
             'non_parametric': {
                 'test': 'kruskal_wallis',
-                'statistic': float(h_stat),
-                'pval': float(h_pval),
+                'statistic': float(h_stat) if not np.isnan(h_stat) else 0.0,
+                'pval': float(h_pval) if not np.isnan(h_pval) else 1.0,
             },
         }
 
@@ -210,19 +233,22 @@ class StatisticalAnalysis:
 
         # Spearman rho
         rho_spearman, p_spearman = stats.spearmanr(x_valid, y_valid)
+        df = len(x_valid) - 2
 
         result = {
             'n': len(x_valid),
             'parametric': {
                 'test': 'pearson_r',
-                'statistic': float(r_pearson),
-                'pval': float(p_pearson),
+                'statistic': float(r_pearson) if not np.isnan(r_pearson) else 0.0,
+                'pval': float(p_pearson) if not np.isnan(p_pearson) else 1.0,
+                'df': int(df),
                 'effect_size': float(r_pearson ** 2),  # R²
             },
             'non_parametric': {
                 'test': 'spearman_rho',
-                'statistic': float(rho_spearman),
-                'pval': float(p_spearman),
+                'statistic': float(rho_spearman) if not np.isnan(rho_spearman) else 0.0,
+                'pval': float(p_spearman) if not np.isnan(p_spearman) else 1.0,
+                'df': int(df),
                 'effect_size': float(rho_spearman ** 2),
             },
         }

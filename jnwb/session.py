@@ -269,20 +269,27 @@ class OmissionSession:
             log.warning("No units in session")
             return None
 
-        # Find the unit row (handle both cluster_id and unit_id columns)
-        if 'cluster_id' in self._units_df.columns:
-            unit_col = 'cluster_id'
-        elif 'unit_id' in self._units_df.columns:
-            unit_col = 'unit_id'
-        else:
-            log.error("No unit_id or cluster_id column in units table")
-            return None
-
         # Convert to numeric for comparison
         unit_id_numeric = float(unit_id) if isinstance(unit_id, (int, str)) else unit_id
 
-        # Find matching unit row
-        matching = self._units_df[pd.to_numeric(self._units_df[unit_col], errors='coerce') == unit_id_numeric]
+        matching = pd.DataFrame()
+        # First check index lookup
+        if self._units_df.index.name == 'id' or 'id' in self._units_df.columns or self._units_df.index.name is None:
+            if unit_id_numeric in self._units_df.index:
+                matching = self._units_df.loc[[unit_id_numeric]]
+
+        if len(matching) == 0:
+            # Find the unit row (handle both cluster_id and unit_id columns)
+            if 'cluster_id' in self._units_df.columns:
+                unit_col = 'cluster_id'
+            elif 'unit_id' in self._units_df.columns:
+                unit_col = 'unit_id'
+            else:
+                log.error("No unit_id or cluster_id column in units table")
+                return None
+
+            # Find matching unit row by column
+            matching = self._units_df[pd.to_numeric(self._units_df[unit_col], errors='coerce') == unit_id_numeric]
 
         if len(matching) == 0:
             log.warning(f"Unit {unit_id} not found")
@@ -521,23 +528,125 @@ class OmissionSession:
         """
         Full raster suite: raster plot + PSTH + autocorrelogram.
 
-        Three-panel figure for single-unit analysis.
+        Three-panel figure for single-unit analysis (if condition is specified),
+        or the publication-grade 5x4 aligned raster suite (if condition is None).
 
         Args:
             unit_id: Unit cluster ID
-            condition: Behavioral condition (omission condition, e.g., 'AAXB')
-            phase: stimulus_number (1-5)
+            condition: Behavioral condition (omission condition, e.g., 'AAXB', or None)
+            phase: stimulus_number (1-5, default: 2 = p1)
             window_ms: Time window relative to phase onset (ms)
 
         Returns:
-            Dictionary with {'raster': fig1, 'psth': fig2, 'autocorr': fig3}
-
-        Example:
-            >>> session.raster_suite(unit_id=42, condition='AAXB', phase=3)
+            Dictionary with figure and metrics, or Matplotlib figure object
         """
         log.info(f"Raster suite: unit={unit_id} condition={condition} phase={phase}")
-        # TODO: Load spike times, create raster + PSTH + autocorr
-        return {'status': 'queued'}
+        
+        from .viz import raster_suite_omission
+        import matplotlib.pyplot as plt
+
+        if condition is None:
+            # Replicate the exact legacy aligned raster suite (all 3 families)
+            # Default window for full suite is (-1000, 4000) as in legacy script
+            fig = raster_suite_omission(self, unit_id=unit_id, phase=phase, window_ms=(-1000, 4000))
+            return {'figure': fig, 'status': 'completed', 'type': 'full_suite'}
+        
+        # Otherwise, generate a 3-panel single-condition figure
+        from .functions import raster_plot, psth_analysis, autocorrelogram
+
+        ras_res = raster_plot(self, unit_id=unit_id, condition=condition, phase=phase, window_ms=window_ms)
+        psth_res = psth_analysis(self, unit_id=unit_id, condition=condition, phase=phase)
+        acg_res = autocorrelogram(self, unit_id=unit_id)
+
+        if 'error' in ras_res:
+            return ras_res
+        if 'error' in psth_res:
+            return psth_res
+
+        fig, axes = plt.subplots(3, 1, figsize=(10, 12), facecolor='white')
+        
+        # 1. Raster Plot
+        ax_ras = axes[0]
+        from collections import defaultdict
+        spikes_by_trial = defaultdict(list)
+        for sp in ras_res['raster_data']:
+            spikes_by_trial[sp['trial_id']].append(sp['spike_time_ms'])
+        
+        for trial_id, trial_spikes in spikes_by_trial.items():
+            ax_ras.vlines(trial_spikes, trial_id - 0.4, trial_id + 0.4, colors='black', linewidth=0.5)
+        
+        ax_ras.set_title(f"Spike Raster (Condition: {condition}, Phase: {phase})", fontsize=10, fontweight='bold')
+        ax_ras.set_ylabel("Trials", fontsize=9)
+        ax_ras.set_xlim(window_ms[0], window_ms[1])
+        ax_ras.spines['top'].set_visible(False)
+        ax_ras.spines['right'].set_visible(False)
+
+        # 2. PSTH Plot
+        ax_psth = axes[1]
+        if 'psth_rate_hz' in psth_res:
+            ax_psth.plot(psth_res['bin_times_ms'], psth_res['psth_rate_hz'], color='#1565C0', linewidth=1.5)
+            ax_psth.axhline(psth_res['baseline_rate_hz'], color='gray', linestyle='--', linewidth=1.0)
+        ax_psth.set_title("PSTH", fontsize=10, fontweight='bold')
+        ax_psth.set_ylabel("FR (Hz)", fontsize=9)
+        ax_psth.set_xlim(window_ms[0], window_ms[1])
+        ax_psth.spines['top'].set_visible(False)
+        ax_psth.spines['right'].set_visible(False)
+
+        # 3. Autocorrelogram Plot
+        ax_acg = axes[2]
+        if 'acg' in acg_res:
+            lags = np.linspace(-acg_res.get('max_lag_ms', 100), acg_res.get('max_lag_ms', 100), len(acg_res['acg']))
+            ax_acg.bar(lags, acg_res['acg'], width=lags[1]-lags[0], color='gray', alpha=0.7)
+        ax_acg.set_title("Autocorrelogram", fontsize=10, fontweight='bold')
+        ax_acg.set_xlabel("Lag (ms)", fontsize=9)
+        ax_acg.set_ylabel("Counts", fontsize=9)
+        ax_acg.spines['top'].set_visible(False)
+        ax_acg.spines['right'].set_visible(False)
+
+        plt.suptitle(f"Unit {unit_id} Analysis Suite", fontsize=12, fontweight='bold', y=0.98)
+        plt.tight_layout()
+
+        return {
+            'figure': fig,
+            'raster_metrics': {'n_trials': ras_res['n_trials'], 'n_spikes': ras_res['n_spikes']},
+            'psth_metrics': {'baseline_rate_hz': psth_res['baseline_rate_hz']},
+            'acg_metrics': {'is_single_unit': acg_res.get('is_single_unit', False)},
+            'status': 'completed',
+            'type': 'single_condition'
+        }
+
+    def lfp_tfr_trace_suite_omission(self, area: str, layer: str, session_specific: bool = True, **kwargs) -> Dict:
+        """
+        Generate the 2-row LFP TFR trace suite for an area-layer.
+
+        Args:
+            area: Brain area (e.g. 'FEF', 'V4')
+            layer: Putative layer ('superficial' or 'deep')
+            session_specific: If True, filters TFR files to only match the current session ID (default: True)
+            **kwargs: Arguments to pass to jnwb.viz.lfp_tfr_trace_suite_omission
+
+        Returns:
+            Dictionary with figure and status
+        """
+        from .viz import lfp_tfr_trace_suite_omission
+        fig = lfp_tfr_trace_suite_omission(self, area=area, layer=layer, session_specific=session_specific, **kwargs)
+        return {'figure': fig, 'status': 'completed'}
+
+    def lfp_tfr_trace_correlation(self, band_name: str, **kwargs) -> Dict:
+        """
+        Generate the area-layer LFP trace correlation matrix.
+
+        Insignificant correlations (FDR p-value > alpha) are set to 0.
+
+        Args:
+            band_name: Band to correlate ('Theta', 'Alpha', 'Beta-1', etc.)
+            **kwargs: Arguments to pass to jnwb.viz.lfp_tfr_trace_correlation
+
+        Returns:
+            Dictionary with figure, correlation matrix, and connection stats
+        """
+        from .viz import lfp_tfr_trace_correlation
+        return lfp_tfr_trace_correlation(self, band_name=band_name, **kwargs)
 
     # ========================================================================
     # ANALYSIS METHODS: POPULATION STATISTICS

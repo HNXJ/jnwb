@@ -50,7 +50,7 @@ class TestRasterGridByFamily:
             for fig in figs:
                 plt.close(fig)
 
-            log.info(f"✓ Generated {len(figs)} raster grids for family A")
+            log.info(f"Generated {len(figs)} raster grids for family A")
 
         except Exception as e:
             pytest.fail(f"Raster grid generation failed: {e}")
@@ -81,7 +81,7 @@ class TestRasterGridByFamily:
                 for fig in figs:
                     plt.close(fig)
 
-                log.info(f"✓ Family {family}: {len(figs)} figures")
+                log.info(f"Family {family}: {len(figs)} figures")
 
             except Exception as e:
                 pytest.fail(f"Family {family} failed: {e}")
@@ -110,7 +110,7 @@ class TestRasterGridByFamily:
         for fig in figs:
             plt.close(fig)
 
-        log.info(f"✓ Pagination test: {len(figs)} pages for {len(unit_ids)} units")
+        log.info(f"Pagination test: {len(figs)} pages for {len(unit_ids)} units")
 
 
 class TestPopulationRasterSummary:
@@ -139,7 +139,7 @@ class TestPopulationRasterSummary:
 
             plt.close(fig)
 
-            log.info(f"✓ Population raster generated (sorted by firing_rate)")
+            log.info(f"Population raster generated (sorted by firing_rate)")
 
         except Exception as e:
             pytest.fail(f"Population raster failed: {e}")
@@ -170,7 +170,7 @@ class TestPopulationRasterSummary:
 
             plt.close(fig)
 
-            log.info(f"✓ Population raster generated (sorted by SNR)")
+            log.info(f"Population raster generated (sorted by SNR)")
 
         except Exception as e:
             pytest.fail(f"Population raster by SNR failed: {e}")
@@ -198,7 +198,7 @@ class TestPopulationRasterSummary:
                 assert isinstance(fig, plt.Figure)
                 plt.close(fig)
 
-                log.info(f"✓ Population raster: {condition}")
+                log.info(f"Population raster: {condition}")
 
             except Exception as e:
                 log.warning(f"Condition {condition} failed: {e}")
@@ -233,7 +233,7 @@ class TestMultiPhaseComparison:
 
             plt.close(fig)
 
-            log.info(f"✓ Multi-phase comparison for unit {unit_id}")
+            log.info(f"Multi-phase comparison for unit {unit_id}")
 
         except Exception as e:
             pytest.fail(f"Multi-phase comparison failed: {e}")
@@ -264,7 +264,7 @@ class TestMultiPhaseComparison:
                 log.warning(f"Condition {condition} failed: {e}")
 
         assert success_count >= 2, "Should work for at least 2 conditions"
-        log.info(f"✓ Multi-phase comparison across {success_count} conditions")
+        log.info(f"Multi-phase comparison across {success_count} conditions")
 
 
 class TestSaveFigureSuite:
@@ -277,6 +277,7 @@ class TestSaveFigureSuite:
 
         figs = [fig]
         output_dir = tmp_path / "test_figs"
+        fig_path = output_dir / 'test_figure_page1.png'
 
         try:
             viz.save_figure_suite(
@@ -286,18 +287,18 @@ class TestSaveFigureSuite:
                 formats=['png']
             )
 
-            assert (output_dir / 'test_figure_page1.png').exists()
-            log.info(f"✓ Figure saved successfully")
+            assert fig_path.exists(), "SVG should be written to disk"
 
+            log.info(f"Figure saved successfully")
+
+        finally:
             plt.close(fig)
-
-        except Exception as e:
-            pytest.fail(f"Save figure failed: {e}")
 
     def test_save_multiple_formats(self, tmp_path):
         """Test saving figures in multiple formats."""
         figs = [plt.figure() for _ in range(2)]
         output_dir = tmp_path / "multi_format"
+        paths = [output_dir / 'test_page1.png', output_dir / 'test_page2.png', output_dir / 'test_page1.pdf']
 
         try:
             viz.save_figure_suite(
@@ -307,18 +308,128 @@ class TestSaveFigureSuite:
                 formats=['png', 'pdf']
             )
 
-            assert (output_dir / 'test_page1.png').exists()
-            assert (output_dir / 'test_page2.png').exists()
-            assert (output_dir / 'test_page1.pdf').exists()
+            assert all(p.exists() for p in paths), "All formats should be written"
 
+            log.info(f"Figures saved in multiple formats")
+
+        finally:
             for fig in figs:
                 plt.close(fig)
 
-            log.info(f"✓ Figures saved in multiple formats")
+
+class TestAlignedRasterSuite:
+    """Test aligned raster suite figures."""
+
+    def test_raster_suite_omission(self):
+        """Test raster_suite_omission directly."""
+        session = OmissionSession(str(NWB_FILES[0]))
+        units = metadata.get_all_units_metadata(str(NWB_FILES[0]))
+
+        if len(units) == 0:
+            pytest.skip("No units in session")
+
+        # Find unit with spikes
+        unit_id = None
+        for uid in units.index:
+            spike_times = session.get_spike_times(uid)
+            if spike_times is not None and len(spike_times) > 10:
+                unit_id = uid
+                break
+
+        if unit_id is None:
+            pytest.skip("No unit with sufficient spikes found")
+
+        try:
+            fig = viz.raster_suite_omission(
+                session=session,
+                unit_id=unit_id,
+                phase=2
+            )
+
+            assert isinstance(fig, plt.Figure)
+            # 5x4 grid -> 3x4 + 3x1 + text + waveform = 17 axes (or check it is a valid Figure)
+            assert len(fig.get_axes()) > 0
+            plt.close(fig)
+            log.info(f"Aligned raster suite directly generated for unit {unit_id}")
 
         except Exception as e:
-            pytest.fail(f"Multi-format save failed: {e}")
+            pytest.fail(f"Direct aligned raster suite plot failed: {e}")
+
+    def test_session_raster_suite_interface(self):
+        """Test the session.raster_suite wrapper."""
+        session = OmissionSession(str(NWB_FILES[0]))
+        units = metadata.get_all_units_metadata(str(NWB_FILES[0]))
+
+        if len(units) == 0:
+            pytest.skip("No units in session")
+
+        # Find unit with spikes
+        unit_id = None
+        for uid in units.index:
+            spike_times = session.get_spike_times(uid)
+            if spike_times is not None and len(spike_times) > 10:
+                unit_id = uid
+                break
+
+        if unit_id is None:
+            pytest.skip("No unit with sufficient spikes found")
+
+        try:
+            # 1. Full suite (condition=None)
+            res_full = session.raster_suite(unit_id=unit_id)
+            assert res_full['status'] == 'completed'
+            assert res_full['type'] == 'full_suite'
+            assert isinstance(res_full['figure'], plt.Figure)
+            plt.close(res_full['figure'])
+
+            # 2. Single condition
+            res_single = session.raster_suite(unit_id=unit_id, condition='AAAB')
+            assert res_single['status'] == 'completed'
+            assert res_single['type'] == 'single_condition'
+            assert isinstance(res_single['figure'], plt.Figure)
+            plt.close(res_single['figure'])
+
+            log.info(f"session.raster_suite verified for unit {unit_id}")
+
+        except Exception as e:
+            pytest.fail(f"session.raster_suite test failed: {e}")
+
+    def test_lfp_tfr_trace_suite_omission(self):
+        """Test lfp_tfr_trace_suite_omission."""
+        session = OmissionSession(str(NWB_FILES[0]))
+        try:
+            res = session.lfp_tfr_trace_suite_omission(
+                area="V4",
+                layer="superficial",
+                session_specific=False
+            )
+            assert isinstance(res, dict)
+            assert res['status'] == 'completed'
+            assert isinstance(res['figure'], plt.Figure)
+            plt.close(res['figure'])
+            log.info("lfp_tfr_trace_suite_omission verified successfully")
+        except Exception as e:
+            pytest.fail(f"lfp_tfr_trace_suite_omission failed: {e}")
+
+    def test_lfp_tfr_trace_correlation(self):
+        """Test lfp_tfr_trace_correlation."""
+        session = OmissionSession(str(NWB_FILES[0]))
+        try:
+            res = session.lfp_tfr_trace_correlation(
+                band_name="Theta",
+                alpha=0.05
+            )
+            assert isinstance(res, dict)
+            assert isinstance(res['figure'], plt.Figure)
+            assert 'correlation_matrix' in res
+            assert 'p_matrix_corrected' in res
+            assert 'significant_pairs' in res
+            plt.close(res['figure'])
+            log.info("lfp_tfr_trace_correlation verified successfully")
+        except Exception as e:
+            pytest.fail(f"lfp_tfr_trace_correlation failed: {e}")
 
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
+

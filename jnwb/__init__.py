@@ -182,6 +182,11 @@ from .diagnostics import (
 
 # Category D: Figure generation (comprehensive visualization)
 from . import viz
+from .viz import (
+    raster_suite_omission,
+    lfp_tfr_trace_suite_omission,
+    lfp_tfr_trace_correlation,
+)
 
 # Y-files: New orthogonal jnwb modules (spectral and visualization)
 from . import spectral
@@ -275,6 +280,9 @@ __all__ = [
     'print_audit_report',
     # Figure generation (Category D: comprehensive visualization)
     'viz',
+    'raster_suite_omission',
+    'lfp_tfr_trace_suite_omission',
+    'lfp_tfr_trace_correlation',
     # Spectral analysis (Y-file: new orthogonal module)
     'spectral',
     # Visual QC (Y-file: new orthogonal module)
