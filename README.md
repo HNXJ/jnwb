@@ -5,10 +5,11 @@ Production repository for the **Omission** project — hierarchical visual predi
 ## 📁 Structure
 
 **Core Analysis Module:**
-- **`jnwb/`** — Production-grade NWB analysis framework
+- **`jnwb/`** — Production-grade NWB analysis framework (includes built-in MCP server for Claude integration)
   - `session.py` — Session loader, NWB access, area/layer enrichment
   - `functions.py` — Spike extraction, rasters, PSTHs, population analysis
   - `addressing.py` — Unit/channel mapping, addressing schemes
+  - `mcp_server.py` — Stdio-based Model Context Protocol server exposing inspect_nwb, get_event_codes_and_timings, prepare_signal_reference, and add_tool
   - `tests/` — Validation suite (real NWB data)
 
 **Project Context & Documentation:**
@@ -64,6 +65,7 @@ raster_plot(session, unit_id=15, epochs=epochs)
 ## 📖 Documentation
 
 - **[COOKBOOK.md](COOKBOOK.md)** — Working code + real output for every `jnwb` function (spiking, LFP, population, statistics)
+- **MCP Server**: Refer to the MCP Server section in the [jnwb README](jnwb/README.md#mcp-server-setup) for setting up tools for Claude.
 - **Data topology**: `context/info/07_authoritative_data_topology_single_units.md`
 - **Figure provenance**: `context/info/08_pie_charts_summary_provenance.md`
 - **Agent skills**: `.agents/skills/*/SKILL.md`
