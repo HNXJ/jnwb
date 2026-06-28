@@ -115,9 +115,9 @@ class TestMCPServer(unittest.TestCase):
         self.assertEqual(res["error_type"], "ParseError")
 
     def test_add_tool_success_and_cleanup(self):
-        # Backup the current server file content
-        server_path = Path(__file__).parent / "mcp_server.py"
-        original_content = server_path.read_text()
+        # Backup the current custom_tools file content
+        custom_tools_path = Path(__file__).parent / "mcp_server" / "custom_tools.py"
+        original_content = custom_tools_path.read_text()
         
         new_tool_code = '''
 def test_temp_dummy_tool(a: int) -> str:
@@ -129,8 +129,8 @@ def test_temp_dummy_tool(a: int) -> str:
             self.assertEqual(res.get("status"), "success")
             self.assertEqual(res.get("added_tool"), "test_temp_dummy_tool")
             
-            # Check if it was written to file
-            updated_content = server_path.read_text()
+            # Check if it was written to custom_tools.py
+            updated_content = custom_tools_path.read_text()
             self.assertIn("def test_temp_dummy_tool", updated_content)
             self.assertIn("@mcp.tool()", updated_content)
             
@@ -141,7 +141,7 @@ def test_temp_dummy_tool(a: int) -> str:
             
         finally:
             # Revert changes to keep repo clean
-            server_path.write_text(original_content)
+            custom_tools_path.write_text(original_content)
 
 if __name__ == "__main__":
     unittest.main()
