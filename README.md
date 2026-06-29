@@ -1,71 +1,97 @@
-# Omission: Single-Unit & Spectral Analysis
+# Omission: Unified Single-Unit & Spectral Analysis (`jnwb`)
 
-Production repository for the **Omission** project — hierarchical visual prediction and omission response in V1, PFC, MT/MST, and FEF across 13 recording sessions.
+Production repository for the **Omission** project — hierarchical visual prediction and omission response analysis across cortical visual and prefrontal hierarchies (V1, V2, V3, V4, MT, MST, TEO, FEF, PFC) across 13 recording sessions.
 
-## 📁 Structure
+---
 
-**Core Analysis Module:**
-- **`jnwb/`** — Production-grade NWB analysis framework (includes built-in MCP server for Claude integration)
-  - `session.py` — Session loader, NWB access, area/layer enrichment
-  - `functions.py` — Spike extraction, rasters, PSTHs, population analysis
-  - `addressing.py` — Unit/channel mapping, addressing schemes
-  - `mcp_server.py` — Stdio-based Model Context Protocol server exposing inspect_nwb, get_event_codes_and_timings, prepare_signal_reference, and add_tool
-  - `tests/` — Validation suite (real NWB data)
+## 📁 Repository Structure
 
-**Project Context & Documentation:**
-- **`context/info/`** — Authoritative data topology, NWB event model, condition groups
-- **`context/sessions/`** — Per-session logs and maps
+- **`jnwb/`** — Unified Python package containing the production-grade NWB analysis framework and built-in MCP server.
+- **`tests/`** — Consolidated test suite (114 passing tests) fully validating loaders, spectral/spiking pipelines, and statistical engines.
+- **`docs/`** — Consolidated, up-to-date documentation on overview, NWB structures, methods, and operations.
+- **`examples/`** — Step-by-step usage scripts for spiking, TFR, decoding, and spectral causality.
+- **`legacy/`** — Unified archive containing legacy context markdowns, obsolete scripts, and old test files.
+- **`etude_no_01_gallery.ipynb`** — Comprehensive Jupyter Notebook containing interactive showcases for all visualization tasks.
 
-**Infrastructure & Outputs:**
-- **`.agents/skills/`** — Agent skill definitions (spectral-relations pipeline, NWB-IO, spiking, etc.)
-- **`outputs/`** — Analysis results, figures, archive, documentation
-  - `publication_figures/` — Grand database, waveforms, layer masks
-  - `archive/` — Legacy code, notebooks, execution logs (refactorization in progress)
-  - `docs/` — Markdown handouts and specifications
-
-**Testing & Config:**
-- **`tests/`** — Unit tests for jnwb functions
-- `setup.py`, `pyproject.toml` — Python package config
+---
 
 ## 🚀 Quick Start
 
 ```python
-from jnwb import OmissionSession
+import jnwb as oa
 
-# Load session with area/layer enrichment
-session = OmissionSession("sub-C31o_ses-230823_rec.nwb")
+# 1. Load an enriched session
+session = oa.read("D:/analysis/nwb/sub-C31o_ses-230630_rec.nwb")
 
-# Get epochs for a condition
-epochs = session.get_epochs(
-    phase=2,  # p1 (stimulus_number=2)
-    condition_numbers=[1, 2],  # AAAB condition
-    correct=True
-)
+# 2. Extract single units
+units_df = session.find_single_units(quality='stable_plus', area='V1')
 
-# Extract spikes
-spike_times = session.get_spike_times(unit_id=15)
-
-# Plot raster
-from jnwb.functions import raster_plot
-raster_plot(session, unit_id=15, epochs=epochs)
+# 3. Generate a complete raster suite (Spikes, PSTH, ACG)
+res = session.raster_suite(unit_id=2.0, condition='AAAB')
+res["figure"].savefig("outputs/task_01_raster.png")
 ```
 
-## 📊 Current Status
+---
 
-**Real-data validation (13 NWB sessions):**
-- ✅ 6/11 core functions validated
-- ✅ Area/layer enrichment via peak_channel_id mapping
-- ⚠️ Epoch filtering: type mismatch fix pending
-- 📋 Milestone A: 87→90 (raster/PSTH unlock after epoch fix)
-- 📋 Milestone B: 90→92 (spectral pipeline completion)
+## 📊 The 10 Highlighted Showcases
 
-**Refactorization:**
-- See `outputs/REFACTORIZATION_CLASSIFICATION.md` for legacy code assessment (X/Y/Z/W system)
+The interactive [etude_no_01_gallery.ipynb](file:///d:/workspace/omission/etude_no_01_gallery.ipynb) notebook details these 10 core showcases:
 
-## 📖 Documentation
+### 1. Single Unit Raster Suite
+Generates aligned spike rasters, peristimulus time histograms (PSTH), and autocorrelograms (ACG) for individual neurons.
+```python
+sess.raster_suite(unit_id=2.0)
+```
 
-- **[COOKBOOK.md](COOKBOOK.md)** — Working code + real output for every `jnwb` function (spiking, LFP, population, statistics)
-- **MCP Server**: Refer to the MCP Server section in the [jnwb README](jnwb/README.md#mcp-server-setup) for setting up tools for Claude.
-- **Data topology**: `context/info/07_authoritative_data_topology_single_units.md`
-- **Figure provenance**: `context/info/08_pie_charts_summary_provenance.md`
-- **Agent skills**: `.agents/skills/*/SKILL.md`
+### 2. Multi-Channel Raw LFP Trace Extraction
+lazy-reads and plots raw LFP signals for targeted channels (e.g., 44, 47, 50) of Probe B.
+
+### 3. Multi-Channel MUAe Envelope Visualization
+lazy-extracts and plots multi-unit activity envelopes for Probe A channels 1 and 127.
+
+### 4. 2D Log-Frequency TFR Spectrogram
+Computes and plots baseline-normalized power spectrograms across theta, alpha, beta, and gamma bands.
+```python
+sess.plot_tfr(area="PFC", condition="AAXB", phase=3)
+```
+
+### 5. Multi-Channel TFR Band Traces
+Averages TFR power across channels 20–80 and plots time-resolved traces for all 7 canonical bands.
+
+### 6. Noise vs. Signal Quality Auditing
+Generates multi-metric tradeoff plots mapping Signal-to-Noise Ratio (SNR) against Firing Rates and Waveform Shapes.
+```python
+from jnwb import visual_qc as qc
+qc.plot_noise_vs_signal(sess._units_df)
+```
+
+### 7. Omission Stability Pie Charts
+Summarizes unit quality tiers (e.g., Stable-Plus, Unstable) grouped by cortical recording areas.
+```python
+sess.pie_charts(by_area=True)
+```
+
+### 8. Layer-wise Spectrolaminar Motifs
+Identifies superficial and deep layer spectral power dynamics across visual hierarchies.
+```python
+sess.spectrolaminar_motif(area="V4", condition="AAAB")
+```
+
+### 9. Multi-Area Spectral Granger & Granger Proxies
+Computes directional lead-lag matrices using relative phase differences to establish hierarchical routing.
+
+### 10. Multi-File Batch Processing & Advanced Querying
+Performs batch data inventory checks across multiple NWB files, filtering units by layer, depth, and SNR.
+```python
+oa.units_across_sessions(sessions_list, criteria={'is_stable_plus': True})
+```
+
+---
+
+## 🛠️ Built-in Model Context Protocol (MCP) Server
+
+`jnwb` includes an stdio-based MCP server to expose key data analysis capabilities directly to LLMs:
+- **`inspect_nwb_file`**: Resolves session-level metadata, areas, and channels.
+- **`get_all_units_metadata`**: Outputs the database of sorted units.
+- **`prepare_signal_reference`**: Preprocesses trial-aligned LFP and MUAe signals.
+- **`add_tool`**: Safely appends new analysis tools dynamically.
