@@ -79,17 +79,19 @@ session.raster_suite(unit_id=42, condition='AAXB', phase=3)
 ```python
 # Response metrics (baseline vs. evoked FR)
 metrics = compute_response_metrics(spike_times, trial_onsets,
-                                   baseline_window=(-500, 0),
-                                   response_window=(0, 500))
-# Returns: {'baseline_fr': ..., 'evoked_fr': ..., 'd_prime': ..., 'modulation_index': ...}
+                                   baseline_window=(-0.250, -0.050),
+                                   response_window=(0.0, 0.150))
+# Returns: {'baseline_rate': ..., 'response_rate': ..., 'response_zscore': ...}
 
 # Classify omission selectivity
-omit_class = classify_omission_response(session, unit_id=42)
-# Returns: 'S+' | 'S-' | 'non-selective'
+stim_onsets = session.get_epochs(condition='AAAB')["start_time"].values
+omission_onsets = session.get_epochs(condition='AAXB')["start_time"].values
+omit_class = classify_omission_response(spike_times, stim_onsets, omission_onsets)
+# Returns: {'sig_s': bool, 'sig_o': bool, 'stimulus_rate': ..., 'omission_rate': ...}
 
 # Phase-locking index
-pli = phase_locking_index(spike_times, lfp_phase_array)
-# Returns: float in [0, 1]
+pli = phase_locking_index(spike_times, lfp_phase_array, lfp_timestamps)
+# Returns: {'pli': ..., 'preferred_phase': ..., 'rayleigh_pvalue': ...}
 ```
 
 ## Response Classification (S+ / S- / Other)
@@ -105,15 +107,3 @@ Grand database counts (from stable-plus units): S+ = 1,468 | S- = 986 | Other = 
 - **Superficial**: unit channel within ±10 channels of another verified superficial unit → N = 614
 - **Deep**: unit channel within ±10 channels of another verified deep unit → N = 1,813
 - **Unresolved**: ~25 % remain unresolved
-
-## Burstiness Definition (revised)
-
-A unit is **bursty** if it has ≥ 1 instance of ≥ 10 spikes within a 25 ms window at any point in the recording.  
-Units with strong 40 Hz+ peaks in ACG are considered strongly bursty.
-
-```python
-# Example burst detection
-from jnwb.spiking import detect_bursts
-bursts = detect_bursts(spike_times, window_ms=25, min_spikes=10)
-is_bursty = len(bursts) > 0
-```

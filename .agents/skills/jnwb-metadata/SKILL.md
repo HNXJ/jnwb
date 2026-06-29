@@ -35,10 +35,10 @@ from jnwb import (
 ### get_all_units_metadata
 
 ```python
-# Full unit table for a session (or the grand CSV)
-units_df = get_all_units_metadata(session)
+# Full unit table for one or more sessions (by paths)
+units_df = get_all_units_metadata('D:/analysis/nwb/sub-C31o_ses-230630_rec.nwb')
 # DataFrame columns include: unit_id, area, layer, firing_rate, snr,
-#   waveform_duration_us, presence_ratio, is_stable, is_stable_plus, quality
+#   waveform_duration, presence_ratio, is_stable, stable_plus, quality
 ```
 
 ### classify_unit_quality
@@ -46,35 +46,34 @@ units_df = get_all_units_metadata(session)
 ```python
 # Re-apply quality tier logic to a units DataFrame
 units_df = classify_unit_quality(units_df)
-# Adds/updates: quality ('stable_plus' | 'stable' | 'mua' | 'unstable')
+# Adds/updates: quality_class ('Good' | 'Fair' | 'Poor') and is_valid (bool)
 ```
 
 Quality rules:
-- `stable_plus`: is_stable AND FR > 1 Hz AND SNR > 0.8 AND presence_ratio ≥ 0.98
-- `stable`: is_stable AND not stable_plus
-- `mua`: not is_stable AND lower SNR
-- `unstable`: everything else
+- `Good`: Passes all thresholds (quality, SNR, firing rate)
+- `Fair`: Fails minor thresholds
+- `Poor`: Fails critical thresholds (quality < 1.0 or SNR < 1.0)
 
 ### unit_census_report
 
 ```python
-# Print/return population breakdown
-report = unit_census_report(session)
-# Returns dict: {quality_tier: count, area: {tier: count}, ...}
+# Return population breakdown
+report_df = unit_census_report(units_df, group_by=['session_id', 'area'])
+# Returns summary DataFrame with counts and statistics
 ```
 
 ### get_snr_analysis
 
 ```python
-snr_df = get_snr_analysis(session)
-# DataFrame: unit_id, snr_db, is_good_unit, waveform_peak, waveform_trough
+snr_stats = get_snr_analysis(units_df)
+# Returns dict with SNR statistics and pass rates
 ```
 
 ### electrode_inventory
 
 ```python
-elec_df = electrode_inventory(session)
-# DataFrame: channel_id, area, layer, probe, shank, depth_um
+elec_df = electrode_inventory('D:/analysis/nwb/sub-C31o_ses-230630_rec.nwb')
+# DataFrame of electrode metadata and unit assignments
 ```
 
 ## diagnostics Module
@@ -82,24 +81,22 @@ elec_df = electrode_inventory(session)
 ### audit_session
 
 ```python
-audit = audit_session(session)
-# Returns dict: {'n_units': 368, 'n_stable_plus': 45,
-#   'n_trials': {'AAXB': 200, 'AAAB': 200, ...},
-#   'missing_conditions': [...], 'electrode_issues': [...], ...}
+audit = audit_session('D:/analysis/nwb/sub-C31o_ses-230630_rec.nwb')
+# Returns dict: {'nwb_file': ..., 'passed': True, 'warnings': [], 'errors': [], ...}
 ```
 
 ### compare_sessions
 
 ```python
-# Compare two sessions (e.g., same subject, different dates)
-diff = compare_sessions(session_a, session_b)
-# Returns dict highlighting differences in unit count, trial counts, areas, etc.
+# Compare multiple sessions by paths
+comparison_df = compare_sessions(['file1.nwb', 'file2.nwb'])
+# Returns DataFrame with audit metrics comparing sessions
 ```
 
 ### print_audit_report
 
 ```python
-print_audit_report(audit)   # Formatted console output of audit dict
+print_audit_report(audit, verbose=True)   # Formatted console output of audit dict
 ```
 
 ## Grand Database CSVs
