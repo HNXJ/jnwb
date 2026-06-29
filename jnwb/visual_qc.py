@@ -167,16 +167,20 @@ def plot_unit_quality_distribution(
     # Quality by area
     ax = axes[1, 1]
     if 'area' in units_df.columns and 'quality' in units_df.columns:
-        for area in units_df['area'].dropna().unique()[:8]:  # Top 8 areas
+        unique_areas = list(units_df['area'].dropna().unique()[:8])
+        for x_idx, area in enumerate(unique_areas):
             area_units = units_df[units_df['area'] == area]
             q_vals_area = pd.to_numeric(area_units['quality'], errors='coerce').dropna()
             if len(q_vals_area) > 0:
-                ax.scatter([area] * len(q_vals_area), q_vals_area, alpha=0.5, s=20)
+                rng = np.random.default_rng(42)
+                jitter = rng.uniform(-0.15, 0.15, size=len(q_vals_area))
+                ax.scatter(np.full(len(q_vals_area), x_idx) + jitter, q_vals_area, alpha=0.5, s=20)
 
+        ax.set_xticks(range(len(unique_areas)))
+        ax.set_xticklabels(unique_areas, rotation=45)
         ax.set_ylabel('Quality')
         ax.set_title('Quality by Area')
         ax.axhline(1.0, color='g', linestyle=':', alpha=0.5, label='Good threshold')
-        ax.tick_params(axis='x', rotation=45)
         ax.legend()
 
     # Stability flag distribution

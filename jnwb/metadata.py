@@ -66,66 +66,12 @@ def get_all_units_metadata(
                     log.warning(f"{session_id}: No units found")
                     continue
 
-                units_df = nwb.units.to_dataframe().copy()
+                raw_units = nwb.units.to_dataframe().copy()
+                elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
+
+                from .addressing import enrich_units_dataframe
+                units_df = enrich_units_dataframe(raw_units, elec_df)
                 units_df['session_id'] = int(session_id)
-
-                # Get area info from electrodes if available
-                if nwb.electrodes is not None:
-                    elec_df = nwb.electrodes.to_dataframe().copy()
-
-                    # Map peak_channel_id to area
-                    if 'peak_channel_id' in units_df.columns and 'location' in elec_df.columns:
-                        chan_to_area = {}
-                        for idx, row in elec_df.iterrows():
-                            try:
-                                chan_to_area[float(idx)] = row['location']
-                            except:
-                                pass
-
-                        units_df['area'] = units_df['peak_channel_id'].apply(
-                            lambda x: chan_to_area.get(float(x), None) if pd.notna(x) else None
-                        )
-
-                        # Clean up area name (remove coordinates)
-                        units_df['area'] = units_df['area'].apply(
-                            lambda x: str(x).split(',')[0].strip() if pd.notna(x) else None
-                        )
-                    else:
-                        units_df['area'] = None
-
-                    # Map peak_channel_id to z coordinate for layer estimation
-                    if 'z' in elec_df.columns and 'peak_channel_id' in units_df.columns:
-                        chan_to_z = {}
-                        for idx, row in elec_df.iterrows():
-                            try:
-                                chan_to_z[float(idx)] = row['z']
-                            except:
-                                pass
-
-                        z_vals = units_df['peak_channel_id'].apply(
-                            lambda x: chan_to_z.get(float(x), 500) if pd.notna(x) else 500
-                        )
-                        units_df['layer'] = 'Unknown'
-                        units_df.loc[z_vals > 1000, 'layer'] = 'Deep'
-                        units_df.loc[z_vals <= 1000, 'layer'] = 'Superficial'
-                    else:
-                        units_df['layer'] = 'Unknown'
-                else:
-                    units_df['area'] = None
-                    units_df['layer'] = 'Unknown'
-
-                # Ensure numeric columns
-                for col in ['firing_rate', 'waveform_duration', 'quality', 'snr']:
-                    if col in units_df.columns:
-                        units_df[col] = pd.to_numeric(units_df[col], errors='coerce')
-
-                # Add quality flags
-                if 'quality' in units_df.columns:
-                    units_df['is_stable'] = units_df['quality'] >= quality_threshold
-                    units_df['stable_plus'] = units_df['is_stable']
-                else:
-                    units_df['is_stable'] = False
-                    units_df['stable_plus'] = False
 
                 log.info(f"{session_id}: {len(units_df)} units extracted")
 

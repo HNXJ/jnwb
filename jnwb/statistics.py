@@ -335,15 +335,14 @@ class StatisticalAnalysis:
         combined = np.concatenate([x, y])
         n_x = len(x)
 
-        perm_diffs = []
+        perm_diffs = np.empty(n_permutations)
         np.random.seed(42)
-        for _ in range(n_permutations):
+        for i in range(n_permutations):
             perm_idx = np.random.permutation(len(combined))
             perm_x = combined[perm_idx[:n_x]]
             perm_y = combined[perm_idx[n_x:]]
-            perm_diffs.append(np.mean(perm_x) - np.mean(perm_y))
+            perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
 
-        perm_diffs = np.array(perm_diffs)
         p_value = (np.abs(perm_diffs) >= np.abs(obs_diff)).sum() / n_permutations
 
         return {

@@ -64,10 +64,11 @@ def harmonic_analysis(
     if len(lfp_trace) == 0:
         return result
 
-    # Compute power spectrum via Welch's method
+    # Compute power spectrum via Welch's method (explicitly specifying hann window)
     frequencies, pxx = signal.welch(
         lfp_trace,
         fs=sampling_rate,
+        window='hann',
         nperseg=min(len(lfp_trace), 4096),
         noverlap=None
     )

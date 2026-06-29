@@ -6,11 +6,16 @@ Each function: jnwb.<function>(<inputs>, <context>, <parameters>)
 - FDR correction
 - Publication-ready outputs
 
-Author: Claude Code
-Date: 2025-06-24
+Changes:
+  - _filter_units() helper eliminates duplicated criteria-filter code
+  - _epoch_grouper() helper eliminates duplicated groupby(trial_num) code
+  - tfr_permutation_test: passes per-trial arrays instead of scalars
+  - units_across_sessions: uses positional args, not **criteria
+  - noise_vs_signal: kept as thin wrapper (deprecation note in docstring)
 """
 
 import logging
+import warnings
 from typing import Dict, Optional, Tuple, List, Union
 import numpy as np
 import pandas as pd
@@ -20,6 +25,50 @@ from .analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
 from .statistics import StatisticalAnalysis
 
 log = logging.getLogger(__name__)
+
+
+# ============================================================================
+# PRIVATE HELPERS
+# ============================================================================
+
+def _filter_units(df: pd.DataFrame, criteria: Dict) -> pd.DataFrame:
+    """
+    Apply a criteria dict to a units DataFrame.
+
+    Supports:
+    - scalar equality  : {'area': 'V1'}
+    - range tuple      : {'firing_rate': (10, 100)}
+    - list membership  : {'area': ['V1', 'V4']}
+    """
+    out = df.copy()
+    for k, v in criteria.items():
+        if k not in out.columns:
+            continue
+        if isinstance(v, tuple) and len(v) == 2:
+            col = pd.to_numeric(out[k], errors='coerce')
+            out = out[(col >= v[0]) & (col <= v[1])]
+        elif isinstance(v, (list, set)):
+            out = out[out[k].isin(v)]
+        else:
+            out = out[out[k] == v]
+    return out
+
+
+def _epoch_grouper(session: OmissionSession, condition: str, phase: int):
+    """
+    Return (trial_groups, n_trials) for a given condition × phase.
+
+    Groups the intervals DataFrame by trial_num so both raster_plot and
+    psth_analysis share identical trial-onset logic.
+
+    Returns:
+        (GroupBy object, int) or (None, 0) on failure.
+    """
+    epochs = session.get_epochs(condition=condition, phase=phase)
+    if epochs is None or len(epochs) == 0:
+        return None, 0
+    group_col = 'trial_num' if 'trial_num' in epochs.columns else epochs.index
+    return epochs.groupby(group_col), len(epochs.groupby(group_col))
 
 
 # ============================================================================
@@ -43,7 +92,10 @@ def tfr_trial_average(session: OmissionSession, area: str, condition: str = 'AAA
     Returns:
         Dictionary with mean power, SEM, and n_trials
     """
-    raise NotImplementedError("TFR file loading pipeline incomplete. Use TFRAnalyzer.trial_average() directly.")
+    tfr_data = session.tfr_from_preprocessed(area=area, band=band, condition=condition)
+    if tfr_data is None:
+        return {'error': f'TFR array not found for area {area} condition {condition}'}
+    return TFRAnalyzer.trial_average(tfr_data)
 
 
 def tfr_compare_conditions(session: OmissionSession, area: str, condition1: str,
@@ -63,7 +115,11 @@ def tfr_compare_conditions(session: OmissionSession, area: str, condition1: str,
     Returns:
         Dictionary with statistics (parametric, non-parametric, FDR, effect size)
     """
-    raise NotImplementedError("TFR comparison requires TFR file loading pipeline. Use TFRAnalyzer.compare_conditions() directly.")
+    tfr1 = session.tfr_from_preprocessed(area=area, band=band, condition=condition1)
+    tfr2 = session.tfr_from_preprocessed(area=area, band=band, condition=condition2)
+    if tfr1 is None or tfr2 is None:
+        return {'error': f'Failed to load TFR for comparison on {area}'}
+    return TFRAnalyzer.compare_conditions(tfr1, tfr2)
 
 
 def tfr_correlate_areas(session: OmissionSession, area1: str, area2: str,
@@ -83,7 +139,11 @@ def tfr_correlate_areas(session: OmissionSession, area1: str, area2: str,
     Returns:
         Dictionary with correlation, effect size, and significance
     """
-    raise NotImplementedError("TFR correlation requires TFR file loading pipeline. Use TFRAnalyzer.correlate_areas() directly.")
+    tfr1 = session.tfr_from_preprocessed(area=area1, band=None, condition=condition)
+    tfr2 = session.tfr_from_preprocessed(area=area2, band=None, condition=condition)
+    if tfr1 is None or tfr2 is None:
+        return {'error': f'Failed to load TFR for correlation'}
+    return TFRAnalyzer.correlate_areas(tfr1, tfr2, band=band)
 
 
 def tfr_spectrolaminar(session: OmissionSession, area: str, condition: str = 'AAAB',
@@ -102,7 +162,17 @@ def tfr_spectrolaminar(session: OmissionSession, area: str, condition: str = 'AA
     Returns:
         Dictionary with per-layer power and inter-layer comparison stats
     """
-    raise NotImplementedError("Spectrolaminar analysis requires layer_masks and TFR pipeline. Use TFRAnalyzer.by_layer() directly.")
+    tfr_data = session.tfr_from_preprocessed(area=area, band=None, condition=condition)
+    if tfr_data is None:
+        return {'error': 'Failed to load TFR array'}
+    
+    if layer_masks is None:
+        n_ch = tfr_data.shape[0]
+        layer_bounds = {'superficial': (0, n_ch // 2), 'deep': (n_ch // 2, n_ch)}
+    else:
+        layer_bounds = layer_masks
+        
+    return TFRAnalyzer.by_layer(tfr_data, layer_bounds)
 
 
 def tfr_permutation_test(session: OmissionSession, area: str, condition1: str,
@@ -110,7 +180,9 @@ def tfr_permutation_test(session: OmissionSession, area: str, condition1: str,
     """
     Function 5: Permutation test for TFR differences.
 
-    Permutation-based p-value (no parametric assumptions)
+    Permutation-based p-value (no parametric assumptions).
+    Preserves the trial dimension: each trial contributes one sample so
+    the permutation test has meaningful variance.
 
     Args:
         session: OmissionSession
@@ -122,7 +194,22 @@ def tfr_permutation_test(session: OmissionSession, area: str, condition1: str,
     Returns:
         Dictionary with observed difference, p-value, and permutation distribution
     """
-    raise NotImplementedError("TFR permutation test requires TFR file loading. Use StatisticalAnalysis.permutation_test() directly.")
+    tfr1 = session.tfr_from_preprocessed(area=area, band=None, condition=condition1)
+    tfr2 = session.tfr_from_preprocessed(area=area, band=None, condition=condition2)
+    if tfr1 is None or tfr2 is None:
+        return {'error': 'Failed to load TFR arrays'}
+
+    # Average over (channels, freq, time) → one value per trial
+    data1 = np.mean(tfr1, axis=(0, 1, 2)) if tfr1.ndim == 4 \
+            else np.mean(tfr1.reshape(-1, tfr1.shape[-1]), axis=0)
+    data2 = np.mean(tfr2, axis=(0, 1, 2)) if tfr2.ndim == 4 \
+            else np.mean(tfr2.reshape(-1, tfr2.shape[-1]), axis=0)
+
+    if data1.ndim == 0:
+        # Scalar — insufficient structure; return graceful error
+        return {'error': 'TFR has no trial dimension; permutation test not meaningful'}
+
+    return StatisticalAnalysis.permutation_test(data1, data2, n_permutations=n_permutations)
 
 
 # ============================================================================
@@ -150,46 +237,34 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
         if not isinstance(session, OmissionSession):
             return {'error': 'Invalid session'}
 
-        # Get spike times for unit
         spike_times = session.get_spike_times(unit_id)
         if spike_times is None or len(spike_times) == 0:
             return {'error': f'No spikes for unit {unit_id}'}
 
-        # Get trial onsets
-        epochs = session.get_epochs(condition=condition, phase=phase)
-        if epochs is None or len(epochs) == 0:
+        trial_groups, n_trials = _epoch_grouper(session, condition, phase)
+        if trial_groups is None:
             return {'error': f'No trials: {condition} phase={phase}'}
 
-        # Align spikes to trial onsets
-        # Group by trial_num to get unique trials (epochs are event-level, not trial-level)
+        win_start_s = window_ms[0] / 1000.0
+        win_end_s   = window_ms[1] / 1000.0
         raster_data = []
-        window_start_s = window_ms[0] / 1000.0
-        window_end_s = window_ms[1] / 1000.0
 
-        trial_groups = epochs.groupby('trial_num')
         for trial_num, trial_events in trial_groups:
-            # Use the first event's start_time as the trial onset
-            onset_time = trial_events.iloc[0]['start_time']
-            spikes_in_window = spike_times[
-                (spike_times >= onset_time + window_start_s) &
-                (spike_times <= onset_time + window_end_s)
-            ]
-            spike_times_rel_ms = (spikes_in_window - onset_time) * 1000.0
+            onset = trial_events.iloc[0]['start_time']
+            mask  = ((spike_times >= onset + win_start_s) &
+                     (spike_times <= onset + win_end_s))
+            rel_ms = (spike_times[mask] - onset) * 1000.0
+            for t in rel_ms:
+                raster_data.append({'trial_id': int(float(trial_num)),
+                                    'spike_time_ms': float(t)})
 
-            for spike_time_ms in spike_times_rel_ms:
-                raster_data.append({
-                    'trial_id': int(float(trial_num)),
-                    'spike_time_ms': float(spike_time_ms),
-                })
-
-        n_trials = len(trial_groups)
         log.info(f"Raster: {len(raster_data)} spikes, {n_trials} trials")
         return {
-            'unit_id': unit_id,
-            'condition': condition,
-            'phase': phase,
-            'n_trials': n_trials,
-            'n_spikes': len(raster_data),
+            'unit_id':    unit_id,
+            'condition':  condition,
+            'phase':      phase,
+            'n_trials':   n_trials,
+            'n_spikes':   len(raster_data),
             'raster_data': raster_data,
         }
     except Exception as e:
@@ -222,48 +297,38 @@ def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition:
         if spike_times is None or len(spike_times) == 0:
             return {'error': f'No spikes for unit {unit_id}'}
 
-        epochs = session.get_epochs(condition=condition, phase=phase)
-        if epochs is None or len(epochs) == 0:
+        trial_groups, n_trials = _epoch_grouper(session, condition, phase)
+        if trial_groups is None:
             return {'error': f'No trials: {condition} phase={phase}'}
 
-        # Build spike counts per bin
-        window_ms = (-1000, 2000)  # Standard window
-        window_start_s = window_ms[0] / 1000.0
-        window_end_s = window_ms[1] / 1000.0
-        bin_size_s = bin_size_ms / 1000.0
+        window_ms    = (-1000, 2000)
+        win_start_s  = window_ms[0] / 1000.0
+        win_end_s    = window_ms[1] / 1000.0
+        bin_size_s   = bin_size_ms / 1000.0
+        n_bins       = int((win_end_s - win_start_s) / bin_size_s)
+        bin_edges    = np.linspace(win_start_s, win_end_s, n_bins + 1)
+        psth_counts  = np.zeros(n_bins)
 
-        n_bins = int((window_end_s - window_start_s) / bin_size_s)
-        bin_edges = np.linspace(window_start_s, window_end_s, n_bins + 1)
-        psth_counts = np.zeros(n_bins)
-
-        # Group by trial_num to get unique trials (epochs are event-level, not trial-level)
-        trial_groups = epochs.groupby('trial_num')
-        for trial_num, trial_events in trial_groups:
-            # Use the first event's start_time as the trial onset
-            onset_time = trial_events.iloc[0]['start_time']
-            spikes_in_window = spike_times[
-                (spike_times >= onset_time + window_start_s) &
-                (spike_times <= onset_time + window_end_s)
-            ]
-            spike_times_rel = spikes_in_window - onset_time
-            counts, _ = np.histogram(spike_times_rel, bins=bin_edges)
+        for _, trial_events in trial_groups:
+            onset = trial_events.iloc[0]['start_time']
+            mask  = ((spike_times >= onset + win_start_s) &
+                     (spike_times <= onset + win_end_s))
+            counts, _ = np.histogram(spike_times[mask] - onset, bins=bin_edges)
             psth_counts += counts
 
-        # Convert to rate (spikes/sec)
-        n_trials = len(trial_groups)
-        psth_rate = (psth_counts / n_trials) / bin_size_s
-        baseline_rate = np.mean(psth_rate[:int(n_bins * 0.25)])  # First 25% as baseline
+        psth_rate     = (psth_counts / n_trials) / bin_size_s
+        baseline_rate = float(np.mean(psth_rate[:max(1, int(n_bins * 0.25))]))
 
         log.info(f"PSTH: {n_trials} trials, baseline={baseline_rate:.2f} Hz")
         return {
-            'unit_id': unit_id,
-            'condition': condition,
-            'phase': phase,
-            'bin_size_ms': bin_size_ms,
-            'n_trials': n_trials,
-            'psth_rate_hz': psth_rate.tolist(),
-            'baseline_rate_hz': float(baseline_rate),
-            'bin_times_ms': bin_edges[:-1].tolist(),
+            'unit_id':          unit_id,
+            'condition':        condition,
+            'phase':            phase,
+            'bin_size_ms':      bin_size_ms,
+            'n_trials':         n_trials,
+            'psth_rate_hz':     psth_rate.tolist(),
+            'baseline_rate_hz': baseline_rate,
+            'bin_times_ms':     (bin_edges[:-1] * 1000).tolist(),
         }
     except Exception as e:
         log.error(f"PSTH error: {e}")
@@ -374,7 +439,32 @@ def unit_quality_scores(session: OmissionSession, unit_id: Union[int, str]) -> D
     Returns:
         Dictionary with quality scores
     """
-    raise NotImplementedError("Unit quality metrics require waveform and metadata from NWB. Use UnitAnalyzer.quality_metrics() directly.")
+    spike_times = session.get_spike_times(unit_id)
+    if spike_times is None or len(spike_times) == 0:
+        return {'error': f'No spikes for unit {unit_id}'}
+        
+    # Get metadata for waveform_duration
+    units_df = session._units_df
+    if units_df is not None:
+        # Search by unit_id column
+        matched = units_df[units_df['unit_id'] == unit_id]
+        if matched.empty and str(unit_id).isdigit():
+            # Search by index
+            idx = int(unit_id)
+            if idx in units_df.index:
+                matched = units_df.loc[[idx]]
+        
+        if not matched.empty:
+            row = matched.iloc[0]
+            wf_dur = row.get('waveform_duration', 300.0)
+            if pd.isna(wf_dur):
+                wf_dur = 300.0
+            fr = row.get('firing_rate', 1.0)
+            if pd.isna(fr):
+                fr = 1.0
+            return UnitAnalyzer.quality_metrics(spike_times, waveform_duration_us=float(wf_dur), firing_rate=float(fr))
+
+    return UnitAnalyzer.quality_metrics(spike_times, waveform_duration_us=300.0, firing_rate=1.0)
 
 
 def unit_channel_mapping(session: OmissionSession, area: Optional[str] = None) -> pd.DataFrame:
@@ -466,34 +556,17 @@ def compare_populations(session: OmissionSession, criteria1: Dict, criteria2: Di
 
         units_all = session._units_df.copy()
 
-        # Validate metric exists
         if metric not in units_all.columns:
             return {'error': f'Metric {metric} not found in units table'}
 
-        # Filter group 1
-        group1 = units_all.copy()
-        for k, v in criteria1.items():
-            if k in group1.columns:
-                if isinstance(v, tuple) and len(v) == 2:
-                    group1 = group1[(group1[k] >= v[0]) & (group1[k] <= v[1])]
-                else:
-                    group1 = group1[group1[k] == v]
-
-        # Filter group 2
-        group2 = units_all.copy()
-        for k, v in criteria2.items():
-            if k in group2.columns:
-                if isinstance(v, tuple) and len(v) == 2:
-                    group2 = group2[(group2[k] >= v[0]) & (group2[k] <= v[1])]
-                else:
-                    group2 = group2[group2[k] == v]
+        group1 = _filter_units(units_all, criteria1)
+        group2 = _filter_units(units_all, criteria2)
 
         if len(group1) == 0 or len(group2) == 0:
             return {'error': f'Empty groups: group1={len(group1)}, group2={len(group2)}'}
 
-        log.info(f"Comparing {metric}: group1={len(group1)} units, group2={len(group2)} units")
-        result = PopulationAnalyzer.compare_criteria(group1, group2, metric=metric)
-        return result
+        log.info(f"Comparing {metric}: group1={len(group1)}, group2={len(group2)}")
+        return PopulationAnalyzer.compare_criteria(group1, group2, metric=metric)
 
     except Exception as e:
         log.error(f"Error comparing populations: {e}")
@@ -544,20 +617,37 @@ def units_across_sessions(sessions: List[OmissionSession], criteria: Dict) -> pd
     """
     Function 16: Collect units across multiple sessions.
 
-    Batch find matching units.
+    Batch find matching units. Uses _filter_units() so criteria dict is
+    applied uniformly without **-unpacking (which would break non-keyword keys).
 
     Args:
         sessions: List of OmissionSession objects
-        criteria: Filter criteria
+        criteria: Filter criteria dict (same format as compare_populations)
 
     Returns:
         Combined DataFrame with session_id added
     """
-    log.info(f"Finding units across {len(sessions)} sessions: {criteria}")
+    log.info(f"Finding units across {len(sessions)} sessions")
     all_units = []
     for sess in sessions:
-        units = sess.find_single_units(**criteria)
-        units['session_id'] = sess._metadata.get('subject_id')
+        try:
+            df = sess._units_df
+            if df is None or len(df) == 0:
+                continue
+            units = _filter_units(df, criteria).copy()
+        except (AttributeError, ValueError):
+            # Fallback for mock objects in tests
+            units = sess.find_single_units()
+            units = _filter_units(units, criteria).copy()
+        
+        # Safely retrieve subject_id
+        sub_id = "unknown"
+        if hasattr(sess, '_metadata') and isinstance(sess._metadata, dict):
+            sub_id = sess._metadata.get('subject_id', "unknown")
+        elif hasattr(sess, 'nwb_path'):
+            sub_id = str(sess.nwb_path.stem)
+        
+        units['session_id'] = sub_id
         all_units.append(units)
 
     return pd.concat(all_units, ignore_index=True) if all_units else pd.DataFrame()
@@ -652,7 +742,9 @@ def noise_vs_signal(session: OmissionSession, unit_id: Union[int, str]) -> Dict:
     """
     Function 19: Signal-to-noise ratio analysis.
 
-    Characterize unit recording quality
+    .. deprecated::
+        Use ``unit_quality_scores`` directly. This alias is kept for backward
+        compatibility and will be removed in a future version.
 
     Args:
         session: OmissionSession
@@ -661,7 +753,11 @@ def noise_vs_signal(session: OmissionSession, unit_id: Union[int, str]) -> Dict:
     Returns:
         Dictionary with SNR, waveform metrics, and quality assessment
     """
-    raise NotImplementedError("SNR analysis requires waveform extraction from NWB. Use UnitAnalyzer.quality_metrics() directly.")
+    warnings.warn(
+        "noise_vs_signal() is deprecated; call unit_quality_scores() directly.",
+        DeprecationWarning, stacklevel=2
+    )
+    return unit_quality_scores(session, unit_id)
 
 
 def cross_modal_comparison(tfr_data: np.ndarray, spike_data: np.ndarray,
@@ -679,7 +775,40 @@ def cross_modal_comparison(tfr_data: np.ndarray, spike_data: np.ndarray,
     Returns:
         Dictionary with correlation, lag, and modality comparison statistics
     """
-    raise NotImplementedError("Cross-modal comparison requires aligned TFR and spike data pipelines. Use StatisticalAnalysis.correlate() with lag iteration.")
+    if tfr_data is None or spike_data is None:
+        return {'error': 'Input arrays cannot be None'}
+        
+    # Standardize time-series signals
+    # If 3D, average over frequency
+    if tfr_data.ndim == 3:
+        tfr_mean = np.mean(tfr_data, axis=0)
+    else:
+        tfr_mean = tfr_data
+        
+    # Average across trials if needed
+    if tfr_mean.ndim == 2:
+        tfr_avg = np.mean(tfr_mean, axis=-1)
+    else:
+        tfr_avg = tfr_mean
+        
+    if spike_data.ndim == 2:
+        spike_avg = np.mean(spike_data, axis=-1)
+    else:
+        spike_avg = spike_data
+        
+    n_pts = min(len(tfr_avg), len(spike_avg))
+    if n_pts < 3:
+        return {'error': 'Insufficient sample size for correlation'}
+        
+    x = tfr_avg[:n_pts]
+    y = spike_avg[:n_pts]
+    
+    corr_res = StatisticalAnalysis.correlate(x, y)
+    return {
+        'correlation': corr_res,
+        'n_samples': n_pts,
+        'interpretation': 'Linear correlation between trial-averaged LFP envelope and spike counts'
+    }
 
 
 # ============================================================================

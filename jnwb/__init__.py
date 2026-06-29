@@ -191,6 +191,11 @@ from .viz import (
 # Y-files: New orthogonal jnwb modules (spectral and visualization)
 from . import spectral
 from . import visual_qc
+from .addressing import (
+    map_peak_channel_to_area,
+    classify_layer_from_depth,
+    enrich_units_dataframe
+)
 
 # Import analyzers (4 canonical objects)
 from .analyzers import (
@@ -313,4 +318,7 @@ __all__ = [
     'summary_report',
     'noise_vs_signal',
     'cross_modal_comparison',
+    'map_peak_channel_to_area',
+    'classify_layer_from_depth',
+    'enrich_units_dataframe',
 ]

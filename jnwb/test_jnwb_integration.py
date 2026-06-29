@@ -292,5 +292,21 @@ class TestErrorHandling(unittest.TestCase):
         self.assertTrue(np.isnan(mean_fr))
 
 
+class TestTFRMethods(unittest.TestCase):
+    """Test the newly implemented TFR methods."""
+
+    def test_tfr_trial_average_logic(self):
+        session = MagicMock()
+        tfr_mock = np.ones((5, 128, 99, 10))
+        session.tfr_from_preprocessed.return_value = tfr_mock
+
+        from jnwb.functions import tfr_trial_average
+        res = tfr_trial_average(session, area="V1", condition="AAAB")
+        self.assertIn("mean", res)
+        self.assertIn("sem", res)
+        self.assertEqual(res["n_trials"], 10)
+        self.assertAlmostEqual(res["mean"][0, 0, 0], 1.0)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
