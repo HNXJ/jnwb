@@ -116,7 +116,7 @@ class TestMCPServer(unittest.TestCase):
 
     def test_add_tool_success_and_cleanup(self):
         # Backup the current custom_tools file content
-        custom_tools_path = Path(__file__).parents[2] / "jnwb" / "mcp_server" / "custom_tools.py"
+        custom_tools_path = Path(__file__).parents[1] / "jnwb" / "mcp_server" / "custom_tools.py"
         original_content = custom_tools_path.read_text()
         
         new_tool_code = '''
