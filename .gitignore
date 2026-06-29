@@ -17,6 +17,7 @@ env/
 # data / derived / generated (not source)
 data/
 outputs/
+output/
 reports/
 artifacts/
 checkpoints/
