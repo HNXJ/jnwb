@@ -73,21 +73,25 @@ def compute_response_metrics(
     response_spikes = []
     latencies = []
 
-    for onset in epoch_onsets:
-        # Count spikes in baseline and response windows
-        baseline_mask = (spike_times >= onset + baseline_start) & (spike_times <= onset + baseline_stop)
-        response_mask = (spike_times >= onset + response_start) & (spike_times <= onset + response_stop)
+    # Pre-sort spike times to ensure searchsorted works correctly
+    st = np.sort(spike_times)
 
-        baseline_count = np.sum(baseline_mask)
-        response_count = np.sum(response_mask)
+    for onset in epoch_onsets:
+        # Searchsorted instead of masking: O(log N) instead of O(N)
+        b_lo = np.searchsorted(st, onset + baseline_start, side='left')
+        b_hi = np.searchsorted(st, onset + baseline_stop, side='right')
+        baseline_count = b_hi - b_lo
+
+        r_lo = np.searchsorted(st, onset + response_start, side='left')
+        r_hi = np.searchsorted(st, onset + response_stop, side='right')
+        response_count = r_hi - r_lo
 
         baseline_spikes.append(baseline_count)
         response_spikes.append(response_count)
 
         # Compute latency (first spike in response window)
-        response_spike_times = spike_times[response_mask]
-        if len(response_spike_times) > 0:
-            latency = response_spike_times[0] - (onset + response_start)
+        if response_count > 0:
+            latency = st[r_lo] - (onset + response_start)
             latencies.append(latency)
 
     # Compute rates
@@ -106,9 +110,9 @@ def compute_response_metrics(
         baseline_spikes_arr = np.array(baseline_spikes)
         response_spikes_arr = np.array(response_spikes)
 
-        if np.std(baseline_spikes_arr) > 0:
+        baseline_std = np.std(baseline_spikes_arr)
+        if baseline_std > 0:
             baseline_mean = np.mean(baseline_spikes_arr)
-            baseline_std = np.std(baseline_spikes_arr)
             response_mean = np.mean(response_spikes_arr)
             response_zscore = (response_mean - baseline_mean) / baseline_std
             metrics['response_zscore'] = float(response_zscore)
@@ -219,17 +223,21 @@ def classify_omission_response(
     response_start, response_stop = response_window
     response_duration = response_stop - response_start
 
-    # Count spikes in stimulus trials
+    st = np.sort(unit_spike_times)
+
+    # Count spikes in stimulus trials using searchsorted
     stimulus_counts = []
     for onset in stimulus_onsets:
-        mask = (unit_spike_times >= onset + response_start) & (unit_spike_times <= onset + response_stop)
-        stimulus_counts.append(np.sum(mask))
+        lo = np.searchsorted(st, onset + response_start, side='left')
+        hi = np.searchsorted(st, onset + response_stop, side='right')
+        stimulus_counts.append(hi - lo)
 
-    # Count spikes in omission trials
+    # Count spikes in omission trials using searchsorted
     omission_counts = []
     for onset in omission_onsets:
-        mask = (unit_spike_times >= onset + response_start) & (unit_spike_times <= onset + response_stop)
-        omission_counts.append(np.sum(mask))
+        lo = np.searchsorted(st, onset + response_start, side='left')
+        hi = np.searchsorted(st, onset + response_stop, side='right')
+        omission_counts.append(hi - lo)
 
     stimulus_counts = np.array(stimulus_counts)
     omission_counts = np.array(omission_counts)

@@ -41,11 +41,11 @@
   },
   {
     "filename": "jnwb/spiking.py",
-    "purpose": "Spiking metrics calculations, latency metrics, and phase-locking index.",
+    "purpose": "Spiking metrics calculations, latency metrics, phase-locking, and omission classifications.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "poisson Rayleigh approximation verified for large sample sizes."
+    "warnings": "Trial loop optimized to O(log N) using searchsorted."
   },
   {
     "filename": "jnwb/spectral.py",
@@ -69,7 +69,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Categorical scatter plot jitter added to avoid overlapping dots."
+    "warnings": "Waveform plots updated to use unified Madelane Golden palette."
   },
   {
     "filename": "jnwb/viz.py",
@@ -77,7 +77,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Title formatting incorporates units and trial alignments."
+    "warnings": "Unified Madelane Golden Dark palette constants exported."
   },
   {
     "filename": "jnwb/diagnostics.py",
@@ -104,6 +104,22 @@
     "warnings": "None."
   },
   {
+    "filename": "jnwb/decoding.py",
+    "purpose": "Population decoding module using linear SVM classifiers to predict identity and omission trials.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "SVM Stratified CV verified with mock fallback support."
+  },
+  {
+    "filename": "jnwb/connectivity.py",
+    "purpose": "Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
     "filename": "jnwb/mcp_server/__init__.py",
     "purpose": "MCP server core implementing inspect_nwb, get_all_units_metadata, prepare_signal_reference.",
     "score": 100,
@@ -118,38 +134,6 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "Execution includes syntax audits to prevent imports injection."
-  },
-  {
-    "filename": "[REF] jnwb/spiking.py",
-    "purpose": "Refactor and merge `compute_response_metrics` and `classify_omission_response` to optimize trials iteration and minimize loops.",
-    "score": 90,
-    "tbis": 1,
-    "tbds": 0,
-    "warnings": "Discussion: Decide if we want to run both stimulus and omission classification inside a single trial-loop pass."
-  },
-  {
-    "filename": "[REF] jnwb/visual_qc.py & jnwb/viz.py",
-    "purpose": "Consolidate overlapping raster and TFR plotting code; unify color palette references under a shared module configuration.",
-    "score": 85,
-    "tbis": 2,
-    "tbds": 1,
-    "warnings": "Discussion: Decide if Plotly and Matplotlib routines should stay separated or share data-parser methods."
-  },
-  {
-    "filename": "[NEW] jnwb/decoding.py",
-    "purpose": "New module skeleton to implement population decoding (linear SVM stimulus identity and omission decoding dynamically).",
-    "score": 0,
-    "tbis": 3,
-    "tbds": 2,
-    "warnings": "Discussion: Need details on SVM hyperparameter tuning options and validation cross-folds configuration."
-  },
-  {
-    "filename": "[NEW] jnwb/connectivity.py",
-    "purpose": "New module skeleton to house Granger Causality, Mutual Information, and network topology calculations directly inside the package.",
-    "score": 0,
-    "tbis": 4,
-    "tbds": 1,
-    "warnings": "Discussion: Ensure Granger Wilson factorization fits the precomputed TFR formats."
   },
   {
     "filename": "tests/test_session_coverage.py",
@@ -170,6 +154,14 @@
   {
     "filename": "tests/test_functions_coverage.py",
     "purpose": "Coverage checks for the 20 canonical functions.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
+    "filename": "tests/test_decoding_connectivity.py",
+    "purpose": "Verifies SVM decoding, Shannon Mutual Information, and Granger Causality functions.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
