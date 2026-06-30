@@ -147,9 +147,11 @@ def granger_causality(
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
 
-    # Normalise signals
-    s1 = (s1 - np.mean(s1)) / np.std(s1)
-    s2 = (s2 - np.mean(s2)) / np.std(s2)
+    # Normalise signals safely (handling constant inputs)
+    std1 = np.std(s1)
+    std2 = np.std(s2)
+    s1 = (s1 - np.mean(s1)) / std1 if std1 > 0 else np.zeros_like(s1)
+    s2 = (s2 - np.mean(s2)) / std2 if std2 > 0 else np.zeros_like(s2)
 
     # 2 -> 1
     var_r1, var_u1 = fit_var_bivariate(s1, s2, order)

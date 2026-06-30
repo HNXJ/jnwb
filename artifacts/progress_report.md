@@ -40,6 +40,8 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `docs/operations_and_troubleshooting.md` | 15-Step pipeline reference, visual void checks, multi-area sorting rules. | **100/100** | 0 | 0 | None. |
 | `README.md` | Quickstart script, project overview, highlights of the 10 showcases. | **100/100** | 0 | 0 | None. |
 | `etude_no_01_gallery.ipynb` | 19-cell showcase running all 16 tasks + generalization + batch + unit queries. | **100/100** | 0 | 0 | Contains pre-run figures using actual neural data files. |
+| `jnwb/report.py` | OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics). | **100/100** | 0 | 0 | Uses choreographer/kaleido backend for static SVG rendering of Plotly figures. |
+| `tests/test_report.py` | Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite. | **100/100** | 0 | 0 | None. |
 
 ---
 *Generated: 2026-06-30*
