@@ -245,6 +245,7 @@ from .connectivity import (
     granger_causality,
     network_topology,
 )
+from .report import generate_report
 
 # Export main classes and functions
 __all__ = [
@@ -309,6 +310,7 @@ __all__ = [
     'spike_mutual_information',
     'granger_causality',
     'network_topology',
+    'generate_report',
     # 4 Canonical Objects
     'TFRAnalyzer',
     'UnitAnalyzer',

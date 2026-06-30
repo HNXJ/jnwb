@@ -286,5 +286,21 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "Contains pre-run figures using actual neural data files."
+  },
+  {
+    "filename": "jnwb/report.py",
+    "purpose": "OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics).",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Uses choreographer/kaleido backend for static SVG rendering of Plotly figures."
+  },
+  {
+    "filename": "tests/test_report.py",
+    "purpose": "Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
   }
 ]
