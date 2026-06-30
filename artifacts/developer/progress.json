@@ -1,27 +1,59 @@
 [
   {
+    "filename": "README.md",
+    "purpose": "Quickstart script, project overview, highlights of the 10 showcases.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
+    "filename": "docs/analysis_methods.md",
+    "purpose": "Mathematical specs for TFR dB, MMFF Fano Factor, SVM classifications.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
+    "filename": "docs/nwb_data_structure.md",
+    "purpose": "Lazy reading guidelines, session maps, probe-area lookup.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
+    "filename": "docs/omission_overview.md",
+    "purpose": "Paradigm description, subjects list, arousal/eye metrics overview.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
+    "filename": "docs/operations_and_troubleshooting.md",
+    "purpose": "15-Step pipeline reference, visual void checks, multi-area sorting rules.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None."
+  },
+  {
+    "filename": "etude_no_01_gallery.ipynb",
+    "purpose": "19-cell showcase running all 16 tasks + generalization + batch + unit queries.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Contains pre-run figures using actual neural data files."
+  },
+  {
     "filename": "jnwb/__init__.py",
     "purpose": "Package entry point, unified imports, and frozen public API __all__ list exports.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
     "warnings": "Exposes new decoding and connectivity functions properly."
-  },
-  {
-    "filename": "jnwb/functions.py",
-    "purpose": "Canonical wrappers for spiking, TFR, and population analysis.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Uses trial filters dynamically."
-  },
-  {
-    "filename": "jnwb/analyzers.py",
-    "purpose": "Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Autocorrelogram optimized via searchsorted."
   },
   {
     "filename": "jnwb/addressing.py",
@@ -32,52 +64,28 @@
     "warnings": "None."
   },
   {
-    "filename": "jnwb/metadata.py",
-    "purpose": "Unit metadata extraction, SNR statistics, and quality tier classification.",
+    "filename": "jnwb/analyzers.py",
+    "purpose": "Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Strict quality rules applied."
+    "warnings": "Autocorrelogram optimized via searchsorted."
   },
   {
-    "filename": "jnwb/spiking.py",
-    "purpose": "Spiking metrics calculations, latency metrics, phase-locking, and omission classifications.",
+    "filename": "jnwb/connectivity.py",
+    "purpose": "Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Optimized trial counting loop using searchsorted."
+    "warnings": "Verified: AIC optimal lag calculation is operational."
   },
   {
-    "filename": "jnwb/spectral.py",
-    "purpose": "LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping.",
+    "filename": "jnwb/decoding.py",
+    "purpose": "Population decoding module using linear SVM classifiers to predict identity and omission trials.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Hann windowing applied strictly."
-  },
-  {
-    "filename": "jnwb/statistics.py",
-    "purpose": "Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Fixed random seed = 42 ensures exact replicability."
-  },
-  {
-    "filename": "jnwb/visual_qc.py",
-    "purpose": "Waveform galleries, stability traces, and dashboard summaries.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Waveform plots updated to use unified Madelane Golden palette."
-  },
-  {
-    "filename": "jnwb/viz.py",
-    "purpose": "Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Unified Madelane Golden Dark palette constants exported."
+    "warnings": "Verified: StandardScaler and Nested CV grid search successfully implemented."
   },
   {
     "filename": "jnwb/diagnostics.py",
@@ -88,20 +96,20 @@
     "warnings": "Strict validation warnings triggered if metadata fields mismatch."
   },
   {
-    "filename": "jnwb/ontology.py",
-    "purpose": "Ontology data contract definitions (Query, Dataset, Result, Figure, etc.).",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "All ontology properties frozen."
-  },
-  {
     "filename": "jnwb/factories.py",
     "purpose": "Factory methods constructing ontology objects from OmissionSession.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
     "warnings": "None."
+  },
+  {
+    "filename": "jnwb/functions.py",
+    "purpose": "Canonical wrappers for spiking, TFR, and population analysis.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Uses trial filters dynamically."
   },
   {
     "filename": "jnwb/mcp_server/__init__.py",
@@ -152,12 +160,76 @@
     "warnings": "None."
   },
   {
-    "filename": "tests/test_session_coverage.py",
-    "purpose": "Coverage checks for OmissionSession accessors, properties, and metadata.",
+    "filename": "jnwb/metadata.py",
+    "purpose": "Unit metadata extraction, SNR statistics, and quality tier classification.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "None. Runs in under 2 seconds."
+    "warnings": "Strict quality rules applied."
+  },
+  {
+    "filename": "jnwb/ontology.py",
+    "purpose": "Ontology data contract definitions (Query, Dataset, Result, Figure, etc.).",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "All ontology properties frozen."
+  },
+  {
+    "filename": "jnwb/report.py",
+    "purpose": "OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics).",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Verified: Parameterized cell tagged parameters implemented successfully."
+  },
+  {
+    "filename": "jnwb/session.py",
+    "purpose": "OmissionSession loader, NWB file I/O, lazy data loading, and caching interface.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Verified: Local pickle/json persistent disk cache is operational; unpicklable group column dropped."
+  },
+  {
+    "filename": "jnwb/spectral.py",
+    "purpose": "LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Hann windowing applied strictly."
+  },
+  {
+    "filename": "jnwb/spiking.py",
+    "purpose": "Spiking metrics calculations, latency metrics, phase-locking, and omission classifications.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Optimized trial counting loop using searchsorted."
+  },
+  {
+    "filename": "jnwb/statistics.py",
+    "purpose": "Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Fixed random seed = 42 ensures exact replicability."
+  },
+  {
+    "filename": "jnwb/visual_qc.py",
+    "purpose": "Waveform galleries, stability traces, and dashboard summaries.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Waveform plots updated to use unified Madelane Golden palette."
+  },
+  {
+    "filename": "jnwb/viz.py",
+    "purpose": "Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Unified Madelane Golden Dark palette constants exported."
   },
   {
     "filename": "tests/test_analyzers_coverage.py",
@@ -166,6 +238,22 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "None."
+  },
+  {
+    "filename": "tests/test_caching.py",
+    "purpose": "Verifies session persistent disk loading, caching, and cache invalidation behaviors.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Verified: Caching and cache invalidation tests are operational."
+  },
+  {
+    "filename": "tests/test_decoding_connectivity.py",
+    "purpose": "Verifies SVM decoding, Shannon Mutual Information, and Granger Causality functions.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Verified: SVM tuning and auto Granger tests are operational."
   },
   {
     "filename": "tests/test_functions_coverage.py",
@@ -208,59 +296,19 @@
     "warnings": "custom_tools path modified to look up relative to workspace root."
   },
   {
-    "filename": "docs/omission_overview.md",
-    "purpose": "Paradigm description, subjects list, arousal/eye metrics overview.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "None."
-  },
-  {
-    "filename": "docs/nwb_data_structure.md",
-    "purpose": "Lazy reading guidelines, session maps, probe-area lookup.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "None."
-  },
-  {
-    "filename": "docs/analysis_methods.md",
-    "purpose": "Mathematical specs for TFR dB, MMFF Fano Factor, SVM classifications.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "None."
-  },
-  {
-    "filename": "docs/operations_and_troubleshooting.md",
-    "purpose": "15-Step pipeline reference, visual void checks, multi-area sorting rules.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "None."
-  },
-  {
-    "filename": "README.md",
-    "purpose": "Quickstart script, project overview, highlights of the 10 showcases.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "None."
-  },
-  {
-    "filename": "etude_no_01_gallery.ipynb",
-    "purpose": "19-cell showcase running all 16 tasks + generalization + batch + unit queries.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Contains pre-run figures using actual neural data files."
-  },
-  {
     "filename": "tests/test_report.py",
     "purpose": "Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
     "warnings": "None."
+  },
+  {
+    "filename": "tests/test_session_coverage.py",
+    "purpose": "Coverage checks for OmissionSession accessors, properties, and metadata.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "None. Runs in under 2 seconds."
   }
 ]
