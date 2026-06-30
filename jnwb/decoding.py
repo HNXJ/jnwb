@@ -75,7 +75,8 @@ def decode_stimulus_identity(
     condition_pairs: Tuple[str, str] = ('AAAB', 'BBBA'),
     time_window_ms: Tuple[float, float] = (0.0, 150.0),
     n_splits: int = 5,
-    quality: Optional[str] = None
+    quality: Optional[str] = None,
+    device: str = 'cpu'
 ) -> Dict[str, Union[float, str, np.ndarray, dict]]:
     """
     Decode stimulus identity (Condition A vs. Condition B) from population activity.
@@ -87,6 +88,7 @@ def decode_stimulus_identity(
         time_window_ms: Spike count window in ms relative to onset
         n_splits: Number of cross-validation folds
         quality: Filter units by quality tier
+        device: 'cpu' or 'cuda' (GPU acceleration via PyTorch)
 
     Returns:
         Dict with decoding accuracy, fold scores, and best tuning parameters
@@ -125,7 +127,75 @@ def decode_stimulus_identity(
             'status': 'no_units'
         }
 
-    # Classifier setup with scaling pipeline & hyperparameter grid search
+    # GPU-accelerated PyTorch Hinge Loss Linear SVM Solver
+    if device == 'cuda':
+        try:
+            import torch
+            if torch.cuda.is_available():
+                cv = StratifiedKFold(n_splits=min(n_splits, n1, n2), shuffle=True, random_state=42)
+                C_grid = [0.01, 0.1, 1.0, 10.0]
+                best_c = 1.0
+                best_mean_acc = -1.0
+                fold_scores = []
+
+                for C in C_grid:
+                    c_accuracies = []
+                    for train_idx, val_idx in cv.split(X, labels):
+                        X_train, X_val = X[train_idx], X[val_idx]
+                        y_train, y_val = labels[train_idx], labels[val_idx]
+
+                        # Standardize inputs
+                        scaler = StandardScaler()
+                        X_train = scaler.fit_transform(X_train)
+                        X_val = scaler.transform(X_val)
+
+                        # Set up tensors on GPU
+                        X_tr = torch.tensor(X_train, dtype=torch.float32, device='cuda')
+                        y_tr = torch.tensor(y_train * 2 - 1, dtype=torch.float32, device='cuda')
+                        X_va = torch.tensor(X_val, dtype=torch.float32, device='cuda')
+                        y_va = torch.tensor(y_val * 2 - 1, dtype=torch.float32, device='cuda')
+
+                        # Train Linear SVM on GPU via Gradient Descent
+                        n_feat = X_tr.shape[1]
+                        w = torch.zeros(n_feat, requires_grad=True, device='cuda')
+                        b = torch.zeros(1, requires_grad=True, device='cuda')
+
+                        lr = 0.05
+                        for epoch in range(150):
+                            y_pred = X_tr @ w + b
+                            loss = 0.5 * torch.dot(w, w) + C * torch.mean(torch.clamp(1.0 - y_tr * y_pred, min=0.0))
+                            loss.backward()
+                            with torch.no_grad():
+                                w -= lr * w.grad
+                                b -= lr * b.grad
+                                w.grad.zero_()
+                                b.grad.zero_()
+
+                        # Evaluate on validation fold
+                        with torch.no_grad():
+                            preds = torch.sign(X_va @ w + b)
+                            correct = (preds == y_va).sum().item()
+                            acc = correct / len(y_va)
+                            c_accuracies.append(acc)
+
+                    mean_acc = float(np.mean(c_accuracies))
+                    if mean_acc > best_mean_acc:
+                        best_mean_acc = mean_acc
+                        best_c = C
+                        fold_scores = c_accuracies
+
+                return {
+                    'accuracy': best_mean_acc,
+                    'fold_accuracies': np.array(fold_scores),
+                    'n_units': n_units,
+                    'n_trials': len(labels),
+                    'best_params': {'C': best_c},
+                    'status': 'success'
+                }
+        except Exception as e:
+            log.warning(f"GPU SVM decoding failed: {e}. Falling back to CPU solver.")
+
+    # CPU Solver
     cv = StratifiedKFold(n_splits=min(n_splits, n1, n2), shuffle=True, random_state=42)
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
@@ -161,7 +231,8 @@ def decode_omission_presence(
     omission_condition: str = 'AAXB',
     time_window_ms: Tuple[float, float] = (0.0, 150.0),
     n_splits: int = 5,
-    quality: Optional[str] = None
+    quality: Optional[str] = None,
+    device: str = 'cpu'
 ) -> Dict[str, Union[float, str, np.ndarray]]:
     """
     Decode omission presence (Standard tone vs. Omission trial) from population activity.
@@ -174,6 +245,7 @@ def decode_omission_presence(
         time_window_ms: Spike count window in ms relative to onset
         n_splits: Number of cross-validation folds
         quality: Filter units by quality tier
+        device: 'cpu' or 'cuda' (GPU acceleration)
 
     Returns:
         Dict with decoding accuracy and fold scores
@@ -184,5 +256,6 @@ def decode_omission_presence(
         condition_pairs=(standard_condition, omission_condition),
         time_window_ms=time_window_ms,
         n_splits=n_splits,
-        quality=quality
+        quality=quality,
+        device=device
     )
