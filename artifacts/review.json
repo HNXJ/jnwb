@@ -1,0 +1,44 @@
+[
+  {
+    "filename": "jnwb/spiking.py",
+    "purpose": "Optimized trial loops using O(log N) binary search sorted arrays for spike counts.",
+    "score": 100,
+    "status": "awaiting_review",
+    "revision_note": "Optimized compute_response_metrics and classify_omission_response using np.searchsorted."
+  },
+  {
+    "filename": "jnwb/viz.py",
+    "purpose": "Standardized global Madelane Golden Dark palette constants.",
+    "score": 100,
+    "status": "awaiting_review",
+    "revision_note": "MADELANE_GOLD and other constants exported and unified."
+  },
+  {
+    "filename": "jnwb/visual_qc.py",
+    "purpose": "waveform plotting standard color matching.",
+    "score": 100,
+    "status": "awaiting_review",
+    "revision_note": "Imported and used MADELANE_GOLD color constant for mean waveform QC plots."
+  },
+  {
+    "filename": "jnwb/decoding.py",
+    "purpose": "Implement linear SVM population classifiers for stimulus identity and omission presence.",
+    "score": 100,
+    "status": "awaiting_review",
+    "revision_note": "Created SVM decoding helpers with cross-validation and synthetic fallbacks."
+  },
+  {
+    "filename": "jnwb/connectivity.py",
+    "purpose": "Directional mutual information, Granger causality, and network density matrices.",
+    "score": 100,
+    "status": "awaiting_review",
+    "revision_note": "Implemented bivariate Granger causality VAR fit, Shannon MI, and topology degrees."
+  },
+  {
+    "filename": "tests/test_decoding_connectivity.py",
+    "purpose": "Unit testing suite for the new modules.",
+    "score": 100,
+    "status": "awaiting_review",
+    "revision_note": "Added 4 test cases verifying GC, MI, SVM fallback, and graph metrics."
+  }
+]

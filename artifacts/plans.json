@@ -1,0 +1,14 @@
+[
+  {
+    "title": "SVM Preprocessing Options",
+    "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors before training the SVM classifier.",
+    "priority": "medium",
+    "status": "planned"
+  },
+  {
+    "title": "Granger Causality Interactive Plot",
+    "description": "Create an interactive Plotly network connectivity figure in jnwb/viz.py representing Granger causality graphs.",
+    "priority": "low",
+    "status": "brainstorm"
+  }
+]
