@@ -65,6 +65,33 @@ class OmissionSession:
     def _load_nwb(self):
         """Load NWB file and cache key dataframes."""
         from .addressing import enrich_units_dataframe
+        import pickle
+        import json
+
+        session_name = self.nwb_path.stem
+        cache_dir = Path("artifacts/developer/.cache")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        units_cache = cache_dir / f"{session_name}_units.pkl"
+        elecs_cache = cache_dir / f"{session_name}_electrodes.pkl"
+        intervals_cache = cache_dir / f"{session_name}_intervals.pkl"
+        meta_cache = cache_dir / f"{session_name}_metadata.json"
+
+        # Check if all cache files exist
+        if units_cache.exists() and elecs_cache.exists() and intervals_cache.exists() and meta_cache.exists():
+            try:
+                with open(units_cache, "rb") as f:
+                    self._units_df = pickle.load(f)
+                with open(elecs_cache, "rb") as f:
+                    self._electrodes_df = pickle.load(f)
+                with open(intervals_cache, "rb") as f:
+                    self._intervals_df = pickle.load(f)
+                with open(meta_cache, "r", encoding="utf-8") as f:
+                    self._metadata = json.load(f)
+                log.info(f"✓ Loaded cached NWB tables for {session_name} from disk cache")
+                return
+            except Exception as e:
+                log.warning(f"Failed to read disk cache for {session_name}: {e}. Reloading from NWB.")
 
         with NWBHDF5IO(str(self.nwb_path), 'r', load_namespaces=True) as io:
             nwb = io.read()
@@ -72,6 +99,8 @@ class OmissionSession:
             # Cache electrodes first so we can map units to them
             if nwb.electrodes is not None:
                 self._electrodes_df = nwb.electrodes.to_dataframe()
+                if 'group' in self._electrodes_df.columns:
+                    self._electrodes_df = self._electrodes_df.drop(columns=['group'])
 
             # Cache and enrich units
             if nwb.units is not None:
@@ -85,10 +114,24 @@ class OmissionSession:
             # Extract metadata
             self._metadata = {
                 'subject_id': nwb.subject.subject_id if nwb.subject else None,
-                'session_start': nwb.session_start_time,
+                'session_start': nwb.session_start_time.isoformat() if nwb.session_start_time else None,
                 'session_description': nwb.session_description,
                 'n_units': len(self._units_df) if self._units_df is not None else 0,
             }
+
+        # Save to disk cache
+        try:
+            with open(units_cache, "wb") as f:
+                pickle.dump(self._units_df, f)
+            with open(elecs_cache, "wb") as f:
+                pickle.dump(self._electrodes_df, f)
+            with open(intervals_cache, "wb") as f:
+                pickle.dump(self._intervals_df, f)
+            with open(meta_cache, "w", encoding="utf-8") as f:
+                json.dump(self._metadata, f)
+            log.info(f"✓ Cached NWB tables for {session_name} to disk cache")
+        except Exception as e:
+            log.warning(f"Failed to write disk cache for {session_name}: {e}")
 
     # ========================================================================
     # CORE ACCESSOR METHODS
