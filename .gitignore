@@ -19,7 +19,10 @@ data/
 outputs/
 output/
 reports/
-artifacts/
+artifacts/*
+!artifacts/developer/
+!artifacts/developer/progress.json
+!artifacts/progress_report.md
 checkpoints/
 scratch/
 Export_Staging/
