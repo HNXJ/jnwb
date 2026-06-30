@@ -109,6 +109,12 @@ def test_granger_causality():
     assert 'order_2_to_1' in res_auto
     assert res_auto['order_1_to_2'] >= 1.0
 
+    # Test GPU implementation call
+    res_cuda = granger_causality(s1, s2, order=3, device='cuda')
+    assert 'F_1_to_2' in res_cuda
+    assert 'F_2_to_1' in res_cuda
+    assert res_cuda['F_1_to_2'] >= 0.0
+
 
 def test_network_topology():
     adj = np.array([
@@ -121,3 +127,11 @@ def test_network_topology():
     assert res['n_edges'] == 4  # 0.4, 0.4, 0.8, 0.8 (directional counts)
     assert 0.0 <= res['density'] <= 1.0
     assert len(res['in_degrees']) == 3
+
+
+def test_decoding_gpu():
+    session = MockSession()
+    # Test decoding execution path with device='cuda'
+    res_cuda = decode_stimulus_identity(session, area='V1', condition_pairs=('AAAB', 'BBBA'), n_splits=5, device='cuda')
+    assert 'accuracy' in res_cuda
+    assert 'status' in res_cuda
