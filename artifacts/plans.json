@@ -1,5 +1,11 @@
 [
   {
+    "title": "OGLO Session Report Suite Generator",
+    "description": "Generate a standardized folder structure for each NWB session containing:\n  - `session-yymmdd-oglo/report-suite.ipynb` (interactive report)\n  - `session-yymmdd-oglo/report-suite.html` (fully compiled HTML export)\n  - `session-yymmdd-oglo/figures/svg/` (vector exports of all generated figures)\nThe report suite will display the spectrolaminar motif, unit statistics per probe, metadata tables, MUAE (Multi-Unit Activity Evoked) examples, and absolute LFP power with SEM traces.",
+    "priority": "high",
+    "status": "planned"
+  },
+  {
     "title": "SVM Preprocessing Options",
     "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors before training the SVM classifier.",
     "priority": "medium",
