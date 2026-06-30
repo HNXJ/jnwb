@@ -235,6 +235,17 @@ from .functions import (
     cross_modal_comparison,
 )
 
+# Import new decoding and connectivity functions
+from .decoding import (
+    decode_stimulus_identity,
+    decode_omission_presence,
+)
+from .connectivity import (
+    spike_mutual_information,
+    granger_causality,
+    network_topology,
+)
+
 # Export main classes and functions
 __all__ = [
     # ========================================================================
@@ -292,6 +303,12 @@ __all__ = [
     'spectral',
     # Visual QC (Y-file: new orthogonal module)
     'visual_qc',
+    # New Decoding & Connectivity modules
+    'decode_stimulus_identity',
+    'decode_omission_presence',
+    'spike_mutual_information',
+    'granger_causality',
+    'network_topology',
     # 4 Canonical Objects
     'TFRAnalyzer',
     'UnitAnalyzer',

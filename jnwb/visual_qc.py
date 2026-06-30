@@ -23,6 +23,15 @@ import matplotlib.gridspec as gridspec
 
 log = logging.getLogger(__name__)
 
+from .viz import (
+    MADELANE_GOLD,
+    MADELANE_VIOLET,
+    MADELANE_WHITE,
+    MADELANE_GRAY,
+    MADELANE_TEAL,
+    MADELANE_ORANGE
+)
+
 
 def plot_unit_waveforms(
     unit_ids: List[Union[int, str]],
@@ -71,18 +80,18 @@ def plot_unit_waveforms(
                     mean_wf = np.mean(waveform, axis=0)
                     std_wf = np.std(waveform, axis=0)
 
-                    ax.plot(mean_wf, 'b-', linewidth=2, label='Mean')
+                    ax.plot(mean_wf, color=MADELANE_GOLD, linewidth=2, label='Mean')
                     ax.fill_between(
                         range(len(mean_wf)),
                         mean_wf - std_wf,
                         mean_wf + std_wf,
                         alpha=0.3,
-                        color='blue',
+                        color=MADELANE_GOLD,
                         label='±1 STD'
                     )
                 else:
                     # Single waveform
-                    ax.plot(waveform, 'b-', linewidth=2)
+                    ax.plot(waveform, color=MADELANE_GOLD, linewidth=2)
 
             ax.set_title(f'Unit {unit_id}', fontsize=10, fontweight='bold')
             ax.set_xlabel('Sample')

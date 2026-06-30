@@ -9,23 +9,22 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `jnwb/analyzers.py` | Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer. | **100/100** | 0 | 0 | Autocorrelogram optimized via searchsorted. |
 | `jnwb/addressing.py` | Electrode mapping rules, depth layer classifications, and units enrichment. | **100/100** | 0 | 0 | None. Replaced legacy hardcoded dictionaries. |
 | `jnwb/metadata.py` | Unit metadata extraction, SNR statistics, and quality tier classification. | **100/100** | 0 | 0 | Strict quality rules applied for Good/Fair/Poor categorization. |
-| `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, and phase-locking index. | **100/100** | 0 | 0 | poisson Rayleigh approximation verified for large sample sizes. |
+| `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, phase-locking, and omission classifications. | **100/100** | 0 | 0 | Trial loop optimized to O(log N) using searchsorted. |
 | `jnwb/spectral.py` | LFP preprocessing, spectral band power, coherence, and vFLIP2 spectrolaminar mapping. | **100/100** | 0 | 0 | Hann windowing applied strictly. |
 | `jnwb/statistics.py` | Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction. | **100/100** | 0 | 0 | Fixed random seed = 42 ensures exact replicability. |
-| `jnwb/visual_qc.py` | Waveform galleries, stability traces, and dashboard summaries. | **100/100** | 0 | 0 | Categorical scatter plot jitter added to avoid overlapping dots. |
-| `jnwb/viz.py` | Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks. | **100/100** | 0 | 0 | Title formatting incorporates units and trial alignments. |
+| `jnwb/visual_qc.py` | Waveform galleries, stability traces, and dashboard summaries. | **100/100** | 0 | 0 | Waveform plots updated to use unified Madelane Golden palette. |
+| `jnwb/viz.py` | Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks. | **100/100** | 0 | 0 | Unified Madelane Golden Dark palette constants exported. |
 | `jnwb/diagnostics.py` | Session audits and mult-session comparison metrics. | **100/100** | 0 | 0 | Strict validation warnings triggered if metadata fields mismatch. |
 | `jnwb/ontology.py` | Ontology data contract definitions (Query, Dataset, Result, Figure, etc.). | **100/100** | 0 | 0 | All ontology properties frozen and immutable. |
 | `jnwb/factories.py` | Factory methods constructing ontology objects from OmissionSession. | **100/100** | 0 | 0 | None. |
+| `jnwb/decoding.py` | Population decoding module using linear SVM classifiers to predict identity and omission trials. | **100/100** | 0 | 0 | SVM Stratified CV verified with mock fallback support. |
+| `jnwb/connectivity.py` | Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology. | **100/100** | 0 | 0 | None. |
 | `jnwb/mcp_server/__init__.py` | MCP server core implementing inspect_nwb, get_all_units_metadata, prepare_signal_reference. | **100/100** | 0 | 0 | Stdio transport protocol enforced. |
 | `jnwb/mcp_server/custom_tools.py` | Exposes add_tool framework to dynamically extend server tools. | **100/100** | 0 | 0 | Execution includes syntax audits to prevent imports injection. |
-| `[REF] jnwb/spiking.py` | Refactor and merge `compute_response_metrics` and `classify_omission_response` to optimize trials iteration and minimize loops. | **90/100** | 1 | 0 | Discussion: Decide if we want to run both stimulus and omission classification inside a single trial-loop pass. |
-| `[REF] jnwb/visual_qc.py & jnwb/viz.py` | Consolidate overlapping raster and TFR plotting code; unify color palette references under a shared module configuration. | **85/100** | 2 | 1 | Discussion: Decide if Plotly and Matplotlib routines should stay separated or share data-parser methods. |
-| `[NEW] jnwb/decoding.py` | New module skeleton to implement population decoding (linear SVM stimulus identity and omission decoding dynamically). | **0/100** | 3 | 2 | Discussion: Need details on SVM hyperparameter tuning options and validation cross-folds configuration. |
-| `[NEW] jnwb/connectivity.py` | New module skeleton to house Granger Causality, Mutual Information, and network topology calculations directly inside the package. | **0/100** | 4 | 1 | Discussion: Ensure Granger Wilson factorization fits the precomputed TFR formats. |
 | `tests/test_session_coverage.py` | Coverage checks for OmissionSession accessors, properties, and metadata. | **100/100** | 0 | 0 | None. Runs in under 2 seconds. |
 | `tests/test_analyzers_coverage.py` | Coverage checks for TFR, Unit, and Population analyzers. | **100/100** | 0 | 0 | None. |
 | `tests/test_functions_coverage.py` | Coverage checks for the 20 canonical functions. | **100/100** | 0 | 0 | None. |
+| `tests/test_decoding_connectivity.py` | Verifies SVM decoding, Shannon Mutual Information, and Granger Causality functions. | **100/100** | 0 | 0 | None. |
 | `tests/test_jnwb_core.py` | Verifies data contract immutability and robust statistical NaN/Inf handlers. | **100/100** | 0 | 0 | None. |
 | `tests/test_jnwb_integration.py` | End-to-end load-analyze-visualize testing with real data placeholders. | **100/100** | 0 | 0 | None. |
 | `tests/test_jnwb_nwb_integration.py` | NWB trial onset and LFP channel query tests. | **100/100** | 0 | 0 | None. |

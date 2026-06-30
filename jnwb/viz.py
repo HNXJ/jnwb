@@ -26,6 +26,15 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 
+# Madelane Golden Dark Palette
+MADELANE_GOLD = "#CFB87C"
+MADELANE_VIOLET = "#9400D3"
+MADELANE_WHITE = "#FFFFFF"
+MADELANE_GRAY = "#D3D3D3"
+MADELANE_TEAL = "#00FFCC"
+MADELANE_ORANGE = "#FF5E00"
+
+
 # Condition families for organized visualization
 CONDITION_FAMILIES = {
     "A": {
@@ -645,7 +654,7 @@ def raster_suite_omission(
 
     ax_wf = fig.add_subplot(gs[3:5, 3], facecolor="white")
     if wf_mean is not None:
-        ax_wf.plot(wf_mean, color="#CFB87C", linewidth=2.0)
+        ax_wf.plot(wf_mean, color=MADELANE_GOLD, linewidth=2.0)
         ax_wf.set_title("Mean Waveform", fontsize=10, fontweight="bold")
         ax_wf.set_xlabel("Samples", fontsize=8)
         ax_wf.set_ylabel("Amplitude (µV)", fontsize=8)
