@@ -125,10 +125,51 @@ def fit_var_bivariate(
     return float(var_restricted), float(var_unrestricted)
 
 
+def select_optimal_lag(
+    x: np.ndarray,
+    y: np.ndarray,
+    max_lag: int = 10
+) -> int:
+    """
+    Select the optimal VAR model order p using Akaike Information Criterion (AIC).
+
+    Args:
+        x: Dependent signal
+        y: Independent causal signal candidate
+        max_lag: Maximum lag order to evaluate
+
+    Returns:
+        opt_lag: Optimal lag order (between 1 and max_lag)
+    """
+    n = len(x)
+    best_aic = float('inf')
+    opt_lag = 1
+
+    # Keep max_lag within reasonable bounds for degrees of freedom
+    actual_max = min(max_lag, (n - 2) // 3)
+    if actual_max < 1:
+        return 1
+
+    for p in range(1, actual_max + 1):
+        _, var_unrestricted = fit_var_bivariate(x, y, p)
+        if var_unrestricted <= 0:
+            continue
+        
+        n_samples = n - p
+        # AIC = n * ln(var) + 2 * (number of parameters)
+        # Bivariate unrestricted fit has 2*p + 1 parameters (intercept + p lags of x + p lags of y)
+        aic = n_samples * np.log(var_unrestricted) + 2 * (2 * p + 1)
+        if aic < best_aic:
+            best_aic = aic
+            opt_lag = p
+
+    return opt_lag
+
+
 def granger_causality(
     signal1: np.ndarray,
     signal2: np.ndarray,
-    order: int = 5
+    order: Union[int, str] = 5
 ) -> Dict[str, float]:
     """
     Compute bivariate Granger Causality (GC) values between two continuous signals.
@@ -139,10 +180,10 @@ def granger_causality(
     Args:
         signal1: Time series array 1 (e.g., LFP channel 1)
         signal2: Time series array 2 (e.g., LFP channel 2)
-        order: VAR model lag order
+        order: VAR model lag order, or 'auto' to select via AIC
 
     Returns:
-        Dict containing causality values and residual variances
+        Dict containing causality values, chosen orders, and residual variances
     """
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
@@ -153,17 +194,27 @@ def granger_causality(
     s1 = (s1 - np.mean(s1)) / std1 if std1 > 0 else np.zeros_like(s1)
     s2 = (s2 - np.mean(s2)) / std2 if std2 > 0 else np.zeros_like(s2)
 
+    # Order selection
+    if order == 'auto':
+        order_2_to_1 = select_optimal_lag(s1, s2)
+        order_1_to_2 = select_optimal_lag(s2, s1)
+    else:
+        order_2_to_1 = int(order)
+        order_1_to_2 = int(order)
+
     # 2 -> 1
-    var_r1, var_u1 = fit_var_bivariate(s1, s2, order)
+    var_r1, var_u1 = fit_var_bivariate(s1, s2, order_2_to_1)
     f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else 0.0
 
     # 1 -> 2
-    var_r2, var_u2 = fit_var_bivariate(s2, s1, order)
+    var_r2, var_u2 = fit_var_bivariate(s2, s1, order_1_to_2)
     f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
 
     return {
         'F_2_to_1': float(max(0.0, f_2_to_1)),
         'F_1_to_2': float(max(0.0, f_1_to_2)),
+        'order_2_to_1': float(order_2_to_1),
+        'order_1_to_2': float(order_1_to_2),
         'var_restricted_1': var_r1,
         'var_unrestricted_1': var_u1,
         'var_restricted_2': var_r2,

@@ -59,6 +59,8 @@ def test_decoding_fallback():
     # Success path: has enough trials for 2-fold Stratified CV
     res = decode_stimulus_identity(session, area='V1', condition_pairs=('AAAB', 'BBBA'), n_splits=5)
     assert 'accuracy' in res
+    assert 'best_params' in res
+    assert 'C' in res['best_params']
     assert res['n_units'] == 2
     assert res['status'] == 'success'
 
@@ -100,6 +102,12 @@ def test_granger_causality():
     assert 'F_2_to_1' in res
     assert res['F_1_to_2'] >= 0.0
     assert res['F_2_to_1'] >= 0.0
+
+    # Test auto lag selection via AIC
+    res_auto = granger_causality(s1, s2, order='auto')
+    assert 'order_1_to_2' in res_auto
+    assert 'order_2_to_1' in res_auto
+    assert res_auto['order_1_to_2'] >= 1.0
 
 
 def test_network_topology():

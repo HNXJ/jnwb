@@ -49,6 +49,18 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
             {
                 "cell_type": "code",
                 "execution_count": None,
+                "metadata": {
+                    "tags": ["parameters"]
+                },
+                "outputs": [],
+                "source": [
+                    f"nwb_path = r'{nwb_path}'\n",
+                    f"session_name = '{session_name}'\n"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
                 "metadata": {},
                 "outputs": [],
                 "source": [
@@ -56,7 +68,7 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                     "import matplotlib.pyplot as plt\n",
                     "import plotly.graph_objects as go\n",
                     "\n",
-                    f"session = oa.OmissionSession(r'{nwb_path}')\n",
+                    "session = oa.OmissionSession(nwb_path)\n",
                     "print('Session metadata:', session._metadata)"
                 ]
             },

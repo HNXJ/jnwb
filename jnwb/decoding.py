@@ -13,7 +13,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +76,7 @@ def decode_stimulus_identity(
     time_window_ms: Tuple[float, float] = (0.0, 150.0),
     n_splits: int = 5,
     quality: Optional[str] = None
-) -> Dict[str, Union[float, str, np.ndarray]]:
+) -> Dict[str, Union[float, str, np.ndarray, dict]]:
     """
     Decode stimulus identity (Condition A vs. Condition B) from population activity.
 
@@ -87,7 +89,7 @@ def decode_stimulus_identity(
         quality: Filter units by quality tier
 
     Returns:
-        Dict with decoding accuracy and fold scores
+        Dict with decoding accuracy, fold scores, and best tuning parameters
     """
     # Extract trials for both conditions
     epochs_cond1 = session.get_epochs(condition=condition_pairs[0])
@@ -103,6 +105,7 @@ def decode_stimulus_identity(
             'fold_accuracies': np.array([0.5, 0.52, 0.48, 0.51, 0.49]),
             'n_units': 10,
             'n_trials': 20,
+            'best_params': {'C': 1.0},
             'status': 'synthetic_fallback'
         }
 
@@ -118,20 +121,35 @@ def decode_stimulus_identity(
             'fold_accuracies': np.array([]),
             'n_units': 0,
             'n_trials': len(labels),
+            'best_params': {},
             'status': 'no_units'
         }
 
-    # Classifier setup
-    clf = SVC(kernel='linear', C=1.0, random_state=42)
+    # Classifier setup with scaling pipeline & hyperparameter grid search
     cv = StratifiedKFold(n_splits=min(n_splits, n1, n2), shuffle=True, random_state=42)
+    pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('clf', SVC(kernel='linear', random_state=42))
+    ])
+    
+    param_grid = {'clf__C': [0.01, 0.1, 1.0, 10.0]}
+    grid = GridSearchCV(pipeline, param_grid, cv=cv, scoring='accuracy')
+    grid.fit(X, labels)
 
-    scores = cross_val_score(clf, X, labels, cv=cv)
+    # Get fold accuracies for the best C parameter
+    best_c = grid.best_params_['clf__C']
+    best_pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('clf', SVC(kernel='linear', C=best_c, random_state=42))
+    ])
+    scores = cross_val_score(best_pipeline, X, labels, cv=cv)
 
     return {
-        'accuracy': float(np.mean(scores)),
+        'accuracy': float(grid.best_score_),
         'fold_accuracies': scores,
         'n_units': n_units,
         'n_trials': len(labels),
+        'best_params': {'C': best_c},
         'status': 'success'
     }
 

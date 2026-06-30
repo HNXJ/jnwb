@@ -8,14 +8,6 @@
     "warnings": "Exposes new decoding and connectivity functions properly."
   },
   {
-    "filename": "jnwb/session.py",
-    "purpose": "OmissionSession loader, NWB file I/O, lazy data loading, and caching interface.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "No warnings. Caching verified by integration tests."
-  },
-  {
     "filename": "jnwb/functions.py",
     "purpose": "Canonical wrappers for spiking, TFR, and population analysis.",
     "score": 100,
@@ -112,22 +104,6 @@
     "warnings": "None."
   },
   {
-    "filename": "jnwb/decoding.py",
-    "purpose": "Population decoding module using linear SVM classifiers to predict identity and omission trials.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "SVM Stratified CV verified with mock fallback support."
-  },
-  {
-    "filename": "jnwb/connectivity.py",
-    "purpose": "Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Normalization handles constant signals safely."
-  },
-  {
     "filename": "jnwb/mcp_server/__init__.py",
     "purpose": "MCP server core implementing transport setup and tools registration.",
     "score": 100,
@@ -194,14 +170,6 @@
   {
     "filename": "tests/test_functions_coverage.py",
     "purpose": "Coverage checks for the 20 canonical functions.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "None."
-  },
-  {
-    "filename": "tests/test_decoding_connectivity.py",
-    "purpose": "Verifies SVM decoding, Shannon Mutual Information, and Granger Causality functions.",
     "score": 100,
     "tbis": 0,
     "tbds": 0,
@@ -286,14 +254,6 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "Contains pre-run figures using actual neural data files."
-  },
-  {
-    "filename": "jnwb/report.py",
-    "purpose": "OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics).",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Uses choreographer/kaleido backend for static SVG rendering of Plotly figures."
   },
   {
     "filename": "tests/test_report.py",
