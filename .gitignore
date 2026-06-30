@@ -23,6 +23,8 @@ artifacts/*
 !artifacts/developer/
 !artifacts/developer/progress.json
 !artifacts/progress_report.md
+!artifacts/review.json
+!artifacts/plans.json
 checkpoints/
 scratch/
 Export_Staging/
