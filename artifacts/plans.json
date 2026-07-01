@@ -1,31 +1,13 @@
 [
   {
     "title": "OGLO Session Report Suite Generator",
-    "description": "Generate a standardized folder structure for each NWB session containing:\n  - `session-yymmdd-oglo/report-suite.ipynb` (interactive report)\n  - `session-yymmdd-oglo/report-suite.html` (fully compiled HTML export)\n  - `session-yymmdd-oglo/figures/svg/` (vector exports of all generated figures)\nThe report suite will display the spectrolaminar motif, unit statistics per probe, metadata tables, MUAE (Multi-Unit Activity Evoked) examples, and absolute LFP power with SEM traces.",
+    "description": "Generate a standardized folder structure for each NWB session containing report-suite.ipynb (interactive report), report-suite.html (fully compiled HTML export), and figures/svg/ (vector exports of all generated figures).",
     "priority": "high",
     "status": "completed"
   },
   {
-    "title": "SVM Preprocessing Options",
-    "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors before training the SVM classifier.",
-    "priority": "medium",
-    "status": "planned"
-  },
-  {
-    "title": "Granger Causality Interactive Plot",
-    "description": "Create an interactive Plotly network connectivity figure in jnwb/viz.py representing Granger causality graphs.",
-    "priority": "low",
-    "status": "brainstorm"
-  },
-  {
-    "title": "GPU-Accelerated Population Trajectory (PCA)",
-    "description": "Utilize PyTorch or JAX Singular Value Decomposition (SVD) on GPU to accelerate population trajectory dimensionality reduction (PCA) across thousands of active neurons.",
-    "priority": "medium",
-    "status": "brainstorm"
-  },
-  {
-    "title": "SVM Preprocessing (Baseline Subtraction)",
-    "description": "Integrate trial-by-trial baseline subtraction (pre-stimulus interval baseline firing rates) into the standard population decoding feature pipeline to control for slow drift and state fluctuations.",
+    "title": "SVM Preprocessing (Baseline Subtraction & Normalization)",
+    "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors (e.g. subtracting pre-stimulus interval baseline firing rates) before training the SVM classifier to control for state fluctuations.",
     "priority": "medium",
     "status": "planned"
   },
@@ -34,5 +16,11 @@
     "description": "Develop an interactive directed graph visualization using Plotly in `jnwb/viz.py` that maps inter-area Granger causality causality flow as edge thickness, permitting dynamic node dragging and hover inspections.",
     "priority": "low",
     "status": "planned"
+  },
+  {
+    "title": "GPU-Accelerated Population Trajectory (PCA)",
+    "description": "Utilize PyTorch or JAX Singular Value Decomposition (SVD) on GPU to accelerate population trajectory dimensionality reduction (PCA) across thousands of active neurons.",
+    "priority": "medium",
+    "status": "brainstorm"
   }
 ]
