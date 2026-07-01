@@ -49,6 +49,75 @@ from pathlib import Path
 from typing import Union, Optional, List
 import glob
 
+# Apply NWB/HDMF repair monkeypatches for sub-V182o and other sessions with builder anomalies
+try:
+    from hdmf.build.manager import BuildManager
+    import numpy as np
+
+    orig_construct = BuildManager.construct
+
+    def patched_manager_construct(self, *args, **kwargs):
+        if args:
+            builder = args[0]
+        else:
+            builder = kwargs.get('builder')
+            
+        if builder is not None:
+            b_name = getattr(builder, 'name', None)
+            
+            # 1. Device string attributes check
+            if hasattr(builder, 'attributes'):
+                for k, v in builder.attributes.items():
+                    if isinstance(v, np.ndarray) and v.ndim == 1 and len(v) == 1:
+                        val = v[0]
+                        if isinstance(val, (bytes, str)):
+                            if isinstance(val, bytes):
+                                builder.attributes[k] = val.decode('utf-8', errors='replace')
+                            else:
+                                builder.attributes[k] = str(val)
+                                
+            # 2. Check if this is the NWBFile builder (top-level)
+            if hasattr(builder, 'attributes') and builder.attributes.get('neurodata_type') == 'NWBFile':
+                if 'session_description' not in builder.datasets:
+                    from hdmf.build.builders import DatasetBuilder
+                    session_desc = DatasetBuilder(
+                        name='session_description',
+                        data='Omission Passive GLO;',
+                        attributes={}
+                    )
+                    session_desc.parent = builder
+                    builder.datasets['session_description'] = session_desc
+                                
+            # 3. Check if this is the units builder
+            if b_name == 'units':
+                colnames = list(builder.attributes.get('colnames', []))
+                # Remove index column names from colnames
+                for index_col in ['spike_times_index', 'waveform_mean_index', 'spike_amplitudes_index']:
+                    if index_col in colnames:
+                        colnames.remove(index_col)
+                # Add target column names to colnames
+                for col in ['spike_times', 'waveform_mean', 'spike_amplitudes']:
+                    if hasattr(builder, 'datasets') and col in builder.datasets and col not in colnames:
+                        colnames.append(col)
+                builder.attributes['colnames'] = np.array(colnames, dtype=object)
+                
+            # 4. Check for index vector data anomalies
+            if b_name in ['waveform_mean_index', 'spike_amplitudes_index']:
+                if hasattr(builder, 'attributes'):
+                    builder.attributes['neurodata_type'] = 'VectorIndex'
+                    target_name = b_name.replace('_index', '')
+                    if builder.parent and target_name in builder.parent:
+                        builder.attributes['target'] = builder.parent[target_name]
+                        
+                if b_name == 'waveform_mean_index' and 'data' in builder:
+                    builder['data'] = np.array(builder['data'], dtype=np.int64)
+                        
+        return orig_construct(self, *args, **kwargs)
+
+    BuildManager.construct = patched_manager_construct
+except Exception as e:
+    pass
+
 from .session import OmissionSession
 
 # Configure logging
