@@ -27,10 +27,26 @@ def test_generate_report_success(tmp_path):
     
     # Check generated svg files
     svgs = list(fig_svg_dir.glob("*.svg"))
-    assert len(svgs) > 0
+    expected_figures = [
+        "session_metadata.svg",
+        "unit_quality_census.svg",
+        "evoked_psth_raster.svg",
+        "lfp_psd.svg",
+        "evoked_tfr.svg",
+        "spectrolaminar_motif.svg",
+        "waveform_classification.svg",
+        "granger_network.svg",
+        "single_unit_acg.svg",
+        "population_decoding.svg"
+    ]
+    for fig_name in expected_figures:
+        assert (fig_svg_dir / fig_name).exists(), f"Missing figure: {fig_name}"
+    
+    assert len(svgs) == len(expected_figures)
     
     # Verify notebook contains JSON structure
     with open(report_dir / "report-suite.ipynb", "r") as f:
-        nb_data = json_data = pytest.importorskip("json").load(f)
+        import json
+        nb_data = json.load(f)
         assert "cells" in nb_data
         assert nb_data["nbformat"] == 4

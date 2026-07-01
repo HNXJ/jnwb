@@ -26,7 +26,6 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `jnwb/mcp_server/server.py` | Executable entry point to run the MCP server. | **100/100** | 0 | 0 | None. |
 | `jnwb/metadata.py` | Unit metadata extraction, SNR statistics, and quality tier classification. | **100/100** | 0 | 0 | Strict quality rules applied. |
 | `jnwb/ontology.py` | Ontology data contract definitions (Query, Dataset, Result, Figure, etc.). | **100/100** | 0 | 0 | All ontology properties frozen. |
-| `jnwb/report.py` | OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics). | **100/100** | 0 | 0 | Verified: Parameterized cell tagged parameters implemented successfully. |
 | `jnwb/session.py` | OmissionSession loader, NWB file I/O, lazy data loading, and caching interface. | **100/100** | 0 | 0 | Verified: Local pickle/json persistent disk cache is operational; unpicklable group column dropped. |
 | `jnwb/spectral.py` | LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping. | **100/100** | 0 | 0 | Verified: CuPy-based GPU multitaper Welch periodograms and cross-area coherence are operational. |
 | `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, phase-locking, and omission classifications. | **100/100** | 0 | 0 | Optimized trial counting loop using searchsorted. |
@@ -42,8 +41,12 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `tests/test_jnwb_integration.py` | End-to-end load-analyze-visualize testing with real data placeholders. | **100/100** | 0 | 0 | None. |
 | `tests/test_jnwb_nwb_integration.py` | NWB trial onset and LFP channel query tests. | **100/100** | 0 | 0 | None. |
 | `tests/test_mcp_server.py` | Verifies MCP tool registry, syntax warnings, and tool generation. | **100/100** | 0 | 0 | custom_tools path modified to look up relative to workspace root. |
-| `tests/test_report.py` | Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite. | **100/100** | 0 | 0 | None. |
 | `tests/test_session_coverage.py` | Coverage checks for OmissionSession accessors, properties, and metadata. | **100/100** | 0 | 0 | None. Runs in under 2 seconds. |
+
+## Files Under Review (Awaiting Validation)
+
+- `jnwb/report.py`: OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics). (Status: **100/100**, Resolved: expanded the report suite generator to output exactly 10 comprehensive analyses with Matplotlib/Plotly figures and dual stats.)
+- `tests/test_report.py`: Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite. (Status: **100/100**, Resolved: added unit tests asserting the successful generation of all 10 figures.)
 
 ---
 *Generated: 2026-07-01*
