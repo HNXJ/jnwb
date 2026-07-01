@@ -64,14 +64,6 @@
     "warnings": "None."
   },
   {
-    "filename": "jnwb/analyzers.py",
-    "purpose": "Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer.",
-    "score": 90,
-    "tbis": 1,
-    "tbds": 1,
-    "warnings": "Proposal: Accelerate spike-binning and pairwise cross-correlations/autocorrelograms using CuPy."
-  },
-  {
     "filename": "jnwb/diagnostics.py",
     "purpose": "Session audits and mult-session comparison metrics.",
     "score": 100,
@@ -174,14 +166,6 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "Verified: Local pickle/json persistent disk cache is operational; unpicklable group column dropped."
-  },
-  {
-    "filename": "jnwb/spectral.py",
-    "purpose": "LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping.",
-    "score": 90,
-    "tbis": 1,
-    "tbds": 1,
-    "warnings": "Proposal: Accelerate multitaper TFR estimation using CuPy-based GPU FFTs and windowing."
   },
   {
     "filename": "jnwb/spiking.py",

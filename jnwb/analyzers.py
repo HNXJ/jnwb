@@ -303,7 +303,7 @@ class UnitAnalyzer:
 
     @staticmethod
     def autocorrelogram(spike_times: np.ndarray, max_lag_ms: float = 100,
-                        bin_size_ms: float = 1) -> Dict:
+                        bin_size_ms: float = 1, device: str = 'cpu') -> Dict:
         """
         Autocorrelogram with refractory period significance test.
 
@@ -311,6 +311,7 @@ class UnitAnalyzer:
             spike_times: Spike times in seconds
             max_lag_ms: Maximum lag in ms
             bin_size_ms: Bin size in ms
+            device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
         Returns:
             Dict with ACG, refractory p-value, is_single_unit flag
@@ -321,7 +322,7 @@ class UnitAnalyzer:
         max_lag_sec = max_lag_ms / 1000
         bin_sec     = bin_size_ms / 1000
 
-        acg, lag_times = UnitAnalyzer._acg_vectorized(spike_times, max_lag_sec, bin_sec)
+        acg, lag_times = UnitAnalyzer._acg_vectorized(spike_times, max_lag_sec, bin_sec, device=device)
 
         if len(acg) == 0:
             return {'error': 'ACG computation failed'}
@@ -345,7 +346,7 @@ class UnitAnalyzer:
 
     @staticmethod
     def _acg_vectorized(spike_times: np.ndarray,
-                        max_lag: float, bin_size: float) -> Tuple[np.ndarray, np.ndarray]:
+                        max_lag: float, bin_size: float, device: str = 'cpu') -> Tuple[np.ndarray, np.ndarray]:
         """
         Vectorized autocorrelogram via searchsorted — O(N log N) instead of O(N²).
 
@@ -354,8 +355,42 @@ class UnitAnalyzer:
         """
         n_bins    = int(max_lag / bin_size)
         bin_edges = np.linspace(-max_lag, max_lag, 2 * n_bins + 2)
-        acg       = np.zeros(2 * n_bins + 1, dtype=np.int64)
 
+        if device == 'cuda':
+            try:
+                import cupy as cp
+                st = cp.sort(cp.asarray(spike_times))
+                if len(st) < 30000:
+                    # Fully vectorized broadcast on GPU
+                    diffs = st[:, None] - st[None, :]
+                    mask = (diffs >= -max_lag) & (diffs <= max_lag)
+                    valid_diffs = diffs[mask]
+                    hist, _ = cp.histogram(valid_diffs, bins=cp.asarray(bin_edges))
+                    acg = hist.get()
+                else:
+                    # Chunked GPU execution to avoid out-of-memory
+                    acg_cp = cp.zeros(2 * n_bins + 1, dtype=cp.int64)
+                    for i in range(0, len(st), 1000):
+                        chunk = st[i:i+1000]
+                        lo = cp.searchsorted(st, chunk - max_lag, side='left')
+                        hi = cp.searchsorted(st, chunk + max_lag, side='right')
+                        for idx, t in enumerate(chunk):
+                            l_idx = int(lo[idx])
+                            h_idx = int(hi[idx])
+                            diffs = st[l_idx:h_idx] - t
+                            hist, _ = cp.histogram(diffs, bins=cp.asarray(bin_edges))
+                            acg_cp += hist
+                    acg = acg_cp.get()
+
+                # Remove self-spike at t=0 (centre bin) and slice to positive-lag half only
+                centre = n_bins
+                acg[centre] = 0
+                lag_times = np.linspace(0, max_lag, n_bins + 1)[:-1]
+                return acg[centre+1:], lag_times
+            except Exception as e:
+                log.warning(f"CUDA ACG calculation failed: {e}. Falling back to CPU.")
+
+        acg       = np.zeros(2 * n_bins + 1, dtype=np.int64)
         st = np.sort(spike_times)
         for i, t in enumerate(st):
             lo = np.searchsorted(st, t - max_lag, side='left')
