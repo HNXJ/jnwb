@@ -103,7 +103,7 @@ def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] 
         events = []
         code_col = None
         
-        for col in ['codes', 'code', 'event_code', 'event_codes', 'value', 'type', 'trial_num']:
+        for col in ['codes', 'code', 'event_code', 'event_codes', 'value', 'type']:
             if col in df.columns:
                 code_col = col
                 break

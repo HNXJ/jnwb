@@ -1,4 +1,5 @@
 import os
+os.environ["ALLOW_DYNAMIC_TOOLS"] = "1"
 import unittest
 from pathlib import Path
 from jnwb.mcp_server import inspect_nwb, get_event_codes_and_timings, prepare_signal_reference, add_tool

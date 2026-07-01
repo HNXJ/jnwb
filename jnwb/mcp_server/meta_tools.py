@@ -1,4 +1,5 @@
 import ast
+import os
 from pathlib import Path
 from typing import Dict, Any
 from jnwb.mcp_server.server import mcp
@@ -14,6 +15,12 @@ def add_tool(code: str) -> Dict[str, Any]:
     Returns:
         Structured JSON confirming registration or error dictionary.
     """
+    if os.environ.get("ALLOW_DYNAMIC_TOOLS", "0") != "1":
+        return {
+            "error": "Dynamic tool registration is disabled on this server. Enable it by setting the ALLOW_DYNAMIC_TOOLS=1 environment variable.",
+            "error_type": "SecurityRestriction"
+        }
+
     try:
         parsed = ast.parse(code)
     except SyntaxError as e:

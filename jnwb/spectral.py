@@ -233,12 +233,40 @@ def cross_area_coherence(
             band_coh = coherency[mask]
             result['band_coherence'][band_name] = float(np.mean(band_coh))
 
-            # Significance test: compare to surrogate (phase-randomized) coherence
-            # Simplified: if coherence > 0.3, consider significant
-            if np.mean(band_coh) > 0.3:
-                result['band_significance'][band_name] = 0.01
-            else:
-                result['band_significance'][band_name] = 0.5
+            # Significance test: compare to surrogate (phase-randomized/shuffled) coherence
+            surrogate_cohs = []
+            rng = np.random.default_rng(42)
+            n_surr = 50
+            if len(lfp_area1) > 50000:
+                n_surr = 10
+            
+            mean_coh_val = np.mean(band_coh)
+            
+            # Fast surrogate: circularly shift lfp_area2 and recompute coherence
+            for _ in range(n_surr):
+                low_val = 1
+                high_val = len(lfp_area2) - 1
+                shift = rng.integers(low_val, high_val) if low_val < high_val else 0
+                lfp_y_shuffled = np.roll(lfp_area2, shift)
+                if device == 'cuda':
+                    try:
+                        _, psd_x_shuf, psd_y_shuf, csd_xy_shuf = _welch_csd_gpu(
+                            lfp_area1, lfp_y_shuffled, sampling_rate, min(len(lfp_area1), 4096)
+                        )
+                        denom_shuf = psd_x_shuf * psd_y_shuf
+                        coh_shuf = np.zeros_like(csd_xy_shuf, dtype=float)
+                        shuf_mask = denom_shuf > 0
+                        coh_shuf[shuf_mask] = np.abs(csd_xy_shuf[shuf_mask]) ** 2 / denom_shuf[shuf_mask]
+                    except Exception:
+                        _, coh_shuf = signal.coherence(lfp_area1, lfp_y_shuffled, fs=sampling_rate, nperseg=min(len(lfp_area1), 4096), noverlap=None)
+                else:
+                    _, coh_shuf = signal.coherence(lfp_area1, lfp_y_shuffled, fs=sampling_rate, nperseg=min(len(lfp_area1), 4096), noverlap=None)
+                
+                band_coh_shuf = coh_shuf[mask] if len(coh_shuf) > 0 else np.array([0.0])
+                surrogate_cohs.append(np.mean(band_coh_shuf))
+                
+            p_val = np.sum(np.array(surrogate_cohs) >= mean_coh_val) / n_surr
+            result['band_significance'][band_name] = float(p_val)
 
     return result
 

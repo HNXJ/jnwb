@@ -240,8 +240,8 @@ def granger_causality(
     f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
 
     return {
-        'F_2_to_1': float(max(0.0, f_2_to_1)),
-        'F_1_to_2': float(max(0.0, f_1_to_2)),
+        'F_2_to_1': float(f_2_to_1),
+        'F_1_to_2': float(f_1_to_2),
         'order_2_to_1': float(order_2_to_1),
         'order_1_to_2': float(order_1_to_2),
         'var_restricted_1': var_r1,
