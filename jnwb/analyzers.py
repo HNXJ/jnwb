@@ -600,3 +600,89 @@ class PopulationAnalyzer:
             'degree_distribution':  degrees.tolist(),
             'threshold':            threshold,
         }
+
+    @staticmethod
+    def population_trajectory(
+        X: np.ndarray,
+        n_components: int = 3,
+        device: str = 'cpu'
+    ) -> Dict[str, np.ndarray]:
+        """
+        Compute population trajectories using PCA (SVD).
+        Supports GPU acceleration via PyTorch/CuPy or falls back to SciPy/scikit-learn SVD.
+
+        Args:
+            X: Data matrix of shape (n_time_bins, n_units)
+            n_components: Number of principal components to extract
+            device: 'cpu' or 'cuda' (GPU acceleration via torch or cupy)
+
+        Returns:
+            Dict containing:
+                'projection': shape (n_time_bins, n_components)
+                'components': shape (n_components, n_units)
+                'explained_variance': shape (n_components,)
+                'explained_variance_ratio': shape (n_components,)
+        """
+        X_mean = np.mean(X, axis=0)
+        X_centered = X - X_mean
+        n_samples = X.shape[0]
+
+        if device == 'cuda':
+            try:
+                import cupy as cp
+                X_gpu = cp.asarray(X_centered)
+                u, s, vt = cp.linalg.svd(X_gpu, full_matrices=False)
+                
+                u = cp.asnumpy(u)
+                s = cp.asnumpy(s)
+                vt = cp.asnumpy(vt)
+                
+                projection = X_centered @ vt.T[:, :n_components]
+                explained_variance = (s ** 2) / (n_samples - 1)
+                total_variance = np.sum(explained_variance)
+                explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
+                
+                return {
+                    'projection': projection[:, :n_components],
+                    'components': vt[:n_components, :],
+                    'explained_variance': explained_variance[:n_components],
+                    'explained_variance_ratio': explained_variance_ratio[:n_components]
+                }
+            except Exception as e:
+                log.warning(f"GPU trajectory SVD via cupy failed: {e}. Trying PyTorch...")
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        X_gpu = torch.tensor(X_centered, dtype=torch.float32, device='cuda')
+                        u, s, v = torch.linalg.svd(X_gpu, full_matrices=False)
+                        
+                        u = u.cpu().numpy()
+                        s = s.cpu().numpy()
+                        vt = v.cpu().numpy()
+                        
+                        projection = X_centered @ vt.T[:, :n_components]
+                        explained_variance = (s ** 2) / (n_samples - 1)
+                        total_variance = np.sum(explained_variance)
+                        explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
+                        
+                        return {
+                            'projection': projection[:, :n_components],
+                            'components': vt[:n_components, :],
+                            'explained_variance': explained_variance[:n_components],
+                            'explained_variance_ratio': explained_variance_ratio[:n_components]
+                        }
+                except Exception as e2:
+                    log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
+
+        u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
+        projection = X_centered @ vt.T[:, :n_components]
+        explained_variance = (s ** 2) / (n_samples - 1)
+        total_variance = np.sum(explained_variance)
+        explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
+
+        return {
+            'projection': projection[:, :n_components],
+            'components': vt[:n_components, :],
+            'explained_variance': explained_variance[:n_components],
+            'explained_variance_ratio': explained_variance_ratio[:n_components]
+        }

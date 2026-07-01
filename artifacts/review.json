@@ -14,5 +14,29 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "Resolved: added unit tests asserting the successful generation of all 10 figures."
+  },
+  {
+    "filename": "jnwb/analyzers.py",
+    "purpose": "Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Resolved: added GPU-accelerated population_trajectory PCA SVD solver."
+  },
+  {
+    "filename": "jnwb/decoding.py",
+    "purpose": "Population decoding module using linear SVM classifiers to predict identity and omission trials.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Resolved: added baseline_window_ms subtraction logic and exposed options in decode_stimulus_identity."
+  },
+  {
+    "filename": "jnwb/viz.py",
+    "purpose": "Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Resolved: added plot_granger_network_plotly interactive directed graph network plot."
   }
 ]

@@ -135,3 +135,30 @@ def test_decoding_gpu():
     res_cuda = decode_stimulus_identity(session, area='V1', condition_pairs=('AAAB', 'BBBA'), n_splits=5, device='cuda')
     assert 'accuracy' in res_cuda
     assert 'status' in res_cuda
+
+
+def test_decoding_baseline_subtraction():
+    session = MockSession()
+    # Success path: has enough trials for 2-fold Stratified CV
+    res = decode_stimulus_identity(
+        session,
+        area='V1',
+        condition_pairs=('AAAB', 'BBBA'),
+        time_window_ms=(0.0, 150.0),
+        baseline_window_ms=(-150.0, 0.0),
+        n_splits=5
+    )
+    assert 'accuracy' in res
+    assert 'status' in res
+
+
+def test_plot_granger_network_plotly():
+    from jnwb import plot_granger_network_plotly
+    adj = np.array([
+        [0.0, 0.4, 0.01],
+        [0.0, 0.0, 0.8],
+        [0.1, 0.0, 0.0]
+    ])
+    fig = plot_granger_network_plotly(adj, node_labels=['V1', 'V2', 'V4'], threshold=0.05)
+    assert fig is not None
+    assert fig.layout.title.text == "Directed Granger Causality Network Graph"
