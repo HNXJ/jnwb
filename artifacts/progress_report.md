@@ -12,7 +12,6 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `etude_no_01_gallery.ipynb` | 19-cell showcase running all 16 tasks + generalization + batch + unit queries. | **100/100** | 0 | 0 | Contains pre-run figures using actual neural data files. |
 | `jnwb/__init__.py` | Package entry point, unified imports, and frozen public API __all__ list exports. | **100/100** | 0 | 0 | Exposes new decoding and connectivity functions properly. |
 | `jnwb/addressing.py` | Electrode mapping rules, depth layer classifications, and units enrichment. | **100/100** | 0 | 0 | None. |
-| `jnwb/analyzers.py` | Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer. | **90/100** | 1 | 1 | Proposal: Accelerate spike-binning and pairwise cross-correlations/autocorrelograms using CuPy. |
 | `jnwb/diagnostics.py` | Session audits and mult-session comparison metrics. | **100/100** | 0 | 0 | Strict validation warnings triggered if metadata fields mismatch. |
 | `jnwb/factories.py` | Factory methods constructing ontology objects from OmissionSession. | **100/100** | 0 | 0 | None. |
 | `jnwb/functions.py` | Canonical wrappers for spiking, TFR, and population analysis. | **100/100** | 0 | 0 | Uses trial filters dynamically. |
@@ -26,7 +25,6 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `jnwb/ontology.py` | Ontology data contract definitions (Query, Dataset, Result, Figure, etc.). | **100/100** | 0 | 0 | All ontology properties frozen. |
 | `jnwb/report.py` | OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics). | **100/100** | 0 | 0 | Verified: Parameterized cell tagged parameters implemented successfully. |
 | `jnwb/session.py` | OmissionSession loader, NWB file I/O, lazy data loading, and caching interface. | **100/100** | 0 | 0 | Verified: Local pickle/json persistent disk cache is operational; unpicklable group column dropped. |
-| `jnwb/spectral.py` | LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping. | **90/100** | 1 | 1 | Proposal: Accelerate multitaper TFR estimation using CuPy-based GPU FFTs and windowing. |
 | `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, phase-locking, and omission classifications. | **100/100** | 0 | 0 | Optimized trial counting loop using searchsorted. |
 | `jnwb/statistics.py` | Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction. | **100/100** | 0 | 0 | Fixed random seed = 42 ensures exact replicability. |
 | `jnwb/visual_qc.py` | Waveform galleries, stability traces, and dashboard summaries. | **100/100** | 0 | 0 | Waveform plots updated to use unified Madelane Golden palette. |
@@ -46,6 +44,9 @@ This database tracks the implementation quality, pending items, and warnings acr
 
 - `jnwb/connectivity.py`: Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology. (Status: **100/100**, Resolved: added CuPy GPU least-squares bivariate Granger Causality fitting.)
 - `jnwb/decoding.py`: Population decoding module using linear SVM classifiers to predict identity and omission trials. (Status: **100/100**, Resolved: added PyTorch soft-margin linear SVM GPU-accelerated optimization loop.)
+- `jnwb/analyzers.py`: Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer. (Status: **100/100**, Resolved: added CuPy GPU-accelerated spike-binning autocorrelograms.)
+- `jnwb/spectral.py`: LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping. (Status: **100/100**, Resolved: added CuPy GPU-accelerated Welch periodograms and coherence computations.)
+- `tests/test_gpu_spectral_analyzers.py`: Verifies GPU-accelerated LFP spectral analysis and spike autocorrelograms. (Status: **100/100**, None.)
 
 ---
-*Generated: 2026-06-30*
+*Generated: 2026-07-01*

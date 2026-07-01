@@ -27,7 +27,8 @@ def harmonic_analysis(
     lfp_trace: np.ndarray,
     sampling_rate: float,
     freq_range: Tuple[float, float] = (1.0, 90.0),
-    harmonic_orders: int = 3
+    harmonic_orders: int = 3,
+    device: str = 'cpu'
 ) -> Dict:
     """
     Decompose LFP trace into fundamental and harmonic components.
@@ -40,6 +41,7 @@ def harmonic_analysis(
         sampling_rate: Sampling frequency (Hz)
         freq_range: (min, max) frequency bounds for analysis (Hz)
         harmonic_orders: Number of harmonic multiples to track
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
     Returns:
         Dict with:
@@ -64,14 +66,27 @@ def harmonic_analysis(
     if len(lfp_trace) == 0:
         return result
 
-    # Compute power spectrum via Welch's method (explicitly specifying hann window)
-    frequencies, pxx = signal.welch(
-        lfp_trace,
-        fs=sampling_rate,
-        window='hann',
-        nperseg=min(len(lfp_trace), 4096),
-        noverlap=None
-    )
+    # Compute power spectrum
+    if device == 'cuda':
+        try:
+            frequencies, pxx = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
+        except Exception as e:
+            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            frequencies, pxx = signal.welch(
+                lfp_trace,
+                fs=sampling_rate,
+                window='hann',
+                nperseg=min(len(lfp_trace), 4096),
+                noverlap=None
+            )
+    else:
+        frequencies, pxx = signal.welch(
+            lfp_trace,
+            fs=sampling_rate,
+            window='hann',
+            nperseg=min(len(lfp_trace), 4096),
+            noverlap=None
+        )
 
     result['frequencies'] = frequencies
     result['spectral_profile'] = pxx
@@ -122,7 +137,8 @@ def cross_area_coherence(
     lfp_area1: np.ndarray,
     lfp_area2: np.ndarray,
     sampling_rate: float,
-    freq_bands: Optional[Dict[str, Tuple[float, float]]] = None
+    freq_bands: Optional[Dict[str, Tuple[float, float]]] = None,
+    device: str = 'cpu'
 ) -> Dict:
     """
     Compute frequency-resolved coherence between two LFP signals.
@@ -136,6 +152,7 @@ def cross_area_coherence(
         sampling_rate: Sampling frequency (Hz)
         freq_bands: Dict of {'band_name': (freq_min, freq_max)}
                    Default: Standard frequency bands (delta, theta, alpha, beta, gamma)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
     Returns:
         Dict with:
@@ -172,14 +189,34 @@ def cross_area_coherence(
         log.warning("LFP traces have different lengths")
         return result
 
-    # Compute coherence using Welch's method
-    frequencies, coherency = signal.coherence(
-        lfp_area1,
-        lfp_area2,
-        fs=sampling_rate,
-        nperseg=min(len(lfp_area1), 4096),
-        noverlap=None
-    )
+    # Compute coherence
+    if device == 'cuda':
+        try:
+            frequencies, psd_x, psd_y, csd_xy = _welch_csd_gpu(
+                lfp_area1, lfp_area2, sampling_rate, min(len(lfp_area1), 4096)
+            )
+            # Avoid division by zero
+            denom = psd_x * psd_y
+            coherency = np.zeros_like(csd_xy, dtype=float)
+            mask = denom > 0
+            coherency[mask] = np.abs(csd_xy[mask]) ** 2 / denom[mask]
+        except Exception as e:
+            log.warning(f"GPU coherence failed: {e}. Falling back to CPU.")
+            frequencies, coherency = signal.coherence(
+                lfp_area1,
+                lfp_area2,
+                fs=sampling_rate,
+                nperseg=min(len(lfp_area1), 4096),
+                noverlap=None
+            )
+    else:
+        frequencies, coherency = signal.coherence(
+            lfp_area1,
+            lfp_area2,
+            fs=sampling_rate,
+            nperseg=min(len(lfp_area1), 4096),
+            noverlap=None
+        )
 
     result['frequencies'] = frequencies
     result['coherence_spectrum'] = coherency
@@ -209,7 +246,8 @@ def cross_area_coherence(
 def spectral_tilt(
     lfp_trace: np.ndarray,
     sampling_rate: float,
-    freq_range: Tuple[float, float] = (1.0, 100.0)
+    freq_range: Tuple[float, float] = (1.0, 100.0),
+    device: str = 'cpu'
 ) -> Dict:
     """
     Analyze 1/f spectral tilt (aperiodic component).
@@ -221,6 +259,7 @@ def spectral_tilt(
         lfp_trace: Time series data
         sampling_rate: Sampling frequency (Hz)
         freq_range: Frequency range for fitting
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
     Returns:
         Dict with:
@@ -242,11 +281,22 @@ def spectral_tilt(
         return result
 
     # Compute power spectrum
-    frequencies, pxx = signal.welch(
-        lfp_trace,
-        fs=sampling_rate,
-        nperseg=min(len(lfp_trace), 4096)
-    )
+    if device == 'cuda':
+        try:
+            frequencies, pxx = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
+        except Exception as e:
+            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            frequencies, pxx = signal.welch(
+                lfp_trace,
+                fs=sampling_rate,
+                nperseg=min(len(lfp_trace), 4096)
+            )
+    else:
+        frequencies, pxx = signal.welch(
+            lfp_trace,
+            fs=sampling_rate,
+            nperseg=min(len(lfp_trace), 4096)
+        )
 
     # Filter to range and remove DC
     mask = (frequencies > 0.5) & (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
@@ -285,7 +335,8 @@ def band_power(
     sampling_rate: float,
     freq_range: Tuple[float, float],
     normalize: bool = True,
-    baseline: Optional[np.ndarray] = None
+    baseline: Optional[np.ndarray] = None,
+    device: str = 'cpu'
 ) -> float:
     """
     Compute power in a frequency band.
@@ -296,6 +347,7 @@ def band_power(
         freq_range: (min_freq, max_freq) in Hz
         normalize: If True, return as dB relative to baseline
         baseline: Baseline time series for normalization (optional)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
     Returns:
         Power in band (units depend on normalize flag)
@@ -309,11 +361,22 @@ def band_power(
         return 0.0
 
     # Compute power spectrum
-    frequencies, pxx = signal.welch(
-        lfp_trace,
-        fs=sampling_rate,
-        nperseg=min(len(lfp_trace), 4096)
-    )
+    if device == 'cuda':
+        try:
+            frequencies, pxx = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
+        except Exception as e:
+            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            frequencies, pxx = signal.welch(
+                lfp_trace,
+                fs=sampling_rate,
+                nperseg=min(len(lfp_trace), 4096)
+            )
+    else:
+        frequencies, pxx = signal.welch(
+            lfp_trace,
+            fs=sampling_rate,
+            nperseg=min(len(lfp_trace), 4096)
+        )
 
     # Extract band
     mask = (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
@@ -321,14 +384,69 @@ def band_power(
 
     # Normalize to baseline if provided
     if normalize and baseline is not None and len(baseline) > 0:
-        _, baseline_pxx = signal.welch(
-            baseline,
-            fs=sampling_rate,
-            nperseg=min(len(baseline), 4096)
-        )
+        if device == 'cuda':
+            try:
+                _, baseline_pxx = _welch_csd_gpu(baseline, baseline, sampling_rate, min(len(baseline), 4096))
+            except Exception as e:
+                log.warning(f"GPU baseline welch failed: {e}. Falling back to CPU.")
+                _, baseline_pxx = signal.welch(
+                    baseline,
+                    fs=sampling_rate,
+                    nperseg=min(len(baseline), 4096)
+                )
+        else:
+            _, baseline_pxx = signal.welch(
+                baseline,
+                fs=sampling_rate,
+                nperseg=min(len(baseline), 4096)
+            )
         baseline_power_val = np.mean(baseline_pxx[mask]) if np.any(mask) else 1.0
 
         if baseline_power_val > 0:
             band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
 
     return float(band_power_val)
+
+
+def _welch_csd_gpu(x: np.ndarray, y: np.ndarray, fs: float, nperseg: int, noverlap: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Helper to compute PSD and CSD on GPU using CuPy."""
+    import cupy as cp
+    if noverlap is None:
+        noverlap = nperseg // 2
+    step = nperseg - noverlap
+
+    x_g = cp.asarray(x)
+    y_g = cp.asarray(y)
+    n = len(x_g)
+
+    window = cp.hanning(nperseg)
+    U = cp.sum(window ** 2) / fs
+
+    segments_x = []
+    segments_y = []
+    start = 0
+    while start + nperseg <= n:
+        segments_x.append(x_g[start:start+nperseg] * window)
+        segments_y.append(y_g[start:start+nperseg] * window)
+        start += step
+
+    if not segments_x:
+        segments_x.append(x_g[:nperseg] * window[:len(x_g)])
+        segments_y.append(y_g[:nperseg] * window[:len(y_g)])
+
+    X = cp.fft.rfft(cp.stack(segments_x), axis=-1)
+    Y = cp.fft.rfft(cp.stack(segments_y), axis=-1)
+
+    scale = 1.0 / (fs * cp.sum(window ** 2))
+
+    psd_x = cp.mean(cp.abs(X) ** 2, axis=0) * scale
+    psd_y = cp.mean(cp.abs(Y) ** 2, axis=0) * scale
+    csd_xy = cp.mean(X * cp.conj(Y), axis=0) * scale
+
+    # One-sided scaling
+    psd_x[1:-1] *= 2.0
+    psd_y[1:-1] *= 2.0
+    csd_xy[1:-1] *= 2.0
+
+    freqs = cp.fft.rfftfreq(nperseg, d=1.0/fs)
+    return freqs.get(), psd_x.get(), psd_y.get(), csd_xy.get()
