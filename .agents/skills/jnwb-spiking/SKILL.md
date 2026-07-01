@@ -37,8 +37,8 @@ raster = UnitAnalyzer.raster(spike_times, trial_onsets, window_ms=(-500, 2000))
 psth = UnitAnalyzer.psth(spike_times, trial_onsets, bin_size_ms=10)
 # Returns: {'psth': array, 'sem': array, 'bin_centers': array, 'bootstrap_ci': {'lo': ..., 'hi': ...}}
 
-# Autocorrelogram + refractory period test
-acg = UnitAnalyzer.autocorrelogram(spike_times, max_lag_ms=100)
+# Autocorrelogram + refractory period test (supports device='cuda')
+acg = UnitAnalyzer.autocorrelogram(spike_times, max_lag_ms=100, device='cuda')
 # Returns: {'acg': array, 'refractory_period_violation': p_value, 'is_single_unit': bool}
 
 # Quality metrics
