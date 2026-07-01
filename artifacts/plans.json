@@ -9,7 +9,7 @@
     "title": "OGLO Report Suite Improvement (Phase 2)",
     "description": "Expand and compile the report suite to include exactly 10 comprehensive analyses with correct, visually valid SVG exports using the Madelane Golden Dark palette. Ensure precise coordinates, axis formatting, legends, and labels for all figures.",
     "priority": "high",
-    "status": "planned"
+    "status": "completed"
   },
   {
     "title": "SVM Preprocessing (Baseline Subtraction & Normalization)",
