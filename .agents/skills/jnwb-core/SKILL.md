@@ -107,3 +107,20 @@ d:/workspace/omission/outputs/publication_figures/stable_units_calculated_metric
 D:/analysis/nwb/sub-C31o_ses-*.nwb   (subject C31o, multiple dates)
 D:/analysis/nwb/sub-V198o_ses-*.nwb  (subject V198o, multiple dates)
 ```
+
+## Standard NWB Content Atlas
+
+Omission NWB session files contain the following physiological signals:
+
+1. **Local Field Potentials (LFP)**:
+   * *Location*: `nwb.acquisition['probe_X_lfp']` (where `X` is `0` or `1` representing probe indices).
+   * *Usage*: Low-frequency local neural populations (delta, theta, alpha, beta, gamma).
+2. **Multi-Unit Activity envelope (MUAe)**:
+   * *Location*: `nwb.acquisition['probe_X_muae']` (precalculated multi-unit envelopes).
+   * *Usage*: Population-level high-frequency envelope signals.
+3. **Single Units (Spikes)**:
+   * *Location*: `nwb.units` (unit spike times, sorting waveforms, metrics).
+   * *Usage*: Firing rates, autocorrelograms, single-unit tuning.
+4. **Spiking Signal Types**:
+   * *Unconvolved Spikes*: Raw discrete event spike times retrieved via `session.get_units()` or `nwb.units['spike_times']`.
+   * *Convolved Spikes / PSTH*: Continuous rate representations computed by smoothing discrete spikes with a temporal kernel (e.g. Gaussian window or binning via `UnitAnalyzer.psth`).
