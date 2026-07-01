@@ -69,7 +69,7 @@ def harmonic_analysis(
     # Compute power spectrum
     if device == 'cuda':
         try:
-            frequencies, pxx = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
+            frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
         except Exception as e:
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
             frequencies, pxx = signal.welch(
@@ -283,7 +283,7 @@ def spectral_tilt(
     # Compute power spectrum
     if device == 'cuda':
         try:
-            frequencies, pxx = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
+            frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
         except Exception as e:
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
             frequencies, pxx = signal.welch(
@@ -363,7 +363,7 @@ def band_power(
     # Compute power spectrum
     if device == 'cuda':
         try:
-            frequencies, pxx = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
+            frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, sampling_rate, min(len(lfp_trace), 4096))
         except Exception as e:
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
             frequencies, pxx = signal.welch(
@@ -386,7 +386,7 @@ def band_power(
     if normalize and baseline is not None and len(baseline) > 0:
         if device == 'cuda':
             try:
-                _, baseline_pxx = _welch_csd_gpu(baseline, baseline, sampling_rate, min(len(baseline), 4096))
+                _, baseline_pxx, _, _ = _welch_csd_gpu(baseline, baseline, sampling_rate, min(len(baseline), 4096))
             except Exception as e:
                 log.warning(f"GPU baseline welch failed: {e}. Falling back to CPU.")
                 _, baseline_pxx = signal.welch(

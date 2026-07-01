@@ -591,11 +591,14 @@ class OmissionSession:
         import matplotlib.pyplot as plt
         import matplotlib.colors as mcolors
 
+        is_synthetic = False
         tfr_data = self.tfr_from_preprocessed(area=area, band=None, condition=condition)
         if tfr_data is None:
+            log.warning(f"TFR preprocessed data not found for area {area}, condition {condition}. Falling back to synthetic mock data.")
             # Synthetic: (channels, freqs, time, trials)
             rng = np.random.default_rng(42)
             tfr_data = rng.standard_normal((32, 64, 100, 8))
+            is_synthetic = True
 
         # Mean across channels and trials → (freqs, time)
         mean_power = np.mean(tfr_data, axis=(0, 3))
@@ -621,12 +624,16 @@ class OmissionSession:
         ax.get_yaxis().set_major_formatter(plt.ScalarFormatter())
         ax.set_xlabel('Time from stimulus onset (ms)', fontsize=11)
         ax.set_ylabel('Frequency (Hz)', fontsize=11)
-        ax.set_title(f'Trial-Averaged TFR  ·  {area}  ·  {condition}  ·  Phase {phase}',
-                     fontsize=12, fontweight='bold')
+        
+        title = f'Trial-Averaged TFR  ·  {area}  ·  {condition}  ·  Phase {phase}'
+        if is_synthetic:
+            title += " [SIMULATED]"
+        ax.set_title(title, fontsize=12, fontweight='bold')
         ax.axvline(0, color='white', linestyle='--', linewidth=1.2, alpha=0.7)
         fig.tight_layout()
 
-        return {'figure': fig, 'axes': ax, 'data': mean_db, 'status': 'completed'}
+        status = 'synthetic_fallback' if is_synthetic else 'completed'
+        return {'figure': fig, 'axes': ax, 'data': mean_db, 'status': status}
 
     # ========================================================================
     # ANALYSIS METHODS: RASTERS & SINGLE-UNIT PLOTS
@@ -681,9 +688,14 @@ class OmissionSession:
         for sp in ras_res['raster_data']:
             spikes_by_trial[sp['trial_id']].append(sp['spike_time_ms'])
         
-        for trial_id, trial_spikes in spikes_by_trial.items():
-            ax_ras.vlines(trial_spikes, trial_id - 0.4, trial_id + 0.4, colors='black', linewidth=0.5)
+        unique_trial_ids = sorted(list(spikes_by_trial.keys()))
+        trial_id_map = {tid: i for i, tid in enumerate(unique_trial_ids)}
         
+        for trial_id, trial_spikes in spikes_by_trial.items():
+            y_pos = trial_id_map[trial_id]
+            ax_ras.vlines(trial_spikes, y_pos - 0.4, y_pos + 0.4, colors='black', linewidth=0.5)
+        
+        ax_ras.set_ylim(-0.5, max(0.5, len(unique_trial_ids) - 0.5))
         ax_ras.set_title(f"Spike Raster (Condition: {condition}, Phase: {phase})", fontsize=10, fontweight='bold')
         ax_ras.set_ylabel("Trials", fontsize=9)
         ax_ras.set_xlim(window_ms[0], window_ms[1])

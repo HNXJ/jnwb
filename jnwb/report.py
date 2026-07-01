@@ -153,7 +153,8 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "## 5. Evoked Time-Frequency Representation (Spectrogram)"
+                    "## 5. Evoked Time-Frequency Representation (Spectrogram) (Simulated/Mock)\n",
+                    "**Note**: Since TFR preprocessed arrays are not found, this section uses simulated mock data."
                 ]
             },
             {
@@ -169,7 +170,8 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "## 6. Spectrolaminar Motif Profiles"
+                    "## 6. Spectrolaminar Motif Profiles (Simulated/Mock)\n",
+                    "**Note**: Since layer TFR matrices are not found, this section uses simulated mock data."
                 ]
             },
             {
@@ -188,7 +190,8 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "## 7. Putative Waveform Classification"
+                    "## 7. Putative Waveform Classification (Simulated/Mock)\n",
+                    "**Note**: Waveform details are simulated for illustration."
                 ]
             },
             {
@@ -206,7 +209,8 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "## 8. Bivariate Granger Causality Directed Network"
+                    "## 8. Bivariate Granger Causality Directed Network (Simulated/Mock)\n",
+                    "**Note**: Network topology is simulated for illustration."
                 ]
             },
             {
@@ -240,7 +244,8 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "## 10. Population Stimulus Identity Decoding"
+                    "## 10. Population Stimulus Identity Decoding (Simulated/Mock)\n",
+                    "**Note**: SVM decoding accuracy is simulated for illustration."
                 ]
             },
             {
@@ -781,25 +786,25 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
 
             <!-- 5. Evoked TFR -->
             <div class="card">
-                <h2>5. Evoked TFR Spectrogram</h2>
+                <h2>5. Evoked TFR Spectrogram <span style="font-size: 0.6em; color: #ff9800; background: #fff3e0; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #ffe0b2; vertical-align: middle;">⚠️ SIMULATED DATA</span></h2>
                 {tfr_html}
             </div>
 
             <!-- 6. Spectrolaminar Motif -->
             <div class="card">
-                <h2>6. Spectrolaminar Motif Profiles</h2>
+                <h2>6. Spectrolaminar Motif Profiles <span style="font-size: 0.6em; color: #ff9800; background: #fff3e0; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #ffe0b2; vertical-align: middle;">⚠️ SIMULATED DATA</span></h2>
                 {motif_html}
             </div>
 
             <!-- 7. Waveform Classification -->
             <div class="card">
-                <h2>7. Waveform Classification</h2>
+                <h2>7. Waveform Classification <span style="font-size: 0.6em; color: #ff9800; background: #fff3e0; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #ffe0b2; vertical-align: middle;">⚠️ SIMULATED DATA</span></h2>
                 {wf_html}
             </div>
 
             <!-- 8. Granger Causality Network -->
             <div class="card">
-                <h2>8. Directed Granger Causality Network</h2>
+                <h2>8. Directed Granger Causality Network <span style="font-size: 0.6em; color: #ff9800; background: #fff3e0; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #ffe0b2; vertical-align: middle;">⚠️ SIMULATED DATA</span></h2>
                 {net_html}
             </div>
 
@@ -811,7 +816,7 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
 
             <!-- 10. Population Decoding -->
             <div class="card">
-                <h2>10. Population Stimulus Identity Decoding</h2>
+                <h2>10. Population Stimulus Identity Decoding <span style="font-size: 0.6em; color: #ff9800; background: #fff3e0; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #ffe0b2; vertical-align: middle;">⚠️ SIMULATED DATA</span></h2>
                 {dec_html}
             </div>
         </div>
