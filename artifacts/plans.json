@@ -24,12 +24,6 @@
     "status": "brainstorm"
   },
   {
-    "title": "GPU-Accelerated MUAe Envelope Extraction",
-    "description": "Utilize CuPy or PyTorch 1D convolutions to perform high-pass filtering, rectification, and low-pass smoothing of raw electrophysiology traces on GPU to extract Multi-Unit Activity envelopes (MUAe).",
-    "priority": "high",
-    "status": "brainstorm"
-  },
-  {
     "title": "SVM Preprocessing (Baseline Subtraction)",
     "description": "Integrate trial-by-trial baseline subtraction (pre-stimulus interval baseline firing rates) into the standard population decoding feature pipeline to control for slow drift and state fluctuations.",
     "priority": "medium",
