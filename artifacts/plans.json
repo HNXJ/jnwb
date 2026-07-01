@@ -16,5 +16,29 @@
     "description": "Create an interactive Plotly network connectivity figure in jnwb/viz.py representing Granger causality graphs.",
     "priority": "low",
     "status": "brainstorm"
+  },
+  {
+    "title": "GPU-Accelerated Population Trajectory (PCA)",
+    "description": "Utilize PyTorch or JAX Singular Value Decomposition (SVD) on GPU to accelerate population trajectory dimensionality reduction (PCA) across thousands of active neurons.",
+    "priority": "medium",
+    "status": "brainstorm"
+  },
+  {
+    "title": "GPU-Accelerated MUAe Envelope Extraction",
+    "description": "Utilize CuPy or PyTorch 1D convolutions to perform high-pass filtering, rectification, and low-pass smoothing of raw electrophysiology traces on GPU to extract Multi-Unit Activity envelopes (MUAe).",
+    "priority": "high",
+    "status": "brainstorm"
+  },
+  {
+    "title": "SVM Preprocessing (Baseline Subtraction)",
+    "description": "Integrate trial-by-trial baseline subtraction (pre-stimulus interval baseline firing rates) into the standard population decoding feature pipeline to control for slow drift and state fluctuations.",
+    "priority": "medium",
+    "status": "planned"
+  },
+  {
+    "title": "Interactive Granger Causality Network Visualization",
+    "description": "Develop an interactive directed graph visualization using Plotly in `jnwb/viz.py` that maps inter-area Granger causality causality flow as edge thickness, permitting dynamic node dragging and hover inspections.",
+    "priority": "low",
+    "status": "planned"
   }
 ]
