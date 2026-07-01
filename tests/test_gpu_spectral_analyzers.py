@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from jnwb.analyzers import UnitAnalyzer
+from jnwb.analyzers import UnitAnalyzer, PopulationAnalyzer
 from jnwb.spectral import (
     harmonic_analysis,
     cross_area_coherence,
@@ -57,3 +57,21 @@ def test_gpu_spectral_functions():
     p_gpu = band_power(lfp, sampling_rate=1000.0, freq_range=(8, 12), device='cuda')
     assert p_cpu != 0
     assert p_gpu != 0
+
+
+def test_population_trajectory():
+    # Mock data (100 time points, 10 neurons)
+    rng = np.random.default_rng(42)
+    X = rng.normal(0, 1, (100, 10))
+    
+    res_cpu = PopulationAnalyzer.population_trajectory(X, n_components=3, device='cpu')
+    assert res_cpu['projection'].shape == (100, 3)
+    assert res_cpu['components'].shape == (3, 10)
+    assert len(res_cpu['explained_variance']) == 3
+    assert len(res_cpu['explained_variance_ratio']) == 3
+    
+    res_gpu = PopulationAnalyzer.population_trajectory(X, n_components=3, device='cuda')
+    assert res_gpu['projection'].shape == (100, 3)
+    assert res_gpu['components'].shape == (3, 10)
+    assert len(res_gpu['explained_variance']) == 3
+    assert len(res_gpu['explained_variance_ratio']) == 3

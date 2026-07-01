@@ -186,6 +186,7 @@ from .viz import (
     raster_suite_omission,
     lfp_tfr_trace_suite_omission,
     lfp_tfr_trace_correlation,
+    plot_granger_network_plotly,
 )
 
 # Y-files: New orthogonal jnwb modules (spectral and visualization)
@@ -300,6 +301,7 @@ __all__ = [
     'raster_suite_omission',
     'lfp_tfr_trace_suite_omission',
     'lfp_tfr_trace_correlation',
+    'plot_granger_network_plotly',
     # Spectral analysis (Y-file: new orthogonal module)
     'spectral',
     # Visual QC (Y-file: new orthogonal module)

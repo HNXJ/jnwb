@@ -1176,3 +1176,88 @@ def lfp_tfr_trace_correlation(
     }
 
 
+def plot_granger_network_plotly(
+    adjacency_matrix: np.ndarray,
+    node_labels: List[str],
+    threshold: float = 0.05,
+    title: str = "Directed Granger Causality Network Graph"
+):
+    """
+    Generate an interactive directed Granger causality graph using Plotly.
+
+    Args:
+        adjacency_matrix: directed causality adjacency matrix (nodes x nodes)
+        node_labels: List of area names for nodes
+        threshold: Minimum causality weight to plot an edge
+        title: Title of the Plotly figure
+
+    Returns:
+        fig: plotly.graph_objects.Figure
+    """
+    import plotly.graph_objects as go
+    
+    n_nodes = len(node_labels)
+    # Circular layout
+    angles = np.linspace(0, 2 * np.pi, n_nodes, endpoint=False)
+    x_nodes = np.cos(angles)
+    y_nodes = np.sin(angles)
+    
+    fig = go.Figure()
+    
+    # Add directed edges
+    for i in range(n_nodes):
+        for j in range(n_nodes):
+            if i != j:
+                weight = adjacency_matrix[i, j]
+                if weight >= threshold:
+                    # Draw line from i to j
+                    fig.add_trace(go.Scatter(
+                        x=[x_nodes[i], x_nodes[j]],
+                        y=[y_nodes[i], y_nodes[j]],
+                        mode='lines',
+                        line=dict(color=MADELANE_GOLD, width=float(weight * 5)),
+                        hoverinfo='none',
+                        showlegend=False
+                    ))
+                    # Add arrowhead mid-way
+                    x_mid = 0.3 * x_nodes[i] + 0.7 * x_nodes[j]
+                    y_mid = 0.3 * y_nodes[i] + 0.7 * y_nodes[j]
+                    
+                    # Calculate angle for arrowhead rotation
+                    dx = x_nodes[j] - x_nodes[i]
+                    dy = y_nodes[j] - y_nodes[i]
+                    angle = np.degrees(np.arctan2(dy, dx)) - 90
+                    
+                    fig.add_trace(go.Scatter(
+                        x=[x_mid],
+                        y=[y_mid],
+                        mode='markers',
+                        marker=dict(symbol='triangle-up', size=10, color=MADELANE_GOLD, angle=angle),
+                        hoverinfo='none',
+                        showlegend=False
+                    ))
+                    
+    # Add nodes
+    fig.add_trace(go.Scatter(
+        x=x_nodes,
+        y=y_nodes,
+        mode='markers+text',
+        text=node_labels,
+        textposition="top center",
+        marker=dict(size=25, color=MADELANE_VIOLET, line=dict(color=MADELANE_WHITE, width=2)),
+        hovertemplate="<b>%{text}</b><extra></extra>",
+        showlegend=False
+    ))
+    
+    fig.update_layout(
+        title=title,
+        paper_bgcolor='#0C0C0E',
+        plot_bgcolor='#0C0C0E',
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        font=dict(color=MADELANE_WHITE, family='Outfit, Inter, sans-serif'),
+        width=600, height=600
+    )
+    return fig
+
+

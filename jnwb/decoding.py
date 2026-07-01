@@ -74,6 +74,7 @@ def decode_stimulus_identity(
     area: str,
     condition_pairs: Tuple[str, str] = ('AAAB', 'BBBA'),
     time_window_ms: Tuple[float, float] = (0.0, 150.0),
+    baseline_window_ms: Optional[Tuple[float, float]] = None,
     n_splits: int = 5,
     quality: Optional[str] = None,
     device: str = 'cpu'
@@ -115,6 +116,9 @@ def decode_stimulus_identity(
     labels = np.array([0] * n1 + [1] * n2)
 
     X, unit_ids = build_spike_count_matrix(session, area, epochs_df, time_window_ms, quality)
+    if baseline_window_ms is not None:
+        X_base, _ = build_spike_count_matrix(session, area, epochs_df, baseline_window_ms, quality)
+        X = X - X_base
     n_units = len(unit_ids)
 
     if n_units == 0:
@@ -230,6 +234,7 @@ def decode_omission_presence(
     standard_condition: str = 'AAAB',
     omission_condition: str = 'AAXB',
     time_window_ms: Tuple[float, float] = (0.0, 150.0),
+    baseline_window_ms: Optional[Tuple[float, float]] = None,
     n_splits: int = 5,
     quality: Optional[str] = None,
     device: str = 'cpu'
@@ -243,6 +248,7 @@ def decode_omission_presence(
         standard_condition: Standard/control condition code
         omission_condition: Omitted/ghost condition code
         time_window_ms: Spike count window in ms relative to onset
+        baseline_window_ms: Pre-stimulus baseline window in ms
         n_splits: Number of cross-validation folds
         quality: Filter units by quality tier
         device: 'cpu' or 'cuda' (GPU acceleration)
@@ -255,6 +261,7 @@ def decode_omission_presence(
         area=area,
         condition_pairs=(standard_condition, omission_condition),
         time_window_ms=time_window_ms,
+        baseline_window_ms=baseline_window_ms,
         n_splits=n_splits,
         quality=quality,
         device=device
