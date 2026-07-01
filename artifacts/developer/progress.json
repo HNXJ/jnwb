@@ -53,7 +53,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Exposes new decoding and connectivity functions properly."
+    "warnings": "Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies."
   },
   {
     "filename": "jnwb/addressing.py",
@@ -61,7 +61,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "None."
+    "warnings": "Enriches group_name mapping from electrodes table (mapping probe/group_name flexibly)."
   },
   {
     "filename": "jnwb/analyzers.py",
@@ -181,7 +181,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": ""
+    "warnings": "Supports LFP containers, fallback timestamps rate calculation, and corrected autocorrelogram notebook cell."
   },
   {
     "filename": "jnwb/session.py",
@@ -189,7 +189,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Verified: Local pickle/json persistent disk cache is operational; unpicklable group column dropped."
+    "warnings": "Verified: Local pickle/json cache operational; index reset fix in lfp_channel_areas."
   },
   {
     "filename": "jnwb/spectral.py",
