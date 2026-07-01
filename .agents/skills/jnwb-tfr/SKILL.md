@@ -92,12 +92,14 @@ session.tfr_from_preprocessed(area='V1', band='alpha', condition='AAXB')
 
 ## jnwb.spectral Module
 
-```python
-# Band-power extraction
-bp = spectral.band_power(lfp_signal, sfreq=1000.0, band='gamma')
+All spectral functions support GPU-acceleration via CuPy by specifying `device='cuda'` (which falls back cleanly to CPU if CUDA is unavailable):
 
-# Coherence between two channels
-coh = spectral.coherence(sig1, sig2, sfreq=1000.0, fmin=30, fmax=80)
+```python
+# GPU-Accelerated Band-power extraction
+bp = spectral.band_power(lfp_signal, sfreq=1000.0, band='gamma', device='cuda')
+
+# GPU-Accelerated Coherence
+coh = spectral.coherence(sig1, sig2, sfreq=1000.0, fmin=30, fmax=80, device='cuda')
 
 # Spike-field coupling (PPC)
 ppc = spectral.spike_field_ppc(spike_times, lfp_signal, sfreq=1000.0, band='beta')
