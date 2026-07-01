@@ -55,17 +55,19 @@ corr = tfr_correlate_areas(session, area1='V1', area2='V4',
 # Full dual-stats return (Pearson + Spearman + FDR)
 ```
 
-## Spectral Coherence
+## Spectral Coherence & Granger Causality
+
+All connectivity functions support GPU-acceleration via PyTorch and CuPy by specifying `device='cuda'` (which falls back cleanly to CPU if CUDA is unavailable):
 
 ```python
-# Coherence between two LFP channels
-coh = spectral.coherence(sig1, sig2, sfreq=1000.0, fmin=30, fmax=80)
-# Returns: {'coherence': array(freqs), 'freqs': array, 'mean_coherence': 0.54}
+# GPU-Accelerated Granger Causality (CuPy)
+gc = oa.connectivity.granger_causality(sig1, sig2, order='auto', device='cuda')
+
+# GPU-Accelerated Coherence (CuPy)
+coh = spectral.coherence(sig1, sig2, sfreq=1000.0, fmin=30, fmax=80, device='cuda')
 
 # Spike-field coupling (PPC)
-ppc = spectral.spike_field_ppc(spike_times, lfp_signal,
-                                sfreq=1000.0, band='beta')
-# Returns: {'ppc': 0.12, 'mean_phase': 1.57, 'rayleigh_p': 0.002}
+ppc = spectral.spike_field_ppc(spike_times, lfp_signal, sfreq=1000.0, band='beta')
 ```
 
 ## Mutual Information (Spike-to-Spike)
