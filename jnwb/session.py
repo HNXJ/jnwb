@@ -524,6 +524,10 @@ class OmissionSession:
             return pd.DataFrame()
 
         elecs = self._electrodes_df.copy()
+        if 'id' not in elecs.columns:
+            elecs = elecs.reset_index()
+            if 'id' not in elecs.columns and 'index' in elecs.columns:
+                elecs = elecs.rename(columns={'index': 'id'})
 
         # Extract area from location string (e.g., 'V1/L2/3' → 'V1')
         if 'location' in elecs.columns:
@@ -533,7 +537,9 @@ class OmissionSession:
             else:
                 elecs['layer'] = ''
 
-        id_col = 'id' if 'id' in elecs.columns else elecs.index.name or 'channel'
+        id_col = 'id' if 'id' in elecs.columns else 'channel_id'
+        if id_col not in elecs.columns:
+            elecs[id_col] = elecs.index
         return elecs[[id_col, 'area', 'layer']].rename(columns={id_col: 'channel_id'})
 
     # ========================================================================

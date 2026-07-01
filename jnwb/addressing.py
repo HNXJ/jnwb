@@ -112,11 +112,20 @@ def enrich_units_dataframe(units_df: pd.DataFrame, electrodes_df: Optional[pd.Da
     if electrodes_df is not None and len(electrodes_df) > 0 and 'peak_channel_id' in df.columns:
         df['area'] = df['peak_channel_id'].apply(lambda x: map_peak_channel_to_area(x, electrodes_df))
         df['layer'] = df['peak_channel_id'].apply(lambda x: classify_layer_from_depth(x, electrodes_df))
+        
+        # Resolve group_name/probe mapping
+        col_group = 'group_name' if 'group_name' in electrodes_df.columns else ('probe' if 'probe' in electrodes_df.columns else None)
+        if col_group is not None:
+            df['group_name'] = df['peak_channel_id'].apply(lambda x: electrodes_df.loc[int(float(x)), col_group] if pd.notna(x) and int(float(x)) in electrodes_df.index else None)
+        else:
+            df['group_name'] = 'probeA'
     else:
         if 'area' not in df.columns:
             df['area'] = None
         if 'layer' not in df.columns:
             df['layer'] = 'Unknown'
+        if 'group_name' not in df.columns:
+            df['group_name'] = 'probeA'
 
     # 3. Handle quality and stable flags
     # Standard quality cutoff: quality >= 1.0 is stable

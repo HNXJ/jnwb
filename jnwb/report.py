@@ -232,7 +232,7 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "outputs": [],
                 "source": [
                     "if not units.empty:\n",
-                    "    acg = session.autocorrelogram(unit_id=units.index[0])\n",
+                    "    acg = oa.autocorrelogram(session, unit_id=units.index[0])\n",
                     "    print('ACG violation p-val:', acg.get('refractory_period_violation'))"
                 ]
             },
@@ -442,7 +442,15 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
         lfp_keys = [k for k in nwb.acquisition.keys() if 'lfp' in k.lower()]
         if lfp_keys:
             lfp_series = nwb.acquisition[lfp_keys[0]]
-            fs = float(lfp_series.rate) if lfp_series.rate is not None else 1000.0
+            if getattr(lfp_series, 'neurodata_type', None) == 'LFP':
+                lfp_series = list(lfp_series.electrical_series.values())[0]
+            fs = getattr(lfp_series, 'rate', None)
+            if fs is None or np.isnan(fs):
+                if getattr(lfp_series, 'timestamps', None) is not None and len(lfp_series.timestamps) > 1:
+                    fs = 1.0 / np.mean(np.diff(lfp_series.timestamps[:100]))
+                else:
+                    fs = 1000.0
+            fs = float(fs)
             n_ch = lfp_series.data.shape[1]
             
             lfp_block = lfp_series.data[:int(5 * fs), :] # 5s block
