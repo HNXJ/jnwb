@@ -265,7 +265,7 @@ def cross_area_coherence(
                 band_coh_shuf = coh_shuf[mask] if len(coh_shuf) > 0 else np.array([0.0])
                 surrogate_cohs.append(np.mean(band_coh_shuf))
                 
-            p_val = np.sum(np.array(surrogate_cohs) >= mean_coh_val) / n_surr
+            p_val = (np.sum(np.array(surrogate_cohs) >= mean_coh_val) + 1) / (n_surr + 1)
             result['band_significance'][band_name] = float(p_val)
 
     return result
