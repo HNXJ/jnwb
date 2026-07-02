@@ -13,22 +13,22 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `jnwb/__init__.py` | Package entry point, unified imports, and frozen public API __all__ list exports. | **100/100** | 0 | 0 | Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies. |
 | `jnwb/addressing.py` | Electrode mapping rules, depth layer classifications, and units enrichment. | **100/100** | 0 | 0 | Enriches group_name mapping from electrodes table (mapping probe/group_name flexibly). |
 | `jnwb/analyzers.py` | Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer. | **100/100** | 0 | 0 | None. |
-| `jnwb/connectivity.py` | Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology. | **100/100** | 0 | 0 | Resolved: added CuPy GPU least-squares bivariate Granger Causality fitting. |
+| `jnwb/connectivity.py` | Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology. | **100/100** | 0 | 0 | Granger causality negative clamp removed to prevent positive statistics bias. |
 | `jnwb/decoding.py` | Population decoding module using linear SVM classifiers to predict identity and omission trials. | **100/100** | 0 | 0 | None. |
 | `jnwb/diagnostics.py` | Session audits and mult-session comparison metrics. | **100/100** | 0 | 0 | Strict validation warnings triggered if metadata fields mismatch. |
 | `jnwb/factories.py` | Factory methods constructing ontology objects from OmissionSession. | **100/100** | 0 | 0 | None. |
 | `jnwb/functions.py` | Canonical wrappers for spiking, TFR, and population analysis. | **100/100** | 0 | 0 | Uses trial filters dynamically. |
 | `jnwb/mcp_server/__init__.py` | MCP server core implementing transport setup and tools registration. | **100/100** | 0 | 0 | Stdio transport protocol enforced. |
 | `jnwb/mcp_server/custom_tools.py` | Exposes add_tool framework to dynamically extend server tools. | **100/100** | 0 | 0 | Execution includes syntax audits. |
-| `jnwb/mcp_server/event_tools.py` | Retrieves session event codes and timings for trial alignment. | **100/100** | 0 | 0 | None. |
-| `jnwb/mcp_server/meta_tools.py` | Introspects session details, unit census, and quality metrics. | **100/100** | 0 | 0 | None. |
+| `jnwb/mcp_server/event_tools.py` | Retrieves session event codes and timings for trial alignment. | **100/100** | 0 | 0 | Candidate code search columns corrected to prevent trial_num index conflation. |
+| `jnwb/mcp_server/meta_tools.py` | Introspects session details, unit census, and quality metrics. | **100/100** | 0 | 0 | Dynamic custom tools registration restricted behind ALLOW_DYNAMIC_TOOLS environment variable check. |
 | `jnwb/mcp_server/nwb_tools.py` | NWB low-level inspector and validation tools. | **100/100** | 0 | 0 | None. |
 | `jnwb/mcp_server/server.py` | Executable entry point to run the MCP server. | **100/100** | 0 | 0 | None. |
 | `jnwb/metadata.py` | Unit metadata extraction, SNR statistics, and quality tier classification. | **100/100** | 0 | 0 | Strict quality rules applied. |
 | `jnwb/ontology.py` | Ontology data contract definitions (Query, Dataset, Result, Figure, etc.). | **100/100** | 0 | 0 | All ontology properties frozen. |
 | `jnwb/report.py` | OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics). | **100/100** | 0 | 0 | Supports LFP containers, fallback timestamps rate calculation, and corrected autocorrelogram notebook cell. |
 | `jnwb/session.py` | OmissionSession loader, NWB file I/O, lazy data loading, and caching interface. | **100/100** | 0 | 0 | Verified: Local pickle/json cache operational; index reset fix in lfp_channel_areas. |
-| `jnwb/spectral.py` | LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping. | **100/100** | 0 | 0 | Verified: CuPy-based GPU multitaper Welch periodograms and cross-area coherence are operational. |
+| `jnwb/spectral.py` | LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping. | **100/100** | 0 | 0 | Calculates coherence significance via trial-shuffling circular shifts and Monte Carlo formula (count+1)/(n+1). |
 | `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, phase-locking, and omission classifications. | **100/100** | 0 | 0 | Optimized trial counting loop using searchsorted. |
 | `jnwb/statistics.py` | Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction. | **100/100** | 0 | 0 | Fixed random seed = 42 ensures exact replicability. |
 | `jnwb/visual_qc.py` | Waveform galleries, stability traces, and dashboard summaries. | **100/100** | 0 | 0 | Waveform plots updated to use unified Madelane Golden palette. |
@@ -50,4 +50,4 @@ This database tracks the implementation quality, pending items, and warnings acr
 *No files currently under review. Everything is verified and stable.*
 
 ---
-*Generated: 2026-07-01*
+*Generated: 2026-07-02*

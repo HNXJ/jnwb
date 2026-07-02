@@ -77,7 +77,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Resolved: added CuPy GPU least-squares bivariate Granger Causality fitting."
+    "warnings": "Granger causality negative clamp removed to prevent positive statistics bias."
   },
   {
     "filename": "jnwb/decoding.py",
@@ -133,7 +133,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "None."
+    "warnings": "Candidate code search columns corrected to prevent trial_num index conflation."
   },
   {
     "filename": "jnwb/mcp_server/meta_tools.py",
@@ -141,7 +141,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "None."
+    "warnings": "Dynamic custom tools registration restricted behind ALLOW_DYNAMIC_TOOLS environment variable check."
   },
   {
     "filename": "jnwb/mcp_server/nwb_tools.py",
@@ -197,7 +197,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Verified: CuPy-based GPU multitaper Welch periodograms and cross-area coherence are operational."
+    "warnings": "Calculates coherence significance via trial-shuffling circular shifts and Monte Carlo formula (count+1)/(n+1)."
   },
   {
     "filename": "jnwb/spiking.py",
