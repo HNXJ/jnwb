@@ -342,5 +342,85 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback."
+  },
+  {
+    "filename": "notebooks/suite_01_single_raster_panels.ipynb",
+    "purpose": "Single-unit raster suites and examples across response classifications (O+, S+, S-, Null but stable, and prime neurons).",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton notebook with placeholder code."
+  },
+  {
+    "filename": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
+    "purpose": "Standardized TFR LFP 1D traces per area and layer showing control vs. omission comparisons and significance masking.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton notebook with placeholder code."
+  },
+  {
+    "filename": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
+    "purpose": "2D Heatmap of LFP TFR across all brain areas locked to omission onset (-1250ms to +1750ms).",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton notebook with placeholder code."
+  },
+  {
+    "filename": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
+    "purpose": "LFP band power correlation analyses between different brain areas and cortical layers.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton notebook with placeholder code."
+  },
+  {
+    "filename": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
+    "purpose": "Correlation analysis using the imaginary part of complex LFP values Im(freq, time).",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton notebook with placeholder code."
+  },
+  {
+    "filename": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
+    "purpose": "Single-unit spike train correlations with local/distal LFP band powers.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton notebook with placeholder code."
+  },
+  {
+    "filename": "notebooks/suite_07_tbd.ipynb",
+    "purpose": "TBD placeholder notebook.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton placeholder."
+  },
+  {
+    "filename": "notebooks/suite_08_tbd.ipynb",
+    "purpose": "TBD placeholder notebook.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton placeholder."
+  },
+  {
+    "filename": "notebooks/suite_09_tbd.ipynb",
+    "purpose": "TBD placeholder notebook.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton placeholder."
+  },
+  {
+    "filename": "notebooks/suite_10_tbd.ipynb",
+    "purpose": "TBD placeholder notebook.",
+    "score": 40,
+    "tbis": 1,
+    "tbds": 0,
+    "warnings": "Skeleton placeholder."
   }
 ]
