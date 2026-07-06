@@ -229,7 +229,7 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": ""
+    "warnings": "Added gaussian-smoothed traces and significance-masked flat-lining for TFR trace suite."
   },
   {
     "filename": "tests/test_analyzers_coverage.py",

@@ -32,7 +32,7 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, phase-locking, and omission classifications. | **100/100** | 0 | 0 | Optimized trial counting loop using searchsorted. |
 | `jnwb/statistics.py` | Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction. | **100/100** | 0 | 0 | Fixed random seed = 42 ensures exact replicability. |
 | `jnwb/visual_qc.py` | Waveform galleries, stability traces, and dashboard summaries. | **100/100** | 0 | 0 | Waveform plots updated to use unified Madelane Golden palette. |
-| `jnwb/viz.py` | Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks. | **100/100** | 0 | 0 | None. |
+| `jnwb/viz.py` | Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks. | **100/100** | 0 | 0 | Added gaussian-smoothed traces and significance-masked flat-lining for TFR trace suite. |
 | `tests/test_analyzers_coverage.py` | Coverage checks for TFR, Unit, and Population analyzers. | **100/100** | 0 | 0 | None. |
 | `tests/test_caching.py` | Verifies session persistent disk loading, caching, and cache invalidation behaviors. | **100/100** | 0 | 0 | Verified: Caching and cache invalidation tests are operational. |
 | `tests/test_decoding_connectivity.py` | Verifies SVM decoding, Shannon Mutual Information, and Granger Causality functions. | **100/100** | 0 | 0 | Verified: SVM tuning and auto Granger tests are operational. |
