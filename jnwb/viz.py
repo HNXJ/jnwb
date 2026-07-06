@@ -701,6 +701,8 @@ def lfp_tfr_trace_suite_omission(
     import json
     import re
     from scipy.interpolate import interp1d
+    from scipy.stats import ttest_ind, mannwhitneyu
+    from scipy.ndimage import gaussian_filter1d
 
     tfr_dir = Path(tfr_dir)
     layer_masks_path = Path(layer_masks_path)
@@ -714,7 +716,7 @@ def lfp_tfr_trace_suite_omission(
     # Constants
     FREQS_HZ = np.arange(3, 201, 2)
     TIMES_MS = -1000.0 + np.arange(500) * 10.0
-    RELATIVE_TIME_MS = np.arange(-156, 104) * 10.0
+    RELATIVE_TIME_MS = np.arange(-156, 192) * 10.0
 
     BANDS_TFR = {
         "Theta": (3.0, 7.0),
@@ -766,7 +768,7 @@ def lfp_tfr_trace_suite_omission(
 
     # Cache acceleration
     suite_cache_dir = Path("D:/workspace/omission/outputs/publication_visual_review/aligned_omission_tfr_traces/cache")
-    suite_cache_path = suite_cache_dir / f"{area}_{layer}_suite_data.npz"
+    suite_cache_path = suite_cache_dir / f"{area}_{layer}_suite_data_v2.npz"
 
     loaded_from_cache = False
     if not session_specific:
@@ -774,13 +776,24 @@ def lfp_tfr_trace_suite_omission(
             try:
                 with np.load(suite_cache_path, allow_pickle=True) as data:
                     N = int(data["N"])
-                    traces_data = {g: {} for g in active_groups}
-                    for g in active_groups:
-                        for band_name in BANDS_TFR:
-                            traces_data[g][band_name] = {
-                                "mean": data[f"{g}_{band_name}_mean"],
-                                "sem": data[f"{g}_{band_name}_sem"]
-                            }
+                    traces_data = {
+                        "control_combined": {},
+                        "omission_combined": {},
+                        "stats": {}
+                    }
+                    for band_name in BANDS_TFR:
+                        traces_data["control_combined"][band_name] = {
+                            "mean": data[f"control_{band_name}_mean"],
+                            "sem": data[f"control_{band_name}_sem"]
+                        }
+                        traces_data["omission_combined"][band_name] = {
+                            "mean": data[f"omission_{band_name}_mean"],
+                            "sem": data[f"omission_{band_name}_sem"]
+                        }
+                        traces_data["stats"][band_name] = {
+                            "t_pval": float(data[f"stats_{band_name}_t_pval"]),
+                            "mw_pval": float(data[f"stats_{band_name}_mw_pval"])
+                        }
                 loaded_from_cache = True
             except Exception:
                 pass
@@ -830,7 +843,7 @@ def lfp_tfr_trace_suite_omission(
 
                 aligned_times = TIMES_MS - align_shift
                 onset_idx = int(round((align_shift - (-1000.0)) / 10.0))
-                start_idx, end_idx = onset_idx - 156, onset_idx + 104
+                start_idx, end_idx = onset_idx - 156, onset_idx + 192
 
                 aligned = np.full((power.shape[0], len(FREQS_HZ), len(RELATIVE_TIME_MS)), np.nan, dtype=np.float32)
                 src_start, src_end = max(0, start_idx), min(500, end_idx)
@@ -854,25 +867,48 @@ def lfp_tfr_trace_suite_omission(
         rng = np.random.default_rng(42)
         subsampled_data = {g: group_data[g][rng.choice(group_data[g].shape[0], size=N, replace=False)] for g in active_groups}
 
-        traces_data = {g: {} for g in active_groups}
-        for g in active_groups:
-            data = subsampled_data[g]
-            for band_name, (fmin, fmax) in BANDS_TFR.items():
-                freq_mask = (FREQS_HZ >= fmin) & (FREQS_HZ <= fmax)
-                trial_band_power = np.nanmean(data[:, freq_mask, :], axis=1)
-                mean_trace = np.nanmean(trial_band_power, axis=0)
-                sem_trace = np.nanstd(trial_band_power, axis=0) / np.sqrt(N)
-                traces_data[g][band_name] = {"mean": mean_trace, "sem": sem_trace}
+        traces_data = {
+            "control_combined": {},
+            "omission_combined": {},
+            "stats": {}
+        }
+        for band_name, (fmin, fmax) in BANDS_TFR.items():
+            freq_mask = (FREQS_HZ >= fmin) & (FREQS_HZ <= fmax)
+
+            # Combined control
+            control_trials = np.concatenate([subsampled_data["control_p2"], subsampled_data["control_p3"]], axis=0)
+            c_trial_band_power = np.nanmean(control_trials[:, freq_mask, :], axis=1)
+            c_mean = np.nanmean(c_trial_band_power, axis=0)
+            c_sem = np.nanstd(c_trial_band_power, axis=0) / np.sqrt(2 * N)
+            traces_data["control_combined"][band_name] = {"mean": c_mean, "sem": c_sem}
+
+            # Combined omission
+            omission_trials = np.concatenate([subsampled_data["omission_p2"], subsampled_data["omission_p3"]], axis=0)
+            o_trial_band_power = np.nanmean(omission_trials[:, freq_mask, :], axis=1)
+            o_mean = np.nanmean(o_trial_band_power, axis=0)
+            o_sem = np.nanstd(o_trial_band_power, axis=0) / np.sqrt(2 * N)
+            traces_data["omission_combined"][band_name] = {"mean": o_mean, "sem": o_sem}
+
+            # Statistics on omission window (0 to 500 ms)
+            om_window_mask = (RELATIVE_TIME_MS >= 0.0) & (RELATIVE_TIME_MS <= 500.0)
+            c_win_avg = np.nanmean(c_trial_band_power[:, om_window_mask], axis=1)
+            o_win_avg = np.nanmean(o_trial_band_power[:, om_window_mask], axis=1)
+            t_stat, t_pval = ttest_ind(c_win_avg, o_win_avg, equal_var=False, nan_policy='omit')
+            u_stat, mw_pval = mannwhitneyu(c_win_avg, o_win_avg, alternative='two-sided', nan_policy='omit')
+            traces_data["stats"][band_name] = {"t_pval": t_pval, "mw_pval": mw_pval}
 
         # Cache the result for future runs
         if not session_specific:
             try:
                 suite_cache_dir.mkdir(parents=True, exist_ok=True)
                 save_dict = {"N": N}
-                for g in active_groups:
-                    for band_name in BANDS_TFR:
-                        save_dict[f"{g}_{band_name}_mean"] = traces_data[g][band_name]["mean"]
-                        save_dict[f"{g}_{band_name}_sem"] = traces_data[g][band_name]["sem"]
+                for band_name in BANDS_TFR:
+                    save_dict[f"control_{band_name}_mean"] = traces_data["control_combined"][band_name]["mean"]
+                    save_dict[f"control_{band_name}_sem"] = traces_data["control_combined"][band_name]["sem"]
+                    save_dict[f"omission_{band_name}_mean"] = traces_data["omission_combined"][band_name]["mean"]
+                    save_dict[f"omission_{band_name}_sem"] = traces_data["omission_combined"][band_name]["sem"]
+                    save_dict[f"stats_{band_name}_t_pval"] = traces_data["stats"][band_name]["t_pval"]
+                    save_dict[f"stats_{band_name}_mw_pval"] = traces_data["stats"][band_name]["mw_pval"]
                 np.savez(suite_cache_path, **save_dict)
             except Exception:
                 pass
@@ -925,23 +961,28 @@ def lfp_tfr_trace_suite_omission(
 
         for band_name in BANDS_TFR:
             color = BAND_COLORS[band_name]
+            t_pval = traces_data["stats"][band_name]["t_pval"]
+            mw_pval = traces_data["stats"][band_name]["mw_pval"]
+            is_significant = (t_pval < 0.05) or (mw_pval < 0.05)
+            
             if panel_type == "control":
-                mean_p2 = traces_data["control_p2"][band_name]["mean"]
-                mean_p3 = traces_data["control_p3"][band_name]["mean"]
-                sem_p2 = traces_data["control_p2"][band_name]["sem"]
-                sem_p3 = traces_data["control_p3"][band_name]["sem"]
-                mean_val = (mean_p2 + mean_p3) / 2.0
-                sem_val = (sem_p2 + sem_p3) / 2.0
-                ax.plot(RELATIVE_TIME_MS, mean_val, color=color, linewidth=2.0, label=f"Control {band_name}", zorder=5)
-                ax.fill_between(RELATIVE_TIME_MS, mean_val - sem_val, mean_val + sem_val, color=color, alpha=0.15, zorder=4)
+                mean_val = traces_data["control_combined"][band_name]["mean"]
+                sem_val = traces_data["control_combined"][band_name]["sem"]
             else:
-                mean_p2 = traces_data["omission_p2"][band_name]["mean"]
-                mean_p3 = traces_data["omission_p3"][band_name]["mean"]
-                sem_p2 = traces_data["omission_p2"][band_name]["sem"]
-                sem_p3 = traces_data["omission_p3"][band_name]["sem"]
-                ax.plot(RELATIVE_TIME_MS, mean_p2, color=color, linewidth=2.0, label=f"p2 Om {band_name}", zorder=5)
-                ax.fill_between(RELATIVE_TIME_MS, mean_p2 - sem_p2, mean_p2 + sem_p2, color=color, alpha=0.15, zorder=4)
-                ax.plot(RELATIVE_TIME_MS, mean_p3, color=color, linewidth=1.5, linestyle="--", label=f"p3 Om {band_name}", zorder=5)
+                mean_val = traces_data["omission_combined"][band_name]["mean"]
+                sem_val = traces_data["omission_combined"][band_name]["sem"]
+            
+            # Smooth the traces using gaussian filter
+            mean_smooth = gaussian_filter1d(mean_val, sigma=2.0)
+            sem_smooth = gaussian_filter1d(sem_val, sigma=2.0)
+            
+            # Force flat 0 if not significant
+            if not is_significant:
+                mean_smooth = np.zeros_like(mean_smooth)
+            
+            label_prefix = "Control" if panel_type == "control" else "Omission"
+            ax.plot(RELATIVE_TIME_MS, mean_smooth, color=color, linewidth=2.0, label=f"{label_prefix} {band_name} (t-p={t_pval:.3f}, MW-p={mw_pval:.3f})", zorder=5)
+            ax.fill_between(RELATIVE_TIME_MS, mean_smooth - sem_smooth, mean_smooth + sem_smooth, color=color, alpha=0.15, zorder=4)
 
         ax.set_ylabel("Relative Power (dB)", fontsize=10)
         ax.spines["top"].set_visible(False)
@@ -951,8 +992,16 @@ def lfp_tfr_trace_suite_omission(
         if panel_type == "omission":
             ax.set_xlabel("Time relative to omission onset (ms)", fontsize=10)
 
+    sig_bands = []
+    for band_name in BANDS_TFR:
+        t_p = traces_data["stats"][band_name]["t_pval"]
+        mw_p = traces_data["stats"][band_name]["mw_pval"]
+        if t_p < 0.05 or mw_p < 0.05:
+            sig_bands.append(f"{band_name}")
+    sig_str = ", ".join(sig_bands) if sig_bands else "None"
+
     title_layer = "Superficial" if layer == "superficial" else "Deep"
-    title_text = f"{area} Putative {title_layer} Layer - Aligned Omission TFR Traces (N={N} trials/slot)\nTop: Control (AAAB/BBBA/RRRR) | Bottom: Omissions (p2 & p3)"
+    title_text = f"{area} Putative {title_layer} Layer - Aligned Omission TFR Traces (N={N} trials/slot)\nTop: Control Combined (AAAB/BBBA/RRRR) | Bottom: Omissions Combined (p2 & p3)\nSignificant Bands (0-500ms): {sig_str}"
     plt.suptitle(title_text, fontsize=13, fontweight='bold', y=0.98)
     plt.tight_layout()
 

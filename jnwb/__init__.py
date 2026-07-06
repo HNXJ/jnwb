@@ -315,6 +315,10 @@ from .connectivity import (
     granger_causality,
     network_topology,
 )
+from .trajectory import (
+    build_time_resolved_matrix,
+    compute_population_trajectory,
+)
 from .report import generate_report
 
 # Export main classes and functions
@@ -381,6 +385,8 @@ __all__ = [
     'spike_mutual_information',
     'granger_causality',
     'network_topology',
+    'build_time_resolved_matrix',
+    'compute_population_trajectory',
     'generate_report',
     # 4 Canonical Objects
     'TFRAnalyzer',

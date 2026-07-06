@@ -15,13 +15,13 @@
     "title": "SVM Preprocessing (Baseline Subtraction & Normalization)",
     "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors (e.g. subtracting pre-stimulus interval baseline firing rates) before training the SVM classifier to control for state fluctuations.",
     "priority": "medium",
-    "status": "planned"
+    "status": "completed"
   },
   {
     "title": "Interactive Granger Causality Network Visualization",
     "description": "Develop an interactive directed graph visualization using Plotly in `jnwb/viz.py` that maps inter-area Granger causality causality flow as edge thickness, permitting dynamic node dragging and hover inspections.",
     "priority": "low",
-    "status": "planned"
+    "status": "completed"
   },
   {
     "title": "GPU-Accelerated Population Trajectory (PCA)",

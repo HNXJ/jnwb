@@ -20,6 +20,21 @@ Every repository MUST maintain a tracking registry inside the `artifacts/develop
 
 A rendered Markdown report summarizing the status must be kept at `artifacts/progress_report.md`.
 
+### Scoring Rubric (Out of 100)
+- **100**: Fully completed. Core code is implemented, documented, and verified with passing unit/integration tests. Imports are optimized.
+- **80-90**: Implemented and functional. Core features work and basic tests pass, but minor edge cases, docstrings, or advanced validations are pending.
+- **50-70**: Partially implemented or in-progress. File structure is present, but active TODOs (`tbis` or `tbds` fields) remain, or validation is incomplete.
+- **<50**: Skeleton code or placeholder. Critical logic is missing, untested, or experiencing runtime/compile-time errors.
+
+## Leveraging Workspace Skills
+- Before writing custom code or scripts for data analysis, check if specialized skills exist under `.agents/skills/` (e.g., `jnwb-core`, `jnwb-spiking`, `jnwb-tfr`, `jnwb-statistics`, `jnwb-visualization`).
+- Prioritize using canonical classes and functions (e.g., `UnitAnalyzer`, `TFRAnalyzer`, `StatisticalAnalysis`, `population_by_area`).
+- If custom scripts are needed, import and extend these existing libraries rather than replicating their functionality.
+
+## Context Inheritance & Hierarchy
+- The workspace-specific context file `.agents/AGENTS.md` inherits from the global context `C:\Users\nejath\.gemini\config\AGENTS.md`.
+- Workspace contexts may specialize path directories, project scopes, or active project configurations but must not contradict global engineering principles. Keep global and workspace context files in sync.
+
 ## Permanent Flagger Actions
 Whenever the user issues one of these command phrases, adhere strictly to the following protocols:
 

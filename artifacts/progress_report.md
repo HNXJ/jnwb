@@ -44,10 +44,13 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `tests/test_mcp_server.py` | Verifies MCP tool registry, syntax warnings, and tool generation. | **100/100** | 0 | 0 | custom_tools path modified to look up relative to workspace root. |
 | `tests/test_report.py` | Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite. | **100/100** | 0 | 0 | None. |
 | `tests/test_session_coverage.py` | Coverage checks for OmissionSession accessors, properties, and metadata. | **100/100** | 0 | 0 | None. Runs in under 2 seconds. |
+| `scripts/pipeline_tfr_joined.py` | Pipeline script to load TFR arrays, select/average channels, pool P2/P3 conditions, and plot 1D traces with +-2SEM shaded error margins. | **100/100** | 0 | 0 | Uses memory-mapped file loading for high-efficiency reading of multi-gigabyte numpy arrays. |
+| `jnwb/trajectory.py` | Population trajectory PCA analysis module supporting GPU PyTorch SVD acceleration. | **100/100** | 0 | 0 | Centering and standardization scaling checks are implemented to ensure zero-division safety. |
+| `tests/test_trajectory.py` | Unit tests for population trajectory PCA SVD analyses. | **100/100** | 0 | 0 | Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback. |
 
 ## Files Under Review (Awaiting Validation)
 
 *No files currently under review. Everything is verified and stable.*
 
 ---
-*Generated: 2026-07-02*
+*Generated: 2026-07-04*

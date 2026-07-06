@@ -61,7 +61,7 @@ All connectivity functions support GPU-acceleration via PyTorch and CuPy by spec
 
 ```python
 # GPU-Accelerated Granger Causality (CuPy)
-gc = oa.connectivity.granger_causality(sig1, sig2, order='auto', device='cuda')
+gc = oa.granger_causality(sig1, sig2, order='auto', device='cuda')
 
 # GPU-Accelerated Coherence (CuPy)
 coh = spectral.coherence(sig1, sig2, sfreq=1000.0, fmin=30, fmax=80, device='cuda')
@@ -72,12 +72,16 @@ ppc = spectral.spike_field_ppc(spike_times, lfp_signal, sfreq=1000.0, band='beta
 
 ## Mutual Information (Spike-to-Spike)
 
-For directional Shannon MI between spike trains, use the spiking module:
+For Shannon MI between spike trains, use the canonical `spike_mutual_information` function (exported at package root):
 
 ```python
-from jnwb.spiking import compute_response_metrics
-# then bin spikes and call MI via numpy or scipy
-# Standard pattern: bin at 10 ms, compute MI(X;Y) with 10–20 ms lag
+mi = oa.spike_mutual_information(
+    spike_times1,
+    spike_times2,
+    time_window=(0.0, 3.0),   # (start, end) time window in seconds
+    bin_size_ms=10.0           # bin size in milliseconds
+)
+# Returns Mutual Information in bits.
 ```
 
 ## Key Analysis Patterns

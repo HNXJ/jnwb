@@ -318,5 +318,29 @@
     "tbis": 0,
     "tbds": 0,
     "warnings": "None. Runs in under 2 seconds."
+  },
+  {
+    "filename": "scripts/pipeline_tfr_joined.py",
+    "purpose": "Pipeline script to load TFR arrays, select/average channels, pool P2/P3 conditions, and plot 1D traces with +-2SEM shaded error margins.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Uses memory-mapped file loading for high-efficiency reading of multi-gigabyte numpy arrays."
+  },
+  {
+    "filename": "jnwb/trajectory.py",
+    "purpose": "Population trajectory PCA analysis module supporting GPU PyTorch SVD acceleration.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Centering and standardization scaling checks are implemented to ensure zero-division safety."
+  },
+  {
+    "filename": "tests/test_trajectory.py",
+    "purpose": "Unit tests for population trajectory PCA SVD analyses.",
+    "score": 100,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback."
   }
 ]

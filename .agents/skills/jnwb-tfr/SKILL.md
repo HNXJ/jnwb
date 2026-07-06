@@ -30,24 +30,24 @@ from jnwb import spectral
 ## TFRAnalyzer Object
 
 ```python
-# Extract frequency band
-alpha = TFRAnalyzer.extract_band(tfr_data, band='alpha')   # 8–13 Hz
-beta  = TFRAnalyzer.extract_band(tfr_data, band='beta')    # 13–30 Hz
-gamma = TFRAnalyzer.extract_band(tfr_data, band='gamma')   # 30–80 Hz
+# Extract frequency band (using the canonical 7-band table)
+alpha = TFRAnalyzer.extract_band(tfr_data, band='alpha')       # 8–15 Hz
+beta  = TFRAnalyzer.extract_band(tfr_data, band='beta')        # 15–30 Hz
+low_gamma = TFRAnalyzer.extract_band(tfr_data, band='low_gamma') # 30–60 Hz
+high_gamma = TFRAnalyzer.extract_band(tfr_data, band='high_gamma') # 60–120 Hz
 
-# Trial-average
-avg = TFRAnalyzer.trial_average(tfr_data, epochs)
+# Trial-average (returns {'mean', 'std', 'sem', 'n_trials'})
+avg = TFRAnalyzer.trial_average(tfr_data)
 
-# Compare two conditions (dual stats + FDR)
+# Compare two conditions (vectorized t-test across all channels x freqs x time bins)
 comparison = TFRAnalyzer.compare_conditions(tfr_stim, tfr_omit)
-# Returns: {'parametric': {...}, 'non_parametric': {...},
-#           'fdr_pval_parametric': ..., 'fdr_pval_nonparametric': ...,
-#           'significant_parametric': bool, 'significant_nonparametric': bool}
+# Returns: {'n_tests', 'n_significant', 'fraction_significant', 'mean_diff',
+#           'p_values' (array), 't_statistics' (array), 'summary'}
 
 # Spectrolaminar: layer-wise power
 layer_stats = TFRAnalyzer.by_layer(tfr_data, layer_bounds={'superficial': (0, 5), 'deep': (6, 15)})
 
-# Inter-area TFR correlation
+# Inter-area TFR correlation (returns Pearson r + Spearman rho + FDR-corrected p-values)
 corr = TFRAnalyzer.correlate_areas(tfr1, tfr2, band='alpha')
 ```
 
@@ -110,14 +110,15 @@ flip = spectral.vflip2(lfp_array, channel_depths, sfreq=1000.0)
 
 ## Frequency Band Definitions
 
-| Band    | Range (Hz) |
-|---------|-----------|
-| delta   | 1–4       |
-| theta   | 4–8       |
-| alpha   | 8–13      |
-| beta    | 13–30     |
-| gamma   | 30–80     |
-| high_gamma | 80–150 |
+| Band       | Range (Hz) |
+|------------|------------|
+| delta      | 1–4        |
+| theta      | 4–8        |
+| alpha      | 8–15        |
+| beta       | 15–30       |
+| low_gamma  | 30–60       |
+| high_gamma | 60–120      |
+| broadband  | 1–150      |
 
 ## TFR Array Locations
 
