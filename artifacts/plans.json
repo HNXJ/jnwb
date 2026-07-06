@@ -94,5 +94,11 @@
     "description": "TBD analysis suite.",
     "priority": "low",
     "status": "planned"
+  },
+  {
+    "title": "Brainstorm: LFP TFR Phase/Complex Coefficient Preprocessing and Interactive Plotting Suite",
+    "description": "Pre-process and save both real Re(freq, time) and imaginary Im(freq, time) components of the Morlet wavelet coefficients to support phase-locking (PLV), imaginary complex correlation (Suite 05), and phase coherence. Integrate interactive ipywidgets (for smoothing scale and band selection) and standardized timing overlays across all 10 notebooks.",
+    "priority": "high",
+    "status": "brainstorm"
   }
 ]
