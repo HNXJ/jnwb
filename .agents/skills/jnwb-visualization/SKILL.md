@@ -135,11 +135,19 @@ res = session.spectrolaminar_motif(area="V4", condition="AAAB")
 ```
 
 ### Task 13: LFP TFR Trace Suite
-Generates the publication-grade 2-row aligned spectrogram trace suite for a deep layer of area V1.
+Generates the publication-grade 2-row aligned spectrogram trace suite for an area and layer.
+- **Standards**:
+  - Time window: extended up to `1920` ms to reveal `p3` slot traces.
+  - Pool/combine Control (`control_p2`/`control_p3`) and Omission (`omission_p2`/`omission_p3`) trial distributions to improve SEM.
+  - Perform dual statistical tests (t-test + Wilcoxon signed-rank vs 0) and correct using Bonferroni ($\alpha = 0.01 / N_{\text{bins}}$).
+  - Smooth traces using a Gaussian filter (`sigma=2.0`). For insignificant bands ($p \ge 0.05$ on both tests), force mean to flat `0` while maintaining the SEM shaded region.
+  - Significance indicators: solid horizontal bars at the top of each axis (Blue for significant increase, Red for significant decrease).
+  - Grid Layout: `5x2` grid representing V1, V3a, MST, and PFC (Control left, Omission right) for Rows 0-3, and Row 4 containing superimposed 1D broadband power traces with a boxed legend.
 ```python
 res = session.lfp_tfr_trace_suite_omission(area="V1", layer="deep")
 res["figure"].savefig('outputs/visualization_gallery/task_13_trace_suite/lfp_tfr_trace_suite_V1.png')
 ```
+
 
 ### Task 14: LFP Inter-Area Correlation Heatmap
 Computes and plots a 22x22 correlation matrix of LFP band power averages across all area-layers for the Alpha band.
