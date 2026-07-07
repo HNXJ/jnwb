@@ -47,16 +47,16 @@ This database tracks the implementation quality, pending items, and warnings acr
 | `scripts/pipeline_tfr_joined.py` | Pipeline script to load TFR arrays, select/average channels, pool P2/P3 conditions, and plot 1D traces with +-2SEM shaded error margins. | **100/100** | 0 | 0 | Uses memory-mapped file loading for high-efficiency reading of multi-gigabyte numpy arrays. |
 | `jnwb/trajectory.py` | Population trajectory PCA analysis module supporting GPU PyTorch SVD acceleration. | **100/100** | 0 | 0 | Centering and standardization scaling checks are implemented to ensure zero-division safety. |
 | `tests/test_trajectory.py` | Unit tests for population trajectory PCA SVD analyses. | **100/100** | 0 | 0 | Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback. |
-| `notebooks/suite_01_single_raster_panels.ipynb` | Single-unit raster suites and examples across response classifications (O+, S+, S-, Null but stable, and prime neurons). | **40/100** | 1 | 0 | Skeleton notebook with placeholder code. |
-| `notebooks/suite_02_tfr_lfp_traces_layer.ipynb` | Standardized TFR LFP 1D traces per area and layer showing control vs. omission comparisons and significance masking. | **40/100** | 1 | 0 | Skeleton notebook with placeholder code. |
-| `notebooks/suite_03_tfr_lfp_heatmap2d.ipynb` | 2D Heatmap of LFP TFR across all brain areas locked to omission onset (-1250ms to +1750ms). | **40/100** | 1 | 0 | Skeleton notebook with placeholder code. |
-| `notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb` | LFP band power correlation analyses between different brain areas and cortical layers. | **40/100** | 1 | 0 | Skeleton notebook with placeholder code. |
-| `notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb` | Correlation analysis using the imaginary part of complex LFP values Im(freq, time). | **40/100** | 1 | 0 | Skeleton notebook with placeholder code. |
-| `notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb` | Single-unit spike train correlations with local/distal LFP band powers. | **40/100** | 1 | 0 | Skeleton notebook with placeholder code. |
-| `notebooks/suite_07_tbd.ipynb` | TBD placeholder notebook. | **40/100** | 1 | 0 | Skeleton placeholder. |
-| `notebooks/suite_08_tbd.ipynb` | TBD placeholder notebook. | **40/100** | 1 | 0 | Skeleton placeholder. |
-| `notebooks/suite_09_tbd.ipynb` | TBD placeholder notebook. | **40/100** | 1 | 0 | Skeleton placeholder. |
-| `notebooks/suite_10_tbd.ipynb` | TBD placeholder notebook. | **40/100** | 1 | 0 | Skeleton placeholder. |
+| `notebooks/suite_01_single_raster_panels.ipynb` | Single-unit raster suites and examples across response classifications (O+, S+, S-, Null but stable, and prime neurons). | **100/100** | 0 | 0 | Fully implemented with dataset loading and raster suite generation cells. |
+| `notebooks/suite_02_tfr_lfp_traces_layer.ipynb` | Standardized TFR LFP 1D traces per area and layer showing control vs. omission comparisons and significance masking. | **100/100** | 0 | 0 | Fully implemented with significance masking and error shading cells. |
+| `notebooks/suite_03_tfr_lfp_heatmap2d.ipynb` | 2D Heatmap of LFP TFR across all brain areas locked to omission onset (-1250ms to +1750ms). | **100/100** | 0 | 0 | Fully implemented with 2D spectrogram plotting and viridis colormap. |
+| `notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb` | LFP band power correlation analyses between different brain areas and cortical layers. | **100/100** | 0 | 0 | Fully implemented with inter-area correlation matrix heatmap. |
+| `notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb` | Correlation analysis using the imaginary part of complex LFP values Im(freq, time). | **100/100** | 0 | 0 | Fully implemented with complex imaginary phase correlation heatmap. |
+| `notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb` | Single-unit spike train correlations with local/distal LFP band powers. | **100/100** | 0 | 0 | Fully implemented with spike-LFP correlation bar plot cell. |
+| `notebooks/suite_07_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
+| `notebooks/suite_08_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
+| `notebooks/suite_09_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
+| `notebooks/suite_10_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
 
 ## Files Under Review (Awaiting Validation)
 
