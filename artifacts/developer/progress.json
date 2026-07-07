@@ -346,50 +346,50 @@
   {
     "filename": "notebooks/suite_01_single_raster_panels.ipynb",
     "purpose": "Single-unit raster suites and examples across response classifications (O+, S+, S-, Null but stable, and prime neurons).",
-    "score": 100,
-    "tbis": 0,
+    "score": 50,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fully implemented with dataset loading and raster suite generation cells."
+    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
   },
   {
     "filename": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
     "purpose": "Standardized TFR LFP 1D traces per area and layer showing control vs. omission comparisons and significance masking.",
-    "score": 100,
-    "tbis": 0,
+    "score": 50,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fully implemented with significance masking and error shading cells."
+    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
   },
   {
     "filename": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
     "purpose": "2D Heatmap of LFP TFR across all brain areas locked to omission onset (-1250ms to +1750ms).",
-    "score": 100,
-    "tbis": 0,
+    "score": 50,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fully implemented with 2D spectrogram plotting and viridis colormap."
+    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
   },
   {
     "filename": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
     "purpose": "LFP band power correlation analyses between different brain areas and cortical layers.",
-    "score": 100,
-    "tbis": 0,
+    "score": 50,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fully implemented with inter-area correlation matrix heatmap."
+    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
   },
   {
     "filename": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
     "purpose": "Correlation analysis using the imaginary part of complex LFP values Im(freq, time).",
-    "score": 100,
-    "tbis": 0,
+    "score": 50,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fully implemented with complex imaginary phase correlation heatmap."
+    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
   },
   {
     "filename": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
     "purpose": "Single-unit spike train correlations with local/distal LFP band powers.",
-    "score": 100,
-    "tbis": 0,
+    "score": 50,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fully implemented with spike-LFP correlation bar plot cell."
+    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
   },
   {
     "filename": "notebooks/suite_07_tbd.ipynb",

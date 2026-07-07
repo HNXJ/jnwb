@@ -1,6 +1,7 @@
 # PRP — omission
 ## Current Plan
-- Finalize documentation and close active milestone for the 10 analysis suites.
+- Re-assess and update notebooks `suite_01` through `suite_06` to reach 100/100 by implementing the dual-engine statistical correction framework.
+- Restrict work to Suites 01-06 before proceeding to Suite 07 and later.
 ## Last Review
 - 2026-07-07: Verified remote headless execution of all 10 notebooks; calculated the grand average score of the repository progress table to be 100.00/100.
 ## Progress Log
