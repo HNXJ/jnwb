@@ -100,5 +100,29 @@
     "description": "Pre-process and save both real Re(freq, time) and imaginary Im(freq, time) components of the Morlet wavelet coefficients to support phase-locking (PLV), imaginary complex correlation (Suite 05), and phase coherence. Integrate interactive ipywidgets (for smoothing scale and band selection) and standardized timing overlays across all 10 notebooks.",
     "priority": "high",
     "status": "brainstorm"
+  },
+  {
+    "title": "Dual-engine (Parametric & Nonparametric) Significance Testing utility",
+    "description": "Implement a unified statistical comparison helper in jnwb/statistics.py that runs both parametric (t-test/ANOVA) and nonparametric (Wilcoxon/Mann-Whitney) tests on multi-trial averaged data (PSTHs, LFP power, correlations) and applies Benjamini-Hochberg FDR correction across time/frequency bins to control false positives.",
+    "priority": "high",
+    "status": "proposed"
+  },
+  {
+    "title": "Hierarchy-Wide Multi-Band Power Correlation Matrix Heatmaps",
+    "description": "Generate pairwise power correlation heatmaps across the V1-to-PFC hierarchy for four distinct bands (Theta 2-8Hz, Alpha 8-14Hz, Beta 15-30Hz, Gamma 32-80Hz) to compare stimulus vs omission periods, with statistical significance overlays corrected for multiple comparisons.",
+    "priority": "high",
+    "status": "proposed"
+  },
+  {
+    "title": "LFP Spectral Power Omission Dampening Traces",
+    "description": "Plot hierarchy-wide LFP power traces relative to baseline for visual stimulation, delay, and omission epochs across V1, V2, MT, TEO, V3a, FST, FEF, and PFC, with shaded SEM and corrected statistical significance bands.",
+    "priority": "medium",
+    "status": "proposed"
+  },
+  {
+    "title": "Single-Unit Omission-Ramping vs Stimulus-Driven Profile Classification",
+    "description": "Classify single-neuron spiking patterns into stimulus-excited, stimulus-inhibited, and omission-ramping profiles using Wilcoxon and Mann-Whitney significance criteria relative to pre-stimulus and pre-omission baselines (q < 0.05 FDR corrected).",
+    "priority": "medium",
+    "status": "proposed"
   }
 ]
