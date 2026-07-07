@@ -8,9 +8,17 @@ version = "0.1.0"
 description = "V1-PFC Predictive Routing (Omission) Analysis Pipeline"
 readme = "README.md"
 requires-python = ">=3.8"
+dependencies = [
+    "pynwb",
+    "numpy",
+    "pandas",
+    "h5py",
+    "kilosort>=4.0",
+    "torch"
+]
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["jnwb"]
 package-dir = {"" = "."}
 
 [tool.pytest.ini_options]
