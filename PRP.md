@@ -1,6 +1,6 @@
 # PRP — omission
 ## Current Plan
-- Implement Suite 07 (State-Space Population Trajectories) and Suite 08 (Dynamic Population Decoding) notebooks.
+- Implement Suite 09 (Directed Spectral Causality) and Suite 10 (Arousal Envelopes) notebooks.
 - Verify remote execution and retrieve/analyze output plots.
 ## Last Review
 - 2026-07-07: Verified remote headless execution of Suites 01–10; downloaded and inspected Suite 01 raster panel successfully.
