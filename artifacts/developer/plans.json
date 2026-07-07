@@ -124,5 +124,17 @@
     "description": "Classify single-neuron spiking patterns into stimulus-excited, stimulus-inhibited, and omission-ramping profiles using Wilcoxon and Mann-Whitney significance criteria relative to pre-stimulus and pre-omission baselines (q < 0.05 FDR corrected).",
     "priority": "medium",
     "status": "proposed"
+  },
+  {
+    "title": "Hierarchy-Wide Multi-Unit Activity (MUA) Sequence Response Profile",
+    "description": "Epoch and plot MUA timecourses across V1, V3a, MT, FEF, and PFC over the entire visual stimulation sequence (4 stimulus presentations + delays + omission window) to test if omission selectively spares lower-order sensory MUA while producing weak, time-locked prediction-error spikes in higher-order FEF/PFC, validated with FDR-corrected Wilcoxon and t-tests.",
+    "priority": "medium",
+    "status": "proposed"
+  },
+  {
+    "title": "Gamma-Beta Dissociation and R-Squared Change Matrices",
+    "description": "Calculate the R-squared correlation difference (Stimulus vs Omission window) across visual areas to quantify gamma-beta spectral dissociation, verifying if FEF/PFC show the lowest correlation change across states, backed by bootstrapped confidence intervals and multiple comparison corrections.",
+    "priority": "medium",
+    "status": "proposed"
   }
 ]
