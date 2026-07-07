@@ -210,10 +210,10 @@
   {
     "filename": "jnwb/statistics.py",
     "purpose": "Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction.",
-    "score": 100,
-    "tbis": 0,
+    "score": 80,
+    "tbis": 1,
     "tbds": 0,
-    "warnings": "Fixed random seed = 42 ensures exact replicability."
+    "warnings": "Needs unified Wilcoxon/t-test and BH-FDR correction wrapper for multi-trial comparisons."
   },
   {
     "filename": "jnwb/visual_qc.py",
