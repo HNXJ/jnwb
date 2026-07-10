@@ -546,70 +546,147 @@ class OmissionSession:
     # ANALYSIS METHODS: TFR & SPECTRAL
     # ========================================================================
 
-    def tfr_from_preprocessed(self, area: str, band: str = 'alpha',
-                             condition: Optional[str] = None,
-                             tfr_dir: Optional[Path] = None) -> Optional[np.ndarray]:
+    def tfr_from_preprocessed(
+        self,
+        area: str,
+        band: str = "alpha",
+        condition: Optional[str] = None,
+        tfr_dir: Optional[Path] = None,
+    ) -> Optional[np.ndarray]:
         """
-        Load preprocessed TFR array (time-frequency representation).
+        Load preprocessed TFR array from OMISSION_TFR_DIR / tfr_arrays.
 
-        Fast loader for precomputed TFR data (D:/workspace/data/tfr_arrays/).
+        Filename contract:
+          {session_prefix}-{A|B|C|D}-{area}-{CONDITION}.npy
+        Array contract (float32): (n_trials, n_channels, n_freqs, n_times)
+          freqs ≈ arange(3, 201, 2); times ≈ -1000 + arange(500)*10 ms.
 
-        Args:
-            area: Brain area
-            band: Frequency band ('alpha', 'beta', 'gamma', etc.) or None for all
-            condition: Behavioral condition code
-            tfr_dir: Override default TFR directory
+        Area aliases: V3d/V3a also try file token V3; V4 also tries DP.
+        Bare dual-file token V3 is returned whole (caller may half-slice).
 
         Returns:
-            TFR array (channels × frequency × time × trials) or None if not found
-
-        Example:
-            >>> tfr = session.tfr_from_preprocessed(area='V1', band='alpha', condition='AAXB')
+            memmap/ndarray or None if no matching file exists.
         """
-        log.info(f"Loading TFR: {area} band={band} condition={condition}")
-        # TODO: Construct filename, load from tfr_dir
-        return None
+        import os
+        import re
+
+        tfr_root = Path(
+            tfr_dir
+            or os.environ.get("OMISSION_TFR_DIR", "D:/workspace/data/tfr_arrays")
+        )
+        stem = self.nwb_path.stem
+        # strip trailing _rec for prefix used in tfr filenames
+        session_prefix = re.sub(r"_rec$", "", stem)
+
+        area_tokens = [area]
+        if area in ("V3d", "V3a", "V3D", "V3A"):
+            area_tokens.append("V3")
+        if area == "V4":
+            area_tokens.append("DP")
+        if area == "V3":
+            area_tokens.extend(["V3d", "V3a"])
+
+        candidates: List[Path] = []
+        if not tfr_root.is_dir():
+            log.warning(f"TFR dir missing: {tfr_root}")
+            return None
+
+        for token in area_tokens:
+            if condition:
+                pat = f"{session_prefix}-*-{token}-{condition}.npy"
+                candidates.extend(sorted(tfr_root.glob(pat)))
+            else:
+                pat = f"{session_prefix}-*-{token}-*.npy"
+                candidates.extend(sorted(tfr_root.glob(pat)))
+
+        # de-dupe preserving order
+        seen = set()
+        uniq: List[Path] = []
+        for p in candidates:
+            if p.name not in seen:
+                seen.add(p.name)
+                uniq.append(p)
+
+        if not uniq:
+            log.info(
+                f"No TFR file for session={session_prefix} area={area} "
+                f"condition={condition} under {tfr_root}"
+            )
+            return None
+
+        path = uniq[0]
+        log.info(f"Loading TFR: {path.name} (band={band})")
+        arr = np.load(path, mmap_mode="r")
+        if arr.ndim != 4:
+            log.warning(f"Unexpected TFR ndim={arr.ndim} in {path.name}")
+            return np.asarray(arr)
+
+        # Optional band slice on frequency axis (axis=2)
+        if band and str(band).lower() not in ("none", "all", "*"):
+            from .sequence_layout import BANDS_7
+
+            band_key = str(band)
+            # accept alpha → Alpha etc.
+            lookup = {k.lower(): k for k in BANDS_7}
+            lookup.update(
+                {
+                    "alpha": "Alpha",
+                    "theta": "Theta",
+                    "beta": "l-beta",
+                    "lbeta": "l-beta",
+                    "hbeta": "h-beta",
+                    "gamma": "Gamma_L",
+                    "low_gamma": "Gamma_L",
+                    "high_gamma": "Gamma_H",
+                }
+            )
+            canon = lookup.get(band_key.lower(), band_key)
+            if canon in BANDS_7:
+                fmin, fmax = BANDS_7[canon]
+                freqs = np.arange(3, 201, 2)
+                if arr.shape[2] == len(freqs):
+                    fmask = (freqs >= fmin) & (freqs <= fmax)
+                    return arr[:, :, fmask, :]
+        return arr
 
     def plot_tfr(self, area: str, condition: str = 'stimulus',
                  phase: int = 2, plot_kwargs: Optional[Dict] = None) -> Dict:
         """
         Plot time-frequency representation for area × condition.
 
-        Args:
-            area: Brain area
-            condition: Behavioral condition name or code
-            phase: stimulus_number (for timing alignment)
-            plot_kwargs: Matplotlib parameters (figsize, cmap, etc.)
-
-        Returns:
-            Dictionary with {'figure': fig, 'axes': axes}
-
-        Example:
-            >>> session.plot_tfr(area='MT', condition='AAXB', phase=3)
+        Does **not** invent synthetic TFR when files are missing — returns
+        status='missing_tfr' instead (no silent science).
         """
         log.info(f"Plotting TFR: {area} {condition} phase={phase}")
         import matplotlib.pyplot as plt
-        import matplotlib.colors as mcolors
 
-        is_synthetic = False
         tfr_data = self.tfr_from_preprocessed(area=area, band=None, condition=condition)
         if tfr_data is None:
-            log.warning(f"TFR preprocessed data not found for area {area}, condition {condition}. Falling back to synthetic mock data.")
-            # Synthetic: (channels, freqs, time, trials)
-            rng = np.random.default_rng(42)
-            tfr_data = rng.standard_normal((32, 64, 100, 8))
-            is_synthetic = True
+            msg = (
+                f"No preprocessed TFR for area={area} condition={condition}. "
+                f"Run scripts/precompute_tfr_arrays.py or check OMISSION_TFR_DIR / readiness."
+            )
+            log.error(msg)
+            return {
+                "figure": None,
+                "axes": None,
+                "data": None,
+                "status": "missing_tfr",
+                "error": msg,
+            }
 
-        # Mean across channels and trials → (freqs, time)
-        mean_power = np.mean(tfr_data, axis=(0, 3))
+        # Mean across trials and channels → (freqs, time); trials-first contract
+        mean_power = np.mean(np.asarray(tfr_data), axis=(0, 1))
+        if mean_power.ndim != 2:
+            mean_power = np.mean(np.asarray(tfr_data), axis=(0, 3))
 
-        # dB normalise: subtract pre-stim baseline (first 20 bins)
+        # dB normalise: subtract pre-stim baseline (first 20 bins ≈ fx)
         baseline = np.mean(mean_power[:, :20], axis=1, keepdims=True)
         mean_db = mean_power - baseline
 
         n_freqs, n_time = mean_db.shape
-        freqs = np.linspace(1, 150, n_freqs)
-        times = np.linspace(-1000, 2000, n_time)
+        freqs = np.arange(3, 201, 2) if n_freqs == 99 else np.linspace(1, 150, n_freqs)
+        times = (-1000.0 + np.arange(n_time) * 10.0) if n_time == 500 else np.linspace(-1000, 2000, n_time)
 
         pk = plot_kwargs or {}
         fig, ax = plt.subplots(figsize=pk.get('figsize', (10, 6)), facecolor='white')
@@ -624,16 +701,15 @@ class OmissionSession:
         ax.get_yaxis().set_major_formatter(plt.ScalarFormatter())
         ax.set_xlabel('Time from stimulus onset (ms)', fontsize=11)
         ax.set_ylabel('Frequency (Hz)', fontsize=11)
-        
-        title = f'Trial-Averaged TFR  ·  {area}  ·  {condition}  ·  Phase {phase}'
-        if is_synthetic:
-            title += " [SIMULATED]"
-        ax.set_title(title, fontsize=12, fontweight='bold')
+        ax.set_title(
+            f'Trial-Averaged TFR  ·  {area}  ·  {condition}  ·  Phase {phase}',
+            fontsize=12,
+            fontweight='bold',
+        )
         ax.axvline(0, color='white', linestyle='--', linewidth=1.2, alpha=0.7)
         fig.tight_layout()
 
-        status = 'synthetic_fallback' if is_synthetic else 'completed'
-        return {'figure': fig, 'axes': ax, 'data': mean_db, 'status': status}
+        return {'figure': fig, 'axes': ax, 'data': mean_db, 'status': 'completed'}
 
     # ========================================================================
     # ANALYSIS METHODS: RASTERS & SINGLE-UNIT PLOTS

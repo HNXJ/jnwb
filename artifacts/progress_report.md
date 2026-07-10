@@ -1,66 +1,34 @@
 # Omission Status Flagger & Codebase Progress
 
-This database tracks the implementation quality, pending items, and warnings across all codebase assets.
+## Proceed-with-Review 2026-07-09 (pass 3) — 3/3 confirmed
 
-| Filename | Purpose | Score | TBIs | TBDs | Warnings |
-|---|---|---|---|---|---|
-| `README.md` | Quickstart script, project overview, highlights of the 10 showcases. | **100/100** | 0 | 0 | None. |
-| `docs/analysis_methods.md` | Mathematical specs for TFR dB, MMFF Fano Factor, SVM classifications. | **100/100** | 0 | 0 | None. |
-| `docs/nwb_data_structure.md` | Lazy reading guidelines, session maps, probe-area lookup. | **100/100** | 0 | 0 | None. |
-| `docs/omission_overview.md` | Paradigm description, subjects list, arousal/eye metrics overview. | **100/100** | 0 | 0 | None. |
-| `docs/operations_and_troubleshooting.md` | 15-Step pipeline reference, visual void checks, multi-area sorting rules. | **100/100** | 0 | 0 | None. |
-| `etude_no_01_gallery.ipynb` | 19-cell showcase running all 16 tasks + generalization + batch + unit queries. | **100/100** | 0 | 0 | Contains pre-run figures using actual neural data files. |
-| `jnwb/__init__.py` | Package entry point, unified imports, and frozen public API __all__ list exports. | **100/100** | 0 | 0 | Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies. |
-| `jnwb/addressing.py` | Electrode mapping rules, depth layer classifications, and units enrichment. | **100/100** | 0 | 0 | Enriches group_name mapping from electrodes table (mapping probe/group_name flexibly). |
-| `jnwb/analyzers.py` | Core analyzers: TFRAnalyzer (vectorized stats), UnitAnalyzer (O(N log N) ACG), PopulationAnalyzer. | **100/100** | 0 | 0 | None. |
-| `jnwb/connectivity.py` | Functional connectivity module including spike Shannon MI, Granger Causality, and graph topology. | **100/100** | 0 | 0 | Granger causality negative clamp removed to prevent positive statistics bias. |
-| `jnwb/decoding.py` | Population decoding module using linear SVM classifiers to predict identity and omission trials. | **100/100** | 0 | 0 | None. |
-| `jnwb/diagnostics.py` | Session audits and mult-session comparison metrics. | **100/100** | 0 | 0 | Strict validation warnings triggered if metadata fields mismatch. |
-| `jnwb/factories.py` | Factory methods constructing ontology objects from OmissionSession. | **100/100** | 0 | 0 | None. |
-| `jnwb/functions.py` | Canonical wrappers for spiking, TFR, and population analysis. | **100/100** | 0 | 0 | Uses trial filters dynamically. |
-| `jnwb/mcp_server/__init__.py` | MCP server core implementing transport setup and tools registration. | **100/100** | 0 | 0 | Stdio transport protocol enforced. |
-| `jnwb/mcp_server/custom_tools.py` | Exposes add_tool framework to dynamically extend server tools. | **100/100** | 0 | 0 | Execution includes syntax audits. |
-| `jnwb/mcp_server/event_tools.py` | Retrieves session event codes and timings for trial alignment. | **100/100** | 0 | 0 | Candidate code search columns corrected to prevent trial_num index conflation. |
-| `jnwb/mcp_server/meta_tools.py` | Introspects session details, unit census, and quality metrics. | **100/100** | 0 | 0 | Dynamic custom tools registration restricted behind ALLOW_DYNAMIC_TOOLS environment variable check. |
-| `jnwb/mcp_server/nwb_tools.py` | NWB low-level inspector and validation tools. | **100/100** | 0 | 0 | None. |
-| `jnwb/mcp_server/server.py` | Executable entry point to run the MCP server. | **100/100** | 0 | 0 | None. |
-| `jnwb/metadata.py` | Unit metadata extraction, SNR statistics, and quality tier classification. | **100/100** | 0 | 0 | Strict quality rules applied. |
-| `jnwb/ontology.py` | Ontology data contract definitions (Query, Dataset, Result, Figure, etc.). | **100/100** | 0 | 0 | All ontology properties frozen. |
-| `jnwb/report.py` | OGLO Session Report Suite generator (compiles HTML layout, notebook formats, and vector graphics). | **100/100** | 0 | 0 | Supports LFP containers, fallback timestamps rate calculation, and corrected autocorrelogram notebook cell. |
-| `jnwb/session.py` | OmissionSession loader, NWB file I/O, lazy data loading, and caching interface. | **100/100** | 0 | 0 | Verified: Local pickle/json cache operational; index reset fix in lfp_channel_areas. |
-| `jnwb/spectral.py` | LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping. | **100/100** | 0 | 0 | Calculates coherence significance via trial-shuffling circular shifts and Monte Carlo formula (count+1)/(n+1). |
-| `jnwb/spiking.py` | Spiking metrics calculations, latency metrics, phase-locking, and omission classifications. | **100/100** | 0 | 0 | Optimized trial counting loop using searchsorted. |
-| `jnwb/statistics.py` | Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction. | **100/100** | 0 | 0 | Fixed random seed = 42 ensures exact replicability. |
-| `jnwb/visual_qc.py` | Waveform galleries, stability traces, and dashboard summaries. | **100/100** | 0 | 0 | Waveform plots updated to use unified Madelane Golden palette. |
-| `jnwb/viz.py` | Plotly and Matplotlib visualization wrappers for raster, TFR, and Granger networks. | **100/100** | 0 | 0 | Added gaussian-smoothed traces and significance-masked flat-lining for TFR trace suite. |
-| `tests/test_analyzers_coverage.py` | Coverage checks for TFR, Unit, and Population analyzers. | **100/100** | 0 | 0 | None. |
-| `tests/test_caching.py` | Verifies session persistent disk loading, caching, and cache invalidation behaviors. | **100/100** | 0 | 0 | Verified: Caching and cache invalidation tests are operational. |
-| `tests/test_decoding_connectivity.py` | Verifies SVM decoding, Shannon Mutual Information, and Granger Causality functions. | **100/100** | 0 | 0 | Verified: SVM tuning and auto Granger tests are operational. |
-| `tests/test_functions_coverage.py` | Coverage checks for the 20 canonical functions. | **100/100** | 0 | 0 | None. |
-| `tests/test_gpu_spectral_analyzers.py` | Verifies GPU-accelerated LFP spectral analysis and spike autocorrelograms. | **100/100** | 0 | 0 | Verified: GPU spectral and ACG tests are operational. |
-| `tests/test_jnwb_core.py` | Verifies data contract immutability and robust statistical NaN/Inf handlers. | **100/100** | 0 | 0 | None. |
-| `tests/test_jnwb_integration.py` | End-to-end load-analyze-visualize testing with real data placeholders. | **100/100** | 0 | 0 | None. |
-| `tests/test_jnwb_nwb_integration.py` | NWB trial onset and LFP channel query tests. | **100/100** | 0 | 0 | None. |
-| `tests/test_mcp_server.py` | Verifies MCP tool registry, syntax warnings, and tool generation. | **100/100** | 0 | 0 | custom_tools path modified to look up relative to workspace root. |
-| `tests/test_report.py` | Verifies folder creation, HTML/ipynb compiling, and figure exports for the report suite. | **100/100** | 0 | 0 | None. |
-| `tests/test_session_coverage.py` | Coverage checks for OmissionSession accessors, properties, and metadata. | **100/100** | 0 | 0 | None. Runs in under 2 seconds. |
-| `scripts/pipeline_tfr_joined.py` | Pipeline script to load TFR arrays, select/average channels, pool P2/P3 conditions, and plot 1D traces with +-2SEM shaded error margins. | **100/100** | 0 | 0 | Uses memory-mapped file loading for high-efficiency reading of multi-gigabyte numpy arrays. |
-| `jnwb/trajectory.py` | Population trajectory PCA analysis module supporting GPU PyTorch SVD acceleration. | **100/100** | 0 | 0 | Centering and standardization scaling checks are implemented to ensure zero-division safety. |
-| `tests/test_trajectory.py` | Unit tests for population trajectory PCA SVD analyses. | **100/100** | 0 | 0 | Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback. |
-| `notebooks/suite_01_single_raster_panels.ipynb` | Single-unit raster suites and examples across response classifications (O+, S+, S-, Null but stable, and prime neurons). | **100/100** | 0 | 0 | Fully implemented with dataset loading and raster suite generation cells. |
-| `notebooks/suite_02_tfr_lfp_traces_layer.ipynb` | Standardized TFR LFP 1D traces per area and layer showing control vs. omission comparisons and significance masking. | **100/100** | 0 | 0 | Fully implemented with significance masking and error shading cells. |
-| `notebooks/suite_03_tfr_lfp_heatmap2d.ipynb` | 2D Heatmap of LFP TFR across all brain areas locked to omission onset (-1250ms to +1750ms). | **100/100** | 0 | 0 | Fully implemented with 2D spectrogram plotting and viridis colormap. |
-| `notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb` | LFP band power correlation analyses between different brain areas and cortical layers. | **100/100** | 0 | 0 | Fully implemented with inter-area correlation matrix heatmap. |
-| `notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb` | Correlation analysis using the imaginary part of complex LFP values Im(freq, time). | **100/100** | 0 | 0 | Fully implemented with complex imaginary phase correlation heatmap. |
-| `notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb` | Single-unit spike train correlations with local/distal LFP band powers. | **100/100** | 0 | 0 | Fully implemented with spike-LFP correlation bar plot cell. |
-| `notebooks/suite_07_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
-| `notebooks/suite_08_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
-| `notebooks/suite_09_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
-| `notebooks/suite_10_tbd.ipynb` | TBD placeholder notebook. | **100/100** | 0 | 0 | Placeholder template configured. |
+| Filename | Score | Evidence |
+|---|---|---|
+| `notebooks/suite_01_single_raster_panels.ipynb` | **85** | unit 243 TEO FR=37.25 Hz; PNG saved |
+| `notebooks/suite_07_tbd.ipynb` | **82** | ctrl=40 omit=39 units=57; PNG saved |
+| `notebooks/suite_08_tbd.ipynb` | **78** | 6 windows success; acc~0.85 flat (imbalance known) |
 
-## Files Under Review (Awaiting Validation)
+Review queue: **empty**.
 
-*No files currently under review. Everything is verified and stable.*
+## Proceed-with-Brainstorm 2026-07-09 — plans.json only
+
+Appended `brainstorm[]` + 5 new `proposed` items (did not re-propose known open work):
+
+1. **plan-implement-tfr-from-preprocessed** (high) — stop silent synthetic TFR
+2. **plan-suite-10-h5py-pupil** (high) — real pupil_1_tracking exists
+3. **plan-jnwb-h5py-lfp-accessor** (high) — first-class LFP bypass for broken Device metadata
+4. **plan-decode-report-majority-baseline** (medium) — print majority baseline beside accuracy
+5. **plan-rename-suite-07-08-off-tbd** (low) — filename hygiene
+
+## Remaining open progress
+
+| Filename | Score |
+|---|---|
+| `notebooks/suite_02`–`05` | 42–48 |
+| `notebooks/suite_09`–`10` | 35–38 |
+| PRP schema migrate | 50 |
+
+**Stopped** after Review + Brainstorm as requested.
 
 ---
-*Generated: 2026-07-06*
+*Generated: 2026-07-09 (Review pass 3 + Brainstorm)*

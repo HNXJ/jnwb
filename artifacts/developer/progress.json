@@ -53,7 +53,10 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies."
+    "warnings": "Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies. Uncommitted local changes on main.",
+    "last_verified": "2026-07-07",
+    "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q → 111 passed, 18 skipped",
+    "status": "done"
   },
   {
     "filename": "jnwb/addressing.py",
@@ -81,11 +84,15 @@
   },
   {
     "filename": "jnwb/decoding.py",
-    "purpose": "Population decoding module using linear SVM classifiers to predict identity and omission trials.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": ""
+    "purpose": "SVM population decoding (stimulus identity / omission presence).",
+    "score": 55,
+    "tbis": 2,
+    "tbds": 2,
+    "warnings": "suite_08 shows ~0.85 flat incl. pre-stim — class imbalance likely. No majority baseline printed.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: suite_08 receipt acc~0.845–0.847 flat; plans plan-decode-class-imbalance + majority-baseline",
+    "tbi": "Report n_per_class + majority baseline; balanced sampling or F1/AUC",
+    "tbd": "Do not treat flat 0.85 as omission selectivity"
   },
   {
     "filename": "jnwb/diagnostics.py",
@@ -184,14 +191,6 @@
     "warnings": "Supports LFP containers, fallback timestamps rate calculation, and corrected autocorrelogram notebook cell."
   },
   {
-    "filename": "jnwb/session.py",
-    "purpose": "OmissionSession loader, NWB file I/O, lazy data loading, and caching interface.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Verified: Local pickle/json cache operational; index reset fix in lfp_channel_areas."
-  },
-  {
     "filename": "jnwb/spectral.py",
     "purpose": "LFP preprocessing, spectral band power, coherence, and vFLIP2 mapping.",
     "score": 100,
@@ -210,10 +209,10 @@
   {
     "filename": "jnwb/statistics.py",
     "purpose": "Dual statistical testing engine (t-test/ANOVA + Mann-Whitney/K-W) with BH-FDR correction.",
-    "score": 80,
-    "tbis": 1,
+    "score": 100,
+    "tbis": 0,
     "tbds": 0,
-    "warnings": "Needs unified Wilcoxon/t-test and BH-FDR correction wrapper for multi-trial comparisons."
+    "warnings": "Fixed random seed = 42 ensures exact replicability."
   },
   {
     "filename": "jnwb/visual_qc.py",
@@ -229,7 +228,10 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Added gaussian-smoothed traces and significance-masked flat-lining for TFR trace suite."
+    "warnings": "Uncommitted local changes on main.",
+    "last_verified": "2026-07-07",
+    "evidence": "python -m pytest tests/ -q → 111 passed, 18 skipped",
+    "status": "done"
   },
   {
     "filename": "tests/test_analyzers_coverage.py",
@@ -320,20 +322,15 @@
     "warnings": "None. Runs in under 2 seconds."
   },
   {
-    "filename": "scripts/pipeline_tfr_joined.py",
-    "purpose": "Pipeline script to load TFR arrays, select/average channels, pool P2/P3 conditions, and plot 1D traces with +-2SEM shaded error margins.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Uses memory-mapped file loading for high-efficiency reading of multi-gigabyte numpy arrays."
-  },
-  {
     "filename": "jnwb/trajectory.py",
-    "purpose": "Population trajectory PCA analysis module supporting GPU PyTorch SVD acceleration.",
-    "score": 100,
+    "purpose": "Population trajectory PCA with optional PyTorch CUDA SVD.",
+    "score": 88,
     "tbis": 0,
-    "tbds": 0,
-    "warnings": "Centering and standardization scaling checks are implemented to ensure zero-division safety."
+    "tbds": 1,
+    "warnings": "CPU/NumPy path covered by tests/test_trajectory.py. CUDA branch exists but no GPU receipt. Score 100 overclaimed GPU completeness.",
+    "last_verified": "2026-07-07",
+    "evidence": "pytest test_trajectory (CPU); Planning 2026-07-09 re-read cuda branch — no CUDA smoke",
+    "status": "done"
   },
   {
     "filename": "tests/test_trajectory.py",
@@ -341,86 +338,384 @@
     "score": 100,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback."
+    "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback.",
+    "last_verified": "2026-07-07",
+    "evidence": "python -m pytest tests/test_trajectory.py -q → passed (subset of 111 passed in tests/)",
+    "status": "done"
   },
   {
-    "filename": "notebooks/suite_01_single_raster_panels.ipynb",
-    "purpose": "Single-unit raster suites and examples across response classifications (O+, S+, S-, Null but stable, and prime neurons).",
-    "score": 50,
-    "tbis": 1,
+    "filename": "legacy/tests/test_analysis_recipes.py",
+    "purpose": "Legacy analysis recipe API tests (src.analysis.recipes).",
+    "score": 80,
+    "tbis": 0,
     "tbds": 0,
-    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
+    "warnings": "src module absent; module-level skip + pyproject testpaths=[tests]. Quarantine verified.",
+    "last_verified": "2026-07-09",
+    "evidence": "python -m pytest -q -x --tb=no → 109 passed, 20 skipped; python -m pytest legacy/tests/test_analysis_recipes.py -q → 1 skipped (exit 5, no ERROR)",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/list_stable_plus_units.py",
+    "purpose": "List stable_plus units for a session with metadata summary.",
+    "score": 78,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "No automated pytest; argparse/OMISSION_NWB_DIR verified via --help only (not a full NWB run).",
+    "last_verified": "2026-07-09",
+    "evidence": "python -m compileall scripts/list_stable_plus_units.py -q → exit 0; python scripts/list_stable_plus_units.py --help → exit 0",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/filter_units.py",
+    "purpose": "Batch filter stable_plus units across NWB sessions with SNR/FR gates and O+/S+/S- classification export.",
+    "score": 78,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "No automated pytest; --help only. Score 85 was slightly high for CLI-only verification.",
+    "last_verified": "2026-07-09",
+    "evidence": "python -m compileall scripts/filter_units.py -q → exit 0; python scripts/filter_units.py --help → exit 0",
+    "status": "done"
   },
   {
     "filename": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
-    "purpose": "Standardized TFR LFP 1D traces per area and layer showing control vs. omission comparisons and significance masking.",
-    "score": 50,
+    "purpose": "Suite 02: layer TFR LFP traces (blocked by synthetic tfr_from_preprocessed).",
+    "score": 25,
     "tbis": 1,
-    "tbds": 0,
-    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
+    "tbds": 2,
+    "warnings": "Exists but not smoke-executed; will plot synthetic if session.plot_tfr used before tfr_from_preprocessed fix.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: notebook exists; depends on jnwb/session.py TFR wire",
+    "tbi": "Smoke-exec after tfr_from_preprocessed real or hard-fail",
+    "tbd": "Document blocker if TFR missing for session"
   },
   {
     "filename": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
-    "purpose": "2D Heatmap of LFP TFR across all brain areas locked to omission onset (-1250ms to +1750ms).",
-    "score": 50,
+    "purpose": "Suite 03: 2D TFR heatmaps (same synthetic-TFR hazard as suite_02).",
+    "score": 25,
     "tbis": 1,
-    "tbds": 0,
-    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
+    "tbds": 2,
+    "warnings": "Exists; unexecuted; synthetic fallback risk.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: notebook exists; blocked on session.tfr_from_preprocessed",
+    "tbi": "Smoke-exec after real TFR path",
+    "tbd": "Same as suite_02"
   },
   {
     "filename": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
-    "purpose": "LFP band power correlation analyses between different brain areas and cortical layers.",
-    "score": 50,
+    "purpose": "Suite 04: area/layer band-power correlations.",
+    "score": 20,
     "tbis": 1,
-    "tbds": 0,
-    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
+    "tbds": 1,
+    "warnings": "Exists; no execution receipt.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: file present; smoke pending",
+    "tbi": "Smoke-exec or document data blocker",
+    "tbd": "Raise score only with run_notebook_local receipt"
   },
   {
     "filename": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
-    "purpose": "Correlation analysis using the imaginary part of complex LFP values Im(freq, time).",
-    "score": 50,
+    "purpose": "Suite 05: imaginary/complex coherence-style correlations.",
+    "score": 20,
     "tbis": 1,
-    "tbds": 0,
-    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
-  },
-  {
-    "filename": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
-    "purpose": "Single-unit spike train correlations with local/distal LFP band powers.",
-    "score": 50,
-    "tbis": 1,
-    "tbds": 0,
-    "warnings": "Lacks dual parametric/nonparametric statistical validation and BH-FDR multiple comparison corrections."
-  },
-  {
-    "filename": "notebooks/suite_07_tbd.ipynb",
-    "purpose": "TBD placeholder notebook.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Placeholder template configured."
-  },
-  {
-    "filename": "notebooks/suite_08_tbd.ipynb",
-    "purpose": "TBD placeholder notebook.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Placeholder template configured."
+    "tbds": 1,
+    "warnings": "Exists; no execution receipt.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: file present; smoke pending",
+    "tbi": "Smoke-exec or document data blocker",
+    "tbd": "Raise score only with receipt"
   },
   {
     "filename": "notebooks/suite_09_tbd.ipynb",
-    "purpose": "TBD placeholder notebook.",
-    "score": 100,
-    "tbis": 0,
-    "tbds": 0,
-    "warnings": "Placeholder template configured."
+    "purpose": "Suite 09: Granger network (still synthetic / _tbd).",
+    "score": 15,
+    "tbis": 2,
+    "tbds": 2,
+    "warnings": "Synthetic demo content; not wired to real granger_causality on session data.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: plan-wire-suite-07-10 remaining suite_09",
+    "tbi": "Wire granger_causality or mark figures synthetic explicitly",
+    "tbd": "Rename off _tbd after real wire"
   },
   {
     "filename": "notebooks/suite_10_tbd.ipynb",
-    "purpose": "TBD placeholder notebook.",
-    "score": 100,
+    "purpose": "Suite 10: pupil/behavior (synthetic; V182o has real pupil via h5py).",
+    "score": 15,
+    "tbis": 2,
+    "tbds": 2,
+    "warnings": "Synthetic curves; V182o acquisition/pupil_1_tracking exists — wire via h5py.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: brainstorm + plan-suite-10-h5py-pupil",
+    "tbi": "Align pupil diameter to AAAB/AAXB onsets; document if lick absent",
+    "tbd": "Rename off _tbd after real wire"
+  },
+  {
+    "filename": ".agents/skills/progress-review-plan/SKILL.md",
+    "purpose": "PRP backlog protocol skill (Plan/Progress/Review/Brainstorm).",
+    "score": 95,
     "tbis": 0,
     "tbds": 0,
-    "warnings": "Placeholder template configured."
+    "warnings": "Canonical protocol doc; adopted 2026-07-07. progress.json still legacy array shape (see migrate plan).",
+    "status": "done",
+    "last_verified": "2026-07-07",
+    "evidence": "Manual doc review; referenced by AGENTS.md and .cursor/rules/prp-protocol.mdc"
+  },
+  {
+    "filename": "artifacts/developer/progress.json",
+    "purpose": "PRP live backlog state (currently legacy array-of-filename shape).",
+    "score": 50,
+    "tbis": 1,
+    "tbds": 1,
+    "warnings": "review.json already schema_version=1; progress.json is still a bare JSON array with filename not path. Migration is real work but low scientific value — do not block analysis Progress on it.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: file shape inspected"
+  },
+  {
+    "filename": "scripts/visualize_raster_suite.py",
+    "purpose": "Raster visualization suite driver for single-unit panel figures.",
+    "score": 70,
+    "tbis": 1,
+    "tbds": 1,
+    "warnings": "argparse + OMISSION_NWB; no full NWB figure run this pass.",
+    "last_verified": "2026-07-09",
+    "evidence": "python -m compileall scripts/visualize_raster_suite.py -q → exit 0; python scripts/visualize_raster_suite.py --help → exit 0",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/visualize_tfr_suite.py",
+    "purpose": "TFR visualization suite driver for LFP band and heatmap panels.",
+    "score": 70,
+    "tbis": 1,
+    "tbds": 1,
+    "warnings": "argparse + OMISSION_NWB/--area/--layer; no full NWB figure run this pass.",
+    "last_verified": "2026-07-09",
+    "evidence": "python -m compileall scripts/visualize_tfr_suite.py -q → exit 0; python scripts/visualize_tfr_suite.py --help → exit 0",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/generate_tfr_heatmap_grid.py",
+    "purpose": "Generate TFR heatmap grid figures from joined pipeline outputs.",
+    "score": 70,
+    "tbis": 1,
+    "tbds": 1,
+    "warnings": "Canonical bands+palette inlined; argparse; no full TFR data run this pass. Gamma_H capped at 90 Hz (canonical); prior Gamma-3 90-200 dropped.",
+    "last_verified": "2026-07-09",
+    "evidence": "python -m compileall scripts/generate_tfr_heatmap_grid.py -q → exit 0; python scripts/generate_tfr_heatmap_grid.py --help → exit 0; palette/band assert → palette_ok",
+    "status": "done"
+  },
+  {
+    "filename": ".agents/skills/nwb-analysis-forms/SKILL.md",
+    "purpose": "NWB analysis forms and pipeline skill documentation.",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "API examples aligned to live jnwb (decode_stimulus_identity/decode_omission_presence; granger_causality(signal1,signal2); trajectory needs epochs_df).",
+    "last_verified": "2026-07-09",
+    "evidence": "skill assert → skill_ok (no decode_trial_type import; decode_stimulus_identity + decode_omission_presence + granger_causality(signal1 present)",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/run_notebook_remote.py",
+    "purpose": "Deprecated shim; use scripts/run_notebook_local.py for local notebook exec.",
+    "score": 75,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Deprecated shim wrapping run_notebook_local.py; emits DeprecationWarning.",
+    "last_verified": "2026-07-09",
+    "evidence": "compileall remote+local → exit 0; run_notebook_local.py --help → exit 0",
+    "status": "done"
+  },
+  {
+    "filename": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
+    "purpose": "Notebook suite 06: single-unit LFP band-power correlations.",
+    "score": 80,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "Real spike-rate vs LFP band-power correlations via jnwb+h5py; canonical bands/palette. PyNWB Device metadata still broken on V182o.",
+    "last_verified": "2026-07-09",
+    "evidence": "run_notebook_local.py suite_06 → Successfully executed; unit=4.0 PFC n=80; Alpha r=+0.441 p=4.27e-05; Gamma_H r=+0.363 p=0.000942; figure saved outputs/figures/suite_06_spike_lfp_band_corr.png",
+    "status": "done"
+  },
+  {
+    "filename": "examples/06_find_omission_positive_units_v182o.py",
+    "purpose": "Ad hoc V182o O+ unit discovery audit (superseded by canonical pipeline).",
+    "score": 55,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "DEPRECATED docstring; points to examples/07. Historical only.",
+    "last_verified": "2026-07-09",
+    "evidence": "deprecate_ok",
+    "status": "done"
+  },
+  {
+    "filename": "examples/07_canonical_stability_and_response_audit_v182o.py",
+    "purpose": "Canonical stability + S+/S-/O+/X candidate audit for V182o with CSV output.",
+    "score": 80,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "compileall/ast smoke only; full NWB audit re-run not executed this pass.",
+    "last_verified": "2026-07-09",
+    "evidence": "ex07_ok (compileall+ast)",
+    "status": "done"
+  },
+  {
+    "filename": ".agents/skills/remote-ssh-and-file-management/SKILL.md",
+    "purpose": "Remote SSH execution and artifact transfer skill for Windows analysis host.",
+    "score": 75,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "Documents local vs remote split; SSH commands not re-exercised this pass.",
+    "last_verified": "2026-07-09",
+    "evidence": "ssh_skill_ok",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/run_notebook_local.py",
+    "purpose": "Local notebook cell executor via exec() (honest replacement for misnamed remote script).",
+    "score": 80,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Local exec runner; not SSH. Verified by executing suite_06.",
+    "last_verified": "2026-07-09",
+    "evidence": "compileall → exit 0; --help → exit 0",
+    "status": "done"
+  },
+  {
+    "filename": "notebooks/suite_01_single_raster_panels.ipynb",
+    "purpose": "Notebook suite 01: single-unit raster panels via jnwb.viz.raster_suite_omission.",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 0,
+    "warnings": "Real raster_suite_omission; executed unit 243 TEO FR=37.25 Hz.",
+    "last_verified": "2026-07-09",
+    "evidence": "run_notebook_local.py suite_01 → Successfully executed; unit_id=243 area=TEO FR=37.25 Hz; suite_01_raster_unit_243.png",
+    "status": "done"
+  },
+  {
+    "filename": "notebooks/suite_07_tbd.ipynb",
+    "purpose": "Suite 07: PFC population trajectories via jnwb.trajectory (misnamed _tbd).",
+    "score": 82,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "Wired to compute_population_trajectory (real AAAB/AAXB). Filename still _tbd for path stability.",
+    "last_verified": "2026-07-09",
+    "evidence": "run_notebook_local.py suite_07 → Successfully executed; ctrl=40 omit=39 units=57 var_ctrl=0.086 var_omit=0.093; suite_07_population_trajectories.png",
+    "status": "done"
+  },
+  {
+    "filename": "notebooks/suite_08_tbd.ipynb",
+    "purpose": "Suite 08: sliding-window SVM omission decoding via jnwb.decoding (misnamed _tbd).",
+    "score": 78,
+    "tbis": 0,
+    "tbds": 2,
+    "warnings": "Wired to decode_omission_presence sliding windows. Accuracy ~0.85 flat across windows including pre-stim — likely class imbalance (AAAB>>AAXB); interpret with caution. Filename still _tbd. Follow-ups tracked on jnwb/decoding.py.",
+    "last_verified": "2026-07-09",
+    "evidence": "run_notebook_local.py suite_08 → Successfully executed; 6 windows status=success; acc~0.845–0.847 flat incl. pre-stim; suite_08_sliding_decode.png; imbalance spinoff already in plans",
+    "status": "done"
+  },
+  {
+    "filename": "scripts/pipeline_sequence_tfr_suite.py",
+    "purpose": "Publication sequence-layout TFR spectrograms + 7-band traces (R-family conditions).",
+    "score": 72,
+    "tbis": 1,
+    "tbds": 2,
+    "warnings": "Layout+dual-area split implemented; smoke on C31o 230823 only. V182o blocked (0 TFR). Sig ticks are |mean|>2SEM proxy not dual-test.",
+    "status": "open",
+    "evidence": "Prior smoke: pytest test_sequence_layout 6 passed; pipeline --max-areas 2 RRRR,RXRR wrote HTML; V3d/V3a halves differ",
+    "tbi": "Full 11-area × 4-condition run after V182o TFR exists",
+    "tbd": "Do not claim V182o publication figures until tfr_ok"
+  },
+  {
+    "filename": "jnwb/sequence_layout.py",
+    "purpose": "Omission sequence timing + Plotly vector shapes + dual-area channel membership.",
+    "score": 88,
+    "tbis": 0,
+    "tbds": 1,
+    "warnings": "Consumed by build_session_sidecars; optional further polish",
+    "status": "open",
+    "evidence": "pytest tests/test_sequence_layout.py → 6 passed; parse_probe_areas dual V3,V1 keeps halves; sidecars consume API",
+    "tbi": "Sidecar builder should import parse_probe_areas/channel_slice_for_area",
+    "tbd": "Optional: formalize 7th band label with user"
+  },
+  {
+    "filename": "scripts/materialize_session_arrays.py",
+    "purpose": "Optional memmap/zarr materialization of trial-aligned LFP/spikes for hot paths.",
+    "score": 0,
+    "tbis": 1,
+    "tbds": 2,
+    "warnings": "Does not exist. Lower priority than catalog/sidecar/TFR precompute. Prefer lazy h5py first.",
+    "status": "open",
+    "evidence": "Planning 2026-07-09: D:/workspace/data/nwb-arrays root exists per inventory; script absent",
+    "tbi": "Only after sidecars; materialize hot windows only",
+    "tbd": "Do not duplicate full 157GB NWB"
+  },
+  {
+    "filename": "scripts/build_nwb_catalog.py",
+    "path": "scripts/build_nwb_catalog.py",
+    "purpose": "Durable NWB session catalog writer (dir listing → artifacts/data/nwb_catalog.json).",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 1,
+    "tbi": "",
+    "tbd": "Optional: exclude short-nwb from default catalog view",
+    "warnings": "Listing-only; no PyNWB open. Includes short-nwb rows.",
+    "status": "done",
+    "last_verified": "2026-07-09",
+    "evidence": "Review 2026-07-09: catalog_ok 17; subjects C31o/V182o/V198o"
+  },
+  {
+    "filename": "artifacts/data/nwb_catalog.json",
+    "path": "artifacts/data/nwb_catalog.json",
+    "purpose": "Machine-readable inventory of all omission NWB files.",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 0,
+    "tbi": "",
+    "tbd": "",
+    "warnings": "Generated artifact; regenerate via build_nwb_catalog.py.",
+    "status": "done",
+    "last_verified": "2026-07-09",
+    "evidence": "Review 2026-07-09: ok 17"
+  },
+  {
+    "filename": "scripts/build_session_sidecars.py",
+    "path": "scripts/build_session_sidecars.py",
+    "purpose": "Per-session h5py sidecars: electrodes/units/events/h5_paths with dual-area split.",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 1,
+    "tbi": "",
+    "tbd": "Optional parquet; wire jnwb.session to prefer sidecars",
+    "warnings": "V182o uses probe column (no group_name). Bare V3 in dual labels kept as V3 half.",
+    "status": "done",
+    "last_verified": "2026-07-09",
+    "evidence": "Review 2026-07-09: v182o_sidecar_ok"
+  },
+  {
+    "filename": "scripts/build_session_readiness.py",
+    "path": "scripts/build_session_readiness.py",
+    "purpose": "Join catalog + TFR + sidecar → session_readiness.csv gates.",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 1,
+    "tbi": "",
+    "tbd": "Flip suite_tfr_ready after V182o TFR exists",
+    "warnings": "V182o suite_tfr_ready=False until TFR precompute.",
+    "status": "done",
+    "last_verified": "2026-07-09",
+    "evidence": "Review 2026-07-09: readiness_ok 17; tfr_ok=13 sidecar_ok=17 suite_tfr_ready=11; V182o tfr_ok=False"
+  },
+  {
+    "filename": "artifacts/data/session_readiness.csv",
+    "path": "artifacts/data/session_readiness.csv",
+    "purpose": "Per-session readiness matrix for gated suite execution.",
+    "score": 85,
+    "tbis": 0,
+    "tbds": 0,
+    "tbi": "",
+    "tbd": "",
+    "warnings": "V182o rows gated off TFR.",
+    "status": "done",
+    "last_verified": "2026-07-09",
+    "evidence": "Review 2026-07-09: csv_ok 17"
   }
 ]

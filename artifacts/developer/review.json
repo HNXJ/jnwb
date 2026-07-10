@@ -1,1 +1,7 @@
-[]
+{
+  "schema_version": 1,
+  "description": "Alias; canonical queue is artifacts/developer/review.json",
+  "last_updated": "2026-07-09",
+  "entry_count": 0,
+  "entries_note": "See artifacts/developer/review.json"
+}

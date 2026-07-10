@@ -258,6 +258,19 @@ from .viz import (
     plot_granger_network_plotly,
 )
 
+from .sequence_layout import (
+    FULL_SEQUENCE_DURATION_MS,
+    apply_sequence_layout,
+    channel_slice_for_area,
+    epoch_intervals,
+    layout_template_svgs,
+    make_sequence_figure,
+    normalize_area_name,
+    omission_window_ms,
+    parse_probe_areas,
+    sequence_shapes,
+)
+
 # Y-files: New orthogonal jnwb modules (spectral and visualization)
 from . import spectral
 from . import visual_qc
@@ -375,6 +388,17 @@ __all__ = [
     'lfp_tfr_trace_suite_omission',
     'lfp_tfr_trace_correlation',
     'plot_granger_network_plotly',
+    # Sequence presentation layout (Plotly vector shapes)
+    'FULL_SEQUENCE_DURATION_MS',
+    'apply_sequence_layout',
+    'channel_slice_for_area',
+    'epoch_intervals',
+    'layout_template_svgs',
+    'make_sequence_figure',
+    'normalize_area_name',
+    'omission_window_ms',
+    'parse_probe_areas',
+    'sequence_shapes',
     # Spectral analysis (Y-file: new orthogonal module)
     'spectral',
     # Visual QC (Y-file: new orthogonal module)

@@ -1,58 +1,115 @@
-# Project-Scoped AGENTS.md Context
+# Omission — Project AGENTS.md
 
-## Identity & Timezone
-- **User**: Nejath (CST/CDT, UTC-6/-5)
-- **Role**: Systems neuroscience researcher (electrophysiology, NWB, spike and LFP analysis).
+Inherits the global working agreement:
+`C:\Users\nejath\.gemini\config\AGENTS.md`
 
-## Engineering Operating Rules
-Operating style is strictly governed by `RULE[user_global]` (verification-first, minimal patches, receipts required, stop on ambiguity, zero hype language).
+This file **specializes** omission. If it conflicts with global principles, flag the conflict;
+do not silently override Core Principles / Verify Claims / No silent synthetic science.
 
-## Environment & Projects
-- **Python**: 3.10+ (NumPy, SciPy, Pandas, PyNWB, PyTorch, CuPy, JAX, pytest).
-- **Filesystem**: `D:/workspace/` (Git repos), `D:/analysis/nwb/` (NWB data files).
-- **Active Projects**: `omission`, `the_pipeline`, `biophys`, `gamma`.
+**User address:** Hamm.  
+**Role:** systems neuroscience (electrophysiology, NWB, spike + LFP, omission paradigm).
 
-## The Developer Tracking System
-Every repository MUST maintain a tracking registry inside the `artifacts/developer/` directory containing three JSON database files:
-1. `progress.json`: The complete status table of all repo files. Schema: `filename`, `purpose`, `score` (out of 100), `tbis` (To Be Implemented), `tbds` (To Be Determined), `warnings`.
-2. `review.json`: Identical schema as `progress.json`. Tracks completed actions awaiting review.
-3. `plan.json` (or `plans.json`): Brainstormed plans, priorities, and proposed enhancements.
+---
 
-A rendered Markdown report summarizing the status must be kept at `artifacts/progress_report.md`.
+## What this repo is
 
-### Scoring Rubric (Out of 100)
-- **100**: Fully completed. Core code is implemented, documented, and verified with passing unit/integration tests. Imports are optimized.
-- **80-90**: Implemented and functional. Core features work and basic tests pass, but minor edge cases, docstrings, or advanced validations are pending.
-- **50-70**: Partially implemented or in-progress. File structure is present, but active TODOs (`tbis` or `tbds` fields) remain, or validation is incomplete.
-- **<50**: Skeleton code or placeholder. Critical logic is missing, untested, or experiencing runtime/compile-time errors.
+- Package: `jnwb` — load/analyze/plot omission NWB sessions.
+- Publication figures and suites: `scripts/`, `notebooks/suite_*.ipynb`, `outputs/`.
+- Backlog: PRP under `artifacts/` (see global AGENTS + `.cursor/rules/prp-protocol.mdc`).
+- Palette: `.cursor/rules/omission-palette.mdc` (canonical hex indices).
 
-## Leveraging Workspace Skills
-- Before writing custom code or scripts for data analysis, check if specialized skills exist under `.agents/skills/` (e.g., `jnwb-core`, `jnwb-spiking`, `jnwb-tfr`, `jnwb-statistics`, `jnwb-visualization`).
-- Prioritize using canonical classes and functions (e.g., `UnitAnalyzer`, `TFRAnalyzer`, `StatisticalAnalysis`, `population_by_area`).
-- If custom scripts are needed, import and extend these existing libraries rather than replicating their functionality.
+## Data topology (verify; do not memorize stale counts)
 
-## Context Inheritance & Hierarchy
-- The workspace-specific context file `.agents/AGENTS.md` inherits from the global context `C:\Users\nejath\.gemini\config\AGENTS.md`.
-- Workspace contexts may specialize path directories, project scopes, or active project configurations but must not contradict global engineering principles. Keep global and workspace context files in sync.
+| Kind | Location |
+|------|----------|
+| Raw NWB | `D:/analysis/nwb/` (+ `short-nwb/`) |
+| Catalog | `artifacts/data/nwb_catalog.json` (regenerate: `scripts/build_nwb_catalog.py`) |
+| Sidecars | `D:/workspace/data/metadata/{stem}/` (`electrodes.csv`, `units.csv`, `events.csv`, `h5_paths.json`, `probe_areas.json`) |
+| Readiness | `artifacts/data/session_readiness.csv` (`scripts/build_session_readiness.py`) |
+| Precomputed TFR | `D:/workspace/data/tfr_arrays/` (`{session_prefix}-{A\|B\|C}-{area}-{cond}.npy`) |
+| Array caches | `D:/workspace/data/nwb-arrays/` (optional materializations) |
 
-## Permanent Flagger Actions
-Whenever the user issues one of these command phrases, adhere strictly to the following protocols:
+**Env overrides:** `OMISSION_NWB_DIR`, `OMISSION_TFR_DIR`, `OMISSION_META_DIR`, `OMISSION_SESSION`.
 
-### 1. "Proceed with Planning"
-- **Flow**: `plan.json` -> `progress.json`
-- **Protocol**: Load the brainstormed items from `plan.json`. Inspect the codebase and translate active plans into specific file-level items inside `progress.json` by adding placeholder entries, re-scoring existing files, or updating their `tbis`/`tbds`/`warnings` and todos.
+**Inventory reality (2026-07-09 receipt):** 17 NWB files (C31o / V182o / V198o). V182o sessions
+exist as NWB; **TFR npy for V182o may be absent** — check `session_readiness.csv` before claiming
+spectrogram/trace suites.
 
-### 2. "Proceed with Progress"
-- **Flow**: `progress.json` -> `review.json`
-- **Protocol**: Load `progress.json` and locate files with score < 100/100 or pending notes. Systematically implement the required changes (delegating large/parallel tasks to sub-agents if needed). Run testing to verify correctness. Once resolved and verified, move the file's database entry from `progress.json` to `review.json` (using identical schemas).
+## Hard scientific footguns (omission-specific)
 
-### 3. "Proceed with Review"
-- **Flow**: `review.json` -> `progress.json`, `plan.json`
-- **Protocol**: Inspect every item in `review.json` to validate correctness:
-  - **Case A (Pass)**: If verified as correct, move the item back to `progress.json` with a score of 100/100 and clean warning/TBI/TBD fields. Log new ideas or extension features in `plan.json` if applicable.
-  - **Case B (Fail)**: If it requires re-action, move the item back to `progress.json` with a reduced score and detailed notes explaining the failure.
-  - **Case C (New Issue)**: If review reveals a separate issue, update `progress.json` and `plan.json` respectively.
-  - **Case D (Empty Review)**: If `review.json` is empty, run a critical re-scoring of `progress.json` to identify further optimizations.
+1. **`tfr_from_preprocessed` must not silently return mock data.** If TFR files are missing,
+   fail or label synthetic. Wire to `OMISSION_TFR_DIR` / readiness gates.
+2. **V182o PyNWB Device metadata can break `pynwb` construct.** Prefer **h5py** for LFP/pupil
+   (`acquisition/probe_*_lfp/...`) and sidecars; do not require a full clean PyNWB load for
+   metadata indexing.
+3. **Dual-area probes:** label `"Y, Z"` / `"Y/Z"` → channels **1–64 = Y**, **65–128 = Z**.
+   Bare `"V3"` alone → `(V3d, V3a)`. Dual `"V3, V1"` keeps **V3** as the first half (does not
+   expand to V3d/V3a). Canonical helpers: `jnwb.sequence_layout.parse_probe_areas`,
+   `channel_slice_for_area`.
+4. **Sequence timing (ms, p1 = 0):** fx=-500; p1=0; d1=531; p2=1031; … full span **4624 ms**
+   (−500…4124). Layout shapes: `jnwb.sequence_layout` (Plotly vector objects, not a background PNG).
+5. **Intervals are event-level**, not one-row-per-trial. Filter with `correct`, `stimulus_number`,
+   `task_condition_number`; do not count raw rows as trials.
+6. **Signal classes stay separate:** SPK/SUA, MUAe, LFP. Do not conflate convolved spike trains
+   with sparse `spike_times`.
+7. **Stability / O+ definitions:** prefer canonical pipelines over ad hoc Mann-Whitney shortcuts
+   (see `examples/07_*` vs deprecated `examples/06_*`).
+8. **Decode accuracy without class baseline is misleading** (suite_08 flat ~0.85 including pre-stim).
 
-### 4. "Proceed with Brainstorm"
-- **Protocol**: Review `plan.json` and other codebase files to outline long-term refactoring strategies, documentation enhancements, library memory/skill reforms, or new experimental paradigms. Append brainstorm outputs back to `plan.json`.
+## Skills to load before reinventing
+
+| Need | Skill |
+|------|--------|
+| Backlog | `.agents/skills/progress-review-plan/SKILL.md` |
+| NWB I/O | `.agents/skills/jnwb-core/SKILL.md` |
+| Spikes / rasters | `.agents/skills/jnwb-spiking/SKILL.md` |
+| TFR / LFP | `.agents/skills/jnwb-tfr/SKILL.md` |
+| Stats | `.agents/skills/jnwb-statistics/SKILL.md` |
+| Viz | `.agents/skills/jnwb-visualization/SKILL.md` |
+| Forms / pipelines | `.agents/skills/nwb-analysis-forms/SKILL.md` |
+| Remote host | `.agents/skills/remote-ssh-and-file-management/SKILL.md` |
+
+Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
+
+## PRP paths in this repo — v2 migration pending
+
+Global doctrine (`C:\Users\nejath\.gemini\config\AGENTS.md` → "PRP Backlog Protocol (v2)") now
+specifies the target shape: `artifacts/developer/{plan,progress,review}.json` +
+matching `.md` (rendered by `misc/jn2md.py`) + `misc/` (+ optional `misc/archive/`), nothing
+else. **This repo has not been migrated to that shape yet** — do not assume it has been.
+
+Actual paths on disk (2026-07-10 receipt, `ls artifacts/` and `artifacts/developer/`):
+
+| Role | Path (actual) | v2 mismatch |
+|------|----------------|-------------|
+| Plans | `artifacts/plans.json` | wrong dir (top-level, not `developer/`) and plural filename |
+| Progress | `artifacts/developer/progress.json` | legacy array-of-`filename` shape, not yet `{summary, table[]}` |
+| Review | `artifacts/developer/review.json` | present, needs shape check |
+| Review alias | `artifacts/review.json` (top-level, 220 bytes) | stray duplicate — v2 forbids anything but the three JSONs + three `.md` + `misc/` in `artifacts/developer/` |
+| Other stray files | `artifacts/pv.json`, `artifacts/walkthrough.md`, `artifacts/progress_report.md`, `artifacts/reports/`, `artifacts/developer/.cache/` | none of these exist in v2's target shape — do not delete without confirming with Hamm first, but do not treat them as canonical PRP state either |
+
+**Until migration happens:** keep matching entries by `path` / legacy `filename` as before; do
+not invent a parallel backlog; do not silently rename/move files into the v2 shape without
+Hamm's go-ahead, since `progress.json`'s legacy array format and the stray files may hold
+in-progress work. Flag the mismatch rather than pretending this repo already complies with v2.
+
+## Git / worktree discipline (project)
+
+- Report branch, SHA, dirty status before edits.
+- Do not commit/push/merge unless Hamm asks.
+- Dirty `main` may block fast-forward to `origin/dev` — say so; do not force.
+
+## Before claiming a publication figure
+
+Checklist:
+- [ ] Session row in `session_readiness.csv` has required gates (`nwb_ok`, `sidecar_ok`, `tfr_ok` as needed)
+- [ ] Area membership used dual-area rule above
+- [ ] Palette indices from omission palette rule
+- [ ] Timing aligned to p1 / full sequence or stated omission window
+- [ ] Stats annotations (N, test, window) present when claiming effects
+- [ ] Visual output inspected
+
+## Legacy note
+
+`legacy/markdowns/CLAUDE.md` is historical orientation (counts, spectral pipeline notes). Prefer
+**this file + live catalog/readiness** over legacy session counts (e.g. "13 NWB" is stale).

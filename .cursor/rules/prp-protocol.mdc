@@ -1,0 +1,24 @@
+---
+description: PRP backlog protocol — Plan/Progress/Review/Brainstorm via artifacts JSON
+alwaysApply: true
+---
+
+# PRP Protocol
+
+Follow the **progress-review-plan** skill (`.agents/skills/progress-review-plan/SKILL.md`).
+
+**State files (this repo):**
+- Plans: `artifacts/plans.json` (and/or `artifacts/developer/plans.json` if present)
+- Progress: `artifacts/developer/progress.json`
+- Review: `artifacts/developer/review.json`
+
+Match by `path` / legacy `filename`. Never duplicate a path across progress and review.
+
+**Triggers (one action per invocation):**
+- **Proceed-with-Planning** — triage plans → score progress (no code)
+- **Proceed-with-Progress** — fix real files; move to review with `review_command` (not "done")
+- **Proceed-with-Review** — run every `review_command`; confirmed → done; fail → back to progress
+- **Proceed-with-Brainstorm** — append to plans only; never edit progress/review
+
+**Discipline:** receipts ("ran X, got Y"). Editing JSON ≠ doing or verifying work.
+Project `.agents/AGENTS.md` overrides local path conventions.

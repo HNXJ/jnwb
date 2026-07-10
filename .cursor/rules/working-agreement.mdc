@@ -1,0 +1,21 @@
+---
+description: Global working agreement — verify claims, no silent synthetic science, preserve invariants
+alwaysApply: true
+---
+
+# Working agreement (Cursor slice)
+
+Full text: `C:\Users\nejath\.gemini\config\AGENTS.md` + project `.agents/AGENTS.md`.
+
+**Non-negotiables:**
+- Understand before changing; preserve APIs/shapes/units/timestamps.
+- Separate observed vs inferred vs speculated.
+- No "fixed/correct" without command receipts; sub-agent output is not automatic truth.
+- No silent synthetic science — missing TFR/LFP → fail or label synthetic in the figure.
+- Prefer reversible git/fs ops; no force-push / hard reset / hook skips unless user asks.
+- Scope: only what the task requires; smallest regression test for behavior changes.
+- Scientific: units explicit; no silent normalization; readiness gates before publication suites.
+
+**Omission:** dual-area ch 1–64 / 65–128; sequence layout via `jnwb.sequence_layout`; palette via `omission-palette` rule; backlog via `prp-protocol` rule.
+
+If this rule conflicts with observed repo reality, flag it — do not silently comply or ignore.
