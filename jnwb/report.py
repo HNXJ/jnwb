@@ -32,6 +32,7 @@ from .session import OmissionSession
 from .statistics import StatisticalAnalysis
 from .viz import MADELANE_GOLD, MADELANE_VIOLET, MADELANE_WHITE, MADELANE_GRAY, MADELANE_TEAL, MADELANE_ORANGE
 from .functions import raster_plot, psth_analysis, autocorrelogram
+from .decoding import decode_stimulus_identity
 
 log = logging.getLogger(__name__)
 
@@ -244,8 +245,10 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "## 10. Population Stimulus Identity Decoding (Simulated/Mock)\n",
-                    "**Note**: SVM decoding accuracy is simulated for illustration."
+                    "## 10. Population Stimulus Identity Decoding\n",
+                    "**Note**: Real nested-CV linear-SVM decode of Condition A (AAAB) vs Condition B (BBBA) "
+                    "population spike counts. Returns NaN with an explicit status if trial counts are insufficient; "
+                    "never fabricated."
                 ]
             },
             {
@@ -254,7 +257,15 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
                 "metadata": {},
                 "outputs": [],
                 "source": [
-                    "print('Stimulus population decoding ready.')"
+                    "from jnwb.decoding import decode_stimulus_identity\n",
+                    "areas_avail = sorted(units['area'].dropna().unique()) if not units.empty else []\n",
+                    "if areas_avail:\n",
+                    "    dec_area = areas_avail[0]\n",
+                    "    dec_res = decode_stimulus_identity(session, area=dec_area, condition_pairs=('AAAB', 'BBBA'))\n",
+                    "    print('Decoding area:', dec_area)\n",
+                    "    print('Decoding result:', dec_res)\n",
+                    "else:\n",
+                    "    print('No units available for decoding.')"
                 ]
             }
         ],
@@ -629,26 +640,101 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
     plt.close(fig)
 
     # --- 10. Population Stimulus Identity Decoding ---
+    # Real nested-CV linear-SVM decode of AAAB vs BBBA population spike counts.
+    # Computed once here and reused for both the SVG and Plotly renderings below
+    # (no synthetic / fabricated accuracy metrics; NaN + explicit status if trials
+    # are insufficient for cross-validation).
+    decoding_area = None
+    if not units_df.empty and 'area' in units_df.columns:
+        area_counts = units_df['area'].dropna().value_counts()
+        if len(area_counts) > 0:
+            decoding_area = str(area_counts.index[0])
+
+    if decoding_area is not None:
+        decoding_result = decode_stimulus_identity(
+            session,
+            area=decoding_area,
+            condition_pairs=("AAAB", "BBBA"),
+        )
+    else:
+        decoding_result = {
+            "accuracy": float("nan"),
+            "fold_accuracies": np.array([]),
+            "n_units": 0,
+            "n_trials": 0,
+            "n_per_class": {},
+            "majority_baseline": float("nan"),
+            "best_params": {},
+            "status": "no_area_available",
+            "cv_scheme": None,
+        }
+
     fig, ax = plt.subplots(figsize=(6, 4))
-    apply_madelane_style(ax, title="Population Stimulus Identity Decoding Performance", xlabel="Time (ms)", ylabel="Decoding Accuracy")
-    
-    t_bins = np.linspace(-100, 500, 12)
-    acc = 0.5 + 0.3 * np.exp(-((t_bins - 150) / 100)**2) + np.random.normal(0, 0.03, 12)
-    
-    ax.plot(t_bins, acc, color=MADELANE_GOLD, lw=2.5, marker='o')
-    ax.axhline(0.5, color='#888888', linestyle='--', label='Chance (0.5)')
-    
-    # Compare with chance using t-test
-    stat_t, p_t = stats.ttest_1samp(acc[4:8], 0.5)
-    ax.text(0.05, 0.85, f"t-test vs Chance p = {p_t:.4e}", transform=ax.transAxes, color=MADELANE_WHITE)
-    ax.legend(frameon=False)
-    
-    fig.savefig(fig_dir / "population_decoding.svg", format="svg", bbox_inches='tight')
+    apply_madelane_style(
+        ax,
+        title="Population Stimulus Identity Decoding Performance",
+        xlabel="CV fold",
+        ylabel="Decoding Accuracy",
+    )
+    fold_acc = np.asarray(decoding_result.get("fold_accuracies", np.array([])), dtype=float)
+    majority = decoding_result.get("majority_baseline", float("nan"))
+    status = decoding_result.get("status", "unknown")
+
+    if decoding_result.get("status") == "success" and fold_acc.size > 0:
+        fold_idx = np.arange(1, fold_acc.size + 1)
+        ax.bar(fold_idx, fold_acc, color=MADELANE_GOLD, label="Outer-fold accuracy")
+        ax.axhline(np.nanmean(fold_acc), color=MADELANE_TEAL, ls="--", lw=1.5, label="Mean accuracy")
+        if not np.isnan(majority):
+            ax.axhline(majority, color=MADELANE_ORANGE, ls=":", lw=1.5, label="Majority baseline")
+        ax.set_xlim(0.5, fold_acc.size + 0.5)
+        ax.set_ylim(0.0, 1.0)
+        ax.legend(frameon=False, fontsize=8)
+        ax.text(
+            0.05, 0.05,
+            f"area={decoding_area}  n_units={decoding_result.get('n_units')}  "
+            f"n_trials={decoding_result.get('n_trials')}",
+            transform=ax.transAxes, color=MADELANE_WHITE, fontsize=8,
+        )
+    else:
+        ax.text(
+            0.5,
+            0.5,
+            f"Decoding status: {status}\n"
+            "(insufficient trials/units for cross-validated decode;\n"
+            "no synthetic / fabricated accuracy metrics)",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            color=MADELANE_ORANGE,
+        )
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0.0, 1.0)
+    fig.savefig(fig_dir / "population_decoding.svg", format="svg", bbox_inches="tight")
     plt.close(fig)
-    
+
     fig_dec_plotly = go.Figure()
-    fig_dec_plotly.add_trace(go.Scatter(x=t_bins, y=acc, name="SVM Accuracy", line=dict(color=MADELANE_GOLD)))
-    fig_dec_plotly.update_layout(title="Population Decoding Accuracy Over Time")
+    if decoding_result.get("status") == "success" and fold_acc.size > 0:
+        fold_idx = list(range(1, fold_acc.size + 1))
+        fig_dec_plotly.add_trace(
+            go.Bar(x=fold_idx, y=fold_acc.tolist(), name="Outer-fold accuracy", marker_color=MADELANE_GOLD)
+        )
+        fig_dec_plotly.add_hline(y=float(np.nanmean(fold_acc)), line_dash="dash",
+                                  annotation_text="Mean accuracy", line_color=MADELANE_TEAL)
+        if not np.isnan(majority):
+            fig_dec_plotly.add_hline(y=float(majority), line_dash="dot",
+                                      annotation_text="Majority baseline", line_color=MADELANE_ORANGE)
+        fig_dec_plotly.update_yaxes(range=[0.0, 1.0], title="Decoding Accuracy")
+        fig_dec_plotly.update_xaxes(title="Outer CV fold")
+    else:
+        fig_dec_plotly.add_annotation(
+            text=f"Decoding status: {status} (no fabricated metrics)",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+        )
+    fig_dec_plotly.update_layout(title=f"Population Decoding Accuracy ({decoding_area or 'no area'}: AAAB vs BBBA)")
     dec_html = fig_dec_plotly.to_html(full_html=False, include_plotlyjs=False)
 
     # --- Compile HTML Report ---
@@ -816,7 +902,7 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
 
             <!-- 10. Population Decoding -->
             <div class="card">
-                <h2>10. Population Stimulus Identity Decoding <span style="font-size: 0.6em; color: #ff9800; background: #fff3e0; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #ffe0b2; vertical-align: middle;">⚠️ SIMULATED DATA</span></h2>
+                <h2>10. Population Stimulus Identity Decoding <span style="font-size: 0.6em; color: #00FFCC; background: #0C2A26; padding: 2px 6px; border-radius: 4px; margin-left: 10px; border: 1px solid #00FFCC44; vertical-align: middle;">✓ COMPUTED (area={decoding_area or 'n/a'}, status={status})</span></h2>
                 {dec_html}
             </div>
         </div>

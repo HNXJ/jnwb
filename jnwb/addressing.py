@@ -139,8 +139,16 @@ def enrich_units_dataframe(units_df: pd.DataFrame, electrodes_df: Optional[pd.Da
         if 'stable_plus' not in df.columns:
             df['stable_plus'] = False
 
-    # Force conversion of core types
-    for col in ['firing_rate', 'waveform_duration']:
+    # Force conversion of core types. snr/unit_id are stored as dtype=str
+    # (object) on some sessions (e.g. C31o) but float64 on others (e.g.
+    # V182o) - the same cross-session inconsistency already worked around
+    # for snr in scripts/filter_units.py. unit_id is used as an identity
+    # key for equality/isin comparisons throughout the codebase (session.py
+    # get_spike_times, factories.py dataset_from_session, etc.) - an
+    # object-dtype string column silently fails every such comparison
+    # (df['unit_id'] == 156 is always False if the stored value is the
+    # string '156.0'), confirmed 2026-07-12. Coerced here at the source.
+    for col in ['firing_rate', 'waveform_duration', 'snr', 'unit_id']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 

@@ -15,10 +15,18 @@ Omission sessions are structured in the Neurodata Without Borders (NWB) standard
 ---
 
 ## Session-Probe-Area Mapping
-Probes are assigned letters (A, B, C) corresponding to physical linear microelectrode arrays:
-- **Probe A (index 0)**: Typically targeted at PFC/FEF.
-- **Probe B (index 1)**: Typically targeted at early visual areas (V1, V2, V3, V4).
-- **Probe C (index 2)**: Targeted at additional higher visual areas (MT, MST, TEO).
+Probes are assigned letters (A, B, C, and D for sessions with a 4th probe - confirmed
+present in V182o sessions) corresponding to physical linear microelectrode arrays.
+**The probe letter -> area assignment is NOT fixed across subjects/sessions** - it is
+determined per-recording by the physical probe insertion, not a stable convention.
+Confirmed by real precomputed TFR filenames across 3 sessions:
+- `sub-C31o_ses-230630`: A=PFC, B=MT/V4, C=V1/V3
+- `sub-C31o_ses-230823`: A=FEF, B=MST/MT, C=V1/V2/V3
+- `sub-V182o_ses-260629`: A=PFC, B=FEF, C=FST/MST, D=TEO (frontal probe B here, not visual)
+
+Always resolve area from the real `location`/`area`/`group_name` column via
+`jnwb.addressing.map_peak_channel_to_area` (or the enriched `area` column from
+`enrich_units_dataframe`) - never assume a probe letter implies a specific area.
 
 Standard area acronyms stored in the `location` column:
 - Visual: `V1`, `V2`, `V3d`, `V3a`, `V4`, `MT`, `MST`, `TEO`, `FST`

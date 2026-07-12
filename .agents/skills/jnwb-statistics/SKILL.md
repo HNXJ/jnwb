@@ -4,7 +4,8 @@ description: |
   Standardised dual-test statistics for the Omission project via jnwb.
   Covers the StatisticalAnalysis object: compare_groups, compare_multiple_groups,
   correlate, bootstrap_ci, permutation_test. Every method returns the same
-  structured dict: parametric test + non-parametric test + effect size + FDR.
+  structured dict: parametric test + non-parametric test + named effect size.
+  Family-wise FDR via StatisticalAnalysis.fdr_correct(p_values) across hypotheses.
   Use this skill any time you need a rigorous comparison between groups or metrics.
 ---
 
@@ -30,18 +31,28 @@ Every comparison function returns:
         'test': 'independent_t_test',   # or ANOVA, Pearson r, etc.
         'statistic': 2.34,
         'pval': 0.021,
-        'effect_size': 0.45,            # Cohen's d, eta², R²
+        'effect_size': 0.45,
+        'effect_size_name': 'cohens_d_pooled',  # or cohens_dz when paired
     },
     'non_parametric': {
         'test': 'mann_whitney_u',       # or Kruskal-Wallis, Spearman rho
         'statistic': 1200,
         'pval': 0.018,
     },
-    'fdr_pval_parametric': 0.042,       # Benjamini-Hochberg α=0.05
-    'fdr_pval_nonparametric': 0.036,
-    'significant_parametric': True,
+    # Deprecated aliases: mirror raw p (NOT FDR). See multiple_comparison note.
+    'fdr_pval_parametric': 0.021,
+    'fdr_pval_nonparametric': 0.018,
+    'significant_parametric': True,     # uncorrected alpha=0.05
     'significant_nonparametric': True,
+    'multiple_comparison': {'applied': False, 'reason': 'single_comparison_dual_report'},
+    'mean_diff_ci': {'observed_mean_diff': ..., 'bootstrap_ci': (lo, hi)},
 }
+```
+
+Family-wise FDR (units / channels / freqs / time):
+
+```python
+q = StatisticalAnalysis.fdr_correct(raw_p_values)  # Benjamini-Hochberg
 ```
 
 ## Methods
@@ -56,7 +67,7 @@ result = StatisticalAnalysis.compare_groups(pre, post, paired=True)
 
 Parametric: independent/paired t-test  
 Non-parametric: Mann-Whitney U / Wilcoxon signed-rank  
-Effect size: Cohen's d
+Effect size: Cohen's d_pooled (independent) or Cohen's dz (paired); see `effect_size_name`
 
 ### Compare 3+ Groups
 
@@ -103,16 +114,20 @@ perm = StatisticalAnalysis.permutation_test(group1, group2, n_permutations=5000)
 | Scenario              | Parametric        | Non-parametric    | Effect Size |
 |-----------------------|-------------------|-------------------|-------------|
 | 2 independent groups  | t-test            | Mann-Whitney U    | Cohen's d   |
-| 2 paired groups       | paired t-test     | Wilcoxon          | Cohen's d   |
+| 2 paired groups       | paired t-test     | Wilcoxon          | Cohen's dz  |
 | 3+ groups             | ANOVA             | Kruskal-Wallis    | eta²        |
 | Correlation           | Pearson r         | Spearman rho      | R²          |
 | Confidence interval   | t-based CI        | Bootstrap CI      | —           |
 | Permutation           | —                 | Permutation test  | p-value     |
 
-FDR correction: **Benjamini-Hochberg** at α = 0.05, applied to both branches.
+FDR correction: **Benjamini-Hochberg** via `fdr_correct(p_values)` across a
+hypothesis family — **not** across the parametric/nonparametric pair from one comparison.
 
 ## Design Notes
 
 - All random seeds fixed at **42** for reproducibility.
-- `significant_parametric` / `significant_nonparametric` flags use `fdr_pval < 0.05`.
-- For publication, report **both** branches and both FDR-corrected p-values.
+- Dual parametric + nonparametric results are exploratory dual reports.
+- `significant_*` flags use uncorrected `pval < 0.05` for a single comparison.
+- Deprecated `fdr_pval_*` keys mirror raw p-values; do not treat them as FDR.
+- For publication families (many units/bins), call `fdr_correct` on the p-vector.
+- `compare_groups` also returns `mean_diff_ci` (bootstrap CI on mean difference).

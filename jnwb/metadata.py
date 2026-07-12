@@ -175,15 +175,20 @@ def unit_census_report(
     if not group_by:
         return units_df.describe()
 
+    # Count column: enrich_units_dataframe (run by get_all_units_metadata) always
+    # renames the raw NWB 'cluster_id' column to 'unit_id', so 'cluster_id' is
+    # never present on the DataFrame this function actually receives.
+    count_col = 'unit_id' if 'unit_id' in units_df.columns else 'cluster_id'
+
     census = units_df.groupby(group_by, dropna=False).agg({
-        'cluster_id': 'count',
+        count_col: 'count',
         'firing_rate': ['mean', 'median', 'std'],
         'waveform_duration': ['mean', 'median'],
         'snr': ['mean', 'median']
     }).round(2)
 
     census.columns = ['_'.join(col).strip() for col in census.columns.values]
-    census = census.rename(columns={'cluster_id_count': 'n_units'})
+    census = census.rename(columns={f'{count_col}_count': 'n_units'})
 
     return census.reset_index()
 

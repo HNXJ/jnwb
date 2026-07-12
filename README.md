@@ -1,21 +1,34 @@
 # Omission: Unified Single-Unit & Spectral Analysis (`jnwb`)
 
-Production repository for the **Omission** project — hierarchical visual prediction and omission response analysis across cortical visual and prefrontal hierarchies (V1, V2, V3, V4, MT, MST, TEO, FEF, PFC) across 13 recording sessions.
+Research analysis framework for the **Omission** project — hierarchical visual prediction and omission response analysis across cortical visual and prefrontal hierarchies (V1, V2, V3, V4, MT, MST, TEO, FEF, PFC) across recording sessions.
+
+This is an active research codebase. Statistical and decoding APIs include exploratory dual-test reports; treat confirmatory inference (family-wise FDR, nested CV decoding, Granger diagnostics) as work in progress toward publication-grade use.
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
-- **`jnwb/`** — Unified Python package containing the production-grade NWB analysis framework and built-in MCP server.
-- **`tests/`** — Consolidated test suite (114 passing tests) fully validating loaders, spectral/spiking pipelines, and statistical engines.
-- **`docs/`** — Consolidated, up-to-date documentation on overview, NWB structures, methods, and operations.
+- **`jnwb/`** — Unified Python package for NWB-centric omission analysis (session I/O, spectral, spiking, connectivity, decoding, visualization).
+- **`tests/`** — Pytest suite for loaders, spectral/spiking pipelines, and statistical engines. Run locally for the current pass count (do not trust hardcoded numbers in docs).
+- **`docs/`** — Documentation on overview, NWB structures, methods, and operations.
 - **`examples/`** — Step-by-step usage scripts for spiking, TFR, decoding, and spectral causality.
-- **`legacy/`** — Unified archive containing legacy context markdowns, obsolete scripts, and old test files.
-- **`etude_no_01_gallery.ipynb`** — Comprehensive Jupyter Notebook containing interactive showcases for all visualization tasks.
+- **`legacy/`** — Archive of legacy context markdowns, obsolete scripts, and old tests.
+- **`etude_no_01_gallery.ipynb`** — Interactive showcase notebook for visualization tasks.
 
 ---
 
-## 🚀 Quick Start
+## Install
+
+```bash
+pip install -e ".[test]"
+python -m pytest -q
+```
+
+Core dependency includes `pynwb`. The `test` extra pulls pytest and the scientific stack used by the advertised suite.
+
+---
+
+## Quick Start
 
 ```python
 import jnwb as oa

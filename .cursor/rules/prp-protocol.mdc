@@ -1,24 +1,28 @@
 ---
-description: PRP backlog protocol — Plan/Progress/Review/Brainstorm via artifacts JSON
+description: Canonical PRP backlog protocol — Brainstorm/Plan/Review/Progress/Inspect via artifacts/developer JSON
 alwaysApply: true
 ---
 
-# PRP Protocol
+# Canonical PRP Protocol (Developer Standard)
 
-Follow the **progress-review-plan** skill (`.agents/skills/progress-review-plan/SKILL.md`).
+Follow the **progress-review-plan** skill (`.agents/skills/progress-review-plan/SKILL.md`) for full
+mechanics. This file pins the repo-specific paths and trigger names.
 
-**State files (this repo):**
-- Plans: `artifacts/plans.json` (and/or `artifacts/developer/plans.json` if present)
-- Progress: `artifacts/developer/progress.json`
-- Review: `artifacts/developer/review.json`
+**Structure:** exactly three JSON files under `artifacts/developer/` — `plans.json`, `review.json`,
+`progress.json`. `review.json`/`progress.json` map the same list of file rows; `plans.json` is
+roadmap/brainstorm-granularity by deliberate policy (2026-07-12) and does NOT force a matching
+per-file row for every entry — see the SKILL.md "Identity key" section for the cross-referencing
+convention (`progress_targets`/`linked_progress_scores`/`linked_plan_items`) used where a plan item
+does have a concrete file scope. Auxiliary/derived files (caches, rendered `.md`, logs) live under
+`artifacts/developer/.cache/`; nothing else belongs alongside the three JSONs.
 
-Match by `path` / legacy `filename`. Never duplicate a path across progress and review.
+**Phased command actions (one per invocation):**
+1. `proceed with brainstorm` — outline features/spec updates inside `plans.json`'s `brainstorm` array. No code changes, no touching `review.json`/`progress.json`.
+2. `proceed with plan` — scan `brainstorm`, map entries to file rows/tasks with a completion score in `plans.json`'s `items` array. Score reflects last-reviewed value, not a fresh self-assigned number.
+3. `proceed with review` — independently assess files/scores out of 100 against real repo state and a real command/output receipt; write results into `review.json`. May propose plan deltas but does not silently rewrite `plans.json`.
+4. `proceed with progress` — sync `progress.json` from `plans.json` + `review.json`, execute tasks sequentially, update completion status. A row isn't "done" without its verification command actually run.
+5. `inspect` — scan the repo, score files, verify PRP structural compliance (same row-set across all three files, no stray files outside `.cache/`), and auto-clean formatting/duplicate row structures. Log every auto-fix made — no silent repair.
 
-**Triggers (one action per invocation):**
-- **Proceed-with-Planning** — triage plans → score progress (no code)
-- **Proceed-with-Progress** — fix real files; move to review with `review_command` (not "done")
-- **Proceed-with-Review** — run every `review_command`; confirmed → done; fail → back to progress
-- **Proceed-with-Brainstorm** — append to plans only; never edit progress/review
-
-**Discipline:** receipts ("ran X, got Y"). Editing JSON ≠ doing or verifying work.
-Project `.agents/AGENTS.md` overrides local path conventions.
+**Discipline:** receipts only ("ran X, got Y"), never "should now pass." Editing JSON is not the same
+as doing or verifying the work. Match rows by `path` (or legacy `filename` until fully migrated).
+Project `.agents/AGENTS.md` overrides these path conventions if it says otherwise.

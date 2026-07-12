@@ -41,9 +41,16 @@ def dataset_from_session(session: OmissionSession, query: Query) -> Dataset:
     if query.areas is not None:
         units_df = units_df[units_df['area'].isin(query.areas)]
 
-    # Filter by units if specified
+    # Filter by units if specified. Previously hardcoded units_df['cluster_id'],
+    # which crashed with KeyError since session.get_units() always runs
+    # enrich_units_dataframe (renames cluster_id -> unit_id). Matches by raw
+    # DataFrame row position (not the 'unit_id' column) for consistency with
+    # the rest of the pipeline (jnwb.unit_classification.classify_session_units,
+    # scripts/classify_units_shuffle_sso.py, etc. all use raw row position as
+    # the actual unit identity - the 'unit_id' column is a separate,
+    # per-probe-local kilosort id that is not globally unique within a session).
     if query.units is not None:
-        units_df = units_df[units_df['cluster_id'].isin(query.units)]
+        units_df = units_df[units_df.index.isin(query.units)]
 
     log.info(f"Dataset: {len(units_df)} units from {session.nwb_path.name}")
 
@@ -382,39 +389,64 @@ def result_from_decoding_analysis(
     question: Question,
     epochs: EpochCollection,
     session: OmissionSession,
+    epochs_b: Optional[EpochCollection] = None,
     classifier_type: str = "lda",
 ) -> Result:
     """
     Create Result from decoding/classification analysis.
 
-    Computes: cross-validated classifier performance
+    Computes: real cross-validated SVM classifier performance via
+    jnwb.decoding.decode_stimulus_identity (nested CV, real accuracy/f1/auc/
+    majority_baseline_accuracy — never fabricated).
+
+    Args:
+        epochs: first condition's EpochCollection (its .condition is class A)
+        epochs_b: second condition's EpochCollection (its .condition is class B).
+            Required for a real two-class decode; if omitted, returns an
+            honest 'insufficient_data' status rather than fabricating a result
+            (classifier_type is accepted for backward-compat but SVM is used
+            internally, matching jnwb.decoding's actual implementation).
+
     Returns: immutable Result with statistics, provenance, lineage
     """
-    import numpy as np
+    from .decoding import decode_stimulus_identity
 
-    # For validation, create synthetic decoding statistics
-    # In production, would compute actual cross-validated decoding
+    area_list = epochs.aligned_dataset.dataset.query.areas
+    area = area_list[0] if area_list else None
 
-    # Simulated cross-validated accuracy and AUC
-    n_folds = 5
-    accuracies = np.random.uniform(0.55, 0.75, n_folds)
-    aucs = np.random.uniform(0.6, 0.8, n_folds)
+    if epochs_b is None or area is None:
+        log.warning(
+            "result_from_decoding_analysis: epochs_b (second condition) or area "
+            "not provided; cannot run a real two-class decode. Returning "
+            "insufficient_data status rather than a fabricated result."
+        )
+        dec = {
+            'status': 'insufficient_data',
+            'accuracy': float('nan'), 'f1': float('nan'), 'auc': float('nan'),
+            'majority_baseline_accuracy': float('nan'), 'fold_accuracies': [],
+        }
+    else:
+        dec = decode_stimulus_identity(
+            session=session,
+            area=area,
+            condition_pairs=(epochs.condition, epochs_b.condition),
+        )
 
     provenance = Provenance(
         software_version="0.9.1",
         backend="numpy",
         random_seed=42,
         parameters={
-            'classifier_type': classifier_type,
-            'n_folds': n_folds,
-            'test_size': 0.2,
+            'classifier_type': 'svm',
+            'condition_pairs': (epochs.condition, epochs_b.condition if epochs_b else None),
+            'area': area,
         },
     )
 
     lineage = Lineage(
         source_type="Result",
         source_id=hashlib.md5(
-            str((question, epochs, classifier_type)).encode()
+            str((question, epochs, epochs_b, classifier_type)).encode()
         ).hexdigest()[:8],
         parents=[epochs.aligned_dataset.dataset.query.sessions[0]],
         operation="decoding_analysis",
@@ -423,20 +455,21 @@ def result_from_decoding_analysis(
     result = Result(
         question=question,
         statistics={
-            'classifier_type': classifier_type,
-            'accuracy_mean': float(accuracies.mean()),
-            'accuracy_std': float(accuracies.std()),
-            'auc_mean': float(aucs.mean()),
-            'auc_std': float(aucs.std()),
-            'accuracy_by_fold': [float(a) for a in accuracies],
-            'auc_by_fold': [float(a) for a in aucs],
+            'classifier_type': 'svm',
+            'status': dec.get('status', 'success' if not np.isnan(dec.get('accuracy', float('nan'))) else 'insufficient_data'),
+            'accuracy_mean': dec.get('accuracy', float('nan')),
+            'auc_mean': dec.get('auc', float('nan')),
+            'f1_mean': dec.get('f1', float('nan')),
+            'majority_baseline_accuracy': dec.get('majority_baseline_accuracy', float('nan')),
+            'accuracy_by_fold': list(dec.get('fold_accuracies', [])),
             'chance_level': 0.5,
         },
         provenance=provenance,
         lineage=lineage,
     )
 
-    log.info(f"Result: Decoding accuracy {result.statistics['accuracy_mean']:.1%} (std={result.statistics['accuracy_std']:.2f})")
+    log.info(f"Result: Decoding status={result.statistics['status']}, "
+             f"accuracy={result.statistics['accuracy_mean']}")
 
     return result
 
@@ -452,13 +485,15 @@ def result_from_tfr_analysis(
     """
     Create Result from TFR (Time-Frequency Representation) analysis.
 
-    Computes: power across frequency bands and time windows
+    Computes: real baseline-vs-response band power from preprocessed TFR
+    arrays via session.tfr_from_preprocessed (never fabricated). Returns an
+    honest 'insufficient_data' status if no precomputed TFR array exists for
+    this session/area/condition, rather than fabricating band statistics.
+
     Returns: immutable Result with statistics, provenance, lineage
     """
-    import numpy as np
-
-    # For validation, create synthetic TFR statistics
-    # In production, would compute actual TFR from LFP or spike-based measures
+    area_list = epochs.aligned_dataset.dataset.query.areas
+    area = area_list[0] if area_list else None
 
     freq_bands = {
         'theta': (4, 8),
@@ -468,17 +503,54 @@ def result_from_tfr_analysis(
         'high_gamma': (55, 90),
     }
 
-    band_stats = {}
-    for band_name, (fmin_band, fmax_band) in freq_bands.items():
-        # Simulated power measurements (in production: compute from actual data)
-        baseline_power = np.random.lognormal(0, 0.3, 10).mean()
-        response_power = baseline_power * (1 + np.random.uniform(-0.2, 0.5))
+    tfr_array = session.tfr_from_preprocessed(area=area, band=None, condition=epochs.condition) \
+        if area else None
 
-        band_stats[band_name] = {
-            'baseline_power_db': float(10 * np.log10(baseline_power)),
-            'response_power_db': float(10 * np.log10(response_power)),
-            'power_change_db': float(10 * np.log10(response_power / baseline_power)),
-        }
+    status = 'success'
+    band_stats = {}
+
+    if tfr_array is None:
+        log.warning(
+            f"result_from_tfr_analysis: no preprocessed TFR array found for "
+            f"area={area}, condition={epochs.condition}. Returning "
+            f"insufficient_data status rather than a fabricated result."
+        )
+        status = 'insufficient_data'
+        for band_name in freq_bands:
+            band_stats[band_name] = {
+                'baseline_power_db': float('nan'),
+                'response_power_db': float('nan'),
+                'power_change_db': float('nan'),
+            }
+    else:
+        # Contract (jnwb.session.tfr_from_preprocessed): (n_trials, n_channels, n_freqs, n_times)
+        # freqs ~ arange(3, 201, 2); times ~ -1000 + arange(500)*10 ms
+        freqs = np.arange(3, 201, 2)[: tfr_array.shape[2]]
+        times_ms = -1000.0 + np.arange(tfr_array.shape[3]) * 10.0
+        mean_power = np.mean(tfr_array, axis=(0, 1))  # (n_freqs, n_times)
+
+        baseline_mask = times_ms < 0
+        response_mask = (times_ms >= 0) & (times_ms <= 500)
+
+        for band_name, (fmin_band, fmax_band) in freq_bands.items():
+            freq_mask = (freqs >= fmin_band) & (freqs < fmax_band)
+            if not np.any(freq_mask):
+                band_stats[band_name] = {
+                    'baseline_power_db': float('nan'),
+                    'response_power_db': float('nan'),
+                    'power_change_db': float('nan'),
+                }
+                continue
+            baseline_power = float(np.mean(mean_power[freq_mask][:, baseline_mask]))
+            response_power = float(np.mean(mean_power[freq_mask][:, response_mask]))
+            baseline_power = max(baseline_power, 1e-12)
+            response_power = max(response_power, 1e-12)
+
+            band_stats[band_name] = {
+                'baseline_power_db': float(10 * np.log10(baseline_power)),
+                'response_power_db': float(10 * np.log10(response_power)),
+                'power_change_db': float(10 * np.log10(response_power / baseline_power)),
+            }
 
     provenance = Provenance(
         software_version="0.9.1",
@@ -488,6 +560,8 @@ def result_from_tfr_analysis(
             'fmin': fmin,
             'fmax': fmax,
             'n_cycles': n_cycles,
+            'area': area,
+            'condition': epochs.condition,
         },
     )
 
@@ -500,19 +574,26 @@ def result_from_tfr_analysis(
         operation="tfr_analysis",
     )
 
+    valid_bands = {k: v for k, v in band_stats.items() if not np.isnan(v['power_change_db'])}
+    strongest_band = (
+        max(valid_bands.items(), key=lambda x: abs(x[1]['power_change_db']))[0]
+        if valid_bands else None
+    )
+
     result = Result(
         question=question,
         statistics={
+            'status': status,
             'frequency_range': (fmin, fmax),
             'n_cycles': n_cycles,
             'band_statistics': band_stats,
-            'strongest_band': max(band_stats.items(), key=lambda x: abs(x[1]['power_change_db']))[0],
+            'strongest_band': strongest_band,
         },
         provenance=provenance,
         lineage=lineage,
     )
 
-    log.info(f"Result: TFR computed across {len(band_stats)} frequency bands")
+    log.info(f"Result: TFR status={status}, {len(valid_bands)}/{len(band_stats)} bands with real data")
 
     return result
 

@@ -26,12 +26,23 @@ class TestStatisticalAnalysis(unittest.TestCase):
         """Test compare_groups with valid data."""
         g1 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         g2 = np.array([2.0, 3.0, 4.0, 5.0, 6.0])
-        result = StatisticalAnalysis.compare_groups(g1, g2)
+        result = StatisticalAnalysis.compare_groups(g1, g2, n_bootstrap=200)
         self.assertIsInstance(result, dict)
         # Should have both parametric and non-parametric tests
         self.assertIn('parametric', result)
         self.assertIn('non_parametric', result)
         self.assertIn('fdr_pval_parametric', result)
+        self.assertEqual(result['parametric']['effect_size_name'], 'cohens_d_pooled')
+        self.assertFalse(result['multiple_comparison']['applied'])
+        self.assertIn('mean_diff_ci', result)
+        self.assertEqual(len(result['mean_diff_ci']['bootstrap_ci']), 2)
+
+    def test_fdr_correct_family(self):
+        """Family-wise BH-FDR is for many hypotheses, not two dual tests."""
+        p = np.array([0.01, 0.04, 0.03, 0.20, 0.50])
+        q = StatisticalAnalysis.fdr_correct(p)
+        self.assertEqual(q.shape, p.shape)
+        self.assertTrue(np.all(q >= p - 1e-12))
 
     def test_compare_groups_identical_groups(self):
         """Test compare_groups with identical data."""

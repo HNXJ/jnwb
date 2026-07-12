@@ -10,9 +10,9 @@ This document outlines common pipeline troubleshooting steps, anatomical mapping
 - **Symptoms**: Areas like `V3d`, `TEO`, or `FST` show zero units or are missing from plots.
 - **Root Cause**: Reliance on hardcoded or incomplete metadata registries; failure to parse multi-area descriptors (e.g. `V1, V2` labels).
 - **Anatomical Mapping Rules**:
-  1. **Probe Identification**: Probe ID is determined by `peak_channel_id // 128`.
-  2. **Multi-Area Segment Split**: Divide the 128 channels of a probe into equal segments matching the area labels.
-  3. **V3 Special Case**: Split channels assigned to `V3` 50/50 between `V3d` (superficial/dorsal) and `V3a` (deep/anterior).
+  1. **Probe Identification**: The current jnwb code (`jnwb.addressing.map_peak_channel_to_area`) resolves area/probe directly from the electrodes table's `location`/`area`/`group_name` column, not via a `peak_channel_id // 128` formula - no such formula was found anywhere in the current codebase during a 2026-07-12 audit. Treat this line as describing a legacy/archived approach, not current behavior, until a real channel-arithmetic probe-ID function is confirmed to exist.
+  2. **Multi-Area Segment Split**: `scripts/build_session_sidecars.py` divides a probe's local channel index by `len(areas) // 128` to assign an area label from an ordered area list.
+  3. **V3 Special Case**: Per `jnwb.sequence_layout.py`, channels 1-64 of a `V3`-labeled probe map to `V3d`, channels 65-128 map to `V3a`. `V3d`/`V3a` are distinct cortical **areas** (dorsal/anterior V3 subdivisions), not a superficial/deep **layer** split - do not conflate this with the separate superficial-vs-deep layer classification (`jnwb.addressing.classify_layer_from_depth`, z-depth threshold).
   4. **Indexing Check**: Sort units by NWB index within each probe to match local indices in raw `.npy` arrays.
 
 ### Timing & Synchronization Issues

@@ -325,8 +325,22 @@ from .decoding import (
 )
 from .connectivity import (
     spike_mutual_information,
+    binary_occupancy_mutual_information,
+    spike_count_mutual_information,
     granger_causality,
     network_topology,
+)
+from .unit_classification import (
+    ClassificationConfig,
+    classify_session_units,
+    classify_nwb_file,
+    classify_all_nwbs,
+    append_session_to_grand_table,
+    prevalence_summary,
+    stimulus_present_events,
+    omission_events,
+    config_to_dict,
+    discover_nwb_paths,
 )
 from .trajectory import (
     build_time_resolved_matrix,
@@ -407,8 +421,20 @@ __all__ = [
     'decode_stimulus_identity',
     'decode_omission_presence',
     'spike_mutual_information',
+    'binary_occupancy_mutual_information',
+    'spike_count_mutual_information',
     'granger_causality',
     'network_topology',
+    'ClassificationConfig',
+    'classify_session_units',
+    'classify_nwb_file',
+    'classify_all_nwbs',
+    'append_session_to_grand_table',
+    'prevalence_summary',
+    'stimulus_present_events',
+    'omission_events',
+    'config_to_dict',
+    'discover_nwb_paths',
     'build_time_resolved_matrix',
     'compute_population_trajectory',
     'generate_report',

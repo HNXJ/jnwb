@@ -71,27 +71,31 @@ spectrogram/trace suites.
 
 Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
 
-## PRP paths in this repo — v2 migration pending
+## PRP protocol — Canonical PRP Protocol (Developer Standard) adopted 2026-07-10
 
-Global doctrine (`C:\Users\nejath\.gemini\config\AGENTS.md` → "PRP Backlog Protocol (v2)") now
-specifies the target shape: `artifacts/developer/{plan,progress,review}.json` +
-matching `.md` (rendered by `misc/jn2md.py`) + `misc/` (+ optional `misc/archive/`), nothing
-else. **This repo has not been migrated to that shape yet** — do not assume it has been.
+This repo now follows the **Canonical PRP Protocol** (see `.cursor/rules/prp-protocol.mdc` and
+`.agents/skills/progress-review-plan/SKILL.md` for the full definition): exactly three JSON files
+under `artifacts/developer/` — `plans.json`, `review.json`, `progress.json` — mapping the same list
+of files, with auxiliary/derived files confined to `artifacts/developer/.cache/`. Five phased
+actions: `proceed with brainstorm` → `proceed with plan` → `proceed with review` →
+`proceed with progress`, plus `inspect` (structural compliance + drift repair) runnable any time.
 
-Actual paths on disk (2026-07-10 receipt, `ls artifacts/` and `artifacts/developer/`):
+**Adopting the spec is not the same as the data complying with it yet.** As of this update:
 
-| Role | Path (actual) | v2 mismatch |
-|------|----------------|-------------|
-| Plans | `artifacts/plans.json` | wrong dir (top-level, not `developer/`) and plural filename |
-| Progress | `artifacts/developer/progress.json` | legacy array-of-`filename` shape, not yet `{summary, table[]}` |
-| Review | `artifacts/developer/review.json` | present, needs shape check |
-| Review alias | `artifacts/review.json` (top-level, 220 bytes) | stray duplicate — v2 forbids anything but the three JSONs + three `.md` + `misc/` in `artifacts/developer/` |
-| Other stray files | `artifacts/pv.json`, `artifacts/walkthrough.md`, `artifacts/progress_report.md`, `artifacts/reports/`, `artifacts/developer/.cache/` | none of these exist in v2's target shape — do not delete without confirming with Hamm first, but do not treat them as canonical PRP state either |
-
-**Until migration happens:** keep matching entries by `path` / legacy `filename` as before; do
-not invent a parallel backlog; do not silently rename/move files into the v2 shape without
-Hamm's go-ahead, since `progress.json`'s legacy array format and the stray files may hold
-in-progress work. Flag the mismatch rather than pretending this repo already complies with v2.
+- `artifacts/developer/plans.json` (33 items), `progress.json` (71 entries), `review.json`
+  (4 entries, wrapped) are three **different bare/wrapped shapes** with different field names
+  (`filename`/`tbis`/`tbds` vs `path`/`tbi`/`tbd`) and do **not** yet share the same row-set across
+  all three files, as the canonical spec requires.
+- Stray files not in the target shape are still present (verified 2026-07-10 via `ls artifacts/`):
+  `artifacts/pv.json`, `artifacts/walkthrough.md`, `artifacts/progress_report.md`,
+  `artifacts/reports/`. The top-level `artifacts/review.json` alias and top-level `artifacts/plans.json`
+  are both already gone — `plans.json` now lives correctly at `artifacts/developer/plans.json`.
+  Re-verify with `ls artifacts/ artifacts/developer/` before trusting this list; the repo has
+  drifted between sessions before.
+- Running `inspect` to reconcile the row-sets and clean up the stray files is real,
+  data-mutating work that hasn't been done yet — don't assume a future session already ran it
+  without checking `git log`/`ls` first. Get Hamm's go-ahead before reshaping the existing 71+33+4
+  entries, since that's live backlog content, not just documentation.
 
 ## Git / worktree discipline (project)
 

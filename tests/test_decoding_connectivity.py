@@ -55,23 +55,54 @@ class MockSession:
 
 def test_decoding_fallback():
     session = MockSession()
-    
-    # Success path: has enough trials for 2-fold Stratified CV
+
+    # Success path: nested stratified CV
     res = decode_stimulus_identity(session, area='V1', condition_pairs=('AAAB', 'BBBA'), n_splits=5)
     assert 'accuracy' in res
     assert 'best_params' in res
     assert 'C' in res['best_params']
     assert res['n_units'] == 2
     assert res['status'] == 'success'
+    assert res['cv_scheme'] == 'nested_stratified'
+    assert 'majority_baseline' in res
+    assert res['majority_baseline'] == 0.5
+    assert res['n_per_class'] == {'AAAB': 2, 'BBBA': 2}
 
-    # Fallback path: trigger synthetic fallback via missing condition
+    # Insufficient trials: NaN accuracy, never synthetic metrics
     res_fallback = decode_stimulus_identity(session, area='V1', condition_pairs=('AAAB', 'NONEXISTENT'), n_splits=5)
     assert 'accuracy' in res_fallback
-    assert res_fallback['n_units'] == 10
-    assert res_fallback['status'] == 'synthetic_fallback'
+    assert np.isnan(res_fallback['accuracy'])
+    assert res_fallback['status'] == 'insufficient_trials'
+    assert res_fallback['status'] != 'synthetic_fallback'
 
     res_omit = decode_omission_presence(session, area='V1')
     assert 'accuracy' in res_omit
+
+
+def test_decoding_f1_auc_majority_baseline_keys():
+    session = MockSession()
+
+    # Success path: new metric keys present and sane
+    res = decode_stimulus_identity(session, area='V1', condition_pairs=('AAAB', 'BBBA'), n_splits=5)
+    for key in ('f1', 'auc', 'majority_baseline_accuracy'):
+        assert key in res
+    assert 0.0 <= res['majority_baseline_accuracy'] <= 1.0
+    # f1/auc may be NaN for tiny mock datasets but must be float-typed when present
+    assert isinstance(res['f1'], float)
+    assert isinstance(res['auc'], float)
+
+    # decode_omission_presence delegates to decode_stimulus_identity: same keys
+    res_omit = decode_omission_presence(session, area='V1')
+    for key in ('f1', 'auc', 'majority_baseline_accuracy'):
+        assert key in res_omit
+
+    # Insufficient-trials path still reports the new keys as NaN, never fabricated
+    res_fallback = decode_stimulus_identity(
+        session, area='V1', condition_pairs=('AAAB', 'NONEXISTENT'), n_splits=5
+    )
+    assert np.isnan(res_fallback['f1'])
+    assert np.isnan(res_fallback['auc'])
+    assert np.isnan(res_fallback['majority_baseline_accuracy'])
 
 
 def test_spike_mutual_information():
@@ -88,26 +119,44 @@ def test_spike_mutual_information():
     mi_none = spike_mutual_information(spikes3, spikes4, time_window=(0.0, 10.0), bin_size_ms=10.0)
     assert mi_none >= 0.0
 
+    # Count estimator is available and non-negative
+    mi_count = spike_mutual_information(
+        spikes1, spikes2, time_window=(0.0, 5.0), bin_size_ms=10.0, estimator="spike_count"
+    )
+    assert mi_count >= 0.0
+
 
 def test_granger_causality():
     # Bivariate signals
+    rng = np.random.default_rng(0)
     t = np.linspace(0, 10, 1000)
     # Signal 1 drives Signal 2 with a lag of 2 samples
-    s1 = np.sin(2 * np.pi * 5 * t) + np.random.normal(0, 0.1, len(t))
+    s1 = np.sin(2 * np.pi * 5 * t) + rng.normal(0, 0.1, len(t))
     s2 = np.zeros_like(s1)
-    s2[2:] = 0.8 * s1[:-2] + np.random.normal(0, 0.1, len(t) - 2)
+    s2[2:] = 0.8 * s1[:-2] + rng.normal(0, 0.1, len(t) - 2)
 
     res = granger_causality(s1, s2, order=3)
     assert 'F_1_to_2' in res
     assert 'F_2_to_1' in res
     assert res['F_1_to_2'] >= 0.0
     assert res['F_2_to_1'] >= 0.0
+    assert 'diagnostics' in res
+    assert 'ok_for_interpretation' in res['diagnostics']
+
+    # Ridge path
+    res_ridge = granger_causality(s1, s2, order=3, ridge=1e-3)
+    assert res_ridge['ridge'] == 1e-3
 
     # Test auto lag selection via AIC
     res_auto = granger_causality(s1, s2, order='auto')
     assert 'order_1_to_2' in res_auto
     assert 'order_2_to_1' in res_auto
     assert res_auto['order_1_to_2'] >= 1.0
+    assert res_auto['lag_criterion'] == 'aic'
+
+    # BIC auto
+    res_bic = granger_causality(s1, s2, order='auto', criterion='bic')
+    assert res_bic['lag_criterion'] == 'bic'
 
     # Test GPU implementation call
     res_cuda = granger_causality(s1, s2, order=3, device='cuda')

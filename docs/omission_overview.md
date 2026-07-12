@@ -18,9 +18,11 @@ The **Omission** project is a neurophysiological investigation into the neural r
 
 ## Subject Inventory
 
-The canonical subject population consists of the following rhesus macaques:
-- **sub-C31o** (Primary male subject)
-- **sub-V198o** (Secondary female subject)
+The canonical subject population consists of the following rhesus macaques
+(confirmed against `artifacts/data/nwb_catalog.json`, 3 distinct subjects across 17 sessions):
+- **sub-C31o**
+- **sub-V198o**
+- **sub-V182o**
 
 ---
 

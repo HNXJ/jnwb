@@ -1,17 +1,20 @@
 # jnwb Architecture: 20 Functions + 4 Objects
 
-Complete, production-grade API for omission experiment analysis.
+Research analysis API for omission experiment workflows (NWB-centric).
 
 ## Core Design
 
 **Philosophy**: `jnwb.<function>(<data>, <context>, <parameters>)`
 
-Every analysis automatically provides:
-- ✓ Parametric statistics (t-test, ANOVA, Pearson r, etc.)
-- ✓ Non-parametric equivalent (Mann-Whitney U, Kruskal-Wallis, Spearman rho, etc.)
-- ✓ Effect sizes (Cohen's d, r², eta², etc.)
-- ✓ FDR correction (Benjamini-Hochberg, α=0.05)
-- ✓ Publication-ready outputs
+Every dual comparison provides:
+- Parametric statistics (t-test, ANOVA, Pearson r, etc.)
+- Non-parametric equivalent (Mann-Whitney U, Kruskal-Wallis, Spearman rho, etc.)
+- Named effect sizes (Cohen's dz / pooled d, r², eta², etc.)
+- Bootstrap CI on mean difference where applicable (`compare_groups`)
+
+Family-wise FDR (Benjamini–Hochberg) is applied via `StatisticalAnalysis.fdr_correct(p_values)` across a hypothesis family (units, channels, frequencies, time bins) — **not** across the parametric/nonparametric pair from a single comparison.
+
+Exploratory dual-test reports are not automatically publication-grade confirmatory inference.
 
 ---
 

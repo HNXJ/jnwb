@@ -96,6 +96,12 @@ class Query:
     sessions: Union[str, List[str]] = "all"
     areas: Optional[List[str]] = None
     units: Optional[List[int]] = None
+    """Unit IDs to select - matched against the raw units-table row position
+    (dataset_from_session's implementation), the same identity convention
+    used by jnwb.unit_classification.classify_session_units and
+    scripts/classify_units_shuffle_sso.py. Not the 'unit_id' DataFrame
+    column (a per-probe-local kilosort id renamed from cluster_id, which is
+    not globally unique within a session)."""
     correct_only: bool = True
     exclude_overlap: bool = False
 

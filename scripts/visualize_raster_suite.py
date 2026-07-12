@@ -1,4 +1,4 @@
-import os
+import argparse
 import pathlib
 import matplotlib.pyplot as plt
 import sys
@@ -7,28 +7,41 @@ sys.path.insert(0, r'D:/workspace/omission')
 import jnwb as oa
 from jnwb.viz import raster_suite_omission
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate a raster suite figure for one unit.")
+    parser.add_argument("--nwb", default=r"D:/analysis/nwb/sub-V182o_ses-260629.nwb",
+                         help="Path to .nwb file.")
+    parser.add_argument("--unit-id", type=int, default=None,
+                         help="Unit ID to plot. If omitted, uses the first stable_plus unit.")
+    parser.add_argument("--out-dir", default="outputs/figures",
+                         help="Output directory for PNG/PDF.")
+    return parser.parse_args()
+
+
 def main():
-    # Path to NWB file (choose V182 example)
-    nwb_path = pathlib.Path(r'D:/analysis/nwb/sub-V182o_ses-260629.nwb')
+    args = parse_args()
+    nwb_path = pathlib.Path(args.nwb)
     if not nwb_path.is_file():
         raise FileNotFoundError(f'NWB file not found: {nwb_path}')
-    # Load session
+
     session = oa.read(str(nwb_path), context='omission_glo_passive')
-    # Get first stable_plus unit
-    units_df = session.get_units(quality='stable_plus')
-    if units_df.empty:
-        raise ValueError('No stable_plus units found in session')
-    # Determine unit ID (index may be the unit id)
-    if hasattr(units_df, 'index') and not units_df.index.empty:
-        unit_id = units_df.index[0]
+
+    if args.unit_id is not None:
+        unit_id = args.unit_id
     else:
-        unit_id = units_df.iloc[0]['unit_id']
-    # Generate raster suite figure
+        units_df = session.get_units(quality='stable_plus')
+        if units_df.empty:
+            raise ValueError('No stable_plus units found in session')
+        if hasattr(units_df, 'index') and not units_df.index.empty:
+            unit_id = units_df.index[0]
+        else:
+            unit_id = units_df.iloc[0]['unit_id']
+
     fig = raster_suite_omission(session, unit_id=unit_id)
-    # Output directory
-    out_dir = pathlib.Path('outputs/figures')
+
+    out_dir = pathlib.Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Save PNG and PDF
     base_name = f'raster_suite_unit_{unit_id}'
     png_path = out_dir / f'{base_name}.png'
     pdf_path = out_dir / f'{base_name}.pdf'
@@ -36,6 +49,7 @@ def main():
     fig.savefig(pdf_path, format='pdf', bbox_inches='tight')
     plt.close(fig)
     print(f'Saved raster suite to {png_path} and {pdf_path}')
+
 
 if __name__ == '__main__':
     main()

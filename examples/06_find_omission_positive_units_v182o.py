@@ -1,4 +1,16 @@
 """
+DEPRECATED: superseded by examples/07_canonical_stability_and_response_audit_v182o.py.
+
+This script uses an ad hoc Mann-Whitney + fixed-4Hz-diff test with raw
+(uncorrected) p<0.01 across 9 comparisons per unit — no multiple-comparison
+correction, and it does not implement this project's canonical S+/S-/O+/X
+candidate pipeline (paired local-baseline test, BH-FDR q<0.05, Cohen's d
+effect size). Its results do NOT replicate under the canonical pipeline
+(verified: none of units 243/150/102/261 flagged here survive as O+/X
+candidates in examples/07). Kept only for historical reference — use
+examples/07_canonical_stability_and_response_audit_v182o.py for any real
+scientific claim about omission selectivity.
+
 Find omission-positive (O+) neurons in the new V182o recording.
 
 Replicates the exact "strict trial-by-trial omission selectivity audit"

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "description": "Alias; canonical queue is artifacts/developer/review.json",
-  "last_updated": "2026-07-09",
-  "entry_count": 0,
-  "entries_note": "See artifacts/developer/review.json"
+  "description": "Actioned-but-not-yet-verified work queue, plus items explicitly logged for later decision. Cleared 2026-07-12 (review+debugging pass): found and fixed 2 additional real bugs beyond the prior pass (dataset_from_session KeyError on cluster_id; unit_id column dtype=object on some sessions). Also found, then correctly reverted, an incorrect change to OmissionSession.get_spike_times after discovering it would have broken the established row-position-based unit identity convention used throughout jnwb.unit_classification/scripts/classify_units_shuffle_sso.py - restored and verified via before/after distribution match in scripts/filter_units.py (43 S+/20 Other/19 S-/1 O+ exactly restored). See artifacts/developer/progress.json for per-file details and receipts.",
+  "last_updated": "2026-07-12",
+  "entries": [],
+  "entry_count": 0
 }

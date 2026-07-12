@@ -35,6 +35,17 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("artifacts/data"),
     )
+    p.add_argument(
+        "--exclude-short",
+        action="store_true",
+        default=False,
+        help=(
+            "Exclude rows sourced from the short-nwb/ subdirectory "
+            "(short/incomplete recordings) from the catalog. Default: "
+            "False (include them, tagged short_nwb=True), for backward "
+            "compatibility."
+        ),
+    )
     return p.parse_args()
 
 
@@ -93,6 +104,8 @@ def collect_nwbs(nwb_dir: Path) -> List[Dict[str, Any]]:
 def main() -> None:
     args = parse_args()
     rows = collect_nwbs(args.nwb_dir)
+    if args.exclude_short:
+        rows = [r for r in rows if not r["short_nwb"]]
     out = args.out_dir
     out.mkdir(parents=True, exist_ok=True)
 

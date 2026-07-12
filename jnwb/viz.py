@@ -746,7 +746,14 @@ def lfp_tfr_trace_suite_omission(
     # Discover files
     tokens = [area, "DP"] if area == "V4" else [area]
     files = []
-    session_id_filter = session.nwb_path.stem if (session and hasattr(session, 'nwb_path')) else None
+    session_id_filter = None
+    if session and hasattr(session, 'nwb_path'):
+        session_id_filter = session.nwb_path.stem
+        # Precompute filenames drop a trailing "_rec" from the stem
+        # (see scripts/precompute_tfr_arrays.py::session_prefix_from_nwb);
+        # match that convention or session_specific=True never finds a file.
+        if session_id_filter.endswith("_rec"):
+            session_id_filter = session_id_filter[: -len("_rec")]
 
     for path in tfr_dir.glob("*.npy"):
         m = re.match(rf"^(.+)-([ABC])-([A-Za-z0-9]+)-([A-Z0-9]+)\.npy$", path.name)

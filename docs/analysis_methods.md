@@ -6,8 +6,8 @@ This document details the spiking metrics, spectral analyses, decoding framework
 
 ## 1. Single-Unit Spiking Dynamics
 
-### Smoothed PSTH and Baselines
-- **Gaussian Kernel Smoothing**: Unit firing rates are smoothed using a Gaussian kernel ($\sigma = 20\text{ ms}$) for Peristimulus Time Histogram (PSTH) generation.
+### PSTH and Baselines
+- **Binned PSTH**: `jnwb.functions.psth_analysis` computes the canonical PSTH as raw binned spike counts (`bin_size_ms`, default 10 ms), not Gaussian-kernel-smoothed. Gaussian smoothing (`scipy.ndimage.gaussian_filter1d`, various `sigma` values depending on plot type) is applied separately in specific `jnwb.viz` trace visualizations, not universally at PSTH-generation time.
 - **Reference Point**: All trials are aligned to Code `101.0` (Presentation 1 Onset) or Phase 2 Onsets.
 - **Baseline Window**: Baseline firing rate is calculated over the $[-1000, 0]\text{ ms}$ pre-stimulus window.
 
@@ -16,8 +16,8 @@ This document details the spiking metrics, spectral analyses, decoding framework
 - **Mean-Matched Fano Factor (MMFF)**: Implemented using the Churchland (2010) method. Matches firing rate distributions across time bins to decouple variance changes from changes in mean rate.
 
 ### Refractory Period & Waveform Classification
-- **Refractory Violations**: Cutoff at $2.0\text{ ms}$. Units with $< 5\%$ violations are flagged as single units.
-- **Trough-to-Peak Duration**: Putative interneurons ($< 350\ \mu\text{s}$) vs. putative pyramidal cells ($> 450\ \mu\text{s}$).
+- **Refractory Violations**: `jnwb.analyzers.UnitAnalyzer` tests significance via a Poisson survival-function comparison of observed refractory-window spike count against the baseline ACG rate (not a raw violation-percentage cutoff); a unit is flagged `is_single_unit` when this test's p-value is $< 0.05$.
+- **Trough-to-Peak Duration**: `waveform_duration_us` is extracted and carried through unit metadata (`jnwb.metadata`, `jnwb.analyzers.UnitAnalyzer.quality_metrics`), but interneuron/pyramidal classification by a $350/450\ \mu\text{s}$ cutoff is not currently implemented as a jnwb function - treat this as a manual/offline convention, not an automated jnwb classification, until such a function exists.
 
 ---
 

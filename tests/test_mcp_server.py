@@ -144,5 +144,16 @@ def test_temp_dummy_tool(a: int) -> str:
             # Revert changes to keep repo clean
             custom_tools_path.write_text(original_content)
 
+class TestMCPServerEntrypoint(unittest.TestCase):
+    def test_server_module_exposes_fastmcp_instance(self):
+        # jnwb/mcp_server/server.py is the executable entry point (`python -m jnwb.mcp_server.server`);
+        # not exercised by any test that imports only jnwb.mcp_server's tool functions.
+        from jnwb.mcp_server import server
+        from mcp.server.fastmcp import FastMCP
+
+        self.assertIsInstance(server.mcp, FastMCP)
+        self.assertEqual(server.mcp.name, "jnwb-mcp-server")
+
+
 if __name__ == "__main__":
     unittest.main()

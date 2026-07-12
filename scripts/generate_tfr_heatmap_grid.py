@@ -103,6 +103,13 @@ def parse_args() -> argparse.Namespace:
         default=Path("outputs/figures"),
         help="Output directory for SVG/PNG",
     )
+    parser.add_argument(
+        "--session",
+        default=None,
+        help="Optional session-prefix substring filter (e.g. 'sub-C31o_ses-230823') to "
+             "restrict which .npy files are scanned - much faster than the default "
+             "full-directory scan when only one session is needed.",
+    )
     return parser.parse_args()
 
 
@@ -114,7 +121,7 @@ def get_probe_layer_masks(layer_masks_cache, session_id, probe_letter):
     return None
 
 
-def run(tfr_dir: Path, layer_masks_path: Path, out_dir: Path) -> None:
+def run(tfr_dir: Path, layer_masks_path: Path, out_dir: Path, session: str = None) -> None:
     if not layer_masks_path.is_file():
         raise FileNotFoundError(f"Layer masks not found: {layer_masks_path}")
     if not tfr_dir.is_dir():
@@ -134,8 +141,9 @@ def run(tfr_dir: Path, layer_masks_path: Path, out_dir: Path) -> None:
     im_c = None
     for row_idx, area in enumerate(areas):
         print(f"Processing area {area}...")
+        glob_pattern = f"{session}*.npy" if session else "*.npy"
         files = []
-        for path in tfr_dir.glob("*.npy"):
+        for path in tfr_dir.glob(glob_pattern):
             m = re.match(r"^(.+)-([ABC])-([A-Za-z0-9]+)-([A-Z0-9]+)\.npy$", path.name)
             if not m:
                 continue
@@ -153,6 +161,7 @@ def run(tfr_dir: Path, layer_masks_path: Path, out_dir: Path) -> None:
                             "slot": slot,
                         }
                     )
+        print(f"  {area}: {len(files)} matching files")
 
         if not files:
             print(f"No files for {area}")
@@ -450,7 +459,7 @@ def run(tfr_dir: Path, layer_masks_path: Path, out_dir: Path) -> None:
 
 def main() -> None:
     args = parse_args()
-    run(args.tfr_dir, args.layer_masks, args.out_dir)
+    run(args.tfr_dir, args.layer_masks, args.out_dir, session=args.session)
 
 
 if __name__ == "__main__":

@@ -268,7 +268,18 @@ class OmissionSession:
             return self._spike_cache[unit_id_numeric]
 
         matching = pd.DataFrame()
-        # First check index lookup
+        # Primary lookup: raw DataFrame row position. This is the actual,
+        # established identity convention used throughout the real pipeline
+        # (jnwb.unit_classification.classify_session_units's default
+        # `unit_ids = list(units_df.index)`, scripts/classify_units_shuffle_sso.py,
+        # scripts/filter_units.py, scripts/list_stable_plus_units.py all pass
+        # raw row positions as "unit_id"). Row position is always globally
+        # unique within a session by construction (pandas RangeIndex),
+        # unlike the separate 'unit_id'/'cluster_id' DataFrame COLUMN (a
+        # per-probe-local kilosort id that resets to 0 on every probe and is
+        # NOT globally unique - confirmed 2026-07-12 it can collide across
+        # 3+ areas within one session). Do not use the column as the primary
+        # key; it is informational metadata, not the identity used elsewhere.
         if self._units_df.index.name == 'id' or 'id' in self._units_df.columns or self._units_df.index.name is None:
             if unit_id_numeric in self._units_df.index:
                 matching = self._units_df.loc[[unit_id_numeric]]

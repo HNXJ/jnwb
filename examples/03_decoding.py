@@ -149,13 +149,18 @@ def validate_decoding_workflow():
     # 8. ANALYSIS: Execute (INTERNAL - hidden from user)
     # ─────────────────────────────────────────────────────────────────
     # DIFFERENT from PSTH and TFR (Decoding instead), but same pattern.
+    # Real two-class decode: both epoch collections passed so
+    # result_from_decoding_analysis can call the real SVM decoder
+    # (jnwb.decoding.decode_stimulus_identity) instead of fabricating a result.
     result = result_from_decoding_analysis(
         question=question,
-        epochs=epochs_stimulus,  # Pass both stimulus and omission via separate analysis
+        epochs=epochs_stimulus,
+        epochs_b=epochs_omission,
         session=session,
-        classifier_type="lda",
+        classifier_type="svm",
     )
-    log.info(f"✓ Result created: Accuracy {result.statistics['accuracy_mean']:.1%}")
+    log.info(f"✓ Result created: status={result.statistics['status']}, "
+             f"accuracy={result.statistics['accuracy_mean']}")
 
     # Contract check SC-004
     # (Decoding uses spike_times only, not mixed with LFP)
@@ -169,16 +174,30 @@ def validate_decoding_workflow():
     # 9. INTERPRETATION: Separate evidence from argument
     # ─────────────────────────────────────────────────────────────────
     # IDENTICAL interface to PSTH and TFR.
+    acc = result.statistics['accuracy_mean']
+    baseline = result.statistics['majority_baseline_accuracy']
+    if result.statistics['status'] != 'success' or acc != acc:  # NaN check
+        claim = "Insufficient data to decode stimulus presence for this session/area."
+        confidence = "none"
+    elif acc > baseline and acc > 0.6:
+        claim = "V1 encodes stimulus presence with above-chance, above-majority-baseline classification."
+        confidence = "high"
+    else:
+        claim = "V1 decoding accuracy does not clearly exceed the majority-class baseline."
+        confidence = "low"
+
     interpretation = Interpretation(
-        claim="V1 encodes stimulus presence with above-chance classification",
-        confidence="high" if result.statistics['accuracy_mean'] > 0.6 else "moderate",
+        claim=claim,
+        confidence=confidence,
         alternative_explanations=[
             "Could reflect non-specific arousal rather than stimulus detection",
             "Could reflect motor preparation for saccade",
         ],
         limitations=[
-            "Linear classifier may underestimate nonlinear discriminability",
+            "SVM classifier may underestimate nonlinear discriminability",
             "Cross-validation accuracy depends on fold composition",
+            "Always compare accuracy against majority_baseline_accuracy, not chance=0.5, "
+            "since condition trial counts are imbalanced",
         ],
     )
     log.info(f"✓ Interpretation created: {interpretation.claim}")
