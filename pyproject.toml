@@ -17,6 +17,7 @@ dependencies = [
     "scikit-learn",
     "matplotlib",
     "plotly",
+    "mcp",
 ]
 
 [project.optional-dependencies]
