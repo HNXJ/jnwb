@@ -19,23 +19,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install package with test extras
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[test]"
-      - name: Compile package
-        run: python -m compileall jnwb -q
-      - name: Show environment (diagnostic)
-        if: always()
-        run: |
-          python --version
-          pip list
+        run: pip install -e ".[test]" -q
       - name: Run pytest
         id: pytest
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest -q --tb=long -rA 2>&1 | tee pytest_output.log
+          python -m pytest -q --tb=short 2>&1 | tee pytest_output.log
       - name: Write failure diagnostics to job summary
         if: failure()
         run: |

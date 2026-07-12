@@ -63,10 +63,17 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
     assert list(enriched["unit_id"]) == [10, 11, 12]
 
     # Real area/layer mapping propagated from electrodes_df.
-    # Channel 2 has no location (area=None) but does have a valid z=800.0,
-    # so layer still resolves to 'Superficial' - area and layer are mapped
-    # independently.
-    assert list(enriched["area"]) == ["V1", "PFC", None]
+    # Channel 2 has no location (area=missing) but does have a valid
+    # z=800.0, so layer still resolves to 'Superficial' - area and layer
+    # are mapped independently. The missing-area value round-trips through
+    # a pandas Series.apply(), which represents it as None on some pandas
+    # versions and np.nan on others (confirmed: local pandas 3.0.3 keeps
+    # None, CI's pandas resolved np.nan) - both mean "no area found", so
+    # check via pd.isna() rather than exact identity/equality.
+    area_values = list(enriched["area"])
+    assert area_values[0] == "V1"
+    assert area_values[1] == "PFC"
+    assert pd.isna(area_values[2])
     assert list(enriched["layer"]) == ["Superficial", "Deep", "Superficial"]
 
     # Stability flag: quality >= 1.0
@@ -82,7 +89,7 @@ def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
     units = pd.DataFrame({"peak_channel_id": [0, 1]})
     enriched = enrich_units_dataframe(units, None)
 
-    assert list(enriched["area"]) == [None, None]
+    assert enriched["area"].isna().all()
     assert list(enriched["layer"]) == ["Unknown", "Unknown"]
     assert list(enriched["group_name"]) == ["probeA", "probeA"]
     # No quality column provided -> defaults to not-stable, not a crash
