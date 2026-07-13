@@ -123,6 +123,18 @@ the main loop. Each arrow is a separate invocation. Enter or exit at any point.
 - **"unreviewed"**: no `review_command` has ever run against this row — valid only in
   `plan.table`, never in `review.table`.
 
+**A `progress`-phase score is not a review score, no matter the number.** Confirmed real failure
+mode in omission (2026-07-13 audit): `progress.json` carried 92 entries scored 97-100, all
+self-assigned during progress work, while `review.json` had **0 entries** — no independent
+re-check had ever run. Two of those 97-100 entries (`suite_06`, `suite_07`) turned out to be
+100% fabricated (hardcoded arrays / `np.random`-simulated output dressed as real computation),
+undetected because the only prior "verification" was "the notebook executes without error."
+Executing without error is not evidence of correctness — it does not check that reported numbers
+trace to real computation on real loaded data. A `Proceed-with-Review` pass must read the code
+that produces each reported number, not just re-run it and check the exit code, before writing a
+score into `review.table`. Treat any row whose only receipt is exit-code success as unverified
+regardless of the number sitting in `progress.json`.
+
 ## How to apply it
 
 - Scope every pass honestly — large backlogs (hundreds of rows) are multi-session work. Report

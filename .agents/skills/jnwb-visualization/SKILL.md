@@ -22,6 +22,26 @@ from jnwb import visual_qc as qc
 from jnwb import viz
 ```
 
+## Footgun: verifying SVG output on this Windows machine
+
+`cairosvg` fails at runtime here (`OSError: no library called "cairo-2"` — no native
+`libcairo-2.dll`). `reportlab.graphics.renderPM` (PNG output) also fails
+(`ModuleNotFoundError: No module named '_rl_renderPM'`). Working path to actually inspect a
+generated SVG before claiming a figure is done:
+
+```python
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPDF
+drawing = svg2rlg("path/to/figure.svg")
+renderPDF.drawToFile(drawing, "path/to/figure_preview.pdf")
+```
+
+Then use the `Read` tool on the PDF (it renders pages visually) to inspect the real output.
+`mcp__Claude_Browser__navigate` to a `file://` SVG path and a local `http.server` + browser
+preview have both failed in this environment — don't retry those; go straight to the
+svglib→PDF→Read path. "Exported without visual inspection" does not satisfy the project's
+figure-verification checklist below.
+
 ## Output Directory Conventions
 
 All visualization gallery outputs are written to task-specific subdirectories under:

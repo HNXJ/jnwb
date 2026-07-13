@@ -94,13 +94,92 @@ pli = phase_locking_index(spike_times, lfp_phase_array, lfp_timestamps)
 # Returns: {'pli': ..., 'preferred_phase': ..., 'rayleigh_pvalue': ...}
 ```
 
-## Response Classification (S+ / S- / Other)
+## Template-Correlation Classification (Canonical, 2026-07-13)
 
-- **S+** — Significant firing rate increase during omission window
-- **S-** — Significant decrease
-- **Other / non-selective** — No significant change  
+**This is the current canonical method for assigning S+/S-/O+/Null labels to single units.**
+It supersedes the prior drift-stability-only selection (which checked CV/Spearman stability
+but did not verify that a unit's response matched the shape implied by its class name).
 
-Grand database counts (from stable-plus units): S+ = 1,468 | S- = 986 | Other = 3,586
+Reference implementation: `scripts/template_correlation_selection.py`
+Output: `outputs/classification/figure3_template_correlation_scan.csv` (330 rows for sub-C31o_ses-230823)
+
+### Epoch template structure
+
+The analysis window is the 9-epoch sequence: `[fx, p1, d1, p2, d2, p3, d3, p4, d4]`.
+Per-epoch firing rate is computed over each epoch's real duration (from `EPOCH_ONSETS_MS`)
+and normalized by that duration (Hz).
+
+| Class | Template (9-element) | Description |
+|-------|----------------------|-------------|
+| S+    | `[0,1,0,1,0,1,0,1,0]` | Fires during stimulus slots (p1,p2,p3,p4) |
+| S−    | `[1,0,1,0,1,0,1,0,1]` | Fires during delay/fixation slots |
+| O+    | One-hot at omitted slot (RXRR→d2 omit→p2 slot, etc.), averaged across 3 omission conditions | Selective omission response |
+| Null  | No significant correlation with any template (p≥0.05 permutation test) | Non-selective |
+
+### Significance gate
+
+Permutation test: shuffle the per-epoch rate vector 5000 times; p-value = fraction of
+shuffled correlations exceeding the observed |r|. Threshold: **p < 0.05**.
+
+**Priority when multiple templates are significant:**  
+O+ > S+ ≈ S− (choose higher |r| to break ties). A unit classified O+ may also show
+incidental S+/S− correlation — do not re-classify based on S template alone.
+
+### Confirmed best picks for sub-C31o_ses-230823_rec (only session with real O+ units)
+
+| Class | Unit (row index) | r | p |
+|-------|-----------------|---|---|
+| S+    | 337 | 0.985 | 0.008 |
+| S−    | 261 | 0.985 | 0.003 |
+| O+    | 51  | r_mean=0.769 (best across 3 omission conditions) | — |
+
+**Why old picks were wrong:** S+ = unit 17 (r=0.46, p=0.19 — not significant); S− = unit 189
+(r=0.04, p=0.89 — effectively uncorrelated). CV/drift alone is not sufficient.
+
+### Open discrepancy (2026-07-13)
+
+Units 240, 359, 360 are labeled "Other" by the pooled shuffle classifier
+(`grand_unit_table_shuffle_sso.csv`) but rank top-10 S− template matches (r=0.92–0.95,
+p<0.01). The pooled classifier may be under-calling S− units that fire strongly between
+stimuli. Not resolved — investigate before trusting either classifier exclusively for S−.
+
+### Extending to all sessions / multi-session
+
+`scripts/template_correlation_selection.py` currently runs on one NWB session.
+To extend to all 15 `suite_tfr_ready=True` sessions, wrap in a loop over
+`artifacts/data/session_readiness.csv` rows where `suite_tfr_ready=True`, then append
+results to a session-tagged CSV (`session_prefix`, `unit_id`, `r_Splus`, `p_Splus`, etc.).
+
+## Response Classification (S+ / S− / O+ / Null)
+
+The **canonical classifier** is `jnwb.unit_classification` (shuffle-test based, FDR-corrected,
+multi-session) — the template-correlation method above provides a complementary approach
+optimized for pattern-shape verification and exemplar unit selection for figures.
+
+Grand unit table: `outputs/classification/grand_unit_table_shuffle_sso.csv`
+- `display_class`: S+ | S− | O+ | Other (from pooled shuffle classifier)
+- As of 2026-07-12: **43 S+, 1 O+, 19 S−, 20 Other** (sub-C31o_ses-230823_rec only)
+- Session-wide counts across all sessions are in the grand table; stable-plus total varies by
+  session — always re-derive from the CSV, do not hardcode.
+
+## Footgun: "stable across trials" needs a drift metric, not just CV
+
+Coefficient of variation (`std/mean` of per-trial spike count) is scale-invariant and does
+**not** catch trial-order drift — a unit whose rate ramps monotonically up/down across the real
+trial sequence can still score a low CV while looking visibly non-stationary in a rendered
+raster. Confirmed real case: a unit with a moderate CV was sparse in early trials and dense in
+late trials, caught only by actually rendering and looking at the raster, not by the CV number.
+When "stable/consistent across trials" is a selection criterion (e.g. picking one exemplar unit
+per class for a figure), use `abs(scipy.stats.spearmanr(trial_index, per_trial_spike_count)
+.correlation)` instead (worst-case across conditions if multiple apply), and visually confirm
+the rendered result before trusting the metric.
+
+Relatedly: passing a canonical significance test (e.g. `jnwb.unit_classification.is_o_plus`,
+which pools across all omission slots with FDR) is not the same claim as "this specific
+condition/slot visibly shows the effect" — verify the specific comparison a figure will display,
+don't assume classifier pass implies every individual panel looks convincing. See
+`.agents/AGENTS.md` footgun #7 for a concrete case where the passing unit had the weakest visible
+effect of all real candidates.
 
 ## Laminar Assignment (Putative Layer)
 

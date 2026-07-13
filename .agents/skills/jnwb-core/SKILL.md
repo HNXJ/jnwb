@@ -113,6 +113,27 @@ D:/analysis/nwb/sub-C31o_ses-*.nwb   (subject C31o, multiple dates)
 D:/analysis/nwb/sub-V198o_ses-*.nwb  (subject V198o, multiple dates)
 ```
 
+## Critical footgun: unit identity is a DataFrame row position, not `unit_id`
+
+`session.get_spike_times(unit_id)` (and equivalent internal lookups) index by **raw DataFrame
+row position** (`units_df.index`), **not** the `unit_id` column. `unit_id` is a per-probe-local
+kilosort id — it can have gaps and is not globally unique across probes/sessions. Passing a
+`unit_id` column value where a row-position index is expected silently fetches the wrong unit's
+spikes (confirmed real bug, found in `jnwb/trajectory.py::build_time_resolved_matrix` and in a
+`grand_unit_table_shuffle_sso.csv` consumer script — both were using the `unit_id` column).
+Before writing any new code that fetches spikes for a given unit, confirm which identifier you
+are actually holding.
+
+## Footgun: bytes-encoded h5py numeric columns
+
+On some sessions (confirmed: `sub-C31o_ses-230816`, `sub-C31o_ses-230901`), raw intervals-table
+columns read directly via h5py come back as **byte strings** (`b'2.0'`, `b'nan'`), not floats.
+`float(b'2.0')` works but naive numeric comparisons on the raw bytes silently produce wrong trial
+counts (370 vs the real 246 for one condition, until fixed). This only bites code that reads
+`stimulus_number`/`correct`/`task_condition_number`/`start_time` etc. directly via h5py instead
+of through `session.get_epochs(...)` — prefer the session API; if you must read raw, coerce with
+an explicit bytes-aware numeric parser and sanity-check trial counts against a known session.
+
 ## Standard NWB Content Atlas
 
 Omission NWB session files contain the following physiological signals:

@@ -120,14 +120,32 @@ flip = spectral.vflip2(lfp_array, channel_depths, sfreq=1000.0)
 | high_gamma | 60–120      |
 | broadband  | 1–150      |
 
-## TFR Array Locations
+## TFR Array Locations and Naming Convention
 
+All TFR arrays are in `D:/workspace/data/tfr_arrays/`.  
+Naming: `{session_prefix}-{probe_letter}-{area}-{condition}.npy`
+
+Confirmed live examples (sub-C31o_ses-230823):
 ```
-D:/workspace/data/tfr_arrays/
-  sub-C31o_ses-230823-C-FEF-AXAB.npy
-  sub-C31o_ses-230823-C-FEF-AAXB.npy
-  ... (naming: sub-{subj}_ses-{date}-{probe}-{area}-{condition}.npy)
+sub-C31o_ses-230823-A-FEF-RRRR.npy   (probe A = FEF for this session)
+sub-C31o_ses-230823-B-MST-RXRR.npy   (probe B has MST and MT for this session)
+sub-C31o_ses-230823-C-V1-AAAB.npy    (probe C has V1, V2, V3 for this session)
 ```
+
+Probe → area assignment is **NOT fixed across sessions** — always resolve from  
+`session_readiness.csv` / `nwb_catalog.json` or read the TFR directory listing per session.
+
+**Conditions available** (12 per probe/area combination):
+- Standard sequences: `AAAB`, `AXAB`, `AAXB`, `AAAX`, `BBBA`, `BXBA`, `BBXA`, `BBBX`
+- R-family: `RRRR` (random, no omission), `RXRR` (omit p2), `RRXR` (omit p3), `RRRX` (omit p4)
+
+**Array shape**: `(n_channels, n_freqs, n_times, n_trials)` — verify with `.shape` before slicing.
+Frequencies: `np.arange(3, 201, 2)` Hz (99 bins) for this session.
+
+**Session readiness** (2026-07-13 receipt):
+- `suite_tfr_ready=True`: 15/17 sessions (all subjects: C31o, V182o, V198o)
+- `suite_tfr_ready=False`: `sub-C31o_ses-230630`, `sub-V198o_ses-230629`
+- Always gate on `artifacts/data/session_readiness.csv` before loading a TFR array.
 
 ## Stable-Plus LFP Channels: Selection Rule
 

@@ -123,5 +123,5 @@ stable = pd.read_csv(
 | Total units          | 6,040  |
 | Stable               | 3,071  |
 | Stable-plus          | 661    |
-| Sessions             | 13     |
-| Subjects             | 2 (C31o, V198o) |
+| Sessions             | verify via `artifacts/data/session_readiness.csv` / `nwb_catalog.json` — do not hardcode; "13" is a known-stale legacy figure (17 NWB files as of the 2026-07-09 receipt, see `.agents/AGENTS.md`) |
+| Subjects             | 3 (C31o, V182o, V198o) |
