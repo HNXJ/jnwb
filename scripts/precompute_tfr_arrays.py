@@ -108,15 +108,29 @@ def resolve_lfp_datasets(f: h5py.File, lfp_key: str):
     return data, ts, fs
 
 
+def _to_numeric(arr: np.ndarray) -> np.ndarray:
+    """Coerce an h5py column to float64, handling the real cross-session
+    inconsistency where some sessions store stimulus_number/correct/
+    task_condition_number as bytes-encoded strings (e.g. b'2.0', b'nan')
+    instead of a native numeric dtype (confirmed 2026-07-12 on
+    sub-C31o_ses-230816/230901: raw np.isfinite() on the bytes array raised
+    TypeError, which is what made the original Jun 19 precompute for these
+    2 sessions silently diverge from the real, current trial-filtering
+    behavior rather than raising loudly)."""
+    if arr.dtype.kind in ("O", "S", "U"):
+        return np.array([float(x.decode() if isinstance(x, bytes) else x) for x in arr], dtype=float)
+    return arr.astype(float)
+
+
 def p1_onsets_s(
     f: h5py.File,
     condition: str,
 ) -> np.ndarray:
     g = f["intervals/omission_glo_passive"]
-    sn = g["stimulus_number"][:]
-    corr = g["correct"][:]
-    tc = g["task_condition_number"][:]
-    st = g["start_time"][:]
+    sn = _to_numeric(g["stimulus_number"][:])
+    corr = _to_numeric(g["correct"][:])
+    tc = _to_numeric(g["task_condition_number"][:])
+    st = _to_numeric(g["start_time"][:])
     nums = CONDITION_NUMBERS[condition]
     mask = (sn == 2) & (corr == 1) & np.isin(tc, nums)
     # drop nan stimulus_number rows

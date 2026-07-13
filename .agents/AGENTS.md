@@ -67,7 +67,6 @@ spectrogram/trace suites.
 | Stats | `.agents/skills/jnwb-statistics/SKILL.md` |
 | Viz | `.agents/skills/jnwb-visualization/SKILL.md` |
 | Forms / pipelines | `.agents/skills/nwb-analysis-forms/SKILL.md` |
-| Remote host | `.agents/skills/remote-ssh-and-file-management/SKILL.md` |
 
 Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
 

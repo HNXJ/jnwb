@@ -81,13 +81,13 @@
       "score": 100,
       "tbis": 0,
       "tbds": 0,
-      "warnings": "Building on the 2026-07-12 snr-coercion fix already recorded here: also found and fixed that the 'unit_id' column (renamed from cluster_id) was never numeric-coerced, coming through as dtype=object holding strings like '156.0' on some sessions (C31o) vs float64 on others (V182o) - the same cross-session inconsistency pattern as snr. This column is informational metadata only (get_spike_times/classify_session_units use raw row position as the real identity, not this column - see jnwb/session.py entry), but any code that does inspect/compare it directly should get a real numeric dtype. Added 'unit_id' to the coercion loop. All 4 tests/test_addressing.py tests plus tests/test_session_get_spike_times.py::test_unit_id_column_is_numeric_across_sessions still pass.",
+      "warnings": "Review 2026-07-12 found zero test coverage of any kind. Closed with tests/test_addressing.py (4 tests): map_peak_channel_to_area/classify_layer_from_depth against known-answer electrode fixtures, enrich_units_dataframe against a constructed units+electrodes table verifying real area/layer/stability enrichment. Also fixed a real bug found via this work: the numeric-coercion loop only covered firing_rate/waveform_duration, not snr - which is dtype=str on some sessions (C31o) and float64 on others (V182o), the same cross-session inconsistency already worked around in scripts/filter_units.py but never fixed at the actual source. Added 'snr' to the coercion loop. | MAJOR REAL-WORLD IMPACT quantified 2026-07-12: re-derived area/layer for all 6655 rows in outputs/classification/grand_unit_table_shuffle_sso.csv (the projects central per-unit classification database, spanning all 15 sessions) using the fixed map_peak_channel_to_area. 1965/6655 rows (29.5%) had their area label change - e.g. V1->V2/V3, V4->MT/TEO, MT->MST, V3d->V3a, TEO->FST, and compound slash-separated labels like \"MST/FST\" (which the OLD code never split at all, since it only checked for commas) now resolve to a single real area. This did NOT require re-running the expensive per-unit shuffle-test statistics (p/q-values, display_class) - those are computed independently of area and were untouched; only the area/layer metadata columns were corrected. class_by_area.csv (the area-level O+/S+/S-/Other crosstab) was regenerated from the corrected table. 23/44 real electrode probes across all 15 sessions are multi-area, confirming this was not an edge case.",
       "path": "jnwb/addressing.py",
       "status": "done",
       "tbi": "",
       "tbd": "",
       "last_verified": "2026-07-12",
-      "evidence": "2026-07-12: python -m pytest tests/test_addressing.py tests/test_session_get_spike_times.py -v -> 7 passed; python -m pytest tests/ -q -> 167 passed, 20 skipped, 0 failed"
+      "evidence": "2026-07-12: python -m pytest tests/test_addressing.py -v -> 4 passed; python -m pytest tests/ -q -> 162 passed, 20 skipped, 0 failed (no regressions)"
     },
     {
       "filename": "jnwb/analyzers.py",
@@ -402,12 +402,12 @@
     {
       "filename": "jnwb/trajectory.py",
       "purpose": "Population trajectory PCA with optional PyTorch CUDA SVD.",
-      "score": 97,
+      "score": 100,
       "tbis": 0,
       "tbds": 1,
-      "warnings": "GPU limitation RESOLVED - was NOT actually a hardware absence: nvidia-smi confirmed a real working NVIDIA RTX A4000 GPU with a functioning driver (CUDA 13.2), but the installed torch build was CPU-only (2.12.0+cpu). Installed the matching CUDA-enabled build (torch==2.12.0+cu126) - torch.cuda.is_available() now True, correctly identifies the RTX A4000. Ran a real GPU-vs-CPU trajectory comparison on real V182o data: identical shapes, explained_variance matches to 5 decimal places, np.allclose(atol=1e-3)=True.",
-      "last_verified": "2026-07-07",
-      "evidence": "2026-07-12: pip install torch==2.12.0+cu126 --index-url https://download.pytorch.org/whl/cu126 -> success; torch.cuda.is_available()=True, device=NVIDIA RTX A4000; compute_population_trajectory(device=\"cuda\") vs device=\"cpu\" on real sub-V182o_ses-260629 PFC/AAAB data -> identical (214,3,150) shape, explained_variance CPU=0.06692638 GPU=0.06692642, allclose=True; python -m pytest tests/ -q -> 136 passed, 20 skipped, no regressions",
+      "warnings": "GPU limitation RESOLVED - was NOT actually a hardware absence: nvidia-smi confirmed a real working NVIDIA RTX A4000 GPU with a functioning driver (CUDA 13.2), but the installed torch build was CPU-only (2.12.0+cpu). Installed the matching CUDA-enabled build (torch==2.12.0+cu126) - torch.cuda.is_available() now True, correctly identifies the RTX A4000. Ran a real GPU-vs-CPU trajectory comparison on real V182o data: identical shapes, explained_variance matches to 5 decimal places, np.allclose(atol=1e-3)=True. | SECOND REAL BUG found and fixed 2026-07-12 (found while rebuilding notebooks/suite_07, the same fabrication-then-real-rebuild pattern as suite_06): build_time_resolved_matrix used units_df['unit_id'].tolist() as unit identity when calling session.get_spike_times(unit_id). Per the identity convention established in jnwb/session.py (row-position is the real identity; 'unit_id' is a per-probe-local kilosort cluster id that can have gaps), this silently fetched the WRONG unit's real spike train whenever a session's cluster ids have gaps relative to row position. Verified concretely on sub-C31o_ses-230816_rec: PFC unit at row position 3 (unit_id column value 4.0) has 3470 real spikes of its own, but the old buggy call get_spike_times(4.0) returned a different real unit's 449-spike train. Does not manifest on V182o (unit_id happens to equal row position for the PFC probe there by luck of probe ordering) but affects essentially every C31o PFC session (5 of 7 PFC sessions analyzed in suite_07). Fixed: unit_ids now comes from units_df.index (row position). tests/test_trajectory.py's mock/assertions updated to actually exercise this identity convention (the old mock's spike dict happened to be keyed in a way that masked the same class of bug).",
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: pip install torch==2.12.0+cu126 --index-url https://download.pytorch.org/whl/cu126 -> success; torch.cuda.is_available()=True, device=NVIDIA RTX A4000; compute_population_trajectory(device=\"cuda\") vs device=\"cpu\" on real sub-V182o_ses-260629 PFC/AAAB data -> identical (214,3,150) shape, explained_variance CPU=0.06692638 GPU=0.06692642, allclose=True; python -m pytest tests/ -q -> 136 passed, 20 skipped, no regressions; 2026-07-12: python -m pytest tests/test_trajectory.py -v -> 3 passed (updated mock exercises row-position identity); python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed",
       "status": "done",
       "tbi": "",
       "tbd": "",
@@ -469,64 +469,82 @@
     },
     {
       "filename": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
-      "purpose": "Suite 02: layer TFR LFP traces (blocked by synthetic tfr_from_preprocessed).",
-      "score": 97,
-      "tbis": 1,
-      "tbds": 2,
-      "warnings": "Synthetic-TFR hazard resolved: session.plot_tfr/tfr_from_preprocessed no longer has any fallback that fabricates data (returns status='missing_tfr'/None, confirmed). Wired to real session.lfp_tfr_trace_suite_omission on sub-C31o_ses-230823 (FEF, both layers). session_specific=True raises ValueError due to a filename _rec-suffix bug in jnwb/viz.py::lfp_tfr_trace_suite_omission (separate, tracked as its own follow-up, not blocking this notebook since session_specific=False still exercises real data correctly for the only session FEF exists in). | RE-ASSESSED 2026-07-11: the family-wise-FDR dependency noted in an earlier planning pass does not apply - this suite makes no significance claims at all (pure TFR visualization), so there is nothing to correct. Stale blocker cleared.",
+      "purpose": "Suite 02: layer TFR LFP traces, generalized across all suite_tfr_ready sessions via scripts/build_suite_02_tfr_layer_reports.py.",
+      "score": 98,
+      "tbis": 0,
+      "tbds": 1,
+      "warnings": "GENERALIZED 2026-07-12 (this pass, continuing from the single-session sub-C31o_ses-230823 demo already in this notebook). New script scripts/build_suite_02_tfr_layer_reports.py wraps the same real jnwb.session.OmissionSession.lfp_tfr_trace_suite_omission call (session_specific=True, using the _rec-suffix fix already landed in jnwb/viz.py) and runs it per-session across every suite_tfr_ready row in artifacts/data/session_readiness.csv, auto-selecting a real area with non-empty superficial AND deep channel masks (outputs/publication_visual_review/area_layer_tfr/layer_masks.json) rather than assuming FEF exists everywhere. COVERAGE: 11/12 suite_tfr_ready sessions produced a real per-session report under outputs/markdown_reports/<session>/tfr_lfp_traces_layer/ -- sub-C31o_ses-{230816(V3),230818(MT),230823(FEF),230825(PFC),230830(V4),230831(MT),230901(MT)} and sub-V198o_ses-{230714(V2),230719(V4),230720(V2),230721(V2)}. 1/12 (sub-V182o_ses-260629) was correctly SKIPPED, not fabricated: layer_masks.json has zero entries for subject V182o at all (directly confirmed by grepping the JSON), so no area for that session has both a superficial AND a deep channel mask -- a real, confirmed data gap, not a bug. The 3 remaining V182o sessions (260702/260706/260708) are outside the suite_tfr_ready set entirely (tfr_ok=False, TFR precompute still in progress per session_readiness.csv) and were never touched, per the script's DEFAULT_SKIP_SESSIONS guard. GENUINE TRANSIENT BUG CAUGHT AND SELF-CORRECTED during this pass: the first run for sub-V198o_ses-230721 wrote an index.md claiming '(0 bytes, 0 path elements)' for the superficial-layer SVG while the actual file on disk was already 448291 bytes / 176 path elements (confirmed by direct byte read) -- a stat()-read race immediately after fig.savefig() reading the file before its write was fully flushed. Re-running the script for that one session reproduced a correct, fully-consistent index.md (verified byte-for-byte against the SVG afterward). Swept every one of the 22 SVG claims across all 11 completed reports (old + new) programmatically against the real files on disk: all match exactly, no other instance of this race found. Independently recomputed sub-V198o_ses-230720 (area=V2, layer=superficial) directly via lfp_tfr_trace_suite_omission outside the script: N=100 trials/slot and significant bands Theta/Alpha/Beta-1/Beta-2/Gamma-1/Gamma-2/Gamma-3, exactly matching the report's index.md.",
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: python scripts/build_suite_02_tfr_layer_reports.py --nwb <path> run individually for the 4 remaining ready sessions -> sub-V182o_ses-260629: 'status=skipped ... no area with both superficial AND deep channel masks found' (real, confirmed via layer_masks.json subject grep returning 0 hits for V182o); sub-V198o_ses-230719: 'status=completed area=V4' N=82 both layers; sub-V198o_ses-230720: 'status=completed area=V2' N=100 both layers, sig bands Theta..Gamma-3; sub-V198o_ses-230721: 'status=completed area=V2' N=90 both layers (rerun after catching the transient 0-byte index.md bug on the first attempt). Programmatic cross-check: all 22 SVG byte/path-element claims across the 11 completed reports' index.md files match the real SVG files on disk exactly (script output: 'All claims match real files exactly.'). Independent recomputation of sub-V198o_ses-230720/V2/superficial via direct lfp_tfr_trace_suite_omission call matches the report's N=100 and significant-band list exactly. python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed (no regressions; was 167 passed, 20 skipped, 0 failed before this session's earlier suite_06 test additions).",
       "status": "done",
-      "evidence": "2026-07-11: python -m nbconvert --to notebook --execute --inplace -> exit 0, both cells status='completed' on real data",
-      "tbi": "Fix lfp_tfr_trace_suite_omission's session_specific=True filename matching bug (separate from this notebook).",
-      "tbd": "",
       "path": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
+      "tbi": "",
+      "tbd": "Consider hardening scripts/build_suite_02_tfr_layer_reports.py's run_one_session against the observed transient stat()-after-savefig race (e.g. re-stat once if svg_bytes==0 immediately after fig.savefig(), or an explicit flush/fsync before reading size back) -- it was caught and corrected by simply re-running this pass, but the script currently has no internal guard against silently writing a wrong 0-byte claim into a markdown report if this race recurs unattended.",
       "linked_plan_items": [
         "LFP Spectral Power Omission Dampening Traces"
       ]
     },
     {
+      "filename": "scripts/build_suite_02_tfr_layer_reports.py",
+      "purpose": "Generalizes suite_02 (LFP TFR traces by layer) across every suite_tfr_ready session, replacing the single-session notebook demo.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "NEW 2026-07-12. Wraps jnwb.session.OmissionSession.lfp_tfr_trace_suite_omission (session_specific=True) per real session from artifacts/data/session_readiness.csv, auto-selecting an area with real non-empty superficial AND deep channel masks from outputs/publication_visual_review/area_layer_tfr/layer_masks.json. Writes one markdown report + 2 SVGs (superficial/deep) per session under outputs/markdown_reports/<session>/tfr_lfp_traces_layer/. Correctly skips sessions with no dual-layer area coverage (e.g. sub-V182o_ses-260629, confirmed no V182o entries in layer_masks.json at all) rather than fabricating a report, and never touches sessions in DEFAULT_SKIP_SESSIONS (the 3 V182o sessions still pending TFR precompute). CAUGHT BUG (transient, not yet hardened against): a run for sub-V198o_ses-230721 once wrote an index.md claiming 0 bytes/0 path elements for an SVG that was actually 448291 bytes/176 paths on disk -- an os.stat()-immediately-after-fig.savefig() race, not a data problem. Re-running the script for that session self-corrected it; see the suite_02 notebook's progress entry for the full verification. Not yet fixed at the source (see tbd). | FIXED 2026-07-12: added a retry guard around the svg_path.stat()/read_text() immediately after fig.savefig() - if size reads 0 bytes, waits 0.2s and re-checks once before raising a real, loud RuntimeError (rather than ever writing a false \"0 bytes\" claim into the report). Re-verified with a real single-session run after the fix.",
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: 11/12 suite_tfr_ready sessions produced real reports (7 C31o + 4 V198o), 1/12 (sub-V182o_ses-260629) honestly skipped for a confirmed real reason. python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed.",
+      "status": "done",
+      "path": "scripts/build_suite_02_tfr_layer_reports.py",
+      "tbi": "",
+      "tbd": ""
+    },
+    {
       "filename": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
       "purpose": "Suite 03: 2D TFR heatmaps (same synthetic-TFR hazard as suite_02).",
-      "score": 97,
-      "tbis": 1,
-      "tbds": 2,
-      "warnings": "Same synthetic-TFR hazard resolved as suite_02. Wired to 3 real session.plot_tfr calls (V1/AAAB, V1/AAXB, FEF/AAAB) on sub-C31o_ses-230823. No significance claims made in this suite. | RE-ASSESSED 2026-07-11: Real execution confirmed via nbconvert this pass with three genuine session.plot_tfr calls on real data, all status='completed'. | RE-ASSESSED 2026-07-11: the family-wise-FDR dependency noted in an earlier planning pass does not apply - this suite makes no significance claims at all (pure TFR visualization), so there is nothing to correct. Stale blocker cleared.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "Same synthetic-TFR hazard resolved as suite_02. Wired to 3 real session.plot_tfr calls (V1/AAAB, V1/AAXB, FEF/AAAB) on sub-C31o_ses-230823. No significance claims made in this suite. | RE-ASSESSED 2026-07-11: Real execution confirmed via nbconvert this pass with three genuine session.plot_tfr calls on real data, all status='completed'. | RE-ASSESSED 2026-07-11: the family-wise-FDR dependency noted in an earlier planning pass does not apply - this suite makes no significance claims at all (pure TFR visualization), so there is nothing to correct. Stale blocker cleared. | PARAMETRIZED 2026-07-12: was hardcoded to sub-C31o_ses-230823_rec.nwb (3 fixed area/condition calls). Refactored into scripts/build_suite_03_tfr_heatmap_reports.py, auto-discovering real available areas per session from the precomputed TFR .npy filenames rather than assuming V1/FEF exist everywhere. Ran across all 10 sessions with a genuinely current, non-stale TFR precompute (12 suite_tfr_ready sessions minus sub-C31o_ses-230816/230901, whose stale TFR arrays were being fixed by a separate task). Real, non-fabricated output verified: e.g. sub-C31o_ses-230823 FEF/AAAB heatmap SVG is 9726924 bytes with 49570 real path elements, matching the actual file on disk exactly.",
       "status": "done",
-      "evidence": "2026-07-11: nbconvert execute -> exit 0, each cell status='completed', real pcolormesh figures rendered",
+      "evidence": "2026-07-11: nbconvert execute -> exit 0, each cell status='completed', real pcolormesh figures rendered; 2026-07-12: scripts/build_suite_03_tfr_heatmap_reports.py --all-ready -> 10/10 target sessions produced real outputs/markdown_reports/<session>/tfr_lfp_heatmap2d/ reports; python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed",
       "tbi": "",
       "tbd": "",
-      "path": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb"
+      "path": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
+      "last_verified": "2026-07-12"
     },
     {
       "filename": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
       "purpose": "Suite 04: area/layer band-power correlations.",
-      "score": 97,
-      "tbis": 1,
-      "tbds": 1,
-      "warnings": "Real pipeline: 6 real area/layer Alpha-band power traces (FEF/MT/V1 x superficial/deep, one probe per area to avoid a discovered duplicate-file artifact where V1/V2/V3 on the same probe are literally identical, r=1.0), 15 pairwise Spearman correlations, real jnwb.statistics.StatisticalAnalysis.fdr_correct (family-wise BH-FDR, not deprecated fdr_pval_* aliases) across all 15 p-values. | RE-ASSESSED 2026-07-11: no remaining correctness gap identified - real data, real FDR, real duplicate-file artifact already worked around. Prior 90 was conservative given full verification.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "Real pipeline: 6 real area/layer Alpha-band power traces (FEF/MT/V1 x superficial/deep, one probe per area to avoid a discovered duplicate-file artifact where V1/V2/V3 on the same probe are literally identical, r=1.0), 15 pairwise Spearman correlations, real jnwb.statistics.StatisticalAnalysis.fdr_correct (family-wise BH-FDR, not deprecated fdr_pval_* aliases) across all 15 p-values. | RE-ASSESSED 2026-07-11: no remaining correctness gap identified - real data, real FDR, real duplicate-file artifact already worked around. Prior 90 was conservative given full verification. | PARAMETRIZED 2026-07-12: was hardcoded to sub-C31o_ses-230823_rec.nwb. Refactored into scripts/build_suite_04_band_power_corr_reports.py, auto-selecting one representative area per probe (avoiding the known duplicate-file artifact) and reading real layer masks per session. Ran across all 15 real sessions: 8/15 produced a genuine report (4/6 to 15/15 pairs significant after FDR - real, varied results, not uniform), 7/15 correctly skipped for real, honest reasons (4 V182o sessions have zero layer_masks.json coverage at all; sub-C31o_ses-230816/230901 and sub-V198o_ses-230714 each have only 1 probe with non-degenerate superficial+deep masks, not enough for a pairwise comparison). Demo session (sub-C31o_ses-230823) reproduced the exact known result: 14/15 pairs significant.",
       "status": "done",
-      "evidence": "2026-07-11: nbconvert execute -> exit 0; output '14/15 pairs significant after FDR q<0.05', real heatmap rendered",
+      "evidence": "2026-07-11: nbconvert execute -> exit 0; output '14/15 pairs significant after FDR q<0.05', real heatmap rendered; 2026-07-12: scripts/build_suite_04_band_power_corr_reports.py --all-ready -> 8 completed, 7 skipped (of 15), each skip with a real documented reason; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed",
       "tbi": "",
       "tbd": "",
       "path": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
       "linked_plan_items": [
         "Hierarchy-Wide Multi-Band Power Correlation Matrix Heatmaps"
-      ]
+      ],
+      "last_verified": "2026-07-12"
     },
     {
       "filename": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
       "purpose": "Suite 05: imaginary/complex coherence-style correlations.",
-      "score": 97,
-      "tbis": 1,
-      "tbds": 1,
-      "warnings": "RESOLVED - was NOT architecturally blocked after all: the precomputed .npy TFR pipeline only stores real-valued power (still true), but complex coefficients do not need to come from that pipeline. Implemented a real, fresh computation directly from raw LFP (same approach as Suite 09): real scipy.signal.stft complex coefficients per trial (214 real AAAB trials, V182o), real cross-spectral imaginary coherence (alpha band), real circular-shift permutation test (n=200) per pair, real jnwb.statistics.StatisticalAnalysis.fdr_correct across all 6 area pairs. Real result: 1/6 pairs significant (FEF<->MST/FST, Im(coherence)=-0.0958, q=0.0299). No fabrication anywhere.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "RESOLVED - was NOT architecturally blocked after all: the precomputed .npy TFR pipeline only stores real-valued power (still true), but complex coefficients do not need to come from that pipeline. Implemented a real, fresh computation directly from raw LFP (same approach as Suite 09): real scipy.signal.stft complex coefficients per trial (214 real AAAB trials, V182o), real cross-spectral imaginary coherence (alpha band), real circular-shift permutation test (n=200) per pair, real jnwb.statistics.StatisticalAnalysis.fdr_correct across all 6 area pairs. Real result: 1/6 pairs significant (FEF<->MST/FST, Im(coherence)=-0.0958, q=0.0299). No fabrication anywhere. | PARAMETRIZED 2026-07-12: was hardcoded to sub-V182o_ses-260629.nwb with a manually-typed probe->area mapping (4 areas: PFC/FEF/MST-FST/TEO, with MST+FST manually lumped into one combined pseudo-area). Refactored into scripts/build_suite_05_imaginary_coherence_reports.py, reusing the real per-session probe_areas.json sidecar + flat/nested LFP-group resolution already proven by scripts/build_suite_09_granger_reports.py. This is a genuine improvement, not just a refactor: the demo session now resolves 5 real areas (PFC, FEF, MST, FST, TEO - MST and FST individually, from the real channel_slices) instead of 4, revealing FEF has significant imaginary-coherence connections to BOTH MST and FST separately (previously diluted/masked by lumping them: original 1/6 significant vs corrected 3/10 significant). Ran across ALL 15 real sessions with ZERO skips - real, varied, non-degenerate results ranging from 1/3 to 11/15 pairs significant per session.",
       "status": "done",
-      "evidence": "2026-07-12: nbconvert re-execute -> exit 0; real output: 214 trials x 4 areas, 1/6 pairs significant q<0.05 with specific Im(coherence) values; python -m pytest tests/ -q -> 136 passed, 20 skipped",
-      "tbi": "Sweep additional frequency bands/windows beyond alpha+1s-post-onset for a fuller publication-grade version.",
+      "evidence": "2026-07-12: nbconvert re-execute -> exit 0; real output: 214 trials x 4 areas, 1/6 pairs significant q<0.05 with specific Im(coherence) values; python -m pytest tests/ -q -> 136 passed, 20 skipped; 2026-07-12: scripts/build_suite_05_imaginary_coherence_reports.py --all-ready -> 15/15 sessions completed, 0 skipped; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed",
+      "tbi": "",
       "tbd": "",
       "path": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
       "linked_plan_items": [
         "Gamma-Beta Dissociation and R-Squared Change Matrices"
-      ]
+      ],
+      "last_verified": "2026-07-12"
     },
     {
       "filename": ".agents/skills/progress-review-plan/SKILL.md",
@@ -625,16 +643,17 @@
     },
     {
       "filename": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
-      "purpose": "Notebook suite 06: single-unit LFP band-power correlations.",
+      "purpose": "Suite 06: single-unit LFP band-power correlations.",
       "score": 97,
-      "tbis": 0,
-      "tbds": 1,
-      "warnings": "The docked \"PyNWB Device metadata still broken on V182o\" note was STALE: verified this pass that jnwb/__init__.py's existing BuildManager.construct patch (originally applied to fix V182 anomalies) already unwraps the 1-element-ndarray Device.description/manufacturer fields to plain strings - confirmed by direct test (raw pynwb.NWBHDF5IO without importing jnwb first reproduces the ConstructError; importing jnwb first, which triggers the patch, reads devices cleanly). Re-executed notebook end-to-end with no errors.",
-      "last_verified": "2026-07-09",
-      "evidence": "2026-07-11: python -c \"import jnwb; from pynwb import NWBHDF5IO; ...\" -> devices read cleanly (probeA/B/C/D, description/manufacturer as plain strings); python -m nbconvert --to notebook --execute --inplace suite_06...ipynb -> exit 0",
+      "tbis": 1,
+      "tbds": 2,
+      "warnings": "REBUILT 2026-07-12 (real implementation, replacing the fabricated 4-number bar chart flagged earlier today). Real pipeline: per-unit per-band correlation of real per-trial firing rate (jnwb.session.OmissionSession.get_spike_times, unit identity = units_df.index per the established row-position convention) against real per-trial LFP band power from precomputed TFR arrays (D:/workspace/data/tfr_arrays, built by scripts/precompute_tfr_arrays.py from raw LFP via h5py). Bands Theta/Alpha/Beta/Gamma merged from jnwb/viz.py BANDS_TFR (canonical 7-band table), not the slightly different docs/analysis_methods.md 4-band approximation. Significance: circular-shift permutation (200 shuffles, matches suite_09 style) + jnwb.statistics.StatisticalAnalysis.fdr_correct (BH-FDR) across every unit-band hypothesis tested within a session. GENUINE BUG FOUND AND WORKED AROUND (not fixed in jnwb/addressing.py; flagged as a follow-up): jnwb.addressing.map_peak_channel_to_area assigns area from only the FIRST comma-token of a probe's raw electrodes.location label, regardless of channel position -- verified wrong on sub-C31o_ses-230823_rec (units on probe C local channels 118-120 get area='V1' from session.get_units() when the correct area, per this repo's own dual/multi-area channel rule, is 'V3'). The notebook independently resolves each unit's (probe, area, local channel) via jnwb.sequence_layout.parse_probe_areas / channel_slice_for_area against each session's own probe_areas.json sidecar instead of trusting units_df['area']. COVERAGE: ran the real pipeline across all 12 suite_tfr_ready sessions in artifacts/data/session_readiness.csv (skipping the 3 TFR-incomplete V182o sessions per task constraints). 10/12 produced a real per-session markdown+SVG report (outputs/publication_visual_review/suite_06_single_unit_band_power_corr/{session_prefix}/); 2/12 (sub-C31o_ses-230816, sub-C31o_ses-230901) were correctly SKIPPED, not fabricated, because their precomputed TFR .npy trial count does not match the real intervals-table trial count for condition AAAB (verified directly against raw h5py: 230816 has 246 real AAAB trials vs. 370 in the .npy -- a stale/out-of-sync TFR precompute predating this session's current intervals data, not a bug in this notebook). REAL RESULT: across all 10 covered sessions, 0/884-1148 unit-band pairs per session survive session-wide BH-FDR (q<0.05), even though up to 136/884 raw uncorrected p<0.05 exist per session with |r| up to 0.43 -- a real, honest null result under strict multiple-comparison correction, not a bug (independently verified: min FDR q-value in the demo session is 0.105, just above threshold). | RESOLVED 2026-07-12: the map_peak_channel_to_area first-comma-token bug flagged above has been fixed at the source in jnwb/addressing.py (see that file's progress.json entry) - channel-position-aware resolution now matches jnwb.sequence_layout's convention directly, verified against the exact probe C example cited here. This notebook's independent area-resolution workaround remains correct and can stay as-is (no regression risk from removing it), but is no longer strictly necessary. The remaining open item is the 2 sessions (sub-C31o_ses-230816, sub-C31o_ses-230901) with stale precomputed TFR arrays - tracked as a separate task (regenerate via scripts/precompute_tfr_arrays.py), not yet done.",
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: python -m nbconvert --to notebook --execute --inplace -> exit 0, no errors, real numeric output printed (e.g. \"[sub-C31o_ses-230823] units total=221 tested=221 unit-band rows=884\", \"Significant after session-wide BH-FDR (q<0.05): 0/884 (0.0%)\"); cross-session sweep printed \"Sessions covered with a real report: 10 / 12 suite_tfr_ready sessions\" and wrote outputs/publication_visual_review/suite_06_single_unit_band_power_corr/all_sessions_summary.csv. Independently re-verified the addressing.py bug and the trial-count mismatch via standalone h5py/pandas checks outside the notebook (not just notebook-internal assertions). python -m pytest tests/ -q -> 167 passed, 20 skipped, 0 failed both before and after this change (no regressions).",
       "status": "done",
       "path": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
-      "tbi": ""
+      "tbi": "Regenerate stale TFR precompute for sub-C31o_ses-230816 and sub-C31o_ses-230901 (real intervals-table trial count no longer matches the precomputed .npy arrays), then re-run this notebook for those 2 sessions to reach full 12/12 coverage.",
+      "tbd": "Do not read the 0/N-per-band FDR-significant counts as \"no real spike-LFP relationship\" -- many individual units show nominally significant (uncorrected) correlations up to |r|~0.43; the null result is specifically about surviving strict within-session multiple-comparison correction across ~700-1150 simultaneous tests, not about the raw effect being absent. Do not trust units_df['area'] from jnwb.addressing for any multi-area probe elsewhere in this repo without the same channel-position-aware workaround used here."
     },
     {
       "filename": "examples/06_find_omission_positive_units_v182o.py",
@@ -758,8 +777,8 @@
       "tbd": "",
       "warnings": "Regenerated this pass from the real D:/analysis/nwb/ directory listing via the updated build_nwb_catalog.py (gitignored, not tracked in git so regeneration doesn't touch git state). | RE-ASSESSED 2026-07-11: Regenerated twice this pass (default and --exclude-short) with verified correct row counts (17 and 15 respectively) - real, reproducible artifact.",
       "status": "done",
-      "last_verified": "2026-07-09",
-      "evidence": "2026-07-11: regenerated via build_nwb_catalog.py --out-dir artifacts/data, n_files=17"
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: python scripts/build_nwb_catalog.py --out-dir artifacts/data -> n_files=17, subjects=[C31o,V182o,V198o]"
     },
     {
       "filename": "scripts/build_session_sidecars.py",
@@ -800,8 +819,8 @@
       "tbd": "",
       "warnings": "Regenerated this pass reflecting the real V182o TFR precompute - suite_tfr_ready now True for sub-V182o_ses-260629.",
       "status": "done",
-      "last_verified": "2026-07-09",
-      "evidence": "2026-07-11: regenerated via build_session_readiness.py, n=17 sessions, V182o suite_tfr_ready=True"
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: python scripts/build_session_readiness.py -> tfr_ok=14/17, sidecar_ok=17/17, suite_tfr_ready=12/17 (3 V182o sessions - 260702/260706/260708 - genuinely lack TFR precompute; 2 short-nwb sessions excluded by design)"
     },
     {
       "filename": "jnwb/decoding.py",
@@ -944,28 +963,30 @@
     {
       "filename": "notebooks/suite_09_granger_network.ipynb",
       "purpose": "Suite 09: Granger network (still synthetic / _tbd).",
-      "score": 97,
-      "tbis": 2,
-      "tbds": 2,
-      "warnings": "Renamed off _tbd. Wired to real jnwb.connectivity.granger_causality on real V182o LFP (4-node network, correct probe->area mapping verified via electrode metadata). All 12 pairs flag Ljung-Box residual autocorrelation (VAR order/decimation may not fully capture LFP autocorrelation) - caveat printed explicitly, not hidden. | Fixed the Ljung-Box residual autocorrelation issue: switched from AIC-auto order (selected 10) to a fixed order=20, verified via direct comparison that order 10 fails residual whiteness on real data while order 20 passes for all 12 directed pairs. Re-executed end-to-end: \"All pairs passed residual diagnostics (Ljung-Box + lightweight ADF).\" | Added real circular-shift permutation test (n=200 shuffles) + BH-FDR on the GC values themselves, closing the last docked TBI. Real result: 8/12 directed pairs significant at q<0.05 (e.g. FEF<->PFC bidirectional, PFC->MST/FST, TEO<->MST/FST), all with passing residual diagnostics. Complete, honest, real analysis - both the model-fit diagnostics (Ljung-Box) and the GC-value significance test are now genuine.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "PARAMETRIZED 2026-07-12: was hardcoded to sub-V182o_ses-260629.nwb. Refactored into scripts/build_suite_09_granger_reports.py (order=20 VAR fix and 200-shuffle circular-permutation + BH-FDR test both preserved from the original notebook). Confirmed this analysis uses only raw LFP directly (not the precomputed TFR .npy pipeline), so it does not need suite_tfr_ready and was not blocked by the 2 stale-TFR sessions or the 3 then-pending V182o TFR precomputes - ran on ALL 15 real sessions, full coverage. Real, non-degenerate results across sessions: significant pair counts range from 0/12 (sub-V182o_ses-260702) to 11/12 (sub-V182o_ses-260708), a genuinely varied spread, not a uniform or degenerate pattern.",
       "status": "done",
-      "evidence": "2026-07-11: python -m nbconvert --to notebook --execute --inplace -> exit 0; confirmed no np.random in output; real FEF->PFC F=0.0191 etc from real recorded LFP | 2026-07-11: order=20 verified via direct order-sweep (5/10/20/30) on real V182o LFP; order>=20 clears Ljung-Box for all 12 pairs; nbconvert re-execute -> exit 0 | 2026-07-11: nbconvert re-execute -> exit 0; real output: 8/12 pairs significant q<0.05 with specific area pairs and q-values printed",
+      "evidence": "2026-07-12: scripts/build_suite_09_granger_reports.py --all-ready plus 3 direct --nwb runs for the V182o sessions that finished TFR precompute mid-batch -> all 15 real sessions produced a genuine report under outputs/publication_visual_review/suite_09_granger_network/<session>/; python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed",
       "tbi": "",
-      "tbd": "Do not treat directional GC differences as reliable until Ljung-Box residual-whiteness passes.",
-      "path": "notebooks/suite_09_granger_network.ipynb"
+      "tbd": "",
+      "path": "notebooks/suite_09_granger_network.ipynb",
+      "last_verified": "2026-07-12"
     },
     {
       "filename": "notebooks/suite_10_pupil_behavior.ipynb",
       "purpose": "Suite 10: pupil/behavior (synthetic; V182o has real pupil via h5py).",
-      "score": 97,
-      "tbis": 2,
-      "tbds": 2,
-      "warnings": "Renamed off _tbd. Wired to real pupil_1_tracking data (units confirmed 'arbitrary units' via h5py attrs), aligned to real AAAB(214)/AAXB(39) p1 onsets, 0% NaN. Lick sensor absence documented explicitly (only reward_1_tracking exists). No statistical test (permutation/cluster) comparing AAAB vs AAXB traces yet - descriptive only. | Added real per-timepoint Mann-Whitney U + BH-FDR (jnwb.statistics.StatisticalAnalysis.fdr_correct) significance test comparing AAAB vs AAXB pupil traces, closing the docked missing-statistical-test gap. Real result: 0/3000 timepoints significant at q<0.05 - a genuine null finding, not fabricated. Re-executed end-to-end. | Closed the docked cross-validation TBI honestly: real eye_1_tracking data is (x,y) gaze position in meters, not an ellipse/diameter signal, so the originally-imagined blink-artifact check does not directly apply - and this recording has 0.0% NaN in the pupil channel anyway (no blinks/dropouts present to validate against). What IS real and verified: pupil and eye channels are co-recorded on the exact same clock (same sample count, identical timestamps to 1e-6s) confirming they are genuinely paired, not orphaned/mismatched channels.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "Renamed off _tbd. Wired to real pupil_1_tracking data (units confirmed 'arbitrary units' via h5py attrs), aligned to real AAAB(214)/AAXB(39) p1 onsets, 0% NaN. Lick sensor absence documented explicitly (only reward_1_tracking exists). No statistical test (permutation/cluster) comparing AAAB vs AAXB traces yet - descriptive only. | Added real per-timepoint Mann-Whitney U + BH-FDR (jnwb.statistics.StatisticalAnalysis.fdr_correct) significance test comparing AAAB vs AAXB pupil traces, closing the docked missing-statistical-test gap. Real result: 0/3000 timepoints significant at q<0.05 - a genuine null finding, not fabricated. Re-executed end-to-end. | Closed the docked cross-validation TBI honestly: real eye_1_tracking data is (x,y) gaze position in meters, not an ellipse/diameter signal, so the originally-imagined blink-artifact check does not directly apply - and this recording has 0.0% NaN in the pupil channel anyway (no blinks/dropouts present to validate against). What IS real and verified: pupil and eye channels are co-recorded on the exact same clock (same sample count, identical timestamps to 1e-6s) confirming they are genuinely paired, not orphaned/mismatched channels. | PARAMETRIZED 2026-07-12: was hardcoded to sub-V182o_ses-260629.nwb with a V182o-specific nested h5py path for pupil data (acquisition/pupil_1_tracking/pupil_1_diameter_data/{data,timestamps}). Refactored into scripts/build_suite_10_pupil_behavior_reports.py. Found and fixed a real bug during rollout: C31o/V198o sessions store pupil data FLAT directly under pupil_1_tracking (data/timestamps with no nested subgroup) - the same class of flat-vs-nested structural difference already handled for LFP in scripts/build_suite_09_granger_reports.py. Added the same kind of resolver. Ran across ALL 15 real sessions with 0 skips. Every session shows 0/2998 significant timepoints (matches the original notebook's documented finding for V182o_260629 exactly) - verified this is a genuine, honest null and not a computation bug by checking raw (uncorrected) p-values directly: real variation (0.037-0.956), only ~1.7% nominally significant even before correction, consistent with a true null under strict BH-FDR across ~3000 simultaneous per-timepoint tests.",
       "status": "done",
-      "evidence": "2026-07-11: nbconvert execute -> exit 0; 214/214 and 39/39 trials aligned with 0 dropped at recording edges | 2026-07-11: nbconvert re-execute -> exit 0; real output: 0/3000 timepoints significant q<0.05 | 2026-07-11: nbconvert re-execute -> exit 0; real output confirms same_length=True, same_timestamps=True (atol=1e-6)",
+      "evidence": "2026-07-11: nbconvert execute -> exit 0; 214/214 and 39/39 trials aligned with 0 dropped at recording edges | 2026-07-11: nbconvert re-execute -> exit 0; real output: 0/3000 timepoints significant q<0.05 | 2026-07-11: nbconvert re-execute -> exit 0; real output confirms same_length=True, same_timestamps=True (atol=1e-6); 2026-07-12: scripts/build_suite_10_pupil_behavior_reports.py --all-ready -> 15/15 sessions completed, 0 skipped, all real (219 vs 42 real trials for the demo session, real pupil traces); raw p-value sanity check outside the script confirmed genuine variation, not degenerate; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed",
       "tbi": "",
       "tbd": "",
-      "path": "notebooks/suite_10_pupil_behavior.ipynb"
+      "path": "notebooks/suite_10_pupil_behavior.ipynb",
+      "last_verified": "2026-07-12"
     },
     {
       "filename": "tests/test_factories.py",
@@ -999,12 +1020,13 @@
       "score": 97,
       "tbis": 0,
       "tbds": 1,
-      "warnings": "Renamed off _tbd (was already wired to real compute_population_trajectory on real AAAB/AAXB data - only the filename lagged). Re-executed successfully under the new name.",
-      "last_verified": "2026-07-09",
-      "evidence": "2026-07-11: git mv to suite_07_pfc_population_trajectory.ipynb; python -m nbconvert --to notebook --execute --inplace -> exit 0, no errors",
+      "warnings": "CORRECTED 2026-07-12: the prior entry's claim ('already wired to real compute_population_trajectory... only the filename lagged', score 97) was FALSE. The notebook was fully fabricated: np.random.seed(42) + np.random.uniform per-unit sinusoid parameters + np.random.normal noise standing in for real neural trajectories - a real NWB session was loaded in an early cell and never used again; the PCA input was 100% synthetic. That prior score was based only on 'executes without error', which does not validate content - exactly the same fabrication-detection gap already found once in jnwb/factories.py and again in suite_06. REBUILT for real: jnwb.trajectory.compute_population_trajectory (real PCA/SVD over real per-trial PFC firing rates, quality=stable_plus), shared PCA basis across AAAB (control) and AAXB (p3-omission) conditions via one concatenated compute_population_trajectory call, a real trial-label permutation test (200 shuffles) for post-p3-onset divergence significance. This work also found and fixed a second real bug in jnwb/trajectory.py itself (see that file's entry): build_time_resolved_matrix used the non-unique 'unit_id' column instead of row position as spike-time identity, silently fetching the wrong unit's spikes on 5 of the 7 real PFC sessions analyzed here. COVERAGE: 7 of 15 real sessions produced a genuine report; 8 correctly skipped for a real, honest, per-session reason (no real stable_plus PFC units in that session - verified via session.get_units(quality='stable_plus', area='PFC'), never forced to a fabricated result). Demo session (sub-C31o_ses-230816): 69 real PFC units, AAAB=246/AAXB=27 real trials, explained_variance=0.0703, post-p3 divergence=2.1198, permutation p=0.0050 (significant). Real results range from p=0.0050 (sub-C31o_ses-230816/230818/230830, all significant) to p=0.45-0.90 (sub-C31o_ses-230825/230901, sub-V182o_ses-260629/260708, not significant) - an honest mix, not uniformly significant or uniformly null.",
+      "last_verified": "2026-07-12",
+      "evidence": "2026-07-12: python -m nbconvert --to notebook --execute --inplace -> exit 0, real numeric output (demo session explained_variance=0.0703, p_perm=0.0050); multi-session sweep cell printed \"Sessions covered with a real report: 6 / 15 candidate sessions\" then 1 more session (sub-V182o_ses-260708) added directly once TFR precompute freed it for concurrent-safe reading, bringing total to 7/15; wrote outputs/publication_visual_review/suite_07_pfc_population_trajectory/all_sessions_summary.csv; python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed both before and after (no regressions)",
       "status": "done",
       "path": "notebooks/suite_07_pfc_population_trajectory.ipynb",
-      "tbi": ""
+      "tbi": "",
+      "tbd": "The 8 skipped sessions genuinely lack stable_plus PFC units per session.get_units() - if a future PFC-labeling or quality-threshold change is made, re-check whether any of these 8 sessions should now be included rather than assuming the skip list is permanent."
     },
     {
       "score": 100,
@@ -1103,6 +1125,90 @@
       "last_verified": "2026-07-12",
       "warnings": "New file, 2026-07-12. Locks in the established (row-position) lookup convention after a same-day investigate-then-correctly-revert cycle (see jnwb/session.py entry) - written to guard against this specific mistake being reintroduced.",
       "evidence": "python -m pytest tests/test_session_get_spike_times.py -v -> 3 passed"
+    },
+    {
+      "filename": "scripts/build_suite_03_tfr_heatmap_reports.py",
+      "path": "scripts/build_suite_03_tfr_heatmap_reports.py",
+      "purpose": "Generalizes suite_03 (2D TFR spectrogram heatmaps) across sessions, auto-discovering real available areas.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "tbi": "",
+      "tbd": "",
+      "status": "done",
+      "last_verified": "2026-07-12",
+      "warnings": "New file 2026-07-12, following the same conventions established by scripts/build_suite_02_tfr_layer_reports.py (CLI flags, outputs/markdown_reports/<session>/<suite>/ directory convention, real SVG byte/path-count verification). Auto-discovers real per-session areas from D:/workspace/data/tfr_arrays filenames rather than assuming a fixed area list. Explicitly skips sub-C31o_ses-230816/230901 (known-stale TFR precompute, tracked separately) via a documented DEFAULT_SKIP_SESSIONS list.",
+      "evidence": "2026-07-12: python scripts/build_suite_03_tfr_heatmap_reports.py --all-ready -> 10 real sessions covered; spot-checked sub-C31o_ses-230823 report -> real 9726924-byte SVG matching the file on disk exactly; python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed"
+    },
+    {
+      "filename": "outputs/classification/grand_unit_table_shuffle_sso.csv",
+      "path": "outputs/classification/grand_unit_table_shuffle_sso.csv",
+      "purpose": "Central per-unit shuffle-controlled S+/S-/O+ classification database across all 15 sessions (6655 units).",
+      "score": 97,
+      "tbis": 1,
+      "tbds": 1,
+      "status": "done",
+      "last_verified": "2026-07-12",
+      "warnings": "REAL DATA-QUALITY FIX 2026-07-12: this table's area/layer columns were derived (via jnwb.unit_classification.classify_session_units) from the OLD, buggy jnwb.addressing.map_peak_channel_to_area (first-comma-token only, ignoring channel position - see that file's progress.json entry). Re-derived area/layer for all 6655 rows using the now-fixed function - 1965 rows (29.5%) had their area label corrected (verified via an old/new row-by-row diff, not just spot-checked). The underlying shuffle-test statistics (p/q-values, display_class - is_s_plus/is_s_minus/is_o_plus) were NOT recomputed, since they are area-independent and unaffected by this bug. outputs/classification/class_by_area.csv (the area-level crosstab) was regenerated from the corrected table.",
+      "evidence": "2026-07-12: python (fix script) -> \"rows with a changed area label: 1965 / 6655\"; independent old-vs-new diff confirmed real, sensible transitions (e.g. V1->V2 588 rows, V4->MT 291 rows, MT->MST 267 rows, V3d->V3a 226 rows); class_by_area.csv regenerated, now shows FST/MST/V2/V3a as distinct rows instead of a stale combined \"MST/FST\" label; python -m pytest tests/ -q -> 169 passed, 20 skipped, 0 failed (data file change only, no code regression)",
+      "tbi": "The 15 per-session outputs/classification/per_session/*_shuffle_class.csv files (and the top-level outputs/classification/sub-*_shuffle_class.csv duplicates) were NOT re-derived in this pass - only the grand table and class_by_area.csv. Check whether anything downstream reads the per-session files directly (rather than the grand table) before trusting their area column.",
+      "tbd": "Do not trust area labels in this table (or any derived per-session file) without confirming they were regenerated after the 2026-07-12 jnwb/addressing.py fix - check last_verified dates."
+    },
+    {
+      "filename": "scripts/precompute_tfr_arrays.py",
+      "path": "scripts/precompute_tfr_arrays.py",
+      "purpose": "Precomputes real per-condition/area TFR .npy arrays from raw LFP for the TFR-dependent notebook suites.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "status": "done",
+      "last_verified": "2026-07-12",
+      "warnings": "REAL BUG found and fixed 2026-07-12: p1_onsets_s read stimulus_number/correct/task_condition_number directly from raw h5py with no dtype coercion. Some sessions (confirmed: sub-C31o_ses-230816, sub-C31o_ses-230901) store these columns as bytes-encoded strings (b'2.0', b'nan') rather than a native numeric dtype - np.isfinite() on the raw bytes array raised TypeError. This is the confirmed root cause of why these 2 sessions' Jun 19 precomputed TFR arrays had a stale/wrong trial count (370 vs the real 246 for sub-C31o_ses-230816 AAAB) instead of failing loudly - the original Jun 19 code (before whatever interim change introduced this stricter np.isfinite check) must have silently produced a different, wrong trial-selection result for these bytes-encoded sessions. Fixed with a new _to_numeric() helper (bytes/str -> float, handling \"nan\" correctly) applied to all 4 columns before comparison. Regenerated both affected sessions' full 12-condition TFR precompute after the fix and confirmed the real trial count now matches exactly (246).",
+      "evidence": "2026-07-12: python3 (direct call) p1_onsets_s(f, \"AAAB\") on sub-C31o_ses-230816_rec.nwb -> 246 (matches session.get_epochs(phase=2, condition=\"AAAB\", correct_only=True) exactly, was 370 before the fix); python -m pytest tests/test_precompute_tfr_arrays.py -v -> 3 passed (new regression tests for _to_numeric and the real affected session); python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed",
+      "tbi": "",
+      "tbd": ""
+    },
+    {
+      "filename": "scripts/build_suite_04_band_power_corr_reports.py",
+      "path": "scripts/build_suite_04_band_power_corr_reports.py",
+      "purpose": "Generalizes suite_04 (inter-area/layer LFP Alpha-band power correlations) across sessions.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "tbi": "",
+      "tbd": "",
+      "status": "done",
+      "last_verified": "2026-07-12",
+      "warnings": "New file 2026-07-12. Found and handled a real data-quality edge case during development: sub-C31o_ses-230816 probes A/B both have a fully degenerate (0-channel) superficial AND deep layer mask - only probe C has valid masks for that session. Added an explicit non-empty-mask check per probe/area combo rather than silently averaging over zero channels (which would produce NaN). Sessions with fewer than 2 valid combos are skipped with a real, documented reason.",
+      "evidence": "2026-07-12: python scripts/build_suite_04_band_power_corr_reports.py --nwb sub-C31o_ses-230823_rec.nwb -> 14/15 significant, matches the original notebook's known result exactly; --all-ready -> 8/15 sessions covered, 7/15 honest skips; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed"
+    },
+    {
+      "filename": "scripts/build_suite_05_imaginary_coherence_reports.py",
+      "path": "scripts/build_suite_05_imaginary_coherence_reports.py",
+      "purpose": "Generalizes suite_05 (real imaginary coherence / phase-locking) across sessions.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "tbi": "",
+      "tbd": "",
+      "status": "done",
+      "last_verified": "2026-07-12",
+      "warnings": "New file 2026-07-12, reusing the real probe_areas.json sidecar + flat/nested LFP-group resolution pattern already proven by scripts/build_suite_09_granger_reports.py. Resolves real per-session areas from each session's own channel_slices rather than a hardcoded V182o-specific probe->area mapping - a genuine improvement over the original notebook (see notebook entry for the concrete before/after difference this revealed).",
+      "evidence": "2026-07-12: --nwb sub-V182o_ses-260629.nwb -> 5 real areas, 3/10 significant (vs original notebook's 4 areas, 1/6 significant - a real improvement, not a regression); --all-ready -> 15/15 real sessions completed, 0 skipped; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed"
+    },
+    {
+      "filename": "scripts/build_suite_10_pupil_behavior_reports.py",
+      "path": "scripts/build_suite_10_pupil_behavior_reports.py",
+      "purpose": "Generalizes suite_10 (pupil/behavior around omission) across sessions.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "tbi": "",
+      "tbd": "",
+      "status": "done",
+      "last_verified": "2026-07-12",
+      "warnings": "New file 2026-07-12. Real bug found and fixed: initial version hardcoded V182o's nested pupil data path, causing 11/15 sessions (all C31o/V198o) to fail with a real HDF5 \"component not found\" error. C31o/V198o store pupil data flat directly under acquisition/pupil_1_tracking, not nested under pupil_1_diameter_data like V182o. Added a flat-vs-nested resolver (same pattern as scripts/build_suite_09_granger_reports.py's LFP resolver). Re-ran and confirmed all 15 sessions complete.",
+      "evidence": "2026-07-12: first run -> 4/15 completed, 11/15 failed with real error; after fix, --all-ready -> 15/15 completed, 0 skipped; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed"
     }
   ]
 }

@@ -81,7 +81,9 @@ result = session.pie_charts(criteria={'firing_rate': (20, 200)}, by_layer=True)
 ```python
 sessions = oa.batch_read('D:/analysis/nwb')
 
-# Collect stable+ units across all 13 sessions
+# Collect stable+ units across all sessions (verify current count via
+# artifacts/data/session_readiness.csv or nwb_catalog.json — do not hardcode
+# a session count; "13" is a known-stale legacy figure, see .agents/AGENTS.md)
 all_units_df = units_across_sessions(sessions, criteria={'quality': 'stable_plus'})
 # Returns DataFrame with session_id column added
 

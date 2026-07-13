@@ -14,9 +14,16 @@ from jnwb import (
 )
 
 class MockSession:
+    """Mock matching the real OmissionSession identity convention: 'unit_id' is a per-probe
+    kilosort cluster id that can have gaps relative to the row index (deliberately offset here,
+    e.g. row 0 -> unit_id 5, not 1), while get_spike_times's real primary lookup is by raw
+    units_df row-index position. This mirrors the real, confirmed bug found in
+    jnwb.trajectory.build_time_resolved_matrix (fixed 2026-07-12): it used to pass the 'unit_id'
+    column to get_spike_times instead of the row index, which silently fetched the wrong unit's
+    spikes whenever kilosort ids had gaps (verified on sub-C31o_ses-230816_rec)."""
     def __init__(self):
         self.units_df = pd.DataFrame({
-            'unit_id': [1, 2, 3],
+            'unit_id': [5, 8, 12],  # deliberately NOT equal to row index 0, 1, 2
             'area': ['V1', 'V1', 'V4'],
             'quality': ['stable_plus', 'stable', 'stable_plus']
         })
@@ -24,11 +31,12 @@ class MockSession:
             'start_time': [1.0, 2.0, 3.0, 4.0],
             'condition': ['AAAB', 'BBBA', 'AAAB', 'BBBA']
         })
-        # Mock spike times
+        # Mock spike times, keyed by row-index position (the real identity convention),
+        # NOT by the 'unit_id' column.
         self.spikes = {
-            1: np.array([1.01, 1.05, 2.02, 3.01, 3.05, 4.02]),
-            2: np.array([1.02, 2.03, 3.02, 4.03]),
-            3: np.array([1.03, 2.04, 3.03, 4.04])
+            0: np.array([1.01, 1.05, 2.02, 3.01, 3.05, 4.02]),
+            1: np.array([1.02, 2.03, 3.02, 4.03]),
+            2: np.array([1.03, 2.04, 3.03, 4.04])
         }
 
     def get_units(self, quality=None, area=None):
@@ -58,9 +66,15 @@ def test_build_time_resolved_matrix():
     # 4 trials, 2 V1 units, 5 bins (0-20, 20-40, 40-60, 60-80, 80-100 ms)
     assert X.shape == (4, 2, 5)
     assert len(unit_ids) == 2
-    assert unit_ids == [1, 2]
+    # unit_ids must be the raw row-index positions (0, 1), NOT the 'unit_id' column (5, 8) --
+    # regression test for the real misattribution bug fixed 2026-07-12.
+    assert unit_ids == [0, 1]
     assert len(bin_centers) == 5
     assert np.allclose(bin_centers, [10.0, 30.0, 50.0, 70.0, 90.0])
+    # The fetched spike counts must match each unit's OWN mocked spike train (keyed by index),
+    # not another unit's -- this is exactly what the bug silently corrupted.
+    assert X[:, 0, :].sum() == 6  # unit at row 0 has 6 mock spikes
+    assert X[:, 1, :].sum() == 4  # unit at row 1 has 4 mock spikes
 
 
 def test_compute_population_trajectory():

@@ -1,77 +1,135 @@
 ---
 name: progress-review-plan
 description: |
-  Durable file-based backlog loop (PRP): Plan → Progress → Review → Brainstorm.
-  State lives in artifacts/developer/{plans,progress,review}.json.
-  Invoke by name only: Proceed-with-Planning, Proceed-with-Progress,
-  Proceed-with-Review, Proceed-with-Brainstorm. No entry is "done" without
-  a real command/output receipt. Use for any repo backlog orchestration.
+  Durable file-based backlog loop (PRP v2): Plan -> Progress -> Review -> Brainstorm,
+  plus Inspect. State lives in artifacts/developer/{plan,progress,review}.json, each
+  shaped {summary, table[]}. Invoke by name only: Proceed-with-Plan, Proceed-with-Progress,
+  Proceed-with-Review, Proceed-with-Brainstorm, Proceed-with-Inspect. No row is "done"
+  without a real review_command receipt. Use for any repo backlog orchestration.
 ---
 
-# PRP Protocol (Plan / Progress / Review / Brainstorm)
+# PRP Protocol v2 (Plan / Progress / Review / Brainstorm / Inspect)
+
+## Source of truth
+
+This skill mirrors `C:\Users\nejath\.gemini\config\AGENTS.md` § "PRP Backlog Protocol (v2)".
+If this file and that section ever disagree, **AGENTS.md wins** — update this copy to match,
+don't trust this file from memory. (Corrected 2026-07-12: this file previously described an
+older v1 schema — plural `plans.json`, `items[]`/`entries[]`, `tbi`/`tbd` fields — that AGENTS.md
+itself calls legacy. That content is gone; see "Omission-specific status" below for where this
+repo's actual data currently stands relative to v2.)
+
+## Omission-specific status (read before invoking any trigger here)
+
+As of the 2026-07-10 note in `.agents/AGENTS.md` § "PRP protocol", this repo's actual
+`artifacts/developer/plans.json` (33 items), `progress.json` (71 entries), and `review.json`
+(4 entries, wrapped) are still the **legacy v1 shape** (plural `plans.json`, `items`/`entries`
+fields, not `{summary, table[]}`) and do not yet share a common row-set across the three files.
+Migrating that data to v2 is real, data-mutating work on a live 71+33+4-entry backlog — **get
+Hamm's go-ahead before reshaping it**, per `.agents/AGENTS.md`. Until that migration happens,
+treat this repo as running v1: re-verify current file shape with `ls artifacts/developer/` and a
+peek at each file's top-level keys before assuming either schema.
 
 ## What it is
 
-A durable, file-based backlog loop for any repo. Ideas become tracked work, tracked work gets actually done, done work gets independently re-verified before it's trusted, and verification failures or spinoff ideas feed back into the loop. All state lives in three JSON files under `artifacts/developer/` — readable by any agent, any session, without reconstructing status from git history or memory.
+A durable, file-based backlog loop for any repo. Ideas become tracked work, tracked work gets
+actually done, done work gets independently re-verified before it's trusted, and verification
+failures or spinoff ideas feed back into the loop. All state lives in three JSON files under
+`artifacts/developer/` — readable by any agent, any session, without reconstructing status from
+git history or memory.
 
-**Core discipline:** no entry moves to "done" without a real command/output receipt. Editing the JSON is not the same as doing or verifying the work.
+**Core discipline:** no row moves to "done" without a real command/output receipt. Editing the
+JSON is not the same as doing or verifying the work.
 
-## The three files
+## Before doing anything: check which schema the repo actually has
 
-```
-artifacts/developer/
-├── plans.json     — ideas, priorities, not-yet-tracked work
-├── progress.json  — open/in-progress tracked work (the live backlog)
-└── review.json    — actioned-but-not-yet-verified work (a queue, not an archive)
-```
+This is the **v2 target schema** (singular `plan.json`, `{summary, table[]}` shape). Some repos
+still run the older **v1/legacy** shape: plural `plans.json`, `{schema_version, description,
+last_updated, items[]/entries[], brainstorm[]}`, with `tbi`/`tbd` fields instead of `table[]`
+rows — omission is currently one of them (see above). **Read what the repo actually has before
+writing anything.** If you find the legacy shape (or any other mismatch — a top-level
+`artifacts/review.json` alias, a legacy array-of-`filename` shape, stray files like
+`pv.json`/`walkthrough.md`/`reports/`), do **not** silently migrate, rename, or delete it. Call
+out the mismatch explicitly to the user as a migration decision — reshaping live backlog data
+(open items, scores, history) needs their go-ahead; this is the same "no silent edits"
+discipline the protocol applies to everything else.
 
-The schemas are related but **not identical**:
+## Location & contents
 
-- **`plans.json`**: `{schema_version, description, last_updated, items[], brainstorm[]}`. Each `items[]` entry: `id, title, target_files, depends_on_functions, shape, status, source`. `brainstorm[]` is a dated, freeform list of raw ideas not yet promoted to tracked work.
-- **`progress.json`**: `{schema_version, description, last_updated, meta_corrections, entries[]}`. Each entry: `path, purpose, score (0-100), tbi, tbd, warnings, last_verified, evidence, status`.
-- **`review.json`**: same base entry shape as `progress.json`, **plus** `moved_from_progress_on, review_status, review_verified_on, review_command, review_result`.
+`artifacts/developer/` holds exactly: `plan.json`, `progress.json`, `review.json`, their
+rendered `plan.md` / `progress.md` / `review.md` (regenerated by `misc/jn2md.py` — **never
+hand-edit the `.md`**, they are derived views), and `misc/` (the renderer, plus an optional
+`misc/archive/` for superseded state). Nothing else belongs there.
 
-**Identity key:** entries are matched across files by `path` (the file/target being tracked), not array position or a separate id. `progress.json` and `review.json` map the same list of tracked files/rows at all times — `inspect` enforces and repairs this if the row sets drift apart.
+## JSON shape (v2)
 
-**`plans.json` is deliberately NOT required to share that row-set (policy decided 2026-07-12).** Its `items[]` are roadmap/brainstorm-granularity (e.g. "OGLO Report Suite Improvement Phase 2" spans dozens of files) — most items have no single natural file to point at, and forcing a fake 1:1 per-file row for every `progress.json` entry would mean inventing placeholder content with nothing real behind it, which this protocol's own discipline forbids. Instead: items that *do* have a concrete file scope carry a real `progress_targets`/`target_files` list, and — where such a link exists — `linked_progress_scores` (on the plan item) and `linked_plan_items` (on the matching `progress.json` entry) cross-reference each other with genuinely current data. Items with no natural file scope stay roadmap-only, with no fabricated row. This is a reversible documentation convention, not a data-integrity rule — revisit if `plans.json`'s granularity changes.
+Each file is `{summary, table[]}` — same *shape* across all three, not identical columns.
+`plan.summary` is an append-only, dated brainstorm log; `progress.summary` / `review.summary`
+are short status text. Every table row is keyed by `path`, and the **same set of `path` rows
+must exist in all three tables at all times** (`Proceed-with-Inspect` enforces this).
 
-If a repo doesn't have these files yet, bootstrap them with `schema_version: 1` and empty `items`/`entries`/`brainstorm` arrays — don't invent a different shape.
+Columns by file:
+- **plan**: `path | purpose | score(0-100, last reviewed value — not self-assigned) | actions (ordered, enumerated across the table) | rules | edits | notes | cautions`
+- **review**: `path | score(0-100, must cite the review_command output that produced it, not opinion) | verdict | issues | fix_actions`
+- **progress**: `path | status | actions_done | review_command | blockers`
+
+Only `review` writes an authoritative score. `plan` carries the last-reviewed score for
+prioritization, never a fresh judgment made during planning.
+
+If a repo has no PRP files yet and isn't migrating from a legacy shape, bootstrap
+`plan.json`/`progress.json`/`review.json` fresh with an empty `table: []` and a short
+`summary` string each — don't invent a different shape.
 
 ## The five actions
 
-Each is invoked by name only. Running one does **not** imply the next runs too — a human or orchestrator paces the loop deliberately.
+Each is invoked by name only. Running one does **not** imply the next runs too — a human or
+orchestrator paces the loop deliberately.
 
-### `proceed with brainstorm` (repo state + `plans.json → plans.json`)
-
-Read-only w.r.t. `progress.json`/`review.json`, never edits them. Generate new ideas informed by what's already open (don't re-propose a known issue) and any project friction ledger. Append dated findings to `plans.json.brainstorm[]`; anything concrete enough gets a `plans.json.items[]` entry (`status: "proposed"`). Turning a brainstorm idea into tracked work is Plan's job next pass, not Brainstorm's.
-
-### `proceed with plan` (`plans.json.brainstorm → plans.json.items`)
-
-Triage only, no code changes. Scan `plans.json.brainstorm` and any `items` with status `proposed`/unset. For each, map it to a file row/task with a completion score in `plans.json.items` — score reflects the last reviewed value (or explicitly "unreviewed"), never a fresh self-assigned number. Too vague to score → say so, don't invent one.
-
-### `proceed with review` (`plans.json` + repo state `→ review.json`)
-
-Independently assess files/scores out of 100 against real repo state and a real command/output receipt — not opinion, not the plan's carried-over number. Write results into `review.json`. May propose plan changes as a suggested delta, but does not silently rewrite `plans.json` in the same pass — self-grading while rewriting the plan is exactly the failure mode this guards against.
-
-### `proceed with progress` (`plans.json` + `review.json → progress.json`)
-
-Merge `plans.json.items` + `review.json` into `progress.json`, execute tasks sequentially, and update completion status. A row isn't "done" without its verification command actually run — editing the JSON description is not the fix. Acting on more than ~3 entries in one pass → fan out to subagents rather than working serially; each must return the same receipt it'd report inline.
-
-### `inspect` (scans all three, repo state)
-
-Scan the repo and reconcile the three files' row sets — auto-fix structural drift (missing rows, stale paths, format violations, duplicate row structures), but **log every change made**; silent auto-repair of state files is not acceptable. Never fabricate a score while fixing. This is also the trigger that verifies PRP structural compliance itself (exactly three JSON files under `artifacts/developer/`, same row-set across all three, nothing stray outside `.cache/`).
+- **Proceed-with-Brainstorm** — discuss in chat; append conclusions to `plan.summary` only.
+  Never touch `plan.table`, `progress.json`, or `review.json`.
+- **Proceed-with-Plan** — read `plan.summary`, break it into files/actions, populate or refresh
+  `plan.table`. Score column = last reviewed value (or explicitly "unreviewed"), never invented.
+- **Proceed-with-Review** — independently re-score every row from actual repo state and a real
+  `review_command` run (not LLM judgment alone) into `review.table`. May propose plan changes,
+  but writes them as a suggested delta in `review`, not a silent edit to `plan.json` — grading
+  your own work in the same edit that rewrites the plan is exactly the failure mode this guards
+  against.
+- **Proceed-with-Progress** — merge `plan.table` + `review.table` into `progress.table`, execute
+  rows in order, update status until every row is done or the next action is plan/review/
+  brainstorm. Editing the JSON is not doing or verifying the work — a row isn't "done" without
+  its `review_command` actually run.
+- **Proceed-with-Inspect** — scan the repo and reconcile the three tables' row sets; auto-fix
+  structural drift (missing rows, stale paths, format violations), but **log every change made**
+  — silent auto-repair of state files is not acceptable. Never fabricate a score while fixing.
+  This is also the trigger that verifies PRP structural compliance itself (exactly three JSON
+  files under `artifacts/developer/`, same row-set across all three, nothing stray outside
+  `.cache/`/`misc/archive/`).
 
 ## The chain
 
 ```
-Brainstorm → Plan → Review → Progress → Plan (loop)
+Brainstorm -> Plan -> Review -> Progress -> Plan (loop)
 ```
 
-`inspect` is orthogonal — run it any time to reconcile drift, not just as part of the main loop.
-Each arrow is a separate invocation. Enter or exit at any point.
+`Proceed-with-Inspect` is orthogonal — run it any time to reconcile drift, not just as part of
+the main loop. Each arrow is a separate invocation. Enter or exit at any point.
+
+## Scoring (0-100, review-authoritative)
+
+- **100**: implemented, documented, verified with receipts
+- **80-90**: works; minor gaps
+- **50-70**: partial / TODOs remain
+- **<50**: skeleton or broken
+- **"unreviewed"**: no `review_command` has ever run against this row — valid only in
+  `plan.table`, never in `review.table`.
 
 ## How to apply it
 
-- Scope every pass honestly — large backlogs (hundreds of entries) are multi-session work. Report exactly how many entries were touched this pass, never claim a whole backlog cleared without doing it.
+- Scope every pass honestly — large backlogs (hundreds of rows) are multi-session work. Report
+  exactly how many rows were touched this pass, never claim a whole backlog cleared without
+  doing it.
 - Real command output only: "ran X, got Y" — never "should now pass."
-- If the target repo has its own doctrine (a project `CLAUDE.md`/`AGENTS.md`) describing this protocol, that file's specifics (paths, review-command conventions, prioritization order) override this skill's defaults — this skill is the reusable mechanism, the project file is local configuration. jaxfne's own file/path conventions live in `jaxfne/AGENTS.md` § Backlog protocol, not here.
+- If the target repo has its own doctrine (a project `CLAUDE.md`/`AGENTS.md`) describing this
+  protocol, that file's specifics (paths, review-command conventions, prioritization order)
+  override this skill's defaults — this skill is the reusable mechanism, the project file is
+  local configuration.

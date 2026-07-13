@@ -9,11 +9,16 @@ from jnwb.addressing import (
 
 
 def _electrodes_df():
-    # Known-answer fixture: channel 0 -> V1 superficial, channel 1 -> PFC deep,
-    # channel 2 has no location, channel 3 does not exist (absent from index).
+    # Known-answer fixture matching real electrodes_df location strings
+    # observed across real sessions (confirmed 2026-07-12: "FEF", "MT, MST",
+    # "V1, V2, V3", "V1,V2", "V3d, V3a" - clean comma-separated area names,
+    # never coordinate info baked into the same field).
+    # channel 0 -> V1 (single-area probe), channel 1 -> PFC, channel 2 has no
+    # location, channel 3 does not exist (absent from index).
     return pd.DataFrame(
         {
-            "location": ["V1, AP -3.2, ML 12.1", "PFC", None],
+            "location": ["V1", "PFC", None],
+            "group_name": ["probeC", "probeA", "probeB"],
             "z": [500.0, 1500.0, 800.0],
         },
         index=[0, 1, 2],
@@ -29,6 +34,43 @@ def test_map_peak_channel_to_area_known_answers():
     assert map_peak_channel_to_area(np.nan, elec) is None
     assert map_peak_channel_to_area(0, None) is None
     assert map_peak_channel_to_area(0, pd.DataFrame()) is None
+
+
+def test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position():
+    # Regression test for a real bug found 2026-07-12: a multi-area probe's
+    # location string (e.g. real "V1, V2, V3" on one 128-channel probe) was
+    # always resolved to the FIRST listed area regardless of the channel's
+    # actual position within the probe - e.g. probe C channels near the end
+    # of its range were labeled 'V1' when the correct area was 'V3'. Now
+    # resolves by channel position within the probe's contiguous electrode
+    # index block (matching jnwb.sequence_layout's channel_slice_for_area
+    # convention: N areas -> N equal partitions of the probe's channels).
+    n = 12  # 12-channel probe for a clean 3-way split (0-3, 4-7, 8-11)
+    elec = pd.DataFrame(
+        {
+            "location": ["V1, V2, V3"] * n,
+            "group_name": ["probeC"] * n,
+        },
+        index=range(100, 100 + n),
+    )
+    assert map_peak_channel_to_area(100, elec) == "V1"  # first channel
+    assert map_peak_channel_to_area(103, elec) == "V1"  # last of first third
+    assert map_peak_channel_to_area(104, elec) == "V2"  # first of middle third
+    assert map_peak_channel_to_area(107, elec) == "V2"
+    assert map_peak_channel_to_area(108, elec) == "V3"  # first of last third
+    assert map_peak_channel_to_area(111, elec) == "V3"  # last channel
+
+
+def test_map_peak_channel_to_area_two_area_probe_resolves_by_channel_position():
+    n = 8
+    elec = pd.DataFrame(
+        {"location": ["MT, MST"] * n, "group_name": ["probeB"] * n},
+        index=range(200, 200 + n),
+    )
+    assert map_peak_channel_to_area(200, elec) == "MT"
+    assert map_peak_channel_to_area(203, elec) == "MT"
+    assert map_peak_channel_to_area(204, elec) == "MST"
+    assert map_peak_channel_to_area(207, elec) == "MST"
 
 
 def test_classify_layer_from_depth_threshold_boundary():

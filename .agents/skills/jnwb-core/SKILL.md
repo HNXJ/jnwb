@@ -29,11 +29,16 @@ session = oa.read('D:/analysis/nwb/sub-C31o_ses-230823_rec.nwb')
 session = oa.read(path, context='omission_glo_passive')
 ```
 
-## Batch Load (all 13 sessions)
+## Batch Load (all sessions)
 
 ```python
 sessions = oa.batch_read('D:/analysis/nwb', pattern='*.nwb')
 ```
+
+Session count drifts as data lands — verify the current count via
+`artifacts/data/session_readiness.csv` or `nwb_catalog.json` rather than
+hardcoding a number; "13 sessions" is a known-stale legacy figure (see
+`.agents/AGENTS.md`, 17 NWB files as of the 2026-07-09 receipt).
 
 ## Data Access Methods (OmissionSession)
 

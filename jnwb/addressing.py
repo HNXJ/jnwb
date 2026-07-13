@@ -46,8 +46,35 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
         if idx in electrodes_df.index:
             loc = electrodes_df.loc[idx, col_to_check]
             if pd.notna(loc):
-                # Clean up area (split by comma and strip coordinates)
-                return str(loc).split(',')[0].strip()
+                loc_str = str(loc).strip()
+
+                # Single-area probe: resolve directly, no channel-position logic needed.
+                if ',' not in loc_str and '/' not in loc_str:
+                    return loc_str
+
+                # Multi-area probe (e.g. "V1, V2, V3" on one 128-channel
+                # probe): resolve by the channel's POSITION within the
+                # probe, not just the first listed area. Previously this
+                # always returned loc.split(',')[0] regardless of position -
+                # a real bug confirmed 2026-07-12: e.g. probe C channels
+                # 118-120 on a "V1, V2, V3" probe were all labeled 'V1' when
+                # the correct area for that channel range is 'V3'.
+                from .sequence_layout import parse_probe_areas
+                areas = parse_probe_areas(loc_str)
+                if len(areas) <= 1:
+                    return loc_str.split(',')[0].strip()
+
+                group_col = 'group_name' if 'group_name' in electrodes_df.columns else col_to_check
+                probe_key = electrodes_df.loc[idx, group_col]
+                probe_rows = electrodes_df[electrodes_df[group_col] == probe_key]
+                probe_start = int(probe_rows.index.min())
+                n_channels_on_probe = len(probe_rows)
+                local_idx = idx - probe_start
+
+                edges = np.linspace(0, n_channels_on_probe, len(areas) + 1)
+                bin_idx = int(np.searchsorted(edges, local_idx, side='right')) - 1
+                bin_idx = min(max(bin_idx, 0), len(areas) - 1)
+                return areas[bin_idx]
     except Exception as e:
         log.debug(f"Failed to map peak channel {peak_channel_id} to area: {e}")
 
