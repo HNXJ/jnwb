@@ -164,7 +164,7 @@ def plot_heatmap(ax, arr_db: np.ndarray, times_ms: np.ndarray, freqs: np.ndarray
     ax.set_yscale("log")
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(
         lambda y, _: f"{int(y)}Hz" if y in (4, 8, 15, 30, 80, 150) else ""))
-    ax.set_xlim(times_ms[0], times_ms[-1])
+    ax.set_xlim(WINDOW_MS[0], WINDOW_MS[1])
     ax.set_title(title, fontsize=9)
     draw_epoch_shading(ax, condition)
     return im
@@ -172,18 +172,23 @@ def plot_heatmap(ax, arr_db: np.ndarray, times_ms: np.ndarray, freqs: np.ndarray
 
 def plot_band_traces(ax, arr: np.ndarray, freqs: np.ndarray, times_ms: np.ndarray,
                      condition: str, title: str):
-    """Plot per-band mean +/-2SEM traces."""
+    """Plot smoothed per-band mean +/-2SEM traces."""
+    from scipy.ndimage import gaussian_filter1d
     for band_name, (fmin, fmax) in BANDS.items():
         traces = extract_band_traces(arr, freqs, fmin, fmax)  # (n_trials, n_times)
         mean = traces.mean(axis=0)
         sem = traces.std(axis=0) / np.sqrt(traces.shape[0])
+        # Smooth both mean and SEM traces slightly for clean visualization (sigma=2 bins = 20ms)
+        mean_smooth = gaussian_filter1d(mean, sigma=2.0)
+        sem_smooth = gaussian_filter1d(sem, sigma=2.0)
+        
         color = BAND_COLORS[band_name]
-        ax.plot(times_ms, mean, color=color, linewidth=1.2, label=band_name, zorder=3)
-        ax.fill_between(times_ms, mean - 2 * sem, mean + 2 * sem,
+        ax.plot(times_ms, mean_smooth, color=color, linewidth=1.2, label=band_name, zorder=3)
+        ax.fill_between(times_ms, mean_smooth - 2 * sem_smooth, mean_smooth + 2 * sem_smooth,
                         color=color, alpha=0.18, zorder=2)
     draw_epoch_shading(ax, condition)
     ax.axhline(0, color="gray", linewidth=0.5, linestyle="-", alpha=0.4)
-    ax.set_xlim(times_ms[0], times_ms[-1])
+    ax.set_xlim(WINDOW_MS[0], WINDOW_MS[1])  # Keep focus window locked to [-500ms, 4124ms]
     ax.set_title(title, fontsize=9)
     ax.legend(fontsize=7, loc="upper right", framealpha=0.7)
     ax.set_ylabel("Power (dB)", fontsize=8)
@@ -228,9 +233,9 @@ def main() -> None:
         print("Dry run complete — all TFR paths resolved. Exiting without plotting.")
         return
 
-    # Build time axis from array n_times (last confirmed: 462 bins over 4624ms -> 10ms/bin)
+    # Build time axis from array n_times: TFR array starts at -1000ms and has 10ms bins
     n_times = arrays[(args.area1, args.omit_cond)].shape[3]   # axis 3 = times
-    times_ms = np.linspace(WINDOW_MS[0], WINDOW_MS[1], n_times)
+    times_ms = -1000.0 + np.arange(n_times) * 10.0
 
     freqs = FREQS_HZ  # (99,) bins as confirmed from the session
 

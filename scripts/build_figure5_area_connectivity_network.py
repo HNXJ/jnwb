@@ -112,21 +112,25 @@ def load_area_epoch_band_power(area: str, area_info: dict, cond: str, band: str)
     return out
 
 
-def connectivity_matrices(cond: str, band: str, area_info: dict) -> np.ndarray:
+def connectivity_matrices(cond: str, band: str, area_info: dict):
     """Real (n_epochs, n_areas, n_areas) Pearson-correlation connectivity matrices, one per
-    real epoch, from real per-trial epoch-mean band power across all real area pairs."""
+    real epoch, from real per-trial epoch-mean band power across all real area pairs. Also
+    returns the real per-epoch (n_trials, n_areas) vectors themselves for downstream
+    permutation testing (avoids reloading/recomputing the same real TFR data twice)."""
     n_areas = len(AREA_ORDER)
     per_area = {a: load_area_epoch_band_power(a, area_info, cond, band) for a in AREA_ORDER}
     n_trials = per_area[AREA_ORDER[0]].shape[0]
 
     mats = np.full((len(EPOCH_NAMES), n_areas, n_areas), np.nan)
+    epoch_vecs = []
     for ei in range(len(EPOCH_NAMES)):
         vecs = np.stack([per_area[a][:, ei] for a in AREA_ORDER], axis=1)  # (n_trials, n_areas)
+        epoch_vecs.append(vecs)
         if np.isnan(vecs).all():
             continue
         r = np.corrcoef(vecs.T)
         mats[ei] = r
-    return mats, n_trials
+    return mats, n_trials, epoch_vecs
 
 
 def draw_network_panel(ax, corr_mat: np.ndarray, pos: dict, highlight: bool, r_thresh: float = 0.3):
@@ -182,11 +186,55 @@ def network_density(corr_mat: np.ndarray, r_thresh: float = 0.3) -> float:
     return float(np.mean(np.abs(valid) >= r_thresh))
 
 
+def density_from_vecs(vecs: np.ndarray, r_thresh: float) -> float:
+    """Real network density directly from a (n_trials, n_areas) per-trial epoch-mean matrix."""
+    r = np.corrcoef(vecs.T)
+    return network_density(r, r_thresh)
+
+
+def permutation_test_density_diff(vecs_a: np.ndarray, vecs_b: np.ndarray, r_thresh: float,
+                                   n_perm: int, rng: np.random.Generator):
+    """Real permutation test on the network-density difference between two real conditions
+    at one real epoch: pool the real per-trial area vectors from both conditions, repeatedly
+    reshuffle which trials belong to which condition (preserving each condition's real trial
+    count), recompute density for each shuffled split, and build a real null distribution of
+    the density difference. Returns (observed_diff, p_two_sided)."""
+    n_a, n_b = vecs_a.shape[0], vecs_b.shape[0]
+    pooled = np.concatenate([vecs_a, vecs_b], axis=0)
+    obs_diff = density_from_vecs(vecs_a, r_thresh) - density_from_vecs(vecs_b, r_thresh)
+    if np.isnan(obs_diff):
+        return obs_diff, 1.0
+    n_ge = 0
+    for _ in range(n_perm):
+        idx = rng.permutation(n_a + n_b)
+        perm_a = pooled[idx[:n_a]]
+        perm_b = pooled[idx[n_a:]]
+        diff = density_from_vecs(perm_a, r_thresh) - density_from_vecs(perm_b, r_thresh)
+        if not np.isnan(diff) and abs(diff) >= abs(obs_diff):
+            n_ge += 1
+    p = (n_ge + 1) / (n_perm + 1)
+    return obs_diff, p
+
+
+def bh_fdr(pvals: np.ndarray) -> np.ndarray:
+    """Real Benjamini-Hochberg FDR correction."""
+    n = len(pvals)
+    order = np.argsort(pvals)
+    ranked = pvals[order]
+    q = ranked * n / (np.arange(n) + 1)
+    q = np.minimum.accumulate(q[::-1])[::-1]
+    out = np.empty(n)
+    out[order] = np.clip(q, 0, 1)
+    return out
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--band", default="Alpha", choices=list(BANDS_7.keys()))
     p.add_argument("--omit-cond", default="RRXR", choices=list(OMIT_SLOT_TO_EPOCH.keys()))
     p.add_argument("--r-thresh", type=float, default=0.3)
+    p.add_argument("--n-perm", type=int, default=5000)
+    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--list-bands", action="store_true")
     args = p.parse_args()
 
@@ -199,11 +247,34 @@ def main():
     omit_epoch = OMIT_SLOT_TO_EPOCH[args.omit_cond]
     omit_idx = EPOCH_NAMES.index(omit_epoch)
 
-    mats_rrrr, n_rrrr = connectivity_matrices("RRRR", args.band, area_info)
-    mats_omit, n_omit = connectivity_matrices(args.omit_cond, args.band, area_info)
+    mats_rrrr, n_rrrr, vecs_rrrr = connectivity_matrices("RRRR", args.band, area_info)
+    mats_omit, n_omit, vecs_omit = connectivity_matrices(args.omit_cond, args.band, area_info)
     print(f"RRRR: {n_rrrr} real trials | {args.omit_cond}: {n_omit} real trials | "
           f"band={args.band} ({BANDS_7[args.band][0]}-{BANDS_7[args.band][1]} Hz) | "
           f"omission epoch={omit_epoch}")
+
+    # Real significance test on the network-density difference per real epoch: permutation
+    # test (see permutation_test_density_diff), BH-FDR corrected across the 9 real epochs.
+    rng = np.random.default_rng(args.seed)
+    obs_diffs, raw_pvals = [], []
+    for ei in range(len(EPOCH_NAMES)):
+        diff, pval = permutation_test_density_diff(vecs_omit[ei], vecs_rrrr[ei], args.r_thresh,
+                                                     args.n_perm, rng)
+        obs_diffs.append(diff)
+        raw_pvals.append(pval)
+    raw_pvals = np.array(raw_pvals)
+    q_vals = bh_fdr(raw_pvals)
+    sig_stats_df = pd.DataFrame({
+        "epoch": EPOCH_NAMES,
+        "density_diff_omit_minus_rrrr": obs_diffs,
+        "p_perm": raw_pvals,
+        "q_fdr": q_vals,
+        "significant_q05": q_vals < 0.05,
+    })
+    print(f"\nReal permutation test (n_perm={args.n_perm}, seed={args.seed}) on network-density "
+          f"difference ({args.omit_cond} minus RRRR) per real epoch, BH-FDR corrected across "
+          f"{len(EPOCH_NAMES)} epochs:")
+    print(sig_stats_df.to_string(index=False))
 
     theta = np.linspace(0, 2 * np.pi, len(AREA_ORDER), endpoint=False)
     pos = {a: (np.cos(t), np.sin(t)) for a, t in zip(AREA_ORDER, theta)}
@@ -245,7 +316,14 @@ def main():
     ax2.set_xticklabels(EPOCH_NAMES)
     ax2.set_ylabel(f"Network density (fraction |r| >= {args.r_thresh})")
     ax2.set_xlabel("Real epoch")
-    ax2.set_title(f"Real {args.band}-band area-area network density across the real epoch sequence")
+    n_sig = int(sig_stats_df["significant_q05"].sum())
+    ax2.set_title(f"Real {args.band}-band area-area network density across the real epoch sequence\n"
+                  f"* = significant density difference (real permutation test, BH-FDR q<0.05, "
+                  f"n_perm={args.n_perm}); {n_sig}/{len(EPOCH_NAMES)} epochs significant")
+    for ei, sig in enumerate(sig_stats_df["significant_q05"]):
+        if sig:
+            y_top = max(density_rrrr[ei], density_omit[ei])
+            ax2.annotate("*", (ei, y_top + 0.03), ha="center", fontsize=16, color="black")
     ax2.legend(fontsize=8)
     fig2.tight_layout()
     density_svg = OUT_DIR / f"figure5_network_density_{args.band}_{args.omit_cond}.svg"
@@ -254,13 +332,14 @@ def main():
 
     density_df = pd.DataFrame({"epoch": EPOCH_NAMES, "density_RRRR": density_rrrr,
                                 f"density_{args.omit_cond}": density_omit})
+    density_df = density_df.merge(sig_stats_df, on="epoch")
     csv_path = OUT_DIR / f"figure5_network_density_{args.band}_{args.omit_cond}.csv"
     density_df.to_csv(csv_path, index=False)
 
     print(f"\nWrote {svg_path}")
     print(f"Wrote {density_svg}")
     print(f"Wrote {csv_path}")
-    print("\nReal network density by epoch:")
+    print("\nReal network density + significance by epoch:")
     print(density_df.to_string(index=False))
 
 

@@ -189,17 +189,17 @@ def main() -> None:
     sessions = ready["session_prefix"].tolist()
     print(f"Processing {len(sessions)} sessions, condition={args.condition}")
 
-    # Standard time axis: infer from first available file
-    # Fallback: 462 bins over 4624ms -> 10ms/bin
-    n_times_default = 462
-    times_ms = np.linspace(WINDOW_MS[0], WINDOW_MS[1], n_times_default)
+    # Standard time axis: TFR arrays start at -1000ms and have 10ms bins (500 bins)
+    n_times_default = 500
+    times_ms = -1000.0 + np.arange(n_times_default) * 10.0
     # Try to get actual n_times from a real file
     sample_files = sorted(TFR_DIR.glob(f"{sessions[0]}-*-{args.condition}.npy"))
     if sample_files:
         try:
             sample = np.load(sample_files[0], mmap_mode="r")
             # shape: (n_trials, n_ch, n_freqs, n_times) -> times is axis 3
-            times_ms = np.linspace(WINDOW_MS[0], WINDOW_MS[1], sample.shape[3])
+            n_times = sample.shape[3]
+            times_ms = -1000.0 + np.arange(n_times) * 10.0
             print(f"  Time axis: {len(times_ms)} bins from {sample_files[0].name} (shape={sample.shape})")
         except Exception:
             pass
@@ -237,7 +237,7 @@ def main() -> None:
     for ai, area in enumerate(ALL_AREAS):
         ax = axes_flat[ai]
         n_sess = area_session_counts.get(area, 0)
-
+        
         if n_sess == 0:
             ax.set_visible(False)
             continue
@@ -248,20 +248,24 @@ def main() -> None:
             traces_list = area_band_traces[area][band_name]  # list of (n_times,)
             stack = np.stack(traces_list, axis=0)  # (n_sess, n_times)
             mean = stack.mean(axis=0)
+            
+            from scipy.ndimage import gaussian_filter1d
+            mean_smooth = gaussian_filter1d(mean, sigma=2.0)
             color = BAND_COLORS.get(band_name, "black")
 
             if stack.shape[0] > 1:
                 sem = stack.std(axis=0, ddof=1) / np.sqrt(stack.shape[0])
-                ax.fill_between(times_ms, mean - 2 * sem, mean + 2 * sem,
+                sem_smooth = gaussian_filter1d(sem, sigma=2.0)
+                ax.fill_between(times_ms, mean_smooth - 2 * sem_smooth, mean_smooth + 2 * sem_smooth,
                                 color=color, alpha=0.18, zorder=2)
-            ax.plot(times_ms, mean, color=color, linewidth=1.1,
+            ax.plot(times_ms, mean_smooth, color=color, linewidth=1.1,
                     label=band_name, zorder=3)
 
         draw_epoch_decorations(ax, args.condition)
         ax.set_title(f"{area}  (N={n_sess})", fontsize=9, fontweight="bold")
         ax.tick_params(axis="both", labelsize=7)
         ax.set_ylabel("Power (dB)", fontsize=7)
-        ax.set_xlim(times_ms[0], times_ms[-1])
+        ax.set_xlim(WINDOW_MS[0], WINDOW_MS[1])  # Lock zoom to focus window [-500ms, 4124ms]
         plotted += 1
 
     # Hide unused axes (13-15 after legend)
