@@ -48,7 +48,7 @@ CLASS_COLORS = {"S+": "#1D9E75", "S-": "#993C1D", "O+": "#185FA5"}
 EPOCH_SHADE_COLORS = {"p1": "#fcee21", "p2": "#93278f", "p3": "#019147", "p4": "#000bd4"}
 EPOCH_SHADE_ALPHA = 0.18
 
-OUT_DIR = REPO_ROOT / "outputs/publication_visual_review/figure3_splus_sminus_oplus_raster_grid"
+OUT_DIR = REPO_ROOT / "outputs/publication_figures/figure2_raster_4x3"
 
 
 def causal_exponential_smoothing(spike_times_rel: list[float], n_trials: int, window_ms: tuple[float, float], tau_ms: float = 30.0, bin_ms: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
