@@ -107,12 +107,33 @@ def main():
                 continue
 
             # Check trial stability (drift check)
-            # Firing count across all correct trials should not drop to 0 or have drift > 0.6
+            from scipy.stats import spearmanr
             all_onsets = []
             for c in ["RXRR", "RRXR", "RRRX"]:
                 all_onsets.extend(onsets_by_cond[c])
 
             if len(all_onsets) < 20:
+                continue
+
+            # Compute Spearman correlation of total spike count vs trial index across correct trials
+            trial_counts = []
+            for onset in all_onsets:
+                # searchsorted spike count in trial window
+                idx_start = np.searchsorted(spike_times, onset - 0.5)
+                idx_end = np.searchsorted(spike_times, onset + 4.124)
+                trial_counts.append(idx_end - idx_start)
+            trial_counts = np.array(trial_counts, dtype=float)
+            
+            # Check stability (spiking at least 1 per trial on average)
+            if np.mean(trial_counts) < 1.0:
+                continue
+
+            drift_coef, _ = spearmanr(np.arange(len(trial_counts)), trial_counts)
+            if np.isnan(drift_coef):
+                drift_coef = 1.0
+            
+            # stability constraint: reject high-drift units (abs drift >= 0.45)
+            if abs(drift_coef) >= 0.45:
                 continue
 
             # Calculate firing rates for the 3 conditions (vectorized using searchsorted)
@@ -135,6 +156,13 @@ def main():
                 cond_rates[cond] = rates
 
             if not valid:
+                continue
+
+            # Ensure non-zero firing during omission slot:
+            # RXRR omission slot: p2 (index 3)
+            # RRXR omission slot: p3 (index 5)
+            # RRRX omission slot: p4 (index 7)
+            if cond_rates["RXRR"][3] <= 0.0 or cond_rates["RRXR"][5] <= 0.0 or cond_rates["RRRX"][7] <= 0.0:
                 continue
 
             # Evaluate correlation for both patterns using concatenated 27-element vectors
@@ -162,7 +190,9 @@ def main():
                             "pattern_type": key,
                             "mean_correlation": r,
                             "permutation_pval": p_val,
-                            "quality": u_row.get("quality")
+                            "quality": u_row.get("quality"),
+                            "drift_coef": drift_coef,
+                            "mean_spikes_per_trial": np.mean(trial_counts)
                         })
 
     df = pd.DataFrame(records)
@@ -172,7 +202,7 @@ def main():
     print(f"Saved results to {OUT_CSV.name}")
 
     print("\n=========================================================================")
-    print("ALL DISCOVERED STABLE SIGNIFCANT OMISSION (O+ / O*+) UNITS")
+    print("ALL DISCOVERED STABLE SIGNIFICANT OMISSION (O+ / O*+) UNITS")
     print("=========================================================================")
     print(df.to_string(index=False))
 
