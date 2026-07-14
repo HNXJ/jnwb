@@ -11,6 +11,11 @@ Quick Start:
     >>> units = session.find_single_units(quality='stable_plus')
     >>> session.raster_suite(unit_id=42)
 
+    # Representational similarity analysis
+    >>> result = oa.jrsa(x1, x2, metric='rsa', stats=True)
+    >>> result.summary()
+    >>> result.plot()
+
 Core Classes:
     - OmissionSession: Main interface for all analysis
       Methods: trial_averaged_plot, channel_averaged_plot, spectrolaminar_motif,
@@ -21,6 +26,7 @@ Core Classes:
 Functions:
     - read(nwb_path, context): Load NWB file as OmissionSession
     - batch_read(nwb_dir, pattern): Load multiple sessions
+    - jrsa(x1, x2, ...): Unified RSA / cross-area similarity analysis
 
 Typical Workflow:
     1. Load:    session = oa.read(nwb_path)
@@ -226,6 +232,12 @@ from .factories import (
 )
 
 # ============================================================================
+# JRSA: Unified Representational Similarity Analysis
+# Single public function, single public result type.
+# ============================================================================
+from .jrsa import jrsa, JRSAResult
+
+# ============================================================================
 # LEGACY API (for backwards compatibility)
 # ============================================================================
 
@@ -350,6 +362,12 @@ from .report import generate_report
 
 # Export main classes and functions
 __all__ = [
+    # ========================================================================
+    # JRSA: Unified RSA API (new public surface)
+    # ========================================================================
+    'jrsa',
+    'JRSAResult',
+
     # ========================================================================
     # v1.0.0 PUBLIC API (FROZEN)
     # ========================================================================
