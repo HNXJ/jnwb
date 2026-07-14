@@ -211,13 +211,13 @@ def main():
                         })
 
     df = pd.DataFrame(records)
-    # Filter for stable units (overall rate > 0.5 Hz)
-    df = df[df["overall_rate"] >= 0.5]
+    # Filter for stable high-quality units (overall rate >= 0.5 Hz and quality == 1.0)
+    df = df[(df["overall_rate"] >= 0.5) & (df["quality"] == 1.0)]
     df.to_csv(OUT_CSV, index=False)
     print(f"Saved results to {OUT_CSV.name}")
 
     print("\n=========================================================================")
-    print("ALL DISCOVERED STABLE SIGNIFICANT OMISSION (O+ / O*+) UNITS")
+    print("ALL DISCOVERED STABLE SIGNIFICANT OMISSION (O+ / O*+) GOOD UNITS (QUALITY == 1.0)")
     print("=========================================================================")
     print(df.to_string(index=False))
 
