@@ -21,8 +21,34 @@ from jnwb import (
     cross_modal_comparison,
     network_connectivity,
     tfr_correlate_areas,
+    jrsa,
+    JRSAResult,
 )
 from jnwb import spectral
+```
+
+## Unified Relationship Analysis Core (JRSA)
+
+For all multi-dimensional similarity, connection, and relationship analysis, use `oa.jrsa`. It handles dimension alignment, resampling (downsampling, linear/cubic interpolation, DTW), GPU-acceleration, and dispatches to 14 metrics (including classic Kriegeskorte RSA, linear CKA, Granger Causality, and Transfer Entropy fallback).
+
+```python
+# Unified analysis on multi-dimensional matrices (e.g. Area-Layer-Band spectro-laminar tensors)
+result = oa.jrsa(
+    x1, x2,
+    metric="rsa",          # or "cka", "granger", "transfer_entropy" etc.
+    adim="time",           # axis name or index to align
+    lag=0,                 # lag alignment in samples
+    n_perm=1000,           # statistical permutation count
+    device="auto"          # cupy/torch/jax/numpy backend
+)
+
+# Accessing JRSAResult fields
+print(f"Stat: {result.value:.3f}, p-val: {result.p:.4f}")
+
+# Quick reporting methods
+result.summary()          # prints human-readable snapshot
+result.plot()             # displays correlation matrices / 1D line curves
+result.save("result.json") # supports json, npz, or csv outputs
 ```
 
 ## Cross-Modal Comparison (LFP vs Spikes)
