@@ -135,7 +135,7 @@ def main():
     sess = oa.read(NWB_PATH)
 
     # Firing rate matched S+, S-, O+ units (best matches to exact pulse patterns)
-    units = {"S+": 161, "S-": 362, "O+": 51}
+    units = {"S+": 161, "S-": 361, "O+": 51}
     areas = {"S+": "MT", "S-": "V2", "O+": "FEF"}
 
     onsets_by_cond = {}
