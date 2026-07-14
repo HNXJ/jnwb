@@ -165,8 +165,23 @@ def main():
             if cond_rates["RXRR"][3] <= 0.0 or cond_rates["RRXR"][5] <= 0.0 or cond_rates["RRRX"][7] <= 0.0:
                 continue
 
+            # Check peak firing omission dominance constraint:
+            # For O+ candidates, the maximum firing rate among the 9 epochs must be the omission slot
+            # in at least 2 of the 3 conditions (more than 50% of the times).
+            peak_match_count = 0
+            if np.argmax(cond_rates["RXRR"]) == 3:
+                peak_match_count += 1
+            if np.argmax(cond_rates["RRXR"]) == 5:
+                peak_match_count += 1
+            if np.argmax(cond_rates["RRRX"]) == 7:
+                peak_match_count += 1
+
             # Evaluate correlation for both patterns using concatenated 27-element vectors
             for key in ["O+", "O*+"]:
+                # If checking O+ (Pulse), enforce peak firing dominance rule
+                if key == "O+" and peak_match_count < 2:
+                    continue
+
                 # Concatenate the 3 conditions together
                 obs_rates_concat = np.concatenate([cond_rates["RXRR"], cond_rates["RRXR"], cond_rates["RRRX"]])
                 temp_concat = np.concatenate([TEMPLATES[key]["RXRR"], TEMPLATES[key]["RRXR"], TEMPLATES[key]["RRRX"]])
