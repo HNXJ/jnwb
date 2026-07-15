@@ -1327,10 +1327,10 @@
     {
       "filename": "test_jrsa_correctness.py",
       "purpose": "Verifies correctness fixes for jrsa.py (NaN omission, multi-lag shape stacking, and preprocessing conflict warnings).",
-      "score": 100,
+      "score": 88,
       "tbis": 0,
       "tbds": 0,
-      "warnings": "",
+      "warnings": "ACCEPTED WITH CAVEATS: NaN metric assertion verified; multi-lag shape asserts (3,) output shape. HSIC centering contains symmetric kernel matrix assumption.",
       "path": "tests/test_jrsa_correctness.py",
       "status": "done",
       "last_verified": "2026-07-15",

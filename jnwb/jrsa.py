@@ -259,8 +259,6 @@ def jrsa(
         x1, x2 = _reduce_dimensions(x1, x2, axis_map, reduction)
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
     x1, x2, windows = _make_windows(x1, x2, axis_map, window, sliding)
-    x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag)
-
     # --- dispatch metric ------------------------------------------------------
     metric_fn = _METRIC_DISPATCH.get(metric.lower())
     if metric_fn is None:
@@ -272,27 +270,82 @@ def jrsa(
     if verbose:
         print(f"[jrsa] computing {metric!r} …")
 
-    value, statistic, effect, p_raw, df = metric_fn(
-        x1_lagged, x2_lagged, axis=-1, **kwargs
-    )
-
-    # --- statistics -----------------------------------------------------------
-    null_dist = None
-    ci = None
-
-    if stats and permutations > 0:
-        null_dist = _permutation_test(
-            x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+    # --- temporal lag iteration -----------------------------------------------
+    lags = [lag] if isinstance(lag, (int, float)) else list(lag)
+    
+    if len(lags) <= 1:
+        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag)
+        value, statistic, effect, p_raw, df = metric_fn(
+            x1_lagged, x2_lagged, axis=-1, **kwargs
         )
-        if p_raw is None:
-            p_raw = _p_from_null(value, null_dist, alternative)
+        null_dist = None
+        ci = None
 
-    if bootstrap > 0:
-        ci = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+        if stats and permutations > 0:
+            null_dist = _permutation_test(
+                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+            )
+            if p_raw is None:
+                p_raw = _p_from_null(value, null_dist, alternative)
 
-    q_corrected = None
-    if stats and p_raw is not None and correction.lower() != "none":
-        q_corrected = _multiple_correction(p_raw, correction, alpha)
+        if bootstrap > 0:
+            ci = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+
+        q_corrected = None
+        if stats and p_raw is not None and correction.lower() != "none":
+            q_corrected = _multiple_correction(p_raw, correction, alpha)
+    else:
+        # Loop over each individual lag and stack the results
+        val_list, stat_list, eff_list, p_list, df_list = [], [], [], [], []
+        null_dist_list, ci_list = [], []
+        
+        for l in lags:
+            x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l)
+            v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
+            val_list.append(v)
+            stat_list.append(s)
+            eff_list.append(e)
+            p_list.append(p)
+            df_list.append(d)
+            
+            nd = None
+            c_val = None
+            if stats and permutations > 0:
+                nd = _permutation_test(
+                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+                )
+                if p is None:
+                    p = _p_from_null(v, nd, alternative)
+                    p_list[-1] = p
+                null_dist_list.append(nd)
+                
+            if bootstrap > 0:
+                c_val = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+                ci_list.append(c_val)
+        
+        xp = _get_xp(x1)
+        # Helper to stack along axis=0 if components are arrays/tensors or numeric values
+        def _stack_lags(lst):
+            if all(item is None for item in lst):
+                return None
+            # If items are numeric scalars or arrays, stack them
+            first = next(item for item in lst if item is not None)
+            if isinstance(first, (int, float, np.number)) or (hasattr(first, "ndim") and first.ndim == 0):
+                return xp.array([float(item) if item is not None else np.nan for item in lst])
+            # Filter None to prevent stack crash, although they should all be same shape
+            return xp.stack([item if item is not None else xp.full_like(first, xp.nan) for item in lst], axis=0)
+            
+        value = _stack_lags(val_list)
+        statistic = _stack_lags(stat_list)
+        effect = _stack_lags(eff_list)
+        p_raw = _stack_lags(p_list)
+        df = _stack_lags(df_list)
+        null_dist = _stack_lags(null_dist_list) if null_dist_list else None
+        ci = _stack_lags(ci_list) if ci_list else None
+        
+        q_corrected = None
+        if stats and p_raw is not None and correction.lower() != "none":
+            q_corrected = _multiple_correction(p_raw, correction, alpha)
 
     # --- build result ---------------------------------------------------------
     exec_meta = _make_exec_meta(bk, device, t0, rng)
@@ -1135,24 +1188,30 @@ def _rv(x1, x2, axis=-1, **kwargs):
 def _hsic(x1, x2, axis=-1, sigma=1.0, **kwargs):
     """Hilbert-Schmidt Independence Criterion with efficient centering.
     Avoids explicit dense centering matrix allocation.
+    Assumes symmetric kernels (like the default Gaussian RBF) such that K^T = K
+    and trace(Kx @ Ky) = sum(Kx * Ky).
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     from scipy.spatial.distance import cdist
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
-    Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
+    Y = x2 if x2 is not None else x2.reshape(x2.shape[0], -1)
     m = min(X.shape[0], Y.shape[0])
     X, Y = X[:m], Y[:m]
     
     Kx = np.exp(-cdist(X, X, "sqeuclidean") / (2 * sigma ** 2))
     Ky = np.exp(-cdist(Y, Y, "sqeuclidean") / (2 * sigma ** 2))
     
+    # Assert kernel symmetry to avoid silent failure on non-symmetric custom kernels
+    if not (np.allclose(Kx, Kx.T) and np.allclose(Ky, Ky.T)):
+         raise ValueError("HSIC optimization requires symmetric kernel matrices.")
+    
     # Tr(Kx @ H @ Ky @ H) where H = I - 1/m * J.
     # Tr(Kx @ H @ Ky @ H) = Tr(Kx @ Ky) - 2/m * sum(Kx @ Ky) + 1/m^2 * sum(Kx) * sum(Ky) (fully centered trace).
-    # This avoids any allocation of the (m, m) centering matrix.
+    # Since kernels are symmetric, Tr(Kx @ Ky) = sum(Kx * Ky).
     tr_kx_ky = np.sum(Kx * Ky)
     row_sum_kx = np.sum(Kx, axis=1)
-    row_sum_ky = np.sum(Ky, axis=0)
-    term2 = (2.0 / m) * np.dot(row_sum_kx, row_sum_ky)
+    col_sum_ky = np.sum(Ky, axis=0)
+    term2 = (2.0 / m) * np.dot(row_sum_kx, col_sum_ky)
     term3 = (1.0 / (m ** 2)) * np.sum(Kx) * np.sum(Ky)
     
     hsic_val = (tr_kx_ky - term2 + term3) / ((m - 1) ** 2)

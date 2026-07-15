@@ -1004,9 +1004,9 @@
     {
       "filename": "test_jrsa_correctness.py",
       "path": "tests/test_jrsa_correctness.py",
-      "score": 100,
-      "verdict": "ACCEPTED",
-      "issues": "None. Verified correctness of NaN omission (listwise exclusion), multi-lag stacking, and simultaneous normalization/standardization warnings.",
+      "score": 88,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "NaN omission verified using hand-computed valid elements. Multi-lag output shape of (3,) verified. HSIC optimization contains symmetric kernel matrix assumptions.",
       "fix_actions": "None",
       "review_command": "python -m pytest tests/test_jrsa_correctness.py -v",
       "last_reviewed": "2026-07-15"
