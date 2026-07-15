@@ -560,6 +560,31 @@ def _compute_statistics(value, x1, x2, metric_fn, alternative, axis, **kwargs):
 
 def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
     """Label-shuffle permutation test; returns null distribution."""
+    # Check if inputs are CuPy arrays (meaning we are on GPU)
+    is_cp = False
+    try:
+        import cupy as cp
+        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
+            is_cp = True
+    except ImportError:
+        pass
+
+    if is_cp:
+        import cupy as cp
+        null = []
+        x2_work = x2 if x2 is not None else x1
+        n = x2_work.shape[axis]
+        for _ in range(n_perm):
+            idx = cp.array(rng.permutation(n))
+            x2_perm = cp.take(x2_work, idx, axis=axis)
+            v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
+            if hasattr(v, "get"):
+                v_mean = float(cp.mean(v))
+            else:
+                v_mean = float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
+            null.append(v_mean)
+        return np.asarray(null)
+
     null = []
     x2_work = x2 if x2 is not None else x1
     n = x2_work.shape[axis]
@@ -573,6 +598,9 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
 
 def _p_from_null(value, null_dist, alternative):
     """Compute p-value from null distribution."""
+    # Convert value to CPU numpy if it is a CuPy array
+    if hasattr(value, "get"):
+        value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
     n = len(null_dist)
     if alternative == "two-sided":
@@ -587,6 +615,34 @@ def _p_from_null(value, null_dist, alternative):
 
 def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, **kwargs):
     """Percentile bootstrap; returns (lower, upper) CI array."""
+    # Check if inputs are CuPy arrays
+    is_cp = False
+    try:
+        import cupy as cp
+        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
+            is_cp = True
+    except ImportError:
+        pass
+
+    if is_cp:
+        import cupy as cp
+        boot_vals = []
+        x2_work = x2 if x2 is not None else x1
+        n = x1.shape[axis]
+        for _ in range(n_boot):
+            idx = cp.array(rng.integers(0, n, size=n))
+            x1_b = cp.take(x1, idx, axis=axis)
+            x2_b = cp.take(x2_work, idx, axis=axis)
+            v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)
+            if hasattr(v, "get"):
+                v_mean = float(cp.mean(v))
+            else:
+                v_mean = float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
+            boot_vals.append(v_mean)
+        boot_arr = cp.array(boot_vals)
+        ci = cp.percentile(boot_arr, [2.5, 97.5])
+        return ci.get()
+
     boot_vals = []
     x2_work = x2 if x2 is not None else x1
     n = x1.shape[axis]
@@ -777,6 +833,29 @@ def _ensure_np(*arrays):
 
 
 def _pearson(x1, x2, axis=-1, **kwargs):
+    # Check if inputs are CuPy arrays
+    try:
+        import cupy as cp
+        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
+            a = x1.ravel() if x1.ndim > 1 else x1
+            y2 = x2 if x2 is not None else x1
+            b = y2.ravel()[:len(a)] if y2.ndim > 1 else y2[:len(a)]
+            n = len(a)
+            # CuPy correlation calculation
+            a_mean = cp.mean(a)
+            b_mean = cp.mean(b)
+            a_std = cp.std(a)
+            b_std = cp.std(b)
+            if a_std < 1e-12 or b_std < 1e-12:
+                r = cp.array(0.0)
+            else:
+                r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std + 1e-12)
+            df = n - 2
+            t = r * cp.sqrt(df) / cp.sqrt(1 - r ** 2 + 1e-12)
+            return r, t, cp.abs(r), None, float(df)
+    except ImportError:
+        pass
+
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     from scipy.stats import pearsonr
     a = x1.reshape(-1) if x1.ndim > 1 else x1
@@ -789,6 +868,31 @@ def _pearson(x1, x2, axis=-1, **kwargs):
 
 
 def _spearman(x1, x2, axis=-1, **kwargs):
+    # For spearman rank, we can rank-transform on CuPy then run Pearson
+    try:
+        import cupy as cp
+        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
+            a = x1.ravel() if x1.ndim > 1 else x1
+            y2 = x2 if x2 is not None else x1
+            b = y2.ravel()[:len(a)] if y2.ndim > 1 else y2[:len(a)]
+            # Rank transform
+            a_rank = cp.argsort(cp.argsort(a)).astype(cp.float64)
+            b_rank = cp.argsort(cp.argsort(b)).astype(cp.float64)
+            n = len(a)
+            a_mean = cp.mean(a_rank)
+            b_mean = cp.mean(b_rank)
+            a_std = cp.std(a_rank)
+            b_std = cp.std(b_rank)
+            if a_std < 1e-12 or b_std < 1e-12:
+                rho = cp.array(0.0)
+            else:
+                rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std + 1e-12)
+            df = n - 2
+            t = rho * cp.sqrt(df) / cp.sqrt(1 - rho ** 2 + 1e-12)
+            return rho, t, cp.abs(rho), None, float(df)
+    except ImportError:
+        pass
+
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     from scipy.stats import spearmanr
     a = x1.reshape(-1) if x1.ndim > 1 else x1
@@ -811,6 +915,17 @@ def _kendall(x1, x2, axis=-1, **kwargs):
 
 
 def _cosine(x1, x2, axis=-1, **kwargs):
+    try:
+        import cupy as cp
+        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
+            a = x1.ravel()
+            y2 = x2 if x2 is not None else x1
+            b = y2.ravel()[:len(a)]
+            sim = cp.dot(a, b) / (cp.linalg.norm(a) * cp.linalg.norm(b) + 1e-12)
+            return sim, sim, cp.abs(sim), None, None
+    except ImportError:
+        pass
+
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
@@ -1029,22 +1144,29 @@ def _make_result(
     metric, axes, aligned_axes, labels, parameters,
     null_distribution, aligned_x1, aligned_x2, execution,
 ) -> JRSAResult:
+    def _to_numpy(a):
+        if a is None:
+            return None
+        if hasattr(a, "get"):
+            a = a.get()
+        return np.asarray(a)
+
     return JRSAResult(
-        value=np.asarray(value) if value is not None else np.float64(np.nan),
-        statistic=np.asarray(statistic) if statistic is not None else None,
-        effect=np.asarray(effect) if effect is not None else None,
-        p=np.asarray(p) if p is not None else None,
-        q=np.asarray(q) if q is not None else None,
-        df=np.asarray(df) if df is not None else None,
-        ci=np.asarray(ci) if ci is not None else None,
+        value=_to_numpy(value) if value is not None else np.float64(np.nan),
+        statistic=_to_numpy(statistic),
+        effect=_to_numpy(effect),
+        p=_to_numpy(p),
+        q=_to_numpy(q),
+        df=_to_numpy(df),
+        ci=_to_numpy(ci),
         metric=metric,
         axes=axes,
         aligned_axes=aligned_axes,
         labels=labels,
         parameters=parameters,
-        null_distribution=null_distribution,
-        aligned_x1=aligned_x1,
-        aligned_x2=aligned_x2,
+        null_distribution=_to_numpy(null_distribution),
+        aligned_x1=_to_numpy(aligned_x1),
+        aligned_x2=_to_numpy(aligned_x2),
         execution=execution,
     )
 
