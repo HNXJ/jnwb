@@ -282,13 +282,13 @@ def jrsa(
 
     if stats and permutations > 0:
         null_dist = _permutation_test(
-            x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, **kwargs
+            x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
         )
         if p_raw is None:
             p_raw = _p_from_null(value, null_dist, alternative)
 
     if bootstrap > 0:
-        ci = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, **kwargs)
+        ci = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
 
     q_corrected = None
     if stats and p_raw is not None and correction.lower() != "none":
@@ -367,10 +367,33 @@ def _validate_inputs(x1, x2, nan_policy: str):
         if nan_policy == "raise" and xp2.any(xp2.isnan(x2)):
             raise ValueError("NaN values found in x2 (nan_policy='raise').")
     if nan_policy == "omit":
-        x1 = xp1.where(xp1.isnan(x1), 0.0, x1)
         if x2 is not None:
             xp2 = _get_xp(x2)
-            x2 = xp2.where(xp2.isnan(x2), 0.0, x2)
+            # Find joint valid mask (neither is NaN) along the last axis
+            # For multi-dimensional inputs, we assume the last axis contains the paired samples.
+            # We want to keep samples where both x1 and x2 are not NaN.
+            nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
+            # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
+            # In general, if there are multiple dimensions, we project the mask down to the last axis.
+            if x1.ndim > 1:
+                # Collapse over non-last axes to find any NaN position
+                reduce_axes = tuple(range(x1.ndim - 1))
+                any_nan = nan_mask.any(axis=reduce_axes)
+            else:
+                any_nan = nan_mask
+            
+            valid_indices = xp1.where(~any_nan)[0]
+            x1 = xp1.take(x1, valid_indices, axis=-1)
+            x2 = xp2.take(x2, valid_indices, axis=-1)
+        else:
+            nan_mask = xp1.isnan(x1)
+            if x1.ndim > 1:
+                reduce_axes = tuple(range(x1.ndim - 1))
+                any_nan = nan_mask.any(axis=reduce_axes)
+            else:
+                any_nan = nan_mask
+            valid_indices = xp1.where(~any_nan)[0]
+            x1 = xp1.take(x1, valid_indices, axis=-1)
     # propagate: do nothing, let downstream handle
     return x1, x2
 
@@ -540,6 +563,12 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
 
 def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
     """Apply per-array preprocessing in place on CPU or GPU."""
+    if normalize and standardize:
+        warnings.warn(
+            "Both normalize=True and standardize=True are enabled simultaneously. "
+            "Standardize (Z-scoring) overrides and negates standard range normalization [0, 1].",
+            UserWarning
+        )
     def _prep(arr):
         if arr is None:
             return arr
@@ -598,16 +627,25 @@ def _make_windows(x1, x2, axis_map, window, sliding):
 
 
 def _apply_lag(x1, x2, axis_map, lag):
-    """Apply temporal lag(s) by rolling along the last axis on CPU or GPU."""
+    """Apply temporal lag(s) by rolling along the last axis on CPU or GPU.
+    If multiple lags are passed, returns stacked arrays of shape (n_lags, ...).
+    """
     if lag == 0 or (hasattr(lag, "__len__") and len(lag) == 1 and lag[0] == 0):
         return x1, x2
     if x2 is None:
         return x1, x2
     lags = [lag] if isinstance(lag, (int, float)) else list(lag)
-    shift = int(lags[0])
     xp = _get_xp(x2)
-    x2_shifted = xp.roll(x2, shift, axis=-1)
-    return x1, x2_shifted
+    
+    if len(lags) == 1:
+        shift = int(lags[0])
+        return x1, xp.roll(x2, shift, axis=-1)
+    
+    # Stack multiple shifted copies along a new first axis
+    # The output will have shape (n_lags, ...)
+    x1_stacked = xp.stack([x1 for _ in lags], axis=0)
+    x2_stacked = xp.stack([xp.roll(x2, int(l), axis=-1) for l in lags], axis=0)
+    return x1_stacked, x2_stacked
 
 
 def _stack_batches(arrays, batch_size):
@@ -630,7 +668,7 @@ def _compute_statistics(value, x1, x2, metric_fn, alternative, axis, **kwargs):
     return value  # metrics return statistic already
 
 
-def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
+def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwargs):
     """Label-shuffle permutation test; returns null distribution, optimized for GPU if needed."""
     is_cp = False
     try:
@@ -656,14 +694,20 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
             null.append(v_mean)
         return np.asarray(null)
 
-    null = []
     x2_work = x2 if x2 is not None else x1
     n = x2_work.shape[axis]
-    for _ in range(n_perm):
-        idx = rng.permutation(n)
+    
+    # Generate all permutation indices upfront to pass to workers cleanly
+    seeds = rng.integers(0, 2**31 - 1, size=n_perm)
+    
+    def _run_single_perm(seed):
+        local_rng = np.random.default_rng(seed)
+        idx = local_rng.permutation(n)
         x2_perm = np.take(x2_work, idx, axis=axis)
         v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
-        null.append(float(np.mean(v)) if isinstance(v, np.ndarray) else float(v))
+        return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
+
+    null = _parallel_map(_run_single_perm, seeds, n_jobs=n_jobs)
     return np.asarray(null)
 
 
@@ -683,7 +727,7 @@ def _p_from_null(value, null_dist, alternative):
     return np.atleast_1d(np.float64(p))
 
 
-def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, **kwargs):
+def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=-1, **kwargs):
     """Percentile bootstrap; returns (lower, upper) CI array, optimized for GPU if needed."""
     is_cp = False
     try:
@@ -712,18 +756,29 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, **kwargs):
         ci = cp.percentile(boot_arr, [2.5, 97.5])
         return ci.get()
 
-    boot_vals = []
     x2_work = x2 if x2 is not None else x1
     n = x1.shape[axis]
-    for _ in range(n_boot):
-        idx = rng.integers(0, n, size=n)
+    seeds = rng.integers(0, 2**31 - 1, size=n_boot)
+    
+    def _run_single_boot(seed):
+        local_rng = np.random.default_rng(seed)
+        idx = local_rng.integers(0, n, size=n)
         x1_b = np.take(x1, idx, axis=axis)
         x2_b = np.take(x2_work, idx, axis=axis)
         v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)
-        boot_vals.append(float(np.mean(v)) if isinstance(v, np.ndarray) else float(v))
+        return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
+
+    boot_vals = _parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
     boot_arr = np.asarray(boot_vals)
     ci = np.percentile(boot_arr, [2.5, 97.5])
     return ci
+
+
+_CORRECTION_METHOD_MAP = {
+    "fdr_bh": "fdr_bh", "fdr_by": "fdr_by",
+    "bonferroni": "bonferroni", "holm": "holm",
+    "holm-sidak": "holm-sidak",
+}
 
 
 def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray:
@@ -731,12 +786,7 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
     p_flat = np.asarray(p).ravel()
     try:
         from statsmodels.stats.multitest import multipletests
-        _METHOD_MAP = {
-            "fdr_bh": "fdr_bh", "fdr_by": "fdr_by",
-            "bonferroni": "bonferroni", "holm": "holm",
-            "holm-sidak": "holm-sidak",
-        }
-        sm_method = _METHOD_MAP.get(method.lower(), "fdr_bh")
+        sm_method = _CORRECTION_METHOD_MAP.get(method.lower(), "fdr_bh")
         _, q, _, _ = multipletests(p_flat, alpha=alpha, method=sm_method)
     except ImportError:
         if method.lower() == "bonferroni":
@@ -1017,65 +1067,95 @@ def _cosine(x1, x2, axis=-1, **kwargs):
 
 
 def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
-    """Representational similarity analysis via RDM correlation."""
+    """Representational similarity analysis via condensed RDM correlation (avoiding squareform)."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from scipy.spatial.distance import pdist, squareform
+    from scipy.spatial.distance import pdist
     from scipy.stats import spearmanr
-    rdm1 = squareform(pdist(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric))
-    rdm2 = squareform(pdist(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric))
-    # upper-triangle
-    triu = np.triu_indices_from(rdm1, k=1)
-    rho, p = spearmanr(rdm1[triu], rdm2[triu])
+    # We directly compute pdist which returns the condensed upper-triangular vector representation
+    # This avoids constructing the full square matrix via squareform and slicing.
+    v1 = pdist(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric)
+    v2 = pdist(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric)
+    rho, p = spearmanr(v1, v2)
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 
 
 def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
-    """Centered Kernel Alignment."""
+    """Centered Kernel Alignment optimized for linear complexity O(md^2) when d << m."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    def _center_gram(K):
-        n = K.shape[0]
-        H = np.eye(n) - np.ones((n, n)) / n
-        return H @ K @ H
-    def _linear_kernel(X):
-        return X @ X.T
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
     m = min(X.shape[0], Y.shape[0])
     X, Y = X[:m], Y[:m]
-    Kx = _center_gram(_linear_kernel(X))
-    Ky = _center_gram(_linear_kernel(Y))
-    num = np.sum(Kx * Ky)
-    denom = np.sqrt(np.sum(Kx * Kx) * np.sum(Ky * Ky) + 1e-12)
-    cka_val = num / denom
+    d1, d2 = X.shape[1], Y.shape[1]
+    
+    # Standard centering: H @ K @ H.
+    # For linear kernel: Kx = X @ X.T.
+    # Center matrix: X_c = (I - 1/m * 11^T) @ X = X - mean(X, axis=0).
+    # Then centered Gram matrix is X_c @ X_c.T.
+    # Its trace/dot product is equivalent to trace((X_c @ X_c.T) @ (Y_c @ Y_c.T))
+    # which can be computed as ||X_c.T @ Y_c||_F^2, which is O(m * d1 * d2) instead of O(m^3).
+    X_c = X - np.mean(X, axis=0, keepdims=True)
+    Y_c = Y - np.mean(Y, axis=0, keepdims=True)
+    
+    # Calculate trace of Kx_c @ Ky_c which is ||X_c.T @ Y_c||_F^2
+    cross = X_c.T @ Y_c
+    num = np.sum(cross ** 2)
+    
+    # Denominators are ||X_c.T @ X_c||_F^2 and ||Y_c.T @ Y_c||_F^2
+    denom_x = np.sum((X_c.T @ X_c) ** 2)
+    denom_y = np.sum((Y_c.T @ Y_c) ** 2)
+    
+    cka_val = num / np.sqrt(denom_x * denom_y + 1e-12)
     return np.float64(cka_val), np.float64(cka_val), np.float64(cka_val), None, None
 
 
 def _rv(x1, x2, axis=-1, **kwargs):
-    """RV coefficient (matrix correlation)."""
+    """RV coefficient optimized via trace identity to run at O(md^2) when d << m."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
     m = min(X.shape[0], Y.shape[0])
     X, Y = X[:m], Y[:m]
-    S_xy = X @ Y.T
-    S_xx = X @ X.T
-    S_yy = Y @ Y.T
-    rv = np.trace(S_xy @ S_xy.T) / np.sqrt(np.trace(S_xx @ S_xx) * np.trace(S_yy @ S_yy) + 1e-12)
+    
+    # Standard formula uses full gram matrices: S_xx = X @ X.T (m x m)
+    # trace(S_xy @ S_xy.T) = trace(X @ Y.T @ Y @ X.T) = trace(X.T @ X @ Y.T @ Y)
+    # = Frobenius norm of (X.T @ Y) squared. This drops calculation from O(m^3) to O(m * d1 * d2 + d1^3).
+    C_xy = X.T @ Y
+    num = np.sum(C_xy ** 2)
+    
+    C_xx = X.T @ X
+    C_yy = Y.T @ Y
+    denom_x = np.sum(C_xx ** 2)
+    denom_y = np.sum(C_yy ** 2)
+    
+    rv = num / np.sqrt(denom_x * denom_y + 1e-12)
     return np.float64(rv), np.float64(rv), np.float64(rv), None, None
 
 
 def _hsic(x1, x2, axis=-1, sigma=1.0, **kwargs):
-    """Hilbert-Schmidt Independence Criterion."""
+    """Hilbert-Schmidt Independence Criterion with efficient centering.
+    Avoids explicit dense centering matrix allocation.
+    """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     from scipy.spatial.distance import cdist
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
     m = min(X.shape[0], Y.shape[0])
     X, Y = X[:m], Y[:m]
+    
     Kx = np.exp(-cdist(X, X, "sqeuclidean") / (2 * sigma ** 2))
     Ky = np.exp(-cdist(Y, Y, "sqeuclidean") / (2 * sigma ** 2))
-    H = np.eye(m) - np.ones((m, m)) / m
-    hsic_val = np.trace(Kx @ H @ Ky @ H) / ((m - 1) ** 2)
+    
+    # Tr(Kx @ H @ Ky @ H) where H = I - 1/m * J.
+    # Tr(Kx @ H @ Ky @ H) = Tr(Kx @ Ky) - 2/m * sum(Kx @ Ky) + 1/m^2 * sum(Kx) * sum(Ky) (fully centered trace).
+    # This avoids any allocation of the (m, m) centering matrix.
+    tr_kx_ky = np.sum(Kx * Ky)
+    row_sum_kx = np.sum(Kx, axis=1)
+    row_sum_ky = np.sum(Ky, axis=0)
+    term2 = (2.0 / m) * np.dot(row_sum_kx, row_sum_ky)
+    term3 = (1.0 / (m ** 2)) * np.sum(Kx) * np.sum(Ky)
+    
+    hsic_val = (tr_kx_ky - term2 + term3) / ((m - 1) ** 2)
     return np.float64(hsic_val), np.float64(hsic_val), np.float64(hsic_val), None, None
 
 
@@ -1136,7 +1216,7 @@ def _procrustes(x1, x2, axis=-1, **kwargs):
 
 
 def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
-    """Granger causality F-statistic (x2 → x1)."""
+    """Granger causality F-statistic (x2 → x1) with best lag selection by AIC."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     try:
         from statsmodels.tsa.stattools import grangercausalitytests
@@ -1146,8 +1226,28 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             res = grangercausalitytests(data, maxlag=max_lag, verbose=False)
-        # collect F and p at the chosen lag
-        best_lag = max_lag
+        
+        # Select best lag from 1 to max_lag based on minimum AIC
+        # statsmodels grangercausalitytests returns a dict.
+        # For each lag, res[lag][1] contains the results of the OLS regressions.
+        # Under res[lag][1], there are multiple regression results (e.g. 'lrtest', 'params_ftest', 'ssr_chi2test', 'ssr_ftest').
+        # The unrestricted OLS model results are in res[lag][1][1] (unrestricted model object).
+        # We can fetch the AIC from res[lag][1][1].aic
+        best_lag = 1
+        min_aic = float('inf')
+        for lag in range(1, max_lag + 1):
+            try:
+                # res[lag][1] is a list of [res_restricted, res_unrestricted, joint_test_results] or similar.
+                # In statsmodels: res[lag][1] contains (results_d, results_m, lr_result) where results_m is the unrestricted OLS model result.
+                unrestricted_model = res[lag][1][1]
+                aic = unrestricted_model.aic
+                if aic < min_aic:
+                    min_aic = aic
+                    best_lag = lag
+            except Exception:
+                # Fallback to last lag if AIC extraction structure changes
+                best_lag = lag
+        
         f_stat = float(res[best_lag][0]["ssr_ftest"][0])
         p_val = float(res[best_lag][0]["ssr_ftest"][1])
         df = float(res[best_lag][0]["ssr_ftest"][2])
@@ -1241,12 +1341,25 @@ _METRIC_DISPATCH = {
 # ===========================================================================
 
 def _make_exec_meta(backend_ctx, device, t0, rng):
+    seed_val = None
+    if rng is not None:
+        try:
+            if hasattr(rng, "bit_generator") and hasattr(rng.bit_generator, "state"):
+                state = rng.bit_generator.state
+                if isinstance(state, dict) and "state" in state:
+                    sub_state = state["state"]
+                    if isinstance(sub_state, dict) and "state" in sub_state:
+                        seed_val = int(sub_state["state"])
+                    elif isinstance(sub_state, int):
+                        seed_val = sub_state
+        except Exception:
+            pass
     return {
         "backend": backend_ctx.get("name", "numpy"),
         "device": device,
         "runtime": time.perf_counter() - t0,
         "memory": None,
-        "seed": int(rng.bit_generator.state["state"]["state"]) if hasattr(rng.bit_generator, "state") else None,
+        "seed": seed_val,
     }
 
 

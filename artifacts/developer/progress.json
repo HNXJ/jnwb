@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "PRP live backlog state - reshaped to canonical wrapper 2026-07-11 (entries[] with path/filename dual-key for back-compat). Full three-way row-set alignment with plans.json/review.json not yet done - plans.json remains roadmap-item-granularity (34 items), not 1:1 file rows; that is a separate, larger, not-yet-authorized reshape.",
-  "last_updated": "2026-07-13",
+  "last_updated": "2026-07-15",
   "entries": [
     {
       "filename": "docs/analysis_methods.md",
@@ -71,7 +71,7 @@
       "tbds": 0,
       "warnings": "Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies. Uncommitted local changes on main.",
       "last_verified": "2026-07-07",
-      "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q → 111 passed, 18 skipped",
+      "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q \u00e2\u2020\u2019 111 passed, 18 skipped",
       "status": "done",
       "path": "jnwb/__init__.py"
     },
@@ -421,7 +421,7 @@
       "tbds": 0,
       "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback.",
       "last_verified": "2026-07-07",
-      "evidence": "python -m pytest tests/test_trajectory.py -q → passed (subset of 111 passed in tests/)",
+      "evidence": "python -m pytest tests/test_trajectory.py -q \u00e2\u2020\u2019 passed (subset of 111 passed in tests/)",
       "status": "done",
       "path": "tests/test_trajectory.py"
     },
@@ -691,7 +691,7 @@
       "tbds": 0,
       "warnings": "Local exec runner; not SSH. Verified by executing suite_06. | RE-ASSESSED 2026-07-11: Used successfully as the real execution backbone throughout this entire session (suite_01, suite_02-05, suite_09/10, multiple examples) - dozens of real successful executions, no failures attributable to this script itself.",
       "last_verified": "2026-07-09",
-      "evidence": "compileall → exit 0; --help → exit 0",
+      "evidence": "compileall \u00e2\u2020\u2019 exit 0; --help \u00e2\u2020\u2019 exit 0",
       "status": "done",
       "path": "scripts/run_notebook_local.py"
     },
@@ -755,7 +755,7 @@
     {
       "filename": "scripts/build_nwb_catalog.py",
       "path": "scripts/build_nwb_catalog.py",
-      "purpose": "Durable NWB session catalog writer (dir listing → artifacts/data/nwb_catalog.json).",
+      "purpose": "Durable NWB session catalog writer (dir listing \u00e2\u2020\u2019 artifacts/data/nwb_catalog.json).",
       "score": 97,
       "tbis": 0,
       "tbds": 1,
@@ -797,7 +797,7 @@
     {
       "filename": "scripts/build_session_readiness.py",
       "path": "scripts/build_session_readiness.py",
-      "purpose": "Join catalog + TFR + sidecar → session_readiness.csv gates.",
+      "purpose": "Join catalog + TFR + sidecar \u00e2\u2020\u2019 session_readiness.csv gates.",
       "score": 97,
       "tbis": 0,
       "tbds": 1,
@@ -1323,6 +1323,18 @@
       "status": "done",
       "last_verified": "2026-07-15",
       "evidence": "python -m pytest tests/test_jrsa_gpu.py -v -> 1 passed"
+    },
+    {
+      "filename": "test_jrsa_correctness.py",
+      "purpose": "Verifies correctness fixes for jrsa.py (NaN omission, multi-lag shape stacking, and preprocessing conflict warnings).",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "tests/test_jrsa_correctness.py",
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "python -m pytest tests/test_jrsa_correctness.py -v -> 3 passed"
     }
   ]
 }
