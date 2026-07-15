@@ -1255,62 +1255,62 @@
     {
       "filename": "01_omission_paradigm.md",
       "purpose": "Overview of the omission task paradigm, correct vs. incorrect trials, and task phases.",
-      "score": 0,
+      "score": 100,
       "tbis": 0,
       "tbds": 0,
       "warnings": "",
       "path": "context/01_omission_paradigm.md",
-      "status": "todo",
-      "last_verified": "",
-      "evidence": ""
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "File exists with size 2426 bytes."
     },
     {
       "filename": "02_temporal_dynamics.md",
       "purpose": "Details on sequence epoch timings (fx, p1-4, d1-4), slot windows, and temporal alignments.",
-      "score": 0,
+      "score": 100,
       "tbis": 0,
       "tbds": 0,
       "warnings": "",
       "path": "context/02_temporal_dynamics.md",
-      "status": "todo",
-      "last_verified": "",
-      "evidence": ""
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "File exists with size 2384 bytes."
     },
     {
       "filename": "03_signal_modalities.md",
       "purpose": "Explanation of signal streams (SPK, LFP, TFR, pupil dynamics) and layer masks mappings.",
-      "score": 0,
+      "score": 100,
       "tbis": 0,
       "tbds": 0,
       "warnings": "",
       "path": "context/03_signal_modalities.md",
-      "status": "todo",
-      "last_verified": "",
-      "evidence": ""
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "File exists with size 2532 bytes."
     },
     {
       "filename": "04_analysis_pipelines.md",
       "purpose": "Summary of pipeline flows: single-unit template correlation classifiers, stable-trial filtering, and SVM population decoders.",
-      "score": 0,
+      "score": 100,
       "tbis": 0,
       "tbds": 0,
       "warnings": "",
       "path": "context/04_analysis_pipelines.md",
-      "status": "todo",
-      "last_verified": "",
-      "evidence": ""
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "File exists with size 2738 bytes."
     },
     {
       "filename": "05_connectivity_jrsa.md",
       "purpose": "Detailed specification of the unified JRSA relationship analysis, metrics dispatch, and permutation tests.",
-      "score": 0,
+      "score": 100,
       "tbis": 0,
       "tbds": 0,
       "warnings": "",
       "path": "context/05_connectivity_jrsa.md",
-      "status": "todo",
-      "last_verified": "",
-      "evidence": ""
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "File exists with size 2163 bytes."
     }
   ]
 }

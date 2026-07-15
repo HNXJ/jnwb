@@ -944,52 +944,52 @@
     {
       "filename": "01_omission_paradigm.md",
       "path": "context/01_omission_paradigm.md",
-      "score": 0,
-      "verdict": "NEEDS REPRODUCTION",
-      "issues": "Document has not yet been drafted.",
-      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Drafted and verified.",
+      "fix_actions": "None",
       "review_command": "cat context/01_omission_paradigm.md",
-      "last_reviewed": ""
+      "last_reviewed": "2026-07-15"
     },
     {
       "filename": "02_temporal_dynamics.md",
       "path": "context/02_temporal_dynamics.md",
-      "score": 0,
-      "verdict": "NEEDS REPRODUCTION",
-      "issues": "Document has not yet been drafted.",
-      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Drafted and verified.",
+      "fix_actions": "None",
       "review_command": "cat context/02_temporal_dynamics.md",
-      "last_reviewed": ""
+      "last_reviewed": "2026-07-15"
     },
     {
       "filename": "03_signal_modalities.md",
       "path": "context/03_signal_modalities.md",
-      "score": 0,
-      "verdict": "NEEDS REPRODUCTION",
-      "issues": "Document has not yet been drafted.",
-      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Drafted and verified.",
+      "fix_actions": "None",
       "review_command": "cat context/03_signal_modalities.md",
-      "last_reviewed": ""
+      "last_reviewed": "2026-07-15"
     },
     {
       "filename": "04_analysis_pipelines.md",
       "path": "context/04_analysis_pipelines.md",
-      "score": 0,
-      "verdict": "NEEDS REPRODUCTION",
-      "issues": "Document has not yet been drafted.",
-      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Drafted and verified.",
+      "fix_actions": "None",
       "review_command": "cat context/04_analysis_pipelines.md",
-      "last_reviewed": ""
+      "last_reviewed": "2026-07-15"
     },
     {
       "filename": "05_connectivity_jrsa.md",
       "path": "context/05_connectivity_jrsa.md",
-      "score": 0,
-      "verdict": "NEEDS REPRODUCTION",
-      "issues": "Document has not yet been drafted.",
-      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Drafted and verified.",
+      "fix_actions": "None",
       "review_command": "cat context/05_connectivity_jrsa.md",
-      "last_reviewed": ""
+      "last_reviewed": "2026-07-15"
     }
   ],
   "entry_count": 94
