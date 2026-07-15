@@ -29,16 +29,18 @@ from jnwb import spectral
 
 ## Unified Relationship Analysis Core (JRSA)
 
-For all multi-dimensional similarity, connection, and relationship analysis, use `oa.jrsa`. It handles dimension alignment, resampling (downsampling, linear/cubic interpolation, DTW), GPU-acceleration, and dispatches to 14 metrics (including classic Kriegeskorte RSA, linear CKA, Granger Causality, and Transfer Entropy fallback).
+For all multi-dimensional similarity, connection, and relationship analysis, use `oa.jrsa`. It handles dimension alignment, resampling (downsampling, linear/cubic interpolation, DTW), GPU-acceleration, and dispatches to 14 metrics (including classic Kriegeskorte RSA, linear CKA, Granger Causality, and Transfer Entropy).
 
 ```python
 # Unified analysis on multi-dimensional matrices (e.g. Area-Layer-Band spectro-laminar tensors)
 result = oa.jrsa(
     x1, x2,
-    metric="rsa",          # or "cka", "granger", "transfer_entropy" etc.
+    metric="rsa",          # or "cka", "granger", "transfer_entropy", "phase_slope", "cosine" etc.
     adim="time",           # axis name or index to align
     lag=0,                 # lag alignment in samples
-    n_perm=1000,           # statistical permutation count
+    stats=True,            # compute statistics
+    permutations=1000,     # statistical permutation count
+    bootstrap=1000,        # bootstrap iterations for confidence intervals
     device="auto"          # cupy/torch/jax/numpy backend
 )
 

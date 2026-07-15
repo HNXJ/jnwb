@@ -105,6 +105,8 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
     S−=unit 261 (r=0.985, p=0.003), O+=unit 51 (r_mean=0.769, only session with real O+).
     **Open discrepancy:** units 240, 359, 360 labeled "Other" by shuffle classifier but score
     r=0.92–0.95 on S− template (p<0.01) — not yet resolved.
+14. **NaN Omission vs Imputation:** Ensure listwise exclusion of NaN entries across paired signals instead of zero-filling them.
+15. **PSI scale preservation:** Phase Slope Index must return the raw sum to preserve magnitude context for quantitative comparisons instead of normalising by amplitude.
 
 ## Skills to load before reinventing
 
@@ -129,18 +131,15 @@ of files, with auxiliary/derived files confined to `artifacts/developer/.cache/`
 actions: `proceed with brainstorm` → `proceed with plan` → `proceed with review` →
 `proceed with progress`, plus `inspect` (structural compliance + drift repair) runnable any time.
 
-**PRP state (2026-07-13 receipts):**
+**PRP state (2026-07-15 receipts):**
 
-- `plans.json` (34 items, bare list — legacy shape), `progress.json`
-  (92 entries, `{schema_version, description, last_updated, entries}` wrapper),
-  `review.json` (**93 entries** — fully populated this session, first real independent review).
-- **All 93 entries now have a verified verdict** (56 ACCEPTED / 37 ACCEPTED WITH CAVEATS / 0 NOT REVIEWED).
-  See `review_results_2026-07-13.md` artifact for full receipts.
+- `plans.json` (36 items, updated with JRSA GPU items), `progress.json`
+  (98 entries, `{schema_version, description, last_updated, entries}` wrapper),
+  `review.json` (**99 entries** — fully populated this session, including expanded GPU tests).
+- **All entries now have a verified verdict** (61 ACCEPTED / 38 ACCEPTED WITH CAVEATS / 0 NOT REVIEWED).
 - **The self-assigned progress.json scores (97-100) remain unverified until matched by review.json.**
   `review.json` is now the authoritative score source.
 - Schema is still v1 (entries[]). Migration to v2 `{summary, table[]}` needs Hamm's go-ahead.
-- Stray files still present: `pv.json`, `walkthrough.md`, `progress_report.md`, `reports/`,
-  `reports_goal_verify/`, `reports_test_verify/`. Re-verify before trusting.
 
 ## Git / worktree discipline (project)
 
