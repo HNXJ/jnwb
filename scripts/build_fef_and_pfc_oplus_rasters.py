@@ -95,7 +95,12 @@ def plot_raster_subplot(ax_raster, ax_psth, spike_times: np.ndarray, onsets: np.
     ax_raster.grid(True, which="both", axis="x", linestyle=":", linewidth=0.5, alpha=0.5)
 
     ax_psth.set_xlim(WINDOW_MS[0], WINDOW_MS[1])
-    ax_psth.set_ylim(0, 45)
+    if len(onsets) > 0 and len(all_spike_times_rel) > 0:
+        max_val = np.max(afr)
+        y_max = max(10, float(np.ceil(max_val * 1.15 / 5.0) * 5.0))
+        ax_psth.set_ylim(0, y_max)
+    else:
+        ax_psth.set_ylim(0, 10)
     ax_psth.yaxis.set_major_locator(MaxNLocator(nbins=3))
     ax_psth.grid(True, which="both", axis="x", linestyle=":", linewidth=0.5, alpha=0.5)
 
