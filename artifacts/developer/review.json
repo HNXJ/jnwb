@@ -990,6 +990,16 @@
       "fix_actions": "None",
       "review_command": "cat context/05_connectivity_jrsa.md",
       "last_reviewed": "2026-07-15"
+    },
+    {
+      "filename": "test_jrsa_gpu.py",
+      "path": "tests/test_jrsa_gpu.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None.",
+      "fix_actions": "None",
+      "review_command": "python -m pytest tests/test_jrsa_gpu.py -v",
+      "last_reviewed": "2026-07-15"
     }
   ],
   "entry_count": 94

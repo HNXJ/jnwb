@@ -511,5 +511,11 @@
     "description": "Generate 5 comprehensive markdown documentation files under context/ detailing the omission paradigm, signal modalities, task configurations, temporal alignment, and the JRSA connectivity core.",
     "priority": "high",
     "status": "in-progress"
+  },
+  {
+    "title": "JRSA GPU (CuPy & CUDA) Optimization",
+    "description": "Optimize the JRSA engine to utilize CuPy-accelerated GPU operations for permutation tests, bootstrapping, and correlation metrics when device='cuda' is active.",
+    "priority": "high",
+    "status": "completed"
   }
 ]

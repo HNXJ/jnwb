@@ -1311,6 +1311,18 @@
       "status": "done",
       "last_verified": "2026-07-15",
       "evidence": "File exists with size 2163 bytes."
+    },
+    {
+      "filename": "test_jrsa_gpu.py",
+      "purpose": "Verifies CuPy & CUDA execution and mathematical consistency of jrsa() on GPU.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "Requires CuPy and active CUDA environment.",
+      "path": "tests/test_jrsa_gpu.py",
+      "status": "done",
+      "last_verified": "2026-07-15",
+      "evidence": "python -m pytest tests/test_jrsa_gpu.py -v -> 1 passed"
     }
   ]
 }
