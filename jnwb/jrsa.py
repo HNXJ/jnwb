@@ -102,7 +102,12 @@ class JRSAResult:
 
     def __repr__(self) -> str:  # pragma: no cover
         shape = getattr(self.value, "shape", None)
-        p_repr = f", p={float(np.min(self.p)):.4g}" if self.p is not None else ""
+        p_repr = ""
+        if self.p is not None and self.p.size > 0:
+            try:
+                p_repr = f", p={float(np.nanmin(self.p)):.4g}"
+            except Exception:
+                pass
         return f"JRSAResult(metric='{self.metric}', value.shape={shape}{p_repr})"
 
 
@@ -329,6 +334,17 @@ def jrsa(
 # PRIVATE – tensor handling
 # ===========================================================================
 
+def _get_xp(arr):
+    """Resolve numpy or cupy namespace depending on array type."""
+    try:
+        import cupy as cp
+        if isinstance(arr, cp.ndarray):
+            return cp
+    except ImportError:
+        pass
+    return np
+
+
 def _prepare_inputs(x1, x2, backend_ctx: dict):
     """Convert inputs to numpy (or chosen backend array) and handle JNWB Signals."""
     x1 = _to_backend(x1, backend_ctx)
@@ -339,19 +355,22 @@ def _prepare_inputs(x1, x2, backend_ctx: dict):
     return x1, x2
 
 
-def _validate_inputs(x1: np.ndarray, x2, nan_policy: str):
-    """Shape checks and NaN handling."""
+def _validate_inputs(x1, x2, nan_policy: str):
+    """Shape checks and NaN handling on both CPU and GPU namespaces."""
+    xp1 = _get_xp(x1)
     if x1.ndim < 1:
         raise ValueError("x1 must have at least 1 dimension.")
-    if nan_policy == "raise" and np.any(np.isnan(x1)):
+    if nan_policy == "raise" and xp1.any(xp1.isnan(x1)):
         raise ValueError("NaN values found in x1 (nan_policy='raise').")
     if x2 is not None:
-        if nan_policy == "raise" and np.any(np.isnan(x2)):
+        xp2 = _get_xp(x2)
+        if nan_policy == "raise" and xp2.any(xp2.isnan(x2)):
             raise ValueError("NaN values found in x2 (nan_policy='raise').")
     if nan_policy == "omit":
-        x1 = np.where(np.isnan(x1), 0.0, x1)
+        x1 = xp1.where(xp1.isnan(x1), 0.0, x1)
         if x2 is not None:
-            x2 = np.where(np.isnan(x2), 0.0, x2)
+            xp2 = _get_xp(x2)
+            x2 = xp2.where(xp2.isnan(x2), 0.0, x2)
     # propagate: do nothing, let downstream handle
     return x1, x2
 
@@ -400,31 +419,37 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
 
 
 def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
-    """Resample one array along *axis* to match the other."""
+    """Resample one array along *axis* to match the other, respecting GPU/CPU."""
+    xp1 = _get_xp(x1)
+    xp2 = _get_xp(x2)
     target = min(n1, n2)
     if align in ("auto", "downsample"):
         if n1 > target:
-            idx = np.linspace(0, n1 - 1, target, dtype=int)
-            x1 = np.take(x1, idx, axis=axis)
+            idx = xp1.linspace(0, n1 - 1, target, dtype=int)
+            x1 = xp1.take(x1, idx, axis=axis)
         if n2 > target:
-            idx = np.linspace(0, n2 - 1, target, dtype=int)
-            x2 = np.take(x2, idx, axis=axis)
+            idx = xp2.linspace(0, n2 - 1, target, dtype=int)
+            x2 = xp2.take(x2, idx, axis=axis)
     elif align == "upsample":
         target = max(n1, n2)
         if n1 < target:
-            idx = np.round(np.linspace(0, n1 - 1, target)).astype(int)
-            x1 = np.take(x1, idx, axis=axis)
+            idx = xp1.round(xp1.linspace(0, n1 - 1, target)).astype(int)
+            x1 = xp1.take(x1, idx, axis=axis)
         if n2 < target:
-            idx = np.round(np.linspace(0, n2 - 1, target)).astype(int)
-            x2 = np.take(x2, idx, axis=axis)
+            idx = xp2.round(xp2.linspace(0, n2 - 1, target)).astype(int)
+            x2 = xp2.take(x2, idx, axis=axis)
     elif align in ("interpolate", "linear"):
         try:
             from scipy.interpolate import interp1d
             def _interp(arr, n_src, n_tgt, ax):
+                xp = _get_xp(arr)
+                is_gpu = (xp.__name__ == "cupy")
+                arr_cpu = arr.get() if is_gpu else arr
                 xold = np.linspace(0, 1, n_src)
                 xnew = np.linspace(0, 1, n_tgt)
-                f = interp1d(xold, arr, axis=ax, kind="linear", fill_value="extrapolate")
-                return f(xnew)
+                f = interp1d(xold, arr_cpu, axis=ax, kind="linear", fill_value="extrapolate")
+                res = f(xnew)
+                return xp.asarray(res) if is_gpu else res
             if n1 != target:
                 x1 = _interp(x1, n1, target, axis)
             if n2 != target:
@@ -433,19 +458,23 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
             x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
     elif align == "nearest":
         if n1 > target:
-            idx = np.round(np.linspace(0, n1 - 1, target)).astype(int)
-            x1 = np.take(x1, idx, axis=axis)
+            idx = xp1.round(xp1.linspace(0, n1 - 1, target)).astype(int)
+            x1 = xp1.take(x1, idx, axis=axis)
         if n2 > target:
-            idx = np.round(np.linspace(0, n2 - 1, target)).astype(int)
-            x2 = np.take(x2, idx, axis=axis)
+            idx = xp2.round(xp2.linspace(0, n2 - 1, target)).astype(int)
+            x2 = xp2.take(x2, idx, axis=axis)
     elif align == "cubic":
         try:
             from scipy.interpolate import interp1d
             def _interp_cubic(arr, n_src, n_tgt, ax):
+                xp = _get_xp(arr)
+                is_gpu = (xp.__name__ == "cupy")
+                arr_cpu = arr.get() if is_gpu else arr
                 xold = np.linspace(0, 1, n_src)
                 xnew = np.linspace(0, 1, n_tgt)
-                f = interp1d(xold, arr, axis=ax, kind="cubic", fill_value="extrapolate")
-                return f(xnew)
+                f = interp1d(xold, arr_cpu, axis=ax, kind="cubic", fill_value="extrapolate")
+                res = f(xnew)
+                return xp.asarray(res) if is_gpu else res
             if n1 != target:
                 x1 = _interp_cubic(x1, n1, target, axis)
             if n2 != target:
@@ -460,40 +489,84 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
 
 
 def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
-    """Apply reductions (mean, median, …) along named axes."""
-    _OPS = {
-        "mean": np.mean, "median": np.median,
-        "sum": np.sum, "max": np.max, "min": np.min,
-    }
+    """Apply reductions (mean, median, …) along named axes on CPU or GPU."""
     for name, op_str in reduction.items():
         ax = axis_map.get(name)
         if ax is None:
             continue
-        op = _OPS.get(op_str, np.mean)
-        x1 = op(x1, axis=ax, keepdims=True)
+
+        xp1 = _get_xp(x1)
+        if op_str == "mean":
+            x1 = xp1.mean(x1, axis=ax, keepdims=True)
+        elif op_str == "median":
+            if xp1.__name__ == "cupy":
+                try:
+                    x1 = xp1.median(x1, axis=ax, keepdims=True)
+                except AttributeError:
+                    x1 = xp1.percentile(x1, 50, axis=ax, keepdims=True)
+            else:
+                x1 = np.median(x1, axis=ax, keepdims=True)
+        elif op_str == "sum":
+            x1 = xp1.sum(x1, axis=ax, keepdims=True)
+        elif op_str == "max":
+            x1 = xp1.max(x1, axis=ax, keepdims=True)
+        elif op_str == "min":
+            x1 = xp1.min(x1, axis=ax, keepdims=True)
+        else:
+            x1 = xp1.mean(x1, axis=ax, keepdims=True)
+
         if x2 is not None:
-            x2 = op(x2, axis=ax, keepdims=True)
+            xp2 = _get_xp(x2)
+            if op_str == "mean":
+                x2 = xp2.mean(x2, axis=ax, keepdims=True)
+            elif op_str == "median":
+                if xp2.__name__ == "cupy":
+                    try:
+                        x2 = xp2.median(x2, axis=ax, keepdims=True)
+                    except AttributeError:
+                        x2 = xp2.percentile(x2, 50, axis=ax, keepdims=True)
+                else:
+                    x2 = np.median(x2, axis=ax, keepdims=True)
+            elif op_str == "sum":
+                x2 = xp2.sum(x2, axis=ax, keepdims=True)
+            elif op_str == "max":
+                x2 = xp2.max(x2, axis=ax, keepdims=True)
+            elif op_str == "min":
+                x2 = xp2.min(x2, axis=ax, keepdims=True)
+            else:
+                x2 = xp2.mean(x2, axis=ax, keepdims=True)
     return x1, x2
 
 
 def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
-    """Apply per-array preprocessing in place."""
+    """Apply per-array preprocessing in place on CPU or GPU."""
     def _prep(arr):
         if arr is None:
             return arr
+        xp = _get_xp(arr)
+        is_gpu = (xp.__name__ == "cupy")
         if detrend:
-            try:
-                from scipy.signal import detrend as sp_detrend
-                arr = sp_detrend(arr, axis=-1)
-            except ImportError:
-                arr = arr - np.polyval(np.polyfit(np.arange(arr.shape[-1]), arr.T, 1), np.arange(arr.shape[-1]))
+            if is_gpu:
+                arr_cpu = arr.get()
+                try:
+                    from scipy.signal import detrend as sp_detrend
+                    arr_cpu = sp_detrend(arr_cpu, axis=-1)
+                except ImportError:
+                    arr_cpu = arr_cpu - np.polyval(np.polyfit(np.arange(arr_cpu.shape[-1]), arr_cpu.T, 1), np.arange(arr_cpu.shape[-1]))
+                arr = xp.asarray(arr_cpu)
+            else:
+                try:
+                    from scipy.signal import detrend as sp_detrend
+                    arr = sp_detrend(arr, axis=-1)
+                except ImportError:
+                    arr = arr - np.polyval(np.polyfit(np.arange(arr.shape[-1]), arr.T, 1), np.arange(arr.shape[-1]))
         if standardize:
-            mu = np.nanmean(arr, axis=-1, keepdims=True)
-            sd = np.nanstd(arr, axis=-1, keepdims=True)
+            mu = xp.nanmean(arr, axis=-1, keepdims=True)
+            sd = xp.nanstd(arr, axis=-1, keepdims=True)
             arr = (arr - mu) / (sd + 1e-12)
         if normalize:
-            lo = np.nanmin(arr, axis=-1, keepdims=True)
-            hi = np.nanmax(arr, axis=-1, keepdims=True)
+            lo = xp.nanmin(arr, axis=-1, keepdims=True)
+            hi = xp.nanmax(arr, axis=-1, keepdims=True)
             arr = (arr - lo) / (hi - lo + 1e-12)
         return arr
     return _prep(x1), _prep(x2)
@@ -525,16 +598,15 @@ def _make_windows(x1, x2, axis_map, window, sliding):
 
 
 def _apply_lag(x1, x2, axis_map, lag):
-    """Apply temporal lag(s) by rolling along the last axis."""
+    """Apply temporal lag(s) by rolling along the last axis on CPU or GPU."""
     if lag == 0 or (hasattr(lag, "__len__") and len(lag) == 1 and lag[0] == 0):
         return x1, x2
     if x2 is None:
         return x1, x2
     lags = [lag] if isinstance(lag, (int, float)) else list(lag)
-    # For multi-lag we just apply the first lag; full multi-lag returns
-    # a stacked result which callers can handle via sliding=True
     shift = int(lags[0])
-    x2_shifted = np.roll(x2, shift, axis=-1)
+    xp = _get_xp(x2)
+    x2_shifted = xp.roll(x2, shift, axis=-1)
     return x1, x2_shifted
 
 
@@ -559,8 +631,7 @@ def _compute_statistics(value, x1, x2, metric_fn, alternative, axis, **kwargs):
 
 
 def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
-    """Label-shuffle permutation test; returns null distribution."""
-    # Check if inputs are CuPy arrays (meaning we are on GPU)
+    """Label-shuffle permutation test; returns null distribution, optimized for GPU if needed."""
     is_cp = False
     try:
         import cupy as cp
@@ -575,7 +646,7 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
         x2_work = x2 if x2 is not None else x1
         n = x2_work.shape[axis]
         for _ in range(n_perm):
-            idx = cp.array(rng.permutation(n))
+            idx = cp.random.permutation(n)
             x2_perm = cp.take(x2_work, idx, axis=axis)
             v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
             if hasattr(v, "get"):
@@ -598,7 +669,6 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, **kwargs):
 
 def _p_from_null(value, null_dist, alternative):
     """Compute p-value from null distribution."""
-    # Convert value to CPU numpy if it is a CuPy array
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
@@ -614,8 +684,7 @@ def _p_from_null(value, null_dist, alternative):
 
 
 def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, **kwargs):
-    """Percentile bootstrap; returns (lower, upper) CI array."""
-    # Check if inputs are CuPy arrays
+    """Percentile bootstrap; returns (lower, upper) CI array, optimized for GPU if needed."""
     is_cp = False
     try:
         import cupy as cp
@@ -630,7 +699,7 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, **kwargs):
         x2_work = x2 if x2 is not None else x1
         n = x1.shape[axis]
         for _ in range(n_boot):
-            idx = cp.array(rng.integers(0, n, size=n))
+            idx = cp.random.randint(0, n, size=n)
             x1_b = cp.take(x1, idx, axis=axis)
             x2_b = cp.take(x2_work, idx, axis=axis)
             v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)
@@ -726,8 +795,9 @@ def _autodetect_backend(device: str) -> str:
 
 
 def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
-    """Convert arbitrary array type to numpy (or backend tensor)."""
+    """Convert arbitrary array type to numpy (or backend tensor), placing on correct device."""
     bk = backend_ctx.get("name", "numpy")
+    dev = backend_ctx.get("device", "cpu")
     # Extract data from JNWB Signal objects
     if hasattr(arr, "data"):
         arr = arr.data
@@ -747,7 +817,7 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
     elif bk == "jax":
         return _backend_jax(arr)
     elif bk == "torch":
-        return _backend_torch(arr)
+        return _backend_torch(arr, dev)
     return np.asarray(arr, dtype=np.float64)
 
 
@@ -797,11 +867,14 @@ def _backend_jax(arr):
         return np.asarray(arr, dtype=np.float64)
 
 
-def _backend_torch(arr):
-    """Convert to torch tensor; falls back to numpy if unavailable."""
+def _backend_torch(arr, device="cpu"):
+    """Convert to torch tensor placing on correct device; falls back to numpy if unavailable."""
     try:
         import torch
-        return torch.as_tensor(np.asarray(arr, dtype=np.float32))
+        t = torch.as_tensor(np.asarray(arr, dtype=np.float32))
+        if device == "cuda" and torch.cuda.is_available():
+            t = t.cuda()
+        return t
     except ImportError:
         warnings.warn("PyTorch not available; falling back to NumPy.")
         return np.asarray(arr, dtype=np.float64)
@@ -852,7 +925,12 @@ def _pearson(x1, x2, axis=-1, **kwargs):
                 r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std + 1e-12)
             df = n - 2
             t = r * cp.sqrt(df) / cp.sqrt(1 - r ** 2 + 1e-12)
-            return r, t, cp.abs(r), None, float(df)
+            
+            # Parametric p-value calculated on CPU/GPU boundary
+            t_cpu = float(t.get()) if hasattr(t, "get") else float(t)
+            from scipy.stats import t as sp_t
+            p_val = 2 * sp_t.sf(abs(t_cpu), df)
+            return r, t, cp.abs(r), np.float64(p_val), float(df)
     except ImportError:
         pass
 
@@ -868,7 +946,7 @@ def _pearson(x1, x2, axis=-1, **kwargs):
 
 
 def _spearman(x1, x2, axis=-1, **kwargs):
-    # For spearman rank, we can rank-transform on CuPy then run Pearson
+    # For spearman rank, we rank-transform on CuPy then run Pearson
     try:
         import cupy as cp
         if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
@@ -889,7 +967,12 @@ def _spearman(x1, x2, axis=-1, **kwargs):
                 rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std + 1e-12)
             df = n - 2
             t = rho * cp.sqrt(df) / cp.sqrt(1 - rho ** 2 + 1e-12)
-            return rho, t, cp.abs(rho), None, float(df)
+            
+            # Parametric p-value calculated on CPU/GPU boundary
+            t_cpu = float(t.get()) if hasattr(t, "get") else float(t)
+            from scipy.stats import t as sp_t
+            p_val = 2 * sp_t.sf(abs(t_cpu), df)
+            return rho, t, cp.abs(rho), np.float64(p_val), float(df)
     except ImportError:
         pass
 
@@ -1074,26 +1157,48 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
         return np.float64(np.nan), None, None, None, None
 
 
-def _transfer_entropy(x1, x2, axis=-1, k=1, **kwargs):
-    """Transfer entropy (x2 → x1) via plug-in estimator."""
+def _entropy(probs):
+    """Calculate Shannon entropy in nats from probability array."""
+    probs = probs[probs > 0]
+    return -np.sum(probs * np.log(probs))
+
+
+def _transfer_entropy(x1, x2, axis=-1, k=1, bins=10, **kwargs):
+    """Transfer entropy (x2 → x1) via plug-in histogram estimator."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
-    n = len(a) - k
-    bins = max(2, int(np.sqrt(n)))
-    te = 0.0
-    for i in range(k, len(a)):
-        # Simple 1-D TE via conditional probability estimate
-        pass
-    # Fallback: histogram-based approximation
-    mi_val, *_ = _mutual_information(
-        np.diff(a[:n + 1]), b[:n], axis=axis
-    )
-    return np.float64(float(mi_val)), np.float64(float(mi_val)), np.float64(float(mi_val)), None, None
+    
+    # We estimate TE(Y -> X) = H(X_t, X_{t-1}) + H(X_{t-1}, Y_{t-1}) - H(X_{t-1}) - H(X_t, X_{t-1}, Y_{t-1})
+    # with Y = b, X = a.
+    xt = a[1:]
+    xt1 = a[:-1]
+    yt1 = b[:-1]
+    
+    # Digitise and joint histogram of 3 variables
+    sample = np.column_stack([xt, xt1, yt1])
+    hist_3d, _ = np.histogramdd(sample, bins=bins)
+    p_3d = hist_3d / hist_3d.sum()
+    
+    # Marginals
+    p_xt_xt1 = p_3d.sum(axis=2)
+    p_xt1_yt1 = p_3d.sum(axis=0)
+    p_xt1 = p_3d.sum(axis=(0, 2))
+    
+    # Entropies
+    h_3d = _entropy(p_3d)
+    h_xt_xt1 = _entropy(p_xt_xt1)
+    h_xt1_yt1 = _entropy(p_xt1_yt1)
+    h_xt1 = _entropy(p_xt1)
+    
+    te = h_xt_xt1 + h_xt1_yt1 - h_xt1 - h_3d
+    te = max(0.0, te)  # non-negative constraint
+    
+    return np.float64(te), np.float64(te), np.float64(te), None, None
 
 
 def _phase_slope(x1, x2, axis=-1, **kwargs):
-    """Phase Slope Index (PSI) – simplified implementation."""
+    """Phase Slope Index (PSI) – correct implementation preserving scale."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
@@ -1102,9 +1207,15 @@ def _phase_slope(x1, x2, axis=-1, **kwargs):
     f_a = np.fft.rfft(A)
     f_b = np.fft.rfft(B)
     cs = f_a * np.conj(f_b)
-    psi = np.sum(np.imag(np.conj(cs[:-1]) * cs[1:]))
-    psi = psi / (np.abs(psi) + 1e-12)
-    return np.float64(float(np.real(psi))), np.float64(float(np.real(psi))), np.float64(abs(float(np.real(psi)))), None, None
+    
+    # Compute coherence: C = cs / (sqrt(S_xx * S_yy))
+    s_xx = np.abs(f_a)**2
+    s_yy = np.abs(f_b)**2
+    coh = cs / (np.sqrt(s_xx * s_yy) + 1e-12)
+    
+    psi = np.sum(np.imag(np.conj(coh[:-1]) * coh[1:]))
+    # Return raw psi value to preserve physical scale (do not divide by np.abs(psi))
+    return np.float64(psi), np.float64(psi), np.float64(abs(psi)), None, None
 
 
 _METRIC_DISPATCH = {
