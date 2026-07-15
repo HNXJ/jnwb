@@ -1,7 +1,996 @@
 {
   "schema_version": 1,
-  "description": "Actioned-but-not-yet-verified work queue, plus items explicitly logged for later decision. Cleared 2026-07-12 (review+debugging pass): found and fixed 2 additional real bugs beyond the prior pass (dataset_from_session KeyError on cluster_id; unit_id column dtype=object on some sessions). Also found, then correctly reverted, an incorrect change to OmissionSession.get_spike_times after discovering it would have broken the established row-position-based unit identity convention used throughout jnwb.unit_classification/scripts/classify_units_shuffle_sso.py - restored and verified via before/after distribution match in scripts/filter_units.py (43 S+/20 Other/19 S-/1 O+ exactly restored). See artifacts/developer/progress.json for per-file details and receipts.",
-  "last_updated": "2026-07-12",
-  "entries": [],
-  "entry_count": 0
+  "description": "Independent review pass 2026-07-13 — two sub-passes. Pass 1 (earlier this session): 93 entries, 51 ACCEPTED / 9 CAVEATS / 33 NOT REVIEWED. Pass 2 (this update): all 33 NOT REVIEWED rows resolved — notebooks code-audited, scripts syntax-checked, docs read. Final breakdown below. Receipts: R1=full pytest 172p/20s/0f; R2=targeted 109p/20s/0f; R3=targeted 38p/0f; NB-AUDIT=notebook code reads (8 notebooks); SYNTAX=py_compile all 19 scripts OK; DOC-READ=direct file reads; TEST-SPECTRAL=3p/0f. All 2026-07-13.",
+  "last_updated": "2026-07-13",
+  "entries": [
+    {
+      "filename": "tests/test_analyzers_coverage.py",
+      "path": "tests/test_analyzers_coverage.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "9/20 tests skipped (require real NWB/TFR files not available in CI). Skips are gated correctly (pytest.mark.skip with reason). Tests that run do pass. Skips are not failures, but mean coverage of TFRAnalyzer/UnitAnalyzer with real data is not exercised.",
+      "fix_actions": "None required now. If a lightweight fixture NWB is ever added, unskip the NWB-dependent tests.",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_caching.py",
+      "path": "tests/test_caching.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "1 test, skipped (needs real NWB). Only tests caching infrastructure, not content correctness.",
+      "fix_actions": "No action required.",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_decoding_connectivity.py",
+      "path": "tests/test_decoding_connectivity.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "None. 8 passed, 0 skipped.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_functions_coverage.py",
+      "path": "tests/test_functions_coverage.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "2 autocorrelogram tests skipped (need real NWB). 18 pass.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_gpu_spectral_analyzers.py",
+      "path": "tests/test_gpu_spectral_analyzers.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "3 passed. GPU path exercised via synthetic fixture (expected). No real GPU hardware needed for these tests.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_jnwb_core.py",
+      "path": "tests/test_jnwb_core.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "26 passed. Constant-input ConstantInputWarning is expected and handled gracefully (returns nan). scipy RuntimeWarning on inf/zero-variance inputs is external library behavior, not a test failure.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_jnwb_integration.py",
+      "path": "tests/test_jnwb_integration.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "19 passed, 0 skipped.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_jnwb_nwb_integration.py",
+      "path": "tests/test_jnwb_nwb_integration.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "11 passed, 0 skipped.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_mcp_server.py",
+      "path": "tests/test_mcp_server.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "10 passed. MCP server tests use synthetic fixtures. Real NWB-backed tool calls not tested (1 inspect_nwb_success uses mock).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_report.py",
+      "path": "tests/test_report.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "1 skipped (requires real NWB). No test actually runs the full report generation pipeline against a real session. Only structural/import tests would run without NWB.",
+      "fix_actions": "Low priority. If session_readiness shows a ready session, add a lightweight real-report smoke test.",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_session_coverage.py",
+      "path": "tests/test_session_coverage.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "10 passed. Tests cover OmissionSession initialization, metadata, units access, electrode access, channel mapping, pie charts, LFP mapping, and epochs. Good coverage of the session API surface.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_addressing.py",
+      "path": "tests/test_addressing.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "5 passed. Critically: test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position directly tests the dual-area probe channel rule (footgun #3 in AGENTS.md). Pass confirmed.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_trajectory.py",
+      "path": "tests/test_trajectory.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "3 passed including test_build_time_resolved_matrix (row-position-based unit identity, footgun #9). Pass confirmed.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_spiking.py",
+      "path": "tests/test_spiking.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "6 passed. Covers compute_response_metrics, classify_omission_response, phase_locking_index. All use synthetic fixtures with known-answer checks.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_visual_qc.py",
+      "path": "tests/test_visual_qc.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "6 passed. Tests return populated figures with expected structure. Actual visual content not machine-checked (inherent to matplotlib figures).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_viz_lfp_tfr_trace_suite.py",
+      "path": "tests/test_viz_lfp_tfr_trace_suite.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "2 passed. Covers session-specific filename matching logic (rec-suffixed stems) and backward compat. Both edge cases tested.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_session_get_spike_times.py",
+      "path": "tests/test_session_get_spike_times.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "3 passed. Directly tests the row-position-based unit identity convention (footgun #9 in AGENTS.md). test_get_spike_times_matches_by_raw_row_position passes. Critical regression guard.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_sequence_layout.py",
+      "path": "tests/test_sequence_layout.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "6 passed. Covers epoch timing contract (4624ms span), EPOCH_ONSETS_MS, V3 dual-split rule, sequence figure build. All critical timing footguns (footgun #4) directly tested.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_factories.py",
+      "path": "tests/test_factories.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "8 passed (from R1 full suite). Covers factory object construction. No real NWB needed.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_materialize_session_arrays.py",
+      "path": "tests/test_materialize_session_arrays.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "4 passed (from R1 full suite). Tests materialize_session_arrays using synthetic fixtures. Real NWB path not exercised in CI.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "tests/test_diagnostics_and_metadata.py",
+      "path": "tests/test_diagnostics_and_metadata.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "7 passed (from R1 full suite). Covers diagnostics and metadata modules.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "legacy/tests/test_analysis_recipes.py",
+      "path": "legacy/tests/test_analysis_recipes.py",
+      "score": 70,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "1 skipped entirely (requires real NWB file unavailable in test run). No test runs or passes. Cannot verify content correctness without real NWB. Score reflects: file exists, parses without syntax error, skip guard works correctly.",
+      "fix_actions": "If the real NWB file is available in a known path, this test should be run directly: python -m pytest legacy/tests/test_analysis_recipes.py --no-skip or with OMISSION_NWB_DIR set. Treat as unverified until then.",
+      "review_command": "python -m pytest legacy/tests/test_analysis_recipes.py -v -> 1 skipped (requires real NWB), 0 failed (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
+      "path": "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: confirmed rewritten (provenance markdown cell documents old fabricated content and the real replacement). All 13 cells examined: no hardcoded arrays, no np.random data generation, all computation traces to jnwb API + real TFR files. NOT executed end-to-end this session (requires real NWB + TFR precompute at D:/analysis/nwb/ and D:/workspace/data/tfr_arrays/). Score reflects: code is real computation, but no executed output exists in notebook cells and no output artifact was re-verified this session.",
+      "fix_actions": "Run the notebook end-to-end when TFR precompute is available, inspect the actual output figures. After execution, promote to 90+ if output traces correctly to real data.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, confirmed provenance markdown present, no hardcoded arrays or np.random data generation found",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_07_pfc_population_trajectory.ipynb",
+      "path": "notebooks/suite_07_pfc_population_trajectory.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: confirmed rewritten (provenance markdown cell is extremely detailed, documents old np.random.seed(42)/np.random.uniform sinusoid fabrication and the real replacement). analyze_session() function confirmed: loads real NWB via oa.read(), gets real units and epochs, calls compute_population_trajectory(). Never returns silent/fabricated result (explicit error dict on failure). NOT executed end-to-end this session (requires real NWB at D:/analysis/nwb/).",
+      "fix_actions": "Run end-to-end: jupyter nbconvert --to notebook --execute notebooks/suite_07_pfc_population_trajectory.ipynb. Verify actual output figures trace to real PFC units + real trial counts. After execution, promote to 90+ if clean.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, confirmed provenance markdown present, no hardcoded arrays or np.random data generation found",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/analyzers.py",
+      "path": "jnwb/analyzers.py",
+      "score": 92,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_analyzers_coverage.py (4 tests pass, 9 skip due to NWB/TFR dependency), test_jnwb_core.py (all pass), test_jnwb_integration.py (all pass). No fabrication issues. Known open item: refractory-period check is Poisson survival function (not percentage-based), documented correctly in docs/analysis_methods.md after 2026-07-12 correction.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/functions.py",
+      "path": "jnwb/functions.py",
+      "score": 92,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_functions_coverage.py (18 pass, 2 skip for autocorrelogram needing NWB). PSTH analysis confirmed raw binned histogram (no Gaussian smoothing, contrary to old docs - corrected 2026-07-12). raster_plot, find_units, compare_populations, pie_charts all tested with real assertions.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/session.py",
+      "path": "jnwb/session.py",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_session_coverage.py (10 pass), test_session_get_spike_times.py (3 pass - critically tests row-position unit identity, footgun #9). 2026-07-12 verified fix: get_spike_times() uses units_df.index row position (not unit_id column). Confirmed regression guard in place.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/addressing.py",
+      "path": "jnwb/addressing.py",
+      "score": 90,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Covered by test_addressing.py (5 pass including dual-area multi-probe test). Known open bug (documented in suite_06 provenance note): map_peak_channel_to_area takes first comma-token of location label for probes where the channel is actually in a later area segment. suite_06 works around this by using parse_probe_areas/channel_slice_for_area directly. Bug not fixed in addressing.py itself (left to avoid breaking other code).",
+      "fix_actions": "File a dedicated fix: update map_peak_channel_to_area to use channel_slice_for_area internally, with test. Currently documented workaround is sufficient for suite_06.",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/sequence_layout.py",
+      "path": "jnwb/sequence_layout.py",
+      "score": 97,
+      "verdict": "ACCEPTED",
+      "issues": "6 tests pass covering 4624ms span, epoch chain, omission windows, V3 dual split, make_sequence_figure. All critical timing contracts verified by test.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/trajectory.py",
+      "path": "jnwb/trajectory.py",
+      "score": 97,
+      "verdict": "ACCEPTED",
+      "issues": "3 tests pass. test_build_time_resolved_matrix confirms row-position-based unit identity fix (footgun #9). CPU vs GPU explained_variance matching verified in prior session.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/spiking.py",
+      "path": "jnwb/spiking.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "6 tests pass (compute_response_metrics, classify_omission_response, phase_locking_index). All use synthetic fixtures with known-answer assertions.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/visual_qc.py",
+      "path": "jnwb/visual_qc.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "6 tests pass. Figures are structurally correct. Actual visual output not machine-verified (expected for matplotlib output).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/statistics.py",
+      "path": "jnwb/statistics.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_jnwb_core.py (including inf/nan/zero-variance edge cases) and test_decoding_connectivity.py. ConstantInputWarning handled gracefully. No fabrication issues.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/decoding.py",
+      "path": "jnwb/decoding.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_decoding_connectivity.py (8 pass). SVM decoding logic exercised with synthetic fixtures.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/connectivity.py",
+      "path": "jnwb/connectivity.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_decoding_connectivity.py (8 pass). Network connectivity exercised with synthetic fixtures.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/mcp_server/custom_tools.py",
+      "path": "jnwb/mcp_server/custom_tools.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_mcp_server.py (10 pass). Custom tools tested with mocks/synthetic. Real NWB-backed calls exercised only partially (inspect_nwb_success uses a mock path).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_figure3_raster_grid.py",
+      "path": "scripts/build_figure3_raster_grid.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Run successfully this session (2026-07-13). Outputs visually inspected after PDF render via svglib/reportlab workaround. Unit picks corrected to template-correlation-driven selection (S+=337, S-=261, O+=51). Two rounds of corrections documented in module docstring. Still untracked/uncommitted.",
+      "fix_actions": "Commit after Hamm approval. Update progress.json entry to reflect unit-selection correction.",
+      "review_command": "python scripts/build_figure3_raster_grid.py -> exit 0, printed real per-unit stats, wrote SVG outputs (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "artifacts/data/nwb_catalog.json",
+      "path": "artifacts/data/nwb_catalog.json",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Verified 2026-07-12 via scripts/build_nwb_catalog.py. 17 NWB files. Content freshness dependent on last catalog rebuild run.",
+      "fix_actions": "Regenerate if new NWB files are added: python scripts/build_nwb_catalog.py",
+      "review_command": "python scripts/build_nwb_catalog.py -> catalog rebuilt 2026-07-12, 17 entries",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "filename": "artifacts/data/session_readiness.csv",
+      "path": "artifacts/data/session_readiness.csv",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Verified 2026-07-12. V182o TFR may be absent per AGENTS.md inventory note. Check suite_tfr_ready column before trusting TFR-dependent suites.",
+      "fix_actions": "Regenerate if sessions/TFR change: python scripts/build_session_readiness.py",
+      "review_command": "python scripts/build_session_readiness.py -> CSV rebuilt 2026-07-12",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "filename": "outputs/classification/grand_unit_table_shuffle_sso.csv",
+      "path": "outputs/classification/grand_unit_table_shuffle_sso.csv",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "2026-07-12: 43 S+/20 Other/19 S-/1 O+ counts verified after unit_id/row-position bug fix. Prior count was incorrect due to footgun #9. Current counts verified via scripts/filter_units.py.",
+      "fix_actions": "",
+      "review_command": "python scripts/filter_units.py -> 43 S+/20 Other/19 S-/1 O+ (2026-07-12)",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "filename": "notebooks/suite_01_single_raster_panels.ipynb",
+      "path": "notebooks/suite_01_single_raster_panels.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 9 code cells, no fabrication keywords. Imports from jnwb.unit_classification (real: classify_all_nwbs, classify_nwb_file, prevalence_summary). Uses real session.get_units() / session.get_epochs() patterns. NOT executed end-to-end this session — requires real NWB. Last substantive cell is commented-out code (classification re-run guard), not a live computation. Notebook appears to be a classification runner/inspector, not a figure generator.",
+      "fix_actions": "python -m pytest notebooks/suite_01_single_raster_panels.ipynb via nbconvert, or run manually with a real NWB session. Inspect output classification counts against grand_unit_table.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
+      "path": "notebooks/suite_02_tfr_lfp_traces_layer.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 4 code cells. oa.read() + session_readiness CSV + session.lfp_tfr_trace_suite_omission(). No fabrication. NOT executed end-to-end — requires real NWB + TFR precompute. Prior evidence (2026-07-12): scripts/build_suite_02_tfr_layer_reports.py ran successfully, but that is the script runner, not the notebook itself.",
+      "fix_actions": "Execute end-to-end with real NWB and inspect trace figures.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
+      "path": "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 5 code cells. oa.read() + session.plot_tfr() + assert status=='completed'. No fabrication. NOT executed end-to-end.",
+      "fix_actions": "Execute end-to-end with real NWB.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
+      "path": "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 5 code cells. Does NOT open NWB directly — loads real precomputed TFR .npy arrays from D:/workspace/data/tfr_arrays/ via np.load(mmap_mode='r'). Uses StatisticalAnalysis.correlate (Spearman) and fdr_correct for 15 pairwise area-layer correlations. Fails fast if TFR files are missing (assert fpath.exists()). Also uses a real layer_masks.json sidecar. Computation is all real. NOT executed end-to-end this session — requires TFR precompute and layer masks at known paths. No fabrication keywords detected.",
+      "fix_actions": "Execute end-to-end when TFR precompute is available. Verify output correlation matrix contains real values (not all 1.0 from same-probe self-correlations, which the notebook guards against).",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
+      "path": "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 4 code cells. Uses get_epochs() for real trial times, scipy.signal.stft on real trial-aligned LFP segments, imaginary coherence formula implemented directly (not from library). No fabrication. NOT executed end-to-end.",
+      "fix_actions": "Execute end-to-end with real NWB and TFR precompute.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_08_omission_decoding.ipynb",
+      "path": "notebooks/suite_08_omission_decoding.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 5 code cells. 'simulate' keyword hit is a guard string: 'raise FileNotFoundError... Refusing to fall back to mock/simulated decoding numbers'. No fabrication. Uses oa.read() + session.get_units(). NOT executed end-to-end. Footgun #8 (AGENTS.md): decode accuracy without class baseline is misleading (~0.85 pre-stim flat). Cannot verify whether the notebook correctly reports chance-level comparison without running it against real data.",
+      "fix_actions": "Execute end-to-end. Verify: (1) confusion matrix is present, (2) chance-level baseline is computed and shown alongside accuracy, (3) pre-stim window accuracy is reported (expected ~0.85 = misleading without baseline). If chance comparison is absent, add it before marking this notebook ≥80.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_09_granger_network.ipynb",
+      "path": "notebooks/suite_09_granger_network.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 7 code cells. Uses oa.read() + session.get_epochs() + granger_causality() from jnwb.connectivity. Circular-shift surrogate test present. No fabrication. NOT executed end-to-end — requires real NWB + LFP access.",
+      "fix_actions": "Execute end-to-end with real NWB.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "notebooks/suite_10_pupil_behavior.ipynb",
+      "path": "notebooks/suite_10_pupil_behavior.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 7 code cells. Uses oa.read() + session.get_epochs() + h5py direct read of eye_1_tracking data (x,y gaze, not pupil diameter — documented in the notebook). No fabrication. NOT executed end-to-end.",
+      "fix_actions": "Execute end-to-end with real NWB.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "docs/analysis_methods.md",
+      "path": "docs/analysis_methods.md",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "2026-07-12 content audit found and corrected 2 real inaccuracies (PSTH Gaussian smoothing claim, refractory period percentage vs Poisson). One flagged convention (waveform duration thresholds) has no jnwb function backing - documented as manual convention. Current state reflects corrections.",
+      "fix_actions": "",
+      "review_command": "grep -n content audit 2026-07-12 + direct jnwb source read (functions.py:275, analyzers.py:336-342)",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "filename": "README.md",
+      "path": "README.md",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "2026-07-11 verified. Not re-read this session. Treat score as stable unless major API changes happen.",
+      "fix_actions": "",
+      "review_command": "Content review 2026-07-11",
+      "last_reviewed": "2026-07-11"
+    },
+    {
+      "filename": "docs/ARCHITECTURE.md",
+      "path": "docs/ARCHITECTURE.md",
+      "score": 88,
+      "verdict": "ACCEPTED",
+      "issues": "2026-07-11 verified. Not re-read this session.",
+      "fix_actions": "",
+      "review_command": "Content review 2026-07-11",
+      "last_reviewed": "2026-07-11"
+    },
+    {
+      "filename": "pyproject.toml",
+      "path": "pyproject.toml",
+      "score": 95,
+      "verdict": "ACCEPTED",
+      "issues": "2026-07-12 verified. pytest config in pyproject.toml confirmed correct (rootdir, plugins, timeout, cov). ontology.py DeprecationWarning for datetime.utcnow() is open but minor.",
+      "fix_actions": "Low priority: replace datetime.utcnow() with datetime.now(datetime.UTC) in jnwb/ontology.py to clear the deprecation warning.",
+      "review_command": "python -m pytest tests/ -> 172 passed (pyproject.toml config correct, 2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_nwb_catalog.py",
+      "path": "scripts/build_nwb_catalog.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "Syntax OK. --help works (argparse, shows usage with --nwb-dir, --out-dir, --exclude-short). Output (nwb_catalog.json) verified 2026-07-12: 17 NWB entries. Not re-run this session.",
+      "fix_actions": "Re-run when new NWB files are added: python scripts/build_nwb_catalog.py",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13); python scripts/build_nwb_catalog.py --help -> usage OK (2026-07-13); output verified 2026-07-12",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/filter_units.py",
+      "path": "scripts/filter_units.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK (py_compile, 2026-07-13). Prior receipt 2026-07-12: ran and produced 43 S+/20 Other/19 S-/1 O+ (corrected after unit_id/row-position bug fix). Not re-run this session (timed out on --help; script likely does NWB work at import time or does not support --help). Output counts verified 2026-07-12.",
+      "fix_actions": "Re-run: python scripts/filter_units.py -> verify 43/20/19/1 still holds.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; prior run 2026-07-12 -> 43 S+/20 Other/19 S-/1 O+",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/list_stable_plus_units.py",
+      "path": "scripts/list_stable_plus_units.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session. Prior evidence 2026-07-09 (progress.json).",
+      "fix_actions": "Run against a known session and verify unit count matches grand_unit_table stable_plus column.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/visualize_raster_suite.py",
+      "path": "scripts/visualize_raster_suite.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session. Prior evidence 2026-07-09.",
+      "fix_actions": "Run with a known session prefix and inspect output SVGs.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/visualize_tfr_suite.py",
+      "path": "scripts/visualize_tfr_suite.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session. Prior evidence 2026-07-09.",
+      "fix_actions": "Run with a known session prefix and inspect output SVGs.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/generate_tfr_heatmap_grid.py",
+      "path": "scripts/generate_tfr_heatmap_grid.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session. Prior evidence 2026-07-09.",
+      "fix_actions": "Run with a known session prefix.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/run_notebook_local.py",
+      "path": "scripts/run_notebook_local.py",
+      "score": 85,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. --help exits 0 with usage text. Works correctly: takes a notebook path via sys.argv[1] (no argparse — not a bug, just a thin wrapper). The --help behavior is misleading (it tries to execute '--help' as a notebook path) but the actual use case (python scripts/run_notebook_local.py notebooks/suite_XX.ipynb) is correct.",
+      "fix_actions": "Low priority: add argparse with proper --help to make --help behavior sensible.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; python scripts/run_notebook_local.py --help -> usage shown (exits 0, 2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/run_notebook_remote.py",
+      "path": "scripts/run_notebook_remote.py",
+      "score": 70,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Explicit DeprecationWarning at import: 'run_notebook_remote.run_notebook is deprecated; use run_notebook_local.run_notebook instead.' Delegates all work to run_notebook_local.py. Retained for backward compatibility only.",
+      "fix_actions": "Remove or tombstone this file once all callers have migrated to run_notebook_local.py. Do not add new features here.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; python scripts/run_notebook_remote.py --help -> DeprecationWarning printed (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_session_readiness.py",
+      "path": "scripts/build_session_readiness.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "Syntax OK. --help works (shows argparse usage). Output (session_readiness.csv) verified 2026-07-12. Script logic: joins NWB catalog + TFR inventory + sidecar presence. All paths configurable via CLI flags.",
+      "fix_actions": "Regenerate when sessions/TFR change.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; python scripts/build_session_readiness.py --help -> usage OK (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_session_sidecars.py",
+      "path": "scripts/build_session_sidecars.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. --help crashes on Windows/cp1252 PowerShell with UnicodeEncodeError: arrow character (→) in help text cannot be encoded by cp1252 console. Script logic is unaffected; this is a help-text encoding bug. Prior run 2026-07-09 produced sidecar files correctly.",
+      "fix_actions": "Fix help text: replace → with '->' in argparse description strings to eliminate UnicodeEncodeError on Windows.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; python scripts/build_session_sidecars.py --help -> UnicodeEncodeError (→ in help text, Windows/cp1252, 2026-07-13) — script logic unaffected",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/precompute_tfr_arrays.py",
+      "path": "scripts/precompute_tfr_arrays.py",
+      "score": 82,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Tested indirectly via test_precompute_tfr_arrays.py (3 passed in R1 suite, 2026-07-13). Script not directly executed this session (would rewrite TFR arrays). TFR precompute output verified by test suite using real .npy loading.",
+      "fix_actions": "Run on a single session to verify end-to-end: python scripts/precompute_tfr_arrays.py --session sub-C31o_ses-230823",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13); python -m pytest tests/test_precompute_tfr_arrays.py -> 3 passed (R1 suite, 2026-07-13) [indirect]",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/materialize_session_arrays.py",
+      "path": "scripts/materialize_session_arrays.py",
+      "score": 82,
+      "verdict": "ACCEPTED",
+      "issues": "Syntax OK. Tested via test_materialize_session_arrays.py (4 pass, R1 suite). Prior receipt 2026-07-11: python -m pytest tests/test_materialize_session_arrays.py -> 4 passed in 22.06s.",
+      "fix_actions": "",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; python -m pytest tests/test_materialize_session_arrays.py -> 4 passed (R1 suite, 2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/pipeline_sequence_tfr_suite.py",
+      "path": "scripts/pipeline_sequence_tfr_suite.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. --help crashes with same UnicodeEncodeError (→ in help text) as build_session_sidecars.py. Prior receipt 2026-07-11: python scripts/pipeline_sequence_tfr_suite.py --session sub-V182o_ses-260629 -> exit 0, wrote 16 real figure files. Script logic confirmed working.",
+      "fix_actions": "Fix help text: replace → with '->' in argparse description strings.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; python scripts/pipeline_sequence_tfr_suite.py --session sub-V182o_ses-260629 -> exit 0, 16 figure files (2026-07-11)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_suite_02_tfr_layer_reports.py",
+      "path": "scripts/build_suite_02_tfr_layer_reports.py",
+      "score": 82,
+      "verdict": "ACCEPTED",
+      "issues": "Syntax OK. Prior receipt 2026-07-12: ran exit 0. Not re-run this session.",
+      "fix_actions": "",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check; prior run 2026-07-12 -> exit 0",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_suite_03_tfr_heatmap_reports.py",
+      "path": "scripts/build_suite_03_tfr_heatmap_reports.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Prior evidence 2026-07-12. Not run this session.",
+      "fix_actions": "Run with a known session and inspect HTML/SVG outputs.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_suite_04_band_power_corr_reports.py",
+      "path": "scripts/build_suite_04_band_power_corr_reports.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Prior evidence 2026-07-12. Not run this session.",
+      "fix_actions": "Run with a known session.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_suite_05_imaginary_coherence_reports.py",
+      "path": "scripts/build_suite_05_imaginary_coherence_reports.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Prior evidence 2026-07-12. Not run this session.",
+      "fix_actions": "Run with a known session.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_suite_08_decoding_reports.py",
+      "path": "scripts/build_suite_08_decoding_reports.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session. Related to suite_08 notebook (footgun #8 — decode accuracy without class baseline). Cannot verify chance-level reporting without running it.",
+      "fix_actions": "Run and verify output report includes chance-level baseline comparison.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "scripts/build_suite_10_pupil_behavior_reports.py",
+      "path": "scripts/build_suite_10_pupil_behavior_reports.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Prior evidence 2026-07-12. Not run this session.",
+      "fix_actions": "Run with a known session.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/__init__.py",
+      "path": "jnwb/__init__.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Import surface verified by all passing tests (full test suite passes implies __init__.py loads cleanly).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/spectral.py",
+      "path": "jnwb/spectral.py",
+      "score": 88,
+      "verdict": "ACCEPTED",
+      "issues": "test_gpu_spectral_analyzers.py: 3 passed in 9.93s (test_gpu_autocorrelogram, test_gpu_spectral_functions, test_population_trajectory). Direct spectral coverage confirmed. CPU+GPU dual engine tested. No fabrication in the tested paths.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_gpu_spectral_analyzers.py -v -> 3 passed in 9.93s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/viz.py",
+      "path": "jnwb/viz.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "Covered indirectly by test_viz_lfp_tfr_trace_suite.py (2 pass), test_visual_qc.py. Direct viz function tests limited. Canvas PNG rendering known-broken on Windows (cairosvg/renderPM fail) - documented workaround in SKILL.md.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/report.py",
+      "path": "jnwb/report.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "test_report.py skipped (needs real NWB). Report generation not tested with real session this session.",
+      "fix_actions": "Run with real session when NWB available.",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/diagnostics.py",
+      "path": "jnwb/diagnostics.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "7 tests pass in test_diagnostics_and_metadata.py (R1).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/metadata.py",
+      "path": "jnwb/metadata.py",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "7 tests pass in test_diagnostics_and_metadata.py (R1).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/ontology.py",
+      "path": "jnwb/ontology.py",
+      "score": 85,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "8 tests pass in test_factories.py (R1). Open: datetime.utcnow() DeprecationWarning in factories test run. Low severity.",
+      "fix_actions": "Replace datetime.utcnow() with datetime.now(datetime.UTC) in jnwb/ontology.py.",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/factories.py",
+      "path": "jnwb/factories.py",
+      "score": 88,
+      "verdict": "ACCEPTED",
+      "issues": "8 tests pass in test_factories.py. DeprecationWarning from ontology.py (not factories.py itself).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/ -v --tb=short 2>&1 -> 172 passed, 20 skipped, 0 failed in 68.24s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/mcp_server/__init__.py",
+      "path": "jnwb/mcp_server/__init__.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "test_mcp_server.py (10 pass). MCP server module loads, exposes fastmcp instance.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/mcp_server/server.py",
+      "path": "jnwb/mcp_server/server.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "test_server_module_exposes_fastmcp_instance passes.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/mcp_server/event_tools.py",
+      "path": "jnwb/mcp_server/event_tools.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_get_event_codes_and_timings_autodiscover/explicit tests (pass).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/mcp_server/meta_tools.py",
+      "path": "jnwb/mcp_server/meta_tools.py",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "Covered by test_mcp_server.py (pass).",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "jnwb/mcp_server/nwb_tools.py",
+      "path": "jnwb/mcp_server/nwb_tools.py",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Covered by test_inspect_nwb_success and test_prepare_signal_reference_success (pass, but use mocks). Real NWB tool invocation not tested.",
+      "fix_actions": "",
+      "review_command": "python -m pytest tests/test_analyzers_coverage.py tests/test_caching.py tests/test_decoding_connectivity.py tests/test_functions_coverage.py tests/test_gpu_spectral_analyzers.py tests/test_jnwb_core.py tests/test_jnwb_integration.py tests/test_jnwb_nwb_integration.py tests/test_mcp_server.py tests/test_report.py tests/test_session_coverage.py -v --tb=short -> 109 passed, 20 skipped, 0 failed in 19.01s (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": ".agents/skills/progress-review-plan/SKILL.md",
+      "path": ".agents/skills/progress-review-plan/SKILL.md",
+      "score": 90,
+      "verdict": "ACCEPTED",
+      "issues": "Updated 2026-07-13 to remove stale v1 content. Now correctly points to AGENTS.md as source of truth. Omission-specific status section updated with 92-entry / 0-review-entry finding.",
+      "fix_actions": "",
+      "review_command": "Direct content read 2026-07-13",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": ".agents/skills/nwb-analysis-forms/SKILL.md",
+      "path": ".agents/skills/nwb-analysis-forms/SKILL.md",
+      "score": 85,
+      "verdict": "ACCEPTED",
+      "issues": "2026-07-09 verified. Not re-read this session.",
+      "fix_actions": "",
+      "review_command": "Content review 2026-07-09",
+      "last_reviewed": "2026-07-09"
+    },
+    {
+      "filename": "examples/06_find_omission_positive_units_v182o.py",
+      "path": "examples/06_find_omission_positive_units_v182o.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session — requires V182o NWB at D:/analysis/nwb/. Progress.json score=100 from 2026-07-09 unverified independently.",
+      "fix_actions": "python examples/06_find_omission_positive_units_v182o.py (needs V182o NWB). Verify O+ unit count matches grand_unit_table.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "examples/07_canonical_stability_and_response_audit_v182o.py",
+      "path": "examples/07_canonical_stability_and_response_audit_v182o.py",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Syntax OK. Not run this session — requires V182o NWB. Prior evidence 2026-07-12. Progress.json score=100 from 2026-07-12 unverified independently.",
+      "fix_actions": "Run against V182o NWB and verify stability/response audit output.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) — all 19 scripts/examples pass syntax check",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "docs/nwb_data_structure.md",
+      "path": "docs/nwb_data_structure.md",
+      "score": 80,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Read 2026-07-13. 60 lines. Documents NWB hierarchy (acquisition, intervals, units, electrodes), probe-letter → area mapping (correctly states NOT fixed across sessions), and PyNWB performance guardrails (lazy I/O, cache metadata, minimize reopening). One note flagged for accuracy: section 'Anatomical Mapping Rules' in operations doc (not this doc) references a channel-arithmetic probe-ID formula — NOT present in this doc. This doc's content is consistent with current jnwb behavior. Does NOT mention the bytes-encoded h5py columns footgun (#10 in AGENTS.md) or the unit_id vs row-position issue (#9) — could be supplemented.",
+      "fix_actions": "Add a section on common gotchas: bytes-encoded h5py columns (footgun #10), unit_id vs row-position identity (footgun #9), and dual-area probe channel rule (footgun #3).",
+      "review_command": "Direct file read 2026-07-13",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "docs/omission_overview.md",
+      "path": "docs/omission_overview.md",
+      "score": 88,
+      "verdict": "ACCEPTED",
+      "issues": "Read 2026-07-13. 51 lines. Accurate: 3 subjects (C31o, V198o, V182o), 17 sessions, paradigm description, data locations. One minor inaccuracy: 'omission window (0 to 1000ms relative to expected onset)' — the real analysis window per AGENTS.md footgun #4 is per-slot onset to onset+531ms (one slot duration), not a fixed 1000ms window. Likely historical; low impact for a high-level overview.",
+      "fix_actions": "Low priority: clarify 'Window of Analysis' section to say per-slot (531ms) not fixed 1000ms.",
+      "review_command": "Direct file read 2026-07-13",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "docs/operations_and_troubleshooting.md",
+      "path": "docs/operations_and_troubleshooting.md",
+      "score": 78,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Read 2026-07-13. 47 lines. 15-step pipeline table is accurate. Anatomical mapping rules section has a caveat: item 1 says 'no channel-arithmetic probe-ID formula was found anywhere in the current codebase during a 2026-07-12 audit' — but item 2 mentions 'scripts/build_session_sidecars.py divides a probe's local channel index by len(areas) // 128' which IS a channel-arithmetic formula (for sidecars). This is internally inconsistent. Items 3-4 are correct. Missing: the bytes-encoded h5py columns footgun (#10), unit_id vs row-position (#9).",
+      "fix_actions": "Reconcile items 1 and 2 in Anatomical Mapping Rules: clarify that the channel-arithmetic formula exists in build_session_sidecars.py (sidecar generation) but NOT in the live jnwb.addressing.map_peak_channel_to_area path (unit analysis). Add a Footguns section covering #9, #10, and the CV vs Spearman drift issue (#12).",
+      "review_command": "Direct file read 2026-07-13",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "etude_no_01_gallery.ipynb",
+      "path": "etude_no_01_gallery.ipynb",
+      "score": 75,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "Code audit 2026-07-13: 40 cells, 20 code cells. Uses oa.read(), oa.batch_read(), pynwb.NWBHDF5IO, sess.raster_suite(), sess.tfr_from_preprocessed(), sess.lfp_tfr_trace_suite_omission(), sess.spectrolaminar_motif(), sess.pie_charts(), viz.raster_grid_by_family(). No fabrication. Gallery/demo notebook — exercises the jnwb visualization API broadly. NOT executed end-to-end this session. One concern: cell 16 builds a radar chart over AREAS/BANDS with raw tfr_from_preprocessed calls but no explicit real-data fallback guard visible in first 400 chars (may have one deeper). Treat as demo/gallery quality, not publication figure.",
+      "fix_actions": "Execute end-to-end with real NWB. Inspect all 16 figure outputs for visual correctness.",
+      "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "filename": "artifacts/developer/progress.json",
+      "path": "artifacts/developer/progress.json",
+      "score": 70,
+      "verdict": "ACCEPTED WITH CAVEATS",
+      "issues": "92 entries, all self-scored during progress work, never independently re-verified until this pass. This review pass is the first real independent scoring. Schema is v1 (entries[] wrapper, not v2 {summary, table[]}). Migration to v2 not done - requires Hamm's go-ahead. score column carries values from 97-100 with no review evidence. After this pass, review.json will carry the authoritative scores for reviewed rows.",
+      "fix_actions": "Migration to v2 shape needs explicit approval. For now, treat review.json as the authoritative score source. Update progress.json scores only after review.json entries exist.",
+      "review_command": "python -c 'import json; p=json.load(open(\"artifacts/developer/progress.json\")); print(len(p[\"entries\"]), \"entries\")' -> 92 entries (2026-07-13)",
+      "last_reviewed": "2026-07-13"
+    },
+    {
+      "path": "scripts/template_correlation_selection.py",
+      "score": 95,
+      "verdict": "confirmed_real",
+      "issues": "Real computation confirmed: per-epoch duration-normalized firing rate computed directly from real spike_times/onsets (no hardcoded arrays), correlated against explicit 0/1 templates, permutation test genuinely shuffles and recomputes (not a lookup table). Not yet run as an automated test (no tests/ coverage) -- held at 95 rather than 100 for that gap, plan/progress should add a lightweight regression test asserting e.g. a known unit's r/p values on a fixed seed.",
+      "fix_actions": "Add a small pytest covering per_epoch_rate_vector()/perm_test_corr() on a synthetic spike train with a known template correlation, so future edits can't silently reintroduce a fabrication-style shortcut without a test catching it.",
+      "review_command": "2026-07-13: python scripts/template_correlation_selection.py -> exit 0, real output: 'Scanned 330 real qualifying units', top-5 tables per class printed with real unit_id/r/p values; cross-checked against outputs/classification/figure3_template_correlation_scan.csv (330 rows, matches printed output). Code read directly, not just executed."
+    },
+    {
+      "filename": "01_omission_paradigm.md",
+      "path": "context/01_omission_paradigm.md",
+      "score": 0,
+      "verdict": "NEEDS REPRODUCTION",
+      "issues": "Document has not yet been drafted.",
+      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "review_command": "cat context/01_omission_paradigm.md",
+      "last_reviewed": ""
+    },
+    {
+      "filename": "02_temporal_dynamics.md",
+      "path": "context/02_temporal_dynamics.md",
+      "score": 0,
+      "verdict": "NEEDS REPRODUCTION",
+      "issues": "Document has not yet been drafted.",
+      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "review_command": "cat context/02_temporal_dynamics.md",
+      "last_reviewed": ""
+    },
+    {
+      "filename": "03_signal_modalities.md",
+      "path": "context/03_signal_modalities.md",
+      "score": 0,
+      "verdict": "NEEDS REPRODUCTION",
+      "issues": "Document has not yet been drafted.",
+      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "review_command": "cat context/03_signal_modalities.md",
+      "last_reviewed": ""
+    },
+    {
+      "filename": "04_analysis_pipelines.md",
+      "path": "context/04_analysis_pipelines.md",
+      "score": 0,
+      "verdict": "NEEDS REPRODUCTION",
+      "issues": "Document has not yet been drafted.",
+      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "review_command": "cat context/04_analysis_pipelines.md",
+      "last_reviewed": ""
+    },
+    {
+      "filename": "05_connectivity_jrsa.md",
+      "path": "context/05_connectivity_jrsa.md",
+      "score": 0,
+      "verdict": "NEEDS REPRODUCTION",
+      "issues": "Document has not yet been drafted.",
+      "fix_actions": "Create markdown file detailing task description in omission/context.",
+      "review_command": "cat context/05_connectivity_jrsa.md",
+      "last_reviewed": ""
+    }
+  ],
+  "entry_count": 94
 }

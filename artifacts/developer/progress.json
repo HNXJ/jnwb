@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "PRP live backlog state - reshaped to canonical wrapper 2026-07-11 (entries[] with path/filename dual-key for back-compat). Full three-way row-set alignment with plans.json/review.json not yet done - plans.json remains roadmap-item-granularity (34 items), not 1:1 file rows; that is a separate, larger, not-yet-authorized reshape.",
-  "last_updated": "2026-07-12",
+  "last_updated": "2026-07-13",
   "entries": [
     {
       "filename": "docs/analysis_methods.md",
@@ -71,7 +71,7 @@
       "tbds": 0,
       "warnings": "Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies. Uncommitted local changes on main.",
       "last_verified": "2026-07-07",
-      "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q \u2192 111 passed, 18 skipped",
+      "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q → 111 passed, 18 skipped",
       "status": "done",
       "path": "jnwb/__init__.py"
     },
@@ -421,7 +421,7 @@
       "tbds": 0,
       "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback.",
       "last_verified": "2026-07-07",
-      "evidence": "python -m pytest tests/test_trajectory.py -q \u2192 passed (subset of 111 passed in tests/)",
+      "evidence": "python -m pytest tests/test_trajectory.py -q → passed (subset of 111 passed in tests/)",
       "status": "done",
       "path": "tests/test_trajectory.py"
     },
@@ -691,7 +691,7 @@
       "tbds": 0,
       "warnings": "Local exec runner; not SSH. Verified by executing suite_06. | RE-ASSESSED 2026-07-11: Used successfully as the real execution backbone throughout this entire session (suite_01, suite_02-05, suite_09/10, multiple examples) - dozens of real successful executions, no failures attributable to this script itself.",
       "last_verified": "2026-07-09",
-      "evidence": "compileall \u2192 exit 0; --help \u2192 exit 0",
+      "evidence": "compileall → exit 0; --help → exit 0",
       "status": "done",
       "path": "scripts/run_notebook_local.py"
     },
@@ -755,7 +755,7 @@
     {
       "filename": "scripts/build_nwb_catalog.py",
       "path": "scripts/build_nwb_catalog.py",
-      "purpose": "Durable NWB session catalog writer (dir listing \u2192 artifacts/data/nwb_catalog.json).",
+      "purpose": "Durable NWB session catalog writer (dir listing → artifacts/data/nwb_catalog.json).",
       "score": 97,
       "tbis": 0,
       "tbds": 1,
@@ -797,7 +797,7 @@
     {
       "filename": "scripts/build_session_readiness.py",
       "path": "scripts/build_session_readiness.py",
-      "purpose": "Join catalog + TFR + sidecar \u2192 session_readiness.csv gates.",
+      "purpose": "Join catalog + TFR + sidecar → session_readiness.csv gates.",
       "score": 97,
       "tbis": 0,
       "tbds": 1,
@@ -1223,6 +1223,94 @@
       "last_verified": "2026-07-12",
       "warnings": "New file 2026-07-12. Each session runs 7 full nested-5-fold-CV SVM fits (jnwb.decoding.decode_omission_presence) - real per-session cost is expensive and varies widely with trial/unit count (83s-4921s observed across the 15 real sessions), not fixed.",
       "evidence": "2026-07-12: --nwb sub-C31o_ses-230823_rec.nwb -> real result matching majority-baseline pattern exactly (accuracy==baseline, F1=0 across all 7 windows); --all-ready -> 15/15 real sessions completed, 0 skipped, real per-session wall-clock 83-4921s; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed"
+    },
+    {
+      "filename": "scripts/build_figure3_raster_grid.py",
+      "path": "scripts/build_figure3_raster_grid.py",
+      "purpose": "Figure 3: 4x3 S+/S-/O+ raster grid across R-family conditions, real spikes, mean-matched stable neurons per class.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "tbi": "",
+      "tbd": "Only S+/S-/O+ from sub-C31o_ses-230823 were considered (the only session with real O+ units). If a future session gains real O+ units, worth re-checking whether a better-matched trio exists elsewhere - not done this pass since O+ is currently unique to this one session.",
+      "status": "done",
+      "last_verified": "2026-07-13",
+      "warnings": "New file 2026-07-12. Real methodological finding during development, caught by actually rendering and visually inspecting the figure (not just checking exit codes): the first version selected the \"most stable\" neuron per class using total per-trial spike-count coefficient of variation (CV). This metric is scale-invariant and does NOT catch real trial-order drift - a neuron whose response shape stays similar across trials but whose overall rate ramps up/down over the real trial sequence still gets a low CV. Concretely caught on S- unit 238 (the v1 pick): visibly non-stationary (sparse early trials, dense late trials) when actually rendered, despite a moderate CV score. Replaced with a real drift metric: |Spearman r| between per-trial spike count and real chronological trial order, worst-case across all 4 R-family conditions. Re-verified visually after the fix - all 3 selected neurons (S+=unit 17, S-=unit 189, O+=unit 41) now look genuinely trial-consistent in the rendered figure. O+ units are real but rare (7 total across all 15 sessions, all from sub-C31o_ses-230823) - this session supplies all 3 columns for a matched recording context. S- tops out at ~12 Hz even among stable candidates in this session (vs ~20-21 Hz for S+/O+) - a real, honest population constraint reported in the figure, not a selection shortfall. | STIMULUS-EPOCH SHADING added 2026-07-13: real semi-transparent (alpha=0.18) background bands for p1/p2/p3/p4 stimulus periods, colors matched exactly to a user-provided reference sequence-timing template (yellow/purple/green/blue respectively) rendered and cross-checked visually via svglib+reportlab -> PDF (cairosvg unavailable on this Windows machine, no native cairo lib). Delay periods (d1-d4) and fx remain unshaded, matching the reference. Real epoch boundaries from jnwb.sequence_layout.EPOCH_ONSETS_MS (each stimulus period is exactly 531ms). | FEEDBACK APPLIED 2026-07-13: (1) raster spikes changed to black (were per-class colored). (2) Verified and corrected the O+ pick: unit 41 (most stable) turned out to have the WEAKEST real omission-vs-control-slot firing ratio of all 7 real O+ candidates (1.23x) - not visibly showing elevated omission firing despite passing the real shuffle-based O+ classifier (which pools across slots vs local baseline/delay, a different comparison than the per-row same-slot control shown here). Directly computed real omission-window rate vs real same-slot RRRR-control rate for all 7 candidates, all 3 omission rows (RXRR/p2, RRXR/p3, RRRX/p4) - switched to unit 51 (strongest, most consistent effect: ~2x control rate in all 3 rows), a real, stated trade-off of stability (drift 0.646 vs 0.201) for a visible, genuine omission response, which is the whole point of the O+ class. Re-verified visually: panel I (RRXR/p3) shows a clear dense spike cluster at the p3 window vs the sparser p3 window in the RRRR row for the same neuron.",
+      "evidence": "2026-07-12: python scripts/build_figure3_raster_grid.py -> real per-panel output, S+=unit 17 (max_drift=0.161, 21.45 Hz), S-=unit 189 (max_drift=0.143, 11.82 Hz), O+=unit 41 (max_drift=0.201, 20.32 Hz); wrote a real 3.2MB SVG (19841 path elements) + index.md; rendered to PNG and visually inspected all 12 panels directly (not just checked file existence) - confirmed no drift artifact remains; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed (no regressions to core jnwb code, this is a standalone figure script); 2026-07-13: re-rendered and visually inspected all 12 panels - shading correctly aligned to real epoch boundaries, spikes still visible through the semi-transparent bands; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed; 2026-07-13: re-rendered and visually confirmed both fixes; python -m pytest tests/ -q -> 172 passed, 20 skipped, 0 failed"
+    },
+    {
+      "filename": "scripts/template_correlation_selection.py",
+      "path": "scripts/template_correlation_selection.py",
+      "purpose": "Matched-filter unit selection: correlates real per-epoch firing rate against 0/1 stimulus-pulse templates (S+/S-/O+) to pick statistically-matched exemplar neurons for Figure 3, replacing a drift-stability-only method that picked non-significant matches.",
+      "score": 95,
+      "tbis": 0,
+      "tbds": 1,
+      "tbi": "",
+      "tbd": "No automated test coverage yet for per_epoch_rate_vector()/perm_test_corr() -- see review.json fix_actions for this path.",
+      "status": "done",
+      "last_verified": "2026-07-13",
+      "warnings": "Independently confirmed 2026-07-13 (Proceed-with-Review pass): the previous drift-only S+/S- picks (units 17, 189) were non-significant matches to their claimed response shape (r=0.46 p=0.19, r=0.04 p=0.89). This method found dramatically stronger, significant real matches (unit 337 r=0.985 p=0.008; unit 261 r=0.985 p=0.003) and independently re-confirmed the existing O+ pick (unit 51) as best among 7 real candidates. Open finding not yet investigated: 3 units labeled \"Other\" by the pooled shuffle-test classifier (240, 359, 360) rank in the top-10 S- template matches (r=0.92-0.95, p<0.01).",
+      "evidence": "2026-07-13: python scripts/template_correlation_selection.py -> exit 0, real output \"Scanned 330 real qualifying units\", ranked tables printed and cross-checked against outputs/classification/figure3_template_correlation_scan.csv (330 rows, matches). review_command details in review.json."
+    },
+    {
+      "filename": "01_omission_paradigm.md",
+      "purpose": "Overview of the omission task paradigm, correct vs. incorrect trials, and task phases.",
+      "score": 0,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "context/01_omission_paradigm.md",
+      "status": "todo",
+      "last_verified": "",
+      "evidence": ""
+    },
+    {
+      "filename": "02_temporal_dynamics.md",
+      "purpose": "Details on sequence epoch timings (fx, p1-4, d1-4), slot windows, and temporal alignments.",
+      "score": 0,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "context/02_temporal_dynamics.md",
+      "status": "todo",
+      "last_verified": "",
+      "evidence": ""
+    },
+    {
+      "filename": "03_signal_modalities.md",
+      "purpose": "Explanation of signal streams (SPK, LFP, TFR, pupil dynamics) and layer masks mappings.",
+      "score": 0,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "context/03_signal_modalities.md",
+      "status": "todo",
+      "last_verified": "",
+      "evidence": ""
+    },
+    {
+      "filename": "04_analysis_pipelines.md",
+      "purpose": "Summary of pipeline flows: single-unit template correlation classifiers, stable-trial filtering, and SVM population decoders.",
+      "score": 0,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "context/04_analysis_pipelines.md",
+      "status": "todo",
+      "last_verified": "",
+      "evidence": ""
+    },
+    {
+      "filename": "05_connectivity_jrsa.md",
+      "purpose": "Detailed specification of the unified JRSA relationship analysis, metrics dispatch, and permutation tests.",
+      "score": 0,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "context/05_connectivity_jrsa.md",
+      "status": "todo",
+      "last_verified": "",
+      "evidence": ""
     }
   ]
 }

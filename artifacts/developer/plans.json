@@ -291,7 +291,7 @@
   },
   {
     "title": "Audit 2026-07-10: Fix FDR misuse in StatisticalAnalysis",
-    "description": "compare_groups/compare_multiple_groups/correlate apply BH-FDR to the pair (parametric_p, nonparametric_p) \u2014 statistically meaningless. Remove 2-pvalue FDR; keep dual tests as exploratory dual-report; add experiment-level FDR helpers that correct across hypotheses (units/channels/freqs/time). Reframe existing Dual-engine plan accordingly.",
+    "description": "compare_groups/compare_multiple_groups/correlate apply BH-FDR to the pair (parametric_p, nonparametric_p) — statistically meaningless. Remove 2-pvalue FDR; keep dual tests as exploratory dual-report; add experiment-level FDR helpers that correct across hypotheses (units/channels/freqs/time). Reframe existing Dual-engine plan accordingly.",
     "priority": "critical",
     "status": "planned",
     "source": "external-gpt-audit-2026-07-10",
@@ -373,7 +373,7 @@
   },
   {
     "title": "Audit 2026-07-10: Spike-train MI beyond binary occupancy",
-    "description": "spike_mutual_information bins then hist>0 \u2192 MI(binary occupancy), not MI(spike trains). Add count-based discrete MI and/or continuous-time estimator; label current API as binary_occupancy_mi.",
+    "description": "spike_mutual_information bins then hist>0 → MI(binary occupancy), not MI(spike trains). Add count-based discrete MI and/or continuous-time estimator; label current API as binary_occupancy_mi.",
     "priority": "medium",
     "status": "planned",
     "source": "external-gpt-audit-2026-07-10",
@@ -453,7 +453,7 @@
   },
   {
     "title": "Brainstorm 2026-07-10: Per-NWB S+/S-/O+ stable raster suite (Suite 01)",
-    "description": "Poster maps Excited\u2192S+, Inhibited\u2192S-, Omission-ramping\u2192O+. IMPLEMENTED as Suite 01 notebook + jnwb.unit_classification.classify_all_nwbs \u2192 grand_unit_table_shuffle_sso.csv (idempotent append-by-stem). CLI: scripts/build_grand_unit_table_shuffle_sso.py. Rasters remain optional follow-on from grand table picks.",
+    "description": "Poster maps Excited→S+, Inhibited→S-, Omission-ramping→O+. IMPLEMENTED as Suite 01 notebook + jnwb.unit_classification.classify_all_nwbs → grand_unit_table_shuffle_sso.csv (idempotent append-by-stem). CLI: scripts/build_grand_unit_table_shuffle_sso.py. Rasters remain optional follow-on from grand table picks.",
     "priority": "high",
     "status": "planned",
     "source": "hamm-poster-brainstorm-2026-07-10",
@@ -481,5 +481,35 @@
       "jnwb/markdown_report.py",
       "outputs/markdown_reports/sub-V182o_ses-260629/index.md"
     ]
+  },
+  {
+    "title": "Figure 3: S+/S-/O+ raster grid across R-family conditions",
+    "description": "scripts/build_figure3_raster_grid.py -- 4x3 real raster grid (rows RRRR/RXRR/RRXR/RRRX, columns S+/S-/O+), 40 real trials/panel, black spikes, epoch-colored shading matching the reference sequence-timing template, dual time axis (numeric ms + epoch tag), non-negative-integer trial ticks. Unit picks corrected twice this session (2026-07-13): first from a drift-stability-only method to a real omission/control ratio check (O+ unit 41 -> 51), then all three columns re-selected via real template-correlation (scripts/template_correlation_selection.py) since the drift-only S+/S- picks (units 17, 189) turned out non-significant matches to their claimed response shape. Current picks: S+=337 (r=0.985,p=0.008), S-=261 (r=0.985,p=0.003), O+=51 (r_mean=0.769, best of 7 real O+ candidates, no unit reaches p<0.05 in all 3 omission conditions simultaneously -- real, stated statistical-power limit of the one-hot template, not yet resolved). Verified: python -m pytest tests/ -q -> 172 passed, 0 failed; SVG rendered via svglib->PDF workaround and visually inspected. NOT yet committed/pushed. Handout: context/info/09_figure3_handout_2026-07-13.md.",
+    "priority": "medium",
+    "status": "completed"
+  },
+  {
+    "title": "Template-correlation unit selection method (S+/S-/O+ exemplar picking)",
+    "description": "scripts/template_correlation_selection.py -- real per-epoch duration-normalized firing rate (Hz), Pearson-correlated against idealized 0/1 pulse templates over the real epoch sequence (fx,p1,d1,p2,d2,p3,d3,p4,d4): S+ template 0-1-0-1-0-1-0-1-0, S- template 1-0-1-0-1-0-1-0-1, O+ one-hot at the real omitted slot per condition. Real permutation-test p-value (5000 draws, shuffled epoch-rate assignment), no Gaussian asymptotics assumed on the 9-sample vector. Scanned 330 real qualifying units in sub-C31o_ses-230823_rec -> outputs/classification/figure3_template_correlation_scan.csv. Open finding, not yet investigated: 3 units labeled 'Other' by the pooled shuffle-test classifier (240, 359, 360) rank in the top-10 S- template matches (r=0.92-0.95, p<0.01) -- possible under-calling by the pooled classifier, worth a dedicated look.",
+    "priority": "medium",
+    "status": "completed"
+  },
+  {
+    "title": "Run a real Proceed-with-Review pass over the 92-entry progress.json backlog",
+    "description": "2026-07-13 audit finding: artifacts/developer/review.json has 0 entries while progress.json carries 92 entries self-scored 97-100 during progress work, never independently re-checked. This is the exact mechanism that let suite_06/suite_07 sit fabricated-but-scored-100 for months (see .agents/AGENTS.md footgun #11). Every progress.json score should be treated unverified until a matching review.json row exists citing a real review_command receipt that actually reads the code producing each reported number, not just re-runs it and checks the exit code. Highest-priority PRP action available given current repo state; independent of the schema-shape gap below and does not require resolving it first.",
+    "priority": "critical",
+    "status": "planned"
+  },
+  {
+    "title": "Reconcile artifacts/developer/{plans,progress,review}.json schema mismatch",
+    "description": "2026-07-13 re-audit: plans.json (34 items) is a THIRD distinct shape from what .agents/skills/progress-review-plan/SKILL.md documents -- bare list of {title, description, priority, status}, no path/filename key at all, so it cannot be row-matched against progress.json (92 entries, {filename,path,score,tbis,tbds,...}) or review.json (0 entries, same wrapper). None of the three files match the v2 target shape ({summary, table[]}) either. Reconciling is real, data-mutating work on a live 92+34-entry backlog -- needs Hamm's explicit go-ahead before any row is renamed, merged, or dropped, per this project's 'no silent edits' discipline. Stray files also still present under artifacts/: pv.json, walkthrough.md, progress_report.md, reports/, reports_goal_verify/, reports_test_verify/.",
+    "priority": "high",
+    "status": "planned"
+  },
+  {
+    "title": "Omission Paradigm Context Documentation Suite",
+    "description": "Generate 5 comprehensive markdown documentation files under context/ detailing the omission paradigm, signal modalities, task configurations, temporal alignment, and the JRSA connectivity core.",
+    "priority": "high",
+    "status": "in-progress"
   }
 ]
