@@ -107,20 +107,99 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
     r=0.92–0.95 on S− template (p<0.01) — not yet resolved.
 14. **NaN Omission vs Imputation:** Ensure listwise exclusion of NaN entries across paired signals instead of zero-filling them.
 15. **PSI scale preservation:** Phase Slope Index must return the raw sum to preserve magnitude context for quantitative comparisons instead of normalising by amplitude.
+16. **`_parallel_map` pickling** — `_permutation_test` and `_bootstrap` now use `_parallel_map` with `n_jobs`. The worker closures capture `metric_fn`, which may not be picklable when `n_jobs != 1` with `loky` backend (lambda, local inner functions). Before any permutation run with `n_jobs > 1`, confirm the metric function is a module-level callable. Symptom: silent fallback or `PicklingError`. Smoke-test: `jrsa(x, y, metric="pearson", n_jobs=2, permutations=50)` must complete without error.
+17. **`_apply_lag` multi-lag + stats interaction** — When `lag` is a list of >1 values, `_apply_lag` stacks shifted copies into shape `(n_lags, ...)`. `_permutation_test` and `_bootstrap` currently receive the full stacked array and produce a single shared null distribution across all lags, not one per lag. Any p-values reported when `lag=[...]` and `stats=True` are therefore **not lag-segregated** and are statistically incorrect. Do not interpret permutation p-values from multi-lag calls until this is fixed with a per-lag loop in `jrsa()` around the metric + stats block.
+18. **`batch_size` is a silent no-op** — `jrsa()` accepts and stores `batch_size` in `params` but never passes it to `_stack_batches`. The parameter is cosmetic. Do not document it as functional until wired. Remove it from public API examples until then.
+19. **`window` parameter is sample-index, not milliseconds** — `jrsa(window=(-500, 500))` treats values as raw sample indices, not ms. The docstring example is misleading. Until a `window_unit` parameter is added, always pass sample counts explicitly and add a comment stating the sample rate assumption.
+20. **`_multiple_correction` silently falls back on unknown method** — Passing `correction="invalid"` does not raise; it silently applies `fdr_bh`. Always validate the correction string against `_CORRECTION_METHOD_MAP` and warn if unrecognised.
+21. **`statistics.py` uses global `np.random.seed(42)`** — `StatisticalAnalysis.bootstrap_ci` and `StatisticalAnalysis.permutation_test` both call `np.random.seed(42)`, a global state mutation. This silently reseeds NumPy's legacy RNG and will interfere with any test that sets its own seed. Use `np.random.default_rng(42)` with a local RNG instance.
+22. **`StatisticalAnalysis.correlate` and `jrsa._pearson/_spearman` are duplicates** — Both compute Pearson+Spearman with NaN removal. `_pearson`/`_spearman` in `jrsa.py` do not delegate to `StatisticalAnalysis.correlate`. Any bug fixed in one will not propagate to the other. Planned consolidation: make `_pearson`/`_spearman` delegate to `StatisticalAnalysis.correlate` on CPU paths.
+23. **`_compute_statistics` is a dead stub** — The function body is `return value` and is never called anywhere. It exists only as a leftover stub. Do not add logic to it; delete it on the next refactoring pass.
+24. **`mcp_server/` does not belong inside `jnwb/`** — The MCP server subdirectory is an infrastructure component, not part of the neural analysis library. It should live at repo root or in a separate package. Having it inside `jnwb/` pollutes the package namespace and import graph.
 
 ## Skills to load before reinventing
 
-| Need | Skill |
-|------|--------|
-| Backlog | `.agents/skills/progress-review-plan/SKILL.md` |
+| Need | Skill file |
+|------|-----------|
+| Backlog / PRP | `.agents/skills/progress-review-plan/SKILL.md` |
 | NWB I/O | `.agents/skills/jnwb-core/SKILL.md` |
 | Spikes / rasters | `.agents/skills/jnwb-spiking/SKILL.md` |
 | TFR / LFP | `.agents/skills/jnwb-tfr/SKILL.md` |
 | Stats | `.agents/skills/jnwb-statistics/SKILL.md` |
 | Viz | `.agents/skills/jnwb-visualization/SKILL.md` |
 | Forms / pipelines | `.agents/skills/nwb-analysis-forms/SKILL.md` |
+| Functional connectivity (jrsa) | `.agents/skills/jnwb-jrsa/SKILL.md` |
 
 Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
+
+### jrsa skill spec
+
+The jrsa skill file must cover:
+- Public API: `jrsa(x1, x2, metric=..., lag=..., nan_policy=..., stats=..., backend=..., n_jobs=..., return_null=..., return_input=...)`
+- All 14 metric names and their return conventions `(value, statistic, effect, p, df)`
+- NaN omit policy: listwise joint exclusion on last axis before metric dispatch
+- Multi-lag usage: `lag=[0,1,2]` returns stacked `(n_lags,...)` value; **permutation p-values are not lag-segregated until further fix**
+- Backend dispatch: `_get_xp`, `_to_backend`, `_backend_torch`; always use `_get_xp(arr)` not hardcoded `np`
+- GPU safety rules: no CPU-GPU copy per permutation iteration; use `xp.roll`, `xp.take`, device-side RNG
+- Known dead code: `_compute_statistics` (stub, never called), `batch_size` (no-op)
+- Known merge targets: `_pearson`/`_spearman` should delegate to `StatisticalAnalysis.correlate`; `_reduce_dimensions` should use the `_OPS` dispatch table pattern
+- Known caveats: `_hsic` centering assumes symmetric kernel matrix; `_granger` AIC indexing is statsmodels-version-specific
+
+## Dead code and refactoring register
+
+Track known dead / no-op / duplicate code here so the agent doesn't add logic to stubs
+or re-implement things that already exist.
+
+| Symbol | File | Status | Action |
+|--------|------|--------|--------|
+| `_compute_statistics` | `jnwb/jrsa.py` | Dead stub — `return value`, never called | Delete on next refactor pass |
+| `_stack_batches` | `jnwb/jrsa.py` | Defined, never called; `batch_size` param is a no-op | Wire or remove both |
+| `StatisticalAnalysis.permutation_test` | `jnwb/statistics.py` | Superseded by `jrsa._permutation_test` for metric similarity use cases | Add deprecation warning |
+| `StatisticalAnalysis.bootstrap_ci` | `jnwb/statistics.py` | Uses `np.random.seed(42)` global mutation | Migrate to `default_rng`; add deprecation for jrsa callers |
+| `_pearson` / `_spearman` (CPU path) | `jnwb/jrsa.py` | Duplicates `StatisticalAnalysis.correlate` | Delegate to it on CPU path |
+| `_reduce_dimensions` | `jnwb/jrsa.py` | 80-line if/elif duplication for x1 and x2 | Replace with `_OPS` dispatch table |
+| `_interp` (linear) / `_interp_cubic` | `jnwb/jrsa.py` inside `_resample_axis` | Two identical inner functions differing only by `kind=` | Collapse to one inner function with `kind` parameter |
+| `markdown_report.py` vs `report.py` | `jnwb/` | Likely redundant pair — audit before any new reporting work | Confirm overlap; collapse or tombstone the smaller one |
+| `diagnostics.py` vs `visual_qc.py` | `jnwb/` | Possibly overlapping QC roles | Audit; merge if purposes are identical |
+| `mcp_server/` | `jnwb/mcp_server/` | Infrastructure, not analysis library | Move to repo root or separate package |
+
+## jrsa debugging protocol
+
+When a `jrsa()` call produces unexpected results, work through this checklist before touching
+the metric implementation:
+
+1. **Check NaN count first.** Run `np.isnan(x1).sum(), np.isnan(x2).sum()`. With
+   `nan_policy="omit"`, the effective N after joint exclusion may be much smaller than expected.
+   Print `result.aligned_x1.shape` with `return_input=True` to confirm.
+
+2. **Verify backend.** Print `result.execution["backend"]`. If you expect GPU but see `numpy`,
+   CuPy is not installed or the array was not a `cp.ndarray` at call time.
+
+3. **Multi-lag + stats.** If `lag` is a list and `result.p` is reported, those p-values are from
+   a single shared null distribution across all lags (footgun #17). Do not interpret them as
+   per-lag significance until the per-lag stats loop is implemented.
+
+4. **Parallelism smoke test.** Before using `n_jobs > 1` in a new environment, run:
+   ```python
+   import numpy as np, jnwb as oa
+   rng = np.random.default_rng(0)
+   x, y = rng.normal(size=200), rng.normal(size=200)
+   r = oa.jrsa(x, y, metric="pearson", permutations=50, n_jobs=2)
+   assert r.p is not None
+   ```
+   If this raises `PicklingError`, `n_jobs` must stay at 1 for this metric until the
+   worker closure is made picklable (footgun #16).
+
+5. **Window is samples, not ms.** If results look wrong after setting `window=(a,b)`, confirm
+   `a` and `b` are sample indices, not milliseconds (footgun #19).
+
+6. **Correction fallback.** If you expect a specific correction method and results look like
+   BH-adjusted values even though you passed a different string, the method string may have
+   fallen through silently (footgun #20). Print `_CORRECTION_METHOD_MAP.get(your_string)`.
+
+7. **Granger best-lag.** Print `best_lag` inside `_granger` (add a `verbose` branch) if the
+   F-statistic looks implausibly high or low — confirm AIC extraction from statsmodels result
+   object matches the current version of `statsmodels.tsa.stattools.grangercausalitytests`.
 
 ## PRP protocol — Canonical PRP Protocol (Developer Standard) adopted 2026-07-10
 
@@ -131,15 +210,13 @@ of files, with auxiliary/derived files confined to `artifacts/developer/.cache/`
 actions: `proceed with brainstorm` → `proceed with plan` → `proceed with review` →
 `proceed with progress`, plus `inspect` (structural compliance + drift repair) runnable any time.
 
-**PRP state (2026-07-15 receipts):**
+**PRP state (2026-07-15 receipts, updated post-Batch-1+2):**
 
-- `plans.json` (36 items, updated with JRSA GPU items), `progress.json`
-  (98 entries, `{schema_version, description, last_updated, entries}` wrapper),
-  `review.json` (**99 entries** — fully populated this session, including expanded GPU tests).
-- **All entries now have a verified verdict** (61 ACCEPTED / 38 ACCEPTED WITH CAVEATS / 0 NOT REVIEWED).
-- **The self-assigned progress.json scores (97-100) remain unverified until matched by review.json.**
-  `review.json` is now the authoritative score source.
-- Schema is still v1 (entries[]). Migration to v2 `{summary, table[]}` needs Hamm's go-ahead.
+- `plans.json` (36 items), `progress.json` (99 entries), `review.json` (101 entries, including `test_jrsa_correctness.py` at score 88 ACCEPTED WITH CAVEATS).
+- **61 ACCEPTED / 39 ACCEPTED WITH CAVEATS / 0 NOT REVIEWED.**
+- `jrsa.py` and `test_jrsa_correctness.py` are the two most recently changed entries; both carry caveats (HSIC symmetric-kernel assumption; multi-lag + stats interaction).
+- The self-assigned progress.json scores remain unverified until matched by review.json. `review.json` is the authoritative score source.
+- Schema is still v1. Migration to v2 needs Hamm's explicit go-ahead.
 
 ## Git / worktree discipline (project)
 
@@ -158,6 +235,8 @@ Checklist:
 - [ ] For spike figures: unit picks verified by template correlation (footgun #13), not CV alone
 - [ ] Stats annotations (N, test, window) present when claiming effects
 - [ ] Visual output physically inspected (not just "executed without error")
+- [ ] If `jrsa()` was used: confirm `nan_policy`, check effective N via `return_input=True`, and confirm `lag` was scalar (not a list) if per-lag p-values are being reported
+- [ ] If `statistics.py` bootstrap or permutation was used: confirm it was not called after any other code set `np.random.seed()`; prefer `jrsa()` with `permutations=` for neural similarity p-values
 
 ## Legacy note
 
