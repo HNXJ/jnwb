@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "description": "PRP live backlog state - reshaped to canonical wrapper 2026-07-11 (entries[] with path/filename dual-key for back-compat). Full three-way row-set alignment with plans.json/review.json not yet done - plans.json remains roadmap-item-granularity (34 items), not 1:1 file rows; that is a separate, larger, not-yet-authorized reshape.",
   "last_updated": "2026-07-15",
   "entries": [
@@ -1335,6 +1335,87 @@
       "status": "done",
       "last_verified": "2026-07-15",
       "evidence": "python -m pytest tests/test_jrsa_correctness.py -v -> 3 passed"
+    },
+    {
+      "filename": "scripts/suite_01_raster_s_om.py",
+      "path": "scripts/suite_01_raster_s_om.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "Wilcoxon paired tests show stim-rates vs. base-rates, figures generated.",
+      "purpose": "Raster and PSTH grid for S+, S-, O+ units."
+    },
+    {
+      "filename": "scripts/suite_02_raster_s2_om2.py",
+      "path": "scripts/suite_02_raster_s2_om2.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "Friedman tests show slot-consistency, double-sequence responsive units.",
+      "purpose": "Raster and PSTH grid for S++, S--, O++ units."
+    },
+    {
+      "filename": "scripts/suite_03_tfr_heatmap.py",
+      "path": "scripts/suite_03_tfr_heatmap.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "baseline dB normalized V1 spectrogram with running 1-sample t-test contours.",
+      "purpose": "2D TFR heatmap with significance contours."
+    },
+    {
+      "filename": "scripts/suite_04_tfr_band_traces.py",
+      "path": "scripts/suite_04_tfr_band_traces.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "1D traces of 5 standard bands with \u00b1SEM shading and running t-tests.",
+      "purpose": "1D traces of spectral power bands."
+    },
+    {
+      "filename": "scripts/suite_05_pie_composition.py",
+      "path": "scripts/suite_05_pie_composition.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "classification breakdown and chi-square proportion uniformity check.",
+      "purpose": "Pie chart composition of responsive classes."
+    },
+    {
+      "filename": "scripts/suite_06_spike_lfp_coherence.py",
+      "path": "scripts/suite_06_spike_lfp_coherence.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "polar spike phase histogram alignment with Rayleigh test statistics.",
+      "purpose": "Spike-LFP phase locking curves."
+    },
+    {
+      "filename": "scripts/suite_07_rsa_spk_lfp.py",
+      "path": "scripts/suite_07_rsa_spk_lfp.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "representational similarity matrices with Mantel permutation test correlation.",
+      "purpose": "RSA spiking vs LFP power."
+    },
+    {
+      "filename": "scripts/suite_granger_v1_pfc.py",
+      "path": "scripts/suite_granger_v1_pfc.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "directional index and Granger causality flow between V1 and PFC.",
+      "purpose": "V1-PFC Granger causality analysis."
+    },
+    {
+      "filename": "scripts/suite_spectrogram_11_areas.py",
+      "path": "scripts/suite_spectrogram_11_areas.py",
+      "score": 100,
+      "status": "done",
+      "last_verified": "2026-07-16",
+      "evidence": "spectrogram grids generated across 11 canonical areas and 12 conditions.",
+      "purpose": "11-area trial averaged spectrogram grid."
     }
   ]
 }

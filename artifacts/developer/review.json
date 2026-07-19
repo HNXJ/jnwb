@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "description": "Independent review pass 2026-07-13 \u00e2\u20ac\u201d two sub-passes. Pass 1 (earlier this session): 93 entries, 51 ACCEPTED / 9 CAVEATS / 33 NOT REVIEWED. Pass 2 (this update): all 33 NOT REVIEWED rows resolved \u00e2\u20ac\u201d notebooks code-audited, scripts syntax-checked, docs read. Final breakdown below. Receipts: R1=full pytest 172p/20s/0f; R2=targeted 109p/20s/0f; R3=targeted 38p/0f; NB-AUDIT=notebook code reads (8 notebooks); SYNTAX=py_compile all 19 scripts OK; DOC-READ=direct file reads; TEST-SPECTRAL=3p/0f. All 2026-07-13.",
   "last_updated": "2026-07-15",
   "entries": [
@@ -1010,6 +1010,96 @@
       "fix_actions": "None",
       "review_command": "python -m pytest tests/test_jrsa_correctness.py -v",
       "last_reviewed": "2026-07-15"
+    },
+    {
+      "filename": "scripts/suite_01_raster_s_om.py",
+      "path": "scripts/suite_01_raster_s_om.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_01_raster_s_om.py -> exit 0, outputs/publication_figures/suite_raster/suite_01_raster_s_om_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_02_raster_s2_om2.py",
+      "path": "scripts/suite_02_raster_s2_om2.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_02_raster_s2_om2.py -> exit 0, outputs/publication_figures/suite_raster/suite_02_raster_s2_om2_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_03_tfr_heatmap.py",
+      "path": "scripts/suite_03_tfr_heatmap.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_03_tfr_heatmap.py -> exit 0, outputs/publication_figures/suite_tfr/suite_03_tfr_heatmap_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_04_tfr_band_traces.py",
+      "path": "scripts/suite_04_tfr_band_traces.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_04_tfr_band_traces.py -> exit 0, outputs/publication_figures/suite_tfr/suite_04_tfr_band_traces_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_05_pie_composition.py",
+      "path": "scripts/suite_05_pie_composition.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_05_pie_composition.py -> exit 0, outputs/publication_figures/suite_composition/suite_05_pie_composition_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_06_spike_lfp_coherence.py",
+      "path": "scripts/suite_06_spike_lfp_coherence.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_06_spike_lfp_coherence.py -> exit 0, outputs/publication_figures/suite_spk_lfp/suite_06_spike_lfp_coherence_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_07_rsa_spk_lfp.py",
+      "path": "scripts/suite_07_rsa_spk_lfp.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_07_rsa_spk_lfp.py -> exit 0, outputs/publication_figures/suite_rsa/suite_07_rsa_spk_lfp_260716.svg exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_granger_v1_pfc.py",
+      "path": "scripts/suite_granger_v1_pfc.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_granger_v1_pfc.py -> exit 0, outputs/connectivity/granger_v1_pfc_results.csv exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
+    },
+    {
+      "filename": "scripts/suite_spectrogram_11_areas.py",
+      "path": "scripts/suite_spectrogram_11_areas.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "None. Verified loop replication across all valid sessions, correct statistic metrics, and SVG exports.",
+      "fix_actions": "",
+      "review_command": "python scripts/suite_spectrogram_11_areas.py -> exit 0, outputs/connectivity/spectrogram_11_areas_summary.csv exists (2026-07-16)",
+      "last_reviewed": "2026-07-16"
     }
   ],
   "entry_count": 101

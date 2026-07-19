@@ -1,521 +1,532 @@
-[
-  {
-    "title": "OGLO Session Report Suite Generator (Completed Phase 1)",
-    "description": "Generate a standardized folder structure for each NWB session containing report-suite.ipynb (interactive report), report-suite.html (fully compiled HTML export), and figures/svg/ (vector exports of all generated figures).",
-    "priority": "high",
-    "status": "completed"
-  },
-  {
-    "title": "OGLO Report Suite Improvement (Phase 2)",
-    "description": "Expand and compile the report suite to include exactly 10 comprehensive analyses with correct, visually valid SVG exports using the Madelane Golden Dark palette. Ensure precise coordinates, axis formatting, legends, and labels for all figures.",
-    "priority": "high",
-    "status": "completed"
-  },
-  {
-    "title": "SVM Preprocessing (Baseline Subtraction & Normalization)",
-    "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors (e.g. subtracting pre-stimulus interval baseline firing rates) before training the SVM classifier to control for state fluctuations.",
-    "priority": "medium",
-    "status": "completed"
-  },
-  {
-    "title": "Interactive Granger Causality Network Visualization",
-    "description": "Develop an interactive directed graph visualization using Plotly in `jnwb/viz.py` that maps inter-area Granger causality causality flow as edge thickness, permitting dynamic node dragging and hover inspections.",
-    "priority": "low",
-    "status": "completed"
-  },
-  {
-    "title": "GPU-Accelerated Population Trajectory (PCA)",
-    "description": "Utilize PyTorch or JAX Singular Value Decomposition (SVD) on GPU to accelerate population trajectory dimensionality reduction (PCA) across thousands of active neurons.",
-    "priority": "medium",
-    "status": "brainstorm"
-  },
-  {
-    "title": "Reconcile Stable/S+/S-/O+ Definitions for V182o Re-Audit",
-    "description": "The live jnwb.addressing is_stable proxy (quality>=1.0, stable_plus aliased identically) is a much weaker test than the project's canonical 3-criterion stability pipeline (tag_stable_units.py: >=5 spikes/trial in every correct trial + firing_rate>=1Hz + (presence_ratio>=0.98 OR snr>0.75)), and the earlier V182o O+ candidate audit (examples/06_find_omission_positive_units_v182o.py) used an ad hoc Mann-Whitney+4Hz-diff test instead of the project's real candidate-labeling pipeline (run_spk_response_metrics_a8_1.py: paired Wilcoxon vs local pre-omission baseline + unpaired Mann-Whitney vs matched control, Cohen's d>0.3, BH-FDR q<0.05, S_plus/S_minus/O_plus_candidate/X_candidate priority resolution). Re-run both the canonical stability test and the canonical S+/S-/O+/X candidate pipeline on sub-V182o_ses-260629 so results are comparable to the historical grand_database_6040_units.csv methodology, and reconcile which of the previously-flagged 4 units survive under the correct definitions.",
-    "priority": "high",
-    "status": "completed"
-  },
-  {
-    "title": "suite_01_single_raster_panels.ipynb",
-    "description": "Single-unit raster suites and examples across different response classifications (O+, S+, S-, Null but stable, and prime neurons).",
-    "priority": "high",
-    "status": "completed",
-    "progress_targets": [
-      "notebooks/suite_01_single_raster_panels.ipynb"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_01_single_raster_panels.ipynb": {
-        "score": 97,
-        "status": "done"
-      }
+{
+  "schema_version": 3,
+  "description": "Roadmap, brainstorm ideas, checkpoints, and triaged items.",
+  "brainstorm": [
+    {
+      "idea": "Verify high-throughput LAPs across all valid ready NWB sessions dynamically.",
+      "status": "triaged"
     }
-  },
-  {
-    "title": "suite_02_tfr_lfp_traces_layer.ipynb",
-    "description": "Standardized TFR LFP 1D traces per area and layer. Contains control vs. omission comparisons, combined/pooled omission slots (p2 & p3) to improve SEM, and statistical significance masking (insignificant bands are flat-lined at 0 +- SEM).",
-    "priority": "high",
-    "status": "completed",
-    "progress_targets": [
-      "notebooks/suite_02_tfr_lfp_traces_layer.ipynb"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_02_tfr_lfp_traces_layer.ipynb": {
-        "score": 97,
-        "status": "done"
+  ],
+  "checkpoints": [],
+  "items": [
+    {
+      "title": "OGLO Session Report Suite Generator (Completed Phase 1)",
+      "description": "Generate a standardized folder structure for each NWB session containing report-suite.ipynb (interactive report), report-suite.html (fully compiled HTML export), and figures/svg/ (vector exports of all generated figures).",
+      "priority": "high",
+      "status": "completed"
+    },
+    {
+      "title": "OGLO Report Suite Improvement (Phase 2)",
+      "description": "Expand and compile the report suite to include exactly 10 comprehensive analyses with correct, visually valid SVG exports using the Madelane Golden Dark palette. Ensure precise coordinates, axis formatting, legends, and labels for all figures.",
+      "priority": "high",
+      "status": "completed"
+    },
+    {
+      "title": "SVM Preprocessing (Baseline Subtraction & Normalization)",
+      "description": "Expose baseline-subtraction parameters to normalize trial spike count vectors (e.g. subtracting pre-stimulus interval baseline firing rates) before training the SVM classifier to control for state fluctuations.",
+      "priority": "medium",
+      "status": "completed"
+    },
+    {
+      "title": "Interactive Granger Causality Network Visualization",
+      "description": "Develop an interactive directed graph visualization using Plotly in `jnwb/viz.py` that maps inter-area Granger causality causality flow as edge thickness, permitting dynamic node dragging and hover inspections.",
+      "priority": "low",
+      "status": "completed"
+    },
+    {
+      "title": "GPU-Accelerated Population Trajectory (PCA)",
+      "description": "Utilize PyTorch or JAX Singular Value Decomposition (SVD) on GPU to accelerate population trajectory dimensionality reduction (PCA) across thousands of active neurons.",
+      "priority": "medium",
+      "status": "brainstorm"
+    },
+    {
+      "title": "Reconcile Stable/S+/S-/O+ Definitions for V182o Re-Audit",
+      "description": "The live jnwb.addressing is_stable proxy (quality>=1.0, stable_plus aliased identically) is a much weaker test than the project's canonical 3-criterion stability pipeline (tag_stable_units.py: >=5 spikes/trial in every correct trial + firing_rate>=1Hz + (presence_ratio>=0.98 OR snr>0.75)), and the earlier V182o O+ candidate audit (examples/06_find_omission_positive_units_v182o.py) used an ad hoc Mann-Whitney+4Hz-diff test instead of the project's real candidate-labeling pipeline (run_spk_response_metrics_a8_1.py: paired Wilcoxon vs local pre-omission baseline + unpaired Mann-Whitney vs matched control, Cohen's d>0.3, BH-FDR q<0.05, S_plus/S_minus/O_plus_candidate/X_candidate priority resolution). Re-run both the canonical stability test and the canonical S+/S-/O+/X candidate pipeline on sub-V182o_ses-260629 so results are comparable to the historical grand_database_6040_units.csv methodology, and reconcile which of the previously-flagged 4 units survive under the correct definitions.",
+      "priority": "high",
+      "status": "completed"
+    },
+    {
+      "title": "suite_01_single_raster_panels.ipynb",
+      "description": "Single-unit raster suites and examples across different response classifications (O+, S+, S-, Null but stable, and prime neurons).",
+      "priority": "high",
+      "status": "completed",
+      "progress_targets": [
+        "notebooks/suite_01_single_raster_panels.ipynb"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_01_single_raster_panels.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "suite_03_tfr_lfp_heatmap2d.ipynb",
-    "description": "2D Heatmap of LFP Time-Frequency Representations (TFR) across all brain areas locked to omission onset, spanning -1250 ms pre-omission to +1750 ms post-omission.",
-    "priority": "high",
-    "status": "completed",
-    "progress_targets": [
-      "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "suite_02_tfr_lfp_traces_layer.ipynb",
+      "description": "Standardized TFR LFP 1D traces per area and layer. Contains control vs. omission comparisons, combined/pooled omission slots (p2 & p3) to improve SEM, and statistical significance masking (insignificant bands are flat-lined at 0 +- SEM).",
+      "priority": "high",
+      "status": "completed",
+      "progress_targets": [
+        "notebooks/suite_02_tfr_lfp_traces_layer.ipynb"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_02_tfr_lfp_traces_layer.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
-    "description": "LFP band power correlation analyses between different brain areas and cortical layers.",
-    "priority": "medium",
-    "status": "completed",
-    "progress_targets": [
-      "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "suite_03_tfr_lfp_heatmap2d.ipynb",
+      "description": "2D Heatmap of LFP Time-Frequency Representations (TFR) across all brain areas locked to omission onset, spanning -1250 ms pre-omission to +1750 ms post-omission.",
+      "priority": "high",
+      "status": "completed",
+      "progress_targets": [
+        "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_03_tfr_lfp_heatmap2d.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
-    "description": "Correlation analysis using the imaginary part of complex LFP values Im(freq, time) (preserving phase/imaginary components instead of absolute power).",
-    "priority": "medium",
-    "status": "completed",
-    "progress_targets": [
-      "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "suite_04_tfr_lfp_area_layer_band_power_corr.ipynb",
+      "description": "LFP band power correlation analyses between different brain areas and cortical layers.",
+      "priority": "medium",
+      "status": "completed",
+      "progress_targets": [
+        "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "suite_06_single_unit_lfp_band_power_correlations.ipynb",
-    "description": "Single-unit spike train correlations with local/distal LFP band powers compared between control and omission trials.",
-    "priority": "medium",
-    "status": "completed",
-    "progress_targets": [
-      "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb",
+      "description": "Correlation analysis using the imaginary part of complex LFP values Im(freq, time) (preserving phase/imaginary components instead of absolute power).",
+      "priority": "medium",
+      "status": "completed",
+      "progress_targets": [
+        "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "suite_07_pfc_population_trajectory.ipynb",
-    "description": "PFC population trajectory analysis via jnwb.trajectory (renamed off _tbd 2026-07-11).",
-    "priority": "low",
-    "status": "completed"
-  },
-  {
-    "title": "suite_08_omission_decoding.ipynb",
-    "description": "Sliding-window SVM omission decoding via jnwb.decoding (renamed off _tbd 2026-07-11).",
-    "priority": "low",
-    "status": "completed"
-  },
-  {
-    "title": "suite_09_granger_network.ipynb",
-    "description": "Directed Granger causality network across real areas (renamed off _tbd 2026-07-11).",
-    "priority": "low",
-    "status": "completed"
-  },
-  {
-    "title": "suite_10_pupil_behavior.ipynb",
-    "description": "Real pupil diameter aligned to AAAB/AAXB onsets (renamed off _tbd 2026-07-11).",
-    "priority": "low",
-    "status": "completed"
-  },
-  {
-    "title": "Brainstorm: LFP TFR Phase/Complex Coefficient Preprocessing and Interactive Plotting Suite",
-    "description": "Pre-process and save both real Re(freq, time) and imaginary Im(freq, time) components of the Morlet wavelet coefficients to support phase-locking (PLV), imaginary complex correlation (Suite 05), and phase coherence. Integrate interactive ipywidgets (for smoothing scale and band selection) and standardized timing overlays across all 10 notebooks.",
-    "priority": "high",
-    "status": "brainstorm"
-  },
-  {
-    "title": "Dual-engine (Parametric & Nonparametric) Significance Testing utility",
-    "description": "Implement a unified statistical comparison helper in jnwb/statistics.py that runs both parametric (t-test/ANOVA) and nonparametric (Wilcoxon/Mann-Whitney) tests on multi-trial averaged data (PSTHs, LFP power, correlations) and applies Benjamini-Hochberg FDR correction across time/frequency bins to control false positives.",
-    "priority": "high",
-    "status": "planned",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/statistics.py"
-    ],
-    "reframe": "FDR must be across hypothesis family (time/freq/units), NOT across parametric+nonparametric pair. Tracked under jnwb/statistics.py.",
-    "linked_progress_scores": {
-      "jnwb/statistics.py": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "suite_06_single_unit_lfp_band_power_correlations.ipynb",
+      "description": "Single-unit spike train correlations with local/distal LFP band powers compared between control and omission trials.",
+      "priority": "medium",
+      "status": "completed",
+      "progress_targets": [
+        "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_06_single_unit_lfp_band_power_correlations.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Hierarchy-Wide Multi-Band Power Correlation Matrix Heatmaps",
-    "description": "Generate pairwise power correlation heatmaps across the V1-to-PFC hierarchy for four distinct bands (Theta 2-8Hz, Alpha 8-14Hz, Beta 15-30Hz, Gamma 32-80Hz) to compare stimulus vs omission periods, with statistical significance overlays corrected for multiple comparisons.",
-    "priority": "high",
-    "status": "planned",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb"
-    ],
-    "depends_on": [
-      "jnwb/statistics.py FDR family-wise fix"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "suite_07_pfc_population_trajectory.ipynb",
+      "description": "PFC population trajectory analysis via jnwb.trajectory (renamed off _tbd 2026-07-11).",
+      "priority": "low",
+      "status": "completed"
+    },
+    {
+      "title": "suite_08_omission_decoding.ipynb",
+      "description": "Sliding-window SVM omission decoding via jnwb.decoding (renamed off _tbd 2026-07-11).",
+      "priority": "low",
+      "status": "completed"
+    },
+    {
+      "title": "suite_09_granger_network.ipynb",
+      "description": "Directed Granger causality network across real areas (renamed off _tbd 2026-07-11).",
+      "priority": "low",
+      "status": "completed"
+    },
+    {
+      "title": "suite_10_pupil_behavior.ipynb",
+      "description": "Real pupil diameter aligned to AAAB/AAXB onsets (renamed off _tbd 2026-07-11).",
+      "priority": "low",
+      "status": "completed"
+    },
+    {
+      "title": "Brainstorm: LFP TFR Phase/Complex Coefficient Preprocessing and Interactive Plotting Suite",
+      "description": "Pre-process and save both real Re(freq, time) and imaginary Im(freq, time) components of the Morlet wavelet coefficients to support phase-locking (PLV), imaginary complex correlation (Suite 05), and phase coherence. Integrate interactive ipywidgets (for smoothing scale and band selection) and standardized timing overlays across all 10 notebooks.",
+      "priority": "high",
+      "status": "brainstorm"
+    },
+    {
+      "title": "Dual-engine (Parametric & Nonparametric) Significance Testing utility",
+      "description": "Implement a unified statistical comparison helper in jnwb/statistics.py that runs both parametric (t-test/ANOVA) and nonparametric (Wilcoxon/Mann-Whitney) tests on multi-trial averaged data (PSTHs, LFP power, correlations) and applies Benjamini-Hochberg FDR correction across time/frequency bins to control false positives.",
+      "priority": "high",
+      "status": "planned",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/statistics.py"
+      ],
+      "reframe": "FDR must be across hypothesis family (time/freq/units), NOT across parametric+nonparametric pair. Tracked under jnwb/statistics.py.",
+      "linked_progress_scores": {
+        "jnwb/statistics.py": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "LFP Spectral Power Omission Dampening Traces",
-    "description": "Plot hierarchy-wide LFP power traces relative to baseline for visual stimulation, delay, and omission epochs across V1, V2, MT, TEO, V3a, FST, FEF, and PFC, with shaded SEM and corrected statistical significance bands.",
-    "priority": "medium",
-    "status": "planned",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "notebooks/suite_02_tfr_lfp_traces_layer.ipynb"
-    ],
-    "depends_on": [
-      "jnwb/statistics.py FDR family-wise fix"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_02_tfr_lfp_traces_layer.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Hierarchy-Wide Multi-Band Power Correlation Matrix Heatmaps",
+      "description": "Generate pairwise power correlation heatmaps across the V1-to-PFC hierarchy for four distinct bands (Theta 2-8Hz, Alpha 8-14Hz, Beta 15-30Hz, Gamma 32-80Hz) to compare stimulus vs omission periods, with statistical significance overlays corrected for multiple comparisons.",
+      "priority": "high",
+      "status": "planned",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb"
+      ],
+      "depends_on": [
+        "jnwb/statistics.py FDR family-wise fix"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_04_tfr_lfp_area_layer_band_power_corr.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Single-Unit Omission-Ramping vs Stimulus-Driven Profile Classification",
-    "description": "Classify single-neuron spiking patterns into stimulus-excited, stimulus-inhibited, and omission-ramping profiles using Wilcoxon and Mann-Whitney significance criteria relative to pre-stimulus and pre-omission baselines (q < 0.05 FDR corrected).",
-    "priority": "medium",
-    "status": "planned",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "notebooks/suite_01_single_raster_panels.ipynb"
-    ],
-    "depends_on": [
-      "jnwb/statistics.py FDR family-wise fix"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_01_single_raster_panels.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "LFP Spectral Power Omission Dampening Traces",
+      "description": "Plot hierarchy-wide LFP power traces relative to baseline for visual stimulation, delay, and omission epochs across V1, V2, MT, TEO, V3a, FST, FEF, and PFC, with shaded SEM and corrected statistical significance bands.",
+      "priority": "medium",
+      "status": "planned",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "notebooks/suite_02_tfr_lfp_traces_layer.ipynb"
+      ],
+      "depends_on": [
+        "jnwb/statistics.py FDR family-wise fix"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_02_tfr_lfp_traces_layer.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Hierarchy-Wide Multi-Unit Activity (MUA) Sequence Response Profile",
-    "description": "Epoch and plot MUA timecourses across V1, V3a, MT, FEF, and PFC over the entire visual stimulation sequence (4 stimulus presentations + delays + omission window) to test if omission selectively spares lower-order sensory MUA while producing weak, time-locked prediction-error spikes in higher-order FEF/PFC, validated with FDR-corrected Wilcoxon and t-tests.",
-    "priority": "medium",
-    "status": "planned",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "notebooks/suite_07_tbd.ipynb"
-    ],
-    "depends_on": [
-      "jnwb/statistics.py FDR family-wise fix"
-    ]
-  },
-  {
-    "title": "Gamma-Beta Dissociation and R-Squared Change Matrices",
-    "description": "Calculate the R-squared correlation difference (Stimulus vs Omission window) across visual areas to quantify gamma-beta spectral dissociation, verifying if FEF/PFC show the lowest correlation change across states, backed by bootstrapped confidence intervals and multiple comparison corrections.",
-    "priority": "medium",
-    "status": "planned",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb"
-    ],
-    "depends_on": [
-      "jnwb/statistics.py FDR family-wise fix"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Single-Unit Omission-Ramping vs Stimulus-Driven Profile Classification",
+      "description": "Classify single-neuron spiking patterns into stimulus-excited, stimulus-inhibited, and omission-ramping profiles using Wilcoxon and Mann-Whitney significance criteria relative to pre-stimulus and pre-omission baselines (q < 0.05 FDR corrected).",
+      "priority": "medium",
+      "status": "planned",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "notebooks/suite_01_single_raster_panels.ipynb"
+      ],
+      "depends_on": [
+        "jnwb/statistics.py FDR family-wise fix"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_01_single_raster_panels.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Remove synthetic decoding metrics",
-    "description": "jnwb/decoding.py returns fabricated accuracy (0.5+noise) with status=synthetic_fallback when trials < 2. Replace with raise or NaN + explicit insufficient_trials status; never invent quantitative performance. Also soft-fail report.py synthetic accuracy curve if present.",
-    "priority": "critical",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/decoding.py",
-      "jnwb/report.py",
-      "tests/"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/decoding.py",
-      "jnwb/report.py",
-      "tests/"
-    ],
-    "linked_progress_scores": {
-      "jnwb/decoding.py": {
-        "score": 97,
-        "status": "done"
-      },
-      "jnwb/report.py": {
-        "score": 98,
-        "status": "done"
+    },
+    {
+      "title": "Hierarchy-Wide Multi-Unit Activity (MUA) Sequence Response Profile",
+      "description": "Epoch and plot MUA timecourses across V1, V3a, MT, FEF, and PFC over the entire visual stimulation sequence (4 stimulus presentations + delays + omission window) to test if omission selectively spares lower-order sensory MUA while producing weak, time-locked prediction-error spikes in higher-order FEF/PFC, validated with FDR-corrected Wilcoxon and t-tests.",
+      "priority": "medium",
+      "status": "planned",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "notebooks/suite_07_tbd.ipynb"
+      ],
+      "depends_on": [
+        "jnwb/statistics.py FDR family-wise fix"
+      ]
+    },
+    {
+      "title": "Gamma-Beta Dissociation and R-Squared Change Matrices",
+      "description": "Calculate the R-squared correlation difference (Stimulus vs Omission window) across visual areas to quantify gamma-beta spectral dissociation, verifying if FEF/PFC show the lowest correlation change across states, backed by bootstrapped confidence intervals and multiple comparison corrections.",
+      "priority": "medium",
+      "status": "planned",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb"
+      ],
+      "depends_on": [
+        "jnwb/statistics.py FDR family-wise fix"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Fix FDR misuse in StatisticalAnalysis",
-    "description": "compare_groups/compare_multiple_groups/correlate apply BH-FDR to the pair (parametric_p, nonparametric_p) — statistically meaningless. Remove 2-pvalue FDR; keep dual tests as exploratory dual-report; add experiment-level FDR helpers that correct across hypotheses (units/channels/freqs/time). Reframe existing Dual-engine plan accordingly.",
-    "priority": "critical",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/statistics.py",
-      ".agents/skills/jnwb-statistics/SKILL.md"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/statistics.py",
-      ".agents/skills/jnwb-statistics/SKILL.md"
-    ],
-    "linked_progress_scores": {
-      "jnwb/statistics.py": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Remove synthetic decoding metrics",
+      "description": "jnwb/decoding.py returns fabricated accuracy (0.5+noise) with status=synthetic_fallback when trials < 2. Replace with raise or NaN + explicit insufficient_trials status; never invent quantitative performance. Also soft-fail report.py synthetic accuracy curve if present.",
+      "priority": "critical",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/decoding.py",
+        "jnwb/report.py",
+        "tests/"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/decoding.py",
+        "jnwb/report.py",
+        "tests/"
+      ],
+      "linked_progress_scores": {
+        "jnwb/decoding.py": {
+          "score": 97,
+          "status": "done"
+        },
+        "jnwb/report.py": {
+          "score": 98,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Nested CV + no optimistic decoding bias",
-    "description": "CPU path does GridSearchCV then cross_val_score on same data; GPU path picks best C from same folds used for reported accuracy. Switch to nested CV (outer eval / inner tune) or report grid.best_score_ only with clear 'inner-CV' label; add majority-class baseline (already partially tracked on decoding).",
-    "priority": "high",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/decoding.py"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/decoding.py"
-    ],
-    "linked_progress_scores": {
-      "jnwb/decoding.py": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Fix FDR misuse in StatisticalAnalysis",
+      "description": "compare_groups/compare_multiple_groups/correlate apply BH-FDR to the pair (parametric_p, nonparametric_p) \u00e2\u20ac\u201d statistically meaningless. Remove 2-pvalue FDR; keep dual tests as exploratory dual-report; add experiment-level FDR helpers that correct across hypotheses (units/channels/freqs/time). Reframe existing Dual-engine plan accordingly.",
+      "priority": "critical",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/statistics.py",
+        ".agents/skills/jnwb-statistics/SKILL.md"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/statistics.py",
+        ".agents/skills/jnwb-statistics/SKILL.md"
+      ],
+      "linked_progress_scores": {
+        "jnwb/statistics.py": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Effect-size naming + CIs on compare_groups",
-    "description": "Document paired Cohen's dz vs independent pooled d; attach bootstrap_ci (already exists as method) to compare_groups primary effect; optional assumption checks (normality/variance) with primary-test recommendation without inventing a single 'the answer'.",
-    "priority": "high",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/statistics.py"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/statistics.py"
-    ],
-    "linked_progress_scores": {
-      "jnwb/statistics.py": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Nested CV + no optimistic decoding bias",
+      "description": "CPU path does GridSearchCV then cross_val_score on same data; GPU path picks best C from same folds used for reported accuracy. Switch to nested CV (outer eval / inner tune) or report grid.best_score_ only with clear 'inner-CV' label; add majority-class baseline (already partially tracked on decoding).",
+      "priority": "high",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/decoding.py"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/decoding.py"
+      ],
+      "linked_progress_scores": {
+        "jnwb/decoding.py": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Granger diagnostics + regularized VAR",
-    "description": "Add stationarity (ADF/KPSS), residual whiteness (Ljung-Box), residual independence checks before interpreting GC; expose BIC/HQIC alongside AIC; optional ridge/shrinkage VAR for ill-conditioned high-order fits; fix residual variance divisor to N-p explicitly.",
-    "priority": "high",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/connectivity.py"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/connectivity.py"
-    ],
-    "linked_progress_scores": {
-      "jnwb/connectivity.py": {
-        "score": 100,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Effect-size naming + CIs on compare_groups",
+      "description": "Document paired Cohen's dz vs independent pooled d; attach bootstrap_ci (already exists as method) to compare_groups primary effect; optional assumption checks (normality/variance) with primary-test recommendation without inventing a single 'the answer'.",
+      "priority": "high",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/statistics.py"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/statistics.py"
+      ],
+      "linked_progress_scores": {
+        "jnwb/statistics.py": {
+          "score": 97,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Spike-train MI beyond binary occupancy",
-    "description": "spike_mutual_information bins then hist>0 → MI(binary occupancy), not MI(spike trains). Add count-based discrete MI and/or continuous-time estimator; label current API as binary_occupancy_mi.",
-    "priority": "medium",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/connectivity.py"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/connectivity.py"
-    ],
-    "linked_progress_scores": {
-      "jnwb/connectivity.py": {
-        "score": 100,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Granger diagnostics + regularized VAR",
+      "description": "Add stationarity (ADF/KPSS), residual whiteness (Ljung-Box), residual independence checks before interpreting GC; expose BIC/HQIC alongside AIC; optional ridge/shrinkage VAR for ill-conditioned high-order fits; fix residual variance divisor to N-p explicitly.",
+      "priority": "high",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/connectivity.py"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/connectivity.py"
+      ],
+      "linked_progress_scores": {
+        "jnwb/connectivity.py": {
+          "score": 100,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: Soften production-grade claims + CI install gate",
-    "description": "README/docs claim production-grade and 114 passing tests; clean env fails without pynwb. Soften to research analysis framework; make pynwb a declared install requirement for the advertised suite; add CI that installs deps and runs tests; add small numerical benchmark fixtures.",
-    "priority": "high",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "README.md",
-      "pyproject.toml",
-      "docs/ARCHITECTURE.md"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "README.md",
-      "pyproject.toml",
-      "docs/ARCHITECTURE.md"
-    ],
-    "linked_progress_scores": {
-      "README.md": {
-        "score": 100,
-        "status": "done"
-      },
-      "pyproject.toml": {
-        "score": 88,
-        "status": "open"
-      },
-      "docs/ARCHITECTURE.md": {
-        "score": 100,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Spike-train MI beyond binary occupancy",
+      "description": "spike_mutual_information bins then hist>0 \u00e2\u2020\u2019 MI(binary occupancy), not MI(spike trains). Add count-based discrete MI and/or continuous-time estimator; label current API as binary_occupancy_mi.",
+      "priority": "medium",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/connectivity.py"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/connectivity.py"
+      ],
+      "linked_progress_scores": {
+        "jnwb/connectivity.py": {
+          "score": 100,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Audit 2026-07-10: GPU SVM optimizer hygiene",
-    "description": "GPU hinge-loss path uses fixed 150 epochs, lr=0.05, no convergence/tolerance. Prefer sklearn LIBLINEAR on CPU or torch LBFGS/Adam with early stop; keep GPU as optional accelerator only after parity tests.",
-    "priority": "medium",
-    "status": "planned",
-    "source": "external-gpt-audit-2026-07-10",
-    "target_files": [
-      "jnwb/decoding.py"
-    ],
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/decoding.py"
-    ],
-    "linked_progress_scores": {
-      "jnwb/decoding.py": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: Soften production-grade claims + CI install gate",
+      "description": "README/docs claim production-grade and 114 passing tests; clean env fails without pynwb. Soften to research analysis framework; make pynwb a declared install requirement for the advertised suite; add CI that installs deps and runs tests; add small numerical benchmark fixtures.",
+      "priority": "high",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "README.md",
+        "pyproject.toml",
+        "docs/ARCHITECTURE.md"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "README.md",
+        "pyproject.toml",
+        "docs/ARCHITECTURE.md"
+      ],
+      "linked_progress_scores": {
+        "README.md": {
+          "score": 100,
+          "status": "done"
+        },
+        "pyproject.toml": {
+          "score": 88,
+          "status": "open"
+        },
+        "docs/ARCHITECTURE.md": {
+          "score": 100,
+          "status": "done"
+        }
       }
-    }
-  },
-  {
-    "title": "Brainstorm 2026-07-10: Exploratory vs confirmatory stats API split",
-    "description": "External audit root cause: convenience APIs blur exploratory dual-testing with publication inference. Permanent fix: exploratory_* returns dual tests without FDR theatre; confirmatory_* requires hypothesis family + correction axis + CI; diagnostics gate before GC/decoding claims.",
-    "priority": "high",
-    "status": "brainstorm",
-    "source": "external-gpt-audit-2026-07-10",
-    "planning_note": "Too architectural for a single-file score; folded into jnwb/statistics.py tbi as API split direction. Promote to proposed after FDR fix lands."
-  },
-  {
-    "title": "Brainstorm 2026-07-10: Per-NWB S+/S-/O+ stable raster suite (Suite 01)",
-    "description": "Poster maps Excited→S+, Inhibited→S-, Omission-ramping→O+. IMPLEMENTED as Suite 01 notebook + jnwb.unit_classification.classify_all_nwbs → grand_unit_table_shuffle_sso.csv (idempotent append-by-stem). CLI: scripts/build_grand_unit_table_shuffle_sso.py. Rasters remain optional follow-on from grand table picks.",
-    "priority": "high",
-    "status": "planned",
-    "source": "hamm-poster-brainstorm-2026-07-10",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "notebooks/suite_01_single_raster_panels.ipynb",
-      "jnwb/unit_classification.py",
-      "scripts/build_grand_unit_table_shuffle_sso.py"
-    ],
-    "linked_progress_scores": {
-      "notebooks/suite_01_single_raster_panels.ipynb": {
-        "score": 97,
-        "status": "done"
+    },
+    {
+      "title": "Audit 2026-07-10: GPU SVM optimizer hygiene",
+      "description": "GPU hinge-loss path uses fixed 150 epochs, lr=0.05, no convergence/tolerance. Prefer sklearn LIBLINEAR on CPU or torch LBFGS/Adam with early stop; keep GPU as optional accelerator only after parity tests.",
+      "priority": "medium",
+      "status": "planned",
+      "source": "external-gpt-audit-2026-07-10",
+      "target_files": [
+        "jnwb/decoding.py"
+      ],
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/decoding.py"
+      ],
+      "linked_progress_scores": {
+        "jnwb/decoding.py": {
+          "score": 97,
+          "status": "done"
+        }
       }
+    },
+    {
+      "title": "Brainstorm 2026-07-10: Exploratory vs confirmatory stats API split",
+      "description": "External audit root cause: convenience APIs blur exploratory dual-testing with publication inference. Permanent fix: exploratory_* returns dual tests without FDR theatre; confirmatory_* requires hypothesis family + correction axis + CI; diagnostics gate before GC/decoding claims.",
+      "priority": "high",
+      "status": "brainstorm",
+      "source": "external-gpt-audit-2026-07-10",
+      "planning_note": "Too architectural for a single-file score; folded into jnwb/statistics.py tbi as API split direction. Promote to proposed after FDR fix lands."
+    },
+    {
+      "title": "Brainstorm 2026-07-10: Per-NWB S+/S-/O+ stable raster suite (Suite 01)",
+      "description": "Poster maps Excited\u00e2\u2020\u2019S+, Inhibited\u00e2\u2020\u2019S-, Omission-ramping\u00e2\u2020\u2019O+. IMPLEMENTED as Suite 01 notebook + jnwb.unit_classification.classify_all_nwbs \u00e2\u2020\u2019 grand_unit_table_shuffle_sso.csv (idempotent append-by-stem). CLI: scripts/build_grand_unit_table_shuffle_sso.py. Rasters remain optional follow-on from grand table picks.",
+      "priority": "high",
+      "status": "planned",
+      "source": "hamm-poster-brainstorm-2026-07-10",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "notebooks/suite_01_single_raster_panels.ipynb",
+        "jnwb/unit_classification.py",
+        "scripts/build_grand_unit_table_shuffle_sso.py"
+      ],
+      "linked_progress_scores": {
+        "notebooks/suite_01_single_raster_panels.ipynb": {
+          "score": 97,
+          "status": "done"
+        }
+      }
+    },
+    {
+      "title": "Multi-page Markdown analysis reports with embedded SVG figures",
+      "description": "Canonical analysis deliverable format: SVG is the only standard visualization format for this project; HTML (via report.py) is for web-facing viewing only, not the source of truth. Build a jnwb markdown report generator that takes a session's canonical audit output (e.g. outputs/publication_figures/canonical_audit_<session>.csv from the stability/S+/S-/O+/X pipeline in examples/07_canonical_stability_and_response_audit_v182o.py) and renders a multi-page markdown bundle per session: one page per analysis stage (overview, stability, response classification, raster suites, TFR if available), each embedding real matplotlib-generated SVGs via relative image links, plus a top-level index.md table of contents. Prototype against sub-V182o_ses-260629 first so the shape can be reviewed before generalizing to a CLI/batch tool.",
+      "priority": "high",
+      "status": "planned",
+      "source": "hamm-2026-07-10",
+      "planned_on": "2026-07-10",
+      "progress_targets": [
+        "jnwb/markdown_report.py",
+        "outputs/markdown_reports/sub-V182o_ses-260629/index.md"
+      ]
+    },
+    {
+      "title": "Figure 3: S+/S-/O+ raster grid across R-family conditions",
+      "description": "scripts/build_figure3_raster_grid.py -- 4x3 real raster grid (rows RRRR/RXRR/RRXR/RRRX, columns S+/S-/O+), 40 real trials/panel, black spikes, epoch-colored shading matching the reference sequence-timing template, dual time axis (numeric ms + epoch tag), non-negative-integer trial ticks. Unit picks corrected twice this session (2026-07-13): first from a drift-stability-only method to a real omission/control ratio check (O+ unit 41 -> 51), then all three columns re-selected via real template-correlation (scripts/template_correlation_selection.py) since the drift-only S+/S- picks (units 17, 189) turned out non-significant matches to their claimed response shape. Current picks: S+=337 (r=0.985,p=0.008), S-=261 (r=0.985,p=0.003), O+=51 (r_mean=0.769, best of 7 real O+ candidates, no unit reaches p<0.05 in all 3 omission conditions simultaneously -- real, stated statistical-power limit of the one-hot template, not yet resolved). Verified: python -m pytest tests/ -q -> 172 passed, 0 failed; SVG rendered via svglib->PDF workaround and visually inspected. NOT yet committed/pushed. Handout: context/info/09_figure3_handout_2026-07-13.md.",
+      "priority": "medium",
+      "status": "completed"
+    },
+    {
+      "title": "Template-correlation unit selection method (S+/S-/O+ exemplar picking)",
+      "description": "scripts/template_correlation_selection.py -- real per-epoch duration-normalized firing rate (Hz), Pearson-correlated against idealized 0/1 pulse templates over the real epoch sequence (fx,p1,d1,p2,d2,p3,d3,p4,d4): S+ template 0-1-0-1-0-1-0-1-0, S- template 1-0-1-0-1-0-1-0-1, O+ one-hot at the real omitted slot per condition. Real permutation-test p-value (5000 draws, shuffled epoch-rate assignment), no Gaussian asymptotics assumed on the 9-sample vector. Scanned 330 real qualifying units in sub-C31o_ses-230823_rec -> outputs/classification/figure3_template_correlation_scan.csv. Open finding, not yet investigated: 3 units labeled 'Other' by the pooled shuffle-test classifier (240, 359, 360) rank in the top-10 S- template matches (r=0.92-0.95, p<0.01) -- possible under-calling by the pooled classifier, worth a dedicated look.",
+      "priority": "medium",
+      "status": "completed"
+    },
+    {
+      "title": "Run a real Proceed-with-Review pass over the 92-entry progress.json backlog",
+      "description": "2026-07-13 audit finding: artifacts/developer/review.json has 0 entries while progress.json carries 92 entries self-scored 97-100 during progress work, never independently re-checked. This is the exact mechanism that let suite_06/suite_07 sit fabricated-but-scored-100 for months (see .agents/AGENTS.md footgun #11). Every progress.json score should be treated unverified until a matching review.json row exists citing a real review_command receipt that actually reads the code producing each reported number, not just re-runs it and checks the exit code. Highest-priority PRP action available given current repo state; independent of the schema-shape gap below and does not require resolving it first.",
+      "priority": "critical",
+      "status": "planned"
+    },
+    {
+      "title": "Reconcile artifacts/developer/{plans,progress,review}.json schema mismatch",
+      "description": "2026-07-13 re-audit: plans.json (34 items) is a THIRD distinct shape from what .agents/skills/progress-review-plan/SKILL.md documents -- bare list of {title, description, priority, status}, no path/filename key at all, so it cannot be row-matched against progress.json (92 entries, {filename,path,score,tbis,tbds,...}) or review.json (0 entries, same wrapper). None of the three files match the v2 target shape ({summary, table[]}) either. Reconciling is real, data-mutating work on a live 92+34-entry backlog -- needs Hamm's explicit go-ahead before any row is renamed, merged, or dropped, per this project's 'no silent edits' discipline. Stray files also still present under artifacts/: pv.json, walkthrough.md, progress_report.md, reports/, reports_goal_verify/, reports_test_verify/.",
+      "priority": "high",
+      "status": "planned"
+    },
+    {
+      "title": "Omission Paradigm Context Documentation Suite",
+      "description": "Generate 5 comprehensive markdown documentation files under context/ detailing the omission paradigm, signal modalities, task configurations, temporal alignment, and the JRSA connectivity core.",
+      "priority": "high",
+      "status": "in-progress"
+    },
+    {
+      "title": "JRSA GPU (CuPy & CUDA) Optimization",
+      "description": "Optimize the JRSA engine to utilize CuPy-accelerated GPU operations for permutation tests, bootstrapping, and correlation metrics when device='cuda' is active.",
+      "priority": "high",
+      "status": "completed"
     }
-  },
-  {
-    "title": "Multi-page Markdown analysis reports with embedded SVG figures",
-    "description": "Canonical analysis deliverable format: SVG is the only standard visualization format for this project; HTML (via report.py) is for web-facing viewing only, not the source of truth. Build a jnwb markdown report generator that takes a session's canonical audit output (e.g. outputs/publication_figures/canonical_audit_<session>.csv from the stability/S+/S-/O+/X pipeline in examples/07_canonical_stability_and_response_audit_v182o.py) and renders a multi-page markdown bundle per session: one page per analysis stage (overview, stability, response classification, raster suites, TFR if available), each embedding real matplotlib-generated SVGs via relative image links, plus a top-level index.md table of contents. Prototype against sub-V182o_ses-260629 first so the shape can be reviewed before generalizing to a CLI/batch tool.",
-    "priority": "high",
-    "status": "planned",
-    "source": "hamm-2026-07-10",
-    "planned_on": "2026-07-10",
-    "progress_targets": [
-      "jnwb/markdown_report.py",
-      "outputs/markdown_reports/sub-V182o_ses-260629/index.md"
-    ]
-  },
-  {
-    "title": "Figure 3: S+/S-/O+ raster grid across R-family conditions",
-    "description": "scripts/build_figure3_raster_grid.py -- 4x3 real raster grid (rows RRRR/RXRR/RRXR/RRRX, columns S+/S-/O+), 40 real trials/panel, black spikes, epoch-colored shading matching the reference sequence-timing template, dual time axis (numeric ms + epoch tag), non-negative-integer trial ticks. Unit picks corrected twice this session (2026-07-13): first from a drift-stability-only method to a real omission/control ratio check (O+ unit 41 -> 51), then all three columns re-selected via real template-correlation (scripts/template_correlation_selection.py) since the drift-only S+/S- picks (units 17, 189) turned out non-significant matches to their claimed response shape. Current picks: S+=337 (r=0.985,p=0.008), S-=261 (r=0.985,p=0.003), O+=51 (r_mean=0.769, best of 7 real O+ candidates, no unit reaches p<0.05 in all 3 omission conditions simultaneously -- real, stated statistical-power limit of the one-hot template, not yet resolved). Verified: python -m pytest tests/ -q -> 172 passed, 0 failed; SVG rendered via svglib->PDF workaround and visually inspected. NOT yet committed/pushed. Handout: context/info/09_figure3_handout_2026-07-13.md.",
-    "priority": "medium",
-    "status": "completed"
-  },
-  {
-    "title": "Template-correlation unit selection method (S+/S-/O+ exemplar picking)",
-    "description": "scripts/template_correlation_selection.py -- real per-epoch duration-normalized firing rate (Hz), Pearson-correlated against idealized 0/1 pulse templates over the real epoch sequence (fx,p1,d1,p2,d2,p3,d3,p4,d4): S+ template 0-1-0-1-0-1-0-1-0, S- template 1-0-1-0-1-0-1-0-1, O+ one-hot at the real omitted slot per condition. Real permutation-test p-value (5000 draws, shuffled epoch-rate assignment), no Gaussian asymptotics assumed on the 9-sample vector. Scanned 330 real qualifying units in sub-C31o_ses-230823_rec -> outputs/classification/figure3_template_correlation_scan.csv. Open finding, not yet investigated: 3 units labeled 'Other' by the pooled shuffle-test classifier (240, 359, 360) rank in the top-10 S- template matches (r=0.92-0.95, p<0.01) -- possible under-calling by the pooled classifier, worth a dedicated look.",
-    "priority": "medium",
-    "status": "completed"
-  },
-  {
-    "title": "Run a real Proceed-with-Review pass over the 92-entry progress.json backlog",
-    "description": "2026-07-13 audit finding: artifacts/developer/review.json has 0 entries while progress.json carries 92 entries self-scored 97-100 during progress work, never independently re-checked. This is the exact mechanism that let suite_06/suite_07 sit fabricated-but-scored-100 for months (see .agents/AGENTS.md footgun #11). Every progress.json score should be treated unverified until a matching review.json row exists citing a real review_command receipt that actually reads the code producing each reported number, not just re-runs it and checks the exit code. Highest-priority PRP action available given current repo state; independent of the schema-shape gap below and does not require resolving it first.",
-    "priority": "critical",
-    "status": "planned"
-  },
-  {
-    "title": "Reconcile artifacts/developer/{plans,progress,review}.json schema mismatch",
-    "description": "2026-07-13 re-audit: plans.json (34 items) is a THIRD distinct shape from what .agents/skills/progress-review-plan/SKILL.md documents -- bare list of {title, description, priority, status}, no path/filename key at all, so it cannot be row-matched against progress.json (92 entries, {filename,path,score,tbis,tbds,...}) or review.json (0 entries, same wrapper). None of the three files match the v2 target shape ({summary, table[]}) either. Reconciling is real, data-mutating work on a live 92+34-entry backlog -- needs Hamm's explicit go-ahead before any row is renamed, merged, or dropped, per this project's 'no silent edits' discipline. Stray files also still present under artifacts/: pv.json, walkthrough.md, progress_report.md, reports/, reports_goal_verify/, reports_test_verify/.",
-    "priority": "high",
-    "status": "planned"
-  },
-  {
-    "title": "Omission Paradigm Context Documentation Suite",
-    "description": "Generate 5 comprehensive markdown documentation files under context/ detailing the omission paradigm, signal modalities, task configurations, temporal alignment, and the JRSA connectivity core.",
-    "priority": "high",
-    "status": "in-progress"
-  },
-  {
-    "title": "JRSA GPU (CuPy & CUDA) Optimization",
-    "description": "Optimize the JRSA engine to utilize CuPy-accelerated GPU operations for permutation tests, bootstrapping, and correlation metrics when device='cuda' is active.",
-    "priority": "high",
-    "status": "completed"
-  }
-]
+  ]
+}

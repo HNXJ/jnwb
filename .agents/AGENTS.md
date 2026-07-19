@@ -238,6 +238,31 @@ Checklist:
 - [ ] If `jrsa()` was used: confirm `nan_policy`, check effective N via `return_input=True`, and confirm `lag` was scalar (not a list) if per-lag p-values are being reported
 - [ ] If `statistics.py` bootstrap or permutation was used: confirm it was not called after any other code set `np.random.seed()`; prefer `jrsa()` with `permutations=` for neural similarity p-values
 
+## Common vs. Divergent Features Matrix
+
+### Common Features (Shared Across All Sessions & Pipelines)
+* **Epoch Timing Overlay**: Visual stimulus, delay, and omission windows follow the precise parameters of `jnwb.sequence_layout.EPOCH_ONSETS_MS` (`fx=-500`, `p1=0`, `d1=531`, `p2=1031`, `d2=1562`, `p3=2062`, `d3=2593`, `p4=3093`, `d4=3624` ms).
+* **Color Schemes**: Matplotlib and Plotly figures map to `omission-palette.mdc` (`Theta/p1` -> `GOLD`, `Alpha` -> `BLUE`, `Beta/p2` -> `VIOLET`, `Gamma` -> `GREEN`, `delays` -> `GRAY`).
+* **Dual-test statistics**: Every group-level contrast requires parametric (ANOVA/t-test) and non-parametric counterparts (Wilcoxon/Friedman) to prevent false-positive claims.
+* **Sidecar Metadata Topology**: Directory `D:/workspace/data/metadata/{stem}/` always holds raw tabular files: `electrodes.csv`, `units.csv`, `events.csv`, `h5_paths.json`.
+
+### Divergent Features (Session-Specific Exceptions & Critical Divergences)
+* **Probe Location Maps**: Probe letters map to different brain areas depending on the session (e.g. `probeA` can map to `FEF` or `PFC`). Resolving areas requires querying `jnwb.addressing.map_peak_channel_to_area` rather than splitting strings.
+* **Device metadata blockages**: Older sessions (e.g. `V182o`) contain PyNWB format builder anomalies. LFP and pupil dataset reads must fallback to direct `h5py` access (`acquisition/probe_*_lfp/data`).
+* **Epoch table differences**: Older visual sessions do not have `'is_omission'` column in their epochs table, and instead use `'oddball_status'` (where `1.0` = standard, `3.0` = omission slot).
+* **Unit ID Indices**: Firing rate table indices (`units_df.index`) do not match local kilosort `unit_id` column values. All spike-retrieval calls must index using row index labels, not Kilosort IDs.
+* **h5py Bytes Encoding**: Direct queries to raw `h5py` dataset attributes on some sessions return bytes (`b'2.0'`) instead of floats. Explicit bytes-aware decoding checks are required.
+
+## Fast but Shallow Agent Execution Rules (FSA Rules)
+
+If you are a fast, shallow agent with limited context window or planning depth, adhere strictly to this ruleset to operate safely:
+
+1. **Verify Session Readiness first**: Never hardcode NWB sessions. Load `artifacts/data/session_readiness.csv`, verify that `nwb_ok` and `sidecar_ok` are true, and iterate through the active rows.
+2. **Never assume Probe mappings**: Use `jnwb.addressing` methods to map channels to V1/PFC areas dynamically. Dual-area channels 1-64 map to the first labeled area; 65-128 map to the second.
+3. **Use the ordered Omission Palette**: Never specify custom color strings. Map parameters to index offsets of `omission-palette.mdc`.
+4. **Fallback to h5py for LFP data**: If standard NWB load fails, use `with h5py.File(path, 'r') as f:` and access the LFP matrix at `acquisition/probe_{idx}_lfp/data`.
+5. **Always double-test group statistics**: When plotting PSTHs or TFR traces, perform Wilcoxon signed-rank or Friedman Chi-square tests across trials/binned conditions and display the exact adjusted p-values.
+
 ## Legacy note
 
 `legacy/markdowns/CLAUDE.md` is historical orientation (counts, spectral pipeline notes). Prefer
