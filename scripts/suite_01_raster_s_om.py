@@ -93,9 +93,9 @@ def main():
             continue
             
         units = {
-            "S+": int(s_plus_candidates.iloc[0]["unit_id"]),
-            "S-": int(s_minus_candidates.iloc[0]["unit_id"]),
-            "O+": int(o_plus_candidates.iloc[0]["unit_id"])
+            "S+": s_plus_candidates.index[0],
+            "S-": s_minus_candidates.index[0],
+            "O+": o_plus_candidates.index[0]
         }
         
         print(f"Processing {prefix} with units S+={units['S+']}, S-={units['S-']}, O+={units['O+']}")

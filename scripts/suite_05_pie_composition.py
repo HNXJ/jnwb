@@ -61,9 +61,12 @@ def main():
             return
         df = pd.read_csv(GRAND_CLASSIFICATION_CSV_ALT)
         df['template_label'] = df['prior_display_class']
-        df['session_prefix'] = "sub-C31o_ses-230823"
+        df['session_prefix'] = "sub-C31o_ses-230823_rec"
     else:
         df = pd.read_csv(GRAND_CLASSIFICATION_CSV)
+        # Standardize session_prefix column if it exists as nwb_stem
+        if 'nwb_stem' in df.columns and 'session_prefix' not in df.columns:
+            df['session_prefix'] = df['nwb_stem']
         
     out_dir = REPO_ROOT / "outputs/publication_figures/suite_composition"
     out_dir.mkdir(parents=True, exist_ok=True)
