@@ -100,11 +100,11 @@ def main():
         
         # Select highly stable, high-firing exemplars for the visual showcase session
         if prefix == "sub-C31o_ses-230823":
-            # KS ID 202 is S+ (firing rate ~37Hz), KS ID 315 is S- (firing rate ~20Hz), KS ID 41 is O+ (~18Hz)
+            # KS ID 22 is S+ (~37 spikes/trial), KS ID 6 is S- (~36 spikes/trial), KS ID 51 is O+ (~34 spikes/trial)
             units = {
-                "S+": 202,
-                "S-": 315,
-                "O+": 41
+                "S+": 22,
+                "S-": 6,
+                "O+": 51
             }
         
         print(f"Processing {prefix} with units S+={units['S+']}, S-={units['S-']}, O+={units['O+']}")
