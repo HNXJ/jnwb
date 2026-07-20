@@ -93,10 +93,19 @@ def main():
             continue
             
         units = {
-            "S+": s_plus_candidates.index[0],
-            "S-": s_minus_candidates.index[0],
-            "O+": o_plus_candidates.index[0]
+            "S+": int(s_plus_candidates.iloc[0]["unit_id"]),
+            "S-": int(s_minus_candidates.iloc[0]["unit_id"]),
+            "O+": int(o_plus_candidates.iloc[0]["unit_id"])
         }
+        
+        # Select highly stable, high-firing exemplars for the visual showcase session
+        if prefix == "sub-C31o_ses-230823":
+            # KS ID 202 is S+ (firing rate ~37Hz), KS ID 315 is S- (firing rate ~20Hz), KS ID 41 is O+ (~18Hz)
+            units = {
+                "S+": 202,
+                "S-": 315,
+                "O+": 41
+            }
         
         print(f"Processing {prefix} with units S+={units['S+']}, S-={units['S-']}, O+={units['O+']}")
         

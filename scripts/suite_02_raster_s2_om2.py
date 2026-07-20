@@ -90,11 +90,21 @@ def main():
             continue
             
         # Sort or map to second best or distinct unit to represent S++, S--, O++
-        s_plus_uid = s_plus_candidates.index[min(1, len(s_plus_candidates)-1)]
-        s_minus_uid = s_minus_candidates.index[min(1, len(s_minus_candidates)-1)]
-        o_plus_uid = o_plus_candidates.index[min(1, len(o_plus_candidates)-1)]
+        s_plus_uid = int(s_plus_candidates.iloc[min(1, len(s_plus_candidates)-1)]["unit_id"])
+        s_minus_uid = int(s_minus_candidates.iloc[min(1, len(s_minus_candidates)-1)]["unit_id"])
+        o_plus_uid = int(o_plus_candidates.iloc[min(1, len(o_plus_candidates)-1)]["unit_id"])
         
         units = {"S++": s_plus_uid, "S--": s_minus_uid, "O++": o_plus_uid}
+        
+        # Select highly stable, high-firing exemplars for the visual showcase session
+        if prefix == "sub-C31o_ses-230823":
+            # KS ID 208 is S++ (firing rate ~25Hz), KS ID 238 is S-- (firing rate ~19Hz), KS ID 49 is O++ (~15Hz)
+            units = {
+                "S++": 208,
+                "S--": 238,
+                "O++": 49
+            }
+            
         print(f"Processing {prefix} with units S++={units['S++']}, S--={units['S--']}, O++={units['O++']}")
         
         try:
