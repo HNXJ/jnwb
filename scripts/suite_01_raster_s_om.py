@@ -141,6 +141,23 @@ def main():
                         ax_raster.axvspan(t_start, t_stop, color=EPOCH_SHADE_COLORS[label], alpha=EPOCH_SHADE_ALPHA, zorder=0, linewidth=0)
                         ax_psth.axvspan(t_start, t_stop, color=EPOCH_SHADE_COLORS[label], alpha=EPOCH_SHADE_ALPHA, zorder=0, linewidth=0)
                 
+                # Check if this condition has an omission, and place an 'x' marker centered on that epoch
+                # p2 is omission in RXRR, p3 in RRXR, p4 in RRRX
+                omission_epoch = None
+                if cond == "RXRR":
+                    omission_epoch = "p2"
+                elif cond == "RRXR":
+                    omission_epoch = "p3"
+                elif cond == "RRRX":
+                    omission_epoch = "p4"
+                
+                if omission_epoch is not None:
+                    # Center the 'x' marker within the 531 ms omission slot window
+                    onset_om = EPOCH_ONSETS_MS[omission_epoch]
+                    center_om = onset_om + 265.5
+                    # Plot 'x' marker just above the top trial of the raster
+                    ax_raster.plot(center_om, -1.5, marker="x", color="red", markersize=6, markeredgewidth=1.5, clip_on=False, zorder=10)
+                
                 all_spike_times_rel = []
                 trial_idx = 0
                 base_rates = []
