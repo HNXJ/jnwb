@@ -146,7 +146,15 @@ def main():
                 base_rates = []
                 stim_rates = []
                 
-                for onset in onsets[:N_TRIALS_SHOWN]:
+                # Select the trials to show, and shuffle them using a local RNG to ensure an unbiased raster sequence
+                selected_onsets = onsets[:N_TRIALS_SHOWN]
+                if len(selected_onsets) > 0:
+                    rng = np.random.default_rng(42)
+                    shuffled_onsets = rng.permutation(selected_onsets)
+                else:
+                    shuffled_onsets = []
+                
+                for onset in shuffled_onsets:
                     lo, hi = onset + win_s[0], onset + win_s[1]
                     mask = (spike_times >= lo) & (spike_times < hi)
                     rel_ms = (spike_times[mask] - onset) * 1000.0
