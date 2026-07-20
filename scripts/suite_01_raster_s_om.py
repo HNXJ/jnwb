@@ -160,7 +160,7 @@ def main():
                     stim_rates.append(stim_spk / 0.531)
                     
                 if len(onsets) > 0 and len(all_spike_times_rel) > 0:
-                    bin_centers, afr = causal_exponential_smoothing(all_spike_times_rel, len(onsets[:N_TRIALS_SHOWN]), WINDOW_MS, tau_ms=30.0)
+                    bin_centers, afr = causal_exponential_smoothing(all_spike_times_rel, len(onsets[:N_TRIALS_SHOWN]), WINDOW_MS, tau_ms=75.0)
                     ax_psth.plot(bin_centers, afr, color=CLASS_COLORS[cls], linewidth=1.2, zorder=3)
                     ax_psth.fill_between(bin_centers, 0, afr, color=CLASS_COLORS[cls], alpha=0.15, zorder=2)
                     
