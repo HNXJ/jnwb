@@ -98,14 +98,16 @@ def main():
             "O+": int(o_plus_candidates.iloc[0]["unit_id"])
         }
         
-        # Select highly stable, high-firing exemplars for the visual showcase session
+        # Select exemplars for the visual showcase session (230823).
+        # Units stored as (ks_unit_id, row_idx); get_spike_times indexes by row position (footgun #9).
+        # S+ uid=107 row=106: 47.2 spikes/trial, stim/delay 1.36x, drops 3.96 Hz at omission slot
+        # S-  uid=43  row=42:  43.1 spikes/trial, delay/stim 0.61x (inverse of S+), increases at px
+        # O+  uid=51  row=50:  34.0 spikes/trial, omission-specific
         if prefix == "sub-C31o_ses-230823":
-            # KS ID 21 is S+ (~78 spikes/trial, stim/delay ratio 1.63x - clear visual peaks at p1/p2/p3/p4)
-            # KS ID 6 is S- (~82 spikes/trial, delay/stim ratio 1.52x - mirror of S+), KS ID 51 is O+ (~34 spikes/trial)
             units = {
-                "S+": 21,
-                "S-": 6,
-                "O+": 51
+                "S+": (107, 106),
+                "S-": (43, 42),
+                "O+": (51, 50)
             }
         
         print(f"Processing {prefix} with units S+={units['S+']}, S-={units['S-']}, O+={units['O+']}")
@@ -124,14 +126,21 @@ def main():
         fig = plt.figure(figsize=(14, 16))
         outer_gs = gridspec.GridSpec(4, 3, figure=fig, hspace=0.35, wspace=0.25)
         
-        for row_idx, cond in enumerate(CONDITIONS):
+        for row_fig, cond in enumerate(CONDITIONS):
             onsets = onsets_by_cond[cond]
-            for col_idx, (cls, uid) in enumerate(units.items()):
-                inner_gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer_gs[row_idx, col_idx], height_ratios=[3, 1], hspace=0.08)
+            for col_idx, (cls, unit_spec) in enumerate(units.items()):
+                # unit_spec is (ks_uid, row_idx); get_spike_times uses row position (footgun #9)
+                if isinstance(unit_spec, tuple):
+                    ks_uid, unit_row = unit_spec
+                else:
+                    # legacy fallback: single int treated as both ks_uid and row_idx
+                    ks_uid = unit_spec
+                    unit_row = unit_spec
+                inner_gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer_gs[row_fig, col_idx], height_ratios=[3, 1], hspace=0.08)
                 ax_raster = fig.add_subplot(inner_gs[0])
                 ax_psth = fig.add_subplot(inner_gs[1], sharex=ax_raster)
                 
-                spike_times = sess.get_spike_times(uid)
+                spike_times = sess.get_spike_times(unit_row)  # row position, not KS ID
                 win_s = (WINDOW_MS[0] / 1000.0, WINDOW_MS[1] / 1000.0)
                 
                 for label, t_start in EPOCH_ONSETS_MS.items():
@@ -203,13 +212,13 @@ def main():
                 ax_psth.grid(True, which="both", axis="x", linestyle=":", linewidth=0.5, alpha=0.5)
                 
                 # Set subplot title to condition code
-                ax_raster.set_title(f"{cond} — {cls} (Unit {uid})", fontsize=10, fontweight="bold", color=CLASS_COLORS[cls])
+                ax_raster.set_title(f"{cond} — {cls} (Unit {ks_uid})", fontsize=10, fontweight="bold", color=CLASS_COLORS[cls])
                 
                 # Y-axis label as 'Trials' for raster, 'Hz' for PSTH
                 ax_raster.set_ylabel("Trials", fontsize=8)
                 ax_psth.set_ylabel("Hz", fontsize=8)
                 
-                if row_idx == 3:
+                if row_fig == 3:
                     ax_psth.set_xlabel("Time from trial onset (ms)", fontsize=9)
 
         svg_path = out_dir / f"{prefix}_suite_01_raster_s_om_{dt_suffix}.svg"
