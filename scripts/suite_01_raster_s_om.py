@@ -163,12 +163,7 @@ def main():
                     bin_centers, afr = causal_exponential_smoothing(all_spike_times_rel, len(onsets[:N_TRIALS_SHOWN]), WINDOW_MS, tau_ms=75.0)
                     ax_psth.plot(bin_centers, afr, color=CLASS_COLORS[cls], linewidth=1.2, zorder=3)
                     ax_psth.fill_between(bin_centers, 0, afr, color=CLASS_COLORS[cls], alpha=0.15, zorder=2)
-                    
-                    try:
-                        stat, p_val = wilcoxon(stim_rates, base_rates, zero_method="pratt")
-                        ax_psth.text(0.05, 0.8, f"p={p_val:.4f}", transform=ax_psth.transAxes, fontsize=8, color="#333333")
-                    except ValueError:
-                        pass
+
 
                 ax_raster.set_xlim(WINDOW_MS[0], WINDOW_MS[1])
                 ax_raster.set_ylim(0, N_TRIALS_SHOWN)
@@ -182,11 +177,13 @@ def main():
                 ax_psth.yaxis.set_major_locator(MaxNLocator(nbins=3))
                 ax_psth.grid(True, which="both", axis="x", linestyle=":", linewidth=0.5, alpha=0.5)
                 
-                if row_idx == 0:
-                    ax_raster.set_title(f"{cls} Neuron (Unit {uid})", fontsize=11, fontweight="bold", color=CLASS_COLORS[cls])
-                if col_idx == 0:
-                    ax_raster.set_ylabel(f"{cond}\nTrials", fontsize=9, fontweight="bold")
-                    ax_psth.set_ylabel("Hz", fontsize=8)
+                # Set subplot title to condition code
+                ax_raster.set_title(f"{cond} — {cls} (Unit {uid})", fontsize=10, fontweight="bold", color=CLASS_COLORS[cls])
+                
+                # Y-axis label as 'Trials' for raster, 'Hz' for PSTH
+                ax_raster.set_ylabel("Trials", fontsize=8)
+                ax_psth.set_ylabel("Hz", fontsize=8)
+                
                 if row_idx == 3:
                     ax_psth.set_xlabel("Time from trial onset (ms)", fontsize=9)
 
