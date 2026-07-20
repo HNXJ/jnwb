@@ -100,10 +100,11 @@ def main():
         
         # Select highly stable, high-firing exemplars for the visual showcase session
         if prefix == "sub-C31o_ses-230823":
-            # KS ID 21 is S+ (~78 spikes/trial), KS ID 185 is S- (~31 spikes/trial), KS ID 51 is O+ (~34 spikes/trial)
+            # KS ID 50 is S+ (~86 spikes/trial, r=-0.95 anti-correlation with S- Unit 6)
+            # KS ID 6 is S- (~82 spikes/trial), KS ID 51 is O+ (~34 spikes/trial)
             units = {
-                "S+": 21,
-                "S-": 185,
+                "S+": 50,
+                "S-": 6,
                 "O+": 51
             }
         
