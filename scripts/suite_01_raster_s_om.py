@@ -100,14 +100,14 @@ def main():
         
         # Select exemplars for the visual showcase session (230823).
         # Units stored as (ks_unit_id, row_idx); get_spike_times indexes by row position (footgun #9).
-        # S+ uid=107 row=106: 47.2 spikes/trial, stim/delay 1.36x, drops 3.96 Hz at omission slot
-        # S-  uid=43  row=42:  43.1 spikes/trial, delay/stim 0.61x (inverse of S+), increases at px
-        # O+  uid=51  row=50:  34.0 spikes/trial, omission-specific
+        # S+ uid=89  row=88:  51.8 spikes/trial, stim/delay 1.36x, drops at omission slot (matches S+ template)
+        # S-  uid=6   row=181: 45.9 spikes/trial, delay/stim 0.67x (inverse of S+), stays high at px (matches S- template)
+        # O+  uid=51  row=51:  82.4 spikes/trial, omission-specific (matches O+ template, old plot Row 51 labeled "Unit 51")
         if prefix == "sub-C31o_ses-230823":
             units = {
-                "S+": (107, 106),
-                "S-": (43, 42),
-                "O+": (51, 50)
+                "S+": (89, 88),
+                "S-": (6, 181),
+                "O+": (51, 51)
             }
         
         print(f"Processing {prefix} with units S+={units['S+']}, S-={units['S-']}, O+={units['O+']}")
