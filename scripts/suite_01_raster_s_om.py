@@ -155,8 +155,8 @@ def main():
                     # Center the 'x' marker within the 531 ms omission slot window
                     onset_om = EPOCH_ONSETS_MS[omission_epoch]
                     center_om = onset_om + 265.5
-                    # Plot 'x' marker just above the top trial of the raster
-                    ax_raster.plot(center_om, -1.5, marker="x", color="red", markersize=6, markeredgewidth=1.5, clip_on=False, zorder=10)
+                    # Plot 'x' marker just below the bottom of the raster (outside clip region, y=41.5)
+                    ax_raster.plot(center_om, 41.5, marker="x", color="red", markersize=6, markeredgewidth=1.5, clip_on=False, zorder=10)
                 
                 all_spike_times_rel = []
                 trial_idx = 0
