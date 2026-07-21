@@ -35,7 +35,7 @@ def save_json(path: Path, data: dict):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def run_verify():
+def run_verify(force: bool = False):
     """
     Self-Supervised Review Loop:
     Finds open items with a review_command, executes them, and automatically grades the state.
@@ -51,8 +51,8 @@ def run_verify():
     
     for i, entry in enumerate(review_entries):
         cmd = entry.get("review_command", "")
-        # Skip if empty, placeholder, or already verified successfully
-        if not cmd or "TODO" in cmd or entry.get("verdict") == "ACCEPTED":
+        # Skip if empty, placeholder, or already verified successfully (unless --force is passed)
+        if not cmd or "TODO" in cmd or (not force and entry.get("verdict") == "ACCEPTED"):
             continue
             
         # Clean up command string if it contains historical output logs
@@ -226,6 +226,8 @@ def main():
     parser = argparse.ArgumentParser(description="Self-Supervised & Self-Evolving PRP Loop Coordinator")
     parser.add_argument("--action", choices=["verify", "adapt", "sync", "all"], default="all",
                         help="The PRP loop phase action to execute")
+    parser.add_argument("--force", action="store_true",
+                        help="Force execution of all review commands, ignoring existing ACCEPTED verdicts")
     args = parser.parse_args()
     
     DEV_DIR.mkdir(parents=True, exist_ok=True)
@@ -233,9 +235,10 @@ def main():
     if args.action in ["sync", "all"]:
         run_sync()
     if args.action in ["verify", "all"]:
-        run_verify()
+        run_verify(force=args.force)
     if args.action in ["adapt", "all"]:
         run_adapt()
 
 if __name__ == "__main__":
     main()
+
