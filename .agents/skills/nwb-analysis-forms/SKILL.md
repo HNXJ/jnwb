@@ -71,3 +71,48 @@ dec_results = decode_stimulus_identity(session, area="PFC", condition_pairs=("AA
 # Or specifically standard-vs-omission (thin wrapper around decode_stimulus_identity)
 om_results = decode_omission_presence(session, area="PFC", standard_condition="AAAB", omission_condition="AAXB")
 ```
+
+## Minimal Pipeline Execution Recipes
+
+### 1. Running GPU-Accelerated Population Trajectory (PCA)
+```python
+import jnwb as oa
+from jnwb.trajectory import compute_population_trajectory
+
+# Load session and get visual epochs
+session = oa.read("D:/analysis/nwb/sub-C31o_ses-230823_rec.nwb")
+epochs_df = session.get_epochs(condition="RRRR", phase=2, correct_only=True)
+
+# Run PCA trajectory (automatically leverages GPU/CUDA if PyTorch detects it)
+traj = compute_population_trajectory(
+    session,
+    area="FEF",
+    epochs_df=epochs_df,
+    time_window_ms=(-500.0, 1500.0),
+    bin_size_ms=10.0,
+    n_components=3
+)
+
+print("Trajectory shape (times x components):", traj["trajectory"].shape)
+print("Explained variance:", traj["explained_variance"])
+```
+
+### 2. SVM Population Decoding Pipeline (Nested CV)
+```python
+import jnwb as oa
+from jnwb.decoding import decode_omission_presence
+
+session = oa.read("D:/analysis/nwb/sub-C31o_ses-230823_rec.nwb")
+
+# Train linear SVM model to classify standard vs. omission presence
+results = decode_omission_presence(
+    session,
+    area="FEF",
+    standard_condition="AAAB",
+    omission_condition="AAXB"
+)
+
+print("Classification Accuracy:", results["accuracy"])
+print("Majority Baseline Accuracy:", results["majority_baseline_accuracy"])
+print("F1 Score:", results["f1"])
+```

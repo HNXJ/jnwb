@@ -196,3 +196,43 @@ Plots (Left) a polar radar map representing relative band powers across V1, V4, 
   * The default `tau_ms = 30 ms` can be visually noisy for low-to-medium firing rate visual neurons.
   * For publication-grade figure layouts (such as `Suite 01` showcase grid), increase the time constant to **`tau_ms = 75 ms`**. This provides a cleaner representation of the underlying dynamics without losing transient visual onset shapes.
 
+
+## Matplotlib Visual Style Automation (`.mplstyle`)
+To automatically enforce the Madelane Golden dark theme and styling parameters across Matplotlib plotting pipelines without manually hardcoding parameters on every axis, define a local stylesheet asset:
+
+### 1. Style Config Code (`madelane_dark.mplstyle`)
+```ini
+# Figure aesthetics
+figure.facecolor: white
+axes.facecolor: white
+axes.edgecolor: #cccccc
+axes.linewidth: 0.8
+axes.spines.top: False
+axes.spines.right: False
+
+# Font settings
+font.family: sans-serif
+font.sans-serif: Helvetica, Arial, DejaVu Sans
+axes.labelsize: 10
+xtick.labelsize: 8
+ytick.labelsize: 8
+legend.fontsize: 8
+
+# Color Cycle mapping to omission-palette.mdc
+# Gold, Blue, Violet, Green, Gray
+axes.prop_cycle: cycler('color', ['#E5A93C', '#2274A5', '#7D5BA6', '#4F8F00', '#7E8082'])
+```
+
+### 2. Loading the Stylesheet dynamically
+```python
+import matplotlib.pyplot as plt
+
+# Load stylesheet configuration before plotting
+plt.style.use("madelane_dark.mplstyle")
+
+# Plotting commands will automatically inherit the styling properties
+fig, ax = plt.subplots()
+ax.plot(x, y) # Plots in Gold color by default
+```
+
+

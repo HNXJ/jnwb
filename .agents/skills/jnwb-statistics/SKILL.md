@@ -131,3 +131,29 @@ hypothesis family — **not** across the parametric/nonparametric pair from one 
 - Deprecated `fdr_pval_*` keys mirror raw p-values; do not treat them as FDR.
 - For publication families (many units/bins), call `fdr_correct` on the p-vector.
 - `compare_groups` also returns `mean_diff_ci` (bootstrap CI on mean difference).
+
+## 2D Spectrotemporal Grid FDR Correction
+When executing comparisons across many time-frequency bins (e.g. 2D spectrogram heatmaps or LFP trace grids), executing multiple comparisons without correction creates false positives. Always flatten the 2D grid of p-values, apply Benjamini-Hochberg FDR correction, and reshape it back to mask the grid:
+
+```python
+import numpy as np
+from jnwb import StatisticalAnalysis
+
+# Shape: (n_frequencies, n_times)
+p_grid = np.zeros((99, 100)) 
+
+# ... compute raw p-values for all bins into p_grid ...
+
+# Flatten the 2D array to correct across the entire Spectrotemporal family together
+p_flat = p_grid.flatten()
+
+# Apply Benjamini-Hochberg correction
+rejected, p_adjusted = StatisticalAnalysis.fdr_correct(p_flat, alpha=0.05)
+
+# Reshape back to the original 2D spectrotemporal grid shape
+p_grid_adjusted = p_adjusted.reshape(p_grid.shape)
+rejected_grid = rejected.reshape(p_grid.shape)
+
+# Use rejected_grid mask to flat-line or mask non-significant pixels in plots
+```
+

@@ -42,3 +42,15 @@ All metric dispatch functions `_metric(x1, x2, axis=-1, **kwargs)` must return e
 
 - `_compute_statistics` is a no-op dead stub returning the raw value.
 - `_stack_batches` is defined but never called; `batch_size` remains a cosmetic parameter.
+
+## Refactoring & Cleanup Roadmap
+
+To bring the `jrsa` engine to perfect state:
+1. **Consolidate CPU Duplicated Paths**:
+   * Currently, `jnwb/jrsa.py::_pearson` and `_spearman` duplicate correlation math. Rewrite these to delegate to the unified `StatisticalAnalysis.correlate` method for CPU arrays.
+2. **Remove Dead Stubs**:
+   * Delete the no-op `_compute_statistics` function completely.
+   * Remove the unused `_stack_batches` function and standardise or remove the inactive `batch_size` parameter from the public API.
+3. **Refactor Dimension Reduction**:
+   * Replace the duplicated 80-line dimension reduction if/elif blocks for `x1` and `x2` inside `jrsa()` with a clean unified function or an `_OPS` dispatch table.
+

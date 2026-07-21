@@ -150,3 +150,23 @@ Omission NWB session files contain the following physiological signals:
 4. **Spiking Signal Types**:
    * *Unconvolved Spikes*: Raw discrete event spike times retrieved via `session.get_units()` or `nwb.units['spike_times']`.
    * *Convolved Spikes / PSTH*: Continuous rate representations computed by smoothing discrete spikes with a temporal kernel (e.g. Gaussian window or binning via `UnitAnalyzer.psth`).
+
+## direct h5py fallback access (head-free & speedups)
+On older sessions (such as `V182o` and visual sessions containing PyNWB Device schema anomalies), attempting a standard PyNWB object build can cause build blockages. Use direct `h5py` reads to load LFP matrices and behavioral arrays without using full PyNWB schemas:
+
+```python
+import h5py
+import numpy as np
+
+# direct read template
+with h5py.File("D:/analysis/nwb/sub-V182o_ses-260706.nwb", "r") as f:
+    # 1. Direct LFP extraction (avoiding device metadata build blocks)
+    # LFP data is under acquisition/probe_[idx]_lfp/electrical_series/data
+    lfp_data = f["acquisition/probe_0_lfp/probe_0_lfp_data/data"][:] # channels x samples
+    lfp_timestamps = f["acquisition/probe_0_lfp/probe_0_lfp_data/timestamps"][:]
+    
+    # 2. Pupil diameter behavioral tracking
+    pupil_data = f["acquisition/pupil_diameter/data"][:]
+    pupil_timestamps = f["acquisition/pupil_diameter/timestamps"][:]
+```
+

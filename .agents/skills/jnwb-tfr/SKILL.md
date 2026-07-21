@@ -147,6 +147,20 @@ Frequencies: `np.arange(3, 201, 2)` Hz (99 bins) for this session.
 - `suite_tfr_ready=False`: `sub-C31o_ses-230630`, `sub-V198o_ses-230629`
 - Always gate on `artifacts/data/session_readiness.csv` before loading a TFR array.
 
-## Stable-Plus LFP Channels: Selection Rule
-
 Use only **Stable-Plus** channels (channels with at least one stable-plus unit) for LFP analysis.
+
+## LFP memory preservation & lazy loading
+Loading raw LFP datasets from NWB can exhaust available system memory (RAM) due to high sampling frequencies (usually 30 kHz downsampled to 1000 Hz in preprocessed files). 
+
+### Guidelines for Memory Safety:
+1. **Head-free Downsampling**: Ensure raw LFP electrical series data is downsampled to `1000 Hz` immediately upon direct loading.
+2. **Channel-by-channel loading (lazy load)**: Avoid using ` electrical_series.data[:]` which loads all channels and trials into RAM. Instead, load only the channels corresponding to the targeted brain area/layer of interest:
+   ```python
+   # Load only channels 0 to 10 of LFP dataset
+   with h5py.File("path_to_nwb.nwb", "r") as f:
+       lfp_ds = f["acquisition/probe_0_lfp/electrical_series/data"]
+       # Slicing keeps the load in RAM minimal
+       lfp_channel_slice = lfp_ds[:, 0:10] # samples x 10 channels
+   ```
+3. **Decouple TFR arrays**: For multi-channel computations, utilize precomputed `.npy` arrays located in `D:/workspace/data/tfr_arrays/` rather than re-computing TFRs from raw signals on the fly.
+

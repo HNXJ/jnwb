@@ -125,3 +125,22 @@ stable = pd.read_csv(
 | Stable-plus          | 661    |
 | Sessions             | verify via `artifacts/data/session_readiness.csv` / `nwb_catalog.json` — do not hardcode; "13" is a known-stale legacy figure (17 NWB files as of the 2026-07-09 receipt, see `.agents/AGENTS.md`) |
 | Subjects             | 3 (C31o, V182o, V198o) |
+
+## Bytes-Aware String Decoding
+On specific sessions (e.g. `sub-C31o_ses-230816` and `230901`), direct h5py string dataset reads come back as **bytes objects** (like `b'2.0'`, `b'nan'`, or `b'stable_plus'`), which fail standard string equality matching and trial sorting checks.
+Always coerce and decode byte-encoded attribute columns to standard UTF-8 strings before querying:
+
+```python
+# Safe decode utility for dataset attributes and columns
+def decode_bytes(val):
+    if isinstance(val, bytes):
+        return val.decode("utf-8")
+    return val
+
+# Example check loop
+for col in ["stimulus_number", "correct", "task_condition_number"]:
+    val = dataset[idx]
+    cleaned_val = decode_bytes(val)
+    # Perform numeric/string checks safely on cleaned_val
+```
+
