@@ -64,6 +64,8 @@ res = session.raster_suite(unit_id=2.0)
 fig = res["figure"]
 fig.savefig('outputs/visualization_gallery/task_01_raster/raster_suite.png')
 ```
+* **Layout Standard**: When placing custom omission markers (like `'x'`) below inverted-axis rasters, calculate the y-position dynamically as `N_TRIALS_SHOWN + 1.5` instead of using a hardcoded coordinate to prevent layout overlap if the trial count changes.
+
 
 ### Task 2: Raw LFP Traces (Probe B / 1)
 Plots raw LFP time-series for channels 44, 47, and 50 of Probe B.

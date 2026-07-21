@@ -69,6 +69,8 @@ All state is preserved in four files under `artifacts/developer/`:
   * `change` (str): Plain text describing the rule modification.
   * `status` (str): `proposed` | `applied`
   * `evidence` (str): Commit or file-edit receipt verifying the rule.
+  * `use_count` (int): Frequency count of how many times the rule has been referenced or successfully applied.
+  * `rating` (float): Quality score (0.0 to 10.0) upvoted/downvoted based on the rule's effectiveness in preventing regression.
 
 ---
 
@@ -88,11 +90,15 @@ Finds open entries in `review.json`, executes their `review_command` in a backgr
 python scripts/self_supervised_prp.py --action verify
 ```
 
-### 3. Self-Evolving Adaptation Loop (`--action adapt`)
-Scans verification error trace logs (e.g. for `NameError` or path issues) and automatically formats new proposed rules inside `adapt.json`:
+To force re-verification of already verified/ACCEPTED files (bypassing the stored skip condition when environment configurations or library functions change), append the `--force` flag:
 ```bash
-python scripts/self_supervised_prp.py --action adapt
+python scripts/self_supervised_prp.py --action verify --force
 ```
+
+### 3. Self-Evolving Adaptation Loop (`--action adapt`)
+Scans verification error trace logs (e.g. for `NameError` or path issues) and automatically formats new proposed rules inside `adapt.json`. 
+
+Every time a rule is dynamically updated or utilized in a task, increment the corresponding rule's `use_count` field in `adapt.json` and adjust its `rating` (upvote/downvote) to prune low-performing constraints over time.
 
 ### 4. Checkpoint State (`Seal`)
 Saves a checkpoint of the current JSON database when `review.json` has been successfully cleared.
