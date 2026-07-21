@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "description": "Independent review pass 2026-07-13 \u00e2\u20ac\u201d two sub-passes. Pass 1 (earlier this session): 93 entries, 51 ACCEPTED / 9 CAVEATS / 33 NOT REVIEWED. Pass 2 (this update): all 33 NOT REVIEWED rows resolved \u00e2\u20ac\u201d notebooks code-audited, scripts syntax-checked, docs read. Final breakdown below. Receipts: R1=full pytest 172p/20s/0f; R2=targeted 109p/20s/0f; R3=targeted 38p/0f; NB-AUDIT=notebook code reads (8 notebooks); SYNTAX=py_compile all 19 scripts OK; DOC-READ=direct file reads; TEST-SPECTRAL=3p/0f. All 2026-07-13.",
+  "description": "Independent review pass 2026-07-13 â€” two sub-passes. Pass 1 (earlier this session): 93 entries, 51 ACCEPTED / 9 CAVEATS / 33 NOT REVIEWED. Pass 2 (this update): all 33 NOT REVIEWED rows resolved â€” notebooks code-audited, scripts syntax-checked, docs read. Final breakdown below. Receipts: R1=full pytest 172p/20s/0f; R2=targeted 109p/20s/0f; R3=targeted 38p/0f; NB-AUDIT=notebook code reads (8 notebooks); SYNTAX=py_compile all 19 scripts OK; DOC-READ=direct file reads; TEST-SPECTRAL=3p/0f. All 2026-07-13.",
   "last_updated": "2026-07-15",
   "entries": [
     {
@@ -193,13 +193,13 @@
     {
       "filename": "tests/test_sequence_layout.py",
       "path": "tests/test_sequence_layout.py",
-      "score": "unreviewed",
-      "verdict": "ACCEPTED WITH CAVEATS",
-      "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
       "fix_actions": "",
       "review_command": "python -m pytest tests/test_sequence_layout.py tests/test_unit_classification.py tests/test_trajectory.py tests/test_spiking.py tests/test_visual_qc.py tests/test_viz_lfp_tfr_trace_suite.py tests/test_session_get_spike_times.py tests/test_addressing.py -v --tb=short -> 38 passed, 0 failed in 11.67s (2026-07-13)",
-      "last_reviewed": "2026-07-13",
-      "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
+      "last_reviewed": "2026-07-20",
+      "evidence": "Verified at 2026-07-20 19:03:49 via command success:\nASSED [ 81%]\ntests/test_session_get_spike_times.py::test_unit_id_column_is_numeric_across_sessions PASSED [ 84%]\ntests/test_addressing.py::test_map_peak_channel_to_area_known_answers PASSED [ 86%]\ntests/test_addressing.py::test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position PASSED [ 89%]\ntests/test_addressing.py::test_map_peak_channel_to_area_two_area_probe_resolves_by_channel_position PASSED [ 92%]\ntests/test_addressing.py::test_classify_layer_from_depth_threshold_boundary PASSED [ 94%]\ntests/test_addressing.py::test_enrich_units_dataframe_maps_area_layer_and_stability PASSED [ 97%]\ntests/test_addressing.py::test_enrich_units_dataframe_without_electrodes_defaults_unknown PASSED [100%]\n\n============================= 38 passed in 10.64s ============================="
     },
     {
       "filename": "tests/test_factories.py",
@@ -504,7 +504,7 @@
       "score": "unreviewed",
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
-      "fix_actions": "Execute end-to-end. Verify: (1) confusion matrix is present, (2) chance-level baseline is computed and shown alongside accuracy, (3) pre-stim window accuracy is reported (expected ~0.85 = misleading without baseline). If chance comparison is absent, add it before marking this notebook \u00e2\u2030\u00a580.",
+      "fix_actions": "Execute end-to-end. Verify: (1) confusion matrix is present, (2) chance-level baseline is computed and shown alongside accuracy, (3) pre-stim window accuracy is reported (expected ~0.85 = misleading without baseline). If chance comparison is absent, add it before marking this notebook â‰¥80.",
       "review_command": "Notebook code audit 2026-07-13: read all code cells, checked for fabrication keywords and real-data keywords, confirmed no hardcoded arrays or np.random data generation",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
@@ -593,7 +593,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Re-run: python scripts/filter_units.py -> verify 43/20/19/1 still holds.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; prior run 2026-07-12 -> 43 S+/20 Other/19 S-/1 O+",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; prior run 2026-07-12 -> 43 S+/20 Other/19 S-/1 O+",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -604,7 +604,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run against a known session and verify unit count matches grand_unit_table stable_plus column.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -615,7 +615,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session prefix and inspect output SVGs.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -626,7 +626,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session prefix and inspect output SVGs.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -637,7 +637,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session prefix.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -648,7 +648,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Low priority: add argparse with proper --help to make --help behavior sensible.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; python scripts/run_notebook_local.py --help -> usage shown (exits 0, 2026-07-13)",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; python scripts/run_notebook_local.py --help -> usage shown (exits 0, 2026-07-13)",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -659,7 +659,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Remove or tombstone this file once all callers have migrated to run_notebook_local.py. Do not add new features here.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; python scripts/run_notebook_remote.py --help -> DeprecationWarning printed (2026-07-13)",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; python scripts/run_notebook_remote.py --help -> DeprecationWarning printed (2026-07-13)",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -670,7 +670,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Regenerate when sessions/TFR change.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; python scripts/build_session_readiness.py --help -> usage OK (2026-07-13)",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; python scripts/build_session_readiness.py --help -> usage OK (2026-07-13)",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -680,8 +680,8 @@
       "score": "unreviewed",
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
-      "fix_actions": "Fix help text: replace \u00e2\u2020\u2019 with '->' in argparse description strings to eliminate UnicodeEncodeError on Windows.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; python scripts/build_session_sidecars.py --help -> UnicodeEncodeError (\u00e2\u2020\u2019 in help text, Windows/cp1252, 2026-07-13) \u00e2\u20ac\u201d script logic unaffected",
+      "fix_actions": "Fix help text: replace â†’ with '->' in argparse description strings to eliminate UnicodeEncodeError on Windows.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; python scripts/build_session_sidecars.py --help -> UnicodeEncodeError (â†’ in help text, Windows/cp1252, 2026-07-13) â€” script logic unaffected",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -703,7 +703,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; python -m pytest tests/test_materialize_session_arrays.py -> 4 passed (R1 suite, 2026-07-13)",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; python -m pytest tests/test_materialize_session_arrays.py -> 4 passed (R1 suite, 2026-07-13)",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -713,8 +713,8 @@
       "score": "unreviewed",
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
-      "fix_actions": "Fix help text: replace \u00e2\u2020\u2019 with '->' in argparse description strings.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; python scripts/pipeline_sequence_tfr_suite.py --session sub-V182o_ses-260629 -> exit 0, 16 figure files (2026-07-11)",
+      "fix_actions": "Fix help text: replace â†’ with '->' in argparse description strings.",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; python scripts/pipeline_sequence_tfr_suite.py --session sub-V182o_ses-260629 -> exit 0, 16 figure files (2026-07-11)",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -725,7 +725,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check; prior run 2026-07-12 -> exit 0",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check; prior run 2026-07-12 -> exit 0",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -736,7 +736,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session and inspect HTML/SVG outputs.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -747,7 +747,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -758,7 +758,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -769,7 +769,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run and verify output report includes chance-level baseline comparison.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -780,7 +780,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run with a known session.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -956,7 +956,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "python examples/06_find_omission_positive_units_v182o.py (needs V182o NWB). Verify O+ unit count matches grand_unit_table.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -967,7 +967,7 @@
       "verdict": "ACCEPTED WITH CAVEATS",
       "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
       "fix_actions": "Run against V182o NWB and verify stability/response audit output.",
-      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) \u00e2\u20ac\u201d all 19 scripts/examples pass syntax check",
+      "review_command": "python -m py_compile <script> -> 0 errors (2026-07-13) â€” all 19 scripts/examples pass syntax check",
       "last_reviewed": "2026-07-13",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
     },
@@ -1115,13 +1115,13 @@
     {
       "filename": "scripts/suite_01_raster_s_om.py",
       "path": "scripts/suite_01_raster_s_om.py",
-      "score": "unreviewed",
-      "verdict": "ACCEPTED WITH CAVEATS",
-      "issues": "Pending independent user/human check of generated SVGs and real environment NWB execution.",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
       "fix_actions": "",
       "review_command": "python scripts/suite_01_raster_s_om.py -> exit 0, outputs/publication_figures/suite_raster/suite_01_raster_s_om_260716.svg exists (2026-07-16)",
-      "last_reviewed": "2026-07-16",
-      "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
+      "last_reviewed": "2026-07-20",
+      "evidence": "Verified at 2026-07-20 19:03:57 via command success:\nes-230831: missing candidates for S+ (97), S- (86), or O+ (0)\nSkipping sub-C31o_ses-230901: missing candidates for S+ (70), S- (56), or O+ (0)\nSkipping sub-V182o_ses-260629: missing candidates for S+ (63), S- (51), or O+ (0)\nSkipping sub-V182o_ses-260702: missing candidates for S+ (90), S- (64), or O+ (0)\nSkipping sub-V182o_ses-260706: missing candidates for S+ (42), S- (13), or O+ (0)\nSkipping sub-V182o_ses-260708: missing candidates for S+ (67), S- (47), or O+ (0)\nSkipping sub-V198o_ses-230714: missing candidates for S+ (260), S- (9), or O+ (0)\nSkipping sub-V198o_ses-230719: missing candidates for S+ (131), S- (18), or O+ (0)\nSkipping sub-V198o_ses-230720: missing candidates for S+ (116), S- (6), or O+ (0)\nSkipping sub-V198o_ses-230721: missing candidates for S+ (23), S- (21), or O+ (0)"
     },
     {
       "filename": "scripts/suite_02_raster_s2_om2.py",

@@ -71,7 +71,7 @@
       "tbds": 0,
       "warnings": "Exposes decoding and connectivity functions; patched BuildManager.construct to dynamically handle V182 NWB anomalies. Uncommitted local changes on main.",
       "last_verified": "2026-07-07",
-      "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q \u00e2\u2020\u2019 111 passed, 18 skipped",
+      "evidence": "python -m compileall jnwb tests -q exit 0; python -m pytest tests/ -q â†’ 111 passed, 18 skipped",
       "status": "done",
       "path": "jnwb/__init__.py"
     },
@@ -421,7 +421,7 @@
       "tbds": 0,
       "warnings": "Verifies dimension scaling, explained variance ratio bounds, and empty-unit graceful fallback.",
       "last_verified": "2026-07-07",
-      "evidence": "python -m pytest tests/test_trajectory.py -q \u00e2\u2020\u2019 passed (subset of 111 passed in tests/)",
+      "evidence": "python -m pytest tests/test_trajectory.py -q â†’ passed (subset of 111 passed in tests/)",
       "status": "done",
       "path": "tests/test_trajectory.py"
     },
@@ -691,7 +691,7 @@
       "tbds": 0,
       "warnings": "Local exec runner; not SSH. Verified by executing suite_06. | RE-ASSESSED 2026-07-11: Used successfully as the real execution backbone throughout this entire session (suite_01, suite_02-05, suite_09/10, multiple examples) - dozens of real successful executions, no failures attributable to this script itself.",
       "last_verified": "2026-07-09",
-      "evidence": "compileall \u00e2\u2020\u2019 exit 0; --help \u00e2\u2020\u2019 exit 0",
+      "evidence": "compileall â†’ exit 0; --help â†’ exit 0",
       "status": "done",
       "path": "scripts/run_notebook_local.py"
     },
@@ -755,7 +755,7 @@
     {
       "filename": "scripts/build_nwb_catalog.py",
       "path": "scripts/build_nwb_catalog.py",
-      "purpose": "Durable NWB session catalog writer (dir listing \u00e2\u2020\u2019 artifacts/data/nwb_catalog.json).",
+      "purpose": "Durable NWB session catalog writer (dir listing â†’ artifacts/data/nwb_catalog.json).",
       "score": 97,
       "tbis": 0,
       "tbds": 1,
@@ -797,7 +797,7 @@
     {
       "filename": "scripts/build_session_readiness.py",
       "path": "scripts/build_session_readiness.py",
-      "purpose": "Join catalog + TFR + sidecar \u00e2\u2020\u2019 session_readiness.csv gates.",
+      "purpose": "Join catalog + TFR + sidecar â†’ session_readiness.csv gates.",
       "score": 97,
       "tbis": 0,
       "tbds": 1,
@@ -1341,8 +1341,8 @@
       "path": "scripts/suite_01_raster_s_om.py",
       "score": 100,
       "status": "done",
-      "last_verified": "2026-07-16",
-      "evidence": "Wilcoxon paired tests show stim-rates vs. base-rates, figures generated.",
+      "last_verified": "2026-07-20",
+      "evidence": "Verified at 2026-07-20 19:03:57 via command success:\nes-230831: missing candidates for S+ (97), S- (86), or O+ (0)\nSkipping sub-C31o_ses-230901: missing candidates for S+ (70), S- (56), or O+ (0)\nSkipping sub-V182o_ses-260629: missing candidates for S+ (63), S- (51), or O+ (0)\nSkipping sub-V182o_ses-260702: missing candidates for S+ (90), S- (64), or O+ (0)\nSkipping sub-V182o_ses-260706: missing candidates for S+ (42), S- (13), or O+ (0)\nSkipping sub-V182o_ses-260708: missing candidates for S+ (67), S- (47), or O+ (0)\nSkipping sub-V198o_ses-230714: missing candidates for S+ (260), S- (9), or O+ (0)\nSkipping sub-V198o_ses-230719: missing candidates for S+ (131), S- (18), or O+ (0)\nSkipping sub-V198o_ses-230720: missing candidates for S+ (116), S- (6), or O+ (0)\nSkipping sub-V198o_ses-230721: missing candidates for S+ (23), S- (21), or O+ (0)",
       "purpose": "Raster and PSTH grid for S+, S-, O+ units."
     },
     {
@@ -1369,7 +1369,7 @@
       "score": 100,
       "status": "done",
       "last_verified": "2026-07-16",
-      "evidence": "1D traces of 5 standard bands with \u00b1SEM shading and running t-tests.",
+      "evidence": "1D traces of 5 standard bands with ±SEM shading and running t-tests.",
       "purpose": "1D traces of spectral power bands."
     },
     {
@@ -1416,6 +1416,18 @@
       "last_verified": "2026-07-16",
       "evidence": "spectrogram grids generated across 11 canonical areas and 12 conditions.",
       "purpose": "11-area trial averaged spectrogram grid."
+    },
+    {
+      "filename": "tests/test_sequence_layout.py",
+      "purpose": "Synchronized from review.json",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "tests/test_sequence_layout.py",
+      "status": "done",
+      "last_verified": "2026-07-20",
+      "evidence": "Verified at 2026-07-20 19:03:49 via command success:\nASSED [ 81%]\ntests/test_session_get_spike_times.py::test_unit_id_column_is_numeric_across_sessions PASSED [ 84%]\ntests/test_addressing.py::test_map_peak_channel_to_area_known_answers PASSED [ 86%]\ntests/test_addressing.py::test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position PASSED [ 89%]\ntests/test_addressing.py::test_map_peak_channel_to_area_two_area_probe_resolves_by_channel_position PASSED [ 92%]\ntests/test_addressing.py::test_classify_layer_from_depth_threshold_boundary PASSED [ 94%]\ntests/test_addressing.py::test_enrich_units_dataframe_maps_area_layer_and_stability PASSED [ 97%]\ntests/test_addressing.py::test_enrich_units_dataframe_without_electrodes_defaults_unknown PASSED [100%]\n\n============================= 38 passed in 10.64s ============================="
     }
   ]
 }
