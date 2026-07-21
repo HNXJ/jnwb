@@ -1,4 +1,11 @@
+---
+name: progress-review-plan
+description: |
+  Durable file-based backlog loop (PRP v3): Plan -> Progress -> Review -> Adapt -> Seal, plus Inspect.
+---
+
 # progress-review-plan (PRP v3)
+
 
 Durably track backlog task state across sessions. State lives in JSON files under `artifacts/developer/`, not in chat memory.
 

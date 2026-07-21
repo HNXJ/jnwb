@@ -1,4 +1,11 @@
+---
+name: jnwb-jrsa
+description: |
+  Joint Relationship and Spectral Analysis (JRSA) engine connectivity guidelines and refactoring roadmap.
+---
+
 # Skill: jnwb-jrsa — Joint Relationship and Spectral Analysis Reference
+
 
 Unified reference for the Joint Relationship and Spectral Analysis (`jrsa`) engine inside `jnwb`.
 
