@@ -15,6 +15,8 @@ import h5py
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from jnwb.addressing import map_peak_channel_to_area
+
 READINESS_CSV = REPO_ROOT / "artifacts/data/session_readiness.csv"
 GRAND_TABLE_CSV = REPO_ROOT / "outputs/classification/grand_unit_table_shuffle_sso.csv"
 METADATA_DIR = Path("D:/workspace/data/metadata")
@@ -118,14 +120,14 @@ def main():
             probe_ids = []
             local_channels = []
             areas = []
-            
             for ch_raw in peak_ch_ids:
                 ch_id = coerce_to_int_ch(ch_raw)
                 if ch_id in electrodes.index:
                     elec_row = electrodes.loc[ch_id]
                     probe_ids.append(get_probe_letter(elec_row.get("probe", "")))
                     local_channels.append(ch_id % 128)
-                    areas.append(elec_row.get("location", ""))
+                    mapped_area = map_peak_channel_to_area(ch_id, electrodes) or elec_row.get("location", "")
+                    areas.append(mapped_area)
                 else:
                     probe_ids.append("")
                     local_channels.append(-1)
