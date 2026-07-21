@@ -189,3 +189,10 @@ Plots (Left) a polar radar map representing relative band powers across V1, V4, 
 ```python
 # Script located at: scripts/visualization_pipeline.py (Task 16 block)
 ```
+
+## Publication-Grade PSTH Smoothing Standards
+* **Smoothing Filter**: Always use a causal exponential smoothing filter for single-unit average firing rate traces (PSTHs).
+* **Time Constant (`tau_ms`)**: 
+  * The default `tau_ms = 30 ms` can be visually noisy for low-to-medium firing rate visual neurons.
+  * For publication-grade figure layouts (such as `Suite 01` showcase grid), increase the time constant to **`tau_ms = 75 ms`**. This provides a cleaner representation of the underlying dynamics without losing transient visual onset shapes.
+

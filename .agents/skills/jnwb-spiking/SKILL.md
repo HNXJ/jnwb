@@ -186,3 +186,18 @@ effect of all real candidates.
 - **Superficial**: unit channel within ±10 channels of another verified superficial unit → N = 614
 - **Deep**: unit channel within ±10 channels of another verified deep unit → N = 1,813
 - **Unresolved**: ~25 % remain unresolved
+
+## Diagnostic Verification Guidelines
+
+### 1. Row Index vs. Kilosort ID Mapping (Mapping Validation check)
+* **Crucial Rule**: The `get_spike_times(index)` method indexes by the **positional row index** of the unit dataframe, NOT the Kilosort `unit_id` column value.
+* Always assert mapping correctness before indexing to avoid off-by-one errors (where you silently load a neighboring high-FR unit):
+  ```python
+  unit_row = ... # your mapping target
+  assert units.loc[unit_row, 'unit_id'] == target_ks_id, f"Mapping mismatch: row {unit_row} is unit {units.loc[unit_row, 'unit_id']} not {target_ks_id}"
+  ```
+
+### 2. S+ Omission Slot Suppression
+* An S+ unit must not only show standard visual slot activation (`stim > delay` modulation), but also show **genuine stimulus-driven drop** when that visual slot is omitted (i.e. `p2_RXRR < p2_RRRR`, `p3_RRXR < p3_RRRR`, `p4_RRRX < p4_RRRR`). 
+* Always check the condition-specific epoch vectors (e.g. `mean_drop_hz = mean(RRRR_px - Omitted_px)`) to verify that the visual response is indeed suppressed in the absence of the stimulus.
+

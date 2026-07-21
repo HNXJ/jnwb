@@ -219,7 +219,8 @@ actions: `proceed with brainstorm` → `proceed with plan` → `proceed with rev
 - Schema is still v1. Migration to v2 needs Hamm's explicit go-ahead.
 
 ### Self-Evolving & Self-Supervised Adaptation
-During the **Adapt** phase, the PRP loop must dynamically pay attention to the active workspace skills (`.agents/skills/`), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to automatically propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions.
+During the **Adapt** phase, the PRP loop must dynamically pay attention to the active workspace skills (`.agents/skills/`), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to automatically propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions. Rules and memories must be dynamically upvoted or downvoted based on their usage frequency and overall effectiveness.
+
 
 
 ## Git / worktree discipline (project)
