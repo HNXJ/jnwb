@@ -52,7 +52,7 @@ def run_verify(force: bool = False):
     for i, entry in enumerate(review_entries):
         cmd = entry.get("review_command", "")
         # Skip if empty, placeholder, or already verified successfully (unless --force is passed)
-        if not cmd or "TODO" in cmd or (not force and entry.get("verdict") == "ACCEPTED"):
+        if not cmd or "TODO" in cmd or (not force and entry.get("verdict") in ("ACCEPTED", "ACCEPTED WITH CAVEATS")):
             continue
             
         # Clean up command string if it contains historical output logs
@@ -76,10 +76,10 @@ def run_verify(force: bool = False):
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             if result.returncode == 0:
-                print("  => SUCCESS!")
-                entry["score"] = 100
-                entry["verdict"] = "ACCEPTED"
-                entry["issues"] = ""
+                print("  => SUCCESS (capped at CAVEATS pending content audit)")
+                entry["score"] = 85
+                entry["verdict"] = "ACCEPTED WITH CAVEATS"
+                entry["issues"] = "Auto-verified by exit code only; content not audited. Exit-code success alone does not confirm reported numbers trace to real computation (see AGENTS.md footgun #11 — suite_06/suite_07 fabricated output scored 100 on exit-code checks alone). Requires a separate human or content-reading Proceed-with-Review pass before this can reach ACCEPTED/100."
                 entry["evidence"] = f"Auto-verified at {timestamp} via command success:\n{output_snippet}"
             else:
                 print(f"  => FAILED (code {result.returncode})")
