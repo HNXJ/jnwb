@@ -116,6 +116,7 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
 22. **`StatisticalAnalysis.correlate` and `jrsa._pearson/_spearman` are duplicates** — Both compute Pearson+Spearman with NaN removal. `_pearson`/`_spearman` in `jrsa.py` do not delegate to `StatisticalAnalysis.correlate`. Any bug fixed in one will not propagate to the other. Planned consolidation: make `_pearson`/`_spearman` delegate to `StatisticalAnalysis.correlate` on CPU paths.
 23. **`_compute_statistics` is a dead stub** — The function body is `return value` and is never called anywhere. It exists only as a leftover stub. Do not add logic to it; delete it on the next refactoring pass.
 24. **`mcp_server/` does not belong inside `jnwb/`** — The MCP server subdirectory is an infrastructure component, not part of the neural analysis library. It should live at repo root or in a separate package. Having it inside `jnwb/` pollutes the package namespace and import graph.
+25. **Memory-mapped TFR downsampling slicing** — When processing multi-session 4D TFR arrays `(n_trials, n_ch, n_freqs, n_times)` (2.23 GB per file), downsample trials and channels using slicing (`arr[::4, ::8, :, :]`) before averaging. Slicing memory-mapped arrays prevents loading full files into RAM, reducing disk I/O by 32x and boosting script execution speeds from minutes to seconds.
 
 ## Skills to load before reinventing
 
