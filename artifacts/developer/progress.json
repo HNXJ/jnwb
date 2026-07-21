@@ -1476,6 +1476,30 @@
       "status": "done",
       "last_verified": "2026-07-20",
       "evidence": "Verified via command success: python scripts/build_manuscript_figure7.py. Output figure7_spike_lfp_coupling.svg exists."
+    },
+    {
+      "filename": "build_all_manuscript_figures.py",
+      "purpose": "Master manuscript figure suite runner executing all 7 figure scripts sequentially.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "scripts/build_all_manuscript_figures.py",
+      "status": "done",
+      "last_verified": "2026-07-21",
+      "evidence": "Verified via command success: python scripts/build_all_manuscript_figures.py."
+    },
+    {
+      "filename": "build_granger_connectivity_grid.py",
+      "purpose": "Compute directional spectral Granger causality network grid (Figure 8).",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "scripts/build_granger_connectivity_grid.py",
+      "status": "done",
+      "last_verified": "2026-07-21",
+      "evidence": "Verified via command success: python scripts/build_granger_connectivity_grid.py."
     }
   ]
 }

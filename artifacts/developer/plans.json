@@ -534,6 +534,20 @@
       "description": "Optimize the JRSA engine to utilize CuPy-accelerated GPU operations for permutation tests, bootstrapping, and correlation metrics when device='cuda' is active.",
       "priority": "high",
       "status": "completed"
+    },
+    {
+      "title": "build_all_manuscript_figures.py",
+      "description": "Master manuscript figure suite runner executing all 7 figure scripts sequentially.",
+      "priority": "high",
+      "status": "completed",
+      "path": "scripts/build_all_manuscript_figures.py"
+    },
+    {
+      "title": "build_granger_connectivity_grid.py",
+      "description": "Compute directional spectral Granger causality network grid (Figure 8).",
+      "priority": "high",
+      "status": "completed",
+      "path": "scripts/build_granger_connectivity_grid.py"
     }
   ]
 }

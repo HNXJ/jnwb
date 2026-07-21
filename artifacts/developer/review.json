@@ -1254,6 +1254,28 @@
       "review_command": "python scripts/build_manuscript_figure7.py",
       "last_reviewed": "2026-07-20",
       "evidence": "Verified via command success. Output figure7_spike_lfp_coupling.svg exists."
+    },
+    {
+      "filename": "build_all_manuscript_figures.py",
+      "path": "scripts/build_all_manuscript_figures.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
+      "fix_actions": "",
+      "review_command": "python scripts/build_all_manuscript_figures.py",
+      "last_reviewed": "2026-07-21",
+      "evidence": "Verified via command success: python scripts/build_all_manuscript_figures.py."
+    },
+    {
+      "filename": "build_granger_connectivity_grid.py",
+      "path": "scripts/build_granger_connectivity_grid.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
+      "fix_actions": "",
+      "review_command": "python scripts/build_granger_connectivity_grid.py",
+      "last_reviewed": "2026-07-21",
+      "evidence": "Verified via command success: python scripts/build_granger_connectivity_grid.py."
     }
   ],
   "entry_count": 101
