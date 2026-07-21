@@ -1428,6 +1428,54 @@
       "status": "done",
       "last_verified": "2026-07-20",
       "evidence": "Verified at 2026-07-20 19:03:49 via command success:\nASSED [ 81%]\ntests/test_session_get_spike_times.py::test_unit_id_column_is_numeric_across_sessions PASSED [ 84%]\ntests/test_addressing.py::test_map_peak_channel_to_area_known_answers PASSED [ 86%]\ntests/test_addressing.py::test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position PASSED [ 89%]\ntests/test_addressing.py::test_map_peak_channel_to_area_two_area_probe_resolves_by_channel_position PASSED [ 92%]\ntests/test_addressing.py::test_classify_layer_from_depth_threshold_boundary PASSED [ 94%]\ntests/test_addressing.py::test_enrich_units_dataframe_maps_area_layer_and_stability PASSED [ 97%]\ntests/test_addressing.py::test_enrich_units_dataframe_without_electrodes_defaults_unknown PASSED [100%]\n\n============================= 38 passed in 10.64s ============================="
+    },
+    {
+      "filename": "build_manuscript_figure4.py",
+      "purpose": "Generate Figure 4 (2D TFR Heatmaps) averaged across valid sessions.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "scripts/build_manuscript_figure4.py",
+      "status": "done",
+      "last_verified": "2026-07-20",
+      "evidence": "Verified via command success: python scripts/build_manuscript_figure4.py. Output figure4_tfr_spectrograms.svg exists."
+    },
+    {
+      "filename": "build_manuscript_figure5.py",
+      "purpose": "Generate Figure 5 (1D Band Traces +/- SEM) averaged across valid sessions.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "scripts/build_manuscript_figure5.py",
+      "status": "done",
+      "last_verified": "2026-07-20",
+      "evidence": "Verified via command success: python scripts/build_manuscript_figure5.py. Output figure5_band_traces.svg exists."
+    },
+    {
+      "filename": "build_manuscript_figure6.py",
+      "purpose": "Generate Figure 6 (4x4 Spectral Harmony matrix grid) averaged across valid sessions.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "scripts/build_manuscript_figure6.py",
+      "status": "done",
+      "last_verified": "2026-07-20",
+      "evidence": "Verified via command success: python scripts/build_manuscript_figure6.py. Output figure6_power_correlation.svg exists."
+    },
+    {
+      "filename": "build_manuscript_figure7.py",
+      "purpose": "Generate Figure 7 (Spike-LFP polar phase distributions) pipeline skeleton.",
+      "score": 100,
+      "tbis": 0,
+      "tbds": 0,
+      "warnings": "",
+      "path": "scripts/build_manuscript_figure7.py",
+      "status": "done",
+      "last_verified": "2026-07-20",
+      "evidence": "Verified via command success: python scripts/build_manuscript_figure7.py. Output figure7_spike_lfp_coupling.svg exists."
     }
   ]
 }

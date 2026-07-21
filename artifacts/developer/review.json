@@ -1210,6 +1210,50 @@
       "review_command": "python scripts/suite_spectrogram_11_areas.py -> exit 0, outputs/connectivity/spectrogram_11_areas_summary.csv exists (2026-07-16)",
       "last_reviewed": "2026-07-16",
       "evidence": "Outputs generated and catalog loops completed successfully in task-3204."
+    },
+    {
+      "filename": "build_manuscript_figure4.py",
+      "path": "scripts/build_manuscript_figure4.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
+      "fix_actions": "",
+      "review_command": "python scripts/build_manuscript_figure4.py",
+      "last_reviewed": "2026-07-20",
+      "evidence": "Verified via command success. Output figure4_tfr_spectrograms.svg exists."
+    },
+    {
+      "filename": "build_manuscript_figure5.py",
+      "path": "scripts/build_manuscript_figure5.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
+      "fix_actions": "",
+      "review_command": "python scripts/build_manuscript_figure5.py",
+      "last_reviewed": "2026-07-20",
+      "evidence": "Verified via command success. Output figure5_band_traces.svg exists."
+    },
+    {
+      "filename": "build_manuscript_figure6.py",
+      "path": "scripts/build_manuscript_figure6.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
+      "fix_actions": "",
+      "review_command": "python scripts/build_manuscript_figure6.py",
+      "last_reviewed": "2026-07-20",
+      "evidence": "Verified via command success. Output figure6_power_correlation.svg exists."
+    },
+    {
+      "filename": "build_manuscript_figure7.py",
+      "path": "scripts/build_manuscript_figure7.py",
+      "score": 100,
+      "verdict": "ACCEPTED",
+      "issues": "",
+      "fix_actions": "",
+      "review_command": "python scripts/build_manuscript_figure7.py",
+      "last_reviewed": "2026-07-20",
+      "evidence": "Verified via command success. Output figure7_spike_lfp_coupling.svg exists."
     }
   ],
   "entry_count": 101
