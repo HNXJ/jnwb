@@ -28,6 +28,7 @@ FIGURE_SCRIPTS = [
     ("Figure 5", "scripts/build_manuscript_figure5.py"),
     ("Figure 6", "scripts/build_manuscript_figure6.py"),
     ("Figure 7", "scripts/build_manuscript_figure7.py"),
+    ("LFP Suite", "scripts/build_suite_lfp_power_traces.py"),
 ]
 
 def main():
