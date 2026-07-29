@@ -23,7 +23,11 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from pathlib import Path
 
+from jnwb import viz_cns as cns
+from jnwb.viz_cns import MultiPanelCanvas, bind_omission_palette, add_stat_annotation
+
 log = logging.getLogger(__name__)
+
 
 
 # Madelane Golden Dark Palette
@@ -33,6 +37,53 @@ MADELANE_WHITE = "#FFFFFF"
 MADELANE_GRAY = "#D3D3D3"
 MADELANE_TEAL = "#00FFCC"
 MADELANE_ORANGE = "#FF5E00"
+
+# Enforce journal-grade editable vector SVG fonts globally
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans']
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['axes.edgecolor'] = '#333333'
+plt.rcParams['axes.linewidth'] = 0.8
+plt.rcParams['xtick.direction'] = 'out'
+plt.rcParams['ytick.direction'] = 'out'
+
+
+def setup_vector_graphics():
+    """Enforce editable vector SVG font rendering in Adobe Illustrator / Inkscape."""
+    plt.rcParams['svg.fonttype'] = 'none'
+    plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans']
+    plt.rcParams['font.family'] = 'sans-serif'
+
+
+def add_sequence_epoch_overlays(ax, alpha: float = 0.12):
+    """
+    Overlay sequence epoch shading bands (S1, S2, S3, S4/Omission) with exact timing.
+    Epoch Onsets (ms): p1=0..531, p2=1031..1562, p3=2062..2593, p4/Om=3093..3624.
+    """
+    epochs = [
+        ("S1", 0, 531, "#1565C0"),       # Blue
+        ("S2", 1031, 1562, "#9C27B0"),   # Violet
+        ("S3", 2062, 2593, "#4CAF50"),   # Green
+        ("S4/Om", 3093, 3624, "#E53935") # Red / Omission
+    ]
+    for label, start, end, color in epochs:
+        ax.axvspan(start, end, color=color, alpha=alpha, zorder=0)
+
+
+def apply_tight_auto_axis(ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12):
+    """Apply tight temporal bounds and auto-scale y-axis without empty margins."""
+    ax.set_xlim(x_span)
+    lines = ax.get_lines()
+    if lines:
+        all_y = []
+        for line in lines:
+            ydata = line.get_ydata()
+            if len(ydata) > 0 and not np.all(np.isnan(ydata)):
+                all_y.extend(ydata[~np.isnan(ydata)])
+        if all_y:
+            ymin, ymax = np.min(all_y), np.max(all_y)
+            rng = max(ymax - ymin, 1e-3)
+            ax.set_ylim(max(0, ymin - y_margin * rng), ymax + y_margin * rng)
 
 
 # Condition families for organized visualization

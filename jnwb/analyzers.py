@@ -492,7 +492,7 @@ class PopulationAnalyzer:
             'group2_n_valid':  len(data2),
             'group1_mean':     float(np.mean(data1)) if len(data1) > 0 else np.nan,
             'group2_mean':     float(np.mean(data2)) if len(data2) > 0 else np.nan,
-            'statistics':      StatisticalAnalysis.compare_groups(data1, data2),
+            'statistics':      StatisticalAnalysis.exploratory_compare(data1, data2),
         }
 
     @staticmethod

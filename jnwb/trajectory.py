@@ -14,7 +14,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from jnwb.gpu_pca import gpu_pca
+
 log = logging.getLogger(__name__)
+
 
 
 def build_time_resolved_matrix(

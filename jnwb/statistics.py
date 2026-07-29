@@ -1,23 +1,32 @@
 """
 Statistical Analysis Module: Parametric + Non-parametric + family-wise FDR
 
-Every dual comparison computes:
-- Parametric test (t-test, ANOVA, Pearson r, etc.)
-- Non-parametric equivalent (Mann-Whitney U, Kruskal-Wallis, Spearman rho, etc.)
-- Named effect sizes (Cohen's dz / pooled d, r, eta²)
-- Optional bootstrap CI on the mean difference (compare_groups)
+API Layers
+----------
+**Exploratory** (``exploratory_compare``, ``exploratory_correlate``, ``exploratory_multi``):
+    Dual parametric + non-parametric reporting for pilot analysis.
+    Returns raw p-values only.  No q-values, no FDR correction applied.
+    Use freely during exploration; do not cite these p-values as confirmatory.
 
-FDR (Benjamini-Hochberg) is applied only via ``fdr_correct`` across a hypothesis
-family (units, channels, frequencies, time bins, …) — never across the pair of
-parametric vs nonparametric p-values from a single comparison.
+**Confirmatory** (``confirmatory_compare``):
+    Requires an explicit hypothesis string and alpha level.
+    Returns BH-adjusted q-values suitable for cross-hypothesis family correction.
+    Use StatisticalAnalysis.fdr_correct() on a *collection* of confirmatory p-values
+    when testing many hypotheses (units / channels / frequencies / time bins).
+
+**Legacy** (``compare_groups``, ``compare_multiple_groups``, ``correlate``):
+    Still functional; emit DeprecationWarnings on the ``fdr_pval_*`` output keys.
+    Migrate to exploratory_* or confirmatory_* as appropriate.
 
 Author: Claude Code
 Date: 2025-06-24
+Revised: 2026-07-26 — Exploratory / Confirmatory API split
 """
 
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Dict, List, Optional, Sequence, Union
 
 import numpy as np
@@ -63,7 +72,15 @@ class StatisticalAnalysis:
 
     @staticmethod
     def _uncorrected_flags(param_p: float, nonparam_p: float) -> Dict:
-        """Single-comparison flags; not FDR."""
+        """Single-comparison flags; not FDR.  Emits DeprecationWarning."""
+        warnings.warn(
+            "fdr_pval_parametric and fdr_pval_nonparametric are deprecated aliases that "
+            "mirror raw p-values (they are NOT FDR-adjusted). "
+            "Switch to exploratory_compare() for clean dual reporting, or "
+            "confirmatory_compare() + fdr_correct() for publication inference.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
         return {
             # Deprecated aliases: equal to raw p-values (NOT FDR-adjusted).
             "fdr_pval_parametric": float(param_p),
@@ -350,9 +367,9 @@ class StatisticalAnalysis:
         parametric_ci = (mean - t_crit * sem, mean + t_crit * sem)
 
         bootstrap_stats = []
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         for _ in range(n_bootstrap):
-            resample = np.random.choice(data, size=len(data), replace=True)
+            resample = rng.choice(data, size=len(data), replace=True)
             bootstrap_stats.append(statistic_func(resample))
 
         bootstrap_stats = np.array(bootstrap_stats)
@@ -384,9 +401,9 @@ class StatisticalAnalysis:
         n_x = len(x)
 
         perm_diffs = np.empty(n_permutations)
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         for i in range(n_permutations):
-            perm_idx = np.random.permutation(len(combined))
+            perm_idx = rng.permutation(len(combined))
             perm_x = combined[perm_idx[:n_x]]
             perm_y = combined[perm_idx[n_x:]]
             perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
@@ -400,3 +417,126 @@ class StatisticalAnalysis:
             "perm_std": float(np.std(perm_diffs)),
             "significant": p_value < 0.05,
         }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Exploratory API  (no q-values, no FDR theatre)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def exploratory_compare(
+        group1: np.ndarray,
+        group2: np.ndarray,
+        paired: bool = False,
+        n_bootstrap: int = 2000,
+    ) -> Dict:
+        """
+        Dual parametric + non-parametric comparison for **exploratory analysis**.
+
+        Returns raw p-values only — no ``fdr_pval_*`` keys, no FDR theatre.
+        Do **not** cite these p-values as publication-level inference without
+        applying ``fdr_correct()`` across the full hypothesis family.
+
+        Equivalent to ``compare_groups`` minus the deprecated flags.
+        """
+        # Re-use the internals but strip deprecated keys
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = StatisticalAnalysis.compare_groups(
+                group1, group2, paired=paired, n_bootstrap=n_bootstrap
+            )
+        for key in ("fdr_pval_parametric", "fdr_pval_nonparametric", "multiple_comparison"):
+            result.pop(key, None)
+        result["api"] = "exploratory"
+        return result
+
+    @staticmethod
+    def exploratory_correlate(x: np.ndarray, y: np.ndarray) -> Dict:
+        """
+        Dual Pearson r + Spearman rho for **exploratory analysis**.
+
+        Returns raw p-values only — no deprecated flags, no FDR theatre.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = StatisticalAnalysis.correlate(x, y)
+        for key in ("fdr_pval_parametric", "fdr_pval_nonparametric", "multiple_comparison"):
+            result.pop(key, None)
+        result["api"] = "exploratory"
+        return result
+
+    @staticmethod
+    def exploratory_multi(groups: Dict[str, np.ndarray]) -> Dict:
+        """
+        Dual ANOVA + Kruskal-Wallis for **exploratory analysis** of multiple groups.
+
+        Returns raw p-values only — no deprecated flags, no FDR theatre.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = StatisticalAnalysis.compare_multiple_groups(groups)
+        for key in ("fdr_pval_parametric", "fdr_pval_nonparametric", "multiple_comparison"):
+            result.pop(key, None)
+        result["api"] = "exploratory"
+        return result
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Confirmatory API  (requires hypothesis + alpha; returns q-values)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def confirmatory_compare(
+        group1: np.ndarray,
+        group2: np.ndarray,
+        hypothesis: str,
+        alpha: float = 0.05,
+        paired: bool = False,
+        n_bootstrap: int = 2000,
+    ) -> Dict:
+        """
+        **Confirmatory** two-group comparison.
+
+        Requires an explicit ``hypothesis`` string documenting what is being
+        tested.  Returns both raw p-values and BH-adjusted q-values (computed
+        from the two dual-test p-values as a minimal within-comparison family).
+
+        For cross-hypothesis correction (many units / channels / frequencies),
+        collect the ``q_parametric`` values across hypotheses and apply
+        ``fdr_correct()`` again.
+
+        Args:
+            group1, group2: Data arrays.
+            hypothesis: Plain-language statement of what is being tested,
+                e.g. "FR during omission > FR during stimulus in FEF O+ units".
+            alpha: Significance threshold (default 0.05).
+            paired: Whether to use a paired test.
+            n_bootstrap: Bootstrap iterations for CI.
+
+        Returns:
+            Dict with all exploratory_compare keys plus:
+                ``hypothesis``, ``alpha``, ``q_parametric``, ``q_nonparametric``,
+                ``confirmed_parametric``, ``confirmed_nonparametric``, ``api``.
+        """
+        if not isinstance(hypothesis, str) or not hypothesis.strip():
+            raise ValueError(
+                "confirmatory_compare() requires a non-empty hypothesis string. "
+                "Example: hypothesis='FR_omission > FR_stimulus in FEF O+ units'"
+            )
+        result = StatisticalAnalysis.exploratory_compare(
+            group1, group2, paired=paired, n_bootstrap=n_bootstrap
+        )
+        param_p = result["parametric"]["pval"]
+        nonparam_p = result["non_parametric"]["pval"]
+        # BH-correct across the two dual-test p-values (minimal within-comparison family)
+        q_vals = StatisticalAnalysis.fdr_correct([param_p, nonparam_p])
+        result.update(
+            {
+                "hypothesis": hypothesis.strip(),
+                "alpha": float(alpha),
+                "q_parametric": float(q_vals[0]),
+                "q_nonparametric": float(q_vals[1]),
+                "confirmed_parametric": float(q_vals[0]) < alpha,
+                "confirmed_nonparametric": float(q_vals[1]) < alpha,
+                "api": "confirmatory",
+            }
+        )
+        return result

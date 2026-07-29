@@ -126,3 +126,20 @@ notebooks/local_config.py
 !artifacts/developer/progress.json
 !artifacts/developer/plans.json
 !artifacts/developer/review.json
+
+# scratch and build artifacts
+tmp/
+
+# Large regenerable or archival binaries. The generators are tracked; the products are not.
+#   context/manuscript-docx/     rebuild: scripts/build_draft_docx.py (from the markdown drafts)
+#   context/draft-assets/        editable figure sources, kept on disk, too large for git
+#   context/archive/             superseded handouts, preserved on disk under Conservation
+context/manuscript-docx/
+context/draft-assets/
+context/archive/
+
+# context/figures holds the manuscript figures 01-07 and is TRACKED on purpose.
+# Only the multi-megabyte intermediate composites are excluded.
+context/figures/fig01_composite_full.svg
+# PNG exports of the figure sources are regenerable from the SVG/AI; the SVGs are tracked.
+context/figures/source/*.png

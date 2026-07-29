@@ -41,8 +41,16 @@ psth = UnitAnalyzer.psth(spike_times, trial_onsets, bin_size_ms=10)
 acg = UnitAnalyzer.autocorrelogram(spike_times, max_lag_ms=100, device='cuda')
 # Returns: {'acg': array, 'refractory_period_violation': p_value, 'is_single_unit': bool}
 
-# Quality metrics
+# Quality metrics & classification tiers
 quality = UnitAnalyzer.quality_metrics(spike_times, waveform_duration_us=400, firing_rate=15)
+
+## Unit Quality Classification Tiers & Area Ordering (Canonical Corpus Rules)
+
+- **Kilosort Good Units**: `quality == 1.0` (or `1`, `b'1.0'`). 4,450 units (51.8% of 21-session corpus).
+- **Stable Units**: `presence_ratio >= 0.98` AND `firing_rate > 0.5 Hz` AND `snr > 0.5` (1,509 units).
+- **MUA Units**: `firing_rate > 5.0 Hz` AND `isi_violations > 0.005` (0.5%) AND `presence_ratio > 0.98` (or `quality == 0.0`).
+- **10 Ordered Separate Areas**: `V1`, `V2`, `V3a-d-v`, `V4` (mapped from `DP`), `MT`, `MST`, `TEO`, `FST`, `FEF`, `PFC`.
+
 # Returns: {'firing_rate_hz': 15, 'refr_violations_pct': 2.1, 'is_good_single_unit': True, ...}
 ```
 
@@ -51,6 +59,22 @@ quality = UnitAnalyzer.quality_metrics(spike_times, waveform_duration_us=400, fi
 ```python
 session = oa.read('path/to/file.nwb')
 
+## 12-Condition Omission Paradigm & Unit Classification (Westerberg 2024 / Garrett 2020)
+
+The canonical visual omission paradigm defines 12 distinct trial condition codes:
+- **A-Family**: `AAAB` (Slot 4 local oddball), `AAAX` (Slot 4 omission), `AAXB` (Slot 3 omission), `AXAB` (Slot 2 omission).
+- **B-Family**: `BBBA` (Slot 4 local oddball), `BBBX` (Slot 4 omission), `BBXA` (Slot 3 omission), `BXBA` (Slot 2 omission).
+- **Random Control**: `RRRR` (Random control), `RRRX` (Slot 4 random omission), `RRXR` (Slot 3 random omission), `RXRR` (Slot 2 random omission).
+
+### Template Correlation Classification (5,000 Shuffles)
+
+Unit responses are classified into **S+** (stimulus-driven), **S-** (suppressed), **O+** (omission-selective), and **Null/Other** via Spearman correlation of 9-element per-epoch firing rate vectors against binary templates (`scripts/template_correlation_selection.py`):
+- **S+ Template**: `[0, 1, 0, 1, 0, 1, 0, 1, 0]` (Peaks on stimulus presentations).
+- **S- Template**: `[1, 0, 1, 0, 1, 0, 1, 0, 1]` (Peaks during inter-stimulus intervals).
+- **O+ Template**: One-hot vector peaking specifically at the omitted slot (e.g. Unit 51).
+- **VIP Ramping & Adaptation Release**: VIP interneurons show pre-stimulus inter-stimulus ramping and strong omission ramping for familiar images (Garrett et al. 2020). Local oddball responses ($x-x-x-y$) emerge early in L2/3 feedforward stream, representing adaptation release rather than predictive error (Westerberg et al. 2024).
+
+```python
 # Raster via session
 raster = raster_plot(session, unit_id=42, condition='AAXB', phase=3, window_ms=(-500, 2000))
 

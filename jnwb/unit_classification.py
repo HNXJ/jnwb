@@ -73,6 +73,14 @@ DELAY_WINDOW_MS: Dict[str, Tuple[float, float]] = {
 }
 
 METHOD_ID = "shuffle_controlled_sso_v2_omit_vs_delay"
+OPLUSPLUS_METHOD_ID = "o_plusplus_random_control_nested_v1"
+
+# R-family omission conditions (random-control topology)
+R_FAMILY_OMISSIONS: Tuple[Tuple[str, int], ...] = (
+    ("RXRR", 2),
+    ("RRXR", 3),
+    ("RRRX", 4),
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +101,21 @@ class ClassificationConfig:
     min_baseline_for_s_minus_hz: float = 3.5
     # S+ requires measurable stimulus-driven rate
     min_stim_rate_for_s_plus_hz: float = 0.5
+    # Nested O++ (stricter random-control robust subset of inclusive O+)
+    min_omission_effect_hz_plusplus: float = 4.0
+    min_omission_events_plusplus: int = 12
+    min_r_family_slots_plusplus: int = 2
+    alpha_omission_plusplus: float = 0.01
+
+
+@dataclass(frozen=True)
+class OPlusPlusTemplateConfig:
+    """O++ census from R-family template-correlation table (grand_oplus_units.csv)."""
+
+    min_mean_correlation: float = 0.60
+    max_permutation_pval: float = 0.05
+    higher_order_areas: Tuple[str, ...] = ("FEF", "PFC")
+    require_higher_order: bool = True
 
 
 def family_of(condition: str) -> str:
@@ -284,6 +307,35 @@ def _collect_omission_rates(
     )
 
 
+def _collect_r_family_omission_slot_rates(
+    spike_times: np.ndarray,
+    onsets: Dict[str, np.ndarray],
+) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
+    """Per R-family omission slot → (omission_rates, RRRR control_slot_rates)."""
+    st = np.sort(np.asarray(spike_times, dtype=float))
+    out: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+    ctrl_trials = onsets.get("RRRR", np.array([]))
+    for cond, slot in R_FAMILY_OMISSIONS:
+        trials = onsets.get(cond, np.array([]))
+        if len(trials) == 0 or len(ctrl_trials) == 0:
+            out[slot] = (np.array([], dtype=float), np.array([], dtype=float))
+            continue
+        win = SLOT_WINDOW_MS[slot]
+        om = np.asarray(
+            [_rate_in_window(st, float(onset), win) for onset in trials], dtype=float
+        )
+        rng_local = np.random.default_rng(abs(hash((cond, slot, "R"))) % (2**31))
+        idx = rng_local.choice(
+            len(ctrl_trials), size=len(trials), replace=len(ctrl_trials) < len(trials)
+        )
+        ctrl = np.asarray(
+            [_rate_in_window(st, float(onset), win) for onset in ctrl_trials[idx]],
+            dtype=float,
+        )
+        out[slot] = (om, ctrl)
+    return out
+
+
 def classify_unit(
     spike_times: np.ndarray,
     onsets: Dict[str, np.ndarray],
@@ -293,6 +345,7 @@ def classify_unit(
     """Classify one unit; returns raw p-values (FDR applied at session level)."""
     stim, base = _collect_stim_and_baseline_rates(spike_times, onsets)
     om, om_base, ctrl, delay_mean = _collect_omission_rates(spike_times, onsets)
+    r_slots = _collect_r_family_omission_slot_rates(spike_times, onsets)
 
     result = {
         "n_stim_events": int(len(stim)),
@@ -313,6 +366,10 @@ def classify_unit(
         "p_om_vs_ctrl_shuffle": 1.0,
         "om_vs_delay_effect_hz": np.nan,
         "p_om_vs_delay_shuffle": 1.0,
+        "n_r_family_omission_events": 0,
+        "n_r_family_slots_sig": 0,
+        "r_family_om_vs_ctrl_effect_hz": np.nan,
+        "p_r_family_om_vs_ctrl_shuffle": 1.0,
     }
 
     if len(stim) >= cfg.min_stim_events:
@@ -347,6 +404,36 @@ def classify_unit(
         result["om_vs_delay_effect_hz"] = eff_d
         result["p_om_vs_delay_shuffle"] = p_d
 
+    # Random-control (R-family) nested metrics for O++
+    r_om_all: List[float] = []
+    r_ctrl_all: List[float] = []
+    n_slots_sig = 0
+    for slot, (om_s, ctrl_s) in r_slots.items():
+        if len(om_s) < cfg.min_trials or len(ctrl_s) < cfg.min_trials:
+            continue
+        r_om_all.extend(om_s.tolist())
+        r_ctrl_all.extend(ctrl_s.tolist())
+        eff_s, p_s = _shuffle_pvalue_unpaired(
+            om_s, ctrl_s, cfg.n_shuffles, rng, alternative="greater"
+        )
+        if (
+            p_s < cfg.alpha_omission_plusplus
+            and eff_s >= cfg.min_omission_effect_hz_plusplus
+        ):
+            n_slots_sig += 1
+    result["n_r_family_omission_events"] = int(len(r_om_all))
+    result["n_r_family_slots_sig"] = int(n_slots_sig)
+    if len(r_om_all) >= cfg.min_omission_events_plusplus and len(r_ctrl_all) >= cfg.min_omission_events_plusplus:
+        eff_r, p_r = _shuffle_pvalue_unpaired(
+            np.asarray(r_om_all, dtype=float),
+            np.asarray(r_ctrl_all, dtype=float),
+            cfg.n_shuffles,
+            rng,
+            alternative="greater",
+        )
+        result["r_family_om_vs_ctrl_effect_hz"] = eff_r
+        result["p_r_family_om_vs_ctrl_shuffle"] = p_r
+
     return result
 
 
@@ -355,6 +442,8 @@ def _assign_labels(df: pd.DataFrame, cfg: ClassificationConfig) -> pd.DataFrame:
     out = df.copy()
 
     def _q(col: str) -> np.ndarray:
+        if col not in out.columns:
+            return np.ones(len(out), dtype=float)
         p = out[col].to_numpy(dtype=float)
         if not cfg.apply_fdr:
             return p
@@ -372,6 +461,7 @@ def _assign_labels(df: pd.DataFrame, cfg: ClassificationConfig) -> pd.DataFrame:
     out["q_om_vs_base_shuffle"] = _q("p_om_vs_base_shuffle")
     out["q_om_vs_ctrl_shuffle"] = _q("p_om_vs_ctrl_shuffle")
     out["q_om_vs_delay_shuffle"] = _q("p_om_vs_delay_shuffle")
+    out["q_r_family_om_vs_ctrl_shuffle"] = _q("p_r_family_om_vs_ctrl_shuffle")
 
     out["is_s_plus"] = (
         (out["q_s_plus_shuffle"] < cfg.alpha)
@@ -398,8 +488,35 @@ def _assign_labels(df: pd.DataFrame, cfg: ClassificationConfig) -> pd.DataFrame:
         & (out["n_omission_events"] >= cfg.min_omission_events)
     )
 
-    # Priority: O+ > S+ > S- > Other
+    # Nested O++: inclusive O+ + random-control R-family robustness
+    has_r = "n_r_family_slots_sig" in out.columns
+    if has_r:
+        out["is_o_plusplus"] = (
+            out["is_o_plus"]
+            & (out["n_r_family_slots_sig"] >= cfg.min_r_family_slots_plusplus)
+            & (out["n_r_family_omission_events"] >= cfg.min_omission_events_plusplus)
+            & (out["q_r_family_om_vs_ctrl_shuffle"] < cfg.alpha_omission_plusplus)
+            & (out["r_family_om_vs_ctrl_effect_hz"] >= cfg.min_omission_effect_hz_plusplus)
+            & (out["om_vs_base_effect_hz"] >= cfg.min_omission_effect_hz_plusplus)
+            & (out["om_vs_ctrl_effect_hz"] >= cfg.min_omission_effect_hz_plusplus)
+            & (out["om_vs_delay_effect_hz"] >= cfg.min_omission_effect_hz_plusplus)
+        )
+    else:
+        out["is_o_plusplus"] = False
+
+    def _tier(row) -> str:
+        if bool(row.get("is_o_plusplus", False)):
+            return "O++"
+        if bool(row.get("is_o_plus", False)):
+            return "O+"
+        return "Null"
+
+    out["o_plus_tier"] = out.apply(_tier, axis=1)
+
+    # Priority: O++ > O+ > S+ > S- > Other
     def _display(row) -> str:
+        if row.get("is_o_plusplus", False):
+            return "O++"
         if row["is_o_plus"]:
             return "O+"
         if row["is_s_plus"]:
@@ -410,6 +527,48 @@ def _assign_labels(df: pd.DataFrame, cfg: ClassificationConfig) -> pd.DataFrame:
 
     out["display_class"] = out.apply(_display, axis=1)
     return out
+
+
+def assign_o_plusplus_from_template_table(
+    df: pd.DataFrame,
+    cfg: Optional[OPlusPlusTemplateConfig] = None,
+) -> pd.DataFrame:
+    """
+    Mark nested O++ on an R-family template-correlation table (grand_oplus_units.csv).
+
+    Inclusive manuscript O+ (4.90%) is unchanged; this returns the robust subset.
+    Default: FEF/PFC with mean_correlation >= 0.60 and permutation_pval <= 0.05
+    (operating target ~40 units; random-control templates RXRR/RRXR/RRRX).
+    """
+    cfg = cfg or OPlusPlusTemplateConfig()
+    out = df.copy()
+    corr = out["mean_correlation"].astype(float)
+    pval = out["permutation_pval"].astype(float)
+    area_ok = out["area"].isin(cfg.higher_order_areas) if cfg.require_higher_order else True
+    out["is_o_plusplus"] = (
+        (corr >= cfg.min_mean_correlation)
+        & (pval <= cfg.max_permutation_pval)
+        & area_ok
+    )
+    out["o_plus_tier"] = np.where(out["is_o_plusplus"], "O++", "O+")
+    return out
+
+
+def oplusplus_census_summary(df: pd.DataFrame) -> Dict:
+    """Summarize an O++-labeled template table."""
+    n = int(df["is_o_plusplus"].sum()) if "is_o_plusplus" in df.columns else 0
+    sub = df[df["is_o_plusplus"]] if n else df.iloc[0:0]
+    areas = sub["area"].value_counts().to_dict() if n else {}
+    fef_pfc = int(sub["area"].isin(["FEF", "PFC"]).sum()) if n else 0
+    return {
+        "n_o_plusplus": n,
+        "n_candidates": int(len(df)),
+        "fef_pfc_n": fef_pfc,
+        "fef_pfc_frac": float(fef_pfc / n) if n else 0.0,
+        "area_counts": {str(k): int(v) for k, v in areas.items()},
+        "mean_correlation_median": float(sub["mean_correlation"].median()) if n else None,
+        "method": OPLUSPLUS_METHOD_ID,
+    }
 
 
 def classify_session_units(
@@ -497,7 +656,12 @@ def config_to_dict(cfg: ClassificationConfig) -> Dict:
         "min_omission_effect_hz": cfg.min_omission_effect_hz,
         "min_baseline_for_s_minus_hz": cfg.min_baseline_for_s_minus_hz,
         "min_stim_rate_for_s_plus_hz": cfg.min_stim_rate_for_s_plus_hz,
+        "min_omission_effect_hz_plusplus": cfg.min_omission_effect_hz_plusplus,
+        "min_omission_events_plusplus": cfg.min_omission_events_plusplus,
+        "min_r_family_slots_plusplus": cfg.min_r_family_slots_plusplus,
+        "alpha_omission_plusplus": cfg.alpha_omission_plusplus,
         "method": METHOD_ID,
+        "oplusplus_method": OPLUSPLUS_METHOD_ID,
         "glo_conditions": list(GLO_CONDITIONS),
     }
 
@@ -516,6 +680,10 @@ def config_from_dict(d: Dict) -> ClassificationConfig:
         "min_omission_effect_hz",
         "min_baseline_for_s_minus_hz",
         "min_stim_rate_for_s_plus_hz",
+        "min_omission_effect_hz_plusplus",
+        "min_omission_events_plusplus",
+        "min_r_family_slots_plusplus",
+        "alpha_omission_plusplus",
     }
     return ClassificationConfig(**{k: d[k] for k in keys if k in d})
 

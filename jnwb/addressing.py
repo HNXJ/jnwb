@@ -179,4 +179,8 @@ def enrich_units_dataframe(units_df: pd.DataFrame, electrodes_df: Optional[pd.Da
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # Ensure clean RangeIndex (0 to N-1) to guarantee row-position lookup in get_spike_times
+    df = df.reset_index(drop=True)
+
     return df
+

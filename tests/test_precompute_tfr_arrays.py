@@ -4,7 +4,7 @@ import h5py
 from pathlib import Path
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "archive_oneoff"))
 from precompute_tfr_arrays import _to_numeric, p1_onsets_s
 
 

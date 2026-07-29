@@ -15,7 +15,7 @@ do not silently override Core Principles / Verify Claims / No silent synthetic s
 
 - Package: `jnwb` — load/analyze/plot omission NWB sessions.
 - Publication figures and suites: `scripts/`, `notebooks/suite_*.ipynb`, `outputs/`.
-- Backlog: PRP under `artifacts/` (see global AGENTS + `.cursor/rules/prp-protocol.mdc`).
+- Backlog / Graph: Labyrinth Protocol under `artifacts/.lab/` (see global `AGENTS.md` + `labyrinth-protocol` skill).
 - Palette: `.cursor/rules/omission-palette.mdc` (canonical hex indices).
 
 ## Data topology (verify; do not memorize stale counts)
@@ -31,8 +31,8 @@ do not silently override Core Principles / Verify Claims / No silent synthetic s
 
 **Env overrides:** `OMISSION_NWB_DIR`, `OMISSION_TFR_DIR`, `OMISSION_META_DIR`, `OMISSION_SESSION`.
 
-**Inventory reality (2026-07-13 receipt):** 17 NWB files (C31o / V182o / V198o).  
-**TFR readiness:** 15/17 sessions `suite_tfr_ready=True` (V182o TFR now present).  
+**Inventory reality (2026-07-26 receipt):** 21 NWB files (C31o / V182o / V198o).  
+**TFR readiness:** 15/21 sessions `suite_tfr_ready=True` (C31o 7/7, V182o 4/10, V198o 4/4).  
 Only `sub-C31o_ses-230630` and `sub-V198o_ses-230629` are `suite_tfr_ready=False`.  
 Always gate on `artifacts/data/session_readiness.csv` before loading any TFR array.
 
@@ -117,19 +117,26 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
 23. **`_compute_statistics` is a dead stub** — The function body is `return value` and is never called anywhere. It exists only as a leftover stub. Do not add logic to it; delete it on the next refactoring pass.
 24. **`mcp_server/` does not belong inside `jnwb/`** — The MCP server subdirectory is an infrastructure component, not part of the neural analysis library. It should live at repo root or in a separate package. Having it inside `jnwb/` pollutes the package namespace and import graph.
 25. **Memory-mapped TFR downsampling slicing** — When processing multi-session 4D TFR arrays `(n_trials, n_ch, n_freqs, n_times)` (2.23 GB per file), downsample trials and channels using slicing (`arr[::4, ::8, :, :]`) before averaging. Slicing memory-mapped arrays prevents loading full files into RAM, reducing disk I/O by 32x and boosting script execution speeds from minutes to seconds.
+26. **DOCX figure insertion order must match ascending figure number** — When assembling a multi-figure manuscript DOCX (via `python-docx` or any script), always insert image+caption blocks in ascending figure order (Fig1 → Fig2 → … → FigN). Never append in code-generation order (which may process TFR/LFP figures after spiking figures and produce out-of-sequence placement). Caught 2026-07-27: Figs 6 & 7 were placed after Fig 8 in the master DOCX, causing the PDF reviewer to report them missing. Remedy script: use `body.insert(idx_before_next_figure, deepcopy(elem))` to reorder without rebuilding the entire document.
 
 ## Skills to load before reinventing
 
 | Need | Skill file |
 |------|-----------|
 | Backlog / PRP | `.agents/skills/progress-review-plan/SKILL.md` |
+| Labyrinth protocol | `.agents/skills/labyrinth-protocol/SKILL.md` |
 | NWB I/O | `.agents/skills/jnwb-core/SKILL.md` |
+| Unit metadata & quality | `.agents/skills/jnwb-metadata/SKILL.md` |
 | Spikes / rasters | `.agents/skills/jnwb-spiking/SKILL.md` |
 | TFR / LFP | `.agents/skills/jnwb-tfr/SKILL.md` |
+| Population analysis | `.agents/skills/jnwb-population/SKILL.md` |
 | Stats | `.agents/skills/jnwb-statistics/SKILL.md` |
 | Viz | `.agents/skills/jnwb-visualization/SKILL.md` |
 | Forms / pipelines | `.agents/skills/nwb-analysis-forms/SKILL.md` |
 | Functional connectivity (jrsa) | `.agents/skills/jnwb-jrsa/SKILL.md` |
+| Functional connectivity (MI) | `.agents/skills/jnwb-functional-connectivity/SKILL.md` |
+| DOCX layout & editing | `.agents/skills/docx-editing/SKILL.md` |
+
 
 Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
 
@@ -202,22 +209,24 @@ the metric implementation:
    F-statistic looks implausibly high or low — confirm AIC extraction from statsmodels result
    object matches the current version of `statsmodels.tsa.stattools.grangercausalitytests`.
 
-## PRP protocol — Canonical PRP Protocol (Developer Standard) adopted 2026-07-10
+## Labyrinth Protocol (ACMP & Knowledge Graph Optimizer)
 
-This repo now follows the **Canonical PRP Protocol** (see `.cursor/rules/prp-protocol.mdc` and
-`.agents/skills/progress-review-plan/SKILL.md` for the full definition): exactly three JSON files
-under `artifacts/developer/` — `plans.json`, `review.json`, `progress.json` — mapping the same list
-of files, with auxiliary/derived files confined to `artifacts/developer/.cache/`. Five phased
-actions: `proceed with brainstorm` → `proceed with plan` → `proceed with review` →
-`proceed with progress`, plus `inspect` (structural compliance + drift repair) runnable any time.
+This repo follows the **Labyrinth Protocol (ACMP & Knowledge Graph Optimizer)** (see global `AGENTS.md` and `.agents/skills/labyrinth-protocol/SKILL.md` for the full definition): graph state lives under `artifacts/.lab/`. The 7 fundamental actions (**Evolve**, Plan, Progress, Review, Prune, Adapt, Seal) operate over the 3-level system model (State, Actions, Regulation) and track context optimization via the loop: `Knowledge → Prediction → Observation → Error → Evolution → Knowledge`.
 
-**PRP state (2026-07-15 receipts, updated post-Batch-1+2):**
+**Binding Directives (Hamm's Operational Agreement):**
+Labyrinth is the shared brain and knowledge graph between agent and Hamm, reflecting the past, present, and future of the project.
+* **Continuous Synchronization**: On EVERY action, update and consult the Labyrinth graph (`artifacts/.lab/`).
+* **Four Core Labyrinth Objectives**:
+  1. Minimize mismatches and frictions (Omission, Redundancy, Disconnection, Staleness, Contradiction).
+  2. Identify repetitions and over-mentions (Prune/Compact redundant nodes).
+  3. Organize, merge, and unmerge via an adaptive, Hebbian-evolving graph.
+  4. Align multiple asynchronous agents using the SQLite hash-chain ledger (`labyrinth.db`) and `.lab/` graph state.
+* **Zero-Context "Proceed" Directive**: If a turn receives `"proceed"` (or similar approval) with zero additional context or active plan, immediately perform a full review of workspace state, identify high-leverage actions to improve/minimize/stabilize the project, and update `artifacts/developer/plans.json` and `progress.json`.
 
-- `plans.json` (36 items), `progress.json` (99 entries), `review.json` (101 entries, including `test_jrsa_correctness.py` at score 88 ACCEPTED WITH CAVEATS).
-- **61 ACCEPTED / 39 ACCEPTED WITH CAVEATS / 0 NOT REVIEWED.**
-- `jrsa.py` and `test_jrsa_correctness.py` are the two most recently changed entries; both carry caveats (HSIC symmetric-kernel assumption; multi-lag + stats interaction).
-- The self-assigned progress.json scores remain unverified until matched by review.json. `review.json` is the authoritative score source.
-- Schema is still v1. Migration to v2 needs Hamm's explicit go-ahead.
+**Current Graph State (2026-07-25 receipts):**
+- **93 Mapped Nodes**, $C_{\text{struct}}=1.0, C_{\text{ver}}=1.0$, **0 loose leaves, 0 balance flags, 0 grammar violations**, 100% predictive accuracy.
+- `review.json` carries 103 reviewed items (63 ACCEPTED / 40 ACCEPTED WITH CAVEATS / 0 UNREVIEWED).
+- Interactive Canvas Visualizer compiled at `artifacts/lab_graph.html`.
 
 ### Self-Evolving & Self-Supervised Adaptation
 During the **Adapt** phase, the PRP loop must dynamically pay attention to the active workspace skills (`.agents/skills/`), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to automatically propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions. Rules and memories must be dynamically upvoted or downvoted based on their usage frequency and overall effectiveness.
@@ -273,3 +282,32 @@ If you are a fast, shallow agent with limited context window or planning depth, 
 
 `legacy/markdowns/CLAUDE.md` is historical orientation (counts, spectral pipeline notes). Prefer
 **this file + live catalog/readiness** over legacy session counts (e.g. "13 NWB" is stale).
+
+
+---
+
+## Labyrinth Reflex — every user turn reads and writes the graph
+
+**Consult `artifacts/.lab/` before you answer; leave a delta in it before you finish.** The
+default posture on every turn, including one-line prompts — not a ceremony reserved for big
+tasks. Do not ask permission to do it.
+
+Read first (recalled context is a hypothesis, the graph is the record) → write last (every
+turn ends with a claim, status change, edge, or `notes[]`/`issues[]` append, or an explicit
+"nothing worth recording" said out loud) → prefer edges and status changes over new nodes
+(node-count growth without confirmed-claim growth is failure) → treat the user as a source,
+not an oracle (user assertions enter at `unconfirmed`, the same bar a paper gets; a conflict
+with a confirmed node is a `contradicts` edge you state plainly) → no receipt, no claim,
+graph writes included.
+
+Canonical wording: the "Labyrinth Reflex" section of `C:\Users\nejath\.gemini\config\AGENTS.md`.
+
+
+## Draft Citation Rule (Mandatory across all document drafts)
+
+When writing or editing manuscript drafts (in .docx, .tex, .md, or any text format), ALWAYS format citation placeholders in front of the sentence or object as:
+- (###) or
+- (NEED_REF) or
+- (NameYYYY, TITLE-SHORT) (e.g. (Bastos2020, LAMINAR-GATING), (Garrett2020, VIP-DISINHIBITION), (Mendoza-Halliday2024, SPECTROLAMINAR-MOTIF))
+
+The bibliography will be compiled and formatted automatically at the final submission stage.

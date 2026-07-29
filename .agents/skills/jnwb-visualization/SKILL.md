@@ -202,6 +202,23 @@ Plots (Left) a polar radar map representing relative band powers across V1, V4, 
 ## Matplotlib Visual Style Automation (`.mplstyle`)
 To automatically enforce the Madelane Golden dark theme and styling parameters across Matplotlib plotting pipelines without manually hardcoding parameters on every axis, define a local stylesheet asset:
 
+### Canonical Epoch Background Shading & Candidate Unit Colors (CRITICAL)
+Whenever generating figures with a time axis (rasters, PSTHs, LFP traces, TFRs), enforce the following canonical epoch background shading patch colors and candidate unit trace colors:
+
+1. **Epoch Background Shading Patches (Order p1 → p2 → p3 → p4)**:
+   - **`p1` (Stimulus Slot 1)**: Yellow (`#FCF9E3` or `#FFFDE7`)
+   - **`p2` (Stimulus Slot 2)**: Purple (`#F6EEF9` or `#F3E5F5`)
+   - **`p3` (Stimulus Slot 3)**: Green (`#E9F5FC` or `#E8F5E9`)
+   - **`p4` (Stimulus Slot 4 / Omission)**: Blue (`#E9F5FC` or `#E8EAF6`)
+
+2. **Candidate Unit PSTH Trace Colors**:
+   - **S+ Candidate (MT)**: Green (`#1D9E75`)
+   - **S- Candidate (V2)**: Brown (`#993C1D`)
+   - **O+ Candidate (FEF)**: Blue (`#185FA5`)
+
+3. **Omission Line Markers**:
+   - **Red Dashed Vertical Lines**: `#FF0000` (`linestyle="--"`, `linewidth=1.0`)
+
 ### 1. Style Config Code (`madelane_dark.mplstyle`)
 ```ini
 # Figure aesthetics
@@ -236,5 +253,6 @@ plt.style.use("madelane_dark.mplstyle")
 fig, ax = plt.subplots()
 ax.plot(x, y) # Plots in Gold color by default
 ```
+
 
 

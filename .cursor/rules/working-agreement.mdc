@@ -16,6 +16,6 @@ Full text: `C:\Users\nejath\.gemini\config\AGENTS.md` + project `.agents/AGENTS.
 - Scope: only what the task requires; smallest regression test for behavior changes.
 - Scientific: units explicit; no silent normalization; readiness gates before publication suites.
 
-**Omission:** dual-area ch 1–64 / 65–128; sequence layout via `jnwb.sequence_layout`; palette via `omission-palette` rule; backlog via `prp-protocol` rule.
+**Omission:** dual-area ch 1–64 / 65–128; sequence layout via `jnwb.sequence_layout`; palette via `omission-palette` rule; graph/backlog via `labyrinth-protocol` rule under `artifacts/.lab/`.
 
 If this rule conflicts with observed repo reality, flag it — do not silently comply or ignore.

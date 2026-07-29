@@ -67,18 +67,17 @@ class TestPopulationAnalyzer(unittest.TestCase):
         self.assertEqual(by_area['PFC'], 1)
 
     def test_compare_criteria_firing_rates(self):
-        """Test statistical comparison of firing rates."""
+        """Test exploratory statistical comparison of firing rates."""
         v1_rates = self.units_df[self.units_df['area'] == 'V1']['firing_rate'].values
         mt_rates = self.units_df[self.units_df['area'] == 'MT']['firing_rate'].values
 
-        # Use StatisticalAnalysis directly
         from jnwb.statistics import StatisticalAnalysis
-        result = StatisticalAnalysis.compare_groups(v1_rates, mt_rates)
+        result = StatisticalAnalysis.exploratory_compare(v1_rates, mt_rates)
 
         self.assertIsInstance(result, dict)
-        # Should have parametric and non-parametric tests
         if 'error' not in result:
             self.assertIn('parametric', result)
+        self.assertNotIn('fdr_pval_parametric', result)
 
     def test_firing_rate_statistics(self):
         """Test firing rate statistics by area."""

@@ -71,7 +71,64 @@ def test_assign_labels_priority_o_plus_over_s_plus():
     out = _assign_labels(df, cfg)
     assert bool(out.loc[0, "is_o_plus"])
     assert bool(out.loc[0, "is_s_plus"])
+    assert not bool(out.loc[0, "is_o_plusplus"])
     assert out.loc[0, "display_class"] == "O+"
+    assert out.loc[0, "o_plus_tier"] == "O+"
+
+
+def test_assign_labels_o_plusplus_requires_r_family_robustness():
+    row = {
+        "p_stim_shuffle": 0.5,
+        "p_s_plus_shuffle": 0.5,
+        "p_s_minus_shuffle": 0.5,
+        "p_om_vs_base_shuffle": 0.001,
+        "p_om_vs_ctrl_shuffle": 0.001,
+        "p_om_vs_delay_shuffle": 0.001,
+        "p_r_family_om_vs_ctrl_shuffle": 0.001,
+        "stim_effect_hz": 0.0,
+        "om_vs_base_effect_hz": 5.0,
+        "om_vs_ctrl_effect_hz": 5.0,
+        "om_vs_delay_effect_hz": 5.0,
+        "r_family_om_vs_ctrl_effect_hz": 5.0,
+        "n_r_family_slots_sig": 2,
+        "n_r_family_omission_events": 20,
+        "mean_stim_hz": 2.0,
+        "mean_baseline_hz": 2.0,
+        "n_stim_events": 50,
+        "n_omission_events": 20,
+    }
+    cfg = ClassificationConfig(apply_fdr=False, alpha_omission=0.01)
+    out = _assign_labels(pd.DataFrame([row]), cfg)
+    assert bool(out.loc[0, "is_o_plus"])
+    assert bool(out.loc[0, "is_o_plusplus"])
+    assert out.loc[0, "display_class"] == "O++"
+    assert out.loc[0, "o_plus_tier"] == "O++"
+
+    weak = dict(row)
+    weak["n_r_family_slots_sig"] = 1
+    out2 = _assign_labels(pd.DataFrame([weak]), cfg)
+    assert bool(out2.loc[0, "is_o_plus"])
+    assert not bool(out2.loc[0, "is_o_plusplus"])
+    assert out2.loc[0, "display_class"] == "O+"
+
+
+def test_assign_o_plusplus_from_template_table_fef_pfc_corr():
+    from jnwb.unit_classification import assign_o_plusplus_from_template_table, oplusplus_census_summary
+
+    df = pd.DataFrame(
+        [
+            {"area": "PFC", "mean_correlation": 0.72, "permutation_pval": 0.01},
+            {"area": "FEF", "mean_correlation": 0.61, "permutation_pval": 0.02},
+            {"area": "V1", "mean_correlation": 0.90, "permutation_pval": 0.001},
+            {"area": "PFC", "mean_correlation": 0.40, "permutation_pval": 0.01},
+        ]
+    )
+    out = assign_o_plusplus_from_template_table(df)
+    assert list(out["is_o_plusplus"]) == [True, True, False, False]
+    summary = oplusplus_census_summary(out)
+    assert summary["n_o_plusplus"] == 2
+    assert summary["fef_pfc_n"] == 2
+    assert abs(summary["fef_pfc_frac"] - 1.0) < 1e-9
 
 
 def test_o_plus_rejects_delay_nonspecific():

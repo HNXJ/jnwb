@@ -6,12 +6,12 @@ Focus: Core statistical analysis and data structures that work correctly.
 """
 
 import unittest
+import pytest
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 
-# Import jNWB modules
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -22,8 +22,9 @@ from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer
 class TestStatisticalAnalysis(unittest.TestCase):
     """Test statistical analysis core functions."""
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_compare_groups_valid_data(self):
-        """Test compare_groups with valid data."""
+        """Test compare_groups legacy interface: checks fdr_pval_* keys are still present."""
         g1 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         g2 = np.array([2.0, 3.0, 4.0, 5.0, 6.0])
         result = StatisticalAnalysis.compare_groups(g1, g2, n_bootstrap=200)
@@ -31,7 +32,7 @@ class TestStatisticalAnalysis(unittest.TestCase):
         # Should have both parametric and non-parametric tests
         self.assertIn('parametric', result)
         self.assertIn('non_parametric', result)
-        self.assertIn('fdr_pval_parametric', result)
+        self.assertIn('fdr_pval_parametric', result)  # deprecated but still present
         self.assertEqual(result['parametric']['effect_size_name'], 'cohens_d_pooled')
         self.assertFalse(result['multiple_comparison']['applied'])
         self.assertIn('mean_diff_ci', result)
@@ -45,34 +46,36 @@ class TestStatisticalAnalysis(unittest.TestCase):
         self.assertTrue(np.all(q >= p - 1e-12))
 
     def test_compare_groups_identical_groups(self):
-        """Test compare_groups with identical data."""
+        """Test exploratory_compare with identical data shows no significant difference."""
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        result = StatisticalAnalysis.compare_groups(data.copy(), data.copy())
+        result = StatisticalAnalysis.exploratory_compare(data.copy(), data.copy())
         self.assertIsInstance(result, dict)
-        # Should show no significant difference
         if 'error' not in result:
             self.assertIn('parametric', result)
+        # No deprecated keys in exploratory API
+        self.assertNotIn('fdr_pval_parametric', result)
 
     def test_correlate_perfect_correlation(self):
-        """Test correlate with perfect linear correlation."""
+        """Test exploratory_correlate with perfect linear correlation."""
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = 2 * x + 1  # Perfect linear relationship
-        result = StatisticalAnalysis.correlate(x, y)
+        result = StatisticalAnalysis.exploratory_correlate(x, y)
         self.assertIsInstance(result, dict)
         if 'error' not in result:
-            # Pearson r should be close to 1
             pearson_r = result['parametric']['statistic']
             self.assertGreater(pearson_r, 0.99)
+        self.assertNotIn('fdr_pval_parametric', result)
 
     def test_correlate_no_correlation(self):
-        """Test correlate with uncorrelated data."""
+        """Test exploratory_correlate with uncorrelated data."""
         x = np.random.randn(100)
         y = np.random.randn(100)
-        result = StatisticalAnalysis.correlate(x, y)
+        result = StatisticalAnalysis.exploratory_correlate(x, y)
         self.assertIsInstance(result, dict)
         if 'error' not in result:
             self.assertIn('parametric', result)
             self.assertIn('non_parametric', result)
+        self.assertNotIn('fdr_pval_parametric', result)
 
     def test_bootstrap_ci_valid_data(self):
         """Test bootstrap confidence interval."""
@@ -188,29 +191,35 @@ class TestDataHandling(unittest.TestCase):
     """Test edge cases and data handling."""
 
     def test_nan_handling_in_statistics(self):
-        """Test handling of NaN values."""
+        """Test that exploratory_correlate handles NaN values by joint exclusion."""
         x = np.array([1.0, 2.0, np.nan, 4.0, 5.0])
         y = np.array([2.0, 4.0, 6.0, np.nan, 10.0])
-        result = StatisticalAnalysis.correlate(x, y)
+        result = StatisticalAnalysis.exploratory_correlate(x, y)
         self.assertIsInstance(result, dict)
 
     def test_inf_handling_in_statistics(self):
-        """Test handling of Inf values."""
-        x = np.array([1.0, 2.0, np.inf, 4.0, 5.0])
+        """Test handling of Inf values in statistical functions."""
+        import warnings
+        x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([2.0, 4.0, 6.0, 8.0, np.inf])
         try:
-            result = StatisticalAnalysis.correlate(x, y)
-            self.assertIsInstance(result, dict)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                result = StatisticalAnalysis.correlate(x, y)
+                self.assertIsInstance(result, dict)
         except Exception:
             # Inf values may cause correlation to fail, which is acceptable
             pass
 
     def test_zero_variance_handling(self):
-        """Test handling of zero-variance data."""
+        """Test that exploratory_compare handles zero-variance data gracefully."""
+        import warnings
         x = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        result = StatisticalAnalysis.compare_groups(x, y)
-        self.assertIsInstance(result, dict)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = StatisticalAnalysis.exploratory_compare(x, y)
+            self.assertIsInstance(result, dict)
 
 
 class TestTFRDataPipeline(unittest.TestCase):
@@ -247,19 +256,22 @@ class TestRobustness(unittest.TestCase):
     """Test robustness and error handling."""
 
     def test_compare_groups_with_small_samples(self):
-        """Test compare_groups works with very small samples."""
+        """Test exploratory_compare works with very small samples."""
         g1 = np.array([1.0, 2.0])
         g2 = np.array([3.0, 4.0])
-        result = StatisticalAnalysis.compare_groups(g1, g2)
+        result = StatisticalAnalysis.exploratory_compare(g1, g2)
         self.assertIsInstance(result, dict)
 
     def test_correlate_with_constant_y(self):
-        """Test correlate with constant y values."""
+        """Test exploratory_correlate with constant y values."""
+        import warnings
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
         try:
-            result = StatisticalAnalysis.correlate(x, y)
-            self.assertIsInstance(result, dict)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                result = StatisticalAnalysis.exploratory_correlate(x, y)
+                self.assertIsInstance(result, dict)
         except Exception:
             # Constant data may cause correlation to fail (undefined), which is acceptable
             pass

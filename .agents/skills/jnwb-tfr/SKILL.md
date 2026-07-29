@@ -30,11 +30,18 @@ from jnwb import spectral
 ## TFRAnalyzer Object
 
 ```python
-# Extract frequency band (using the canonical 7-band table)
-alpha = TFRAnalyzer.extract_band(tfr_data, band='alpha')       # 8–15 Hz
-beta  = TFRAnalyzer.extract_band(tfr_data, band='beta')        # 15–30 Hz
-low_gamma = TFRAnalyzer.extract_band(tfr_data, band='low_gamma') # 30–60 Hz
+# Extract frequency band (canonical frequency band table)
+theta      = TFRAnalyzer.extract_band(tfr_data, band='theta')      # 4–8 Hz
+alpha      = TFRAnalyzer.extract_band(tfr_data, band='alpha')      # 8–12 Hz
+beta       = TFRAnalyzer.extract_band(tfr_data, band='beta')       # 13–30 Hz
+low_gamma  = TFRAnalyzer.extract_band(tfr_data, band='low_gamma')  # 30–60 Hz
 high_gamma = TFRAnalyzer.extract_band(tfr_data, band='high_gamma') # 60–120 Hz
+
+## Laminar Frequency Asymmetry & PARAFAC Tensor Components (Bastos 2012 / Chao 2018)
+
+- **Superficial L2/3 Compartment**: Dominated by high-frequency $\gamma$-band power (30–120 Hz), broadcasting bottom-up prediction errors ($PE1$ local, $PE2$ global).
+- **Deep L5/6 Compartment**: Dominated by lower-frequency $\alpha/\beta$-band power (8–30 Hz), conveying top-down predictions and prediction updates ($PE3$).
+- **PARAFAC 3D Factorization**: Factorizes 3D tensors (Channels $\times$ Time-Frequency $\times$ Conditions) into $PE1$ ($\gamma_{\text{early}}$), $PE2$ ($\gamma_{\text{late}}$), and $PE3$ ($\alpha/\beta_{\text{decrease}}$).
 
 # Trial-average (returns {'mean', 'std', 'sem', 'n_trials'})
 avg = TFRAnalyzer.trial_average(tfr_data)

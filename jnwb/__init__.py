@@ -344,6 +344,9 @@ from .connectivity import (
 )
 from .unit_classification import (
     ClassificationConfig,
+    OPlusPlusTemplateConfig,
+    assign_o_plusplus_from_template_table,
+    oplusplus_census_summary,
     classify_session_units,
     classify_nwb_file,
     classify_all_nwbs,
@@ -444,6 +447,9 @@ __all__ = [
     'granger_causality',
     'network_topology',
     'ClassificationConfig',
+    'OPlusPlusTemplateConfig',
+    'assign_o_plusplus_from_template_table',
+    'oplusplus_census_summary',
     'classify_session_units',
     'classify_nwb_file',
     'classify_all_nwbs',

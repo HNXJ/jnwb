@@ -701,24 +701,9 @@ def _apply_lag(x1, x2, axis_map, lag):
     return x1_stacked, x2_stacked
 
 
-def _stack_batches(arrays, batch_size):
-    """Split the last axis of each array into batches."""
-    n = arrays[0].shape[-1]
-    if batch_size is None or batch_size >= n:
-        yield arrays
-        return
-    for start in range(0, n, batch_size):
-        stop = min(start + batch_size, n)
-        yield tuple(a[..., start:stop] for a in arrays)
-
-
 # ===========================================================================
 # PRIVATE – statistics
 # ===========================================================================
-
-def _compute_statistics(value, x1, x2, metric_fn, alternative, axis, **kwargs):
-    """Wrapper; individual metrics compute their own stats inline."""
-    return value  # metrics return statistic already
 
 
 def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwargs):
@@ -837,12 +822,20 @@ _CORRECTION_METHOD_MAP = {
 def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray:
     """Apply multiple-comparison correction; returns q-values."""
     p_flat = np.asarray(p).ravel()
+    m_lower = method.lower()
+    if m_lower not in _CORRECTION_METHOD_MAP and m_lower != "none":
+        warnings.warn(
+            f"Unrecognized correction method '{method}'. Falling back to 'fdr_bh'. "
+            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())}",
+            UserWarning,
+            stacklevel=2,
+        )
     try:
         from statsmodels.stats.multitest import multipletests
-        sm_method = _CORRECTION_METHOD_MAP.get(method.lower(), "fdr_bh")
+        sm_method = _CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")
         _, q, _, _ = multipletests(p_flat, alpha=alpha, method=sm_method)
     except ImportError:
-        if method.lower() == "bonferroni":
+        if m_lower == "bonferroni":
             q = np.minimum(p_flat * len(p_flat), 1.0)
         else:
             # Fallback BH
@@ -1038,12 +1031,16 @@ def _pearson(x1, x2, axis=-1, **kwargs):
         pass
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from scipy.stats import pearsonr
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
     n = min(len(a), len(b))
-    r, p = pearsonr(a[:n], b[:n])
-    df = np.float64(n - 2)
+    from jnwb.statistics import StatisticalAnalysis
+    res = StatisticalAnalysis.exploratory_correlate(a[:n], b[:n])
+    if "error" in res:
+        return np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(1.0), np.float64(0.0)
+    p_info = res["parametric"]
+    r, p = p_info["statistic"], p_info["pval"]
+    df = np.float64(p_info["df"])
     t = r * np.sqrt(df) / np.sqrt(1 - r ** 2 + 1e-12)
     return np.float64(r), np.float64(t), np.float64(abs(r)), np.float64(p), df
 
@@ -1080,12 +1077,16 @@ def _spearman(x1, x2, axis=-1, **kwargs):
         pass
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from scipy.stats import spearmanr
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
     n = min(len(a), len(b))
-    rho, p = spearmanr(a[:n], b[:n])
-    df = np.float64(n - 2)
+    from jnwb.statistics import StatisticalAnalysis
+    res = StatisticalAnalysis.exploratory_correlate(a[:n], b[:n])
+    if "error" in res:
+        return np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(1.0), np.float64(0.0)
+    np_info = res["non_parametric"]
+    rho, p = np_info["statistic"], np_info["pval"]
+    df = np.float64(np_info["df"])
     t = rho * np.sqrt(df) / np.sqrt(1 - rho ** 2 + 1e-12)
     return np.float64(rho), np.float64(t), np.float64(abs(rho)), np.float64(p), df
 

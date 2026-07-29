@@ -23,7 +23,7 @@ from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import numpy as np
 import pandas as pd
@@ -41,7 +41,7 @@ class Provenance:
     """
     software_version: str
     backend: str  # "numpy", "jax", "dask", etc.
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     random_seed: Optional[int] = None
     git_commit: Optional[str] = None
     parameters: Dict[str, Any] = field(default_factory=dict)
