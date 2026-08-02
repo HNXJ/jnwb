@@ -51,7 +51,7 @@
       "confidence": 0.9
     },
     {
-      "to": "canonical_epoch_colorcode_timing_guardrail",
+      "to": "canonical_epoch_colorcode_timing_guardrail_20260727",
       "relation": "relates",
       "reasoning": "The p1-p4 patch shading in time-axis figures should reflect that the omitted slot is visually continuous with its flanking delays, not a distinct event.",
       "confidence": 0.75

@@ -6,7 +6,7 @@
     "date": "2026-07-27",
     "links": [
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,

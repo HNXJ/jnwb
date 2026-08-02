@@ -1598,7 +1598,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1664,7 +1664,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1692,7 +1692,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1720,7 +1720,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1748,7 +1748,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1776,7 +1776,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1804,7 +1804,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -1868,7 +1868,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2422,14 +2422,14 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2450,14 +2450,14 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2478,14 +2478,14 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2506,14 +2506,14 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2534,14 +2534,14 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2562,14 +2562,14 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2734,7 +2734,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2804,7 +2804,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2839,7 +2839,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2874,7 +2874,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2909,7 +2909,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2944,7 +2944,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -2979,7 +2979,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -3036,7 +3036,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
@@ -3057,7 +3057,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
@@ -3078,7 +3078,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
@@ -3099,7 +3099,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
@@ -3120,7 +3120,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
@@ -3141,7 +3141,7 @@
             "causal_pressure": 0.9
           },
           {
-            "to": "context-nwb-catalog-ready",
+            "to": "context-data-session-readiness",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
             "confidence": 0.95,
@@ -12003,42 +12003,42 @@
         "source_paths": [],
         "links": [
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
             "causal_pressure": 0.9
           },
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,
@@ -12486,7 +12486,7 @@
         "date": "2026-07-27",
         "links": [
           {
-            "to": "mission",
+            "to": "papers-mission",
             "relation": "refines",
             "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
             "confidence": 0.95,

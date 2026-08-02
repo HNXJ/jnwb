@@ -27,7 +27,7 @@
         "causal_pressure": 0.9
       },
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,
@@ -55,7 +55,7 @@
         "causal_pressure": 0.9
       },
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,
@@ -83,7 +83,7 @@
         "causal_pressure": 0.9
       },
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,
@@ -111,7 +111,7 @@
         "causal_pressure": 0.9
       },
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,
@@ -139,7 +139,7 @@
         "causal_pressure": 0.9
       },
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,
@@ -167,7 +167,7 @@
         "causal_pressure": 0.9
       },
       {
-        "to": "mission",
+        "to": "papers-mission",
         "relation": "refines",
         "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
         "confidence": 0.95,

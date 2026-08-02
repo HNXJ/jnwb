@@ -76,7 +76,7 @@
       "confidence": 0.9
     },
     {
-      "to": "empirical_tfr_figure06_data_audit",
+      "to": "empirical_tfr_figure06_data_audit_20260727",
       "relation": "relates",
       "reasoning": "Figure 6's empirical-TFR guardrail was the one place this class of substitution was already caught and defended against; the same guardrail was absent for the census tables.",
       "confidence": 0.8

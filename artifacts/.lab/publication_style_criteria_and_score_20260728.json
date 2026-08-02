@@ -66,7 +66,7 @@
       "confidence": 0.9
     },
     {
-      "to": "evidence-westerberg-2024",
+      "to": "evidence-westerbergxiong-2025",
       "relation": "relates",
       "reasoning": "The exemplar is the 2025 bioRxiv version of the same group's work already cited in the graph as evidence.",
       "confidence": 0.7

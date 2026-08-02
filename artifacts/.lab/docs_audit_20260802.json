@@ -31,7 +31,7 @@
       "confidence": 0.95
     },
     {
-      "to": "mission",
+      "to": "papers-mission",
       "relation": "evidences",
       "reasoning": "Confirmed 56 edges target id 'mission' which has no node; count grew from the 40 recorded in CONTEXT.md section 12.6.",
       "confidence": 0.99

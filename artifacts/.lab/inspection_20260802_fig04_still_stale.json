@@ -23,7 +23,7 @@
       "confidence": 0.95
     },
     {
-      "to": "graph_metrics.json",
+      "to": "graph_health_audit_20260729",
       "relation": "derives_from",
       "reasoning": "The disconnection/redundancy mismatch observation reads from this file.",
       "confidence": 0.8
