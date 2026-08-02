@@ -21,10 +21,12 @@ output/
 reports/
 artifacts/*
 !artifacts/developer/
-!artifacts/developer/progress.json
-!artifacts/developer/plans.json
-!artifacts/developer/review.json
+!artifacts/developer/RETIRED_prp_progress_20260731.json
+!artifacts/developer/RETIRED_prp_plans_20260731.json
+!artifacts/developer/RETIRED_prp_review_20260731.json
+!artifacts/developer/RETIRED_prp_adapt_20260731.json
 !artifacts/progress_report.md
+!artifacts/.lab/
 checkpoints/
 scratch/
 Export_Staging/
@@ -123,9 +125,15 @@ scripts/_*.py
 notebooks/local_config.py
 
 # Whitelist developer progress/plans/review JSON files
-!artifacts/developer/progress.json
-!artifacts/developer/plans.json
-!artifacts/developer/review.json
+!artifacts/developer/RETIRED_prp_progress_20260731.json
+!artifacts/developer/RETIRED_prp_plans_20260731.json
+!artifacts/developer/RETIRED_prp_review_20260731.json
+!artifacts/developer/RETIRED_prp_adapt_20260731.json
+# Labyrinth graph state -- the PRP->Labyrinth migration (2026-07-28) never extended this
+# whitelist to the replacement system, so the project's own knowledge graph was never
+# git-tracked (found and fixed 2026-07-31, same session that found the analogous skill-
+# registry gap left by the same migration).
+!artifacts/.lab/*.json
 
 # scratch and build artifacts
 tmp/
@@ -139,7 +147,12 @@ context/draft-assets/
 context/archive/
 
 # context/figures holds the manuscript figures 01-07 and is TRACKED on purpose.
-# Only the multi-megabyte intermediate composites are excluded.
-context/figures/fig01_composite_full.svg
-# PNG exports of the figure sources are regenerable from the SVG/AI; the SVGs are tracked.
-context/figures/source/*.png
+# Only the finalized per-figure deliverables are tracked; nested working directories
+# (svg/, artifacts/, supplements/) hold multi-MB/GB intermediates and stay ignored.
+!context/figures/*.py
+!context/figures/*.md
+!context/figures/fig0*_finalized.svg
+!context/figures/fig0*_finalized.png
+!context/figures/fig0*_*/fig0*.svg
+!context/figures/fig0*_*/fig0*.png
+!context/figures/fig0*_*/fig0*.receipt.json
