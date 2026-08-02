@@ -99,7 +99,7 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
     method for assigning S+/S−/O+/Null labels is Spearman correlation of the 9-element per-epoch
     firing rate vector against binary templates (S+: `[0,1,0,1,0,1,0,1,0]`; S−:
     `[1,0,1,0,1,0,1,0,1]`; O+: one-hot at omitted slot) with permutation-test significance
-    (5000 shuffles, p<0.05). Implementation: `scripts/template_correlation_selection.py`,
+    (5000 shuffles, p<0.05). Implementation: `scripts/archive_oneoff/template_correlation_selection.py`,
     output: `outputs/classification/figure3_template_correlation_scan.csv`.
     Confirmed best picks for `sub-C31o_ses-230823_rec`: S+=unit 337 (r=0.985, p=0.008),
     S−=unit 261 (r=0.985, p=0.003), O+=unit 51 (r_mean=0.769, only session with real O+).
@@ -121,10 +121,15 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
 
 ## Skills to load before reinventing
 
+Loaded copies live at `.claude/skills/<name>/SKILL.md` (the location Claude Code's project-
+skill loader actually reads, confirmed 2026-07-31 — see
+`artifacts/.lab/harness_skill_registry_repair_20260731_correction.json`); `.agents/skills/`
+below remains the source/reference copy. Backlog/PRP tracking (`progress-review-plan`) is
+retired — it was a pure redirect stub to Labyrinth with no unique content, deleted 2026-07-31.
+
 | Need | Skill file |
 |------|-----------|
-| Backlog / PRP | `.agents/skills/progress-review-plan/SKILL.md` |
-| Labyrinth protocol | `.agents/skills/labyrinth-protocol/SKILL.md` |
+| Backlog / graph / context optimization | `.agents/skills/labyrinth-protocol/SKILL.md` |
 | NWB I/O | `.agents/skills/jnwb-core/SKILL.md` |
 | Unit metadata & quality | `.agents/skills/jnwb-metadata/SKILL.md` |
 | Spikes / rasters | `.agents/skills/jnwb-spiking/SKILL.md` |
@@ -136,6 +141,7 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
 | Functional connectivity (jrsa) | `.agents/skills/jnwb-jrsa/SKILL.md` |
 | Functional connectivity (MI) | `.agents/skills/jnwb-functional-connectivity/SKILL.md` |
 | DOCX layout & editing | `.agents/skills/docx-editing/SKILL.md` |
+| Writing in Hamm's voice (manuscripts, captions) | `.agents/skills/match-my-writing-style/SKILL.md` |
 
 
 Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
@@ -221,15 +227,19 @@ Labyrinth is the shared brain and knowledge graph between agent and Hamm, reflec
   2. Identify repetitions and over-mentions (Prune/Compact redundant nodes).
   3. Organize, merge, and unmerge via an adaptive, Hebbian-evolving graph.
   4. Align multiple asynchronous agents using the SQLite hash-chain ledger (`labyrinth.db`) and `.lab/` graph state.
-* **Zero-Context "Proceed" Directive**: If a turn receives `"proceed"` (or similar approval) with zero additional context or active plan, immediately perform a full review of workspace state, identify high-leverage actions to improve/minimize/stabilize the project, and update `artifacts/developer/plans.json` and `progress.json`.
+* **Zero-Context "Proceed" Directive**: If a turn receives `"proceed"` (or similar approval) with zero additional context or active plan, immediately perform a full review of workspace state, identify high-leverage actions to improve/minimize/stabilize the project, and record it as a Labyrinth Plan/Progress node under `artifacts/.lab/` — **not** `artifacts/developer/plans.json`/`progress.json`, which are retired PRP files (see `RETIRED_prp_*` in `artifacts/developer/`); this line itself used to say those files and was corrected 2026-07-31 after being found still live and contradicting the retirement doctrine elsewhere in this file.
 
-**Current Graph State (2026-07-25 receipts):**
-- **93 Mapped Nodes**, $C_{\text{struct}}=1.0, C_{\text{ver}}=1.0$, **0 loose leaves, 0 balance flags, 0 grammar violations**, 100% predictive accuracy.
-- `review.json` carries 103 reviewed items (63 ACCEPTED / 40 ACCEPTED WITH CAVEATS / 0 UNREVIEWED).
-- Interactive Canvas Visualizer compiled at `artifacts/lab_graph.html`.
+**Graph state is a live measurement, not a frozen number** — the 2026-07-25 snapshot that used
+to sit here (93 nodes, 100% predictive accuracy) went stale the moment the graph grew past it,
+which is the exact failure mode Rule 3 of `figures/README.md`'s statistics doctrine and the
+global CLAUDE.md's "graph health is itself measurable" section both warn about. Re-run the scan
+instead of reading a cached count: latest full health audit is
+`artifacts/.lab/graph_health_audit_20260729.json` (0 dangling edges, 0 unreceipted `confirmed`
+claims, 181/296 nodes pre-date `schema_version` — a literature-review layer, not yet migrated).
+Interactive Canvas Visualizer, if still current, compiled at `artifacts/lab_graph.html`.
 
 ### Self-Evolving & Self-Supervised Adaptation
-During the **Adapt** phase, the PRP loop must dynamically pay attention to the active workspace skills (`.agents/skills/`), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to automatically propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions. Rules and memories must be dynamically upvoted or downvoted based on their usage frequency and overall effectiveness.
+During Labyrinth's **Adapt** phase (not "the PRP loop" — PRP is retired, corrected 2026-07-31), pay attention to the active workspace skills (`.agents/skills/`, mirrored to `.claude/skills/` via `scripts/sync_claude_skills.py`), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions. Rules and memories must be dynamically upvoted or downvoted based on their usage frequency and overall effectiveness.
 
 
 
@@ -283,25 +293,13 @@ If you are a fast, shallow agent with limited context window or planning depth, 
 `legacy/markdowns/CLAUDE.md` is historical orientation (counts, spectral pipeline notes). Prefer
 **this file + live catalog/readiness** over legacy session counts (e.g. "13 NWB" is stale).
 
-
----
-
-## Labyrinth Reflex — every user turn reads and writes the graph
-
-**Consult `artifacts/.lab/` before you answer; leave a delta in it before you finish.** The
-default posture on every turn, including one-line prompts — not a ceremony reserved for big
-tasks. Do not ask permission to do it.
-
-Read first (recalled context is a hypothesis, the graph is the record) → write last (every
-turn ends with a claim, status change, edge, or `notes[]`/`issues[]` append, or an explicit
-"nothing worth recording" said out loud) → prefer edges and status changes over new nodes
-(node-count growth without confirmed-claim growth is failure) → treat the user as a source,
-not an oracle (user assertions enter at `unconfirmed`, the same bar a paper gets; a conflict
-with a confirmed node is a `contradicts` edge you state plainly) → no receipt, no claim,
-graph writes included.
-
-Canonical wording: the "Labyrinth Reflex" section of `C:\Users\nejath\.gemini\config\AGENTS.md`.
-
+**Doctrine-file note (2026-07-29):** this repo's doctrine is split across three files —
+`C:\Users\nejath\.claude\CLAUDE.md` (Claude Code, machine-wide ACMP wording), this file (Gemini
+CLI's stated "global working agreement", per its header), and `D:\workspace\omission\CLAUDE.md`
+(Claude Code, project-specific). The Labyrinth Reflex text used to appear twice inside this file
+alone — condensed to the single copy above. It has not been reconciled against the Claude Code
+global file's wording because that file is a different tool's doctrine surface, not this repo's
+to silently overwrite; flagging the cross-tool duplication here rather than merging it.
 
 ## Draft Citation Rule (Mandatory across all document drafts)
 
