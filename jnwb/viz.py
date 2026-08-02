@@ -23,9 +23,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from pathlib import Path
 
-from jnwb import viz_cns as cns
-from jnwb.viz_cns import MultiPanelCanvas, bind_omission_palette, add_stat_annotation
-
 log = logging.getLogger(__name__)
 
 

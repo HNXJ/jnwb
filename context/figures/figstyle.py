@@ -145,11 +145,57 @@ def clopper_pearson(k, n, alpha=0.05):
     return (float(lo), float(hi))
 
 
-def save(fig, fig_dir, name, dpi=300):
-    """Every panel is written as both SVG (for assembly) and PNG (for quick review)."""
+def stat_bracket(ax, x1, x2, y, h, result, use="p_holm", color="#333333"):
+    """Draw a significance bracket between x1 and x2 from a figstats.Result.
+
+    Reads `result.p_holm` by default -- the family-wise correction figstats.py's own docs
+    say "the headline claims use" -- not the raw p, so a panel can never show a more
+    optimistic number than the table it sits beside. Appends "dagger" when the result's
+    `unit` is not session/animal, matching the table's own descriptive-only marker, so a
+    per-unit or per-channel result can't read as a population claim on the figure either.
+    """
+    from figstats import INFERENTIAL_UNITS
+    p = getattr(result, use)
+    if not np.isfinite(p):
+        text = "--"
+    elif p < 0.001:
+        text = "***"
+    elif p < 0.01:
+        text = "**"
+    elif p < 0.05:
+        text = "*"
+    else:
+        text = "ns"
+    if result.unit not in INFERENTIAL_UNITS:
+        text += "†"
+    ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], color=color, lw=1.0)
+    ax.text((x1 + x2) * 0.5, y + h, text, ha="center", va="bottom", color=color,
+            fontsize=9, fontweight="bold")
+    return text
+
+
+def save(fig, fig_dir, name, dpi=300, clean_svg=True):
+    """Every panel is written as both SVG (for assembly) and PNG (for quick review).
+
+    When `mutool` is on PATH, the SVG is cleaned after writing -- byte-level only, no
+    visual change, text stays editable (svg.fonttype is already "none"). Silently skipped
+    when mutool isn't available, which is the common case (e.g. CI).
+    """
     import os
     os.makedirs(fig_dir, exist_ok=True)
     svg = os.path.join(fig_dir, name + ".svg")
     fig.savefig(svg)
     fig.savefig(os.path.join(fig_dir, name + ".png"), dpi=dpi)
+    if clean_svg:
+        import shutil
+        import subprocess
+        import logging
+        mutool = shutil.which("mutool")
+        if mutool:
+            try:
+                subprocess.run([mutool, "clean", svg, svg], check=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except Exception as e:
+                logging.getLogger(__name__).warning(
+                    f"mutool cleanup failed for {svg}, keeping native SVG: {e}")
     return svg
