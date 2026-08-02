@@ -2,7 +2,7 @@
 Master NWB-to-Figure Generator Pipeline
 =========================================
 Reads raw NWB sessions and data sidecars to generate publication figures:
-- Figure 1: MaDeLaNe Setup & Hierarchy Summary Schematic (outputs/figure1_killer_omission_summary.png -> context/figures/figure1_main.png)
+- Figure 1: MaDeLaNe Setup & Hierarchy Summary Schematic (outputs/legacy_root_figures/figure1_killer_omission_summary.png -> context/figures/figure1_main.png)
 - Figure 2: Sequence Task Design & Unit Quality Census (context/figures/figure2_task_and_census.png)
 - Figure 3: Regional O+ Census Forest Plot & GLMM Inset (context/figures/figure3_regional_glmm_forest_plot.png)
 - Figure 4: Population TFR Heatmaps Across Hierarchy (context/figures/figure4_population_tfr_hierarchy.png)
@@ -25,10 +25,10 @@ FIGURES_DIR = CONTEXT / 'figures'
 FIGURES_DIR.mkdir(exist_ok=True)
 
 # 1. Copy Killer Figure 1 to context/figures/
-src_fig1 = REPO / 'outputs' / 'figure1_killer_omission_summary.png'
+src_fig1 = REPO / 'outputs' / 'legacy_root_figures' / 'figure1_killer_omission_summary.png'
 if src_fig1.exists():
     shutil.copy2(src_fig1, FIGURES_DIR / 'figure1_main_killer_summary.png')
-    shutil.copy2(REPO / 'outputs' / 'figure1_killer_omission_summary.svg', FIGURES_DIR / 'figure1_main_killer_summary.svg')
+    shutil.copy2(REPO / 'outputs' / 'legacy_root_figures' / 'figure1_killer_omission_summary.svg', FIGURES_DIR / 'figure1_main_killer_summary.svg')
     print("Copied Figure 1 PNG/SVG to context/figures/")
 
 # 2. Generate Figure 3 Forest Plot (GLMM OR = 3.08x, 95% CI [2.51, 3.78])

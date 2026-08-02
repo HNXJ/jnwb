@@ -11,7 +11,7 @@ written that way.** Section 1 separates them. Everything after applies to the pa
 unless marked otherwise.
 
 Companion documents, which this skill defers to on their own subjects:
-`context/PUBLICATION_STYLE_CRITERIA.md` (measured house targets), `context/CONTEXT.md`
+`context/docs/PUBLICATION_STYLE_CRITERIA.md` (measured house targets), `context/docs/CONTEXT.md`
 (project facts, retracted numbers), `CLAUDE.md` and `.agents/AGENTS.md` (doctrine).
 
 ---
@@ -46,7 +46,7 @@ This is not a formatting preference. It is what he is checking for.
   is the inference, and it must be marked as one.
 - **State the estimator when the result depends on it.** A direction that flips with the
   averaging order is not a finding until the order is named.
-- **Name the unit of inference in the sentence that carries the claim** — *"n = 17 sessions"*,
+- **Name the unit of inference in the sentence that carries the claim** — *"n = 23 sessions"*,
   not a bare p-value.
 - **State the denominator and the population scope for every proportion.** An unlabelled
   number sitting between two populations is the most expensive ambiguity to resolve late.
@@ -62,7 +62,7 @@ it]]` — rather than writing a plausible sentence around a gap.
 
 ## 3. Measured style targets
 
-From `context/PUBLICATION_STYLE_CRITERIA.md`, measured on the exemplar (Westerberg & Xiong 2025):
+From `context/docs/PUBLICATION_STYLE_CRITERIA.md`, measured on the exemplar (Westerberg & Xiong 2025):
 
 - **Sentence length**: median 16, mean 18, p90 under 32 words. Long sentences are where
   overclaims hide.
@@ -106,8 +106,9 @@ tier labels, and every threshold word — *sparse*, *broad*, *stable*, *widespre
 beta 14–30, low gamma 30–50, high gamma 50–80 Hz. *Low-frequency* means theta–beta (4–30 Hz)
 and is a band label, not a claim that effects are largest at the lowest frequencies.
 
-**Corpus facts to keep straight**: three macaques; 17 sessions carry the time-frequency
-analysis; ten analysis areas (V1, V2, V3a/d, V4, MT, MST, TEO, FST, FEF, PFC). **V3a/d** is the
+**Corpus facts to keep straight**: three macaques; 23 sessions carry the time-frequency
+analysis (1,236 TFR arrays on disk as of 2026-08-02 — earlier drafts say 17 sessions/948 files);
+ten analysis areas (V1, V2, V3a/d, V4, MT, MST, TEO, FST, FEF, PFC). **V3a/d** is the
 inclusive label covering V3, V3a and V3d — never contrast the subdivisions, they are halves of
 one shank under an assumed equal-share partition.
 

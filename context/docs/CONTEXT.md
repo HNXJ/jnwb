@@ -2,7 +2,8 @@
 
 **Status:** authoritative. This file supersedes the handover and handout documents listed in
 §11, which are preserved under `context/archive/superseded-2026-07-27/`.
-**Last verified:** 2026-07-28.
+**Last verified:** 2026-07-28 (counts refreshed 2026-08-02: TFR corpus 23 sessions / 1,236 files,
+channel vector 9,344 rows, graph 330 nodes — see §3, §4, §9, §12).
 **Rule for this file:** every path and count below was resolved on disk on the date shown. Where
 a previously circulated number is wrong, it appears in §8 with the correction, not silently
 deleted.
@@ -56,9 +57,11 @@ describing N = 2 is reporting a smaller corpus and its counts are lower bounds.
 |---|---|---|
 | NWB files (`D:/analysis/nwb/*.nwb`) | 21 | includes sessions with no TFR product |
 | `artifacts/data/session_readiness.csv`, `nwb_ok` | 21 | |
-| **TFR corpus** (`D:/workspace/data/tfr_arrays/*.npy`) | **17** | 948 files; **this is the analysis corpus** |
+| **TFR corpus** (`D:/workspace/data/tfr_arrays/*.npy`) | **23** | 1,236 files; **this is the analysis corpus** |
 
-TFR sessions by subject: 8, 5 and 4. Two TFR sessions are absent from the readiness list, and six
+TFR sessions by subject: 8, 10 and 5 (C31o, V182o, V198o — the V182o column grew from 4 to 10
+in July 2026; older text citing 17 sessions / 948 files reports the pre-growth corpus). Two TFR
+sessions are absent from the readiness list, and six
 readiness sessions have no TFR product — the two inventories are not interchangeable.
 
 ## 4. Data topology
@@ -67,12 +70,12 @@ readiness sessions have no TFR product — the two inventories are not interchan
 |---|---|---|
 | NWB recordings | `D:/analysis/nwb/sub-<subj>_ses-<sess>_rec.nwb` | 21 files |
 | Metadata sidecars | `D:/workspace/data/metadata/<session>/` | `probe_areas.json`, `electrodes.csv`, `units.csv`, `events.csv` |
-| TFR arrays | `D:/workspace/data/tfr_arrays/sub-<subj>_ses-<sess>-<probe>-<area>-<cond>.npy` | 948 files |
+| TFR arrays | `D:/workspace/data/tfr_arrays/sub-<subj>_ses-<sess>-<probe>-<area>-<cond>.npy` | 1,236 files |
 | vFLIP layer tables | `D:/workspace/data/connectivity_databases/<session>_channel_layers.csv` | regenerating |
 | Unit table (real) | `outputs/classification/grand_unit_table_shuffle_sso.csv` | 6,655 units |
 | Grand unit database | `outputs/publication_figures/data_tables/grand_database_6040_units.csv` | — |
 | Layer masks | `outputs/publication_visual_review/area_layer_tfr/layer_masks.json` | — |
-| Labyrinth graph | `artifacts/.lab/*.json` | 290 nodes; `labyrinth.db` is **0 bytes** |
+| Labyrinth graph | `artifacts/.lab/*.json` | 330 nodes; `labyrinth.db` is **0 bytes** |
 
 **TFR array contract (verified against `scripts/archive_oneoff/precompute_tfr_arrays.py`):**
 shape `(trials, 128 channels, 99 freqs, 500 times)`, float32, **raw power, not normalised**;
@@ -92,7 +95,7 @@ separately); ten *analysis regions* is the correct count, and the distinction be
 recording targets and analysis regions has caused documented drift before.
 
 **Per-channel area vector:** `outputs/channel_area_vector/channel_area_vector.csv`, built by
-`scripts/build_channel_area_vector.py`. 6,528 channels, 51 probes, all 17 TFR sessions,
+`scripts/build_channel_area_vector.py`. 9,344 channels, 23 TFR sessions, 73 session-probe pairs,
 **0 unresolved area tokens**, 0 disagreements against `electrodes.csv`.
 
 **The partition is an assumption, not a measurement.** 27 of 51 probes span multiple areas. In 26
@@ -198,7 +201,7 @@ Receipt: `artifacts/.lab/census_provenance_synthetic_finding_20260728.json`.
 | Retracted "invariant" | Status |
 |---|---|
 | Primary census 8,597 units; O+ = 421/8,597 = 4.90% | **Synthetic.** Real unit table has 6,655 units. Two-subject screening gave ~20 O+ of ~5,000 (~0.4%) — the right order. Recompute on three subjects. |
-| LFP census 8,736 channels; beta modulation 6,771/8,736 = 77.51% | **Synthetic.** Real per-channel census is 6,528 channels. |
+| LFP census 8,736 channels; beta modulation 6,771/8,736 = 77.51% | **Synthetic.** Real per-channel census is 9,344 channels (23-session `channel_area_vector.csv`; the 6,528-channel figure was the 17-session corpus). |
 | GLMM OR = 3.08, CI [2.51, 3.78], z = 10.726, p = 7.25e-27 | **Never fitted.** No mixed model produced these coefficients. |
 | Figure 8 alpha 5,816/8,736 = 66.58% | **Synthetic denominator.** The 2026-07-27 correction from 64.50% to 66.58% corrected arithmetic within a fabricated table. |
 | "Omission broadly perturbs low-frequency cortical state" | **Directional claim, not supported.** Magnitude holds; direction does not. See §9. |
@@ -226,37 +229,45 @@ those denominators has probability ≈ 3×10⁻²⁵.
 ## 9. Current findings, with receipts
 
 All from `outputs/lfp_band_census_v2/` (census `receipt.json`, models `glmm_results.json`,
-`glmm_summary.csv`). Census: 711/711 omission condition files, 0 skipped, 293,760 rows,
-17 sessions, median 39 trials per channel.
+`glmm_summary.csv`). Census (2026-07-29 receipt): 1,236 TFR files scanned, 909 omission
+condition files processed, 18 skipped (area-token mismatches, e.g. V3a segments on
+V182o 260724), 420,480 rows, **23 sessions**, median 39 trials per channel.
 
 **Low-frequency power is modulated everywhere.** Against each channel's own baseline, mean
-absolute change in the omitted slot: alpha 1.18 dB, theta 1.16 dB, beta 0.91 dB, low gamma
-0.59 dB, high gamma 0.42 dB. Low-frequency modulation is roughly twice gamma modulation.
+absolute change in the omitted slot: theta 1.06 dB, alpha 1.02 dB, beta 0.79 dB, low gamma
+0.55 dB, high gamma 0.42 dB. Low-frequency modulation is roughly twice gamma modulation.
 
-**The direction is not shared.** Signed means pooled across areas: theta −0.53 dB (P=0.07), alpha
-−0.37 (P=0.18), beta −0.22 (P=0.28), low gamma −0.06 (P=0.55), high gamma +0.13 (P=0.07);
-n = 17 sessions. This tests common *sign*, not presence of modulation. The two questions have
-opposite answers.
+**The direction is not shared.** Pooled 23-session GLMM (84,096 observations, random
+intercept per session; the Intercept term tests common sign): theta p_BH = 0.42, alpha 0.59,
+beta 0.29, low gamma 1.00, high gamma 0.94 — null in every band after BH. This tests common
+*sign*, not presence of modulation. The two questions have opposite answers.
 
-**Animals disagree in sign.** Session-level, per animal, BH across bands: one animal fell in every
-band below 50 Hz (theta −1.58, alpha −1.36, beta −0.89, low gamma −0.39 dB, all q < 0.005,
-8 sessions); another rose (theta +0.56 P=0.049; low and high gamma each ≈ +0.27, q < 0.002,
-4 sessions); the third reached significance in no band (5 sessions).
+**Animals disagree in sign.** Per-animal GLMM, BH across bands: **C31o** (8 sessions) fell in
+every band below 50 Hz (theta −1.58 dB, q = 5.0e−5; alpha −1.36, q = 1.0e−4; beta −0.89,
+q = 4.3e−3; low gamma −0.39, q = 2.0e−3); **V182o** (10 sessions) rose in all five bands
+(theta +0.65, q = 1.7e−5; alpha +0.42, q = 5.6e−4; beta +0.18, q = 2.0e−2; low gamma +0.32,
+q = 1.7e−6; high gamma +0.30, q = 3.5e−6); **V198o** (5 sessions) reached significance in
+no band. The sign split survives holding area constant (seven of eight testable
+area-by-band comparisons). Older text reporting "one animal rose, 4 sessions" describes the
+17-session corpus before the V182o column grew to 10.
 
-**V3 alpha/beta elevation is real in direction, underpowered in test.** Descriptive area model vs
-V1, session level: V3 beta +1.82 dB (q=1.6e−6), alpha +1.32 (q=0.006), low gamma +0.52 (q=0.004).
-Confounded with animal. The one animal-controlled test — a V3 probe against a V1/V2 probe in the
-same five sessions — gives beta +1.59 dB (P=0.076), alpha +1.16 (P=0.24). Both are measured in the
-omitted-slot window and are lower bounds for the reason in §6.
+**V3a/d alpha/beta elevation is real in direction, underpowered in test.** 23-session area
+model vs V1, channel-level: V3a/d beta +1.78 dB (q = 8.8e−8), alpha +1.28 (q = 1.3e−3), low
+gamma +0.51 (q = 2.2e−3). FEF and PFC are also elevated in alpha and beta (FEF alpha +1.07,
+q = 4.1e−3; beta +0.70, q = 4.6e−2; PFC alpha +1.04, q = 3.5e−3; beta +0.64, q = 4.3e−2).
+Confounded with animal. The one animal-controlled test — a V3 probe against a V1/V2 probe in
+the same five sessions — gives beta +1.59 dB (P=0.076), alpha +1.16 (P=0.24). Both are measured
+in the omitted-slot window and are lower bounds for the reason in §6.
 
 ## 10. Manuscript lineage
 
 | File | Role |
 |---|---|
-| `context/omission-a-draft-v2.md` | **current working draft** |
+| `context/drafts/omission-a-draft-v2.md` | superseded by v3 |
+| `context/drafts/omission-a-draft-v3.md` | **current working draft** |
 | `context/drafts/omission-a-draft-v1.md` | superseded |
 | `context/drafts/04_draft_biorxiv_markdown.md` | source markdown: intro, discussion, abstract, voice |
-| `context/PUBLICATION_STYLE_CRITERIA.md` | house yardstick, measured from Westerberg & Xiong 2025 |
+| `context/docs/PUBLICATION_STYLE_CRITERIA.md` | house yardstick, measured from Westerberg & Xiong 2025 |
 | `context/manuscript-docx/omission-2026-manuscript-master.docx` | **original — do not overwrite** |
 | `context/manuscript-docx/omission-2026-manuscript-master-scientific-revision.docx` | 2026-07-27 revision |
 | `context/manuscript-docx/omission-a-2026-manuscript-integrity-pass.docx` | 2026-07-28, 20 text edits |
@@ -312,8 +323,9 @@ Nothing was deleted in the reorganisation; every file was moved.
    computation.
 5. **Author list**; three reference defects (Wacongne 2011 journal/DOI mismatch, Bastos 2015 DOI
    suffix, Rao & Ballard 1999 cited for a Bastos 2012 laminar claim).
-6. **Graph health.** 290 nodes but only ~87 carry a verification receipt while ~276 read
-   `confirmed`; 40 edges point at a nonexistent `mission` node; `labyrinth.db` is 0 bytes. Do not
+6. **Graph health.** 330 nodes (measured 2026-08-02) but only ~87 carry a verification receipt
+   while ~276 read `confirmed`; 40 edges point at a nonexistent `mission` node; `labyrinth.db`
+   is 0 bytes. Do not
    mass-migrate without a deterministic migration receipt — Conservation applies to the graph too.
 
 ## 13. Operating rules

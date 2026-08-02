@@ -1,0 +1,21 @@
+{
+  "id": "logscale_psth_raster_suites_20260801",
+  "kind": "evidence",
+  "title": "Logarithmic PSTH y-axis scaling applied across all O++ and subject-specific raster suites",
+  "status": "confirmed",
+  "generated": "2026-08-02T03:10:50Z",
+  "notes": [
+    "Updated generate_oplusplus_raster_suites.py to set ax_psth.set_yscale(log).",
+    "Floored firing rates at 0.2 Hz for clean logarithmic rendering across baseline and omission epochs.",
+    "Re-rendered all 300 DPI PNG raster suites in outputs/raster_suites/oplusplus/, outputs/raster_suites/v182o_fef51_similar/, and outputs/raster_suites/v198o_fef51_similar/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "yscale": "log",
+    "dirs_updated": [
+      "outputs/raster_suites/oplusplus",
+      "outputs/raster_suites/v182o_fef51_similar",
+      "outputs/raster_suites/v198o_fef51_similar"
+    ]
+  }
+}

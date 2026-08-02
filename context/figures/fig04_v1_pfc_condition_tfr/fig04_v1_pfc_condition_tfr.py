@@ -62,7 +62,7 @@ from matplotlib.patches import Rectangle
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from svgassemble import assemble
 from figstats import group_location, paired_location, write
-from figstyle import mark_full_trial_axis
+from figstyle import mark_full_trial_axis, EPOCH_ONSETS_MS
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
 OUT_DIR = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500"
@@ -127,10 +127,70 @@ def gaussian_smooth_1d(y, sigma_bins):
     return out
 
 
-def gaussian_smooth_2d(a, sigma_time_bins, sigma_freq_bins):
-    """Separable Gaussian smoothing along (freq, time) axes of a 2-D map, NaN-safe."""
-    out = np.apply_along_axis(lambda row: gaussian_smooth_1d(row, sigma_time_bins), 1, a)
-    out = np.apply_along_axis(lambda col: gaussian_smooth_1d(col, sigma_freq_bins), 0, out)
+def epoch_boundary_bins(times, win):
+    """Bin indices of every epoch onset (fx/p1/d1/p2/d2/p3/...) inside `win`, plus the two
+    window edges -- the segment breakpoints smoothing must not cross (see
+    smooth_time_segmented)."""
+    onsets = sorted(t for t in EPOCH_ONSETS_MS.values() if win[0] <= t <= win[1])
+    bounds_ms = sorted(set([win[0]] + onsets + [win[1]]))
+    idx = sorted(set(int(np.clip(np.searchsorted(times, t), 0, len(times))) for t in bounds_ms))
+    if idx[0] != 0:
+        idx = [0] + idx
+    if idx[-1] != len(times):
+        idx = idx + [len(times)]
+    return idx
+
+
+def smooth_time_segmented(y, sigma_bins, boundary_idx):
+    """1-D Gaussian smoothing applied independently within each [boundary_idx[i]:idx[i+1])
+    segment -- a transient at a real epoch onset (e.g. p2 stimulus arrival) cannot leak
+    backward across that onset into the preceding epoch, or vice versa, the way one
+    continuous whole-trial kernel would smear it."""
+    out = np.empty_like(y, dtype=float)
+    for a, b in zip(boundary_idx[:-1], boundary_idx[1:]):
+        if b > a:
+            out[a:b] = gaussian_smooth_1d(y[a:b], sigma_bins) if (b - a) > 1 else y[a:b]
+    return out
+
+
+def freq_proportional_smooth_matrix(freqs, fraction, min_bandwidth_hz):
+    """Constant-relative-bandwidth (proportional/'constant-Q') smoothing weights: each output
+    frequency row is a Gaussian-weighted average of nearby rows with sigma = max(freq *
+    fraction, min_bandwidth_hz) Hz -- so smoothing widens in proportion to frequency itself,
+    rather than the fixed number of bins a plain index-space kernel would use regardless of
+    whether that bin corresponds to 2 Hz (low end) or the same 2 Hz (high end, but visually
+    compressed far less on the log-frequency axis the figure actually displays)."""
+    freqs = np.asarray(freqs, dtype=float)
+    n = freqs.size
+    M = np.zeros((n, n))
+    for i, fc in enumerate(freqs):
+        sigma_hz = max(fc * fraction, min_bandwidth_hz)
+        w = np.exp(-0.5 * ((freqs - fc) / sigma_hz) ** 2)
+        M[i, :] = w / w.sum()
+    return M
+
+
+FREQ_SMOOTH_FRACTION = 0.12    # smoothing bandwidth = 12% of each row's own frequency
+FREQ_SMOOTH_MIN_HZ = 2.0       # floor so the lowest frequencies still get >=1 bin of smoothing
+
+
+def gaussian_smooth_2d(a, freqs, times, win, sigma_time_bins):
+    """Time axis: Gaussian-smoothed within each epoch segment only (no cross-boundary
+    leakage, see smooth_time_segmented). Frequency axis: proportional/constant-Q smoothing
+    (see freq_proportional_smooth_matrix) -- NOT a fixed-bin-count kernel, so higher
+    frequencies get proportionally more smoothing than lower ones, matching how compressed
+    they are on the log-frequency display."""
+    bounds = epoch_boundary_bins(times, win)
+    out = np.apply_along_axis(lambda row: smooth_time_segmented(row, sigma_time_bins, bounds),
+                              1, a)
+    Mf = freq_proportional_smooth_matrix(freqs, FREQ_SMOOTH_FRACTION, FREQ_SMOOTH_MIN_HZ)
+    out = Mf @ np.nan_to_num(out, nan=0.0)
+    # Mf-weighted average ignores NaN-handling row-by-row; re-apply NaN where every
+    # contributing input row was NaN (mirrors the NaN-safety smooth_time_segmented already
+    # gives the time axis).
+    finite_mask = np.isfinite(a).astype(float)
+    weight_total = Mf @ finite_mask
+    out[weight_total <= 0] = np.nan
     return out
 
 
@@ -319,21 +379,31 @@ def area_cond_sessions(maps, area, cond, layer="all"):
             if k.split("|")[1] == area and k.split("|")[2] == layer and k.split("|")[3] == cond}
 
 
-SPEC_SMOOTH_TIME_BINS = 1.5
-SPEC_SMOOTH_FREQ_BINS = 1.0
+SPEC_SMOOTH_TIME_BINS = 1.5    # frequency-axis smoothing is proportional, not fixed-bin -- see
+                                # FREQ_SMOOTH_FRACTION / FREQ_SMOOTH_MIN_HZ near gaussian_smooth_2d
 TRACE_SMOOTH_TIME_BINS = 2.0
 
 
 def draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands, vlim, letter):
     """One spectrogram: area x condition, p1-aligned, baselined to the middle of d1.
 
-    Displayed map is Gaussian-smoothed (sigma = 1.5 time bins, 1 freq bin) and rendered with
-    gouraud shading -- cosmetic only, for readability; no statistic reads this smoothed array.
+    Displayed map is Gaussian-smoothed -- cosmetic only, for readability; no statistic reads
+    this smoothed array. Frequency axis uses proportional/constant-Q smoothing (bandwidth
+    scales with each row's own frequency, see freq_proportional_smooth_matrix), not a fixed
+    bin count, so the higher frequencies -- visually compressed far less on the log-frequency
+    display -- get proportionally more smoothing than theta/alpha. Time axis is smoothed
+    independently within each epoch segment (fx/p1/d1/p2/d2/p3), never across an onset
+    boundary, so a sharp stimulus transient cannot leak backward or forward across the
+    boundary that gives it its meaning (see smooth_time_segmented). Shading is "nearest", not
+    "gouraud": gouraud's per-vertex SVG output measured 11x slower to save than nearest on
+    this grid size (26.6s vs 2.4s for one panel) and made the 8-spectrogram figure pathological
+    under concurrent system load; the Gaussian smoothing above already does the visual-softening
+    work gouraud interpolation would have added on top.
     """
     sess, dropped = drop_outlier_sessions(sess)
     grand = to_db(np.nanmean(np.stack(list(sess.values())), axis=0))
-    grand_smooth = gaussian_smooth_2d(grand, SPEC_SMOOTH_TIME_BINS, SPEC_SMOOTH_FREQ_BINS)
-    im = ax.pcolormesh(times, freqs, grand_smooth, cmap="viridis", shading="gouraud",
+    grand_smooth = gaussian_smooth_2d(grand, freqs, times, CONDITION_WIN, SPEC_SMOOTH_TIME_BINS)
+    im = ax.pcolormesh(times, freqs, grand_smooth, cmap="viridis", shading="nearest",
                        vmin=vlim[0], vmax=vlim[1])
     for e in sorted({e for v in bands.values() for e in v if e <= freqs[-1]}):
         ax.axhline(e, color="red", lw=0.7, alpha=0.85)
@@ -354,17 +424,19 @@ def draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands, vlim, 
 def draw_condition_bandtrace(ax, area, cond, sess, freqs, times, bands, letter):
     """One band-decomposed trace panel: five bands, mean +- SEM across sessions.
 
-    Mean and SEM are each Gaussian-smoothed (sigma = 2 time bins) before conversion to dB --
-    cosmetic only; no statistic reads the smoothed trace.
+    Mean and SEM are each Gaussian-smoothed within each epoch segment only (see
+    smooth_time_segmented -- same no-cross-boundary-leakage rule the spectrogram uses) before
+    conversion to dB -- cosmetic only; no statistic reads the smoothed trace.
     """
     sess, _ = drop_outlier_sessions(sess)
+    bounds = epoch_boundary_bins(times, CONDITION_WIN)
     for (name, (lo, hi)), col in zip(bands.items(), BAND_COLORS):
         r = np.stack([band_ratio(m, freqs, lo, hi) for m in sess.values()])
         mu = np.nanmean(r, axis=0)
         n = np.sum(np.isfinite(r), axis=0)
         sem = np.nanstd(r, axis=0, ddof=1) / np.sqrt(np.maximum(n, 1))
-        mu_s = gaussian_smooth_1d(mu, TRACE_SMOOTH_TIME_BINS)
-        sem_s = gaussian_smooth_1d(sem, TRACE_SMOOTH_TIME_BINS)
+        mu_s = smooth_time_segmented(mu, TRACE_SMOOTH_TIME_BINS, bounds)
+        sem_s = smooth_time_segmented(sem, TRACE_SMOOTH_TIME_BINS, bounds)
         ax.plot(times, to_db(mu_s), color=col, lw=1.6, label=name, zorder=3)
         ax.fill_between(times, to_db(np.maximum(mu_s - sem_s, 1e-12)), to_db(mu_s + sem_s),
                         color=col, alpha=0.28, lw=0, zorder=2)
@@ -467,10 +539,16 @@ def build_v1_pfc_condition_figure():
     fig.suptitle(f"{', '.join(CONDITION_AREAS)}, RXRR vs RRRR, p1-d1-p2-d2-p3; baseline = "
                 "middle of d1; each spectrogram's colour scale is autoscaled to itself",
                 fontsize=12, fontweight="bold", y=1.02)
+    # bbox_inches="tight" forces an extra full-figure render-and-measure pass on top of the
+    # one savefig already does -- expensive with 16 pcolormesh/gouraud panels and became
+    # pathological under concurrent CPU load from other processes on this shared machine
+    # (observed: hung for 15+ hours). fig.tight_layout() computes a layout without that
+    # second render pass; margins are pre-padded (rect) to leave room for the legend/suptitle.
+    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.94])
 
     out = os.path.join(FIG_DIR, "fig04_v1_pfc_rxrr_rrrr")
-    fig.savefig(out + ".png", dpi=190, bbox_inches="tight")
-    fig.savefig(out + ".svg", bbox_inches="tight")
+    fig.savefig(out + ".png", dpi=190)
+    fig.savefig(out + ".svg")
     plt.close(fig)
 
     colour_scales = {f"{area}_{cond}": list(panel_vlim(area, cond))

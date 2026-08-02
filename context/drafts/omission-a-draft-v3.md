@@ -1,7 +1,7 @@
 <!--
 omission-a — rough draft v3
-Supersedes context/omission-a-draft-v2.md, which is preserved unchanged.
-Project context: context/CONTEXT.md (authoritative; supersedes the 2026-07-27 handouts).
+Supersedes context/drafts/omission-a-draft-v2.md, which is preserved unchanged.
+Project context: context/docs/CONTEXT.md (authoritative; supersedes the 2026-07-27 handouts).
 
 CHANGES FROM v1 (steps 2 and 4 of the agreed plan)
   * Integrity: removed the duplicated FIG 6 slot, normalised whitespace, deleted the stale
@@ -24,7 +24,7 @@ CONVENTIONS
   [[CONFLICT: ...]]  two sources disagree
   [[FIG N]]          figure slot
 
-TARGETS (context/PUBLICATION_STYLE_CRITERIA.md)
+TARGETS (context/docs/PUBLICATION_STYLE_CRITERIA.md)
   Abstract 220-280 | Intro 800-1100 | Results 2000-2600 | Discussion 2000-2500
   Methods 3500-4500 | 5 main figures | <=4 inferential families | ~10 p-values
 -->
@@ -186,9 +186,10 @@ sequential visual omission task. Recordings were obtained from three adult macaq
 University Institutional Animal Care and Use Committee and conformed to NIH guidelines ###.
 *(IACUC, PROTOCOL-TBD)*
 
-<!-- Subject count resolved 2026-07-28: the third subject was added after the source markdown
-     was written, so that document's N = 2 and its unit counts describe an earlier, smaller
-     corpus. Counts inherited from it are lower bounds. -->
+<!-- Session counts corrected 2026-08-02: the TFR analysis corpus grew from 17 to 23 sessions
+     (C31o 8, V182o 10, V198o 5) as the V182o column expanded from 4 to 10 in July 2026. All
+     corpus-dependent counts below (probe count, channel vector, condition-file counts, GLMM
+     sample sizes) must be re-derived from the 23-session corpus before submission. -->
 
 Recordings comprised spike-sorted single-unit activity (SUA), analog multi-unit activity envelope
 (MUAe), and local field potentials (LFP). Ten cortical areas entered the analysis: V1, V2, V3,
@@ -208,7 +209,9 @@ sidecars. **A single probe could span more than one named cortical area, so area
 assumed to be one probe per area.** Of 51 probes across the 17 sessions, 27 spanned more than one
 area. When a probe was assigned to multiple areas, its ordered channel axis was partitioned into
 contiguous segments corresponding to those listed areas, in order along the probe, yielding a
-per-channel area vector covering all 6,528 channels in the corpus.
+per-channel area vector covering all 6,528 channels in the corpus. *(Counts describe the
+17-session corpus; the live 23-session vector has 9,344 channels across 73 session-probe pairs —
+see CONTEXT.md §4/§5.)*
 
 **The segment boundaries were not estimated from the data.** Each listed area was assigned an
 equal share of the channel axis, so a two-area probe splits at channel 64 of 128 and the single
@@ -472,13 +475,16 @@ with exact binomial CI, and the GLMM contrast for higher-order enrichment]]
 Field potentials behaved differently from spiking. Referenced to each channel's own pre-omission
 baseline, low-frequency power during the omitted slot changed by a mean absolute magnitude of
 roughly one decibel, about twice the magnitude seen in the gamma bands, and modulation of that
-size was present in every area sampled (293,760 channel x band x condition measurements from 711
-condition files, 17 sessions).
+size was present in every area sampled (420,480 channel x band x condition measurements from 909
+condition files, 23 sessions).
 
 The direction of that change, however, is not a property of the omission alone. Averaging the
 signed change across areas returns approximately zero in every band - theta -0.53 dB (P=0.07),
 alpha -0.37 dB (P=0.18), beta -0.22 dB (P=0.28), n = 17 sessions - because different recordings
-move in opposite directions and cancel. That pooled estimate tests whether the hierarchy shares a
+move in opposite directions and cancel. *(2026-08-02: corpus grew to 23 sessions; the pooled
+GLMM refit on 23 sessions is null in every band after BH — theta 0.42, alpha 0.59, beta 0.29,
+low gamma 1.00, high gamma 0.94. The point estimates above describe the 17-session run and
+must be re-derived before submission.)* That pooled estimate tests whether the hierarchy shares a
 common sign; it does not test whether individual areas are modulated, and the two questions have
 opposite answers here.
 
@@ -874,7 +880,9 @@ outputs/lfp_band_census_v2/{receipt.json, glmm_results.json, glmm_summary.csv};
 artifacts/.lab/omission_lfp_glmm_subject_sign_reversal_20260728.json.
 
 RESOLVED — area aliasing. Per-channel area vector for all 17 TFR sessions (6,528 channels,
-51 probes, 0 unresolved area tokens). Boundaries are an equal-share assumption, not a measurement.
+51 probes, 0 unresolved area tokens) as of the 2026-07-28 fix; the corpus has since grown to
+23 sessions / 9,344 channels / 73 session-probe pairs (see CONTEXT.md §4/§5).
+Boundaries are an equal-share assumption, not a measurement.
 Receipt: artifacts/.lab/channel_area_vector_uniform_split_finding_20260728.json.
 
 OPEN — O+ prevalence on the three-subject corpus (the prior draft's 4.9% is synthetic).

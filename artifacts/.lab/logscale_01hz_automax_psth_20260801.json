@@ -1,0 +1,17 @@
+{
+  "id": "logscale_01hz_automax_psth_20260801",
+  "kind": "evidence",
+  "title": "PSTH log scale bounded strictly from 0.1 Hz to auto-maximum across all raster suites",
+  "status": "confirmed",
+  "generated": "2026-08-02T03:17:20Z",
+  "notes": [
+    "Enforced set_ylim(bottom=0.1, top=max_rate * 1.25) across all 4x4 raster suite generators.",
+    "Floored PSTH curves and confidence intervals at 0.1 Hz.",
+    "Re-rendered all 300 DPI PNG figures in outputs/raster_suites/oplusplus/, outputs/raster_suites/v182o_fef51_similar/, and outputs/raster_suites/v198o_fef51_similar/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "ylim_bottom": 0.1,
+    "ylim_top": "auto-max * 1.25"
+  }
+}

@@ -128,7 +128,7 @@ tpl = DocxTemplate("template.docx")
 context = {
     'title': 'Omission Neurophysiology Draft',
     'abstract': 'Here is the abstract text...',
-    'figure_1': InlineImage(tpl, 'outputs/figures/fig1.png', width=Inches(6.0)),
+    'figure_1': InlineImage(tpl, 'outputs/publication_figures/figure4_tfr_spectrograms.png', width=Inches(6.0)),
     'table_data': [
         {'area': 'V1', 'units': 420},
         {'area': 'PFC', 'units': 310}
@@ -137,6 +137,22 @@ context = {
 
 tpl.render(context)
 tpl.save("generated_draft.docx")
+```
+
+---
+
+## Figure ordering footgun
+
+**Insert image+caption blocks in ascending figure-number order (Fig1 → Fig2 → … → FigN) —
+never in code-generation order.** TFR/LFP figures are often generated after spiking figures and
+will silently land out of sequence. Caught 2026-07-27: Figs 6 & 7 were placed after Fig 8 in the
+master DOCX, and the PDF reviewer reported them missing. Remedy without rebuilding the document:
+
+```python
+from copy import deepcopy
+body = doc.element.body
+# move element `pic_elem` to just before the element `next_fig_elem`
+body.insert(body.index(next_fig_elem), deepcopy(pic_elem))
 ```
 
 ---

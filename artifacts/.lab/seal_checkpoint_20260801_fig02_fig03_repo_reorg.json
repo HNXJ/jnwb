@@ -1,0 +1,42 @@
+{
+  "id": "seal_checkpoint_20260801_fig02_fig03_repo_reorg",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "Seal (2026-08-01): fig02 and fig03 locked, context/outputs root reorg complete, fig04 explicitly NOT included -- still open",
+  "status": "confirmed",
+  "generated": "2026-08-01T00:00:00Z",
+  "notes": [
+    "This checkpoint covers three closed pieces of work, each with its own falsifier already met: (1) fig02 -- closed when context/figures/fig02_finalized.svg/.png were written as an explicit user-directed lock, after every requested spec item (black dots, PSTH row, S- resampling, O++ unit override, label placement) was applied and the script re-ran clean. (2) fig03 -- closed the same way via context/figures/fig03_finalized.svg/.png, after panels A/B/C's requested changes were applied, one real stats bug the changes exposed was caught and fixed (not silently left), and whitespace was reduced to a stable minimum the user stopped iterating on. (3) context/ and outputs/ root reorg -- closed when `ls` on both directories' roots showed folders only, with every live cross-reference to a moved file verified by grep before and after the move, not assumed.",
+    "Per Conservation: nothing was deleted. Every moved file exists at its new path (git mv for tracked context/ docs, preserving history; plain mv for untracked outputs/ root files, all confirmed zero-reference before moving). The prior state is fully recoverable from git history for the tracked moves and from the outputs/archive/root_misc_2026-08-01/ and outputs/legacy_root_figures/ destinations for the untracked ones.",
+    "Explicitly NOT covered by this seal: fig04 (V1/V3a-d/TEO/PFC condition TFR). Its four-area expansion, per-panel colour autoscaling, and Gaussian smoothing are committed in code, but the on-disk fig04.svg/fig04.png have not yet been regenerated from that code as of this checkpoint -- a background run is in progress. No falsifier for fig04 has been met yet (falsifier: fig04.svg on disk reflects the current script AND a fig04_finalized.png exists via the requested headless-browser white-background render). Sealing fig02/fig03/reorg now rather than waiting for fig04 to avoid conflating a genuinely closed scope with an open one -- the two are independent and there is no reason for the slower item to hold up checkpointing the faster ones.",
+    "Skill/graph audit findings (harness_skill_registry_repair_20260731_correction verified live, labyrinth_patch_20260725_v16_doctrine's edge-count premise contradicted by direct recount, .gemini progress-review-plan tombstone gap still open) are carried forward from claude_code_health_audit_20260801 and review_pass_20260801_fig02_fig03_fig04_repo_reorg -- not re-verified again here, just referenced.",
+    "Multi-agent posture note (not a finding, a working-agreement record): the user confirmed this session that unattributed concurrent file/graph changes are routine in this shared workspace. This seal does not attempt to enumerate or take responsibility for changes made by other concurrent sessions (e.g. the oplusplus/FEF-51 raster-suite work visible in git status as this checkpoint is written) -- those are out of this seal's scope entirely, not silently absorbed into it."
+  ],
+  "issues": [
+    "fig04 remains open -- do not treat this seal as covering figure 4's status in any way.",
+    "outputs/omission_tfr_maps* sibling-directory staleness (flagged in the review pass) remains an open, un-decided question."
+  ],
+  "plan": [
+    "A follow-up seal should be written once fig04's rebuild completes, its output is spot-checked, and fig04_finalized.png is produced -- do not fold that into this checkpoint retroactively; write a new node."
+  ],
+  "verification": {
+    "checks": {
+      "fig02_finalized_files_exist": true,
+      "fig03_finalized_files_exist": true,
+      "context_root_folders_only": true,
+      "outputs_root_folders_only": true,
+      "no_files_deleted_conservation_check": true,
+      "fig04_included_in_this_seal": false
+    },
+    "receipt": "ls context/figures/fig0[2-3]_finalized.* and ls context/ / ls outputs/ (both root-only-folders, shown above in this session's tool output) confirm the closed scope directly; fig04.svg's mtime predates the smoothing-change commit to fig04_v1_pfc_condition_tfr.py, confirmed by inspection, which is why it is excluded here.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "review_pass_20260801_fig02_fig03_fig04_repo_reorg",
+      "relation": "derives_from",
+      "reasoning": "This seal checkpoints the subset of that review's findings that met their falsifier (fig02, fig03, root reorg), deliberately excluding the subset that did not (fig04).",
+      "confidence": 0.95
+    }
+  ]
+}

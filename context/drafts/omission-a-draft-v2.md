@@ -1,7 +1,7 @@
 <!--
 omission-a — rough draft v2
 Supersedes context/drafts/omission-a-draft-v1.md, which is preserved unchanged.
-Project context: context/CONTEXT.md (authoritative; supersedes the 2026-07-27 handouts).
+Project context: context/docs/CONTEXT.md (authoritative; supersedes the 2026-07-27 handouts).
 
 CHANGES FROM v1 (steps 2 and 4 of the agreed plan)
   * Integrity: removed the duplicated FIG 6 slot, normalised whitespace, deleted the stale
@@ -24,7 +24,7 @@ CONVENTIONS
   [[CONFLICT: ...]]  two sources disagree
   [[FIG N]]          figure slot
 
-TARGETS (context/PUBLICATION_STYLE_CRITERIA.md)
+TARGETS (context/docs/PUBLICATION_STYLE_CRITERIA.md)
   Abstract 220-280 | Intro 800-1100 | Results 2000-2600 | Discussion 2000-2500
   Methods 3500-4500 | 5 main figures | <=4 inferential families | ~10 p-values
 -->
@@ -186,9 +186,9 @@ sequential visual omission task. Recordings were obtained from three adult macaq
 University Institutional Animal Care and Use Committee and conformed to NIH guidelines ###.
 *(IACUC, PROTOCOL-TBD)*
 
-<!-- Subject count resolved 2026-07-28: the third subject was added after the source markdown
-     was written, so that document's N = 2 and its unit counts describe an earlier, smaller
-     corpus. Counts inherited from it are lower bounds. -->
+<!-- CORRECTION 2026-08-02: superseded draft. The live TFR corpus is 23 sessions
+     (C31o 8, V182o 10, V198o 5); all 17-session counts in this draft predate the V182o growth
+     and must not be quoted. Live counts: CONTEXT.md §3–§5, §9. -->
 
 Recordings comprised spike-sorted single-unit activity (SUA), analog multi-unit activity envelope
 (MUAe), and local field potentials (LFP). Ten cortical areas entered the analysis: V1, V2, V3,

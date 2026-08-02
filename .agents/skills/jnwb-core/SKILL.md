@@ -38,7 +38,7 @@ sessions = oa.batch_read('D:/analysis/nwb', pattern='*.nwb')
 Session count drifts as data lands — verify the current count via
 `artifacts/data/session_readiness.csv` or `nwb_catalog.json` rather than
 hardcoding a number; "13 sessions" is a known-stale legacy figure (see
-`.agents/AGENTS.md`, 17 NWB files as of the 2026-07-09 receipt).
+`.agents/AGENTS.md`; 21 NWB files as of the 2026-07-26 receipt).
 
 ## Data Access Methods (OmissionSession)
 
@@ -74,7 +74,13 @@ unit_map = session.channel_unit_mapping()        # unit_id → channel_id, area,
 | BBXA  | 9                 | B omission at p3                  |
 | BBBX  | 10                | B omission at p4                  |
 | RRRR  | 11–26             | Random sequences                  |
-| RXRR/RRXR/RRRX | 27–50 | Random + omission variants   |
+| RXRR  | 27–34             | Omission at p2                    |
+| RRXR  | 35, 37, 39, 41    | Omission at p3 (odd slots only)   |
+| RRRX  | 36, 38, 40, 42–50 | Omission at p4                    |
+
+**V182o exception** (`CONDITION_MAP_V182O` in `jnwb/session.py`): RRXR = 35–42, RRRX = 43–50
+(contiguous ranges, no odd/even split). Always resolve from the map dict, not from memory —
+the default map's odd-slot RRXR split is a real quirk that has silently mislabeled sessions.
 
 ## Phase Numbers
 
@@ -102,8 +108,8 @@ Stable-only metrics table: 3,071 units (`stable_units_calculated_metrics.csv`).
 ## Key Source CSV Paths
 
 ```
-d:/workspace/omission/outputs/publication_figures/grand_database_6040_units.csv
-d:/workspace/omission/outputs/publication_figures/stable_units_calculated_metrics.csv
+d:/workspace/omission/outputs/publication_figures/data_tables/grand_database_6040_units.csv
+d:/workspace/omission/outputs/publication_figures/data_tables/stable_units_calculated_metrics.csv
 ```
 
 ## NWB File Locations
@@ -152,21 +158,35 @@ Omission NWB session files contain the following physiological signals:
    * *Convolved Spikes / PSTH*: Continuous rate representations computed by smoothing discrete spikes with a temporal kernel (e.g. Gaussian window or binning via `UnitAnalyzer.psth`).
 
 ## direct h5py fallback access (head-free & speedups)
-On older sessions (such as `V182o` and visual sessions containing PyNWB Device schema anomalies), attempting a standard PyNWB object build can cause build blockages. Use direct `h5py` reads to load LFP matrices and behavioral arrays without using full PyNWB schemas:
+On older sessions (such as `V182o` and visual sessions containing PyNWB Device schema anomalies), attempting a standard PyNWB object build can cause build blockages. Use direct `h5py` reads to load LFP matrices and behavioral arrays without using full PyNWB schemas. **LFP group layout differs by subject** — verify per file, do not assume:
+
+- C31o: `acquisition/probe_0_lfp/` contains `data`, `electrodes`, `timestamps` directly (so the path is `.../probe_0_lfp/data`).
+- V182o: `acquisition/probe_0_lfp/` contains a nested `probe_0_lfp_data/` group holding `data`/`timestamps` (path `.../probe_0_lfp/probe_0_lfp_data/data`).
+- Pupil is `acquisition/pupil_1_tracking/` (data at `.../pupil_1_tracking/data` or `.../pupil_1_tracking/pupil_1_diameter_data`) — there is **no** `pupil_diameter` group in either subject.
+- Probe indices are 0–2 (some sessions 0–3); the `electrical_series` intermediate group does not exist in these files.
 
 ```python
 import h5py
 import numpy as np
 
-# direct read template
+# direct read template (V182o layout shown; adjust per the rules above)
 with h5py.File("D:/analysis/nwb/sub-V182o_ses-260706.nwb", "r") as f:
     # 1. Direct LFP extraction (avoiding device metadata build blocks)
-    # LFP data is under acquisition/probe_[idx]_lfp/electrical_series/data
+    # V182o: nested group; C31o would be f["acquisition/probe_0_lfp/data"]
     lfp_data = f["acquisition/probe_0_lfp/probe_0_lfp_data/data"][:] # channels x samples
     lfp_timestamps = f["acquisition/probe_0_lfp/probe_0_lfp_data/timestamps"][:]
-    
+
     # 2. Pupil diameter behavioral tracking
-    pupil_data = f["acquisition/pupil_diameter/data"][:]
-    pupil_timestamps = f["acquisition/pupil_diameter/timestamps"][:]
+    pupil_data = f["acquisition/pupil_1_tracking/data"][:]
+    pupil_timestamps = f["acquisition/pupil_1_tracking/timestamps"][:]
 ```
+
+## Footgun: dual-area probes must be resolved by channel position
+
+A probe labeled `"Y, Z"` or `"Y/Z"` means channels **1–64 = Y, 65–128 = Z**; bare `"V3"` alone
+expands to `(V3d, V3a)`; dual `"V3, V1"` keeps V3 as the first half (no V3d/V3a expansion).
+Never resolve area by taking `location.split(',')[0]` — that bug shipped once and silently
+mislabeled 1,965 of 6,655 rows in the grand unit table. Canonical helper:
+`jnwb.addressing.map_peak_channel_to_area` (via `jnwb.sequence_layout.parse_probe_areas` /
+`channel_slice_for_area`). See `.agents/AGENTS.md` footgun #3.
 

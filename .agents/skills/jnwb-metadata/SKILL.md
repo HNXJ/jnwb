@@ -105,13 +105,13 @@ print_audit_report(audit, verbose=True)   # Formatted console output of audit di
 import pandas as pd
 
 grand = pd.read_csv(
-    'd:/workspace/omission/outputs/publication_figures/grand_database_6040_units.csv'
+    'd:/workspace/omission/outputs/publication_figures/data_tables/grand_database_6040_units.csv'
 )
 # Columns: unit_id, session, area, layer, firing_rate, snr, waveform_duration_us,
 #          presence_ratio, is_stable, is_stable_plus, quality, response_class, ...
 
 stable = pd.read_csv(
-    'd:/workspace/omission/outputs/publication_figures/stable_units_calculated_metrics.csv'
+    'd:/workspace/omission/outputs/publication_figures/data_tables/stable_units_calculated_metrics.csv'
 )
 # Columns: unit_id, firing_rate_tier, fano_factor, burst_index, waveform_duration_bin, ...
 ```
@@ -123,7 +123,7 @@ stable = pd.read_csv(
 | Total units          | 6,040  |
 | Stable               | 3,071  |
 | Stable-plus          | 661    |
-| Sessions             | verify via `artifacts/data/session_readiness.csv` / `nwb_catalog.json` — do not hardcode; "13" is a known-stale legacy figure (17 NWB files as of the 2026-07-09 receipt, see `.agents/AGENTS.md`) |
+| Sessions             | verify via `artifacts/data/session_readiness.csv` / `nwb_catalog.json` — do not hardcode; "13" is a known-stale legacy figure (21 NWB files as of the 2026-07-26 receipt, see `.agents/AGENTS.md`) |
 | Subjects             | 3 (C31o, V182o, V198o) |
 
 ## Bytes-Aware String Decoding

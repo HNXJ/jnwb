@@ -14,7 +14,7 @@ CONVENTIONS IN THIS DRAFT
   [[CONFLICT: ...]]       two sources disagree; resolve before v2
   [[FIG N]]               figure slot
 
-TARGETS (context/PUBLICATION_STYLE_CRITERIA.md)
+TARGETS (context/docs/PUBLICATION_STYLE_CRITERIA.md)
   Abstract 220-280 | Intro 800-1100 | Results 2000-2600 | Discussion 2000-2500
   Methods 3500-4500 | 5 main figures | <=4 inferential families | ~10 p-values
 -->
@@ -178,6 +178,10 @@ sequential visual omission task. Recordings were obtained from three adult macaq
 17 sessions: C31o (8 sessions), V182o (4), and V198o (5). All procedures were approved by the
 Vanderbilt University Institutional Animal Care and Use Committee and conformed to NIH
 guidelines ###. *(IACUC, PROTOCOL-TBD)*
+
+<!-- CORRECTION 2026-08-02: superseded draft. The live TFR corpus is 23 sessions
+     (C31o 8, V182o 10, V198o 5); all 17-session counts in this draft predate the V182o growth
+     and must not be quoted. Live counts: CONTEXT.md §3–§5, §9. -->
 
 <!-- Subject count resolved 2026-07-28 (Hamm): the third subject was added after the source
      markdown was written, so that document's N = 2 and its unit counts describe an earlier,

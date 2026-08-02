@@ -21,11 +21,6 @@ output/
 reports/
 artifacts/*
 !artifacts/developer/
-!artifacts/developer/RETIRED_prp_progress_20260731.json
-!artifacts/developer/RETIRED_prp_plans_20260731.json
-!artifacts/developer/RETIRED_prp_review_20260731.json
-!artifacts/developer/RETIRED_prp_adapt_20260731.json
-!artifacts/progress_report.md
 !artifacts/.lab/
 checkpoints/
 scratch/
@@ -117,18 +112,10 @@ scripts/_*.py
 .vscode/
 .idea/
 
-# Keep gemini skills source
-!/.gemini/
-!/.gemini/skills/
-
 # Local configuration files
 notebooks/local_config.py
 
 # Whitelist developer progress/plans/review JSON files
-!artifacts/developer/RETIRED_prp_progress_20260731.json
-!artifacts/developer/RETIRED_prp_plans_20260731.json
-!artifacts/developer/RETIRED_prp_review_20260731.json
-!artifacts/developer/RETIRED_prp_adapt_20260731.json
 # Labyrinth graph state -- the PRP->Labyrinth migration (2026-07-28) never extended this
 # whitelist to the replacement system, so the project's own knowledge graph was never
 # git-tracked (found and fixed 2026-07-31, same session that found the analogous skill-

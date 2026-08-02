@@ -32,10 +32,10 @@ from jnwb import spectral
 ```python
 # Extract frequency band (canonical frequency band table)
 theta      = TFRAnalyzer.extract_band(tfr_data, band='theta')      # 4–8 Hz
-alpha      = TFRAnalyzer.extract_band(tfr_data, band='alpha')      # 8–12 Hz
-beta       = TFRAnalyzer.extract_band(tfr_data, band='beta')       # 13–30 Hz
-low_gamma  = TFRAnalyzer.extract_band(tfr_data, band='low_gamma')  # 30–60 Hz
-high_gamma = TFRAnalyzer.extract_band(tfr_data, band='high_gamma') # 60–120 Hz
+alpha      = TFRAnalyzer.extract_band(tfr_data, band='alpha')      # 8–14 Hz
+beta       = TFRAnalyzer.extract_band(tfr_data, band='beta')       # 14–30 Hz
+low_gamma  = TFRAnalyzer.extract_band(tfr_data, band='low_gamma')  # 30–50 Hz
+high_gamma = TFRAnalyzer.extract_band(tfr_data, band='high_gamma') # 50–80 Hz
 
 ## Laminar Frequency Asymmetry & PARAFAC Tensor Components (Bastos 2012 / Chao 2018)
 
@@ -117,14 +117,18 @@ flip = spectral.vflip2(lfp_array, channel_depths, sfreq=1000.0)
 
 ## Frequency Band Definitions
 
+Canonical bands — settled by the 2026-07-27 audit; do not re-drift. Every fitted coefficient
+in `outputs/lfp_band_census_v2/` uses this set; alpha 8–12 / theta 3–8 / low gamma 30–60 /
+high gamma 60–120 are pre-correction legacy values.
+
 | Band       | Range (Hz) |
 |------------|------------|
 | delta      | 1–4        |
 | theta      | 4–8        |
-| alpha      | 8–15        |
-| beta       | 15–30       |
-| low_gamma  | 30–60       |
-| high_gamma | 60–120      |
+| alpha      | 8–14       |
+| beta       | 14–30      |
+| low_gamma  | 30–50      |
+| high_gamma | 50–80      |
 | broadband  | 1–150      |
 
 ## TFR Array Locations and Naming Convention
@@ -146,12 +150,14 @@ Probe → area assignment is **NOT fixed across sessions** — always resolve fr
 - Standard sequences: `AAAB`, `AXAB`, `AAXB`, `AAAX`, `BBBA`, `BXBA`, `BBXA`, `BBBX`
 - R-family: `RRRR` (random, no omission), `RXRR` (omit p2), `RRXR` (omit p3), `RRRX` (omit p4)
 
-**Array shape**: `(n_channels, n_freqs, n_times, n_trials)` — verify with `.shape` before slicing.
-Frequencies: `np.arange(3, 201, 2)` Hz (99 bins) for this session.
+**Array shape**: `(n_trials, n_channels, n_freqs, n_times)` — verified on disk 2026-08-02
+(e.g. `sub-C31o_ses-230630-A-PFC-AAAB.npy` is `(44, 128, 99, 500)`). Confirm with `.shape`
+before slicing; `TFRArray` orientation is trials-first, not channels-first.
 
-**Session readiness** (2026-07-13 receipt):
-- `suite_tfr_ready=True`: 15/17 sessions (all subjects: C31o, V182o, V198o)
-- `suite_tfr_ready=False`: `sub-C31o_ses-230630`, `sub-V198o_ses-230629`
+**Session readiness** (2026-07-26 receipt; verify live — corpus grows):
+- 21 NWB files total; TFR array corpus: **23 sessions / 1,236 npy files** on disk as of
+  2026-08-02 (C31o 8, V182o 10, V198o 5) — this grew from the 17-session/948-file corpus that
+  older text and `context/docs/CONTEXT.md` may still cite.
 - Always gate on `artifacts/data/session_readiness.csv` before loading a TFR array.
 
 Use only **Stable-Plus** channels (channels with at least one stable-plus unit) for LFP analysis.
@@ -161,11 +167,11 @@ Loading raw LFP datasets from NWB can exhaust available system memory (RAM) due 
 
 ### Guidelines for Memory Safety:
 1. **Head-free Downsampling**: Ensure raw LFP electrical series data is downsampled to `1000 Hz` immediately upon direct loading.
-2. **Channel-by-channel loading (lazy load)**: Avoid using ` electrical_series.data[:]` which loads all channels and trials into RAM. Instead, load only the channels corresponding to the targeted brain area/layer of interest:
+2. **Channel-by-channel loading (lazy load)**: Avoid using ` data[:]` which loads all channels and trials into RAM. Instead, load only the channels corresponding to the targeted brain area/layer of interest. **There is no `electrical_series` group in these files** — the real layouts are `acquisition/probe_*_lfp/data` (C31o) and `acquisition/probe_*_lfp/probe_*_lfp_data/data` (V182o), see `jnwb-core`:
    ```python
    # Load only channels 0 to 10 of LFP dataset
    with h5py.File("path_to_nwb.nwb", "r") as f:
-       lfp_ds = f["acquisition/probe_0_lfp/electrical_series/data"]
+       lfp_ds = f["acquisition/probe_0_lfp/data"]  # or probe_0_lfp_data/data for V182o
        # Slicing keeps the load in RAM minimal
        lfp_channel_slice = lfp_ds[:, 0:10] # samples x 10 channels
    ```

@@ -124,7 +124,7 @@ pli = phase_locking_index(spike_times, lfp_phase_array, lfp_timestamps)
 It supersedes the prior drift-stability-only selection (which checked CV/Spearman stability
 but did not verify that a unit's response matched the shape implied by its class name).
 
-Reference implementation: `scripts/template_correlation_selection.py`
+Reference implementation: `scripts/archive_oneoff/template_correlation_selection.py`
 Output: `outputs/classification/figure3_template_correlation_scan.csv` (330 rows for sub-C31o_ses-230823)
 
 ### Epoch template structure
@@ -169,8 +169,8 @@ stimuli. Not resolved — investigate before trusting either classifier exclusiv
 
 ### Extending to all sessions / multi-session
 
-`scripts/template_correlation_selection.py` currently runs on one NWB session.
-To extend to all 15 `suite_tfr_ready=True` sessions, wrap in a loop over
+`scripts/archive_oneoff/template_correlation_selection.py` currently runs on one NWB session.
+To extend to all 21 NWB sessions (or the `suite_tfr_ready=True` subset), wrap in a loop over
 `artifacts/data/session_readiness.csv` rows where `suite_tfr_ready=True`, then append
 results to a session-tagged CSV (`session_prefix`, `unit_id`, `r_Splus`, `p_Splus`, etc.).
 

@@ -87,7 +87,7 @@ Key doctrine:
   fix). Verify the denominator/scope per panel before citing counts.
 
 Critical handouts:
-- **`context/CONTEXT.md` — read this first.** Authoritative merged project context as of
+- **`context/docs/CONTEXT.md` — read this first.** Authoritative merged project context as of
   2026-07-28: paradigm, corpus, data topology, area/channel/layer model, analysis contracts,
   statistical doctrine, current findings with receipts, and a **retraction list of numbers that
   were previously circulated as "protected invariants" but are hardcoded literals no script

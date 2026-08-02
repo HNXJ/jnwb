@@ -108,17 +108,26 @@ def render_unit_raster_suite(rank_idx, row, save_path):
     for slot in ("p1", "p2", "p3", "p4"):
         ax_psth.axvline(EPOCH_ONSETS_MS[slot], color="gray", ls="--", lw=0.7, zorder=4)
         
+    max_rate = 10.0
     for cond in CONDS:
         onsets = onsets_dict.get(cond, np.array([]))
         centers, mean, sem = compute_psth(spikes, onsets, WIN)
         c = COND_COLORS[cond]
-        ax_psth.plot(centers, mean, color=c, lw=1.5, zorder=3, label=cond)
-        ax_psth.fill_between(centers, mean - sem, mean + sem, color=c, alpha=0.20, linewidth=0, zorder=2)
+        # Floor rates at 0.1 Hz for log-scale plotting
+        mean_plot = np.maximum(mean, 0.1)
+        lower_plot = np.maximum(mean - sem, 0.1)
+        upper_plot = np.maximum(mean + sem, 0.1)
+        ax_psth.plot(centers, mean_plot, color=c, lw=1.5, zorder=3, label=cond)
+        ax_psth.fill_between(centers, lower_plot, upper_plot, color=c, alpha=0.20, linewidth=0, zorder=2)
+        if len(mean) > 0:
+            max_rate = max(max_rate, float(np.max(mean + sem)))
         
+    ax_psth.set_yscale("log")
+    ax_psth.set_ylim(bottom=0.1, top=max_rate * 1.25)
     ax_psth.set_xlim(WIN)
     ax_psth.set_xticks(ticks)
     ax_psth.set_xticklabels(labels, rotation=45, fontsize=7, ha="right")
-    ax_psth.set_ylabel("Rate (Hz)", fontsize=8, fontweight="bold")
+    ax_psth.set_ylabel("Rate (Hz, log)", fontsize=8, fontweight="bold")
     ax_psth.legend(fontsize=7, loc="upper right", frameon=True, facecolor="white", edgecolor="none")
     for s in ("top", "right"):
         ax_psth.spines[s].set_visible(False)

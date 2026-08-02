@@ -1,0 +1,20 @@
+{
+  "id": "supp_figS24_omission_identity_decoding_20260802",
+  "kind": "evidence",
+  "title": "Supplementary Figure S24: Noise-Controlled Encoding & Cross-Validated Decoding of Omitted Identity",
+  "status": "confirmed",
+  "generated": "2026-08-02T16:21:30Z",
+  "notes": [
+    "Implemented jnwb/omission_identity.py providing noise-controlled, class-balanced trial downsampling, 5-fold Stratified K-Fold CV, and GLMM spatial feature modeling.",
+    "Contrasted Omitted A (AXAB) vs Omitted B (BXBA) vs Control Omission (RXRR) across sequence slots P2, P3, and P4.",
+    "Generated publication-grade 300 DPI PNG and SVG Supplementary Figure S24 under context/figures/supplements/figS24_omission_identity_decoding.png.",
+    "Extracted spatial encoding hierarchy showing FEF > PFC > TEO > V4 > V3 > V2 > V1 for omitted stimulus identity."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "fig_png": "context/figures/supplements/figS24_omission_identity_decoding.png",
+    "fig_svg": "context/figures/supplements/figS24_omission_identity_decoding.svg",
+    "dpi": 300,
+    "noise_control": "equalized trial N downsampling, 5-fold stratified CV, z-score normalization"
+  }
+}

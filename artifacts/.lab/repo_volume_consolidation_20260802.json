@@ -1,0 +1,35 @@
+{
+  "id": "repo_volume_consolidation_20260802",
+  "schema_version": 3,
+  "kind": "claim",
+  "title": "Repo volume consolidation (2026-08-02): ~22 GB freed, working tree 33.0 GB -> 10.4 GB",
+  "status": "confirmed",
+  "generated": "2026-08-02T00:00:00Z",
+  "notes": [
+    "User directive: fewest files / fewest volume / maximum information / maximum jnwb coverage. User authorized (multi-option question, both answers 'Recommended'): Tier 0 junk deletion + outright deletion of regenerable derived outputs. Deleted, all untracked (git-tracked-file check run first, zero matches): notebooks/artifacts/ (5.33 GB, 60-pkl strict subset of the canonical cache), context/figures/fig03_unit_census/artifacts/ (5.33 GB, 60-pkl strict subset), outputs/archive/ (9.68 GB: epochs_full_sequence 5.8 GB, jnwb_visual_qc_multisession 2.0 GB, omission_rasters, strict_omission_rasters, time_frequency_representation, validation_sanity, root_misc_2026-08-01, legacy_root_figures), outputs/markdown_reports/ (1.13 GB), outputs/top_raster_suites/ (0.88 GB), tmp/ (22 MB scratch incl. 6 redundant manuscript-revise docx copies -- canonical copies verified present in context/manuscript-docx/), omission.egg-info/, .pytest_cache/, all __pycache__/.",
+    "Kept deliberately: artifacts/developer/.cache/ (6.85 GB -- canonical cache referenced by jnwb/session.py:97, superset of both deleted copies), outputs/raster_suites/ (25 MB -- sealed 2026-08-01 O++/FEF51 milestone deliverables, producers find_fef51_similar_units.py/generate_subject_specific_raster_suites.py not yet git-tracked), .venv/ (492 MB, required for dev).",
+    "Conservation: all deleted paths were untracked derived data with tracked producer scripts (verified by grep before deletion: markdown_reports built by jnwb/markdown_report.py + suite build scripts; raster suites by tracked generate_* scripts; epochs by precompute_tfr_arrays.py) or regenerable caches (session.py cache_dir). Nothing deleted is referenced by any live code path.",
+    "Regenerability receipts (checked, not assumed): outputs/markdown_reports producers tracked (scripts/archive_oneoff/build_suite_0*.py, jnwb/markdown_report.py), outputs/top_raster_suites producer tracked (scripts/generate_top_omission_raster_suites.py), outputs/archive producers tracked (scripts/archive_oneoff/precompute_tfr_arrays.py etc.), caches regenerated on demand by jnwb/session.py.",
+    "Unrelated completion observed same session: the long-running fig04 background rebuild completed (fig04.svg 48 MB + fig04.png 1.3 MB, mtime 2026-08-02T14:15, newer than script mtime 14:12) -- see inspection_20260802_fig04_still_stale.json marked resolved; only fig04_finalized.png (headless-browser render) remains outstanding."
+  ],
+  "issues": [
+    "graph_metrics.json mismatch_vector disconnection=349 vs graph_health_audit_20260729 '0 dangling edges' -- carried forward, unresolved.",
+    "outputs/omission_tfr_maps* sibling-dir staleness -- carried forward, user decision pending.",
+    ".gemini/config/skills/progress-review-plan tombstone claim still not verified -- carried forward.",
+    "Not yet executed (user did not select): Tier 2 code consolidation into jnwb (script->package folding, dead-script deletion, markdown_report/report merge), Tier 3 legacy/ reduction (149 tracked files), Tier 4 archive_oneoff tree removal (143 files). These remain the remaining file-count reductions."
+  ],
+  "links": [
+    {
+      "to": "inspection_20260802_fig04_still_stale",
+      "relation": "related_to",
+      "reasoning": "Same session; the fig04 staleness this node's companion inspection found was resolved by a concurrent background run.",
+      "confidence": 0.9
+    },
+    {
+      "to": "seal_checkpoint_20260801_oplusplus_similarity",
+      "relation": "respects",
+      "reasoning": "Sealed 2026-08-01 raster-suite deliverables (outputs/raster_suites/) were deliberately kept despite volume-minimization directive, because their producer scripts are not yet tracked.",
+      "confidence": 0.95
+    }
+  ]
+}

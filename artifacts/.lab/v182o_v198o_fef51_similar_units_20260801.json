@@ -1,0 +1,20 @@
+{
+  "id": "v182o_v198o_fef51_similar_units_20260801",
+  "kind": "evidence",
+  "title": "Top FEF Unit 51 similar units in subjects V182o and V198o",
+  "status": "confirmed",
+  "generated": "2026-08-02T03:07:20Z",
+  "notes": [
+    "Extracted top 10 most correlated units to FEF Unit 51 profile specifically within subjects V182o (3,188 units) and V198o (1,598 units).",
+    "Top V182o match: Row 228 FEF unit in sub-V182o_ses-260713 (r = 0.646, p = 1.36e-114).",
+    "Top V198o match: Row 103 V1 unit in sub-V198o_ses-230720 (r = 0.664, p = 7.28e-123).",
+    "Exported 300 DPI PNG raster suites to outputs/raster_suites/v182o_fef51_similar/ and outputs/raster_suites/v198o_fef51_similar/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "v182o_dir": "outputs/raster_suites/v182o_fef51_similar",
+    "v198o_dir": "outputs/raster_suites/v198o_fef51_similar",
+    "v182o_top_r": 0.646,
+    "v198o_top_r": 0.664
+  }
+}
