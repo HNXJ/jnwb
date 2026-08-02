@@ -1,0 +1,8 @@
+{
+  "heartbeat_minutes": 5,
+  "max_idle_minutes": 5,
+  "last_active_timestamp": 1785093561.7124414,
+  "status": "confirmed",
+  "kind": "note",
+  "title": "daemon_config"
+}

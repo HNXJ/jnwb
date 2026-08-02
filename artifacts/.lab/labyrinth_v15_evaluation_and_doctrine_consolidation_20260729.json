@@ -1,0 +1,42 @@
+{
+  "schema_version": 3,
+  "id": "labyrinth_v15_evaluation_and_doctrine_consolidation_20260729",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-29",
+  "title": "Evaluated external v15 workspace protocol; consolidated duplicated doctrine instead of adding a parallel system",
+  "claims": [
+    {
+      "id": "v15_rejected_as_parallel_infra",
+      "status": "confirmed",
+      "text": "A third-party 'Labyrinth Adaptive Workspace Protocol v15' (4-engine model, tools/agent_core/{instructions.md,memory.md,run.py}) was compared against the existing ACMP doctrine in ~/.claude/CLAUDE.md and this repo's artifacts/.lab/ graph, which had just been health-audited clean. Rejected as a standalone system: it duplicates the graph/memory/doctrine split already in place under different filenames. Its undefined '5D latent coordinates [K,P,O,E,V]' were rejected outright (no measurement procedure, no falsifier).",
+      "receipt": "manual diff against ~/.claude/CLAUDE.md sections 'Labyrinth Protocol (ACMP)' and graph_health_audit_20260729.json; no code written under tools/agent_core/"
+    },
+    {
+      "id": "v15_amendments_adopted",
+      "status": "confirmed",
+      "text": "Three non-duplicative pieces were folded into the existing ~/.claude/CLAUDE.md Labyrinth section instead: a numeric Fano/Depth tolerance (<=1.25 triggers Prune), an explicit long-session refresh tripwire (every 20-40 turns or on compaction, check memory/.lab for staleness even if turn-level Reflex already ran), and sharper 'store conclusions not reasoning' phrasing.",
+      "receipt": "edit to C:\\Users\\nejath\\.claude\\CLAUDE.md, new subsection 'v15 evaluation (2026-07-29)'"
+    },
+    {
+      "id": "agents_md_internal_duplication_fixed",
+      "status": "confirmed",
+      "text": "D:\\workspace\\omission\\.agents\\AGENTS.md contained the 'Labyrinth Reflex' section duplicated verbatim twice within the same file, plus a frozen 2026-07-25 graph-state snapshot (93 nodes, 100% predictive accuracy) that had gone stale relative to the 2026-07-29 audit (296 files, 181 missing schema_version). Condensed to one copy of the Reflex text and replaced the frozen snapshot with a pointer to the live audit file.",
+      "receipt": "edits to D:\\workspace\\omission\\.agents\\AGENTS.md, sections 'Current Graph State' and the second 'Labyrinth Reflex' occurrence removed"
+    },
+    {
+      "id": "three_way_doctrine_split_flagged_not_merged",
+      "status": "confirmed",
+      "text": "Confirmed three separate files each claim doctrine authority: ~/.claude/CLAUDE.md (Claude Code, machine-wide, confirmed as what actually loads in this session), ~/.gemini/config/AGENTS.md (Gemini CLI, 311 lines, its own Labyrinth Reflex wording, cited by the project file as canonical), and the project's own .agents/AGENTS.md. Not reconciled across tools -- ~/.gemini/config/AGENTS.md belongs to a different tool's config surface and was not edited from this session; flagged in project doctrine and in a new persistent memory instead.",
+      "receipt": "wc -l + grep against C:\\Users\\nejath\\.gemini\\config\\AGENTS.md confirmed file exists, 311 lines, has its own Labyrinth Reflex section at line 253"
+    }
+  ],
+  "issues": [
+    "~/.gemini/config/AGENTS.md vs ~/.claude/CLAUDE.md wording divergence remains unreconciled by design (different tool's config, not this session's to silently overwrite) -- surface to the user if exact cross-tool parity is ever wanted.",
+    "181 schema-less literature-review nodes from graph_health_audit_20260729 remain unmigrated -- unchanged by this pass."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "graph_health_audit_20260729"},
+    {"rel": "supports", "target": "figure_directory_layout_and_synthetic_fig03_20260729"}
+  ]
+}

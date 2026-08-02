@@ -1,0 +1,46 @@
+{
+  "id": "evidence-ghazizadeh-2016",
+  "kind": "evidence",
+  "title": "Ecological Origins of Object Salience: Reward, Uncertainty, Aversiveness, and Novelty",
+  "generated": {
+    "summary": "Ecological Origins of Object Salience: Reward, Uncertainty, Aversiveness, and Novelty \u00e2\u20ac\u201d Frontiers in Neuroscience \u00e2\u20ac\u201d 2016 \u00e2\u20ac\u201d pdf: P2023/2023/2016_ecological_origins_of_object_salience_reward.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2023/2023/2016_ecological_origins_of_object_salience_reward.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-mismatch-adaptation",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-mismatch-adaptation'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-bastos-2016",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-bastos-2016'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "Ghazizadeh_2016",
+    "entry_type": "article",
+    "year": "2016",
+    "doi": "10.3389/fnins.2016.00378",
+    "url": "http://dx.doi.org/10.3389/fnins.2016.00378"
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.591709+00:00"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "literature-mackey-major-2025-spectrolaminar-motif-reply",
+  "kind": "evidence",
+  "title": "Literature: Spectrolaminar Motif Debate & Generality (Mackey 2025, Major et al. Reply 2025)",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Laminar Universality Debate: Evaluates whether deep beta vs superficial gamma motif holds universally across all primate neocortical areas.",
+    "Empirical Confirmation: Confirms robust spectrolaminar motif across visual (V1, V4) and prefrontal (FEF, PFC) areas in macaques.",
+    "Layer Alignment: Validates automated vFLIP2 LFP CSD alignment for deep vs superficial cortical channel partitioning."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.658714+00:00"
+  }
+}

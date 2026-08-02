@@ -1,0 +1,46 @@
+{
+  "id": "evidence-deep-2022",
+  "kind": "evidence",
+  "title": "2019 deep brain stimulation of the internal capsul",
+  "generated": {
+    "summary": "2019 deep brain stimulation of the internal capsul \u00e2\u20ac\u201d 2022 \u00e2\u20ac\u201d pdf: P2022/2022/2019_deep_brain_stimulation_of_the_internal_capsul.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2022/2022/2019_deep_brain_stimulation_of_the_internal_capsul.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-laminar-circuitry",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-laminar-circuitry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'hub-evidence-oscillations-networks' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "file_2019_deep_brain_stimulation_of_the_internal_capsul",
+    "entry_type": "misc",
+    "year": "2022",
+    "doi": "",
+    "url": ""
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.586144+00:00"
+  }
+}

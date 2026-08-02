@@ -1,0 +1,47 @@
+{
+  "id": "context-concept-spike-lfp-phase-locking",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Scientific Concept: Spike-LFP Phase Coupling & PPC (Buffalo 2011 / Fries 2005)",
+  "generated": {
+    "summary": "Spike-field coherence and Pairwise Phase Consistency (PPC) across theta, alpha, beta, and gamma LFP bands.",
+    "source_paths": [
+      "jnwb/spiking.py",
+      "jnwb/spectral.py"
+    ],
+    "links": [
+      {
+        "to": "omission-context",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-context' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-spectral",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-spectral'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.561131+00:00"
+  }
+}

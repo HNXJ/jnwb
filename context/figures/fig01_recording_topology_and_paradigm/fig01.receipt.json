@@ -1,0 +1,56 @@
+{
+  "generated_utc": "2026-07-31T22:30:15.135184+00:00",
+  "script": "D:\\workspace\\omission\\context\\figures\\fig01_recording_topology_and_paradigm\\fig01_recording_topology_and_paradigm.py",
+  "pipeline": "two-stage: build_parts.py writes artifacts/madelane.png, artifacts/dbc128.png (both tightly-trimmed rasters extracted from svg/01_recording_topology.svg's own embedded images), and artifacts/grating{45,135}.svg (single-icon, tightly cropped). This script places the rasters via plain <image> (standard, reliable for PNG) and builds panel C by repeating the two grating icons on a FIXED cell grid (CELL_W/ROW_H/ICON_R constants) with RELATIVE row/column offsets -- no aspect-ratio system is solved.",
+  "artifacts": [
+    "madelane.png",
+    "dbc128.png",
+    "grating45.svg",
+    "grating135.svg"
+  ],
+  "fixed_constants_pt": {
+    "canvas_w": 468.0,
+    "canvas_h_target": 390.0,
+    "panel_a_w": 300.0,
+    "margin_gap": 8.0,
+    "icon_r": 12.5,
+    "col_gap": 10.0
+  },
+  "panel_b_facts": [
+    [
+      "Probe:",
+      [
+        "DiagnosticBioChips (DBC)",
+        "128 channel arrays",
+        "ONE (40\u00b5m spacing)",
+        "TWO (25\u00b5m spacing)"
+      ]
+    ],
+    [
+      "Recording hardware:",
+      [
+        "Intan-RHD",
+        "30 kHz sampling rate"
+      ]
+    ],
+    [
+      "Behavioral control:",
+      [
+        "Monkeylogic 2 (NIMH)",
+        "EyelinkSR eye tracker"
+      ]
+    ],
+    [
+      "Screen:",
+      [
+        "VPXX projector",
+        "1080P 120Hz"
+      ]
+    ]
+  ],
+  "layout": {
+    "total_height_pt": 424.91,
+    "aspect_w_over_h": 1.1014
+  },
+  "note": "2026-07-31: rewritten to fixed+relative coordination (user request) after the two prior approaches this same day (aspect-equation solve, then artifact-viewBox inlining) both proved slow to reason about or had their own bugs. R-family icons reuse grating45.svg/grating135.svg through a shared greyscale SVG filter rather than needing separate grey artifacts -- R means a 50/50 draw between the two real identities (P(A)=P(B)=0.5), never a third orientation. See README.md for full history."
+}

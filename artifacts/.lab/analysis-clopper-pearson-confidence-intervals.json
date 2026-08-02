@@ -1,0 +1,36 @@
+{
+  "id": "analysis-clopper-pearson-confidence-intervals",
+  "kind": "evidence",
+  "title": "Empirical Verification: Clopper-Pearson 95% Binomial Confidence Intervals",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "S++ Sensory Response (8,597 units): 1,178 units (13.70%, 95% CI [12.98%, 14.45%]).",
+    "S-- Sensory Suppression (8,597 units): 698 units (8.12%, 95% CI [7.55%, 8.72%]).",
+    "S+ Stimulus Excited (8,597 units): 2,158 units (25.10%, 95% CI [24.19%, 26.03%]).",
+    "S- Stimulus Inhibited (8,597 units): 1,370 units (15.94%, 95% CI [15.17%, 16.73%]).",
+    "O+ Omission Ramping (8,597 units): 421 units (4.90%, 95% CI [4.45%, 5.37%]).",
+    "LFP Beta Disruption (8,736 channels): 6,771 channels (77.51%, 95% CI [76.62%, 78.38%]).",
+    "LFP Alpha Disruption (8,736 channels): 5,816 channels (66.58%, 95% CI [65.57%, 67.56%]).",
+    "LFP Gamma Modulation (8,736 channels): 1,916 channels (21.93%, 95% CI [21.07%, 22.81%])."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.547850+00:00"
+  }
+}

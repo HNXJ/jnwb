@@ -1,0 +1,45 @@
+{
+  "id": "evidence-stokes-2015",
+  "kind": "evidence",
+  "title": "Gamma oscillations in cortical networks (Stokes 2015)",
+  "generated": {
+    "summary": "Placeholder summary for Gamma oscillations in cortical networks (Stokes 2015).",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-oscillations-networks'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'hub-evidence-oscillations-networks' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-oscillations-coherence",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-oscillations-coherence'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.631402+00:00"
+  }
+}

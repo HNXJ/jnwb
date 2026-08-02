@@ -1,0 +1,88 @@
+{
+  "id": "evidence-keller-2012",
+  "kind": "evidence",
+  "title": "Sensorimotor Mismatch Signals in Primary Visual Cortex of the Behaving Mouse",
+  "generated": {
+    "summary": "Sensorimotor Mismatch Signals in Primary Visual Cortex of the Behaving Mouse \u2014 Neuron \u2014 2012 \u2014 pdf: P2026/2012_sensorimotor_mismatch_signals_in_primary_visu.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2026/2012_sensorimotor_mismatch_signals_in_primary_visu.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-laminar-circuitry",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-laminar-circuitry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-vankerkoerle-2014",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-vankerkoerle-2014'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-attinger-2017",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-attinger-2017'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-markov-2013",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-markov-2013'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-bakken-2021",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-bakken-2021'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-bastos-2015",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-bastos-2015'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-mismatch-03",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-mismatch-03'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "Keller_2012",
+    "entry_type": "article",
+    "year": "2012",
+    "doi": "10.1016/j.neuron.2012.03.040",
+    "url": "http://dx.doi.org/10.1016/j.neuron.2012.03.040"
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.597279+00:00"
+  }
+}

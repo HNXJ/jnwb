@@ -1,0 +1,71 @@
+{
+  "id": "omission_a_draft_v2_20260728",
+  "schema_version": 3,
+  "kind": "progress",
+  "title": "omission-a draft v2: integrity pass plus the corrected LFP framing (large modulation, no shared direction)",
+  "status": "confirmed",
+  "generated": "2026-07-28T11:40:00Z",
+  "goal": {
+    "text": "A submittable draft in which every claim is stated at the strength the design supports, every number traces to a named script with a receipt, and no structural defect survives from the DOCX lineage.",
+    "falsifier": "Closed when no [[STAT]] or [[CONFLICT]] marker remains, Methods and Results reach their house word targets, and no disqualifier from section 8 of context/PUBLICATION_STYLE_CRITERIA.md applies."
+  },
+  "notes": [
+    "STEPS 2 AND 4 of the agreed plan, merged at Hamm's instruction and executed while the time-resolved extraction runs. Output: context/omission-a-draft-v2.md. v1 is preserved unchanged; the revision is a new file, not an in-place overwrite.",
+    "THE SUBSTANTIVE CHANGE IS A CORRECTION OF MY OWN FRAMING, RAISED BY HAMM. v1 said the corpus-wide low-frequency effect 'does not survive'. That sentence rested on a model of the SIGNED mean pooled across areas moving in opposite directions, which tests common direction rather than the presence of modulation. Against each channel's own baseline, mean |change| is 1.18 dB alpha, 1.16 dB theta, 0.91 dB beta, versus 0.59 dB low gamma and 0.42 dB high gamma -- low-frequency modulation is about twice gamma modulation and is present at every site sampled. v2 states magnitude and direction as two separate claims with opposite answers, and says explicitly that conflating them misdescribes the data in either direction.",
+    "SECOND CORRECTION, ALSO FROM HAMM'S FIGURE. The omitted-slot window (0 to +531 ms) captures the leading edge of a response that keeps climbing through the following delay; his V3a traces reach +3 to +5 dB by +1000 ms. Every magnitude in v1, including model D's +1.59 dB beta V3 contrast, is therefore a lower bound. v2 adds a Methods paragraph declaring two windows (omitted slot, post-omission delay) and a Discussion subsection arguing the ramp is what a state-control account predicts.",
+    "INTEGRITY FIXES (step 2). Removed the [[FIG 6]] slot that appeared twice in v1. Removed the Limitations paragraph asserting the contiguous-segment partition had not yet been applied -- it has, for all 17 sessions, which made the paragraph false rather than merely stale. Normalised whitespace: zero runs of more than two consecutive blank lines, zero lines with trailing whitespace. Converted all eight figure captions from 'Figure N. Noun phrase. (A) ...' to the house format 'Fig. N | Declarative sentence.' with bold-lead lowercase panel letters.",
+    "SECTION LENGTHS, measured on the written file with comments, placeholders and citation markers stripped: Abstract 282 (target 220-280, marginally over), Introduction 1,017 (800-1,100, MET), Methods 2,032 (3,500-4,500, short), Results 1,148 (2,000-2,600, short), Discussion 2,151 (2,000-2,500, MET, up from 1,206 in v1), figure captions 578.",
+    "DISCUSSION EXPANSION added three arguments that did not exist in v1: (a) why a signed average across sign-disagreeing units is an actively misleading summary rather than a conservative one, stated as a general methodological point; (b) an analysis-window subsection arguing the ramp time course matches rodent omission reports and is unlike sharp auditory omission responses; (c) a laminar-sampling hypothesis for the sign inconsistency, with the concrete prediction that splitting each probe at its own spectrolaminar crossover should reveal compartments with consistent direction where the whole-probe average has none.",
+    "PREDICTIVE ROUTING GAP MADE EXPLICIT. v2 states that the framework does not specify which direction the low-frequency perturbation should take for absent input, that both a rise (maintained suppression) and a fall (released suppression) are coherent, that both occur in these data at different sites, and that specifying the prediction would turn omission from a demonstration into a test. This is a claim about the theory, not about the data, and is confined to the Discussion.",
+    "AREA COUNT SETTLED AT TEN: V1, V2, V3, V4, MT, MST, TEO, FST, FEF, PFC. V3, V3a and V3d are pooled, because under the equal-share partition V3a and V3d are the upper and lower halves of one shank.",
+    "FIGURE BUDGET recorded but not forced. Eight slots against a five-figure house standard. Figures 1-4 are accepted by Hamm as-is, so no renumbering is proposed; a recommended five-figure consolidation and an Extended Data list are written into a comment beside the captions."
+  ],
+  "issues": [
+    "Methods remains ~1,500 words short and the gap is entirely facts absent from both source documents: surgery and implant, full stimulus specification (size, contrast, spatial and temporal frequency, eccentricity), fixation window and reward schedule, spike-sorting parameters and quality tiers, CSD computation.",
+    "Results remains short and is gated on the running extraction plus the un-recomputed spiking census.",
+    "BAND DEFINITIONS ARE UNRESOLVED AND MATTER. This draft uses the manuscript set (theta 4-8, alpha 8-14, beta 14-30, low gamma 30-50, high gamma 50-80). The reference figure Hamm supplied uses theta 2-7, alpha 8-12, gamma-low 32-80, gamma-high 80+. Every GLMM number reported so far uses the manuscript set. The plotting script supports both behind a flag; whichever is chosen must be the one stated in Methods, and switching would require refitting.",
+    "O+ prevalence on the three-subject corpus is still owed; the prior draft's 4.9% is synthetic.",
+    "Author list incomplete; three reference defects (Wacongne 2011 journal/DOI mismatch, Bastos 2015 DOI suffix, Rao & Ballard 1999 cited for a Bastos 2012 laminar claim) are flagged in the References comment rather than silently fixed.",
+    "24 [[STAT]] markers remain, up from 19 in v1 -- the increase is deliberate, from newly itemised Methods facts and the two-window estimates now owed."
+  ],
+  "plan": [
+    "Fill the time-resolved [[STAT]] slots from outputs/omission_tfr_maps/area_band_layer_stats.csv when the extraction completes, and insert Fig. 6 once plot_omission_tfr_area_panels.py has run.",
+    "Ask Hamm to settle the band definitions before any further fitting, since the choice propagates to every reported coefficient.",
+    "Obtain the missing Methods facts from a protocol document or a prior methods section rather than inventing them.",
+    "Re-run the laminar coverage figure once vFLIP finishes all sessions, and decide whether the compartment-split test proposed in the Discussion can actually be run on this corpus."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "receipt": "Word counts, placeholder census and whitespace checks measured on context/omission-a-draft-v2.md by regex after stripping HTML comments, [[...]] placeholders and *(...)* citation comments: 24 [[STAT]], 2 [[CONFLICT]], 8 distinct figure slots, 0 runs of 4+ newlines, 0 lines with trailing whitespace. All LFP numbers quoted in Results are read from outputs/lfp_band_census_v2/glmm_summary.csv; the mean-absolute magnitudes are computed directly from outputs/lfp_band_census_v2/channel_band_power.csv.gz.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "omission_a_draft_v1_merge_20260728",
+      "relation": "supersedes",
+      "reasoning": "v2 replaces v1 as the working draft; v1 is preserved on disk unchanged, so Conservation holds.",
+      "confidence": 0.95
+    },
+    {
+      "to": "omission_lfp_glmm_subject_sign_reversal_20260728",
+      "relation": "corrects",
+      "reasoning": "That node's HEADLINE 1 framing conflated absence of a shared direction with absence of modulation; both nodes now carry the correction and v2 states the two claims separately.",
+      "confidence": 0.95
+    },
+    {
+      "to": "publication_style_criteria_and_score_20260728",
+      "relation": "implements",
+      "reasoning": "Discussion reaches the length target, captions converted to house format, four inferential families maintained, no statistics in the abstract.",
+      "confidence": 0.9
+    },
+    {
+      "to": "channel_area_vector_uniform_split_finding_20260728",
+      "relation": "depends_on",
+      "reasoning": "The ten-area scheme and the Methods partition paragraph are written from that finding.",
+      "confidence": 0.9
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "canonical_epoch_colorcode_timing_guardrail_20260727",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "Canonical Epoch Patch Colorcode & Tracing Order Guardrail",
+  "status": "confirmed",
+  "generated": "2026-07-27T16:10:04Z",
+  "notes": [
+    "MANDATORY COLUMNS/SHADING FOR TIME-AXIS FIGURES:",
+    "p1 Patch (Stimulus Slot 1): Yellow (#FCF9E3 / #FFFDE7)",
+    "p2 Patch (Stimulus Slot 2): Purple (#F6EEF9 / #F3E5F5)",
+    "p3 Patch (Stimulus Slot 3): Green (#E9F5FC / #E8F5E9)",
+    "p4 Patch (Stimulus Slot 4 / Omission): Blue (#E9F5FC / #E8EAF6)",
+    "CANDIDATE TRACE COLORS:",
+    "S+ Candidate (MT): Green (#1D9E75)",
+    "S- Candidate (V2): Brown (#993C1D)",
+    "O+ Candidate (FEF): Blue (#185FA5)",
+    "OMISSION MARKERS: Red Dashed Vertical Lines (#FF0000)"
+  ],
+  "issues": [],
+  "plan": [
+    "Persisted into .cursor/rules/omission-palette.mdc and jnwb-visualization skill SKILL.md"
+  ],
+  "verification": {
+    "status": "passed",
+    "receipt": "Persisted in rules, skills, and Labyrinth db"
+  }
+}

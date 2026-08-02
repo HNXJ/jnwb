@@ -1,0 +1,33 @@
+{
+  "id": "domain-lfp-tfr-complex-spectral",
+  "kind": "evidence",
+  "title": "LFP Spectral Band-Power, TFR, and Complex Phase Oscillations",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Canonical Spectral Bands: Theta (4-8 Hz), Alpha (8-14 Hz), Beta (14-30 Hz), Gamma (30-80 Hz).",
+    "TFR Normalization: Decibel (dB) baseline power normalization relative to pre-stimulus baseline (-500 to 0 ms).",
+    "Complex Wavelet Coefficients: jnwb.complex_tfr provides tfr_complex_load, plv_from_complex (Phase-Locking Value), and imaginary_coherence.",
+    "Volume Conduction Suppression: Imaginary Coherence (icoh) strips zero-lag instantaneous volume conduction.",
+    "Spectrolaminar Mapping: vFLIP2 alignment identifies deep vs superficial cortical layers via alpha/gamma power crossover."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.567963+00:00"
+  }
+}

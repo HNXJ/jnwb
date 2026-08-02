@@ -1,0 +1,47 @@
+{
+  "id": "addressing-fact-dual-area-probe-mapping",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Empirical Fact: Dual-Area Probe Channel Resolution Rule",
+  "generated": {
+    "summary": "Probes spanning two areas assign channels 1-64 to area 1 and 65-128 to area 2; resolved via map_peak_channel_to_area.",
+    "source_paths": [
+      "jnwb/addressing.py",
+      "jnwb/sequence_layout.py"
+    ],
+    "links": [
+      {
+        "to": "jnwb-submodule-addressing",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'jnwb-submodule-addressing' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-core",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-core'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.547285+00:00"
+  }
+}

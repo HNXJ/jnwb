@@ -1,0 +1,47 @@
+{
+  "id": "outputs-figure9-pfc-population-trajectory",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Manuscript Figure 9: PFC Population Trajectory PCA & PyTorch CUDA SVD",
+  "generated": {
+    "summary": "PFC population trajectory state-space PC projections computed via PyTorch CUDA SVD.",
+    "source_paths": [
+      "scripts/build_figure9_pfc_population_trajectory.py",
+      "outputs/figures/figure_9_pfc_population_trajectory.svg"
+    ],
+    "links": [
+      {
+        "to": "omission-outputs",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-outputs' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-trajectory",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-trajectory'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": false,
+      "reproducible": true
+    },
+    "verdict": "unconfirmed",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.674563+00:00"
+  }
+}

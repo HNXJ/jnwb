@@ -1,0 +1,46 @@
+{
+  "id": "evidence-jaimungal-2021",
+  "kind": "evidence",
+  "title": "Reinforcement learning and stochastic optimisation",
+  "generated": {
+    "summary": "Reinforcement learning and stochastic optimisation \u00e2\u20ac\u201d Finance and Stochastics \u00e2\u20ac\u201d 2021 \u00e2\u20ac\u201d pdf: P2023/2023/2022_reinforcement_learning_and_stochastic_optimis.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2023/2023/2022_reinforcement_learning_and_stochastic_optimis.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-neuromodulation-plasticity",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-neuromodulation-plasticity'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'hub-evidence-oscillations-networks' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "Jaimungal_2021",
+    "entry_type": "article",
+    "year": "2021",
+    "doi": "10.1007/s00780-021-00467-2",
+    "url": "http://dx.doi.org/10.1007/s00780-021-00467-2"
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.595853+00:00"
+  }
+}

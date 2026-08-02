@@ -1,0 +1,24 @@
+{
+  "schema_version": 3,
+  "id": "sliding_window_connectivity_plan_20260730",
+  "type": "plan",
+  "status": "unconfirmed",
+  "created_utc": "2026-07-30",
+  "title": "Sliding-window connectivity (phase 3) locked as a plan, explicitly deferred until figures 1-5 are reviewed as finalized",
+  "claims": [
+    {
+      "id": "plan_written_not_implemented",
+      "status": "unconfirmed",
+      "text": "User specified a time-resolved connectivity analysis: realign RXRR/RRXR/RRRX (and A-/B-family equivalents) to the real stimulus immediately preceding each condition's own omission slot, which collapses all three onto an identical local d-p-d-px-d structure (confirmed algebraically from EPOCH_ONSETS_MS's uniform ~500-531ms epoch durations) -- this lets the three R-family omission-position variants be pooled into one larger trial set instead of using RXRR alone. Full local window [-500,2062]ms, narrowed to [-400,2000]ms for sliding-window analysis. Frames: 400ms width, 100ms step. Family separation is mandatory (R/A/B pooled internally, never mixed for this analysis; cross-family comparison is explicitly a separate future analysis). Written to context/figures/PLAN_sliding_window_connectivity.md, referenced from both fig06 and fig07 READMEs. NOT implemented -- user explicitly said 'just keep it as a plan, we gotta finalize figures 1-5 first.'",
+      "receipt": "no code written or run; plan document created and cross-referenced from both relevant figure READMEs; build_inventory.py --check still passes (CHECK OK) confirming no figure state was disturbed"
+    }
+  ],
+  "issues": [
+    "Frame count discrepancy: user said '25 frames' but range(-400,2000,100) with 400ms width computes to 21 frames (starts -400..1600, last frame (1600,2000)) -- flagged in the plan doc, not silently resolved either way; needs reconciliation against the true intended step/width before implementation.",
+    "RRRX/AAAX/BBBX (omission at the last slot, p4) have no real stimulus after the omission within-trial, unlike RXRR/AXAB/BXBA which do -- noted as an edge case in the plan; does not block the [-400,2000]ms window (stays within p4's own delay) but needs a decision if a future panel wants a 'response to next real stimulus' comparison.",
+    "Metric choice (coherence vs correlation vs power-correlation) not yet narrowed to one -- plan doc flags this against the project's 'minimize test diversity' doctrine, to be resolved at implementation time, not now."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "fig06_fig07_identity_phase2_20260730"}
+  ]
+}

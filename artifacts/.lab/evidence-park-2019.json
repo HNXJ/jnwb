@@ -1,0 +1,45 @@
+{
+  "id": "evidence-park-2019",
+  "kind": "evidence",
+  "title": "Auditory mismatch negativity (Park 2019)",
+  "generated": {
+    "summary": "Placeholder summary for Auditory mismatch negativity (Park 2019).",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "hub-evidence-mismatch-adaptation",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-mismatch-adaptation'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'hub-evidence-oscillations-networks' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.615944+00:00"
+  }
+}

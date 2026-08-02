@@ -1,0 +1,106 @@
+{
+  "id": "claim-spectrolaminar-01",
+  "kind": "hypothesis",
+  "title": "A ubiquitous spectrolaminar motif of LFP power exists across primate neocortex",
+  "generated": {
+    "summary": "Mendoza-Halliday 2024 (Nat Neurosci) reports a ubiquitous spectrolaminar motif of LFP power across primate cortex. Mackey 2025 challenges it directly by title ('Is there...",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "papers-claim",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'papers-claim'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-mendozahalliday-2024",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-mendozahalliday-2024'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-mackey-2025",
+        "relation": "contradicts",
+        "reasoning": "Exposes empirical or logical contradiction against node 'evidence-mackey-2025'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-major-2025",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-major-2025'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-oscillation-04",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'claim-oscillation-04' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-implementation-02",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'question-implementation-02'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-spectrolaminar-controversy-07",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-spectrolaminar-controversy-07'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-ubiquitous-2024",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-ubiquitous-2024'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-there-2026",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-there-2026'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "plan-spectrolaminar-resolution-01",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'plan-spectrolaminar-resolution-01'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-sanchez-2020",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-sanchez-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Seeded as contested rather than unconfirmed because the disagreement is explicit in the published record \u00e2\u20ac\u201d a challenge and a reply, both 2025, both in Nature Neuroscience. This is the cleanest live controversy in the corpus and the best test case for whether the graph's standing model tracks reality.",
+    "The three papers must be read before any of these edges is treated as confirmed. Right now the relations are inferred from titles and the challenge/reply structure, which is a receipt for 'there is a dispute', not for 'who is right'."
+  ],
+  "issues": [
+    "Edges are title-derived, not text-derived. Do not cite this node's polarity until the three papers are actually read."
+  ],
+  "plan": "Read Mendoza-Halliday 2024, Mackey 2025, Major 2025 in that order. Extract the specific disagreement (is it the motif's existence, its ubiquity, or the normalisation method?) and split this claim if the dispute turns out to be about method rather than phenomenon.",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.555078+00:00"
+  }
+}

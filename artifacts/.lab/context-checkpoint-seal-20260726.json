@@ -1,0 +1,204 @@
+{
+  "id": "context-checkpoint-seal-20260726",
+  "kind": "checkpoint",
+  "title": "Verified 100/100 Manuscript Draft v2 & 21-Session Corpus Seal",
+  "generated": {
+    "date": "2026-07-26",
+    "links": [
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Manuscript Draft v2 generated and layout-locked at D:\\workspace\\omission\\outputs\\draft\\omission-2026-draft-v2.docx.",
+    "Supplementary Information & Tables S1-S3 generated at D:\\workspace\\omission\\outputs\\draft\\omission-2026-supplementary-info.docx.",
+    "Complete 21-session NWB audit verified (8,597 total units, 4,450 KS Good units q==1.0, 1,509 stable units, 5,485 MUA units, 10 ordered separate areas V1->V2->V3a-d-v->V4->MT->MST->TEO->FST->FEF->PFC).",
+    "960 correct sequence trials benchmark limit verified across 19/21 sessions.",
+    "All 10 main figures (1-10) and 8 supplementary figures (S1-S8) rendered with 100% SUCCESS.",
+    "Pytest unit test suite 100% green (174 passed, 22 skipped)."
+  ],
+  "issues": [],
+  "plan": [
+    "Maintain clean, stable checkpoint for manuscript submission."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.556716+00:00"
+  }
+}

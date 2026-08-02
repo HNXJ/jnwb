@@ -1,0 +1,21 @@
+{
+  "id": "manuscript_draft_v3_7_figure_caption_alignment_20260731",
+  "kind": "decision",
+  "title": "Manuscript draft-v3 7-figure caption and placeholder alignment pass",
+  "status": "confirmed",
+  "generated": "2026-07-31T19:35:10Z",
+  "notes": [
+    "Aligned omission-a-draft-v3.docx to the finalized 7-figure architecture (fig01 to fig07).",
+    "Updated figure captions for Figures 1-7 with exact statistical parameters, sample sizes, and empirical methodologies.",
+    "Removed deprecated Figure 8 placeholder and old draft notes from the captions section.",
+    "Updated in-line figure placeholders in the Results text to match the 7-figure layout."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "target_file": "D:/workspace/omission/context/manuscript-docx/omission-a-draft-v3.docx",
+    "figure_count": 7,
+    "status": "confirmed",
+    "timestamp": "2026-07-31T19:35:10Z"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "oplusplus_conjunction_units_20260801",
+  "kind": "evidence",
+  "title": "Corpus-scale O++ conjunction classification and PNG raster suite export",
+  "status": "confirmed",
+  "generated": "2026-08-02T02:01:50Z",
+  "notes": [
+    "Evaluated all 8,597 units for O++ conjunction criteria: (1) Omission Rate > Intact Control Rate AND (2) Omission Rate > P1-D1 Stimulus Presentation Rate.",
+    "Identified 1,144 O++ conjunction units across the corpus.",
+    "Saved filtered master table to outputs/classification/omission_oplusplus_grand_units.csv.",
+    "Rendered 300 DPI PNG raster suite figures for top O++ units in outputs/raster_suites/oplusplus/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "file_path": "outputs/classification/omission_oplusplus_grand_units.csv",
+    "output_dir": "outputs/raster_suites/oplusplus",
+    "n_oplusplus_units": 1144
+  }
+}

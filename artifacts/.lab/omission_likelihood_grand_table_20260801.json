@@ -1,0 +1,20 @@
+{
+  "id": "omission_likelihood_grand_table_20260801",
+  "kind": "evidence",
+  "title": "Corpus-wide omission likelihood ranking across 8,597 units",
+  "status": "confirmed",
+  "generated": "2026-08-01T18:24:00Z",
+  "notes": [
+    "Processed all N = 8,597 units across 21 sessions in 139.85 s.",
+    "Target window: -250 ms to +750 ms relative to omission onset (p2, p3, p4 omissions).",
+    "Output saved to outputs/classification/omission_likelihood_grand_units.csv.",
+    "Ranked by likelihood_pct (100% down to 0%).",
+    "Tagged by quality (single-stable, single-unstable, mua-stable, mua-unstable) and waveform (fast, moderate, slow)."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "file_path": "outputs/classification/omission_likelihood_grand_units.csv",
+    "n_units": 8597,
+    "n_sessions": 21
+  }
+}

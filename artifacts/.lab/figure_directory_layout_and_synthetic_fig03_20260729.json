@@ -1,0 +1,137 @@
+{
+  "schema_version": 3,
+  "id": "figure_directory_layout_and_synthetic_fig03_20260729",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-29",
+  "title": "omission-a figures reorganised to one-script-one-folder; figures 2 and 3 have no valid source",
+  "claims": [
+    {
+      "id": "layout",
+      "status": "confirmed",
+      "text": "context/figures/ now holds one directory per main figure, each with figNN_<analysis_description>.py, an svg/ folder of every emitted panel, and a hand-editable assembly figNN.svg. Supplements carry no code and no directory; they are assembled from existing svg/ panels into context/figures/supplements/.",
+      "receipt": "fig01/fig04/fig05 scripts each re-run from their new locations after path rebasing; fig01 printed 'compact -> fig01.svg canvas 468 x 585 pt (aspect 0.8000)', fig05 printed sessions per area for all ten areas, fig04 printed sessions per cell for V1/PFC x sup/deep."
+    },
+    {
+      "id": "fig03_synthetic",
+      "status": "confirmed",
+      "text": "The asset staged as figure 3 (unit census) is synthetic. scripts/generate_publication_figures.py lines 90-146 hardcode class counts [2158,1565,1178,413,421,2823,39] over a total of 8597 units, a per-area O+ vector [1.11..9.30] with invented error bars, and a caption 'Spearman r = 0.988, p < 0.001' from no computed correlation. 421 is already on the CONTEXT.md retraction list and 8597 does not match the 6,655 screened units. The same script draws the exemplar panel from Gaussian PSTHs.",
+      "receipt": "source read at scripts/generate_publication_figures.py:47-146; file moved to context/figures/fig03_unit_census/svg/UNUSABLE_synthetic_census_2026-07-27.png"
+    },
+    {
+      "id": "fig02_orphan",
+      "status": "confirmed",
+      "text": "The asset staged as figure 2 (spiking exemplar rasters) has no generating code in the repository. Its embedded matplotlib metadata dates it 2026-07-14 and its internal title is 'Figure 3. Representative raster and firing-rate profiles'. A repo-wide grep of *.py and *.ipynb for that string returns only scripts/revise_manuscript_scientific_review.py, which relabels the rendered PNG and does not draw it.",
+      "receipt": "grep -rl 'Representative raster' --include=*.py --include=*.ipynb -> scripts/revise_manuscript_scientific_review.py only"
+    },
+    {
+      "id": "rebuild",
+      "status": "confirmed",
+      "text": "Figures 2 and 3 have been rebuilt from the grand classification table. fig02 selects the highest-|q1_effect_hz| unit of each omission class and draws raster over rate aligned to the omitted slot, with both flanking delays shaded because the classifier's Q1 compares against both. fig03 counts the four questions, the five classes, prevalence by area normalised by units screened, and narrow-against-broad spiking, with Clopper-Pearson intervals and the session count printed under every area.",
+      "receipt": "fig02 printed 'O+ sub-C31o_ses-230816 u297 V1 +5.17 Hz q=0.001 n=340 trials' and 'O- u80 PFC -1.38 Hz q=0.00104'; fig03 printed classes {O++:0, O+:7, ns:339, O-:9, O--:0} on the single-session smoke table; both assembled to 468 pt wide."
+    },
+    {
+      "id": "panel_a_conjunction",
+      "status": "confirmed",
+      "text": "Counting Q1 by q1_q <= alpha overcounts the peak/trough set. q1_p is already the weaker of the two flank tests, so q1_q <= alpha means both legs cleared but permits the two legs to disagree in SIGN, which is neither a peak nor a trough. On the smoke session that is 31 units against 16 same-signed ones. Figure 3 panel a and the area-by-question heat map both count the same-signed set.",
+      "receipt": "before fix 'by question: {q1_q: 31, ...}', after fix '{q1_q: 16, ...}' and 7 + 9 = 16 matches the O+/O- class counts exactly"
+    },
+    {
+      "id": "fig02_locked_layout",
+      "status": "confirmed",
+      "text": "fig02 was rebuilt a second time to match a user-supplied reference image exactly: 4 rows (RRRR/RXRR/RRXR/RRRX, R-family only) x 3 columns (S+/S-/O+ exemplar), causally exponential-smoothed rate below a fixed-axis (0-40 trials, 0-45 Hz) raster, per-slot sequential colour coding (yellow/pink/green/blue for p1-p4) with the omitted slot marked by a red dashed 'Omit' line rather than shaded. S+/S- selection uses the legacy grand_s_and_o_units.csv classifier (r_Splus/r_Sminus, predates the Q1 conjunction); O+ uses the current omission_grand_units.csv Q1 class. The two vocabularies are stated as distinct and never pooled.",
+      "receipt": "printed 'S+ Candidate sub-V198o_ses-230720 u92 V1 r_Splus=+0.994', 'S- Candidate sub-V182o_ses-260708 u266 V4 r_Sminus=+0.982', 'O+ Candidate sub-C31o_ses-230816 u297 V1 q1=+5.165'; assembled 468x529 pt"
+    },
+    {
+      "id": "full_corpus_rebuild",
+      "status": "confirmed",
+      "text": "The grand classifier finished all 21 sessions (8,592 units, 3 animals). Figures 2 and 3 rebuilt against the full corpus. Census: O++ 15, O+ 266, O- 205, O-- 4, ns 8102. fig03_stats.md now reports on 21 sessions/3 animals rather than the 1-session smoke table; area chi-square of independence is significant (chi2=26.23, df=9, p_holm=0.0056) though Cramer's V=0.055 is small, and the Cochran-Armitage hierarchy trend is not significant after Holm (Z=1.76, p_holm=0.156). fig02's O++ column now uses a real FEF exemplar (sub-C31o_ses-230823 u38, q1 effect +1.09 Hz) rather than being empty.",
+      "receipt": "omission_grand_units.csv shape (8592,41), 21 sessions; fig02 printed 'O++ Candidate sub-C31o_ses-230823 u38 FEF q1=+1.091'; fig03 printed 'units: 8592 sessions: 21' and full class counts; 19 supplements rebuilt clean"
+    },
+    {
+      "id": "fig03_composition_layer_correlation_traces",
+      "status": "confirmed",
+      "text": "Added figstats.correlation_with_shuffle_null / shuffle_null_distribution (vectorised rank-permutation, 2000 draws in ~0.7s on n=8592) and four fig03 panels: e (8-way S/O composition per area, chi2=931.5, df=72, Cramer's V=0.200, p<1e-4, n=2921 legacy-screened units), f (sup/deep/Null layer composition per area, chi2=1410.7, df=18, Cramer's V=0.287, n=8592 with 6650 matched to unit_layers.csv), g (overall firing rate vs omission effect, Spearman rho=-0.010, p_analytic=0.37, p_shuffle=0.37 -- null, cross-checked two ways), h (population PSTH O+/O-/S+/S-/Null aligned to the omitted slot, Kruskal-Wallis H=309.8, df=4, epsilon^2=0.105, p<1e-4, n=2921).",
+      "receipt": "fig03_stats.md families fig03_composition/fig03_layer/fig03_traces all print n=2921 or 8592 exactly matching source totals; fig03_g printed 'rho=-0.010 p_analytic=0.368 p_shuffle=0.365'"
+    },
+    {
+      "id": "legacy_screening_per_unit_not_per_session",
+      "status": "confirmed",
+      "text": "The legacy S+/S- classifier (grand_s_and_o_units.csv) covers 15 of the grand table's 21 sessions, but even within those 15 sessions it scored only 2,921 of 6,650 grand-table units -- its own upstream trial-count/quality filter drops the rest before ever writing a row. An initial implementation set legacy_screened from session membership alone, which would have silently counted 3,729 never-evaluated units as 'Null' (screened-negative). Fixed to set legacy_screened from the join match itself (is_Splus.notna()).",
+      "receipt": "session-membership version: grand units in legacy sessions=6650, matched=2921 (44%); per-unit fix makes legacy_screened == the join match exactly, verified by comp8 areas summing to exactly 2921 after the fix"
+    },
+    {
+      "id": "class8_order_missing_Ominusminus_bug",
+      "status": "confirmed",
+      "text": "CLASS8_ORDER omitted 'O--' (the rarest class, 4 units corpus-wide). Because panel e's contingency table is built by summing only the classes listed in CLASS8_ORDER, any O-- unit inside the legacy-screened population silently vanished from both the stacked bar and the chi-square, undercounting n by however many O-- units fell in that population (1, in this corpus) without any error or warning.",
+      "receipt": "before fix: contingency n=2920 against a true legacy-screened total of 2921; after adding O-- to CLASS8_ORDER and CLASS8_COLORS: n=2921 exact, chi2 927.3->931.5, df 63->72, Cramer's V 0.213->0.200"
+    },
+    {
+      "id": "contingency_int_truncation_defensive_fix",
+      "status": "confirmed",
+      "text": "figstats.contingency() computed n = int(t.sum()) on a float-typed count table; changed to int(round(t.sum())) as a defensive fix against float-summation landing at x.9999... Did not turn out to be the cause of the n=2920-vs-2921 discrepancy (that was the missing-O-- bug above), but is a correct hardening regardless.",
+      "receipt": "figstats.py contingency(), single-line change"
+    },
+    {
+      "id": "fig02_fig03_friction_reduction_20260729b",
+      "status": "confirmed",
+      "text": "Fig02 rebuilt to a raster-only 4x4 grid with hard per-area column requirements (S+ V1, S- V3a/d, O+ V4, O++ FEF; no fallback). Fig03 main figure reduced to exactly 3 panels: presence-per-area (stable/unstable/mua, new), functionality-per-area (was panel e, now MST+FST merged with a red-asterisk O++ marker), and a 7-class RXRR full-trial template trace (new). Old panels a/c/d/f/g/h kept as supplement-only. Shared full-trial epoch-shading (SLOT_COLORS, mark_full_trial_axis, full_trial_ticks) hoisted from fig02 into figstyle.py since two figures now use it. compute_group_traces generalised into compute_population_psth(df, class_col, order, win, bin_ms, onset_fn) shared by panel h and the RXRR trace.",
+      "receipt": "fig02 printed all 4 exemplars resolved to their required areas exactly; fig03 printed 'presence3 areas: [...] evaluable: 7502/8592' and 'RXRR template trace n: {S++:729,S+:130,S-:135,S--:338,O-:75,O+:70,O++:3}'; both scripts assemble cleanly, 21 supplements rebuilt"
+    },
+    {
+      "id": "presence3_quality_column_discrepancy",
+      "status": "confirmed",
+      "text": "grand_stable_firing_rates.csv carries its own 'quality' column that disagrees with omission_grand_units.csv's quality on 1,942 of 6,650 shared units (29%). unit_layers.csv's quality column agrees with the grand table's on every one of those 6,650 (0 disagreement), which is why the grand table's field -- not the stable-rates table's -- is used as the SUA/MUA source for the new presence panel. The stable-rates table is used only for its primary output, stable_trials_keep_fraction.",
+      "receipt": "grand-vs-stable mismatch 1942/6650; grand-vs-unit_layers mismatch 0 (implied: identical counts to grand-vs-stable, confirming grand==layers); layers-vs-stable mismatch 2573/6655"
+    },
+    {
+      "id": "trace_keyerror_null_bug_20260729",
+      "status": "confirmed",
+      "text": "compute_population_psth's traces dict is keyed only by the requested `order` list. The RXRR trace deliberately excludes 'Null' from its 7-class order, but the traversal loop iterated over ALL units in the legacy-screened population including Null-class ones, raising KeyError('Null') on the first Null unit encountered. Fixed by skipping any unit whose class is not in `traces`.",
+      "receipt": "before fix: Traceback KeyError: 'Null' at compute_population_psth line 524; after fix: full run completes, RXRR template trace n excludes Null entirely as intended"
+    },
+    {
+      "id": "fig04_fig05_condition_specific_extraction_20260729",
+      "status": "confirmed",
+      "text": "Built scripts/extract_condition_tfr_maps.py: reads the per-condition .npy TFR arrays that already exist on disk (sub-*-RXRR.npy, sub-*-RRRR.npy) rather than re-touching NWB, keeps RXRR and RRRR separate (the pooled omission_tfr_maps_w1500 extraction excludes RRRR entirely since it has no omitted slot to align to), aligns both to p1 onset instead of omission onset, and baselines each channel to the MIDDLE THIRD OF d1 (706-856ms from p1) rather than a pre-trial fixation window, per the user's explicit spec. Window -500..+2593ms covers fx-p1-d1-p2-d2-p3 exactly. Smoke-tested at 20 files (65.7s, 3.3s/file); full run (202 files) launched in background, ETA ~11 minutes.",
+      "receipt": "smoke test: 'WROTE .../maps.npz (52 keys), index.csv, receipt.json  areas=[MT,PFC,V1,V3a/d,V4]  runtime=65.7s' for limit=20"
+    },
+    {
+      "id": "fig04_fig05_renamed_and_redesigned_20260729",
+      "status": "confirmed",
+      "text": "fig04_area_layer_tfr/ renamed to fig04_v1_pfc_condition_tfr/ (scope changed entirely: main figure is now V1/PFC RXRR-vs-RRRR, 2 rows x 4 cols, panels a-h). fig05_band_power_hierarchy.py extended with build_rxrr_rrrr_hierarchy_figure() (5 bands x 2 conditions, all areas overlaid). In both files the OLD omission-pooled analysis is unchanged and still feeds its existing supplements from the same svg/ folder; only what gets assembled into figNN.svg changed. build_supplements.py's F4 path constant updated to the new folder name.",
+      "receipt": "both scripts compile clean; drawing code not yet run end-to-end pending the background extraction finishing (blocked on maps.npz existing)"
+    },
+    {
+      "id": "fig04_fig05_condition_maps_built_and_verified_20260729",
+      "status": "confirmed",
+      "text": "extract_condition_tfr_maps.py finished the full 202-file corpus (706 keys, all 10 areas, 1423.9s runtime). fig04's new V1/PFC RXRR-vs-RRRR panel and fig05's new 5-band x RXRR/RRRR all-area panel both built and visually verified: gamma/beta bursts appear at p1 and p3 in both conditions, and at p2 ONLY in RRRR (real stimulus) -- completely flat at p2 in RXRR (omitted) -- across V1, PFC and all ten areas respectively. This is the expected sanity check for the omission manipulation and it passed cleanly, giving confidence in the new p1-aligned, middle-of-d1-baselined extraction.",
+      "receipt": "extraction: 'WROTE .../maps.npz (706 keys) areas=[FEF,FST,MST,MT,PFC,TEO,V1,V2,V3a/d,V4] runtime=1423.9s'; fig04: 'sessions per area/condition: V1_RXRR:9 V1_RRRR:9 PFC_RXRR:14 PFC_RRRR:14'; fig05: all 10 areas x 2 conditions present; both PNGs visually inspected"
+    },
+    {
+      "id": "fig05_tight_layout_incompatible_axes",
+      "status": "confirmed",
+      "text": "fig05's new RXRR/RRRR figure left a large blank band between the suptitle and the first panel row across two fix attempts (tight_layout rect tuning, then a figure-level legend). Root cause: matplotlib printed 'UserWarning: This figure includes Axes that are not compatible with tight_layout' and silently no-op'd every tight_layout() call. Fixed by dropping tight_layout entirely in favour of explicit gridspec_kw margins (top/bottom/left/right) passed to plt.subplots(), and removing bbox_inches='tight' from savefig.",
+      "receipt": "before fix: visually identical large gap across 3 attempts despite different tight_layout(rect=...) values; after fix (gridspec_kw margins, no bbox_inches): gap eliminated, verified visually"
+    }
+  ],
+  "issues": [
+    "Figures 2 and 3 must be redrawn from the grand classification table before either can be cited.",
+    "Figures 6 and 7 have no analysis; their READMEs record the controls required before any panel is drawn (volume conduction and a spectrum-preserving shuffle null for 6; spike-count bias and same-electrode contamination for 7).",
+    "context/figures/figure_asset_manifest_2026-07-27.json describes the superseded 8-figure set; its 16 referenced paths all still resolve against context/draft-assets, so it is stale rather than dangling.",
+    "Figure 4 aspect is unresolved: panels are drawn 27 inches wide, so the portrait assembly is 468 x 180 pt. Supplements from the same panels use a landscape width; the main figure needs a rotate/split/redraw decision.",
+    "svgassemble.namespace was quadratic (one substitution per id over the whole document) and stalled on the 7 MB figure-1 panel; rewritten as a single alternation pass, 0.8 s.",
+    "fig02's locked reference spec is recorded in the user's persistent memory (figure2_reference_layout_spec.md) so it survives context resets; check it before any future fig02 redesign.",
+    "Figure 4 and 5 redesigns (condition-specific RXRR vs RRRR spectrograms/traces for V1/PFC, and 5-band x RXRR/RRRR area-hierarchy traces) are the next phase, requested 2026-07-29, not yet started."
+  ],
+  "edges": [
+    {
+      "rel": "supersedes",
+      "target": "scientific_figure_svg_labyrinth_review_20260727"
+    },
+    {
+      "rel": "supports",
+      "target": "context_consolidation_20260728"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "context-concept-single-unit-selectivity",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Scientific Concept: Single-Unit S+/S-/O+ Template Classification (Westerberg 2024)",
+  "generated": {
+    "summary": "9-element firing rate template correlation with 5000-shuffle permutation test for S+, S-, O+, and Null units.",
+    "source_paths": [
+      "jnwb/unit_classification.py",
+      "jnwb/spiking.py"
+    ],
+    "links": [
+      {
+        "to": "omission-context",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-context' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-spiking",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-spiking'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.560653+00:00"
+  }
+}

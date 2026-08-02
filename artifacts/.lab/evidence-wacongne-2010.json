@@ -1,0 +1,122 @@
+{
+  "id": "evidence-wacongne-2010",
+  "kind": "evidence",
+  "title": "Mismatch negativity and predictive coding (Wacongne 2010)",
+  "generated": {
+    "summary": "Placeholder summary for Mismatch negativity and predictive coding (Wacongne 2010).",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "hub-evidence-mismatch-adaptation",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-mismatch-adaptation'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-kirihara-2020",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-kirihara-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-predictive-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-predictive-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-clark-2013",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-clark-2013'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-gomez-2022",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-gomez-2022'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-wager-2013",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-wager-2013'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-huang-2022",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-huang-2022'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-park-2019",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-park-2019'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-nichols-2018",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-nichols-2018'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-fernandez-2022",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-fernandez-2022'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-allen-2021",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-allen-2021'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-wu-2020",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-wu-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-patel-2022",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-patel-2022'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.637684+00:00"
+  }
+}

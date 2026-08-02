@@ -1,0 +1,75 @@
+{
+  "id": "publication_style_criteria_and_score_20260728",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "House publication-style criteria derived from Westerberg & Xiong 2025; omission-a scored 38/100",
+  "status": "confirmed",
+  "generated": "2026-07-28T05:30:00Z",
+  "goal": {
+    "text": "omission-a reaches 90+/100 against the house style criteria and is submittable to bioRxiv.",
+    "falsifier": "Closed when no disqualifier in section 8 of context/PUBLICATION_STYLE_CRITERIA.md applies, and the length/statistics/figure/voice targets are met within stated tolerances."
+  },
+  "notes": [
+    "EXEMPLAR MEASURED: Westerberg, Xiong, Sennesh, Nejat, Ricci, ... Maier & Bastos (2025), 'Hierarchical substrates of prediction in visual cortical spiking', bioRxiv 10.1101/2024.10.02.616378, 14 pages, 10,097 clean words. Text extracted with PyMuPDF and de-gutter'd (line numbers and bioRxiv boilerplate stripped) before counting.",
+    "REFERENCE LENGTH PROFILE: Abstract ~250 words (339 with title+affiliations), Introduction 891, Results 2,359, Discussion 2,354, Methods 4,154, References ~1,170 (~100 refs). Body total ~5,900 excluding Methods and references.",
+    "TWO STRUCTURAL RATIOS: Discussion/Results = 1.00 and Methods/Results = 1.76. Methods is the LARGEST section in the exemplar. Both ratios are inverted in our drafts.",
+    "REFERENCE STATISTICAL APPARATUS (complete): Wilcoxon/rank-sum 7, cluster-based permutation 3, ANOVA/F 1, t-test 1. ZERO bootstrap, ZERO FDR/Benjamini, ZERO GLMM/LMM, ZERO Spearman/Pearson, ZERO odds ratios, ZERO 95% CIs. Exactly 10 p-values in the entire paper. No statistics of any kind in the abstract.",
+    "REFERENCE VOICE (per 1,000 words): 'consistent with' 0.99, 'indicate' 0.89, 'we found' 0.69, 'reveal' 0.59, 'suggest' 0.50, 'establish' 0.20. ZERO uses of 'demonstrate', 'show that', 'notably', 'surprisingly', 'strikingly', 'clearly'. Sentence length median 16, mean 17.9, p90 31 words.",
+    "REFERENCE RESULTS HEADINGS are declarative verb-bearing claims with no trailing period, and two of four headline NEGATIVE results ('Unpredictable global oddballs do not generate feedforward prediction error'; 'Directed connectivity ... does not indicate feedforward error propagation').",
+    "REFERENCE FIGURES: 5 main figures, caption format 'Fig. N | Declarative sentence.' followed by bold-lead lowercase panel letters 'a, b, c,'.",
+    "OMISSION-A MEASURED (v2-provenance docx, internal status block excluded): Abstract 122 words, Introduction 981, Results 1,376, Discussion 552, Methods 648. Body total 3,679 = 0.62x reference. 8 figures, caption format 'Figure N. Noun phrase. (a) ...', caption median 71 words.",
+    "OMISSION-A STATISTICAL PROFILE: 6 distinct inferential families (GLMM/LMM 22 mentions, cluster permutation 4, Clopper-Pearson 4, bootstrap 3, Spearman 3, F-test 2) versus the exemplar's 4. 12 p-values, 6 explicit 95% CIs, 5 odds-ratio mentions, statistics present in the abstract.",
+    "OMISSION-A VOICE: close to the exemplar on sentence length (median 15, mean 18.8) but p90 37 vs 31. 'establish' and 'confirm' each 0.69/1k against the exemplar's 0.20 — 3.5x over-used. No hype adverbs, which is correct.",
+    "NOTE ON GLMM: the exemplar uses no mixed models at all. Hamm's standing directive for our own work is that GLMM is the preferred backbone for any generalized mixed model. The criteria therefore adopt the exemplar's PRINCIPLE (one backbone, <=4 families, ~10 p-values) rather than its specific test choices.",
+    "SCORE 38/100. Breakdown -- Data provenance & integrity 3/30; Statistical design & reporting 7/20; Structure & section completeness 10/15; Figures & captions 5/12; Writing style & voice 8/10; References & apparatus 3/8; Reproducibility & availability 2/5.",
+    "The score is dominated by provenance, not prose. Writing style alone would score ~80. All five disqualifiers in section 8 of the criteria currently apply to omission-a."
+  ],
+  "issues": [
+    "Discussion is 552 words against a 2,000-2,500 target — the largest single writing gap.",
+    "Methods is 648 words against a 3,500-4,500 target; the exemplar's Methods is 6.4x longer.",
+    "Abstract is 122 words against a 220-280 target and contains OR/CI statistics the exemplar would not include.",
+    "8 figures against a 5-figure house standard; Figures 4, 5 and 8 currently rest on the hardcoded census.",
+    "Results headings are syntactically uniform and none headlines a negative result, unlike the exemplar.",
+    "Reference list carries a Wacongne 2011 J Neurosci entry with a PNAS DOI, a Bastos 2015 Neuron 85(2) entry with a 2015.09 DOI suffix, and Rao & Ballard 1999 cited for the deep/superficial alpha-beta vs gamma laminar claim, which is Bastos 2012."
+  ],
+  "plan": [
+    "Treat the five disqualifiers as the gating work; prose expansion is cheap by comparison and should follow, not precede, the data regeneration.",
+    "Expand Discussion toward parity with Results and Methods toward 1.75x Results once the numbers are real.",
+    "Cut to 5 main figures, move the rest to Extended Data, and convert captions to 'Fig. N | Declarative sentence.' with bold-lead panel letters.",
+    "Strip statistics from the abstract and restructure it on the exemplar's six-move shape."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "receipt": "PDF parsed with PyMuPDF (14 pages, 12,943 raw words -> 10,097 after removing the line-number gutter and bioRxiv boilerplate). Section boundaries located by regex on standalone headings; Results start located at the first declarative subhead 'Isolating sensation and establishing priors' since the exemplar has no 'Results' heading. Bold spans extracted via font flag 2**4 to recover headings and caption leads. omission-a counted from the v2-provenance DOCX with the internal status block filtered out. All counts reproducible by scratchpad/analyze_ref.py and scratchpad/compare.py.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "census_provenance_synthetic_finding_20260728",
+      "relation": "depends_on",
+      "reasoning": "The 30-point provenance component and all five disqualifiers derive from that finding; the score cannot move materially until it is resolved.",
+      "confidence": 0.98
+    },
+    {
+      "to": "tfr_area_label_aliasing_blocker_20260728",
+      "relation": "depends_on",
+      "reasoning": "Disqualifier 4 (aliased group labels) and the figure-level scoring both derive from it.",
+      "confidence": 0.95
+    },
+    {
+      "to": "omission_a_manuscript_integrity_pass_20260728",
+      "relation": "extends",
+      "reasoning": "Adds an external house standard against which the integrity pass can be scored, rather than judging the draft only against itself.",
+      "confidence": 0.9
+    },
+    {
+      "to": "evidence-westerberg-2024",
+      "relation": "relates",
+      "reasoning": "The exemplar is the 2025 bioRxiv version of the same group's work already cited in the graph as evidence.",
+      "confidence": 0.7
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "id": "db_averaging_bias_finding_20260728",
+  "schema_version": 3,
+  "kind": "finding",
+  "title": "Averaging decibels instead of power ratios biases each subject downward in proportion to its own log-power variance, and on this corpus that is enough to reverse a subject's sign",
+  "status": "confirmed",
+  "generated": "2026-07-28T12:15:00Z",
+  "goal": {
+    "text": "Every band-power number in omission-a is computed by averaging power ratios and taking the logarithm once, at the end, so that no reported effect is a function of how noisy its source happened to be.",
+    "falsifier": "Closed when every figure, table and model in the paper derives from outputs/omission_tfr_maps_ratio/, and the Methods state the averaging order explicitly."
+  },
+  "notes": [
+    "HOW THIS SURFACED. Two independent computations of the same quantity disagreed. The window census (compute_channel_band_power_census_v2.py) took 10*log10 of the ratio of band-mean power; the first time-resolved extraction (extract_omission_tfr_maps.py, dB version) took 10*log10 per frequency and time bin and then averaged. The second made all three subjects agree in direction; the first did not. Rather than pick one, the disagreement was traced.",
+    "MECHANISM. Mean of a logarithm is not the logarithm of a mean; by Jensen the former is smaller, and the gap grows with the variance of the log. Averaging decibels therefore subtracts a quantity proportional to each unit's own log-power variance. This is not a rounding difference -- it is a systematic, unit-specific offset.",
+    "MEASURED ON THIS CORPUS (120 randomly chosen omission files, seed 0, channels subsampled by 8). Gap = mean-of-log minus log-of-mean, alongside each subject's mean SD of log-power. theta: V198o gap -0.17 dB at SD 1.68; C31o gap -0.66 dB at SD 2.70; V182o gap -1.98 dB at SD 4.63. alpha: V198o -0.93 at SD 3.00; C31o -0.99 at SD 3.16; V182o -1.67 at SD 4.19. The gap is monotone in the SD, as the mechanism predicts.",
+    "THE CONSEQUENCE THAT MATTERS. Under log-of-mean, V182o theta is +0.60 dB; under mean-of-log it is -1.38 dB. The subject whose direction differed from the others is the subject with the noisiest log-power, and the dB-averaged estimator penalises it hardest. The apparent cross-subject agreement produced by the dB version is an artefact of that penalty, not a physiological result.",
+    "SINGLE-FILE CONFIRMATION, independent of the corpus sweep: sub-C31o_ses-230816-B-V4-RRXR, channels 0-63, omitted-slot window. alpha log-of-mean -2.264 dB vs mean-of-log -4.233 dB (gap -1.969); high gamma -0.339 vs -1.684 (gap -1.345). Same window, same baseline, same trials -- the only difference is the order of averaging and logarithm.",
+    "RESOLUTION ADOPTED. Accumulate the POWER RATIO power(f,t)/baseline(f) and take 10*log10 once, after averaging over trials, channels, frequencies within a band, time within a window, and sessions within an area. The ratio is dimensionless and per channel, so channels of very different absolute power contribute comparably, and no logarithm is ever averaged. Re-extraction writes to outputs/omission_tfr_maps_ratio/ so the dB-averaged products remain on disk for comparison rather than being overwritten.",
+    "SCOPE OF THE CORRECTION. The dB-averaged extraction produced a clean but wrong result: significant decreases in 6 of 9 areas in theta and alpha and 7 of 9 in beta, all three subjects agreeing in direction, and V3 as the only area without a significant change. Those numbers must not be quoted. The V3 observation itself was separately shown to be a subject cancellation (C31o V3 alpha -3.00 dB P=0.007; V198o V3a/d +0.63 dB n.s.), which is a real finding independent of the convention.",
+    "WHAT SURVIVES UNCHANGED. The window census and every GLMM in outputs/lfp_band_census_v2/ already used log-of-mean and are not affected by this bias. The subject sign disagreement they report therefore stands, and the dB-averaged extraction did not overturn it -- it obscured it.",
+    "SECOND-ORDER CASE LEFT AS IS, AND STATED. Session-level tests average per-session dB values across sessions. That is again a mean of logarithms, but the variance across session means is far smaller than the variance across trials, frequencies and time bins within a session, so the bias is second order; and the per-session dB is the interpretable unit for a t-test. Documented rather than silently applied."
+  ],
+  "issues": [
+    "Any figure or number produced from outputs/omission_tfr_maps/ (the dB-averaged extraction) is biased and must be regenerated from outputs/omission_tfr_maps_ratio/. That includes area_band_layer_stats.csv and every PNG under its figures/ directory.",
+    "The reference figure supplied by Hamm on 2026-07-28 is a dB spectrogram with band traces; if those traces were produced by averaging decibels, their magnitudes carry the same bias, and its size depends on the noisiness of the sessions behind each panel. Worth checking before the two are compared quantitatively.",
+    "This is the second framing correction in this area within one session. The first conflated absence of a shared sign with absence of modulation; the second nearly reversed the sign conclusion on an estimator artefact. Both were caught by cross-checking two computations of the same quantity, which is the practice that should be kept.",
+    "The bias also applies to any historical figure or table in the DOCX lineage computed by averaging dB. Not audited."
+  ],
+  "plan": [
+    "Regenerate all ten area panels, the laminar panels and area_band_layer_stats.csv from the ratio extraction.",
+    "State the averaging order explicitly in the manuscript Methods, with the measured bias range as the justification.",
+    "Re-check the per-subject direction and the V3 subject cancellation on the ratio products before writing either into Results."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true,
+      "independent_corroboration": true
+    },
+    "receipt": "Corpus sweep: 120 omission files drawn with numpy default_rng(0) from the 711, channels subsampled 1-in-8, both conventions computed on identical arrays, windows and baselines; gaps and log-power SDs tabulated per subject and band as quoted above. Single-file confirmation on sub-C31o_ses-230816-B-V4-RRXR reproduces the same ordering. Independent corroboration is the agreement between the analytic prediction (gap grows with variance of the log) and the measured monotone relationship across three subjects.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "omission_lfp_glmm_subject_sign_reversal_20260728",
+      "relation": "supports",
+      "reasoning": "That node's models used log-of-mean throughout, so its subject sign disagreement is not an artefact of this bias; the dB-averaged extraction that appeared to contradict it was the biased one.",
+      "confidence": 0.9
+    },
+    {
+      "to": "omission_a_draft_v2_20260728",
+      "relation": "corrects",
+      "reasoning": "The draft must state the averaging order in Methods, and no number from the dB-averaged extraction may enter it.",
+      "confidence": 0.95
+    },
+    {
+      "to": "context_consolidation_20260728",
+      "relation": "extends",
+      "reasoning": "Adds an analysis contract to CONTEXT.md section 6: average ratios, take the logarithm last.",
+      "confidence": 0.85
+    }
+  ]
+}

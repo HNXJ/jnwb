@@ -1,0 +1,95 @@
+{
+  "id": "evidence-srinivasan-1982",
+  "kind": "evidence",
+  "title": "Predictive coding: a fresh view of inhibition in the retina",
+  "generated": {
+    "summary": "Predictive coding: a fresh view of inhibition in the retina \u2014 Proceedings of the Royal Society of London. Series B. Biological Sciences \u2014 1982 \u2014 pdf: P2026/1982_predictive_coding_a_fresh_view_of_inhibition.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2026/1982_predictive_coding_a_fresh_view_of_inhibition.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-vankerkoerle-2014",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-vankerkoerle-2014'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-friston-2009",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-friston-2009'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-kirihara-2020",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-kirihara-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-predictive-02",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-predictive-02'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-predictive-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-predictive-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-predictiveb-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-predictiveb-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-canonical-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-canonical-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "Srinivasan_1982",
+    "entry_type": "article",
+    "year": "1982",
+    "doi": "10.1098/rspb.1982.0085",
+    "url": "http://dx.doi.org/10.1098/rspb.1982.0085"
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.630414+00:00"
+  }
+}

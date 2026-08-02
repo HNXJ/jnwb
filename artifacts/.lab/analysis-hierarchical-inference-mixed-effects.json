@@ -1,0 +1,32 @@
+{
+  "id": "analysis-hierarchical-inference-mixed-effects",
+  "kind": "plan",
+  "title": "Statistical Rule: Hierarchical Session-Level Mixed-Effects Modeling",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Hierarchy Rule: Unit of statistical inference MUST be at session (N=21) or subject (N=2) level to prevent channel/unit pseudo-replication.",
+    "Model Specification: response ~ condition + area + layer + (1|session_id) + (1|subject_id).",
+    "Exact Clopper-Pearson 95% CIs: All reported proportions use exact binomial Clopper-Pearson CIs (e.g. O+ 4.90%, 95% CI [4.45%, 5.37%]).",
+    "Dual Population Disambiguation: Explicitly distinguish primary corpus (8,597 units) from template-correlation SSO scan (6,655 units)."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.548819+00:00"
+  }
+}

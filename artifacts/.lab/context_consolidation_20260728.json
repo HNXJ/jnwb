@@ -1,0 +1,74 @@
+{
+  "id": "context_consolidation_20260728",
+  "schema_version": 3,
+  "kind": "progress",
+  "title": "context/ narrowed to one authoritative file; six dangling CLAUDE.md pointers repaired; synthetic 'protected invariants' formally retracted",
+  "status": "confirmed",
+  "generated": "2026-07-28T12:00:00Z",
+  "goal": {
+    "text": "A single authoritative context document that a cold agent can read to act correctly, with no surviving pointer to a file that does not exist and no surviving instruction to preserve a fabricated number.",
+    "falsifier": "Closed when every path referenced by CLAUDE.md and context/CONTEXT.md resolves on disk, and no document in the live tree asserts the retracted census figures as constraints."
+  },
+  "notes": [
+    "DELIVERABLE: context/CONTEXT.md, 13 sections. Merges the three 2026-07-27 handouts, the paradigm and pipeline suite, the legacy topology handout and this session's findings into one file. Every path and count in it was resolved on disk on 2026-07-28.",
+    "THE FINDING THAT MADE THIS URGENT. context/HANDOUT_NEXT_AGENT_FINAL_2026-07-27.md listed under 'Protected invariants -- do not change without explicit instruction from Hamm': the 8,597-unit census with O+ = 421 = 4.90%, the 8,736-channel LFP census with beta modulation 6,771 = 77.51%, and a GLMM headline of OR = 3.08, 95% CI [2.51, 3.78], z = 10.726, p = 7.25e-27. Every one of those is a hardcoded literal in scripts/archive_oneoff/compute_empirical_census_and_power.py; no script computes them from data and no mixed model was ever fitted to produce the odds ratio. The handout was therefore instructing every future agent to PROTECT the fabricated numbers, which is the most durable failure mode available -- a fabrication with a preservation order attached to it.",
+    "RETRACTION IS EXPLICIT, NOT SILENT. Section 8 of CONTEXT.md is a table of retracted 'invariants' with the correction and receipt beside each, followed by the invariants that DO hold (condition colours, epoch shading, figure order, the empirical-TFR guardrail on Figure 6, declarative headings, the get_spike_times row-index footgun, map_peak_channel_to_area). Conservation: nothing was deleted; the handouts are preserved unedited under context/archive/superseded-2026-07-27/.",
+    "BAND DEFINITIONS RESOLVED FROM THE REPO'S OWN HISTORY, not from my judgement. The 2026-07-27 figure audit records a band-definition drift (alpha 8-12 vs 8-14, theta 3-8 vs 4-8) that it fixed onto theta 4-8, alpha 8-14, beta 14-30, low gamma 30-50, high gamma 50-80, and the handout lists that set as canonical. The reference figure Hamm supplied on 2026-07-28 uses the PRE-CORRECTION set (theta 2-7, alpha 8-12, gamma-low 32-80, gamma-high 80+). The open question from the v2 node is therefore answered: the manuscript set already in use is the house standard, and the attached figure's legend is the outlier. Recorded in CLAUDE.md under a 'do not re-drift' heading.",
+    "SIX DANGLING POINTERS IN CLAUDE.md, all verified missing then repaired: context/info/07_authoritative_data_topology_single_units.md and context/info/08_pie_charts_summary_provenance.md (context/info/ does not exist; both live under legacy/context/); outputs/publication_figures/grand_database_6040_units.csv (actually under .../data_tables/); layer_masks.json quoted bare (actually outputs/publication_visual_review/area_layer_tfr/layer_masks.json); notebooks/data_handout.md and notebooks/colab_handout.md (both under outputs/archive/notebooks/). A bare session_readiness.csv reference was also made explicit, with a note that its 21 NWB-ready sessions are not the same set as the 17-session TFR corpus.",
+    "REORGANISATION, moves only. context/ top level went from 22 entries to 4 files and 5 directories: CONTEXT.md, PUBLICATION_STYLE_CRITERIA.md, omission-a-draft-v2.md, plus drafts/ (v1 and the source markdown), manuscript-docx/ (the whole DOCX/PDF/zip lineage), figures/ (loose PNGs and the asset manifest), draft-assets/ (live SVGs) and archive/. Inbound references were grepped first; the two that broke (draft v2 header, build_channel_area_vector.py docstring) were updated.",
+    "DUPLICATE AUDIT: 7 exact byte-identical markdown pairs between context/archive/ and context/draft-assets/ (the 01-05 paradigm suite, content.md, and one handover). Left in place and documented rather than deduplicated, because draft-assets/ also holds the live figure SVGs and pruning it risks the assets.",
+    "WORD LOCK FILE ~$ission-2026-manuscript-master.docx was present. Lock state was tested by an atomic rename round-trip before any move; the file was not held open, so the lineage moved safely. The lock file itself was moved with it rather than deleted."
+  ],
+  "issues": [
+    "context/draft-assets/ holds byte-identical copies of seven archived markdown files. Harmless but it is a second copy that can drift if either side is edited.",
+    "context/archive/labyrinth_unified.md is a 393 KB graph export of unknown currency; not reconciled against the live artifacts/.lab/ nodes.",
+    "The two legacy handouts now pointed to from CLAUDE.md (legacy/context/07, 08) pre-date the three-subject corpus and describe 13 NWB sessions and 720 TFR arrays against the current 21 and 948. They are correct about event semantics and structure, stale about counts. CONTEXT.md carries the current counts and should be preferred.",
+    "scripts/expand_labyrinth_graph.py and scripts/generate_author_response.py still reference context/omission-2026-manuscript-master.pdf at its old path. Both are one-off generators that have already run; not repointed, because editing them would change historical artefacts they produced.",
+    "artifacts/.lab/labyrinth.db remains 0 bytes and 40 edges still point at a nonexistent 'mission' node. Untouched under Conservation."
+  ],
+  "plan": [
+    "Treat context/CONTEXT.md as the file to update when a finding changes, and let the drafts cite it rather than restating topology.",
+    "When the time-resolved extraction completes, add its receipt path to CONTEXT.md section 9 and close open question 2.",
+    "Reconcile context/archive/labyrinth_unified.md against the live graph, or mark it explicitly as a frozen export."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "receipt": "Every markdown path token in CLAUDE.md was extracted by regex and resolved with os.path.exists: 12 referenced paths, 0 missing after repair (the two initial failures were a legacy figure name and a bare filename in prose, both since made explicit or left as prose). Duplicate detection by SHA-256 over context/**/*.md: 25 files, 18 unique, 7 duplicate pairs. Word lock tested by os.rename round-trip returning 'NOT locked' before any file move. Post-move listing of context/ confirms 4 files and 5 directories at top level with no file lost.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "census_provenance_synthetic_finding_20260728",
+      "relation": "resolves",
+      "reasoning": "The synthetic numbers had a written preservation order attached to them in the handout; section 8 of CONTEXT.md retracts that order explicitly and CLAUDE.md now routes agents to it first.",
+      "confidence": 0.9
+    },
+    {
+      "to": "omission_a_draft_v2_20260728",
+      "relation": "extends",
+      "reasoning": "Answers the draft's open band-definition question from the repo's own audit history, and gives the draft a single context file to cite instead of restating topology.",
+      "confidence": 0.9
+    },
+    {
+      "to": "channel_area_vector_uniform_split_finding_20260728",
+      "relation": "depends_on",
+      "reasoning": "Section 5 of CONTEXT.md is written from that finding, including the V3a/V3d pooling rule.",
+      "confidence": 0.9
+    },
+    {
+      "to": "omission_lfp_glmm_subject_sign_reversal_20260728",
+      "relation": "depends_on",
+      "reasoning": "Section 9 quotes its receipts, in the corrected magnitude-versus-direction framing.",
+      "confidence": 0.95
+    },
+    {
+      "to": "harness_skill_registry_repair_20260728",
+      "relation": "relates",
+      "reasoning": "Same class of defect: a registry pointing at files that no longer exist, failing silently rather than erroring.",
+      "confidence": 0.8
+    }
+  ]
+}

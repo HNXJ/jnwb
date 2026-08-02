@@ -1,0 +1,29 @@
+{
+  "schema_version": 3,
+  "id": "fig06_coupling_estimator_built_20260729",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-29",
+  "title": "fig06/fig07 volume-conduction-safe coupling estimator and re-referencing utilities built and validated",
+  "claims": [
+    {
+      "id": "no_reusable_coupling_code_existed",
+      "status": "confirmed",
+      "text": "Surveyed jnwb for existing LFP-LFP/spike-LFP coupling code before building. jnwb.connectivity.granger_causality and jnwb.jrsa's granger/phase_slope metrics are real and reusable for lag/directionality questions, but no imaginary coherency, orthogonalized envelope, or bipolar/Laplacian re-referencing utility existed anywhere in the package or its archive (outputs/archive/src/analysis/coherence/coherence.py only wraps plain scipy.signal.coherence, not volume-conduction-safe). jnwb-functional-connectivity SKILL.md had fabricated spectral.coherence()/spectral.spike_field_ppc() entries -- corrected in place.",
+      "receipt": "grep 'def coherence|def spike_field_ppc' jnwb/spectral.py: only band_power found; grep confirmed cross_modal_comparison/network_connectivity/tfr_correlate_areas/granger_causality/spike_mutual_information DO exist and are exported at jnwb package root"
+    },
+    {
+      "id": "imaginary_coherency_added_and_validated",
+      "status": "confirmed",
+      "text": "Added jnwb.spectral.imaginary_coherency (Nolte et al. 2004 estimator via scipy.signal.welch/csd, CPU and CuPy-GPU paths matching band_power's existing dispatch pattern) plus bipolar_reference and laplacian_reference for probe re-referencing. Validated on synthetic cases: zero-lag shared-source mixing (volume-conduction proxy) gives high raw coherence (0.668) but near-zero imaginary coherency (0.041); a genuinely lagged shared source (30ms lag) gives both high raw coherence (0.704) and high imaginary coherency (0.719); independent noise gives both near their finite-sample floor. Laplacian re-reference removes 99.83% of an injected common-mode/shared-reference signal's variance (leak ratio 0.0017).",
+      "receipt": "python scripts/validate_imaginary_coherency.py -- exit 0, all assertions pass, printed values in the claim text above"
+    }
+  ],
+  "issues": [
+    "fig06's plan called for 3 layer groups (sup/mid/deep); only layer_masks.json exists as a channel-level layer source and it is a binary superficial/deep spectrolaminar crossover split with no data-driven middle group. User chose (2026-07-29) to use 2 layer groups and state this explicitly in the figure's methods/caption rather than inventing an unvalidated depth-tercile split.",
+    "Corpus-scale extraction not yet built: per-channel raw LFP loading via h5py, the area x layer x band x condition-event coupling matrix construction, the trial-shuffle null preserving per-channel spectra, and Benjamini-Hochberg correction across the full matrix (per fig06_band_power_coupling/README.md) remain to be written and run. This node covers only the estimator + re-referencing primitives and their validation."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "labyrinth_v15_evaluation_and_doctrine_consolidation_20260729"}
+  ]
+}

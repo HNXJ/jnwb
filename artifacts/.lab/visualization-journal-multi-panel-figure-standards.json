@@ -1,0 +1,32 @@
+{
+  "id": "visualization-journal-multi-panel-figure-standards",
+  "kind": "plan",
+  "title": "Visualization Protocol: Publication-Grade Multi-Panel Figure Layouts",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Font Standards: Helvetica/Arial 8-10 pt for labels, 11-12 pt bold for panel titles (A, B, C).",
+    "Layout Standards: 2-column width (180 mm) or 1-column width (89 mm) at 300+ DPI.",
+    "Panel Consolidation: Combine poster-style heatmaps into cohesive multi-panel figures with statistical overlays.",
+    "Color Consistency: Strictly enforce OMISSION_PALETTE hex indices across all vector SVG outputs."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.687417+00:00"
+  }
+}

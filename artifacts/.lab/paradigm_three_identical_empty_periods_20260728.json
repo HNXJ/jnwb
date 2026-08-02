@@ -1,0 +1,60 @@
+{
+  "id": "paradigm_three_identical_empty_periods_20260728",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "Omission renders as three consecutive visually identical empty periods; the middle one is the omission signature",
+  "status": "confirmed",
+  "generated": "2026-07-28T02:45:00Z",
+  "notes": [
+    "SOURCE: Hamm, 2026-07-28, direct statement of paradigm structure. Entered as user-asserted design fact, not inference.",
+    "Trial structure is always fx - p1 - d1 - p2 - d2 - p3 - d3 - p4 - d4.",
+    "p1..p4 carry stimulus identity. fx and d1..d4 are gray screen with fixation dot.",
+    "CRITICAL: the delay periods are VISUALLY IDENTICAL to an omission (X). An omitted slot is not a distinct stimulus event — it is indistinguishable on screen from the delays that surround it.",
+    "Therefore AAAB renders as  o-A-o-A-o-A-o-B-o  and RRXR renders as  o-R-o-R-o-o-o-R-o.",
+    "An omission at slot k produces THREE consecutive visually identical empty periods: d(k-1) + p(k as X) + d(k). For RRXR that is d2 + p3 + d3.",
+    "The MIDDLE o — the omitted stimulus slot itself — is where the omission signature must live, because the flanking o's are ordinary delays.",
+    "H0: at each channel, in each band, spectral power across the three o's is flat and shows no significant change from baseline.",
+    "H1: in at least one band there is a significant positive or negative change from baseline.",
+    "These hypotheses are the intended basis of Figures 6, 7 and 8 (three interpretations of the same TFR analysis).",
+    "DESIGN CONSEQUENCE: because the flanking o's are visually identical to the middle o, they form a within-trial control that the pre-trial fixation baseline cannot provide. A middle-vs-baseline contrast conflates omission-specific signal with any sustained drift across the trial and with general delay-period state; a middle-vs-flank contrast isolates expectation violation. Both are computed; middle-vs-baseline is primary per Hamm's stated H0, middle-minus-flank is carried as a descriptive robustness column.",
+    "TIMING (from domain-paradigm-timing-layout): fx=-500, p1=0, d1=531, p2=1031, d2=1562, p3=2062, d3=2593, p4=3093, d4=3624 ms; stimulus 531 ms, delay 500 ms. Middle-o window = the p<slot> window: slot2 = 1031-1562, slot3 = 2062-2593, slot4 = 3093-3624 ms.",
+    "POWER CONSTRAINT observed while implementing: omission-condition TFR files carry a median of 7 trials (min 2, max 85). A per-channel per-band significance test at that trial count has very low power, and 8,736 channels x 5 bands is ~43,680 tests. Per-channel dB effect sizes are reported as requested, but the defensible inferential statement is at session/area level via GLMM, not per-channel significance counts."
+  ],
+  "issues": [
+    "map_area_canonical() in the archived census script collapses V3, V3d, V3a into 'V3a-d-v'. The TFR arrays carry them as separate labels (V3 60 files, V3a 60, V3d 60). The V3 alpha/beta exception Hamm reports is averaged away by the manuscript's own area mapping and cannot be recovered downstream of it.",
+    "Whether the primary omission contrast should pool the R-family (RXRR/RRXR/RRRX) with the global A/B-family (AAAX/AAXB/AXAB/BBBX/BBXA/BXBA) is not yet decided; they test different expectations (local/random vs global sequence structure) and the manuscript's own Introduction argues they should not be treated as equivalent."
+  ],
+  "plan": [
+    "Compute per-channel band power for all 711 omission-condition files, keeping V3/V3a/V3d separate.",
+    "Fit the GLMM on channel-level dB with session and subject random intercepts to obtain the defensible area x band statement, including the V3 contrast.",
+    "Regenerate Table 2 and Figures 6/7/8 from the real output."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "receipt": "Array contract independently verified this session: shape (trials, 128 ch, 99 freqs, 500 times), freqs = arange(3,201,2), times = -1000 + arange(500)*10, values are RAW power (all positive, 1/f falloff: ~70k at 3 Hz vs ~800 at 83 Hz, no negatives). Matches scripts/archive_oneoff/precompute_tfr_arrays.py lines 8, 33-34, 166. 711 of 948 files carry an omission condition, 0.70 TB, windowed memmap reads are sub-second per file.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "domain-paradigm-timing-layout",
+      "relation": "refines",
+      "reasoning": "Adds the visual-identity fact (delays are indistinguishable from omissions) and the middle-o logic to the existing epoch-onset timing node.",
+      "confidence": 0.95
+    },
+    {
+      "to": "census_provenance_synthetic_finding_20260728",
+      "relation": "resolves",
+      "reasoning": "Defines the analysis that replaces the hardcoded Table 2 literals with measured per-channel band power.",
+      "confidence": 0.9
+    },
+    {
+      "to": "canonical_epoch_colorcode_timing_guardrail",
+      "relation": "relates",
+      "reasoning": "The p1-p4 patch shading in time-axis figures should reflect that the omitted slot is visually continuous with its flanking delays, not a distinct event.",
+      "confidence": 0.75
+    }
+  ]
+}

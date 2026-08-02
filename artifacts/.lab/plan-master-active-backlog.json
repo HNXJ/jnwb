@@ -1,0 +1,31 @@
+{
+  "id": "plan-master-active-backlog",
+  "kind": "plan",
+  "title": "Master Backlog: Active and Planned Items",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "[HIGH] Reconcile artifacts/developer/{plans,progress,review}.json schema mismatch"
+  ],
+  "issues": [],
+  "plan": [
+    "Reconcile artifacts/developer/{plans,progress,review}.json schema mismatch"
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.680289+00:00"
+  }
+}

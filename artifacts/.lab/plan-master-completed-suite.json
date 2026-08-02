@@ -1,0 +1,72 @@
+{
+  "id": "plan-master-completed-suite",
+  "kind": "plan",
+  "title": "Master Portfolio: 42 Completed Project Plans",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Omission Manuscript Draft v2 (100/100 Quality Score & Supplementary Info DOCX): Completed",
+    "OGLO Session Report Suite Generator (Completed Phase 1): Completed",
+    "OGLO Report Suite Improvement (Phase 2): Completed",
+    "SVM Preprocessing (Baseline Subtraction & Normalization): Completed",
+    "Interactive Granger Causality Network Visualization: Completed",
+    "GPU-Accelerated Population Trajectory (PCA): Implemented 2026-07-26: jnwb/gpu_pca.py + exported via jnwb/trajectory.py. Added gpu_pca(matrix, n_c",
+    "Reconcile Stable/S+/S-/O+ Definitions for V182o Re-Audit: Completed",
+    "suite_01_single_raster_panels.ipynb: Completed",
+    "suite_02_tfr_lfp_traces_layer.ipynb: Completed",
+    "suite_03_tfr_lfp_heatmap2d.ipynb: Completed",
+    "suite_04_tfr_lfp_area_layer_band_power_corr.ipynb: Completed",
+    "suite_05_tfr_lfp_area_layer_imaginary_complex_corr.ipynb: Completed",
+    "suite_06_single_unit_lfp_band_power_correlations.ipynb: Completed",
+    "suite_07_pfc_population_trajectory.ipynb: Completed",
+    "suite_08_omission_decoding.ipynb: Completed",
+    "suite_09_granger_network.ipynb: Completed",
+    "suite_10_pupil_behavior.ipynb: Completed",
+    "Brainstorm: LFP TFR Phase/Complex Coefficient Preprocessing and Interactive Plotting Suite: Implemented 2026-07-26: jnwb/complex_tfr.py with `tfr_complex_load`, `plv_from_complex`, and `imagin",
+    "Dual-engine (Parametric & Nonparametric) Significance Testing utility: Completed",
+    "Hierarchy-Wide Multi-Band Power Correlation Matrix Heatmaps: Completed",
+    "LFP Spectral Power Omission Dampening Traces: Completed",
+    "Single-Unit Omission-Ramping vs Stimulus-Driven Profile Classification: Completed",
+    "Hierarchy-Wide Multi-Unit Activity (MUA) Sequence Response Profile: scripts/build_mua_hierarchy_profile.py executed 2026-07-26: 6,655 units, 15 sessions, 10 areas (V1\u2192P",
+    "Gamma-Beta Dissociation and R-Squared Change Matrices: Completed",
+    "Audit 2026-07-10: Remove synthetic decoding metrics: Code audit 2026-07-26: decoding.py L173,L210-211,L243,L257 confirm: returns NaN + status=insufficien",
+    "Audit 2026-07-10: Fix FDR misuse in StatisticalAnalysis: Code audit 2026-07-26: statistics.py L66-80 already explicitly documents no-2-test-FDR; fdr_pval_* k",
+    "Audit 2026-07-10: Nested CV + no optimistic decoding bias: Completed",
+    "Audit 2026-07-10: Effect-size naming + CIs on compare_groups: Completed",
+    "Audit 2026-07-10: Granger diagnostics + regularized VAR: Completed",
+    "Audit 2026-07-10: Spike-train MI beyond binary occupancy: Completed",
+    "Audit 2026-07-10: Soften production-grade claims + CI install gate: Completed",
+    "Audit 2026-07-10: GPU SVM optimizer hygiene: Completed",
+    "Brainstorm 2026-07-10: Exploratory vs confirmatory stats API split: Implemented 2026-07-26: jnwb/statistics.py \u2014 added exploratory_compare(), exploratory_correlate(), e",
+    "Brainstorm 2026-07-10: Per-NWB S+/S-/O+ stable raster suite (Suite 01): Verified 2026-07-26: `outputs/classification/grand_unit_table_shuffle_sso.csv` covers 15 TFR-ready N",
+    "Multi-page Markdown analysis reports with embedded SVG figures: Built 6 markdown report files in context/draft-assets/reports/ on 2026-07-26: index.md, 01_paradigm_",
+    "Figure 3: S+/S-/O+ raster grid across R-family conditions: Completed",
+    "Template-correlation unit selection method (S+/S-/O+ exemplar picking): Completed",
+    "Run a real Proceed-with-Review pass over the 92-entry progress.json backlog: pytest tests/ -q -> 174 passed, 22 skipped, 0 failed (2026-07-26). 98 review.json entries updated fr",
+    "Omission Paradigm Context Documentation Suite: Completed",
+    "JRSA GPU (CuPy & CUDA) Optimization: Completed",
+    "build_all_manuscript_figures.py: Completed",
+    "build_granger_connectivity_grid.py: Completed"
+  ],
+  "issues": [],
+  "plan": [
+    "Maintain verified status and integration tests."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.680762+00:00"
+  }
+}

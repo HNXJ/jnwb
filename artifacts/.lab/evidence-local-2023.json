@@ -1,0 +1,53 @@
+{
+  "id": "evidence-local-2023",
+  "kind": "evidence",
+  "title": "2022 local connectivity and synaptic dynamics in m",
+  "generated": {
+    "summary": "2022 local connectivity and synaptic dynamics in m \u2014 2023 \u2014 pdf: P2023/2023/2022_local_connectivity_and_synaptic_dynamics_in_m.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2023/2023/2022_local_connectivity_and_synaptic_dynamics_in_m.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-laminar-circuitry",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-laminar-circuitry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'hub-evidence-oscillations-networks' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-neuromodulation-dynamics",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-neuromodulation-dynamics'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "file_2022_local_connectivity_and_synaptic_dynamics_in_m",
+    "entry_type": "misc",
+    "year": "2023",
+    "doi": "",
+    "url": ""
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.610280+00:00"
+  }
+}

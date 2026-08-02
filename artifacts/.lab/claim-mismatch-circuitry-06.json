@@ -1,0 +1,96 @@
+{
+  "id": "claim-mismatch-circuitry-06",
+  "kind": "hypothesis",
+  "title": "Sensory mismatch and omission signals arise from top-down feedback inhibition of local excitatory pyramidal neurons",
+  "generated": {
+    "summary": "Synthesis ensemble combining Attinger 2017, Keller 2012, Garrett 2020, and Kim 2017. Prediction errors reflect difference between top-down feedback and bottom-up input.",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "papers-claim",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'papers-claim'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-mismatch-03",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'claim-mismatch-03' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-attinger-2017",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-attinger-2017'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-keller-2012",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-keller-2012'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-garrett-2020",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-garrett-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-canonical-microcircuit-05",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-canonical-microcircuit-05'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-omission-oddball-10",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-omission-oddball-10'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-predictive-routing-12",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-predictive-routing-12'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-precision-gain-13",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-precision-gain-13'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "plan-omission-microcircuit-02",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'plan-omission-microcircuit-02'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Synthesizes rodent visual cortex mismatch experiments with microcircuit models."
+  ],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.550864+00:00"
+  }
+}

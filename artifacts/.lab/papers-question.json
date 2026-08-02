@@ -1,0 +1,54 @@
+{
+  "id": "papers-question",
+  "kind": "note",
+  "title": "Research questions \u2014 the three standing goals",
+  "generated": {
+    "summary": "Hub for the three research questions that bound the graph's drift without closing it. Each is a goal node carrying an adaptive falsifier: a...",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "labyrinth-papers",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'labyrinth-papers'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-prediction-01",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'question-prediction-01' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-implementation-02",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'question-implementation-02' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-adaptation-03",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'question-adaptation-03' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "The three questions are ordered by descending empirical grounding and ascending commitment: 01 asks what the brain does, 02 asks what a computational equivalent must do to reproduce it, 03 asks whether adaptation alone at multiple spacetime scales is sufficient. 03 is the load-bearing claim; 01 and 02 are the evidence base it stands on."
+  ],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.678892+00:00"
+  }
+}

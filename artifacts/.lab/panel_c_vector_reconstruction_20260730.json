@@ -1,0 +1,30 @@
+{
+  "schema_version": 3,
+  "id": "panel_c_vector_reconstruction_20260730",
+  "type": "claim",
+  "status": "unconfirmed",
+  "created_utc": "2026-07-30",
+  "title": "Built the full vector replacement for fig01 Panel C (3 block-type grids) from circular_grating() icons; not yet integrated into fig01, icon-level rendering not independently confirmed by this session",
+  "claims": [
+    {
+      "id": "grid_structure_built",
+      "status": "confirmed",
+      "text": "grating.py gained block_type_row()/build_panel_c(): reconstructs Block type 1 (AAAB), 2 (BBBA), 3 (RRRR) as full vector content -- each a green-bordered 'Standard trials' row (4 icons) plus a red-bordered 'Omission trials' box (3 rows, one omitted position per row at slot 2/3/4 respectively, matching classify_omission_units_grand.py's OMISSIONS dict exactly: AXAB/AAXB/AAAX at positions 2/3/4, same for B and R families). Icon identity follows the user-specified A=45deg/B=135deg/4-cycles convention. R-family has no user-specified convention -- represented as 0deg grey (R_ORIENTATION_DEG/R_COLOR), explicitly flagged as this session's own unconfirmed choice, not a specification.",
+      "receipt": "python grating.py: 'wrote grating_panel_c.svg 460x746'; layout/label/omission-mark-column correctness independently verified by inspecting the (icon-rendering-broken) PyMuPDF render, which still renders box borders, text labels, and mark (*/#) positions correctly since only the circular-clipped icon content is affected by the renderer limitation"
+    },
+    {
+      "id": "renderer_limitation_confirmed_deeper",
+      "status": "confirmed",
+      "text": "Wrapping clipPath in <defs> (hypothesis: non-browser renderers require it) did NOT fix the circular-clip rendering failure in either svglib or PyMuPDF's native SVG engine -- both still render every circular_grating() icon's stripes completely unclipped, identical to before the <defs> change. This narrows the limitation to genuine incomplete circular (non-rect) clipPath support in both fallback renderers, not a defs-scoping issue. The already-confirmed-correct real-browser render of the simpler grating_demo.svg used the identical per-icon clipPath construction, so the SVG itself is not suspected of being wrong -- only the two fallback renderers.",
+      "receipt": "re-rendered grating_panel_c.svg via PyMuPDF after adding explicit <defs> wrapping around each icon's clipPath -- pixel-identical failure mode to the pre-fix render (stripes overflowing every icon's circular boundary, forming large overlapping diamonds)"
+    }
+  ],
+  "issues": [
+    "Icon-level rendering of grating_panel_c.svg has not been independently confirmed by this session via a real browser (Claude_Browser preview pane failed to composite/screenshot across multiple retries -- a client-side display state issue, not something resolved from this side). File was sent directly to the user to view in their own browser instead.",
+    "R-family visual convention (0deg, grey) is this session's own placeholder choice, not specified by the user -- needs explicit confirmation or replacement before this is treated as final.",
+    "Not yet integrated into fig01_recording_topology_and_paradigm.py's actual Panel C construction (which currently still crops the old raster). Integration is the next step once the user confirms this rendering and the R convention."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "grating_identity_convention_locked_20260730"}
+  ]
+}

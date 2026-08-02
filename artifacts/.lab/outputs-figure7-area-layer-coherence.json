@@ -1,0 +1,47 @@
+{
+  "id": "outputs-figure7-area-layer-coherence",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Manuscript Figure 7: Pairwise Power Correlation & Imaginary Coherence",
+  "generated": {
+    "summary": "Pairwise area-layer TFR power correlation (r) and imaginary complex coherence Im(C) matrices.",
+    "source_paths": [
+      "scripts/build_figure7_area_layer_coherence.py",
+      "outputs/figures/figure_7_area_layer_coherence.svg"
+    ],
+    "links": [
+      {
+        "to": "omission-outputs",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-outputs' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-connectivity",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-connectivity'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": false,
+      "reproducible": true
+    },
+    "verdict": "unconfirmed",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.673621+00:00"
+  }
+}

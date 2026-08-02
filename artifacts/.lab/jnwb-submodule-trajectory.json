@@ -1,0 +1,46 @@
+{
+  "id": "jnwb-submodule-trajectory",
+  "schema_version": 3,
+  "kind": "submodule",
+  "title": "jnwb.trajectory (GPU-Accelerated Population Trajectory PCA)",
+  "generated": {
+    "summary": "Time-resolved population spike matrix construction and PyTorch GPU SVD dimensionality reduction.",
+    "source_paths": [
+      "jnwb/trajectory.py"
+    ],
+    "links": [
+      {
+        "to": "omission-jnwb",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-jnwb' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "omission-tests",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'omission-tests'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.654464+00:00"
+  }
+}

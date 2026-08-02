@@ -1,0 +1,87 @@
+{
+  "id": "question-adaptation-03",
+  "kind": "goal",
+  "goal": {
+    "text": "Does a sensory-motor neural system with adaptation as its sole mechanism, but available at various scales in spacetime, emerge neurophysiological and neuropsychological traits in its equivalent scope?",
+    "falsifier": "Two-sided, and both sides must be stated before this can Seal. CONFIRMED-for-now if a single-mechanism multi-scale adaptive sensorimotor model produces at least two traits it was not fit to \u2014 one neurophysiological, one neuropsychological \u2014 with the measured observable and the scale (spatial extent and time constant) reported for each. FALSIFIED if any trait in the target scope demonstrably requires a second, non-adaptive mechanism that cannot be re-expressed as adaptation at some scale. Neither outcome closes the branch; both rewrite it.",
+    "successor_clause": "Confirmation respawns this as a scope question \u2014 what is the boundary of the 'equivalent scope', i.e. the traits this system should NOT be expected to produce. Falsification respawns it as an inventory of the irreducible second mechanism. Either way a successor node is written before this one may be marked superseded (Conservation).",
+    "adaptivity": "The phrase 'sole mechanism' is the load-bearing and most fragile commitment here. If Review finds the adaptation-at-all-scales framing has quietly absorbed a second mechanism by redefinition, that is a contested finding against this node, not a clarification of it. Guard against the framing expanding to stay unfalsifiable."
+  },
+  "title": "RQ3 \u2014 Is multi-scale adaptation alone sufficient to emerge the observed traits?",
+  "generated": {
+    "summary": "The load-bearing hypothesis of the whole graph, and the one most at risk of drifting into unfalsifiability. Asks whether adaptation operating across spatial and...",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "papers-question",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'papers-question'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-prediction-01",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'question-prediction-01'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-implementation-02",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'question-implementation-02'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-mismatch-03",
+        "relation": "questions",
+        "reasoning": "Flags open scientific or architectural question regarding node 'claim-mismatch-03'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-garrett-2020",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'evidence-garrett-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-attinger-2017",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'evidence-attinger-2017'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-keller-2012",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'evidence-keller-2012'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "This node depends on 01 and 02 by derives_from: it cannot be confirmed while either of its parents is unconfirmed, which is the structural guard against answering the ambitious question before the grounding questions."
+  ],
+  "issues": [
+    "Unfalsifiability risk: 'adaptation available at various scales in spacetime' can be stretched to describe almost any mechanism post hoc. The falsifier's second clause exists to catch this, but it needs an operational test for 're-expressible as adaptation' that does not yet exist. Open."
+  ],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "val": {
+    "text": "RQ3 \u2014 Is multi-scale adaptation alone sufficient to emerge the observed traits?",
+    "falsifier": "Verified by pipeline execution receipts and unit tests."
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.682705+00:00"
+  }
+}

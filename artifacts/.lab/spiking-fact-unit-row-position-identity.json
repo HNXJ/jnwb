@@ -1,0 +1,47 @@
+{
+  "id": "spiking-fact-unit-row-position-identity",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Empirical Fact: Unit Identity Row-Position Resolution",
+  "generated": {
+    "summary": "OmissionSession.get_spike_times() indexes by raw DataFrame row position (units_df.index), not per-probe Kilosort unit_id.",
+    "source_paths": [
+      "jnwb/spiking.py",
+      "jnwb/trajectory.py"
+    ],
+    "links": [
+      {
+        "to": "jnwb-submodule-spiking",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'jnwb-submodule-spiking' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-core",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-core'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.686974+00:00"
+  }
+}

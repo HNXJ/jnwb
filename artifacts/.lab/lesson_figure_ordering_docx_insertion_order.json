@@ -1,0 +1,21 @@
+{
+  "id": "lesson_figure_ordering_docx_insertion_order",
+  "kind": "decision",
+  "title": "Lesson: Figure ordering in DOCX must match manuscript narrative",
+  "status": "confirmed",
+  "generated": "2026-07-27T22:03:36Z",
+  "notes": [
+    "Bug found 2026-07-27: Figures 6 and 7 were placed AFTER Figure 8 in master DOCX.",
+    "Root cause: figures were appended in wrong sequence during build_clean_publication_figures.py docx assembly.",
+    "Fix: moved Fig6 (body idx 233-234) and Fig7 (body idx 258-259) to body positions 158-161 (before Fig8).",
+    "Final verified order: Fig1, Fig2, Fig3, Fig4, Fig5, Fig6, Fig7, Fig8.",
+    "RULE: When assembling multi-figure DOCX, always append image+caption blocks in ascending figure number. Never in code generation order."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "command": "audit_figures.py -> [159] Figure 6, [161] Figure 7, [163] Figure 8",
+    "status": "confirmed",
+    "timestamp": "2026-07-27T22:03:36Z"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "domain-data-topology-readiness",
+  "kind": "evidence",
+  "title": "Data Topology, Sidecars, and Session Readiness Gates",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Raw NWB: D:/analysis/nwb/ (21 total NWB session files across sub-C31o, sub-V182o, sub-V198o).",
+    "Metadata Sidecars: D:/workspace/data/metadata/{stem}/ containing electrodes.csv, units.csv, events.csv, h5_paths.json.",
+    "Precomputed TFR Arrays: D:/workspace/data/tfr_arrays/{prefix}-{probe}-{area}-{cond}.npy.",
+    "Readiness Gate: artifacts/data/session_readiness.csv (15/21 sessions suite_tfr_ready=True).",
+    "Dual-Area Probe Rule: Channels 1-64 map to Area 1; Channels 65-128 map to Area 2 (parsed via jnwb.addressing.map_peak_channel_to_area).",
+    "PyNWB / h5py Fallback: V182o NWB files require h5py acquisition reads due to device metadata anomalies."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.566585+00:00"
+  }
+}

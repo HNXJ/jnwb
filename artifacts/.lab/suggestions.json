@@ -1,0 +1,832 @@
+{
+  "pollinate": [
+    {
+      "a": "evidence-ballard-1999",
+      "b": "evidence-rao-2024",
+      "score": 0.667,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-jiang-2024",
+      "b": "evidence-rao-2024",
+      "score": 0.667,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-jiangrao-2024",
+      "b": "evidence-rao-2024",
+      "score": 0.667,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-rao-2024",
+      "b": "evidence-raoballard-1999",
+      "score": 0.667,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "omission-examples",
+      "b": "omission-scripts",
+      "score": 0.636,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "scripts",
+        "top"
+      ]
+    },
+    {
+      "a": "context-checkpoint-seal-biorxiv-portfolio",
+      "b": "domain-manuscript-draft-assets-biorxiv",
+      "score": 0.625,
+      "shared_tokens": [
+        "assets",
+        "biorxiv",
+        "draft",
+        "manuscript",
+        "portfolio"
+      ]
+    },
+    {
+      "a": "omission-brainstorm",
+      "b": "omission-plan",
+      "score": 0.588,
+      "shared_tokens": [
+        "brainstorm",
+        "from",
+        "idea",
+        "json",
+        "live",
+        "node",
+        "plans",
+        "prp",
+        "raw",
+        "verb"
+      ]
+    },
+    {
+      "a": "hypothesis-laminar-circuitry-neuromodulation-dynamics",
+      "b": "hypothesis-oscillations-coherence-laminar-circuitry",
+      "score": 0.556,
+      "shared_tokens": [
+        "circuitry",
+        "cross",
+        "domain",
+        "laminar",
+        "link"
+      ]
+    },
+    {
+      "a": "hypothesis-laminar-circuitry-neuromodulation-dynamics",
+      "b": "hypothesis-oscillations-coherence-neuromodulation-dynamics",
+      "score": 0.556,
+      "shared_tokens": [
+        "cross",
+        "domain",
+        "dynamics",
+        "link",
+        "neuromodulation"
+      ]
+    },
+    {
+      "a": "hypothesis-laminar-circuitry-neuromodulation-dynamics",
+      "b": "hypothesis-predictive-coding-laminar-circuitry",
+      "score": 0.556,
+      "shared_tokens": [
+        "circuitry",
+        "cross",
+        "domain",
+        "laminar",
+        "link"
+      ]
+    },
+    {
+      "a": "hypothesis-laminar-circuitry-neuromodulation-dynamics",
+      "b": "hypothesis-predictive-coding-neuromodulation-dynamics",
+      "score": 0.556,
+      "shared_tokens": [
+        "cross",
+        "domain",
+        "dynamics",
+        "link",
+        "neuromodulation"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-laminar-circuitry",
+      "b": "hypothesis-oscillations-coherence-neuromodulation-dynamics",
+      "score": 0.556,
+      "shared_tokens": [
+        "coherence",
+        "cross",
+        "domain",
+        "link",
+        "oscillations"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-laminar-circuitry",
+      "b": "hypothesis-oscillations-coherence-predictive-coding",
+      "score": 0.556,
+      "shared_tokens": [
+        "coherence",
+        "cross",
+        "domain",
+        "link",
+        "oscillations"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-laminar-circuitry",
+      "b": "hypothesis-predictive-coding-laminar-circuitry",
+      "score": 0.556,
+      "shared_tokens": [
+        "circuitry",
+        "cross",
+        "domain",
+        "laminar",
+        "link"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-neuromodulation-dynamics",
+      "b": "hypothesis-oscillations-coherence-predictive-coding",
+      "score": 0.556,
+      "shared_tokens": [
+        "coherence",
+        "cross",
+        "domain",
+        "link",
+        "oscillations"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-neuromodulation-dynamics",
+      "b": "hypothesis-predictive-coding-neuromodulation-dynamics",
+      "score": 0.556,
+      "shared_tokens": [
+        "cross",
+        "domain",
+        "dynamics",
+        "link",
+        "neuromodulation"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-predictive-coding",
+      "b": "hypothesis-predictive-coding-laminar-circuitry",
+      "score": 0.556,
+      "shared_tokens": [
+        "coding",
+        "cross",
+        "domain",
+        "link",
+        "predictive"
+      ]
+    },
+    {
+      "a": "hypothesis-oscillations-coherence-predictive-coding",
+      "b": "hypothesis-predictive-coding-neuromodulation-dynamics",
+      "score": 0.556,
+      "shared_tokens": [
+        "coding",
+        "cross",
+        "domain",
+        "link",
+        "predictive"
+      ]
+    },
+    {
+      "a": "hypothesis-predictive-coding-laminar-circuitry",
+      "b": "hypothesis-predictive-coding-neuromodulation-dynamics",
+      "score": 0.556,
+      "shared_tokens": [
+        "coding",
+        "cross",
+        "domain",
+        "link",
+        "predictive"
+      ]
+    },
+    {
+      "a": "omission-jnwb",
+      "b": "omission-tests",
+      "score": 0.538,
+      "shared_tokens": [
+        "addressing",
+        "analyzers",
+        "connectivity",
+        "decoding",
+        "diagnostics",
+        "files",
+        "folder"
+      ]
+    },
+    {
+      "a": "omission-progress",
+      "b": "omission-review",
+      "score": 0.538,
+      "shared_tokens": [
+        "entries",
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "evidence-ballard-1999",
+      "b": "evidence-jiang-2024",
+      "score": 0.5,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-ballard-1999",
+      "b": "evidence-jiangrao-2024",
+      "score": 0.5,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-jiang-2024",
+      "b": "evidence-raoballard-1999",
+      "score": 0.5,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-jiangrao-2024",
+      "b": "evidence-raoballard-1999",
+      "score": 0.5,
+      "shared_tokens": [
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "omission-adapt",
+      "b": "omission-progress",
+      "score": 0.5,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "tracked",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-examples",
+      "b": "omission-legacy",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-examples",
+      "b": "omission-notebooks",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-examples",
+      "b": "omission-outputs",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-legacy",
+      "b": "omission-notebooks",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-legacy",
+      "b": "omission-outputs",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-legacy",
+      "b": "omission-scripts",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-notebooks",
+      "b": "omission-outputs",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-notebooks",
+      "b": "omission-scripts",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-outputs",
+      "b": "omission-scripts",
+      "score": 0.5,
+      "shared_tokens": [
+        "folder",
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "claim-spectrolaminar-01",
+      "b": "literature-spectrolaminar-motif-mendoza-halliday-2024",
+      "score": 0.476,
+      "shared_tokens": [
+        "across",
+        "cortex",
+        "halliday",
+        "mendoza",
+        "motif",
+        "nat",
+        "neurosci",
+        "primate",
+        "spectrolaminar",
+        "ubiquitous"
+      ]
+    },
+    {
+      "a": "omission-brainstorm",
+      "b": "omission-seal",
+      "score": 0.467,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "plans",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-adapt",
+      "b": "omission-review",
+      "score": 0.462,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "evidence-ross-2019",
+      "b": "evidence-zhang-2020",
+      "score": 0.444,
+      "shared_tokens": [
+        "neural",
+        "omission",
+        "placeholder",
+        "summary"
+      ]
+    },
+    {
+      "a": "hub-laminar-circuitry",
+      "b": "hub-neuromodulation-dynamics",
+      "score": 0.429,
+      "shared_tokens": [
+        "hub",
+        "sub",
+        "thematic"
+      ]
+    },
+    {
+      "a": "hub-laminar-circuitry",
+      "b": "hub-oscillations-coherence",
+      "score": 0.429,
+      "shared_tokens": [
+        "hub",
+        "sub",
+        "thematic"
+      ]
+    },
+    {
+      "a": "hub-laminar-circuitry",
+      "b": "hub-predictive-coding",
+      "score": 0.429,
+      "shared_tokens": [
+        "hub",
+        "sub",
+        "thematic"
+      ]
+    },
+    {
+      "a": "hub-neuromodulation-dynamics",
+      "b": "hub-oscillations-coherence",
+      "score": 0.429,
+      "shared_tokens": [
+        "hub",
+        "sub",
+        "thematic"
+      ]
+    },
+    {
+      "a": "hub-neuromodulation-dynamics",
+      "b": "hub-predictive-coding",
+      "score": 0.429,
+      "shared_tokens": [
+        "hub",
+        "sub",
+        "thematic"
+      ]
+    },
+    {
+      "a": "hub-oscillations-coherence",
+      "b": "hub-predictive-coding",
+      "score": 0.429,
+      "shared_tokens": [
+        "hub",
+        "sub",
+        "thematic"
+      ]
+    },
+    {
+      "a": "omission-brainstorm",
+      "b": "omission-review",
+      "score": 0.429,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-review",
+      "b": "omission-seal",
+      "score": 0.429,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "context-checkpoint-seal-20260726",
+      "b": "context-checkpoint-seal-biorxiv-portfolio",
+      "score": 0.4,
+      "shared_tokens": [
+        "draft",
+        "manuscript",
+        "seal",
+        "verified"
+      ]
+    },
+    {
+      "a": "omission-adapt",
+      "b": "omission-brainstorm",
+      "score": 0.4,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-adapt",
+      "b": "omission-seal",
+      "score": 0.4,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-claude",
+      "b": "omission-examples",
+      "score": 0.385,
+      "shared_tokens": [
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-claude",
+      "b": "omission-legacy",
+      "score": 0.385,
+      "shared_tokens": [
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-claude",
+      "b": "omission-notebooks",
+      "score": 0.385,
+      "shared_tokens": [
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-claude",
+      "b": "omission-outputs",
+      "score": 0.385,
+      "shared_tokens": [
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-claude",
+      "b": "omission-scripts",
+      "score": 0.385,
+      "shared_tokens": [
+        "level",
+        "linked",
+        "node",
+        "root",
+        "top"
+      ]
+    },
+    {
+      "a": "omission-brainstorm",
+      "b": "omission-progress",
+      "score": 0.375,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-progress",
+      "b": "omission-seal",
+      "score": 0.375,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-adapt",
+      "b": "omission-plan",
+      "score": 0.368,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "tracked",
+        "verb"
+      ]
+    },
+    {
+      "a": "evidence-colgin-2009",
+      "b": "evidence-stokes-2015",
+      "score": 0.364,
+      "shared_tokens": [
+        "gamma",
+        "oscillations",
+        "placeholder",
+        "summary"
+      ]
+    },
+    {
+      "a": "context-concept-single-unit-selectivity",
+      "b": "domain-single-unit-classification",
+      "score": 0.353,
+      "shared_tokens": [
+        "classification",
+        "firing",
+        "null",
+        "rate",
+        "single",
+        "unit"
+      ]
+    },
+    {
+      "a": "omission-plan",
+      "b": "omission-progress",
+      "score": 0.35,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "prp",
+        "tracked",
+        "verb"
+      ]
+    },
+    {
+      "a": "omission-plan",
+      "b": "omission-seal",
+      "score": 0.35,
+      "shared_tokens": [
+        "from",
+        "json",
+        "live",
+        "node",
+        "plans",
+        "prp",
+        "verb"
+      ]
+    }
+  ],
+  "converge": [
+    {
+      "a": "evidence-ballard-1999",
+      "b": "evidence-raoballard-1999",
+      "score": 1.0,
+      "shared_tokens": [
+        "ballard",
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-bastos-2012",
+      "b": "evidence-bastos-2020",
+      "score": 1.0,
+      "shared_tokens": [
+        "bastos",
+        "pdf"
+      ]
+    },
+    {
+      "a": "evidence-jiang-2024",
+      "b": "evidence-jiangrao-2024",
+      "score": 1.0,
+      "shared_tokens": [
+        "jiang",
+        "pdf",
+        "rao"
+      ]
+    },
+    {
+      "a": "evidence-keller-2018",
+      "b": "evidence-kellerb-2012",
+      "score": 1.0,
+      "shared_tokens": [
+        "keller",
+        "pdf"
+      ]
+    },
+    {
+      "a": "evidence-spratling-2008",
+      "b": "evidence-spratling-2010",
+      "score": 1.0,
+      "shared_tokens": [
+        "pdf",
+        "spratling"
+      ]
+    },
+    {
+      "a": "evidence-wacongne-2011",
+      "b": "evidence-wacongne-2012",
+      "score": 1.0,
+      "shared_tokens": [
+        "pdf",
+        "wacongne"
+      ]
+    },
+    {
+      "a": "evidence-westerberg-2025",
+      "b": "evidence-westerbergxiong-2025",
+      "score": 1.0,
+      "shared_tokens": [
+        "pdf",
+        "westerberg",
+        "xiong"
+      ]
+    },
+    {
+      "a": "context-biorxiv-ready-manuscript",
+      "b": "domain-manuscript-draft-assets-biorxiv",
+      "score": 0.833,
+      "shared_tokens": [
+        "assets",
+        "biorxiv",
+        "draft",
+        "manuscript",
+        "portfolio"
+      ]
+    }
+  ]
+}

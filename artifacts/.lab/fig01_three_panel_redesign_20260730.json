@@ -1,0 +1,33 @@
+{
+  "schema_version": 3,
+  "id": "fig01_three_panel_redesign_20260730",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-30",
+  "title": "Figure 1 rebuilt as three panels (A=brain, B=probe+hardware facts, C=block design x3 rows), superseding the two-panel A-over-B layout",
+  "claims": [
+    {
+      "id": "layout_rebuilt",
+      "status": "confirmed",
+      "text": "User gave direct annotated feedback on a screenshot of the prior fig01.svg (panel A too large, panel B needing redesign, the S+/S-/O+ trace mockup marked with a red X for removal), then mid-turn escalated to a full 3-panel redesign: A=brain regions only, B=probe schematic + new hardware/behavioral facts, C=the 3 block-type grids (AAAB/BBBA/RRRR) stacked as full-width rows instead of 2-side-by-side-plus-1-below. Implemented by rewriting fig01_recording_topology_and_paradigm.py's build() function -- panel A/B now split 01_recording_topology.svg by x-position (brain vs probe images, confirmed via their own transform/width/height attributes), panel C crops 02_paradigm.svg's single embedded block-grid raster three different ways (confirmed the 3 grids are NOT separate elements -- one <image>, 1650x1492px, covers all three).",
+      "receipt": "python fig01_recording_topology_and_paradigm.py: 'compact -> fig01.svg canvas 468 x 585 pt ... 126 text runs restyled'; rendered via svglib->PDF->pymupdf pipeline and visually verified through 6 iterations (v2-v6) fixing: a negative-x0 overflow bug from the row-height-budget math, panel B text colliding with the probe image's own baked-in caption, and a 30pt Y-range overlap between the AB and R block-type crops that duplicated content in both"
+    },
+    {
+      "id": "panel_b_facts_sourced_not_invented",
+      "status": "confirmed",
+      "text": "Panel B's 5 new fact lines were each checked against a real source before being written: 128-ch DiagnosticBioChips probes + 30kHz Intan RHD acquisition (verbatim in context/drafts/omission-a-draft-v1.md and v2.md); LFP stored at 1000Hz (independently computed from NWB timestamps, sub-C31o_ses-230816_rec.nwb); Monkeylogic-NIMH behavioral control (already in the source SVG); eye position tracked (acquisition/eye_1_tracking channel confirmed present, no brand claimed since none is recorded); screen distance/size/resolution (read directly from intervals/omission_glo_passive fields, units marked unconfirmed since no unit attribute exists on those NWB fields -- not guessed).",
+      "receipt": "python h5py checks on sub-C31o_ses-230816_rec.nwb: LFP fs=999.9999999999991 Hz; distance_to_screen=[1130.0]*, screen_width=[1000.0]*, screen_height=[550.0]*, screen_res_width/height=[1920.0]/[1080.0]*; grep confirmed '30 kHz (Intan RHD)' verbatim in context/drafts/omission-a-draft-v1.md and omission-a-draft-v2.md"
+    },
+    {
+      "id": "rendering_pipeline_footgun_found",
+      "status": "confirmed",
+      "text": "cairosvg is broken on this machine (missing native cairo library, confirmed by OSError on import) and svglib's own PNG backend also fails (missing _rl_renderPM). Working pipeline: svglib SVG->PDF (renderPDF, no cairo dependency) then pymupdf (fitz) PDF->PNG. Also found and worked around a real svglib limitation: a two-rect (L-shaped) clipPath silently applied only the first rect during an earlier attempt at this same figure, dropping content that should have remained visible -- confirmed by comparing a real browser render (correct) against the svglib render (wrong) of the same SVG. Every clip-path in the final script uses a single rect, which renders correctly through this pipeline.",
+      "receipt": "OSError trace on cairosvg import naming missing 'cairo-2'/'cairo'/'libcairo-2'; svglib PNG attempt raised ModuleNotFoundError: No module named '_rl_renderPM'; svglib->PDF->pymupdf pipeline confirmed working, saved 1300x1625px PNG successfully across 6 iterations"
+    }
+  ],
+  "issues": [
+    "Small residual artifacts remain: a few pixels of the trial-timeline diagram's tail bleed into the top of panel C's AAAB/BBBA row (PARADIGM_BLOCK_AB_Y's upper bound was tuned empirically against rendered output, not derived exactly, and could be tightened further). Panel C also leaves unused blank canvas below it (content width 357pt of 468pt canvas) -- not yet tuned to fill the available width more precisely.",
+    "fig01.png was rendered via the svglib/pymupdf fallback pipeline, not a full browser/Illustrator render -- flagged in the figure's own README as a caveat given svglib's confirmed incomplete clip-path support (even though every clip in this script uses only the safe single-rect form)."
+  ],
+  "edges": []
+}

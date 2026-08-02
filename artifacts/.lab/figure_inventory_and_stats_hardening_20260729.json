@@ -1,0 +1,48 @@
+{
+  "schema_version": 3,
+  "id": "figure_inventory_and_stats_hardening_20260729",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-29",
+  "title": "Built figure inventory; found and fixed real staleness/missing-stats bugs across figs 1-5; locked fig06 extraction plan",
+  "claims": [
+    {
+      "id": "supplements_stale_duplicate_numbering_fixed",
+      "status": "confirmed",
+      "text": "supplements/ held 40 figS*.svg files but the numbering only spans S01-S21: S03 through S19 each had 2 files under the same number, S20 had 3, from an earlier PLAN numbering pass in build_supplements.py that never cleaned its output directory when slugs/numbers shifted. Identified stale files by timestamp (all current files clustered at 22:16-22:17 UTC; stale ones ranged 10:36-17:20), removed the 19 stale files, and added a cleanup step to build_supplements.py that deletes any supplements/figS* not named by the current PLAN before writing.",
+      "receipt": "python one-liner diffing os.listdir('supplements') against build_supplements.PLAN found 19 stale files; removed; re-ran build_supplements.py -- '21 supplements built, 0 skipped, 3 pending', ls figS*.svg | wc -l == 21"
+    },
+    {
+      "id": "fig04_fig05_missing_stats_fixed",
+      "status": "confirmed",
+      "text": "fig04's and fig05's redesigned RXRR-vs-RRRR main figures (built earlier the same day) called no figstats function at all -- confirmed by grep showing no 'write(' call near build_v1_pfc_condition_figure/build_rxrr_rrrr_hierarchy_figure, contradicting the user's explicit 'always save and provide sufficient controlled statistics' instruction. Added condition_p2_band_stats() to both scripts: paired-by-session (Wilcoxon or paired t by Shapiro-Wilk) test of p2-window mean band power, RRRR minus RXRR, per area x band, one family per figure (fig04_condition_p2: 10 tests, V1/PFC x 5 bands; fig05_condition_p2: 50 tests, 10 areas x 5 bands), Holm and BH-FDR both reported.",
+      "receipt": "re-ran both scripts: 'condition_p2 stats: 10 tests written to .../fig04_condition_stats.md' and 'condition_p2 stats: 50 tests written to .../fig05_condition_stats.md'; fig05's strongest effects (MT/V4/MST beta+gamma, p_holm<0.05) match the qualitative sanity check already documented (gamma bursts at p2 only in RRRR)"
+    },
+    {
+      "id": "readmes_stale_fixed",
+      "status": "confirmed",
+      "text": "fig02/README.md still described the superseded 4x3 (S+/S-/O+ only) layout after the same-day redesign to 4x4 with O++; fig03/README.md still stated the figure was synthetic and 'nothing in this directory is citable' after the same-day rebuild with real classification data and real stats. Both rewritten to describe current, verified content. fig01/fig04/fig05 had no README.md at all -- written new ones covering data source, methodology, statistics, and panel/supplement breakdown.",
+      "receipt": "diffed README.md content against current fig02_spiking_exemplar_rasters.py (4x4, O++ column) and fig03_stats.md (real families with real n); all 5 folders now have current README.md, confirmed by build_inventory.py --check exiting 0"
+    },
+    {
+      "id": "figure_inventory_built",
+      "status": "confirmed",
+      "text": "Built context/figures/build_inventory.py and INVENTORY.md: walks every figure folder plus build_supplements.py's PLAN and emits code/panel-count/stats-family/supplement-list/methodology-summary per figure, so the inventory cannot silently diverge from what is actually on disk the way the supplement numbering and the two stale READMEs had. --check mode gates on missing README or zero recorded stats (with an explicit by-design exemption for fig02's n=1 exemplars and fig01's schematic-only content).",
+      "receipt": "python build_inventory.py --check -> 'CHECK OK'; INVENTORY.md read back and cross-checked against known state (fig03 3 stats families, fig04 2 families incl. new fig04_condition_p2, fig05 2 families incl. new fig05_condition_p2 50 tests, fig06/fig07 correctly show 'not built')"
+    },
+    {
+      "id": "fig06_extraction_plan_locked",
+      "status": "confirmed",
+      "text": "fig06_band_power_coupling/README.md rewritten from a requirements list into a locked 10-step extraction plan (session gate, per-channel h5py load, re-referencing, area/layer assignment at 2 layer groups, condition-event windows reusing the fig04/5 middle-of-d1 baseline, coupling matrix construction, trial-shuffled null, session-level unit of inference, BH/Holm family correction, A/B/R identity extension deferred to phase 2), plus three open decisions flagged for a pilot-session check before the corpus-scale run (channel pooling order, representative-vs-averaged-pairs construction, RXRR omission-window baseline treatment).",
+      "receipt": "user confirmed via AskUserQuestion: layer groups = 2 (superficial/deep, not an invented 3-way split); sequencing = coupling analysis first, A/B/R identity question after"
+    }
+  ],
+  "issues": [
+    "fig06 corpus-scale extraction (per-channel h5py load, area/layer assignment, coupling matrix, shuffle null) not yet run -- this node covers the plan and the underlying estimator/re-referencing primitives only.",
+    "fig07 has no plan yet -- deferred to after fig06's coupling pipeline is reviewed, per user's stated sequencing."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "fig06_coupling_estimator_built_20260729"},
+    {"rel": "supports", "target": "figure_directory_layout_and_synthetic_fig03_20260729"}
+  ]
+}

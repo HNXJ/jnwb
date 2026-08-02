@@ -1,0 +1,54 @@
+{
+  "id": "context-claim-local-oddball-adaptation-release",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Empirical Claim: Local Oddball Signaling as Release from Adaptation",
+  "generated": {
+    "summary": "Local oddballs (x-x-x-y) engage >50% of units in L2/3 feedforward stream but do not scale with deviance.",
+    "source_paths": [
+      "jnwb/unit_classification.py",
+      "jnwb/spiking.py"
+    ],
+    "links": [
+      {
+        "to": "omission-context",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-context' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-twelve-condition-matrix",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'context-concept-twelve-condition-matrix'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-spiking",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-spiking'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.558246+00:00"
+  }
+}

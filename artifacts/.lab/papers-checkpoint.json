@@ -1,0 +1,55 @@
+{
+  "id": "papers-checkpoint",
+  "kind": "checkpoint",
+  "title": "Seal 2026-07-24 \u00e2\u20ac\u201d bootstrap graph, doctrine reflex landed, handoff written",
+  "generated": {
+    "summary": "First restorable checkpoint. Graph bootstrapped to 75 nodes; the Labyrinth Reflex landed in seven live doctrine files with explicit human authorization; HANDOFF.md and a...",
+    "source_paths": [
+      "HANDOFF.md",
+      "CLAUDE.md",
+      "artifacts/developer/adapt.json"
+    ],
+    "links": [
+      {
+        "to": "labyrinth-papers",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'labyrinth-papers'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-protocol",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'papers-protocol'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-corpus",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'papers-corpus'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Receipts at seal: bib_to_lab.py -> 60 entries, 60 nodes, 90 pdfs, 55 linked, 35 unmatched. lab_compile.py --format json -> 74 nodes, 135 edges. Dangling links 0/135. Grammar-invalid ids 0/74. PDFs staged in git: 0. Commit c11d16e.",
+    "Seal's normal precondition is a passing test suite; this repo has none, and none is warranted for a bibliography graph. The substitute preconditions are the four checks in HANDOFF.md section 4 \u00e2\u20ac\u201d generator dry-run, compile, dangling/grammar validation, and looking at the rendered HTML.",
+    "Adapt log: adapt-reflex-01, doctrine tier, authorized in-session by Hamm, logged before landing."
+  ],
+  "issues": [
+    "The 35 unmatched PDFs and the duplicated Friston_2009 entry are carried into this checkpoint unresolved. This is a seal of a known-incomplete state, not a clean one \u00e2\u20ac\u201d recorded so the next session does not mistake it for finished."
+  ],
+  "plan": "Next session starts at HANDOFF.md section 5, item 1: read the spectrolaminar triad and settle claim-spectrolaminar-01.",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.675591+00:00"
+  }
+}

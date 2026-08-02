@@ -1,0 +1,205 @@
+{
+  "id": "context-data-21-session-audit",
+  "kind": "evidence",
+  "title": "Verified 21-Session Omission NWB Corpus Audit Receipts",
+  "generated": {
+    "date": "2026-07-26",
+    "links": [
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-nwb-catalog-ready",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-nwb-catalog-ready",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-nwb-catalog-ready",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-nwb-catalog-ready",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-nwb-catalog-ready",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-manuscript-draft-v2",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-manuscript-draft-v2' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-nwb-catalog-ready",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-nwb-catalog-ready' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "21 NWB files cataloged across sub-C31o (7), sub-V182o (10), sub-V198o (4).",
+    "Total Single Units: 8,597 units.",
+    "Kilosort Good Units (quality == 1.0): 4,450 units (51.8% of corpus).",
+    "Stable Units (presence >= 0.98, fr > 0.5Hz, snr > 0.5): 1,509 units.",
+    "MUA Units (fr > 5.0Hz, isi > 0.5%, presence > 0.98): 5,485 units.",
+    "Total Electrodes/Channels: 8,736 channels.",
+    "19 of 21 sessions reach EXACTLY 960 correct sequence trials before automatic task end."
+  ],
+  "issues": [],
+  "plan": [
+    "Incorporate as Supplementary Table S1 in omission manuscript draft."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.562542+00:00"
+  }
+}

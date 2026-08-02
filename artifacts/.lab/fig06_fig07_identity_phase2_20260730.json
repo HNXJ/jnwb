@@ -1,0 +1,35 @@
+{
+  "schema_version": 3,
+  "id": "fig06_fig07_identity_phase2_20260730",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-30",
+  "title": "Phase 2 built: A/B/R stimulus-identity question added to figures 6 and 7",
+  "claims": [
+    {
+      "id": "identity_meaning_clarified",
+      "status": "confirmed",
+      "text": "'A/B/R identity' (from the 2026-07-29 user feedback) means which stimulus-sequence family a trial's condition belongs to (AAAB-rooted='A', BBBA-rooted='B', RRRR-rooted='R'), per scripts/classify_omission_units_grand.py's OMISSIONS dict -- not a raw per-trial visual identity independent of condition. AXAB, BXBA, RXRR share the same omission slot position (2), giving a matched three-way comparison at the identical window (1.031-1.562s from p1). identity_R reuses the already-extracted 'omission' context (RXRR) rather than re-running it.",
+      "receipt": "read scripts/classify_omission_units_grand.py lines 88-90 (OMISSIONS dict) and precompute_tfr_arrays.py's CONDITION_NUMBERS confirming AXAB/BXBA/RXRR are pre-existing, defined condition codes"
+    },
+    {
+      "id": "fig06_identity_built",
+      "status": "confirmed",
+      "text": "Added identity_A/identity_B contexts to extract_lfp_coupling_matrices.py's CONTEXTS dict (fully generic loop required no other code change) and identity_stats() to fig06_band_power_coupling.py (group_location 3-way comparison, one joint family fig06_identity, same anti-collision convention as the other families). Re-ran corpus-wide: 9120 results (up from 4560), 220s. Coverage is very sparse: only 1 of 45 area pairs (MST-PFC) had >=3 sessions with all three identities present, because A/B-family trials are far rarer in this corpus than the R family. 0/5 tests significant (smallest p=0.105).",
+      "receipt": "python scripts/extract_lfp_coupling_matrices.py: 'WROTE ... (9120 results, 220s)'; python fig06_band_power_coupling.py: 'identity (A/B/R) stats: 5 tests'; svg/fig06_stats.md Family: fig06_identity, 5 rows, all p_holm/q_BH >= 0.527"
+    },
+    {
+      "id": "fig07_identity_built_after_bugfix",
+      "status": "confirmed",
+      "text": "extract_spike_lfp_coupling.py inherits CONTEXTS via import from the fig06 script, but had its own separate hardcoded p1_onsets_and_conditions_s(f, ['RXRR','RRRR']) call that would have silently produced zero identity_A/identity_B results (same class of bug as an earlier session-spanning-slice/no-op-null pair of bugs in this same script). Caught before the full ~35-minute corpus run via a 1-session smoke test showing zero identity keys; fixed to derive the condition list from CONTEXTS dynamically (same fix already applied in the fig06 script). Re-ran corpus-wide: 78400 results (up from 43270), 1469s (~24.5 min), 6000 same-electrode exclusions. Coverage far better than fig06's LFP-LFP version (25 of 35 area x band cells testable, since spike-LFP PPC only needs one area's LFP, not a co-occurring second area). 0/25 tests significant (smallest p=0.081, PFC alpha).",
+      "receipt": "smoke test on sub-C31o_ses-230823 before the fix showed only stimulus/omission context keys, zero identity_A/identity_B; after the fix, all 4 contexts present (905/885/870/840 keys); full run: 'WROTE ... (78400 results, 6000 same-electrode exclusions, 1469s)'; fig07_lfp_spike_coupling.py: 'identity (A/B/R) stats: 25 tests'; svg/fig07_stats.md Family: fig07_identity, 25 rows, all p_holm=1.0"
+    }
+  ],
+  "issues": [
+    "Both identity comparisons return a null result after correction, consistent with every other group-level test built this session -- reported plainly, not spun. fig06's identity coverage (1/45 pairs) is a real corpus limitation (A/B-family trials are rare), not something more extraction can fix without more A/B-family data existing in the recordings."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "fig06_fig07_layer_source_correction_20260730"},
+    {"rel": "supports", "target": "fig06_fig07_built_20260730"}
+  ]
+}

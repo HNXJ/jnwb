@@ -1,0 +1,58 @@
+{
+  "id": "papers-corpus",
+  "kind": "note",
+  "title": "Corpus state \u00e2\u20ac\u201d bibliography and PDF reconciliation",
+  "generated": {
+    "summary": "Measured state of the corpus as of the first mapping run: 60 bib entries, 90 distinct PDF basenames across P2022/P2023/P2024/P2025/P2026, 55 entries paired to...",
+    "source_paths": [
+      "papers.bib",
+      "tools/bib_to_lab.py"
+    ],
+    "links": [
+      {
+        "to": "labyrinth-papers",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'labyrinth-papers'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-evidence",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'papers-evidence'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-mendozahalliday-2024",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-mendozahalliday-2024'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Receipt, `python tools/bib_to_lab.py`, 2026-07-24: bib entries parsed 60; evidence nodes 60; pdfs in corpus 90; pdfs linked 55; pdfs with no entry 35.",
+    "91 PDF files exist but only 90 distinct basenames: `2009_predictive_coding_under_the_free_energy_princ.pdf` appears twice on disk.",
+    "Folder layout is not uniform. P2026 holds its 40 PDFs flat; P2022/P2023/P2024/P2025 each nest theirs one level down in a bare year subdirectory. bib_to_lab.py uses rglob for this reason.",
+    "P-folder does not mean publication year. P2024 contains a `2025/` subdirectory holding a 2021 paper; P2025 contains a `2024/` subdirectory holding a 2024 paper. Observation, not yet explained \u00e2\u20ac\u201d the folders may record acquisition date rather than publication date.",
+    "P2026 mixes two filename conventions: `<year>_<title-slug>.pdf` and `<Surname><Year>.pdf`. Several files appear under both, which is where a large share of the 35 unmatched PDFs comes from."
+  ],
+  "issues": [
+    "papers.bib contains `@article{Friston_2009}` twice, byte-identical in key and title. BibTeX will warn on the repeated key and most tools keep only one. It surfaces in the graph as two nodes, evidence-friston-2009 and evidence-fristonb-2009, because the generator disambiguates rather than silently dropping. Deduplicate the bib, then re-run.",
+    "35 PDFs have no bib entry (was 44 before slug matching was corrected). Some are genuine duplicates under the second naming convention; some are papers never entered into the bibliography. Not yet separated.",
+    "`@article{1999, ...}` has a bare year as its cite key and no author field; it maps to evidence-anon-1999 and corresponds on disk to `1999_1999_subject_index_volume_2.pdf` \u00e2\u20ac\u201d a journal subject index, not a paper. Probably should be removed from the bibliography entirely."
+  ],
+  "plan": "Split the 35 unmatched PDFs into (a) duplicates of an already-linked file and (b) real papers missing from the bibliography. Add (b) to papers.bib, delete (a), then re-run bib_to_lab.py and expect unmatched to fall to zero. That count reaching zero is the falsifier for the bootstrap goal.",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.676543+00:00"
+  }
+}

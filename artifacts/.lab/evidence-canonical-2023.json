@@ -1,0 +1,88 @@
+{
+  "id": "evidence-canonical-2023",
+  "kind": "evidence",
+  "title": "2012 canonical microcircuits for predictive coding",
+  "generated": {
+    "summary": "2012 canonical microcircuits for predictive coding \u2014 2023 \u2014 pdf: P2023/2023/2012_canonical_microcircuits_for_predictive_coding.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2023/2023/2012_canonical_microcircuits_for_predictive_coding.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-srinivasan-1982",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-srinivasan-1982'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-friston-2009",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-friston-2009'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-kirihara-2020",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-kirihara-2020'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-predictive-02",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-predictive-02'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-predictive-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-predictive-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-predictiveb-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-predictiveb-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "file_2012_canonical_microcircuits_for_predictive_coding",
+    "entry_type": "misc",
+    "year": "2023",
+    "doi": "",
+    "url": ""
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.581341+00:00"
+  }
+}

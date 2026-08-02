@@ -1,0 +1,79 @@
+{
+  "id": "papers-evidence",
+  "kind": "note",
+  "title": "Evidence layer \u2014 one node per bibliography entry",
+  "generated": {
+    "summary": "Hub for the 60 mechanically generated evidence-* nodes, one per papers.bib entry. These are leaves by design: they are cited by claims, they do...",
+    "source_paths": [
+      "papers.bib",
+      "tools/bib_to_lab.py"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-laminar-circuitry",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-laminar-circuitry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-oscillations-networks'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-mismatch-adaptation",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-mismatch-adaptation'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-neuromodulation-plasticity",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-neuromodulation-plasticity'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "labyrinth-papers",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'labyrinth-papers'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-claim",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'papers-claim'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Regenerate with `python tools/bib_to_lab.py` after editing papers.bib. The generated block of every evidence node is overwritten on each run; status/notes/issues/plan survive.",
+    "An evidence node's status is a claim about the METADATA being right (title, year, PDF correctly paired) \u2014 not about the paper's findings being true. Findings belong to claim-* nodes."
+  ],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.677452+00:00"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "context-concept-twelve-condition-matrix",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Scientific Concept: 12-Condition Omission Paradigm Matrix",
+  "generated": {
+    "summary": "12-condition trial design contrasting A-family, B-family, and Random sequences across slots 2, 3, and 4 omissions.",
+    "source_paths": [
+      "jnwb/sequence_layout.py",
+      "jnwb/core.py"
+    ],
+    "links": [
+      {
+        "to": "omission-context",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-context' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-core",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-core'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": false,
+      "reproducible": true
+    },
+    "verdict": "unconfirmed",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.561593+00:00"
+  }
+}

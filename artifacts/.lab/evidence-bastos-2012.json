@@ -1,0 +1,53 @@
+{
+  "id": "evidence-bastos-2012",
+  "kind": "evidence",
+  "title": "Bastos2012",
+  "generated": {
+    "summary": "Bastos2012 \u00e2\u20ac\u201d 2012 \u00e2\u20ac\u201d pdf: P2026/Bastos2012.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2026/Bastos2012.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-laminar-circuitry",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-laminar-circuitry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-vankerkoerle-2014",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-vankerkoerle-2014'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-markov-2013",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-markov-2013'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "file_Bastos2012",
+    "entry_type": "misc",
+    "year": "2012",
+    "doi": "",
+    "url": ""
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.577094+00:00"
+  }
+}

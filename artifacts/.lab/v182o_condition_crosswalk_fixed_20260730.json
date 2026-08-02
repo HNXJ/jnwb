@@ -1,0 +1,28 @@
+{
+  "schema_version": 3,
+  "id": "v182o_condition_crosswalk_fixed_20260730",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-30",
+  "title": "Fixed the V182o RRXR/RRRX condition-number crosswalk bug at its source, on the user's authoritative mapping",
+  "claims": [
+    {
+      "id": "fix_implemented",
+      "status": "confirmed",
+      "text": "User supplied the authoritative V182o mapping directly (task-generation markdowns, not independently re-derivable from the NWB fields this session checked): RRXR=35-42, RRRX=43-50 (contiguous), vs C31o/V198o's interleaved 35/37/39/41 vs 36/38/40/42-50. Implemented as a subject-aware crosswalk in both places the mapping was hardcoded: jnwb/session.py (new condition_map_for_stem(), used by get_epochs()) and scripts/archive_oneoff/precompute_tfr_arrays.py (new condition_numbers_for(), used by p1_onsets_s() and by extract_lfp_coupling_matrices.py's own p1_onsets_and_conditions_s()). All four call sites now branch on 'V182o' appearing in the NWB filename/stem.",
+      "receipt": "python one-liner: condition_numbers_for('sub-C31o_ses-230816_rec.nwb')['RRXR'] == (35,37,39,41) [unchanged]; condition_numbers_for('sub-V182o_ses-260629.nwb')['RRXR'] == (35,36,37,38,39,40,41,42) [now contiguous, matches user's report]"
+    },
+    {
+      "id": "zero_current_blast_radius",
+      "status": "confirmed",
+      "text": "Grepped every figure script and scripts/*.py for consumers of the affected fields (q2_range_hz, q2_p, q2_best_position, knows_when) -- only classify_omission_units_grand.py itself references them. No figure (1-7) built this session or earlier reads these fields; fig02/fig03 use omission_class/q1_effect_hz (Q1), which is computed from RXRR alone, not RRXR/RRRX. The bug is real and now fixed at the source, but had zero effect on any currently-shipped figure or statistic.",
+      "receipt": "grep -rln 'q2_range_hz|q2_p|q2_best_position|knows_when' across context/figures/*/*.py and scripts/*.py: only classify_omission_units_grand.py matched"
+    }
+  ],
+  "issues": [
+    "outputs/classification/omission_grand_units.csv (last generated 2026-07-29) still reflects the OLD, buggy Q2 statistics for V182o units -- not yet re-run. Re-running classify_omission_units_grand.py would correct q2_range_hz/q2_p/q2_best_position/knows_when for V182o units specifically; deferred pending user direction on whether to run it now, since nothing currently downstream depends on those fields."
+  ],
+  "edges": [
+    {"rel": "supports", "target": "condition_number_crosswalk_v182o_investigation_20260730"}
+  ]
+}

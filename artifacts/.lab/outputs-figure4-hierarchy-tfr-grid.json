@@ -1,0 +1,54 @@
+{
+  "id": "outputs-figure4-hierarchy-tfr-grid",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Manuscript Figure 4: 11-Area Hierarchy TFR Power Spectrogram Grid",
+  "generated": {
+    "summary": "Hierarchy-wide 11-area multitaper TFR spectrogram grid spanning 2-80 Hz over sequence duration.",
+    "source_paths": [
+      "scripts/build_figure4_hierarchy_tfr_grid.py",
+      "outputs/figures/figure_4_hierarchy_tfr_grid.svg"
+    ],
+    "links": [
+      {
+        "to": "omission-outputs",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-outputs' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-spectral",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-spectral'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'context-concept-laminar-frequency-asymmetry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": false,
+      "reproducible": true
+    },
+    "verdict": "unconfirmed",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.672136+00:00"
+  }
+}

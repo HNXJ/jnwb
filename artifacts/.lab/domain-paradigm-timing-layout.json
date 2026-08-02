@@ -1,0 +1,34 @@
+{
+  "id": "domain-paradigm-timing-layout",
+  "kind": "evidence",
+  "title": "Paradigm Timing, Epoch Onsets, and Layout Definitions",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Full visual sequence span: 4624 ms (-500 ms pre-stimulus to 4124 ms post-onset).",
+    "Epoch Onsets (ms relative to p1=0): fx=-500, p1=0, d1=531, p2=1031, d2=1562, p3=2062, d3=2593, p4=3093, d4=3624.",
+    "Stimulus Duration: 531 ms per pulse (p1, p2, p3, p4).",
+    "Delay Duration: 500 ms per delay slot (d1, d2, d3, d4).",
+    "Omission Window: SLOT_WINDOW_MS = (onset, onset+531) per slot across test conditions.",
+    "Canonical layout helper: jnwb.sequence_layout exposes vector Plotly layout definitions and EPOCH_ONSETS_MS."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.568872+00:00"
+  }
+}

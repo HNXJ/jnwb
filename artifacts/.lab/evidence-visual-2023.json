@@ -1,0 +1,53 @@
+{
+  "id": "evidence-visual-2023",
+  "kind": "evidence",
+  "title": "2023 visual information is predictively encoded in",
+  "generated": {
+    "summary": "2023 visual information is predictively encoded in \u2014 2023 \u2014 pdf: P2023/2023/2023_visual_information_is_predictively_encoded_in.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2023/2023/2023_visual_information_is_predictively_encoded_in.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'hub-evidence-oscillations-networks' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "file_2023_visual_information_is_predictively_encoded_in",
+    "entry_type": "misc",
+    "year": "2023",
+    "doi": "",
+    "url": ""
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.636234+00:00"
+  }
+}

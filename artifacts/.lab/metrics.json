@@ -1,0 +1,75 @@
+{
+  "weights": {
+    "mismatch": 0.3,
+    "coverage_verified": 0.2,
+    "coverage_structural": 0.15,
+    "complexity_degree": 0.1,
+    "complexity_depth": 0.1,
+    "information": 0.05,
+    "predictive_accuracy": 0.05,
+    "cost": 0.05
+  },
+  "direction": "lower is better",
+  "history": [
+    {
+      "J": 0.19066,
+      "completeness": 0.85,
+      "node_count": 87
+    },
+    {
+      "J": 0.18796,
+      "completeness": 0.85,
+      "node_count": 87
+    },
+    {
+      "J": 0.18854,
+      "completeness": 0.85,
+      "node_count": 88
+    },
+    {
+      "J": 0.18854,
+      "completeness": 0.85,
+      "node_count": 88
+    },
+    {
+      "J": 0.18854,
+      "completeness": 0.85,
+      "node_count": 88
+    },
+    {
+      "J": 0.18854,
+      "completeness": 0.85,
+      "node_count": 88
+    },
+    {
+      "J": 0.19334,
+      "completeness": 0.85,
+      "node_count": 96
+    },
+    {
+      "J": 0.19334,
+      "completeness": 0.85,
+      "node_count": 96
+    },
+    {
+      "J": 0.41804,
+      "completeness": 0.85,
+      "node_count": 267
+    },
+    {
+      "J": 0.30261,
+      "completeness": 0.85,
+      "node_count": 267
+    },
+    {
+      "J": 0.30261,
+      "completeness": 0.85,
+      "node_count": 267
+    },
+    {
+      "J": 0.30261,
+      "completeness": 0.85,
+      "node_count": 267
+    }
+  ]
+}

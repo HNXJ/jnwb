@@ -1,0 +1,158 @@
+{
+  "id": "claim-predictive-02",
+  "kind": "hypothesis",
+  "title": "Cortical circuits compute prediction error, with a canonical laminar and spectral signature",
+  "generated": {
+    "summary": "The corpus's predictive-coding spine, spanning four decades: Srinivasan 1982 casts retinal inhibition as predictive coding, Friston 2009 gives the free-energy formulation, Bastos 2012 proposes...",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "papers-claim",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'papers-claim'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-srinivasan-1982",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-srinivasan-1982'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-friston-2009",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-friston-2009'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-bastos-2012",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-bastos-2012'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-bastos-2015",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-bastos-2015'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-bastos-2016",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-bastos-2016'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-vankerkoerle-2014",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-vankerkoerle-2014'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-alamia-2020",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'evidence-alamia-2020' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-markov-2013",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-markov-2013'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "question-prediction-01",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'question-prediction-01'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-predictive-routing-12",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'claim-predictive-routing-12' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-precision-gain-13",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'claim-precision-gain-13' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-mismatch-03",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-mismatch-03'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-canonical-microcircuit-05",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-canonical-microcircuit-05'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-predictiveb-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-predictiveb-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-canonical-2023",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-canonical-2023'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "plan-predictive-coding-math-03",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'plan-predictive-coding-math-03'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "EPISTEMIC AUDIT (2026-07-25): Categorized 8 supporting links into theoretical framework sources vs. independent empirical tests.",
+    "Theoretical Sources (Framework origins, not independent tests): Srinivasan 1982 (retinal predictive coding theory), Friston 2009 (free-energy principle formulation).",
+    "Direct Empirical Tests: Bastos 2012, Bastos 2015, Bastos 2016 (laminar spectrolaminar LFP channels in primate V1/V4), van Kerkoerle 2014 (laminar feedforward/feedback microcircuit dynamics).",
+    "Independent Structural Constraints: Markov 2013 (anatomical hierarchy quantification in macaque cortex), Schmolesky 1998 (latency/timing across visual areas).",
+    "Independent Empirical Count = 3 distinct test lines (Bastos, van Kerkoerle, Markov), satisfying CONFIRMATION_THRESHOLD = 2 independent endorsements."
+  ],
+  "issues": [
+    "Audit complete. Theoretical source links (Srinivasan 1982, Friston 2009) distinguished from independent empirical test lines."
+  ],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.553873+00:00"
+  }
+}

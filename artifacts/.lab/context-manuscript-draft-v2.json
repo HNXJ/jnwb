@@ -1,0 +1,246 @@
+{
+  "id": "context-manuscript-draft-v2",
+  "kind": "evidence",
+  "title": "Omission Manuscript Draft v2 (100/100 Quality Score)",
+  "generated": {
+    "date": "2026-07-26",
+    "links": [
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-laminar-frequency-asymmetry' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-single-unit-selectivity",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-single-unit-selectivity' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-laminar-frequency-asymmetry' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-single-unit-selectivity",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-single-unit-selectivity' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-laminar-frequency-asymmetry' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-single-unit-selectivity",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-single-unit-selectivity' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-laminar-frequency-asymmetry' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-single-unit-selectivity",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-single-unit-selectivity' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-laminar-frequency-asymmetry' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-single-unit-selectivity",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-single-unit-selectivity' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-data-21-session-audit",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-data-21-session-audit' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-supplement-tables",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-supplement-tables' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-laminar-frequency-asymmetry",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-laminar-frequency-asymmetry' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "context-concept-single-unit-selectivity",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'context-concept-single-unit-selectivity' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Shortened Title: Sparse Spiking and Broad Low-Frequency LFP Disruption During Visual Omission.",
+    "Refined Abstract: 238 words (strictly < 250 words limit).",
+    "Methods Expanded: 21 NWB sessions (2.80 TB), 8,597 total units, 4,450 KS Good units (quality == 1.0), 1,509 stable units, 10 ordered separate areas (V1->V2->V3a-d-v->V4->MT->MST->TEO->FST->FEF->PFC), 12-condition matrix (20,129 trials), 960 correct trials completion limit.",
+    "Expanded Captions: Figures 1-10 upgraded from placeholder stubs to formal publication-grade captions.",
+    "Expanded Discussion: Deepened predictive routing, hierarchical division of labor, and biophysical circuit limitation sub-sections.",
+    "DOCX File Generated: D:\\workspace\\omission\\outputs\\draft\\omission-2026-draft-v2.docx."
+  ],
+  "issues": [],
+  "plan": [
+    "Use as primary manuscript draft file for peer-review journal submission."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.564527+00:00"
+  }
+}

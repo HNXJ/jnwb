@@ -1,0 +1,46 @@
+{
+  "id": "evidence-garrett-2020",
+  "kind": "evidence",
+  "title": "Experience shapes activity dynamics and stimulus coding of VIP inhibitory cells",
+  "generated": {
+    "summary": "Experience shapes activity dynamics and stimulus coding of VIP inhibitory cells \u2014 eLife \u2014 2020 \u2014 pdf: P2026/2020_experience_shapes_activity_dynamics_and_stimu.pdf",
+    "source_paths": [
+      "papers.bib",
+      "P2026/2020_experience_shapes_activity_dynamics_and_stimu.pdf"
+    ],
+    "links": [
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-predictive-coding",
+        "relation": "belongs_to",
+        "reasoning": "Structural relation to node 'hub-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ],
+    "cite_key": "Garrett_2020",
+    "entry_type": "article",
+    "year": "2020",
+    "doi": "10.7554/elife.50340",
+    "url": "http://dx.doi.org/10.7554/eLife.50340"
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.591228+00:00"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "literature-biophysical-lfpy-modeling-hagen-2018",
+  "kind": "evidence",
+  "title": "Literature: Biophysical Multimodal Modeling of LFP & Spiking Dynamics (LFPy 2.0 Hagen et al., Front Neuroinf 2018)",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Biophysical Forward Modeling: Multi-compartment neuronal models predict LFP, CSD, and spiking simultaneously.",
+    "Volume Conduction: LFP signals aggregate active transmembrane currents over >500 um; local spiking is spatially localized.",
+    "Omission Reconcile: Reconciles why low-frequency LFP power change is broad/widespread (77.5% channels) while single-unit omission spiking remains highly sparse (4.9% units)."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.656861+00:00"
+  }
+}

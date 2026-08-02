@@ -1,0 +1,73 @@
+{
+  "id": "tfr_area_label_aliasing_blocker_20260728",
+  "schema_version": 3,
+  "kind": "claim",
+  "title": "TFR arrays are per-probe, not per-area: 312 of 948 files are hardlink aliases across area labels, so every area-wise LFP comparison is partly self-comparison",
+  "status": "confirmed",
+  "generated": "2026-07-28T04:05:00Z",
+  "severity": "critical",
+  "goal": {
+    "text": "Area-wise LFP band-power results rest on channels actually assigned to that area.",
+    "falsifier": "Closed when each of the 636 unique TFR arrays has a per-channel area vector derived from electrode geometry, and no two area labels in the analysis share channels."
+  },
+  "notes": [
+    "RECEIPT: D:/workspace/data/tfr_arrays holds 948 .npy files but only 636 unique inodes. 312 files are hardlinks to content already present under a different area label (verified by st_ino equality and SHA-256 of the first 8 MB).",
+    "RECEIPT: area-label pairs sharing identical file content, by number of file-groups — MST==MT 60, V1==V2 60, V3a==V3d 60, MT==V4 36, V1==V3 36, TEO==V4 24, FST==TEO 12, V1==V2==V3 12.",
+    "ROOT CAUSE: a 128-channel laminar probe spans more than one cortical area, and the electrode metadata never splits it. outputs/archive/data_index/batch_13nwb/channel_maps/channel_area_layer_map_C31o_230630.csv assigns all 128 channels of probeB the area string 'V4, MT' and all 128 channels of probeC the string 'V3, V1'. The TFR precompute then emitted the whole probe array once per area named in that string.",
+    "RECEIPT: the inventory outputs/archive/data_index/batch_13nwb/channel_area_layer_map_inventory_all_sessions.csv reports n_unresolved_area_channels = 0 for all 13 sessions, but its 'areas_resolved' column is a verbatim copy of 'areas_raw' (e.g. 'PFC, V4, MT, V3, V1'). That is a session-level list, not a per-channel assignment. The zero is a false receipt.",
+    "CONSEQUENCE: the manuscript's '8,736 channels across 10 ordered analysis regions' cannot be constructed from these products. Area-wise contrasts in Figures 6, 7 and 8 compare channel sets that are in several cases byte-identical. The correct unit is (subject, session, probe) = 51 recording units, not area.",
+    "V3 QUESTION, ANSWERED AS FAR AS THE DATA ALLOWS: the label 'V3' occurs only in subject C31o (5 probe-sessions); 'V3a' and 'V3d' occur only in subject V198o (5 probe-sessions) and are hardlink aliases of each other in all 60 file-groups. So V3-vs-V3a/d is a between-SUBJECT split, not an area split.",
+    "SUBJECT MAIN EFFECT (session-level means, middle-o vs baseline, pooled over all areas): C31o alpha -2.209 dB / beta -1.320; V182o alpha -0.707 / beta -0.935; V198o alpha +0.375 / beta +0.364. V198o is the only subject with positive low-frequency change, and V3a/V3d is a V198o-only label. The apparent 'V3 elevated alpha/beta' at the group level is this subject effect.",
+    "WHAT SURVIVES OF THE V3 CLAIM: within V198o, the V3a/V3d probe and the V1/V2 probe are physically distinct probes recorded in the same sessions (session 230629 etc. carry 256 channels = 2 probes, areas_raw 'V1,V2, V3d, V3a'). Within that subject, V3a/d shows alpha +1.064 / beta +1.155 dB against V1/V2 at alpha -0.281 / beta -0.393. That within-subject, between-probe contrast is a genuine measured difference across 5 sessions, and it is the strongest honest form of the V3 hypothesis. It cannot be generalized: n = 1 subject, 1 probe, and V1/V2 are themselves aliased to a single array.",
+    "MEASURED RESULT, DIRECTION: contrary to the manuscript's account of omission as elevated low-frequency power, the middle-o window shows NEGATIVE mean dB change from baseline in almost every area and band. Grand pattern is a broad low-frequency DECREASE (theta and alpha most negative, e.g. TEO theta -3.43, V3 theta -2.42), with gamma least affected. Only the V198o V3a/d probe is positive. The manuscript's claim of 'sustained elevation' of beta during omission is not reproduced by this computation.",
+    "R-family and AB-family give nearly identical area x band patterns (e.g. V3a alpha +1.162 AB vs +0.867 R; TEO theta -3.431 AB vs -3.494 R), so the local-vs-global distinction does not drive the low-frequency effect in this measure.",
+    "COMPUTE RECEIPT: scripts/compute_real_channel_band_power_census.py processed 711/711 omission-condition files, 0 skipped, 455,040 rows, 10,112 distinct (session, probe, area, channel) keys, 17 sessions, 3 subjects, runtime 3,364 s. Output outputs/lfp_band_census/channel_band_power.csv.gz + receipt.json."
+  ],
+  "issues": [
+    "Aliasing means the 10,112 'channels' in my own census are not 10,112 independent channels either. Any prevalence statement computed from that file inherits the same inflation and must not be reported as a channel census until the per-channel area vector exists.",
+    "Statistical power: omission-condition files carry a median of 7 trials (min 2, max 85). Per-channel per-band significance testing is not defensible at that trial count across ~43,680 tests.",
+    "Area coverage is severely unbalanced across subjects: V3 is C31o-only, V3a/V3d are V198o-only, TEO and FEF are mostly V182o, MT/MST/PFC mostly C31o. Area and subject are confounded across the board, not only for V3. With N = 3 subjects, no area contrast is cleanly separable from subject identity.",
+    "FST has only 2 probe-sessions in the TFR corpus, against Table 1's claim of 482 FST units.",
+    "The GLMM was not fitted this turn. Fitting area as a fixed effect on aliased labels would produce a confident, meaningless result; the model should be specified over probes with a resolved per-channel area vector, and the pooling question (R-family vs AB-family) is still open with Hamm."
+  ],
+  "plan": [
+    "Derive a per-channel area vector from electrode geometry/depth in the NWB electrodes table, replacing the comma-joined probe-level string. This is the blocking prerequisite for every area-wise LFP claim.",
+    "Rebuild the census keyed on (subject, session, probe, channel) with that vector, then deduplicate to the 636 unique arrays.",
+    "Only then fit the GLMM, with probe nested in session nested in subject.",
+    "Treat the negative-going low-frequency result as the finding to explain, rather than assuming the manuscript's elevation account."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "receipt": "st_ino and SHA-256 comparison over all 948 files (636 unique inodes); per-channel area strings read directly from channel_area_layer_map_C31o_230630.csv (probeB='V4, MT' x128, probeC='V3, V1' x128); inventory areas_resolved compared against areas_raw across all 13 rows; band-power table recomputed from 711 files with a full provenance receipt.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "paradigm_three_identical_empty_periods_20260728",
+      "relation": "refines",
+      "reasoning": "Executes the analysis that node specified, and reports the structural obstacle it hit.",
+      "confidence": 0.95
+    },
+    {
+      "to": "census_provenance_synthetic_finding_20260728",
+      "relation": "extends",
+      "reasoning": "The hardcoded Table 2 could not have been computed honestly even in principle, because the per-channel area assignment it presupposes does not exist in the data products.",
+      "confidence": 0.9
+    },
+    {
+      "to": "addressing-fact-dual-area-probe-mapping",
+      "relation": "confirms",
+      "reasoning": "That node records the dual-area probe mapping fact; this is the measured consequence of it going unresolved in the TFR products.",
+      "confidence": 0.85
+    },
+    {
+      "to": "context-data-21-session-audit",
+      "relation": "contradicts",
+      "reasoning": "Audit reports 8,736 channels across 10 ordered separate areas; the TFR products contain 636 unique probe arrays with unsplit multi-area labels.",
+      "confidence": 0.9
+    }
+  ]
+}

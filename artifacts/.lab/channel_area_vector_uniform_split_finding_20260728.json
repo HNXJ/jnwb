@@ -1,0 +1,62 @@
+{
+  "id": "channel_area_vector_uniform_split_finding_20260728",
+  "schema_version": 3,
+  "kind": "finding",
+  "title": "The per-channel area vector exists and removes the TFR aliasing, but every multi-area boundary is an assumed uniform split, not a measurement",
+  "status": "confirmed",
+  "generated": "2026-07-28T10:20:00Z",
+  "goal": {
+    "text": "Every area-resolved LFP number in omission-a is computed from channels that belong to that area, and the manuscript states exactly how strongly that assignment is known.",
+    "falsifier": "Closed when either (a) the channel-to-area boundaries are replaced by an anatomically or physiologically estimated boundary with a receipt, or (b) the manuscript states in Methods that the boundaries are an equal-share assumption and no claim in the paper rests on a channel's area assignment near a segment boundary."
+  },
+  "notes": [
+    "STEP 3a of the four-step plan. Script: scripts/build_channel_area_vector.py. Outputs: outputs/channel_area_vector/channel_area_vector.csv, partition_audit.csv, receipt.json.",
+    "ALIASING FIX CONFIRMED. scripts/archive_oneoff/precompute_tfr_arrays.py writes, for a probe spanning k areas, k files that are the SAME full 128-channel array under k different area tokens (its own comment: 'Build full-probe TFR once per condition, then save per area label (same array; naming uses each area token)'). Selecting only the channels the area vector assigns to a file's area token removes the overlap: every channel now contributes to exactly one area.",
+    "COVERAGE: 6,528 channels across 51 probes in all 17 TFR-corpus sessions. 0 unresolved area tokens -- every (session, probe, area) filename token in D:/workspace/data/tfr_arrays resolves to at least one channel. 12 areas: FEF, FST, MST, MT, PFC, TEO, V1, V2, V3, V3a, V3d, V4.",
+    "CROSS-CHECK PASSED: all 6,528 per-channel area labels in D:/workspace/data/metadata/<session>/electrodes.csv agree with the channel_slices partition in probe_areas.json. Zero disagreements. The two sidecars are consistent -- which means they share an origin, not that either is independently correct.",
+    "THE FINDING. 27 of 51 probes span more than one area. In 26 of those 27, the boundary sits at channel 64 of 128 -- exactly half. The 27th is the only three-area probe (sub-C31o_ses-230823 probe C, 'V1, V2, V3') and its boundaries are 42 and 85 -- exactly thirds. Every multi-area partition in the corpus is an exact uniform division of the channel axis in area listing order. No boundary is anatomically or physiologically estimated.",
+    "WHAT THIS DOES AND DOES NOT BUY. It buys disjointness: area labels no longer alias the same data, so between-area contrasts are no longer partly a probe against itself. It does not buy anatomy: it does not establish that a given channel sits in the area its label names. A channel near a segment boundary is assigned by an assumption of equal share, and the true boundary is unknown.",
+    "MANUSCRIPT CONSEQUENCE. The Methods sentence adopted from context/04_draft_biorxiv_markdown.md -- 'its ordered channel axis was partitioned into contiguous segments corresponding to those listed areas' -- is accurate but incomplete as written. It describes the operation without disclosing that the segment widths are equal by assumption. Left as-is it reads as though a boundary was estimated. It must say the partition is an equal-share assignment in probe listing order.",
+    "A HARDER CONSEQUENCE FOR THE V3 CLAIM. V3d and V3a are the two halves of one probe, split at channel 64 by assumption. Any statement contrasting V3d with V3a is a statement about the upper versus lower half of a single shank, not about two areas. The two labels should be pooled to V3a/d for inference, or the contrast dropped."
+  ],
+  "issues": [
+    "Segment widths are uniform by construction in 27/27 multi-area probes; no boundary in the corpus is measured.",
+    "V3d vs V3a is an intra-probe half-split contrast and cannot support a between-area claim.",
+    "electrodes.csv agreeing with probe_areas.json is not independent corroboration -- the per-channel labels are materialized from the same slices.",
+    "scripts/archive_oneoff/build_channel_layer_mapping.py had a stale REPO_ROOT (parents[1], correct only while the file sat directly in scripts/) and crashed at import with ModuleNotFoundError: No module named 'codes'. Fixed to parents[2]. The vFLIP layer products were therefore never regenerated after the refactor that moved the script -- only one session's *_channel_layers.csv existed on disk, from before the move."
+  ],
+  "plan": [
+    "Pool V3d and V3a into a single V3a/d level for any inferential model; keep them separate only in descriptive per-channel displays.",
+    "Amend the Methods partition sentence in context/omission-a-draft-v1.md to state the equal-share assumption explicitly.",
+    "If a measured boundary is wanted later, the vFLIP2 per-segment crossover and the pairwise LFP correlation block structure already computed in build_channel_layer_mapping.py are the natural estimators -- but that is a new analysis, not a correction."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true,
+      "independent_corroboration": false
+    },
+    "receipt": "scripts/build_channel_area_vector.py run 2026-07-28: 6,528 channels, 17/17 sessions, 51 probes, 0 unresolved area tokens, 0 electrodes.csv disagreements. partition_audit.csv segment_widths value counts: [64, 64] x 26, [42, 43, 43] x 1; contiguous_and_complete true for all 51 probes. The uniform-split test compares each probe's segment widths against numpy.array_split of its channel axis.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "tfr_area_label_aliasing_blocker_20260728",
+      "relation": "resolves",
+      "reasoning": "Channel selection by the area vector makes area labels disjoint, which is the specific defect that node recorded.",
+      "confidence": 0.9
+    },
+    {
+      "to": "omission_a_draft_v1_merge_20260728",
+      "relation": "corrects",
+      "reasoning": "v1's Methods records the contiguous-segment partition as though the boundaries were determined; they are assumed equal. The sentence needs amending before v2.",
+      "confidence": 0.9
+    },
+    {
+      "to": "census_provenance_synthetic_finding_20260728",
+      "relation": "relates",
+      "reasoning": "Same class of defect from the opposite direction: there a number was asserted without a computation, here a computation is real but its input assignment is an undisclosed assumption.",
+      "confidence": 0.75
+    }
+  ]
+}

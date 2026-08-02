@@ -1,0 +1,27 @@
+{
+  "schema_version": 3,
+  "id": "fig06_fig07_layer_source_correction_20260730",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-07-30",
+  "title": "Corrected a false claim ('no 3-way layer split exists') found via a stray background task; rebuilt figures 6 and 7 on the richer, full-coverage layer source",
+  "claims": [
+    {
+      "id": "false_claim_identified",
+      "status": "confirmed",
+      "text": "A background task launched earlier in the session for an unrelated reason (searching for unit_layers.csv/channel_layers_all.csv) completed late and surfaced outputs/layers/channel_layers_all.csv, which had never been checked. It contains a putative_layer column with real sup/mid/deep values (2366/606/2096 labelled channels) at probe-local channel_idx (0-127, directly compatible with probe_areas.json's channel_slices), covering all 21 sessions. This directly contradicts the repeated claim in fig06's README, memory, and the 2026-07-29 Labyrinth node that 'no data-driven 3-way split exists anywhere in the corpus' -- that claim was based on layer_masks.json alone, which covers only 15 probe-sessions and zero V182o sessions.",
+      "receipt": "python pandas inspection: outputs/layers/channel_layers_all.csv shape (8736, 14), putative_layer value_counts = {na: 3668, sup: 2366, deep: 2096, mid: 606}, session_prefix.nunique() == 21, channel_idx confirmed 0-127 per lfp_key (matches probe-local indexing)"
+    },
+    {
+      "id": "figures_rebuilt_on_corrected_source",
+      "status": "confirmed",
+      "text": "extract_lfp_coupling_matrices.py's load_layer_masks()/cells_for_probe() rewritten to read channel_layers_all.csv (3 layers: sup/mid/deep) instead of layer_masks.json (2 layers); extract_spike_lfp_coupling.py inherits the fix via import, no separate change needed. Re-ran both corpus-wide: fig06 went from 11/15 to 15/15 readiness-gated sessions usable (1590->4560 results, 56s->142s); fig07 went from 9/15 to 15/15 sessions (1176->1749 SUA units, 15915->43270 results, 385s->1057s). Both figures and their stats/READMEs rebuilt; both still report the same honest null at the group level after correction (0/240 and 0/60 respectively survive Holm/BH-FDR) -- the correction changed coverage and layer resolution, not the qualitative conclusion.",
+      "receipt": "python scripts/extract_lfp_coupling_matrices.py: 'WROTE ... (4560 results, 142s)'; python scripts/extract_spike_lfp_coupling.py: 'WROTE ... (43270 results, 3000 same-electrode exclusions, 1057s)'; both fig06_band_power_coupling.py and fig07_lfp_spike_coupling.py re-run cleanly; build_supplements.py: '23 supplements built, 0 skipped, 0 pending'; build_inventory.py --check: 'CHECK OK'"
+    }
+  ],
+  "issues": [],
+  "edges": [
+    {"rel": "supersedes", "target": "fig06_fig07_built_20260730"},
+    {"rel": "supports", "target": "fig06_coupling_estimator_built_20260729"}
+  ]
+}

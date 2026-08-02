@@ -1,0 +1,38 @@
+{
+  "id": "editorial_polish_pass_20260727",
+  "kind": "checkpoint",
+  "title": "Editorial polish pass \u2014 reviewer major revision response",
+  "status": "confirmed",
+  "generated": "2026-07-27T22:13:30Z",
+  "notes": [
+    "Reviewer score: 84/100. Target: >=91.",
+    "8 editorial operations applied to omission-2026-manuscript-master.docx.",
+    "(1) Artifact fixed: Beco-occur -> Because concurrent in Introduction para 11.",
+    "(2) 7 question-style Results headings replaced with declarative scientific statements.",
+    "(3) \"Together, these ... demonstrate...\" removed from 7 figure captions (1 was already clean).",
+    "(4) Discussion para 168 condensed (was redundant with 167; key unique point preserved).",
+    "(5) Software & Analysis Environment para moved from top of Methods to after statistical frameworks.",
+    "(6) Narrative transition sentence added before LFP Results section.",
+    "(7) 10 DOIs added to key references.",
+    "(8) Page break inserted before Figure 7 image for visual separation from Figure 6.",
+    "Final figure order verified: Fig1->Fig2->Fig3->Fig4->Fig5->Fig6->Fig7->Fig8.",
+    "PDF re-exported. Package rebuilt at context/omission_2026_manuscript_package.zip."
+  ],
+  "issues": [
+    "Fig2 right panel (PSTH) is visually subordinate to paradigm panel \u2014 cannot fix without regenerating figure (not allowed). Noted for next figure iteration.",
+    "Fig5 horizontal margins still somewhat generous \u2014 cannot fix without regenerating figure.",
+    "Fig3 outer margins \u2014 cannot fix without regenerating figure.",
+    "Overall figure aesthetic consistency (Fig1=Illustrator, Fig3=ephys, Fig5=statsmodels, Fig6=mpl) \u2014 requires systematic figure unification pass in separate iteration."
+  ],
+  "plan": [],
+  "verification": {
+    "artifact_fix": "CONFIRMED \u2014 Beco-occur removed from para 11",
+    "headings": "CONFIRMED \u2014 7/7 question headings replaced, 0 question-style headings remain",
+    "captions": "CONFIRMED \u2014 Together-clause removed from 7 captions",
+    "discussion_trim": "CONFIRMED \u2014 para 168 condensed",
+    "software_move": "CONFIRMED \u2014 Software para moved to after Cluster Permutation section",
+    "pdf_export": "CONFIRMED \u2014 1,642,900 bytes",
+    "package": "CONFIRMED \u2014 8,947,909 bytes",
+    "timestamp": "2026-07-27T22:13:30Z"
+  }
+}

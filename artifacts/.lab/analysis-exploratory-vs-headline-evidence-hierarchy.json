@@ -1,0 +1,31 @@
+{
+  "id": "analysis-exploratory-vs-headline-evidence-hierarchy",
+  "kind": "decision",
+  "title": "Manuscript Hierarchy: Primary Headline Evidence vs Exploratory Connectivity",
+  "generated": {
+    "date": "2026-07-26",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [
+    "Primary Headline Evidence: Sparse Spiking (4.9% O+) vs Broad Low-Frequency LFP Power Disruption (77.5% Beta).",
+    "Exploratory Secondary Evidence: Directional Spectral Granger Causality, Phase-Locking Value (PLV), Phase-Amplitude Coupling (PAC), and Imaginary Coherence.",
+    "Framing Discipline: Exploratory metrics provide supporting network hypotheses; core conclusions rest on primary spiking and field power observations."
+  ],
+  "issues": [],
+  "plan": [],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "schema_version": 3,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.548363+00:00"
+  }
+}

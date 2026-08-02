@@ -1,0 +1,22 @@
+{
+  "id": "omission-adapt",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "Omission Repository Adaptation Register",
+  "status": "confirmed",
+  "generated": "2026-07-27T16:05:19Z",
+  "notes": [
+    "RULE: User directives regarding figure formatting must never be altered during axis/label editing passes.",
+    "RULE: Whenever a figure format is user-approved, create a strict visual snapshot check before re-compiling."
+  ],
+  "issues": [
+    "Midway figure substitution risk eliminated"
+  ],
+  "plan": [
+    "Keep exact-pulse raster grid locked"
+  ],
+  "verification": {
+    "status": "passed",
+    "receipt": "Labyrinth updated and sealed"
+  }
+}

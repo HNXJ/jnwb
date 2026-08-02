@@ -1,0 +1,38 @@
+{
+  "id": "omission-tests",
+  "schema_version": 3,
+  "kind": "note",
+  "title": "tests",
+  "generated": {
+    "summary": "Folder with 26 files, e.g. test_addressing.py, test_analyzers_coverage.py, test_caching.py, test_decoding_connectivity.py, test_diagnostics_and_metadata.py.",
+    "source_paths": [
+      "tests"
+    ],
+    "links": [
+      {
+        "to": "labyrinth-omission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'labyrinth-omission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.669747+00:00"
+  }
+}

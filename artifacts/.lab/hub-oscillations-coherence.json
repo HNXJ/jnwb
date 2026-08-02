@@ -1,0 +1,22 @@
+{
+  "id": "hub-oscillations-coherence",
+  "kind": "note",
+  "title": "Oscillations Coherence",
+  "generated": {
+    "summary": "Thematic sub\u2011hub for oscillations coherence.",
+    "links": []
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.645608+00:00"
+  }
+}

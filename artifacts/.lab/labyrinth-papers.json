@@ -1,0 +1,72 @@
+{
+  "id": "labyrinth-papers",
+  "kind": "decision",
+  "title": "Papers \u2014 adaptive bibliography and claim graph",
+  "generated": {
+    "summary": "Root of the Papers labyrinth. Two layers: an evidence layer of one node per bibliography entry (mechanically generated from papers.bib), and a claim layer...",
+    "source_paths": [
+      "papers.bib",
+      "tools/bib_to_lab.py"
+    ],
+    "links": [
+      {
+        "to": "papers-mission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'papers-mission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-question",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'papers-question' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-evidence",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'papers-evidence' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-claim",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'papers-claim' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-corpus",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'papers-corpus' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "papers-protocol",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'papers-protocol' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Node ids follow the objective naming grammar: a child inherits only its parent's LAST segment. Root last segment is 'papers', so hub nodes are 'papers-<key>'; a child of 'papers-claim' is 'claim-<key>-<nn>'.",
+    "Hand-authored spine nodes keep their links in generated.links because that is the only place lab_compile.py reads edges from. The 'never hand-edit generated' rule in repo_mapper.md applies to nodes a mapper regenerates \u2014 the evidence-* nodes \u2014 not to these."
+  ],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.655891+00:00"
+  }
+}

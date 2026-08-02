@@ -1,0 +1,95 @@
+{
+  "id": "plan-spectrolaminar-resolution-01",
+  "kind": "plan",
+  "title": "Long-Term Plan: Spectrolaminar Motif Normalization & Controversy Resolution",
+  "generated": {
+    "summary": "Step-by-step roadmap to resolve Mendoza-Halliday 2024 vs Mackey 2025 vs Major 2025 controversy. Evaluates whether spectrolaminar LFP power gradients are a universal neocortical biomarker or a 1/f PSD normalization artifact.",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "papers-mission",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'papers-mission'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-spectrolaminar-01",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'claim-spectrolaminar-01' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-spectrolaminar-controversy-07",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'claim-spectrolaminar-controversy-07' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-mendozahalliday-2024",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-mendozahalliday-2024'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-mackey-2025",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-mackey-2025'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "evidence-major-2025",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'evidence-major-2025'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "plan-omission-microcircuit-02",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'plan-omission-microcircuit-02'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "plan-predictive-coding-math-03",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'plan-predictive-coding-math-03'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "plan-analog-digital-framework-04",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'plan-analog-digital-framework-04'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "INSTRUCTIONS FOR NEXT AGENT:",
+    "1. Read Mendoza-Halliday 2024 (Nat Neurosci), Mackey 2025 (Nat Neurosci challenge), and Major 2025 (Nat Neurosci reply) in detail.",
+    "2. Extract the exact PSD normalization algorithm: aperiodic 1/f background subtraction vs relative band power scaling.",
+    "3. Determine if the challenge invalidates the physiological motif or merely refines the required baseline normalization method.",
+    "4. Update standing status on claim-spectrolaminar-01 and claim-spectrolaminar-controversy-07 accordingly."
+  ],
+  "issues": [
+    "Dispute remains unresolved in current literature; requires systematic methodological audit."
+  ],
+  "plan": "FALSIFIER: Move claim-spectrolaminar-01 to 'confirmed' if motif holds under aperiodic 1/f normalization across 3+ independent primate datasets, or mark 'superseded' if proven to be a pure 1/f artifact. Successor node must state the revised laminar spectral baseline.",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.682242+00:00"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "empirical_tfr_figure06_data_audit_20260727",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "Empirical LFP TFR Spectrograms Replaced Synthetic Curves in Figure 6",
+  "status": "confirmed",
+  "generated": "2026-07-27T16:17:21Z",
+  "notes": [
+    "AUDIT AUDITED & FIXED: Replaced synthetic 2D Gaussian spectrogram placeholders in Figure 6 with 100% empirical precomputed TFR arrays from D:/workspace/data/tfr_arrays/",
+    "Panel A: Real V1 LFP Spectrogram (sub-C31o_ses-230630-C-V1-AAAB.npy)",
+    "Panel B: Real PFC Omission Spectrogram (sub-C31o_ses-230630-A-PFC-AAXB.npy)",
+    "Panel C: Real V1 Beta (14-30Hz) and Gamma (30-80Hz) Time Traces",
+    "Panel D: Real PFC Beta Band Omission Suppression (Control AAAB vs Omission AAXB)"
+  ],
+  "issues": [
+    "Never use synthetic smooth 2D Gaussian curves for spectrogram figures"
+  ],
+  "plan": [
+    "Strict empirical load check for all TFR spectrogram figures"
+  ],
+  "verification": {
+    "status": "passed",
+    "receipt": "Re-generated Figure 6 from real .npy TFR arrays and updated DOCX/PDF"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "coverage": {
+    "c_structural": 1.0,
+    "c_verified": 1.0,
+    "adversarial_divergence": 0.0
+  },
+  "predictive_accuracy": 1.0,
+  "information_entropy": 11.526,
+  "mismatch_vector": {
+    "omission": 0,
+    "redundancy": 8,
+    "disconnection": 349,
+    "staleness": 0,
+    "contradiction": null
+  },
+  "complexity": {
+    "degree_variance": {
+      "variance": 69.92287632469622,
+      "mean": 5.189591078066915,
+      "n": 269,
+      "exempted": 0
+    },
+    "graph_diameter": {
+      "diameter": 6,
+      "exact": true,
+      "sampled_from": 269
+    }
+  },
+  "cost_seconds": 3.743,
+  "node_count": 267,
+  "loose_leaves": 193,
+  "balance_flags": 89,
+  "grammar_violations": 156
+}

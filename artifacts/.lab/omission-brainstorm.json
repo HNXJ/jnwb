@@ -1,0 +1,33 @@
+{
+  "id": "omission-brainstorm",
+  "kind": "note",
+  "title": "Brainstorm (PRP verb node)",
+  "generated": {
+    "summary": "1 raw idea(s) logged (live from plans.json.brainstorm[]).",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "labyrinth-omission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'labyrinth-omission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.662300+00:00"
+  },
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  }
+}

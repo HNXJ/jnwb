@@ -1,0 +1,47 @@
+{
+  "id": "context-concept-laminar-frequency-asymmetry",
+  "schema_version": 3,
+  "kind": "context",
+  "title": "Scientific Concept: Laminar Frequency Asymmetry (Bastos 2012 / Friston 2010)",
+  "generated": {
+    "summary": "Superficial L2/3 gamma (30-120 Hz) feedforward error vs Deep L5/6 alpha/beta (8-30 Hz) feedback prediction asymmetry.",
+    "source_paths": [
+      "jnwb/spectral.py",
+      "jnwb/tfr.py"
+    ],
+    "links": [
+      {
+        "to": "omission-context",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-context' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "jnwb-submodule-spectral",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'jnwb-submodule-spectral'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": false,
+      "reproducible": true
+    },
+    "verdict": "unconfirmed",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.559740+00:00"
+  }
+}

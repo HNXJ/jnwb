@@ -1,0 +1,66 @@
+{
+  "id": "vflip_coverage_imbalance_20260728",
+  "schema_version": 3,
+  "kind": "finding",
+  "title": "vFLIP layer coverage reaches 58% but is significantly unbalanced across animals and areas, so no laminar effect may be pooled",
+  "status": "confirmed",
+  "generated": "2026-07-28T15:40:00Z",
+  "goal": {
+    "text": "Any laminar claim in omission-a is estimated on a channel set whose layer-labelling success is balanced across the groups being compared, or is confined within those groups.",
+    "falsifier": "Closed when every laminar number in the manuscript is either computed within a single animal and area, or accompanied by a demonstration that labelling coverage does not differ across the compared groups."
+  },
+  "notes": [
+    "RESOLVES the deferred decision recorded in omission_a_draft_v2_20260728 and taken by Hamm on 2026-07-28 as 'wait for full vFLIP, then decide'. vFLIP2 completed all 21 sessions after the stale-REPO_ROOT fix.",
+    "FINAL COVERAGE: 8,736 channels across 21 sessions; 5,068 carry a layer label (58.0%). The crossover estimate converged on 68 of 69 probes. This clears the 50% floor the analysis script required.",
+    "THE FLOOR WAS THE WRONG TEST. Coverage is significantly unbalanced across animals: C31o 0.387 (7 sessions, 2,688 channels), V182o 0.710 (10 sessions, 4,896), V198o 0.482 (4 sessions, 1,152). Kruskal-Wallis on per-session coverage H = 12.80, P = 0.0017. Coverage also ranges 2.8-fold across areas: MST 0.909, FEF 0.669, PFC 0.607, TEO 0.600, V3 0.519, FST 0.500, V3a 0.500, V3d 0.490, MT 0.467, V4 0.416, V2 0.321, V1 0.319.",
+    "WHY THAT IS DISQUALIFYING FOR A POOLED MODEL. Animal is the dominant term in this corpus -- adding it to an area-only model raises explained variance from 0.09 to 0.65 in alpha. A laminar model fitted on labelled channels therefore weights V182o roughly twice as heavily as C31o, and MST nearly three times as heavily as V1, so a coefficient labelled 'layer' would carry an animal difference and an area difference inside it.",
+    "WHAT SURVIVES, AND WHY. Among channels that ARE labelled, the layer composition is nearly identical across animals: deep 40.6 / 41.7 / 40.4 percent and superficial 42.4 / 48.2 / 45.2 percent for C31o, V182o and V198o. The estimator is not finding different laminar structure in different animals; it is succeeding at different rates. A contrast computed within one animal and one area is therefore not biased by the imbalance, and superficial-versus-deep comparisons at that level remain interpretable.",
+    "DECISION TAKEN: laminar effects are reported descriptively, within animal and within area, with coverage stated per cell. No pooled laminar model is fitted, and no laminar coefficient is reported across animals or across areas.",
+    "FORENSIC NOTE ON THE RETRACTED CENSUS. The 8,736-channel total across all 21 NWB sessions is exactly the denominator used by the synthetic LFP census recorded in census_provenance_synthetic_finding_20260728. The denominator was real; only the composition was fabricated. That is why the table looked plausible on inspection -- it was a genuine channel count with invented per-band counts hung on it. The analysis corpus is smaller: 17 sessions and 6,528 channels carry time-frequency products."
+  ],
+  "issues": [
+    "Layer coverage in V1 and V2 is under a third of channels, which are the two areas where a laminar prediction from predictive routing would be most interpretable.",
+    "Coverage correlates with animal, and animal carries the largest effect in the corpus, so any future laminar analysis must either match coverage or stay within animal.",
+    "The crossover is estimated per area segment on probes whose area boundaries are themselves an equal-share assumption, so a laminar label inherits that assumption near segment boundaries.",
+    "Layer coverage was 5.9% when the first census was built, 35.3% at the second rebuild, and 58.0% now; any figure or table generated before 2026-07-28 15:40 carries a partial layer join and must be regenerated before its laminar rows are quoted."
+  ],
+  "plan": [
+    "Rebuild outputs/channel_area_vector/channel_area_vector.csv so the layer join reflects all 21 sessions, then regenerate the area x band x layer statistics.",
+    "Report superficial-versus-deep panels only for area-animal cells whose coverage is stated, and label the coverage on the figure.",
+    "State in Methods that the laminar model was not fitted, and give the coverage imbalance as the reason rather than describing the laminar result as absent."
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "receipt": "21 files matching D:/workspace/data/connectivity_databases/*_channel_layers.csv, concatenated: 8,736 rows, putative_layer value counts na 3,668 / sup 2,366 / deep 2,096 / mid 606. Per-animal coverage and the Kruskal-Wallis test computed on per-session labelled fractions (H = 12.80, P = 0.0017, scipy). Per-area coverage computed on the twelve area tokens present in the time-frequency corpus. Crossover convergence counted as non-null crossover_channel per (session, lfp_key) group: 68 of 69.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "omission_a_draft_v2_20260728",
+      "relation": "resolves",
+      "reasoning": "Closes the deferred laminar decision that node recorded, with a reason that is stronger than the original coverage-threshold argument.",
+      "confidence": 0.95
+    },
+    {
+      "to": "channel_area_vector_uniform_split_finding_20260728",
+      "relation": "depends_on",
+      "reasoning": "Layer labels are estimated per area segment, and those segments are the equal-share partition that node documents.",
+      "confidence": 0.9
+    },
+    {
+      "to": "census_provenance_synthetic_finding_20260728",
+      "relation": "extends",
+      "reasoning": "Identifies where the fabricated census got its plausible-looking denominator: the real 8,736-channel total across 21 sessions.",
+      "confidence": 0.85
+    },
+    {
+      "to": "omission_lfp_glmm_subject_sign_reversal_20260728",
+      "relation": "depends_on",
+      "reasoning": "The disqualifying argument rests on animal being the dominant term, which that node establishes.",
+      "confidence": 0.9
+    }
+  ]
+}

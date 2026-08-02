@@ -1,0 +1,46 @@
+{
+  "id": "plan-goal-flawless-jnwb",
+  "schema_version": 3,
+  "kind": "goal",
+  "title": "Goal: Flawless jnwb Engine & Pipeline Parity",
+  "generated": {
+    "summary": "Achieve flawless execution, zero silent footguns, and 100% verified analytical parity across jnwb.",
+    "source_paths": [
+      "artifacts/developer/plans.json"
+    ],
+    "links": [
+      {
+        "to": "omission-plan",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'omission-plan' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "omission-jnwb",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'omission-jnwb'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified",
+    "checks_run": 2
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.679829+00:00"
+  }
+}

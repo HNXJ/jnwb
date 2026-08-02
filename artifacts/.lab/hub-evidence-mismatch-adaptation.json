@@ -1,0 +1,68 @@
+{
+  "id": "hub-evidence-mismatch-adaptation",
+  "kind": "note",
+  "title": "Mismatch, Omission & Adaptation Evidence Domain",
+  "generated": {
+    "summary": "Evidence nodes covering deviance detection, omission responses, stimulus-specific adaptation, and novelty.",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "papers-evidence",
+        "relation": "derives_from",
+        "reasoning": "Derives computational contracts and execution logic from node 'papers-evidence'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-predictive-coding",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-predictive-coding'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-laminar-circuitry",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-laminar-circuitry'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-oscillations-networks",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-oscillations-networks'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "hub-evidence-neuromodulation-plasticity",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'hub-evidence-neuromodulation-plasticity'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      },
+      {
+        "to": "claim-omission-oddball-10",
+        "relation": "supports",
+        "reasoning": "Provides empirical evidence and analytical support for node 'claim-omission-oddball-10'.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Domain sub-hub partitioning the evidence layer."
+  ],
+  "issues": [],
+  "plan": "",
+  "score": 0.525,
+  "confirmation_score": 0.525,
+  "coverage_score": 0.525,
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.642693+00:00"
+  }
+}

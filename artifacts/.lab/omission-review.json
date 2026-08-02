@@ -1,0 +1,36 @@
+{
+  "id": "omission-review",
+  "schema_version": 3,
+  "kind": "note",
+  "title": "Review (PRP verb node)",
+  "generated": {
+    "summary": "118 entries pending review (live from review.json).",
+    "source_paths": [],
+    "links": [
+      {
+        "to": "labyrinth-omission",
+        "relation": "refines",
+        "reasoning": "Hierarchical refinement of parent node 'labyrinth-omission' within domain ontology.",
+        "confidence": 0.95,
+        "causal_pressure": 0.9
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true
+    },
+    "verdict": "verified"
+  },
+  "predictive_state": {
+    "expected_behavior": "Verified deterministic execution, schema alignment, and zero silent fallbacks.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-07-27T15:03:10.667933+00:00"
+  }
+}
