@@ -2,6 +2,22 @@ import numpy as np
 import pytest
 import jnwb as oa
 
+
+def _cupy_available() -> bool:
+    try:
+        import cupy  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+requires_cupy = pytest.mark.skipif(
+    not _cupy_available(),
+    reason="cupy not installed / no CUDA GPU available on this machine",
+)
+
+
+@requires_cupy
 def test_jrsa_cupy_gpu_execution():
     """Verify that jrsa executes on CUDA using CuPy and returns consistent values."""
     # Generate mock 1D input signals
