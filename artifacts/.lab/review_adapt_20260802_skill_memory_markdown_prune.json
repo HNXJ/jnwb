@@ -1,0 +1,37 @@
+{
+  "node_id": "review_adapt_20260802_skill_memory_markdown_prune",
+  "title": "Review+Adapt: skill/memory/markdown prune pass 2026-08-02",
+  "node_type": "review",
+  "schema_version": "v3",
+  "status": "confirmed",
+  "created_utc": "2026-08-02T15:40:00Z",
+  "claim": "The repo skill/memory/markdown surface was pruned and re-synced: legacy .gemini skill tree removed, retired PRP memories removed, 6 of 13 canonical skills corrected against live repo, corpus counts refreshed to the 23-session TFR corpus in CONTEXT.md and all three drafts.",
+  "receipt": [
+    "git commit 889ba84 on main; 80 files changed",
+    "deleted .gemini/ (41 files: 27 legacy skills + references/scripts + 6 scratch brain scripts)",
+    "deleted artifacts/developer/RETIRED_prp_*.json (4) + artifacts/progress_report.md",
+    "skills fixed: jnwb-core (session count 17->21 NWB, condition-map RXRR/RRXR/RRRX exact ranges + V182o variant, h5py LFP/pupil paths verified per subject, data_tables/ paths, dual-area footgun #3 added), jnwb-tfr (band table to canonical 4-8/8-14/14-30/30-50/50-80, TFR axis order (trials,ch,freqs,time) verified on disk, readiness 23 sessions/1236 files, LFP paths), jnwb-metadata + jnwb-spiking (data_tables/ paths, archive_oneoff script path), docx-editing (footgun #26 figure order, real example path), match-my-writing-style (23-session corpus facts)",
+    "sync_claude_skills.py: 6 changed, 7 unchanged; --check confirms 0 drift",
+    "CONTEXT.md: TFR corpus 17->23 sessions (948->1,236 files, C31o 8/V182o 10/V198o 5), channel vector 6,528->9,344 channels/73 session-probe pairs, graph 290->330 nodes, GLMM section rewritten from 23-session refit (pooled null all bands after BH: theta 0.42, alpha 0.59, beta 0.29, low_gamma 1.00, high_gamma 0.94; C31o falls all bands q<0.005, V182o rises all five q<0.02, V198o null)",
+    "drafts v1/v2/v3: session-count corrections flagged; v3 pool/n=17 estimates marked for re-derivation",
+    "git status clean after commit"
+  ],
+  "notes": [
+    "Verified on disk before editing: CONDITION_MAP_DEFAULT/CONDITION_MAP_V182O from jnwb/session.py; h5py paths (C31o probe_0_lfp/data vs V182o probe_0_lfp/probe_0_lfp_data/data; pupil_1_tracking); TFR shape (44,128,99,500) trials-first; 1,236 npy files / 23 session prefixes; channel_area_vector 9,344 rows; glmm_summary.csv per-subject/area receipts; census 420,480 rows/23 sessions.",
+    "Contradiction resolved: jnwb-tfr skill documented band table 8-12/13-30/30-60/60-120, which contradicts the canonical 8-14/14-30/30-50/50-80 settled by the 2026-07-27 audit. Skill now matches CLAUDE.md/CONTEXT.md.",
+    "Open items for next passes: graph mission dangling edges (40 edges -> nonexistent mission node), v3 draft point estimates still describe 17-session run (flagged in-text), docx/legacy/ scripts/archive_oneoff tier-3/4 reductions not yet selected.",
+    "Only ~87 of ~330 graph nodes carry verification receipts; ~276 read confirmed (unchanged this pass, flagged in CONTEXT.md §12.6)."
+  ],
+  "edges": [
+    { "from": "review_adapt_20260802_skill_memory_markdown_prune", "to": "repo_volume_consolidation_20260802", "relation": "follows" },
+    { "from": "review_adapt_20260802_skill_memory_markdown_prune", "to": "inspection_20260802_fig04_still_stale", "relation": "references" },
+    { "from": "review_adapt_20260802_skill_memory_markdown_prune", "to": "harness_skill_registry_repair_20260731_correction", "relation": "supersedes_delta" }
+  ],
+  "mismatch_vector": {
+    "omission": "not measured",
+    "redundancy": "reduced: 41 legacy skill/scratch files + 5 retired PRP files removed",
+    "disconnection": "reduced: 12 stale file paths fixed across 6 skills; 5 stale count references fixed in CONTEXT.md + drafts",
+    "staleness": "reduced: 17->23 session counts, 948->1,236 files, 6,528->9,344 channels, 290->330 nodes refreshed",
+    "contradiction": "resolved: jnwb-tfr band table now matches canonical 4-8/8-14/14-30/30-50/50-80"
+  }
+}
