@@ -10,7 +10,10 @@ description: |
 # jnwb-functional-connectivity: Networks and Mutual Information
 
 Module root: `d:/workspace/omission/jnwb/`  
-Primary files: `functions.py` (cross_modal_comparison, network_connectivity), `spectral.py` (coherence, spike_field_ppc)
+Primary files: `functions.py` (cross_modal_comparison, network_connectivity, tfr_correlate_areas),
+`connectivity.py` (granger_causality, spike_mutual_information), `jrsa.py` (unified similarity
+engine). `spectral.py` has only `band_power` -- no coherence or spike-field-coupling function
+exists there or anywhere else in the package (see the Granger Causality section below).
 
 ## Import
 
@@ -83,20 +86,31 @@ corr = tfr_correlate_areas(session, area1='V1', area2='V4',
 # Full dual-stats return (Pearson + Spearman + FDR)
 ```
 
-## Spectral Coherence & Granger Causality
-
-All connectivity functions support GPU-acceleration via PyTorch and CuPy by specifying `device='cuda'` (which falls back cleanly to CPU if CUDA is unavailable):
+## Granger Causality
 
 ```python
-# GPU-Accelerated Granger Causality (CuPy)
-gc = oa.granger_causality(sig1, sig2, order='auto', device='cuda')
-
-# GPU-Accelerated Coherence (CuPy)
-coh = spectral.coherence(sig1, sig2, sfreq=1000.0, fmin=30, fmax=80, device='cuda')
-
-# Spike-field coupling (PPC)
-ppc = spectral.spike_field_ppc(spike_times, lfp_signal, sfreq=1000.0, band='beta')
+# jnwb.connectivity.granger_causality — real function, confirmed at jnwb/connectivity.py:365
+gc = oa.granger_causality(sig1, sig2, order=5, device='cpu', ridge=0.0, criterion='aic')
+# Returns F_2_to_1 / F_1_to_2 directional causality plus residual diagnostics
+# (lightweight ADF + Ljung-Box) -- do not read GC as biological directionality
+# when those diagnostics warn. `device` defaults to 'cpu'; GPU dispatch is not
+# confirmed wired through this function specifically (a `cupy` import exists
+# elsewhere in connectivity.py, not verified inside granger_causality itself)
+# -- do not assume `device='cuda'` here without checking the current source.
 ```
+
+**No `spectral.coherence()` or `spectral.spike_field_ppc()` exist in `jnwb/spectral.py`.**
+An earlier version of this skill documented both as real functions; verified 2026-07-29 by
+grepping `jnwb/spectral.py` for `def coherence`/`def spike_field_ppc` — only `band_power()`
+is defined there. Confirmed with `select:` — the corpus has **no volume-conduction-safe
+coupling estimator anywhere** (no imaginary coherency, no orthogonalized power envelope) and
+**no bipolar/Laplacian re-referencing utility**. Both are required before any LFP-LFP or
+spike-LFP coupling result can be trusted (see `context/figures/fig06_band_power_coupling/README.md`
+and `fig07_lfp_spike_coupling/README.md`) and must be written from scratch, not imported.
+`jnwb.jrsa` (see below) has a real `granger` and `phase_slope` metric in its dispatch table
+(`_METRIC_DISPATCH` in `jrsa.py`) plus generic permutation/FDR stats machinery that a new
+coupling estimator can reuse by registering as another dispatch entry, or by calling its
+stats/permutation helpers directly on a custom-computed coupling value.
 
 ## Mutual Information (Spike-to-Spike)
 

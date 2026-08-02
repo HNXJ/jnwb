@@ -36,7 +36,12 @@ PRE_MS = 1000.0
 POST_MS = 4000.0  # total window 5000 ms → 500 bins @ 10 ms
 BIN_MS = 10.0
 
-# Canonical condition → task_condition_number sets (from jnwb-core / legacy CLAUDE)
+# Canonical condition → task_condition_number sets (from jnwb-core / legacy CLAUDE).
+# RRXR/RRRX differ for V182o (interleaved split for C31o/V198o, contiguous for V182o) -- same
+# fix as jnwb/session.py's condition_map_for_stem(), same source (task-generation markdowns,
+# confirmed against is_omission for C31o/V198o; V182o taken on the user's direct report since
+# this session's own attempts to re-derive it from oddball_status/codes/contrast were
+# inconclusive -- see artifacts/.lab/condition_number_crosswalk_v182o_investigation_20260730.json).
 CONDITION_NUMBERS: Dict[str, Tuple[int, ...]] = {
     "AAAB": tuple(range(1, 3)),
     "AXAB": (3,),
@@ -51,6 +56,16 @@ CONDITION_NUMBERS: Dict[str, Tuple[int, ...]] = {
     "RRXR": (35, 37, 39, 41),
     "RRRX": (36, 38, 40, *range(42, 51)),
 }
+CONDITION_NUMBERS_V182O: Dict[str, Tuple[int, ...]] = dict(CONDITION_NUMBERS, **{
+    "RRXR": tuple(range(35, 43)),
+    "RRRX": tuple(range(43, 51)),
+})
+
+
+def condition_numbers_for(filename: str) -> Dict[str, Tuple[int, ...]]:
+    """RRXR/RRRX crosswalk, subject-aware. `filename` is any path/stem containing the
+    subject id (e.g. an h5py.File.filename or an NWB stem)."""
+    return CONDITION_NUMBERS_V182O if "V182o" in str(filename) else CONDITION_NUMBERS
 
 PROBE_LETTER = {"probe_0_lfp": "A", "probe_1_lfp": "B", "probe_2_lfp": "C", "probe_3_lfp": "D"}
 
@@ -131,7 +146,7 @@ def p1_onsets_s(
     corr = _to_numeric(g["correct"][:])
     tc = _to_numeric(g["task_condition_number"][:])
     st = _to_numeric(g["start_time"][:])
-    nums = CONDITION_NUMBERS[condition]
+    nums = condition_numbers_for(f.filename)[condition]
     mask = (sn == 2) & (corr == 1) & np.isin(tc, nums)
     # drop nan stimulus_number rows
     mask = mask & np.isfinite(sn) & np.isfinite(st)

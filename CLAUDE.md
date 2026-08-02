@@ -161,3 +161,12 @@ the graph rather than inferring from the marginal counts.
 **Reconcile every count against its source table.** Four passes on this corpus report four
 different O+ counts (386, 19, 7, and a retracted 421). Before quoting one, confirm which
 script produced it and under which criteria.
+
+**A field with the same name in two tables is not the same field until checked.**
+`grand_stable_firing_rates.csv` carries its own `quality` column, separate from the one in
+`omission_grand_units.csv`, and the two disagree on 1,942 of 6,650 shared units (29%).
+`outputs/layers/unit_layers.csv` agrees with the grand table's `quality` on every one of those —
+the stable-rates table's copy looks stale relative to a later re-sort. Found while building the
+fig03 presence panel (2026-07-29); resolved by trusting the grand table's field for SUA/MUA and
+using the stable-rates table only for its own primary output, `stable_trials_keep_fraction`.
+Before joining any two tables on a same-named column, diff it on the overlap first.

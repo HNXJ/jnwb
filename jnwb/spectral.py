@@ -436,6 +436,158 @@ def band_power(
     return float(band_power_val)
 
 
+def imaginary_coherency(
+    x: np.ndarray,
+    y: np.ndarray,
+    sampling_rate: float,
+    freq_range: Tuple[float, float],
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+    device: str = 'cpu',
+) -> Dict[str, float]:
+    """
+    Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.
+
+    Volume conduction and shared-reference artifacts mix into both channels at
+    zero lag, which drives the REAL part of coherency without any true circuit
+    interaction. The imaginary part is insensitive to zero-lag mixing by
+    construction (a purely zero-lag-mixed pair has Im(Cxy) = 0 at every
+    frequency), so it is the estimator this project's fig06/fig07 volume-
+    conduction control requires -- see context/figures/fig06_band_power_coupling/README.md.
+    Callers are responsible for re-referencing (see ``bipolar_reference`` /
+    ``laplacian_reference``) before calling this; imaginary coherency controls
+    for zero-lag mixing but does not substitute for reducing it upstream.
+
+    Args:
+        x, y: 1D time series of equal length, same sampling rate, already
+            re-referenced (bipolar or Laplacian) to reduce shared-reference mixing.
+        sampling_rate: Hz.
+        freq_range: (min_freq, max_freq) in Hz to average coherency over.
+        nperseg: Welch/CSD segment length; defaults to min(len(x), 1024).
+        noverlap: defaults to nperseg // 2.
+        device: 'cpu' or 'cuda' (CuPy), mirroring ``band_power``'s dispatch pattern.
+
+    Returns:
+        dict with:
+          - ``icoh_mean``: signed mean of Im(Cxy(f)) across the band (can partially
+            cancel across frequencies -- the standard Nolte et al. quantity).
+          - ``icoh_abs_mean``: mean of |Im(Cxy(f))| across the band (never cancels;
+            use when only coupling strength, not sign, is of interest).
+          - ``coh_mag_mean``: mean magnitude-squared coherence across the band, for
+            comparison -- large gap between this and icoh indicates the raw
+            coherence is dominated by zero-lag (volume-conduction-like) mixing.
+          - ``n_freqs``: number of frequency bins averaged.
+
+    Validated against synthetic cases in scripts/validate_imaginary_coherency.py:
+    a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
+    near zero; a genuinely lagged shared source drives both up.
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    n = min(len(x), len(y))
+    if n == 0:
+        return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
+    x, y = x[:n], y[:n]
+
+    if nperseg is None:
+        nperseg = min(n, 1024)
+    if noverlap is None:
+        noverlap = nperseg // 2
+
+    if device == 'cuda':
+        try:
+            freqs, pxx, pyy, sxy = _welch_csd_gpu(x, y, sampling_rate, nperseg, noverlap)
+        except Exception as e:
+            log.warning(f"GPU coherency failed: {e}. Falling back to CPU.")
+            device = 'cpu'
+    if device != 'cuda':
+        freqs, pxx = signal.welch(x, fs=sampling_rate, nperseg=nperseg, noverlap=noverlap)
+        _, pyy = signal.welch(y, fs=sampling_rate, nperseg=nperseg, noverlap=noverlap)
+        _, sxy = signal.csd(x, y, fs=sampling_rate, nperseg=nperseg, noverlap=noverlap)
+
+    mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+    if not np.any(mask):
+        return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
+
+    denom = np.sqrt(np.clip(pxx[mask] * pyy[mask], 1e-30, None))
+    coherency = sxy[mask] / denom
+    im_part = np.imag(coherency)
+    coh_mag = np.abs(coherency) ** 2
+
+    return {
+        "icoh_mean": float(np.mean(im_part)),
+        "icoh_abs_mean": float(np.mean(np.abs(im_part))),
+        "coh_mag_mean": float(np.mean(coh_mag)),
+        "n_freqs": int(np.sum(mask)),
+    }
+
+
+def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarray] = None) -> np.ndarray:
+    """
+    Bipolar (adjacent-channel difference) re-reference along a probe's depth order.
+
+    Each output channel i is ``data[order[i+1]] - data[order[i]]``, so a common
+    signal present identically on adjacent contacts (shared reference, distant
+    volume-conducted source) cancels; a genuine local generator does not.
+    Output has one fewer channel than the input.
+
+    Args:
+        channel_data: (n_channels, n_samples) array, one row per electrode contact.
+        channel_order: optional (n_channels,) index array giving depth order
+            (shallow to deep or vice versa); defaults to row order as given.
+
+    Returns:
+        (n_channels - 1, n_samples) bipolar-referenced array.
+    """
+    channel_data = np.asarray(channel_data, dtype=float)
+    if channel_data.ndim != 2:
+        raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
+    order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
+    ordered = channel_data[order]
+    return ordered[1:] - ordered[:-1]
+
+
+def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarray] = None) -> np.ndarray:
+    """
+    1D nearest-neighbor Laplacian re-reference along a probe's depth order.
+
+    Each interior output channel i is ``data[order[i]] - mean(data[order[i-1]], data[order[i+1]])``.
+    Like ``bipolar_reference``, this cancels signal shared identically across
+    neighboring contacts (shared reference / distant volume conduction) while
+    preserving a source local to one contact. Edge channels (first/last in
+    ``channel_order``) use their single available neighbor instead of a two-
+    neighbor mean.
+
+    Args:
+        channel_data: (n_channels, n_samples) array, one row per electrode contact.
+        channel_order: optional (n_channels,) index array giving depth order;
+            defaults to row order as given.
+
+    Returns:
+        (n_channels, n_samples) Laplacian-referenced array, same channel count
+        as input (unlike ``bipolar_reference``, which drops one channel).
+    """
+    channel_data = np.asarray(channel_data, dtype=float)
+    if channel_data.ndim != 2:
+        raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
+    order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
+    ordered = channel_data[order]
+    n_ch = ordered.shape[0]
+    out = np.empty_like(ordered)
+    for i in range(n_ch):
+        if i == 0:
+            neighbor_mean = ordered[1] if n_ch > 1 else ordered[0]
+        elif i == n_ch - 1:
+            neighbor_mean = ordered[i - 1]
+        else:
+            neighbor_mean = 0.5 * (ordered[i - 1] + ordered[i + 1])
+        out[i] = ordered[i] - neighbor_mean
+    # Result is in `order` order; un-permute back to original channel positions.
+    result = np.empty_like(out)
+    result[order] = out
+    return result
+
+
 def _welch_csd_gpu(x: np.ndarray, y: np.ndarray, fs: float, nperseg: int, noverlap: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Helper to compute PSD and CSD on GPU using CuPy."""
     import cupy as cp

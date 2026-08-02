@@ -17,6 +17,31 @@ from pynwb import NWBHDF5IO
 
 log = logging.getLogger(__name__)
 
+# RRXR/RRRX task_condition_number -> stimulus-omission-slot assignment is NOT the same across
+# subjects. Confirmed via is_omission cross-referencing (2026-07-30) for C31o/V198o: cond
+# 35/37/39/41 omit stimulus_number=4 (p3, RRXR), cond 36/38/40/42-50 omit stimulus_number=5
+# (p4, RRRX) -- an interleaved split. V182o has no is_omission column and this session's
+# attempts to re-derive its mapping from oddball_status/codes/contrast were inconclusive (see
+# artifacts/.lab/condition_number_crosswalk_v182o_investigation_20260730.json); the user
+# supplied the authoritative mapping directly from the task-generation markdowns: V182o uses a
+# contiguous split instead, RRXR=35-42, RRRX=43-50. Every other condition name/number in
+# CONDITION_MAP_DEFAULT is confirmed the same across all three subjects and is not overridden.
+CONDITION_MAP_DEFAULT = {
+    'AAAB': [1, 2], 'AXAB': [3], 'AAXB': [4], 'AAAX': [5],
+    'BBBA': [6, 7], 'BXBA': [8], 'BBXA': [9], 'BBBX': [10],
+    'RRRR': list(range(11, 27)), 'RXRR': list(range(27, 35)),
+    'RRXR': [35, 37, 39, 41], 'RRRX': [36, 38, 40] + list(range(42, 51)),
+}
+CONDITION_MAP_V182O = dict(CONDITION_MAP_DEFAULT, **{
+    'RRXR': list(range(35, 43)), 'RRRX': list(range(43, 51)),
+})
+
+
+def condition_map_for_stem(stem: str) -> Dict[str, List[int]]:
+    """RRXR/RRRX condition-number crosswalk, subject-aware. `stem` is the NWB filename stem
+    (e.g. 'sub-V182o_ses-260629')."""
+    return CONDITION_MAP_V182O if "V182o" in stem else CONDITION_MAP_DEFAULT
+
 
 class OmissionSession:
     """
@@ -227,13 +252,9 @@ class OmissionSession:
 
         if condition is not None:
             if isinstance(condition, str):
-                # Map condition name to codes
-                condition_map = {
-                    'AAAB': [1, 2], 'AXAB': [3], 'AAXB': [4], 'AAAX': [5],
-                    'BBBA': [6, 7], 'BXBA': [8], 'BBXA': [9], 'BBBX': [10],
-                    'RRRR': list(range(11, 27)), 'RXRR': list(range(27, 35)),
-                    'RRXR': [35, 37, 39, 41], 'RRRX': [36, 38, 40] + list(range(42, 51))
-                }
+                # Map condition name to codes -- RRXR/RRRX differ for V182o, see
+                # condition_map_for_stem()'s docstring/CONDITION_MAP_V182O above.
+                condition_map = condition_map_for_stem(self.nwb_path.stem)
                 condition_codes = [float(c) for c in condition_map.get(condition, [])]
             else:
                 condition_codes = [float(condition)]
