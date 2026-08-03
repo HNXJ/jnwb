@@ -1,0 +1,53 @@
+{
+  "id": "seal_checkpoint_20260803_fig04_locked",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "Seal (2026-08-03): fig04 locked with contract mean/SEM display; median estimator change rejected and quarantined; finalized Chrome-rendered PNG written",
+  "status": "confirmed",
+  "generated": "2026-08-03T00:00:00Z",
+  "notes": [
+    "fig04 falsifier met: context/figures/fig04_finalized.svg/.png exist and were produced the user-directed way (headless Chrome, solid white background, matching figs 1-3's convention), and the user confirmed the panel content (colour scales, smoothing, layout) on 2026-08-03 via explicit approval of the Chrome-rendered 1872x1545 approval PNG. fig04 is now locked, completing the fig01-04 sequence.",
+    "Estimator decision: the user chose 'Keep contract mean/SEM' on 2026-08-03. The display uses np.nanmean across sessions (per-session ratio, 10*log10 applied once after averaging) with SEM ribbons, matching CONTEXT.md, omission-a-draft-v3.md, and the biorxiv draft. The experimental median display was an unauthorized estimator drift (disposition: scientific estimator change without explicit authorization), and is NOT in the locked figure.",
+    "Conservation: the rejected median work is fully recoverable outside the repo at C:\\Users\\nejath\\AppData\\Local\\Temp\\opencode\\quarantine_fig04_median_20260803\\ (median snapshot script, uncommitted-diff patch, and the two INVALID finalized copies). Nothing was deleted from the repo that is not recoverable from git history.",
+    "Decision evidence: the estimator choice is backed by a read-only sensitivity package (mean vs median vs trimmed-mean vs outlier-excluded scales, plus leave-one-out-session deltas, per area/condition; gamma-band deltas in dB): median LOO max|delta| <= 0.36 dB everywhere (PFC 0.044 vs mean 0.209), exclusion is a larger intervention than median (PFC RXRR sign flip under exclusion), trimmed mean still dragged in PFC. Unmeasured gap noted: transient preservation under robust options was not tested.",
+    "Rebuild receipts: fig04.png is byte-identical to the committed pre-experiment version (SHA 4170664F3F96A8260879893F43530C324C8D8B1A5C4A092793F525E093343D9F); svg/fig04_condition_stats.md unchanged (20 tests, same values); the script's diff vs HEAD is limited to the approved rasterization hunks (spectrogram + colorbar im.set_rasterized(True), savefig dpi=190) - no nanmedian anywhere, no estimator change.",
+    "Finalized PNG verified: 1872x1545 (3x of the 468x386.1pt SVG viewBox), white-background fraction 0.5513, nonwhite IoU 0.971 vs the matplotlib panel reference (residual 0.8%/0.6% is anti-aliasing), pixel-identical to the user-approved approval render.",
+    "Doc consistency fix: the fig04 README 'colour scale is common across all sixteen spectrograms' line was stale (implementation is per-panel autoscale since 2026-07-31, scales V1 ~+/-8 dB down to PFC ~+/-1 dB) and was corrected in this seal's commit. Manuscript methods (session averaging) are consistent with the kept mean display."
+  ],
+  "issues": [
+    "The optional sensitivity appendix (mean vs median vs exclusion) is available but not yet written into any manuscript supplement - a labeled appendix was recommended by the 2026-08-03 review as the alternative to rejecting the median outright; the user chose rejection, appendix optional.",
+    "Committed-handout question remains open: HANDOUT_NEXT_AGENT_2026-08-03.md is untracked; no committed-handout precedent exists in this repo - left uncommitted, user's call.",
+    "The transient-preservation check under robust estimators (p1/p2/p3 onset structure) was not run - documented as an unmeasured gap in the sensitivity package.",
+    "Other-agent work visible in git status (scripts/generate_oplusplus_raster_suites.py edit, oplusplus/mt_mst raster suites) is out of this seal's scope, consistent with the 2026-08-01 multi-agent posture note."
+  ],
+  "plan": [
+    "No further fig04 work planned unless the optional sensitivity appendix is requested.",
+    "A future pass should re-resolve the committed-handout question if the repo accumulates more next-agent handouts."
+  ],
+  "verification": {
+    "checks": {
+      "fig04_finalized_files_exist": true,
+      "fig04_finalized_png_is_chrome_render": true,
+      "fig04_finalized_png_dims_1872x1545": true,
+      "fig04_finalized_png_white_background": true,
+      "fig04_finalized_png_matches_approved_render": true,
+      "fig04_png_byte_identical_to_head": true,
+      "fig04_condition_stats_md_unchanged": true,
+      "script_diff_rasterization_only": true,
+      "no_nanmedian_in_script": true,
+      "median_work_quarantined_recoverable": true,
+      "user_confirmed_panel_content": true,
+      "user_confirmed_estimator_mean_sem": true
+    },
+    "receipt": "Get-FileHash fig04.png (4170664F... matches committed version); git diff of the script shows only rasterization hunks; grep nanmedian returns empty; final PNG compared pixel-wise to the approval PNG the user approved (identical); figs 1-3 finalized files served as the naming/location pattern (context/figures/fig04_finalized.*).",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "review_pass_20260801_fig02_fig03_fig04_repo_reorg",
+      "relation": "derives_from",
+      "reasoning": "That review explicitly deferred fig04 with a falsifier (svg on disk reflects current script AND finalized Chrome-rendered PNG exists); this seal checkpoints the deferred subset, now met.",
+      "confidence": 0.95
+    }
+  ]
+}

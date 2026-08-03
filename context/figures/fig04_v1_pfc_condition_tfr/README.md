@@ -26,8 +26,10 @@ extraction.
 ## Methodology
 
 Main figure: 4 rows (V1, V3a/d, TEO, PFC) x 4 columns (spectrogram-RXRR, spectrogram-RRRR,
-band-trace-RXRR, band-trace-RRRR), panels a-p. Colour scale is common across all sixteen
-spectrograms, symmetric, set to the 99th percentile of |dB| pooled across them. Sessions with a
+band-trace-RXRR, band-trace-RRRR), panels a-p. Each spectrogram is autoscaled to itself:
+per-panel symmetric ±|dB| limit at the 99th percentile of that panel's finite values
+(`colour_scale_db_per_panel` in the receipt) — the scale is NOT common across panels, because
+the four areas differ in modulation magnitude (V1 ~±8 dB, PFC ~±1 dB). Sessions with a
 grossly out-of-scale map (single-channel near-zero-baseline artifacts) are dropped from display
 only — see `drop_outlier_sessions()`.
 

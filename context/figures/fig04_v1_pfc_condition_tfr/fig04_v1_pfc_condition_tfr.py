@@ -515,7 +515,14 @@ def build_v1_pfc_condition_figure():
             vlim = panel_vlim(area, cond)
             im, n = draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands,
                                                vlim, letters[li])
+            # Rasterize the spectrogram into the SVG instead of exporting 49,500 sub-pixel
+            # quads as vector paths per panel: at a print size of ~1.1 pt per quad, Chrome and
+            # Illustrator both alias the vector form, while an embedded image at savefig dpi
+            # stays crisp at any zoom. Same convention fig01_finalized.svg uses (embedded
+            # images, zero paths). The band traces and all text stay vector -- editable.
+            im.set_rasterized(True)
             cb = fig.colorbar(im, ax=ax, pad=0.012, fraction=0.046)
+            cb.solids.set_rasterized(True)
             cb.set_label("dB", fontsize=7, rotation=270, labelpad=9)
             cb.ax.tick_params(labelsize=6)
             counts[f"{area}_{cond}"] = n
@@ -548,7 +555,9 @@ def build_v1_pfc_condition_figure():
 
     out = os.path.join(FIG_DIR, "fig04_v1_pfc_rxrr_rrrr")
     fig.savefig(out + ".png", dpi=190)
-    fig.savefig(out + ".svg")
+    # Same dpi as the PNG so the rasterized spectrogram panels embed at matching
+    # resolution (savefig dpi controls the resolution of rasterized artists in SVG).
+    fig.savefig(out + ".svg", dpi=190)
     plt.close(fig)
 
     colour_scales = {f"{area}_{cond}": list(panel_vlim(area, cond))
