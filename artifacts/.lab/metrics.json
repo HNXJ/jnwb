@@ -1,13 +1,13 @@
 {
   "weights": {
-    "mismatch": 0.3,
-    "coverage_verified": 0.2,
-    "coverage_structural": 0.15,
-    "complexity_degree": 0.1,
-    "complexity_depth": 0.1,
-    "information": 0.05,
-    "predictive_accuracy": 0.05,
-    "cost": 0.05
+    "mismatch": 0.28421052631578947,
+    "coverage_verified": 0.18947368421052635,
+    "coverage_structural": 0.14210526315789473,
+    "complexity_degree": 0.09473684210526317,
+    "complexity_depth": 0.09473684210526317,
+    "information": 0.04736842105263159,
+    "predictive_accuracy": 0.04736842105263159,
+    "claim_reachable": 0.1
   },
   "direction": "lower is better",
   "history": [
@@ -70,6 +70,31 @@
       "J": 0.30261,
       "completeness": 0.85,
       "node_count": 267
+    },
+    {
+      "J": 0.28006,
+      "completeness": 0.80526,
+      "node_count": 324
+    },
+    {
+      "J": 0.28006,
+      "completeness": 0.80526,
+      "node_count": 324
+    },
+    {
+      "J": 0.28006,
+      "completeness": 0.80526,
+      "node_count": 324
+    },
+    {
+      "J": 0.28006,
+      "completeness": 0.80526,
+      "node_count": 324
+    },
+    {
+      "J": 0.28006,
+      "completeness": 0.80526,
+      "node_count": 324
     }
   ]
 }

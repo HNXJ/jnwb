@@ -1,0 +1,37 @@
+{
+  "id": "seal_checkpoint_20260802_graph_repair_and_metrics",
+  "schema_version": 3,
+  "kind": "checkpoint",
+  "status": "confirmed",
+  "title": "Seal: 2026-08-02 graph repair, client fixes, metrics regeneration, and remote push",
+  "summary": "Checkpoint of a clean, restorable state before session handoff. Graph: 0 unresolved refs across 333 union ids (326 live + 274 nested export). Commit b7af955 carried the dangling-edge repair (mission->papers-mission, catalog->session-readiness, suffix fixes, westerberg remap, export self-fix). Post-commit: 5 client bugs fixed in the user-level labyrinth client (repo_mapper.py, labyrinth.py, server/graph_algorithms.py), graph_metrics.json regenerated read-only (324 active nodes, disconnection 300 = 87 loose_leaves + 213 grammar_violations, J=0.28006, completeness 0.80526), metrics.json/suggestions.json refreshed by analyze(), and the 349-vs-0 discrepancy reconciled as a definitional difference (loose_leaves+grammar_violations vs dangling edge targets), not a data error.",
+  "generated": {
+    "summary": "Clean tree at seal time: 3 modified sidecars + 3 new delta nodes staged in the seal commit. Parallel-session nodes review_pass_20260802_omission_identity (100/100 verdict, receipts verified on disk) and adapt_pass_20260802_omission_identity (trial-count equalization, fold-isolated preprocessing, spatial encoding gradient FEF>PFC>TEO>V4>V3>V2>V1) included and verified. Working tree dirty only with intentional changes; remote ahead-by-4 before push, 0 behind.",
+    "source_paths": [],
+    "links": [
+      {"to": "review_adapt_20260802_dangling_edges_and_metrics_reconciliation", "relation": "supports"},
+      {"to": "review_pass_20260802_omission_identity", "relation": "documents"},
+      {"to": "adapt_pass_20260802_omission_identity", "relation": "documents"},
+      {"to": "graph_health_audit_20260729", "relation": "supports"}
+    ]
+  },
+  "verification": {
+    "verdict": "verified",
+    "checks": [
+      {"name": "dangling_refs", "result": "pass", "detail": "0 unresolved refs across 333 union ids"},
+      {"name": "all_json_valid", "result": "pass", "detail": "metrics.json, suggestions.json, graph_metrics.json, delta nodes all parse"},
+      {"name": "receipts_exist", "result": "pass", "detail": "5 of 5 files cited by parallel-session nodes exist on disk"},
+      {"name": "tree_clean_for_seal", "result": "pass", "detail": "only graph_metrics.json, metrics.json, suggestions.json modified; 3 untracked delta nodes"},
+      {"name": "remote_divergence", "result": "pass", "detail": "main 4 ahead / 0 behind origin/main at seal time; push authorized by user"}
+    ],
+    "checks_run": true,
+    "receipt": "b7af955; regenerate_metrics.py run 2026-08-02; git fetch before push"
+  },
+  "notes": [
+    "Known open items carried forward (not pruned): 213 grammar_violations and 87 loose_leaves are the largest mismatch contributors; 173 confirmed-without-receipt nodes (128 legacy evidence layer + 18 claim-* + 27 other) left in place per Conservation; 59 nodes carry generated as a timestamp string (schema drift, tolerated by the fixed client, mapper overwrites on next write).",
+    "The full optimize_lab_graph.py optimizer was deliberately NOT run: it force-sets node status to confirmed and rewrites every node file, which would have undone the receipt audit and the 47 stripped node files had to be restored from HEAD after the first crashed run."
+  ],
+  "issues": [],
+  "plan": "",
+  "created_at": "2026-08-02T22:00:00Z"
+}

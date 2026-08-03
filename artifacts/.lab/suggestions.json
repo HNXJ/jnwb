@@ -288,20 +288,6 @@
       ]
     },
     {
-      "a": "omission-adapt",
-      "b": "omission-progress",
-      "score": 0.5,
-      "shared_tokens": [
-        "from",
-        "json",
-        "live",
-        "node",
-        "prp",
-        "tracked",
-        "verb"
-      ]
-    },
-    {
       "a": "omission-examples",
       "b": "omission-legacy",
       "score": 0.5,
@@ -450,19 +436,6 @@
       ]
     },
     {
-      "a": "omission-adapt",
-      "b": "omission-review",
-      "score": 0.462,
-      "shared_tokens": [
-        "from",
-        "json",
-        "live",
-        "node",
-        "prp",
-        "verb"
-      ]
-    },
-    {
       "a": "evidence-ross-2019",
       "b": "evidence-zhang-2020",
       "score": 0.444,
@@ -571,32 +544,6 @@
       ]
     },
     {
-      "a": "omission-adapt",
-      "b": "omission-brainstorm",
-      "score": 0.4,
-      "shared_tokens": [
-        "from",
-        "json",
-        "live",
-        "node",
-        "prp",
-        "verb"
-      ]
-    },
-    {
-      "a": "omission-adapt",
-      "b": "omission-seal",
-      "score": 0.4,
-      "shared_tokens": [
-        "from",
-        "json",
-        "live",
-        "node",
-        "prp",
-        "verb"
-      ]
-    },
-    {
       "a": "omission-claude",
       "b": "omission-examples",
       "score": 0.385,
@@ -657,6 +604,18 @@
       ]
     },
     {
+      "a": "review_pass_20260801_oplusplus_similarity",
+      "b": "seal_checkpoint_20260801_oplusplus_similarity",
+      "score": 0.385,
+      "shared_tokens": [
+        "conjunction",
+        "fef",
+        "labyrinth",
+        "protocol",
+        "similarity"
+      ]
+    },
+    {
       "a": "omission-brainstorm",
       "b": "omission-progress",
       "score": 0.375,
@@ -679,20 +638,6 @@
         "live",
         "node",
         "prp",
-        "verb"
-      ]
-    },
-    {
-      "a": "omission-adapt",
-      "b": "omission-plan",
-      "score": 0.368,
-      "shared_tokens": [
-        "from",
-        "json",
-        "live",
-        "node",
-        "prp",
-        "tracked",
         "verb"
       ]
     },
