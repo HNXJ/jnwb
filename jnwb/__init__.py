@@ -341,7 +341,22 @@ from .connectivity import (
     spike_count_mutual_information,
     granger_causality,
     network_topology,
+    # Generalized directed connectivity (modality-agnostic X/Y contract)
+    DirectedResult,
+    CANONICAL_BANDS,
+    as_trials,
+    bin_spikes,
+    granger,
+    phase_slope_index,
+    transfer_entropy,
+    directed_connectivity,
+    directed_network,
 )
+
+# Short aliases for the three directed estimators
+gc = granger
+psi = phase_slope_index
+te = transfer_entropy
 from .unit_classification import (
     ClassificationConfig,
     OPlusPlusTemplateConfig,
@@ -446,6 +461,18 @@ __all__ = [
     'spike_count_mutual_information',
     'granger_causality',
     'network_topology',
+    'DirectedResult',
+    'CANONICAL_BANDS',
+    'as_trials',
+    'bin_spikes',
+    'granger',
+    'phase_slope_index',
+    'transfer_entropy',
+    'directed_connectivity',
+    'directed_network',
+    'gc',
+    'psi',
+    'te',
     'ClassificationConfig',
     'OPlusPlusTemplateConfig',
     'assign_o_plusplus_from_template_table',

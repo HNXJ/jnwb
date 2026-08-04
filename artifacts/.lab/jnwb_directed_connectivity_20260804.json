@@ -1,0 +1,57 @@
+{
+  "schema_version": 3,
+  "id": "jnwb_directed_connectivity_20260804",
+  "type": "implementation",
+  "status": "confirmed",
+  "created_utc": "2026-08-04",
+  "title": "Modality-agnostic directed connectivity added to jnwb.connectivity: granger / phase_slope_index / transfer_entropy on one (X, Y) contract",
+  "claims": [
+    {
+      "id": "shared_input_contract",
+      "status": "confirmed",
+      "text": "All three estimators accept the same signal container via as_trials(): 1-D (n_times,), 2-D (n_trials, n_times) with selectable time_axis, or a list of 1-D trials (ragged truncated to the shortest, logged). 3-D input is rejected rather than guessed at, and any non-finite sample is a hard ValueError -- connectivity never imputes. bin_spikes() bridges spike times into the same (n_trials, n_bins) array, so LFP / binned spikes / MUAe / band power all go through identical code with no modality-specific arguments.",
+      "receipt": "tests/test_decoding_connectivity.py::test_as_trials_shapes_and_contract, ::test_as_trials_rejects_ambiguous_and_nonfinite, ::test_bin_spikes_counts_rates_and_epoching, ::test_spike_counts_flow_into_granger_unchanged -- 27 passed, 6 deselected in 68.21s"
+    },
+    {
+      "id": "estimators_recover_known_direction",
+      "status": "confirmed",
+      "text": "Each estimator was validated against a system whose direction is true by construction, not against real data. GC on an AR system where x drives y at lag 2: x->y = 0.3876 (p < 1e-6), y->x = -0.0001 (p = 0.585). PSI on a 20 Hz source with y delayed 10 ms: psi = +0.1343, jackknife z = 3.04. TE on the same AR system: 0.1982 bits, surrogate p = 0.010, reverse direction p = 0.594. Independent white noise returns null for all three.",
+      "receipt": "scratchpad verify_directed.py 30/30 checks passed; same ground truths encoded as pytest cases (test_granger_recovers_known_direction, test_psi_sign_follows_the_leading_signal, test_transfer_entropy_recovers_known_direction, test_granger_null_on_independent_signals)"
+    },
+    {
+      "id": "methods_are_complementary_not_redundant",
+      "status": "confirmed",
+      "text": "The three methods were shown to fail and succeed in different places, which is the justification for carrying all three. (a) Quadratic coupling y[t] ~ x[t-1]^2: GC p = 0.220 (blind), TE p = 0.010 (detects). (b) Zero-lag common source (volume conduction / shared reference): PSI z = 0.59 vs z = 3.04 for the genuinely delayed pair. (c) Conditional GC on a common driver z: unconditional x->y = 1.5139 collapses to -0.0001 once z enters both models.",
+      "receipt": "test_transfer_entropy_catches_nonlinear_coupling_granger_misses, test_psi_near_zero_for_zero_lag_common_source, test_granger_conditioning_removes_common_driver"
+    },
+    {
+      "id": "statistical_discipline_built_in",
+      "status": "confirmed",
+      "text": "Determinism: every surrogate path is seeded (default seed=0) and repeat calls return bit-identical values. Multiplicity: directed_network() declares the FDR family as all N*(N-1) ordered pairs, not per-cell. Bias: raw TE is positively biased at finite n, so surrogates run by default (n_surrogates=200) and both raw and bias-corrected (effective) TE are reported; n_surrogates=0 emits an explicit warning rather than a clean-looking number. Undersampling: TE reports samples_per_joint_state and warns below 10. PSI refuses to fabricate a band it cannot resolve -- theta (4-8 Hz) at nperseg=256/fs=1000 (df = 3.91 Hz, 1 bin) returns NaN plus a warning instead of a number.",
+      "receipt": "test_granger_surrogates_are_deterministic, test_directed_network_orientation_and_fdr (fdr_family_size == 6), test_transfer_entropy_warns_when_surrogates_are_skipped, test_psi_flags_a_band_it_cannot_resolve"
+    },
+    {
+      "id": "psi_needs_segmenting",
+      "status": "confirmed",
+      "text": "PSI must average cross- and auto-spectra over Welch segments pooled across trials. A single-segment coherency has magnitude exactly 1 by construction, so its phase-slope sum carries no coherence weighting and is not interpretable. The pre-existing jnwb.jrsa._phase_slope() takes a single rfft of the whole raveled record and has exactly this defect; the new phase_slope_index() segments (280 segments in the validation case) and additionally reports the Nolte jackknife standard deviation and z.",
+      "receipt": "jnwb/jrsa.py:1360-1378 (single np.fft.rfft on ravelled input, no segmenting); new implementation validated at n_seg=280 with z=3.04 on a known 10 ms delay"
+    },
+    {
+      "id": "public_api_preserved",
+      "status": "confirmed",
+      "text": "The legacy granger_causality(signal1, signal2), spike_mutual_information(), and network_topology() signatures and return dicts are untouched. New names are additive: granger / phase_slope_index / transfer_entropy (aliases gc / psi / te), directed_connectivity, directed_network, as_trials, bin_spikes, DirectedResult, CANONICAL_BANDS. DirectedResult supports dict-style __getitem__/get so it reads like the older dict returns. jnwb.gc does not shadow the stdlib gc module for importers.",
+      "receipt": "python -c 'import jnwb; import gc as _gc; _gc.isenabled()' -> True, all new names present on the package"
+    }
+  ],
+  "issues": [
+    "Band-definition drift, NOT introduced here and NOT fixed here: jnwb/spectral.py:169-177 cross_area_coherence() still defaults to the pre-correction set (alpha 8-12, beta 12-30, low_gamma 30-55, high_gamma 55-90), which contradicts the settled set in CLAUDE.md ('Band definitions -- settled, do not re-drift': theta 4-8, alpha 8-14, beta 14-30, low gamma 30-50, high gamma 50-80). The new CANONICAL_BANDS constant in jnwb/connectivity.py encodes the settled set and its docstring names the conflict. Changing spectral.py's default would alter existing outputs and needs its own decision.",
+    "Spectral (Geweke) Granger causality is not implemented -- frequency-resolved GC needs Wilson spectral factorisation of the VAR. The granger() docstring states this and points to phase_slope_index() for band-specific direction, rather than letting a caller band-pass the input first (filtering distorts the very lag structure GC reads).",
+    "4 pre-existing failures in tests/test_decoding_connectivity.py (test_decoding_fallback, test_decoding_f1_auc_majority_baseline_keys, test_decoding_gpu, test_decoding_baseline_subtraction) all raise MockSession.get_epochs() got an unexpected keyword argument 'phase'. jnwb/decoding.py and jnwb/session.py were already modified in the working tree at session start; this change touched neither. Not investigated here."
+  ],
+  "edges": [
+    {"rel": "refines", "target": "jnwb-submodule-connectivity"},
+    {"rel": "supports", "target": "sliding_window_connectivity_plan_20260730", "reasoning": "That plan's third open issue is 'metric choice (coherence vs correlation vs power-correlation) not yet narrowed to one'. This supplies directional metrics on a contract that accepts the plan's realigned per-trial windows directly, but the choice itself is still open and this does not close it."},
+    {"rel": "relates_to", "target": "outputs-figure8-directional-granger"},
+    {"rel": "contradicts", "target": "jnwb-submodule-jrsa", "reasoning": "jrsa._phase_slope computes PSI from a single un-segmented FFT, where coherency magnitude is identically 1; the two implementations will not agree and the jrsa one is not interpretable as PSI."}
+  ]
+}
