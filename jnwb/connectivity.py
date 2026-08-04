@@ -1416,6 +1416,13 @@ def phase_slope_index(
     its value, a zero-lag common source (volume conduction, shared reference)
     contributes ~0 rather than a spurious direction.
 
+    There is therefore **one** test here, not two. ``p_x_to_y`` and ``p_y_to_x``
+    are deliberately the same number — the direction lives in the *sign*, and the
+    p-value asks only whether the lead is distinguishable from zero. Reading them
+    as independent per-direction tests (as GC and TE's are) will report a
+    significant lead in both directions at once, which is not what happened.
+    ``diagnostics['p_covers_both_directions']`` flags this.
+
     Coherency is estimated by averaging cross- and auto-spectra over Welch
     segments pooled across trials — a single-segment coherency has magnitude 1 by
     construction and its PSI is meaningless, so segmenting is not optional.
@@ -1616,6 +1623,8 @@ def phase_slope_index(
             "n_segments": int(n_seg),
             "mean_coherence": float(np.mean(np.abs(coh_full))),
             "p_source": "surrogate" if n_surrogates > 0 else ("jackknife_z" if jackknife else None),
+            # PSI is antisymmetric: one test, direction carried by the sign.
+            "p_covers_both_directions": True,
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
         },
