@@ -20,6 +20,7 @@ other regularly sampled series go through identical code:
 
     >>> import jnwb as oa
     >>> oa.granger(v1_lfp, pfc_lfp, order='auto')          # (n_trials, n_times)
+    >>> oa.granger_spectral(v1_lfp, pfc_lfp, fs=1000.0)    # Geweke, per band
     >>> oa.phase_slope_index(v1_lfp, pfc_lfp, fs=1000.0)   # frequency-resolved
     >>> oa.transfer_entropy(rate_a, rate_b, n_surrogates=200)
     >>> oa.bin_spikes(spike_times, (-0.5, 1.0), 10.0)      # spikes -> (trials, bins)
@@ -886,8 +887,9 @@ def granger(
 
     Note:
         This is time-domain GC. Band-resolved directionality is *not* obtained by
-        band-passing the input (filtering distorts lag structure); use
-        :func:`phase_slope_index` for frequency-specific direction.
+        band-passing the input — filtering distorts the very lag structure GC
+        reads. Use :func:`granger_spectral` (Geweke decomposition of this same
+        VAR) or :func:`phase_slope_index` instead.
     """
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
@@ -1064,6 +1066,302 @@ def granger(
 
 
 # ---------------------------------------------------------------------------
+# 1b. Spectral (Geweke) Granger causality
+# ---------------------------------------------------------------------------
+
+
+def _fit_var_matrix(
+    series: List[np.ndarray], order: int, ridge: float = 0.0
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Fit a full n-variate VAR(p) stacked over trials.
+
+    Model: ``x_t = c + sum_k A_k x_{t-k} + e_t``, ``cov(e) = Sigma``.
+
+    Args:
+        series: list of (n_trials, n_times) arrays, one per variable
+        order: lag order p
+        ridge: L2 penalty on non-intercept coefficients
+
+    Returns:
+        (A, Sigma, n_obs) with ``A`` shaped (order, n_vars, n_vars) where
+        ``A[k, i, j]`` multiplies variable j at lag k+1 in variable i's equation.
+    """
+    n_vars = len(series)
+    n_trials, n_times = series[0].shape
+    design, _ = _stack_var_design(series[0], series, order)
+    targets = np.column_stack(
+        [np.concatenate([s[tr, order:] for tr in range(n_trials)]) for s in series]
+    )
+    n_obs, n_par = design.shape
+    if n_obs <= n_par + n_vars:
+        raise ValueError(
+            f"order={order} leaves {n_obs} observations for {n_par} parameters "
+            f"per equation; lower the order or supply more data"
+        )
+    beta = _ridge_lstsq(design, targets, ridge)  # (n_par, n_vars)
+    resid = targets - design @ beta
+    sigma = (resid.T @ resid) / max(n_obs - n_par, 1)
+
+    # design columns are [intercept | var0 lag1..p | var1 lag1..p | ...]
+    a = np.empty((order, n_vars, n_vars))
+    for j in range(n_vars):
+        for k in range(order):
+            a[k, :, j] = beta[1 + j * order + k, :]
+    return a, np.atleast_2d(sigma), int(n_obs)
+
+
+def _var_spectral_radius(a: np.ndarray) -> float:
+    """Spectral radius of the VAR companion matrix; >= 1 means a non-stationary fit."""
+    order, n_vars, _ = a.shape
+    comp = np.zeros((order * n_vars, order * n_vars))
+    comp[:n_vars, :] = np.hstack([a[k] for k in range(order)])
+    if order > 1:
+        comp[n_vars:, : n_vars * (order - 1)] = np.eye(n_vars * (order - 1))
+    return float(np.max(np.abs(np.linalg.eigvals(comp))))
+
+
+def granger_spectral(
+    X,
+    Y,
+    fs: float,
+    order: Union[int, str] = "auto",
+    max_lag: int = 20,
+    criterion: str = "bic",
+    n_freqs: int = 256,
+    bands: Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None] = None,
+    ridge: float = 0.0,
+    detrend: Optional[str] = "zscore",
+    n_surrogates: int = 0,
+    seed: Optional[int] = 0,
+    time_axis: int = -1,
+) -> DirectedResult:
+    """
+    Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.
+
+    This is the *parametric* route: a single bivariate VAR is fitted once (the
+    same fit :func:`granger` uses), then decomposed in the frequency domain via
+    the transfer function ``H(f) = A(f)^-1`` and noise covariance ``Sigma``.
+    Wilson spectral factorization is required only for the *non*-parametric
+    variant that starts from an observed cross-spectrum; it is not needed here
+    and is not implemented.
+
+    ``f_{X->Y}(f) = ln( S_yy(f) / (|H~_yy(f)|^2 * Sigma_yy) )``, with ``H~`` the
+    instantaneous-causality-normalized transfer function. The estimate is >= 0 at
+    every frequency by construction.
+
+    Geweke's decomposition means the frequency average returns the time-domain
+    value, so ``x_to_y`` here is directly comparable to ``granger(X, Y).x_to_y``
+    — a large disagreement is a symptom (usually VAR misspecification), not noise.
+
+    Args:
+        X, Y: any signal accepted by :func:`as_trials`
+        fs: sampling rate in Hz
+        order: VAR order, or ``'auto'`` (selected exactly as in :func:`granger`)
+        n_freqs: frequency grid points on [0, Nyquist]
+        bands: ``None`` (whole spectrum), ``'canonical'``, ``(fmin, fmax)``, or a
+            ``{name: (fmin, fmax)}`` dict. Each band reports its mean and its
+            peak frequency in both directions.
+        n_surrogates: trial-shuffled surrogate test (there is no analytic null here)
+
+    Returns:
+        DirectedResult with ``unit='log variance ratio'``,
+        ``spectrum = {freqs, gc_x_to_y, gc_y_to_x}``, and
+        ``per_band[name] = {value, value_reverse, peak_hz, peak_hz_reverse, ...}``.
+        ``x_to_y``/``y_to_x`` are the frequency averages over the full spectrum.
+        ``diagnostics['spectral_radius'] >= 1`` means the VAR is non-stationary
+        and the decomposition must not be interpreted.
+    """
+    if fs is None or not np.isfinite(fs) or fs <= 0:
+        raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
+
+    x, y = _pair_trials(X, Y, time_axis=time_axis)
+    x = _detrend_trials(x, detrend)
+    y = _detrend_trials(y, detrend)
+    n_trials, n_times = x.shape
+
+    if order == "auto":
+        probe = granger(
+            x, y, order="auto", max_lag=max_lag, criterion=criterion,
+            ridge=ridge, detrend=None, n_surrogates=0,
+        )
+        p = int(max(probe.params["order_x_to_y"], probe.params["order_y_to_x"]))
+    else:
+        p = int(order)
+        if p < 1:
+            raise ValueError(f"order must be >= 1; got {order}")
+
+    a, sigma, n_obs = _fit_var_matrix([x, y], p, ridge=ridge)
+    radius = _var_spectral_radius(a)
+
+    freqs = np.linspace(0.0, fs / 2.0, int(n_freqs))
+    s11, s22 = float(sigma[0, 0]), float(sigma[1, 1])
+    s12 = float(sigma[0, 1])
+    if s11 <= 0 or s22 <= 0:
+        raise ValueError("degenerate VAR residual covariance; check for constant input")
+
+    gc_y_to_x = np.zeros(len(freqs))  # influence on variable 0 (X)
+    gc_x_to_y = np.zeros(len(freqs))  # influence on variable 1 (Y)
+    for fi, f in enumerate(freqs):
+        af = np.eye(2, dtype=complex)
+        for k in range(p):
+            af -= a[k] * np.exp(-2j * np.pi * f * (k + 1) / fs)
+        h = np.linalg.inv(af)
+        s = h @ sigma @ h.conj().T
+
+        # Y -> X : partial out X's noise contribution to Y's innovation
+        h11_t = h[0, 0] + (s12 / s11) * h[0, 1]
+        denom_x = (abs(h11_t) ** 2) * s11
+        gc_y_to_x[fi] = np.log(s[0, 0].real / denom_x) if denom_x > 0 else 0.0
+
+        # X -> Y
+        h22_t = h[1, 1] + (s12 / s22) * h[1, 0]
+        denom_y = (abs(h22_t) ** 2) * s22
+        gc_x_to_y[fi] = np.log(s[1, 1].real / denom_y) if denom_y > 0 else 0.0
+
+    warnings_all: List[str] = []
+    min_val = float(min(gc_x_to_y.min(), gc_y_to_x.min()))
+    if min_val < -1e-8:
+        warnings_all.append(f"negative_spectral_gc_{min_val:.2e}_numerically_unstable")
+    # Geweke GC is non-negative analytically; clip float noise only.
+    gc_x_to_y = np.clip(gc_x_to_y, 0.0, None)
+    gc_y_to_x = np.clip(gc_y_to_x, 0.0, None)
+    if radius >= 1.0:
+        warnings_all.append(f"var_non_stationary_spectral_radius_{radius:.3f}")
+
+    def _mean_over(values: np.ndarray, mask: np.ndarray) -> float:
+        """Trapezoidal frequency average == Geweke's integral over [0, Nyquist]."""
+        f_sel, v_sel = freqs[mask], values[mask]
+        if f_sel.size < 2:
+            return float("nan")
+        span = f_sel[-1] - f_sel[0]
+        if span <= 0:
+            return float(v_sel.mean())
+        return float(np.sum((v_sel[:-1] + v_sel[1:]) / 2.0 * np.diff(f_sel)) / span)
+
+    if bands is None:
+        band_map = {"full": (float(freqs[0]), float(freqs[-1]))}
+    elif isinstance(bands, str):
+        if bands != "canonical":
+            raise ValueError(f"bands string must be 'canonical'; got {bands!r}")
+        band_map = dict(CANONICAL_BANDS)
+    elif isinstance(bands, dict):
+        band_map = {k: (float(v[0]), float(v[1])) for k, v in bands.items()}
+    else:
+        band_map = {"band": (float(bands[0]), float(bands[1]))}
+
+    per_band: Dict[str, Dict[str, Any]] = {}
+    for name, (f_lo, f_hi) in band_map.items():
+        mask = (freqs >= f_lo) & (freqs <= f_hi)
+        if mask.sum() < 2:
+            warnings_all.append(f"band_{name}_has_{int(mask.sum())}_grid_points")
+            per_band[name] = {
+                "value": float("nan"), "value_reverse": float("nan"),
+                "peak_hz": float("nan"), "peak_hz_reverse": float("nan"),
+                "band_hz": (f_lo, f_hi), "n_freq_bins": int(mask.sum()),
+                "p_surrogate": None,
+            }
+            continue
+        sel = np.flatnonzero(mask)
+        per_band[name] = {
+            "value": _mean_over(gc_x_to_y, mask),
+            "value_reverse": _mean_over(gc_y_to_x, mask),
+            "peak_hz": float(freqs[sel[np.argmax(gc_x_to_y[sel])]]),
+            "peak_hz_reverse": float(freqs[sel[np.argmax(gc_y_to_x[sel])]]),
+            "band_hz": (f_lo, f_hi),
+            "n_freq_bins": int(mask.sum()),
+            "p_surrogate": None,
+        }
+
+    all_mask = np.ones(len(freqs), dtype=bool)
+    total_xy = _mean_over(gc_x_to_y, all_mask)
+    total_yx = _mean_over(gc_y_to_x, all_mask)
+
+    p_xy = p_yx = None
+    if n_surrogates > 0:
+        rng = _rng(seed)
+        null_xy = np.empty(int(n_surrogates))
+        null_yx = np.empty(int(n_surrogates))
+        for i in range(int(n_surrogates)):
+            xs = _surrogate_source(x, rng)
+            a_s, sig_s, _ = _fit_var_matrix([xs, y], p, ridge=ridge)
+            tmp = _spectral_gc_from_var(a_s, sig_s, freqs, fs)
+            null_xy[i] = _mean_over(tmp[1], all_mask)
+            ys = _surrogate_source(y, rng)
+            a_s2, sig_s2, _ = _fit_var_matrix([x, ys], p, ridge=ridge)
+            tmp2 = _spectral_gc_from_var(a_s2, sig_s2, freqs, fs)
+            null_yx[i] = _mean_over(tmp2[0], all_mask)
+        p_xy = float((1 + np.sum(null_xy >= total_xy)) / (n_surrogates + 1))
+        p_yx = float((1 + np.sum(null_yx >= total_yx)) / (n_surrogates + 1))
+        for name, vals in per_band.items():
+            f_lo, f_hi = vals["band_hz"]
+            mask = (freqs >= f_lo) & (freqs <= f_hi)
+            if mask.sum() >= 2:
+                vals["p_surrogate"] = p_xy
+
+    return DirectedResult(
+        method="granger_spectral",
+        x_to_y=total_xy,
+        y_to_x=total_yx,
+        net=total_xy - total_yx,
+        unit="log variance ratio",
+        p_x_to_y=p_xy,
+        p_y_to_x=p_yx,
+        p_net=None,
+        per_band=per_band,
+        spectrum={
+            "freqs": freqs,
+            "gc_x_to_y": gc_x_to_y,
+            "gc_y_to_x": gc_y_to_x,
+        },
+        n_trials=n_trials,
+        n_times=n_times,
+        fs=float(fs),
+        params={
+            "order": p,
+            "order_arg": order,
+            "criterion": criterion if order == "auto" else None,
+            "n_freqs": int(n_freqs),
+            "bands": {k: list(v) for k, v in band_map.items()},
+            "ridge": float(ridge),
+            "detrend": detrend,
+            "n_surrogates": int(n_surrogates),
+            "seed": seed,
+        },
+        diagnostics={
+            "spectral_radius": radius,
+            "stationary": bool(radius < 1.0),
+            "noise_covariance": sigma.tolist(),
+            "n_observations": int(n_obs),
+            "min_raw_spectral_gc": min_val,
+            "warnings": warnings_all,
+            "ok_for_interpretation": len(warnings_all) == 0,
+        },
+    )
+
+
+def _spectral_gc_from_var(
+    a: np.ndarray, sigma: np.ndarray, freqs: np.ndarray, fs: float
+) -> Tuple[np.ndarray, np.ndarray]:
+    """(gc_y_to_x, gc_x_to_y) over ``freqs`` from VAR coefficients — surrogate helper."""
+    p = a.shape[0]
+    s11, s22, s12 = float(sigma[0, 0]), float(sigma[1, 1]), float(sigma[0, 1])
+    out_yx = np.zeros(len(freqs))
+    out_xy = np.zeros(len(freqs))
+    for fi, f in enumerate(freqs):
+        af = np.eye(2, dtype=complex)
+        for k in range(p):
+            af -= a[k] * np.exp(-2j * np.pi * f * (k + 1) / fs)
+        h = np.linalg.inv(af)
+        s = h @ sigma @ h.conj().T
+        d_x = (abs(h[0, 0] + (s12 / s11) * h[0, 1]) ** 2) * s11
+        d_y = (abs(h[1, 1] + (s12 / s22) * h[1, 0]) ** 2) * s22
+        out_yx[fi] = max(np.log(s[0, 0].real / d_x), 0.0) if d_x > 0 else 0.0
+        out_xy[fi] = max(np.log(s[1, 1].real / d_y), 0.0) if d_y > 0 else 0.0
+    return out_yx, out_xy
+
+
+# ---------------------------------------------------------------------------
 # 2. Phase slope index (frequency-domain, volume-conduction robust)
 # ---------------------------------------------------------------------------
 
@@ -1122,10 +1420,18 @@ def phase_slope_index(
     segments pooled across trials — a single-segment coherency has magnitude 1 by
     construction and its PSI is meaningless, so segmenting is not optional.
 
+    PSI needs power spread across a *band*. A near-pure tone returns ~0 however
+    large its delay, because at a single frequency a delay and a phase offset are
+    indistinguishable and the neighbouring bins hold only window leakage carrying
+    that same phase. Measured here: band-limited noise (14-30 Hz) delayed 10 ms
+    gives z = 64, while a 20 Hz sinusoid with the identical delay gives z = 3.
+    Low ``|z|`` on a narrowband signal is therefore not evidence of no lead.
+
     Args:
         X, Y: (n_times,), (n_trials, n_times), or list of 1-D trials
         fs: sampling rate in Hz (required — PSI is a frequency-domain measure)
-        bands: ``None`` for one estimate over 1 Hz..fs/2; ``'canonical'`` for the
+        bands: ``None`` for one estimate over the whole spectrum except DC
+            (``df``..``fs/2``); ``'canonical'`` for the
             settled Omission band set (:data:`CANONICAL_BANDS`); a ``(fmin, fmax)``
             tuple; or a ``{name: (fmin, fmax)}`` dict
         nperseg: Welch segment length in samples (default: n_times // 4, clipped
@@ -1179,7 +1485,10 @@ def phase_slope_index(
 
     # resolve band specification
     if bands is None:
-        band_map = {"full": (max(df, 1.0), fs / 2.0)}
+        # everything except DC. A hard-coded lower edge in Hz would silently
+        # empty the band for slowly sampled series (band-power time courses,
+        # normalized-frequency use with fs=2).
+        band_map = {"full": (df, fs / 2.0)}
     elif isinstance(bands, str):
         if bands != "canonical":
             raise ValueError(f"bands string must be 'canonical'; got {bands!r}")
@@ -1585,6 +1894,8 @@ def transfer_entropy(
 DIRECTED_METHODS = {
     "granger": granger,
     "gc": granger,
+    "granger_spectral": granger_spectral,
+    "sgc": granger_spectral,
     "psi": phase_slope_index,
     "phase_slope_index": phase_slope_index,
     "te": transfer_entropy,

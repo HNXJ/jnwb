@@ -347,14 +347,16 @@ from .connectivity import (
     as_trials,
     bin_spikes,
     granger,
+    granger_spectral,
     phase_slope_index,
     transfer_entropy,
     directed_connectivity,
     directed_network,
 )
 
-# Short aliases for the three directed estimators
+# Short aliases for the directed estimators
 gc = granger
+sgc = granger_spectral
 psi = phase_slope_index
 te = transfer_entropy
 from .unit_classification import (
@@ -466,11 +468,13 @@ __all__ = [
     'as_trials',
     'bin_spikes',
     'granger',
+    'granger_spectral',
     'phase_slope_index',
     'transfer_entropy',
     'directed_connectivity',
     'directed_network',
     'gc',
+    'sgc',
     'psi',
     'te',
     'ClassificationConfig',

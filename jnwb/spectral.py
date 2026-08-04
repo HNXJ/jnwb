@@ -151,7 +151,9 @@ def cross_area_coherence(
         lfp_area2: Time series from area 2
         sampling_rate: Sampling frequency (Hz)
         freq_bands: Dict of {'band_name': (freq_min, freq_max)}
-                   Default: Standard frequency bands (delta, theta, alpha, beta, gamma)
+                   Default: jnwb.connectivity.CANONICAL_BANDS — the settled
+                   Omission set (theta 4-8, alpha 8-14, beta 14-30,
+                   low_gamma 30-50, high_gamma 50-80).
         device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
     Returns:
@@ -167,14 +169,17 @@ def cross_area_coherence(
         >>> print(f"Alpha coherence: {coh['band_coherence']['alpha']:.3f}")
     """
     if freq_bands is None:
-        freq_bands = {
-            'delta': (1, 4),
-            'theta': (4, 8),
-            'alpha': (8, 12),
-            'beta': (12, 30),
-            'low_gamma': (30, 55),
-            'high_gamma': (55, 90),
-        }
+        # INTENTIONAL BREAK (2026-08-04). The former default was the
+        # pre-correction set (delta 1-4, alpha 8-12, beta 12-30, low_gamma 30-55,
+        # high_gamma 55-90), which contradicts the settled band definitions in
+        # CLAUDE.md that every fitted coefficient in outputs/lfp_band_census_v2/
+        # uses. Band *names* are unchanged, so callers keyed by name keep working;
+        # the *numbers* move: alpha widens (8-12 -> 8-14), beta narrows
+        # (12-30 -> 14-30), low_gamma narrows (30-55 -> 30-50), high_gamma shifts
+        # (55-90 -> 50-80), and delta is dropped because no project doctrine
+        # defines its edges. Pass freq_bands= explicitly to reproduce old output.
+        from .connectivity import CANONICAL_BANDS
+        freq_bands = dict(CANONICAL_BANDS)
 
     result = {
         'coherence_spectrum': np.array([]),

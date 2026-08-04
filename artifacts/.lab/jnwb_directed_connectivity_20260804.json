@@ -43,15 +43,40 @@
       "receipt": "python -c 'import jnwb; import gc as _gc; _gc.isenabled()' -> True, all new names present on the package"
     }
   ],
+  "resolved_issues": [
+    {
+      "was": "Band-definition drift, NOT introduced here and NOT fixed here: jnwb/spectral.py:169-177 cross_area_coherence() still defaults to the pre-correction set (alpha 8-12, beta 12-30, low_gamma 30-55, high_gamma 55-90).",
+      "resolved_utc": "2026-08-04",
+      "resolution": "Fixed on user instruction, in BOTH drift sites -- the audit had found only one. jnwb/spectral.py:cross_area_coherence and jnwb/factories.py:result_from_tfr_analysis now import CANONICAL_BANDS instead of hardcoding a dict. Documented as an intentional break at each change site with the blast radius spelled out: band NAMES are unchanged so callers keyed by name keep working, but the NUMBERS move (alpha 8-12 -> 8-14, beta 12-30 -> 14-30, low_gamma 30-55 -> 30-50, high_gamma 55-90 -> 50-80) and 'delta' is dropped because no project doctrine defines its edges. Passing freq_bands= explicitly still reproduces the old output. No production script called either with default bands.",
+      "receipt": "test_module_band_defaults_agree_with_project_doctrine; pytest tests/ -q --ignore=tests/test_decoding_connectivity.py -> 200 passed, 22 skipped"
+    },
+    {
+      "was": "Spectral (Geweke) Granger causality is not implemented -- frequency-resolved GC needs Wilson spectral factorisation of the VAR.",
+      "resolved_utc": "2026-08-04",
+      "resolution": "Implemented as granger_spectral() (alias sgc). The original framing was imprecise and is corrected: Wilson spectral factorisation is required only for the NON-parametric variant that starts from an observed cross-spectrum. The parametric route needs no factorisation -- fit the bivariate VAR once, form H(f) = A(f)^-1 and S(f) = H Sigma H^H, and apply Geweke's instantaneous-causality normalisation. Reports per-band means, peak frequency per direction, VAR spectral radius as a stationarity receipt, and optional surrogates.",
+      "receipt": "Geweke decomposition identity holds -- the frequency average equals the time-domain value to 2.0% (spectral 0.7878 vs time-domain 0.8036) on an AR system with a 20 Hz resonance; spectral GC peaks at exactly 20.0 Hz and concentrates in beta (2.8123) over theta (1.4921) and high_gamma (0.0674); non-negative at every frequency; a random-walk pair is flagged at spectral radius 1.0006. Tests: test_spectral_granger_matches_time_domain_by_geweke_decomposition and 5 others."
+    },
+    {
+      "was": "jrsa._phase_slope takes a single rfft of the whole ravelled record (logged as a contradicts edge, not touched).",
+      "resolved_utc": "2026-08-04",
+      "resolution": "Fixed on user instruction: jrsa._phase_slope now delegates to connectivity.phase_slope_index. It gained fs/nperseg/noverlap/bands/jackknife passthrough, and its return tuple carries real information where it previously carried duplicates -- statistic is now the jackknife z rather than a copy of psi, and p is the two-sided normal-approximation p-value where both were None. Without fs it falls back to normalized frequency (Nyquist = 1.0) and, if no band is given either, emits a RuntimeWarning that the result is a whole-spectrum sum whose sign can flip with nperseg.",
+      "receipt": "test_jrsa_phase_slope_delegates_to_the_segmented_implementation asserts the superseded single-segment coherency was |C| == 1 at every frequency (verified: mean 1.000000) while the segmented estimate is 0.098; jrsa() top-level dispatch unaffected (tests/test_jrsa_correctness.py 14 passed)"
+    }
+  ],
   "issues": [
-    "Band-definition drift, NOT introduced here and NOT fixed here: jnwb/spectral.py:169-177 cross_area_coherence() still defaults to the pre-correction set (alpha 8-12, beta 12-30, low_gamma 30-55, high_gamma 55-90), which contradicts the settled set in CLAUDE.md ('Band definitions -- settled, do not re-drift': theta 4-8, alpha 8-14, beta 14-30, low gamma 30-50, high gamma 50-80). The new CANONICAL_BANDS constant in jnwb/connectivity.py encodes the settled set and its docstring names the conflict. Changing spectral.py's default would alter existing outputs and needs its own decision.",
-    "Spectral (Geweke) Granger causality is not implemented -- frequency-resolved GC needs Wilson spectral factorisation of the VAR. The granger() docstring states this and points to phase_slope_index() for band-specific direction, rather than letting a caller band-pass the input first (filtering distorts the very lag structure GC reads).",
-    "4 pre-existing failures in tests/test_decoding_connectivity.py (test_decoding_fallback, test_decoding_f1_auc_majority_baseline_keys, test_decoding_gpu, test_decoding_baseline_subtraction) all raise MockSession.get_epochs() got an unexpected keyword argument 'phase'. jnwb/decoding.py and jnwb/session.py were already modified in the working tree at session start; this change touched neither. Not investigated here."
+    "4 pre-existing failures in tests/test_decoding_connectivity.py (test_decoding_fallback, test_decoding_f1_auc_majority_baseline_keys, test_decoding_gpu, test_decoding_baseline_subtraction) all raise MockSession.get_epochs() got an unexpected keyword argument 'phase'. jnwb/decoding.py and jnwb/session.py were already modified in the working tree at session start; this change touched neither. Still not investigated.",
+    "jnwb/omission_identity.py:39 LFP_BANDS uses a single gamma (30-80) where CANONICAL_BANDS splits low/high at 50. Edges are consistent, granularity is not -- left alone because merging low+high gamma is a deliberate coarser grouping, not drift. Flagged so a future pass does not 'fix' it into a contradiction.",
+    "Non-parametric (Wilson-factorisation) spectral GC is still not implemented. It is the variant to use when a VAR does not fit the data well; granger_spectral() reports spectral_radius so that case is at least detectable."
+  ],
+  "corrections": [
+    "An earlier claim in this node -- that frequency-resolved GC requires Wilson spectral factorisation -- was wrong as stated. It applies only to the non-parametric route. Superseded by the granger_spectral resolution above.",
+    "PSI needs power spread across a frequency BAND, not merely an oscillation. A near-pure tone returns psi ~ 0 however large its delay, because at a single frequency a delay and a phase offset are indistinguishable and neighbouring bins hold only window leakage carrying that same phase. Measured on identical 10 ms delays: band-limited noise (14-30 Hz) gives jackknife z = 64, a 20 Hz sinusoid gives z = 3, and the coherency phase in the sinusoid case is flat (+1.2526, +1.2514, +1.2560 rad across 15-23 Hz) instead of rising at the required 0.245 rad/bin. The original test suite passed only because per-trial phase drift accidentally broadened the spectrum; the generator was replaced with band-limited noise (_delayed_broadband) so the tests rest on the mechanism PSI actually reads. Documented in the phase_slope_index docstring: low |z| on a narrowband signal is not evidence of no lead."
   ],
   "edges": [
     {"rel": "refines", "target": "jnwb-submodule-connectivity"},
     {"rel": "supports", "target": "sliding_window_connectivity_plan_20260730", "reasoning": "That plan's third open issue is 'metric choice (coherence vs correlation vs power-correlation) not yet narrowed to one'. This supplies directional metrics on a contract that accepts the plan's realigned per-trial windows directly, but the choice itself is still open and this does not close it."},
     {"rel": "relates_to", "target": "outputs-figure8-directional-granger"},
-    {"rel": "contradicts", "target": "jnwb-submodule-jrsa", "reasoning": "jrsa._phase_slope computes PSI from a single un-segmented FFT, where coherency magnitude is identically 1; the two implementations will not agree and the jrsa one is not interpretable as PSI."}
+    {"rel": "supersedes", "target": "jnwb-submodule-jrsa", "reasoning": "Was a contradicts edge: jrsa._phase_slope computed PSI from a single un-segmented FFT where coherency magnitude is identically 1. Resolved 2026-08-04 -- jrsa now delegates to connectivity.phase_slope_index, so there is one PSI implementation rather than two that disagree."},
+    {"rel": "supersedes", "target": "jnwb-submodule-spectral", "reasoning": "cross_area_coherence's default band set now comes from CANONICAL_BANDS rather than a local pre-correction dict; the module's stored summary predates the change."}
   ]
 }

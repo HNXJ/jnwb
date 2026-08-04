@@ -1357,25 +1357,60 @@ def _transfer_entropy(x1, x2, axis=-1, k=1, bins=10, **kwargs):
     return np.float64(te), np.float64(te), np.float64(te), None, None
 
 
-def _phase_slope(x1, x2, axis=-1, **kwargs):
-    """Phase Slope Index (PSI) – correct implementation preserving scale."""
+def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
+                 bands=None, jackknife=True, **kwargs):
+    """
+    Phase Slope Index (PSI), delegated to :func:`jnwb.connectivity.phase_slope_index`.
+
+    Superseded implementation (pre-2026-08-04) took a single ``rfft`` of the whole
+    ravelled record. A one-segment coherency has magnitude identically 1 at every
+    frequency, so its phase-slope sum is unweighted by coherence and is not PSI in
+    the sense of Nolte et al. (2008). Coherency must be averaged over segments.
+
+    Args:
+        fs: sampling rate in Hz. When omitted, ``fs=2.0`` is used so frequencies
+            read as normalized units (Nyquist = 1.0) — ``bands`` given in Hz then
+            mean nothing, so pass a real ``fs`` if you want a named band.
+        nperseg / noverlap / bands / jackknife: forwarded verbatim.
+
+    Returns:
+        (psi, jackknife_z, |psi|, p, None) — ``psi`` keeps its physical scale;
+        ``statistic`` is now the jackknife z rather than a copy of ``psi``, and
+        ``p`` is the two-sided normal-approximation p-value on that z (previously
+        both were ``None``).
+    """
+    from .connectivity import phase_slope_index as _psi_impl
+
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
-    b = x2.ravel()[:len(a)]
+    b = x2.ravel()[: len(a)]
     n = min(len(a), len(b))
-    A, B = a[:n], b[:n]
-    f_a = np.fft.rfft(A)
-    f_b = np.fft.rfft(B)
-    cs = f_a * np.conj(f_b)
-    
-    # Compute coherence: C = cs / (sqrt(S_xx * S_yy))
-    s_xx = np.abs(f_a)**2
-    s_yy = np.abs(f_b)**2
-    coh = cs / (np.sqrt(s_xx * s_yy) + 1e-12)
-    
-    psi = np.sum(np.imag(np.conj(coh[:-1]) * coh[1:]))
-    # Return raw psi value to preserve physical scale (do not divide by np.abs(psi))
-    return np.float64(psi), np.float64(psi), np.float64(abs(psi)), None, None
+    if fs is None:
+        fs = 2.0  # normalized frequency: Nyquist == 1.0
+        if bands is None:
+            warnings.warn(
+                "phase_slope called without fs and without bands: the result is a "
+                "PSI summed over the entire spectrum, where a narrowband lead is "
+                "diluted by broadband noise and the sign can flip with nperseg. "
+                "Pass fs= and bands= (or a normalized band, Nyquist=1.0) to get a "
+                "frequency-specific direction.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+    res = _psi_impl(
+        a[:n], b[:n], fs=fs, bands=bands, nperseg=nperseg,
+        noverlap=noverlap, jackknife=jackknife,
+    )
+    band = next(iter(res.per_band.values()))
+    z = band.get("z", np.nan)
+    p = res.p_x_to_y
+    return (
+        np.float64(res.x_to_y),
+        np.float64(z),
+        np.float64(abs(res.x_to_y)),
+        None if p is None else np.float64(p),
+        None,
+    )
 
 
 _METRIC_DISPATCH = {
