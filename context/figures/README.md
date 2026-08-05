@@ -182,6 +182,13 @@ correction at all. See `fig05_v1_area_hierarchy_glmm/README.md` and
 `artifacts/.lab/v3ad_beta_glmm_two_bugs_fixed_20260805.json` for the full record — not
 duplicated here.
 
+**Extended 2026-08-05** with a full area×area pairwise supplement (not just vs V1 — 8/225
+Holm, 34/225 BH) and a matched stimulus-window counterpart: vs-V1 is **null** (0/45, informative
+— the omission-linked hierarchy doesn't replicate for a real stimulus relative to V1
+specifically) while the stimulus-window full pairwise matrix **is significant** (30/225 Holm,
+55/225 BH — areas differ strongly from each other, just not anchored to V1). See the same
+README for the complete result.
+
 **Footgun (applies to the retired hierarchy script only)**: the old RXRR/RRRR figure trips
 matplotlib's `tight_layout` compatibility check (`UserWarning: This figure includes Axes that
 are not compatible with tight_layout`), which silently no-ops instead of raising — three

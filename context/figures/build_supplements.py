@@ -151,6 +151,14 @@ PLAN = [
      "All C(10,2)=45 area pairs x 5 bands, from the same Model F fit as figure 5's main "
      "vs-V1 heatmap -- 8/225 survive Holm-Bonferroni, 34/225 survive BH-FDR. See "
      "fig05_v1_area_hierarchy_glmm/README.md."),
+    (32, "area_band_glmm_stim_vs_v1", [f"{F5B}/fig05_supp_area_band_heatmap_stim.svg"], 1,
+     "Stimulus-window counterpart to figure 5's main vs-V1 heatmap -- NULL (0/45 Holm, "
+     "0/45 BH-FDR), unlike the omission window. Reported as informative: the omission-linked "
+     "hierarchy looks specific to the omission window, not a generic area difference."),
+    (33, "pairwise_area_band_glmm_stim", [f"{F5B}/fig05_supp_pairwise_stim.svg"], 1,
+     "Stimulus-window counterpart to S31 -- unlike the vs-V1 comparison, this IS significant "
+     "(30/225 Holm, 55/225 BH-FDR): areas differ strongly from each other in the stimulus "
+     "window, just not specifically relative to V1."),
 ]
 
 # Supplements that cannot be built because their figure has no analysis yet.

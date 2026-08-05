@@ -69,6 +69,7 @@ from svgassemble import assemble  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(FIGDIR))
 GLMM_CSV = os.path.join(REPO, "outputs", "lfp_band_census_v2", "glmm_summary.csv")
+STIM_GLMM_CSV = os.path.join(REPO, "outputs", "lfp_band_census_stim", "glmm_summary.csv")
 SVG_DIR = os.path.join(HERE, "svg")
 
 BANDS = ["theta", "alpha", "beta", "low_gamma", "high_gamma"]
@@ -78,28 +79,28 @@ MODEL = "F_area_subject_controlled_session_level"
 REF_AREA = "V1"
 
 
-def load_model_f():
-    df = pd.read_csv(GLMM_CSV)
+def load_model_f(csv_path=GLMM_CSV):
+    df = pd.read_csv(csv_path)
     d = df[(df.model == MODEL) & (df.term.str.startswith("C(area"))].copy()
     d["area"] = d.term.str.extract(r"\[T\.(.+)\]")
     return d
 
 
-def build_family(d):
+def build_family(d, family="fig05_area_band", figure="fig05"):
     results = []
     for _, row in d.iterrows():
         results.append(Result(
-            figure="fig05", panel="area_band_glmm",
+            figure=figure, panel="area_band_glmm",
             question=f"{row.area} {row.band} vs {REF_AREA}",
             test=f"{row.estimator} (Model F, subject-controlled)", statistic_name="t",
             statistic=float(row.z), df=None, n=int(row.n_sessions), unit="session",
             effect_name="estimate_db", effect=float(row.estimate_db), p=float(row.p_raw),
-            family="fig05_area_band",
+            family=family,
             note=f"estimator={row.estimator}; n_sessions={int(row.n_sessions)}"))
     return correct(results)
 
 
-def draw_heatmap(d, corrected, areas, out_stem):
+def draw_heatmap(d, corrected, areas, out_stem, title=None, window_label="omitted-slot window"):
     sig = {}
     for r in corrected:
         area, band = r.question.split(" ")[0], r.question.split(" ")[1]
@@ -133,10 +134,10 @@ def draw_heatmap(d, corrected, areas, out_stem):
     ax.set_xticklabels([BAND_DISPLAY[b] for b in BANDS], rotation=30, ha="right", fontsize=9)
     ax.set_yticks(range(n_areas))
     ax.set_yticklabels(areas, fontsize=10)
-    ax.set_title(f"LFP band power vs {REF_AREA}, subject-controlled (Model F, 23 sessions, "
-                f"3 subjects)", fontsize=10)
+    ax.set_title(title or f"LFP band power vs {REF_AREA}, subject-controlled (Model F, "
+                f"23 sessions, 3 subjects)", fontsize=10)
     cb = fig.colorbar(im, ax=ax, shrink=0.85, pad=0.02)
-    cb.set_label(f"dB vs {REF_AREA} (omitted-slot window)", rotation=270, labelpad=14, fontsize=9)
+    cb.set_label(f"dB vs {REF_AREA} ({window_label})", rotation=270, labelpad=14, fontsize=9)
     fig.text(0.5, -0.02, "Solid outline: p_holm < 0.05 (family-wise, 45 tests).  "
             "Dashed outline: q_BH < 0.05 only (FDR, weaker guarantee).",
             ha="center", fontsize=7.5, color="0.25")
@@ -147,27 +148,27 @@ def draw_heatmap(d, corrected, areas, out_stem):
     return out + ".svg"
 
 
-def load_pairwise():
-    df = pd.read_csv(GLMM_CSV)
+def load_pairwise(csv_path=GLMM_CSV):
+    df = pd.read_csv(csv_path)
     d = df[df.model == "F_pairwise_area_contrasts"].copy()
     d["areaB"] = d.term.str.split(" - ").str[0]
     d["areaA"] = d.term.str.split(" - ").str[1]
     return d
 
 
-def build_pairwise_family(d):
+def build_pairwise_family(d, family="fig05_supp_pairwise_area_band", figure="fig05_supp"):
     """All C(10,2)=45 area pairs x 5 bands = 225 tests, declared as its own family -- a
     genuinely different question ('which area PAIRS differ') from the 45-test vs-V1 family
     above ('which areas differ from V1'), not a superset silently reusing the same correction."""
     results = []
     for _, row in d.iterrows():
         results.append(Result(
-            figure="fig05_supp", panel="pairwise_area_band_glmm",
+            figure=figure, panel="pairwise_area_band_glmm",
             question=f"{row.areaA} vs {row.areaB} {row.band}",
             test=f"{row.estimator} (Model F pairwise contrast)", statistic_name="t",
             statistic=float(row.z), df=None, n=int(row.n_sessions), unit="session",
             effect_name="estimate_db", effect=float(row.estimate_db), p=float(row.p_raw),
-            family="fig05_supp_pairwise_area_band",
+            family=family,
             note=f"estimator={row.estimator}; n_sessions={int(row.n_sessions)}"))
     return correct(results)
 
@@ -275,12 +276,60 @@ def main():
                        "All-area LFP band-power contrasts, omission window (omitted-slot vs "
                        "pre-omission baseline)", "dB (row - column)")
 
+    # ---- supplement: stimulus-window counterpart (real stimulus vs its own baseline) ------
+    # Matched design, same Model F, same estimator choices, fit on
+    # scripts/fit_stim_band_power_glmm.py's output. Result: NULL (0/45 Holm, 0/45 BH) -- unlike
+    # the omission window, the area hierarchy does not survive correction for a real stimulus.
+    # Reported honestly, not smoothed over: this is itself informative (the omission-linked
+    # hierarchy looks specific to the omission window, not a generic baseline area difference
+    # that would show up regardless of condition), not folded into the main figure's claim.
+    d_stim = load_model_f(STIM_GLMM_CSV)
+    areas_stim = [a for a in AREA_ORDER if a != REF_AREA and a in set(d_stim.area)]
+    corrected_stim = build_family(d_stim, family="fig05_stim_area_band", figure="fig05_supp")
+    write(corrected_stim, SVG_DIR, "fig05_supp_stim",
+         title="Figure 5 supplement -- LFP band-power hierarchy vs V1, stimulus window "
+               "(subject-controlled GLMM)",
+         preamble="Matched counterpart to the main figure's omission-window Model F, same "
+                  "design, same 45-cell family, fit on a real-stimulus census "
+                  "(scripts/compute_stim_channel_band_power_census.py, "
+                  "scripts/fit_stim_band_power_glmm.py). NULL: 0/45 Holm, 0/45 BH-FDR.")
+    n_stim_holm = sum(1 for r in corrected_stim if r.p_holm is not None and r.p_holm < 0.05)
+    n_stim_bh = sum(1 for r in corrected_stim if r.q_bh is not None and r.q_bh < 0.05)
+    print(f"stimulus-window significant: {n_stim_holm}/45 Holm, {n_stim_bh}/45 BH-FDR "
+         "(expected null)")
+    draw_heatmap(d_stim, corrected_stim, areas_stim, "fig05_supp_area_band_heatmap_stim",
+                title="LFP band power vs V1, stimulus window, subject-controlled (Model F)",
+                window_label="real-stimulus window")
+
+    pw_stim = load_pairwise(STIM_GLMM_CSV)
+    all_areas_stim = [a for a in AREA_ORDER if a in set(pw_stim.areaA) | set(pw_stim.areaB)]
+    pw_stim_corrected = build_pairwise_family(
+        pw_stim, family="fig05_supp_pairwise_area_band_stim", figure="fig05_supp")
+    write(pw_stim_corrected, SVG_DIR, "fig05_supp_pairwise_stim",
+         title="Figure 5 supplement -- all area x area LFP band-power contrasts, "
+               "stimulus window",
+         preamble="Stimulus-window counterpart to the omission-window pairwise supplement, "
+                  "same 225-test family design.")
+    n_pws_holm = sum(1 for r in pw_stim_corrected if r.p_holm is not None and r.p_holm < 0.05)
+    n_pws_bh = sum(1 for r in pw_stim_corrected if r.q_bh is not None and r.q_bh < 0.05)
+    print(f"stimulus-window pairwise significant: {n_pws_holm}/225 Holm, {n_pws_bh}/225 BH-FDR")
+    draw_pairwise_grid(pw_stim, pw_stim_corrected, all_areas_stim,
+                       "fig05_supp_pairwise_stim",
+                       "All-area LFP band-power contrasts, stimulus window (real stimulus vs "
+                       "its own pre-stimulus baseline)", "dB (row - column)")
+
     receipt = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "script": os.path.abspath(__file__), "source": GLMM_CSV, "model": MODEL,
         "reference_area": REF_AREA, "areas": areas, "bands": BANDS,
         "n_sessions": 23, "n_subjects": 3,
         "n_significant_holm": n_holm, "n_significant_bh": n_bh,
+        "pairwise_n_significant_holm": n_pw_holm, "pairwise_n_significant_bh": n_pw_bh,
+        "stimulus_window_n_significant_holm": n_stim_holm,
+        "stimulus_window_n_significant_bh": n_stim_bh,
+        "stimulus_window_note": "NULL, as expected/reported -- see README",
+        "stimulus_pairwise_n_significant_holm": n_pws_holm,
+        "stimulus_pairwise_n_significant_bh": n_pws_bh,
         "bug_fix_receipt": "artifacts/.lab/v3ad_beta_glmm_two_bugs_fixed_20260805.json",
     }
     with open(os.path.join(SVG_DIR, "fig05_receipt.json"), "w", encoding="utf-8") as fh:

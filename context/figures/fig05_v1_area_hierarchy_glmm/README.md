@@ -84,9 +84,36 @@ against the reference area should exactly reproduce that area's Model F coeffici
 until this was fixed). Fixed in `scripts/area_subject_glmm.py`; the fig05 main figure's own
 numbers were never affected (they don't use the pairwise contrast path).
 
+## Supplement: stimulus-window counterpart (2026-08-05)
+
+Matched design, same Model F, same estimator choices, fit on a new real-stimulus census
+(`scripts/compute_stim_channel_band_power_census.py` — RRRR/AAAB/BBBA at slots 2/3/4, same
+measure/window/baseline convention as the omission side) via
+`scripts/fit_stim_band_power_glmm.py`.
+
+**vs-V1 (45-cell family): NULL.** 0/45 Holm, 0/45 BH-FDR — despite some visually large point
+estimates (e.g. PFC low-gamma −3.5 dB, MST low-gamma +3.3 dB), none survive correction (raw
+p's of 0.008–0.05, wide CIs). This is itself informative: **the area hierarchy that survives
+correction during omission does not survive correction for a real stimulus**, at least not
+relative to V1 specifically — the omission-linked effect looks more specific than a generic
+baseline area difference that would show up regardless of condition.
+
+**Full pairwise (225-cell family): significant.** 30/225 Holm, 55/225 BH-FDR — areas differ
+strongly from *each other* in the stimulus window (e.g. FEF vs MT beta p_holm=1.5e-11, FST vs
+PFC beta p_holm=7e-10, MST vs PFC/TEO low-gamma p_holm≈1e-8), just not specifically relative to
+V1. MST stands out as an outlier from most other areas in low/high-gamma. A real, well-powered,
+structured effect (n=23 sessions, tiny p-values) — reported here as a supplement finding since
+it answers a different question ("do areas differ from each other in general") than the main
+figure's ("does the omission-linked hierarchy hold").
+
+`svg/fig05_supp_area_band_heatmap_stim.svg/.png`, `svg/fig05_supp_pairwise_stim.svg/.png`,
+`svg/fig05_supp_stim_stats.md/.csv`, `svg/fig05_supp_pairwise_stim_stats.md/.csv`.
+
 ## Output
 
-`fig05_v1_area_hierarchy_glmm.py` reads `outputs/lfp_band_census_v2/glmm_summary.csv` (Model F
-and `F_pairwise_area_contrasts` rows), draws `svg/fig05_area_band_heatmap.svg/.png` (main) and
-`svg/fig05_supp_pairwise_omission.svg/.png` (supplement), assembles `fig05.svg`, writes
-`svg/fig05_stats.md/.csv` and `svg/fig05_supp_pairwise_stats.md/.csv` via `figstats.write()`.
+`fig05_v1_area_hierarchy_glmm.py` reads `outputs/lfp_band_census_v2/glmm_summary.csv` (omission,
+main figure) and `outputs/lfp_band_census_stim/glmm_summary.csv` (stimulus, supplement) —
+both Model F and `F_pairwise_area_contrasts` rows — draws `svg/fig05_area_band_heatmap.svg/.png`
+(main), `svg/fig05_supp_pairwise_omission.svg/.png`, `svg/fig05_supp_area_band_heatmap_stim.
+svg/.png`, and `svg/fig05_supp_pairwise_stim.svg/.png` (supplements), assembles `fig05.svg`,
+writes all four stats files via `figstats.write()`.
