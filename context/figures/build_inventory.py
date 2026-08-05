@@ -34,9 +34,15 @@ FIGURES = [
     ("fig02", "fig02_spiking_exemplar_rasters", "Spiking exemplar rasters (4x4: S+/S-/O+/O++ x RRRR/RXRR/RRXR/RRRX)"),
     ("fig03", "fig03_unit_census", "Unit census: presence, functionality, and RXRR template traces by area"),
     ("fig04", "fig04_v1_pfc_condition_tfr", "V1/PFC time-frequency, RXRR vs RRRR"),
-    ("fig05", "fig05_band_power_hierarchy", "Band-power hierarchy across all areas, RXRR vs RRRR"),
-    ("fig06", "fig06_band_power_coupling", "LFP band-power to band-power coupling matrices"),
-    ("fig07", "fig07_lfp_spike_coupling", "Spike-LFP coupling"),
+    # 2026-08-04/05: figures 5/6/7 reorganized into connectivity-modality order (LFP-LFP/
+    # SPK-SPK/LFP-SPK); all three connectivity methods tried for fig05 came back null, so fig05
+    # pivoted to an area x band GLMM instead (see fig05_v1_area_hierarchy_glmm/README.md). The
+    # connectivity attempts (coherency, Granger, TE) are preserved as supplements in
+    # lfp_lfp_connectivity_supplement/. The old pre-2026-08-04 fig05 (band-power hierarchy) is
+    # demoted to band_power_hierarchy_supplement/.
+    ("fig05", "fig05_v1_area_hierarchy_glmm", "LFP band-power hierarchy vs V1, subject-controlled GLMM"),
+    ("fig06", "fig06_spk_spk_coupling", "Directed SPK-SPK connectivity (Granger) -- null result, headline unresolved as of 2026-08-05"),
+    ("fig07", "fig07_lfp_spike_coupling", "Directed LFP-SPK connectivity + spike-LFP phase coupling (PPC) supplement"),
 ]
 
 

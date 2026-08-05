@@ -18,5 +18,6 @@ Sources currently available to draw from:
 |---|---|
 | `../fig04_v1_pfc_condition_tfr/svg/` | omission-pooled: stacked spectrogram + five-band traces for any area or area:layer cell, plus the ten-area grid and the five area pairs. This folder's main figure (`fig04.svg`) is now the RXRR-vs-RRRR V1/PFC comparison, drawn separately by the same script |
 | `../fig03_unit_census/svg/` | census panels a/c/d/f/g/h (superseded as main-figure content, still valid as supplements), plus the new presence and RXRR template-trace panels |
-| `../fig05_band_power_hierarchy/svg/` | omission-pooled: one panel per band with all ten areas overlaid, for `all`, `sup`, `mid` or `deep`. This folder's main figure (`fig05.svg`) is now the RXRR-vs-RRRR 5x2 grid, drawn separately by the same script |
+| `../band_power_hierarchy_supplement/svg/` | omission-pooled: one panel per band with all ten areas overlaid, for `all`, `sup`, `mid` or `deep`. Renamed 2026-08-04 from `fig05_band_power_hierarchy/` — demoted from main-figure status, its RXRR-vs-RRRR 5x2 grid is retained here but is no longer figure 5 (see `../README.md`'s Figure 5 section) |
+| `../fig05_lfp_lfp_coupling/svg/` | the NEW figure 5 (directed Granger LFP-LFP network) and its `supp_lfp_lfp_coherency.py` undirected-coupling supplement, both 2026-08-04 |
 | `../fig01_recording_topology_and_paradigm/svg/` | the `full` layout of figure 1 and its two Illustrator sources |

@@ -37,9 +37,17 @@ F1 = "fig01_recording_topology_and_paradigm/svg"
 F2 = "fig02_spiking_exemplar_rasters/svg"
 F3 = "fig03_unit_census/svg"
 F4 = "fig04_v1_pfc_condition_tfr/svg"
-F5 = "fig05_band_power_hierarchy/svg"
-F6 = "fig06_band_power_coupling/svg"
+# 2026-08-04/05: fig05_band_power_hierarchy demoted to a supplement (RXRR-vs-RRRR hierarchy is
+# not the group-significance headline fig05 now needs). fig06_band_power_coupling's undirected
+# imaginary-coherency content, plus the directed Granger and transfer-entropy networks tried
+# afterward, all ended up as supplements too (all three came back null at the group level) --
+# folder renamed twice, now lfp_lfp_connectivity_supplement/. fig05's actual headline is now
+# the area x band GLMM in fig05_v1_area_hierarchy_glmm/ (not referenced via F5/F6 below --
+# it isn't a panel-assembly supplement, it's the main figure itself).
+F5 = "band_power_hierarchy_supplement/svg"
+F6 = "lfp_lfp_connectivity_supplement/svg"
 F7 = "fig07_lfp_spike_coupling/svg"
+F5B = "fig05_v1_area_hierarchy_glmm/svg"   # the current fig05's own supplement content
 
 # (number, slug, panel patterns in reading order, columns, caption[, width_pt])
 # Patterns are globs resolved against this directory; each pattern may match several panels.
@@ -103,17 +111,64 @@ PLAN = [
      [f"{F3}/fig03_p3_template_trace_rxrr.svg"], 1,
      "The seven-class RXRR full-trial template trace at full width, for reading the O++ "
      "trace (n = 3) against its SEM band."),
-    (22, "coupling_stimulus_window", [f"{F6}/fig06_stimulus_matrices.svg"], 1,
+    (22, "coupling_stimulus_window", [f"{F6}/supp_coherency_stimulus_matrices.svg"], 1,
      "LFP-LFP imaginary-coherency matrices during the stimulus window (p1, present in every "
      "condition) -- the main figure shows the omission window (RXRR, p2) only."),
     (23, "spike_field_coupling_stimulus_window", [f"{F7}/fig07_stimulus_ppc.svg"], 1,
      "Spike-LFP PPC during the stimulus window (p1, present in every condition) -- the main "
      "figure shows the omission window (RXRR, p2) only."),
+    # 2026-08-04: fig04's six-area (V2/V4/MT/MST/FST/FEF) RXRR-vs-RRRR supplement panels and
+    # the ten-area slot-pooled omission-vs-stimulus supplement -- both built same day, found
+    # unregistered during a reproducibility/organization audit (both existed on disk with real
+    # receipts but this PLAN never named them, so the cleanup step above would never have
+    # deleted them only because their filenames don't collide with any current_names entry --
+    # unlike figS24/v182o they were never at risk of deletion, just never assembled into a
+    # numbered supplement a reader could find).
+    (25, "six_area_rxrr_spectrograms", [f"{F4}/fig04_supp_*_RXRR_spectrogram.svg"], 2,
+     "RXRR (p2 omitted) spectrograms for the six areas not in figure 4's main V1/V3a-d/TEO/PFC "
+     "grid: V2, V4, MT, MST, FST, FEF. FST has only 2 sessions -- illustrative, not a "
+     "population estimate."),
+    (26, "six_area_rrrr_spectrograms", [f"{F4}/fig04_supp_*_RRRR_spectrogram.svg"], 2,
+     "RRRR (p2 real) spectrograms for the same six areas, same caveat on FST."),
+    (27, "six_area_rxrr_traces", [f"{F4}/fig04_supp_*_RXRR_trace.svg"], 2,
+     "RXRR (p2 omitted) band-power traces for the same six areas, precision-weighted SEM "
+     "across sessions (see fig04's own README)."),
+    (28, "six_area_rrrr_traces", [f"{F4}/fig04_supp_*_RRRR_trace.svg"], 2,
+     "RRRR (p2 real) band-power traces for the same six areas."),
+    (29, "slotpooled_omission_vs_stimulus_all_areas",
+     [f"{F4}/fig04_supp_slotpooled_*.svg"], 2,
+     "All ten areas, slot-pooled omission (all nine omission conditions, aligned to the "
+     "omitted slot) vs. matched real-stimulus (aligned to the same three slot positions) band "
+     "power. Separate from figure 4's own p1-aligned, p2-only RXRR/RRRR design -- see "
+     "fig04_v1_pfc_condition_tfr/README.md's slot-aligned supplement section.", LANDSCAPE),
+    (30, "coupling_omission_window", [f"{F6}/supp_coherency_omission_matrices.svg"], 1,
+     "LFP-LFP imaginary-coherency matrices during the omission window (RXRR, p2) -- this was "
+     "the main figure before 2026-08-04's redesign (see "
+     "lfp_lfp_connectivity_supplement/README.md); "
+     "0/240 area-pair x band cells survive correction here, reported as a real null, not a "
+     "finding."),
+    (31, "pairwise_area_band_glmm_omission", [f"{F5B}/fig05_supp_pairwise_omission.svg"], 1,
+     "All C(10,2)=45 area pairs x 5 bands, from the same Model F fit as figure 5's main "
+     "vs-V1 heatmap -- 8/225 survive Holm-Bonferroni, 34/225 survive BH-FDR. See "
+     "fig05_v1_area_hierarchy_glmm/README.md."),
 ]
 
 # Supplements that cannot be built because their figure has no analysis yet.
 PENDING = {
 }
+
+# Supplements NOT assembled by this script -- self-contained generators that write directly
+# into supplements/ (own script, own receipt), a different architecture from "panel drawn by a
+# figNN_*.py script, assembled here." The cleanup step below matches on the "figS*" glob, which
+# is broad enough to also match these -- without this allowlist it would delete figS24's own
+# generating .py script along with its outputs, and the v182o supplement's files, on every
+# non---list run. Found 2026-08-04 during a reproducibility/organization audit: confirmed by
+# tracing the exact glob against the files actually on disk, not assumed. Add a filename PREFIX
+# here (not full names) so any file belonging to that supplement survives cleanup.
+PRESERVE_PREFIXES = (
+    "figS24_omission_identity_decoding",   # supplements/figS24_omission_identity_decoding.py
+    "figS_v182o_condition_bandtraces",      # scripts/plot_v182o_condition_bandtraces.py
+)
 
 
 def resolve(patterns):
@@ -137,9 +192,13 @@ def main():
         current_names = {f"figS{num:02d}_{slug}.svg" for num, slug, *_ in PLAN}
         current_names |= {f"figS{num:02d}_{slug}.png" for num, slug, *_ in PLAN}
         for existing in glob.glob(os.path.join(OUT, "figS*")):
-            if os.path.basename(existing) not in current_names:
-                os.remove(existing)
-                print(f"  removed stale  {os.path.basename(existing)}")
+            base = os.path.basename(existing)
+            if base in current_names:
+                continue
+            if base.startswith(PRESERVE_PREFIXES):
+                continue
+            os.remove(existing)
+            print(f"  removed stale  {base}")
 
     built, skipped = [], []
     for num, slug, pats, ncol, caption, *rest in PLAN:

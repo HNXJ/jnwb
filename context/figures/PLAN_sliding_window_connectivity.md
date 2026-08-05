@@ -1,9 +1,12 @@
 # Plan (not started): sliding-window connectivity, LFP-LFP and spike-LFP
 
 **Status: locked as a plan on 2026-07-30, explicitly deferred by the user until figures 1-5 are
-reviewed as finalized.** No code exists for this yet. Referenced from both
-`fig06_band_power_coupling/README.md` and `fig07_lfp_spike_coupling/README.md` rather than
-duplicated in each, since it applies identically to both.
+reviewed as finalized.** No code exists for this yet. Originally referenced from
+`fig06_band_power_coupling/README.md` and `fig07_lfp_spike_coupling/README.md`; that folder was
+renumbered to `fig05_lfp_lfp_coupling/` on 2026-08-04 (its undirected-coupling content, this
+plan's original LFP-LFP half, now lives in `fig05_lfp_lfp_coupling/supp_lfp_lfp_coherency.py`)
+— this plan applies identically to whichever script ends up owning LFP-LFP and spike-LFP
+coupling, not duplicated in each.
 
 ## The core insight: RXRR, RRXR, RRRX share a common realignable sub-sequence
 
