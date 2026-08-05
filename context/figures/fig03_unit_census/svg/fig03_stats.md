@@ -130,6 +130,20 @@ Notes:
 
 - **presence** -- descriptive: unit is the unit of inference; 8592/8592 units had a resolvable stable/unstable/mua label (see attach_stability)
 
+## Family: fig03_peak_rate
+
+1 test corrected together.
+
+| Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
+|---|---|---|---|---|---|---|---|---|---|---|
+| peak_rate | area predicts peak firing-rate composition | chi-square of independence | chi2 = 887.037 | 32 | 8592 | unit * | Cramer's V = 0.161 | < 1e-4 | < 1e-4 | < 1e-4 |
+
+\* descriptive: the unit of inference does not support a population claim.
+
+Notes:
+
+- **peak_rate** -- descriptive: unit is the unit of inference; peak is the max mean rate in any 1-second sliding window of the trial-averaged PSTH, maximized over all 12 GLO conditions; 8592/8592 units had a resolvable peak
+
 ## Family: fig03_rxrr_trace
 
 1 test corrected together.

@@ -53,7 +53,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, r"D:/workspace/omission")
 from figstyle import (AREA_COLORS, AREA_ORDER, CLASS_COLORS, CLASS_ORDER, FULL_TRIAL_WIN,
-                      clopper_pearson, full_trial_ticks, mark_full_trial_axis, save,
+                      STIM_MS, clopper_pearson, full_trial_ticks, mark_full_trial_axis, save,
                       use_house_style)
 from svgassemble import assemble
 from figstats import (contingency, correlation, correlation_with_shuffle_null, group_location,
@@ -61,7 +61,7 @@ from figstats import (contingency, correlation, correlation_with_shuffle_null, g
                       write)
 
 import jnwb as oa
-from jnwb.unit_classification import EPOCH_ONSETS_MS, precompute_condition_onsets
+from jnwb.unit_classification import EPOCH_ONSETS_MS, GLO_CONDITIONS, precompute_condition_onsets
 
 TABLE = r"D:/workspace/omission/outputs/classification/omission_grand_units.csv"
 LEGACY_TABLE = r"D:/workspace/omission/outputs/classification/grand_s_and_o_units.csv"
@@ -312,14 +312,18 @@ def panel_area_by_question(df, alpha):
 
 
 def _stacked_pct(ax, areas, counts_by_area, order, colors, ylabel, mark_areas=None,
-                 mark_label=None, show_segment_n=False, legend_loc="bottom"):
+                 mark_label=None, show_segment_n=False, legend_loc="bottom",
+                 legend_show_total=False):
     """100%-stacked composition bars: one bar per area, one segment per class in `order`.
 
     `mark_areas` draws a red star above the named bars and adds `mark_label` to the legend --
     used to flag which areas contain the class a viewer would otherwise not be able to see
     (a segment can be too thin at this scale to read, e.g. 1-2 O++ units in a bar of hundreds).
     `show_segment_n` prints each segment's raw unit count centered inside it (skipped for
-    segments too thin to hold readable text).
+    segments too thin to hold readable text). `legend_show_total` appends each class's total
+    unit count, pooled across every area plotted here, to its legend label -- e.g. "O++
+    (n=15)" -- so the legend states the corpus-wide N behind a class alongside its colour, not
+    just its per-area, per-bar share.
     """
     x = np.arange(len(areas))
     bottom = np.zeros(len(areas))
@@ -328,8 +332,9 @@ def _stacked_pct(ax, areas, counts_by_area, order, colors, ylabel, mark_areas=No
         raw = np.array([counts_by_area[a].get(cls, 0) for a in areas])
         vals = np.array([100.0 * counts_by_area[a].get(cls, 0) / t if t else 0.0
                          for a, t in zip(areas, totals)])
+        label = f"{cls} (n={int(raw.sum())})" if legend_show_total else cls
         ax.bar(x, vals, bottom=bottom, color=colors[cls], edgecolor="white", linewidth=0.4,
-              label=cls, zorder=3)
+              label=label, zorder=3)
         if show_segment_n:
             for xi, (v, n) in enumerate(zip(vals, raw)):
                 if v >= 6:
@@ -353,12 +358,16 @@ def _stacked_pct(ax, areas, counts_by_area, order, colors, ylabel, mark_areas=No
                        fontweight="bold", zorder=5)
         handles.append(plt.Line2D([0], [0], marker="*", color="red", lw=0, markersize=9))
         labs.append(mark_label or "marked")
+    # Cap columns at 6 so a long class list (e.g. the 10-entry composition8 legend, longer
+    # still once legend_show_total appends "(n=...)" to every label) wraps onto a second row
+    # instead of running past the figure's right edge and getting silently clipped there.
+    ncol = min(len(labs), 6)
     if legend_loc == "top":
-        ax.legend(handles, labs, fontsize=6.5, ncol=len(labs), loc="lower center",
+        ax.legend(handles, labs, fontsize=6.5, ncol=ncol, loc="lower center",
                  bbox_to_anchor=(0.5, 1.10), frameon=False, columnspacing=0.9,
                  handlelength=1.1)
     else:
-        ax.legend(handles, labs, fontsize=6.5, ncol=len(labs), loc="upper center",
+        ax.legend(handles, labs, fontsize=6.5, ncol=ncol, loc="upper center",
                  bbox_to_anchor=(0.5, -0.22), frameon=False, columnspacing=0.9,
                  handlelength=1.1)
     ax.grid(axis="y", ls=":", alpha=0.5, zorder=0)
@@ -382,7 +391,7 @@ def panel_presence_by_area(dfp):
     fig, ax = plt.subplots(figsize=(6.4, 2.75))
     _stacked_pct(ax, areas, counts, PRESENCE3_ORDER, PRESENCE3_COLORS,
                 "Presence composition (% of area's units)", show_segment_n=True,
-                legend_loc="top")
+                legend_loc="top", legend_show_total=True)
     fig.tight_layout(rect=[0, 0.01, 1, 0.86])
     return fig, counts, areas
 
@@ -414,11 +423,11 @@ def panel_composition8_by_area(df8, screened_col="legacy_screened"):
     has_opp = [a for a in areas if counts[a].get("O++", 0) > 0]
     class8_order_disp = [c if c != "Null" else "Other" for c in CLASS8_ORDER]
     class8_colors_disp = {(c if c != "Null" else "Other"): v for c, v in CLASS8_COLORS.items()}
-    fig, ax = plt.subplots(figsize=(7.0, 3.15))
+    fig, ax = plt.subplots(figsize=(7.0, 3.55))
     _stacked_pct(ax, areas, counts, class8_order_disp, class8_colors_disp,
                 "Composition (% of legacy-screened units)", mark_areas=has_opp,
-                mark_label="contains ≥ 1 O++ unit")
-    fig.tight_layout(rect=[0, 0.01, 1, 0.94])
+                mark_label="contains ≥ 1 O++ unit", legend_show_total=True)
+    fig.tight_layout(rect=[0, 0.09, 1, 0.94])
     return fig, counts, areas
 
 
@@ -428,7 +437,7 @@ def panel_layer_by_area(dfl):
     counts = {a: dfl.loc[dfl.area10 == a, "layer3"].value_counts().to_dict() for a in areas}
     fig, ax = plt.subplots(figsize=(6.4, 3.4))
     _stacked_pct(ax, areas, counts, LAYER3_ORDER, LAYER3_COLORS,
-                "Layer composition (% of area's units)")
+                "Layer composition (% of area's units)", legend_show_total=True)
     ax.set_title("Null = vFLIP 'mid', unresolved ('na'), or no unit_layers.csv match; see "
                  "the receipt for the match rate", fontsize=7.2, pad=8)
     fig.tight_layout(rect=[0, 0.02, 1, 0.98])
@@ -579,6 +588,104 @@ def panel_group_traces(ctr, mu, sem, ns):
     return fig
 
 
+# Per-area peak instantaneous firing-rate composition: for each screened unit, the maximum
+# mean rate in any 1-second sliding window of its trial-averaged PSTH, maximized across all
+# 12 GLO_CONDITIONS (not pooled -- a unit that only fires briefly in one condition's stimulus
+# window is still credited with its true peak). Class boundaries as specified by the user.
+PEAK_BIN_MS = 25
+PEAK_WINDOW_MS = 1000
+SPEED_ORDER = ["slow", "moderate-slow", "moderate", "moderate-fast", "fast"]
+SPEED_EDGES = [0.0, 1.0, 5.0, 10.0, 25.0, np.inf]     # left-closed: [edge_i, edge_i+1)
+SPEED_LABELS = {"slow": "slow (<1 Hz)", "moderate-slow": "moderate-slow (1-5 Hz)",
+                "moderate": "moderate (5-10 Hz)", "moderate-fast": "moderate-fast (10-25 Hz)",
+                "fast": "fast (≥25 Hz)"}
+SPEED_COLORS = {"slow": "#FFFFB2", "moderate-slow": "#FECC5C", "moderate": "#FD8D3C",
+                "moderate-fast": "#F03B20", "fast": "#BD0026"}
+
+
+def compute_peak_rate_by_unit(df):
+    """Per-unit peak instantaneous firing rate across all 12 GLO conditions.
+
+    For each of the 12 GLO_CONDITIONS separately (not pooled), builds that unit's
+    trial-averaged PSTH over the full trial window (_psth, same binning as the population
+    traces above), then slides a 1-second window across it and takes the mean rate in that
+    window. The unit's peak is the max of that sliding-window mean over every window in every
+    condition -- so a unit whose only strong response is a brief burst in one condition (e.g.
+    RXRR's omitted slot) is still credited with its true peak, not diluted by pooling across
+    conditions where it fires normally or not at all.
+
+    One NWB load per session (spike times + condition onsets), touching every unit in `df`
+    directly, same session-batched pattern as compute_population_psth. Returns a Series aligned
+    to df.index (NaN where the unit's session NWB is missing or has no trials in any of the 12
+    conditions) and the count of units skipped for that reason.
+    """
+    bin_win = int(round(PEAK_WINDOW_MS / PEAK_BIN_MS))
+    peak = pd.Series(np.nan, index=df.index, dtype=float)
+    n_no_trials = 0
+
+    for sess_id, g in df.groupby("session"):
+        path = os.path.join(NWB_DIR, sess_id + "_rec.nwb")
+        if not os.path.exists(path):
+            path = os.path.join(NWB_DIR, sess_id + ".nwb")
+        if not os.path.exists(path):
+            continue
+        sess = oa.read(path)
+        on = precompute_condition_onsets(sess, correct_only=True)
+        cond_onsets = {c: np.sort(np.asarray(on.get(c, []), float)) for c in GLO_CONDITIONS}
+        if not any(o.size for o in cond_onsets.values()):
+            n_no_trials += len(g)
+            continue
+        for idx, row in g.iterrows():
+            st = np.sort(np.asarray(sess.get_spike_times(int(row.unit_row)), float))
+            best = 0.0
+            for onsets in cond_onsets.values():
+                if onsets.size == 0:
+                    continue
+                trace = _psth(st, onsets, FULL_TRIAL_WIN, PEAK_BIN_MS)
+                if trace.size < bin_win or not np.isfinite(trace).any():
+                    continue
+                trace = np.nan_to_num(trace, nan=0.0)
+                csum = np.cumsum(np.insert(trace, 0, 0.0))
+                win_mean = (csum[bin_win:] - csum[:-bin_win]) / bin_win
+                if win_mean.size:
+                    best = max(best, float(win_mean.max()))
+            peak.loc[idx] = best
+    return peak, n_no_trials
+
+
+def panel_peak_rate_by_area(df, peak_col="peak_hz"):
+    """peak-rate | per-area composition by peak instantaneous firing-rate class.
+
+    Classes: slow (<1 Hz), moderate-slow (1-5 Hz), moderate (5-10 Hz), moderate-fast
+    (10-25 Hz), fast (>=25 Hz) -- boundaries as specified by the user, left-closed
+    (`right=False` in the pd.cut call, so a unit peaking at exactly 1.000 Hz falls in
+    moderate-slow, not slow). Restricted to units with a resolvable peak (dropna), same
+    population as panel c (all screened units, not the legacy-screened subset panels e/h/
+    template-trace use).
+    """
+    d = df.dropna(subset=[peak_col]).copy()
+    d["speed_class"] = pd.cut(d[peak_col], bins=SPEED_EDGES, labels=SPEED_ORDER, right=False)
+    d["area_m"] = d.area10.replace(AREA_MERGE_MST_FST)
+    areas = [AREA_MERGE_MST_FST.get(a, a) for a in AREA_ORDER if a != "FST"]
+    areas = [a for a in areas if (d.area_m == a).any()]
+    counts = {a: d.loc[d.area_m == a, "speed_class"].value_counts().to_dict() for a in areas}
+    fig, ax = plt.subplots(figsize=(6.6, 2.9))
+    _stacked_pct(ax, areas, counts, SPEED_ORDER, SPEED_COLORS,
+                "Peak-rate composition (% of area's units)")
+    # Replace the legend text with the full band description + pooled N -- computed here from
+    # `counts` rather than inside _stacked_pct's generic legend_show_total, since these labels
+    # need the descriptive band text, not just the short SPEED_ORDER key.
+    totals = {c: sum(counts[a].get(c, 0) for a in areas) for c in SPEED_ORDER}
+    handles, _ = ax.get_legend_handles_labels()
+    new_labels = [f"{SPEED_LABELS[c]} (n={totals[c]})" for c in SPEED_ORDER]
+    ax.legend(handles, new_labels, fontsize=6.2, ncol=len(new_labels), loc="upper center",
+             bbox_to_anchor=(0.5, -0.26), frameon=False, columnspacing=0.7, handlelength=1.1)
+    ax.set_title(f"Peak = max mean rate in any 1-second sliding window, any of the "
+                f"{len(GLO_CONDITIONS)} GLO conditions, per unit", fontsize=8)
+    fig.tight_layout(rect=[0, 0.01, 1, 0.98])
+    return fig, counts, areas
+
+
 # The order the user specified for the RXRR template trace -- 7 of the 8 CLASS8 buckets,
 # O-- omitted (4 units corpus-wide; too few for a population trace to mean anything and it is
 # not requested).
@@ -603,20 +710,76 @@ S_SMOOTH_SIGMA = 3.0
 O_SMOOTH_SIGMA = 6.0
 
 
+def _schematic_curve(t_ms, slot_centers_ms, width_ms, amp, baseline=0.5):
+    """Sum of Gaussian bumps (amp > 0) or dips (amp < 0) centered on `slot_centers_ms`, added
+    to a flat `baseline` and clipped to [0, 1]. Used only by the idealized schematic panel --
+    never fit to or read from data."""
+    y = np.full_like(t_ms, baseline, dtype=float)
+    for c in slot_centers_ms:
+        y = y + amp * np.exp(-0.5 * ((t_ms - c) / width_ms) ** 2)
+    return np.clip(y, 0.0, 1.0)
+
+
+def panel_ideal_template_schematic(ax):
+    """SCHEMATIC, not data -- an idealized key for what each class label means as a shape.
+
+    A reader unfamiliar with the classifier can look at this panel first and then read the two
+    real-data panels beside it: S+/S- are defined by their response to every REAL stimulus
+    presentation (bumps/dips at p1, p3, p4 -- p2 is the omitted slot in RXRR, so it carries no
+    real-stimulus response), while O+/O++ are defined by a response specifically AT the omitted
+    slot and nowhere else, with O++ requiring the additional within-slot ramp that makes it a
+    sharper, taller idealized bump than O+. These are hand-specified Gaussian bumps/dips on a
+    flat 0.5 a.u. baseline (`_schematic_curve`), not fit to or derived from any unit's spike
+    train -- see the panel's own title and this docstring before citing a shape from it.
+    """
+    t = np.linspace(FULL_TRIAL_WIN[0], FULL_TRIAL_WIN[1], 600)
+    real_stim_mid = [EPOCH_ONSETS_MS[f"p{k}"] + STIM_MS / 2.0 for k in (1, 3, 4)]  # p2 omitted
+    omit_mid = [EPOCH_ONSETS_MS["p2"] + STIM_MS / 2.0]
+    curves = {"S+": _schematic_curve(t, real_stim_mid, 170.0, +0.42),
+              "S-": _schematic_curve(t, real_stim_mid, 170.0, -0.42),
+              "O+": _schematic_curve(t, omit_mid, 170.0, +0.30),
+              "O++": _schematic_curve(t, omit_mid, 100.0, +0.46)}
+    ticks, labels = full_trial_ticks()
+    for c in ("S+", "S-", "O+", "O++"):
+        ax.plot(t, curves[c], color=CLASS8_COLORS[c], lw=1.8, label=c, zorder=3)
+    ax.axhline(0.5, color=CLASS8_COLORS["Null"], lw=1.2, ls="--", zorder=2,
+              label="Null (baseline)")
+    mark_full_trial_axis(ax, FULL_TRIAL_WIN, omit_slot=2)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(labels, rotation=55, fontsize=6, ha="right")
+    ax.set_ylabel("Rate (a.u.)")
+    ax.set_ylim(-0.05, 1.05)
+    # ncol=3 (2 rows for 5 entries), matching the other two subplots' 2-row legend height.
+    # bbox_to_anchor y=-0.62, not -0.30: the rotated (55 deg) tick labels below this axis
+    # extend down roughly 0.3 of the axes fraction on their own (found by rendering and
+    # cropping -- -0.30 put the legend's top row directly on top of them), so the legend
+    # needs to clear that band, not start where it begins.
+    ax.legend(fontsize=7, frameon=False, ncol=3, loc="upper center",
+             bbox_to_anchor=(0.5, -0.62), columnspacing=0.9, handlelength=1.2)
+    ax.set_title("SCHEMATIC — idealized, not measured", fontsize=8, color="#B30000",
+                fontweight="bold")
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+
+
 def panel_template_trace_rxrr(ctr, mu, sem, ns):
     """template trace | mean firing rate, full trial, RXRR only -- what the average unit of
-    each class actually looks like across a whole trial. Two side-by-side subplots: S-family
-    (S++ pooled into S+, S-- pooled into S-) on the left, O-family (O-/O+/O++) on the right
-    with a flat dashed reference line at 0.5 a.u. standing in for Null (not a real Null
-    population trace -- a neutral reference the O-family lines are read against). `mu`/`ns`
-    are keyed by the pooled classes (see TRACE_ORDER_MERGED / attach_stability call site).
+    each class actually looks like across a whole trial. Three subplots: an idealized
+    SCHEMATIC key (panel_ideal_template_schematic -- hand-specified, not data, see its own
+    docstring) on the left, then S-family (S++ pooled into S+, S-- pooled into S-) in the
+    middle, then O-family (O-/O+/O++) on the right with a flat dashed reference line at 0.5
+    a.u. standing in for Null (not a real Null population trace -- a neutral reference the
+    O-family lines are read against). `mu`/`ns` are keyed by the pooled classes (see
+    TRACE_ORDER_MERGED / attach_stability call site) and only feed the two real-data subplots.
 
-    Traces only, no SEM band -- each class's mean trace is Gaussian-smoothed (sigma = 3 bins,
-    ~75 ms, for S-family; 6 bins, ~150 ms, for O-family, whose small n makes it noisier) then
-    min-max scaled to [0, 1] (a.u.) so that shape/timing, not absolute rate or bin-to-bin
-    noise, is what's compared across classes of very different firing rates on one shared axis.
+    Real-data traces only, no SEM band -- each class's mean trace is Gaussian-smoothed (sigma
+    = 3 bins, ~75 ms, for S-family; 6 bins, ~150 ms, for O-family, whose small n makes it
+    noisier) then min-max scaled to [0, 1] (a.u.) so that shape/timing, not absolute rate or
+    bin-to-bin noise, is what's compared across classes of very different firing rates on one
+    shared axis.
     """
-    fig, (axL, axR) = plt.subplots(1, 2, figsize=(9.4, 2.7))
+    fig, (axS0, axL, axR) = plt.subplots(1, 3, figsize=(13.6, 3.5))
+    panel_ideal_template_schematic(axS0)
     ticks, labels = full_trial_ticks()
     for ax, order, sigma in ((axL, S_TRACE_ORDER, S_SMOOTH_SIGMA),
                              (axR, O_TRACE_ORDER, O_SMOOTH_SIGMA)):
@@ -634,12 +797,21 @@ def panel_template_trace_rxrr(ctr, mu, sem, ns):
         mark_full_trial_axis(ax, FULL_TRIAL_WIN, omit_slot=2)
         ax.set_xticks(ticks)
         ax.set_xticklabels(labels, rotation=55, fontsize=6, ha="right")
+        # Same -0.62 clearance as the schematic subplot's legend -- see that call's comment.
         ax.legend(fontsize=7, frameon=False, ncol=2, loc="upper center",
-                 bbox_to_anchor=(0.5, -0.30), columnspacing=0.9, handlelength=1.2)
+                 bbox_to_anchor=(0.5, -0.62), columnspacing=0.9, handlelength=1.2)
         for s in ("top", "right"):
             ax.spines[s].set_visible(False)
     axL.set_ylabel("Rate (a.u., per-class min-max)")
-    fig.tight_layout(rect=[0.02, 0.07, 1, 0.93])
+    axL.set_title("S-family (real data, RXRR)", fontsize=8)
+    axR.set_title("O-family (real data, RXRR)", fontsize=8)
+    # subplots_adjust, not tight_layout: tight_layout refused to expand the bottom margin far
+    # enough for the rotated tick labels plus a legend below them (silently no-ops with a
+    # UserWarning when it can't, leaving the legend positioned past the canvas edge and
+    # invisible in the saved file -- found by rendering this panel standalone and checking).
+    # An explicit fixed margin, sized for this panel's known content, doesn't have that
+    # failure mode.
+    fig.subplots_adjust(left=0.035, right=0.99, top=0.88, bottom=0.44, wspace=0.22)
     return fig
 
 
@@ -690,10 +862,16 @@ def main():
     fig = panel_group_traces(ctr, mu, sem, ns5)
     made["h"] = save(fig, FIG_DIR, "fig03_h_group_traces"); plt.close(fig)
 
-    # ---- the three panels the current main figure is built from ------------------------
+    # ---- the four panels the current main figure is built from -------------------------
     df_stab, stable_table_n, presence_n = attach_stability(df)
     fig, presence_counts, presence_areas = panel_presence_by_area(df_stab)
     made["p1"] = save(fig, FIG_DIR, "fig03_p1_presence_by_area"); plt.close(fig)
+
+    peak_hz, n_no_peak_trials = compute_peak_rate_by_unit(df)
+    df_peak = df.copy()
+    df_peak["peak_hz"] = peak_hz
+    fig, peak_counts, peak_areas = panel_peak_rate_by_area(df_peak)
+    made["p2"] = save(fig, FIG_DIR, "fig03_p2_peak_rate_by_area"); plt.close(fig)
 
     d8 = df_legacy[df_legacy.legacy_screened].copy()
     d8["class8"] = class8(d8)
@@ -704,7 +882,7 @@ def main():
     fig = panel_template_trace_rxrr(ctr8, mu8, sem8, ns8)
     made["p3"] = save(fig, FIG_DIR, "fig03_p3_template_trace_rxrr"); plt.close(fig)
 
-    out, w, h = assemble([made["p1"], made["e"], made["p3"]],
+    out, w, h = assemble([made["p1"], made["e"], made["p2"], made["p3"]],
                          os.path.join(HERE, "fig03.svg"), ncol=1, gap=1.0, label_inset=True)
     print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
 
@@ -805,6 +983,18 @@ def main():
                                   f"{presence_n}/{n_units} units had a resolvable "
                                   "stable/unstable/mua label (see attach_stability)"))
 
+    # peak-rate: does area predict the peak-firing-rate speed-class composition.
+    tablepk = np.array([[peak_counts[a].get(c, 0) for c in SPEED_ORDER] for a in peak_areas])
+    stats.append(contingency(tablepk, "fig03", "peak_rate", "area predicts peak firing-rate "
+                             "composition", "unit", "fig03_peak_rate", rows=peak_areas,
+                             cols=SPEED_ORDER,
+                             note="descriptive: unit is the unit of inference; peak is the max "
+                                  "mean rate in any 1-second sliding window of the "
+                                  f"trial-averaged PSTH, maximized over all {len(GLO_CONDITIONS)} "
+                                  "GLO conditions; "
+                                  f"{int(df_peak.peak_hz.notna().sum())}/{n_units} units had a "
+                                  "resolvable peak"))
+
     # RXRR template trace: an omnibus across the five pooled functional classes (S++/S--
     # merged into S+/S-) on each unit's own q1_effect_hz, restricted to RXRR trials and the
     # legacy-screened population behind the trace itself -- the same test panel h runs.
@@ -887,8 +1077,24 @@ def main():
         "main_figure_panels": ["presence-per-area (stable/unstable/mua)",
                                "functionality-per-area (S++/S+/S-/S--/O-/O++/O+/O++/Null, "
                                "MST+FST merged, O++-containing areas starred)",
+                               "peak-rate-per-area (slow/moderate-slow/moderate/"
+                               "moderate-fast/fast, max mean rate in any 1-second sliding "
+                               f"window across all {len(GLO_CONDITIONS)} GLO conditions)",
                                "template trace S+/S-/O-/O+/O++ (S++ pooled into S+, S-- "
-                               "pooled into S-), RXRR only, full trial"],
+                               "pooled into S-), RXRR only, full trial, plus an idealized "
+                               "SCHEMATIC key subplot (not data)"],
+        "peak_rate_by_area": {
+            "method": "per unit: trial-averaged PSTH per GLO condition (25 ms bins, full "
+                      "trial window), 1-second sliding-window mean rate, max over all windows "
+                      f"and all {len(GLO_CONDITIONS)} conditions",
+            "conditions": list(GLO_CONDITIONS), "bin_ms": PEAK_BIN_MS,
+            "window_ms": PEAK_WINDOW_MS,
+            "speed_class_edges_hz": {"slow": "[0, 1)", "moderate-slow": "[1, 5)",
+                                     "moderate": "[5, 10)", "moderate-fast": "[10, 25)",
+                                     "fast": "[25, inf)"},
+            "units_evaluable_of_grand": int(df_peak.peak_hz.notna().sum()),
+            "n_units_no_glo_trials": int(n_no_peak_trials),
+            "speed_class_counts_by_area": peak_counts},
         "rxrr_template_trace": {
             "condition": "RXRR only", "window_ms": list(FULL_TRIAL_WIN), "bin_ms": PSTH_BIN_MS,
             "alignment": "p1 onset (t = 0), omitted slot is p2",
@@ -906,6 +1112,8 @@ def main():
     print("composition8 areas:", comp8_areas)
     print("layer3 areas:", layer_areas)
     print("presence3 areas:", presence_areas, "evaluable:", presence_n, "/", n_units)
+    print("peak-rate areas:", peak_areas, "evaluable:", int(df_peak.peak_hz.notna().sum()),
+         "/", n_units, "no-GLO-trial units:", n_no_peak_trials)
     print("stim/omission corr: rho=%.3f p_analytic=%.3g p_shuffle=%.3g" %
          (corr_res.statistic, corr_res.p, corr_res.extra["p_shuffle"]))
     print("group trace n:", ns5, "no-omission units skipped:", n_no_omission)

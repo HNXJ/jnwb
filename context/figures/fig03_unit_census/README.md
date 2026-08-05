@@ -27,29 +27,64 @@ framing without re-checking `svg/fig03_stats.md` first.
 
 ## Methodology
 
-**Main figure — exactly three panels, in this order:**
+**Main figure — four panels, in this order (2026-08-04 revision, see below):**
 
 1. **Presence-per-area** — stable/unstable/mua, 100%-stacked, restricted to units with a
-   resolvable presence label (`presence_evaluable`, 7,502/8,592).
+   resolvable presence label (`presence_evaluable`, 8,592/8,592 as of the current
+   `unit_trial_presence.csv`). Legend states each class's pooled N across areas
+   (`legend_show_total`), e.g. "stable (n=2611)".
 2. **Functionality-per-area** — S++/S+/S-/S--/O-/O--/O+/O++/Null, 100%-stacked, restricted to
    the 2,921 legacy-screened units. MST and FST are merged into one bar (FST alone is 11 units).
    Any area with at least one O++ unit — too thin a segment to see at this scale — is marked
-   with a red asterisk and a matching legend entry (V4, FEF, PFC in this corpus).
-3. **RXRR template trace** — population PSTH (mean ± SEM) for S++/S+/S-/S--/O-/O+/O++ (O--
-   excluded, 4 units corpus-wide), RXRR trials only, full trial (p1 onset to trial end), same
-   legacy-screened restriction. Shares `compute_population_psth()` with panel h's 5-class,
-   omission-aligned, all-conditions-pooled version — one NWB-traversal implementation, not two.
+   with a red asterisk and a matching legend entry (V4, FEF, PFC in this corpus). Legend states
+   each class's pooled N, e.g. "O++ (n=15)"; wraps onto two rows (10 legend entries no longer
+   fits one row once every label carries an N — see `_stacked_pct`'s `ncol` cap).
+3. **Peak-rate-per-area** (new 2026-08-04) — per-unit peak instantaneous firing rate, 100%-
+   stacked into five classes: slow (<1 Hz), moderate-slow (1-5 Hz), moderate (5-10 Hz),
+   moderate-fast (10-25 Hz), fast (≥25 Hz). Peak = the max mean rate in any 1-second sliding
+   window of the unit's trial-averaged PSTH, maximized over all 12 `GLO_CONDITIONS` (not
+   pooled) — see `compute_peak_rate_by_unit()`. Restricted to all 8,592 screened units (same
+   population as panel c), not the legacy-screened subset panels 2/4 use.
+4. **RXRR template trace** — three subplots: an idealized **SCHEMATIC** key (new 2026-08-04,
+   `panel_ideal_template_schematic()` — hand-specified Gaussian bumps/dips on a flat baseline,
+   explicitly labeled "idealized, not measured" in red on the panel itself, NOT derived from
+   any unit's spike train) explaining what S+/S-/O+/O++ mean as instantaneous-firing-rate
+   shapes, then the real population PSTH (mean, min-max scaled) for S++/S+/S-/S--/O-/O+/O++
+   (O-- excluded, 4 units corpus-wide) split into S-family and O-family subplots, RXRR trials
+   only, full trial (p1 onset to trial end), same legacy-screened restriction. Shares
+   `compute_population_psth()` with panel h's 5-class, omission-aligned, all-conditions-pooled
+   version — one NWB-traversal implementation, not two.
 
 Panels a, c, d, f, g, h (four-question census, area chi-square/trend, waveform-type split,
 sup/deep/Null layer composition, firing-rate/omission-effect correlation with its shuffle null,
 and the 5-class omission-aligned PSTH) are unchanged but supplement-only — see `figS20`/`figS21`.
 
+### 2026-08-04 revision
+
+Three changes requested in review: (1) per-class N totals added to the presence,
+functionality, and layer legends; (2) an idealized schematic key added alongside the real
+S-family/O-family RXRR template traces, so a reader unfamiliar with the classifier has a plain
+visual reference for what each class label means as a shape; (3) a new peak-instantaneous-
+firing-rate-by-area panel (5 speed classes, computed across all 12 GLO conditions per unit).
+
+Fixing (1) exposed a legend-overflow bug in the 10-entry functionality-per-area legend (text
+ran past the figure's right edge once every label carried an N) and building (2) exposed a
+**pre-existing** bug in `panel_template_trace_rxrr`'s legend placement, present before this
+revision too: the legend's `bbox_to_anchor` offset (-0.30) didn't clear the rotated (55°) x-tick
+labels below the axis, so the two overlapped. Both are fixed: `_stacked_pct`'s legend now caps
+at 6 columns before wrapping to a second row, and the template-trace panel uses an explicit
+`fig.subplots_adjust` with a much larger bottom margin instead of `fig.tight_layout` (which
+silently refused to expand far enough and left the legend positioned past the canvas edge,
+invisible in the saved file — found by rendering the panel standalone and inspecting the PNG,
+not by reasoning about the layout).
+
 ## Statistics
 
 All in `svg/fig03_stats.md`, one family per panel: `fig03_questions`, `fig03_area`,
 `fig03_type`, `fig03_composition`, `fig03_layer`, `fig03_correlation`, `fig03_traces`,
-`fig03_presence`, `fig03_rxrr_trace`. Each family is corrected together (Holm-Bonferroni and
-Benjamini-Hochberg both reported, never conflated); unit of inference stated per row.
+`fig03_presence`, `fig03_peak_rate`, `fig03_rxrr_trace`. Each family is corrected together
+(Holm-Bonferroni and Benjamini-Hochberg both reported, never conflated); unit of inference
+stated per row.
 
 ## History
 
