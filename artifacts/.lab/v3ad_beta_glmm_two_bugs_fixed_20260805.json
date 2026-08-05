@@ -1,0 +1,46 @@
+{
+  "id": "v3ad_beta_glmm_two_bugs_fixed_20260805",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "V3a/d beta vs V1: two real bugs found and fixed in fit_omission_band_power_glmm.py; properly subject-controlled full-corpus result IS significant (+1.11 dB, q_BH=0.0147)",
+  "status": "confirmed",
+  "generated": "2026-08-05T00:00:00Z",
+  "notes": [
+    "Triggered by verifying CLAUDE.md's claim ('V3a/d beta replicated at +1.11 dB on both the 17- and 23-session corpora') before building fig05's headline around it, per the project's own 'no assertion without receipt' rule. That verification found the claim did NOT match either existing analysis output: CONTEXT.md's descriptive area model reports +1.78 dB (confounded with animal, stated explicitly), and the one animal-controlled test (Model D, a single within-subject same-session different-probe contrast, n=5 sessions, V198o only) reports +1.59 dB at P=0.076 -- not significant. Neither matched +1.11 dB.",
+    "BUG 1 (area pooling): fit_omission_band_power_glmm.py's local area_infer pooling dict was {'V3d':'V3a/d','V3a':'V3a/d'} -- missing 'V3' itself. C31o's 5 sessions use the raw unsplit label 'V3' (not yet segmented into V3a/V3d halves) and were silently excluded from the pooled 'V3a/d' area entirely. context/figures/figstyle.py's own AREA_POOL already correctly includes all three ({'V3':'V3a/d','V3a':'V3a/d','V3d':'V3a/d'}) and is used correctly by every fig0N script this session -- this GLMM script had independently reinvented an incomplete version. This is why Model D's within-subject V3-vs-V1V2 contrast could only ever use V198o (5 sessions): C31o's qualifying V3 data was invisible to the area label the contrast searched for.",
+    "BUG 2 (BH correction, more serious): the script's own local bh() function divided by np.arange(n,0,-1) -- pairing the SMALLEST p-value (rank 1) with the LARGEST divisor and the LARGEST p-value (rank n) with the smallest divisor. This is the BH formula backwards: rank i should be multiplied by n/i, so rank 1 (smallest p) should get the LARGEST multiplier (n), not the smallest. Confirmed against context/figures/figstats.py's independently-implemented bh() (used by every fig0N_*.py figure script this entire session, confirmed CORRECT, uses np.arange(1,m+1) -- this bug is scoped to fit_omission_band_power_glmm.py only, does NOT affect any fig02-fig07 statistics produced today). Concretely: before the fix, the smallest p in a 5-band family got q_bh == p_raw (no correction applied at all); the correct value should generally be larger (n/i instead of n/n=1 for the rank-1 item). Fixed to np.arange(1, n+1), matching figstats.py's implementation exactly.",
+    "Added Model F (area effects with subject as an explicit ADDITIVE fixed effect, session-level, full corpus) -- Model C (existing) is confounded-and-descriptive by design; Model D (existing) controls subject perfectly but only for a 5-session subset (recording-design limitation, not fixable by more careful modelling). Model F uses ALL 23 sessions, 3 subjects, following CLAUDE.md's own established doctrine that this corpus's area x subject design is connected (every area recorded in >=2 subjects, V4 alone spans all three) so additive effects are jointly identifiable. MixedLM (REML) converges for low_gamma/high_gamma but hits a singular matrix for theta/alpha/beta (the between-session variance component becomes non-identifiable once area+subject fixed effects already absorb most of the structure) -- falls back to OLS with session-cluster-robust SEs for those three bands, a standard, disclosed alternative (caveat: modestly anti-conservative with only 23 clusters, noted in the model's own output column 'estimator').",
+    "RESULT after both fixes: V3a/d beta vs V1, full corpus (23 sessions, 3 subjects, subject controlled additively): +1.11 dB, p_raw=0.00558, q_BH=0.01468. SIGNIFICANT. Low gamma also survives: +0.34 dB, q_BH=0.01468 (tied with beta after BH's rank-2 adjustment happened to produce the same value). Alpha (+0.75 dB, q_BH=0.129), theta, and high_gamma do not survive.",
+    "This +1.11 dB number for beta essentially matches CLAUDE.md's originally-cited figure exactly -- strongly suggesting CLAUDE.md's memory of this number came from a correct prior run of something like this model, that was never receipted/preserved in the current script state, while CONTEXT.md's caveated +1.78dB/P=0.076 numbers came from the OLDER, buggy pooling and the underpowered single-subject contrast respectively."
+  ],
+  "issues": [
+    "Every q_bh value fit_omission_band_power_glmm.py has EVER written before this fix should be treated as wrong -- not just the specific number that surfaced it. Any manuscript text, CONTEXT.md section, or prior .lab node quoting a q_bh from this script's earlier output needs re-derivation, not just the V3a/d beta line.",
+    "CONTEXT.md's Section on 'V3a/d alpha/beta elevation... underpowered in test' is now stale and should be updated to reflect the corrected, properly-powered, significant result.",
+    "The OLS-cluster-robust fallback for theta/alpha/beta (vs MixedLM for low/high gamma) is a real methodological asymmetry across bands in the same model family -- disclosed via the 'estimator' column, not hidden, but worth a reviewer's attention if this becomes a manuscript figure."
+  ],
+  "plan": [
+    "Update context/docs/CONTEXT.md's V3a/d elevation section with the corrected, full-corpus, subject-controlled result.",
+    "Build fig05's new main-figure headline around this result (per user confirmation), given all three LFP-LFP connectivity methods came back null.",
+    "Audit other scripts under scripts/ for a similarly reimplemented, possibly-buggy local bh()/holm() rather than importing figstats.py's or a shared statsmodels utility -- this is exactly the kind of duplicated-logic drift the project's own doctrine warns about."
+  ],
+  "verification": {
+    "checks": {
+      "area_pooling_bug_confirmed_by_reading_raw_data_not_assumed": true,
+      "bh_bug_confirmed_against_independent_correct_implementation": true,
+      "bh_bug_confirmed_by_hand_derived_BH_calculation": true,
+      "fix_verified_by_rerun_matching_hand_derivation_exactly": true,
+      "model_f_added_full_corpus_not_limited_subset": true,
+      "estimator_choice_per_band_disclosed_not_hidden": true
+    },
+    "receipt": "scripts/fit_omission_band_power_glmm.py (both fixes + Model F); outputs/lfp_band_census_v2/glmm_summary.csv (regenerated); outputs/lfp_band_census_v2/glmm_results.json.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig05_te_lfp_lfp_null_final_20260805",
+      "relation": "supersedes",
+      "reasoning": "This finding replaces connectivity as fig05's likely headline candidate, pending user confirmation.",
+      "confidence": 0.8
+    }
+  ]
+}

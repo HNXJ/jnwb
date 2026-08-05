@@ -1,0 +1,54 @@
+{
+  "id": "fig05_resolved_v1_area_hierarchy_glmm_20260805",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig05 finally resolved: area x band GLMM (subject-controlled) is the headline; three connectivity nulls preserved as supplements; two real GLMM bugs found and fixed along the way",
+  "status": "confirmed",
+  "generated": "2026-08-05T00:00:00Z",
+  "notes": [
+    "Closes the fig05 saga started earlier 2026-08-04: three real, honestly-computed LFP-LFP connectivity methods (undirected imaginary coherency 0/240, directed Granger causality 0/150, transfer entropy 0/150) all came back null at the group level on this corpus. All three preserved as supplements in context/figures/lfp_lfp_connectivity_supplement/ (folder renamed twice: fig06_band_power_coupling -> fig05_lfp_lfp_coupling -> this).",
+    "New fig05 headline: context/figures/fig05_v1_area_hierarchy_glmm/ -- an area x band GLMM (Model F in scripts/fit_omission_band_power_glmm.py), subject controlled as an additive fixed effect, full 23-session/3-subject corpus. 2/45 cells survive Holm-Bonferroni (FEF low-gamma p_holm=0.0076, PFC low-gamma p_holm=0.0088); 11/45 survive BH-FDR (adds V3a/d beta q_BH=0.030, V3a/d low-gamma q_BH=0.030, and others). Both thresholds reported, never conflated.",
+    "Before trusting this figure, verified CLAUDE.md's memory-cited number ('V3a/d beta +1.11dB, replicated 17/23-session corpora') against actual analysis output rather than propagating it -- found it matched neither CONTEXT.md's descriptive number (+1.78dB, confounded) nor the existing animal-controlled test (+1.59dB, P=0.076, n=5 one subject). This triggered discovery of two real bugs in fit_omission_band_power_glmm.py: (1) area-pooling dict missing raw label 'V3' itself, silently dropping one subject's qualifying data from every V3a/d-labeled analysis; (2) local bh() function with an inverted rank multiplier, giving the smallest p-value in any family zero correction. Both fixed; full receipt in v3ad_beta_glmm_two_bugs_fixed_20260805.json.",
+    "The bh() bug is scoped to this ONE script -- figstats.py (used by every fig02-fig07 figure this entire session) was independently checked and confirmed correct. No other figure's statistics need re-deriving because of this bug.",
+    "Added Model F (new) to fit_omission_band_power_glmm.py: db ~ area + subject (additive), full corpus, session-level -- fills a real gap between existing Model C (descriptive, confounded, no subject control) and Model D (subject-controlled but limited to 5 sessions/1 subject by an unavoidable recording-design constraint). Model F is identifiable because the area x subject design is connected, per CLAUDE.md's own pre-existing verification doctrine for this exact corpus.",
+    "context/docs/CONTEXT.md's Section on V3a/d elevation updated with the corrected, properly-powered result and full bug disclosure.",
+    "context/figures/README.md, build_inventory.py, and build_supplements.py all updated to point at the final folder structure. build_inventory.py --check passes cleanly (no missing README anywhere, including fig06 which now has one documenting its own null)."
+  ],
+  "issues": [
+    "fig05 is not yet locked/reviewed as a finalized figure -- built and verified this session, pending the usual review-then-lock step every other figure in this pipeline goes through.",
+    "fig06 (SPK-SPK) remains unresolved -- also null under Granger, no fallback identified, left honestly flagged per explicit user decision rather than forced.",
+    "fig07 (LFP-SPK) not yet started -- existing PPC content (also null) needs demoting to supplement, new directed panel needs building, per the same modality-order plan."
+  ],
+  "plan": [
+    "Build fig07's directed LFP-SPK panel (per user's 'try it anyway' authorization from earlier this session).",
+    "Once fig05/06/07 all settle, do a final locked-review pass across the whole 7-figure pipeline (fig01/02 already locked; fig03/04/05/06/07 all need review+lock)."
+  ],
+  "verification": {
+    "checks": {
+      "all_three_connectivity_nulls_preserved_as_supplements_not_deleted": true,
+      "v3ad_pooling_bug_and_bh_bug_both_confirmed_and_fixed": true,
+      "figstats_bh_independently_verified_unaffected": true,
+      "model_f_result_matches_hand_derived_calculation_exactly": true,
+      "full_45_cell_family_correction_used_not_narrower_bookkeeping_family": true,
+      "figure_rendered_and_visually_inspected_before_finalizing": true,
+      "context_md_updated_with_corrected_numbers": true,
+      "all_registries_build_inventory_build_supplements_readme_updated_and_verified": true
+    },
+    "receipt": "context/figures/fig05_v1_area_hierarchy_glmm/svg/fig05_stats.csv (45 rows); context/figures/fig05_v1_area_hierarchy_glmm/svg/fig05_receipt.json; outputs/lfp_band_census_v2/glmm_summary.csv (Model F rows); build_inventory.py --check exit clean; build_supplements.py real run (29 built, 0 skipped).",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "v3ad_beta_glmm_two_bugs_fixed_20260805",
+      "relation": "depends_on",
+      "reasoning": "fig05's figure could not be trusted until both bugs were found and fixed.",
+      "confidence": 0.95
+    },
+    {
+      "to": "fig05_te_lfp_lfp_null_final_20260805",
+      "relation": "supersedes",
+      "reasoning": "That node's connectivity-based fig05 content is now fully demoted to supplement status by this node's resolution.",
+      "confidence": 0.9
+    }
+  ]
+}

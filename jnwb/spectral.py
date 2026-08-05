@@ -458,7 +458,7 @@ def imaginary_coherency(
     interaction. The imaginary part is insensitive to zero-lag mixing by
     construction (a purely zero-lag-mixed pair has Im(Cxy) = 0 at every
     frequency), so it is the estimator this project's fig06/fig07 volume-
-    conduction control requires -- see context/figures/fig06_band_power_coupling/README.md.
+    conduction control requires -- see context/figures/lfp_lfp_connectivity_supplement/README.md (renamed twice 2026-08-04/05: originally fig06_band_power_coupling, then fig05_lfp_lfp_coupling, now this -- this analysis is its supp_lfp_lfp_coherency.py supplement; fig05 itself is now the area x band GLMM in fig05_v1_area_hierarchy_glmm/).
     Callers are responsible for re-referencing (see ``bipolar_reference`` /
     ``laplacian_reference``) before calling this; imaginary coherency controls
     for zero-lag mixing but does not substitute for reducing it upstream.

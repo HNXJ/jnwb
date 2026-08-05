@@ -21,6 +21,9 @@
     "FIGURE MAPPING. Question 1 and 2 are figure 5 as specified: four panels, baseline, stimulus present, omission, and shuffle, each an area-by-layer coupling matrix. Question 3 is the directional extension. Spike-field pairing is figure 6. The unit-level band-power relationship by response class is figure 7 in its revised form."
   ],
   "issues": [
+    "READINESS UPDATE 2026-08-04. The estimator layer for Question 3 now exists and is validated on synthetic ground truth (jnwb_directed_connectivity_20260804: granger, granger_spectral, phase_slope_index, transfer_entropy, directed_network). This closes 'the lag estimate' half of the 'no code exists yet' issue below. It does NOT close the program. Four gaps remain between the estimators and a result on this corpus, and none is a re-run: (1) no session-level extraction path feeds them -- see the raw-LFP issue below; (2) bipolar / nearest-neighbour laminar differencing, which the Methods require before any cross-site comparison, is still unimplemented, so PSI's volume-conduction robustness is currently the only field-spread control in play and the program calls that the second of three, not the first; (3) directed_network pools whatever array it is handed and has no within-animal or within-session grouping layer, while constraint (a) makes within-animal estimation mandatory before pooling and (d) makes session the unit of inference; (4) the power to detect a coupling change is still unestablished, so a null from these estimators cannot yet be reported as absence.",
+    "RAW LFP IS NOT ACCESSIBLE THROUGH THE SESSION API (verified 2026-08-04). jnwb/session.py exposes lfp_channel_areas, tfr_from_preprocessed, lfp_tfr_trace_suite_omission and lfp_tfr_trace_correlation -- all TFR-derived. There is no raw-trace accessor. Consequence for the directed estimators: what can run today is band-power time courses at fs = 100 Hz (tfr_from_preprocessed contract: times = -1000 + arange(500)*10 ms, i.e. 10 ms steps, Nyquist 50 Hz), plus spike trains via bin_spikes. That suits Questions 1 and 3, which are about band power, but it means anyone reaching for a raw-LFP directed analysis must first write the NWB extraction.",
+    "ENVELOPE-BAND TRAP (2026-08-04). A band-power time course is an ENVELOPE, not the carrier. Passing bands='canonical' or any Hz-valued carrier band to phase_slope_index/granger_spectral on envelope data is a category error twice over: the carrier bands are already integrated out, and at fs = 100 Hz everything above 50 Hz is beyond Nyquist so low_gamma and high_gamma cannot be represented at all. Envelope analyses must state their band argument in envelope-frequency terms (roughly 0-10 Hz) and say so in the caption. The risk is now higher, not lower, because CANONICAL_BANDS was just made the default in jnwb.spectral.cross_area_coherence and jnwb.factories.",
     "Figure 5 as specified is a 20 x 20 matrix over ten areas by two layers. Layer coverage will not support every cell equally: V1 has three deep units and 32 per cent channel coverage against MST at 91 per cent, so cell-to-cell differences would partly encode which cells converged. A 10 x 10 area-only matrix with the laminar split in a supplement, or a stated coverage floor per cell, is the honest form.",
     "No code exists yet for pairwise coupling, for the imaginary-coherency or orthogonalisation controls, or for the lag estimate. This is new implementation, not a re-run.",
     "The corpus contains repeated recordings from the same animals across days. A coupling estimate pooled over sessions treats them as independent; session must remain the unit of inference.",
@@ -44,6 +47,12 @@
     "verdict": "unverified"
   },
   "links": [
+    {
+      "to": "jnwb_directed_connectivity_20260804",
+      "relation": "depends_on",
+      "reasoning": "Supplies the validated estimator layer for Question 3 (which bands lead). Partially closes this program's 'no code exists yet' issue -- the lag/direction estimators exist; the extraction, bipolar-derivation, grouping and power layers do not.",
+      "confidence": 0.95
+    },
     {
       "to": "omission_lfp_glmm_subject_sign_reversal_20260728",
       "relation": "depends_on",

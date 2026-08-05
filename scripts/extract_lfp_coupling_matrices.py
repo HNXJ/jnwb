@@ -3,7 +3,7 @@ Corpus-scale LFP band-power coupling extraction for figure 6.
 
 Builds area x area imaginary-coherency matrices, per band, per context (stimulus window
 present in every condition; omission window present only in RXRR), per session, with a
-trial-shuffled null. See context/figures/fig06_band_power_coupling/README.md for the full
+trial-shuffled null. See context/figures/lfp_lfp_connectivity_supplement/README.md (renamed twice 2026-08-04/05: originally fig06_band_power_coupling, then fig05_lfp_lfp_coupling, now this -- this analysis is its supp_lfp_lfp_coherency.py supplement; fig05 itself is now the area x band GLMM in fig05_v1_area_hierarchy_glmm/) for the full
 plan this implements and the open decisions it resolves.
 
 DATA ACCESS: reuses the h5py trial-window pattern from

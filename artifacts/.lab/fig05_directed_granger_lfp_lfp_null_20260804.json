@@ -1,0 +1,43 @@
+{
+  "id": "fig05_directed_granger_lfp_lfp_null_20260804",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig05 directed Granger LFP-LFP network also null at group level -- second connectivity method to fail the significance requirement",
+  "status": "confirmed",
+  "generated": "2026-08-04T22:00:00Z",
+  "notes": [
+    "Following the figures-4-7-require-significance rule (feedback_figures_require_significance memory), fig05's undirected imaginary-coherency LFP-LFP analysis (0/240 significant, originally 'figure 6') was demoted to a supplement and a directed Granger-causality LFP-LFP network was built as the new fig05 main figure -- directionality is a genuinely different statistical question and was chosen specifically because it might carry information the symmetric measure discarded.",
+    "New per-trial data product built: scripts/extract_condition_band_power_trials.py (202 files, 188 session|area|cond keys x 5 bands, 24 min runtime) -- necessary because every prior TFR dataset in this repo pools trials before storage and granger() needs the trial axis intact.",
+    "jnwb.connectivity.directed_network() (method='granger', order='auto' by BIC, max_lag=10, zscore-detrended) run per (session, band, condition) over up to all 10 areas -- 220 directed_network() calls across 22 sessions, 301s runtime.",
+    "RESULT: also null. 0/150 tests survive Holm-Bonferroni across three families -- fig05_RXRR (net directionality != 0 within RXRR), fig05_RRRR (within RRRR), fig05_delta (RRRR vs RXRR paired difference). Smallest p in the whole grid: low_gamma MT<->TEO delta, raw p=0.0077, p_holm=0.38 (n=9 sessions) -- a candidate for a higher-powered follow-up, not a finding.",
+    "100% of individual session-level Granger fits carried a diagnostic warning (non-stationarity and/or residual autocorrelation) -- expected for a short, strongly evoked, non-stationary-by-design LFP segment. This does not invalidate the group-level test itself (session-level point estimates are the unit of inference, not the within-session analytic p-values, which were never trusted for the group claim -- stated in the script's own docstring before the run, not rationalized after seeing the null), but it is a second reason to treat any single edge's raw p-value as descriptive only.",
+    "This is the SECOND of two LFP-LFP connectivity methods (undirected coherency, directed Granger) to fail the significance requirement on this corpus. Flagged to the user rather than silently trying a third method or accepting a null main figure -- this is a genuine strategy decision (try transfer entropy or PSI, change unit of analysis e.g. per-layer or per-channel-pair instead of per-area, or pivot fig05's headline entirely to an already-significant, already-replicated LFP result such as V3a/d beta elevation vs V1, keeping connectivity work as supplement content)."
+  ],
+  "issues": [
+    "fig05's main-figure slot remains unresolved as of this node -- two real, honest null results now sit in this folder as supplements (supp_lfp_lfp_coherency.py, and the Granger network itself pending a decision on whether it also gets relabeled supplement-only).",
+    "If fig06 (SPK-SPK) and fig07 (LFP-SPK)'s planned directed panels use the same Granger engine on the same corpus, they carry real risk of the same outcome -- worth deciding fig05's fallback strategy before sinking the same effort into fig06/fig07 uncritically."
+  ],
+  "plan": [
+    "Awaiting user decision on fig05's path forward before proceeding to fig06 (SPK-SPK) with the same connectivity approach unmodified."
+  ],
+  "verification": {
+    "checks": {
+      "per_trial_extraction_completed_202_files_188_keys": true,
+      "granger_network_computed_220_calls_22_sessions_no_errors": true,
+      "checkpointed_incrementally_edges_csv_per_session": true,
+      "stats_family_declared_and_corrected_together_holm_and_bh": true,
+      "diagnostics_warning_rate_reported_not_hidden": true,
+      "null_result_reported_honestly_not_spun": true
+    },
+    "receipt": "outputs/condition_band_power_trials/receipt.json (202 files, 188 keys, 1441s); outputs/lfp_lfp_granger_network/receipt.json (22 sessions, 220 calls, 301s, n_significant_holm all zero, diagnostics_warning_rate=1.0); context/figures/fig05_lfp_lfp_coupling/svg/fig05_stats.csv (150 rows).",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig05_slot_pooled_omission_vs_stimulus_supplement_20260804",
+      "relation": "unrelated",
+      "reasoning": "Different figure (fig04 supplement) despite similar naming pattern -- noted to avoid future confusion between the two 2026-08-04 fig0N_*_supplement nodes.",
+      "confidence": 0.6
+    }
+  ]
+}

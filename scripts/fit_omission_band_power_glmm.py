@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import sys
 import warnings
 from datetime import datetime, timezone
 
@@ -60,6 +61,9 @@ import statsmodels.api as sm
 from scipy import stats
 from statsmodels.regression.mixed_linear_model import MixedLM
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from area_subject_glmm import fit_area_subject_and_pairwise  # noqa: E402
+
 CENSUS = r"D:/workspace/omission/outputs/lfp_band_census_v2/channel_band_power.csv.gz"
 AREA_VEC = r"D:/workspace/omission/outputs/channel_area_vector/channel_area_vector.csv"
 OUT_DIR = r"D:/workspace/omission/outputs/lfp_band_census_v2"
@@ -68,7 +72,21 @@ RESP = "db_mid_omirel"
 
 
 def bh(pvals):
-    """Benjamini-Hochberg adjusted p-values. Controls FDR, not FWER."""
+    """Benjamini-Hochberg adjusted p-values. Controls FDR, not FWER.
+
+    BUG FIXED 2026-08-05: the divisor was `np.arange(n, 0, -1))`, which pairs the SMALLEST
+    p-value (rank 1, first after argsort) with the LARGEST divisor (n) and the LARGEST p-value
+    (rank n) with the smallest divisor (1) -- exactly backwards from the BH formula, which
+    multiplies rank i's p-value by n/i (so rank 1 gets multiplier n, rank n gets multiplier 1).
+    Confirmed against context/figures/figstats.py's independently-implemented bh() (used by
+    every fig0N_*.py script, unaffected by this bug -- it uses the correct
+    `np.arange(1, m + 1)`), and against a hand-derived BH computation on the V3a/d beta family
+    that first surfaced this: the old code reported q=0.0056 (identical to the raw p, i.e. no
+    correction applied to the rank-1 value at all); the correct value is q=0.0147.
+    Every q_bh value this script has ever written before this fix should be treated as wrong,
+    not just the one that surfaced it -- re-derive before citing anything from
+    glmm_summary.csv predating this commit.
+    """
     p = np.asarray(pvals, dtype=float)
     ok = np.isfinite(p)
     out = np.full(p.shape, np.nan)
@@ -77,7 +95,7 @@ def bh(pvals):
     q = p[ok]
     n = q.size
     order = np.argsort(q)
-    adj = np.minimum.accumulate((q[order] * n / np.arange(n, 0, -1))[::-1])[::-1]
+    adj = np.minimum.accumulate((q[order] * n / np.arange(1, n + 1))[::-1])[::-1]
     res = np.empty(n)
     res[order] = np.clip(adj, 0, 1)
     out[ok] = res
@@ -142,9 +160,15 @@ def main():
                 on=["session_prefix", "probe", "channel"], how="left")
 
     # V3d and V3a are the two halves of one shank under an assumed equal-share partition
-    # (artifacts/.lab/channel_area_vector_uniform_split_finding_20260728.json). Pooling them
-    # for inference; the census keeps them separate for descriptive displays.
-    df["area_infer"] = df["area"].replace({"V3d": "V3a/d", "V3a": "V3a/d"})
+    # (artifacts/.lab/channel_area_vector_uniform_split_finding_20260728.json); "V3" is the
+    # unsplit whole-shank label used when a session's probe wasn't segmented into a/d halves
+    # (C31o's 5 sessions -- confirmed by checking channel_band_power.csv.gz's raw area column
+    # directly, not assumed). All three pool to the same anatomical region. This local dict
+    # previously omitted "V3" itself (bug found 2026-08-05 while investigating why Model D's
+    # V3a/d-vs-V1/V2 contrast used only one subject, V198o, when C31o also has qualifying V3
+    # data) -- context/figures/figstyle.py's own AREA_POOL already had this right; matching it
+    # here rather than re-diverging.
+    df["area_infer"] = df["area"].replace({"V3": "V3a/d", "V3d": "V3a/d", "V3a": "V3a/d"})
 
     rows, notes = [], []
 
@@ -284,6 +308,24 @@ def main():
             agg_rows += coef_rows(res, "C_area_session_level", b,
                                   {"reference_area": ref, "n_obs": int(len(sa)),
                                    "n_sessions": int(sa.session_prefix.nunique())})
+
+    # ---- F: area effects, SUBJECT-CONTROLLED (additive fixed effect), session level, PLUS
+    # all pairwise area contrasts -- shared with fit_stim_band_power_glmm.py via
+    # area_subject_glmm.py so the two censuses are analyzed identically (see that module's
+    # docstring for the full model rationale and why this is a shared function, not a copy).
+    # Model C above is confounded with subject (several areas recorded in only one animal) and
+    # reported descriptively for that reason. Model D controls subject perfectly but only for
+    # the one within-subject, same-session, different-probe contrast the recording design
+    # happens to support (V198o, n=5) -- C31o and V182o never recorded V3a/d and V1/V2 on
+    # separate probes in the same session, so D cannot use them at all. Model F uses the FULL
+    # corpus (all subjects, all qualifying sessions) instead, identifiable because the area x
+    # subject design is connected -- CLAUDE.md's own verification doctrine already established
+    # this for this exact corpus.
+    f_rows, f_notes = fit_area_subject_and_pairwise(
+        df, RESP, BANDS, ref, "F_area_subject_controlled_session_level",
+        "F_pairwise_area_contrasts")
+    agg_rows += f_rows
+    notes += f_notes
 
     # model D at session level, per subject that supported the channel-level fit
     for subj in {r.get("subject") for r in d_rows if r.get("subject")}:

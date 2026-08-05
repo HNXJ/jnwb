@@ -251,13 +251,24 @@ no band. The sign split survives holding area constant (seven of eight testable
 area-by-band comparisons). Older text reporting "one animal rose, 4 sessions" describes the
 17-session corpus before the V182o column grew to 10.
 
-**V3a/d alpha/beta elevation is real in direction, underpowered in test.** 23-session area
-model vs V1, channel-level: V3a/d beta +1.78 dB (q = 8.8e−8), alpha +1.28 (q = 1.3e−3), low
-gamma +0.51 (q = 2.2e−3). FEF and PFC are also elevated in alpha and beta (FEF alpha +1.07,
-q = 4.1e−3; beta +0.70, q = 4.6e−2; PFC alpha +1.04, q = 3.5e−3; beta +0.64, q = 4.3e−2).
-Confounded with animal. The one animal-controlled test — a V3 probe against a V1/V2 probe in
-the same five sessions — gives beta +1.59 dB (P=0.076), alpha +1.16 (P=0.24). Both are measured
-in the omitted-slot window and are lower bounds for the reason in §6.
+**V3a/d beta and low-gamma elevation vs V1 is real and significant, properly animal-controlled,
+corrected 2026-08-05.** The channel-level area model above (+1.78 dB, q=8.8e-8) is confounded
+with animal and reported descriptively only, as before. But the animal-controlled test
+previously reported here (a single V3-vs-V1V2 probe pair, 5 sessions, P=0.076) undersold the
+effect for two compounding reasons, both bugs, both now fixed in
+`scripts/fit_omission_band_power_glmm.py`: (1) its area-pooling dict omitted the raw label
+`"V3"` itself (C31o's 5 sessions, unsplit into V3a/V3d) from the pooled `V3a/d` group, silently
+limiting the animal-controlled contrast to V198o alone; (2) its local Benjamini-Hochberg
+function divided by an inverted rank order, so the smallest p in any family received NO
+correction at all rather than the largest multiplier it should have. See
+`artifacts/.lab/v3ad_beta_glmm_two_bugs_fixed_20260805.json` for the full receipt.
+
+With both fixed, a new **Model F** — area effects with subject as an explicit additive fixed
+effect (not a same-session probe-pairing requirement), session-level, all 23 sessions, all 3
+subjects, following this document's own §"design is connected" logic (every area recorded in
+≥2 subjects) — gives: **beta +1.11 dB, p=0.0056, q_BH=0.0147** and **low gamma +0.34 dB,
+q_BH=0.0147**, both significant. Alpha (+0.75 dB, q_BH=0.129), theta, and high gamma do not
+survive correction. Measured in the omitted-slot window, same estimator convention as §6.
 
 ## 10. Manuscript lineage
 

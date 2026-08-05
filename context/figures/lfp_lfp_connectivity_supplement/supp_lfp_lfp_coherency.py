@@ -1,5 +1,10 @@
 r"""
-Figure 6 -- LFP band-power coupling matrices (area x area imaginary coherency).
+LFP-LFP coupling matrices (area x area imaginary coherency) -- SUPPLEMENT to figure 5.
+
+Demoted from main-figure status 2026-08-04: null at the group level (0/240 survive Holm-
+Bonferroni in either window; see README). Figure 5 itself is now the directed Granger network
+in fig05_lfp_lfp_coupling.py. This script and its outputs are retained as an honest
+undirected-coupling supplement, not deleted -- the null result is itself informative.
 
 Reads outputs/lfp_coupling_matrices/coupling.npz, built by
 scripts/extract_lfp_coupling_matrices.py per the plan in this folder's README.md. Main figure:
@@ -98,9 +103,9 @@ def build_matrix_and_stats(df, context, areas):
                 vals = cell.effect.values
                 mat[i, j] = mat[j, i] = np.mean(vals)
                 res = paired_location(
-                    vals, np.zeros_like(vals), figure="fig06", panel=context,
+                    vals, np.zeros_like(vals), figure="fig05_supp", panel=context,
                     question=f"{key} {lo}-{hi} {context} coupling vs null", unit="session",
-                    family=f"fig06_{context}",
+                    family=f"fig05_supp_{context}",
                     note=f"n={len(vals)} sessions with both cells present")
                 stats.append(res)
         matrices[band] = mat
@@ -159,9 +164,9 @@ def identity_stats(df, areas):
                         labels.append(ident)
                 if len(groups) >= 2:
                     stats.append(group_location(
-                        groups, labels, figure="fig06", panel="identity",
+                        groups, labels, figure="fig05_supp", panel="identity",
                         question=f"{band_key} {lo}-{hi} coupling differs by A/B/R identity",
-                        unit="session", family="fig06_identity",
+                        unit="session", family="fig05_supp_identity",
                         note="identity_R reuses the omission context (RXRR); same window "
                              "(1.031-1.562s) across all three identities"))
     return stats
@@ -177,11 +182,11 @@ def main():
 
     all_stats = []
     omission_svg, stats_o = draw_context_figure(
-        df, "omission", areas, "fig06_omission_matrices",
+        df, "omission", areas, "supp_coherency_omission_matrices",
         "LFP-LFP coupling, omission window (RXRR, p2 omitted)")
     all_stats += stats_o
     stim_svg, stats_s = draw_context_figure(
-        df, "stimulus", areas, "fig06_stimulus_matrices",
+        df, "stimulus", areas, "supp_coherency_stimulus_matrices",
         "LFP-LFP coupling, stimulus window (p1, present in every condition)")
     all_stats += stats_s
 
@@ -190,18 +195,18 @@ def main():
         all_stats += stats_id
         print(f"identity (A/B/R) stats: {len(stats_id)} tests")
 
-    out, w, h = assemble([omission_svg], os.path.join(HERE, "fig06.svg"), ncol=1)
+    out, w, h = assemble([omission_svg], os.path.join(HERE, "supp_lfp_lfp_coherency.svg"), ncol=1)
     print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
 
-    write(all_stats, SVG_DIR, "fig06",
-         title="Figure 6 -- LFP-LFP coupling matrices, observed vs shuffle null",
+    write(all_stats, SVG_DIR, "supp_coherency",
+         title="Figure 5 supplement -- LFP-LFP coupling matrices (undirected, imaginary coherency), observed vs shuffle null",
          preamble="Imaginary coherency (Nolte et al. 2004), zero-lag-mixing-insensitive, "
                   "Laplacian-referenced within probe, representative channel per area x "
                   "layer cell (see README for the tractability decisions this resolves). "
                   "Paired (by session) test of observed minus trial-shuffled-null "
                   "|Im coherency|, per area-pair x band. Family = the FULL area x area x "
                   "band grid for one context (contexts' families reported separately since "
-                  "each asks a different question). fig06_identity (phase 2, 2026-07-30) "
+                  "each asks a different question). fig05_supp_identity (phase 2, 2026-07-30) "
                   "asks whether coupling during the position-2 omission differs by A/B/R "
                   "stimulus-sequence-family identity (AXAB/BXBA/RXRR, same window) -- a "
                   "3-group test per area-pair x band, also one joint family. Unit of "
@@ -216,7 +221,7 @@ def main():
         "bands": list(BANDS),
     }
     import json
-    with open(os.path.join(SVG_DIR, "fig06_receipt.json"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(SVG_DIR, "supp_coherency_receipt.json"), "w", encoding="utf-8") as fh:
         json.dump(receipt, fh, indent=2)
 
 

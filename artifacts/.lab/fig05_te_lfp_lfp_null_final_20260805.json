@@ -1,0 +1,50 @@
+{
+  "id": "fig05_te_lfp_lfp_null_final_20260805",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig05 transfer-entropy LFP-LFP network also null -- all three attempted connectivity methods now agree, fig05 main-figure slot needs a non-connectivity pivot",
+  "status": "confirmed",
+  "generated": "2026-08-05T00:00:00Z",
+  "notes": [
+    "Third and final connectivity method attempted for fig05's LFP-LFP slot: transfer entropy, via new scripts/compute_lfp_lfp_te_network.py (n_surrogates=15, a disclosed runtime-vs-validity compromise from the estimator's default 200) and scripts/aggregate_lfp_lfp_te_stats.py (reuses fig05_lfp_lfp_coupling.py's net_directionality/within_condition_stats/delta_stats functions directly rather than reimplementing the aggregation, keeping the two methods' group-level tests exactly comparable).",
+    "Extraction: 22 sessions, 3100 edge rows, 88 min runtime (faster than the multi-hour worst case estimated before launch). Aggregation: 0/150 tests survive Holm-Bonferroni across the same three families as Granger (fig05_te_RXRR, fig05_te_RRRR, fig05_te_delta).",
+    "RESULT: all three LFP-LFP connectivity methods on this corpus now agree -- null at the group level. Imaginary coherency 0/240 (2026-07-30 original build), directed Granger causality 0/150 (2026-08-04), transfer entropy 0/150 (2026-08-04/05). This is a real, three-times-replicated negative result across three genuinely different statistical questions (symmetric synchronization, linear directed prediction, nonlinear directed information flow), not a single underpowered attempt.",
+    "Per feedback_figures_require_significance memory, fig05's main-figure slot cannot be a null connectivity result. All three analyses are preserved as real supplement content (supp_lfp_lfp_coherency.py for coherency; fig05_lfp_lfp_coupling.py's own Granger network get relabeled supplement if the pivot proceeds; fig05_te_stats.md for TE) -- the negative result itself is informative and should stay documented, not deleted.",
+    "Recommended next step (stated, not yet executed): pivot fig05's headline to the already-significant, already-replicated V3a/d beta elevation vs V1 (CLAUDE.md's omission-a status: +1.11dB, replicated on 17- and 23-session corpora). Awaiting explicit user confirmation before rebuilding fig05 around this instead of connectivity."
+  ],
+  "issues": [
+    "fig05's main-figure slot is now unresolved with high confidence that further connectivity methods on this corpus/node-definition would not help -- the decision is a strategy pivot, not another method attempt.",
+    "fig06 (SPK-SPK) also null under Granger (0/45, see fig06_spk_spk_granger_null_20260804); TE was NOT attempted on fig06 given the fig05 TE result -- per the user's own conditional logic when authorizing the fig05 TE run, three real nulls plus a matching TE null constitutes 'strong evidence this corpus's connectivity signal (if any) isn't recoverable at the area-pooled level with these methods,' so a fourth expensive method on fig06 was not launched.",
+    "fig07 (LFP-SPK) is still authorized to proceed with directed connectivity (user's explicit 'try it anyway' -- distinct signal-pairing, not mechanically predicted to fail the same way)."
+  ],
+  "plan": [
+    "Confirm with user: pivot fig05 to V3a/d beta finding vs. another approach.",
+    "Proceed with fig07 (LFP-SPK directed Granger/TE panel) as already authorized.",
+    "Once fig05's final headline is settled, reconcile context/figures/README.md and build_inventory.py's fig05 entry to match (currently still describes the connectivity network as fig05's content)."
+  ],
+  "verification": {
+    "checks": {
+      "te_extraction_completed_no_errors_3100_rows": true,
+      "te_aggregation_reuses_granger_functions_not_reimplemented": true,
+      "stats_family_declared_and_corrected_together": true,
+      "null_result_reported_honestly_across_all_three_methods": true,
+      "supplement_content_preserved_not_deleted": true
+    },
+    "receipt": "outputs/lfp_lfp_te_network/receipt.json (22 sessions, 3100 rows, 88 min); outputs/lfp_lfp_te_network/net_directionality.csv; context/figures/fig05_lfp_lfp_coupling/svg/fig05_te_stats.csv (150 rows, n_significant_holm all zero).",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig05_directed_granger_lfp_lfp_null_20260804",
+      "relation": "confirms",
+      "reasoning": "TE's null result independently confirms the Granger null wasn't a method-specific artifact.",
+      "confidence": 0.95
+    },
+    {
+      "to": "fig06_spk_spk_granger_null_20260804",
+      "relation": "related",
+      "reasoning": "Both figures now show connectivity nulls on this corpus; the strategy question (pivot away from connectivity) applies to both.",
+      "confidence": 0.85
+    }
+  ]
+}

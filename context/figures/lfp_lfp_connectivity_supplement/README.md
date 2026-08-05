@@ -1,8 +1,90 @@
-# Figure 6 — LFP band-power coupling matrices
+# Figure 5 — LFP-LFP connectivity
+
+**Renumbered and redesigned 2026-08-04.** This folder was `fig06_band_power_coupling/` and its
+content (undirected, imaginary-coherency area x area coupling matrices) was originally figure 6.
+Two changes landed the same day:
+
+1. **Renumbering**: figures 5/6/7 were reorganized into modality order — LFP-LFP (5), SPK-SPK
+   (6), LFP-SPK (7) — so this folder's content moved from slot 6 to slot 5.
+2. **Demotion to supplement**: figures 4-7 are required to carry a group-level significant
+   result (few exceptions), and this analysis does not — **0/240 area-pair x band cells survive
+   Holm-Bonferroni or BH-FDR correction**, in either the omission or stimulus window (see
+   `svg/supp_coherency_stats.md`). It is retained as `supp_lfp_lfp_coherency.py` /
+   `supp_lfp_lfp_coherency.svg` — an honest null-result supplement, not deleted — and still
+   feeds `figS22` (see `../build_supplements.py`). **Figure 5 itself is now a directed Granger
+   LFP-LFP network** (`fig05_lfp_lfp_coupling.py`, built 2026-08-04) — directionality is a
+   different statistical question from symmetric coherency and was chosen specifically because
+   it has a chance of surviving correction where the symmetric measure did not. See that
+   script's own section below for its design and result.
+
+## Main figure: directed Granger LFP-LFP network (built 2026-08-04)
+
+**New data product**: `scripts/extract_condition_band_power_trials.py` — per-trial (not
+session-pooled) band-power dB time series, session x area x band x condition (RXRR, RRRR),
+same window/baseline/channel conventions as `extract_condition_tfr_maps.py` (-500..+2593 ms
+re: p1, middle-of-d1 baseline per channel) but keeping the trial axis intact, since
+`jnwb.connectivity.granger()` fits its AR model with rows stacked over trials. Output:
+`outputs/condition_band_power_trials/trials.npz`.
+
+**Method**: `jnwb.connectivity.directed_network()`, `method='granger'` (`order='auto'` by BIC,
+`max_lag=10`, `zscore` detrend — the estimator's own defaults, not tuned per result), run per
+(session, band, condition) over every area present, on the FULL trial window (not just the p2
+sub-window) since more within-trial samples help the automatic lag-order selection and "the
+LFP-LFP network across the whole trial" is the primary question here.
+
+**Statistics**: unit of inference is session, not the within-session analytic F-test p-value —
+many single-session fits carry non-stationarity/residual-autocorrelation diagnostic warnings
+(expected for a short, event-related, non-stationary LFP segment), so those are not trusted as
+the group claim (see `n_warnings`/`diagnostics_warning_rate` in
+`outputs/lfp_lfp_granger_network/receipt.json`). Three families, each corrected together
+(Holm + BH) across the full directed-edge x band grid: `fig05_RXRR` and `fig05_RRRR` (is net
+directionality, across sessions, different from zero within one condition) and `fig05_delta`
+(does net directionality differ RRRR vs RXRR, paired by session — the connectivity analogue of
+fig04/05-hierarchy's own p2 RXRR-vs-RRRR power contrast).
+
+**Result (run completed 2026-08-04 22:00, 22 sessions, 220 `directed_network()` calls, 301s):
+also null.** 0/150 tests survive Holm-Bonferroni across all three families (`fig05_RXRR`,
+`fig05_RRRR`, `fig05_delta`) — see `svg/fig05_stats.md` and
+`outputs/lfp_lfp_granger_network/receipt.json`. The smallest p in the entire grid is
+`low_gamma MT<->TEO net directionality, RRRR vs RXRR` at raw p=0.0077, p_holm=0.38 (n=9
+sessions) — a candidate worth another look with more power, not a finding. **Directionality did
+not turn out to carry information the symmetric coherency measure lacked, on this corpus.**
+`diagnostics_warning_rate` in the receipt is 1.0 — every single-session Granger fit carried a
+non-stationarity or residual-autocorrelation diagnostic warning, consistent with this being a
+short, strongly evoked (non-stationary-by-design) LFP segment; this doesn't invalidate the
+group-level test (which uses session-level point estimates, not the within-session p-values —
+see STATISTICS above) but it's a second reason not to over-read any single edge.
+
+**A third method, transfer entropy, was also tried (2026-08-04/05) and is also null.**
+`scripts/compute_lfp_lfp_te_network.py` (`n_surrogates=15`, a disclosed runtime/validity
+compromise — the estimator's own default of 200 is computationally impractical at this network
+size, see that script's docstring) ran the full grid in 88 minutes (22 sessions, 3100 edge
+rows). `scripts/aggregate_lfp_lfp_te_stats.py` computes the same three-family group-level test
+as the Granger network: **0/150 survive Holm-Bonferroni** — see `svg/fig05_te_stats.md`.
+
+**All three LFP-LFP connectivity methods attempted on this corpus now agree: null at the group
+level.** Imaginary coherency (0/240), directed Granger causality (0/150), and transfer entropy
+(0/150). This is a real, consistent, three-times-replicated negative result, not a single
+underpowered attempt — per [[feedback-figures-require-significance]], fig05's main-figure slot
+needs a different kind of content, not a fourth connectivity method. Flagged to the user
+2026-08-04 for the pivot decision (most likely candidate: the already-significant, already-
+replicated V3a/d beta elevation vs V1 — see `CLAUDE.md`'s omission-a status). All three
+connectivity analyses are preserved here as real, honestly-reported supplement content, not
+discarded.
+
+**Durable intermediate results** (per "save analysis results as we continue"):
+`outputs/condition_band_power_trials/trials.npz` (per-trial band power, checkpointed once at
+the end of the extraction run) and `outputs/lfp_lfp_granger_network/edges.csv` (every directed
+Granger edge, checkpointed after every session during computation, so a partial run's work is
+never lost) are both real, inspectable data products independent of this figure's own
+rendering — reusable for figS22-style supplements or a future robustness check (PSI/TE) without
+re-running the extraction.
+
+## Supplement: undirected imaginary-coherency coupling (originally figure 6, built 2026-07-30)
 
 **Built 2026-07-30, corrected same day.** `scripts/extract_lfp_coupling_matrices.py` runs
 corpus-wide in ~142 s (15/15 readiness-gated sessions usable, 4,560 area/layer-pair x band x
-context results) and `fig06_band_power_coupling.py` draws the matrices and writes stats. The
+context results) and `supp_lfp_lfp_coherency.py` draws the matrices and writes stats. The
 estimator and re-referencing primitives this depends on were built and validated the day before
 — see `jnwb.spectral.imaginary_coherency`, `laplacian_reference`, and
 `scripts/validate_imaginary_coherency.py`.
@@ -20,7 +102,7 @@ instead of the 2-layer downgrade.
 
 **No area-pair x band coupling effect survives correction at the group level**, in either
 context (0/240 survive Holm-Bonferroni, 0/240 survive Benjamini-Hochberg FDR, in both the
-omission-window and stimulus-window families — see `svg/fig06_stats.md`). This is despite
+omission-window and stimulus-window families — see `svg/supp_coherency_stats.md`). This is despite
 individual sessions showing very strong single-session effects (e.g. MT-MST gamma/beta coupling
 during the stimulus window reached z > 20 against its own shuffle null in one pilot session) —
 the corpus-level test does not inherit that strength because only a handful of sessions carry
@@ -28,7 +110,7 @@ any given area x layer pair, and the effect size varies enough session-to-sessio
 paired (by session) test washes it out. This is the same pattern the project has already
 documented for LFP band power itself (no direction shared across animals) — read as a real
 finding about session-to-session variability, not a pipeline defect. Do not report a specific
-area pair as "coupled" from this figure without checking `fig06_stats.md`'s `p_holm`/`q_bh`
+area pair as "coupled" from this figure without checking `supp_coherency_stats.md`'s `p_holm`/`q_bh`
 columns first.
 
 ## A/B/R stimulus-identity question (phase 2, 2026-07-30)
@@ -147,7 +229,7 @@ not folded together.
 
 ## Not yet built
 
-- Layer-resolved (not area-pooled) main-figure panels — `svg/fig06_omission_matrices.svg` and
+- Layer-resolved (not area-pooled) main-figure panels — `svg/supp_coherency_omission_matrices.svg` and
   its stimulus-window counterpart pool superficial+deep per area for readability; per-layer
   matrices exist implicitly in `coupling.npz` (keyed down to layer) but have no drawn panel yet.
 - All-pairs-averaged construction as a robustness check against the representative-channel choice.
@@ -162,7 +244,8 @@ not folded together.
   [-400, 2000] ms instead of two fixed snapshots -- a time-resolved "connectivity video." Not
   started; do not begin without explicit direction.
 
-Output: `fig06_band_power_coupling.py` reads `outputs/lfp_coupling_matrices/coupling.npz`
-(written by `extract_lfp_coupling_matrices.py`), draws `svg/fig06_omission_matrices.svg` (the
-main figure) and `svg/fig06_stimulus_matrices.svg` (feeds `figS22`), assembles `fig06.svg`,
-writes `svg/fig06_stats.md`/`.csv` via `figstats.write()`.
+Output (supplement): `supp_lfp_lfp_coherency.py` reads
+`outputs/lfp_coupling_matrices/coupling.npz` (written by `extract_lfp_coupling_matrices.py`),
+draws `svg/supp_coherency_omission_matrices.svg` and `svg/supp_coherency_stimulus_matrices.svg`
+(the latter feeds `figS22`), assembles `supp_lfp_lfp_coherency.svg`, writes
+`svg/supp_coherency_stats.md`/`.csv` via `figstats.write()`.
