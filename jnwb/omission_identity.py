@@ -120,8 +120,8 @@ def decode_omission_identity_slot(
     cond_a_code = cond_cfg[contrast[0]]
     cond_b_code = cond_cfg[contrast[1]]
     
-    epochs_a = session.get_epochs(condition=cond_a_code)
-    epochs_b = session.get_epochs(condition=cond_b_code)
+    epochs_a = session.get_epochs(phase=2, condition=cond_a_code)
+    epochs_b = session.get_epochs(phase=2, condition=cond_b_code)
     
     X, labels, unit_ids = build_noise_controlled_spike_matrix(
         session, area, epochs_a, epochs_b, time_window_ms, random_state=random_state

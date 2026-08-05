@@ -17,6 +17,14 @@ from pynwb import NWBHDF5IO
 
 log = logging.getLogger(__name__)
 
+# Anchored to the repo root, not the process's current working directory: a plain relative
+# "artifacts/developer/.cache" silently creates a brand-new multi-GB cache tree wherever a
+# script happens to be invoked from (found 2026-08-04 -- a fig03 rebuild run from inside
+# context/figures/fig03_unit_census/ duplicated the entire 21-session NWB table cache, 6.7 GB,
+# under that subdirectory instead of reusing the real one). This is a shared, multi-agent,
+# multi-CLI workspace where CWD at invocation time is not controlled.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
 # RRXR/RRRX task_condition_number -> stimulus-omission-slot assignment is NOT the same across
 # subjects. Confirmed via is_omission cross-referencing (2026-07-30) for C31o/V198o: cond
 # 35/37/39/41 omit stimulus_number=4 (p3, RRXR), cond 36/38/40/42-50 omit stimulus_number=5
@@ -94,7 +102,7 @@ class OmissionSession:
         import json
 
         session_name = self.nwb_path.stem
-        cache_dir = Path("artifacts/developer/.cache")
+        cache_dir = _REPO_ROOT / "artifacts" / "developer" / ".cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         units_cache = cache_dir / f"{session_name}_units.pkl"
@@ -218,17 +226,22 @@ class OmissionSession:
         """
         Get behavioral epochs with optional filtering.
 
+        CRITICAL PARADIGM TIMING INVARIANT:
+            phase = 2 (stimulus_number == 2.0) defines Presentation 1 (P1) onset (t = 0 ms).
+            phase = 1 (stimulus_number == 1.0) is Fixation (fx) onset (-566 ms).
+            phase = 3 (stimulus_number == 3.0) is Presentation 2 (P2) onset (1031 ms).
+            phase = 4 (stimulus_number == 4.0) is Presentation 3 (P3) onset (2062 ms).
+            phase = 5 (stimulus_number == 5.0) is Presentation 4 (P4) onset (3093 ms).
+
+            To get P1-aligned sequence trial onset timestamps, use phase=2 or call session.get_trial_onsets(condition).
+
         Args:
             phase: stimulus_number (1=fixation, 2=p1, 3=p2, 4=p3, 5=p4)
-            condition: condition code or name (e.g., 'AAXB')
+            condition: condition code or name (e.g., 'AAXB', 'RRRR')
             correct_only: Include only correct trials
 
         Returns:
             Filtered intervals DataFrame
-
-        Example:
-            >>> p2_omission = session.get_epochs(phase=3, condition='AAXB')
-            >>> all_p1 = session.get_epochs(phase=2)
         """
         if self._intervals_df is None or len(self._intervals_df) == 0:
             log.warning(f"No interval data available (context: {self.context})")
@@ -263,6 +276,25 @@ class OmissionSession:
                 epochs = epochs[epochs['task_condition_number'].isin(condition_codes)]
 
         return epochs
+
+    def get_trial_onsets(self, condition: Optional[Union[int, str]] = None,
+                         correct_only: bool = True) -> np.ndarray:
+        """
+        Get canonical P1-aligned trial sequence onset timestamps (seconds) for a condition.
+
+        Guarantees P1-alignment (t = 0 ms) by querying phase=2 (stimulus_number == 2.0).
+
+        Args:
+            condition: Condition name (e.g., 'RRRR', 'RXRR') or numeric code.
+            correct_only: Include only correct trials.
+
+        Returns:
+            1D numpy array of float timestamps (seconds) for Presentation 1 (P1) onset.
+        """
+        epochs = self.get_epochs(phase=2, condition=condition, correct_only=correct_only)
+        if len(epochs) == 0:
+            return np.array([], dtype=float)
+        return np.asarray(epochs["start_time"].values, dtype=float)
 
     def get_spike_times(self, unit_id: Union[int, str]) -> Optional[np.ndarray]:
         """

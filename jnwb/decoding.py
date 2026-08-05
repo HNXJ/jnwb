@@ -232,8 +232,8 @@ def decode_stimulus_identity(
             (dataset-level; distinct from the per-fold ``majority_baseline_accuracy``).
         n_units, n_trials, n_per_class, best_params, status, cv_scheme: as before.
     """
-    epochs_cond1 = session.get_epochs(condition=condition_pairs[0])
-    epochs_cond2 = session.get_epochs(condition=condition_pairs[1])
+    epochs_cond1 = session.get_epochs(phase=2, condition=condition_pairs[0])
+    epochs_cond2 = session.get_epochs(phase=2, condition=condition_pairs[1])
 
     n1, n2 = len(epochs_cond1), len(epochs_cond2)
     n_per_class = {condition_pairs[0]: int(n1), condition_pairs[1]: int(n2)}
