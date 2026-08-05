@@ -35,8 +35,29 @@ CONDS = ["RRRR", "RXRR", "RRXR", "RRRX"]
 OMIT_SLOT = {"RRRR": None, "RXRR": 2, "RRXR": 3, "RRRX": 4}
 COND_COLORS = {"RRRR": "#000000", "RXRR": "#DC2626", "RRXR": "#16A34A", "RRRX": "#2563EB"}
 PSTH_BIN_MS = 20.0
-RASTER_TRIALS = 40
+RASTER_TRIALS = 100
 WIN = FULL_TRIAL_WIN
+
+def get_sequence_onset_onsets(session, condition: str) -> np.ndarray:
+    ep = session.get_epochs(condition=condition)
+    if len(ep) == 0:
+        return np.array([])
+    if "stimulus_number" in ep.columns:
+        stim_num = np.array([float(x.decode() if isinstance(x, bytes) else x) for x in ep["stimulus_number"]], dtype=float)
+        p1_ep = ep[stim_num == 1.0]
+        if len(p1_ep) > 0:
+            return p1_ep["start_time"].values
+    return ep["start_time"].values
+
+def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
+    if len(onsets) == 0:
+        return np.array([])
+    rng = np.random.default_rng(random_state)
+    if len(onsets) >= target_n:
+        idx = rng.choice(len(onsets), size=target_n, replace=False)
+    else:
+        idx = rng.choice(len(onsets), size=target_n, replace=True)
+    return onsets[idx]
 
 def compute_psth(st, onsets, win_ms, bin_ms=PSTH_BIN_MS):
     edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
@@ -61,7 +82,9 @@ def render_unit_raster_suite(rank_idx, row, save_path):
         nwb_path = pathlib.Path(r"D:\analysis\nwb") / f"{stem}.nwb"
     
     session = oa.read(nwb_path)
-    onsets_dict = precompute_condition_onsets(session)
+    raw_onsets_dict = precompute_condition_onsets(session, correct_only=True)
+    plot_onsets_dict = {c: resample_onsets(raw_onsets_dict.get(c, np.array([])), target_n=RASTER_TRIALS, random_state=42) for c in CONDS}
+    
     spikes = session.get_spike_times(unit_row)
     if spikes is None:
         spikes = np.array([])
@@ -82,20 +105,14 @@ def render_unit_raster_suite(rank_idx, row, save_path):
         slot = OMIT_SLOT[cond]
         mark_full_trial_axis(ax, WIN, omit_slot=slot)
         
-        onsets = onsets_dict.get(cond, np.array([]))
-        if onsets.size == RASTER_TRIALS:
-            show = onsets
-        elif onsets.size > RASTER_TRIALS:
-            show = onsets[np.linspace(0, onsets.size - 1, RASTER_TRIALS).astype(int)]
-        else:
-            show = onsets
+        show = plot_onsets_dict[cond]
             
         for i, t0 in enumerate(show):
             s = (spikes[(spikes >= t0 + WIN[0] / 1000.0) & (spikes < t0 + WIN[1] / 1000.0)] - t0) * 1000.0
             ax.plot(s, np.full(s.size, i), "|", color="black", ms=3.0, mew=0.7, zorder=3)
             
         ax.set_ylim(-0.5, RASTER_TRIALS + 0.5)
-        ax.set_ylabel(cond, fontsize=9, fontweight="bold", color=COND_COLORS[cond])
+        ax.set_ylabel(f"{cond}\n(N={RASTER_TRIALS})", fontsize=8, fontweight="bold", color=COND_COLORS[cond])
         ax.set_xticks(ticks)
         ax.tick_params(axis="x", top=False, labeltop=False, bottom=False, labelbottom=False)
         ax.tick_params(axis="y", labelsize=7)
@@ -108,26 +125,21 @@ def render_unit_raster_suite(rank_idx, row, save_path):
     for slot in ("p1", "p2", "p3", "p4"):
         ax_psth.axvline(EPOCH_ONSETS_MS[slot], color="gray", ls="--", lw=0.7, zorder=4)
         
-    max_rate = 10.0
+    max_rate = 5.0
     for cond in CONDS:
-        onsets = onsets_dict.get(cond, np.array([]))
+        onsets = raw_onsets_dict.get(cond, np.array([]))
         centers, mean, sem = compute_psth(spikes, onsets, WIN)
         c = COND_COLORS[cond]
-        # Floor rates at 0.1 Hz for log-scale plotting
-        mean_plot = np.maximum(mean, 0.1)
-        lower_plot = np.maximum(mean - sem, 0.1)
-        upper_plot = np.maximum(mean + sem, 0.1)
-        ax_psth.plot(centers, mean_plot, color=c, lw=1.5, zorder=3, label=cond)
-        ax_psth.fill_between(centers, lower_plot, upper_plot, color=c, alpha=0.20, linewidth=0, zorder=2)
+        ax_psth.plot(centers, mean, color=c, lw=1.5, zorder=3, label=cond)
+        ax_psth.fill_between(centers, np.maximum(mean - sem, 0), mean + sem, color=c, alpha=0.20, linewidth=0, zorder=2)
         if len(mean) > 0:
             max_rate = max(max_rate, float(np.max(mean + sem)))
         
-    ax_psth.set_yscale("log")
-    ax_psth.set_ylim(bottom=0.1, top=max_rate * 1.25)
+    ax_psth.set_ylim(bottom=0.0, top=max_rate * 1.15)
     ax_psth.set_xlim(WIN)
     ax_psth.set_xticks(ticks)
     ax_psth.set_xticklabels(labels, rotation=45, fontsize=7, ha="right")
-    ax_psth.set_ylabel("Rate (Hz, log)", fontsize=8, fontweight="bold")
+    ax_psth.set_ylabel("Rate (Hz)", fontsize=8, fontweight="bold")
     ax_psth.legend(fontsize=7, loc="upper right", frameon=True, facecolor="white", edgecolor="none")
     for s in ("top", "right"):
         ax_psth.spines[s].set_visible(False)

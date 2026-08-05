@@ -1,0 +1,22 @@
+{
+  "id": "raster_suites_sequence_onset_100trials_equalized_20260803",
+  "kind": "evidence",
+  "title": "Sequence Onset Filtering (stim_num==1) & 100-Trial Equalized Resampling Across All Raster Suites",
+  "status": "confirmed",
+  "generated": "2026-08-03T16:02:10Z",
+  "notes": [
+    "Root Cause Identified: Raw NWB interval tables contain 4 sub-stimulus rows per sequence trial (p1, p2, p3, p4), causing un-filtered raster generators to plot ~1000 event rows instead of ~100 sequence trials.",
+    "Sequence Onset Filtering: Applied stim_num == 1.0 filter across all session epoch queries to extract true sequence trial onset triggers (P1).",
+    "Equalized 100-Trial Resampling Policy: Standardised all 4 condition raster subplots (RRRR, RXRR, RRXR, RRRX) to show exactly N=100 trials (y-limits 0 to 100). Conditions with N > 100 are randomly sampled without replacement; conditions with N < 100 are resampled with replacement.",
+    "Re-rendered all PNG raster suites across outputs/raster_suites/mt_mst_splus/, outputs/raster_suites/mt_mst_sminus/, outputs/raster_suites/oplusplus/, outputs/raster_suites/v182o_fef51_similar/, and outputs/raster_suites/v198o_fef51_similar/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "target_n_trials": 100,
+    "sequence_onset_filter": "stimulus_number == 1.0",
+    "raster_ylim": [
+      0,
+      100
+    ]
+  }
+}

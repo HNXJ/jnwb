@@ -1,0 +1,19 @@
+{
+  "id": "raster_suites_p1_aligned_linear_psth_20260803",
+  "kind": "evidence",
+  "title": "Resolution of Timing Shift (P1 Onset Alignment via phase=2) and Linear PSTH Y-Scale",
+  "status": "confirmed",
+  "generated": "2026-08-03T16:08:10Z",
+  "notes": [
+    "Timing Shift Root Cause: In PyNWB, stimulus_number=1 corresponds to Fixation (fx, -566ms), whereas stimulus_number=2 (phase=2) corresponds to Presentation 1 (P1 onset, t=0ms). Previous code queried stim_num==1, aligning t=0ms to Fixation onset instead of P1 onset and shifting all signals left by -566ms.",
+    "Timing Alignment Fix: Used canonical precompute_condition_onsets(session, correct_only=True) which queries session.get_epochs(phase=2, condition=cond, correct_only=True), establishing exact P1 t=0ms alignment.",
+    "PSTH Y-Scale Update: Disabled logarithmic scale on PSTH y-axes per user directive, restoring linear Rate (Hz) scale with floor at 0 Hz (ax_psth.set_ylim(bottom=0.0, top=max_rate * 1.15)).",
+    "Re-rendered all 30+ 300 DPI PNG figures across outputs/raster_suites/mt_mst_splus/, outputs/raster_suites/mt_mst_sminus/, outputs/raster_suites/oplusplus/, outputs/raster_suites/v182o_fef51_similar/, and outputs/raster_suites/v198o_fef51_similar/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "p1_onset_phase": 2,
+    "timing_offset_ms": 0,
+    "psth_scale": "linear"
+  }
+}

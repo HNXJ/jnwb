@@ -1,0 +1,20 @@
+{
+  "id": "mt_mst_splus_sminus_neurons_20260803",
+  "kind": "evidence",
+  "title": "Identification & 4x4 Raster Suite Generation for Top MT/MST S+ and S- Neurons",
+  "status": "confirmed",
+  "generated": "2026-08-03T15:55:40Z",
+  "notes": [
+    "Extracted 1,664 MT/MST/FST units across 21 NWB sessions.",
+    "Ranked top MT/MST S+ (stimulus-driven) and S- (stimulus-suppressed / delay-active) neurons using 9-element epoch template correlations (r_S+ and r_S-).",
+    "Top MT S+ Unit: sub-C31o_ses-230818 Row 441 (ID 79.0, MT), r_S+ = 0.989.",
+    "Top MST S- Unit: sub-C31o_ses-230818 Row 462 (ID 100.0, MST), r_S- = 0.943.",
+    "Rendered 10 individual 300 DPI 4x4 PNG raster suites with log-scale PSTH panels in outputs/raster_suites/mt_mst_splus/ and outputs/raster_suites/mt_mst_sminus/."
+  ],
+  "verification": {
+    "status": "confirmed",
+    "master_csv": "outputs/classification/mt_mst_top_s_plus_s_minus_units.csv",
+    "s_plus_dir": "outputs/raster_suites/mt_mst_splus",
+    "s_minus_dir": "outputs/raster_suites/mt_mst_sminus"
+  }
+}
