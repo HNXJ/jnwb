@@ -1,0 +1,56 @@
+{
+  "id": "fig04_rework_glmm_context_family_20260804",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig04 reworked (2026-08-03 lock retracted): spectrogram-block/trace-block layout + band-power-vs-context-x-family GLMM",
+  "status": "confirmed",
+  "generated": "2026-08-04T00:00:00Z",
+  "notes": [
+    "Unsealed the 2026-08-03 fig04 lock (seal_checkpoint_20260803_fig04_locked.json) per explicit user direction to rework the figure.",
+    "Layout reworked: build_v1_pfc_condition_figure() now draws two stacked 4x2 blocks (all spectrograms, then all traces) instead of interleaved per-area-row columns.",
+    "extract_condition_tfr_maps.py's CONDS extended from R-family-only (RXRR/RRXR/RRRR) to add AXAB/AAAB (A-family) and BXBA/BBBA (B-family) p2-matched pairs -- no new NWB pass, all 12 GLO_CONDITIONS .npy arrays already existed in D:/workspace/data/tfr_arrays. Full re-extraction ran ~97 min (707 files), producing outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz with 2471 keys across 10 areas x 7 conditions.",
+    "New GLMM: per area x band (20 cells, 4 areas x 5 bands), M0: db~C(context)+C(family) vs M1: M0+C(context):C(family), groups=animal random intercept, ML fit for valid LR comparison. Tests the hypothesis that LFP band power tracks network state/prior over context (omission vs stimulus) and whether that depends on stimulus identity (A/B/R family).",
+    "Result: 15/20 area x band cells show a significant family-pooled context effect (Holm-corrected) -- power higher for a real stimulus than omission, consistent across V1 (all 5 bands), most of V3a/d and TEO, and theta/alpha/beta in PFC. 0/20 context x family interaction tests survive correction -- no evidence the relationship depends on stimulus identity in this corpus.",
+    "Caught and fixed a real sign-labeling bug during review: patsy's default reference level for context is 'omission' (alphabetically first), so the fitted coefficient is literally stimulus-minus-omission, not omission-minus-stimulus as first labeled. Added an assert on the exact patsy term name so a future data change that altered reference-level choice would fail loudly rather than silently mislabel the sign.",
+    "Caught and fixed three layout bugs during review, each found only by rendering and visually inspecting, not by reasoning about the numbers: (1) header text (suptitle/legend) positioned at figure-fraction y>1.0 was silently clipped by plain savefig (no bbox_inches='tight'); (2) a rect-based tight_layout guess left a large dead gap above the panel grid; (3) a min()-clamp on the suptitle's y-position was set below the axes' actual measured top, pushing the title into the plot. Final fix places header elements from axes[0,0].get_position().y1 (measured, not guessed) with a fixed clearance for the per-panel title.",
+    "fig04.png is now a PIL vertical stack of the two component PNGs (grid + GLMM), not a re-render of the assembled SVG -- the finalized PNG is still owed via headless Chrome once panel content is approved, same as figs 1-3's convention.",
+    "Session also: fixed a real 6.7GB duplicate-cache bug in jnwb/session.py (CWD-relative cache path silently created a second full NWB table cache when a script was run from a different working directory) and anchored it to the repo root; deleted the accidental duplicate. D: drive audit found no other duplicate/stale data -- the 96%-full state is legitimate (2.7TB raw NWB + 1.7TB derived TFR arrays), not junk accumulation."
+  ],
+  "issues": [
+    "fig04 is NOT locked/sealed -- the 2026-08-03 seal was explicitly retracted by this rework and no new seal has been written. Needs user review of panel content (layout, GLMM framing) before any lock/finalized-PNG step.",
+    "fig04.png (working preview) is a PIL stack, not a true render of fig04.svg -- do not treat it as equivalent to the finalized-PNG convention until the headless-Chrome step is done.",
+    "GLMM's animal random-intercept variance is weakly identified with only 3 animals in this corpus -- reported as-is with convergence_notes captured, not suppressed, but this is a real power limitation worth stating in any manuscript text drawing on these results.",
+    "fig05/06/07 still not locked (unchanged from the 2026-08-04 drift checklist earlier this session) -- this fig04 work does not touch that backlog."
+  ],
+  "plan": [
+    "Next: get user sign-off on fig04's reworked panel content (layout + GLMM framing/results), then produce fig04_finalized.svg/.png via headless Chrome and write a new seal checkpoint, following the fig01-04 (original) lock pattern.",
+    "Consider whether the GLMM's context-pooled result (15/20 cells) and null interaction result (0/20) belong in a manuscript supplement or the main fig04 caption once locked."
+  ],
+  "verification": {
+    "checks": {
+      "extraction_all_12_glo_conditions_confirmed_on_disk": true,
+      "maps_npz_7_conditions_10_areas_2471_keys": true,
+      "glmm_smoke_tested_before_full_run": true,
+      "glmm_sign_convention_asserted_not_assumed": true,
+      "layout_verified_by_rendering_and_visual_crop_inspection": true,
+      "fig04_svg_png_assembled_and_rendered": true,
+      "no_syntax_errors_full_script_run_exit_0": true
+    },
+    "receipt": "outputs/condition_tfr_maps_p1d1p2d2p3/receipt.json (7 conditions, 2471 keys); context/figures/fig04_v1_pfc_condition_tfr/svg/fig04_v1_pfc_rxrr_rrrr.receipt.json (glmm sub-object); context/figures/fig04_v1_pfc_condition_tfr/svg/fig04_glmm_context_family_stats.md (40 tests); run logs run_20260804_rework.log and run_20260804_final.log both exit 0.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "seal_checkpoint_20260803_fig04_locked",
+      "relation": "supersedes",
+      "reasoning": "This rework explicitly retracts that seal's lock status per user direction; the seal's own content (mean/SEM contract, rasterization fixes) is preserved and unaffected, only the layout and scope are extended.",
+      "confidence": 0.95
+    },
+    {
+      "to": "drift_check_20260804_figs_and_supplements",
+      "relation": "derives_from",
+      "reasoning": "That earlier audit this session found fig05/06/07 unlocked and fig04 already locked; this node records that fig04's lock status has since changed again within the same session.",
+      "confidence": 0.9
+    }
+  ]
+}

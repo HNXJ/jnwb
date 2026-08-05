@@ -57,11 +57,12 @@ matplotlib.use("Agg")
 import matplotlib.ticker
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.patches import Rectangle
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from svgassemble import assemble
-from figstats import group_location, paired_location, write
+from figstats import Result, correct, group_location, paired_location, write
 from figstyle import mark_full_trial_axis, EPOCH_ONSETS_MS
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
@@ -348,6 +349,10 @@ def draw_area(fig, gs_cell, area, sess, freqs, times, bands, vlim, bottom):
 CONDITION_MAPS = r"D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz"
 CONDITION_AREAS = ["V1", "V3a/d", "TEO", "PFC"]
 CONDITIONS = ["RXRR", "RRRR"]
+# The other six of the ten analysis areas (figstyle.AREA_ORDER minus CONDITION_AREAS), in
+# hierarchy order -- the supplement content for this figure, added 2026-08-04 as individual
+# single-panel SVGs (see build_area_condition_supplements) rather than a combined grid.
+SUPP_AREAS = ["V2", "V4", "MT", "MST", "FST", "FEF"]
 CONDITION_WIN = (-500, 2593)                # p1 onset to the p3/d3 boundary
 COND_OMIT_SLOT = {"RXRR": 2, "RRXR": 3, "RRRR": None}
 COND_LABEL = {"RXRR": "RXRR (p2 omitted)", "RRXR": "RRXR (p3 omitted)", "RRRR": "RRRR (p2 real)"}
@@ -359,10 +364,17 @@ COND_LABEL = {"RXRR": "RXRR (p2 omitted)", "RRXR": "RRXR (p3 omitted)", "RRRR": 
 
 
 def load_condition_maps():
+    """Returns (maps, count_maps, freqs, times). `count_maps[k]` is the same shape as
+    `maps[k]` (freq x time) and holds the pooled channel x trial count that went into each
+    (freq, time) cell of that session's mean -- extract_condition_tfr_maps.py already
+    accumulates this (acc_cnt) but it was discarded here until 2026-08-04, when it became the
+    weight for a precision-weighted across-session SEM in draw_condition_bandtrace (see that
+    function's docstring for why raw pooled count is a weight, not a literal sample size).
+    """
     z = np.load(CONDITION_MAPS, allow_pickle=True)
     keys = [str(k) for k in z["keys"]]
     sums, counts, freqs, times = z["sums"], z["counts"], z["freqs"], z["times"]
-    maps = {}
+    maps, count_maps = {}, {}
     for i, k in enumerate(keys):
         with np.errstate(invalid="ignore", divide="ignore"):
             m = np.where(counts[i] > 0, sums[i] / np.maximum(counts[i], 1), np.nan)
@@ -370,8 +382,11 @@ def load_condition_maps():
         mx = np.nanmax(per_bin) if per_bin.size else 0
         keep = per_bin >= COVERAGE_MIN * mx if mx > 0 else per_bin > 0
         m[:, ~keep] = np.nan
+        c = counts[i].copy()
+        c[:, ~keep] = 0.0
         maps[k] = m
-    return maps, freqs, times
+        count_maps[k] = c
+    return maps, count_maps, freqs, times
 
 
 def area_cond_sessions(maps, area, cond, layer="all"):
@@ -413,7 +428,8 @@ def draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands, vlim, 
     ax.set_yticks([4, 8, 14, 30, 50, 80, 150])
     ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
     ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-    ax.set_title(f"({letter}) {area}, {COND_LABEL[cond]}  n={len(sess)} sessions", fontsize=9)
+    prefix = f"({letter}) " if letter else ""
+    ax.set_title(f"{prefix}{area}, {COND_LABEL[cond]}  n={len(sess)} sessions", fontsize=9)
     ax.tick_params(labelsize=7)
     if dropped:
         ax.text(0.01, 1.10, f"{len(dropped)} session(s) excluded (out of scale)",
@@ -421,20 +437,55 @@ def draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands, vlim, 
     return im, len(sess)
 
 
-def draw_condition_bandtrace(ax, area, cond, sess, freqs, times, bands, letter):
-    """One band-decomposed trace panel: five bands, mean +- SEM across sessions.
+def weighted_band_mean_sem(sess, counts_sess, freqs, lo, hi):
+    """Precision-weighted mean and SEM of a band's ratio, across sessions (2026-08-04).
+
+    Each session's band_ratio(...) is weighted by that session's own pooled channel x trial
+    count in the band (summed over the band's frequency rows, from counts_sess -- the same
+    per-(freq,time)-cell counts extract_condition_tfr_maps.py already accumulates). A session
+    built from more channels/trials/frequency-bins pulls the estimate harder and contributes
+    proportionally less to the variance, which is why this ribbon is narrower than a plain
+    unweighted across-session SEM.
+
+    This is deliberately NOT the same as treating those pooled channel x trial x bin
+    observations as independent replicates for the SEM's sample size -- they are not
+    independent (channels share a probe, trials share a session, adjacent frequency bins
+    share spectral smoothing), and doing that would overstate precision and disagree with the
+    session-level paired/GLMM tests elsewhere in this figure. The standard error below is
+    still denominated by Kish's effective sample size ACROSS SESSIONS (sum(w)^2 / sum(w^2)),
+    which only equals n_sessions when every session carries equal weight and shrinks toward 1
+    as weight concentrates in a few sessions -- session remains the unit of inference, the
+    weighting only changes how much each session's own noise level is trusted.
+    """
+    sel = (freqs >= lo) & (freqs < hi)
+    names = list(sess)
+    vals = np.stack([band_ratio(sess[n], freqs, lo, hi) for n in names])
+    w = np.stack([np.nansum(counts_sess[n][sel], axis=0) for n in names])
+    w = np.where(np.isfinite(vals) & (w > 0), w, 0.0)
+    wsum = w.sum(axis=0)
+    wmean = np.divide(np.nansum(w * vals, axis=0), wsum,
+                      out=np.full(wsum.shape, np.nan), where=wsum > 0)
+    wvar = np.divide(np.nansum(w * (vals - wmean) ** 2, axis=0), wsum,
+                     out=np.full(wsum.shape, np.nan), where=wsum > 0)
+    w2sum = (w ** 2).sum(axis=0)
+    n_eff = np.divide(wsum ** 2, w2sum, out=np.full(wsum.shape, np.nan), where=w2sum > 0)
+    n_eff = np.clip(n_eff, 1.0, None)
+    return wmean, np.sqrt(wvar / n_eff)
+
+
+def draw_condition_bandtrace(ax, area, cond, sess, counts_sess, freqs, times, bands, letter):
+    """One band-decomposed trace panel: five bands, precision-weighted mean +- SEM across
+    sessions (see weighted_band_mean_sem).
 
     Mean and SEM are each Gaussian-smoothed within each epoch segment only (see
     smooth_time_segmented -- same no-cross-boundary-leakage rule the spectrogram uses) before
     conversion to dB -- cosmetic only; no statistic reads the smoothed trace.
     """
-    sess, _ = drop_outlier_sessions(sess)
+    sess, dropped = drop_outlier_sessions(sess)
+    counts_sess = {k: v for k, v in counts_sess.items() if k in sess}
     bounds = epoch_boundary_bins(times, CONDITION_WIN)
     for (name, (lo, hi)), col in zip(bands.items(), BAND_COLORS):
-        r = np.stack([band_ratio(m, freqs, lo, hi) for m in sess.values()])
-        mu = np.nanmean(r, axis=0)
-        n = np.sum(np.isfinite(r), axis=0)
-        sem = np.nanstd(r, axis=0, ddof=1) / np.sqrt(np.maximum(n, 1))
+        mu, sem = weighted_band_mean_sem(sess, counts_sess, freqs, lo, hi)
         mu_s = smooth_time_segmented(mu, TRACE_SMOOTH_TIME_BINS, bounds)
         sem_s = smooth_time_segmented(sem, TRACE_SMOOTH_TIME_BINS, bounds)
         ax.plot(times, to_db(mu_s), color=col, lw=1.6, label=name, zorder=3)
@@ -442,7 +493,8 @@ def draw_condition_bandtrace(ax, area, cond, sess, freqs, times, bands, letter):
                         color=col, alpha=0.28, lw=0, zorder=2)
     ax.axhline(0, color="black", lw=0.8)
     mark_full_trial_axis(ax, CONDITION_WIN, omit_slot=COND_OMIT_SLOT[cond])
-    ax.set_title(f"({letter}) {area}, {COND_LABEL[cond]}", fontsize=9)
+    prefix = f"({letter}) " if letter else ""
+    ax.set_title(f"{prefix}{area}, {COND_LABEL[cond]}", fontsize=9)
     ax.tick_params(labelsize=7)
 
 
@@ -482,16 +534,279 @@ def condition_p2_band_stats(maps, freqs, times, bands):
     return results
 
 
+# ============================================================================================
+# GLMM: band power ~ context (omission/stimulus) x family (A/B/R), per area x band.
+# Hypothesis under test: LFP band power tracks the network's state/prior over what is about
+# to happen (band ~ f(context)); does that relationship hold uniformly regardless of WHICH
+# stimulus identity (A/B) the context is built from, or does it depend on it. A/B family
+# needed a new extraction pass (2026-08-04, extract_condition_tfr_maps.py CONDS extended from
+# R-family-only) -- AXAB/AAAB and BXBA/BBBA are the same p2-omission-vs-real design RXRR/RRRR
+# already gives for R, now available for all three families.
+# ============================================================================================
+GLMM_CONDS = ["RXRR", "RRRR", "AXAB", "AAAB", "BXBA", "BBBA"]
+COND_CONTEXT = {"RXRR": "omission", "AXAB": "omission", "BXBA": "omission",
+                "RRRR": "stimulus", "AAAB": "stimulus", "BBBA": "stimulus"}
+COND_FAMILY = {"RXRR": "R", "RRRR": "R", "AXAB": "A", "AAAB": "A", "BXBA": "B", "BBBA": "B"}
+FAMILY_COLORS = {"R": "#252525", "A": "#1B9E77", "B": "#D95F02"}
+GLMM_MIN_SESSIONS, GLMM_MIN_ANIMALS = 6, 2
+
+
+def build_glmm_long_table(maps, freqs, times, bands):
+    """Session-level p2-window band power, one row per session x area x band x condition,
+    for all six GLMM_CONDS. Same scalar condition_p2_band_stats uses (mean power over the p2
+    window, averaged over channels/trials/time within a session first, then ratio-to-baseline,
+    then logged once) -- just computed for all three families instead of R only.
+    """
+    tmask = (times >= P2_WINDOW_MS[0]) & (times < P2_WINDOW_MS[1])
+    rows = []
+    for area in CONDITION_AREAS:
+        for cond in GLMM_CONDS:
+            sess = area_cond_sessions(maps, area, cond)
+            for sname, m in sess.items():
+                animal = sname.split("_ses-")[0].replace("sub-", "")
+                for band, (lo, hi) in bands.items():
+                    r = band_ratio(m, freqs, lo, hi)[tmask]
+                    if not np.any(np.isfinite(r)):
+                        continue
+                    rows.append({"area": area, "band": band, "session": sname,
+                                "animal": animal, "cond": cond, "context": COND_CONTEXT[cond],
+                                "family": COND_FAMILY[cond], "db": to_db(np.nanmean(r))})
+    return pd.DataFrame(rows)
+
+
+# 2026-08-04, reframed per review: exactly two questions, not a crossed context x family
+# design. (1) is it an omission at all (yes/no), pooled over stimulus identity -- the
+# network-state/prior question. (2) restricted to omissions only, does it matter whether the
+# missing stimulus was a PREDICTABLE identity (A or B -- the sequence template makes the
+# omitted stimulus's identity inferable) or UNPREDICTABLE (R -- by construction a random
+# sequence, so there is no "expected identity" being violated at that slot). The earlier
+# context x family interaction design answered a related but different question (does the
+# SIZE of the stimulus-vs-omission gap depend on family) and is retired in favour of these two
+# simpler, directly-asked models.
+def fit_omission_yesno_glmm(df_long):
+    """Q1 -- is it an omission or not, pooled over family: db ~ C(context), all six
+    GLMM_CONDS rows, groups=animal (random intercept) with a session variance component
+    nested within animal (vc_formula={"session": "0 + C(session)"}) -- the paired-within-
+    session structure condition_p2_band_stats's paired test already exploits; an animal-only
+    random intercept pools that into the residual instead, understating precision (confirmed
+    on V1 low-gamma: adding the session term left the coefficient at 5.042 dB unchanged but
+    tightened SE 0.677 -> 0.537, z 7.45 -> 9.39). ML fit. One Wald z-test per area x band.
+    Cells with fewer than GLMM_MIN_SESSIONS sessions or GLMM_MIN_ANIMALS animals are skipped.
+    """
+    import warnings
+    import statsmodels.formula.api as smf
+
+    results, convergence_notes = [], []
+    for (area, band), g in df_long.groupby(["area", "band"]):
+        g = g.dropna(subset=["db"])
+        n_sessions, n_animals = g.session.nunique(), g.animal.nunique()
+        if n_sessions < GLMM_MIN_SESSIONS or n_animals < GLMM_MIN_ANIMALS:
+            continue
+        with warnings.catch_warnings(record=True) as wlist:
+            warnings.simplefilter("always")
+            try:
+                m = smf.mixedlm("db ~ C(context)", g, groups=g["animal"],
+                                vc_formula={"session": "0 + C(session)"}).fit(reml=False)
+            except Exception as e:
+                convergence_notes.append(f"{area} {band}: fit failed -- {e}")
+                continue
+            if wlist:
+                convergence_notes.append(f"{area} {band}: " +
+                                         "; ".join(str(w.message) for w in wlist))
+
+        # patsy's default reference level is alphabetically first ("omission" < "stimulus"),
+        # so the fitted term is literally C(context)[T.stimulus] -- the coefficient IS
+        # stimulus minus omission. Asserted, not assumed -- a real mislabeling bug this exact
+        # line caught earlier in review, before this function was split out.
+        ctx_terms = [t for t in m.params.index if t.startswith("C(context)")]
+        if not ctx_terms:
+            continue
+        t = ctx_terms[0]
+        assert t == "C(context)[T.stimulus]", (
+            f"unexpected patsy reference level for context: {t!r} -- relabel the effect "
+            "before trusting its sign")
+        coef, se, p = float(m.params[t]), float(m.bse[t]), float(m.pvalues[t])
+        results.append(Result(
+            figure="fig04", panel="glmm", question=f"{area} {band}: is it an omission? "
+            "(stimulus vs omission, pooled family)",
+            test="LMM Wald (statsmodels mixedlm, ML)", statistic_name="z",
+            statistic=coef / se if se > 0 else np.nan, df="", n=n_sessions, unit="session",
+            effect_name="context coef (dB, stimulus-omission)", effect=coef, p=p,
+            family="fig04_glmm_is_omission",
+            note=f"{n_animals} animals, groups=animal random intercept, session variance "
+                 "component nested within animal; db ~ C(context), ML fit; positive = more "
+                 "power when p2 is a real stimulus, same convention as condition_p2_band_stats"))
+
+    return results, convergence_notes
+
+
+def fit_omission_type_glmm(df_long):
+    """Q2 -- among omissions only, does it matter whether the missing stimulus was a
+    predictable identity (A or B family) or unpredictable (R family, random by construction)?
+    db ~ C(family), restricted to context == "omission" rows, same random-effects structure as
+    fit_omission_yesno_glmm. Omnibus likelihood-ratio test against the intercept-only model
+    (df=2 for the 3-level family factor) -- one number per area x band answering "does
+    omission type matter at all", rather than three separate pairwise contrasts, to keep this
+    question's multiplicity to one test per cell.
+    """
+    import warnings
+    import statsmodels.formula.api as smf
+    from scipy.stats import chi2
+
+    omitted = df_long[df_long.context == "omission"]
+    results, convergence_notes = [], []
+    for (area, band), g in omitted.groupby(["area", "band"]):
+        g = g.dropna(subset=["db"])
+        n_sessions, n_animals = g.session.nunique(), g.animal.nunique()
+        if n_sessions < GLMM_MIN_SESSIONS or n_animals < GLMM_MIN_ANIMALS:
+            continue
+        vc = {"session": "0 + C(session)"}
+        with warnings.catch_warnings(record=True) as wlist:
+            warnings.simplefilter("always")
+            try:
+                m_null = smf.mixedlm("db ~ 1", g, groups=g["animal"], vc_formula=vc).fit(reml=False)
+                m_full = smf.mixedlm("db ~ C(family)", g, groups=g["animal"],
+                                     vc_formula=vc).fit(reml=False)
+            except Exception as e:
+                convergence_notes.append(f"{area} {band} (omission type): fit failed -- {e}")
+                continue
+            if wlist:
+                convergence_notes.append(f"{area} {band} (omission type): " +
+                                         "; ".join(str(w.message) for w in wlist))
+
+        lr = 2.0 * (m_full.llf - m_null.llf)
+        df_diff = int(m_full.model.k_fe - m_null.model.k_fe)
+        p_lr = float(chi2.sf(max(lr, 0.0), df_diff)) if df_diff > 0 else np.nan
+        results.append(Result(
+            figure="fig04", panel="glmm",
+            question=f"{area} {band}: does omission type matter (predictable A/B vs "
+            "unpredictable R)?",
+            test="LMM likelihood-ratio (db~C(family) vs db~1)", statistic_name="LR chi2",
+            statistic=float(lr), df=str(df_diff), n=n_sessions, unit="session",
+            p=p_lr, family="fig04_glmm_omission_type",
+            note=f"{n_animals} animals; omission-only rows (RXRR/AXAB/BXBA); "
+                 "session-nested random effects, ML"))
+
+    return results, convergence_notes
+
+
+def compute_paired_omission_diff(df_long):
+    """Q1 descriptive: within-session paired difference (stimulus_db - omission_db), POOLED
+    over family -- the direct counterpart to fit_omission_yesno_glmm's context coefficient.
+    Restricted to sessions with both context values present (same pairing
+    condition_p2_band_stats uses). Plotting the pooled paired difference, not the two absolute
+    context levels separately, is what actually shows the effect Q1's test found -- see
+    fit_omission_yesno_glmm's docstring for why an unpaired, absolute-level plot understates it.
+    """
+    wide = df_long.pivot_table(index=["area", "band", "session", "animal"],
+                               columns="context", values="db", aggfunc="mean").reset_index()
+    wide = wide.dropna(subset=["stimulus", "omission"])
+    wide["diff"] = wide["stimulus"] - wide["omission"]
+    return wide
+
+
+def panel_omission_yesno(diff_df, bands):
+    """Q1 -- is it an omission? One bar per area x band: mean +/- SEM of the within-session
+    paired difference (stimulus - omission), pooled over family. Positive = more power for a
+    real stimulus than an omission, matching fit_omission_yesno_glmm's sign convention.
+    """
+    areas, band_names = CONDITION_AREAS, list(bands)
+    fig, axes = plt.subplots(len(band_names), len(areas),
+                             figsize=(1.5 * len(areas), 1.7 * len(band_names)), sharex=True)
+    for bi, band in enumerate(band_names):
+        for ai, area in enumerate(areas):
+            ax = axes[bi, ai]
+            cell = diff_df[(diff_df.area == area) & (diff_df.band == band)]
+            mu, se = cell["diff"].mean(), cell["diff"].sem()
+            ax.bar([0], [mu], yerr=[se], color="#4477AA", edgecolor="black", linewidth=0.6,
+                  width=0.6, capsize=3, error_kw=dict(elinewidth=1.0), zorder=3)
+            ax.axhline(0, color="black", lw=0.7, zorder=2)
+            ax.set_xlim(-0.7, 0.7)
+            ax.set_xticks([])
+            ax.tick_params(labelsize=6.5)
+            if ai == 0:
+                ax.set_ylabel(band.split("(")[0].strip(), fontsize=7.5)
+            if bi == 0:
+                ax.set_title(area, fontsize=8.5)
+            for s in ("top", "right", "bottom"):
+                ax.spines[s].set_visible(False)
+    # Two short lines, not one long one: this panel is narrow (single bar per cell) and a
+    # one-line title at this fontsize ran off the right edge -- found by rendering standalone,
+    # same class of bug as the earlier header-clipping fixes on this figure.
+    fig.suptitle("Q1: is it an omission?\nPaired difference (stimulus - omission, dB), "
+                 "pooled over family -- mean ± SEM", fontsize=9, y=0.985, linespacing=1.4)
+    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.88])
+    return fig
+
+
+def panel_omission_type(df_long, bands):
+    """Q2 -- among omissions, does predictability matter? One 3-bar panel (R/A/B) per area x
+    band: mean +/- SEM of the raw p2-window dB level DURING the omission itself (not a
+    difference), restricted to context == "omission" rows -- what fit_omission_type_glmm's
+    omnibus test asks whether these three bars differ.
+    """
+    areas, band_names = CONDITION_AREAS, list(bands)
+    omitted = df_long[df_long.context == "omission"]
+    fig, axes = plt.subplots(len(band_names), len(areas),
+                             figsize=(2.15 * len(areas), 2.0 * len(band_names)), sharex=True)
+    fams = ("R", "A", "B")
+    x = np.arange(len(fams))
+    for bi, band in enumerate(band_names):
+        for ai, area in enumerate(areas):
+            ax = axes[bi, ai]
+            cell = omitted[(omitted.area == area) & (omitted.band == band)]
+            mu = [cell.loc[cell.family == f, "db"].mean() for f in fams]
+            se = [cell.loc[cell.family == f, "db"].sem() for f in fams]
+            ax.bar(x, mu, yerr=se, color=[FAMILY_COLORS[f] for f in fams],
+                  edgecolor="black", linewidth=0.5, capsize=2.5,
+                  error_kw=dict(elinewidth=0.9), zorder=3)
+            ax.axhline(0, color="black", lw=0.7, zorder=2)
+            ax.set_xlim(-0.6, len(fams) - 0.4)
+            ax.set_xticks(x)
+            if bi == len(band_names) - 1:
+                ax.set_xticklabels(["R\n(unpred.)", "A\n(pred.)", "B\n(pred.)"], fontsize=6.5)
+            else:
+                ax.set_xticklabels([])
+            ax.tick_params(labelsize=6.5)
+            if ai == 0:
+                ax.set_ylabel(band.split("(")[0].strip(), fontsize=7.5)
+            if bi == 0:
+                ax.set_title(area, fontsize=8.5)
+            for s in ("top", "right"):
+                ax.spines[s].set_visible(False)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=FAMILY_COLORS[f]) for f in fams]
+    # bbox_to_anchor/suptitle y both < 1.0: a figure-level artist positioned above y=1.0 sits
+    # outside the canvas and a plain savefig (no bbox_inches="tight") silently clips it -- see
+    # the same note on the retired panel_glmm_context_family, found by rendering and looking.
+    fig.legend(handles, ["R (unpredictable)", "A (predictable)", "B (predictable)"], ncol=3,
+              fontsize=8, frameon=False, loc="upper center", bbox_to_anchor=(0.5, 0.998))
+    # Two shorter lines, not one long one at 9.5pt: that version clipped at BOTH edges in the
+    # full-script run's dpi=190 save (though not in an isolated dpi=150 smoke test of this
+    # same function -- found by inspecting the actual pipeline output, not by re-trusting an
+    # earlier isolated check that happened to pass. Root cause not chased further; the fix
+    # (shorter, wrapped, smaller) is the same pattern already applied to panel_omission_yesno
+    # and is robust regardless of the exact text-metrics quirk that caused it).
+    fig.suptitle("Q2: does omission type matter?\nBand power during the omission itself (dB, "
+                 "p2 window), by predictability -- mean ± SEM", fontsize=9, y=0.93,
+                 linespacing=1.4)
+    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.86])
+    return fig
+
+
 def build_v1_pfc_condition_figure():
-    """Assemble the main figure: rows = CONDITION_AREAS (V1, V3a/d, TEO, PFC), columns =
-    spec-RXRR/spec-RRRR/trace-RXRR/trace-RRRR -- panels a-p in reading order.
+    """Assemble the main figure in three stacked sections: (1) spectrograms for all four
+    CONDITION_AREAS (V1, V3a/d, TEO, PFC), RXRR then RRRR; (2) band-power traces for the same
+    four areas, RXRR then RRRR; (3) the band-power-vs-context-x-family GLMM summary (2026-08-04
+    addition). Reworked 2026-08-04 from the earlier per-area-row layout (spec-RXRR, spec-RRRR,
+    trace-RXRR, trace-RRRR columns, one area per row) into this spectrogram-block-then-
+    trace-block-then-relationship-block order, per review.
 
     Each spectrogram's colour scale is autoscaled to itself (99th percentile of |dB| within
     that one area x condition panel, its own colorbar alongside it) rather than a scale shared
-    across all sixteen panels -- areas differ enormously in overall power change, and a common
-    scale compresses the smaller ones toward invisibility.
+    across all panels -- areas differ enormously in overall power change, and a common scale
+    compresses the smaller ones toward invisibility.
     """
-    maps, freqs, times = load_condition_maps()
+    maps, count_maps, freqs, times = load_condition_maps()
     bands = BANDSETS["manuscript"]
 
     def panel_vlim(area, cond):
@@ -504,19 +819,20 @@ def build_v1_pfc_condition_figure():
         return (-round(vmax, 1), round(vmax, 1))
 
     counts = {}
-    nrow = len(CONDITION_AREAS)
-    fig, axes = plt.subplots(nrow, 4, figsize=(16.0, 3.3 * nrow))
+    narea = len(CONDITION_AREAS)
+    nrow = 2 * narea                                # spectrogram block, then trace block
+    fig, axes = plt.subplots(nrow, 2, figsize=(9.6, 3.3 * narea + 1.6 * narea))
     letters = "abcdefghijklmnop"
     li = 0
     for ri, area in enumerate(CONDITION_AREAS):
-        for cond in CONDITIONS:
+        for ci, cond in enumerate(CONDITIONS):
             sess = area_cond_sessions(maps, area, cond)
-            ax = axes[ri, CONDITIONS.index(cond)]
+            ax = axes[ri, ci]
             vlim = panel_vlim(area, cond)
             im, n = draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands,
                                                vlim, letters[li])
-            # Rasterize the spectrogram into the SVG instead of exporting 49,500 sub-pixel
-            # quads as vector paths per panel: at a print size of ~1.1 pt per quad, Chrome and
+            # Rasterize the spectrogram into the SVG instead of exporting sub-pixel quads as
+            # vector paths per panel: at a print size of ~1.1 pt per quad, Chrome and
             # Illustrator both alias the vector form, while an embedded image at savefig dpi
             # stays crisp at any zoom. Same convention fig01_finalized.svg uses (embedded
             # images, zero paths). The band traces and all text stay vector -- editable.
@@ -527,47 +843,107 @@ def build_v1_pfc_condition_figure():
             cb.ax.tick_params(labelsize=6)
             counts[f"{area}_{cond}"] = n
             li += 1
-        for cond in CONDITIONS:
+    for ri, area in enumerate(CONDITION_AREAS):
+        for ci, cond in enumerate(CONDITIONS):
             sess = area_cond_sessions(maps, area, cond)
-            draw_condition_bandtrace(axes[ri, 2 + CONDITIONS.index(cond)], area, cond, sess,
+            counts_sess = area_cond_sessions(count_maps, area, cond)
+            draw_condition_bandtrace(axes[narea + ri, ci], area, cond, sess, counts_sess,
                                      freqs, times, bands, letters[li])
             li += 1
 
-    for ri in range(nrow):
-        axes[ri, 0].set_ylabel("Frequency (Hz)", fontsize=9)
-        axes[ri, 2].set_ylabel("Power change (dB)", fontsize=9)
-        for ci in (1, 3):
-            axes[ri, ci].tick_params(labelleft=False)
-    for ci in range(4):
+    for ri in range(narea):
+        axes[ri, 0].set_ylabel(f"{CONDITION_AREAS[ri]}\nFrequency (Hz)", fontsize=8.5)
+        axes[ri, 1].tick_params(labelleft=False)
+    for ri in range(narea):
+        axes[narea + ri, 0].set_ylabel(f"{CONDITION_AREAS[ri]}\nPower change (dB)", fontsize=8.5)
+        axes[narea + ri, 1].tick_params(labelleft=False)
+    for ci in range(2):
         axes[nrow - 1, ci].set_xlabel("Time from p1 onset (ms)", fontsize=8)
-    handles, labs = axes[0, 2].get_legend_handles_labels()
-    fig.legend(handles, labs, fontsize=8, ncol=5, loc="upper center",
-              bbox_to_anchor=(0.5, 1.015), frameon=False)
-    fig.suptitle(f"{', '.join(CONDITION_AREAS)}, RXRR vs RRRR, p1-d1-p2-d2-p3; baseline = "
-                "middle of d1; each spectrogram's colour scale is autoscaled to itself",
-                fontsize=12, fontweight="bold", y=1.02)
+    handles, labs = axes[narea, 0].get_legend_handles_labels()
+
     # bbox_inches="tight" forces an extra full-figure render-and-measure pass on top of the
     # one savefig already does -- expensive with 16 pcolormesh/gouraud panels and became
     # pathological under concurrent CPU load from other processes on this shared machine
     # (observed: hung for 15+ hours). fig.tight_layout() computes a layout without that
-    # second render pass; margins are pre-padded (rect) to leave room for the legend/suptitle.
-    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.94])
+    # second render pass.
+    #
+    # Getting the header block (section label + suptitle + band legend) to sit flush above
+    # the axes without overlapping OR leaving a dead gap took three tries, each found only by
+    # rendering and looking, not by reasoning about the numbers:
+    #  1. rect top=0.88, header y-values guessed as fixed fractions (0.995/0.955/0.885): left
+    #     most of that reserved 12% as blank space, because tight_layout's own per-panel-title
+    #     padding already used less room than the guess assumed.
+    #  2. rect top=0.97, header stacked from axes[0,0]'s measured top (get_position().y1):
+    #     the SUPTITLE's y was additionally clamped with min(..., 0.925) as a safety cap --
+    #     but 0.925 sits BELOW the actual measured axes top (~0.954 with this rect), so the
+    #     clamp itself pushed the suptitle down INTO the spectrogram panel.
+    #  3. This version: rect top=0.90 (comfortable fixed headroom, no reliance on a guessed
+    #     clamp), then the three header rows are stacked upward from the measured axes top by
+    #     fixed increments sized for their own font sizes -- no min()/max() safety clamp that
+    #     could itself land below the axes top.
+    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.90])
 
-    out = os.path.join(FIG_DIR, "fig04_v1_pfc_rxrr_rrrr")
-    fig.savefig(out + ".png", dpi=190)
+    # axes[0,0].get_position().y1 is the plotting box's own top edge -- it does NOT include
+    # that panel's own ax.set_title() text, which matplotlib floats above the box on its own
+    # padding, hence the +0.012 clearance before the first header row.
+    axes_top = axes[0, 0].get_position().y1
+    y_spec = axes_top + 0.012
+    fig.text(0.5, y_spec, "Spectrograms (RXRR left, RRRR right, per area)", fontsize=10,
+             fontweight="bold", ha="center", va="bottom")
+    y_title = y_spec + 0.032
+    fig.suptitle(f"{', '.join(CONDITION_AREAS)} -- RXRR vs RRRR, p1-d1-p2-d2-p3\n"
+                "baseline = middle of d1; each spectrogram's colour scale is autoscaled to "
+                "itself", fontsize=10, fontweight="bold", y=y_title, linespacing=1.5)
+    y_legend = y_title + 0.035
+    fig.legend(handles, labs, fontsize=8, ncol=5, loc="upper center",
+              bbox_to_anchor=(0.5, y_legend), frameon=False)
+    # Trace-block label placed from the ACTUAL measured boundary between the two blocks'
+    # axes (fig.transFigure via get_position(), after tight_layout has set final positions),
+    # not a hand-computed fraction -- guaranteed correct regardless of area count or margins.
+    y_spec_bottom = axes[narea - 1, 0].get_position().y0
+    y_trace_top = axes[narea, 0].get_position().y1
+    fig.text(0.5, (y_spec_bottom + y_trace_top) / 2.0, "Band-power traces, mean ± SEM "
+             "across sessions (RXRR left, RRRR right, per area)", fontsize=10,
+             fontweight="bold", ha="center", va="center")
+
+    grid_out = os.path.join(FIG_DIR, "fig04_v1_pfc_rxrr_rrrr")
+    fig.savefig(grid_out + ".png", dpi=190)
     # Same dpi as the PNG so the rasterized spectrogram panels embed at matching
     # resolution (savefig dpi controls the resolution of rasterized artists in SVG).
-    fig.savefig(out + ".svg", dpi=190)
+    fig.savefig(grid_out + ".svg", dpi=190)
     plt.close(fig)
+
+    # 2026-08-04: fig04 reverted to spectrogram+trace only, per review -- the Q1/Q2 GLMM
+    # sections (is it an omission? does omission type matter?) built earlier the same day are
+    # no longer assembled into this figure. The fitting/plotting functions
+    # (fit_omission_yesno_glmm, fit_omission_type_glmm, panel_omission_yesno,
+    # panel_omission_type) are still defined above and still runnable -- real, reviewed
+    # analysis, just not part of this figure's default build -- for whoever picks up a GLMM
+    # supplement later.
+    out_path, _, _ = assemble([grid_out + ".svg"],
+                              os.path.join(os.path.dirname(FIG_DIR), "fig04.svg"), ncol=1,
+                              gap=1.0, label_inset=True)
+    # assemble() writes SVG only; with a single input panel this is a straight rescale-to-
+    # TEXT_W wrap, so the already-rendered grid PNG (same content, same dpi) is copied
+    # alongside it rather than re-rasterizing.
+    import shutil
+    shutil.copyfile(grid_out + ".png", os.path.join(os.path.dirname(FIG_DIR), "fig04.png"))
 
     colour_scales = {f"{area}_{cond}": list(panel_vlim(area, cond))
                      for area in CONDITION_AREAS for cond in CONDITIONS}
     receipt = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "script": os.path.abspath(__file__), "maps": CONDITION_MAPS,
-        "layout": f"{len(CONDITION_AREAS)} rows ({', '.join(CONDITION_AREAS)}) x 4 columns "
-                  "(spectrogram-RXRR, spectrogram-RRRR, band-trace-RXRR, band-trace-RRRR), "
-                  "panels a-p in reading order",
+        "layout": f"2 stacked sections: (1) spectrograms, {narea} areas "
+                  f"({', '.join(CONDITION_AREAS)}) x 2 conditions (RXRR, RRRR); "
+                  "(2) band-power traces, same areas x conditions. Reworked 2026-08-04 from "
+                  "the earlier per-area-row layout into this spectrogram-block-then-trace-"
+                  "block order; a same-day GLMM addition (Q1/Q2, is it an omission / does "
+                  "omission type matter) was built, then removed from this figure per review "
+                  "-- fig04 shows spectrogram+traces only. Trace SEM is precision-weighted "
+                  "across sessions by each session's own channel x trial x frequency-bin "
+                  "count (see weighted_band_mean_sem), not a plain unweighted across-session "
+                  "SEM as before.",
         "areas": CONDITION_AREAS, "conditions": CONDITIONS,
         "window_ms_re_p1": list(CONDITION_WIN),
         "baseline": "middle third of d1 (706-856 ms from p1), NOT a pre-trial fixation "
@@ -577,12 +953,16 @@ def build_v1_pfc_condition_figure():
         "colour_scale_db_per_panel": colour_scales,
         "colour_scale_rule": "each spectrogram autoscaled to itself, symmetric, 99th "
                             "percentile of |dB| within that panel",
+        "trace_sem_rule": "precision-weighted across sessions by pooled channel x trial "
+                          "count per band (Kish effective sample size); see "
+                          "weighted_band_mean_sem docstring for why this is not the same as "
+                          "treating those pooled observations as independent replicates",
         "bands_hz": {k: list(v) for k, v in bands.items()},
         "sessions_per_area_condition": counts,
         "env": {"python": platform.python_version(), "numpy": np.__version__,
-                "matplotlib": matplotlib.__version__},
+                "pandas": pd.__version__, "matplotlib": matplotlib.__version__},
     }
-    with open(out + ".receipt.json", "w", encoding="utf-8") as fh:
+    with open(grid_out + ".receipt.json", "w", encoding="utf-8") as fh:
         json.dump(receipt, fh, indent=2)
     print("sessions per area/condition:", counts)
     print("colour scale per panel:", colour_scales)
@@ -597,7 +977,94 @@ def build_v1_pfc_condition_figure():
                    "trial-pooled within session, so no finer unit is available from this input.")
     print(f"condition_p2 stats: {len(stats_results)} tests written to "
           f"{os.path.join(FIG_DIR, 'fig04_condition_stats.md')}")
-    return out + ".svg"
+    return out_path
+
+
+def build_area_condition_supplements():
+    """Single-panel spectrogram and band-trace SVGs, one per SUPP_AREAS area x CONDITIONS x
+    panel type (6 areas x 2 conditions x 2 types = 24 panels) -- the supplement content for
+    this figure, since the main figure covers only CONDITION_AREAS (V1, V3a/d, TEO, PFC). Same
+    RXRR-vs-RRRR design, same drawing functions (draw_condition_spectrogram,
+    draw_condition_bandtrace) as the main figure, but saved as individual panels rather than
+    assembled into a grid, per review ("make the single subpanel svgs"). Colour scale is
+    per-panel autoscaled (same rule as the main figure), not shared with it.
+
+    Not wired into build_supplements.py's PLAN -- these are produced as individual assets in
+    this figure's own svg/ folder; assembling them into a numbered figSNN supplement is a
+    separate step if wanted later.
+    """
+    maps, count_maps, freqs, times = load_condition_maps()
+    bands = BANDSETS["manuscript"]
+    made, counts = [], {}
+    for area in SUPP_AREAS:
+        for cond in CONDITIONS:
+            sess = area_cond_sessions(maps, area, cond)
+            if not sess:
+                print(f"WARNING: no data for {area} {cond}, skipping supplement panel(s)")
+                continue
+            counts_sess = area_cond_sessions(count_maps, area, cond)
+            kept, _ = drop_outlier_sessions(sess)
+            v = to_db(np.nanmean(np.stack(list(kept.values())), axis=0))
+            vmax = max(float(np.nanpercentile(np.abs(v[np.isfinite(v)]), 99)), 0.5)
+            vlim = (-round(vmax, 1), round(vmax, 1))
+            area_tag = area.replace("/", "").replace(" ", "")
+
+            fig, ax = plt.subplots(figsize=(4.6, 3.1))
+            im, n = draw_condition_spectrogram(ax, area, cond, sess, freqs, times, bands,
+                                               vlim, "")
+            im.set_rasterized(True)
+            cb = fig.colorbar(im, ax=ax, pad=0.02, fraction=0.05)
+            cb.solids.set_rasterized(True)
+            cb.set_label("dB", fontsize=7, rotation=270, labelpad=9)
+            cb.ax.tick_params(labelsize=6)
+            ax.set_ylabel("Frequency (Hz)", fontsize=8)
+            ax.set_xlabel("Time from p1 onset (ms)", fontsize=8)
+            fig.tight_layout()
+            name = f"fig04_supp_{area_tag}_{cond}_spectrogram"
+            out = os.path.join(FIG_DIR, name)
+            fig.savefig(out + ".svg", dpi=190)
+            fig.savefig(out + ".png", dpi=190)
+            plt.close(fig)
+            made.append(name)
+            counts[f"{area}_{cond}"] = n
+
+            fig, ax = plt.subplots(figsize=(4.6, 3.4))
+            draw_condition_bandtrace(ax, area, cond, sess, counts_sess, freqs, times, bands, "")
+            ax.set_ylabel("Power change (dB)", fontsize=8)
+            ax.set_xlabel("Time from p1 onset (ms)", fontsize=8)
+            # ncol=5 (one row) ran off both edges of this panel's 4.6in width -- narrower
+            # than the main figure's 9.6in grid the same legend call works fine in. ncol=2
+            # (3 rows) fits within the panel width instead.
+            ax.legend(fontsize=6.5, frameon=False, ncol=2, loc="upper center",
+                     bbox_to_anchor=(0.5, -0.24))
+            fig.tight_layout(rect=[0.0, 0.14, 1.0, 1.0])
+            name = f"fig04_supp_{area_tag}_{cond}_trace"
+            out = os.path.join(FIG_DIR, name)
+            fig.savefig(out + ".svg", dpi=190)
+            fig.savefig(out + ".png", dpi=190)
+            plt.close(fig)
+            made.append(name)
+
+    receipt = {
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "script": os.path.abspath(__file__), "maps": CONDITION_MAPS,
+        "purpose": "supplement content for fig04: single-panel spectrogram/trace SVGs for "
+                  "the six areas not in the main figure (SUPP_AREAS), same RXRR-vs-RRRR "
+                  "design and drawing functions",
+        "areas": SUPP_AREAS, "conditions": CONDITIONS, "panels_written": made,
+        "sessions_per_area_condition": counts,
+        "trace_sem_rule": "precision-weighted across sessions by pooled channel x trial "
+                          "count per band (Kish effective sample size); see "
+                          "weighted_band_mean_sem",
+        "env": {"python": platform.python_version(), "numpy": np.__version__,
+                "pandas": pd.__version__, "matplotlib": matplotlib.__version__},
+    }
+    with open(os.path.join(FIG_DIR, "fig04_supp_areas.receipt.json"), "w",
+             encoding="utf-8") as fh:
+        json.dump(receipt, fh, indent=2)
+    print(f"wrote {len(made)} supplement panels for areas {SUPP_AREAS}")
+    print("sessions per area/condition:", counts)
+    return made
 
 
 def run(argv=None):
@@ -861,18 +1328,11 @@ def main():
     for cfg in PANEL_SET:
         print("---", " ".join(cfg) or "(pairs and overview grid)")
         run(cfg)
-    panel_svg = build_v1_pfc_condition_figure()
-    here = os.path.dirname(os.path.abspath(__file__))
-    out, w, h = assemble([panel_svg], os.path.join(here, "fig04.svg"), ncol=1, letters=False)
-    print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
-
-    # fig04.svg is a straight wrap of the single condition-figure panel (no letter grid, no
-    # extra panels), so its already-rendered PNG (same content, dpi=190) is copied alongside
-    # it rather than re-rasterizing the SVG.
-    import shutil
-    panel_png = panel_svg[:-4] + ".png"
-    shutil.copyfile(panel_png, os.path.join(here, "fig04.png"))
-    print(f"copied -> {os.path.join(here, 'fig04.png')}")
+    # build_v1_pfc_condition_figure() assembles fig04.svg (spectrogram+trace grid only, as of
+    # 2026-08-04) and writes fig04.png itself -- see its own docstring.
+    out = build_v1_pfc_condition_figure()
+    print(f"assembled -> {out}")
+    build_area_condition_supplements()
 
 
 if __name__ == "__main__":

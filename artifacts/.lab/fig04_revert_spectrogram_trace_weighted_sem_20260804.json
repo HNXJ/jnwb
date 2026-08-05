@@ -1,0 +1,45 @@
+{
+  "id": "fig04_revert_spectrogram_trace_weighted_sem_20260804",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig04 reverted to spectrogram+trace only, trace SEM made precision-weighted across sessions, six-area supplement panels added",
+  "status": "confirmed",
+  "generated": "2026-08-04T00:00:00Z",
+  "notes": [
+    "User attached the pre-GLMM 4x4 layout as 'last finalized fig04' and asked to (1) show only spectrogram+traces (drop the Q1/Q2 GLMM sections built earlier the same day), (2) improve trace SEM to account for channels/trials/frequency bins, (3) generate single-panel supplement SVGs for the other areas.",
+    "Removed Q1/Q2 GLMM computation, plotting, and assembly from build_v1_pfc_condition_figure() -- fig04.svg/.png now assemble/copy the spectrogram+trace grid only. The GLMM functions (fit_omission_yesno_glmm, fit_omission_type_glmm, panel_omission_yesno, panel_omission_type, build_glmm_long_table) remain defined and runnable, just unused by the default build.",
+    "SEM: flagged that literally dividing by sqrt(channels*trials*bins) would treat correlated, non-independent observations (same probe, same session, adjacent frequency bins) as independent replicates -- a pseudo-replication risk this project's own doctrine explicitly warns against, and would disagree with the session-level paired/GLMM tests elsewhere in the same figure. User confirmed the defensible alternative: precision-weighted SEM across sessions. Implemented weighted_band_mean_sem() -- each session weighted by its own pooled channel x trial count in the band (from count_maps, now returned by load_condition_maps() alongside the mean maps; previously computed by extract_condition_tfr_maps.py but discarded), Kish effective sample size denominates the SEM (not raw pooled count). Measured effect: SEM narrowed to ~96% of the unweighted value on V1 low-gamma at the p1 peak -- modest, honest, not dramatic.",
+    "Updated draw_condition_bandtrace()'s signature (added counts_sess param) and load_condition_maps()'s return signature (added count_maps) -- found and fixed the one other real caller, scripts/plot_v182o_condition_bandtraces.py, which would otherwise have broken silently on the next run.",
+    "Added build_area_condition_supplements(): 24 individual single-panel spectrogram/trace SVGs for the six areas not in the main figure (V2, V4, MT, MST, FST, FEF), saved in fig04's own svg/ folder, not assembled into a grid, per explicit instruction. Not yet wired into build_supplements.py's PLAN.",
+    "Caught and fixed a cosmetic bug found while spot-checking: single-panel titles showed a stray '()' when letter=\"\" was passed (draw_condition_spectrogram/draw_condition_bandtrace); and the band-color legend (ncol=5) overflowed the narrower 4.6in single-panel figure width, clipping text on both edges -- fixed to ncol=2."
+  ],
+  "issues": [
+    "fig04 remains unlocked/unsealed. The GLMM work from earlier the same day (two separate revisions) is now retired from the figure but preserved in the script -- worth deciding later whether it belongs in a manuscript supplement.",
+    "Supplement panels not yet wired into build_supplements.py's PLAN -- exist as individual assets only; a formal numbered figSNN supplement is a separate step if wanted.",
+    "A further request (pool omissions across p2/p3/p4 slot positions, all families, for statistical power) was investigated and found to require re-aligning to the omission/stimulus event rather than p1 -- confirmed with the user as a SEPARATE supplement (not a change to fig04's own design). New extraction scripts/extract_stimulus_pooled_tfr_maps.py written and a full run launched in background (task bs9ssl21s, ~73 min estimated); the matched slot-aligned omission-vs-stimulus supplement figure itself is not yet built (task #12, blocked on the extraction finishing)."
+  ],
+  "plan": [
+    "Once scripts/extract_stimulus_pooled_tfr_maps.py's background run completes, verify its output (areas, session counts, receipt) and build the slot-aligned omission-vs-stimulus supplement figure (spectrogram + trace panels, same style as fig04, comparing outputs/omission_tfr_maps_w1500 against outputs/stimulus_pooled_tfr_maps_w1500) as a new supplement, separate from fig04.svg."
+  ],
+  "verification": {
+    "checks": {
+      "glmm_removed_from_fig04_assembly_functions_still_defined": true,
+      "weighted_sem_pseudoreplication_risk_flagged_before_implementing": true,
+      "weighted_sem_tested_against_unweighted_before_full_rerun": true,
+      "external_caller_plot_v182o_condition_bandtraces_updated_not_broken": true,
+      "supplement_panels_generated_24_files_exit_0": true,
+      "cosmetic_title_and_legend_bugs_found_and_fixed_by_rendering": true,
+      "stimulus_pooled_extraction_smoke_tested_before_full_background_run": true
+    },
+    "receipt": "context/figures/fig04_v1_pfc_condition_tfr/run_20260804_final.log (exit 0, spectrogram+trace + 24 supplement panels); svg/fig04_supp_areas.receipt.json; weighted SEM comparison test (ratio 0.9576 at V1 gamma p1 peak, median 0.965 across time); scripts/extract_stimulus_pooled_tfr_maps.py 15-file smoke test (71.3s, 10 keys, no errors beyond expected benign RuntimeWarning).",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig04_glmm_reframed_two_questions_20260804",
+      "relation": "supersedes",
+      "reasoning": "That node's Q1/Q2 GLMM design is now retired from fig04's default build per this session's later review; the code is preserved, not deleted.",
+      "confidence": 0.9
+    }
+  ]
+}

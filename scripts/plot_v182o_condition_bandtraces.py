@@ -92,7 +92,7 @@ def draw_single_session_bandtrace(ax, area, cond, sess, freqs, times, bands):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    maps, freqs, times = fig04.load_condition_maps()
+    maps, count_maps, freqs, times = fig04.load_condition_maps()
     bands = fig04.BANDSETS["manuscript"]
 
     fig, axes = plt.subplots(len(AREAS), len(CONDITIONS),
@@ -112,7 +112,9 @@ def main():
             if len(sess) == 1:
                 draw_single_session_bandtrace(ax, area, cond, sess, freqs, times, bands)
             else:
-                fig04.draw_condition_bandtrace(ax, area, cond, sess, freqs, times, bands, "")
+                counts_sess = subject_area_cond_sessions(count_maps, area, cond)
+                fig04.draw_condition_bandtrace(ax, area, cond, sess, counts_sess, freqs, times,
+                                               bands, "")
                 ax.set_title(f"{area}, {COND_LABEL[cond]}  (n={len(sess)} sessions)", fontsize=9)
             smooth_axis_lines(ax)
             ax.set_xlim(*ZOOM_WIN)

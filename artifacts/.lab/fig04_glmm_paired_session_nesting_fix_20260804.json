@@ -1,0 +1,44 @@
+{
+  "id": "fig04_glmm_paired_session_nesting_fix_20260804",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig04 GLMM refined: session-nested random effects + paired-difference visualization, correcting a wide-SEM/under-specified-model gap",
+  "status": "confirmed",
+  "generated": "2026-08-04T00:00:00Z",
+  "notes": [
+    "User flagged that the GLMM summary panel's SEM error bars looked implausibly wide given the reported significance, and asked whether SEM was computed correctly and whether a different statistical method could better reflect the effect.",
+    "SEM formula itself was correct (nanstd(ddof=1)/sqrt(n), standard). Two real issues found instead: (1) the descriptive plot showed INDEPENDENT (unpaired) SEM bars on absolute dB level per context, which doesn't reflect that the design is paired within session (each session contributes both a stimulus and omission row) -- between-session baseline-level variation inflated the visual bars even though the within-session difference is much tighter; (2) the GLMM's random-effects structure (groups=animal only) omitted a session-level random intercept, so it didn't exploit the paired structure the way fig04_condition_p2's paired test already does.",
+    "Fix 1 (model): added vc_formula={'session': '0 + C(session)'} (session variance component nested within animal) to both M0 and M1. Verified on V1 low-gamma before applying corpus-wide: coefficient unchanged (5.042 dB, as expected -- fixed effects don't move), SE tightened 0.677 -> 0.537 (z 7.45 -> 9.39). k_fe (fixed-effect count) confirmed unaffected by vc_formula, so the M1-vs-M0 likelihood-ratio test's df=2 remains valid.",
+    "Fix 2 (visualization): replaced the absolute-level two-point line plot with compute_paired_context_diff() + a bar plot of the within-session paired difference (stimulus_db - omission_db) per family, mean +/- SEM of the difference itself -- visually matches what the paired test and session-nested GLMM are actually sensitive to.",
+    "Re-ran corpus-wide (20 area x band cells): pooled context effect significant cells went 13/20 -> 14/20 (Holm-corrected). Interaction (context x family) remained 0/20 both before and after -- the session-nesting fix changes precision, not the conclusion about family-independence.",
+    "Self-correction: an earlier report to the user mid-session stated the pre-fix count as '15/20' -- a precise recount against the saved stats.csv (not eyeballing the markdown table) found it was actually 13/20. Corrected in the README and to the user rather than letting the wrong number stand.",
+    "6 cells that do not survive correction (either version): V1 theta, V1 alpha, V3a/d alpha, TEO high gamma, PFC low gamma, PFC high gamma."
+  ],
+  "issues": [
+    "This session's re-verification habit (recount from raw CSV before restating a number) caught a real numeric error in an earlier informal report -- worth keeping as a standing practice on this figure's stats given how easy it is to misread a markdown table under time pressure.",
+    "Animal-level random-intercept variance remains weakly identified (3 animals) regardless of this fix -- documented, not resolved; a real corpus-size limitation."
+  ],
+  "plan": [
+    "No further action planned on this specific refinement. fig04 is still unlocked/unsealed overall -- this node only covers the GLMM statistical/visualization fix, not a full figure lock."
+  ],
+  "verification": {
+    "checks": {
+      "session_vc_tested_in_isolation_before_full_rerun": true,
+      "k_fe_confirmed_unaffected_by_vc_formula": true,
+      "coefficient_unchanged_se_tightened_verified_on_v1_gamma": true,
+      "full_corpus_rerun_exit_0": true,
+      "before_after_significant_count_recomputed_from_csv_not_eyeballed": true,
+      "readme_and_user_report_corrected_for_the_13_vs_15_discrepancy": true
+    },
+    "receipt": "context/figures/fig04_v1_pfc_condition_tfr/run_20260804_sessionvc.log (exit 0); svg/fig04_glmm_context_family_stats.csv (pandas recount: 14/20 pooled significant, 0/20 interaction significant); isolated statsmodels test comparing groups=animal-only vs +vc_formula on V1 Gamma(Low) confirming SE 0.677->0.537.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig04_rework_glmm_context_family_20260804",
+      "relation": "derives_from",
+      "reasoning": "This node refines the GLMM and visualization built in that earlier node, in the same session, in response to user review of the SEM widths.",
+      "confidence": 0.95
+    }
+  ]
+}

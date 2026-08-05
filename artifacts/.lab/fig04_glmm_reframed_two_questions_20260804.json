@@ -1,0 +1,42 @@
+{
+  "id": "fig04_glmm_reframed_two_questions_20260804",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig04 GLMM reframed from crossed context x family design into two directly-asked questions (is it omission? does omission type matter?)",
+  "status": "confirmed",
+  "generated": "2026-08-04T00:00:00Z",
+  "notes": [
+    "User instruction: 'we must only focus on LFP-powerbands in relation to (1) is it omission yes/no, (2) is it omission of expected A or B or unpredictable [R is by definition random]'. Replaced the earlier crossed context x family interaction design (M0: context+family, M1: context*family, testing whether family modifies the stimulus-vs-omission gap) with two simpler, directly-asked models.",
+    "Q1 (fit_omission_yesno_glmm): db ~ C(context), all 6 conditions, session-nested random effects (groups=animal, vc_formula session-within-animal), Wald z-test. 13/20 area x band cells significant (Holm-corrected) -- differs slightly from the prior pooled-effect model's 14/20 because this version drops the C(family) covariate per 'only focus on' framing; both are legitimate, just different model specs.",
+    "Q2 (fit_omission_type_glmm): restricted to omission rows only (RXRR/AXAB/BXBA), db ~ C(family) vs db ~ 1, likelihood-ratio omnibus test (df=2), same random-effects structure. 0/20 significant -- consistent with the retired interaction design's null finding (does omission type/predictability change band power during the omission itself).",
+    "Descriptive panels redesigned to match: panel_omission_yesno (one bar per area x band, pooled paired difference) for Q1; panel_omission_type (three bars R/A/B, raw omission-window dB level, no paired counterpart needed since Q2 has no stimulus comparison) for Q2.",
+    "Caught and fixed a real, non-obvious layout bug during this pass: panel_omission_type's suptitle rendered fine in an isolated dpi=150 smoke test but clipped at both edges in the actual dpi=190 full-pipeline output. Root cause not chased (likely a DPI-dependent font-metric quirk); fixed robustly by shortening/wrapping the title and increasing header clearance, verified against the ACTUAL pipeline artifact this time, not an isolated re-test -- the isolated test had given a false pass once already.",
+    "fig04.svg/fig04.png now assemble three components: spectrogram+trace grid, Q1 summary, Q2 summary. Old fig04_glmm_context_family.svg/.png/_stats.md/.csv files deleted (superseded, not orphaned)."
+  ],
+  "issues": [
+    "fig04 remains unlocked/unsealed -- this is the second same-day GLMM revision (session-nesting fix, then question reframe); still needs full user sign-off before any lock/finalized-PNG step.",
+    "The lesson about isolated-smoke-test false negatives (panel_omission_type's title bug) is worth carrying forward for the rest of this figure's iteration: verify claims against the actual pipeline artifact, not a standalone repro, when dpi or other pipeline-specific parameters differ from the smoke test."
+  ],
+  "plan": [
+    "No further action planned on this specific reframe. Awaiting user review of the two-question GLMM content before proceeding toward a lock."
+  ],
+  "verification": {
+    "checks": {
+      "q1_q2_fit_in_isolation_before_full_rerun": true,
+      "full_corpus_rerun_exit_0": true,
+      "significant_counts_recomputed_from_csv_not_eyeballed": true,
+      "q2_title_clip_bug_found_and_fixed_against_actual_pipeline_dpi": true,
+      "old_context_family_stats_files_deleted_not_left_orphaned": true
+    },
+    "receipt": "context/figures/fig04_v1_pfc_condition_tfr/run_20260804_final.log (exit 0); svg/fig04_glmm_stats.csv (pandas recount: Q1 13/20, Q2 0/20 significant); svg/fig04_glmm_is_omission.png and fig04_glmm_omission_type.png visually verified clean at actual pipeline dpi=190.",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig04_glmm_paired_session_nesting_fix_20260804",
+      "relation": "supersedes",
+      "reasoning": "That node's context x family GLMM design (with session-nesting fix) is retired here in favor of the two-question design; the session-nesting random-effects lesson itself carries forward into the new models.",
+      "confidence": 0.9
+    }
+  ]
+}

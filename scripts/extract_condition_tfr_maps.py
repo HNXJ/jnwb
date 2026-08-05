@@ -1,8 +1,14 @@
 r"""
-Time-resolved RXRR/RRXR-vs-RRRR time-frequency maps, per session x area x putative layer.
+Time-resolved TFR maps per session x area x putative layer, for the p2-omission-vs-real
+comparison across all three condition families (R, A, B).
 (RRXR added 2026-07-31 for a per-subject V182o band-trace supplement -- p3-omission alongside
 the original p2-omission RXRR comparison; same extraction, same baseline, just one more
-condition value pulled from files that already existed on disk.)
+condition value pulled from files that already existed on disk. AXAB/AAAB/BXBA/BBBA added
+2026-08-04 for the omission-vs-stimulus x {A,B,R}-family GLMM: A/B family p2-omission
+(AXAB/BXBA) and p2-real (AAAB/BBBA) matched pairs are the same design RXRR/RRRR already gives
+for R family. All twelve GLO_CONDITIONS .npy arrays already exist in TFR_DIR -- no new NWB
+pass, this is the same local-file aggregation as the R-family-only extraction, just over more
+of the files already on disk.)
 
 WHY THIS EXISTS
     Every other TFR map in this repo (extract_omission_tfr_maps.py) pools all nine omission
@@ -63,7 +69,10 @@ TIMES = WIN_MS[0] + np.arange(N_TIMES) * BIN_MS
 # The middle third of d1 (531-1031 ms), not a pre-trial baseline -- see module docstring.
 BASELINE_MS = (706, 856)
 
-CONDS = ["RXRR", "RRXR", "RRRR"]
+# p2-omission-vs-real, matched across all three families: RXRR/RRRR (R), AXAB/AAAB (A),
+# BXBA/BBBA (B). RRXR kept for the existing p3-omission (V182o) supplement, which is unrelated
+# to the p2 GLMM design and still reads only its own two conditions.
+CONDS = ["RXRR", "RRXR", "RRRR", "AXAB", "AAAB", "BXBA", "BBBA"]
 AREA_POOL = {"V3": "V3a/d", "V3a": "V3a/d", "V3d": "V3a/d"}
 CHUNK = 16
 
