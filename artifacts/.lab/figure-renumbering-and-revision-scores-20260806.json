@@ -1,0 +1,55 @@
+{
+  "schema_version": "v14",
+  "node_id": "figure-renumbering-and-revision-scores-20260806",
+  "type": "claim",
+  "status": "confirmed",
+  "created": "2026-08-06",
+  "summary": "Main-figure renumbering (figS24 promoted to fig04, old fig04->fig06, old fig06 demoted to supplement) plus a 0-100 revision-score system for all 7 figures, per explicit user direction.",
+  "claims": [
+    {
+      "id": "renumber-fig04-promotion",
+      "text": "figS24_omission_identity_decoding (supplement since 2026-08-02, authored by a different agent) promoted to fig04, replacing the old fig04 (V1/PFC TFR).",
+      "status": "confirmed",
+      "receipt": "context/figures/fig04_omission_identity_decoding/ created via git mv from context/figures/supplements/figS24_*; README.md and build_inventory.py FIGURES list updated."
+    },
+    {
+      "id": "fig04-synthetic-confirmed",
+      "text": "The newly-promoted fig04 is currently entirely synthetic: none of omission_identity_decoding_master.csv, omission_identity_timecourse_master.csv, omission_identity_glmm_coefficients.csv exist on disk; compute_omission_identity_encoding.py has never been run to completion.",
+      "status": "confirmed",
+      "receipt": "ls outputs/classification/omission_identity_*.csv -> No such file or directory (all three). build_inventory.py --check independently confirms: 'fig04: has code but zero statistical tests recorded'."
+    },
+    {
+      "id": "fig04-glmm-mislabel",
+      "text": "compute_omission_identity_encoding.py's 'Spatial GLMM Feature Importance' is a single-level L2-regularized sklearn LogisticRegression, not a true generalized linear mixed model -- violates this project's own GLMM-terminology doctrine.",
+      "status": "confirmed",
+      "receipt": "scripts/compute_omission_identity_encoding.py, ~lines 126-149"
+    },
+    {
+      "id": "renumber-fig06-demotion",
+      "text": "Old fig06 (SPK-SPK lead/lag population correlation + directed Granger) demoted to a supplement, spk_spk_coupling_supplement/, to make room for the fig04 promotion.",
+      "status": "confirmed",
+      "receipt": "git mv context/figures/fig06_spk_spk_coupling -> context/figures/spk_spk_coupling_supplement; README.md banner added noting demotion, result unchanged (4/12,033 Holm)."
+    },
+    {
+      "id": "renumber-fig04-to-fig06",
+      "text": "Old fig04 (V1/PFC condition TFR) renumbered to fig06 to fill the slot vacated by the SPK-SPK demotion.",
+      "status": "confirmed",
+      "receipt": "git mv context/figures/fig04_v1_pfc_condition_tfr -> context/figures/fig06_v1_pfc_condition_tfr; fig04_finalized.* renamed to fig06_finalized.*; build_supplements.py's F4 path constant updated (was pointing at the now-nonexistent old directory, would have silently broken 5 supplements, figS25-S29 -- confirmed via build_supplements.py --list showing 'skip (no panel matched)' before the fix, zero skips after)."
+    },
+    {
+      "id": "revision-scores-2026-08-06",
+      "text": "User-assigned 0-100 revision scores recorded for all 7 figures: fig01=90, fig02=100, fig03=80, fig04=70, fig05=60, fig06=50, fig07=10. Sequenced ascending (7->6->5->4->3->1->2) in REVISION_PLAN.md; four figures (3,5,6,7) need a scoping conversation (which subplot) before code work can start.",
+      "status": "unconfirmed",
+      "note": "Scores are the user's own judgement, entered as-given per Labyrinth doctrine (user is a source, not an oracle) -- not independently derived or verified by any script."
+    }
+  ],
+  "edges": [
+    {"from": "fig04-synthetic-confirmed", "to": "renumber-fig04-promotion", "relation": "blocks"},
+    {"from": "fig04-glmm-mislabel", "to": "renumber-fig04-promotion", "relation": "blocks"}
+  ],
+  "notes": [
+    "Directory renames follow the existing project convention set by band_power_hierarchy_supplement/'s 2026-07-29 demotion: internal script/output filenames are NOT renamed to match the new figure number (e.g. fig06_v1_pfc_condition_tfr/fig04_v1_pfc_condition_tfr.py still says fig04) -- the directory name is the source of truth for figure identity.",
+    "INVENTORY.md regenerated via build_inventory.py after the FIGURES list was updated; --check correctly flags fig04's missing stats receipt, matching the synthetic-data finding.",
+    "This turn's graph delta: 1 new confirmed claim about the renumbering mechanics, 1 new confirmed claim about a real bug the rename would have caused (build_supplements.py F4 path) if not fixed, 1 unconfirmed claim recording the user's own revision scores at face value."
+  ]
+}

@@ -206,3 +206,297 @@ def decode_omission_identity_slot(
         "perm_null_mean": float(np.mean(perm_accs)),
         "perm_null_std": float(np.std(perm_accs)),
     }
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-06 additions (Figure 4 redesign). Additive only -- nothing above this
+# line is modified, so any existing caller of decode_omission_identity_slot /
+# build_noise_controlled_spike_matrix is unaffected.
+#
+# CONTEXT: task_block_number is perfectly confounded with condition identity in
+# this design (every session presents AXAB/BXBA/RXRR as one whole, separate,
+# contiguous block each -- verified empirically across 5 sessions, never
+# interleaved). That makes the literal "block" nuisance variable / block-CV
+# unusable: block IS the label. Per explicit direction, "block" below means a
+# SUB-block temporal split within each condition's own trial run (quartiles by
+# trial order), not task_block_number itself -- this is buildable and answers
+# the same underlying question (does the decode survive/generalize across
+# within-block time, and does within-block position alone look decodable).
+# ---------------------------------------------------------------------------
+
+from sklearn.linear_model import LogisticRegression as _LogisticRegression  # noqa: E402
+from sklearn.metrics import accuracy_score as _accuracy_score  # noqa: E402
+
+
+def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> np.ndarray:
+    """Assign each trial in epochs_df (already filtered to one condition) a quartile
+    index 0..n_quantiles-1 by its own start_time order. This is the SUB-BLOCK unit
+    used everywhere below as the stand-in for "block", since the real task_block_number
+    is perfectly confounded with condition (see module note above)."""
+    order = np.argsort(epochs_df["start_time"].values)
+    n = len(order)
+    q = np.empty(n, dtype=int)
+    edges = np.linspace(0, n, n_quantiles + 1).astype(int)
+    for k in range(n_quantiles):
+        q[order[edges[k]:edges[k + 1]]] = k
+    return q
+
+
+def build_noise_controlled_spike_matrix_with_subblocks(
+    session, area: str, epochs_cond_a: pd.DataFrame, epochs_cond_b: pd.DataFrame,
+    time_window_ms: Tuple[float, float], n_quantiles: int = 4, random_state: int = 42,
+):
+    """Same trial-balancing as build_noise_controlled_spike_matrix, but also returns a
+    per-trial sub-block quartile label (computed on each condition's OWN trial order
+    before downsampling, then carried through the same subsample index)."""
+    n_a, n_b = len(epochs_cond_a), len(epochs_cond_b)
+    if n_a == 0 or n_b == 0:
+        return np.zeros((0, 0)), np.array([]), [], np.array([])
+    q_a_full = assign_subblock_quartiles(epochs_cond_a, n_quantiles)
+    q_b_full = assign_subblock_quartiles(epochs_cond_b, n_quantiles)
+
+    n_min = min(n_a, n_b)
+    rng = np.random.default_rng(random_state)
+    idx_a = rng.choice(n_a, size=n_min, replace=False) if n_a > n_min else np.arange(n_a)
+    idx_b = rng.choice(n_b, size=n_min, replace=False) if n_b > n_min else np.arange(n_b)
+
+    sub_a = epochs_cond_a.iloc[idx_a].reset_index(drop=True)
+    sub_b = epochs_cond_b.iloc[idx_b].reset_index(drop=True)
+    epochs_df = pd.concat([sub_a, sub_b], ignore_index=True)
+    labels = np.array([0] * n_min + [1] * n_min)
+    quartiles = np.concatenate([q_a_full[idx_a], q_b_full[idx_b]])
+
+    units_df = session.get_units(area=area)
+    if len(units_df) == 0:
+        return np.zeros((len(labels), 0)), labels, [], quartiles
+    unit_ids = units_df["unit_id"].tolist()
+    n_trials, n_units = len(labels), len(unit_ids)
+    X = np.zeros((n_trials, n_units))
+    win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
+    onsets = epochs_df["start_time"].values
+    for j, u_id in enumerate(unit_ids):
+        spike_times = session.get_spike_times(u_id)
+        if spike_times is None or len(spike_times) == 0:
+            continue
+        st = np.sort(spike_times)
+        for i, onset in enumerate(onsets):
+            lo = np.searchsorted(st, onset + win_sec[0], side="left")
+            hi = np.searchsorted(st, onset + win_sec[1], side="right")
+            X[i, j] = hi - lo
+    return X, labels, unit_ids, quartiles
+
+
+def decode_omission_identity_full(
+    session, area: str, slot_key: str = "p2", contrast: Tuple[str, str] = ("A", "B"),
+    time_window_ms: Tuple[float, float] = (1031.0, 1562.0), n_splits: int = 5,
+    n_permutations: int = 100, n_quantiles: int = 4, random_state: int = 42,
+) -> Dict[str, Union[float, np.ndarray, str, int]]:
+    """Extends decode_omission_identity_slot with everything requested for the fig04
+    redesign, all scoped to ONE (session, area, slot):
+      - X|A, X|B: same 5-fold random-subsample CV as the original function.
+      - X|R: the classifier is refit on ALL A/B trials (post class-balancing), then
+        applied to every available R-condition trial at the same window/units. Reports
+        the fraction predicted "B" with an EXACT binomial (Clopper-Pearson) 95% CI
+        against the 0.5/0.5 null this project's own doctrine prefers over a shuffle CI
+        for a proportion built from counts.
+      - Sub-block LOO: leave-one-quartile-out CV (4 folds, by within-condition trial
+        order) as the second CV scheme, alongside the random-subsample one above --
+        answers whether the decode generalizes across within-block time.
+      - Sub-block (quartile) decodability: can quartile ID itself (0..3, i.e. "early or
+        late in this condition's block") be decoded from the SAME features, regardless
+        of A/B identity? A strong positive here is the disqualifying confound this
+        redesign was built to check for (see decode_omission_identity_full's caller /
+        REVISION_PLAN.md).
+      - Per-trial decision-function scores are returned (OOF, random-CV) for the pooled
+        mixed-effect model and R2-shuffle-CI steps computed at the corpus level, not
+        per-cell (see fit_pooled_block_glmm / shuffle_r2_ci below).
+    """
+    cond_cfg = OMISSION_IDENTITY_CONDITIONS[slot_key]
+    cond_a_code, cond_b_code, cond_r_code = (cond_cfg[contrast[0]], cond_cfg[contrast[1]],
+                                              cond_cfg.get("R"))
+    epochs_a = session.get_epochs(phase=2, condition=cond_a_code)
+    epochs_b = session.get_epochs(phase=2, condition=cond_b_code)
+
+    X, labels, unit_ids, quartiles = build_noise_controlled_spike_matrix_with_subblocks(
+        session, area, epochs_a, epochs_b, time_window_ms, n_quantiles=n_quantiles,
+        random_state=random_state,
+    )
+    n_units, n_trials = len(unit_ids), len(labels)
+    base = {"area": area, "slot_key": slot_key, "n_units": n_units, "n_trials": n_trials}
+    if n_units < 2 or n_trials < 6:
+        return {**base, "status": "insufficient_data"}
+
+    scaler_pipe = lambda: Pipeline([("scaler", StandardScaler()),
+                                     ("clf", SVC(kernel="linear", C=1.0, random_state=random_state))])
+
+    # -- Random-subsample CV (X|A vs X|B), OOF scores kept for the pooled GLMM/R2 steps --
+    cv_rand = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    rand_accs, oof_true, oof_score, oof_quartile = [], [], [], []
+    for tr, te in cv_rand.split(X, labels):
+        p = scaler_pipe()
+        p.fit(X[tr], labels[tr])
+        rand_accs.append(p.score(X[te], labels[te]))
+        oof_true.extend(labels[te])
+        oof_score.extend(p.decision_function(X[te]))
+        oof_quartile.extend(quartiles[te])
+    acc_random = float(np.mean(rand_accs))
+
+    # -- Sub-block leave-one-quartile-out CV --
+    subblock_accs = []
+    for k in sorted(set(quartiles.tolist())):
+        te = np.where(quartiles == k)[0]
+        tr = np.where(quartiles != k)[0]
+        if len(set(labels[te].tolist())) < 1 or len(set(labels[tr].tolist())) < 2 or len(te) < 2:
+            continue
+        p = scaler_pipe()
+        p.fit(X[tr], labels[tr])
+        subblock_accs.append(p.score(X[te], labels[te]))
+    acc_subblock_loo = float(np.mean(subblock_accs)) if subblock_accs else float("nan")
+
+    # -- Permutation null for the random-CV accuracy (unchanged design from the
+    #    original function, kept as the headline significance test) --
+    rng = np.random.default_rng(random_state)
+    perm_accs = []
+    for _ in range(n_permutations):
+        perm_labels = rng.permutation(labels)
+        p_scores = [
+            (lambda p_, tr_, te_: (p_.fit(X[tr_], perm_labels[tr_]), p_.score(X[te_], perm_labels[te_]))[1])(
+                scaler_pipe(), tr, te)
+            for tr, te in cv_rand.split(X, perm_labels)
+        ]
+        perm_accs.append(np.mean(p_scores))
+    p_val = float(np.mean(np.array(perm_accs) >= acc_random))
+    p_val = p_val if p_val > 0 else 1.0 / (n_permutations + 1)
+
+    # -- X|R null stratum: refit on ALL A/B trials, apply to every R trial --
+    r_result = {"n_trials_r": 0}
+    if cond_r_code is not None:
+        epochs_r = session.get_epochs(phase=2, condition=cond_r_code)
+        if len(epochs_r) > 0:
+            win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
+            X_r = np.zeros((len(epochs_r), n_units))
+            onsets_r = epochs_r["start_time"].values
+            for j, u_id in enumerate(unit_ids):
+                st = session.get_spike_times(u_id)
+                st = np.sort(st) if st is not None and len(st) else np.array([])
+                for i, onset in enumerate(onsets_r):
+                    lo = np.searchsorted(st, onset + win_sec[0], side="left")
+                    hi = np.searchsorted(st, onset + win_sec[1], side="right")
+                    X_r[i, j] = hi - lo
+            final_pipe = scaler_pipe()
+            final_pipe.fit(X, labels)
+            preds_r = final_pipe.predict(X_r)
+            n_r = len(preds_r)
+            n_pred_b = int(np.sum(preds_r == 1))
+            from scipy.stats import binomtest
+            bt = binomtest(n_pred_b, n_r, p=0.5)
+            ci = bt.proportion_ci(confidence_level=0.95, method="exact")
+            r_result = {
+                "n_trials_r": n_r,
+                "frac_predicted_b_random_model": n_pred_b / n_r if n_r else float("nan"),
+                "frac_predicted_b_ci_lo": float(ci.low), "frac_predicted_b_ci_hi": float(ci.high),
+                "frac_predicted_b_p_vs_chance": float(bt.pvalue),
+            }
+
+    # -- Sub-block (quartile) decodability: can quartile itself be decoded, ignoring
+    #    A/B identity entirely? Pooled across both conditions' own quartile labels. --
+    clf_q = _LogisticRegression(C=1.0, max_iter=200)
+    cv_q = StratifiedKFold(n_splits=min(n_quantiles, 4), shuffle=True, random_state=random_state)
+    q_accs = []
+    try:
+        for tr, te in cv_q.split(X, quartiles):
+            sc = StandardScaler().fit(X[tr])
+            clf_q.fit(sc.transform(X[tr]), quartiles[tr])
+            q_accs.append(_accuracy_score(quartiles[te], clf_q.predict(sc.transform(X[te]))))
+        quartile_decode_acc = float(np.mean(q_accs))
+    except ValueError:
+        quartile_decode_acc = float("nan")
+
+    return {
+        **base, "status": "success",
+        "accuracy_random_cv": acc_random,
+        "accuracy_subblock_loo_cv": acc_subblock_loo,
+        "p_val_random_cv": p_val,
+        "perm_null_mean": float(np.mean(perm_accs)), "perm_null_std": float(np.std(perm_accs)),
+        "chance_baseline": 0.50,
+        "quartile_decode_accuracy": quartile_decode_acc,
+        "quartile_decode_chance": 1.0 / n_quantiles,
+        **r_result,
+        "_oof_true": np.array(oof_true), "_oof_score": np.array(oof_score),
+        "_oof_quartile": np.array(oof_quartile),
+    }
+
+
+def shuffle_r2_ci(y_true: np.ndarray, y_score: np.ndarray, groups: Optional[np.ndarray] = None,
+                   n_shuffle: int = 200, random_state: int = 42) -> Dict[str, float]:
+    """R^2 (squared Pearson correlation) between a continuous decision score and a
+    0/1 label, with a shuffle-null 95% CI (percentile of the null, not of the estimate
+    -- this project's own doctrine reserves exact/analytic CIs for proportions built
+    from counts; R^2 has no such closed form, so shuffle is the documented choice here).
+    If `groups` is given (e.g. session id), labels are shuffled WITHIN each group so the
+    null preserves the group structure instead of pooling across it."""
+    def _r2(y, s):
+        if np.std(s) == 0 or np.std(y) == 0:
+            return 0.0
+        r = np.corrcoef(y, s)[0, 1]
+        return float(r ** 2)
+
+    r2_obs = _r2(y_true, y_score)
+    rng = np.random.default_rng(random_state)
+    null = np.empty(n_shuffle)
+    for i in range(n_shuffle):
+        if groups is None:
+            y_perm = rng.permutation(y_true)
+        else:
+            y_perm = y_true.copy()
+            for g in np.unique(groups):
+                m = groups == g
+                y_perm[m] = rng.permutation(y_true[m])
+        null[i] = _r2(y_perm, y_score)
+    p_val = float(np.mean(null >= r2_obs))
+    p_val = p_val if p_val > 0 else 1.0 / (n_shuffle + 1)
+    return {
+        "r2_observed": r2_obs,
+        "r2_null_ci_lo": float(np.percentile(null, 2.5)),
+        "r2_null_ci_hi": float(np.percentile(null, 97.5)),
+        "r2_null_mean": float(np.mean(null)),
+        "p_val": p_val,
+        "n_shuffle": n_shuffle,
+    }
+
+
+def decode_time_from_features(
+    session, area: str, epochs: pd.DataFrame, time_window_ms: Tuple[float, float],
+    n_splits: int = 5, random_state: int = 42,
+) -> Dict[str, float]:
+    """'Is it real?' sanity check: can elapsed trial start_time (continuous, seconds
+    from session start) be predicted from the SAME spike-count features used for
+    identity decoding? A strong positive here means the population signal tracks
+    generic session drift, not identity content specifically."""
+    from sklearn.linear_model import Ridge
+    from sklearn.model_selection import KFold
+
+    units_df = session.get_units(area=area)
+    if len(units_df) < 2 or len(epochs) < 6:
+        return {"status": "insufficient_data"}
+    unit_ids = units_df["unit_id"].tolist()
+    win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
+    onsets = epochs["start_time"].values
+    X = np.zeros((len(onsets), len(unit_ids)))
+    for j, u_id in enumerate(unit_ids):
+        st = session.get_spike_times(u_id)
+        st = np.sort(st) if st is not None and len(st) else np.array([])
+        for i, onset in enumerate(onsets):
+            lo = np.searchsorted(st, onset + win_sec[0], side="left")
+            hi = np.searchsorted(st, onset + win_sec[1], side="right")
+            X[i, j] = hi - lo
+    t = onsets - onsets.min()
+
+    cv = KFold(n_splits=min(n_splits, len(onsets)), shuffle=True, random_state=random_state)
+    oof_pred = np.zeros_like(t)
+    for tr, te in cv.split(X):
+        sc = StandardScaler().fit(X[tr])
+        reg = Ridge(alpha=1.0).fit(sc.transform(X[tr]), t[tr])
+        oof_pred[te] = reg.predict(sc.transform(X[te]))
+    r2 = shuffle_r2_ci(t, oof_pred, n_shuffle=200, random_state=random_state)
+    return {"status": "success", "n_trials": len(t), **r2}

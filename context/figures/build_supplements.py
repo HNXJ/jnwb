@@ -36,7 +36,11 @@ OUT = os.path.join(HERE, "supplements")
 F1 = "fig01_recording_topology_and_paradigm/svg"
 F2 = "fig02_spiking_exemplar_rasters/svg"
 F3 = "fig03_unit_census/svg"
-F4 = "fig04_v1_pfc_condition_tfr/svg"
+# 2026-08-06: fig04_v1_pfc_condition_tfr/ renamed to fig06_v1_pfc_condition_tfr/ (renumbered
+# from fig04 to fig06, see README.md/REVISION_PLAN.md) -- path updated, variable name "F4" kept
+# for historical continuity with the panel filenames it points at (fig04_supp_*.svg), same
+# convention as the directory's own internal files not being renamed.
+F4 = "fig06_v1_pfc_condition_tfr/svg"
 # 2026-08-04/05: fig05_band_power_hierarchy demoted to a supplement (RXRR-vs-RRRR hierarchy is
 # not the group-significance headline fig05 now needs). fig06_band_power_coupling's undirected
 # imaginary-coherency content, plus the directed Granger and transfer-entropy networks tried
@@ -168,13 +172,15 @@ PENDING = {
 # Supplements NOT assembled by this script -- self-contained generators that write directly
 # into supplements/ (own script, own receipt), a different architecture from "panel drawn by a
 # figNN_*.py script, assembled here." The cleanup step below matches on the "figS*" glob, which
-# is broad enough to also match these -- without this allowlist it would delete figS24's own
-# generating .py script along with its outputs, and the v182o supplement's files, on every
-# non---list run. Found 2026-08-04 during a reproducibility/organization audit: confirmed by
-# tracing the exact glob against the files actually on disk, not assumed. Add a filename PREFIX
-# here (not full names) so any file belonging to that supplement survives cleanup.
+# is broad enough to also match these -- without this allowlist it would delete the v182o
+# supplement's files on every non---list run. Found 2026-08-04 during a reproducibility/
+# organization audit: confirmed by tracing the exact glob against the files actually on disk,
+# not assumed. Add a filename PREFIX here (not full names) so any file belonging to that
+# supplement survives cleanup.
+# 2026-08-06: figS24_omission_identity_decoding was PROMOTED to a main figure (fig04) and moved
+# out of supplements/ entirely -- see ../fig04_omission_identity_decoding/. Removed from this
+# allowlist since there is nothing left under supplements/ for it to protect.
 PRESERVE_PREFIXES = (
-    "figS24_omission_identity_decoding",   # supplements/figS24_omission_identity_decoding.py
     "figS_v182o_condition_bandtraces",      # scripts/plot_v182o_condition_bandtraces.py
 )
 

@@ -33,7 +33,11 @@ FIGURES = [
     ("fig01", "fig01_recording_topology_and_paradigm", "Recording topology and paradigm schematic"),
     ("fig02", "fig02_spiking_exemplar_rasters", "Spiking exemplar rasters (4x4: S+/S-/O+/O++ x RRRR/RXRR/RRXR/RRRX)"),
     ("fig03", "fig03_unit_census", "Unit census: presence, functionality, and RXRR template traces by area"),
-    ("fig04", "fig04_v1_pfc_condition_tfr", "V1/PFC time-frequency, RXRR vs RRRR"),
+    # 2026-08-06 RENUMBERING: figS24_omission_identity_decoding (a supplement since 2026-08-02)
+    # was promoted into this slot, replacing the old fig04 (V1/PFC TFR, moved to fig06 below).
+    # CONFIRMED at promotion time to be entirely synthetic (no source CSVs on disk) -- see
+    # fig04_omission_identity_decoding/README.md before citing anything from it.
+    ("fig04", "fig04_omission_identity_decoding", "Omission identity decoding & spatial \"GLMM\" encoding -- PROMOTED 2026-08-06, currently 100% synthetic, not yet a real result"),
     # 2026-08-04/05: figures 5/6/7 reorganized into connectivity-modality order (LFP-LFP/
     # SPK-SPK/LFP-SPK); all three connectivity methods tried for fig05 came back null, so fig05
     # pivoted to an area x band GLMM instead (see fig05_v1_area_hierarchy_glmm/README.md). The
@@ -41,9 +45,15 @@ FIGURES = [
     # lfp_lfp_connectivity_supplement/. The old pre-2026-08-04 fig05 (band-power hierarchy) is
     # demoted to band_power_hierarchy_supplement/.
     ("fig05", "fig05_v1_area_hierarchy_glmm", "LFP band-power hierarchy vs V1, subject-controlled GLMM"),
-    ("fig06", "fig06_spk_spk_coupling", "Directed SPK-SPK connectivity (Granger) -- null result, headline unresolved as of 2026-08-05"),
-    ("fig07", "fig07_lfp_spike_coupling", "Directed LFP-SPK connectivity + spike-LFP phase coupling (PPC) supplement"),
+    # 2026-08-06 RENUMBERING: was fig04 (V1/PFC TFR), moved here to make room for the fig04
+    # promotion above. Internal script/output filenames still say "fig04" (not renamed, same
+    # convention as band_power_hierarchy_supplement/'s earlier demotion).
+    ("fig06", "fig06_v1_pfc_condition_tfr", "V1/PFC time-frequency, RXRR vs RRRR"),
+    ("fig07", "fig07_lfp_spike_coupling", "Population firing rate x LFP band power (GLMM) -- spike-LFP phase coupling (PPC) demoted to supplement"),
 ]
+
+# 2026-08-06: SPK-SPK lead/lag population correlation (formerly fig06) DEMOTED to a supplement,
+# spk_spk_coupling_supplement/ (was fig06_spk_spk_coupling/) -- no longer in FIGURES above.
 
 
 def count_by_ext(folder):

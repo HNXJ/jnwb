@@ -47,15 +47,31 @@ had no code, when they already did in the same commit). When in doubt, trust `IN
 dimensions/stats — and use this table only for the human judgement column
 (locked/reviewed/pending), which `INVENTORY.md` cannot derive on its own.
 
-| # | Directory | Code | Locked (`fig0N_finalized.*`) | State |
-|---|---|---|---|---|
-| 1 | `fig01_recording_topology_and_paradigm/` | yes | yes | locked |
-| 2 | `fig02_spiking_exemplar_rasters/` | yes | yes | locked, 4x4 raster grid, O++ column manually overridden to unit 51/FEF (documented in script) |
-| 3 | `fig03_unit_census/` | yes | no | **not locked**; 2026-08-04 revision added per-class legend N totals, an idealized IFR schematic panel, and a new peak-firing-rate-by-area panel — see that directory's README |
-| 4 | `fig04_v1_pfc_condition_tfr/` | yes | **stale** | `fig04_finalized.*` exists (2026-08-03 lock) but no longer matches `fig04.svg`: the 2026-08-04 rework changed the panel layout, replaced the trace SEM estimator, and added/removed a GLMM section since that lock was taken. Treat fig04 as **unlocked** until re-reviewed and re-locked. See that directory's README for the full changelog. |
-| 5 | `fig05_v1_area_hierarchy_glmm/` | yes | no | **redesigned 2026-08-05**: all three LFP-LFP connectivity methods (coherency 0/240, Granger 0/150, TE 0/150) came back null and are preserved as supplements in `lfp_lfp_connectivity_supplement/`. fig05 pivoted to an area x band GLMM (subject-controlled, all 23 sessions): **2/45 cells survive Holm-Bonferroni** (FEF and PFC low-gamma vs V1), 11/45 survive BH-FDR. Two real bugs in the source GLMM script were found and fixed first — see its README |
-| 6 | `fig06_spk_spk_coupling/` | yes | no | built 2026-08-04/05: directed SPK-SPK Granger network, **also null** (0/45 significant). Headline unresolved — no fallback identified yet, left flagged rather than forced |
-| 7 | `fig07_lfp_spike_coupling/` | yes | no | not locked; existing PPC analysis (0/60 significant) to be demoted to a supplement; a new directed LFP-SPK panel is the planned headline, not yet built — see its README |
+**RENUMBERED 2026-08-06.** `figS24_omission_identity_decoding` (a supplement since
+2026-08-02) was promoted into the fig04 slot. The old fig04 (V1/PFC condition TFR) moved to
+fig06 to make room. The old fig06 (SPK-SPK lead/lag coupling) was demoted to a supplement,
+`spk_spk_coupling_supplement/`. Directories were renamed (`git mv`) to reflect the new
+numbers; internal script/output filenames inside the two moved directories were **not**
+renamed (same convention as the earlier `band_power_hierarchy_supplement/` demotion — the
+directory name is the source of truth for figure identity, not internal filenames). See
+`REVISION_PLAN.md` for the full per-figure revision scores and the plan going forward.
+
+| # | Directory | Code | Locked (`fig0N_finalized.*`) | Revision score | State |
+|---|---|---|---|---|---|
+| 1 | `fig01_recording_topology_and_paradigm/` | yes | yes | **90/100 (semi-final)** | locked |
+| 2 | `fig02_spiking_exemplar_rasters/` | yes | yes | **100/100 (final)** | locked, 4x4 raster grid, O++ column manually overridden to unit 51/FEF (documented in script) |
+| 3 | `fig03_unit_census/` | yes | no | **80/100 (revision on subplots needed)** | **not locked**; 2026-08-04 revision added per-class legend N totals, an idealized IFR schematic panel, and a new peak-firing-rate-by-area panel; 2026-08-06 added the UMAP embedding subplot — see that directory's README |
+| 4 | `fig04_omission_identity_decoding/` | yes | no | **70/100 (new promoted result, details to be discussed)** | **PROMOTED 2026-08-06** from supplement `figS24_omission_identity_decoding`. **CONFIRMED currently 100% synthetic**: none of its three source CSVs exist on disk, so the rendered figure is entirely illustrative fallback output, not a real result — see that directory's README for the full issue list (also a "GLMM" mislabel and no stats receipt). Do not cite until re-run and fixed. |
+| 5 | `fig05_v1_area_hierarchy_glmm/` | yes | **semi (2026-08-06)** | **60/100 (minor revision on subplots needed)** | **redesigned 2026-08-05**: all three LFP-LFP connectivity methods (coherency 0/240, Granger 0/150, TE 0/150) came back null and are preserved as supplements in `lfp_lfp_connectivity_supplement/`. fig05 pivoted to an area x band GLMM (subject-controlled, all 23 sessions): **2/45 cells survive Holm-Bonferroni** (FEF and PFC low-gamma vs V1), 11/45 survive BH-FDR. Two real bugs in the source GLMM script were found and fixed first — see its README. **2026-08-06: headline extended to 3 rows** (vs V1, vs V4, vs PFC) x 5 band columns, per request — V1 row from Model F's own 45-test family (unchanged), V4/PFC rows derived from the same pairwise-contrast fit but read through the already-computed 225-test pairwise family (not refit/re-corrected). Models A-E supplement family also added same day. |
+| 6 | `fig06_v1_pfc_condition_tfr/` | yes | **stale** | **50/100 (moderate revision on subplots needed)** | **RENUMBERED 2026-08-06** (was fig04). `fig04_finalized.*` exists (2026-08-03 lock, now stale under the new number) but no longer matches `fig04.svg` inside this directory: the 2026-08-04 rework changed the panel layout, replaced the trace SEM estimator, and added/removed a GLMM section since that lock was taken. Treat as **unlocked** until re-reviewed and re-locked under its new number. See that directory's README for the full changelog. |
+| 7 | `fig07_lfp_spike_coupling/` | yes | **semi (2026-08-06)** | **10/100 (major revision)** | **redesigned 2026-08-05**: headline is now population firing-rate x LFP band-power modulation (per area, per functional group S+/S-/O+/Null, per band), not per-unit PPC. GLMM (same backbone as fig05): band dominates (high/low gamma >> theta/alpha/beta, Holm p<1e-5), O+ units LESS coupled than Null/S+ (Holm p<2e-5), MT/MST differ from FEF/PFC/TEO, no condition-group effect. PPC (0/60 significant) demoted to `svg/fig07_supp_ppc.svg` — see `outputs/population_firing_lfp_power_corr/README.md` and this directory's README. **2026-08-06: relayout** to rows (functional type) x 5 columns (band) — same numbers, grouped-bar-per-band layout replaced by one subplot per (functional type, band) cell. Bars now colored by a per-cell hit-rate significance test (`fig07_population_cell_hitrate`, area x func_group x band on the condition-averaged per-session Z — a different, coarser family than `hit_rates.csv`'s per-condition-group cells): red = Holm, orange = BH-FDR only, gray = neither. Visually concentrates in low/high-gamma and Null/S+ rows, matching the GLMM. **Same day, extended to 5 rows**: O++ split out from O+ as its own functional group (previously pooled — O+ now means O+ EXCLUSIVE of O++). O++ is the strict `omission_class=='O++'` definition, only 15 units corpus-wide; after this analysis's min-units/min-sessions floors, only FEF and V4 clear the bar (1 session each, no significance test possible) — PFC and TEO are blank, not forced. GLMM refit: O++ itself not significant (p=0.71, n too small), other coefficients essentially unchanged (FEF -0.57 vs V1, O+ vs Null -0.54). See `outputs/population_firing_lfp_power_corr/README.md` for the O++ definition ambiguity this raised (3 different O++ tables exist in this repo) and why the strict 15-unit one was kept |
+
+**Supplement (demoted 2026-08-06):** `spk_spk_coupling_supplement/` — was fig06 (SPK-SPK
+lead/lag correlation + directed Granger). 4/12,033 Holm survivors, all near lag 0 — a real,
+correctly-reported near-simultaneous-coupling finding, but demoted to make room for the
+fig04 promotion above. See that directory's README for the demotion note.
+
+**"semi" (figures 5-7, 2026-08-05, layout/content revised 2026-08-06)**: each script was re-run from scratch and reproduced identical numbers to what's stated above; each main assembled panel was visually reviewed (no overlap, readable, colorbar/axes sane) before `fig0N_finalized.svg`/`.png` were written to `context/figures/`. **2026-08-06**: per explicit direction, fig05's headline moved from one combined 9-area x 5-band heatmap to **5 subpanels, one per band** (`fig05_area_band_panels.svg`, area-vs-V1 bars with SE, same 45-cell family/numbers — the heatmap is now a supplement, `fig05_area_band_heatmap.svg`). **fig06 was substantively redesigned, not just relayouted**: SPK-SPK lead/lag population correlation is the new headline (4/12,033 Holm, 35/12,033 BH-FDR, all near lag 0 — see the table row above), directed Granger (0/27, unchanged) demoted to `fig06_supp_granger.svg`. fig07 was left as-is — it already draws 5 band subpanels (area x functional-group bars within each), the same style fig05 just adopted. This is still short of a full "locked" review — an LFP-SPK sliding-window follow-up is still unbuilt, and fig05's own supplement family hasn't had the same final pass — so treat these as a stable review checkpoint, not a promise nothing here changes again.
 
 Old `fig05_band_power_hierarchy/` (RXRR-vs-RRRR band-power hierarchy, not group-significant) was
 demoted the same day and its folder renamed `band_power_hierarchy_supplement/` to avoid
@@ -65,23 +81,28 @@ Figures 2 and 3 read `outputs/classification/omission_grand_units.csv`, so both 
 `scripts/classify_omission_units_grand.py` is re-run. Check the unit and session counts in
 their receipts before quoting anything from them.
 
-**Figure 4's old area x layer supplement panels** are still drawn 27 inches wide, so their
-supplements use a landscape width (see `build_supplements.py`'s `LANDSCAPE` constant); this no
-longer affects the main figure.
+**Fig06's (formerly fig04's) old area x layer supplement panels** are still drawn 27 inches
+wide, so their supplements use a landscape width (see `build_supplements.py`'s `LANDSCAPE`
+constant); this no longer affects the main figure.
 
 **Falsifier for "figure done"**: `fig0N_finalized.svg` and `.png` both exist, were produced via
 the headless-Chrome white-background render, AND the user has explicitly confirmed panel
 content since the script that produced `figNN.svg` was last run. A finalized file existing is
-necessary but not sufficient — fig04 is the concrete example of why (see above).
+necessary but not sufficient — fig06 (formerly fig04) is the concrete example of why (see
+above), and the new fig04 (currently rendering 100% synthetic fallback content) is a sharper one.
 
 ## Supplements
 
 `python build_supplements.py --list` prints the plan without writing. The formal registry
-(`PLAN`) declares 30 supplements, S01–S30 (all present on disk, 0 skipped, 0 pending), plus two
-self-contained generators outside `PLAN`'s panel-assembly model (`figS24_omission_identity_
-decoding.*`, `figS_v182o_condition_bandtraces.*` — own script, own receipt, written directly to
-`supplements/`). Running the script (no `--list`) deletes any `supplements/figS*` file not
-named by the current `PLAN` **or listed in `PRESERVE_PREFIXES`** before writing.
+(`PLAN`) declares 30 supplements, S01–S30 (all present on disk, 0 skipped, 0 pending), plus one
+self-contained generator outside `PLAN`'s panel-assembly model (`figS_v182o_condition_bandtraces.*`
+— own script, own receipt, written directly to `supplements/`). Running the script (no `--list`)
+deletes any `supplements/figS*` file not named by the current `PLAN` **or listed in
+`PRESERVE_PREFIXES`** before writing.
+
+**2026-08-06: `figS24_omission_identity_decoding` was PROMOTED to a main figure** (fig04, see
+the renumbering note at the top of the Status table below) and moved out of `supplements/`
+entirely into `fig04_omission_identity_decoding/`. It is no longer part of this registry.
 
 **Registry gaps closed 2026-08-04, during a reproducibility/organization audit.** Two real
 problems were found and fixed, not just re-flagged:
@@ -212,12 +233,20 @@ assuming the rect values are the problem.
       transfer entropy) came back null; pivoted to an area x band GLMM (subject-controlled,
       full corpus), 2/45 cells Holm-significant (FEF/PFC low-gamma vs V1). Two real bugs in the
       source GLMM script fixed along the way — see `fig05_v1_area_hierarchy_glmm/README.md`.
-      Not yet locked/reviewed as a finalized figure.
+      Semi-finalized 2026-08-05 (re-run confirmed reproducible, visually reviewed, snapshotted
+      as `fig05_finalized.*`); not a full lock — see the "semi" note in the table above.
 - [x] Fig 6: directed SPK-SPK Granger network built and run 2026-08-04/05 — **also null**
-      (0/45 significant, see `fig06_spk_spk_coupling/README.md`). No fallback headline
-      identified yet; left flagged, not forced.
-- [ ] Fig 7: add the directed LFP-SPK panel as the new headline; demote existing PPC content to
-      an explicit supplement (not started as of 2026-08-05).
+      (0/27 significant across the 3 families of 9). **2026-08-06: replaced as the headline** by
+      SPK-SPK lead/lag population correlation (area x functional-type nodes, +-100ms lag axis,
+      same trial-mismatch shuffle null as the LFP-LFP sliding-window work) per direction to keep
+      Granger for LFP only. Result: 4/12,033 Holm, 35/12,033 BH-FDR, all near lag 0 -- real but
+      no evidence of an actual lead/lag delay. Granger demoted to `fig06_supp_granger.svg`.
+      Semi-finalized 2026-08-06 on the same basis as fig05/7.
+- [x] Fig 7: population firing-rate x LFP band-power GLMM built and run 2026-08-05 as the new
+      headline (19/480 hit-rate cells Holm-significant; GLMM finds band dominates, O+ units
+      less coupled than Null/S+, MT/MST differ from FEF/PFC/TEO, no condition-group effect).
+      Existing PPC content demoted to `svg/fig07_supp_ppc.svg` (0/60, unchanged). Semi-finalized
+      2026-08-05 on the same basis as fig05/6.
 - [x] Registry gaps resolved 2026-08-04: S25-S30 added to `build_supplements.py`'s `PLAN`
       (fig04 six-area panels, fig04 slot-pooled supplement, fig05's demoted coherency omission-
       window matrices); `PRESERVE_PREFIXES` added to stop the cleanup step from deleting
