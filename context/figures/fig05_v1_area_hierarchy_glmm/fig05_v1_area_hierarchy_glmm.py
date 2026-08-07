@@ -148,6 +148,158 @@ def draw_heatmap(d, corrected, areas, out_stem, title=None, window_label="omitte
     return out + ".svg"
 
 
+def draw_band_panels(d, corrected, areas, out_stem, title=None, window_label="omitted-slot window"):
+    """Main-figure layout as of 2026-08-06: one bar-chart subpanel per band (area vs V1),
+    replacing the single combined heatmap (moved to svg/fig05_area_band_heatmap.svg as a
+    supplement) -- per explicit user direction that the headline should be split by band rather
+    than shown as one dense grid."""
+    sig = {}
+    for r in corrected:
+        area, band = r.question.split(" ")[0], r.question.split(" ")[1]
+        sig[(area, band)] = (r.p_holm, r.q_bh)
+
+    fig, axes = plt.subplots(1, len(BANDS), figsize=(3.0 * len(BANDS), 3.4), sharey=True)
+    x = np.arange(len(areas))
+    for ax, band in zip(axes, BANDS):
+        vals, ses = [], []
+        for a in areas:
+            row = d[(d.area == a) & (d.band == band)]
+            vals.append(row.estimate_db.values[0] if not row.empty else np.nan)
+            ses.append(row.se.values[0] if not row.empty else np.nan)
+        vals, ses = np.array(vals), np.array(ses)
+        colors = ["#A63603" if np.isfinite(sig.get((a, band), (np.nan, np.nan))[0]) and
+                  sig[(a, band)][0] < 0.05 else
+                  ("#FDAE6B" if np.isfinite(sig.get((a, band), (np.nan, np.nan))[1]) and
+                   sig[(a, band)][1] < 0.05 else "0.75")
+                  for a in areas]
+        ax.bar(x, vals, yerr=ses, color=colors, edgecolor="black", linewidth=0.4, capsize=2)
+        ax.axhline(0, color="black", lw=0.8)
+        ax.set_xticks(x); ax.set_xticklabels(areas, rotation=90, fontsize=7)
+        ax.set_title(BAND_DISPLAY[band], fontsize=8)
+    axes[0].set_ylabel(f"dB vs {REF_AREA} ({window_label})\n(estimate +- SE, Model F)",
+                       fontsize=8)
+    fig.suptitle(title or f"LFP band power vs {REF_AREA}, subject-controlled (Model F, "
+                f"23 sessions, 3 subjects)", fontsize=11, fontweight="bold", y=1.06)
+    fig.text(0.5, -0.04, "Dark orange: p_holm < 0.05 (family-wise, 45 tests). "
+            "Light orange: q_BH < 0.05 only (FDR, weaker guarantee). Gray: neither.",
+            ha="center", fontsize=7.5, color="0.25")
+    out = os.path.join(SVG_DIR, out_stem)
+    fig.savefig(out + ".png", dpi=190, bbox_inches="tight")
+    fig.savefig(out + ".svg", bbox_inches="tight")
+    plt.close(fig)
+    return out + ".svg"
+
+
+def _pairwise_value_lookup(pw):
+    """dict (frozenset({areaA,areaB}), band) -> (areaA, areaB, estimate_db, se). Stored
+    convention (see load_pairwise): estimate_db = areaB - areaA, term = 'areaB - areaA'."""
+    out = {}
+    for _, row in pw.iterrows():
+        out[(frozenset((row.areaA, row.areaB)), row.band)] = \
+            (row.areaA, row.areaB, row.estimate_db, row.se)
+    return out
+
+
+def _pairwise_sig_lookup(pw_corrected):
+    """dict (frozenset({areaA,areaB}), band) -> (p_holm, q_bh), from the ALREADY-corrected
+    225-test pairwise family (build_pairwise_family) -- a genuinely different declared family
+    from the main figure's 45-test vs-V1 family, per this script's own module docstring."""
+    sig = {}
+    for r in pw_corrected:
+        parts = r.question.split(" ")
+        a, b_area, band = parts[0], parts[2], parts[3]
+        sig[(frozenset((a, b_area)), band)] = (r.p_holm, r.q_bh)
+    return sig
+
+
+def _ref_row_from_pairwise(val_lookup, sig_lookup, ref_area, areas):
+    """area - ref_area, per band, for every area != ref_area -- derived from the pairwise
+    225-test family, NOT refit. Returns dict band -> (vals, ses, sig_list)."""
+    out = {}
+    for band in BANDS:
+        vals, ses, sigs = [], [], []
+        for a in areas:
+            key = (frozenset((a, ref_area)), band)
+            if key not in val_lookup:
+                vals.append(np.nan); ses.append(np.nan); sigs.append((np.nan, np.nan))
+                continue
+            area_a, area_b, est, se = val_lookup[key]
+            # want a - ref_area; stored est = area_b - area_a
+            if area_b == a and area_a == ref_area:
+                v = est
+            elif area_b == ref_area and area_a == a:
+                v = -est
+            else:
+                v = np.nan
+            vals.append(v); ses.append(se)
+            sigs.append(sig_lookup.get(key, (np.nan, np.nan)))
+        out[band] = (np.array(vals), np.array(ses), sigs)
+    return out
+
+
+def _row_from_model_f(d, corrected, areas):
+    """area - V1, per band, from Model F's own dedicated 45-test family (NOT the pairwise
+    family) -- kept as the original headline's basis, unchanged. Returns dict band ->
+    (vals, ses, sig_list)."""
+    sig = {}
+    for r in corrected:
+        area, band = r.question.split(" ")[0], r.question.split(" ")[1]
+        sig[(area, band)] = (r.p_holm, r.q_bh)
+    out = {}
+    for band in BANDS:
+        vals, ses, sigs = [], [], []
+        for a in areas:
+            row = d[(d.area == a) & (d.band == band)]
+            vals.append(row.estimate_db.values[0] if not row.empty else np.nan)
+            ses.append(row.se.values[0] if not row.empty else np.nan)
+            sigs.append(sig.get((a, band), (np.nan, np.nan)))
+        out[band] = (np.array(vals), np.array(ses), sigs)
+    return out
+
+
+def draw_multi_ref_band_panels(rows_spec, out_stem, window_label="omitted-slot window"):
+    """rows_spec: list of (ref_area, areas_for_row, row_data, family_label) where row_data is
+    the dict band -> (vals, ses, sig_list) from _row_from_model_f (V1 row, 45-test family) or
+    _ref_row_from_pairwise (V4/PFC rows, 225-test pairwise family) -- two DIFFERENT declared
+    families, deliberately not conflated (see module docstring); family_label is shown per row
+    so a reader always knows which correction basis that row's colors come from.
+
+    2026-08-06: added per explicit request for "vs V4" and "vs PFC" rows alongside the original
+    "vs V1" headline row -- three rows, one per reference area, five columns, one per band.
+    """
+    n_rows, n_bands = len(rows_spec), len(BANDS)
+    fig, axes = plt.subplots(n_rows, n_bands, figsize=(3.0 * n_bands, 3.0 * n_rows), sharex=False)
+    if n_rows == 1:
+        axes = axes[None, :]
+    for ri, (ref_area, areas, row_data, family_label) in enumerate(rows_spec):
+        x = np.arange(len(areas))
+        for ci, band in enumerate(BANDS):
+            ax = axes[ri, ci]
+            vals, ses, sigs = row_data[band]
+            colors = ["#A63603" if np.isfinite(p) and p < 0.05 else
+                      ("#FDAE6B" if np.isfinite(q) and q < 0.05 else "0.75")
+                      for (p, q) in sigs]
+            ax.bar(x, vals, yerr=ses, color=colors, edgecolor="black", linewidth=0.4, capsize=2)
+            ax.axhline(0, color="black", lw=0.8)
+            ax.set_xticks(x); ax.set_xticklabels(areas, rotation=90, fontsize=7)
+            if ri == 0:
+                ax.set_title(BAND_DISPLAY[band], fontsize=8)
+        axes[ri, 0].set_ylabel(f"dB vs {ref_area} ({window_label})\n(estimate +- SE)"
+                               f"\n[{family_label}]", fontsize=7)
+    fig.suptitle("LFP band power vs V1 / V4 / PFC, subject-controlled (Model F, 23 sessions, "
+                "3 subjects)", fontsize=11, fontweight="bold", y=1.01)
+    fig.text(0.5, -0.01, "Dark orange: p_holm < 0.05 within that row's own declared family. "
+            "Light orange: q_BH < 0.05 only. Gray: neither. Row 1 (vs V1): Model F's own "
+            "45-test family. Rows 2-3 (vs V4, vs PFC): derived from the SAME pairwise-contrast "
+            "model fit, but drawn from the 225-test all-pairs family, not refit or re-corrected.",
+            ha="center", fontsize=7, color="0.25")
+    out = os.path.join(SVG_DIR, out_stem)
+    fig.savefig(out + ".png", dpi=190, bbox_inches="tight")
+    fig.savefig(out + ".svg", bbox_inches="tight")
+    plt.close(fig)
+    return out + ".svg"
+
+
 def load_pairwise(csv_path=GLMM_CSV):
     df = pd.read_csv(csv_path)
     d = df[df.model == "F_pairwise_area_contrasts"].copy()
@@ -256,13 +408,32 @@ def main():
     print(f"significant: {n_holm}/45 Holm, {n_bh}/45 BH-FDR")
 
     heatmap_svg = draw_heatmap(d, corrected, areas, "fig05_area_band_heatmap")
-    out, w, h = assemble([heatmap_svg], os.path.join(HERE, "fig05.svg"), ncol=1)
-    print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
 
-    # ---- supplement: full area x area pairwise matrix (omission window) ------------------
+    # ---- pairwise family (needed both for its own supplement and for the vs-V4/vs-PFC rows
+    # below -- computed here, before the headline, so the headline can use it) ----------------
     pw = load_pairwise()
     all_areas = [a for a in AREA_ORDER if a in set(pw.areaA) | set(pw.areaB)]
     pw_corrected = build_pairwise_family(pw)
+
+    # Headline (2026-08-06, extended 2026-08-06): bar-chart subpanels, one row per reference
+    # area (V1, V4, PFC) x one column per band, per explicit request -- replaces the
+    # single-row-vs-V1-only version. V1 row from Model F's own dedicated 45-test family
+    # (unchanged); V4/PFC rows derived from the SAME pairwise-contrast fit but read through the
+    # 225-test all-pairs family (see draw_multi_ref_band_panels docstring for why these are two
+    # different declared families, not conflated).
+    val_lookup = _pairwise_value_lookup(pw)
+    sig_lookup_pw = _pairwise_sig_lookup(pw_corrected)
+    rows_spec = [("V1", areas, _row_from_model_f(d, corrected, areas), "vs-V1, 45-test family")]
+    for ref in ("V4", "PFC"):
+        row_areas = [a for a in AREA_ORDER if a != ref and a in all_areas]
+        rows_spec.append((ref, row_areas,
+                          _ref_row_from_pairwise(val_lookup, sig_lookup_pw, ref, row_areas),
+                          "vs-" + ref + ", 225-test pairwise family"))
+    band_panels_svg = draw_multi_ref_band_panels(rows_spec, "fig05_area_band_panels")
+    out, w, h = assemble([band_panels_svg], os.path.join(HERE, "fig05.svg"), ncol=1)
+    print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
+
+    # ---- supplement: full area x area pairwise matrix (omission window) ------------------
     write(pw_corrected, SVG_DIR, "fig05_supp_pairwise",
          title="Figure 5 supplement -- all area x area LFP band-power contrasts, omission window",
          preamble="Same Model F fit as the main figure, all C(10,2)=45 area pairs x 5 bands = "

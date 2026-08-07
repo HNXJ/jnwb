@@ -1,10 +1,42 @@
-# Figure 5 — LFP band-power hierarchy vs V1, subject-controlled GLMM
+# Figure 5 — LFP band-power hierarchy vs V1 / V4 / PFC, subject-controlled GLMM
 
 **Built 2026-08-05, after three LFP-LFP connectivity methods (imaginary coherency, directed
 Granger causality, transfer entropy) all came back null at the group level** — see
 `../lfp_lfp_connectivity_supplement/README.md` for that full record, preserved as a supplement,
 not discarded. Per `feedback_figures_require_significance` (figures 4-7 must carry a
 group-level significant result), fig05 pivoted to this area×band contrast instead.
+
+**Extended 2026-08-06** to three reference-area rows (vs V1, vs V4, vs PFC) x 5 band columns,
+per request. The V1 row is unchanged — Model F's own dedicated 45-test family. The V4 and PFC
+rows are NOT a refit: they're the same pairwise-contrast Model F fit (`F_pairwise_area_contrasts`,
+already used for the `fig05_supp_pairwise*` supplements), read through the sign convention
+`area - ref_area` and colored by that same 225-test pairwise family's own Holm/BH correction —
+a genuinely different declared family from the V1 row's 45-test one, not conflated with it (see
+`fig05_v1_area_hierarchy_glmm.py`'s `draw_multi_ref_band_panels` docstring). Sign consistency
+was checked directly: e.g. PFC's vs-V1 low-gamma estimate (+0.53 dB) and V1's vs-PFC low-gamma
+estimate (-0.53 dB) match exactly, as they must by construction.
+
+## New supplement (2026-08-06): Models A-E, one figure each
+
+`fig05_supp_models_AE.py` draws each of Models A-E from `fit_omission_band_power_glmm.py`
+(see that script's own docstring for the full model definitions) as its own standalone
+figure, same visual style as the main figure (one bar-chart subpanel per band, dark
+orange/light orange/gray for Holm/BH/neither), each with its OWN declared correction family
+(never pooled across models or with Model F's own family):
+
+- **Model A** (corpus-wide, all areas/subjects pooled): 1/5 Holm, 1/5 BH-FDR.
+- **Model B** (per subject): **9/15 Holm** — reproduces the already-documented finding
+  directly: C31o falls in every band (all Holm-significant, negative), V182o rises in every
+  band (4/5 Holm-significant, positive), V198o is mixed and mostly not significant.
+- **Model C** (area vs V1, descriptive, confounded with subject): 5/45 Holm, 16/45 BH-FDR —
+  broader, less controlled elevation than Model F's subject-controlled result, as expected
+  since this is exactly the comparison Model F was built to improve on.
+- **Model D** (V3a/d vs V1/V2, within V198o only): 0/5 Holm, 0/5 BH-FDR — null, consistent
+  with this design supporting only one subject and 5 sessions.
+- **Model E** (laminar, channel-level): 7/10 Holm, 7/10 BH-FDR.
+
+Output: `svg/fig05_supp_modelA.svg/.png` through `fig05_supp_modelE.svg/.png`, each with its
+own `svg/fig05_supp_model{A-E}_stats.md/.csv`.
 
 ## The two bugs that had to be found and fixed first
 

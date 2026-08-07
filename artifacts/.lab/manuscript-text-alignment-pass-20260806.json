@@ -1,0 +1,22 @@
+{
+  "schema_version": "3.0",
+  "id": "manuscript-text-alignment-pass-20260806",
+  "type": "claim",
+  "status": "confirmed",
+  "created_utc": "2026-08-06T12:20:00Z",
+  "claim": "Full text-only pass over the assembled draft (omission-2026-draft-a (2).docx, user-supplied) reconciling prose against current analysis outputs. Found and fixed one real numeric error: Discussion's Fig.7 paragraph said '142 surviving Benjamini-Hochberg FDR' where Results and the source table (outputs/population_firing_lfp_power_corr/hit_rates.csv, n_sessions>=3 family, n=480) both give 145 -- verified by direct recount from the CSV (sig_bh_fdr.sum()==145). Fixed remaining 'Null'-label instances in Methods/Results/Discussion to 'Other' (draft predated the 2026-08-06 rename). Fixed a mislabeled Fig.6 caption placeholder ('LFP-SPK') to reflect its actual content (SPK-SPK population lead/lag); wrote real captions for Figs 3-7 replacing 'p<0.0zzz, r>0.zzz' placeholders, matching the already-verified Results-paragraph numbers. Removed a redundant, lower-precision, unheaded Results paragraph pair (contained a 'SAAAB' typo and vaguer claims that the subheaded paragraph below it already covers with exact numbers). Added the NB rate-ratio complementary analysis (30/13,790 Holm; three surviving area/functional-type pairs; 'shared context' interpretation for the near-all-lags TEO pair) into Methods, Fig.6 caption, Results, and Discussion, since it existed in outputs/population_spk_spk_rateratio_nb/ but was absent from the draft. Unified voice toward the Discussion's existing active 'we/our' register across Methods and Results, per explicit user instruction, without touching the already-correct Abstract/Intro/Title.",
+  "evidence": [
+    "outputs/population_firing_lfp_power_corr/hit_rates.csv (145 BH-significant of 480, n_sessions>=3)",
+    "outputs/population_spk_spk_rateratio_nb/rateratio_hit_rates.csv (30 Holm / 3963 BH of 13790, n_sessions>=3)",
+    "C:\\Users\\nejath\\Downloads\\omission-2026-draft-a (2).docx (source draft, 175 paragraphs, extracted via python-docx)"
+  ],
+  "notes": [
+    "Delivered as a revised markdown file, not a direct docx edit -- user has been assembling the docx themselves from chat-delivered text throughout this session; kept that pattern.",
+    "Did not touch Title, Abstract, or Introduction (already corrected in a prior turn this session and verified consistent with current results).",
+    "Two Discussion subheadings using an odd repeated 'when not confounded with offset response' prefix were rewritten for flow/clarity (flagged to user as a wording change, not just a copyedit, since it could shift emphasis)."
+  ],
+  "edges": [
+    {"type": "relates_to", "target": "fig03-embedding-fig04xx-stim-omission-20260806"},
+    {"type": "relates_to", "target": "analysis-spk-spk-lead-lag-corr-20260806"}
+  ]
+}

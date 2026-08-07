@@ -1,4 +1,27 @@
-# Figure 7 — spike-LFP phase coupling (PPC)
+# Figure 7 — population firing rate x LFP band power (headline) + spike-LFP PPC (supplement)
+
+**Redesigned 2026-08-05.** Headline is now population-level firing-rate x LFP band-power
+modulation (per area, per functional group S+/S-/O+/Null, per band), built by
+`scripts/extract_population_firing_lfp_power_corr.py` -> `aggregate_..._corr.py` ->
+`fit_population_firing_lfp_power_glmm.py` and drawn by `fig07_lfp_spike_coupling.py`'s
+`draw_population_figure`. Design and full result: `outputs/population_firing_lfp_power_corr/README.md`.
+
+**Result, stated plainly**: a GLMM (same backbone as figure 5 — MixedLM/REML, session random
+intercept, subject additive fixed effect) on the per-session Z (population rate vs band power,
+within-session trial-matched correlation against a trial-mismatch shuffle null) finds band is
+the dominant factor (high_gamma/low_gamma >> theta/alpha/beta, every pairwise contrast against
+them Holm-significant at p<1e-5), O+ units are LESS coupled than Null or S+ units (Holm
+p<2e-5 both), MT/MST differ from FEF/PFC/TEO, and condition group (baseline/stim/omission) has
+no detectable effect. 19/480 hit-rate cells survive Holm-Bonferroni before the GLMM was even
+fit; the GLMM sharpens this into which factors actually drive it.
+
+The per-unit PPC analysis below is now a **supplement** (`svg/fig07_supp_ppc.svg`) — it is the
+originally-planned method this headline replaces, kept for completeness, not because it found a
+group-level effect (it did not: 0/60 in both contexts, unchanged from the original build below).
+
+---
+
+## Supplement: spike-LFP phase coupling (PPC)
 
 **Built 2026-07-30, corrected and extended same day.** `scripts/extract_spike_lfp_coupling.py`
 runs corpus-wide in ~24.5 minutes (1,469 s, 15/15 readiness-gated sessions usable, 1,755 SUA

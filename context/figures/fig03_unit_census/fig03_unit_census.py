@@ -91,14 +91,17 @@ ALPHA = 0.025          # the FDR threshold the classifier used; read back from t
 # correlation-to-template classifier (S-family), and within a family the double-threshold
 # ("++"/"--") class outranks the single-threshold one -- each is a strictly more specific
 # claim about the same unit, not an independent measurement.
-CLASS8_ORDER = ["S++", "S+", "S-", "S--", "O-", "O--", "O+", "O++", "Null"]
+# "Other" = not functionally part of the S+/S-/O+ families (renamed from "Null" 2026-08-06).
+CLASS8_ORDER = ["S++", "S+", "S-", "S--", "O-", "O--", "O+", "O++", "Other"]
 CLASS8_COLORS = {"S++": "#00441B", "S+": "#1B9E5A", "S-": "#B5651D", "S--": "#6E3A0A",
                  "O-": CLASS_COLORS["O-"], "O--": CLASS_COLORS["O--"],
                  "O+": CLASS_COLORS["O+"], "O++": CLASS_COLORS["O++"],
-                 "Null": CLASS_COLORS["ns"]}
-CLASS5_ORDER = ["O+", "O-", "S+", "S-", "Null"]
+                 "Other": CLASS_COLORS["ns"]}
+CLASS5_ORDER = ["O+", "O-", "S+", "S-", "Other"]
 CLASS5_COLORS = {"O+": CLASS_COLORS["O+"], "O-": CLASS_COLORS["O-"], "S+": "#1B9E5A",
-                 "S-": "#B5651D", "Null": CLASS_COLORS["ns"]}
+                 "S-": "#B5651D", "Other": CLASS_COLORS["ns"]}
+# Layer bucket -- a DIFFERENT "Null" (unresolved vFLIP layer assignment), not the functional
+# S+/S-/O+/Other grouping above. Left as "Null" deliberately -- not part of this rename's scope.
 LAYER3_ORDER = ["sup", "deep", "Null"]
 LAYER3_COLORS = {"sup": "#3182BD", "deep": "#E6550D", "Null": "0.75"}
 
@@ -181,21 +184,42 @@ def attach_stability(df):
 
 
 def class8(df):
-    """S++ > S+ / S-- > S- outranked by O-- > O- / O++ > O+; else Null. See attach_legacy."""
+    """S++ > S+ / S-- > S- outranked by O-- > O- / O++ > O+; else Other. See attach_legacy.
+
+    "Other" (renamed from "Null" 2026-08-06) means: not functionally part of the S+/S-/O+
+    families -- a screened unit that met none of the S++/S+/S-/S--/O-/O--/O+/O++ criteria.
+    """
     s = np.where(df.is_Splus_double == True, "S++",                       # noqa: E712
         np.where(df.is_Splus == True, "S+",                               # noqa: E712
         np.where(df.is_Sminus_double == True, "S--",                      # noqa: E712
-        np.where(df.is_Sminus == True, "S-", "Null"))))                   # noqa: E712
+        np.where(df.is_Sminus == True, "S-", "Other"))))                  # noqa: E712
     return np.where(df.omission_class != "ns", df.omission_class, s)
 
 
 def class5(df):
-    """O+/O++ pooled to O+, O-/O-- pooled to O-, else the legacy S flag, else Null."""
+    """O+/O++ pooled to O+, O-/O-- pooled to O-, else the legacy S flag, else Other (not
+    functionally part of S+/S-/O+; renamed from "Null" 2026-08-06)."""
     o = np.where(df.omission_class.isin(["O+", "O++"]), "O+",
         np.where(df.omission_class.isin(["O-", "O--"]), "O-", None))
     s = np.where(df.is_Splus == True, "S+",                                # noqa: E712
-        np.where(df.is_Sminus == True, "S-", "Null"))                      # noqa: E712
+        np.where(df.is_Sminus == True, "S-", "Other"))                     # noqa: E712
     return np.where(o != None, o, s)                                       # noqa: E711
+
+
+UMAP_CLASS_ORDER = ["S++", "S+", "S-", "S--", "O+", "O++", "Other"]
+
+
+def class_umap(df):
+    """S++/S+/S-/S--/O+/O++/Other -- the bucket split used only by the embedding panel
+    (2026-08-06). O++ is kept as its OWN trace bucket (not merged into O+) specifically so the
+    panel can mark those units individually (red stars, same convention as
+    panel_composition8_by_area's "contains >=1 O++ unit" flag) while still coloring/grouping
+    them with O+ visually, since O++ is a strictly more specific claim about an O+ unit, not a
+    separate population. O-/O-- units are EXCLUDED from this panel (not part of the requested
+    buckets) rather than folded into Other, since lumping a real suppressive omission response
+    in with "not functionally part of S+/S-/O+" would misrepresent it."""
+    c8 = class8(df)
+    return np.where(np.isin(c8, ["O-", "O--"]), None, c8)
 
 
 def _bars(ax, labels, k, n, colors, ylabel):
@@ -414,17 +438,14 @@ def panel_composition8_by_area(df8, screened_col="legacy_screened"):
     never confused with true absence.
     """
     d = df8[df8[screened_col]].copy()
-    c8 = class8(d)
-    d["class8"] = np.where(c8 == "Null", "Other", c8)  # display label only; same bucket
+    d["class8"] = class8(d)
     d["area_m"] = d.area10.replace(AREA_MERGE_MST_FST)
     areas = [AREA_MERGE_MST_FST.get(a, a) for a in AREA_ORDER if a != "FST"]
     areas = [a for a in areas if (d.area_m == a).any()]
     counts = {a: d.loc[d.area_m == a, "class8"].value_counts().to_dict() for a in areas}
     has_opp = [a for a in areas if counts[a].get("O++", 0) > 0]
-    class8_order_disp = [c if c != "Null" else "Other" for c in CLASS8_ORDER]
-    class8_colors_disp = {(c if c != "Null" else "Other"): v for c, v in CLASS8_COLORS.items()}
     fig, ax = plt.subplots(figsize=(7.0, 3.55))
-    _stacked_pct(ax, areas, counts, class8_order_disp, class8_colors_disp,
+    _stacked_pct(ax, areas, counts, CLASS8_ORDER, CLASS8_COLORS,
                 "Composition (% of legacy-screened units)", mark_areas=has_opp,
                 mark_label="contains ≥ 1 O++ unit", legend_show_total=True)
     fig.tight_layout(rect=[0, 0.09, 1, 0.94])
@@ -562,7 +583,11 @@ def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn):
         else:
             mu[c] = np.full(ctr.size, np.nan)
             sem[c] = np.full(ctr.size, np.nan)
-    return ctr, mu, sem, ns, n_no_trials
+    # per-unit traces, kept for panels that need the individual vectors (e.g. the embedding
+    # panel below) rather than only the class mean/SEM -- same extraction, no extra NWB access.
+    unit_traces = {c: (np.array(traces[c]) if traces[c] else np.zeros((0, ctr.size)))
+                  for c in order}
+    return ctr, mu, sem, ns, n_no_trials, unit_traces
 
 
 def panel_group_traces(ctr, mu, sem, ns):
@@ -742,7 +767,7 @@ def panel_ideal_template_schematic(ax):
     ticks, labels = full_trial_ticks()
     for c in ("S+", "S-", "O+", "O++"):
         ax.plot(t, curves[c], color=CLASS8_COLORS[c], lw=1.8, label=c, zorder=3)
-    ax.axhline(0.5, color=CLASS8_COLORS["Null"], lw=1.2, ls="--", zorder=2,
+    ax.axhline(0.5, color=CLASS8_COLORS["Other"], lw=1.2, ls="--", zorder=2,
               label="Null (baseline)")
     mark_full_trial_axis(ax, FULL_TRIAL_WIN, omit_slot=2)
     ax.set_xticks(ticks)
@@ -792,8 +817,8 @@ def panel_template_trace_rxrr(ctr, mu, sem, ns):
             scaled = (m - m.min()) / span if span > 0 else np.zeros_like(m)
             ax.plot(ctr, scaled, color=col, lw=1.6, label=f"{c} (n={ns[c]})", zorder=3)
         if ax is axR:
-            ax.axhline(0.5, color=CLASS8_COLORS["Null"], lw=1.4, ls="--", zorder=3,
-                      label="Null (reference)")
+            ax.axhline(0.5, color=CLASS8_COLORS["Other"], lw=1.4, ls="--", zorder=3,
+                      label="Other (reference)")
         mark_full_trial_axis(ax, FULL_TRIAL_WIN, omit_slot=2)
         ax.set_xticks(ticks)
         ax.set_xticklabels(labels, rotation=55, fontsize=6, ha="right")
@@ -813,6 +838,111 @@ def panel_template_trace_rxrr(ctr, mu, sem, ns):
     # failure mode.
     fig.subplots_adjust(left=0.035, right=0.99, top=0.88, bottom=0.44, wspace=0.22)
     return fig
+
+
+def _correlation_distance_matrix(x):
+    """x: (n_units, n_bins). Pairwise correlation distance (1 - Pearson r) between per-unit
+    RXRR traces -- the distance metric the panel is built around. Rows with zero variance
+    (flat traces) get distance 1 to everything (maximally dissimilar, not undefined/NaN)."""
+    mu = x.mean(axis=1, keepdims=True)
+    sd = x.std(axis=1, keepdims=True)
+    ok = sd[:, 0] > 0
+    z = np.zeros_like(x)
+    z[ok] = (x[ok] - mu[ok]) / sd[ok]
+    n = z.shape[1]
+    corr = (z @ z.T) / n
+    corr = np.clip(corr, -1.0, 1.0)
+    dist = 1.0 - corr
+    dist[~ok, :] = 1.0
+    dist[:, ~ok] = 1.0
+    np.fill_diagonal(dist, 0.0)
+    return dist
+
+
+def panel_class_embedding(unit_traces, order, n_shuffle=1000, seed=42):
+    """NEW panel (2026-08-06, additional subpanel, does not replace anything): a 2D UMAP
+    embedding of per-unit RXRR full-trial firing-rate traces (same condition, same window/bin
+    as panel_template_trace_rxrr's real-data traces), colored by functional class
+    (S++/S+/S-/S--/O+/Other), with a quantitative separation statistic (silhouette score on the
+    correlation-distance matrix, tested against a label-permutation null) -- not just a picture
+    to eyeball. If units of the same class are well separated from other classes by their own
+    firing pattern, this class distinction is doing real work in activity space, not only in
+    whatever criterion originally assigned the label.
+
+    O++ (2026-08-06): `order` carries O++ as its own key (from class_umap), but O++ is a
+    strictly more specific claim about an O+ unit, not a separate population, so it is MERGED
+    into the "O+" label for coloring, the silhouette score and the permutation test (keeps that
+    statistic identical to before this change) -- and separately marked with a red star overlay,
+    same convention as panel_composition8_by_area's "contains >=1 O++ unit" flag.
+
+    DISTANCE METRIC: correlation distance (1 - Pearson r) between two units' RXRR traces --
+    shape/timing similarity, not raw firing-rate magnitude (a fast unit and a slow unit with the
+    identical temporal profile have zero correlation distance). This is the metric silhouette
+    is computed on; UMAP's 2D layout (metric='correlation') is a visualization of the same
+    space, not an independent statistic.
+
+    GPU: checked before building (RTX A4000, torch/cupy available) -- not used. RAPIDS cuML
+    (the GPU UMAP implementation) is not installable on this native-Windows environment without
+    WSL2/Linux, and at this data scale (a few thousand units x ~190 time bins) CPU UMAP and a
+    dense correlation-distance matrix both run in seconds; GPU would not be the bottleneck here.
+    """
+    X, y, is_opp = [], [], []
+    for c in order:
+        arr = unit_traces.get(c, np.zeros((0, 0)))
+        if arr.size == 0:
+            continue
+        X.append(arr)
+        disp = "O+" if c == "O++" else c          # O++ merged into O+ for color/silhouette
+        y += [disp] * arr.shape[0]
+        is_opp += [c == "O++"] * arr.shape[0]
+    X = np.concatenate(X, axis=0)
+    y = np.array(y)
+    is_opp = np.array(is_opp)
+    finite = np.isfinite(X).all(axis=1)
+    X, y, is_opp = X[finite], y[finite], is_opp[finite]
+    display_order = [c for c in order if c != "O++"]
+
+    dist = _correlation_distance_matrix(X)
+
+    import umap
+    reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, metric="correlation",
+                        random_state=seed)
+    emb = reducer.fit_transform(X)
+
+    from sklearn.metrics import silhouette_score
+    sil_obs = silhouette_score(dist, y, metric="precomputed")
+    rng = np.random.default_rng(seed)
+    null = np.empty(n_shuffle)
+    for s in range(n_shuffle):
+        y_shuf = rng.permutation(y)
+        null[s] = silhouette_score(dist, y_shuf, metric="precomputed")
+    p_perm = float((np.sum(null >= sil_obs) + 1) / (n_shuffle + 1))
+
+    fig, ax = plt.subplots(figsize=(6.4, 6.0))
+    for c in display_order:
+        m = y == c
+        if not m.any():
+            continue
+        ax.scatter(emb[m, 0], emb[m, 1], s=14, alpha=0.75, color=CLASS8_COLORS[c],
+                  edgecolor="black", linewidth=0.2, label=f"{c} (n={m.sum()})")
+    if is_opp.any():
+        ax.scatter(emb[is_opp, 0], emb[is_opp, 1], s=90, marker="*", color="red",
+                  edgecolor="black", linewidth=0.4, zorder=5,
+                  label=f"O++ (n={int(is_opp.sum())})")
+    ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2")
+    ax.set_title(f"RXRR firing-pattern embedding, {len(y)} units\n"
+                f"silhouette = {sil_obs:.3f} (permutation P = {p_perm:.4f}, "
+                f"n_shuffle={n_shuffle})", fontsize=9)
+    ax.legend(fontsize=7, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.08),
+             ncol=3, columnspacing=0.9, handlelength=1.2)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.subplots_adjust(bottom=0.22)
+    return fig, {"n_units": int(len(y)), "silhouette_observed": float(sil_obs),
+                "silhouette_p_permutation": p_perm, "n_shuffle": n_shuffle,
+                "distance_metric": "correlation (1 - Pearson r) on RXRR full-trial per-unit "
+                                  "traces, PSTH_BIN_MS bins",
+                "n_per_class": {c: int((y == c).sum()) for c in order}}
 
 
 def main():
@@ -857,7 +987,7 @@ def main():
 
     d5 = df_legacy[df_legacy.legacy_screened].copy()
     d5["class5"] = class5(d5)
-    ctr, mu, sem, ns5, n_no_omission = compute_population_psth(
+    ctr, mu, sem, ns5, n_no_omission, _unit_tr5 = compute_population_psth(
         d5, "class5", CLASS5_ORDER, PSTH_WIN, PSTH_BIN_MS, _pooled_omission_onsets)
     fig = panel_group_traces(ctr, mu, sem, ns5)
     made["h"] = save(fig, FIG_DIR, "fig03_h_group_traces"); plt.close(fig)
@@ -876,14 +1006,30 @@ def main():
     d8 = df_legacy[df_legacy.legacy_screened].copy()
     d8["class8"] = class8(d8)
     d8["class8_trace"] = d8["class8"].replace(S_MERGE)
-    ctr8, mu8, sem8, ns8, n_no_rxrr = compute_population_psth(
+    ctr8, mu8, sem8, ns8, n_no_rxrr, _unit_tr8 = compute_population_psth(
         d8, "class8_trace", TRACE_ORDER_MERGED, FULL_TRIAL_WIN, PSTH_BIN_MS,
         lambda on: np.asarray(on.get("RXRR", []), float))
     fig = panel_template_trace_rxrr(ctr8, mu8, sem8, ns8)
     made["p3"] = save(fig, FIG_DIR, "fig03_p3_template_trace_rxrr"); plt.close(fig)
 
-    out, w, h = assemble([made["p1"], made["e"], made["p2"], made["p3"]],
-                         os.path.join(HERE, "fig03.svg"), ncol=1, gap=1.0, label_inset=True)
+    # ---- NEW additional subpanel (2026-08-06): does not replace p1-p3 above ----------------
+    d_umap = df_legacy[df_legacy.legacy_screened].copy()
+    d_umap["class_umap"] = class_umap(d_umap)
+    _, _, _, _, _, unit_traces_umap = compute_population_psth(
+        d_umap, "class_umap", UMAP_CLASS_ORDER, FULL_TRIAL_WIN, PSTH_BIN_MS,
+        lambda on: np.asarray(on.get("RXRR", []), float))
+    fig, embedding_receipt = panel_class_embedding(unit_traces_umap, UMAP_CLASS_ORDER)
+    made["p4"] = save(fig, FIG_DIR, "fig03_p4_class_embedding"); plt.close(fig)
+
+    # p1 (presence, wide/short: 6.4x2.75) and p4 (UMAP, tall/square: 6.4x6.0) are assembled as
+    # their own top row first, p4 on the right, so the compact square embedding doesn't get a
+    # full-width row of its own -- minimizes whitespace vs. stacking all five panels at ncol=1
+    # (2026-08-06, per request).
+    top_row = os.path.join(FIG_DIR, "fig03_top_row.svg")
+    assemble([made["p1"], made["p4"]], top_row, ncol=2, letters=True)
+    out, w, h = assemble([top_row, made["e"], made["p2"], made["p3"]],
+                         os.path.join(HERE, "fig03.svg"), ncol=1, gap=1.0, label_inset=True,
+                         letters=False)
     print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
 
     stats = []
@@ -939,8 +1085,7 @@ def main():
 
     # e: does area predict the 8-way S/O composition -- an r x c omnibus over the
     # legacy-screened population only (see attach_legacy).
-    class8_order_disp = [c if c != "Null" else "Other" for c in CLASS8_ORDER]
-    table8 = np.array([[comp8_counts[a].get(c, 0) for c in class8_order_disp]
+    table8 = np.array([[comp8_counts[a].get(c, 0) for c in CLASS8_ORDER]
                        for a in comp8_areas])
     # g: was computed above (panel_stim_omission_correlation) but never reached this list until
     # 2026-07-30 -- the figure and its shuffle-null p_shuffle were drawn and shipped, but the
@@ -949,7 +1094,7 @@ def main():
     stats.append(corr_res)
 
     stats.append(contingency(table8, "fig03", "e", "area predicts S/O composition", "unit",
-                             "fig03_composition", rows=comp8_areas, cols=class8_order_disp,
+                             "fig03_composition", rows=comp8_areas, cols=CLASS8_ORDER,
                              note="descriptive: unit is the unit of inference; restricted to "
                                   f"the {int(df_legacy.legacy_screened.sum())} units screened "
                                   "by both classifiers"))
@@ -1044,9 +1189,10 @@ def main():
                     "row for only a subset of units (its own upstream trial-count/quality "
                     "filter); legacy_screened is set from the per-unit join match, not "
                     "session membership. Panels e and h are restricted to legacy-screened "
-                    "units so 'Null' means screened-negative, not never-tested"},
-        "class8_priority": "O-- > O++ > O- > O+ > S-- > S++ > S- > S+ > Null (each a strictly "
+                    "units so 'Other' means screened-negative, not never-tested"},
+        "class8_priority": "O-- > O++ > O- > O+ > S-- > S++ > S- > S+ > Other (each a strictly "
                            "more specific claim about the same unit)",
+        "class_embedding_panel_p4": embedding_receipt,
         "composition8_counts_by_area": comp8_counts,
         "layer_table": {"table": LAYER_TABLE, "n_rows": layer_table_n,
                         "units_matched_of_grand": layer_matched},
