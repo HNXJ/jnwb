@@ -25,6 +25,7 @@ import jnwb as oa
 from jnwb.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS
 from jnwb.unit_classification import precompute_condition_onsets
 from figstyle import FULL_TRIAL_WIN, full_trial_ticks, mark_full_trial_axis
+from jnwb import paths as _P
 
 OUTPUT_DIR = REPO_ROOT / "outputs" / "raster_suites" / "oplusplus"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -77,9 +78,9 @@ def render_unit_raster_suite(rank_idx, row, save_path):
     stem = str(row["session"]).replace("_rec", "")
     unit_row = int(row["unit_row"])
     
-    nwb_path = pathlib.Path(r"D:\analysis\nwb") / f"{stem}_rec.nwb"
+    nwb_path = pathlib.Path(_P.nwb_dir()) / f"{stem}_rec.nwb"
     if not nwb_path.exists():
-        nwb_path = pathlib.Path(r"D:\analysis\nwb") / f"{stem}.nwb"
+        nwb_path = pathlib.Path(_P.nwb_dir()) / f"{stem}.nwb"
     
     session = oa.read(nwb_path)
     raw_onsets_dict = precompute_condition_onsets(session, correct_only=True)

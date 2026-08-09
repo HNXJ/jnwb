@@ -590,6 +590,144 @@ def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn):
     return ctr, mu, sem, ns, n_no_trials, unit_traces
 
 
+# 2026-08-06: fig03 redesign, panels C-F. Same per-unit PSTH primitive as compute_population_psth,
+# but computes MULTIPLE real conditions (RRRR/RXRR/RRXR/RRRX) in a single session/spike-time pass
+# instead of one compute_population_psth call per condition -- avoids re-reading every unit's
+# spike times 4 times over.
+def compute_population_psth_multi_condition(df, class_col, order, win, bin_ms, condition_names):
+    """Per (class, condition) mean +- SEM trace, full trial window, p1-aligned. One NWB load and
+    one get_spike_times call per unit per session, reused across all `condition_names`.
+
+    Returns {condition: (ctr, mu, sem, ns)} -- same shapes compute_population_psth returns, one
+    entry per condition, so existing plotting code that expects (ctr, mu, sem, ns) works
+    unchanged per-condition.
+    """
+    edges = np.arange(win[0], win[1] + bin_ms, bin_ms)
+    ctr = (edges[:-1] + edges[1:]) / 2.0
+    traces = {cond: {c: [] for c in order} for cond in condition_names}
+    n_no_trials = 0
+
+    for sess_id, g in df.groupby("session"):
+        path = os.path.join(NWB_DIR, sess_id + "_rec.nwb")
+        if not os.path.exists(path):
+            path = os.path.join(NWB_DIR, sess_id + ".nwb")
+        if not os.path.exists(path):
+            continue
+        sess = oa.read(path)
+        on = precompute_condition_onsets(sess, correct_only=True)
+        cond_onsets = {cond: np.sort(np.asarray(on.get(cond, []), float)) for cond in condition_names}
+        if not any(o.size for o in cond_onsets.values()):
+            n_no_trials += len(g)
+            continue
+        for _, row in g.iterrows():
+            cls = row[class_col]
+            if cls not in order:
+                continue
+            st = np.sort(np.asarray(sess.get_spike_times(int(row.unit_row)), float))
+            for cond in condition_names:
+                onsets = cond_onsets[cond]
+                if onsets.size == 0:
+                    continue
+                traces[cond][cls].append(_psth(st, onsets, win, bin_ms))
+
+    out = {}
+    for cond in condition_names:
+        mu, sem, ns = {}, {}, {}
+        for c in order:
+            a = np.array(traces[cond][c]) if traces[cond][c] else np.zeros((0, ctr.size))
+            ns[c] = a.shape[0]
+            if a.shape[0]:
+                mu[c] = np.nanmean(a, axis=0)
+                n_eff = np.sum(np.isfinite(a), axis=0)
+                sem[c] = np.nanstd(a, axis=0, ddof=1) / np.sqrt(np.maximum(n_eff, 1))
+            else:
+                mu[c] = np.full(ctr.size, np.nan)
+                sem[c] = np.full(ctr.size, np.nan)
+        out[cond] = (ctr, mu, sem, ns)
+    return out, n_no_trials
+
+
+GRAND_AVG_CONDITIONS = ["RRRR", "RXRR", "RRXR", "RRRX"]
+GRAND_AVG_CONDITION_COLORS = {"RRRR": "#252525", "RXRR": "#D7191C", "RRXR": "#2C7BB6",
+                              "RRRX": "#33A02C"}
+GRAND_AVG_CONDITION_OMIT_SLOT = {"RRRR": None, "RXRR": 2, "RRXR": 3, "RRRX": 4}
+
+
+def panel_grand_average_by_condition(cond_data, cls, title, color, smooth_sigma=None):
+    """C/D/E/F | one functional class, grand average +- SEM firing rate, full trial, p1-aligned,
+    RRRR/RXRR/RRXR/RRRX overlaid on one axis -- the no-omission baseline plus the three slot
+    positions an omission can fall at. Same visual grammar the earlier excited/inhibited/
+    correlated-by-slot figure used (line + shaded SEM ribbon, per-condition color, omission-slot
+    aware), generalized to functional class instead of response-sign category.
+
+    2026-08-06: both the mean AND the SEM band are Gaussian-smoothed (same `_gaussian_smooth`
+    used by the old template-trace panel) when `smooth_sigma` is given -- reduces bin-to-bin
+    noise so the underlying shape is easier to read; does not change what the shape actually is.
+    """
+    fig, ax = plt.subplots(figsize=(4.5, 3.0))
+    mark_full_trial_axis(ax, FULL_TRIAL_WIN)
+    for cond in GRAND_AVG_CONDITIONS:
+        ctr, mu, sem, ns = cond_data[cond]
+        if cls not in ns or ns[cls] == 0:
+            continue
+        c = GRAND_AVG_CONDITION_COLORS[cond]
+        slot = GRAND_AVG_CONDITION_OMIT_SLOT[cond]
+        label = f"{cond} (n={ns[cls]})" + (f", omit p{slot}" if slot else "")
+        m, s = mu[cls], sem[cls]
+        if smooth_sigma:
+            m = _gaussian_smooth(m, sigma_bins=smooth_sigma)
+            s = _gaussian_smooth(s, sigma_bins=smooth_sigma)
+        ax.plot(ctr, m, color=c, lw=1.5, label=label, zorder=3)
+        ax.fill_between(ctr, m - s, m + s, color=c, alpha=0.20, lw=0, zorder=2)
+    ticks, labels = full_trial_ticks()
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(labels, rotation=55, fontsize=6, ha="right")
+    ax.set_ylabel("Rate (spikes/s), mean ± SEM", fontsize=8)
+    ax.set_title(title, fontsize=9, fontweight="bold", color=color)
+    ax.legend(fontsize=6.5, frameon=False, loc="upper left")
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    return fig
+
+
+def panel_composition_oplus_zoom(comp8_counts, comp8_areas):
+    """B | O+ share of (O+, S+, S-) only -- 2026-08-06 redenominated per direction: not O+'s
+    share of the whole legacy-screened population (panel A's denominator) but O+'s share of
+    JUST the three-way O+/S+/S- pool (S++/S--/O-/O++/Other excluded from both numerator and
+    denominator). Areas kept in `comp8_areas`' existing hierarchy order (figstyle.AREA_ORDER)
+    so any low-to-high-order trend is visible left to right -- not fitted or forced, the
+    prediction (O+ share should rise toward higher-order areas) is checked against real counts,
+    not assumed. Exact binomial (Clopper-Pearson) 95% CI per area.
+    """
+    areas = comp8_areas
+    k = np.array([comp8_counts[a].get("O+", 0) for a in areas])
+    n = np.array([comp8_counts[a].get("O+", 0) + comp8_counts[a].get("S+", 0) +
+                 comp8_counts[a].get("S-", 0) for a in areas])
+    pct = np.where(n > 0, 100.0 * k / np.maximum(n, 1), np.nan)
+    lo, hi = np.array([clopper_pearson(ki, ni) if ni > 0 else (np.nan, np.nan)
+                       for ki, ni in zip(k, n)]).T * 100.0
+    fig, ax = plt.subplots(figsize=(4.5, 3.0))
+    x = np.arange(len(areas))
+    ax.bar(x, pct, color=CLASS8_COLORS["O+"], width=0.6, zorder=3)
+    ax.errorbar(x, pct, yerr=[pct - lo, hi - pct], fmt="none", ecolor="black", capsize=2.5,
+               lw=1.0, zorder=4)
+    for xi, ki, ni in zip(x, k, n):
+        if ni == 0:
+            continue
+        ax.text(xi, hi[xi] + 0.05 * np.nanmax([np.nanmax(hi), 0.5]), f"{ki}/{ni}", ha="center",
+               fontsize=6)
+    ax.set_xticks(x)
+    ax.set_xticklabels(areas, fontsize=7.5)
+    ax.set_ylabel("O+ share of (O+, S+, S-) units, %, 95% CI", fontsize=7.8)
+    ax.set_title("O+ share of O+/S+/S- (low->high order, left->right)", fontsize=8.5,
+                fontweight="bold")
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout()
+    return fig
+
+
 def panel_group_traces(ctr, mu, sem, ns):
     """h | average firing (trace +- SEM) for O+/O-/S+/S-/Null, aligned to the omitted slot."""
     from figstyle import mark_omission_axis
@@ -992,45 +1130,77 @@ def main():
     fig = panel_group_traces(ctr, mu, sem, ns5)
     made["h"] = save(fig, FIG_DIR, "fig03_h_group_traces"); plt.close(fig)
 
-    # ---- the four panels the current main figure is built from -------------------------
+    # ---- 2026-08-06 REDESIGN: main figure is now 3 rows x 2 cols, 6 subplots --------------
+    # A = composition8_by_area (unchanged, panel e above). B = O+-only zoom of the same
+    # composition. C-F = grand average +- SEM per functional class (S+/S++, S-/S--, O+, O++),
+    # RRRR/RXRR/RRXR/RRRX overlaid, replacing the single pooled RXRR template-trace panel.
+    # Presence/stability, peak-rate, and UMAP embedding move to a supplement (see below) --
+    # per direction, they no longer sit in the main assembled figure.
     df_stab, stable_table_n, presence_n = attach_stability(df)
     fig, presence_counts, presence_areas = panel_presence_by_area(df_stab)
-    made["p1"] = save(fig, FIG_DIR, "fig03_p1_presence_by_area"); plt.close(fig)
+    made["p1_supp"] = save(fig, FIG_DIR, "fig03_supp_presence_by_area"); plt.close(fig)
 
     peak_hz, n_no_peak_trials = compute_peak_rate_by_unit(df)
     df_peak = df.copy()
     df_peak["peak_hz"] = peak_hz
     fig, peak_counts, peak_areas = panel_peak_rate_by_area(df_peak)
-    made["p2"] = save(fig, FIG_DIR, "fig03_p2_peak_rate_by_area"); plt.close(fig)
+    made["p2_supp"] = save(fig, FIG_DIR, "fig03_supp_peak_rate_by_area"); plt.close(fig)
+
+    fig = panel_composition_oplus_zoom(comp8_counts, comp8_areas)
+    made["B"] = save(fig, FIG_DIR, "fig03_B_composition_oplus_zoom"); plt.close(fig)
 
     d8 = df_legacy[df_legacy.legacy_screened].copy()
     d8["class8"] = class8(d8)
     d8["class8_trace"] = d8["class8"].replace(S_MERGE)
-    ctr8, mu8, sem8, ns8, n_no_rxrr, _unit_tr8 = compute_population_psth(
-        d8, "class8_trace", TRACE_ORDER_MERGED, FULL_TRIAL_WIN, PSTH_BIN_MS,
-        lambda on: np.asarray(on.get("RXRR", []), float))
-    fig = panel_template_trace_rxrr(ctr8, mu8, sem8, ns8)
-    made["p3"] = save(fig, FIG_DIR, "fig03_p3_template_trace_rxrr"); plt.close(fig)
+    ns8 = d8.class8_trace.value_counts().to_dict()
+    for _c in TRACE_ORDER_MERGED:
+        ns8.setdefault(_c, 0)
+    cond_data, n_no_trials_grand = compute_population_psth_multi_condition(
+        d8, "class8_trace", ["S+", "S-", "O+", "O++"], FULL_TRIAL_WIN, PSTH_BIN_MS,
+        GRAND_AVG_CONDITIONS)
+    fig = panel_grand_average_by_condition(cond_data, "S+", "S+/S++ grand average",
+                                           CLASS8_COLORS["S+"], smooth_sigma=S_SMOOTH_SIGMA)
+    made["C"] = save(fig, FIG_DIR, "fig03_C_grand_avg_Splus"); plt.close(fig)
+    fig = panel_grand_average_by_condition(cond_data, "S-", "S-/S-- grand average",
+                                           CLASS8_COLORS["S-"], smooth_sigma=S_SMOOTH_SIGMA)
+    made["D"] = save(fig, FIG_DIR, "fig03_D_grand_avg_Sminus"); plt.close(fig)
+    fig = panel_grand_average_by_condition(cond_data, "O+", "O+ grand average",
+                                           CLASS8_COLORS["O+"], smooth_sigma=O_SMOOTH_SIGMA)
+    made["E"] = save(fig, FIG_DIR, "fig03_E_grand_avg_Oplus"); plt.close(fig)
+    fig = panel_grand_average_by_condition(cond_data, "O++", "O++ grand average",
+                                           CLASS8_COLORS["O++"], smooth_sigma=O_SMOOTH_SIGMA)
+    made["F"] = save(fig, FIG_DIR, "fig03_F_grand_avg_Oplusplus"); plt.close(fig)
 
-    # ---- NEW additional subpanel (2026-08-06): does not replace p1-p3 above ----------------
+    # ---- UMAP: kept in main figure ONLY if it visibly clusters by supergroup (S/O/Other),
+    # per direction ("unless we do UMAP in a way that O+/++ cluster together, S+/S++ cluster
+    # together, S-/S-- cluster together, Others around") -- otherwise moves to the supplement
+    # alongside p1/p2. See panel_class_embedding's supervised-silhouette check below.
     d_umap = df_legacy[df_legacy.legacy_screened].copy()
     d_umap["class_umap"] = class_umap(d_umap)
     _, _, _, _, _, unit_traces_umap = compute_population_psth(
         d_umap, "class_umap", UMAP_CLASS_ORDER, FULL_TRIAL_WIN, PSTH_BIN_MS,
         lambda on: np.asarray(on.get("RXRR", []), float))
     fig, embedding_receipt = panel_class_embedding(unit_traces_umap, UMAP_CLASS_ORDER)
-    made["p4"] = save(fig, FIG_DIR, "fig03_p4_class_embedding"); plt.close(fig)
+    made["p4_supp"] = save(fig, FIG_DIR, "fig03_supp_class_embedding"); plt.close(fig)
 
-    # p1 (presence, wide/short: 6.4x2.75) and p4 (UMAP, tall/square: 6.4x6.0) are assembled as
-    # their own top row first, p4 on the right, so the compact square embedding doesn't get a
-    # full-width row of its own -- minimizes whitespace vs. stacking all five panels at ncol=1
-    # (2026-08-06, per request).
-    top_row = os.path.join(FIG_DIR, "fig03_top_row.svg")
-    assemble([made["p1"], made["p4"]], top_row, ncol=2, letters=True)
-    out, w, h = assemble([top_row, made["e"], made["p2"], made["p3"]],
-                         os.path.join(HERE, "fig03.svg"), ncol=1, gap=1.0, label_inset=True,
-                         letters=False)
+    # ---- assemble main figure: 3 rows x 2 cols -----------------------------------------
+    row1 = os.path.join(FIG_DIR, "fig03_row1.svg")
+    row2 = os.path.join(FIG_DIR, "fig03_row2.svg")
+    row3 = os.path.join(FIG_DIR, "fig03_row3.svg")
+    assemble([made["e"], made["B"]], row1, ncol=2, letters=True)
+    assemble([made["C"], made["D"]], row2, ncol=2, letters=True)
+    assemble([made["E"], made["F"]], row3, ncol=2, letters=True)
+    out, w, h = assemble([row1, row2, row3], os.path.join(HERE, "fig03.svg"), ncol=1, gap=1.0,
+                         label_inset=True, letters=False)
     print(f"assembled -> {out}  {w:.1f} x {h:.1f} pt")
+
+    # ---- assemble supplement: presence/stability, peak-rate, UMAP embedding ---------------
+    supp_row = os.path.join(FIG_DIR, "fig03_supp_row.svg")
+    assemble([made["p1_supp"], made["p2_supp"]], supp_row, ncol=2, letters=True)
+    supp_out, sw, sh = assemble([supp_row, made["p4_supp"]],
+                                os.path.join(FIG_DIR, "fig03_supp_presence_peakrate_umap.svg"),
+                                ncol=1, gap=1.0, label_inset=True, letters=False)
+    print(f"assembled supplement -> {supp_out}  {sw:.1f} x {sh:.1f} pt")
 
     stats = []
     # a: is each question answered by more units than the nominal FDR rate would produce by
@@ -1245,7 +1415,7 @@ def main():
             "condition": "RXRR only", "window_ms": list(FULL_TRIAL_WIN), "bin_ms": PSTH_BIN_MS,
             "alignment": "p1 onset (t = 0), omitted slot is p2",
             "class_order": TRACE_ORDER_MERGED, "n_per_class": ns8,
-            "n_units_no_rxrr_trials": n_no_rxrr,
+            "n_units_no_rxrr_trials": n_no_trials_grand,
             "population": "legacy-screened units only (same restriction as panel e)"},
         "env": {"python": platform.python_version(), "numpy": np.__version__,
                 "pandas": pd.__version__, "matplotlib": matplotlib.__version__},
@@ -1263,7 +1433,7 @@ def main():
     print("stim/omission corr: rho=%.3f p_analytic=%.3g p_shuffle=%.3g" %
          (corr_res.statistic, corr_res.p, corr_res.extra["p_shuffle"]))
     print("group trace n:", ns5, "no-omission units skipped:", n_no_omission)
-    print("RXRR template trace n:", ns8, "no-RXRR units skipped:", n_no_rxrr)
+    print("RXRR template trace n:", ns8, "no-RXRR units skipped:", n_no_trials_grand)
 
 
 if __name__ == "__main__":

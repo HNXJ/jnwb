@@ -27,13 +27,14 @@ import time
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, r"D:/workspace/omission")
+sys.path.insert(0, _P.REPO_ROOT)
 import jnwb as oa
 from jnwb.unit_classification import precompute_condition_onsets
+from jnwb import paths as _P
 
-GRAND_TABLE = r"D:/workspace/omission/outputs/classification/omission_grand_units.csv"
-NWB_DIR = r"D:/analysis/nwb"
-OUT_CSV = r"D:/workspace/omission/outputs/classification/unit_trial_presence.csv"
+GRAND_TABLE = _P.REPO_ROOT / "outputs/classification/omission_grand_units.csv"
+NWB_DIR = _P.nwb_dir()
+OUT_CSV = _P.REPO_ROOT / "outputs/classification/unit_trial_presence.csv"
 FULL_TRIAL_WIN = (-600, 4200)  # ms, p1-aligned -- must match figstyle.FULL_TRIAL_WIN
 
 

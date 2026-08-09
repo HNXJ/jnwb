@@ -50,9 +50,10 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from jnwb import paths as _P
 
-TFR_DIR = r"D:/workspace/data/tfr_arrays"
-OUT_DIR = r"D:/workspace/omission/outputs/lfp_band_census"
+TFR_DIR = _P.tfr_dir()
+OUT_DIR = _P.REPO_ROOT / "outputs/lfp_band_census"
 
 FREQS_HZ = np.arange(3, 201, 2)          # 99 bins
 N_TIMES = 500

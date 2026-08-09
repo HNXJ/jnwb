@@ -18,8 +18,9 @@ import matplotlib.gridspec as gridspec
 import docx
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from jnwb import paths as _P
 
-REPO = pathlib.Path(r'D:\workspace\omission')
+REPO = pathlib.Path(_P.REPO_ROOT)
 CONTEXT = REPO / 'context'
 DRAFT_ASSETS = CONTEXT / 'draft-assets'
 DRAFT_ASSETS.mkdir(exist_ok=True)

@@ -63,10 +63,11 @@ from statsmodels.regression.mixed_linear_model import MixedLM
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from area_subject_glmm import fit_area_subject_and_pairwise  # noqa: E402
+from jnwb import paths as _P
 
-CENSUS = r"D:/workspace/omission/outputs/lfp_band_census_v2/channel_band_power.csv.gz"
-AREA_VEC = r"D:/workspace/omission/outputs/channel_area_vector/channel_area_vector.csv"
-OUT_DIR = r"D:/workspace/omission/outputs/lfp_band_census_v2"
+CENSUS = _P.REPO_ROOT / "outputs/lfp_band_census_v2/channel_band_power.csv.gz"
+AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
+OUT_DIR = _P.REPO_ROOT / "outputs/lfp_band_census_v2"
 BANDS = ["theta", "alpha", "beta", "low_gamma", "high_gamma"]
 RESP = "db_mid_omirel"
 

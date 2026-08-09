@@ -180,7 +180,7 @@ def batch_read(nwb_dir: Union[str, Path], pattern: str = '*.nwb',
         List of OmissionSession objects
 
     Example:
-        >>> sessions = oa.batch_read('D:/analysis/nwb')
+        >>> sessions = oa.batch_read(oa.paths.nwb_dir())
         >>> for sess in sessions:
         ...     units = sess.find_single_units(quality='stable_plus')
         ...     print(f"{sess}: {len(units)} stable+ units")
@@ -286,6 +286,10 @@ from .sequence_layout import (
 # Y-files: New orthogonal jnwb modules (spectral and visualization)
 from . import spectral
 from . import visual_qc
+
+# Central path resolution (2026-08-08). `oa.paths.describe()` reports every root
+# and whether it currently resolves -- run it first after any drive remap.
+from . import paths
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -516,6 +520,7 @@ __all__ = [
     'network_connectivity',
     'units_across_sessions',
     'lfp_channel_areas',
+    'paths',
     'summary_report',
     'noise_vs_signal',
     'cross_modal_comparison',

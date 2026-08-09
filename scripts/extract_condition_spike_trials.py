@@ -46,10 +46,11 @@ sys.path.insert(0, REPO)
 import jnwb as oa  # noqa: E402
 from jnwb.unit_classification import precompute_condition_onsets  # noqa: E402
 from jnwb.connectivity import bin_spikes  # noqa: E402
+from jnwb import paths as _P
 
-NWB_DIR = r"D:/analysis/nwb"
-UNITS_CSV = r"D:/workspace/omission/outputs/classification/omission_grand_units.csv"
-OUT_DIR = r"D:/workspace/omission/outputs/condition_spike_trials"
+NWB_DIR = _P.nwb_dir()
+UNITS_CSV = _P.REPO_ROOT / "outputs/classification/omission_grand_units.csv"
+OUT_DIR = _P.REPO_ROOT / "outputs/condition_spike_trials"
 
 WIN_S = (-0.5, 2.593)          # p1 onset to the p3/d3 boundary -- matches fig05's LFP window
 BIN_MS = 10.0

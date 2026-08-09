@@ -43,7 +43,10 @@ class MockSession:
             df = df[df['area'] == area]
         return df
 
-    def get_epochs(self, condition=None):
+    def get_epochs(self, phase=None, condition=None):
+        # `phase` accepted to match OmissionSession.get_epochs, which jnwb.decoding
+        # calls with phase=2. This stub carries no phase column, so the argument is
+        # accepted and ignored rather than filtered on.
         df = self.epochs_df.copy()
         if condition:
             df = df[df['condition'] == condition]

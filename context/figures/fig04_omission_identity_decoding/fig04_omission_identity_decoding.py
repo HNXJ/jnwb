@@ -102,6 +102,10 @@ def build_fig04():
         "Figure 4: Noise-Controlled Encoding & Cross-Validated Decoding of Omitted Identity",
         fontsize=12, fontweight="bold", y=0.98, x=0.07, ha="left"
     )
+    # 2026-08-06 standing rule: any figure containing placeholder/dummy (non-real) data gets an
+    # unmissable red "PLACEHOLDER-DUMMY" title. `used_placeholder` is set True by any panel
+    # below that falls back to hardcoded/synthetic content instead of a real CSV.
+    used_placeholder = [False]
     
     # -------------------------------------------------------------------------
     # Panel A: Paradigm Schematic & Contrast Design
@@ -173,6 +177,7 @@ def build_fig04():
             ax_b.fill_between(t_ms, np.maximum(mean_acc - sem_acc, 0.40), mean_acc + sem_acc, color=c, alpha=0.18, zorder=2)
     else:
         # Synthetic baseline fallback if table generation in progress
+        used_placeholder[0] = True
         t_ms = np.linspace(-500, 4124, 180)
         for group_name, c in GROUP_COLORS.items():
             peak_val = 0.76 if "Frontal" in group_name else (0.68 if "High" in group_name else 0.58)
@@ -200,6 +205,7 @@ def build_fig04():
         slot_summary = df_slot.groupby(["slot_key", "area"])["accuracy"].mean().unstack(level=0)
     else:
         # Benchmark summary
+        used_placeholder[0] = True
         slot_summary = pd.DataFrame({
             "p2": [0.78, 0.74, 0.69, 0.64, 0.59, 0.56, 0.54],
             "p3": [0.72, 0.69, 0.64, 0.60, 0.56, 0.53, 0.52],
@@ -237,6 +243,7 @@ def build_fig04():
         df_glmm = pd.read_csv(glmm_csv)
         area_beta = df_glmm.groupby("area")["abs_beta"].agg(["mean", "sem"]).reindex(areas_list)
     else:
+        used_placeholder[0] = True
         area_beta = pd.DataFrame({
             "mean": [0.48, 0.42, 0.31, 0.25, 0.18, 0.12, 0.09],
             "sem": [0.04, 0.035, 0.03, 0.025, 0.02, 0.015, 0.01],
@@ -259,7 +266,9 @@ def build_fig04():
     # Panel E1: Omission Identity Confusion Matrix
     # -------------------------------------------------------------------------
     ax_e1.text(-0.12, 1.05, "E1", transform=ax_e1.transAxes, fontsize=13, fontweight="bold", va="top")
-    
+
+    # UNCONDITIONALLY hardcoded, no real-data code path exists for this panel at all.
+    used_placeholder[0] = True
     conf_mat = np.array([
         [0.76, 0.15, 0.09],
         [0.14, 0.78, 0.08],
@@ -286,7 +295,9 @@ def build_fig04():
     # Panel E2: Out-Of-Fold ROC Curves across Signals
     # -------------------------------------------------------------------------
     ax_e2.text(-0.12, 1.05, "E2", transform=ax_e2.transAxes, fontsize=13, fontweight="bold", va="top")
-    
+
+    # UNCONDITIONALLY hardcoded, no real-data code path exists for this panel at all.
+    used_placeholder[0] = True
     fpr = np.linspace(0, 1, 100)
     # Synthetic smooth ROC curves
     tpr_spk = 1.0 / (1.0 + np.exp(-4 * (fpr - 0.2)))
@@ -305,14 +316,25 @@ def build_fig04():
     ax_e2.spines["top"].set_visible(False)
     ax_e2.spines["right"].set_visible(False)
     
+    # Standing rule (2026-08-06): any figure containing placeholder/dummy content gets an
+    # unmissable red title, in addition to (not replacing) the real title -- so no rendered
+    # figure can be mistaken for a real result by a viewer who doesn't read the code.
+    if used_placeholder[0]:
+        fig.text(0.5, 0.995, "PLACEHOLDER-DUMMY", color="red", fontsize=20, fontweight="bold",
+                 ha="center", va="top")
+
     # Save outputs
     plt.savefig(PNG_PATH, dpi=300, facecolor="#ffffff", edgecolor="none")
     plt.savefig(SVG_PATH, facecolor="#ffffff", edgecolor="none")
     plt.close()
-    
+
     print(f"Successfully generated Figure 4:")
     print(f"  - PNG (300 DPI): {PNG_PATH}")
     print(f"  - SVG: {SVG_PATH}")
+    if used_placeholder[0]:
+        print("  WARNING: one or more panels used placeholder/dummy data -- 'PLACEHOLDER-DUMMY' "
+             "title added per the 2026-08-06 standing rule. See panels B/C/D (conditional "
+             "fallback) and E1/E2 (unconditional, no real-data path exists).")
 
 
 if __name__ == "__main__":

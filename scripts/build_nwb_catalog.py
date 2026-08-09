@@ -17,6 +17,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from jnwb import paths as _P
 
 STEM_RE = re.compile(
     r"^(?P<stem>sub-(?P<subject>[^_]+)_ses-(?P<session>[^_]+)(?:_rec)?)"
@@ -28,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--nwb-dir",
         type=Path,
-        default=Path(os.environ.get("OMISSION_NWB_DIR", "D:/analysis/nwb")),
+        default=Path(os.environ.get("OMISSION_NWB_DIR", _P.nwb_dir())),
     )
     p.add_argument(
         "--out-dir",

@@ -33,8 +33,9 @@ from itertools import combinations
 import numpy as np
 import pandas as pd
 from scipy import stats
+from jnwb import paths as _P
 
-IN_DIR = r"D:/workspace/omission/outputs/within_session_lfp_lfp_sliding_corr"
+IN_DIR = _P.REPO_ROOT / "outputs/within_session_lfp_lfp_sliding_corr"
 Z_THRESH = 1.96
 ALPHA = 0.05
 

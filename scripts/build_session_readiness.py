@@ -14,6 +14,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Set
+from jnwb import paths as _P
 
 
 def parse_args() -> argparse.Namespace:
@@ -26,12 +27,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--tfr-dir",
         type=Path,
-        default=Path(os.environ.get("OMISSION_TFR_DIR", "D:/workspace/data/tfr_arrays")),
+        default=Path(os.environ.get("OMISSION_TFR_DIR", _P.tfr_dir())),
     )
     p.add_argument(
         "--meta-root",
         type=Path,
-        default=Path(os.environ.get("OMISSION_META_DIR", "D:/workspace/data/metadata")),
+        default=Path(os.environ.get("OMISSION_META_DIR", _P.meta_dir())),
     )
     p.add_argument(
         "--out",

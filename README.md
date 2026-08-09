@@ -1,19 +1,11 @@
-# Omission: Unified Single-Unit & Spectral Analysis (`jnwb`)
+# `jnwb` — Omission analysis package
 
-Research analysis framework for the **Omission** project — hierarchical visual prediction and omission response analysis across cortical visual and prefrontal hierarchies (V1, V2, V3, V4, MT, MST, TEO, FEF, PFC) across recording sessions.
+Python package for the **Omission** project: hierarchical visual prediction and omission
+responses recorded across V1, V2, V3, V4, MT, MST, TEO, FEF, PFC. Everything in this repo is
+built on `jnwb`; the rest of the tree is its inputs, outputs, and doctrine.
 
-This is an active research codebase. Statistical and decoding APIs include exploratory dual-test reports; treat confirmatory inference (family-wise FDR, nested CV decoding, Granger diagnostics) as work in progress toward publication-grade use.
-
----
-
-## Repository Structure
-
-- **`jnwb/`** — Unified Python package for NWB-centric omission analysis (session I/O, spectral, spiking, connectivity, decoding, visualization).
-- **`tests/`** — Pytest suite for loaders, spectral/spiking pipelines, and statistical engines. Run locally for the current pass count (do not trust hardcoded numbers in docs).
-- **`docs/`** — Documentation on overview, NWB structures, methods, and operations.
-- **`examples/`** — Step-by-step usage scripts for spiking, TFR, decoding, and spectral causality.
-- **`legacy/`** — Archive of legacy context markdowns, obsolete scripts, and old tests.
-- **`etude_no_01_gallery.ipynb`** — Interactive showcase notebook for visualization tasks.
+Active research code. Treat confirmatory inference (family-wise FDR, nested-CV decoding,
+Granger diagnostics) as work in progress, and re-run tests rather than trusting counts in docs.
 
 ---
 
@@ -21,90 +13,123 @@ This is an active research codebase. Statistical and decoding APIs include explo
 
 ```bash
 pip install -e ".[test]"
-python -m pytest -q
 ```
 
-Core dependency includes `pynwb`. The `test` extra pulls pytest and the scientific stack used by the advertised suite.
+## Paths — do this first after any drive remap
+
+Repo-internal paths resolve from the package's own location and always work. External data
+roots live on a separate volume and are set by environment variable:
+
+| Root | Env var | Fallback |
+|---|---|---|
+| NWB session files | `OMISSION_NWB_DIR` | `D:/nwb/omission` |
+| All derived data | `OMISSION_ANALYSIS_DIR` | `D:/analysis` |
+| — TFR arrays | `OMISSION_TFR_DIR` | `<analysis>/tfr_arrays` |
+| — metadata sidecars | `OMISSION_META_DIR` | `<analysis>/metadata` |
+| — connectivity databases | `OMISSION_CONNDB_DIR` | `<analysis>/connectivity_databases` |
+
+Two volumes, one rule: **NWBs are read-only inputs under `D:/nwb/omission`; everything the
+pipeline produces goes under `D:/analysis`, never into the repo.** `D:/nwb/mglo/` is a
+different experiment — do not glob across `D:/nwb`.
+
+```python
+import jnwb as oa
+oa.paths.describe()   # every root + whether it currently resolves
+```
+
+If a root shows `exists: false`, set its env var — do not edit source, and do not write a new
+absolute literal into a script. See [`jnwb/paths.py`](jnwb/paths.py).
+
+Repo-internal paths (`REPO_ROOT`, `outputs_dir()`, `artifacts_dir()`, `layer_masks_path()`)
+derive from the package's own location and are not configurable.
 
 ---
 
-## Quick Start
+## Quick start
 
 ```python
 import jnwb as oa
 
-# 1. Load an enriched session
-session = oa.read("D:/analysis/nwb/sub-C31o_ses-230630_rec.nwb")
-
-# 2. Extract single units
-units_df = session.find_single_units(quality='stable_plus', area='V1')
-
-# 3. Generate a complete raster suite (Spikes, PSTH, ACG)
-res = session.raster_suite(unit_id=2.0, condition='AAAB')
-res["figure"].savefig("outputs/task_01_raster.png")
+session = oa.read(oa.paths.nwb_dir() / "sub-C31o_ses-230630_rec.nwb")
+units   = session.find_single_units(quality="stable_plus", area="V1")
+res     = session.raster_suite(unit_id=2.0, condition="AAAB")
+res["figure"].savefig("outputs/raster.png")
 ```
+
+`oa.read()` returns an `OmissionSession` — the single object every analysis hangs off.
+`oa.batch_read(dir)` returns a list of them.
 
 ---
 
-## 📊 The 10 Highlighted Showcases
+## Module map
 
-The interactive [etude_no_01_gallery.ipynb](file:///d:/workspace/omission/etude_no_01_gallery.ipynb) notebook details these 10 core showcases:
+The public surface is `jnwb/__init__.py` (`__all__`, 117 symbols). Modules, by what they do:
 
-### 1. Single Unit Raster Suite
-Generates aligned spike rasters, peristimulus time histograms (PSTH), and autocorrelograms (ACG) for individual neurons.
-```python
-sess.raster_suite(unit_id=2.0)
-```
+**Session I/O and addressing**
+| Module | Role |
+|---|---|
+| `session.py` | `OmissionSession` — epoching, unit queries, LFP/MUAe access, plot shortcuts |
+| `paths.py` | Repo and data root resolution; the only place absolute paths live |
+| `addressing.py` | Peak-channel → area mapping, depth → layer classification |
+| `ontology.py`, `factories.py` | `Dataset`/`AlignedDataset`/`Question`/`Result` objects and their constructors |
+| `metadata.py`, `diagnostics.py` | Unit tables, SNR, quality tiers, session audits |
 
-### 2. Multi-Channel Raw LFP Trace Extraction
-lazy-reads and plots raw LFP signals for targeted channels (e.g., 44, 47, 50) of Probe B.
+**Signal analysis**
+| Module | Role |
+|---|---|
+| `spectral.py` | Band power, cross-area coherence, spectrolaminar mapping |
+| `complex_tfr.py` | Complex TFR preprocessing and complex-valued metrics |
+| `spiking.py` | Response metrics, omission-response classification, phase locking |
+| `unit_classification.py` | Shuffle-controlled S+ / S− / O+ classification, O++ templates |
+| `connectivity.py` | Granger, spectral Granger, PSI, transfer entropy, mutual information |
+| `jrsa.py` | Joint Relationship & Spectral Analysis — unified RSA engine |
 
-### 3. Multi-Channel MUAe Envelope Visualization
-lazy-extracts and plots multi-unit activity envelopes for Probe A channels 1 and 127.
+**Decoding and population**
+| Module | Role |
+|---|---|
+| `decoding.py` | SVM stimulus-identity and omission-presence decoders |
+| `bilinear.py` | Rank-K matrix-factorized logistic regression for (N×T) trials |
+| `nam.py` | Neural Additive Model with per-unit attribution |
+| `omission_identity.py` | Omission-identity decoding engine and condition mappings |
+| `trajectory.py`, `gpu_pca.py` | Population trajectories via GPU SVD |
 
-### 4. 2D Log-Frequency TFR Spectrogram
-Computes and plots baseline-normalized power spectrograms across theta, alpha, beta, and gamma bands.
-```python
-sess.plot_tfr(area="PFC", condition="AAXB", phase=3)
-```
-
-### 5. Multi-Channel TFR Band Traces
-Averages TFR power across channels 20–80 and plots time-resolved traces for all 7 canonical bands.
-
-### 6. Noise vs. Signal Quality Auditing
-Generates multi-metric tradeoff plots mapping Signal-to-Noise Ratio (SNR) against Firing Rates and Waveform Shapes.
-```python
-from jnwb import visual_qc as qc
-qc.plot_noise_vs_signal(sess._units_df)
-```
-
-### 7. Omission Stability Pie Charts
-Summarizes unit quality tiers (e.g., Stable-Plus, Unstable) grouped by cortical recording areas.
-```python
-sess.pie_charts(by_area=True)
-```
-
-### 8. Layer-wise Spectrolaminar Motifs
-Identifies superficial and deep layer spectral power dynamics across visual hierarchies.
-```python
-sess.spectrolaminar_motif(area="V4", condition="AAAB")
-```
-
-### 9. Multi-Area Spectral Granger & Granger Proxies
-Computes directional lead-lag matrices using relative phase differences to establish hierarchical routing.
-
-### 10. Multi-File Batch Processing & Advanced Querying
-Performs batch data inventory checks across multiple NWB files, filtering units by layer, depth, and SNR.
-```python
-oa.units_across_sessions(sessions_list, criteria={'is_stable_plus': True})
-```
+**Statistics, figures, reports**
+| Module | Role |
+|---|---|
+| `statistics.py` | `StatisticalAnalysis` — paired parametric + non-parametric + effect size |
+| `analyzers.py` | `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer`, `StatisticalAnalysis` |
+| `functions.py` | 22 canonical top-level functions (`tfr_*`, `raster_plot`, `pie_charts`, …) |
+| `viz.py`, `visual_qc.py` | Publication figures and visual QC |
+| `sequence_layout.py` | Omission sequence layout as vector objects |
+| `report.py`, `markdown_report.py` | Session report suites, multi-page markdown with embedded SVG |
+| `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 ---
 
-## 🛠️ Built-in Model Context Protocol (MCP) Server
+## Repository layout
 
-`jnwb` includes an stdio-based MCP server to expose key data analysis capabilities directly to LLMs:
-- **`inspect_nwb_file`**: Resolves session-level metadata, areas, and channels.
-- **`get_all_units_metadata`**: Outputs the database of sorted units.
-- **`prepare_signal_reference`**: Preprocesses trial-aligned LFP and MUAe signals.
-- **`add_tool`**: Safely appends new analysis tools dynamically.
+| Path | Contents |
+|---|---|
+| `jnwb/` | The package (above) |
+| `tests/` | Pytest suite — run it, don't trust pass counts in docs |
+| `scripts/` | 66 one-off analysis and aggregation scripts; outputs land in `outputs/` |
+| `notebooks/` | `suite_01`–`suite_08` figure suites + `reproducibility_master_pipeline` |
+| `outputs/` | Derived data and figure assets |
+| `context/` | Manuscript drafts, figures, inventory — `context/docs/CONTEXT.md` is authoritative |
+| `artifacts/` | `data/` catalogs, `.lab/` knowledge graph nodes |
+| `legacy/` | Archived context, scripts, tests — historical, superseded |
+
+---
+
+## Before you change anything
+
+- **`CLAUDE.md`** — repo doctrine: footguns, band definitions, verification checks that caught
+  real errors, the placeholder-figure rule.
+- **`context/docs/CONTEXT.md`** — authoritative project context: paradigm, corpus, data topology,
+  analysis contracts, current findings with receipts.
+- **`.claude/skills/jnwb-*`** — task-scoped API guides (core, spiking, tfr, population,
+  statistics, metadata, visualization, functional-connectivity, jrsa).
+- **`artifacts/.lab/`** — the knowledge graph. Read before, write after.
+
+Prefer `artifacts/data/nwb_catalog.json` and `artifacts/data/session_readiness.csv` over any
+session count written into prose.

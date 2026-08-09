@@ -1,0 +1,73 @@
+{
+  "schema_version": 3,
+  "id": "doctor-pass-numerical-stack-conventions-20260808",
+  "created": "2026-08-08",
+  "title": "Doctor pass: six undeclared dependencies, four live array backends with no stated convention, two dead paths in CLAUDE.md",
+  "claims": [
+    {
+      "id": "claim-undeclared-dependencies",
+      "status": "confirmed",
+      "statement": "Six third-party packages were imported by jnwb/ or scripts/ but absent from pyproject.toml. A fresh `pip install -e \".[test]\"` produced an environment missing statsmodels -- which every GLMM and FDR path imports -- failing at import time inside an analysis run rather than at install.",
+      "receipt": "AST scan over jnwb/**/*.py + scripts/*.py, module-level and function-level imports, minus sys.stdlib_module_names and local packages: statsmodels 17 sites, cupy 14, python-docx 7, jax 2, hdmf 2, joblib 1. All present in the dev venv (statsmodels 0.14.6, cupy 14.0.1, jax 0.10.1, joblib 1.5.3, python-docx 1.2.0), which is why nothing failed here.",
+      "note": "Fixed the same day: statsmodels/joblib/hdmf added to core dependencies; cupy-cuda12x + jax added as a new [gpu] extra; python-docx as [docs]; `all` extra updated. pyproject.toml re-parsed clean via tomllib."
+    },
+    {
+      "id": "claim-four-backends-one-undocumented-pattern",
+      "status": "confirmed",
+      "statement": "The repo runs four array backends, and the correct dispatch pattern existed in exactly one file with no documentation outside it, so two other modules independently rolled their own -- one of which has a GPU path with no CPU fallback at all.",
+      "receipt": "Measured 2026-08-08: numpy 86 import sites; torch in analyzers/gpu_pca/nam/trajectory/jrsa + scripts/decode_fig04_v9_nam.py; cupy in analyzers/connectivity/spectral/jrsa; jax in jrsa.py only (lines 886, 959-960). jnwb/jrsa.py defines _get_backend/_autodetect_backend/_to_backend/_get_xp with a backend='auto' parameter (all four verified present). jnwb/spectral.py:598 does a bare `import cupy as cp` inside a function with no except-ImportError path. jnwb/gpu_pca.py:53-58 does its own try/torch.cuda.is_available()/fallback. torch.cuda.is_available() is True on this machine (torch 2.12.0+cu126)."
+    },
+    {
+      "id": "claim-jax-is-aspirational-not-established",
+      "status": "confirmed",
+      "statement": "JAX is present in the environment and referenced by the codebase, but at 3 lines in a single file it is not an established house pattern. Guidance written for it is forward-looking convention and is labeled as such.",
+      "receipt": "grep for 'import jax|from jax|jax.numpy|jnp.' over jnwb/*.py and scripts/*.py returns exactly 3 hits, all in jnwb/jrsa.py (886, 959, 960). jax 0.10.1 installed."
+    },
+    {
+      "id": "claim-claude-md-had-two-dead-paths",
+      "status": "confirmed",
+      "statement": "CLAUDE.md's 'critical sources' list named two handout files that do not exist anywhere in the repo. The bullet stated a real rule (convenience copies lose to the authoritative handout) attached to a referent that was gone.",
+      "receipt": "outputs/archive/notebooks/data_handout.md and colab_handout.md both absent; `find . -name \"*handout*\"` (excluding .git/.venv) returns only context/archive/info/09_figure3_handout_2026-07-13.md and artifacts/.lab/context-figure3-handout.json. The other 9 paths named in CLAUDE.md all resolve.",
+      "note": "Replaced with an HTML comment recording what was removed and why, so the rule is recoverable. Second such finding in one day, after fig04's non-existent CSV names -- the same silent-registry failure mode."
+    },
+    {
+      "id": "claim-labyrinth-reflex-existed-in-three-places",
+      "status": "confirmed",
+      "statement": "The Labyrinth Reflex was stated in full in two always-loaded files and named a third as canonical, at 0.18 textual similarity between the two always-loaded copies -- so determining which wording governed required diffing three files.",
+      "receipt": "~/.claude/CLAUDE.md reflex section 2808 chars; project CLAUDE.md reflex section 964 chars (8% of that file); difflib SequenceMatcher ratio 0.18. Project section named C:\\Users\\nejath\\.gemini\\config\\AGENTS.md (27719 bytes, exists) as canonical wording. Condensed to a pointer at the user-scope file, which loads in every session anyway."
+    },
+    {
+      "id": "claim-context-cost-went-up-not-down",
+      "status": "confirmed",
+      "statement": "This pass increased always-resident context rather than reducing it. Stated plainly because the cleanup framing would otherwise imply savings that were not delivered.",
+      "receipt": "CLAUDE.md 12140c -> 13492c (+1352c, ~+338 est. tokens): the reflex condensation and dead-bullet removal saved ~600c, the new Numerical stack section cost ~1950c. Skill listing 5033c/~1258 tok -> 6039c/~1509 tok across 13 -> 14 skills, against a ~2000-token budget. Net resident change roughly +590 est. tokens/session.",
+      "note": "Judged worth it: the added content is directives that must be loaded BEFORE an agent writes GPU code, not reference material it can fetch after. But it is a cost, not a saving."
+    },
+    {
+      "id": "claim-claude-code-setup-healthy",
+      "status": "confirmed",
+      "statement": "The Claude Code installation itself had one finding: a stale version. Everything else was clean.",
+      "receipt": "Native install at ~/.local/bin/claude, PATH resolves to it, installMethod 'native' agrees, no npm global and no ~/.claude/local leftover. All 5 config files parse. No agent definitions, so no name collisions. Zero hooks configured and zero hook runs across 47939 transcript lines. permissions.defaultMode already 'auto' at user scope with no project/local shadow. 9 denials in window, none allowlistable (5 PowerShell = a shell; 3 cd into the dead D:\\workspace\\omission path; 1 deliberately declined). Updated 2.1.220 -> 2.1.226."
+    },
+    {
+      "id": "claim-skill-usage-window-too-thin-to-judge",
+      "status": "unconfirmed",
+      "statement": "11 of 13 project skills show zero lifetime invocations, but with 7 recorded startups this is absence of data rather than evidence of disuse, so no removal was recommended.",
+      "receipt": "~/.claude.json numStartups 7; skillUsage has 5 entries (doctor 3, match-my-writing-style 2, jnwb-core 1, consolidate-memory 1, schedule 1). Transcript scan: 44 files, 12 project dirs, 2026-07-01 to 2026-08-08.",
+      "blocked_on": "Re-check after a few weeks of real sessions on restored data. A zero here currently means the analysis work is paused, not that the skill is unused."
+    }
+  ],
+  "edges": [
+    {"from": "doctor-pass-numerical-stack-conventions-20260808", "to": "path-resolution-centralized-jnwb-paths-20260808", "type": "extends"},
+    {"from": "claim-claude-md-had-two-dead-paths", "to": "fig04-reads-nonexistent-v1-csv-names-20260808", "type": "same_bug_class"},
+    {"from": "claim-jax-is-aspirational-not-established", "to": "claim-four-backends-one-undocumented-pattern", "type": "qualifies"},
+    {"from": "claim-context-cost-went-up-not-down", "to": "claim-four-backends-one-undocumented-pattern", "type": "cost_of"}
+  ],
+  "issues": [
+    "Third dead-registry finding in one day (fig04's CSV names, viz.py's D:\\ defaults, CLAUDE.md's handout paths). All three were paths that resolved to nothing instead of raising. A periodic resolve-every-path-in-every-registry check would have caught all three at once and does not exist as a script.",
+    "jnwb/spectral.py's cupy path still has no CPU fallback. Documented in the new skill as the anti-pattern, but not fixed -- fixing it means touching a spectral path that cannot be re-run against real data right now.",
+    "scripts/ is imported as a package by other scripts (precompute_tfr_arrays, extract_lfp_coupling_matrices, decode_fig04_v6/v7, plus figstyle/figstats from context/figures/) with no __init__.py and no path installation. Works only when cwd is right. Not fixed this pass; same latent class as the path bug.",
+    "The new numerical-computing skill has never been exercised -- it was written from a static scan, not from doing the work it describes. Its float32/seeding claims are standard library behavior, but its claim that jrsa.py's pattern is the right one to copy is a judgment, not a measurement."
+  ],
+  "falsifier": "Closed when a fresh clone + `pip install -e \".[test]\"` in a clean venv imports jnwb and runs the test suite without an ImportError, and when the next GPU-accelerated function added to this repo follows jrsa.py's dispatch rather than inventing a third convention."
+}

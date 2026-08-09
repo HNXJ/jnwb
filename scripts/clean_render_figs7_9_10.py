@@ -11,8 +11,9 @@ and crisp publication contrast:
 import matplotlib.pyplot as plt
 import numpy as np
 import pathlib
+from jnwb import paths as _P
 
-REPO = pathlib.Path(r'D:\workspace\omission')
+REPO = pathlib.Path(_P.REPO_ROOT)
 FIGS_DIR = REPO / 'context' / 'figures'
 FIGS_DIR.mkdir(exist_ok=True)
 

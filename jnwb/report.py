@@ -337,7 +337,9 @@ def apply_madelane_style(ax, title: str = "", xlabel: str = "", ylabel: str = ""
 def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/reports") -> Path:
     nwb_path = Path(nwb_path_or_id)
     if not nwb_path.exists():
-        default_dir = Path("D:/analysis/nwb")
+        from . import paths as _paths
+
+        default_dir = _paths.nwb_dir()
         candidate = default_dir / nwb_path_or_id
         if candidate.exists():
             nwb_path = candidate

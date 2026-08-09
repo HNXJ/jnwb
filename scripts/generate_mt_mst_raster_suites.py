@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import jnwb as oa
 from jnwb.unit_classification import precompute_condition_onsets
+from jnwb import paths as _P
 
 # Directories
 OUT_SPLUS_DIR = REPO_ROOT / "outputs" / "raster_suites" / "mt_mst_splus"
@@ -241,7 +242,7 @@ def render_mt_mst_raster_suite(
 
 
 def main():
-    nwb_dir = pathlib.Path(r"D:\analysis\nwb")
+    nwb_dir = pathlib.Path(_P.nwb_dir())
     csv_path = REPO_ROOT / "outputs" / "classification" / "mt_mst_top_s_plus_s_minus_units.csv"
     df = pd.read_csv(csv_path)
 

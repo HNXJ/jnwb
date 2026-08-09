@@ -18,8 +18,9 @@ import shutil
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from jnwb import paths as _P
 
-REPO = pathlib.Path(r'D:\workspace\omission')
+REPO = pathlib.Path(_P.REPO_ROOT)
 CONTEXT = REPO / 'context'
 FIGURES_DIR = CONTEXT / 'figures'
 FIGURES_DIR.mkdir(exist_ok=True)

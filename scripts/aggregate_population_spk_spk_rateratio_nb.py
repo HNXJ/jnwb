@@ -19,8 +19,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
+from jnwb import paths as _P
 
-IN_DIR = r"D:/workspace/omission/outputs/population_spk_spk_rateratio_nb"
+IN_DIR = _P.REPO_ROOT / "outputs/population_spk_spk_rateratio_nb"
 ALPHA = 0.05
 MIN_SESSIONS = 3
 KEY_COLS = ["condition_group", "scope", "node1_area", "node1_func", "node2_area", "node2_func",

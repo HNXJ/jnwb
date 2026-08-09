@@ -1,0 +1,128 @@
+{
+  "schema_version": 3,
+  "id": "data-volume-layout-and-tfr-spec-transfer-20260808",
+  "created": "2026-08-08",
+  "title": "Live data layout is D:/nwb/omission + D:/analysis, contradicting this morning's paths.py defaults; the TFR storage spec's Part 0 numbers were measured on a different experiment and do not transfer",
+  "claims": [
+    {
+      "id": "claim-paths-defaults-were-wrong",
+      "status": "confirmed",
+      "statement": "CONTRADICTS claim-paths-module-resolves from path-resolution-centralized-jnwb-paths-20260808. That node recorded DEFAULT_NWB_DIR='D:/analysis/nwb' and DEFAULT_{TFR,META,CONNDB}_DIR under 'D:/workspace/data/*' as correct-pending-restore. They were not the live layout; they were the pre-remap literals, and D: was empty at the time so nothing could contradict them. The module's design was right and the constants were wrong.",
+      "receipt": "User-supplied layout 2026-08-08, verified on disk: Test-Path 'D:/nwb/omission' True, 'D:/analysis' True, 'D:/nwb' True. D:/analysis is currently EMPTY. Corrected: DEFAULT_NWB_DIR='D:/nwb/omission', new DEFAULT_ANALYSIS_DIR='D:/analysis' with tfr/meta/conndb resolved as subtrees under it via a new analysis_dir() root and $OMISSION_ANALYSIS_DIR. jnwb.paths.describe() now reports nwb_dir and analysis_dir exists:true.",
+      "note": "The failure mode is worth keeping: an env-var-backed default that names a nonexistent path cannot be distinguished from one that names the wrong path while the volume is empty. describe() reported exists:false for both, which read as 'data not restored yet' rather than 'constant is wrong'."
+    },
+    {
+      "id": "claim-two-experiments-on-one-volume",
+      "status": "confirmed",
+      "statement": "D:/nwb holds two different experiments in sibling directories. Globbing across D:/nwb rather than D:/nwb/omission would silently pull mglo sessions into an omission analysis.",
+      "receipt": "D:/nwb/omission/ holds 9 files named sub-{C31o,V182o,V198o}_ses-*[_rec].nwb. D:/nwb/mglo/ holds sub-V182m_ses-260805_ks2.nwb (49.48 GiB) -- different subject suffix (m vs o) and different sorting suffix (ks2 vs rec)."
+    },
+    {
+      "id": "claim-spec-part0-does-not-transfer",
+      "status": "confirmed",
+      "statement": "The TFR storage spec's Part 0 'measured facts, do not re-derive' were taken on sub-V182m_ses-260805_ks2.nwb, which is an mglo session, not an omission session. Omission files are 1.7-3.7x larger and differ structurally in two ways that change the spec's own recommendations.",
+      "receipt": "Spec benchmark file: 49.48 GiB, 213 datasets, LFP/MUAE (10068882,128), spike/convolved trains 175 units, 'EVERY dataset compression=None chunks=None'. Probed sub-V198o_ses-230720_rec.nwb (83.85 GiB, the SMALLEST omission file): 198 datasets, LFP/MUAE (14695757,128) at 14.01 GiB each, spike/convolved trains 317 units, and 20 of 198 datasets ARE chunked -- the 'every dataset contiguous' claim is false here. Omission corpus: 9 files, 83.96-185.47 GiB, 1092.5 GiB total.",
+      "note": "The spec anticipated this: it says 'do not re-derive them, but do re-verify if the data characteristics change.' The characteristics changed."
+    },
+    {
+      "id": "claim-existing-chunking-is-orthogonal-to-access",
+      "status": "confirmed",
+      "statement": "Where omission LFP/MUAE datasets ARE chunked, the chunk shape is orthogonal to how the data is read: (28703, 1) on a (14695757, 128) array is one channel wide, so reading a time slab across all channels touches 128 separate chunks. The spec recommends the opposite orientation, (16384, n_ch).",
+      "receipt": "h5py probe of sub-V198o_ses-230720_rec.nwb: acquisition/probe_{0,1}_{lfp,muae}/data all chunks=(28703, 1); processing/spike_train/.../data chunks=(57410, 3); convolved chunks=(57410, 2).",
+      "note": "Not yet benchmarked on omission data -- this is a structural observation, not a measured read-speed penalty."
+    },
+    {
+      "id": "claim-spec-assumptions-hold-on-omission",
+      "status": "confirmed",
+      "statement": "Every substantive assumption behind the spec's Part 1 rules DOES hold on omission data, even though the sizes do not. The recommendations transfer; only the arithmetic needs redoing.",
+      "receipt": "sub-V198o_ses-230720_rec.nwb: sampling regular to std(dt)=7.557e-15 at 1000.0000 Hz (so rate+starting_time is valid; 10 timestamp arrays = 1.09 GiB recoverable). spike_train density 0.325% nonzero over a 200k x 317 sample (spec measured 0.348%). float32 round-trip max abs err 1.137e-04 over observed range [-2212.4, 510.3], i.e. rel ~4e-8 -- same relative precision as the spec's 3.05e-05 over range 1314. All 198 datasets uncompressed."
+    },
+    {
+      "id": "claim-spec-payoff-is-larger-on-omission",
+      "status": "unconfirmed",
+      "statement": "The spec's Part 1 rules should yield a LARGER reduction on omission files than the 2.1-2.9x it projects for mglo, because convolved_spike_train -- which the spec says to stop storing -- is a bigger share of an omission file.",
+      "receipt": "Arithmetic on sub-V198o_ses-230720_rec.nwb (83.85 GiB): convolved_spike_train 17.36 GiB = 20.7% of the file (vs 6.56/49.5 = 13.3% on the mglo benchmark), 4x LFP/MUAE float64 56.02 GiB -> 28.01 GiB as float32, spike_train 8.68 GiB at 0.325% density, timestamps 1.09 GiB replaceable by rate+starting_time. Projected ~24-29 GiB, i.e. 2.9-3.5x.",
+      "blocked_on": "Arithmetic only -- no conversion was run and no compression ratio was measured on omission data. The 1.22x gzip1+shuffle figure is inherited from the mglo benchmark and has NOT been re-measured here."
+    },
+    {
+      "id": "claim-corpus-fits-the-budget",
+      "status": "confirmed",
+      "statement": "The full 21-session corpus is 2,721.1 GiB, leaving ~951 GiB free. The TFR summary budget computed against the REAL design is 68 GiB -- 7.2% of that free space, not the 500 GB the spec provisions. Storage is constrained by the raw NWBs alone.",
+      "receipt": "artifacts/data/session_readiness.csv nwb_bytes summed over all 21 rows = 2,721.1 GiB; spot-checked against disk (sub-C31o_ses-230831_rec 175.92 vs catalog 175.9; sub-V198o_ses-230720_rec 83.96 vs 84.0). Drive total 3,721.9 GiB, minus corpus minus the 49.5 GiB mglo file = 951 GiB free. TFR: repo contract (128 ch, 99 freq, 500 time @10ms) from scripts/compute_channel_band_power_census_v2.py:40-41, x 28 bytes/bin (spec 2.7) = 177.4 MB/group raw, 145.4 MB after gzip1+shuffle; 21 x 12 conditions x 2 probes = 504 groups = 68 GiB total.",
+      "note": "Supersedes this node's original extrapolation from 9 files (~2,550 GiB), which was 6% low. The catalog carried exact sizes for all 21 and should have been the first source. The spec's 500 GB budget was sized on 128x60x1000 dims; the repo's existing contract uses 10 ms time bins, which is where the 7x difference comes from -- the spec's reduction ladder in 2.7 is not needed."
+    },
+    {
+      "id": "claim-hdf5plugin-still-absent",
+      "status": "confirmed",
+      "statement": "The spec's one open caveat is still open: hdf5plugin is not installed, so Blosc-zstd + bitshuffle remains unbenchmarked and the speed-vs-size trade-off it might eliminate is still assumed rather than measured.",
+      "receipt": "import hdf5plugin -> MISSING; import blosc2 -> MISSING; h5py 3.16.0 reports available encode filters ['fletcher32','gzip','lzf','scaleoffset','shuffle'] -- no blosc, no zstd."
+    },
+    {
+      "id": "claim-convert-before-tfr",
+      "status": "unconfirmed",
+      "statement": "The Part 1 NWB conversion should precede TFR summary computation, because summaries computed from float64 inputs carry a preproc_version that the spec's own assert_mergeable will refuse to merge with post-conversion summaries.",
+      "receipt": "Inference from spec 2.8 REQUIRED_MATCH, which includes preproc_version, and 3.x assert_mergeable, which raises rather than warns on a mismatch. Conversion projection: 2,721.1 GiB -> 777-938 GiB at the 2.9-3.5x measured on sub-V198o_ses-230720_rec, freeing 1,783-1,944 GiB. File-by-file conversion peaks at ~64 GiB extra (largest file 185.5 GiB / 2.9) against 951 GiB free.",
+      "note": "Reasoning about the spec's stated contract, NOT a measurement -- no conversion has been run and no summary has been computed. The 2.9-3.5x range comes from one file, the smallest of 21, and the 1.22x gzip factor inside it is still the mglo-measured number."
+    },
+    {
+      "id": "claim-22nd-session-not-in-either-inventory",
+      "status": "confirmed",
+      "statement": "The transfer landed 22 omission NWB sessions, but both project inventories know only 21. sub-V198o_ses-230629_rec exists on disk and appears in neither session_readiness.csv nor nwb_catalog.json. The disk is a strict superset -- nothing catalogued is missing.",
+      "receipt": "Compare-Object of D:/nwb/omission basenames against session_readiness.csv 'stem' column, 2026-08-08: one item on disk only (sub-V198o_ses-230629_rec), zero in catalog only; disk 22, catalog 21. nwb_catalog.json contains no '230629' substring and lists V198o sessions 230714/230719/230720/230721 only. session_readiness.csv marks all four catalogued V198o sessions nwb_ok=True, so the omission is not a recorded readiness failure.",
+      "note": "Either it was excluded deliberately with no record of why, or it predates the catalog build. Consequence: every '21 sessions' quoted in prose and in the TFR group-count budget (21 x 12 x 2 = 504 groups) is conditional on that exclusion being intentional."
+    },
+    {
+      "id": "claim-free-space-projection-held",
+      "status": "confirmed",
+      "statement": "The pre-transfer free-space projection was accurate to ~2%.",
+      "receipt": "Projected 951 GiB free after transfer; measured 931.1 GiB free with 2,790.9 GiB used (22 NWB files totalling 2,740.7 GiB plus the 49.5 GiB mglo file). D:/analysis remains empty, as expected -- nothing has run."
+    }
+  ],
+  "edges": [
+    {
+      "from": "claim-paths-defaults-were-wrong",
+      "to": "path-resolution-centralized-jnwb-paths-20260808",
+      "type": "contradicts"
+    },
+    {
+      "from": "claim-spec-part0-does-not-transfer",
+      "to": "claim-spec-payoff-is-larger-on-omission",
+      "type": "motivates"
+    },
+    {
+      "from": "claim-spec-assumptions-hold-on-omission",
+      "to": "claim-spec-part0-does-not-transfer",
+      "type": "qualifies"
+    },
+    {
+      "from": "claim-two-experiments-on-one-volume",
+      "to": "claim-paths-defaults-were-wrong",
+      "type": "explains"
+    },
+    {
+      "from": "data-volume-layout-and-tfr-spec-transfer-20260808",
+      "to": "doctor-pass-numerical-stack-conventions-20260808",
+      "type": "extends"
+    },
+    {
+      "from": "claim-convert-before-tfr",
+      "to": "claim-spec-payoff-is-larger-on-omission",
+      "type": "depends_on"
+    },
+    {
+      "from": "claim-22nd-session-not-in-either-inventory",
+      "to": "claim-corpus-fits-the-budget",
+      "type": "qualifies"
+    }
+  ],
+  "issues": [
+    "The spec instructs 'do not re-derive' its Part 0 numbers. Taken literally on omission data that is wrong -- the file it measured is from another experiment. The instruction should be scoped to mglo, or Part 0 re-run on an omission session, before anyone sizes a conversion from it.",
+    "The spec's 'EVERY dataset compression=None chunks=None' is false for omission files: 20 of 198 are chunked, in an orientation orthogonal to the recommended access pattern. A converter written against the spec's assumption would need to handle already-chunked inputs.",
+    "hdf5plugin remains uninstalled, so the spec's Part 4 optional checklist item is untouched and its recommendations still carry the unresolved compression trade-off.",
+    "Nothing in this node was measured on a converted file. Every conversion figure is arithmetic from dataset sizes, not a round-trip.",
+    "D:/analysis is empty, so tfr_dir/meta_dir/conndb_dir all resolve to not-yet-existing subtrees. That is correct and expected, not a fault -- but it means describe() will keep reporting three exists:false until the first pipeline run creates them.",
+    "The spec provisions 500 GB for TFR summaries; the real design needs 68 GiB. Worth correcting in the spec so nobody plans a reduction that is not required.",
+    "Resolve sub-V198o_ses-230629_rec before any count of sessions is quoted again. It is cheap to settle now and expensive to discover inside a manuscript."
+  ],
+  "falsifier": "Closed when (a) all 21 sessions have landed and the corpus size is measured rather than extrapolated, and (b) Part 0's filter benchmark has been re-run on an omission LFP sample, so the conversion projection rests on omission-measured ratios rather than mglo-measured ones."
+}
