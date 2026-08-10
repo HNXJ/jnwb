@@ -394,20 +394,26 @@ class OmissionSession:
         if tfr_data is None:
             return {'error': f'Failed to load TFR for {area}'}
 
-        # Average across trials (axis 3) and channels (axis 0)
-        mean_power = np.mean(tfr_data, axis=(0, 3))  # (frequencies, time_samples)
+        # tfr_from_preprocessed contract: (n_trials, n_channels, n_freqs, n_times).
+        # Average across trials (axis 0) and channels (axis 1) -> (freqs, time_samples).
+        mean_power = np.mean(tfr_data, axis=(0, 1))
 
-        # Baseline subtraction (first 25% of time samples)
-        baseline_n = max(1, mean_power.shape[1] // 4)
+        # Baseline: first 20 bins (200ms) strictly pre-stimulus -- matches plot_tfr's
+        # convention. NOT shape[1]//4: on the canonical 1000ms-pre/4000ms-post window
+        # that 25% heuristic reaches 250ms PAST stimulus onset (bin 100 = t=0 out of
+        # 500), contaminating the baseline with real stimulus response.
+        baseline_n = min(20, max(1, mean_power.shape[1] // 4))
         baseline = np.mean(mean_power[:, :baseline_n], axis=1, keepdims=True)
         power_db = 10.0 * np.log10(np.maximum(mean_power, 1e-12) / np.maximum(baseline, 1e-12))
 
         pk = plot_kwargs or {}
         fig, ax = plt.subplots(figsize=pk.get('figsize', (8, 6)), facecolor='white')
-        
+
         n_freqs, n_time = power_db.shape
-        freqs = np.linspace(1, 150, n_freqs)
-        times = np.linspace(-1000, 2000, n_time)
+        # Canonical precompute grid (99 freqs, 500 10ms bins); fall back to a linear
+        # approximation only if a differently-shaped array is ever loaded.
+        freqs = np.arange(3, 201, 2) if n_freqs == 99 else np.linspace(1, 150, n_freqs)
+        times = (-1000.0 + np.arange(n_time) * 10.0) if n_time == 500 else np.linspace(-1000, 2000, n_time)
 
         vmax = pk.get('vmax', np.percentile(np.abs(power_db), 98))
         im = ax.pcolormesh(times, freqs, power_db, shading='auto',
@@ -743,9 +749,11 @@ class OmissionSession:
         if mean_power.ndim != 2:
             mean_power = np.mean(np.asarray(tfr_data), axis=(0, 3))
 
-        # dB normalise: subtract pre-stim baseline (first 20 bins ≈ fx)
+        # dB normalise: mean power over trials, ratio to pre-stim baseline (first 20
+        # bins = 200ms), THEN a single 10*log10 -- averaging in dB space instead would
+        # bias toward noisier channels/trials (see CLAUDE.md "take the logarithm last").
         baseline = np.mean(mean_power[:, :20], axis=1, keepdims=True)
-        mean_db = mean_power - baseline
+        mean_db = 10.0 * np.log10(np.maximum(mean_power, 1e-12) / np.maximum(baseline, 1e-12))
 
         n_freqs, n_time = mean_db.shape
         freqs = np.arange(3, 201, 2) if n_freqs == 99 else np.linspace(1, 150, n_freqs)
