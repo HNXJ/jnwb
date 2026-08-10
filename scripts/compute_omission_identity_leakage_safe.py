@@ -43,6 +43,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import jnwb as oa  # noqa: E402
 from jnwb.omission_identity import OMISSION_IDENTITY_CONDITIONS  # noqa: E402
+from jnwb.permutation import permute_labels  # noqa: E402
 from jnwb import paths  # noqa: E402
 
 
@@ -122,12 +123,13 @@ def _balanced_training_indices(
 def _within_cycle_permutation(
     labels: np.ndarray, cycles: np.ndarray, rng: np.random.Generator
 ) -> np.ndarray:
-    """Permute labels within each cycle, preserving cycle-level class counts."""
-    out = labels.copy()
-    for cycle in np.unique(cycles):
-        idx = np.flatnonzero(cycles == cycle)
-        out[idx] = rng.permutation(labels[idx])
-    return out
+    """Permute labels within each cycle, preserving cycle-level class counts.
+
+    Thin wrapper over the shared jnwb.permutation.permute_labels primitive (2026-08-10) --
+    kept as a local name since every call site in this file already uses it, but the actual
+    exchangeability logic lives in one place now, not duplicated per script.
+    """
+    return permute_labels(labels, groups=cycles, scheme="within_group", rng=rng)
 
 
 def _fixed_balanced_accuracy(y_true: Iterable[int], y_pred: Iterable[int]) -> float:

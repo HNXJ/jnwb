@@ -112,8 +112,8 @@ The public surface is `jnwb/__init__.py` (`__all__`, 117 symbols). Modules, by w
 |---|---|
 | `jnwb/` | The package (above) |
 | `tests/` | Pytest suite — run it, don't trust pass counts in docs |
-| `scripts/` | 66 one-off analysis and aggregation scripts; outputs land in `outputs/` |
-| `notebooks/` | `suite_01`–`suite_08` figure suites + `reproducibility_master_pipeline` |
+| `scripts/` | 57 one-off analysis and aggregation scripts; outputs land in `outputs/`. `scripts/historical/confounded/` holds 12 decoding scripts quarantined 2026-08-10 for invalid/ungrouped CV — do not use as empirical sources, see `artifacts/.lab/agent-harness-audit-20260810.json` |
+| `notebooks/` | `suite_01`–`suite_08` figure suites. `notebooks/historical/reproducibility_master_pipeline` is quarantined (asserts the retracted 4.90%/421/8597 census) — do not run as a current reproducibility check |
 | `outputs/` | Derived data and figure assets |
 | `context/` | Manuscript drafts, figures, inventory — `context/docs/CONTEXT.md` is authoritative |
 | `artifacts/` | `data/` catalogs, `.lab/` knowledge graph nodes |

@@ -215,7 +215,7 @@ those denominators has probability ≈ 3×10⁻²⁵.
 
 - Condition colours: standard gray `#555555`, omission red `#D9534F`, random control teal `#008080`.
 - Epoch shading order p1→p4: yellow `#FCF9E3` → purple `#F3E8F4` → green `#E8F5E9` → blue `#E1F5FE`.
-  Defined in `.cursor/rules/omission-palette.mdc` and `.agents/skills/jnwb-visualization/SKILL.md`.
+  Defined in `.cursor/rules/omission-palette.mdc` and `.claude/skills/jnwb-visualization/SKILL.md`.
 - Figure insertion order in the DOCX is strictly ascending 1→8.
 - Figure 6 must be built from the empirical arrays in `D:/workspace/data/tfr_arrays/`. **Do not**
   use `scripts/build_clean_publication_figures.py` — it contains synthetic placeholder construction.

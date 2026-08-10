@@ -109,7 +109,13 @@ scripts/_*.py
 .DS_Store
 
 # Agent workspace / IDE
-.claude/
+# 2026-08-10: .claude/skills/ is now the single tracked canonical skill source (see
+# artifacts/.lab/agent-harness-audit-20260810.json P1 item -- .agents/skills/ was a stale,
+# drifted duplicate and has been retired). Only skills/ is un-ignored; settings/local files
+# stay ignored since they're machine-local, not doctrine content.
+.claude/*
+!.claude/skills/
+!.claude/skills/**
 .vscode/
 .idea/
 

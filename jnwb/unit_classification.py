@@ -536,7 +536,13 @@ def assign_o_plusplus_from_template_table(
     """
     Mark nested O++ on an R-family template-correlation table (grand_oplus_units.csv).
 
-    Inclusive manuscript O+ (4.90%) is unchanged; this returns the robust subset.
+    This function does not change the inclusive O+ classification or count on the input
+    table -- it only adds an `is_o_plusplus` column marking a robust subset. It does not
+    itself assert or depend on any specific inclusive O+ percentage; the manuscript's
+    currently-cited inclusive O+ figure lives in context/docs/CONTEXT.md, not here (the
+    421/8597=4.90% figure previously referenced at this line is retracted synthetic data
+    per CONTEXT.md Section 8 -- see artifacts/.lab/agent-harness-audit-20260810.json,
+    claim-p0-stale-census-in-executable-code -- removed 2026-08-10, do not restore it here).
     Default: FEF/PFC with mean_correlation >= 0.60 and permutation_pval <= 0.05
     (operating target ~40 units; random-control templates RXRR/RRXR/RRRX).
     """

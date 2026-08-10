@@ -6,20 +6,22 @@
     "date": "2026-07-26",
     "links": []
   },
-  "status": "confirmed",
+  "status": "retracted",
   "notes": [
     "Primary Headline Evidence: Sparse Spiking (4.9% O+) vs Broad Low-Frequency LFP Power Disruption (77.5% Beta).",
     "Exploratory Secondary Evidence: Directional Spectral Granger Causality, Phase-Locking Value (PLV), Phase-Amplitude Coupling (PAC), and Imaginary Coherence.",
     "Framing Discipline: Exploratory metrics provide supporting network hypotheses; core conclusions rest on primary spiking and field power observations."
   ],
-  "issues": [],
+  "issues": [
+    "RETRACTED 2026-08-10 (artifacts/.lab/agent-harness-audit-20260810.json, claim-p0-supersession-not-enforced-on-target-node): this node's inputs are the hardcoded, retracted synthetic census (421/8597=4.90% O+, 6771/8736=77.51% LFP beta -- see context/docs/CONTEXT.md Section 8, 'Superseded claims -- do not restore'). census_provenance_synthetic_finding_20260728.json flagged this node for demotion on 2026-07-28 via a contradicts edge; that demotion was never actioned until now. Status changed confirmed -> retracted; do not restore to confirmed without a real, receipted re-derivation of the primary census denominator."
+  ],
   "plan": [],
   "verification": {
     "checks": {
       "sources_resolve": true,
       "reproducible": true
     },
-    "verdict": "verified"
+    "verdict": "retracted -- inputs are fabricated, see issues[0]"
   },
   "schema_version": 3,
   "predictive_state": {
@@ -27,5 +29,6 @@
     "prediction_error_category": "none",
     "accuracy_score": 1.0,
     "last_verified": "2026-07-27T15:03:10.548363+00:00"
-  }
+  },
+  "superseded_by": "census_provenance_synthetic_finding_20260728"
 }

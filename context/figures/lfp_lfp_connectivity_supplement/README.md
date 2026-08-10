@@ -156,7 +156,7 @@ not folded together.
   string parse) and `outputs/channel_area_vector/channel_area_vector.csv`.
 - **No existing per-channel continuous LFP loader** — raw traces must come from direct h5py
   access to `acquisition/probe_X_lfp/.../data` (the project's own sanctioned pattern for LFP,
-  per `.agents/skills/jnwb-core/SKILL.md`), loading channel slices rather than the whole array.
+  per `.claude/skills/jnwb-core/SKILL.md`), loading channel slices rather than the whole array.
 - **`extract_condition_tfr_maps.py` / `condition_tfr_maps_p1d1p2d2p3/maps.npz` is not usable
   input** — confirmed trial- and channel-pooled (sums/counts per session|area|layer|cond only),
   no per-channel or per-trial resolution survives. Coupling needs per-channel time series, so
@@ -170,7 +170,7 @@ not folded together.
 1. **Session gate**: `artifacts/data/session_readiness.csv`, `nwb_ok` and `sidecar_ok` true,
    same gate every other figure in this pipeline uses.
 2. **Per session, per probe**: load raw per-channel LFP via h5py (channel slices, not whole
-   array — memory footgun already documented in `.agents/skills/jnwb-tfr/SKILL.md`).
+   array — memory footgun already documented in `.claude/skills/jnwb-tfr/SKILL.md`).
 3. **Re-reference before anything else**: `laplacian_reference()` (preferred — retains channel
    count, cancels shared-reference/volume-conducted signal identical on neighboring contacts)
    in depth order per probe. `bipolar_reference()` available as the alternative if a reviewer

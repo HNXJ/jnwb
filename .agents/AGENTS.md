@@ -121,27 +121,32 @@ Always gate on `artifacts/data/session_readiness.csv` before loading any TFR arr
 
 ## Skills to load before reinventing
 
-Loaded copies live at `.claude/skills/<name>/SKILL.md` (the location Claude Code's project-
-skill loader actually reads, confirmed 2026-07-31 — see
-`artifacts/.lab/harness_skill_registry_repair_20260731_correction.json`); `.agents/skills/`
-below remains the source/reference copy. Backlog/PRP tracking (`progress-review-plan`) is
-retired — it was a pure redirect stub to Labyrinth with no unique content, deleted 2026-07-31.
+`.claude/skills/<name>/SKILL.md` is now the single tracked canonical skill source (2026-08-10 —
+per `artifacts/.lab/agent-harness-audit-20260810.json`, the prior two-tree setup, `.claude/`
+gitignored + `.agents/skills/` as a "reference" copy that was supposed to be kept in sync, had
+already drifted 348 lines apart on one skill alone and contained stale D:-drive paths from
+before the 2026-08-08 path-centralization work. `.agents/skills/` is retired; `.claude/skills/`
+is un-gitignored and tracked directly, so there is exactly one location and no sync step to
+forget. `scripts/sync_claude_skills.py` is now historical — see its own docstring.) Backlog/PRP
+tracking (`progress-review-plan`) is retired — it was a pure redirect stub to Labyrinth with no
+unique content, deleted 2026-07-31.
 
 | Need | Skill file |
 |------|-----------|
-| Backlog / graph / context optimization | `.agents/skills/labyrinth-protocol/SKILL.md` |
-| NWB I/O | `.agents/skills/jnwb-core/SKILL.md` |
-| Unit metadata & quality | `.agents/skills/jnwb-metadata/SKILL.md` |
-| Spikes / rasters | `.agents/skills/jnwb-spiking/SKILL.md` |
-| TFR / LFP | `.agents/skills/jnwb-tfr/SKILL.md` |
-| Population analysis | `.agents/skills/jnwb-population/SKILL.md` |
-| Stats | `.agents/skills/jnwb-statistics/SKILL.md` |
-| Viz | `.agents/skills/jnwb-visualization/SKILL.md` |
-| Forms / pipelines | `.agents/skills/nwb-analysis-forms/SKILL.md` |
-| Functional connectivity (jrsa) | `.agents/skills/jnwb-jrsa/SKILL.md` |
-| Functional connectivity (MI) | `.agents/skills/jnwb-functional-connectivity/SKILL.md` |
-| DOCX layout & editing | `.agents/skills/docx-editing/SKILL.md` |
-| Writing in Hamm's voice (manuscripts, captions) | `.agents/skills/match-my-writing-style/SKILL.md` |
+| Backlog / graph / context optimization | `.claude/skills/labyrinth-protocol/SKILL.md` |
+| NWB I/O | `.claude/skills/jnwb-core/SKILL.md` |
+| Unit metadata & quality | `.claude/skills/jnwb-metadata/SKILL.md` |
+| Spikes / rasters | `.claude/skills/jnwb-spiking/SKILL.md` |
+| TFR / LFP | `.claude/skills/jnwb-tfr/SKILL.md` |
+| Population analysis | `.claude/skills/jnwb-population/SKILL.md` |
+| Stats | `.claude/skills/jnwb-statistics/SKILL.md` |
+| Viz | `.claude/skills/jnwb-visualization/SKILL.md` |
+| Forms / pipelines | `.claude/skills/nwb-analysis-forms/SKILL.md` |
+| Functional connectivity (jrsa) | `.claude/skills/jnwb-jrsa/SKILL.md` |
+| Functional connectivity (MI) | `.claude/skills/jnwb-functional-connectivity/SKILL.md` |
+| DOCX layout & editing | `.claude/skills/docx-editing/SKILL.md` |
+| Writing in Hamm's voice (manuscripts, captions) | `.claude/skills/match-my-writing-style/SKILL.md` |
+| Knowledge-graph rendering/export | `.claude/skills/lab-graph-export/SKILL.md` |
 
 
 Prefer `jnwb` public APIs (`oa.read`, analyzers, `StatisticalAnalysis`) over one-off notebook math.
@@ -217,7 +222,7 @@ the metric implementation:
 
 ## Labyrinth Protocol (ACMP & Knowledge Graph Optimizer)
 
-This repo follows the **Labyrinth Protocol (ACMP & Knowledge Graph Optimizer)** (see global `AGENTS.md` and `.agents/skills/labyrinth-protocol/SKILL.md` for the full definition): graph state lives under `artifacts/.lab/`. The 7 fundamental actions (**Evolve**, Plan, Progress, Review, Prune, Adapt, Seal) operate over the 3-level system model (State, Actions, Regulation) and track context optimization via the loop: `Knowledge → Prediction → Observation → Error → Evolution → Knowledge`.
+This repo follows the **Labyrinth Protocol (ACMP & Knowledge Graph Optimizer)** (see global `AGENTS.md` and `.claude/skills/labyrinth-protocol/SKILL.md` for the full definition): graph state lives under `artifacts/.lab/`. The 7 fundamental actions (**Evolve**, Plan, Progress, Review, Prune, Adapt, Seal) operate over the 3-level system model (State, Actions, Regulation) and track context optimization via the loop: `Knowledge → Prediction → Observation → Error → Evolution → Knowledge`.
 
 **Binding Directives (Hamm's Operational Agreement):**
 Labyrinth is the shared brain and knowledge graph between agent and Hamm, reflecting the past, present, and future of the project.
@@ -239,7 +244,7 @@ claims, 181/296 nodes pre-date `schema_version` — a literature-review layer, n
 Interactive Canvas Visualizer, if still current, compiled at `artifacts/lab_graph.html`.
 
 ### Self-Evolving & Self-Supervised Adaptation
-During Labyrinth's **Adapt** phase (not "the PRP loop" — PRP is retired, corrected 2026-07-31), pay attention to the active workspace skills (`.agents/skills/`, mirrored to `.claude/skills/` via `scripts/sync_claude_skills.py`), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions. Rules and memories must be dynamically upvoted or downvoted based on their usage frequency and overall effectiveness.
+During Labyrinth's **Adapt** phase (not "the PRP loop" — PRP is retired, corrected 2026-07-31), pay attention to the active workspace skills (`.claude/skills/` — single tracked canonical source since 2026-08-10, see the "Skills to load before reinventing" section above), project instructions (`.agents/AGENTS.md`), and historical adaptation files/memories to propose guidelines and code refinements. This ensures that the agent's behavior and constraints continuously improve, adapt, and self-evolve to prevent repeating historical mistakes or regressions. Rules and memories must be dynamically upvoted or downvoted based on their usage frequency and overall effectiveness.
 
 
 

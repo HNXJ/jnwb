@@ -27,6 +27,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 import jnwb as oa
+from jnwb.permutation import permute_labels
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +123,13 @@ def decode_omission_identity_slot(
 ) -> Dict[str, Union[float, np.ndarray, str, int]]:
     """
     Perform 5-fold cross-validated Linear SVM / Logistic Regression decoding of Omitted Identity.
+
+    scientific_status = "invalid_for_inference"  (audit 2026-08-10, agent-harness-audit-20260810.json)
+    reason = ["ungrouped_cv"]  -- StratifiedKFold(shuffle=True) below does not respect the
+        repeated-cycle structure in this corpus; same-cycle trials can land in both train and
+        test. Only live callers are the quarantined scripts/historical/confounded/
+        compute_omission_identity_encoding{,_v2}.py. Use
+        scripts/compute_omission_identity_leakage_safe.py for current inference.
     """
     cond_cfg = OMISSION_IDENTITY_CONDITIONS[slot_key]
     cond_a_code = cond_cfg[contrast[0]]
@@ -184,11 +192,13 @@ def decode_omission_identity_slot(
     except ValueError:
         auc = float("nan")
         
-    # Permutation Test for null distribution
+    # Permutation Test for null distribution. scheme="global" here matches this function's own
+    # ungrouped CV above (self-consistent, but see the invalid_for_inference docstring note --
+    # the fold scheme itself is the problem, not this null).
     perm_accs = []
     rng = np.random.default_rng(random_state)
     for p_i in range(n_permutations):
-        perm_labels = rng.permutation(labels)
+        perm_labels = permute_labels(labels, scheme="global", rng=rng)
         p_scores = []
         for train_idx, test_idx in cv.split(X, perm_labels):
             pipeline.fit(X[train_idx], perm_labels[train_idx])
@@ -342,6 +352,14 @@ def decode_omission_identity_full(
       - Per-trial decision-function scores are returned (OOF, random-CV) for the pooled
         mixed-effect model and R2-shuffle-CI steps computed at the corpus level, not
         per-cell (see fit_pooled_block_glmm / shuffle_r2_ci below).
+
+    scientific_status = "invalid_for_inference"  (audit 2026-08-10, agent-harness-audit-20260810.json)
+    reason = ["ungrouped_cv"]  -- the "random-subsample CV" scheme here is the same
+        StratifiedKFold(shuffle=True)-family ungrouped split as decode_omission_identity_slot;
+        the sub-block/quartile LOO scheme is a within-condition quartile split, not the real
+        temporal-cycle grouping later found in detect_trial_cycles. Only live caller is
+        scripts/historical/confounded/compute_omission_identity_encoding_v2.py. Use
+        scripts/compute_omission_identity_leakage_safe.py for current inference.
     """
     cond_cfg = OMISSION_IDENTITY_CONDITIONS[slot_key]
     cond_a_code, cond_b_code, cond_r_code = (cond_cfg[contrast[0]], cond_cfg[contrast[1]],
@@ -390,7 +408,7 @@ def decode_omission_identity_full(
     rng = np.random.default_rng(random_state)
     perm_accs = []
     for _ in range(n_permutations):
-        perm_labels = rng.permutation(labels)
+        perm_labels = permute_labels(labels, scheme="global", rng=rng)
         p_scores = [
             (lambda p_, tr_, te_: (p_.fit(X[tr_], perm_labels[tr_]), p_.score(X[te_], perm_labels[te_]))[1])(
                 scaler_pipe(), tr, te)
@@ -548,10 +566,16 @@ def decode_identity_cycle_deconfound(
         accs.append(p.score(Xab[te], yab[te]))
     acc_loco = float(np.mean(accs)) if accs else float("nan")
 
+    # Within-cycle permutation, not a global one: the CV above holds out whole cycles
+    # (leave-one-cycle-out), so the null must be exchangeable under that same grouping -- a
+    # bare rng.permutation(yab) here was an audit-flagged bug (2026-08-10, see
+    # artifacts/.lab/agent-harness-audit-20260810.json claim-p0-deconfound-null-ignores-cycle-
+    # grouping) since it compared a cycle-respecting observed statistic against a
+    # cycle-ignoring null.
     rng = np.random.default_rng(random_state)
     perm_accs = []
     for _ in range(n_permutations):
-        y_perm = rng.permutation(yab)
+        y_perm = permute_labels(yab, groups=cyc_ab, scheme="within_group", rng=rng)
         p_accs = []
         for k in range(n_cycles):
             te = cyc_ab == k
@@ -621,14 +645,9 @@ def shuffle_r2_ci(y_true: np.ndarray, y_score: np.ndarray, groups: Optional[np.n
     r2_obs = _r2(y_true, y_score)
     rng = np.random.default_rng(random_state)
     null = np.empty(n_shuffle)
+    scheme = "global" if groups is None else "within_group"
     for i in range(n_shuffle):
-        if groups is None:
-            y_perm = rng.permutation(y_true)
-        else:
-            y_perm = y_true.copy()
-            for g in np.unique(groups):
-                m = groups == g
-                y_perm[m] = rng.permutation(y_true[m])
+        y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
         null[i] = _r2(y_perm, y_score)
     p_val = float(np.mean(null >= r2_obs))
     p_val = p_val if p_val > 0 else 1.0 / (n_shuffle + 1)

@@ -21,7 +21,7 @@
       "status": "confirmed",
       "priority": "P0",
       "disposition": "PATCH",
-      "statement": "The retracted O+ census figure (421/8597 = 4.90%, CONTEXT.md §8 marks it 'Synthetic') is live and unlabeled in two pieces of executable code, not just prose: notebooks/reproducibility_master_pipeline.py and its paired .ipynb hard-assert tot==8597 and o==421 and print 'PASS: inclusive O+ = 4.90%' as if it were a verified reproducibility check; jnwb/unit_classification.py:539 states the figure as current fact in a live, imported library docstring.",
+      "statement": "The retracted O+ census figure (421/8597 = 4.90%, CONTEXT.md \u00a78 marks it 'Synthetic') is live and unlabeled in two pieces of executable code, not just prose: notebooks/reproducibility_master_pipeline.py and its paired .ipynb hard-assert tot==8597 and o==421 and print 'PASS: inclusive O+ = 4.90%' as if it were a verified reproducibility check; jnwb/unit_classification.py:539 states the figure as current fact in a live, imported library docstring.",
       "receipt": "notebooks/reproducibility_master_pipeline.py lines 6,44-46 and paired .ipynb cells 23,27 (assert + print PASS). jnwb/unit_classification.py:539. Referenced, not archived: README.md:116 lists the notebook suite. CONTEXT.md:203 marks the same number 'Synthetic'; CLAUDE.md:206 calls it 'a retracted 421'."
     },
     {
@@ -88,7 +88,7 @@
       "status": "confirmed",
       "priority": "P1",
       "disposition": "PATCH",
-      "statement": "context/drafts/04_draft_biorxiv_markdown.md:118 describes AAAB as 'the random control sequence' in a Figure 5 caption -- AAAB is the structured standard condition (all-A's, B deviant at p4); RRRR is the actual random-control condition, correctly used two lines later at line 122 for a different figure. Looks like a copy-paste error. CONTEXT.md §10 still lists this file as a live source for intro/discussion/abstract voice, i.e. not archived/historical.",
+      "statement": "context/drafts/04_draft_biorxiv_markdown.md:118 describes AAAB as 'the random control sequence' in a Figure 5 caption -- AAAB is the structured standard condition (all-A's, B deviant at p4); RRRR is the actual random-control condition, correctly used two lines later at line 122 for a different figure. Looks like a copy-paste error. CONTEXT.md \u00a710 still lists this file as a live source for intro/discussion/abstract voice, i.e. not archived/historical.",
       "receipt": "context/drafts/04_draft_biorxiv_markdown.md:118 vs :122. .agents/skills/jnwb-core/SKILL.md:68 and match-my-writing-style/SKILL.md:172-174 correctly define AAAB as structured ('All A's, B deviant'). Current working draft context/drafts/omission-a-draft-v3.md checked directly: no such mislabeling found."
     },
     {
@@ -96,8 +96,8 @@
       "status": "confirmed",
       "priority": "P1",
       "disposition": "REPRODUCE",
-      "statement": "context/figures/INVENTORY.md (auto-generated; header says 'do not hand-edit, re-run the script instead') still carries a fig04 section heading reading 'currently 100% synthetic, not yet a real result.' This predates the 2026-08-06/08-08 evolution in which _v2 tables now exist (a confounded, non-zero result, not an absence of data) -- the heading is stale relative to CONTEXT.md §12A's more current framing, and nothing triggered regeneration after the underlying figure state changed.",
-      "receipt": "context/figures/INVENTORY.md:48. Compare context/docs/CONTEXT.md §12A (2026-08-08 audit) and context/figures/fig04_omission_identity_decoding/README.md:32, both current and correctly framing the state as confounded-diagnostic-only, not absent."
+      "statement": "context/figures/INVENTORY.md (auto-generated; header says 'do not hand-edit, re-run the script instead') still carries a fig04 section heading reading 'currently 100% synthetic, not yet a real result.' This predates the 2026-08-06/08-08 evolution in which _v2 tables now exist (a confounded, non-zero result, not an absence of data) -- the heading is stale relative to CONTEXT.md \u00a712A's more current framing, and nothing triggered regeneration after the underlying figure state changed.",
+      "receipt": "context/figures/INVENTORY.md:48. Compare context/docs/CONTEXT.md \u00a712A (2026-08-08 audit) and context/figures/fig04_omission_identity_decoding/README.md:32, both current and correctly framing the state as confounded-diagnostic-only, not absent."
     },
     {
       "id": "claim-p1-confound-variables-not-materialized",
@@ -137,15 +137,44 @@
       "priority": "P2",
       "disposition": "FOLLOW-UP",
       "statement": "Of the falsification controls Sol's handout Section J requires, label permutation and cycle-aware label permutation have working precedent (compute_omission_identity_leakage_safe.py). Structured-vs-flattened comparison, unit-order permutation, channel-order permutation, time-bin permutation, within-trial temporal scrambling, capacity-matched MLP control, and the presented-identity positive control have no existing implementation anywhere in the repo -- all would be new code required by the proposed structured-decoding skill.",
-      "receipt": "Grepped scripts/ and jnwb/ for permutation-control patterns beyond label permutation: no unit-order/channel-order/time-bin permutation implementation found; no capacity-matched-MLP-control pattern found; no presented-identity positive-control decode script found (the closest is the general presented-stimulus decoding referenced in nwb-analysis-forms/SKILL.md §7, not yet run as a formal positive control receipt)."
+      "receipt": "Grepped scripts/ and jnwb/ for permutation-control patterns beyond label permutation: no unit-order/channel-order/time-bin permutation implementation found; no capacity-matched-MLP-control pattern found; no presented-identity positive-control decode script found (the closest is the general presented-stimulus decoding referenced in nwb-analysis-forms/SKILL.md \u00a77, not yet run as a formal positive control receipt)."
+    },
+    {
+      "id": "claim-labyrinth-validator-built-and-3-known-nodes-fixed",
+      "status": "confirmed",
+      "priority": "P2",
+      "disposition": "PATCH",
+      "statement": "Built scripts/validate_labyrinth_claim_status.py per Sol/Hamm Handout 2: flags any node/claim still status='confirmed' that is the target of a contradicts/supersedes edge from another confirmed source. Fixed the 3 specific nodes this audit already had receipts for (analysis-clopper-pearson-confidence-intervals, analysis-hierarchical-inference-mixed-effects, analysis-exploratory-vs-headline-evidence-hierarchy -> status changed confirmed to retracted, each with an issue explaining why and a superseded_by pointer). Running the validator against the full corpus surfaced 23 MORE pre-existing violations and 2 dangling contradicts/supersedes edges, not part of this fix -- see receipt. This is a real, useful discovery and is being flagged durably here rather than silently deferred, per standing instruction; resolving all 23 is out of scope for this narrowly-scoped Handout 2 pass and is left as a followup backlog item, not resolved by this claim.",
+      "receipt": "scripts/validate_labyrinth_claim_status.py (mechanism), tests/test_labyrinth_validator.py (10 tests: 6 synthetic-fixture mechanism tests, 3 regression guards on the specifically-fixed nodes, 1 CLI smoke test), all passing. `python scripts/validate_labyrinth_claim_status.py --json` on the real corpus as of 2026-08-10: 376 files scanned, 23 violations, 2 dangling edges. Full violation list captured at validation time; representative entries include evidence-mackey-2025 (target of contradicts edges from 3 different confirmed sources), the fig04/fig05 GLMM iteration chain (multiple supersedes edges where the superseded node stayed confirmed), and the omission-a manuscript draft merge chain (v1/v2 draft nodes superseded but still confirmed).",
+      "note": "FOLLOW-UP required: triage and resolve the 23 backlog violations (each needs a human/agent judgment call on whether the source's contradiction is itself correct before demoting the target) and the 2 dangling edges (either the target was renamed/deleted without updating the edge, or the edge's target id has a typo)."
     }
   ],
   "edges": [
-    {"from": "claim-p0-critical-doctrines-absent-from-applying-skills", "to": "session-py-tfr-plot-baseline-bugs-20260810", "type": "explains"},
-    {"from": "claim-p0-eleven-of-fourteen-decode-scripts-invalid-cv", "to": "claim-p0-deconfound-null-ignores-cycle-grouping", "type": "related"},
-    {"from": "claim-p0-stale-census-in-executable-code", "to": "claim-p0-supersession-not-enforced-on-target-node", "type": "related"},
-    {"from": "claim-p1-claude-dir-gitignored", "to": "claim-p1-skill-tree-drift", "type": "explains"},
-    {"from": "claim-p1-confound-variables-not-materialized", "to": "claim-p1-no-unit-order-topology-warning", "type": "related"}
+    {
+      "from": "claim-p0-critical-doctrines-absent-from-applying-skills",
+      "to": "session-py-tfr-plot-baseline-bugs-20260810",
+      "type": "explains"
+    },
+    {
+      "from": "claim-p0-eleven-of-fourteen-decode-scripts-invalid-cv",
+      "to": "claim-p0-deconfound-null-ignores-cycle-grouping",
+      "type": "related"
+    },
+    {
+      "from": "claim-p0-stale-census-in-executable-code",
+      "to": "claim-p0-supersession-not-enforced-on-target-node",
+      "type": "related"
+    },
+    {
+      "from": "claim-p1-claude-dir-gitignored",
+      "to": "claim-p1-skill-tree-drift",
+      "type": "explains"
+    },
+    {
+      "from": "claim-p1-confound-variables-not-materialized",
+      "to": "claim-p1-no-unit-order-topology-warning",
+      "type": "related"
+    }
   ],
   "issues": [
     "This audit is read-only per its mandate -- none of the P0/P1 findings above have been fixed yet, except the plot_tfr dB bug which was found and fixed earlier the same day as an unrelated task and is only cross-referenced here.",
@@ -153,10 +182,13 @@
     "Sections A-E were produced by four parallel background research agents; Sections F-J and the decode-script leakage sweep were done by direct file reads by the compiling agent, specifically because leakage/confound judgment calls should not be delegated blind. Cross-validation between the two: the skills-audit agent's finding that jnwb-tfr/jnwb-statistics lack the log-order/grouping rules independently corroborates the compiling agent's direct-code finding of the plot_tfr bug and the deconfound-null asymmetry -- two independent methods converged on the same root cause."
   ],
   "verdict": {
-    "SAFE_TO_PATCH_AGENT": "YES",
-    "SAFE_TO_PATCH_AGENT_conditions": "Patch (Handout 2) should incorporate: unit-order-has-no-topology warning; TFR log-order rule cross-referenced into jnwb-tfr/jnwb-visualization; CV/permutation-grouping rule cross-referenced into jnwb-statistics/jnwb-jrsa; a pointer to the 11 invalid-CV scripts so the new skill's model ladder doesn't treat one as a template. The .claude/-gitignore and skill-tree-drift findings should be resolved as part of or immediately after this patch so the patch itself stays reviewable.",
+    "SAFE_TO_PATCH_AGENT": "completed",
+    "SAFE_TO_PATCH_AGENT_summary": "Handout 2 (narrowly scoped per Sol/Hamm's 2026-08-10 review of this audit) executed: 12 invalid-CV decoding scripts + 2 hardcoded-synthetic-census figure scripts quarantined to scripts/historical/ with machine-readable status and import-enforcement tests; canonical permute_labels(scheme=...) primitive built and decode_identity_cycle_deconfound's null fixed to respect cycle grouping; executable dependence on the retracted 421/8597/4.90% census removed from notebooks/reproducibility_master_pipeline, jnwb/unit_classification.py, and scripts/build_oplusplus_census.py; skill tree consolidated to one tracked canonical source (.claude/skills/, .agents/skills/ retired); TFR log-order and CV-grouping doctrine injected into jnwb-tfr/jnwb-visualization/jnwb-statistics/jnwb-jrsa; canonical trial ontology (jnwb/trial_ontology.py) built and unit-tested against all 12 condition codes including the p4 A/B pair; Labyrinth validator built, 3 known-bad nodes fixed, 23 further backlog violations found and durably flagged (not resolved -- out of this pass's scope); all 4 of Sol's acceptance tests added and passing. Full suite: 377 passed, 0 failed, 43 skipped.",
+    "SAFE_TO_RUN_EXISTING_DECODING": "leakage-safe paths only",
+    "SAFE_TO_RUN_EXISTING_DECODING_detail": "scripts/compute_omission_identity_leakage_safe.py and jnwb.omission_identity.decode_identity_cycle_deconfound (via compute_omission_identity_cycle_deconfound_v3.py) are the only validated paths -- grouped LOCO CV, in-fold balancing/scaling, exchangeability-correct within-cycle permutation nulls (both, after this pass's fix). Every other decoding script is quarantined under scripts/historical/ with scientific_status='invalid_for_inference' and import-blocked by tests/test_quarantine_enforcement.py.",
     "SAFE_TO_RUN_STRUCTURED_DECODING": "NO",
-    "SAFE_TO_RUN_STRUCTURED_DECODING_reasons": "Leakage-safe flat baseline has not been run to completion (no outputs exist yet to compare a structured model against); confound-decomposition variables not materialized; deconfound script's permutation null has a real, uncharacterized asymmetry; retracted census numbers are still live in executable/imported code; no falsification-control infrastructure exists yet to distinguish nonlinearity-helped from structure-helped. Matches Sol's own explicit 'do not start structured decoding yet' -- this audit found concrete, additional, code-level reasons that instruction is correct."
+    "SAFE_TO_RUN_STRUCTURED_DECODING_reasons": "Unchanged from the original Handout 1 verdict, deliberately: the leakage-safe flat baseline still has not been run to completion on the full corpus (no outputs exist yet); no falsification-control infrastructure exists yet (unit/channel/time permutation, capacity-matched MLP control, structural ablation); the unit-order-has-no-topology concern for a future SPK CNN is flagged in doctrine but not yet enforced in code; per Sol's explicit instruction, do not touch CNN architecture, dropout, model capacity, windows, or area-wise structured decoding in this pass -- fix the epistemic machinery first, structured decoding is a separate, later, preregistered experiment.",
+    "next_step": "Handout 2.5 (Sol's proposed next step, not started here): independently re-audit the patched harness to prove the repaired agent actually retrieves the corrected doctrines at task-execution time (not just that the doctrine text now exists), uses the canonical ontology/permutation primitives, cannot accidentally invoke a historical decoder, and reproduces the known chance-compatible flattened result end-to-end. Only after that should the structured-decoding experiment be designed."
   },
   "falsifier": "This audit is closed/superseded when: (1) the P0 items are each either fixed with a receipt or explicitly re-triaged with a documented reason for deferral; (2) Handout 2's agent/skill patch lands and is itself verified against this audit's specific conditions; (3) SAFE_TO_RUN_STRUCTURED_DECODING is re-evaluated after the leakage-safe corpus-scale run completes and the confound-decomposition variables are materialized -- at that point this node's verdict should be re-issued, not assumed to still hold."
 }

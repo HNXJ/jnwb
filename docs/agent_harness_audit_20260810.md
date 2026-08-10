@@ -328,3 +328,66 @@ that instruction is correct, not just formal ones.
   `artifacts/.lab/session-py-tfr-plot-baseline-bugs-20260810.json`, verified via numerical
   cross-check between `plot_tfr` and `trial_averaged_plot` (max abs diff 0.0 after the fix) and
   full pytest suite (283 passed, 0 failed at the time).
+
+---
+
+## Addendum — Handout 2 executed (2026-08-10, same day)
+
+Sol reviewed the Handout 1 findings above and narrowed the originally-proposed Handout 2 to a
+substrate-repair pass only, explicitly deferring structured decoding. That narrowed Handout 2
+was executed in full:
+
+- **P0 fixed**: 12 invalid-CV decoding scripts (corrected count — the original P0 finding above
+  said "11 of 14"; re-verification during Handout 2 found `compute_omission_identity_encoding.py`
+  was also invalid via a non-grouped `cv=3` integer fold plus pre-split scaler fitting, making it
+  12 of 14) plus 2 hardcoded-synthetic-census figure scripts quarantined to
+  `scripts/historical/{confounded,synthetic}/`, each with a machine-readable
+  `scientific_status = "invalid_for_inference"` header and an enforcement test
+  (`tests/test_quarantine_enforcement.py`) blocking any live import. A canonical
+  `jnwb.permutation.permute_labels(scheme=...)` primitive was built and
+  `decode_identity_cycle_deconfound`'s naive global-permutation null was fixed to respect cycle
+  grouping. Executable dependence on the retracted 421/8597/4.90% census was removed from
+  `notebooks/reproducibility_master_pipeline.py`/`.ipynb`, `jnwb/unit_classification.py`, and
+  `scripts/build_oplusplus_census.py` (`tests/test_no_retracted_census_in_live_code.py` guards
+  this going forward).
+- **P1 fixed**: the skill tree was consolidated to one tracked canonical source
+  (`.claude/skills/`, un-gitignored and tracked directly; `.agents/skills/` — which had already
+  drifted 348 of ~450 combined lines apart on one skill and contained stale pre-2026-08-08 paths
+  — was retired, recoverable via git history). TFR log-order and CV-grouping doctrine was
+  injected directly into `jnwb-tfr`, `jnwb-visualization`, `jnwb-statistics`, and `jnwb-jrsa`. A
+  canonical trial ontology (`jnwb/trial_ontology.py`) now derives `sequence_family`,
+  `omission_position`, `preceding_identity`, `expected_identity`, and `presented_identity` from
+  condition codes in one place, unit-tested against all 12 codes including the historically-
+  buggy p4 A/B pair, cross-checked against `jnwb.omission_identity.OMISSION_IDENTITY_CONDITIONS`.
+- **P2 addressed**: a Labyrinth validator (`scripts/validate_labyrinth_claim_status.py`) now
+  detects nodes/claims still `status: "confirmed"` despite being the target of a
+  `contradicts`/`supersedes` edge from a confirmed source. The 3 known-bad nodes from the
+  original audit were fixed (`status` → `retracted`, with a receipt). Running the validator
+  against the full 376-file corpus surfaced **23 further, previously-unknown violations and 2
+  dangling edges** — durably recorded as a new claim
+  (`claim-labyrinth-validator-built-and-3-known-nodes-fixed`) rather than silently resolved or
+  dropped; triaging all 23 is explicitly out of scope for this pass and is left as a backlog item.
+- **All four of Sol's acceptance tests** were added and pass: (1)
+  `tests/test_cv_grouping_acceptance.py` demonstrates on synthetic data that random CV inflates
+  a pure cycle-level confound to >85% apparent accuracy while grouped LOCO CV correctly reports
+  chance (~30–70%); (2) the same file shows the within-cycle permutation null is calibrated on
+  pure-noise synthetic data (observed statistic within 3 null SDs of the null mean); (3)
+  `tests/test_trial_ontology.py` (42 tests) covers all 12 condition codes, explicitly asserting
+  both p4 A/B directions; (4) `tests/test_no_retracted_census_in_live_code.py` confirms zero
+  live hits of 421/8597/4.90% outside explicitly historical/quarantined locations.
+- Full suite after all changes: **377 passed, 0 failed, 43 skipped.**
+
+Updated verdict (see `artifacts/.lab/agent-harness-audit-20260810.json` `verdict` field for the
+full statement):
+
+```
+SAFE_TO_PATCH_AGENT = completed
+SAFE_TO_RUN_EXISTING_DECODING = leakage-safe paths only
+SAFE_TO_RUN_STRUCTURED_DECODING = NO   (deliberately unchanged)
+```
+
+Per Sol's explicit instruction, structured decoding remains blocked, and no CNN architecture,
+dropout, model capacity, window, or area-wise structured-decoding work was touched in this pass.
+Sol's proposed Handout 2.5 (an independent re-audit proving the *runtime* agent actually
+retrieves the corrected doctrine, not just that the doctrine text now exists) has not been
+started.

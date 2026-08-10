@@ -229,8 +229,8 @@ class MyAnalysis(OmissionSession):
 ## See Also
 
 - **Spectral Relations Pipeline** (spectral_relations_pipeline.py) — Multi-modal network analysis
-- **NWB-IO Skill** (.agents/skills/nwb-io/SKILL.md) — Lower-level NWB utilities
-- **Spiking Skill** (.agents/skills/spiking/SKILL.md) — Spike-related methods
+- **NWB-IO Skill** (.claude/skills/jnwb-core/SKILL.md) — Lower-level NWB utilities
+- **Spiking Skill** (.claude/skills/jnwb-spiking/SKILL.md) — Spike-related methods
 
 ---
 
