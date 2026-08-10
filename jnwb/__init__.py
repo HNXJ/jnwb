@@ -290,6 +290,12 @@ from . import visual_qc
 # Central path resolution (2026-08-08). `oa.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
 from . import paths
+
+# Poolable TFR summary statistics (2026-08-08), per nwb_tfr_storage_spec.md Part 2/3.
+from .tfr_accumulator import TFRAccumulator, assert_mergeable
+
+# NWB fp32 compression (2026-08-09), per nwb_tfr_storage_spec.md Part 1. ~2.8x on this corpus.
+from .compression import compress_fp32
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -521,6 +527,9 @@ __all__ = [
     'units_across_sessions',
     'lfp_channel_areas',
     'paths',
+    'TFRAccumulator',
+    'assert_mergeable',
+    'compress_fp32',
     'summary_report',
     'noise_vs_signal',
     'cross_modal_comparison',

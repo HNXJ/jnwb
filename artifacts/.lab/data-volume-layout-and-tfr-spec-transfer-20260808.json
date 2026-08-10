@@ -69,7 +69,7 @@
       "status": "confirmed",
       "statement": "The transfer landed 22 omission NWB sessions, but both project inventories know only 21. sub-V198o_ses-230629_rec exists on disk and appears in neither session_readiness.csv nor nwb_catalog.json. The disk is a strict superset -- nothing catalogued is missing.",
       "receipt": "Compare-Object of D:/nwb/omission basenames against session_readiness.csv 'stem' column, 2026-08-08: one item on disk only (sub-V198o_ses-230629_rec), zero in catalog only; disk 22, catalog 21. nwb_catalog.json contains no '230629' substring and lists V198o sessions 230714/230719/230720/230721 only. session_readiness.csv marks all four catalogued V198o sessions nwb_ok=True, so the omission is not a recorded readiness failure.",
-      "note": "Either it was excluded deliberately with no record of why, or it predates the catalog build. Consequence: every '21 sessions' quoted in prose and in the TFR group-count budget (21 x 12 x 2 = 504 groups) is conditional on that exclusion being intentional."
+      "note": "Either it was excluded deliberately with no record of why, or it predates the catalog build. Consequence: every '21 sessions' quoted in prose and in the TFR group-count budget (21 x 12 x 2 = 504 groups) is conditional on that exclusion being intentional. Checked 2026-08-08: the file opens cleanly with h5py, has session_description=None, 464 rows in units/id, and the standard omission_glo_passive/photodiode_1_detected_changes/reward_1_detected interval structure -- not corrupt or partial. Looks like a legitimate 5th V198o session that predates both inventories, not a readiness failure."
     },
     {
       "id": "claim-free-space-projection-held",
