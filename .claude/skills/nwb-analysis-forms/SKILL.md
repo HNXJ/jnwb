@@ -79,21 +79,50 @@ om_results = decode_omission_presence(session, area="PFC", standard_condition="A
 
 ## 7. Omitted-identity decoding (`jnwb.omission_identity`)
 
-Decodes *which* stimulus was omitted (not merely that one was). The condition mapping lives in
-`OMISSION_IDENTITY_CONDITIONS`; use it rather than writing sequence strings by hand.
+Decodes *which* stimulus was omitted (not merely that one was). **Start with
+`scripts/compute_omission_identity_leakage_safe.py`** (SPK/SUA, leave-one-temporal-cycle-out CV,
+in-fold class balancing, within-cycle-exchangeable permutation null) — it is the current,
+validated pipeline (2026-08-10, `artifacts/.lab/agent-harness-audit-20260810.json`) and the
+source of the project's actual headline result (flattened omission-identity decoding is
+chance-compatible under grouped CV; presented-stimulus identity is the positive control).
+`jnwb.omission_identity.decode_identity_cycle_deconfound` (leave-one-cycle-out, per-cycle
+mean-centered) is the other validated path, used by
+`scripts/compute_omission_identity_cycle_deconfound_v3.py`.
 
 ```python
 from jnwb.omission_identity import (
     OMISSION_IDENTITY_CONDITIONS,
-    decode_omission_identity_slot,      # single slot, 5-fold CV + permutation null
-    decode_omission_identity_full,      # + sub-block quartile controls
-    decode_identity_cycle_deconfound,   # leave-one-cycle-out, per-cycle mean-centered
+    decode_identity_cycle_deconfound,   # VALID: leave-one-cycle-out, per-cycle mean-centered
     detect_trial_cycles,                # real cluster boundaries from start_time gaps
 )
-res = decode_omission_identity_slot(session, area="PFC", slot_key="p2", contrast=("A", "B"))
 ```
 
-**Two footguns, both documented in the module source:**
+**`decode_omission_identity_slot` and `decode_omission_identity_full` are
+`scientific_status = "invalid_for_inference"`** (marked in their own docstrings) — both use
+ungrouped/random CV (`StratifiedKFold(shuffle=True)` or a bare integer `cv=`) that lets
+same-cycle trials leak across train/test on this corpus's repeated-cycle structure. Their only
+live callers, `scripts/compute_omission_identity_encoding.py` and `_v2.py`, are quarantined
+under `scripts/historical/confounded/` for the same reason (12 decoding scripts total —
+`tests/test_quarantine_enforcement.py` blocks any live import). Do not import or call either
+function for a current result.
+
+**Label construction: use `jnwb.trial_ontology`, not ad hoc condition-string parsing.**
+`jnwb.trial_ontology.parse_condition(code)` / `build_trial_ontology(session, ...)` derive
+`sequence_family`, `omission_position`, `preceding_identity`, `expected_identity`, and
+`presented_identity` from the 12 canonical condition codes in one place (unit-tested against all
+12, including both p4 A/B directions). Parsing `"AXAB"`-style strings by hand in a new script is
+exactly how the 2026-08-06 p4 A/B label swap happened (see
+`jnwb/omission_identity.py:37-44` — every p4 number computed before that fix was unreliable) —
+don't repeat it.
+
+```python
+from jnwb.trial_ontology import build_trial_ontology, parse_condition, CONDITION_ONTOLOGY
+onto = parse_condition("AAAX")  # {'sequence_family': 'A', 'omission_position': 'p4',
+                                 #  'expected_identity': 'B', 'preceding_identity': 'A', ...}
+table = build_trial_ontology(session, slot_keys=("p2", "p3", "p4"))
+```
+
+**Three footguns, all documented in the module/primitive source:**
 
 1. **Window choice can leak a real stimulus.** In every omission slot the *preceding*
    presentation physically differs between the A and B conditions. Any window containing it
@@ -103,6 +132,12 @@ res = decode_omission_identity_slot(session, area="PFC", slot_key="p2", contrast
    disagree systematically on this corpus — the random split runs high. Report which was used.
    `detect_trial_cycles` exists because `task_block_number` reuses labels across repeats and
    *looks* contiguous when it is not.
+3. **The permutation null must respect the same grouping as the CV fold scheme.** Use
+   `jnwb.permutation.permute_labels(y, groups=cycles, scheme="within_group", rng=...)` for any
+   null on cycle-grouped data — never a bare `rng.permutation(y)`. This is not theoretical:
+   `decode_identity_cycle_deconfound`'s null shipped exactly this bug (grouped LOCO folds
+   compared against an ungrouped global-permutation null) until fixed 2026-08-10; see
+   `tests/test_permutation_lint.py`, which fails if a bare call reappears in this module.
 
 ## 8. Structured 2D decoders — bilinear and NAM
 
