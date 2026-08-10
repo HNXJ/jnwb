@@ -247,6 +247,27 @@
       "type": "explains"
     }
   ],
+  "claims_appended_20260809": [
+    {
+      "id": "claim-230823-converted-verified-deleted",
+      "status": "confirmed",
+      "statement": "sub-C31o_ses-230823_rec.nwb converted, verified, and original deleted. 160.64 GiB -> 61.70 GiB (2.60x). All round-trip checks OK including pynwb read (368 units, 10 acquisition series). Correct-trial count via block-safe method (stimulus_number==2 i.e. p1, correct==True, distinct trial_num) = 960, matching the corpus-wide ~960 expectation exactly.",
+      "receipt": "Log /tmp/convert_230823.txt: VERIFICATION PASSED, all byte-sample + pynwb checks OK. Independent pynwb re-read of D:/analysis/nwb_converted/sub-C31o_ses-230823_rec.nwb: p1 rows=2527, correct p1 rows=960, unique trial_num among correct p1=960. Original D:/nwb/omission/sub-C31o_ses-230823_rec.nwb removed after verification; D: free space rose 1.6TB->1.8TB."
+    },
+    {
+      "id": "claim-230825-launch-had-detached-process-false-alarm",
+      "status": "confirmed",
+      "statement": "A manual `python ... > log 2>&1 & echo pid` background launch for sub-C31o_ses-230825_rec caused the tool's outer command to report 'completed' immediately (misleading), and ps aux (git-bash) showed no python process, leading to an initial wrong conclusion that the run had been killed and its .bloated.tmp orphaned. It was NOT dead: PowerShell Get-Process showed a live python PID with growing CPU time, and the .bloated.tmp file was observed growing (33.6GiB -> 34.0GiB in 5s), and 'rm' correctly failed with Device or resource busy since a live process held it open.",
+      "receipt": "Get-Process python: PID 42968, StartTime matching the launch time, CPU rising. Two direct filesize samples 5s apart on sub-C31o_ses-230825_rec.bloated.tmp.nwb: 33585834880 -> 34014270544 bytes.",
+      "note": "git-bash `ps aux` does not reliably show Windows-native python processes launched via this harness's background mechanism; PowerShell Get-Process is the reliable liveness check. Do NOT manually append `&`/echo-pid to a command already passed with run_in_background:true -- pass the blocking command directly, matching the pattern used successfully for 230818/230823/230831."
+    },
+    {
+      "id": "claim-230818-converted-verified-deleted",
+      "status": "confirmed",
+      "statement": "sub-C31o_ses-230818_rec.nwb converted, verified, and original deleted. 164.21 GiB -> 62.00 GiB (2.65x). All round-trip checks OK including pynwb read (541 units, 10 acquisition series). Correct-trial count via block-safe method (stimulus_number==2 i.e. p1, correct==True, distinct trial_num) = 960, matching the corpus-wide ~960 expectation exactly.",
+      "receipt": "Log /tmp/convert_230818.txt: VERIFICATION PASSED. Independent pynwb re-read: p1 rows=2072, correct p1 rows=960, unique trial_num among correct p1=960. Original D:/nwb/omission/sub-C31o_ses-230818_rec.nwb removed after verification; D: free space rose 1.8TB->1.9TB."
+    }
+  ],
   "issues": [
     "v1's corrupted output file at D:/analysis/nwb_converted/sub-V198o_ses-230720_rec.nwb was deleted before v2's run, since it is not valid NWB and keeping it risks someone treating it as usable. No other copy of it exists -- this is fine, since the SOURCE file on D:/nwb/omission was never touched (v1 and v2 both write to a separate output path) and is the only thing that needs to survive.",
     "The pynwb read check is now a REQUIRED part of verify_roundtrip going forward, not optional -- any future converter change must pass it before a ratio or timing number from that run is trusted.",
