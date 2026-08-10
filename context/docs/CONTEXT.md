@@ -339,6 +339,21 @@ Nothing was deleted in the reorganisation; every file was moved.
    is 0 bytes. Do not
    mass-migrate without a deterministic migration receipt — Conservation applies to the graph too.
 
+## 12A. Evidence/claim gate
+
+`context/docs/EVIDENCE_ARCHITECTURE_20260809.md` is the proposed execution contract connecting
+raw data, addressing, signal-specific estimators, session-aware inference, figure receipts,
+Labyrinth claims, and manuscript sentences. It formalizes a critical separation between effect
+prevalence, effect magnitude, decodable information, and mechanism. Until its acceptance checks
+are complete, treat it as `truth_safe_unverified`; where it conflicts with a receipted current
+result in this file, this file wins.
+
+For Figure 4 specifically, the 2026-08-08 Labyrinth audit supersedes the 2026-08-06 diagnosis
+that the source tables were absent. `_v2` tables exist, but their random-CV result is confounded;
+the cycle-deconfounded estimate is approximately chance. Do not promote the `_v2` 0.601 mean
+accuracy into the manuscript without the grouped/cycle-safe rerun and corpus-scale null required
+by the evidence gate.
+
 ## 13. Operating rules
 
 - Address the user as **Hamm**; assume domain fluency and match his verification rigor.

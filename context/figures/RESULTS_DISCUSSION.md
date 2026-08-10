@@ -9,9 +9,10 @@ manuscript once fig06 has a resolution and the whole set gets a final review pas
 below titled "Figure 4" describes the V1/PFC condition TFR analysis, which is now **fig06**.
 The old "Figure 6" section (SPK-SPK lead/lag) is now a **supplement**
 (`spk_spk_coupling_supplement/`). The new fig04 (omission identity decoding, promoted from
-`figS24`) has **no section here yet** — it is confirmed currently 100% synthetic (no real
-analysis has been run) and must not be written up until that is fixed. Section headings below
-are left as originally written (not relabeled) to avoid rewriting prose that still accurately
+`figS24`) has **no section here yet** — its prior random-CV result is confounded and the
+complete leakage-safe corpus analysis remains pending. It must not be written up until the
+receipt and visual review are complete. Section headings below are left as originally written
+(not relabeled) to avoid rewriting prose that still accurately
 describes its own content under its old number; read "Figure 4" below as fig06 and "Figure 6"
 below as the SPK-SPK supplement.
 

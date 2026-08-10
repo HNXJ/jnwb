@@ -1,4 +1,4 @@
-Version: 2026-08-06
+Version: 2026-08-09
 Status: canonical revision plan — supersedes ad-hoc figure-by-figure requests until amended
 Truth status: `truth_safe_unverified`
 
@@ -16,7 +16,7 @@ lock.
 | 2 | Spiking exemplar rasters | 100/100 | final | none |
 | 1 | Recording topology and paradigm | 90/100 | semi-final | none stated |
 | 3 | Unit census | 80/100 | revision on subplots needed | which subplots, not yet specified |
-| 4 | Omission identity decoding | 70/100 | new promoted result, details to discuss | **entire figure is currently synthetic — see below** |
+| 4 | Omission identity decoding | 70/100 | new promoted result, details to discuss | **current renderer is invalid: real `_v2` tables exist, but random-CV is confounded and hardcoded panels remain — see below** |
 | 5 | LFP band-power hierarchy GLMM | 60/100 | minor revision on subplots needed | which subplots, not yet specified |
 | 6 | V1/PFC condition TFR | 50/100 | moderate revision on subplots needed | which subplots, not yet specified; lock is stale regardless |
 | 7 | Population firing x LFP power | 10/100 | major revision | not yet specified |
@@ -42,20 +42,21 @@ Ordered by score ascending (least-ready first) — the sequence this plan follow
 
 ## Immediate, unblocked work (does not need scoping input)
 
-- **Figure 4 — fix the synthetic-data problem before anything else.** Confirmed 2026-08-06: none
-  of `omission_identity_decoding_master.csv`, `omission_identity_timecourse_master.csv`,
-  `omission_identity_glmm_coefficients.csv` exist. `scripts/compute_omission_identity_encoding.py`
-  has never been run to completion on this corpus. Until it is, Panels B/C/D render fallback
-  numbers and Panels A/E1/E2 render hardcoded arrays — none of it is real. This blocks any
-  "details to discuss" conversation about the figure's actual finding, because there is no
-  finding yet. Sequenced first regardless of the 7→6→5→4→3→1→2 score order, since it gates
-  whether fig04 can be discussed at all.
-- **Figure 4 — resolve the "GLMM" mislabel** once real data exists: either fit an actual mixed
+- **Figure 4 — replace the invalid decoding evidence chain before anything else.** The 2026-08-08
+  audit corrected the earlier diagnosis: the three real `_v2` source tables do exist. However,
+  simply wiring them into the renderer would still be scientifically invalid. Their random-CV
+  mean accuracy (~0.601) is confounded by sequence/cycle structure, while the leave-one-cycle-out
+  mean-centered deconfound is approximately chance (~0.495). Panels A/E1/E2 also retain hardcoded
+  arrays, and the available permutation-null output is only a one-session, `n_perm=5` smoke run.
+  Rerun after the p4 label fix with grouped/cycle-safe CV, corpus-scale permutation nulls, and
+  provenance; then regenerate every panel from real tables. A null result is an acceptable
+  scientific outcome and must not be replaced by the old frontal-gradient placeholder story.
+- **Figure 4 — resolve the "GLMM" mislabel** after the deconfounded rerun: either fit an actual mixed
   model (session/subject random effects) for the spatial-hierarchy panel, or rename every
   artifact (`omission_identity_glmm_coefficients.csv`, the column, the panel title) to describe
   what it actually is (an L2-regularized logistic regression).
-- **Figure 4 — add a stats receipt** (`figstats.write()`) once real data exists, matching every
-  other main figure's convention.
+- **Figure 4 — add a stats receipt** (`figstats.write()`) after the deconfounded rerun, matching every
+  other main figure's convention and recording CV grouping, permutation count, seed, corpus, and p4-label provenance.
 
 ## Scoping needed before code starts (figures 3, 5, 6, 7)
 
@@ -76,3 +77,13 @@ round rather than trickling:
 - 2026-08-06: Plan created. Figures renumbered (fig04↔identity-decoding promoted,
   old fig04→fig06, old fig06→supplement). Scores recorded as given. Fig04's synthetic-data
   problem confirmed and flagged as the sole immediate blocking item.
+
+- 2026-08-09: Integrated the 2026-08-08 Figure 4 audit. Corrected the stale claim that source CSVs
+  were absent: `_v2` tables exist, but random-CV is confounded; cycle-deconfounded accuracy is
+  approximately chance, hardcoded panels remain, and the permutation null is only a smoke run.
+  Added explicit deconfounded-rerun acceptance criteria.
+
+- 2026-08-09/10: Applied the evidence-architecture patch and added a separate leakage-safe
+  SPK/SUA decoder plus fail-closed renderer. Three-session validation passed with persisted
+  folds, held-out predictions, and within-cycle null draws; the complete eligible-corpus run
+  and production render remain pending.
