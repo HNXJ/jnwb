@@ -36,11 +36,12 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from jnwb import paths as _P
 
-META_DIR = r"D:/workspace/data/metadata"
-TFR_DIR = r"D:/workspace/data/tfr_arrays"
-LAYER_DIR = r"D:/workspace/data/connectivity_databases"
-OUT_DIR = r"D:/workspace/omission/outputs/channel_area_vector"
+META_DIR = _P.meta_dir()
+TFR_DIR = _P.tfr_dir()
+LAYER_DIR = str(_P.conndb_dir())
+OUT_DIR = _P.REPO_ROOT / "outputs/channel_area_vector"
 
 FNAME_RE = re.compile(r"^sub-(?P<subject>.+?)_ses-(?P<session>.+?)-(?P<probe>[A-Z])-"
                       r"(?P<area>.+)-(?P<cond>[A-Z]+)$")

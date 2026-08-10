@@ -21,6 +21,7 @@ output/
 reports/
 artifacts/*
 !artifacts/developer/
+artifacts/developer/.cache/
 !artifacts/.lab/
 checkpoints/
 scratch/

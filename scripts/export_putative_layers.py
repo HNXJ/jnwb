@@ -36,10 +36,11 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from jnwb import paths as _P
 
-LAYER_DIR = r"D:/workspace/data/connectivity_databases"
-META_DIR = r"D:/workspace/data/metadata"
-OUT_DIR = r"D:/workspace/omission/outputs/layers"
+LAYER_DIR = str(_P.conndb_dir())
+META_DIR = _P.meta_dir()
+OUT_DIR = _P.REPO_ROOT / "outputs/layers"
 PROBE_LETTER = {"probe_0_lfp": "A", "probe_1_lfp": "B", "probe_2_lfp": "C", "probe_3_lfp": "D"}
 POOL = {"V3": "V3a/d", "V3a": "V3a/d", "V3d": "V3a/d"}
 REAL = ("sup", "mid", "deep")

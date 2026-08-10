@@ -31,6 +31,7 @@ import jnwb as oa
 from jnwb.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS, EPOCH_ORDER
 from jnwb.unit_classification import precompute_condition_onsets
 from figstyle import FULL_TRIAL_WIN, full_trial_ticks, mark_full_trial_axis
+from jnwb import paths as _P
 
 OUTPUT_DIR = REPO_ROOT / "outputs" / "raster_suites"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -59,9 +60,9 @@ def compute_psth(st, onsets, win_ms, bin_ms=PSTH_BIN_MS):
     return centers, mean, sem
 
 def render_unit_raster_suite(session_stem, unit_row, unit_info, save_path):
-    nwb_path = pathlib.Path(r"D:\analysis\nwb") / f"{session_stem}_rec.nwb"
+    nwb_path = pathlib.Path(_P.nwb_dir()) / f"{session_stem}_rec.nwb"
     if not nwb_path.exists():
-        nwb_path = pathlib.Path(r"D:\analysis\nwb") / f"{session_stem}.nwb"
+        nwb_path = pathlib.Path(_P.nwb_dir()) / f"{session_stem}.nwb"
     
     session = oa.read(nwb_path)
     onsets_dict = precompute_condition_onsets(session)

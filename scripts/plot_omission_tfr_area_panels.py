@@ -52,9 +52,10 @@ import numpy as np
 import pandas as pd
 from matplotlib.patches import Rectangle
 from scipy import stats
+from jnwb import paths as _P
 
-MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_ratio/maps.npz"
-OUT_DIR = r"D:/workspace/omission/outputs/omission_tfr_maps_ratio"
+MAPS = _P.REPO_ROOT / "outputs/omission_tfr_maps_ratio/maps.npz"
+OUT_DIR = _P.REPO_ROOT / "outputs/omission_tfr_maps_ratio"
 FIG_DIR = os.path.join(OUT_DIR, "figures")
 
 AREA_ORDER = ["V1", "V2", "V3", "V4", "MT", "MST", "TEO", "FST", "FEF", "PFC"]

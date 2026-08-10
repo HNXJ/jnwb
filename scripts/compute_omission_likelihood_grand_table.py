@@ -41,8 +41,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import jnwb as oa
 from jnwb.unit_classification import precompute_condition_onsets, _rate_in_window
+from jnwb import paths as _P
 
-NWB_DIR = pathlib.Path(os.environ.get("OMISSION_NWB_DIR", r"D:\analysis\nwb"))
+NWB_DIR = pathlib.Path(os.environ.get("OMISSION_NWB_DIR", _P.nwb_dir()))
 OUTPUT_CSV = REPO_ROOT / "outputs" / "classification" / "omission_likelihood_grand_units.csv"
 OUTPUT_OPLUSPLUS_CSV = REPO_ROOT / "outputs" / "classification" / "omission_oplusplus_grand_units.csv"
 OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)

@@ -49,10 +49,11 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from jnwb import paths as _P
 
-TFR_DIR = r"D:/workspace/data/tfr_arrays"
-AREA_VEC = r"D:/workspace/omission/outputs/channel_area_vector/channel_area_vector.csv"
-OUT_DIR = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500"
+TFR_DIR = _P.tfr_dir()
+AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
+OUT_DIR = _P.REPO_ROOT / "outputs/omission_tfr_maps_w1500"
 
 FREQS_HZ = np.arange(3, 201, 2)
 N_TIMES_SRC = 500

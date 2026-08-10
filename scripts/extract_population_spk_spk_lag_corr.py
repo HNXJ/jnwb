@@ -67,9 +67,10 @@ from extract_population_firing_lfp_power_corr import (  # noqa: E402
     build_functional_groups, CONDITION_GROUPS, UNITS_CSV, MIN_FIRING_RATE_HZ, MIN_UNITS_PER_GROUP,
 )
 from smoke_test_sliding_trial_correlation import lagged_corr_same_trial, N_SHUFFLE  # noqa: E402
+from jnwb import paths as _P
 
-NWB_DIR = r"D:/analysis/nwb"
-OUT_DIR = r"D:/workspace/omission/outputs/population_spk_spk_lag_corr"
+NWB_DIR = _P.nwb_dir()
+OUT_DIR = _P.REPO_ROOT / "outputs/population_spk_spk_lag_corr"
 
 BIN_MS = 10.0
 MAX_LAG_MS = 100.0

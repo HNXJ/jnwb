@@ -45,11 +45,12 @@ from precompute_tfr_arrays import load_probe_areas, resolve_lfp_datasets  # noqa
 from extract_lfp_coupling_matrices import (  # noqa: E402
     BANDS, CONTEXTS, load_layer_masks, cells_for_probe, p1_onsets_and_conditions_s,
 )
+from jnwb import paths as _P
 
 READINESS = REPO / "artifacts/data/session_readiness.csv"
 GRAND_UNITS = REPO / "outputs/classification/omission_grand_units.csv"
 OUT_DIR = REPO / "outputs/spike_lfp_coupling"
-META_ROOT = Path(os.environ.get("OMISSION_META_DIR", "D:/workspace/data/metadata"))
+META_ROOT = Path(os.environ.get("OMISSION_META_DIR", _P.meta_dir()))
 
 N_SHUFFLE = 500
 MAX_TRIALS_PER_CONDITION = 60

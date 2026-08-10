@@ -23,6 +23,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from pathlib import Path
 
+from . import paths as _paths
+
 log = logging.getLogger(__name__)
 
 
@@ -723,8 +725,8 @@ def lfp_tfr_trace_suite_omission(
     session,
     area: str,
     layer: str,
-    tfr_dir: Union[str, Path] = "D:/workspace/data/tfr_arrays",
-    layer_masks_path: Union[str, Path] = "D:/workspace/omission/outputs/publication_visual_review/area_layer_tfr/layer_masks.json",
+    tfr_dir: Union[str, Path, None] = None,
+    layer_masks_path: Union[str, Path, None] = None,
     session_specific: bool = False,
     figsize: Tuple[float, float] = (11, 10)
 ) -> plt.Figure:
@@ -752,8 +754,8 @@ def lfp_tfr_trace_suite_omission(
     from scipy.stats import ttest_ind, mannwhitneyu
     from scipy.ndimage import gaussian_filter1d
 
-    tfr_dir = Path(tfr_dir)
-    layer_masks_path = Path(layer_masks_path)
+    tfr_dir = _paths.tfr_dir(tfr_dir)
+    layer_masks_path = Path(layer_masks_path) if layer_masks_path is not None else _paths.layer_masks_path()
 
     # 1. Load layer masks
     if not layer_masks_path.exists():
@@ -822,7 +824,7 @@ def lfp_tfr_trace_suite_omission(
     active_groups = ["control_p2", "control_p3", "omission_p2", "omission_p3"]
 
     # Cache acceleration
-    suite_cache_dir = Path("D:/workspace/omission/outputs/publication_visual_review/aligned_omission_tfr_traces/cache")
+    suite_cache_dir = _paths.outputs_dir("publication_visual_review", "aligned_omission_tfr_traces", "cache")
     suite_cache_path = suite_cache_dir / f"{area}_{layer}_suite_data_v2.npz"
 
     loaded_from_cache = False
@@ -1066,8 +1068,8 @@ def lfp_tfr_trace_suite_omission(
 def lfp_tfr_trace_correlation(
     session,
     band_name: str,
-    tfr_dir: Union[str, Path] = "D:/workspace/data/tfr_arrays",
-    layer_masks_path: Union[str, Path] = "D:/workspace/omission/outputs/publication_visual_review/area_layer_tfr/layer_masks.json",
+    tfr_dir: Union[str, Path, None] = None,
+    layer_masks_path: Union[str, Path, None] = None,
     alpha: float = 0.05,
     figsize: Tuple[float, float] = (12, 10)
 ) -> Dict:
@@ -1098,8 +1100,8 @@ def lfp_tfr_trace_correlation(
     from scipy.interpolate import interp1d
     from statsmodels.stats.multitest import multipletests
 
-    tfr_dir = Path(tfr_dir)
-    layer_masks_path = Path(layer_masks_path)
+    tfr_dir = _paths.tfr_dir(tfr_dir)
+    layer_masks_path = Path(layer_masks_path) if layer_masks_path is not None else _paths.layer_masks_path()
 
     # 1. Load layer masks
     if not layer_masks_path.exists():
@@ -1126,7 +1128,7 @@ def lfp_tfr_trace_correlation(
     def get_aligned_power_trace(area, layer_name):
         layer_key = "superficial" if "superficial" in layer_name else "deep"
         cache_paths = [
-            Path("D:/workspace/omission/outputs/publication_visual_review/tfr_correlations/cache") / f"{area}_{layer_key}_aligned_power.npy",
+            _paths.outputs_dir("publication_visual_review", "tfr_correlations", "cache") / f"{area}_{layer_key}_aligned_power.npy",
             tfr_dir / "cache" / f"{area}_{layer_key}_aligned_power.npy"
         ]
         for cp in cache_paths:

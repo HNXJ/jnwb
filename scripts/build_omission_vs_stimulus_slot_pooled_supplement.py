@@ -65,9 +65,10 @@ from figstyle import AREA_ORDER
 FIG04_DIR = os.path.join(_ROOT, "context", "figures", "fig04_v1_pfc_condition_tfr")
 sys.path.insert(0, FIG04_DIR)
 import fig04_v1_pfc_condition_tfr as fig04  # noqa: E402
+from jnwb import paths as _P
 
-OMISSION_MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
-STIMULUS_MAPS = r"D:/workspace/omission/outputs/stimulus_pooled_tfr_maps_w1500/maps.npz"
+OMISSION_MAPS = _P.REPO_ROOT / "outputs/omission_tfr_maps_w1500/maps.npz"
+STIMULUS_MAPS = _P.REPO_ROOT / "outputs/stimulus_pooled_tfr_maps_w1500/maps.npz"
 OUT_SVG_DIR = os.path.join(FIG04_DIR, "svg")
 
 BANDS = fig04.BANDSETS["manuscript"]

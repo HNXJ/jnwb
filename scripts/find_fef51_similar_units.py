@@ -38,6 +38,7 @@ import jnwb as oa
 from jnwb.sequence_layout import EPOCH_ONSETS_MS
 from jnwb.unit_classification import precompute_condition_onsets
 from figstyle import FULL_TRIAL_WIN, full_trial_ticks, mark_full_trial_axis
+from jnwb import paths as _P
 
 OUTPUT_CSV = REPO_ROOT / "outputs" / "classification" / "omission_fef51_similar_units.csv"
 OUTPUT_PNG_DIR = REPO_ROOT / "outputs" / "raster_suites" / "fef51_similar"
@@ -91,7 +92,7 @@ def compute_concatenated_psth(session, unit_row, onsets_dict):
 
 def main():
     t0 = time.time()
-    nwb_dir = pathlib.Path(r"D:\analysis\nwb")
+    nwb_dir = pathlib.Path(_P.nwb_dir())
     nwb_files = sorted(list(nwb_dir.glob("*.nwb")))
     
     # 1. Compute reference profile for FEF Unit 51 (sub-C31o_ses-230823)

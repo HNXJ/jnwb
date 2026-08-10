@@ -45,10 +45,11 @@ from jnwb.connectivity import bin_spikes  # noqa: E402
 from smoke_test_sliding_trial_correlation import (  # noqa: E402
     sliding_corr_same_trial, WIN_HALF_MS, STEP_MS,
 )
+from jnwb import paths as _P
 
-NWB_DIR = r"D:/analysis/nwb"
-UNITS_CSV = r"D:/workspace/omission/outputs/classification/omission_grand_units.csv"
-OUT_DIR = r"D:/workspace/omission/outputs/within_session_spk_spk_sliding_corr"
+NWB_DIR = _P.nwb_dir()
+UNITS_CSV = _P.REPO_ROOT / "outputs/classification/omission_grand_units.csv"
+OUT_DIR = _P.REPO_ROOT / "outputs/within_session_spk_spk_sliding_corr"
 
 N_GOOD_UNITS = 6
 MIN_FIRING_RATE_HZ = 1.0

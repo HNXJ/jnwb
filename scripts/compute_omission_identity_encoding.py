@@ -34,6 +34,7 @@ from jnwb.omission_identity import (
     decode_omission_identity_slot,
     build_noise_controlled_spike_matrix,
 )
+from jnwb import paths as _P
 
 OUT_DIR = REPO_ROOT / "outputs" / "classification"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -54,7 +55,7 @@ TIME_CENTERS = np.arange(WIN_START + WIN_SIZE / 2.0, WIN_END - WIN_SIZE / 2.0 + 
 
 def main():
     t0 = time.time()
-    nwb_dir = pathlib.Path(r"D:\analysis\nwb")
+    nwb_dir = pathlib.Path(_P.nwb_dir())
     nwb_files = sorted(list(nwb_dir.glob("*.nwb")))
     
     print(f"Found {len(nwb_files)} NWB files in {nwb_dir}.")

@@ -35,9 +35,10 @@ import statsmodels
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from area_subject_glmm import fit_area_subject_and_pairwise  # noqa: E402
+from jnwb import paths as _P
 
-CENSUS = r"D:/workspace/omission/outputs/lfp_band_census_stim/channel_band_power.csv.gz"
-OUT_DIR = r"D:/workspace/omission/outputs/lfp_band_census_stim"
+CENSUS = _P.REPO_ROOT / "outputs/lfp_band_census_stim/channel_band_power.csv.gz"
+OUT_DIR = _P.REPO_ROOT / "outputs/lfp_band_census_stim"
 BANDS = ["theta", "alpha", "beta", "low_gamma", "high_gamma"]
 RESP = "db_stim_baserel"
 

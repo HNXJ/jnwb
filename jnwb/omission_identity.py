@@ -34,7 +34,14 @@ log = logging.getLogger(__name__)
 OMISSION_IDENTITY_CONDITIONS = {
     "p2": {"A": "AXAB", "B": "BXBA", "R": "RXRR", "slot_onset_ms": 1031.0, "slot_end_ms": 1562.0},
     "p3": {"A": "AAXB", "B": "BBXA", "R": "RRXR", "slot_onset_ms": 2062.0, "slot_end_ms": 2593.0},
-    "p4": {"A": "AAAX", "B": "BBBX", "R": "RRRX", "slot_onset_ms": 3093.0, "slot_end_ms": 3624.0},
+    # 2026-08-06 BUG FIX: p4's A/B were swapped. AAAX's parent sequence is AAAB (p1=A,p2=A,p3=A,
+    # p4=B) -- omitting p4 hides a B, not an A. BBBX's parent is BBBA (p4=A) -- omitting p4
+    # hides an A. Verified against every other slot's own parent-sequence semantics (p2/p3 were
+    # already correct: AXAB's parent AAAB has p2=A; AAXB's parent AAAB has p3=A) before fixing.
+    # Every p4-specific number computed before this fix (v1/v2 slot-decode tables, the single-
+    # session step2 script) used the wrong ground-truth label at p4 and must be treated as
+    # unreliable until rerun; p2 (this week's headline slot) was never affected.
+    "p4": {"A": "BBBX", "B": "AAAX", "R": "RRRX", "slot_onset_ms": 3093.0, "slot_end_ms": 3624.0},
 }
 
 LFP_BANDS = {
@@ -226,6 +233,31 @@ def decode_omission_identity_slot(
 
 from sklearn.linear_model import LogisticRegression as _LogisticRegression  # noqa: E402
 from sklearn.metrics import accuracy_score as _accuracy_score  # noqa: E402
+
+
+def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
+    """REAL temporal cycle detection, added 2026-08-06 after a correction: the whole
+    A-supergroup/B-supergroup/R-supergroup block-order confound documented above is real, but
+    each condition's trials are NOT one single contiguous block -- verified directly against
+    trial start_time gaps that each condition (AXAB/BXBA/RXRR, and likewise at p3/p4) actually
+    occurs in ~3 widely-separated temporal clusters per session (median inter-trial gap ~60-130s,
+    but 2-3 gaps of 3000-4400s -- the whole 5-condition micro-order repeats roughly 3 times
+    across the session). `task_block_number` reuses the same integer label across all 3 repeats,
+    which is why checking only its unique value (done earlier, before this correction) wrongly
+    looked like one contiguous block. This function finds the real cluster boundaries via a
+    gap-threshold on sorted start_time and returns a 0-indexed cycle id per trial (in the
+    original row order of epochs_df, not sorted order)."""
+    order = np.argsort(epochs_df["start_time"].values)
+    t_sorted = epochs_df["start_time"].values[order]
+    gaps = np.diff(t_sorted)
+    thresh = gap_factor * np.median(gaps) if len(gaps) else np.inf
+    breaks = np.where(gaps > thresh)[0]
+    cycle_sorted = np.zeros(len(t_sorted), dtype=int)
+    for b in breaks:
+        cycle_sorted[b + 1:] += 1
+    cycle = np.empty(len(order), dtype=int)
+    cycle[order] = cycle_sorted
+    return cycle
 
 
 def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> np.ndarray:
@@ -424,6 +456,151 @@ def decode_omission_identity_full(
         **r_result,
         "_oof_true": np.array(oof_true), "_oof_score": np.array(oof_score),
         "_oof_quartile": np.array(oof_quartile),
+    }
+
+
+def decode_identity_cycle_deconfound(
+    session, area: str, slot_key: str = "p2", contrast: Tuple[str, str] = ("A", "B"),
+    time_window_ms: Tuple[float, float] = (1031.0, 1562.0), n_permutations: int = 200,
+    random_state: int = 42,
+) -> Dict[str, object]:
+    """2026-08-06 redesign, after the cycle-structure correction: each condition's trials
+    actually occur in ~3 temporally separated repeats across the session (see
+    detect_trial_cycles), not one contiguous block -- but WITHIN each repeat, the fixed
+    A-then-B-then-R micro-order still holds (confirmed: every cycle, every session). This
+    function:
+      1. Assigns each A/B/R trial its real cycle id (0,1,2,...).
+      2. PER-CYCLE MEAN-CENTERS every unit's spike count using ALL A+B+R trials in that same
+         cycle, before scaling -- removes any per-cycle overall gain/excitability level (the
+         "neuronal fatigue" explanation: a monotonic level drop across cycles), leaving only
+         within-cycle relative differences for the classifier to use.
+      3. Runs LEAVE-ONE-CYCLE-OUT CV for the 2-way A-vs-B decode on the centered features --
+         tests whether a fixed discriminating pattern recurs across independently-repeated
+         cycles, not just within one.
+      4. Runs a genuine 3-WAY confusion-matrix decode (A vs B vs R, class-balanced, same
+         leave-one-cycle-out folds) -- R has no true identity by design, so the diagnostic is
+         whether A/B off-diagonal confusion stays low while R does not systematically skew
+         into either the A or B column.
+    HONEST LIMIT (stated, not hidden): this rules out a monotonic whole-session drift and a
+    per-cycle mean/gain shift, but cannot by itself rule out a fixed, order-locked transient
+    that recurs identically after every block transition regardless of content (since A always
+    precedes B always precedes R in every cycle, every session -- verified, no exceptions).
+    """
+    cond_cfg = OMISSION_IDENTITY_CONDITIONS[slot_key]
+    cond_a, cond_b, cond_r = cond_cfg[contrast[0]], cond_cfg[contrast[1]], cond_cfg.get("R")
+    ea = session.get_epochs(phase=2, condition=cond_a)
+    eb = session.get_epochs(phase=2, condition=cond_b)
+    er = session.get_epochs(phase=2, condition=cond_r) if cond_r else ea.iloc[0:0]
+    units_df = session.get_units(area=area)
+    base = {"area": area, "slot_key": slot_key, "n_units": len(units_df)}
+    if len(units_df) < 2 or len(ea) < 6 or len(eb) < 6 or len(er) < 6:
+        return {**base, "status": "insufficient_data"}
+    unit_ids = units_df["unit_id"].tolist()
+    win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
+
+    def spikemat(epochs):
+        onsets = epochs["start_time"].values
+        X = np.zeros((len(onsets), len(unit_ids)))
+        for j, u_id in enumerate(unit_ids):
+            st = session.get_spike_times(u_id)
+            st = np.sort(st) if st is not None and len(st) else np.array([])
+            for i, onset in enumerate(onsets):
+                lo = np.searchsorted(st, onset + win_sec[0], side="left")
+                hi = np.searchsorted(st, onset + win_sec[1], side="right")
+                X[i, j] = hi - lo
+        return X
+
+    Xa, Xb, Xr = spikemat(ea), spikemat(eb), spikemat(er)
+    ca, cb, cr = detect_trial_cycles(ea), detect_trial_cycles(eb), detect_trial_cycles(er)
+    n_cycles = int(max(ca.max(initial=0), cb.max(initial=0), cr.max(initial=0)) + 1)
+    if n_cycles < 2:
+        return {**base, "status": "insufficient_cycles", "n_cycles": n_cycles}
+
+    # per-cycle mean-centering: each unit's own A+B+R-pooled mean within that cycle
+    def center(X, c):
+        Xc = X.copy()
+        for k in range(n_cycles):
+            pooled_mean = np.concatenate([
+                Xa[ca == k], Xb[cb == k], Xr[cr == k]]).mean(axis=0) if (
+                (ca == k).any() or (cb == k).any() or (cr == k).any()) else np.zeros(X.shape[1])
+            m = c == k
+            Xc[m] = X[m] - pooled_mean
+        return Xc
+
+    Xa_c, Xb_c, Xr_c = center(Xa, ca), center(Xb, cb), center(Xr, cr)
+
+    from sklearn.svm import SVC
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler as _SS
+
+    # ---- 2-way A vs B, leave-one-cycle-out ----
+    Xab = np.concatenate([Xa_c, Xb_c], axis=0)
+    yab = np.array([0] * len(Xa_c) + [1] * len(Xb_c))
+    cyc_ab = np.concatenate([ca, cb])
+    accs = []
+    for k in range(n_cycles):
+        te = cyc_ab == k
+        tr = ~te
+        if len(set(yab[te].tolist())) < 1 or len(set(yab[tr].tolist())) < 2 or te.sum() < 2:
+            continue
+        p = Pipeline([("scaler", _SS()), ("clf", SVC(kernel="linear", C=1.0, random_state=random_state))])
+        p.fit(Xab[tr], yab[tr])
+        accs.append(p.score(Xab[te], yab[te]))
+    acc_loco = float(np.mean(accs)) if accs else float("nan")
+
+    rng = np.random.default_rng(random_state)
+    perm_accs = []
+    for _ in range(n_permutations):
+        y_perm = rng.permutation(yab)
+        p_accs = []
+        for k in range(n_cycles):
+            te = cyc_ab == k
+            tr = ~te
+            if len(set(y_perm[te].tolist())) < 1 or len(set(y_perm[tr].tolist())) < 2 or te.sum() < 2:
+                continue
+            p = Pipeline([("scaler", _SS()), ("clf", SVC(kernel="linear", C=1.0, random_state=random_state))])
+            p.fit(Xab[tr], y_perm[tr])
+            p_accs.append(p.score(Xab[te], y_perm[te]))
+        if p_accs:
+            perm_accs.append(np.mean(p_accs))
+    p_val = float(np.mean(np.array(perm_accs) >= acc_loco)) if perm_accs else float("nan")
+    p_val = p_val if (p_val and p_val > 0) else (1.0 / (n_permutations + 1) if perm_accs else float("nan"))
+
+    # ---- 3-way A vs B vs R, leave-one-cycle-out, class-balanced per fold ----
+    Xabr = np.concatenate([Xa_c, Xb_c, Xr_c], axis=0)
+    yabr = np.array([0] * len(Xa_c) + [1] * len(Xb_c) + [2] * len(Xr_c))
+    cyc_abr = np.concatenate([ca, cb, cr])
+    conf = np.zeros((3, 3))
+    n_conf_folds = 0
+    for k in range(n_cycles):
+        te = cyc_abr == k
+        tr = ~te
+        if te.sum() < 3 or len(set(yabr[tr].tolist())) < 3:
+            continue
+        n_min_tr = min((yabr[tr] == c).sum() for c in (0, 1, 2))
+        if n_min_tr < 2:
+            continue
+        rng2 = np.random.default_rng(random_state + k)
+        idx_bal = np.concatenate([
+            rng2.choice(np.where(tr & (yabr == c))[0], n_min_tr, replace=False) for c in (0, 1, 2)])
+        clf = _LogisticRegression(C=1.0, max_iter=500)
+        sc = _SS().fit(Xabr[idx_bal])
+        clf.fit(sc.transform(Xabr[idx_bal]), yabr[idx_bal])
+        preds = clf.predict(sc.transform(Xabr[te]))
+        for true_c, pred_c in zip(yabr[te], preds):
+            conf[true_c, pred_c] += 1
+        n_conf_folds += 1
+    conf_row_norm = conf / np.maximum(conf.sum(axis=1, keepdims=True), 1)
+
+    return {
+        **base, "status": "success", "n_cycles": n_cycles,
+        "acc_loco_meancentered": acc_loco, "p_val_loco": p_val,
+        "perm_null_mean": float(np.mean(perm_accs)) if perm_accs else float("nan"),
+        "n_trials_a": len(Xa), "n_trials_b": len(Xb), "n_trials_r": len(Xr),
+        "confusion_matrix_counts": conf.tolist(),
+        "confusion_matrix_row_normalized": conf_row_norm.tolist(),
+        "confusion_labels": [contrast[0], contrast[1], "R"],
+        "n_confusion_folds": n_conf_folds,
     }
 
 

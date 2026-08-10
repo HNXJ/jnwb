@@ -55,8 +55,9 @@ from precompute_tfr_arrays import (  # noqa: E402
     condition_numbers_for, load_probe_areas, resolve_lfp_datasets,
 )
 from jnwb.spectral import laplacian_reference  # noqa: E402
+from jnwb import paths as _P
 
-META_ROOT = Path(os.environ.get("OMISSION_META_DIR", "D:/workspace/data/metadata"))
+META_ROOT = Path(os.environ.get("OMISSION_META_DIR", _P.meta_dir()))
 CHANNEL_LAYERS_PATH = REPO / "outputs/layers/channel_layers_all.csv"
 LAYERS = ("sup", "mid", "deep")
 READINESS = REPO / "artifacts/data/session_readiness.csv"

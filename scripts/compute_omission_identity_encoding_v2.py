@@ -78,11 +78,12 @@ from jnwb.omission_identity import (  # noqa: E402
     shuffle_r2_ci,
     assign_subblock_quartiles,
 )
+from jnwb import paths as _P
 
 OUT_DIR = REPO_ROOT / "outputs" / "classification"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-NWB_DIR = pathlib.Path(r"D:\analysis\nwb")
-TFR_DIR = pathlib.Path(r"D:/workspace/data/tfr_arrays")
+NWB_DIR = pathlib.Path(_P.nwb_dir())
+TFR_DIR = pathlib.Path(_P.tfr_dir())
 AREA_VEC_CSV = REPO_ROOT / "outputs" / "channel_area_vector" / "channel_area_vector.csv"
 
 AREAS = ["FEF", "PFC", "TEO", "V4", "V3", "V2", "V1"]

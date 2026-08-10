@@ -21,8 +21,9 @@ from jnwb.unit_classification import (
     assign_o_plusplus_from_template_table,
     oplusplus_census_summary,
 )
+from jnwb import paths as _P
 
-REPO = Path(r"D:\workspace\omission")
+REPO = Path(_P.REPO_ROOT)
 SRC = REPO / "outputs" / "classification" / "grand_oplus_units.csv"
 OUT_CSV = REPO / "outputs" / "classification" / "grand_oplusplus_units.csv"
 OUT_JSON = REPO / "artifacts" / "data" / "oplusplus_census.json"

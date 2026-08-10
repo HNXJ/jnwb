@@ -57,6 +57,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 import jnwb as oa  # noqa: E402
+from jnwb import paths as _P
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,7 +78,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--meta-root",
         type=Path,
-        default=Path("D:/workspace/data/metadata"),
+        default=Path(_P.meta_dir()),
         help="Sidecar metadata root produced by scripts/build_session_sidecars.py",
     )
     p.add_argument(

@@ -51,8 +51,9 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.regression.mixed_linear_model import MixedLM
 from statsmodels.stats.multitest import multipletests
+from jnwb import paths as _P
 
-IN_DIR = r"D:/workspace/omission/outputs/population_firing_lfp_power_corr"
+IN_DIR = _P.REPO_ROOT / "outputs/population_firing_lfp_power_corr"
 DATA_CSV = os.path.join(IN_DIR, "all_session_rows.csv.gz")
 FACTORS = {"area": "V1", "band": "theta", "func_group": "Other", "condition_group": "baseline"}
 ALPHA = 0.05

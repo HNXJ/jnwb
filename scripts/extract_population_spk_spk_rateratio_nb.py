@@ -84,10 +84,11 @@ from jnwb.connectivity import bin_spikes  # noqa: E402
 from extract_population_firing_lfp_power_corr import (  # noqa: E402
     build_functional_groups, CONDITION_GROUPS, UNITS_CSV,
 )
+from jnwb import paths as _P
 
-NWB_DIR = r"D:/analysis/nwb"
-PRESENCE_CSV = r"D:/workspace/omission/outputs/classification/unit_trial_presence.csv"
-OUT_DIR = r"D:/workspace/omission/outputs/population_spk_spk_rateratio_nb"
+NWB_DIR = _P.nwb_dir()
+PRESENCE_CSV = _P.REPO_ROOT / "outputs/classification/unit_trial_presence.csv"
+OUT_DIR = _P.REPO_ROOT / "outputs/population_spk_spk_rateratio_nb"
 
 BIN_MS = 10.0
 MAX_LAG_MS = 200.0

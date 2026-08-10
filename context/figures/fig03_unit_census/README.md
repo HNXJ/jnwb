@@ -78,6 +78,70 @@ silently refused to expand far enough and left the legend positioned past the ca
 invisible in the saved file — found by rendering the panel standalone and inspecting the PNG,
 not by reasoning about the layout).
 
+### 2026-08-06 revision — main figure rebuilt as 3 rows x 2 columns
+
+Per direction, the main figure's four-panel layout (presence, composition, peak-rate, RXRR
+template trace + UMAP) is replaced with six panels:
+
+- **A** — composition-by-area (unchanged, formerly panel "e" / `panel_composition8_by_area`).
+- **B** — O+-only zoom of the same composition and denominator, since O+ is a ~0-2% sliver too
+  thin to read at panel A's scale (`panel_composition_oplus_zoom`, exact binomial CI per area).
+- **C/D/E/F** — grand average ± SEM firing rate, full trial (p1-aligned), for S+/S++ pooled,
+  S-/S-- pooled, O+, and O++ respectively, each panel overlaying all four R-family conditions
+  (RRRR/RXRR/RRXR/RRRX) so the reader sees, per class, both the real-stimulus response AND the
+  omission-evoked change at whichever slot that condition omits
+  (`compute_population_psth_multi_condition` + `panel_grand_average_by_condition`). This
+  replaces the old single pooled-RXRR template-trace panel (min-max-scaled shape comparison)
+  with real, unscaled rate traces split by condition.
+
+**Panels visually verified** (rendered via headless-Chrome-equivalent browser preview, per this
+project's own falsifier convention) before calling this done:
+- **C (S+/S++)**: clean, expected pattern — each condition's own omitted slot shows a flat,
+  suppressed trace while the other three conditions show a real stimulus-evoked peak there.
+- **D (S-/S--)**: mirror-image of C (real stimulus suppresses these units; the omitted slot
+  shows a lack of suppression instead), equally clean.
+- **E (O+)**: the interesting, condition-specific pattern this class is defined by — e.g. RXRR
+  (omits p2) shows an elevated bump specifically during the p2 window relative to the other
+  three conditions, and RRXR (omits p3) shows the same at p3. Wide CI bands reflect n=70.
+- **F (O++)**: **n=3 units** (this class's own 4-condition/legacy-screened intersection, far
+  below the class's corpus-wide n=15) — pure noise, no discernible pattern, included for
+  completeness per direction ("keep O++ too since it is not a large group") but **not
+  interpretable**. State this plainly wherever F is cited; do not read shape into it.
+
+### 2026-08-06, same day: smoothing + panel B redenominated, checked against direction
+
+Two follow-up changes, both applied and verified by rendering:
+- **C-F smoothed** (`_gaussian_smooth`, same sigmas the old template-trace panel already used:
+  3 bins for S-family, 6 for O-family) — both the mean and the SEM band. Real improvement, not
+  cosmetic: E (O+)'s condition-specific omission-evoked bump is now clearly visible where it was
+  previously buried in bin-to-bin noise. F (O++, n=3) stays uninterpretable even after
+  smoothing — smoothing cannot manufacture a signal that isn't in 3 units' worth of data, and
+  none appears.
+- **Panel B redenominated**: O+'s share of (O+, S+, S-) only, not of the whole legacy-screened
+  population. **Checked against the stated prediction (share should rise toward higher-order
+  areas) and it does not hold in this corpus**: V2 (early visual) is highest at 50% (10/20), FEF
+  (frontal) is one of the lowest at 14% (7/50), PFC sits at 19% (17/88) — comparable to V1's 23%
+  (5/22), not higher. No monotonic order effect is visible. Also worth flagging plainly: every
+  area's denominator here is tiny (11-88 units, since it excludes S++/S--/O-/O++/Other), so the
+  95% CIs overlap almost completely across all nine areas — none of these are statistically
+  distinguishable from each other at this n, independent of whether the point estimates happen
+  to trend in one direction or another.
+
+**Moved to supplement** (`svg/fig03_supp_presence_by_area.*`, `svg/fig03_supp_peak_rate_by_area.*`,
+`svg/fig03_supp_class_embedding.*`, assembled together as
+`svg/fig03_supp_presence_peakrate_umap.svg`): the presence/stability panel, the peak-rate panel,
+and the UMAP embedding. UMAP was kept conditional on visibly clustering by supergroup (O+/O++
+together, S+/S++ together, S-/S-- together, Other surrounding) — **checked directly against the
+rendered panel, and it does not**: O+ units (magenta) are scattered throughout with no distinct
+cluster, "Other" (gray) is intermixed rather than surrounding the other groups, though S++ and
+S-- do occupy loosely separated regions (bottom vs. top). Per the stated condition, it stays in
+the supplement rather than being forced into the main figure or artificially re-clustered.
+
+Internal script/output filenames were not renamed (`compute_population_psth`,
+`panel_template_trace_rxrr`, etc. remain even though `panel_template_trace_rxrr`'s own output is
+now supplement-only, not part of the assembled main figure) — same convention used elsewhere in
+this project (directory/figure identity is tracked externally, not by internal names).
+
 ## Statistics
 
 All in `svg/fig03_stats.md`, one family per panel: `fig03_questions`, `fig03_area`,

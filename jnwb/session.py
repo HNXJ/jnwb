@@ -634,10 +634,9 @@ class OmissionSession:
         import os
         import re
 
-        tfr_root = Path(
-            tfr_dir
-            or os.environ.get("OMISSION_TFR_DIR", "D:/workspace/data/tfr_arrays")
-        )
+        from . import paths as _paths
+
+        tfr_root = _paths.tfr_dir(tfr_dir)
         stem = self.nwb_path.stem
         # strip trailing _rec for prefix used in tfr filenames
         session_prefix = re.sub(r"_rec$", "", stem)

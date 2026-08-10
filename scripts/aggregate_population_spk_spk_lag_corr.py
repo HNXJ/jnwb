@@ -33,8 +33,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
+from jnwb import paths as _P
 
-IN_DIR = r"D:/workspace/omission/outputs/population_spk_spk_lag_corr"
+IN_DIR = _P.REPO_ROOT / "outputs/population_spk_spk_lag_corr"
 Z_THRESH = 1.96
 ALPHA = 0.05
 MIN_SESSIONS = 3

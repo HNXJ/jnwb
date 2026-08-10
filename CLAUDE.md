@@ -3,7 +3,10 @@
 Claude Code entrypoint for this repo.
 
 **Canonical project doctrine:** `.agents/AGENTS.md`  
-**Global working agreement:** `C:\Users\nejath\.gemini\config\AGENTS.md`
+**Global doctrine (Claude sessions):** `~/.claude/CLAUDE.md` — authoritative, auto-loaded.  
+**Cursor/Gemini working agreement:** `C:\Users\nejath\.gemini\config\AGENTS.md` — binding for
+those harnesses, **not** a Claude authority. The two diverged (0.02 similarity) and contradict
+each other on the v15 four-engine model; `~/.claude/CLAUDE.md` is the tie-breaker here.
 
 Do not duplicate long doctrine here. If you need omission-specific paths, footguns, or PRP
 triggers, read `.agents/AGENTS.md` first. Legacy notes in `legacy/markdowns/CLAUDE.md` are
@@ -17,18 +20,16 @@ Note that `session_readiness.csv` lists 21 NWB-ready sessions while the TFR anal
 ## Labyrinth Reflex — every user turn reads and writes the graph
 
 **Consult `artifacts/.lab/` before you answer; leave a delta in it before you finish.** The
-default posture on every turn, including one-line prompts — not a ceremony reserved for big
-tasks. Do not ask permission to do it.
+default posture on every turn, including one-line prompts. Do not ask permission to do it.
 
-Read first (recalled context is a hypothesis, the graph is the record) → write last (every
-turn ends with a claim, status change, edge, or `notes[]`/`issues[]` append, or an explicit
-"nothing worth recording" said out loud) → prefer edges and status changes over new nodes
-(node-count growth without confirmed-claim growth is failure) → treat the user as a source,
-not an oracle (user assertions enter at `unconfirmed`, the same bar a paper gets; a conflict
-with a confirmed node is a `contradicts` edge you state plainly) → no receipt, no claim,
-graph writes included.
+**Full rules: the "Labyrinth Reflex" section of `~/.claude/CLAUDE.md`, which is already loaded
+in this and every other session — read it there, not here.**
 
-Canonical wording: the "Labyrinth Reflex" section of `C:\Users\nejath\.gemini\config\AGENTS.md`.
+Condensed 2026-08-08. This section previously restated the reflex in full, making three copies
+of one rule set: `~/.claude/CLAUDE.md` (always loaded), this file (always loaded), and
+`C:\Users\nejath\.gemini\config\AGENTS.md`. Two always-loaded near-copies at 0.18 textual
+similarity is the exact "two documents disagree, and you must diff them to know which won"
+hazard the doctrine warns about. The user-scope file is the live text; this is a pointer.
 
 ---
 
@@ -76,11 +77,12 @@ Key doctrine:
   `outputs/publication_visual_review/area_layer_tfr/layer_masks.json`, and NWB `units`/`processing`
   as the core sources.
 - Treat waveform duration units and layer-mask unit namespaces as verification hazards before making biological claims.
-- The repo also has downstream-audience handouts (`outputs/archive/notebooks/data_handout.md`,
-  `outputs/archive/notebooks/colab_handout.md`) that restate the data topology for external/Colab
-  runtimes. These are convenience copies, not the source of truth — if they conflict
-  with the authoritative handout below, the authoritative one wins and the drift is
-  worth flagging to the user.
+<!-- Removed 2026-08-08: this bullet described downstream-audience handouts at
+     `outputs/archive/notebooks/{data,colab}_handout.md`. Neither file exists anywhere in the
+     repo (checked by `find . -name "*handout*"`, which returns only
+     `context/archive/info/09_figure3_handout_2026-07-13.md` and a .lab node). The rule it
+     stated -- convenience copies lose to the authoritative handout, and drift gets flagged --
+     still holds for any such copy that reappears; it just had no live referent. -->
 - Figure/table provenance can mix scopes (e.g. the legacy `pie_charts_summary.svg`
   mixed "all 6,040 units" panels with "stable-only" panels without labeling the
   difference; see the revised version and its provenance note for the explicit-criteria
@@ -103,6 +105,48 @@ Critical handouts:
      two notebook handouts were also listed at paths that no longer resolve, and have been
      repointed above. All six were verified on disk. Registries that point at files go stale
      silently; re-resolve these before trusting them. -->
+
+## Placeholder/dummy figures must be red-flagged in the render itself
+
+**Standing rule, set 2026-08-06.** Any figure (main or supplement) that contains placeholder,
+synthetic, or fallback content instead of a real computed result must render an unmissable red
+title reading **"PLACEHOLDER-DUMMY"** directly on the figure — in addition to, not instead of,
+its normal title. This applies per-panel or per-figure depending on scope: if any panel in an
+assembled figure uses non-real data, the whole assembled figure gets the flag, since a figure
+with even one fabricated panel cannot be presented as trustworthy without one.
+
+This is a concrete enforcement mechanism for the existing "no silent synthetic science" rule
+(global `CLAUDE.md`): the failure mode it closes is a script with a real-data code path AND a
+synthetic-fallback code path (`if csv.exists(): ... else: <hardcoded numbers>`), where the
+fallback silently produces a plausible-looking figure with no visual indication anything is
+wrong. `context/figures/fig04_omission_identity_decoding/fig04_omission_identity_decoding.py`
+is the reference implementation: a `used_placeholder` flag set `True` by every fallback branch
+(including panels with NO real-data path at all — a plain `if` isn't enough, some panels there
+are unconditionally hardcoded), checked once before `savefig()` to add the red title via
+`fig.text(...)`. Copy this pattern into any other script that has a synthetic-fallback path.
+
+## Numerical stack — four array backends, one dispatch pattern
+
+This repo is not numpy-only. Measured 2026-08-08 across `jnwb/` and `scripts/`:
+**numpy** (86 import sites) · **torch** (`analyzers`, `gpu_pca`, `nam`, `trajectory`, `jrsa`) ·
+**cupy** (`analyzers`, `connectivity`, `spectral`, `jrsa`) · **jax/jnp** (`jrsa` only).
+CUDA is live here (torch 2.12.0+cu126, `torch.cuda.is_available() → True`).
+
+**New GPU code follows `jnwb/jrsa.py`'s dispatch — `_get_backend` / `_autodetect_backend` /
+`_to_backend` / `_get_xp`, with a `backend="auto"` parameter — and never a bare `import cupy`
+at module top level.** That is the house pattern; `jnwb/spectral.py` predates it and has a
+`cupy` path with no CPU fallback, so it is not the one to copy.
+
+**Every GPU path needs a working CPU path**, because GPU availability is not a property of the
+repo. `jnwb/gpu_pca.py` shows the minimal correct shape: try the accelerated path, fall back,
+and report which one ran.
+
+Backends are optional extras (`pip install -e ".[gpu]"` / `".[torch]"`), so import them inside
+the function that uses them, never at module scope — a top-level `import cupy` makes the whole
+module unimportable on a CPU-only machine.
+
+Details, including seeding across all four backends and the float32 precision trap:
+`.claude/skills/numerical-computing/SKILL.md`.
 
 ## Band definitions — settled, do not re-drift
 

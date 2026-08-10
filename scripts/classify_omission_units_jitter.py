@@ -53,14 +53,15 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sst
 
-sys.path.insert(0, r"D:/workspace/omission")
+sys.path.insert(0, _P.REPO_ROOT)
 
 import jnwb as oa
 from jnwb.unit_classification import (EPOCH_ONSETS_MS, PRESENTATION_DUR_MS,
                                       omission_events, precompute_condition_onsets)
+from jnwb import paths as _P
 
-NWB_DIR = r"D:/analysis/nwb"
-OUT_DIR = r"D:/workspace/omission/outputs/classification"
+NWB_DIR = _P.nwb_dir()
+OUT_DIR = _P.REPO_ROOT / "outputs/classification"
 
 JITTER_MS = 200.0
 N_SHUFFLES = 1000

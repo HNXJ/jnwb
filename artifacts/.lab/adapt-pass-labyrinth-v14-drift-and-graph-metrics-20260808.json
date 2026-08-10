@@ -1,0 +1,57 @@
+{
+  "schema_version": 3,
+  "id": "adapt-pass-labyrinth-v14-drift-and-graph-metrics-20260808",
+  "created": "2026-08-08",
+  "title": "Adapt pass: the loaded labyrinth-protocol skill was pre-v14 and advertised the superseded model in its own description; normalized Fano is 15.9 against a 1.25 Prune trigger",
+  "claims": [
+    {
+      "id": "claim-four-labyrinth-files-are-not-copies",
+      "status": "confirmed",
+      "statement": "The four Labyrinth documents are not duplicates of one specification -- they are four divergent documents with different roles, and nothing recorded that layering. Max pairwise similarity is 0.12.",
+      "receipt": "difflib SequenceMatcher over the Labyrinth material in each, 2026-08-08: claude-CLAUDE vs gemini-AGENTS 0.03; claude-CLAUDE vs gemini-SKILL 0.02; claude-CLAUDE vs omission-SKILL 0.04; gemini-AGENTS vs gemini-SKILL 0.02; gemini-AGENTS vs omission-SKILL 0.12; gemini-SKILL vs omission-SKILL 0.03. Roles: ~/.claude/CLAUDE.md = doctrine summary + Reflex (auto-loaded); ~/.gemini/config/AGENTS.md = same for Cursor/Gemini; ~/.gemini/config/skills/labyrinth-protocol/SKILL.md (5813c) = operational checkpoint TRIGGERS only, no protocol spec; omission/.claude/skills/labyrinth-protocol/SKILL.md (9015c) = the operational spec with the 7 actions.",
+      "note": "The layering is defensible. The failure was that no file stated it, so 'four copies' looked like redundancy to prune when it is actually a division of labour."
+    },
+    {
+      "id": "claim-loaded-skill-was-pre-v14",
+      "status": "confirmed",
+      "statement": "The labyrinth-protocol skill loaded in every omission session specified SIX measured quantities with Cost as the sixth, contradicting the authoritative v14+ statement of SEVEN quantities with Cost explicitly outside J. Aperture and Capability were absent entirely. The stale count was also in the skill's frontmatter description, so it was the first thing any agent read.",
+      "receipt": "Pre-edit skill: heading 'The Ontology Stack & Six Measured Quantities', body 'quantified across **six terms**' listing 6=Cost 'named, unbuilt'; grep counts Aperture 0, Capability 0, v14 0, v15 0, seen_fraction 0, dark_region 0. ~/.claude/CLAUDE.md: 'Seven state quantities (v14+; cost measured & reported beside J, never inside J)' listing Aperture (S) and Capability (T).",
+      "note": "Fixed under Adapt authority -- the protocol's own definition of Adapt is propose-only for CLAUDE.md/AGENTS.md/memory, and a SKILL.md is not in that list. Backup at ~/.claude/backups/doctrine-20260808/omission-labyrinth-SKILL.md.orig. The skill now also carries the v15 Fano/Depth 1.25 tolerance and the retargeted connectivity guard, and states that ~/.claude/CLAUDE.md wins on any future disagreement."
+    },
+    {
+      "id": "claim-normalized-fano-far-exceeds-trigger",
+      "status": "confirmed",
+      "statement": "Complexity is far outside the v15 tolerance. Null-model normalized Fano is 15.93 against a Prune trigger of 1.25, and 7.76 even after exempting the nine declared hub-* nodes the doctrine allows.",
+      "receipt": "372 nodes, 1072 edges, mean degree 5.76. Observed Fano (var/mean of degrees) 15.77; Erdos-Renyi null with matched n and m over 200 draws (seed 0) gives 0.99; normalized 15.93. Excluding 9 hub-* nodes: normalized 7.76. Computed 2026-08-08.",
+      "note": "Raw Fano alone would have been meaningless on a hub-and-spoke graph -- the doctrine specifies null-model normalization and that is what was computed. This is the first time this quantity has actually been measured on this graph rather than named."
+    },
+    {
+      "id": "claim-retargeted-guard-already-holds",
+      "status": "unconfirmed",
+      "statement": "The retargeted anti-inflation guard (isolated-node fraction rather than confirmed-claim growth) appears to work: all five nodes written on 2026-08-08 are connected, against a 20% isolation rate for dated-2026 nodes overall.",
+      "receipt": "Degrees of the five 20260808 nodes: fig04-reads-nonexistent 6, doctor-pass 4, path-resolution 3, data-volume-layout 2, doctrine-conflict-resolution 2. Zero isolated. Era-wide: legacy 33/284 = 12% isolated, dated-2026 18/88 = 20%.",
+      "blocked_on": "n=5 written by one agent in one session that was explicitly reasoning about this metric. That is not evidence the rule generalizes -- re-measure after a stretch of ordinary work where the guard is not the topic of conversation."
+    },
+    {
+      "id": "claim-dangling-count-depends-on-claim-promotion",
+      "status": "confirmed",
+      "statement": "The graph's dangling-edge count is not a single number: it is 24 at file-level granularity and 9 once nested claims are promoted to nodes. Reporting one without the granularity is meaningless.",
+      "receipt": "scripts/build_lab_obsidian_graph.py, same run: promote_claims=False -> 372 nodes, 1072 edges, 24 distinct dangling targets; promote_claims=True -> 489 nodes, 1204 edges, 9 distinct dangling. The difference is 13 targets that exist as claims nested inside parent nodes plus duplicates.",
+      "note": "The underlying defect is that this .lab is inconsistent about whether a claim is a file or a nested object. Until that is settled, every connectivity metric must state which convention it used."
+    }
+  ],
+  "edges": [
+    {"from": "adapt-pass-labyrinth-v14-drift-and-graph-metrics-20260808", "to": "doctrine-conflict-resolution-and-domain-rules-20260808", "type": "extends"},
+    {"from": "claim-loaded-skill-was-pre-v14", "to": "claim-four-labyrinth-files-are-not-copies", "type": "explains"},
+    {"from": "claim-retargeted-guard-already-holds", "to": "claim-normalized-fano-far-exceeds-trigger", "type": "qualifies"},
+    {"from": "claim-normalized-fano-far-exceeds-trigger", "to": "claim-dangling-count-depends-on-claim-promotion", "type": "related"}
+  ],
+  "issues": [
+    "PROPOSED, NOT APPLIED (Adapt is propose-only for AGENTS.md): omission/.agents/AGENTS.md line 3-4 still names ~/.gemini/config/AGENTS.md as the inherited global agreement; it carries 4 PRP references that global doctrine already declares superseded by Labyrinth; and it contains a 'D:/analysis/nwb' path that is the pre-remap location -- NWBs are now at D:/nwb/omission.",
+    "PROPOSED, NOT APPLIED: jaxfne/AGENTS.md carries 6 PRP references under the same superseded-protocol rule, and despite 311 JAX import sites in that repo mentions none of float32/x64/PRNGKey/seeding -- the exact footguns the new user-scope numerical-computing and biophysical-modeling skills cover. It should point at them.",
+    "Normalized Fano 15.93 (7.76 excluding hubs) means a Prune pass is due by the protocol's own v15 tolerance. Not run this turn -- Prune shrinks the working set and needs its own scope decision.",
+    "The claim-as-file vs claim-as-nested-object inconsistency is the root cause of the ambiguous dangling count. Settling it is a schema decision, not a rendering one.",
+    "~/.gemini/config/skills/labyrinth-protocol/SKILL.md has no YAML frontmatter, so it is a Gemini-format skill and would not load as a Claude skill. Left alone; noted so nobody moves it expecting it to work."
+  ],
+  "falsifier": "This Adapt pass closes when the two proposed AGENTS.md edits are approved or rejected, and re-opens as a Prune proposal: closed there when normalized Fano falls below 1.25 excluding declared hubs, or when the hub exemption is defined precisely enough that the current 7.76 can be defended as legitimate structure rather than decay."
+}

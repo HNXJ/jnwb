@@ -17,6 +17,13 @@ dependencies = [
     "scikit-learn",
     "matplotlib",
     "plotly",
+    # Added 2026-08-08 after an AST scan found them imported but undeclared. Everything
+    # worked only because the dev venv happened to have them; a fresh `pip install -e .`
+    # produced an env that failed at import time deep inside an analysis run.
+    "statsmodels",   # 17 import sites: every GLMM and FDR path (jrsa, viz, 8 scripts)
+    "joblib",        # jnwb/jrsa.py parallel map
+    "hdmf",          # jnwb/__init__.py NWB builder monkeypatches; transitive via pynwb,
+                     # but imported directly, so declared directly.
     # mcp 2.0 (2026-07-28) removed mcp.server.fastmcp, which jnwb/mcp_server/server.py
     # imports; pin to the v1 line until that module is migrated to the v2 API.
     "mcp<2.0",
@@ -29,11 +36,21 @@ test = [
 torch = [
     "torch",
 ]
+# GPU backends. Both are optional by design: every module that uses them must also work
+# on CPU (see the numerical-computing skill). cupy wheels are CUDA-version-specific --
+# `cupy-cuda12x` for the CUDA 12 line this project runs on.
+gpu = [
+    "cupy-cuda12x",
+    "jax",
+]
+docs = [
+    "python-docx",   # scripts/build_clean_publication_figures.py, generate_publication_figures.py
+]
 kilosort = [
     "kilosort>=4.0",
 ]
 all = [
-    "omission[test,torch,kilosort]",
+    "omission[test,torch,gpu,docs,kilosort]",
 ]
 
 [tool.setuptools]
