@@ -33,6 +33,11 @@
       "from": "claim-trial-averaged-plot-wrong-axes-fixed",
       "to": "claim-baseline-window-mismatch-found-and-fixed",
       "type": "precedes"
+    },
+    {
+      "from": "agent-harness-audit-20260810",
+      "to": "claim-plot-tfr-missing-log10-fixed",
+      "type": "explains"
     }
   ],
   "issues": [
