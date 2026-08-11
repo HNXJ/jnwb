@@ -1,10 +1,18 @@
 # Handout 3 — Structured Identity Experiment v1 (Frozen Specification)
 
-**Status: FROZEN SPECIFICATION. Not an implementation. No training, fitting, or model code
-exists yet as of this document's authorship (2026-08-10, commit `1b52315`).** This document
-requires explicit sign-off from Sol and Hamm before any implementation work begins. Changing
-any section after sign-off is a new version (`v1.1`, `v2`, ...), not a silent edit — the whole
-point of freezing it is that the decision rule can't be adjusted after seeing results.
+**Status: FROZEN SPECIFICATION — SCIENTIFIC_SIGNOFF: APPROVED (2026-08-10).** This document
+was approved by Sol/Hamm for implementation of Milestone 1 only: ontology, fold geometry,
+representation contracts, null plumbing, receipts, and tests. No M2/M3 training is authorized
+until Milestone 1 is reviewed. Changing any scientific section after sign-off is a new version
+(`v1.1`, `v2`, ...), not a silent edit — the whole point of freezing it is that the decision rule
+can't be adjusted after seeing results.
+
+Sign-off receipt: `artifacts/.lab/handout-3-structured-identity-experiment-v1-spec-20260810.json`.
+The sign-off preserves these clarifications: vectorization is bijective absent preprocessing
+loss; R0 rate/collapse is distinct from R1 temporally resolved vectorization; R2 structure is an
+inductive-bias/modeling question rather than literal extra information; the primary comparison is
+paired `A_structured - A_matched-flat` on identical outer folds; and the presented-identity
+positive control uses the same grouped machinery as the omission target.
 
 Gate this specification depends on: `SAFE_TO_RUN_STRUCTURED_DECODING = YES`, established in
 `artifacts/.lab/handout-2.5-runtime-audit-20260810.json`, accepted by Sol/Hamm with two

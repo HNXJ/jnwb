@@ -1,0 +1,66 @@
+{
+  "schema_version": 3,
+  "id": "structured-identity-milestone-1-design-review-20260810",
+  "kind": "review",
+  "created": "2026-08-10",
+  "title": "Structured Identity v1 Milestone 1 design inspection",
+  "status": "provisional",
+  "claims": [
+    {
+      "id": "claim-expected-identity-nuisance-determinism",
+      "status": "confirmed",
+      "statement": "Across 380 outer-train/outer-test nuisance summaries, conditioning on preceding_identity, omission_position, sequence_family, and cycle gives max P(expected_identity | nuisance combination) = 1.0 for every summary; all 380 conditioning-key sets are deterministic.",
+      "receipt": "context/figures/fig04_omission_identity_decoding/structured_identity_experiment_v1/milestone_1/review/milestone_1_design_inspection_receipt.json; nuisance_conditional_table.csv; nuisance_identifiability_summary.csv"
+    },
+    {
+      "id": "claim-fold-geometry-has-inner-gates",
+      "status": "confirmed",
+      "statement": "The persisted outer-fold table contains 294 folds; 14 have only one training cycle, 3 have no A trials in training, and 3 have no B trials in training. Inner metadata emits 14 insufficient_training_groups records.",
+      "receipt": "milestone_1_design_inspection_receipt.json fold_geometry; outer_fold_train_test_counts.csv; inner_validation_counts.csv"
+    },
+    {
+      "id": "claim-r1-r2-contract-equivalence",
+      "status": "confirmed",
+      "statement": "On the explicit contract smoke tensor with shape (4, 3, 5), R1 vectorization reshapes back to the identical R2 samples: R0=(4,3), R1=(4,15), R2=(4,3,5). This is a contract check only; real neural feature tensors were not materialized.",
+      "receipt": "representation_review.json"
+    }
+  ],
+  "issues": [
+    "The current omission ontology makes preceding_identity a deterministic relabeling of expected_identity within omission position; a decoder can therefore succeed on the nuisance target while appearing to decode expected identity.",
+    "Several outer folds cannot support the planned nested model-selection contract without an explicit fold/cell exclusion rule.",
+    "No model was trained and no neural feature tensor was materialized in this review."
+  ],
+  "edges": [
+    {
+      "from": "structured-identity-milestone-1-design-review-20260810",
+      "to": "structured-identity-milestone-1-implementation-20260810",
+      "type": "reviews"
+    },
+    {
+      "from": "structured-identity-milestone-1-design-review-20260810",
+      "to": "handout-3-structured-identity-experiment-v1-spec-20260810",
+      "type": "gates"
+    },
+    {
+      "from": "structured-identity-milestone-1-design-review-20260810",
+      "to": "context/figures/fig04_omission_identity_decoding/structured_identity_experiment_v1/milestone_1/review/milestone_1_design_inspection_receipt.json",
+      "type": "supported_by"
+    }
+  ],
+  "verification": {
+    "checks": {
+      "class_balance_inspected": true,
+      "omission_position_inspected": true,
+      "preceding_expected_contingency_inspected": true,
+      "sequence_family_inspected": true,
+      "cycles_per_class_inspected": true,
+      "outer_fold_train_test_inspected": true,
+      "inner_validation_inspected": true,
+      "nuisance_predictability_inspected": true,
+      "r1_r2_contract_equivalence_checked": true,
+      "models_trained": false
+    },
+    "verdict": "training_gate_remains_closed; resolve nuisance non-identifiability and fold geometry before Milestone 2"
+  },
+  "falsifier": "This review is superseded by a versioned specification amendment or a new design receipt demonstrating an explicitly justified estimand in which expected identity is not deterministically recoverable from the declared nuisance variables and all training folds satisfy the nested-validation contract."
+}

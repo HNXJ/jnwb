@@ -1,0 +1,81 @@
+{
+  "schema_version": 3,
+  "id": "handout-4-stage4b-batched-null-validation-20260811",
+  "kind": "review",
+  "created": "2026-08-11",
+  "title": "Handout 4B continuation Step 3 (validate batched null): FAILED -- found two separate, severe bugs in scripts/run_handout4_stage4b_linear_map.py, both upstream of the shards currently running",
+  "status": "confirmed",
+  "note": "Per docs/handout_4_stage4b_continuation_claude_20260811.md's own instruction: 'If equivalence is not demonstrated, revert to the slower reference null or mark the map NUMERICAL_FAILURE; never silently mix the two.' This node records exactly that outcome, plus a second, more severe bug found while isolating the cause.",
+  "preflight_before_this_check": {
+    "branch": "dev",
+    "sha": "bd7d3cc5612bf4743e1a3d406d020a93c9e7e7b5",
+    "git_status_clean_of_this_investigation": false,
+    "note": "37 uncommitted files present from the Cursor session that produced Handouts 3(signed)/4/4A/4A.1/4B and Milestones 1/1b/2a -- not committed by this agent, not evaluated line-by-line beyond what this validation touched. py_compile and the two handout-specified targeted test files (test_muae_accessor.py, test_handout4_stage4b.py) pass; git diff --check clean on non-skill files."
+  },
+  "shard_status_at_investigation_start": {
+    "processes_running": true,
+    "process_count_observed": "~22 python.exe processes, started ~2026-08-10 22:00-22:07, high accumulated CPU time",
+    "output_directories": [
+      "LFP",
+      "LFP_C31",
+      "LFP_V182a",
+      "LFP_V182bV198",
+      "MUAe",
+      "MUAe_C31",
+      "MUAe_V182a",
+      "MUAe_V182bV198",
+      "SUA",
+      "SUA_C31",
+      "SUA_V182a",
+      "SUA_V182bV198"
+    ],
+    "output_files_found": 0,
+    "receipt_files_found": 0,
+    "conclusion": "Nothing to merge or interpret -- matches the continuation handout's own expectation. Two directory sets exist (unsuffixed, started 22:00; suffixed _C31/_V182a/_V182bV198, started 22:06) suggesting an earlier launch was superseded by a restart six minutes later; both are empty.",
+    "processes_killed": true,
+    "kill_receipt": "22 python.exe processes (PIDs enumerated via Get-CimInstance Win32_Process, confirmed all were scripts/run_handout4_stage4b_linear_map.py shard invocations by exact command line) stopped via Stop-Process -Force, 2026-08-11, per explicit user authorization. D:/analysis/handout4_stage4b_linear_map_parts/ (empty, disqualified output dirs) removed."
+  },
+  "claims": [
+    {
+      "id": "claim-c-selection-swap-bug",
+      "status": "confirmed",
+      "severity": "critical",
+      "statement": "jnwb function scripts/run_handout4_stage4b_linear_map.py:445 (`selected_c, inner_score, n_inner = _select_c(X, labels, groups, fold)`) unpacks _select_c's return tuple in the WRONG order. _select_c (lines 403-430) returns `scores[0]` where each scores entry is `(float(np.mean(inner_scores)), float(C), len(inner_scores))` -- i.e. (mean_balanced_accuracy, C_value, n). The caller's variable names imply the opposite binding. Net effect: `selected_c` (used everywhere downstream as the ridge regularization constant -- the C argument to _fit_prepared for the observed fit, AND item['selected_C'] used by the batched null's `penalty/float(item['selected_C'])`) actually holds a balanced-accuracy SCORE (typically in [0,1]), not a value from C_GRID=(0.01,0.1,1.0,10.0). Conversely `inner_score` (reported as 'inner_balanced_accuracy' in fold_rows/receipts) actually holds a C_GRID value.",
+      "receipt": "Direct isolated call: `module._select_c(X, labels, groups, fold)` on a synthetic dataset returned literally `(0.47607392607392607, 0.01, 5)` -- confirmed (score, C, n) order. The real Stage 4B run's own printed fold summary (from calling _observed_fit on the same synthetic data) showed selected_C values of 0.7247710622710624, 0.7266552891552892, 0.7359903984903986, 0.7192779442779444, 0.7523115773115773, 0.7712412587412587 -- none of which are members of C_GRID, all of which are plausible balanced-accuracy scores. scripts/validate_stage4b_batched_null.py, run 2026-08-11.",
+      "impact": "Every cell this pipeline has ever computed (any shard, any run, including the currently-active ones) used the WRONG ridge regularization strength -- an essentially arbitrary value derived from a balanced-accuracy score treated as if it were 1/alpha, not a value ever intended to be a regularization constant. The 'inner_balanced_accuracy' diagnostic column in every fold_rows/receipt is mislabeled and actually contains a C-grid value. A reviewer sanity-checking 'is inner_balanced_accuracy in [0,1]' would sometimes see a superficially plausible number (0.01, 0.1, 1.0) and not notice; a value of 10.0 would look obviously wrong and might be the only self-flagging case."
+    },
+    {
+      "id": "claim-batched-solver-does-not-reproduce-sklearn",
+      "status": "confirmed",
+      "severity": "critical",
+      "statement": "Independent of claim-c-selection-swap-bug: the batched closed-form ridge solver in _null_distribution (lines ~492-591) does NOT numerically reproduce sklearn.linear_model.RidgeClassifier(alpha=1/C, class_weight='balanced') (the estimator _fit_prepared/_observed_fit actually use), even when given the identical, correct C and the identical (non-permuted, true) labels -- i.e. this is not merely a permutation-null artifact, it is a solver-math mismatch in the closed-form reimplementation itself.",
+      "receipt": "Isolated test (scripts/validate_stage4b_batched_null.py's logic, run manually with permute_labels monkeypatched to identity so no permutation occurs): reference sklearn fit on fold 0 with true labels and C=0.01 gave balanced accuracy 0.7525; the batched closed-form solve on the SAME true labels, SAME C=0.01, pooled across all folds, gave 0.4042. On the full 50-permutation synthetic comparison (real permutations, both paths given the identical swapped-but-shared selected_C per fold): max |batched-reference| balanced-accuracy difference = 0.0678, mean = 0.0227, far outside any defensible numerical tolerance (checked against 1e-9). scripts/validate_stage4b_batched_null.py, run 2026-08-11, exit code 1 (NUMERICAL_FAILURE)."
+    },
+    {
+      "id": "claim-validation-script-built",
+      "status": "confirmed",
+      "statement": "Built scripts/validate_stage4b_batched_null.py per the continuation handout's Step 3 instruction. Loads the runner module without editing it (importlib, sys.modules registration required for its dataclass to introspect correctly under Python 3.14), builds a fixed synthetic dataset with real folds/groups, runs both the reference (per-permutation sklearn RidgeClassifier via the runner's own _fit_prepared) and batched (_null_distribution) paths on identical permuted labels, and compares. Exits 0 only if max balanced-accuracy diff < 1e-9across all valid permutations; exits 1 (NUMERICAL_FAILURE) otherwise, matching the handout's required disposition.",
+      "receipt": "scripts/validate_stage4b_batched_null.py, current run: exit 1, 'NUMERICAL_FAILURE: batched null diverges from the reference sklearn fit by up to 0.0678322 (tolerance 1e-09). Do not use the batched null for production results.'"
+    },
+    {
+      "id": "claim-both-bugs-fixed-and-reverified",
+      "status": "confirmed",
+      "statement": "Both bugs fixed, per user go-ahead (2026-08-11). (1) scripts/run_handout4_stage4b_linear_map.py:445 unpacking order corrected to `inner_score, selected_c, n_inner = _select_c(...)`, matching _select_c's actual (score, C, n) return contract. (2) _null_distribution's batched closed-form ridge solve replaced with a loop calling the already-trusted _fit_prepared (the exact function _observed_fit uses) once per permutation -- per the continuation handout's own explicit fallback instruction ('revert to the slower reference null'), rather than attempting to hand-debug and patch the closed-form linear algebra (class-weighting/intercept parameterization) without full confidence in a correct fix.",
+      "receipt": "Before fix: observed fold C selections were [0.72..., 0.73..., ...] (not in C_GRID); batched-vs-reference max diff 0.0678. After fix: observed fold C selections are [0.01, 0.1, 0.01, 1.0, 1.0, 0.01] (all valid C_GRID members); scripts/validate_stage4b_batched_null.py now reports 'EQUIVALENT within tolerance 1e-09 ... max diff 0.0000000000' (exact match, since the null path now literally calls the same function as the observed fit). Re-verified full Step 2 procedure: py_compile clean, tests/test_muae_accessor.py + tests/test_handout4_stage4b.py 5 passed, git diff --check clean on code files. Full repo suite: 399 passed, 0 failed, 43 skipped (includes all Cursor-authored structured-identity/milestone tests, no regressions)."
+    }
+  ],
+  "edges": [
+    {
+      "from": "handout-4-stage4b-batched-null-validation-20260811",
+      "to": "handout-4-stage4b-linear-map-implementation-20260810",
+      "type": "contradicts"
+    }
+  ],
+  "issues": [
+    "Both bugs are now fixed and re-validated. The runner is ready for a clean Stage 4B restart (continuation handout Step 4) but that restart has NOT been launched by this agent -- it is a separate, resource-intensive action requiring its own explicit go-ahead.",
+    "This fix is UNCOMMITTED, alongside ~40 other uncommitted files from the Cursor session (Handouts 3/4/4A/4A.1/4B, Milestones 1/1b/2a) that this agent has not reviewed line-by-line. Committing scope is a separate decision from the bug fix itself.",
+    "This node's own 'contradicts' edge to handout-4-stage4b-linear-map-implementation-20260810 shows as dangling in scripts/validate_labyrinth_claim_status.py -- not a real defect, that target file uses a non-standard 'node_id' key instead of 'id' (pre-existing schema drift, already flagged in the original agent-harness-audit-20260810.json). The edge correctly names the real file; the validator's ID-matching just can't resolve it due to the target's own schema inconsistency."
+  ],
+  "falsifier": "This node is superseded once both bugs are fixed (in a single, reviewed commit, with the shards stopped first) and scripts/validate_stage4b_batched_null.py passes (exit 0) on the same synthetic dataset, at which point a fresh, clean Stage 4B run can be launched under the continuation handout's Step 4 procedure.",
+  "falsifier_status": "MET 2026-08-11 -- both bugs fixed, scripts/validate_stage4b_batched_null.py passes (exit 0). A fresh, clean Stage 4B run may now be launched under the continuation handout Step 4 procedure, pending separate explicit authorization to actually launch it."
+}

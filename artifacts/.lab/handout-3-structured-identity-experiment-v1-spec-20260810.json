@@ -4,9 +4,22 @@
   "kind": "plan",
   "created": "2026-08-10",
   "title": "Structured Identity Experiment v1 -- frozen specification, per Sol/Hamm's direction after accepting the Handout 2.5 runtime audit gate (SAFE_TO_RUN_STRUCTURED_DECODING = YES)",
-  "status": "provisional",
+  "status": "confirmed",
   "full_spec": "docs/handout_3_structured_identity_experiment_v1_spec.md",
-  "note": "This node records a SPECIFICATION, not an implementation or a result. No training, fitting, or model code exists yet. Status is 'provisional' (not 'confirmed') because the spec requires explicit Sol/Hamm sign-off before implementation begins -- this node itself is not the sign-off.",
+  "note": "This node records a SPECIFICATION, not an implementation or a result. Sol/Hamm explicitly signed off on 2026-08-10. The sign-off authorizes Milestone 1 infrastructure only; no M2/M3 training or fitting is authorized before Milestone 1 review.",
+  "scientific_signoff": {
+    "status": "APPROVED",
+    "date": "2026-08-10",
+    "signatories": ["Sol", "Hamm"],
+    "scope": "Milestone 1 ontology, grouped folds, R0/R1/R2 representation contracts, null plumbing, tests, and receipts",
+    "training_authorized": false,
+    "clarifications": [
+      "Vectorization is bijective absent preprocessing loss; a structured model advantage is an inductive-bias/modeling result, not literal extra information.",
+      "R0 is rate/collapsed, R1 is temporally resolved vectorized raster, and R2 is structured population dynamics.",
+      "The primary comparison is paired structured minus matched-flat performance on identical outer folds.",
+      "Presented-identity positive control must use the same grouped machinery as omitted identity."
+    ]
+  },
   "claims": [
     {
       "id": "claim-factorial-design-frozen",
@@ -44,8 +57,8 @@
     {"from": "handout-3-structured-identity-experiment-v1-spec-20260810", "to": "agent-harness-audit-20260810", "type": "derived_from"}
   ],
   "issues": [
-    "This spec is frozen but UNSIGNED -- Sol and Hamm's explicit sign-off is required before any implementation work begins, per the spec's own Section 11.4. Do not begin implementation on the strength of this node alone.",
+    "Milestone 1 must be reviewed before any M2/M3 training, structured-model fitting, or model search begins.",
     "None of the structural ablations (Section 9.2), the SPK permutation-equivariant/metadata-ordered representation, or the shared-fold-machinery positive control exist as code yet. Implementing them is explicitly part of what executing this spec requires."
   ],
-  "falsifier": "This node's status moves from 'provisional' to 'confirmed' only when Sol/Hamm explicitly sign off on the spec (recorded as a reply/decision, not inferred), OR is superseded by a v1.1/v2 revision if a deviation is discovered necessary before or during implementation."
+  "falsifier": "This node is superseded by a versioned v1.1/v2 revision if the signed scientific specification changes, or by a Milestone 1 review receipt that explicitly rejects the current implementation contract."
 }

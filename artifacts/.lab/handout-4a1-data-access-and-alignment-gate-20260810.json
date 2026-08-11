@@ -1,0 +1,84 @@
+{
+  "schema_version": 3,
+  "id": "handout-4a1-data-access-and-alignment-gate-20260810",
+  "kind": "progress",
+  "created": "2026-08-10",
+  "title": "Handout 4A.1 data access, TFR provenance, and tensor alignment gate",
+  "status": "provisional",
+  "note": "The gate resolves data-access and coordinate-contract blockers without running decoding or training. TFR-backed LFP remains excluded pending provenance repair; raw LFP, MUAe, and SUA access contracts were validated on a small real-session sample.",
+  "claims": [
+    {
+      "id": "claim-4a1-tfr-provenance",
+      "status": "confirmed",
+      "statement": "The TFR discrepancy is READINESS_STALE+PRODUCTS_PARTIAL: the canonical live D:/analysis/tfr_arrays directory contains four arrays, readiness reports 792, the old D:/workspace/data/tfr_arrays path is absent, and the generator default still names that old path. No regeneration was performed.",
+      "receipt": "context/figures/fig04_omission_identity_decoding/handout_4a1_data_access_alignment/tfr_provenance_trace.json; stage4a1_receipt.json"
+    },
+    {
+      "id": "claim-4a1-muae-accessor",
+      "status": "confirmed",
+      "statement": "jnwb.analog.load_muae_epochs provides a first-class trial x channel x time accessor with deterministic trial_id joins, canonical probe-local area addressing, source series metadata, sampling rate, units, relative time vector, preprocessing state, and explicit missing-data behavior.",
+      "receipt": "jnwb/analog.py; tests/test_muae_accessor.py; stage4a1_receipt.json"
+    },
+    {
+      "id": "claim-4a1-tensor-alignment",
+      "status": "confirmed",
+      "statement": "A real sub-C31o_ses-230823 FEF QC sample independently validated p2, p3, and p4 omission-relative extraction for SUA, raw LFP, and MUAe. Each modality used the canonical 1031/2062/3093 ms p1 offsets, the same relative time vector, and local t=0 at sample 10.",
+      "receipt": "context/figures/fig04_omission_identity_decoding/handout_4a1_data_access_alignment/alignment_qc_records.csv; tensor_alignment_receipt.json; alignment_qc_sample.npz"
+    },
+    {
+      "id": "claim-4a1-readiness-gates",
+      "status": "provisional",
+      "statement": "The access/alignment receipt sets SUA_STAGE4B_READY=YES, LFP_STAGE4B_READY=YES for raw time-domain features only, MUAe_STAGE4B_READY=YES, and T1_ALIGNMENT_VALIDATED=YES. TFR_BACKED_LFP_READY remains NO.",
+      "receipt": "context/figures/fig04_omission_identity_decoding/handout_4a1_data_access_alignment/stage4a1_receipt.json"
+    }
+  ],
+  "issues": [
+    "The live TFR product corpus is partial and the readiness table is stale; do not use readiness alone to authorize TFR-backed LFP features.",
+    "The live NWB directory contains sub-V198o_ses-230629_rec.nwb, which is absent from the 21-session catalog and readiness inventory.",
+    "Only one of the readiness table's 15 sidecar sessions has a live sidecar directory.",
+    "The tensor QC covers one session and one area; it validates access and alignment, not full-corpus decoding performance.",
+    "No Stage 4B model, positive-control decoder, permutation null, M2, M3, or M4 was run."
+  ],
+  "edges": [
+    {
+      "from": "handout-4a1-data-access-and-alignment-gate-20260810",
+      "to": "handout-4-stage4a-design-corpus-audit-20260810",
+      "type": "implements"
+    },
+    {
+      "from": "handout-4a1-data-access-and-alignment-gate-20260810",
+      "to": "context/figures/fig04_omission_identity_decoding/handout_4a1_data_access_alignment/stage4a1_receipt.json",
+      "type": "supported_by"
+    },
+    {
+      "from": "handout-4a1-data-access-and-alignment-gate-20260810",
+      "to": "jnwb/analog.py",
+      "type": "supported_by"
+    },
+    {
+      "from": "handout-4a1-data-access-and-alignment-gate-20260810",
+      "to": "structured-identity-milestone-2a-implementation-20260810",
+      "type": "preserves"
+    }
+  ],
+  "verification": {
+    "checks": {
+      "tfr_readiness_vs_live_trace_persisted": true,
+      "generator_and_old_path_traced": true,
+      "no_tfr_regeneration_performed": true,
+      "muae_accessor_synthetic_test": true,
+      "muae_accessor_real_session_test": true,
+      "sua_real_session_alignment_qc": true,
+      "lfp_real_session_alignment_qc": true,
+      "muae_real_session_alignment_qc": true,
+      "p2_p3_p4_relative_time_vectors_identical": true,
+      "canonical_omission_offsets_verified": true,
+      "absolute_p1_time_excluded_from_tensor_contract": true,
+      "models_trained": false,
+      "decoding_run": false,
+      "git_diff_check": true
+    },
+    "verdict": "stage4a1_complete; stop before Stage 4B training and request modality-specific scientific review"
+  },
+  "falsifier": "This node is superseded if the live TFR/readiness/catalog state changes, the accessor or alignment contract changes, the QC sample is replaced, or a signed Handout 4 amendment changes the modality gates."
+}

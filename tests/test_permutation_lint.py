@@ -25,8 +25,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # rng.permutation(...) / np.random.permutation(...).
 SCOPED_FILES = [
     REPO_ROOT / "jnwb" / "omission_identity.py",
+    REPO_ROOT / "jnwb" / "structured_identity.py",
+    REPO_ROOT / "jnwb" / "structured_identity_m2a.py",
     REPO_ROOT / "scripts" / "compute_omission_identity_leakage_safe.py",
     REPO_ROOT / "scripts" / "compute_omission_identity_cycle_deconfound_v3.py",
+    REPO_ROOT / "scripts" / "run_structured_identity_milestone2a.py",
 ]
 
 # A bare call is one of these patterns appearing OUTSIDE jnwb/permutation.py itself.
