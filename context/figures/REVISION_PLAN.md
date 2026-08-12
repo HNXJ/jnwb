@@ -83,7 +83,26 @@ round rather than trickling:
   approximately chance, hardcoded panels remain, and the permutation null is only a smoke run.
   Added explicit deconfounded-rerun acceptance criteria.
 
+- 2026-08-11: Fig03 closure pass (not a re-lock). Fixed two bugs that were silently blocking the
+  script from running at all under the current data layout (stale D:/workspace/omission paths;
+  a missing umap-learn dependency that failed the whole pipeline at the last, non-essential
+  panel). Re-ran to completion; verified every panel prints its own denominator and every set of
+  per-area/per-class N's sums exactly to its documented population (2,921 legacy-screened main
+  figure; 8,592 grand-table supplement); confirmed FIGURE_SUMMARY.md's caption numbers still
+  match exactly; documented the upstream trial-minimum contract (MIN_TR=6 for the O-family
+  classifier) in the fig03 README. No discrepancy found. Per rule 4, re-lock still requires the
+  user's own visual confirmation of context/figures/fig03_unit_census/fig03.svg -- this pass did
+  not regenerate fig03_finalized.*. Receipt: artifacts/.lab/fig03-closure-verification-20260811.json.
+
 - 2026-08-09/10: Applied the evidence-architecture patch and added a separate leakage-safe
   SPK/SUA decoder plus fail-closed renderer. Three-session validation passed with persisted
   folds, held-out predictions, and within-cycle null draws; the complete eligible-corpus run
   and production render remain pending.
+
+- 2026-08-11: Corpus-size change (21->22 sessions, sub-V198o_ses-230629_rec added by explicit
+  user decision) re-verified against fig03's re-render. Main-figure (legacy-screened) denominator
+  confirmed unchanged at 2,921; supplement denominators confirmed at 8,702/9,056 evaluable
+  (up from 8,592-based), with all per-area/per-class counts summing exactly. No other panel
+  drift. Receipt: artifacts/.lab/fig03-corpus-22-sessions-20260811.json (falsifier now CLOSED).
+  As with the 2026-08-11 closure pass, re-lock still requires the user's own visual confirmation
+  per rule 4 -- fig03_finalized.* was not regenerated.

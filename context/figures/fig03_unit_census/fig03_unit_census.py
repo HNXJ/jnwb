@@ -50,8 +50,9 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))  # .../context/figures/fig03_unit_census -> repo root
 sys.path.insert(0, os.path.dirname(HERE))
-sys.path.insert(0, r"D:/workspace/omission")
+sys.path.insert(0, REPO_ROOT)
 from figstyle import (AREA_COLORS, AREA_ORDER, CLASS_COLORS, CLASS_ORDER, FULL_TRIAL_WIN,
                       STIM_MS, clopper_pearson, full_trial_ticks, mark_full_trial_axis, save,
                       use_house_style)
@@ -61,13 +62,18 @@ from figstats import (contingency, correlation, correlation_with_shuffle_null, g
                       write)
 
 import jnwb as oa
+from jnwb import paths as oa_paths
 from jnwb.unit_classification import EPOCH_ONSETS_MS, GLO_CONDITIONS, precompute_condition_onsets
 
-TABLE = r"D:/workspace/omission/outputs/classification/omission_grand_units.csv"
-LEGACY_TABLE = r"D:/workspace/omission/outputs/classification/grand_s_and_o_units.csv"
-LAYER_TABLE = r"D:/workspace/omission/outputs/layers/unit_layers.csv"
-STABLE_TABLE = r"D:/workspace/omission/outputs/classification/unit_trial_presence.csv"
-NWB_DIR = r"D:/analysis/nwb"
+# Paths were hardcoded to the pre-2026-08-08 D:/workspace/omission layout, which no longer
+# exists (data volume moved to D:/nwb + D:/analysis; see jnwb/paths.py and
+# artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json). Resolved via the
+# canonical jnwb.paths dispatch instead of a second hardcoded drive-letter root.
+TABLE = str(oa_paths.outputs_dir("classification", "omission_grand_units.csv"))
+LEGACY_TABLE = str(oa_paths.outputs_dir("classification", "grand_s_and_o_units.csv"))
+LAYER_TABLE = str(oa_paths.outputs_dir("layers", "unit_layers.csv"))
+STABLE_TABLE = str(oa_paths.outputs_dir("classification", "unit_trial_presence.csv"))
+NWB_DIR = str(oa_paths.nwb_dir())
 FIG_DIR = os.path.join(HERE, "svg")
 
 # A unit counts as "stable" if it fired >=1 spike in more than this fraction of its session's

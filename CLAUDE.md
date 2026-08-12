@@ -11,8 +11,18 @@ each other on the v15 four-engine model; `~/.claude/CLAUDE.md` is the tie-breake
 Do not duplicate long doctrine here. If you need omission-specific paths, footguns, or PRP
 triggers, read `.agents/AGENTS.md` first. Legacy notes in `legacy/markdowns/CLAUDE.md` are
 historical — prefer live `artifacts/data/nwb_catalog.json` and `artifacts/data/session_readiness.csv`.
-Note that `session_readiness.csv` lists 21 NWB-ready sessions while the TFR analysis corpus is
-17 sessions; the two inventories overlap but neither contains the other.
+
+**Corpus size updated 2026-08-11: 22 sessions, not 21.** `sub-V198o_ses-230629_rec` (previously
+on disk but absent from both inventories, flagged in
+`artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json`) was deliberately added
+to the corpus by explicit user decision — `scripts/build_nwb_catalog.py` and
+`scripts/build_session_readiness.py` were re-run and now both list 22. `omission_grand_units.csv`
+(the fig03/classification source table) reflects this: 9,056 units, 22 sessions, as of the
+`scripts/classify_omission_units_grand.py` run that added `omission_class_v2` the same day. Any
+older number quoting "21 sessions" or "8,592 units" predates this and should be re-verified
+against the live tables before being restated. The stale "17-session TFR corpus" figure below
+also predates the 2026-08-08 drive migration — verify against `session_readiness.csv`'s
+`tfr_ok`/`suite_tfr_ready` columns rather than quoting either number.
 
 
 ---

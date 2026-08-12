@@ -1,0 +1,70 @@
+{
+  "schema_version": 3,
+  "id": "fig03-omission-reporter-v2-criteria-20260811",
+  "kind": "progress",
+  "created": "2026-08-11",
+  "title": "New 'omission reporter' O+/O++ classification criteria (omission_class_v2), requested directly by Hamm, implemented as an ADDITIONAL column alongside the original omission_class. Full corpus run launched.",
+  "status": "confirmed",
+  "note": "Not a replacement for omission_class -- both columns coexist in outputs/classification/omission_grand_units.csv until the two populations are compared and a decision is made about which (if either) feeds fig02/fig03/downstream GLMMs going forward.",
+  "design_decisions": {
+    "source": "Direct user request in chat, followed by 4 clarifying questions (AskUserQuestion), all answered with the recommended option:",
+    "O+v2_comparison_basis": "Peak-in-window (max over 12 sub-windows spanning [p_x onset, d_x end]) vs MEAN rate of the single preceding delay d_(x-1). Not peak-vs-peak, not mean-vs-mean.",
+    "O++v2_comparison_structure": "Single permutation test against whichever OTHER trial epoch had the highest peak that trial (not a Holm/BH-corrected conjunction across all 8 other epochs individually).",
+    "O++v2_epoch_set": "p1-p4, d1-d4, EXCLUDING p_x, d_x (the omission window itself) AND d_(x-1) (already tested by O+v2) -- avoids double-testing the same window pair.",
+    "landing": "Additional column omission_class_v2, computed alongside the existing omission_class in the same script/pass, own separate BH-FDR family."
+  },
+  "claims": [
+    {
+      "id": "claim-implementation",
+      "status": "confirmed",
+      "statement": "scripts/classify_omission_units_grand.py extended with: peak_rate/mean_rate/displaced_peak_rate/displaced_mean_rate helpers; a new per-unit v2 test block computing, per condition and pooled across all eligible omission conditions for that unit: (1) O+v2 -- peak rate over OMIT_WIN_DUR_S=1.031s (p_x onset to d_x end, NBINS2=12 sub-windows) vs mean_rate(d_(x-1)), forward-displacement permutation null (same philosophy as the original Q1 null); (2) O++v2 -- same omission-window peak vs the max peak across all other real trial epochs (their own peak-in-window, NBINS=6, same bin density as the original Q1 windows), null built by displacing only the omission-window peak (competitor epochs are real stimulus-locked events and are not displaced). Both p-values get their own BH-FDR family (q1v2_vs_pre_q, q1v2_vs_all_q), separate from the original q1_q family, per the project's multiplicity doctrine (a different question asked of the same units is a different family, not a sub-test).",
+      "receipt": "git diff scripts/classify_omission_units_grand.py, this session. py_compile clean."
+    },
+    {
+      "id": "claim-preexisting-bugs-fixed-to-run-at-all",
+      "status": "confirmed",
+      "statement": "Two pre-existing bugs, unrelated to the v2 addition, were blocking this script from running at all in the current environment: (1) `sys.path.insert(0, _P.REPO_ROOT)` referenced `_P` (jnwb.paths) before it was imported a few lines later -- NameError on the very first import. Fixed by computing repo root directly from `__file__` before any jnwb import. (2) This is the same registry-drift/path class of bug found repeatedly this session in fig03, fig05, and the TFR sidecar builder -- this script had NOT been successfully run since before whichever refactor broke the import order (the 2026-07-29 receipt predates it).",
+      "receipt": "Traceback before fix: `NameError: name '_P' is not defined` at line 73. Fixed and verified: 1-session smoke test (--limit 1) completed successfully, 355 units, 368s."
+    },
+    {
+      "id": "claim-smoke-test-behavior-difference",
+      "status": "confirmed",
+      "statement": "On a 1-session smoke test (sub-C31o_ses-230816, 355 units), O+_v2 counts per area (11, 14, 21, 27, 8 across MT/PFC/V1/V3a-d/V4) are far larger than the original O+ counts for the SAME session (0, 1, 3, 1, 2). This is an expected consequence of the design difference -- v1's O+ requires a conjunction against BOTH flanks; v2's O+ only requires the omission-window peak to exceed the mean of ONE flank (the preceding delay) at some point in a longer window -- not evidence of a bug, but a real, large behavioral difference between the two criteria that should inform whichever one (or both) ends up in the manuscript. O++_v2 stayed small (0-1 per area in this one session), consistent with the intended 'omission reporter' tier being highly selective.",
+      "receipt": "Smoke-test stdout, this session: 'MT 66 screened O++=0 O+=0(v1) O+_v2=11; PFC 102 screened O++=0 O+=1(v1) O+_v2=14; V1 71 screened O+=3(v1) O+_v2=21; V3a/d 70 screened O+=1(v1) O++_v2=1 O+_v2=27; V4 46 screened O+=2(v1) O+_v2=8'. n=1 session only -- do not extrapolate corpus-wide proportions from this."
+    },
+    {
+      "id": "claim-full-run-launched",
+      "status": "confirmed",
+      "statement": "Full 21-session, 8,592-unit run launched in the background after the smoke test passed. Estimated runtime ~2.5 hours (scaled from the smoke test's ~1.04 s/unit; the pre-v2 script took 7,404.7s for the same unit count per the 2026-07-29 receipt, so v2 adds roughly 20% overhead). Running concurrently with the Fig05/Fig06 TFR-array corpus rebuild (scripts/precompute_tfr_arrays_v2.py, also backgrounded this session) -- different bottleneck resources (this script is CPU-bound permutation testing; the TFR rebuild is GPU-bound spectrogram computation), expected to coexist without contention, monitored for that.",
+      "receipt": "Background task launched via classify_omission_units_grand.py (no --limit), output outputs/classification/omission_grand_units.csv / omission_grand_by_area.csv / omission_grand_receipt.json (overwritten on completion). Original pre-v2 outputs backed up to outputs/classification/pre_v2_criteria_backup_20260811/ before this run started."
+    },
+    {
+      "id": "claim-rng-stream-contamination-found-and-fixed",
+      "status": "confirmed",
+      "severity": "high",
+      "statement": "The v2 test block drew from the SAME shared, stateful rng object (np.random.default_rng(42)) the original Q1-Q4 tests use. Because analyse() processes units/files sequentially against one continuing rng stream, v2 drawing extra random numbers mid-unit silently shifted every downstream permutation-null draw for that unit AND every subsequent unit/file in the run -- perturbing the ORIGINAL v1 omission_class results as a side effect of v2 code existing, not from any change to v1 methodology or the corpus. Confirmed by comparing a --limit 1 rerun (post-fix) against the true pre-v2 backup on unit_row (the actual unique key -- unit_id has duplicates within a session, an unrelated verification-script pitfall caught along the way): every raw p-value (q1_p/q2_p/q3_p/q4_p), q1_effect_hz, and omission_class matched EXACTLY. The BH-corrected q-columns differed only because FDR correction is corpus-wide and the smoke test has a different N (355 vs 8,592+) -- expected, not a bug; the underlying significance DECISIONS (omission_class) were identical.",
+      "receipt": "Fixed by giving v2 its own independent generator (rng_v2 = np.random.default_rng(43), passed separately into analyse()) instead of sharing rng. Verified: --limit 1 rerun post-fix vs outputs/classification/pre_v2_criteria_backup_20260811/omission_grand_units.csv, joined on unit_row (unique, 355/355), q1_p/q1_effect_hz/q2_p/q3_p/q4_p/omission_class all exact string-match; only _q columns differ, attributable to N-dependent BH-FDR family size. The prior 22-session run (RNG-contaminated) has been superseded by a clean rerun launched immediately after this fix."
+    },
+    {
+      "id": "claim-final-clean-corpus-numbers",
+      "status": "confirmed",
+      "statement": "Final, RNG-clean, 22-session (9,056-unit) results: v1 counts ns=8517 O+=297 O-=222 O++=14 O--=6. v2 counts ns=7707 O+=1326 O++=23 (no suppression variant -- v2 was scoped to the positive-going omission-reporter property only, per the original request). Full v1-to-v2 crosstab: O++ -> ns (14, ALL of them -- zero v1-O++ units survive as v2-O+ or v2-O++); O+ -> O+ (102), O+ -> O++ (3), O+ -> ns (192); O- -> O+ (7), O- -> ns (215); O-- -> ns (6); ns -> O+ (1217), ns -> O++ (20), ns -> ns (7280). The RNG fix did not change the qualitative picture from the earlier contaminated run (same all-14-O++-units-drop-to-ns pattern) -- confirms this is a real property of the v2 peak-statistic design (see claim-smoke-test-behavior-difference and the open underpowered-null issue below), not an artifact of the RNG bug.",
+      "receipt": "outputs/classification/omission_grand_receipt.json, run completed 2026-08-11 17:35:41, runtime_s=9918.4."
+    }
+  ],
+  "edges": [
+    {
+      "from": "fig03-omission-reporter-v2-criteria-20260811",
+      "to": "fig03-closure-verification-20260811",
+      "type": "extends"
+    }
+  ],
+  "issues": [
+    "This is a genuinely new statistical test, not yet reviewed against a known/analytical case beyond the smoke-test sanity check -- before this feeds any figure or claim, it should get the same scrutiny the original Q1 test has (rejected-alternatives documentation, etc.).",
+    "omission_class_v2 is NOT yet wired into fig02 (O++ exemplar selection), fig03 (any panel), or any GLMM -- deliberately, per the user's own choice to land it as a comparison column first.",
+    "The O++v2 'single test vs the trial's best competitor' design has no multiplicity correction ACROSS competitor epochs by choice (the recommended, user-confirmed option) -- flagged here so a reviewer knows this was a deliberate design choice, not an oversight, should the question resurface.",
+    "The 22-session run completed before this RNG fix was RNG-contaminated for v1 results (not just v2) -- discarded; a clean rerun with the fix was launched immediately. Do not use outputs/classification/omission_grand_units.csv timestamped before this fix for any v1 or v2 conclusion."
+  ],
+  "falsifier": "Superseded when the full-corpus run completes and the two populations (omission_class vs omission_class_v2) are compared and a decision is made about which feeds downstream figures/claims going forward.",
+  "falsifier_status": "OPEN -- full-corpus run in progress as of 2026-08-11."
+}

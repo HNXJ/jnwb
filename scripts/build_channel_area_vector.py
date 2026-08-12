@@ -49,15 +49,22 @@ PROBE_LETTER = {"probe_0_lfp": "A", "probe_1_lfp": "B", "probe_2_lfp": "C", "pro
 
 
 def tfr_corpus_index() -> pd.DataFrame:
-    """(session_prefix, probe_letter, area_token) actually present in the TFR corpus."""
+    """(session_prefix, probe_letter, area_token) actually present in the TFR corpus.
+
+    Globs both .npy (legacy precompute_tfr_arrays.py) and .npz (precompute_tfr_arrays_v2.py,
+    the current corpus format as of the 2026-08 rebuild) -- same dual-format accommodation
+    already made in compute_channel_band_power_census_v2.py.
+    """
     rows = []
-    for f in glob.glob(os.path.join(TFR_DIR, "*.npy")):
-        m = FNAME_RE.match(os.path.basename(f)[:-4])
-        if m:
-            g = m.groupdict()
-            rows.append({"session_prefix": f"sub-{g['subject']}_ses-{g['session']}",
-                         "probe_letter": g["probe"], "area_token": g["area"]})
-    return pd.DataFrame(rows).drop_duplicates().reset_index(drop=True)
+    for ext in ("*.npy", "*.npz"):
+        for f in glob.glob(os.path.join(TFR_DIR, ext)):
+            m = FNAME_RE.match(os.path.basename(f)[: -len(ext) + 1])
+            if m:
+                g = m.groupdict()
+                rows.append({"session_prefix": f"sub-{g['subject']}_ses-{g['session']}",
+                             "probe_letter": g["probe"], "area_token": g["area"]})
+    cols = ["session_prefix", "probe_letter", "area_token"]
+    return pd.DataFrame(rows, columns=cols).drop_duplicates().reset_index(drop=True)
 
 
 def sidecar_dir_for(session_prefix: str) -> str | None:
@@ -185,7 +192,7 @@ def main() -> pd.DataFrame:
             "partition": f"{META_DIR}/<session>/probe_areas.json -> channel_slices",
             "per_channel_crosscheck": f"{META_DIR}/<session>/electrodes.csv (area, area_slot)",
             "layers": f"{LAYER_DIR}/<session>_channel_layers.csv (vFLIP2 spectrolaminar crossover)",
-            "corpus": TFR_DIR,
+            "corpus": str(TFR_DIR),
         },
         "n_sessions_in_tfr_corpus": len(sessions),
         "n_sessions_resolved": int(df["session_prefix"].nunique()),

@@ -25,6 +25,28 @@ framing without re-checking `svg/fig03_stats.md` first.
   of those, so the grand table's `quality` is treated as authoritative for the SUA/MUA split
   (`attach_stability()`).
 
+### Upstream trial-minimum / classification contract (added 2026-08-11, fig03 closure)
+
+`fig03_unit_census.py` does not itself apply a per-unit trial-count floor -- both source
+tables are pre-filtered by their own upstream classifiers before this script ever loads them:
+
+- **O-family** (`omission_class`, `outputs/classification/omission_grand_units.csv`): built by
+  `scripts/classify_omission_units_grand.py`, which requires `MIN_TR = 6` trials in each
+  compared slot/condition (e.g. `scripts/classify_omission_units_grand.py:186`,
+  `if rs.size < MIN_TR or rf.size < MIN_TR: <exclude>`) before a unit can be scored against any
+  of the four questions. A unit failing this floor is not counted as `ns`; it is absent from
+  that question's own denominator (see `units_answering_each_question` in
+  `svg/fig03_receipt.json`, which is smaller than `n_units` for every question).
+- **Legacy S-family** (`grand_s_and_o_units.csv`, feeding the 2,921 `legacy_screened`
+  population panels A-F use): applies its own upstream quality/trial-count filter in
+  `scripts/archive_oneoff/find_all_s_and_o_units.py` before a unit is ever scored -- this
+  script was not re-derived line-by-line as part of the 2026-08-11 closure pass (no `MIN_TR`-
+  style constant was found by inspection); if the legacy classifier's own trial floor needs to
+  be quoted precisely, re-read that script rather than assuming it matches `MIN_TR = 6`.
+
+Any per-panel N difference from `n_units` (8,592) or `legacy_screened` (2,921) reflects one of
+these upstream floors, not a bug in this script.
+
 ## Methodology
 
 **Main figure — four panels, in this order (2026-08-04 revision, see below):**

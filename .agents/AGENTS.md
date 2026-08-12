@@ -26,14 +26,20 @@ do not silently override Core Principles / Verify Claims / No silent synthetic s
 | Catalog | `artifacts/data/nwb_catalog.json` (regenerate: `scripts/build_nwb_catalog.py`) |
 | Sidecars | `D:/workspace/data/metadata/{stem}/` (`electrodes.csv`, `units.csv`, `events.csv`, `h5_paths.json`, `probe_areas.json`) |
 | Readiness | `artifacts/data/session_readiness.csv` (`scripts/build_session_readiness.py`) |
-| Precomputed TFR | `D:/workspace/data/tfr_arrays/` (`{session_prefix}-{probe_letter}-{area}-{cond}.npy`) |
-| Array caches | `D:/workspace/data/nwb-arrays/` (optional materializations) |
+| Precomputed TFR | `jnwb.paths.tfr_dir()` -- resolves to `D:/analysis/tfr_arrays/` as of the 2026-08-08 drive migration; `D:/workspace/data/tfr_arrays/` below is the pre-migration path and no longer exists. New arrays as of 2026-08-11 use `.npz` (compressed, real per-area channel subset + 1/f quality screen, see `scripts/precompute_tfr_arrays_v2.py`), not the `.npy` contract this row originally described. |
+| Array caches | `D:/workspace/data/nwb-arrays/` (optional materializations; same pre-migration-path caveat) |
 
 **Env overrides:** `OMISSION_NWB_DIR`, `OMISSION_TFR_DIR`, `OMISSION_META_DIR`, `OMISSION_SESSION`.
 
-**Inventory reality (2026-07-26 receipt):** 21 NWB files (C31o / V182o / V198o).  
-**TFR readiness:** 15/21 sessions `suite_tfr_ready=True` (C31o 7/7, V182o 4/10, V198o 4/4).  
-Only `sub-C31o_ses-230630` and `sub-V198o_ses-230629` are `suite_tfr_ready=False`.  
+**Inventory reality (updated 2026-08-11):** 22 NWB files (C31o / V182o / V198o) -- `sub-V198o_ses-230629_rec`
+was deliberately added to the catalog/readiness inventories by explicit user decision (previously on
+disk but excluded from both; see `~/.claude/CLAUDE.md`'s corpus-size note and
+`artifacts/.lab/fig03-corpus-22-sessions-20260811.json`). `scripts/build_nwb_catalog.py` and
+`scripts/build_session_readiness.py` were re-run 2026-08-11 and both now report 22.
+**TFR readiness:** stale below (2026-07-26 receipt, 21-session count) -- re-verify against a fresh
+`artifacts/data/session_readiness.csv` `tfr_ok`/`suite_tfr_ready` read rather than quoting the
+15/21 figure, since the TFR-array corpus itself is being rebuilt as of 2026-08-11 (see the
+fig05/fig06 TFR-array rebuild in the current session's Labyrinth nodes).
 Always gate on `artifacts/data/session_readiness.csv` before loading any TFR array.
 
 ## Hard scientific footguns (omission-specific)

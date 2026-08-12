@@ -1,11 +1,11 @@
 ---
-description: Labyrinth Protocol (ACMP & 3-Level Action Architecture) — Supersedes PRP
+description: Labyrinth Protocol (ACMP & 3-Level Action Architecture) — Canonical Context Optimization
 alwaysApply: true
 ---
 
 # Labyrinth Protocol (ACMP & 3-Level Action Architecture)
 
-Follow the **labyrinth-protocol** skill (`C:\Users\nejath\.gemini\config\skills\labyrinth-protocol\SKILL.md` or repo local) for full mechanics. This rule pins the Labyrinth context management protocol for all agents.
+Follow the **labyrinth-protocol** skill (`.claude/skills/labyrinth-protocol/SKILL.md` or global `C:\Users\nejath\.gemini\config\skills\labyrinth-protocol\SKILL.md`) for full mechanics. This rule pins the Labyrinth context management protocol for all agents on this repository.
 
 **Directory & State:**
 - Local repository graph nodes and mapped state live under **`artifacts/.lab/`** (`artifacts/.lab/labyrinth-<repo>.json`).
@@ -20,5 +20,9 @@ Follow the **labyrinth-protocol** skill (`C:\Users\nejath\.gemini\config\skills\
 - **State**: `claims`, `graph`, `evidence`, `context` (Things that exist).
 - **Actions**: **`Evolve`**, `Plan`, `Progress`, `Review`, `Prune` (Deliberate agent actions).
 - **Regulation**: `Adapt`, `Seal` (System self-governance).
+
+**Seven Measured Quantities (v14/v15):**
+- **Coverage**, **Mismatch Vector**, **Complexity** (Fano ratio, Depth ratio; Prune when >1.25), **Information**, **Predictive Accuracy**, **Aperture ($S$)**, **Capability ($T$)**.
+- **Cost** is reported **beside** $J$, never inside it.
 
 **Discipline:** Receipts only ("ran X, got Y"), never "should now pass." Editing JSON is not doing or verifying work.

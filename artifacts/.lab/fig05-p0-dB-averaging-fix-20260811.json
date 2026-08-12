@@ -1,0 +1,48 @@
+{
+  "schema_version": 3,
+  "id": "fig05-p0-dB-averaging-fix-20260811",
+  "kind": "progress",
+  "created": "2026-08-11",
+  "title": "Fig05 P0 dB-averaging estimator fix: COMPLETE and validated. TFR-array corpus rebuild now COMPLETE (22/22 sessions) -- full-corpus census regeneration + GLMM refit unblocked.",
+  "status": "unblocked",
+  "note": "Executes the 'Fig05 -- P0 ESTIMATOR REPAIR' task from the Main-Figure Sprint (Figures 03-07), 2026-08-11. Supersedes figure-readiness-audit-fig01-07-20260811.json's fig05 P0 finding with a concrete fix.",
+  "claims": [
+    {
+      "id": "claim-bug-confirmed-and-fixed",
+      "status": "confirmed",
+      "statement": "scripts/compute_channel_band_power_census_v2.py computed dB per trial (db(p_mid, p_ob) inside the trial loop) and averaged the resulting dB values across trials (np.nanmean(d_omi, axis=0)) for the primary db_mid_omirel measure -- the exact 'average decibels' anti-pattern documented in db_averaging_bias_finding_20260728.json. Fixed: power (p_mid, p_ob, p_fx, p_fa, p_fb) is now averaged over trials FIRST (np.nanmean(..., axis=0)), and 10*log10 is taken ONCE on the trial-averaged power. The db_mid_omirel_sd column (a descriptive per-trial-dB dispersion statistic consumed by scripts/extract_within_session_lfp_lfp_sliding_corr.py and scripts/smoke_test_sliding_trial_correlation.py for an unrelated t-like SNR statistic) was deliberately left under its original name and computation to avoid silently breaking those two consumers, but is now explicitly documented as descriptive-only, not the source of db_mid_omirel.",
+      "receipt": "scripts/compute_channel_band_power_census_v2.py lines ~191-221 (post-fix). Synthetic validation: matched-mean-power (4.773 vs 4.946) noisy-vs-quiet trial sets gave a spurious 1.18 dB gap under the old per-trial-dB-averaging order (2.71 vs 3.89) and a 0.15 dB residual gap under the corrected power-averaged-then-log-once order (3.78 vs 3.93) -- consistent with the documented -0.17 to -1.98 dB bias magnitude in db_averaging_bias_finding_20260728.json."
+    },
+    {
+      "id": "claim-path-bugs-also-fixed",
+      "status": "confirmed",
+      "statement": "Two unrelated but blocking reproducibility bugs were found and fixed while regenerating: (1) the census script's receipt.json write failed with TypeError (WindowsPath not JSON serializable) for AREA_VEC/TFR_DIR, evidently never exercised end-to-end since the 2026-08-08 jnwb.paths migration; fixed by str()-wrapping both fields. (2) context/figures/fig03_unit_census/fig03_unit_census.py (separate figure, found while investigating this figure's own path robustness) had a stale sys.path.insert(0, 'D:/workspace/omission') and four hardcoded D:/workspace/omission/outputs/... TABLE paths + D:/analysis/nwb NWB_DIR, all unreachable under the current D:/nwb + D:/analysis layout -- fixed to use jnwb.paths.outputs_dir()/nwb_dir() and a dynamically-computed repo root. Documented separately under the fig03 closure work.",
+      "receipt": "git diff scripts/compute_channel_band_power_census_v2.py and context/figures/fig03_unit_census/fig03_unit_census.py, this session."
+    },
+    {
+      "id": "claim-blocked-on-tfr-corpus",
+      "status": "confirmed",
+      "severity": "critical",
+      "statement": "Full regeneration of the corrected census cannot proceed: jnwb.paths.tfr_dir() (D:/analysis/tfr_arrays) currently contains only 4 .npy files, all from one session (sub-V198o_ses-230720, V1 only, 4 R-family conditions). The previous full census (backed up, see below) covered 23 sessions. This is NOT a moved-path problem like fig06's D:/workspace/data/tfr_arrays paths -- jnwb.paths.tfr_dir() correctly resolves to the current D:/analysis/tfr_arrays location; that location itself is nearly empty. artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json (claim-free-space-projection-held) confirms 'D:/analysis remains empty, as expected -- nothing has run' as of 2026-08-08, i.e. the TFR-array extraction pipeline was never rerun after the D:-drive migration; the 4 files present are a later, unrelated smoke test. Running the corrected estimator against these 4 files would not represent the corpus and was correctly quarantined rather than treated as a result (see below) -- exactly the 'do not use the four partial live TFR files as if they constitute the corpus' instruction given for fig06, which turns out to apply identically here.",
+      "receipt": "ls D:/analysis/tfr_arrays: 4 files (sub-V198o_ses-230720-A-V1-{RRRR,RRRX,RRXR,RXRR}.npy). Full run of the (now-fixed) census script against this directory: receipt n_files_total=4, n_sessions=1, quarantined to outputs/lfp_band_census_v2/INCOMPLETE_4file_corpus_20260811/ rather than left in the production output path or used to refit the GLMM."
+    },
+    {
+      "id": "claim-old-numbers-preserved",
+      "status": "confirmed",
+      "statement": "The pre-fix (biased-order, full-23-session-corpus) GLMM summary was NOT overwritten and is preserved for the eventual OLD-vs-CORRECTED comparison table. Confirmed headline OLD numbers: V3a/d beta (Model F, area x subject, session-level, OLS-cluster-robust): estimate_db=1.1127, se=0.4014, p=0.005577, p_bh(q)=0.014675, n_sessions=23. One incidental data-loss event during this work: a 10-file smoke test of the fixed script was run BEFORE backing up the original full channel_band_power.csv.gz, overwriting it (outputs/ is gitignored, not recoverable via git). The raw per-channel OLD csv is therefore lost, but glmm_summary.csv (the actual headline/manuscript-facing numbers, produced by a separate script and never touched by this session) is fully intact and backed up.",
+      "receipt": "outputs/lfp_band_census_v2/old_biased_20260811/glmm_summary.csv (456 rows, backed up before any further runs) and .../old_biased_20260811/receipt_OLD_10file_smoketest_overwritten.json (this second file is NOT the true original full-corpus receipt -- it is the smoke-test's own receipt, mislabeled by this agent's own overwrite; the true original full-corpus receipt.json is also lost). Flagging this data-handling error explicitly rather than omitting it."
+    }
+  ],
+  "edges": [
+    {"from": "fig05-p0-dB-averaging-fix-20260811", "to": "db_averaging_bias_finding_20260728", "type": "extends"},
+    {"from": "fig05-p0-dB-averaging-fix-20260811", "to": "figure-readiness-audit-fig01-07-20260811", "type": "supersedes_partial"},
+    {"from": "fig05-p0-dB-averaging-fix-20260811", "to": "data-volume-layout-and-tfr-spec-transfer-20260808", "type": "depends_on"}
+  ],
+  "issues": [
+    "The TFR-array product corpus (scripts/archive_oneoff/precompute_tfr_arrays.py output, 21-22 sessions x 12 conditions x 2 probes, ~500 files, previously ~68 GiB per the transfer-spec node) needs to be regenerated from raw NWB before Fig05's census OR Fig06's condition-TFR maps can be recomputed. This is a shared prerequisite for both figures -- doing it once benefits both, doing it twice wastes the (likely multi-hour) compute cost. Not started; requires explicit go-ahead given the resource commitment (script lives under scripts/archive_oneoff/, i.e. was previously a one-off run, not a routine job).",
+    "The OLD-vs-CORRECTED comparison table the sprint requested cannot be produced until the corpus is rebuilt and the corrected census/GLMM are refit on the full corpus.",
+    "One data-handling mistake this session: ran a smoke test against the live production output path before backing up the pre-fix file. Root cause: should have copied before any run, not before the 'real' run. No scientific data was lost (glmm_summary.csv, the actual headline numbers, is intact) but the raw per-channel OLD csv is gone."
+  ],
+  "falsifier": "Superseded when the TFR-array corpus is rebuilt (or its absence is confirmed as durably out of scope) and the corrected census + refit GLMM + OLD-vs-CORRECTED table are produced against the full corpus.",
+  "falsifier_status": "PARTIALLY CLOSED 2026-08-12 -- the TFR-array corpus rebuild is complete: 22/22 sessions, 960 files, 733 GiB, in D:/analysis/tfr_arrays (960 = the 40-file V198o 4-area sessions + variable per-area counts for the rest; every catalogued session, including the 22nd session sub-V198o_ses-230629_rec that a prior job queue had missed, is now represented). Rebuilt via 2 GPU-parallel worker streams after the sequential single-session driver was found to be leaving ~98% of GPU/VRAM and ~80% of system RAM idle (RTX A4000, 16GB VRAM, only 2%/2.8GB used mid-run; 192GB system RAM, 156GB free) -- 2 concurrent CUDA workers validated cleanly against each other (both independently passed the scipy-reference GPU validation check, rel err 0.000e+00, no VRAM contention at ~3.3GB/16GB combined). An unplanned PC reboot mid-run killed both workers; post-reboot audit found exactly ONE casualty across the entire 960-file corpus -- the very last file of the very last session (sub-V198o_ses-230721-B-V3a-RRRR.npz), lost because the reboot hit before that write started (all 39 of that session's other files, and all files from every other session, were confirmed intact -- no truncated/sub-1MB npz anywhere). Resumed by rerunning just that one session (idempotent -- overwrote its 39 existing files identically, added the missing 40th). Remaining open item: the corrected census regeneration + GLMM refit + OLD-vs-CORRECTED table (this node's actual deliverable) has NOT yet been run against the now-complete corpus -- that is the next step, tracked as still open."
+}
