@@ -5,6 +5,18 @@ tracked+stale, one loaded+gitignored+current) had already drifted 348 of ~450 co
 apart on one skill alone, with no automated check to catch it.
 
 These tests are the automated check that was missing.
+
+2026-08-16: updated for the 2026-08-12 harness reset (commit 47d364e, "one-time Claude harness
+reset -- 18 skills to 9, retire competing constitutions"), which deliberately reduced
+.claude/skills/ from the >=10-skill, jnwb-core-included shape this file previously asserted to
+today's 7 project skills (omission-data, omission-signal, omission-spiking,
+omission-statistics, omission-figures, manuscript, labyrinth); jnwb-core and 13 other retired
+skills moved to context/archive/harness-reset-20260812/, not deleted. This file was not updated
+alongside that reset and had been failing CI since (see
+context/handoff/2026-08-15-prgs-prepare/HARNESS_AUDIT.md, finding H3). The invariants below --
+single tracked tree, no .agents/skills/ duplicate, every skill dir has a SKILL.md -- are
+unchanged; only the expected count and the spot-checked skill name are updated to match the
+current, intentional state.
 """
 from __future__ import annotations
 
@@ -43,7 +55,9 @@ class TestSingleCanonicalSkillTree:
     def test_claude_skills_dir_exists_and_nonempty(self):
         assert CLAUDE_SKILLS.is_dir(), ".claude/skills/ is missing -- the canonical skill source is gone"
         names = [p.name for p in CLAUDE_SKILLS.iterdir() if p.is_dir()]
-        assert len(names) >= 10, f"expected at least 10 skills, found {len(names)}: {names}"
+        # Post-2026-08-12-reset shape: 7 project skills (18->9 total, the other 2 -- numerical-
+        # computing, biophysical-modeling -- are user-scoped in ~/.claude/skills, not this repo).
+        assert len(names) >= 7, f"expected at least 7 skills, found {len(names)}: {names}"
 
     def test_claude_skills_are_git_tracked(self):
         # The whole point of the consolidation: .claude/skills/ must be trackable, not
@@ -56,7 +70,10 @@ class TestSingleCanonicalSkillTree:
             "negation pattern)."
         )
         # Spot-check a specific, known skill file is actually tracked, not just "some file".
-        core_skill = CLAUDE_SKILLS / "jnwb-core" / "SKILL.md"
+        # jnwb-core was retired by the 2026-08-12 reset (moved to
+        # context/archive/harness-reset-20260812/); omission-data is its closest live analog
+        # and has existed since the reset.
+        core_skill = CLAUDE_SKILLS / "omission-data" / "SKILL.md"
         assert core_skill in tracked, f"{core_skill.relative_to(REPO_ROOT)} exists but is not git-tracked"
 
     def test_every_skill_directory_has_a_skill_md(self):
