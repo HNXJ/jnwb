@@ -89,8 +89,16 @@ def build_noise_controlled_spike_matrix(
     units_df = session.get_units(area=area)
     if len(units_df) == 0:
         return np.zeros((len(labels), 0)), labels, []
-        
-    unit_ids = units_df["unit_id"].tolist()
+
+    # Identity convention (jnwb/session.py's get_spike_times, jnwb/trajectory.py,
+    # jnwb/unit_classification.py, jnwb/structured_identity_m2a.py): unit identity is the raw
+    # units_df ROW POSITION, not the per-probe-local 'unit_id'/'cluster_id' column -- the
+    # column can have gaps relative to row position (filtered kilosort clusters), and
+    # get_spike_times's primary lookup is by row position, so a column value that happens to
+    # equal another row's position silently returns that OTHER unit's real spike train.
+    # Confirmed on sub-C31o_ses-230816_rec (see trajectory.py). This module used the column
+    # here until 2026-08-15 -- fixed to match the established convention.
+    unit_ids = units_df.index.tolist()
     n_trials = len(labels)
     n_units = len(unit_ids)
     X = np.zeros((n_trials, n_units))
@@ -311,7 +319,9 @@ def build_noise_controlled_spike_matrix_with_subblocks(
     units_df = session.get_units(area=area)
     if len(units_df) == 0:
         return np.zeros((len(labels), 0)), labels, [], quartiles
-    unit_ids = units_df["unit_id"].tolist()
+    # See build_noise_controlled_spike_matrix above: identity is row position, not the
+    # 'unit_id' column.
+    unit_ids = units_df.index.tolist()
     n_trials, n_units = len(labels), len(unit_ids)
     X = np.zeros((n_trials, n_units))
     win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
@@ -513,7 +523,9 @@ def decode_identity_cycle_deconfound(
     base = {"area": area, "slot_key": slot_key, "n_units": len(units_df)}
     if len(units_df) < 2 or len(ea) < 6 or len(eb) < 6 or len(er) < 6:
         return {**base, "status": "insufficient_data"}
-    unit_ids = units_df["unit_id"].tolist()
+    # See build_noise_controlled_spike_matrix above: identity is row position, not the
+    # 'unit_id' column.
+    unit_ids = units_df.index.tolist()
     win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
 
     def spikemat(epochs):
@@ -675,7 +687,9 @@ def decode_time_from_features(
     units_df = session.get_units(area=area)
     if len(units_df) < 2 or len(epochs) < 6:
         return {"status": "insufficient_data"}
-    unit_ids = units_df["unit_id"].tolist()
+    # See build_noise_controlled_spike_matrix above: identity is row position, not the
+    # 'unit_id' column.
+    unit_ids = units_df.index.tolist()
     win_sec = (time_window_ms[0] / 1000.0, time_window_ms[1] / 1000.0)
     onsets = epochs["start_time"].values
     X = np.zeros((len(onsets), len(unit_ids)))
