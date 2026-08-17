@@ -1037,7 +1037,7 @@ def _pearson(x1, x2, axis=-1, **kwargs):
     from jnwb.statistics import StatisticalAnalysis
     res = StatisticalAnalysis.exploratory_correlate(a[:n], b[:n])
     if "error" in res:
-        return np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(1.0), np.float64(0.0)
+        raise ValueError(f"_pearson: cannot compute correlation ({res['error']}, n={n})")
     p_info = res["parametric"]
     r, p = p_info["statistic"], p_info["pval"]
     df = np.float64(p_info["df"])
@@ -1083,7 +1083,7 @@ def _spearman(x1, x2, axis=-1, **kwargs):
     from jnwb.statistics import StatisticalAnalysis
     res = StatisticalAnalysis.exploratory_correlate(a[:n], b[:n])
     if "error" in res:
-        return np.float64(0.0), np.float64(0.0), np.float64(0.0), np.float64(1.0), np.float64(0.0)
+        raise ValueError(f"_spearman: cannot compute correlation ({res['error']}, n={n})")
     np_info = res["non_parametric"]
     rho, p = np_info["statistic"], np_info["pval"]
     df = np.float64(np_info["df"])
@@ -1267,10 +1267,7 @@ def _procrustes(x1, x2, axis=-1, **kwargs):
     X, Y = X[:m], Y[:m]
     n = min(X.shape[1], Y.shape[1])
     X, Y = X[:, :n], Y[:, :n]
-    try:
-        _, _, disparity = sp_proc(X, Y)
-    except Exception:
-        disparity = 1.0
+    _, _, disparity = sp_proc(X, Y)
     sim = 1.0 - float(disparity)
     return np.float64(sim), np.float64(sim), np.float64(sim), None, None
 

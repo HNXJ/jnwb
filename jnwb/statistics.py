@@ -327,16 +327,18 @@ class StatisticalAnalysis:
             "n": len(x_valid),
             "parametric": {
                 "test": "pearson_r",
-                "statistic": float(r_pearson) if not np.isnan(r_pearson) else 0.0,
-                "pval": float(p_pearson) if not np.isnan(p_pearson) else 1.0,
+                # NaN (e.g. zero-variance input) is propagated, not rewritten to 0.0/1.0 --
+                # "undefined" and "measured zero correlation" are different claims.
+                "statistic": float(r_pearson),
+                "pval": float(p_pearson),
                 "df": int(df),
                 "effect_size": float(r_pearson**2),
                 "effect_size_name": "r_squared",
             },
             "non_parametric": {
                 "test": "spearman_rho",
-                "statistic": float(rho_spearman) if not np.isnan(rho_spearman) else 0.0,
-                "pval": float(p_spearman) if not np.isnan(p_spearman) else 1.0,
+                "statistic": float(rho_spearman),
+                "pval": float(p_spearman),
                 "df": int(df),
                 "effect_size": float(rho_spearman**2),
                 "effect_size_name": "rho_squared",

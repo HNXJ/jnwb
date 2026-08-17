@@ -1,0 +1,55 @@
+{
+  "id": "bug-jrsa-fabricated-failure-values-20260817",
+  "schema_version": 3,
+  "kind": "bug",
+  "title": "jnwb.jrsa._pearson/_spearman/_procrustes fabricated null-looking values on failure instead of failing loudly -- fixed, no live consumer affected",
+  "generated": {
+    "summary": "Three functions in jnwb/jrsa.py substituted a plausible-looking 'nothing here' value for a genuine computational failure, indistinguishable downstream from a real null result: (1) _pearson/_spearman returned (r=0, t=0, |r|=0, p=1.0, df=0) whenever jnwb.statistics.StatisticalAnalysis.correlate() reported {'error': 'Insufficient valid samples'} (n<3); (2) that same correlate() also silently rewrote NaN Pearson/Spearman statistics (e.g. from zero-variance/constant input) to statistic=0.0, pval=1.0; (3) _procrustes caught bare Exception from scipy.spatial.procrustes and fabricated disparity=1.0 (sim=0.0), which would also mask real bugs (shape errors, singular matrices) as 'maximally dissimilar'. Fixed: _pearson/_spearman now raise ValueError with the underlying reason and n; correlate() propagates NaN instead of rewriting it (NaN and 'measured zero, p=1' are different claims); _procrustes no longer catches the exception, so real scipy failures surface.",
+    "source_paths": [
+      "jnwb/jrsa.py",
+      "jnwb/statistics.py",
+      "tests/test_jrsa_no_fabricated_failures.py"
+    ],
+    "links": [
+      {
+        "to": "bug-omission-identity-unit-id-column-vs-row-position-20260816",
+        "relation": "related",
+        "reasoning": "Both are P0 items from the same 2026-08-15 PRGS instructions priority list (P0-A, P0-B); same session, same fabricated/incorrect-value class of bug though unrelated mechanisms.",
+        "confidence": 0.9,
+        "causal_pressure": 0.3
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Blast radius at time of fix: no live script imports jnwb.jrsa and invokes metric='pearson'/'spearman'/'procrustes'. The only live importers (scripts/archive_oneoff/build_granger_connectivity_grid.py, scripts/archive_oneoff/suite_granger_v1_pfc.py) call only metric='granger', which does not go through _pearson/_spearman/_procrustes. No figure or headline number was corrupted by this bug as of 2026-08-17; the fix is a footgun closure in exported API, not a correction to a reported result. No corpus rerun was needed or performed for this reason.",
+    "jnwb/analyzers.py and jnwb/functions.py both call StatisticalAnalysis.correlate() and pass the result dict through unchanged (never unpack r_pearson/p_pearson-style flat keys, which don't exist on this API) -- the NaN-propagation change does not alter their behavior; confirmed by reading both call sites.",
+    "Known follow-up, deliberately not fixed in this cycle to keep scope narrow (per user direction): the CuPy/GPU branches of _pearson and _spearman still floor zero-variance input to r=0/rho=0 (jnwb/jrsa.py ~line 1018, ~1064) rather than propagating NaN, so the CPU and GPU paths now diverge on this specific degenerate case (they were coincidentally consistent before this fix, both mapping NaN->0). Not a regression introduced by this fix -- the GPU floor was pre-existing and untouched -- but worth revisiting for cross-backend consistency (numerical-computing skill) if the GPU path for these metrics is ever exercised on real data.",
+    "context/PROJECT_STATE.md was not updated: this bug had zero live callers and therefore no bearing on any reported scientific claim to correct or re-verify."
+  ],
+  "issues": [],
+  "plan": "",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true,
+      "regression_test_added": true,
+      "full_test_suite_run": true,
+      "real_corpus_rerun": false
+    },
+    "verdict": "verified",
+    "checks_run": 4,
+    "commands": [
+      "pytest -q tests/test_jrsa_no_fabricated_failures.py -v  (7 passed)",
+      "pytest -q  (409 passed, 0 failed, 44 skipped)",
+      "git diff --check -- jnwb/statistics.py jnwb/jrsa.py tests/test_jrsa_no_fabricated_failures.py",
+      "grep for all call sites of StatisticalAnalysis.correlate()/exploratory_correlate() and jnwb.jrsa importers to confirm blast radius"
+    ]
+  },
+  "predictive_state": {
+    "expected_behavior": "_pearson/_spearman raise ValueError instead of returning fabricated (0,0,0,1,0) on insufficient-n; _procrustes propagates scipy exceptions instead of fabricating disparity=1.0; StatisticalAnalysis.correlate() returns NaN (not 0.0/1.0) for degenerate (zero-variance) input. No downstream regression: no full-suite failures, no live script depended on the old fabricated values.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-08-17T00:00:00+00:00"
+  }
+}
