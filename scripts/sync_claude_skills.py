@@ -1,23 +1,27 @@
 r"""
-Sync project skills from .agents/skills/ (git-tracked source) to .claude/skills/ (the
-untracked, gitignored location Claude Code's project-skill loader actually reads).
+HISTORICAL as of 2026-08-10 -- there is no longer a two-tree sync to run.
 
-WHY THIS EXISTS
-    .agents/skills/ is checked into git; .claude/ is entirely gitignored on this repo (see
-    .gitignore). Before 2026-07-31 these skills were registered via a ".claude/settings.json
-    skills key pointing at .agents/skills/", which the loader does not read at all -- the
-    skills were silently unloadable for weeks (artifacts/.lab/
-    harness_skill_registry_repair_20260731_correction.json). The fix was a one-time manual
-    copy to .claude/skills/; this script replaces that manual step so a future edit to
-    .agents/skills/<name>/SKILL.md can be re-synced with one command instead of drifting.
+WHAT THIS SCRIPT USED TO DO
+    Synced .agents/skills/ (git-tracked source) to .claude/skills/ (previously untracked,
+    gitignored). That two-tree design was the actual problem: the audit at
+    artifacts/.lab/agent-harness-audit-20260810.json found the two trees had already drifted
+    348 of ~450 combined lines apart on labyrinth-protocol alone, with .agents/skills/ (the
+    supposed "source of truth") containing STALE content -- pre-2026-08-08 D:-drive paths that
+    .claude/skills/ (the loaded, actually-edited copy) had long since moved past. Whoever was
+    editing skills was editing .claude/skills/ directly, because that's what the harness loads;
+    nothing was editing .agents/skills/, so "source of truth" had become a documentation fiction
+    this sync script would have reinforced by overwriting the newer content with the stale copy.
 
-USAGE
+WHAT CHANGED (2026-08-10)
+    .claude/skills/ is now un-gitignored and tracked directly (see .gitignore). .agents/skills/
+    was deleted (recoverable via git history; its content was superseded by .claude/skills/ in
+    every case checked). There is exactly one skill location now. This script is kept for its
+    forensic value (the drift it was meant to prevent is exactly what happened) but running it
+    would do nothing useful -- SRC no longer exists.
+
+USAGE (historical)
     python scripts/sync_claude_skills.py          # copy every .agents/skills/<name>/ dir
     python scripts/sync_claude_skills.py --check  # report drift, change nothing
-
-Always copies .agents/skills/ -> .claude/skills/ (source of truth -> loaded copy), never the
-reverse -- if you edited a skill under .claude/skills/ directly, move that edit to
-.agents/skills/ first or it will be overwritten.
 """
 from __future__ import annotations
 

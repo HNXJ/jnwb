@@ -27,11 +27,17 @@ dependencies = [
     # mcp 2.0 (2026-07-28) removed mcp.server.fastmcp, which jnwb/mcp_server/server.py
     # imports; pin to the v1 line until that module is migrated to the v2 API.
     "mcp<2.0",
+    # Added 2026-08-11: fig03_unit_census.py's UMAP supplement panel imports umap
+    # unconditionally, so a fresh venv without umap-learn fails the ENTIRE fig03 pipeline
+    # (main figure included) at the last panel, not just the supplement -- found while
+    # closing/freezing fig03.
+    "umap-learn",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=7.0",
+    "pytest-cov>=5.0",
 ]
 torch = [
     "torch",

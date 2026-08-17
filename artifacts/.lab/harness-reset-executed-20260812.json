@@ -1,0 +1,35 @@
+{
+  "schema_version": 3,
+  "id": "harness-reset-executed-20260812",
+  "kind": "decision",
+  "title": "One-time Claude harness reset executed: 18 skills -> 9, AGENTS.md and CONTEXT.md retired as constitutions, memory reconstructed",
+  "generated": "2026-08-12",
+  "status": "confirmed",
+  "notes": [
+    "Scope was explicitly bounded by the user to harness deduplication. Labyrinth graph debt, decoding, manuscripts, falsification controls, corpus rebuilding and notebook cleanup were declared out of scope and remain open.",
+    "Always-loaded context reduced from 6598 words (global CLAUDE.md 4519 + project CLAUDE.md 2050 + AGENTS.md read-on-demand) to 1511 resident words: global 489 + project 550 + 472 words of skill descriptions.",
+    "Active skills: 7 project (omission-data, omission-signal, omission-spiking, omission-statistics, omission-figures, manuscript, labyrinth) + 2 user (numerical-computing, biophysical-modeling).",
+    "14 project skills and 2 user skills retired to context/archive/harness-reset-20260812/ via git mv, preserving history (Conservation).",
+    "Memory: live store reduced 3 -> 7 deliberately reconstructed files; the 14 path-orphaned files under the D--workspace-omission key were discarded, not migrated.",
+    "settings.local.json granting Bash(git add *) was retired; it contradicted the new settings.json deny list.",
+    ".claude/settings.json is matched by .gitignore line 116 (.claude/*), so the permission repair is NOT version-controlled. Only .claude/skills/** is tracked."
+  ],
+  "verification": {
+    "quiescence": "HEAD 04b6a2b710941430fba0c5fba6f8b36f64f75dc8 unchanged before and after; working tree was clean (0 entries) at start; harness-pre-reset tag placed on that commit",
+    "rollback_archive": "51 files + 3 quiescence receipts, omission_harness_rollback_20260812.zip, 57 entries, 150345 bytes",
+    "discover_corpus": "python scripts/discover_corpus.py --check -> exit 1 (resolved, blocking mismatch): sessions=22 subjects=3 tfr_ok=10 tfr_files=970; blocking readiness_gate_unsatisfiable; warning root_unresolved for metadata_dir",
+    "tests": "python -m pytest scripts/test_discover_corpus.py -q -> 14 passed in 2.92s",
+    "active_surface_check": "0 active surfaces reference any retired skill; 0 absolute D: data paths in any active surface; every stale corpus count that appears does so inside an explicit historical-marker sentence; known-bad rules (mandatory dual-testing, GLMM-as-backbone, unconditional per-turn graph writes) appear only as explicit rejections"
+  },
+  "issues": [
+    "Labyrinth validator: 23 violations, 3 dangling edges. Deliberately unresolved and recorded as maintenance debt, per explicit user scope decision 2026-08-12.",
+    "Corpus contradiction unresolved: readiness reports tfr_ok on 0 of 22 sessions while 970 TFR arrays exist, attributed by discovery to 10 sessions all of subject V182o. The rebuilt TFR corpus is currently single-subject.",
+    "metadata_dir has no resolver (no jnwb.paths accessor, no env var).",
+    "Statistics dual-test API repair and the global np.random.seed(42) calls are marked REJECT/REQUIRES_CODE_CHANGE in omission-statistics; the code change has not been made.",
+    "Nine clean-room routing acceptance tests were not run: this session's context is contaminated by the retired doctrine, so it cannot serve as evidence that routing fires from descriptions alone."
+  ],
+  "edges": [
+    {"rel": "supersedes", "target": "agent-harness-audit-20260810"},
+    {"rel": "derived_from", "target": "agent-rules-skills-sync-20260811"}
+  ]
+}

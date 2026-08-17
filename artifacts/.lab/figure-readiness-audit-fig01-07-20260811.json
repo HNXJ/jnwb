@@ -1,0 +1,148 @@
+{
+  "schema_version": 3,
+  "id": "figure-readiness-audit-fig01-07-20260811",
+  "kind": "review",
+  "created": "2026-08-11",
+  "title": "First-draft figure-readiness audit, Figures 01-07, against 100-point rubric (A-G). Audit only -- no analyses run or altered.",
+  "status": "confirmed",
+  "note": "Requested by Hamm as a project-wide narrowing to the seven main manuscript figures. Scores are this agent's evaluation against the stated rubric, informed by 7 parallel read-only Explore-agent fact-finding passes (one per figure), each independently verifying current script content, source-table existence, .lab node status, and grep-level absence/presence of retracted numbers or synthetic fallbacks. This node exists so scores can be UPDATED as figures are fixed, rather than rediscovered from scratch.",
+  "rubric": {
+    "A_scientific_claim": 15,
+    "B_data_corpus": 15,
+    "C_analysis_validity": 20,
+    "D_statistics": 15,
+    "E_reproducibility": 15,
+    "F_figure_implementation": 10,
+    "G_manuscript_readiness": 10,
+    "total": 100,
+    "first_draft_ready_threshold": 85,
+    "additional_rule": "A figure scoring >=85 with an unresolved P0 scientific-validity blocker is NOT first-draft-ready regardless of numeric score."
+  },
+  "scores": {
+    "fig01_recording_topology_and_paradigm": {
+      "total": 83, "A": 14, "B": 11, "C": 18, "D": 15, "E": 10, "F": 7, "G": 8,
+      "first_draft_ready": false,
+      "p0_blockers": [],
+      "p1_blockers": [
+        "artifacts/madelane.png still draws V3/A and V3/D as two separate labeled/colored regions, contradicting the project's V3a/d pooling addressing convention used in figs 03 and 05.",
+        "artifacts/.lab/fig01_three_panel_redesign_20260730.json is stale relative to the current script (describes an earlier row-based panel-C layout; current script uses columns; several later additions undocumented in the node)."
+      ],
+      "minimum_fix": "Merge/relabel V3/A+V3/D to 'V3a/d' in the topology diagram; state timing-constant provenance in figstyle.py docstring; write a fresh .lab node superseding the 2026-07-30 one.",
+      "estimated_score_after_fix": 92
+    },
+    "fig02_spiking_exemplar_rasters": {
+      "total": 94, "A": 15, "B": 14, "C": 19, "D": 14, "E": 13, "F": 10, "G": 9,
+      "first_draft_ready": true,
+      "p0_blockers": [],
+      "p1_blockers": [
+        "O++ exemplar (unit 51, FEF, sub-C31o_ses-230823) is a disclosed manual override chosen by visual inspection rather than the automated |q1_effect_hz| ranking -- transparent in code/receipt but not yet in caption/Methods."
+      ],
+      "minimum_fix": "Add one Methods/caption sentence disclosing the O++ manual override.",
+      "estimated_score_after_fix": 97
+    },
+    "fig03_unit_census": {
+      "total": 88, "A": 13, "B": 13, "C": 18, "D": 14, "E": 13, "F": 9, "G": 8,
+      "first_draft_ready": true,
+      "p0_blockers": [],
+      "p1_blockers": [
+        "Retracted 421/8597/4.90% lineage confirmed fully absent from the live computational path (only historical-warning citations remain) -- this is a positive finding, recorded here as the explicit falsifier check the user requested.",
+        "Multiple legitimate denominators across panels (8,592 grand / 2,921 legacy-screened / 6,650 layer-matched) -- correctly computed per the script, but per-panel visual labeling not independently confirmed by this audit (code-level only).",
+        "No trial-count minimum applied inside fig03_unit_census.py itself; inherited from an upstream classification script not named in the fig03 README."
+      ],
+      "minimum_fix": "Visual denominator-labeling check on the rendered SVG; name the upstream trial-count-minimum contract in the README; write one consolidating .lab node with an explicit falsifier.",
+      "estimated_score_after_fix": 93
+    },
+    "fig04_omission_identity_decoding": {
+      "total": 44, "A": 8, "B": 6, "C": 10, "D": 6, "E": 10, "F": 2, "G": 2,
+      "first_draft_ready": false,
+      "p0_blockers": [
+        "No rendered fig04.svg/.png exists anywhere in the repo -- the renderer hard-fails at _require_inputs() because production leakage-safe artifacts (outputs/classification/omission_identity_leakage_safe_*.csv) do not exist (only smoke-test variants do).",
+        "Stage 4B production shard output directory (D:/analysis/handout4_stage4b_linear_map/) is empty; no stage4b_receipt.json exists outside smoke-test dirs. The WHAT x WHEN linear map has not been computed on real data with the fixed runner."
+      ],
+      "p1_blockers": [
+        "Milestone 2A (R0/R1 reversal design) IS complete, receipted, and signed off (2026-08-10) but represents only the positive-control track, not the figure's coded headline (leakage-safe SPK/SUA panels A-E2)."
+      ],
+      "context": "Both Stage 4B bugs (_select_c unpacking bug; invalid batched-null closed-form solver) are FIXED and validated (scripts/validate_stage4b_batched_null.py exit 0, exact match) as of commit 0b3e47d on dev, 2026-08-11. The old random-CV ~0.601 result is correctly and fully retracted (provenance-only, never consumed by the renderer). No synthetic-fallback path exists in the renderer -- it fails loudly by design, which is the doctrine-correct behavior, not a defect.",
+      "minimum_fix": "Run the 9 frozen Stage 4B production shards (fresh authorization required, explicitly out of scope for this audit); merge and audit per continuation handout Step 5; regenerate production leakage-safe artifacts; render and visually review; record final Labyrinth node replacing handout-4-stage4b-linear-map-implementation-20260810.",
+      "estimated_score_after_fix": 80,
+      "note_on_cap": "Capped below 85 even after the production run, pending a human visual-review pass and closure of the 7 acceptance conditions listed in the fig04 README."
+    },
+    "fig05_v1_area_hierarchy_glmm": {
+      "total": 69, "A": 13, "B": 13, "C": 10, "D": 10, "E": 11, "F": 8, "G": 4,
+      "first_draft_ready": false,
+      "p0_blockers": [
+        "scripts/compute_channel_band_power_census_v2.py computes dB PER TRIAL (db(p_mid, p_ob) inside the trial loop, lines ~118-121, 191) and only then averages the resulting dB values across trials (np.nanmean(d_omi, axis=0), line 197) -- this is the exact 'averaging decibels' anti-pattern the project's own doctrine (db_averaging_bias_finding_20260728.json) identified as biasing a noisier session/channel low relative to a quieter one by roughly half the variance of the log, measured elsewhere on this corpus at -0.17 to -1.98 dB, large enough to reverse an animal's sign. Every downstream number (including the headline V3a/d beta +1.11dB and FEF/PFC low-gamma Holm survivors) is unverified against the doctrine-correct order until the census is recomputed."
+      ],
+      "p1_blockers": [
+        "MixedLM/OLS-cluster fallback (used where MixedLM is singular for theta/alpha/beta) mixes two inferential frameworks within one figure family; disclosed per-cell via an 'estimator' column but not yet surfaced in caption/Methods text."
+      ],
+      "context": "V3a/d correctly pooled everywhere in this figure's code. Canonical band boundaries confirmed correct. Design connectivity for area x subject explicitly addressed and correctly reasoned. Subject heterogeneity is honestly framed (no universal-direction story present) in the figure's own supplement/README, consistent with the known null-pooled-estimate finding.",
+      "minimum_fix": "Fix the census script's per-trial averaging order to average power over trials first, divide by baseline, then log once; re-run the full band-power census and refit the GLMM; diff corrected numbers against currently reported ones and report the magnitude/direction of the correction; write a fresh .lab node.",
+      "estimated_score_after_fix": 88,
+      "note_on_cap": "Contingent on corrected numbers still surviving Holm at the same areas -- if not, the headline claim itself changes and needs re-audit."
+    },
+    "fig06_v1_pfc_condition_tfr": {
+      "total": 55, "A": 10, "B": 8, "C": 12, "D": 12, "E": 5, "F": 5, "G": 3,
+      "first_draft_ready": false,
+      "p0_blockers": [
+        "Hardcoded input paths (D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz; D:/workspace/data/tfr_arrays/) do not exist under the current data layout (migrated to D:/nwb + D:/analysis per artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json). The figure cannot currently be regenerated from live data at all."
+      ],
+      "p1_blockers": [
+        "Internal script/output naming (fig04_v1_pfc_condition_tfr.py, fig04.svg) still reflects the pre-renumbering identity, despite the directory being renamed to fig06_v1_pfc_condition_tfr -- a registry-drift symptom the project doctrine explicitly warns about.",
+        "Headline result is weak (0/20 Holm survivors, min p_holm=0.068; 2/20 BH-FDR survivors) -- honest if framed as a null/weak-effect finding, but that editorial framing decision has not been confirmed as made."
+      ],
+      "context": "dB averaging order in THIS figure's own script is CORRECT (power averaged over trials/channels/sessions first, log once, explicitly cited to the doctrine) -- contrast with fig05's bug, which is in a different upstream script. Both Holm and BH-FDR correctly reported side-by-side, never interchanged. Laminar supplement correctly uses the real non-constant vFLIP layer source. Project's own README self-flags 'stale... treat as unlocked'; REVISION_PLAN.md independently scores it 50/100.",
+      "minimum_fix": "Relocate/regenerate the TFR map product under D:/nwb + D:/analysis; update hardcoded paths; rename internal fig04-labeled variables/outputs to fig06; re-run and confirm statistics reproduce; make an explicit editorial framing decision on the 0/20 Holm result.",
+      "estimated_score_after_fix": 82,
+      "note_on_cap": "Still short of 85 without the null-framing editorial decision, which is not a code fix."
+    },
+    "fig07_lfp_spike_coupling": {
+      "total": 59, "A": 9, "B": 11, "C": 12, "D": 11, "E": 10, "F": 4, "G": 2,
+      "first_draft_ready": false,
+      "p0_blockers": [
+        "Headline analysis (population-firing x LFP-band-power Pearson correlation) does not match the figure's own name/framing ('lfp_spike_coupling'); the actual phase-based spike-LFP coupling estimator (PPC) is confined to a demoted supplement. The project's own REVISION_PLAN.md independently scores this figure '10/100, major revision,' explicitly stating it is undetermined whether the headline choice itself is wrong -- i.e. the scientific question for this figure has not been settled by the project's own science lead."
+      ],
+      "p1_blockers": [
+        "No equal-spike-count subsampling/sensitivity check confirmed for the headline correlation panel specifically (PPC's bias-immunity is documented and correctly implemented, but the correlation panel uses a different, unguaranteed estimator)."
+      ],
+      "context": "Statistical discipline otherwise strong: session is explicitly the unit of inference (avoiding pseudo-replication), trial correspondence spot-verified not assumed, PPC correctly implemented as bias-free w.r.t. spike count, Holm+BH-FDR both computed with explicitly declared non-overlapping families, no directional/causal language found in code or README.",
+      "minimum_fix": "Human scoping decision (Sol/Hamm) on what fig07 is actually about -- coupling via PPC, or association via population-rate correlation -- before further code work, per REVISION_PLAN's own note. Once settled: align name/caption with the chosen headline estimator; add count-robustness check if correlation remains headline.",
+      "estimated_score_after_fix": 75,
+      "note_on_cap": "Capped until the human scoping decision is made and the figure is re-scored; code fixes alone cannot close this gap."
+    }
+  },
+  "cross_figure_summary": {
+    "average_score": 70.3,
+    "first_draft_ready_now": ["fig02_spiking_exemplar_rasters", "fig03_unit_census"],
+    "small_fixes_only": ["fig01_recording_topology_and_paradigm", "fig02_spiking_exemplar_rasters", "fig03_unit_census"],
+    "substantive_analysis_or_human_decision_needed": [
+      "fig04_omission_identity_decoding",
+      "fig05_v1_area_hierarchy_glmm",
+      "fig06_v1_pfc_condition_tfr",
+      "fig07_lfp_spike_coupling"
+    ],
+    "ranked_by_distance_to_ready_closest_first": [
+      "fig02_spiking_exemplar_rasters",
+      "fig03_unit_census",
+      "fig01_recording_topology_and_paradigm",
+      "fig05_v1_area_hierarchy_glmm",
+      "fig07_lfp_spike_coupling",
+      "fig06_v1_pfc_condition_tfr",
+      "fig04_omission_identity_decoding"
+    ],
+    "dependency_aware_path": [
+      "1. Parallel, cheap, no dependencies: fig01 diagram relabel, fig02 disclosure sentence, fig03 denominator-labeling check.",
+      "2. fig05 P0 fix: correct the per-trial dB averaging bug in compute_channel_band_power_census_v2.py, re-run census + GLMM, re-score. Independent of all other figures.",
+      "3. fig07 scoping decision with Sol/Hamm (not a compute task, can run in parallel with 1-2).",
+      "4. fig06 data recovery: locate/regenerate TFR products under current D:/nwb + D:/analysis layout; prerequisite to any further fig06 work; independent of the others.",
+      "5. fig04 last: full Stage 4B production run (largest remaining compute task, needs separate explicit authorization per user's prior 'do not relaunch shards' instruction); does not block any other figure."
+    ]
+  },
+  "issues": [
+    "No analyses were run or altered during this audit, per explicit user instruction.",
+    "This node's fig01/02/03 P1 findings and fig05/06/07 P0 findings should each be independently verified by re-render/re-run before being treated as closed, per the falsifier below.",
+    "This audit relied on 7 parallel Explore-agent fact-finding passes; each pass's file:line citations are recorded in this session's transcript but not independently re-verified by a second pass in this audit -- treat individual claims as high-confidence, single-source until spot-checked."
+  ],
+  "falsifier": "Superseded when any individual figure's blockers listed here are fixed and the figure is re-scored -- update this node's per-figure score/blocker fields rather than creating a new audit node for a re-score of the same figure set. Also superseded wholesale if a fresh audit is run after Stage 4B production completes (fig04) or after any of the P0 fixes for fig05/06/07 land.",
+  "falsifier_status": "OPEN as of 2026-08-11 -- 5 of 7 figures (01, 04, 05, 06, 07) have at least one unresolved blocker; 2 of 7 (02, 03) are first-draft-ready pending a one-item disclosure/verification each."
+}

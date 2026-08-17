@@ -389,6 +389,7 @@ from .trajectory import (
     compute_population_trajectory,
 )
 from .report import generate_report
+from .analog import EpochBatch, load_analog_epochs, load_muae_epochs, load_lfp_epochs
 
 # Export main classes and functions
 __all__ = [
@@ -397,6 +398,10 @@ __all__ = [
     # ========================================================================
     'jrsa',
     'JRSAResult',
+    'EpochBatch',
+    'load_analog_epochs',
+    'load_muae_epochs',
+    'load_lfp_epochs',
 
     # ========================================================================
     # v1.0.0 PUBLIC API (FROZEN)

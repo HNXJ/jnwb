@@ -35,9 +35,9 @@ FIGURES = [
     ("fig03", "fig03_unit_census", "Unit census: presence, functionality, and RXRR template traces by area"),
     # 2026-08-06 RENUMBERING: figS24_omission_identity_decoding (a supplement since 2026-08-02)
     # was promoted into this slot, replacing the old fig04 (V1/PFC TFR, moved to fig06 below).
-    # CONFIRMED at promotion time to be entirely synthetic (no source CSVs on disk) -- see
-    # fig04_omission_identity_decoding/README.md before citing anything from it.
-    ("fig04", "fig04_omission_identity_decoding", "Omission identity decoding & spatial \"GLMM\" encoding -- PROMOTED 2026-08-06, currently 100% synthetic, not yet a real result"),
+    # The old random-CV result is confounded; the renderer now requires complete leakage-safe
+    # artifacts and a corpus receipt before it can be cited.
+    ("fig04", "fig04_omission_identity_decoding", "Leakage-safe omitted-identity decoding -- P0 corpus rerun pending, not yet publication-ready"),
     # 2026-08-04/05: figures 5/6/7 reorganized into connectivity-modality order (LFP-LFP/
     # SPK-SPK/LFP-SPK); all three connectivity methods tried for fig05 came back null, so fig05
     # pivoted to an area x band GLMM instead (see fig05_v1_area_hierarchy_glmm/README.md). The

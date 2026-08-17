@@ -31,7 +31,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import h5py
 import numpy as np
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]  # scripts/archive_oneoff/<this file> -> repo root
 sys.path.insert(0, str(REPO))
 
 from jnwb.sequence_layout import (  # noqa: E402
@@ -45,6 +45,19 @@ PROBE_TO_LFP = {
     "probeB": "probe_1_lfp",
     "probeC": "probe_2_lfp",
     "probeD": "probe_3_lfp",
+}
+
+# Manual anatomical overrides for probes whose raw NWB `location` string does not match
+# jnwb.sequence_layout.parse_probe_areas's generic dual-area convention. Confirmed by hand
+# (Hamm, 2026-08-12): sub-V182o_ses-260724 probeC is a 32-channel V-probe -- not the
+# standard 128-ch shank used everywhere else in the corpus -- recording only ventral V3.
+# Its raw NWB `location` is bare "V3" on all 32 channels, which the generic rule expands
+# into a dual V3d/V3a split (correct for the standard 128-ch V3 probes elsewhere, wrong
+# here since this probe never crosses into V3a). For area-level statistical pooling, V3v
+# is grouped with plain "V3" (the label used by the C31o sessions' own unsplit V3 probes),
+# not with V3a/V3d -- apply that convention wherever V3a/V3d get pooled to "V3a/d".
+SINGLE_AREA_OVERRIDES: Dict[Tuple[str, str], str] = {
+    ("sub-V182o_ses-260724", "probeC"): "V3v",
 }
 
 
@@ -128,7 +141,9 @@ def select_sessions(
     return rows
 
 
-def build_electrodes(f: h5py.File) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def build_electrodes(
+    f: h5py.File, session_prefix: str
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     elec = f["general/extracellular_ephys/electrodes"]
     n = len(elec["id"])
     ids = _read_col(elec, "id")
@@ -145,6 +160,14 @@ def build_electrodes(f: h5py.File) -> Tuple[List[Dict[str, Any]], Dict[str, Any]
         else list(groups)
     )
 
+    # Total channel count per probe, known up front -- needed to build correct dual-area
+    # slice boundaries for probes that are not the standard 128-channel shank (e.g. a
+    # 32-channel V-probe). Using a hardcoded 128 here silently mis-splits any non-standard
+    # probe: see SINGLE_AREA_OVERRIDES above for the one confirmed case in this corpus.
+    probe_total_channels: Dict[str, int] = {}
+    for g in groups:
+        probe_total_channels[g] = probe_total_channels.get(g, 0) + 1
+
     rows: List[Dict[str, Any]] = []
     # local index within each probe (order of appearance)
     local_counters: Dict[str, int] = {}
@@ -158,7 +181,9 @@ def build_electrodes(f: h5py.File) -> Tuple[List[Dict[str, Any]], Dict[str, Any]
         if probe not in probe_labels:
             probe_labels[probe] = loc_raw
 
-        areas = parse_probe_areas(loc_raw)
+        override = SINGLE_AREA_OVERRIDES.get((session_prefix, probe))
+        areas = (override,) if override else parse_probe_areas(loc_raw)
+        n_ch_probe = probe_total_channels[probe]
         area = None
         area_slot = None
         if len(areas) == 1:
@@ -168,7 +193,7 @@ def build_electrodes(f: h5py.File) -> Tuple[List[Dict[str, Any]], Dict[str, Any]
             # assign by local channel half / partition
             sl = None
             for slot, a in enumerate(areas):
-                ch = channel_slice_for_area(areas, a, n_channels=128)
+                ch = channel_slice_for_area(areas, a, n_channels=n_ch_probe)
                 if ch is None:
                     continue
                 if ch.start <= local < ch.stop:
@@ -178,7 +203,7 @@ def build_electrodes(f: h5py.File) -> Tuple[List[Dict[str, Any]], Dict[str, Any]
                     break
             if area is None:
                 # fallback equal partition
-                area = areas[min(local * len(areas) // 128, len(areas) - 1)]
+                area = areas[min(local * len(areas) // n_ch_probe, len(areas) - 1)]
                 area_slot = areas.index(area)
 
         rows.append(
@@ -197,21 +222,23 @@ def build_electrodes(f: h5py.File) -> Tuple[List[Dict[str, Any]], Dict[str, Any]
 
     probe_meta: Dict[str, Any] = {}
     for probe, loc_raw in probe_labels.items():
-        areas = parse_probe_areas(loc_raw)
+        override = SINGLE_AREA_OVERRIDES.get((session_prefix, probe))
+        areas = (override,) if override else parse_probe_areas(loc_raw)
+        n_ch_probe = local_counters.get(probe, 0)
         slices = {
             a: {
-                "start": channel_slice_for_area(areas, a).start,
-                "stop": channel_slice_for_area(areas, a).stop,
+                "start": channel_slice_for_area(areas, a, n_channels=n_ch_probe).start,
+                "stop": channel_slice_for_area(areas, a, n_channels=n_ch_probe).stop,
             }
             for a in areas
-            if channel_slice_for_area(areas, a) is not None
+            if channel_slice_for_area(areas, a, n_channels=n_ch_probe) is not None
         }
         probe_meta[probe] = {
             "location_raw": loc_raw,
             "areas": list(areas),
             "channel_slices": slices,
             "lfp_key": PROBE_TO_LFP.get(probe),
-            "n_channels": local_counters.get(probe, 0),
+            "n_channels": n_ch_probe,
         }
     return rows, probe_meta
 
@@ -345,8 +372,9 @@ def write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
 
 def process_session(nwb_path: Path, out_dir: Path) -> Dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    session_prefix = nwb_path.stem.removesuffix("_rec")
     with h5py.File(nwb_path, "r") as f:
-        electrodes, probe_meta = build_electrodes(f)
+        electrodes, probe_meta = build_electrodes(f, session_prefix)
         channel_area = {
             int(r["channel_id"]): r["area"] for r in electrodes if r.get("area")
         }
@@ -397,6 +425,17 @@ def main() -> None:
     for s in sessions:
         nwb_path = Path(s["path"])
         stem = s["stem"]
+        if not nwb_path.is_file():
+            # Catalog paths pre-date the 2026-08-08 D:-drive migration (D:/analysis/nwb/... ->
+            # D:/nwb/omission/...); resolve against the current default before giving up. See
+            # artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json.
+            from jnwb import paths as _oa_paths
+            candidate = _oa_paths.nwb_dir() / nwb_path.name
+            if candidate.is_file():
+                nwb_path = candidate
+            else:
+                print(f"  SKIP {stem}: not found at catalog path {s['path']} or {candidate}")
+                continue
         out_dir = args.meta_root / stem
         print(f"sidecar {stem} <- {nwb_path.name}")
         summary = process_session(nwb_path, out_dir)

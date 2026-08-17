@@ -1,0 +1,49 @@
+{
+  "schema_version": 3,
+  "id": "cursor-continuation-verification-20260810",
+  "kind": "review",
+  "created": "2026-08-10",
+  "title": "Cursor continuation verification: dev branch and unsigned structured-identity specification",
+  "status": "provisional",
+  "claims": [
+    {
+      "id": "claim-dev-clean-at-handoff",
+      "status": "confirmed",
+      "statement": "The live checkout is on dev at bd7d3cc5612bf4743e1a3d406d020a93c9e7e7b5, tracking origin/dev with no working-tree changes. This handoff commit is directly atop the frozen-spec commit 1e67054.",
+      "receipt": "git branch --show-current; git rev-parse HEAD; git status --short --branch; git log -5 --oneline --decorate, run 2026-08-10"
+    },
+    {
+      "id": "claim-structured-spec-not-authorized",
+      "status": "confirmed",
+      "statement": "Handout 3 is a frozen but unsigned specification. It explicitly does not authorize structured-decoding implementation, training, or model fitting until Sol and Hamm provide explicit sign-off.",
+      "receipt": "docs/handout_3_structured_identity_experiment_v1_spec.md sections 1, 4.4, 9, and 11.4; artifacts/.lab/handout-3-structured-identity-experiment-v1-spec-20260810.json"
+    }
+  ],
+  "issues": [
+    "The handoff text names 1e67054 as HEAD, but the live branch includes the later pushed documentation handoff commit bd7d3cc; origin/dev agrees with the live HEAD.",
+    "The O+ census remains unresolved and the flattened 0.601 decoding result remains retracted/confounded.",
+    "Any structured-decoding implementation requires explicit sign-off and a versioned spec amendment if the frozen specification changes."
+  ],
+  "edges": [
+    {
+      "from": "cursor-continuation-verification-20260810",
+      "to": "handout-3-structured-identity-experiment-v1-spec-20260810",
+      "type": "reviews"
+    },
+    {
+      "from": "cursor-continuation-verification-20260810",
+      "to": "handout-2.5-runtime-audit-20260810",
+      "type": "depends_on"
+    }
+  ],
+  "verification": {
+    "checks": {
+      "branch_matches_handoff": true,
+      "working_tree_clean": true,
+      "spec_read": true,
+      "implementation_started": false
+    },
+    "verdict": "continuation state verified; waiting for explicit scientific sign-off"
+  },
+  "falsifier": "This verification is superseded when the branch changes, the specification receives explicit sign-off, or a versioned amendment replaces the frozen v1 document."
+}

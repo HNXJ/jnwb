@@ -1,0 +1,64 @@
+{
+  "schema_version": 3,
+  "id": "handout-3-structured-identity-experiment-v1-spec-20260810",
+  "kind": "plan",
+  "created": "2026-08-10",
+  "title": "Structured Identity Experiment v1 -- frozen specification, per Sol/Hamm's direction after accepting the Handout 2.5 runtime audit gate (SAFE_TO_RUN_STRUCTURED_DECODING = YES)",
+  "status": "confirmed",
+  "full_spec": "docs/handout_3_structured_identity_experiment_v1_spec.md",
+  "note": "This node records a SPECIFICATION, not an implementation or a result. Sol/Hamm explicitly signed off on 2026-08-10. The sign-off authorizes Milestone 1 infrastructure only; no M2/M3 training or fitting is authorized before Milestone 1 review.",
+  "scientific_signoff": {
+    "status": "APPROVED",
+    "date": "2026-08-10",
+    "signatories": ["Sol", "Hamm"],
+    "scope": "Milestone 1 ontology, grouped folds, R0/R1/R2 representation contracts, null plumbing, tests, and receipts",
+    "training_authorized": false,
+    "clarifications": [
+      "Vectorization is bijective absent preprocessing loss; a structured model advantage is an inductive-bias/modeling result, not literal extra information.",
+      "R0 is rate/collapsed, R1 is temporally resolved vectorized raster, and R2 is structured population dynamics.",
+      "The primary comparison is paired structured minus matched-flat performance on identical outer folds.",
+      "Presented-identity positive control must use the same grouped machinery as omitted identity."
+    ]
+  },
+  "claims": [
+    {
+      "id": "claim-factorial-design-frozen",
+      "status": "provisional",
+      "statement": "Design is an explicit factorial: modality {SPK, LFP} x representation {X_flat, X_temporal, X_structured} x model_class {M0 chance, M1 linear, M2 MLP, M3 structured, M4 M3+regularized} x control {none, unit/channel-order permutation, time-bin permutation, within-trial scrambling, exchangeable label permutation}. No single cell authorizes a claim alone -- only the pattern across the full ladder plus ablations does (see docs spec Section 10 decision table)."
+    },
+    {
+      "id": "claim-spk-lfp-structured-representations-differ",
+      "status": "provisional",
+      "statement": "SPK and LFP X_structured representations are NOT the same design. LFP channel x time uses real probe/depth topology (channels are physically adjacent). SPK has no default unit-adjacency topology -- starting point is either a permutation-equivariant treatment of the unit axis (temporal filter per unit + pooling across units) or a genuine-metadata-ordered axis (area/probe/depth), never raw row-index-as-pixel-adjacency without an explicit, separately-recorded justification."
+    },
+    {
+      "id": "claim-positive-control-same-fold-machinery",
+      "status": "provisional",
+      "statement": "The presented-identity positive control must NOT reuse jnwb.decoding.decode_stimulus_identity as-is (it uses ungrouped StratifiedKFold(shuffle=True), found in Handout 2.5). Implementation must build the positive control on the identical outer-fold (leave-one-cycle-out), inner-validation, and permutation-null machinery as the main omitted-identity decode -- same code path, different label column. This was an explicit qualification from Sol on accepting the Handout 2.5 gate."
+    },
+    {
+      "id": "claim-targets-from-trial-ontology",
+      "status": "provisional",
+      "statement": "Every eligible trial carries five targets from jnwb.trial_ontology: Y_expected (expected_identity, primary interest), Y_previous (preceding_identity), Y_position (omission_position), Y_family (sequence_family), Y_cycle (cycle, used as the fold-grouping variable, not decoded as a target of interest). Every reported Y_expected decode must be accompanied by the same decode against Y_previous/Y_position/Y_family on the identical pipeline -- an effect present on Y_expected but equally present on a confound target is confound-attributable, not identity coding."
+    },
+    {
+      "id": "claim-confound-hierarchy-separate-track",
+      "status": "provisional",
+      "statement": "The original invalid random-CV result (0.601, confounded) must never be resurrected as identity-decoding evidence. But the observation that motivated investigating it -- cycle/nuisance structure possibly differing systematically across cortical hierarchy -- is preserved as a SEPARATE, explicitly-labeled exploratory hypothesis (Section 11.3 of the spec), never merged into the main H_flat/H_structured claim, with its own falsifier and its own future labyrinth node."
+    },
+    {
+      "id": "claim-decision-table-frozen",
+      "status": "provisional",
+      "statement": "A 7-row decision table (spec Section 10) fixes, in advance, how every possible pattern of ladder results maps to an interpretation and required action -- including the case where M1 (the simplest model) already succeeds, which requires re-running the exact confound checks that caught the original 0.601 confound before any claim, not proceeding straight to M3 to 'confirm' a result M1 already gives."
+    }
+  ],
+  "edges": [
+    {"from": "handout-3-structured-identity-experiment-v1-spec-20260810", "to": "handout-2.5-runtime-audit-20260810", "type": "derived_from"},
+    {"from": "handout-3-structured-identity-experiment-v1-spec-20260810", "to": "agent-harness-audit-20260810", "type": "derived_from"}
+  ],
+  "issues": [
+    "Milestone 1 must be reviewed before any M2/M3 training, structured-model fitting, or model search begins.",
+    "None of the structural ablations (Section 9.2), the SPK permutation-equivariant/metadata-ordered representation, or the shared-fold-machinery positive control exist as code yet. Implementing them is explicitly part of what executing this spec requires."
+  ],
+  "falsifier": "This node is superseded by a versioned v1.1/v2 revision if the signed scientific specification changes, or by a Milestone 1 review receipt that explicitly rejects the current implementation contract."
+}

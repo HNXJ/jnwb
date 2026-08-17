@@ -23,12 +23,14 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install package with test extras
         run: pip install -e ".[test]" -q
-      - name: Run pytest
+      - name: Run pytest with coverage
         id: pytest
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest -q --tb=short 2>&1 | tee pytest_output.log
+          python -m pytest -q --tb=short \
+            --cov=jnwb --cov-report=term-missing --cov-report=xml \
+            2>&1 | tee pytest_output.log
       - name: Write failure diagnostics to job summary
         if: failure()
         run: |
@@ -36,3 +38,17 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           tail -n 300 pytest_output.log >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Write coverage summary
+        if: always()
+        run: |
+          echo "## Coverage (jnwb/)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 60 pytest_output.log | grep -A100 "^Name " >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: ignore

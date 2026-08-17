@@ -109,7 +109,20 @@ scripts/_*.py
 .DS_Store
 
 # Agent workspace / IDE
-.claude/
+# 2026-08-10: .claude/skills/ is now the single tracked canonical skill source (see
+# artifacts/.lab/agent-harness-audit-20260810.json P1 item -- .agents/skills/ was a stale,
+# drifted duplicate and has been retired).
+#
+# 2026-08-12 harness reset: settings.json is now un-ignored too. It carries the permission
+# policy (deny `git add .`/`-A`, force-push, hard reset) and is doctrine, not machine-local
+# preference -- left untracked, a fresh clone silently resurrects the policy gap. settings.
+# local.json stays ignored: that IS machine-local, and the copy retired in this reset was
+# granting `Bash(git add *)` in direct contradiction of settings.json.
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+!.claude/settings.json
+!.claude/SETTINGS_RATIONALE.md
 .vscode/
 .idea/
 

@@ -136,10 +136,22 @@ def main(limit=None):
         if "putative_layer" in g.columns:
             lay[(sp, pl, a)] = dict(zip(g["channel"], g["putative_layer"]))
 
-    files = sorted(glob.glob(os.path.join(TFR_DIR, "*.npy")))
+    # Two on-disk formats coexist: the legacy full-128-channel-padded .npy (array indexed
+    # directly by raw probe-channel 0-127) and the 2026-08-11 compressed .npz (real per-area
+    # channel subset + 1/f quality screen, see scripts/precompute_tfr_arrays_v2.py; array's
+    # channel axis is a SUBSET, real raw-channel ids carried in the "channels" key). Prefer
+    # .npz when both exist for the same (session,probe,area,cond) -- it is the corrected,
+    # doctrine-compliant regeneration; a stale .npy should not silently win by glob order.
+    npy_files = glob.glob(os.path.join(TFR_DIR, "*.npy"))
+    npz_files = glob.glob(os.path.join(TFR_DIR, "*.npz"))
+    by_stem = {os.path.basename(f)[:-4]: ("npy", f) for f in npy_files}
+    for f in npz_files:
+        by_stem[os.path.basename(f)[:-4]] = ("npz", f)  # npz wins on collision
+    files = sorted(f for _, f in by_stem.values())
+
     targets, skipped = [], []
-    for f in files:
-        m = FNAME_RE.match(os.path.basename(f)[:-4])
+    for stem, (fmt, f) in sorted(by_stem.items()):
+        m = FNAME_RE.match(stem)
         if not m:
             skipped.append((os.path.basename(f), "unparsed filename"))
             continue
@@ -151,7 +163,7 @@ def main(limit=None):
         if key not in seg:
             skipped.append((os.path.basename(f), "no channel segment for area token"))
             continue
-        targets.append((f, g, seg[key]))
+        targets.append((f, fmt, g, seg[key]))
     if limit:
         targets = targets[:limit]
 
@@ -162,16 +174,32 @@ def main(limit=None):
     recs = []
     t0 = time.time()
 
-    for k, (f, g, chans) in enumerate(targets, 1):
+    for k, (f, fmt, g, chans) in enumerate(targets, 1):
         try:
-            a = np.load(f, mmap_mode="r")
+            if fmt == "npz":
+                npz = np.load(f)
+                a = npz["power"]                 # (trials, n_kept, freqs, times), already
+                                                  # real-per-area + 1/f-screened at write time
+                raw_ch = npz["channels"]         # raw probe-channel id per array column
+            else:
+                a = np.load(f, mmap_mode="r")    # legacy full-128-channel array
+                raw_ch = np.arange(a.shape[1])
         except Exception as e:
             skipped.append((os.path.basename(f), f"load failed: {e}"))
             continue
         if a.ndim != 4 or a.shape[2] != len(FREQS_HZ) or a.shape[3] != N_TIMES:
             skipped.append((os.path.basename(f), f"unexpected shape {a.shape}"))
             continue
-        sel = chans[chans < a.shape[1]]
+        if fmt == "npz":
+            # Array columns are already exactly this area's real, quality-screened channels
+            # (scripts/precompute_tfr_arrays_v2.py) -- use all of them, local index == column.
+            sel = np.arange(a.shape[1])
+            sel_raw_ids = raw_ch
+        else:
+            # Legacy full-128 array: chans (from channel_area_vector) ARE direct column
+            # indices into the 128-wide array.
+            sel = chans[chans < a.shape[1]]
+            sel_raw_ids = sel
         if sel.size == 0:
             skipped.append((os.path.basename(f), "segment outside array channel range"))
             continue
@@ -188,19 +216,39 @@ def main(limit=None):
             if p_mid is None or p_ob is None or p_fx is None:
                 continue
 
-            d_omi = db(p_mid, p_ob)                       # primary
-            d_fx = db(p_mid, p_fx)                        # secondary
-            d_flank_fx = np.nanmean(np.stack([db(p_fa, p_fx), db(p_fb, p_fx)]), axis=0)
-
-            n_ok = np.sum(np.isfinite(d_omi), axis=0)
+            # P0 FIX (2026-08-11, artifacts/.lab/fig05-p0-dB-averaging-fix-20260811.json):
+            # the point estimate must average POWER over trials first, divide by the
+            # baseline, and take 10*log10 exactly once -- never average per-trial dB values.
+            # Averaging decibels subtracts a term proportional to the variance of the log,
+            # biasing a noisier session/channel low relative to a quieter one (measured
+            # elsewhere on this corpus at -0.17 to -1.98 dB, large enough to reverse an
+            # animal's sign -- see artifacts/.lab/db_averaging_bias_finding_20260728.json).
+            # The previous implementation here did exactly that: db(p_mid, p_ob) computed a
+            # per-trial ratio+log, then nanmean averaged the resulting dB values across
+            # trials. Fixed by averaging p_mid/p_ob/p_fx/p_fa/p_fb over trials FIRST, then
+            # taking the log once on the trial-averaged power.
+            n_ok = np.sum(np.isfinite(p_mid) & np.isfinite(p_ob), axis=0)
             with np.errstate(invalid="ignore"):
-                m_omi = np.nanmean(d_omi, axis=0)
-                s_omi = (np.nanstd(d_omi, axis=0, ddof=1) if d_omi.shape[0] > 1
-                         else np.full(sel.size, np.nan))
-                m_fx = np.nanmean(d_fx, axis=0)
-                m_flank = np.nanmean(d_flank_fx, axis=0)
+                mp_mid = np.nanmean(p_mid, axis=0)
+                mp_ob = np.nanmean(p_ob, axis=0)
+                mp_fx = np.nanmean(p_fx, axis=0)
+                mp_fa = np.nanmean(p_fa, axis=0)
+                mp_fb = np.nanmean(p_fb, axis=0)
 
-            for j, ch in enumerate(sel):
+            m_omi = db(mp_mid, mp_ob)                     # primary -- ratio-then-log-once
+            m_fx = db(mp_mid, mp_fx)                      # secondary -- same order
+            m_flank = np.nanmean(np.stack([db(mp_fa, mp_fx), db(mp_fb, mp_fx)]), axis=0)
+
+            # Descriptive-only trial-to-trial dispersion of the per-trial dB ratio -- NOT the
+            # source of the point estimate above, and not fed into the GLMM (RESP uses only
+            # db_mid_omirel). Retained because the previous receipt exposed a "_sd" column;
+            # kept for continuity, explicitly labeled as descriptive.
+            with np.errstate(invalid="ignore"):
+                d_omi_descriptive = db(p_mid, p_ob)
+                s_omi = (np.nanstd(d_omi_descriptive, axis=0, ddof=1)
+                         if d_omi_descriptive.shape[0] > 1 else np.full(sel.size, np.nan))
+
+            for j, ch in enumerate(sel_raw_ids):
                 if n_ok[j] == 0:
                     continue
                 recs.append({
@@ -210,7 +258,13 @@ def main(limit=None):
                     "omitted_slot": g["cond"].index("X") + 1,
                     "channel": int(ch), "putative_layer": lmap.get(int(ch), None),
                     "band": band, "n_trials": int(n_ok[j]),
-                    "db_mid_omirel": float(m_omi[j]), "db_mid_omirel_sd": float(s_omi[j]),
+                    "db_mid_omirel": float(m_omi[j]),
+                    # Descriptive trial-to-trial dispersion of the per-trial dB ratio; consumed
+                    # downstream (scripts/extract_within_session_lfp_lfp_sliding_corr.py,
+                    # scripts/smoke_test_sliding_trial_correlation.py) as a per-channel t-like
+                    # SNR denominator -- kept under its original name for that consumer contract.
+                    # NOT the source of db_mid_omirel above (see P0 fix comment).
+                    "db_mid_omirel_sd": float(s_omi[j]),
                     "db_mid_fxrel": float(m_fx[j]), "db_flank_fxrel": float(m_flank[j]),
                 })
 
@@ -227,8 +281,8 @@ def main(limit=None):
         "script": os.path.abspath(__file__),
         "supersedes": "scripts/compute_real_channel_band_power_census.py "
                       "(all-128-channel read, p1-relative fx baseline)",
-        "area_vector": AREA_VEC,
-        "source_dir": TFR_DIR,
+        "area_vector": str(AREA_VEC),
+        "source_dir": str(TFR_DIR),
         "n_files_total": len(files), "n_files_omission_processed": len(targets),
         "n_files_skipped": len(skipped), "skipped": skipped[:50],
         "array_contract": {"axes": "(trials, channels, freqs, times)",
@@ -244,11 +298,21 @@ def main(limit=None):
             "secondary_fx_ms_p1_relative": list(FX_BASELINE_MS),
         },
         "measures": {
-            "db_mid_omirel": "10*log10(mean power in the omitted slot / mean power in the "
-                             "omission-relative baseline), per trial per channel, then "
-                             "averaged across trials",
-            "db_mid_fxrel": "same numerator, pre-trial fixation denominator",
-            "db_flank_fxrel": "mean of the two flanking delays vs the fixation baseline",
+            "db_mid_omirel": "10*log10(trial-averaged power in the omitted slot / "
+                             "trial-averaged power in the omission-relative baseline), per "
+                             "channel -- power averaged over trials FIRST, log taken ONCE "
+                             "(P0 fix 2026-08-11, see "
+                             "artifacts/.lab/fig05-p0-dB-averaging-fix-20260811.json; "
+                             "previously averaged per-trial dB values, which is the biased "
+                             "anti-pattern documented in db_averaging_bias_finding_20260728.json)",
+            "db_mid_omirel_sd": "descriptive dispersion of the per-trial dB ratio across "
+                                "trials; NOT the source of db_mid_omirel and not used by the "
+                                "fig05 GLMM -- retained for the t-like SNR statistic consumed "
+                                "by scripts/extract_within_session_lfp_lfp_sliding_corr.py",
+            "db_mid_fxrel": "same numerator, pre-trial fixation denominator, same "
+                            "trial-averaged-power-then-log-once order",
+            "db_flank_fxrel": "mean of the two flanking delays vs the fixation baseline, same "
+                              "order",
         },
         "channel_selection": "only channels assigned to the file's area token by the "
                              "per-channel area vector; this is the aliasing fix",

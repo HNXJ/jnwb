@@ -1,0 +1,122 @@
+{
+  "schema_version": 3,
+  "id": "agent-bundle-review-20260809",
+  "kind": "review",
+  "created": "2026-08-09",
+  "title": "Live-repo preflight for omission evidence-graph implementation bundle",
+  "status": "provisional",
+  "claims": [
+    {
+      "id": "claim-live-preflight",
+      "status": "confirmed",
+      "statement": "The live checkout is branch nwb-fp32-compression-pipeline at SHA 4784d64e244d5da2801fcd2fc317bef9eb907692; the earlier NWB receipt modification is now included in commit 4784d64 and the only current working-tree addition is this review node.",
+      "receipt": "git branch --show-current; git rev-parse HEAD; git status --short --branch; git log -5 --oneline; git show --stat HEAD, run 2026-08-09"
+    },
+    {
+      "id": "claim-figure4-artifacts-present",
+      "status": "confirmed",
+      "statement": "The live tree contains the three Figure 4 _v2 source tables and the cycle-deconfound p2 table; it contains the five-permutation spike smoke output but no LFP permutation-null output.",
+      "receipt": "PowerShell Get-Item inventory of outputs/classification, run 2026-08-09"
+    },
+    {
+      "id": "claim-bundle-patch-checks",
+      "status": "confirmed",
+      "statement": "The supplied evidence-graph patch passed a no-mutation check at SHA 4784d64 and was then applied without conflict.",
+      "receipt": "git apply --check followed by git apply C:\\Users\\nejath\\Downloads\\omission_evidence_graph_20260809.patch, exit 0, run 2026-08-09"
+    },
+    {
+      "id": "random_cv_decoding_0.601284",
+      "status": "provisional",
+      "statement": "The existing Figure 4 random-CV result has mean accuracy 0.601284 across its successful _v2 cells and is retained as a confounded diagnostic, not confirmatory evidence.",
+      "receipt": "outputs/classification/omission_identity_decoding_master_v2.csv: 180 success rows; deterministic CSV summary run 2026-08-09"
+    },
+    {
+      "id": "cycle_structure",
+      "status": "confirmed",
+      "statement": "The current omission-identity design contains repeated temporal cycles with fixed within-cycle A-then-B-then-R order, creating a leakage/confounding structure for naive random CV.",
+      "receipt": "artifacts/.lab/fig04-reads-nonexistent-v1-csv-names-20260808.json claim-v2-random-cv-refuted-by-deconfound; jnwb/omission_identity.py cycle-detection documentation"
+    },
+    {
+      "id": "cycle_deconfounded_decoding_0.494627",
+      "status": "provisional",
+      "statement": "The existing cycle-deconfounded p2 result has mean leave-one-cycle-out accuracy 0.494627 and is compatible with chance; corpus-scale permutation inference is still pending.",
+      "receipt": "outputs/classification/omission_identity_cycle_deconfound_p2.csv: 60 successful cells across 21 sessions; deterministic CSV summary run 2026-08-09"
+    },
+    {
+      "id": "frontal_omission_decodability",
+      "status": "provisional",
+      "statement": "Frontal omission decodability remains an open, null-compatible question pending leakage-safe corpus analysis and an exchangeability-matched permutation null.",
+      "receipt": "Figure 4 evidence gate and current deconfounded result; no confirmatory corpus-scale null receipt yet"
+    },
+    {
+      "id": "claim-leakage-safe-smoke",
+      "status": "confirmed",
+      "statement": "The new leakage-safe decoder completed a three-session validation with 28 cells and 140 within-cycle permutation draws; it produced persisted cells, held-out predictions, fold assignments, null draws, and a receipt.",
+      "receipt": "outputs/classification/fig04_smoke3/omission_identity_leakage_safe_receipt.json; process exit 0, run 2026-08-09"
+    },
+    {
+      "id": "claim-corpus-run-not-complete",
+      "status": "provisional",
+      "statement": "The complete eligible-corpus run has not yet produced a publication receipt; the high-impact full run requires native execution approval that was unavailable in the current tool session.",
+      "receipt": "Two native approval retries failed to locate the ComposerDecisionsService approval bubble; no complete-corpus output was claimed."
+    },
+    {
+      "id": "claim-live-data-root-observed",
+      "status": "confirmed",
+      "statement": "On the live machine, D:/analysis/nwb_converted exists but contains no NWB files, while D:/nwb/omission contains eligible NWB files; the Figure 4 run and documentation use the observed D:/nwb/omission root.",
+      "receipt": "PowerShell Get-ChildItem and jnwb.paths.describe(), run 2026-08-09"
+    },
+    {
+      "id": "claim-smoke-task-path-correction",
+      "status": "confirmed",
+      "statement": "The initial one-session smoke task failed because it targeted the empty D:/analysis/nwb_converted directory; rerunning against the observed live D:/nwb/omission root succeeded, and the revised three-session validation also succeeded.",
+      "receipt": "Terminal 695044 exit 1: no eligible sessions; terminal 695045 exit 0: one-session completion; terminal 695047 exit 0: three-session completion"
+    }
+  ],
+  "issues": [
+    "The evidence architecture patch is applied; its verification remains truth_safe_unverified until the live graph validator and scientific receipts complete.",
+    "The Figure 4 renderer now refuses incomplete leakage-safe artifacts and contains no empirical fallback path; the old generated figure was removed pending regeneration.",
+    "The new leakage-safe implementation and tests are present, but the complete eligible-corpus run and production render remain outstanding.",
+    "The NWB conversion receipt changed from pre-existing dirty state to committed state 4784d64 before patch application; preserve that commit and do not rewrite it.",
+    "jnwb/session.py has an unrelated concurrent modification changing TFR baseline normalization; it was not edited by this work and must remain untouched."
+  ],
+  "edges": [
+    {
+      "from": "agent-bundle-review-20260809",
+      "to": "fig04-reads-nonexistent-v1-csv-names-20260808",
+      "type": "confirms"
+    },
+    {
+      "from": "agent-bundle-review-20260809",
+      "to": "adapt-pass-labyrinth-v14-drift-and-graph-metrics-20260808",
+      "type": "refines"
+    },
+    {
+      "from": "agent-bundle-review-20260809",
+      "to": "plan-master-active-backlog",
+      "type": "precedes"
+    },
+    {
+      "from": "random_cv_decoding_0.601284",
+      "to": "cycle_structure",
+      "type": "confounded_by"
+    },
+    {
+      "from": "cycle_deconfounded_decoding_0.494627",
+      "to": "frontal_omission_decodability",
+      "type": "tests"
+    }
+  ],
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true,
+      "bundle_patch_check": true,
+      "analysis_rerun": "three-session smoke passed; complete corpus pending",
+      "context_patch_applied": true,
+      "targeted_tests": true
+    },
+    "verdict": "context patch applied; P0 implementation smoke-validated; complete corpus and production render pending"
+  },
+  "falsifier": "This review is superseded when the patch is either applied and validated against the same live checkout or rejected after a documented semantic review."
+}

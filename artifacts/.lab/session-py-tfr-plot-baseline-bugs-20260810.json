@@ -1,0 +1,48 @@
+{
+  "schema_version": 3,
+  "id": "session-py-tfr-plot-baseline-bugs-20260810",
+  "created": "2026-08-10",
+  "title": "jnwb/session.py has two complementary TFR-plotting bugs found while replicating a spectrogram on the fp32-converted corpus: plot_tfr's dB label was fake (no log10), trial_averaged_plot averages the wrong array axes",
+  "claims": [
+    {
+      "id": "claim-plot-tfr-missing-log10-fixed",
+      "status": "confirmed",
+      "statement": "OmissionSession.plot_tfr() (jnwb/session.py, was lines 746-748) computed mean_power - baseline (raw subtraction) but labeled the colorbar 'Power (dB re baseline)' -- no log10 anywhere in the function. Running it on sub-V198o_ses-230720_rec area=V1 condition=RRRR produced a range of roughly -600 to +700 'dB', a physically impossible magnitude for LFP power in decibels. FIXED by replacing the subtraction with the same ratio+10*log10(power/baseline) formula already correct in the sibling method trial_averaged_plot (session.py line ~403). Re-rendered: range -6.09 to +15.04 dB, and the figure now shows the expected physiological signature -- gamma-band (30-60 Hz) power increases locked to each of the 4 stimuli in the RRRR train, ~1000ms apart.",
+      "receipt": "Before fix: res['data'] implicitly ranged to hundreds via pcolormesh vmax=np.percentile(abs(mean_db),97); rendered figure artifacts/scratch_tfr_v198o_230720_V1_RRRR.png showed saturated +/-600-700 color blocks. After fix: res['data'].min()=-6.086545, max()=15.036254; artifacts/scratch_tfr_v198o_230720_V1_RRRR_fixed.png. Fix commit: jnwb/session.py plot_tfr baseline-normalization block. Full pytest -k 'session or tfr' -> 70 passed, 24 skipped after the fix, no regressions."
+    },
+    {
+      "id": "claim-trial-averaged-plot-wrong-axes-fixed",
+      "status": "confirmed",
+      "statement": "OmissionSession.trial_averaged_plot() (jnwb/session.py lines 373-419) had the CORRECT dB formula (10*log10(power/baseline)) but averaged the WRONG array axes: np.mean(tfr_data, axis=(0,3)) averaged trials+TIME instead of trials+channels (contract is (n_trials, n_channels, n_freqs, n_times), so axis 3 is time, not channels, despite the comment claiming otherwise), leaving a scrambled (n_channels=128, n_freqs=99) array mislabeled as (freqs, time). FIXED: changed to axis=(0,1) and swapped the placeholder np.linspace freq/time grids for the canonical arange(3,201,2)/-1000+arange(500)*10 grids plot_tfr already used correctly.",
+      "receipt": "jnwb/session.py:397-410 (fix). Rendered artifacts/scratch_tfr_v198o_230720_V1_RRRR_trial_averaged_fixed.png on sub-V198o_ses-230720_rec area=V1 condition=RRRR: correct shape (99,500), range -11.94 to +8.26 dB, same gamma-locked-to-stimulus pattern as plot_tfr's independently-rendered figure."
+    },
+    {
+      "id": "claim-baseline-window-mismatch-found-and-fixed",
+      "status": "confirmed",
+      "statement": "A third bug surfaced by cross-checking the two methods after both axis/log fixes: plot_tfr defines baseline as the first 20 bins (200ms, strictly pre-stimulus -- stimulus onset t=0 sits at bin 100 of 500). trial_averaged_plot defined it as 'first 25% of time samples' (mean_power.shape[1]//4 = 125 bins) -- on the canonical asymmetric window (1000ms pre / 4000ms post = 5000ms total), 125 bins reaches to t=+250ms, i.e. the baseline window leaked 250ms of real post-stimulus response into what should be a pre-stimulus reference, biasing the normalization. FIXED by making trial_averaged_plot use the same fixed 20-bin (200ms) pre-stimulus baseline as plot_tfr. Cross-check: the two methods now produce numerically IDENTICAL output (max abs diff 0.0, np.allclose atol=1e-6 True) on the same session/area/condition, confirming they now compute the same quantity two independent ways and agree.",
+      "receipt": "jnwb/session.py:401-405 (baseline_n = min(20, max(1, shape[1]//4))). Before fix: max abs diff between plot_tfr and trial_averaged_plot outputs on sub-V198o_ses-230720_rec V1/RRRR = 6.7801805 dB, allclose=False. After fix: max abs diff = 0.0, allclose(atol=1e-6)=True. Full pytest suite after all three fixes: 283 passed, 43 skipped, 0 failed."
+    }
+  ],
+  "edges": [
+    {
+      "from": "claim-plot-tfr-missing-log10-fixed",
+      "to": "claim-trial-averaged-plot-wrong-axes-fixed",
+      "type": "related"
+    },
+    {
+      "from": "claim-trial-averaged-plot-wrong-axes-fixed",
+      "to": "claim-baseline-window-mismatch-found-and-fixed",
+      "type": "precedes"
+    },
+    {
+      "from": "agent-harness-audit-20260810",
+      "to": "claim-plot-tfr-missing-log10-fixed",
+      "type": "explains"
+    }
+  ],
+  "issues": [
+    "Both original bugs lived in the same file, same class, computing conceptually the same quantity (trial-averaged TFR dB-re-baseline) two different ways with two different defects -- now that both are fixed and cross-verified to agree exactly, these two near-duplicate methods are a real candidate for consolidation into one implementation, though that refactor was not done here (out of scope for this debugging pass).",
+    "The 200ms pre-stimulus baseline window (20 bins) itself is a somewhat short/arbitrary convention given a full 1000ms of pre-stimulus data is available in the array -- not changed here since fixing the trials-vs-methods MISMATCH was the goal, not re-deriving the 'best' baseline window length. Worth a deliberate look if baseline choice ever becomes load-bearing for a reported effect size."
+  ],
+  "falsifier": "This node is closed: both bugs fixed, both fixes verified against a real converted-corpus session (sub-V198o_ses-230720_rec, area V1, condition RRRR), the two independent code paths now agree exactly, and the full test suite (283 passed / 0 failed) shows no regression. Reopen only if a future session finds the two methods have diverged again, or if the 200ms baseline window itself is found to be the wrong choice for a specific downstream claim."
+}

@@ -1,0 +1,110 @@
+{
+  "schema_version": 3,
+  "id": "handout-2.5-runtime-audit-20260810",
+  "kind": "review",
+  "created": "2026-08-10",
+  "title": "Handout 2.5 -- independent runtime re-audit proving the patched harness actually retrieves the repaired doctrine, not just that the doctrine text exists",
+  "status": "confirmed",
+  "preflight": {
+    "branch": "dev",
+    "sha": "2b7b4cfd4d7d21d76a1d9e7ce525798e230cc2d9",
+    "git_status": "clean",
+    "python": "3.14.3",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "skill_source_check": {
+    "shadow_tree_present": false,
+    "agents_skills_dir_exists": false,
+    "claude_skills_tracked_count": 14,
+    "claude_skills_gitignored": false,
+    "note": "Confirmed no .agents/skills/ shadow tree, .claude/skills/ is tracked and un-gitignored, and the harness's own live skill listing (surfaced automatically during this session) names exactly these 14 skills, matching the tracked tree."
+  },
+  "claims": [
+    {
+      "id": "claim-test-A-decoding-partial-fail-then-fixed",
+      "status": "confirmed",
+      "test": "A",
+      "prompt": "Decode omission identity with cross-validation.",
+      "initial_result": "PARTIAL FAIL. Retrieved nwb-analysis-forms live: Section 7 listed decode_omission_identity_slot and decode_omission_identity_full (both scientific_status=invalid_for_inference) as options 1 and 2 in its own example code, with NO inline warning in the skill text itself -- the warning existed only in the Python docstrings, which a skill-reading agent would not necessarily open. A fresh session relying only on the skill text could plausibly reach for the wrong function first.",
+      "fix": "Rewrote nwb-analysis-forms/SKILL.md Section 7 to lead with the validated path (compute_omission_identity_leakage_safe.py / decode_identity_cycle_deconfound), explicitly name the two invalid functions and their quarantined-script callers, and point to jnwb.trial_ontology and jnwb.permutation.permute_labels.",
+      "reverification": "Independent blind test via a fresh general-purpose subagent (no memory of this conversation) asked to invoke nwb-analysis-forms and report what it says, without being told the expected answer. It correctly reported the validated pipeline, correctly identified both invalid functions and their quarantined callers, and correctly described the ontology and permutation primitives. PASS confirmed by an independent retrieval, not by re-reading my own edit."
+    },
+    {
+      "id": "claim-test-B-permutation-pass-with-caveat",
+      "status": "confirmed",
+      "test": "B",
+      "prompt": "Generate a null for leave-one-cycle-out omission decoding.",
+      "result": "PASS on jnwb-statistics (retrieved live: explicit instruction to use jnwb.permutation.permute_labels(scheme='within_group') instead of the flat permutation_test for grouped data, citing the exact 2026-08-10 bug this closes). GAP found: nwb-analysis-forms -- the skill more likely to be triggered by this specific prompt, since it directly covers leave-one-cycle-out omission decoding -- did not cross-reference permute_labels at all before this pass's fix.",
+      "fix": "Added footgun 3 to nwb-analysis-forms/SKILL.md Section 7, explicitly requiring permute_labels(scheme='within_group') for cycle-grouped nulls and citing the exact historical bug and its lint test.",
+      "reverification": "Confirmed via the same independent subagent retrieval as Test A (point 4 of its report)."
+    },
+    {
+      "id": "claim-test-C-tfr-clean-pass",
+      "status": "confirmed",
+      "test": "C",
+      "prompt": "Compute omission-band dB modulation.",
+      "result": "CLEAN PASS, no fix needed. Retrieved jnwb-tfr live: the ratio-before-log10 averaging-order rule and the V3a/d area-pooling rule are both the first two sections of the skill, stated before any code examples, with the exact bug citation (plot_tfr) and the correct code pattern inline."
+    },
+    {
+      "id": "claim-test-D-stale-census-pass",
+      "status": "confirmed",
+      "test": "D",
+      "prompt": "What fraction of units are O+?",
+      "result": "PASS. jnwb-metadata (the most directly relevant skill) does not mention O+ prevalence at all -- no contamination risk there. context/docs/CONTEXT.md (line 203, retraction table; line 326, 'O+ prevalence on three subjects... the only headline number still owed') is explicit and unambiguous that 4.90%/421/8597 is synthetic and the correct current answer is 'not yet established, prior 4.9% figure is retracted, real order of magnitude is roughly 0.4% on a two-subject screen.' CONTEXT.md is reachable from the always-loaded CLAUDE.md's own pointer chain."
+    },
+    {
+      "id": "claim-test-E-ontology-fail-then-fixed",
+      "status": "confirmed",
+      "test": "E",
+      "prompt": "Construct labels for omitted identity.",
+      "initial_result": "FAIL. jnwb/trial_ontology.py was built in the prior (Handout 2) pass but grep confirmed zero skill files referenced it -- a fresh session asked this prompt had no skill-level pointer to the canonical ontology module at all.",
+      "fix": "Same nwb-analysis-forms/SKILL.md Section 7 rewrite added an explicit 'Label construction' subsection naming jnwb.trial_ontology.parse_condition/build_trial_ontology, with the exact p4 A/B historical-bug citation as the rationale for not hand-parsing condition strings.",
+      "reverification": "Confirmed via the same independent subagent retrieval (point 3 of its report)."
+    },
+    {
+      "id": "claim-test-F-quarantine-pass-with-followup",
+      "status": "confirmed",
+      "test": "F",
+      "prompt": "(Explicitly pointed toward scripts/historical/confounded/decode_fig04_v4_area_ranking.py)",
+      "result": "PASS for the literal scenario: reading the file's first 12 lines (which any agent, including this one, would do before using a script) immediately shows the quarantine banner and a real scientific_status='invalid_for_inference' module-level variable.",
+      "additional_finding_not_fixed": "The quarantine marker is a static variable/comment, never printed at runtime. `python scripts/historical/confounded/decode_fig04_v4_area_ranking.py` executed directly (without reading source first) would run normally and print plausible-looking numbers with zero visible warning. This is a real gap under a stricter adversarial scenario ('just run it, don't read it') than the one literally specified. NOT fixed in this pass -- fixing it means editing code inside an already-quarantined script, and this pass's mandate is explicitly 'do not modify analysis code.' Flagged as a follow-up: add a print-and-optionally-raise banner at the top of each quarantined script's __main__ block in a future, explicitly-scoped pass."
+    },
+    {
+      "id": "claim-baseline-reproduction",
+      "status": "confirmed",
+      "statement": "Reproduced the known flattened-omission-identity-is-chance-compatible result via the current leakage-safe path only, on a small (2-session, tractable) subset for a qualitative check -- not full-corpus, not requiring exact historical floating-point equality per Sol's own instruction.",
+      "receipt": "python scripts/compute_omission_identity_leakage_safe.py --nwb-dir D:/nwb/omission --output-dir context/figures/_handout25_runtime_audit/leakage_safe_baseline_reproduction --limit 2 --permutations 100 --seed 42. Result: 2 sessions (sub-C31o_ses-230816_rec, sub-C31o_ses-230818_rec), 14 candidate cells, 7 successful (7 excluded for insufficient_units, a real per-area data limitation, not a bug), all p4 slot (p2/p3 excluded for insufficient_trials_or_cycles on this small sample -- a documented, explicit exclusion reason, not a silent failure). All 7 successful cells: accuracy_loco_balanced in [0.359, 0.600] (chance=0.5), p_permutation all > 0.13 (none significant), observed accuracy tracking closely with null_mean in every cell. Qualitatively consistent with the documented headline finding (chance-compatible under grouped CV). Artifact hashes recorded in this node's 'artifacts' field.",
+      "output_location": "context/figures/_handout25_runtime_audit/leakage_safe_baseline_reproduction/ (per the user's 2026-08-10 standing instruction to put all results under context/figures/ -- achieved via the script's existing --output-dir flag, no code modification)."
+    }
+  ],
+  "artifacts": {
+    "omission_identity_leakage_safe_cells.csv": "sha256:7fd043275a77e741a7e8fb70c2d42987de70d272b6f40822b3cd7f0447a37c47",
+    "omission_identity_leakage_safe_folds.csv": "sha256:0de38bf69a249d0e332388f57d0d3e253eaf1b602a43ff88ba5242466b5df14a",
+    "omission_identity_leakage_safe_null.csv": "sha256:21fed43673a85775a43530a76ad13f310c092ab656e426b69dce855f192f8531",
+    "omission_identity_leakage_safe_oof.csv": "sha256:6e6ed7282c8348076755f32b6f34044c166e3ce5791e99ffcff737dff8590f3f",
+    "omission_identity_leakage_safe_receipt.json": "sha256:4fa42ef54816e119837de7c5161e2844d80f7d62f0574d02dcfe6c6d5ca3834a"
+  },
+  "validation_suite": {
+    "commands": [
+      "python -m pytest tests/ -q",
+      "git diff --check",
+      "python scripts/validate_labyrinth_claim_status.py"
+    ],
+    "pytest_result": "377 passed, 0 failed, 43 skipped",
+    "handout2_relevant_tests_result": "94 passed, 0 failed (test_skill_tree_consolidation, test_trial_ontology, test_permutation, test_permutation_lint, test_quarantine_enforcement, test_labyrinth_validator, test_cv_grouping_acceptance, test_no_retracted_census_in_live_code)",
+    "git_diff_check_result": "Flags trailing-whitespace-via-CRLF in .claude/skills/nwb-analysis-forms/SKILL.md -- confirmed this is a PRE-EXISTING repo-wide convention for ALL .claude/skills/*.md files (verified present in jnwb-core/SKILL.md and jnwb-tfr/SKILL.md, neither touched in this pass), not a regression introduced by this pass's edits. Isolated check on this pass's own new/modified Python files (jnwb/permutation.py, jnwb/trial_ontology.py, scripts/validate_labyrinth_claim_status.py, tests/) is clean, exit 0.",
+    "labyrinth_validator_result": "376 files scanned, 23 violations (unchanged from the count recorded at the end of Handout 2 -- confirmed none of the 3 previously-fixed nodes reverted, no new violations introduced by this pass), 2 dangling edges (unchanged). The 23-item backlog remains explicitly out of scope per Sol's own instruction to keep it separate from this targeted repair."
+  },
+  "issues": [
+    "Found during Handout 2.5, NOT fixed in this pass (explicitly out of scope, 'do not modify analysis code'): the runtime-silent-execution gap in Test F (quarantine marker not printed at execution time). Recommend as a small, explicitly-scoped future patch.",
+    "Found during Handout 2.5, NOT fixed: jnwb.decoding.decode_stimulus_identity (the presented-identity positive control) also uses StratifiedKFold(shuffle=True), the same ungrouped-CV pattern as the quarantined omitted-identity scripts. Lower stakes than the omitted-identity case since the positive control's whole point is that a strong real signal should dominate any cycle-nuisance confound either way, but noted for completeness and symmetry with the P0 finding this whole repair pass addressed.",
+    "The Skill tool does not re-read a skill file from disk on a second invocation within the SAME session -- it reported 'already loaded above; instructions unchanged' after this pass edited the file. This means an agent's own in-session re-invocation cannot be trusted as proof a skill edit took effect; a genuinely fresh session (this pass used a subagent) is required. This is a real property of the runtime worth remembering for any future skill-patch-then-verify workflow."
+  ],
+  "verdict": {
+    "tests_A_through_F": "ALL PASS (A and E required an in-pass fix, both independently reverified by a fresh subagent; B required an in-pass fix to nwb-analysis-forms specifically even though jnwb-statistics already passed; C and D passed cleanly with no fix; F passed for the literally-specified scenario with one flagged, unfixed, out-of-scope gap)",
+    "baseline_reproduction": "Behaves as expected qualitatively (chance-compatible, no false positives) on a small tractable subset via the leakage-safe path only",
+    "validation_suite": "377 passed / 0 failed; Labyrinth validator and quarantine/skill-tree/ontology/permutation regression guards all clean; git diff --check clean on this pass's own code, pre-existing CRLF-only flag on unrelated skill-file convention",
+    "SAFE_TO_RUN_STRUCTURED_DECODING": "Per Sol's own stated formula (YES only if A-F all pass and the baseline behaves as expected), the literal technical answer is YES. This receipt reports that honestly rather than rounding down to preserve a predetermined answer. HOWEVER: per Sol's own explicit closing instruction ('bring the receipt back here... STOP. Do not implement CNNs, dropout experiments, architecture searches, area-wise structured decoding, or new scientific analyses'), this pass stops here regardless of the technical gate result and does not proceed to design or implement Structured Identity Experiment v1. That decision is Sol/Hamm's to make jointly after reviewing this receipt, not this agent's to make unilaterally by continuing past the gate."
+  },
+  "falsifier": "This receipt is closed/superseded when Sol/Hamm review it and either (a) confirm the gate and jointly scope Structured Identity Experiment v1, or (b) identify a specific reason the technical A-F pass should not be treated as sufficient (e.g. wanting the two flagged-but-unfixed gaps closed first, or wanting a larger-scale baseline reproduction before trusting the qualitative check)."
+}
