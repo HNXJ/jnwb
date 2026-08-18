@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 
 FONT_FAMILY = "Cambria, Georgia, serif"
 PT_PER_IN = 72.0
@@ -78,17 +79,40 @@ def _label(x, y, txt, size=11):
             f'font-weight="bold" fill="#000">{txt}</text>')
 
 
+def _emit_lettered_copy(src_svg_path, out_dir, prefix, letter):
+    """Copy one panel's own .svg (and .png, if figstyle.save() wrote one) to
+    `{out_dir}/{prefix}{LETTER}.{svg,png}`. See assemble()'s `emit_lettered` param."""
+    os.makedirs(out_dir, exist_ok=True)
+    base = os.path.splitext(src_svg_path)[0]
+    for ext in (".svg", ".png"):
+        src = base + ext
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(out_dir, f"{prefix}{letter.upper()}{ext}"))
+
+
 def assemble(panels, out_path, ncol=1, width=TEXT_W, gap=10.0, letters=True,
-             letter_size=11, panel_names=None, label_inset=False):
+             letter_size=11, panel_names=None, label_inset=False, letter_offset=0,
+             emit_lettered=None):
     """Lay panels out on a grid, left to right then top to bottom, and write one SVG.
 
     panels        paths to the panel SVGs, in reading order
     ncol          columns; each column is (width - gap*(ncol-1)) / ncol wide
     letters       draw a, b, c ... at each panel's top-left
+    letter_offset starting index into the alphabet (0 -> 'a'); needed when this call's
+                  panels continue the lettering of an earlier assemble() call rather than
+                  starting a fresh sequence -- see fig03_unit_census.py's row1/row2/row3
     panel_names   optional group ids, one per panel, so the assembly stays navigable in
                   Illustrator; defaults to the panel file stems
     label_inset   draw the letter inside the panel's own top-left corner instead of a
                   dedicated strip above it -- no `head` row reserved, tighter stacking
+    emit_lettered when given a (dir, prefix) tuple and letters=True, also copies each source
+                  panel's own .svg (and sibling .png, if figstyle.save() wrote one) into
+                  `dir` as `{prefix}{LETTER}.svg`/`.png`, using this call's own final letter
+                  (uppercased) -- so a panel can be reviewed and finalized under the same
+                  name a reader sees on the assembled figure (e.g. fig03A.svg for the panel
+                  drawn as "a"), not the panel function's internal name (which routinely
+                  differs -- see fig03_unit_census.py's made["e"] -> "a" mapping). Standing
+                  convention as of 2026-08-18, Hamm; only wired into fig03 so far.
 
     Panels keep their own aspect ratio. Each row is as tall as its tallest panel.
     Returns (out_path, canvas_width, canvas_height).
@@ -124,8 +148,11 @@ def assemble(panels, out_path, ncol=1, width=TEXT_W, gap=10.0, letters=True,
             body, vy, scale, name = bodies[k]
             x = c * (cw + gap)
             if letters:
+                letter = chr(97 + letter_offset + k)
                 lx = x + 2.0 if label_inset else x
-                out.append(_label(lx, y + letter_size, chr(97 + k), letter_size))
+                out.append(_label(lx, y + letter_size, letter, letter_size))
+                if emit_lettered is not None:
+                    _emit_lettered_copy(panels[k], emit_lettered[0], emit_lettered[1], letter)
             out.append(f'<g id="{name}" transform="translate({x:.3f},{y + head:.3f}) '
                        f'scale({scale:.6f}) translate(0,{-vy:.3f})">')
             out.append(body)
@@ -137,3 +164,36 @@ def assemble(panels, out_path, ncol=1, width=TEXT_W, gap=10.0, letters=True,
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(out))
     return out_path, width, total_h
+
+
+def rasterize(svg_path: str, png_path: str, scale: float = 3.0) -> str:
+    """Render an assembled (multi-panel) SVG to a white-background PNG via headless Chromium.
+
+    cairosvg (`no library called "cairo-2"`), reportlab.renderPM (`ModuleNotFoundError:
+    _rl_renderPM`), and the Claude_Browser MCP's own file:// navigation have all failed on
+    this machine (see the omission-figures skill) -- for individual panels this doesn't
+    matter, since figstyle.save() already writes a PNG companion straight from matplotlib.
+    But assemble() only ever wrote the composed SVG, with no equivalent PNG, because none of
+    those rasterizers could produce one. `playwright`'s bundled Chromium, confirmed working
+    here 2026-08-18 (both the module and a real browser launch), is the first reliable path
+    for the assembled figure specifically. Raises RuntimeError with the underlying exception
+    if playwright or its browser binary isn't available -- silently skipping the PNG would
+    leave the "figure done" falsifier looking satisfied when it isn't.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as e:
+        raise RuntimeError(
+            f"rasterize({svg_path}): playwright is not installed, cannot write {png_path}"
+        ) from e
+    abspath = os.path.abspath(svg_path).replace(os.sep, "/")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(device_scale_factor=scale)
+            page.goto(f"file:///{abspath}")
+            page.locator("svg").screenshot(path=png_path)
+            browser.close()
+    except Exception as e:
+        raise RuntimeError(f"rasterize({svg_path}): Chromium render failed: {e}") from e
+    return png_path

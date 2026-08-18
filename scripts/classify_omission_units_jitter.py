@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import zlib
 import os
 import platform
 import sys
@@ -53,7 +54,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sst
 
-sys.path.insert(0, _P.REPO_ROOT)
+# _P (jnwb.paths) used to be imported after this insert referenced it -- NameError. Same bug
+# already fixed in classify_omission_units_grand.py 2026-08-11; applied here 2026-08-14 while
+# fixing this file's bh() divisor bug, since it blocked running the script to verify that fix.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import jnwb as oa
 from jnwb.unit_classification import (EPOCH_ONSETS_MS, PRESENTATION_DUR_MS,
@@ -78,18 +82,18 @@ ONSET_ALPHA = 0.05
 
 
 def bh(p):
+    """Benjamini-Hochberg FDR, delegating to jnwb.StatisticalAnalysis.fdr_correct (scipy
+    false_discovery_control). Was a local re-implementation with a backwards rank divisor
+    (np.arange(n, 0, -1) instead of np.arange(1, n+1)) that silently under-corrected every
+    q-value in this file's output until fixed 2026-08-14 -- see
+    artifacts/.lab/bh-fdr-backwards-divisor-fix-20260814.json."""
     p = np.asarray(p, float)
     ok = np.isfinite(p)
     q = np.full(p.shape, np.nan)
     v = p[ok]
-    n = v.size
-    if n == 0:
+    if v.size == 0:
         return q
-    o = np.argsort(v)
-    adj = np.minimum.accumulate((v[o] * n / np.arange(n, 0, -1))[::-1])[::-1]
-    r = np.empty(n)
-    r[o] = np.clip(adj, 0, 1)
-    q[ok] = r
+    q[ok] = oa.StatisticalAnalysis.fdr_correct(v)
     return q
 
 
@@ -233,7 +237,7 @@ def main():
     ap.add_argument("--no-onset", action="store_true")
     args = ap.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
-    rng = np.random.default_rng(42)
+    BASE_SEED = 42
 
     files = sorted(f for f in os.listdir(NWB_DIR) if f.endswith(".nwb"))
     if args.sessions:
@@ -246,6 +250,23 @@ def main():
     allrows, allonsets, failed = [], [], []
     for i, f in enumerate(files, 1):
         try:
+            # 2026-08-15 fix: was a single rng = np.random.default_rng(42) shared across the
+            # whole sorted-file loop, consumed sequentially per unit inside analyse_session.
+            # That made every session's jitter-null draws depend on which OTHER sessions ran
+            # before it and in what order -- inserting the 22nd session (sub-V198o_ses-230629,
+            # sorts before the 4 pre-existing V198o sessions) silently shifted the RNG draw
+            # stream for every session processed after that point, producing raw-value changes
+            # (rate_omission_hz, p_rate, slope_effect, etc.) for UNCHANGED sessions between the
+            # pre-2026-08-11-corpus-addition run and later runs -- documented as an unresolved,
+            # not-purely-BH-fix-attributable discrepancy in
+            # artifacts/.lab/bh-fdr-backwards-divisor-fix-20260814.json. Root cause, not a BH
+            # issue: fixed by seeding each session's own RNG from a stable hash of its filename
+            # (zlib.crc32, NOT Python's hash() -- hash() on a str is randomized per-interpreter-
+            # run via PYTHONHASHSEED, which would not even be reproducible run-to-run), combined
+            # with BASE_SEED via numpy's SeedSequence-spawning form of default_rng. Every
+            # session's result is now independent of corpus membership/order/size by
+            # construction, not just by convention.
+            rng = np.random.default_rng((BASE_SEED, zlib.crc32(f.encode())))
             r, o = analyse_session(os.path.join(NWB_DIR, f), rng, not args.no_onset)
             allrows += r
             allonsets += o

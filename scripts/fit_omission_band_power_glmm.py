@@ -64,6 +64,7 @@ from statsmodels.regression.mixed_linear_model import MixedLM
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from area_subject_glmm import fit_area_subject_and_pairwise  # noqa: E402
 from jnwb import paths as _P
+from jnwb.statistics import clopper_pearson, coef_rows
 
 CENSUS = _P.REPO_ROOT / "outputs/lfp_band_census_v2/channel_band_power.csv.gz"
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
@@ -103,12 +104,6 @@ def bh(pvals):
     return out
 
 
-def clopper_pearson(k, n, alpha=0.05):
-    if n == 0:
-        return (np.nan, np.nan)
-    lo = 0.0 if k == 0 else stats.beta.ppf(alpha / 2, k, n - k + 1)
-    hi = 1.0 if k == n else stats.beta.ppf(1 - alpha / 2, k + 1, n - k)
-    return (float(lo), float(hi))
 
 
 def fit_mixed(d: pd.DataFrame, formula: str, group: str, vc: dict | None = None):
@@ -128,20 +123,6 @@ def fit_mixed(d: pd.DataFrame, formula: str, group: str, vc: dict | None = None)
         return None, f"fit failed: {type(e).__name__}: {e}"
 
 
-def coef_rows(res, model, band, extra=None):
-    rows = []
-    for name in res.params.index:
-        if name.startswith("Group") or name in ("probe Var", "Group Var"):
-            continue
-        rows.append({
-            "model": model, "band": band, "term": name,
-            "estimate_db": float(res.params[name]), "se": float(res.bse[name]),
-            "z": float(res.tvalues[name]), "p_raw": float(res.pvalues[name]),
-            "ci_lo": float(res.conf_int().loc[name, 0]),
-            "ci_hi": float(res.conf_int().loc[name, 1]),
-            **(extra or {}),
-        })
-    return rows
 
 
 def main():
@@ -385,7 +366,7 @@ def main():
     receipt = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "script": os.path.abspath(__file__),
-        "input": CENSUS,
+        "input": str(CENSUS),
         "response": RESP,
         "response_definition": "10*log10(power in the omitted slot / power in the -250 to "
                                "-50 ms omission-relative baseline), dB, trial-averaged "

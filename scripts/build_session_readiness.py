@@ -43,16 +43,23 @@ def parse_args() -> argparse.Namespace:
 
 
 TFR_RE = re.compile(
-    r"^(?P<prefix>sub-[^\\/]+_ses-[0-9]+)-[ABC]-.+-(?P<cond>[A-Z0-9]+)\.npy$"
+    r"^(?P<prefix>sub-[^\\/]+_ses-[0-9]+)-[A-Z]-.+-(?P<cond>[A-Z0-9]+)\.npz$"
 )
 
 
 def tfr_index(tfr_dir: Path) -> Dict[str, Dict[str, Any]]:
-    """prefix → {n_files, conditions, areas_guess}"""
+    """prefix -> {n_files, conditions, areas_guess}.
+
+    2026-08-14: the TFR corpus migrated .npy -> .npz (scripts/precompute_tfr_arrays_v2.py) and
+    grew a 4th probe letter (A/B/C/D), but this scan was never updated -- it globbed only *.npy
+    and matched only [ABC], so it silently found 0 files against the current 970-file .npz
+    corpus while session_readiness.csv kept reporting tfr_ok=0/22 (see context/PROJECT_STATE.md
+    section 1, "OPEN INCONSISTENCY"). Fixed to match the corpus actually on disk.
+    """
     out: Dict[str, Dict[str, Any]] = {}
     if not tfr_dir.is_dir():
         return out
-    for path in tfr_dir.glob("*.npy"):
+    for path in tfr_dir.glob("*.npz"):
         m = TFR_RE.match(path.name)
         if not m:
             continue
@@ -60,7 +67,7 @@ def tfr_index(tfr_dir: Path) -> Dict[str, Dict[str, Any]]:
         cond = m.group("cond")
         # area token between probe and condition
         parts = path.name[len(pref) + 1 :].split("-")
-        # e.g. A-FEF-RRRR.npy → ['A','FEF','RRRR.npy'] after strip prefix-
+        # e.g. A-FEF-RRRR.npz -> ['A','FEF','RRRR.npz'] after strip prefix-
         area = parts[1] if len(parts) >= 3 else None
         slot = out.setdefault(
             pref, {"n_files": 0, "conditions": set(), "areas": set()}

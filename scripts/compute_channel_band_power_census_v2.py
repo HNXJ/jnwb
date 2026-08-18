@@ -58,6 +58,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
+from jnwb.connectivity import CANONICAL_BANDS as BANDS
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
@@ -71,9 +72,6 @@ TIMES_MS = T0_MS + np.arange(N_TIMES) * BIN_MS
 EPOCH_ONSET_MS = {"fx": -500, "p1": 0, "d1": 531, "p2": 1031, "d2": 1562,
                   "p3": 2062, "d3": 2593, "p4": 3093, "d4": 3624}
 STIM_MS, DELAY_MS = 531, 500
-
-BANDS = {"theta": (4, 8), "alpha": (8, 14), "beta": (14, 30),
-         "low_gamma": (30, 50), "high_gamma": (50, 80)}
 
 OMI_BASELINE_REL_MS = (-250, -50)     # relative to omission onset (manuscript Methods)
 FX_BASELINE_MS = (-500, -50)          # pre-trial fixation, p1-relative (secondary)

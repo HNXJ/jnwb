@@ -52,6 +52,7 @@ import statsmodels.formula.api as smf
 from statsmodels.regression.mixed_linear_model import MixedLM
 from statsmodels.stats.multitest import multipletests
 from jnwb import paths as _P
+from jnwb.statistics import coef_rows as _jnwb_coef_rows
 
 IN_DIR = _P.REPO_ROOT / "outputs/population_firing_lfp_power_corr"
 DATA_CSV = os.path.join(IN_DIR, "all_session_rows.csv.gz")
@@ -80,19 +81,11 @@ def fit_mixed(d, formula, group):
 
 
 def coef_rows(res, model, extra=None):
-    rows = []
-    for name in res.params.index:
-        if name.startswith("Group") or name in ("session Var", "Group Var"):
-            continue
-        rows.append({
-            "model": model, "term": name,
-            "estimate_z": float(res.params[name]), "se": float(res.bse[name]),
-            "tstat": float(res.tvalues[name]), "p_raw": float(res.pvalues[name]),
-            "ci_lo": float(res.conf_int().loc[name, 0]),
-            "ci_hi": float(res.conf_int().loc[name, 1]),
-            **(extra or {}),
-        })
-    return rows
+    """This file's field-renamed variant of jnwb.statistics.coef_rows (estimate_z/tstat
+    instead of estimate_db/z, excludes 'session Var' instead of 'probe Var', no band column)
+    -- delegates 2026-08-14 rather than keeping an independent copy."""
+    return _jnwb_coef_rows(res, model, band=None, extra=extra, exclude_vc="session Var",
+                           estimate_key="estimate_z", stat_key="tstat")
 
 
 def pairwise_rows(res, factor, levels, model_name):

@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import jnwb as oa
 from jnwb.unit_classification import precompute_condition_onsets
+from jnwb.viz import get_sequence_onset_onsets, resample_onsets
 from jnwb import paths as _P
 
 # Directories
@@ -51,29 +52,6 @@ EPOCH_ONSETS_MS = {
 }
 WIN = (-500.0, 4124.0)
 BIN_SIZE = 20.0  # ms
-
-
-def get_sequence_onset_onsets(session, condition: str) -> np.ndarray:
-    ep = session.get_epochs(condition=condition)
-    if len(ep) == 0:
-        return np.array([])
-    if "stimulus_number" in ep.columns:
-        stim_num = np.array([float(x.decode() if isinstance(x, bytes) else x) for x in ep["stimulus_number"]], dtype=float)
-        p1_ep = ep[stim_num == 1.0]
-        if len(p1_ep) > 0:
-            return p1_ep["start_time"].values
-    return ep["start_time"].values
-
-
-def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
-    if len(onsets) == 0:
-        return np.array([])
-    rng = np.random.default_rng(random_state)
-    if len(onsets) >= target_n:
-        idx = rng.choice(len(onsets), size=target_n, replace=False)
-    else:
-        idx = rng.choice(len(onsets), size=target_n, replace=True)
-    return onsets[idx]
 
 
 def compute_psth(spikes: np.ndarray, onsets: np.ndarray, win: tuple[float, float], sigma: float = 2.0):
@@ -105,17 +83,6 @@ def compute_psth(spikes: np.ndarray, onsets: np.ndarray, win: tuple[float, float
         sem = gaussian_filter1d(sem, sigma=sigma)
 
     return centers, mean, sem
-
-
-def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
-    if len(onsets) == 0:
-        return np.array([])
-    rng = np.random.default_rng(random_state)
-    if len(onsets) >= target_n:
-        idx = rng.choice(len(onsets), size=target_n, replace=False)
-    else:
-        idx = rng.choice(len(onsets), size=target_n, replace=True)
-    return onsets[idx]
 
 
 def render_mt_mst_raster_suite(

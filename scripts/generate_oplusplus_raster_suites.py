@@ -24,6 +24,8 @@ sys.path.insert(0, str(REPO_ROOT / "context" / "figures"))
 import jnwb as oa
 from jnwb.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS
 from jnwb.unit_classification import precompute_condition_onsets
+from jnwb.viz import (get_sequence_onset_onsets, resample_onsets,
+                      raster_psth as _raster_psth)
 from figstyle import FULL_TRIAL_WIN, full_trial_ticks, mark_full_trial_axis
 from jnwb import paths as _P
 
@@ -39,40 +41,12 @@ PSTH_BIN_MS = 20.0
 RASTER_TRIALS = 100
 WIN = FULL_TRIAL_WIN
 
-def get_sequence_onset_onsets(session, condition: str) -> np.ndarray:
-    ep = session.get_epochs(condition=condition)
-    if len(ep) == 0:
-        return np.array([])
-    if "stimulus_number" in ep.columns:
-        stim_num = np.array([float(x.decode() if isinstance(x, bytes) else x) for x in ep["stimulus_number"]], dtype=float)
-        p1_ep = ep[stim_num == 1.0]
-        if len(p1_ep) > 0:
-            return p1_ep["start_time"].values
-    return ep["start_time"].values
-
-def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
-    if len(onsets) == 0:
-        return np.array([])
-    rng = np.random.default_rng(random_state)
-    if len(onsets) >= target_n:
-        idx = rng.choice(len(onsets), size=target_n, replace=False)
-    else:
-        idx = rng.choice(len(onsets), size=target_n, replace=True)
-    return onsets[idx]
 
 def compute_psth(st, onsets, win_ms, bin_ms=PSTH_BIN_MS):
-    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
-    centers = edges[:-1] + bin_ms / 2.0
-    if onsets.size == 0:
-        return centers, np.zeros_like(centers), np.zeros_like(centers)
-    counts = np.zeros((onsets.size, edges.size - 1))
-    for i, t0 in enumerate(onsets):
-        s = (st[(st >= t0 + win_ms[0] / 1000.0) & (st < t0 + win_ms[1] / 1000.0)] - t0) * 1000.0
-        counts[i], _ = np.histogram(s, bins=edges)
-    rate = counts / (bin_ms / 1000.0)
-    mean = rate.mean(axis=0)
-    sem = rate.std(axis=0, ddof=1) / np.sqrt(rate.shape[0]) if rate.shape[0] > 1 else np.zeros_like(mean)
-    return centers, mean, sem
+    """Thin wrapper over jnwb.viz.raster_psth preserving this file's PSTH_BIN_MS=20.0 default
+    (jnwb.viz.raster_psth's own default is 10.0 -- explicit here so the swap is not a silent
+    behavior change)."""
+    return _raster_psth(st, onsets, win_ms, bin_ms=bin_ms)
 
 def render_unit_raster_suite(rank_idx, row, save_path):
     stem = str(row["session"]).replace("_rec", "")

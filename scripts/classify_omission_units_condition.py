@@ -45,6 +45,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import zlib
 import platform
 import sys
 import time
@@ -54,7 +55,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sst
 
-sys.path.insert(0, _P.REPO_ROOT)
+# _P (jnwb.paths) used to be imported after this insert referenced it -- NameError. Same bug
+# already fixed in classify_omission_units_grand.py 2026-08-11; applied here 2026-08-14 while
+# fixing this file's bh() divisor bug, since it blocked running the script to verify that fix.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import jnwb as oa
 from jnwb.unit_classification import (EPOCH_ONSETS_MS, PRESENTATION_DUR_MS,
@@ -77,18 +81,18 @@ PAIRS = [("AXAB", 2, "AAAB"), ("AAXB", 3, "AAAB"), ("AAAX", 4, "AAAB"),
 
 
 def bh(p):
+    """Benjamini-Hochberg FDR, delegating to jnwb.StatisticalAnalysis.fdr_correct (scipy
+    false_discovery_control). Was a local re-implementation with a backwards rank divisor
+    (np.arange(n, 0, -1) instead of np.arange(1, n+1)) that silently under-corrected every
+    q-value in this file's output until fixed 2026-08-14 -- see
+    artifacts/.lab/bh-fdr-backwards-divisor-fix-20260814.json."""
     p = np.asarray(p, float)
     ok = np.isfinite(p)
     q = np.full(p.shape, np.nan)
     v = p[ok]
-    n = v.size
-    if n == 0:
+    if v.size == 0:
         return q
-    o = np.argsort(v)
-    adj = np.minimum.accumulate((v[o] * n / np.arange(n, 0, -1))[::-1])[::-1]
-    r = np.empty(n)
-    r[o] = np.clip(adj, 0, 1)
-    q[ok] = r
+    q[ok] = oa.StatisticalAnalysis.fdr_correct(v)
     return q
 
 
@@ -181,7 +185,7 @@ def main():
     ap.add_argument("--sessions", default=None)
     args = ap.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
-    rng = np.random.default_rng(42)
+    BASE_SEED = 42
 
     files = sorted(f for f in os.listdir(NWB_DIR) if f.endswith(".nwb"))
     if args.sessions:
@@ -194,6 +198,13 @@ def main():
     rows, failed = [], []
     for i, f in enumerate(files, 1):
         try:
+            # 2026-08-15 fix: per-session RNG (was one shared np.random.default_rng(42) consumed
+            # sequentially across the whole sorted-file loop, making a session's result depend on
+            # which OTHER sessions ran before it) -- same root cause and fix as
+            # classify_omission_units_jitter.py, see that file's inline comment for detail and
+            # artifacts/.lab/bh-fdr-backwards-divisor-fix-20260814.json for the discrepancy this
+            # closes.
+            rng = np.random.default_rng((BASE_SEED, zlib.crc32(f.encode())))
             r = analyse_session(os.path.join(NWB_DIR, f), rng)
             rows += r
             print(f"[{datetime.now():%H:%M:%S}] {i}/{len(files)} {f}: {len(r)} units "

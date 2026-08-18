@@ -1,0 +1,38 @@
+{
+  "id": "lfp-lfp-coherency-repaired-rerun-20260813",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "LFP-LFP imaginary coherency rerun corpus-wide with raw-LFP artifact repair + corrected per-session Clopper-Pearson pooling: cross-area null SURVIVES; within-area (cross-layer) coupling reaches significance in some area x band x context cells",
+  "status": "confirmed",
+  "generated": "2026-08-14T04:35:00Z",
+  "notes": [
+    "Overnight autonomous build (Hamm away), direct instruction: insert jnwb.artifact_repair.repair_lfp_trials into extract_lfp_coupling_matrices.py's raw-LFP loading path (extract_channel_segments, before Laplacian referencing) and rerun corpus-wide, to check whether the 2026-08-05 null (imaginary coherency, 0/240 area-pair x band cells survive Holm/BH -- see context/figures/lfp_lfp_connectivity_supplement/README.md) survives on clean data.",
+    "RUN: python scripts/extract_lfp_coupling_matrices.py, full corpus (no --limit-sessions), 21/21 readiness-gated sessions attempted, 16,440 pair-band-context results, 1855s (~31min) -- outputs/lfp_coupling_matrices/coupling.npz, receipt.json.",
+    "AGGREGATION, NEW DESIGN NOT USED IN THE ORIGINAL 2026-08-05 RUN: the original run tested this coupling.npz product with paired_location (raw session obs-minus-null pooled directly across sessions, Holm/BH across the full area x area x band grid) -- the project's OWN documented failure mode (feedback_pool_after_testing_not_before: raw-pool-then-test manufactured 0/45-0/240 false negatives six times in one week on this corpus). Per direct instruction, this rerun instead reuses the VALIDATED per-session-then-pool design already built for a different LFP-LFP product (scripts/aggregate_within_session_lfp_lfp.py's clopper_pearson/session_area_pair_z): per session, per (area-pair, band, context), z=(obs-null_mu)/null_sd; session 'significant' if |z|>=1.96; THEN exact Clopper-Pearson interval across sessions with that cell present. New script: scripts/aggregate_lfp_lfp_coupling_corrected.py (imports clopper_pearson from the existing script rather than a 4th implementation). This means the rerun differs from the original in TWO ways at once -- artifact repair AND pooling design -- and this record cannot cleanly attribute any change to repair alone; stated explicitly, not hidden.",
+    "RESULT -- CROSS-AREA (areaA != areaB): NULL, 0 cells above chance out of every cross-area cell tested (checked directly: 22 total cells reached hit-rate CI-lower-bound > alpha=0.05 across all 740 area-pair x band x context cells in the output; ALL 22 have areaA == areaB, ZERO have areaA != areaB). This is the cross-area question the original 2026-08-05 finding was about -- THE NULL SURVIVES on artifact-repaired data under the corrected pooling design. This is the direct answer to the task's stated question and is NOT a contradiction of the established finding.",
+    "RESULT -- WITHIN-AREA (areaA == areaB, i.e. cross-LAYER coupling within one area -- cells_for_probe yields (area, layer) tuples and extract_lfp_coupling_matrices.py pairs ALL cells including two layers of the same area): 22/740 cells reach hit-rate CI-lower-bound > alpha=0.05. Areas: FEF (theta/beta/low_gamma/alpha, several contexts), MT (beta/low_gamma/theta, stimulus/omission), MST (beta/high_gamma/low_gamma, stimulus), PFC (alpha/beta, identity_A/stimulus), V3a/d (low_gamma/theta/alpha, identity_A/identity_B/stimulus). n_sessions per cell 2-13 (small), hit rates 23-83%, CI lower bounds 0.05-0.36 -- modest evidence, not a strong, tight result, but present in a real minority of cells rather than scattered noise (concentrated in a handful of areas/bands, not uniform across the grid). NO second-layer multiplicity correction applied across the 740 cells beyond the per-cell Clopper-Pearson bound -- this matches aggregate_within_session_lfp_lfp.py's own established convention exactly (that script does the same single-layer test), not a gap introduced here, but worth restating before treating any one cell as a standalone claim.",
+    "INTERPRETATION, kept separate from observation: within-area, cross-layer coupling (e.g. superficial-vs-deep local circuit coupling) is a DIFFERENT scientific question from area x area long-range network coupling -- the original null result and this rerun's headline finding are both about the LATTER. The within-area result is new information this rerun happens to also produce (same pipeline computes both), not something the original 2026-08-05 analysis was testing for or against; it should not be read as 'discovering' something the original analysis missed.",
+    "Effect-size caveat: original run's raw obs-null Holm/BH test was also null for the equivalent PAIRED design at 0/240; that design pools raw session values directly (the flawed pattern), so it is not a valid baseline to compare this corrected-design result against even for within-area cells -- there is currently no prior corrected-design run of this specific product to compare the within-area finding to."
+  ],
+  "issues": [
+    "Repair effect and pooling-design effect are confounded in this single rerun -- a clean attribution would need the corrected pooling design run ONCE MORE on the UNREPAIRED coupling.npz (i.e., revert the artifact_repair call, rerun extraction, rerun aggregation) to isolate what repair alone changed. Not done in this pass (time-bounded overnight run); flagged as the natural next step.",
+    "V182o/V198o-specific breakdown not checked -- the original artifact record is specific to those two subjects; whether the within-area effect is concentrated in sessions from those subjects (consistent with repair mattering most there) or spread across subjects (more consistent with a pooling-design effect) is not yet examined."
+  ],
+  "plan": [
+    "Rerun scripts/extract_lfp_coupling_matrices.py with repair=False (extract_channel_segments already exposes this flag) to produce an unrepaired coupling.npz under the SAME corrected pooling design, then diff against this record's 22 within-area cells to isolate the repair-specific contribution.",
+    "Check whether the 22 significant within-area cells' underlying sessions are disproportionately V182o/V198o."
+  ],
+  "verification": {
+    "checks": {"sources_resolve": true, "reproducible": true},
+    "receipt": "outputs/lfp_coupling_matrices/coupling.npz, receipt.json (21 sessions, 16440 results, 1855s); outputs/lfp_coupling_matrices/area_pair_hit_rates_repaired.csv (740 cells, 22 above_chance, all areaA==areaB)",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "jnwb-artifact-repair-module-built-20260813",
+      "relation": "derived_from",
+      "reasoning": "This rerun is the direct downstream use of the artifact-repair module built the same session.",
+      "confidence": 0.9
+    }
+  ]
+}

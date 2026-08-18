@@ -463,6 +463,71 @@ def save_figure_suite(
             log.info(f"Saved: {filepath}")
 
 
+def get_sequence_onset_onsets(session, condition: str) -> np.ndarray:
+    """P1 (sequence-onset) trial start times for a condition, falling back to every epoch's
+    start time if no ``stimulus_number`` column is present.
+
+    Promoted 2026-08-14 from byte-identical copies in
+    ``scripts/generate_mt_mst_raster_suites.py`` and ``scripts/generate_oplusplus_raster_suites.py``.
+    """
+    ep = session.get_epochs(condition=condition)
+    if len(ep) == 0:
+        return np.array([])
+    if "stimulus_number" in ep.columns:
+        stim_num = np.array(
+            [float(x.decode() if isinstance(x, bytes) else x) for x in ep["stimulus_number"]],
+            dtype=float,
+        )
+        p1_ep = ep[stim_num == 1.0]
+        if len(p1_ep) > 0:
+            return p1_ep["start_time"].values
+    return ep["start_time"].values
+
+
+def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
+    """Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there
+    are fewer than ``target_n`` available), for a consistent raster trial count across units
+    with different trial counts.
+
+    Promoted 2026-08-14 from byte-identical copies in
+    ``scripts/generate_mt_mst_raster_suites.py`` and ``scripts/generate_oplusplus_raster_suites.py``.
+    """
+    if len(onsets) == 0:
+        return np.array([])
+    rng = np.random.default_rng(random_state)
+    if len(onsets) >= target_n:
+        idx = rng.choice(len(onsets), size=target_n, replace=False)
+    else:
+        idx = rng.choice(len(onsets), size=target_n, replace=True)
+    return onsets[idx]
+
+
+def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
+    """Trial-averaged PSTH (mean + SEM firing rate per bin) for a raw spike-time array against
+    an explicit onset array -- the raster-suite contract (raw arrays in, no session/unit_id
+    lookup), distinct from :func:`jnwb.functions.psth_analysis`'s session-object + bootstrap-CI
+    contract, which cannot cleanly replace this.
+
+    Promoted 2026-08-14 from byte-identical copies in
+    ``scripts/generate_oplusplus_raster_suites.py`` and
+    ``scripts/generate_top_omission_raster_suites.py`` (named ``compute_psth`` there; renamed
+    here to avoid colliding with the unrelated, differently-parameterized ``compute_psth`` in
+    ``scripts/generate_mt_mst_raster_suites.py``, which is NOT a duplicate of this one).
+    """
+    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
+    centers = edges[:-1] + bin_ms / 2.0
+    if onsets.size == 0:
+        return centers, np.zeros_like(centers), np.zeros_like(centers)
+    counts = np.zeros((onsets.size, edges.size - 1))
+    for i, t0 in enumerate(onsets):
+        s = (st[(st >= t0 + win_ms[0] / 1000.0) & (st < t0 + win_ms[1] / 1000.0)] - t0) * 1000.0
+        counts[i], _ = np.histogram(s, bins=edges)
+    rate = counts / (bin_ms / 1000.0)
+    mean = rate.mean(axis=0)
+    sem = rate.std(axis=0, ddof=1) / np.sqrt(rate.shape[0]) if rate.shape[0] > 1 else np.zeros_like(mean)
+    return centers, mean, sem
+
+
 def raster_suite_omission(
     session,
     unit_id: Union[int, str],

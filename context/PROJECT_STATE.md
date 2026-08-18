@@ -8,8 +8,7 @@ now*, not *what to do*. **It contains no instructions to any agent.** Behavioral
 a shelf life — re-resolve from `artifacts/data/corpus_manifest.json` rather than citing this
 file as authority for a count.
 
-**Last resolved:** 2026-08-15 (onset-hierarchy boundary-pinning fix, §4; RNG-determinism fix for
-the two classify scripts, §1).
+**Last resolved:** 2026-08-17 (SPK-primary analysis spec S1 unit inclusion rework reviewed and approved; LFP-track L11/L12 unblocked, §6a/§6b).
 
 ---
 
@@ -285,6 +284,52 @@ Receipts: `artifacts/.lab/onset-hierarchy-h1h2h3-fixed-20260815.json`,
 | **Figure 7** | Establish the statistic and its sampling unit before interpreting coupling as routing. Matched-count resampling if spike counts differ between conditions. |
 | **All TFR figures** | `tfr_ok` gate fixed 2026-08-14 (was a stale scan pattern, not a data problem — see §1). `suite_tfr_ready` still 0/22 pending the separate, unresolved `sidecar_ok`/`meta_dir` gap (§1); gate on `tfr_ok` + explicit condition/quality checks instead until that's resolved. |
 | **Laminar sign question** | Blocked on vFLIP coverage. |
+
+### 6a. LFP-primary analysis spec (L0-L17) — status as of 2026-08-17
+
+Separate from the manuscript's fig0N_* pipeline: a companion "Omission Paper — LFP-Primary
+Analysis Spec" targeting this corpus (stale subject/task naming in the spec document itself —
+"Ivan"/"oGLO" — confirmed to mean C31o/V182o/V198o/"omission" here). Lives under
+`context/figures/L0_*` through `L10_*`, each with its own README and `artifacts/.lab/*.json`
+evidence node; not yet folded into the manuscript figure numbering.
+
+| Item | Status | Headline (descriptive, not a manuscript claim yet) |
+|---|---|---|
+| L0 pooling reconciliation | done | canonical method = per-channel-then-pool; methods (a)/(b)/(c) agree closely, CSD (d) smaller-magnitude same-sign |
+| L1 TFR grid (Fig 4) | done | — |
+| L2 band-power traces (Fig 5) | done | — |
+| L3 laminar power profile | done | — |
+| L4 CSD response to omission | done, not yet publication-quality (stated) | — |
+| L5 onset latency, cross-area | done | **every band returned H3_simultaneous_or_ambiguous** — a valid null, reported as such |
+| L6 volume conduction control | done | same-probe adjacent-depth pairs show high zero-lag coupling fraction (0.6-0.9 raw, collapsing under Laplacian re-referencing) — required to interpret L5's H3 result |
+| L7 cross-area power correlation (Fig 6) | done | same same-probe pattern cross-validated via trial-power correlation; `sub-V182o_ses-260715` flagged as a likely session-wide artifact (13-15/15 pairs significant in every band) |
+| L8 cross-area coherence | done | same-probe pairs show the spec's own "conducted, not interacting" signature (high standard coherence, near-zero imaginary coherency) in every session checked — three independent statistics (L6/L7/L8) now agree on this |
+| L9 directed LFP-LFP influence (GC + PSI) | done | only `FEFsup-FEFdeep` (same-probe) has a 3-session-replicated, zero-excluding CI (theta) — read with the L6/L7/L8 volume-conduction caveat, not as FF/FB evidence |
+| L10 mutual information convergence | done | MI and Pearson r agree strongly (Spearman rho 0.32-0.95, all positive, 30/30 session×band×condition combinations) — no sign of missed nonlinear structure |
+| L11, L12 (LFP→SPK) | **unblocked as of 2026-08-17** | companion `context/analysis_spec_SPK.md` now exists and its blocker item (S1) is reviewed/approved — see §6b. Not yet built. |
+| L13-L17 | **deferred by the spec's own text** ("do not build unless asked") | — |
+
+**Do not treat any L-item number above as a manuscript figure number** — the mapping (if any) to
+`fig0N_*` is not yet decided. Two real bugs were found and fixed during this build, both
+documented in their own evidence nodes: a node-key collision that silently dropped one probe's
+data in L7 (`artifacts/.lab/L7-cross-area-power-correlation-20260817.json`), and a
+pseudoreplication bug in L9's cross-session bootstrap CI that let one session count as multiple
+independent replicates (`artifacts/.lab/L9-directed-lfp-lfp-influence-20260817.json`).
+
+### 6b. SPK-primary analysis spec (S1-S17) — status as of 2026-08-17
+
+Companion to §6a: `context/analysis_spec_SPK.md`, 17 numbered spiking-track analyses (S1-S17).
+Spec's own stale naming ("Ivan"/"2 monkeys"/informal area list) reconciled with Hamm 2026-08-16/17
+— see the reconciliation note prepended to the spec file itself and
+`artifacts/.lab/S1-unit-inclusion-rework-in-progress-20260817.json` for the full record.
+
+| Item | Status | Headline |
+|---|---|---|
+| S1 unit inclusion criteria rework [BLOCKER] | **done, reviewed and approved 2026-08-17** | replaces fixation-baseline-contrast selection (which systematically rejected units firing strongly during both fixation and omission) with a paired fire-probability test against a randomly drawn other-epoch null. Full corpus (22/22 sessions, 9061 units): new criterion passes 281/9061 (3.1%) vs old template-correlation criterion's 68/9061 (0.75%) — net +213 units (245 gained, 32 lost, 36 unchanged-included, 8748 unchanged-excluded). Canonical output: `outputs/classification/unit_inclusion_v1.csv`. `stable_criterion_version=presence_ks_snr_v2` — still missing the spec's FR<100Hz-at-any-1s peak-rate check (no existing primitive in this repo), disclosed not silently dropped. |
+| S2, S4, S5, S6, S7, S8, S10, S11 | **unblocked, not yet built** | all read `unit_inclusion_v1.csv` as canonical per S1's downstream contract |
+| S3 | **unblocked, not yet built** | example rasters — needs a stated, non-hand-picked selection rule per its own acceptance criterion |
+| S9, S12-S17 | not yet reviewed against the spec text | build after the S1-dependent items above |
+| LFP-track L11, L12 | **unblocked** (see §6a) | L11 reads SPK's S1 population; L12 (spike-field coherence) is LFP-spec-owned per SPK spec's own §0.7 cross-track ownership rule — import, don't reimplement |
 
 ### RESOLVED 2026-08-16 — the cycle-deconfounded Figure 4 estimate was computed on a unit-identity bug; conclusion unchanged after the fix
 

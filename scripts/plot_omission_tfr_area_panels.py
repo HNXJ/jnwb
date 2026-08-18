@@ -52,6 +52,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.patches import Rectangle
 from scipy import stats
+import jnwb as oa
 from jnwb import paths as _P
 
 MAPS = _P.REPO_ROOT / "outputs/omission_tfr_maps_ratio/maps.npz"
@@ -236,16 +237,16 @@ def window_stats(maps, freqs, times, bands, index):
                                  "ci_lo": float(ci[0]), "ci_hi": float(ci[1]),
                                  "t": float(t.statistic), "p_raw": float(t.pvalue)})
     r = pd.DataFrame(rows)
-    # BH across the ten areas within each (band, window, layer) -- the declared family
+    # BH across the ten areas within each (band, window, layer) -- the declared family.
+    # Was a hand-rolled loop with a backwards rank divisor (np.arange(n, 0, -1) instead of
+    # np.arange(1, n+1)) that silently under-corrected every q_bh value until fixed
+    # 2026-08-14 -- see artifacts/.lab/bh-fdr-backwards-divisor-fix-20260814.json.
     r["q_bh"] = np.nan
     for _, g in r.groupby(["band", "window", "layer"]):
         p = g["p_raw"].values
-        n = len(p)
-        o = np.argsort(p)
-        adj = np.minimum.accumulate((p[o] * n / np.arange(n, 0, -1))[::-1])[::-1]
-        q = np.empty(n)
-        q[o] = np.clip(adj, 0, 1)
-        r.loc[g.index, "q_bh"] = q
+        if len(p) == 0:
+            continue
+        r.loc[g.index, "q_bh"] = oa.StatisticalAnalysis.fdr_correct(p)
     return r
 
 
@@ -316,7 +317,7 @@ def main():
     receipt = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "script": os.path.abspath(__file__),
-        "maps": MAPS,
+        "maps": str(MAPS),
         "bandset": args.bands, "bands_hz": {k: list(v) for k, v in bands.items()},
         "bandset_note": "The reference figure's legend uses a different band set; pass "
                         "--bands reference to reproduce it. The two are not interchangeable.",

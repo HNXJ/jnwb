@@ -161,8 +161,10 @@ def _scan_nwb(nwb_dir: Path) -> tuple[dict[str, dict[str, Any]], list[Mismatch]]
                     SEVERITY_WARNING,
                 )
             )
+        session_prefix = f"sub-{subject}_ses-{session_id}" if subject is not None else stem
         sessions[stem] = {
             "stem": stem,
+            "session_prefix": session_prefix,
             "subject": subject,
             "session_id": session_id,
             "nwb_path": str(path),
@@ -177,28 +179,40 @@ def _scan_nwb(nwb_dir: Path) -> tuple[dict[str, dict[str, Any]], list[Mismatch]]
 
 
 def _scan_tfr(tfr_dir: Path, sessions: dict[str, dict[str, Any]]) -> int:
-    """Attribute TFR products to sessions by stem prefix. Returns total files seen."""
+    """Attribute TFR products to sessions by session_prefix. Returns total files seen.
+
+    2026-08-14: was matching on the raw NWB `stem` (which keeps a trailing `_rec` for most
+    C31o/V198o sessions), but TFR filenames are built from `session_prefix` (sub-<subj>_ses-<id>,
+    `_rec` already stripped -- see nwb_catalog.json's own field of the same name) and never carry
+    `_rec`. `path.name.startswith(stem)` therefore silently failed to match any `_rec` session,
+    undercounting tfr_ok to 10/22 instead of 22/22 -- exactly the kind of session-prefix mismatch
+    `omission-data` warns about. Matching on session_prefix instead fixes this.
+    """
     total = 0
     counts: Counter[str] = Counter()
     formats: dict[str, set[str]] = {}
+    prefix_to_stems: dict[str, list[str]] = {}
+    for stem, meta in sessions.items():
+        prefix_to_stems.setdefault(meta.get("session_prefix", stem), []).append(stem)
 
     for path in sorted(tfr_dir.iterdir()):
         if not path.is_file() or path.suffix.lower() not in {".npy", ".npz"}:
             continue
         total += 1
-        # Longest matching stem wins, so sub-X_ses-1 does not swallow sub-X_ses-10.
+        # Longest matching session_prefix wins, so sub-X_ses-1 does not swallow sub-X_ses-10.
         owner = None
-        for stem in sessions:
-            if path.name.startswith(stem) and (owner is None or len(stem) > len(owner)):
-                owner = stem
+        for prefix in prefix_to_stems:
+            if path.name.startswith(prefix) and (owner is None or len(prefix) > len(owner)):
+                owner = prefix
         if owner is not None:
             counts[owner] += 1
             formats.setdefault(owner, set()).add(path.suffix.lower().lstrip("."))
 
     for stem, meta in sessions.items():
-        meta["tfr_n_files"] = counts.get(stem, 0)
-        meta["tfr_formats"] = sorted(formats.get(stem, set()))
-        meta["tfr_ok"] = counts.get(stem, 0) > 0
+        prefix = meta.get("session_prefix", stem)
+        meta["tfr_n_files"] = counts.get(prefix, 0)
+        meta["tfr_formats"] = sorted(formats.get(prefix, set()))
+        meta["tfr_ok"] = counts.get(prefix, 0) > 0
 
     return total
 

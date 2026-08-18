@@ -54,6 +54,8 @@ sys.path.insert(0, os.path.dirname(REPO))
 sys.path.insert(0, os.path.join(os.path.dirname(REPO), "scripts", "archive_oneoff"))
 from precompute_tfr_arrays import resolve_lfp_datasets  # noqa: E402
 from jnwb import paths as _P
+from jnwb.artifact_repair import (interpolate_intervals as _jnwb_interpolate_intervals,
+                                  flagged_to_intervals as _jnwb_flagged_to_intervals)
 
 OUT_DIR = _P.REPO_ROOT / "outputs/lfp_artifact_repair"
 QC_DIR = _P.REPO_ROOT / "outputs/qc_lfp_artifacts"
@@ -112,25 +114,7 @@ def reward_adjacent_mask(f, n_samples, fs, window_ms=REWARD_WINDOW_MS):
 
 
 def flagged_to_intervals(flagged, fs, pad_ms=PAD_MS, merge_gap_ms=MERGE_GAP_MS):
-    """Boolean flagged-sample array -> list of (start_idx, end_idx) padded, merged intervals."""
-    d = np.diff(flagged.astype(np.int8))
-    starts = list(np.where(d == 1)[0] + 1)
-    ends = list(np.where(d == -1)[0] + 1)
-    if flagged[0]:
-        starts = [0] + starts
-    if flagged[-1]:
-        ends = ends + [len(flagged)]
-    pad = int(round(pad_ms / 1000.0 * fs))
-    raw = [(max(0, s - pad), min(len(flagged), e + pad)) for s, e in zip(starts, ends)]
-    raw.sort()
-    gap = int(round(merge_gap_ms / 1000.0 * fs))
-    merged = []
-    for s, e in raw:
-        if merged and s <= merged[-1][1] + gap:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
-        else:
-            merged.append((s, e))
-    return merged
+    return _jnwb_flagged_to_intervals(flagged, fs, pad_ms=pad_ms, merge_gap_ms=merge_gap_ms)
 
 
 def detect_session(nwb_path, session_label, probe_names):
@@ -220,23 +204,11 @@ def detect_session(nwb_path, session_label, probe_names):
     return df, per_probe_intervals, fs_ref
 
 
-def interpolate_intervals(seg, fs, intervals_local, ):
-    """Repair a (samples x channels) segment in place: per-channel linear interpolation across
-    each (start_idx, end_idx) interval (already expressed in indices local to `seg`), using the
-    single sample immediately before and after the interval as the two interpolation anchors.
-    Intervals partly or fully outside the segment are clipped and skipped if degenerate."""
-    out = seg.copy()
-    n = seg.shape[0]
-    for s, e in intervals_local:
-        s = max(s, 1)
-        e = min(e, n - 1)
-        if e <= s:
-            continue
-        left = out[s - 1, :]
-        right = out[e, :]
-        ramp = np.linspace(0, 1, e - s + 2)[1:-1][:, None]
-        out[s:e, :] = left[None, :] + ramp * (right - left)[None, :]
-    return out
+def interpolate_intervals(seg, fs, intervals_local):
+    """Thin wrapper over jnwb.artifact_repair.interpolate_intervals, keeping this file's
+    original 3-arg call signature (``fs`` was always unused in the body -- dead param, kept
+    only so the one call site below doesn't need to change)."""
+    return _jnwb_interpolate_intervals(seg, intervals_local)
 
 
 def demo_before_after(nwb_path, session_label, probe_name, probe_intervals, zoom_t0, zoom_dur):

@@ -15,14 +15,19 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]  # archive_oneoff/ nests one level deeper than
+                                                  # scripts/ -- was parents[1], resolved to
+                                                  # scripts/ itself, not the repo root
 sys.path.insert(0, str(REPO_ROOT))
 
 import jnwb as oa
+from jnwb import paths as _P
 
-NWB_DIR = Path("D:/analysis/nwb")
+NWB_DIR = _P.nwb_dir()  # was hardcoded "D:/analysis/nwb" -- stale pre-migration path, same
+                        # class of bug fixed elsewhere this sprint (fig03, precompute_tfr_arrays)
 READINESS_CSV = REPO_ROOT / "artifacts/data/session_readiness.csv"
 OUT_CSV = REPO_ROOT / "outputs/classification/grand_oplus_units.csv"
+SEED = 42
 
 # 9 Epochs bounds
 EPOCH_BOUNDS = [
@@ -52,7 +57,8 @@ TEMPLATES = {
 }
 
 
-def run_permutation_test(rates: np.ndarray, template: np.ndarray, n_perm: int = 1000) -> float:
+def run_permutation_test(rates: np.ndarray, template: np.ndarray, rng: np.random.Generator,
+                         n_perm: int = 1000) -> float:
     """Computes empirical p-value using a vectorized correlation shuffle."""
     std_rates = np.std(rates)
     std_temp = np.std(template)
@@ -62,8 +68,9 @@ def run_permutation_test(rates: np.ndarray, template: np.ndarray, n_perm: int = 
     obs_cov = np.mean(rates * template) - np.mean(rates) * np.mean(template)
     obs_r = obs_cov / (std_rates * std_temp)
 
-    # Pre-generate all random permutations of template
-    shuffled_all = np.array([np.random.permutation(template) for _ in range(n_perm)])
+    # Pre-generate all random permutations of template. Was np.random.permutation (global,
+    # unseeded RNG state -- not reproducible run to run); switched to a local seeded generator.
+    shuffled_all = np.array([rng.permutation(template) for _ in range(n_perm)])
     covs = np.mean(rates * shuffled_all, axis=1) - np.mean(rates) * np.mean(shuffled_all, axis=1)
     stds = np.std(shuffled_all, axis=1)
     stds[stds < 1e-5] = 1.0
@@ -77,6 +84,7 @@ def main():
     readiness = pd.read_csv(READINESS_CSV)
     ready = readiness[readiness["nwb_ok"] == True].copy()
 
+    rng = np.random.default_rng(SEED)
     records = []
 
     print(f"Scanning {len(ready)} sessions for O+ and O*+ candidates...")
@@ -193,7 +201,7 @@ def main():
 
                 # Only run permutation test if Pearson correlation is high
                 if r > 0.40:
-                    p_val = run_permutation_test(obs_rates_concat, temp_concat, n_perm=1000)
+                    p_val = run_permutation_test(obs_rates_concat, temp_concat, rng, n_perm=1000)
                     if p_val < 0.05:
                         records.append({
                             "session_prefix": prefix,

@@ -1,4 +1,13 @@
 r"""
+SUPERSEDED by scripts/extract_spike_lfp_coupling_v2.py -- this file's `load_probe_areas` call
+needs metadata sidecars (D:/analysis/metadata/{stem}/probe_areas.json) that do not exist on
+this machine (see context/PROJECT_STATE.md "Still open -- sidecar_ok / suite_tfr_ready",
+2026-08-14, and artifacts/.lab node for the corrected-PPC rebuild, 2026-08-15). v2 resolves
+area/probe/channel-slice information from outputs/channel_area_vector/channel_area_vector.csv
+instead (the same sidecar-free source scripts/precompute_tfr_arrays_v2.py already uses for the
+now-accepted fig04 v3 corpus) -- no other logic changed. Preserved here, unedited, per
+"preserve originals; write revisions as new files".
+
 Corpus-scale spike-LFP phase coupling extraction for figure 7.
 
 For each SUA unit (quality==1 in omission_grand_units.csv) with enough spikes in a context

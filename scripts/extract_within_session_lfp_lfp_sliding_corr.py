@@ -59,14 +59,13 @@ from smoke_test_sliding_trial_correlation import (  # noqa: E402
     band_power_trace, sliding_corr_same_trial, WIN_HALF_MS, STEP_MS, BIN_MS, N_SHUFFLE,
 )
 from jnwb import paths as _P
+from jnwb.connectivity import CANONICAL_BANDS as BANDS
 
 TFR_DIR = _P.tfr_dir()
 CENSUS = _P.REPO_ROOT / "outputs/lfp_band_census_v2/channel_band_power.csv.gz"
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
 OUT_DIR = _P.REPO_ROOT / "outputs/within_session_lfp_lfp_sliding_corr"
 
-BANDS = {"theta": (4, 8), "alpha": (8, 14), "beta": (14, 30),
-         "low_gamma": (30, 50), "high_gamma": (50, 80)}
 N_GOOD_CHANNELS = 6
 COND = "RXRR"
 AREA_POOL = {"V3": "V3a/d", "V3a": "V3a/d", "V3d": "V3a/d"}

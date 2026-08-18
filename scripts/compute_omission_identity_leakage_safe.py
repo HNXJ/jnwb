@@ -353,12 +353,7 @@ def _resolve_sessions(readiness_csv: Path, nwb_dir: Path) -> tuple[list[dict], l
     return included, excluded
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        for block in iter(lambda: fh.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from jnwb.paths import sha256_file as _sha256
 
 
 def run(

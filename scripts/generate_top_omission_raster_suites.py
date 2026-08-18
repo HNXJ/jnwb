@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT / "context" / "figures"))
 import jnwb as oa
 from jnwb.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS, EPOCH_ORDER
 from jnwb.unit_classification import precompute_condition_onsets
+from jnwb.viz import raster_psth as _raster_psth
 from figstyle import FULL_TRIAL_WIN, full_trial_ticks, mark_full_trial_axis
 from jnwb import paths as _P
 
@@ -46,25 +47,13 @@ RASTER_TRIALS = 40
 WIN = FULL_TRIAL_WIN  # (-500, 4124)
 
 def compute_psth(st, onsets, win_ms, bin_ms=PSTH_BIN_MS):
-    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
-    centers = edges[:-1] + bin_ms / 2.0
-    if onsets.size == 0:
-        return centers, np.zeros_like(centers), np.zeros_like(centers)
-    counts = np.zeros((onsets.size, edges.size - 1))
-    for i, t0 in enumerate(onsets):
-        s = (st[(st >= t0 + win_ms[0] / 1000.0) & (st < t0 + win_ms[1] / 1000.0)] - t0) * 1000.0
-        counts[i], _ = np.histogram(s, bins=edges)
-    rate = counts / (bin_ms / 1000.0)
-    mean = rate.mean(axis=0)
-    sem = rate.std(axis=0, ddof=1) / np.sqrt(rate.shape[0]) if rate.shape[0] > 1 else np.zeros_like(mean)
-    return centers, mean, sem
+    """Thin wrapper over jnwb.viz.raster_psth preserving this file's PSTH_BIN_MS=20.0 default
+    (jnwb.viz.raster_psth's own default is 10.0 -- explicit here so the swap is not a silent
+    behavior change)."""
+    return _raster_psth(st, onsets, win_ms, bin_ms=bin_ms)
 
 def render_unit_raster_suite(session_stem, unit_row, unit_info, save_path):
-    nwb_path = pathlib.Path(_P.nwb_dir()) / f"{session_stem}_rec.nwb"
-    if not nwb_path.exists():
-        nwb_path = pathlib.Path(_P.nwb_dir()) / f"{session_stem}.nwb"
-    
-    session = oa.read(nwb_path)
+    session = oa.read(_P.resolve_nwb_path(session_stem))
     onsets_dict = precompute_condition_onsets(session)
     spikes = session.get_spike_times(unit_row)
     if spikes is None:

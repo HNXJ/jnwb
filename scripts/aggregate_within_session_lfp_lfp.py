@@ -34,18 +34,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from jnwb import paths as _P
+from jnwb.statistics import clopper_pearson
 
 IN_DIR = _P.REPO_ROOT / "outputs/within_session_lfp_lfp_sliding_corr"
 Z_THRESH = 1.96
 ALPHA = 0.05
-
-
-def clopper_pearson(k, n, alpha=ALPHA):
-    if n == 0:
-        return (np.nan, np.nan)
-    lo = 0.0 if k == 0 else stats.beta.ppf(alpha / 2, k, n - k + 1)
-    hi = 1.0 if k == n else stats.beta.ppf(1 - alpha / 2, k + 1, n - k)
-    return float(lo), float(hi)
 
 
 def load_session(path):

@@ -35,12 +35,7 @@ MAIN_ANALYSIS = "omitted_expected_identity"
 POSITIVE_CONTROL = "presented_identity_positive_control"
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from jnwb.paths import sha256_file as _sha256
 
 
 def _target_column(analysis: str) -> str:

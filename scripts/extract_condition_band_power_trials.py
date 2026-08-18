@@ -46,6 +46,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
+from jnwb.connectivity import CANONICAL_BANDS as BANDS
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
@@ -61,8 +62,6 @@ TIMES = WIN_MS[0] + np.arange(N_TIMES) * BIN_MS
 BASELINE_MS = (706, 856)                             # middle third of d1, see module docstring
 
 CONDS = ["RXRR", "RRRR"]
-BANDS = {"theta": (4, 8), "alpha": (8, 14), "beta": (14, 30),
-         "low_gamma": (30, 50), "high_gamma": (50, 80)}
 BAND_SEL = {name: (FREQS_HZ >= lo) & (FREQS_HZ < hi) for name, (lo, hi) in BANDS.items()}
 AREA_POOL = {"V3": "V3a/d", "V3a": "V3a/d", "V3d": "V3a/d"}
 CHUNK = 16

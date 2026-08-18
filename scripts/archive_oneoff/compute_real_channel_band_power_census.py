@@ -1,4 +1,10 @@
 r"""
+ARCHIVED 2026-08-14: superseded by scripts/compute_channel_band_power_census_v2.py, which
+fixes a dual-area-probe channel-aliasing bug this script has (see that script's own docstring,
+"SUPERSEDES scripts/compute_real_channel_band_power_census.py. Two changes, both material...").
+Moved to scripts/archive_oneoff/ as part of the scripts/jnwb consolidation pass; kept for
+forensic value, not for use.
+
 Real per-channel TFR band-power census for omission windows.
 
 Replaces the hardcoded literals in scripts/archive_oneoff/compute_empirical_census_and_power.py

@@ -1,4 +1,8 @@
 r"""
+ARCHIVED 2026-08-14 (already self-documented HISTORICAL as of 2026-08-10 below). Moved to
+scripts/archive_oneoff/ as part of the scripts/jnwb consolidation pass; kept for forensic
+value, not for use -- running it is a no-op regardless (SRC no longer exists).
+
 HISTORICAL as of 2026-08-10 -- there is no longer a two-tree sync to run.
 
 WHAT THIS SCRIPT USED TO DO

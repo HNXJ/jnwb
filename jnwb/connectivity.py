@@ -43,8 +43,8 @@ from scipy import stats
 log = logging.getLogger(__name__)
 
 #: Settled Omission band edges (Hz). See CLAUDE.md "Band definitions".
-#: NOTE: ``jnwb.spectral.cross_area_coherence`` still defaults to a *different,
-#: pre-correction* set (alpha 8-12, beta 12-30, gamma 30-55/55-90). Do not mix them.
+#: ``jnwb.spectral.cross_area_coherence`` imports this same constant (confirmed 2026-08-14,
+#: `from .connectivity import CANONICAL_BANDS`) -- there is no second, pre-correction copy.
 CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
     "theta": (4.0, 8.0),
     "alpha": (8.0, 14.0),

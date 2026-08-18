@@ -48,11 +48,21 @@ UNIT OF INFERENCE
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field, asdict
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sst
+
+# figNN_*.py scripts are run directly (python figNN_foo.py), which only puts
+# context/figures/ on sys.path -- the repo root must be added here so `import jnwb`
+# works regardless of whether the calling script already added it.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from jnwb.statistics import StatisticalAnalysis as _StatisticalAnalysis
 
 # Units of inference that support a population claim on this corpus. Anything else is
 # descriptive, however small its p-value.
@@ -103,19 +113,20 @@ def holm(p):
 
 
 def bh(p):
-    """Benjamini-Hochberg adjusted p-values (q). Controls FDR."""
+    """Benjamini-Hochberg adjusted p-values (q). Controls FDR.
+
+    Delegates the correction itself to jnwb.statistics.StatisticalAnalysis.fdr_correct (the
+    project's single canonical BH implementation) on the finite subset; this wrapper only
+    handles NaN masking so every existing figNN_*.py caller keeps its original NaN-in/NaN-out
+    contract.
+    """
     p = np.asarray(p, float)
     ok = np.isfinite(p)
     out = np.full(p.shape, np.nan)
     v = p[ok]
-    m = v.size
-    if m == 0:
+    if v.size == 0:
         return out
-    o = np.argsort(v)
-    adj = np.minimum.accumulate((v[o] * m / np.arange(1, m + 1))[::-1])[::-1]
-    r = np.empty(m)
-    r[o] = np.clip(adj, 0, 1)
-    out[ok] = r
+    out[ok] = np.clip(_StatisticalAnalysis.fdr_correct(v), 0, 1)
     return out
 
 

@@ -64,6 +64,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from svgassemble import assemble
 from figstats import Result, correct, group_location, paired_location, write
 from figstyle import mark_full_trial_axis, EPOCH_ONSETS_MS
+from jnwb.spectral import to_db
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
 OUT_DIR = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500"
@@ -100,11 +101,6 @@ def grating_strip(width=700, height=60, cycles=12):
     y = np.linspace(0, 1, height)
     xx, yy = np.meshgrid(x, y)
     return 0.5 + 0.5 * np.sin(2 * np.pi * cycles * (xx + 0.55 * yy))
-
-
-def to_db(r):
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return 10.0 * np.log10(r)
 
 
 def _gaussian_kernel_1d(sigma_bins):

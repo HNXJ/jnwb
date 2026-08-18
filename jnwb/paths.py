@@ -30,6 +30,7 @@ rather than with a bare ``FileNotFoundError``.
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -53,6 +54,8 @@ __all__ = [
     "outputs_dir",
     "artifacts_dir",
     "layer_masks_path",
+    "resolve_nwb_path",
+    "sha256_file",
     "require",
     "describe",
 ]
@@ -151,6 +154,33 @@ def artifacts_dir(*parts: str) -> Path:
 def layer_masks_path() -> Path:
     """Canonical vFLIP layer-mask JSON. Repo-internal, so never configurable."""
     return outputs_dir("publication_visual_review", "area_layer_tfr", "layer_masks.json")
+
+
+def resolve_nwb_path(prefix: str, nwb_dir_override: str | os.PathLike | None = None) -> Path:
+    """Resolve a session prefix to its NWB file, trying ``{prefix}_rec.nwb`` then
+    ``{prefix}.nwb``. Promoted 2026-08-14 from two identical copies in
+    ``decode_identity_sliding_window.py`` and ``decode_omission_onset_sliding_window.py``.
+    Does not check existence beyond the ``_rec.nwb`` probe -- callers that need a hard
+    guarantee should still check ``.exists()`` or use :func:`require`.
+    """
+    base = nwb_dir(nwb_dir_override)
+    rec_path = base / (prefix + "_rec.nwb")
+    if rec_path.exists():
+        return rec_path
+    return base / (prefix + ".nwb")
+
+
+def sha256_file(path: str | os.PathLike, chunk_size: int = 1024 * 1024) -> str:
+    """SHA-256 hex digest of a file, read in chunks (no full read into memory).
+
+    Promoted 2026-08-14 from ten near-identical ``_sha256`` helpers across the Handout 4 /
+    Structured Identity audit and materialize scripts.
+    """
+    h = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(chunk_size), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def require(path: str | os.PathLike, what: str, env_var: str | None = None) -> Path:

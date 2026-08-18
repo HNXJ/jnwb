@@ -10,6 +10,34 @@ renumbering: the directory name is the source of truth for figure identity, inte
 filenames are historical. Flagged 2026-08-06 at **50/100 (moderate revision on subplots
 needed)** — see `../REVISION_PLAN.md`.
 
+## New supplement (2026-08-14): fig04xx_3d, true 3-D surface spectrograms
+
+`fig04xx_3d_condition_tfr.py` draws the same eight RXRR/RRRR condition spectrograms the main
+figure's spectrogram block shows (V1, V3a/d, TEO, PFC x RXRR/RRRR) as true 3-D
+(time x frequency x power) surfaces instead of 2-D heatmaps -- `mpl_toolkits.mplot3d`,
+per-panel autoscaled colour (99th percentile |dB|, same rule as the 2-D panels), log-frequency
+axis (manual log2 transform + the same [4, 8, 14, 30, 50, 80, 150] Hz tick set, since Axes3D
+does not reliably support `set_yscale("log")`), the omitted slot marked with a single dashed
+red line (a lighter marker than the 2-D panels' full epoch shading -- shaded epoch planes in
+3-D were judged not worth the added complexity for a supplement).
+
+Reads `outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz` directly -- the **current canonical**
+condition-map extraction per `context/PROJECT_STATE.md` (2026-08-14). **Flagged, not fixed
+here**: the main `fig04_v1_pfc_condition_tfr.py`'s own `CONDITION_MAPS` constant still points at
+`D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz` -- that drive path does
+not exist on this machine, and even repointed it would read the superseded v1 extraction (built
+2026-08-04 from the pre-corpus-migration path). This supplement's own loader reads v2 directly
+rather than inheriting either problem; fixing the main script's path/version is a separate,
+not-yet-done change.
+
+Confirms the same sanity-check signature as the 2-D panels visually: three gamma bursts at the
+real stimulus slots (p1, p2, p3) in RRRR, collapsing to a dip at the omitted p2 slot in RXRR;
+PFC's dynamic range (~±1 dB) versus V1's (~±10 dB) reproduces the areas' known difference in
+modulation magnitude.
+
+Output: `svg/fig04xx_3d_<area>_<cond>.svg/.png` (8 panels), `fig04xx_3d_condition_tfr.svg`
+(assembled 4x2 grid), `svg/fig04xx_3d_receipt.json`.
+
 ## New supplement (2026-08-06): fig04xx, area-pair TFR by pooled stim/omission context
 
 `fig04xx_pair_stim_omission_tfr.py` draws V1/V2, MT/MST and FEF/PFC spectrograms for two

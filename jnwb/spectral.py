@@ -23,6 +23,17 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 
+def to_db(ratio):
+    """``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass
+    through -- the project's "log last" rule (CLAUDE.md tripwire #3: average power, divide by
+    baseline, log exactly once). Promoted 2026-08-14 from four identical one-liners in
+    context/figures/ scripts; this enforces the convention in one place instead of by
+    convention alone at 10+ inline ``10*np.log10(...)`` call sites across jnwb and scripts.
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return 10.0 * np.log10(ratio)
+
+
 def harmonic_analysis(
     lfp_trace: np.ndarray,
     sampling_rate: float,

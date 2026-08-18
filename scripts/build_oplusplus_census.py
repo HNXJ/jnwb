@@ -48,7 +48,10 @@ def bootstrap_ci(n: int, total: int, n_boot: int = 10000, seed: int = 42):
 
 
 def main():
-    cfg = OPlusPlusTemplateConfig()
+    # require_higher_order=False 2026-08-13, direct request (Hamm): FEF/PFC was a validation
+    # hint to confirm the method against manually-observed units, not a scope restriction --
+    # once confirmed, apply the same correlation/pval criteria corpus-wide (TEO, V4, etc. included).
+    cfg = OPlusPlusTemplateConfig(require_higher_order=False)
     df = pd.read_csv(SRC)
     labeled = assign_o_plusplus_from_template_table(df, cfg)
     summary = oplusplus_census_summary(labeled)

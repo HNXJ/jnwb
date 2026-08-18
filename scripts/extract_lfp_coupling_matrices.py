@@ -55,7 +55,9 @@ from precompute_tfr_arrays import (  # noqa: E402
     condition_numbers_for, load_probe_areas, resolve_lfp_datasets,
 )
 from jnwb.spectral import laplacian_reference  # noqa: E402
+from jnwb.artifact_repair import repair_lfp_trials  # noqa: E402
 from jnwb import paths as _P
+from jnwb.connectivity import CANONICAL_BANDS as BANDS
 
 META_ROOT = Path(os.environ.get("OMISSION_META_DIR", _P.meta_dir()))
 CHANNEL_LAYERS_PATH = REPO / "outputs/layers/channel_layers_all.csv"
@@ -63,8 +65,6 @@ LAYERS = ("sup", "mid", "deep")
 READINESS = REPO / "artifacts/data/session_readiness.csv"
 OUT_DIR = REPO / "outputs/lfp_coupling_matrices"
 
-BANDS = {"theta": (4, 8), "alpha": (8, 14), "beta": (14, 30),
-         "low_gamma": (30, 50), "high_gamma": (50, 80)}
 
 # Stimulus window: p1 onset to d1 onset (present, real, in every condition).
 # Omission window: p2 onset to d2 onset, RXRR only (p2 is the omitted slot in RXRR).
@@ -139,16 +139,26 @@ def p1_onsets_and_conditions_s(f, conditions):
 
 
 def extract_channel_segments(data, ts, fs, onsets_s, window_s, ref_channel_idx, n_channels_probe,
-                              max_trials):
+                              max_trials, repair=True):
     """For each onset, pull the probe's channels needed for Laplacian re-referencing (the
-    representative channel plus its immediate depth neighbors), re-reference, and keep only
-    the representative channel's re-referenced trace for the requested window. Returns a 1D
-    array: trial windows concatenated back-to-back."""
+    representative channel plus its immediate depth neighbors), REPAIR raw movement artifacts
+    (jnwb.artifact_repair.repair_lfp_trials, cross-channel-synchrony detection + cross-trial-
+    median substitution -- see that module's docstring and
+    artifacts/.lab/lfp-movement-artifact-v198o-v182o-20260806.json) BEFORE re-referencing, then
+    keep only the representative channel's re-referenced trace for the requested window. Repair
+    runs on the raw local channel window (lo:hi, typically 3 channels -- the same window already
+    loaded for Laplacian referencing, not the full probe) so no second h5py pass is needed; this
+    is a weaker synchrony statistic than a full 128-channel scan (stated limitation, not hidden)
+    but still catches the cross-channel-synchronous signature the lab record establishes.
+    reward_window_ms=None here: CONTEXTS' windows (stimulus 0-531ms, omission/identity
+    1031-1562ms post p1) never reach the reward latency (~4120-4300ms post p1), so the reward-
+    exclusion mask would be a no-op -- passing None documents that rather than silently computing
+    an always-false mask. Returns a 1D array: trial windows concatenated back-to-back."""
     lo = max(0, ref_channel_idx - 1)
     hi = min(n_channels_probe, ref_channel_idx + 2)
     local_rep = ref_channel_idx - lo
     need = int(round((window_s[1] - window_s[0]) * fs))
-    segs = []
+    raw_trials = []
     for onset in onsets_s[:max_trials]:
         t0, t1 = onset + window_s[0], onset + window_s[1]
         if ts is not None:
@@ -161,16 +171,27 @@ def extract_channel_segments(data, ts, fs, onsets_s, window_s, ref_channel_idx, 
         raw = np.asarray(data[i0:i1, lo:hi], dtype=np.float64)
         if raw.shape[0] < 3:
             continue
-        ref = laplacian_reference(raw.T)  # (n_local_ch, n_samples)
-        seg = ref[local_rep]
-        if seg.shape[0] < need:
-            seg = np.pad(seg, (0, need - seg.shape[0]), mode="edge")
-        elif seg.shape[0] > need:
-            seg = seg[:need]
-        segs.append(seg)
-    if not segs:
+        if raw.shape[0] < need:
+            raw = np.pad(raw, ((0, need - raw.shape[0]), (0, 0)), mode="edge")
+        elif raw.shape[0] > need:
+            raw = raw[:need]
+        raw_trials.append(raw)  # (n_samples, n_local_ch)
+    if not raw_trials:
         return None
-    return np.stack(segs)  # (n_trials, n_samples_per_trial)
+
+    raw_stack = np.stack(raw_trials)                       # (n_trials, n_samples, n_local_ch)
+    raw_stack = np.transpose(raw_stack, (0, 2, 1))          # (n_trials, n_local_ch, n_samples)
+    frac_flagged = 0.0
+    if repair:
+        raw_stack, frac_flagged, _diag = repair_lfp_trials(raw_stack, times_ms=None,
+                                                            reward_window_ms=None)
+
+    segs = []
+    for ti in range(raw_stack.shape[0]):
+        ref = laplacian_reference(raw_stack[ti])  # (n_local_ch, n_samples)
+        segs.append(ref[local_rep])
+    out = np.stack(segs)  # (n_trials, n_samples_per_trial)
+    return out
 
 
 def trial_band_fft(x_trials, fs, band):

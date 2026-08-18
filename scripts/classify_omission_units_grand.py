@@ -3,7 +3,8 @@ Grand omission unit table: four questions, one pass, permutation-tested and FDR-
 
 All windows are the 531 ms presentation window at the relevant slot. All tests are two-sided
 permutation tests on the trial labels, 1,000 shuffles, seed 42, and every p is corrected
-across units with Benjamini-Hochberg (FDR, not FWER) at q <= 0.025.
+across units with Benjamini-Hochberg (FDR, not FWER) at q <= 0.05 (raised from 0.025
+2026-08-13, direct request).
 
 Q1  IS IT AN OMISSION? -- the unit must PEAK (or trough) at the omitted slot
     An omission produces three consecutive, visually identical empty periods: the delay
@@ -84,7 +85,8 @@ from jnwb import paths as _P
 NWB_DIR = _P.nwb_dir()
 OUT_DIR = _P.REPO_ROOT / "outputs/classification"
 N_SHUF = 1000
-ALPHA = 0.025
+ALPHA = 0.05  # raised from 0.025 2026-08-13, direct request (Hamm) -- corpus-wide, every
+             # omission_class/knows_when/knows_what/after_class consumer is affected
 NBINS = 6
 MIN_TR = 6
 POOL = {"V3": "V3a/d", "V3a": "V3a/d", "V3d": "V3a/d"}
@@ -120,18 +122,18 @@ DUR = PRESENTATION_DUR_MS / 1000.0
 
 
 def bh(p):
+    """Benjamini-Hochberg FDR, delegating to jnwb.StatisticalAnalysis.fdr_correct (scipy
+    false_discovery_control). Was a local re-implementation with a backwards rank divisor
+    (np.arange(n, 0, -1) instead of np.arange(1, n+1)) that silently under-corrected every
+    q-value in this file's output until fixed 2026-08-14 -- see
+    artifacts/.lab/bh-fdr-backwards-divisor-fix-20260814.json."""
     p = np.asarray(p, float)
     ok = np.isfinite(p)
     q = np.full(p.shape, np.nan)
     v = p[ok]
-    n = v.size
-    if n == 0:
+    if v.size == 0:
         return q
-    o = np.argsort(v)
-    adj = np.minimum.accumulate((v[o] * n / np.arange(n, 0, -1))[::-1])[::-1]
-    r = np.empty(n)
-    r[o] = np.clip(adj, 0, 1)
-    q[ok] = r
+    q[ok] = oa.StatisticalAnalysis.fdr_correct(v)
     return q
 
 

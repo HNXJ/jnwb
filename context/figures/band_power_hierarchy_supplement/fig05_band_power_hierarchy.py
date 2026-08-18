@@ -45,6 +45,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from svgassemble import assemble
 from figstats import correlation, group_location, paired_location, write
+from jnwb.spectral import to_db
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
 FIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "svg")
@@ -64,11 +65,6 @@ NEXT_STIM = (1031, 1562)
 SLOT4_END = 897
 COVERAGE_MIN = 0.55
 OUTLIER_FACTOR = 5.0
-
-
-def to_db(r):
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return 10.0 * np.log10(r)
 
 
 def load():

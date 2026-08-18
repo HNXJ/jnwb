@@ -35,6 +35,61 @@ from scipy import stats
 log = logging.getLogger(__name__)
 
 
+def clopper_pearson(k, n, alpha: float = 0.05):
+    """Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.
+
+    Promoted 2026-08-14 from six byte-identical independent implementations
+    (``context/figures/figstyle.py`` and five ``scripts/*.py`` aggregation scripts) --
+    proportions on this project get this, never a bootstrap.
+    """
+    k, n = int(k), int(n)
+    if n == 0:
+        return (float("nan"), float("nan"))
+    lo = 0.0 if k == 0 else stats.beta.ppf(alpha / 2, k, n - k + 1)
+    hi = 1.0 if k == n else stats.beta.ppf(1 - alpha / 2, k + 1, n - k)
+    return (float(lo), float(hi))
+
+
+def coef_rows(
+    res,
+    model: str,
+    band: Optional[str] = None,
+    extra: Optional[Dict] = None,
+    exclude_vc: str = "probe Var",
+    estimate_key: str = "estimate_db",
+    stat_key: str = "z",
+) -> List[Dict]:
+    """Flatten a fitted (Mixed)LM's coefficient table into one dict per term.
+
+    Promoted 2026-08-14 from byte-identical copies in ``area_subject_glmm.py`` and
+    ``fit_omission_band_power_glmm.py`` (band-power GLMM family: ``coef_rows(res, model, band,
+    extra)`` positionally, matching those two files' original signature order, still works
+    unchanged) and genericized for ``fit_population_firing_lfp_power_glmm.py``'s variant
+    (different excluded variance component and field names -- pass ``band=None,
+    extra=..., exclude_vc="session Var", estimate_key="estimate_z", stat_key="tstat"``).
+    Always drops the random-effect ``"Group Var"`` term plus whichever variance-component term
+    ``exclude_vc`` names.
+    """
+    rows = []
+    exclude = {"Group Var", exclude_vc}
+    for name in res.params.index:
+        if name.startswith("Group") or name in exclude:
+            continue
+        row = {"model": model}
+        if band is not None:
+            row["band"] = band
+        row["term"] = name
+        row[estimate_key] = float(res.params[name])
+        row["se"] = float(res.bse[name])
+        row[stat_key] = float(res.tvalues[name])
+        row["p_raw"] = float(res.pvalues[name])
+        row["ci_lo"] = float(res.conf_int().loc[name, 0])
+        row["ci_hi"] = float(res.conf_int().loc[name, 1])
+        row.update(extra or {})
+        rows.append(row)
+    return rows
+
+
 class StatisticalAnalysis:
     """
     Dual statistical testing with honest multiple-comparison handling.

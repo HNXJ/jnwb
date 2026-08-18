@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 from pynwb import NWBHDF5IO
 
+from .paths import REPO_ROOT as _REPO_ROOT
+
 log = logging.getLogger(__name__)
 
 # Anchored to the repo root, not the process's current working directory: a plain relative
@@ -22,8 +24,9 @@ log = logging.getLogger(__name__)
 # script happens to be invoked from (found 2026-08-04 -- a fig03 rebuild run from inside
 # context/figures/fig03_unit_census/ duplicated the entire 21-session NWB table cache, 6.7 GB,
 # under that subdirectory instead of reusing the real one). This is a shared, multi-agent,
-# multi-CLI workspace where CWD at invocation time is not controlled.
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+# multi-CLI workspace where CWD at invocation time is not controlled. _REPO_ROOT used to be
+# re-derived here independently of jnwb/paths.py (the module built 2026-08-08 specifically to
+# stop that pattern) -- now imported from there, 2026-08-14.
 
 # RRXR/RRRX task_condition_number -> stimulus-omission-slot assignment is NOT the same across
 # subjects. Confirmed via is_omission cross-referencing (2026-07-30) for C31o/V198o: cond

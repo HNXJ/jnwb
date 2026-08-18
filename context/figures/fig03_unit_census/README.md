@@ -149,6 +149,40 @@ Two follow-up changes, both applied and verified by rendering:
   distinguishable from each other at this n, independent of whether the point estimates happen
   to trend in one direction or another.
 
+### 2026-08-13 — panel-tag fix, panel B replaced, panel E/F trial-pooled SEM added
+
+- **Panel tags fixed a,b,a,b,a,b -> a,b,c,d,e,f.** `svgassemble.assemble()` letters panels
+  `chr(97+k)` local to each call; `main()` calls it three times (row1/row2/row3, 2 panels each),
+  so every row restarted at 'a'. Added a `letter_offset` parameter to `assemble()` and pass
+  0/2/4 for row1/row2/row3. Panel identities are unchanged (a=e/composition-by-area, b=the
+  panel B slot, c=S+/S++, d=S-/S--, e=O+, f=O++) -- only the printed letters were wrong.
+- **Panel B's ambiguous title fixed.** The old title read "low->high order, left->right",
+  which reads as "bars sorted ascending by value" but actually meant "areas ordered by visual
+  hierarchy, V1 to PFC" (they are NOT value-sorted -- V2 sits at 50% between smaller
+  neighbors). Reworded to "V1->PFC visual hierarchy, left->right"; bars/data unchanged.
+- **Panel B replaced.** No longer O+'s share of (O+, S+, S-) (previous section, 2026-08-06).
+  Now `panel_composition_oplusplus_by_area`: O++'s share of (O+, O++) only, by area -- among
+  units that show any omission effect, what fraction show the strong/++ version. Same
+  hierarchy-ordered x-axis and Clopper-Pearson 95% CI convention as before. O++ is vanishingly
+  rare (15 units corpus-wide, see panel A), so per-area n's are small and most CIs are wide;
+  read the printed k/n, not just bar height.
+- **Panels E/F (O+, O++) SEM changed to trial-pooled, by explicit request.** Previously (and
+  still for C/D) the SEM band is std-across-per-unit-means / sqrt(n_units) -- the unit is the
+  level of replication, since a unit's own trials are not independent samples of the population
+  effect. For E/F only, the band now pools every trial from every unit as a flat replicate:
+  std over the concatenated (n_trials_total, n_bins) matrix / sqrt(n_eff) per bin. This was
+  flagged before implementing -- pooling trials this way is the same pseudo-replication pattern
+  this project's statistics doctrine warns against elsewhere (channel-within-probe in the fig05
+  GLMM), and it is most consequential for F (O++, n=3 units): the band gets much tighter, but it
+  quantifies trial-to-trial spread pooled across a nearly-fixed 3-unit set, not uncertainty about
+  the population-level O++ effect, which 3 units cannot resolve regardless of trial count.
+  Requested and confirmed anyway; implemented literally, and both the panel's y-axis label and
+  its per-condition legend now say "trials=" instead of "n=" and state explicitly this band is
+  descriptive, not a unit-level uncertainty estimate, so it cannot be misread as more units. Mean
+  lines (`mu`) are unchanged -- still the mean of per-unit means, for every class including
+  O+/O++; only the SEM band's basis changed. See `compute_population_psth_multi_condition`'s
+  `trial_pooled_classes` parameter and `panel_grand_average_by_condition`'s `sem_kind` handling.
+
 **Moved to supplement** (`svg/fig03_supp_presence_by_area.*`, `svg/fig03_supp_peak_rate_by_area.*`,
 `svg/fig03_supp_class_embedding.*`, assembled together as
 `svg/fig03_supp_presence_peakrate_umap.svg`): the presence/stability panel, the peak-rate panel,

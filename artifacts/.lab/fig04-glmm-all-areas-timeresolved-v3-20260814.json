@@ -1,0 +1,47 @@
+{
+  "id": "fig04-glmm-all-areas-timeresolved-v3-20260814",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig04's two retained GLMMs rerun with trial-level TFR artifact repair added: Q1 recovers most of the signal the missing-repair v2 run had lost, Q2 returns to a clean full null",
+  "status": "confirmed",
+  "generated": "2026-08-14T21:15:00Z",
+  "notes": [
+    "Direct response to the user's follow-up: 'yes many things might be stale ; in particular but we gotta make sure we are excluding intervals with artifacts ; artifacts are sharp increase in power that across trials in the same condition are not present'. The v2 extraction (fig04-glmm-all-areas-timeresolved-v2-20260814, now superseded) fixed the stale-corpus/channel-join bugs but ran with ZERO trial-level artifact rejection -- every trial's power, including a trial with a sharp single-trial power spike absent from the other trials of the same session x area x condition, went into the trial mean unmodified. That is precisely the artifact class the user described.",
+    "FOUND EXISTING, UNAPPLIED MACHINERY: jnwb/artifact_repair.py (untracked file from an earlier overnight session, lab node jnwb-artifact-repair-module-built-20260813) already documents a TFR-domain repair -- 'the same pattern as context/figures/fig_v1_omission_band_dynamics/band_power_dynamics.py::repair_band_artifacts' -- but that function lived ONLY in the figure script, never imported by any TFR condition-map extraction. Promoted it into jnwb/artifact_repair.py (repair_band_artifacts + DEFAULT_BANDS + TFR_Z_THRESH=6.0, byte-compatible with the figure script's copy, which is left as-is per 'preserve originals'), added a synthetic self-test (single-trial, single-band spike; verifies flagging is band-specific and trial-specific, not global) -- passed.",
+    "METHOD: per band (figstyle.BANDS/BANDSETS['manuscript'] -- confirmed identical edges), per (trial, time): channel-mean power in that band's freq rows; cross-trial median trend; robust z of the residual against a SINGLE POOLED scale (not per-time-bin, which would itself be inflated by the evoked response and mask a real outlier there); one-sided flag at z>6 (artifacts are power increases, not decreases); flagged (trial, time) cells replaced by the cross-trial median at that band/time for ALL channels -- substitution, trial is kept, not excluded.",
+    "NEW EXTRACTION SCRIPT: scripts/extract_condition_tfr_maps_v3.py (copy of v2, only change: repair_band_artifacts applied once per file across all selected channels, right after windowing, before the trial-mean/baseline-ratio/dB pipeline). VALIDATED the flagged-fraction rate (2-11% per band across a 12-file smoke test) against this project's own EXISTING, already-reviewed usage of the identical function/threshold in context/figures/fig_v1_omission_band_dynamics/svg/mt_band_power_dynamics.receipt.json before trusting it on the full corpus -- the rates match closely (e.g. Low-gamma ~7-11% in both), confirming this is expected behavior on this corpus's raw-power distribution, not over-flagging from a misapplied threshold.",
+    "FULL-CORPUS EXTRACTION: outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz -- 485/485 files, 0 skipped, 900 keys, all 11 areas; 479/485 files had at least one flagged cell in some band (mean flagged fraction 2.9-5.9% depending on band). Runtime 3859s (~64 min).",
+    "NEW GLMM SCRIPT: context/figures/fig06_v1_pfc_condition_tfr/fig04_glmm_all_areas_timeresolved_v3.py -- only CONDITION_MAPS/OUT_DIR repointed to the v3 extraction; model/windowing unchanged, comparable cell-for-cell against v1 (stale corpus) and v2 (correct corpus, no repair).",
+    "RESULT, Q1 (is it an omission? db~C(context)): 109/180 Holm-significant (v1 stale=119, v2 no-repair=85), 133/180 BH-significant (v1=132, v2=128). Cell-for-cell: every one of v2's 85 Holm-significant cells is STILL significant in v3 (0 lost) plus 24 more gained -- artifact repair recovers real signal the missing-repair run had suppressed, it does not manufacture new significance beyond what the stale run already saw (109 < 119). By area vs v2: MT recovers fully (14/20->20/20, matching v1's 20/20); V1 and V2 IMPROVE PAST the stale run (12/20->15/20 each, vs v1's 13/20 each); V3a/d partially recovers (8/20->10/20, still below v1's 13/20); PFC and TEO partially recover (0/20->5/20 and 0/20->4/20) but remain well below v1's 7/20 and 13/20 -- these two areas' effect is evidently smaller/noisier and was the most sensitive to both the stale-corpus and the missing-repair issues; FEF, MST, V4 unchanged across all three runs (0/20, 20/20, ~20/20).",
+    "RESULT, Q2 (does omission type matter, omissions only): 0/180 Holm/BH-significant -- back to a CLEAN full null, matching v1's original 0/180 exactly (v2's borderline 1/180 without repair is gone). Reinforces Q2's null as real, not an artifact of whichever corpus/repair state happened to be used.",
+    "CONVERGENCE: 60/22 fit-warning notes (Q1/Q2) with repair, vs 88/68 without repair (v2) and 42/40 on the stale corpus (v1) -- repair reduces convergence problems substantially relative to the no-repair current-corpus run, and for Q2 is even cleaner than the stale run. Consistent with artifact-contaminated trials making the session-nested random-effects structure harder to identify."
+  ],
+  "issues": [
+    "PFC and TEO still do not recover to the stale run's significance count (5/20, 4/20 vs v1's 7/20, 13/20) even with artifact repair -- not yet independently investigated whether this reflects a genuinely smaller/less robust effect in these two areas, a channel-count difference from the 1/f screening (precompute_tfr_arrays_v2.py drops low-quality channels, which could disproportionately affect these two areas), or something else.",
+    "Convergence-warning cells (60/22) still not excluded from the reported Holm/BH-significant counts, consistent with how all three runs (v1/v2/v3) report the number.",
+    "Same as v1/v2: independent confirmation (second implementation) not yet done."
+  ],
+  "plan": [
+    "If promoted to a figure/supplement panel, use THIS node's numbers (109/180, PFC 5/20, TEO 4/20) as current best estimate -- not v1's stale 119/180 nor v2's no-repair 85/180.",
+    "Consider a follow-up look at whether PFC/TEO's residual gap vs the stale run traces to channel-count/1f-screening rather than the artifact/corpus issues already resolved."
+  ],
+  "verification": {
+    "checks": {"sources_resolve": true, "reproducible": true, "artifact_rate_cross_checked_against_prior_figure_receipt": true, "synthetic_self_test_passed": true},
+    "receipt": "outputs/condition_tfr_maps_p1d1p2d2p3_v3/receipt.json, outputs/fig04_glmm_all_areas_timeresolved_v3/receipt.json, glmm_timeresolved_stats.csv, glmm_timeresolved_stats.md",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig04-glmm-all-areas-timeresolved-v2-20260814",
+      "relation": "supersedes",
+      "reasoning": "Same corrected-corpus data, adds trial-level artifact repair the prior run lacked. Prior node left in place, marked superseded with its own reason (Conservation).",
+      "confidence": 1.0
+    },
+    {
+      "to": "jnwb-artifact-repair-module-built-20260813",
+      "relation": "derived_from",
+      "reasoning": "repair_band_artifacts was promoted into jnwb/artifact_repair.py, the module this earlier node built, rather than duplicated ad hoc.",
+      "confidence": 0.9
+    }
+  ]
+}

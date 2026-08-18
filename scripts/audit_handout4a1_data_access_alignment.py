@@ -50,12 +50,7 @@ SAMPLE_CONDITIONS = {"p2": "AXAB", "p3": "AAXB", "p4": "AAAX"}
 QC_WINDOW_MS = (-10.0, 10.0)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from jnwb.paths import sha256_file as _sha256
 
 
 def _run_command(args: list[str]) -> dict[str, Any]:

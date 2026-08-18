@@ -1,0 +1,18 @@
+{
+  "date": "2026-08-17",
+  "claim": "L1 (LFP-primary analysis spec, Fig 4): per-area per-condition TFR grid, fixation-baselined, canonical pooling read from L0.",
+  "implementation": "context/figures/L1_tfr_grid/L1_tfr_grid.py. Reads canonical_pooling_method from L0_stats.json and raises if missing/unexpected (spec's own L0 acceptance criterion). Vectorized scipy.signal.spectrogram batched over trials*channels (not a per-trial Python loop). Shared context/figures/_l_lfp_common.py factored out of L0's h5py/area-resolution helpers rather than duplicated.",
+  "scope_decisions": {
+    "area_substitution": "Spec's minimum groups are V1/V2, MT/MST, '8A/PFC'. No '8A' area exists anywhere in this corpus (checked directly against every nwb_ok session's electrode table -- confirmed areas present: V1,V2,V3,V4,MT,MST,TEO,FST,FEF,PFC,DP). Substituted FEF/PFC.",
+    "sessions": "One session per AREA (not per pair): V1/V2 <- sub-V198o_ses-230629 probe A; MT/MST <- sub-C31o_ses-230818 probe C; FEF <- sub-C31o_ses-230823 probe A; PFC <- sub-C31o_ses-230818 probe A. No single session in the corpus carries both FEF and PFC simultaneously.",
+    "tractability_caps": "32-channel depth window per area, <=60 trials per condition -- matches L0 and extract_lfp_coupling_matrices.py's existing conventions, stated not hidden."
+  },
+  "acceptance_criteria_check": {
+    "color_scale_shared_within_row": "FIXED during this run -- first pass used per-panel independent color limits, caught on visual inspection against spec's own stated criterion ('shared across panels within a row'), corrected to row-pooled 2nd/98th percentile symmetric limits with a single colorbar per row.",
+    "no_panel_saturates": "confirmed by visual inspection of L1.png",
+    "every_panel_labelled_n_channels_n_trials": "confirmed -- panel titles + L1_stats.json"
+  },
+  "qualitative_result": "V1/V2/MT/MST: strong broadband (~20-100 Hz) power increase after the real p1 stimulus (classic early visual evoked response). FEF/PFC: much smaller stim response, alpha/beta (10-25 Hz) power DECREASE instead of increase (higher-order-area desynchronization, not an evoked increase). Omission responses present but weaker; V1/V2's omission panel used only 8 RXRR trials in that one session (reported in L1_stats.json, not hidden).",
+  "self_test": "Synthetic linear-frequency chirp (10->60 Hz) recovers the correct time-frequency ridge within 2x native frequency resolution (max error 2.5 Hz vs 10 Hz tolerance) -- PASS, matches spec's own acceptance test. Determinism and zero-signal NaN guards also pass.",
+  "not_yet_done": "This is descriptive output for Fig 4 only (no p-values/inference). Extension areas (V3a/d, V4, TEO) mentioned in the spec as 'extend to' are not yet built -- minimum area-pair scope only. 'offset' condition not built (out of stated minimum scope)."
+}

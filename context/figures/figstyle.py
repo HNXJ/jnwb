@@ -18,8 +18,20 @@ TIMING
 """
 from __future__ import annotations
 
+import os
+import sys
+
 import matplotlib
 import numpy as np
+
+# figNN_*.py scripts are run directly (python figNN_foo.py), which only puts
+# context/figures/ on sys.path -- the repo root must be added here so `import jnwb`
+# works regardless of whether the calling script already added it.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from jnwb.statistics import clopper_pearson  # noqa: F401 (re-exported for existing importers)
 
 # ---------------------------------------------------------------- timing ----
 STIM_MS, DELAY_MS = 531, 500
@@ -134,15 +146,6 @@ def grating_strip(width=700, height=60, cycles=12):
     return 0.5 + 0.5 * np.sin(2 * np.pi * cycles * (xx + 0.55 * yy))
 
 
-def clopper_pearson(k, n, alpha=0.05):
-    """Exact binomial interval. Proportions here get this, never a bootstrap."""
-    from scipy import stats as sst
-    k, n = int(k), int(n)
-    if n == 0:
-        return (np.nan, np.nan)
-    lo = 0.0 if k == 0 else sst.beta.ppf(alpha / 2, k, n - k + 1)
-    hi = 1.0 if k == n else sst.beta.ppf(1 - alpha / 2, k + 1, n - k)
-    return (float(lo), float(hi))
 
 
 def stat_bracket(ax, x1, x2, y, h, result, use="p_holm", color="#333333"):

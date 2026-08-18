@@ -36,6 +36,8 @@ import pandas as pd
 import statsmodels.formula.api as smf
 from statsmodels.regression.mixed_linear_model import MixedLM
 
+from jnwb.statistics import coef_rows  # noqa: F401 (re-exported for existing importers)
+
 
 def fit_mixed(d: pd.DataFrame, formula: str, group: str):
     """REML fit; returns (result, None) or (None, reason)."""
@@ -52,20 +54,6 @@ def fit_mixed(d: pd.DataFrame, formula: str, group: str):
         return None, f"fit failed: {type(e).__name__}: {e}"
 
 
-def coef_rows(res, model, band, extra=None):
-    rows = []
-    for name in res.params.index:
-        if name.startswith("Group") or name in ("probe Var", "Group Var"):
-            continue
-        rows.append({
-            "model": model, "band": band, "term": name,
-            "estimate_db": float(res.params[name]), "se": float(res.bse[name]),
-            "z": float(res.tvalues[name]), "p_raw": float(res.pvalues[name]),
-            "ci_lo": float(res.conf_int().loc[name, 0]),
-            "ci_hi": float(res.conf_int().loc[name, 1]),
-            **(extra or {}),
-        })
-    return rows
 
 
 def fit_area_subject_and_pairwise(df, resp, bands, ref_area, model_name, pairwise_model_name):
