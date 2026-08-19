@@ -20,6 +20,12 @@ That folder is expected to eventually move to `.gitignore` (kept locally, backed
 and be absorbed into `jnwb`'s examples/docs in reduced form; treat it as project-local, not as
 part of the library's own tracked surface, even before that gitignore change actually lands.
 
+**The freeze is enforced, not just stated**: `tests/test_jnwb_frozen_boundary.py` asserts
+`jnwb/` has zero omission/ imports beyond the two authorized exceptions above, that those two
+stay lazy (function-body-local, not module-level), that `import jnwb` succeeds even with
+omission/ blocked from `sys.path` entirely, and that every `jnwb.__all__` name actually
+resolves. A change that breaks the freeze fails this test before it fails a human review.
+
 ## Where truth lives
 
 | Question | Source | Never |
