@@ -5,6 +5,21 @@ doctrine (paradigms, corpus specifics, manuscript rules) lives under each projec
 `CLAUDE.md` — e.g. [`omission/CLAUDE.md`](omission/CLAUDE.md) for the `omission` example
 project — and adds to, never overrides, what's here.
 
+## Freeze policy (2026-08-19)
+
+`omission` is now `jnwb`'s major dataset, test corpus, and main reason for the library's
+existence — not a peer project. Given that, **`jnwb/` is frozen and read-only from here
+forward.** Do not edit, add to, or refactor anything under `jnwb/` except in the rare case Hamm
+explicitly authorizes it for that specific change. Every other omission-track task (new
+analyses, figures, scripts, evidence) works *through* the frozen API, never by extending it.
+If a task seems to need a new `jnwb` function or a change to an existing one, stop and say so
+rather than writing it — that is exactly the case requiring authorization first.
+
+All omission-related work — scripts, figures, evidence, tests, docs — stays inside `omission/`.
+That folder is expected to eventually move to `.gitignore` (kept locally, backed up outside git)
+and be absorbed into `jnwb`'s examples/docs in reduced form; treat it as project-local, not as
+part of the library's own tracked surface, even before that gitignore change actually lands.
+
 ## Where truth lives
 
 | Question | Source | Never |

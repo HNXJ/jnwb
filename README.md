@@ -66,6 +66,29 @@ figure suites) lives in [`omission/jnwb_ext/`](omission/README.md), not here.
 
 ---
 
+## MCP server
+
+`jnwb` includes a stdio Model Context Protocol server for NWB inspection from Claude and other
+MCP-compatible clients: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`,
+`add_tool`. Depends on `mcp`, `h5py`, `pynwb`, `pandas`, `numpy` (installed via `pip install -e .`).
+
+```bash
+python -m jnwb.mcp_server
+```
+
+```json
+{
+  "mcpServers": {
+    "jnwb-mcp-server": {
+      "command": "python",
+      "args": ["-m", "jnwb.mcp_server"]
+    }
+  }
+}
+```
+
+---
+
 ## Repository layout
 
 | Path | Contents |
