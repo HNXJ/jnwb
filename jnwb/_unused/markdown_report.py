@@ -2,7 +2,7 @@
 Multi-page markdown analysis reports with embedded SVG figures.
 
 Canonical deliverable format for this project: SVG is the only standard
-visualization format; HTML (jnwb.report) is a web-facing rendering only,
+visualization format; HTML (omission.jnwb_ext.report) is a web-facing rendering only,
 not the source of truth. This module renders a session's canonical
 stability + S+/S-/O+/X candidate audit (see
 examples/07_canonical_stability_and_response_audit_v182o.py) into a

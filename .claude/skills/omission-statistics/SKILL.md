@@ -29,7 +29,7 @@ inference in the sentence that carries the claim.
 stratification or an explicit fixed term, never as a three-level random effect. **A model with
 no random effects is not a GLMM however it is titled** — that mislabel has shipped once here.
 There is no "GLMM backbone" invariant; model choice is estimand-driven and recorded per figure
-in `context/PROJECT_STATE.md`, not asserted in this file.
+in `omission/context/PROJECT_STATE.md`, not asserted in this file.
 
 **Area and subject are confounded corpus-wide.** No area was recorded in all three animals, so a
 between-area coefficient is not separable from a between-animal difference by modelling. The
@@ -61,7 +61,7 @@ carries the claim and describe the rest.
 inputs carry no internal session, cycle, or subject structure the statistic depends on. **On this
 corpus that is frequently false.**
 
-This shipped as a real bug: `jnwb.omission_identity.decode_identity_cycle_deconfound` compared
+This shipped as a real bug: `omission.jnwb_ext.omission_identity.decode_identity_cycle_deconfound` compared
 grouped LOCO folds against an ungrouped global-permutation null — a statistic that respects
 grouping tested against a null that ignores it, which can manufacture significance. Fixed
 2026-08-10:
@@ -86,7 +86,7 @@ first, pool after, as a proportion with an exact interval.
 | `StatisticalAnalysis.bootstrap_ci` / `permutation_test` calling global `np.random.seed(42)` | **REJECT / REQUIRES_CODE_CHANGE.** Global RNG mutation; migrate to a local `default_rng`. |
 | Deprecated `fdr_pval_parametric` / `fdr_pval_nonparametric` keys | **Do not use.** They mirror raw p-values and are not FDR-corrected despite the name. |
 | `jnwb.permutation.permute_labels(y, groups=..., scheme="within_group")` | **Canonical** grouped-null helper. |
-| `jnwb.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct` | Two distinct helpers. Pick one per analysis and say which. |
+| `omission.jnwb_ext.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct` | Two distinct helpers. Pick one per analysis and say which. |
 
 Until the dual-test repair lands, **read only the pre-specified test from the returned dict and
 say which one you read.** Do not report both as if two tests were planned.
@@ -120,7 +120,7 @@ procrustes, granger, transfer_entropy, phase_slope. Every `_metric` returns exac
 Known limits: `_compute_statistics` is a no-op stub; `_stack_batches` is never called and
 `batch_size` is cosmetic; permutation p-values are **not lag-segregated** in multi-lag mode;
 HSIC assumes and asserts symmetric kernels. `jrsa` is fine for a quick multi-dimensional
-similarity check — for anything that ships in a figure prefer `jnwb.connectivity`, which carries
+similarity check — for anything that ships in a figure prefer `omission.jnwb_ext.connectivity`, which carries
 this corpus's stationarity and residual-autocorrelation diagnostics.
 
 `jrsa` is the repo's only JAX consumer. **JAX has no global RNG**: keys are explicit and a reused

@@ -21,7 +21,7 @@ electrode and channel addressing · table joins.
 ## Resolve paths, never hardcode
 
 ```python
-import jnwb as oa
+import omission as oa
 oa.paths.describe()        # every root + whether it currently resolves -- run this first
 oa.paths.REPO_ROOT         # from the package's own location; always correct
 oa.paths.nwb_dir()         # $OMISSION_NWB_DIR       (read-only inputs)
@@ -40,7 +40,7 @@ because they were default arguments resolving to a nonexistent path rather than 
 
 Derived artifacts never go into the repo. A sibling NWB tree for a **different experiment**
 exists next to this one — never glob across the parent directory or you will pull foreign
-sessions into an omission analysis. Resolve the corpus with `scripts/discover_corpus.py`
+sessions into an omission analysis. Resolve the corpus with `omission/scripts/discover_corpus.py`
 rather than trusting a remembered file count.
 
 ## Corpus size is discovered, not remembered
@@ -49,7 +49,7 @@ Do not quote a session count, unit count, or TFR file count from this file, from
 from memory. Run:
 
 ```bash
-python scripts/discover_corpus.py --check
+python omission/scripts/discover_corpus.py --check
 ```
 
 Exit `0` resolved and passing · `1` resolved with a blocking mismatch · `2` discovery failure.
@@ -160,7 +160,7 @@ Probe indices run 0–2 (some sessions 0–3). Verify per file; do not assume.
 
 `grand_stable_firing_rates.csv` carries its own `quality` column, separate from
 `omission_grand_units.csv`. They disagree on 1,942 of 6,650 shared units (29%);
-`outputs/layers/unit_layers.csv` agrees with the grand table on every one of those, so the
+`omission/outputs/layers/unit_layers.csv` agrees with the grand table on every one of those, so the
 stable-rates copy is stale relative to a later re-sort. **Diff any same-named join column on the
 overlap before joining.**
 
@@ -172,7 +172,7 @@ statement drawn from that field describes a default, not anatomy.
 ## Structured objects and provenance
 
 When an analysis should carry its own provenance rather than return a bare dict, build it from
-`jnwb.ontology` via `jnwb.factories` (`dataset_from_session`, `aligned_dataset_from_dataset`,
+`jnwb.ontology` via `omission.jnwb_ext.factories` (`dataset_from_session`, `aligned_dataset_from_dataset`,
 `epochs_from_aligned_dataset`, `result_from_*_analysis`, `figure_from_result`).
 `Provenance`/`Lineage` make a `Result` traceable to its data source, parameters, and code — use
 them rather than reconstructing provenance later.

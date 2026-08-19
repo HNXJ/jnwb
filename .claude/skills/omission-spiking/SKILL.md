@@ -47,10 +47,10 @@ never about unit identity.
 Two classifiers exist and they disagree. **Never quote an S+/S−/O+ count without naming the
 pass, the criteria, and the population scope.**
 
-**1. Shuffle-test classifier** (`jnwb.unit_classification`) — the canonical multi-session
+**1. Shuffle-test classifier** (`omission.jnwb_ext.unit_classification`) — the canonical multi-session
 pass, FDR-corrected, pooling across omission slots. Output carries `display_class`.
 
-**2. Template-correlation classifier** (`scripts/archive_oneoff/template_correlation_selection.py`)
+**2. Template-correlation classifier** (`omission/scripts/archive_oneoff/template_correlation_selection.py`)
 — complementary, optimized for pattern-shape verification and exemplar selection for figures.
 It supersedes the older drift-stability-only selection, which checked CV/Spearman stability but
 never verified a unit's response matched the shape its class name implies.

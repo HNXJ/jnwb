@@ -23,14 +23,14 @@ import matplotlib.gridspec as gridspec
 
 log = logging.getLogger(__name__)
 
-from .viz import (
-    MADELANE_GOLD,
-    MADELANE_VIOLET,
-    MADELANE_WHITE,
-    MADELANE_GRAY,
-    MADELANE_TEAL,
-    MADELANE_ORANGE
-)
+# Palette constants (generic; formerly imported from the omission-specific viz module,
+# duplicated here directly since jnwb/ must not depend on omission/).
+MADELANE_GOLD = "#CFB87C"
+MADELANE_VIOLET = "#9400D3"
+MADELANE_WHITE = "#FFFFFF"
+MADELANE_GRAY = "#D3D3D3"
+MADELANE_TEAL = "#00FFCC"
+MADELANE_ORANGE = "#FF5E00"
 
 
 def plot_unit_waveforms(

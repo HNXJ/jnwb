@@ -29,7 +29,7 @@ jobs:
         run: |
           set -o pipefail
           python -m pytest -q --tb=short \
-            --cov=jnwb --cov-report=term-missing --cov-report=xml \
+            --cov=jnwb --cov=omission --cov-report=term-missing --cov-report=xml \
             2>&1 | tee pytest_output.log
       - name: Write failure diagnostics to job summary
         if: failure()
@@ -41,7 +41,7 @@ jobs:
       - name: Write coverage summary
         if: always()
         run: |
-          echo "## Coverage (jnwb/)" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Coverage (jnwb/, omission/)" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           tail -n 60 pytest_output.log | grep -A100 "^Name " >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"

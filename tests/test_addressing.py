@@ -43,7 +43,7 @@ def test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position(
     # actual position within the probe - e.g. probe C channels near the end
     # of its range were labeled 'V1' when the correct area was 'V3'. Now
     # resolves by channel position within the probe's contiguous electrode
-    # index block (matching jnwb.sequence_layout's channel_slice_for_area
+    # index block (matching omission.jnwb_ext.sequence_layout's channel_slice_for_area
     # convention: N areas -> N equal partitions of the probe's channels).
     n = 12  # 12-channel probe for a clean 3-way split (0-3, 4-7, 8-11)
     elec = pd.DataFrame(

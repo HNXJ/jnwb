@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from jnwb import (
     build_time_resolved_matrix,
-    compute_population_trajectory
+    compute_population_trajectory,
 )
 
 class MockSession:
