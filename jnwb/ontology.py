@@ -174,22 +174,10 @@ class Dataset:
         """Enable Dataset as dict key."""
         return hash((self.query, tuple(self.sessions)))
 
-    def get_spike_times(self, unit_id: int) -> Optional[np.ndarray]:
-        """Retrieve spike times for a unit. Never modifies data."""
-        # Implementation will delegate to OmissionSession
-        raise NotImplementedError("Implement in subclass or factory")
-
-    def where(self, **filters) -> "Dataset":
-        """Return new filtered Dataset (immutable pattern)."""
-        raise NotImplementedError("Implement in factory")
-
-    def select(self, **selections) -> "Dataset":
-        """Return new selected Dataset (immutable pattern)."""
-        raise NotImplementedError("Implement in factory")
-
-    def with_alignment(self, alignment: Union[str, Alignment]) -> "AlignedDataset":
-        """Return new AlignedDataset with specified alignment."""
-        raise NotImplementedError("Implement in factory")
+    def with_alignment(self, alignment: Alignment) -> "AlignedDataset":
+        """Return new AlignedDataset pairing this Dataset with an Alignment (pure relabeling,
+        no data modification)."""
+        return AlignedDataset(dataset=self, alignment=alignment)
 
 
 @dataclass(frozen=True)
@@ -203,22 +191,16 @@ class AlignedDataset:
     dataset: Dataset
     alignment: Alignment
 
-    def get_epochs(self, condition: str, phase: Optional[int] = None,
-                   correct_only: bool = True) -> "EpochCollection":
-        """Extract epochs as new EpochCollection."""
-        raise NotImplementedError("Implement in factory")
-
-    def answer(self, question: "Question") -> "Result":
-        """Execute analysis for Question. Returns immutable Result."""
-        raise NotImplementedError("Implement in factory")
-
 
 @dataclass(frozen=True)
 class EpochCollection:
     """
     Filtered set of trials: immutable.
 
-    Created by: AlignedDataset.get_epochs(condition, phase)
+    Created by: a project-specific factory that filters trial-level epoch data by condition
+    and phase (e.g. omission.jnwb_ext.factories.epochs_from_aligned_dataset) -- constructing
+    this requires a real trial-timing source (a session/recording object), which the generic
+    ontology objects above intentionally do not carry.
     Contains: epoch times, condition metadata, trial indices
 
     Scientific Contracts:
@@ -296,10 +278,6 @@ class Result:
     provenance: Provenance
     lineage: Lineage
 
-    def figure(self) -> "Figure":
-        """Render as Figure (visualization)."""
-        raise NotImplementedError("Implement in factory")
-
     def to_dict(self) -> Dict:
         return {
             'question': self.question.to_dict(),
@@ -344,18 +322,20 @@ class Figure:
     MUTABLE (only public API object that is mutable).
     Styling and layout can change; underlying data cannot.
 
+    This object carries figure metadata (title, axes_data, layout) as plain dicts, not a bound
+    renderer -- it has nothing to draw with. Actual PNG/PDF/SVG rendering happens where the plot
+    is built (e.g. matplotlib calls in a project's factory functions, which call `fig.savefig`
+    directly); this object is what gets attached to that Result afterward, not what does the
+    rendering.
+
     Software Contracts:
-    - SW-004: Figure serializable (can save PNG/PDF/SVG)
+    - SW-004: Figure serializable (`to_dict()` -- JSON-style metadata export)
     """
     result: Result
     interpretation: Interpretation
     title: str = ""
     axes_data: Dict[str, Any] = field(default_factory=dict)
     layout: Dict[str, Any] = field(default_factory=dict)
-
-    def save(self, path: Union[str, Path], format: str = "png"):
-        """Save figure to disk."""
-        raise NotImplementedError("Implement in subclass")
 
     def to_dict(self) -> Dict:
         return {
@@ -366,25 +346,16 @@ class Figure:
 
 
 # Factory functions (internal, not frozen)
-
-def create_dataset_from_query(query: Query, nwb_paths: List[Path]) -> Dataset:
-    """
-    Create immutable Dataset from Query and NWB files.
-    Internal factory; users access through OmissionSession.
-    """
-    raise NotImplementedError("Implement with OmissionSession integration")
-
+#
+# create_dataset_from_query and create_epochs are intentionally absent here: both need a real
+# NWB/trial-timing data source (an open session/recording object) that these generic ontology
+# objects do not carry, so a generic implementation would have nothing to read from. Projects
+# provide their own equivalents once they have a concrete data source to wire in -- e.g.
+# omission.jnwb_ext.factories.dataset_from_session and .epochs_from_aligned_dataset.
 
 def create_aligned_dataset(dataset: Dataset, alignment: Alignment) -> AlignedDataset:
     """Create aligned Dataset with semantic labeling."""
     return AlignedDataset(dataset=dataset, alignment=alignment)
-
-
-def create_epochs(aligned_dataset: AlignedDataset, condition: str,
-                  phase: Optional[int] = None,
-                  correct_only: bool = True) -> EpochCollection:
-    """Create immutable EpochCollection."""
-    raise NotImplementedError("Implement with OmissionSession integration")
 
 
 def create_result(question: Question, statistics: Dict[str, Any],
