@@ -1,4 +1,4 @@
-# `jnwb` — generic NWB analysis library
+# `jnwb`
 
 Dataset-agnostic Python library for NWB (Neurodata Without Borders) electrophysiology analysis:
 session I/O, addressing (channel→area, depth→layer), representational similarity analysis (JRSA),
