@@ -99,7 +99,7 @@ def s1_class(df):
 
 def panel_s1_composition_by_area(df_s1):
     """S1 functional composition (S+/S-/Other), non-mua only. Corrected, fixation-bug-fixed
-    classifier -- see jnwb/unit_inclusion.py and artifacts/.lab/handout-fig03-oplusplus-
+    classifier -- see omission/jnwb_ext/unit_inclusion.py and artifacts/.lab/handout-fig03-oplusplus-
     threshold-20260817.md's "retire legacy" section. NOT restricted to a legacy-screened
     subset the way panel a is (S1 screens every non-mua unit corpus-wide)."""
     d = df_s1[df_s1.s1_screened].copy()

@@ -16,7 +16,7 @@ Same-named columns across these tables are not the same field.
 | **Legacy (Q1)** | O+/O++/O−/O−− | `scripts/classify_omission_units_grand.py` | `outputs/classification/omission_grand_units.csv` | omitted slot must peak/trough vs **both** flanking delays (conjunction), displacement-shuffle null, BH-FDR | 22 sessions, all units |
 | **Template-corr (current)** | O++ only | `fig03_unit_census.py::attach_template_corr_oplusplus` (inline, not persisted) | none — computed fresh each run | Pearson r ≥ 0.65 vs O+/O*+ templates, area-restricted to V4/TEO/FEF/PFC | subset of `grand_oplus_units.csv`'s 359-unit candidate pool |
 | **Modern native (`unit_classification.classify_unit`)** | S+/S−/O+/O++ | `scripts/classify_units_omission_inclusion_v1.py` | `outputs/classification/unit_inclusion_v1.csv` | S+/S−: own-trial fx-baseline pooled shuffle test (not template-based, no fx-privileging bug). O+/O++: 3-way shuffle vs local baseline + matched control + delay mean | 22 sessions, all quality tiers |
-| **S1 (new, additive)** | O+ inclusion only | `jnwb/unit_inclusion.py` → same runner as above | `unit_inclusion_v1.csv::is_omission_inclusion_new` | paired fire-probability (≥1 spike) vs duration-matched local pre-omission baseline, shuffle+BH-FDR | 22 sessions, all quality tiers |
+| **S1 (new, additive)** | O+ inclusion only | `omission/jnwb_ext/unit_inclusion.py` → same runner as above | `unit_inclusion_v1.csv::is_omission_inclusion_new` | paired fire-probability (≥1 spike) vs duration-matched local pre-omission baseline, shuffle+BH-FDR | 22 sessions, all quality tiers |
 
 ## 1. Legacy generation
 
@@ -25,7 +25,7 @@ Same-named columns across these tables are not the same field.
 27-element concatenated rate vector (9 epochs × 3 R-family conditions RXRR/RRXR/RRRX), Pearson
 correlation against a **fixed template**. Templates place nonzero weight at the **fx epoch** for
 both S+ (fx=1) and S− (fx=2, highest) templates — **this is the exact fixation-privileging
-template bug** referenced by `jnwb/unit_inclusion.py`'s own docstring (see S1 section below).
+template bug** referenced by `omission/jnwb_ext/unit_inclusion.py`'s own docstring (see S1 section below).
 
 - S+: p<0.05 (5000-shuffle perm) AND r>0.3. S++: p<0.01 AND r>0.3. S−/S−−: mirror at same
   thresholds. O+ (also computed here, not the primary omission source): p<0.01 AND r>0.3,
@@ -99,7 +99,7 @@ to the O+ pattern. Post-filter: `overall_rate>=0.5 Hz AND quality==1.0`.
 
 ### 2b. SUPERSEDED — `scripts/build_oplusplus_census.py` → `grand_oplusplus_units.csv`
 
-Reads the 2a candidate pool, calls `jnwb.unit_classification.assign_o_plusplus_from_template_table`
+Reads the 2a candidate pool, calls `omission.jnwb_ext.unit_classification.assign_o_plusplus_from_template_table`
 with `OPlusPlusTemplateConfig(require_higher_order=False)` — i.e. **corpus-wide, no area
 restriction** (the dataclass's FEF/PFC default gate was explicitly turned off 2026-08-13 per
 direct Hamm request, treating FEF/PFC as a validation hint rather than a hard scope at the time).
@@ -154,11 +154,11 @@ and `is_oplusplus_tc` (r≥0.65 AND area-restricted numerator). **Not written to
 fresh each run and joined in-memory; no persisted table exists for this definition beyond the
 function itself and its reproduced 52-unit count.
 
-## 3. S1 — `jnwb/unit_inclusion.py` → `scripts/classify_units_omission_inclusion_v1.py`
+## 3. S1 — `omission/jnwb_ext/unit_inclusion.py` → `scripts/classify_units_omission_inclusion_v1.py`
 
 **What S1 actually fixes** (per its own module docstring): the legacy `find_all_s_and_o_units.py`
 bug where the O+ template is zero at the fx epoch, so a unit firing strongly during both
-fixation and omission scores poorly. **`jnwb.unit_classification`'s own O+ path does not use fx
+fixation and omission scores poorly. **`omission.jnwb_ext.unit_classification`'s own O+ path does not use fx
 and is not the buggy mechanism — S1 does not replace it, only adds a second, independent
 criterion alongside it.**
 
@@ -176,19 +176,19 @@ window; measured to inflate inclusion to **73.7%** on a smoke-test session again
 Fixed (v2, current) by duration-matching the baseline window to 531ms.
 
 **Runner** (`scripts/classify_units_omission_inclusion_v1.py`) does two things per unit: (1) runs
-the modern `jnwb.unit_classification.classify_unit` **unmodified** → `is_s_plus`, `is_s_minus`,
+the modern `omission.jnwb_ext.unit_classification.classify_unit` **unmodified** → `is_s_plus`, `is_s_minus`,
 `is_o_plus`, `is_o_plusplus`, `display_class` (see §4); (2) runs
-`jnwb.unit_inclusion.classify_unit_omission_inclusion` → `is_omission_inclusion_new`. Also joins
+`omission.jnwb_ext.unit_inclusion.classify_unit_omission_inclusion` → `is_omission_inclusion_new`. Also joins
 `grand_s_and_o_units.csv`'s `is_Oplus` as `is_o_plus_old_templatecorr` for an explicit
 old-vs-new gained/lost/unchanged transition table.
 
 **⚠ Correction to a common mislabel**: the `is_s_plus`/`is_s_minus` columns in
 `unit_inclusion_v1.csv` do **not** come from an "S1 S+/S− classifier" — no such thing exists.
-They come straight from `jnwb.unit_classification.classify_unit`/`_assign_labels` (§4), run
+They come straight from `omission.jnwb_ext.unit_classification.classify_unit`/`_assign_labels` (§4), run
 per-session inside this same script. S1's likelihood-of-firing method produces **only**
 `is_omission_inclusion_new` (an O+-only inclusion flag). `scripts/build_unified_class_census.py`'s
 own docstring line — *"S+/S− (local-baseline, likelihood-of-firing): ... This IS the NWB-scanning
-step for S+/S−; see jnwb/unit_inclusion.py for the classifier itself"* — is misleading relative
+step for S+/S−; see omission/jnwb_ext/unit_inclusion.py for the classifier itself"* — is misleading relative
 to the actual code path traced here; flagged in doc09 as a documentation defect worth fixing
 before citing S+/S− as "S1-derived."
 
@@ -207,7 +207,7 @@ before citing S+/S− as "S1-derived."
   `fit_all_classes_onset_latency_per_unit.py`, `fit_s_plus_onset_latency_s1_per_unit.py`,
   `fit_s_plus_onset_latency_s1.py`.
 
-## 4. `jnwb/unit_classification.py::classify_unit` — the modern native classifier
+## 4. `omission/jnwb_ext/unit_classification.py::classify_unit` — the modern native classifier
 
 **Not dead code** — directly imported in 29 files across `scripts/`, `context/figures/`, and
 `tests/`, including the S1 runner itself.

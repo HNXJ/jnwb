@@ -2,7 +2,7 @@
 
 Generated 2026-08-17.
 
-## `jnwb/spectral.py` (649 lines) — Welch/CSD band and coherence analysis
+## `omission/jnwb_ext/spectral.py` (649 lines) — Welch/CSD band and coherence analysis
 
 No Morlet/wavelet TFR generation lives here — this module is exclusively Welch/CSD band-power
 and coherence analysis on single continuous traces. TFR `(trial, channel, freq, time)` array
@@ -27,7 +27,7 @@ generation lives in `scripts/` (below), not in `jnwb`.
   one trace and divides-then-logs exactly once. **Caveat**: `band_power()` does no trial/channel
   averaging itself — if a caller invokes it per-trial and then averages the returned dB values
   across trials, *that caller* violates tripwire #3, not this function. No such call site was
-  found inside `jnwb/spectral.py` itself in this audit.
+  found inside `omission/jnwb_ext/spectral.py` itself in this audit.
 - **`imaginary_coherency()`** — Nolte et al. 2004 Im(coherency) between two continuous signals
   (Welch/CSD, `nperseg=min(n,1024)`). Returns `icoh_mean` (signed, band-averaged), `icoh_abs_mean`
   (never cancels), `coh_mag_mean` (large gap vs icoh flags volume-conduction-dominated raw
@@ -43,7 +43,7 @@ generation lives in `scripts/` (below), not in `jnwb`.
 beta 14-30, low_gamma 30-50, high_gamma 50-80 — the "settled" table. See doc02 for the four-way
 band-definition fragmentation across the rest of the package.
 
-## `jnwb/connectivity.py` (2022 lines) — MI, Granger, directed connectivity
+## `omission/jnwb_ext/connectivity.py` (2022 lines) — MI, Granger, directed connectivity
 
 Shared contract: `as_trials()` normalizes 1D/2D/ragged input to `(n_trials, n_times)`, hard-errors
 on 3D+ or non-finite samples (no silent NaN imputation). `DirectedResult` is the uniform return

@@ -34,7 +34,7 @@ guarantee is being claimed.
 **Multiplicity is a property of the family, not the count.** Correcting a single pre-specified
 coefficient is meaningless and implies an undisclosed set; several tests reported together with
 no correction is the commonest route to a false positive. `directed_network()` in
-`jnwb/connectivity.py` corrects across the whole N×(N-1) ordered-pair family by default — the
+`omission/jnwb_ext/connectivity.py` corrects across the whole N×(N-1) ordered-pair family by default — the
 project's own reference implementation of "the family is the whole thing you tested, not the
 one cell you're citing."
 
@@ -59,7 +59,7 @@ inputs carry no internal session/cycle/subject structure the statistic depends o
 corpus that is frequently false.**
 
 This shipped as a real bug, fixed 2026-08-10:
-`jnwb.omission_identity.decode_identity_cycle_deconfound` compared grouped LOCO folds against an
+`omission.jnwb_ext.omission_identity.decode_identity_cycle_deconfound` compared grouped LOCO folds against an
 ungrouped global-permutation null — a statistic that respects grouping tested against a null
 that ignores it, which can manufacture significance. Fix:
 
@@ -87,7 +87,7 @@ pooling) — don't apply one and forget the other.
 | `StatisticalAnalysis.bootstrap_ci`/`permutation_test` calling `np.random.default_rng(42)` inline | **REJECT / REQUIRES_CODE_CHANGE.** Hardcoded, unparameterized seed — see doc02's RNG table. Not global-state mutation (that's `report.py`'s separate, worse defect — doc02/doc09), but every call across the codebase draws the identical sequence. |
 | Deprecated `fdr_pval_parametric`/`fdr_pval_nonparametric` keys | **Do not use.** They mirror raw p-values and are NOT FDR-corrected despite the name. |
 | `jnwb.permutation.permute_labels(y, groups=..., scheme="within_group")` | **Canonical** grouped-null helper. |
-| `jnwb.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct` | Two distinct helpers (see doc02 — `report.py` locally reimplements BH-FDR rather than calling the canonical one). Pick one per analysis and say which. |
+| `omission.jnwb_ext.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct` | Two distinct helpers (see doc02 — `report.py` locally reimplements BH-FDR rather than calling the canonical one). Pick one per analysis and say which. |
 
 ## Test-choice table
 
@@ -112,7 +112,7 @@ Every `_metric` returns exactly `(value, statistic, effect, p, df)`.
 Known limits: `_compute_statistics` is a no-op stub; `_stack_batches` is never called
 (`batch_size` cosmetic); permutation p-values are **not lag-segregated** in multi-lag mode; HSIC
 assumes symmetric kernels. Fine for a quick multi-dimensional similarity check — for anything
-shipping in a figure prefer `jnwb.connectivity`, which carries this corpus's stationarity and
+shipping in a figure prefer `omission.jnwb_ext.connectivity`, which carries this corpus's stationarity and
 residual-autocorrelation diagnostics (doc04). `jrsa` is the repo's only JAX consumer — JAX has
 no global RNG, keys are explicit, a reused key silently yields identical draws (see
 `numerical-computing` skill).

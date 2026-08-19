@@ -19,10 +19,10 @@ data/
 outputs/
 output/
 reports/
-artifacts/*
-!artifacts/developer/
-artifacts/developer/.cache/
-!artifacts/.lab/
+omission/artifacts/*
+!omission/artifacts/developer/
+omission/artifacts/developer/.cache/
+!omission/artifacts/.lab/
 checkpoints/
 scratch/
 Export_Staging/
@@ -99,8 +99,8 @@ gallery_src/
 
 # scratch / agent temp scripts
 run_schema_test.py
-scripts/_*.py
-!scripts/_response_metric_common.py
+omission/scripts/_*.py
+!omission/scripts/_response_metric_common.py
 
 # local
 .claude/settings.local.json
@@ -110,14 +110,20 @@ scripts/_*.py
 
 # Agent workspace / IDE
 # 2026-08-10: .claude/skills/ is now the single tracked canonical skill source (see
-# artifacts/.lab/agent-harness-audit-20260810.json P1 item -- .agents/skills/ was a stale,
-# drifted duplicate and has been retired).
+# omission/artifacts/.lab/agent-harness-audit-20260810.json P1 item -- .agents/skills/ was a
+# stale, drifted duplicate and has been retired).
 #
 # 2026-08-12 harness reset: settings.json is now un-ignored too. It carries the permission
 # policy (deny `git add .`/`-A`, force-push, hard reset) and is doctrine, not machine-local
 # preference -- left untracked, a fresh clone silently resurrects the policy gap. settings.
 # local.json stays ignored: that IS machine-local, and the copy retired in this reset was
 # granting `Bash(git add *)` in direct contradiction of settings.json.
+#
+# 2026-08-19 jnwb/omission split: the 7 project skills moved to omission/.claude/skills/ (task-
+# specific, travels with the project). This root .claude/* block only governs the root tree --
+# it does not need a parallel rule for omission/.claude/, which is untouched by any pattern here
+# and stays fully tracked by default. Root .claude/skills/ is reserved for future *generic jnwb*
+# skills and is legitimately empty today.
 .claude/*
 !.claude/skills/
 !.claude/skills/**
@@ -127,33 +133,33 @@ scripts/_*.py
 .idea/
 
 # Local configuration files
-notebooks/local_config.py
+omission/notebooks/local_config.py
 
 # Whitelist developer progress/plans/review JSON files
 # Labyrinth graph state -- the PRP->Labyrinth migration (2026-07-28) never extended this
 # whitelist to the replacement system, so the project's own knowledge graph was never
 # git-tracked (found and fixed 2026-07-31, same session that found the analogous skill-
 # registry gap left by the same migration).
-!artifacts/.lab/*.json
+!omission/artifacts/.lab/*.json
 
 # scratch and build artifacts
 tmp/
 
 # Large regenerable or archival binaries. The generators are tracked; the products are not.
-#   context/manuscript-docx/     rebuild: scripts/build_draft_docx.py (from the markdown drafts)
-#   context/draft-assets/        editable figure sources, kept on disk, too large for git
-#   context/archive/             superseded handouts, preserved on disk under Conservation
-context/manuscript-docx/
-context/draft-assets/
-context/archive/
+#   omission/context/manuscript-docx/     rebuild: omission/scripts/build_draft_docx.py (from the markdown drafts)
+#   omission/context/draft-assets/        editable figure sources, kept on disk, too large for git
+#   omission/context/archive/             superseded handouts, preserved on disk under Conservation
+omission/context/manuscript-docx/
+omission/context/draft-assets/
+omission/context/archive/
 
-# context/figures holds the manuscript figures 01-07 and is TRACKED on purpose.
+# omission/context/figures holds the manuscript figures 01-07 and is TRACKED on purpose.
 # Only the finalized per-figure deliverables are tracked; nested working directories
 # (svg/, artifacts/, supplements/) hold multi-MB/GB intermediates and stay ignored.
-!context/figures/*.py
-!context/figures/*.md
-!context/figures/fig0*_finalized.svg
-!context/figures/fig0*_finalized.png
-!context/figures/fig0*_*/fig0*.svg
-!context/figures/fig0*_*/fig0*.png
-!context/figures/fig0*_*/fig0*.receipt.json
+!omission/context/figures/*.py
+!omission/context/figures/*.md
+!omission/context/figures/fig0*_finalized.svg
+!omission/context/figures/fig0*_finalized.png
+!omission/context/figures/fig0*_*/fig0*.svg
+!omission/context/figures/fig0*_*/fig0*.png
+!omission/context/figures/fig0*_*/fig0*.receipt.json

@@ -10,7 +10,7 @@ should quietly pick a winner among live scientific numbers.
 
 ## HIGH severity — needs Hamm's attention first
 
-### 1. `jnwb/report.py::generate_report` fabricates data and globally seeds RNG
+### 1. `omission/jnwb_ext/report.py::generate_report` fabricates data and globally seeds RNG
 
 **FLAGGED, NOT DECIDED.** `generate_report`'s waveform/network sections draw synthetic firing
 rates from `np.random.exponential` and print a real Mann-Whitney p-value computed on that fake
@@ -91,7 +91,7 @@ in doc07, no file changed.
 **DECISION TAKEN (documentation only)**: doc02/doc04/doc07 all state plainly that
 `omission-signal`'s `jnwb.complex_tfr` example and `omission-figures`'s `jnwb.markdown_report`
 example are both dead — quarantined to `jnwb/_unused/`, not importable as written — and name the
-live replacements (`spectral.imaginary_coherency`, `jnwb.report`). **Not applied to the skill
+live replacements (`spectral.imaginary_coherency`, `omission.jnwb_ext.report`). **Not applied to the skill
 files themselves** — same Amendment-rule reasoning as #6. Recommended fix (one-line import
 correction in each skill) is low-risk in isolation, but skill files are doctrine-adjacent per
 `labyrinth`, so left for Hamm's approval rather than edited directly.
@@ -126,8 +126,8 @@ include — recommended, not applied.
 ### 11. `build_unified_class_census.py`'s docstring mislabels S+/S− as "S1-derived"
 
 **FLAGGED, NOT DECIDED (code file, same reasoning as #10)**. The line "S+/S− (local-baseline,
-likelihood-of-firing)... see jnwb/unit_inclusion.py for the classifier itself" is traced in doc03
-to be incorrect — S+/S− actually come from `jnwb.unit_classification.classify_unit`, not
+likelihood-of-firing)... see omission/jnwb_ext/unit_inclusion.py for the classifier itself" is traced in doc03
+to be incorrect — S+/S− actually come from `omission.jnwb_ext.unit_classification.classify_unit`, not
 `unit_inclusion.py`. Recommended one-line fix, not applied.
 
 ### 12. `jnwb/__init__.py` version-metadata inconsistency

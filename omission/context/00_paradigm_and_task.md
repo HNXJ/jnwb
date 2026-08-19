@@ -1,7 +1,7 @@
 # 00 — Paradigm and Task
 
 Generated 2026-08-17. This document is the rapid-access reference for the experimental
-paradigm itself. It draws on `jnwb/session.py`, `jnwb/sequence_layout.py`,
+paradigm itself. It draws on `omission/jnwb_ext/session.py`, `omission/jnwb_ext/sequence_layout.py`,
 `context/analysis_spec_SPK.md`, and `context/figures/fig01_recording_topology_and_paradigm/`
 (the canonical topology-and-paradigm figure — read that figure directly for the visual
 reference this document only describes in words).
@@ -17,7 +17,7 @@ doc01), across 3 subjects and 22 sessions (see doc01 for the current corpus).
 
 ## Trial timing (canonical, ms relative to P1 onset)
 
-Source of truth: `jnwb.sequence_layout.EPOCH_ONSETS_MS`, cross-confirmed by
+Source of truth: `omission.jnwb_ext.sequence_layout.EPOCH_ONSETS_MS`, cross-confirmed by
 `OmissionSession.get_epochs`'s own documented "CRITICAL PARADIGM TIMING INVARIANT."
 
 | Epoch | Onset (ms) | `stimulus_number` (phase) |
@@ -57,7 +57,7 @@ presentation slot (P1–P4):
 
 ### Full 12-condition-family table (C31o/V198o — the "default" map)
 
-Source: `jnwb.session.CONDITION_MAP_DEFAULT` (see doc01 for the full numeric crosswalk and the
+Source: `omission.jnwb_ext.session.CONDITION_MAP_DEFAULT` (see doc01 for the full numeric crosswalk and the
 V182o-specific contiguous variant, `CONDITION_MAP_V182O`). Families: `AAAB`/`AXAB`/`AAXB`/`AAAX`
 (A-anchored structured + single-slot omissions), `BBBA`/`BXBA`/`BBXA`/`BBBX` (B-anchored mirror
 set), `RRRR`/`RXRR`/`RRXR`/`RRRX` (random-control anchor + matched single-slot omissions).

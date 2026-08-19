@@ -1,9 +1,17 @@
 # 02 — jnwb API Reference
 
-Generated 2026-08-17 by repo-wide documentation audit, covering all 44 `.py` files under
-`jnwb/`. `import jnwb as oa` — v1.0.0, `__status__="Stable - Public API Frozen"` (note:
-`__release_date__` reads 2026-06-25 while the module docstring says 2025-06-24 — inconsistent
-metadata, flagged in [09_conflicts_and_flagged_discrepancies.md](09_conflicts_and_flagged_discrepancies.md)).
+**Stale after 2026-08-19**: this doc was generated 2026-08-17, before the repo split into a
+generic `jnwb/` library (repo root) and this `omission/` project package. Module paths below
+have been mechanically corrected to their post-split locations (task-specific modules now live
+under `omission/jnwb_ext/`, not `jnwb/`), but counts and structural claims below (file counts,
+"44 `.py` files under `jnwb/`", `__all__` size) describe the *pre-split* `jnwb/` package and are
+not re-verified against the current tree. Treat this doc as historical API detail, not a live
+inventory — see `jnwb/__init__.py` and `omission/__init__.py` for current `__all__`.
+
+Generated 2026-08-17 by repo-wide documentation audit, covering all 44 `.py` files under the
+then-monolithic `jnwb/`. `import jnwb as oa` — v1.0.0, `__status__="Stable - Public API Frozen"`
+(note: `__release_date__` reads 2026-06-25 while the module docstring says 2025-06-24 —
+inconsistent metadata, flagged in [09_conflicts_and_flagged_discrepancies.md](09_conflicts_and_flagged_discrepancies.md)).
 
 **Import-time side effect**: `jnwb/__init__.py` monkeypatches
 `hdmf.build.manager.BuildManager.construct` (lines 58-125) to repair known builder anomalies on
@@ -28,7 +36,7 @@ criterion), `onset_fitting`, `permutation`, `trial_ontology`, `omission_identity
 `batch_read(nwb_dir, pattern='*.nwb', context=...) -> List[OmissionSession]` — logs and skips
 files that fail to load, does not raise.
 
-## `OmissionSession` (`jnwb/session.py`, 1029 lines)
+## `OmissionSession` (`omission/jnwb_ext/session.py`, 1029 lines)
 
 See [01_data_topology_and_corpus.md](01_data_topology_and_corpus.md) for full method-by-method
 detail (condition maps, identity footgun, TFR filename/array contract, timing invariant). Summary
@@ -49,20 +57,20 @@ Full detail in [03_classification_pipelines.md](03_classification_pipelines.md).
 independent classifiers live in the package simultaneously — always name which one produced a
 given count:
 
-1. **`jnwb/unit_classification.py`** (852 lines) — canonical shuffle-controlled S+/S−/O+/O++
+1. **`omission/jnwb_ext/unit_classification.py`** (852 lines) — canonical shuffle-controlled S+/S−/O+/O++
    classifier. `ClassificationConfig` (seed=42, n_shuffles=2000, alpha=0.05,
    alpha_omission=0.01, min_trials=8, effect-size floors incl.
    `min_baseline_for_s_minus_hz=3.5`). `OPlusPlusTemplateConfig` (min_mean_correlation=0.60 —
    **this is the module's own default; fig03 overrides it to 0.65 with an area restriction, see
    doc05**). Key functions: `classify_unit`, `_assign_labels`, `classify_session_units`,
    `classify_all_nwbs`, `append_session_to_grand_table`.
-2. **`jnwb/unit_inclusion.py`** (330 lines, NOT exported) — S1's new fire-probability inclusion
+2. **`omission/jnwb_ext/unit_inclusion.py`** (330 lines, NOT exported) — S1's new fire-probability inclusion
    criterion, additive alongside (1), not a replacement of it. `InclusionConfig` (seed=42,
    n_shuffles=2000, n_bootstrap=2000). `STABLE_CRITERION_VERSION = "presence_ks_snr_v2"`.
    Documents two prior bugs it fixes in its own docstring: the archived template classifier's
    fx-zero-weight template, and a first-pass duration-mismatched baseline window that inflated
    inclusion to 73.7% before being fixed (duration-matched, v2).
-3. **`jnwb/spiking.py::classify_omission_response`** — an older, simpler flat-p<0.05 (not FDR,
+3. **`omission/jnwb_ext/spiking.py::classify_omission_response`** — an older, simpler flat-p<0.05 (not FDR,
    not shuffle-controlled) stimulus-vs-omission classifier, also exported from `__init__.py`
    alongside (1). Picking the wrong one silently produces a different, uncorrected count.
 
@@ -70,11 +78,11 @@ given count:
 
 Full detail in [04_signal_processing_tfr_lfp.md](04_signal_processing_tfr_lfp.md).
 
-- **`jnwb/spectral.py`** (648 lines) — `to_db` (single canonical power→dB conversion point,
+- **`omission/jnwb_ext/spectral.py`** (648 lines) — `to_db` (single canonical power→dB conversion point,
   "log last"), `harmonic_analysis`, `cross_area_coherence` (2026-08-04 intentional band-default
   change to `connectivity.CANONICAL_BANDS`), `spectral_tilt`, `band_power`,
   `imaginary_coherency`, `bipolar_reference`, `laplacian_reference`.
-- **`jnwb/connectivity.py`** (2022 lines) — legacy dict-returning MI/Granger functions plus the
+- **`omission/jnwb_ext/connectivity.py`** (2022 lines) — legacy dict-returning MI/Granger functions plus the
   2026-06-30 modality-agnostic `DirectedResult` layer (`granger`, `granger_spectral`,
   `phase_slope_index`, `transfer_entropy`, `directed_connectivity`, `directed_network`). Short
   aliases `gc`/`sgc`/`psi`/`te`. `CANONICAL_BANDS` — the project's "settled" band table.
@@ -92,10 +100,10 @@ actually FDR-adjusted despite the name). Module-level `clopper_pearson(k, n, alp
 promoted from 6 duplicated implementations; every proportion on this project uses this, never a
 bootstrap. `coef_rows` flattens a fitted (Mixed)LM coefficient table.
 
-## Visualization — `jnwb/viz.py` (1434 lines) and `jnwb/report.py` (940 lines)
+## Visualization — `omission/jnwb_ext/viz.py` (1434 lines) and `omission/jnwb_ext/report.py` (940 lines)
 
 `viz.py` sets global matplotlib rcParams at import time (`svg.fonttype=none`, font family,
-axes styling) — a real process-wide side effect of `import jnwb.viz`. Publication raster/TFR
+axes styling) — a real process-wide side effect of `import omission.jnwb_ext.viz`. Publication raster/TFR
 suites: `raster_suite_omission`, `lfp_tfr_trace_suite_omission`, `lfp_tfr_trace_correlation`
 (FDR-insignificant correlations zeroed), `plot_granger_network_plotly`.
 
@@ -142,7 +150,7 @@ leave-one-cycle-out CV for its observed statistic but an ungrouped shuffle for i
 `spectral.py` imports `connectivity.CANONICAL_BANDS` directly (no duplicate) and is the one
 module confirmed not to add a fifth table. See doc09 for the flagged recommendation.
 
-## Identity-decoding and GLMM engine — `jnwb/omission_identity.py` (712 lines, not exported)
+## Identity-decoding and GLMM engine — `omission/jnwb_ext/omission_identity.py` (712 lines, not exported)
 
 `OMISSION_IDENTITY_CONDITIONS` — per-slot (p2/p3/p4) A/B/R condition/onset/end. **Documented bug
 fix (2026-08-06)**: p4's A/B labels were originally swapped (AAAX's parent is AAAB, so omitting
@@ -162,12 +170,12 @@ Grouped: TFR (1-5: `tfr_trial_average`, `tfr_compare_conditions`, `tfr_correlate
 
 ## Decoding, trajectory, and structured-identity governance
 
-- **`jnwb/decoding.py`** (337 lines) — `decode_stimulus_identity`/`decode_omission_presence`.
+- **`omission/jnwb_ext/decoding.py`** (337 lines) — `decode_stimulus_identity`/`decode_omission_presence`.
   Explicitly **never fabricates performance metrics**: returns `NaN` accuracy with
   `status="insufficient_trials"` if a class has fewer than 2 trials. `device="cuda"` currently
   silently falls back to the same CPU path — GPU flag accepted but does not change behavior.
 - **`jnwb/trajectory.py`** (191 lines) — GPU-accelerated PCA population trajectories.
-- **`jnwb/structured_identity.py`** / **`structured_identity_m2a.py`** (not exported) — both
+- **`omission/jnwb_ext/structured_identity.py`** / **`structured_identity_m2a.py`** (not exported) — both
   encode a **hard governance gate in their own module docstrings**: `structured_identity.py`
   states it fits no models at all ("training remains explicitly unauthorized until the
   Milestone 1 receipt is reviewed"); `structured_identity_m2a.py` states it contains only the
@@ -186,7 +194,7 @@ implementations, not interchangeable.
 
 Known limits (per `omission-statistics` skill): `_compute_statistics` is a no-op stub;
 `_stack_batches` is never called (`batch_size` is cosmetic); permutation p-values are not
-lag-segregated in multi-lag mode; HSIC assumes symmetric kernels. Prefer `jnwb.connectivity` for
+lag-segregated in multi-lag mode; HSIC assumes symmetric kernels. Prefer `omission.jnwb_ext.connectivity` for
 anything shipping in a figure — it carries this corpus's stationarity/residual-autocorrelation
 diagnostics; `jrsa` is best for a quick exploratory similarity check.
 

@@ -17,6 +17,13 @@ context/handoff/2026-08-15-prgs-prepare/HARNESS_AUDIT.md, finding H3). The invar
 single tracked tree, no .agents/skills/ duplicate, every skill dir has a SKILL.md -- are
 unchanged; only the expected count and the spot-checked skill name are updated to match the
 current, intentional state.
+
+2026-08-19: updated again for the jnwb/omission split. The 7 project skills are project-specific
+(condition codes, corpus paths, manuscript doctrine) and moved with the rest of the project to
+`omission/.claude/skills/` -- Claude Code discovers nested `.claude/skills/` directories, so this
+is not a functional regression (see omission/README.md). Root `.claude/skills/` is now the
+canonical tree for *generic jnwb library* skills and is legitimately empty today (none exist
+yet); it must still not regain an `.agents/skills/`-style duplicate anywhere in the repo.
 """
 from __future__ import annotations
 
@@ -24,8 +31,8 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-CLAUDE_SKILLS = REPO_ROOT / ".claude" / "skills"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CLAUDE_SKILLS = REPO_ROOT / "omission" / ".claude" / "skills"
 AGENTS_SKILLS = REPO_ROOT / ".agents" / "skills"
 
 
@@ -47,13 +54,13 @@ class TestSingleCanonicalSkillTree:
         # The old "reference/source" tree -- if this reappears (e.g. someone re-adds it out of
         # habit), the exact drift risk the audit found is back.
         assert not AGENTS_SKILLS.exists(), (
-            ".agents/skills/ has reappeared -- this repo now has exactly one skill tree "
-            "(.claude/skills/, tracked directly). Do not recreate .agents/skills/; if a skill "
-            "needs updating, edit .claude/skills/<name>/SKILL.md."
+            ".agents/skills/ has reappeared -- this repo now has exactly one project skill tree "
+            "(omission/.claude/skills/, tracked directly). Do not recreate .agents/skills/; if a "
+            "skill needs updating, edit omission/.claude/skills/<name>/SKILL.md."
         )
 
     def test_claude_skills_dir_exists_and_nonempty(self):
-        assert CLAUDE_SKILLS.is_dir(), ".claude/skills/ is missing -- the canonical skill source is gone"
+        assert CLAUDE_SKILLS.is_dir(), "omission/.claude/skills/ is missing -- the canonical project skill source is gone"
         names = [p.name for p in CLAUDE_SKILLS.iterdir() if p.is_dir()]
         # Post-2026-08-12-reset shape: 7 project skills (18->9 total, the other 2 -- numerical-
         # computing, biophysical-modeling -- are user-scoped in ~/.claude/skills, not this repo).

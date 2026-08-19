@@ -55,7 +55,7 @@ trial-count sanity checks.
 API list (`UnitAnalyzer`, `raster_plot`, `psth_analysis`, `autocorrelogram`, `find_units`,
 `classify_omission_response`, `phase_locking_index`). "The unit axis has no biological
 topology" — never spatially smooth/convolve across unit rows. Response-classification section
-names **two** classifiers (`jnwb.unit_classification` shuffle-test vs the archived
+names **two** classifiers (`omission.jnwb_ext.unit_classification` shuffle-test vs the archived
 template-correlation script) — doc03 now documents **four**, including the modern native
 classifier's own distinct O+/O++ design and S1's additive inclusion criterion; this skill
 predates that full reconciliation and should be read alongside doc03, not instead of it.

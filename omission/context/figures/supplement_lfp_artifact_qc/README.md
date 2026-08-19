@@ -44,7 +44,7 @@ flags confirmed **not** to reach consensus alone (a shared 5/6-channel artifact 
 1/6-channel quirk does not); determinism confirmed (pure function of input, no internal RNG).
 
 **Positive control on real data**: this corpus's own prior documented finding
-(`jnwb/artifact_repair.py`'s receipt) is that raw-LFP movement artifacts are a V182o/V198o
+(`omission/jnwb_ext/artifact_repair.py`'s receipt) is that raw-LFP movement artifacts are a V182o/V198o
 phenomenon, **not** C31o. This detector reproduces that asymmetry from raw data with no prior
 knowledge encoded in the method — see Result below. That the specificity matches an
 independently-established finding is stronger evidence than the synthetic self-tests alone.
@@ -79,7 +79,7 @@ detector's specificity, not as a new finding.
   The positive-control check above (Cajal near-zero, Ivan/Joule elevated) supports the
   thresholds' rough calibration but is not a formal sensitivity/specificity analysis.
 - This is trial-level EXCLUSION (drop the whole trial), a different action from the existing
-  `jnwb/artifact_repair.py` sample-level REPAIR (interpolate/substitute within a kept trial).
+  `omission/jnwb_ext/artifact_repair.py` sample-level REPAIR (interpolate/substitute within a kept trial).
   The two are not yet reconciled into one pipeline — a trial excluded here could in principle
   already have been repaired by the other mechanism; whether to run repair-then-exclude,
   exclude-then-repair, or pick one is an open design question, not resolved by this build.

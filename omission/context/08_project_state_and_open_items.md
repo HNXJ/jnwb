@@ -45,7 +45,7 @@ skill.
 `artifacts/.lab/census_provenance_synthetic_finding_20260728.json`:
 
 - The 2026-07-27 handout's **synthetic 8,597-unit census** — fabricated, not measured.
-- **O+=421/8,597 (4.90%)** — retracted synthetic prevalence figure. `jnwb.unit_classification`'s
+- **O+=421/8,597 (4.90%)** — retracted synthetic prevalence figure. `omission.jnwb_ext.unit_classification`'s
   own `assign_o_plusplus_from_template_table` docstring explicitly warns against restoring this
   number (doc02/doc03).
 - **GLMM OR=3.08** — "never fitted." Do not cite as a real model output under any circumstance.

@@ -101,7 +101,7 @@ sidecar_ok, tfr_ok, tfr_n_files, tfr_r_family_ok, tfr_conditions, suite_tfr_read
 ## Known live discrepancy: `.npy` vs `.npz`
 
 `corpus_manifest.json`'s disk scan finds **970 `.npz`** files, zero `.npy`. But
-`jnwb/session.py::OmissionSession.tfr_from_preprocessed()` (lines 622-722) globs
+`omission/jnwb_ext/session.py::OmissionSession.tfr_from_preprocessed()` (lines 622-722) globs
 `tfr_root.glob(f"{session_prefix}-*-{token}-{condition}.npy")` — **`.npy` only**. If the TFR
 directory genuinely contains only `.npz` today, this loader returns `None` for every call
 (`plot_tfr` degrades gracefully to `status="missing_tfr"`, per its own "no silent science"
@@ -111,7 +111,7 @@ recent change (TFR products regenerated in a new format) or `.npy` was always wr
 
 ## Condition maps — subject-specific
 
-`jnwb/session.py:40-54`:
+`omission/jnwb_ext/session.py:40-54`:
 
 ```python
 CONDITION_MAP_DEFAULT = {
@@ -193,7 +193,7 @@ area-resolved analysis.
 never `.split(',')[0]` on a combined location string — this mislabeled 1,965/6,655 rows once). Use
 `jnwb.addressing.map_peak_channel_to_area`.
 
-## `OmissionSession` (`jnwb/session.py`) — the per-session object
+## `OmissionSession` (`omission/jnwb_ext/session.py`) — the per-session object
 
 Disk-cache-first NWB loader: `artifacts/developer/.cache/<session>_{units,electrodes,intervals}.pkl`
 + `<session>_metadata.json`. `_REPO_ROOT` is imported from `jnwb.paths` specifically so the cache
@@ -270,7 +270,7 @@ semantics (CLAUDE.md tripwire #9: diff a same-named column on the overlap before
 `artifacts/.lab/supplement-lfp-artifact-qc-20260817.json` — percent trials excluded per animal:
 Cajal 0.10%, Ivan 7.86%, Joule 2.09% (pooled), or 2.96% mean-of-sessions. Percent channels
 excluded: Cajal 3.98%, Ivan 5.76%, Joule 8.95%. Cajal (C31o) has **no documented movement-artifact
-pattern** in this corpus per `jnwb/artifact_repair.py`'s own receipt; Ivan (V182o) and Joule
+pattern** in this corpus per `omission/jnwb_ext/artifact_repair.py`'s own receipt; Ivan (V182o) and Joule
 (V198o) do.
 
 ## Existing data-topology documentation in the repo — status

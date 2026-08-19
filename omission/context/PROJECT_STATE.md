@@ -97,11 +97,11 @@ sharp increase in power that across trials in the same condition are not present
 extraction fixed the stale-corpus bug but applied **zero** artifact rejection — a single trial
 with a sharp, condition-atypical power spike was averaged into the session mean unmodified.
 
-`jnwb/artifact_repair.py` already had the right tool for this (built 2026-08-13, but only ever
+`omission/jnwb_ext/artifact_repair.py` already had the right tool for this (built 2026-08-13, but only ever
 used by `context/figures/fig_v1_omission_band_dynamics/band_power_dynamics.py`, never by any TFR
 condition-map extraction): `repair_band_artifacts` — per band, per-(trial,time) one-sided robust-z
 against the cross-trial median (`z_thresh=6.0`), flagged cells replaced by the cross-trial median
-(substitution, trial kept). Promoted it into `jnwb/artifact_repair.py` as the canonical home,
+(substitution, trial kept). Promoted it into `omission/jnwb_ext/artifact_repair.py` as the canonical home,
 added a synthetic self-test, and validated the flagged-fraction rate (2–11%/band) against this
 project's own prior use of the identical function before trusting it on the full corpus.
 
@@ -333,7 +333,7 @@ Spec's own stale naming ("Ivan"/"2 monkeys"/informal area list) reconciled with 
 
 ### RESOLVED 2026-08-16 — the cycle-deconfounded Figure 4 estimate was computed on a unit-identity bug; conclusion unchanged after the fix
 
-`jnwb.omission_identity.decode_identity_cycle_deconfound` (the function
+`omission.jnwb_ext.omission_identity.decode_identity_cycle_deconfound` (the function
 `compute_omission_identity_cycle_deconfound_v3.py` calls to produce the "≈ chance" estimate
 above) and three sibling functions in the same module built `unit_ids =
 units_df["unit_id"].tolist()` — the per-probe-local kilosort column, which can have gaps
@@ -341,8 +341,8 @@ relative to row position — and passed those values into `session.get_spike_tim
 primary lookup is by row position. A column value equal to another row's position silently
 returns that OTHER unit's real spike train — the exact collision already caught and fixed in
 `jnwb/trajectory.py` (`sub-C31o_ses-230816_rec`, PFC row 3 vs. `unit_id` column 4.0, 3,470 vs.
-449 real spikes) but never propagated to `omission_identity.py`. `jnwb/unit_classification.py`
-and `jnwb/structured_identity_m2a.py` (the approved Milestone 2A path) were already correct.
+449 real spikes) but never propagated to `omission_identity.py`. `omission/jnwb_ext/unit_classification.py`
+and `omission/jnwb_ext/structured_identity_m2a.py` (the approved Milestone 2A path) were already correct.
 
 Fixed all 4 call sites to use row position. Full-corpus rerun (22 sessions × 7 areas, 60/154
 cells succeed, `n_permutations=200`, `seed=42`): mean LOCO accuracy (mean-centered) = **0.4960**,

@@ -152,7 +152,7 @@ def build_stats(tables: dict) -> dict:
                        "trial_window_ms": list(TRIAL_WINDOW_MS)},
         "positive_control": (
             "C31o (Cajal) has no documented movement-artifact pattern in this corpus "
-            "(jnwb/artifact_repair.py's own receipt); V182o (Ivan) and V198o (Joule) do. This detector "
+            "(omission/jnwb_ext/artifact_repair.py's own receipt); V182o (Ivan) and V198o (Joule) do. This detector "
             "reproduces that asymmetry from raw data with no prior knowledge baked in: mean %% bad trials "
             "per session = Cajal 0.10%%, Ivan 7.86%%, Joule 2.96%% -- confirms specificity, not just sensitivity."
         ),

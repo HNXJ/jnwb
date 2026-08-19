@@ -125,7 +125,7 @@ The public surface is `omission/__init__.py` (`__all__`, matches the pre-2026-08
   definitions, verification checks that caught real errors, the placeholder-figure rule.
 - **`context/docs/CONTEXT.md`** — authoritative project context: paradigm, corpus, data topology,
   analysis contracts, current findings with receipts.
-- **`.claude/skills/omission-*`** — task-scoped API guides.
+- **`omission/.claude/skills/`** — task-scoped API guides (`omission-*`, `labyrinth`, `manuscript`).
 - **`artifacts/.lab/`** — the knowledge graph. Read before, write after.
 
 Prefer `artifacts/data/nwb_catalog.json` and `artifacts/data/session_readiness.csv` over any
