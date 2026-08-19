@@ -1,0 +1,44 @@
+{
+  "id": "evidence-corrected-ppc-spike-lfp-coupling-by-class-20260815",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "Corrected-design PPC rebuild finds real spike-LFP beta-band phase locking, concentrated in FEF/PFC/TEO, by neuron functional class -- reverses the skill's 'PPC is retired' default",
+  "status": "provisional",
+  "generated": "2026-08-15T00:00:00Z",
+  "notes": [
+    "Direct response to Hamm's 2026-08-15 decision (AskUserQuestion: 'Rebuild corrected PPC first') after two of three existing spike-LFP/LFP-LFP methods came back fully null and the true phase-locking method (PPC) was marked retired in omission-signal skill #10 -- not because its own per-session design was wrong (the skill's own text: PPC 'found large single-session effects, z > 20-88' like five other connectivity methods) but because it was never given the corrected group-pooling fix (per-session z -> Clopper-Pearson proportion across sessions) that rescued imaginary coherency/Granger/transfer entropy.",
+    "BLOCKER FIXED FIRST: extract_spike_lfp_coupling.py could not run at all -- needs jnwb.paths.meta_dir() (D:/analysis/metadata), which does not exist on this machine (already documented, unresolved, in context/PROJECT_STATE.md 'Still open -- sidecar_ok / suite_tfr_ready', 2026-08-14). Its one existing output (coupling.npz) predates the sidecar gap (2026-07-30) and covered only 15/22 sessions -- stale by the same mechanism as fig04's bug. Fixed via scripts/extract_spike_lfp_coupling_v2.py, which resolves area/probe/channel-slice information from outputs/channel_area_vector/channel_area_vector.csv (the same sidecar-free source scripts/precompute_tfr_arrays_v2.py already uses for the accepted fig04 v3 corpus) instead of the missing sidecar JSON. No other extraction logic changed (PPC formula, per-trial phase, vectorized shuffle null, same-electrode exclusion all copied unchanged).",
+    "FULL-CORPUS EXTRACTION: outputs/spike_lfp_coupling/coupling_v2.npz -- 22/22 sessions, 123060 unit x band x context x area x layer results, 8260 same-electrode exclusions, 7257s (~2h). obs PPC values sane (range -0.034 to 0.483, mean 0.005, matching PPC's expected near-zero-under-null distribution); per-cell z up to 325 pre-pooling, 13.2% of individual cells |z|>=1.96 in a 2-session smoke test -- consistent with the skill's own documented single-session effect sizes.",
+    "CORRECTED AGGREGATION: scripts/aggregate_spike_lfp_coupling_v2_corrected.py -- session = unit of inference, per-session z vs within-session shuffle null, Clopper-Pearson proportion across sessions per (functional class, context, band, area) cell -- same design as aggregate_lfp_lfp_coupling_corrected.py, extended with a functional-class split (S+/S++/S-/S--/O+/O++/O-/O--) via outputs/classification/unit_master_features.csv, the novel piece this supplemental analysis needed (original fig07 pipeline never split by class).",
+    "RESULT: 37/520 class x context x band x area cells have a hit-rate 95% CI lower bound above alpha=0.05 -- a REAL, non-null signal, in contrast to the two other existing spike-LFP/LFP-LFP methods (sliding correlation: 0/11,700 fully null; cross-area imaginary coherency: fully null). Pattern is coherent, not scattered: 25/37 significant cells are BETA band (14-30Hz); by area, FEF (15/37) and PFC (3/37) and TEO (7/37) dominate, V4 has 12/37 but every V4 hit sits at the minimum n_sessions=3 threshold (fragile, small-sample). Restricting to n_sessions>=5 (more robust): 16 cells remain, all beta (one alpha), concentrated in FEF (11/16) with S+/S++, S-/S--, O- classes all represented, plus 3 in PFC (S+/S++ only) and 1 in TEO (S-).",
+    "This is a genuinely new finding, not a replication of an existing accepted result -- status is 'provisional', not 'confirmed', pending independent confirmation (labyrinth doctrine: confirmed requires threshold-2 independent verification, not reasoning from one run)."
+  ],
+  "issues": [
+    "No multiplicity correction applied ACROSS the 520 cells beyond each cell's own Clopper-Pearson interval -- by design, matching aggregate_lfp_lfp_coupling_corrected.py's precedent (the corrected per-cell proportion test against a nominal alpha is treated as the family-level guard, not a p-value layer needing a second Holm/BH pass on top). This should be explicitly flagged as exploratory/hypothesis-generating rather than confirmatory in the supplemental figure per the pre-registered-families multiplicity decision (2026-08-15 AskUserQuestion), unless FEF-beta specifically is promoted to one of the plan's Part 3 pre-registered families.",
+    "V4's 12/37 hits are all at n_sessions=3, the minimum threshold this script accepts -- flagged as fragile/small-sample, not equally weighted against the FEF/PFC results at n=5-7.",
+    "Independent confirmation (second implementation or an out-of-sample replication split) not yet done."
+  ],
+  "plan": [
+    "If promoted into the supplemental figure, lead with the n_sessions>=5 subset (FEF/PFC/TEO beta-band) as the headline pattern and report V4's n=3 hits separately with their fragility stated, not folded into the same claim.",
+    "Consider whether FEF-beta spike-LFP phase locking by class deserves its own pre-registered family (Part 3) rather than living only in the broader exploratory sweep (Part 4), given how coherent this result already is."
+  ],
+  "verification": {
+    "checks": {"obs_range_sane": true, "extraction_full_corpus_22_of_22": true, "corrected_pooling_design_matches_precedent": true, "reproducible": true},
+    "receipt": "outputs/spike_lfp_coupling/coupling_v2.npz, receipt_v2.json, class_hit_rates_v2.csv",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "goal-neuron-type-layer-lfp-relationships-20260815",
+      "relation": "supports",
+      "reasoning": "Completes Part 2 of the goal's plan (corrected PPC rebuild).",
+      "confidence": 0.95
+    },
+    {
+      "to": "spk-lfp-sliding-corr-corpus-run-20260813",
+      "relation": "qualifies",
+      "reasoning": "Same corpus, different spike-LFP coupling method (PPC vs sliding rate-power correlation) -- this result is NOT contradicted by that fully-null one, since they measure different things (phase locking vs magnitude correlation); stated explicitly so the two are not conflated into one 'is there spike-LFP coupling' answer.",
+      "confidence": 0.85
+    }
+  ]
+}

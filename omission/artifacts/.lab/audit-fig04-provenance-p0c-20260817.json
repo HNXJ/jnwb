@@ -1,0 +1,79 @@
+{
+  "id": "audit-fig04-provenance-p0c-20260817",
+  "schema_version": 3,
+  "kind": "audit",
+  "title": "P0-C: Figure 4 omission-identity spike provenance -- pipeline verified clean, full-corpus run blocked on a missing metadata sidecar directory (not a code bug)",
+  "generated": {
+    "summary": "Read-only audit of the complete Figure 4 evidence chain (NWB -> unit identity -> trial/slot ontology -> spike feature construction -> target labels -> grouping/cycles -> CV -> permutation null -> source table -> panel/stats receipt), per the 2026-08-15 PRGS instructions' P0-C gate list. The pipeline actually wired to the figure (context/figures/fig04_omission_identity_decoding/fig04_safe_renderer.py, fed by scripts/compute_omission_identity_leakage_safe.py) is a SEPARATE, independent implementation from jnwb/omission_identity.py's decode_identity_cycle_deconfound (which feeds scripts/compute_omission_identity_cycle_deconfound_v3.py and was the subject of the P0-A unit-identity fix and the PROJECT_STATE.md 'do not promote 0.601' addendum) -- neither the P0-A nor P0-B fixes touched this code path, and it did not need them: it independently uses row-position unit identity from the start (session.get_units(area).index, self-documented per output row) and its own leave-one-cycle-out CV with a within-cycle-permutation null via the shared jnwb.permutation.permute_labels primitive.",
+    "source_paths": [
+      "context/figures/fig04_omission_identity_decoding/fig04_safe_renderer.py",
+      "context/figures/fig04_omission_identity_decoding/fig04_omission_identity_decoding.py",
+      "scripts/compute_omission_identity_leakage_safe.py",
+      "jnwb/omission_identity.py",
+      "jnwb/paths.py",
+      "scripts/build_session_readiness.py",
+      "scripts/archive_oneoff/build_session_sidecars.py",
+      "artifacts/data/session_readiness.csv",
+      "context/PROJECT_STATE.md",
+      "context/figures/REVISION_PLAN.md"
+    ],
+    "links": [
+      {
+        "to": "bug-omission-identity-unit-id-column-vs-row-position-20260816",
+        "relation": "related",
+        "reasoning": "Same P0 priority list, same class of hazard (unit identity), but this audit found the Figure-4-facing pipeline is a different implementation that was never exposed to that bug.",
+        "confidence": 0.95,
+        "causal_pressure": 0.2
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "GATE: p4 label fix -- PASS. OMISSION_IDENTITY_CONDITIONS['p4'] in jnwb/omission_identity.py (lines 38-45) already carries the 2026-08-06 A/B-swap fix, and compute_omission_identity_leakage_safe.py imports this dict directly, so all three slots (p2/p3/p4) it iterates use the corrected labels.",
+    "GATE: unit identity unambiguous -- PASS. _spike_count_matrix() (compute_omission_identity_leakage_safe.py:279-297) uses `list(units.index)` (row position) directly; never touched the unit_id column. Each output cell row records unit_identity='session.get_units(area).index row position' as self-documenting provenance.",
+    "GATE: grouped/cycle-safe CV -- PASS. assign_temporal_cycles() (gap-based, median-positive-gap x 10 threshold) assigns cycle ids; decode_binary_cycle_safe() and decode_multiclass_cycle_safe() both use leave-one-cycle-out folds with per-fold class-balanced training subsampling.",
+    "GATE: adequate permutation count with seed recorded -- PARTIAL/UNVERIFIED AT SCALE. DEFAULT_PERMUTATIONS=1000, DEFAULT_SEED=42, both recorded per-cell and in the run receipt. But the only receipts that exist on disk (outputs/classification/fig04_smoke/ and fig04_smoke3/, both dated 2026-08-10) used n_permutations=5 and n_permutations=10 respectively on 1 and 3 sessions -- neither is the corpus-scale run this gate requires. No 1000-permutation, full-corpus receipt exists.",
+    "GATE: intended corpus rerun -- FAIL (not yet done, not a regression). No outputs/classification/omission_identity_leakage_safe_{cells,oof,folds,null}.csv exist at the default path; no context/figures/fig04_omission_identity_decoding/svg/ directory exists. Figure 4 has never actually been rendered from this safe pipeline. This matches PROJECT_STATE.md's existing Figure 4 table row, which already lists this as a requirement, not a completed step -- this audit confirms and specifics that open state rather than discovering a new defect.",
+    "GATE: no hardcoded scientific panel -- PASS. fig04_safe_renderer.py's six panels (A-E2) all either raise on missing/incomplete leakage-safe input or compute directly from the loaded CSVs. Panel A is schematic only (task-structure diagram) and is explicitly labeled 'estimator': 'schematic only' in the figure's own provenance receipt schema -- not a hardcoded scientific value.",
+    "GATE: spatial/hierarchy model named according to what was actually fitted -- PASS (resolved by pipeline replacement, not by renaming). The REVISION_PLAN.md-flagged 'GLMM mislabel' (omission_identity_glmm_coefficients_v2.csv describing an L2-regularized logistic regression as a GLMM) is not referenced anywhere in the live renderer or producer -- grep confirms it appears only in already-quarantined scripts/historical/confounded/* and historical .lab receipts. The current pipeline's estimator is honestly recorded as sklearn.svm.SVC (linear kernel) in every cell row and the run receipt; no GLMM claim exists on this path.",
+    "GATE: null headline accepted if corrected decoding is at chance -- NOT YET APPLICABLE. No corpus-scale result exists yet to accept or reject; this gate cannot be evaluated until the corpus rerun (blocked, see below) completes.",
+    "BLOCKER (root-caused, not resolved): the corpus rerun requires session_readiness.csv's sidecar_ok gate, which is False for all 22/22 current sessions because jnwb.paths.meta_dir() (D:/analysis/metadata) does not exist on this machine -- D:/analysis/ exists and has tfr_arrays/ populated (2026-08-12) but no metadata/ subdirectory at all. The only script that ever wrote it, scripts/archive_oneoff/build_session_sidecars.py, hardcodes ITS OWN pre-remap output path (D:/workspace/data/metadata/{stem}/) in its docstring -- the exact layout jnwb/paths.py (2026-08-08) documents as superseded by D:/analysis/*. This script has not been rerun against the current canonical path since the drive-remap/path-centralization work (commit 39541b8). The 2026-08-10 smoke runs (3/9, 1/9 eligible) predate this and must have used a since-superseded readiness snapshot. This is an infrastructure/data-materialization gap, not a code defect -- flagged per the project stop condition ('a readiness gate reports zero eligible sessions while the artifacts it gates exist on disk') rather than resolved unilaterally.",
+    "compute_omission_identity_leakage_safe.py's own readiness filter (_resolve_sessions) requires sidecar_ok even though the script itself only ever reads NWB directly via session.get_units()/get_epochs()/get_spike_times() and never touches the sidecar CSVs -- this may be an inherited/overly-conservative gate rather than a genuine dependency, but that determination and any fix were explicitly deferred to a follow-up cycle by user direction (2026-08-17), not decided here."
+  ],
+  "issues": [
+    {
+      "title": "Figure 4 full-corpus leakage-safe run has never been executed; only 2 smoke runs exist",
+      "severity": "high",
+      "status": "open"
+    },
+    {
+      "title": "session_readiness.csv sidecar_ok gate is False for all 22 sessions due to a missing D:/analysis/metadata directory, root-caused to a stale archive_oneoff script's pre-remap output path",
+      "severity": "medium",
+      "status": "open"
+    }
+  ],
+  "plan": "Follow-up (not started, awaiting direction): (1) decide whether compute_omission_identity_leakage_safe.py's sidecar_ok requirement is genuine or should be dropped since the script never reads sidecar files; (2) if genuine, materialize D:/analysis/metadata/ via an updated sidecar builder pointed at the current canonical path; (3) run the full 22-session, 1000-permutation corpus; (4) regenerate Figure 4 via fig04_safe_renderer.py; (5) update PROJECT_STATE.md's Figure 4 row with the corpus-scale result, accepting a null/chance headline if that is what the corrected pipeline finds.",
+  "verification": {
+    "checks": {
+      "sources_resolve": true,
+      "reproducible": true,
+      "regression_test_added": false,
+      "full_test_suite_run": false,
+      "real_corpus_rerun": false
+    },
+    "verdict": "verified",
+    "checks_run": 3,
+    "commands": [
+      "grep for omission_identity_leakage_safe importers/producers/consumers across scripts/ and context/figures/",
+      "python -c \"import jnwb.paths as p; print(p.meta_dir(), p.meta_dir().exists())\"",
+      "python -c \"import pandas as pd; df=pd.read_csv('artifacts/data/session_readiness.csv'); print(df.nwb_ok.sum(), df.sidecar_ok.sum())\"",
+      "ls D:/analysis/ ; head scripts/archive_oneoff/build_session_sidecars.py"
+    ]
+  },
+  "predictive_state": {
+    "expected_behavior": "No code changed this cycle; this receipt is purely evidentiary. Figure 4 will remain unrendered from the safe pipeline until the sidecar/readiness question is resolved and the corpus rerun executes.",
+    "prediction_error_category": "none",
+    "accuracy_score": 1.0,
+    "last_verified": "2026-08-17T00:00:00+00:00"
+  }
+}

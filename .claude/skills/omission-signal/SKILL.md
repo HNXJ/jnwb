@@ -39,7 +39,7 @@ animals — large enough to reverse an animal's sign.** Averaging ratios biases 
 This is not theoretical. `jnwb/session.py::plot_tfr` shipped a bare `mean_power - baseline`
 subtraction with no `log10` at all while labeling its own colorbar "Power (dB re baseline)",
 until it was found and fixed 2026-08-10
-(`artifacts/.lab/session-py-tfr-plot-baseline-bugs-20260810.json`). The canonical pattern:
+(`omission/artifacts/.lab/session-py-tfr-plot-baseline-bugs-20260810.json`). The canonical pattern:
 
 ```python
 mean_power = np.mean(tfr_data, axis=(0, 1))   # trials, channels -> (freqs, times)
@@ -123,7 +123,7 @@ baseline.
 | high_gamma | 50–80 |
 | broadband | 1–150 |
 
-Every fitted coefficient in `outputs/lfp_band_census_v2/` uses this set. Alpha 8–12 / theta 3–8
+Every fitted coefficient in `omission/outputs/lfp_band_census_v2/` uses this set. Alpha 8–12 / theta 3–8
 (or 2–7) / gamma-low 30–60 / gamma-high 60–120 are **pre-correction legacy values** — a legend
 showing them predates the 2026-07-27 audit. Changing the set means refitting everything
 downstream. *Low-frequency* means theta–beta (4–30 Hz); it is a band label, not a claim that
@@ -150,7 +150,8 @@ Gate on discovered readiness before loading (see `omission-data`).
 ```python
 from jnwb import (TFRAnalyzer, tfr_trial_average, tfr_compare_conditions,
                   tfr_correlate_areas, tfr_spectrolaminar, tfr_permutation_test)
-from jnwb import spectral   # band_power, coherence, spike_field_ppc, vflip2,
+from omission import spectral   # band_power
+from jnwb import coherence, spike_field_ppc, vflip2  # CODEMOD: unresolved symbol(s)
                             # imaginary_coherency, laplacian_reference, bipolar_reference
 ```
 
@@ -176,8 +177,8 @@ before the group test sees it.
 The corrected design:
 
 1. Per session, per pair, compute the metric **and** a trial-shuffle permutation null *within*
-   that session. `scripts/extract_lfp_coupling_matrices.py` and
-   `scripts/extract_spike_lfp_coupling.py` already vectorize this across all shuffles at once —
+   that session. `omission/scripts/extract_lfp_coupling_matrices.py` and
+   `omission/scripts/extract_spike_lfp_coupling.py` already vectorize this across all shuffles at once —
    a naive per-shuffle Python loop did not finish one session in 5+ minutes. Reuse it.
 2. Only after every session has its own decision, pool across sessions as a **proportion**
    ("in how many of N sessions was this pair significant?") tested with an **exact
@@ -189,7 +190,7 @@ The corrected design:
    between a channel's band power and a unit's spike rate in the same sliding window.
 
 ```python
-from jnwb.connectivity import (granger, granger_spectral, phase_slope_index, transfer_entropy,
+from omission.jnwb_ext.connectivity import (granger, granger_spectral, phase_slope_index, transfer_entropy,
                                directed_connectivity, directed_network, bin_spikes, as_trials)
 ```
 

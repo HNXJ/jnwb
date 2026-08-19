@@ -1,0 +1,6 @@
+EXPLORATORY SWEEP -- NOT CORRECTED, NOT CONFIRMATORY -- top 5 by |rho|:
+  firing_rate x LFP_band_power (is_Oplus_double, Low gamma (30-50 Hz)): rho=-0.71, p=0.071, n=7
+  firing_rate x LFP_band_power (is_Oplus_double, Alpha (8-14 Hz)): rho=-0.61, p=0.148, n=7
+  firing_rate x LFP_band_power (is_Oplus_double, Beta (14-30 Hz)): rho=-0.57, p=0.180, n=7
+  firing_rate x LFP_band_power (is_Oplus_double, Theta (4-8 Hz)): rho=-0.54, p=0.215, n=7
+  firing_rate x LFP_band_power (is_Oplus_double, High gamma (50-80 Hz)): rho=-0.46, p=0.294, n=7

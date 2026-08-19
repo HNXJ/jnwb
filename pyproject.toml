@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omission"
-version = "0.1.0"
-description = "V1-PFC Predictive Routing (Omission) research analysis framework"
+name = "jnwb"
+version = "2.0.0"
+description = "Generic NWB analysis library. The omission/ folder holds this repo's native large-dataset example project."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -56,13 +56,13 @@ kilosort = [
     "kilosort>=4.0",
 ]
 all = [
-    "omission[test,torch,gpu,docs,kilosort]",
+    "jnwb[test,torch,gpu,docs,kilosort]",
 ]
 
 [tool.setuptools]
-packages = ["jnwb"]
+packages = ["jnwb", "omission", "omission.jnwb_ext"]
 package-dir = {"" = "."}
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["tests"]
+testpaths = ["tests", "omission/tests"]

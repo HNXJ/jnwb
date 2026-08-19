@@ -1,0 +1,58 @@
+{
+  "id": "goal-neuron-type-layer-lfp-relationships-20260815",
+  "schema_version": 3,
+  "kind": "goal",
+  "title": "Goal: characterize neuron-functional-type x layer x firing-rate x waveform x LFP/phase-locking relationships during omission, for a major supplemental figure",
+  "status": "provisional",
+  "generated": "2026-08-15T00:00:00Z",
+  "notes": [
+    "Hamm's request (2026-08-15): for each functional class (S+/S++/S-/S--/O+/O++/O-/O--), determine what can be strongly said about cortical layer (vFLIP), firing rate, waveform, and other important features; search for any statistically significant, reliable, physically plausible relationship among ~10 areas x 4 layers x firing rate x LFP band power x phase locking/oscillatory relationships during omission; list them all; track here.",
+    "Plan approved 2026-08-15 (C:\\Users\\nejath\\.claude\\plans\\quirky-weaving-token.md): Part 0 (layer-column bug flag, done -- see note-grand-s-and-o-layer-constant-20260815), Part 1 (unit feature table), Part 2 (corrected-design PPC rebuild, replacing the skill-retired PPC method), Part 3 (pre-registered confirmatory families, Holm/BH each), Part 4 (exploratory sweep, explicitly hypothesis-generating only), Part 6 (supplemental figure build).",
+    "Scope decisions from Hamm (AskUserQuestion, 2026-08-15): rebuild corrected PPC rather than accept its retirement; pre-register a few confirmatory families and treat the rest of the combinatorial sweep as unlabeled hypothesis-generating; implement narrow/broad waveform classification (after verifying waveform_duration's units empirically); use outputs/layers/unit_layers.csv exclusively for layer, scoped within animal x within area.",
+    "2026-08-15/16 execution: waveform classification DROPPED (bug-nwb-waveform-metrics-uninterpretable-20260815 -- raw NWB waveform_duration/PT_ratio uninterpretable on this corpus, Hamm's decision). Part 2 hit and fixed a real pre-existing blocker (missing metadata sidecars, D:/analysis/metadata) via scripts/extract_spike_lfp_coupling_v2.py (sidecar-free area resolution from channel_area_vector.csv) -- corrected PPC rebuild found REAL signal (37/520 cells above chance, concentrated FEF/PFC/TEO beta band), unlike the two other existing coupling methods (both null). Hamm's follow-up correction (2026-08-16, 'no delay ... can be less than 10ms ... resolution up to 5ms') led to a second sub-task: scripts/fit_lfp_band_onset_latency.py, a continuous onset fit at the TFR corpus's native 10ms resolution (0/38 area x band cells violate the 10ms floor), replacing an earlier 150ms-binned onset table that had displayed misleading '0ms' values.",
+    "Falsifier items (1) and (2) are now met: Part 3's two feasible families (layer enrichment, firing rate; waveform dropped, PPC-hit-rate lands as its own evidence node rather than a p-value family) each have a receipt-backed result; Part 4's exploratory sweep CSV exists, is clearly labelled non-confirmatory (outputs/relationship_search/README.md), and is linked below. fig08_neuron_type_layer_lfp (context/figures/fig08_neuron_type_layer_lfp/) draws all four confirmatory results, visually reviewed, no placeholder needed. Item (3) -- Hamm confirming no further relationship is worth pursuing -- is NOT yet given; goal stays 'provisional', not sealed."
+  ],
+  "issues": [
+    "Item (3) of the falsifier is open: awaiting Hamm's confirmation that no further relationship in this feature space is worth pursuing before this goal can be sealed/closed."
+  ],
+  "plan": {
+    "falsifier": "Closed when: (1) every Part 3 pre-registered family (layer-enrichment, firing-rate, waveform, PPC-hit-rate) has a reported verdict with a receipt; (2) the Part 4 exploratory sweep CSV exists, is clearly labelled non-confirmatory, and is linked here; (3) Hamm confirms no further relationship in this feature space is worth pursuing. Any of the three missing means this goal is still open.",
+    "steps": [
+      "Part 1: outputs/classification/unit_master_features.csv",
+      "Part 2: outputs/spike_lfp_coupling corrected aggregation",
+      "Part 3: pre-registered family results, each Holm/BH corrected",
+      "Part 4: exploratory sweep CSV, explicitly hypothesis-generating",
+      "Part 6: supplemental figure under context/figures/"
+    ]
+  },
+  "verification": {
+    "checks": {},
+    "verdict": "not_yet_run"
+  },
+  "links": [
+    {
+      "to": "note-grand-s-and-o-layer-constant-20260815",
+      "relation": "supports",
+      "reasoning": "First finding under this goal: the layer-assignment source this goal depends on must route around a dead column found while starting this work.",
+      "confidence": 0.95
+    },
+    {
+      "to": "bug-nwb-waveform-metrics-uninterpretable-20260815",
+      "relation": "qualifies",
+      "reasoning": "Descopes the waveform-feature portion of this goal's plan.",
+      "confidence": 0.9
+    },
+    {
+      "to": "evidence-corrected-ppc-spike-lfp-coupling-by-class-20260815",
+      "relation": "supports",
+      "reasoning": "Completes Part 2 (corrected PPC rebuild) of this goal's plan.",
+      "confidence": 0.95
+    },
+    {
+      "to": "evidence-lfp-onset-of-significance-by-area-band-20260815",
+      "relation": "refines",
+      "reasoning": "Superseded in practice by the native-10ms continuous onset fit (fit_lfp_band_onset_latency.py) after Hamm's 2026-08-16 causality/resolution correction, but both are kept per Conservation.",
+      "confidence": 0.85
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "date": "2026-08-15",
+  "supersedes": ["artifacts/.lab/onset-hierarchy-h1h2h3-20260815.json", "artifacts/.lab/onset-hierarchy-h1h2h3-clean-only-20260815.json"],
+  "claim": "Root-cause fix (not a workaround) for the boundary-pinning artifact documented in the two superseded nodes above, applied directly to jnwb/onset_fitting.py's caller (scripts/fit_class_onset_latency.py) and rerun on the full 22-session corpus. This is now the current best estimate for the H1/H2/H3 onset-hierarchy test.",
+  "root_causes_fixed": [
+    "causal_exp_smooth needs 5*TAU_SMOOTH_MS=150ms of REAL preceding history to avoid zero-padding its kernel; the original S_WIN_MS/O_WIN_MS gave only 100ms of lookback, so every bin in the analysis window was smoothed against a partially fabricated zero history. Fixed unconditionally: EXTRACTION_MARGIN_MS=150ms is now extracted before the window used for fitting and trimmed off afterward, in fit_one_cell.",
+    "S+/S-/omnibus (all p1-aligned) had a baseline window (-100,0ms) sitting inside the region a pre-stimulus ramp could already be elevating -- biasing the fitted baseline upward and pushing apparent onset toward t0=0. Fixed by widening S_WIN_MS to (-500,400)ms and moving S_BASELINE_MS to (-400,-150)ms, using the fx=-500ms fixation-acquisition marker (jnwb.sequence_layout.EPOCH_ONSETS_MS) as a genuine pre-trial reference clear of any plausible ramp onset.",
+    "O+/O- baseline window and onset-search semantics were DELIBERATELY NOT changed: the period immediately before an omitted slot is the preceding delay, and an anticipatory omission-expectation ramp toward that slot is the phenomenon O+/O- exist to measure, not noise to be baselined out. Only O_WIN_MS's smoothing-warmup margin was fixed (widened to -250ms start, still safely inside the preceding delay period for all 3 omitted slots, checked against EPOCH_ONSETS_MS)."
+  ],
+  "validation": {
+    "smoke_test_3_sessions": "pinning dropped from ~35-85% to ~9-25% across S+/omnibus before committing to the full rerun",
+    "full_22_session_corpus": {
+      "overall_pinned_fraction": "9/75 gate-passing cells (12.0%), down from 82/120 (68.3%) pre-fix",
+      "by_class": {
+        "S+": "2/42 (4.8%), down from 15/43 (34.9%)",
+        "omnibus": "3/29 (10.3%), down from 53/62 (85.5%)",
+        "O+": "4/4 (100%) -- unchanged, by design (baseline window not touched for O classes)",
+        "S-": "0 gate-passing cells at all now (was 5/5 100% pinned before) -- genuinely too sparse to pass the r2 gate once the fit is no longer artificially inflating r2 via a degenerate boundary collapse",
+        "O-": "0 gate-passing cells (was 5/6 83.3% pinned) -- same reasoning as S-"
+      },
+      "method": "scripts/diagnose_onset_hierarchy_boundary_pinning.py rerun against the new outputs/classification/onset_hierarchy/cell_fits.csv"
+    }
+  },
+  "current_test_results": {
+    "source": "outputs/classification/onset_hierarchy/hierarchy_test_results.csv (this rerun)",
+    "omnibus": {"n_areas": 7, "areas": ["V1","V2","V4","MT","TEO","FEF","PFC"], "onsets_ms": [51.8,50.1,36.5,67.2,127.8,40.4,114.8], "rho": 0.357, "p": 0.437, "p_holm": 0.437, "verdict": "H3_superposition_candidate", "note": "not significant, but every value is now a real fit (not boundary artifact); V4 (36.5ms) is the only sub-40ms-floor value remaining"},
+    "S+": {"n_areas": 8, "areas": ["V1","V2","V3a/d","V4","MT","TEO","FEF","PFC"], "onsets_ms": [52.1,56.2,91.4,65.2,57.0,93.5,71.1,89.3], "rho": 0.619, "p": 0.112, "p_holm": 0.223, "verdict": "H3_superposition_candidate", "note": "not significant at p_holm<0.05, but a real, substantially strengthened signal (was rho=0.07 pre-fix). Every area's onset is now above the 40ms minimum-visual-latency floor. This is the class most worth pursuing next (more sessions, or accept the current n=8/p=0.11 as a suggestive-not-confirmed result)."},
+    "S-": {"n_areas": 0, "verdict": "insufficient_data", "note": "genuinely underpowered, not an artifact -- 0 sessions per area now clear the r2 gate"},
+    "O+": {"n_areas": 0, "verdict": "insufficient_data", "note": "unchanged from before the fix; O+ needs more sessions/units, independent of this fix"},
+    "O-": {"n_areas": 0, "verdict": "insufficient_data"}
+  },
+  "still_open": "S+/omnibus H1/H2/H3 verdicts are not yet significant (p_holm 0.22/0.44) -- the fix removed the artifact, it did not manufacture significance. Whether these become significant with more sessions, or are a genuine null, is unresolved. O+/O-/S- remain unusable for a per-area comparison regardless of this fix -- a data-volume problem, not a method problem.",
+  "coordination_note": "This fix was applied directly to jnwb/onset_fitting.py's caller (scripts/fit_class_onset_latency.py) in place, since the concurrent Cursor session that originally built this pipeline has ended (per Hamm 2026-08-15) -- no collision risk remains on these files."
+}

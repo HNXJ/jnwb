@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-15",
+  "supersedes": "artifacts/.lab/onset-hierarchy-h1h2h3-20260815.json",
+  "reason_for_supersession": "That node's boundary-pinning diagnostic only caught the 'hard' pinning shape (t0~0 AND tau~its lower bound of 1ms), reporting 20.8% of gate-passing cells pinned and calling S+ 'essentially clean' (1/38, 2.6%). Manually inspecting one flagged S+ cell (V3a/d, group mean 11.9ms) found a second shape entirely missed by that definition: 4/6 sessions had t0~0 but with tau spread across the FULL range up to its 150ms upper bound, not pinned low -- i.e. a slow, already-in-progress ramp compressed against the t0=0 causality wall, not a fast degenerate step. scripts/diagnose_onset_hierarchy_boundary_pinning.py was revised the same day to flag t0<1ms regardless of tau (subdivided hard/soft for interpretability, pooled for the headline number since both are equally untrustworthy as onset estimates).",
+  "corrected_pinning_rate": {
+    "overall": "82/120 gate-passing cells (68.3%) boundary-pinned, not 25/120 (20.8%)",
+    "by_class": {
+      "omnibus": "53/62 (85.5%) pinned -- effectively the whole class",
+      "S+": "15/43 (34.9%) pinned -- worse than first reported, but a real clean majority (65.1%) remains, concentrated in specific areas",
+      "S-": "5/5 (100%) pinned",
+      "O+": "4/4 (100%) pinned",
+      "O-": "5/6 (83.3%) pinned"
+    },
+    "method": "scripts/diagnose_onset_hierarchy_boundary_pinning.py (revised), output outputs/classification/onset_hierarchy/boundary_pinning_diagnostic.csv"
+  },
+  "clean_only_rerun": {
+    "method": "scripts/rehierarchy_test_clean_onsets_only.py -- reuses fit_class_onset_latency.py's own bootstrap_area_class/hierarchy_test functions unmodified (imported, not reimplemented), restricted to cells with t0>=1ms in addition to the pipeline's existing r2>=0.3/converged gate. Neither jnwb/onset_fitting.py nor scripts/fit_class_onset_latency.py were edited.",
+    "result": {
+      "omnibus": "0 areas survive MIN_SESSIONS_PER_CELL=3 on the clean subset -- insufficient_data",
+      "S-": "0 areas survive -- insufficient_data",
+      "O+": "0 areas survive -- insufficient_data",
+      "O-": "0 areas survive -- insufficient_data",
+      "S+": {
+        "n_areas": 5,
+        "areas_and_onsets_ms": {"V2": 53.32, "V4": 53.46, "MT": 53.51, "FEF": 67.52, "TEO": 88.04},
+        "rho": 0.90,
+        "p": 0.081,
+        "p_holm": 0.081,
+        "verdict": "H3_superposition_candidate (p_holm >= 0.05, but this is a 5-area exact permutation test with a large effect size, not a flat null -- see interpretation below)"
+      }
+    },
+    "outputs": [
+      "outputs/classification/onset_hierarchy/area_class_summary_clean_only.csv",
+      "outputs/classification/onset_hierarchy/hierarchy_test_results_clean_only.csv"
+    ]
+  },
+  "interpretation": "Once artifact-pinned sessions are excluded, only S+ retains enough clean data to test at all (5 of 10 areas), and its onset ordering is nearly monotonic with the bottom-up hierarchy (V2 earliest, TEO latest, one adjacent swap at FEF/TEO) -- the opposite qualitative read from the contaminated full-data result, which looked flat (rho=0.07). This is suggestive of H1 (feedforward-consistent visual response propagation) rather than H3 (superposition/volume-conduction-like), but is NOT a significant result (p=0.081) and rests on only 5 areas with 3-7 sessions each -- underpowered to confirm, not to be reported as a finding. omnibus/S-/O+/O- currently cannot be tested at all on artifact-free data; this is a real data-volume ceiling (more sessions/units), not something the fitting method itself can fix.",
+  "recommendation": "Do not report the pre-correction H3-superposition verdict for omnibus or S+ anymore -- it was built substantially from pinned cells. Do not yet report the clean-only S+ H1-leaning result as a finding either -- it is promising and worth pursuing (e.g. more sessions, or a wider pre-onset fit window that lets the model represent a pre-existing ramp instead of clipping it, which would recover some of the 15 excluded S+ cells rather than discarding them). O+/O-/S- need substantially more sessions/units before any per-area onset comparison is possible for those classes, independent of the pinning issue.",
+  "coordination_note": "All three new files (diagnose_onset_hierarchy_boundary_pinning.py, rehierarchy_test_clean_onsets_only.py, this node) are additive; jnwb/onset_fitting.py and scripts/fit_class_onset_latency.py remain unmodified and were only imported/read, in case they are under active edit in the concurrent Cursor session sharing this working tree."
+}

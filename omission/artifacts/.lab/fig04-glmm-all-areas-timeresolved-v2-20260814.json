@@ -1,0 +1,42 @@
+{
+  "id": "fig04-glmm-all-areas-timeresolved-v2-20260814",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "fig04's two retained GLMMs rerun on the CURRENT TFR corpus (post readiness-gate fix): Q1 replicates broadly but at a lower Holm-significant count than the stale-data run, Q2 remains essentially null",
+  "status": "superseded",
+  "superseded_by": "fig04-glmm-all-areas-timeresolved-v3-20260814",
+  "superseded_reason": "This run's extraction (scripts/extract_condition_tfr_maps_v2.py) fixed the stale-corpus bug but applied NO trial-level artifact rejection -- a gap the user flagged directly 2026-08-14 ('we gotta make sure we are excluding intervals with artifacts ; artifacts are sharp increase in power that across trials in the same condition are not present'). v3 adds jnwb.artifact_repair.repair_band_artifacts (cross-trial-median substitution) before the dB pipeline. Every cell significant here remained significant in v3 (0 lost) plus 24 more cells gained -- the missing artifact repair, not just the stale corpus, was suppressing real signal, particularly in MT (14/20->20/20) and V1/V2 (12/20->15/20 each). Left in place, not deleted, per Conservation.",
+  "generated": "2026-08-14T18:30:00Z",
+  "notes": [
+    "Direct response to the user's instruction 'we gotta use TFr first; that's part 1 ; via GLMM'. While making the TFR corpus usable (fixing two independent readiness-gate bugs -- see PROJECT_STATE.md section 1, resolved 2026-08-14), traced the input to the already-run fig04-glmm-all-areas-timeresolved-20260813 node and found it consumed outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz, generated 2026-08-04 from the explicitly superseded D:/workspace/data/tfr_arrays path (see that node's superseded_reason). Regenerated the condition maps and reran the GLMM against current data rather than trusting the prior seal.",
+    "NEW EXTRACTION SCRIPT: scripts/extract_condition_tfr_maps_v2.py (new file, preserves scripts/extract_condition_tfr_maps.py unedited). Not a glob/extension patch -- the new .npz corpus (precompute_tfr_arrays_v2.py) has its channel axis ALREADY restricted to each area's real-channel + 1/f-quality-screened subset, so channel identity must be joined through each file's own 'channels' array (original probe-channel numbers) rather than assumed equal to array position, which is what the original script did. Verified the join logic on both a trivial case (session/probe/area where 0 channels were screened out, 64/64 matched) and a real screening-drop case found by a corpus-wide check (sub-V182o_ses-260722-D-TEO: channel 125 dropped by the 1/f screen, 128 expected -> 127 in file) before running the full corpus.",
+    "FULL-CORPUS EXTRACTION: outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz -- 485/485 matching files processed, 0 skipped, 900 keys, all 11 AREA_ORDER areas present (source_dir now correctly D:\\analysis\\tfr_arrays, not the superseded path). First attempt (nohup + PID-based watcher) silently died within seconds -- the watcher's PID-match check fired a false completion because $! under this machine's Windows/Git-Bash setup does not reliably correspond to the eventual python.exe PID in `tasklist`, a distinct footgun from the already-documented 10-minute Bash-tool background cap. Relaunched using the Bash tool's own run_in_background tracking (not manual nohup+PID-watch) and it completed cleanly in ~49 minutes.",
+    "NEW GLMM SCRIPT: context/figures/fig06_v1_pfc_condition_tfr/fig04_glmm_all_areas_timeresolved_v2.py -- copy of the original v1 script with only CONDITION_MAPS and OUT_DIR repointed to the v2 extraction; model code, windowing (P2_WINDOW_MS=1031-1562ms, 150ms bins), and family declarations unchanged, so the two runs are comparable cell-for-cell.",
+    "RESULT, Q1 (is it an omission at all, db~C(context)): 85/180 Holm-significant (was 119/180), 128/180 BH-significant (was 132/180). Cell-for-cell comparison against the stale run: every one of the 85 new-Holm-significant cells was ALSO Holm-significant in the stale run (0 gained, 34 lost) -- i.e. the stale run never understated the effect, only overstated its spread. By area: MST and V4 essentially unchanged (20/20->20/20, 20/20->19/20); MT and V3a/d dropped moderately (20/20->14/20, 13/20->8/20); PFC and TEO dropped to 0/20 Holm-significant (were 7/20, 13/20).",
+    "PFC/TEO's Holm-significance loss is a Holm-family-reranking effect, not a vanished effect: raw p-values in PFC/TEO cells are mostly still <0.05 with effect sizes and direction essentially unchanged from the stale run (e.g. TEO Beta w1: effect 1.43->1.40 dB, raw p 0.000014->0.000733, both tiny) -- they lose ONLY the stricter Holm/FWER cutoff because the family-wide ranking shifted (fewer cells overall now have very small p-values, changing everyone's step-down threshold). Under BH/FDR control specifically, PFC (7/20) and TEO (14/20) DO survive -- so the honest summary is: the Q1 effect replicates broadly under FDR control across the current corpus, and additionally survives the stricter FWER bar in 85/180 (down from 119/180) cells, concentrated in MST/V4/MT/V1/V2/V3a-d rather than PFC/TEO.",
+    "RESULT, Q2 (does omission type matter, among omissions only): 1/180 Holm-significant, 1/180 BH-significant (was 0/180, 0/180) -- still, for all practical purposes, a fully null result; a single nominal cell out of 180 in a family this size is exactly what a true null predicts under multiple testing, not evidence against the null.",
+    "Convergence notes rose from 42/40 (Q1/Q2, stale run) to 88/68 (this run) out of 180 cells each -- worth a follow-up look (not yet done) at whether this reflects genuinely noisier per-cell fits on the now-1/f-screened, smaller per-channel-count corpus, or something else; flagged as an open issue below rather than investigated further in this pass."
+  ],
+  "issues": [
+    "Convergence-warning cell count nearly doubled vs the stale run (88/68 vs 42/40 out of 180) -- not yet root-caused. Could reflect the 1/f-quality screen reducing channels-per-session in some area/session cells, making the session-nested random-effects structure harder to identify; not confirmed.",
+    "Same as the superseded node: convergence-flagged cells are not excluded from the reported Holm/BH-significant counts above.",
+    "Independent confirmation (second read/rerun) not yet done -- confirmed only by this run's own receipt against the now-correct source_dir, not cross-checked by a second implementation."
+  ],
+  "plan": [
+    "If this generalization is promoted to a figure/supplement panel, use THIS node's numbers (85/180, not 119/180) and state the PFC/TEO Holm-vs-BH distinction explicitly in the caption -- do not silently carry forward the stale 119/180 figure.",
+    "Investigate the convergence-note increase (88/68 vs 42/40) before treating any individual flagged cell's Holm/BH flag as reliable."
+  ],
+  "verification": {
+    "checks": {"sources_resolve": true, "reproducible": true, "channel_join_logic_spot_checked": true},
+    "receipt": "outputs/condition_tfr_maps_p1d1p2d2p3_v2/receipt.json, outputs/fig04_glmm_all_areas_timeresolved_v2/receipt.json, glmm_timeresolved_stats.csv, glmm_timeresolved_stats.md",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig04-glmm-all-areas-timeresolved-20260813",
+      "relation": "supersedes",
+      "reasoning": "Same model/design rerun on corrected input data; the old node is not deleted, only marked superseded with its own superseded_reason (Conservation).",
+      "confidence": 1.0
+    }
+  ]
+}

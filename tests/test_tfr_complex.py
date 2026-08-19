@@ -11,7 +11,7 @@ import pytest
 import tempfile
 import pathlib
 
-from jnwb.complex_tfr import tfr_complex_load, plv_from_complex, imaginary_coherence
+from jnwb._unused.complex_tfr import tfr_complex_load, plv_from_complex, imaginary_coherence
 
 
 def test_complex_tfr_round_trip():

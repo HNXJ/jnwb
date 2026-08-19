@@ -2,7 +2,7 @@
 name: omission-figures
 description: >-
   TRIGGER before producing, editing, or approving any figure or panel. Covers the
-  context/figures pipeline and its shared style/stats modules, the placeholder red-flag rule,
+  omission/context/figures pipeline and its shared style/stats modules, the placeholder red-flag rule,
   per-panel population scope, and how to actually look at rendered output on this machine.
   Load before writing the plotting code, not before saving.
 ---
@@ -25,8 +25,8 @@ it done. **Export without looking is not verification.**
 
 ## Import style and stats — never hardcode a constant
 
-`context/figures/` is the source of truth for every manuscript figure. Read
-`context/figures/README.md` first, then import:
+`omission/context/figures/` is the source of truth for every manuscript figure. Read
+`omission/context/figures/README.md` first, then import:
 
 - `figstyle.py` — timing, band/area/class colours, epoch shading (`SLOT_COLORS`), Cambria,
   exact binomial interval, `save()` (writes a `.png` companion beside every `.svg`)
@@ -54,7 +54,7 @@ The failure this closes: a script with both a real-data path and a synthetic fal
 plausible-looking figure with no visual indication anything is wrong.
 
 Reference implementation:
-`context/figures/fig04_omission_identity_decoding/fig04_omission_identity_decoding.py` — a
+`omission/context/figures/fig04_omission_identity_decoding/fig04_omission_identity_decoding.py` — a
 `used_placeholder` flag set `True` by **every** fallback branch, including panels with no
 real-data path at all (a plain `if` is not enough — some panels there are unconditionally
 hardcoded), checked once before `savefig()` to add the red title via `fig.text(...)`.
@@ -76,7 +76,7 @@ number sitting between the two is the most expensive ambiguity to resolve late.
 fails (`ModuleNotFoundError: _rl_renderPM`). Browser navigation to a `file://` SVG and a local
 `http.server` preview have both failed. **Do not retry those.**
 
-**The working path:** every helper in `figstyle.py` and every script in `context/figures/`
+**The working path:** every helper in `figstyle.py` and every script in `omission/context/figures/`
 writes a `.png` companion next to each `.svg`. Just `Read` the `.png`.
 
 Only for an SVG with **no** PNG companion (hand-assembled or Illustrator-sourced):
@@ -106,7 +106,7 @@ then `Read` the PDF, which renders visually.
 ## Reports
 
 ```python
-from jnwb.report import generate_report, apply_madelane_style
+from omission.jnwb_ext.report import generate_report, apply_madelane_style
 from jnwb.markdown_report import generate_markdown_report
 ```
 
@@ -118,4 +118,4 @@ figures first.
 
 A result worth keeping traces to: data source, preprocessing, parameters, software and
 environment, seed if any randomness, and the outputs produced. All project results go under
-`context/figures/`.
+`omission/context/figures/`.

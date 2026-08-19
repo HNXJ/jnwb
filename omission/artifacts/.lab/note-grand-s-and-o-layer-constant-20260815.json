@@ -1,0 +1,36 @@
+{
+  "id": "note-grand-s-and-o-layer-constant-20260815",
+  "schema_version": 3,
+  "kind": "note",
+  "title": "grand_s_and_o_units.csv's 'layer' column is constant ('Superficial', 2921/2921) -- root-caused to a dead z>1000um threshold in jnwb.addressing.classify_layer_from_depth, unrelated to vFLIP",
+  "status": "confirmed",
+  "generated": "2026-08-15T00:00:00Z",
+  "notes": [
+    "Found while scoping the neuron-type x layer x LFP supplemental analysis: outputs/classification/grand_s_and_o_units.csv's 'layer' column is constant across all 2921 rows (value_counts() -> {'Superficial': 2921}). Per CLAUDE.md tripwire #8 ('check whether a column is constant before interpreting it'), traced rather than used.",
+    "Provenance: scripts/archive_oneoff/find_all_s_and_o_units.py:190 sets \"layer\": u_row.get(\"layer\") -- a straight pass-through of the per-session units.csv sidecar's own 'layer' field, not a fresh computation.",
+    "That sidecar field is populated by jnwb/addressing.py::enrich_units_dataframe (line 141): df['layer'] = df['peak_channel_id'].apply(lambda x: classify_layer_from_depth(x, electrodes_df)). classify_layer_from_depth (lines 84-109) is a crude z-depth heuristic, COMPLETELY SEPARATE from the vFLIP2 spectrolaminar-crossover pipeline (scripts/archive_oneoff/build_channel_layer_mapping.py -> outputs/layers/channel_layers_all.csv -> outputs/layers/unit_layers.csv): 'return \"Deep\" if float(z_val) > 1000.0 else \"Superficial\"' -- a hardcoded 1000-micron cutoff with the comment 'z values > 1000 microns typically represent deep layers in these linear arrays'.",
+    "ROOT CAUSE CONFIRMED by direct read: opened sub-C31o_ses-230816_rec.nwb (first nwb_ok session in artifacts/data/session_readiness.csv) and read general/extracellular_ephys/electrodes/z directly -- range is 4.42 to 16.0, three orders of magnitude below the hardcoded 1000.0 threshold. The z coordinate in this corpus's NWB files is evidently on a different scale/frame than the function assumes (possibly mm, a normalized/relative depth, or a different origin), so the 'Deep' branch can structurally never fire on this corpus -- every unit falls through to 'Superficial' unconditionally, regardless of true anatomical layer.",
+    "This is a DIFFERENT bug class than the vFLIP-based unit_layers.csv's own documented limitation (53.9% na/unlabelled coverage, imbalanced by animal/area) -- that pipeline is doing real work with a real convergence failure mode; classify_layer_from_depth's output is not doing any laminar discrimination at all on this corpus, it just always returns one label."
+  ],
+  "issues": [
+    "classify_layer_from_depth (jnwb/addressing.py) is dead/broken for this corpus's z-coordinate convention -- not fixed as part of this note (would need to determine what frame/units the electrodes table's z actually is before choosing a correct threshold, out of scope for the supplemental-analysis task this was found during).",
+    "Any other current or historical output that reads a 'layer' column originating from enrich_units_dataframe/classify_layer_from_depth (rather than from the vFLIP unit_layers.csv/channel_layers_all.csv pipeline) should be treated as equally unreliable -- not audited beyond grand_s_and_o_units.csv in this pass."
+  ],
+  "plan": [
+    "The neuron-type x layer supplemental analysis uses outputs/layers/unit_layers.csv exclusively for layer, never grand_s_and_o_units.csv's own layer column.",
+    "If classify_layer_from_depth is ever relied upon again, first determine the electrodes table's actual z units/frame on this corpus and replace the hardcoded 1000.0 with a corpus-appropriate threshold or retire the function in favor of the vFLIP pipeline entirely."
+  ],
+  "verification": {
+    "checks": {"value_counts_receipt": true, "z_range_read_from_source_nwb": true, "code_path_traced_end_to_end": true},
+    "receipt": "python value_counts() on outputs/classification/grand_s_and_o_units.csv['layer']; h5py read of general/extracellular_ephys/electrodes/z from D:/nwb/omission/sub-C31o_ses-230816_rec.nwb",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "goal-neuron-type-layer-lfp-relationships-20260815",
+      "relation": "derived_from",
+      "reasoning": "Found while scoping the layer-assignment portion of the new supplemental-analysis goal; blocks nothing but corrects which table the goal's work must use for layer.",
+      "confidence": 0.95
+    }
+  ]
+}

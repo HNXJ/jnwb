@@ -1,0 +1,43 @@
+{
+  "id": "spk-lfp-sliding-corr-corpus-run-20260813",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "New spike-LFP coupling method (PPC replacement, sliding-window rate-vs-band-power correlation), corpus-wide, artifact-repaired: fully null at the group level",
+  "status": "confirmed",
+  "generated": "2026-08-14T05:12:47Z",
+  "notes": [
+    "Overnight autonomous build (Hamm away). PPC (extract_spike_lfp_coupling.py) is retired per omission-signal skill doctrine. Built scripts/extract_within_session_spk_lfp_sliding_corr.py per direct instruction: splices scripts/extract_within_session_spk_spk_sliding_corr.py's good-unit selection + jnwb.connectivity.bin_spikes rate trace with scripts/extract_within_session_lfp_lfp_sliding_corr.py's good-channel selection + TFR band-power trace, both through the shared engine scripts/smoke_test_sliding_trial_correlation.py (sliding_corr_same_trial, trial-matched vs trial-mismatch-shuffle null). A unit's spike-rate trace is correlated against its OWN AREA's band-power trace, same trial, sliding +-200ms window / 10ms step, RXRR condition, 0-3000ms re: p1. Same-electrode exclusion (EXCLUDE_RADIUS=2 channels around the unit's own peak_channel_id, matching extract_spike_lfp_coupling.py's convention) applied when picking the LFP channel.",
+    "ARTIFACT REPAIR: band_power_dynamics.repair_band_artifacts (tonight's TFR-domain fix) applied to each area's raw TFR power array before extracting the band-power trace -- z_thresh=6.0, per-band, cross-trial-median substitution, same as fig_v1_omission_band_dynamics's own use.",
+    "TWO REAL BUGS FOUND AND FIXED DURING SMOKE-TESTING (not hidden): (1) the on-disk TFR precompute pipeline was rebuilt 2026-08-11 and now writes .npz (keyed 'power'), not .npy as two OTHER existing scripts (extract_within_session_lfp_lfp_sliding_corr.py, smoke_test_sliding_trial_correlation.py) assume -- this new script uses the correct .npz convention; the other two scripts' staleness is flagged separately (spawn_task, not fixed here). (2) channel-indexing bug: a TFR .npz file's channel axis position does NOT equal the probe-global channel id used by the channel_band_power_v2 census / omission_grand_units.csv's peak_channel_id -- confirmed directly (MT's TFR file channel axis covers probe-global ids 64-127, not 0-63; V4's happens to be 0-63 by coincidence, which is what made the bug non-obvious at first). Fixed by mapping through each file's own 'channels' array (probe-global id -> array position) rather than assuming array position == channel id.",
+    "CORPUS RUN: python scripts/extract_within_session_spk_lfp_sliding_corr.py, no session limit, 22/22 sessions in omission_grand_units.csv processed, 3521s (~59min) -- outputs/within_session_spk_lfp_sliding_corr/<session>.npz, index.csv, receipt.json.",
+    "AGGREGATION: new scripts/aggregate_within_session_spk_lfp_sliding_corr.py, imports clopper_pearson/Z_THRESH/ALPHA from aggregate_within_session_lfp_lfp.py (not a new implementation) -- per-session z per (area, band, window) averaged over that session's own unit-channel pairs in that area, session 'significant' if |z|>=1.96, Clopper-Pearson proportion across sessions.",
+    "RESULT: outputs/within_session_spk_lfp_sliding_corr/area_hit_rates.csv, 11,700 area x band x window cells, n_sessions per cell 2-13 (median 8, real coverage, not degenerate). 0/11,700 cells have a hit-rate 95% CI lower bound above alpha=0.05 -- FULLY NULL. Maximum observed hit rate across the entire grid is 20% (1/5 sessions), well within what 1.96-sigma per-session false-positive noise alone would produce at this sample size (Clopper-Pearson lower bound for 1/5 is 0.0051, nowhere near excluding the 5% null rate). This is a clean, well-sampled null, not a broken or degenerate test -- reported as a real result per CLAUDE.md tripwire #10 ('a valid null is a result')."
+  ],
+  "issues": [
+    "Same-electrode exclusion could not be verified for every unit -- units whose peak_channel_id has no census-ranked candidate channel outside EXCLUDE_RADIUS=2 were silently skipped for that area (choose_channel returns None) rather than counted; the fraction of units dropped this way was not tallied separately from other skip reasons (missing spike times, etc.) in this pass.",
+    "Only the unit's OWN area's band power was tested (per direct instruction) -- cross-area spike-to-remote-LFP coupling (the geometry the retired PPC script also did not test) remains unexamined by this method."
+  ],
+  "plan": [
+    "If a cross-area spk-LFP question becomes relevant, extend this script's pair-construction the same way extract_within_session_lfp_lfp_sliding_corr.py distinguishes within_area/between_area scope.",
+    "Tally same-electrode-exclusion-caused unit skips explicitly if this method is promoted toward a figure."
+  ],
+  "verification": {
+    "checks": {"sources_resolve": true, "reproducible": true},
+    "receipt": "outputs/within_session_spk_lfp_sliding_corr/receipt.json (22 sessions, 3521s), area_hit_rates.csv (11700 cells, 0 above_chance)",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "jnwb-artifact-repair-module-built-20260813",
+      "relation": "qualifies",
+      "reasoning": "Uses band_power_dynamics.repair_band_artifacts (the TFR-domain sibling of jnwb.artifact_repair, built the same session) rather than jnwb.artifact_repair itself, since the input here is TFR power not raw LFP.",
+      "confidence": 0.4
+    },
+    {
+      "to": "lfp-lfp-coherency-repaired-rerun-20260813",
+      "relation": "supports",
+      "reasoning": "Third connectivity-family method (after imaginary coherency, Granger, transfer entropy, and now this rate-power correlation) landing null at the group level on this corpus, consistent with the project's existing pattern of null cross-signal connectivity results surviving methodological scrutiny.",
+      "confidence": 0.5
+    }
+  ]
+}

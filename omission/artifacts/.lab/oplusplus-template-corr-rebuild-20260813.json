@@ -1,0 +1,25 @@
+{
+  "schema_version": 3,
+  "id": "oplusplus-template-corr-rebuild-20260813",
+  "kind": "evidence",
+  "title": "Template-correlation O++ pipeline rebuilt against 22-session corpus; N does not match Hamm's ~20/FEF=9 recollection",
+  "status": "confirmed",
+  "notes": [
+    "Rebuilt scripts/archive_oneoff/find_all_oplus_units.py against the current 22-session corpus (jnwb.paths.nwb_dir()), fixing 3 stale bugs: hardcoded D:/analysis/nwb path, unseeded global np.random.permutation (now seeded default_rng(42)), and REPO_ROOT parents[1] (now parents[2] -- script lives in scripts/archive_oneoff/, one dir deeper than scripts/).",
+    "Fresh run: outputs/classification/grand_oplus_units.csv, 435 rows (candidates passing r>0.40 prefilter + perm p<0.05), pattern_type O*+=348, O+=87, spans all areas and 3 subjects (C31o=282, V182o=103, V198o=50).",
+    "Ran scripts/build_oplusplus_census.py unmodified (config OPlusPlusTemplateConfig: min_mean_correlation=0.60, max_permutation_pval=0.05, higher_order_areas=(FEF,PFC) -- verified intact in jnwb/unit_classification.py, no stale-path issues found) against the fresh candidate table.",
+    "Result: N=46 O++ units (FEF=23, PFC=23), by subject: C31o=37 (FEF=16, PFC=21), V182o=9 (FEF=7, PFC=2), V198o=0.",
+    "Hamm's stated recollection (this session): '~20 O++ units, 9 in FEF' and 'C31o_xx sessions, FEF and PFC where the original N=20'. Restricting the fresh N=46 to C31o only gives 37 (FEF=16, PFC=21) -- still not 20/9. No threshold or subject/session restriction tried so far reproduces 20/9 from the fresh pipeline.",
+    "Prior stale artifact outputs/classification/grand_oplusplus_units.csv (pre-rebuild, dated Jul 27, predates 22-session corpus) had N=39 (FEF=18, PFC=21) -- closer to but still not matching 20/9.",
+    "Not yet resolved: whether Hamm's 20/9 recollection refers to (a) an even earlier/smaller session subset, (b) a stricter or different threshold than 0.60/0.05, (c) a different area/session filter than C31o-only, or (d) approximate/rounded recall not meant to be matched exactly."
+  ],
+  "issues": [
+    "2026-08-13: Hamm confirmed via AskUserQuestion to accept N=46 (FEF=23, PFC=23) as-is -- the ~20/FEF=9 recollection is not being chased further; not reconciled, just deprioritized by explicit decision.",
+    "2026-08-13: Hamm clarified FEF/PFC was a validation hint (confirm method against manually-observed units), not a scope restriction. scripts/build_oplusplus_census.py now calls OPlusPlusTemplateConfig(require_higher_order=False) -- corpus-wide result N=144 (area_counts: V4=26, FEF=23, PFC=23, TEO=19, V2=17, V1=12, V3=8, MT=7, V3d=5, MST=2, V3a=2). 33.1% of the 435 template-correlation candidates, well outside the script's old 25-60 'in_target_band' sanity check (that check assumed the FEF/PFC-only scope and is now stale, not yet updated).",
+    "2026-08-13: Hamm confirmed scope = fig03 only (not corpus-wide omission_class replacement). fig03_unit_census.py updated: new attach_template_corr_oplusplus() joins grand_oplus_units.csv / grand_oplusplus_units.csv onto the grand table on (session, unit_row) vs (session_prefix, unit_row_idx), deduped per-unit (a unit can carry both an O+ and O*+ candidate row). All 129 unique O++ units matched cleanly into the grand table (0 unmatched) -- the '144' figure from build_oplusplus_census.py's own receipt is candidate-PATTERN rows, not unique units; 129 is the correct per-unit count.",
+    "panel_composition_oplusplus_by_area (panel B) and panel F's grand-average trace both switched from omission_class==\"O++\" to the new is_oplusplus_tc column; panel B's denominator switched from Q1's (O+,O++) pool to is_tc_candidate (the R-family template-match candidate pool, 359 unique units). Final panel B: 129/359 total, by area V1=12/30, V2=15/37, V3a/d=15/44, V4=22/47, MT=6/25, MST+FST=2/9, TEO=19/44, FEF=20/64, PFC=18/59.",
+    "Rerun of context/figures/fig03_unit_census/fig03_unit_census.py (full pipeline, ~20min runtime -- two earlier background attempts stopped silently without a traceback partway through a slow per-session reload loop before a third attempt completed cleanly at 13:02; possible environment/resource flakiness on long-running background bash tasks on this machine, not chased further) succeeded and regenerated fig03.svg + all panel SVGs + fig03_receipt.json. Panel F visually inspected via svglib->PyMuPDF PDF/PNG render: RXRR/RRXR/RRRX traces now show sharp, well-separated omission-locked peaks at each condition's omitted slot on a log y-axis, materially cleaner than the pre-switch Q1-based trace (N=17, mostly flat/noisy).",
+    "omission_class (Q1) is confirmed UNCHANGED and still used everywhere else in the repo (fig05 GLMM, fig07 audit extracts, fig02 exemplar picker) -- this switch is scoped to fig03's panel B and F only."
+  ],
+  "verification": {}
+}

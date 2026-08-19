@@ -1,0 +1,36 @@
+{
+  "id": "evidence-lfp-onset-of-significance-by-area-band-20260815",
+  "schema_version": 3,
+  "kind": "evidence",
+  "title": "LFP band-power onset-of-significant-divergence (real stimulus vs omitted slot), by area x band, derived from fig04's accepted v3 time-resolved GLMM",
+  "status": "confirmed",
+  "generated": "2026-08-15T00:00:00Z",
+  "notes": [
+    "Direct response to Hamm's request for the b-a distribution (b = time of first significant LFP effect, a = event onset, e = minimum physically plausible latency) per area/band. Derived from fig04-glmm-all-areas-timeresolved-v3-20260814 (Q1: dB ~ C(context), stimulus vs omission, already accepted -- 'so keep this as for fig04'), not a new extraction -- re-parsed outputs/fig04_glmm_all_areas_timeresolved_v3/glmm_timeresolved_stats.csv's 'question' text for area/band/window, aligned each window's start time to p2 onset (a=1031ms per jnwb.sequence_layout.EPOCH_ONSETS_MS, the omitted-slot window this GLMM tests) to get b-a per window, then took the first Holm- and first BH-significant window per (area, band).",
+    "27 area x band cells (9 areas x {Alpha, Beta, Theta}; Gamma/other bands not in this GLMM's family). 23/27 have at least one Holm-significant window. Table: outputs/fig04_glmm_all_areas_timeresolved_v3/onset_of_significance_by_area_band.csv.",
+    "RESULT: MST, MT, V1, V2, V4 -- b-a = 0ms at Holm level in nearly every band (i.e. divergence already detectable in the first 0-150ms bin post p2 onset). PFC and TEO show later onsets (b-a = 150-450ms) and fewer significant windows -- consistent with, and an independent cross-check of, the already-accepted v3 result that PFC/TEO's Q1 effect only partially recovered after artifact repair (5/20, 4/20 Holm-significant cells vs 20/20 for MST/V4). FEF shows 0 Holm-significant windows in any band (0-2 under BH only) -- consistent with FEF's 0/20 Holm-significant count across all three GLMM reruns (v1/v2/v3) in the parent node.",
+    "CAUSALITY CHECK: no b-a < 0 exists in this table by construction (window w0 always starts AT a=1031ms, not before) -- this data cannot show an acausal (pre-event) effect since it was never asked to look before the event. Every observed b-a >= 0ms is compatible with the ~40ms minimum visual-response latency, since the resolving bin width is 150ms -- a true onset anywhere in [0,150) ms collapses to the same 'w0, b-a=0' bin. This dataset therefore CANNOT resolve whether any individual area's true onset is above or below the 40ms physical minimum at finer-than-150ms precision -- it can only rule out an acausal result, not confirm a specific onset time below bin resolution.",
+    "This answers the LFP-band half of Hamm's request. The neuron-class half (S+/S-/O+/O- spiking onset relative to their own event) is NOT available -- see onset-hierarchy-blocked note below, task B remains blocked on the baseline-flatness gate decision."
+  ],
+  "issues": [
+    "150ms bin resolution is coarse relative to the ~40ms causality minimum -- cannot make a finer onset claim than 'somewhere in this bin' without re-extracting at finer time resolution, not attempted here.",
+    "This is Q1's context-divergence test (real stimulus vs omitted slot), not a pure stimulus-onset visual-response-latency estimate -- a significant divergence could in principle reflect a predictive/expectation signal that begins before the physical sensory response, not only a sensory-driven one. Not disambiguated here."
+  ],
+  "plan": [
+    "If a finer within-bin onset estimate is wanted, would need a new extraction at sub-150ms resolution -- not scheduled as part of the current supplemental-analysis plan unless requested.",
+    "The spiking-side of this same b-a/causality question (S+/S-/O+/O- classes) remains blocked in scripts/fit_class_onset_latency.py pending the baseline-flatness gate fix -- see the onset-hierarchy diagnostic notes from earlier this session (not yet written to a dedicated lab node; the diagnosis was reported in chat, per-session PSTH comparison of sub-C31o_ses-230901 vs sub-C31o_ses-230830, PFC, S+)."
+  ],
+  "verification": {
+    "checks": {"reproducible": true, "sources_resolve": true, "cross_checked_against_parent_glmm_by_area_significance_pattern": true},
+    "receipt": "outputs/fig04_glmm_all_areas_timeresolved_v3/onset_of_significance_by_area_band.csv, derived from outputs/fig04_glmm_all_areas_timeresolved_v3/glmm_timeresolved_stats.csv",
+    "verdict": "verified"
+  },
+  "links": [
+    {
+      "to": "fig04-glmm-all-areas-timeresolved-v3-20260814",
+      "relation": "derived_from",
+      "reasoning": "Re-parses the same accepted GLMM stats table into a per-area/band onset-of-significance summary; no new data extraction.",
+      "confidence": 1.0
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "date": "2026-08-17",
+  "claim": "L2 (LFP-primary analysis spec, Fig 5): band x area grid of fixation-baselined band-power traces, stim/omission overlaid, session-level bootstrap CI (trial-level explicitly disallowed per spec).",
+  "implementation": "context/figures/L2_band_power_traces/L2_band_power_traces.py, reusing _l_lfp_common.py (extended this run to handle V182o's electrode-table schema -- 'probe' bytes column instead of 'group_name', plus a new find_probe_for_area() that resolves the area-carrying probe fresh per session rather than assuming a fixed probe letter, confirmed necessary: V182o alone puts FEF on probe A in one session and probe B in the next).",
+  "log_last_applied_twice": "Channel pooling (L0 method a: trials then channels, linear) AND band pooling (mean linear power across the band's frequency bins, THEN divide by baseline, THEN log10 once) -- averaging already-computed per-bin dB values across a band would repeat the exact bias omission-signal S1 warns about; checked this explicitly rather than reusing L1's TFR grid (which is fine to bandmean AFTER dB only for display, but L2 needs a real per-band scalar-over-time statistic, so the order matters here).",
+  "ci_construction": "Session-index bootstrap (resample SESSIONS with replacement, n_boot=2000, seed=42, 95% percentile), matching the spec's explicit requirement and the same corrected pattern omission-signal S10 documents for connectivity analyses on this corpus (per-session statistic first, cross-session summary second, not raw pooling before testing).",
+  "real_subject_coverage": {
+    "V1": {"n_sessions": 6, "subjects": ["C31o", "V198o"]},
+    "V2": {"n_sessions": 4, "subjects": ["C31o", "V198o"]},
+    "MT": {"n_sessions": 6, "subjects": ["C31o", "V182o"]},
+    "MST": {"n_sessions": 4, "subjects": ["C31o", "V182o"]},
+    "FEF": {"n_sessions": 5, "subjects": ["C31o", "V182o"]},
+    "PFC": {"n_sessions": 6, "subjects": ["C31o", "V182o"]}
+  },
+  "qualitative_result": "V1/V2/MT/MST: large, consistent stim-evoked broadband power increases (esp. gamma, 5-15 dB), omission response present but smaller -- consistent with L1's TFR grid on the same corpus. FEF/PFC: flatter, noisier traces, wide between-session/subject CIs, no clean evoked structure in this run.",
+  "self_test": "Synthetic 8-session dataset with known population mean + between-session variance (session_effect_sd=1.5) >> within-session trial noise (trial_noise_sd=0.2). Session-bootstrap CI covered the true mean at 0.76 (>0.7 threshold) and was >3x wider than a naive trial-scale CI on the same data (1.17 vs 0.06 dB) -- confirms the CI reflects between-session variance as required, not trial noise. Determinism and n=1-session degenerate-CI guard also pass.",
+  "runtime": "4m10s for the full run (6 areas x up to 6 sessions x 2 conditions x 5 bands, ~62 session-condition extractions total).",
+  "not_yet_done": "Extension areas beyond the L1-matched minimum 6 (V3a/d, V4, TEO, FST, DP) not built. 'offset' condition not built (out of stated minimum scope, same as L1)."
+}

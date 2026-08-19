@@ -1,0 +1,301 @@
+Total Paragraphs: 125
+
+--- Paragraph 0 ---
+Sparse spiking and broad low-frequency LFP disruption during visual omission mismatch
+
+--- Paragraph 2 ---
+H Nejat [[1]], YS Xiong [[1]], ET Al [[*]] , AM Bastos [[1,2]]
+
+--- Paragraph 3 ---
+[1] Dept. of Psychology, Vanderbilt University ; Nashville, TN, USA ;[2] Vanderbilt Brain Institute ; Vanderbilt University ; Nashville, TN, USA ;
+
+--- Paragraph 4 ---
+Abstract
+
+--- Paragraph 5 ---
+{Abstract is aligned with the project goal (sparse higher-order spiking vs broad low-frequency LFP disruption). Ensure every major claim has supporting quantitative results in the final draft.}
+
+--- Paragraph 6 ---
+Omission paradigms provide a unique window into internally generated neural dynamics. When an expected stimulus is absent but its timing and contextual structure are preserved, cortical activity can no longer be attributed directly to bottom-up sensory input, allowing predictive, spontaneous, and error-related processes to be examined in relative isolation. We tested whether visual omission is processed as a sensory-like event or instead reflects a perturbation of predictive cortical state by recording spiking activity and local field potentials across multiple cortical areas using dense laminar recordings in macaques. To distinguish local omission effects, which may be confounded by stimulus offset responses or short-term adaptation, from global omission effects, we explicitly compared omission responses across broader sequence contexts. Unlike local omission, global omission did not evoke a broad population spiking response. Instead, omission-linked spiking was sparse, time-specific, and biased toward higher-order cortex, while lower-order visual areas showed weak omission-driven multiunit activity. In contrast, local field potentials exhibited widespread low-frequency modulation across the cortical hierarchy, particularly in theta, alpha, and beta frequency ranges, whereas gamma activity remained more tightly coupled to actual stimulus presentation. These findings suggest that visual omission primarily disturbs low-frequency predictive cortical state, while only a sparse subset of higher-order neurons are aligned with this state with explicit spiking responses.
+
+--- Paragraph 7 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 9 ---
+For citations, for now, write (###) or (NEED_REF) or as (NameYYYY, TITLE-SHORT) and later the bibliography will be set.
+
+--- Paragraph 11 ---
+Introduction
+
+--- Paragraph 12 ---
+{Introduction is broadly aligned with the project. Add {NEED REF} after every conceptual claim introducing predictive coding, predictive routing, local/global mismatch, and omission literature if not already cited. End with explicit hypotheses.}
+
+--- Paragraph 13 ---
+Silence in a library is expected; silence in a city is an event. The brain does not respond to absence in isolation, but relative to the state that predicted what should occur. Perception is therefore an active comparison between expected and observed states, rather than a passive registration of sensory input. An observed sensory state consists of events unfolding across space and time, integrating incoming sensory signals with contextual information. An expected internal state is the predicted, non-surprising configuration of those events, shaped by prior experience, memory, internal models, and task context. Predictive coding formalizes one implementation of this process by proposing that neural systems continuously minimize prediction error: the mismatch between predicted and observed states (###).
+
+--- Paragraph 14 ---
+Predictive coding, however, is not a single mechanistic claim (###). Hierarchical, feedforward, and feedback formulations propose different routes by which mismatch is computed and propagated (###), and recent frameworks further distinguish local from global mismatch (###). Local mismatch unfolds over short temporal windows, where immediate sensory history, adaptation, synaptic depression or facilitation, and short-lived plasticity may explain the response (###). Global mismatch is generally interpreted as requiring integration over longer temporal structure, preservation of contextual expectation, and comparison of the current event against a broader sequence state (###). Mismatch paradigms make these predictions experimentally visible by testing how neural activity changes when an event violates context, rather than only how cortex responds to a stimulus (###). Oddball paradigms do this by presenting a deviant event against a standard (###), but the deviant is usually still a physical stimulus, so its response can mix internal mismatch with sensory drive (###). Local oddballs are especially vulnerable to adaptation and release from sensory fatigue, whereas global oddballs reduce this problem by making mismatch depend on longer sequence context (###). However, because both still contain stimulus input, neither fully isolates internally generated prediction-related dynamics (###).
+
+--- Paragraph 15 ---
+Omission addresses this remaining confound by removing the expected stimulus while preserving its time slot and sequence context (###). Predictive-processing models make this distinction important: if a stimulus is absent, any omission-locked response must depend on a prediction that remains active despite the loss of bottom-up input. Hierarchical temporal models illustrate this directly, because omitted sequence elements can generate prediction error when a slower contextual state continues to predict the missing input (### Kiebel2008-hierarchy-timescales). In omission, the expected event remains represented by the current predictive state even though the corresponding sensory input fails to arrive. Thus, omission separates responses to missing input from responses to new stimulus features, making it a sharper test of predictive coding than stimulus-based oddball designs (###).
+
+--- Paragraph 16 ---
+Importantly, not all omissions test the same computation. In local omission, the missing event is interpreted primarily relative to immediately preceding stimuli and short-timescale sensory history. In global omission, the missing event violates a broader sequence structure and therefore depends on contextual information maintained across multiple events. Although both involve the absence of expected input, they need not engage identical mechanisms and should not be treated as equivalent tests of prediction (###). Previous omission studies have produced mixed results, with some reporting gamma- or stimulus-like activity, others emphasizing low-frequency field responses, and still others finding sparse omission-linked spiking (###). One reason for this heterogeneity is that not all omissions probe the same temporal scale of expectation. Local omission responses may be influenced by adaptation, rebound, entrainment, or short-lived plasticity, whereas global omission responses require the system to preserve an expectation across multiple events and respond when the expected item fails to appear (###). A sensory-like omission response is therefore possible, but after local confounds are controlled it should be interpreted as internally generated prediction, template reinstatement, or state update, not as a response to new stimulus features (###).
+
+--- Paragraph 17 ---
+Among predictive-processing frameworks, predictive routing provides a specific hypothesis regarding omission (###). Predictive routing proposes that low-frequency alpha and beta activity reflects top-down preparation and routing of expected input, whereas gamma activity and spiking are more closely linked to feedforward sensory drive (###). Under this framework, omission should primarily perturb the low-frequency predictive state that had prepared the pathway for expected input, rather than generating a broad sensory-like gamma and spiking response. A global omission should therefore produce a state-dependent response, potentially visible as altered low-frequency field dynamics even when spiking remains sparse, rather than a conventional sensory response driven by feedforward input alone (###).
+
+--- Paragraph 18 ---
+Testing this distinction requires recordings from multiple cortical areas, high-density laminar sampling, and an omission paradigm that separates local mechanisms from longer-context mismatch (###). Our experiment was designed around these requirements. We used Multi-Area Dense Laminar Neurophysiology (MaDeLaNe) in awake rhesus macaques, sampling visual, temporal, and frontal cortical areas during a sequential visual omission task. The task preserved a four-item sequence while omitting expected stimuli at defined temporal positions, allowing standards, oddballs, local omissions, global omissions, and random-control contexts to be separated. This structure compared stimulus-present and stimulus-absent events while preserving timing, fixation state, and task context. Because recordings included SPK, MUAe, and LFP across the cortical hierarchy, the experiment could distinguish among four possible outcomes: a sensory-like gamma/spiking response generated by local mechanisms or internal prediction, a sparse higher-order event signal, a broad low-frequency state perturbation, or a laminar interaction among these components (###).
+
+--- Paragraph 19 ---
+We found that omission did not produce a broad sensory-like population response. Instead, omission-linked spiking was sparse, time-specific, and biased toward higher-order cortex, whereas lower-order visual areas showed weak or absent omission-driven population spiking. In contrast, LFP responses were broader across the hierarchy and strongest in low-frequency theta, alpha, and beta ranges, while gamma remained more tightly coupled to actual stimulus presentation. This dissociation argues against a model in which omission simply evokes a widespread gamma-dominant sensory-surprise response. Rather, our findings are consistent with the hypothesis that omission primarily perturbs the low-frequency predictive state that had prepared the pathway for expected input, while only a selective subset of neurons converts that disrupted state into explicit omission-linked spiking.
+
+--- Paragraph 20 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 21 ---
+Methods
+
+--- Paragraph 22 ---
+{Methods are aligned with project doctrine. Before first submission, report exact session/unit/channel counts, preprocessing, statistics, and reproducibility metadata from the analysis pipeline.}
+
+--- Paragraph 23 ---
+Subjects and recordings
+
+--- Paragraph 24 ---
+Our physiological dataset was derived from multi-area dense laminar neurophysiology (MaDeLaNe) experiments in awake macaques performing the sequential visual omission paradigm. The resulting data streams comprised spike-sorted single-unit activity (SPK), multi-unit activity envelope (MUAe), and local field potentials (LFP) sampled across a distributed cortical hierarchy. Throughout analysis and visualization, areas followed a canonical hierarchical progression: V1, V2, V3d, V3a, V4, MT, MST, TEO, FST, FEF, and PFC. These were functionally clustered into lower-order sensory cortex (V1/V2), intermediate extrastriate and temporal regions (V3d/V3a, V4, MT/MST, TEO, FST), and higher-order frontal circuits (FEF/PFC) [figure 2].
+
+--- Paragraph 25 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 26 ---
+Figure.1: Implementation of multi-area dense laminar neurophysiology (MaDeLaNe) across the macaque hierarchy. Experimental sampling spanned early visual structures (V1/V2), motion-sensitive and dorsal extrastriate regions (V3d/V3a, MT/MST/FST), ventral extrastriate-temporal circuits (V4/TEO), and higher-order frontal areas (FEF/LPFC). This configuration allows for the systematic comparison of dynamics across sensory, intermediate, and executive cortical stages. Acute extracellular data were acquired using 128-channel DiagnosticBioChips (DBC) laminar arrays at a 30 kHz sampling frequency (Intan RHD). Signal preprocessing yielded local field potentials (LFP), multi-unit activity envelopes (MUAe), and spike-sorted single-neuron activity (Kilosort). Task parameters, including fixation maintenance and reward delivery, were managed through the Monkeylogic environment (NIMH). See figure-S01 for more info
+
+--- Paragraph 27 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 28 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 29 ---
+Data acquisition utilized high-density DiagnosticBioChips (DBC) laminar arrays. Probe configurations and session-specific anatomical assignments were reconstructed from recording metadata and electrode mapping tables. Because single probes often traversed multiple cortical boundaries, area classification was not treated as a simple one-probe-per-area mapping. Rather, when a probe sampled multiple structures, the channel axis was partitioned into contiguous laminar segments corresponding to the targeted areas. This segmentation was applied consistently to LFP and MUAe channels, while single neurons were assigned to specific areas based on the location of their peak waveform anchor [figure 2].
+
+--- Paragraph 30 ---
+Task design and omission paradigm
+
+--- Paragraph 31 ---
+Subjects (Macaques, N=2, age 11 and 17) performed a sequential visual omission paradigm in which stimulus identity and temporal regularity jointly established an expected sensory sequence. The full sequence was represented in p1-relative time using the intervals: fixation (fx), p1, d1, p2, d2, p3, d3, p4, and d4 (where S={fx,p1,d1,p2,d2,p3,d3,p4,d4} but only {p1,p2,p3,p4} is variable across trials). All event-locked displays used p1 onset as 0 ms, with a default analysis window extending from -1000 to +4000 ms relative to p1 onset. The canonical sequence timing used throughout was: fx = -500 to 0 ms, p1 = 0 to 531 ms, d1 = 531 to 1031 ms, p2 = 1031 to 1562 ms, d2 = 1562 to 2062 ms, p3 = 2062 to 2593 ms, d3 = 2593 to 3093 ms, p4 = 3093 to 3624 ms, and d4 = 3624 to 4124 ms. [figure 3].
+
+--- Paragraph 33 ---
+The full condition set included S = {AAAB, AXAB, AAXB, AAAX, BBBA, BXBA, BBXA, BBBX, RRRR, RXRR, RRXR, RRRX}. Omission was organized by position in sequence: p2 conditions S = {AXAB, BXBA, RXRR}, p3 conditions S = {AAXB, BBXA, RRXR}, and p4 conditions S = {AAAX, BBBX, RRRX}. For all omission analyses, the omitted event was compared to its matched full-sequence control and, when relevant, to random-control conditions. Since each omission is preceded by a presented stimulus, local omission analyses were framed in a d-p-d-px-d or p-d-px-d structure rather than as isolated events. Thus, each omission analysis was interpreted with respect to the stimulus immediately preceding the omission, the pre-omission delay, the expected-but-omitted stimulus, and the post-omission delay. [figure 3].
+
+--- Paragraph 34 ---
+Signal extraction and preprocessing
+
+--- Paragraph 35 ---
+Three signal classes were analyzed: spike-sorted single-unit activity (SPK), MUAe, and LFP. Signal access was intended to proceed through one canonical accessor that returned session-keyed, condition-filtered data aligned in p1-relative time. For analog signals, the target return shape was trial × channel × time; for spiking data, the target return shape was trial × unit × time. Functional response classes, including stimulus-positive, stimulus-negative, omission-positive, omission-negative, and null units, were determined from within-unit contrasts over prespecified stimulus and omission windows.
+
+--- Paragraph 36 ---
+Local field potentials
+
+--- Paragraph 37 ---
+LFP data were drawn from NWB recordings and kept in trial × channel × time format until late analysis stages wherever possible. For spectral and connectivity-style analyses, bipolar derivation was preferred before cross-site comparison, following the predictive-routing convention of nearest-neighbor laminar differencing. For descriptive power analyses, both monopolar and bipolar representations could be retained, but the exact representation used in each figure was reported explicitly. All LFP analyses preserved trial structure until after time-frequency decomposition and baseline normalization to avoid premature averaging.
+
+--- Paragraph 38 ---
+Time-frequency analysis of LFP power
+
+--- Paragraph 39 ---
+Time-frequency analyses were performed on omission- and stimulus-aligned LFP epochs using moving-window spectrogram methods with high temporal overlap. For the poster-style omission traces and corresponding manuscript figures, spectrograms were computed on trialwise LFP epochs using a moving window with approximately 98% overlap. This high overlap was used to generate smooth band-power traces while retaining sufficient frequency resolution for theta, alpha, beta, and gamma-band comparisons. For omission-centered time-frequency analyses, each omission-family condition was converted from p1-relative time into a local omission-relative time base in which 0 ms marked the expected onset of the missing stimulus. The local analysis window typically extended from -1000 to +1000 ms, encompassing the preceding stimulus, the pre-omission delay, the omitted stimulus slot, and the post-omission delay. Because every omission was preceded by a real stimulus, this local window captured the d-p-d-px-d structure surrounding omission.
+
+--- Paragraph 40 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 42 ---
+Spectral power was first computed in linear units, then normalized at each frequency by the mean power in a late pre-omission delay baseline, approximately -250 to -50 ms relative to omission onset. Relative power change was expressed in decibels as 10 × log10(power/baseline). Band-specific traces were then obtained by averaging baseline-normalized power across canonical frequency ranges and then across trials. The main manuscript spectrograms were computed separately for stimulus-present, omission, and control conditions and were summarized at the area and laminar levels. Population heatmaps displayed relative power in decibels as a function of time and frequency. Band-trace panels collapsed the spectrogram into theta, alpha, beta, low-gamma, and high-gamma trajectories. These traces were used to quantify whether omission primarily suppressed, preserved, or reorganized low-frequency and gamma-band power. All averages were performed at the session level before grand averaging across sessions unless the inferential question explicitly targeted channels.
+
+--- Paragraph 43 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 44 ---
+Band-specific dynamics and rhythmic coordination
+
+--- Paragraph 45 ---
+Band-limited LFP dynamics were examined to test whether omission alters the balance of low-frequency predictive structure and higher-frequency feedforward-like activity. Signals were filtered into canonical frequency bands corresponding to theta, alpha, beta, low gamma, and high gamma. For time-resolved power analyses, the preferred estimate came from band-collapsed spectrogram power rather than narrowband Hilbert power, because this preserved consistency with the main TFR pipeline. For selected mechanistic analyses, however, narrowband analytic phase and amplitude were extracted using zero-phase band-pass filters followed by the Hilbert transform.
+
+--- Paragraph 46 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 49 ---
+Results
+
+--- Paragraph 50 ---
+{Results should report evidence first, then interpretation. Add statistics, effect sizes, N, and confidence intervals for each major claim.}
+
+--- Paragraph 52 ---
+Figure.2: Subjects performed a fixation-controlled four-item visual sequence task in which expected drifting gratings were either presented or omitted at a defined sequence position. Predictable A- and B-family blocks contained frequent full sequences and less frequent omission sequences, whereas the R-family served as a random-control condition with matched omission timing. This design preserves the trial’s temporal structure while removing the expected visual input, allowing omission-locked activity to be analyzed as a missing-input event rather than a response to a replacement stimulus. Right panels summarize spike-sorted single-neuron yield across recorded cortical areas, firing-rate classes based on grand-average activity, and functional response groups defined by peak firing-rate modulation relative to baseline or omission windows. S+ and S- denote stimulus-excited and stimulus-suppressed units; O+ and O− denote omission-excited and omission-suppressed units; Null units show no peak firing-rate relation to the tested context. O+ units with FR(omission) > FR(stimulus) and FR(omission) > FR(baseline) were classified as X neurons using a Wilcoxon rank-sum criterion, p < 0.01. The task logic follows the project contract: omission preserves sequence timing and context while removing the expected sensory event, and p2/p3/p4 omissions should be interpreted with their surrounding pre- and post-omission sequence structure. See figure-S02 for more info
+
+--- Paragraph 53 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 54 ---
+Omission-sensitive units were a selective minority across the cortical hierarchy. While stimulus-modulated populations showed robust sensory activity, most units were weakly modulated or unresponsive during omission windows. Sparsely distributed omission-positive and omission-negative groups exhibited firing changes locked to missing-item intervals, indicating that omission signaling was a specific, time-resolved event rather than a global firing shift. Figure 4 summarizes these full-sequence firing-rate traces across S={AAAB, AXAB, AAXB, AAAX}, separating units by response class and showing that omission-related activity emerges in a restricted subset of neurons rather than throughout the full population. These findings are consistent with the idea that contextual surprises are represented by sparse, selective ensembles in higher-order cortex.
+
+--- Paragraph 55 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 56 ---
+Figure.3: Full-sequence rasters and firing-rate traces separated example cases of groups based on their activity during four conditions of S={rrrr,rXrr,rrXr,rrrX}. The traces are aligned to the onset of the first stimulus and span the full sequence window. See figure-S03 for more info
+
+--- Paragraph 57 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 58 ---
+The full-sequence traces further show that spiking during the omission window was not uniform across units. Some neurons increased firing near the omitted slot, others decreased, and others showed slow ramping or shifted activity across the sequence. This mixture argues against a single one-size-fits-all omission signal similar to a classic sensory mismatch response. Instead, omission recruited several response motifs, especially in higher-order positions of the cortical hierarchy. This also explains why population averages can appear flat even when a subset of neurons carries a clear omission response: positive and negative response classes can cancel during averaging, particularly in lower-order cortex.
+
+--- Paragraph 59 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 61 ---
+Figure.4: TFR spectrogram ;  and TFR band-powers See figure-S04 for more info
+
+--- Paragraph 62 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 63 ---
+Figure 5 compares grand-average stimulus and omission traces and shows that omission was not equivalent to a strong unexpected stimulus. Stimulus-positive and stimulus-negative units were abundant during stimulus-present epochs, but their firing was comparatively flat during the omission window. If omission produced an ordinary sensory-surprise response, we would expect stronger firing, more engaged units, and broader sensory-like spiking across areas. Instead, omission-related single-unit activity remained limited relative to stimulus-evoked activity, supporting the conclusion that omission does not evoke widespread distributed spiking across the cortical hierarchy.
+
+--- Paragraph 64 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 65 ---
+Figures 6 and 7 extend this comparison to the random-control family, using RRRR as the full-sequence reference and RXRR, RRXR, and RRRX as omission sequences. These panels separate omission timing from stimulus identity and help determine whether firing changes are tied to the missing event, to its sequence position, or to a broader control context. Across these contrasts, omission responses remain weaker and more selective than stimulus-present responses, reinforcing the dissociation between strong sensory drive and sparse missing-input signaling.
+
+--- Paragraph 66 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 68 ---
+Figure.5: TFR traces of four areas (See figure-S05 for more info)
+
+--- Paragraph 69 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 70 ---
+Figure.6: TFR traces per area-layer (and spectrolaminar motif, putative selected) D vs S (See figure-S06 for more info)
+
+--- Paragraph 71 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 72 ---
+Figure.7: Area-layer TFR coherence (power correlation row subplot(2,4,1-4), real-imaginary subplots(2, 4, 5-8), showing pre-omission stim (A) ; pre-omission delay (B), omission (C) ; post-omission delay (D) and E,F,G,H same but imaginary coherence )  (See figure-S07 for more info)
+
+--- Paragraph 73 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 74 ---
+Figure.8: Omission and S+/S- units’ relation to the TFR traces of their channel (See figure-S08 for more info)
+
+--- Paragraph 75 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 76 ---
+Figure.9: Omission and S+/S- units’ relation to the TFR traces of their channel (See figure-S08 for more info)
+
+--- Paragraph 77 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 78 ---
+Figure 8 shows the corresponding time-frequency response. Unlike the spiking results, omission produced broad changes in LFP spectral structure across the hierarchy. These effects were strongest in low-frequency theta, alpha, and beta ranges and were weaker or less consistent in gamma bands. This pattern supports the central dissociation of the study: omission appears more visible as a field-level state perturbation than as a broad increase in population firing.
+
+--- Paragraph 79 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 80 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 81 ---
+During normal stimulus periods, stronger gamma was more closely linked to spiking, consistent with feedforward sensory processing. During omission periods, the relation shifted: lower-frequency bands, especially beta-related structure, became more important for the relation between LFP and spikes. The result is not that omission creates a large gamma-driven population response. Instead, omission changes how spectral state and spiking are coupled.
+
+--- Paragraph 82 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 83 ---
+Figure 10 tests this coupling directly with spike-field coherence, contrasting omission and stimulus windows. If omission mainly perturbs the circuit state that controls routing, then the relation between LFP bands and spikes should differ from the relation seen during actual stimulus drive. That is the pattern suggested here: the cortex is not simply processing nothing, but responding to a failure of expected input, and that response is more visible in spectral-spike coupling than in a broad rise of spiking across all neurons.
+
+--- Paragraph 84 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 85 ---
+{Improve caption: describe what is plotted, alignment, sample sizes, statistics, abbreviations, and the biological conclusion. Replace 'See figure-S0X' with formal supplementary references.}
+
+--- Paragraph 87 ---
+Together, the harmony and spike-field panels indicate that omission pushes cortex toward a different cross-area spectral pattern, especially in beta-related structure. The alignment across areas is not identical to the pattern seen during normal stimulus processing, and it is not uniform across the hierarchy. Some areas and layer groupings show stronger changes than others, consistent with a state-dependent response rather than a simple sensory response.
+
+--- Paragraph 88 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 90 ---
+In summary, the results suggest that omission is not only a local event in one area. It changes the broader network state, with the strongest effects appearing in low-frequency structure across hierarchy and layer groupings. Figures 4-8 show that omission has broad effects on LFP state while its spiking effects remain sparse, selective, and often stronger in higher-order areas. Figures 9-10 further suggest that omission changes how spectral state is organized across areas and how it relates to spiking. This combination supports the central claim that omission perturbs predictive state more broadly than it drives population firing.
+
+--- Paragraph 91 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 92 ---
+Discussion
+
+--- Paragraph 93 ---
+{Discussion is consistent with project goals. Clearly separate supported conclusions from speculative predictive-routing interpretations.}
+
+--- Paragraph 94 ---
+The main finding of this study is that visual omission perturbs low-frequency LFP structure across the cortical hierarchy while producing only sparse, selective changes in spiking. This connects the introduction's central distinction between stimulus response and state response to the empirical results. Omission removes expected input without adding a replacement stimulus; accordingly, the strongest signal was not a broad sensory-like firing response, but a broad field-level change in the spectral state that had prepared the hierarchy for expected input. The results support three linked conclusions.
+
+--- Paragraph 96 ---
+First, omission is not equivalent to ordinary sensory surprise. If omission acted like a strong unexpected stimulus, it should have produced broad gamma increases and strong sensory-like spiking across many areas. Instead, gamma changes were limited compared with the stronger and broader changes in theta, alpha, and beta. This supports the view that omission primarily affects predictive state rather than simply driving the feedforward sensory output channel.
+
+--- Paragraph 97 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 99 ---
+Second, omission-sensitive spiking is sparse and uneven across the hierarchy. A small subset of neurons, especially in higher-order cortex, appears to carry much of the omission-linked spiking signal, while lower-order sensory cortex shows weak omission-driven population spiking. This pattern fits the idea that long-context violations are not carried equally by all neurons in all areas. It also explains why omission-sensitive units can be important without dominating grand-average population firing.
+
+--- Paragraph 100 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 102 ---
+Third, the strongest omission effect lies in network state control. The LFP results show that omission changes low-frequency spectral structure across areas, shifts spectral harmony across the hierarchy, and alters how band-limited power relates to spiking. In predictive-routing terms, omission appears to expose the state that prepared the pathway for expected input and then interrupt or reorganize that state when the expected signal does not arrive. Low-frequency rhythms may therefore carry the broader circuit-level preparation and its disruption, while a sparse set of neurons converts that disrupted state into time-specific omission-linked spiking.
+
+--- Paragraph 103 ---
+Relation to predictive routing
+
+--- Paragraph 104 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 105 ---
+Predictive routing proposes that alpha and beta rhythms help regulate expected input, while gamma and spiking carry stronger feedforward processing when input is not suppressed. The omission results extend this model by testing the case in which expected input is absent. In that setting, the strongest effect is not a broad rise of feedforward gamma and spiking everywhere. Instead, omission mainly disrupts or resets low-frequency predictive state, while only selected neurons show strong omission-linked spiking. This makes omission a circuit-state event first and a sparse spiking event second.
+
+--- Paragraph 106 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 107 ---
+Why lower-order cortex looks different from higher-order cortex
+
+--- Paragraph 108 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 109 ---
+The combination of weak lower-order omission MUAe, broad low-frequency LFP changes, and stronger higher-order omission-sensitive single-neuron responses suggests a division of labor. Lower-order visual cortex may mainly reflect the presence or absence of sensory drive and the current rhythmic state of the pathway. Higher-order cortex may be more involved in converting the failure of expected input into an explicit spiking signal. This division also follows from the global omission hypothesis: a long-context missing-input event should depend more on intermediate and higher-order state variables than on local receptive-field drive alone.
+
+--- Paragraph 110 ---
+{NEED REF: this paragraph contains conceptual or empirical claims requiring citation.}
+
+--- Paragraph 111 ---
+Limitations: follow-up biophysical modeling and causal stimulation
+
+--- Paragraph 112 ---
+These conclusions remain limited by the non-causal nature of the current study. The spiking and LFP effects are not equally strong in all areas, and some conclusions depend on sparse neuron groups and layer assignments that require careful validation. The precise link between low-frequency network state and selective omission-sensitive neurons therefore needs direct circuit tests. The planned SSAM analysis will help by measuring how each neuron's firing relates to LFP spectral power over time, and follow-up biophysical modeling and causal stimulation can test whether perturbing low-frequency state changes omission-linked spiking and field dynamics in the predicted direction.
+
+--- Paragraph 117 ---
+References [TBD]
+
+--- Paragraph 124 ---
+{EDITORIAL SUMMARY: The manuscript is well aligned with the omission project: the central message (broad low-frequency predictive-state perturbation with sparse higher-order omission-linked spiking) is consistent throughout. Before converting to a full first draft, complete citations, replace placeholder figures with publication-quality figures, add quantitative statistics to every Results subsection, define all abbreviations on first use, remove placeholder text ('See figure-S0X', TBD references), and ensure every major claim is directly supported by data or explicitly labeled as interpretation or hypothesis.}

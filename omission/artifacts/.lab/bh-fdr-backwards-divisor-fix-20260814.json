@@ -1,0 +1,30 @@
+{
+  "date": "2026-08-14",
+  "claim": "Fixed a backwards BH-FDR divisor (np.arange(n,0,-1) instead of np.arange(1,n+1)) in four locations: classify_omission_units_condition.py, classify_omission_units_grand.py, classify_omission_units_jitter.py (local bh() helpers), and plot_omission_tfr_area_panels.py (inline block). All four now delegate to jnwb.statistics.StatisticalAnalysis.fdr_correct, which was numerically confirmed against scipy.stats.false_discovery_control(method='bh') and against a manually-reconstructed correct BH formula (max abs diff ~1.1e-16 in both checks).",
+  "status": "partially_verified",
+  "verified": [
+    {
+      "script": "classify_omission_units_grand.py",
+      "outputs": ["outputs/classification/omission_grand_units.csv", "outputs/classification/omission_grand_by_area.csv"],
+      "result": "clean",
+      "detail": "Session set unchanged (22/22, identical to pre-fix backup). Raw p-values (q1_pre_p, q1_post_p, q1_p) byte-identical before/after (np.allclose, atol=1e-9). Only q-value and q-value-derived classification columns changed (q1_q, q1_ramp_q, q2_q, q3_q, q4_q, omission_class, q1v2_vs_pre_q, q1v2_vs_all_q, omission_class_v2, knows_when, knows_what, after_class) -- exactly the expected effect of a pure FDR-correction fix."
+    },
+    {
+      "script": "plot_omission_tfr_area_panels.py",
+      "outputs": ["outputs/omission_tfr_maps_ratio/area_band_layer_stats.csv"],
+      "result": "clean",
+      "detail": "Rerun 2026-08-15 (must be invoked with PYTHONPATH=. from repo root -- `import jnwb` otherwise fails, a pre-existing invocation-convention issue, not introduced by this fix). Shape unchanged (225 rows x 13 cols), only q_bh changed; all raw/effect columns byte-identical (atol=1e-9). Separate, unrelated, pre-existing bug found and NOT fixed (out of scope): the script's own receipt.json write crashes at the very end with `TypeError: Object of type WindowsPath is not JSON serializable` (the `maps` field in the receipt dict holds a raw pathlib.Path) -- happens after the CSV is already written, so this rerun's CSV output is unaffected, but no receipt.json has been produced by this script on this machine."
+    }
+  ],
+  "confounded_not_purely_attributable_to_bh_fix": [
+    {
+      "scripts": ["classify_omission_units_jitter.py", "classify_omission_units_condition.py"],
+      "finding": "Both reruns picked up a 22nd session (sub-V198o_ses-230629) not present in the pre-fix backup -- this matches PROJECT_STATE.md's documented 2026-08-11 21->22 corpus addition and is NOT caused by the BH fix; the backup snapshot was simply taken before that corpus state.",
+      "restricted_to_21_common_sessions_still_shows": "Raw computed values changed, not just q-values: rate_omission_hz/rate_jitter_null_hz/rate_control_hz, effect_hz, p_rate, slope_omission*/slope_control*/slope_effect, p_ramp all differ between the pre-fix backup and the post-fix rerun for sessions present in BOTH runs. This is NOT an effect the BH fix itself can produce (BH correction only consumes already-computed raw p-values, it does not feed back into them).",
+      "root_cause_hypothesis_not_confirmed": "Both scripts draw their jitter/shuffle null from a single shared np.random.default_rng(42) consumed sequentially once per session, in sorted-NWB-filename order (verified in classify_omission_units_jitter.py: rng instantiated once at top of main loop, rng.uniform/rng.integers called per unit inside classify_unit). Inserting the new session mid-stream (sub-V198o_ses-230629_rec.nwb sorts at position 17 of 22, i.e. before the four pre-existing V198o sessions) shifts the RNG draw sequence for every session processed after that point relative to the pre-fix run's session list/order. This explains a raw-value change in principle, but the specific pattern observed for the jitter script (all 10 V182o sessions changed, the 4 pre-existing V198o and all 7 C31o sessions did NOT) is not explained by a simple 'shifted after insertion point' model, since V182o sorts entirely before the insertion point and C31o/V198o(old) do not show the shift a naive model would predict. The exact mechanism was not run to ground -- flagged as an open discrepancy rather than resolved by speculation. NWB file mtimes for all V182o sessions are stable since 2026-08-09, ruling out a concurrent underlying-data change as the cause.",
+      "consequence": "The is_o_plus/is_o_minus/is_o_plusplus/omission_class flip counts currently observed between the pre-fix backup and the post-fix rerun (jitter: 13/32/2/45 rows respectively, restricted to the 21 common sessions) reflect the BH fix AND this unexplained RNG/session-order effect entangled together. They should NOT be reported as 'the BH fix changed N units' claims until this is disentangled -- e.g. by rerunning with the pre-fix bh() code but the current 22-session corpus, isolating the BH-only delta."
+    }
+  ],
+  "not_yet_rerun": [],
+  "recommendation": "Before citing any updated omission_jitter_units.csv or omission_condition_units.csv classification number in a manuscript claim, rerun classify_omission_units_jitter.py / classify_omission_units_condition.py against the PRE-fix bh() code (temporarily) on the current 22-session corpus to isolate the corpus-driven delta from the BH-fix-driven delta, since the two are currently conflated in what is on disk. omission_grand_units.csv/omission_grand_by_area.csv do not have this problem and are cleanly verified."
+}
