@@ -38,6 +38,7 @@ dependencies = [
 test = [
     "pytest>=7.0",
     "pytest-cov>=5.0",
+    "pytest-xdist>=3.0",  # `pytest -n auto`: ~2.5x wall-clock on this suite (170s -> 69s)
 ]
 torch = [
     "torch",
