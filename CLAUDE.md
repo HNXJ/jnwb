@@ -26,6 +26,28 @@ stay lazy (function-body-local, not module-level), that `import jnwb` succeeds e
 omission/ blocked from `sys.path` entirely, and that every `jnwb.__all__` name actually
 resolves. A change that breaks the freeze fails this test before it fails a human review.
 
+## Repo-wide freeze (2026-08-19 → 2026-09-28)
+
+For 40 days from 2026-08-19, **no commits or pushes land on this repo at all** — this is on top
+of, and broader than, the `jnwb/` freeze above, which already forbade editing `jnwb/`. During
+this window `omission/`'s normally-tracked surface (scripts, figures, `context/`, tests, docs)
+is paused the same way: don't commit new or changed files there either, even routine ones.
+
+All actual work during the freeze happens as local files inside `omission/outputs/` (already
+gitignored, already local-only — see `.gitignore:19`). Nothing written there needs review or
+authorization to create/edit; it's scratch space by design.
+
+**Anything discovered during the freeze that *would* be worth applying to the tracked repo** —
+a fix, a new analysis, a `jnwb` change that needs Hamm's authorization, a doc correction — gets
+written up as a markdown file under `omission/outputs/fixlist/`, one file per item
+(`fix-<short-slug>.md`), instead of being applied now. Each entry should say what the change is,
+why it matters, and exactly what files it would touch, so it can be actioned quickly once the
+freeze lifts — write it as a ticket for future-you, not a diff.
+
+At the end of the freeze (2026-09-28), `omission/outputs/fixlist/` becomes the punch list for
+the next major change pass: work through it, apply what's still relevant, and only then resume
+normal commit/push activity.
+
 ## Where truth lives
 
 | Question | Source | Never |
