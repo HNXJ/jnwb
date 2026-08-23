@@ -34,6 +34,16 @@ import pandas as pd
 from scipy.stats import false_discovery_control
 
 from omission.jnwb_ext.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS
+from jnwb.statistics import (
+    rate_in_window as _rate_in_window,
+    shuffle_pvalue_paired as _shuffle_pvalue_paired,
+    shuffle_pvalue_unpaired as _shuffle_pvalue_unpaired,
+)
+
+# _rate_in_window, _shuffle_pvalue_paired, _shuffle_pvalue_unpaired PROMOTED 2026-08-23 to
+# jnwb.statistics (as public rate_in_window/shuffle_pvalue_paired/shuffle_pvalue_unpaired;
+# 99%-jnwb-sufficiency normalization) -- re-imported here under their original private names so
+# no call site in this module or its callers needs to change.
 
 log = logging.getLogger(__name__)
 
@@ -150,78 +160,11 @@ def omission_events() -> List[Tuple[str, int]]:
     ]
 
 
-def _rate_in_window(spike_times: np.ndarray, onset_s: float, window_ms: Tuple[float, float]) -> float:
-    t0 = onset_s + window_ms[0] / 1000.0
-    t1 = onset_s + window_ms[1] / 1000.0
-    if t1 <= t0:
-        return 0.0
-    n = int(np.searchsorted(spike_times, t1, side="right") - np.searchsorted(spike_times, t0, side="left"))
-    return n / ((window_ms[1] - window_ms[0]) / 1000.0)
-
-
 def _paired_mean_diff(a: np.ndarray, b: np.ndarray) -> float:
     n = min(len(a), len(b))
     if n == 0:
         return 0.0
     return float(np.mean(a[:n] - b[:n]))
-
-
-def _shuffle_pvalue_paired(
-    a: np.ndarray,
-    b: np.ndarray,
-    n_shuffles: int,
-    rng: np.random.Generator,
-    alternative: str = "two-sided",
-) -> Tuple[float, float]:
-    """
-    Shuffle-controlled p-value for mean(a-b).
-
-    Null: randomly flip the sign of each paired difference (equivalent to
-    swapping a/b labels within trial). Returns (observed_diff, p_value).
-    """
-    n = min(len(a), len(b))
-    if n < 2:
-        return 0.0, 1.0
-    diff = np.asarray(a[:n], dtype=float) - np.asarray(b[:n], dtype=float)
-    obs = float(np.mean(diff))
-    # Vectorized sign flips
-    flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
-    null = flips @ diff / n
-    if alternative == "greater":
-        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
-    elif alternative == "less":
-        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
-    else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
-    return obs, float(p)
-
-
-def _shuffle_pvalue_unpaired(
-    a: np.ndarray,
-    b: np.ndarray,
-    n_shuffles: int,
-    rng: np.random.Generator,
-    alternative: str = "greater",
-) -> Tuple[float, float]:
-    """Shuffle group labels for mean(a)-mean(b)."""
-    a = np.asarray(a, dtype=float)
-    b = np.asarray(b, dtype=float)
-    if len(a) < 2 or len(b) < 2:
-        return 0.0, 1.0
-    obs = float(np.mean(a) - np.mean(b))
-    pooled = np.concatenate([a, b])
-    n_a = len(a)
-    null = np.empty(n_shuffles)
-    for i in range(n_shuffles):
-        rng.shuffle(pooled)
-        null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
-    if alternative == "greater":
-        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
-    elif alternative == "less":
-        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
-    else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
-    return obs, float(p)
 
 
 def precompute_condition_onsets(session, correct_only: bool = True) -> Dict[str, np.ndarray]:

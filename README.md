@@ -94,6 +94,16 @@ fired = jnwb.fire_indicator(spike_times, onsets, window_ms=(0.0, 150.0))
 result = jnwb.paired_fire_prob_test(fired_target, fired_baseline, n_shuffles=2000, n_bootstrap=2000, rng=rng)
 ```
 
+Generic spike-rate windowing, shuffle-controlled paired/unpaired p-values, temporal
+cycle/quantile detection on a trial table, and a shuffle-null R² CI (`jnwb/statistics.py`):
+
+```python
+rate_hz = jnwb.rate_in_window(spike_times, onset_s, window_ms=(0.0, 200.0))
+obs, p = jnwb.shuffle_pvalue_paired(a, b, n_shuffles=2000, rng=rng, alternative="greater")
+cycle_id = jnwb.detect_trial_cycles(trials, gap_factor=10.0)     # trials: DataFrame with start_time
+r2 = jnwb.shuffle_r2_ci(y_true, y_score, groups=cycle_id, n_shuffle=500)
+```
+
 Generic spectral analysis — band-limited power, cross-area coherence, 1/f tilt, imaginary
 coherency (immune to zero-lag volume-conduction mixing by construction), and bipolar/Laplacian
 re-referencing (`jnwb/spectral.py`; `CANONICAL_BANDS` is the single-source-of-truth band-edge

@@ -27,10 +27,13 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from scipy import stats
+
+from .permutation import permute_labels
 
 log = logging.getLogger(__name__)
 
@@ -161,6 +164,198 @@ def paired_fire_prob_test(
         "odds_ratio_ci_hi": or_ci_hi,
         "p_value_fire_shuffle": float(p_value),
         "n_trials": int(n),
+    }
+
+
+def rate_in_window(spike_times: np.ndarray, onset_s: float, window_ms: Tuple[float, float]) -> float:
+    """Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_classification's private
+    ``_rate_in_window`` (99%-jnwb-sufficiency normalization): pure spike-array/searchsorted
+    arithmetic on an arbitrary onset and window, the rate-valued sibling of
+    ``fires_in_window``.
+    """
+    t0 = onset_s + window_ms[0] / 1000.0
+    t1 = onset_s + window_ms[1] / 1000.0
+    if t1 <= t0:
+        return 0.0
+    n = int(np.searchsorted(spike_times, t1, side="right") - np.searchsorted(spike_times, t0, side="left"))
+    return n / ((window_ms[1] - window_ms[0]) / 1000.0)
+
+
+def shuffle_pvalue_paired(
+    a: np.ndarray,
+    b: np.ndarray,
+    n_shuffles: int,
+    rng: np.random.Generator,
+    alternative: str = "two-sided",
+) -> Tuple[float, float]:
+    """Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_classification's private
+    ``_shuffle_pvalue_paired`` (99%-jnwb-sufficiency normalization): pure paired-array
+    statistics, no session or condition coupling.
+
+    Null: randomly flip the sign of each paired difference (equivalent to swapping a/b labels
+    within trial). Returns (observed_diff, p_value).
+    """
+    n = min(len(a), len(b))
+    if n < 2:
+        return 0.0, 1.0
+    diff = np.asarray(a[:n], dtype=float) - np.asarray(b[:n], dtype=float)
+    obs = float(np.mean(diff))
+    flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
+    null = flips @ diff / n
+    if alternative == "greater":
+        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
+    elif alternative == "less":
+        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
+    else:
+        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
+    return obs, float(p)
+
+
+def shuffle_pvalue_unpaired(
+    a: np.ndarray,
+    b: np.ndarray,
+    n_shuffles: int,
+    rng: np.random.Generator,
+    alternative: str = "greater",
+) -> Tuple[float, float]:
+    """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_classification's private
+    ``_shuffle_pvalue_unpaired`` (99%-jnwb-sufficiency normalization): pure independent-array
+    statistics, no session or condition coupling.
+    """
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    if len(a) < 2 or len(b) < 2:
+        return 0.0, 1.0
+    obs = float(np.mean(a) - np.mean(b))
+    pooled = np.concatenate([a, b])
+    n_a = len(a)
+    null = np.empty(n_shuffles)
+    for i in range(n_shuffles):
+        rng.shuffle(pooled)
+        null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
+    if alternative == "greater":
+        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
+    elif alternative == "less":
+        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
+    else:
+        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
+    return obs, float(p)
+
+
+def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
+    """Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.omission_identity (99%-jnwb-sufficiency
+    normalization): pure temporal-clustering arithmetic on a plain ``start_time`` column, no
+    condition or session coupling.
+
+    Sorts ``epochs_df["start_time"]``, flags gaps that exceed ``gap_factor * median(gap)`` as
+    cluster boundaries, and returns a 0-indexed integer cluster/cycle id per row, in the
+    original row order of ``epochs_df`` (not sorted order).
+
+    Args:
+        epochs_df: DataFrame with a ``start_time`` column.
+        gap_factor: a gap is a cluster boundary when it exceeds this multiple of the median
+            inter-event gap.
+
+    Returns:
+        (n_rows,) int array of cycle ids, in ``epochs_df``'s original row order.
+    """
+    order = np.argsort(epochs_df["start_time"].values)
+    t_sorted = epochs_df["start_time"].values[order]
+    gaps = np.diff(t_sorted)
+    thresh = gap_factor * np.median(gaps) if len(gaps) else np.inf
+    breaks = np.where(gaps > thresh)[0]
+    cycle_sorted = np.zeros(len(t_sorted), dtype=int)
+    for b in breaks:
+        cycle_sorted[b + 1:] += 1
+    cycle = np.empty(len(order), dtype=int)
+    cycle[order] = cycle_sorted
+    return cycle
+
+
+def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> np.ndarray:
+    """Assign each row a temporal quantile bucket 0..n_quantiles-1 by its own start_time order.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.omission_identity (99%-jnwb-sufficiency
+    normalization): pure temporal-ordering/bucketing arithmetic, no condition or session
+    coupling.
+
+    Args:
+        epochs_df: DataFrame with a ``start_time`` column.
+        n_quantiles: number of equal-sized (as equal as possible) temporal buckets.
+
+    Returns:
+        (n_rows,) int array of quantile bucket ids, in ``epochs_df``'s original row order.
+    """
+    order = np.argsort(epochs_df["start_time"].values)
+    n = len(order)
+    q = np.empty(n, dtype=int)
+    edges = np.linspace(0, n, n_quantiles + 1).astype(int)
+    for k in range(n_quantiles):
+        q[order[edges[k]:edges[k + 1]]] = k
+    return q
+
+
+def shuffle_r2_ci(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    groups: Optional[np.ndarray] = None,
+    n_shuffle: int = 200,
+    random_state: int = 42,
+) -> Dict[str, float]:
+    """R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a
+    shuffle-null 95% CI.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.omission_identity (99%-jnwb-sufficiency
+    normalization): pure array statistics built on the already-generic ``permute_labels``, no
+    session or condition coupling.
+
+    The CI is a percentile of the null distribution, not of the estimate -- R^2 has no closed
+    form for an exact/analytic CI the way a proportion built from counts does, so a shuffle-null
+    percentile CI is used instead. If ``groups`` is given (e.g. a session or cycle id), labels
+    are shuffled WITHIN each group (``permute_labels(..., scheme="within_group")``) so the null
+    preserves the group structure instead of pooling across it; without ``groups``, a global
+    shuffle is used.
+
+    Args:
+        y_true: (n,) array, typically a 0/1 label.
+        y_score: (n,) array, a continuous decision score.
+        groups: optional (n,) group id array for within-group shuffling.
+        n_shuffle: number of shuffle draws.
+        random_state: seed for the shuffle RNG.
+
+    Returns:
+        dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle.
+    """
+    def _r2(y, s):
+        if np.std(s) == 0 or np.std(y) == 0:
+            return 0.0
+        r = np.corrcoef(y, s)[0, 1]
+        return float(r ** 2)
+
+    r2_obs = _r2(y_true, y_score)
+    rng = np.random.default_rng(random_state)
+    null = np.empty(n_shuffle)
+    scheme = "global" if groups is None else "within_group"
+    for i in range(n_shuffle):
+        y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
+        null[i] = _r2(y_perm, y_score)
+    p_val = float(np.mean(null >= r2_obs))
+    p_val = p_val if p_val > 0 else 1.0 / (n_shuffle + 1)
+    return {
+        "r2_observed": r2_obs,
+        "r2_null_ci_lo": float(np.percentile(null, 2.5)),
+        "r2_null_ci_hi": float(np.percentile(null, 97.5)),
+        "r2_null_mean": float(np.mean(null)),
+        "p_val": p_val,
+        "n_shuffle": n_shuffle,
     }
 
 

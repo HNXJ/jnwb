@@ -162,6 +162,19 @@ from .statistics import StatisticalAnalysis
 # see jnwb/statistics.py's fires_in_window/paired_fire_prob_test docstrings).
 from .statistics import fires_in_window, fire_indicator, paired_fire_prob_test
 
+# Generic spike-rate windowing, shuffle-controlled p-values, temporal cycle/quantile detection,
+# and shuffle-null R^2 CI: plain arrays/DataFrames in, no session or condition semantics
+# (promoted 2026-08-23 from omission.jnwb_ext.unit_classification and
+# omission.jnwb_ext.omission_identity; see jnwb/statistics.py's docstrings).
+from .statistics import (
+    rate_in_window,
+    shuffle_pvalue_paired,
+    shuffle_pvalue_unpaired,
+    detect_trial_cycles,
+    assign_subblock_quartiles,
+    shuffle_r2_ci,
+)
+
 from . import visual_qc
 
 from .trajectory import (
@@ -312,6 +325,12 @@ __all__ = [
     'fires_in_window',
     'fire_indicator',
     'paired_fire_prob_test',
+    'rate_in_window',
+    'shuffle_pvalue_paired',
+    'shuffle_pvalue_unpaired',
+    'detect_trial_cycles',
+    'assign_subblock_quartiles',
+    'shuffle_r2_ci',
 
     # Visual QC
     'visual_qc',

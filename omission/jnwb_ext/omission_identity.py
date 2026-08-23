@@ -28,6 +28,11 @@ from sklearn.svm import SVC
 
 import omission as oa
 from jnwb.permutation import permute_labels
+from jnwb.statistics import detect_trial_cycles, assign_subblock_quartiles, shuffle_r2_ci
+
+# detect_trial_cycles, assign_subblock_quartiles, shuffle_r2_ci PROMOTED 2026-08-23 to
+# jnwb.statistics (99%-jnwb-sufficiency normalization) -- re-imported here under their original
+# names so no call site in this module or its callers needs to change.
 
 log = logging.getLogger(__name__)
 
@@ -251,45 +256,6 @@ def decode_omission_identity_slot(
 
 from sklearn.linear_model import LogisticRegression as _LogisticRegression  # noqa: E402
 from sklearn.metrics import accuracy_score as _accuracy_score  # noqa: E402
-
-
-def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
-    """REAL temporal cycle detection, added 2026-08-06 after a correction: the whole
-    A-supergroup/B-supergroup/R-supergroup block-order confound documented above is real, but
-    each condition's trials are NOT one single contiguous block -- verified directly against
-    trial start_time gaps that each condition (AXAB/BXBA/RXRR, and likewise at p3/p4) actually
-    occurs in ~3 widely-separated temporal clusters per session (median inter-trial gap ~60-130s,
-    but 2-3 gaps of 3000-4400s -- the whole 5-condition micro-order repeats roughly 3 times
-    across the session). `task_block_number` reuses the same integer label across all 3 repeats,
-    which is why checking only its unique value (done earlier, before this correction) wrongly
-    looked like one contiguous block. This function finds the real cluster boundaries via a
-    gap-threshold on sorted start_time and returns a 0-indexed cycle id per trial (in the
-    original row order of epochs_df, not sorted order)."""
-    order = np.argsort(epochs_df["start_time"].values)
-    t_sorted = epochs_df["start_time"].values[order]
-    gaps = np.diff(t_sorted)
-    thresh = gap_factor * np.median(gaps) if len(gaps) else np.inf
-    breaks = np.where(gaps > thresh)[0]
-    cycle_sorted = np.zeros(len(t_sorted), dtype=int)
-    for b in breaks:
-        cycle_sorted[b + 1:] += 1
-    cycle = np.empty(len(order), dtype=int)
-    cycle[order] = cycle_sorted
-    return cycle
-
-
-def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> np.ndarray:
-    """Assign each trial in epochs_df (already filtered to one condition) a quartile
-    index 0..n_quantiles-1 by its own start_time order. This is the SUB-BLOCK unit
-    used everywhere below as the stand-in for "block", since the real task_block_number
-    is perfectly confounded with condition (see module note above)."""
-    order = np.argsort(epochs_df["start_time"].values)
-    n = len(order)
-    q = np.empty(n, dtype=int)
-    edges = np.linspace(0, n, n_quantiles + 1).astype(int)
-    for k in range(n_quantiles):
-        q[order[edges[k]:edges[k + 1]]] = k
-    return q
 
 
 def build_noise_controlled_spike_matrix_with_subblocks(
@@ -637,39 +603,6 @@ def decode_identity_cycle_deconfound(
         "confusion_matrix_row_normalized": conf_row_norm.tolist(),
         "confusion_labels": [contrast[0], contrast[1], "R"],
         "n_confusion_folds": n_conf_folds,
-    }
-
-
-def shuffle_r2_ci(y_true: np.ndarray, y_score: np.ndarray, groups: Optional[np.ndarray] = None,
-                   n_shuffle: int = 200, random_state: int = 42) -> Dict[str, float]:
-    """R^2 (squared Pearson correlation) between a continuous decision score and a
-    0/1 label, with a shuffle-null 95% CI (percentile of the null, not of the estimate
-    -- this project's own doctrine reserves exact/analytic CIs for proportions built
-    from counts; R^2 has no such closed form, so shuffle is the documented choice here).
-    If `groups` is given (e.g. session id), labels are shuffled WITHIN each group so the
-    null preserves the group structure instead of pooling across it."""
-    def _r2(y, s):
-        if np.std(s) == 0 or np.std(y) == 0:
-            return 0.0
-        r = np.corrcoef(y, s)[0, 1]
-        return float(r ** 2)
-
-    r2_obs = _r2(y_true, y_score)
-    rng = np.random.default_rng(random_state)
-    null = np.empty(n_shuffle)
-    scheme = "global" if groups is None else "within_group"
-    for i in range(n_shuffle):
-        y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
-        null[i] = _r2(y_perm, y_score)
-    p_val = float(np.mean(null >= r2_obs))
-    p_val = p_val if p_val > 0 else 1.0 / (n_shuffle + 1)
-    return {
-        "r2_observed": r2_obs,
-        "r2_null_ci_lo": float(np.percentile(null, 2.5)),
-        "r2_null_ci_hi": float(np.percentile(null, 97.5)),
-        "r2_null_mean": float(np.mean(null)),
-        "p_val": p_val,
-        "n_shuffle": n_shuffle,
     }
 
 
