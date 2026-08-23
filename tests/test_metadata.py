@@ -11,7 +11,8 @@ import pytest
 
 from jnwb.metadata import (
     classify_unit_quality, unit_census_report, get_snr_analysis, filter_by_criteria,
-    audit_units, audit_electrodes,
+    audit_units, audit_electrodes, assign_quality_tier, compare_old_new_criteria,
+    old_new_summary_table,
 )
 
 
@@ -22,6 +23,8 @@ class TestPublicImport:
             unit_census_report as pub_ucr, get_snr_analysis as pub_gsa,
             electrode_inventory, filter_by_criteria as pub_fbc,
             audit_units as pub_au, audit_electrodes as pub_ae,
+            assign_quality_tier as pub_aqt, compare_old_new_criteria as pub_conc,
+            old_new_summary_table as pub_onst,
         )
         assert pub_cuq is classify_unit_quality
         assert pub_ucr is unit_census_report
@@ -29,6 +32,9 @@ class TestPublicImport:
         assert pub_fbc is filter_by_criteria
         assert pub_au is audit_units
         assert pub_ae is audit_electrodes
+        assert pub_aqt is assign_quality_tier
+        assert pub_conc is compare_old_new_criteria
+        assert pub_onst is old_new_summary_table
         assert callable(get_all_units_metadata)
         assert callable(electrode_inventory)
 
@@ -36,8 +42,15 @@ class TestPublicImport:
         import jnwb
         for name in ("get_all_units_metadata", "classify_unit_quality", "unit_census_report",
                      "get_snr_analysis", "electrode_inventory", "filter_by_criteria",
-                     "audit_units", "audit_electrodes"):
+                     "audit_units", "audit_electrodes", "assign_quality_tier",
+                     "compare_old_new_criteria", "old_new_summary_table"):
             assert name in jnwb.__all__
+
+    def test_omission_unit_inclusion_delegates_to_jnwb(self):
+        ui = pytest.importorskip("omission.jnwb_ext.unit_inclusion")
+        assert ui.assign_quality_tier is assign_quality_tier
+        assert ui.compare_old_new_criteria is compare_old_new_criteria
+        assert ui.old_new_summary_table is old_new_summary_table
 
     def test_omission_functions_delegates_to_jnwb(self):
         functions = pytest.importorskip("omission.jnwb_ext.functions")
@@ -195,3 +208,73 @@ class TestGetSnrAnalysis:
         result = get_snr_analysis(_synthetic_units(), snr_threshold=1.0, detail=True)
         assert "by_session" in result
         assert set(result["by_session"].keys()) == {100, 101}
+
+
+class TestAssignQualityTier:
+    def test_quality_zero_is_mua(self):
+        tier = assign_quality_tier(
+            pd.Series([0, 0]), pd.Series([1.0, 1.0]), pd.Series([5.0, 5.0])
+        )
+        assert (tier == "mua").all()
+
+    def test_quality_one_above_thresholds_is_stable(self):
+        tier = assign_quality_tier(
+            pd.Series([1]), pd.Series([0.99]), pd.Series([1.0]),
+            presence_threshold=0.98, snr_threshold=0.5,
+        )
+        assert tier.iloc[0] == "stable"
+
+    def test_quality_one_below_thresholds_is_unstable(self):
+        tier = assign_quality_tier(
+            pd.Series([1]), pd.Series([0.5]), pd.Series([1.0]),
+            presence_threshold=0.98, snr_threshold=0.5,
+        )
+        assert tier.iloc[0] == "unstable"
+
+    def test_missing_snr_is_unstable_not_stable(self):
+        tier = assign_quality_tier(
+            pd.Series([1]), pd.Series([0.99]), pd.Series([float("nan")]),
+        )
+        assert tier.iloc[0] == "unstable"
+
+
+class TestCompareOldNewCriteria:
+    def _frames(self):
+        new_df = pd.DataFrame({
+            "session": ["s1", "s1", "s1"],
+            "unit_row": [1, 2, 3],
+            "is_omission_inclusion_new": [True, False, True],
+        })
+        old_df = pd.DataFrame({
+            "session_prefix": ["s1", "s1"],
+            "unit_row_idx": [1, 2],
+            "is_Oplus": [False, False],
+        })
+        return new_df, old_df
+
+    def test_transitions_classified_correctly(self):
+        new_df, old_df = self._frames()
+        compared = compare_old_new_criteria(new_df, old_df)
+        by_row = compared.set_index("unit_row")["transition"]
+        assert by_row[1] == "gained"       # new=True, old=False, screened
+        assert by_row[2] == "unchanged_excluded"  # new=False, old=False, screened
+        assert by_row[3] == "gained"       # unit 3 never screened by old, new=True
+
+    def test_old_screened_flag(self):
+        new_df, old_df = self._frames()
+        compared = compare_old_new_criteria(new_df, old_df)
+        by_row = compared.set_index("unit_row")["old_screened"]
+        assert by_row[1] and by_row[2]
+        assert not by_row[3]
+
+
+class TestOldNewSummaryTable:
+    def test_counts_per_group_and_transition(self):
+        compared = pd.DataFrame({
+            "area": ["V1", "V1", "PFC"],
+            "quality_tier": ["stable", "stable", "mua"],
+            "transition": ["gained", "gained", "lost"],
+        })
+        summary = old_new_summary_table(compared)
+        row = summary[(summary["area"] == "V1") & (summary["transition"] == "gained")]
+        assert row["n_units"].iloc[0] == 2

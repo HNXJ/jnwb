@@ -157,6 +157,11 @@ from .analyzers import (
 )
 from .statistics import StatisticalAnalysis
 
+# Generic paired fire-probability testing: plain spike-time/onset arrays and boolean pairs in,
+# no session or condition semantics (promoted 2026-08-23 from omission.jnwb_ext.unit_inclusion;
+# see jnwb/statistics.py's fires_in_window/paired_fire_prob_test docstrings).
+from .statistics import fires_in_window, fire_indicator, paired_fire_prob_test
+
 from . import visual_qc
 
 from .trajectory import (
@@ -187,6 +192,9 @@ from .metadata import (
     filter_by_criteria,
     audit_units,
     audit_electrodes,
+    assign_quality_tier,
+    compare_old_new_criteria,
+    old_new_summary_table,
 )
 
 # Generic spectral analysis: band-limited power, cross-area coherence, 1/f tilt, imaginary
@@ -300,6 +308,9 @@ __all__ = [
     'UnitAnalyzer',
     'PopulationAnalyzer',
     'StatisticalAnalysis',
+    'fires_in_window',
+    'fire_indicator',
+    'paired_fire_prob_test',
 
     # Visual QC
     'visual_qc',
@@ -330,6 +341,9 @@ __all__ = [
     'filter_by_criteria',
     'audit_units',
     'audit_electrodes',
+    'assign_quality_tier',
+    'compare_old_new_criteria',
+    'old_new_summary_table',
 
     # Spectral analysis
     'to_db',

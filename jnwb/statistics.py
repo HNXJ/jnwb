@@ -50,6 +50,120 @@ def clopper_pearson(k, n, alpha: float = 0.05):
     return (float(lo), float(hi))
 
 
+def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
+    """True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
+    normalization): pure spike-array/searchsorted arithmetic on an arbitrary onset and window,
+    no session or condition coupling.
+    """
+    t0 = onset_s + window_ms[0] / 1000.0
+    t1 = onset_s + window_ms[1] / 1000.0
+    if t1 <= t0:
+        return False
+    n = int(np.searchsorted(spike_times, t1, side="right") - np.searchsorted(spike_times, t0, side="left"))
+    return n > 0
+
+
+def fire_indicator(spike_times: np.ndarray, onsets_s: np.ndarray, window_ms) -> np.ndarray:
+    """Vectorized boolean fire indicator, one entry per onset, constant window.
+
+    PROMOTED 2026-08-23 alongside ``fires_in_window`` (see its docstring).
+    """
+    return np.asarray(
+        [fires_in_window(spike_times, float(o), window_ms) for o in onsets_s], dtype=bool
+    )
+
+
+def paired_fire_prob_test(
+    fires_target: np.ndarray,
+    fires_null: np.ndarray,
+    n_shuffles: int,
+    n_bootstrap: int,
+    rng: np.random.Generator,
+) -> Dict:
+    """Paired binary test: P(fire | target window) vs P(fire | paired baseline window).
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
+    normalization): a fully generic paired-proportions inferential routine -- two plain boolean
+    arrays, an explicit RNG, and shuffle/bootstrap counts in; no session, condition, or
+    omission-slot semantics.
+
+    Significance: shuffle-null on which member of each trial's pair counts as "target"
+    (sign-flip of the paired difference), alternative="greater" (tests whether the target
+    window's fire probability exceeds the paired baseline's). Risk-difference CI: paired
+    bootstrap over trials (percentile method) -- distinct RNG draws from the shuffle-null so the
+    hypothesis test and the interval don't share randomness. Odds ratio: McNemar-style
+    discordant-pair estimator with Haldane-Anscombe continuity correction (avoids div-by-zero
+    when one discordant count is 0).
+
+    Args:
+        fires_target: (n,) bool array, one entry per paired trial.
+        fires_null: (n,) bool array, the paired baseline/control condition.
+        n_shuffles: number of sign-flip draws for the shuffle-null p-value.
+        n_bootstrap: number of paired-bootstrap draws for the risk-difference CI.
+        rng: explicit numpy.random.Generator.
+
+    Returns:
+        dict with p_fire_target, p_fire_pre_omission_baseline, risk_difference (+ CI),
+        odds_ratio (+ CI), p_value_fire_shuffle, n_trials. All-NaN/p=1.0 when fewer than 2
+        paired trials are available.
+    """
+    t = np.asarray(fires_target, dtype=bool)
+    u = np.asarray(fires_null, dtype=bool)
+    n = min(len(t), len(u))
+    if n < 2:
+        return {
+            "p_fire_target": float(np.mean(t)) if len(t) else float("nan"),
+            "p_fire_pre_omission_baseline": float(np.mean(u)) if len(u) else float("nan"),
+            "risk_difference": float("nan"),
+            "risk_difference_ci_lo": float("nan"),
+            "risk_difference_ci_hi": float("nan"),
+            "odds_ratio": float("nan"),
+            "odds_ratio_ci_lo": float("nan"),
+            "odds_ratio_ci_hi": float("nan"),
+            "p_value_fire_shuffle": 1.0,
+            "n_trials": int(n),
+        }
+
+    ta = t[:n].astype(float)
+    ua = u[:n].astype(float)
+    diff = ta - ua
+    obs = float(np.mean(diff))
+    p_target = float(np.mean(ta))
+    p_null = float(np.mean(ua))
+
+    flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
+    null_dist = flips @ diff / n
+    p_value = (1.0 + np.sum(null_dist >= obs)) / (n_shuffles + 1.0)
+
+    boot_idx = rng.integers(0, n, size=(n_bootstrap, n))
+    boot_diffs = diff[boot_idx].mean(axis=1)
+    ci_lo, ci_hi = np.percentile(boot_diffs, [2.5, 97.5])
+
+    n10 = float(np.sum((ta == 1) & (ua == 0)))
+    n01 = float(np.sum((ta == 0) & (ua == 1)))
+    n10c, n01c = n10 + 0.5, n01 + 0.5
+    odds_ratio = n10c / n01c
+    se_log_or = float(np.sqrt(1.0 / n10c + 1.0 / n01c))
+    log_or = float(np.log(odds_ratio))
+    or_ci_lo = float(np.exp(log_or - 1.96 * se_log_or))
+    or_ci_hi = float(np.exp(log_or + 1.96 * se_log_or))
+
+    return {
+        "p_fire_target": p_target,
+        "p_fire_pre_omission_baseline": p_null,
+        "risk_difference": obs,
+        "risk_difference_ci_lo": float(ci_lo),
+        "risk_difference_ci_hi": float(ci_hi),
+        "odds_ratio": float(odds_ratio),
+        "odds_ratio_ci_lo": or_ci_lo,
+        "odds_ratio_ci_hi": or_ci_hi,
+        "p_value_fire_shuffle": float(p_value),
+        "n_trials": int(n),
+    }
+
+
 def coef_rows(
     res,
     model: str,

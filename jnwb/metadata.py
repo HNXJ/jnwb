@@ -25,7 +25,7 @@ Date: 2026-06-25
 
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
 from pynwb import NWBHDF5IO
@@ -451,3 +451,125 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
         result['assignment_rate'] = 0.0
 
     return result
+
+
+def assign_quality_tier(
+    quality: pd.Series,
+    trial_presence_fraction: pd.Series,
+    snr: pd.Series,
+    presence_threshold: float = 0.98,
+    snr_threshold: float = 0.5,
+) -> pd.Series:
+    """Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
+    normalization): three plain Series and two thresholds in, a tier Series out -- no column
+    names are looked up internally (they're passed in as Series), no session or condition
+    coupling.
+
+    quality==0 -> 'mua' (a common Kilosort-curation convention: is_stable = quality>=1).
+    quality==1 & presence>presence_threshold & snr>snr_threshold -> 'stable'.
+    quality==1 & (presence<=threshold or snr<=snr_threshold or either missing) -> 'unstable'.
+
+    Args:
+        quality: per-unit quality code Series (0 = MUA, 1 = single-unit candidate).
+        trial_presence_fraction: per-unit fraction of trials the unit was present for.
+        snr: per-unit signal-to-noise ratio.
+        presence_threshold: minimum presence fraction (exclusive) for 'stable'.
+        snr_threshold: minimum SNR (exclusive) for 'stable'.
+
+    Returns:
+        Series of {'mua', 'stable', 'unstable'}, same index as ``quality``.
+    """
+    q = pd.to_numeric(quality, errors="coerce")
+    presence = pd.to_numeric(trial_presence_fraction, errors="coerce")
+    snr_num = pd.to_numeric(snr, errors="coerce")
+    tier = pd.Series("unstable", index=quality.index, dtype=object)
+    tier[q == 0] = "mua"
+    stable_mask = (q == 1) & (presence > presence_threshold) & (snr_num > snr_threshold)
+    tier[stable_mask] = "stable"
+    unstable_mask = (q == 1) & ~stable_mask
+    tier[unstable_mask] = "unstable"
+    return tier
+
+
+def compare_old_new_criteria(
+    new_df: pd.DataFrame,
+    old_df: pd.DataFrame,
+    new_key: Tuple[str, str] = ("session", "unit_row"),
+    old_key: Tuple[str, str] = ("session_prefix", "unit_row_idx"),
+    class_col_new: str = "is_omission_inclusion_new",
+    class_col_old: str = "is_Oplus",
+) -> pd.DataFrame:
+    """Diff two boolean unit-classification columns across two DataFrames on a join key.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
+    normalization): a reusable "classifier version diff" utility -- every column name is a
+    parameter (defaults reflect the caller's original convention but nothing is hardcoded into
+    the logic), no session or condition semantics.
+
+    A unit in ``new_df`` absent from ``old_df`` (the old pipeline never screened it, e.g. it
+    failed the old table's own upstream filter) is labeled 'gained' with ``old_screened=False``,
+    kept distinct from a unit the old classifier actually scored and rejected.
+
+    Args:
+        new_df: DataFrame with the new classification column and ``new_key`` columns.
+        old_df: DataFrame with the old classification column and ``old_key`` columns.
+        new_key: (session_col, unit_col) identity-key column names in ``new_df``.
+        old_key: (session_col, unit_col) identity-key column names in ``old_df``.
+        class_col_new: boolean classification column name in ``new_df``.
+        class_col_old: boolean classification column name in ``old_df``.
+
+    Returns:
+        ``new_df`` left-joined with ``old_df``'s classification, plus ``old_screened`` (bool)
+        and ``transition`` (one of "gained", "lost", "unchanged_included", "unchanged_excluded").
+    """
+    new_s, new_u = new_key
+    old_s, old_u = old_key
+    old_small = old_df[[old_s, old_u, class_col_old]].rename(
+        columns={old_s: new_s, old_u: new_u, class_col_old: "_old_class"}
+    )
+    merged = new_df.merge(old_small, on=[new_s, new_u], how="left")
+    merged["old_screened"] = merged["_old_class"].notna()
+    merged["_old_class"] = merged["_old_class"].astype("boolean").fillna(False).astype(bool)
+    new_class = merged[class_col_new].astype(bool)
+    old_class = merged["_old_class"].astype(bool)
+
+    def _transition(row_new: bool, row_old: bool, screened: bool) -> str:
+        if not screened:
+            return "gained" if row_new else "unchanged_excluded"
+        if row_new and not row_old:
+            return "gained"
+        if row_old and not row_new:
+            return "lost"
+        if row_new and row_old:
+            return "unchanged_included"
+        return "unchanged_excluded"
+
+    merged["transition"] = [
+        _transition(bool(n), bool(o), bool(s))
+        for n, o, s in zip(new_class, old_class, merged["old_screened"])
+    ]
+    merged = merged.drop(columns=["_old_class"])
+    return merged
+
+
+def old_new_summary_table(
+    compared: pd.DataFrame,
+    group_cols: Tuple[str, ...] = ("area", "quality_tier"),
+) -> pd.DataFrame:
+    """Explicit gained/lost/unchanged counts per class per grouping column.
+
+    PROMOTED 2026-08-23 alongside ``compare_old_new_criteria`` (see its docstring); a trivial
+    generic groupby-count over caller-supplied columns.
+
+    Args:
+        compared: output of ``compare_old_new_criteria`` (must have a ``transition`` column).
+        group_cols: columns to group by before counting transitions.
+
+    Returns:
+        DataFrame of counts, one row per (group_cols..., transition).
+    """
+    cols = list(group_cols) + ["transition"]
+    summary = compared.groupby(cols).size().reset_index(name="n_units")
+    return summary

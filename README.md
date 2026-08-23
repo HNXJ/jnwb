@@ -82,6 +82,16 @@ snr_stats = jnwb.get_snr_analysis(units)                 # -> {'pass_rate': ...,
 good_v1 = jnwb.filter_by_criteria(units, {"area": "V1", "firing_rate": (1.0, 50.0)})
 unit_audit = jnwb.audit_units(units)             # spike-time coverage, quality/SNR/rate stats
 elec_audit = jnwb.audit_electrodes(electrodes, units)  # area counts, unit-assignment rate
+tier = jnwb.assign_quality_tier(units["quality"], units["trial_presence_fraction"], units["snr"])
+diff = jnwb.compare_old_new_criteria(new_units, old_units)  # gained/lost/unchanged transitions
+```
+
+Generic paired fire-probability testing — plain spike-time/onset arrays and boolean pairs in,
+a shuffle-null p-value + bootstrap CI + odds ratio out (`jnwb/statistics.py`):
+
+```python
+fired = jnwb.fire_indicator(spike_times, onsets, window_ms=(0.0, 150.0))
+result = jnwb.paired_fire_prob_test(fired_target, fired_baseline, n_shuffles=2000, n_bootstrap=2000, rng=rng)
 ```
 
 Generic spectral analysis — band-limited power, cross-area coherence, 1/f tilt, imaginary
