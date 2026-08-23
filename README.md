@@ -79,6 +79,7 @@ units = jnwb.get_all_units_metadata(nwb_paths)          # -> DataFrame, one row 
 units = jnwb.classify_unit_quality(units)                # + quality_class, is_valid, issue_flags
 census = jnwb.unit_census_report(units, group_by=["area"])
 snr_stats = jnwb.get_snr_analysis(units)                 # -> {'pass_rate': ..., 'snr_mean': ...}
+good_v1 = jnwb.filter_by_criteria(units, {"area": "V1", "firing_rate": (1.0, 50.0)})
 ```
 
 Generic spectral analysis — band-limited power, cross-area coherence, 1/f tilt, imaginary

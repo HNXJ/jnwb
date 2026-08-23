@@ -9,7 +9,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from jnwb.metadata import classify_unit_quality, unit_census_report, get_snr_analysis
+from jnwb.metadata import (
+    classify_unit_quality, unit_census_report, get_snr_analysis, filter_by_criteria,
+)
 
 
 class TestPublicImport:
@@ -17,19 +19,52 @@ class TestPublicImport:
         from jnwb import (
             get_all_units_metadata, classify_unit_quality as pub_cuq,
             unit_census_report as pub_ucr, get_snr_analysis as pub_gsa,
-            electrode_inventory,
+            electrode_inventory, filter_by_criteria as pub_fbc,
         )
         assert pub_cuq is classify_unit_quality
         assert pub_ucr is unit_census_report
         assert pub_gsa is get_snr_analysis
+        assert pub_fbc is filter_by_criteria
         assert callable(get_all_units_metadata)
         assert callable(electrode_inventory)
 
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("get_all_units_metadata", "classify_unit_quality", "unit_census_report",
-                     "get_snr_analysis", "electrode_inventory"):
+                     "get_snr_analysis", "electrode_inventory", "filter_by_criteria"):
             assert name in jnwb.__all__
+
+    def test_omission_functions_delegates_to_jnwb(self):
+        functions = pytest.importorskip("omission.jnwb_ext.functions")
+        assert functions._filter_units is filter_by_criteria
+
+
+class TestFilterByCriteria:
+    def test_scalar_equality(self):
+        df = pd.DataFrame({"area": ["V1", "V4", "V1"], "x": [1, 2, 3]})
+        out = filter_by_criteria(df, {"area": "V1"})
+        assert list(out["x"]) == [1, 3]
+
+    def test_range_tuple(self):
+        df = pd.DataFrame({"firing_rate": [1.0, 15.0, 50.0, 200.0]})
+        out = filter_by_criteria(df, {"firing_rate": (10, 100)})
+        assert list(out["firing_rate"]) == [15.0, 50.0]
+
+    def test_list_membership(self):
+        df = pd.DataFrame({"area": ["V1", "V4", "PFC"], "x": [1, 2, 3]})
+        out = filter_by_criteria(df, {"area": ["V1", "V4"]})
+        assert list(out["x"]) == [1, 2]
+
+    def test_unknown_column_is_ignored_not_an_error(self):
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        out = filter_by_criteria(df, {"nonexistent_col": "V1"})
+        assert len(out) == 3
+
+    def test_does_not_mutate_input(self):
+        df = pd.DataFrame({"area": ["V1", "V4"], "x": [1, 2]})
+        original = df.copy()
+        filter_by_criteria(df, {"area": "V1"})
+        pd.testing.assert_frame_equal(df, original)
 
 
 def _synthetic_units():

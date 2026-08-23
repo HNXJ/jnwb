@@ -7,7 +7,9 @@ Each function: jnwb.<function>(<inputs>, <context>, <parameters>)
 - Publication-ready outputs
 
 Changes:
-  - _filter_units() helper eliminates duplicated criteria-filter code
+  - _filter_units() helper eliminates duplicated criteria-filter code (promoted 2026-08-23
+    to jnwb.metadata.filter_by_criteria -- 99%-jnwb-sufficiency normalization; fully generic
+    pandas filtering, no unit- or omission-specific logic)
   - _epoch_grouper() helper eliminates duplicated groupby(trial_num) code
   - tfr_permutation_test: passes per-trial arrays instead of scalars
   - units_across_sessions: uses positional args, not **criteria
@@ -23,6 +25,7 @@ import pandas as pd
 from .session import OmissionSession
 from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
 from jnwb.statistics import StatisticalAnalysis
+from jnwb.metadata import filter_by_criteria as _filter_units
 
 log = logging.getLogger(__name__)
 
@@ -30,29 +33,6 @@ log = logging.getLogger(__name__)
 # ============================================================================
 # PRIVATE HELPERS
 # ============================================================================
-
-def _filter_units(df: pd.DataFrame, criteria: Dict) -> pd.DataFrame:
-    """
-    Apply a criteria dict to a units DataFrame.
-
-    Supports:
-    - scalar equality  : {'area': 'V1'}
-    - range tuple      : {'firing_rate': (10, 100)}
-    - list membership  : {'area': ['V1', 'V4']}
-    """
-    out = df.copy()
-    for k, v in criteria.items():
-        if k not in out.columns:
-            continue
-        if isinstance(v, tuple) and len(v) == 2:
-            col = pd.to_numeric(out[k], errors='coerce')
-            out = out[(col >= v[0]) & (col <= v[1])]
-        elif isinstance(v, (list, set)):
-            out = out[out[k].isin(v)]
-        else:
-            out = out[out[k] == v]
-    return out
-
 
 def _epoch_grouper(session: OmissionSession, condition: str, phase: int):
     """

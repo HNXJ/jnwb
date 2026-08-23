@@ -102,6 +102,36 @@ def get_all_units_metadata(
     return result
 
 
+def filter_by_criteria(df: pd.DataFrame, criteria: Dict) -> pd.DataFrame:
+    """
+    Apply a criteria dict to a DataFrame (units, electrodes, or any other table).
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.functions._filter_units
+    (99%-jnwb-sufficiency normalization): fully generic pandas filtering, no
+    unit- or omission-specific logic despite the original private name.
+
+    Supports:
+    - scalar equality  : {'area': 'V1'}
+    - range tuple      : {'firing_rate': (10, 100)}
+    - list membership  : {'area': ['V1', 'V4']}
+
+    Unknown columns in ``criteria`` are silently ignored (not an error), so a
+    single criteria dict can be reused across tables with different schemas.
+    """
+    out = df.copy()
+    for k, v in criteria.items():
+        if k not in out.columns:
+            continue
+        if isinstance(v, tuple) and len(v) == 2:
+            col = pd.to_numeric(out[k], errors='coerce')
+            out = out[(col >= v[0]) & (col <= v[1])]
+        elif isinstance(v, (list, set)):
+            out = out[out[k].isin(v)]
+        else:
+            out = out[out[k] == v]
+    return out
+
+
 def classify_unit_quality(
     units_df: pd.DataFrame,
     thresholds: Optional[Dict[str, float]] = None
