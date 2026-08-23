@@ -76,7 +76,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "context" / "figures"))
 
 from jnwb import paths as _P                              # noqa: E402
-from omission.jnwb_ext.spectral import to_db                            # noqa: E402
+from jnwb.spectral import to_db                            # noqa: E402
 from figstats import Result, correct, paired_location, write  # noqa: E402
 from figstyle import EPOCH_ONSETS_MS, AREA_ORDER            # noqa: E402
 

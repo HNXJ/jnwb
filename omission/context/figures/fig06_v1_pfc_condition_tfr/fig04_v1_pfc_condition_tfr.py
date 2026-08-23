@@ -64,7 +64,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from svgassemble import assemble
 from figstats import Result, correct, group_location, paired_location, write
 from figstyle import mark_full_trial_axis, EPOCH_ONSETS_MS
-from omission.jnwb_ext.spectral import to_db
+from jnwb.spectral import to_db
 from jnwb import paths as _P
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"

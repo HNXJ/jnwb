@@ -43,15 +43,10 @@ from scipy import stats
 log = logging.getLogger(__name__)
 
 #: Settled Omission band edges (Hz). See CLAUDE.md "Band definitions".
-#: ``omission.jnwb_ext.spectral.cross_area_coherence`` imports this same constant (confirmed 2026-08-14,
-#: `from .connectivity import CANONICAL_BANDS`) -- there is no second, pre-correction copy.
-CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
-    "theta": (4.0, 8.0),
-    "alpha": (8.0, 14.0),
-    "beta": (14.0, 30.0),
-    "low_gamma": (30.0, 50.0),
-    "high_gamma": (50.0, 80.0),
-}
+#: PROMOTED 2026-08-23: single source of truth moved to jnwb.spectral.CANONICAL_BANDS
+#: (99%-jnwb-sufficiency normalization) -- re-exported here unchanged so this module's
+#: existing consumers and internal uses below keep working without modification.
+from jnwb.spectral import CANONICAL_BANDS
 
 
 def _discrete_mi_from_labels(x: np.ndarray, y: np.ndarray) -> float:

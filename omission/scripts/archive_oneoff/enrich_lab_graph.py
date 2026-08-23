@@ -39,7 +39,7 @@ SUBMODULES = [
     },
     {
         "id": "jnwb-submodule-spectral",
-        "title": "omission.jnwb_ext.spectral (LFP Spectral & TFR Analysis)",
+        "title": "jnwb.spectral (LFP Spectral & TFR Analysis)",
         "summary": "Multitaper TFR computation, band power extraction, and spectrolaminar (vFLIP2) mapping.",
         "source_paths": ["jnwb/spectral.py", "jnwb/tfr.py"],
         "links": [{"to": PARENT_ID, "relation": "refines"}, {"to": "omission-tests", "relation": "derives_from"}],

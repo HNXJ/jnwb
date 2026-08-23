@@ -186,6 +186,21 @@ from .metadata import (
     electrode_inventory,
 )
 
+# Generic spectral analysis: band-limited power, cross-area coherence, 1/f tilt, imaginary
+# coherency, re-referencing (promoted 2026-08-23 from omission.jnwb_ext.spectral; see
+# jnwb/spectral.py's module docstring).
+from .spectral import (
+    to_db,
+    harmonic_analysis,
+    cross_area_coherence,
+    spectral_tilt,
+    band_power,
+    imaginary_coherency,
+    bipolar_reference,
+    laplacian_reference,
+    CANONICAL_BANDS,
+)
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -249,4 +264,15 @@ __all__ = [
     'unit_census_report',
     'get_snr_analysis',
     'electrode_inventory',
+
+    # Spectral analysis
+    'to_db',
+    'harmonic_analysis',
+    'cross_area_coherence',
+    'spectral_tilt',
+    'band_power',
+    'imaginary_coherency',
+    'bipolar_reference',
+    'laplacian_reference',
+    'CANONICAL_BANDS',
 ]

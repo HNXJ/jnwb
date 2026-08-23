@@ -1,5 +1,5 @@
 """
-Validate omission.jnwb_ext.spectral.imaginary_coherency against synthetic analytical cases.
+Validate jnwb.spectral.imaginary_coherency against synthetic analytical cases.
 
 Case A (volume conduction / shared reference): a common source S mixed with
 independent gain and independent noise into x and y at ZERO lag. Raw coherence
@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, "d:/workspace/omission")
 import numpy as np
 
-from omission.jnwb_ext.spectral import imaginary_coherency, bipolar_reference, laplacian_reference
+from jnwb.spectral import imaginary_coherency, bipolar_reference, laplacian_reference
 
 rng = np.random.default_rng(0)
 fs = 1000.0

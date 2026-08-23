@@ -27,7 +27,7 @@ METHOD
     Per area, one representative session (full channel range, not the 32-channel tractability
     cap L0-L2 used -- CSD needs full depth resolution). Raw LFP epoch trials
     ((-0.6, 2.2) s, p1-referenced, same window as L1/L2), artifact-repaired, THEN
-    omission.jnwb_ext.spectral.laplacian_reference applied per trial (the same CSD estimator L0 validated
+    jnwb.spectral.laplacian_reference applied per trial (the same CSD estimator L0 validated
     and used for its own method (d) -- reused, not reimplemented). Trial-averaged (linear mean
     of the signed CSD trace -- no log, CSD is a signed physical quantity, not power). Baseline
     (-0.4, -0.15 s) mean SUBTRACTED (not divided) per channel, removing DC offset without
@@ -156,7 +156,7 @@ def run(max_trials=MAX_TRIALS):
             "superficial/mid/deep only, not literal cytoarchitectonic layer 4."
         ),
         "l0_source": str(L0_STATS), "epoch_window_s": list(EPOCH_WIN_S),
-        "baseline_window_s": list(BASELINE_WIN_S), "csd_method": "omission.jnwb_ext.spectral.laplacian_reference "
+        "baseline_window_s": list(BASELINE_WIN_S), "csd_method": "jnwb.spectral.laplacian_reference "
         "per trial (same estimator validated in L0 method (d)), baseline mean-subtracted (not "
         "logged -- CSD is a signed physical quantity).",
         "panels": {},
@@ -245,7 +245,7 @@ def run_synthetic_selftest():
     """Synthetic multi-channel voltage with a KNOWN sink (negative deflection) injected at one
     depth and one time window -- laplacian_reference must recover a negative CSD deflection
     localized at that channel/time, not smeared across depth or sign-flipped."""
-    from omission.jnwb_ext.spectral import laplacian_reference
+    from jnwb.spectral import laplacian_reference
     rng = np.random.default_rng(0)
     n_ch, n_samples = 16, 300
     sink_ch = 8

@@ -81,6 +81,18 @@ census = jnwb.unit_census_report(units, group_by=["area"])
 snr_stats = jnwb.get_snr_analysis(units)                 # -> {'pass_rate': ..., 'snr_mean': ...}
 ```
 
+Generic spectral analysis — band-limited power, cross-area coherence, 1/f tilt, imaginary
+coherency (immune to zero-lag volume-conduction mixing by construction), and bipolar/Laplacian
+re-referencing (`jnwb/spectral.py`; `CANONICAL_BANDS` is the single-source-of-truth band-edge
+default, theta/alpha/beta/low_gamma/high_gamma):
+
+```python
+coh = jnwb.cross_area_coherence(v1_lfp, pfc_lfp, sampling_rate=1000.0)
+theta_power_db = jnwb.band_power(lfp, 1000.0, jnwb.CANONICAL_BANDS["theta"], baseline=baseline_lfp)
+icoh = jnwb.imaginary_coherency(x, y, sampling_rate=1000.0, freq_range=(1, 100))  # icoh_mean, coh_mag_mean
+laplacian = jnwb.laplacian_reference(channel_data, channel_order=depth_order)
+```
+
 ---
 
 ## Module map
@@ -100,6 +112,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `artifact_repair.py`, `artifact_detection.py` | Trial-segmented artifact repair (substitution) / detection (exclusion) |
 | `onset_fitting.py` | Causal PSTH smoothing; causality-bounded exponential onset-latency fit |
 | `metadata.py` | Unit/electrode metadata extraction, QC classification, census reporting |
+| `spectral.py` | Band power, cross-area coherence, 1/f tilt, imaginary coherency, bipolar/Laplacian re-referencing; `CANONICAL_BANDS` |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

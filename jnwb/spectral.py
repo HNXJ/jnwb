@@ -1,8 +1,18 @@
 """
-Spectral Analysis: Band-Limited Oscillations and Cross-Area Coherence
+jnwb.spectral -- generic spectral/oscillatory analysis: band-limited power, cross-area
+coherence, 1/f tilt, imaginary coherency, and re-referencing, for any LFP time series.
 
-New orthogonal jnwb module for spectral/oscillatory analysis.
-Consolidates advanced spectral functions from archived Y-files:
+PROMOTED 2026-08-23 from omission.jnwb_ext.spectral (99%-jnwb-sufficiency normalization): all
+functions take plain time-series arrays and generic keyword parameters, with no omission-task
+conditions/classes anywhere. CANONICAL_BANDS below is the single-source-of-truth band-edge
+default (moved here from omission.jnwb_ext.connectivity, which now re-exports it rather than
+defining a second copy -- see that module's own docstring note "no second, pre-correction
+copy"); the band edges (theta/alpha/beta/gamma) are the standard neuroscience convention this
+corpus settled on, not omission-specific values, and remain fully overridable via the
+freq_bands= parameter.
+
+Originally: new orthogonal jnwb module for spectral/oscillatory analysis, consolidating
+advanced spectral functions from archived Y-files:
 - harmonic/ folder
 - coherence/ folder
 - spectral_relations_pipeline (selected methods)
@@ -21,6 +31,17 @@ from scipy import signal, stats
 import pandas as pd
 
 log = logging.getLogger(__name__)
+
+#: Settled band edges (Hz) -- standard neuroscience convention, not omission-specific.
+#: Single source of truth: omission.jnwb_ext.connectivity.CANONICAL_BANDS re-exports this
+#: constant rather than defining a second copy (see that module's docstring).
+CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
+    "theta": (4.0, 8.0),
+    "alpha": (8.0, 14.0),
+    "beta": (14.0, 30.0),
+    "low_gamma": (30.0, 50.0),
+    "high_gamma": (50.0, 80.0),
+}
 
 
 def to_db(ratio):
@@ -162,8 +183,7 @@ def cross_area_coherence(
         lfp_area2: Time series from area 2
         sampling_rate: Sampling frequency (Hz)
         freq_bands: Dict of {'band_name': (freq_min, freq_max)}
-                   Default: omission.jnwb_ext.connectivity.CANONICAL_BANDS — the settled
-                   Omission set (theta 4-8, alpha 8-14, beta 14-30,
+                   Default: CANONICAL_BANDS (theta 4-8, alpha 8-14, beta 14-30,
                    low_gamma 30-50, high_gamma 50-80).
         device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
@@ -189,7 +209,6 @@ def cross_area_coherence(
         # (12-30 -> 14-30), low_gamma narrows (30-55 -> 30-50), high_gamma shifts
         # (55-90 -> 50-80), and delta is dropped because no project doctrine
         # defines its edges. Pass freq_bands= explicitly to reproduce old output.
-        from .connectivity import CANONICAL_BANDS
         freq_bands = dict(CANONICAL_BANDS)
 
     result = {

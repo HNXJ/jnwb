@@ -204,8 +204,9 @@ from .jnwb_ext.sequence_layout import (
     sequence_shapes,
 )
 
-# Spectral analysis (task-flavored: Omission band conventions)
-from .jnwb_ext import spectral
+# Spectral analysis: promoted 2026-08-23 to jnwb.spectral (99%-jnwb-sufficiency
+# normalization) -- re-exported here as omission.spectral for backwards compatibility.
+from jnwb import spectral
 
 # Canonical functions (TFR, raster/PSTH, unit finding, population, batch, advanced)
 from .jnwb_ext.functions import (

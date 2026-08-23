@@ -530,7 +530,7 @@ def test_module_band_defaults_agree_with_project_doctrine():
     pre-correction set (alpha 8-12, beta 12-30, gamma 30-55/55-90).
     """
     import inspect
-    from omission.jnwb_ext.spectral import cross_area_coherence
+    from jnwb.spectral import cross_area_coherence
     from omission.jnwb_ext import factories
 
     rng = np.random.default_rng(9)

@@ -24,7 +24,7 @@ REPRESENTATIVE CHANNEL -- SAME LIMITATION L6 ALREADY STATES
     across channels, not only across a full area's depth.
 
 METHOD
-    omission.jnwb_ext.spectral.imaginary_coherency reused verbatim for coh_mag_mean (standard,
+    jnwb.spectral.imaginary_coherency reused verbatim for coh_mag_mean (standard,
     magnitude-squared coherence) and icoh_mean / icoh_abs_mean (the volume-conduction-insensitive
     control, per L6). Band-mean PHASE (new, not in imaginary_coherency's return) computed locally
     via the band-averaged complex coherency's own angle -- same Welch/CSD estimator, no new
@@ -69,7 +69,7 @@ sys.path.insert(0, str(REPO / "scripts" / "archive_oneoff"))
 sys.path.insert(0, str(REPO / "context" / "figures"))
 
 from _l_lfp_common import PROBE_LETTER_TO_KEY, extract_epoch_trials, git_sha  # noqa: E402
-from omission.jnwb_ext.spectral import imaginary_coherency  # noqa: E402
+from jnwb.spectral import imaginary_coherency  # noqa: E402
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -171,7 +171,7 @@ def run():
     stats = {
         "canonical_pooling_method": "a_per_channel_then_pool",
         "l0_source": str(L0_STATS), "layer_source": str(LAYER_CSV),
-        "method": "omission.jnwb_ext.spectral.imaginary_coherency (standard coh_mag_mean + imaginary "
+        "method": "jnwb.spectral.imaginary_coherency (standard coh_mag_mean + imaginary "
                   "icoh_mean/icoh_abs_mean) plus a locally-computed band-averaged phase, on ONE "
                   "representative channel per (area, layer) node, per session, per band, stim "
                   "and omission NEVER pooled. Standard coherence inflated by volume conduction; "

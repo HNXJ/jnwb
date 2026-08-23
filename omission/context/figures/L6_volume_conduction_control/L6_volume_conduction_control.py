@@ -5,13 +5,13 @@ returned H3_simultaneous_or_ambiguous, which the spec's own text says cannot be 
 "shared conducted field" without this analysis).
 
 METHOD (per spec)
-    (a) Bipolar/Laplacian re-referencing -- computed via omission.jnwb_ext.spectral.laplacian_reference
+    (a) Bipolar/Laplacian re-referencing -- computed via jnwb.spectral.laplacian_reference
         (already validated as this project's CSD/re-referencing estimator, L0 method (d) and
         L4's whole pipeline). Applied to a small channel block (N_CH_BLOCK=5) around a
         representative channel per area BEFORE coherence is computed, per
         imaginary_coherency's own docstring ("callers are responsible for re-referencing...
         before calling this").
-    (b) Removing zero-lag components -- omission.jnwb_ext.spectral.imaginary_coherency itself: its own
+    (b) Removing zero-lag components -- jnwb.spectral.imaginary_coherency itself: its own
         docstring identifies it as "the estimator this project's fig06/fig07 volume-conduction
         control requires" (Im(coherency) is insensitive to zero-lag mixing by construction).
     Both (a) and (b) are applied together (CSD-referenced signals fed to imaginary coherency)
@@ -80,7 +80,7 @@ sys.path.insert(0, str(REPO / "context" / "figures"))
 from _l_lfp_common import (  # noqa: E402
     extract_epoch_trials, find_probe_for_area, git_sha, resolve_area_channel_block,
 )
-from omission.jnwb_ext.spectral import imaginary_coherency, laplacian_reference  # noqa: E402
+from jnwb.spectral import imaginary_coherency, laplacian_reference  # noqa: E402
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent

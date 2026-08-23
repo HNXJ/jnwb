@@ -132,8 +132,8 @@ def resolve_lfp_datasets(f: h5py.File, lfp_key: str):
 
 
 def csd_reference_trials(x_trials: np.ndarray) -> np.ndarray:
-    """omission.jnwb_ext.spectral.laplacian_reference per trial (CSD estimator for a depth-ordered probe)."""
-    from omission.jnwb_ext.spectral import laplacian_reference
+    """jnwb.spectral.laplacian_reference per trial (CSD estimator for a depth-ordered probe)."""
+    from jnwb.spectral import laplacian_reference
     return np.stack([laplacian_reference(x_trials[t]) for t in range(x_trials.shape[0])])
 
 

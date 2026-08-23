@@ -45,7 +45,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from svgassemble import assemble
 from figstats import correlation, group_location, paired_location, write
-from omission.jnwb_ext.spectral import to_db
+from jnwb.spectral import to_db
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
 FIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "svg")

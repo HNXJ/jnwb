@@ -25,7 +25,7 @@ Fig05/Fig06 shared TFR-corpus rebuild):
    saved alongside as the "channels" array in the same .npz, sorted ascending, so any consumer
    can recover which physical channel each column is.
 
-2. CHANNEL-QUALITY (1/f) SCREEN. Per candidate channel, omission.jnwb_ext.spectral.spectral_tilt() is run
+2. CHANNEL-QUALITY (1/f) SCREEN. Per candidate channel, jnwb.spectral.spectral_tilt() is run
    once on a representative raw-LFP segment (the full session, subsampled) to fit the aperiodic
    exponent and R^2. A channel is KEPT only if exponent < 0 (power decreasing with frequency,
    the expected LFP aperiodic shape) and fit_quality (R^2) >= MIN_FIT_R2. This is a real,
@@ -83,7 +83,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from jnwb import paths as oa_paths
-from omission.jnwb_ext.spectral import spectral_tilt
+from jnwb.spectral import spectral_tilt
 
 FREQS_HZ = np.arange(3, 201, 2)  # 99
 N_TIMES = 500

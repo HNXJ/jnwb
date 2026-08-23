@@ -85,7 +85,7 @@ sys.path.insert(0, _REPO_ROOT)
 from figstyle import EPOCH_ONSETS_MS, BANDS, BAND_COLORS, STIM_SHADE, OMIT_SHADE, ONSET_COLOR
 
 from jnwb import paths as _P
-from omission.jnwb_ext.spectral import to_db
+from jnwb.spectral import to_db
 
 TFR_DIR = _P.tfr_dir()
 FIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "svg")

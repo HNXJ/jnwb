@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from jnwb.analyzers import UnitAnalyzer, PopulationAnalyzer
-from omission.jnwb_ext.spectral import (
+from jnwb.spectral import (
     harmonic_analysis,
     cross_area_coherence,
     spectral_tilt,

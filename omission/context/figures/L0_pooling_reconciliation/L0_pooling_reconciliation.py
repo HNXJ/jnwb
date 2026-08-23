@@ -20,7 +20,7 @@ METHOD (spec's own four variants)
         THEN average the dB values across channels -- averages in log space, which
         omission-signal S1 documents as biased (Jensen's inequality, E[log X] < log E[X]).
     (d) same as (a) but on Laplacian-(CSD-)referenced traces instead of raw-referenced traces.
-        omission.jnwb_ext.spectral.laplacian_reference (interior channel i = x[i] - mean(x[i-1], x[i+1])) is
+        jnwb.spectral.laplacian_reference (interior channel i = x[i] - mean(x[i-1], x[i+1])) is
         the standard discrete second-spatial-derivative CSD estimator for a linearly-spaced,
         depth-ordered probe (CSD ~ -d2V/dz2); reused here rather than building new CSD infra,
         since it is already the house re-referencing utility used for exactly this purpose in
@@ -77,7 +77,7 @@ sys.path.insert(0, str(REPO / "context" / "figures"))
 from precompute_tfr_arrays import (  # noqa: E402
     condition_numbers_for, p1_onsets_s, resolve_lfp_datasets,
 )
-from omission.jnwb_ext.spectral import laplacian_reference  # noqa: E402
+from jnwb.spectral import laplacian_reference  # noqa: E402
 from jnwb.artifact_repair import repair_lfp_trials  # noqa: E402  (promoted 2026-08-23 from omission.jnwb_ext.artifact_repair)
 from jnwb.addressing import map_peak_channel_to_area  # noqa: E402
 import figstyle  # noqa: E402

@@ -77,7 +77,7 @@ sys.path.insert(0, HERE)
 from figstyle import use_house_style, save as figstyle_save  # noqa: E402
 from svgassemble import assemble  # noqa: E402
 from jnwb import paths as _P  # noqa: E402
-from omission.jnwb_ext.spectral import to_db  # noqa: E402
+from jnwb.spectral import to_db  # noqa: E402
 from fig04_v1_pfc_condition_tfr import (  # noqa: E402
     gaussian_smooth_2d, CONDITION_AREAS, CONDITIONS, CONDITION_WIN, COND_OMIT_SLOT, COND_LABEL,
     SPEC_SMOOTH_TIME_BINS,
