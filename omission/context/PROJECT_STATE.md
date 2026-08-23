@@ -120,6 +120,18 @@ Full comparison: `artifacts/.lab/fig04-glmm-all-areas-timeresolved-v3-20260814.j
 the v2 node above, which stays `superseded`, not deleted). **This v3 result is current best
 estimate** — use 109/180, not v1's 119/180 or v2's 85/180.
 
+**RENAMED 2026-08-22** (normalization, tfr_band_power family canonicalization — see
+`omission/scripts/canonical_script_inventory.csv` generation and Batch 2 report): the script
+paths named above are historical facts about what was run when, preserved as written.
+Current names: `scripts/extract_condition_tfr_maps_v3.py` → `scripts/extract_condition_tfr_maps.py`;
+`v2` → `scripts/archive_oneoff/extract_condition_tfr_maps_v2_superseded_20260814.py`; the
+original → `scripts/archive_oneoff/extract_condition_tfr_maps_v1_superseded_20260804.py`;
+`scripts/precompute_tfr_arrays_v2.py` → `scripts/precompute_tfr_arrays.py`. Output directory
+names (`outputs/condition_tfr_maps_p1d1p2d2p3{,_v2,_v3}/`) are unchanged by the rename. The
+`fig04_v1_pfc_condition_tfr.py` `CONDITION_MAPS`-constant bug flagged just above this section
+(wrong-machine absolute path, reading the stale v1 output) is now fixed — see
+`context/figures/fig06_v1_pfc_condition_tfr/README.md`.
+
 ### RESOLVED 2026-08-15 — classify_omission_units_jitter.py / _condition.py results depended on corpus size and session order, not just session content
 
 Both scripts shared a single `np.random.default_rng(42)` across their whole sorted-session loop,

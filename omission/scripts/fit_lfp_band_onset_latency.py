@@ -6,7 +6,8 @@ with a continuous onset fit, per Hamm's direct correction (2026-08-15): "no dela
 event and neural signal can be less than 10ms ... temporal resolution should be up to 5ms error."
 
 WHY THIS EXISTS, NOT A NEW EXTRACTION
-    scripts/precompute_tfr_arrays_v2.py's own BIN_MS=10.0 shows the TFR array feeding fig04's
+    scripts/precompute_tfr_arrays.py's (renamed 2026-08-22 from precompute_tfr_arrays_v2.py) own
+    BIN_MS=10.0 shows the TFR array feeding fig04's
     v3 GLMM (outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz, artifact-repaired, already
     accepted -- "so keep this as for fig04") is natively 10ms resolution; the GLMM script pools
     it into 150ms bins for statistical power/family-size reasons, not because finer data doesn't

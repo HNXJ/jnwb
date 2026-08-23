@@ -1,4 +1,11 @@
 r"""
+This GLMM rerun is itself superseded by fig04_glmm_all_areas_timeresolved_v3.py (v3 adds
+trial-level artifact repair; see PROJECT_STATE.md's 2026-08-14 resolution notes -- v3 is
+"current best estimate"). Kept for provenance. RENAMED 2026-08-22: scripts/
+extract_condition_tfr_maps_v2.py mentioned below is now archived at scripts/archive_oneoff/
+extract_condition_tfr_maps_v2_superseded_20260814.py; precompute_tfr_arrays_v2.py is now
+scripts/precompute_tfr_arrays.py.
+
 v2, 2026-08-14: reruns this GLMM against condition maps regenerated from the CURRENT TFR corpus.
 
 WHY

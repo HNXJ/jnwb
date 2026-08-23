@@ -9,7 +9,7 @@ WHY A NEW FILE, NOT AN EDIT TO extract_spike_lfp_coupling.py
     a shallow search"). This blocks the script outright, not just its trustworthiness -- it was
     only ever able to run because its one existing output (outputs/spike_lfp_coupling/
     coupling.npz) predates this gap (dated 2026-07-30, before the sidecars went missing).
-    scripts/precompute_tfr_arrays_v2.py -- the script behind fig04's now-accepted v3 corpus --
+    scripts/precompute_tfr_arrays.py (renamed 2026-08-22 from precompute_tfr_arrays_v2.py) -- the script behind fig04's now-accepted v3 corpus --
     already solved exactly this problem for its own area/channel resolution by reading
     outputs/channel_area_vector/channel_area_vector.csv instead of the sidecar (22/22 sessions
     covered, confirmed). This file reuses that same sidecar-free source; every other piece of
@@ -20,7 +20,7 @@ ONLY CHANGE: `cells_for_session()` replaces the original's
     `load_probe_areas(META_ROOT, stem)` + `cells_for_probe(...)` (extract_lfp_coupling_matrices)
     pipeline. channel_area_vector.csv's `seg_start`/`seg_stop` per (session_prefix,
     probe_letter, area) is exactly probe_areas.json's `channel_slices[area] = {start, stop}` --
-    confirmed by inspecting scripts/precompute_tfr_arrays_v2.py's own AREA_VEC_PATH usage.
+    confirmed by inspecting scripts/precompute_tfr_arrays.py (renamed 2026-08-22 from precompute_tfr_arrays_v2.py)'s own AREA_VEC_PATH usage.
     Layer masks still come from outputs/layers/channel_layers_all.csv via
     extract_lfp_coupling_matrices.load_layer_masks (unaffected by the sidecar gap; reused as-is).
 
@@ -48,7 +48,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts" / "archive_oneoff"))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from precompute_tfr_arrays_v2 import resolve_lfp_datasets, PROBE_LETTER  # noqa: E402
+from precompute_tfr_arrays import resolve_lfp_datasets, PROBE_LETTER  # noqa: E402  (renamed 2026-08-22 from precompute_tfr_arrays_v2)
 from extract_lfp_coupling_matrices import (  # noqa: E402
     BANDS, CONTEXTS, load_layer_masks, LAYERS, p1_onsets_and_conditions_s,
 )

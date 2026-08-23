@@ -10,21 +10,20 @@ WHY A SEPARATE SCRIPT, NOT A MODE ON THE MAIN ONE
     omission_tfr.py. This does not change fig04.svg or its own panels.
 
 DATA SOURCE
-    outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz (scripts/extract_condition_tfr_maps_v2.py,
-    receipt generated_utc 2026-08-14T18:26 UTC) -- the CURRENT canonical condition-map
-    extraction per context/PROJECT_STATE.md ("RESOLVED 2026-08-14 -- the p2-omission-vs-real
-    condition-map GLMM was built from the superseded TFR path"). NOT v1
-    (outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz, built 2026-08-04 from the pre-migration
-    D:/workspace/data/tfr_arrays corpus, marked superseded).
+    outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz (scripts/extract_condition_tfr_maps.py,
+    renamed 2026-08-22 from extract_condition_tfr_maps_v3.py during normalization) -- the
+    CURRENT canonical condition-map extraction. v3 adds cross-trial-median artifact repair over
+    v2 and is stated as "current best estimate" in context/PROJECT_STATE.md's 2026-08-14
+    resolution note ("RESOLVED 2026-08-14 -- the v2 rerun above still had no trial-level
+    artifact rejection"). This supplement previously read v2
+    (outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz) directly -- repointed to v3 2026-08-22.
+    NOT v1 (outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz, built 2026-08-04 from the
+    pre-migration D:/workspace/data/tfr_arrays corpus, marked superseded).
 
-    FLAGGED, NOT FIXED HERE: fig04_v1_pfc_condition_tfr.py's own CONDITION_MAPS constant still
-    reads r"D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz" -- that drive
-    path does not exist on this machine (D:\ has no "workspace" directory; the real repo-local
-    outputs live under outputs/ off the repo root, discoverable via jnwb.paths.outputs_dir()),
-    so the module's own load_condition_maps() cannot currently run, and even if repointed to a
-    reachable path it would still be reading the superseded v1 extraction. Out of scope for
-    this supplement (a separate, no-questions-asked fix); loader below reads v2 directly rather
-    than inheriting the broken path or importing load_condition_maps() from that module.
+    FIXED 2026-08-22 (was flagged, not fixed, as of the prior pass): fig04_v1_pfc_condition_tfr.py's
+    own CONDITION_MAPS constant repointed from a wrong-machine absolute path (reading the
+    superseded v1 extraction even if the drive existed) to a repo-relative v3 path via
+    jnwb.paths.REPO_ROOT.
 
 MEASURE
     Per session: ratio = sums[i] / counts[i] (POWER RATIO, not yet logged). Grand mean: nanmean
@@ -84,7 +83,7 @@ from fig04_v1_pfc_condition_tfr import (  # noqa: E402
     SPEC_SMOOTH_TIME_BINS,
 )
 
-MAPS_NPZ = str(_P.outputs_dir() / "condition_tfr_maps_p1d1p2d2p3_v2" / "maps.npz")
+MAPS_NPZ = str(_P.outputs_dir() / "condition_tfr_maps_p1d1p2d2p3_v3" / "maps.npz")
 SVG_DIR = os.path.join(HERE, "svg")
 
 FREQ_TICKS_HZ = [4, 8, 14, 30, 50, 80, 150]

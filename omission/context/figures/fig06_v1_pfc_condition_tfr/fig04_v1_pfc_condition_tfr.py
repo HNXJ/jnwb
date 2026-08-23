@@ -65,6 +65,7 @@ from svgassemble import assemble
 from figstats import Result, correct, group_location, paired_location, write
 from figstyle import mark_full_trial_axis, EPOCH_ONSETS_MS
 from omission.jnwb_ext.spectral import to_db
+from jnwb import paths as _P
 
 MAPS = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500/maps.npz"
 OUT_DIR = r"D:/workspace/omission/outputs/omission_tfr_maps_w1500"
@@ -342,7 +343,12 @@ def draw_area(fig, gs_cell, area, sess, freqs, times, bands, vlim, bottom):
 # (draw_area, PANEL_SET) is unchanged and still feeds the supplements from this same svg/
 # folder; it is simply no longer what "figure 4" itself shows.
 # ============================================================================================
-CONDITION_MAPS = r"D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz"
+# Repointed 2026-08-22 (normalization, tfr_band_power family canonicalization): was a
+# wrong-machine absolute path (D:/workspace/omission does not exist on this machine) that even
+# repointed would have read the v1 extraction -- superseded 2026-08-14, see
+# context/PROJECT_STATE.md's "RESOLVED 2026-08-14" note. v3 (artifact-repaired, "current best
+# estimate") is scripts/extract_condition_tfr_maps.py (renamed from _v3.py same pass).
+CONDITION_MAPS = str(_P.REPO_ROOT / "outputs" / "condition_tfr_maps_p1d1p2d2p3_v3" / "maps.npz")
 CONDITION_AREAS = ["V1", "V3a/d", "TEO", "PFC"]
 CONDITIONS = ["RXRR", "RRRR"]
 # The other six of the ten analysis areas (figstyle.AREA_ORDER minus CONDITION_AREAS), in

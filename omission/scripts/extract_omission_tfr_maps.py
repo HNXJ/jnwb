@@ -2,7 +2,8 @@ r"""
 Time-resolved omission-aligned time-frequency maps, per session x area x putative layer.
 
 WHY THIS EXISTS
-    The window census (compute_channel_band_power_census_v2.py) averages power over the
+    The window census (compute_channel_band_power_census.py, renamed 2026-08-22 from
+    compute_channel_band_power_census_v2.py) averages power over the
     omitted slot alone, 0 to +531 ms. Inspection of the area traces shows the low-frequency
     change is a RAMP that keeps climbing through the following delay, so a 531 ms window
     measures its leading edge and understates it. This script keeps time.

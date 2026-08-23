@@ -51,9 +51,11 @@ PROBE_LETTER = {"probe_0_lfp": "A", "probe_1_lfp": "B", "probe_2_lfp": "C", "pro
 def tfr_corpus_index() -> pd.DataFrame:
     """(session_prefix, probe_letter, area_token) actually present in the TFR corpus.
 
-    Globs both .npy (legacy precompute_tfr_arrays.py) and .npz (precompute_tfr_arrays_v2.py,
-    the current corpus format as of the 2026-08 rebuild) -- same dual-format accommodation
-    already made in compute_channel_band_power_census_v2.py.
+    Globs both .npy (legacy archive_oneoff/precompute_tfr_arrays.py) and .npz
+    (precompute_tfr_arrays.py, renamed 2026-08-22 from precompute_tfr_arrays_v2.py -- the
+    current corpus format as of the 2026-08 rebuild) -- same dual-format accommodation
+    already made in compute_channel_band_power_census.py (renamed 2026-08-22 from
+    compute_channel_band_power_census_v2.py).
     """
     rows = []
     for ext in ("*.npy", "*.npz"):

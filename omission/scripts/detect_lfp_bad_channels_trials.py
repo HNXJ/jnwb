@@ -46,7 +46,7 @@ from jnwb.artifact_detection import (
     channel_correlation_matrix,
     consensus_bad_trials,
 )
-from precompute_tfr_arrays_v2 import resolve_lfp_datasets
+from precompute_tfr_arrays import resolve_lfp_datasets  # renamed 2026-08-22 from precompute_tfr_arrays_v2
 from _l_lfp_common import _probe_column, _dec, PROBE_LETTER_TO_KEY
 
 OUT_DIR = REPO / "outputs" / "artifact_qc"

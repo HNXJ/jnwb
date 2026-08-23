@@ -1,9 +1,15 @@
 r"""
+RENAMED 2026-08-22: the script named below as scripts/extract_condition_tfr_maps_v3.py is now
+scripts/extract_condition_tfr_maps.py (canonicalized during normalization; its output directory,
+outputs/condition_tfr_maps_p1d1p2d2p3_v3/, is unchanged). scripts/precompute_tfr_arrays_v2.py
+mentioned further below is now scripts/precompute_tfr_arrays.py.
+
 v3, 2026-08-14: reruns this GLMM against condition maps that additionally exclude/repair
 trial-level power-spike artifacts, per direct user instruction ("we gotta make sure we are
 excluding intervals with artifacts ; artifacts are sharp increase in power that across trials
 in the same condition are not present"). Input:
-scripts/extract_condition_tfr_maps_v3.py -> outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz,
+scripts/extract_condition_tfr_maps_v3.py (see rename note above) ->
+outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz,
 which applies omission.jnwb_ext.artifact_repair.repair_band_artifacts (cross-trial-median substitution, one-
 sided z>6 per band) before the trial-mean/baseline/dB pipeline -- v2 (this file's non-v3
 sibling) had the corrected corpus but zero trial-level artifact rejection. Only the

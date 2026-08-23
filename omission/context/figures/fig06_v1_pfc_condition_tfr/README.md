@@ -21,19 +21,30 @@ does not reliably support `set_yscale("log")`), the omitted slot marked with a s
 red line (a lighter marker than the 2-D panels' full epoch shading -- shaded epoch planes in
 3-D were judged not worth the added complexity for a supplement).
 
-Reads `outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz` directly. **Stale pointer, corrected
-2026-08-22**: `context/PROJECT_STATE.md` (2026-08-14) has since superseded this — `v3`
-(`scripts/extract_condition_tfr_maps_v3.py` -> `outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz`)
-adds artifact repair before the dB pipeline and is stated there as "current best estimate... use
-109/180, not v1's 119/180 or v2's 85/180." v2 is not deleted (kept, `superseded` status in the
-`.lab` graph) but is no longer canonical; this supplement's loader has not been repointed at v3
-as part of this pass — that repoint is a separate, not-yet-done code change, not a documentation
-fix. **Flagged, not fixed here**: the main `fig04_v1_pfc_condition_tfr.py`'s own `CONDITION_MAPS` constant still points at
-`D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz` -- that drive path does
-not exist on this machine, and even repointed it would read the superseded v1 extraction (built
-2026-08-04 from the pre-corpus-migration path). This supplement's own loader reads v2 directly
-rather than inheriting either problem; fixing the main script's path/version is a separate,
-not-yet-done change.
+**Both loader bugs below fixed 2026-08-22** (normalization, tfr_band_power family
+canonicalization — was flagged, not fixed, as of the 2026-08-22 first pass). `v3`
+(`scripts/extract_condition_tfr_maps.py`, renamed from `extract_condition_tfr_maps_v3.py` in the
+same pass -> `outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz`) adds artifact repair before the
+dB pipeline and is `context/PROJECT_STATE.md`'s stated "current best estimate... use 109/180, not
+v1's 119/180 or v2's 85/180." v1 and v2 are not deleted (archived at
+`scripts/archive_oneoff/extract_condition_tfr_maps_v{1,2}_superseded_*.py`, `superseded` status
+in the `.lab` graph) but are no longer canonical.
+
+`fig04xx_3d_condition_tfr.py`'s loader was reading `outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz`
+directly — repointed to the v3 directory. The main `fig04_v1_pfc_condition_tfr.py`'s own
+`CONDITION_MAPS` constant was a wrong-machine absolute path
+(`D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz` — that drive path does not
+exist on this machine, and even repointed would have read the superseded v1 extraction, built
+2026-08-04 from the pre-corpus-migration path) — repointed to a repo-relative v3 path via
+`jnwb.paths.REPO_ROOT`. Neither fix has been verified by actually re-rendering fig06 (that needs
+the real TFR/NWB corpus and matplotlib compute, out of scope for this normalization pass) — the
+input path is now correct, but the rendered SVG has not been regenerated against it.
+
+**Separate, larger issue found and NOT fixed here** (out of this family's bounded scope): this
+same directory has 13 occurrences of stale `D:/workspace/omission/...` absolute paths across 10
+files (scripts, a README, and receipt JSONs) — `CONDITION_MAPS` above was one of them, but
+`MAPS`/`OUT_DIR` at the top of `fig04_v1_pfc_condition_tfr.py` and others remain unaudited. See
+`omission/outputs/fixlist/fix-fig06-stale-drive-paths.md`.
 
 Confirms the same sanity-check signature as the 2-D panels visually: three gamma bursts at the
 real stimulus slots (p1, p2, p3) in RRRR, collapsing to a dip at the omitted p2 slot in RXRR;

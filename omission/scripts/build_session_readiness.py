@@ -50,7 +50,8 @@ TFR_RE = re.compile(
 def tfr_index(tfr_dir: Path) -> Dict[str, Dict[str, Any]]:
     """prefix -> {n_files, conditions, areas_guess}.
 
-    2026-08-14: the TFR corpus migrated .npy -> .npz (scripts/precompute_tfr_arrays_v2.py) and
+    2026-08-14: the TFR corpus migrated .npy -> .npz (scripts/precompute_tfr_arrays.py, renamed
+    2026-08-22 from precompute_tfr_arrays_v2.py) and
     grew a 4th probe letter (A/B/C/D), but this scan was never updated -- it globbed only *.npy
     and matched only [ABC], so it silently found 0 files against the current 970-file .npz
     corpus while session_readiness.csv kept reporting tfr_ok=0/22 (see context/PROJECT_STATE.md

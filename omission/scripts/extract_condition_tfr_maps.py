@@ -1,4 +1,70 @@
 r"""
+RENAMED 2026-08-22 (normalization, tfr_band_power family canonicalization): this file was
+extract_condition_tfr_maps_v3.py. The two superseded predecessors it refers to below as "v2"
+and "the original" are archived, unedited, at
+scripts/archive_oneoff/extract_condition_tfr_maps_v2_superseded_20260814.py and
+scripts/archive_oneoff/extract_condition_tfr_maps_v1_superseded_20260804.py respectively. This
+file's own OUT_DIR (outputs/condition_tfr_maps_p1d1p2d2p3_v3/) is unchanged by the rename --
+only the script's filename changed, not its output location or any of its logic.
+
+v3, 2026-08-14: adds cross-trial-median artifact repair, absent from v2 and the original.
+
+WHY
+    User directive: "we gotta make sure we are excluding intervals with artifacts ; artifacts
+    are sharp increase in power that across trials in the same condition are not present." v2
+    (this file's non-v3 sibling) fixed the .npy->.npz corpus migration but carried forward zero
+    trial-level artifact rejection from the original script -- every trial's power, including a
+    trial with a sharp, single-trial power spike absent from the other trials of the same
+    session x area x condition, was averaged into the trial-mean unmodified. That is exactly the
+    TFR-domain artifact class omission.jnwb_ext.artifact_repair.repair_band_artifacts already exists to
+    catch (promoted 2026-08-14 from context/figures/fig_v1_omission_band_dynamics/
+    band_power_dynamics.py, where it was already used for a different figure but never applied
+    here): per band, per (trial, time), a one-sided robust-z test against the cross-trial
+    median trend, threshold TFR_Z_THRESH=6.0; flagged cells are replaced by the cross-trial
+    median at that band/time (substitution, not exclusion -- the trial is kept, only the
+    flagged interval is repaired), so a rare single-trial spike cannot drag the session mean the
+    way it would were the trial simply averaged in raw.
+    Applied ONCE per file across all of that file's selected channels (not per accumulation
+    chunk), immediately after windowing and before the trial-mean/baseline-ratio/dB pipeline, so
+    the per-band detection statistic uses the full channel set rather than a chunk-dependent
+    subset. Per-file flagged fractions are logged (artifact_log) and rolled into receipt.json
+    (n_files_with_flags, mean/max frac_flagged per band) rather than only living in stdout.
+    Only this repair step and the receipt/log additions differ from v2; loading, channel-join,
+    and dB-estimator logic are unchanged.
+
+--- v2 docstring below, preserved for provenance ---
+
+v2, 2026-08-14: rebuilds this extraction against the CURRENT TFR corpus, not the one
+extract_condition_tfr_maps.py was written against. WRITTEN AS A NEW FILE per this project's
+"preserve originals" working agreement -- the original is untouched and its (now-stale) output
+is not overwritten in place.
+
+WHY A NEW FILE, NOT A ONE-LINE FIX
+    The original's 2026-08-04 receipt.json reads source_dir="D:/workspace/data/tfr_arrays" --
+    a path context/PROJECT_STATE.md explicitly lists under "Superseded paths -- do not restore".
+    That corpus was 1,236 raw, unscreened, full-128-channel .npy files. The current corpus
+    (scripts/precompute_tfr_arrays_v2.py, begun 2026-08-11) is 970 .npz files, already reduced
+    to each area's real channel subset AND a 1/f-quality-screened subset of those -- the
+    channel axis is no longer the full probe, and the surviving channel identities are stored
+    in the file's own "channels" array (original probe-channel indices, ascending), not
+    recoverable by treating array position as raw channel number. This is a different data
+    contract, not just a different file extension, so the loading and channel-attribution logic
+    below is rewritten, not patched:
+      - glob *.npz instead of *.npy; np.load(f) returns a keyed archive (accessed via
+        d["power"]/d["channels"]), not a bare ndarray -- unlike the original's
+        np.load(f, mmap_mode="r"), which assumed a raw-array .npy and does not apply to a
+        (compressed) .npz the same way.
+      - Channel selection no longer subsets a big raw array by an externally-known channel
+        list (channel_area_vector.csv) at matching ARRAY POSITIONS; the array is already
+        exactly that area's screened channels, in the order given by the file's own "channels"
+        field. channel_area_vector.csv is still consulted, but only to intersect against what
+        actually survived screening and to look up putative_layer per real channel number --
+        never to index the array by position from the old channel list.
+    Frequency/time axis conventions (FREQS_HZ, N_TIMES_SRC, T0_SRC_MS/BIN_MS) are unchanged
+    between the two corpora and are reused as-is.
+
+--- Original docstring below, preserved for provenance ---
+
 Time-resolved TFR maps per session x area x putative layer, for the p2-omission-vs-real
 comparison across all three condition families (R, A, B).
 (RRXR added 2026-07-31 for a per-subject V182o band-trace supplement -- p3-omission alongside
@@ -6,9 +72,7 @@ the original p2-omission RXRR comparison; same extraction, same baseline, just o
 condition value pulled from files that already existed on disk. AXAB/AAAB/BXBA/BBBA added
 2026-08-04 for the omission-vs-stimulus x {A,B,R}-family GLMM: A/B family p2-omission
 (AXAB/BXBA) and p2-real (AAAB/BBBA) matched pairs are the same design RXRR/RRRR already gives
-for R family. All twelve GLO_CONDITIONS .npy arrays already exist in TFR_DIR -- no new NWB
-pass, this is the same local-file aggregation as the R-family-only extraction, just over more
-of the files already on disk.)
+for R family.)
 
 WHY THIS EXISTS
     Every other TFR map in this repo (extract_omission_tfr_maps.py) pools all nine omission
@@ -55,10 +119,11 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
+from omission.jnwb_ext.artifact_repair import repair_band_artifacts, DEFAULT_BANDS
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
-OUT_DIR = _P.REPO_ROOT / "outputs/condition_tfr_maps_p1d1p2d2p3"
+OUT_DIR = _P.REPO_ROOT / "outputs/condition_tfr_maps_p1d1p2d2p3_v3"
 
 FREQS_HZ = np.arange(3, 201, 2)
 N_TIMES_SRC = 500
@@ -92,7 +157,7 @@ def main(limit=None):
                                     g.get("putative_layer", pd.Series(index=g.index))))
 
     targets, skipped = [], []
-    for f in sorted(glob.glob(os.path.join(TFR_DIR, "*.npy"))):
+    for f in sorted(glob.glob(os.path.join(TFR_DIR, "*.npz"))):
         m = FNAME_RE.match(os.path.basename(f)[:-4])
         if not m:
             continue
@@ -114,14 +179,21 @@ def main(limit=None):
     b0 = int(round((BASELINE_MS[0] - T0_SRC_MS) / BIN_MS)) - i0
     b1 = int(round((BASELINE_MS[1] - T0_SRC_MS) / BIN_MS)) - i0
 
+    artifact_log = []
     acc_sum = defaultdict(lambda: np.zeros((len(FREQS_HZ), N_TIMES)))
     acc_cnt = defaultdict(lambda: np.zeros((len(FREQS_HZ), N_TIMES)))
     meta = defaultdict(lambda: {"n_channels": 0, "n_trials": 0})
     t_start = time.time()
 
     for k, (f, g, chans, lmap) in enumerate(targets, 1):
+        # v2: .npz is a keyed archive, not a raw array. Its channel axis is ALREADY restricted
+        # to this area's real-channel + 1/f-quality-screened subset (precompute_tfr_arrays_v2.py)
+        # -- "channels" gives the original probe-channel number at each array position, so
+        # channel identity must be looked up through it, never assumed equal to array position.
         try:
-            arr = np.load(f, mmap_mode="r")
+            with np.load(f) as d:
+                arr = d["power"]
+                file_channels = np.asarray(d["channels"])
         except Exception as e:
             skipped.append((os.path.basename(f), f"load failed: {e}"))
             continue
@@ -132,13 +204,33 @@ def main(limit=None):
             skipped.append((os.path.basename(f), "window outside source time axis"))
             continue
 
-        sel = chans[chans < arr.shape[1]]
+        # Intersect channel_area_vector.csv's expected channel numbers (chans) against what
+        # actually survived screening in THIS file (file_channels); sel/sel_pos stay aligned
+        # (sel[i] is the real channel number stored at array position sel_pos[i]).
+        keep = np.isin(file_channels, chans)
+        sel_pos = np.nonzero(keep)[0]
+        sel = file_channels[sel_pos]
+        if sel.size == 0:
+            skipped.append((os.path.basename(f), "no overlap between area_vector channels and file channels"))
+            continue
         area10 = AREA_POOL.get(g["area"], g["area"])
         cond = g["cond"]
 
+        # v3: cross-trial-median artifact repair (omission.jnwb_ext.artifact_repair.repair_band_artifacts),
+        # applied ONCE per file across ALL of this file's selected channels (not per chunk) so
+        # the per-band detection statistic (channel-mean band power per trial x time) uses the
+        # full channel set's SNR rather than a chunk-dependent subset, before any chunking for
+        # memory. See module docstring: this extraction previously had NO trial-level artifact
+        # rejection at all -- a single trial with a sharp, condition-atypical power spike in one
+        # band was averaged into the session mean unmodified.
+        windowed = np.asarray(arr[:, sel_pos, :, i0:i1], dtype=np.float32)  # (trials,nch,f,t)
+        windowed, frac_flagged_by_band = repair_band_artifacts(windowed, FREQS_HZ, band_ranges=DEFAULT_BANDS)
+        if any(v > 0 for v in frac_flagged_by_band.values()):
+            artifact_log.append({"file": os.path.basename(f), "frac_flagged_by_band": frac_flagged_by_band})
+
         for c0 in range(0, sel.size, CHUNK):
             ch_block = sel[c0:c0 + CHUNK]
-            buf = np.asarray(arr[:, ch_block, :, i0:i1], dtype=np.float32)   # (trials,nch,f,t)
+            buf = windowed[:, c0:c0 + CHUNK]                                    # (trials,nch,f,t)
             # Same estimator as extract_omission_tfr_maps.py: trial-mean power first, THEN the
             # ratio, THEN the logarithm once at the very end (never average decibels).
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -188,10 +280,33 @@ def main(limit=None):
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "script": os.path.abspath(__file__),
         "purpose": "RXRR/RRXR-vs-RRRR dB maps per session x area x putative layer, p1-aligned, "
-                   "each channel referenced to its own middle-of-d1 baseline.",
-        "source_dir": TFR_DIR, "area_vector": AREA_VEC,
+                   "each channel referenced to its own middle-of-d1 baseline. v2: rebuilt "
+                   "against the post-2026-08-11 .npz TFR corpus (channel axis joined via each "
+                   "file's own 'channels' array, not by array position). v3: adds cross-trial-"
+                   "median artifact repair (omission.jnwb_ext.artifact_repair.repair_band_artifacts, "
+                   "TFR_Z_THRESH=6.0, one-sided) per file before trial-averaging -- v2 and the "
+                   "original had none. Supersedes outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz "
+                   "(2026-08-04, superseded D:/workspace/data/tfr_arrays path) and "
+                   "outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz (correct corpus, no "
+                   "artifact repair).",
+        "source_dir": str(TFR_DIR), "area_vector": str(AREA_VEC),
         "n_files_processed": len(targets), "n_files_skipped": len(skipped),
         "skipped": skipped[:50], "conditions": CONDS,
+        "artifact_repair": {
+            "method": "omission.jnwb_ext.artifact_repair.repair_band_artifacts",
+            "z_thresh": 6.0, "bands": list(DEFAULT_BANDS.keys()),
+            "n_files_with_any_flag": len(artifact_log),
+            "n_files_total": len(targets),
+            "mean_frac_flagged_by_band": {
+                b: float(np.mean([e["frac_flagged_by_band"].get(b, 0.0) for e in artifact_log]))
+                for b in DEFAULT_BANDS
+            } if artifact_log else {b: 0.0 for b in DEFAULT_BANDS},
+            "max_frac_flagged_by_band": {
+                b: float(np.max([e["frac_flagged_by_band"].get(b, 0.0) for e in artifact_log]))
+                for b in DEFAULT_BANDS
+            } if artifact_log else {b: 0.0 for b in DEFAULT_BANDS},
+            "sample_flagged_files": artifact_log[:20],
+        },
         "window_ms_re_p1": list(WIN_MS), "n_time_bins": N_TIMES, "bin_ms": BIN_MS,
         "baseline_ms_re_p1": list(BASELINE_MS),
         "baseline_scope": "per channel, per trial, per frequency; the MIDDLE THIRD of d1, not "

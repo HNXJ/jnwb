@@ -1,11 +1,11 @@
 r"""
 Per-channel REAL-STIMULUS band-power census, area-resolved and baseline-corrected -- the
-matched counterpart to compute_channel_band_power_census_v2.py's omission census, built to
+matched counterpart to compute_channel_band_power_census.py's omission census, built to
 answer the same area x band question for "a real stimulus was there" instead of "it was
 omitted."
 
 WHY THIS EXISTS
-    compute_channel_band_power_census_v2.py's db_mid_omirel measures power in the OMITTED slot
+    compute_channel_band_power_census.py's db_mid_omirel measures power in the OMITTED slot
     relative to the delay immediately before it. There was no channel-level equivalent for a
     REAL stimulus presentation, so fig05's area x band GLMM could not be asked "does the same
     area hierarchy hold for a genuine visual stimulus, not just for the absence of one." This
@@ -20,7 +20,7 @@ CONDITIONS / SLOTS
     omission side never has a p1 window either; excluded here for the same reason, and to keep
     the two censuses' slot-position distributions identical).
 
-MEASURE (identical convention to compute_channel_band_power_census_v2.py)
+MEASURE (identical convention to compute_channel_band_power_census.py)
     db_stim_baserel = 10*log10(mean power in the stimulus window / mean power in the
     -250..-50 ms pre-stimulus-onset window), per trial per channel, averaged across trials.
     Only channels the per-channel area vector assigns to the file's area token contribute
@@ -187,7 +187,7 @@ def main(limit=None):
     receipt = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "script": os.path.abspath(__file__),
-        "purpose": "Real-stimulus counterpart to compute_channel_band_power_census_v2.py's "
+        "purpose": "Real-stimulus counterpart to compute_channel_band_power_census.py's "
                   "omission census -- same measure/window/baseline convention, stimulus "
                   "conditions instead of omission conditions.",
         "area_vector": AREA_VEC, "source_dir": TFR_DIR,
