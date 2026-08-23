@@ -1,4 +1,14 @@
 r"""
+RENAMED 2026-08-23 (normalization Batch 3, lfp_lfp_coupling family review): this file was
+aggregate_lfp_lfp_coupling_corrected.py. As with aggregate_spike_lfp_coupling.py's rename in
+the same batch, there was never a separate uncorrected file in this repo -- the "_corrected"
+suffix is dropped as noise, not as a scientific-variant merge. The other lfp_lfp_coupling
+family members (aggregate_lfp_lfp_te_stats.py, aggregate_within_session_lfp_lfp.py,
+compute_lfp_lfp_te_network.py, extract_within_session_lfp_lfp_sliding_corr.py) were reviewed
+in the same pass and confirmed DISTINCT_ESTIMAND -- imaginary coherency, transfer entropy, and
+sliding-window correlation are three different connectivity methods, not successive versions
+of one estimand -- so none of them were touched.
+
 Corrected-pooling aggregation for scripts/extract_lfp_coupling_matrices.py's imaginary-coherency
 product (outputs/lfp_coupling_matrices/coupling.npz), rerun 2026-08-13 with raw-LFP movement-
 artifact repair (omission.jnwb_ext.artifact_repair.repair_lfp_trials) inserted before coupling computation.

@@ -12,7 +12,8 @@ Corrected-pooling aggregation for scripts/extract_spike_lfp_coupling.py's PPC pr
 skill's retirement of PPC and reuse of the already-null sliding-correlation replacement).
 
 WHY THIS DESIGN, NOT A FIFTH clopper_pearson
-    Same corrected-pooling design as scripts/aggregate_lfp_lfp_coupling_corrected.py (itself
+    Same corrected-pooling design as scripts/aggregate_lfp_lfp_coupling.py (renamed 2026-08-23
+    from aggregate_lfp_lfp_coupling_corrected.py; itself
     adapting scripts/aggregate_within_session_lfp_lfp.py's validated pattern to a different
     product shape) -- session is the unit of inference, per-session z vs the within-session
     trial-shuffle null already computed by the extraction script, THEN pool across sessions as a

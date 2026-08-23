@@ -123,7 +123,8 @@ Amendment rule, skill changes need explicit human approval, not an agent's unila
 ## The corrected group-pooling design — canonical pattern, reused 3×
 
 First implemented in `scripts/aggregate_within_session_lfp_lfp.py`; reused/adapted by
-`aggregate_lfp_lfp_coupling_corrected.py` (imaginary coherency) and
+`aggregate_lfp_lfp_coupling.py` (imaginary coherency; renamed 2026-08-23 from
+`aggregate_lfp_lfp_coupling_corrected.py`) and
 `aggregate_spike_lfp_coupling.py` (PPC v2; renamed 2026-08-23 from
 `aggregate_spike_lfp_coupling_v2_corrected.py`). Three steps:
 
