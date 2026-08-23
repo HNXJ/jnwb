@@ -55,7 +55,7 @@ from precompute_tfr_arrays import (  # noqa: E402
     condition_numbers_for, load_probe_areas, resolve_lfp_datasets,
 )
 from omission.jnwb_ext.spectral import laplacian_reference  # noqa: E402
-from omission.jnwb_ext.artifact_repair import repair_lfp_trials  # noqa: E402
+from jnwb.artifact_repair import repair_lfp_trials  # noqa: E402  (promoted 2026-08-23 from omission.jnwb_ext.artifact_repair)
 from jnwb import paths as _P
 from omission.jnwb_ext.connectivity import CANONICAL_BANDS as BANDS
 
@@ -142,7 +142,7 @@ def extract_channel_segments(data, ts, fs, onsets_s, window_s, ref_channel_idx, 
                               max_trials, repair=True):
     """For each onset, pull the probe's channels needed for Laplacian re-referencing (the
     representative channel plus its immediate depth neighbors), REPAIR raw movement artifacts
-    (omission.jnwb_ext.artifact_repair.repair_lfp_trials, cross-channel-synchrony detection + cross-trial-
+    (jnwb.artifact_repair.repair_lfp_trials, cross-channel-synchrony detection + cross-trial-
     median substitution -- see that module's docstring and
     artifacts/.lab/lfp-movement-artifact-v198o-v182o-20260806.json) BEFORE re-referencing, then
     keep only the representative channel's re-referenced trace for the requested window. Repair

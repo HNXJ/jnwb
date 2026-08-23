@@ -53,6 +53,15 @@ rng = np.random.default_rng(0)
 null_labels = jnwb.permute_labels(labels, groups=cycle_id, scheme="within_group", rng=rng)
 ```
 
+Trial-segmented LFP/TFR artifact detection-and-substitution (cross-channel-synchrony detection,
+cross-trial-median repair; see `jnwb/artifact_repair.py`):
+
+```python
+repaired, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
+    segments, times_ms=times_ms, z_thresh=6.0)          # segments: (n_trials, n_channels, n_times)
+repaired_power, frac_flagged_by_band = jnwb.repair_band_artifacts(power, freqs)  # per-band TFR
+```
+
 ---
 
 ## Module map
@@ -69,6 +78,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `trajectory.py`, `gpu_pca.py` | Population trajectories via GPU SVD |
 | `visual_qc.py` | Generic visual QC plotting |
 | `bilinear.py`, `nam.py`, `permutation.py` | Generic modeling/statistical primitives |
+| `artifact_repair.py`, `artifact_detection.py` | Trial-segmented artifact repair (substitution) / detection (exclusion) |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

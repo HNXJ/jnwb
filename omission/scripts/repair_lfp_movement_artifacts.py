@@ -54,8 +54,8 @@ sys.path.insert(0, os.path.dirname(REPO))
 sys.path.insert(0, os.path.join(os.path.dirname(REPO), "scripts", "archive_oneoff"))
 from precompute_tfr_arrays import resolve_lfp_datasets  # noqa: E402
 from jnwb import paths as _P
-from omission.jnwb_ext.artifact_repair import (interpolate_intervals as _jnwb_interpolate_intervals,
-                                  flagged_to_intervals as _jnwb_flagged_to_intervals)
+from jnwb.artifact_repair import (interpolate_intervals as _jnwb_interpolate_intervals,
+                                  flagged_to_intervals as _jnwb_flagged_to_intervals)  # promoted 2026-08-23
 
 OUT_DIR = _P.REPO_ROOT / "outputs/lfp_artifact_repair"
 QC_DIR = _P.REPO_ROOT / "outputs/qc_lfp_artifacts"

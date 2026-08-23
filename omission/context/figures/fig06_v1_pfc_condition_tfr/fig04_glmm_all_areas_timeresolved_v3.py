@@ -10,7 +10,7 @@ excluding intervals with artifacts ; artifacts are sharp increase in power that 
 in the same condition are not present"). Input:
 scripts/extract_condition_tfr_maps_v3.py (see rename note above) ->
 outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz,
-which applies omission.jnwb_ext.artifact_repair.repair_band_artifacts (cross-trial-median substitution, one-
+which applies jnwb.artifact_repair.repair_band_artifacts (cross-trial-median substitution, one-
 sided z>6 per band) before the trial-mean/baseline/dB pipeline -- v2 (this file's non-v3
 sibling) had the corrected corpus but zero trial-level artifact rejection. Only the
 CONDITION_MAPS/OUT_DIR patch differs from v2; model code and windowing unchanged, comparable

@@ -91,7 +91,7 @@ def extract_epoch_trials(f: h5py.File, lfp_key: str, ch_lo: int, ch_hi: int, con
     """Pull ONE window per trial for `condition`, all channels in [ch_lo, ch_hi).
     Returns (trials, fs, n_trials, frac_repaired). trials: (n_trials, n_channels, n_samples)."""
     from precompute_tfr_arrays import p1_onsets_s
-    from omission.jnwb_ext.artifact_repair import repair_lfp_trials
+    from jnwb.artifact_repair import repair_lfp_trials  # promoted 2026-08-23 from omission.jnwb_ext.artifact_repair
 
     data, ts, fs = resolve_lfp_datasets(f, lfp_key)
     onsets = p1_onsets_s(f, condition)[:max_trials]

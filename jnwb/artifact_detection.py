@@ -1,7 +1,8 @@
 r"""
 jnwb.artifact_detection -- bad-channel and bad-trial DETECTION (exclusion), for raw wideband LFP.
 
-Distinct from omission.jnwb_ext.artifact_repair (interpolation/substitution of flagged samples within a
+Distinct from jnwb.artifact_repair (promoted 2026-08-23 from omission.jnwb_ext.artifact_repair;
+interpolation/substitution of flagged samples within a
 kept trial). This module decides what to DROP entirely: whole channels, whole trials.
 
 Method (Hamm, 2026-08-17):

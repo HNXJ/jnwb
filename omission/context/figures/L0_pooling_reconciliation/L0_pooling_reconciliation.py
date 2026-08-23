@@ -39,7 +39,7 @@ DATA CONTRACT DECISIONS (stated, not hidden -- confirm before reusing for L1+)
       omitted slot in RXRR). Baseline window = (-0.400, -0.150) s pre-p1 -- the same pre-trial
       reference window this session's onset_fitting.py fix established as clear of any
       pre-stimulus ramp contamination (artifacts/.lab/onset-hierarchy-h1h2h3-fixed-20260815.json).
-    - Raw movement-artifact repair (omission.jnwb_ext.artifact_repair.repair_lfp_trials) runs before any
+    - Raw movement-artifact repair (jnwb.artifact_repair.repair_lfp_trials) runs before any
       re-referencing, exactly as in extract_lfp_coupling_matrices.py.
     - Per-method point estimate plus a trial-level bootstrap CI (resampling trial INDICES, not
       re-running the FFT -- the four per-trial-per-channel power arrays are computed once and
@@ -78,7 +78,7 @@ from precompute_tfr_arrays import (  # noqa: E402
     condition_numbers_for, p1_onsets_s, resolve_lfp_datasets,
 )
 from omission.jnwb_ext.spectral import laplacian_reference  # noqa: E402
-from omission.jnwb_ext.artifact_repair import repair_lfp_trials  # noqa: E402
+from jnwb.artifact_repair import repair_lfp_trials  # noqa: E402  (promoted 2026-08-23 from omission.jnwb_ext.artifact_repair)
 from jnwb.addressing import map_peak_channel_to_area  # noqa: E402
 import figstyle  # noqa: E402
 

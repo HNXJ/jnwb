@@ -16,7 +16,7 @@ WHY
     trial-level artifact rejection from the original script -- every trial's power, including a
     trial with a sharp, single-trial power spike absent from the other trials of the same
     session x area x condition, was averaged into the trial-mean unmodified. That is exactly the
-    TFR-domain artifact class omission.jnwb_ext.artifact_repair.repair_band_artifacts already exists to
+    TFR-domain artifact class jnwb.artifact_repair.repair_band_artifacts already exists to
     catch (promoted 2026-08-14 from context/figures/fig_v1_omission_band_dynamics/
     band_power_dynamics.py, where it was already used for a different figure but never applied
     here): per band, per (trial, time), a one-sided robust-z test against the cross-trial
@@ -119,7 +119,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
-from omission.jnwb_ext.artifact_repair import repair_band_artifacts, DEFAULT_BANDS
+from jnwb.artifact_repair import repair_band_artifacts, DEFAULT_BANDS  # promoted 2026-08-23 from omission.jnwb_ext.artifact_repair
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
@@ -216,7 +216,7 @@ def main(limit=None):
         area10 = AREA_POOL.get(g["area"], g["area"])
         cond = g["cond"]
 
-        # v3: cross-trial-median artifact repair (omission.jnwb_ext.artifact_repair.repair_band_artifacts),
+        # v3: cross-trial-median artifact repair (jnwb.artifact_repair.repair_band_artifacts),
         # applied ONCE per file across ALL of this file's selected channels (not per chunk) so
         # the per-band detection statistic (channel-mean band power per trial x time) uses the
         # full channel set's SNR rather than a chunk-dependent subset, before any chunking for
@@ -283,7 +283,7 @@ def main(limit=None):
                    "each channel referenced to its own middle-of-d1 baseline. v2: rebuilt "
                    "against the post-2026-08-11 .npz TFR corpus (channel axis joined via each "
                    "file's own 'channels' array, not by array position). v3: adds cross-trial-"
-                   "median artifact repair (omission.jnwb_ext.artifact_repair.repair_band_artifacts, "
+                   "median artifact repair (jnwb.artifact_repair.repair_band_artifacts, "
                    "TFR_Z_THRESH=6.0, one-sided) per file before trial-averaging -- v2 and the "
                    "original had none. Supersedes outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz "
                    "(2026-08-04, superseded D:/workspace/data/tfr_arrays path) and "
@@ -293,7 +293,7 @@ def main(limit=None):
         "n_files_processed": len(targets), "n_files_skipped": len(skipped),
         "skipped": skipped[:50], "conditions": CONDS,
         "artifact_repair": {
-            "method": "omission.jnwb_ext.artifact_repair.repair_band_artifacts",
+            "method": "jnwb.artifact_repair.repair_band_artifacts",
             "z_thresh": 6.0, "bands": list(DEFAULT_BANDS.keys()),
             "n_files_with_any_flag": len(artifact_log),
             "n_files_total": len(targets),

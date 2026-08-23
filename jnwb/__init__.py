@@ -168,6 +168,10 @@ from .trajectory import (
 # jnwb/permutation.py's module docstring for the exchangeability bug it fixed).
 from .permutation import permute_labels
 
+# Generic trial-segmented artifact detection-and-substitution (promoted 2026-08-23 from
+# omission.jnwb_ext.artifact_repair; see jnwb/artifact_repair.py's module docstring).
+from .artifact_repair import repair_lfp_trials, repair_band_artifacts
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -215,4 +219,8 @@ __all__ = [
 
     # Permutation / null construction
     'permute_labels',
+
+    # Artifact detection/repair
+    'repair_lfp_trials',
+    'repair_band_artifacts',
 ]

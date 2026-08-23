@@ -1,11 +1,21 @@
 r"""
-omission.jnwb_ext.artifact_repair -- canonical raw-LFP movement-artifact repair for trial-segmented arrays.
+jnwb.artifact_repair -- generic trial-segmented LFP/TFR artifact detection-and-substitution.
+
+PROMOTED 2026-08-23 from omission.jnwb_ext.artifact_repair (99%-jnwb-sufficiency normalization):
+the method here is fully generic -- it operates on plain (n_trials, n_channels, n_times) /
+(n_trials, n_channels, n_freqs, n_times) arrays with no omission-task conditions, classes, or
+windows baked in. `jnwb.artifact_detection` (bad-channel/bad-trial EXCLUSION) already
+cross-referenced this module by name as its natural sibling before the promotion -- see that
+module's own docstring. The two example numbers below (Z_THRESH=6.0, REWARD_WINDOW_MS) are
+defaults tuned on the omission corpus during development, not omission-specific logic: both are
+ordinary keyword arguments, fully overridable (pass `reward_window_ms=None` to disable that
+default entirely) by any caller on any corpus.
 
 Single source of truth for cross-channel-synchrony detection + cross-trial-median substitution
 on raw (or band-filtered) LFP trial segments, shape (n_trials, n_channels, n_times). Do not
 duplicate this logic per-script; import from here.
 
-WHY THIS EXISTS / RECEIPT
+WHY THIS EXISTS / RECEIPT (historical record from the omission corpus that motivated this method)
     artifacts/.lab/lfp-movement-artifact-v198o-v182o-20260806.json documents, on this corpus,
     synchronous broadband impulses in raw LFP for subjects V198o and V182o (not C31o), confirmed
     two independent ways:
@@ -299,7 +309,7 @@ if __name__ == "__main__":
     assert flagged_here, "self-test FAILED: flagged cell was not substituted"
     untouched = np.allclose(repaired[0], base[0])
     assert untouched, "self-test FAILED: an unflagged trial was modified"
-    print("omission.jnwb_ext.artifact_repair self-test PASSED:", diag)
+    print("jnwb.artifact_repair self-test PASSED:", diag)
 
     # Reward-window exclusion self-test: same spike, but now placed inside a declared reward
     # window -- must NOT be repaired.
@@ -310,7 +320,7 @@ if __name__ == "__main__":
         base2, times_ms=times_ms, reward_window_ms=(90.0, 110.0), z_thresh=Z_THRESH)
     assert np.allclose(repaired2[7, :, 100], base2[7, :, 100]), \
         "self-test FAILED: reward-window sample was repaired despite exclusion"
-    print("omission.jnwb_ext.artifact_repair reward-exclusion self-test PASSED:", diag2)
+    print("jnwb.artifact_repair reward-exclusion self-test PASSED:", diag2)
 
     # repair_band_artifacts self-test: 20 trials, 4 channels, 99 freq rows (3-201Hz step 2),
     # 50 time samples, all trials sharing a common band-power evoked shape in Alpha; one trial
@@ -333,4 +343,4 @@ if __name__ == "__main__":
         "self-test FAILED: an unflagged trial/band was modified"
     assert np.allclose(repaired3[3, :, ~alpha_sel, :], power[3, :, ~alpha_sel, :]), \
         "self-test FAILED: a different band on the flagged trial was modified"
-    print("omission.jnwb_ext.artifact_repair.repair_band_artifacts self-test PASSED:", frac3)
+    print("jnwb.artifact_repair.repair_band_artifacts self-test PASSED:", frac3)

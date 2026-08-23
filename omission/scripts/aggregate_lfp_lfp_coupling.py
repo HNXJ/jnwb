@@ -11,7 +11,7 @@ of one estimand -- so none of them were touched.
 
 Corrected-pooling aggregation for scripts/extract_lfp_coupling_matrices.py's imaginary-coherency
 product (outputs/lfp_coupling_matrices/coupling.npz), rerun 2026-08-13 with raw-LFP movement-
-artifact repair (omission.jnwb_ext.artifact_repair.repair_lfp_trials) inserted before coupling computation.
+artifact repair (jnwb.artifact_repair.repair_lfp_trials) inserted before coupling computation.
 
 WHY A NEW SCRIPT, NOT A FOURTH clopper_pearson
     scripts/aggregate_within_session_lfp_lfp.py already implements the validated design (session
