@@ -26,7 +26,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import omission as oa
-from omission.jnwb_ext.viz import add_sequence_epoch_overlays, apply_tight_auto_axis, setup_vector_graphics
+from omission.jnwb_ext.viz import add_sequence_epoch_overlays
+from jnwb.viz import apply_tight_auto_axis, setup_vector_graphics
 from jnwb.statistics import StatisticalAnalysis
 
 log = logging.getLogger("build_supplementary_figures")

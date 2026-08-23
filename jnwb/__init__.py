@@ -242,6 +242,17 @@ from .spiking import (
     phase_locking_index,
 )
 
+# Generic plotting utilities: vector-graphics setup, tight auto-scaled axes, multi-page/format
+# figure export, trial-onset resampling, array-in PSTH (promoted 2026-08-23 from
+# omission.jnwb_ext.viz; see jnwb/viz.py's module docstring).
+from .viz import (
+    setup_vector_graphics,
+    apply_tight_auto_axis,
+    save_figure_suite,
+    resample_onsets,
+    raster_psth,
+)
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -345,4 +356,11 @@ __all__ = [
     'compute_response_metrics',
     'classify_response_significance',
     'phase_locking_index',
+
+    # Plotting utilities
+    'setup_vector_graphics',
+    'apply_tight_auto_axis',
+    'save_figure_suite',
+    'resample_onsets',
+    'raster_psth',
 ]

@@ -23,7 +23,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import omission as oa
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets
-from omission.jnwb_ext.viz import get_sequence_onset_onsets, resample_onsets
+from omission.jnwb_ext.viz import get_sequence_onset_onsets
+from jnwb.viz import resample_onsets
 from jnwb import paths as _P
 
 # Directories

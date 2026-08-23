@@ -30,7 +30,7 @@ sys.path.insert(0, str(REPO_ROOT / "context" / "figures"))
 import omission as oa
 from omission.jnwb_ext.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS, EPOCH_ORDER
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets
-from omission.jnwb_ext.viz import raster_psth as _raster_psth
+from jnwb.viz import raster_psth as _raster_psth
 from figstyle import FULL_TRIAL_WIN, full_trial_ticks, mark_full_trial_axis
 from jnwb import paths as _P
 
@@ -47,8 +47,8 @@ RASTER_TRIALS = 40
 WIN = FULL_TRIAL_WIN  # (-500, 4124)
 
 def compute_psth(st, onsets, win_ms, bin_ms=PSTH_BIN_MS):
-    """Thin wrapper over omission.jnwb_ext.viz.raster_psth preserving this file's PSTH_BIN_MS=20.0 default
-    (omission.jnwb_ext.viz.raster_psth's own default is 10.0 -- explicit here so the swap is not a silent
+    """Thin wrapper over jnwb.viz.raster_psth preserving this file's PSTH_BIN_MS=20.0 default
+    (jnwb.viz.raster_psth's own default is 10.0 -- explicit here so the swap is not a silent
     behavior change)."""
     return _raster_psth(st, onsets, win_ms, bin_ms=bin_ms)
 

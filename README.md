@@ -126,6 +126,15 @@ sig = jnwb.classify_response_significance(metrics)             # is_significant,
 pli = jnwb.phase_locking_index(spike_times, lfp_phase, lfp_timestamps)  # pli, rayleigh_pvalue
 ```
 
+Generic plotting utilities — vector-graphics setup, tight auto-scaled axes, multi-page/format
+figure export, trial-onset resampling, and array-in PSTH (`jnwb/viz.py`):
+
+```python
+jnwb.setup_vector_graphics()                                    # editable SVG fonts
+centers, mean_hz, sem_hz = jnwb.raster_psth(spike_times, onsets, win_ms=(-500, 1000))
+jnwb.save_figure_suite(figures, "outputs/figures", basename="raster", formats=["png", "pdf"])
+```
+
 ---
 
 ## Module map
@@ -149,6 +158,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `connectivity.py` | Mutual information, Granger causality, phase slope index, transfer entropy; uniform `DirectedResult` |
 | `decoding.py` | Nested cross-validated linear-SVM population decoding (accuracy/F1/AUC/majority-baseline) |
 | `spiking.py` | Spike-response firing rate/latency/z-score, significance classification, spike-LFP phase locking |
+| `viz.py` | Vector-graphics setup, tight auto-scaled axes, multi-page/format figure export, onset resampling, array-in PSTH |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

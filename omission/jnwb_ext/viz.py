@@ -11,6 +11,10 @@ Provides production-ready functions for:
 - Cross-unit comparison figures
 - Publication-quality exports
 
+setup_vector_graphics, apply_tight_auto_axis, save_figure_suite, resample_onsets, and
+raster_psth were promoted 2026-08-23 to jnwb.viz (99%-jnwb-sufficiency normalization) -- they
+took plain matplotlib objects / numpy arrays with no session or omission-task coupling.
+
 Author: Consolidated from archived figure scripts
 Date: 2026-06-25
 """
@@ -24,6 +28,13 @@ import matplotlib.gridspec as gridspec
 from pathlib import Path
 
 from jnwb import paths as _paths
+from jnwb.viz import (
+    setup_vector_graphics,
+    apply_tight_auto_axis,
+    save_figure_suite,
+    resample_onsets,
+    raster_psth,
+)
 
 log = logging.getLogger(__name__)
 
@@ -47,13 +58,6 @@ plt.rcParams['xtick.direction'] = 'out'
 plt.rcParams['ytick.direction'] = 'out'
 
 
-def setup_vector_graphics():
-    """Enforce editable vector SVG font rendering in Adobe Illustrator / Inkscape."""
-    plt.rcParams['svg.fonttype'] = 'none'
-    plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans']
-    plt.rcParams['font.family'] = 'sans-serif'
-
-
 def add_sequence_epoch_overlays(ax, alpha: float = 0.12):
     """
     Overlay sequence epoch shading bands (S1, S2, S3, S4/Omission) with exact timing.
@@ -67,22 +71,6 @@ def add_sequence_epoch_overlays(ax, alpha: float = 0.12):
     ]
     for label, start, end, color in epochs:
         ax.axvspan(start, end, color=color, alpha=alpha, zorder=0)
-
-
-def apply_tight_auto_axis(ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12):
-    """Apply tight temporal bounds and auto-scale y-axis without empty margins."""
-    ax.set_xlim(x_span)
-    lines = ax.get_lines()
-    if lines:
-        all_y = []
-        for line in lines:
-            ydata = line.get_ydata()
-            if len(ydata) > 0 and not np.all(np.isnan(ydata)):
-                all_y.extend(ydata[~np.isnan(ydata)])
-        if all_y:
-            ymin, ymax = np.min(all_y), np.max(all_y)
-            rng = max(ymax - ymin, 1e-3)
-            ax.set_ylim(max(0, ymin - y_margin * rng), ymax + y_margin * rng)
 
 
 # Condition families for organized visualization
@@ -426,43 +414,6 @@ def multi_phase_comparison(
     return fig
 
 
-def save_figure_suite(
-    figures: List[plt.Figure],
-    output_dir: Union[str, Path],
-    basename: str,
-    dpi: int = 300,
-    formats: List[str] = ['png', 'pdf']
-) -> None:
-    """
-    Save a suite of figures to disk with consistent naming.
-
-    Args:
-        figures: List of matplotlib figures
-        output_dir: Output directory
-        basename: Base filename (will add page numbers and format)
-        dpi: Resolution for raster formats
-        formats: List of formats to save ('png', 'pdf', 'svg')
-
-    Example:
-        >>> figs = raster_grid_by_family(session, unit_ids)
-        >>> save_figure_suite(figs, 'outputs/figures', 'raster_family_a')
-    """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    for fig_idx, fig in enumerate(figures):
-        for fmt in formats:
-            filename = f"{basename}_page{fig_idx+1}.{fmt}"
-            filepath = output_dir / filename
-
-            if fmt == 'pdf':
-                fig.savefig(filepath, format='pdf', bbox_inches='tight')
-            else:
-                fig.savefig(filepath, format=fmt, dpi=dpi, bbox_inches='tight')
-
-            log.info(f"Saved: {filepath}")
-
-
 def get_sequence_onset_onsets(session, condition: str) -> np.ndarray:
     """P1 (sequence-onset) trial start times for a condition, falling back to every epoch's
     start time if no ``stimulus_number`` column is present.
@@ -482,50 +433,6 @@ def get_sequence_onset_onsets(session, condition: str) -> np.ndarray:
         if len(p1_ep) > 0:
             return p1_ep["start_time"].values
     return ep["start_time"].values
-
-
-def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
-    """Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there
-    are fewer than ``target_n`` available), for a consistent raster trial count across units
-    with different trial counts.
-
-    Promoted 2026-08-14 from byte-identical copies in
-    ``scripts/generate_mt_mst_raster_suites.py`` and ``scripts/generate_oplusplus_raster_suites.py``.
-    """
-    if len(onsets) == 0:
-        return np.array([])
-    rng = np.random.default_rng(random_state)
-    if len(onsets) >= target_n:
-        idx = rng.choice(len(onsets), size=target_n, replace=False)
-    else:
-        idx = rng.choice(len(onsets), size=target_n, replace=True)
-    return onsets[idx]
-
-
-def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
-    """Trial-averaged PSTH (mean + SEM firing rate per bin) for a raw spike-time array against
-    an explicit onset array -- the raster-suite contract (raw arrays in, no session/unit_id
-    lookup), distinct from :func:`omission.jnwb_ext.functions.psth_analysis`'s session-object + bootstrap-CI
-    contract, which cannot cleanly replace this.
-
-    Promoted 2026-08-14 from byte-identical copies in
-    ``scripts/generate_oplusplus_raster_suites.py`` and
-    ``scripts/generate_top_omission_raster_suites.py`` (named ``compute_psth`` there; renamed
-    here to avoid colliding with the unrelated, differently-parameterized ``compute_psth`` in
-    ``scripts/generate_mt_mst_raster_suites.py``, which is NOT a duplicate of this one).
-    """
-    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
-    centers = edges[:-1] + bin_ms / 2.0
-    if onsets.size == 0:
-        return centers, np.zeros_like(centers), np.zeros_like(centers)
-    counts = np.zeros((onsets.size, edges.size - 1))
-    for i, t0 in enumerate(onsets):
-        s = (st[(st >= t0 + win_ms[0] / 1000.0) & (st < t0 + win_ms[1] / 1000.0)] - t0) * 1000.0
-        counts[i], _ = np.histogram(s, bins=edges)
-    rate = counts / (bin_ms / 1000.0)
-    mean = rate.mean(axis=0)
-    sem = rate.std(axis=0, ddof=1) / np.sqrt(rate.shape[0]) if rate.shape[0] > 1 else np.zeros_like(mean)
-    return centers, mean, sem
 
 
 def raster_suite_omission(
