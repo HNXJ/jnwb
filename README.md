@@ -105,6 +105,15 @@ print(result.x_to_y, result.y_to_x, result.net)              # DirectedResult: u
 network = jnwb.directed_network({"V1": v1_lfp, "PFC": pfc_lfp}, method="granger")
 ```
 
+Generic nested cross-validated linear-SVM population decoding — plain `(n_trials, n_features)`
+matrix and integer labels in, accuracy/F1/AUC/majority-baseline out, NaN (never fabricated)
+under degenerate class counts (`jnwb/decoding.py`):
+
+```python
+result = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)
+print(result["accuracy"], result["f1"], result["auc"], result["majority_baseline_accuracy"])
+```
+
 ---
 
 ## Module map
@@ -126,6 +135,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `metadata.py` | Unit/electrode metadata extraction, QC classification, census reporting |
 | `spectral.py` | Band power, cross-area coherence, 1/f tilt, imaginary coherency, bipolar/Laplacian re-referencing; `CANONICAL_BANDS` |
 | `connectivity.py` | Mutual information, Granger causality, phase slope index, transfer entropy; uniform `DirectedResult` |
+| `decoding.py` | Nested cross-validated linear-SVM population decoding (accuracy/F1/AUC/majority-baseline) |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

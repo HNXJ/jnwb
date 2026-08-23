@@ -221,6 +221,15 @@ from .connectivity import (
     directed_network,
 )
 
+# Generic nested-CV linear-SVM population decoding: plain (X, labels) arrays in, no session
+# object or condition semantics (promoted 2026-08-23 from omission.jnwb_ext.decoding; see
+# jnwb/decoding.py's module docstring).
+from .decoding import (
+    majority_baseline,
+    fold_majority_baseline,
+    nested_cv_linear_svm,
+)
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -311,4 +320,9 @@ __all__ = [
     'transfer_entropy',
     'directed_connectivity',
     'directed_network',
+
+    # Population decoding
+    'majority_baseline',
+    'fold_majority_baseline',
+    'nested_cv_linear_svm',
 ]
