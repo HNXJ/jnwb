@@ -37,6 +37,13 @@ above), so the fix here is documentation only — the "0/60, unchanged" null res
 produced by the original (v1) run and has not been reproduced against v2; treat it as historical
 until re-run, not as a currently-reproducible number.
 
+**RENAMED 2026-08-23** (normalization Batch 3, spike_lfp_coupling family canonicalization): the
+original `extract_spike_lfp_coupling.py` referred to above is now archived, unedited, at
+`scripts/archive_oneoff/extract_spike_lfp_coupling_v1_superseded_20260815.py`. Its successor,
+`extract_spike_lfp_coupling_v2.py`, is now the unsuffixed canonical `scripts/extract_spike_lfp_coupling.py`.
+`aggregate_spike_lfp_coupling_v2_corrected.py` is now `scripts/aggregate_spike_lfp_coupling.py`.
+Output paths and all logic are unchanged by the rename.
+
 **Layer source corrected same day**: the first pass (9/15 sessions, 2 layer groups, inherited
 from figure 6's extraction code) used `outputs/publication_visual_review/area_layer_tfr/layer_masks.json`,
 believing it the only channel-level layer source. That was wrong — `outputs/layers/channel_layers_all.csv`

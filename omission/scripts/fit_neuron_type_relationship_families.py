@@ -19,8 +19,9 @@ FAMILY 2 -- firing rate x functional class, WITHIN area
     omission-statistics skill's test table: firing rate is not assumed normal).
 
 Waveform family dropped entirely (bug-nwb-waveform-metrics-uninterpretable-20260815.json).
-PPC-hit-rate family lands separately once scripts/aggregate_spike_lfp_coupling_v2_corrected.py
-exists (its own Clopper-Pearson output is already the family; no p-value layer needed on top).
+PPC-hit-rate family lands separately once scripts/aggregate_spike_lfp_coupling.py (renamed
+2026-08-23 from aggregate_spike_lfp_coupling_v2_corrected.py) exists (its own Clopper-Pearson
+output is already the family; no p-value layer needed on top).
 
 Output: outputs/relationship_search/family1_layer_enrichment.csv,
         outputs/relationship_search/family2_firing_rate_by_class.csv

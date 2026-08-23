@@ -110,9 +110,9 @@ probe_areas.json` sidecars), `extract_condition_tfr_maps.py` (+`_v2`/`_v3`),
 
 | Script | Status |
 |---|---|
-| `scripts/extract_spike_lfp_coupling.py` (v1) | **SUPERSEDED** — own docstring says so; depends on missing `probe_areas.json` sidecars. Its one existing output predates the sidecar gap (2026-07-30), preserved unedited (Conservation). |
-| `scripts/extract_spike_lfp_coupling_v2.py` (2026-08-15) | **CURRENT extraction.** Identical PPC logic to v1; only change is sidecar-free area/probe resolution via `channel_area_vector.csv`. Output `outputs/spike_lfp_coupling/coupling_v2.npz`, kept separate from stale v1. Full-corpus: 22/22 sessions, 123,060 unit×band×context×area×layer results, 8,260 same-electrode exclusions (`EXCLUDE_RADIUS=2` channels — spike-waveform-leakage control), ~2h runtime; obs PPC range −0.034 to 0.483 (mean 0.005, consistent with near-zero-under-null). |
-| `scripts/aggregate_spike_lfp_coupling_v2_corrected.py` | **CURRENT aggregation** — the corrected-design PPC rebuild Hamm explicitly requested 2026-08-15, reversing the `omission-signal` skill's default retirement stance. Splits cells by functional class (S+/S++/S−/S−−/O+/O++/O−/O−−) via `unit_master_features.csv`, in addition to area×layer×band×context. `Z_THRESH=1.96, ALPHA=0.05, MIN_SESSIONS=3`. Output `outputs/spike_lfp_coupling/class_hit_rates_v2.csv`. **Result: PROVISIONAL, non-null** — 37/520 class×context×band×area cells have a hit-rate 95% CI lower bound above alpha. 25/37 are beta band (14-30Hz); FEF (15/37) and PFC dominate. Contrast: the sliding-correlation PPC replacement (below) was fully null (0/11,700); cross-area imaginary coherency also fully null. |
+| `scripts/archive_oneoff/extract_spike_lfp_coupling_v1_superseded_20260815.py` (v1; renamed 2026-08-23 from `extract_spike_lfp_coupling.py`, unedited) | **SUPERSEDED** — own docstring says so; depends on missing `probe_areas.json` sidecars. Its one existing output predates the sidecar gap (2026-07-30), preserved unedited (Conservation). |
+| `scripts/extract_spike_lfp_coupling.py` (2026-08-15; renamed 2026-08-23 from `extract_spike_lfp_coupling_v2.py`) | **CURRENT extraction.** Identical PPC logic to v1; only change is sidecar-free area/probe resolution via `channel_area_vector.csv`. Output `outputs/spike_lfp_coupling/coupling_v2.npz`, kept separate from stale v1. Full-corpus: 22/22 sessions, 123,060 unit×band×context×area×layer results, 8,260 same-electrode exclusions (`EXCLUDE_RADIUS=2` channels — spike-waveform-leakage control), ~2h runtime; obs PPC range −0.034 to 0.483 (mean 0.005, consistent with near-zero-under-null). |
+| `scripts/aggregate_spike_lfp_coupling.py` (renamed 2026-08-23 from `aggregate_spike_lfp_coupling_v2_corrected.py`) | **CURRENT aggregation** — the corrected-design PPC rebuild Hamm explicitly requested 2026-08-15, reversing the `omission-signal` skill's default retirement stance. Splits cells by functional class (S+/S++/S−/S−−/O+/O++/O−/O−−) via `unit_master_features.csv`, in addition to area×layer×band×context. `Z_THRESH=1.96, ALPHA=0.05, MIN_SESSIONS=3`. Output `outputs/spike_lfp_coupling/class_hit_rates_v2.csv`. **Result: PROVISIONAL, non-null** — 37/520 class×context×band×area cells have a hit-rate 95% CI lower bound above alpha. 25/37 are beta band (14-30Hz); FEF (15/37) and PFC dominate. Contrast: the sliding-correlation PPC replacement (below) was fully null (0/11,700); cross-area imaginary coherency also fully null. |
 | `scripts/extract_within_session_spk_lfp_sliding_corr.py` | The skill-named PPC-retirement replacement — trial-matched sliding-window correlation, unit's own spike-rate vs its own area's band-power trace. **Fully null (0/11,700)** — this is part of why Hamm asked for the PPC rebuild instead. |
 
 **Bottom line**: PPC's status flipped mid-project. The `omission-signal` skill's default text
@@ -124,7 +124,8 @@ Amendment rule, skill changes need explicit human approval, not an agent's unila
 
 First implemented in `scripts/aggregate_within_session_lfp_lfp.py`; reused/adapted by
 `aggregate_lfp_lfp_coupling_corrected.py` (imaginary coherency) and
-`aggregate_spike_lfp_coupling_v2_corrected.py` (PPC v2). Three steps:
+`aggregate_spike_lfp_coupling.py` (PPC v2; renamed 2026-08-23 from
+`aggregate_spike_lfp_coupling_v2_corrected.py`). Three steps:
 
 1. **Within-session z vs within-session shuffle null** (computed upstream by the extraction
    script). `z = (obs - null_mean) / null_std`, guarded against `null_std==0`. Channel pairs are

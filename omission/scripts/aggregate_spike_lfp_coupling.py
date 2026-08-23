@@ -1,5 +1,12 @@
 r"""
-Corrected-pooling aggregation for scripts/extract_spike_lfp_coupling_v2.py's PPC product
+RENAMED 2026-08-23 (normalization Batch 3, spike_lfp_coupling family canonicalization): this
+file was aggregate_spike_lfp_coupling_v2_corrected.py. The "_v2_corrected" suffix is dropped
+because there was never a separate uncorrected implementation as a tracked file -- "the
+original (never group-corrected) PPC pipeline" referred to below is a historical design flaw in
+the pre-2026-08-15 fig07 approach, not a file in this repo. scripts/extract_spike_lfp_coupling_v2.py
+mentioned below is now scripts/extract_spike_lfp_coupling.py (renamed same pass).
+
+Corrected-pooling aggregation for scripts/extract_spike_lfp_coupling.py's PPC product
 (outputs/spike_lfp_coupling/coupling_v2.npz) -- the corrected-design PPC rebuild Hamm asked for
 (2026-08-15 AskUserQuestion: "Rebuild corrected PPC first", rejecting both the omission-signal
 skill's retirement of PPC and reuse of the already-null sliding-correlation replacement).

@@ -1,33 +1,38 @@
 r"""
-SUPERSEDED by scripts/extract_spike_lfp_coupling_v2.py -- this file's `load_probe_areas` call
-needs metadata sidecars (D:/analysis/metadata/{stem}/probe_areas.json) that do not exist on
-this machine (see context/PROJECT_STATE.md "Still open -- sidecar_ok / suite_tfr_ready",
-2026-08-14, and artifacts/.lab node for the corrected-PPC rebuild, 2026-08-15). v2 resolves
-area/probe/channel-slice information from outputs/channel_area_vector/channel_area_vector.csv
-instead (the same sidecar-free source scripts/precompute_tfr_arrays_v2.py already uses for the
-now-accepted fig04 v3 corpus) -- no other logic changed. Preserved here, unedited, per
-"preserve originals; write revisions as new files".
+RENAMED 2026-08-23 (normalization Batch 3, spike_lfp_coupling family canonicalization): this
+file was extract_spike_lfp_coupling_v2.py. The superseded predecessor it refers to below (the
+one blocked by the missing metadata-sidecar directory) is archived, unedited, at
+scripts/archive_oneoff/extract_spike_lfp_coupling_v1_superseded_20260815.py. This file's own
+output (outputs/spike_lfp_coupling/coupling_v2.npz) is unchanged by the rename -- only the
+script's filename changed, not its output location or any of its logic.
 
-Corpus-scale spike-LFP phase coupling extraction for figure 7.
+Corpus-scale spike-LFP phase coupling extraction for figure 7 -- v2, 2026-08-15.
 
-For each SUA unit (quality==1 in omission_grand_units.csv) with enough spikes in a context
-window, computes PPC (pairwise phase consistency, Vinck et al. 2010 -- bias-free across
-different spike counts, unlike raw vector strength/Rayleigh z) between the unit's spike times
-and the LFP phase of its OWN area's representative channel (band-pass + Hilbert), per band,
-per context (same stimulus/omission windows as figure 6), with a trial-shuffle null.
+WHY A NEW FILE, NOT AN EDIT TO THE ORIGINAL extract_spike_lfp_coupling.py (now archived)
+    That script's probe/area resolution calls `load_probe_areas(META_ROOT, stem)`, which reads
+    D:/analysis/metadata/{stem}/probe_areas.json -- a metadata sidecar directory that does not
+    exist on this machine (context/PROJECT_STATE.md, "Still open -- sidecar_ok /
+    suite_tfr_ready", 2026-08-14: "no metadata sidecar directory was found anywhere on disk in
+    a shallow search"). This blocks the script outright, not just its trustworthiness -- it was
+    only ever able to run because its one existing output (outputs/spike_lfp_coupling/
+    coupling.npz) predates this gap (dated 2026-07-30, before the sidecars went missing).
+    scripts/precompute_tfr_arrays.py (renamed 2026-08-22 from precompute_tfr_arrays_v2.py) -- the script behind fig04's now-accepted v3 corpus --
+    already solved exactly this problem for its own area/channel resolution by reading
+    outputs/channel_area_vector/channel_area_vector.csv instead of the sidecar (22/22 sessions
+    covered, confirmed). This file reuses that same sidecar-free source; every other piece of
+    extract_spike_lfp_coupling.py (PPC formula, per-trial phase extraction, vectorized
+    shuffle null, same-electrode exclusion) is copied unchanged.
 
-SAME-ELECTRODE CONTROL: a unit's own spike waveform can leak into a nearby LFP channel and
-inflate phase locking spuriously. Units whose `peak_channel_id` sits within +/-2 channels of
-the area/layer cell's representative LFP channel are excluded from that cell's coupling
-estimate rather than silently included -- see EXCLUDE_RADIUS below.
+ONLY CHANGE: `cells_for_session()` replaces the original's
+    `load_probe_areas(META_ROOT, stem)` + `cells_for_probe(...)` (extract_lfp_coupling_matrices)
+    pipeline. channel_area_vector.csv's `seg_start`/`seg_stop` per (session_prefix,
+    probe_letter, area) is exactly probe_areas.json's `channel_slices[area] = {start, stop}` --
+    confirmed by inspecting scripts/precompute_tfr_arrays.py (renamed 2026-08-22 from precompute_tfr_arrays_v2.py)'s own AREA_VEC_PATH usage.
+    Layer masks still come from outputs/layers/channel_layers_all.csv via
+    extract_lfp_coupling_matrices.load_layer_masks (unaffected by the sidecar gap; reused as-is).
 
-DATA ACCESS: reuses resolve_lfp_datasets/p1_onsets_and_conditions_s from
-extract_lfp_coupling_matrices.py (fig06) and this session's cell/layer assignment logic, so
-area/layer/representative-channel selection is identical across figures 6 and 7. Spike times
-are read directly from the NWB units table's ragged VectorIndex arrays via h5py, not through
-omission.jnwb_ext.session (avoids a full pynwb load per session across ~20 sessions x many units).
-
-OUTPUT: outputs/spike_lfp_coupling/coupling.npz, keyed
+OUTPUT: outputs/spike_lfp_coupling/coupling_v2.npz (kept separate from the stale v1 output
+   rather than overwriting it -- "preserve originals"), same key/value schema as v1:
   "{session_prefix}|{context}|{band}|{area}|{layer}|{unit_row}"
   -> array([ppc_observed, ppc_null_mean, ppc_null_std, n_shuffle, n_spikes])
 """
@@ -50,21 +55,23 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts" / "archive_oneoff"))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from precompute_tfr_arrays import load_probe_areas, resolve_lfp_datasets  # noqa: E402
+from precompute_tfr_arrays import resolve_lfp_datasets, PROBE_LETTER  # noqa: E402  (renamed 2026-08-22 from precompute_tfr_arrays_v2)
 from extract_lfp_coupling_matrices import (  # noqa: E402
-    BANDS, CONTEXTS, load_layer_masks, cells_for_probe, p1_onsets_and_conditions_s,
+    BANDS, CONTEXTS, load_layer_masks, LAYERS, p1_onsets_and_conditions_s,
 )
 from jnwb import paths as _P
 
 READINESS = REPO / "artifacts/data/session_readiness.csv"
 GRAND_UNITS = REPO / "outputs/classification/omission_grand_units.csv"
+AREA_VEC_PATH = REPO / "outputs/channel_area_vector/channel_area_vector.csv"
 OUT_DIR = REPO / "outputs/spike_lfp_coupling"
-META_ROOT = Path(os.environ.get("OMISSION_META_DIR", _P.meta_dir()))
 
 N_SHUFFLE = 500
 MAX_TRIALS_PER_CONDITION = 60
 EXCLUDE_RADIUS = 2      # channels; same-electrode contamination control
 MIN_SPIKES = 30         # PPC needs a reasonable spike count to be interpretable
+
+LETTER_TO_PROBE_NUM = {"A": 0, "B": 1, "C": 2, "D": 3}
 
 
 def read_spike_times(f, unit_row):
@@ -74,10 +81,6 @@ def read_spike_times(f, unit_row):
     return np.asarray(f["units/spike_times"][start:stop], dtype=float)
 
 
-def read_peak_channel(f, unit_row):
-    return int(f["units/peak_channel_id"][unit_row])
-
-
 def ppc(phases):
     """Pairwise phase consistency (Vinck et al. 2010): bias-free alternative to vector
     strength / Rayleigh z, does not grow spuriously with spike count."""
@@ -85,17 +88,11 @@ def ppc(phases):
     if n < 2:
         return np.nan
     z = np.exp(1j * phases)
-    # PPC = (|sum z|^2 - n) / (n * (n - 1)), algebraically equivalent to averaging cos(phase_i - phase_j)
-    # over all i != j pairs but O(n) instead of O(n^2).
     s = np.sum(z)
     return float((np.abs(s) ** 2 - n) / (n * (n - 1)))
 
 
 def ppc_batch(phases_2d):
-    """Same formula as ppc(), applied to every row of a (n_shuffle, n_spikes) array at once --
-    the earlier per-shuffle python-loop design (500 calls to ppc() per unit-band-context) did
-    not finish a single pilot session in over 5 minutes; this is the same fix fig06 needed
-    (vectorize across shuffles, don't call the estimator fresh per shuffle)."""
     n = phases_2d.shape[1]
     if n < 2:
         return np.full(phases_2d.shape[0], np.nan)
@@ -116,14 +113,6 @@ PAD_S = 0.15  # edge padding on each side of a trial window so filtfilt's transi
 
 
 def trial_windowed_phase(data, ts, fs, onsets_s, window_s, channel_idx, band, max_trials):
-    """Band-phase, computed PER TRIAL WINDOW (with edge padding), not on one huge
-    session-spanning slice. The first version of this script pulled one contiguous slice from
-    the earliest to the latest onset and ran filtfilt/hilbert on it -- for trials spread across
-    a session that slice can be most of the recording (confirmed: >1GB RAM, >3 min with no
-    trial actually processed yet on a single session). Real spike-field coupling only needs
-    the ~0.5-0.8 s around each trial, not everything between the first and last one.
-
-    Returns: dict[trial_index] -> (window_times_abs, phase_array_for_window)."""
     need = int(round((window_s[1] - window_s[0]) * fs))
     pad = int(round(PAD_S * fs))
     out = {}
@@ -144,10 +133,36 @@ def trial_windowed_phase(data, ts, fs, onsets_s, window_s, channel_idx, band, ma
     return out
 
 
+def cells_for_session(av_session, session_prefix, layer_masks):
+    """Sidecar-free replacement for load_probe_areas + cells_for_probe: builds
+    (area, layer, lfp_key, representative_channel, probe_num) tuples directly from
+    channel_area_vector.csv's per-(probe_letter, area) seg_start/seg_stop (channel_slices'
+    exact equivalent) and channel_layers_all.csv's per-channel layer call."""
+    out = []
+    for probe_letter, g in av_session.groupby("probe_letter"):
+        probe_num = LETTER_TO_PROBE_NUM.get(probe_letter)
+        if probe_num is None:
+            continue
+        lfp_key = f"probe_{probe_num}_lfp"
+        ch_layer = layer_masks.get((session_prefix, lfp_key))
+        if not ch_layer:
+            continue
+        for area, gg in g.groupby("area"):
+            lo, hi = int(gg.seg_start.iloc[0]), int(gg.seg_stop.iloc[0])
+            for layer in LAYERS:
+                idx = sorted(ch for ch, lyr in ch_layer.items()
+                            if lyr == layer and lo <= ch < hi)
+                if not idx:
+                    continue
+                rep = int(idx[len(idx) // 2])
+                out.append((area, layer, lfp_key, rep, probe_num))
+    return out
+
+
 def main(limit_sessions=None, sessions_filter=None):
     t_start = time.time()
     readiness = pd.read_csv(READINESS)
-    ready = readiness[readiness.nwb_ok & readiness.sidecar_ok]
+    ready = readiness[readiness.nwb_ok]
     if sessions_filter:
         ready = ready[ready.session_prefix.isin(sessions_filter)]
     if limit_sessions:
@@ -156,6 +171,7 @@ def main(limit_sessions=None, sessions_filter=None):
     grand = pd.read_csv(GRAND_UNITS)
     grand = grand[grand.quality == 1]  # SUA only
 
+    av = pd.read_csv(AREA_VEC_PATH)
     layer_masks = load_layer_masks()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     results = {}
@@ -165,22 +181,12 @@ def main(limit_sessions=None, sessions_filter=None):
     for _, row in ready.iterrows():
         session_prefix = row.session_prefix
         nwb_path = row.nwb_path
-        stem = Path(nwb_path).stem
-        try:
-            probe_meta = load_probe_areas(META_ROOT, stem)
-        except FileNotFoundError as e:
-            print(f"  skip {session_prefix}: {e}")
+        av_session = av[av.session_prefix == session_prefix]
+        if av_session.empty:
+            print(f"  skip {session_prefix}: no channel_area_vector rows")
             continue
 
-        # peak_channel_id in omission_grand_units.csv is a GLOBAL index across all 4 probes
-        # (probe_0_lfp=0-127, probe_1_lfp=128-255, ...) -- confirmed by range (0-511) far
-        # exceeding one probe's 128 channels; `local_channel` is entirely NaN in this table
-        # and unusable. Derive the probe-local index from the lfp_key's probe number instead.
-        cells = []
-        for probe_name, meta in probe_meta.items():
-            probe_num = int(meta["lfp_key"].split("_")[1])
-            for area, layer, rep in cells_for_probe(session_prefix, probe_name, meta, layer_masks):
-                cells.append((area, layer, meta["lfp_key"], rep, probe_num))
+        cells = cells_for_session(av_session, session_prefix, layer_masks)
         if not cells:
             continue
 
@@ -207,9 +213,6 @@ def main(limit_sessions=None, sessions_filter=None):
                         onsets = np.concatenate([onsets_all[c][:MAX_TRIALS_PER_CONDITION]
                                                  for c in conds])
                         for band_name, band in BANDS.items():
-                            # Per-trial phase, padded to let filtfilt's edge transient decay
-                            # outside the window of interest -- not one session-spanning slice
-                            # (see trial_windowed_phase docstring for why that was 3+ min/session).
                             trial_phase = trial_windowed_phase(
                                 data, ts, fs, onsets, ctx["window_s"], rep, band, len(onsets))
                             if not trial_phase:
@@ -221,9 +224,7 @@ def main(limit_sessions=None, sessions_filter=None):
                                     n_excluded_same_electrode += 1
                                     continue
                                 spike_times = read_spike_times(f, int(urow.unit_row))
-                                # Per trial: real spike phases, and how many spikes fell in
-                                # that trial (needed to draw a matching-size null sample).
-                                phases_per_trial = []   # list of (phase_win, real_phase_array)
+                                phases_per_trial = []
                                 for ti, (trial_t0, phase_win, fs_w) in trial_phase.items():
                                     t0 = onsets[ti] + ctx["window_s"][0]
                                     t1 = onsets[ti] + ctx["window_s"][1]
@@ -239,16 +240,6 @@ def main(limit_sessions=None, sessions_filter=None):
                                 if len(phases) < MIN_SPIKES:
                                     continue
                                 obs = ppc(phases)
-                                # Null: for each of N_SHUFFLE draws, resample each trial's
-                                # spike-count-many phases at UNIFORMLY RANDOM times within that
-                                # trial's own window instead of true spike times -- breaks
-                                # spike-to-phase locking while preserving each trial's own phase
-                                # content and the per-trial spike count. Fully vectorized: one
-                                # (N_SHUFFLE, n_spikes_trial) index draw per trial, concatenated
-                                # across trials, PPC computed on all N_SHUFFLE rows at once via
-                                # ppc_batch -- no python-level loop over shuffles at all (the
-                                # earlier per-shuffle-python-loop design did not finish one pilot
-                                # session in 5+ minutes).
                                 per_trial_draws = [
                                     pw[rng.integers(0, len(pw), size=(N_SHUFFLE, len(rp)))]
                                     for pw, rp in phases_per_trial
@@ -264,12 +255,12 @@ def main(limit_sessions=None, sessions_filter=None):
             print(f"  ERROR {session_prefix}: {e}")
             continue
         print(f"{session_prefix}: {len(results)} cumulative results, "
-              f"{time.time() - t_start:.0f}s elapsed")
+              f"{time.time() - t_start:.0f}s elapsed", flush=True)
 
-    np.savez(OUT_DIR / "coupling.npz",
+    np.savez(OUT_DIR / "coupling_v2.npz",
             keys=np.array(list(results.keys())),
             values=np.array(list(results.values())))
-    with open(OUT_DIR / "receipt.json", "w", encoding="utf-8") as fh:
+    with open(OUT_DIR / "receipt_v2.json", "w", encoding="utf-8") as fh:
         json.dump({
             "n_sessions_attempted": int(len(ready)), "n_results": len(results),
             "n_excluded_same_electrode": n_excluded_same_electrode,
@@ -278,8 +269,9 @@ def main(limit_sessions=None, sessions_filter=None):
             "contexts": {k: {"window_s": v["window_s"], "conditions": v["conditions"]}
                         for k, v in CONTEXTS.items()},
             "n_shuffle": N_SHUFFLE, "elapsed_s": time.time() - t_start,
+            "area_source": "outputs/channel_area_vector/channel_area_vector.csv (sidecar-free)",
         }, fh, indent=2)
-    print(f"WROTE {OUT_DIR / 'coupling.npz'} ({len(results)} results, "
+    print(f"WROTE {OUT_DIR / 'coupling_v2.npz'} ({len(results)} results, "
           f"{n_excluded_same_electrode} same-electrode exclusions, "
           f"{time.time() - t_start:.0f}s)")
 
