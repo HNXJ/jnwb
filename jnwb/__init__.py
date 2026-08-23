@@ -164,6 +164,10 @@ from .trajectory import (
     compute_population_trajectory,
 )
 
+# Canonical label-permutation primitive for null construction (2026-08-10; see
+# jnwb/permutation.py's module docstring for the exchangeability bug it fixed).
+from .permutation import permute_labels
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -208,4 +212,7 @@ __all__ = [
     # Trajectory
     'build_time_resolved_matrix',
     'compute_population_trajectory',
+
+    # Permutation / null construction
+    'permute_labels',
 ]

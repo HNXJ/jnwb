@@ -43,6 +43,16 @@ result.summary()
 result.plot()
 ```
 
+Null construction under an explicit exchangeability scheme — every call must name `scheme`
+(`"within_group"` or `"global"`), there is no default, since a bare `rng.permutation(y)` inside
+grouped/session-structured decoding is a documented past bug (see `jnwb/permutation.py`):
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+null_labels = jnwb.permute_labels(labels, groups=cycle_id, scheme="within_group", rng=rng)
+```
+
 ---
 
 ## Module map

@@ -1,12 +1,30 @@
 """Unit tests for jnwb.permutation.permute_labels -- the canonical exchangeability-scheme
 primitive added 2026-08-10 to fix the naive-global-permutation-null bug found in
-decode_identity_cycle_deconfound (artifacts/.lab/agent-harness-audit-20260810.json)."""
+decode_identity_cycle_deconfound (artifacts/.lab/agent-harness-audit-20260810.json).
+
+Added to jnwb.__all__ 2026-08-22 (normalization Batch 2, item 1) after independent
+verification: experiment-independent semantics, no embedded omission condition
+names/constants, stable signature since 2026-08-10, and every existing caller already
+uses the intended `from jnwb.permutation import permute_labels` interface."""
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from jnwb.permutation import permute_labels
+
+
+class TestPublicImport:
+    def test_importable_from_top_level_jnwb(self):
+        """The public surface is `from jnwb import permute_labels`, not just the submodule path."""
+        from jnwb import permute_labels as public_permute_labels
+
+        assert public_permute_labels is permute_labels
+
+    def test_listed_in_jnwb_all(self):
+        import jnwb
+
+        assert "permute_labels" in jnwb.__all__
 
 
 class TestPermuteLabelsContract:
