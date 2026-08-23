@@ -16,7 +16,11 @@ one shows up outside this module's own `scheme="global"` path.
 """
 from __future__ import annotations
 
+import hashlib
+from typing import Iterable
+
 import numpy as np
+import pandas as pd
 
 SCHEMES = ("within_group", "global")
 
@@ -69,3 +73,63 @@ def permute_labels(
         idx = np.flatnonzero(groups == g)
         out[idx] = rng.permutation(y[idx])
     return out
+
+
+def build_permutation_plan(
+    labels: Iterable[object],
+    groups: Iterable[object],
+    *,
+    n_permutations: int,
+    seed: int,
+) -> dict:
+    """Create an explicit within-group null plan (a manifest of digested draws); no model
+    fitting occurs.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.structured_identity (99%-jnwb-sufficiency
+    normalization) as a sibling to ``permute_labels``: it wraps that primitive with a
+    reproducible manifest (per-draw seed and label digest) and never references omission's
+    condition or trial semantics.
+
+    Args:
+        labels: label array, any dtype.
+        groups: group id per sample, same length as ``labels``.
+        n_permutations: number of permutation draws to generate.
+        seed: base seed; draw ``i`` uses ``seed + i``.
+
+    Returns:
+        dict with ``draw_manifest`` (DataFrame: permutation, seed, label_digest, n_samples,
+        n_groups), ``scheme`` (always "within_group"), ``seed``, ``n_permutations``, and
+        ``group_composition_preserved`` (always True).
+    """
+    y = np.asarray(list(labels))
+    group_array = np.asarray(list(groups))
+    if y.ndim != 1 or group_array.shape != y.shape:
+        raise ValueError("labels and groups must be one-dimensional and equally sized")
+    if n_permutations < 1:
+        raise ValueError("n_permutations must be positive")
+    draws = []
+    for permutation in range(n_permutations):
+        draw_seed = int(seed + permutation)
+        permuted = permute_labels(
+            y,
+            groups=group_array,
+            scheme="within_group",
+            rng=np.random.default_rng(draw_seed),
+        )
+        digest = hashlib.sha256(np.ascontiguousarray(permuted).tobytes()).hexdigest()
+        draws.append(
+            {
+                "permutation": permutation,
+                "seed": draw_seed,
+                "label_digest": digest,
+                "n_samples": int(len(y)),
+                "n_groups": int(len(np.unique(group_array))),
+            }
+        )
+    return {
+        "draw_manifest": pd.DataFrame(draws),
+        "scheme": "within_group",
+        "seed": int(seed),
+        "n_permutations": int(n_permutations),
+        "group_composition_preserved": True,
+    }

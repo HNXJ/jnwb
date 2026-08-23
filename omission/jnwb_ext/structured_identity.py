@@ -6,20 +6,29 @@ Training remains explicitly unauthorized until the Milestone 1 receipt is review
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Mapping
 
 import numpy as np
 import pandas as pd
 
 from .omission_identity import OMISSION_IDENTITY_CONDITIONS, detect_trial_cycles
-from jnwb.permutation import permute_labels
+from jnwb.permutation import build_permutation_plan
+from jnwb.decoding import (
+    assign_outer_folds,
+    build_inner_validation_partitions,
+    build_representation_ladder,
+)
 from .trial_ontology import CONDITION_ONTOLOGY, build_trial_ontology
+
+# assign_outer_folds, build_inner_validation_partitions, build_representation_ladder, and
+# build_permutation_plan PROMOTED 2026-08-23 to jnwb.decoding / jnwb.permutation
+# (99%-jnwb-sufficiency normalization) -- re-imported here under their original names so no
+# call site in this module or its callers needs to change.
 
 SPEC_VERSION = "structured-identity-experiment-v1"
 MILESTONE = 1
@@ -179,176 +188,6 @@ def build_canonical_trial_table(
     return table.sort_values(["analysis", "slot_key", "cycle", "start_time", "trial_id"]).reset_index(
         drop=True
     )
-
-
-def assign_outer_folds(
-    trials: pd.DataFrame,
-    *,
-    analysis_cols: tuple[str, ...] = ("session", "analysis", "slot_key"),
-    group_col: str = "cycle",
-) -> pd.DataFrame:
-    """Assign deterministic leave-one-group-out outer folds without touching features."""
-    required = set(analysis_cols) | {group_col, "trial_id"}
-    missing = required.difference(trials.columns)
-    if missing:
-        raise ValueError(f"trial table missing fold columns: {sorted(missing)}")
-    out = trials.copy()
-    out["outer_fold"] = -1
-    out["outer_group"] = out[group_col]
-    out["outer_fold_status"] = "unassigned"
-    for _, index in out.groupby(list(analysis_cols), sort=True, dropna=False).groups.items():
-        groups = sorted(out.loc[index, group_col].unique().tolist())
-        if len(groups) < 2:
-            out.loc[index, "outer_fold_status"] = "insufficient_groups"
-            continue
-        mapping = {group: fold for fold, group in enumerate(groups)}
-        out.loc[index, "outer_fold"] = out.loc[index, group_col].map(mapping).astype(int)
-        out.loc[index, "outer_fold_status"] = "valid"
-    return out
-
-
-def build_inner_validation_partitions(
-    outer_trials: pd.DataFrame,
-    *,
-    analysis_cols: tuple[str, ...] = ("session", "analysis", "slot_key"),
-) -> pd.DataFrame:
-    """Build nested inner train/validation partitions from outer-training groups.
-
-    The outer test group is never used in an inner partition.  If only one training group
-    remains, an explicit ``insufficient_training_groups`` row is emitted instead of inventing a
-    validation split.
-    """
-    rows: list[dict] = []
-    for key, group in outer_trials.groupby(list(analysis_cols), sort=True, dropna=False):
-        if not isinstance(key, tuple):
-            key = (key,)
-        key_values = dict(zip(analysis_cols, key))
-        for outer_fold in sorted(group["outer_fold"].unique()):
-            train = group[group["outer_fold"] != outer_fold]
-            train_groups = sorted(train["outer_group"].unique().tolist())
-            if len(train_groups) < 2:
-                rows.append(
-                    {
-                        **key_values,
-                        "outer_fold": int(outer_fold),
-                        "inner_fold": -1,
-                        "trial_id": -1,
-                        "inner_role": "insufficient_training_groups",
-                        "inner_group": None,
-                        "trial_group": None,
-                        "validation_group": None,
-                    }
-                )
-                continue
-            for inner_fold, inner_group in enumerate(train_groups):
-                for _, trial in train.iterrows():
-                    rows.append(
-                        {
-                            **key_values,
-                            "outer_fold": int(outer_fold),
-                            "inner_fold": int(inner_fold),
-                            "trial_id": int(trial["trial_id"]),
-                            "inner_role": (
-                                "inner_validation"
-                                if trial["outer_group"] == inner_group
-                                else "inner_train"
-                            ),
-                            "inner_group": int(inner_group),
-                            "trial_group": int(trial["outer_group"]),
-                            "validation_group": int(inner_group),
-                        }
-                    )
-    return pd.DataFrame(rows)
-
-
-def build_representation_ladder(
-    raster: np.ndarray,
-    *,
-    modality: str = "SPK",
-    spatial_axis_metadata: Mapping[str, object] | None = None,
-) -> dict[str, object]:
-    """Return R0/R1/R2 contracts without fitting a model.
-
-    ``raster`` is `(n_trials, n_space, n_time)` with an explicit time axis.  R0 collapses time;
-    R1 vectorizes without discarding samples; R2 preserves the tensor and records the topology
-    constraint.  SPK units are unordered unless metadata supplies a preregistered order.
-    """
-    x = np.asarray(raster)
-    if x.ndim != 3:
-        raise ValueError("raster must have shape (n_trials, n_space, n_time)")
-    if not np.isfinite(x).all():
-        raise ValueError("raster contains NaN or Inf")
-    modality = modality.upper()
-    if modality not in {"SPK", "LFP"}:
-        raise ValueError("modality must be 'SPK' or 'LFP'")
-    if modality == "LFP" and spatial_axis_metadata is None:
-        raise ValueError("LFP R2 requires explicit channel/probe spatial metadata")
-    if modality == "SPK":
-        topology = (
-            "metadata_ordered_units"
-            if spatial_axis_metadata is not None
-            else "unordered_units_permutation_equivariant_required"
-        )
-    else:
-        topology = "channel_probe_order_from_metadata"
-    return {
-        "X_rate": np.mean(x, axis=2, dtype=np.float64),
-        "X_vec": x.reshape(x.shape[0], -1),
-        "X_structured": x.copy(),
-        "contract": {
-            "modality": modality,
-            "input_shape": list(x.shape),
-            "r0": "X_rate: temporal aggregation; information may be discarded",
-            "r1": "X_vec: bijective vectorization of the selected raster",
-            "r2": "X_structured: preserved space x time organization",
-            "space_axis_topology": topology,
-            "vectorization_order": "C: space-major then time within each trial",
-            "dtype": str(x.dtype),
-            "training_authorized": False,
-        },
-    }
-
-
-def build_permutation_plan(
-    labels: Iterable[object],
-    groups: Iterable[object],
-    *,
-    n_permutations: int,
-    seed: int,
-) -> dict[str, object]:
-    """Create an explicit within-group null plan; no model fitting occurs."""
-    y = np.asarray(list(labels))
-    group_array = np.asarray(list(groups))
-    if y.ndim != 1 or group_array.shape != y.shape:
-        raise ValueError("labels and groups must be one-dimensional and equally sized")
-    if n_permutations < 1:
-        raise ValueError("n_permutations must be positive")
-    draws = []
-    for permutation in range(n_permutations):
-        draw_seed = int(seed + permutation)
-        permuted = permute_labels(
-            y,
-            groups=group_array,
-            scheme="within_group",
-            rng=np.random.default_rng(draw_seed),
-        )
-        digest = hashlib.sha256(np.ascontiguousarray(permuted).tobytes()).hexdigest()
-        draws.append(
-            {
-                "permutation": permutation,
-                "seed": draw_seed,
-                "label_digest": digest,
-                "n_samples": int(len(y)),
-                "n_groups": int(len(np.unique(group_array))),
-            }
-        )
-    return {
-        "draw_manifest": pd.DataFrame(draws),
-        "scheme": "within_group",
-        "seed": int(seed),
-        "n_permutations": int(n_permutations),
-        "group_composition_preserved": True,
-    }
 
 
 def build_milestone_receipt(

@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jnwb.permutation import permute_labels
+from jnwb.permutation import permute_labels, build_permutation_plan
 
 
 class TestPublicImport:
@@ -25,6 +25,16 @@ class TestPublicImport:
         import jnwb
 
         assert "permute_labels" in jnwb.__all__
+        assert "build_permutation_plan" in jnwb.__all__
+
+    def test_build_permutation_plan_importable_from_top_level_jnwb(self):
+        import jnwb
+
+        assert jnwb.build_permutation_plan is build_permutation_plan
+
+    def test_omission_structured_identity_delegates_to_jnwb(self):
+        si = pytest.importorskip("omission.jnwb_ext.structured_identity")
+        assert si.build_permutation_plan is build_permutation_plan
 
 
 class TestPermuteLabelsContract:
@@ -106,3 +116,41 @@ class TestGlobalScheme:
         # ...but group 0's slice is not guaranteed to still be all-0s the way within_group
         # would force it to be -- with this seed it demonstrably is not.
         assert sorted(perm[:10].tolist()) != sorted(labels[:10].tolist())
+
+
+class TestBuildPermutationPlan:
+    def test_rejects_mismatched_lengths(self):
+        with pytest.raises(ValueError, match="equally sized"):
+            build_permutation_plan([0, 1, 0], [0, 0], n_permutations=2, seed=0)
+
+    def test_rejects_nonpositive_n_permutations(self):
+        with pytest.raises(ValueError, match="positive"):
+            build_permutation_plan([0, 1], [0, 0], n_permutations=0, seed=0)
+
+    def test_draw_manifest_has_one_row_per_permutation(self):
+        plan = build_permutation_plan(
+            [0, 0, 1, 1, 0, 1, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1], n_permutations=5, seed=1
+        )
+        assert len(plan["draw_manifest"]) == 5
+        assert plan["scheme"] == "within_group"
+        assert plan["n_permutations"] == 5
+        assert plan["group_composition_preserved"] is True
+
+    def test_seeds_are_sequential_from_base(self):
+        plan = build_permutation_plan([0, 1, 0, 1], [0, 0, 1, 1], n_permutations=3, seed=100)
+        assert plan["draw_manifest"]["seed"].tolist() == [100, 101, 102]
+
+    def test_deterministic_digests_given_seed(self):
+        labels, groups = [0, 0, 1, 1, 0, 1], [0, 0, 0, 1, 1, 1]
+        plan_a = build_permutation_plan(labels, groups, n_permutations=3, seed=7)
+        plan_b = build_permutation_plan(labels, groups, n_permutations=3, seed=7)
+        assert (
+            plan_a["draw_manifest"]["label_digest"].tolist()
+            == plan_b["draw_manifest"]["label_digest"].tolist()
+        )
+
+    def test_manifest_records_sample_and_group_counts(self):
+        plan = build_permutation_plan([0, 0, 1, 1], [0, 0, 1, 1], n_permutations=1, seed=0)
+        row = plan["draw_manifest"].iloc[0]
+        assert row["n_samples"] == 4
+        assert row["n_groups"] == 2

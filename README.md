@@ -117,6 +117,17 @@ result = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)
 print(result["accuracy"], result["f1"], result["auc"], result["majority_baseline_accuracy"])
 ```
 
+Generic grouped leave-one-group-out CV geometry, representation contracts (R0/R1/R2), and a
+reproducible within-group null-permutation plan — plain trial `DataFrame`/array in, no session
+or condition semantics (`jnwb/decoding.py`, `jnwb/permutation.py`):
+
+```python
+outer = jnwb.assign_outer_folds(trials, analysis_cols=("session", "analysis", "slot_key"), group_col="cycle")
+inner = jnwb.build_inner_validation_partitions(outer)
+ladder = jnwb.build_representation_ladder(raster, modality="SPK")   # X_rate, X_vec, X_structured
+plan = jnwb.build_permutation_plan(labels, groups, n_permutations=1000, seed=0)  # draw_manifest
+```
+
 Generic spike-response metrics — firing rate/latency/z-score relative to any behavioral epoch,
 significance classification, and spike-LFP phase locking (`jnwb/spiking.py`):
 

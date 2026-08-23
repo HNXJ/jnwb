@@ -13,6 +13,16 @@ omission.jnwb_ext.decoding: they are irreducibly coupled to ``OmissionSession``'
 task's condition-pair semantics (e.g. "AAAB" vs "BBBA"), and now call this module instead of
 duplicating the CV/scoring logic.
 
+PROMOTED 2026-08-23 (same normalization pass) from omission.jnwb_ext.structured_identity:
+``assign_outer_folds``, ``build_inner_validation_partitions``, and ``build_representation_ladder``
+operate on a plain trial DataFrame (grouped by caller-supplied ``analysis_cols``/``group_col``)
+or a plain ``(n_trials, n_space, n_time)`` array -- no reference to omission's condition codes,
+sequence semantics, or session objects. They generalize to any grouped leave-one-group-out CV
+geometry / representation-contract problem. ``build_canonical_trial_table``,
+``build_milestone_receipt``, and the positive-control row builders stay in
+omission.jnwb_ext.structured_identity: they are irreducibly coupled to this task's trial
+ontology and condition semantics.
+
 Author: Claude Code
 Date: 2026-06-30
 """
@@ -20,9 +30,10 @@ Date: 2026-06-30
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List, Mapping, Union
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.pipeline import Pipeline
@@ -168,4 +179,166 @@ def nested_cv_linear_svm(
         "f1": f1,
         "auc": auc,
         "majority_baseline_accuracy": float(np.mean(fold_majority_accs)),
+    }
+
+
+def assign_outer_folds(
+    trials: pd.DataFrame,
+    *,
+    analysis_cols: tuple = ("session", "analysis", "slot_key"),
+    group_col: str = "cycle",
+) -> pd.DataFrame:
+    """Assign deterministic leave-one-group-out outer folds without touching features.
+
+    Args:
+        trials: DataFrame with at least ``analysis_cols``, ``group_col``, and ``trial_id``
+            columns.
+        analysis_cols: columns identifying an independent analysis stratum (folds are assigned
+            separately within each combination of these columns).
+        group_col: column giving the group id (e.g. a repetition/cycle id) that outer folds hold
+            out whole groups of.
+
+    Returns:
+        A copy of ``trials`` with added ``outer_fold`` (int, -1 if unassigned),
+        ``outer_group`` (the group id), and ``outer_fold_status`` (``"valid"`` or
+        ``"insufficient_groups"`` when a stratum has fewer than 2 distinct groups).
+    """
+    required = set(analysis_cols) | {group_col, "trial_id"}
+    missing = required.difference(trials.columns)
+    if missing:
+        raise ValueError(f"trial table missing fold columns: {sorted(missing)}")
+    out = trials.copy()
+    out["outer_fold"] = -1
+    out["outer_group"] = out[group_col]
+    out["outer_fold_status"] = "unassigned"
+    for _, index in out.groupby(list(analysis_cols), sort=True, dropna=False).groups.items():
+        groups = sorted(out.loc[index, group_col].unique().tolist())
+        if len(groups) < 2:
+            out.loc[index, "outer_fold_status"] = "insufficient_groups"
+            continue
+        mapping = {group: fold for fold, group in enumerate(groups)}
+        out.loc[index, "outer_fold"] = out.loc[index, group_col].map(mapping).astype(int)
+        out.loc[index, "outer_fold_status"] = "valid"
+    return out
+
+
+def build_inner_validation_partitions(
+    outer_trials: pd.DataFrame,
+    *,
+    analysis_cols: tuple = ("session", "analysis", "slot_key"),
+) -> pd.DataFrame:
+    """Build nested inner train/validation partitions from outer-training groups.
+
+    The outer test group is never used in an inner partition. If only one training group
+    remains, an explicit ``"insufficient_training_groups"`` row is emitted instead of inventing
+    a validation split.
+
+    Args:
+        outer_trials: output of ``assign_outer_folds`` (must have ``outer_fold``,
+            ``outer_group``, ``trial_id``, and ``analysis_cols`` columns).
+        analysis_cols: columns identifying an independent analysis stratum.
+
+    Returns:
+        Long-format DataFrame, one row per (stratum, outer_fold, inner_fold, trial_id), with
+        ``inner_role`` in {"inner_train", "inner_validation", "insufficient_training_groups"}.
+    """
+    rows: list = []
+    for key, group in outer_trials.groupby(list(analysis_cols), sort=True, dropna=False):
+        if not isinstance(key, tuple):
+            key = (key,)
+        key_values = dict(zip(analysis_cols, key))
+        for outer_fold in sorted(group["outer_fold"].unique()):
+            train = group[group["outer_fold"] != outer_fold]
+            train_groups = sorted(train["outer_group"].unique().tolist())
+            if len(train_groups) < 2:
+                rows.append(
+                    {
+                        **key_values,
+                        "outer_fold": int(outer_fold),
+                        "inner_fold": -1,
+                        "trial_id": -1,
+                        "inner_role": "insufficient_training_groups",
+                        "inner_group": None,
+                        "trial_group": None,
+                        "validation_group": None,
+                    }
+                )
+                continue
+            for inner_fold, inner_group in enumerate(train_groups):
+                for _, trial in train.iterrows():
+                    rows.append(
+                        {
+                            **key_values,
+                            "outer_fold": int(outer_fold),
+                            "inner_fold": int(inner_fold),
+                            "trial_id": int(trial["trial_id"]),
+                            "inner_role": (
+                                "inner_validation"
+                                if trial["outer_group"] == inner_group
+                                else "inner_train"
+                            ),
+                            "inner_group": int(inner_group),
+                            "trial_group": int(trial["outer_group"]),
+                            "validation_group": int(inner_group),
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def build_representation_ladder(
+    raster: np.ndarray,
+    *,
+    modality: str = "SPK",
+    spatial_axis_metadata: Union[Mapping[str, object], None] = None,
+) -> Dict[str, object]:
+    """Return R0/R1/R2 representation contracts without fitting a model.
+
+    ``raster`` is ``(n_trials, n_space, n_time)`` with an explicit time axis. R0 collapses
+    time; R1 vectorizes without discarding samples; R2 preserves the tensor and records the
+    space-axis topology constraint. SPK units are unordered unless metadata supplies a
+    preregistered order.
+
+    Args:
+        raster: (n_trials, n_space, n_time) finite array.
+        modality: "SPK" or "LFP".
+        spatial_axis_metadata: required when modality="LFP" (explicit channel/probe topology);
+            optional for "SPK".
+
+    Returns:
+        dict with X_rate, X_vec, X_structured, and a ``contract`` sub-dict documenting the
+        R0/R1/R2 semantics and space-axis topology.
+    """
+    x = np.asarray(raster)
+    if x.ndim != 3:
+        raise ValueError("raster must have shape (n_trials, n_space, n_time)")
+    if not np.isfinite(x).all():
+        raise ValueError("raster contains NaN or Inf")
+    modality = modality.upper()
+    if modality not in {"SPK", "LFP"}:
+        raise ValueError("modality must be 'SPK' or 'LFP'")
+    if modality == "LFP" and spatial_axis_metadata is None:
+        raise ValueError("LFP R2 requires explicit channel/probe spatial metadata")
+    if modality == "SPK":
+        topology = (
+            "metadata_ordered_units"
+            if spatial_axis_metadata is not None
+            else "unordered_units_permutation_equivariant_required"
+        )
+    else:
+        topology = "channel_probe_order_from_metadata"
+    return {
+        "X_rate": np.mean(x, axis=2, dtype=np.float64),
+        "X_vec": x.reshape(x.shape[0], -1),
+        "X_structured": x.copy(),
+        "contract": {
+            "modality": modality,
+            "input_shape": list(x.shape),
+            "r0": "X_rate: temporal aggregation; information may be discarded",
+            "r1": "X_vec: bijective vectorization of the selected raster",
+            "r2": "X_structured: preserved space x time organization",
+            "space_axis_topology": topology,
+            "vectorization_order": "C: space-major then time within each trial",
+            "dtype": str(x.dtype),
+            "training_authorized": False,
+        },
     }

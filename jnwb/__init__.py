@@ -166,7 +166,7 @@ from .trajectory import (
 
 # Canonical label-permutation primitive for null construction (2026-08-10; see
 # jnwb/permutation.py's module docstring for the exchangeability bug it fixed).
-from .permutation import permute_labels
+from .permutation import permute_labels, build_permutation_plan
 
 # Generic trial-segmented artifact detection-and-substitution (promoted 2026-08-23 from
 # omission.jnwb_ext.artifact_repair; see jnwb/artifact_repair.py's module docstring).
@@ -231,6 +231,16 @@ from .decoding import (
     majority_baseline,
     fold_majority_baseline,
     nested_cv_linear_svm,
+)
+
+# Generic grouped leave-one-group-out CV geometry and representation contracts: plain trial
+# DataFrame / (n_trials, n_space, n_time) array in, no condition or session semantics (promoted
+# 2026-08-23 from omission.jnwb_ext.structured_identity; see jnwb/decoding.py's module
+# docstring).
+from .decoding import (
+    assign_outer_folds,
+    build_inner_validation_partitions,
+    build_representation_ladder,
 )
 
 # Generic spike-response metrics: firing rate/latency/z-score relative to behavioral epochs,
@@ -300,6 +310,7 @@ __all__ = [
 
     # Permutation / null construction
     'permute_labels',
+    'build_permutation_plan',
 
     # Artifact detection/repair
     'repair_lfp_trials',
@@ -351,6 +362,9 @@ __all__ = [
     'majority_baseline',
     'fold_majority_baseline',
     'nested_cv_linear_svm',
+    'assign_outer_folds',
+    'build_inner_validation_partitions',
+    'build_representation_ladder',
 
     # Spiking response metrics
     'compute_response_metrics',
