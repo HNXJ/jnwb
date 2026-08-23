@@ -22,8 +22,14 @@ from jnwb.ontology import (
     Query, Dataset, AlignedDataset, Alignment, EpochCollection,
     Question, Result, Interpretation, Figure,
     Provenance, Lineage,
+    create_aligned_dataset,
+    create_figure,
 )
 from .session import OmissionSession
+
+# aligned_dataset_from_dataset is an exact re-export of jnwb.ontology.create_aligned_dataset --
+# both were byte-identical one-line wrappers (99%-jnwb-sufficiency normalization, 2026-08-23).
+aligned_dataset_from_dataset = create_aligned_dataset
 
 log = logging.getLogger(__name__)
 
@@ -66,18 +72,6 @@ def dataset_from_session(session: OmissionSession, query: Query) -> Dataset:
     )
 
     return dataset
-
-
-def aligned_dataset_from_dataset(dataset: Dataset, alignment: Alignment) -> AlignedDataset:
-    """
-    Create AlignedDataset by pairing Dataset with Alignment.
-
-    No data modification. Pure semantic labeling.
-    """
-    return AlignedDataset(
-        dataset=dataset,
-        alignment=alignment,
-    )
 
 
 def epochs_from_aligned_dataset(
@@ -207,6 +201,10 @@ def figure_from_result(
     """
     Create Figure from Result and optional Interpretation.
 
+    Thin wrapper over jnwb.ontology.create_figure (99%-jnwb-sufficiency normalization,
+    2026-08-23) that adds this project's default Interpretation and logging when the caller
+    doesn't supply one -- create_figure itself requires an explicit Interpretation.
+
     Returns: mutable Figure (can be styled and saved)
     """
     if interpretation is None:
@@ -215,11 +213,7 @@ def figure_from_result(
             confidence="medium",
         )
 
-    figure = Figure(
-        result=result,
-        interpretation=interpretation,
-        title=title,
-    )
+    figure = create_figure(result=result, interpretation=interpretation, title=title)
 
     log.info(f"Figure created: {title}")
 

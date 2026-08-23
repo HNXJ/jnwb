@@ -104,6 +104,7 @@ coh = jnwb.cross_area_coherence(v1_lfp, pfc_lfp, sampling_rate=1000.0)
 theta_power_db = jnwb.band_power(lfp, 1000.0, jnwb.CANONICAL_BANDS["theta"], baseline=baseline_lfp)
 icoh = jnwb.imaginary_coherency(x, y, sampling_rate=1000.0, freq_range=(1, 100))  # icoh_mean, coh_mag_mean
 laplacian = jnwb.laplacian_reference(channel_data, channel_order=depth_order)
+freqs, psd = jnwb.compute_psd(lfp_data, fs=1000.0)   # plain Welch PSD wrapper
 ```
 
 Modality-agnostic directed functional connectivity — Granger causality, spectral (Geweke)

@@ -17,6 +17,7 @@ from jnwb.spectral import (
     bipolar_reference,
     laplacian_reference,
     CANONICAL_BANDS,
+    compute_psd,
 )
 
 
@@ -32,6 +33,33 @@ class TestPublicImport:
         assert jnwb.bipolar_reference is bipolar_reference
         assert jnwb.laplacian_reference is laplacian_reference
         assert jnwb.CANONICAL_BANDS is CANONICAL_BANDS
+        assert jnwb.compute_psd is compute_psd
+
+    def test_listed_in_jnwb_all(self):
+        import jnwb
+        assert "compute_psd" in jnwb.__all__
+
+    def test_omission_report_delegates_to_jnwb(self):
+        report = pytest.importorskip("omission.jnwb_ext.report")
+        assert report.compute_psd is compute_psd
+
+
+class TestComputePsd:
+    def test_returns_freqs_and_psd_arrays(self):
+        fs = 1000.0
+        t = np.arange(0, 2.0, 1.0 / fs)
+        x = np.sin(2 * np.pi * 40.0 * t)
+        freqs, psd = compute_psd(x, fs)
+        assert freqs.shape == psd.shape
+        assert freqs[0] == pytest.approx(0.0)
+
+    def test_peak_frequency_recovered(self):
+        fs = 1000.0
+        t = np.arange(0, 2.0, 1.0 / fs)
+        x = np.sin(2 * np.pi * 40.0 * t)
+        freqs, psd = compute_psd(x, fs)
+        peak = freqs[np.argmax(psd)]
+        assert abs(peak - 40.0) < 2.0
 
     def test_listed_in_jnwb_all(self):
         import jnwb

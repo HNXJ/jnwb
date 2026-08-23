@@ -25,11 +25,11 @@ from pynwb import NWBHDF5IO
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
-import scipy.signal as signal
 from scipy import stats
 
 from .session import OmissionSession
 from jnwb.statistics import StatisticalAnalysis
+from jnwb.spectral import compute_psd
 from .viz import MADELANE_GOLD, MADELANE_VIOLET, MADELANE_WHITE, MADELANE_GRAY, MADELANE_TEAL, MADELANE_ORANGE
 from .functions import raster_plot, psth_analysis, autocorrelogram
 from .decoding import decode_stimulus_identity
@@ -282,11 +282,6 @@ def generate_notebook_json(session_name: str, nwb_path: str) -> dict:
         "nbformat": 4,
         "nbformat_minor": 2
     }
-
-
-def compute_psd(lfp_data: np.ndarray, fs: float) -> tuple[np.ndarray, np.ndarray]:
-    freqs, psd = signal.welch(lfp_data, fs=fs, nperseg=min(len(lfp_data), int(fs)), axis=0)
-    return freqs, psd
 
 
 def apply_madelane_style(ax, title: str = "", xlabel: str = "", ylabel: str = ""):

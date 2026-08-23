@@ -210,6 +210,7 @@ from .spectral import (
     bipolar_reference,
     laplacian_reference,
     CANONICAL_BANDS,
+    compute_psd,
 )
 
 # Modality-agnostic functional connectivity: mutual information, Granger causality, phase
@@ -355,6 +356,7 @@ __all__ = [
     'bipolar_reference',
     'laplacian_reference',
     'CANONICAL_BANDS',
+    'compute_psd',
 
     # Functional connectivity
     'spike_mutual_information',

@@ -55,6 +55,24 @@ def to_db(ratio):
         return 10.0 * np.log10(ratio)
 
 
+def compute_psd(lfp_data: np.ndarray, fs: float):
+    """Welch power spectral density of a plain LFP array.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.report (99%-jnwb-sufficiency normalization): a
+    thin, generic ``scipy.signal.welch`` wrapper with no session, condition, or report-specific
+    coupling.
+
+    Args:
+        lfp_data: (n_times,) or (n_times, n_channels) array.
+        fs: sampling rate in Hz.
+
+    Returns:
+        (freqs, psd) tuple.
+    """
+    freqs, psd = signal.welch(lfp_data, fs=fs, nperseg=min(len(lfp_data), int(fs)), axis=0)
+    return freqs, psd
+
+
 def harmonic_analysis(
     lfp_trace: np.ndarray,
     sampling_rate: float,
