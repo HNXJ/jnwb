@@ -70,7 +70,10 @@ per the script's own code comment).
   the one exception), `fig03_supp_area_composition_battery.py`, `fig02_spiking_exemplar_rasters.py`,
   `scripts/build_unified_class_census.py` (O−/O−− source), `build_unit_feature_table.py`,
   `fit_all_classes_onset_latency_per_unit.py`, `fit_class_onset_latency.py`,
-  `extract_spike_lfp_coupling.py` (+v2), `extract_within_session_spk_lfp_sliding_corr.py`,
+  `extract_spike_lfp_coupling.py` (renamed 2026-08-23 from `extract_spike_lfp_coupling_v2.py`;
+  the pre-2026-08-15 original is archived, unedited, at
+  `scripts/archive_oneoff/extract_spike_lfp_coupling_v1_superseded_20260815.py`),
+  `extract_within_session_spk_lfp_sliding_corr.py`,
   `extract_within_session_spk_spk_sliding_corr.py`, `extract_population_firing_lfp_power_corr.py`
   (feeds `outputs/population_firing_lfp_power_corr/`, which `fig07_lfp_spike_coupling.py` reads
   — confirming fig07 transitively depends on `omission_class`), `extract_condition_spike_trials.py`,
@@ -204,6 +207,13 @@ before citing S+/S− as "S1-derived."
 - Consumers: `scripts/build_unified_class_census.py` (S+/S− source, filtered to
   stable+unstable), `fig03_supp_area_composition_battery.py`,
   `S5_onset_latency_hierarchy_spk.py`, `S2_population_responses_by_class.py`,
+  **`scripts/compute_fig04_class_knockout.py`** (PROTECTED_ACTIVE_WORK — reads
+  `unit_inclusion_v1.csv`'s `display_class` column directly by hardcoded path
+  (`DEFAULT_CLASS_TABLE`), explicitly documented in that script's own comment as canonical S+/S-
+  /O+/O++/Other "NOT `grand_s_and_o_units.csv` or `omission_grand_units.csv`" — found during
+  normalization Batch 4, 2026-08-23; not previously listed here. This is the reason
+  `unit_inclusion_v1.csv`'s path/schema must not change without coordinating with protected
+  Figure-4 work),
   `fit_all_classes_onset_latency_per_unit.py`, `fit_s_plus_onset_latency_s1_per_unit.py`,
   `fit_s_plus_onset_latency_s1.py`.
 
