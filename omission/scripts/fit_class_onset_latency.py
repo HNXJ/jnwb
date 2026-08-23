@@ -76,7 +76,7 @@ sys.path.insert(0, str(REPO_ROOT / "context" / "figures"))
 import omission as oa  # noqa: E402
 from jnwb import paths as _P  # noqa: E402
 from omission.jnwb_ext.sequence_layout import EPOCH_ONSETS_MS  # noqa: E402
-from omission.jnwb_ext.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402
+from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402  (promoted 2026-08-23)
 from figstyle import AREA_ORDER  # noqa: E402
 from figstats import holm, bh  # noqa: E402
 

@@ -172,6 +172,10 @@ from .permutation import permute_labels
 # omission.jnwb_ext.artifact_repair; see jnwb/artifact_repair.py's module docstring).
 from .artifact_repair import repair_lfp_trials, repair_band_artifacts
 
+# Causal PSTH smoothing + causality-bounded onset-latency fit (promoted 2026-08-23 from
+# omission.jnwb_ext.onset_fitting; see jnwb/onset_fitting.py's module docstring).
+from .onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -223,4 +227,9 @@ __all__ = [
     # Artifact detection/repair
     'repair_lfp_trials',
     'repair_band_artifacts',
+
+    # Onset-latency fitting
+    'causal_exp_smooth',
+    'fit_exponential_onset',
+    'onset_model',
 ]

@@ -55,7 +55,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "context" / "figures"))
 sys.path.insert(0, str(REPO / "context" / "figures" / "fig06_v1_pfc_condition_tfr"))
 
-from omission.jnwb_ext.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402
+from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402  (promoted 2026-08-23)
 import figstyle  # noqa: E402
 from fig04_v1_pfc_condition_tfr import (  # noqa: E402
     GLMM_CONDS, COND_CONTEXT, band_ratio, to_db,

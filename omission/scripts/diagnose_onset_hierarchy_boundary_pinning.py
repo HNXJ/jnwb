@@ -1,7 +1,7 @@
 r"""
 Diagnostic for outputs/classification/onset_hierarchy/cell_fits.csv (built by
 scripts/fit_class_onset_latency.py, 2026-08-15): quantify how much of that pipeline's onset
-estimate is driven by a boundary-pinning failure mode of omission.jnwb_ext.onset_fitting.fit_exponential_onset,
+estimate is driven by a boundary-pinning failure mode of jnwb.onset_fitting.fit_exponential_onset,
 distinct from the "low r2 / did not converge" gate that bootstrap_area_class already applies.
 
 WHY THIS IS A SEPARATE DIAGNOSTIC, NOT A FIX TO THE PIPELINE FILES
@@ -17,7 +17,7 @@ WHY THIS IS A SEPARATE DIAGNOSTIC, NOT A FIX TO THE PIPELINE FILES
     regardless of how gradual that rise actually looks.
 
     2026-08-15 REVISION: the first version of this script only counted a cell as pinned when
-    t0<1ms AND tau was ALSO pinned near its own lower bound (1.0ms, omission.jnwb_ext.onset_fitting's
+    t0<1ms AND tau was ALSO pinned near its own lower bound (1.0ms, jnwb.onset_fitting's
     tau_bounds default) -- reasoning that a fast, small-tau, near-instant step was the only
     tell-tale shape. Manually inspecting a flagged cell (S+ V3a/d, area_class_summary.csv's
     11.9ms group mean) found a second, distinct shape the original version missed entirely: 4 of

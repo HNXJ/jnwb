@@ -13,7 +13,7 @@ WHY A NEW SCRIPT, NOT AN EDIT TO fit_class_onset_latency.py
     also still computes O+/O-/omnibus/S- against the legacy table and other things may depend on
     it -- editing it in place risks silently changing those. This script imports its already-
     built, unmodified primitives (population_psth, fit_one_cell, bootstrap_area_class,
-    hierarchy_test, causal_exp_smooth via omission.jnwb_ext.onset_fitting) and only replaces the unit-selection
+    hierarchy_test, causal_exp_smooth via jnwb.onset_fitting) and only replaces the unit-selection
     step. Conservation: original preserved, new file for the new population.
 
 CAUSALITY (unchanged from fit_class_onset_latency.py, reused not reimplemented)

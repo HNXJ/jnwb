@@ -87,7 +87,7 @@ sys.path.insert(0, str(REPO / "scripts" / "archive_oneoff"))
 sys.path.insert(0, str(REPO / "context" / "figures"))
 
 from _l_lfp_common import extract_epoch_trials, find_probe_for_area, git_sha  # noqa: E402
-from omission.jnwb_ext.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402
+from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402  (promoted 2026-08-23)
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -369,7 +369,7 @@ def run_synthetic_selftest():
     t_full = np.arange(win_n) / fs + (FIT_WIN_S[0] - EXTRACTION_MARGIN_S)
 
     def make_trials(true_t0_ms, amp=3.0, tau_ms=25.0, band_center_hz=11.0):
-        from omission.jnwb_ext.onset_fitting import onset_model
+        from jnwb.onset_fitting import onset_model  # promoted 2026-08-23
         envelope_true = onset_model(t_full * 1000.0, true_t0_ms, tau_ms, amp, 0.5)
         envelope_true = np.clip(envelope_true, 0, None)
         carrier = np.sin(2 * np.pi * band_center_hz * t_full)

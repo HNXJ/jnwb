@@ -1,8 +1,12 @@
 r"""
-omission.jnwb_ext.onset_fitting -- canonical causal PSTH smoothing + causality-bounded exponential
-onset-latency fit for population/class PSTHs.
+jnwb.onset_fitting -- causal PSTH smoothing + causality-bounded exponential onset-latency fit.
 
-WHY THIS EXISTS
+PROMOTED 2026-08-23 from omission.jnwb_ext.onset_fitting (99%-jnwb-sufficiency normalization):
+all three functions take plain (t, rate) arrays with no omission-task conditions, classes, or
+windows -- fully generic causal-kernel smoothing and bounded nonlinear onset-latency fitting,
+applicable to any PSTH/rate trace on any corpus.
+
+WHY THIS EXISTS (historical motivation from the omission corpus)
     Built 2026-08-15 for Hamm's onset-latency propagation-hierarchy test (H1 low-then-high /
     H2 high-then-low / H3 superposition, tested separately for S+/S++, S-/S--, O+/O--, and an
     omnibus all-units pass). No exponential/sigmoid onset-fitting method existed anywhere in
@@ -244,4 +248,4 @@ if __name__ == "__main__":
     print(f"causality-bound case: pre-window true onset -> bounded fit_t0={fit_bounded['t0']:.1f} "
           f"(correctly clamped to >=0)")
 
-    print(f"omission.jnwb_ext.onset_fitting self-test PASSED (max onset recovery error {max_abs_err:.1f}ms)")
+    print(f"jnwb.onset_fitting self-test PASSED (max onset recovery error {max_abs_err:.1f}ms)")

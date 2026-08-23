@@ -18,7 +18,7 @@ RELATIONSHIP TO fit_s_plus_onset_latency_s1.py (session-level, kept unmodified, 
     as a replacement primary test. n_sessions_contributing is reported per area specifically so
     the pseudoreplication risk (many units, few sessions) is visible, not hidden.
 
-    Reuses omission.jnwb_ext.onset_fitting (via fit_class_onset_latency.py's already-imported
+    Reuses jnwb.onset_fitting (via fit_class_onset_latency.py's already-imported
     causal_exp_smooth/fit_exponential_onset) and the same S_WIN_MS/S_BASELINE_MS/
     MIN_VISUAL_LATENCY_MS/T0_PIN_THRESH_MS -- only the pooling level changes.
 

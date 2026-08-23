@@ -62,6 +62,15 @@ repaired, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
 repaired_power, frac_flagged_by_band = jnwb.repair_band_artifacts(power, freqs)  # per-band TFR
 ```
 
+Causal PSTH smoothing and causality-bounded exponential onset-latency fit (a forward-only
+kernel by design — an acausal/centered smoother would let post-onset activity bias the fitted
+onset earlier than the true rise; see `jnwb/onset_fitting.py`):
+
+```python
+smoothed = jnwb.causal_exp_smooth(rate, bin_ms=5.0, tau_ms=30.0)
+fit = jnwb.fit_exponential_onset(t_ms, smoothed, t0_bounds=(0.0, None))  # fit["t0"], ["tau"], ["r2"]
+```
+
 ---
 
 ## Module map
@@ -79,6 +88,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `visual_qc.py` | Generic visual QC plotting |
 | `bilinear.py`, `nam.py`, `permutation.py` | Generic modeling/statistical primitives |
 | `artifact_repair.py`, `artifact_detection.py` | Trial-segmented artifact repair (substitution) / detection (exclusion) |
+| `onset_fitting.py` | Causal PSTH smoothing; causality-bounded exponential onset-latency fit |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

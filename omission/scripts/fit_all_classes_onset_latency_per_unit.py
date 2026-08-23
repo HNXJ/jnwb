@@ -20,7 +20,7 @@ METHOD
     directly removes the boundary-pinning artifact (t0 collapsing to ~0 on a noisy single-unit
     fit) found in the earlier S+-only per-unit run.
 
-    Reuses omission.jnwb_ext.onset_fitting (causal_exp_smooth, fit_exponential_onset) and
+    Reuses jnwb.onset_fitting (causal_exp_smooth, fit_exponential_onset) and
     fit_class_onset_latency.py's fit_one_cell/population_psth/p1_onsets_s/omitted_slot_onsets_s
     UNMODIFIED (module-level MIN_UNITS overridden to 1 for single-unit calls, same pattern as
     fit_s_plus_onset_latency_s1_per_unit.py -- Conservation, no edit to the shared file).

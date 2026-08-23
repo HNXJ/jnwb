@@ -40,7 +40,7 @@ sys.path.insert(0, str(REPO / "context" / "figures" / "S2_population_responses_b
 
 import omission as oa
 from jnwb import paths as P
-from omission.jnwb_ext.onset_fitting import causal_exp_smooth, fit_exponential_onset
+from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset  # promoted 2026-08-23
 from omission.jnwb_ext.unit_classification import omission_events, precompute_condition_onsets
 
 import figstyle
@@ -312,7 +312,7 @@ def plot_figure(run_out: dict, out_path_stem: Path, title_suffix: str = ""):
 
 def _synthetic_area_spike_trains(t0_ms: float, tau_ms: float, amp_hz: float, base_hz: float,
                                   n_trials: int, n_units: int, seed: int) -> list:
-    from omission.jnwb_ext.onset_fitting import onset_model
+    from jnwb.onset_fitting import onset_model  # promoted 2026-08-23
     rng = np.random.default_rng(seed)
     trial_onsets = np.arange(n_trials) * 6.0
     win0_s, win1_s = FIT_WIN_MS[0] / 1000.0, FIT_WIN_MS[1] / 1000.0
