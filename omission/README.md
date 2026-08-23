@@ -113,7 +113,7 @@ The public surface is `omission/__init__.py` (`__all__`, matches the pre-2026-08
 | `scripts/` | One-off analysis and aggregation scripts; outputs land in `outputs/`. `scripts/historical/confounded/` holds decoding scripts quarantined 2026-08-10 for invalid/ungrouped CV — do not use as empirical sources, see `artifacts/.lab/agent-harness-audit-20260810.json` |
 | `notebooks/` | Figure suites. `notebooks/historical/reproducibility_master_pipeline` is quarantined (asserts the retracted census) — do not run as a current reproducibility check |
 | `outputs/` | Derived data and figure assets |
-| `context/` | Manuscript drafts, figures, inventory — `context/docs/CONTEXT.md` is authoritative |
+| `context/` | Manuscript drafts, figures, inventory — `context/PROJECT_STATE.md` is authoritative |
 | `artifacts/` | `data/` catalogs, `.lab/` knowledge graph nodes |
 | `legacy/` | Archived context, scripts, tests — historical, superseded |
 
@@ -123,8 +123,11 @@ The public surface is `omission/__init__.py` (`__all__`, matches the pre-2026-08
 
 - **`CLAUDE.md`** (repo root) and this folder's project-doctrine section — footguns, band
   definitions, verification checks that caught real errors, the placeholder-figure rule.
-- **`context/docs/CONTEXT.md`** — authoritative project context: paradigm, corpus, data topology,
-  analysis contracts, current findings with receipts.
+- **`context/PROJECT_STATE.md`** — authoritative current scientific/repository state: what's
+  established, superseded, or blocked, with every number dated and re-resolvable.
+  **`context/EVIDENCE_ARCHITECTURE.md`** — the semantics of evidence: how a measurement becomes a
+  claim and what each level of claim costs. (`context/docs/CONTEXT.md` does not exist; an earlier
+  version of this README pointed there.)
 - **`omission/.claude/skills/`** — task-scoped API guides (`omission-*`, `labyrinth`, `manuscript`).
 - **`artifacts/.lab/`** — the knowledge graph. Read before, write after.
 

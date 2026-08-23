@@ -115,6 +115,17 @@ doesn't invent a number, it picks the most recent, most cross-validated source a
 matches exactly) is stated as the most likely explanation but **not independently confirmed by
 an explicit removal record** — flagged as a residual gap, not fully closed.
 
+**RESOLVED 2026-08-22**: independently confirmed by two direct checks, not arithmetic inference.
+(1) `python omission/scripts/discover_corpus.py --check` (rerun live against the current
+filesystem) resolves exactly 22 sessions from `D:\nwb\omission`. (2) Direct directory listing of
+`D:\nwb\omission` shows all 22 of those sessions' `.nwb` files present, and confirms
+`sub-C31o_ses-230630_rec.nwb` is absent. This is a genuinely missing NWB file, not a duplicate,
+a different product corpus, or an eligibility filter — the session already showed an unresolved
+`NWB (GB)` value in the 2026-07-28 inventory table, suggesting it may never have fully resolved
+even then. `omission/context/inventory/{SESSIONS,CONDITIONS,UNITS}.md` (the 23-session source)
+have been marked superseded in place, including noting that their own cited regeneration command,
+`scripts/build_corpus_inventory.py`, does not exist in the current repo. Gap closed.
+
 ### 10. `build_oplusplus_census.py`'s module docstring is stale relative to its own code
 
 **FLAGGED, NOT DECIDED (code file, out of scope for a documentation audit)**: the docstring

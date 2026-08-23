@@ -1,4 +1,20 @@
-# Omission Agent Memory
+**SUPERSEDED (2026-08-22).** This is the pre-2026-06-25 agent orientation doctrine for an old
+`D:\workspace\omission` layout: 13-session corpus (current: 22), `D:/analysis/nwb` /
+`D:/workspace/omission` paths (no longer the layout), a 6,040-unit grand database (current:
+9,061 units), and `.agents/skills/` files that do not exist in the current tree. **Do not follow
+any instruction below as current doctrine** — current doctrine is [`omission/CLAUDE.md`](../../CLAUDE.md)
+plus the `omission/.claude/skills/` skills it names. Kept for historical provenance only.
+
+The "Spectral Relations & Network Analysis" section below claimed three established "Key
+Findings" (Q1/Q2/Q3). Checked against the pipeline's own surviving output during normalization —
+**not reproducible**: Q1 computed zero correlations, Q3's output is degenerate (near-constant
+correlation, near-zero lag range), and Q2's cross-modal claim depends on Q1 which doesn't exist.
+See [`spectral_relations_pipeline_2025_unverified.md`](../docs/spectral_relations_pipeline_2025_unverified.md)
+for the full check. None of the three findings have been carried into current evidence.
+
+---
+
+# Omission Agent Memory (historical, superseded — see banner above)
 
 This file is the local agent orientation note for `D:\workspace\omission`. Treat it as the first stop before doing single-unit, waveform, NWB, LFP, or figure work.
 

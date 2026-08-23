@@ -5,7 +5,30 @@ doctrine (paradigms, corpus specifics, manuscript rules) lives under each projec
 `CLAUDE.md` — e.g. [`omission/CLAUDE.md`](omission/CLAUDE.md) for the `omission` example
 project — and adds to, never overrides, what's here.
 
-## Freeze policy (2026-08-19)
+## Freeze suspension (2026-08-22) — repository normalization in progress
+
+**Both freezes below are explicitly suspended, by Hamm's direct authorization, for the scope of
+a bounded repository-normalization effort** (jnwb + omission structure, duplication, README/
+context graph, public API surface — see `omission/outputs/fixlist/` and the normalization
+tracking artifacts for the live plan). This supersedes "no commits," "no `jnwb/` edits without
+per-change authorization," and "no changes to omission's tracked surface" for that scope only.
+
+**Still in force, unchanged:**
+- The 42 paths that were already dirty/uncommitted as of 2026-08-22 (pre-existing concurrent
+  figure/script work under `omission/context/figures/` and `omission/scripts/`, plus
+  `omission-data/SKILL.md`) remain protected — do not move, stage, revert, stash, or commit them
+  as part of normalization.
+- All scientific tripwires and invariants below (log-last, layering direction, no silent
+  invariant changes) still apply without exception; normalization changes structure, not
+  scientific semantics.
+- This suspension covers *this* normalization effort. It does not blanket-authorize unrelated
+  `jnwb/` feature work or resume routine commit/push activity outside the normalization scope.
+
+When normalization seals, this section should be replaced with either a reinstated freeze
+(if 2026-09-28 hasn't passed) or removed (if it has) — do not leave both this suspension and the
+original freeze text standing as if both are simultaneously in effect.
+
+## Freeze policy (2026-08-19) — suspended for normalization scope, see above
 
 `omission` is now `jnwb`'s major dataset, test corpus, and main reason for the library's
 existence — not a peer project. Given that, **`jnwb/` is frozen and read-only from here
@@ -26,7 +49,7 @@ stay lazy (function-body-local, not module-level), that `import jnwb` succeeds e
 omission/ blocked from `sys.path` entirely, and that every `jnwb.__all__` name actually
 resolves. A change that breaks the freeze fails this test before it fails a human review.
 
-## Repo-wide freeze (2026-08-19 → 2026-09-28)
+## Repo-wide freeze (2026-08-19 → 2026-09-28) — suspended for normalization scope, see above
 
 For 40 days from 2026-08-19, **no commits or pushes land on this repo at all** — this is on top
 of, and broader than, the `jnwb/` freeze above, which already forbade editing `jnwb/`. During

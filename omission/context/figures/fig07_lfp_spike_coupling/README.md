@@ -29,6 +29,14 @@ units, 78,400 area x band x context x unit results across 4 contexts, 6,000 same
 exclusions applied) and `fig07_lfp_spike_coupling.py` draws the area x band summary and writes
 stats. Both originally-required controls below were implemented as planned.
 
+**Script superseded, result not re-verified (noted 2026-08-22)**: `extract_spike_lfp_coupling.py`
+now self-documents as superseded by `extract_spike_lfp_coupling_v2.py` (its own dependency on a
+metadata sidecar directory no longer resolves on this machine), paired with
+`aggregate_spike_lfp_coupling_v2_corrected.py`. This supplement is already non-headline (see
+above), so the fix here is documentation only — the "0/60, unchanged" null result below was
+produced by the original (v1) run and has not been reproduced against v2; treat it as historical
+until re-run, not as a currently-reproducible number.
+
 **Layer source corrected same day**: the first pass (9/15 sessions, 2 layer groups, inherited
 from figure 6's extraction code) used `outputs/publication_visual_review/area_layer_tfr/layer_masks.json`,
 believing it the only channel-level layer source. That was wrong — `outputs/layers/channel_layers_all.csv`

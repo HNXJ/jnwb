@@ -1,0 +1,33 @@
+{
+  "id": "decision-repo-normalization-freeze-suspension-20260822",
+  "schema_version": 3,
+  "kind": "decision",
+  "title": "Repo-wide freeze and jnwb/ per-change authorization requirement explicitly suspended, scoped to a bounded repository-normalization effort",
+  "generated": {
+    "summary": "Hamm directly authorized (via an explicit AskUserQuestion choice: 'Full plan now, freeze explicitly suspended for this work') suspending both CLAUDE.md freezes -- the 2026-08-19 to 2026-09-28 repo-wide commit/push freeze and the jnwb/ per-change authorization requirement -- for the scope of a repository normalization pass (structure, duplication, README/context graph, public jnwb API surface) requested the same turn. CLAUDE.md updated in place to record the suspension (see diff), rather than silently deviating from written doctrine while executing.",
+    "source_paths": [
+      "CLAUDE.md"
+    ],
+    "links": [
+      {
+        "to": "audit-fig04-provenance-p0c-20260817",
+        "relation": "related",
+        "reasoning": "Same repo, adjacent timeframe; unrelated in substance -- linked only for graph connectivity from this session's fig04 review into the normalization decision.",
+        "confidence": 0.3,
+        "causal_pressure": 0.0
+      }
+    ]
+  },
+  "status": "confirmed",
+  "notes": [
+    "Scope: normalization structural work only (file moves/merges/promotions/deletions, README/context authority cleanup, public API surface). Does NOT blanket-authorize unrelated jnwb/ feature work or resume routine commit/push activity outside this effort.",
+    "Explicitly still protected and NOT covered by this suspension: the 42 paths already dirty/uncommitted as of 2026-08-22 (concurrent figure/script work under omission/context/figures/ and omission/scripts/, plus omission-data/SKILL.md) -- per Hamm's separate, earlier, still-standing instruction not to move/stage/revert/stash/commit them.",
+    "Scientific tripwires and invariants (log-last, jnwb->omission layering direction, no silent invariant changes) remain in force unchanged -- normalization changes structure, not scientific semantics.",
+    "On sealing normalization: CLAUDE.md's suspension section should be replaced with either a reinstated freeze (if before 2026-09-28) or removed (if after) -- do not leave both the suspension note and the original freeze text standing as simultaneously in effect."
+  ],
+  "issues": [],
+  "verification": {
+    "method": "explicit user authorization via AskUserQuestion tool, single unambiguous selection, no inference",
+    "receipt": "conversation turn where the question was asked and answered; CLAUDE.md diff in this same pass"
+  }
+}

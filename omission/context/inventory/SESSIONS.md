@@ -1,11 +1,29 @@
 # Session inventory
 
 Version: 2026-07-28
-Status: generated inventory, not hand-edited
-Truth status: `truth_safe_verified`; regenerate with `python scripts/build_corpus_inventory.py` after any corpus change.
+Status: **SUPERSEDED — session count is stale.** `scripts/build_corpus_inventory.py`, named below as
+this file's own regeneration command, does not exist in the current repo. Do not regenerate from
+it and do not cite the 23-session count below as current.
+Truth status: historical. Current authoritative count: `omission/context/PROJECT_STATE.md` and
+`python omission/scripts/discover_corpus.py --check` (writes `artifacts/data/corpus_manifest.json`).
 
+**Resolution (2026-08-22, closes the residual gap left open in
+`09_conflicts_and_flagged_discrepancies.md` #9):** the 23→22 session change is confirmed to be the
+removal of `sub-C31o_ses-230630` (row below, the one row already showing an unresolved `NWB (GB)`
+and `electrodes`) — independently verified by re-running `discover_corpus.py --check`, which
+resolves 22 sessions against `D:\nwb\omission` as of 2026-08-23, and by direct filesystem check:
+`sub-C31o_ses-230630_rec.nwb` is absent from that directory (all 22 other sessions below are
+present). This is a **missing NWB file**, not a duplicate, a different product corpus, or an
+eligibility filter — the session was apparently already incomplete when this table was generated
+(note its own `--` NWB size below) and has since dropped out of the corpus entirely.
 
-23 sessions have metadata sidecars; **23 carry time-frequency products and constitute the analysis corpus**. Sessions without TFR products have recordings and units but no spectral analysis, and are excluded from every area-resolved result.
+The per-session probe/area/electrode/unit/event columns below (other than the corpus-membership
+claim) are not re-verified by this note and may still be useful reference detail — but re-derive
+before citing in anything scientific.
+
+---
+
+23 sessions have metadata sidecars; **23 carry time-frequency products and constitute the analysis corpus**. Sessions without TFR products have recordings and units but no spectral analysis, and are excluded from every area-resolved result. *(Superseded — see notice above; current count is 22.)*
 
 
 ## 1. All sessions

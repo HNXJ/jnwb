@@ -1,11 +1,15 @@
 # Condition and trial inventory
 
 Version: 2026-07-28
-Status: generated inventory, not hand-edited
-Truth status: `truth_safe_verified`; regenerate with `python scripts/build_corpus_inventory.py` after any corpus change.
+Status: **SUPERSEDED — built on the stale 23-session count.** See `inventory/SESSIONS.md`'s
+2026-08-22 resolution note: current session count is 22 (`sub-C31o_ses-230630` no longer has an
+NWB file on disk). `scripts/build_corpus_inventory.py`, this file's own regeneration command,
+does not exist in the current repo.
+Truth status: historical. Current authoritative source: `omission/context/PROJECT_STATE.md` and
+`python omission/scripts/discover_corpus.py --check`.
 
 
-301,342 event rows across 23 sessions. Events are event-level, not trial-level: each row is one epoch within a trial, so trial counts come from unique `trial_num` values.
+301,342 event rows across 23 sessions. *(Superseded — current session count is 22; event totals not re-derived.)* Events are event-level, not trial-level: each row is one epoch within a trial, so trial counts come from unique `trial_num` values.
 
 
 ## 1. Correct fraction by session

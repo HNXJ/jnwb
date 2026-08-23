@@ -150,13 +150,25 @@ Gate on discovered readiness before loading (see `omission-data`).
 ```python
 from jnwb import (TFRAnalyzer, tfr_trial_average, tfr_compare_conditions,
                   tfr_correlate_areas, tfr_spectrolaminar, tfr_permutation_test)
-from omission import spectral   # band_power
-from jnwb import coherence, spike_field_ppc, vflip2  # CODEMOD: unresolved symbol(s)
-                            # imaginary_coherency, laplacian_reference, bipolar_reference
+from omission import spectral   # band_power, imaginary_coherency, laplacian_reference, bipolar_reference
 ```
 
-`jnwb/spectral.py` has a cupy path with **no CPU fallback** — it predates the house dispatch
-pattern and is not the module to copy. See `numerical-computing`.
+**Never assume a requested `jnwb` symbol exists from historical usage or a prior draft's
+imports** — `coherence`, `spike_field_ppc`, and `vflip2` are not on the current `jnwb` public API
+(verified 2026-08-22: absent from `__all__` and from every module-level def in `jnwb/`) and PPC is
+separately retired as the spike–LFP method (§10). Resolve the current API before writing an
+import. If the functionality is absent from `jnwb`, check in order: a renamed/current `jnwb`
+symbol, an `omission`-local implementation (`imaginary_coherency`, `laplacian_reference`,
+`bipolar_reference` are all in `omission.jnwb_ext.spectral`, not `jnwb`), or genuinely missing
+functionality that needs new code.
+
+`omission/jnwb_ext/spectral.py::_welch_csd_gpu` is a GPU-only implementation detail — it imports
+`cupy` unconditionally and has no fallback of its own. **Do not call or copy it directly.** Every
+public function that uses it (`band_power`, `harmonic_analysis`, `cross_area_coherence`,
+`spectral_tilt`) owns the dispatch itself: `device='cpu'` by default, and a `try/except` around
+the `device='cuda'` path that falls back to `scipy.signal.welch` on GPU failure. Match that
+pattern — default to CPU, fall back on GPU failure — in any new spectral function. See
+`numerical-computing`.
 
 ## 9. Memory: LFP loads can exhaust RAM
 

@@ -87,7 +87,7 @@ pooling) — don't apply one and forget the other.
 | `StatisticalAnalysis.bootstrap_ci`/`permutation_test` calling `np.random.default_rng(42)` inline | **REJECT / REQUIRES_CODE_CHANGE.** Hardcoded, unparameterized seed — see doc02's RNG table. Not global-state mutation (that's `report.py`'s separate, worse defect — doc02/doc09), but every call across the codebase draws the identical sequence. |
 | Deprecated `fdr_pval_parametric`/`fdr_pval_nonparametric` keys | **Do not use.** They mirror raw p-values and are NOT FDR-corrected despite the name. |
 | `jnwb.permutation.permute_labels(y, groups=..., scheme="within_group")` | **Canonical** grouped-null helper. |
-| `omission.jnwb_ext.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct` | Two distinct helpers (see doc02 — `report.py` locally reimplements BH-FDR rather than calling the canonical one). Pick one per analysis and say which. |
+| ~~`omission.jnwb_ext.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct`~~ | **RESOLVED 2026-08-22.** Confirmed numerically equivalent for all well-formed 1-D input (ties, zeros, ones, empty, single-element all matched); `report.py`'s local reimplementation had exactly one caller (itself), now redirected to `StatisticalAnalysis.fdr_correct(..., method="bh")` and removed. Always use `StatisticalAnalysis.fdr_correct`. |
 
 ## Test-choice table
 

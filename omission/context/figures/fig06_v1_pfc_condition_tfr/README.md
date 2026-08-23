@@ -21,9 +21,14 @@ does not reliably support `set_yscale("log")`), the omitted slot marked with a s
 red line (a lighter marker than the 2-D panels' full epoch shading -- shaded epoch planes in
 3-D were judged not worth the added complexity for a supplement).
 
-Reads `outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz` directly -- the **current canonical**
-condition-map extraction per `context/PROJECT_STATE.md` (2026-08-14). **Flagged, not fixed
-here**: the main `fig04_v1_pfc_condition_tfr.py`'s own `CONDITION_MAPS` constant still points at
+Reads `outputs/condition_tfr_maps_p1d1p2d2p3_v2/maps.npz` directly. **Stale pointer, corrected
+2026-08-22**: `context/PROJECT_STATE.md` (2026-08-14) has since superseded this — `v3`
+(`scripts/extract_condition_tfr_maps_v3.py` -> `outputs/condition_tfr_maps_p1d1p2d2p3_v3/maps.npz`)
+adds artifact repair before the dB pipeline and is stated there as "current best estimate... use
+109/180, not v1's 119/180 or v2's 85/180." v2 is not deleted (kept, `superseded` status in the
+`.lab` graph) but is no longer canonical; this supplement's loader has not been repointed at v3
+as part of this pass — that repoint is a separate, not-yet-done code change, not a documentation
+fix. **Flagged, not fixed here**: the main `fig04_v1_pfc_condition_tfr.py`'s own `CONDITION_MAPS` constant still points at
 `D:/workspace/omission/outputs/condition_tfr_maps_p1d1p2d2p3/maps.npz` -- that drive path does
 not exist on this machine, and even repointed it would read the superseded v1 extraction (built
 2026-08-04 from the pre-corpus-migration path). This supplement's own loader reads v2 directly

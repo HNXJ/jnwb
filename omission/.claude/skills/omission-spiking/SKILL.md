@@ -69,14 +69,15 @@ Significance: 5,000-shuffle permutation on the per-epoch rate vector, p < 0.05. 
 several are significant: **O+ > S+ ≈ S−**, ties broken by higher `|r|`. A unit classified O+ may
 show incidental S+/S− correlation — do not re-classify on the S template alone.
 
-**Open discrepancy (unresolved):** units 240, 359, 360 are "Other" under the pooled shuffle
-classifier but rank top-10 S− by template match (r = 0.92–0.95, p < 0.01). The pooled
-classifier may under-call S− units that fire strongly between stimuli. Do not trust either
-classifier exclusively for S− until this is resolved.
-
-**Counts are not portable.** Four passes on this corpus report four different O+ counts (386,
-19, 7, and a retracted 421). Before quoting one, confirm which script produced it and under
-which criteria. Re-derive from the live table; do not hardcode.
+**Counts and per-unit calls are not portable, including between the two classifiers above.**
+Four passes on this corpus have reported four different O+ counts (386, 19, 7, and a retracted
+421), and the two classifiers can disagree on individual units, including for S−. Do not trust a
+remembered count, unit identity, or discrepancy from a prior pass or from this file — discover
+the current classification tables, eligibility rules, and receipts, and confirm which script
+produced a number under which criteria before quoting it. If the two classifiers disagree on a
+unit or count that matters to the analysis, stop numerical promotion of that result until the
+lineage and eligibility definitions behind both tables are resolved, rather than picking one
+classifier's answer.
 
 ## Verification checks that caught real errors here
 

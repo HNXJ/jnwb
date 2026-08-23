@@ -27,6 +27,14 @@ def test_gpu_autocorrelogram():
     assert len(res_cpu['acg']) == len(res_gpu['acg'])
 
 
+def test_harmonic_analysis_empty_signal_degrades_gracefully():
+    """Migrated from legacy/tests/test_spectral_yfiles.py (2026-08-22): an empty
+    signal must return a well-formed dict with a float fundamental_freq, not raise."""
+    result = harmonic_analysis(np.array([]), 1000.0)
+    assert "fundamental_freq" in result
+    assert isinstance(result["fundamental_freq"], float)
+
+
 def test_gpu_spectral_functions():
     # Generate mock LFP trace (1 second, 1000 Hz)
     rng = np.random.default_rng(42)

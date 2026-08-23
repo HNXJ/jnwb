@@ -1,11 +1,16 @@
 # Unit inventory
 
 Version: 2026-07-28
-Status: generated inventory, not hand-edited
-Truth status: `truth_safe_verified`; regenerate with `python scripts/build_corpus_inventory.py` after any corpus change.
+Status: **SUPERSEDED — built on the stale 23-session count.** See `inventory/SESSIONS.md`'s
+2026-08-22 resolution note: current session count is 22 (`sub-C31o_ses-230630`, 167 units, no
+longer has an NWB file on disk — `09_conflicts_and_flagged_discrepancies.md` already noted
+9228-167=9061 matches exactly). `scripts/build_corpus_inventory.py`, this file's own regeneration
+command, does not exist in the current repo.
+Truth status: historical. Current authoritative source: `omission/context/PROJECT_STATE.md` and
+`python omission/scripts/discover_corpus.py --check`.
 
 
-9,228 spike-sorted units across 23 sessions. 6,655 carry a functional classification in the sidecar; 2,573 do not.
+9,228 spike-sorted units across 23 sessions. *(Superseded — current count is 9,061 units across 22 sessions per the arithmetic above; not independently re-derived from a live unit table.)* 6,655 carry a functional classification in the sidecar; 2,573 do not.
 
 
 ## 1. Functional classes, sidecar labels

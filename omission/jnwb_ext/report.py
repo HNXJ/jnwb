@@ -289,29 +289,6 @@ def compute_psd(lfp_data: np.ndarray, fs: float) -> tuple[np.ndarray, np.ndarray
     return freqs, psd
 
 
-def fdr_correct(p_values: np.ndarray) -> np.ndarray:
-    """Benjamini-Hochberg FDR correction."""
-    p_vals = np.asarray(p_values)
-    n = len(p_vals)
-    if n <= 1:
-        return p_vals
-    sorted_indices = np.argsort(p_vals)
-    sorted_p = p_vals[sorted_indices]
-    
-    # Calculate BH adjusted p-values
-    adjusted_p = np.zeros(n)
-    prev = 1.0
-    for i in range(n - 1, -1, -1):
-        adjusted = sorted_p[i] * n / (i + 1)
-        adjusted = min(adjusted, prev)
-        adjusted_p[i] = adjusted
-        prev = adjusted
-        
-    # Map back to original order
-    rev_indices = np.argsort(sorted_indices)
-    return adjusted_p[rev_indices]
-
-
 def apply_madelane_style(ax, title: str = "", xlabel: str = "", ylabel: str = ""):
     """Helper to apply the Madelane style to a matplotlib axis."""
     ax.set_facecolor('#15151A')
@@ -587,7 +564,7 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
                 p_values_net.append(np.random.uniform(0, 0.1))
                 
     # FDR correct
-    adj_p = fdr_correct(p_values_net)
+    adj_p = StatisticalAnalysis.fdr_correct(np.asarray(p_values_net), method="bh")
     
     idx = 0
     for i in range(n_nodes):

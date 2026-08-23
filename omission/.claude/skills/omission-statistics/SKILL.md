@@ -86,7 +86,7 @@ first, pool after, as a proportion with an exact interval.
 | `StatisticalAnalysis.bootstrap_ci` / `permutation_test` calling global `np.random.seed(42)` | **REJECT / REQUIRES_CODE_CHANGE.** Global RNG mutation; migrate to a local `default_rng`. |
 | Deprecated `fdr_pval_parametric` / `fdr_pval_nonparametric` keys | **Do not use.** They mirror raw p-values and are not FDR-corrected despite the name. |
 | `jnwb.permutation.permute_labels(y, groups=..., scheme="within_group")` | **Canonical** grouped-null helper. |
-| `omission.jnwb_ext.report.fdr_correct` vs `StatisticalAnalysis.fdr_correct` | Two distinct helpers. Pick one per analysis and say which. |
+| ~~`omission.jnwb_ext.report.fdr_correct`~~ | **Removed 2026-08-22** — confirmed equivalent to and redirected into `StatisticalAnalysis.fdr_correct`. Always use `StatisticalAnalysis.fdr_correct`. |
 
 Until the dual-test repair lands, **read only the pre-specified test from the returned dict and
 say which one you read.** Do not report both as if two tests were planned.

@@ -104,5 +104,7 @@ python -m jnwb.mcp_server
 
 - **`CLAUDE.md`** — repo doctrine: library invariants, footguns, verification checks that caught
   real errors.
-- **`.claude/skills/`** — task-scoped API guides (core, spiking, tfr, population, statistics,
-  metadata, visualization, functional-connectivity, jrsa).
+- **`omission/.claude/skills/`** — task-scoped API guides (`omission-data`, `omission-signal`,
+  `omission-spiking`, `omission-statistics`, `omission-figures`, `manuscript`, `labyrinth`). There
+  is no repo-root `.claude/skills/` — `jnwb/` itself has no dedicated skill yet (see
+  `numerical-computing` / `biophysical-modeling`, which are general-purpose, not jnwb-specific).
