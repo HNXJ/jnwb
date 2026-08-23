@@ -37,7 +37,7 @@ CONDITION GROUPS (3, timing from omission.jnwb_ext.sequence_layout.EPOCH_ONSETS_
     omission : RXRR trials, window (1031, 1562) ms re p1 -- the omitted p2 slot
 
 TRIAL CORRESPONDENCE (verified, not assumed)
-    Population firing comes from omission.jnwb_ext.connectivity.bin_spikes() using
+    Population firing comes from jnwb.connectivity.bin_spikes() using
     precompute_condition_onsets(correct_only=True) trial starts (seconds, from the NWB event
     stream). Band power comes from outputs/condition_band_power_trials/trials.npz, built from
     the TFR .npy arrays under D:/workspace/data/tfr_arrays. These are two independently-built
@@ -72,7 +72,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets  # noqa: E402
-from omission.jnwb_ext.connectivity import bin_spikes  # noqa: E402
+from jnwb.connectivity import bin_spikes  # noqa: E402
 from jnwb import paths as _P
 
 NWB_DIR = _P.nwb_dir()

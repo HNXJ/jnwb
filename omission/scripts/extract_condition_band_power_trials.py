@@ -1,6 +1,6 @@
 r"""
 Per-trial band-power time series, per session x area x band x condition (RXRR, RRRR) --
-the input omission.jnwb_ext.connectivity.granger() needs for a directed LFP-LFP connectivity network
+the input jnwb.connectivity.granger() needs for a directed LFP-LFP connectivity network
 (fig05, 2026-08-04 redesign).
 
 WHY THIS EXISTS
@@ -46,7 +46,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
-from omission.jnwb_ext.connectivity import CANONICAL_BANDS as BANDS
+from jnwb.spectral import CANONICAL_BANDS as BANDS
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"

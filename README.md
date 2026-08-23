@@ -93,6 +93,18 @@ icoh = jnwb.imaginary_coherency(x, y, sampling_rate=1000.0, freq_range=(1, 100))
 laplacian = jnwb.laplacian_reference(channel_data, channel_order=depth_order)
 ```
 
+Modality-agnostic directed functional connectivity — Granger causality, spectral (Geweke)
+Granger, phase slope index, and transfer entropy all share one `(X, Y, ...)` contract and
+return the same `DirectedResult` shape, so LFP traces, binned spike counts, MUAe envelopes, and
+band-power time courses go through identical code (`jnwb/connectivity.py`):
+
+```python
+rate_a = jnwb.bin_spikes(spike_times_a, window=(-0.5, 1.0), bin_size_ms=10.0, output="rate")
+result = jnwb.granger(v1_lfp, pfc_lfp, order="auto")        # or jnwb.phase_slope_index(..., fs=1000.0)
+print(result.x_to_y, result.y_to_x, result.net)              # DirectedResult: uniform across estimators
+network = jnwb.directed_network({"V1": v1_lfp, "PFC": pfc_lfp}, method="granger")
+```
+
 ---
 
 ## Module map
@@ -113,6 +125,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `onset_fitting.py` | Causal PSTH smoothing; causality-bounded exponential onset-latency fit |
 | `metadata.py` | Unit/electrode metadata extraction, QC classification, census reporting |
 | `spectral.py` | Band power, cross-area coherence, 1/f tilt, imaginary coherency, bipolar/Laplacian re-referencing; `CANONICAL_BANDS` |
+| `connectivity.py` | Mutual information, Granger causality, phase slope index, transfer entropy; uniform `DirectedResult` |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

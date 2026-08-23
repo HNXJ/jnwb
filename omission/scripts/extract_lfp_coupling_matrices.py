@@ -57,7 +57,7 @@ from precompute_tfr_arrays import (  # noqa: E402
 from jnwb.spectral import laplacian_reference  # noqa: E402
 from jnwb.artifact_repair import repair_lfp_trials  # noqa: E402  (promoted 2026-08-23 from omission.jnwb_ext.artifact_repair)
 from jnwb import paths as _P
-from omission.jnwb_ext.connectivity import CANONICAL_BANDS as BANDS
+from jnwb.spectral import CANONICAL_BANDS as BANDS
 
 META_ROOT = Path(os.environ.get("OMISSION_META_DIR", _P.meta_dir()))
 CHANNEL_LAYERS_PATH = REPO / "outputs/layers/channel_layers_all.csv"

@@ -201,6 +201,26 @@ from .spectral import (
     CANONICAL_BANDS,
 )
 
+# Modality-agnostic functional connectivity: mutual information, Granger causality, phase
+# slope index, transfer entropy (promoted 2026-08-23 from omission.jnwb_ext.connectivity; see
+# jnwb/connectivity.py's module docstring).
+from .connectivity import (
+    spike_mutual_information,
+    binary_occupancy_mutual_information,
+    spike_count_mutual_information,
+    granger_causality,
+    network_topology,
+    DirectedResult,
+    as_trials,
+    bin_spikes,
+    granger,
+    granger_spectral,
+    phase_slope_index,
+    transfer_entropy,
+    directed_connectivity,
+    directed_network,
+)
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -275,4 +295,20 @@ __all__ = [
     'bipolar_reference',
     'laplacian_reference',
     'CANONICAL_BANDS',
+
+    # Functional connectivity
+    'spike_mutual_information',
+    'binary_occupancy_mutual_information',
+    'spike_count_mutual_information',
+    'granger_causality',
+    'network_topology',
+    'DirectedResult',
+    'as_trials',
+    'bin_spikes',
+    'granger',
+    'granger_spectral',
+    'phase_slope_index',
+    'transfer_entropy',
+    'directed_connectivity',
+    'directed_network',
 ]

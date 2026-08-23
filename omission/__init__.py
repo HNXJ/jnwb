@@ -237,7 +237,9 @@ from .jnwb_ext.decoding import (
     decode_stimulus_identity,
     decode_omission_presence,
 )
-from .jnwb_ext.connectivity import (
+# connectivity.py promoted 2026-08-23 to jnwb.connectivity (99%-jnwb-sufficiency
+# normalization) -- re-exported here unchanged for backwards compatibility.
+from jnwb.connectivity import (
     spike_mutual_information,
     binary_occupancy_mutual_information,
     spike_count_mutual_information,

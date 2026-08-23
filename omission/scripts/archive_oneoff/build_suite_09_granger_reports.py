@@ -5,7 +5,7 @@ LFP), generalized across sessions.
 Refactor of notebooks/suite_09_granger_network.ipynb, which was hardcoded to
 one session (sub-V182o_ses-260629.nwb). This script parametrizes the same
 real computation:
-    omission.jnwb_ext.connectivity.granger_causality(signal1, signal2, order=20, ...)
+    jnwb.connectivity.granger_causality(signal1, signal2, order=20, ...)
 on real, continuous, decimated (1000 -> 200 Hz) LFP for a ~60 s task-engaged
 window anchored at the first correct AAAB phase-1 (stimulus_number=2) onset,
 plus the notebook's real circular-shift permutation test (n=200 shuffles) +
@@ -64,7 +64,7 @@ from scipy.signal import decimate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import omission as oa  # noqa: E402
-from omission.jnwb_ext.connectivity import granger_causality  # noqa: E402
+from jnwb.connectivity import granger_causality  # noqa: E402
 from jnwb.statistics import StatisticalAnalysis  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

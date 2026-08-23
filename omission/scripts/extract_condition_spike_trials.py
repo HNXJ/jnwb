@@ -7,7 +7,7 @@ Granger/TE call on this output is directly comparable to fig05_lfp_lfp_coupling.
 WHY POPULATION-POOLED, NOT PER-UNIT
     Matches fig05's node granularity: LFP band power is already a channel-pooled, area-level
     signal, not per-channel. Pooling every unit in an area10 label into one population spike
-    train (via omission.jnwb_ext.connectivity.bin_spikes on the concatenated, sorted spike times) keeps the
+    train (via jnwb.connectivity.bin_spikes on the concatenated, sorted spike times) keeps the
     node definition identical across the LFP-LFP and SPK-SPK networks -- an area is an area
     either way -- rather than adding a per-unit combinatorial explosion (6000+ units) this
     figure was never scoped for.
@@ -45,7 +45,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets  # noqa: E402
-from omission.jnwb_ext.connectivity import bin_spikes  # noqa: E402
+from jnwb.connectivity import bin_spikes  # noqa: E402
 from jnwb import paths as _P
 
 NWB_DIR = _P.nwb_dir()

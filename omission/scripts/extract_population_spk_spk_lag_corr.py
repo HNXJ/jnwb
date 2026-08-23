@@ -25,7 +25,7 @@ DESIGN
     +-200 ms sliding-WINDOW-position range, because this is a lag axis over a much shorter
     per-condition window (stim/omission ~530 ms), not a window slid across a multi-second trial.
     Each node's rate trace is extracted with 100 ms of extra margin on both sides
-    (omission.jnwb_ext.connectivity.bin_spikes with a widened window) specifically so a shifted node-B
+    (jnwb.connectivity.bin_spikes with a widened window) specifically so a shifted node-B
     window never runs past what was actually extracted.
 
 NODES: (area10, functional_group) -- SAME DEFINITION AS THE LFP-POWER SCRIPT
@@ -62,7 +62,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, SCRIPTS)
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets  # noqa: E402
-from omission.jnwb_ext.connectivity import bin_spikes  # noqa: E402
+from jnwb.connectivity import bin_spikes  # noqa: E402
 from extract_population_firing_lfp_power_corr import (  # noqa: E402
     build_functional_groups, CONDITION_GROUPS, UNITS_CSV, MIN_FIRING_RATE_HZ, MIN_UNITS_PER_GROUP,
 )

@@ -8,12 +8,12 @@ Reads `canonical_pooling_method` from L0, same gate as L1-L8. Depends on L7 (est
 node/pair framework this reuses) and L8 (established the node-key-collision fix this inherits
 directly -- see both READMEs).
 
-METHOD -- REUSES omission.jnwb_ext.connectivity VERBATIM, NOT REIMPLEMENTED
-    omission.jnwb_ext.connectivity.granger_spectral: parametric frequency-resolved Granger causality
+METHOD -- REUSES jnwb.connectivity VERBATIM, NOT REIMPLEMENTED
+    jnwb.connectivity.granger_spectral: parametric frequency-resolved Granger causality
     (Geweke 1982), already validated elsewhere in this project (omission-signal S10). Its
     n_surrogates trial-shuffle null IS the within-session shuffle null omission-signal S10
     requires -- not built separately here.
-    omission.jnwb_ext.connectivity.phase_slope_index: PSI (Nolte et al. 2008), volume-conduction-robust
+    jnwb.connectivity.phase_slope_index: PSI (Nolte et al. 2008), volume-conduction-robust
     (antisymmetric, near-zero for a zero-lag common source), with a genuine per-band jackknife
     z-score (unlike granger_spectral's p_surrogate, which is broadband-derived and shared across
     all bands within one call -- STATED explicitly here and in stats JSON, not silently implied
@@ -85,7 +85,7 @@ sys.path.insert(0, str(REPO / "scripts" / "archive_oneoff"))
 sys.path.insert(0, str(REPO / "context" / "figures"))
 
 from _l_lfp_common import PROBE_LETTER_TO_KEY, extract_epoch_trials, git_sha  # noqa: E402
-from omission.jnwb_ext.connectivity import granger_spectral, phase_slope_index  # noqa: E402
+from jnwb.connectivity import granger_spectral, phase_slope_index  # noqa: E402
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -191,8 +191,8 @@ def run():
     stats = {
         "canonical_pooling_method": "a_per_channel_then_pool",
         "l0_source": str(L0_STATS), "layer_source": str(LAYER_CSV),
-        "method": "omission.jnwb_ext.connectivity.granger_spectral (Geweke GC, per band, n_surrogates="
-                  f"{N_SURROGATES} trial-shuffle null) and omission.jnwb_ext.connectivity.phase_slope_index "
+        "method": "jnwb.connectivity.granger_spectral (Geweke GC, per band, n_surrogates="
+                  f"{N_SURROGATES} trial-shuffle null) and jnwb.connectivity.phase_slope_index "
                   "(PSI, per-band jackknife z), on ONE representative channel per (area,layer) "
                   "node. SNR-matched subsampling: both conditions subsampled to equal trial "
                   "count before either is analyzed, per spec's own caution.",

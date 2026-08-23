@@ -52,7 +52,7 @@ from svgassemble import assemble  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(FIGDIR))
 sys.path.insert(0, REPO)
-from omission.jnwb_ext.connectivity import directed_network  # noqa: E402
+from jnwb.connectivity import directed_network  # noqa: E402
 
 TRIALS_NPZ = os.path.join(REPO, "outputs", "condition_spike_trials", "trials.npz")
 NET_OUT_DIR = os.path.join(REPO, "outputs", "spk_spk_granger_network")

@@ -80,7 +80,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, SCRIPTS)
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets  # noqa: E402
-from omission.jnwb_ext.connectivity import bin_spikes  # noqa: E402
+from jnwb.connectivity import bin_spikes  # noqa: E402
 from extract_population_firing_lfp_power_corr import (  # noqa: E402
     build_functional_groups, CONDITION_GROUPS, UNITS_CSV,
 )

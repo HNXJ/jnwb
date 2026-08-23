@@ -1,5 +1,14 @@
 """
-Functional Connectivity, Mutual Information, and Granger Causality
+jnwb.connectivity -- Functional Connectivity, Mutual Information, and Granger Causality
+
+PROMOTED 2026-08-23 from omission.jnwb_ext.connectivity (99%-jnwb-sufficiency normalization):
+every estimator here is modality-agnostic (LFP traces, binned spike counts, MUAe envelopes,
+band-power time courses -- any regularly sampled series) with no omission-task conditions,
+classes, or windows anywhere; the module docstring below already demonstrated usage via
+``import jnwb as oa`` before the promotion. CANONICAL_BANDS is imported from jnwb.spectral (its
+single source of truth as of the 2026-08-23 spectral.py promotion) rather than defined here.
+jnwb.jrsa's phase_slope_index delegation is now an intra-package import (see jrsa.py's
+_phase_slope) -- CLAUDE.md's "documented exception" note for it was removed the same day.
 
 Provides methods to compute directional functional connectivity metrics (bivariate Granger Causality),
 Shannon Mutual Information between spike trains, and network graph analysis.
@@ -42,11 +51,10 @@ from scipy import stats
 
 log = logging.getLogger(__name__)
 
-#: Settled Omission band edges (Hz). See CLAUDE.md "Band definitions".
-#: PROMOTED 2026-08-23: single source of truth moved to jnwb.spectral.CANONICAL_BANDS
-#: (99%-jnwb-sufficiency normalization) -- re-exported here unchanged so this module's
-#: existing consumers and internal uses below keep working without modification.
-from jnwb.spectral import CANONICAL_BANDS
+#: Settled band edges (Hz) -- single source of truth is jnwb.spectral.CANONICAL_BANDS;
+#: re-exported here unchanged so this module's existing consumers and internal uses below
+#: keep working without modification.
+from .spectral import CANONICAL_BANDS
 
 
 def _discrete_mi_from_labels(x: np.ndarray, y: np.ndarray) -> float:

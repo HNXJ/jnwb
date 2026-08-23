@@ -10,7 +10,7 @@ DESIGN (per user spec, 2026-08-05)
     across-trials design -- it is a same-trial, within-trial-time sliding correlation.
     Null: for each window, correlate channel_N[trial K] against channel_M[trial J != K]
     (mismatched trial pairing) -- breaks the true within-trial coupling while preserving each
-    channel's own trial-to-trial structure, same logic as omission.jnwb_ext.connectivity._surrogate_source.
+    channel's own trial-to-trial structure, same logic as jnwb.connectivity._surrogate_source.
 
 CHANNEL SELECTION ("good" channels, not arbitrary depth-spaced)
     Per area, rank channels by a band-averaged SNR-like score computed from the EXISTING

@@ -20,7 +20,7 @@ INPUT
     p2-specific RXRR-vs-RRRR contrast is a separate, secondary test below).
 
 METHOD
-    omission.jnwb_ext.connectivity.directed_network(), method='granger' (order='auto', max_lag=10,
+    jnwb.connectivity.directed_network(), method='granger' (order='auto', max_lag=10,
     detrend='zscore' -- the estimator's own defaults, chosen once and not tuned per result).
     Run per (session, band, condition) over every area present in that session for that
     band/condition (up to all 10). x_to_y / y_to_x are log-variance-ratio Granger scores;
@@ -71,7 +71,7 @@ from svgassemble import assemble  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(FIGDIR))
 sys.path.insert(0, REPO)
-from omission.jnwb_ext.connectivity import directed_network  # noqa: E402
+from jnwb.connectivity import directed_network  # noqa: E402
 
 TRIALS_NPZ = os.path.join(REPO, "outputs", "condition_band_power_trials", "trials.npz")
 NET_OUT_DIR = os.path.join(REPO, "outputs", "lfp_lfp_granger_network")

@@ -14,7 +14,7 @@ power.
     correlation (MIN_FIRING_RATE_HZ) are excluded before ranking.
 
 SPIKE RATE TRACE
-    omission.jnwb_ext.connectivity.bin_spikes(), 10 ms bins (matching the LFP script's native resolution),
+    jnwb.connectivity.bin_spikes(), 10 ms bins (matching the LFP script's native resolution),
     output='rate' -- same p1-aligned window and trial-onset convention
     (precompute_condition_onsets, correct_only=True) as every other condition-based extraction
     in this repo.
@@ -41,7 +41,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "scripts"))
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets  # noqa: E402
-from omission.jnwb_ext.connectivity import bin_spikes  # noqa: E402
+from jnwb.connectivity import bin_spikes  # noqa: E402
 from smoke_test_sliding_trial_correlation import (  # noqa: E402
     sliding_corr_same_trial, WIN_HALF_MS, STEP_MS,
 )

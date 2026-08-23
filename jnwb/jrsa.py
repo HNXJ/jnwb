@@ -1357,7 +1357,7 @@ def _transfer_entropy(x1, x2, axis=-1, k=1, bins=10, **kwargs):
 def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
                  bands=None, jackknife=True, **kwargs):
     """
-    Phase Slope Index (PSI), delegated to :func:`omission.jnwb_ext.connectivity.phase_slope_index`.
+    Phase Slope Index (PSI), delegated to :func:`jnwb.connectivity.phase_slope_index`.
 
     Superseded implementation (pre-2026-08-04) took a single ``rfft`` of the whole
     ravelled record. A one-segment coherency has magnitude identically 1 at every
@@ -1376,10 +1376,10 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
         ``p`` is the two-sided normal-approximation p-value on that z (previously
         both were ``None``).
     """
-    # Layering note: PSI delegates to the omission project's segmented connectivity
-    # estimator (band-labeling conventions live there) -- a lazy, optional dependency
-    # on omission/, not a module-load-time one.
-    from omission.jnwb_ext.connectivity import phase_slope_index as _psi_impl
+    # PSI delegates to jnwb.connectivity's segmented estimator (promoted 2026-08-23 from
+    # omission.jnwb_ext.connectivity, 99%-jnwb-sufficiency normalization -- this is now an
+    # intra-package import, not a cross-project one).
+    from .connectivity import phase_slope_index as _psi_impl
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()

@@ -85,10 +85,12 @@ normal commit/push activity.
 2. **Take the logarithm last.** Average power, divide by baseline, `10·log10` once. Never
    average decibels — it biases each site by its own noisiness.
 3. **`jnwb/` does not import from any project folder** (e.g. `omission/`). The dependency runs
-   one way: projects depend on `jnwb`, never the reverse. A handful of narrow, documented
-   exceptions exist today (lazy, call-time-only imports for optional cross-project delegation,
-   e.g. in `addressing.py` and `jrsa.py`) — do not add more without discussing the layering
-   first.
+   one way: projects depend on `jnwb`, never the reverse. One narrow, documented exception
+   exists today (a lazy, call-time-only import for optional cross-project delegation, in
+   `addressing.py`, for `omission.jnwb_ext.sequence_layout.parse_probe_areas`) — do not add
+   more without discussing the layering first. (`jrsa.py`'s former exception, a lazy import of
+   `phase_slope_index`, was removed 2026-08-23 when `connectivity.py` promoted to
+   `jnwb/connectivity.py` — that delegation is now intra-package.)
 4. **Preserve module- and array-level invariants**: units, coordinate frames, timestamps,
    sample rates, 0- vs 1-indexing do not change silently across a `jnwb` function boundary.
 

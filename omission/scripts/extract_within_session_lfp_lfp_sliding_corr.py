@@ -10,7 +10,7 @@ DESIGN
     correlate channel_N[trial K, window] against channel_M[trial K, window] -- same trial, same
     window, across the SET of trials within that session (n_trials correlation values per
     window). Null: channel_N[trial K] against channel_M[trial J != K] (trial-mismatch shuffle,
-    N_SHUFFLE=200), same logic as omission.jnwb_ext.connectivity._surrogate_source. Window +-200ms, 10ms
+    N_SHUFFLE=200), same logic as jnwb.connectivity._surrogate_source. Window +-200ms, 10ms
     step (scripts/smoke_test_sliding_trial_correlation.py validated this design and its
     vectorized implementation -- reused here directly, not reimplemented).
 
@@ -59,7 +59,7 @@ from smoke_test_sliding_trial_correlation import (  # noqa: E402
     band_power_trace, sliding_corr_same_trial, WIN_HALF_MS, STEP_MS, BIN_MS, N_SHUFFLE,
 )
 from jnwb import paths as _P
-from omission.jnwb_ext.connectivity import CANONICAL_BANDS as BANDS
+from jnwb.spectral import CANONICAL_BANDS as BANDS
 
 TFR_DIR = _P.tfr_dir()
 CENSUS = _P.REPO_ROOT / "outputs/lfp_band_census_v2/channel_band_power.csv.gz"

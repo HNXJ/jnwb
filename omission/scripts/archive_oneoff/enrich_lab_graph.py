@@ -102,7 +102,7 @@ SUBMODULES = [
     },
     {
         "id": "jnwb-submodule-connectivity",
-        "title": "omission.jnwb_ext.connectivity (Functional Network & Mutual Information Engine)",
+        "title": "jnwb.connectivity (Functional Network & Mutual Information Engine)",
         "summary": "Inter-area mutual information, directional Granger causality, and spike-LFP phase coupling networks.",
         "source_paths": ["jnwb/connectivity.py"],
         "links": [{"to": PARENT_ID, "relation": "refines"}, {"to": "omission-tests", "relation": "derives_from"}],

@@ -5,7 +5,7 @@ between a channel's band power and a unit's spike rate in the same sliding windo
 
 Splices together the two already-validated sliding-window engines exactly as directed:
   - scripts/extract_within_session_spk_spk_sliding_corr.py: good-unit selection
-    (good_units_per_area), spike-rate trace via omission.jnwb_ext.connectivity.bin_spikes(output="rate").
+    (good_units_per_area), spike-rate trace via jnwb.connectivity.bin_spikes(output="rate").
   - scripts/extract_within_session_lfp_lfp_sliding_corr.py: good-channel selection
     (good_channels_per_area, from the existing channel_band_power_v2 census), band-power trace
     from the precomputed TFR .npy arrays (band_power_trace).
@@ -54,7 +54,7 @@ sys.path.insert(0, os.path.join(REPO, "context", "figures", "fig_v1_omission_ban
 
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.unit_classification import precompute_condition_onsets  # noqa: E402
-from omission.jnwb_ext.connectivity import bin_spikes  # noqa: E402
+from jnwb.connectivity import bin_spikes  # noqa: E402
 from smoke_test_sliding_trial_correlation import (  # noqa: E402
     band_power_trace, sliding_corr_same_trial, WIN_HALF_MS, STEP_MS, BIN_MS,
 )

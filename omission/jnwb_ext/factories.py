@@ -499,7 +499,7 @@ def result_from_tfr_analysis(
     # beta 12-30, low_gamma 30-55, high_gamma 55-90), contradicting the settled
     # band definitions in CLAUDE.md. Band names are unchanged so the band_stats
     # keys are stable; the power values move with the new edges.
-    from .connectivity import CANONICAL_BANDS
+    from jnwb.spectral import CANONICAL_BANDS
     freq_bands = dict(CANONICAL_BANDS)
 
     tfr_array = session.tfr_from_preprocessed(area=area, band=None, condition=epochs.condition) \

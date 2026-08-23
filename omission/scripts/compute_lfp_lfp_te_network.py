@@ -11,7 +11,7 @@ WHY A SEPARATE SCRIPT, NOT A --method FLAG ON fig05_lfp_lfp_coupling.py
     partial edges.csv without recomputing finished sessions.
 
 RUNTIME / SURROGATE COUNT TRADEOFF (stated plainly, not discovered after the fact)
-    omission.jnwb_ext.connectivity.transfer_entropy()'s default n_surrogates=200 makes a single (session,
+    jnwb.connectivity.transfer_entropy()'s default n_surrogates=200 makes a single (session,
     band, condition) 10-area call impractically slow (>2 min for a 5-area subset alone).
     n_surrogates=15 here is a deliberate compromise: fast enough to finish the full grid in
     single-digit hours, not so low that the bias correction (raw TE minus surrogate mean) is
@@ -43,7 +43,7 @@ REPO = os.path.dirname(REPO)
 sys.path.insert(0, os.path.join(REPO, "context", "figures"))
 sys.path.insert(0, REPO)
 from figstyle import AREA_ORDER  # noqa: E402
-from omission.jnwb_ext.connectivity import directed_network  # noqa: E402
+from jnwb.connectivity import directed_network  # noqa: E402
 
 TRIALS_NPZ = os.path.join(REPO, "outputs", "condition_band_power_trials", "trials.npz")
 OUT_DIR = os.path.join(REPO, "outputs", "lfp_lfp_te_network")
