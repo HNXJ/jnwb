@@ -21,21 +21,51 @@ out at length in ADR-001, which rejected in-place `.filter()` mutation, copy-on-
 snapshot management as alternatives — each for breaking lineage tracking or adding user-facing
 complexity).
 
-## What actually happened (checked against the current tree, 2026-08-22)
+## What actually happened (checked against the current tree, 2026-08-22 — corrected same day)
 
-**The ontology was never adopted as the primary interface.** `01_ontology.md` itself states the
-plan plainly: "OmissionSession methods remain in v0.9.x for backwards compatibility. In v1.0,
-OmissionSession is deprecated in favor of Query -> Dataset -> Question -> Result." That
-deprecation did not happen. The current codebase's data-access layer is `OmissionSession` +
-`jnwb.paths` — confirmed by the `legacy/tests/` audit (2026-08-22): grepping the current tree for
-`SessionManifest`, `SignalBlock`, `DataLoader`, `Query`, `Dataset.from_query`, `EpochCollection`,
-or any of the other 13 objects' class definitions returns zero matches anywhere in `jnwb/` or
-`omission/`. `OmissionSession` is not a legacy holdover awaiting removal — it is, and apparently
-always remained, the actual interface.
+**CORRECTION (2026-08-22, later same day):** this section originally claimed the ontology was
+"never adopted... zero matches anywhere in jnwb/ or omission/." That claim was **false** and has
+been replaced below. The error: the Batch-1 `legacy/tests/` audit found zero matches for
+`SessionManifest`/`SignalBlock`/`DataLoader` — a *different*, genuinely dead architecture
+(`src.analysis.contracts`, referenced only by the deleted `legacy/tests/` fossils) — and that
+finding was wrongly generalized to the `Query`/`Dataset`/`EpochCollection` ontology described in
+this document, without independently checking `jnwb/__init__.py` or `jnwb/ontology.py`
+themselves. Caught during Batch 2 when `jnwb/__init__.py` turned out to import and export
+`Query`, `Dataset`, `AlignedDataset`, `Alignment`, `EpochCollection`, `Question`, `Result`,
+`Interpretation`, `Figure`, `Provenance`, `Lineage` from `.ontology` directly, under "Core
+ontology objects (immutable, stable)" in `__all__` — the opposite of dead code. `jnwb/ontology.py`
+is dated the same day as this design effort (2026-06-25) and was touched as recently as the
+commit immediately preceding this normalization work (`5505211 fix(jnwb): resolve ontology.py
+NotImplementedError stubs`).
 
-This is not the ADR's own "Alternatives Considered" list (those were rejected *before* shipping,
-in favor of the ontology). This is a documented plan that shipped in doctrine but not in code —
-a third category distinct from either "current design" or "considered and rejected."
+**The accurate picture: built, exported, tested — but with zero production callers.**
+`jnwb/ontology.py` implements the 13-object model for real (not stubs, as of the just-mentioned
+fix commit). `omission/jnwb_ext/factories.py` (670 lines, live, non-legacy) bridges it to
+`OmissionSession` — e.g. `dataset_from_session(session, query)` builds a `Dataset` by reading
+`session.get_units()` and filtering by `Query.areas`/`Query.units`. `omission/tests/test_factories.py`
+exercises two of those factory functions directly, and its docstring records a real, fixed bug:
+`result_from_decoding_analysis`/`result_from_tfr_analysis` previously fabricated statistics via
+`np.random` regardless of whether real data was available; the test now locks in that both must
+return `'insufficient_data'` rather than fabricated numbers when real computation isn't possible.
+That is active, serious maintenance — not an abandoned corner.
+
+What genuinely has zero current callers: **every place that actually *instantiates* `Query(...)`
+outside `jnwb/ontology.py` itself, `omission/jnwb_ext/factories.py`, and
+`omission/tests/test_factories.py` is in `omission/legacy/examples/*.py`** (already-legacy,
+already-flagged example scripts). No script under `omission/scripts/`, no figure-generation code,
+and no analysis pipeline constructs a `Query`, calls `dataset_from_session`, or calls
+`.answer(question)` for a real result. `01_ontology.md`'s own stated plan — "OmissionSession is
+deprecated in favor of Query -> Dataset -> Question -> Result" in v1.0 — has not happened: real
+analysis work still goes through `OmissionSession` directly, everywhere. The ontology is a live,
+tested, bridged parallel API with no production adoption yet, not dead code and not the primary
+interface either — a third state distinct from both.
+
+**Why this matters for reorganization:** `jnwb/ontology.py` + `omission/jnwb_ext/factories.py`
+are exactly the kind of load-bearing-looking-but-actually-unused surface the "canonicalize
+semantics before reorganizing" principle exists to catch. Neither is a Batch-2 target (frozen
+`jnwb/`; `factories.py` isn't part of the 259-script analysis surface), but any future decision
+to promote `jnwb_ext` code or prune "unused" surface must check real call sites first — this
+correction is itself the receipt for why.
 
 ## What survived anyway: the scientific contracts
 
@@ -55,18 +85,24 @@ enforce them mechanically:
 
 The five **software contracts** (SW-00X: public objects immutable via frozen dataclasses, purely
 neuroscience-language API hiding numpy/scipy/matplotlib, no circular ownership, JSON
-serializability, strict semver) describe mechanics of the abandoned `Query`/`Dataset` object
-model specifically and have no current equivalent — `OmissionSession` was not built to those
-specs and this document does not assert it satisfies them. Whether `OmissionSession` degrades on
-any of these axes (mutability, backend leakage, serializability) has not been checked here; flag
-as a possible future audit, not a current claim.
+serializability, strict semver) describe mechanics of the `Query`/`Dataset` object model
+specifically. `jnwb/ontology.py`'s dataclasses are genuinely `@dataclass(frozen=True)` (SW-001
+holds for the ontology itself), but the contracts were written as if the ontology were the
+*only* public interface — they say nothing about `OmissionSession`, which is not built to those
+specs (its methods mutate, return heterogeneous dict shapes, and expose numpy/matplotlib
+directly) and is not asserted here to satisfy them. Since `OmissionSession` remains the actual
+production interface (see above), these contracts currently constrain a real but low-traffic
+part of the public surface, not the part analysis work actually goes through.
 
 ## Versioning plan (`04_versioning.md`) — disposition
 
 A full semver policy (breaking vs. non-breaking change catalog, v1.0/v1.1/v2.0 timeline) was
-written for the 13-object API's eventual freeze. Since that API never shipped as the public
-interface, the versioning policy never took effect and is not current practice. Not reproduced
-here beyond this note — it is pure process scaffolding for code that isn't load-bearing.
+written for the 13-object API's eventual freeze, on the premise that it would become *the*
+public interface at v1.0 with `OmissionSession` deprecated. Since that deprecation never
+happened and the ontology never became the primary interface (see above), the versioning
+policy's premise didn't materialize and it is not current practice — even though the ontology
+classes it was written for do exist and are exported. Not reproduced here beyond this note; it
+is process scaffolding for a migration that stalled, not a currently-enforced policy.
 
 ## Where the originals are
 
