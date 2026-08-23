@@ -11,6 +11,7 @@ import pytest
 
 from jnwb.metadata import (
     classify_unit_quality, unit_census_report, get_snr_analysis, filter_by_criteria,
+    audit_units, audit_electrodes,
 )
 
 
@@ -20,23 +21,77 @@ class TestPublicImport:
             get_all_units_metadata, classify_unit_quality as pub_cuq,
             unit_census_report as pub_ucr, get_snr_analysis as pub_gsa,
             electrode_inventory, filter_by_criteria as pub_fbc,
+            audit_units as pub_au, audit_electrodes as pub_ae,
         )
         assert pub_cuq is classify_unit_quality
         assert pub_ucr is unit_census_report
         assert pub_gsa is get_snr_analysis
         assert pub_fbc is filter_by_criteria
+        assert pub_au is audit_units
+        assert pub_ae is audit_electrodes
         assert callable(get_all_units_metadata)
         assert callable(electrode_inventory)
 
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("get_all_units_metadata", "classify_unit_quality", "unit_census_report",
-                     "get_snr_analysis", "electrode_inventory", "filter_by_criteria"):
+                     "get_snr_analysis", "electrode_inventory", "filter_by_criteria",
+                     "audit_units", "audit_electrodes"):
             assert name in jnwb.__all__
 
     def test_omission_functions_delegates_to_jnwb(self):
         functions = pytest.importorskip("omission.jnwb_ext.functions")
         assert functions._filter_units is filter_by_criteria
+
+    def test_omission_diagnostics_delegates_to_jnwb(self):
+        diagnostics = pytest.importorskip("omission.jnwb_ext.diagnostics")
+        assert diagnostics._audit_units is audit_units
+        assert diagnostics._audit_electrodes is audit_electrodes
+
+
+class TestAuditUnits:
+    def test_empty_dataframe_returns_zeroed_defaults(self):
+        result = audit_units(pd.DataFrame({"x": []}))
+        assert result["total_units"] == 0
+        assert result["quality_distribution"] == {}
+
+    def test_computes_quality_snr_firing_rate_stats(self):
+        df = pd.DataFrame({
+            "spike_times": [[0.1, 0.2], [], [0.3]],
+            "quality": [1.0, 0.5, 1.0],
+            "snr": [2.0, 0.5, 1.5],
+            "firing_rate": [5.0, 0.1, 3.0],
+        })
+        result = audit_units(df)
+        assert result["total_units"] == 3
+        assert result["units_with_spike_times"] == 2
+        assert result["quality_distribution"]["good_count"] == 2
+        assert result["snr_stats"]["good_count"] == 2
+        assert result["firing_rate_stats"]["max"] == pytest.approx(5.0)
+
+    def test_missing_columns_produce_empty_sub_dicts(self):
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        result = audit_units(df)
+        assert result["quality_distribution"] == {}
+        assert result["snr_stats"] == {}
+        assert result["firing_rate_stats"] == {}
+
+
+class TestAuditElectrodes:
+    def test_counts_areas_and_unit_assignment(self):
+        elec_df = pd.DataFrame({"location": ["V1, layer4", "V1, layer2", "PFC, layer5"]})
+        units_df = pd.DataFrame({"peak_channel_id": [1, None, 3]})
+        result = audit_electrodes(elec_df, units_df)
+        assert result["total_electrodes"] == 3
+        assert result["areas_represented"] == {"V1": 2, "PFC": 1}
+        assert result["units_assigned"] == 2
+        assert result["assignment_rate"] == pytest.approx(2 / 3)
+
+    def test_missing_units_df_gives_zero_assignment(self):
+        elec_df = pd.DataFrame({"location": ["V1"]})
+        result = audit_electrodes(elec_df, units_df=None)
+        assert result["units_assigned"] == 0
+        assert result["assignment_rate"] == 0.0
 
 
 class TestFilterByCriteria:

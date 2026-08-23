@@ -80,6 +80,8 @@ units = jnwb.classify_unit_quality(units)                # + quality_class, is_v
 census = jnwb.unit_census_report(units, group_by=["area"])
 snr_stats = jnwb.get_snr_analysis(units)                 # -> {'pass_rate': ..., 'snr_mean': ...}
 good_v1 = jnwb.filter_by_criteria(units, {"area": "V1", "firing_rate": (1.0, 50.0)})
+unit_audit = jnwb.audit_units(units)             # spike-time coverage, quality/SNR/rate stats
+elec_audit = jnwb.audit_electrodes(electrodes, units)  # area counts, unit-assignment rate
 ```
 
 Generic spectral analysis — band-limited power, cross-area coherence, 1/f tilt, imaginary

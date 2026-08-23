@@ -185,6 +185,8 @@ from .metadata import (
     get_snr_analysis,
     electrode_inventory,
     filter_by_criteria,
+    audit_units,
+    audit_electrodes,
 )
 
 # Generic spectral analysis: band-limited power, cross-area coherence, 1/f tilt, imaginary
@@ -304,6 +306,8 @@ __all__ = [
     'get_snr_analysis',
     'electrode_inventory',
     'filter_by_criteria',
+    'audit_units',
+    'audit_electrodes',
 
     # Spectral analysis
     'to_db',

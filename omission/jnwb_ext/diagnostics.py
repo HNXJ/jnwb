@@ -10,6 +10,13 @@ Consolidates logic from archived X-files:
 Provides comprehensive audit functions for validating session integrity,
 checking data completeness, and generating QC reports.
 
+_audit_units and _audit_electrodes were promoted 2026-08-23 to jnwb.metadata.audit_units /
+audit_electrodes (99%-jnwb-sufficiency normalization) -- they operate on plain units/electrodes
+DataFrames with no omission-task coupling. audit_session and _audit_intervals stay here:
+_audit_intervals hardcodes the 'stimulus_number' / 'task_condition_number' interval-table
+column names, which are this task's paradigm-specific schema, and audit_session hardcodes the
+'omission_glo_passive' interval table name.
+
 Author: Migrated from archived scripts
 Date: 2026-06-25
 """
@@ -20,6 +27,9 @@ from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 from pynwb import NWBHDF5IO
+
+from jnwb.metadata import audit_units as _audit_units
+from jnwb.metadata import audit_electrodes as _audit_electrodes
 
 log = logging.getLogger(__name__)
 
@@ -134,84 +144,6 @@ def _audit_intervals(intervals_df: pd.DataFrame) -> Dict:
         for cond in sorted([int(c) for c in conditions if not np.isnan(c)]):
             count = (pd.to_numeric(intervals_df['task_condition_number'], errors='coerce') == float(cond)).sum()
             result['by_condition'][f'condition_{int(cond)}'] = int(count)
-
-    return result
-
-
-def _audit_units(units_df: pd.DataFrame) -> Dict:
-    """Audit unit quality and completeness."""
-    result = {
-        'total_units': len(units_df),
-        'units_with_spike_times': 0,
-        'quality_distribution': {},
-        'snr_stats': {},
-        'firing_rate_stats': {},
-    }
-
-    # Check spike times
-    if 'spike_times' in units_df.columns:
-        result['units_with_spike_times'] = sum(1 for st in units_df['spike_times'] if st is not None and len(st) > 0)
-
-    # Quality distribution
-    if 'quality' in units_df.columns:
-        quality_values = pd.to_numeric(units_df['quality'], errors='coerce')
-        result['quality_distribution'] = {
-            'mean': float(quality_values.mean()),
-            'median': float(quality_values.median()),
-            'std': float(quality_values.std()),
-            'min': float(quality_values.min()),
-            'max': float(quality_values.max()),
-            'good_count': int((quality_values >= 1.0).sum())
-        }
-
-    # SNR statistics
-    if 'snr' in units_df.columns:
-        snr_values = pd.to_numeric(units_df['snr'], errors='coerce').dropna()
-        if len(snr_values) > 0:
-            result['snr_stats'] = {
-                'mean': float(snr_values.mean()),
-                'median': float(snr_values.median()),
-                'std': float(snr_values.std()),
-                'good_count': int((snr_values >= 1.0).sum()),
-                'good_rate': float((snr_values >= 1.0).mean())
-            }
-
-    # Firing rate statistics
-    if 'firing_rate' in units_df.columns:
-        fr_values = pd.to_numeric(units_df['firing_rate'], errors='coerce').dropna()
-        if len(fr_values) > 0:
-            result['firing_rate_stats'] = {
-                'mean': float(fr_values.mean()),
-                'median': float(fr_values.median()),
-                'min': float(fr_values.min()),
-                'max': float(fr_values.max()),
-            }
-
-    return result
-
-
-def _audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = None) -> Dict:
-    """Audit electrode configuration and mapping."""
-    result = {
-        'total_electrodes': len(elec_df),
-        'areas_represented': {},
-        'units_assigned': 0,
-    }
-
-    # Area representation
-    if 'location' in elec_df.columns:
-        areas = elec_df['location'].apply(lambda x: str(x).split(',')[0].strip() if pd.notna(x) else 'Unknown')
-        area_counts = areas.value_counts()
-        result['areas_represented'] = area_counts.to_dict()
-
-    # Unit assignments
-    if units_df is not None and 'peak_channel_id' in units_df.columns:
-        assigned = units_df['peak_channel_id'].notna().sum()
-        result['units_assigned'] = int(assigned)
-        result['assignment_rate'] = float(assigned / len(units_df))
-    else:
-        result['units_assigned'] = 0
-        result['assignment_rate'] = 0.0
 
     return result
 

@@ -344,3 +344,110 @@ def electrode_inventory(
         return pd.DataFrame()
 
     return pd.concat(all_elecs, ignore_index=False)
+
+
+def audit_units(units_df: pd.DataFrame) -> Dict:
+    """
+    Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate
+    summary statistics.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.diagnostics._audit_units
+    (99%-jnwb-sufficiency normalization): operates only on the standard NWB units-table columns
+    (spike_times, quality, snr, firing_rate) with no omission-task coupling.
+
+    Args:
+        units_df: units DataFrame, e.g. from :func:`get_all_units_metadata`.
+
+    Returns:
+        Dict with total_units, units_with_spike_times, quality_distribution,
+        snr_stats, firing_rate_stats (each a sub-dict of mean/median/std/... or
+        ``{}`` when the source column is absent).
+    """
+    result = {
+        'total_units': len(units_df),
+        'units_with_spike_times': 0,
+        'quality_distribution': {},
+        'snr_stats': {},
+        'firing_rate_stats': {},
+    }
+
+    # Check spike times
+    if 'spike_times' in units_df.columns:
+        result['units_with_spike_times'] = sum(1 for st in units_df['spike_times'] if st is not None and len(st) > 0)
+
+    # Quality distribution
+    if 'quality' in units_df.columns:
+        quality_values = pd.to_numeric(units_df['quality'], errors='coerce')
+        result['quality_distribution'] = {
+            'mean': float(quality_values.mean()),
+            'median': float(quality_values.median()),
+            'std': float(quality_values.std()),
+            'min': float(quality_values.min()),
+            'max': float(quality_values.max()),
+            'good_count': int((quality_values >= 1.0).sum())
+        }
+
+    # SNR statistics
+    if 'snr' in units_df.columns:
+        snr_values = pd.to_numeric(units_df['snr'], errors='coerce').dropna()
+        if len(snr_values) > 0:
+            result['snr_stats'] = {
+                'mean': float(snr_values.mean()),
+                'median': float(snr_values.median()),
+                'std': float(snr_values.std()),
+                'good_count': int((snr_values >= 1.0).sum()),
+                'good_rate': float((snr_values >= 1.0).mean())
+            }
+
+    # Firing rate statistics
+    if 'firing_rate' in units_df.columns:
+        fr_values = pd.to_numeric(units_df['firing_rate'], errors='coerce').dropna()
+        if len(fr_values) > 0:
+            result['firing_rate_stats'] = {
+                'mean': float(fr_values.mean()),
+                'median': float(fr_values.median()),
+                'min': float(fr_values.min()),
+                'max': float(fr_values.max()),
+            }
+
+    return result
+
+
+def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = None) -> Dict:
+    """
+    Audit electrode configuration and unit-to-electrode mapping coverage.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.diagnostics._audit_electrodes
+    (99%-jnwb-sufficiency normalization): operates only on the standard NWB electrodes-table
+    ``location`` column and units-table ``peak_channel_id`` column, with no omission-task
+    coupling.
+
+    Args:
+        elec_df: electrodes DataFrame.
+        units_df: optional units DataFrame, to compute unit-assignment coverage.
+
+    Returns:
+        Dict with total_electrodes, areas_represented, units_assigned, assignment_rate.
+    """
+    result = {
+        'total_electrodes': len(elec_df),
+        'areas_represented': {},
+        'units_assigned': 0,
+    }
+
+    # Area representation
+    if 'location' in elec_df.columns:
+        areas = elec_df['location'].apply(lambda x: str(x).split(',')[0].strip() if pd.notna(x) else 'Unknown')
+        area_counts = areas.value_counts()
+        result['areas_represented'] = area_counts.to_dict()
+
+    # Unit assignments
+    if units_df is not None and 'peak_channel_id' in units_df.columns:
+        assigned = units_df['peak_channel_id'].notna().sum()
+        result['units_assigned'] = int(assigned)
+        result['assignment_rate'] = float(assigned / len(units_df))
+    else:
+        result['units_assigned'] = 0
+        result['assignment_rate'] = 0.0
+
+    return result
