@@ -1,11 +1,11 @@
 import numpy as np
 
-from omission.jnwb_ext.spiking import (
+from jnwb.spiking import (
     compute_response_metrics,
     classify_response_significance,
-    classify_omission_response,
     phase_locking_index,
 )
+from omission.jnwb_ext.spiking import classify_omission_response
 
 
 def test_compute_response_metrics_known_rates():

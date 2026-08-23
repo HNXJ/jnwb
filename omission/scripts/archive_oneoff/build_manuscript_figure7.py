@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 import omission as oa
-from omission.jnwb_ext.spiking import phase_locking_index
+from jnwb.spiking import phase_locking_index
 
 OUT_DIR = REPO_ROOT / "outputs/publication_figures"
 SESSION_PATH = "D:/analysis/nwb/sub-C31o_ses-230823_rec.nwb"

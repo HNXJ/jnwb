@@ -230,6 +230,15 @@ from .decoding import (
     nested_cv_linear_svm,
 )
 
+# Generic spike-response metrics: firing rate/latency/z-score relative to behavioral epochs,
+# significance classification, spike-LFP phase locking (promoted 2026-08-23 from
+# omission.jnwb_ext.spiking; see jnwb/spiking.py's module docstring).
+from .spiking import (
+    compute_response_metrics,
+    classify_response_significance,
+    phase_locking_index,
+)
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -325,4 +334,9 @@ __all__ = [
     'majority_baseline',
     'fold_majority_baseline',
     'nested_cv_linear_svm',
+
+    # Spiking response metrics
+    'compute_response_metrics',
+    'classify_response_significance',
+    'phase_locking_index',
 ]

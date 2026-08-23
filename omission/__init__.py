@@ -170,12 +170,15 @@ from jnwb.metadata import (
     get_snr_analysis,
     electrode_inventory,
 )
-from .jnwb_ext.spiking import (
+# compute_response_metrics, classify_response_significance, phase_locking_index promoted
+# 2026-08-23 to jnwb.spiking (99%-jnwb-sufficiency normalization) -- re-exported here
+# unchanged; classify_omission_response stays task-specific in jnwb_ext.spiking.
+from jnwb.spiking import (
     compute_response_metrics,
     classify_response_significance,
-    classify_omission_response,
     phase_locking_index,
 )
+from .jnwb_ext.spiking import classify_omission_response
 from .jnwb_ext.diagnostics import (
     audit_session,
     compare_sessions,

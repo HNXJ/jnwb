@@ -114,6 +114,15 @@ result = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)
 print(result["accuracy"], result["f1"], result["auc"], result["majority_baseline_accuracy"])
 ```
 
+Generic spike-response metrics — firing rate/latency/z-score relative to any behavioral epoch,
+significance classification, and spike-LFP phase locking (`jnwb/spiking.py`):
+
+```python
+metrics = jnwb.compute_response_metrics(spike_times, epoch_onsets, response_window=(0.0, 0.15))
+sig = jnwb.classify_response_significance(metrics)             # is_significant, pvalue, confidence
+pli = jnwb.phase_locking_index(spike_times, lfp_phase, lfp_timestamps)  # pli, rayleigh_pvalue
+```
+
 ---
 
 ## Module map
@@ -136,6 +145,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `spectral.py` | Band power, cross-area coherence, 1/f tilt, imaginary coherency, bipolar/Laplacian re-referencing; `CANONICAL_BANDS` |
 | `connectivity.py` | Mutual information, Granger causality, phase slope index, transfer entropy; uniform `DirectedResult` |
 | `decoding.py` | Nested cross-validated linear-SVM population decoding (accuracy/F1/AUC/majority-baseline) |
+| `spiking.py` | Spike-response firing rate/latency/z-score, significance classification, spike-LFP phase locking |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,
