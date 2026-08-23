@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 
 import omission.jnwb_ext.diagnostics as diag
-import omission.jnwb_ext.metadata as meta
+import jnwb.metadata as meta  # promoted 2026-08-23 from omission.jnwb_ext.metadata
 
 NWB_PATH = "D:/analysis/nwb/sub-C31o_ses-230823_rec.nwb"
 

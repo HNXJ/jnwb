@@ -16,7 +16,7 @@ import pytest
 
 from jnwb.paths import nwb_dir
 from omission import OmissionSession, viz
-from omission.jnwb_ext import metadata
+from jnwb import metadata  # promoted 2026-08-23 from omission.jnwb_ext.metadata
 
 NWB_PATH = nwb_dir() / "sub-C31o_ses-230823_rec.nwb"
 

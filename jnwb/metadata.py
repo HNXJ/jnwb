@@ -1,7 +1,14 @@
 """
-Unit and Metadata Extraction for Omission NWB Files
+jnwb.metadata -- generic unit and electrode metadata extraction, QC classification, and
+census reporting for any NWB electrophysiology dataset.
 
-Consolidates logic from archived X-files:
+PROMOTED 2026-08-23 from omission.jnwb_ext.metadata (99%-jnwb-sufficiency normalization):
+despite the module's original "for Omission NWB Files" framing, nothing here references
+omission conditions, trials, or classes -- every function operates on the standard NWB
+units/electrodes table columns (snr, firing_rate, quality, peak_channel_id, ...) that any
+NWB file exposes.
+
+Originally consolidated from archived X-files:
 - build_comprehensive_grand_table.py
 - build_dataset_census.py
 - build_area_probe_metadata_inventory.py

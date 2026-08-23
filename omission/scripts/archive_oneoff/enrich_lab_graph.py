@@ -53,7 +53,7 @@ SUBMODULES = [
     },
     {
         "id": "jnwb-submodule-metadata",
-        "title": "omission.jnwb_ext.metadata (Grand Unit Table & Metadata Diagnostics)",
+        "title": "jnwb.metadata (Grand Unit Table & Metadata Diagnostics; promoted 2026-08-23 from omission.jnwb_ext.metadata)",
         "summary": "Grand unit metadata extraction, classify_unit_quality, unit_census_report, and SNR analysis.",
         "source_paths": ["jnwb/metadata.py"],
         "links": [{"to": PARENT_ID, "relation": "refines"}, {"to": "omission-tests", "relation": "derives_from"}],

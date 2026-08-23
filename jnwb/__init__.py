@@ -176,6 +176,16 @@ from .artifact_repair import repair_lfp_trials, repair_band_artifacts
 # omission.jnwb_ext.onset_fitting; see jnwb/onset_fitting.py's module docstring).
 from .onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
 
+# Generic unit/electrode metadata extraction, QC classification, census reporting (promoted
+# 2026-08-23 from omission.jnwb_ext.metadata; see jnwb/metadata.py's module docstring).
+from .metadata import (
+    get_all_units_metadata,
+    classify_unit_quality,
+    unit_census_report,
+    get_snr_analysis,
+    electrode_inventory,
+)
+
 # Export main classes and functions
 __all__ = [
     # JRSA: Unified RSA API
@@ -232,4 +242,11 @@ __all__ = [
     'causal_exp_smooth',
     'fit_exponential_onset',
     'onset_model',
+
+    # Unit/electrode metadata, QC, census
+    'get_all_units_metadata',
+    'classify_unit_quality',
+    'unit_census_report',
+    'get_snr_analysis',
+    'electrode_inventory',
 ]

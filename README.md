@@ -71,6 +71,16 @@ smoothed = jnwb.causal_exp_smooth(rate, bin_ms=5.0, tau_ms=30.0)
 fit = jnwb.fit_exponential_onset(t_ms, smoothed, t0_bounds=(0.0, None))  # fit["t0"], ["tau"], ["r2"]
 ```
 
+Unit/electrode metadata extraction, QC classification, and census reporting, from a plain list
+of NWB paths:
+
+```python
+units = jnwb.get_all_units_metadata(nwb_paths)          # -> DataFrame, one row per unit
+units = jnwb.classify_unit_quality(units)                # + quality_class, is_valid, issue_flags
+census = jnwb.unit_census_report(units, group_by=["area"])
+snr_stats = jnwb.get_snr_analysis(units)                 # -> {'pass_rate': ..., 'snr_mean': ...}
+```
+
 ---
 
 ## Module map
@@ -89,6 +99,7 @@ The public surface is `jnwb/__init__.py` (`__all__`).
 | `bilinear.py`, `nam.py`, `permutation.py` | Generic modeling/statistical primitives |
 | `artifact_repair.py`, `artifact_detection.py` | Trial-segmented artifact repair (substitution) / detection (exclusion) |
 | `onset_fitting.py` | Causal PSTH smoothing; causality-bounded exponential onset-latency fit |
+| `metadata.py` | Unit/electrode metadata extraction, QC classification, census reporting |
 | `mcp_server/` | stdio MCP server: `inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`, `add_tool` |
 
 Task-specific functionality (condition codes, unit classification, decoding, connectivity,

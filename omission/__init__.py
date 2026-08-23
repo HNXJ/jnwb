@@ -161,7 +161,9 @@ from .jnwb_ext.factories import (
 # ============================================================================
 
 # Metadata, spiking, and diagnostics functions
-from .jnwb_ext.metadata import (
+# metadata.py promoted 2026-08-23 to jnwb.metadata (99%-jnwb-sufficiency normalization) --
+# re-exported here unchanged for backwards compatibility with this legacy API block.
+from jnwb.metadata import (
     get_all_units_metadata,
     classify_unit_quality,
     unit_census_report,
