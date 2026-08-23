@@ -18,15 +18,24 @@ from pathlib import Path
 
 import pytest
 
+# NOTE: despite the name, this resolves to the `omission/` project root (this file is
+# omission/tests/test_permutation_lint.py, so parents[1] is omission/), not the repo root.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Files where a permutation call operates on omission-identity-style labels under a grouped/
 # cycle-aware CV scheme, and must therefore go through permute_labels instead of a bare
 # rng.permutation(...) / np.random.permutation(...).
+#
+# Paths corrected 2026-08-23: these previously pointed at REPO_ROOT/jnwb/omission_identity.py,
+# REPO_ROOT/jnwb/structured_identity.py, REPO_ROOT/jnwb/structured_identity_m2a.py, and
+# REPO_ROOT/scripts/*.py -- none of which exist (this code lives under REPO_ROOT/jnwb_ext/ and
+# REPO_ROOT/scripts/, i.e. omission/jnwb_ext/ and omission/scripts/). `_bare_permutation_lines`
+# returns [] for a missing path, so this test had been passing vacuously -- checking nothing --
+# since it was written. See CLAUDE.md "Registries go stale silently".
 SCOPED_FILES = [
-    REPO_ROOT / "jnwb" / "omission_identity.py",
-    REPO_ROOT / "jnwb" / "structured_identity.py",
-    REPO_ROOT / "jnwb" / "structured_identity_m2a.py",
+    REPO_ROOT / "jnwb_ext" / "omission_identity.py",
+    REPO_ROOT / "jnwb_ext" / "structured_identity.py",
+    REPO_ROOT / "jnwb_ext" / "structured_identity_m2a.py",
     REPO_ROOT / "scripts" / "compute_omission_identity_leakage_safe.py",
     REPO_ROOT / "scripts" / "compute_omission_identity_cycle_deconfound_v3.py",
     REPO_ROOT / "scripts" / "run_structured_identity_milestone2a.py",
