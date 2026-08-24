@@ -64,19 +64,43 @@ headline O+/O++ prevalence claim should actually use.
 
 ### 4. S1 inclusion count: `PROJECT_STATE.md` says 281/9061 (3.1%), this audit's live CSV read says 319
 
-**FLAGGED, NOT DECIDED.** `PROJECT_STATE.md`'s S1-approval entry states 281/9061 passing the new
-criterion. This audit's direct `pandas` read of `unit_inclusion_v1.csv::is_omission_inclusion_new`
-(full corpus, all quality tiers) gives **319**. Most likely explanation is a population-scope
-difference (281 may be a quality-filtered subset, or an earlier run predating a fix) rather than
-a contradiction, but this was **not traced to ground** by this audit. Do not cite either number
-as the S1 headline until reconciled — re-read `PROJECT_STATE.md`'s S1 section against a fresh
-`unit_inclusion_v1_stats.json` before the next citation. Detail: doc08.
+**RESOLVED 2026-08-24.** The population-scope hypothesis (281 as a quality-filtered subset of
+319) is **ruled out**: broken down by `quality_tier`, the inclusion counts are mua=105,
+stable=48, unstable=166, none of which is 281 or combines to it as a clean subset. The live CSV
+is self-consistent at 319 two independent ways — the `is_omission_inclusion_new` column sum and
+the `transition` column's `gained + unchanged_included` (288 + 31 = 319) agree with each other,
+but neither matches `PROJECT_STATE.md`'s cited breakdown (245 gained + 36 unchanged-included =
+281). Both are genuinely different runs of the same deterministic (`cfg_new_seed=42`) pipeline,
+not a subset relationship. The CSV is not git-tracked (`outputs/` is gitignored), so its edit
+history isn't independently recoverable — but `PROJECT_STATE.md`'s own S1 row already designates
+`unit_inclusion_v1.csv` as canonical; per Hamm, that designation wins over the prose summary,
+which had simply gone stale relative to a later regeneration of its own canonical source.
+`PROJECT_STATE.md` corrected to 319 with the full breakdown; 281 is recorded there as the earlier,
+now-superseded figure rather than silently dropped. Detail: doc08 (original discovery).
 
 ### 5. `session_readiness.csv::suite_tfr_ready` is `False` for all 22 sessions
 
-**FLAGGED, NOT DECIDED.** Either a real unmet gate (e.g. missing AAAB/BBBA TFR products) or a
-stale/never-updated column — `scripts/build_session_readiness.py` was not read by this audit.
-Detail: doc01.
+**RESOLVED 2026-08-24.** Root cause: `scripts/build_session_readiness.py` itself was already
+correctly reading `.npz` (fixed 2026-08-14, predating this audit) and `tfr_ok` was already `True`
+for all sessions once item 2's fix + correct env vars were in place. The actual blocker was
+`sidecar_ok=False` for all 22 — `suite_tfr_ready` also requires per-session metadata sidecars
+(`electrodes.csv`/`units.csv`/`events.csv`/`h5_paths.json`) that did not exist anywhere on the
+currently-mounted data volumes. Their only generator,
+`scripts/archive_oneoff/build_session_sidecars.py`, hardcoded the pre-2026-08-08-migration path
+`D:/workspace/data/metadata/` (already on `PROJECT_STATE.md`'s own "Superseded paths -- do not
+restore" list) — every sidecar write since the migration landed somewhere no downstream consumer
+ever read from, and the step was simply never re-run against the current layout. This was a
+correctly-reported unmet real prerequisite, not a stale/broken readiness column.
+
+**Fix applied**: `build_session_sidecars.py`'s `--meta-root` default now resolves via
+`jnwb.paths.meta_dir()` instead of the hardcoded literal. Ran the corrected script against the
+full corpus (22/22 sessions, ~7.6s total — h5py reads only specific NWB groups, not full-file)
+against the current `E:/analysis` volume (see item 2 / PROJECT_STATE.md for the D:->E: remap).
+Re-ran `build_session_readiness.py`: `tfr_ok=22/22`, `sidecar_ok=22/22`,
+`suite_tfr_ready=22/22` (was 0/22). `session_readiness.csv`/`.json` are gitignored local
+artifacts (`omission/artifacts/*`), regenerated but not committed. Full omission test suite
+re-verified after the code fix: 290 passed, 27 skipped, 0 failures. Detail: doc01 (original
+discovery).
 
 ## MEDIUM severity — documentation-only conflicts, decisions taken
 

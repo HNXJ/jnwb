@@ -3,7 +3,7 @@
 Build per-session metadata sidecars via h5py (no PyNWB construct).
 
 For each NWB in the catalog (or --session filter), write under
-D:/workspace/data/metadata/{stem}/:
+$OMISSION_META_DIR/{stem}/ (default: <analysis_dir>/metadata/{stem}/, see jnwb.paths.meta_dir):
 
   electrodes.csv   — channel, probe, local_idx, location_raw, area, area_slot
   units.csv        — unit_id, peak_channel_id, area, quality, firing_rate, ...
@@ -68,10 +68,15 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("artifacts/data/nwb_catalog.json"),
     )
+    from jnwb import paths as _oa_paths
+
     p.add_argument(
         "--meta-root",
         type=Path,
-        default=Path(os.environ.get("OMISSION_META_DIR", "D:/workspace/data/metadata")),
+        # Fixed 2026-08-24: was hardcoded to the pre-2026-08-08-migration D:/workspace/data path
+        # (PROJECT_STATE.md's own "Superseded paths -- do not restore" list), so every sidecar
+        # write since the migration landed at a path no downstream consumer ever read from.
+        default=_oa_paths.meta_dir(),
     )
     p.add_argument(
         "--session",

@@ -29,8 +29,8 @@ from this file and the README.)
 | Subjects | C31o, V182o, V198o | `session_readiness.csv` | 2026-08-12 |
 | Readiness rows / `nwb_ok` | 22 / 22 | `session_readiness.csv` | 2026-08-12 |
 | **`tfr_ok`** | **22 of 22** | `session_readiness.csv` | 2026-08-14 |
-| `suite_tfr_ready` | 0 of 22 (separate, unresolved -- see below) | `session_readiness.csv` | 2026-08-14 |
-| TFR array files on disk | 970 | `D:\analysis\tfr_arrays` | 2026-08-12 |
+| `suite_tfr_ready` | **22 of 22** (was 0/22 -- see below) | `session_readiness.csv` | 2026-08-24 |
+| TFR array files on disk | 970 | `E:\analysis\tfr_arrays` (moved from `D:`, see "Superseded paths" below) | 2026-08-24 |
 
 ### RESOLVED 2026-08-14 — TFR readiness gate was unsatisfiable due to two stale scan bugs
 
@@ -52,16 +52,15 @@ Verified: `python scripts/build_session_readiness.py` now reports `tfr_ok=22/22`
 `channels`, `fit_exponent`, `fit_r2` — verified on `sub-C31o_ses-230816-A-PFC-RXRR.npz`), so a
 TFR-consuming analysis does not need the sidecar directory to use this corpus.
 
-### Still open — `sidecar_ok` / `suite_tfr_ready` (separate issue, not the one above)
+### RESOLVED 2026-08-24 — `sidecar_ok` / `suite_tfr_ready`
 
-`sidecar_ok=0/22` because `jnwb.paths.meta_dir()` resolves to `D:\analysis\metadata`, which does
-not exist on this machine. Unlike the TFR fix above, this is not diagnosed as a stale-pattern
-bug — no metadata sidecar directory was found anywhere on disk in a shallow search, so this may
-reflect sidecars never having been (re)generated for the current corpus rather than a wrong path.
-Not investigated further as of 2026-08-14. Any pipeline that actually needs
-`electrodes.csv`/`units.csv`/`events.csv`/`h5_paths.json` sidecars (as opposed to what's already
-embedded in each session's NWB file or each TFR `.npz`) is still blocked; a TFR-only analysis
-that gates on `tfr_ok` rather than `suite_tfr_ready` is not.
+Root cause confirmed (context/09_conflicts_and_flagged_discrepancies.md item 5): the only
+sidecar generator, `scripts/archive_oneoff/build_session_sidecars.py`, hardcoded the
+pre-migration path `D:/workspace/data/metadata/` (already on the "Superseded paths" list below)
+instead of resolving via `jnwb.paths.meta_dir()` — every sidecar write since the 2026-08-08
+migration landed somewhere no downstream consumer ever read from, so the step had effectively
+never run against the current layout. Fixed the hardcoded default and ran it against the full
+corpus (22/22 sessions, ~7.6s). `sidecar_ok` and `suite_tfr_ready` are now 22/22.
 
 ### RESOLVED 2026-08-14 — the p2-omission-vs-real condition-map GLMM was built from the superseded TFR path
 
@@ -312,7 +311,7 @@ Receipts: `artifacts/.lab/onset-hierarchy-h1h2h3-fixed-20260815.json`,
 | **Figure 5** | Preserve the distinction between descriptive channel-level effects and session-level Model F. |
 | **Figure 6** | Empirical ratio-based products, current bands, area segmentation verified before averaging. A heatmap is descriptive without a session-level window/band receipt. |
 | **Figure 7** | Establish the statistic and its sampling unit before interpreting coupling as routing. Matched-count resampling if spike counts differ between conditions. |
-| **All TFR figures** | `tfr_ok` gate fixed 2026-08-14 (was a stale scan pattern, not a data problem — see §1). `suite_tfr_ready` still 0/22 pending the separate, unresolved `sidecar_ok`/`meta_dir` gap (§1); gate on `tfr_ok` + explicit condition/quality checks instead until that's resolved. |
+| **All TFR figures** | `tfr_ok` gate fixed 2026-08-14 (was a stale scan pattern, not a data problem — see §1). `suite_tfr_ready` also fixed 2026-08-24 (sidecar generator path bug, see §1) — both gates now 22/22, no longer a blocker. |
 | **Laminar sign question** | Blocked on vFLIP coverage. |
 
 ### 6a. LFP-primary analysis spec (L0-L17) — status as of 2026-08-17
@@ -355,7 +354,7 @@ Spec's own stale naming ("Ivan"/"2 monkeys"/informal area list) reconciled with 
 
 | Item | Status | Headline |
 |---|---|---|
-| S1 unit inclusion criteria rework [BLOCKER] | **done, reviewed and approved 2026-08-17** | replaces fixation-baseline-contrast selection (which systematically rejected units firing strongly during both fixation and omission) with a paired fire-probability test against a randomly drawn other-epoch null. Full corpus (22/22 sessions, 9061 units): new criterion passes 281/9061 (3.1%) vs old template-correlation criterion's 68/9061 (0.75%) — net +213 units (245 gained, 32 lost, 36 unchanged-included, 8748 unchanged-excluded). Canonical output: `outputs/classification/unit_inclusion_v1.csv`. `stable_criterion_version=presence_ks_snr_v2` — still missing the spec's FR<100Hz-at-any-1s peak-rate check (no existing primitive in this repo), disclosed not silently dropped. |
+| S1 unit inclusion criteria rework [BLOCKER] | **done, reviewed and approved 2026-08-17** | replaces fixation-baseline-contrast selection (which systematically rejected units firing strongly during both fixation and omission) with a paired fire-probability test against a randomly drawn other-epoch null. **Corrected 2026-08-24** (context/09_conflicts_and_flagged_discrepancies.md item 4): full corpus (22/22 sessions, 9061 units), read directly from the canonical CSV below: new criterion passes **319/9061 (3.5%)** — 288 gained, 37 lost, 31 unchanged-included, 8705 unchanged-excluded (net +251 vs. old template-correlation criterion's 68/9061). Cross-checked two ways in the live file (`is_omission_inclusion_new` column sum and `transition`-column derivation both agree at 319) — self-consistent. The previously-cited **281/9061 (245 gained, 32 lost, 36 unchanged-included, 8748 unchanged-excluded) was a different, earlier run of the same pipeline no longer reflected in the canonical file**; per Hamm, the canonical CSV (which this table already designated as the authority) wins over the prose summary that had gone stale relative to it. Canonical output: `outputs/classification/unit_inclusion_v1.csv`. `stable_criterion_version=presence_ks_snr_v2` — still missing the spec's FR<100Hz-at-any-1s peak-rate check (no existing primitive in this repo), disclosed not silently dropped. |
 | S2, S4, S5, S6, S7, S8, S10, S11 | **unblocked, not yet built** | all read `unit_inclusion_v1.csv` as canonical per S1's downstream contract |
 | S3 | **unblocked, not yet built** | example rasters — needs a stated, non-hand-picked selection rule per its own acceptance criterion |
 | S9, S12-S17 | not yet reviewed against the spec text | build after the S1-dependent items above |
