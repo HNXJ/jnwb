@@ -88,6 +88,7 @@ sys.path.insert(0, str(REPO / "context" / "figures"))
 
 from _l_lfp_common import extract_epoch_trials, find_probe_for_area, git_sha  # noqa: E402
 from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset  # noqa: E402  (promoted 2026-08-23)
+from jnwb.spectral import CANONICAL_BANDS  # noqa: E402
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -105,8 +106,7 @@ N_CH_WINDOW = 32
 FILTER_ORDER = 4
 SMOOTH_TAU_MS = 30.0
 
-BANDS = {"theta": (4.0, 8.0), "alpha": (8.0, 14.0), "beta": (14.0, 30.0),
-          "low_gamma": (30.0, 50.0), "high_gamma": (50.0, 80.0)}
+BANDS = CANONICAL_BANDS
 AREAS = ["V1", "V2", "MT", "MST", "FEF", "PFC"]           # already in hierarchy order
 HIERARCHY_RANK = {a: i for i, a in enumerate(AREAS)}
 

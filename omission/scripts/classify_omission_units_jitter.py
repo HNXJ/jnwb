@@ -63,6 +63,7 @@ import omission as oa
 from omission.jnwb_ext.unit_classification import (EPOCH_ONSETS_MS, PRESENTATION_DUR_MS,
                                       omission_events, precompute_condition_onsets)
 from jnwb import paths as _P
+from jnwb.statistics import clopper_pearson
 
 NWB_DIR = _P.nwb_dir()
 OUT_DIR = _P.REPO_ROOT / "outputs/classification"
@@ -302,8 +303,7 @@ def main():
             for cls, m in [("O++", g.is_o_plusplus), ("O+", g.is_o_plus),
                            ("O-", g.is_o_minus)]:
                 kk = int(m.sum())
-                lo = 0.0 if kk == 0 else sst.beta.ppf(.025, kk, n - kk + 1)
-                hi = 1.0 if kk == n else sst.beta.ppf(.975, kk + 1, n - kk)
+                lo, hi = clopper_pearson(kk, n)
                 rec[cls] = kk
                 rec[f"{cls}_%"] = round(100 * kk / n, 2)
                 rec[f"{cls}_ci95"] = f"{100*lo:.2f}-{100*hi:.2f}"

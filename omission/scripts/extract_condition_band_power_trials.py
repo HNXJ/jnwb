@@ -46,7 +46,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
-from jnwb.spectral import CANONICAL_BANDS as BANDS
+from jnwb.spectral import CANONICAL_BANDS as BANDS, to_db
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
@@ -170,8 +170,8 @@ def main(limit=None):
             s, c = acc_sum[key][band], acc_cnt[key][band]
             with np.errstate(invalid="ignore", divide="ignore"):
                 ratio_mean = np.where(c > 0, s / np.maximum(c, 1), np.nan)
-                db = 10.0 * np.log10(ratio_mean)
-            out_arrays[f"{key}|{band}"] = db.astype(np.float32)
+                db_vals = to_db(ratio_mean)
+            out_arrays[f"{key}|{band}"] = db_vals.astype(np.float32)
         session, area, cond = key.split("|")
         rows.append({"key": key, "session": session, "area": area, "cond": cond,
                      "n_trials": acc_sum[key]["theta"].shape[0],

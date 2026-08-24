@@ -58,7 +58,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from jnwb import paths as _P
-from jnwb.spectral import CANONICAL_BANDS as BANDS
+from jnwb.spectral import CANONICAL_BANDS as BANDS, to_db
 
 TFR_DIR = _P.tfr_dir()
 AREA_VEC = _P.REPO_ROOT / "outputs/channel_area_vector/channel_area_vector.csv"
@@ -115,7 +115,7 @@ def mean_power(arr_mm, chans, t_lo, t_hi, f0, f1):
 
 def db(num, den):
     with np.errstate(divide="ignore", invalid="ignore"):
-        out = 10.0 * np.log10(num / den)
+        out = to_db(num / den)
     return np.where(np.isfinite(num) & (num > 0) & np.isfinite(den) & (den > 0), out, np.nan)
 
 

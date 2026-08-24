@@ -56,6 +56,7 @@ FIGDIR = os.path.dirname(HERE)
 sys.path.insert(0, FIGDIR)
 from figstyle import mark_full_trial_axis  # noqa: E402
 from svgassemble import assemble  # noqa: E402
+from jnwb.spectral import to_db  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(FIGDIR))
 MAPS_NPZ = os.path.join(REPO, "outputs", "condition_tfr_maps_p1d1p2d2p3", "maps.npz")
@@ -96,7 +97,7 @@ def session_group_db(d, idx, session, area, conds, times, i0, i1):
         return None
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = np.divide(s_acc, c_acc, out=np.full_like(s_acc, np.nan), where=c_acc > 0)
-        return 10.0 * np.log10(ratio)
+        return to_db(ratio)
 
 
 def area_group_grand_mean(d, idx, area, conds, times, i0, i1):

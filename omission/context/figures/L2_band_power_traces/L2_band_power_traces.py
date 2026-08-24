@@ -84,6 +84,7 @@ from _l_lfp_common import (  # noqa: E402
     resolve_area_channel_block,
 )
 import figstyle  # noqa: E402
+from jnwb.spectral import CANONICAL_BANDS, to_db  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
 L0_STATS = REPO / "context" / "figures" / "L0_pooling_reconciliation" / "L0_stats.json"
@@ -98,8 +99,7 @@ N_CH_WINDOW = 32
 MAX_SESSIONS_PER_SUBJECT = 3
 COMMON_TIME_GRID_MS = np.arange(EPOCH_WIN_S[0] * 1000, EPOCH_WIN_S[1] * 1000 + 1.0, 10.0)
 
-BANDS = {"theta": (4.0, 8.0), "alpha": (8.0, 14.0), "beta": (14.0, 30.0),
-          "low_gamma": (30.0, 50.0), "high_gamma": (50.0, 80.0)}
+BANDS = CANONICAL_BANDS
 AREAS = ["V1", "V2", "MT", "MST", "FEF", "PFC"]
 CONDITIONS = {"stim": "RRRR", "omission": "RXRR"}
 
@@ -170,7 +170,7 @@ def session_band_traces(session_prefix: str, probe_letter: str, area: str, condi
             raise ValueError(f"Band {band_name} has no bins at fs={fs}")
         band_power_t = pooled[fmask, :].mean(axis=0)  # linear, band pooling step 1
         baseline_val = band_power_t[base_mask].mean()   # linear baseline, band pooling step 2
-        db_t = 10.0 * np.log10(np.maximum(band_power_t, 1e-15) / max(baseline_val, 1e-15))
+        db_t = to_db(np.maximum(band_power_t, 1e-15) / max(baseline_val, 1e-15))
         db_common = np.interp(COMMON_TIME_GRID_MS, times_ms, db_t)
         out[band_name] = db_common
     return out, n_trials, frac_repaired

@@ -76,7 +76,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "context" / "figures"))
 
 from jnwb import paths as _P                              # noqa: E402
-from jnwb.spectral import to_db                            # noqa: E402
+from jnwb.spectral import to_db, CANONICAL_BANDS            # noqa: E402
 from figstats import Result, correct, paired_location, write  # noqa: E402
 from figstyle import EPOCH_ONSETS_MS, AREA_ORDER            # noqa: E402
 
@@ -84,8 +84,7 @@ MAPS_NPZ = str(_P.outputs_dir() / "condition_tfr_maps_p1d1p2d2p3_v2" / "maps.npz
 OUT_DIR = REPO_ROOT / "outputs" / "classification"
 DETAIL_JSON = REPO_ROOT / "artifacts" / "data" / "omission_band_dampening_onset_detail.json"
 
-BANDS = {"theta": (4, 8), "alpha": (8, 14), "beta": (14, 30),
-         "low_gamma": (30, 50), "high_gamma": (50, 80)}
+BANDS = CANONICAL_BANDS
 
 P2_ONSET_MS = EPOCH_ONSETS_MS["p2"]      # 1031 -- the omitted/real slot's own onset
 P3_ONSET_MS = EPOCH_ONSETS_MS["p3"]      # 2062 -- next real slot; search window's right edge

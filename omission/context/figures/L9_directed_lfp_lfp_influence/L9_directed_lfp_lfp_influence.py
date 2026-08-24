@@ -86,6 +86,7 @@ sys.path.insert(0, str(REPO / "context" / "figures"))
 
 from _l_lfp_common import PROBE_LETTER_TO_KEY, extract_epoch_trials, git_sha  # noqa: E402
 from jnwb.connectivity import granger_spectral, phase_slope_index  # noqa: E402
+from jnwb.spectral import CANONICAL_BANDS  # noqa: E402
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -97,8 +98,7 @@ EPOCH_WIN_S = (-0.6, 2.2)
 MAX_TRIALS = 40
 MAX_SESSIONS = 3
 N_SURROGATES = 50
-BANDS = {"theta": (4.0, 8.0), "alpha": (8.0, 14.0), "beta": (14.0, 30.0),
-          "low_gamma": (30.0, 50.0), "high_gamma": (50.0, 80.0)}
+BANDS = CANONICAL_BANDS
 CONDITIONS = {"stim": "RRRR", "omission": "RXRR"}
 AREAS = ["V1", "V2", "MT", "MST", "FEF", "PFC"]
 N_BOOT = 2000

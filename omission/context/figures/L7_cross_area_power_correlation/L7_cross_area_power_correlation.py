@@ -76,6 +76,7 @@ sys.path.insert(0, str(REPO / "context" / "figures"))
 
 from _l_lfp_common import git_sha  # noqa: E402
 from jnwb import StatisticalAnalysis  # noqa: E402
+from jnwb.spectral import CANONICAL_BANDS, to_db  # noqa: E402
 import figstyle  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
@@ -90,8 +91,7 @@ TIMES_MS = -1000.0 + np.arange(500) * 10.0
 BASELINE_WIN_MS = (-400.0, -150.0)
 RESPONSE_WIN_MS = {"stim": (0.0, 531.0), "omission": (1031.0, 1562.0)}
 CONDITIONS = {"stim": "RRRR", "omission": "RXRR"}
-BANDS = {"theta": (4.0, 8.0), "alpha": (8.0, 14.0), "beta": (14.0, 30.0),
-          "low_gamma": (30.0, 50.0), "high_gamma": (50.0, 80.0)}
+BANDS = CANONICAL_BANDS
 AREAS = ["V1", "V2", "MT", "MST", "FEF", "PFC"]
 ALPHA = 0.05
 MAX_SESSIONS = 3
@@ -162,7 +162,7 @@ def node_trial_traces(session: str, nodes: list, condition_code: str):
             band_t = sub[:, fmask, :].mean(axis=1)  # (n_trials, n_times), band-pooled linear
             baseline = band_t[:, base_mask].mean(axis=1)  # (n_trials,) per-trial baseline
             response = band_t[:, resp_mask].mean(axis=1)  # (n_trials,) per-trial response
-            trial_db = 10.0 * np.log10(np.maximum(response, 1e-15) / np.maximum(baseline, 1e-15))
+            trial_db = to_db(np.maximum(response, 1e-15) / np.maximum(baseline, 1e-15))
             band_traces[band_name] = trial_db
         out[node_key] = band_traces
     return out, n_trials_by_node

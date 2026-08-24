@@ -53,7 +53,6 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
-from scipy import stats as sst
 
 # _P (jnwb.paths) used to be imported after this insert referenced it -- NameError. Same bug
 # already fixed in classify_omission_units_grand.py 2026-08-11; applied here 2026-08-14 while
@@ -64,6 +63,7 @@ import omission as oa
 from omission.jnwb_ext.unit_classification import (EPOCH_ONSETS_MS, PRESENTATION_DUR_MS,
                                       precompute_condition_onsets)
 from jnwb import paths as _P
+from jnwb.statistics import clopper_pearson
 
 NWB_DIR = _P.nwb_dir()
 OUT_DIR = _P.REPO_ROOT / "outputs/classification"
@@ -238,8 +238,7 @@ def main():
             rec["screened"] = n
             for cls in ["O++", "O+", "O-", "O--"]:
                 kk = int((g.omission_class == cls).sum())
-                lo = 0.0 if kk == 0 else sst.beta.ppf(.025, kk, n - kk + 1)
-                hi = 1.0 if kk == n else sst.beta.ppf(.975, kk + 1, n - kk)
+                lo, hi = clopper_pearson(kk, n)
                 rec[cls] = kk
                 rec[f"{cls}_%"] = round(100 * kk / n, 2)
                 rec[f"{cls}_ci95"] = f"{100*lo:.2f}-{100*hi:.2f}"

@@ -80,6 +80,7 @@ from _l_lfp_common import (  # noqa: E402
     csd_reference_trials, extract_epoch_trials, git_sha, resolve_area_channel_block,
 )
 import figstyle  # noqa: E402
+from jnwb.spectral import to_db  # noqa: E402
 
 FIG_DIR = Path(__file__).resolve().parent
 L0_STATS = REPO / "context" / "figures" / "L0_pooling_reconciliation" / "L0_stats.json"
@@ -165,7 +166,7 @@ def area_condition_tfr(area: str, condition: str, n_ch=N_CH_WINDOW, max_trials=M
     if not np.any(base_mask):
         raise ValueError("Baseline window falls outside the extracted epoch's time bins")
     baseline = pooled[:, base_mask].mean(axis=1, keepdims=True)  # (n_freqs, 1)
-    db = 10.0 * np.log10(np.maximum(pooled, 1e-15) / np.maximum(baseline, 1e-15))
+    db = to_db(np.maximum(pooled, 1e-15) / np.maximum(baseline, 1e-15))
 
     return {
         "freqs": freqs, "times_ms": times_ms, "db": db,

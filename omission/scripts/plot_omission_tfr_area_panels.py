@@ -54,6 +54,7 @@ from matplotlib.patches import Rectangle
 from scipy import stats
 import omission as oa
 from jnwb import paths as _P
+from jnwb.spectral import to_db
 
 MAPS = _P.REPO_ROOT / "outputs/omission_tfr_maps_ratio/maps.npz"
 OUT_DIR = _P.REPO_ROOT / "outputs/omission_tfr_maps_ratio"
@@ -103,12 +104,6 @@ def load():
         m[:, ~keep] = np.nan
         maps[k] = m          # POWER RATIO, not dB -- see to_db()
     return maps, freqs, times
-
-
-def to_db(ratio):
-    """Take the logarithm once, after every average. Never average decibels."""
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return 10.0 * np.log10(ratio)
 
 
 def area_session_maps(maps, area, layer="all"):

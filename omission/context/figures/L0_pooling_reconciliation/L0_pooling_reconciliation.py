@@ -77,7 +77,7 @@ sys.path.insert(0, str(REPO / "context" / "figures"))
 from precompute_tfr_arrays import (  # noqa: E402
     condition_numbers_for, p1_onsets_s, resolve_lfp_datasets,
 )
-from jnwb.spectral import laplacian_reference  # noqa: E402
+from jnwb.spectral import laplacian_reference, to_db  # noqa: E402
 from jnwb.artifact_repair import repair_lfp_trials  # noqa: E402  (promoted 2026-08-23 from omission.jnwb_ext.artifact_repair)
 from jnwb.addressing import map_peak_channel_to_area  # noqa: E402
 import figstyle  # noqa: E402
@@ -227,21 +227,21 @@ def method_a(resp_pc, base_pc, idx):
     """Per-channel power, average across channels (linear), log once -- correct log-last pooling."""
     r = resp_pc[idx].mean(axis=0)   # (n_channels,) -- mean over trials
     b = base_pc[idx].mean(axis=0)
-    return 10.0 * np.log10(r.mean() / b.mean())
+    return to_db(r.mean() / b.mean())
 
 
 def method_b(resp_avg, base_avg, idx):
     """Channel-averaged trace, then power -- tests destructive interference."""
     r = resp_avg[idx].mean()
     b = base_avg[idx].mean()
-    return 10.0 * np.log10(r / b)
+    return to_db(r / b)
 
 
 def method_c(resp_pc, base_pc, idx):
     """Per-channel dB (each channel against its own baseline), THEN average the dB values."""
     r = resp_pc[idx].mean(axis=0)
     b = base_pc[idx].mean(axis=0)
-    db_per_channel = 10.0 * np.log10(r / b)
+    db_per_channel = to_db(r / b)
     return float(db_per_channel.mean())
 
 
