@@ -69,19 +69,15 @@ ENV_META_DIR = "OMISSION_META_DIR"
 ENV_CONNDB_DIR = "OMISSION_CONNDB_DIR"
 ENV_ANALYSIS_DIR = "OMISSION_ANALYSIS_DIR"
 
-#: Data-volume layout, corrected 2026-08-08 (second revision, same day).
-#:
-#: The first version of this module inherited the pre-remap literals -- NWBs at
-#: ``D:/analysis/nwb`` and derived data under ``D:/workspace/data/*``. Both were
-#: wrong: those were the OLD layout, and D: was empty at the time so nothing
-#: contradicted them. The live layout is:
-#:
-#:   D:/nwb/omission/   -- omission NWB sessions  (D:/nwb/mglo/ is a DIFFERENT experiment)
-#:   D:/analysis/       -- every derived artifact: arrays, matrices, supplements, post-process
-#:
-#: These remain *defaults*, not guarantees. Override with the env vars above.
-DEFAULT_NWB_DIR = "D:/nwb/omission"
-DEFAULT_ANALYSIS_DIR = "D:/analysis"
+#: No default data-volume layout. External data lives on a separate volume with a layout
+#: specific to each machine and project (e.g. this repo's own working copy previously pointed
+#: this at ``D:/nwb/omission`` and ``D:/analysis`` -- both a machine-specific drive letter and
+#: an omission-named path, neither appropriate as a jnwb-library-level default). ``None`` means
+#: :func:`nwb_dir` / :func:`analysis_dir` raise a clear, actionable error naming the env var to
+#: set, instead of silently resolving to a path that is wrong (or doesn't exist) on any other
+#: machine or project.
+DEFAULT_NWB_DIR = None
+DEFAULT_ANALYSIS_DIR = None
 #: Derived-data subtrees. Resolved under :func:`analysis_dir` so that repointing the
 #: analysis volume moves all of them together.
 TFR_SUBDIR = "tfr_arrays"
@@ -92,22 +88,37 @@ CONNDB_SUBDIR = "connectivity_databases"
 def nwb_dir(override: str | os.PathLike | None = None) -> Path:
     """Directory holding the ``sub-*_ses-*_rec.nwb`` session files.
 
-    Precedence: explicit ``override`` > ``$OMISSION_NWB_DIR`` > :data:`DEFAULT_NWB_DIR`.
+    Precedence: explicit ``override`` > ``$OMISSION_NWB_DIR`` > :data:`DEFAULT_NWB_DIR` (``None``
+    by design -- there is no machine- or project-generic default data location). Raises
+    ``FileNotFoundError`` naming the env var when none of those resolve to a path.
     """
     if override is not None:
         return Path(override)
-    return Path(os.environ.get(ENV_NWB_DIR) or DEFAULT_NWB_DIR)
+    resolved = os.environ.get(ENV_NWB_DIR) or DEFAULT_NWB_DIR
+    if resolved is None:
+        raise FileNotFoundError(
+            f"No NWB directory configured. Pass override=, or set ${ENV_NWB_DIR}."
+        )
+    return Path(resolved)
 
 
 def analysis_dir(*parts: str, override: str | os.PathLike | None = None) -> Path:
     """Root of the derived-data volume: arrays, matrices, supplements, post-process output.
 
     Everything the pipeline produces from NWBs lives under here, NOT in the repo.
-    Precedence: explicit ``override`` > ``$OMISSION_ANALYSIS_DIR`` > :data:`DEFAULT_ANALYSIS_DIR`.
+    Precedence: explicit ``override`` > ``$OMISSION_ANALYSIS_DIR`` > :data:`DEFAULT_ANALYSIS_DIR`
+    (``None`` by design -- there is no machine- or project-generic default data location).
+    Raises ``FileNotFoundError`` naming the env var when none of those resolve to a path.
     """
-    root = Path(override) if override is not None else Path(
-        os.environ.get(ENV_ANALYSIS_DIR) or DEFAULT_ANALYSIS_DIR
-    )
+    if override is not None:
+        root = Path(override)
+    else:
+        resolved = os.environ.get(ENV_ANALYSIS_DIR) or DEFAULT_ANALYSIS_DIR
+        if resolved is None:
+            raise FileNotFoundError(
+                f"No analysis directory configured. Pass override=, or set ${ENV_ANALYSIS_DIR}."
+            )
+        root = Path(resolved)
     return root.joinpath(*parts)
 
 
@@ -201,17 +212,28 @@ def require(path: str | os.PathLike, what: str, env_var: str | None = None) -> P
 def describe() -> dict:
     """Every root this module resolves, with whether it currently exists.
 
-    Diagnostic helper -- call after a drive remap to see what is reachable.
+    Diagnostic helper -- call after a drive remap to see what is reachable. Repo-internal roots
+    always resolve; the external-data roots (``nwb_dir``, ``tfr_dir``, ``meta_dir``,
+    ``analysis_dir``, ``conndb_dir``) have no built-in default and report ``configured: False``
+    when their env var is unset, rather than raising.
     """
-    roots = {
-        "REPO_ROOT": REPO_ROOT,
-        "outputs": outputs_dir(),
-        "artifacts": artifacts_dir(),
-        "layer_masks": layer_masks_path(),
-        f"nwb_dir (${ENV_NWB_DIR})": nwb_dir(),
-        f"tfr_dir (${ENV_TFR_DIR})": tfr_dir(),
-        f"meta_dir (${ENV_META_DIR})": meta_dir(),
-        f"analysis_dir (${ENV_ANALYSIS_DIR})": analysis_dir(),
-        f"conndb_dir (${ENV_CONNDB_DIR})": conndb_dir(),
+    result = {
+        "REPO_ROOT": {"path": str(REPO_ROOT), "exists": REPO_ROOT.exists()},
+        "outputs": {"path": str(outputs_dir()), "exists": outputs_dir().exists()},
+        "artifacts": {"path": str(artifacts_dir()), "exists": artifacts_dir().exists()},
+        "layer_masks": {"path": str(layer_masks_path()), "exists": layer_masks_path().exists()},
     }
-    return {k: {"path": str(v), "exists": v.exists()} for k, v in roots.items()}
+    external_roots = {
+        f"nwb_dir (${ENV_NWB_DIR})": nwb_dir,
+        f"tfr_dir (${ENV_TFR_DIR})": tfr_dir,
+        f"meta_dir (${ENV_META_DIR})": meta_dir,
+        f"analysis_dir (${ENV_ANALYSIS_DIR})": analysis_dir,
+        f"conndb_dir (${ENV_CONNDB_DIR})": conndb_dir,
+    }
+    for label, resolver in external_roots.items():
+        try:
+            p = resolver()
+            result[label] = {"path": str(p), "exists": p.exists(), "configured": True}
+        except FileNotFoundError as exc:
+            result[label] = {"path": None, "exists": False, "configured": False, "error": str(exc)}
+    return result
