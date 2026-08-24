@@ -912,27 +912,38 @@ def cross_modal_comparison(
     tfr_data: np.ndarray,
     spike_data: np.ndarray,
     lag_range_ms: Tuple[int, int] = (-500, 500),
+    bin_ms: Optional[float] = None,
 ) -> Dict:
-    """Trial-averaged zero-lag correlation between a TFR-derived signal and a spike-count signal.
+    """Trial-averaged correlation between a TFR-derived signal and a spike-count signal.
 
     PROMOTED 2026-08-23 from omission.jnwb_ext.functions (99%-jnwb-sufficiency normalization):
     takes no session or condition argument at all -- reduces ``tfr_data``/``spike_data`` to 1D
     (averaging over frequency/trials as needed), truncates to the common length, and delegates
     to ``StatisticalAnalysis.correlate``. No task-specific state.
 
-    Known limitation, unchanged by this promotion: ``lag_range_ms`` is accepted but not
-    currently used -- only a single zero-lag correlation is computed, not a lag sweep. The
-    parameter is kept for signature stability; fixing the lag sweep is tracked separately, not
-    part of this relocation.
+    ``lag_range_ms`` needs a time scale to convert milliseconds to a sample-index shift, and
+    neither input array carries one (they are plain 1D series after reduction, of unknown bin
+    width). Rather than assume a bin width, that conversion is opt-in via ``bin_ms``:
+
+    - ``bin_ms=None`` (default): behavior is unchanged from before this fix -- a single
+      zero-lag correlation is computed, ``lag_range_ms`` is accepted but not used, and the
+      result carries a ``lag_ms: 0.0`` field making that explicit rather than silent.
+    - ``bin_ms`` given (the time-series' bin width in ms): a real lag sweep runs over every
+      integer sample shift whose ``shift * bin_ms`` falls within ``lag_range_ms``, correlating
+      ``tfr`` against ``spike`` shifted by each lag. The best (max |r|) lag is reported.
 
     Args:
         tfr_data: time-frequency power array (freq x time x trials, or fewer dims).
         spike_data: spike count array (time x trials, or fewer dims).
-        lag_range_ms: accepted but currently unused (see limitation above).
+        lag_range_ms: (min_ms, max_ms) lag window to search; only used when ``bin_ms`` is given.
+        bin_ms: bin width in ms of the (already frequency/trial-reduced) 1D series. ``None``
+            skips the lag sweep and preserves the original zero-lag-only behavior.
 
     Returns:
-        dict with correlation (StatisticalAnalysis.correlate output), n_samples,
-        interpretation -- or {'error': ...} when inputs are missing or too short.
+        dict with correlation (StatisticalAnalysis.correlate output at the best lag), n_samples,
+        lag_ms (0.0 unless a sweep ran), lfp_leads_spikes (True when the best lag is negative,
+        i.e. the TFR/LFP signal is shifted earlier than spikes), interpretation -- or
+        {'error': ...} when inputs are missing or too short.
     """
     if tfr_data is None or spike_data is None:
         return {'error': 'Input arrays cannot be None'}
@@ -962,9 +973,45 @@ def cross_modal_comparison(
     x = tfr_avg[:n_pts]
     y = spike_avg[:n_pts]
 
-    corr_res = StatisticalAnalysis.correlate(x, y)
+    if bin_ms is None:
+        corr_res = StatisticalAnalysis.correlate(x, y)
+        return {
+            'correlation': corr_res,
+            'n_samples': n_pts,
+            'lag_ms': 0.0,
+            'lfp_leads_spikes': False,
+            'interpretation': 'Zero-lag linear correlation between trial-averaged LFP envelope and spike counts',
+        }
+
+    max_shift = int(np.floor(min(abs(lag_range_ms[0]), abs(lag_range_ms[1])) / bin_ms))
+    best_shift, best_corr, best_abs_r = 0, None, -1.0
+    for shift in range(-max_shift, max_shift + 1):
+        # shift > 0 tests whether x (TFR) at t+shift matches y (spikes) at t, i.e. the pattern
+        # appears in y first and in x "shift" samples later -- x lags y (LFP lags spikes).
+        # shift < 0 tests the reverse: x leads y (LFP leads spikes).
+        if shift < 0:
+            xs, ys = x[:shift], y[-shift:]
+        elif shift > 0:
+            xs, ys = x[shift:], y[:-shift]
+        else:
+            xs, ys = x, y
+        if len(xs) < 3:
+            continue
+        candidate = StatisticalAnalysis.correlate(xs, ys)
+        r = abs(candidate['parametric']['statistic'])
+        if r > best_abs_r:
+            best_abs_r, best_shift, best_corr = r, shift, candidate
+
+    if best_corr is None:
+        return {'error': 'Insufficient sample size for correlation at any lag in lag_range_ms'}
+
     return {
-        'correlation': corr_res,
+        'correlation': best_corr,
         'n_samples': n_pts,
-        'interpretation': 'Linear correlation between trial-averaged LFP envelope and spike counts',
+        'lag_ms': float(best_shift * bin_ms),
+        'lfp_leads_spikes': best_shift < 0,
+        'interpretation': (
+            'Best-lag linear correlation between trial-averaged LFP envelope and spike counts '
+            f'(searched {lag_range_ms} ms in {bin_ms} ms steps)'
+        ),
     }

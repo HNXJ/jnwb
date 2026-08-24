@@ -105,6 +105,14 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     :func:`jnwb.spiking.compute_response_metrics`'s single-response-window-scalar contract:
     this returns the full time-binned PSTH curve.
 
+    Also distinct from :meth:`jnwb.analyzers.UnitAnalyzer.psth`, which is not a redundant
+    duplicate but a different contract: SEM here uses ``ddof=1`` ("real" SEM) vs.
+    ``UnitAnalyzer.psth``'s bootstrap CI, bins are ms/right-open (``<``) here vs.
+    seconds/inclusive (``<=``) there, and the return shape is a plain tuple here vs. a dict
+    there. Prefer this function for a quick trial-averaged rate curve with a plain-tuple
+    return; prefer ``UnitAnalyzer.psth`` when you want a bootstrap CI or the analyzer's dict
+    contract (e.g. alongside ``UnitAnalyzer.raster``). Both are retained deliberately.
+
     Args:
         st: 1D array of spike times (seconds).
         onsets: 1D array of trial onset times (seconds).

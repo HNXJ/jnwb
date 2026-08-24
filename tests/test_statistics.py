@@ -251,3 +251,46 @@ class TestCrossModalComparison:
         result = cross_modal_comparison(tfr, spikes)
         assert result["n_samples"] == 20
         assert "correlation" in result
+
+    def test_default_bin_ms_none_reports_zero_lag_explicitly(self):
+        tfr = np.arange(10, dtype=float)
+        spikes = np.arange(10, dtype=float)
+        result = cross_modal_comparison(tfr, spikes)
+        assert result["lag_ms"] == 0.0
+        assert result["lfp_leads_spikes"] is False
+
+    def test_lag_sweep_recovers_known_shift_lfp_lags_spikes(self):
+        # spikes[i] == tfr[i + shift]: the pattern appears in spikes first, in tfr `shift`
+        # samples later -- tfr/LFP lags spikes, so lag_ms is positive and lfp_leads_spikes is
+        # False. Verified empirically before writing this assertion (not assumed from doc prose).
+        rng = np.random.default_rng(1)
+        base = rng.standard_normal(200)
+        bin_ms = 10.0
+        shift_samples = 5
+        tfr = base[:-shift_samples]
+        spikes = base[shift_samples:]
+        result = cross_modal_comparison(tfr, spikes, lag_range_ms=(-200, 200), bin_ms=bin_ms)
+        assert result["lag_ms"] == pytest.approx(shift_samples * bin_ms)
+        assert result["lfp_leads_spikes"] is False
+        assert result["correlation"]["parametric"]["statistic"] == pytest.approx(1.0, abs=1e-6)
+
+    def test_lag_sweep_recovers_known_shift_lfp_leads_spikes(self):
+        # tfr[i] == spikes[i + shift]: the pattern appears in tfr first -- tfr/LFP leads
+        # spikes, so lag_ms is negative and lfp_leads_spikes is True.
+        rng = np.random.default_rng(4)
+        base = rng.standard_normal(200)
+        bin_ms = 10.0
+        shift_samples = 5
+        tfr = base[shift_samples:]
+        spikes = base[:-shift_samples]
+        result = cross_modal_comparison(tfr, spikes, lag_range_ms=(-200, 200), bin_ms=bin_ms)
+        assert result["lag_ms"] == pytest.approx(-shift_samples * bin_ms)
+        assert result["lfp_leads_spikes"] is True
+        assert result["correlation"]["parametric"]["statistic"] == pytest.approx(1.0, abs=1e-6)
+
+    def test_lag_sweep_zero_lag_when_signals_aligned(self):
+        rng = np.random.default_rng(2)
+        base = rng.standard_normal(100)
+        result = cross_modal_comparison(base, base, lag_range_ms=(-100, 100), bin_ms=10.0)
+        assert result["lag_ms"] == 0.0
+        assert result["correlation"]["parametric"]["statistic"] == pytest.approx(1.0, abs=1e-6)

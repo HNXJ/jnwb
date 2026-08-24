@@ -267,6 +267,14 @@ class UnitAnalyzer:
         """
         Peristimulus time histogram with bootstrap CI.
 
+        Distinct from :func:`jnwb.viz.raster_psth`, which is not a redundant duplicate but a
+        different contract: that function uses ``ddof=1`` SEM vs. this method's bootstrap CI,
+        right-open ms bins (``<``) there vs. seconds/inclusive (``<=``) here, and a plain-tuple
+        return there vs. this method's dict contract. Prefer this method when you want a
+        bootstrap CI or the dict contract (e.g. alongside :meth:`UnitAnalyzer.raster`); prefer
+        ``jnwb.viz.raster_psth`` for a quick trial-averaged rate curve as a plain tuple. Both
+        are retained deliberately.
+
         Args:
             spike_times: Spike times in seconds
             trial_onsets: Trial start times in seconds
