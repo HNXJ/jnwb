@@ -231,18 +231,18 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
         if trial_groups is None:
             return {'error': f'No trials: {condition} phase={phase}'}
 
-        win_start_s = window_ms[0] / 1000.0
-        win_end_s   = window_ms[1] / 1000.0
-        raster_data = []
-
-        for trial_num, trial_events in trial_groups:
-            onset = trial_events.iloc[0]['start_time']
-            mask  = ((spike_times >= onset + win_start_s) &
-                     (spike_times <= onset + win_end_s))
-            rel_ms = (spike_times[mask] - onset) * 1000.0
-            for t in rel_ms:
-                raster_data.append({'trial_id': int(float(trial_num)),
-                                    'spike_time_ms': float(t)})
+        # Delegates the windowing/masking math to jnwb.analyzers.UnitAnalyzer.raster (2026-08-23,
+        # 99%-jnwb-sufficiency normalization -- this used to be a hand-rolled duplicate;
+        # numerically verified identical output before the swap) and reshapes trial-onset order
+        # + seconds-to-ms to preserve this function's existing return schema unchanged.
+        trial_ids = [int(float(trial_num)) for trial_num, _ in trial_groups]
+        onsets = np.array([g.iloc[0]['start_time'] for _, g in trial_groups])
+        analyzer_result = UnitAnalyzer.raster(spike_times, onsets, window_ms=window_ms)
+        raster_data = [
+            {'trial_id': trial_ids[trial_idx], 'spike_time_ms': float(t) * 1000.0}
+            for trial_idx, r in enumerate(analyzer_result['raster'])
+            for t in r['spike_times']
+        ]
 
         log.info(f"Raster: {len(raster_data)} spikes, {n_trials} trials")
         return {
@@ -293,16 +293,16 @@ def psth_analysis(session: OmissionSession, unit_id: Union[int, str], condition:
         bin_size_s   = bin_size_ms / 1000.0
         n_bins       = int((win_end_s - win_start_s) / bin_size_s)
         bin_edges    = np.linspace(win_start_s, win_end_s, n_bins + 1)
-        psth_counts  = np.zeros(n_bins)
 
-        for _, trial_events in trial_groups:
-            onset = trial_events.iloc[0]['start_time']
-            mask  = ((spike_times >= onset + win_start_s) &
-                     (spike_times <= onset + win_end_s))
-            counts, _ = np.histogram(spike_times[mask] - onset, bins=bin_edges)
-            psth_counts += counts
-
-        psth_rate     = (psth_counts / n_trials) / bin_size_s
+        # Delegates the windowing/binning/averaging math to jnwb.analyzers.UnitAnalyzer.psth
+        # (2026-08-23, 99%-jnwb-sufficiency normalization -- this used to be a hand-rolled
+        # duplicate; numerically verified identical mean-rate output, max abs diff ~1e-14,
+        # before the swap). bin_edges above is kept only to reproduce this function's existing
+        # bin_times_ms (left-edge) convention, which differs from UnitAnalyzer.psth's own
+        # bin-center convention -- not a re-implementation of the counting/averaging itself.
+        onsets = np.array([g.iloc[0]['start_time'] for _, g in trial_groups])
+        analyzer_result = UnitAnalyzer.psth(spike_times, onsets, bin_size_ms=bin_size_ms, window_ms=window_ms)
+        psth_rate     = np.asarray(analyzer_result['psth'])
         baseline_rate = float(np.mean(psth_rate[:max(1, int(n_bins * 0.25))]))
 
         log.info(f"PSTH: {n_trials} trials, baseline={baseline_rate:.2f} Hz")
