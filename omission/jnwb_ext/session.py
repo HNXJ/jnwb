@@ -630,7 +630,18 @@ class OmissionSession:
         Load preprocessed TFR array from OMISSION_TFR_DIR / tfr_arrays.
 
         Filename contract:
-          {session_prefix}-{A|B|C|D}-{area}-{CONDITION}.npy
+          {session_prefix}-{A|B|C|D}-{area}-{CONDITION}.{npy,npz}
+        Two on-disk formats coexist (see scripts/precompute_tfr_arrays.py's docstring, dated
+        2026-08-11): the legacy full-128-channel-padded ``.npy`` (channel axis == raw
+        probe-channel index 0-127) and the current real-per-area-subset, 1/f-quality-screened,
+        compressed ``.npz`` (channel axis is a SUBSET; raw probe-channel ids live in the file's
+        own ``channels`` key, not exposed by this function since no current caller here indexes
+        by raw channel identity -- all consumers reduce over the channel axis). ``.npz`` is
+        preferred when both exist for the same (session, probe, area, condition), matching
+        scripts/compute_channel_band_power_census.py's established precedence (a stale legacy
+        ``.npy`` must not silently win by glob order). Fixed 2026-08-24: this loader previously
+        globbed only ``*.npy``, silently returning None for every session once the corpus fully
+        migrated to ``.npz`` (context/09_conflicts_and_flagged_discrepancies.md item 2).
         Array contract (float32): (n_trials, n_channels, n_freqs, n_times)
           freqs ≈ arange(3, 201, 2); times ≈ -1000 + arange(500)*10 ms.
 
@@ -658,37 +669,38 @@ class OmissionSession:
         if area == "V3":
             area_tokens.extend(["V3d", "V3a"])
 
-        candidates: List[Path] = []
         if not tfr_root.is_dir():
             log.warning(f"TFR dir missing: {tfr_root}")
             return None
 
+        # stem (filename minus extension) -> (fmt, Path); .npz overwrites .npy on collision.
+        by_stem: Dict[str, tuple] = {}
         for token in area_tokens:
-            if condition:
-                pat = f"{session_prefix}-*-{token}-{condition}.npy"
-                candidates.extend(sorted(tfr_root.glob(pat)))
-            else:
-                pat = f"{session_prefix}-*-{token}-*.npy"
-                candidates.extend(sorted(tfr_root.glob(pat)))
+            pats = (
+                [f"{session_prefix}-*-{token}-{condition}.npy", f"{session_prefix}-*-{token}-{condition}.npz"]
+                if condition else
+                [f"{session_prefix}-*-{token}-*.npy", f"{session_prefix}-*-{token}-*.npz"]
+            )
+            for pat in pats:
+                fmt = "npz" if pat.endswith(".npz") else "npy"
+                for p in sorted(tfr_root.glob(pat)):
+                    existing = by_stem.get(p.stem)
+                    if existing is None or (existing[0] == "npy" and fmt == "npz"):
+                        by_stem[p.stem] = (fmt, p)
 
-        # de-dupe preserving order
-        seen = set()
-        uniq: List[Path] = []
-        for p in candidates:
-            if p.name not in seen:
-                seen.add(p.name)
-                uniq.append(p)
-
-        if not uniq:
+        if not by_stem:
             log.info(
                 f"No TFR file for session={session_prefix} area={area} "
                 f"condition={condition} under {tfr_root}"
             )
             return None
 
-        path = uniq[0]
-        log.info(f"Loading TFR: {path.name} (band={band})")
-        arr = np.load(path, mmap_mode="r")
+        fmt, path = sorted(by_stem.items())[0][1]
+        log.info(f"Loading TFR: {path.name} (band={band}, format={fmt})")
+        if fmt == "npz":
+            arr = np.load(path)["power"]
+        else:
+            arr = np.load(path, mmap_mode="r")
         if arr.ndim != 4:
             log.warning(f"Unexpected TFR ndim={arr.ndim} in {path.name}")
             return np.asarray(arr)

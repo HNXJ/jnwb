@@ -190,6 +190,16 @@ Earlier corpus statements of "21 NWB sessions" and "1,236 TFR files" describe pr
 inventories. `sub-V198o_ses-230629_rec` was added to both inventories by explicit decision on
 2026-08-11, which is the 21→22 change.
 
+**Second remap, found 2026-08-24**: `D:/analysis` (the analysis-volume root cited throughout
+this file and `context/09_conflicts_and_flagged_discrepancies.md` item 2) no longer exists as
+of this date either — the analysis volume is now `E:/analysis` (confirmed: `D:` is volume-
+labeled `data` and holds only `D:/nwb/omission`; `E:` is volume-labeled `analysis` and holds
+`E:/analysis/tfr_arrays` with the expected 970 `.npz` files). `jnwb/paths.py` no longer carries
+a hardcoded default for this root (fixed 2026-08-24 in the same session, see git history) — set
+`$OMISSION_ANALYSIS_DIR` (and `$OMISSION_TFR_DIR` if pointing at a non-default subtree)
+explicitly rather than relying on any default. `D:/nwb/omission` (the NWB root, separate from
+the analysis root) was re-verified current at this date, unaffected by this remap.
+
 ## 2. Paradigm
 
 A trial is `fx – p1 – d1 – p2 – d2 – p3 – d3 – p4 – d4`. Slots p1–p4 carry stimulus identity;

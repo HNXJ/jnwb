@@ -29,19 +29,25 @@ not low-risk (it changes what a report claims), so left for Hamm's decision.
 
 ### 2. `.npy` vs `.npz` — the TFR loader may be finding nothing
 
-**FLAGGED, NOT DECIDED.** `corpus_manifest.json`'s live disk scan finds 970 `.npz` TFR files,
-zero `.npy`. `OmissionSession.tfr_from_preprocessed()` globs only `*.npy`. If the TFR directory
-genuinely holds only `.npz` today, every call to this loader (and everything built on top of it —
-`plot_tfr`, `trial_averaged_plot`, `spectrolaminar_motif`) silently returns "missing," not an
-error. Full detail: doc01/doc04.
+**RESOLVED 2026-08-24.** Confirmed (a): the corpus fully migrated to `.npz` on 2026-08-11
+(`scripts/precompute_tfr_arrays.py`'s own docstring: "CONSUMERS MUST BE UPDATED... any other
+consumer needs the same update"). Verified directly against the live analysis volume — which
+had itself moved from `D:/analysis` to `E:/analysis` since this doc was written, a second,
+independent drive remap — E:/analysis/tfr_arrays holds exactly 970 `.npz` files, 0 `.npy`,
+matching this doc's original count. `OmissionSession.tfr_from_preprocessed()` globbed only
+`*.npy` and was silently returning `None` for every real session.
 
-**Not decided because**: this could mean either (a) TFR products were recently regenerated in a
-new format and the loader is now stale, or (b) the loader was always right and the manifest scan
-caught a transient/partial state. Resolving this requires knowing the TFR pipeline's recent
-history, which only Hamm or a fresh run of `precompute_tfr_arrays_v2.py` can confirm.
-**Recommended first step**: check whether any current figure that depends on
-`tfr_from_preprocessed` (not the newer `precompute_tfr_arrays_v2.py`-based scripts) is silently
-producing empty output.
+**Fix applied**: `tfr_from_preprocessed()` now mirrors `scripts/compute_channel_band_power_
+census.py`'s established dual-format precedent — globs both `*.npy` and `*.npz`, prefers `.npz`
+on collision (a stale legacy `.npy` must not silently win by glob order), loads the `power` key
+from `.npz`. All 8 real call sites (`factories.py`, `functions.py`) reduce over the channel axis
+without indexing by raw physical-channel-id, so the new format's channel-subsetting (vs. the
+legacy full-128-padded array) does not change their behavior — only the loader's glob pattern
+needed to change. Raw-channel-id recovery via the `.npz`'s `channels` key is not exposed through
+this function, since no current caller needs it. Tested against real `E:/analysis/tfr_arrays`
+data plus new synthetic-data unit tests (`tests/test_tfr_from_preprocessed.py`:
+`test_tfr_from_preprocessed_loads_npz`, `test_tfr_from_preprocessed_prefers_npz_over_stale_npy`).
+Full detail: doc01/doc04 (original discovery).
 
 ### 3. Six incompatible O+ counts, four incompatible O++ counts
 
