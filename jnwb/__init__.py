@@ -173,6 +173,7 @@ from .statistics import (
     detect_trial_cycles,
     assign_subblock_quartiles,
     shuffle_r2_ci,
+    cross_modal_comparison,
 )
 
 from . import visual_qc
@@ -331,6 +332,7 @@ __all__ = [
     'detect_trial_cycles',
     'assign_subblock_quartiles',
     'shuffle_r2_ci',
+    'cross_modal_comparison',
 
     # Visual QC
     'visual_qc',

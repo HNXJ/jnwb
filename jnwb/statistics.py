@@ -906,3 +906,65 @@ class StatisticalAnalysis:
             }
         )
         return result
+
+
+def cross_modal_comparison(
+    tfr_data: np.ndarray,
+    spike_data: np.ndarray,
+    lag_range_ms: Tuple[int, int] = (-500, 500),
+) -> Dict:
+    """Trial-averaged zero-lag correlation between a TFR-derived signal and a spike-count signal.
+
+    PROMOTED 2026-08-23 from omission.jnwb_ext.functions (99%-jnwb-sufficiency normalization):
+    takes no session or condition argument at all -- reduces ``tfr_data``/``spike_data`` to 1D
+    (averaging over frequency/trials as needed), truncates to the common length, and delegates
+    to ``StatisticalAnalysis.correlate``. No task-specific state.
+
+    Known limitation, unchanged by this promotion: ``lag_range_ms`` is accepted but not
+    currently used -- only a single zero-lag correlation is computed, not a lag sweep. The
+    parameter is kept for signature stability; fixing the lag sweep is tracked separately, not
+    part of this relocation.
+
+    Args:
+        tfr_data: time-frequency power array (freq x time x trials, or fewer dims).
+        spike_data: spike count array (time x trials, or fewer dims).
+        lag_range_ms: accepted but currently unused (see limitation above).
+
+    Returns:
+        dict with correlation (StatisticalAnalysis.correlate output), n_samples,
+        interpretation -- or {'error': ...} when inputs are missing or too short.
+    """
+    if tfr_data is None or spike_data is None:
+        return {'error': 'Input arrays cannot be None'}
+
+    # Standardize time-series signals
+    # If 3D, average over frequency
+    if tfr_data.ndim == 3:
+        tfr_mean = np.mean(tfr_data, axis=0)
+    else:
+        tfr_mean = tfr_data
+
+    # Average across trials if needed
+    if tfr_mean.ndim == 2:
+        tfr_avg = np.mean(tfr_mean, axis=-1)
+    else:
+        tfr_avg = tfr_mean
+
+    if spike_data.ndim == 2:
+        spike_avg = np.mean(spike_data, axis=-1)
+    else:
+        spike_avg = spike_data
+
+    n_pts = min(len(tfr_avg), len(spike_avg))
+    if n_pts < 3:
+        return {'error': 'Insufficient sample size for correlation'}
+
+    x = tfr_avg[:n_pts]
+    y = spike_avg[:n_pts]
+
+    corr_res = StatisticalAnalysis.correlate(x, y)
+    return {
+        'correlation': corr_res,
+        'n_samples': n_pts,
+        'interpretation': 'Linear correlation between trial-averaged LFP envelope and spike counts',
+    }

@@ -26,6 +26,12 @@ from .session import OmissionSession
 from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
 from jnwb.statistics import StatisticalAnalysis
 from jnwb.metadata import filter_by_criteria as _filter_units
+from jnwb.statistics import cross_modal_comparison
+
+# cross_modal_comparison PROMOTED 2026-08-23 to jnwb.statistics (99%-jnwb-sufficiency
+# normalization) -- it took no session/condition argument to begin with (pure array
+# correlation), so this is a relocation with a re-import, not a partial extraction. Its
+# lag_range_ms limitation is unchanged; see jnwb/statistics.py's docstring.
 
 log = logging.getLogger(__name__)
 
@@ -740,55 +746,6 @@ def noise_vs_signal(session: OmissionSession, unit_id: Union[int, str]) -> Dict:
     return unit_quality_scores(session, unit_id)
 
 
-def cross_modal_comparison(tfr_data: np.ndarray, spike_data: np.ndarray,
-                           lag_range_ms: Tuple[int, int] = (-500, 500)) -> Dict:
-    """
-    Function 20: Compare LFP (TFR) vs spike-based networks.
-
-    Automatic cross-correlation with lag analysis and stats
-
-    Args:
-        tfr_data: Time-frequency power array
-        spike_data: Spike count array
-        lag_range_ms: Lag range for cross-correlation
-
-    Returns:
-        Dictionary with correlation, lag, and modality comparison statistics
-    """
-    if tfr_data is None or spike_data is None:
-        return {'error': 'Input arrays cannot be None'}
-        
-    # Standardize time-series signals
-    # If 3D, average over frequency
-    if tfr_data.ndim == 3:
-        tfr_mean = np.mean(tfr_data, axis=0)
-    else:
-        tfr_mean = tfr_data
-        
-    # Average across trials if needed
-    if tfr_mean.ndim == 2:
-        tfr_avg = np.mean(tfr_mean, axis=-1)
-    else:
-        tfr_avg = tfr_mean
-        
-    if spike_data.ndim == 2:
-        spike_avg = np.mean(spike_data, axis=-1)
-    else:
-        spike_avg = spike_data
-        
-    n_pts = min(len(tfr_avg), len(spike_avg))
-    if n_pts < 3:
-        return {'error': 'Insufficient sample size for correlation'}
-        
-    x = tfr_avg[:n_pts]
-    y = spike_avg[:n_pts]
-    
-    corr_res = StatisticalAnalysis.correlate(x, y)
-    return {
-        'correlation': corr_res,
-        'n_samples': n_pts,
-        'interpretation': 'Linear correlation between trial-averaged LFP envelope and spike counts'
-    }
 
 
 # ============================================================================

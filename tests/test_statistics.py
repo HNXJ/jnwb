@@ -14,6 +14,7 @@ from jnwb.statistics import (
     fires_in_window, fire_indicator, paired_fire_prob_test,
     rate_in_window, shuffle_pvalue_paired, shuffle_pvalue_unpaired,
     detect_trial_cycles, assign_subblock_quartiles, shuffle_r2_ci,
+    cross_modal_comparison,
 )
 
 
@@ -29,12 +30,14 @@ class TestPublicImport:
         assert jnwb.detect_trial_cycles is detect_trial_cycles
         assert jnwb.assign_subblock_quartiles is assign_subblock_quartiles
         assert jnwb.shuffle_r2_ci is shuffle_r2_ci
+        assert jnwb.cross_modal_comparison is cross_modal_comparison
 
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("fires_in_window", "fire_indicator", "paired_fire_prob_test",
                      "rate_in_window", "shuffle_pvalue_paired", "shuffle_pvalue_unpaired",
-                     "detect_trial_cycles", "assign_subblock_quartiles", "shuffle_r2_ci"):
+                     "detect_trial_cycles", "assign_subblock_quartiles", "shuffle_r2_ci",
+                     "cross_modal_comparison"):
             assert name in jnwb.__all__
 
     def test_omission_unit_inclusion_delegates_to_jnwb(self):
@@ -54,6 +57,10 @@ class TestPublicImport:
         assert oi.detect_trial_cycles is detect_trial_cycles
         assert oi.assign_subblock_quartiles is assign_subblock_quartiles
         assert oi.shuffle_r2_ci is shuffle_r2_ci
+
+    def test_omission_functions_delegates_to_jnwb(self):
+        fn = pytest.importorskip("omission.jnwb_ext.functions")
+        assert fn.cross_modal_comparison is cross_modal_comparison
 
 
 class TestFiresInWindow:
@@ -219,3 +226,28 @@ class TestShuffleR2Ci:
         groups = np.array([0, 0, 1, 1])
         result = shuffle_r2_ci(y, score, groups=groups, n_shuffle=50, random_state=0)
         assert "r2_observed" in result
+
+
+class TestCrossModalComparison:
+    def test_none_inputs_return_error(self):
+        result = cross_modal_comparison(None, np.zeros(5))
+        assert "error" in result
+
+    def test_too_few_samples_return_error(self):
+        result = cross_modal_comparison(np.array([1.0, 2.0]), np.array([1.0, 2.0]))
+        assert "error" in result
+
+    def test_perfectly_correlated_1d_signals(self):
+        tfr = np.arange(10, dtype=float)
+        spikes = np.arange(10, dtype=float)
+        result = cross_modal_comparison(tfr, spikes)
+        assert result["n_samples"] == 10
+        assert result["correlation"]["parametric"]["statistic"] == pytest.approx(1.0, abs=1e-6)
+
+    def test_reduces_3d_tfr_and_2d_spikes_to_1d(self):
+        rng = np.random.default_rng(0)
+        tfr = rng.standard_normal((4, 20, 3))   # freq x time x trials
+        spikes = rng.standard_normal((20, 3))   # time x trials
+        result = cross_modal_comparison(tfr, spikes)
+        assert result["n_samples"] == 20
+        assert "correlation" in result

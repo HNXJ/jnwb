@@ -102,6 +102,7 @@ rate_hz = jnwb.rate_in_window(spike_times, onset_s, window_ms=(0.0, 200.0))
 obs, p = jnwb.shuffle_pvalue_paired(a, b, n_shuffles=2000, rng=rng, alternative="greater")
 cycle_id = jnwb.detect_trial_cycles(trials, gap_factor=10.0)     # trials: DataFrame with start_time
 r2 = jnwb.shuffle_r2_ci(y_true, y_score, groups=cycle_id, n_shuffle=500)
+result = jnwb.cross_modal_comparison(tfr_data, spike_data)       # trial-averaged zero-lag correlation
 ```
 
 Generic spectral analysis — band-limited power, cross-area coherence, 1/f tilt, imaginary
