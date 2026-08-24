@@ -10,6 +10,14 @@ file as authority for a count.
 
 **Last resolved:** 2026-08-17 (SPK-primary analysis spec S1 unit inclusion rework reviewed and approved; LFP-track L11/L12 unblocked, §6a/§6b).
 
+**See also:** `context/00_paradigm_and_task.md` through `context/09_conflicts_and_flagged_discrepancies.md`
+— a numbered domain-by-domain reference chain (generated 2026-08-17; `02_jnwb_api_reference.md`
+self-flags stale after the 2026-08-19 repo split, module paths mechanically corrected).
+**`09_conflicts_and_flagged_discrepancies.md`** tracks still-open discrepancies between this file
+and other sources of truth, including several HIGH-severity items not yet decided — check it
+before treating a number here as final. (Linked here 2026-08-24 after being found unreachable
+from this file and the README.)
+
 ---
 
 ## 1. Corpus — and an unresolved inconsistency

@@ -18,12 +18,18 @@ from jnwb.paths import nwb_dir
 from omission import OmissionSession, viz
 from jnwb import metadata  # promoted 2026-08-23 from omission.jnwb_ext.metadata
 
-NWB_PATH = nwb_dir() / "sub-C31o_ses-230823_rec.nwb"
+try:
+    NWB_PATH = nwb_dir() / "sub-C31o_ses-230823_rec.nwb"
+except FileNotFoundError:
+    # jnwb.paths.nwb_dir() raises when $OMISSION_NWB_DIR is unset (no machine-specific default
+    # -- see jnwb/paths.py). Deferred to a per-test skip rather than failing collection, same as
+    # the file-missing case below.
+    NWB_PATH = None
 
 
 def _skip_if_missing():
-    if not Path(NWB_PATH).exists():
-        pytest.skip(f"Real test-session NWB file {NWB_PATH} is missing.")
+    if NWB_PATH is None or not Path(NWB_PATH).exists():
+        pytest.skip(f"Real test-session NWB file {NWB_PATH} is missing or $OMISSION_NWB_DIR is unset.")
 
 
 def _first_unit_with_spikes(session, units):

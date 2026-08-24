@@ -306,6 +306,18 @@ def apply_madelane_style(ax, title: str = "", xlabel: str = "", ylabel: str = ""
     ax.grid(True, color=(1.0, 1.0, 1.0, 0.05), linestyle='--')
 
 
+def _stamp_placeholder_dummy(fig) -> None:
+    """Loud, unmissable synthetic-data overlay for a figure whose underlying data is fabricated
+    (np.random.*, not read from the session), matching the omission-figures skill's
+    PLACEHOLDER-DUMMY convention (see e.g. fig08_neuron_type_layer_lfp.py). Flagged 2026-08-17
+    (context/09_conflicts_and_flagged_discrepancies.md item 1); applied 2026-08-24 per Hamm's
+    decision to gate rather than remove -- sections 5/6/7/8 below have no real TFR, spectrolaminar,
+    waveform, or connectivity computation behind them yet.
+    """
+    fig.text(0.5, 0.5, "PLACEHOLDER-DUMMY", fontsize=48, color="red", alpha=0.5,
+              ha="center", va="center", rotation=30, zorder=100)
+
+
 def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/reports") -> Path:
     nwb_path = Path(nwb_path_or_id)
     if not nwb_path.exists():
@@ -483,7 +495,8 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
     
     im = ax.pcolormesh(T, F, Z, cmap='inferno', shading='auto')
     fig.colorbar(im, ax=ax, label="Relative Power (dB)")
-    
+
+    _stamp_placeholder_dummy(fig)
     fig.savefig(fig_dir / "evoked_tfr.svg", format="svg", bbox_inches='tight')
     plt.close(fig)
     
@@ -508,7 +521,8 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
     stat_u, p_u = stats.mannwhitneyu(ratio[:10], ratio[10:])
     ax.text(0.05, 0.85, f"t-test p = {p_t:.4f}\nM-W U p = {p_u:.4f}", transform=ax.transAxes, color=MADELANE_WHITE)
     ax.legend(frameon=False)
-    
+
+    _stamp_placeholder_dummy(fig)
     fig.savefig(fig_dir / "spectrolaminar_motif.svg", format="svg", bbox_inches='tight')
     plt.close(fig)
     
@@ -531,7 +545,8 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
     fr_rs = np.random.exponential(3, 150)
     t_w, p_w = stats.mannwhitneyu(fr_fs, fr_rs)
     ax.text(0.6, 0.85, f"M-W U p = {p_w:.4e}", transform=ax.transAxes, color=MADELANE_WHITE)
-    
+
+    _stamp_placeholder_dummy(fig)
     fig.savefig(fig_dir / "waveform_classification.svg", format="svg", bbox_inches='tight')
     plt.close(fig)
     
@@ -578,7 +593,8 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
     ax.set_xlim(-1.5, 1.5)
     ax.set_ylim(-1.5, 1.5)
     ax.set_axis_off()
-    
+
+    _stamp_placeholder_dummy(fig)
     fig.savefig(fig_dir / "granger_network.svg", format="svg", bbox_inches='tight')
     plt.close(fig)
     
@@ -893,6 +909,11 @@ def generate_report(nwb_path_or_id: str, output_parent_dir: str = "artifacts/rep
         json.dump(nb_dict, f, indent=2)
 
     log.info(f"✓ Generated OGLO report suite at {session_dir}")
+    print(
+        "PLACEHOLDER-DUMMY panels (fabricated data, not computed from this session -- see "
+        "context/09_conflicts_and_flagged_discrepancies.md item 1): evoked_tfr.svg, "
+        "spectrolaminar_motif.svg, waveform_classification.svg, granger_network.svg"
+    )
     return session_dir
 
 

@@ -60,7 +60,10 @@ def test_muae_accessor_fixture_contract(tmp_path):
 
 
 def test_muae_accessor_real_session_smoke():
-    path = nwb_dir() / "sub-C31o_ses-230823_rec.nwb"
+    try:
+        path = nwb_dir() / "sub-C31o_ses-230823_rec.nwb"
+    except FileNotFoundError:
+        pytest.skip("real omission NWB root unavailable ($OMISSION_NWB_DIR unset)")
     if not path.is_file():
         pytest.skip("real omission NWB root unavailable")
     batch = load_muae_epochs(

@@ -1,13 +1,12 @@
 """Poolable sufficient-statistics accumulator for complex TFR data.
 
-Implements C:/workspace/nwb_tfr_storage_spec.md Part 2 and 3 verbatim: accumulate ``n``,
-``mean``, ``M2`` (Chan/Golub/LeVeque parallel Welford merge -- numerically stable, no
-catastrophic cancellation on TFR power's large-mean/small-variance profile) alongside the two
-complex accumulators ``sum_z`` (evoked power) and ``sum_unit_z`` (ITC), decided up front because
-phase cannot be recovered from power after the fact.
+Accumulates ``n``, ``mean``, ``M2`` (Chan/Golub/LeVeque parallel Welford merge -- numerically
+stable, no catastrophic cancellation on TFR power's large-mean/small-variance profile) alongside
+the two complex accumulators ``sum_z`` (evoked power) and ``sum_unit_z`` (ITC), decided up front
+because phase cannot be recovered from power after the fact.
 
-The property the whole design rests on, per the spec's own checklist: ``merge(A, B) ==
-summarize(A ∪ B)`` to floating-point tolerance. Tested in tests/test_tfr_accumulator.py.
+The property the whole design rests on: ``merge(A, B) == summarize(A ∪ B)`` to floating-point
+tolerance. Tested in tests/test_tfr_accumulator.py.
 """
 
 from __future__ import annotations

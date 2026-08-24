@@ -128,6 +128,15 @@ The public surface is `omission/__init__.py` (`__all__`, matches the pre-2026-08
   **`context/EVIDENCE_ARCHITECTURE.md`** — the semantics of evidence: how a measurement becomes a
   claim and what each level of claim costs. (`context/docs/CONTEXT.md` does not exist; an earlier
   version of this README pointed there.)
+- **`context/00_paradigm_and_task.md` through `context/09_conflicts_and_flagged_discrepancies.md`**
+  — a numbered domain-by-domain reference chain (generated 2026-08-17): paradigm/task, corpus
+  topology, **`02_jnwb_api_reference.md`** (the jnwb bridge — self-flagged stale after
+  2026-08-19's repo split, module paths mechanically corrected), classification pipelines, signal
+  processing, figures/pipelines, statistics, skills/memory, open items, and
+  **`09_conflicts_and_flagged_discrepancies.md`** (the one-authority-per-fact audit — still-open
+  HIGH-severity items live there, check it before trusting a number this README or PROJECT_STATE.md
+  doesn't itself carry a date on). Linked here 2026-08-24 after being found unreachable from both
+  this README and PROJECT_STATE.md.
 - **`omission/.claude/skills/`** — task-scoped API guides (`omission-*`, `labyrinth`, `manuscript`).
 - **`artifacts/.lab/`** — the knowledge graph. Read before, write after.
 
