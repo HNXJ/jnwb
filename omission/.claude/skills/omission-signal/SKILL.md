@@ -67,9 +67,10 @@ Power discards phase and nothing downstream recovers it.
 Keep `complex64` at minimum if any phase measure might be wanted; accumulate complex sums in
 `complex128`. Adding phase later means recomputing everything.
 
-```python
-from jnwb.complex_tfr import tfr_complex_load, plv_from_complex, imaginary_coherence
-```
+`jnwb.complex_tfr` is dead — quarantined to `jnwb/_unused/`, not importable as written. The live
+replacement for imaginary coherence is `jnwb.imaginary_coherency` (note the `-cy` ending, not
+`-ce`); there is no confirmed current replacement for `tfr_complex_load`/`plv_from_complex` —
+resolve the current `jnwb.__all__` before writing either import (verified 2026-08-24).
 
 **Prefer imaginary coherence over magnitude coherence** for LFP–LFP on this corpus: it is
 insensitive to zero-lag common reference, which is exactly what volume conduction produces.
@@ -139,9 +140,12 @@ statistical pooling.
 
 ## 8. TFR arrays
 
-Naming: `{session_prefix}-{probe_letter}-{area}-{condition}.npy` under `oa.paths.tfr_dir()`.
-Shape is **trials-first**: `(n_trials, n_channels, n_freqs, n_times)`. Confirm with `.shape`
-before slicing.
+Naming: `{session_prefix}-{probe_letter}-{area}-{condition}.npz` under `oa.paths.tfr_dir()`. The
+corpus fully migrated `.npy` → `.npz` 2026-08-11; `.npz` stores `power`/`channels`/`fit_exponent`/
+`fit_r2` keys. `OmissionSession.tfr_from_preprocessed()` globs both formats and prefers `.npz` on
+collision (a stale legacy `.npy` must not win by glob order) — fixed 2026-08-24, see
+`context/09_conflicts_and_flagged_discrepancies.md` item 2. Shape is **trials-first**:
+`(n_trials, n_channels, n_freqs, n_times)`. Confirm with `.shape` before slicing.
 
 **Probe → area assignment is not fixed across sessions.** Resolve per session from the
 readiness table or the directory listing; never assume probe A is the same area twice.
@@ -149,31 +153,30 @@ Gate on discovered readiness before loading (see `omission-data`).
 
 ```python
 from jnwb import (TFRAnalyzer, tfr_trial_average, tfr_compare_conditions,
-                  tfr_correlate_areas, tfr_spectrolaminar, tfr_permutation_test)
-from omission import spectral   # band_power, imaginary_coherency, laplacian_reference, bipolar_reference
+                  tfr_correlate_areas, tfr_spectrolaminar, tfr_permutation_test,
+                  band_power, imaginary_coherency, laplacian_reference, bipolar_reference)
 ```
+
+**`band_power`, `imaginary_coherency`, `laplacian_reference`, and `bipolar_reference` are now
+`jnwb` top-level public API, not `omission`-local** (verified 2026-08-24). The former
+`omission.jnwb_ext.spectral` module — and the `omission.spectral` alias that briefly re-exported
+it — no longer exist at all; both were fully removed when this functionality promoted to `jnwb`.
+Do not import from either.
 
 **Never assume a requested `jnwb` symbol exists from historical usage or a prior draft's
 imports** — `coherence`, `spike_field_ppc`, and `vflip2` are not on the current `jnwb` public API
-(verified 2026-08-22: absent from `__all__` and from every module-level def in `jnwb/`) and PPC is
-separately retired as the spike–LFP method (§10). Resolve the current API before writing an
-import. If the functionality is absent from `jnwb`, check in order: a renamed/current `jnwb`
-symbol, an `omission`-local implementation (`imaginary_coherency`, `laplacian_reference`,
-`bipolar_reference` are all in `omission.jnwb_ext.spectral`, not `jnwb`), or genuinely missing
-functionality that needs new code.
+(verified 2026-08-22: absent from `__all__` and from every module-level def in `jnwb/`) and PPC's
+status as the spike–LFP method is provisional, not settled (§10). Resolve the current API before
+writing an import.
 
-`omission/jnwb_ext/spectral.py::_welch_csd_gpu` is a GPU-only implementation detail — it imports
-`cupy` unconditionally and has no fallback of its own. **Do not call or copy it directly.** Every
-public function that uses it (`band_power`, `harmonic_analysis`, `cross_area_coherence`,
-`spectral_tilt`) owns the dispatch itself: `device='cpu'` by default, and a `try/except` around
-the `device='cuda'` path that falls back to `scipy.signal.welch` on GPU failure. Match that
-pattern — default to CPU, fall back on GPU failure — in any new spectral function. See
-`numerical-computing`.
+`jnwb.spectral.band_power` still defaults to `device='cpu'` with an opt-in `device='cuda'` path
+(confirmed live 2026-08-24) — match that pattern in any new spectral code: default to CPU, never
+assume a GPU implementation has no CPU fallback. See `numerical-computing`.
 
 ## 9. Memory: LFP loads can exhaust RAM
 
 Downsample to 1000 Hz on direct load. Never `data[:]` — slice the channels you need. Prefer the
-precomputed TFR `.npy` arrays over recomputing from raw signal.
+precomputed TFR `.npz` arrays (see §8) over recomputing from raw signal.
 
 ## 10. Connectivity — test within session first, pool after
 
@@ -198,8 +201,13 @@ The corrected design:
    point estimates.
 3. Scope order: within session/within probe → within session/between probe → across sessions,
    accepting partial coverage.
-4. **PPC is retired as the spike–LFP method.** Current direction is trial-level correlation
-   between a channel's band power and a unit's spike rate in the same sliding window.
+4. **PPC's retirement as the spike–LFP method was reversed 2026-08-15**, per Hamm's explicit
+   override request — a corrected-design PPC rebuild produced a provisional non-null result.
+   Treat PPC as provisionally live again, not settled either way; check
+   `context/09_conflicts_and_flagged_discrepancies.md` item 8 / `PROJECT_STATE.md` for the
+   current status before relying on it. Trial-level correlation between a channel's band power
+   and a unit's spike rate in the same sliding window remains a separate, still-valid method —
+   not a replacement for PPC.
 
 ```python
 from omission.jnwb_ext.connectivity import (granger, granger_spectral, phase_slope_index, transfer_entropy,

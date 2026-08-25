@@ -17,12 +17,16 @@ env/
 # data / derived / generated (not source)
 data/
 outputs/
+!omission/outputs/
+omission/outputs/*
+!omission/outputs/README.md
 output/
 reports/
 omission/artifacts/*
 !omission/artifacts/developer/
 omission/artifacts/developer/.cache/
 !omission/artifacts/.lab/
+!omission/artifacts/README.md
 checkpoints/
 scratch/
 Export_Staging/
@@ -152,6 +156,11 @@ tmp/
 omission/context/manuscript-docx/
 omission/context/draft-assets/
 omission/context/archive/
+
+# Private, controlling analysis goal (2026-08-24). Kept on disk, not tracked -- it is not public
+# jnwb documentation, public API doctrine, general-purpose skill content, or manuscript prose.
+# Do not promote its content into a tracked file without an explicit decision to do so.
+omission/context/ANALYSIS_GOAL.md
 
 # omission/context/figures holds the manuscript figures 01-07 and is TRACKED on purpose.
 # Only the finalized per-figure deliverables are tracked; nested working directories

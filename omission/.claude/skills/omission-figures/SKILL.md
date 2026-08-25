@@ -107,12 +107,16 @@ then `Read` the PDF, which renders visually.
 
 ```python
 from omission.jnwb_ext.report import generate_report, apply_madelane_style
-from jnwb.markdown_report import generate_markdown_report
 ```
 
-`generate_report` accepts a full path or a bare session id. `generate_markdown_report`
-**consumes** figures already written to `source_svg_dir` — it does not render them; generate
-figures first.
+`generate_report` accepts a full path or a bare session id. `jnwb.markdown_report` is dead —
+quarantined to `jnwb/_unused/markdown_report.py`, not importable as written; there is no
+confirmed current replacement for a figures-consuming markdown report (verified 2026-08-24).
+
+**Caution on `generate_report` itself**: its waveform/network sections have been flagged
+(`context/09_conflicts_and_flagged_discrepancies.md` item 1, FLAGGED NOT DECIDED) as drawing
+synthetic data from `np.random` and rendering it as measured, including one global RNG seed
+mutation. Do not treat its network/waveform panels as real findings until that item is resolved.
 
 ## Provenance
 

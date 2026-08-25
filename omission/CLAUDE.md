@@ -20,6 +20,11 @@ root [`CLAUDE.md`](../CLAUDE.md) — read both.
 **No absolute data path or corpus count appears in this file, by design.** Both have drifted
 before and both are discoverable.
 
+**Truth precedence when sources disagree**: a receipt (the artifact a script actually wrote,
+named beside the number) outranks the current project state (`PROJECT_STATE.md`), which
+outranks narrative memory (anything recalled from a prior turn, a skill's prose, or this file).
+Re-derive from the higher-precedence source rather than trusting the lower one's summary of it.
+
 ## Tripwires
 
 These fire when you do not know you are in the domain. Everything else is in a skill.
@@ -42,6 +47,14 @@ These fire when you do not know you are in the domain. Everything else is in a s
    not the same field.
 10. **A valid null is a result.** Report it. Redesign is justified by a broken estimand, leakage,
     a failed assumption, or prospectively identified low power — never by `p ≥ α` alone.
+11. **Prevalence, magnitude, information, and mechanism are different estimands.** "How many
+    units show X" answers none of "how large is X," "how much can be decoded from X," or "what
+    causes X." Name which one a result answers before comparing it to another result or to a
+    hypothesis.
+12. **Association, directionality, and causality are different claims.** A correlation, a
+    Granger/PSI/transfer-entropy directional estimate, and a causal mechanism require
+    progressively stronger designs — do not let a stronger-sounding word describe a
+    weaker-designed result.
 
 ## Stop conditions (project)
 
@@ -56,13 +69,38 @@ Stop and surface rather than choose:
 ## Working agreements
 
 - Correct trials only, by default.
-- SPK/SUA, MUAe and LFP are never pooled. Session, area, layer, probe and unit namespaces are
-  preserved throughout.
+- SPK/SUA, MUAe, LFP, and behavior are never pooled across modality. Session, area, layer,
+  probe and unit namespaces are preserved throughout.
 - Results go under `omission/context/figures/`.
 - Preserve originals; write revisions as new files.
 - Record evidence in `omission/artifacts/.lab/` when a claim's standing changes — not on turn
   cadence.
 - Do not commit or push unless asked.
+
+## Structural freeze + analysis-only (2026-08-24)
+
+`omission/`'s top-level structure was reorganized 2026-08-24 (doc/handoff consolidation only —
+`context/figures/` and `scripts/`'s internal layouts were explicitly left untouched: the former
+is protected concurrent work, the latter has a repo-wide `parents[N]` path-resolution dependency
+that a depth change would silently break; see `scripts/README.md`). **Structure is now frozen**:
+do not move, rename, or restructure directories under `omission/` without a concrete defect that
+requires it. The private controlling goal for this phase is
+[`context/ANALYSIS_GOAL.md`](context/ANALYSIS_GOAL.md) (gitignored — not public doctrine).
+
+**ANALYSIS ONLY.** Allowed: inspect data, run analyses, write/refactor analysis code, use
+`jnwb`, generate deterministic products, statistics, controls, figures, receipts,
+analysis-specific context updates, tests required by analysis. Not allowed unless directly
+required to make an analysis correct: repo-wide normalization, general cleanup, broad API
+redesign, unrelated `jnwb` promotion, legacy cleanup, further directory reorganization,
+documentation gardening, style-only refactors. When an unrelated defect is discovered:
+
+```python
+if defect_blocks_or_invalidates_analysis:
+    make_smallest_verified_fix()
+else:
+    record_debt()
+    continue_analysis()
+```
 
 ## Skills
 

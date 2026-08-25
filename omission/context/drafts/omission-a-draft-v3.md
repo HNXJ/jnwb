@@ -24,7 +24,7 @@ CONVENTIONS
   [[CONFLICT: ...]]  two sources disagree
   [[FIG N]]          figure slot
 
-TARGETS (context/docs/PUBLICATION_STYLE_CRITERIA.md)
+TARGETS (context/PUBLICATION_STYLE_CRITERIA.md)
   Abstract 220-280 | Intro 800-1100 | Results 2000-2600 | Discussion 2000-2500
   Methods 3500-4500 | 5 main figures | <=4 inferential families | ~10 p-values
 -->

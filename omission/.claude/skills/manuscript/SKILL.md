@@ -73,7 +73,7 @@ When something is owed, mark it visibly — `[[STAT: what is owed and which comp
 ## 4. Measured style targets
 
 Measured on the exemplar (Westerberg & Xiong 2025); full detail in
-`context/docs/PUBLICATION_STYLE_CRITERIA.md`.
+`context/PUBLICATION_STYLE_CRITERIA.md`.
 
 - **Sentence length**: median 16, mean 18, p90 under 32 words. Long sentences are where
   overclaims hide.

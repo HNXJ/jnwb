@@ -108,14 +108,23 @@ The public surface is `omission/__init__.py` (`__all__`, matches the pre-2026-08
 
 | Path | Contents |
 |---|---|
-| `jnwb_ext/` | Task-specific extension modules (above) |
-| `tests/` | Pytest suite for this project's tests — run it, don't trust pass counts in docs |
-| `scripts/` | One-off analysis and aggregation scripts; outputs land in `outputs/`. `scripts/historical/confounded/` holds decoding scripts quarantined 2026-08-10 for invalid/ungrouped CV — do not use as empirical sources, see `artifacts/.lab/agent-harness-audit-20260810.json` |
-| `notebooks/` | Figure suites. `notebooks/historical/reproducibility_master_pipeline` is quarantined (asserts the retracted census) — do not run as a current reproducibility check |
-| `outputs/` | Derived data and figure assets |
-| `context/` | Manuscript drafts, figures, inventory — `context/PROJECT_STATE.md` is authoritative |
-| `artifacts/` | `data/` catalogs, `.lab/` knowledge graph nodes |
-| `legacy/` | Archived context, scripts, tests — historical, superseded |
+| `jnwb_ext/` | Task-specific extension modules (above) — [own README](jnwb_ext/README.md) |
+| `tests/` | Pytest suite for this project's tests — run it, don't trust pass counts in docs — [own README](tests/README.md) |
+| `scripts/` | One-off analysis and aggregation scripts; outputs land in `outputs/`. `scripts/historical/confounded/` holds decoding scripts quarantined 2026-08-10 for invalid/ungrouped CV — do not use as empirical sources, see `artifacts/.lab/agent-harness-audit-20260810.json` — [own README](scripts/README.md) (fragile `parents[N]` path convention — read before moving anything in this tree) |
+| `notebooks/` | Figure suites. `notebooks/historical/reproducibility_master_pipeline` is quarantined (asserts the retracted census) — do not run as a current reproducibility check — [own README](notebooks/README.md) |
+| `outputs/` | Derived data and figure assets, mostly gitignored/regeneratable — [own README](outputs/README.md) |
+| `context/` | Manuscript drafts, figures, inventory, evidence — `context/PROJECT_STATE.md` is authoritative — [own README](context/README.md), [`figures/`](context/figures/README.md), [`handoff/`](context/handoff/README.md) |
+| `artifacts/` | `data/` catalogs, `.lab/` knowledge graph nodes — [own README](artifacts/README.md) |
+| `legacy/` | Archived context, scripts, tests — historical, superseded — [own README](legacy/README.md) |
+| `.claude/skills/` | Task-scoped skills — load before doing the matching kind of work, per project `CLAUDE.md` |
+
+**2026-08-24 reorganization**: `omission/docs/` (8 files, zero code/doc references anywhere)
+folded into `context/handoff/pre-20260815-handouts/` — it duplicated `context/handoff/`'s role.
+`context/docs/` (2 files) removed: `EVIDENCE_ARCHITECTURE_20260809.md` moved to `context/archive/`
+(the file it's superseded by already claimed it lived there); `PUBLICATION_STYLE_CRITERIA.md`
+promoted to `context/` top level as the live canonical doc it is. No code, script, or figure was
+moved — `context/figures/` and `scripts/`'s internal structure were left untouched (protected
+concurrent work + the `parents[N]` fragile-path class respectively; see `scripts/README.md`).
 
 ---
 
@@ -126,8 +135,13 @@ The public surface is `omission/__init__.py` (`__all__`, matches the pre-2026-08
 - **`context/PROJECT_STATE.md`** — authoritative current scientific/repository state: what's
   established, superseded, or blocked, with every number dated and re-resolvable.
   **`context/EVIDENCE_ARCHITECTURE.md`** — the semantics of evidence: how a measurement becomes a
-  claim and what each level of claim costs. (`context/docs/CONTEXT.md` does not exist; an earlier
-  version of this README pointed there.)
+  claim and what each level of claim costs. (`context/docs/CONTEXT.md` does not exist — that
+  directory was removed 2026-08-24; see the reorganization note above. A handful of code/test
+  comments still cite `context/docs/CONTEXT.md` in prose only, not as an executable path — this
+  is recorded debt, not a live bug.)
+- **`context/ANALYSIS_GOAL.md`** — the private, controlling goal for the current analysis phase
+  (not public `jnwb` doctrine, not manuscript prose). Reconstruct the effective plan from this
+  file + current evidence + current code + current receipts; do not substitute an older plan.
 - **`context/00_paradigm_and_task.md` through `context/09_conflicts_and_flagged_discrepancies.md`**
   — a numbered domain-by-domain reference chain (generated 2026-08-17): paradigm/task, corpus
   topology, **`02_jnwb_api_reference.md`** (the jnwb bridge — self-flagged stale after
