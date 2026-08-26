@@ -1,0 +1,14 @@
+{
+  "schema_version": 3,
+  "id": "lfp-encoding-battery-spec-20260826",
+  "kind": "plan",
+  "title": "LFP encoding battery, matched to corrected Fig04 SPK grammar -- specification (not executed)",
+  "date": "2026-08-26",
+  "status": "unconfirmed",
+  "derived_from": ["fig04-statistical-receipt-20260826", "fig04-false-encoding-taxonomy-20260826"],
+  "full_spec": "omission/context/LFP_ENCODING_BATTERY_SPEC.md",
+  "summary": "Full 10-item specification (eligible corpus, trial-level tensor, 5 targets, representation set, CV/permutation hierarchy, PCA/UMAP search space, statistical outputs, cost estimate, SPK<->LFP comparability, blockers) written per Hamm's explicit instruction to scope before executing.",
+  "correction_20260826": "Initial version wrongly concluded the precomputed TFR cache does not exist, having checked only D:/analysis. Hamm supplied the real path, E:/analysis/tfr_arrays. Re-verified directly: 970 files, 735 GB, complete across all 22 sessions (cross-checked against corpus_manifest.json's session list, zero missing/extra); channel_area_vector.csv also exists at omission/outputs/connectivity/channel_area_vector/channel_area_vector.csv (not the path precompute_tfr_arrays.py hardcodes). corpus_manifest.json's n_sidecar_ok/n_tfr_ok/n_tfr_files_on_disk fields (all 0) are themselves stale relative to E:/analysis and should not be trusted for this question without re-checking the filesystem. The spec's §1/§2/§8 were rewritten accordingly: the precomputed cache is now the primary tensor source (not on-the-fly extraction), and the cost estimate dropped materially since the expensive extraction/spectrogram step is already done.",
+  "falsifier_for_review": "This plan is 'accepted' when Hamm confirms the 10-item spec (or a revised version) in review; it is 'executed' only after that confirmation, per Hamm's explicit 'do not run the battery yet' instruction.",
+  "companion_task": "Before Fig04 is declared fully sealed: run Y_omission (occurrence, O vs S, position-matched, position-balanced pooled cell) on SPK using the identical corrected/cycle-grouped operator already used for the other four SPK targets. Not started. Tracked on omission/context/TODO.md."
+}

@@ -1,0 +1,264 @@
+{
+  "schema_version": 3,
+  "id": "fig04-statistical-receipt-20260826",
+  "kind": "evidence",
+  "title": "FIG04_STATISTICAL_RECEIPT -- authoritative, corrected-timing seal",
+  "date": "2026-08-26",
+  "status": "confirmed",
+  "status_note": "Individual estimand statuses vary -- see per-estimand 'status' fields below. All four estimands now have a settled status: Y_stim CONFIRMED, Y_position CONFIRMED (passed a 2026-08-26 adversarial cycle-grouping verification against the same leakage class that overturned Y_context -- see Y_position.Decoding.adversarial_grouping_verification; no rerun was needed, its CV was already correctly grouped), Y_context CONFIRMED_NULL, Y_expected CONFIRMED_NULL. Fig04 panel regeneration from this evidence has not yet occurred.",
+  "manuscript_language_note": "Per Hamm, 2026-08-26: internal status labels like CONFIRMED_NULL are fine as terminal analysis states but should not be read as proof of a zero effect. Manuscript prose for Y_context and Y_expected should read 'no detectable [predictability-context / expected-identity] information under cycle-grouped held-out decoding' rather than a stronger absence-of-effect claim.",
+  "supersedes": [
+    "f04-predictable-vs-random-context-receipt-20260824",
+    "f04-f07-rsa-multimodal-fusion-receipt-20260824"
+  ],
+  "scope": "N=4 recording sessions (3 subjects: C31o, V182o, V198o) across a multi-area laminar macaque corpus, sequential visual omission paradigm. All windows derive from omission.jnwb_ext.sequence_layout.EPOCH_ONSETS_MS (canonical timing; see omission/tests/test_sequence_timing_geometry.py, permanent regression guard).",
+  "rrr_n_adequacy_note": "Per Hamm's RRR framing: N=3 subjects, S=21-22 sessions depending on pipeline, each area covered by >=2 of 3 subjects for every reported cell. This satisfies the primate-electrophysiology N>=2-independent-samples adequacy bar; reported as coverage, not as a limitation.",
+
+  "estimand_schema": [
+    "target", "biological N", "sessions", "subjects", "areas", "held-out unit", "CV/grouping",
+    "metric", "chance", "observed estimate", "effect above chance", "permutation count",
+    "exact finite-permutation p", "correction family", "BH q", "confidence interval",
+    "significant prevalence", "Clopper-Pearson interval", "session/subject consistency",
+    "timing source", "status"
+  ],
+
+  "Y_stim": {
+    "definition": "Physical stimulus identity (A vs B) at the presented slot p1 (positive control).",
+    "Decoding": {
+      "target": "Y_stim",
+      "biological N": "3 subjects, 21 sessions, 60 session x area cells",
+      "sessions": 21, "subjects": 3, "areas": ["FEF","PFC","TEO","V1","V2","V3","V4"],
+      "held-out unit": "temporal cycle (block)",
+      "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe)",
+      "metric": "balanced accuracy (loco)",
+      "chance": 0.5,
+      "observed estimate": "mean 0.6504 (sd 0.2028) across 60 cells",
+      "effect above chance": "+0.150",
+      "permutation count": 100,
+      "exact finite-permutation p": "per-cell, min possible p = 1/101 = 0.0099",
+      "correction family": "BH-FDR across the 60 cells",
+      "BH q": "27/60 cells q<0.05",
+      "confidence interval": "not computed at the point-estimate level (per-cell CIs not pooled)",
+      "significant prevalence": "raw p<0.05: 32/60 (0.533); BH-FDR q<0.05: 27/60 (0.450)",
+      "Clopper-Pearson interval": "raw: [0.400,0.663]; FDR: [0.321,0.584]",
+      "session/subject consistency": "positive in all 3 subjects (source: fig04_encoding_matrix_cells.csv, area-stratified)",
+      "timing source": "canonical EPOCH_ONSETS_MS (feature window [0,531]ms, p1 onset)",
+      "status": "CONFIRMED -- Tier 1, leakage-safe, independently corroborated by RSA and by descriptive manifold separation below",
+      "source": "omission/outputs/classification/fig04_encoding_matrix_cells.csv"
+    },
+    "RSA": {
+      "target": "Y_stim", "biological N": "3 subjects, 3 sessions, 7 session x area cells",
+      "sessions": 3, "subjects": 3, "areas": ["V1","MT","ALL"],
+      "held-out unit": "n/a (RDM regression, not held-out prediction)",
+      "CV/grouping": "n/a", "metric": "RSA regression beta (Stimulus_Identity term)",
+      "chance": 0.0, "observed estimate": "beta_mean = 0.4062", "effect above chance": "+0.4062",
+      "permutation count": 999, "exact finite-permutation p": "p_perm_mean = 0.01686, floor = 1/1000 = 0.001",
+      "correction family": "BH-FDR across the 4 model terms",
+      "BH q": 0.0337, "confidence interval": "not reported by this pipeline",
+      "significant prevalence": "n/a (single pooled regression per cell, not a prevalence estimand)",
+      "Clopper-Pearson interval": "n/a",
+      "session/subject consistency": "positive beta in 7/7 contributing session x area cells (0.28-0.66 range)",
+      "timing source": "canonical EPOCH_ONSETS_MS",
+      "status": "CONFIRMED -- now significant post-timing-fix (was p_fdr=0.091 non-significant in the pre-fix, now-superseded run)",
+      "known_discrepancy": "omission/outputs/classification/fig04_rsa_regression_receipt.json still carries the STALE pre-fix aggregate (beta_mean=0.3196, p_fdr=0.0911) despite being marked STATUS=INVALID_TIMING_DO_NOT_USE -- the receipt JSON was never regenerated after the timing fix, even though the underlying CSV (fig04_rsa_model_regression.csv) was correctly recomputed. The beta_mean=0.4062/q=0.0337 figures here are recomputed directly from that live, corrected CSV in this session and are the values to cite. The stale receipt JSON needs regeneration -- tracked in omission/context/TODO.md.",
+      "source": "omission/outputs/classification/fig04_rsa_model_regression.csv (recomputed aggregate this session)"
+    },
+    "Linear latent (PCA)": {
+      "observed estimate": "acc_mean = 0.8067 (n=90 session x area x d cells)",
+      "auc_mean": 0.8384, "status": "DESCRIPTIVE -- no permutation test recorded in this pipeline; consistent with Decoding and RSA",
+      "source": "omission/outputs/classification/fig04_diagnostics/manifold_search_results.csv"
+    },
+    "Nonlinear latent (UMAP / PCA->UMAP)": {
+      "observed estimate": "UMAP acc_mean = 0.6899 (n=90); PCA_UMAP acc_mean = 0.7221 (n=90)",
+      "status": "DESCRIPTIVE -- no permutation test recorded in this pipeline",
+      "source": "omission/outputs/classification/fig04_diagnostics/manifold_search_results.csv"
+    }
+  },
+
+  "Y_position": {
+    "definition": "Sequence position (3-way: which of p2/p3/p4 slot) decoded from population activity.",
+    "Decoding": {
+      "target": "Y_pos", "biological N": "3 subjects, 12 sessions, 35 session x area cells",
+      "sessions": 12, "subjects": 3, "areas": ["FEF","PFC","TEO","V1","V2","V3","V4"],
+      "held-out unit": "temporal cycle (block)",
+      "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe)",
+      "metric": "balanced accuracy (loco, 3-way)", "chance": 0.333,
+      "observed estimate": "mean 0.3709 (sd 0.0647) across 35 cells",
+      "effect above chance": "+0.038",
+      "permutation count": 100, "exact finite-permutation p": "floor = 1/101 = 0.0099",
+      "correction family": "BH-FDR across the 35 cells",
+      "BH q": "7/35 cells q<0.05",
+      "confidence interval": "not pooled at point-estimate level",
+      "significant prevalence": "raw p<0.05: 11/35 (0.314); BH-FDR q<0.05: 7/35 (0.200)",
+      "Clopper-Pearson interval": "raw: [0.169,0.493]; FDR: [0.084,0.369]",
+      "session/subject consistency": "not individually audited by subject in this pass -- see omission/context/TODO.md",
+      "timing source": "canonical EPOCH_ONSETS_MS",
+      "status": "CONFIRMED, modest effect -- Tier 1, leakage-safe. Weaker prevalence than Y_stim but well above the FDR-corrected null rate expected by chance (2.5% at alpha=0.05 x 35 tests).",
+      "adversarial_grouping_verification": {
+        "trigger": "2026-08-26, Hamm: the Y_context grouped-CV collapse showed that repeated sequence/cycle structure can generate convincing false decoding under ungrouped CV, so the Y_position positive result was required to pass the same adversarial check before Fig04 regeneration.",
+        "method": "Read omission/scripts/compute_fig04_encoding_matrix.py directly (not recalled from memory) to verify the Y_pos CV grouping.",
+        "finding": "Y_pos already uses genuinely cycle-grouped, leakage-safe CV, equivalent in construction to the just-corrected Y_context decoder: _cross_slot_table() builds cross_cycle_id = detect_trial_cycles(main[[\"start_time\"]]) on the combined p2/p3/p4 table (compute_fig04_encoding_matrix.py:171), and decode_multiclass_balanced_cycle_safe() runs true leave-one-cycle-out folds (for fold, cycle in enumerate(unique_cycles): test = cycles==cycle; train = ~test; compute_fig04_encoding_matrix.py:214-218) with a within-cycle-permutation null (_within_cycle_permutation, same primitive used by the leakage-safe SVC decoder). detect_trial_cycles itself is imported from the canonical jnwb.statistics module via a one-line re-export in omission/jnwb_ext/omission_identity.py:31 (not a local duplicate) -- the same canonical function used to fix Y_context.",
+        "verdict": "VERIFIED EQUIVALENT -- no rerun required. The Y_position positive result already survives the same leakage protection that overturned Y_context; it was never exposed to the ungrouped-CV shortcut in the first place.",
+        "note": "Y_stim's decoding cell (fig04_encoding_matrix_cells.csv fold_scheme=='leave_one_temporal_cycle_out') runs through the same shared leakage-safe pipeline and was not separately re-audited here, as Hamm's check was scoped to Y_position only."
+      },
+      "source": "omission/outputs/classification/fig04_encoding_matrix_cells.csv"
+    },
+    "RSA": {
+      "target": "Y_position", "biological N": "3 subjects, 3 sessions, 7 session x area cells",
+      "metric": "RSA regression beta (Position term)", "chance": 0.0,
+      "observed estimate": "beta_mean = 0.4789", "effect above chance": "+0.4789",
+      "permutation count": 999, "exact finite-permutation p": "p_perm_mean = 0.002714, floor = 0.001",
+      "correction family": "BH-FDR across the 4 model terms", "BH q": 0.01086,
+      "confidence interval": "not reported by this pipeline",
+      "significant prevalence": "n/a", "Clopper-Pearson interval": "n/a",
+      "session/subject consistency": "positive beta in 7/7 contributing cells (0.44-0.66 range), dominant term in every cell",
+      "timing source": "canonical EPOCH_ONSETS_MS",
+      "status": "CONFIRMED -- strongest, most consistent effect in the entire RSA model family, both pre- and post-timing-fix",
+      "source": "omission/outputs/classification/fig04_rsa_model_regression.csv (recomputed aggregate this session)"
+    },
+    "Linear latent (PCA)": {"status": "NOT_TESTED -- no Sequence_Position target exists in manifold_search_results.csv; only coverage is the n=1 diagnostic-only nested-surface analysis (excluded, see below)."},
+    "Nonlinear latent (UMAP / PCA->UMAP)": {"status": "NOT_TESTED -- same as Linear latent row."}
+  },
+
+  "Y_context": {
+    "definition": "Predictability context (Predictable/Structured stream vs Random stream) during the omission window -- X|Structured vs X|Random, not identity.",
+    "Decoding": {
+      "target": "Y_context", "biological N": "3 subjects, 4 sessions, 11 slot x area cells (1 of 12 cells dropped: <2 valid grouped folds)",
+      "sessions": 4, "subjects": 3, "areas": ["V1","MT","ALL"],
+      "held-out unit": "cycle (temporal block, jnwb.statistics.detect_trial_cycles)",
+      "CV/grouping": "leave-one-cycle-out (grouped, leakage-safe) -- replaced ungrouped StratifiedKFold on 2026-08-26 per Hamm's explicit gate. Same features/target/metric/permutation scheme held fixed; only the CV split changed.",
+      "metric": "balanced accuracy (direct SPK features)", "chance": 0.5,
+      "observed estimate": "grouped: mean 0.4247 across 11 cells (range 0.357-0.456), i.e. AT OR BELOW CHANCE",
+      "effect above chance": "grouped: -0.075 mean (negative -- no cell exceeds chance)",
+      "permutation count": 999, "exact finite-permutation p": "grouped: all 11 cells p>0.68 (floor = 1/1000 = 0.001, not approached)",
+      "correction family": "BH-FDR across the 11 grouped cells",
+      "BH q": "0/11 cells q<0.05 (min q = 0.998)",
+      "confidence interval": "not pooled at point-estimate level",
+      "significant prevalence": "grouped: raw p<0.05: 0/11 (0.000); BH-FDR q<0.05: 0/11 (0.000)",
+      "Clopper-Pearson interval": "grouped, FDR: [0.000,0.285]",
+      "session/subject consistency": "null in all 3 subjects, all 3 areas, all 4 slot conditions under grouped CV",
+      "timing source": "canonical EPOCH_ONSETS_MS",
+      "status": "CONFIRMED_NULL -- the grouped-CV gate Hamm required COLLAPSED the effect entirely. This confirms the ungrouped-CV result was a leakage/exchangeability artifact, not genuine context representation.",
+      "grouped_vs_ungrouped_comparison": {
+        "method": "same 999-perm null, same features/target/metric; only CV grouping changed. Ungrouped results archived at omission/outputs/classification/superseded_20260826_ungrouped_cv/ before rerun.",
+        "P_ungrouped": "mean acc 0.5847 across 12 cells; 5/12 raw p<.05, 4/12 BH q<.05 (ALL_SLOTS-ALL q=0.012, ALL_SLOTS-MT q=0.021, p2-ALL q=0.019, p4-ALL q=0.012)",
+        "P_grouped": "mean acc 0.4247 across 11 cells; 0/11 raw p<.05, 0/11 BH q<.05",
+        "per_cell_deltas_selected": "ALL_SLOTS/ALL: acc 0.743->0.436, p 0.001->0.685; p4/ALL: acc 0.657->0.431, p 0.002->0.751; p2/ALL: acc 0.627->0.404, p 0.005->0.923",
+        "interpretation": "Every previously-significant cell drops to at-or-below-chance accuracy and non-significance under grouped CV. The prior ungrouped 4/12-significant result was driven by leakage across trials within the same temporal cycle, not by genuine predictability-context representation. Downgraded per Hamm's 2026-08-26 gate: PROVISIONAL is too generous -- the evidence now actively argues against the effect under the leakage-safe design, so this is reported as CONFIRMED_NULL rather than left provisional."
+      },
+      "source": "omission/outputs/classification/predictable_vs_random_omission_results.csv (grouped, current); omission/outputs/classification/superseded_20260826_ungrouped_cv/predictable_vs_random_omission_results.UNGROUPED_CV.csv (ungrouped, archived/superseded)"
+    },
+    "RSA": {"status": "NOT_TESTED -- the RSA model family (Position/Stimulus_Identity/Expected_Identity/Sensory_Presence) does not include a Predictable-vs-Random context term; RSA does not currently address this estimand."},
+    "Linear latent (PCA)": {"status": "NOT_TESTED -- no PCA-only representation was computed for the context decoder; only Direct and PCA->UMAP representations exist."},
+    "Nonlinear latent (UMAP / PCA->UMAP)": {
+      "observed estimate": "grouped PCA->UMAP acc: mean 0.4215 across 11 cells (range 0.315-0.501), also at or below chance",
+      "status": "DESCRIPTIVE, consistent with the CONFIRMED_NULL Decoding verdict above -- no independent permutation test computed for this representation, but it collapses to chance under the same grouped CV",
+      "source": "omission/outputs/classification/predictable_vs_random_omission_results.csv"
+    }
+  },
+
+  "Y_expected": {
+    "definition": "Expected/omitted stimulus identity content (X|A vs X|B) during the omission window itself -- the specific-content estimand, distinct from Y_context.",
+    "Decoding": {
+      "target": "Y_omit", "biological N": "3 subjects, 21 sessions, 139 successful session x area x position cells (6 additional cells: no_valid_folds)",
+      "sessions": 21, "subjects": 3, "areas": ["FEF","PFC","TEO","V1","V2","V3","V4"],
+      "held-out unit": "temporal cycle (block)",
+      "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe)",
+      "metric": "cross-entropy (multinomial LogisticRegression) -- NOTE: accuracy_loco_balanced and auc_loco are structurally NaN for all 139 successful Y_omit cells in the live CSV; only cross_entropy and the permutation p-value are populated for this target. Do not report a fabricated accuracy/AUC point estimate.",
+      "chance": "n/a for cross-entropy; permutation null is empirical",
+      "observed estimate": "cross_entropy mean = 3.465 (sd 1.543); permutation-based null comparison only",
+      "effect above chance": "near-null (see prevalence below)",
+      "permutation count": 100, "exact finite-permutation p": "floor = 1/101 = 0.0099",
+      "correction family": "BH-FDR across the 139 cells",
+      "BH q": "0/139 cells q<0.05",
+      "confidence interval": "not applicable (cross-entropy, no accuracy CI)",
+      "significant prevalence": "raw p<0.05: 3/139 (0.022); BH-FDR q<0.05: 0/139 (0.000)",
+      "Clopper-Pearson interval": "raw: [0.004,0.062]; FDR: [0.000,0.026]",
+      "session/subject consistency": "null in effectively all subjects (0/139 survive FDR)",
+      "timing source": "canonical EPOCH_ONSETS_MS",
+      "status": "CONFIRMED_NULL -- Tier 1, leakage-safe, robust to multiple-comparison correction. Manuscript-relevant statement: 0/139 cells survive BH-FDR (raw 3/139 reported alongside for completeness).",
+      "known_discrepancy": "An earlier point in this project's history cited '7/139' significant cells for this same target/n_success. That number could NOT be reproduced from the current live fig04_encoding_matrix_cells.csv under either raw p<0.05 (=3/139) or BH-FDR q<0.05 (=0/139) thresholds, and no executable path to '7' was found without altering the analysis. Per Hamm's 2026-08-26 ruling, this is reclassified from UNRESOLVED to HISTORICAL_UNREPRODUCED: its provenance is preserved for the record but it does not compete with the recomputed current evidence (3/139 raw, 0/139 FDR), which is authoritative.",
+      "source": "omission/outputs/classification/fig04_encoding_matrix_cells.csv"
+    },
+    "RSA": {
+      "target": "Y_expected", "biological N": "3 subjects, 3 sessions, 7 session x area cells",
+      "metric": "RSA regression beta (Expected_Identity term)", "chance": 0.0,
+      "observed estimate": "beta_mean = 0.4729", "effect above chance": "+0.4729 (not significant after correction)",
+      "permutation count": 999, "exact finite-permutation p": "p_perm_mean = 0.1387",
+      "correction family": "BH-FDR across the 4 model terms", "BH q": 0.18495,
+      "confidence interval": "not reported by this pipeline",
+      "significant prevalence": "n/a", "Clopper-Pearson interval": "n/a",
+      "session/subject consistency": "beta positive in most cells but not FDR-significant in any",
+      "timing source": "canonical EPOCH_ONSETS_MS",
+      "status": "CONFIRMED NULL -- consistent with the Decoding null above; two independent methods converge on no detectable expected-identity representation",
+      "source": "omission/outputs/classification/fig04_rsa_model_regression.csv (recomputed aggregate this session)"
+    },
+    "Linear latent (PCA)": {
+      "observed estimate": "acc_mean = 0.4190 (n=198, pooled p2/p3/p4)",
+      "status": "DESCRIPTIVE, consistent with null -- near or below chance (0.5); no permutation test recorded",
+      "source": "omission/outputs/classification/fig04_diagnostics/manifold_search_results.csv"
+    },
+    "Nonlinear latent (UMAP / PCA->UMAP)": {
+      "observed estimate": "UMAP acc_mean = 0.4590 (n=198); PCA_UMAP acc_mean = 0.5033 (n=198)",
+      "status": "DESCRIPTIVE, consistent with null -- at or near chance; no permutation test recorded",
+      "source": "omission/outputs/classification/fig04_diagnostics/manifold_search_results.csv"
+    },
+    "excluded_diagnostic_only": {
+      "source": "omission/scripts/compute_fig04_nested_manifold_surface.py",
+      "targets_affected": ["3_Omission_Identity_p2 (n=1 session x area cell)", "2_Sequence_Position (n=1 session x area cell)"],
+      "status": "DIAGNOSTIC_ONLY -- insufficient population coverage",
+      "reason": "Hamm's explicit ruling, 2026-08-26: do not spend further compute rescuing this analysis; n=1 coverage per target means these cells cannot support a population-level claim and must not enter manuscript inference or be used to 'reconcile' anomalies against the (properly powered) Fig04 encoding-matrix or manifold-search results above."
+    }
+  },
+
+  "summary_table": {
+    "columns": ["Y_stim", "Y_position", "Y_context", "Y_expected"],
+    "rows": {
+      "Decoding": {
+        "Y_stim": "acc=0.650, 32/60 raw-sig (27/60 q<.05), CONFIRMED",
+        "Y_position": "acc=0.371 (chance .333), 11/35 raw-sig (7/35 q<.05), CONFIRMED",
+        "Y_context": "grouped-CV acc=0.425 mean (<=chance), 0/11 raw-sig, 0/11 q<.05, CONFIRMED_NULL (ungrouped CV had shown 4/12 q<.05 at acc up to 0.743 -- that was a grouping leakage artifact, now superseded)",
+        "Y_expected": "0/139 survive BH q<.05 (3/139 raw p<.05), CONFIRMED_NULL; historical '7/139' reclassified HISTORICAL_UNREPRODUCED"
+      },
+      "RSA": {
+        "Y_stim": "beta=0.406, q=0.034, CONFIRMED",
+        "Y_position": "beta=0.479, q=0.011, CONFIRMED (dominant term)",
+        "Y_context": "NOT_TESTED (no context term in RSA model family)",
+        "Y_expected": "beta=0.473, q=0.185, CONFIRMED NULL"
+      },
+      "Linear latent": {
+        "Y_stim": "PCA acc=0.807 (n=90), DESCRIPTIVE",
+        "Y_position": "NOT_TESTED",
+        "Y_context": "-",
+        "Y_expected": "PCA acc=0.419 (n=198), DESCRIPTIVE, consistent with null"
+      },
+      "Nonlinear latent": {
+        "Y_stim": "UMAP acc=0.690, PCA->UMAP acc=0.722 (n=90 each), DESCRIPTIVE",
+        "Y_position": "NOT_TESTED",
+        "Y_context": "grouped PCA->UMAP acc=0.4215 mean (n=11), DESCRIPTIVE, consistent with CONFIRMED_NULL",
+        "Y_expected": "UMAP acc=0.459, PCA->UMAP acc=0.503 (n=198 each), DESCRIPTIVE, consistent with null"
+      }
+    },
+    "note": "Y_position's Linear/Nonlinear latent cells are NOT_TESTED (population-level) -- the only coverage for those cells is the excluded n=1 diagnostic-only nested-surface analysis. Y_context's Linear-latent cell is '-' (no PCA-only representation was computed for this decoder, only Direct and PCA->UMAP)."
+  },
+
+  "stale_value_verification": {
+    "checked_values": ["p4 omission identity ~= 0.717", "RSA Position beta = 0.577", "old context accuracy = 0.724"],
+    "method": "targeted grep across omission/artifacts/.lab, omission/outputs/classification, and Fig04-narrative scripts, after excluding ~30 false positives in unrelated legacy per-unit CSVs (coincidental numeric matches, e.g. firing rates) and one confirmed false positive (spk_direct_acc=0.5778940722459849 for an unrelated cell in the already-corrected predictable_vs_random_omission_summary.json)",
+    "findings": [
+      "f04-predictable-vs-random-context-receipt-20260824.json (balanced_accuracy=0.7244) -- FOUND, now marked superseded/invalid_for_inference in this same edit pass.",
+      "f04-f07-rsa-multimodal-fusion-receipt-20260824.json (beta=0.5772) -- FOUND, now marked superseded/invalid_for_inference in this same edit pass.",
+      "omission/outputs/classification/fig04_rsa_regression_receipt.json (beta_mean=0.577157) -- FOUND. Already carries STATUS=INVALID_TIMING_DO_NOT_USE from the 2026-08-25 remediation, so it is correctly labeled, but its numbers are stale relative to the corrected fig04_rsa_model_regression.csv and it was never regenerated -- see the RSA known_discrepancy note above."
+    ],
+    "outstanding": "No other currently-live (non-superseded, non-quarantined) Fig04 artifact was found citing the three stale values as current."
+  },
+
+  "known_issues": [
+    "Y_omit '7/139' historical count: RECLASSIFIED HISTORICAL_UNREPRODUCED (2026-08-26, Hamm's ruling) -- see Y_expected.Decoding.known_discrepancy. Current authoritative evidence is 3/139 raw p<.05, 0/139 BH q<.05.",
+    "fig04_rsa_regression_receipt.json is quarantined and stale relative to its own corrected CSV; per Hamm's explicit 2026-08-26 instruction, it is NOT being repaired -- it remains as immutable historical evidence of what was previously believed, superseded by this receipt and the corrected fig04_rsa_model_regression.csv.",
+    "RESOLVED 2026-08-26: the ungrouped-StratifiedKFold exchangeability risk in the context decoder was investigated and found to be load-bearing -- see Y_context.Decoding.grouped_vs_ungrouped_comparison. The prior 4/12-significant ungrouped result does not survive cycle-grouped CV.",
+    "compute_multimodal_manifold_battery.py rerun (post timing-fix) was never completed (killed for resource contention) -- AUC=0.867 remains unaudited and is excluded from this receipt entirely, not cited anywhere above."
+  ],
+
+  "headline": "SPK population activity represents physical stimulus identity (Y_stim) and sequence position (Y_position), each confirmed by at least two independent methods (leakage-safe decoding plus RSA and/or descriptive manifold separation) with N>=2 independent subjects per area. Omission predictability context (Y_context) was INITIALLY found significant under an ungrouped-CV decoder, but the 2026-08-26 cycle-grouped-CV gate collapsed this effect entirely (accuracy falls to or below chance, 0/11 cells significant) -- the ungrouped result is now attributed to within-cycle leakage, not genuine context representation, and Y_context is CONFIRMED_NULL. Expected stimulus identity during omission (Y_expected) is likewise a robust, FDR-corrected null across two independent methods (decoding, RSA), with descriptive manifold results consistent with that null. The concise conceptual statement is now: during omission, SPK population activity carries physical-identity and sequence-position information, but not detectably the predictability context of the omission or the expected omitted stimulus identity. This is a corrected-timing, canonical-timing-only, cycle-grouped-CV result set; the 2026-08-25 timing defect, the 2026-08-26 CV-grouping defect, and their remediations are documented in omission/tests/test_sequence_timing_geometry.py (kept permanently) and the two superseded .lab nodes referenced above."
+}
