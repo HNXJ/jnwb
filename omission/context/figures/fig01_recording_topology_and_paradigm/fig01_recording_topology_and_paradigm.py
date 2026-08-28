@@ -14,8 +14,8 @@ PANELS
     A = artifacts/madelane.png, placed at a FIXED width; height follows from the image's own
         aspect ratio (relative). Title + panel label "a" are native text, not baked into the
         image.
-    B = artifacts/dbc128.png (same relative-height-from-fixed-width placement) + native
-        recording/behavioral fact text (see PANEL_B_FACTS).
+    B = artifacts/dbc128.png ONLY -- probe schematic, same fixed height as panel A, centered
+        in its own column (2026-08-21: fact text and species icon removed).
     C = the three block-type grids (AAAB/BBBA/RRRR), as three columns, built by placing
         grating45.svg/grating135.svg repeatedly on a FIXED cell grid (CELL_W/ROW_H/ICON_R are
         all fixed constants; column and row positions are RELATIVE offsets from those
@@ -66,13 +66,6 @@ TITLE_PT = 11.0
 PANEL_A_W = 300.0         # fixed; panel A's height follows from madelane.png's own aspect --
                           # tuned once (250->300) so total canvas height lands near the 6:5
                           # target (390pt at 468pt wide) without solving for it
-FACT_LINE_H = 7.5         # was 9.5 -- shrunk with the font sizes below (2026-07-31, user:
-                          # "reduce whitespace... reduce the font size")
-FACT_FONT_PT = 6.0        # was FONT_PT-1.5 (7.0)
-FACT_HEADER_PT = 6.5      # was 7.5
-PROBE_TEXT_GAP = 2.0      # was 6.0 -- gap between the probe image and its fact text, shrunk to
-                          # bring the text leftward, closer to the image
-MACAQUE_ICON_W = 26.0     # fixed width of the species icon in panel B's bottom-right corner
 
 ICON_R = 12.5             # fixed on-page icon radius -- bumped from 10.5 (2026-07-31, user:
                           # "reduce whitespace"): icons were much smaller than their grid
@@ -297,57 +290,6 @@ def label(x, y, txt, size=13):
             f'font-size="{size}" font-weight="bold" fill="#000">{txt}</text>')
 
 
-def render_fact_groups(x0: float, y0: float, groups: list[tuple[str, list[str]]],
-                       avail_w: float, header_font: float = FACT_HEADER_PT,
-                       detail_font: float = FACT_FONT_PT, line_h: float = FACT_LINE_H,
-                       group_gap: float = 1.5) -> tuple[str, float]:
-    """Bold section header, then its plain detail lines slightly indented -- compact grouped
-    layout requested by the user 2026-07-31, replacing one flat wrapped list."""
-    parts = []
-    y = y0
-    for gi, (header, lines) in enumerate(groups):
-        if gi > 0:
-            y += group_gap
-        parts.append(f'<text x="{x0:.2f}" y="{y:.2f}" font-family="{FONT_FAMILY}" '
-                    f'font-size="{header_font}" font-weight="bold" fill="#000">{header}</text>')
-        y += line_h
-        for raw in lines:
-            for ln in wrap_text(raw, avail_w - 4.0, detail_font):
-                parts.append(f'<text x="{x0 + 4:.2f}" y="{y:.2f}" font-family="{FONT_FAMILY}" '
-                            f'font-size="{detail_font}" fill="#222">{ln}</text>')
-                y += line_h
-    return "\n".join(parts), y - y0
-
-
-def wrap_text(txt: str, avail_w: float, font_pt: float, avg_char_w_em: float = 0.52) -> list[str]:
-    max_chars = max(8, int(avail_w / (font_pt * avg_char_w_em)))
-    words = txt.split(" ")
-    lines: list[str] = []
-    cur = ""
-    for w in words:
-        cand = f"{cur} {w}".strip()
-        if len(cand) <= max_chars or not cur:
-            cur = cand
-        else:
-            lines.append(cur)
-            cur = w
-    if cur:
-        lines.append(cur)
-    return lines
-
-
-# Panel B facts, dictated directly by the user 2026-07-31 (replaces the earlier NWB/draft-
-# sourced version below) -- grouped under four bold headers rather than one flat list, for
-# compactness against the narrower text column beside the now-full-height probe image.
-PANEL_B_FACTS = [
-    ("Probe:", ["DiagnosticBioChips (DBC)", "128 channel arrays",
-               "ONE (40µm spacing)", "TWO (25µm spacing)"]),
-    ("Recording hardware:", ["Intan-RHD", "30 kHz sampling rate"]),
-    ("Behavioral control:", ["Monkeylogic 2 (NIMH)", "EyelinkSR eye tracker"]),
-    ("Screen:", ["VPXX projector", "1080P 120Hz"]),
-]
-
-
 def build():
     a_w, a_h = png_size("madelane.png")
     b_w, b_h = png_size("dbc128.png")
@@ -377,32 +319,23 @@ def build():
                 f'<image href="{png_data_uri("madelane.png")}" x="0" y="{y:.3f}" '
                 f'width="{PANEL_A_W:.3f}" height="{height_A:.3f}"/>\n</g>')
 
-    # --- Panel B: probe schematic at FULL panel height, fact text beside it (not below) -------
-    # User, 2026-07-31: "the probe is too small... make it same height as panel a and instead
-    # fit the text in between so whitespace gets reduced." Previously the probe was shrunk
-    # short of height_A to leave room for fact text stacked below it -- now the probe fills the
-    # full height_A (matching panel A exactly, no separate alignment fudge needed), and the
-    # fact text goes in whatever width is left over BESIDE it, not below.
+    # --- Panel B: probe schematic ONLY -- no fact text, no species icon ----------------------
+    # 2026-08-21, Hamm: "remove those text and only keep the probe schematic image ; adjust
+    # panels to fit in and reduce whitespace without changing the context and aspect of panels
+    # a and c." Panel A's own width/aspect (PANEL_A_W, height_A) is untouched, so the probe
+    # still renders at height_A (unchanged size/aspect, no distortion) -- with the fact text
+    # and species icon gone, the leftover column width (x0_B..CANVAS_W) has nothing else to
+    # fill it, so the probe is CENTERED in that column rather than left-anchored against panel
+    # A, turning one large asymmetric blank block into balanced margins on both sides.
     x0_B = PANEL_A_W + MARGIN_GAP
     width_B = CANVAS_W - x0_B
     probe_h = height_A
     probe_w = probe_h * (b_w / b_h)
-    text_x0 = x0_B + probe_w + PROBE_TEXT_GAP
-    avail_w = CANVAS_W - text_x0 - 2.0
-    facts_svg, facts_h = render_fact_groups(text_x0, y + FACT_LINE_H, PANEL_B_FACTS, avail_w)
+    probe_x = x0_B + (width_B - probe_w) / 2.0
     parts.append(f'{label(x0_B - 2, PANEL_LETTER_Y, "b", size=10)}')
-    parts.append(f'<g id="panel-b-probe-and-hardware" inkscape:label="b. probe and recording hardware">\n'
-                f'<image href="{png_data_uri("dbc128.png")}" x="{x0_B:.3f}" y="{y:.3f}" '
-                f'width="{probe_w:.3f}" height="{probe_h:.3f}"/>\n{facts_svg}')
-    # Small species icon, bottom-right of panel B -- user, 2026-07-31.
-    mac_w0, mac_h0 = png_size("macaque.png")
-    mac_w = MACAQUE_ICON_W
-    mac_h = mac_w * (mac_h0 / mac_w0)
-    mac_x = CANVAS_W - mac_w - 2.0
-    mac_y = y + height_A - mac_h - 2.0
-    parts.append(f'<image href="{png_data_uri("macaque.png")}" x="{mac_x:.3f}" y="{mac_y:.3f}" '
-                f'width="{mac_w:.3f}" height="{mac_h:.3f}"/>')
-    parts.append('</g>')
+    parts.append(f'<g id="panel-b-probe" inkscape:label="b. probe schematic">\n'
+                f'<image href="{png_data_uri("dbc128.png")}" x="{probe_x:.3f}" y="{y:.3f}" '
+                f'width="{probe_w:.3f}" height="{probe_h:.3f}"/>\n</g>')
     y += height_A + MARGIN_GAP
 
     # --- Panel C: the three block-type grids, as three columns, fixed cell grid --------------
@@ -422,14 +355,13 @@ def build():
     out = os.path.join(OUT_DIR, "fig01.svg")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(svg)
-    n_fact_lines = facts_svg.count("<text")
-    return out, canvas_h, n_fact_lines
+    return out, canvas_h
 
 
 def main():
-    out, h, n_wrapped = build()
+    out, h = build()
     print(f"-> {os.path.basename(out)}  canvas {CANVAS_W:.0f} x {h:.0f} pt "
-         f"(aspect {CANVAS_W/h:.4f}), {n_wrapped} fact lines")
+         f"(aspect {CANVAS_W/h:.4f})")
 
     receipt = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
@@ -446,7 +378,6 @@ def main():
         "fixed_constants_pt": {"canvas_w": CANVAS_W, "canvas_h_target": CANVAS_H,
                                "panel_a_w": PANEL_A_W, "margin_gap": MARGIN_GAP,
                                "icon_r": ICON_R, "col_gap": COL_GAP},
-        "panel_b_facts": PANEL_B_FACTS,
         "layout": {"total_height_pt": round(h, 2), "aspect_w_over_h": round(CANVAS_W / h, 4)},
         "note": "2026-07-31: rewritten to fixed+relative coordination (user request) after the "
                 "two prior approaches this same day (aspect-equation solve, then artifact-"

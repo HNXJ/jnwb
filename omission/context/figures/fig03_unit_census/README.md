@@ -1,5 +1,18 @@
 # Figure 3 — unit census: presence, functionality, and RXRR template traces
 
+> [!IMPORTANT]
+> **FREEZE STATUS: FREEZE LEVEL 1 (FREEZE L1) — PERSONALLY AUTHORIZED (2026-08-20)**
+> Figure 03 is frozen under Level 1 (L1) freeze. All core panel designs, definitions, and code in `fig03_unit_census.py` are locked:
+> - **Panel A**: 8-way functional composition by area (100%-stacked).
+> - **Panel B**: Two side-by-side prevalence bars per area ($\text{S}^+/\text{S}^{++}$ % vs. $\text{O}^+/\text{O}^{++}$ % with Clopper-Pearson 95% CIs).
+> - **Panel C**: $\text{S}^+/\text{S}^{++}$ grand average trace across sequence conditions.
+> - **Panel D**: $\text{S}^-/\text{S}^{--}$ grand average trace across sequence conditions.
+> - **Panel E**: Combined $\text{O}^+/\text{O}^{++}$ grand average trace (stable units, unsmoothed SEM ribbon, no trial subsampling).
+> - **Panel F**: Ground-truth $\text{O}^{++}$ template-correlation trace ($N=52$, V4/TEO/FEF/PFC).
+> - **Assembled Assets**: `fig03.svg` and `fig03.png`.
+> 
+> *Do not modify Figure 03 panels, estimators, or classification contracts without explicit authorization.*
+
 **This file previously stated the figure was synthetic and uncitable.** That was true of an
 earlier staged asset (`svg/UNUSABLE_synthetic_census_2026-07-27.png`, hardcoded literals, no
 data read — see History below) and is no longer true: `fig03_unit_census.py` computes every

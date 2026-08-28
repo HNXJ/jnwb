@@ -362,8 +362,16 @@ def contingency(table, figure, panel, question, unit, family, rows=None, cols=No
         return Result(figure, panel, question, "Fisher exact", "odds ratio", float(odds), "",
                       n, unit, "odds ratio", float(odds), float(p), family, note=note,
                       extra={"table": t.tolist(), "rows": rows, "cols": cols})
-    chi2, p, dof, exp = sst.chi2_contingency(t)
-    mn = min(t.shape)
+    # Drop all-zero rows and columns to prevent scipy zero-expected frequency error
+    valid_r = t.sum(axis=1) > 0
+    valid_c = t.sum(axis=0) > 0
+    t_clean = t[valid_r][:, valid_c]
+    if t_clean.shape[0] < 2 or t_clean.shape[1] < 2:
+        return Result(figure, panel, question, "chi-square of independence", "chi2", float(0.0),
+                      "0", n, unit, "Cramer's V", float(0.0), float(1.0), family, note=note,
+                      extra={"min_expected": float(0.0), "table": t.tolist(), "rows": rows, "cols": cols})
+    chi2, p, dof, exp = sst.chi2_contingency(t_clean)
+    mn = min(t_clean.shape)
     return Result(figure, panel, question, "chi-square of independence", "chi2", float(chi2),
                   f"{dof}", n, unit, "Cramer's V",
                   float(np.sqrt(chi2 / (n * (mn - 1)))) if n and mn > 1 else np.nan,

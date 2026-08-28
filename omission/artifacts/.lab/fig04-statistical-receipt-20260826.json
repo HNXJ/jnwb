@@ -3,9 +3,9 @@
   "id": "fig04-statistical-receipt-20260826",
   "kind": "evidence",
   "title": "FIG04_STATISTICAL_RECEIPT -- authoritative, corrected-timing seal",
-  "date": "2026-08-26",
+  "date": "2026-08-27",
   "status": "confirmed",
-  "status_note": "Individual estimand statuses vary -- see per-estimand 'status' fields below. All four estimands now have a settled status: Y_stim CONFIRMED, Y_position CONFIRMED (passed a 2026-08-26 adversarial cycle-grouping verification against the same leakage class that overturned Y_context -- see Y_position.Decoding.adversarial_grouping_verification; no rerun was needed, its CV was already correctly grouped), Y_context CONFIRMED_NULL, Y_expected CONFIRMED_NULL. Fig04 panel regeneration from this evidence has not yet occurred.",
+  "status_note": "Individual estimand statuses vary -- see per-estimand 'status' fields below. All four estimands now have a settled status: Y_stim CONFIRMED, Y_position CONFIRMED (passed a 2026-08-26 adversarial cycle-grouping verification against the same leakage class that overturned Y_context -- see Y_position.Decoding.adversarial_grouping_verification; no rerun was needed, its CV was already correctly grouped), Y_context CONFIRMED_NULL, Y_expected CONFIRMED_NULL. Fig04 panel regeneration from this evidence has not yet occurred. | 2026-08-27: Y_omission (Gate 1) added as the fifth SPK estimand -- SUPPORTED.",
   "manuscript_language_note": "Per Hamm, 2026-08-26: internal status labels like CONFIRMED_NULL are fine as terminal analysis states but should not be read as proof of a zero effect. Manuscript prose for Y_context and Y_expected should read 'no detectable [predictability-context / expected-identity] information under cycle-grouped held-out decoding' rather than a stronger absence-of-effect claim.",
   "supersedes": [
     "f04-predictable-vs-random-context-receipt-20260824",
@@ -13,21 +13,45 @@
   ],
   "scope": "N=4 recording sessions (3 subjects: C31o, V182o, V198o) across a multi-area laminar macaque corpus, sequential visual omission paradigm. All windows derive from omission.jnwb_ext.sequence_layout.EPOCH_ONSETS_MS (canonical timing; see omission/tests/test_sequence_timing_geometry.py, permanent regression guard).",
   "rrr_n_adequacy_note": "Per Hamm's RRR framing: N=3 subjects, S=21-22 sessions depending on pipeline, each area covered by >=2 of 3 subjects for every reported cell. This satisfies the primate-electrophysiology N>=2-independent-samples adequacy bar; reported as coverage, not as a limitation.",
-
   "estimand_schema": [
-    "target", "biological N", "sessions", "subjects", "areas", "held-out unit", "CV/grouping",
-    "metric", "chance", "observed estimate", "effect above chance", "permutation count",
-    "exact finite-permutation p", "correction family", "BH q", "confidence interval",
-    "significant prevalence", "Clopper-Pearson interval", "session/subject consistency",
-    "timing source", "status"
+    "target",
+    "biological N",
+    "sessions",
+    "subjects",
+    "areas",
+    "held-out unit",
+    "CV/grouping",
+    "metric",
+    "chance",
+    "observed estimate",
+    "effect above chance",
+    "permutation count",
+    "exact finite-permutation p",
+    "correction family",
+    "BH q",
+    "confidence interval",
+    "significant prevalence",
+    "Clopper-Pearson interval",
+    "session/subject consistency",
+    "timing source",
+    "status"
   ],
-
   "Y_stim": {
     "definition": "Physical stimulus identity (A vs B) at the presented slot p1 (positive control).",
     "Decoding": {
       "target": "Y_stim",
       "biological N": "3 subjects, 21 sessions, 60 session x area cells",
-      "sessions": 21, "subjects": 3, "areas": ["FEF","PFC","TEO","V1","V2","V3","V4"],
+      "sessions": 21,
+      "subjects": 3,
+      "areas": [
+        "FEF",
+        "PFC",
+        "TEO",
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ],
       "held-out unit": "temporal cycle (block)",
       "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe)",
       "metric": "balanced accuracy (loco)",
@@ -47,14 +71,26 @@
       "source": "omission/outputs/classification/fig04_encoding_matrix_cells.csv"
     },
     "RSA": {
-      "target": "Y_stim", "biological N": "3 subjects, 3 sessions, 7 session x area cells",
-      "sessions": 3, "subjects": 3, "areas": ["V1","MT","ALL"],
+      "target": "Y_stim",
+      "biological N": "3 subjects, 3 sessions, 7 session x area cells",
+      "sessions": 3,
+      "subjects": 3,
+      "areas": [
+        "V1",
+        "MT",
+        "ALL"
+      ],
       "held-out unit": "n/a (RDM regression, not held-out prediction)",
-      "CV/grouping": "n/a", "metric": "RSA regression beta (Stimulus_Identity term)",
-      "chance": 0.0, "observed estimate": "beta_mean = 0.4062", "effect above chance": "+0.4062",
-      "permutation count": 999, "exact finite-permutation p": "p_perm_mean = 0.01686, floor = 1/1000 = 0.001",
+      "CV/grouping": "n/a",
+      "metric": "RSA regression beta (Stimulus_Identity term)",
+      "chance": 0.0,
+      "observed estimate": "beta_mean = 0.4062",
+      "effect above chance": "+0.4062",
+      "permutation count": 999,
+      "exact finite-permutation p": "p_perm_mean = 0.01686, floor = 1/1000 = 0.001",
       "correction family": "BH-FDR across the 4 model terms",
-      "BH q": 0.0337, "confidence interval": "not reported by this pipeline",
+      "BH q": 0.0337,
+      "confidence interval": "not reported by this pipeline",
       "significant prevalence": "n/a (single pooled regression per cell, not a prevalence estimand)",
       "Clopper-Pearson interval": "n/a",
       "session/subject consistency": "positive beta in 7/7 contributing session x area cells (0.28-0.66 range)",
@@ -65,7 +101,8 @@
     },
     "Linear latent (PCA)": {
       "observed estimate": "acc_mean = 0.8067 (n=90 session x area x d cells)",
-      "auc_mean": 0.8384, "status": "DESCRIPTIVE -- no permutation test recorded in this pipeline; consistent with Decoding and RSA",
+      "auc_mean": 0.8384,
+      "status": "DESCRIPTIVE -- no permutation test recorded in this pipeline; consistent with Decoding and RSA",
       "source": "omission/outputs/classification/fig04_diagnostics/manifold_search_results.csv"
     },
     "Nonlinear latent (UMAP / PCA->UMAP)": {
@@ -74,18 +111,30 @@
       "source": "omission/outputs/classification/fig04_diagnostics/manifold_search_results.csv"
     }
   },
-
   "Y_position": {
     "definition": "Sequence position (3-way: which of p2/p3/p4 slot) decoded from population activity.",
     "Decoding": {
-      "target": "Y_pos", "biological N": "3 subjects, 12 sessions, 35 session x area cells",
-      "sessions": 12, "subjects": 3, "areas": ["FEF","PFC","TEO","V1","V2","V3","V4"],
+      "target": "Y_pos",
+      "biological N": "3 subjects, 12 sessions, 35 session x area cells",
+      "sessions": 12,
+      "subjects": 3,
+      "areas": [
+        "FEF",
+        "PFC",
+        "TEO",
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ],
       "held-out unit": "temporal cycle (block)",
       "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe)",
-      "metric": "balanced accuracy (loco, 3-way)", "chance": 0.333,
+      "metric": "balanced accuracy (loco, 3-way)",
+      "chance": 0.333,
       "observed estimate": "mean 0.3709 (sd 0.0647) across 35 cells",
       "effect above chance": "+0.038",
-      "permutation count": 100, "exact finite-permutation p": "floor = 1/101 = 0.0099",
+      "permutation count": 100,
+      "exact finite-permutation p": "floor = 1/101 = 0.0099",
       "correction family": "BH-FDR across the 35 cells",
       "BH q": "7/35 cells q<0.05",
       "confidence interval": "not pooled at point-estimate level",
@@ -104,33 +153,51 @@
       "source": "omission/outputs/classification/fig04_encoding_matrix_cells.csv"
     },
     "RSA": {
-      "target": "Y_position", "biological N": "3 subjects, 3 sessions, 7 session x area cells",
-      "metric": "RSA regression beta (Position term)", "chance": 0.0,
-      "observed estimate": "beta_mean = 0.4789", "effect above chance": "+0.4789",
-      "permutation count": 999, "exact finite-permutation p": "p_perm_mean = 0.002714, floor = 0.001",
-      "correction family": "BH-FDR across the 4 model terms", "BH q": 0.01086,
+      "target": "Y_position",
+      "biological N": "3 subjects, 3 sessions, 7 session x area cells",
+      "metric": "RSA regression beta (Position term)",
+      "chance": 0.0,
+      "observed estimate": "beta_mean = 0.4789",
+      "effect above chance": "+0.4789",
+      "permutation count": 999,
+      "exact finite-permutation p": "p_perm_mean = 0.002714, floor = 0.001",
+      "correction family": "BH-FDR across the 4 model terms",
+      "BH q": 0.01086,
       "confidence interval": "not reported by this pipeline",
-      "significant prevalence": "n/a", "Clopper-Pearson interval": "n/a",
+      "significant prevalence": "n/a",
+      "Clopper-Pearson interval": "n/a",
       "session/subject consistency": "positive beta in 7/7 contributing cells (0.44-0.66 range), dominant term in every cell",
       "timing source": "canonical EPOCH_ONSETS_MS",
       "status": "CONFIRMED -- strongest, most consistent effect in the entire RSA model family, both pre- and post-timing-fix",
       "source": "omission/outputs/classification/fig04_rsa_model_regression.csv (recomputed aggregate this session)"
     },
-    "Linear latent (PCA)": {"status": "NOT_TESTED -- no Sequence_Position target exists in manifold_search_results.csv; only coverage is the n=1 diagnostic-only nested-surface analysis (excluded, see below)."},
-    "Nonlinear latent (UMAP / PCA->UMAP)": {"status": "NOT_TESTED -- same as Linear latent row."}
+    "Linear latent (PCA)": {
+      "status": "NOT_TESTED -- no Sequence_Position target exists in manifold_search_results.csv; only coverage is the n=1 diagnostic-only nested-surface analysis (excluded, see below)."
+    },
+    "Nonlinear latent (UMAP / PCA->UMAP)": {
+      "status": "NOT_TESTED -- same as Linear latent row."
+    }
   },
-
   "Y_context": {
     "definition": "Predictability context (Predictable/Structured stream vs Random stream) during the omission window -- X|Structured vs X|Random, not identity.",
     "Decoding": {
-      "target": "Y_context", "biological N": "3 subjects, 4 sessions, 11 slot x area cells (1 of 12 cells dropped: <2 valid grouped folds)",
-      "sessions": 4, "subjects": 3, "areas": ["V1","MT","ALL"],
+      "target": "Y_context",
+      "biological N": "3 subjects, 4 sessions, 11 slot x area cells (1 of 12 cells dropped: <2 valid grouped folds)",
+      "sessions": 4,
+      "subjects": 3,
+      "areas": [
+        "V1",
+        "MT",
+        "ALL"
+      ],
       "held-out unit": "cycle (temporal block, jnwb.statistics.detect_trial_cycles)",
       "CV/grouping": "leave-one-cycle-out (grouped, leakage-safe) -- replaced ungrouped StratifiedKFold on 2026-08-26 per Hamm's explicit gate. Same features/target/metric/permutation scheme held fixed; only the CV split changed.",
-      "metric": "balanced accuracy (direct SPK features)", "chance": 0.5,
+      "metric": "balanced accuracy (direct SPK features)",
+      "chance": 0.5,
       "observed estimate": "grouped: mean 0.4247 across 11 cells (range 0.357-0.456), i.e. AT OR BELOW CHANCE",
       "effect above chance": "grouped: -0.075 mean (negative -- no cell exceeds chance)",
-      "permutation count": 999, "exact finite-permutation p": "grouped: all 11 cells p>0.68 (floor = 1/1000 = 0.001, not approached)",
+      "permutation count": 999,
+      "exact finite-permutation p": "grouped: all 11 cells p>0.68 (floor = 1/1000 = 0.001, not approached)",
       "correction family": "BH-FDR across the 11 grouped cells",
       "BH q": "0/11 cells q<0.05 (min q = 0.998)",
       "confidence interval": "not pooled at point-estimate level",
@@ -148,27 +215,42 @@
       },
       "source": "omission/outputs/classification/predictable_vs_random_omission_results.csv (grouped, current); omission/outputs/classification/superseded_20260826_ungrouped_cv/predictable_vs_random_omission_results.UNGROUPED_CV.csv (ungrouped, archived/superseded)"
     },
-    "RSA": {"status": "NOT_TESTED -- the RSA model family (Position/Stimulus_Identity/Expected_Identity/Sensory_Presence) does not include a Predictable-vs-Random context term; RSA does not currently address this estimand."},
-    "Linear latent (PCA)": {"status": "NOT_TESTED -- no PCA-only representation was computed for the context decoder; only Direct and PCA->UMAP representations exist."},
+    "RSA": {
+      "status": "NOT_TESTED -- the RSA model family (Position/Stimulus_Identity/Expected_Identity/Sensory_Presence) does not include a Predictable-vs-Random context term; RSA does not currently address this estimand."
+    },
+    "Linear latent (PCA)": {
+      "status": "NOT_TESTED -- no PCA-only representation was computed for the context decoder; only Direct and PCA->UMAP representations exist."
+    },
     "Nonlinear latent (UMAP / PCA->UMAP)": {
       "observed estimate": "grouped PCA->UMAP acc: mean 0.4215 across 11 cells (range 0.315-0.501), also at or below chance",
       "status": "DESCRIPTIVE, consistent with the CONFIRMED_NULL Decoding verdict above -- no independent permutation test computed for this representation, but it collapses to chance under the same grouped CV",
       "source": "omission/outputs/classification/predictable_vs_random_omission_results.csv"
     }
   },
-
   "Y_expected": {
     "definition": "Expected/omitted stimulus identity content (X|A vs X|B) during the omission window itself -- the specific-content estimand, distinct from Y_context.",
     "Decoding": {
-      "target": "Y_omit", "biological N": "3 subjects, 21 sessions, 139 successful session x area x position cells (6 additional cells: no_valid_folds)",
-      "sessions": 21, "subjects": 3, "areas": ["FEF","PFC","TEO","V1","V2","V3","V4"],
+      "target": "Y_omit",
+      "biological N": "3 subjects, 21 sessions, 139 successful session x area x position cells (6 additional cells: no_valid_folds)",
+      "sessions": 21,
+      "subjects": 3,
+      "areas": [
+        "FEF",
+        "PFC",
+        "TEO",
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ],
       "held-out unit": "temporal cycle (block)",
       "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe)",
       "metric": "cross-entropy (multinomial LogisticRegression) -- NOTE: accuracy_loco_balanced and auc_loco are structurally NaN for all 139 successful Y_omit cells in the live CSV; only cross_entropy and the permutation p-value are populated for this target. Do not report a fabricated accuracy/AUC point estimate.",
       "chance": "n/a for cross-entropy; permutation null is empirical",
       "observed estimate": "cross_entropy mean = 3.465 (sd 1.543); permutation-based null comparison only",
       "effect above chance": "near-null (see prevalence below)",
-      "permutation count": 100, "exact finite-permutation p": "floor = 1/101 = 0.0099",
+      "permutation count": 100,
+      "exact finite-permutation p": "floor = 1/101 = 0.0099",
       "correction family": "BH-FDR across the 139 cells",
       "BH q": "0/139 cells q<0.05",
       "confidence interval": "not applicable (cross-entropy, no accuracy CI)",
@@ -181,13 +263,19 @@
       "source": "omission/outputs/classification/fig04_encoding_matrix_cells.csv"
     },
     "RSA": {
-      "target": "Y_expected", "biological N": "3 subjects, 3 sessions, 7 session x area cells",
-      "metric": "RSA regression beta (Expected_Identity term)", "chance": 0.0,
-      "observed estimate": "beta_mean = 0.4729", "effect above chance": "+0.4729 (not significant after correction)",
-      "permutation count": 999, "exact finite-permutation p": "p_perm_mean = 0.1387",
-      "correction family": "BH-FDR across the 4 model terms", "BH q": 0.18495,
+      "target": "Y_expected",
+      "biological N": "3 subjects, 3 sessions, 7 session x area cells",
+      "metric": "RSA regression beta (Expected_Identity term)",
+      "chance": 0.0,
+      "observed estimate": "beta_mean = 0.4729",
+      "effect above chance": "+0.4729 (not significant after correction)",
+      "permutation count": 999,
+      "exact finite-permutation p": "p_perm_mean = 0.1387",
+      "correction family": "BH-FDR across the 4 model terms",
+      "BH q": 0.18495,
       "confidence interval": "not reported by this pipeline",
-      "significant prevalence": "n/a", "Clopper-Pearson interval": "n/a",
+      "significant prevalence": "n/a",
+      "Clopper-Pearson interval": "n/a",
       "session/subject consistency": "beta positive in most cells but not FDR-significant in any",
       "timing source": "canonical EPOCH_ONSETS_MS",
       "status": "CONFIRMED NULL -- consistent with the Decoding null above; two independent methods converge on no detectable expected-identity representation",
@@ -205,14 +293,21 @@
     },
     "excluded_diagnostic_only": {
       "source": "omission/scripts/compute_fig04_nested_manifold_surface.py",
-      "targets_affected": ["3_Omission_Identity_p2 (n=1 session x area cell)", "2_Sequence_Position (n=1 session x area cell)"],
+      "targets_affected": [
+        "3_Omission_Identity_p2 (n=1 session x area cell)",
+        "2_Sequence_Position (n=1 session x area cell)"
+      ],
       "status": "DIAGNOSTIC_ONLY -- insufficient population coverage",
       "reason": "Hamm's explicit ruling, 2026-08-26: do not spend further compute rescuing this analysis; n=1 coverage per target means these cells cannot support a population-level claim and must not enter manuscript inference or be used to 'reconcile' anomalies against the (properly powered) Fig04 encoding-matrix or manifold-search results above."
     }
   },
-
   "summary_table": {
-    "columns": ["Y_stim", "Y_position", "Y_context", "Y_expected"],
+    "columns": [
+      "Y_stim",
+      "Y_position",
+      "Y_context",
+      "Y_expected"
+    ],
     "rows": {
       "Decoding": {
         "Y_stim": "acc=0.650, 32/60 raw-sig (27/60 q<.05), CONFIRMED",
@@ -239,11 +334,17 @@
         "Y_expected": "UMAP acc=0.459, PCA->UMAP acc=0.503 (n=198 each), DESCRIPTIVE, consistent with null"
       }
     },
-    "note": "Y_position's Linear/Nonlinear latent cells are NOT_TESTED (population-level) -- the only coverage for those cells is the excluded n=1 diagnostic-only nested-surface analysis. Y_context's Linear-latent cell is '-' (no PCA-only representation was computed for this decoder, only Direct and PCA->UMAP)."
+    "note": "Y_position's Linear/Nonlinear latent cells are NOT_TESTED (population-level) -- the only coverage for those cells is the excluded n=1 diagnostic-only nested-surface analysis. Y_context's Linear-latent cell is '-' (no PCA-only representation was computed for this decoder, only Direct and PCA->UMAP).",
+    "Y_omission": {
+      "Decoding": "SUPPORTED (p2/p3/p4/pooled all positive, 59-71% FDR-sig prevalence)"
+    }
   },
-
   "stale_value_verification": {
-    "checked_values": ["p4 omission identity ~= 0.717", "RSA Position beta = 0.577", "old context accuracy = 0.724"],
+    "checked_values": [
+      "p4 omission identity ~= 0.717",
+      "RSA Position beta = 0.577",
+      "old context accuracy = 0.724"
+    ],
     "method": "targeted grep across omission/artifacts/.lab, omission/outputs/classification, and Fig04-narrative scripts, after excluding ~30 false positives in unrelated legacy per-unit CSVs (coincidental numeric matches, e.g. firing rates) and one confirmed false positive (spk_direct_acc=0.5778940722459849 for an unrelated cell in the already-corrected predictable_vs_random_omission_summary.json)",
     "findings": [
       "f04-predictable-vs-random-context-receipt-20260824.json (balanced_accuracy=0.7244) -- FOUND, now marked superseded/invalid_for_inference in this same edit pass.",
@@ -252,13 +353,55 @@
     ],
     "outstanding": "No other currently-live (non-superseded, non-quarantined) Fig04 artifact was found citing the three stale values as current."
   },
-
   "known_issues": [
     "Y_omit '7/139' historical count: RECLASSIFIED HISTORICAL_UNREPRODUCED (2026-08-26, Hamm's ruling) -- see Y_expected.Decoding.known_discrepancy. Current authoritative evidence is 3/139 raw p<.05, 0/139 BH q<.05.",
     "fig04_rsa_regression_receipt.json is quarantined and stale relative to its own corrected CSV; per Hamm's explicit 2026-08-26 instruction, it is NOT being repaired -- it remains as immutable historical evidence of what was previously believed, superseded by this receipt and the corrected fig04_rsa_model_regression.csv.",
     "RESOLVED 2026-08-26: the ungrouped-StratifiedKFold exchangeability risk in the context decoder was investigated and found to be load-bearing -- see Y_context.Decoding.grouped_vs_ungrouped_comparison. The prior 4/12-significant ungrouped result does not survive cycle-grouped CV.",
     "compute_multimodal_manifold_battery.py rerun (post timing-fix) was never completed (killed for resource contention) -- AUC=0.867 remains unaudited and is excluded from this receipt entirely, not cited anywhere above."
   ],
-
-  "headline": "SPK population activity represents physical stimulus identity (Y_stim) and sequence position (Y_position), each confirmed by at least two independent methods (leakage-safe decoding plus RSA and/or descriptive manifold separation) with N>=2 independent subjects per area. Omission predictability context (Y_context) was INITIALLY found significant under an ungrouped-CV decoder, but the 2026-08-26 cycle-grouped-CV gate collapsed this effect entirely (accuracy falls to or below chance, 0/11 cells significant) -- the ungrouped result is now attributed to within-cycle leakage, not genuine context representation, and Y_context is CONFIRMED_NULL. Expected stimulus identity during omission (Y_expected) is likewise a robust, FDR-corrected null across two independent methods (decoding, RSA), with descriptive manifold results consistent with that null. The concise conceptual statement is now: during omission, SPK population activity carries physical-identity and sequence-position information, but not detectably the predictability context of the omission or the expected omitted stimulus identity. This is a corrected-timing, canonical-timing-only, cycle-grouped-CV result set; the 2026-08-25 timing defect, the 2026-08-26 CV-grouping defect, and their remediations are documented in omission/tests/test_sequence_timing_geometry.py (kept permanently) and the two superseded .lab nodes referenced above."
+  "headline": "SPK population activity represents physical stimulus identity (Y_stim) and sequence position (Y_position), each confirmed by at least two independent methods (leakage-safe decoding plus RSA and/or descriptive manifold separation) with N>=2 independent subjects per area. Omission predictability context (Y_context) was INITIALLY found significant under an ungrouped-CV decoder, but the 2026-08-26 cycle-grouped-CV gate collapsed this effect entirely (accuracy falls to or below chance, 0/11 cells significant) -- the ungrouped result is now attributed to within-cycle leakage, not genuine context representation, and Y_context is CONFIRMED_NULL. Expected stimulus identity during omission (Y_expected) is likewise a robust, FDR-corrected null across two independent methods (decoding, RSA), with descriptive manifold results consistent with that null. The concise conceptual statement is now: during omission, SPK population activity carries physical-identity and sequence-position information, but not detectably the predictability context of the omission or the expected omitted stimulus identity. This is a corrected-timing, canonical-timing-only, cycle-grouped-CV result set; the 2026-08-25 timing defect, the 2026-08-26 CV-grouping defect, and their remediations are documented in omission/tests/test_sequence_timing_geometry.py (kept permanently) and the two superseded .lab nodes referenced above. Y_omission (O vs S, position-matched) is SUPPORTED: population spiking distinguishes omission from stimulus presence at p2/p3/p4 and pooled, in all 3 subjects -- establishing the population-decodability level Fig04 needs, not yet a prediction-error-encoding claim (see caveat in Y_omission.status).",
+  "Y_omission": {
+    "target": "Y_omission",
+    "biological N": "3 subjects, 22 sessions (17 identifiable per single-slot cell, 15 for pooled), 177 session x area x sub-analysis Direct cells (46 p2, 46 p3, 45 p4, 40 pooled_balanced)",
+    "sessions": 17,
+    "subjects": 3,
+    "areas": [
+      "FEF",
+      "PFC",
+      "TEO",
+      "V1",
+      "V2",
+      "V3",
+      "V4"
+    ],
+    "held-out unit": "temporal cycle (block)",
+    "CV/grouping": "leave_one_temporal_cycle_out (grouped, leakage-safe) on the pooled O+S trial set per session x slot (or cross-slot for pooled_balanced); frozen operator from compute_omission_identity_leakage_safe.py, reused not reimplemented (fold-local balancing, group-preserving within-cycle permutation null)",
+    "metric": "balanced accuracy (loco, binary O vs S)",
+    "chance": 0.5,
+    "observed estimate": "p2: mean 0.6855 (sd 0.1868); p3: mean 0.7050 (sd 0.1915); p4: mean 0.7030 (sd 0.1957); pooled_balanced: mean 0.6579 (sd 0.1724)",
+    "effect above chance": "p2 +0.185; p3 +0.205; p4 +0.203; pooled_balanced +0.158",
+    "permutation count": 999,
+    "exact finite-permutation p": "(1+k)/(N_PERM+1); N_PERM up to 999 per cell (parallelized across cores, identical statistics to a serial run -- see performance note)",
+    "correction family": "BH-FDR applied separately within each of the 4 sub-analyses (p2, p3, p4, pooled_balanced), matching how Hamm's spec required each reported separately plus one pooled cell",
+    "BH q": "p2: 29/46 q<0.05; p3: 27/46 q<0.05; p4: 30/45 q<0.05; pooled_balanced: 27/40 q<0.05",
+    "confidence interval": "not pooled at point-estimate level (per-cell only)",
+    "significant prevalence": "p2 raw/FDR: 29/46 (0.630); p3 raw/FDR: 27/46 (0.587); p4 raw: 32/45 (0.711), FDR: 30/45 (0.667); pooled_balanced raw/FDR: 27/40 (0.675)",
+    "Clopper-Pearson interval": "p2: [0.475,0.768]; p3: [0.432,0.730]; p4 raw: [0.557,0.836], FDR: [0.510,0.800]; pooled_balanced: [0.509,0.814]",
+    "session/subject consistency": "all 3 subjects (C31o, V182o, V198o) represented in every one of the 4 sub-analyses; cell count per subject uneven (V182o 116, V198o 38, C31o 23 of 177) reflecting session count per subject, not selective reporting -- see source CSV",
+    "timing source": "canonical EPOCH_ONSETS_MS",
+    "status": "SUPPORTED. Population spiking distinguishes omission (O) from position-matched physically presented stimulus (S) at p2, p3, p4, and in a position-balanced pooled analysis, with strong, consistent effect sizes (mean balanced accuracy 0.66-0.71 vs 0.50 chance) and high FDR-significant prevalence (59-71% of cells) across all 3 subjects. No evidence of POSITION_SPECIFIC restriction -- p2/p3/p4/pooled effect sizes are statistically indistinguishable from one another. Area gradient (strongest in early visual areas V1/V4, weakest/marginal in PFC, e.g. one PFC/508-unit cell at p=0.008-0.054) is consistent with -- and does not rule out -- a sensory-evoked-response confound: O and S differ physically in whether a stimulus was presented, so a positive result at this level establishes population activity distinguishes omission from stimulus presence, NOT prediction-error/expectation encoding specifically (Hamm's pre-registered caveat, stated before this analysis ran). PCA and PCA_UMAP robustness passes (fold-capped, descriptive only, no permutation test) replicate comparable accuracy (PCA mean 0.668, PCA_UMAP mean 0.606 across 137 cells each), i.e. the result is not an artifact of the Direct representation choice. CAVEAT (methodological, not disqualifying): cycle-grouped LOCO fold count varies widely by session (2-25 folds; ~20% of the 177 successful cells have <=4 folds because assign_temporal_cycles found few large temporal gaps in that session's combined O+S trial stream) -- coarser CV granularity than the other four SPK Fig04 targets typically have, though the permutation null uses the identical fold structure as the observed statistic in every cell, so p-values remain valid conditional on that structure; not independently re-verified against an alternative cycle-detection threshold. 71/522 (13.6%) of all session x area x sub-analysis cells were NOT_IDENTIFIABLE (insufficient cycle coverage or class overlap) and excluded rather than forced -- see nuisance table.",
+    "not_identifiable": {
+      "n_cells": 71,
+      "n_total_cells_attempted": 522,
+      "rule": "identifiable requires n_cycles>=2 AND at least 2 cycles containing both O and S trials; else reported NOT_IDENTIFIABLE per-cell rather than fit with weakened matching, per Hamm's explicit instruction"
+    },
+    "performance_note": {
+      "issue": "Initial serial-permutation implementation stalled >5h on a single session (PFC, 508 units) without completing; a second attempt (capping the PCA/PCA_UMAP robustness pass to 6 folds instead of every cycle) still took >50min on a 211-unit/~20-cycle session before being diagnosed further.",
+      "root_cause": "999-permutation full LOCO refit run serially on one core while 24 were idle; per-permutation cost scales with both feature dimensionality (units) and fold count (cycles), and one session (pooled cell) had ~2,052 trials, far more than a typical single-slot cell (~683).",
+      "fix": "Parallelized the independent per-permutation refits across cores (joblib, loky backend, N_JOBS=min(20,cpu_count-2)) in decode_omission_direct -- identical statistics, seeds, operator, and permutation scheme as the serial version; wall-clock only. Verified against the exact stalled case (PFC/508-unit cell) before relaunch: 30 permutations completed in 4.7s parallelized, projecting ~2.6min for 999 (vs unbounded serial stall).",
+      "total_runtime_seconds": 24930.13,
+      "not_yet_done": "The >5h stalled run's code path (serial permutation loop) was never reverted for other scripts; this fix is local to compute_fig04_omission_occurrence.py's decode_omission_direct only."
+    },
+    "source": "omission/outputs/classification/fig04_omission_occurrence_cells.csv, fig04_omission_occurrence_nuisance.csv, fig04_omission_occurrence_receipt.json"
+  }
 }

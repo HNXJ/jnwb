@@ -42,7 +42,7 @@ REPO = os.path.dirname(FIGDIR)
 REPO = os.path.dirname(REPO)
 sys.path.insert(0, FIGDIR)
 from figstyle import (use_house_style, save, AREA_ORDER, AREA_COLORS,  # noqa: E402
-                      BAND_COLORS)
+                      BAND_COLORS, AREA_POOL)
 
 BANDS = ["theta", "alpha", "beta", "low_gamma", "high_gamma"]
 BAND_LABELS = {"theta": "Theta (4-8)", "alpha": "Alpha (8-14)", "beta": "Beta (14-30)",
@@ -57,6 +57,8 @@ Q_ALPHA = 0.05
 
 
 def panel_magnitude(ax, mag):
+    mag = mag.copy()
+    mag["area"] = mag["area"].map(lambda a: AREA_POOL.get(a, a))
     areas = [a for a in AREA_ORDER if a in mag["area"].unique()]
     x = np.arange(len(areas))
     width = 0.15

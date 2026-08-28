@@ -16,7 +16,14 @@ description: >-
 > so quoting it is positive evidence of retrieval rather than a plausible-looking answer.
 
 **Owns:** paths and roots · session I/O · condition and phase codes · unit quality tiers ·
-electrode and channel addressing · table joins.
+electrode and channel addressing · table joins · jnwb API reuse contract.
+
+## Architecture: omission ↔ jnwb contract
+
+* `jnwb` (repo root `jnwb/`): generic, dataset-agnostic neuroscience library (NWB I/O, `jnwb.paths`, `jnwb.addressing`, `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer`, `StatisticalAnalysis`, `jrsa`, `tfr_accumulator`, `permutation`).
+* `omission` (`omission/`): task-specific science, condition crosswalks, response classification, manuscript figures, receipts, and manuscript.
+* **Working Rule**: Before implementing low-level NWB, event, signal, addressing, unit, LFP, TFR, or reusable neuroscience-analysis plumbing inside `omission`, inspect `jnwb` first. Reuse the existing `jnwb` capability when semantically correct.
+* **Boundary Validation**: `pytest tests/test_jnwb_frozen_boundary.py` enforces that `jnwb/` has zero unauthorized dependencies on `omission/`.
 
 ## Resolve paths, never hardcode
 

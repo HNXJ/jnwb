@@ -50,7 +50,9 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))  # .../context/figures/fig03_unit_census -> repo root
+# .../omission/context/figures/fig03_unit_census -> repo root (jnwb/ lives here). One level
+# deeper than pre-2026-08-19: the restructure nested context/figures/ under omission/.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(HERE))))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, REPO_ROOT)
 from figstyle import (AREA_COLORS, AREA_ORDER, CLASS_COLORS, CLASS_ORDER, FULL_TRIAL_WIN,
@@ -67,12 +69,22 @@ from omission.jnwb_ext.unit_classification import EPOCH_ONSETS_MS, GLO_CONDITION
 
 # Paths were hardcoded to the pre-2026-08-08 D:/workspace/omission layout, which no longer
 # exists (data volume moved to D:/nwb + D:/analysis; see jnwb/paths.py and
-# artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json). Resolved via the
-# canonical jnwb.paths dispatch instead of a second hardcoded drive-letter root.
-TABLE = str(oa_paths.outputs_dir("classification", "omission_grand_units.csv"))
-LEGACY_TABLE = str(oa_paths.outputs_dir("classification", "grand_s_and_o_units.csv"))
-LAYER_TABLE = str(oa_paths.outputs_dir("layers", "unit_layers.csv"))
-STABLE_TABLE = str(oa_paths.outputs_dir("classification", "unit_trial_presence.csv"))
+# artifacts/.lab/data-volume-layout-and-tfr-spec-transfer-20260808.json).
+#
+# 2026-08-19: jnwb.paths.outputs_dir()/artifacts_dir() resolve repo-relative to jnwb's OWN
+# REPO_ROOT (jnwb/paths.py's grandparent dir) -- correct for jnwb-generic usage, but the
+# 2026-08-19 jnwb/omission restructure moved omission's actual outputs/artifacts trees one
+# level deeper, to omission/outputs and omission/artifacts. jnwb is frozen (do not edit it to
+# special-case omission's layout) and no omission-side paths override exists yet -- so
+# omission-specific tables are resolved locally against OA_ROOT (this project's own root,
+# 3 levels up from HERE) instead of the (now-wrong-for-this-purpose) jnwb.paths dispatch.
+# jnwb.paths.nwb_dir() below is untouched: it's env/absolute-path resolved, not repo-relative,
+# so it isn't affected by this seam.
+OA_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+TABLE = os.path.join(OA_ROOT, "outputs", "classification", "omission_grand_units.csv")
+LEGACY_TABLE = os.path.join(OA_ROOT, "outputs", "classification", "grand_s_and_o_units.csv")
+LAYER_TABLE = os.path.join(OA_ROOT, "outputs", "layers", "unit_layers.csv")
+STABLE_TABLE = os.path.join(OA_ROOT, "outputs", "classification", "unit_trial_presence.csv")
 # Template-correlation O++ (2026-08-13, direct request Hamm): scripts/archive_oneoff/
 # find_all_oplus_units.py, corpus-wide candidate pool (r>0.40 prefilter + permutation
 # p<=0.05, baked into grand_oplus_units.csv at write time -- see attach_template_corr_
@@ -96,7 +108,7 @@ STABLE_TABLE = str(oa_paths.outputs_dir("classification", "unit_trial_presence.c
 # finding-oplus-area-restriction-causally-validated-20260817.json. omission_class (Q1) is
 # untouched everywhere else in the repo (fig05 GLMM, fig07, fig02 exemplar picker) -- this
 # correction is scoped to fig03 only.
-TC_CANDIDATE_TABLE = str(oa_paths.outputs_dir("classification", "grand_oplus_units.csv"))
+TC_CANDIDATE_TABLE = os.path.join(OA_ROOT, "outputs", "classification", "grand_oplus_units.csv")
 OPLUSPLUS_MIN_CORRELATION = 0.65
 OPLUSPLUS_AREAS = ("V4", "TEO", "FEF", "PFC")
 NWB_DIR = str(oa_paths.nwb_dir())
@@ -247,6 +259,21 @@ def attach_stability(df):
     m["presence3"] = presence3
     m["presence_evaluable"] = stable_evaluable
     return m, int(stab.shape[0]), int(stable_evaluable.sum())
+
+
+def restrict_stable(d, df_stab):
+    """Restrict `d` (any (session, unit_row)-keyed subset of the grand table) to presence-
+    stable units only, via `df_stab`'s own `presence3` column (see attach_stability).
+
+    2026-08-19, Hamm: panels E/F's centroid mean trace + SEM should be computed from stable
+    units only -- excludes 'unstable' (low trial-presence) and 'mua' (multi-unit) rows, which
+    add noise a per-unit-mean-then-SEM centroid otherwise inherits directly. Panels C/D are
+    untouched (frozen final) -- this is scoped to whatever population is passed in, never
+    applied globally.
+    """
+    m = d.merge(df_stab[["session", "unit_row", "presence3"]], on=["session", "unit_row"],
+               how="left")
+    return m[m.presence3 == "stable"].copy()
 
 
 def class8(df):
@@ -527,28 +554,33 @@ AREA_MERGE_MST_FST = {"MST": "MST+FST", "FST": "MST+FST"}
 
 
 def panel_composition8_by_area(df8, screened_col="legacy_screened"):
-    """functionality-per-area | S++/S+/S-/S--/O-/O+/O++/Null composition, 100%-stacked.
+    """A | S++/S+/S-/S--/O-/O+/O++/Other composition-by-area, 100%-stacked.
 
     Restricted to units where every bucket is resolvable: O-family is defined for every row of
     the grand table (TABLE, 22-session corpus); S-family only for the subset with a legacy
     classifier row (see attach_legacy). A unit that is O-negative and was never legacy-screened
-    cannot be told apart from a true Null, so it is excluded here rather than silently counted
+    cannot be told apart from a true Other, so it is excluded here rather than silently counted
     as one. Both population sizes are read live off df8/screened_col, never hardcoded here --
     see the printed `n=` above each bar for the exact per-area count.
+
+    2026-08-19, Hamm: brought S++/S+/S-/S-- back after a same-day attempt to drop them (see the
+    now-removed class_ofamily(); recovered from git history if ever needed again) -- no
+    non-legacy S+/S- classifier exists on this corpus (the grand table carries no S-family
+    columns at all), so the legacy join is still the only source for those four segments and
+    stays in place. What *did* change and stays changed: O++ is class8()'s ground-truth,
+    template-correlation definition (r>=0.65, V4/TEO/FEF/PFC, 52 units corpus-wide), the same
+    population panel B plots -- not the older Q1 `omission_class=="O++"` test.
 
     MST and FST are merged into one bar (MST+FST): FST has too few legacy-screened units for its
     own bar to be read at this scale.
 
-    O++ here is class8()'s ground-truth definition (template-correlation, r>=0.65, restricted to
-    V4/TEO/FEF/PFC, 52 units corpus-wide -- Hamm, 2026-08-17), same population panel B plots,
-    intersected with this panel's own legacy-screened restriction (48 of the 52 fall inside it;
-    4 sit in the 7 sessions the legacy classifier never ran on and so cannot appear here).
-    Because the 52-unit population and the legacy-screened S-family population are independent
-    restrictions (session coverage, not a shared filter), a unit is O++ here regardless of what
-    its Q1 omission_class or S-flags say -- see class8()'s own docstring for the exact priority
-    rule. O++'s stacked segment can still be a sliver too thin to see even where present -- areas
-    with at least one O++ unit are marked with a red star so that absence-from-view is never
-    confused with true absence.
+    O++'s 52-unit population and the legacy-screened S-family population are independent
+    restrictions (session coverage, not a shared filter) -- 48 of the 52 fall inside the
+    legacy-screened subset plotted here; 4 sit in the 7 sessions the legacy classifier never ran
+    on and so cannot appear here (see class8()'s own docstring for the exact priority rule).
+    O++'s stacked segment can still be a sliver too thin to see even where present -- areas with
+    at least one O++ unit are marked with a red star so that absence-from-view is never confused
+    with true absence.
     """
     d = df8[df8[screened_col]].copy()
     d["class8"] = class8(d)
@@ -665,7 +697,61 @@ def _pooled_omission_onsets(on):
     return np.concatenate(onsets) if onsets else np.zeros(0)
 
 
-def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn):
+# ---- PSTH result cache -----------------------------------------------------------------
+# 2026-08-21, Hamm: a pure cosmetic edit (e.g. GRAND_AVG_CONDITION_COLORS) forced a full
+# ~10 min re-derivation of every unit's PSTH from raw NWB spike times, since neither
+# compute_population_psth nor compute_population_psth_multi_condition cached anything --
+# every rerun re-read every requested unit's spike times from every session, regardless of
+# whether the actual per-unit/per-condition computation had changed at all. This cache sits
+# in front of both functions, keyed on everything that can change their numeric output (which
+# (session, unit_row) rows are being asked about, under which class label, plus every other
+# parameter), so a plotting-only change (color, title, smoothing display) reuses the cached
+# arrays and a real analysis change (different population, window, or binning) computes fresh.
+# `_CACHE_VERSION` must be bumped by hand if the PSTH computation itself changes (bin edges,
+# `_psth`'s own kernel, trial-subsampling logic, etc.) -- the key does not fingerprint the
+# function bodies, only their declared inputs, so a silent logic change would otherwise keep
+# serving stale cached output. Written under `analysis_dir()` (drive E in Hamm's current
+# environment via `OMISSION_ANALYSIS_DIR`; jnwb/paths.py's own D:/analysis default is stale --
+# flagged, not fixed, since jnwb/ is frozen), the same root every other derived artifact
+# (TFR arrays, etc.) already lives under -- not a new ad hoc cache location.
+_CACHE_VERSION = "v1"
+_PSTH_CACHE_DIR = os.path.join(str(oa_paths.analysis_dir()), "fig03_unit_census_psth_cache")
+
+
+def _psth_cache_key(*parts):
+    import hashlib
+    canon = json.dumps(parts, sort_keys=True, default=str)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _psth_cache_load(key):
+    import pickle
+    path = os.path.join(_PSTH_CACHE_DIR, key + ".pkl")
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as fh:
+        return pickle.load(fh)
+
+
+def _psth_cache_save(key, obj):
+    import pickle
+    os.makedirs(_PSTH_CACHE_DIR, exist_ok=True)
+    path = os.path.join(_PSTH_CACHE_DIR, key + ".pkl")
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as fh:
+        pickle.dump(obj, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    os.replace(tmp, path)
+
+
+def _df_identity_rows(df, class_col, order):
+    """(session, unit_row, class) triples for every row this call actually uses -- the part of
+    `df` that can change a PSTH result. Sorted so row order in `df` doesn't affect the key."""
+    d = df[df[class_col].isin(order)]
+    return sorted(zip(d["session"].tolist(), d["unit_row"].astype(int).tolist(),
+                      d[class_col].tolist()))
+
+
+def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn, cache_tag=None):
     """Population PSTH per class, pooled across sessions -- the analysis behind both panel h
     (5 classes, all omission conditions pooled, omission-aligned) and the RXRR template trace
     (7 classes, RXRR only, p1-aligned, full trial).
@@ -677,9 +763,23 @@ def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn):
 
     `onset_fn(on)` takes the session's precompute_condition_onsets() dict and returns the
     array of onset times (seconds) to align every unit's PSTH to.
+
+    `cache_tag`: a short string identifying `onset_fn`'s own selection semantics (e.g. the
+    RXRR-only p1-aligned trace vs the pooled-omission-aligned trace) -- `onset_fn` is a closure
+    and can't be hashed into the cache key itself, so each call site names what it does. `None`
+    (default) disables caching for that call, unchanged behavior.
     """
     edges = np.arange(win[0], win[1] + bin_ms, bin_ms)
     ctr = (edges[:-1] + edges[1:]) / 2.0
+
+    if cache_tag is not None:
+        key = _psth_cache_key(_CACHE_VERSION, "single_condition", cache_tag, class_col,
+                              tuple(order), tuple(win), bin_ms,
+                              _df_identity_rows(df, class_col, order))
+        cached = _psth_cache_load(key)
+        if cached is not None:
+            return cached
+
     traces = {c: [] for c in order}
     n_no_trials = 0
 
@@ -718,7 +818,10 @@ def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn):
     # panel below) rather than only the class mean/SEM -- same extraction, no extra NWB access.
     unit_traces = {c: (np.array(traces[c]) if traces[c] else np.zeros((0, ctr.size)))
                   for c in order}
-    return ctr, mu, sem, ns, n_no_trials, unit_traces
+    result = (ctr, mu, sem, ns, n_no_trials, unit_traces)
+    if cache_tag is not None:
+        _psth_cache_save(key, result)
+    return result
 
 
 # 2026-08-06: fig03 redesign, panels C-F. Same per-unit PSTH primitive as compute_population_psth,
@@ -726,9 +829,19 @@ def compute_population_psth(df, class_col, order, win, bin_ms, onset_fn):
 # instead of one compute_population_psth call per condition -- avoids re-reading every unit's
 # spike times 4 times over.
 def compute_population_psth_multi_condition(df, class_col, order, win, bin_ms, condition_names,
-                                             trial_pooled_classes=frozenset()):
+                                             trial_pooled_classes=frozenset(),
+                                             max_trials_per_unit=None, subsample_seed=0):
     """Per (class, condition) mean +- SEM trace, full trial window, p1-aligned. One NWB load and
     one get_spike_times call per unit per session, reused across all `condition_names`.
+
+    `max_trials_per_unit` (default None, no effect on any existing caller): if set, each unit's
+    trial onsets for a condition are subsampled without replacement to at most this many before
+    computing that unit's PSTH -- a real reduction in the trials actually used, not a display
+    trick. Requested 2026-08-20, Panel F only: O++'s trial-pooled SEM (see `trial_pooled_classes`
+    below) scales as std/sqrt(n_trials_pooled), and O++'s trial count (thousands, pooled across
+    only ~40 stable units) makes that band visually much tighter than the other panels' --
+    subsampling widens it honestly by shrinking the real n behind it. Deterministic given
+    `subsample_seed` and the fixed row/session iteration order below.
 
     `trial_pooled_classes` -- classes for which the SEM band pools every trial from every unit
     as a flat replicate (std over the concatenated (n_trials_total, n_bins) matrix, /sqrt(n_eff)
@@ -747,12 +860,25 @@ def compute_population_psth_multi_condition(df, class_col, order, win, bin_ms, c
     matrix[n_units, n_bins]}} -- the raw per-unit mean trace matrix `mu` and `sem` were reduced
     from (2026-08-18, added for panel_grand_average_matched_n's bootstrap resampling, which
     needs the individual unit rows, not just their mean/SEM).
+
+    2026-08-21: results are cached on disk (see `_PSTH_CACHE_DIR`), keyed on every argument
+    that can change the numeric output -- no closures here (unlike compute_population_psth),
+    so this one caches unconditionally, no `cache_tag` needed.
     """
+    key = _psth_cache_key(_CACHE_VERSION, "multi_condition", class_col, tuple(order),
+                          tuple(win), bin_ms, tuple(condition_names),
+                          tuple(sorted(trial_pooled_classes)), max_trials_per_unit,
+                          subsample_seed, _df_identity_rows(df, class_col, order))
+    cached = _psth_cache_load(key)
+    if cached is not None:
+        return cached
+
     edges = np.arange(win[0], win[1] + bin_ms, bin_ms)
     ctr = (edges[:-1] + edges[1:]) / 2.0
     traces = {cond: {c: [] for c in order} for cond in condition_names}
     trial_traces = {cond: {c: [] for c in order} for cond in condition_names}
     n_no_trials = 0
+    rng = np.random.default_rng(subsample_seed) if max_trials_per_unit is not None else None
 
     for sess_id, g in df.groupby("session"):
         path = os.path.join(NWB_DIR, sess_id + "_rec.nwb")
@@ -775,6 +901,8 @@ def compute_population_psth_multi_condition(df, class_col, order, win, bin_ms, c
                 onsets = cond_onsets[cond]
                 if onsets.size == 0:
                     continue
+                if max_trials_per_unit is not None and onsets.size > max_trials_per_unit:
+                    onsets = np.sort(rng.choice(onsets, size=max_trials_per_unit, replace=False))
                 if cls in trial_pooled_classes:
                     trials, unit_mean = _psth(st, onsets, win, bin_ms, return_trials=True)
                     trial_traces[cond][cls].append(trials)
@@ -809,26 +937,44 @@ def compute_population_psth_multi_condition(df, class_col, order, win, bin_ms, c
                 sem[c] = np.full(ctr.size, np.nan)
                 sem_kind[c] = "unit"
         out[cond] = (ctr, mu, sem, ns, n_trials, sem_kind)
-    return out, unit_traces_out, n_no_trials
+    result = (out, unit_traces_out, n_no_trials)
+    _psth_cache_save(key, result)
+    return result
 
 
 GRAND_AVG_CONDITIONS = ["RRRR", "RXRR", "RRXR", "RRRX"]
-GRAND_AVG_CONDITION_COLORS = {"RRRR": "#252525", "RXRR": "#D7191C", "RRXR": "#2C7BB6",
-                              "RRRX": "#33A02C"}
+GRAND_AVG_CONDITION_COLORS = {"RRRR": "#252525", "RXRR": "#D7191C", "RRXR": "#33A02C",
+                              "RRRX": "#2C7BB6"}
+# 2026-08-21, Hamm: RRXR (omit p3) and RRRX (omit p4) were swapped relative to figstyle's
+# shared SLOT_COLORS background epoch-shading (p3 slot shaded green, p4 slot shaded blue) --
+# the condition line/SEM-patch color for a given omit-slot now matches that slot's own
+# background shading color; SLOT_COLORS itself is untouched since other figures depend on it.
 GRAND_AVG_CONDITION_OMIT_SLOT = {"RRRR": None, "RXRR": 2, "RRXR": 3, "RRRX": 4}
 
 
 def panel_grand_average_by_condition(cond_data, cls, title, color, smooth_sigma=None,
-                                     log_y=False):
+                                     log_y=False, causal=False, smooth_sem=True):
     """C/D/E/F | one functional class, grand average +- SEM firing rate, full trial, p1-aligned,
     RRRR/RXRR/RRXR/RRRX overlaid on one axis -- the no-omission baseline plus the three slot
     positions an omission can fall at. Same visual grammar the earlier excited/inhibited/
     correlated-by-slot figure used (line + shaded SEM ribbon, per-condition color, omission-slot
     aware), generalized to functional class instead of response-sign category.
 
-    2026-08-06: both the mean AND the SEM band are Gaussian-smoothed (same `_gaussian_smooth`
-    used by the old template-trace panel) when `smooth_sigma` is given -- reduces bin-to-bin
-    noise so the underlying shape is easier to read; does not change what the shape actually is.
+    2026-08-06: the mean is Gaussian-smoothed (same `_gaussian_smooth` used by the old
+    template-trace panel) when `smooth_sigma` is given -- reduces bin-to-bin noise so the
+    underlying shape is easier to read; does not change what the shape actually is.
+
+    2026-08-19, Hamm: panels E/F call this with `causal=True, smooth_sem=False`. `causal=True`
+    uses a one-sided kernel for the mean (see `_gaussian_smooth`'s own docstring) so no future
+    bin can leak backward into an earlier one -- the 2026-08-18 standing instruction on filter
+    timing. `smooth_sem=False` leaves the SEM band raw/unsmoothed so its real bin-to-bin
+    roughness stays visible instead of being tidied to match the mean line.
+
+    2026-08-20, Hamm: panels C/D now match, using `smooth_sigma=O_SMOOTH_SIGMA` (6.0, was
+    `S_SMOOTH_SIGMA`=3.0) plus the same `causal=True, smooth_sem=False` -- requested so C/D's
+    visual smoothness matches E/F rather than looking rougher at the old, lighter sigma. Not
+    byte-identical to the earlier "frozen final" version anymore; this is that explicit,
+    authorized change.
 
     2026-08-13: if `cond_data`'s `sem_kind` marks `cls` "trial_pooled" (panels E/F, O+/O++, see
     compute_population_psth_multi_condition), the legend shows the pooled trial count instead
@@ -844,10 +990,12 @@ def panel_grand_average_by_condition(cond_data, cls, title, color, smooth_sigma=
     fig, ax = plt.subplots(figsize=(4.5, 3.0))
     mark_full_trial_axis(ax, FULL_TRIAL_WIN)
     is_trial_pooled = False
+    any_plotted = False
     for cond in GRAND_AVG_CONDITIONS:
         ctr, mu, sem, ns, n_trials, sem_kind = cond_data[cond]
         if cls not in ns or ns[cls] == 0:
             continue
+        any_plotted = True
         c = GRAND_AVG_CONDITION_COLORS[cond]
         slot = GRAND_AVG_CONDITION_OMIT_SLOT[cond]
         if sem_kind.get(cls) == "trial_pooled":
@@ -858,8 +1006,9 @@ def panel_grand_average_by_condition(cond_data, cls, title, color, smooth_sigma=
             label = f"{cond} (n={ns[cls]})" + (f", omit p{slot}" if slot else "")
         m, s = mu[cls], sem[cls]
         if smooth_sigma:
-            m = _gaussian_smooth(m, sigma_bins=smooth_sigma)
-            s = _gaussian_smooth(s, sigma_bins=smooth_sigma)
+            m = _gaussian_smooth(m, sigma_bins=smooth_sigma, causal=causal)
+            if smooth_sem:
+                s = _gaussian_smooth(s, sigma_bins=smooth_sigma, causal=causal)
         ax.plot(ctr, m, color=c, lw=1.5, label=label, zorder=3)
         lo_band = np.maximum(m - s, 1e-3) if log_y else m - s
         ax.fill_between(ctr, lo_band, m + s, color=c, alpha=0.20, lw=0, zorder=2)
@@ -883,7 +1032,15 @@ def panel_grand_average_by_condition(cond_data, cls, title, color, smooth_sigma=
     else:
         ax.set_ylabel(f"Rate (spikes/s){ylabel_suffix}, mean ± SEM", fontsize=8)
     ax.set_title(title, fontsize=9, fontweight="bold", color=color)
-    ax.legend(fontsize=6.5, frameon=False, loc="upper left")
+    if any_plotted:
+        ax.legend(fontsize=6.5, frameon=False, loc="upper left")
+    else:
+        # 2026-08-21: a real, checked zero -- not a rendering failure. First seen for O--,
+        # whose 3 corpus-wide units are all quality==0 (MUA), none presence-evaluable-stable,
+        # so restrict_stable() legitimately empties the population before this panel ever sees
+        # it. Label it plainly rather than leaving a blank axis that looks broken.
+        ax.text(0.5, 0.5, "n = 0 stable units\n(no data to plot)", transform=ax.transAxes,
+               ha="center", va="center", fontsize=9, color="0.4")
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     fig.tight_layout()
@@ -953,76 +1110,87 @@ def panel_grand_average_matched_n(class_specs, n_match, n_boot=1000, seed=0):
 
 
 def panel_composition_oplusplus_by_area(df, areas):
-    """B | distribution of the 52 ground-truth O++ units across areas -- 2026-08-13, switched
-    from the Q1 peak+ramp omission_class definition to scripts/archive_oneoff/
-    find_all_oplus_units.py (direct request, Hamm: the Q1-based O++ grand-average trace did
-    not resemble the manually-observed FEF/PFC O++ template, so the classifier itself was
-    suspect, not just the plotting). `is_oplusplus_tc`: mean_correlation>=
-    OPLUSPLUS_MIN_CORRELATION (0.65) & permutation_pval<=0.05 against the RXRR/RRXR/RRRX O+ or
-    O*+ template, AND area in OPLUSPLUS_AREAS (V4/TEO/FEF/PFC) -- both corrected 2026-08-17,
-    see the OPLUSPLUS_MIN_CORRELATION comment near the top of this file.
+    """B | S+/++ % vs O+/++ % prevalence per area, two bars per area (2026-08-20, Hamm:
+    '03-b bars become two per area ; S+/++ % and O+/++ % per').
 
-    2026-08-18, Hamm: the previous version plotted each area's O++ share OF ITS OWN R-family
-    candidate pool (k/n, a per-area enrichment rate, denominator varying area to area) with a
-    floating lo-hi CI bar Hamm called "weird". This version plots each area's share of the
-    corpus-wide 52-unit O++ total instead (k/total_k, a fixed denominator across every bar --
-    a distribution over areas that sums to 100%, not a set of independent rates), and both the
-    point-estimate and CI bars are grounded at 0 (no floating bar) -- the CI's lower bound is
-    now a tick mark on the second bar rather than its own bottom, so no information is dropped,
-    just re-anchored. `is_tc_candidate` (the R-family candidate pool size, `n`) is kept only
-    for the title's existing total_n provenance line, not as a plotted denominator.
+    Plots the proportion of screened units in each area that respond to stimuli (S+/S++) and
+    omissions (O+/O++), side by side with exact Clopper-Pearson 95% binomial intervals.
 
-    Takes the FULL grand table (`df`, all units, every session) joined via
-    attach_template_corr_oplusplus, NOT panel a's legacy-screened subset -- the template-corr
-    classifier does not depend on the legacy S+/S- classifier at all.
+    2026-08-21, Hamm: O+/O++ prevalence is an order of magnitude below S+/S++'s, so sharing one
+    linear y-axis (scaled to S+/S++'s much taller bars) made the O+/O++ bars nearly invisible.
+    O+/O++ now plots against its own right-hand y-axis (`ax2 = ax.twinx()`), fixed 0-40% --
+    Hamm: "up to 40% ... and that's fine", i.e. this axis is deliberately not tightly fit to
+    O+/O++'s own actual max (which is far below 40) -- a fixed round scale here, not a
+    data-driven one, same convention as any other axis-scale visual constant in this file.
 
-    omission_class (Q1) is UNCHANGED and still used by panel a's 8-class composition and
-    everywhere else in the repo (fig05 GLMM, fig07, fig02) -- this switch is scoped to this
-    panel only, per Hamm's explicit direction to not touch omission_class corpus-wide yet.
+    2026-08-27, Hamm: rescaled the right-hand (O+/O++) axis from fixed 0-40% to fixed 0-20% --
+    still a fixed round scale, not data-driven.
     """
     d = df.copy()
+    if "is_Splus" not in d.columns:
+        d, _, _ = attach_legacy(d)
     d["area_m"] = d.area10.replace(AREA_MERGE_MST_FST)
-    k = np.array([((d.area_m == a) & d.is_oplusplus_tc).sum() for a in areas])
-    n = np.array([((d.area_m == a) & d.is_tc_candidate).sum() for a in areas])
-    total_k, total_n = int(k.sum()), int(n.sum())
-    pct = 100.0 * k / total_k
-    lo, hi = np.array([clopper_pearson(ki, total_k) for ki in k]).T * 100.0
-    # figsize height kept at h/w=0.8 to match panel a's own aspect ratio (2026-08-18, panel a
-    # grew ~20% taller to fix its own whitespace problem -- see panel_composition8_by_area's
-    # docstring) -- was (4.5, 3.0), h/w=0.6667, until panel a's height changed out from under it.
-    fig, ax = plt.subplots(figsize=(4.5, 3.6))
+    d["is_s_any"] = (d.is_Splus == True) | (d.is_Splus_double == True)
+    d["is_o_any"] = (d.is_oplusplus_tc == True) | (d.omission_class.isin(["O+", "O++"]))
+
+    # Legacy-screened subset where S was evaluated
+    d_leg = d[d.legacy_screened].copy() if "legacy_screened" in d.columns else d.copy()
+
+    n = np.array([(d_leg.area_m == a).sum() for a in areas])
+    k_s = np.array([((d_leg.area_m == a) & d_leg.is_s_any).sum() for a in areas])
+    k_o = np.array([((d_leg.area_m == a) & d_leg.is_o_any).sum() for a in areas])
+
+    pct_s = 100.0 * k_s / np.maximum(n, 1)
+    pct_o = 100.0 * k_o / np.maximum(n, 1)
+
+    lo_s, hi_s = np.array([clopper_pearson(ki, ni) for ki, ni in zip(k_s, n)]).T * 100.0
+    lo_o, hi_o = np.array([clopper_pearson(ki, ni) for ki, ni in zip(k_o, n)]).T * 100.0
+
+    fig, ax = plt.subplots(figsize=(4.8, 3.6))
     x = np.arange(len(areas))
-    x_point, x_band = x - CI_BAND_HALFGAP, x + CI_BAND_HALFGAP
-    # Point-estimate bar and CI bar side by side, both grounded at 0 (2026-08-18, Hamm: the
-    # earlier lo-to-hi floating CI bar read as "weird") -- the lower CI bound is drawn as a
-    # tick across the CI bar instead of being its bottom, so it stays visible without floating
-    # the bar itself. Kept in sync manually since this panel builds its own bar rather than
-    # calling _bars (different fixed single-color scheme, and _bars' own CI bar still floats
-    # lo-to-hi -- unchanged there, this fix is scoped to this panel only per Hamm's request).
-    ax.bar(x_point, pct, width=POINT_BAR_WIDTH, color=CLASS8_COLORS["O++"],
-          edgecolor="black", linewidth=0.6, zorder=3)
-    ax.bar(x_band, hi, width=CI_BAND_WIDTH, color=CLASS8_COLORS["O++"], alpha=CI_BAND_ALPHA,
-          edgecolor="black", linewidth=0.4, zorder=3)
-    ax.hlines(lo, x_band - CI_BAND_WIDTH / 2, x_band + CI_BAND_WIDTH / 2, color="black",
-             linewidth=1.1, zorder=4)
-    for xi, ki in zip(x, k):
-        ax.text(xi, hi[xi] + 0.05 * np.nanmax([np.nanmax(hi), 0.5]), f"{ki}/{total_k}",
-               ha="center", fontsize=6)
+    bar_width = 0.36
+    x_s = x - bar_width / 2.0
+    x_o = x + bar_width / 2.0
+
+    ax2 = ax.twinx()
+
+    b_s = ax.bar(x_s, pct_s, width=bar_width * 0.88, color=CLASS8_COLORS["S+"],
+                edgecolor="black", linewidth=0.5, label=f"S+/S++ (n={int(k_s.sum())})", zorder=3)
+    ax.errorbar(x_s, pct_s, yerr=[pct_s - lo_s, hi_s - pct_s], fmt="none", ecolor="black",
+                elinewidth=0.8, capsize=2, capthick=0.8, zorder=4)
+
+    b_o = ax2.bar(x_o, pct_o, width=bar_width * 0.88, color=CLASS8_COLORS["O+"],
+                 edgecolor="black", linewidth=0.5, label=f"O+/O++ (n={int(k_o.sum())})", zorder=3)
+    ax2.errorbar(x_o, pct_o, yerr=[pct_o - lo_o, hi_o - pct_o], fmt="none", ecolor="black",
+                elinewidth=0.8, capsize=2, capthick=0.8, zorder=4)
+
+    max_y_s = np.nanmax(hi_s) * 1.18
+    ax.set_ylim(0, max(max_y_s, 10.0))
+    OPLUS_AXIS2_MAX = 20.0
+    ax2.set_ylim(0, OPLUS_AXIS2_MAX)
+
+    for xi, ks, ko, ni in zip(x, k_s, k_o, n):
+        ax.text(xi - bar_width/2.0, hi_s[xi] + 0.015 * ax.get_ylim()[1], f"{ks}", ha="center",
+                va="bottom", fontsize=6, color=CLASS8_COLORS["S++"], fontweight="bold")
+        ax2.text(xi + bar_width/2.0, hi_o[xi] + 0.015 * OPLUS_AXIS2_MAX, f"{ko}", ha="center",
+                 va="bottom", fontsize=6, color=CLASS8_COLORS["O++"], fontweight="bold")
+
     ax.set_xticks(x)
-    ax.set_xticklabels(areas, fontsize=7.5)
-    ax.set_ylabel("Share of all O++ units, %, 95% CI", fontsize=7.8)
-    # Wrapped onto 4 short lines at a smaller size (was 2 lines at 8.5) -- the single-line-per-
-    # clause version was wider than this panel's own 4.5in canvas at 8.5pt bold and rendered
-    # visibly clipped in the panel's own PNG companion; matplotlib's tight_layout() reserves
-    # vertical room for a title automatically but never wraps or shrinks text that overflows
-    # horizontally, so this needed an explicit fix, not just a taller figure (2026-08-18).
-    ax.set_title(f"Distribution of O++ units across areas\n"
-                f"(V1->PFC hierarchy, left->right)\n"
-                f"total: {total_k}/{total_n} O++ units, r>={OPLUSPLUS_MIN_CORRELATION:.2f},\n"
-                f"causally restricted to {'/'.join(OPLUSPLUS_AREAS)} (2026-08-17)",
-                fontsize=7.2, fontweight="bold")
-    for s in ("top", "right"):
-        ax.spines[s].set_visible(False)
+    ax.set_xticklabels(areas, fontsize=7.5, fontweight="bold")
+    ax.set_ylabel("S+/S++ prevalence (% of screened units)", fontsize=8, color=CLASS8_COLORS["S+"])
+    ax.tick_params(axis="y", colors=CLASS8_COLORS["S+"])
+    ax2.set_ylabel("O+/O++ prevalence (% of screened units)", fontsize=8,
+                   color=CLASS8_COLORS["O+"])
+    ax2.tick_params(axis="y", colors=CLASS8_COLORS["O+"])
+    ax.set_title("Prevalence by Area: S+/S++ vs O+/O++ Units (95% CI)\n(V1\u2192PFC hierarchy, left\u2192right; "
+                "separate y-axes, O+/O++ fixed 0-20%)",
+                 fontsize=8, fontweight="bold")
+    handles = [b_s, b_o]
+    labels = [h.get_label() for h in handles]
+    ax.legend(handles, labels, fontsize=7.5, loc="upper right", frameon=False)
+    ax.grid(axis="y", ls=":", alpha=0.5, zorder=0)
+    ax.spines["top"].set_visible(False)
+    ax2.spines["top"].set_visible(False)
     fig.tight_layout()
     return fig
 
@@ -1080,7 +1248,25 @@ def compute_peak_rate_by_unit(df):
     directly, same session-batched pattern as compute_population_psth. Returns a Series aligned
     to df.index (NaN where the unit's session NWB is missing or has no trials in any of the 12
     conditions) and the count of units skipped for that reason.
+
+    2026-08-21: cached like the two PSTH functions above (see `_PSTH_CACHE_DIR`) -- this is the
+    single most expensive step in the whole script (all ~9,056 units x all 12 GLO_CONDITIONS,
+    unfiltered), so it dominated even a purely cosmetic rerun. Keyed on `df`'s own
+    (session, unit_row) identity, not `df.index` (merges upstream of this call don't guarantee
+    a stable index across runs even when the row set is identical) -- the cached
+    {(session, unit_row): peak} mapping is re-aligned onto whatever index `df` has this run.
     """
+    ident = sorted(zip(df["session"].tolist(), df["unit_row"].astype(int).tolist()))
+    key = _psth_cache_key(_CACHE_VERSION, "peak_rate_by_unit", PEAK_WINDOW_MS, PEAK_BIN_MS,
+                          tuple(GLO_CONDITIONS), ident)
+    cached = _psth_cache_load(key)
+    if cached is not None:
+        peak_map, n_no_trials = cached
+        peak = pd.Series(
+            [peak_map.get((s, int(u)), np.nan) for s, u in zip(df["session"], df["unit_row"])],
+            index=df.index, dtype=float)
+        return peak, n_no_trials
+
     bin_win = int(round(PEAK_WINDOW_MS / PEAK_BIN_MS))
     peak = pd.Series(np.nan, index=df.index, dtype=float)
     n_no_trials = 0
@@ -1112,6 +1298,9 @@ def compute_peak_rate_by_unit(df):
                 if win_mean.size:
                     best = max(best, float(win_mean.max()))
             peak.loc[idx] = best
+
+    peak_map = {(s, int(u)): v for s, u, v in zip(df["session"], df["unit_row"], peak)}
+    _psth_cache_save(key, (peak_map, n_no_trials))
     return peak, n_no_trials
 
 
@@ -1154,9 +1343,27 @@ def panel_peak_rate_by_area(df, peak_col="peak_hz"):
 RXRR_TRACE_ORDER = ["S++", "S+", "S-", "S--", "O-", "O+", "O++"]
 
 
-def _gaussian_smooth(y, sigma_bins=1.5):
-    """Zero-phase Gaussian smoothing (edge-reflected) for a bin-averaged trace."""
+def _gaussian_smooth(y, sigma_bins=1.5, causal=False):
+    """Gaussian smoothing for a bin-averaged trace.
+
+    Default (`causal=False`): the original zero-phase, symmetric, edge-reflected kernel --
+    still used by panels C/D (frozen final, 2026-08-19) and the RXRR template-trace supplement,
+    unchanged.
+
+    `causal=True` (panels E/F, 2026-08-19): a one-sided kernel -- the output at bin t is a
+    weighted average of y[t] and only EARLIER bins y[t-1..t-radius], heaviest weight on y[t]
+    itself, never using y[t+1:]. No future sample can leak backward into an earlier output bin
+    -- the 2026-08-18 standing instruction that filter timing must not run backward. Left edge
+    is padded by repeating y[0] (`mode="edge"`), standing in for "baseline before the trace
+    starts" rather than reflecting the trace's own early samples into the past.
+    """
     radius = max(1, int(round(3 * sigma_bins)))
+    if causal:
+        k = np.arange(0, radius + 1)  # lag 0 (present) .. radius (furthest past); past-only
+        kernel = np.exp(-0.5 * (k / sigma_bins) ** 2)
+        kernel /= kernel.sum()
+        padded = np.pad(y, (radius, 0), mode="edge")
+        return np.convolve(padded, kernel, mode="valid")
     xk = np.arange(-radius, radius + 1)
     kernel = np.exp(-0.5 * (xk / sigma_bins) ** 2)
     kernel /= kernel.sum()
@@ -1170,6 +1377,10 @@ S_TRACE_ORDER = ["S+", "S-"]
 O_TRACE_ORDER = ["O-", "O+", "O++"]
 S_SMOOTH_SIGMA = 3.0
 O_SMOOTH_SIGMA = 6.0
+# 2026-08-20, Hamm: Panel F only -- cap trials/unit/condition pooled into O++'s trial-pooled SEM
+# so its band isn't visually tighter than the other panels' just from raw trial count. See
+# compute_population_psth_multi_condition's max_trials_per_unit docstring.
+F_TRIAL_SUBSAMPLE_N = 10
 
 
 def _schematic_curve(t_ms, slot_centers_ms, width_ms, amp, baseline=0.5):
@@ -1431,7 +1642,8 @@ def main():
     d5 = df_legacy[df_legacy.legacy_screened].copy()
     d5["class5"] = class5(d5)
     ctr, mu, sem, ns5, n_no_omission, _unit_tr5 = compute_population_psth(
-        d5, "class5", CLASS5_ORDER, PSTH_WIN, PSTH_BIN_MS, _pooled_omission_onsets)
+        d5, "class5", CLASS5_ORDER, PSTH_WIN, PSTH_BIN_MS, _pooled_omission_onsets,
+        cache_tag="panel_h_pooled_omission")
     fig = panel_group_traces(ctr, mu, sem, ns5)
     made["h"] = save(fig, FIG_DIR, "fig03_h_group_traces"); plt.close(fig)
 
@@ -1464,13 +1676,35 @@ def main():
         d8, "class8_trace", ["S+", "S-", "O+", "O++"], FULL_TRIAL_WIN, PSTH_BIN_MS,
         GRAND_AVG_CONDITIONS, trial_pooled_classes={"O+", "O++"})
     fig = panel_grand_average_by_condition(cond_data, "S+", "S+/S++ grand average",
-                                           CLASS8_COLORS["S+"], smooth_sigma=S_SMOOTH_SIGMA)
+                                           CLASS8_COLORS["S+"], smooth_sigma=O_SMOOTH_SIGMA,
+                                           causal=True, smooth_sem=False)
     made["C"] = save(fig, FIG_DIR, "fig03_C_grand_avg_Splus"); plt.close(fig)
     fig = panel_grand_average_by_condition(cond_data, "S-", "S-/S-- grand average",
-                                           CLASS8_COLORS["S-"], smooth_sigma=S_SMOOTH_SIGMA)
+                                           CLASS8_COLORS["S-"], smooth_sigma=O_SMOOTH_SIGMA,
+                                           causal=True, smooth_sem=False)
     made["D"] = save(fig, FIG_DIR, "fig03_D_grand_avg_Sminus"); plt.close(fig)
-    fig = panel_grand_average_by_condition(cond_data, "O+", "O+ grand average",
-                                           CLASS8_COLORS["O+"], smooth_sigma=O_SMOOTH_SIGMA)
+    # E | O+/O++, COMBINED STABLE POPULATION (2026-08-20, Hamm: combine O++/O+ into one trace,
+    # avoid subsampling, combine both; similar to fig03-C and fig03-D).
+    # Restricts to presence-stable units across both Q1 O+ and TC-ground-truth O++ populations.
+    d_oplus_combined = restrict_stable(
+        df[(df.is_oplusplus_tc) | (df.omission_class.isin(["O+", "O++"]))].copy(),
+        df_stab
+    )
+    d_oplus_combined["class8_trace"] = "O+"
+    cond_data_oplus_stable, unit_traces_oplus_stable, n_no_trials_oplus_stable = \
+        compute_population_psth_multi_condition(
+            d_oplus_combined, "class8_trace", ["O+"], FULL_TRIAL_WIN, PSTH_BIN_MS,
+            GRAND_AVG_CONDITIONS, trial_pooled_classes=frozenset(),
+            max_trials_per_unit=None)
+    for _cond in GRAND_AVG_CONDITIONS:
+        _ctr, _mu, _sem, _ns, _n_trials, _sem_kind = cond_data[_cond]
+        _, _mu2, _sem2, _ns2, _n_trials2, _sem_kind2 = cond_data_oplus_stable[_cond]
+        _mu["O+"], _sem["O+"], _ns["O+"] = _mu2["O+"], _sem2["O+"], _ns2["O+"]
+        _n_trials["O+"], _sem_kind["O+"] = _n_trials2["O+"], _sem_kind2["O+"]
+
+    fig = panel_grand_average_by_condition(cond_data, "O+", "O+/O++ grand average",
+                                           CLASS8_COLORS["O+"], smooth_sigma=O_SMOOTH_SIGMA,
+                                           causal=True, smooth_sem=False)
     made["E"] = save(fig, FIG_DIR, "fig03_E_grand_avg_Oplus"); plt.close(fig)
 
     # F | O++, template-correlation population, r>=OPLUSPLUS_MIN_CORRELATION (0.65), causally
@@ -1484,22 +1718,53 @@ def main():
     # splice pattern as before: independent of C/D/E's (still Q1-based, legacy-screened)
     # population, injected into cond_data's "O++" entries only. See attach_template_corr_
     # oplusplus and panel_composition_oplusplus_by_area for the classifier itself.
-    df_opp_full = df[df.is_oplusplus_tc].copy()
+    # 2026-08-19: also restricted to stable units only, same as E -- see restrict_stable().
+    # 2026-08-20, Hamm: was trial-subsampled + trial-pooled SEM (max_trials_per_unit=
+    # F_TRIAL_SUBSAMPLE_N) so the trial-pooled SEM band isn't visually tighter than the other
+    # panels' just because O++ has thousands of trials behind ~40 units. 2026-08-21, Hamm:
+    # reverted -- panel F's band should be real unit-level SEM (std across per-unit means /
+    # sqrt(n_units), same convention as C/D/E), matching the actual N behind it rather than a
+    # deliberately-widened trial-pooled descriptive band; also visually thinner as a direct
+    # consequence of using the real n rather than a subsampled trial count.
+    df_opp_full = restrict_stable(df[df.is_oplusplus_tc].copy(), df_stab)
     df_opp_full["class8_trace"] = "O++"
     cond_data_opp_full, unit_traces_opp_full, n_no_trials_opp_full = \
         compute_population_psth_multi_condition(
             df_opp_full, "class8_trace", ["O++"], FULL_TRIAL_WIN, PSTH_BIN_MS,
-            GRAND_AVG_CONDITIONS, trial_pooled_classes={"O++"})
+            GRAND_AVG_CONDITIONS, trial_pooled_classes=frozenset(), max_trials_per_unit=None)
     for _cond in GRAND_AVG_CONDITIONS:
         _ctr, _mu, _sem, _ns, _n_trials, _sem_kind = cond_data[_cond]
         _, _mu2, _sem2, _ns2, _n_trials2, _sem_kind2 = cond_data_opp_full[_cond]
         _mu["O++"], _sem["O++"], _ns["O++"] = _mu2["O++"], _sem2["O++"], _ns2["O++"]
         _n_trials["O++"], _sem_kind["O++"] = _n_trials2["O++"], _sem_kind2["O++"]
 
-    fig = panel_grand_average_by_condition(cond_data, "O++", "O++ grand average",
-                                           CLASS8_COLORS["O++"], smooth_sigma=O_SMOOTH_SIGMA,
-                                           log_y=True)
-    made["F"] = save(fig, FIG_DIR, "fig03_F_grand_avg_Oplusplus"); plt.close(fig)
+    # 2026-08-21, Hamm: the standalone "O++ alone" trace panel is cut from the assembled main
+    # figure -- redundant with panel B (O++ composition-by-area) and panel E (O+/O++ combined
+    # grand average), and 6 panels (A-F) are sufficient. `cond_data_opp_full`/
+    # `unit_traces_opp_full` are still computed (not deleted) because
+    # panel_grand_average_matched_n's sensitivity supplement still needs O++'s own population
+    # for its "O++" entry below -- only the dedicated main-figure panel and its saved
+    # fig03_F3_grand_avg_Oplusplus.svg/png are removed, not the underlying computation.
+
+    # Panel F is now O-/O-- ALONE (combined into one trace, same day: O-- alone is 0 stable
+    # units of 3 corpus-wide, all MUA, so a standalone O-- panel was always going to be the
+    # "n=0" placeholder; merging follows the same combine-the-rare-tier-into-its-sibling
+    # pattern panel E already uses for O+/O++). Q1 `omission_class` test (no
+    # template-correlation equivalent exists for the suppressive side), stability-restricted,
+    # no area restriction -- same population logic as O+/O++'s combined panel (E). Real
+    # unit-level SEM (not trial-pooled/subsampled), same convention as C/D/E.
+    df_ominus_combined = restrict_stable(
+        df[df.omission_class.isin(["O-", "O--"])].copy(), df_stab)
+    df_ominus_combined["class8_trace"] = "O-"
+    cond_data_ominus, unit_traces_ominus, n_no_trials_ominus = \
+        compute_population_psth_multi_condition(
+            df_ominus_combined, "class8_trace", ["O-"], FULL_TRIAL_WIN, PSTH_BIN_MS,
+            GRAND_AVG_CONDITIONS, trial_pooled_classes=frozenset(), max_trials_per_unit=None)
+    fig = panel_grand_average_by_condition(cond_data_ominus, "O-",
+                                           "O-/O-- grand average (stable units)",
+                                           CLASS8_COLORS["O-"], smooth_sigma=O_SMOOTH_SIGMA,
+                                           log_y=True, causal=True, smooth_sem=False)
+    made["F"] = save(fig, FIG_DIR, "fig03_F_grand_avg_Ominus"); plt.close(fig)
 
     # ---- supplement: matched-N bootstrap sensitivity for panels C-F ----------------------
     # 2026-08-18, Hamm: panels C-F's real bands differ partly because their N's genuinely
@@ -1512,8 +1777,8 @@ def main():
                    CLASS8_COLORS["S+"]),
         "S-/S--": ({cond: unit_traces_grand[cond]["S-"] for cond in GRAND_AVG_CONDITIONS},
                    CLASS8_COLORS["S-"]),
-        "O+": ({cond: unit_traces_grand[cond]["O+"] for cond in GRAND_AVG_CONDITIONS},
-              CLASS8_COLORS["O+"]),
+        "O+/O++": ({cond: unit_traces_oplus_stable[cond]["O+"] for cond in GRAND_AVG_CONDITIONS},
+                   CLASS8_COLORS["O+"]),
         "O++": ({cond: unit_traces_opp_full[cond]["O++"] for cond in GRAND_AVG_CONDITIONS},
                CLASS8_COLORS["O++"]),
     }
@@ -1529,7 +1794,7 @@ def main():
     d_umap["class_umap"] = class_umap(d_umap)
     _, _, _, _, _, unit_traces_umap = compute_population_psth(
         d_umap, "class_umap", UMAP_CLASS_ORDER, FULL_TRIAL_WIN, PSTH_BIN_MS,
-        lambda on: np.asarray(on.get("RXRR", []), float))
+        lambda on: np.asarray(on.get("RXRR", []), float), cache_tag="umap_rxrr_p1aligned")
     fig, embedding_receipt = panel_class_embedding(unit_traces_umap, UMAP_CLASS_ORDER)
     made["p4_supp"] = save(fig, FIG_DIR, "fig03_supp_class_embedding"); plt.close(fig)
 

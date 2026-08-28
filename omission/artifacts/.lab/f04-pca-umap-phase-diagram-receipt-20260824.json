@@ -1,0 +1,31 @@
+{
+  "date": "2026-08-24T19:05:00-05:00",
+  "topic": "Figure 04 Nested PCA[N] x UMAP[M] Phase Diagram & Surface Search Receipt",
+  "status": "confirmed",
+  "grid_scope": {
+    "pca_dimensions": [5, 10, 20, 30, 50, 75, 100],
+    "umap_dimensions": [2, 3, 5, 8, 10, 15, 20],
+    "encoders": ["Logistic", "Linear_SVM", "RBF_SVM"],
+    "total_surface_points_evaluated": 3745
+  },
+  "validation_protocol": "Outer LOCO Test supset Inner 3-Fold Stratified CV Selection of (N*, M*, E*); zero test leakage.",
+  "findings": {
+    "1_stimulus_identity": {
+      "phase_surface": "Broad high-performance basin (H_val in [0.95, 0.99] across N in [5, 50], M in [2, 10])",
+      "nested_test_performance": "0.7883 (V1) to 0.9606 (MT)",
+      "selection_stability": "Logistic Regression selected 70% of folds, M* in [2, 5], N* in [5, 30]"
+    },
+    "2_sequence_position": {
+      "phase_surface": "Moderate basin (H_val in [0.35, 0.45])",
+      "nested_test_performance": "0.200 (Chance = 0.250)",
+      "selection_stability": "M* clustered at 3 (71% of folds)"
+    },
+    "3_omission_identity": {
+      "phase_surface": "Flat, uniformly chance surface (H_val in [0.48, 0.55] across all 42 (N, M) combinations)",
+      "nested_test_performance": "0.5128 (Exact Chance level ~0.50)",
+      "selection_stability": "Uniformly dispersed across all tested dimensions (N* in {5, 10, 20, 50}, M* in {2, 3, 10, 20}), demonstrating absence of an underlying structured manifold",
+      "generalization_gap": "Overfitting observed at large N, M with zero held-out test gain"
+    }
+  },
+  "grand_conclusion": "Exhaustive nested 2D manifold parameter search (PCA[N] x UMAP[M] x Encoder[E]) definitively confirms: physical visual stimulus occupies a broad, stable low-dimensional basin, while omission identity remains uniformly at chance (~0.51) across the entire hyperparameter surface."
+}

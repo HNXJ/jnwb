@@ -1,0 +1,66 @@
+{
+  "date": "2026-08-24",
+  "topic": "F04 discrepancy resolution, F06 session-aware robustness battery, F06/F07 candidate atlases, and multimodal substrate verification",
+  "status": "confirmed",
+  "f04_provenance_resolution": {
+    "count_7_of_139": {
+      "target": "Binary expected omission identity (A vs B) during omitted slot (p2, p3, p4)",
+      "source_table": "omission/outputs/classification/omission_identity_leakage_safe_cells.csv",
+      "model": "Linear SVC (C=1.0) with balanced training classes per fold",
+      "cv": "Leave-one-temporal-cycle-out (LOCO)",
+      "metric": "Balanced Accuracy",
+      "null": "Within-cycle label permutation (100 permutations per cell)",
+      "result": "7 / 139 cells (5.04%) nominally significant at p < 0.05 (exactly equal to alpha = 0.05 chance rate); 0 / 139 survive Benjamini-Hochberg FDR",
+      "verdict": "NULL"
+    },
+    "count_3_of_139": {
+      "target": "3-way expected omission identity (A vs B vs R) during omitted slot (p2, p3, p4) [Y_omit]",
+      "source_table": "omission/outputs/classification/fig04_encoding_matrix_cells.csv",
+      "model": "Multinomial Logistic Regression (C=1.0) with balanced training classes per fold",
+      "cv": "Leave-one-temporal-cycle-out (LOCO)",
+      "metric": "Multiclass Cross-Entropy Loss (Log-Loss)",
+      "null": "Within-cycle label permutation (100 permutations per cell)",
+      "result": "3 / 139 cells (2.16%) nominally significant at p < 0.05 (at or below alpha = 0.05 chance rate); 0 / 139 survive Benjamini-Hochberg FDR",
+      "verdict": "NULL"
+    },
+    "conclusion": "7/139 estimates binary linear-SVM classification balanced accuracy under within-cycle permutation, whereas 3/139 estimates 3-way multinomial logistic regression log-loss under within-cycle permutation across the identical 139 session x area x slot cells; therefore they are NOT estimating the identical mathematical quantity, but both consistently establish that omission identity cannot be decoded above chance from spiking activity under leakage-safe cross-validation."
+  },
+  "f06_robustness_battery": {
+    "substrate": "omission/outputs/f06_substrate/f06_matched_substrate_v1.csv (31 matched session x area cells, 15 sessions, 3 subjects, 6 areas, 0 exclusions)",
+    "primary_concordance": {
+      "theta": {"r_ob": 0.512, "p_ob": 0.0033, "r_os": -0.001, "p_os": 0.997, "delta_r": -0.512, "ci_delta_r_boot": [-0.851, -0.125]},
+      "alpha": {"r_ob": 0.551, "p_ob": 0.0013, "r_os": 0.286, "p_os": 0.119, "delta_r": -0.265, "ci_delta_r_boot": [-0.533, 0.042]},
+      "beta": {"r_ob": 0.227, "p_ob": 0.219, "r_os": 0.551, "p_os": 0.0013, "delta_r": 0.324, "ci_delta_r_boot": [-0.059, 0.751]},
+      "low_gamma": {"r_ob": 0.129, "p_ob": 0.491, "r_os": 0.633, "p_os": 0.0001, "delta_r": 0.504, "ci_delta_r_boot": [0.062, 0.979]},
+      "high_gamma": {"r_ob": 0.101, "p_ob": 0.589, "r_os": 0.585, "p_os": 0.0005, "delta_r": 0.484, "ci_delta_r_boot": [-0.186, 1.056]}
+    },
+    "interaction_inference": {
+      "model": "z_L = beta0 + beta1 z_S + beta2 C + beta3(z_S C), stacked OB+OS (62 rows, 31 cells)",
+      "theta": {"beta3": -0.512, "p_cell_clust": 0.0081, "q_cell_clust": 0.0392, "p_ses_clust": 0.000055, "q_ses_clust": 0.00028, "p_ses_subj_fe": 0.000005, "q_ses_subj_fe": 0.000023, "loso_same_sign": 1.0, "losubj_betas": {"C31o": -0.291, "V182o": -0.722, "V198o": -0.434}},
+      "alpha": {"beta3": -0.265, "p_cell_clust": 0.108, "q_cell_clust": 0.135, "p_ses_clust": 0.0179, "q_ses_clust": 0.0447, "p_ses_subj_fe": 0.00036, "q_ses_subj_fe": 0.00090, "loso_same_sign": 1.0, "losubj_betas": {"C31o": 0.117, "V182o": -0.463, "V198o": -0.317}},
+      "beta": {"beta3": 0.324, "p_cell_clust": 0.198, "q_cell_clust": 0.198, "p_ses_clust": 0.270, "q_ses_clust": 0.270, "p_ses_subj_fe": 0.522, "q_ses_subj_fe": 0.522, "loso_same_sign": 1.0, "losubj_betas": {"C31o": 1.102, "V182o": 0.269, "V198o": -0.126}},
+      "low_gamma": {"beta3": 0.504, "p_cell_clust": 0.0157, "q_cell_clust": 0.0392, "p_ses_clust": 0.0289, "q_ses_clust": 0.0481, "p_ses_subj_fe": 0.150, "q_ses_subj_fe": 0.250, "loso_same_sign": 1.0, "losubj_betas": {"C31o": 0.870, "V182o": 0.412, "V198o": 0.287}},
+      "high_gamma": {"beta3": 0.484, "p_cell_clust": 0.0531, "q_cell_clust": 0.0885, "p_ses_clust": 0.0685, "q_ses_clust": 0.0857, "p_ses_subj_fe": 0.402, "q_ses_subj_fe": 0.502, "loso_same_sign": 1.0, "losubj_betas": {"C31o": 0.730, "V182o": 0.462, "V198o": 0.163}}
+    },
+    "terminal_verdict": "ROBUST_BUT_UNDERPOWERED (Theta: PRIMARY_SUPPORTED; Low-Gamma: ROBUST_BUT_UNDERPOWERED with subject-reduced power; Alpha: SUBJECT_SENSITIVE; High-Gamma: suggestive; Beta: NULL interaction)"
+  },
+  "f07_multimodal_substrate_and_findings": {
+    "substrate": "omission/outputs/f07_substrate/f07_multimodal_substrate_v1.csv (31 matched cells, trial-level SPK spike counts + LFP 5-band power)",
+    "target": "Omission (RXRR) vs Stimulus (RRRR) p2 window (1031-1562ms)",
+    "models": {
+      "mean_auc_spk": 0.8744,
+      "mean_auc_lfp": 0.8226,
+      "mean_auc_joint": 0.9058,
+      "mean_delta_l": 0.0314,
+      "mean_delta_s": 0.0832
+    },
+    "anatomical_dissociation": "Visual areas (V1, V2, MT, MST) exhibit high baseline LFP decoding (mean AUC_L = 0.941) with substantial LFP-added gains (mean Delta_L = +0.070 in motion areas); Frontal areas (FEF, PFC) exhibit high SPK decoding (mean AUC_S = 0.803) with dominant SPK-added gains (mean Delta_S = +0.224 vs Delta_L = -0.007)."
+  },
+  "atlases_generated": {
+    "F04": "19 candidate panels (outputs/panel_atlas/F04/)",
+    "F05": "7 candidate panels (outputs/panel_atlas/F05/)",
+    "F06": "23 candidate panels (outputs/panel_atlas/F06/) + contact sheet F06_ATLAS_contact_sheet.png",
+    "F07": "20 candidate panels (outputs/panel_atlas/F07/) + contact sheet F07_ATLAS_contact_sheet.png",
+    "total_panels": 69
+  }
+}

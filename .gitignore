@@ -169,6 +169,12 @@ omission/context/ANALYSIS_GOAL.md
 !omission/context/figures/*.md
 !omission/context/figures/fig0*_finalized.svg
 !omission/context/figures/fig0*_finalized.png
+# 2026-08-2x: the finalized deliverables were moved into their own subfolder. Whitelisted
+# here too so the move doesn't silently drop them from tracking (found 2026-08-27: the move
+# fell outside the flat-path patterns above and the files went untracked/ignored).
+!omission/context/figures/finalized/
+!omission/context/figures/finalized/fig0*_finalized.svg
+!omission/context/figures/finalized/fig0*_finalized.png
 !omission/context/figures/fig0*_*/fig0*.svg
 !omission/context/figures/fig0*_*/fig0*.png
 !omission/context/figures/fig0*_*/fig0*.receipt.json

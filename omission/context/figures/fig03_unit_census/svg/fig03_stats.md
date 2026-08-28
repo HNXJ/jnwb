@@ -16,10 +16,10 @@ Population: all units screened by classify_omission_units_grand.py (n = 9056, 22
 
 | Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
 |---|---|---|---|---|---|---|---|---|---|---|
-| a | Treats the stimulus after an omission differently | exact binomial | k = 2044.000 | -- | 9056 | unit * | proportion = 0.226 | < 1e-4 | < 1e-4 | < 1e-4 |
-| a | Distinguishes WHEN it was omitted | exact binomial | k = 639.000 | -- | 9056 | unit * | proportion = 0.071 | < 1e-4 | < 1e-4 | < 1e-4 |
-| a | Peaks or troughs at the omitted slot | exact binomial | k = 587.000 | -- | 9056 | unit * | proportion = 0.065 | < 1e-4 | < 1e-4 | < 1e-4 |
-| a | Distinguishes WHAT was omitted | exact binomial | k = 538.000 | -- | 9056 | unit * | proportion = 0.059 | < 1e-4 | < 1e-4 | < 1e-4 |
+| a | Distinguishes WHEN it was omitted | exact binomial | k = 0.000 | -- | 9056 | unit * | proportion = 0.000 | < 1e-4 | < 1e-4 | < 1e-4 |
+| a | Distinguishes WHAT was omitted | exact binomial | k = 0.000 | -- | 9056 | unit * | proportion = 0.000 | < 1e-4 | < 1e-4 | < 1e-4 |
+| a | Treats the stimulus after an omission differently | exact binomial | k = 1171.000 | -- | 9056 | unit * | proportion = 0.129 | < 1e-4 | < 1e-4 | < 1e-4 |
+| a | Peaks or troughs at the omitted slot | exact binomial | k = 483.000 | -- | 9056 | unit * | proportion = 0.053 | 0.1480 | 0.1480 | 0.1480 |
 
 \* descriptive: the unit of inference does not support a population claim.
 
@@ -33,9 +33,9 @@ Notes:
 
 | Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
 |---|---|---|---|---|---|---|---|---|---|---|
-| c | area predicts responsiveness | chi-square of independence | chi2 = 26.580 | 9 | 9056 | unit * | Cramer's V = 0.054 | 0.0016 | 0.0049 | 0.0049 |
-| c | responsiveness trends with hierarchy rank | Cochran-Armitage trend | Z = 2.325 | 1 | 9056 | unit * | z per score unit = 2.325 | 0.0201 | 0.0402 | 0.0301 |
-| c | area prevalence vs hierarchy rank | Spearman rho | r = 0.491 | 8 | 10 | area * | r squared = 0.241 | 0.1497 | 0.1497 | 0.1497 |
+| c | area predicts responsiveness | chi-square of independence | chi2 = 24.011 | 9 | 9056 | unit * | Cramer's V = 0.051 | 0.0043 | 0.0129 | 0.0129 |
+| c | responsiveness trends with hierarchy rank | Cochran-Armitage trend | Z = 1.542 | 1 | 9056 | unit * | z per score unit = 1.542 | 0.1232 | 0.2463 | 0.1847 |
+| c | area prevalence vs hierarchy rank | Spearman rho | r = 0.321 | 8 | 10 | area * | r squared = 0.103 | 0.3655 | 0.3655 | 0.3655 |
 
 \* descriptive: the unit of inference does not support a population claim.
 
@@ -51,8 +51,8 @@ Notes:
 
 | Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
 |---|---|---|---|---|---|---|---|---|---|---|
-| d | waveform type predicts responsiveness | Fisher exact | odds ratio = 0.876 | -- | 9056 | unit * | odds ratio = 0.876 | 0.1245 | 0.2491 | 0.2461 |
-| d | omission effect size by spike width | Mann-Whitney U | U = 1.04e+07 | -- | 9056 | unit * | rank-biserial r = 0.014 | 0.2461 | 0.2491 | 0.2461 |
+| d | omission effect size by spike width | Mann-Whitney U | U = 1.04e+07 | -- | 9056 | unit * | rank-biserial r = 0.014 | 0.2461 | 0.4921 | 0.3743 |
+| d | waveform type predicts responsiveness | Fisher exact | odds ratio = 0.918 | -- | 9056 | unit * | odds ratio = 0.918 | 0.3743 | 0.4921 | 0.3743 |
 
 \* descriptive: the unit of inference does not support a population claim.
 
@@ -80,7 +80,7 @@ Notes:
 
 | Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
 |---|---|---|---|---|---|---|---|---|---|---|
-| e | area predicts S/O composition | chi-square of independence | chi2 = 929.359 | 64 | 2921 | unit * | Cramer's V = 0.199 | < 1e-4 | < 1e-4 | < 1e-4 |
+| e | area predicts S/O composition | chi-square of independence | chi2 = 957.276 | 56 | 2921 | unit * | Cramer's V = 0.216 | < 1e-4 | < 1e-4 | < 1e-4 |
 
 \* descriptive: the unit of inference does not support a population claim.
 
@@ -108,7 +108,7 @@ Notes:
 
 | Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
 |---|---|---|---|---|---|---|---|---|---|---|
-| h | omission effect size differs across S/O/Null groups | Kruskal-Wallis | H = 349.830 | 4 | 2921 | unit * | epsilon squared = 0.119 | < 1e-4 | < 1e-4 | < 1e-4 |
+| h | omission effect size differs across S/O/Null groups | Kruskal-Wallis | H = 307.308 | 4 | 2921 | unit * | epsilon squared = 0.104 | < 1e-4 | < 1e-4 | < 1e-4 |
 
 \* descriptive: the unit of inference does not support a population claim.
 
@@ -150,7 +150,7 @@ Notes:
 
 | Panel | Question | Test | Statistic | df | n | Unit | Effect | p | p_holm | q_BH |
 |---|---|---|---|---|---|---|---|---|---|---|
-| template_trace | omission effect size differs across the five pooled RXRR functional classes | Kruskal-Wallis | H = 289.871 | 4 | 1490 | unit * | epsilon squared = 0.193 | < 1e-4 | < 1e-4 | < 1e-4 |
+| template_trace | omission effect size differs across the five pooled RXRR functional classes | Kruskal-Wallis | H = 308.288 | 4 | 1477 | unit * | epsilon squared = 0.207 | < 1e-4 | < 1e-4 | < 1e-4 |
 
 \* descriptive: the unit of inference does not support a population claim.
 

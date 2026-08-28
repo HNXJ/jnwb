@@ -38,8 +38,17 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+HERE = Path(__file__).resolve()
+# scripts/compute_omission_identity_leakage_safe.py -> repo root (jnwb/ and omission/ live here,
+# as siblings). One level deeper than parents[1] pre-2026-08-19: the restructure nested
+# omission's scripts/ under its own omission/ package dir.
+REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT))
+# omission's own artifacts/outputs trees live under omission/ (one level deeper than the true
+# repo root) -- jnwb.paths.outputs_dir()/artifacts_dir() resolve against jnwb's own top-level
+# REPO_ROOT instead, which no longer matches post-restructure (same mismatch fixed locally in
+# fig03_unit_census.py 2026-08-19). jnwb/ is frozen, so resolved here instead, project-side.
+OA_ROOT = HERE.parents[1]
 
 import omission as oa  # noqa: E402
 from omission.jnwb_ext.omission_identity import OMISSION_IDENTITY_CONDITIONS  # noqa: E402
@@ -329,8 +338,13 @@ def _resolve_sessions(readiness_csv: Path, nwb_dir: Path) -> tuple[list[dict], l
         reason = None
         if not bool(row.get("nwb_ok", False)):
             reason = "nwb_not_ready"
-        elif not bool(row.get("sidecar_ok", False)):
-            reason = "sidecar_not_ready"
+        # 2026-08-20: sidecar_ok dropped as a gate here -- this script reads spike times/epochs
+        # straight from the NWB session object (via omission.read()) and never touches
+        # electrodes.csv/units.csv/events.csv/h5_paths.json (confirmed by grep, no match).
+        # sidecar_ok=False for all 22 sessions on this machine (D:\analysis\metadata absent,
+        # see PROJECT_STATE.md 2026-08-14) was blocking a pipeline with no actual dependency on
+        # it. decode_identity_sliding_window.py gates on nwb_ok only for the same reason (see
+        # its line ~298) -- matched that precedent here.
         candidates = [
             nwb_dir / Path(str(row.get("nwb_path", ""))).name,
             nwb_dir / f"{row['stem']}.nwb",
@@ -578,9 +592,9 @@ def run(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--readiness", type=Path,
-                        default=REPO_ROOT / "artifacts" / "data" / "session_readiness.csv")
+                        default=OA_ROOT / "artifacts" / "data" / "session_readiness.csv")
     parser.add_argument("--nwb-dir", type=Path, default=paths.nwb_dir())
-    parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "outputs" / "classification")
+    parser.add_argument("--output-dir", type=Path, default=OA_ROOT / "outputs" / "classification")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--permutations", type=int, default=DEFAULT_PERMUTATIONS)
     parser.add_argument("--limit", type=int, default=None)

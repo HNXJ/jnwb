@@ -1,0 +1,25 @@
+{
+  "date": "2026-08-24T14:48:00-05:00",
+  "topic": "Figure 04 Sealed Publication Figure & Multi-Corpus Statistical Audit",
+  "status": "sealed",
+  "headline": "Population spiking primarily represents temporal sequence state, rather than the identity of an expected-but-omitted stimulus.",
+  "inferential_audit": {
+    "temporal_context_fdr": "Mean balanced accuracy = 0.3743 +/- 0.0101 (Chance = 0.2500); exactly 43/79 (54.4%) area populations survive strict Benjamini-Hochberg FDR correction at q_fdr < 0.05.",
+    "stimulus_subspace": "PCA-5 preserved the measured held-out stimulus-decoding performance of the ambient representation (0.8303 vs 0.8270).",
+    "omission_identity": "Omission identity was not detectably represented in scalar firing rates, spatiotemporal linear subspaces, or the tested low-dimensional nonlinear population manifolds.",
+    "terminal_structure": "Terminal slot p4 reflects terminal-position-specific structure (cross-position transfer collapses to 0.3870, 0/77 significant).",
+    "trajectory_dynamics": "No transient identity divergence exceeding the within-cycle permutation null was detected at the tested 53-ms resolution."
+  },
+  "sampling_scope": {
+    "full_corpus": "N=22 sessions, n=79 area populations (Panels B, C, D, E)",
+    "representative_manifold_subset": "N=4 multi-area sessions across all 3 subjects (sub-C31o_ses-230816, sub-C31o_ses-230823, sub-V182o_ses-260710, sub-V198o_ses-230719; n=960 decoding runs; Panels A, F, G, H, I)"
+  },
+  "sealed_artifacts": [
+    "omission/outputs/draft-01/fig04/fig04_finalized.png",
+    "omission/outputs/draft-01/fig04/fig04_finalized.svg",
+    "omission/outputs/draft-01/fig04/subplots/F04-P001 to F04-P009",
+    "omission/outputs/panel_atlas/F04/F04-P001 to F04-P009",
+    "omission/outputs/draft-01/fig04/README.md",
+    "omission/outputs/classification/fig04_temporal_context_fdr_audit.csv"
+  ]
+}
