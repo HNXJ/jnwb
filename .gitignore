@@ -105,6 +105,7 @@ gallery_src/
 run_schema_test.py
 omission/scripts/_*.py
 !omission/scripts/_response_metric_common.py
+!omission/scripts/__init__.py
 
 # local
 .claude/settings.local.json
