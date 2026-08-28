@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from scripts.run_handout4_stage4b_linear_map import (
+from omission.scripts.run_handout4_stage4b_linear_map import (
     _cell,
     _feature_matrix,
     _folds,

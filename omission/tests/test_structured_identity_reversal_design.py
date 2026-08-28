@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scripts.inspect_structured_identity_reversal_design import (
+from omission.scripts.inspect_structured_identity_reversal_design import (
     CONTRASTS,
     _contrast_geometry,
     _label_proof,
