@@ -44,8 +44,18 @@ def _epoch_grouper(session: OmissionSession, condition: str, phase: int):
     """
     Return (trial_groups, n_trials) for a given condition × phase.
 
-    Groups the intervals DataFrame by trial_num so both raster_plot and
+    Groups the intervals DataFrame by physical trial onset so both raster_plot and
     psth_analysis share identical trial-onset logic.
+
+    BEHAVIOR CHANGE 2026-08-29 (P0 trial-identity fix): this previously grouped by
+    ``trial_num``, which is NOT unique within a session in this corpus. Colliding rows are
+    distinct physical trials -- in sub-C31o_ses-230816_rec two trials sharing trial_num=1 are
+    2.9 HOURS apart (trial-identity-audit-20260829.json) -- so grouping by trial_num merged
+    unrelated trials into a single raster row / PSTH trial and undercounted ``n_trials``.
+    ``start_time`` is unique within every session in the corpus and is now the grouping key;
+    ``trial_id`` is preferred when the caller's table already carries the canonical identifier.
+    Affected sessions gain trials (they are no longer silently merged); counts for
+    sub-C31o_ses-230816_rec, sub-C31o_ses-230901_rec and sub-V182o_ses-260629 therefore change.
 
     Returns:
         (GroupBy object, int) or (None, 0) on failure.
@@ -53,8 +63,14 @@ def _epoch_grouper(session: OmissionSession, condition: str, phase: int):
     epochs = session.get_epochs(condition=condition, phase=phase)
     if epochs is None or len(epochs) == 0:
         return None, 0
-    group_col = 'trial_num' if 'trial_num' in epochs.columns else epochs.index
-    return epochs.groupby(group_col), len(epochs.groupby(group_col))
+    if 'trial_id' in epochs.columns:
+        group_col = 'trial_id'
+    elif 'start_time' in epochs.columns:
+        group_col = 'start_time'
+    else:
+        group_col = epochs.index
+    grouped = epochs.groupby(group_col)
+    return grouped, len(grouped)
 
 
 # ============================================================================
@@ -235,8 +251,17 @@ def raster_plot(session: OmissionSession, unit_id: Union[int, str], condition: s
         # 99%-jnwb-sufficiency normalization -- this used to be a hand-rolled duplicate;
         # numerically verified identical output before the swap) and reshapes trial-onset order
         # + seconds-to-ms to preserve this function's existing return schema unchanged.
-        trial_ids = [int(float(trial_num)) for trial_num, _ in trial_groups]
-        onsets = np.array([g.iloc[0]['start_time'] for _, g in trial_groups])
+        # 2026-08-29 (P0 trial-identity fix): the group key is now the canonical trial_id
+        # (a string) or start_time, not trial_num, so it can no longer be cast to int -- and a
+        # string key sorts lexicographically, which is NOT onset order ("11773.9" < "1372.6").
+        # Sort explicitly by onset and emit a 0-based ordinal as the raster's trial_id, which
+        # preserves this function's documented int schema and is genuinely unique per physical
+        # trial (trial_num was not). Downstream (session.py raster y-positions) only requires a
+        # unique, orderable id.
+        groups = sorted(((g.iloc[0]['start_time'], g) for _, g in trial_groups),
+                        key=lambda pair: pair[0])
+        onsets = np.array([onset for onset, _ in groups])
+        trial_ids = list(range(len(groups)))
         analyzer_result = UnitAnalyzer.raster(spike_times, onsets, window_ms=window_ms)
         raster_data = [
             {'trial_id': trial_ids[trial_idx], 'spike_time_ms': float(t) * 1000.0}

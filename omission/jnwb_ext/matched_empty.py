@@ -46,10 +46,24 @@ fourth "matched-empty, different condition" comparator is mathematically undefin
 merely unbuilt. Reported as such rather than forced (per Hamm's explicit instruction to report
 a genuinely confounded/undefined comparison rather than force it).
 
-Behavioral variables: NOT populated by this module (per Hamm's explicit "behavioral extraction
-is not P0" sequencing -- Gate 9 is a later, corpus-subset sensitivity analysis, not a blocking
-dependency here). ``behavior_available`` is always False in this build; do not fabricate uniform
-coverage by filling numeric behavior columns with NaN as if they were attempted and missing.
+Behavioral variables: NOT populated by build_matched_empty_table's own output columns (per
+Hamm's explicit "behavioral extraction is not P0" sequencing -- Gate 9 is a later, corpus-subset
+sensitivity analysis, not a blocking dependency here). This table carries no behavior_available
+column and no numeric behavior columns; do not fabricate uniform coverage by filling any in as
+if they were attempted and missing.
+
+2026-08-28 update (Hamm): a genuine, real-data behavioral-coverage check now exists --
+``omission.jnwb_ext.behavioral_covariates.trial_has_valid_behavior`` /
+``session_behavior_coverage`` -- gated by the pupil/gaze semantics audit
+(``omission/artifacts/.lab/pupil-gaze-semantics-audit-20260828.json``). It flags a trial
+``behavior_available=True`` only if BOTH its pre-event pupil and pre-event gaze windows pass a
+stated per-sample QC heuristic (no ground-truth invalid-sample marker exists in this corpus --
+see that module's docstring), not merely "the pupil/eye channel exists in this session" (which
+is trivially true for 22/22 sessions and was previously, and incorrectly, treated as equivalent
+to a hardcoded False here). A caller that needs a real behavior_available column joined onto
+THIS table's trial_id should call ``trial_has_valid_behavior`` separately and merge on trial_id
+-- it is intentionally NOT auto-joined here, so that consuming this table's existing columns
+never silently changes shape/dtype for callers written before this update.
 """
 from __future__ import annotations
 

@@ -1,0 +1,133 @@
+{
+  "schema_version": 3,
+  "id": "spk-lfp-nested-sub-V182o-ses-260629-20260829",
+  "kind": "evidence",
+  "title": "Nested-CV incremental predictive dependence with sensitivity and injected positive controls",
+  "status": "provisional",
+  "estimand": "Incremental predictive dependence of subsequent firing on PAST band-specific LFP state, beyond spike history. NOT causal, NOT directional.",
+  "session": "sub-V182o_ses-260629",
+  "arms": {
+    "fixed": "alpha=1, historical reference",
+    "nested": "PRIMARY: alpha tuned by RidgeCV LOO-GCV inside each training fold, M2 and M3 independently",
+    "concurrent": "post-event LFP; SENSITIVITY control only -- shares instantaneous common drive and possible spike contamination, so it is NOT a positive control for past dependence",
+    "permuted": "past LFP with trial correspondence destroyed; NEGATIVE control, defines the null floor",
+    "injected": "y + beta*sd(y)*z(L@w) using the cell's OWN real lag features; POSITIVE sensitivity control"
+  },
+  "injection_geometry_caveat": "Equal weights across the four lag intervals is the most detectable geometry, so detection rates reported here are an UPPER BOUND on this pipeline's sensitivity.",
+  "detection_rule": "An arm is 'detected' in a cell when its pooled delta exceeds the 95th percentile of the PERMUTED arm's delta within the same trial-count stratum. Zero is NOT the null: the overfitting penalty puts the null floor below zero, and the permuted arm measures where.",
+  "beta_levels": [
+    0.0,
+    0.025,
+    0.05,
+    0.1,
+    0.2,
+    0.4
+  ],
+  "window_ms": [
+    -1600.0,
+    3700.0
+  ],
+  "response_ms": [
+    0.0,
+    200.0
+  ],
+  "history_ms": [
+    -200.0,
+    0.0
+  ],
+  "lag_intervals_ms": [
+    [
+      0.0,
+      25.0
+    ],
+    [
+      25.0,
+      50.0
+    ],
+    [
+      50.0,
+      100.0
+    ],
+    [
+      100.0,
+      250.0
+    ]
+  ],
+  "bands": [
+    "theta",
+    "alpha",
+    "beta",
+    "low_gamma",
+    "high_gamma"
+  ],
+  "controls": [
+    "c0_own",
+    "c1_own_excluded",
+    "c2_nearby",
+    "c3_distant"
+  ],
+  "n_cells": 6400,
+  "runtime_s": 3577.7,
+  "detection_by_trial_count": {
+    "high_n": {
+      "n_cells": 4000,
+      "median_n_trials": 824.0,
+      "permuted_null_floor_q95": 0.002521373616737543,
+      "permuted_median": -0.0035156171721107965,
+      "detection_rate_vs_floor": {
+        "fixed": 0.07425,
+        "nested": 0.1045,
+        "concurrent": 0.1485,
+        "permuted": 0.05,
+        "inject_0": 0.1045,
+        "inject_0.025": 0.13275,
+        "inject_0.05": 0.236,
+        "inject_0.1": 0.61175,
+        "inject_0.2": 0.97975,
+        "inject_0.4": 0.9985
+      },
+      "median_delta": {
+        "fixed": -0.0053103907681388285,
+        "nested": -0.0031667381118061777,
+        "concurrent": -0.0027167717329700247,
+        "permuted": -0.0035156171721107965,
+        "inject_0": -0.0031667381118061777,
+        "inject_0.025": -0.002749536480985637,
+        "inject_0.05": -0.0013571532037659484,
+        "inject_0.1": 0.004908782430955438,
+        "inject_0.2": 0.03327507948359132,
+        "inject_0.4": 0.13318084847013595
+      }
+    },
+    "low_n": {
+      "n_cells": 2400,
+      "median_n_trials": 138.0,
+      "permuted_null_floor_q95": 0.01565227843684821,
+      "permuted_median": -0.01652156599525012,
+      "detection_rate_vs_floor": {
+        "fixed": 0.044583333333333336,
+        "nested": 0.06625,
+        "concurrent": 0.0625,
+        "permuted": 0.05,
+        "inject_0": 0.06625,
+        "inject_0.025": 0.07208333333333333,
+        "inject_0.05": 0.08125,
+        "inject_0.1": 0.13166666666666665,
+        "inject_0.2": 0.39958333333333335,
+        "inject_0.4": 0.9079166666666667
+      },
+      "median_delta": {
+        "fixed": -0.0408462892526642,
+        "nested": -0.014427945315611035,
+        "concurrent": -0.01444959564760634,
+        "permuted": -0.01652156599525012,
+        "inject_0": -0.014427945315611035,
+        "inject_0.025": -0.01454447081786453,
+        "inject_0.05": -0.013513639310194114,
+        "inject_0.1": -0.009206439695568336,
+        "inject_0.2": 0.0075840335351505805,
+        "inject_0.4": 0.10487860238490682
+      }
+    }
+  }
+}

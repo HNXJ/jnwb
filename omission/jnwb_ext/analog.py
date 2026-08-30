@@ -193,9 +193,21 @@ def _trial_table(
     frame["condition"] = (
         frame["task_condition_number"].round().astype(int).map(inverse)
     )
-    frame = frame.dropna(subset=["condition"]).drop_duplicates(
-        ["trial_num", "condition"], keep="first"
-    )
+    # BEHAVIOR CHANGE 2026-08-29 (P0 trial-identity fix). This previously read
+    # ``drop_duplicates(["trial_num", "condition"], keep="first")``, which SILENTLY DELETED
+    # distinct physical trials: ``trial_num`` is NOT unique within a session in this corpus.
+    # Measured (trial-identity-audit-20260829.json, all 22 sessions): 63 correct trials deleted
+    # across 3 sessions on the correct_only=True default path (3.4% / 2.9% / 0.4% of those
+    # sessions), 264 with correct_only=False. The colliding rows are genuinely distinct events,
+    # not duplicated records -- e.g. sub-C31o_ses-230816_rec (trial_num=1, condition=1) has two
+    # rows 2.9 HOURS apart (start_time 1372.68 s vs 11773.91 s) with DIFFERENT ``correct`` values.
+    # ``task_block_number`` is identical across colliding rows and does not disambiguate.
+    # Because keep="first" was applied to a time-ordered table, the deletion was systematically
+    # biased toward LATER trials in a session rather than random.
+    # ``start_time`` is unique within every session in the corpus (verified in the same audit)
+    # and is now the dedup key: this drops genuinely repeated records while preserving distinct
+    # trials that merely share a trial_num.
+    frame = frame.dropna(subset=["condition"]).drop_duplicates(["start_time"], keep="first")
     if condition is not None:
         wanted = [condition] if isinstance(condition, str) else list(condition)
         frame = frame[frame["condition"].isin(wanted)]
@@ -212,12 +224,26 @@ def _trial_table(
         raise ValueError("no trials passed the requested canonical condition/slot filters")
     frame["trial_num"] = frame["trial_num"].round().astype(int)
     frame["condition_number"] = frame["task_condition_number"].round().astype(int)
-    frame["trial_id"] = frame.apply(
-        lambda row: f"{stem}|trial={row['trial_num']}|condition={row['condition']}",
-        axis=1,
-    )
+    # CANONICAL PHYSICAL-TRIAL IDENTIFIER (2026-08-29, P0 fix).
+    # Previously ``{stem}|trial={trial_num}|condition={condition}``, which inherited trial_num's
+    # non-uniqueness: it was unique only because the dedup above had already deleted the
+    # colliding physical trials. ``start_time`` is the disambiguator (unique in all 22 sessions),
+    # so it is now part of the key. Formatted to microsecond precision: sample periods here are
+    # >= 1/30 ms, so 1 us cannot merge two distinct trials, and fixed-width formatting keeps the
+    # id stable across runs (no float repr drift).
+    frame["trial_id"] = [
+        f"{stem}|t={t:.6f}|trial={n}|condition={c}"
+        for t, n, c in zip(frame["start_time"], frame["trial_num"], frame["condition"])
+    ]
     frame["subject"] = _subject_from_stem(stem)
     frame["session"] = stem
+    # Mechanical guarantee required before comparator expansion: one row == one physical trial.
+    if frame["trial_id"].nunique() != len(frame):
+        raise ValueError(
+            f"canonical trial_id is not unique for {stem}: "
+            f"{frame['trial_id'].nunique()} ids for {len(frame)} rows -- refusing to return a "
+            "table that could produce cross-trial joins"
+        )
     return frame
 
 

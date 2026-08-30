@@ -1,0 +1,235 @@
+{
+  "schema_version": 3,
+  "id": "causal-identification-branch-seal-20260828",
+  "kind": "checkpoint",
+  "title": "Seal: the SPK-LFP causal-identification branch, from acausal-pipeline discovery to rejection of identified real directionality",
+  "status": "confirmed",
+  "status_rationale": "CONFIRMED as of 2026-08-28, on the strength of TWO independent fresh-context verifications that both returned SUPPORTED, meeting labyrinth's independent-confirmation threshold of 2: (1) independent-verification-zhat3-failure-20260828.json (synthetic half; fresh disjoint seeds, from-scratch estimator, four independent decision rules, a verifier-constructed proxy stronger than any this effort built), (2) independent-verification-behavioral-covariates-20260828.json (real-data half; 22/22 sessions, blocked CV, session as inferential unit, single BH family, negative control). NEITHER verifier dissented from the terminal claim. BOTH corrected specifics of this effort's reporting, and those corrections are recorded verbatim in steps 16 and 17 rather than absorbed silently -- including one outright reasoning ERROR by this effort (the inverted upper/lower bound, step 17). The scope restriction in step 17 (corpus-wide/typical-session, not universal) is part of the confirmed claim, not a footnote to it.",
+
+  "purpose": "Preserve the complete methodological chain of a FAILED causal-identification effort. The chain is itself the evidence: the terminal negative conclusion is trustworthy precisely because each intermediate step was adversarially tested, and because several steps overturned an earlier belief held by this same effort. Per Conservation: nothing in this chain is deleted, and no superseded receipt is overwritten.",
+
+  "chain": [
+    {
+      "step": 1,
+      "finding": "Existing SPK-LFP pipeline used acausal transforms (filtfilt/hilbert), which mix future samples into any 'past' feature and therefore cannot support a temporal-precedence claim at all.",
+      "receipts": ["temporal_resolution_receipt_fs1000_20260827.json"],
+      "code": ["omission/jnwb_ext/causal_signal.py"]
+    },
+    {
+      "step": 2,
+      "finding": "Causal transforms built (FIR, constant group delay, startup-transient exclusion). Two distinct latency quantities separated and never conflated: group_delay_ms vs effective_latency_ms (group delay + smoothing centroid delay).",
+      "receipts": ["temporal_resolution_receipt_fs1000_20260827.json"],
+      "code": ["omission/jnwb_ext/causal_signal.py"]
+    },
+    {
+      "step": 3,
+      "finding": "Known-delay recovery validated; nominal lag, latency-corrected lag, and physiological lag established as three distinct claims (nominal lag ~= true_delay - effective_latency_ms, empirically confirmed and independently verified).",
+      "receipts": ["band-identifiability-sweep-20260827.json"]
+    },
+    {
+      "step": 4,
+      "finding": "Per-band temporal identifiability characterized. Theta shows ~8% catastrophic single-peak-argmax outliers (independently cross-checked with an alternate Tukey-IQR criterion: 8.3% vs 8.0%); min resolvable delay computed per signed direction, not pooled by absolute value.",
+      "receipts": ["band-identifiability-sweep-20260827.json"]
+    },
+    {
+      "step": 5,
+      "finding": "LOAD-BEARING NEGATIVE: ordinary within-condition trial-shuffle permutation gives a 100% false-positive rate (10/10 seeds) when P and R share a per-trial timing jitter that shifts BOTH response kernels, with ZERO direct coupling. The standard null is invalid on this data structure.",
+      "receipts": ["adversarial-shared-event-null-failure-20260827.json"],
+      "code": ["omission/tests/test_adversarial_shared_event_null.py"]
+    },
+    {
+      "step": 6,
+      "finding": "Timing-control methods developed and adversarially benchmarked: Candidate A (template residualization) fails; Candidate B (naive argmax realignment) fails, diagnosed to argmax's own estimation error (SD~12.7ms) EXCEEDING the jitter it was meant to remove (SD=8ms); Candidate B2 (matched-filter realignment, SD~2.4ms, r=0.96 with truth) succeeds on specificity at a real power cost; Candidate C (nuisance-matched permutation) developed, with an earlier calibration claim WITHDRAWN after independent verification showed it was a small-sample fluke.",
+      "receipts": [
+        "common-driver-control-20260828.json",
+        "paired-common-driver-control-benchmark-20260828.json",
+        "approach-c-and-b2-full-validation-20260828.json",
+        "generator-robustness-20260828.json",
+        "rho-beta-identifiability-surface-20260828.json"
+      ],
+      "code": ["omission/jnwb_ext/common_driver_control.py", "omission/tests/test_common_driver_control.py"]
+    },
+    {
+      "step": 7,
+      "finding": "SECOND CONFOUND DISCOVERED: a shared amplitude/gain state (AR(1) across trials) confounds P and R independently of timing. Naive multivariate quantile stratification made calibration WORSE (83% vs 17% FP), not better.",
+      "receipts": ["approach-c-and-b2-full-validation-20260828.json"]
+    },
+    {
+      "step": 8,
+      "finding": "Distributed-lag conditional predictive architecture developed (nested M0/M1/M2/M3 + the M3_bad regression test), replacing single-peak argmax lag estimation. Primary statistic: held-out Delta_LFP = Perf(M3) - Perf(M2), grouped CV, transforms fit inside training folds.",
+      "receipts": ["distributed-lag-model-validation-20260828.json"],
+      "code": ["omission/jnwb_ext/distributed_lag_model.py"]
+    },
+    {
+      "step": 9,
+      "finding": "Oracle diagnosis SPLIT the failure into two distinct problems, overturning a single-cause hypothesis: gain confound = PROXY-FIDELITY problem (linear oracle conditioning drives Delta to ~0); timing confound = MODEL-SPECIFICATION problem (exact oracle jitter still leaves Delta~+0.233). A nonlinear model recovers ~55-60% of the linear-oracle residual from the SAME latents, confirming functional-form failure rather than measurement error.",
+      "receipts": [
+        "distributed-lag-oracle-diagnosis-20260828.json",
+        "distributed-lag-nonlinearity-check-20260828.json"
+      ]
+    },
+    {
+      "step": 10,
+      "finding": "SELF-CORRECTION: structured nonlinear conditioning (quadratic/cubic/spline/exact analytic template) nulled the confound AND the positive control equally (D ~= 0 everywhere), which exposed the synthetic POSITIVE CONTROL itself as structurally degenerate -- its 'coupling' term was a deterministic function of the shared nuisance e_i alone, hence observationally indistinguishable from the confound given e_i. The apparent 'estimator power failure' was a generator defect.",
+      "receipts": ["distributed-lag-structured-timing-20260828.json"],
+      "preserved_as_regression": {
+        "function": "omission.jnwb_ext.common_driver_control.degenerate_common_cause_mediated_positive_control",
+        "test": "omission/tests/test_degenerate_positive_control_regression.py",
+        "note": "Deliberately preserved, not deleted. A correct conditional estimator SHOULD null this effect; the test pins D -> 0 as required behavior."
+      }
+    },
+    {
+      "step": 11,
+      "finding": "Generator repaired: coupling now rides on P's actually-realized trace. PC1 (innovation coupling) and PC2 (full realized-P coupling) both built, plus a symmetric bidirectional/reverse generator with empirical coupling-energy matching. Generator-level structural tests (beta=0 no-edge; beta>0 edge; bit-exact replay/intervention; nuisance-conditioning non-collapse; delay recovery) all pass.",
+      "receipts": [
+        "realized-coupling-oracle-rerun-20260828.json",
+        "pc2-realized-coupling-benchmark-20260828.json",
+        "reverse-direction-asymmetry-20260828.json"
+      ],
+      "code": ["omission/jnwb_ext/realized_coupling_generator.py", "omission/tests/test_realized_coupling_generator.py"]
+    },
+    {
+      "step": 12,
+      "finding": "INDEPENDENTLY CONFIRMED (fresh-context verifiers, methodologically different checks): PC1/PC2 structural coupling, shared/private decomposition, reverse-generator energy symmetry, directional-asymmetry statistic A. Verifier independently reproduced a numerical failure class (_FloorScaler) that had produced held-out R^2 of ~1.46e7 before the fix.",
+      "receipts": [
+        "independent-verification-realized-coupling-20260828.json",
+        "independent-verification-pc2-reverse-20260828.json"
+      ],
+      "code": ["omission/tests/test_floor_scaler_regression.py"]
+    },
+    {
+      "step": 13,
+      "finding": "Oracle nuisance conditioning SUCCEEDS: nulls ~0, coupling +0.48 to +0.85, D = +0.73 to +0.85 across timing/gain/combined confound structures; direction recovery 1.00; identifiability surface mapped over rho x beta. Established: the architecture is viable IN PRINCIPLE given adequate nuisance knowledge.",
+      "receipts": [
+        "realized-coupling-oracle-rerun-20260828.json",
+        "rho-beta-identifiability-surface-20260828.json",
+        "pc2-realized-coupling-benchmark-20260828.json"
+      ]
+    },
+    {
+      "step": 14,
+      "finding": "TERMINAL FAILURE: observable nuisance tiers fail gain-confound calibration. Zhat-0/1/2 gain-null and combined-null FPR = 1.00 at n=300 (oracle = 0.00), with spurious Delta magnitudes (0.41-0.60) comparable to genuine coupling effects. Notably, proxy-truth correlation did NOT predict calibration success: timing_hat (r~0.24-0.35) controls timing fine, while amplitude (r~0.28) fails catastrophically on gain.",
+      "receipts": ["zhat-oracle-bridge-benchmark-20260828.json"],
+      "leakage_test": "omission/tests/test_zhat_nested_cv_no_leakage.py"
+    },
+    {
+      "step": 15,
+      "finding": "Behavioral proxy insufficient. Synthetic fidelity sweep: gain-null FPR remains 1.00 at proxy-truth correlation r = 0.0/0.1/0.28/0.4/0.6/0.8, collapsing only above r~0.90 (independently resolved to r~0.90-0.92; this effort's coarser grid had reported ~0.95). Real pupil/gaze, measured against INDEPENDENT NEURAL PRE-STATE proxies (an optimistic upper bound, since that is not the latent state itself), reach |rho| <= ~0.52, session-dependent and sign-inconsistent, uncorrected across a 36-test family. The empirically plausible regime sits far inside the miscalibrated region.",
+      "receipts": [
+        "zhat3-behavioral-bridge-fidelity-sweep-20260828.json",
+        "pupil-gaze-semantics-audit-20260828.json",
+        "pupil-gaze-qc-and-neural-covariation-20260828.json",
+        "real-data-nuisance-and-trialcount-inventory-20260828.json"
+      ],
+      "code": ["omission/jnwb_ext/behavioral_covariates.py", "omission/tests/test_behavioral_covariates.py"]
+    }
+  ],
+
+  "step_16_independent_verification_synthetic": {
+    "receipt": "independent-verification-zhat3-failure-20260828.json",
+    "verdict": "NEGATIVE CONCLUSION INDEPENDENTLY SUPPORTED (synthetic half). Fresh seeds (disjoint range), from-scratch estimator (10-fold OLS via numpy.linalg.lstsq, own folds/features/timing, no scaler) agreeing with the original Ridge/sklearn path to <0.003 in every cell.",
+    "strengthened": {
+      "V1_robust_to_decision_rule": "gain-null FPR = 25/25, Clopper-Pearson [0.863, 1.000], under ALL FOUR rules: delta>0.05, delta>0, bootstrap-CI-excludes-zero, and a within-dataset trial-permutation null (the only rule an analyst could actually run without oracle knowledge). The arbitrary 0.05 cut is irrelevant -- spurious Delta sits ~8 sigma above it. Oracle positive control on the same fresh data: Delta -0.0009 +/- 0.0008, FPR 0/25, so the harness itself is sound.",
+      "V3_plausible_regime_unambiguous": "At r=0.4/0.5/0.6: FPR 25/25 each, CP95 lower bound 0.863 = 4.3x the 0.20 benchmark. Spurious Delta (0.440/0.378/0.304) is 42-60% of genuine unconfounded coupling Delta (0.731) and 1.4-4.8x LARGER than the increment real coupling adds on top of the confound (0.217/0.145/0.092).",
+      "V6_survives_a_better_proxy_than_this_effort_built": "The verifier constructed an observable proxy this effort never tried -- neighbour-smoothed baseline amplitude exploiting the AR(1) structure of the gain state -- raising fidelity from r=0.25 to r=0.62 (LOO 0.60). Gain-null FPR still 25/25, CP [0.863, 1.000]. Its spurious Delta (0.280) lands where the fidelity curve predicts for r~0.6 (0.304): an out-of-sample cross-check of the curve itself. Adding cubic capacity in amplitude changes nothing (0.554 vs 0.551), confirming errors-in-variables rather than functional form."
+    },
+    "new_finding_V4_directional_asymmetry_manufactures_direction": {
+      "severity": "HIGH -- this is worse than what this effort had reported, and is the sharpest single result in the branch.",
+      "finding": "Under the gain confound with ZERO coupling in either direction, Zhat-2 reports forward Delta +0.207 and directional asymmetry A = +0.223 -- 54% of the A=+0.417 it gives for a genuine P->R edge -- declaring P->R on 20/20 seeds. Zhat-2 + behavioral proxy at r=0.6: 18/20. Oracle: 0/20.",
+      "implication": "The directional-asymmetry statistic A, previously validated under ORACLE conditioning, does not merely lose power under observable conditioning: it FABRICATES a specific directional claim from a symmetric common cause. Any A-based directionality result computed with observable nuisance covariates is uninterpretable on this data structure."
+    },
+    "slow_shared_state_criterion_resolved": "amp_phi=0.95 genuinely makes the gain-null an AR(1) slow shared state (verified in generator source). The verifier added a DISTINCT slow-TIMING AR(1) scenario as a separation check: Zhat-2 handles it (1/25). The slow-state failure is specific to gain, not to slow states generally.",
+    "corrections_applied_to_this_effort_own_receipts": [
+      "zhat3-behavioral-bridge-fidelity-sweep-20260828.json: status -> contested; power_by_fidelity WITHDRAWN as misleading (FPR and 'power' used different decision rules printed as one row; at r=0 the receipt's own null Delta 0.5647 EXCEEDS coupled 0.5537 yet prints power 0.10, AUC 0.390). Original numbers retained per Conservation, qualified by a corrections block.",
+      "Transition point corrected from ~0.95 to ~0.90-0.92 (original grid too coarse to resolve).",
+      "Framing corrected: this is a CALIBRATION failure, not an information failure -- at r=0.6 null-vs-coupled AUC = 1.000 across datasets. The claim is 'required observable-proxy fidelity ~r>=0.90, not approached by available covariates', NOT 'the statistic carries no information'."
+    ],
+    "verifier_flagged_limitations": [
+      "C1: the verifier's own permutation decision rule is non-exchangeable on timing nulls (does not affect the gain-confound conclusion it was used to test).",
+      "C4: all of the above is synthetic. The real-data half of the argument is verified separately."
+    ]
+  },
+
+  "step_17_independent_verification_real_data": {
+    "receipt": "independent-verification-behavioral-covariates-20260828.json",
+    "verdict": "REAL-DATA HALF SUPPORTED, with one framing error in this effort's argument corrected (see inverted_bound below) and several defects found.",
+    "direct_measurement": {
+      "method": "Blocked-CV R^2, all 5 behavioural features jointly predicting a neural pre-state, 22/22 sessions, strict (-500, 0) ms window, session as inferential unit, BH-corrected once across the 330-test family, with a half-session-shift negative control (strongly negative, so the signal is not drift).",
+      "result": "0 of 66 session x target cells reach r_eff >= 0.9; 0 reach 0.7; 5 reach 0.5. Median r_eff = 0.190, max 0.633 (sub-V182o_ses-260629, MUAe). Session-level mean R^2: LFP 0.061 [0.021, 0.109], MUAe 0.018 [-0.120, 0.114], rate 0.026 [-0.012, 0.058]. Of 182 BH-significant pairwise tests, median |r| = 0.111; modal-sign agreement across sessions never exceeds 0.77.",
+      "note": "This supersedes the earlier |rho| <= 0.52 figure as the primary quantity: it is a proper blocked-CV multivariate R^2 with session as the unit and one correction family, rather than a max over uncorrected pairwise Spearman correlations."
+    },
+    "inverted_bound_ERROR_BY_THIS_EFFORT": {
+      "what_was_claimed": "This effort repeatedly described corr(behaviour, neural pre-state) as an OPTIMISTIC UPPER BOUND on corr(behaviour, latent gain).",
+      "why_that_is_wrong": "Under the common-cause structure B <- g -> N, corr(B,N) = corr(B,g) * corr(N,g). Since |corr(N,g)| <= 1, the observed corr(B,N) is a LOWER bound on corr(B,g), not an upper bound. The direction of the inequality was stated backwards.",
+      "consequence": "The conclusion is not self-supporting from corr(B,N) alone; it requires an explicit assumption about corr(N,g). Quantified by the verifier: at the MEDIAN cell, reaching the required r(B,g)~0.9 would demand corr(N,g) <= 0.21 -- far too weak for gain to be producing FPR=1.00 in the first place, so the median cell is safely excluded. At the BEST cell it demands only corr(N,g) <= 0.70, which is NOT excludable on available evidence.",
+      "resulting_scope_restriction": "The claim must be stated as corpus-wide / typical-session, NOT universal. A single best-case session cannot be excluded by this argument."
+    },
+    "corrections_to_earlier_audit_claims": {
+      "V182o_500Hz": "The metadata caveat is real (10/10 V182o gaze, on the NESTED SpatialSeries), but NO SAMPLE CONTENT SUPPORTS IT: no hold or interpolation signature anywhere, and V182o carries ~10x MORE power above 250 Hz than the uncaveated subjects. Additionally the clock is shared 22/22 (identical rate, starting_time=0, pupil n_samples == LFP n_samples exactly), so the rate question has ZERO alignment consequence either way. This effort's earlier presentation of the 500 Hz figure as an established data-quality finding was overstated.",
+      "units": "The +/-5 range is NOT z-scoring. Uniform 3.125e-4 = 10/32000 step across all subjects: uncalibrated analog volts. The semantics audit's conclusions survive; its stated mechanism does not.",
+      "discontinuity_rates": "V198o is genuinely bad (0.077/0.170/0.545 of trials under an absolute criterion). V182o's reported 0% is a CRITERION ARTIFACT -- its noise floor is 6-8x C31o's, so a within-window 5-SD threshold cannot fire. The by-subject contrast as originally reported is not trustworthy."
+    },
+    "verified_pass_items": {
+      "V2_trial_alignment": "PASS. Hand-rebuilt epochs bit-identical in all cases. Half-open [lo, hi); t=0 excluded.",
+      "V3_pre_event_only": "PASS. Overwriting every t>=0 sample with 1e6 left features bit-identical; positive control moved the mean by exactly +0.5. Upstream 'Reconstructed' gap-fill RULED OUT (zero linear/plateau runs corpus-wide); zero-phase smoothing remains UNDETERMINED but bounded.",
+      "V4_fold_safety": "PASS. Read-trace shows only 9 datasets ever touched -- no _lfp/_muae/units. Cross-fitting correct."
+    },
+    "defects_found_recorded_as_debt": [
+      {"id": "qc-pass-never-excludes", "severity": "HIGH", "finding": "behavioral_covariates qc_pass excludes 0 of 960 trials while 91.8% carry a discontinuity: discontinuity_count is never wired into the gate, so session_behavior_available CANNOT return False. The Task-5(a) 'genuine check' is inoperative as built.", "status": "NOT FIXED -- does not block the present negative conclusion (which does not depend on behavioural QC passing), but must be fixed before any future use of these covariates."},
+      {"id": "trial-num-non-unique", "severity": "HIGH", "finding": "trial_num is non-unique (88/100 duplicates observed, with onsets up to 10,381 s apart). Joins must use trial_id, not trial_num.", "status": "NOT FIXED -- latent join-corruption risk for any downstream table work."},
+      {"id": "seed-coupling-unenforced", "severity": "MODERATE", "finding": "estimate_timing_nested and fit_nuisance_tier must share n_splits/seed for cross-fitting to hold; this coupling is unenforced by the API. All 5 current call sites are correct.", "status": "NOT FIXED -- correct today, fragile to future callers."}
+    ],
+    "counter_evidence_recorded_honestly": "Behaviour matches the neural ceiling for LFP power (0.061 vs 0.063 neural-neural). Pupil/gaze are weak in ABSOLUTE terms but not weaker than neural proxies already in use for this purpose. This is recorded as a qualification, not a refutation: the required fidelity (~0.90) is far above BOTH."
+  },
+
+  "terminal_claim": {
+    "marker": "IDENTIFIED_REAL_LFP_TO_SPK_DIRECTIONALITY = NOT_SUPPORTED_BY_CURRENT_OBSERVATIONAL_IDENTIFICATION",
+    "means": "The available recordings and covariates do not permit reliably distinguishing an LFP->spike influence from shared latent gain/state common drive.",
+    "does_not_mean": "LFP does not influence spikes. This is an OBSERVATIONAL-IDENTIFIABILITY limit, not a biological negative result, and not a statement about the underlying circuit.",
+    "scope": "Corpus-wide / typical-session. Established at the median and across the great majority of session x target cells. NOT established as universal: at the single best-performing cell the required behavioural fidelity is not excludable on available evidence (step 17, inverted_bound_ERROR_BY_THIS_EFFORT). Do not state this claim without its scope.",
+    "sharpest_supporting_result": "Under a gain confound with ZERO coupling in either direction, the directional-asymmetry statistic A -- computed with observable nuisance covariates -- declares P->R on 20/20 seeds at 54% of the magnitude it gives a genuine P->R edge (oracle: 0/20). Observable-covariate directionality claims are not merely underpowered here; they are fabricated from symmetric common drive. See step 16, new_finding_V4.",
+    "unresolved_causal_graph": "latent gain/state Z -> LFP ; latent gain/state Z -> SPK. Because observable Zhat does not measure Z well enough, any observed 'past LFP -> future SPK' predictive information may still partly reflect Z. This limitation accompanies the analysis in the main text; it is not relegated to supplementary methods.",
+    "freeze": "This distinction between the two readings is frozen and must not drift in later summarization."
+  },
+
+  "aggravating_context": {
+    "real_trial_counts": "198 subject x session x condition x position cells: median 39, max 104, min 1. ZERO cells reach the n=300 regime at which the above failures were measured; 196/198 are below 100. The observable-tier failure is therefore measured in a MORE favorable regime than the real data offers.",
+    "receipt": "real-data-nuisance-and-trialcount-inventory-20260828.json"
+  },
+
+  "reusability": {
+    "note": "The validated synthetic architecture is NOT discarded. If future data provide direct arousal/state measurement, perturbation/intervention, stronger independent common-cause proxies, substantially more trials, or simultaneous circuit perturbation, the confirmed generator + distributed-lag architecture can be reused directly to re-test identification.",
+    "confirmed_assets": [
+      "omission/jnwb_ext/realized_coupling_generator.py",
+      "omission/jnwb_ext/distributed_lag_model.py",
+      "omission/jnwb_ext/causal_signal.py",
+      "omission/jnwb_ext/common_driver_control.py"
+    ]
+  },
+
+  "orthogonal_open_items": [
+    {
+      "item": "quality-column redundancy: is_stable / stable_plus / quality==1.0 are identical corpus-wide, contradicting a documented four-tier scheme.",
+      "receipt": "quality-column-redundancy-evidence-20260828.json",
+      "status": "documented, NOT acted on; must not silently alter unit eligibility"
+    },
+    {
+      "item": "V182o gaze effective sampling rate reported as 500 Hz in the NWB group description despite a 1 kHz reported rate (10/10 V182o sessions).",
+      "receipt": "pupil-gaze-semantics-audit-20260828.json",
+      "status": "flagged; under independent verification"
+    },
+    {
+      "item": "Upstream 'Reconstructed' behavioral preprocessing (C31o/V198o) carries an unresolved future-leakage risk at the SOURCE signal; structurally mitigated downstream by a hard pre-event-only window assertion, not resolved upstream.",
+      "receipt": "pupil-gaze-semantics-audit-20260828.json",
+      "status": "UNDETERMINED pending independent verification"
+    }
+  ],
+
+  "edges": [
+    {"type": "supersedes", "target": "approach-c-and-b2-full-validation-20260828", "note": "distributed-lag architecture supersedes single-peak-argmax + matching as the primary route"},
+    {"type": "derived_from", "target": "zhat-oracle-bridge-benchmark-20260828"},
+    {"type": "derived_from", "target": "zhat3-behavioral-bridge-fidelity-sweep-20260828"},
+    {"type": "qualifies", "target": "realized-coupling-oracle-rerun-20260828", "note": "oracle success is qualified by observable-proxy failure; the former does not imply real-data readiness"},
+    {"type": "blocks", "target": "P4-corpus-scale-directionality"}
+  ]
+}

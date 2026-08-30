@@ -1,0 +1,145 @@
+{
+  "schema_version": 3,
+  "id": "nested-rerun-verdict-20260829",
+  "kind": "evidence",
+  "title": "Nested-CV SPK-LFP re-run: verdict against the pre-registered decision table",
+  "status": "provisional",
+  "status_rationale": "provisional, not confirmed -- independent verification has not yet run. Standing is earned by evidence, not by the cleanliness of the result.",
+  "session": "sub-V182o_ses-260702",
+  "n_cells": 6400,
+  "n_units": 40,
+  "inferential_unit": "session; n_sessions = 1. No population or corpus claim follows. Cell-level rates below are DESCRIPTIVE -- cells are massively non-independent (4 near-duplicate channel controls, overlapping bands, 8 conditions per unit).",
+  "estimand": "Incremental predictive dependence of subsequent firing on PAST band-specific LFP state, beyond spike history. NOT causal, NOT directional.",
+
+  "pipeline_self_consistency": {
+    "check": "inject_0 must be bit-identical to nested (beta=0 is a no-op)",
+    "result": "max |inject_0 - nested| = 0.000e+00 across all 6400 cells"
+  },
+
+  "q1_did_nested_tuning_change_the_sign": {
+    "answer": "No -- but it removed roughly half the magnitude, confirming inadequate regularisation was a REAL component of the fixed-alpha artifact.",
+    "median_delta_high_n": {"fixed": -0.0035, "nested": -0.0021},
+    "median_delta_low_n": {"fixed": -0.0288, "nested": -0.0144},
+    "alpha_selected": {
+      "m2_median": 10.0, "m3_median": 31.623,
+      "cell_by_cell": {"alpha_m3_gt_alpha_m2": 0.8059, "ties": 0.1520, "alpha_m3_lt_alpha_m2": 0.0420},
+      "CORRECTED_20260829": "An earlier wording asserted this as a universal ('the enlarged model selected stronger shrinkage'). It is a robust MAJORITY, not a per-cell law: 80.6% stronger, 15.2% tied, 4.2% weaker. Corrected after independent verification.",
+      "grid_saturation": {"alpha_m2_at_1e4_ceiling": 0.0875, "alpha_m3_at_1e4_ceiling": 0.1042,
+                           "note": "The module docstring claimed the grid was broad enough for any cell to select the shrinkage it wants. That is false for ~10% of cells, where alpha is censored at the ceiling and M3 is under-shrunk. This biases delta negative (conservative for the null) and applies to the permuted arm equally, so it largely cancels in the contrast -- but the docstring claim is not true as written."},
+      "reading": "The enlarged model selects stronger shrinkage in a large majority of cells, which is exactly the behaviour fixed alpha=1 prevented. Hamm's leading alternative explanation is therefore partly CONFIRMED -- it accounted for about half the negative delta -- but the residual delta sits at the permuted floor, i.e. at zero once overfitting is accounted for."
+    }
+  },
+
+  "q2_fold_consistency": {
+    "high_n": {"frac_folds_positive": 0.4115, "fold_sd": 0.0075, "fold_median": -0.0011, "pooled": -0.0021},
+    "low_n": {"frac_folds_positive": 0.3810, "fold_sd": 0.0412, "fold_median": -0.0078, "pooled": -0.0144},
+    "reading": "Not one pathological split. delta < 0 is consistent across folds, and fold dispersion at low n (sd 0.041) is ~5x that at high n (0.0075) -- the instability is a trial-count effect, as predicted."
+  },
+
+  "q3_detection_against_the_permuted_null_floor": {
+    "rule": "detected = pooled delta exceeds the 95th percentile of the permuted arm within the same trial-count stratum (so the permuted arm detects at 5.0% by construction)",
+    "high_n_median_n_trials": 823,
+    "high_n": {"permuted_floor_q95": 0.0022, "fixed": 0.110, "nested": 0.132, "concurrent": 0.133,
+               "permuted": 0.050, "inject_0.05": 0.237, "inject_0.1": 0.633, "inject_0.2": 0.991, "inject_0.4": 1.000},
+    "low_n_median_n_trials": 138,
+    "low_n": {"permuted_floor_q95": 0.0189, "fixed": 0.034, "nested": 0.058, "concurrent": 0.051,
+              "permuted": 0.050, "inject_0.05": 0.056, "inject_0.1": 0.110, "inject_0.2": 0.385, "inject_0.4": 0.971},
+    "decisive_stratum_test": "0 of 160 (band x condition x channel_control) strata have a median nested delta exceeding their OWN permuted q95 floor."
+  },
+
+  "q4_sensitivity_floor": {
+    "min_beta_for_80pct_detection": {"high_n": 0.2, "low_n": 0.4},
+    "beta_to_variance": {
+      "0.1": "0.99% of injected-target variance", "0.2": "3.85%", "0.4": "13.79%"
+    },
+    "median_r2_nuisance_for_scale": 0.1303,
+    "reading": "At n ~ 823 this pipeline reliably detects a past-LFP contribution of about 4% of firing variance -- roughly 30% of what spike history alone contributes. At n ~ 138 it needs about 14%. Because part of the injected component may already be predictable from spike history and is therefore not credited as incremental, these percentages are UPPER BOUNDS on the injected incremental effect; the true detectable incremental effect is somewhat smaller.",
+    "variance_percentages_are_idealized": "beta^2/(1+beta^2) assumes cov(y, injected component) = 0. Measured per-cell values at beta=0.4 span 11.6-17.8% against the quoted 13.79% (mean 14.06%). Quote the headline '~4% of firing variance' with a spread, not as an exact figure.",
+    "geometry_caveat_WITHDRAWN_20260829": {
+      "what_was_claimed": "Equal weights across the four lag intervals is the most detectable geometry, so a single-interval effect would be harder and the reported detection rates are an upper bound on sensitivity. This was asserted in the module docstring, in this node, and registered in advance in nested-rerun-preregistration-20260829.",
+      "what_was_measured": "Independent verification tested it on real data (single-interval injection, all weight on 100-250 ms, 640 cells). Detection was indistinguishable from equal-weight and HIGHER at two of four levels: high_n beta=0.05 equal 0.2400 vs single 0.2275; beta=0.1 equal 0.5875 vs single 0.5900; beta=0.2 equal 0.9875 vs single 0.9900; low_n beta=0.4 equal 0.9750 vs single 0.9500.",
+      "disposition": "The MECHANISM claim is false and is withdrawn. The four lag features are strongly mutually correlated, so the distributed-lag model cannot distinguish the two geometries -- consistent with this project's own detection-vs-localization dissociation (rho-beta-identifiability-surface-20260828). The bound itself is not violated (rates are equal, not lower), but it was presented as a substantive scope limit when it was an untested assumption. It should never have been pre-registered as a known property."
+    }
+  },
+
+  "q5_concurrent_sensitivity_arm": {
+    "result": "Also at the floor: median delta -0.0024 (high_n), detection 13.3% vs nested's 13.2%.",
+    "reading": "Decision-table row 4 (contemporaneous association without past dependence) does NOT apply. Post-event band power in the same window as the spike count carries no more incremental information about firing than past band power does, once spike history is conditioned on. Since the concurrent arm is the one place spike contamination and instantaneous common drive would show up most strongly, its flatness is informative about the measurement, not only about the biology."
+  },
+
+  "q6_high_gamma_own_channel_contamination": {
+    "CORRECTED_20260829": "The first version of this node reported detection rates computed over ALL FIVE BANDS under a high-gamma heading (0.129/0.131/0.133/0.137). That was an error found by independent verification and reproduced by the author. The correct high-gamma-only, high-n rates are below and they do NOT show the same flatness.",
+    "delta_by_control_all_bands_pooled": {"C0_own": -0.0023, "C1_own_excluded": -0.0023,
+                                           "C2_nearby": -0.0024, "C3_distant": -0.0021},
+    "detection_rate_high_gamma_only_high_n": {"C0_own": 0.2250, "C1_own_excluded": 0.1700,
+                                               "C2_nearby": 0.2000, "C3_distant": 0.1850},
+    "paired_C0_vs_C1_within_unit_and_condition": {
+      "n_pairs": 200, "C0_only_detections": 14, "C1_only_detections": 3,
+      "exact_mcnemar_p": 0.0127,
+      "paired_wilcoxon_on_deltas_p": 0.1015
+    },
+    "reading": "Two different answers at two different parts of the distribution, and both must be stated. On CENTRAL TENDENCY the arm is flat: the paired location shift between C0 and C1 is not significant (Wilcoxon p = 0.10), so no own-channel effect displaces the delta distribution. In the RIGHT TAIL it is not flat: C0 detects at 22.5% against C1's 17.0%, and the paired discordance is 14 vs 3 (exact McNemar p = 0.0127). High gamma is also the band with the largest overall detection excess (0.195 vs theta's 0.098).",
+    "consequence": "The earlier conclusion 'no evidence of spike contamination driving a result' is WITHDRAWN as stated. Own-channel spike contamination is not excluded in the high-gamma tail, and it is a live candidate explanation for part of the diffuse detection excess recorded below. It does not affect the primary verdict, which rests on 0/160 stratum medians clearing their floors -- a central-tendency test."
+  },
+
+  "q7_functional_class": {
+    "note": "n-matched, high-n cells only",
+    "O_plus_and_O_plusplus": {"nested_delta": -0.0017, "r2_nuisance": 0.0545, "units": 20},
+    "other": {"nested_delta": -0.0026, "r2_nuisance": 0.2636, "units": 20},
+    "reading": "No class-specific incremental dependence. O+/O++ units have a much weaker nuisance model (R^2 0.054 vs 0.264) -- they are sparser and less self-predictable -- but the same null delta."
+  },
+
+  "q8_omission_vs_matched_empty": {
+    "raw_nested_delta": {"baseline": -0.0018, "stimulus": -0.0021, "matched_empty_p2": -0.0021,
+                          "matched_empty_p3": -0.0022, "matched_empty_p4": -0.0026,
+                          "omission_p2": -0.0173, "omission_p3": -0.0134, "omission_p4": -0.0132},
+    "n_corrected_nested_minus_permuted": {"baseline": 0.0008, "stimulus": 0.0004,
+                                           "matched_empty_p2": 0.0008, "matched_empty_p3": 0.0003,
+                                           "matched_empty_p4": 0.0005, "omission_p2": 0.0033,
+                                           "omission_p3": 0.0015, "omission_p4": 0.0002},
+    "reading": "The raw omission-vs-rest difference seen in the fixed-alpha pilot was a TRIAL-COUNT artifact. Omission conditions carry 137-139 trials against 821-960 elsewhere, and subtracting each cell's own permuted floor collapses the apparent difference from ~8x to within noise. No omission-specific incremental dependence survives n-correction."
+  },
+
+  "descriptive_observation_not_a_finding": {
+    "what": "At high n the nested arm detects in 13.2% of cells against a 5.0% null floor -- a diffuse right-tail excess.",
+    "band_variation": {"theta": 0.098, "alpha": 0.115, "beta": 0.119, "low_gamma": 0.136, "high_gamma": 0.195},
+    "REVISED_20260829": "The first version justified withholding this partly on C0-C3 flatness, using the mis-subsetted rates now corrected in q6. That justification is withdrawn. Independent verification also showed the excess is more robust than the first write-up conveyed.",
+    "what_it_survives": {
+      "residual_permutation_null": "y = fitted(y|spike history) + permuted residuals, REAL lag features retained -- so corr(L, spike history) is preserved, unlike the row-permutation null. Detection 4.25/3.00/2.50% at high n. Measured collinearity is negligible anyway (mean R^2(L_j ~ h) = 0.008, max 0.11).",
+      "nonlinear_spike_history_null": "y permuted within spike-history octiles, preserving arbitrary nonlinear E[y|h] exactly -- tests whether L is merely acting as a nonlinear basis in h. Detection 4.00/4.25/4.25% at high n.",
+      "unit_level_robustness": "32/40 units exceed 5%; Wilcoxon on per-unit rates vs 0.05 gives p = 2.1e-6; dropping the top 4 units still leaves 11.25%."
+    },
+    "why_it_is_still_not_a_finding": "n_sessions = 1. The session is this project's inferential unit for LFP population claims, so no population claim follows regardless of how many cells or units agree. Two further reasons to hold: (1) high gamma carries the largest excess (0.195) and is exactly where the corrected q6 shows a nominally significant own-channel discordance (McNemar p = 0.0127), so spike contamination is a live partial explanation; (2) no stratum median clears its own floor (0/160).",
+    "honest_position": "Not a null artifact, not a collinearity artifact, and not nonlinear-history proxying -- those are ruled out. Whether it is field coupling, spike contamination, or session-specific structure is UNRESOLVED and requires a second session. Recorded as a pre-specified target for the next session, not as evidence of an effect."
+  },
+
+  "verdict_against_pre_registered_table": {
+    "high_n_conditions_baseline_stimulus_matched_empty": {
+      "row": "1 -- informative biological null at detectable effect sizes",
+      "scope": "Informative ONLY for past-LFP contributions of roughly 4% of firing variance or larger, at n ~ 823, for a sustained (equal-weight) lag geometry, in this one session. Effects below that floor are NOT excluded."
+    },
+    "low_n_omission_conditions": {
+      "row": "2 -- underpowered / inconclusive",
+      "scope": "At n ~ 138 the pipeline needs an injected effect of about 14% of firing variance for 80% detection. The omission conditions -- the scientifically interesting ones -- are the underpowered ones. Their near-zero delta must NOT be reported as a biological null."
+    },
+    "row_3_candidate_dependence": "Does not apply. 0/160 strata clear their own permuted floor.",
+    "row_4_contemporaneous_without_past": "Does not apply. The concurrent arm is at the floor too."
+  },
+
+  "headline_limitation": "The split verdict is the result. This session supports a bounded null where it has trials and supports nothing where the omission events are. Any corpus-scaling decision should be driven by omission-condition trial counts, since that is the binding constraint on sensitivity -- not by adding bands, controls, or units.",
+
+  "receipts": {
+    "compute": "OMISSION_NWB_DIR=D:/nwb/omission python -m omission.scripts.dev_spk_lfp_nested_rerun_20260829 --max-units 40 --bands theta,alpha,beta,low_gamma,high_gamma --controls C0_own,C1_own_excluded,C2_nearby,C3_distant -> 6400 cells, 2068 s, exit 0",
+    "cells": "omission/artifacts/data/spk_lfp_nested_v182o_260702_cells.csv",
+    "folds": "omission/artifacts/data/spk_lfp_nested_v182o_260702_folds.csv",
+    "machinery_tests": "omission/tests/test_spk_lfp_nested.py -> 15 passed in 4.00s",
+    "identity_tests": "omission/tests/test_canonical_identity_gates.py -> 20 passed in 92.75s"
+  },
+  "edges": [
+    {"type": "tested_by", "target": "nested-rerun-preregistration-20260829"},
+    {"type": "supersedes", "target": "spk-lfp-pilot-v182o-260702-20260829"},
+    {"type": "derived_from", "target": "canonical-identity-hardening-20260829"},
+    {"type": "qualifies", "target": "causal-identification-branch-seal-20260828"}
+  ],
+  "open": "Independent verification has not run. Do not treat this node as confirmed until a verifier reproduces the principal numbers directly from the outputs and code."
+}

@@ -1,0 +1,189 @@
+{
+  "schema_version": 3,
+  "id": "independent-verification-realized-coupling-20260828",
+  "kind": "evidence",
+  "title": "Independent verification of realized_coupling_generator + oracle conditioning",
+  "status": "confirmed",
+  "notes": [
+    "Independent verifier, blind to implementer session reasoning. Own scripts written and executed fresh (not a re-run of existing test files), against omission/jnwb_ext/realized_coupling_generator.py and omission/jnwb_ext/distributed_lag_model.py."
+  ],
+  "issues": [],
+  "plan": {},
+  "verification": {
+    "item1_beta_zero_no_edge": {
+      "check": "beta=0: held-out ridge R2 of R_response ~ full P_private trace (5 seeds), compared to trial-shuffled permutation control",
+      "real_r2_per_seed": [
+        -0.25250527677132695,
+        -0.22754719661722267,
+        -0.22838761909430194,
+        -0.21360877346828722,
+        -0.2702356904272225
+      ],
+      "perm_r2_per_seed": [
+        -0.30287275882043807,
+        -0.20027397855393447,
+        -0.21357938938647836,
+        -0.17406234974607537,
+        -0.3413505686280931
+      ],
+      "mean_real_r2": -0.23845691127567226,
+      "mean_perm_r2": -0.24642780902700387,
+      "verdict": "PASS"
+    },
+    "item2_beta_positive_edge_present": {
+      "check": "beta>0: held-out ridge R2 of response-window residual ~ P_private trace, plus direct correlation of full residual against beta*causal_shift(P_private)",
+      "held_out_r2": 0.9998092133591667,
+      "residual_vs_expected_corr": 0.9987501526009228,
+      "beta": 2.0,
+      "delay_ms": 30.0,
+      "verdict": "PASS"
+    },
+    "item3_private_not_reconstructable": {
+      "check": "mutual information (sklearn mutual_info_regression) between [true_jitter, true_gain] and P_private trial-mean, plus held-out ridge R2 as cross-check",
+      "mi_jitter_gain_vs_p_private": [
+        0.016373413474449094,
+        0.01787975035836764
+      ],
+      "mi_floor_control_random_vector": [
+        0.02803319448132413,
+        0.010203333192551511
+      ],
+      "held_out_ridge_r2_z_predicting_p_private": -0.005069855308996951,
+      "verdict": "PASS"
+    },
+    "item4_replay_intervention": {
+      "check": "same Z (explicit true_jitter/true_gain), two private_seed draws, noise_sd=0",
+      "beta0_max_abs_delta_R": 0.0,
+      "beta0_mean_abs_delta_P_private_sanity": 0.5864382087337945,
+      "beta_positive_max_abs_error_vs_exact_expected": 8.881784197001252e-16,
+      "beta": 1.7,
+      "delay_ms": 22.0,
+      "verdict": "PASS"
+    },
+    "item5_direction_and_delay": {
+      "check": "(a) unit-impulse test of _causal_shift sign convention; (b) signed cross-correlation lag sweep recovers +delay_ms (P leads R), not -delay_ms or 0",
+      "impulse_test_input_index": 10,
+      "impulse_test_shift_samples": 7,
+      "impulse_test_output_peak_index": 17,
+      "impulse_test_correct": true,
+      "injected_delay_ms": 35.0,
+      "recovered_best_lag_ms": 35,
+      "verdict": "PASS"
+    },
+    "item6_oracle_no_leakage": {
+      "check": "static + numeric leakage probes on _held_out_predict, translated_template_nuisance, fit_translated_template_oracle",
+      "findings": [
+        {
+          "subcheck": "_held_out_predict fits StandardScaler/Ridge only on X[train_idx]/y[train_idx]",
+          "pass": true
+        },
+        {
+          "subcheck": "translated_template_nuisance's signature/body reference only true_jitter/true_gain/kernel geometry constants, never R or P_trials",
+          "params": [
+            "true_jitter",
+            "true_gain",
+            "trial_len",
+            "p_center",
+            "p_sigma",
+            "r_center",
+            "r_sigma",
+            "history_window",
+            "lag_bins_ms"
+          ],
+          "pass": true
+        },
+        {
+          "subcheck": "swapping R for garbage noise before calling translated_template_nuisance (same tj/tg) leaves the analytic template numerically identical",
+          "pass": true
+        },
+        {
+          "subcheck": "fit_translated_template_oracle references dataset['outcome'] exactly once (as the target y), never folded into a feature column",
+          "pass": true
+        }
+      ],
+      "verdict": "PASS"
+    },
+    "item7_fresh_seed_reproduction": {
+      "check": "fresh disjoint seeds (z_seed 1000-1009, private_seed 1500000-1500009), timing_null (beta=0) vs timing_coupling (beta=1.5) scenario, fit_translated_template_oracle Delta",
+      "per_seed": [
+        {
+          "z_seed": 1000,
+          "private_seed": 1500000,
+          "delta_null": 0.006865731309578349,
+          "delta_positive": 0.8813611437973237
+        },
+        {
+          "z_seed": 1001,
+          "private_seed": 1500001,
+          "delta_null": -0.008779392240989337,
+          "delta_positive": 0.8907443428922803
+        },
+        {
+          "z_seed": 1002,
+          "private_seed": 1500002,
+          "delta_null": -0.0028551090799999734,
+          "delta_positive": 0.8904922751936468
+        },
+        {
+          "z_seed": 1003,
+          "private_seed": 1500003,
+          "delta_null": -0.0045628973980000875,
+          "delta_positive": 0.891750992237759
+        },
+        {
+          "z_seed": 1004,
+          "private_seed": 1500004,
+          "delta_null": -0.002665346946871594,
+          "delta_positive": 0.8243448742891812
+        },
+        {
+          "z_seed": 1005,
+          "private_seed": 1500005,
+          "delta_null": 0.019339201374964476,
+          "delta_positive": 0.8425209246291704
+        },
+        {
+          "z_seed": 1006,
+          "private_seed": 1500006,
+          "delta_null": -0.0040016848000942185,
+          "delta_positive": 0.7619044098796072
+        },
+        {
+          "z_seed": 1007,
+          "private_seed": 1500007,
+          "delta_null": -0.0037036295028116673,
+          "delta_positive": 0.8144239567286623
+        },
+        {
+          "z_seed": 1008,
+          "private_seed": 1500008,
+          "delta_null": -0.0023582868047057337,
+          "delta_positive": 0.8185621409615478
+        },
+        {
+          "z_seed": 1009,
+          "private_seed": 1500009,
+          "delta_null": -0.008018138997360369,
+          "delta_positive": 0.9181680051644425
+        }
+      ],
+      "null_delta_mean": -0.0010739553086290155,
+      "null_delta_sd": 0.007888885102134435,
+      "positive_delta_mean": 0.8534273065773622,
+      "positive_delta_sd": 0.04613540291750917,
+      "verdict": "PASS"
+    }
+  },
+  "overall_verdict": "CONFIRMED",
+  "per_item_verdict": {
+    "item1_beta_zero_no_edge": "PASS",
+    "item2_beta_positive_edge_present": "PASS",
+    "item3_private_not_reconstructable": "PASS",
+    "item4_replay_intervention": "PASS",
+    "item5_direction_and_delay": "PASS",
+    "item6_oracle_no_leakage": "PASS",
+    "item7_fresh_seed_reproduction": "PASS"
+  },
+  "generated_by": "omission/scripts/verify_realized_coupling_generator.py",
+  "generated_at": "2026-08-28"
+}

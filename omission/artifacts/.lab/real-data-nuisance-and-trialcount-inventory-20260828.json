@@ -1,0 +1,310 @@
+{
+  "schema_version": 3,
+  "id": "real-data-nuisance-and-trialcount-inventory-20260828",
+  "kind": "evidence",
+  "title": "Real-data nuisance-variable coverage and eligible trial-count inventory (pre-proxy-design gate)",
+  "status": "confirmed",
+  "generated": {
+    "date": "2026-08-28",
+    "author": "Claude (data-audit subagent for Hamm)"
+  },
+  "purpose": "Factual, read-only inventory of what nuisance variables are actually observable in the real omission corpus, and what real per-cell trial counts look like, ahead of designing observable proxies for the oracle-validated distributed-lag conditional-predictive-coupling estimator. No estimator run on real data; no directionality claim made.",
+  "receipts": {
+    "corpus_manifest": "omission/scripts/discover_corpus.py --check (re-run 2026-08-28 with OMISSION_NWB_DIR=D:/nwb/omission, OMISSION_ANALYSIS_DIR=E:/analysis) -> omission/artifacts/data/corpus_manifest.json; exit 0, no blocking mismatch. 22 sessions / 3 subjects (C31o n=7, V182o n=10, V198o n=5); n_tfr_ok=22; n_tfr_files_on_disk=970.",
+    "nwb_field_probe_script": "C:/Users/nejath/AppData/Local/Temp/claude/C--workspace-jnwb/b9ba5cc8-f9f1-4e56-9b8e-841c70d8d362/scratchpad/probe_nwb_fields.py (read-only h5py metadata probe, all 22 NWB files, D:/nwb/omission)",
+    "trial_count_audit_script": "C:/Users/nejath/AppData/Local/Temp/claude/C--workspace-jnwb/b9ba5cc8-f9f1-4e56-9b8e-841c70d8d362/scratchpad/trial_count_audit.py (uses omission.OmissionSession.get_epochs / get_units via cached NWB tables in E:/analysis/metadata)",
+    "note_on_environment": "jnwb/omission are not installed packages; OMISSION_NWB_DIR and OMISSION_ANALYSIS_DIR must be set (D:/nwb/omission, E:/analysis per this machine's confirmed data-drive layout) and .venv/Scripts/python.exe used, or oa.paths.describe() reports every root unresolved. discover_corpus.py's own --repo-root default (Path(__file__).parents[1]) resolves to omission/, not the true repo root; ran with PYTHONPATH=C:/workspace/jnwb and default --repo-root instead of overriding --repo-root, which produced a clean, correctly-pathed manifest. This is a live minor bug in that script's default, not something changed here (ANALYSIS-ONLY doctrine)."
+  },
+
+  "task1_nuisance_variable_coverage": {
+    "methodology": "For design/timing variables: checked omission.jnwb_ext (trial_ontology.py, sequence_layout.py, matched_empty.py, analog.py) and jnwb (statistics.py, spiking.py, onset_fitting.py, metadata.py) for existing accessors/derivations, then cross-checked against real NWB structure. For neural/behavioral raw signal availability: read-only h5py probe of acquisition/, intervals/, units/ groups across all 22 NWB files (no bulk data read beyond dataset shape/dtype/attrs).",
+    "rows": [
+      {
+        "variable": "condition (task_condition_number -> condition name)",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "intervals/omission_glo_passive/task_condition_number, crosswalked via omission.jnwb_ext.session.CONDITION_MAP_DEFAULT / CONDITION_MAP_V182O (V182o uses a different RRXR/RRRX split -- must resolve from the dict, never assume the default map)",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": "Task-assigned before the trial; trivially pre-event."
+      },
+      {
+        "variable": "omission/stimulus position (position-in-sequence, p1-p4)",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "intervals/omission_glo_passive/stimulus_number (phase argument), crosswalked to slot keys via omission.jnwb_ext.trial_ontology / CONDITION_ONTOLOGY",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "sequence identity/history (preceding_identity, presented_identity, expected_identity)",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "omission.jnwb_ext.trial_ontology.CONDITION_ONTOLOGY, consumed in analog.py's _trial_table()",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": "Fully determined by condition code, not measured per-trial signal -- no missingness possible by construction."
+      },
+      {
+        "variable": "temporal cycle (block/cycle grouping)",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "jnwb.statistics.detect_trial_cycles (gap-threshold clustering on start_time), used in matched_empty.py's two-pass construction",
+        "sessions_subjects": "22/22 sessions, all 3 subjects (generic, operates on any start_time column)",
+        "temporal_availability": "every trial (derived from trial onset timing alone)",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": "A trial's own cycle membership is a function of session-wide trial timing structure, not of the tested LFP/SPK signal -- genuinely pre-existing."
+      },
+      {
+        "variable": "trial index / time within session",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "intervals/omission_glo_passive/trial_num, start_time",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "subject/session identifiers",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "NWB filename stem (sub-<X>_ses-<Y>), general/subject/subject_id",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "preceding stimulus identity",
+        "status": "PASS",
+        "causal_class": "PREEXISTING/DESIGN",
+        "source": "same as sequence identity/history row -- omission.jnwb_ext.trial_ontology.CONDITION_ONTOLOGY['preceding_identity']",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "pre-event LFP baseline",
+        "status": "PASS",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "omission.jnwb_ext.analog.load_lfp_epochs -- raw continuous LFP (acquisition/probe_N_lfp), arbitrary window_ms alignment. Genuinely present as raw signal in all 22/22 sessions (3 probes for C31o/V198o-2probe-subset sessions, up to 4 probes for V182o -- probe count varies by session, confirmed in the h5py probe).",
+        "sessions_subjects": "22/22 sessions, all 3 subjects (probe count per session varies: C31o/V198o mostly 2-3 probes, V182o mostly 4 probes, one V182o session with 3)",
+        "temporal_availability": "continuous uniform-rate signal -- a baseline window can be extracted for any trial whose window falls within the recording's sample bounds",
+        "missingness_pct": "NOT COMPUTED THIS PASS -- load_analog_epochs has a documented per-trial OUT_OF_BOUNDS drop mechanism (session-edge trials only); quantifying the drop rate requires actually running the extraction per session/window, which was out of scope for a metadata-only audit. Expected low (edge trials only) but not measured -- do not treat as 0%.",
+        "pre_event": true,
+        "notes": "Not a stored per-trial column; requires calling the existing accessor with a window ending before the tested LFP->SPK interval. No new jnwb/omission code needed -- the accessor already supports this via window_ms."
+      },
+      {
+        "variable": "pre-event band power (any band)",
+        "status": "PASS",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "jnwb.onset_fitting.causal_bandpass / causal envelope pipeline (generic, any (t,x) array) applied to omission.jnwb_ext.analog LFP epochs",
+        "sessions_subjects": "22/22 sessions, all 3 subjects (same LFP substrate as above)",
+        "temporal_availability": "derivable for any pre-event window",
+        "missingness_pct": "not computed -- same caveat as pre-event LFP baseline row",
+        "pre_event": true,
+        "notes": "Requires composing two existing generic tools (analog.load_lfp_epochs + onset_fitting.causal_bandpass); no ready-made single accessor exists today."
+      },
+      {
+        "variable": "pre-event firing rate (SPK/SUA)",
+        "status": "PASS",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "units/spike_times (per unit, via session.get_units()/get_spike_times) -- count spikes in a window ending before the tested interval",
+        "sessions_subjects": "22/22 sessions, all 3 subjects; 9,061 total units corpus-wide (see Task 2 unit-tier table)",
+        "temporal_availability": "every trial for every unit with spikes in range",
+        "missingness_pct": "0 structurally (spike_times always present per unit), but usable pre-event firing-rate ESTIMATES will be noisy/undefined for very low-firing-rate units in short pre-windows -- not separately quantified this pass",
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "pre-event MUAe",
+        "status": "PASS",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "omission.jnwb_ext.analog.load_muae_epochs (acquisition/probe_N_muae), same mechanism as LFP",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "continuous uniform-rate signal, same as LFP",
+        "missingness_pct": "not computed -- same caveat as pre-event LFP baseline row",
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "preceding-stimulus LFP response",
+        "status": "PASS",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "omission.jnwb_ext.analog.load_lfp_epochs with alignment/window set to the PRECEDING slot's phase window (same trial, earlier in time than the tested slot)",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial with a defined preceding slot (p1 has none)",
+        "missingness_pct": "not computed",
+        "pre_event": true,
+        "notes": "Pre-event ONLY relative to the later tested slot's window -- must not be confused with a same-window quantity."
+      },
+      {
+        "variable": "preceding-stimulus firing response",
+        "status": "PASS",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "units/spike_times at the preceding slot's window",
+        "sessions_subjects": "22/22 sessions, all 3 subjects",
+        "temporal_availability": "every trial with a defined preceding slot",
+        "missingness_pct": "not computed",
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "trial-specific event-response latency (already computed anywhere?)",
+        "status": "ABSENT",
+        "causal_class": "POSSIBLE MEDIATOR (if computed from the response to the SAME tested event) / COMMON-CAUSE PROXY (if from an earlier, preceding event)",
+        "source": "jnwb.spiking's per-trial response-latency computation exists internally (metrics computed per trial in a loop) but the function only RETURNS a session/unit-level median (jnwb/spiking.py line ~127: metrics['latency'] = float(np.median(latencies))) -- no per-trial latency column is exposed or stored anywhere. omission/scripts/fit_class_onset_latency.py and fit_s_plus_onset_latency_s1.py compute unit-CLASS-level onset latencies (S+/S-/O+), also not per-trial.",
+        "sessions_subjects": "n/a -- not materialized as a per-trial variable in this codebase today",
+        "temporal_availability": "n/a",
+        "missingness_pct": "n/a (does not exist as a ready variable)",
+        "pre_event": "depends on which event's latency -- flagged, not resolved, because it does not exist yet",
+        "notes": "Per Hamm's/CLAUDE.md doctrine, extending jnwb.spiking to expose per-trial latency would be a jnwb API change -- out of scope for this audit; flagging rather than building it."
+      },
+      {
+        "variable": "preceding-event latency",
+        "status": "ABSENT",
+        "causal_class": "COMMON-CAUSE PROXY (if it existed)",
+        "source": "same gap as above -- no per-trial latency of any kind is currently materialized",
+        "sessions_subjects": "n/a",
+        "temporal_availability": "n/a",
+        "missingness_pct": "n/a",
+        "pre_event": true,
+        "notes": null
+      },
+      {
+        "variable": "other safe timing-state estimates",
+        "status": "ABSENT",
+        "causal_class": "n/a",
+        "source": "Searched jnwb/ and omission/jnwb_ext/ for latency|onset_time|response_time. Found: filter/estimator effective_latency_ms (jnwb.onset_fitting / omission.jnwb_ext.causal_signal) -- this is a property of the SIGNAL-PROCESSING ESTIMATOR (filter+smoothing group delay), not a trial-level biological nuisance variable, and must not be conflated with one.",
+        "sessions_subjects": "n/a",
+        "temporal_availability": "n/a",
+        "missingness_pct": "n/a",
+        "pre_event": "n/a",
+        "notes": "No additional real per-trial timing-state variable found beyond cycle_id (already listed) and the design/position variables."
+      },
+      {
+        "variable": "gaze (x,y eye position)",
+        "status": "PASS (raw signal) / ABSENT (as a wired-up accessor)",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "acquisition/eye_1_tracking (2-D x,y, float64, uniform 1000 Hz rate via starting_time+rate) -- confirmed present via direct h5py probe of all 22 files",
+        "sessions_subjects": "22/22 sessions, ALL 3 subjects (uniform -- no subject/session gap found)",
+        "temporal_availability": "continuous uniform-rate signal for the full session",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": "matched_empty.py's docstring explicitly states 'Behavioral variables: NOT populated by this module ... behavior_available is always False in this build.' No accessor analogous to omission.jnwb_ext.analog.load_lfp_epochs exists yet for eye/pupil -- the raw data is there and uniformly available, but trial-aligned extraction requires new (in-pattern, low-risk) code, not yet written. Group layout is NOT uniform: C31o/V198o expose acquisition/eye_1_tracking/{data,starting_time} directly; V182o nests under acquisition/eye_1_tracking/eye_1_tracking_data/{data,starting_time} -- same footgun class as the pupil h5py-layout note in the omission-data skill."
+      },
+      {
+        "variable": "pupil diameter",
+        "status": "PASS (raw signal) / ABSENT (as a wired-up accessor)",
+        "causal_class": "COMMON-CAUSE PROXY",
+        "source": "acquisition/pupil_1_tracking (1-D, float32, uniform 1000 Hz rate) -- confirmed present via direct h5py probe of all 22 files",
+        "sessions_subjects": "22/22 sessions, ALL 3 subjects (uniform)",
+        "temporal_availability": "continuous uniform-rate signal for the full session",
+        "missingness_pct": 0,
+        "pre_event": true,
+        "notes": "Same status/caveat as gaze. The omission-data skill's documented pupil footgun ('no pupil_diameter group, use acquisition/pupil_1_tracking') and the domain-pupil-behavioral-dynamics.json lab node (status=confirmed, from notebooks/suite_10_pupil_behavior.ipynb) both predate this audit and are consistent with what was found here; that node does not itself state per-subject coverage, which this audit now supplies directly from the files."
+      },
+      {
+        "variable": "saccade/microsaccade",
+        "status": "ABSENT",
+        "causal_class": "COMMON-CAUSE PROXY (if derived)",
+        "source": "No dedicated saccade/microsaccade/fixation-quality acquisition group in any of the 22 files (h5py probe of acquisition/ keys across the whole corpus found only pupil_1_tracking, eye_1_tracking, photodiode_1_tracking, reward_1_tracking in every session -- no additional behavioral group name anywhere).",
+        "sessions_subjects": "0/22 sessions have a raw saccade field",
+        "temporal_availability": "n/a",
+        "missingness_pct": 100,
+        "pre_event": "n/a",
+        "notes": "DERIVABLE post-hoc from eye_1_tracking x/y via velocity thresholding, but that is new signal-processing engineering (design choices: velocity threshold, smoothing) that does not exist in the codebase today -- not a free lookup."
+      },
+      {
+        "variable": "accelerometry/movement (IMU)",
+        "status": "ABSENT",
+        "causal_class": "n/a",
+        "source": "No accel/imu/motion acquisition group found in any of the 22 files.",
+        "sessions_subjects": "0/22 sessions",
+        "temporal_availability": "n/a",
+        "missingness_pct": 100,
+        "pre_event": "n/a",
+        "notes": "Genuinely not recorded in this corpus (or not included in the NWB export), not merely unfound -- checked every session's acquisition group keys directly."
+      },
+      {
+        "variable": "fixation state (measured, not task parameter)",
+        "status": "ABSENT (as a measured signal) / PASS (as a task parameter)",
+        "causal_class": "n/a for the task parameter (DESIGN); would be COMMON-CAUSE PROXY if a real measured fixation-quality signal existed",
+        "source": "intervals/omission_glo_passive carries is_fixation_dot and fixation_window columns -- these describe the TASK'S fixation-dot stimulus and configured fixation window (design parameters), not a per-trial measured gaze-in-window signal. A measured fixation-state variable would have to be derived from eye_1_tracking x/y against fixation_window, which is not done anywhere in the codebase today.",
+        "sessions_subjects": "is_fixation_dot/fixation_window: 22/22 sessions (design columns). Measured fixation quality: 0/22 (not derived).",
+        "temporal_availability": "design columns: every trial. Measured signal: n/a.",
+        "missingness_pct": "design columns 0%; measured signal n/a (does not exist)",
+        "pre_event": "design columns: true (task-configured, known in advance)",
+        "notes": "Do not conflate the task-parameter is_fixation_dot/fixation_window with an actual measured fixation-adherence signal -- the task's CLAUDE.md tripwire 8 ('check a column varies before interpreting it') applies: these columns describe stimulus/criterion configuration, not behavior."
+      }
+    ],
+    "schema_variation_note": "intervals/omission_glo_passive column sets differ slightly by subject: C31o and V198o sessions carry is_omission + contrast_max/contrast_min; V182o sessions carry oddball_status instead of is_omission and lack contrast_max/contrast_min. This does not affect any PASS/ABSENT determination above, since condition/position are resolved through the CONDITION_MAP crosswalk, not these raw columns -- flagged here per the 'check a column varies' tripwire so a future consumer does not assume uniform intervals schema."
+  },
+
+  "task2_eligible_trial_count_inventory": {
+    "methodology": "For every (subject, session) x (omission condition, omission slot) cell among the 9 real omission-carrying condition names (AXAB/AAXB/AAAX, BXBA/BBXA/BBBX, RXRR/RRXR/RRRX at slots 2/3/4 respectively), counted CORRECT trials via OmissionSession.get_epochs(phase=slot, condition=cond, correct_only=True). Also censused unit counts per session by quality tier via OmissionSession.get_units().",
+    "n_cells": 198,
+    "cell_definition": "one (subject, session, condition, omission_slot) combination -- this is the per-cell trial count the distributed-lag estimator would condition on for a given unit at that session/condition/slot; trial count does not vary by unit within a cell (unit tier instead multiplies how many such cells exist per session).",
+    "distribution": {
+      "min": 1,
+      "p05": 22.1,
+      "p25": 33,
+      "median": 39,
+      "p75": 49.5,
+      "p95": 74,
+      "max": 104,
+      "mean": 42.1
+    },
+    "threshold_callouts": {
+      "n_cells_below_100": "196 / 198 (99.0%)",
+      "n_cells_below_200": "198 / 198 (100%)",
+      "n_cells_below_300": "198 / 198 (100%)",
+      "n_cells_at_or_above_300": "0 / 198 (0%)",
+      "interpretation": "NOT ONE per-session per-condition per-slot cell reaches the n=300 regime the synthetic distributed-lag work has been calibrated at. Nearly all (196/198) fall below the n=100-200 range flagged in this project's own history as where earlier matched-permutation controls degraded sharply."
+    },
+    "pooled_across_sessions_within_subject": {
+      "methodology": "Same cells summed across all sessions of a given subject (subject, condition, slot) -- reported as an upper bound only; pooling sessions changes the sampling/independence unit (cross-session pooling is not the same replication structure as within-session trials) and is NOT recommended without an explicit session-random-effect or session-blocked design (per omission-statistics doctrine on pseudo-replication).",
+      "n_cells": 27,
+      "distribution": {"min": 109, "p05": 127, "p25": 174, "median": 252, "p75": 390, "p95": 604.2, "max": 647},
+      "n_cells_below_300": "15 / 27 (55.6%)",
+      "caveat": "Even under this optimistic, statistically non-trivial pooling, more than half of subject-level cells still fall short of n=300."
+    },
+    "by_condition_family": {
+      "structured (A/B family: AXAB/AAXB/AAAX/BXBA/BBXA/BBBX)": {"n_cells": 132, "min": 1, "median": 39, "max": 48, "mean": 34.7},
+      "random (R family: RXRR/RRXR/RRRX)": {"n_cells": 66, "min": 2, "median": 59.5, "max": 104, "mean": 56.9}
+    },
+    "lowest_cells": [
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "AAAX", "slot": 4, "n_trials": 1},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "RRXR", "slot": 3, "n_trials": 2},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "BBBX", "slot": 4, "n_trials": 2},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "BBXA", "slot": 3, "n_trials": 3},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "BXBA", "slot": 2, "n_trials": 5},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "AAXB", "slot": 3, "n_trials": 5},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "AXAB", "slot": 2, "n_trials": 6},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "RRRX", "slot": 4, "n_trials": 6},
+      {"subject": "V198o", "session": "sub-V198o_ses-230629_rec", "condition": "RXRR", "slot": 2, "n_trials": 8}
+    ],
+    "note_on_lowest_session": "sub-V198o_ses-230629_rec has an unusually small intervals table (4,163 rows vs 10,000-18,000+ for every other session, per the NWB field probe) -- this single session accounts for all 9 of the lowest cells and is likely a short/incomplete recording, not representative of typical session length. Excluding it does not change the headline finding (0/198 cells reach n=300 regardless).",
+    "unit_census_by_session": {
+      "columns_used": "is_stable, stable_plus, quality (from OmissionSession.get_units())",
+      "finding": "In every session probed, is_stable, stable_plus, and (quality==1.0) are IDENTICAL boolean columns (0 rows differ) -- confirmed directly on sub-C31o_ses-230816_rec (226 True / 131 False in all three). This collapses the omission-data skill's documented 4-tier scheme (stable_plus / stable / mua / unstable) to an effective BINARY split in this corpus: 'stable_plus' vs 'not-stable'. Per this project's tripwire 8 ('check whether a column is constant/varies before interpreting it'), this is reported as a finding, not assumed.",
+      "totals_corpus_wide": {"n_units_total": 9061, "n_stable_plus": 4804, "n_not_stable": 4257},
+      "per_session": "see omission/artifacts/.lab/ receipt companion data (trial_count_audit.py output) for the full 22-row per-session table; range of n_stable_plus per session: 95 (sub-V182o_ses-260710) to 354 (sub-V198o_ses-230629_rec, ironically the session with the fewest omission trials)."
+    }
+  },
+
+  "summary": "Design/timing/identity variables (condition, position, sequence history, preceding identity, cycle, trial index, subject/session id) are fully available, 0% missing, genuinely pre-event, and already wired into existing jnwb/omission accessors -- usable today with no new engineering. Neural pre-state variables (pre-event LFP/MUAe baseline, pre-event band power, pre-event SPK/MUAe firing, preceding-stimulus LFP/firing response) are all physically present and pre-event, but require composing existing generic accessors (analog.load_lfp_epochs/load_muae_epochs + onset_fitting.causal_bandpass) with a new pre-event window rather than a ready-made single call; per-trial missingness from edge-of-recording drops was not quantified this pass. No per-trial event-response-latency variable is materialized anywhere in the codebase today (only session/unit-level aggregates exist), so it is not usable as-is; building one would be a jnwb API change, out of scope for an audit. Behaviorally, pupil diameter and eye (gaze) position are present at 1000 Hz for ALL 22 sessions and all 3 subjects with 0% session-level gaps -- a real, uniform, currently-untapped common-cause-proxy resource -- but matched_empty.py explicitly disables behavioral columns today ('behavior_available is always False'), and no trial-aligned accessor exists yet (would need a new analog-style loader, following the existing LFP/MUAe pattern). Saccade/microsaccade and accelerometry/movement are genuinely absent from the corpus (no raw field in any of the 22 files); a measured fixation-state signal is also absent (only task-configured fixation-window parameters exist). On sample size: the real operating trial-count regime is substantially worse than the n=300 regime the synthetic calibration work has validated. Across all 198 (subject x session x condition x omission-slot) cells, the median is 39 trials, the maximum is 104, and not a single cell reaches 300; 196/198 (99%) fall below 100, squarely inside the n=100-200 range this project's own prior work found earlier matched-permutation controls to degrade in. Pooling every session within a subject (a non-trivial statistical step that changes the independence structure and is not recommended without an explicit session-blocked design) still leaves 15/27 (56%) of subject-level cells below n=300, with a floor of 109. Any real-data application of the estimator must either substantially relax its n=300 calibration target, aggressively pool across a statistically justified unit (e.g. condition family and/or session with an explicit random-effects design), or accept materially lower power/precision than the synthetic validation demonstrated."
+}

@@ -1,0 +1,1003 @@
+{
+ "schema_version": 3,
+ "id": "independent-verification-behavioral-covariates-20260828",
+ "kind": "evidence",
+ "title": "Independent adversarial verification of the pupil/gaze behavioral-covariate extraction module and its real-data neural-covariation claims",
+ "status": "confirmed",
+ "generated": {
+  "date": "2026-08-28",
+  "author": "Claude (independent verifier subagent for Hamm)",
+  "repo_sha": "513670f274082412a24d93e4cf5a7e6e82d109bf",
+  "created_utc": "2026-08-29T04:58:20.702504+00:00"
+ },
+ "purpose": "Independently verify the REAL-DATA half of a negative scientific conclusion about to be frozen: that pupil/gaze, as recorded in this corpus, cannot reach the proxy fidelity (r >~ 0.9 with the latent gain/arousal state) that synthetic work says is required to restore calibrated LFP->spike directional inference, and that the extraction machinery built for them is sound. All checks were written fresh against raw h5py and, where feasible, use different statistics from the originals.",
+ "verifies": [
+  "omission/jnwb_ext/behavioral_covariates.py",
+  "omission/tests/test_behavioral_covariates.py",
+  "omission/artifacts/.lab/pupil-gaze-semantics-audit-20260828.json",
+  "omission/artifacts/.lab/pupil-gaze-qc-and-neural-covariation-20260828.json",
+  "omission/jnwb_ext/distributed_lag_model.py (estimate_timing_nested, fit_nuisance_tier)"
+ ],
+ "edges": [
+  {
+   "type": "tested_by",
+   "target": "pupil-gaze-semantics-audit-20260828"
+  },
+  {
+   "type": "tested_by",
+   "target": "pupil-gaze-qc-and-neural-covariation-20260828"
+  },
+  {
+   "type": "qualifies",
+   "target": "pupil-gaze-semantics-audit-20260828",
+   "note": "the '+/-5 unknown prior transform' mechanism is refuted; see V1 item 'value_semantics'"
+  },
+  {
+   "type": "qualifies",
+   "target": "pupil-gaze-qc-and-neural-covariation-20260828",
+   "note": "the 0% V182o discontinuity rate is a criterion artifact, not a cleanliness finding; see V6"
+  }
+ ],
+ "receipts": {
+  "scripts": [
+   "omission/scripts/verify_behavioral_v1_timebase.py",
+   "omission/scripts/verify_behavioral_v1b_rate_evidence.py",
+   "omission/scripts/verify_behavioral_v2v3_alignment_leakage.py",
+   "omission/scripts/verify_behavioral_v3b_v6_recon_and_qc.py",
+   "omission/scripts/verify_behavioral_v4_outcome_independence.py",
+   "omission/scripts/verify_behavioral_v5_covariation.py",
+   "omission/scripts/verify_behavioral_assemble_receipt.py"
+  ],
+  "raw_results_scratchpad": "C:\\Users\\nejath\\AppData\\Local\\Temp\\claude\\C--workspace-jnwb\\b9ba5cc8-f9f1-4e56-9b8e-841c70d8d362\\scratchpad",
+  "raw_result_files": [
+   "v1_timebase.json",
+   "v1b_rate.json",
+   "v2v3.json",
+   "v3b_v6.json",
+   "v4.json",
+   "v5_all22.json"
+  ],
+  "environment": "OMISSION_NWB_DIR=D:/nwb/omission, OMISSION_ANALYSIS_DIR=E:/analysis, .venv/Scripts/python.exe (CPython 3.14.3); all real-data extraction run in the foreground",
+  "note_on_scratchpad": "Raw per-run JSON lives in the session scratchpad, outside the repo, per the project's no-derived-data-in-repo rule. Re-runnable from the named scripts, which ARE in the repo."
+ },
+ "verification": {
+  "V1_sampling_rate_and_synchronization": {
+   "verdict": "PASS with a CONCERN on the 500 Hz metadata caveat",
+   "sessions_examined": 22,
+   "findings": {
+    "declared_rate_attr_values_corpus_wide": [
+     1000.0,
+     1000.0000000000002
+    ],
+    "group_description_strings_found": {
+     "Reconstructed pupil_1_tracking": {
+      "n_sessions": 12,
+      "example": "sub-C31o_ses-230816_rec|pupil"
+     },
+     "Reconstructed eye_1_tracking": {
+      "n_sessions": 12,
+      "example": "sub-C31o_ses-230816_rec|gaze"
+     },
+     "Pupil diameter.": {
+      "n_sessions": 10,
+      "example": "sub-V182o_ses-260629|pupil"
+     },
+     "The position of the eye. Actual sampling rate = 500 Hz (Reported=1kHz)": {
+      "n_sessions": 10,
+      "example": "sub-V182o_ses-260629|gaze"
+     }
+    },
+    "v182o_500hz_caveat_CONFIRMED": "'The position of the eye. Actual sampling rate = 500 Hz (Reported=1kHz)' is present in 10/10 V182o sessions, on the NESTED acquisition/eye_1_tracking/eye_1_tracking_data SpatialSeries, NOT on the outer group. The prior audit's claim is correct; the location matters because an outer-group-only attribute read (which is what a naive probe does) returns None and would miss it entirely.",
+    "v182o_pupil_has_no_such_caveat": "pupil description is 'Pupil diameter.' in 10/10 V182o sessions",
+    "c31o_v198o_descriptions": "'Reconstructed pupil_1_tracking' / 'Reconstructed eye_1_tracking' in 12/12 sessions; no rate caveat on either channel",
+    "shared_clock": {
+     "sessions_with_single_shared_rate_and_starting_time_across_ALL_acquisition_series_AND_pupil_n_samples_equal_to_lfp_n_samples": "22/22",
+     "starting_time_values_corpus_wide": [
+      0.0
+     ],
+     "n_acquisition_series_per_session": [
+      8,
+      10,
+      12
+     ],
+     "conclusion": "SHARED CLOCK. pupil/gaze/LFP/MUAe/photodiode/reward all carry the same starting_time (0.0) and the same rate attribute -- including the same floating-point noise variant 1000.0000000000002 where it occurs -- and pupil/gaze arrays are EXACTLY the same length as the LFP array in every session. No resampling, interpolation or clock alignment is required: sample index i is t = i ms on the neural time base for every modality."
+    },
+    "physical_evidence_against_a_500Hz_grid": {
+     "sample_and_hold_signature_max_parity_frac_zero_diff": {
+      "n_channels_scanned": 66,
+      "min": 0.01020901020901021,
+      "median": 0.05077402536002536,
+      "max": 0.09917709917709917,
+      "interpretation": "a 500 Hz signal duplicated onto a 1 kHz grid would give ~1.0 for one parity; observed max is far below that"
+     },
+     "linear_upsampling_signature_max_parity_frac_equals_neighbour_mean": {
+      "n_channels_scanned": 66,
+      "min": 0.006304006304006304,
+      "median": 0.016425016425016425,
+      "max": 0.0517960517960518,
+      "interpretation": "a 500 Hz signal linearly interpolated to 1 kHz would give ~1.0 for one parity; observed max is far below that"
+     },
+     "welch_psd_fraction_of_power_in_250_500_Hz": {
+      "V182o_gaze_ch0": {
+       "n": 10,
+       "min": 0.013928769449336029,
+       "median": 0.06612228344772264,
+       "max": 0.1246468357475618
+      },
+      "V182o_pupil": {
+       "n": 10,
+       "min": 0.009688238952546883,
+       "median": 0.03652140259592615,
+       "max": 0.10787739852805041
+      },
+      "C31o_gaze_ch0": {
+       "n": 7,
+       "min": 0.0022273681993129108,
+       "median": 0.0024353271981712196,
+       "max": 0.0035874771538917725
+      },
+      "C31o_pupil": {
+       "n": 7,
+       "min": 0.0023858852521609413,
+       "median": 0.002884105654450101,
+       "max": 0.003921930891124506
+      },
+      "V198o_gaze_ch0": {
+       "n": 5,
+       "min": 0.004257021875355897,
+       "median": 0.007513622535746889,
+       "max": 0.039475172734385354
+      },
+      "V198o_pupil": {
+       "n": 5,
+       "min": 0.004323313558184135,
+       "median": 0.009898724031796712,
+       "max": 0.0551409509139987
+      }
+     },
+     "conclusion": "The sample content does NOT corroborate 'actual 500 Hz'. Neither a sample-and-hold nor a linear-upsampling signature is present anywhere in the corpus, and V182o -- the subject carrying the 500 Hz caveat -- has roughly an ORDER OF MAGNITUDE MORE relative power above the 500 Hz Nyquist than C31o/V198o, which carry no caveat. Whatever the caveat records, it is not visible as bandlimiting in the stored samples. The C31o/V198o 'Reconstructed' channels are the visibly LOW-PASSED ones. This is a CONCERN (an unexplained metadata/content disagreement), not a defect in behavioral_covariates.py."
+    },
+    "downstream_consequence_of_the_rate_question": "NONE for alignment. Because every modality shares one clock and one uniform grid, a window specified in ms lands on exactly the intended samples regardless of what the eye tracker's own acquisition rate was: the array index-to-time map is fixed by the file, and V2 confirms it empirically. The only consequence of a lower true rate would be reduced effective temporal resolution (an effective-df / independent-sample issue for slope and diff-based features), which is exactly what the module's docstring already tells callers. VERIFIED CORRECT.",
+    "value_semantics_CORRECTION_to_the_prior_audit": {
+     "measured_quantization_step": 0.0003125,
+     "step_relation": "10.0 / 32000 = 3.125e-4 exactly; identical in C31o, V182o and V198o",
+     "observed_bound": "|value| max clusters just above 5.0 in every channel",
+     "finding": "The prior audit called the +/-5 range 'an UNKNOWN prior transform (z-scoring, clipping, or some other normalization)'. A uniform 3.125e-4 quantization grid shared across all three subjects and both channel types, with a hard bound at +/-5, is not what z-scoring produces (that would give a session-specific step). It is what a +/-5 V analog acquisition channel produces. The audit's CONSERVATIVE CONCLUSIONS still hold -- these are not calibrated mm or degrees, and cross-session magnitude comparison is still unsafe because the tracker's volts-to-physical gain is unknown -- but its stated MECHANISM is refuted, and one practical consequence changes: the module's CLIP_PROXIMITY_ABS = 5.0 is physically motivated (analog-input rail saturation), not merely a statistical heuristic as the module claims."
+    }
+   }
+  },
+  "V2_trial_alignment": {
+   "verdict": "PASS",
+   "method": "Epochs rebuilt by hand from the raw h5py array plus an independently written intervals parser and independently written index arithmetic, then compared element-by-element against load_behavioral_epochs' output.",
+   "cases": [
+    {
+     "session": "sub-C31o_ses-230823_rec",
+     "case": "pupil|p1",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -500.0,
+     "time_ms_last": -1.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-C31o_ses-230823_rec",
+     "case": "pupil|omission",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -250.0,
+     "time_ms_last": -51.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-C31o_ses-230823_rec",
+     "case": "gaze|p1",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -500.0,
+     "time_ms_last": -1.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-C31o_ses-230823_rec",
+     "case": "gaze|omission",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -250.0,
+     "time_ms_last": -51.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V182o_ses-260710",
+     "case": "pupil|p1",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -500.0,
+     "time_ms_last": -1.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V182o_ses-260710",
+     "case": "pupil|omission",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -250.0,
+     "time_ms_last": -51.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V182o_ses-260710",
+     "case": "gaze|p1",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -500.0,
+     "time_ms_last": -1.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V182o_ses-260710",
+     "case": "gaze|omission",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -250.0,
+     "time_ms_last": -51.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V198o_ses-230719_rec",
+     "case": "pupil|p1",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -500.0,
+     "time_ms_last": -1.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V198o_ses-230719_rec",
+     "case": "pupil|omission",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -250.0,
+     "time_ms_last": -51.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V198o_ses-230719_rec",
+     "case": "gaze|p1",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -500.0,
+     "time_ms_last": -1.0,
+     "hi_edge_exclusive": true
+    },
+    {
+     "session": "sub-V198o_ses-230719_rec",
+     "case": "gaze|omission",
+     "n_checked": 6,
+     "all_bitwise_identical": true,
+     "time_ms_first": -250.0,
+     "time_ms_last": -51.0,
+     "hi_edge_exclusive": true
+    }
+   ],
+   "all_cases_bitwise_identical": true,
+   "conventions_confirmed": {
+    "indexing": "0-based sample index, start_index = round((anchor_s + lo_ms/1000 - starting_time_s) * rate)",
+    "window_end": "HALF-OPEN [lo, hi). A (-500, 0) ms window returns 500 samples whose last time_ms is -1.0; the t=0 anchor sample is EXCLUDED. A (-250, -50) ms window's last sample is -51.0 ms.",
+    "sign_of_offset": "lo_ms/hi_ms are relative to the anchor and negative means before it -- verified against the raw array, not assumed",
+    "omission_anchor": "anchor_onset_s = trial start_time + EPOCH_ONSETS_MS[omission_position]/1000; verified numerically (AAXB/p3 gave anchor - start_time = 2.062 s = EPOCH_ONSETS_MS['p3'])"
+   }
+  },
+  "V3_strict_pre_event_and_upstream_leakage": {
+   "verdict": "PASS on the module; the upstream 'Reconstructed' risk is NARROWED, not fully resolved",
+   "module_level": {
+    "window_contract": "window_ms with hi > 0 rejected before any file I/O, for (-100,1), (-100,100) and (0,50), on all 3 probed sessions",
+    "empirical_corruption_probe": [
+     {
+      "session": "sub-C31o_ses-230823_rec",
+      "n_samples_corrupted": 300000,
+      "n_trials": 100,
+      "epoch_data_bitwise_identical": true,
+      "all_features_identical": true
+     },
+     {
+      "session": "sub-V182o_ses-260710",
+      "n_samples_corrupted": 300000,
+      "n_trials": 100,
+      "epoch_data_bitwise_identical": true,
+      "all_features_identical": true
+     },
+     {
+      "session": "sub-V198o_ses-230719_rec",
+      "n_samples_corrupted": 300000,
+      "n_trials": 100,
+      "epoch_data_bitwise_identical": true,
+      "all_features_identical": true
+     }
+    ],
+    "probe_sensitivity_positive_control": [
+     {
+      "session": "sub-C31o_ses-230823_rec",
+      "pre_onset_shift_applied": 0.5,
+      "mean_column_changed": true,
+      "observed_mean_delta": 0.500000000001192
+     },
+     {
+      "session": "sub-V182o_ses-260710",
+      "pre_onset_shift_applied": 0.5,
+      "mean_column_changed": true,
+      "observed_mean_delta": 0.5000000000133714
+     },
+     {
+      "session": "sub-V198o_ses-230719_rec",
+      "pre_onset_shift_applied": 0.5,
+      "mean_column_changed": true,
+      "observed_mean_delta": 0.5
+     }
+    ],
+    "conclusion": "Every sample at t >= 0 for 3 s after each anchor was overwritten with a 1e6 sentinel and the extracted epochs and every feature column came back bit-identical. The mirror-image positive control (shifting the PRE-onset window by +0.5) moved the extracted mean by exactly +0.5, so the probe is demonstrably sensitive and the negative result is not vacuous."
+   },
+   "upstream_reconstruction": {
+    "question": "Did the upstream 'Reconstructed' step use future samples (centred filtering / gap interpolation)?",
+    "test": "Acausal gap-fill leaves a physical signature: a linear interpolation across a gap produces a run of samples with exactly constant first difference (zero second difference), every one of which is a function of the value AFTER the gap; a sample-and-hold fill produces a plateau run. Scanned a 3 Msample mid-session chunk of pupil and both gaze channels in 8 sessions across all 3 subjects.",
+    "linear_run_coverage_frac_runs_ge_20_samples": {
+     "n_channels_scanned": 24,
+     "min": 0.0,
+     "max": 0.0
+    },
+    "plateau_run_coverage_frac_runs_ge_20_samples": {
+     "n_channels_scanned": 24,
+     "min": 0.0,
+     "max": 0.0
+    },
+    "finding": "ZERO linear-fill runs and ZERO plateau runs of >= 20 samples were found in any channel of any session scanned. The two most common acausal gap-fill mechanisms are therefore RULED OUT. What is NOT ruled out is a zero-phase (filtfilt-style) smoothing filter, which leaves no run signature and is consistent with C31o/V198o's markedly low-passed spectra (V1). A zero-phase filter with an effective half-width of a few ms would let a pre-event sample carry information from a few ms after it.",
+    "verdict": "NARROWED but UNDETERMINED from the files alone. Gap interpolation is excluded; acausal smoothing is not, and cannot be excluded without the upstream preprocessing code, which is not in this repo or in the NWB metadata. The practical exposure is bounded: it would contaminate only samples within a filter half-width of the window's t = -1 ms edge, and the module's default windows average over 200-500 samples, so any such contamination is diluted by roughly two orders of magnitude. It does NOT threaten the negative conclusion, which rests on effects being too SMALL."
+   }
+  },
+  "V4_fold_safety_and_outcome_independence": {
+   "verdict": "PASS with a CONCERN on an unenforced seed coupling",
+   "behavioral_feature_outcome_independence": {
+    "read_trace_probe": [
+     {
+      "session": "sub-C31o_ses-230823_rec",
+      "n_dataset_read_calls": 312,
+      "unique_datasets_read": [
+       "/acquisition/eye_1_tracking/data",
+       "/acquisition/eye_1_tracking/starting_time",
+       "/acquisition/pupil_1_tracking/data",
+       "/acquisition/pupil_1_tracking/starting_time",
+       "/intervals/omission_glo_passive/correct",
+       "/intervals/omission_glo_passive/start_time",
+       "/intervals/omission_glo_passive/stimulus_number",
+       "/intervals/omission_glo_passive/task_condition_number",
+       "/intervals/omission_glo_passive/trial_num"
+      ],
+      "outcome_datasets_read": []
+     },
+     {
+      "session": "sub-V182o_ses-260710",
+      "n_dataset_read_calls": 312,
+      "unique_datasets_read": [
+       "/acquisition/eye_1_tracking/eye_1_tracking_data/data",
+       "/acquisition/eye_1_tracking/eye_1_tracking_data/starting_time",
+       "/acquisition/pupil_1_tracking/pupil_1_diameter_data/data",
+       "/acquisition/pupil_1_tracking/pupil_1_diameter_data/starting_time",
+       "/intervals/omission_glo_passive/correct",
+       "/intervals/omission_glo_passive/start_time",
+       "/intervals/omission_glo_passive/stimulus_number",
+       "/intervals/omission_glo_passive/task_condition_number",
+       "/intervals/omission_glo_passive/trial_num"
+      ],
+      "outcome_datasets_read": []
+     },
+     {
+      "session": "sub-V198o_ses-230719_rec",
+      "n_dataset_read_calls": 312,
+      "unique_datasets_read": [
+       "/acquisition/eye_1_tracking/data",
+       "/acquisition/eye_1_tracking/starting_time",
+       "/acquisition/pupil_1_tracking/data",
+       "/acquisition/pupil_1_tracking/starting_time",
+       "/intervals/omission_glo_passive/correct",
+       "/intervals/omission_glo_passive/start_time",
+       "/intervals/omission_glo_passive/stimulus_number",
+       "/intervals/omission_glo_passive/task_condition_number",
+       "/intervals/omission_glo_passive/trial_num"
+      ],
+      "outcome_datasets_read": []
+     }
+    ],
+    "garbage_substitution_probe": [
+     {
+      "session": "sub-C31o_ses-230823_rec",
+      "all_features_identical": true
+     },
+     {
+      "session": "sub-V182o_ses-260710",
+      "all_features_identical": true
+     },
+     {
+      "session": "sub-V198o_ses-230719_rec",
+      "all_features_identical": true
+     }
+    ],
+    "conclusion": "h5py.Dataset.__getitem__ was instrumented for a complete pupil+gaze feature extraction. Only 9 datasets are ever read -- the two tracking data arrays, their starting_time scalars, and 5 intervals columns. No *_lfp, *_muae or units/* dataset is touched at all. Re-running against a file whose outcome channels are pure noise reproduces every feature bit-identically. Behavioural features cannot leak outcome information because they never read the outcome."
+   },
+   "cross_fitting_in_distributed_lag_model": {
+    "_held_out_r2": "StandardScaler and Ridge are both fit INSIDE the training fold; no preprocessing is fit on full data. CORRECT.",
+    "estimate_timing_nested": "Builds each test-fold trial's matched-filter template from that fold's TRAINING trials only, using KFold(n_splits, shuffle=True, random_state=seed) -- the same constructor call the evaluation uses. Cross-fit discipline is real.",
+    "outcome_never_enters_a_nuisance_feature": "timing_hat is a function of P only and amplitude is P's own pre-event baseline; neither reads the outcome R. Verified by reading the code paths.",
+    "CONCERN_unenforced_seed_coupling": "The cross-fit guarantee depends on estimate_timing_nested and fit_nuisance_tier being handed the SAME seed and n_splits, but nothing enforces it -- they are two independent keyword arguments on two independent functions, and the guarantee lives only in a docstring. If a future caller passes different seeds, a trial's timing_hat would have been built from a template containing trials in its own evaluation test fold, and the failure is SILENT. All 5 current call sites (dev_zhat3_behavioral_bridge_20260828.py, dev_zhat_bridge_benchmark_20260828.py, verify_zhat3_v1_calibration.py, verify_zhat3_v2_fidelity.py) were checked and all pass a single shared seed variable, so no present defect. Recommend an explicit shared fold-index argument rather than a seed convention.",
+    "CONCERN_random_folds_on_real_trial_data": "KFold(shuffle=True) is a RANDOM split. That is fine for the i.i.d. synthetic benchmark it currently serves, but real session trials drift slowly, so if this machinery is extended to real behavioural covariates a random split is not conservative. This verification's own V5 uses contiguous blocked folds for exactly that reason."
+   }
+  },
+  "V5_real_pupil_gaze_to_neural_pre_state_covariation": {
+   "verdict": "PASS -- the original's descriptive claims replicate and are, if anything, slightly larger; the NEGATIVE CONCLUSION drawn from them is only CONDITIONALLY supported (see implied_bound)",
+   "scope": {
+    "sessions": 22,
+    "subjects": [
+     "C31o",
+     "V182o",
+     "V198o"
+    ],
+    "n_sessions_by_subject": {
+     "C31o": 7,
+     "V182o": 10,
+     "V198o": 5
+    },
+    "window_ms": [
+     -500.0,
+     0.0
+    ],
+    "note_strictly_pre_event": "The original used (-500, +1) ms for the neural side because load_analog_epochs requires a t=0 sample. This verification does its own h5py slab reads and uses a strictly pre-event (-500, 0) window (500 samples, last at t = -1 ms) for BOTH sides.",
+    "behavioral_features": [
+     "pupil_mean",
+     "pupil_sd",
+     "pupil_slope",
+     "gaze_dist",
+     "gaze_sd"
+    ],
+    "neural_pre_state_features": [
+     "lfp_logpower (probe_0, mean power across 128 channels, log taken once at the end)",
+     "muae_logmean (probe_0)",
+     "pop_rate_hz (units with snr>0.5, firing_rate>0.5, presence_ratio>=0.98)"
+    ]
+   },
+   "module_crosscheck": {
+    "method": "my independently computed pupil_mean vs the module's, joined on trial_num",
+    "sessions_bitwise_identical": 16,
+    "n_sessions": 22,
+    "explained_discrepancies": "2 sessions (sub-C31o_ses-230816_rec r=0.923, sub-V182o_ses-260629 r=0.910) differ ENTIRELY because trial_num is NOT unique within a session -- the module's own trial table carries 88 and 100 duplicate trial_num values respectively, with paired onsets up to 10,381 s apart, disambiguated only by condition. My join key was ambiguous; the module's trial_id (stem|trial|condition) is the correct key. This is a genuine identity footgun worth recording: joining behavioural features to any other table on trial_num alone mis-pairs up to ~11% of rows in some sessions. 4 further sessions differ by <= 0.104 because the module masks samples at the +/-5 clip bound before averaging and my check did not -- i.e. the clip heuristic DOES fire, rarely, in V198o. No module defect was found."
+   },
+   "primary_statistic": "blocked (contiguous 5-fold) cross-validated R^2 of a neural pre-state quantity from the full 5-feature behavioural vector (ridge, standardized inside each training fold); r_effective = sqrt(max(R2, 0)), directly comparable to the r >~ 0.9 fidelity bar.",
+   "session_level_summary": {
+    "lfp_logpower": {
+     "n_sessions": 22,
+     "cv_r2_blocked_per_session": [
+      0.04853603800857287,
+      0.03125421476004708,
+      0.024507419512328155,
+      0.007941531833880133,
+      0.019992006713930532,
+      0.0036260897041807683,
+      0.021427485911522437,
+      0.011170590678478476,
+      0.0095324013208411,
+      0.002847716982437687,
+      0.0569434412172517,
+      0.3356168315467086,
+      0.2733399246670509,
+      0.13081834374113488,
+      0.3106993665065576,
+      0.08793031473446966,
+      0.005881277682389663,
+      0.026721537268720064,
+      -0.05063088455549325,
+      -0.04735941546288802,
+      -0.019885719880861963,
+      0.04721545538113081
+     ],
+     "cv_r2_blocked_mean": 0.060823907648744985,
+     "cv_r2_blocked_median": 0.022967452711925296,
+     "cv_r2_blocked_ci95_boot_over_sessions": [
+      0.020993103237351946,
+      0.10896059621670631
+     ],
+     "r_effective_per_session": [
+      0.22030896034563113,
+      0.17678861603634743,
+      0.15654845739363948,
+      0.08911527273077345,
+      0.14139309287914503,
+      0.06021702171463454,
+      0.14638130314873699,
+      0.10569101512653985,
+      0.09763401723191102,
+      0.05336400455773242,
+      0.23862824899255264,
+      0.5793244613743741,
+      0.5228192083952644,
+      0.36168818579148376,
+      0.5574041321218902,
+      0.29653046173111736,
+      0.0766894887346999,
+      0.1634672360710857,
+      0.0,
+      0.0,
+      0.0,
+      0.21729117649166246
+     ],
+     "r_effective_mean": 0.19369474367587375,
+     "r_effective_max": 0.5793244613743741,
+     "negctrl_cv_r2_mean": -0.2839229507918705,
+     "neural_ceiling_cv_r2_mean": 0.0626506665384564
+    },
+    "muae_logmean": {
+     "n_sessions": 22,
+     "cv_r2_blocked_per_session": [
+      -0.08728551515292793,
+      0.023829727222143382,
+      0.13826112881371178,
+      0.14999746582835993,
+      0.07240002437594029,
+      0.004647815722652937,
+      -0.12429735125512775,
+      0.4006546482149076,
+      0.03709950274043272,
+      0.2958397129380691,
+      0.09200174556012519,
+      0.14634507639650474,
+      0.03714395225490652,
+      0.17996844347582408,
+      0.12396969100934596,
+      0.10063012601589116,
+      -0.11286962020909286,
+      -1.149614299801379,
+      0.05532245265345215,
+      -0.10284487753404381,
+      0.0895691657468739,
+      0.02192017465944307
+     ],
+     "cv_r2_blocked_mean": 0.017849508621636957,
+     "cv_r2_blocked_median": 0.06386123851469622,
+     "cv_r2_blocked_ci95_boot_over_sessions": [
+      -0.12007112739839977,
+      0.11436479672858668
+     ],
+     "r_effective_per_session": [
+      0.0,
+      0.15436880261938737,
+      0.3718348138807228,
+      0.3872950630054041,
+      0.2690725262377047,
+      0.06817489070510445,
+      0.0,
+      0.6329728653069637,
+      0.19261231201673668,
+      0.5439114936624057,
+      0.3033178952190675,
+      0.38255075009272266,
+      0.19272766343964876,
+      0.4242268773614233,
+      0.3520932987282575,
+      0.3172225181412744,
+      0.0,
+      0.0,
+      0.23520725467861775,
+      0.0,
+      0.2992810815051194,
+      0.1480546340356933
+     ],
+     "r_effective_mean": 0.239769306392557,
+     "r_effective_max": 0.6329728653069637,
+     "negctrl_cv_r2_mean": -0.04349152027828254,
+     "neural_ceiling_cv_r2_mean": 0.21630558093997487
+    },
+    "pop_rate_hz": {
+     "n_sessions": 22,
+     "cv_r2_blocked_per_session": [
+      0.03353626344531768,
+      0.08367833258176793,
+      0.04061767828399199,
+      -0.017923675448406007,
+      0.03646162404130837,
+      0.06039042925196236,
+      -0.1226359357299065,
+      0.0379028267696504,
+      0.0020050775029905044,
+      0.01144704318044032,
+      0.14981642638238568,
+      0.03116650065695248,
+      0.03598473437612926,
+      -0.0680721489881757,
+      0.16169974947156385,
+      0.005808967006441734,
+      0.08569340429142391,
+      -0.23034617070252472,
+      0.06602972812190266,
+      0.10098163655679637,
+      0.05687179181609636,
+      0.005956885826871483
+     ],
+     "cv_r2_blocked_mean": 0.0257759622134082,
+     "cv_r2_blocked_median": 0.036223179208718814,
+     "cv_r2_blocked_ci95_boot_over_sessions": [
+      -0.011819696985708918,
+      0.058278262797241236
+     ],
+     "r_effective_per_session": [
+      0.1831290895661246,
+      0.28927207362925295,
+      0.20153827994699167,
+      0.0,
+      0.19094927085827892,
+      0.24574464236675103,
+      0.0,
+      0.1946864832741359,
+      0.044778091774778706,
+      0.10699085559261745,
+      0.3870612695457732,
+      0.17654036551721672,
+      0.18969642689341637,
+      0.0,
+      0.40211907374752054,
+      0.07621657960340214,
+      0.2927343578936779,
+      0.0,
+      0.25696250333833276,
+      0.3177760792709174,
+      0.23847807407830257,
+      0.07718086438276966
+     ],
+     "r_effective_mean": 0.17599338096728456,
+     "r_effective_max": 0.40211907374752054,
+     "negctrl_cv_r2_mean": -0.01662802677973143,
+     "neural_ceiling_cv_r2_mean": 0.12230882115549387
+    }
+   },
+   "r_effective_distribution_across_all_session_x_neural_cells": {
+    "n_cells": 66,
+    "min": 0.0,
+    "q25": 0.07633480688622658,
+    "median": 0.19032284887584766,
+    "q75": 0.2985934265616189,
+    "p90": 0.3947070683764623,
+    "max": 0.6329728653069637,
+    "n_cells_at_or_above_0.9": 0,
+    "n_cells_at_or_above_0.7": 0,
+    "n_cells_at_or_above_0.5": 5
+   },
+   "r_effective_by_subject": {
+    "C31o": {
+     "n_cells": 21,
+     "mean": 0.15962534176498241,
+     "max": 0.3872950630054041
+    },
+    "V182o": {
+     "n_cells": 30,
+     "mean": 0.2700744133956201,
+     "max": 0.6329728653069637
+    },
+    "V198o": {
+     "n_cells": 15,
+     "mean": 0.13024659359016674,
+     "max": 0.3177760792709174
+    }
+   },
+   "secondary_statistic_pairwise": {
+    "statistic": "Pearson correlation on ranks, with a CIRCULAR-SHIFT permutation null (2000 shifts) that preserves within-session temporal autocorrelation -- the original used an asymptotic Spearman p, which does not",
+    "family": "330 tests = 22 sessions x 5 behavioural features x 3 neural features, corrected ONCE across the whole family",
+    "multiplicity_correction": "Benjamini-Hochberg via jnwb StatisticalAnalysis.fdr_correct (FDR, not FWER)",
+    "n_tests": 330,
+    "abs_rank_pearson_median": 0.11139758458929816,
+    "abs_rank_pearson_p90": 0.2993387411353902,
+    "abs_rank_pearson_max": 0.5632251391331804,
+    "n_sig_raw_p05": 199,
+    "n_sig_bh_q05": 182,
+    "strongest_single_cell": {
+     "behavior": "pupil_mean",
+     "neural": "muae_logmean",
+     "n": 960,
+     "abs_rank_pearson": 0.5632251391331804,
+     "signed_rank_pearson": 0.5632251391331804,
+     "p_circshift": 0.0004997501249375312,
+     "session": "sub-V182o_ses-260715",
+     "subject": "V182o",
+     "q_bh": 0.0013193403298350824
+    },
+    "sign_consistency_modal_sign_fraction_across_22_sessions": {
+     "pupil_mean|lfp_logpower": 0.7272727272727273,
+     "pupil_sd|lfp_logpower": 0.6363636363636364,
+     "pupil_slope|lfp_logpower": 0.6363636363636364,
+     "gaze_dist|lfp_logpower": 0.5,
+     "gaze_sd|lfp_logpower": 0.5454545454545454,
+     "pupil_mean|muae_logmean": 0.7272727272727273,
+     "pupil_sd|muae_logmean": 0.6363636363636364,
+     "pupil_slope|muae_logmean": 0.6363636363636364,
+     "gaze_dist|muae_logmean": 0.7272727272727273,
+     "gaze_sd|muae_logmean": 0.5909090909090909,
+     "pupil_mean|pop_rate_hz": 0.6363636363636364,
+     "pupil_sd|pop_rate_hz": 0.7272727272727273,
+     "pupil_slope|pop_rate_hz": 0.7727272727272727,
+     "gaze_dist|pop_rate_hz": 0.6363636363636364,
+     "gaze_sd|pop_rate_hz": 0.7272727272727273
+    },
+    "sign_consistency_note": "No behaviour x neural pair exceeds 0.77 modal-sign agreement across sessions; several sit at 0.50-0.55, i.e. a coin flip. The original receipt's 'SIGN-INCONSISTENT' finding REPLICATES and is now quantified over 22 sessions instead of 6."
+   },
+   "controls": {
+    "negative_control_half_session_circular_shift_of_the_behavioural_design_matrix": {
+     "lfp_logpower": -0.2839229507918705,
+     "muae_logmean": -0.04349152027828254,
+     "pop_rate_hz": -0.01662802677973143
+    },
+    "neural_neural_ceiling_predicting_one_neural_pre_state_from_the_other_two": {
+     "lfp_logpower": 0.0626506665384564,
+     "muae_logmean": 0.21630558093997487,
+     "pop_rate_hz": 0.12230882115549387
+    },
+    "reading": "The negative control is strongly negative for every target, so the positive R^2 is not a slow-drift artifact. The ceiling is the more interesting number: behaviour predicts pre-event LFP log-power about as well as the OTHER TWO NEURAL CHANNELS do (mean CV R^2 0.061 vs 0.063). For MUAe the neural channels do far better (0.216 vs 0.018). Behaviour is not uninformative -- it is weakly informative in absolute terms, and for LFP power it is not obviously worse than the neural proxies already in use."
+   },
+   "implied_bound_on_latent_state_fidelity": {
+    "model": "B <- g -> N with independent noise, so corr(B,N) = corr(B,g) * corr(N,g)",
+    "direction_correction": "The task framing described the behaviour-to-neural-proxy correlation as an OPTIMISTIC UPPER BOUND on the behaviour-to-latent-state correlation. Under a pure common-cause model that is INVERTED: since |corr(N,g)| <= 1, corr(B,g) = corr(B,N)/corr(N,g) >= corr(B,N), i.e. the observed value is a LOWER bound. It becomes an upper bound only through pathways that couple B and N directly, bypassing g (e.g. gaze position mechanically changing retinal input). Both pathways are plausible here and this measurement cannot separate them. Flagging this explicitly because getting the direction wrong is exactly how a wrongly-pessimistic conclusion gets frozen.",
+    "the_conditional_bound_that_does_hold": "For pupil/gaze to reach corr(B,g) = 0.9, the latent state would need corr(N,g) <= corr(B,N)/0.9. Evaluated at the observed r_effective values below.",
+    "required_corr_N_g_at_the_median_cell": 0.21146983208427517,
+    "required_corr_N_g_at_the_p90_cell": 0.4385634093071803,
+    "required_corr_N_g_at_the_best_cell": 0.7033031836744041,
+    "interpretation": "At the corpus-median cell, r(B,g) = 0.9 would require the latent gain state to correlate at only ~0.2 with the very pre-event neural quantities it is supposed to confound -- explaining under 5% of their variance. A confound that weak cannot produce the FPR = 1.00 failure mode the proxy is meant to repair, so median-case rescue is internally inconsistent. At the single BEST cell (r_effective = 0.633, sub-V182o_ses-260629, MUAe), r(B,g) = 0.9 requires only corr(N,g) <= 0.70, which is NOT excludable. The negative conclusion is therefore well supported CORPUS-WIDE and for the typical session, but is NOT established for the strongest V182o sessions, and it rests on an assumption about corr(N,g) that this dataset does not measure.",
+    "honest_summary": "Zero of 66 session x neural-target cells reach r_effective >= 0.9; 0 reach 0.7; 5 reach 0.5. The corpus median is 0.190. Pupil/gaze fall FAR short of the stated bar against every neural proxy measured here."
+   }
+  },
+  "V6_qc_and_discontinuity_claims": {
+   "verdict": "PARTIAL CONFIRM -- the V198o data-quality finding is REAL and if anything understated; the '0% V182o' figure is a CRITERION ARTIFACT and must not be read as cleanliness",
+   "criteria": {
+    "A_original_reproduction": "|diff| > 5 * SD(diff) computed WITHIN that trial's own window (the module's discontinuity_count)",
+    "B_mine_session_robust": "|diff| > 10 * 1.4826 * MAD(diff) computed over a 3 Msample SESSION-level chunk -- immune to the within-window-SD pathology where a flat window makes any wiggle a '5 SD' event",
+    "C_mine_absolute": "|diff| > 5% of the session's (p99.9 - p0.1) dynamic range, i.e. a >5%-of-full-scale jump in 1 ms"
+   },
+   "per_session": [
+    {
+     "session": "sub-C31o_ses-230816_rec",
+     "subject": "C31o",
+     "n_trials": 881,
+     "A_original_5sd_within_window": 0.08626560726447219,
+     "A_ci95": [
+      0.0685678074782801,
+      0.10678557379166505
+     ],
+     "B_mine_session_robust_10mad": 0.8637911464245176,
+     "B_threshold_abs": 0.023165271520614625,
+     "C_mine_5pct_dynamic_range": 0.0,
+     "C_ci95": [
+      0.0,
+      0.004178396453400823
+     ],
+     "C_threshold_abs": 0.24956250665709379,
+     "session_diff_mad_scaled": 0.0023165271520614625
+    },
+    {
+     "session": "sub-C31o_ses-230823_rec",
+     "subject": "C31o",
+     "n_trials": 960,
+     "A_original_5sd_within_window": 0.08333333333333333,
+     "A_ci95": [
+      0.06662886293001818,
+      0.10264380712784531
+     ],
+     "B_mine_session_robust_10mad": 0.9510416666666667,
+     "B_threshold_abs": 0.023165271520614625,
+     "C_mine_5pct_dynamic_range": 0.0,
+     "C_ci95": [
+      0.0,
+      0.003835209490712123
+     ],
+     "C_threshold_abs": 0.23932813182473184,
+     "session_diff_mad_scaled": 0.0023165271520614625
+    },
+    {
+     "session": "sub-V182o_ses-260629",
+     "subject": "V182o",
+     "n_trials": 926,
+     "A_original_5sd_within_window": 0.0,
+     "A_ci95": [
+      0.0,
+      0.003975746825053421
+     ],
+     "B_mine_session_robust_10mad": 0.008639308855291577,
+     "B_threshold_abs": 0.14825985860824584,
+     "C_mine_5pct_dynamic_range": 0.0,
+     "C_ci95": [
+      0.0,
+      0.003975746825053421
+     ],
+     "C_threshold_abs": 0.38521877896785994,
+     "session_diff_mad_scaled": 0.014825985860824583
+    },
+    {
+     "session": "sub-V182o_ses-260710",
+     "subject": "V182o",
+     "n_trials": 960,
+     "A_original_5sd_within_window": 0.0,
+     "A_ci95": [
+      0.0,
+      0.003835209490712123
+     ],
+     "B_mine_session_robust_10mad": 0.0,
+     "B_threshold_abs": 0.1899580543041229,
+     "C_mine_5pct_dynamic_range": 0.0,
+     "C_ci95": [
+      0.0,
+      0.003835209490712123
+     ],
+     "C_threshold_abs": 0.3849531173706055,
+     "session_diff_mad_scaled": 0.01899580543041229
+    },
+    {
+     "session": "sub-V198o_ses-230629_rec",
+     "subject": "V198o",
+     "n_trials": 220,
+     "A_original_5sd_within_window": 0.9181818181818182,
+     "A_ci95": [
+      0.8737738442907551,
+      0.9507889612137685
+     ],
+     "B_mine_session_robust_10mad": 1.0,
+     "B_threshold_abs": 0.023167038917541502,
+     "C_mine_5pct_dynamic_range": 0.07727272727272727,
+     "C_ci95": [
+      0.045657073350820705,
+      0.12083938076960621
+     ],
+     "C_threshold_abs": 0.2692500054836273,
+     "session_diff_mad_scaled": 0.0023167038917541504
+    },
+    {
+     "session": "sub-V198o_ses-230719_rec",
+     "subject": "V198o",
+     "n_trials": 960,
+     "A_original_5sd_within_window": 0.478125,
+     "A_ci95": [
+      0.4461142809880729,
+      0.5102702771752508
+     ],
+     "B_mine_session_robust_10mad": 1.0,
+     "B_threshold_abs": 0.03243173360824585,
+     "C_mine_5pct_dynamic_range": 0.5447916666666667,
+     "C_ci95": [
+      0.5126725293648864,
+      0.5766352623365192
+     ],
+     "C_threshold_abs": 0.3100468791842486,
+     "session_diff_mad_scaled": 0.003243173360824585
+    },
+    {
+     "session": "sub-V198o_ses-230721_rec",
+     "subject": "V198o",
+     "n_trials": 960,
+     "A_original_5sd_within_window": 0.54375,
+     "A_ci95": [
+      0.5116282251965188,
+      0.5756026421690268
+     ],
+     "B_mine_session_robust_10mad": 1.0,
+     "B_threshold_abs": 0.027797618865966798,
+     "C_mine_5pct_dynamic_range": 0.16979166666666667,
+     "C_ci95": [
+      0.1465625115498394,
+      0.19506603540229048
+     ],
+     "C_threshold_abs": 0.28690624833107,
+     "session_diff_mad_scaled": 0.0027797618865966797
+    },
+    {
+     "session": "sub-C31o_ses-230901_rec",
+     "subject": "C31o",
+     "n_trials": 963,
+     "A_original_5sd_within_window": 0.07892004153686397,
+     "A_ci95": [
+      0.06268118697753908,
+      0.09778656604531043
+     ],
+     "B_mine_session_robust_10mad": 0.9979231568016614,
+     "B_threshold_abs": 0.023165271520614625,
+     "C_mine_5pct_dynamic_range": 0.0,
+     "C_ci95": [
+      0.0,
+      0.0038232846665195055
+     ],
+     "C_threshold_abs": 0.24026562795042994,
+     "session_diff_mad_scaled": 0.0023165271520614625
+    }
+   ],
+   "reproduction_of_the_original_claim": "Criterion A reproduces the original's numbers closely where the trial sets overlap: C31o 0.079-0.086 (original claimed 8-10%), V182o 0.000 (original 0%), sub-V198o_ses-230719_rec 0.478 (original 0.47). sub-V198o_ses-230629_rec came out 0.918 here against the original's 0.842, on 220 trials against the original's 38 -- the original used a much smaller trial subset for that session.",
+   "the_artifact": "V182o's 0% is NOT cleanliness. Criterion A normalises by the window's own diff SD, and V182o's tracking channel has a sample-to-sample noise floor roughly 6-8x LARGER than C31o's (session diff MAD*1.4826 = 0.148-0.190 for V182o vs 0.0023 for C31o), consistent with V182o's near-white spectrum out to 500 Hz found in V1. A 5-SD threshold on a noisy channel essentially never fires. Under the absolute criterion C, V182o and C31o are BOTH at 0.000, so the correct ordering is V182o ~ C31o << V198o, not 'V182o cleanest'. Reporting 0% for V182o next to 8-10% for C31o invites the reader to conclude V182o's tracking is better when the measurement cannot support that.",
+   "the_real_finding_CONFIRMED": "V198o genuinely does carry large absolute excursions that the other two subjects do not: under the scale-free absolute criterion C, 0.077 / 0.170 / 0.545 of trials in the three V198o sessions probed vs 0.000 in every C31o and V182o session. The original's V198o-is-worst conclusion holds under a criterion that does not share its normalisation.",
+   "SEPARATE_CONCERN_the_qc_gate_is_vacuous": {
+    "measured": [
+     {
+      "session": "sub-V198o_ses-230719_rec",
+      "n_trials": 960,
+      "qc_pass_frac": 1.0,
+      "mean_valid_frac": 0.999994,
+      "frac_trials_with_any_discontinuity": 0.478
+     },
+     {
+      "session": "sub-V198o_ses-230629_rec",
+      "n_trials": 220,
+      "qc_pass_frac": 1.0,
+      "mean_valid_frac": 0.999991,
+      "frac_trials_with_any_discontinuity": 0.918
+     },
+     {
+      "session": "sub-C31o_ses-230823_rec",
+      "n_trials": 960,
+      "qc_pass_frac": 1.0,
+      "mean_valid_frac": 1.0,
+      "frac_trials_with_any_discontinuity": 0.083
+     }
+    ],
+    "finding": "discontinuity_count is exported and documented but is NEVER wired into qc_pass. extract_pupil_features / extract_gaze_features gate only on the clip/NaN heuristic, whose valid_frac is >= 0.99999 everywhere, so qc_pass is True for 100% of trials and behavior_available excludes exactly ZERO trials -- including in a session where 91.8% of trials carry a discontinuity by the module's own exported heuristic. session_behavior_coverage's session_behavior_available gate (frac >= 0.5) therefore cannot fail for any session in this corpus. The module's docstring advertises this as replacing matched_empty.py's previously-hardcoded False; in practice it is a hardcoded True. The prior QC receipt did state that the heuristic 'is NOT catching meaningful invalidity', so this is not concealed, but a gate that cannot fail should not be described as a gate."
+   }
+  },
+  "module_test_suite": {
+   "command": "pytest omission/tests/test_behavioral_covariates.py -q",
+   "result": "15 passed in 11.92s",
+   "assessment": "The 15 tests pass and none of them asserts anything false. They are THIN relative to what the module claims: no test reconstructs an epoch independently to check that alignment actually lands where it should (V2 here), and no test verifies the pre-event guarantee at the data level rather than the argument-validation level (V3 here). Minor doctrine deviation: the test module hardcodes 'D:/nwb/omission' as the NWB_DIR default instead of resolving via omission.paths.nwb_dir()."
+  }
+ },
+ "issues": [
+  {
+   "severity": "concern",
+   "item": "V1",
+   "text": "V182o's 'Actual sampling rate = 500 Hz' metadata caveat is not corroborated by the sample content -- no upsampling signature exists and V182o has an order of magnitude MORE power above 250 Hz than the subjects without the caveat. Unexplained metadata/content disagreement."
+  },
+  {
+   "severity": "concern",
+   "item": "V1",
+   "text": "The prior semantics audit's stated mechanism for the +/-5 range ('z-scoring or some other normalization') is refuted by a uniform 3.125e-4 = 10/32000 quantization step shared by all three subjects. The values read as uncalibrated analog-input volts. The audit's conservative conclusions survive; its explanation does not."
+  },
+  {
+   "severity": "concern",
+   "item": "V3",
+   "text": "Acausal gap-fill is ruled out (zero linear-fill or plateau runs corpus-wide), but zero-phase smoothing is not, and cannot be from the files alone. Exposure is bounded to a filter half-width at the window's -1 ms edge, diluted across a 200-500 sample average."
+  },
+  {
+   "severity": "concern",
+   "item": "V4",
+   "text": "estimate_timing_nested and fit_nuisance_tier must share a seed for cross-fitting to hold, but nothing enforces it; a mismatched seed fails silently. All 5 current call sites are correct. Recommend passing explicit fold indices."
+  },
+  {
+   "severity": "concern",
+   "item": "V5",
+   "text": "The 'observed behaviour-neural correlation is an optimistic upper bound on behaviour-latent-state correlation' framing is INVERTED under a pure common-cause model, where it is a lower bound. The negative conclusion needs an explicit stated assumption about corr(N,g); it does not follow from the correlation alone."
+  },
+  {
+   "severity": "concern",
+   "item": "V5",
+   "text": "The single best cell (r_effective = 0.633, sub-V182o_ses-260629, MUAe) leaves genuine room: r(B,g) = 0.9 there requires only corr(N,g) <= 0.70, which is not excludable. The negative conclusion should be stated as corpus-wide/typical-session, not universal."
+  },
+  {
+   "severity": "concern",
+   "item": "V5",
+   "text": "Behaviour predicts pre-event LFP log-power about as well as the other neural channels do (mean blocked CV R^2 0.061 vs a 0.063 neural-neural ceiling). Pupil/gaze are weak in absolute terms but are NOT weaker than the neural proxies already in use for that target. The prior receipt did not report a ceiling, so this comparison was unavailable."
+  },
+  {
+   "severity": "concern",
+   "item": "V6",
+   "text": "V182o's reported 0% discontinuity rate is an artifact of a within-window-SD normalisation meeting a channel with a 6-8x higher noise floor. Under an absolute criterion V182o and C31o are both 0.000. Do not report 0% vs 8-10% as a quality difference."
+  },
+  {
+   "severity": "concern",
+   "item": "V6",
+   "text": "qc_pass / behavior_available excludes 0 of 960 trials in a session where 91.8% of trials carry a discontinuity by the module's own exported heuristic. discontinuity_count is never wired into the gate. session_behavior_available cannot return False for any session in this corpus."
+  },
+  {
+   "severity": "note",
+   "item": "V5",
+   "text": "trial_num is not unique within a session: the canonical trial table carries 88 (sub-C31o_ses-230816_rec) and 100 (sub-V182o_ses-260629) duplicate trial_num values with onsets up to 10,381 s apart. Join on trial_id, never trial_num."
+  }
+ ],
+ "notes": [
+  "All real-data extraction ran in the foreground. All 22 corpus sessions were used for V1, V1b and V5; 8 sessions across all 3 subjects for V3b/V6; 3 sessions across all 3 subjects for V2, V3 and V4.",
+  "This node reports a verification outcome. It does not itself establish any new scientific claim about the omission paradigm."
+ ]
+}

@@ -1,0 +1,159 @@
+{
+  "schema_version": 3,
+  "id": "canonical-key-acceptance-20260829",
+  "kind": "evidence",
+  "title": "Canonical physical-trial key: N_trials == N_unique_ids and 1:1 across extraction paths",
+  "status": "provisional",
+  "canonical_key": "(session, absolute trial onset) -> trial_id '{stem}|t={start_time:.6f}|trial={trial_num}|condition={condition}'",
+  "acceptance_pass": true,
+  "behavior_window_ms": [
+    -500.0,
+    0.0
+  ],
+  "lfp_window_ms": [
+    -500.0,
+    500.0
+  ],
+  "per_session": [
+    {
+      "session": "sub-C31o_ses-230816_rec",
+      "trial_table": {
+        "n_rows": 921,
+        "n_unique_trial_id": 921,
+        "one_to_one": true,
+        "n_unique_trial_num": 793,
+        "n_unique_start_time": 921,
+        "trial_num_would_have_collided": true
+      },
+      "lfp": {
+        "n_rows": 921,
+        "n_unique": 921,
+        "one_to_one": true,
+        "subset_of_trial_table": true,
+        "n_dropped_vs_table": 0
+      },
+      "pupil": {
+        "n_rows": 921,
+        "n_unique": 921,
+        "one_to_one": true,
+        "subset_of_trial_table": true
+      },
+      "gaze": {
+        "n_rows": 921,
+        "n_unique": 921,
+        "one_to_one": true,
+        "subset_of_trial_table": true
+      },
+      "lfp_x_behavior_join": {
+        "n_common_ids": 921,
+        "n_merged_rows": 921,
+        "no_fan_out": true
+      }
+    },
+    {
+      "session": "sub-V182o_ses-260629",
+      "trial_table": {
+        "n_rows": 961,
+        "n_unique_trial_id": 961,
+        "one_to_one": true,
+        "n_unique_trial_num": 826,
+        "n_unique_start_time": 961,
+        "trial_num_would_have_collided": true
+      },
+      "lfp": {
+        "n_rows": 961,
+        "n_unique": 961,
+        "one_to_one": true,
+        "subset_of_trial_table": true,
+        "n_dropped_vs_table": 0
+      },
+      "pupil": {
+        "n_rows": 961,
+        "n_unique": 961,
+        "one_to_one": true,
+        "subset_of_trial_table": true
+      },
+      "gaze": {
+        "n_rows": 961,
+        "n_unique": 961,
+        "one_to_one": true,
+        "subset_of_trial_table": true
+      },
+      "lfp_x_behavior_join": {
+        "n_common_ids": 961,
+        "n_merged_rows": 961,
+        "no_fan_out": true
+      }
+    },
+    {
+      "session": "sub-V182o_ses-260702",
+      "trial_table": {
+        "n_rows": 960,
+        "n_unique_trial_id": 960,
+        "one_to_one": true,
+        "n_unique_trial_num": 960,
+        "n_unique_start_time": 960,
+        "trial_num_would_have_collided": false
+      },
+      "lfp": {
+        "n_rows": 960,
+        "n_unique": 960,
+        "one_to_one": true,
+        "subset_of_trial_table": true,
+        "n_dropped_vs_table": 0
+      },
+      "pupil": {
+        "n_rows": 960,
+        "n_unique": 960,
+        "one_to_one": true,
+        "subset_of_trial_table": true
+      },
+      "gaze": {
+        "n_rows": 960,
+        "n_unique": 960,
+        "one_to_one": true,
+        "subset_of_trial_table": true
+      },
+      "lfp_x_behavior_join": {
+        "n_common_ids": 960,
+        "n_merged_rows": 960,
+        "no_fan_out": true
+      }
+    }
+  ],
+  "spk_and_matched_empty_coverage": {
+    "why_separate": "SPK (raster/psth via _epoch_grouper) and matched_empty both source trials from OmissionSession.get_epochs, not from analog._trial_table, so they are verified against the canonical key separately rather than assumed covered.",
+    "findings": [
+      {
+        "session": "sub-C31o_ses-230816_rec",
+        "trial_table_rows": 921,
+        "get_epochs_rows": 921,
+        "start_times_identical": true,
+        "get_epochs_start_time_unique": true,
+        "get_epochs_trial_num_unique": false,
+        "get_epochs_exposes_trial_id": false
+      },
+      {
+        "session": "sub-V182o_ses-260629",
+        "trial_table_rows": 961,
+        "get_epochs_rows": 961,
+        "start_times_identical": true,
+        "get_epochs_start_time_unique": true,
+        "get_epochs_trial_num_unique": false,
+        "get_epochs_exposes_trial_id": false
+      },
+      {
+        "session": "sub-V182o_ses-260702",
+        "trial_table_rows": 960,
+        "get_epochs_rows": 960,
+        "start_times_identical": true,
+        "get_epochs_start_time_unique": true,
+        "get_epochs_trial_num_unique": true,
+        "get_epochs_exposes_trial_id": false
+      }
+    ],
+    "conclusion": "get_epochs NEVER applied the buggy drop_duplicates -- it returns the full physical-trial population (921/961 on the two collision sessions, identical start_times to the fixed _trial_table) and its start_time is unique while its trial_num is not. The trial LOSS was therefore confined to the analog/LFP path; the SPK path's distinct failure was MERGING trials via groupby('trial_num') in _epoch_grouper, now fixed to group on trial_id/start_time. matched_empty keys on p1_onset_s, which IS the canonical identity in numeric form.",
+    "residual_gap": "get_epochs does not expose the string trial_id column, so downstream SPK / matched_empty joins must key on (session, start_time) numerically rather than on the trial_id string. Recorded as a known interface asymmetry, not a defect: both encode the same identity."
+  },
+  "acceptance_scope": "trial_table, LFP, pupil, gaze, SPK(get_epochs), matched_empty(get_epochs)"
+}

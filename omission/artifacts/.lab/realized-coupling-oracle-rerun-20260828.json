@@ -1,0 +1,56 @@
+{
+  "schema_version": 3,
+  "id": "realized-coupling-oracle-rerun-20260828",
+  "kind": "evidence",
+  "title": "Oracle rerun (translated-template + linear) against repaired PC1 realized-coupling generator",
+  "status": "provisional",
+  "n_trials": 300,
+  "n_seeds": 10,
+  "rho": 0.5,
+  "beta": 1.5,
+  "delay_ms": 30.0,
+  "results": {
+    "timing_null": {
+      "template_delta_mean": -0.005118750979292419,
+      "template_delta_sd": 0.004525409411074988,
+      "linear_delta_mean": -0.007329014200262951,
+      "linear_delta_sd": 0.01462254757567623
+    },
+    "gain_null": {
+      "template_delta_mean": -0.0008448469940599557,
+      "template_delta_sd": 0.000501689077702004,
+      "linear_delta_mean": -0.0008833467004142447,
+      "linear_delta_sd": 0.0005077962468753711
+    },
+    "combined_null": {
+      "template_delta_mean": -0.0017165651762273582,
+      "template_delta_sd": 0.0011467073268799498,
+      "linear_delta_mean": 0.0035676802033306476,
+      "linear_delta_sd": 0.007881768513300729
+    },
+    "timing_coupling": {
+      "template_delta_mean": 0.8448666563184997,
+      "template_delta_sd": 0.03295451179265735,
+      "linear_delta_mean": 0.8640464818493573,
+      "linear_delta_sd": 0.027893175175131225
+    },
+    "gain_coupling": {
+      "template_delta_mean": 0.73270130426661,
+      "template_delta_sd": 0.062019477345908854,
+      "linear_delta_mean": 0.7324173532289922,
+      "linear_delta_sd": 0.062058215027684376
+    },
+    "combined_coupling": {
+      "template_delta_mean": 0.7279729998622058,
+      "template_delta_sd": 0.046646514055877886,
+      "linear_delta_mean": 0.6871973186890145,
+      "linear_delta_sd": 0.04147458764511988
+    },
+    "timing_D_template": 0.849985407297792,
+    "timing_D_linear": 0.8713754960496203,
+    "gain_D_template": 0.7335461512606699,
+    "gain_D_linear": 0.7333006999294064,
+    "combined_D_template": 0.7296895650384331,
+    "combined_D_linear": 0.6836296384856838
+  }
+}

@@ -1,0 +1,311 @@
+{
+  "schema_version": 3,
+  "id": "replication-results-20260829",
+  "kind": "evidence",
+  "title": "Frozen replication of Q1-Q3 across two further sessions, after the channel-addressing fix",
+  "status": "provisional",
+  "status_rationale": "provisional. Independent verification re-derived every load-bearing number and found no fabrication, no synthetic value, no NaN distortion and no estimator parameter drift -- but REFUTED two claims (the Q3 proximity-gradient reinterpretation, and the sufficiency of the completeness guard) and surfaced an unreported numerical pathology plus an unfrozen aggregation degree of freedom. Q3 has been withdrawn in part and the guard has been repaired. Standing remains provisional: one verifier is not the threshold-2 bar for confirmed.",
+  "protocol": "Frozen per replication-freeze-20260829. Nested RidgeCV, identical alpha grid (boundary hits logged, not fixed), identical folds, lag features, permuted-floor criterion, injection sweep, functional classes, bands, C0-C3 definitions, C1 primary for high gamma. Nothing tuned on the pilot result.",
+  "inferential_unit": "session. Cells were NOT pooled across sessions. Each session answers each question on its own.",
+  "addressing_precondition": {
+    "fix": "peak_channel_id resolved as a row index into the session-global electrodes table; never matched against signal_metadata.channel_id. Canonical channel identity = (session, electrode row); probe + local_index used only for within-probe C1/C2/C3 geometry.",
+    "completeness_guard": "SUPERSEDED 2026-08-30. The original guard asserted only len(signal_metadata) == electrode row count. Independent verification REFUTED it as sufficient and the author reproduced the failure: a COUNT-PRESERVING REORDER (probeC block moved first, 384 rows preserved) silently resolved electrode row 300 to probeB instead of its true probeC with no error raised; full reversal gave probeA. Row-position addressing needs TWO preconditions -- completeness AND order.",
+    "gate": "40/40 units resolved in all three sessions; 0 unresolved; 0 wrong-probe. C31o recovered from 8/40 to 40/40.",
+    "no_op_proof": "Pre-fix logic reconstructed and diffed against the fix on all 40 selected units per V182o session: C0 40/40, C1 40/40, C2 40/40, C3 40/40 identical. Channel sets are the only input the fix touches, so pilot outputs are unchanged by construction. INDEPENDENTLY STRENGTHENED: a verifier re-ran the pilot theta band end-to-end under current post-fix code and diffed against the stored CSV joined on (unit_row_idx, band, condition, channel_control): 1280/1280 rows, 102 shared columns, max absolute numeric difference 0.000e+00 -- BIT-IDENTICAL. This closes the 'did anything else change' gap the channel-set diff could not.",
+    "regression_test": "omission/tests/test_channel_addressing.py -> 20 passed in 3.21s. Now includes the count-preserving reorder case the previous version named in its docstring but never tested, plus full reversal, a sequence-length mismatch, and a complement asserting the guard does NOT fire on correct order.",
+    "order_guard_added_20260830": "resolve_channel_sets now also accepts electrode_probes (from the new electrode_probe_sequence()) and asserts the probe sequence element-for-element against signal_metadata['probe'], naming the first mismatching row. Both drivers pass it. Real-data gate re-run with the order guard active: 40/40 resolved, 0 unresolved, 0 wrong-probe in all three sessions -- so NO result moves; the guard was already satisfied in every real session, it simply was not being checked."
+  },
+  "sessions": {
+    "pilot_sub-V182o_ses-260702": {
+      "units": 40,
+      "classes": {
+        "O+": 16,
+        "O++": 4,
+        "S+": 8,
+        "S-": 10,
+        "Other": 2
+      },
+      "cells": 6400
+    },
+    "sub-V182o_ses-260629": {
+      "units": 40,
+      "classes": {
+        "O+": 12,
+        "O++": 1,
+        "S+": 8,
+        "S-": 11,
+        "Other": 8
+      },
+      "cells": 6400,
+      "runtime_s": 3487
+    },
+    "sub-C31o_ses-230816_rec": {
+      "units": 40,
+      "classes": {
+        "O+": 20,
+        "O++": 7,
+        "S+": 7,
+        "S-": 6
+      },
+      "cells": 6400,
+      "runtime_s": 2526
+    }
+  },
+  "alpha_boundary_logging": {
+    "note": "Logged as required by the freeze; grid NOT changed, because changing it would break replication comparability.",
+    "pilot": {
+      "m2_at_1e4": 0.0875,
+      "m3_at_1e4": 0.1042
+    },
+    "sub-V182o_ses-260629": {
+      "m2_at_1e4": 0.141,
+      "m3_at_1e4": 0.154,
+      "m3_at_1e-2": 0.002
+    },
+    "sub-C31o_ses-230816_rec": {
+      "m2_at_1e4": 0.103,
+      "m3_at_1e4": 0.135,
+      "m3_at_1e-2": 0.012
+    }
+  },
+  "Q1_high_n_detection_excess": {
+    "question": "Does the high-n predictive-detection excess recur (~13% vs ~5% null)?",
+    "answer": "YES - recurs in both sessions and both subjects.",
+    "per_session": {
+      "pilot_sub-V182o_ses-260702": {
+        "nested": 0.133,
+        "concurrent": 0.133,
+        "units_above_5pct": "32/40",
+        "strata_clearing_own_floor": "0/160"
+      },
+      "sub-V182o_ses-260629": {
+        "nested": 0.104,
+        "concurrent": 0.148,
+        "units_above_5pct": "30/40",
+        "units_at_zero": 1,
+        "per_unit_wilcoxon_vs_0.05_p": 1.09e-05,
+        "strata_clearing_own_floor": "0/160"
+      },
+      "sub-C31o_ses-230816_rec": {
+        "nested": 0.124,
+        "concurrent": 0.213,
+        "units_above_5pct": "33/40",
+        "units_at_zero": 0,
+        "per_unit_wilcoxon_vs_0.05_p": 2.34e-06,
+        "strata_clearing_own_floor": "0/160"
+      }
+    },
+    "what_recurs": "Both the excess itself (10.4-13.3% against a 5.0% null, diffuse across 30-33 of 40 units per session) AND its ceiling: in every session, ZERO of 160 (band x condition x channel_control) strata have a median nested delta clearing their own permuted floor. The excess is a right-tail phenomenon with no stratum-level effect, in all three sessions.",
+    "new_observation_not_in_the_pilot": "The CONCURRENT arm now exceeds the nested past arm in both replications (14.8% vs 10.4%; 21.3% vs 12.4%), where the pilot had them indistinguishable (13.3% vs 13.2%). Contemporaneous SPK-LFP association appears stronger than past-conditioned association in both new sessions. This was not predicted, is not part of Q1-Q3, and is recorded rather than pursued.",
+    "standing": "Still DESCRIPTIVE_REPLICATION_TARGET, now replicated. It is not a stratum-level effect and carries no directional or causal reading."
+  },
+  "Q2_omission_after_own_null_correction": {
+    "question": "Does omission show incremental predictive dependence after correction against its own trial-count-matched permuted floor?",
+    "answer": "NO in every session. And every omission result remains power-limited.",
+    "corrected_medians_nested_minus_permuted": {
+      "pilot_sub-V182o_ses-260702": {
+        "omission": 0.00155,
+        "matched_empty": 0.00056,
+        "baseline": 0.00081
+      },
+      "sub-V182o_ses-260629": {
+        "omission": 0.00032,
+        "matched_empty": 0.00025,
+        "baseline": 0.00055
+      },
+      "sub-C31o_ses-230816_rec": {
+        "omission": 0.0002,
+        "matched_empty": 0.00063,
+        "baseline": 0.00159
+      }
+    },
+    "raw_deltas_are_a_trial_count_artifact": "Raw omission per-condition medians span -0.0113 to -0.0173 against -0.0015 to -0.0043 elsewhere, but omission carries 82-139 trials against 785-961. Subtracting each cell's own permuted floor collapses the difference to noise in all three sessions. SEPARABILITY: trial count is a DETERMINISTIC function of condition (every condition has exactly one trial count), so no within-data regression can separate them by contrasting conditions. The separation instead comes from contrasting ARMS within condition: the permuted arm holds condition, trials and n fixed and removes only the LFP-firing pairing, and it reproduces 87-117% of the raw omission deficit (pilot 107%, 260629 117%, C31o 87%). The deficit is the CV overfitting penalty scaling in 1/n, not anything about omission.",
+    "paired_unit_level_tests": {
+      "sub-V182o_ses-260629": {
+        "p2": {
+          "wilcoxon_p": 0.029,
+          "paired_t_p": 0.066,
+          "omission_vs_zero_p": 0.068
+        },
+        "p3": {
+          "wilcoxon_p": 0.405
+        },
+        "p4": {
+          "wilcoxon_p": 0.826
+        }
+      },
+      "sub-C31o_ses-230816_rec": {
+        "p2": {
+          "wilcoxon_p": 0.301
+        },
+        "p3": {
+          "wilcoxon_p": 0.094
+        },
+        "p4": {
+          "wilcoxon_p": 0.536
+        }
+      }
+    },
+    "the_one_non_null_cell": "sub-V182o_ses-260629 omission_p2 gives Wilcoxon p = 0.029, but paired-t p = 0.066 and omission-vs-zero p = 0.068 disagree, p3/p4 are flatly null, three comparisons are uncorrected, and the unit-level diff_median (+0.0105) contradicts the cell-level medians (+0.0004 vs -0.0004), indicating a few units rather than a shift. NOT treated as a signal. Recorded rather than dropped. It does not recur in C31o (p = 0.301). INDEPENDENTLY RE-EXAMINED: the verifier confirmed the call not to name it a signal, for three further reasons -- (1) AGGREGATION-FRAGILE: median-per-unit instead of mean-per-unit flips p2 from 0.029 to 0.405 under the same pre-registered rule; (2) DIRECTION-INCONSISTENT: C31o's own near-miss (p3, p = 0.094) carries unit_diff_median = -0.00606, the OPPOSITE sign to 260629 p2's +0.0105; (3) Holm across the 6 uncorrected slot x session tests puts the best p at ~0.17.",
+    "sensitivity_attached_to_every_omission_result": {
+      "rule": "Minimum injected beta for >=80% detection against the session's own low-n permuted floor.",
+      "pilot": {
+        "omission_n": 138,
+        "min_beta": 0.4,
+        "variance_pct": 13.8
+      },
+      "sub-V182o_ses-260629": {
+        "omission_n": 138,
+        "min_beta": 0.4,
+        "variance_pct": 13.8,
+        "detection_by_beta": {
+          "0.1": 0.13,
+          "0.2": 0.4,
+          "0.4": 0.91
+        }
+      },
+      "sub-C31o_ses-230816_rec": {
+        "omission_n": 122,
+        "min_beta": 0.4,
+        "variance_pct": 13.8,
+        "detection_by_beta": {
+          "0.1": 0.1,
+          "0.2": 0.34,
+          "0.4": 0.92
+        }
+      },
+      "high_n_comparison": "beta = 0.2 (~3.9% of firing variance) suffices at n ~ 820-840 in every session.",
+      "reading": "The omission conditions are the underpowered ones in all three sessions. Their null is bounded at roughly 14% of firing variance and must not be reported as a biological null.",
+      "binding_constraint_correction": "C31o omission_n was quoted as 122 (the median). The BINDING slot is omission_p3 at n = 82, where beta = 0.4 detects only 0.86. The sensitivity bound is understated as originally written."
+    }
+  },
+  "Q3_high_gamma_C0_vs_C1": {
+    "question": "Does the high-gamma C0 > C1 pattern recur?",
+    "answer": "WITHDRAWN in part. The DIRECTION is consistent but not significant in either replication, and the proximity-gradient reinterpretation offered in the first version of this node is REFUTED and withdrawn.",
+    "high_gamma_detection_by_control_high_n": {
+      "pilot_sub-V182o_ses-260702": {
+        "C0_own": 0.225,
+        "C1_own_excluded": 0.17,
+        "C2_nearby": 0.2,
+        "C3_distant": 0.185,
+        "exact_mcnemar_p": 0.0127,
+        "paired_wilcoxon_deltas_p": 0.1015
+      },
+      "sub-V182o_ses-260629": {
+        "C0_own": 0.18,
+        "C1_own_excluded": 0.155,
+        "C2_nearby": 0.205,
+        "C3_distant": 0.09,
+        "exact_mcnemar_p": 0.4583,
+        "paired_wilcoxon_deltas_p": 0.9932,
+        "discordant": "17 C0-only vs 12 C1-only"
+      },
+      "sub-C31o_ses-230816_rec": {
+        "C0_own": 0.11,
+        "C1_own_excluded": 0.085,
+        "C2_nearby": 0.125,
+        "C3_distant": 0.11,
+        "exact_mcnemar_p": 0.3593,
+        "paired_wilcoxon_deltas_p": 0.6316,
+        "discordant": "12 C0-only vs 7 C1-only"
+      }
+    },
+    "WITHDRAWN_20260830_proximity_gradient_reinterpretation": {
+      "what_was_claimed": "That C2_nearby >= C0_own argues against own-channel spike contamination and for a spatial proximity gradient (C2 >= C0 > C1), because contamination should not produce a larger effect on a neighbour than on the unit's own channel.",
+      "why_withdrawn": "Independent verification REFUTED it and the author reproduced the key measurement. Channel counts actually averaged are C0=1, C1=8, C2=8, C3=8 (driver: use = ch_idx[::max(1,len//8)][:8]). C1, C2 and C3 are therefore EXACTLY count-matched and only C0 differs. C2 has an 8x averaging SNR advantage over C0, which alone produces C2 >= C0 with no spatial gradient. The argument was confounded in precisely the direction that produced its own conclusion.",
+      "the_earlier_caveat_was_stated_backwards": "The withdrawn caveat said 'C0 is a single channel while C1/C2/C3 average up to 8 ... part of the C0/C2-versus-C1 gap may be an averaging effect', grouping C0 with C2 on the same side of the confound. C2 is on the SAME side as C1 (both 8). That misstatement concealed the confound that mattered.",
+      "significance": "No relevant pairing is significant in any session: C2>C0 p = 0.180/0.302/0.581; C2>C1 p = 0.146/0.087/0.152. Two nominal hits below 0.05 out of 24 comparisons is chance expectation.",
+      "equally_good_alternative": "At equal count, what distinguishes C1/C2/C3 is the SPAN of the averaged set -- a property of the subsampling stride, not anatomy. C1 spans the whole probe (mean |delta local_index| ~45) averaging incoherent sites; C2 is a tight cluster (~8) preserving coherent local field. That predicts C2>C1 and C3>C1 with no anatomy at all.",
+      "contradicting_evidence_not_previously_reported": "In the CONCURRENT arm -- where own-channel spike contamination should be maximal, since post-event LFP overlaps the spike-count window -- C0 is the HIGHEST control in all three sessions (pilot .250/.245/.230/.230; 260629 .295/.260/.290/.220; C31o .315/.270/.295/.245). The withdrawn argument cited a non-significant ordering in the low-signal past arm while the contamination-sensitive arm ordered the other way."
+    },
+    "direction_claim_weakened": "'Direction recurs' rests on three individually non-significant rate differences (0.055, 0.025, 0.025). The freeze's own second test -- the paired Wilcoxon required to separate a tail effect from a location shift -- is null in ALL THREE sessions including the pilot (0.1015/0.9932/0.6316). Collapsed to one value per unit, directional consistency decays 100% (8/8 non-tied) -> 69% (11/16) -> 63% (10/16). That reads as a failure to replicate rather than a recurrence.",
+    "surviving_disposition": "The only count-matched and therefore interpretable comparison is C2 vs C1, and it is null in all three sessions (p = 0.146/0.087/0.152). Own-channel contamination is NEITHER ESTABLISHED NOR EXCLUDED; the control geometry is not interpretable as frozen; C1_own_excluded remains the primary high-gamma estimate as a conservative default that costs nothing. No positive mechanism is claimed.",
+    "unreported_heterogeneity_bearing_on_Q3": "high_gamma is the strongest band in both V182o sessions (0.185, 0.156) but the WEAKEST in C31o (0.083). Q3 is conducted entirely in high_gamma, so in C31o it runs in that session's least-responsive band."
+  },
+  "three_way_verdict": {
+    "Q1": "RECURS - 13.3% / 10.4% / 12.4% against a 5.0% null; 0/160 strata clear their own floor in every session.",
+    "Q2": "NULL EVERYWHERE, and power-limited everywhere - roughly 14% of firing variance needed at omission trial counts.",
+    "Q3": "DIRECTION consistent but NOT significant in either replication; the proximity-gradient reinterpretation is WITHDRAWN. Contamination neither established nor excluded; control geometry not interpretable as frozen.",
+    "coherent": "Sessions agree on Q1 and Q2. They do NOT agree on Q3 in any way supporting a positive reinterpretation, and cross-subject band heterogeneity (high_gamma strongest in V182o, weakest in C31o) bears directly on it. No heterogeneity diagnosis is required for Q1/Q2."
+  },
+  "receipts": {
+    "compute": "python -m omission.scripts.dev_spk_lfp_nested_rerun_20260829 --session <stem> --max-units 40 --bands theta,alpha,beta,low_gamma,high_gamma --controls C0_own,C1_own_excluded,C2_nearby,C3_distant  -> 6400 cells each, exit 0",
+    "cells": [
+      "omission/artifacts/data/spk_lfp_nested_v182o_260702_cells.csv",
+      "omission/artifacts/data/spk_lfp_nested_sub-V182o_ses-260629_cells.csv",
+      "omission/artifacts/data/spk_lfp_nested_sub-C31o_ses-230816_rec_cells.csv"
+    ],
+    "per_session_nodes": [
+      "spk-lfp-nested-rerun-20260829",
+      "spk-lfp-nested-sub-V182o-ses-260629-20260829",
+      "spk-lfp-nested-sub-C31o-ses-230816-rec-20260829"
+    ]
+  },
+  "edges": [
+    {
+      "type": "tested_by",
+      "target": "replication-freeze-20260829"
+    },
+    {
+      "type": "derived_from",
+      "target": "nested-rerun-verdict-20260829"
+    },
+    {
+      "type": "derived_from",
+      "target": "bug-channel-id-probe-local-20260829"
+    },
+    {
+      "type": "supersedes",
+      "target": "replication-checkpoint-20260830",
+      "scope": "Q1/Q2/Q3 answers and Q3 mechanism claims only -- replication-checkpoint-20260830 retains the unique bit-for-bit no-op diff and downgrade-governance trail"
+    }
+  ],
+  "open": "Independent verification of Q1-Q3 has not run. Do not treat as confirmed until it does.",
+  "numerical_pathology_found_by_verification_20260830": {
+    "what": "Severe held-out R^2 blowups in sub-V182o_ses-260629, absent from the first version of this node.",
+    "measured": {
+      "sub-V182o_ses-260629": {
+        "nested_min": -2.978,
+        "permuted_min": -4.612,
+        "concurrent_min": -7.244,
+        "cells_abs_gt_0.2": {
+          "nested": 76,
+          "permuted": 100,
+          "concurrent": 80
+        },
+        "cells_abs_gt_1": {
+          "nested": 6,
+          "permuted": 15,
+          "concurrent": 12
+        }
+      },
+      "pilot": {
+        "nested_min": -0.402,
+        "cells_abs_gt_1": 0
+      },
+      "sub-C31o_ses-230816_rec": {
+        "nested_min": -0.317,
+        "cells_abs_gt_1": 0
+      }
+    },
+    "localisation": "Concentrated in LOW-N OMISSION cells: omission_p3 35, omission_p2 29, omission_p4 7, matched_empty 5. Worst case theta / omission_p3 / C0_own at n=139: r2_m2 0.225 -> r2_m3 -2.753.",
+    "impact_on_reported_results": "Q1 is untouched: only 5 of 4000 high-n cells exceed |delta| 0.2, and high-n detection is 0.1045 with blowups versus 0.1046 excluding them. Q2 medians and paired Wilcoxons are rank-based and therefore robust. But 260629's low-n arm is QUALITATIVELY different from the other two sessions, and any future analysis using means, or pooling sessions, would inherit a -7.2 outlier.",
+    "note": "_FloorScaler guards zero/near-zero variance but not collinearity; theta's long effective latency yields highly correlated lag features at n~139. Recorded, NOT fixed -- fixing it would be an estimator change inside a frozen protocol."
+  },
+  "unfrozen_degree_of_freedom_found_by_verification_20260830": {
+    "what": "The freeze said 'aggregate to one value per unit' but never specified the aggregation FUNCTION.",
+    "consequence": "This node used mean-per-unit; the separate checkpoint node used median-per-unit. The choice determines whether sub-V182o_ses-260629 omission_p2 reads 0.029 (mean) or 0.405 (median). Two nodes in the graph published different p-values for the same pre-registered test, and neither stated which aggregation it used.",
+    "disposition": "Recorded as a two-sources-disagree condition and surfaced, NOT reconciled by picking one. Both values are reported. The scientific conclusion is unchanged either way -- the cell is not a signal under either aggregation once multiplicity and direction-inconsistency are accounted for.",
+    "for_any_future_freeze": "Specify the aggregation function explicitly, not just the aggregation level."
+  },
+  "other_verification_findings_recorded_not_fixed": [
+    "Wilcoxon p-values for Q1 per-unit rates are ONE-SIDED (greater); two-sided values are 2.088e-06 / 2.185e-05 / 4.686e-06 and change nothing. Sidedness was undocumented.",
+    "The '40/40 units resolved' gate is asserted in prose but NOT enforced by the driver: `if chans is None: continue` has no counter, no log and no assertion, and the emitted JSON records no selected-vs-resolved count. The claim is true (independently verified) but nothing would fail if it stopped being true -- which is exactly how C31o's original 8/40 went unnoticed.",
+    "Docstring/column-name mismatch: spk_lfp_pilot.py describes the nuisance model as 'spike history + measured task/state covariates' and names the column r2_nuisance, but both drivers pass no covariates. M2 is a single 200 ms spike count. The estimand phrasing 'beyond spike history' is accurate; the docstring and column name are not.",
+    "C1's subsample is coverage-biased and shared: [::127//8][:8] never samples the probe's last ~20 channels, and because the set is position-defined many units on a probe receive the SAME 8 channels (pilot probeB: 27 units -> 7 distinct C1 sets). C1 is closer to a shared probe-wide reference than a per-unit control -- and C1 is the PRIMARY high-gamma estimate under the freeze.",
+    "dev_spk_lfp_nested_rerun_20260829.py still writes the injection_geometry_caveat into every per-session receipt, although nested-rerun-verdict-20260829 explicitly WITHDREW that mechanism claim. Withdrawn claims are being re-emitted by the pipeline.",
+    "The freeze demanded the unitclass builder reproduce the pilot table BIT-IDENTICALLY; dev_build_unitclass_20260829.py accepts a match on CONSUMED_COLUMNS only and prints an UNRESOLVED line for 8 non-consumed columns. Honest, but a relaxation of a frozen acceptance criterion.",
+    "runtime_s recorded here (3487, 2526) differs from the per-session receipts (3577.7, 2527.2).",
+    "Full suite is environment-dependent: 435 passed / 23 skipped with OMISSION_NWB_DIR set; the checkpoint node quotes 427/31 without stating its environment. Nothing fails either way."
+  ]
+}

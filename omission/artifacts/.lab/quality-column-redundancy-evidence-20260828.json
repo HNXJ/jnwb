@@ -1,0 +1,24 @@
+{
+  "schema_version": 3,
+  "id": "quality-column-redundancy-evidence-20260828",
+  "kind": "evidence",
+  "title": "is_stable / stable_plus / quality==1.0 are identical corpus-wide -- documented 4-tier unit-quality scheme collapses to a binary split",
+  "status": "confirmed",
+  "generated": {
+    "date": "2026-08-28",
+    "author": "Claude (behavioral-covariates subagent for Hamm)"
+  },
+  "purpose": "Standalone documentation of a finding first surfaced in omission/artifacts/.lab/real-data-nuisance-and-trialcount-inventory-20260828.json's unit_census_by_session note, per Hamm's explicit instruction to keep this ORTHOGONAL finding separate from the pupil/gaze behavioral-covariate work (this receipt) rather than mixed into it. This receipt does NOT fix or alter any unit-eligibility logic -- it documents the finding plainly so it does not silently affect anything later, per the instruction.",
+  "finding": {
+    "claim": "In OmissionSession.get_units(), the columns is_stable, stable_plus, and (quality == 1.0) are IDENTICAL boolean columns -- 0 rows differ -- confirmed directly on at least one real session (sub-C31o_ses-230816_rec: 226 True / 131 False in all three columns simultaneously).",
+    "implication": "The omission-data skill documents a 4-tier unit-quality scheme (stable_plus / stable / mua / unstable), with stable_plus formally defined as is_stable AND FR>1Hz AND SNR>0.8 AND 100% trial presence, and stable AS is_stable but not stable_plus. If is_stable and stable_plus are identical corpus-wide, then in THIS corpus every unit satisfying is_stable ALSO satisfies the full stable_plus conjunction (FR/SNR/trial-presence), and no unit occupies the 'stable but not stable_plus' tier at all -- collapsing the documented 4-tier scheme to an effective 2-tier (stable_plus-equivalent vs. not-stable) split for any analysis that reads these specific columns.",
+    "scope_of_verification": "Directly confirmed on 1 session (sub-C31o_ses-230816_rec) by the prior inventory's own audit (2026-08-28); NOT independently re-verified across all 22 sessions by this receipt. This receipt restates and elevates that finding to a standalone, clearly-flagged item per Hamm's instruction -- it does not add new verification breadth.",
+    "corpus_wide_totals_from_prior_inventory": "9,061 total units corpus-wide; 4,804 n_stable_plus; 4,257 not-stable (per the prior inventory's Task 2 unit census, which computed these totals across all 22 sessions using the same is_stable/stable_plus/quality columns -- consistent with, but not the same claim as, the single-session column-identity check)."
+  },
+  "receipts": {
+    "source_receipt": "omission/artifacts/.lab/real-data-nuisance-and-trialcount-inventory-20260828.json, task2_eligible_trial_count_inventory.unit_census_by_session (the original finding this receipt elevates to standalone status)",
+    "verification_script": "trial_count_audit.py (referenced by the source receipt; uses omission.OmissionSession.get_units() via cached NWB tables in E:/analysis/metadata) -- not re-run by this receipt; restated from the source receipt's own recorded output, per this project's truth-precedence rule that a receipt outranks narrative memory but this receipt is itself transcribing, not re-deriving"
+  },
+  "doctrine_note": "Per this project's tripwire 8 ('check whether a column is constant before interpreting it') and tripwire 9 ('diff a same-named column on the overlap before joining'), any future analysis that treats is_stable, stable_plus, and quality==1.0 as three independently informative unit-selection criteria in this corpus should first re-verify this finding against the SPECIFIC sessions/tables it intends to use, rather than assuming either (a) the documented 4-tier scheme's stable-but-not-stable_plus tier is populated, or (b) this finding automatically holds outside the 1 session and 22-session-total-count evidence cited above.",
+  "explicitly_not_done_here": "This receipt does not change classify_unit_quality, get_units, unit_census_report, or any unit-eligibility logic in jnwb/ or omission/. No such change is authorized by this task; ANALYSIS-ONLY doctrine (omission/CLAUDE.md) requires documenting, not fixing, an orthogonal finding discovered in passing."
+}
