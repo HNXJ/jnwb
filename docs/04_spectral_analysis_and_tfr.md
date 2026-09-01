@@ -1,104 +1,126 @@
 # 04. Spectral Analysis, Coherence & Time-Frequency Representations (TFR)
 
-This document details spectral power estimation, time-frequency decomposition, cross-area coherence, memory-efficient accumulation, coordinate-explicit band extraction, and the "Logarithm Last" rule in `jnwb`.
+This document details spectral power estimation, time-frequency decomposition, cross-area coherence, memory-efficient accumulation, coordinate-explicit band extraction, and decibel transformations in `jnwb`.
 
 ---
 
-## 1. Canonical Frequency Bands & Spectral Decomposition (`jnwb/spectral.py`)
+## 1. Canonical Frequency Bands & Spectral Decomposition (`jnwb.spectral`)
 
-`jnwb.spectral` provides standard tools for computing spectral power density, Morlet wavelet scalograms, multi-taper spectrograms, cross-spectral density, and phase synchrony.
+`jnwb.spectral` provides standard tools for computing spectral power density, cross-spectral density, coherence, and referencing.
 
-### Canonical Frequency Bands
+### Canonical Frequency Bands (`CANONICAL_BANDS`)
 
 Unless customized by the user, `jnwb` standardizes frequency bands across modules:
 
-| Band Name | Frequency Range (Hz) | Typical Biological Association |
-|-----------|----------------------|--------------------------------|
-| `theta` | $4.0 - 8.0$ Hz | Hippocampal / cortical rhythmic modulation |
-| `alpha` | $8.0 - 14.0$ Hz | Attentional gating / visual synchrony |
-| `beta` | $15.0 - 30.0$ Hz | Top-down motor / sensory maintenance |
-| `gamma_low` | $30.0 - 60.0$ Hz | Local circuit feedforward processing |
-| `gamma_high` | $60.0 - 120.0$ Hz | Multi-unit spike envelope proxy |
+```python
+import jnwb
+
+bands = jnwb.CANONICAL_BANDS
+# Default:
+# - theta: (4.0, 8.0) Hz
+# - alpha: (8.0, 14.0) Hz
+# - beta: (14.0, 30.0) Hz
+# - low_gamma: (30.0, 50.0) Hz
+# - high_gamma: (50.0, 80.0) Hz
+```
+
+### Power Spectral Density (`compute_psd`) & Band Power (`band_power`)
 
 ```python
-import jnwb.spectral as spec
+# Compute Welch PSD
+freqs, psd = jnwb.compute_psd(lfp_trace, sampling_rate=1000.0, nperseg=256)
 
-# Access standard canonical band dictionary
-bands = spec.CANONICAL_BANDS
+# Extract power across canonical or custom frequency bands
+power_by_band = jnwb.band_power(lfp_trace, sampling_rate=1000.0, freq_bands=jnwb.CANONICAL_BANDS)
+```
+
+### Spectral Tilt, Harmonic Analysis & Referencing
+
+```python
+# Estimate 1/f spectral tilt / exponent
+tilt_res = jnwb.spectral_tilt(lfp_trace, sampling_rate=1000.0, freq_range=(1.0, 100.0))
+
+# Harmonic distortion analysis
+harmonics = jnwb.harmonic_analysis(lfp_trace, sampling_rate=1000.0, harmonic_orders=3)
+
+# Spatial referencing schemes
+bipolar_data = jnwb.bipolar_reference(lfp_multichannel)
+laplacian_data = jnwb.laplacian_reference(lfp_multichannel)
 ```
 
 ---
 
-## 2. Cross-Area Coherence & Phase-Locking Value (PLV)
+## 2. Cross-Area Coherence & Imaginary Coherency
 
-`jnwb.spectral` implements cross-channel and cross-area coherence:
-$$C_{xy}(f) = \frac{|P_{xy}(f)|^2}{P_{xx}(f) P_{yy}(f)}$$
+### Cross-Area Coherence (`cross_area_coherence`)
+
+Quantifies frequency-resolved phase synchronization between two LFP signals:
 
 ```python
-# Compute cross-area coherence between two LFP channels
-coherence_res = spec.cross_area_coherence(
-    lfp_area1, lfp_area2, fs=1000.0, nperseg=256, noverlap=128
+coherence_dict = jnwb.cross_area_coherence(
+    lfp_area1,
+    lfp_area2,
+    sampling_rate=1000.0,
+    freq_bands=jnwb.CANONICAL_BANDS
 )
-freqs = coherence_res["frequencies"]
-coherence_values = coherence_res["coherence"]
+```
+
+### Imaginary Coherency (`imaginary_coherency`)
+
+Computes imaginary coherency to eliminate volume conduction / zero-lag field spread artifacts:
+
+```python
+imag_coh = jnwb.imaginary_coherency(
+    lfp_area1,
+    lfp_area2,
+    sampling_rate=1000.0,
+    freq_range=(15.0, 30.0)
+)
 ```
 
 ---
 
-## 3. Coordinate-Explicit Band Extraction (`jnwb/analyzers.py:TFRAnalyzer`)
+## 3. High-Level Analyzers (`jnwb.analyzers`)
 
-### The F1 Coordinate Contract
-`TFRAnalyzer.extract_band` requires **explicit frequency coordinates** (`freqs`). It never assumes uniform $0 - 200$ Hz linear spacing or infers coordinates from tensor length:
+`jnwb.analyzers` provides object-oriented interfaces for analyzing session data:
+
+- `TFRAnalyzer`: Time-frequency analysis and coordinate-explicit band extraction.
+- `UnitAnalyzer`: Single-unit spike train autocorrelation and quality metrics.
+- `PopulationAnalyzer`: Multi-unit population PSTH and cross-condition comparisons.
+
+### Coordinate-Explicit Band Extraction (`TFRAnalyzer.extract_band`)
+
+Requires explicit physical frequency coordinates (`freqs`) and validates frequency axis alignment:
 
 ```python
-import numpy as np
 from jnwb.analyzers import TFRAnalyzer
 
 # tfr_data: (n_channels, n_freqs, n_times)
 # freqs: (n_freqs,) exact physical frequency coordinates in Hz
-freq_axis = 1
-
-# Extract average power in the Beta band (15-30 Hz)
 beta_power = TFRAnalyzer.extract_band(
     tfr_data,
     band="beta",
     freqs=freqs,
-    freq_axis=freq_axis
+    freq_axis=1
 )
-# Output shape: (n_channels, n_times)
-```
-
-### Band Specification Flexibility
-`band` can be specified as:
-1. A canonical string name: `"theta"`, `"alpha"`, `"beta"`, `"gamma_low"`, `"gamma_high"`.
-2. An explicit numerical 2-tuple: `(12.0, 24.0)`.
-
-```python
-# Extract custom sub-band
-custom_power = TFRAnalyzer.extract_band(tfr_data, band=(12.0, 24.0), freqs=freqs)
 ```
 
 ---
 
-## 4. The "Logarithm Last" Invariant
+## 4. Decibel Transformation (`to_db`) & Estimand Considerations
 
-When calculating baseline-normalized spectrograms or spectral changes:
-$$\text{RelPower}(f, t) = \frac{\frac{1}{N}\sum_{i=1}^N P_i(f, t)}{\bar{P}_{\text{baseline}}(f)}$$
-$$\text{Decibels}(f, t) = 10 \log_{10}\left(\text{RelPower}(f, t)\right)$$
+`jnwb.to_db(ratio)` computes $10 \log_{10}(\text{ratio})$.
 
-### Correct Sequential Order:
-1. Compute raw power for each trial ($V^2 / \text{Hz}$).
-2. Average raw power across trials within condition.
-3. Divide trial-averaged raw power by baseline raw power.
-4. Apply $10 \log_{10}(\cdot)$ **once at the end** for display/reporting.
+### Estimand Aggregation Notice
+For baseline-normalized relative power estimands:
+$$\text{RelPower}(f, t) = \frac{\bar{P}_{\text{response}}(f, t)}{\bar{P}_{\text{baseline}}(f)}$$
+$$\text{Decibels}(f, t) = 10 \log_{10}\left(\text{RelPower}(f, t)\right) = \text{jnwb.to\_db}(\text{RelPower})$$
 
-> **Caution**: Never average pre-computed decibel values across trials, recording sites, or sessions. Averaging decibels computes the geometric mean of power rather than the arithmetic mean, distorting statistical inference.
+> **Design Note**: In relative power analyses, averaging raw power across trials before computing the ratio and applying `to_db` once at the end preserves the arithmetic mean of physical power. `jnwb` supplies the mathematical primitive `to_db` without enforcing a fixed aggregation pipeline on arbitrary workflows.
 
 ---
 
 ## 5. Streaming TFR Accumulation & Compression
 
-For long recording sessions with hundreds of trials and channels, storing full time-frequency tensors in RAM is prohibitive:
-
-- **`jnwb.tfr_accumulator.TFRAccumulator`**: Accumulates running sum and sum-of-squares across streaming trials, yielding mean and standard error without keeping individual trial tensors in memory.
-- **`jnwb.compression`**: Quantizes floating-point spectrograms to sparse integer representations with configurable dynamic range, enabling compact caching on disk.
+- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials without storing complete trial tensors in RAM.
+- **`compress_fp32` (`jnwb.compression`)**: Compresses high-dimensional single-precision floating point arrays into quantized representations.

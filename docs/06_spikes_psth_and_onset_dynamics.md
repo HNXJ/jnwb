@@ -1,35 +1,71 @@
 # 06. Spike Extraction, PSTH & Onset Dynamics
 
-This document details spike timestamp binning, Peristimulus Time Histogram (PSTH) generation, causal smoothing latency physics, causality-bounded exponential onset fitting, and neural population trajectories in `jnwb`.
+This document details spike rate extraction, Peristimulus Time Histogram (PSTH) generation, response significance classification, spike-LFP phase locking, causal smoothing latency physics, causality-bounded exponential onset fitting, and neural population trajectories in `jnwb`.
 
 ---
 
-## 1. Spike Extraction & PSTH Generation (`jnwb/spiking.py`)
+## 1. Spike Analysis, Response Metrics & Phase Locking (`jnwb.spiking`, `jnwb.viz`)
 
-`jnwb.spiking` provides fast, vectorized operations for binning continuous spike timestamps into rate arrays and aligned trial epochs.
+`jnwb.spiking` and `jnwb.viz` provide fast, vectorized operations for binning spike timestamps, computing response metrics, and analyzing spike-LFP phase alignment.
+
+### Raster & PSTH Construction (`raster_psth`)
 
 ```python
-import numpy as np
 import jnwb
 
-# spike_times: (n_spikes,) array of timestamps in seconds
-# onsets: (n_trials,) event onset timestamps in seconds
-# window_s: relative window in seconds (-0.2, 0.6)
-# bin_size_s: bin width in seconds (0.005 -> 5 ms)
-
-psth_matrix, time_bins = jnwb.spiking.compute_psth(
-    spike_times,
-    onsets,
-    window_s=(-0.2, 0.6),
-    bin_size_s=0.005
+# st: sorted spike times in seconds (float array)
+# onsets: trial onset timestamps in seconds (float array)
+# win_ms: (start_ms, end_ms) window relative to onset
+# bin_ms: bin width in milliseconds
+time_bins_ms, rate_hz = jnwb.raster_psth(
+    st=spike_times_s,
+    onsets=trial_onsets_s,
+    win_ms=(-200.0, 600.0),
+    bin_ms=10.0
 )
-# psth_matrix: (n_trials, n_bins) firing rate in Hz
-# time_bins: (n_bins,) bin center times in seconds
+```
+
+### Response Metrics & Significance Classification
+
+```python
+# Compute peak firing rate, baseline rate, modulation index, and latency
+metrics = jnwb.compute_response_metrics(
+    spike_times=spike_times_s,
+    event_onsets=trial_onsets_s,
+    baseline_window=(-0.2, 0.0),
+    response_window=(0.0, 0.4)
+)
+
+# Classify whether unit shows statistically significant increase or decrease
+sig_result = jnwb.classify_response_significance(
+    spike_times=spike_times_s,
+    event_onsets=trial_onsets_s,
+    baseline_window=(-0.2, 0.0),
+    response_window=(0.0, 0.4),
+    alpha=0.01
+)
+print("Is responsive:", sig_result["is_responsive"])
+print("Modulation direction:", sig_result["direction"])
+```
+
+### Spike-LFP Phase Locking (`phase_locking_index`)
+
+Computes the Phase-Locking Value (PLV) and circular phase distribution of spike occurrences relative to an LFP phase time series:
+
+```python
+pli_result = jnwb.phase_locking_index(
+    unit_spike_times=spike_times_s,
+    lfp_phase=lfp_instantaneous_phase,
+    lfp_timestamps=lfp_times_s,
+    n_bins=18
+)
+print("Phase Locking Value (PLV):", pli_result["plv"])
+print("Preferred Phase (rad):", pli_result["preferred_phase"])
 ```
 
 ---
 
-## 2. Causal Exponential Smoothing & Estimator Latency (`jnwb/onset_fitting.py`)
+## 2. Causal Exponential Smoothing & Estimator Latency (`jnwb.onset_fitting`)
 
 ### The Causal Smoothing Invariant
 To determine response onset latency accurately, smoothing must be strictly **causal (forward-only)**. Centered (Gaussian or acausal boxcar) filters propagate future post-stimulus spikes backward in time, artificially shifting the apparent onset earlier than physical reality.
@@ -54,9 +90,9 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{estimator}}(\tau, \Delta t)
 
 ---
 
-## 3. Causality-Bounded Exponential Onset Fitting (`jnwb/onset_fitting.py`)
+## 3. Causality-Bounded Exponential Onset Fitting (`jnwb.onset_fitting`)
 
-`jnwb.fit_exponential_onset` fits a parameterized rise model to estimate the true physical takeoff time $t_0$:
+`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the true physical takeoff time $t_0$:
 
 $$y(t) = \begin{cases} \text{baseline}, & t < t_0 \\ \text{baseline} + \text{amplitude} \cdot \left(1 - e^{-(t - t_0)/\tau}\right), & t \ge t_0 \end{cases}$$
 
@@ -85,23 +121,22 @@ When an onset lies outside the search interval (e.g. pre-stimulus noise or uncon
 | `bound_status` Value | Interpretation | Inferential Action |
 |----------------------|----------------|--------------------|
 | `None` | Unconstrained interior solution | Valid unconstrained onset estimate |
-| `"lower"` | Pinned at lower boundary ($t_0 \approx t_0^{\text{lo}}$) | Flagged as censored; likely pre-stimulus or noise |
+| `"lower"` | Pinned at lower boundary ($t_0 \approx t_0^{\text{lo}}$) | Flagged as censored; pre-stimulus noise |
 | `"upper"` | Pinned at upper boundary ($t_0 \approx t_0^{\text{hi}}$) | Flagged as censored; non-responsive or late excursion |
 
 ---
 
-## 4. Population State-Space Trajectories (`jnwb/trajectory.py`)
+## 4. Population State-Space Trajectories (`jnwb.trajectory`)
 
-`jnwb.trajectory` projects multi-unit population activity across time into low-dimensional latent state spaces (PCA / Manifold projections):
+`jnwb.trajectory` projects multi-unit population activity across time into low-dimensional latent state spaces:
 
 ```python
-import jnwb.trajectory as traj
+import jnwb
 
 # spike_matrices: Dict[unit_id -> (n_trials, n_times)]
 # Assemble time-resolved population matrix: (n_trials * n_times, n_units)
-matrix, metadata = traj.build_time_resolved_matrix(spike_matrices)
+matrix, metadata = jnwb.build_time_resolved_matrix(spike_matrices)
 
 # Compute low-dimensional population trajectory (e.g. Top 3 Principal Components)
-trajectory_res = traj.compute_population_trajectory(matrix, n_components=3)
-# -> (n_times, n_components) trajectory array
+trajectory_res = jnwb.compute_population_trajectory(matrix, n_components=3)
 ```

@@ -1,6 +1,6 @@
-# 10. Extending `jnwb`, Project Facades & MCP Tooling
+# 10. Extending `jnwb`, Domain Packages & Verification Gates
 
-This document describes best practices for building domain-specific analysis pipelines on top of `jnwb`, structuring project facades, leveraging MCP tooling, and integrating automated verification gates.
+This document describes best practices for building domain-specific analysis pipelines on top of `jnwb`, structuring package facades, and integrating automated regression gates.
 
 ---
 
@@ -18,7 +18,7 @@ When analyzing an experiment with unique trial sequences, task conditions, or un
 ```mermaid
 graph TD
     subgraph "Generic Foundation (jnwb/)"
-        JCore[jnwb.jrsa / jnwb.spectral / jnwb.statistics / jnwb.spiking]
+        JCore[jnwb.jrsa / jnwb.spectral / jnwb.statistics / jnwb.connectivity]
     end
 
     subgraph "Domain Project (omission/)"
@@ -35,18 +35,7 @@ graph TD
 
 ---
 
-## 2. Model Context Protocol (MCP) Integration (`jnwb/mcp_server`)
-
-`jnwb` includes built-in Model Context Protocol (MCP) server tooling in `jnwb/mcp_server` to allow AI agents and IDE tools to inspect NWB structures, query metadata, and compute analytical summaries programmatically.
-
-### Key MCP Tools
-- `read_nwb_metadata`: Inspects session headers, subject IDs, and electrode layouts.
-- `query_units_by_area`: Fast structured lookup of units meeting firing rate and SNR thresholds.
-- `compute_quick_psth`: Computes and serializes aligned PSTH arrays for instant inspection.
-
----
-
-## 3. Automated Verification Gates & CI Infrastructure
+## 2. Automated Verification Gates & Regression Infrastructure
 
 To prevent architectural drift and coordinate corruption across collaborative workflows, `jnwb` relies on automated, deterministic gates:
 
@@ -64,3 +53,12 @@ python scripts/harness_gate.py
 # Run full core test suite
 pytest -v tests/
 ```
+
+---
+
+## 3. Appendix: Developer Tooling & MCP Server (`jnwb/mcp_server`)
+
+For AI assistants and IDE integrations, `jnwb` includes local Model Context Protocol (MCP) server tooling in `jnwb/mcp_server`. These tools operate as developer-facing inspection sidecars and remain strictly isolated from scientific runtime imports:
+- `read_nwb_metadata`: Inspects session headers and channel counts.
+- `query_units_by_area`: Fast lookup of filtered unit tables.
+- `compute_quick_psth`: Instant PSTH calculation for interactive visualization.

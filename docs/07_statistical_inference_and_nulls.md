@@ -1,22 +1,22 @@
 # 07. Statistical Inference, Resampling & Null Hypothesis Modeling
 
-This document details statistical inference, bootstrap confidence intervals, exchangeable label permutations, false discovery control, and paired fire probability testing in `jnwb`.
+This document details statistical inference, bootstrap confidence intervals, exchangeable label permutations, false discovery control, paired fire probability testing, and cycle detection in `jnwb`.
 
 ---
 
-## 1. The `StatisticalAnalysis` Engine (`jnwb/statistics.py`)
+## 1. The `StatisticalAnalysis` Engine (`jnwb.statistics`)
 
 `jnwb.statistics.StatisticalAnalysis` provides a unified interface for parametric, non-parametric, and resampling-based inference.
 
 ### Local RNG Injection & Global RNG Isolation
 All statistical resampling functions accept an optional `rng: np.random.Generator`.
-- **Isolated Determinism**: By default, functions use an internal generator (`default_rng(42)`) to ensure historical repeatability without mutating Python or NumPy global RNG state.
+- **Isolated Determinism**: By default, functions instantiate an internal generator (`default_rng(42)`) to ensure repeatable outputs without mutating Python or NumPy global RNG state.
 - **Caller Control**: Callers can supply independent `np.random.Generator` streams for parallel sweeps.
 - **Strict Typing**: Supplying a non-`Generator` object raises an explicit `TypeError`.
 
 ```python
 import numpy as np
-from jnwb.statistics import StatisticalAnalysis as stats
+from jnwb import StatisticalAnalysis as stats
 
 # Supply an independent, caller-controlled local Generator
 custom_rng = np.random.default_rng(12345)
@@ -44,9 +44,9 @@ print("Permutation p-value:", perm_res["pval"])
 
 ---
 
-## 2. Group Comparisons & Exploratory vs. Confirmatory Dual Reporting
+## 2. Group Comparisons & False Discovery Rate (FDR) Control
 
-`StatisticalAnalysis.compare_groups` computes both parametric ($t$-test) and non-parametric (Mann-Whitney $U$ / Wilcoxon signed-rank) metrics alongside bootstrap mean-difference confidence intervals:
+### Group Comparisons (`compare_groups`)
 
 ```python
 comparison = stats.compare_groups(
@@ -56,17 +56,11 @@ comparison = stats.compare_groups(
     n_bootstrap=2000,
     rng=custom_rng
 )
-# Returns:
-# - t_stat, p_parametric
-# - u_stat / wilcoxon_stat, p_nonparametric
-# - mean_diff, mean_diff_ci (bootstrap 95% CI of the difference)
+# Returns parametric (t-test) and non-parametric (Mann-Whitney / Wilcoxon) results,
+# alongside bootstrap mean difference confidence intervals.
 ```
 
----
-
-## 3. False Discovery Rate (FDR) Control
-
-`StatisticalAnalysis.fdr_correct` adjusts p-values for multiple comparisons across channels, frequency bins, or time lags using the Benjamini-Hochberg (BH) procedure:
+### Benjamini-Hochberg FDR Control (`fdr_correct`)
 
 ```python
 p_values = np.array([0.001, 0.004, 0.015, 0.048, 0.120])
@@ -75,10 +69,48 @@ significant_mask, p_adjusted = stats.fdr_correct(p_values, alpha=0.05, method="b
 
 ---
 
-## 4. Exchangeable Label Permutation Schemes (`jnwb/permutation.py`)
+## 3. Standalone Rate Extraction & Paired Binary Fire Probability
+
+`jnwb` exports top-level standalone statistical functions:
+
+```python
+import jnwb
+
+# Fast spike count windowing
+spike_rate = jnwb.rate_in_window(spike_times, onset_s=10.5, window_ms=(0.0, 150.0))
+
+# Binary fire indicator (True if >= 1 spike in window)
+has_fired = jnwb.fires_in_window(spike_times, onset_s=10.5, window_ms=(0.0, 150.0))
+fired_array = jnwb.fire_indicator(spike_times, onsets_array, window_ms=(0.0, 150.0))
+
+# Paired fire probability test
+fire_test = jnwb.paired_fire_prob_test(
+    fires_target=fired_target,
+    fires_null=fired_baseline,
+    n_shuffles=2000,
+    n_bootstrap=2000,
+    rng=custom_rng
+)
+print("Odds Ratio:", fire_test["odds_ratio"])
+print("Shuffle p-value:", fire_test["p_value"])
+```
+
+### Fast Paired & Unpaired Shuffle p-values
+
+```python
+# Paired shuffle test
+p_val, mean_diff = jnwb.shuffle_pvalue_paired(a, b, n_shuffles=5000, rng=custom_rng)
+
+# Unpaired shuffle test
+p_val_unpaired, diff = jnwb.shuffle_pvalue_unpaired(a, b, n_shuffles=5000, rng=custom_rng)
+```
+
+---
+
+## 4. Exchangeable Label Permutation Schemes (`jnwb.permutation`)
 
 ### The Grouped Exchangeability Invariant
-When decoding stimulus conditions across sessions, recording blocks, or behavioral cycles, naive shuffling across the whole array violates exchangeability (known as the *cross-session leakage defect*).
+When decoding stimulus conditions across sessions, recording blocks, or behavioral cycles, naive shuffling across the whole array violates exchangeability.
 
 `jnwb.permute_labels` requires callers to explicitly specify the permutation `scheme`:
 
@@ -95,30 +127,31 @@ null_labels = jnwb.permute_labels(
     scheme="within_group",
     rng=custom_rng
 )
-```
 
-| Permutation Scheme | Requirement | Valid Application |
-|--------------------|-------------|-------------------|
-| `"within_group"` | `groups` array mandatory | Block-randomized designs, multi-session decoding, sequence cycles |
-| `"global"` | Permutes across all rows | Uniform, independent, identically distributed trials |
+# Pre-build permutation plan for repetitive batch cross-validation
+plan = jnwb.build_permutation_plan(
+    n_samples=len(labels),
+    n_permutations=1000,
+    groups=cycle_id,
+    scheme="within_group",
+    rng=custom_rng
+)
+```
 
 ---
 
-## 5. Paired Fire Probability Testing & Shuffle Nulls
-
-For binary spike-occurrence analyses (evaluating whether a neuron fires at least one spike in an active window compared to a baseline window on the same trial):
+## 5. Trial Cycle Detection, Subblock Stratification & Cross-Modal Comparison
 
 ```python
-# fired_target: (n_trials,) boolean indicator array
-# fired_baseline: (n_trials,) boolean indicator array
-res = jnwb.paired_fire_prob_test(
-    fired_target,
-    fired_baseline,
-    n_shuffles=2000,
-    n_bootstrap=2000,
-    rng=custom_rng
-)
-print("Odds Ratio:", res["odds_ratio"])
-print("Shuffle Null p-value:", res["p_value"])
-print("Odds Ratio 95% CI:", res["odds_ratio_ci"])
+# Detect periodic stimulus cycles in trial tables
+cycle_labels = jnwb.detect_trial_cycles(trial_conditions, cycle_length=4)
+
+# Assign quartile ranks within temporal subblocks
+quartiles = jnwb.assign_subblock_quartiles(trial_times, subblock_size=100)
+
+# Compute bootstrap confidence interval on model R2
+r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200)
+
+# Cross-modal correlation and temporal alignment comparison
+modal_res = jnwb.cross_modal_comparison(lfp_envelope, spike_psth, bin_ms=10.0)
 ```
