@@ -145,7 +145,16 @@ def tfr_correlate_areas(session: OmissionSession, area1: str, area2: str,
     tfr2 = session.tfr_from_preprocessed(area=area2, band=None, condition=condition)
     if tfr1 is None or tfr2 is None:
         return {'error': f'Failed to load TFR for correlation'}
-    return TFRAnalyzer.correlate_areas(tfr1, tfr2, band=band)
+
+    # Precomputed omission TFR arrays follow the 99-bin contract: 3 to 199 Hz step 2
+    # with axis 2 as the frequency coordinate.
+    freqs = np.arange(3, 201, 2, dtype=float)
+    if tfr1.ndim != 4 or tfr1.shape[2] != len(freqs):
+        return {'error': f'TFR frequency dimension mismatch (expected {len(freqs)} bins, got shape {tfr1.shape})'}
+    if tfr2.ndim != 4 or tfr2.shape[2] != len(freqs):
+        return {'error': f'TFR frequency dimension mismatch (expected {len(freqs)} bins, got shape {tfr2.shape})'}
+
+    return TFRAnalyzer.correlate_areas(tfr1, tfr2, freqs=freqs, band=band, freq_axis=2)
 
 
 def tfr_spectrolaminar(session: OmissionSession, area: str, condition: str = 'AAAB',

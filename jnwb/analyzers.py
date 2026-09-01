@@ -18,6 +18,7 @@ from scipy import signal, stats
 import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
+from .spectral import CANONICAL_BANDS
 
 log = logging.getLogger(__name__)
 
@@ -29,44 +30,87 @@ class TFRAnalyzer:
     Methods:
     - trial_average(tfr_data, epochs) → TFR averaged by condition
     - compare_conditions(tfr1, tfr2) → Compare two conditions with stats
-    - extract_band(tfr_data, band_name) → Extract frequency band
+    - extract_band(tfr_data, band, freqs, freq_axis=1) → Extract frequency band
     - by_layer(tfr_data, layer_bounds) → Spectrolaminar analysis
-    - correlate_areas(tfr1, tfr2, band) → Inter-area correlation
+    - correlate_areas(tfr1, tfr2, freqs, band) → Inter-area correlation
     """
 
-    # Canonical 7-band table (Hz).  Matches viz.py BANDS_TFR.
+    # Authoritative band table: CANONICAL_BANDS consolidated with delta and broadband.
     BANDS = {
-        'delta':      (1,   4),
-        'theta':      (4,   8),
-        'alpha':      (8,  15),
-        'beta':       (15,  30),
-        'low_gamma':  (30,  60),
-        'high_gamma': (60, 120),
-        'broadband':  (1,  150),
+        'delta':      (1.0,   4.0),
+        **CANONICAL_BANDS,
+        'broadband':  (1.0, 150.0),
+    }
+
+    # Historical 7-band table preserved explicitly by name for legacy comparisons.
+    LEGACY_VIZ_BANDS = {
+        'delta':      (1.0,   4.0),
+        'theta':      (4.0,   8.0),
+        'alpha':      (8.0,  15.0),
+        'beta':       (15.0,  30.0),
+        'low_gamma':  (30.0,  60.0),
+        'high_gamma': (60.0, 120.0),
+        'broadband':  (1.0,  150.0),
     }
 
     @staticmethod
-    def extract_band(tfr_data: np.ndarray, band: str, freq_axis: int = 1) -> np.ndarray:
+    def extract_band(
+        tfr_data: np.ndarray,
+        band: str,
+        freqs: np.ndarray,
+        freq_axis: int = 1,
+        band_defs: Optional[Dict[str, Tuple[float, float]]] = None,
+    ) -> np.ndarray:
         """
-        Extract frequency band from TFR.
+        Extract frequency band from TFR using explicit frequency coordinates.
 
         Args:
-            tfr_data: TFR array (channels × frequency × time × trials)
-            band: Band name from BANDS dict
-            freq_axis: Axis index for frequency dimension
+            tfr_data: TFR array with a frequency axis.
+            band: Band name from BANDS dict (e.g. 'alpha', 'theta').
+            freqs: 1D array of sampled frequency coordinates (Hz). Must match
+                tfr_data.shape[freq_axis], be finite, and strictly increasing.
+            freq_axis: Axis index for frequency dimension (default 1).
+            band_defs: Optional custom band dictionary mapping band name to (f_min, f_max).
+                Defaults to TFRAnalyzer.BANDS.
 
         Returns:
-            Extracted band power (channels × time × trials)
+            Extracted band power array with frequency dimension reduced via mean.
+
+        Raises:
+            ValueError: If band is unknown, freqs is invalid (not 1D, length mismatch,
+                non-finite, not strictly increasing), or if no sampled frequencies
+                fall within the requested band.
         """
-        if band not in TFRAnalyzer.BANDS:
-            raise ValueError(f"Unknown band '{band}'. Valid: {list(TFRAnalyzer.BANDS)}")
+        bands_table = band_defs or TFRAnalyzer.BANDS
+        if band not in bands_table:
+            raise ValueError(f"Unknown band '{band}'. Valid: {list(bands_table.keys())}")
 
-        f_min, f_max = TFRAnalyzer.BANDS[band]
+        f_min, f_max = bands_table[band]
+
+        freqs_arr = np.asarray(freqs)
+        if freqs_arr.ndim != 1:
+            raise ValueError(f"freqs must be a 1D array, got shape {freqs_arr.shape}")
+
         n_freq_bins = tfr_data.shape[freq_axis]
-        freq_array = np.linspace(0, 200, n_freq_bins)
-        band_mask = (freq_array >= f_min) & (freq_array <= f_max)
+        if len(freqs_arr) != n_freq_bins:
+            raise ValueError(
+                f"freqs length ({len(freqs_arr)}) must match tfr_data.shape[{freq_axis}] ({n_freq_bins})"
+            )
 
+        if not np.all(np.isfinite(freqs_arr)):
+            raise ValueError("freqs must contain only finite values (no NaN or Inf)")
+
+        if len(freqs_arr) > 1 and not np.all(np.diff(freqs_arr) > 0):
+            raise ValueError("freqs must be strictly increasing")
+
+        band_mask = (freqs_arr >= f_min) & (freqs_arr <= f_max)
         idx = np.where(band_mask)[0]
+        if len(idx) == 0:
+            raise ValueError(
+                f"No sampled frequencies fall within requested band '{band}' ({f_min}-{f_max} Hz). "
+                f"Available frequency range: [{freqs_arr[0]:.2f}, {freqs_arr[-1]:.2f}] Hz."
+            )
+
         return np.take(tfr_data, idx, axis=freq_axis).mean(axis=freq_axis)
 
     @staticmethod
@@ -192,20 +236,30 @@ class TFRAnalyzer:
         return results
 
     @staticmethod
-    def correlate_areas(tfr1: np.ndarray, tfr2: np.ndarray, band: str = 'alpha') -> Dict:
+    def correlate_areas(
+        tfr1: np.ndarray,
+        tfr2: np.ndarray,
+        freqs: np.ndarray,
+        band: str = 'alpha',
+        freq_axis: int = 1,
+        band_defs: Optional[Dict[str, Tuple[float, float]]] = None,
+    ) -> Dict:
         """
-        Inter-area TFR correlation (Pearson r + Spearman ρ via StatisticalAnalysis).
+        Inter-area TFR correlation (Pearson r + Spearman rho via StatisticalAnalysis).
 
         Args:
-            tfr1: TFR from area 1 (ch × freq × time × trials)
+            tfr1: TFR from area 1 (ch x freq x time x trials)
             tfr2: TFR from area 2
-            band: Frequency band name
+            freqs: 1D array of frequency coordinates matching frequency axis
+            band: Frequency band name (default 'alpha')
+            freq_axis: Frequency dimension axis (default 1)
+            band_defs: Optional custom band dictionary
 
         Returns:
             Dict with correlation results and interpretation
         """
-        band1 = TFRAnalyzer.extract_band(tfr1, band)   # (ch × time × trials)
-        band2 = TFRAnalyzer.extract_band(tfr2, band)
+        band1 = TFRAnalyzer.extract_band(tfr1, band, freqs=freqs, freq_axis=freq_axis, band_defs=band_defs)
+        band2 = TFRAnalyzer.extract_band(tfr2, band, freqs=freqs, freq_axis=freq_axis, band_defs=band_defs)
 
         data1 = np.mean(band1, axis=(0, 1))  # (trials,)
         data2 = np.mean(band2, axis=(0, 1))

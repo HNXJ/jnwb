@@ -101,7 +101,8 @@ class TestTFRAnalyzer(unittest.TestCase):
     def test_extract_band_alpha(self):
         """Test extracting alpha band."""
         tfr_data = np.random.randn(10, 128, 50, 100)
-        result = TFRAnalyzer.extract_band(tfr_data, 'alpha')
+        freqs = np.linspace(1.0, 100.0, 128)
+        result = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
         self.assertIsNotNone(result)
         # Should return (channels, time, trials)
         self.assertEqual(result.shape, (10, 50, 100))
@@ -109,14 +110,16 @@ class TestTFRAnalyzer(unittest.TestCase):
     def test_extract_band_beta(self):
         """Test extracting beta band."""
         tfr_data = np.random.randn(10, 128, 50, 100)
-        result = TFRAnalyzer.extract_band(tfr_data, 'beta')
+        freqs = np.linspace(1.0, 100.0, 128)
+        result = TFRAnalyzer.extract_band(tfr_data, 'beta', freqs=freqs)
         self.assertIsNotNone(result)
         self.assertEqual(result.ndim, 3)
 
     def test_extract_band_theta(self):
         """Test extracting theta band."""
         tfr_data = np.random.randn(15, 128, 99, 500)
-        result = TFRAnalyzer.extract_band(tfr_data, 'theta')
+        freqs = np.linspace(1.0, 100.0, 128)
+        result = TFRAnalyzer.extract_band(tfr_data, 'theta', freqs=freqs)
         self.assertIsNotNone(result)
         self.assertEqual(result.shape[1], 99)  # Time dimension preserved
         self.assertEqual(result.shape[2], 500)  # Trial dimension preserved
@@ -124,8 +127,9 @@ class TestTFRAnalyzer(unittest.TestCase):
     def test_extract_band_invalid_band(self):
         """Test extracting invalid band raises error."""
         tfr_data = np.random.randn(10, 128, 50, 100)
+        freqs = np.linspace(1.0, 100.0, 128)
         with self.assertRaises(ValueError):
-            TFRAnalyzer.extract_band(tfr_data, 'invalid_band')
+            TFRAnalyzer.extract_band(tfr_data, 'invalid_band', freqs=freqs)
 
     def test_average_across_channels_shape(self):
         """Test channel averaging produces correct shape."""
@@ -229,7 +233,8 @@ class TestTFRDataPipeline(unittest.TestCase):
         """Test that channel averaging preserves temporal structure."""
         # Create TFR data with known structure
         tfr_data = np.ones((44, 128, 99, 500))  # All ones
-        band = TFRAnalyzer.extract_band(tfr_data, 'alpha')
+        freqs = np.linspace(1.0, 100.0, 128)
+        band = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
         averaged = TFRAnalyzer.average_across_channels(band)
 
         # After averaging should still be close to 1
@@ -240,9 +245,10 @@ class TestTFRDataPipeline(unittest.TestCase):
         # Simulate two files with different channel counts
         file1 = np.random.randn(44, 128, 99, 500)
         file2 = np.random.randn(3, 128, 99, 500)
+        freqs = np.linspace(1.0, 100.0, 128)
 
-        band1 = TFRAnalyzer.extract_band(file1, 'alpha')
-        band2 = TFRAnalyzer.extract_band(file2, 'alpha')
+        band1 = TFRAnalyzer.extract_band(file1, 'alpha', freqs=freqs)
+        band2 = TFRAnalyzer.extract_band(file2, 'alpha', freqs=freqs)
 
         avg1 = TFRAnalyzer.average_across_channels(band1)
         avg2 = TFRAnalyzer.average_across_channels(band2)
@@ -279,7 +285,8 @@ class TestRobustness(unittest.TestCase):
     def test_extract_band_with_small_array(self):
         """Test extract_band with small array."""
         tfr_data = np.random.randn(1, 128, 5, 10)
-        result = TFRAnalyzer.extract_band(tfr_data, 'alpha')
+        freqs = np.linspace(1.0, 100.0, 128)
+        result = TFRAnalyzer.extract_band(tfr_data, 'alpha', freqs=freqs)
         self.assertIsNotNone(result)
         self.assertEqual(result.shape[0], 1)
 
