@@ -190,6 +190,13 @@ from .permutation import permute_labels, build_permutation_plan
 # Generic trial-segmented artifact detection-and-substitution (promoted 2026-08-23 from
 # omission.jnwb_ext.artifact_repair; see jnwb/artifact_repair.py's module docstring).
 from .artifact_repair import repair_lfp_trials, repair_band_artifacts
+from .artifact_detection import (
+    channel_correlation_matrix,
+    bad_channels_from_correlation,
+    trial_correlation_matrix,
+    bad_trials_single_channel,
+    consensus_bad_trials,
+)
 
 # Causal PSTH smoothing + causality-bounded onset-latency fit (promoted 2026-08-23 from
 # omission.jnwb_ext.onset_fitting; see jnwb/onset_fitting.py's module docstring).
@@ -348,6 +355,11 @@ __all__ = [
     # Artifact detection/repair
     'repair_lfp_trials',
     'repair_band_artifacts',
+    'channel_correlation_matrix',
+    'bad_channels_from_correlation',
+    'trial_correlation_matrix',
+    'bad_trials_single_channel',
+    'consensus_bad_trials',
 
     # Onset-latency fitting
     'causal_exp_smooth',

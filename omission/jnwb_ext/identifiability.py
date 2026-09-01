@@ -26,6 +26,7 @@ import pandas as pd
 
 from omission.jnwb_ext.causal_signal import BANDS, causal_envelope, filter_spec
 from omission.jnwb_ext.lag_estimation import lagged_association
+from omission.jnwb_ext.seed import stable_seed
 
 FS = 1000.0
 
@@ -104,7 +105,7 @@ def run_identifiability_sweep(
             signed_delays = [0.0] if d == 0 else [float(d), -float(d)]
             for signed_d in signed_delays:
                 for rep in range(n_repeats):
-                    seed = hash((band, signed_d, rep)) % (2**31)
+                    seed = stable_seed(band, signed_d, rep)
                     res = recover_lag(band, signed_d, fs, seed, lag_grid_ms)
                     rows.append({
                         "band": band, "true_delay_ms": signed_d, "repeat": rep,

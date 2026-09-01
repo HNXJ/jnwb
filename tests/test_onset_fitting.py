@@ -101,4 +101,5 @@ class TestFitExponentialOnset:
     def test_returns_expected_keys(self):
         t_ms, rate = self._synthetic_psth(45.0, 15.0, 50.0, 3.0, n_trials=80, seed=2)
         fit = fit_exponential_onset(t_ms, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0))
-        assert set(fit.keys()) == {"t0", "tau", "amplitude", "baseline", "r2", "converged", "cost"}
+        assert set(fit.keys()) == {"t0", "tau", "amplitude", "baseline", "r2", "converged", "cost", "bound_status"}
+        assert fit["bound_status"] is None

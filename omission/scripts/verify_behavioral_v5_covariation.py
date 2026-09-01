@@ -32,12 +32,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import h5py
 import numpy as np
 import pandas as pd
 from scipy import stats as sst
+
+from omission.jnwb_ext.seed import stable_seed
 
 
 # ---------------------------------------------------------------- raw readers (my own)
@@ -274,7 +281,7 @@ def analyse_session(df, stem):
         # per-pair
         for bf in BEH:
             a = ok[bf].to_numpy()
-            r, p = circshift_perm_p(a, y, n_perm=2000, seed=abs(hash((stem, bf, nf))) % (2 ** 31))
+            r, p = circshift_perm_p(a, y, n_perm=2000, seed=stable_seed(stem, bf, nf))
             pairs.append({"behavior": bf, "neural": nf, "n": int(n),
                           "abs_rank_pearson": r,
                           "signed_rank_pearson": rank_pearson(a, y),

@@ -470,8 +470,12 @@ class StatisticalAnalysis:
         paired: bool,
         n_bootstrap: int = 2000,
         ci: float = 0.95,
+        rng: Optional[np.random.Generator] = None,
     ) -> Dict:
-        rng = np.random.default_rng(42)
+        if rng is None:
+            rng = np.random.default_rng(42)
+        elif not isinstance(rng, np.random.Generator):
+            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
         if paired and len(a) == len(b) and len(a) > 1:
             diffs = a - b
             stats_boot = np.empty(n_bootstrap)
@@ -508,6 +512,7 @@ class StatisticalAnalysis:
         group2: np.ndarray,
         paired: bool = False,
         n_bootstrap: int = 2000,
+        rng: Optional[np.random.Generator] = None,
     ) -> Dict:
         """
         Compare two groups: parametric (t-test) + non-parametric (Mann-Whitney / Wilcoxon).
@@ -611,7 +616,7 @@ class StatisticalAnalysis:
             )
         )
         result["mean_diff_ci"] = StatisticalAnalysis._bootstrap_mean_diff_ci(
-            valid1, valid2, paired=paired_flag, n_bootstrap=n_bootstrap
+            valid1, valid2, paired=paired_flag, n_bootstrap=n_bootstrap, rng=rng
         )
         return result
 
@@ -722,8 +727,14 @@ class StatisticalAnalysis:
         statistic_func=np.mean,
         n_bootstrap: int = 10000,
         ci: float = 0.95,
+        rng: Optional[np.random.Generator] = None,
     ) -> Dict:
         """Bootstrap confidence intervals + parametric CI."""
+        if rng is None:
+            rng = np.random.default_rng(42)
+        elif not isinstance(rng, np.random.Generator):
+            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+
         data = np.asarray(data).flatten()
         data = data[~np.isnan(data)]
 
@@ -733,7 +744,6 @@ class StatisticalAnalysis:
         parametric_ci = (mean - t_crit * sem, mean + t_crit * sem)
 
         bootstrap_stats = []
-        rng = np.random.default_rng(42)
         for _ in range(n_bootstrap):
             resample = rng.choice(data, size=len(data), replace=True)
             bootstrap_stats.append(statistic_func(resample))
@@ -753,8 +763,18 @@ class StatisticalAnalysis:
         }
 
     @staticmethod
-    def permutation_test(x: np.ndarray, y: np.ndarray, n_permutations: int = 5000) -> Dict:
+    def permutation_test(
+        x: np.ndarray,
+        y: np.ndarray,
+        n_permutations: int = 5000,
+        rng: Optional[np.random.Generator] = None,
+    ) -> Dict:
         """Permutation test for difference between two groups."""
+        if rng is None:
+            rng = np.random.default_rng(42)
+        elif not isinstance(rng, np.random.Generator):
+            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
 
@@ -767,7 +787,6 @@ class StatisticalAnalysis:
         n_x = len(x)
 
         perm_diffs = np.empty(n_permutations)
-        rng = np.random.default_rng(42)
         for i in range(n_permutations):
             perm_idx = rng.permutation(len(combined))
             perm_x = combined[perm_idx[:n_x]]

@@ -33,6 +33,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import false_discovery_control
 
+from omission.jnwb_ext.seed import stable_seed
+
 from omission.jnwb_ext.sequence_layout import EPOCH_ONSETS_MS, FULL_SEQUENCE_END_MS
 from jnwb.statistics import (
     rate_in_window as _rate_in_window,
@@ -235,7 +237,7 @@ def _collect_omission_rates(
             delay_means.append(float(np.mean(d_rates)))
 
         if len(ctrl_trials) > 0:
-            rng_local = np.random.default_rng(abs(hash((cond, slot))) % (2**31))
+            rng_local = np.random.default_rng(stable_seed(cond, slot))
             idx = rng_local.choice(
                 len(ctrl_trials), size=len(trials), replace=len(ctrl_trials) < len(trials)
             )
@@ -267,7 +269,7 @@ def _collect_r_family_omission_slot_rates(
         om = np.asarray(
             [_rate_in_window(st, float(onset), win) for onset in trials], dtype=float
         )
-        rng_local = np.random.default_rng(abs(hash((cond, slot, "R"))) % (2**31))
+        rng_local = np.random.default_rng(stable_seed(cond, slot, "R"))
         idx = rng_local.choice(
             len(ctrl_trials), size=len(trials), replace=len(ctrl_trials) < len(trials)
         )

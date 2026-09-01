@@ -53,12 +53,26 @@ DEFAULT_TAU_MS = 30.0
 
 
 def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_TAU_MS) -> np.ndarray:
-    """Causal (forward-only) exponential-kernel smoothing of an already-binned rate trace.
+    r"""Causal (forward-only) exponential-kernel smoothing of an already-binned rate trace.
 
     Promoted from scripts/archive_oneoff/suite_01_raster_s_om.py::causal_exponential_smoothing
     -- same kernel construction (finite window of 5*tau_ms, normalized, left-zero-padded
     causal convolution), generalized to operate on a pre-binned rate array rather than raw
     spike times.
+
+    ESTIMATOR LATENCY PROPERTIES & HAZARD:
+    A causal filter introduces an intrinsic group delay and time shift:
+    - Impulse response centroid (mean delay):
+        \bar{t} = \int_0^\infty t (1/\tau) e^{-t/\tau} dt \approx \tau_ms
+    - Step response 50% amplitude rise delay:
+        t_{50%} = \tau_ms \cdot \ln(2) \approx 0.693 \cdot \tau_ms
+    - Step response 10% amplitude rise delay:
+        t_{10%} = \tau_ms \cdot \ln(1/0.9) \approx 0.105 \cdot \tau_ms
+
+    In general, t_{observed} = t_{signal} + t_{estimator}(\tau_ms, bin_ms).
+    Do NOT interpret cross-band or cross-condition onset latency differences as biological
+    timing differences without accounting for estimator delay, especially if different tau_ms
+    values are used or if underlying bandpass filter envelopes have differing rise kinetics.
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
@@ -181,9 +195,21 @@ def fit_exponential_onset(
     ss_tot = float(np.sum((rate - rate.mean()) ** 2))
     r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
 
+    # Boundary constraint status on outer t0_bounds:
+    # "lower" | "upper" means the optimizer solution is constrained against outer bounds.
+    span = max(t0_hi - t0_lo, 1.0)
+    tol = max(np.finfo(float).eps * span * 100.0, 1e-9)
+    if (res.active_mask[0] == -1 and refine_lo == t0_lo) or (t0 <= t0_lo + tol):
+        bound_status = "lower"
+    elif (res.active_mask[0] == 1 and refine_hi == t0_hi) or (t0 >= t0_hi - tol):
+        bound_status = "upper"
+    else:
+        bound_status = None
+
     return {
         "t0": t0, "tau": tau, "amplitude": amp, "baseline": base,
         "r2": r2, "converged": bool(res.success), "cost": float(res.cost),
+        "bound_status": bound_status,
     }
 
 
