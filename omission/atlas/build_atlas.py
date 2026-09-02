@@ -60,17 +60,19 @@ PAGES = [
 ]
 
 # -------------------------------------------------------------------------------------------
-# Shared HNXJ site header/footer -- identical markup and tokens to hnxj.github.io's own shell
-# and to the jnwb atlas root index written by deploy_ghpages.py. Links are absolute: these pages
-# are served at different path depths (site root, /jnwb/, /jnwb/analyses/onset-6a/), so a single
-# relative-path scheme cannot serve all of them and cross-repo destinations (JaxFNE) aren't on
-# this site at all.
+# Shared HNXJ site header/footer -- identical markup and tokens to hnxj.github.io's own shell,
+# to the jnwb atlas root index written by deploy_ghpages.py, and to the Labyrinth placeholder.
+# Links are absolute: these pages are served at different path depths (site root, /jnwb/,
+# /jnwb/analyses/onset-6a/), so a single relative-path scheme cannot serve all of them, and the
+# header navigates among HNXJ-hosted project surfaces (not off-site RTD, which project cards
+# expose separately).
 # -------------------------------------------------------------------------------------------
 HNXJ_NAV_LINKS = [
     ("hnxj", "HNXJ", "https://hnxj.github.io/"),
-    ("jaxfne", "JaxFNE", "https://jaxfne.readthedocs.io/"),
+    ("jaxfne", "JaxFNE", "https://hnxj.github.io/jaxfne/"),
     ("jnwb", "jnwb", "https://hnxj.github.io/jnwb/"),
-    ("analyses", "Analyses", "https://hnxj.github.io/jnwb/analyses/onset-6a/"),
+    ("labyrinth", "Labyrinth", "https://hnxj.github.io/labyrinth/"),
+    ("analyses", "Analyses", "https://hnxj.github.io/#analyses"),
 ]
 
 
@@ -83,10 +85,11 @@ def hnxj_header(active: str) -> str:
 
 HNXJ_FOOTER = ("""<div class="hnxj-foot"><div class="hnxj-foot-inner">"""
               """<a href="https://hnxj.github.io/">HNXJ</a>"""
-              """<a href="https://jaxfne.readthedocs.io/">JaxFNE</a>"""
+              """<a href="https://hnxj.github.io/jaxfne/">JaxFNE</a>"""
               """<a href="https://hnxj.github.io/jnwb/">jnwb</a>"""
+              """<a href="https://hnxj.github.io/labyrinth/">Labyrinth</a>"""
               """<a href="https://github.com/hnxj">GitHub</a>"""
-              """<a href="https://hnxj.github.io/jnwb/analyses/onset-6a/">Analyses</a>"""
+              """<a href="https://hnxj.github.io/#analyses">Analyses</a>"""
               """</div></div>""")
 
 HNXJ_SHELL_CSS = """
@@ -164,7 +167,7 @@ def shell(body: str, page: str, title: str, plotly_pages: bool = False) -> str:
 <title>{title} &middot; Analysis 6A</title>
 <link rel="stylesheet" href="assets/atlas.css">{js}
 </head><body>
-{hnxj_header(active="analyses")}
+{hnxj_header(active="jnwb")}
 <header>
   <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
   <div class="sub">Macaque multi-area laminar electrophysiology &middot;

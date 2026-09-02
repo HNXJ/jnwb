@@ -66,9 +66,10 @@ gap:16px;font-size:12.5px}
 </style></head><body>
 <div class="hnxj-bar"><div class="hnxj-bar-inner">
 <a href="https://hnxj.github.io/">HNXJ</a>
-<a href="https://jaxfne.readthedocs.io/">JaxFNE</a>
+<a href="https://hnxj.github.io/jaxfne/">JaxFNE</a>
 <a href="https://hnxj.github.io/jnwb/" class="active">jnwb</a>
-<a href="https://hnxj.github.io/jnwb/analyses/onset-6a/">Analyses</a>
+<a href="https://hnxj.github.io/labyrinth/">Labyrinth</a>
+<a href="https://hnxj.github.io/#analyses">Analyses</a>
 </div></div>
 <div class="w">
 <h1>jnwb analysis atlas</h1>
@@ -85,10 +86,11 @@ recording identifiers, or trial-level signals are published.</footer>
 </div>
 <div class="hnxj-foot"><div class="hnxj-foot-inner">
 <a href="https://hnxj.github.io/">HNXJ</a>
-<a href="https://jaxfne.readthedocs.io/">JaxFNE</a>
+<a href="https://hnxj.github.io/jaxfne/">JaxFNE</a>
 <a href="https://hnxj.github.io/jnwb/">jnwb</a>
+<a href="https://hnxj.github.io/labyrinth/">Labyrinth</a>
 <a href="https://github.com/hnxj">GitHub</a>
-<a href="https://hnxj.github.io/jnwb/analyses/onset-6a/">Analyses</a>
+<a href="https://hnxj.github.io/#analyses">Analyses</a>
 </div></div>
 </body></html>
 """
