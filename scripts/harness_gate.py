@@ -211,21 +211,33 @@ def run_full_preflight() -> bool:
         return False
     print("PASS: Single canonical skill tree verified (no .agents/skills/ duplicate).")
     
-    # 3. Key doctrine receipts check
-    sample_claims = [
-        ("Fig04 Temporal Context FDR Audit", "omission/outputs/classification/fig04_temporal_context_fdr_audit.csv"),
+    # 3. Key doctrine receipts check (tracked .lab receipts are always checked; outputs checked when present)
+    tracked_receipts = [
         ("Fig04 Sealed Audit Receipt", "omission/artifacts/.lab/f04-sealed-audit-20260824.json"),
+    ]
+    optional_output_receipts = [
+        ("Fig04 Temporal Context FDR Audit", "omission/outputs/classification/fig04_temporal_context_fdr_audit.csv"),
         ("PCA x UMAP Manifold Search Grid", "omission/outputs/classification/fig04_diagnostics/pca_umap_surface_grid.csv"),
         ("Matched Multimodal PCA->UMAP Results", "omission/outputs/classification/lfp_multimodal_pca_umap_results.csv"),
     ]
     all_receipts_ok = True
-    for c_name, r_path in sample_claims:
+    for c_name, r_path in tracked_receipts:
         ok, msg = validate_receipt_provenance(c_name, r_path)
         if not ok:
             print(f"FAIL: {msg}")
             all_receipts_ok = False
         else:
             print(f"PASS: {msg}")
+
+    # Check local analysis outputs if output directory exists
+    if (REPO_ROOT / "omission" / "outputs").exists():
+        for c_name, r_path in optional_output_receipts:
+            ok, msg = validate_receipt_provenance(c_name, r_path)
+            if not ok:
+                print(f"FAIL: {msg}")
+                all_receipts_ok = False
+            else:
+                print(f"PASS: {msg}")
             
     if not all_receipts_ok:
         return False
