@@ -1,0 +1,4 @@
+test,n_sessions,n_nonzero_sessions,median_D,signflip_exact_p,n_permutations_enumerated,holm_p,wilcoxon_p_secondary,sign_test_p_secondary
+SPK increase-vs-decrease timing (session sign x timing),7,7,-60.0,0.875,128,0.875,0.7987883078617406,1.0
+LFP HIGH-minus-LOW temporal resolvability,21,18,7.27,8.392333984375e-05,262144,0.0001678466796875,0.0004531022594503541,0.001312255859375
+SPK omission-minus-stimulus latency shift,11,10,20.0,0.052734375,1024,,0.07389705510759269,0.34375
