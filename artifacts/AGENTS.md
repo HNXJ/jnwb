@@ -93,23 +93,19 @@ All multi-step agent actions follow the PRGS operational loop:
 - Surface blocking friction, contradictions, or drift immediately.
 - List unresolved material issues at the conclusion of deliverables.
 
-### Scientific Writing, Vocabulary & Tone Discipline
+### Scientific Writing, Vocabulary & Methodological Distinctions
 1. **Scientific Voice over Process Jargon**:
    - Prefer direct, compact, quantitative, skeptical scientific vocabulary: `result`, `test`, `analysis`, `table`, `figure`, `source`, `method`, `limit`, `condition`.
    - Avoid governance/process jargon in scientific prose: avoid `framework`, `doctrine`, `contract`, `ontology`, `evidence architecture`, `claim machinery`, `pipeline governance`.
    - Avoid promotional, marketing, or exaggerated language ("striking", "compelling majority", "revolutionary").
-2. **Critical Scientific & Temporal Distinctions**:
-   - **Response Magnitude ≠ Temporal Resolution**: Low-frequency LFP power can change strongly while its onset remains poorly localized in time. Poor temporal resolution does not mean weak modulation.
-   - **Detected ≠ Resolved**: Being detected in power does not equal being temporally resolved with an admissible latency. Never substitute one state for the other.
-   - **Terminology Precision**:
-     - `temporal resolution`: Precision supported by the signal/transform.
-     - `temporally resolved`: Analysis classification for a response with an admissible latency.
+2. **Critical Scientific & Methodological Distinctions**:
+   - **Response Magnitude vs. Temporal Precision**: Large signal modulation or power changes do not imply high temporal precision or well-localized onset latency.
+   - **Detected vs. Temporally Resolved**: Detecting that an effect or modulation is present does not by itself establish that its event timing is resolved with an admissible latency.
+   - **Precision, Latency, Estimator Disagreement & Boundary Censoring**:
+     - `temporal precision / resolution`: Uncertainty limit supported by the recording signal, sampling, and transform window.
+     - `temporally resolved`: Methodological classification indicating an event response met latency-fit quality and admissibility criteria.
      - `latency`: Estimated event-relative timing.
-     - `estimator spread`: Disagreement among latency estimators.
-     - Avoid repeating `resolvability`; use `fraction temporally resolved` where clearer.
-   - **Unit-Level vs. Session-Level Inference**: Descriptive unit-level percentages (e.g., 74.8% positive $\Delta T$) must not be reported as population-level latency shifts when the session-level test is not significant ($p = 0.053$).
-   - **Sign Timing**: Session-level increase vs. decrease timing differences that do not reach significance ($p = 0.875$) must not imply a stable early-decrease / late-increase hierarchy.
-   - **LFP Frequency Resolvability**: `beta/gamma temporal resolvability > theta/alpha temporal resolvability` at the session level does not mean "gamma responds earlier" or "theta responds later".
-   - **Left-Censoring**: Onset values pinned to search boundaries (e.g. beta onsets) are left-censored bounds, not ordinary measured latencies.
-   - **Area Hierarchy**: Do not state or visually imply an area latency hierarchy when area and subject are partially confounded.
-   - **Causality Ban**: Do not use `LFP drives SPK`, `SPK drives LFP`, `causal direction`, or `information flow` for descriptive temporal analyses.
+     - `estimator spread`: Disagreement among alternative onset or latency estimators.
+     - `boundary censoring`: Estimates pinned to search boundaries represent censored bounds, not unconstrained point latencies.
+   - **Inferential Unit Hierarchy**: Descriptive percentages or summary statistics computed across lower-level observations (e.g. units or trials) must not substitute for or contradict hypothesis tests evaluated at the declared higher-level inferential unit (e.g. sessions or subjects).
+   - **Association vs. Causality**: Observational correlation, descriptive timing, spectral coherence, or directed phase/information metrics do not establish physical causality or perturbation mechanisms.

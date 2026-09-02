@@ -122,23 +122,61 @@ def compute_site_power_correct(raw_power):
         assert "UNDOCUMENTED_PUBLIC_SYMBOL" in violations[0]
 
     def test_adversarial_probe_dataset_leakage_rejected(self, tmp_path: Path):
-        """Adversarial Probe 7: Experiment condition tokens in jnwb/ or skills/ must be caught."""
+        """Adversarial Probe 7: Experiment condition tokens and manuscript results must be caught."""
         from scripts.harness_gate import check_dataset_leakage
         fake_jnwb = tmp_path / "jnwb"
         fake_skills = tmp_path / "skills"
+        fake_docs = tmp_path / "docs"
+        fake_artifacts = tmp_path / "artifacts"
         fake_jnwb.mkdir()
         fake_skills.mkdir()
+        fake_docs.mkdir()
+        fake_artifacts.mkdir()
 
-        (fake_jnwb / "clean.py").write_text("def foo(): pass\n", encoding="utf-8")
-        (fake_skills / "SKILL.md").write_text("description: clean\n", encoding="utf-8")
-        assert len(check_dataset_leakage(tmp_path)) == 0
+        # Clean generic neuroscience terms MUST be permitted (no naive word ban)
+        clean_text = (
+            "# Generic Electrophysiology Guide\n"
+            "Analyze SPK unit spike trains and continuous LFP traces.\n"
+            "Estimate response latency in theta, alpha, beta, and gamma frequency bands.\n"
+        )
+        (fake_jnwb / "clean.py").write_text("def compute_latency(spk, lfp, fs=1000.0): pass\n", encoding="utf-8")
+        (fake_skills / "SKILL.md").write_text(clean_text, encoding="utf-8")
+        (tmp_path / "AGENTS.md").write_text(clean_text, encoding="utf-8")
+        (fake_artifacts / "AGENTS.md").write_text(clean_text, encoding="utf-8")
+        (fake_docs / "11_extending_and_development.md").write_text(clean_text, encoding="utf-8")
 
-        # Inject AXAB condition code
+        assert len(check_dataset_leakage(tmp_path)) == 0, "Clean generic terms should not trigger violations!"
+
+        # 1. Leak condition code into jnwb
         (fake_jnwb / "leaky.py").write_text("CONDITION = 'AXAB'\n", encoding="utf-8")
-        violations = check_dataset_leakage(tmp_path)
-        assert len(violations) == 1
-        assert "DATASET_LEAKAGE" in violations[0]
-        assert "AXAB" in violations[0]
+        v1 = check_dataset_leakage(tmp_path)
+        assert len(v1) == 1 and "AXAB" in v1[0]
+        (fake_jnwb / "leaky.py").unlink()
+
+        # 2. Leak manuscript p-value into AGENTS.md
+        (tmp_path / "AGENTS.md").write_text("The session-level test was p = 0.053\n", encoding="utf-8")
+        v2 = check_dataset_leakage(tmp_path)
+        assert len(v2) == 1 and "0.053" in v2[0]
+        (tmp_path / "AGENTS.md").write_text(clean_text, encoding="utf-8")
+
+        # 3. Leak study-specific finding into docs/11_extending_and_development.md
+        (fake_docs / "11_extending_and_development.md").write_text(
+            "Found beta/gamma temporal resolvability > theta/alpha at session level\n", encoding="utf-8"
+        )
+        v3 = check_dataset_leakage(tmp_path)
+        assert len(v3) >= 1 and any("beta/gamma" in v for v in v3)
+        (fake_docs / "11_extending_and_development.md").write_text(clean_text, encoding="utf-8")
+
+        # 4. Leak study-specific concept into artifacts/AGENTS.md
+        (fake_artifacts / "AGENTS.md").write_text("Study focuses on omission-linked dynamics\n", encoding="utf-8")
+        v4 = check_dataset_leakage(tmp_path)
+        assert len(v4) == 1 and "omission-linked" in v4[0]
+        (fake_artifacts / "AGENTS.md").write_text(clean_text, encoding="utf-8")
+
+        # 5. Leak forbidden causal assertion into skills
+        (fake_skills / "SKILL.md").write_text("Demonstrates that LFP drives SPK\n", encoding="utf-8")
+        v5 = check_dataset_leakage(tmp_path)
+        assert len(v5) == 1 and "LFP drives SPK" in v5[0]
 
     def test_adversarial_probe_version_inconsistency_rejected(self, tmp_path: Path):
         """Adversarial Probe 8: Inconsistent package vs pyproject version must be caught."""

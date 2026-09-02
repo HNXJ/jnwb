@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Deterministic Operational & Scientific Harness Gate for jnwb and omission.
+"""Deterministic Operational & Scientific Harness Gate for jnwb generic library.
 
-Mechanically enforces repository doctrine:
-  1. Frozen jnwb boundary: no unauthorized imports from omission/ or project folders.
-  2. Protected path safety: protects omission/context/figures, omission/scripts, and omission-data/SKILL.md.
-  3. Epistemic verification: rejects any empirical claim where receipt is missing, unreadable, or empty.
-  4. Logarithm last invariant: rejects averaging of decibels across channels/trials/sites.
-  5. Modality separation invariant: rejects unnamespaced pooling across SUA/SPK, MUA, LFP, and behavior.
+Mechanically enforces repository controls:
+  1. Frozen jnwb boundary: no unauthorized imports from project folders.
+  2. Protected path safety: protects concurrent working tree directories.
+  3. Machine-local path exclusion: rejects hardcoded drive letters in test suites.
+  4. Repository root freeze: permits only tracked, authorized root files.
+  5. Documentation completeness: verifies 100% of public symbols documented in docs/.
+  6. Dataset independence: rejects experiment-specific tokens, conditions, and manuscript results.
+  7. Package & metadata version synchronization.
+  8. Python 3.12 sole supported target across metadata and CI.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -200,24 +203,63 @@ def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[st
 
 
 def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 7 (Dataset Independence): Assert zero experiment-specific condition tokens in generic code."""
+    """Gate 6 (Dataset Independence): Assert zero experiment-specific condition tokens, p-values, or study conclusions in generic code and harness."""
     root = repo_root or REPO_ROOT
     violations = []
-    forbidden_tokens = ["AXAB", "BXBA", "S+/S-", "O+/O-"]
     
+    forbidden_patterns = [
+        (re.compile(r"\bAXAB\b"), "experiment condition token 'AXAB'"),
+        (re.compile(r"\bBXBA\b"), "experiment condition token 'BXBA'"),
+        (re.compile(r"S\+/S-"), "experiment condition token 'S+/S-'"),
+        (re.compile(r"O\+/O-"), "experiment condition token 'O+/O-'"),
+        (re.compile(r"\bO\+\+?\b"), "omission unit class token 'O+' or 'O++'"),
+        (re.compile(r"\bomission-linked\b"), "study-specific concept 'omission-linked'"),
+        (re.compile(r"\bomission-relative\b"), "study-specific concept 'omission-relative'"),
+        (re.compile(r"p\s*=\s*0\.053\b"), "omission manuscript result 'p = 0.053'"),
+        (re.compile(r"p\s*=\s*0\.875\b"), "omission manuscript result 'p = 0.875'"),
+        (re.compile(r"\b74\.8\s*%"), "omission manuscript deltaT result '74.8%'"),
+        (re.compile(r"\b104\s*/\s*139\b"), "omission manuscript cell count '104/139'"),
+        (re.compile(r"\b187\s*/\s*4130\b"), "omission manuscript cell count '187/4130'"),
+        (re.compile(r"beta\s*/\s*gamma\s+temporal\s+resolvability"), "omission study finding 'beta/gamma temporal resolvability'"),
+        (re.compile(r"beta/gamma\s*>\s*theta/alpha"), "omission study finding 'beta/gamma > theta/alpha'"),
+        (re.compile(r"early-decrease\s*/\s*late-increase"), "omission sign timing claim 'early-decrease / late-increase'"),
+        (re.compile(r"area\s+and\s+subject\s+are\s+partially\s+confounded"), "omission area-subject confounding claim"),
+        (re.compile(r"\bLFP\s+drives\s+SPK\b"), "forbidden causal assertion 'LFP drives SPK'"),
+        (re.compile(r"\bSPK\s+drives\s+LFP\b"), "forbidden causal assertion 'SPK drives LFP'"),
+    ]
+    
+    target_files: List[Path] = []
+    
+    # 1. jnwb/ Python files
     for py_file in (root / "jnwb").rglob("*.py"):
-        if "__pycache__" in py_file.parts:
-            continue
-        text = py_file.read_text(encoding="utf-8", errors="replace")
-        for tok in forbidden_tokens:
-            if tok in text:
-                violations.append(f"DATASET_LEAKAGE: Found experiment-specific token '{tok}' in jnwb/{py_file.name}")
+        if "__pycache__" not in py_file.parts:
+            target_files.append(py_file)
+            
+    # 2. skills/ markdown files
+    skills_dir = root / "skills"
+    if skills_dir.exists():
+        for skill_file in skills_dir.rglob("*.md"):
+            target_files.append(skill_file)
+            
+    # 3. Core harness authority and developer guides
+    for harness_name in ["AGENTS.md", "artifacts/AGENTS.md", "docs/11_extending_and_development.md"]:
+        harness_file = root / harness_name
+        if harness_file.exists():
+            target_files.append(harness_file)
+            
+    # 4. docs/ markdown files
+    docs_dir = root / "docs"
+    if docs_dir.exists():
+        for doc_file in docs_dir.glob("*.md"):
+            if doc_file not in target_files:
+                target_files.append(doc_file)
                 
-    for skill_file in (root / "skills").rglob("*.md"):
-        text = skill_file.read_text(encoding="utf-8", errors="replace")
-        for tok in forbidden_tokens:
-            if tok in text:
-                violations.append(f"DATASET_LEAKAGE: Found experiment-specific token '{tok}' in skills/{skill_file.name}")
+    for target in target_files:
+        text = target.read_text(encoding="utf-8", errors="replace")
+        rel_path = target.relative_to(root).as_posix()
+        for pat, desc in forbidden_patterns:
+            if pat.search(text):
+                violations.append(f"DATASET_LEAKAGE: Found {desc} in {rel_path}")
                 
     return violations
 
@@ -276,14 +318,14 @@ def check_python_target_consistency(repo_root: Optional[Path] = None) -> List[st
 
 
 # ==============================================================================
-# Omission Project Specific Gates (Scoped to omission/ analyses, NOT generic jnwb)
+# General Scientific Integrity Gates
 # ==============================================================================
 
-def omission_check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
-    """Omission Domain Gate: Enforce 'Take the logarithm last' for spectral power.
+def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
+    """Scientific Gate: Enforce 'Take the logarithm last' for spectral power.
     
-    Scoped to omission headline power estimators where averaging raw power across trials
-    prior to decibels is scientifically required to prevent high-noise site bias.
+    Averaging raw power across trials prior to computing decibels is
+    scientifically required to prevent high-noise site bias.
     """
     if isinstance(code_or_tree, str):
         try:
@@ -324,6 +366,9 @@ def omission_check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> Lis
                         if arg.id in db_assigned_vars or arg.id == "db" or arg.id.endswith("_db") or "db_" in arg.id:
                             violations.append(f"LOG_BEFORE_AVERAGE: Found '{func_name}' applied to decibel variable '{arg.id}' at line {node.lineno}")
     return violations
+    
+# Backward compatibility alias
+omission_check_logarithm_last_rule = check_logarithm_last_rule
 
 
 def check_modality_isolation(feature_names: List[str]) -> Tuple[bool, List[str]]:

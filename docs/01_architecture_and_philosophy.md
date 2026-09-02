@@ -10,7 +10,7 @@ This document outlines the core architecture, scientific invariants, epistemic s
 
 A fundamental architectural principle of `jnwb` is the strict separation between:
 1. **Generic Electrophysiology Primitives (`jnwb/`)**: General mathematical operations, signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
-2. **Project-Specific Domain Extensions (`omission/`, etc.)**: Task structures, condition codes (e.g., `AXAB`, `BXBA`), sequence slot timings, and project-specific unit classification taxonomies.
+2. **Project-Specific Domain Extensions**: Task structures, custom condition codes, sequence slot timings, and project-specific unit classification taxonomies.
 
 ```mermaid
 graph TD

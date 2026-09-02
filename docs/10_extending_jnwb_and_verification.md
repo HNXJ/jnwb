@@ -21,10 +21,10 @@ graph TD
         JCore[jnwb.jrsa / jnwb.spectral / jnwb.statistics / jnwb.connectivity]
     end
 
-    subgraph "Domain Project (omission/)"
-        ExtLayout[sequence_layout.py: AXAB/BXBA condition codes]
-        ExtClass[unit_classification.py: S+/S-/O+ taxonomy]
-        ExtFacade[omission/__init__.py: Package Facade]
+    subgraph "Downstream Project / Experiment"
+        ExtLayout[Task Structure & Sequence Layouts]
+        ExtClass[Custom Unit Classification Taxonomies]
+        ExtFacade[Project Pipeline Scripts]
     end
 
     JCore --> ExtClass

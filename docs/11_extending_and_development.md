@@ -22,7 +22,7 @@ A new function, class, or constant belongs in `jnwb` **only when it is generic a
 ```
 
 - **In Core (`jnwb/`)**: Generic Morlet wavelets, PSD estimation, spike-LFP phase locking, temporal alignment, FDR multiple testing, linear SVM decoding, causal smoothing, NWB file inspection and channel addressing.
-- **Outside Core**: Experiment-specific condition identifiers (e.g. `AXAB`, `omission`), task timing protocols, custom area grouping rules, study-specific publication figures, biological hypothesis interpretations, and ad-hoc analysis notebooks.
+- **Outside Core**: Experiment-specific condition identifiers (e.g. task sequence codes, stimulus condition names), task timing protocols, custom area grouping rules, study-specific publication figures, biological hypothesis interpretations, and ad-hoc analysis notebooks.
 
 ---
 
@@ -137,7 +137,7 @@ All contributors and automated agents must adhere to the 7 scientific invariants
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
-8. **Scientific Vocabulary & Critical Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process/governance jargon. Preserve critical distinctions: response magnitude $\ne$ temporal resolution (low-frequency power can modulate strongly while onset remains poorly localized in time); detected $\ne$ resolved; unit-level descriptive percentages do not establish session-level population shifts; left-censored boundaries must not be reported as unconstrained measurements; never use causal verbs (`LFP drives SPK`, `information flow`) for descriptive temporal analyses.
+8. **Scientific Vocabulary & Methodological Distinctions**: Prefer direct, compact, quantitative scientific terminology (`result`, `test`, `analysis`, `table`, `figure`, `method`, `limit`, `condition`) over process/governance jargon. Preserve critical distinctions: response magnitude does not imply temporal precision; detecting an effect does not by itself establish precise timing or an admissible latency; distinguish measurement precision, latency, estimator disagreement, and boundary censoring; descriptive lower-level percentages do not substitute for hypothesis tests at the declared higher-level inferential unit; association or directionality metrics do not establish physical causality.
 
 ---
 
