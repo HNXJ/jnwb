@@ -1,0 +1,129 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, dev ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ main, dev ]
+  release:
+    types: [ published ]
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Run pytest
+        run: |
+          pytest -v tests/
+
+  build:
+    name: Build & Validate Distribution
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools & test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]" build twine
+
+      - name: Run pre-flight harness gate
+        run: |
+          python scripts/harness_gate.py
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+
+      - name: Validate distribution metadata and render README
+        run: |
+          twine check dist/*
+
+      - name: Inspect archive manifests (anti-pollution check)
+        shell: bash
+        run: |
+          python -c "
+          import zipfile, tarfile, pathlib, sys
+          forbidden = ['omission', '_unused', '.lab', 'outputs', 'artifacts', '.git', '__pycache__']
+          whl = list(pathlib.Path('dist').glob('*.whl'))[0]
+          with zipfile.ZipFile(whl, 'r') as z:
+              for f in forbidden:
+                  hits = [n for n in z.namelist() if f in n]
+                  if hits:
+                      print(f'ERROR: Forbidden {f} in wheel: {hits}')
+                      sys.exit(1)
+          sdist = list(pathlib.Path('dist').glob('*.tar.gz'))[0]
+          with tarfile.open(sdist, 'r:gz') as t:
+              for f in forbidden:
+                  hits = [n for n in t.getnames() if f in n]
+                  if hits:
+                      print(f'ERROR: Forbidden {f} in sdist: {hits}')
+                      sys.exit(1)
+          print('PASS: Distribution manifests clean.')
+          "
+
+      - name: Test isolated wheel installation & smoke test
+        shell: bash
+        run: |
+          python -m pip install dist/*.whl
+          python -m pip check
+          python -c "import jnwb; print('Installed jnwb version:', jnwb.__version__); assert len(jnwb.__all__) == 101"
+
+      - name: Store distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/jnwb
+    permissions:
+      id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
+      contents: read
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI via Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          verbose: true
