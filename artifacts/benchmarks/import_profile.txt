@@ -1,21 +1,39 @@
 # jnwb Import Overhead Profile
 
-## 1. Stated Import Measurement
-- **Cold Import Time**: 0.38 s (380 ms) for core numerical modules in warmed-cache environment.
-- **Full Package Import**: Varies by interpreter process overhead and filesystem state (e.g. 0.38 s to ~2.6 s inclusive of heavy dependencies like pynwb, sklearn, and pandas).
+## 1. Primary Observed Baselines (Python 3.12 Fresh Process)
+- **Standard Environment (Core Scientific Stack)**:
+  - Elapsed Time: 2.80 s (2795 ms)
+  - Peak Heap Memory: 67.89 MB (tracemalloc)
+  - Modules Loaded: 454 modules
+  - Scope: Complete import jnwb loading all 101 exported public symbols across core primitives (spectral, jrsa, spiking, statistics, connectivity, decoding, analyzers, addressing, metadata, artifact repair).
 
-## 2. Benchmark Environment & Provenance
-- **Environment**: Measured under the recorded local development environment.
-- **Python Version**: Python 3.12.0 (Windows x86_64).
-- **Measurement Methodology**: In-process time.perf_counter() bracket around import jnwb with tracemalloc peak heap memory tracking.
-- **Hardware**: AMD Ryzen / Intel x86_64 host with NVMe SSD storage.
-- **Dependency Breakdown**:
-  - numpy: ~110-260 ms
-  - scipy: ~195-306 ms
-  - h5py: ~89-480 ms
-  - pandas: ~312-1577 ms
-  - pynwb: ~380-4024 ms
-  - sklearn: ~520-5835 ms
+- **Full Environment with Deep Learning Stack (PyTorch Present)**:
+  - Elapsed Time: 9.81 s (9810 ms)
+  - Peak Heap Memory: 110.77 MB (tracemalloc)
+  - Modules Loaded: 1961 modules
+  - Note: Overhead is dominated by PyTorch CUDA runtime initialization when torch is present in the environment.
 
-## 3. Epistemic Limitation
-Performance, import latency, and memory footprints are measurements under the specific recorded benchmark environment and host configuration, not portable intrinsic properties of the jnwb library.
+- **Warmed-Cache / In-Process Submodule Measurement (0.38 s)**:
+  - The previously recorded 0.38 s measurement corresponds to an in-process, warmed-cache scenario where shared C-extension dependencies (
+umpy, scipy, h5py) were already initialized in the parent process prior to measuring jnwb subpackage loading time. It does not represent a fresh-process startup cost.
+
+## 2. Benchmark Environment & Hardware Provenance
+- **Python Version**: Python 3.12.0 (tags/v3.12.0:0fb18b0, Windows x86_64).
+- **CPU Model**: Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz (12 cores, 24 logical processors, Cascade Lake-X).
+- **Memory**: 64 GB DDR4.
+- **Storage**: PCIe NVMe SSD.
+- **Timing Methodology**: Subprocess execution measuring in-process 	ime.perf_counter() from process start to completion of import jnwb, repeated across 5 runs after 1 initial warmup run.
+- **Peak Memory Tracking**: 	racemalloc.get_traced_memory() peak allocated heap bytes.
+
+## 3. Dependency Contribution Breakdown (Cold Process)
+-
+umpy: ~260 ms, 5.8 MB, 217 modules
+- scipy: ~306 ms, 6.5 MB, 235 modules
+- h5py: ~480 ms, 8.1 MB, 271 modules
+- matplotlib: ~938 ms, 16.2 MB, 324 modules
+- pandas: ~1577 ms, 32.5 MB, 618 modules
+- pynwb: ~4024 ms, 51.1 MB, 1009 modules
+- sklearn: ~5836 ms, 70.3 MB, 1397 modules
+
+## 4. Epistemic Limitation
+Performance, import latency, and memory footprints are empirical measurements under the recorded benchmark environment and host configuration, not portable intrinsic properties of the jnwb library.
