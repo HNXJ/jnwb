@@ -17,8 +17,8 @@ import pytest
 
 from scripts.harness_gate import (
     check_frozen_boundary,
+    check_logarithm_last_rule,
     check_modality_isolation,
-    omission_check_logarithm_last_rule,
     validate_receipt_provenance,
 )
 
@@ -56,26 +56,42 @@ class TestHarnessAdversarialProbes:
         assert "EMPTY_RECEIPT" in msg
 
     def test_adversarial_probe_logarithm_before_average_rejected(self):
-        """Adversarial Probe 3: Averaging decibels before power normalization must be caught."""
-        # Bad code: average across sites of to_db(power)
+        """Adversarial Probe 3: Averaging decibels when estimand is raw power must be caught."""
+        # Bad code declaring raw power estimand but averaging dB
         bad_code = """
+# estimand: raw_power_average
 import numpy as np
 def compute_site_power(raw_power):
     db = to_db(raw_power)
     return np.mean(db)
 """
-        violations = omission_check_logarithm_last_rule(bad_code)
-        assert len(violations) > 0, "Gate failed to catch log-before-average violation!"
+        violations = check_logarithm_last_rule(bad_code)
+        assert len(violations) > 0, "Gate failed to catch log-before-average violation when estimand is raw power!"
         assert "LOG_BEFORE_AVERAGE" in violations[0]
 
         # Good code: average raw power first, to_db once at the end
         good_code = """
+# estimand: raw_power_average
 import numpy as np
 def compute_site_power_correct(raw_power):
     avg_power = np.mean(raw_power)
     return to_db(avg_power)
 """
-        assert len(omission_check_logarithm_last_rule(good_code)) == 0
+        assert len(check_logarithm_last_rule(good_code)) == 0
+
+    def test_adversarial_control_legitimate_mean_of_db_accepted(self):
+        """Adversarial Control: Legitimate mean-of-dB code (e.g. log-normal stats) is NOT globally rejected."""
+        legitimate_db_code = """
+import numpy as np
+
+def summarize_log_normal_effects(unit_db_modulations):
+    \"\"\"Compute sample mean of decibel values across recorded units (geometric mean of power).\"\"\"
+    mean_db = np.mean(unit_db_modulations)
+    sem_db = np.std(unit_db_modulations) / np.sqrt(len(unit_db_modulations))
+    return mean_db, sem_db
+"""
+        violations = check_logarithm_last_rule(legitimate_db_code)
+        assert len(violations) == 0, "Legitimate mean-of-dB code was improperly rejected!"
 
     def test_adversarial_probe_unnamespaced_modality_pooling_rejected(self):
         """Adversarial Probe 4: Mixing SPK and LFP without explicit namespaces must be rejected."""

@@ -46,8 +46,9 @@ All multi-step agent actions follow the PRGS operational loop:
 3. **Causal & Directional Claims**:
    - `Association ≠ Directionality ≠ Causality`.
    - Correlation, Granger causality / phase slope index / transfer entropy, and perturbation/causal mechanisms require progressively stronger designs. Do not describe a weaker statistical metric with a stronger causal verb.
-4. **Logarithm Last**:
-   - When computing spectral power or decibel changes: average raw power across trials, normalize by baseline, and compute `10 · log10(power)` once at the final step. Never average pre-computed decibels across sites or animals.
+4. **Logarithmic Estimand Clarity**:
+   - Explicitly declare whether the estimand is arithmetic mean of raw power ($\mathbb{E}[P]$, physical power conservation) or logarithmic power ($\mathbb{E}[\log P]$, geometric mean / log-normal central tendency).
+   - When the declared estimand is physical raw-power conservation across trials, average raw power before converting to decibels. Where the declared estimand is log-normal power distribution across units or sites, averaging log-transformed power/dB is legitimate and must be explicitly specified as such. Never confuse the two estimands.
 5. **Unit of Inference**:
    - Explicitly declare the inferential unit (unit, channel, trial, or session/animal) for all degrees of freedom and statistical tests. Cluster/hierarchical structure must be accounted for (e.g. session-cluster bootstrap, GLMM).
 6. **Valid Nulls**:
