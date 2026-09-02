@@ -28,26 +28,49 @@ HERE = Path(__file__).resolve().parent
 SITE = HERE / "_site"
 SUBPATH = "analyses/onset-6a"          # the published URL path, matching docs/12_*.md
 
+# Header/footer markup and tokens are kept byte-identical to omission/atlas/build_atlas.py's
+# HNXJ_SHELL_CSS/hnxj_header()/HNXJ_FOOTER and to hnxj.github.io's own shell CSS -- this file
+# stays a self-contained string (per the module's "does not rebuild the site" contract) rather
+# than importing build_atlas, so the three copies must be kept in sync by hand if any one changes.
 ROOT_INDEX = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>jnwb analysis atlas</title>
 <style>
-:root{color-scheme:light}
+:root{color-scheme:light;--bg:#fbfbfa;--fg:#1a1a1a;--mut:#5b6570;--line:#dfe3e8;--accent:#1f5f8b}
 body{margin:0;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-background:#fbfbfa;color:#1a1a1a}
-.w{max-width:720px;margin:0 auto;padding:56px 24px}
+background:var(--bg);color:var(--fg)}
+.hnxj-bar{background:var(--fg);color:#fff}
+.hnxj-bar-inner{max-width:720px;margin:0 auto;padding:0 24px;display:flex;align-items:center;
+gap:22px;height:44px;font-size:13.5px;flex-wrap:wrap}
+.hnxj-bar-inner a{color:#c7ccd1;text-decoration:none}
+.hnxj-bar-inner a:first-child{color:#fff;font-weight:700;letter-spacing:.02em;margin-right:4px}
+.hnxj-bar-inner a:hover{color:#fff}
+.hnxj-bar-inner a.active{color:#fff;border-bottom:2px solid var(--accent);padding-bottom:2px}
+.w{max-width:720px;margin:0 auto;padding:40px 24px 56px}
 h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
-p{color:#5b6570}
-a.card{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #dfe3e8;
-border-left:3px solid #1f5f8b;border-radius:9px;padding:16px 18px;margin:18px 0}
-a.card:hover{border-color:#1f5f8b}
-a.card h2{font-size:16px;margin:0 0 4px;color:#1f5f8b}
+p{color:var(--mut)}
+a.card{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid var(--line);
+border-left:3px solid var(--accent);border-radius:9px;padding:16px 18px;margin:18px 0}
+a.card:hover{border-color:var(--accent)}
+a.card h2{font-size:16px;margin:0 0 4px;color:var(--accent)}
 a.card p{margin:0;font-size:13.5px}
 .badge{display:inline-block;padding:2px 9px;border-radius:11px;font-size:11.5px;font-weight:600;
 background:#fdf3d8;color:#8a6d1f;border:1px solid #e8d4a0;margin-top:8px}
-footer{color:#5b6570;font-size:12.5px;border-top:1px solid #dfe3e8;margin-top:34px;padding-top:14px}
-</style></head><body><div class="w">
+footer{color:var(--mut);font-size:12.5px;border-top:1px solid var(--line);margin-top:34px;padding-top:14px}
+.hnxj-foot{border-top:1px solid var(--line);margin-top:8px}
+.hnxj-foot-inner{max-width:720px;margin:0 auto;padding:16px 24px;display:flex;flex-wrap:wrap;
+gap:16px;font-size:12.5px}
+.hnxj-foot-inner a{color:var(--mut);text-decoration:none}
+.hnxj-foot-inner a:hover{color:var(--accent)}
+</style></head><body>
+<div class="hnxj-bar"><div class="hnxj-bar-inner">
+<a href="https://hnxj.github.io/">HNXJ</a>
+<a href="https://jaxfne.readthedocs.io/">JaxFNE</a>
+<a href="https://hnxj.github.io/jnwb/" class="active">jnwb</a>
+<a href="https://hnxj.github.io/jnwb/analyses/onset-6a/">Analyses</a>
+</div></div>
+<div class="w">
 <h1>jnwb analysis atlas</h1>
 <p>Generated analysis interfaces built from reviewed public tables. Package documentation lives
 separately on <a href="https://jnwb.readthedocs.io/">Read the Docs</a>.</p>
@@ -59,7 +82,15 @@ separately on <a href="https://jnwb.readthedocs.io/">Read the Docs</a>.</p>
 </a>
 <footer>Each atlas is a view of canonical evidence, not a new scientific authority. No raw data,
 recording identifiers, or trial-level signals are published.</footer>
-</div></body></html>
+</div>
+<div class="hnxj-foot"><div class="hnxj-foot-inner">
+<a href="https://hnxj.github.io/">HNXJ</a>
+<a href="https://jaxfne.readthedocs.io/">JaxFNE</a>
+<a href="https://hnxj.github.io/jnwb/">jnwb</a>
+<a href="https://github.com/hnxj">GitHub</a>
+<a href="https://hnxj.github.io/jnwb/analyses/onset-6a/">Analyses</a>
+</div></div>
+</body></html>
 """
 
 
