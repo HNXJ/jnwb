@@ -85,7 +85,7 @@ all = [
 [project.urls]
 Homepage = "https://github.com/HNXJ/jnwb"
 Repository = "https://github.com/HNXJ/jnwb.git"
-Documentation = "https://github.com/HNXJ/jnwb#readme"
+Documentation = "https://jnwb.readthedocs.io/"
 "Bug Tracker" = "https://github.com/HNXJ/jnwb/issues"
 
 [tool.setuptools]

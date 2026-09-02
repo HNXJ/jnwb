@@ -21,6 +21,7 @@
 09_decoding_and_visual_qc
 10_extending_jnwb_and_verification
 11_extending_and_development
+12_interactive_analyses
 api
 ```
 

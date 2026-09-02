@@ -182,3 +182,14 @@ omission/context/ANALYSIS_GOAL.md
 !omission/context/figures/fig0*_*/fig0*.svg
 !omission/context/figures/fig0*_*/fig0*.png
 !omission/context/figures/fig0*_*/fig0*.receipt.json
+
+# --- analysis atlas (omission/atlas) -----------------------------------------------------------
+# 2026-09-02: the atlas publishes a small set of reviewed, identifier-anonymised tables derived
+# from frozen receipts. Those tables are SOURCE (reviewed and tracked); everything the builder
+# generates from them is not. The *.csv and *.json rules above are global, so the tracked tables
+# need an explicit exception -- kept as narrow as possible, naming exactly one directory.
+!omission/atlas/tables/*.csv
+!omission/atlas/tables/provenance.json
+# Generated site and the private identifier mapping: never tracked, never published.
+omission/atlas/_site/
+omission/atlas/_private/

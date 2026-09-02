@@ -1,4 +1,12 @@
+<p align="center">
+  <a href="https://pypi.org/project/jnwb/"><img src="https://img.shields.io/pypi/v/jnwb?color=brightgreen" alt="PyPI"></a>
+  <a href="https://jnwb.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/jnwb/badge/?version=latest" alt="Docs"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
+</p>
+
 # `jnwb`
+
+**Documentation**: [https://jnwb.readthedocs.io/](https://jnwb.readthedocs.io/) | **PyPI**: [https://pypi.org/project/jnwb/](https://pypi.org/project/jnwb/)
 
 Dataset-agnostic Python library for NWB (Neurodata Without Borders) electrophysiology analysis:
 session I/O, addressing (channel→area, depth→layer), representational similarity analysis (JRSA),

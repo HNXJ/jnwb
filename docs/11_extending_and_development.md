@@ -84,7 +84,23 @@ Every module must be protected by deterministic test coverage in `tests/`. Tests
 
 ## 6. Repository Root Freeze & `artifacts/` Policy
 
-To maintain a clean, distributable repository structure, the repository root is **strictly frozen** to necessary project files:
+To maintain a clean, distributable repository structure, the repository root is **strictly frozen** to files and directories required for packaging, build, CI, documentation, tests, source, canonical skills, and core repository metadata:
+
+$$\boxed{\text{New root entry requires demonstrated root necessity}}$$
+
+Otherwise, files must be placed under `artifacts/`, `docs/`, `skills/`, `scripts/`, `tests/`, or the appropriate package directory.
+
+### Repository Hierarchy
+```text
+jnwb/
+├── jnwb/          # scientific implementation
+├── tests/         # mechanical correctness & regression gates
+├── docs/          # scientific + developer documentation
+├── skills/        # reusable agent procedures
+├── scripts/       # deterministic repository tooling
+├── artifacts/     # non-root work products + AGENTS.md reference
+└── root           # frozen package/repository control surface
+```
 
 ### Permitted Root Entries (Allowlist)
 - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`, `omission/` (native example project)
@@ -97,6 +113,7 @@ The `artifacts/` directory is the canonical location for non-package, repository
 
 ```text
 artifacts/
+├── AGENTS.md        # Generalized agent reliability policy reference artifact
 ├── benchmarks/      # Performance profiles, timing benchmarks, scalability receipts
 ├── reports/         # Analysis reports, verification audits, coverage summaries
 ├── figures/         # Intermediate visual review renders, diagnostic figures
@@ -105,6 +122,7 @@ artifacts/
 ```
 
 - **Rule**: Temporary scripts, test data, and ad-hoc exports must be placed in `artifacts/scratch/` or ignored via `.gitignore`, never committed to root.
+- **Agent Policy Reference**: For contributors and automated systems seeking the generalized, reusable agent work policy, epistemic taxonomy (`observed` | `derived` | `inferred` | `assumed` | `unknown`), and execution grammar ($W = P(RG)^N S$), see `artifacts/AGENTS.md`.
 
 ---
 
