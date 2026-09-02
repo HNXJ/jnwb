@@ -12,8 +12,8 @@
 <div class="wrap"><nav><a href="index.html" class="on">Overview</a>
 <a href="spk-timing.html" class="">SPK timing</a>
 <a href="spk-vs-stimulus.html" class="">SPK omission vs stimulus</a>
-<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolvability</a>
-<a href="dsp-support.html" class="">DSP temporal support</a>
+<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolution</a>
+<a href="dsp-support.html" class="">Transform temporal resolution</a>
 <a href="session-statistics.html" class="">Session-level statistics</a>
 <a href="coverage.html" class="">Coverage &amp; design limits</a>
 <a href="methods.html" class="">Methods</a>
@@ -25,8 +25,9 @@
 
 <div class="card key">
 <h3 style="margin-top:0">Primary population-level result</h3>
-<p>Temporal <em>resolvability</em> of the omission response is higher for high-frequency LFP
-(beta / gamma) than for low-frequency LFP (theta / alpha), and this replicates across sessions:
+<p>A larger fraction of high-frequency LFP responses (beta, low gamma, high gamma) are
+temporally resolved than low-frequency responses (theta, alpha), and this replicates across
+sessions:
 median HIGH&minus;LOW difference <span class="stat pos">+7.27 percentage points</span>,
 exact exhaustive sign-flip permutation
 <span class="stat">p = 8.39e-05</span>
@@ -60,7 +61,7 @@ Holm <span class="stat">p = 1.7e-04</span>.
 within a session are not independent, so pooled counts below are labelled descriptive.</p>
 <div class="scroll"><table><thead><tr><th>Test</th><th>n</th><th>median</th><th>p (sign-flip)</th>
 <th>Standing</th></tr></thead><tbody>
-<tr><td>LFP HIGH&minus;LOW resolvability</td><td>21</td>
+<tr><td>LFP high&minus;low frequency, fraction resolved</td><td>21</td>
 <td class="stat pos">+7.27 pp</td><td class="stat">8.39e-05</td>
 <td><span class="badge b-pub">replicated</span></td></tr>
 <tr><td>SPK increase-vs-decrease timing</td><td>7</td>
@@ -70,8 +71,8 @@ within a session are not independent, so pooled counts below are labelled descri
 <td class="stat">+20 ms</td><td class="stat">0.0527</td>
 <td><span class="badge b-desc">not significant</span></td></tr>
 </tbody></table></div>
-<p class="mut">Three outcomes under identical machinery. The third is
-<em>insufficient session-level evidence</em>, not a demonstrated null: at n = 11
+<p class="mut">Three outcomes from the same test procedure. The third is
+<em>insufficient session-level evidence</em>, not an established null: at n = 11
 sessions the smallest attainable exact p is bounded away from zero. The pooled unit-level
 tendency (104/139 = 74.8% of units with &Delta;T &gt; 0) is
 <span class="badge b-desc">descriptive</span> and is weighted by unit count, not by session.</p>
@@ -83,12 +84,12 @@ appropriate LFP representation: the LFP side must be interval- and censoring-bas
 of points, because beta latencies are strongly left-censored (see
 <a href="lfp-resolvability.html">LFP</a>).</p>
 <p><strong>No area-latency hierarchy claim.</strong> Area and subject are partially confounded;
-no area was recorded in all animals. Pooled area medians are descriptive only
+no area was recorded in all subjects. Pooled area medians are descriptive only
 (see <a href="coverage.html">Coverage</a>).</p>
 <p><strong>No LFP&rarr;SPK causal or directional claim.</strong> Nothing in 6A tests direction.</p>
 </div>
 
-<footer>Generated from canonical public tables. The site is a view of canonical evidence, not a
-new scientific authority: if a value here disagrees with its source table, the site is wrong.
+<footer>Generated from the public source tables. If a value here disagrees with its source
+table, the site is wrong.
 See <a href="provenance.html">Provenance</a>.</footer>
 </main></div></body></html>

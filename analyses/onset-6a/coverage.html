@@ -12,8 +12,8 @@
 <div class="wrap"><nav><a href="index.html" class="">Overview</a>
 <a href="spk-timing.html" class="">SPK timing</a>
 <a href="spk-vs-stimulus.html" class="">SPK omission vs stimulus</a>
-<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolvability</a>
-<a href="dsp-support.html" class="">DSP temporal support</a>
+<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolution</a>
+<a href="dsp-support.html" class="">Transform temporal resolution</a>
 <a href="session-statistics.html" class="">Session-level statistics</a>
 <a href="coverage.html" class="on">Coverage &amp; design limits</a>
 <a href="methods.html" class="">Methods</a>
@@ -25,9 +25,9 @@
 
 <div class="card key">
 <p><strong>Area and subject are partially confounded.</strong> Of 12 recorded areas,
-<span class="stat">0</span> appear in all 3 animals and
+<span class="stat">0</span> appear in all 3 subjects and
 <span class="stat">2</span> appear in only one. A between-area difference is therefore
-not separable from a between-animal difference by modelling alone, and
+not separable from a between-subject difference by modelling alone, and
 <strong>no area-latency hierarchy is claimed anywhere in Analysis 6A.</strong> Pooled area
 medians, wherever they appear, are <span class="badge b-desc">descriptive</span>.</p>
 </div>
@@ -39,7 +39,7 @@ medians, wherever they appear, are <span class="badge b-desc">descriptive</span>
 
 <div class="card">
 <p><strong>Unit counts are not independent biological replicates.</strong> Units within a session
-share an animal, a session, a probe insertion, and a preprocessing pass. Every inferential claim
+share a subject, a session, a probe insertion, and a preprocessing pass. Every inferential claim
 in Analysis 6A reduces each session to a single number before testing; the pooled unit-level
 percentages that appear on other pages are labelled descriptive for exactly this reason.</p>
 </div>
@@ -47,7 +47,7 @@ percentages that appear on other pages are labelled descriptive for exactly this
 <h3>Session-level census</h3>
 <div class="scroll"><table><thead><tr><th>subject_public</th><th>session_public</th><th>n_units_eligible</th><th>n_omission_detected</th><th>n_latency_resolved</th><th>n_abs_dT_gt_50</th><th>resolved_up</th><th>resolved_down</th></tr></thead><tbody><tr><td>M1</td><td>S01</td><td>179</td><td>54</td><td>14</td><td>6</td><td>6</td><td>8</td></tr><tr><td>M1</td><td>S02</td><td>232</td><td>62</td><td>25</td><td>16</td><td>11</td><td>14</td></tr><tr><td>M1</td><td>S03</td><td>213</td><td>62</td><td>8</td><td>2</td><td>5</td><td>3</td></tr><tr><td>M1</td><td>S04</td><td>246</td><td>47</td><td>26</td><td>13</td><td>18</td><td>8</td></tr><tr><td>M1</td><td>S05</td><td>171</td><td>21</td><td>6</td><td>1</td><td>2</td><td>4</td></tr><tr><td>M1</td><td>S06</td><td>247</td><td>69</td><td>24</td><td>14</td><td>18</td><td>6</td></tr><tr><td>M1</td><td>S07</td><td>242</td><td>39</td><td>14</td><td>3</td><td>11</td><td>3</td></tr><tr><td>M2</td><td>S08</td><td>142</td><td>9</td><td>3</td><td>1</td><td>2</td><td>1</td></tr><tr><td>M2</td><td>S09</td><td>220</td><td>29</td><td>8</td><td>2</td><td>7</td><td>1</td></tr><tr><td>M2</td><td>S10</td><td>111</td><td>13</td><td>4</td><td>1</td><td>0</td><td>4</td></tr><tr><td>M2</td><td>S11</td><td>200</td><td>44</td><td>16</td><td>8</td><td>3</td><td>13</td></tr><tr><td>M2</td><td>S12</td><td>78</td><td>2</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td>M2</td><td>S13</td><td>205</td><td>13</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td>M2</td><td>S14</td><td>151</td><td>6</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td>M2</td><td>S15</td><td>230</td><td>11</td><td>2</td><td>2</td><td>0</td><td>2</td></tr><tr><td>M2</td><td>S16</td><td>99</td><td>16</td><td>6</td><td>2</td><td>1</td><td>5</td></tr><tr><td>M2</td><td>S17</td><td>162</td><td>16</td><td>1</td><td>0</td><td>0</td><td>1</td></tr><tr><td>M3</td><td>S18</td><td>250</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td>M3</td><td>S19</td><td>248</td><td>84</td><td>26</td><td>23</td><td>2</td><td>24</td></tr><tr><td>M3</td><td>S20</td><td>179</td><td>10</td><td>1</td><td>0</td><td>0</td><td>1</td></tr><tr><td>M3</td><td>S21</td><td>167</td><td>10</td><td>1</td><td>0</td><td>0</td><td>1</td></tr><tr><td>M3</td><td>S22</td><td>158</td><td>20</td><td>2</td><td>2</td><td>0</td><td>2</td></tr></tbody></table></div>
 
-<footer>Generated from canonical public tables. The site is a view of canonical evidence, not a
-new scientific authority: if a value here disagrees with its source table, the site is wrong.
+<footer>Generated from the public source tables. If a value here disagrees with its source
+table, the site is wrong.
 See <a href="provenance.html">Provenance</a>.</footer>
 </main></div></body></html>
