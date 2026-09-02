@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-nwb-data
+  description: NWB inspection, path addressing, anatomical mapping, electrode/unit
+    QC, metadata census, and compression.
+policy:
+  allow_implicit_invocation: true

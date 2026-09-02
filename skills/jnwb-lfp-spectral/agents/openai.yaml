@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-lfp-spectral
+  description: LFP filtering, Morlet wavelet complex TFR, streaming accumulation,
+    coherence, and artifact repair.
+policy:
+  allow_implicit_invocation: true

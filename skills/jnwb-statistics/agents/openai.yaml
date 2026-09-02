@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-statistics
+  description: Statistical hypothesis testing, parametric/nonparametric dual reporting,
+    family-wise FDR, label permutations, and exact confidence intervals.
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-figures
+  description: Publication-grade vector graphics, raster PSTH plotting, tight auto-axis
+    scaling, and visual QC suites.
+policy:
+  allow_implicit_invocation: true

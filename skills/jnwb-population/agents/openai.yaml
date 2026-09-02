@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-population
+  description: Population decoding, nested CV linear SVM, neural trajectories, joint
+    representational similarity analysis (jRSA), and subspace geometry.
+policy:
+  allow_implicit_invocation: true

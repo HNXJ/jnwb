@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb
+  description: Top-level router and scientific safeguard kernel for jnwb NWB electrophysiology
+    analysis.
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-spiking
+  description: Spike extraction, PSTH binning, physiological latency estimation, causal
+    smoothing, and unit response classification.
+policy:
+  allow_implicit_invocation: true

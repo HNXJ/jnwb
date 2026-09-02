@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-connectivity
+  description: Directed connectivity, bivariate Granger causality, phase slope index
+    (PSI), transfer entropy, and graph measures.
+policy:
+  allow_implicit_invocation: true
