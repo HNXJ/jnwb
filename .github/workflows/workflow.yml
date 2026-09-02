@@ -90,12 +90,33 @@ jobs:
           print('PASS: Distribution manifests clean.')
           "
 
-      - name: Test isolated wheel installation & smoke test
+      - name: Test clean virtualenv wheel installation & smoke verification
         shell: bash
         run: |
-          python -m pip install dist/*.whl
-          python -m pip check
-          python -c "import jnwb; print('Installed jnwb version:', jnwb.__version__); assert len(jnwb.__all__) == 101"
+          python -m venv /tmp/clean_env
+          /tmp/clean_env/bin/pip install --upgrade pip
+          /tmp/clean_env/bin/pip install dist/*.whl
+          /tmp/clean_env/bin/pip check
+          cd /tmp
+          /tmp/clean_env/bin/python -c "
+          import sys, os
+          try:
+              import omission
+              raise RuntimeError('omission is unexpectedly importable!')
+          except ModuleNotFoundError:
+              print('PASS: omission is strictly absent and unimportable')
+          import jnwb
+          print('Installed jnwb version:', jnwb.__version__)
+          print('Installed location:', jnwb.__file__)
+          assert len(jnwb.__all__) == 101, f'Expected 101 symbols, got {len(jnwb.__all__)}'
+
+          # Smoke test of core primitives
+          import numpy as np
+          rng = np.random.default_rng(42)
+          tfr = jnwb.complex_tfr(rng.normal(size=500), fs=1000.0, freqs=np.linspace(10, 40, 4))
+          assert tfr.shape == (4, 500)
+          print('PASS: Installed wheel verified in clean virtualenv')
+          "
 
       - name: Store distribution artifacts
         uses: actions/upload-artifact@v4
