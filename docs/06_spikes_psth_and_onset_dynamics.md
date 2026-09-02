@@ -17,7 +17,8 @@ import jnwb
 # onsets: trial onset timestamps in seconds (float array)
 # win_ms: (start_ms, end_ms) window relative to onset
 # bin_ms: bin width in milliseconds
-time_bins_ms, rate_hz = jnwb.raster_psth(
+# Returns: (bin_centers_ms, mean_rate_hz, sem_rate_hz)
+time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
     st=spike_times_s,
     onsets=trial_onsets_s,
     win_ms=(-200.0, 600.0),

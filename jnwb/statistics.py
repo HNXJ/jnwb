@@ -993,7 +993,7 @@ def cross_modal_comparison(
     y = spike_avg[:n_pts]
 
     if bin_ms is None:
-        corr_res = StatisticalAnalysis.correlate(x, y)
+        corr_res = StatisticalAnalysis.exploratory_correlate(x, y)
         return {
             'correlation': corr_res,
             'n_samples': n_pts,
@@ -1016,7 +1016,7 @@ def cross_modal_comparison(
             xs, ys = x, y
         if len(xs) < 3:
             continue
-        candidate = StatisticalAnalysis.correlate(xs, ys)
+        candidate = StatisticalAnalysis.exploratory_correlate(xs, ys)
         r = abs(candidate['parametric']['statistic'])
         if r > best_abs_r:
             best_abs_r, best_shift, best_corr = r, shift, candidate

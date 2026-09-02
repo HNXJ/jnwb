@@ -266,7 +266,7 @@ class TFRAnalyzer:
 
         return {
             'band':           band,
-            'correlation':    StatisticalAnalysis.correlate(data1, data2),
+            'correlation':    StatisticalAnalysis.exploratory_correlate(data1, data2),
             'interpretation': 'Higher = stronger inter-area synchrony in this band',
         }
 

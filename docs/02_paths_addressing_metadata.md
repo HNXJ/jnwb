@@ -30,8 +30,8 @@ Paths are configured via environment variables rather than source code edits:
 
 | Path Key | Environment Variable | Default Fallback | Purpose |
 |----------|----------------------|------------------|---------|
-| `nwb_dir` | `JNWB_NWB_DIR` | `D:/Analysis/data/nwb` | Directory containing primary `.nwb` session files |
-| `raw_dir` | `JNWB_RAW_DIR` | `D:/Analysis/data/raw` | Raw acquisition streams (OpenEphys / SpikeGLX) |
+| `nwb_dir` | `JNWB_NWB_DIR` / `OMISSION_NWB_DIR` | `None` (must be set) | Directory containing primary `.nwb` session files |
+| `analysis_dir` | `JNWB_ANALYSIS_DIR` / `OMISSION_ANALYSIS_DIR` | `None` (must be set) | Analysis root volume |
 | `outputs` | `JNWB_OUTPUTS_DIR` | `<repo_root>/outputs` | Processed tables, analysis summaries |
 | `artifacts` | `JNWB_ARTIFACTS_DIR` | `<repo_root>/artifacts`| Evidence logs, metadata sidecars |
 
@@ -47,25 +47,22 @@ Paths are configured via environment variables rather than source code edits:
 import jnwb
 
 # Look up anatomical area for a unit based on its peak channel and electrodes table
-area_name = jnwb.map_peak_channel_to_area(peak_channel_id=32.0, electrodes_df=electrodes_df)
+area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=electrodes_df)
 ```
 
 ### Depth-to-Layer (Laminar) Resolution (`classify_layer_from_depth`)
 
-Translates cortical probe depth ($\mu\text{m}$) into laminar boundaries based on boundary definitions:
+Translates probe electrode depth ($z$-coordinate in $\mu\text{m}$) into cortical layer classification:
 
 ```python
-# Resolve laminar classification from probe tip depth and area boundaries
-layer = jnwb.classify_layer_from_depth(
-    depth_um=450.0,
-    boundaries={"L23": (0, 300), "L4": (300, 550), "L56": (550, 1000)}
-)
-# Returns: "L4"
+# Classifies layer based on electrode z depth ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
+layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df)
+# Returns: 'Superficial', 'Deep', or 'Unknown'
 ```
 
 ### Enriching Units DataFrame (`enrich_units_dataframe`)
 
-Attaches anatomical area, depth, and probe metadata directly to units tables:
+Attaches standardized `unit_id`, `area`, and `layer` columns directly to units tables:
 
 ```python
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
@@ -87,7 +84,7 @@ nwb_files = ["sub-01_ses-01.nwb", "sub-01_ses-02.nwb"]
 # Extract all units across multiple sessions into a unified pandas DataFrame
 units_df = jnwb.get_all_units_metadata(nwb_files, filter_quality=False)
 
-# Classify unit quality tiers (e.g. stable_plus, single_unit, multi_unit, noise)
+# Classify unit quality tiers (attaches quality_class: 'Good'|'MUA'|'Noise', is_valid, issue_flags)
 classified_units = jnwb.classify_unit_quality(units_df)
 
 # Generate a census summary grouped by brain area
@@ -122,24 +119,16 @@ tier = jnwb.assign_quality_tier(
 ### Filtering Units by Criteria
 
 ```python
-# Filter units by joint quality and physiological criteria
+# Filter units by dictionary criteria (equality, range tuple, or set membership)
 good_v1_units = jnwb.filter_by_criteria(
     classified_units,
-    area="V1",
-    min_rate=0.5,
-    max_rate=60.0,
-    min_snr=2.5,
-    min_presence_fraction=0.8,
-    quality_tier="stable_plus"
+    criteria={
+        "area": "V1",
+        "firing_rate": (0.5, 60.0),
+        "snr": (2.5, 100.0),
+        "trial_presence_fraction": (0.8, 1.0),
+    }
 )
-```
-
-### Criteria Comparison Audits
-
-```python
-# Compare classification transitions across old and new sorting criteria
-compared_df = jnwb.compare_old_new_criteria(new_units_df, old_units_df)
-summary_table = jnwb.old_new_summary_table(compared_df, group_cols=("area", "quality_tier"))
 ```
 
 ---

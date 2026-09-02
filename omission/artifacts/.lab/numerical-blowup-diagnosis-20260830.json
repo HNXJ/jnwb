@@ -73,5 +73,21 @@
       "target": "replication-checkpoint-20260830"
     }
   ],
-  "status_rationale": "provisional. Every number here carries a rerun receipt from the frozen code path, but this is a single-author diagnosis with no independent confirmation; threshold-2 has not been met."
+  "status_rationale": "provisional. Every number here carries a rerun receipt from the frozen code path, but this is a single-author diagnosis with no independent confirmation; threshold-2 has not been met.",
+  "ruling": {
+    "decided_by": "Hamm, 2026-08-30",
+    "decision": "RECORD AND DO NOT FIX. No estimator change inside the frozen replication branch.",
+    "frozen_finding": [
+      "Low-frequency causal envelopes are intrinsically heavy-tailed in this dataset.",
+      "At low n, test observations can fall far outside training support.",
+      "Linear Ridge then extrapolates catastrophically.",
+      "This compromises absolute / mean-based low-n R^2.",
+      "Existing Q1 is essentially unaffected.",
+      "Q2's nested-minus-permuted, rank-based inference is empirically robust to this failure.",
+      "Future pooled / mean-based analyses are not safe until support handling is defined."
+    ],
+    "why_no_remedy_now": "Support control (remedy b) is the best future candidate but clipping, winsorizing or refusing extrapolation CHANGES THE ESTIMATOR and therefore breaks direct comparability with the completed three-session replication.",
+    "why_trial_254_is_not_rejected": "Hamm, explicitly: the evidence shows it is extreme in theta FEATURE SPACE but is NOT a demonstrated acquisition artifact. Removing it because it damages prediction would be CIRCULAR. The trial stands.",
+    "prospective_future_work_not_retrofitted": "Before any corpus-wide reuse of distributed prediction, test support control PROSPECTIVELY on synthetic plus held-out sessions. x_test not in support(X_train) becomes an explicit DIAGNOSTIC FLAG. Whether flagged observations are clipped, transformed, rejected from prediction, or handled by a nonlinear/robust estimator is to be decided FROM VALIDATION -- not retrofitted into this replication."
+  }
 }

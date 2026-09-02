@@ -190,6 +190,7 @@ from .permutation import permute_labels, build_permutation_plan
 # Generic trial-segmented artifact detection-and-substitution (promoted 2026-08-23 from
 # omission.jnwb_ext.artifact_repair; see jnwb/artifact_repair.py's module docstring).
 from .artifact_repair import repair_lfp_trials, repair_band_artifacts
+from .tfr import complex_tfr, morlet_wavelet, ComplexTFR
 from .artifact_detection import (
     channel_correlation_matrix,
     bad_channels_from_correlation,
@@ -390,6 +391,9 @@ __all__ = [
     'laplacian_reference',
     'CANONICAL_BANDS',
     'compute_psd',
+    'complex_tfr',
+    'morlet_wavelet',
+    'ComplexTFR',
 
     # Functional connectivity
     'spike_mutual_information',

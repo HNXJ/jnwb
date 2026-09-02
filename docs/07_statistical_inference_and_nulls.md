@@ -46,21 +46,26 @@ print("Permutation p-value:", perm_res["pval"])
 
 ## 2. Group Comparisons & False Discovery Rate (FDR) Control
 
-### Group Comparisons (`compare_groups`)
+### Exploratory vs Confirmatory Comparisons
+
+`StatisticalAnalysis.exploratory_compare` and `StatisticalAnalysis.exploratory_correlate` compute unadjusted dual parametric and non-parametric statistics for exploratory screening without FDR theatre:
 
 ```python
-comparison = stats.compare_groups(
+# Exploratory dual comparison
+comparison = stats.exploratory_compare(
     group1,
     group2,
     paired=False,
     n_bootstrap=2000,
     rng=custom_rng
 )
-# Returns parametric (t-test) and non-parametric (Mann-Whitney / Wilcoxon) results,
+# Returns clean parametric ('parametric') and non-parametric ('non_parametric') metrics,
 # alongside bootstrap mean difference confidence intervals.
 ```
 
 ### Benjamini-Hochberg FDR Control (`fdr_correct`)
+
+For confirmatory hypothesis testing across cohorts of channels, frequency bins, or time lags, apply explicit FDR control:
 
 ```python
 p_values = np.array([0.001, 0.004, 0.015, 0.048, 0.120])
@@ -92,17 +97,17 @@ fire_test = jnwb.paired_fire_prob_test(
     rng=custom_rng
 )
 print("Odds Ratio:", fire_test["odds_ratio"])
-print("Shuffle p-value:", fire_test["p_value"])
+print("Shuffle p-value:", fire_test["p_value_fire_shuffle"])
 ```
 
 ### Fast Paired & Unpaired Shuffle p-values
 
 ```python
 # Paired shuffle test
-p_val, mean_diff = jnwb.shuffle_pvalue_paired(a, b, n_shuffles=5000, rng=custom_rng)
+diff, p_val = jnwb.shuffle_pvalue_paired(a, b, n_shuffles=5000, rng=custom_rng)
 
 # Unpaired shuffle test
-p_val_unpaired, diff = jnwb.shuffle_pvalue_unpaired(a, b, n_shuffles=5000, rng=custom_rng)
+diff, p_val_unpaired = jnwb.shuffle_pvalue_unpaired(a, b, n_shuffles=5000, rng=custom_rng)
 ```
 
 ---
@@ -144,10 +149,10 @@ plan = jnwb.build_permutation_plan(
 
 ```python
 # Detect periodic stimulus cycles in trial tables
-cycle_labels = jnwb.detect_trial_cycles(trial_conditions, cycle_length=4)
+cycle_labels = jnwb.detect_trial_cycles(trial_times, cycle_length_s=4.0)
 
 # Assign quartile ranks within temporal subblocks
-quartiles = jnwb.assign_subblock_quartiles(trial_times, subblock_size=100)
+quartiles = jnwb.assign_subblock_quartiles(trial_times, n_quartiles=4)
 
 # Compute bootstrap confidence interval on model R2
 r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200)

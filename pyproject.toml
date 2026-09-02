@@ -1,69 +1,105 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "jnwb"
-version = "0.1.0"
-description = "Generic NWB analysis library. The omission/ folder holds this repo's native large-dataset example project."
+dynamic = ["version"]
+description = "Generic Python library for high-density electrophysiology, time-frequency analysis, and statistical neuroscience on Neurodata Without Borders (NWB) datasets."
 readme = "README.md"
-requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    { name = "Hamed Nejat" }
+]
+maintainers = [
+    { name = "Hamed Nejat" }
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+keywords = [
+    "neuroscience",
+    "electrophysiology",
+    "nwb",
+    "neurodata-without-borders",
+    "lfp",
+    "spikes",
+    "time-frequency",
+    "morlet-wavelet",
+    "granger-causality",
+    "phase-slope-index",
+]
 dependencies = [
-    "pynwb",
-    "numpy",
-    "pandas",
-    "h5py",
-    "scipy",
-    "scikit-learn",
-    "matplotlib",
-    "plotly",
-    # Added 2026-08-08 after an AST scan found them imported but undeclared. Everything
-    # worked only because the dev venv happened to have them; a fresh `pip install -e .`
-    # produced an env that failed at import time deep inside an analysis run.
-    "statsmodels",   # 17 import sites: every GLMM and FDR path (jrsa, viz, 8 scripts)
-    "joblib",        # jnwb/jrsa.py parallel map
-    "hdmf",          # jnwb/__init__.py NWB builder monkeypatches; transitive via pynwb,
-                     # but imported directly, so declared directly.
-    # mcp 2.0 (2026-07-28) removed mcp.server.fastmcp, which jnwb/mcp_server/server.py
-    # imports; pin to the v1 line until that module is migrated to the v2 API.
-    "mcp<2.0",
-    # Added 2026-08-11: fig03_unit_census.py's UMAP supplement panel imports umap
-    # unconditionally, so a fresh venv without umap-learn fails the ENTIRE fig03 pipeline
-    # (main figure included) at the last panel, not just the supplement -- found while
-    # closing/freezing fig03.
-    "umap-learn",
+    "numpy>=1.22.0",
+    "scipy>=1.8.0",
+    "pandas>=1.4.0",
+    "h5py>=3.6.0",
+    "pynwb>=2.0.0",
+    "hdmf>=3.1.0",
+    "matplotlib>=3.5.0",
+    "scikit-learn>=1.0.0",
+    "statsmodels>=0.13.0",
+    "joblib>=1.1.0",
 ]
 
 [project.optional-dependencies]
-test = [
-    "pytest>=7.0",
-    "pytest-cov>=5.0",
-    "pytest-xdist>=3.0",  # `pytest -n auto`: ~2.5x wall-clock on this suite (170s -> 69s)
+mcp = [
+    "mcp<2.0",
 ]
 torch = [
-    "torch",
+    "torch>=1.12.0",
 ]
-# GPU backends. Both are optional by design: every module that uses them must also work
-# on CPU (see the numerical-computing skill). cupy wheels are CUDA-version-specific --
-# `cupy-cuda12x` for the CUDA 12 line this project runs on.
 gpu = [
     "cupy-cuda12x",
     "jax",
 ]
-docs = [
-    "python-docx",   # scripts/build_clean_publication_figures.py, generate_publication_figures.py
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=5.0",
+    "pytest-xdist>=3.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
 ]
-kilosort = [
-    "kilosort>=4.0",
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "myst-parser>=1.0.0",
 ]
 all = [
-    "jnwb[test,torch,gpu,docs,kilosort]",
+    "jnwb[mcp,torch,gpu,test,docs]",
 ]
 
+[project.urls]
+Homepage = "https://github.com/HNXJ/jnwb"
+Repository = "https://github.com/HNXJ/jnwb.git"
+Documentation = "https://github.com/HNXJ/jnwb#readme"
+"Bug Tracker" = "https://github.com/HNXJ/jnwb/issues"
+
 [tool.setuptools]
-packages = ["jnwb", "omission", "omission.jnwb_ext"]
 package-dir = {"" = "."}
+
+[tool.setuptools.dynamic]
+version = { attr = "jnwb.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["jnwb*"]
+exclude = ["omission*", "tests*", "docs*", "scripts*", "artifacts*", "jnwb._unused*", "jnwb._unused", ".lab_bundle_build*"]
+
+[tool.setuptools.package-data]
+jnwb = ["py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["tests", "omission/tests"]
+testpaths = ["tests"]

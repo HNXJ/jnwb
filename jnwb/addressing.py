@@ -9,6 +9,7 @@ Date: 2026-06-28
 """
 
 import logging
+import re
 from typing import Optional, Dict
 import pandas as pd
 import numpy as np
@@ -59,12 +60,14 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
                 # a real bug confirmed 2026-07-12: e.g. probe C channels
                 # 118-120 on a "V1, V2, V3" probe were all labeled 'V1' when
                 # the correct area for that channel range is 'V3'.
-                # Layering note: multi-area probe splitting needs the omission project's
-                # canonical area-name parsing (V3d/V3a convention etc.) -- a lazy, optional
-                # dependency on omission/, not a module-load-time one. Single-area probes
-                # (the common case) never take this branch.
-                from omission.jnwb_ext.sequence_layout import parse_probe_areas
-                areas = parse_probe_areas(loc_str)
+                # Layering note: multi-area probe splitting uses omission project's
+                # custom convention if installed, or generic comma/slash parsing otherwise.
+                try:
+                    from omission.jnwb_ext.sequence_layout import parse_probe_areas
+                    areas = parse_probe_areas(loc_str)
+                except (ImportError, ModuleNotFoundError):
+                    areas = tuple(p.strip() for p in re.split(r"[,/]", loc_str) if p.strip())
+
                 if len(areas) <= 1:
                     return loc_str.split(',')[0].strip()
 

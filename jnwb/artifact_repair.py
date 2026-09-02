@@ -139,7 +139,7 @@ def interpolate_intervals(seg, intervals):
 
 
 def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
-                      reward_window_ms=REWARD_WINDOW_MS, min_trials=5):
+                      exclude_window_ms=None, reward_window_ms=None, min_trials=5):
     """Cross-channel-synchrony detection + cross-trial-median substitution.
 
     Parameters
@@ -150,13 +150,15 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         single-digit channel count still works but is a weaker detector than the full
         probe -- state how many channels were used when reporting a repair rate).
     times_ms : ndarray, shape (n_times,), optional
-        Time axis in ms relative to trial (p1) onset. Required only if reward_window_ms
-        is not None (to exclude the reward-adjacent samples from repair eligibility).
+        Time axis in ms relative to trial onset. Required only if exclude_window_ms
+        (or legacy reward_window_ms) is not None.
     z_thresh : float
         Cross-channel-synchrony threshold (default 6.0, see module docstring).
-    reward_window_ms : (float, float) or None
+    exclude_window_ms : (float, float) or None
         Samples with times_ms in this half-open interval are never flagged for repair.
-        Pass None to disable (e.g. if the input window doesn't reach the reward latency).
+        Pass None to disable (default).
+    reward_window_ms : (float, float) or None, optional
+        Deprecated alias for exclude_window_ms.
     min_trials : int
         Below this many trials, the cross-trial median is not meaningful; input is
         returned unchanged (matches repair_band_artifacts's n_trials < 5 guard).
@@ -167,9 +169,10 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     frac_flagged : float
         Fraction of (trial, time) cells flagged and substituted.
     diagnostics : dict
-        n_trials, n_channels, n_times, n_flagged_cells, reward_excluded_cells,
-        synchrony_z_max, z_thresh, reward_window_ms.
+        n_trials, n_channels, n_times, n_flagged_cells, exclude_excluded_cells,
+        synchrony_z_max, z_thresh, exclude_window_ms, reward_window_ms.
     """
+    effective_exclude = exclude_window_ms if exclude_window_ms is not None else reward_window_ms
     segments = np.asarray(segments, dtype=np.float64)
     if segments.ndim != 3:
         raise ValueError(f"segments must be (n_trials, n_channels, n_times), got shape {segments.shape}")
@@ -177,7 +180,8 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
 
     diagnostics = {
         "n_trials": int(n_trials), "n_channels": int(n_channels), "n_times": int(n_times),
-        "z_thresh": float(z_thresh), "reward_window_ms": reward_window_ms,
+        "z_thresh": float(z_thresh), "exclude_window_ms": effective_exclude,
+        "reward_window_ms": effective_exclude,
         "n_flagged_cells": 0, "reward_excluded_cells": 0, "synchrony_z_max": 0.0,
     }
     if n_trials < min_trials:
@@ -196,11 +200,11 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
 
     flagged = synchrony > z_thresh                                         # (trials, times)
 
-    if reward_window_ms is not None and times_ms is not None:
+    if effective_exclude is not None and times_ms is not None:
         times_ms = np.asarray(times_ms, dtype=float)
-        reward_mask = (times_ms >= reward_window_ms[0]) & (times_ms < reward_window_ms[1])
-        diagnostics["reward_excluded_cells"] = int((flagged & reward_mask[None, :]).sum())
-        flagged = flagged & ~reward_mask[None, :]
+        in_excluded_window = (times_ms >= effective_exclude[0]) & (times_ms < effective_exclude[1])
+        diagnostics["reward_excluded_cells"] = int((flagged & in_excluded_window[None, :]).sum())
+        flagged = flagged & ~in_excluded_window[None, :]
 
     diagnostics["n_flagged_cells"] = int(flagged.sum())
     frac_flagged = float(flagged.mean())

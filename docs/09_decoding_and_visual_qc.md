@@ -26,7 +26,8 @@ import jnwb
 # labels: (n_samples,) integer condition labels
 decode_res = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)
 
-print("Mean CV Accuracy:", decode_res["mean_accuracy"])
+print("CV Accuracy:", decode_res["accuracy"])
+print("Accuracy Source:", decode_res["accuracy_source"])
 print("Confusion Matrix:\n", decode_res["confusion_matrix"])
 ```
 
@@ -91,16 +92,16 @@ jnwb.setup_vector_graphics()
 
 ### Tight Auto-Axis Bounding (`apply_tight_auto_axis`)
 
-Eliminates dead margin whitespace while respecting physical domain non-negativity:
+Eliminates dead margin whitespace while respecting physical domain constraints:
 
 ```python
 import matplotlib.pyplot as plt
 
 fig, ax = plt.subplots()
-ax.plot(times_ms, firing_rate_hz)
+ax.plot([0, 1, 2], [10, 20, 15])
 
-# Set tight limits around active data span, with 5% margin, preserving non-negative rate floor
-jnwb.apply_tight_auto_axis(ax, x=times_ms, y=firing_rate_hz, margin_pct=0.05, y_min_zero=True)
+# Set tight limits around active data span, with 10% margin
+jnwb.apply_tight_auto_axis(ax, x_span=(0, 2), y_margin=0.10)
 ```
 
 ### Multi-Format Figure Suite Saving (`save_figure_suite`)
@@ -115,4 +116,8 @@ jnwb.save_figure_suite(
     formats=["png", "pdf", "svg"],
     dpi=300
 )
+# Automatically writes:
+# - outputs/figures/fig01_overview_page1.png
+# - outputs/figures/fig01_overview_page1.pdf
+# - outputs/figures/fig01_overview_page1.svg
 ```

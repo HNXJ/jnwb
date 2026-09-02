@@ -27,11 +27,11 @@ bands = jnwb.CANONICAL_BANDS
 ### Power Spectral Density (`compute_psd`) & Band Power (`band_power`)
 
 ```python
-# Compute Welch PSD
-freqs, psd = jnwb.compute_psd(lfp_trace, sampling_rate=1000.0, nperseg=256)
+# Compute Welch PSD (returns frequencies and psd arrays)
+freqs, psd = jnwb.compute_psd(lfp_trace, fs=1000.0)
 
-# Extract power across canonical or custom frequency bands
-power_by_band = jnwb.band_power(lfp_trace, sampling_rate=1000.0, freq_bands=jnwb.CANONICAL_BANDS)
+# Extract scalar mean power in a specific frequency range (e.g. beta: 14-30 Hz)
+beta_power_val = jnwb.band_power(lfp_trace, sampling_rate=1000.0, freq_range=(14.0, 30.0))
 ```
 
 ### Spectral Tilt, Harmonic Analysis & Referencing
@@ -57,12 +57,16 @@ laplacian_data = jnwb.laplacian_reference(lfp_multichannel)
 Quantifies frequency-resolved phase synchronization between two LFP signals:
 
 ```python
-coherence_dict = jnwb.cross_area_coherence(
+coh_dict = jnwb.cross_area_coherence(
     lfp_area1,
     lfp_area2,
     sampling_rate=1000.0,
     freq_bands=jnwb.CANONICAL_BANDS
 )
+# Returns dict containing:
+# - 'band_coherence': Dict[band_name -> float]
+# - 'coherence_spectrum': np.ndarray (frequency-by-frequency coherence values)
+# - 'frequencies': np.ndarray
 ```
 
 ### Imaginary Coherency (`imaginary_coherency`)
@@ -120,7 +124,37 @@ $$\text{Decibels}(f, t) = 10 \log_{10}\left(\text{RelPower}(f, t)\right) = \text
 
 ---
 
-## 5. Streaming TFR Accumulation & Compression
+## 5. Complex Morlet Time-Frequency Representations & Accumulation
 
-- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials without storing complete trial tensors in RAM.
+### Complex Morlet Transform Primitive (`complex_tfr`, `morlet_wavelet`)
+
+`jnwb.complex_tfr` computes complex time-frequency coefficients via Morlet wavelets with discrete $L_1$ amplitude normalization:
+
+```python
+import jnwb
+import numpy as np
+
+# raw_lfp: (n_channels, n_times)
+freqs = np.linspace(10.0, 60.0, 11)  # 10 to 60 Hz in 5 Hz steps
+
+# Compute complex coefficients with Cone of Influence (COI) mask
+tfr_res = jnwb.complex_tfr(
+    data=raw_lfp,
+    fs=1000.0,
+    freqs=freqs,
+    n_cycles=5.0,
+    normalization="amplitude"  # unit cosine yields peak |z| = 1.0
+)
+
+# Returns ComplexTFR dataclass:
+# - tfr_res.z: np.ndarray, complex (n_channels, n_freqs, n_times)
+# - tfr_res.coi_mask: np.ndarray, bool (n_channels, n_freqs, n_times)
+# - tfr_res.power: np.ndarray (|z|^2)
+# - tfr_res.phase: np.ndarray (angle in radians)
+# - tfr_res.amplitude: np.ndarray (|z|)
+```
+
+### Streaming TFR Accumulation (`TFRAccumulator`) & Compression (`compress_fp32`)
+
+- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM.
 - **`compress_fp32` (`jnwb.compression`)**: Compresses high-dimensional single-precision floating point arrays into quantized representations.
