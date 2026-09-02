@@ -11,14 +11,13 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Publication target (testpypi, pypi, or none)"
+        description: "Publication target (testpypi or none)"
         required: true
-        default: "none"
+        default: "testpypi"
         type: choice
         options:
-          - "none"
           - "testpypi"
-          - "pypi"
+          - "none"
 
 jobs:
   test:
@@ -168,7 +167,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: build
-    if: (github.event_name == 'release' && !github.event.release.prerelease && github.event.action == 'published') || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    if: github.event_name == 'release' && !github.event.release.prerelease && github.event.action == 'published'
     runs-on: ubuntu-latest
     environment:
       name: pypi
