@@ -230,7 +230,7 @@ def run_full_preflight() -> bool:
             print(f"PASS: {msg}")
 
     # Check local analysis outputs if output directory exists
-    if (REPO_ROOT / "omission" / "outputs").exists():
+    if (REPO_ROOT / "omission" / "outputs" / "classification").exists():
         for c_name, r_path in optional_output_receipts:
             ok, msg = validate_receipt_provenance(c_name, r_path)
             if not ok:
