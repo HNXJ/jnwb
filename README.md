@@ -11,6 +11,85 @@ this repo's native large-dataset example project.
 
 ---
 
+## What it does, in one figure
+
+```bash
+python examples/quickstart_jnwb.py     # writes examples/figures/jnwb_quickstart.{svg,png}
+```
+
+![jnwb quickstart: six primitives, each checked against a known ground truth](examples/figures/jnwb_quickstart.png)
+
+Six library primitives, each run on a **simulated** signal whose ground truth is known, so every
+panel shows what the function recovered next to what it should have recovered. That makes the
+script a smoke test as well as a demo: if a panel stops matching its ground truth, something in
+the library moved. Nothing on that figure is an empirical result about any recording — real
+results live in [`omission/`](omission/README.md).
+
+The fourth panel is the one worth pausing on. It is not a feature demo; it is a bug that shipped
+here once. A null built by shuffling labels globally, when the labels are constant within a
+group, produces a distribution that looks significant against an observed value that is nothing
+of the kind. `permute_labels` therefore has **no default** for `scheme` — every call must name
+its exchangeability assumption out loud.
+
+## How the pieces fit
+
+Layering is one-directional and shallow: 17 of the 24 modules are leaves that import nothing else
+in the package, and the deepest chain is three modules long. That is deliberate — it is what lets
+a project depend on one corner of the library without pulling in the rest.
+
+```mermaid
+flowchart TD
+    subgraph IO["I/O and addressing"]
+        paths[paths.py]
+        addressing[addressing.py]
+        metadata[metadata.py]
+        compression[compression.py]
+    end
+    subgraph SIG["Signal"]
+        spectral[spectral.py]
+        tfr[tfr.py / tfr_accumulator.py]
+        arep[artifact_repair.py]
+        adet[artifact_detection.py]
+        onset[onset_fitting.py]
+        spiking[spiking.py]
+    end
+    subgraph INF["Inference"]
+        permutation[permutation.py]
+        statistics[statistics.py]
+        connectivity[connectivity.py]
+        decoding[decoding.py]
+        jrsa[jrsa.py]
+        analyzers[analyzers.py]
+    end
+    subgraph OUT["Output"]
+        viz[viz.py]
+        visual_qc[visual_qc.py]
+        trajectory[trajectory.py] --> gpu_pca[gpu_pca.py]
+    end
+
+    metadata --> addressing
+    statistics --> permutation
+    connectivity --> spectral
+    jrsa --> connectivity
+    jrsa --> statistics
+    analyzers --> spectral
+    analyzers --> statistics
+```
+
+A typical analysis runs left to right across those groups:
+
+```mermaid
+flowchart LR
+    A[(NWB session)] --> B["paths / metadata<br/>resolve roots, extract units"]
+    B --> C["addressing<br/>channel to area, depth to layer"]
+    C --> D["artifact_detection / artifact_repair<br/>exclude or substitute"]
+    D --> E["spectral / tfr / spiking<br/>band power, TFR, PSTH"]
+    E --> F["statistics / permutation<br/>effect + a null with a named scheme"]
+    F --> G["viz / visual_qc<br/>vector figures"]
+```
+
+---
+
 ## Install
 
 ```bash
@@ -228,10 +307,14 @@ python -m jnwb.mcp_server
 
 | Path | Contents |
 |---|---|
-| `jnwb/` | The library (above) |
+| `jnwb/` | The library (above) — 24 modules, ~10.8k lines |
 | `tests/` | Pytest suite for the generic library — run it, don't trust pass counts in docs |
+| `examples/` | Runnable API tour that also checks itself against ground truth |
+| `docs/` | Sphinx source: ten topic guides plus the generated API reference |
+| `skills/` | Agent-facing API guides for `jnwb` itself (`jnwb`, `jnwb-connectivity`, `jnwb-figures`, `jnwb-lfp-spectral`, `jnwb-nwb-data`, `jnwb-population`, `jnwb-spiking`, `jnwb-statistics`) |
+| `scripts/` | Repo-level gates (`harness_gate.py`, `release_gate.py`) |
 | `omission/` | The example project built on `jnwb` — see [`omission/README.md`](omission/README.md) |
-| `.claude/skills/` | Task-scoped API guides |
+| `omission/.claude/skills/` | Task-scoped guides for the example project, not for the library |
 
 ---
 
@@ -239,7 +322,10 @@ python -m jnwb.mcp_server
 
 - **`CLAUDE.md`** — repo doctrine: library invariants, footguns, verification checks that caught
   real errors.
-- **`omission/.claude/skills/`** — task-scoped API guides (`omission-data`, `omission-signal`,
-  `omission-spiking`, `omission-statistics`, `omission-figures`, `manuscript`, `labyrinth`). There
-  is no repo-root `.claude/skills/` — `jnwb/` itself has no dedicated skill yet (see
-  `numerical-computing` / `biophysical-modeling`, which are general-purpose, not jnwb-specific).
+- **`skills/`** — eight API guides for the library itself: `jnwb` plus `jnwb-connectivity`,
+  `jnwb-figures`, `jnwb-lfp-spectral`, `jnwb-nwb-data`, `jnwb-population`, `jnwb-spiking`,
+  `jnwb-statistics`. (These live at the repo root, not under `.claude/skills/`, which does not
+  exist here.)
+- **`omission/.claude/skills/`** — task-scoped guides for the *example project*, not the library
+  (`omission-data`, `omission-signal`, `omission-spiking`, `omission-statistics`,
+  `omission-figures`, `manuscript`, `labyrinth`).

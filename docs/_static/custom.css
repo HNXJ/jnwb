@@ -82,6 +82,10 @@ body, .wy-body-for-nav {
   color: var(--jnwb-text-muted) !important;
 }
 
+.wy-menu-vertical {
+  background-color: var(--jnwb-bg-secondary) !important;
+}
+
 .wy-menu-vertical a {
   color: var(--jnwb-text-secondary) !important;
   border-bottom: none !important;
@@ -90,6 +94,13 @@ body, .wy-body-for-nav {
 .wy-menu-vertical a:hover {
   background-color: var(--jnwb-gold-dim) !important;
   color: var(--jnwb-gold-bright) !important;
+}
+
+.wy-menu-vertical li.current,
+.wy-menu-vertical li.toctree-l1.current,
+.wy-menu-vertical li.toctree-l2.current,
+.wy-menu-vertical li.toctree-l3.current {
+  background: var(--jnwb-bg-secondary) !important;
 }
 
 .wy-menu-vertical li.current > a,
@@ -101,10 +112,27 @@ body, .wy-body-for-nav {
 }
 
 .wy-menu-vertical li.current a {
-  color: var(--jnwb-text-secondary);
+  color: var(--jnwb-text-secondary) !important;
+  background-color: transparent !important;
+}
+
+.wy-menu-vertical li.current a:hover {
+  color: var(--jnwb-gold-bright) !important;
+  background-color: var(--jnwb-gold-dim) !important;
 }
 
 .wy-menu-vertical li.current li.current > a {
+  color: var(--jnwb-gold-bright) !important;
+  font-weight: 600;
+}
+
+.wy-menu-vertical li.toctree-l2 a,
+.wy-menu-vertical li.toctree-l3 a {
+  color: var(--jnwb-text-muted) !important;
+}
+
+.wy-menu-vertical li.toctree-l2 a:hover,
+.wy-menu-vertical li.toctree-l3 a:hover {
   color: var(--jnwb-gold-bright) !important;
 }
 

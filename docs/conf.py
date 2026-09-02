@@ -40,7 +40,9 @@ source_suffix = {
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md"]
 
-suppress_warnings = ["misc.highlighting_failure", "toc.not_included"]
+typehints_use_intersphinx = False
+
+suppress_warnings = ["misc.highlighting_failure", "toc.not_included", "intersphinx.external"]
 
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
