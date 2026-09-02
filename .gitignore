@@ -13,6 +13,8 @@ htmlcov/
 .venv/
 venv/
 env/
+_build/
+docs/_build/
 
 # data / derived / generated (not source)
 data/
