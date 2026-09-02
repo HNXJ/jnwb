@@ -129,13 +129,11 @@ omission/scripts/_*.py
 # it does not need a parallel rule for omission/.claude/, which is untouched by any pattern here
 # and stays fully tracked by default. Root .claude/skills/ is reserved for future *generic jnwb*
 # skills and is legitimately empty today.
-.claude/*
-!.claude/skills/
-!.claude/skills/**
-!.claude/settings.json
-!.claude/SETTINGS_RATIONALE.md
+.claude/
+.cursor/
 .vscode/
 .idea/
+.agents/
 
 # Local configuration files
 omission/notebooks/local_config.py
