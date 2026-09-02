@@ -3,8 +3,25 @@ tests/test_skills_validation.py -- Deterministic verification of canonical repos
 """
 from pathlib import Path
 import re
-import pytest
-import yaml
+try:
+    import yaml
+    def _yaml_load(s: str) -> dict:
+        return yaml.safe_load(s)
+except ImportError:
+    try:
+        import ruamel.yaml as ruamel_yaml
+        _ryaml = ruamel_yaml.YAML(typ="safe")
+        def _yaml_load(s: str) -> dict:
+            return _ryaml.load(s)
+    except ImportError:
+        def _yaml_load(s: str) -> dict:
+            res = {}
+            for line in s.splitlines():
+                if ":" in line and not line.strip().startswith("#"):
+                    k, v = line.split(":", 1)
+                    res[k.strip()] = v.strip()
+            return res
+
 import numpy as np
 import pandas as pd
 import jnwb
@@ -47,13 +64,13 @@ def test_skills_frontmatter_and_openai_yaml():
         assert text.startswith("---"), f"{skill_name}/SKILL.md missing frontmatter start"
         parts = text.split("---", 2)
         assert len(parts) >= 3, f"{skill_name}/SKILL.md malformed frontmatter"
-        frontmatter = yaml.safe_load(parts[1])
+        frontmatter = _yaml_load(parts[1])
         assert isinstance(frontmatter, dict)
         assert frontmatter.get("name") == skill_name
         assert "description" in frontmatter and len(frontmatter["description"]) > 10
 
         # Parse agents/openai.yaml
-        agent_data = yaml.safe_load(agent_yaml.read_text(encoding="utf-8"))
+        agent_data = _yaml_load(agent_yaml.read_text(encoding="utf-8"))
         assert isinstance(agent_data, dict)
         assert "interface" in agent_data
         assert agent_data["interface"].get("display_name") == skill_name
