@@ -4,7 +4,20 @@ import pytest
 import jnwb
 from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
 from jnwb.statistics import StatisticalAnalysis
-from omission.jnwb_ext.seed import stable_seed
+
+try:
+    import importlib.util
+    import pathlib
+    _seed_path = pathlib.Path(__file__).resolve().parents[1] / "omission" / "jnwb_ext" / "seed.py"
+    if _seed_path.exists():
+        _spec = importlib.util.spec_from_file_location("omission_seed", _seed_path)
+        _seed_mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_seed_mod)
+        stable_seed = _seed_mod.stable_seed
+    else:
+        stable_seed = None
+except Exception:
+    stable_seed = None
 
 
 class TestOnsetBoundStatus:

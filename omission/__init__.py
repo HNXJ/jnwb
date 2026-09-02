@@ -281,7 +281,10 @@ from .jnwb_ext.unit_classification import (
     config_to_dict,
     discover_nwb_paths,
 )
-from .jnwb_ext.report import generate_report
+try:
+    from .jnwb_ext.report import generate_report
+except ImportError:
+    generate_report = None
 from .jnwb_ext.analog import EpochBatch, load_analog_epochs, load_muae_epochs, load_lfp_epochs
 
 # Export main classes and functions
