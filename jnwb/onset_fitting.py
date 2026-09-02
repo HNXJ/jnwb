@@ -7,11 +7,10 @@ windows -- fully generic causal-kernel smoothing and bounded nonlinear onset-lat
 applicable to any PSTH/rate trace on any corpus.
 
 WHY THIS EXISTS (historical motivation from the omission corpus)
-    Built 2026-08-15 for Hamm's onset-latency propagation-hierarchy test (H1 low-then-high /
-    H2 high-then-low / H3 superposition, tested separately for S+/S++, S-/S--, O+/O--, and an
-    omnibus all-units pass). No exponential/sigmoid onset-fitting method existed anywhere in
-    this repo before this module (confirmed by a targeted repo search) -- the only prior onset
-    estimator here is the cluster-permutation approach
+    Built 2026-08-15 for onset-latency propagation-hierarchy tests (tested separately across
+    distinct unit response classes and an omnibus all-units pass). No exponential/sigmoid
+    onset-fitting method existed anywhere in this repo before this module (confirmed by a
+    targeted repo search) -- the only prior onset estimator here was the cluster-permutation approach
     (scripts/aggregate_omission_onset_clusters.py), which answers "when does a population
     DECODER first beat chance," a different question from "when does THIS response class's own
     firing rate first rise above baseline."

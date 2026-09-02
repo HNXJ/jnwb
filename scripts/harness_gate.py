@@ -121,6 +121,100 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+ALLOWED_ROOT_DIRS = {
+    "jnwb", "tests", "examples", "docs", "skills", "scripts", "omission", "artifacts",
+    ".git", ".github", ".venv", "venv", "env", ".pytest_cache", "dist", "jnwb.egg-info",
+    ".lab_bundle_build", ".claude", ".cursor", ".gemini", "_build"
+}
+ALLOWED_ROOT_FILES = {
+    ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
+    "LICENSE", "pyproject.toml", "README.md", ".coverage"
+}
+
+
+def check_root_allowlist(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 5 (Repository Hygiene): Enforce strict repository root freeze."""
+    root = repo_root or REPO_ROOT
+    violations = []
+    for entry in root.iterdir():
+        if entry.is_dir():
+            if entry.name not in ALLOWED_ROOT_DIRS:
+                violations.append(f"UNAUTHORIZED_ROOT_DIR: Disallowed directory at repository root: {entry.name}")
+        elif entry.is_file():
+            if entry.name not in ALLOWED_ROOT_FILES:
+                violations.append(f"UNAUTHORIZED_ROOT_FILE: Disallowed file at repository root: {entry.name}. Move to artifacts/ or configure .gitignore.")
+    return violations
+
+
+def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 6 (API Completeness): Assert all public exports are documented in docs/."""
+    root = repo_root or REPO_ROOT
+    import jnwb
+    docs_dir = root / "docs"
+    if not docs_dir.exists():
+        return ["MISSING_DOCS_DIR: docs/ not found"]
+    
+    all_docs_text = ""
+    for doc_path in docs_dir.glob("*.md"):
+        all_docs_text += "\n" + doc_path.read_text(encoding="utf-8")
+        
+    violations = []
+    for symbol in jnwb.__all__:
+        if symbol not in all_docs_text:
+            violations.append(f"UNDOCUMENTED_PUBLIC_SYMBOL: Public export 'jnwb.{symbol}' is not documented in docs/")
+    return violations
+
+
+def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 7 (Dataset Independence): Assert zero experiment-specific condition tokens in generic code."""
+    root = repo_root or REPO_ROOT
+    violations = []
+    forbidden_tokens = ["AXAB", "BXBA", "S+/S-", "O+/O-"]
+    
+    for py_file in (root / "jnwb").rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        text = py_file.read_text(encoding="utf-8", errors="replace")
+        for tok in forbidden_tokens:
+            if tok in text:
+                violations.append(f"DATASET_LEAKAGE: Found experiment-specific token '{tok}' in jnwb/{py_file.name}")
+                
+    for skill_file in (root / "skills").rglob("*.md"):
+        text = skill_file.read_text(encoding="utf-8", errors="replace")
+        for tok in forbidden_tokens:
+            if tok in text:
+                violations.append(f"DATASET_LEAKAGE: Found experiment-specific token '{tok}' in skills/{skill_file.name}")
+                
+    return violations
+
+
+def check_version_consistency(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 8 (Release Consistency): Assert package version matches pyproject.toml and docs/conf.py."""
+    root = repo_root or REPO_ROOT
+    import jnwb
+    version = getattr(jnwb, "__version__", None)
+    if not version:
+        return ["MISSING_VERSION: jnwb.__version__ is not defined"]
+        
+    pyproject_path = root / "pyproject.toml"
+    if not pyproject_path.exists():
+        return ["MISSING_PYPROJECT: pyproject.toml not found"]
+    
+    pyproject_text = pyproject_path.read_text(encoding="utf-8")
+    has_dynamic = 'version = { attr = "jnwb.__version__" }' in pyproject_text or 'version = {attr = "jnwb.__version__"}' in pyproject_text
+    has_static = f'version = "{version}"' in pyproject_text
+    if not (has_dynamic or has_static):
+        return [f"VERSION_INCONSISTENCY: pyproject.toml does not bind to jnwb.__version__ ({version})"]
+        
+    conf_path = root / "docs" / "conf.py"
+    if conf_path.exists():
+        conf_text = conf_path.read_text(encoding="utf-8")
+        if "jnwb.__version__" not in conf_text:
+            return ["VERSION_INCONSISTENCY: docs/conf.py does not use jnwb.__version__"]
+            
+    return []
+
+
 # ==============================================================================
 # Omission Project Specific Gates (Scoped to omission/ analyses, NOT generic jnwb)
 # ==============================================================================
@@ -239,9 +333,42 @@ def run_full_preflight() -> bool:
             else:
                 print(f"PASS: {msg}")
             
-    if not all_receipts_ok:
+    # 4. Root allowlist check
+    root_violations = check_root_allowlist()
+    if root_violations:
+        print("FAIL: Repository root allowlist violated:")
+        for v in root_violations:
+            print(f"  - {v}")
         return False
-        
+    print("PASS: Repository root strictly frozen & clean.")
+
+    # 5. Public symbols documentation completeness check
+    symbol_violations = check_public_symbols_documented()
+    if symbol_violations:
+        print("FAIL: Undocumented public symbols detected:")
+        for v in symbol_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: 100% of public symbols documented in docs/.")
+
+    # 6. Dataset independence / leakage check
+    leakage_violations = check_dataset_leakage()
+    if leakage_violations:
+        print("FAIL: Dataset leakage detected in generic modules:")
+        for v in leakage_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: Zero dataset-specific tokens in jnwb/ and skills/.")
+
+    # 7. Package and metadata version consistency check
+    version_violations = check_version_consistency()
+    if version_violations:
+        print("FAIL: Version inconsistency detected:")
+        for v in version_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: Package and pyproject.toml versions synchronized.")
+
     print("ALL HARNESS GATES PASSED.")
     return True
 

@@ -91,3 +91,64 @@ def compute_site_power_correct(raw_power):
         ok, violations = check_modality_isolation(good_features)
         assert ok
         assert len(violations) == 0
+
+    def test_adversarial_probe_root_allowlist_violation_rejected(self, tmp_path: Path):
+        """Adversarial Probe 5: Disallowed files or directories at root must be rejected."""
+        from scripts.harness_gate import check_root_allowlist
+        # Valid root structure
+        (tmp_path / "jnwb").mkdir()
+        (tmp_path / "README.md").write_text("# Title\n", encoding="utf-8")
+        assert len(check_root_allowlist(tmp_path)) == 0
+
+        # Inject stray files/folders
+        (tmp_path / "untracked_scratch.csv").write_text("a,b\n", encoding="utf-8")
+        (tmp_path / "temp_analysis").mkdir()
+
+        violations = check_root_allowlist(tmp_path)
+        assert len(violations) == 2
+        assert any("UNAUTHORIZED_ROOT_FILE" in v for v in violations)
+        assert any("UNAUTHORIZED_ROOT_DIR" in v for v in violations)
+
+    def test_adversarial_probe_undocumented_symbol_rejected(self, tmp_path: Path):
+        """Adversarial Probe 6: Public symbol missing from docs/ must be caught."""
+        from scripts.harness_gate import check_public_symbols_documented
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        (docs_dir / "api.md").write_text("# API\n`jnwb.compute_psd`\n", encoding="utf-8")
+
+        violations = check_public_symbols_documented(tmp_path)
+        # Should flag missing symbols from jnwb.__all__
+        assert len(violations) > 0
+        assert "UNDOCUMENTED_PUBLIC_SYMBOL" in violations[0]
+
+    def test_adversarial_probe_dataset_leakage_rejected(self, tmp_path: Path):
+        """Adversarial Probe 7: Experiment condition tokens in jnwb/ or skills/ must be caught."""
+        from scripts.harness_gate import check_dataset_leakage
+        fake_jnwb = tmp_path / "jnwb"
+        fake_skills = tmp_path / "skills"
+        fake_jnwb.mkdir()
+        fake_skills.mkdir()
+
+        (fake_jnwb / "clean.py").write_text("def foo(): pass\n", encoding="utf-8")
+        (fake_skills / "SKILL.md").write_text("description: clean\n", encoding="utf-8")
+        assert len(check_dataset_leakage(tmp_path)) == 0
+
+        # Inject AXAB condition code
+        (fake_jnwb / "leaky.py").write_text("CONDITION = 'AXAB'\n", encoding="utf-8")
+        violations = check_dataset_leakage(tmp_path)
+        assert len(violations) == 1
+        assert "DATASET_LEAKAGE" in violations[0]
+        assert "AXAB" in violations[0]
+
+    def test_adversarial_probe_version_inconsistency_rejected(self, tmp_path: Path):
+        """Adversarial Probe 8: Inconsistent package vs pyproject version must be caught."""
+        from scripts.harness_gate import check_version_consistency
+        (tmp_path / "pyproject.toml").write_text('[project]\nversion = "99.99.99"\n', encoding="utf-8")
+        violations = check_version_consistency(tmp_path)
+        assert len(violations) > 0
+        assert "VERSION_INCONSISTENCY" in violations[0]
+
+    def test_real_repository_passes_all_harness_gates(self):
+        """Integrity Probe: Live repository state must pass all preflight gates."""
+        from scripts.harness_gate import run_full_preflight
+        assert run_full_preflight() is True

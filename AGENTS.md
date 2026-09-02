@@ -70,7 +70,10 @@ All multi-step agent actions follow the PRGS operational loop:
      - `omission-data/SKILL.md`
    - Do not revert, stash, overwrite, or delete uncommitted work in these paths.
 3. **Mechanical Safety Gates**:
-   - No destructive git operations: `git reset --hard`, `git push --force`, and wildcard additions `git add .` or `git add -A` are prohibited. Stage only exact, intended file paths.
+   - No destructive git operations: `git reset --hard`, `git push --force`, and wildcard additions `git add .` or `git add -A` are prohibited. Stage only exact, intended file paths. `git commit -a` is prohibited for the same reason: it stages every modified tracked file without using a wildcard, so the rule above does not catch it.
+   - **Verify the index before every commit.** This is a shared working tree: another session's uncommitted edits to a file you also touched are indistinguishable from your own. Run `git diff --cached --name-only` and confirm that *every* listed path belongs to your declared task. If one does not, unstage it (`git restore --staged <path>`) and say so — do not commit it "because it was already dirty".
+     - Receipt (2026-09-02): commit `29ed345` swept an in-progress `README.md` edit from a concurrent session into an unrelated docs commit. The committed README then referenced `examples/quickstart_jnwb.py` and a PNG that were never tracked, so on a fresh clone the image did not render and the documented command failed. Repaired by `8ca5567`. The `git add .` ban was already in force and did not prevent it, because the staging was path-explicit — what was missing was the check on *what ended up staged*.
+     - This one cannot be fully mechanized: "belongs to my declared task" is not machine-readable, and `scripts/harness_gate.py::check_protected_paths` only guards the declared protected paths (`README.md` is not one) and runs in CI, after the push. Treat the check as a required manual step.
    - Mechanically preventable errors must be guarded by executable gates or tests, not just docstrings.
 
 ---

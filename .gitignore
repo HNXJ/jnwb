@@ -62,6 +62,8 @@ gallery_src/
 *.html
 *.svg
 *.png
+!examples/figures/jnwb_quickstart.png
+!examples/figures/jnwb_quickstart.svg
 *.jpg
 *.jpeg
 *.h5py
