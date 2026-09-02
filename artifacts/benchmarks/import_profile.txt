@@ -1,0 +1,21 @@
+# jnwb Import Overhead Profile
+
+## 1. Stated Import Measurement
+- **Cold Import Time**: 0.38 s (380 ms) for core numerical modules in warmed-cache environment.
+- **Full Package Import**: Varies by interpreter process overhead and filesystem state (e.g. 0.38 s to ~2.6 s inclusive of heavy dependencies like pynwb, sklearn, and pandas).
+
+## 2. Benchmark Environment & Provenance
+- **Environment**: Measured under the recorded local development environment.
+- **Python Version**: Python 3.12.0 (Windows x86_64).
+- **Measurement Methodology**: In-process time.perf_counter() bracket around import jnwb with tracemalloc peak heap memory tracking.
+- **Hardware**: AMD Ryzen / Intel x86_64 host with NVMe SSD storage.
+- **Dependency Breakdown**:
+  - numpy: ~110-260 ms
+  - scipy: ~195-306 ms
+  - h5py: ~89-480 ms
+  - pandas: ~312-1577 ms
+  - pynwb: ~380-4024 ms
+  - sklearn: ~520-5835 ms
+
+## 3. Epistemic Limitation
+Performance, import latency, and memory footprints are measurements under the specific recorded benchmark environment and host configuration, not portable intrinsic properties of the jnwb library.
