@@ -65,17 +65,12 @@ LFP traces, trial-level neural data, NWB paths, or machine-local paths are publi
 
 ### Where it is published
 
-:::{admonition} Not yet deployed
-:class: note
+The atlas is published on GitHub Pages:
 
-The atlas is built and verified locally but has **not** been published yet. When it is deployed it
-will be served from GitHub Pages at:
+**[Analysis 6A — onset timing during stimulus omission](https://hnxj.github.io/jnwb/analyses/onset-6a/)**
 
-`https://hnxj.github.io/jnwb/analyses/onset-6a/`
-
-Until that deployment happens this page deliberately records the target address as text rather
-than as a link, so the documentation never points readers at an address that does not resolve.
-:::
+The atlas index, which will list further analyses as they migrate to this pattern, is at
+<https://hnxj.github.io/jnwb/>.
 
 ## Building the atlas locally
 
