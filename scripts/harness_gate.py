@@ -123,8 +123,8 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
 
 ALLOWED_ROOT_DIRS = {
     "jnwb", "tests", "examples", "docs", "skills", "scripts", "omission", "artifacts",
-    ".git", ".github", ".venv", "venv", "env", ".pytest_cache", "dist", "jnwb.egg-info",
-    ".lab_bundle_build", ".claude", ".cursor", ".gemini", "_build"
+    ".git", ".github", ".venv", "venv", "env", ".pytest_cache", "dist", "build", "jnwb.egg-info",
+    ".lab_bundle_build", ".claude", ".cursor", ".gemini", "_build", ".tox"
 }
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",

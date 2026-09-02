@@ -13,6 +13,7 @@ htmlcov/
 .venv/
 venv/
 env/
+build/
 _build/
 docs/_build/
 
