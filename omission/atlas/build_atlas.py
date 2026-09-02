@@ -40,9 +40,11 @@ SITE = os.path.join(HERE, "_site")
 FIGSRC = os.path.join(REPO, "omission", "context", "figures", "analysis6a_timing", "svg")
 
 ANALYSIS = "onset-6a"
-STATUS = "Reviewed analysis"
-STATUS_NOTE = ("Reviewed scientific analysis. Not a finalized manuscript result. "
-               "Claims below are session-level unless explicitly marked descriptive.")
+STATUS = "Exploratory analysis"
+STATUS_NOTE = ("Exploratory analysis -- NOT publication-final. Analysis 6A carries one "
+               "session-level positive inferential result (higher beta/gamma than theta/alpha "
+               "temporal resolvability). Everything else is descriptive or not significant at "
+               "the session level.")
 
 PAGES = [
     ("index.html", "Overview"),
@@ -118,7 +120,7 @@ def shell(body: str, page: str, title: str, plotly_pages: bool = False) -> str:
 <header>
   <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
   <div class="sub">Macaque multi-area laminar electrophysiology &middot;
-  <span class="badge b-review">{STATUS}</span></div>
+  <span class="badge b-review">{STATUS}</span> <span class="mut">not publication-final</span></div>
 </header>
 <div class="wrap"><nav>{nav}</nav><main>
 {body}

@@ -22,14 +22,15 @@ exercises a wide slice of this library — {py:mod}`jnwb.onset_fitting` for the 
 the spectral machinery for the frequency-resolved LFP analysis, and the permutation and
 exact-interval tools for inference.
 
-:::{admonition} Status: reviewed analysis, not a finalized manuscript result
+:::{admonition} Status: exploratory analysis — not publication-final
 :class: caution
 
-The atlas labels every claim with its standing. Its primary population-level result — that
-temporal *resolvability* of the omission response is higher for beta/gamma than for theta/alpha
-LFP, replicated across sessions — is a reviewed scientific finding, not a published one. Several
-comparisons on the site are explicitly marked *descriptive* and must not be read as population
-claims.
+The atlas labels every claim with its standing. Analysis 6A currently carries **one**
+session-level positive inferential result: temporal *resolvability* of the omission response is
+higher for beta/gamma than for theta/alpha LFP, and that replicates across sessions. Everything
+else is descriptive or not significant at the session level — in particular the omission-minus-
+stimulus latency shift is a unit-level tendency that the available number of sessions cannot
+establish. Nothing on the site is a finalized manuscript result.
 :::
 
 ### What the atlas contains

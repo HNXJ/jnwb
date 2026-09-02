@@ -692,8 +692,8 @@ def provenance(d, prov: dict, manifest: list[dict]) -> str:
 <div class="card">
 <div class="scroll"><table><tbody>
 <tr><td>Analysis</td><td style="text-align:left"><code>{prov['analysis']}</code></td></tr>
-<tr><td>Status</td><td style="text-align:left"><span class="badge b-review">Reviewed analysis
-&mdash; not a finalized manuscript result</span></td></tr>
+<tr><td>Status</td><td style="text-align:left"><span class="badge b-review">Exploratory
+analysis &mdash; NOT publication-final</span></td></tr>
 <tr><td>Source commit</td><td style="text-align:left"><code>{prov['source_commit']}</code></td></tr>
 <tr><td>Tables generated</td><td style="text-align:left">{prov['generated_utc']}</td></tr>
 <tr><td>Table builder</td><td style="text-align:left"><code>{prov['builder']}</code></td></tr>
