@@ -71,6 +71,7 @@ gallery_src/
 
 # non-source formats (repo is code + ipynb + markdown only)
 *.json
+!artifacts/benchmarks/*.json
 *.asv
 *.mexw64
 *.mlx

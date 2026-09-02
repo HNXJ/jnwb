@@ -32,7 +32,7 @@ def build_time_resolved_matrix(
     Build a trial-by-trial time-resolved population spike count matrix.
 
     Args:
-        session: OmissionSession object
+        session: Generic session container or interface providing get_units() and get_spike_times()
         area: Brain area to select units from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
         time_window_ms: (start_ms, end_ms) relative to epoch onset
@@ -42,8 +42,7 @@ def build_time_resolved_matrix(
     Returns:
         X: Feature matrix of shape (n_trials, n_units, n_bins)
         unit_ids: List of unit identities (raw units_df row-index positions, matching
-            OmissionSession.get_spike_times's primary lookup convention -- NOT the
-            per-probe-local 'unit_id' column) represented in the rows/columns of X
+            the session's get_spike_times primary lookup convention) represented in the rows/columns of X
         bin_centers: Center times of bins relative to trial onset in ms
     """
     # Calculate bin edges

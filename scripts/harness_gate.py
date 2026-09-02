@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -105,19 +106,52 @@ def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path])
 
 
 def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 4 (Global Repository Safety): Enforce single canonical skill tree.
+    """Gate 2 (Global Repository Safety): Enforce single canonical skill tree.
     
-    Prohibits recreation of .agents/skills/ per omission/tests/test_skill_tree_consolidation.py.
-    The single tracked project skill tree is omission/.claude/skills/.
+    Prohibits recreation of duplicate .agents/skills/ trees.
+    The single tracked canonical skill tree is skills/.
     """
     root = repo_root or REPO_ROOT
     violations = []
     agents_skills = root / ".agents" / "skills"
     if agents_skills.exists():
         violations.append(
-            f"DUPLICATE_SKILL_TREE: {agents_skills} exists. Prohibited by test_skill_tree_consolidation.py. "
-            "Canonical project skills live exclusively in omission/.claude/skills/."
+            f"DUPLICATE_SKILL_TREE: {agents_skills} exists. "
+            "Canonical generic skills live exclusively in skills/."
         )
+    return violations
+
+
+def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 3 (Test Independence): Enforce that tests do not contain machine-local hardcoded drive paths."""
+    root = repo_root or REPO_ROOT
+    tests_dir = root / "tests"
+    if not tests_dir.exists():
+        return []
+    violations = []
+    drive_patterns = [
+        re.compile(r'["\']([CDcd]:/(?:nwb|analysis|data|workspace|Users|home)[^"\']*)["\']'),
+        re.compile(r'["\']([CDcd]:\\(?:nwb|analysis|data|workspace|Users|home)[^"\']*)["\']'),
+        re.compile(r'["\'](/Users/[^"\']+)["\']'),
+        re.compile(r'["\'](/home/(?!runner)[^"\']+)["\']'),
+    ]
+    for py_file in tests_dir.rglob("*.py"):
+        if py_file.name == "test_harness_adversarial_gates.py":
+            continue
+        try:
+            content = py_file.read_text(encoding="utf-8")
+            tree = ast.parse(content, filename=str(py_file))
+        except Exception:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                val = node.value
+                for pat in drive_patterns:
+                    if pat.search(f'"{val}"'):
+                        # Allow explicit synthetic / error test fixtures
+                        if "non_existent" in val or "synthetic" in val or "fake" in val or "dummy" in val:
+                            continue
+                        violations.append(f"HARDCODED_TEST_PATH: Machine-local absolute path '{val}' found in {py_file.name}:{getattr(node, 'lineno', '?')}")
     return violations
 
 
@@ -206,13 +240,39 @@ def check_version_consistency(repo_root: Optional[Path] = None) -> List[str]:
     if not (has_dynamic or has_static):
         return [f"VERSION_INCONSISTENCY: pyproject.toml does not bind to jnwb.__version__ ({version})"]
         
-    conf_path = root / "docs" / "conf.py"
-    if conf_path.exists():
-        conf_text = conf_path.read_text(encoding="utf-8")
-        if "jnwb.__version__" not in conf_text:
-            return ["VERSION_INCONSISTENCY: docs/conf.py does not use jnwb.__version__"]
-            
     return []
+
+
+def check_python_target_consistency(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 9 (Python 3.12 Target Consistency): Assert Python 3.12 is the sole targeted version across metadata and CI."""
+    root = repo_root or REPO_ROOT
+    violations = []
+    
+    # 1. pyproject.toml
+    pyproject_path = root / "pyproject.toml"
+    if pyproject_path.exists():
+        pyproject_text = pyproject_path.read_text(encoding="utf-8")
+        if 'requires-python = ">=3.12, <3.13"' not in pyproject_text and 'requires-python = ">=3.12"' not in pyproject_text and 'requires-python = "==3.12.*"' not in pyproject_text:
+            violations.append("PYTHON_TARGET_INCONSISTENCY: pyproject.toml requires-python does not target Python 3.12")
+        for bad_v in ["3.10", "3.11", "3.13", "3.14"]:
+            if f'"Programming Language :: Python :: {bad_v}"' in pyproject_text:
+                violations.append(f"PYTHON_TARGET_INCONSISTENCY: pyproject.toml contains classifier for non-3.12 Python version: {bad_v}")
+                
+    # 2. .readthedocs.yaml
+    rtd_path = root / ".readthedocs.yaml"
+    if rtd_path.exists():
+        rtd_text = rtd_path.read_text(encoding="utf-8")
+        if 'python: "3.12"' not in rtd_text:
+            violations.append("PYTHON_TARGET_INCONSISTENCY: .readthedocs.yaml does not specify python: '3.12'")
+            
+    # 3. workflow.yml
+    workflow_path = root / ".github" / "workflows" / "workflow.yml"
+    if workflow_path.exists():
+        wf_text = workflow_path.read_text(encoding="utf-8")
+        if 'python-version: [ "3.12" ]' not in wf_text and 'python-version: ["3.12"]' not in wf_text:
+            violations.append("PYTHON_TARGET_INCONSISTENCY: .github/workflows/workflow.yml test matrix is not restricted to Python 3.12")
+            
+    return violations
 
 
 # ==============================================================================
@@ -305,33 +365,14 @@ def run_full_preflight() -> bool:
         return False
     print("PASS: Single canonical skill tree verified (no .agents/skills/ duplicate).")
     
-    # 3. Key doctrine receipts check (tracked .lab receipts are always checked; outputs checked when present)
-    tracked_receipts = [
-        ("Fig04 Sealed Audit Receipt", "omission/artifacts/.lab/f04-sealed-audit-20260824.json"),
-    ]
-    optional_output_receipts = [
-        ("Fig04 Temporal Context FDR Audit", "omission/outputs/classification/fig04_temporal_context_fdr_audit.csv"),
-        ("PCA x UMAP Manifold Search Grid", "omission/outputs/classification/fig04_diagnostics/pca_umap_surface_grid.csv"),
-        ("Matched Multimodal PCA->UMAP Results", "omission/outputs/classification/lfp_multimodal_pca_umap_results.csv"),
-    ]
-    all_receipts_ok = True
-    for c_name, r_path in tracked_receipts:
-        ok, msg = validate_receipt_provenance(c_name, r_path)
-        if not ok:
-            print(f"FAIL: {msg}")
-            all_receipts_ok = False
-        else:
-            print(f"PASS: {msg}")
-
-    # Check local analysis outputs if output directory exists
-    if (REPO_ROOT / "omission" / "outputs" / "classification").exists():
-        for c_name, r_path in optional_output_receipts:
-            ok, msg = validate_receipt_provenance(c_name, r_path)
-            if not ok:
-                print(f"FAIL: {msg}")
-                all_receipts_ok = False
-            else:
-                print(f"PASS: {msg}")
+    # 3. Test independence check (no machine-local hardcoded paths)
+    test_path_violations = check_no_hardcoded_test_paths()
+    if test_path_violations:
+        print("FAIL: Hardcoded machine-local paths detected in tests:")
+        for v in test_path_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: Tests free of machine-local hardcoded drive paths.")
             
     # 4. Root allowlist check
     root_violations = check_root_allowlist()
@@ -368,6 +409,15 @@ def run_full_preflight() -> bool:
             print(f"  - {v}")
         return False
     print("PASS: Package and pyproject.toml versions synchronized.")
+
+    # 8. Python 3.12 target consistency check
+    py_target_violations = check_python_target_consistency()
+    if py_target_violations:
+        print("FAIL: Python target inconsistency detected:")
+        for v in py_target_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: Python 3.12 sole supported target verified across metadata and CI.")
 
     print("ALL HARNESS GATES PASSED.")
     return True

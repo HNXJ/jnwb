@@ -1,0 +1,87 @@
+{
+  "nwb_read_and_metadata": {
+    "time_ms": 261.8728000015835,
+    "peak_mb": 0.37142467498779297,
+    "scale": "128 ch, 50 units, 5k samples"
+  },
+  "complex_tfr_1ch_2s": {
+    "time_ms": 17.210500001965556,
+    "peak_mb": 1.0247383117675781,
+    "scale": "1 ch x 2000 pts, 25 freqs"
+  },
+  "complex_tfr_16ch_2s": {
+    "time_ms": 33.95499999896856,
+    "peak_mb": 14.614181518554688,
+    "scale": "16 ch x 2000 pts, 25 freqs"
+  },
+  "tfr_accumulator_50trials": {
+    "time_ms": 364.25210000015795,
+    "peak_mb": 10.533401489257812,
+    "scale": "50 trials x 16 ch x 25 freqs x 200 t"
+  },
+  "fit_exponential_onset_100fits": {
+    "time_ms": 53248.628500005,
+    "peak_mb": 0.10022354125976562,
+    "scale": "100 onset fits"
+  },
+  "confirmatory_compare_2k_boot": {
+    "time_ms": 227.22950000024866,
+    "peak_mb": 0.052308082580566406,
+    "scale": "N=50, 2,000 bootstrap iterations"
+  },
+  "permutation_test_2k_perm": {
+    "time_ms": 87.64240000164136,
+    "peak_mb": 0.0372467041015625,
+    "scale": "N=50, 2,000 permutations"
+  },
+  "permute_labels_1k_runs": {
+    "time_ms": 236.37040000176057,
+    "peak_mb": 0.00537872314453125,
+    "scale": "1,000 within-group permutations (N=150)"
+  },
+  "bootstrap_ci_2k_resamples": {
+    "time_ms": 109.34680000355002,
+    "peak_mb": 0.07874107360839844,
+    "scale": "N=50, 2,000 bootstrap resamples"
+  },
+  "nested_cv_linear_svm_5cv": {
+    "time_ms": 1245.26020000485,
+    "peak_mb": 0.2691526412963867,
+    "scale": "200 trials x 30 units, 5-fold nested CV"
+  },
+  "bilinear_decoder_10iter": {
+    "time_ms": 566.0079000008409,
+    "peak_mb": 1.2957658767700195,
+    "scale": "100 trials x 16 units x 50 bins, rank=2"
+  },
+  "jrsa_metric_rsa": {
+    "time_ms": 513.4700999988127,
+    "peak_mb": 5.564566612243652,
+    "scale": "2 conds x 50 trials x 20 units x 30 bins"
+  },
+  "jrsa_metric_cka": {
+    "time_ms": 10.62130000354955,
+    "peak_mb": 9.158723831176758,
+    "scale": "2 conds x 50 trials x 20 units x 30 bins"
+  },
+  "cross_area_coherence": {
+    "time_ms": 2634.1103999948245,
+    "peak_mb": 0.23685359954833984,
+    "scale": "2 x 2000 pt traces, Welch CSD"
+  },
+  "phase_slope_index": {
+    "time_ms": 3.598499999498017,
+    "peak_mb": 0.25615692138671875,
+    "scale": "2 x 2000 pt traces, beta band"
+  },
+  "detect_bad_channels_correlation": {
+    "time_ms": 1.7185999968205579,
+    "peak_mb": 0.30664825439453125,
+    "scale": "16 channels x 2000 points"
+  },
+  "repair_band_artifacts": {
+    "time_ms": 7.271199996466748,
+    "peak_mb": 8.186768531799316,
+    "scale": "20 trials x 8 ch x 25 freqs x 200 time"
+  }
+}

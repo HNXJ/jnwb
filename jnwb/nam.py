@@ -24,15 +24,33 @@ ATTRIBUTION
 from __future__ import annotations
 
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
+try:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    _TORCH_AVAILABLE = True
+    _BaseModule = nn.Module
+except ImportError:
+    _TORCH_AVAILABLE = False
+    torch = None
+    nn = None
+    F = None
+    _BaseModule = object
 
 
-class LaminarNAM(nn.Module):
+def _require_torch():
+    if not _TORCH_AVAILABLE:
+        raise ImportError(
+            "jnwb.nam requires PyTorch. Install optional torch dependencies via: pip install 'jnwb[torch]'"
+        )
+
+
+class LaminarNAM(_BaseModule):
     def __init__(self, num_units: int, time_samples: int, n_classes: int = 3,
                  n_filters: int = 8, hidden_dim: int = 32, kernel_size: int = 5,
                  dropout: float = 0.25):
+        _require_torch()
         super().__init__()
         self.N, self.T, self.C = num_units, time_samples, n_classes
         self.F_ = n_filters
@@ -61,16 +79,24 @@ class LaminarNAM(nn.Module):
         return contrib.sum(dim=1) + self.bias, contrib
 
 
-@torch.no_grad()
+def _torch_no_grad(f):
+    if _TORCH_AVAILABLE and torch is not None:
+        return torch.no_grad()(f)
+    return f
+
+
+@_torch_no_grad
 def unit_importance(model, X, device="cpu", unit_mask=None):
     """S_i = mean over classes of the trial-wise std of unit i's contribution."""
+    _require_torch()
     model.eval()
     _, contrib = model(torch.as_tensor(X, dtype=torch.float32, device=device), unit_mask)
     return contrib.std(dim=0).mean(dim=1).cpu().numpy()   # (N,)
 
 
-@torch.no_grad()
+@_torch_no_grad
 def predict(model, X, device="cpu", unit_mask=None):
+    _require_torch()
     model.eval()
     logits, _ = model(torch.as_tensor(X, dtype=torch.float32, device=device), unit_mask)
     proba = torch.softmax(logits, dim=1).cpu().numpy()
@@ -82,6 +108,7 @@ def train_nam(model, X_tr, y_tr, X_val, y_val, device="cpu", max_epochs=300, pat
     """Train on the TRAIN split only. The VAL split never contributes a gradient -- it is used
     solely to early-stop and to restore the best-val weights, which is what keeps it available
     as an honest model-selection set while TEST stays untouched."""
+    _require_torch()
     torch.manual_seed(seed)
     model.to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)

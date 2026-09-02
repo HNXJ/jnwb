@@ -148,6 +148,27 @@ def compute_site_power_correct(raw_power):
         assert len(violations) > 0
         assert "VERSION_INCONSISTENCY" in violations[0]
 
+    def test_adversarial_probe_python_target_inconsistency_rejected(self, tmp_path: Path):
+        """Adversarial Probe 9: Non-Python 3.12 targets in pyproject or workflows must be caught."""
+        from scripts.harness_gate import check_python_target_consistency
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nrequires-python = ">=3.10"\nclassifiers = ["Programming Language :: Python :: 3.10"]\n',
+            encoding="utf-8"
+        )
+        violations = check_python_target_consistency(tmp_path)
+        assert len(violations) >= 2
+        assert all("PYTHON_TARGET_INCONSISTENCY" in v for v in violations)
+
+    def test_adversarial_probe_hardcoded_test_paths_rejected(self, tmp_path: Path):
+        """Adversarial Probe 10: Hardcoded machine-local test paths must be caught."""
+        from scripts.harness_gate import check_no_hardcoded_test_paths
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_leaky.py").write_text('TEST_FILE = "D:/analysis/nwb/real.nwb"\n', encoding="utf-8")
+        violations = check_no_hardcoded_test_paths(tmp_path)
+        assert len(violations) == 1
+        assert "HARDCODED_TEST_PATH" in violations[0]
+
     def test_real_repository_passes_all_harness_gates(self):
         """Integrity Probe: Live repository state must pass all preflight gates."""
         from scripts.harness_gate import run_full_preflight

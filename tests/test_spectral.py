@@ -39,10 +39,6 @@ class TestPublicImport:
         import jnwb
         assert "compute_psd" in jnwb.__all__
 
-    def test_omission_report_delegates_to_jnwb(self):
-        report = pytest.importorskip("omission.jnwb_ext.report")
-        assert report.compute_psd is compute_psd
-
 
 class TestComputePsd:
     def test_returns_freqs_and_psd_arrays(self):
