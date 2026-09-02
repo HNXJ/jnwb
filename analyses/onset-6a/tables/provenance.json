@@ -1,0 +1,45 @@
+{
+ "analysis": "onset-6a",
+ "generated_utc": "2026-09-02T16:41:35Z",
+ "source_commit": "2af5f86ae7b1d9bb2704ea1dfbe56a4cae92d7fc",
+ "builder": "omission/atlas/build_public_tables.py",
+ "identifier_policy": "subjects and sessions anonymized (no public convention in draft)",
+ "tables": {
+  "analysis6a_spk_resolved_public.csv": {
+   "sha256": "3ceb9ce9bc773e218ea033b2bfac9a0b54bd3e394d251eb5f3edba54620f4e50",
+   "rows": 187
+  },
+  "analysis6a_spk_census_public.csv": {
+   "sha256": "2308912f433338052243afe183d0b303823f9b5e25d6ea6fd8c341e2d80518c2",
+   "rows": 22
+  },
+  "analysis6a_spk_session_stats_public.csv": {
+   "sha256": "9d5123d4f4f9d309f8ea307869442bd93ced425ab1ba24f2e09db60854426658",
+   "rows": 18
+  },
+  "analysis6a_lfp_frequency_public.csv": {
+   "sha256": "25ab13124ec3d3ef1957aac7d991c1c061c95aeed4bec23c8d292daf06e5ab7b",
+   "rows": 20
+  },
+  "analysis6a_lfp_session_stats_public.csv": {
+   "sha256": "c3f32be035a0fb4f9a318e8a6b367cfde973e96a0e8034fe7edeb237fcb664e2",
+   "rows": 21
+  },
+  "analysis6a_lfp_censoring_public.csv": {
+   "sha256": "da2638ec64cb6cfe3721b751a3209d1d542c5497dda864d14ebc0f95346d0874",
+   "rows": 6
+  },
+  "analysis6a_dsp_temporal_support_public.csv": {
+   "sha256": "b5f4e10b5db83a9ccb5e039ef7e7cf3adf620c1bf8c5338f4e25ae694bc7b072",
+   "rows": 20
+  },
+  "analysis6a_coverage_public.csv": {
+   "sha256": "97560282cca3982c7836f1e8e4188f8279fccf0139dc2cc8a5e40eea45125695",
+   "rows": 89
+  },
+  "analysis6a_session_tests_public.csv": {
+   "sha256": "2170bfcb6f27ca1b6dd0e3fcec1caa12bc74667d50ac866ac5a6d796770e2b6e",
+   "rows": 3
+  }
+ }
+}

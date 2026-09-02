@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="360pt" height="331.2pt" viewBox="0 0 360 331.2" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-09-02T10:45:24.586302</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.8, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 331.2 
+L 360 331.2 
+L 360 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 50.4 284.832 
+L 352.8 284.832 
+L 352.8 48.024 
+L 50.4 48.024 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#p279332cd5b)">
+    <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAAaQAAAFJCAYAAADUlllpAAAGnElEQVR4nO3XMWtdZQDH4V5zW1NUyFYEB3VSBxHERSm4quDQfAwXcdHSRVBQXCripl0Fq9Ig1q0UURcJlYhyBzEdIoqE2ijFIEWuH8A75/0dfJ7xTH/ec+B33tn6Yy8sj/EfDz77vFNZYffzT53LCu+9/4pzWeHyD/vOZYWt8xecywp3rHoIAEdNkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABImO99+fboDUnf7t0cPSFp6/H7Rk9Iuvv42ugJSZuPnho9IWlr9IAoNyQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBhdnh7uRw9Aqbu452fR09IWl/zz7vK1d2DI38XU+BrASBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABImH+z+/voDUnvfHV99ISkUxsnR09IevGp+0dPSLpz7p93lau7B0f+LqbA1wJAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACTMNi9sL0ePKHrigY3RE5Jefen86AlJVy6+NnpC0om5f95VTp85d+TvYgp8LQAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACfM3nnt49Iaks5cXoycwIevH10ZPSNo9uDV6AhPihgRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACTMz15ejN6QtPjpxugJTMiNw79HT0j65LvfRk9gQtyQAEgQJAASBAmABEECIEGQAEgQJAASBAmABEECIEGQAEgQJAASBAmABEECIEGQAEgQJAASBAmABEECIEGQAEgQJAASBAmABEECIEGQAEgQJAASBAmABEECIEGQAEgQJAAS5q8/89DoDUmb7349egITctd8PnpC0iP33jN6QtLW6AFRbkgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmzJ9/6Yjl6RNG1Dy6OngDwv+KGBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJAgSAAmCBECCIAGQIEgAJMwWv9xajh5RtHfw1+gJSVuL/dETkjZOzkdPSLqy8+voCUk7H340ekKSGxIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQIIgAZAgSAAkCBIACYIEQMLs8PZyOXoETN216zdHT0g6MffPu8rpM+eO/F1Mga8FgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABIECQAEgQJgARBAiBBkABImH+/98foDUlPv3xp9ISkf37cHj0hafuzN0dPSFrs/zl6AhPihgRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABkCBIACQIEgAJggRAgiABcKzgX+/qZh+zKpcwAAAAAElFTkSuQmCC" id="image5437e190df" transform="scale(1 -1) translate(0 -236.88)" x="50.4" y="-47.952" width="302.4" height="236.88"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="mb7588ac0af" d="M 0 0 
+L 0 3.5 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mb7588ac0af" x="75.6" y="284.832" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(69.673516 296.72325)">SPK</text>
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(68.053125 304.06275)">units</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#mb7588ac0af" x="126" y="284.832" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(120.073516 296.72325)">SPK</text>
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(113.493516 304.06275)">sessions</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#mb7588ac0af" x="176.4" y="284.832" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(170.473516 296.72325)">SPK</text>
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(164.177344 304.06275)">subjects</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#mb7588ac0af" x="226.8" y="284.832" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(221.056719 296.72325)">LFP</text>
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(220.144531 304.06275)">cells</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#mb7588ac0af" x="277.2" y="284.832" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(271.456719 296.72325)">LFP</text>
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(264.693516 304.06275)">sessions</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#mb7588ac0af" x="327.6" y="284.832" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(321.856719 296.72325)">LFP</text>
+      <text style="font-size: 7px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(315.377344 304.06275)">subjects</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_7">
+      <defs>
+       <path id="m6b1b4c338b" d="M 0 0 
+L -3.5 0 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="57.891" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="60.686" transform="rotate(-0 43.4 60.686)">FEF</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="77.625" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="80.42" transform="rotate(-0 43.4 80.42)">FST</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="97.359" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="100.154" transform="rotate(-0 43.4 100.154)">MST</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="117.093" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="119.888" transform="rotate(-0 43.4 119.888)">MT</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="136.827" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="139.622" transform="rotate(-0 43.4 139.622)">PFC</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="156.561" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="159.356" transform="rotate(-0 43.4 159.356)">TEO</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="176.295" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_13">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="179.09" transform="rotate(-0 43.4 179.09)">V1</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="196.029" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="198.824" transform="rotate(-0 43.4 198.824)">V2</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="215.763" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="218.558" transform="rotate(-0 43.4 218.558)">V3</text>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="235.497" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="238.292" transform="rotate(-0 43.4 238.292)">V3a</text>
+     </g>
+    </g>
+    <g id="ytick_11">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="255.231" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_17">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="258.026" transform="rotate(-0 43.4 258.026)">V3d</text>
+     </g>
+    </g>
+    <g id="ytick_12">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#m6b1b4c338b" x="50.4" y="274.965" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_18">
+      <text style="font-size: 8px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: end" x="43.4" y="277.76" transform="rotate(-0 43.4 277.76)">V4</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 50.4 284.832 
+L 50.4 48.024 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 352.8 284.832 
+L 352.8 48.024 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 50.4 284.832 
+L 352.8 284.832 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 50.4 48.024 
+L 352.8 48.024 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_19">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="59.723813" transform="rotate(-0 75.6 59.723813)">11</text>
+   </g>
+   <g id="text_20">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="126" y="59.723813" transform="rotate(-0 126 59.723813)">6</text>
+   </g>
+   <g id="text_21">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="59.723813" transform="rotate(-0 176.4 59.723813)">2</text>
+   </g>
+   <g id="text_22">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="59.723813" transform="rotate(-0 226.8 59.723813)">5</text>
+   </g>
+   <g id="text_23">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="59.723813" transform="rotate(-0 277.2 59.723813)">3</text>
+   </g>
+   <g id="text_24">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="59.723813" transform="rotate(-0 327.6 59.723813)">2</text>
+   </g>
+   <g id="text_25">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="79.457813" transform="rotate(-0 75.6 79.457813)">0</text>
+   </g>
+   <g id="text_26">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="126" y="79.45957" transform="rotate(-0 126 79.45957)">0</text>
+   </g>
+   <g id="text_27">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="176.4" y="79.45957" transform="rotate(-0 176.4 79.45957)">0</text>
+   </g>
+   <g id="text_28">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="79.457813" transform="rotate(-0 226.8 79.457813)">7</text>
+   </g>
+   <g id="text_29">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="277.2" y="79.45957" transform="rotate(-0 277.2 79.45957)">2</text>
+   </g>
+   <g id="text_30">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="79.457813" transform="rotate(-0 327.6 79.457813)">2</text>
+   </g>
+   <g id="text_31">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="99.191812" transform="rotate(-0 75.6 99.191812)">8</text>
+   </g>
+   <g id="text_32">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="126" y="99.19357" transform="rotate(-0 126 99.19357)">2</text>
+   </g>
+   <g id="text_33">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="176.4" y="99.19357" transform="rotate(-0 176.4 99.19357)">1</text>
+   </g>
+   <g id="text_34">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="99.191812" transform="rotate(-0 226.8 99.191812)">13</text>
+   </g>
+   <g id="text_35">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="277.2" y="99.191812" transform="rotate(-0 277.2 99.191812)">6</text>
+   </g>
+   <g id="text_36">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="99.191812" transform="rotate(-0 327.6 99.191812)">2</text>
+   </g>
+   <g id="text_37">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="75.6" y="118.925813" transform="rotate(-0 75.6 118.925813)">32</text>
+   </g>
+   <g id="text_38">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="126" y="118.925813" transform="rotate(-0 126 118.925813)">7</text>
+   </g>
+   <g id="text_39">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="118.925813" transform="rotate(-0 176.4 118.925813)">2</text>
+   </g>
+   <g id="text_40">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="226.8" y="118.925813" transform="rotate(-0 226.8 118.925813)">28</text>
+   </g>
+   <g id="text_41">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="277.2" y="118.925813" transform="rotate(-0 277.2 118.925813)">9</text>
+   </g>
+   <g id="text_42">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="118.925813" transform="rotate(-0 327.6 118.925813)">2</text>
+   </g>
+   <g id="text_43">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="138.659812" transform="rotate(-0 75.6 138.659812)">8</text>
+   </g>
+   <g id="text_44">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="126" y="138.659812" transform="rotate(-0 126 138.659812)">5</text>
+   </g>
+   <g id="text_45">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="138.659812" transform="rotate(-0 176.4 138.659812)">2</text>
+   </g>
+   <g id="text_46">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="138.659812" transform="rotate(-0 226.8 138.659812)">7</text>
+   </g>
+   <g id="text_47">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="138.659812" transform="rotate(-0 277.2 138.659812)">4</text>
+   </g>
+   <g id="text_48">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="138.659812" transform="rotate(-0 327.6 138.659812)">2</text>
+   </g>
+   <g id="text_49">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="158.393812" transform="rotate(-0 75.6 158.393812)">28</text>
+   </g>
+   <g id="text_50">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="126" y="158.393812" transform="rotate(-0 126 158.393812)">5</text>
+   </g>
+   <g id="text_51">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="158.393812" transform="rotate(-0 176.4 158.393812)">2</text>
+   </g>
+   <g id="text_52">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="158.393812" transform="rotate(-0 226.8 158.393812)">8</text>
+   </g>
+   <g id="text_53">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="158.393812" transform="rotate(-0 277.2 158.393812)">5</text>
+   </g>
+   <g id="text_54">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="158.393812" transform="rotate(-0 327.6 158.393812)">2</text>
+   </g>
+   <g id="text_55">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="178.127813" transform="rotate(-0 75.6 178.127813)">7</text>
+   </g>
+   <g id="text_56">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="126" y="178.127813" transform="rotate(-0 126 178.127813)">4</text>
+   </g>
+   <g id="text_57">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="178.127813" transform="rotate(-0 176.4 178.127813)">2</text>
+   </g>
+   <g id="text_58">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="178.127813" transform="rotate(-0 226.8 178.127813)">6</text>
+   </g>
+   <g id="text_59">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="178.127813" transform="rotate(-0 277.2 178.127813)">3</text>
+   </g>
+   <g id="text_60">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="178.127813" transform="rotate(-0 327.6 178.127813)">2</text>
+   </g>
+   <g id="text_61">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="197.861812" transform="rotate(-0 75.6 197.861812)">28</text>
+   </g>
+   <g id="text_62">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="126" y="197.861812" transform="rotate(-0 126 197.861812)">3</text>
+   </g>
+   <g id="text_63">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="197.861812" transform="rotate(-0 176.4 197.861812)">2</text>
+   </g>
+   <g id="text_64">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="197.861812" transform="rotate(-0 226.8 197.861812)">7</text>
+   </g>
+   <g id="text_65">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="277.2" y="197.86357" transform="rotate(-0 277.2 197.86357)">2</text>
+   </g>
+   <g id="text_66">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="197.861812" transform="rotate(-0 327.6 197.861812)">2</text>
+   </g>
+   <g id="text_67">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="217.595813" transform="rotate(-0 75.6 217.595813)">13</text>
+   </g>
+   <g id="text_68">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="126" y="217.595813" transform="rotate(-0 126 217.595813)">4</text>
+   </g>
+   <g id="text_69">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="176.4" y="217.59757" transform="rotate(-0 176.4 217.59757)">1</text>
+   </g>
+   <g id="text_70">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="217.595813" transform="rotate(-0 226.8 217.595813)">4</text>
+   </g>
+   <g id="text_71">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="277.2" y="217.59757" transform="rotate(-0 277.2 217.59757)">1</text>
+   </g>
+   <g id="text_72">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="327.6" y="217.59757" transform="rotate(-0 327.6 217.59757)">1</text>
+   </g>
+   <g id="text_73">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="237.329813" transform="rotate(-0 75.6 237.329813)">0</text>
+   </g>
+   <g id="text_74">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="126" y="237.33157" transform="rotate(-0 126 237.33157)">0</text>
+   </g>
+   <g id="text_75">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="176.4" y="237.33157" transform="rotate(-0 176.4 237.33157)">0</text>
+   </g>
+   <g id="text_76">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="237.329813" transform="rotate(-0 226.8 237.329813)">10</text>
+   </g>
+   <g id="text_77">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="237.329813" transform="rotate(-0 277.2 237.329813)">3</text>
+   </g>
+   <g id="text_78">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="327.6" y="237.33157" transform="rotate(-0 327.6 237.33157)">1</text>
+   </g>
+   <g id="text_79">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="75.6" y="257.063812" transform="rotate(-0 75.6 257.063812)">3</text>
+   </g>
+   <g id="text_80">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="126" y="257.06557" transform="rotate(-0 126 257.06557)">2</text>
+   </g>
+   <g id="text_81">
+    <text style="font-weight: 700; font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #8b0000" x="176.4" y="257.06557" transform="rotate(-0 176.4 257.06557)">1</text>
+   </g>
+   <g id="text_82">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="257.063812" transform="rotate(-0 226.8 257.063812)">9</text>
+   </g>
+   <g id="text_83">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="257.063812" transform="rotate(-0 277.2 257.063812)">3</text>
+   </g>
+   <g id="text_84">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="257.063812" transform="rotate(-0 327.6 257.063812)">2</text>
+   </g>
+   <g id="text_85">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="75.6" y="276.797813" transform="rotate(-0 75.6 276.797813)">49</text>
+   </g>
+   <g id="text_86">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="126" y="276.797813" transform="rotate(-0 126 276.797813)">5</text>
+   </g>
+   <g id="text_87">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="176.4" y="276.797813" transform="rotate(-0 176.4 276.797813)">2</text>
+   </g>
+   <g id="text_88">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="226.8" y="276.797813" transform="rotate(-0 226.8 276.797813)">10</text>
+   </g>
+   <g id="text_89">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #222222" x="277.2" y="276.797813" transform="rotate(-0 277.2 276.797813)">5</text>
+   </g>
+   <g id="text_90">
+    <text style="font-size: 7.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif; text-anchor: middle; fill: #ffffff" x="327.6" y="276.797813" transform="rotate(-0 327.6 276.797813)">2</text>
+   </g>
+   <g id="text_91">
+    <text style="font-size: 8.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(50.4 24.014094)">Figure D - coverage per area</text>
+    <text style="font-size: 8.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(50.4 33.015859)">red = below the coverage gate (&lt; 3 sessions or &lt; 2 subjects).</text>
+    <text style="font-size: 8.5px; font-family: 'Cambria', 'Georgia', 'DejaVu Serif', serif" transform="translate(50.4 42.024)">Area and subject are confounded: no between-area latency claim.</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p279332cd5b">
+   <rect x="50.4" y="48.024" width="302.4" height="236.808"/>
+  </clipPath>
+ </defs>
+</svg>

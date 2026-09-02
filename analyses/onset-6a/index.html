@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview &middot; Analysis 6A</title>
+<link rel="stylesheet" href="assets/atlas.css">
+</head><body>
+<header>
+  <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
+  <div class="sub">Macaque multi-area laminar electrophysiology &middot;
+  <span class="badge b-review">Exploratory analysis</span> <span class="mut">not publication-final</span></div>
+</header>
+<div class="wrap"><nav><a href="index.html" class="on">Overview</a>
+<a href="spk-timing.html" class="">SPK timing</a>
+<a href="spk-vs-stimulus.html" class="">SPK omission vs stimulus</a>
+<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolvability</a>
+<a href="dsp-support.html" class="">DSP temporal support</a>
+<a href="session-statistics.html" class="">Session-level statistics</a>
+<a href="coverage.html" class="">Coverage &amp; design limits</a>
+<a href="methods.html" class="">Methods</a>
+<a href="figures.html" class="">Static figures</a>
+<a href="provenance.html" class="">Provenance</a></nav><main>
+
+<h2>Overview</h2>
+<p class="mut">Which changes first during stimulus omission &mdash; the local field potential, or spiking?</p>
+
+<div class="card key">
+<h3 style="margin-top:0">Primary population-level result</h3>
+<p>Temporal <em>resolvability</em> of the omission response is higher for high-frequency LFP
+(beta / gamma) than for low-frequency LFP (theta / alpha), and this replicates across sessions:
+median HIGH&minus;LOW difference <span class="stat pos">+7.27 percentage points</span>,
+exact exhaustive sign-flip permutation
+<span class="stat">p = 8.39e-05</span>
+(262,144 assignments enumerated,
+n = 21 sessions, 18 non-zero),
+Holm <span class="stat">p = 1.7e-04</span>.
+<span class="badge b-pub">replicated across sessions</span></p>
+</div>
+
+<h3>What the corpus contains</h3>
+<div class="scroll"><table><thead><tr><th>Quantity</th><th>Value</th><th>Scope</th></tr></thead>
+<tbody>
+<tr><td>Eligible single units</td><td class="stat">4,130</td>
+<td class="mut">SPK, all sessions</td></tr>
+<tr><td>Omission responses detected</td><td class="stat">637</td>
+<td class="mut">a response exists</td></tr>
+<tr><td>Omission latencies resolved</td><td class="stat">187</td>
+<td class="mut">estimators agree</td></tr>
+<tr><td>Resolved units with a stimulus reference</td><td class="stat">139</td>
+<td class="mut">&Delta;T defined</td></tr>
+<tr><td>Median resolved T<sub>om</sub></td>
+<td class="stat">190 ms</td><td class="mut">IQR 120&ndash;250 ms</td></tr>
+<tr><td>LFP area&times;frequency cells</td><td class="stat">1,820</td>
+<td class="mut">all sessions</td></tr>
+<tr><td>LFP cells resolved</td><td class="stat">114</td>
+<td class="mut">6.3% of cells</td></tr>
+</tbody></table></div>
+
+<h3>The three session-level tests, and their three different answers</h3>
+<p>The session is the inferential unit. Units within a session and area&times;frequency cells
+within a session are not independent, so pooled counts below are labelled descriptive.</p>
+<div class="scroll"><table><thead><tr><th>Test</th><th>n</th><th>median</th><th>p (sign-flip)</th>
+<th>Standing</th></tr></thead><tbody>
+<tr><td>LFP HIGH&minus;LOW resolvability</td><td>21</td>
+<td class="stat pos">+7.27 pp</td><td class="stat">8.39e-05</td>
+<td><span class="badge b-pub">replicated</span></td></tr>
+<tr><td>SPK increase-vs-decrease timing</td><td>7</td>
+<td class="stat">-60 ms</td><td class="stat">0.875</td>
+<td><span class="badge b-desc">not replicated</span></td></tr>
+<tr><td>SPK omission&minus;stimulus shift</td><td>11</td>
+<td class="stat">+20 ms</td><td class="stat">0.0527</td>
+<td><span class="badge b-desc">not significant</span></td></tr>
+</tbody></table></div>
+<p class="mut">Three outcomes under identical machinery. The third is
+<em>insufficient session-level evidence</em>, not a demonstrated null: at n = 11
+sessions the smallest attainable exact p is bounded away from zero. The pooled unit-level
+tendency (104/139 = 74.8% of units with &Delta;T &gt; 0) is
+<span class="badge b-desc">descriptive</span> and is weighted by unit count, not by session.</p>
+
+<div class="card hold">
+<h3 style="margin-top:0">Held, deliberately</h3>
+<p><strong>No common-axis LFP-vs-SPK figure.</strong> It is withheld pending a scientifically
+appropriate LFP representation: the LFP side must be interval- and censoring-based, not a cloud
+of points, because beta latencies are strongly left-censored (see
+<a href="lfp-resolvability.html">LFP</a>).</p>
+<p><strong>No area-latency hierarchy claim.</strong> Area and subject are partially confounded;
+no area was recorded in all animals. Pooled area medians are descriptive only
+(see <a href="coverage.html">Coverage</a>).</p>
+<p><strong>No LFP&rarr;SPK causal or directional claim.</strong> Nothing in 6A tests direction.</p>
+</div>
+
+<footer>Generated from canonical public tables. The site is a view of canonical evidence, not a
+new scientific authority: if a value here disagrees with its source table, the site is wrong.
+See <a href="provenance.html">Provenance</a>.</footer>
+</main></div></body></html>

@@ -1,0 +1,139 @@
+{
+ "analysis": "onset-6a",
+ "status": "Exploratory analysis",
+ "source_commit": "2af5f86ae7b1d9bb2704ea1dfbe56a4cae92d7fc",
+ "generated_utc": "2026-09-02T17:44:21Z",
+ "files": [
+  {
+   "path": "assets/atlas.css",
+   "bytes": 2550,
+   "visibility": "public"
+  },
+  {
+   "path": "assets/plotly.min.js",
+   "bytes": 4847499,
+   "visibility": "public"
+  },
+  {
+   "path": "coverage.html",
+   "bytes": 15244,
+   "visibility": "public"
+  },
+  {
+   "path": "dsp-support.html",
+   "bytes": 16912,
+   "visibility": "public"
+  },
+  {
+   "path": "figures.html",
+   "bytes": 3149,
+   "visibility": "public"
+  },
+  {
+   "path": "figures/fig6a_A_spk_latency.svg",
+   "bytes": 177528,
+   "visibility": "public"
+  },
+  {
+   "path": "figures/fig6a_B_lfp_resolvability.svg",
+   "bytes": 103011,
+   "visibility": "public"
+  },
+  {
+   "path": "figures/fig6a_C_session_level_tests.svg",
+   "bytes": 68001,
+   "visibility": "public"
+  },
+  {
+   "path": "figures/fig6a_D_coverage.svg",
+   "bytes": 30183,
+   "visibility": "public"
+  },
+  {
+   "path": "index.html",
+   "bytes": 5149,
+   "visibility": "public"
+  },
+  {
+   "path": "lfp-resolvability.html",
+   "bytes": 42494,
+   "visibility": "public"
+  },
+  {
+   "path": "methods.html",
+   "bytes": 5601,
+   "visibility": "public"
+  },
+  {
+   "path": "provenance.html",
+   "bytes": 8670,
+   "visibility": "public"
+  },
+  {
+   "path": "session-statistics.html",
+   "bytes": 34555,
+   "visibility": "public"
+  },
+  {
+   "path": "spk-timing.html",
+   "bytes": 40117,
+   "visibility": "public"
+  },
+  {
+   "path": "spk-vs-stimulus.html",
+   "bytes": 22626,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_coverage_public.csv",
+   "bytes": 1259,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_dsp_temporal_support_public.csv",
+   "bytes": 1691,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_lfp_censoring_public.csv",
+   "bytes": 234,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_lfp_frequency_public.csv",
+   "bytes": 1371,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_lfp_session_stats_public.csv",
+   "bytes": 766,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_session_tests_public.csv",
+   "bytes": 479,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_spk_census_public.csv",
+   "bytes": 623,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_spk_resolved_public.csv",
+   "bytes": 19376,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/analysis6a_spk_session_stats_public.csv",
+   "bytes": 1165,
+   "visibility": "public"
+  },
+  {
+   "path": "tables/provenance.json",
+   "bytes": 1583,
+   "visibility": "public"
+  }
+ ],
+ "total_bytes": 5451836
+}

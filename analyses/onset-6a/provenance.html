@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Provenance &middot; Analysis 6A</title>
+<link rel="stylesheet" href="assets/atlas.css">
+</head><body>
+<header>
+  <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
+  <div class="sub">Macaque multi-area laminar electrophysiology &middot;
+  <span class="badge b-review">Exploratory analysis</span> <span class="mut">not publication-final</span></div>
+</header>
+<div class="wrap"><nav><a href="index.html" class="">Overview</a>
+<a href="spk-timing.html" class="">SPK timing</a>
+<a href="spk-vs-stimulus.html" class="">SPK omission vs stimulus</a>
+<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolvability</a>
+<a href="dsp-support.html" class="">DSP temporal support</a>
+<a href="session-statistics.html" class="">Session-level statistics</a>
+<a href="coverage.html" class="">Coverage &amp; design limits</a>
+<a href="methods.html" class="">Methods</a>
+<a href="figures.html" class="">Static figures</a>
+<a href="provenance.html" class="on">Provenance</a></nav><main>
+
+<h2>Provenance</h2>
+
+<div class="card">
+<div class="scroll"><table><tbody>
+<tr><td>Analysis</td><td style="text-align:left"><code>onset-6a</code></td></tr>
+<tr><td>Status</td><td style="text-align:left"><span class="badge b-review">Exploratory
+analysis &mdash; NOT publication-final</span></td></tr>
+<tr><td>Source commit</td><td style="text-align:left"><code>2af5f86ae7b1d9bb2704ea1dfbe56a4cae92d7fc</code></td></tr>
+<tr><td>Tables generated</td><td style="text-align:left">2026-09-02T16:41:35Z</td></tr>
+<tr><td>Table builder</td><td style="text-align:left"><code>omission/atlas/build_public_tables.py</code></td></tr>
+<tr><td>Site builder</td><td style="text-align:left"><code>omission/atlas/build_atlas.py</code></td></tr>
+<tr><td>Statistics receipt</td><td style="text-align:left">
+<code>onset6a_session_level_tests.json</code></td></tr>
+<tr><td>Identifier policy</td><td style="text-align:left">subjects and sessions anonymized (no public convention in draft)</td></tr>
+</tbody></table></div>
+</div>
+
+<h3>Truth order</h3>
+<p><code>current receipted analysis &rarr; canonical table &rarr; generated figure / site</code></p>
+<p>This site is the last link in that chain and has no independent authority. If a value rendered
+here disagrees with its canonical table, <strong>the site is wrong</strong> and must fail
+verification. Analysis scripts, receipts, and the frozen <code>jnwb</code> estimators are not
+modified to make the site render better.</p>
+
+<h3>Canonical public tables</h3>
+<div class="scroll"><table><thead><tr><th>Table</th><th>rows</th><th>sha256</th></tr></thead><tbody><tr><td><a href="tables/analysis6a_spk_resolved_public.csv">analysis6a_spk_resolved_public.csv</a></td><td class='stat'>187</td><td class='mut' style='font-family:monospace;font-size:11.5px'>3ceb9ce9bc773e21&hellip;</td></tr><tr><td><a href="tables/analysis6a_spk_census_public.csv">analysis6a_spk_census_public.csv</a></td><td class='stat'>22</td><td class='mut' style='font-family:monospace;font-size:11.5px'>2308912f43333805&hellip;</td></tr><tr><td><a href="tables/analysis6a_spk_session_stats_public.csv">analysis6a_spk_session_stats_public.csv</a></td><td class='stat'>18</td><td class='mut' style='font-family:monospace;font-size:11.5px'>9d5123d4f4f9d309&hellip;</td></tr><tr><td><a href="tables/analysis6a_lfp_frequency_public.csv">analysis6a_lfp_frequency_public.csv</a></td><td class='stat'>20</td><td class='mut' style='font-family:monospace;font-size:11.5px'>25ab13124ec3d3ef&hellip;</td></tr><tr><td><a href="tables/analysis6a_lfp_session_stats_public.csv">analysis6a_lfp_session_stats_public.csv</a></td><td class='stat'>21</td><td class='mut' style='font-family:monospace;font-size:11.5px'>c3f32be035a0fb4f&hellip;</td></tr><tr><td><a href="tables/analysis6a_lfp_censoring_public.csv">analysis6a_lfp_censoring_public.csv</a></td><td class='stat'>6</td><td class='mut' style='font-family:monospace;font-size:11.5px'>da2638ec64cb6cfe&hellip;</td></tr><tr><td><a href="tables/analysis6a_dsp_temporal_support_public.csv">analysis6a_dsp_temporal_support_public.csv</a></td><td class='stat'>20</td><td class='mut' style='font-family:monospace;font-size:11.5px'>b5f4e10b5db83a9c&hellip;</td></tr><tr><td><a href="tables/analysis6a_coverage_public.csv">analysis6a_coverage_public.csv</a></td><td class='stat'>89</td><td class='mut' style='font-family:monospace;font-size:11.5px'>97560282cca3982c&hellip;</td></tr><tr><td><a href="tables/analysis6a_session_tests_public.csv">analysis6a_session_tests_public.csv</a></td><td class='stat'>3</td><td class='mut' style='font-family:monospace;font-size:11.5px'>2170bfcb6f27ca1b&hellip;</td></tr></tbody></table></div>
+
+<h3>Deployed file manifest</h3>
+<div class="scroll"><table><thead><tr><th>Path</th><th>bytes</th><th>visibility</th></tr></thead><tbody><tr><td>assets/atlas.css</td><td class='stat'>2,550</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>assets/plotly.min.js</td><td class='stat'>4,847,499</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>coverage.html</td><td class='stat'>15,244</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>dsp-support.html</td><td class='stat'>16,912</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>figures.html</td><td class='stat'>3,149</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>figures/fig6a_A_spk_latency.svg</td><td class='stat'>177,528</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>figures/fig6a_B_lfp_resolvability.svg</td><td class='stat'>103,011</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>figures/fig6a_C_session_level_tests.svg</td><td class='stat'>68,001</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>figures/fig6a_D_coverage.svg</td><td class='stat'>30,183</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>index.html</td><td class='stat'>5,149</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>lfp-resolvability.html</td><td class='stat'>42,494</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>methods.html</td><td class='stat'>5,601</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>session-statistics.html</td><td class='stat'>34,555</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>spk-timing.html</td><td class='stat'>40,117</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>spk-vs-stimulus.html</td><td class='stat'>22,626</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_coverage_public.csv</td><td class='stat'>1,259</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_dsp_temporal_support_public.csv</td><td class='stat'>1,691</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_lfp_censoring_public.csv</td><td class='stat'>234</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_lfp_frequency_public.csv</td><td class='stat'>1,371</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_lfp_session_stats_public.csv</td><td class='stat'>766</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_session_tests_public.csv</td><td class='stat'>479</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_spk_census_public.csv</td><td class='stat'>623</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_spk_resolved_public.csv</td><td class='stat'>19,376</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/analysis6a_spk_session_stats_public.csv</td><td class='stat'>1,165</td><td><span class='badge b-pub'>public</span></td></tr><tr><td>tables/provenance.json</td><td class='stat'>1,583</td><td><span class='badge b-pub'>public</span></td></tr></tbody></table></div>
+
+<h3>What is not published</h3>
+<p>No spike times, no LFP traces, no trial-level neural data, no eye traces, no NWB paths, no
+machine-local absolute paths, and no subject/session identifier mapping. Subject and session
+labels on this site are deterministic anonymous labels; the mapping to recording identifiers is
+kept outside the published site and is not tracked in the repository.</p>
+
+<footer>Generated from canonical public tables. The site is a view of canonical evidence, not a
+new scientific authority: if a value here disagrees with its source table, the site is wrong.
+See <a href="provenance.html">Provenance</a>.</footer>
+</main></div></body></html>

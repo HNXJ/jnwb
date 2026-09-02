@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Methods &middot; Analysis 6A</title>
+<link rel="stylesheet" href="assets/atlas.css">
+</head><body>
+<header>
+  <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
+  <div class="sub">Macaque multi-area laminar electrophysiology &middot;
+  <span class="badge b-review">Exploratory analysis</span> <span class="mut">not publication-final</span></div>
+</header>
+<div class="wrap"><nav><a href="index.html" class="">Overview</a>
+<a href="spk-timing.html" class="">SPK timing</a>
+<a href="spk-vs-stimulus.html" class="">SPK omission vs stimulus</a>
+<a href="lfp-resolvability.html" class="">LFP frequency &amp; resolvability</a>
+<a href="dsp-support.html" class="">DSP temporal support</a>
+<a href="session-statistics.html" class="">Session-level statistics</a>
+<a href="coverage.html" class="">Coverage &amp; design limits</a>
+<a href="methods.html" class="on">Methods</a>
+<a href="figures.html" class="">Static figures</a>
+<a href="provenance.html" class="">Provenance</a></nav><main>
+
+<h2>Methods</h2>
+
+<h3>Onset estimation and the resolution criterion</h3>
+<p>Each candidate response is fitted by several independent onset estimators (a derivative-based
+estimator, a change-point estimator, and a bounded exponential fit). A latency is called
+<strong>resolved</strong> only when those estimators agree to within a fixed spread criterion;
+otherwise the response is <strong>detected</strong> but its timing is not identified. Detection
+and resolution are different states and are never merged.</p>
+
+<h3>One-sidedness</h3>
+<p>Every estimator's search window begins at the omitted event, and the exponential fit's onset
+parameter is bounded below at zero. A response that deviates before the event lands on the bound
+or returns undefined; it can never be reported as a negative latency. Across the whole corpus
+there are zero negative onsets in any onset column of either modality.</p>
+<p>One-sidedness alone is not sufficient. A step placed well before the event can still yield a
+one-sided but meaningless value from a single estimator; what rejects that case is the
+estimator-agreement criterion, not the bound.</p>
+
+<h3>Inferential unit and permutation scheme</h3>
+<p>The session is the inferential unit. Each session contributes one difference D<sub>s</sub>.
+The primary test is an <strong>exact exhaustive sign-flip permutation</strong>: under the null
+that D<sub>s</sub> is symmetric about zero, every one of the 2<sup>k</sup> sign assignments over
+the k non-zero sessions is equally likely, and all of them are enumerated. The test has no seed
+and no resample count.</p>
+<p>Wilcoxon signed-rank and sign-test values appear in the tables as secondary diagnostics only.
+SciPy's exact Wilcoxon null is valid only without ties, and all three D<sub>s</sub> vectors
+contain ties, so that value is explicitly not used as a headline test.</p>
+
+<h3>Intervals and multiplicity</h3>
+<p>Proportions use exact <strong>Clopper&ndash;Pearson</strong> intervals &mdash; no RNG, no seed,
+no resample count. Latency uncertainty uses a bootstrap SD, reported as
+&plusmn;1.96&nbsp;&times;&nbsp;SD. Where a family of tests is corrected, <strong>Holm</strong> is
+used and controls FWER; Holm and Benjamini&ndash;Hochberg control different rates and are never
+conflated.</p>
+
+<h3>Constants</h3>
+<div class="scroll"><table><thead><tr><th>Constant</th><th>Value</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td>Estimator spread criterion</td><td class="stat">&le; 50 ms</td>
+<td class="mut">defines <em>resolved</em></td></tr>
+<tr><td>Bootstrap identifiability floor</td><td class="stat">0.5</td>
+<td class="mut">minimum bootstrap identification rate</td></tr>
+<tr><td>Minimum units per sign (Test 1)</td><td class="stat">3</td>
+<td class="mut">session eligibility</td></tr>
+<tr><td>Minimum units with &Delta;T (Test 3)</td><td class="stat">3</td>
+<td class="mut">session eligibility</td></tr>
+<tr><td>LOW bands</td><td>theta, alpha</td><td class="mut">Test 2 grouping</td></tr>
+<tr><td>HIGH bands</td><td>beta, low_gamma, high_gamma</td><td class="mut">Test 2 grouping</td></tr>
+<tr><td>Onset search lower bound</td><td class="stat">0 ms</td>
+<td class="mut">enforces one-sidedness</td></tr>
+<tr><td>|&Delta;T| descriptive threshold</td><td class="stat">50 ms</td>
+<td class="mut">display only, not inferential</td></tr>
+</tbody></table></div>
+
+<h3>Censoring</h3>
+<p>Because the search bound is zero, a response whose true onset precedes or coincides with the
+event is left-censored at the bound. This is not uniform across frequency: it dominates beta
+(17 of
+36 resolved cells pinned) and is rare elsewhere.
+Beta latencies are therefore never presented as a distribution.</p>
+
+<h3>What is deliberately not done</h3>
+<ul>
+<li>No common-axis SPK-vs-LFP figure &mdash; held until the LFP side can be shown as intervals
+with censoring state rather than points.</li>
+<li>No area-latency hierarchy &mdash; area and subject are confounded.</li>
+<li>No directional or causal LFP&rarr;SPK claim &mdash; nothing here tests direction.</li>
+<li>No naive beta onset distribution &mdash; it would report a bound.</li>
+<li>No theta/alpha corpus latency claim &mdash;
+3 and
+5 resolved cells respectively.</li>
+</ul>
+
+<footer>Generated from canonical public tables. The site is a view of canonical evidence, not a
+new scientific authority: if a value here disagrees with its source table, the site is wrong.
+See <a href="provenance.html">Provenance</a>.</footer>
+</main></div></body></html>
