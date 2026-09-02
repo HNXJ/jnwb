@@ -38,9 +38,9 @@ source_suffix = {
     ".md": "markdown",
 }
 
-master_doc = "index"
-language = "en"
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md"]
+
+suppress_warnings = ["misc.highlighting_failure", "toc.not_included"]
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = []
