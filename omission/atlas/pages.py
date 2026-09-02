@@ -20,6 +20,20 @@ BAND_COLOR = {"theta": "#6a51a3", "alpha": "#3182bd", "beta": "#e6820e",
               "low_gamma": "#31a354", "high_gamma": "#0f7b52", "out_of_band": "#8c8c8c"}
 
 
+def _display_tests(t):
+    """Relabel the test column for display only.
+
+    The canonical table's `test` values are the stable keys p_of() matches on, and the file
+    is tracked and checksummed in provenance.json. Renaming them there to fix wording would
+    change a data file for a text reason, so the rename happens at render time instead.
+    """
+    d = t.copy()
+    d["test"] = d.test.str.replace("temporal resolvability", "fraction temporally resolved",
+                                   regex=False)
+    d["test"] = d.test.str.replace("HIGH-minus-LOW", "high- minus low-frequency", regex=False)
+    return d
+
+
 def _fmt_p(p: float) -> str:
     return f"{p:.3g}" if p >= 1e-4 else f"{p:.2e}"
 
@@ -41,8 +55,9 @@ def overview(d) -> str:
 
 <div class="card key">
 <h3 style="margin-top:0">Primary population-level result</h3>
-<p>Temporal <em>resolvability</em> of the omission response is higher for high-frequency LFP
-(beta / gamma) than for low-frequency LFP (theta / alpha), and this replicates across sessions:
+<p>A larger fraction of high-frequency LFP responses (beta, low gamma, high gamma) are
+temporally resolved than low-frequency responses (theta, alpha), and this replicates across
+sessions:
 median HIGH&minus;LOW difference <span class="stat pos">+{t2.median_D:g} percentage points</span>,
 exact exhaustive sign-flip permutation
 <span class="stat">p = {_fmt_p(t2.signflip_exact_p)}</span>
@@ -76,7 +91,7 @@ Holm <span class="stat">p = {float(t2.holm_p):.1e}</span>.
 within a session are not independent, so pooled counts below are labelled descriptive.</p>
 <div class="scroll"><table><thead><tr><th>Test</th><th>n</th><th>median</th><th>p (sign-flip)</th>
 <th>Standing</th></tr></thead><tbody>
-<tr><td>LFP HIGH&minus;LOW resolvability</td><td>{int(t2.n_sessions)}</td>
+<tr><td>LFP high&minus;low frequency, fraction resolved</td><td>{int(t2.n_sessions)}</td>
 <td class="stat pos">+{t2.median_D:g} pp</td><td class="stat">{_fmt_p(t2.signflip_exact_p)}</td>
 <td><span class="badge b-pub">replicated</span></td></tr>
 <tr><td>SPK increase-vs-decrease timing</td><td>{int(t1.n_sessions)}</td>
@@ -86,8 +101,8 @@ within a session are not independent, so pooled counts below are labelled descri
 <td class="stat">+{t3.median_D:g} ms</td><td class="stat">{_fmt_p(t3.signflip_exact_p)}</td>
 <td><span class="badge b-desc">not significant</span></td></tr>
 </tbody></table></div>
-<p class="mut">Three outcomes under identical machinery. The third is
-<em>insufficient session-level evidence</em>, not a demonstrated null: at n = {int(t3.n_sessions)}
+<p class="mut">Three outcomes from the same test procedure. The third is
+<em>insufficient session-level evidence</em>, not an established null: at n = {int(t3.n_sessions)}
 sessions the smallest attainable exact p is bounded away from zero. The pooled unit-level
 tendency ({n_pos}/{n_dt} = {100 * n_pos / n_dt:.1f}% of units with &Delta;T &gt; 0) is
 <span class="badge b-desc">descriptive</span> and is weighted by unit count, not by session.</p>
@@ -99,7 +114,7 @@ appropriate LFP representation: the LFP side must be interval- and censoring-bas
 of points, because beta latencies are strongly left-censored (see
 <a href="lfp-resolvability.html">LFP</a>).</p>
 <p><strong>No area-latency hierarchy claim.</strong> Area and subject are partially confounded;
-no area was recorded in all animals. Pooled area medians are descriptive only
+no area was recorded in all subjects. Pooled area medians are descriptive only
 (see <a href="coverage.html">Coverage</a>).</p>
 <p><strong>No LFP&rarr;SPK causal or directional claim.</strong> Nothing in 6A tests direction.</p>
 </div>
@@ -162,7 +177,7 @@ def spk_timing(d) -> str:
     return f"""
 <h2>SPK timing</h2>
 <p class="mut">Single-unit omission onset latency. {len(s)} units resolve out of
-{int(c.n_units_eligible.sum()):,} eligible &mdash; omission timing in spiking is real but sparse.</p>
+{int(c.n_units_eligible.sum()):,} eligible units.</p>
 
 <h3>A1 &middot; Census funnel</h3>
 <div class="card"><div class="scroll"><table><thead><tr><th>Step</th><th>n</th>
@@ -257,7 +272,7 @@ exact exhaustive sign-flip permutation
 <span class="stat">p = {t3.signflip_exact_p:.3f}</span>
 ({int(t3.n_permutations_enumerated):,} assignments enumerated).</p>
 <p><span class="badge b-desc">not significant / insufficient session-level evidence</span>
-This is <em>not</em> a demonstrated null. It is a shift that the available number of sessions
+This is <em>not</em> an established null. It is a shift that the available number of sessions
 cannot establish. See <a href="session-statistics.html">Session-level statistics</a>.</p>
 </div>
 """
@@ -305,7 +320,7 @@ def lfp_resolvability(d) -> str:
             hovertemplate=(f"<b>{r.session_public}</b> ({r.subject_public})<br>"
                            "%{x}: %{y:.2f}%<br>"
                            f"D = {r.D_s_pct:+.2f} pp<extra></extra>")))
-    base_layout(f2, 460, title="B2 &middot; LOW vs HIGH resolvability, paired by session",
+    base_layout(f2, 460, title="B2 &middot; Fraction temporally resolved, low vs high frequency, paired by session",
                 yaxis_title="% of cells resolved")
 
     cens = lc.copy()
@@ -319,16 +334,15 @@ def lfp_resolvability(d) -> str:
 
     beta = cens[cens.band == "beta"].iloc[0]
     return f"""
-<h2>LFP frequency and temporal resolvability</h2>
+<h2>LFP frequency and temporal resolution</h2>
 <p class="mut">{int(lf.n_cells.sum()):,} area&times;frequency cells;
-{int(lf.n_resolved.sum())} resolve. Resolvability &mdash; whether independent estimators agree on
-<em>when</em> the change happened &mdash; is itself the informative quantity here.</p>
+{int(lf.n_resolved.sum())} are temporally resolved. Whether independent estimators agree on
+<em>when</em> the change happened is itself the informative quantity here.</p>
 
 <div class="card">
-<p><strong>Unresolved does not mean unmodulated.</strong> A cell can carry a large, robust
-omission response whose onset is not localisable in time. Robust low-frequency modulation
-magnitude and poor low-frequency temporal localisation are two distinct findings, and this page
-reports only the second.</p>
+<p><strong>Unresolved does not mean unmodulated.</strong> Low-frequency LFP power can change
+strongly while its onset remains poorly localized in time. Response magnitude and temporal
+resolution are separate measurements, and this page reports only the second.</p>
 </div>
 
 <h3>B1 &middot; P(resolved | frequency)</h3>
@@ -336,7 +350,7 @@ reports only the second.</p>
 
 <h3>B2 &middot; LOW vs HIGH, paired within session</h3>
 <p>One line per session. The pairing is what makes this inferential: each session contributes a
-single difference D<sub>s</sub>, so between-session and between-animal variation cannot inflate n.</p>
+single difference D<sub>s</sub>, so between-session and between-subject variation cannot inflate n.</p>
 {div(f2, "b2")}
 <div class="card key">
 <p>median D = <span class="stat pos">+{t2.median_D:g} percentage points</span> &middot;
@@ -383,16 +397,17 @@ def dsp_support(d) -> str:
         f.add_vrect(x0=b.freq.min(), x1=b.freq.max(), fillcolor="#a33a2c", opacity=.07,
                     line_width=0, annotation_text="beta: W_backward unstable",
                     annotation_position="top right")
-    base_layout(f, 470, title="B3 &middot; Transform temporal support",
+    base_layout(f, 470, title="B3 &middot; Transform temporal resolution",
                 xaxis_title="frequency (Hz)", yaxis_title="temporal support (ms)")
     f.update_xaxes(type="log")
     f.update_yaxes(type="log")
 
     bb = s[s.band == "beta"].W_backward
     return f"""
-<h2>DSP temporal support</h2>
+<h2>Transform temporal resolution</h2>
 <p class="mut">What the transform can resolve, independent of what the data do. Empirical
-resolvability must be read alongside this, or a property of the analysis is mistaken for a
+fraction temporally resolved must be read alongside it, or a property of the analysis is
+mistaken for a
 property of the brain.</p>
 
 {div(f, "b3")}
@@ -410,7 +425,8 @@ support curve there. Smoothing that away would hide the one thing the panel exis
 
 <div class="card hold">
 <p><strong>This curve does not explain the empirical gradient.</strong> The transform's temporal
-support and the measured resolvability gradient are correlated in the obvious direction, but no
+resolution and the measured gradient in fraction resolved are correlated in the obvious
+direction, but no
 causal claim is made: a shared frequency dependence is not evidence that one produces the other.
 Both are reported; neither is offered as the mechanism of the other.</p>
 </div>
@@ -450,7 +466,7 @@ def session_statistics(d) -> str:
     e3 = ss[ss.eligible_dT.eq(True)]
     f1 = strip(e1.D_s_signtiming, "C1 &middot; SPK increase-vs-decrease timing", "ms",
                f"{t1.signflip_exact_p:.3f}", "not replicated", "#8a6d1f")
-    f2 = strip(ls.D_s_pct, "C2 &middot; LFP HIGH&minus;LOW resolvability", "pp",
+    f2 = strip(ls.D_s_pct, "C2 &middot; LFP high&minus;low frequency, fraction resolved", "pp",
                _fmt_p(t2.signflip_exact_p), "replicated", "#0f7b52")
     f3 = strip(e3.D_s_dT, "C3 &middot; SPK omission&minus;stimulus shift", "ms",
                f"{t3.signflip_exact_p:.3f}", "insufficient evidence", "#1f5f8b")
@@ -478,7 +494,7 @@ name that says so. Using it as a headline test was an error caught in review; th
 {t1.median_D:g} ms, {int(t1.n_permutations_enumerated)} assignments enumerated.
 Directions are mixed across sessions. <span class="badge b-desc">not replicated</span>
 This one <em>is</em> naturally read as a replicated null: the smallest attainable exact p at
-n = {int(t1.n_sessions)} is 0.0156, so the test had the resolution to detect a consistent effect
+n = {int(t1.n_sessions)} is 0.0156, so the test could have detected a consistent difference
 and did not.</p>
 
 {div(f2, "c2")}
@@ -497,7 +513,7 @@ Deliberately <em>not</em> called a null: unlike C1 this is a shift in a consiste
 the available number of sessions cannot establish.</p>
 
 <h3>All three, with secondary diagnostics</h3>
-{table_html(t)}
+{table_html(_display_tests(t))}
 <p class="mut">Wilcoxon and sign-test columns are secondary diagnostics recorded for transparency.
 They are not competing headline tests and must not be quoted as such.</p>
 """
@@ -536,9 +552,9 @@ def coverage(d) -> str:
 
 <div class="card key">
 <p><strong>Area and subject are partially confounded.</strong> Of {len(piv)} recorded areas,
-<span class="stat">{n_area_all}</span> appear in all {len(subs)} animals and
+<span class="stat">{n_area_all}</span> appear in all {len(subs)} subjects and
 <span class="stat">{n_area_one}</span> appear in only one. A between-area difference is therefore
-not separable from a between-animal difference by modelling alone, and
+not separable from a between-subject difference by modelling alone, and
 <strong>no area-latency hierarchy is claimed anywhere in Analysis 6A.</strong> Pooled area
 medians, wherever they appear, are <span class="badge b-desc">descriptive</span>.</p>
 </div>
@@ -550,7 +566,7 @@ medians, wherever they appear, are <span class="badge b-desc">descriptive</span>
 
 <div class="card">
 <p><strong>Unit counts are not independent biological replicates.</strong> Units within a session
-share an animal, a session, a probe insertion, and a preprocessing pass. Every inferential claim
+share a subject, a session, a probe insertion, and a preprocessing pass. Every inferential claim
 in Analysis 6A reduces each session to a single number before testing; the pooled unit-level
 percentages that appear on other pages are labelled descriptive for exactly this reason.</p>
 </div>
@@ -650,10 +666,10 @@ def figures(d) -> str:
          "Census funnel, per-unit resolved latency with bootstrap intervals, and "
          "&Delta;T = T<sub>om</sub> &minus; T<sub>stim</sub>."),
         ("fig6a_B_lfp_resolvability.svg", "Figure B &mdash; LFP temporal resolution",
-         "P(resolved | frequency), LOW-vs-HIGH session pairing, transform temporal support, "
-         "and censoring / estimator width."),
+         "Fraction temporally resolved by frequency, low-vs-high session pairing, "
+         "transform temporal resolution, and censoring / estimator spread."),
         ("fig6a_C_session_level_tests.svg", "Figure C &mdash; session-level inference",
-         "The three session-level tests under identical machinery, with their three "
+         "The three session-level tests, run with the same procedure, with their three "
          "different outcomes."),
         ("fig6a_D_coverage.svg", "Figure D &mdash; coverage and design",
          "Subject &times; session &times; area coverage, making the area/subject confound "
@@ -706,7 +722,7 @@ analysis &mdash; NOT publication-final</span></td></tr>
 
 <h3>Truth order</h3>
 <p><code>current receipted analysis &rarr; canonical table &rarr; generated figure / site</code></p>
-<p>This site is the last link in that chain and has no independent authority. If a value rendered
+<p>This site is the last link in that chain and is not an independent source of results. If a value rendered
 here disagrees with its canonical table, <strong>the site is wrong</strong> and must fail
 verification. Analysis scripts, receipts, and the frozen <code>jnwb</code> estimators are not
 modified to make the site render better.</p>

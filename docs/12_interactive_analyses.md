@@ -26,8 +26,9 @@ exact-interval tools for inference.
 :class: caution
 
 The atlas labels every claim with its standing. Analysis 6A currently carries **one**
-session-level positive inferential result: temporal *resolvability* of the omission response is
-higher for beta/gamma than for theta/alpha LFP, and that replicates across sessions. Everything
+session-level positive inferential result: a larger fraction of high-frequency LFP responses
+(beta, low gamma, high gamma) are temporally resolved than low-frequency responses (theta,
+alpha), and that replicates across sessions. Everything
 else is descriptive or not significant at the session level — in particular the omission-minus-
 stimulus latency shift is a unit-level tendency that the available number of sessions cannot
 establish. Nothing on the site is a finalized manuscript result.
@@ -40,8 +41,8 @@ establish. Nothing on the site is a finalized manuscript result.
 | Overview | The corpus census and the three session-level tests, with their three different outcomes |
 | SPK timing | Census funnel and per-unit resolved omission latency with bootstrap intervals |
 | SPK omission vs stimulus | ΔT = T<sub>om</sub> − T<sub>stim</sub>, unit-level and session-level |
-| LFP frequency & resolvability | P(resolved \| frequency), LOW-vs-HIGH session pairing, censoring |
-| DSP temporal support | What the transform can resolve, shown alongside what the data resolve |
+| LFP frequency & resolution | Fraction temporally resolved by frequency, low-vs-high session pairing, censoring |
+| Transform temporal resolution | What the transform can resolve, shown alongside what the data resolve |
 | Session-level statistics | The three exact sign-flip permutation tests |
 | Coverage & design limits | Subject × session × area coverage, making the confound visible |
 | Methods | Estimators, inclusion rules, constants, and what is deliberately not done |
