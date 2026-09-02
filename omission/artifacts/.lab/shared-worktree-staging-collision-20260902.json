@@ -1,0 +1,29 @@
+{
+ "schema_version": 3,
+ "id": "shared-worktree-staging-collision-20260902",
+ "kind": "evidence",
+ "title": "Prose commit rules do not prevent staging collisions in a shared working tree (3 recurrences in one day)",
+ "status": "confirmed",
+ "notes": [
+  "Two Claude sessions share one working tree on this machine. Three times on 2026-09-02 a concurrent session's `git add` of its own paths also swept in another session's uncommitted edits to files it had touched, because the index is shared state and an edit in the working tree carries no ownership.",
+  "Recurrence 1 -- commit 29ed345 ('docs: seal JaxFNE visual theme ... and update README skills documentation') swept an in-progress README.md edit. The committed README then referenced examples/quickstart_jnwb.py and examples/figures/jnwb_quickstart.png, neither of which was tracked, so on a fresh clone the image did not render and the documented command failed. Repaired by 8ca5567.",
+  "Recurrence 2 -- commit 9211b31 ('harness: strengthen root freeze, symbol docs & dataset gates, add guide 11 and quickstart example') swept in the AGENTS.md 4.3 amendment that was written specifically to prohibit this. The rule's own first commit is an instance of the failure it prohibits. No repair needed: the amendment text landed byte-identical.",
+  "Recurrence 3 -- commit 2af5f86 ('docs: add artifacts/AGENTS.md policy reference, docs link in README, and strengthen root freeze') swept in a .gitignore block and a docs/index.md toctree entry for docs/12_interactive_analyses.md, WITHOUT the document, which was still untracked. This was the most costly of the three: it broke the committed tree.",
+  "Recurrence 3 receipt -- `git archive HEAD` into a temp dir, then `python -m sphinx -W -b html docs docs/_build/html` produced: \"WARNING: toctree contains reference to nonexisting document '12_interactive_analyses' [toc.not_readable]\" and \"build finished with problems, 1 warning (with warnings treated as errors)\". This fails the CI docs gate (.github/workflows/workflow.yml:74) and Read the Docs (.readthedocs.yaml sets fail_on_warning: true). Repaired by d94532d, which commits the missing document; the same command on the new HEAD returns \"build succeeded\"."
+ ],
+ "issues": [
+  "The AGENTS.md 4.3 amendment (git commit -a prohibition + mandatory `git diff --cached --name-only` inspection) is correct and necessary, but it is prose addressed to a session that is behaving correctly. It cannot bind a concurrent session that stages first, and it did not prevent recurrences 2 and 3.",
+  "scripts/harness_gate.py::check_protected_paths is the only mechanical staging gate. It guards a fixed protected-path list (README.md, .gitignore, docs/index.md are not on it) and runs in CI, after the push, so it cannot catch this class.",
+  "The failing property is not 'which paths were staged' but 'were these edits authored by the session that is committing them', which no rule expressible in prose can check.",
+  "Hamm's direction 2026-09-02: record this, do not expand scope now. After the atlas checkpoint, consider a mechanically isolated staging strategy (per-session git worktree) rather than adding further commit prose. NOT ACTIONED -- awaiting that decision."
+ ],
+ "verification": {
+  "method": "direct inspection of the committed trees plus a Sphinx build of `git archive HEAD` in an isolated temp directory",
+  "commits_examined": ["29ed345", "8ca5567", "9211b31", "2af5f86", "d94532d"],
+  "independent_confirmation": 1,
+  "confirmed_by": "the CI docs gate and Read the Docs both enforce the exact condition that recurrence 3 violated; the breakage was reproduced from the committed tree, not inferred from the working tree"
+ },
+ "edges": [
+  {"type": "supports", "target": "agent-harness-audit-20260810"}
+ ]
+}

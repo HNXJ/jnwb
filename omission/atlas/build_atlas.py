@@ -2,7 +2,7 @@
 
     canonical reviewed tables  ->  this builder  ->  omission/atlas/_site/  ->  (gh-pages)
 
-The site is a VIEW of canonical evidence, never a new scientific authority. Every number rendered
+The site is a VIEW of the source tables, never an independent source of results. Every number rendered
 here is read at build time from omission/atlas/tables/*.csv. Nothing is typed in as a literal, and
 nothing is recomputed from NWB, raw LFP, or spike trains -- the builder has no access to them.
 
@@ -40,16 +40,18 @@ SITE = os.path.join(HERE, "_site")
 FIGSRC = os.path.join(REPO, "omission", "context", "figures", "analysis6a_timing", "svg")
 
 ANALYSIS = "onset-6a"
-STATUS = "Reviewed analysis"
-STATUS_NOTE = ("Reviewed scientific analysis. Not a finalized manuscript result. "
-               "Claims below are session-level unless explicitly marked descriptive.")
+STATUS = "Exploratory analysis"
+STATUS_NOTE = ("Exploratory analysis -- NOT publication-final. Analysis 6A carries one "
+               "session-level positive inferential result (higher beta/gamma than theta/alpha "
+               "temporal resolution). Everything else is descriptive or not significant at "
+               "the session level.")
 
 PAGES = [
     ("index.html", "Overview"),
     ("spk-timing.html", "SPK timing"),
     ("spk-vs-stimulus.html", "SPK omission vs stimulus"),
-    ("lfp-resolvability.html", "LFP frequency &amp; resolvability"),
-    ("dsp-support.html", "DSP temporal support"),
+    ("lfp-resolvability.html", "LFP frequency &amp; resolution"),
+    ("dsp-support.html", "Transform temporal resolution"),
     ("session-statistics.html", "Session-level statistics"),
     ("coverage.html", "Coverage &amp; design limits"),
     ("methods.html", "Methods"),
@@ -118,12 +120,12 @@ def shell(body: str, page: str, title: str, plotly_pages: bool = False) -> str:
 <header>
   <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
   <div class="sub">Macaque multi-area laminar electrophysiology &middot;
-  <span class="badge b-review">{STATUS}</span></div>
+  <span class="badge b-review">{STATUS}</span> <span class="mut">not publication-final</span></div>
 </header>
 <div class="wrap"><nav>{nav}</nav><main>
 {body}
-<footer>Generated from canonical public tables. The site is a view of canonical evidence, not a
-new scientific authority: if a value here disagrees with its source table, the site is wrong.
+<footer>Generated from the public source tables. If a value here disagrees with its source
+table, the site is wrong.
 See <a href="provenance.html">Provenance</a>.</footer>
 </main></div></body></html>
 """
