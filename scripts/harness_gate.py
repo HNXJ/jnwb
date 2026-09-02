@@ -322,19 +322,35 @@ def check_python_target_consistency(repo_root: Optional[Path] = None) -> List[st
 # ==============================================================================
 
 def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
-    """Scientific Gate: Enforce 'Take the logarithm last' for spectral power.
-    
-    Averaging raw power across trials prior to computing decibels is
-    scientifically required to prevent high-noise site bias.
+    """Scoped Estimand Gate: Enforce raw-power aggregation before logarithmic transformation.
+
+    Applies ONLY to analyses or functions that explicitly declare raw-power aggregation
+    as their estimand (e.g. via '# estimand: raw_power_average' or docstring declaration).
+    Does NOT globally reject legitimate mean-of-dB code where logarithmic/log-normal power
+    averaging is the intended estimand.
     """
+    code_text = code_or_tree if isinstance(code_or_tree, str) else ""
     if isinstance(code_or_tree, str):
+        if not re.search(r"estimand\s*[:=]\s*['\"]?raw_power", code_text, re.IGNORECASE):
+            return []
         try:
             tree = ast.parse(code_or_tree)
         except Exception:
             return []
     else:
         tree = code_or_tree
-        
+        doc = ast.get_docstring(tree) or ""
+        if not re.search(r"estimand\s*[:=]\s*['\"]?raw_power", doc, re.IGNORECASE):
+            has_declaration = False
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    fdoc = ast.get_docstring(node) or ""
+                    if re.search(r"estimand\s*[:=]\s*['\"]?raw_power", fdoc, re.IGNORECASE):
+                        has_declaration = True
+                        break
+            if not has_declaration:
+                return []
+
     violations = []
     db_assigned_vars = set()
 
@@ -366,9 +382,6 @@ def check_logarithm_last_rule(code_or_tree: Union[str, ast.AST]) -> List[str]:
                         if arg.id in db_assigned_vars or arg.id == "db" or arg.id.endswith("_db") or "db_" in arg.id:
                             violations.append(f"LOG_BEFORE_AVERAGE: Found '{func_name}' applied to decibel variable '{arg.id}' at line {node.lineno}")
     return violations
-    
-# Backward compatibility alias
-omission_check_logarithm_last_rule = check_logarithm_last_rule
 
 
 def check_modality_isolation(feature_names: List[str]) -> Tuple[bool, List[str]]:
