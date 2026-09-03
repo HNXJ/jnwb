@@ -9,6 +9,7 @@ from jnwb.addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
     enrich_units_dataframe,
+    parse_probe_areas,
 )
 
 
@@ -199,15 +200,30 @@ def test_dp_is_not_silently_folded_into_v4():
     assert map_peak_channel_to_area(307, elec) == "V4"
 
 
-def test_area_label_casing_is_canonicalized():
-    """Casing variants of the same area resolve to one canonical spelling."""
+def test_area_labels_are_preserved_exactly():
+    """Labels come back as the file wrote them; only separators and whitespace are consumed.
+
+    This inverts an earlier `test_area_label_casing_is_canonicalized`, which pinned
+    `"v3d, V3A"` to `("V3d", "V3a")`. That canonicalization was removed deliberately:
+    whether two spellings name the same area is a corpus convention, not something
+    generic addressing can decide, so jnwb no longer decides it. The test is kept
+    inverted rather than deleted so the record of the choice survives its reversal.
+    """
+    assert parse_probe_areas("V1, DP") == ("V1", "DP")
+    assert parse_probe_areas("DP/V4") == ("DP", "V4")
+    assert parse_probe_areas("V3A/V1") == ("V3A", "V1")
+    assert parse_probe_areas("v3d,V2") == ("v3d", "V2")
+    # whitespace and empty fields are the only things dropped
+    assert parse_probe_areas("  V1 , , V2  ") == ("V1", "V2")
+
+    # and the same preservation holds through the positional mapping
     n = 8
     elec = pd.DataFrame(
         {"location": ["v3d, V3A"] * n, "group_name": ["probeE"] * n},
         index=range(400, 400 + n),
     )
-    assert map_peak_channel_to_area(400, elec) == "V3d"
-    assert map_peak_channel_to_area(407, elec) == "V3a"
+    assert map_peak_channel_to_area(400, elec) == "v3d"
+    assert map_peak_channel_to_area(407, elec) == "V3A"
 
 
 def test_channel_118_120_boundary_case_on_a_128_channel_three_area_probe():

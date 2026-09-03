@@ -58,9 +58,12 @@ normalization effort; it protects concurrent human work regardless of what phase
    `omission.jnwb_ext.sequence_layout.parse_probe_areas` — was removed 2026-09-03: an optional
    import made jnwb resolve probe areas differently depending on whether omission happened to
    be importable, so merely installing a project package changed which cortical area a unit was
-   assigned to. Area-name canonicalization now lives in `addressing.py`. `DP` is deliberately
-   *not* aliased to `V4`: that alias collapsed a `"DP/V4"` probe to `('V4','V4')`, and whether
-   the two are one area is an anatomical question generic addressing does not decide.)
+   assigned to. `addressing.py` now carries no area vocabulary at all: it splits a probe label
+   on comma or slash, trims whitespace, and returns every label exactly as the file wrote it.
+   In particular `DP` is *not* aliased to `V4` — that alias collapsed a `"DP/V4"` probe to
+   `('V4','V4')` — and casing is *not* normalized; whether two spellings or two names denote
+   one area is a corpus convention, not something generic addressing decides. A project that
+   knows its own convention normalizes on its own side.)
 
    The invariant this protects: **`jnwb` gives identical scientific behaviour whether a project
    package is installed or absent.** Installing one must never be the mechanism that keeps

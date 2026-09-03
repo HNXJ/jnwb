@@ -24,7 +24,8 @@ JNWB_DIR = REPO_ROOT / "jnwb"
 # This set is now EMPTY. addressing.py's exception was removed 2026-09-03: importing the
 # project's parser meant jnwb resolved probe areas differently depending on whether omission
 # happened to be importable, so installing a project package silently changed which cortical
-# area a unit was assigned to. Area-name canonicalization now lives in addressing.py itself.
+# area a unit was assigned to. addressing.py now carries no area vocabulary at all: it only
+# splits the label on comma or slash and trims whitespace, preserving every label as written.
 # jrsa.py's exception went with the connectivity promotion on 2026-08-23.
 AUTHORIZED_EXCEPTIONS: set = set()
 
