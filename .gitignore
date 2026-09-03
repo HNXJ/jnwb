@@ -18,18 +18,12 @@ _build/
 docs/_build/
 
 # data / derived / generated (not source)
+# omission project (local only, untracked on remote)
+omission/
 data/
 outputs/
-!omission/outputs/
-omission/outputs/*
-!omission/outputs/README.md
 output/
 reports/
-omission/artifacts/*
-!omission/artifacts/developer/
-omission/artifacts/developer/.cache/
-!omission/artifacts/.lab/
-!omission/artifacts/README.md
 checkpoints/
 scratch/
 Export_Staging/
@@ -109,9 +103,6 @@ gallery_src/
 
 # scratch / agent temp scripts
 run_schema_test.py
-omission/scripts/_*.py
-!omission/scripts/_response_metric_common.py
-!omission/scripts/__init__.py
 
 # local
 .claude/settings.local.json
@@ -130,9 +121,7 @@ omission/scripts/_*.py
 # local.json stays ignored: that IS machine-local, and the copy retired in this reset was
 # granting `Bash(git add *)` in direct contradiction of settings.json.
 #
-# 2026-08-19 jnwb/omission split: the 7 project skills moved to omission/.claude/skills/ (task-
 # specific, travels with the project). This root .claude/* block only governs the root tree --
-# it does not need a parallel rule for omission/.claude/, which is untouched by any pattern here
 # and stays fully tracked by default. Root .claude/skills/ is reserved for future *generic jnwb*
 # skills and is legitimately empty today.
 .claude/
@@ -142,55 +131,31 @@ omission/scripts/_*.py
 .agents/
 
 # Local configuration files
-omission/notebooks/local_config.py
 
 # Whitelist developer progress/plans/review JSON files
 # Labyrinth graph state -- the PRP->Labyrinth migration (2026-07-28) never extended this
 # whitelist to the replacement system, so the project's own knowledge graph was never
 # git-tracked (found and fixed 2026-07-31, same session that found the analogous skill-
 # registry gap left by the same migration).
-!omission/artifacts/.lab/*.json
 
 # scratch and build artifacts
 tmp/
 
 # Large regenerable or archival binaries. The generators are tracked; the products are not.
-#   omission/context/manuscript-docx/     rebuild: omission/scripts/build_draft_docx.py (from the markdown drafts)
-#   omission/context/draft-assets/        editable figure sources, kept on disk, too large for git
-#   omission/context/archive/             superseded handouts, preserved on disk under Conservation
-omission/context/manuscript-docx/
-omission/context/draft-assets/
-omission/context/archive/
 
 # Private, controlling analysis goal (2026-08-24). Kept on disk, not tracked -- it is not public
 # jnwb documentation, public API doctrine, general-purpose skill content, or manuscript prose.
 # Do not promote its content into a tracked file without an explicit decision to do so.
-omission/context/ANALYSIS_GOAL.md
 
 # omission/context/figures holds the manuscript figures 01-07 and is TRACKED on purpose.
 # Only the finalized per-figure deliverables are tracked; nested working directories
 # (svg/, artifacts/, supplements/) hold multi-MB/GB intermediates and stay ignored.
-!omission/context/figures/*.py
-!omission/context/figures/*.md
-!omission/context/figures/fig0*_finalized.svg
-!omission/context/figures/fig0*_finalized.png
 # 2026-08-2x: the finalized deliverables were moved into their own subfolder. Whitelisted
 # here too so the move doesn't silently drop them from tracking (found 2026-08-27: the move
 # fell outside the flat-path patterns above and the files went untracked/ignored).
-!omission/context/figures/finalized/
-!omission/context/figures/finalized/fig0*_finalized.svg
-!omission/context/figures/finalized/fig0*_finalized.png
-!omission/context/figures/fig0*_*/fig0*.svg
-!omission/context/figures/fig0*_*/fig0*.png
-!omission/context/figures/fig0*_*/fig0*.receipt.json
 
-# --- analysis atlas (omission/atlas) -----------------------------------------------------------
 # 2026-09-02: the atlas publishes a small set of reviewed, identifier-anonymised tables derived
 # from frozen receipts. Those tables are SOURCE (reviewed and tracked); everything the builder
 # generates from them is not. The *.csv and *.json rules above are global, so the tracked tables
 # need an explicit exception -- kept as narrow as possible, naming exactly one directory.
-!omission/atlas/tables/*.csv
-!omission/atlas/tables/provenance.json
 # Generated site and the private identifier mapping: never tracked, never published.
-omission/atlas/_site/
-omission/atlas/_private/
