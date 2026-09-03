@@ -2,7 +2,7 @@
  "analysis": "onset-6a",
  "status": "Exploratory analysis",
  "source_commit": "2af5f86ae7b1d9bb2704ea1dfbe56a4cae92d7fc",
- "generated_utc": "2026-09-02T18:17:48Z",
+ "generated_utc": "2026-09-03T18:29:05Z",
  "files": [
   {
    "path": "assets/atlas.css",
@@ -16,17 +16,17 @@
   },
   {
    "path": "coverage.html",
-   "bytes": 15179,
+   "bytes": 15201,
    "visibility": "public"
   },
   {
    "path": "dsp-support.html",
-   "bytes": 16889,
+   "bytes": 16911,
    "visibility": "public"
   },
   {
    "path": "figures.html",
-   "bytes": 3107,
+   "bytes": 3094,
    "visibility": "public"
   },
   {
@@ -51,37 +51,37 @@
   },
   {
    "path": "index.html",
-   "bytes": 5101,
+   "bytes": 5123,
    "visibility": "public"
   },
   {
    "path": "lfp-resolvability.html",
-   "bytes": 42393,
+   "bytes": 42415,
    "visibility": "public"
   },
   {
    "path": "methods.html",
-   "bytes": 5534,
+   "bytes": 5556,
    "visibility": "public"
   },
   {
    "path": "provenance.html",
-   "bytes": 8614,
+   "bytes": 8642,
    "visibility": "public"
   },
   {
    "path": "session-statistics.html",
-   "bytes": 34515,
+   "bytes": 34537,
    "visibility": "public"
   },
   {
    "path": "spk-timing.html",
-   "bytes": 40002,
+   "bytes": 40078,
    "visibility": "public"
   },
   {
    "path": "spk-vs-stimulus.html",
-   "bytes": 22559,
+   "bytes": 22581,
    "visibility": "public"
   },
   {
@@ -135,5 +135,5 @@
    "visibility": "public"
   }
  ],
- "total_bytes": 5451212
+ "total_bytes": 5451457
 }
