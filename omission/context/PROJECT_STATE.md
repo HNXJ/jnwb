@@ -235,29 +235,93 @@ for measured proportions at those denominators.
 
 ## 4. Current findings, with receipts
 
-From `outputs/lfp_band_census_v2/` (`receipt.json`, `glmm_results.json`, `glmm_summary.csv`).
-Census receipt 2026-07-29: 1,236 TFR files scanned, 909 omission-condition files processed,
-18 skipped, 420,480 rows, 23 sessions, median 39 trials/channel.
+From `outputs/lfp_dynamics/lfp_band_census_v2/` — see the path note below.
+Current receipt `receipt.json`, generated 2026-08-12T20:12:05Z: **970 TFR files scanned, 873
+omission-condition files processed, 0 skipped, 404,595 rows, 22 sessions.** Bands theta 4-8,
+alpha 8-14, beta 14-30, low gamma 30-50, high gamma 50-80 Hz.
 
-**Low-frequency power is modulated everywhere.** Mean absolute change in the omitted slot vs
-each channel's own baseline: theta 1.06 dB, alpha 1.02, beta 0.79, low gamma 0.55, high gamma
-0.42. Low-frequency modulation ≈ 2× gamma.
+> **Corrected 2026-09-02.** This section was not a census — it was a **composite of at least
+> three analyses and vintages presented under one current-looking path**. Its census line alone
+> was assembled from two different artifacts, both of which survive:
+> `909 omission-condition files processed, 18 skipped` comes from
+> `outputs/lfp_dynamics/omission_tfr_maps_w1500/receipt.json` (2026-07-29), the omission-aligned
+> TFR *map extraction*; `1,236 TFR files scanned, 420,480 rows, 23 sessions` comes from
+> `outputs/lfp_dynamics/lfp_band_census_stim/receipt.json`, the **stimulus**-window census.
+> Neither is the omission band census this section reports. Separately, the V3a/d estimates came
+> from the 2026-08-05 pre-full-corpus fit (still on disk) and the common-sign q-values from a
+> 2026-08-02 refit (surviving only as a draft annotation). All were superseded by the 2026-08-12
+> full-corpus run. The superseded values are preserved below rather than deleted. Every current
+> number here was independently re-derived from the receipt by two fresh-context verifiers who
+> agreed digit for digit.
+>
+> The failure mode is worth naming: no single number here was fabricated, and most are still
+> findable. What went wrong is that quantities from different analyses, corpora and dates were
+> composed into one paragraph under one path, so the section read as a coherent current census
+> while no run had ever produced it.
+> Receipt: `artifacts/.lab/fig05-project-state-stale-vs-receipt-20260902.json`.
+>
+> **Path note.** The directory is `outputs/lfp_dynamics/lfp_band_census_v2/`. This section and
+> `fig05_receipt.json` both cited `outputs/lfp_band_census_v2/`, which was correct when written;
+> the `lfp_dynamics/` segment came from the 2026-08-24 outputs reorganization, which did not
+> rewrite receipts. Separately, `receipt.json` names a script
+> `compute_channel_band_power_census_v2.py` that does not exist — the file on disk is
+> `scripts/compute_channel_band_power_census.py`.
 
-**The direction is not shared.** Pooled 23-session model (84,096 obs, random intercept per
-session; Intercept tests common sign): theta p_BH 0.42, alpha 0.59, beta 0.29, low gamma 1.00,
-high gamma 0.94 — null in every band. This tests common *sign*, not presence of modulation.
+**Low-frequency power is modulated everywhere; the magnitudes are withdrawn.** The band
+*ordering* is robust — theta > alpha > beta > low gamma > high gamma, reproduced under every
+aggregation order tried — and low-frequency modulation is roughly 2x gamma. The specific values
+this section carried (theta 1.06 dB, alpha 1.02, beta 0.79, low gamma 0.55, high gamma 0.42)
+are **withdrawn as unsourced**: two independent verifiers each failed to reproduce them from the
+current raw table under row-level mean |dB|, session-signed-mean-then-abs, abs-then-session-mean,
+and channel-level variants, and the raw table they were computed from no longer exists. Do not
+quote a magnitude from this paragraph until it is recomputed under a declared aggregation order.
 
-**Animals disagree in sign.** C31o (8 sessions) fell in every band below 50 Hz (theta −1.58 dB,
-q 5.0e−5; alpha −1.36, q 1.0e−4; beta −0.89, q 4.3e−3; low gamma −0.39, q 2.0e−3). V182o (10)
+**The direction is not shared.** Model A_corpus, Intercept (tests common sign), **80,919 obs,
+22 sessions**: theta p_BH 0.8961, alpha 0.8961, beta 0.8961, low gamma 0.9151, high gamma
+0.9151 — null in every band. Estimates -0.789, -0.533, -0.363, -0.131, +0.056 dB. This tests
+common *sign*, not presence of modulation.
+*Superseded:* this section previously read "23 sessions, 84,096 obs, theta 0.42, alpha 0.59,
+beta 0.29, low gamma 1.00, high gamma 0.94", which traces to a 2026-08-02 refit surviving only
+as an annotation in `context/drafts/omission-a-draft-v3.md` line 485; no artifact for it exists.
+The intermediate 2026-08-05 run gives 0.469/0.469/0.469/0.827/0.469 at 84,096 obs. **The
+conclusion is unchanged across all three vintages** — null in every band.
+
+**Animals disagree in sign.** C31o (8 sessions) fell in every band below 50 Hz (theta -1.58 dB,
+q 5.0e-5; alpha -1.36, q 1.0e-4; beta -0.89, q 4.3e-3; low gamma -0.39, q 2.0e-3). V182o (10)
 rose in all five. V198o (5) reached significance in no band. The split survives holding area
-constant in 7 of 8 testable area×band comparisons.
+constant in 7 of 8 testable area x band comparisons.
+*Provenance:* these are the **2026-07-29 23-session** values, corroborated by
+`artifacts/.lab/docs_audit_20260802.json` ("C31o theta -1.578 only band q<0.05"). The band-census
+receipt of that date was overwritten in place by the 2026-08-12 run; the sibling extraction it was
+built alongside survives at `outputs/lfp_dynamics/omission_tfr_maps_w1500/receipt.json`.
+**Not yet re-derived against the 22-session run** — treat the direction as established and the
+per-animal numbers as pending recomputation.
 
-**V3a/d vs V1 elevation, animal-controlled (corrected 2026-08-05).** Model F — area effects
-with subject as an explicit additive fixed effect, session-level, 23 sessions, 3 subjects:
-**beta +1.11 dB, p 0.0056, q_BH 0.0147**; **low gamma +0.34 dB, q_BH 0.0147**. Alpha (+0.75,
-q 0.129), theta and high gamma do not survive. Two prior bugs fixed: the area-pooling dict
-omitted the raw `"V3"` label, and a local BH function inverted rank order.
-Receipt: `artifacts/.lab/v3ad_beta_glmm_two_bugs_fixed_20260805.json`.
+**V3a/d vs V1 elevation, animal-controlled.** Model F — area effects with subject as an explicit
+additive fixed effect, session-level, **22 sessions**, 3 subjects, 90 obs:
+**beta +1.614 dB, p 1.116e-4, q_BH 5.582e-4**; **low gamma +0.703 dB, p 3.082e-4,
+q_BH 7.706e-4**; **alpha +1.207 dB, p 0.0114, q_BH 0.0190 — alpha now survives correction.**
+Theta (+0.018, q 0.980) and high gamma (-0.003, q 0.980) do not.
+*Superseded:* the 2026-08-05 pre-full-corpus 23-session run gave beta +1.113/q 0.0147, low gamma
++0.341/q 0.0147, alpha +0.753/q 0.129, and this section reported alpha as **not** surviving on
+that basis. Direction is unchanged in every band; what changed is alpha's standing and every
+point estimate. The superseded fit is retained at
+`outputs/lfp_dynamics/lfp_band_census_v2/glmm_pre_fullcorpus_20260805/`.
+Two prior bugs fixed 2026-08-05: the area-pooling dict omitted the raw `"V3"` label, and a local
+BH function inverted rank order.
+Receipts: `artifacts/.lab/v3ad_beta_glmm_two_bugs_fixed_20260805.json`,
+`artifacts/.lab/fig05-project-state-stale-vs-receipt-20260902.json`.
+
+**V3v is a separate, live area level in the current model.** The current Model F fits `V3a/d`
+and `V3v` as distinct levels; the pre-full-corpus run had no `V3v` term at all. V3v is large and
+significant (alpha +2.033 dB, p 9.217e-6, q_BH 4.609e-5). Section 5 states that V3a and V3d pool
+to V3 and does not mention V3v. **That conflict is unresolved and must not be reconciled
+silently** — report the estimand's area partition as actually fitted.
+
+**The rendered Fig05 asset is stale.** `context/figures/fig05_v1_area_hierarchy_glmm/svg/fig05_receipt.json`
+records `n_sessions: 23` and the superseded source. The SVG on disk draws the 23-session
+estimates, including alpha at q 0.129. Fig05 must be re-rendered from the current receipt before
+any figure or atlas page derived from it is published.
 
 **Spiking onset-latency hierarchy (H1 feedforward / H2 feedback / H3 superposition), 2026-08-15.**
 `scripts/fit_class_onset_latency.py` fits a causality-bounded exponential onset to the
