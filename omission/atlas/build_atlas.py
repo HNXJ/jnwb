@@ -59,6 +59,56 @@ PAGES = [
     ("provenance.html", "Provenance"),
 ]
 
+# -------------------------------------------------------------------------------------------
+# Shared HNXJ site header/footer -- identical markup and tokens to hnxj.github.io's own shell,
+# to the jnwb atlas root index written by deploy_ghpages.py, and to the Labyrinth placeholder.
+# Links are absolute: these pages are served at different path depths (site root, /jnwb/,
+# /jnwb/analyses/onset-6a/), so a single relative-path scheme cannot serve all of them, and the
+# header navigates among HNXJ-hosted project surfaces (not off-site RTD, which project cards
+# expose separately).
+# -------------------------------------------------------------------------------------------
+HNXJ_NAV_LINKS = [
+    ("hnxj", "HNXJ", "https://hnxj.github.io/"),
+    ("jaxfne", "JaxFNE", "https://hnxj.github.io/jaxfne/"),
+    ("jnwb", "jnwb", "https://hnxj.github.io/jnwb/"),
+    ("labyrinth", "Labyrinth", "https://hnxj.github.io/labyrinth/"),
+    ("analyses", "Analyses", "https://hnxj.github.io/#analyses"),
+]
+
+
+def hnxj_header(active: str) -> str:
+    items = "".join(
+        f'<a href="{href}"{" class=\"active\"" if key == active else ""}>{label}</a>'
+        for key, label, href in HNXJ_NAV_LINKS)
+    return f'<div class="hnxj-bar"><div class="hnxj-bar-inner">{items}</div></div>'
+
+
+HNXJ_FOOTER = ("""<div class="hnxj-foot"><div class="hnxj-foot-inner">"""
+              """<a href="https://hnxj.github.io/">HNXJ</a>"""
+              """<a href="https://hnxj.github.io/jaxfne/">JaxFNE</a>"""
+              """<a href="https://hnxj.github.io/jnwb/">jnwb</a>"""
+              """<a href="https://hnxj.github.io/labyrinth/">Labyrinth</a>"""
+              """<a href="https://github.com/hnxj">GitHub</a>"""
+              """<a href="https://hnxj.github.io/#analyses">Analyses</a>"""
+              """</div></div>""")
+
+HNXJ_SHELL_CSS = """
+.hnxj-bar{background:var(--fg);color:#fff}
+.hnxj-bar-inner{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;align-items:center;
+gap:22px;height:44px;font-size:13.5px}
+.hnxj-bar-inner a{color:#c7ccd1;text-decoration:none}
+.hnxj-bar-inner a:first-child{color:#fff;font-weight:700;letter-spacing:.02em;margin-right:4px}
+.hnxj-bar-inner a:hover{color:#fff}
+.hnxj-bar-inner a.active{color:#fff;border-bottom:2px solid var(--accent);padding-bottom:2px}
+.hnxj-foot{border-top:1px solid var(--line);margin-top:8px}
+.hnxj-foot-inner{max-width:1180px;margin:0 auto;padding:16px 24px;display:flex;flex-wrap:wrap;
+gap:16px;font-size:12.5px}
+.hnxj-foot-inner a{color:var(--mut);text-decoration:none}
+.hnxj-foot-inner a:hover{color:var(--accent)}
+@media(max-width:600px){.hnxj-bar-inner{flex-wrap:wrap;height:auto;padding:8px 16px;gap:14px}
+.hnxj-foot-inner{padding:14px 16px}}
+"""
+
 CSS = """
 :root{--bg:#fbfbfa;--fg:#1a1a1a;--mut:#5b6570;--line:#dfe3e8;--accent:#1f5f8b;
 --pos:#0f7b52;--neg:#a33a2c;--warn:#8a6d1f;--card:#fff;}
@@ -103,7 +153,7 @@ footer{color:var(--mut);font-size:12.5px;border-top:1px solid var(--line);
 margin-top:34px;padding-top:14px}
 @media(max-width:820px){.wrap{flex-direction:column;padding:16px}nav{position:static;flex:none;
 width:100%;display:flex;flex-wrap:wrap;gap:4px}nav a{font-size:13px;padding:5px 9px}}
-"""
+""" + HNXJ_SHELL_CSS
 
 
 def shell(body: str, page: str, title: str, plotly_pages: bool = False) -> str:
@@ -117,6 +167,7 @@ def shell(body: str, page: str, title: str, plotly_pages: bool = False) -> str:
 <title>{title} &middot; Analysis 6A</title>
 <link rel="stylesheet" href="assets/atlas.css">{js}
 </head><body>
+{hnxj_header(active="jnwb")}
 <header>
   <h1>Analysis 6A &mdash; onset timing during stimulus omission</h1>
   <div class="sub">Macaque multi-area laminar electrophysiology &middot;
@@ -127,7 +178,9 @@ def shell(body: str, page: str, title: str, plotly_pages: bool = False) -> str:
 <footer>Generated from the public source tables. If a value here disagrees with its source
 table, the site is wrong.
 See <a href="provenance.html">Provenance</a>.</footer>
-</main></div></body></html>
+</main></div>
+{HNXJ_FOOTER}
+</body></html>
 """
 
 
