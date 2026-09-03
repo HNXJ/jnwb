@@ -13,6 +13,36 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 
 ---
 
+## Why `jnwb`
+
+`jnwb` is a toolbox, not a pipeline. It supplies small, composable operations over NWB files,
+arrays and metadata tables; it does not impose a workflow.
+
+- **Dataset-agnostic.** Task structure, condition codes and experimental hypotheses stay in your
+  own project code, never in the library.
+- **Explicit statistical nulls.** Label permutation takes an exchangeability plan
+  (`build_permutation_plan`) rather than silently shuffling everything.
+- **Signal semantics preserved.** Units, sampling rates, coordinate frames and 0- vs 1-indexing do
+  not change across a function boundary.
+- **Composable.** Every capability is usable on its own; nothing requires adopting the rest.
+
+---
+
+## Core capabilities
+
+| Area | Representative API |
+| --- | --- |
+| NWB metadata & addressing | `get_all_units_metadata`, `electrode_inventory`, `enrich_units_dataframe`, `map_peak_channel_to_area`, `classify_layer_from_depth` |
+| Spiking | `raster_psth`, `compute_response_metrics`, `causal_exp_smooth`, `fit_exponential_onset`, `phase_locking_index` |
+| LFP & spectral | `compute_psd`, `band_power`, `complex_tfr`, `cross_area_coherence`, `imaginary_coherency`, `bipolar_reference`, `laplacian_reference` |
+| Statistics | `build_permutation_plan`, `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `shuffle_r2_ci` |
+| Population analysis | `jrsa`, `nested_cv_linear_svm`, `compute_population_trajectory`, `build_representation_ladder` |
+| Connectivity | `granger_causality`, `phase_slope_index`, `transfer_entropy`, `directed_network` |
+| Quality control | `channel_correlation_matrix`, `consensus_bad_trials`, `repair_lfp_trials`, `audit_units`, `audit_electrodes` |
+| Visualization | `raster_psth`, `setup_vector_graphics`, `save_figure_suite`, `apply_tight_auto_axis` |
+
+---
+
 ## Installation
 
 `jnwb` strictly targets **Python 3.12**.
@@ -35,7 +65,23 @@ Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplot
 
 ## Quickstart
 
-### 1. Spikes: PSTH Smoothing & Exponential Onset Latency
+### 1. NWB in, table out: unit inventory for a session
+
+```python
+import jnwb
+
+# One or more NWB 2.0+ session files
+units = jnwb.get_all_units_metadata("session.nwb")          # DataFrame, one row per unit
+electrodes = jnwb.electrode_inventory("session.nwb")        # DataFrame, one row per electrode
+
+# Attach electrode-derived columns (peak channel -> area, depth -> layer)
+units = jnwb.enrich_units_dataframe(units, electrodes)
+
+report = jnwb.audit_units(units)                            # quality-tier census
+print(len(units), "units;", report)
+```
+
+### 2. Spikes: PSTH Smoothing & Exponential Onset Latency
 
 ```python
 import numpy as np
@@ -54,7 +100,7 @@ fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds=(0.0, 200.0))
 print(f"Onset latency t0: {fit['t0']:.1f} ms (R2 = {fit['r2']:.2f}, status: {fit['bound_status']})")
 ```
 
-### 2. Field Potentials: Complex TFR & Canonical Band Power
+### 3. Field Potentials: Complex TFR & Canonical Band Power
 
 ```python
 import numpy as np
