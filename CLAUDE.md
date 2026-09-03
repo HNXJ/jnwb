@@ -51,12 +51,20 @@ normalization effort; it protects concurrent human work regardless of what phase
 2. **Take the logarithm last.** Average power, divide by baseline, `10·log10` once. Never
    average decibels — it biases each site by its own noisiness.
 3. **`jnwb/` does not import from any project folder** (e.g. `omission/`). The dependency runs
-   one way: projects depend on `jnwb`, never the reverse. One narrow, documented exception
-   exists today (a lazy, call-time-only import for optional cross-project delegation, in
-   `addressing.py`, for `omission.jnwb_ext.sequence_layout.parse_probe_areas`) — do not add
-   more without discussing the layering first. (`jrsa.py`'s former exception, a lazy import of
-   `phase_slope_index`, was removed 2026-08-23 when `connectivity.py` promoted to
-   `jnwb/connectivity.py` — that delegation is now intra-package.)
+   one way: projects depend on `jnwb`, never the reverse. **There are now zero exceptions** —
+   do not add one without discussing the layering first. (`jrsa.py`'s former exception, a lazy
+   import of `phase_slope_index`, was removed 2026-08-23 when `connectivity.py` promoted to
+   `jnwb/connectivity.py`. `addressing.py`'s — a call-time import of
+   `omission.jnwb_ext.sequence_layout.parse_probe_areas` — was removed 2026-09-03: an optional
+   import made jnwb resolve probe areas differently depending on whether omission happened to
+   be importable, so merely installing a project package changed which cortical area a unit was
+   assigned to. Area-name canonicalization now lives in `addressing.py`. `DP` is deliberately
+   *not* aliased to `V4`: that alias collapsed a `"DP/V4"` probe to `('V4','V4')`, and whether
+   the two are one area is an anatomical question generic addressing does not decide.)
+
+   The invariant this protects: **`jnwb` gives identical scientific behaviour whether a project
+   package is installed or absent.** Installing one must never be the mechanism that keeps
+   `jnwb` correct.
 4. **Preserve module- and array-level invariants**: units, coordinate frames, timestamps,
    sample rates, 0- vs 1-indexing do not change silently across a `jnwb` function boundary.
 

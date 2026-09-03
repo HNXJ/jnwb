@@ -5,21 +5,6 @@ import jnwb
 from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
 from jnwb.statistics import StatisticalAnalysis
 
-try:
-    import importlib.util
-    import pathlib
-    _seed_path = pathlib.Path(__file__).resolve().parents[1] / "omission" / "jnwb_ext" / "seed.py"
-    if _seed_path.exists():
-        _spec = importlib.util.spec_from_file_location("omission_seed", _seed_path)
-        _seed_mod = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(_seed_mod)
-        stable_seed = _seed_mod.stable_seed
-    else:
-        stable_seed = None
-except Exception:
-    stable_seed = None
-
-
 class TestOnsetBoundStatus:
     def test_onset_lower_bound_censored(self):
         t = np.arange(-100.0, 500.0, 5.0)
@@ -216,74 +201,3 @@ class TestCausalExpSmoothLatency:
             idx_50 = np.where(smoothed >= 0.5)[0][0]
             delay_50 = (idx_50 - onset_idx) * bin_ms
             assert abs(delay_50 - tau * np.log(2.0)) <= bin_ms * 1.5
-
-
-class TestOmissionStableSeeds:
-    def test_stable_seed_deterministic_same_process(self):
-        s1 = stable_seed("alpha", 50.0, 3)
-        s2 = stable_seed("alpha", 50.0, 3)
-        assert s1 == s2
-        assert isinstance(s1, int)
-        assert 0 <= s1 < 2**31
-
-        u1 = stable_seed("AAAB", 2)
-        u2 = stable_seed("AAAB", 2)
-        assert u1 == u2
-        assert isinstance(u1, int)
-        assert 0 <= u1 < 2**31
-
-    def test_distinct_representative_inputs(self):
-        s1 = stable_seed("alpha", 50.0, 0)
-        s2 = stable_seed("alpha", 50.0, 1)
-        s3 = stable_seed("beta", 50.0, 0)
-        assert len({s1, s2, s3}) == 3
-
-    def test_representative_input_types(self):
-        # string, float, integer, and tuple-like inputs
-        res_str = stable_seed("AAAB")
-        res_flt = stable_seed(50.0)
-        res_int = stable_seed(42)
-        res_tup = stable_seed("stem_01", "pupil_raw", "v1_theta")
-        res_mix = stable_seed("cond_X", 3, 12.5, "R")
-
-        for r in [res_str, res_flt, res_int, res_tup, res_mix]:
-            assert isinstance(r, int)
-            assert 0 <= r < 2**31
-
-        # All distinct representative inputs yield distinct seeds (not claiming collision-freedom)
-        assert len({res_str, res_flt, res_int, res_tup, res_mix}) == 5
-
-    def test_cross_process_invariance_across_types(self):
-        """Verify cross-process determinism for string, float, integer, and tuple-like inputs.
-
-        Asserts that seeds are identical across distinct Python interpreter invocations
-        with varying PYTHONHASHSEED values ('0', '42', '99999', 'random').
-        Note: does NOT claim mathematical collision-freedom (CRC32 is 32-bit).
-        """
-        import json
-        import os
-        import subprocess
-        import sys
-
-        test_cases = [
-            ("AAAB",),
-            (50.0,),
-            (42,),
-            ("stem_01", "pupil_raw", "v1_theta"),
-            ("cond_X", 3, 12.5, "R"),
-        ]
-
-        expected = [stable_seed(*args) for args in test_cases]
-
-        for seed_env in ["0", "42", "99999", "random"]:
-            env = os.environ.copy()
-            env["PYTHONHASHSEED"] = seed_env
-
-            code = (
-                "import json; from omission.jnwb_ext.seed import stable_seed; "
-                "cases = [('AAAB',), (50.0,), (42,), ('stem_01', 'pupil_raw', 'v1_theta'), ('cond_X', 3, 12.5, 'R')]; "
-                "print(json.dumps([stable_seed(*args) for args in cases]))"
-            )
-            res = subprocess.check_output([sys.executable, "-c", code], env=env, text=True)
-            child_seeds = json.loads(res.strip())
-            assert child_seeds == expected, f"Cross-process mismatch under PYTHONHASHSEED={seed_env}"

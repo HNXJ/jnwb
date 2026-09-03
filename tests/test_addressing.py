@@ -1,3 +1,7 @@
+import subprocess
+import sys
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 
@@ -43,8 +47,7 @@ def test_map_peak_channel_to_area_multi_area_probe_resolves_by_channel_position(
     # actual position within the probe - e.g. probe C channels near the end
     # of its range were labeled 'V1' when the correct area was 'V3'. Now
     # resolves by channel position within the probe's contiguous electrode
-    # index block (matching omission.jnwb_ext.sequence_layout's channel_slice_for_area
-    # convention: N areas -> N equal partitions of the probe's channels).
+    # index block (N areas -> N equal partitions of the probe's channels).
     n = 12  # 12-channel probe for a clean 3-way split (0-3, 4-7, 8-11)
     elec = pd.DataFrame(
         {
@@ -136,3 +139,91 @@ def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
     assert list(enriched["group_name"]) == ["probeA", "probeA"]
     # No quality column provided -> defaults to not-stable, not a crash
     assert list(enriched["is_stable"]) == [False, False]
+
+
+# ---------------------------------------------------------------------------------------------
+# jnwb must behave identically whether or not a project package is importable.
+#
+# Until 2026-09-03, addressing.py imported omission's parser when available and fell back to
+# generic splitting otherwise. The two disagreed on area NAMES, so merely having omission on
+# sys.path changed which cortical area a unit was assigned to. These tests pin the property
+# that removed that dependency.
+# ---------------------------------------------------------------------------------------------
+
+def _area_map_in_subprocess(block_omission: bool) -> str:
+    """Resolve one multi-area channel in a fresh interpreter, optionally with omission hidden."""
+    lines = ["import sys"]
+    if block_omission:
+        lines += [
+            "sys.path = [p for p in sys.path"
+            " if 'omission' not in p.lower() and 'workspace' not in p.lower()]",
+            "sys.modules['omission'] = None",
+        ]
+    lines += [
+        "import pandas as pd, jnwb",
+        "elec = pd.DataFrame({'location': ['V3D, DP'] * 8,"
+        " 'group_name': ['probeA'] * 8}, index=range(8))",
+        "print(jnwb.map_peak_channel_to_area(0, elec),"
+        " jnwb.map_peak_channel_to_area(7, elec))",
+    ]
+    out = subprocess.run([sys.executable, "-c", chr(10).join(lines)],
+                         capture_output=True, text=True,
+                         cwd=str(Path(__file__).resolve().parent.parent))
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip()
+
+
+def test_area_resolution_is_identical_with_and_without_omission_importable():
+    with_omission = _area_map_in_subprocess(block_omission=False)
+    without_omission = _area_map_in_subprocess(block_omission=True)
+    assert with_omission == without_omission, (
+        f"jnwb resolved areas differently depending on whether omission was importable: "
+        f"{with_omission!r} vs {without_omission!r}"
+    )
+
+
+def test_dp_is_not_silently_folded_into_v4():
+    """DP must stay distinct from V4.
+
+    A project-side alias table mapped DP -> V4, which made a 'DP/V4' probe resolve to
+    ('V4', 'V4') -- both halves collapsing to one name, so the probe stopped being
+    distinguishable by area. Whether DP and V4 are the same area is an anatomical question
+    that generic addressing does not get to decide.
+    """
+    n = 8
+    elec = pd.DataFrame(
+        {"location": ["DP/V4"] * n, "group_name": ["probeD"] * n},
+        index=range(300, 300 + n),
+    )
+    assert map_peak_channel_to_area(300, elec) == "DP"
+    assert map_peak_channel_to_area(307, elec) == "V4"
+
+
+def test_area_label_casing_is_canonicalized():
+    """Casing variants of the same area resolve to one canonical spelling."""
+    n = 8
+    elec = pd.DataFrame(
+        {"location": ["v3d, V3A"] * n, "group_name": ["probeE"] * n},
+        index=range(400, 400 + n),
+    )
+    assert map_peak_channel_to_area(400, elec) == "V3d"
+    assert map_peak_channel_to_area(407, elec) == "V3a"
+
+
+def test_channel_118_120_boundary_case_on_a_128_channel_three_area_probe():
+    """The 2026-07-12 defect, at its original scale: 128 channels, 'V1, V2, V3'.
+
+    Channels 118-120 sit in the final third and must resolve to V3, not to the first
+    listed area. Positional binning must be unaffected by the parser change.
+    """
+    n = 128
+    elec = pd.DataFrame(
+        {"location": ["V1, V2, V3"] * n, "group_name": ["probeC"] * n},
+        index=range(n),
+    )
+    for ch in (118, 119, 120):
+        assert map_peak_channel_to_area(ch, elec) == "V3", f"channel {ch}"
+    assert map_peak_channel_to_area(0, elec) == "V1"
+    assert map_peak_channel_to_area(42, elec) == "V1"      # last of first third
+    assert map_peak_channel_to_area(43, elec) == "V2"      # first of middle third
+    assert map_peak_channel_to_area(127, elec) == "V3"

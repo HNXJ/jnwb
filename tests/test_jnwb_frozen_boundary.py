@@ -1,8 +1,7 @@
 """Guards the jnwb/ freeze boundary (CLAUDE.md, 2026-08-19): jnwb/ is frozen and must remain
 importable and usable with zero dependency on omission/, except two explicitly authorized,
-call-time-only exceptions (multi-area probe splitting in addressing.py, PSI delegation in
-jrsa.py -- both need this project's area/band-naming conventions and were judged not worth
-duplicating into jnwb/ for a single call site each).
+authorized exceptions. As of 2026-09-03 there are NONE: jnwb/ imports nothing from omission/,
+so its scientific behaviour cannot depend on whether a project package is installed.
 
 This is the automated guarantee behind the freeze: a human reading CLAUDE.md's freeze policy is
 not a technical guarantee that no new jnwb/ change quietly reintroduces an omission/ coupling.
@@ -20,11 +19,14 @@ JNWB_DIR = REPO_ROOT / "jnwb"
 
 # (path relative to jnwb/, fully-qualified module imported) -- the ONLY omission-side imports
 # jnwb/ may contain, and only as lazy, function-body-local imports. Any other omission import
-# anywhere under jnwb/, or either of these two outside a function body, fails the freeze.
-AUTHORIZED_EXCEPTIONS = {
-    ("addressing.py", "omission.jnwb_ext.sequence_layout"),
-    ("jrsa.py", "omission.jnwb_ext.connectivity"),
-}
+# anywhere under jnwb/, whether or not inside a function body, fails the freeze.
+#
+# This set is now EMPTY. addressing.py's exception was removed 2026-09-03: importing the
+# project's parser meant jnwb resolved probe areas differently depending on whether omission
+# happened to be importable, so installing a project package silently changed which cortical
+# area a unit was assigned to. Area-name canonicalization now lives in addressing.py itself.
+# jrsa.py's exception went with the connectivity promotion on 2026-08-23.
+AUTHORIZED_EXCEPTIONS: set = set()
 
 
 def _iter_py_files():

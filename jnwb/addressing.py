@@ -16,6 +16,37 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
+#: Canonical casing for area labels whose capitalization varies between NWB files.
+#: This is NAMING ONLY -- each entry is the same area written differently. No entry here
+#: maps one area onto a different area.
+#:
+#: `DP` is deliberately absent. A project-side convention treated DP as an alias of V4, which
+#: made a "DP/V4" probe resolve to ('V4', 'V4') -- both halves collapsing to one name, so a
+#: two-area probe stopped being distinguishable by area at all. Whether DP and V4 are the same
+#: area is an anatomical question, and generic addressing must not decide it: DP stays DP.
+_AREA_CASING: Dict[str, str] = {
+    "v3a": "V3a",
+    "v3d": "V3d",
+}
+
+
+def _canonical_area_name(token: str) -> str:
+    """Canonicalize the casing of one area token, leaving unknown labels untouched."""
+    t = str(token).strip()
+    return _AREA_CASING.get(t.lower(), t)
+
+
+def parse_probe_areas(label: str) -> tuple:
+    """Split a multi-area probe label into ordered area names.
+
+    Splits on comma or slash and canonicalizes casing. This resolves only NAMING; which
+    channels fall in which area is decided afterwards, by position along the probe.
+
+    Self-contained by design: jnwb must give identical scientific behaviour whether or not
+    any project package is importable, so nothing here may depend on one being installed.
+    """
+    return tuple(_canonical_area_name(p) for p in re.split(r"[,/]", str(label)) if p.strip())
+
 
 def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame) -> Optional[str]:
     """
@@ -60,13 +91,7 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
                 # a real bug confirmed 2026-07-12: e.g. probe C channels
                 # 118-120 on a "V1, V2, V3" probe were all labeled 'V1' when
                 # the correct area for that channel range is 'V3'.
-                # Layering note: multi-area probe splitting uses omission project's
-                # custom convention if installed, or generic comma/slash parsing otherwise.
-                try:
-                    from omission.jnwb_ext.sequence_layout import parse_probe_areas
-                    areas = parse_probe_areas(loc_str)
-                except (ImportError, ModuleNotFoundError):
-                    areas = tuple(p.strip() for p in re.split(r"[,/]", loc_str) if p.strip())
+                areas = parse_probe_areas(loc_str)
 
                 if len(areas) <= 1:
                     return loc_str.split(',')[0].strip()
