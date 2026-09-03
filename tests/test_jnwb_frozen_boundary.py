@@ -1,7 +1,7 @@
 """Guards the jnwb/ freeze boundary (CLAUDE.md, 2026-08-19): jnwb/ is frozen and must remain
-importable and usable with zero dependency on omission/, except two explicitly authorized,
-authorized exceptions. As of 2026-09-03 there are NONE: jnwb/ imports nothing from omission/,
-so its scientific behaviour cannot depend on whether a project package is installed.
+importable and usable with zero dependency on omission/, except for explicitly authorized
+exceptions. As of 2026-09-03 there are NONE: jnwb/ imports nothing from omission/, so its
+scientific behaviour cannot depend on whether a project package is installed.
 
 This is the automated guarantee behind the freeze: a human reading CLAUDE.md's freeze policy is
 not a technical guarantee that no new jnwb/ change quietly reintroduces an omission/ coupling.
