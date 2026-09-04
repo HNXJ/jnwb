@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `channel_correlation_matrix`, `detect_flat_or_noisy_channels`, `detect_extreme_events`.
   - `repair_lfp_trials`: Outlier thresholding and cross-channel linear interpolation repair.
 - **Anatomical Addressing & Ontology**:
-  - `map_peak_channel_to_area`, `canonicalize_area_name`, `infer_layer`.
+  - `map_peak_channel_to_area`, `classify_layer_from_depth`.
 - **Publication Graphics**:
   - `setup_vector_graphics`, `apply_tight_auto_axis`, `save_figure_suite`.
 - **Packaging & CI**:
