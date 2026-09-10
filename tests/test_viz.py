@@ -34,15 +34,6 @@ class TestPublicImport:
                      "resample_onsets", "raster_psth"):
             assert name in jnwb.__all__
 
-    def test_omission_viz_delegates_to_jnwb(self):
-        viz = pytest.importorskip("omission.jnwb_ext.viz")
-        assert viz.setup_vector_graphics is setup_vector_graphics
-        assert viz.apply_tight_auto_axis is apply_tight_auto_axis
-        assert viz.save_figure_suite is save_figure_suite
-        assert viz.resample_onsets is resample_onsets
-        assert viz.raster_psth is raster_psth
-
-
 class TestSetupVectorGraphics:
     def test_sets_editable_svg_fonttype(self):
         plt.rcParams['svg.fonttype'] = 'path'

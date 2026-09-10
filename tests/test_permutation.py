@@ -32,11 +32,6 @@ class TestPublicImport:
 
         assert jnwb.build_permutation_plan is build_permutation_plan
 
-    def test_omission_structured_identity_delegates_to_jnwb(self):
-        si = pytest.importorskip("omission.jnwb_ext.structured_identity")
-        assert si.build_permutation_plan is build_permutation_plan
-
-
 class TestPermuteLabelsContract:
     def test_requires_explicit_scheme(self):
         rng = np.random.default_rng(0)

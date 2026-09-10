@@ -39,29 +39,6 @@ class TestPublicImport:
                      "cross_modal_comparison"):
             assert name in jnwb.__all__
 
-    def test_omission_unit_inclusion_delegates_to_jnwb(self):
-        ui = pytest.importorskip("omission.jnwb_ext.unit_inclusion")
-        assert ui.fires_in_window is fires_in_window
-        assert ui.fire_indicator is fire_indicator
-        assert ui.paired_fire_prob_test is paired_fire_prob_test
-
-    def test_omission_unit_classification_delegates_to_jnwb(self):
-        uc = pytest.importorskip("omission.jnwb_ext.unit_classification")
-        assert uc._rate_in_window is rate_in_window
-        assert uc._shuffle_pvalue_paired is shuffle_pvalue_paired
-        assert uc._shuffle_pvalue_unpaired is shuffle_pvalue_unpaired
-
-    def test_omission_identity_delegates_to_jnwb(self):
-        oi = pytest.importorskip("omission.jnwb_ext.omission_identity")
-        assert oi.detect_trial_cycles is detect_trial_cycles
-        assert oi.assign_subblock_quartiles is assign_subblock_quartiles
-        assert oi.shuffle_r2_ci is shuffle_r2_ci
-
-    def test_omission_functions_delegates_to_jnwb(self):
-        fn = pytest.importorskip("omission.jnwb_ext.functions")
-        assert fn.cross_modal_comparison is cross_modal_comparison
-
-
 class TestFiresInWindow:
     def test_spike_inside_window_returns_true(self):
         spikes = np.array([1.05])

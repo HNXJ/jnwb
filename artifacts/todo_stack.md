@@ -11,15 +11,6 @@ no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## Test / delegation boundary (standalone jnwb)
-
-- `tests/` `pytest.importorskip("omission…")` (14 call sites, 8 modules) → classify each as
-  downstream delegation; **remove from jnwb suite** once downstream ownership recorded in
-  handoff/issue (do not require absent `omission/` tree for jnwb completeness); retain only
-  jnwb-owned boundary tests (`test_jnwb_frozen_boundary.py`, no-downstream-import proofs) →
-  `rg 'importorskip\("omission' tests/` empty; full `pytest tests/` passes without omission
-  installed.
-
 ## Capability hypotheses (review-first; implementation not forced)
 
 Before each item: inventory existing `jnwb/` capabilities. **A justified conclusion that the
@@ -56,7 +47,7 @@ itself a defect.
 ## Housekeeping (docs counts)
 
 - `CONTRIBUTING.md:31` and `AGENTS.md` §6 → update test-count band and runtime receipt
-  (641 passed, 15 skipped, ~4.7 min) → re-count after further test additions.
+  (641 passed, 1 skipped, ~4.1 min) → re-count after further test additions.
 
 # Before 1.0
 

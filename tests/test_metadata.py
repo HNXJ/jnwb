@@ -54,20 +54,6 @@ class TestPublicImport:
                      "audit_units", "audit_electrodes", "assign_quality_tier"):
             assert name in jnwb.__all__
 
-    def test_omission_unit_inclusion_delegates_to_jnwb(self):
-        ui = pytest.importorskip("omission.jnwb_ext.unit_inclusion")
-        assert ui.assign_quality_tier is assign_quality_tier
-
-    def test_omission_functions_delegates_to_jnwb(self):
-        functions = pytest.importorskip("omission.jnwb_ext.functions")
-        assert functions._filter_units is filter_by_criteria
-
-    def test_omission_diagnostics_delegates_to_jnwb(self):
-        diagnostics = pytest.importorskip("omission.jnwb_ext.diagnostics")
-        assert diagnostics._audit_units is audit_units
-        assert diagnostics._audit_electrodes is audit_electrodes
-
-
 class TestAuditUnits:
     def test_empty_dataframe_returns_zeroed_defaults(self):
         result = audit_units(pd.DataFrame({"x": []}))

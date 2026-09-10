@@ -56,13 +56,6 @@ class TestPublicImport:
                      "directed_network"):
             assert name in jnwb.__all__
 
-    def test_omission_reexports_same_objects(self):
-        omission = pytest.importorskip("omission")
-        assert omission.granger is granger
-        assert omission.phase_slope_index is phase_slope_index
-        assert omission.transfer_entropy is transfer_entropy
-
-
 class TestSpikeMutualInformation:
     def test_identical_spike_trains_have_positive_mi(self):
         rng = np.random.default_rng(0)

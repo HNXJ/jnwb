@@ -35,18 +35,6 @@ class TestPublicImport:
                      "build_representation_ladder"):
             assert name in jnwb.__all__
 
-    def test_omission_decoding_delegates_to_jnwb(self):
-        decoding = pytest.importorskip("omission.jnwb_ext.decoding")
-        assert decoding._majority_baseline is majority_baseline
-        assert decoding._nested_cv_linear_svm is nested_cv_linear_svm
-
-    def test_omission_structured_identity_delegates_to_jnwb(self):
-        si = pytest.importorskip("omission.jnwb_ext.structured_identity")
-        assert si.assign_outer_folds is assign_outer_folds
-        assert si.build_inner_validation_partitions is build_inner_validation_partitions
-        assert si.build_representation_ladder is build_representation_ladder
-
-
 class TestMajorityBaseline:
     def test_empty_labels_is_nan(self):
         assert np.isnan(majority_baseline(np.array([])))

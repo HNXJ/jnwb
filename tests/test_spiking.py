@@ -30,13 +30,6 @@ class TestPublicImport:
                      "phase_locking_index", "pairwise_phase_consistency", "gaussian_smooth_rate"):
             assert name in jnwb.__all__
 
-    def test_omission_reexports_same_objects(self):
-        omission = pytest.importorskip("omission")
-        assert omission.compute_response_metrics is compute_response_metrics
-        assert omission.classify_response_significance is classify_response_significance
-        assert omission.phase_locking_index is phase_locking_index
-
-
 class TestComputeResponseMetrics:
     def test_empty_inputs_returns_zeroed_defaults(self):
         metrics = compute_response_metrics(np.array([]), np.array([0.0, 1.0]))

@@ -74,10 +74,6 @@ class TestComputePsd:
 
 
 class TestCanonicalBands:
-    def test_connectivity_reexports_same_object(self):
-        omission_jnwb_ext = pytest.importorskip("omission.jnwb_ext.connectivity")
-        assert omission_jnwb_ext.CANONICAL_BANDS is CANONICAL_BANDS
-
     def test_expected_band_edges(self):
         assert CANONICAL_BANDS["theta"] == (4.0, 8.0)
         assert CANONICAL_BANDS["alpha"] == (8.0, 14.0)
