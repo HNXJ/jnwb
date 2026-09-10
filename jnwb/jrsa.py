@@ -1388,9 +1388,7 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
         ``p`` is the two-sided normal-approximation p-value on that z (previously
         both were ``None``).
     """
-    # PSI delegates to jnwb.connectivity's segmented estimator (promoted 2026-08-23 from
-    # omission.jnwb_ext.connectivity, 99%-jnwb-sufficiency normalization -- this is now an
-    # intra-package import, not a cross-project one).
+    # PSI delegates to jnwb.connectivity's segmented estimator.
     from .connectivity import phase_slope_index as _psi_impl
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)

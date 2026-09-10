@@ -1,17 +1,9 @@
 """
-jnwb.viz -- generic plotting utilities: vector-graphics setup, tight auto-scaled axes,
-multi-page/multi-format figure export, trial-onset resampling, and array-in PSTH computation.
+jnwb.viz -- plotting utilities: vector-graphics setup, tight auto-scaled axes, multi-format
+figure export, trial-onset resampling, and array-in PSTH computation.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.viz (99%-jnwb-sufficiency normalization):
-setup_vector_graphics, apply_tight_auto_axis, save_figure_suite, resample_onsets, and
-raster_psth take plain matplotlib objects / numpy arrays with no session object, condition
-code, or omission-task coupling. The rest of omission.jnwb_ext.viz (raster_grid_by_family,
-raster_suite_omission, lfp_tfr_trace_suite_omission, CONDITION_FAMILIES, sequence-epoch
-overlays, ...) stays there: it is built on OmissionSession and this task's condition/phase
-semantics.
-
-Author: Consolidated from archived figure scripts
-Date: 2026-06-25
+All exported helpers take plain matplotlib objects or numpy arrays. Session-specific figure
+suites belong in downstream project code.
 """
 
 import logging

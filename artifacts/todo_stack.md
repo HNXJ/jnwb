@@ -11,19 +11,6 @@ no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## Project provenance / source neutrality (generic package boundary)
-
-- Targeted docstring fixes: `decoding.py`, `viz.py`, `trajectory.py:111`, `statistics.py:886`
-  and `:374`, `compression.py:6`, `ontology.py` Alignment examples, `artifact_repair.py`,
-  `spectral.py:39-40`, `jnwb/__init__.py` promotion comments (first file users inspect).
-- **Bulk promotion provenance purge** (~40 `PROMOTED 2026-08-23` / `99%-jnwb-sufficiency`
-  strings across 17 `jnwb/` modules + 9 test headers) → delete promotion blocks; keep
-  scientific contract → `rg "PROMOTED 2026|99%-jnwb-sufficiency|promoted 2026-08-23" jnwb/
-  tests/` empty.
-- **Non-blocking source-neutrality scan** (comments + docstrings in `jnwb/`) → report
-  residue count; Gate 6 PASS is not sufficient evidence of neutrality; target user-facing
-  docstrings at zero study-specific tokens.
-
 ## Test / delegation boundary (standalone jnwb)
 
 - `tests/` `pytest.importorskip("omission…")` (14 call sites, 8 modules) → classify each as
@@ -53,8 +40,8 @@ itself a defect.
 
 ## Documentation consistency gates (0.1.7 deliverable)
 
-- Non-blocking `jnwb/` comment/docstring neutrality report (above).
-- Remaining adversarial gate fixtures for any new consistency checks added in 0.1.7.
+- Optional: move residual implementation receipts in `compression.py` / `onset_fitting.py` to an
+  internal note (`artifacts/source_neutrality_scan_0.1.7.md` inventories them).
 
 ## Second-audit placeholder (do not delete until 0.1.7 seal)
 
@@ -69,7 +56,7 @@ itself a defect.
 ## Housekeeping (docs counts)
 
 - `CONTRIBUTING.md:31` and `AGENTS.md` §6 → update test-count band and runtime receipt
-  (616 passed, 15 skipped, ~4 min planning baseline) → re-count after test additions.
+  (641 passed, 15 skipped, ~4.7 min) → re-count after further test additions.
 
 # Before 1.0
 

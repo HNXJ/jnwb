@@ -1,22 +1,9 @@
 """
-jnwb.spiking -- generic spike-response metrics: firing rate/latency/z-score relative to
-behavioral epochs, significance classification, and spike-LFP phase locking.
+jnwb.spiking -- spike-response metrics: firing rate/latency/z-score relative to behavioral
+epochs, significance classification, and spike-LFP phase locking.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.spiking (99%-jnwb-sufficiency normalization):
-compute_response_metrics, classify_response_significance, and phase_locking_index take plain
-spike-time arrays and generic (baseline_window, response_window) / (lfp_phase, lfp_timestamps)
-parameters, with no omission-task conditions or OmissionSession coupling. classify_omission_
-response stays in omission.jnwb_ext.spiking -- its parameter names (stimulus_onsets,
-omission_onsets) and docstring are task-flavored, even though its statistical mechanism
-(two-sample Mann-Whitney U on binned spike counts) is generic.
-
-Consolidates logic from archived X-files:
-- _response_metric_common.py
-- build_spk_response_metric_contract.py
-- classify_units_s_s_o.py (omission response classification, still in omission.jnwb_ext.spiking)
-
-Author: Migrated from archived scripts
-Date: 2026-06-25
+``compute_response_metrics``, ``classify_response_significance``, and ``phase_locking_index``
+take plain spike-time arrays and caller-supplied epoch windows or LFP phase traces.
 """
 
 import logging

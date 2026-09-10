@@ -1,47 +1,11 @@
 r"""
 jnwb.onset_fitting -- causal PSTH smoothing + causality-bounded exponential onset-latency fit.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.onset_fitting (99%-jnwb-sufficiency normalization):
-all three functions take plain (t, rate) arrays with no omission-task conditions, classes, or
-windows -- fully generic causal-kernel smoothing and bounded nonlinear onset-latency fitting,
-applicable to any PSTH/rate trace on any corpus.
+All functions take plain (t, rate) arrays. ``causal_exp_smooth`` applies a forward-only
+exponential kernel so post-onset activity cannot leak into pre-onset bins. ``fit_exponential_onset``
+constrains onset time t0 inside caller-supplied bounds during the fit (not as a post-hoc filter).
 
-WHY THIS EXISTS (historical motivation from the omission corpus)
-    Built 2026-08-15 for onset-latency propagation-hierarchy tests (tested separately across
-    distinct unit response classes and an omnibus all-units pass). No exponential/sigmoid
-    onset-fitting method existed anywhere in this repo before this module (confirmed by a
-    targeted repo search) -- the only prior onset estimator here was the cluster-permutation approach
-    (scripts/aggregate_omission_onset_clusters.py), which answers "when does a population
-    DECODER first beat chance," a different question from "when does THIS response class's own
-    firing rate first rise above baseline."
-
-SMOOTHING KERNEL, PROMOTED NOT REINVENTED
-    causal_exp_smooth is the same causal (forward-only) exponential kernel already used and
-    documented project-wide (omission-figures skill: "PSTH smoothing: causal exponential
-    filter, tau_ms=30 by default to preserve onset transients"), promoted here byte-compatible
-    from its prior single-use home in
-    scripts/archive_oneoff/suite_01_raster_s_om.py::causal_exponential_smoothing (which built
-    the kernel from raw spike times; this version takes an already-binned rate trace, since
-    every caller here already has one from a shared raster-building step). A forward/causal
-    kernel is a deliberate choice, not a default: an acausal (zero-phase, centered) smoother
-    would let post-onset activity leak backward into pre-onset bins and bias the fitted onset
-    earlier than the true rise -- exactly the failure mode this analysis exists to avoid.
-
-WHY A BOUNDED FIT, NOT A BOUND-THEN-DISCARD CHECK
-    fit_exponential_onset constrains t0 to a caller-supplied [t0_lo, t0_hi] (default
-    [0, window_end]) INSIDE the least-squares bounds, not as a post-hoc filter on an
-    unconstrained fit. This mirrors the causal restriction already applied to the
-    cluster-permutation onset search (aggregate_omission_onset_clusters.py: "Search is
-    restricted to bins at ctr >= 0 ... a bin centered before slot onset cannot causally carry
-    information") -- the model is architecturally unable to report a causality-violating onset,
-    rather than trusted to avoid one on its own.
-
-VALIDATE BEFORE TRUSTING ON REAL DATA
-    See ``if __name__ == "__main__"`` below: synthetic PSTHs with known injected t0 across a
-    grid of amplitude/tau/noise combinations, checked for recovery within a stated tolerance.
-    Per this project's own established practice (jnwb/artifact_repair.py's self-test
-    precedent) -- do not trust a new signal-processing implementation on real data before this
-    passes.
+See ``if __name__ == "__main__"`` for synthetic recovery checks before trusting on real data.
 """
 from __future__ import annotations
 

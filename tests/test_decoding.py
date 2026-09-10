@@ -1,6 +1,6 @@
-"""Unit tests for jnwb.decoding -- generic nested cross-validated linear-SVM population
-decoding, promoted 2026-08-23 from omission.jnwb_ext.decoding (99%-jnwb-sufficiency
-normalization). Takes plain (X, labels) arrays; no session object or task semantics.
+"""Unit tests for jnwb.decoding -- nested cross-validated linear-SVM population decoding.
+
+Takes plain (X, labels) arrays; no session object or task semantics.
 """
 from __future__ import annotations
 

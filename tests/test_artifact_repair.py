@@ -1,6 +1,5 @@
 """Unit tests for jnwb.artifact_repair -- generic trial-segmented LFP/TFR artifact
-detection-and-substitution, promoted 2026-08-23 from omission.jnwb_ext.artifact_repair
-(99%-jnwb-sufficiency normalization). These mirror the module's own `if __name__ == "__main__"`
+detection-and-substitution. These mirror the module's own `if __name__ == "__main__"`
 synthetic self-tests, converted to pytest so they run under the standard suite.
 """
 from __future__ import annotations

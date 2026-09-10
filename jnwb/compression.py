@@ -3,7 +3,7 @@
 Public entry point: :func:`compress_fp32`.
 
     import jnwb as oa
-    stats = oa.compress_fp32("D:/nwb/omission/sub-X_ses-Y.nwb")          # -> alongside, .fp32.nwb
+    stats = oa.compress_fp32("path/to/session.nwb")                       # -> alongside, .fp32.nwb
     stats = oa.compress_fp32(src, dst)                                    # explicit destination
     stats = oa.compress_fp32(src, dst, verify=False)                      # skip verification
 

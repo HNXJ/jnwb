@@ -52,17 +52,9 @@ def build_time_resolved_matrix(
         log.warning(f"No units found in area {area}")
         return np.zeros((len(epochs_df), 0, n_bins)), [], bin_centers
 
-    # Identity convention (established in jnwb/session.py and used consistently across
-    # omission.jnwb_ext.unit_classification, scripts/classify_units_shuffle_sso.py, etc.): unit identity
-    # is the raw units_df row position (units_df.index), NOT the 'unit_id' DataFrame column.
-    # 'unit_id' is a per-probe-local kilosort cluster id that can have gaps/resets relative to
-    # the row index (filtered clusters), while OmissionSession.get_spike_times's PRIMARY lookup
-    # is by row-index position. Passing the 'unit_id' column here silently fetched the WRONG
-    # unit's real spike train whenever a session's kilosort ids have gaps -- confirmed on
-    # sub-C31o_ses-230816_rec: PFC unit at row position 3 (unit_id column value 4.0) has 3470
-    # real spikes, but get_spike_times(4.0) (the old buggy call) returned a different real
-    # unit's 449-spike train (the one actually sitting at row-index 4). Using row-index
-    # everywhere below avoids that silent misattribution.
+    # Unit identity is the raw units_df row position (units_df.index), not the 'unit_id' column:
+    # kilosort cluster ids can have gaps relative to row order, while get_spike_times indexes by
+    # row position. Passing the 'unit_id' column misattributes spike trains when ids are non-contiguous.
     unit_ids = units_df.index.tolist()
     n_trials = len(epochs_df)
     n_units = len(unit_ids)
@@ -102,7 +94,7 @@ def compute_population_trajectory(
     Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.
 
     Args:
-        session: OmissionSession object
+        session: session object exposing ``get_units`` and ``get_spike_times``
         area: Brain area to decode from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
         time_window_ms: Time window in ms relative to onset

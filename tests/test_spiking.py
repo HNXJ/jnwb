@@ -1,6 +1,5 @@
 """Unit tests for jnwb.spiking -- generic spike-response metrics (firing rate/latency/z-score,
-significance classification, spike-LFP phase locking), promoted 2026-08-23 from
-omission.jnwb_ext.spiking (99%-jnwb-sufficiency normalization).
+significance classification, spike-LFP phase locking).
 """
 from __future__ import annotations
 

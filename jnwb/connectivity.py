@@ -1,14 +1,9 @@
 """
-jnwb.connectivity -- Functional Connectivity, Mutual Information, and Granger Causality
+jnwb.connectivity -- functional connectivity, mutual information, and Granger causality.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.connectivity (99%-jnwb-sufficiency normalization):
-every estimator here is modality-agnostic (LFP traces, binned spike counts, MUAe envelopes,
-band-power time courses -- any regularly sampled series) with no omission-task conditions,
-classes, or windows anywhere; the module docstring below already demonstrated usage via
-``import jnwb as oa`` before the promotion. CANONICAL_BANDS is imported from jnwb.spectral (its
-single source of truth as of the 2026-08-23 spectral.py promotion) rather than defined here.
-jnwb.jrsa's phase_slope_index delegation is now an intra-package import (see jrsa.py's
-_phase_slope).
+Every estimator is modality-agnostic (LFP traces, binned spike counts, MUAe envelopes,
+band-power time courses -- any regularly sampled series). ``CANONICAL_BANDS`` is imported from
+``jnwb.spectral``.
 
 Provides methods to compute directional functional connectivity metrics (bivariate Granger Causality),
 Shannon Mutual Information between spike trains, and network graph analysis.

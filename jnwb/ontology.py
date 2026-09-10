@@ -123,13 +123,13 @@ class Alignment:
     Reference frame for time-series data.
 
     Semantic labeling: where is time=0?
-    Examples: p1_relative, omission_relative, reward_aligned, fixation_aligned
+    Examples: stimulus_onset_relative, reward_aligned, fixation_aligned
 
     Scientific Contracts:
     - SC-003: Alignment never modifies timestamps
     - Alignment only relabels origin; data is unchanged
     """
-    name: str  # e.g., "p1_relative", "omission_slot", "reward"
+    name: str  # e.g., "stimulus_onset", "reward", "fixation"
     reference_event: str  # e.g., "stimulus_onset", "trial_start"
     phase_number: Optional[int] = None  # for stimulus-phase-relative alignment
 
@@ -193,9 +193,8 @@ class EpochCollection:
     Filtered set of trials: immutable.
 
     Created by: a project-specific factory that filters trial-level epoch data by condition
-    and phase (e.g. omission.jnwb_ext.factories.epochs_from_aligned_dataset) -- constructing
-    this requires a real trial-timing source (a session/recording object), which the generic
-    ontology objects above intentionally do not carry.
+    and phase. Constructing this requires a real trial-timing source (a session/recording
+    object), which the generic ontology objects above intentionally do not carry.
     Contains: epoch times, condition metadata, trial indices
 
     Scientific Contracts:
@@ -345,8 +344,7 @@ class Figure:
 # create_dataset_from_query and create_epochs are intentionally absent here: both need a real
 # NWB/trial-timing data source (an open session/recording object) that these generic ontology
 # objects do not carry, so a generic implementation would have nothing to read from. Projects
-# provide their own equivalents once they have a concrete data source to wire in -- e.g.
-# omission.jnwb_ext.factories.dataset_from_session and .epochs_from_aligned_dataset.
+# provide their own dataset/epoch factories once they have a concrete data source to wire in.
 
 def create_aligned_dataset(dataset: Dataset, alignment: Alignment) -> AlignedDataset:
     """Create aligned Dataset with semantic labeling."""

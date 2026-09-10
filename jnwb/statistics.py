@@ -41,9 +41,7 @@ log = logging.getLogger(__name__)
 def clopper_pearson(k, n, alpha: float = 0.05):
     """Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.
 
-    Promoted 2026-08-14 from six byte-identical independent implementations
-    (``context/figures/figstyle.py`` and five ``scripts/*.py`` aggregation scripts) --
-    proportions on this project get this, never a bootstrap.
+    Exact binomial interval via Beta quantiles (not a bootstrap).
     """
     k, n = int(k), int(n)
     if n == 0:
@@ -56,9 +54,7 @@ def clopper_pearson(k, n, alpha: float = 0.05):
 def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
     """True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
-    normalization): pure spike-array/searchsorted arithmetic on an arbitrary onset and window,
-    no session or condition coupling.
+    Pure spike-array/searchsorted arithmetic on an arbitrary onset and window.
     """
     t0 = onset_s + window_ms[0] / 1000.0
     t1 = onset_s + window_ms[1] / 1000.0
@@ -69,10 +65,7 @@ def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
 
 
 def fire_indicator(spike_times: np.ndarray, onsets_s: np.ndarray, window_ms) -> np.ndarray:
-    """Vectorized boolean fire indicator, one entry per onset, constant window.
-
-    PROMOTED 2026-08-23 alongside ``fires_in_window`` (see its docstring).
-    """
+    """Vectorized boolean fire indicator, one entry per onset, constant window."""
     return np.asarray(
         [fires_in_window(spike_times, float(o), window_ms) for o in onsets_s], dtype=bool
     )
@@ -87,10 +80,7 @@ def paired_fire_prob_test(
 ) -> Dict:
     """Paired binary test: P(fire | target window) vs P(fire | paired baseline window).
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
-    normalization): a fully generic paired-proportions inferential routine -- two plain boolean
-    arrays, an explicit RNG, and shuffle/bootstrap counts in; no session, condition, or
-    omission-slot semantics.
+    Two plain boolean arrays, an explicit RNG, and shuffle/bootstrap counts in.
 
     Significance: shuffle-null on which member of each trial's pair counts as "target"
     (sign-flip of the paired difference), alternative="greater" (tests whether the target
@@ -170,10 +160,7 @@ def paired_fire_prob_test(
 def rate_in_window(spike_times: np.ndarray, onset_s: float, window_ms: Tuple[float, float]) -> float:
     """Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_classification's private
-    ``_rate_in_window`` (99%-jnwb-sufficiency normalization): pure spike-array/searchsorted
-    arithmetic on an arbitrary onset and window, the rate-valued sibling of
-    ``fires_in_window``.
+    Rate-valued sibling of ``fires_in_window`` (spike count divided by window width).
     """
     t0 = onset_s + window_ms[0] / 1000.0
     t1 = onset_s + window_ms[1] / 1000.0
@@ -191,10 +178,6 @@ def shuffle_pvalue_paired(
     alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.
-
-    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_classification's private
-    ``_shuffle_pvalue_paired`` (99%-jnwb-sufficiency normalization): pure paired-array
-    statistics, no session or condition coupling.
 
     Null: randomly flip the sign of each paired difference (equivalent to swapping a/b labels
     within trial). Returns (observed_diff, p_value).
@@ -222,12 +205,7 @@ def shuffle_pvalue_unpaired(
     rng: np.random.Generator,
     alternative: str = "greater",
 ) -> Tuple[float, float]:
-    """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
-
-    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_classification's private
-    ``_shuffle_pvalue_unpaired`` (99%-jnwb-sufficiency normalization): pure independent-array
-    statistics, no session or condition coupling.
-    """
+    """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling."""
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     if len(a) < 2 or len(b) < 2:
@@ -250,10 +228,6 @@ def shuffle_pvalue_unpaired(
 
 def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
     """Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.
-
-    PROMOTED 2026-08-23 from omission.jnwb_ext.omission_identity (99%-jnwb-sufficiency
-    normalization): pure temporal-clustering arithmetic on a plain ``start_time`` column, no
-    condition or session coupling.
 
     Sorts ``epochs_df["start_time"]``, flags gaps that exceed ``gap_factor * median(gap)`` as
     cluster boundaries, and returns a 0-indexed integer cluster/cycle id per row, in the
@@ -283,10 +257,6 @@ def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np
 def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> np.ndarray:
     """Assign each row a temporal quantile bucket 0..n_quantiles-1 by its own start_time order.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.omission_identity (99%-jnwb-sufficiency
-    normalization): pure temporal-ordering/bucketing arithmetic, no condition or session
-    coupling.
-
     Args:
         epochs_df: DataFrame with a ``start_time`` column.
         n_quantiles: number of equal-sized (as equal as possible) temporal buckets.
@@ -313,11 +283,7 @@ def shuffle_r2_ci(
     """R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a
     shuffle-null 95% CI.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.omission_identity (99%-jnwb-sufficiency
-    normalization): pure array statistics built on the already-generic ``permute_labels``, no
-    session or condition coupling.
-
-    The CI is a percentile of the null distribution, not of the estimate -- R^2 has no closed
+    Built on ``permute_labels`` for label shuffles. The CI is a percentile of the null distribution, not of the estimate -- R^2 has no closed
     form for an exact/analytic CI the way a proportion built from counts does, so a shuffle-null
     percentile CI is used instead. If ``groups`` is given (e.g. a session or cycle id), labels
     are shuffled WITHIN each group (``permute_labels(..., scheme="within_group")``) so the null
@@ -370,14 +336,9 @@ def coef_rows(
 ) -> List[Dict]:
     """Flatten a fitted (Mixed)LM's coefficient table into one dict per term.
 
-    Promoted 2026-08-14 from byte-identical copies in ``area_subject_glmm.py`` and
-    ``fit_omission_band_power_glmm.py`` (band-power GLMM family: ``coef_rows(res, model, band,
-    extra)`` positionally, matching those two files' original signature order, still works
-    unchanged) and genericized for ``fit_population_firing_lfp_power_glmm.py``'s variant
-    (different excluded variance component and field names -- pass ``band=None,
-    extra=..., exclude_vc="session Var", estimate_key="estimate_z", stat_key="tstat"``).
     Always drops the random-effect ``"Group Var"`` term plus whichever variance-component term
-    ``exclude_vc`` names.
+    ``exclude_vc`` names. Rename estimate/stat columns via ``estimate_key`` and ``stat_key`` when
+    the fitted model uses non-default field names (e.g. z-scored outcomes).
     """
     rows = []
     exclude = {"Group Var", exclude_vc}
@@ -883,7 +844,7 @@ class StatisticalAnalysis:
         Args:
             group1, group2: Data arrays.
             hypothesis: Plain-language statement of what is being tested,
-                e.g. "FR during omission > FR during stimulus in FEF O+ units".
+                e.g. "mean rate in condition A > mean rate in condition B".
             alpha: Significance threshold (default 0.05).
             paired: Whether to use a paired test.
             n_bootstrap: Bootstrap iterations for CI.
@@ -927,10 +888,8 @@ def cross_modal_comparison(
 ) -> Dict:
     """Trial-averaged correlation between a TFR-derived signal and a spike-count signal.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.functions (99%-jnwb-sufficiency normalization):
-    takes no session or condition argument at all -- reduces ``tfr_data``/``spike_data`` to 1D
-    (averaging over frequency/trials as needed), truncates to the common length, and delegates
-    to ``StatisticalAnalysis.correlate``. No task-specific state.
+    Reduces ``tfr_data``/``spike_data`` to 1D (averaging over frequency/trials as needed),
+    truncates to the common length, and delegates to ``StatisticalAnalysis.correlate``.
 
     ``lag_range_ms`` needs a time scale to convert milliseconds to a sample-index shift, and
     neither input array carries one (they are plain 1D series after reduction, of unknown bin

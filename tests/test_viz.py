@@ -1,6 +1,6 @@
 """Unit tests for jnwb.viz -- generic plotting utilities (vector-graphics setup, tight
 auto-scaled axes, multi-page/format figure export, trial-onset resampling, array-in PSTH),
-promoted 2026-08-23 from omission.jnwb_ext.viz (99%-jnwb-sufficiency normalization).
+plotting helpers on plain matplotlib/numpy inputs.
 """
 from __future__ import annotations
 

@@ -3,10 +3,8 @@
 Added 2026-08-10 after an audit found a downstream decoder using leave-one-cycle-out CV for
 its observed statistic but a naive, ungrouped `rng.permutation(y)` for its null -- an
 exchangeability mismatch between the
-test statistic and the null it was compared against. `scripts/compute_omission_identity_
-leakage_safe.py` had already solved this correctly with a private `_within_cycle_permutation`
-helper; this module promotes that fix to a single, shared, explicit-scheme primitive so the
-same bug cannot recur silently under a different filename.
+test statistic and the null it was compared against. This module provides a single, shared,
+explicit-scheme primitive so grouped nulls cannot silently fall back to ungrouped shuffles.
 
 Every call site MUST name a `scheme` explicitly -- there is no default. A bare
 `rng.permutation(y)` inside grouped/session-structured decoding is what created this bug in the
@@ -84,10 +82,8 @@ def build_permutation_plan(
     """Create an explicit within-group null plan (a manifest of digested draws); no model
     fitting occurs.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.structured_identity (99%-jnwb-sufficiency
-    normalization) as a sibling to ``permute_labels``: it wraps that primitive with a
-    reproducible manifest (per-draw seed and label digest) and never references omission's
-    condition or trial semantics.
+    Sibling to ``permute_labels``: wraps that primitive with a reproducible manifest (per-draw
+    seed and label digest).
 
     Args:
         labels: label array, any dtype.

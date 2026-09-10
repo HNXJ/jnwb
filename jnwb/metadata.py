@@ -1,26 +1,9 @@
 """
-jnwb.metadata -- generic unit and electrode metadata extraction, QC classification, and
-census reporting for any NWB electrophysiology dataset.
+jnwb.metadata -- unit and electrode metadata extraction, QC classification, and census
+reporting for NWB electrophysiology datasets.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.metadata (99%-jnwb-sufficiency normalization):
-despite the module's original "for Omission NWB Files" framing, nothing here references
-omission conditions, trials, or classes -- every function operates on the standard NWB
-units/electrodes table columns (snr, firing_rate, quality, peak_channel_id, ...) that any
-NWB file exposes.
-
-Originally consolidated from archived X-files:
-- build_comprehensive_grand_table.py
-- build_dataset_census.py
-- build_area_probe_metadata_inventory.py
-- classify_units_s_s_o.py
-- check_quality_*.py (quality assessment)
-- check_snr*.py (SNR analysis)
-
-Provides high-level functions for extracting, classifying, and reporting on unit metadata
-across multiple NWB sessions.
-
-Author: Migrated from archived scripts
-Date: 2026-06-25
+Functions operate on standard NWB units/electrodes table columns (snr, firing_rate, quality,
+peak_channel_id, ...) exposed by any file.
 """
 
 import logging
@@ -118,9 +101,7 @@ def filter_by_criteria(
     """
     Apply a criteria dict to a DataFrame (units, electrodes, or any other table).
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.functions._filter_units
-    (99%-jnwb-sufficiency normalization): fully generic pandas filtering, no
-    unit- or omission-specific logic despite the original private name.
+    Generic pandas filtering on any table schema.
 
     Supports:
     - scalar equality  : {'area': 'V1'}
@@ -380,9 +361,7 @@ def audit_units(units_df: pd.DataFrame) -> Dict:
     Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate
     summary statistics.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.diagnostics._audit_units
-    (99%-jnwb-sufficiency normalization): operates only on the standard NWB units-table columns
-    (spike_times, quality, snr, firing_rate) with no omission-task coupling.
+    Operates on standard NWB units-table columns (spike_times, quality, snr, firing_rate).
 
     Args:
         units_df: units DataFrame, e.g. from :func:`get_all_units_metadata`.
@@ -457,10 +436,7 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
     """
     Audit electrode configuration and unit-to-electrode mapping coverage.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.diagnostics._audit_electrodes
-    (99%-jnwb-sufficiency normalization): operates only on the standard NWB electrodes-table
-    ``location`` column and units-table ``peak_channel_id`` column, with no omission-task
-    coupling.
+    Operates on electrodes-table ``location`` and units-table ``peak_channel_id`` when present.
 
     Args:
         elec_df: electrodes DataFrame.
@@ -502,10 +478,8 @@ def assign_quality_tier(
 ) -> pd.Series:
     """Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency
-    normalization): three plain Series and two thresholds in, a tier Series out -- no column
-    names are looked up internally (they're passed in as Series), no session or condition
-    coupling.
+    Three plain Series and two thresholds in; a tier Series out. Column names are not looked up
+    internally -- callers pass Series explicitly.
 
     quality==0 -> 'mua' (a common Kilosort-curation convention: is_stable = quality>=1).
     quality==1 & presence>presence_threshold & snr>snr_threshold -> 'stable'.

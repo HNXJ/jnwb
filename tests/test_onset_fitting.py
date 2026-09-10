@@ -1,6 +1,5 @@
 """Unit tests for jnwb.onset_fitting -- causal PSTH smoothing + causality-bounded exponential
-onset-latency fit, promoted 2026-08-23 from omission.jnwb_ext.onset_fitting
-(99%-jnwb-sufficiency normalization). These mirror the module's own `if __name__ == "__main__"`
+onset-latency fit. These mirror the module's own `if __name__ == "__main__"`
 synthetic self-tests, converted to pytest so they run under the standard suite.
 """
 from __future__ import annotations

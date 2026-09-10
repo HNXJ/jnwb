@@ -1,28 +1,12 @@
 """
-jnwb.decoding -- generic nested cross-validated linear-SVM population decoding: takes a plain
-(n_trials, n_features) matrix and integer labels, returns accuracy/F1/AUC/majority-baseline
-with no fabricated metrics under degenerate conditions.
+jnwb.decoding -- nested cross-validated linear-SVM population decoding on plain arrays.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.decoding (99%-jnwb-sufficiency normalization):
-``nested_cv_linear_svm`` (formerly the private ``_nested_cv_linear_svm``) and its majority-
-baseline helpers never touch a session object, condition code, or feature-construction
-method -- they operate purely on ``X``/``labels`` arrays, so they generalize to any population
-decoding problem (spike counts, band power, TFR features, ...). ``build_spike_count_matrix``,
-``decode_stimulus_identity``, and ``decode_omission_presence`` stay in
-omission.jnwb_ext.decoding: they are irreducibly coupled to ``OmissionSession``'s API and this
-task's condition-pair semantics (e.g. "AAAB" vs "BBBA"), and now call this module instead of
-duplicating the CV/scoring logic.
-
-PROMOTED 2026-08-23 (same normalization pass) from omission.jnwb_ext.structured_identity:
-``assign_outer_folds``, ``build_inner_validation_partitions``, and ``build_representation_ladder``
-operate on a plain trial DataFrame (grouped by caller-supplied ``analysis_cols``/``group_col``)
-or a plain ``(n_trials, n_space, n_time)`` array -- no reference to omission's condition codes,
-sequence semantics, or session objects. They generalize to any grouped leave-one-group-out CV
-geometry / representation-contract problem. ``build_canonical_trial_table``,
-``build_milestone_receipt``, and the positive-control row builders stay in
-omission.jnwb_ext.structured_identity: they are irreducibly coupled to this task's trial
-ontology and condition semantics.
-
+``nested_cv_linear_svm`` and its majority-baseline helpers operate on ``(n_trials,
+n_features)`` matrices and integer labels with no session object or task-specific feature
+construction. Fold-partition helpers (``assign_outer_folds``,
+``build_inner_validation_partitions``, ``build_representation_ladder``) operate on caller-
+supplied trial tables or ``(n_trials, n_space, n_time)`` arrays. Session-bound feature
+matrices and task-specific decoders belong in downstream project code.
 """
 
 from __future__ import annotations

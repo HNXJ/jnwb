@@ -1,6 +1,5 @@
 """Unit tests for jnwb.metadata -- generic unit/electrode metadata extraction, QC
-classification, and census reporting, promoted 2026-08-23 from omission.jnwb_ext.metadata
-(99%-jnwb-sufficiency normalization). The NWB-reading functions (get_all_units_metadata,
+classification, and census reporting. The NWB-reading functions (get_all_units_metadata,
 electrode_inventory) are exercised elsewhere against real files (omission/tests/); these tests
 cover the pure DataFrame-transform functions with synthetic data, plus the public-API surface.
 """

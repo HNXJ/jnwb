@@ -1,6 +1,5 @@
 """Unit tests for jnwb.spectral -- generic spectral/oscillatory analysis (band power,
-cross-area coherence, 1/f tilt, imaginary coherency, re-referencing), promoted 2026-08-23
-from omission.jnwb_ext.spectral (99%-jnwb-sufficiency normalization).
+cross-area coherence, 1/f tilt, imaginary coherency, re-referencing).
 """
 from __future__ import annotations
 

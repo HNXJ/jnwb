@@ -1,55 +1,25 @@
 r"""
-jnwb.artifact_repair -- generic trial-segmented LFP/TFR artifact detection-and-substitution.
+jnwb.artifact_repair -- trial-segmented LFP/TFR artifact detection-and-substitution.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.artifact_repair (99%-jnwb-sufficiency normalization):
-the method here is fully generic -- it operates on plain (n_trials, n_channels, n_times) /
-(n_trials, n_channels, n_freqs, n_times) arrays with no omission-task conditions, classes, or
-windows baked in. `jnwb.artifact_detection` (bad-channel/bad-trial EXCLUSION) already
-cross-referenced this module by name as its natural sibling before the promotion -- see that
-module's own docstring. The two example numbers below (Z_THRESH=6.0, REWARD_WINDOW_MS) are
-defaults tuned on the omission corpus during development, not omission-specific logic: both are
-ordinary keyword arguments, fully overridable (pass `reward_window_ms=None` to disable that
-default entirely) by any caller on any corpus.
+Operates on plain (n_trials, n_channels, n_times) or (n_trials, n_channels, n_freqs, n_times)
+arrays. Sibling to `jnwb.artifact_detection` (bad-channel/bad-trial exclusion). Defaults such
+as Z_THRESH=6.0 and REWARD_WINDOW_MS are overridable keyword arguments.
 
 Single source of truth for cross-channel-synchrony detection + cross-trial-median substitution
 on raw (or band-filtered) LFP trial segments, shape (n_trials, n_channels, n_times). Do not
 duplicate this logic per-script; import from here.
 
-WHY THIS EXISTS / RECEIPT (historical record from the omission corpus that motivated this method)
-    artifacts/.lab/lfp-movement-artifact-v198o-v182o-20260806.json documents, on this corpus,
-    synchronous broadband impulses in raw LFP for subjects V198o and V182o (not C31o), confirmed
-    two independent ways:
-      (1) a cross-channel-synchrony detector: per-channel robust z-score via
-          (x - median) / (1.4826*MAD), then median(|z|) ACROSS CHANNELS per timepoint -- a
-          genuine shared deflection pushes most channels' |z| up together, independent
-          per-channel noise does not. Validated threshold Z_THRESH=6.0 (lowered from an initial
-          8 per user direction 2026-08-06). This is the detector geometry used here: raw-LFP
-          movement artifacts are synchronous ACROSS CHANNELS WITHIN A TRIAL, a different
-          geometry from the TFR-domain fix below (which is synchronous ACROSS TRIALS at a given
-          band/time, within one channel-averaged trace).
-      (2) a cross-trial-median detector (median/MAD computed per-channel, POOLED across trials
-          and timepoints, not per-instant -- a per-instant MAD is itself inflated during a real
-          evoked response and was shown to mask the single largest event in the reference
-          dataset). That detector's own validated threshold is z=15, NOT reusable here -- it is
-          a differently-scaled statistic (heavy-tailed, 99.9th pctile |z|~8.3) built to catch
-          non-time-locked single-trial spikes, and is a documented example in the same lab
-          record of a threshold that does NOT transfer between differently-constructed z-scores.
-          This module's Z_THRESH=6.0 default is the (1) cross-channel-synchrony threshold, not
-          the (2) cross-trial-median one -- do not conflate the two numbers.
-    A critical confound was also found and fixed in the same record: reward is delivered at an
-    essentially fixed post-p1 latency (V182o 4139-4142ms, V198o 4120-4138ms, <20ms jitter across
-    trials, measured directly from the reward_1_tracking channel). Lowering the synchrony
-    threshold started catching this reward-locked transient, which is a distinct phenomenon the
-    user explicitly separated from "movement artifact in correct trials". This module excludes
-    samples within REWARD_WINDOW_MS=(4000, 4300) ms of trial (p1) onset from repair eligibility,
-    by default, mirroring `repair_lfp_movement_artifacts.py::reward_adjacent_mask`.
+DETECTION GEOMETRY (raw LFP trials)
+    Cross-channel synchrony: per-channel robust z within each trial, then median(|z|) across
+    channels per timepoint. Shared deflections raise most channels together; independent noise
+    does not. Default Z_THRESH=6.0 applies to this synchrony statistic (not to unrelated
+    cross-trial pooled z-scores). Optionally exclude samples near a fixed post-onset reward
+    window via REWARD_WINDOW_MS so reward-locked transients are not repaired as movement.
 
-METHOD (this module -- a THIRD variant, built 2026-08-13, not identical to either prior script)
-    Prior scripts (`scripts/repair_lfp_movement_artifacts.py`) detected via cross-channel
-    synchrony but repaired via per-channel linear interpolation flanking each detected interval.
-    Per direct instruction, this module instead repairs via CROSS-TRIAL-MEDIAN SUBSTITUTION --
-    the same pattern as `context/figures/fig_v1_omission_band_dynamics/band_power_dynamics.py
-    ::repair_band_artifacts` (TFR-domain), applied here to raw/band-filtered amplitude:
+METHOD (cross-trial-median substitution on trial segments)
+    Detect via cross-channel synchrony; repair via CROSS-TRIAL-MEDIAN SUBSTITUTION (same
+    substitution pattern as ``repair_band_artifacts`` in the TFR domain), applied to raw or
+    band-filtered amplitude:
       1. Per trial, per channel: robust z of that channel's own within-trial values,
          z[trial, ch, t] = (x - median_t(x)) / (1.4826 * MAD_t(x)).
       2. synchrony[trial, t] = median over channels of |z[trial, :, t]| -- one non-negative
@@ -64,16 +34,11 @@ METHOD (this module -- a THIRD variant, built 2026-08-13, not identical to eithe
          repair_band_artifacts, not a temporal interpolation. For every flagged (trial, time),
          ALL channels at that time index are replaced by this cross-trial median. Substitution,
          not exclusion: the trial is kept.
-    This trades detection power (per-trial local channel-count and per-trial MAD, vs the
-    session-wide continuous scan in repair_lfp_movement_artifacts.py) for operating directly on
-    the (n_trials, n_channels, n_times) contract every downstream extraction script already
-    uses, avoiding a second raw-session h5py pass. n_trials < 5 disables repair (cross-trial
-    median undefined / meaningless at that replicate count), matching repair_band_artifacts.
+    Operates on the (n_trials, n_channels, n_times) contract directly. n_trials < 5 disables
+    repair (cross-trial median undefined at low replicate count).
 
-UNIT TEST: see `if __name__ == "__main__"` below -- synthetic (n_trials, n_channels, n_times)
-array with one obvious injected cross-channel spike, checked before trusting this on real data
-(per omission-signal skill: "verify a new spectral [here: repair] implementation against a
-synthetic signal of known ... before running it on data").
+UNIT TEST: see `if __name__ == "__main__"` below -- synthetic array with an injected cross-channel
+spike, checked before trusting on real data.
 """
 from __future__ import annotations
 
@@ -281,17 +246,7 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
                           sided="upper"):
     """Per-band, cross-trial-median substitution of sparse single-trial TFR power spikes.
 
-    Promoted 2026-08-14 from ``context/figures/fig_v1_omission_band_dynamics/
-    band_power_dynamics.py::repair_band_artifacts`` (byte-identical logic) into this module's
-    "single source of truth" home, per the 2026-08-14 finding that TFR condition-map extraction
-    (``scripts/extract_condition_tfr_maps_v2.py``) had no artifact rejection at all -- every
-    trial's power was averaged into the session mean regardless of whether it carried a sharp,
-    single-trial power spike absent from the other trials of the same condition. The original
-    copy in band_power_dynamics.py is left as-is (out of scope to edit a live figure script for
-    this promotion); keep the two in sync if either changes, same caveat already carried by this
-    module's ``flagged_to_intervals``/``interpolate_intervals`` promotion above.
-
-    2026-08-13 revision (carried over): detection runs separately per band (not pooled 3-200 Hz)
+    Detection runs separately per band (not pooled 3-200 Hz)
     so a spike confined to one band cannot be diluted below threshold by ~99 mostly-unaffected
     frequency rows.
 

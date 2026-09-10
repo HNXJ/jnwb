@@ -1,8 +1,8 @@
 """End-to-end integration test: a representative NWB analysis workflow built entirely from
 jnwb's public API, on synthetic in-memory data, with zero omission/ involvement.
 
-This is the executable form of the 99%-jnwb-sufficiency terminal test ("if omission disappeared,
-jnwb would remain a coherent, independently useful neuroscience/NWB library"). Unlike the
+Standalone composability check: jnwb's public API chains into a coherent workflow without any
+downstream project package on the import path. Unlike the
 per-function unit tests elsewhere in tests/, this chains several jnwb domains together the way a
 fresh external project actually would: unit metadata QC -> spike-response classification ->
 LFP spectral/connectivity analysis -> population decoding -> a shuffle-null permutation check ->

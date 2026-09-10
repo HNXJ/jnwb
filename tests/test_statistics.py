@@ -1,6 +1,5 @@
 """Unit tests for jnwb.statistics's paired fire-probability testing primitives
-(fires_in_window, fire_indicator, paired_fire_prob_test), promoted 2026-08-23 from
-omission.jnwb_ext.unit_inclusion (99%-jnwb-sufficiency normalization). Plain spike-time/onset
+(fires_in_window, fire_indicator, paired_fire_prob_test). Plain spike-time/onset
 arrays and boolean pairs in; no session or condition semantics.
 """
 from __future__ import annotations

@@ -23,8 +23,7 @@ import matplotlib.gridspec as gridspec
 
 log = logging.getLogger(__name__)
 
-# Palette constants (generic; formerly imported from the omission-specific viz module,
-# duplicated here directly since jnwb/ must not depend on omission/).
+# Palette constants duplicated here so jnwb/ has no downstream-project import dependency.
 MADELANE_GOLD = "#CFB87C"
 MADELANE_VIOLET = "#9400D3"
 MADELANE_WHITE = "#FFFFFF"

@@ -1,27 +1,10 @@
 """
-jnwb.spectral -- generic spectral/oscillatory analysis: band-limited power, cross-area
-coherence, 1/f tilt, imaginary coherency, and re-referencing, for any LFP time series.
+jnwb.spectral -- spectral/oscillatory analysis: band-limited power, cross-area coherence,
+1/f tilt, imaginary coherency, and re-referencing for LFP time series.
 
-PROMOTED 2026-08-23 from omission.jnwb_ext.spectral (99%-jnwb-sufficiency normalization): all
-functions take plain time-series arrays and generic keyword parameters, with no omission-task
-conditions/classes anywhere. CANONICAL_BANDS below is the single-source-of-truth band-edge
-default (moved here from omission.jnwb_ext.connectivity, which now re-exports it rather than
-defining a second copy -- see that module's own docstring note "no second, pre-correction
-copy"); the band edges (theta/alpha/beta/gamma) are the standard neuroscience convention this
-corpus settled on, not omission-specific values, and remain fully overridable via the
-freq_bands= parameter.
-
-Originally: new orthogonal jnwb module for spectral/oscillatory analysis, consolidating
-advanced spectral functions from archived Y-files:
-- harmonic/ folder
-- coherence/ folder
-- spectral_relations_pipeline (selected methods)
-
-Provides functions for analyzing frequency-band specific activity,
-cross-area synchronization, and spectral hierarchy.
-
-Author: New jnwb module
-Date: 2026-06-25
+All functions take plain time-series arrays and generic keyword parameters. ``CANONICAL_BANDS``
+is the default band-edge table (theta/alpha/beta/gamma); override via ``freq_bands=`` on any
+caller that accepts it.
 """
 
 import logging
@@ -36,9 +19,7 @@ from ._parallel import parallel_map
 
 log = logging.getLogger(__name__)
 
-#: Settled band edges (Hz) -- standard neuroscience convention, not omission-specific.
-#: Single source of truth: omission.jnwb_ext.connectivity.CANONICAL_BANDS re-exports this
-#: constant rather than defining a second copy (see that module's docstring).
+#: Default band edges (Hz) -- standard neuroscience convention; overridable per call.
 CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
     "theta": (4.0, 8.0),
     "alpha": (8.0, 14.0),
@@ -174,9 +155,7 @@ def aggregate_to_db(
 def compute_psd(lfp_data: np.ndarray, fs: float):
     """Welch power spectral density of a plain LFP array.
 
-    PROMOTED 2026-08-23 from omission.jnwb_ext.report (99%-jnwb-sufficiency normalization): a
-    thin, generic ``scipy.signal.welch`` wrapper with no session, condition, or report-specific
-    coupling.
+    Thin ``scipy.signal.welch`` wrapper on caller-supplied traces.
 
     Args:
         lfp_data: (n_times,) or (n_times, n_channels) array.

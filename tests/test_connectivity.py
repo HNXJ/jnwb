@@ -1,9 +1,7 @@
-"""Unit tests for jnwb.connectivity -- modality-agnostic functional connectivity (mutual
-information, Granger causality, phase slope index, transfer entropy), promoted 2026-08-23 from
-omission.jnwb_ext.connectivity (99%-jnwb-sufficiency normalization). Deep behavioral coverage
-(surrogate determinism, conditioning, spectral-Geweke agreement, etc.) already lives in
-omission/tests/test_decoding_connectivity.py against the same functions via the jnwb.connectivity
-redirect; these tests cover the public-import surface plus one smoke test per estimator.
+"""Unit tests for jnwb.connectivity -- functional connectivity estimators.
+
+Covers the public-import surface plus one smoke test per estimator. Deeper behavioral coverage
+may live in downstream project test suites that call the same jnwb functions.
 """
 from __future__ import annotations
 

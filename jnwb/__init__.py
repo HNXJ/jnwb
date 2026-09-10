@@ -68,8 +68,7 @@ from .trajectory import (
 # jnwb/permutation.py's module docstring for the exchangeability bug it fixed).
 from .permutation import permute_labels, build_permutation_plan
 
-# Generic trial-segmented artifact detection-and-substitution (promoted 2026-08-23 from
-# omission.jnwb_ext.artifact_repair; see jnwb/artifact_repair.py's module docstring).
+# Trial-segmented artifact detection-and-substitution (see jnwb/artifact_repair.py).
 from .artifact_repair import (
     repair_lfp_trials,
     repair_band_artifacts,
@@ -91,9 +90,7 @@ from .filtering import (
     notch_filter,
 )
 
-# Generic spectral analysis: band-limited power, cross-area coherence, 1/f tilt, imaginary
-# coherency, re-referencing (promoted 2026-08-23 from omission.jnwb_ext.spectral; see
-# jnwb/spectral.py's module docstring).
+# Spectral analysis: band-limited power, coherence, 1/f tilt, imaginary coherency, re-referencing.
 from .spectral import (
     to_db,
     aggregate_to_db,
@@ -112,9 +109,7 @@ from .spectral import (
     current_source_density_1d,
 )
 
-# Modality-agnostic functional connectivity: mutual information, Granger causality, phase
-# slope index, transfer entropy (promoted 2026-08-23 from omission.jnwb_ext.connectivity; see
-# jnwb/connectivity.py's module docstring).
+# Functional connectivity: mutual information, Granger causality, phase slope index, transfer entropy.
 from .connectivity import (
     spike_mutual_information,
     binary_occupancy_mutual_information,
@@ -132,9 +127,7 @@ from .connectivity import (
     directed_network,
 )
 
-# Generic spike-response metrics: firing rate/latency/z-score relative to behavioral epochs,
-# significance classification, spike-LFP phase locking (promoted 2026-08-23 from
-# omission.jnwb_ext.spiking; see jnwb/spiking.py's module docstring).
+# Spike-response metrics: firing rate/latency/z-score, significance classification, phase locking.
 from .spiking import (
     compute_response_metrics,
     classify_response_significance,
