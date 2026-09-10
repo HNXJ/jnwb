@@ -15,6 +15,7 @@ reintroduces a project coupling. These tests are.
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -120,18 +121,23 @@ class TestJnwbFrozenBoundary:
         script = (
             "import sys\n"
             "class _BlockOmission:\n"
-            "    def find_module(self, name, path=None):\n"
-            "        if name == 'omission' or name.startswith('omission.'):\n"
+            "    def find_spec(self, fullname, path=None, target=None):\n"
+            "        if fullname == 'omission' or fullname.startswith('omission.'):\n"
             "            raise ImportError('omission/ blocked for this test')\n"
             "        return None\n"
             "sys.meta_path.insert(0, _BlockOmission())\n"
-            f"sys.path.insert(0, {str(REPO_ROOT)!r})\n"
             "import jnwb\n"
             "print('JNWB_IMPORT_OK', jnwb.__version__)\n"
         )
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
         result = subprocess.run(
             [sys.executable, "-c", script],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            cwd=str(REPO_ROOT),
         )
         assert result.returncode == 0 and "JNWB_IMPORT_OK" in result.stdout, (
             "`import jnwb` failed with omission/ blocked from sys.path -- jnwb/ is not actually "
