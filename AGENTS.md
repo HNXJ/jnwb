@@ -30,7 +30,7 @@ library. Anything else needs a strong reason stated at the change site.
 | `examples/notebooks/` | Notebooks on synthetic data; `tests/test_notebooks.py` executes every one |
 | `pyproject.toml` | Version source, dependencies, Python floor |
 | `CHANGELOG.md` | What changed per release, including breaking changes |
-| `.github/workflows/workflow.yml` | CI: tests on 3.12 and 3.14 (Ubuntu, Windows), build, docs. A `v*` tag push publishes to PyPI; an `rc` tag goes to TestPyPI |
+| `.github/workflows/workflow.yml` | CI: tests on 3.12 and 3.14 (Ubuntu, Windows), build, docs. Tag push validates only; production PyPI on GitHub Release `published`; `rc`/prerelease → TestPyPI |
 
 ## 1. Evidence
 

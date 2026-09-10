@@ -90,11 +90,16 @@ Maintainers only, and only from a clean `dev` with all four checks green.
    entry.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit.
 3. Fast-forward `main` to `dev` and push it.
-4. Tag `vX.Y.Z` and push the tag. **The tag push is what publishes** — the workflow's
-   `publish-pypi` job runs on a non-`rc` `v*` tag, so no API token is needed, only git.
-   An `rc` tag goes to TestPyPI instead.
-5. Verify the result from PyPI, in a fresh venv, rather than trusting the workflow's green
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) only — it does **not**
+   upload to PyPI.
+5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
+   job runs on `release: published` and uploads to production PyPI via trusted publishing.
+6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
+
+**TestPyPI:** push an `rc` tag (`vX.Y.ZrcN`) or publish a GitHub Release marked prerelease;
+either path runs the `publish-testpypi` job. `workflow_dispatch` with target `testpypi` is
+also available for maintainers.
 
 ## Reporting a problem
 

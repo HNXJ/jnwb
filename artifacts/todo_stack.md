@@ -11,34 +11,6 @@ no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## Release / packaging workflow (GitHub Release before PyPI)
-
-0.1.6 evidence: tag push published a **valid** PyPI artifact; a later GitHub Release
-re-ran CI and `publish-pypi` received `400 File already exists` for
-`jnwb-0.1.6-py3-none-any.whl` — duplicate-attempt noise, not a defective package.
-
-**Canonical order:** validated `main` → push tag `vX.Y.Z` → publish **GitHub Release** for
-that tag → **then** PyPI upload → verify from PyPI in a fresh venv.
-
-- `CONTRIBUTING.md` § Releasing → rewrite steps so tag push validates (test + build) only;
-  GitHub Release `published` triggers production PyPI; TestPyPI/`rc` behavior explicit →
-  maintainer checklist matches workflow.
-- `.github/workflows/workflow.yml` `publish-pypi` `if:` → restrict to
-  `github.event_name == 'release' && github.event.action == 'published' &&
-  !github.event.release.prerelease`; remove non-`rc` production publish on tag `push` →
-  tag-only push never calls `upload.pypi.org`; `release: published` does not re-emit release
-  (no publish↔release cycle); build still `needs:` test in same run.
-- **Do not add `skip-existing: true`** unless an independently reproduced GitHub-release
-  lifecycle requires it after topology correction. Duplicate production upload must **fail
-  loudly** (evidence of unexpected second path or artifact mismatch), not be silently
-  normalized. Correct trigger topology is the primary guard.
-- `tests/test_workflow_release_policy.py` (new) → assert production PyPI unreachable from
-  tag push alone; assert `release` + `published` required; assert prerelease cannot reach
-  production PyPI; regression fixture for the 0.1.6 dual-trigger `if:` →
-  `python -m pytest tests/test_workflow_release_policy.py -q`.
-- `AGENTS.md` §0 workflow map + any `docs/11_extending_and_development.md` release prose →
-  align with GitHub-Release-before-PyPI; no doc claims tag push alone publishes.
-
 ## Harness authority (`AGENTS.md`, `CLAUDE.md`, gate wording)
 
 - `CLAUDE.md` → stale vs current harness: references absent `omission/CLAUDE.md`, old freeze
@@ -223,7 +195,6 @@ itself a defect.
 - Runtime-generated `docs/api.md` diff gate (above).
 - Internal `.md` link resolver for MkDocs corpus (+ `docs/README.md` policy).
 - Non-blocking `jnwb/` comment/docstring neutrality report (above).
-- Workflow release policy test (above).
 - Skills signature probes (above).
 - Each gate has adversarial fixture proving it catches a known defect →
   `tests/test_harness_adversarial_gates.py` extended.
