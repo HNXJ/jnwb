@@ -71,7 +71,10 @@ def panel_band_power(ax) -> str:
     base = rng.normal(0, 1, t.size)
     boost = base + 3.0 * np.sin(2 * np.pi * 22.0 * t)            # a real beta increase
     names = list(jnwb.CANONICAL_BANDS)
-    db = [jnwb.band_power(boost, FS, jnwb.CANONICAL_BANDS[b], baseline=base) for b in names]
+    db = [
+        jnwb.band_power(boost, fs=FS, freq_range=jnwb.CANONICAL_BANDS[b], baseline=base)
+        for b in names
+    ]
     cols = ["#0000EE", "#EE0000", "#FF8C00", "#FF00FF", "#00A000"]
     ax.bar(range(len(names)), db, color=cols, width=0.62)
     ax.axhline(0, color="#444444", lw=0.8)

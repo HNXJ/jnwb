@@ -19,14 +19,14 @@ import numpy as np
 
 Pick the appropriate pipeline module for your analytical question:
 
-| Goal | Primary Module | Core Function / Class | Output Type |
-|------|----------------|-----------------------|-------------|
-| **Trial QC & Cleaning** | `jnwb.artifacts` | `repair_lfp_trials` | `Tuple[ndarray, float, dict]` |
-| **Spectral Dynamics** | `jnwb.tfr` | `complex_tfr`, `compute_psd` | `ComplexTFR`, `Tuple[ndarray, ndarray]` |
-| **Directed Interaction** | `jnwb.directed` | `phase_slope_index`, `granger` | `DirectedResult` |
-| **Spiking & Latencies** | `jnwb.spiking` | `raster_psth`, `fit_exponential_onset` | `Tuple[ndarray, ndarray, ndarray]`, `dict` |
-| **Hypothesis Testing** | `jnwb.stats` | `paired_fire_prob_test`, `permute_labels` | `dict` |
-| **Representational Geometry** | `jnwb.jrsa` | `jrsa` | `JRSAResult` |
+| Goal | Primary entry points | Core function / class | Output type |
+|------|---------------------|------------------------|-------------|
+| **Trial QC & cleaning** | `jnwb.repair_lfp_trials`, `jnwb.bad_channels_from_correlation` | artifact repair + detection | `tuple`, masks |
+| **Spectral dynamics** | `jnwb.complex_tfr`, `jnwb.compute_multitaper_psd` | TFR + PSD | `ComplexTFR`, arrays |
+| **Directed interaction** | `jnwb.phase_slope_index`, `jnwb.granger` | PSI, Granger | `DirectedResult` |
+| **Spiking & latencies** | `jnwb.raster_psth`, `jnwb.fit_exponential_onset` | PSTH + onset fit | arrays, `dict` |
+| **Hypothesis testing** | `jnwb.paired_fire_prob_test`, `jnwb.permute_labels` | paired test + permutation | `dict` |
+| **Representational geometry** | `jnwb.jrsa` | jRSA | `JRSAResult` |
 
 ---
 
@@ -85,8 +85,8 @@ Compute robust, phase-slope directionality between two time series with phase-ra
 sig_a = rng.normal(size=1000)
 sig_b = np.roll(sig_a, 5) + 0.5 * rng.normal(size=1000)
 
-psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, freq_range=(8.0, 30.0), n_surrogates=50, seed=0)
-print(f"PSI Score: {psi.score:.4f}, p-value: {psi.p_value:.4f}")
+psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, seed=0)
+print(f"PSI X->Y: {psi.x_to_y:.4f}, p-value: {psi.p_x_to_y:.4f}")
 ```
 
 ### 4. Spiking PSTH & Onset Dynamics
@@ -128,6 +128,6 @@ Compare multi-condition activity patterns across modalities, areas, or models:
 X = rng.normal(size=(6, 16, 50))
 Y = X + 0.3 * rng.normal(size=(6, 16, 50))
 
-jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, n_permutations=100)
-print(f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {jrsa_res.p_value:.4f}")
+jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, random_state=0)
+print(f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}")
 ```

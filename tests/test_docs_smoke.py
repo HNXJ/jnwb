@@ -155,3 +155,17 @@ class TestDocsSmokeFixtures:
         jnwb.save_figure_suite([fig], output_dir=out_suite, basename="test_fig", formats=["png"])
         assert (out_suite / "test_fig_page1.png").exists()
         plt.close(fig)
+
+    def test_doc_quickstart_psi_and_jrsa_blocks(self, rng):
+        sig_a = rng.normal(size=1000)
+        sig_b = np.roll(sig_a, 5) + 0.5 * rng.normal(size=1000)
+        psi = jnwb.phase_slope_index(
+            sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, seed=0,
+        )
+        assert psi.p_x_to_y is not None
+
+        X = rng.normal(size=(6, 16, 50))
+        Y = X + 0.3 * rng.normal(size=(6, 16, 50))
+        jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, random_state=0)
+        assert jrsa_res.p is not None
+        assert jrsa_res.parameters["permutations"] == 100

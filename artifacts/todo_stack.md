@@ -15,15 +15,6 @@ no known material defect; an empty stack alone is insufficient.
 
 ## Executable documentation defects
 
-- `docs/quickstart.md` workflow table → wrong modules (`jnwb.artifacts`, `jnwb.directed`,
-  `jnwb.stats`, misplaced `compute_psd`, `raster_psth`/`fit_exponential_onset`) → real module
-  paths or top-level exports → `mkdocs build --strict`; import checks.
-- `docs/quickstart.md` §3 PSI → `freq_range=`, `psi.score`/`psi.p_value` invalid →
-  `bands=`, `psi.x_to_y`, `psi.p_x_to_y` → execute snippet.
-- `docs/quickstart.md` §6 jRSA → `n_permutations=` ignored; `jrsa_res.p_value` invalid →
-  `permutations=`, `jrsa_res.p` → execute snippet; `parameters['permutations']==100`.
-- `examples/quickstart_jnwb.py:74` `band_power` positional args → `fs=`/`freq_range=` →
-  `python examples/quickstart_jnwb.py` exits 0.
 - `docs/07_statistical_inference_and_nulls.md` §4–5 → wrong
   `build_permutation_plan`/`detect_trial_cycles`/`assign_subblock_quartiles` signatures →
   match runtime → extend `tests/test_docs_smoke.py`.
