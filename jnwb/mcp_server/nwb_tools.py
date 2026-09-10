@@ -1,7 +1,7 @@
 import h5py
 from pathlib import Path
 from typing import Dict, Any
-from pynwb import NWBHDF5IO
+from jnwb.nwb_io import nwb_read_io
 from jnwb.mcp_server.server import mcp
 
 @mcp.tool()
@@ -24,7 +24,7 @@ def inspect_nwb(file_path: str) -> Dict[str, Any]:
         
     try:
         # Extract metadata via PyNWB
-        with NWBHDF5IO(str(path), 'r', load_namespaces=True) as io:
+        with nwb_read_io(str(path), load_namespaces=True) as io:
             nwb = io.read()
             session_description = str(nwb.session_description) if nwb.session_description else ""
             identifier = str(nwb.identifier) if nwb.identifier else ""

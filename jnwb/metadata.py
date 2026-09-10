@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
-from pynwb import NWBHDF5IO
+from jnwb.nwb_io import nwb_read_io
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ def get_all_units_metadata(
         session_id = nwb_path.stem.split("ses-")[1].split("_")[0] if "ses-" in nwb_path.stem else nwb_path.stem
 
         try:
-            with NWBHDF5IO(str(nwb_path), 'r', load_namespaces=True) as io:
+            with nwb_read_io(str(nwb_path), load_namespaces=True) as io:
                 nwb = io.read()
 
                 # Extract units
@@ -309,7 +309,7 @@ def electrode_inventory(
         session_id = nwb_path.stem.split("ses-")[1].split("_")[0] if "ses-" in nwb_path.stem else nwb_path.stem
 
         try:
-            with NWBHDF5IO(str(nwb_path), 'r', load_namespaces=True) as io:
+            with nwb_read_io(str(nwb_path), load_namespaces=True) as io:
                 nwb = io.read()
 
                 if nwb.electrodes is None:

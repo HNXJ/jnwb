@@ -4,6 +4,16 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **HDMF builder repairs are scoped to jnwb-owned NWB reads** (`jnwb.nwb_io.read_nwb`,
+  `nwb_read_io`). `import jnwb` no longer replaces `BuildManager.construct` for the whole
+  interpreter. All jnwb package read paths route through the read boundary.
+- **Missing `session_description` fails loudly** with `MissingRequiredNWBFieldError` instead
+  of inserting a synthetic value.
+
 ## [0.1.5] - 2026-09-10
 
 Closes the open GitHub issues: citations, GPU and parallel execution, notebooks, the import

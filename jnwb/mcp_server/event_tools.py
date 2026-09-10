@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Optional, Dict, Any
-from pynwb import NWBHDF5IO
+from jnwb.nwb_io import nwb_read_io
 from jnwb.mcp_server.server import mcp
 
 
@@ -51,7 +51,7 @@ def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] 
         event_group_path_resolved = None
         df = None
         
-        with NWBHDF5IO(str(path), 'r', load_namespaces=True) as io:
+        with nwb_read_io(str(path), load_namespaces=True) as io:
             nwb = io.read()
             
             if event_group_path:

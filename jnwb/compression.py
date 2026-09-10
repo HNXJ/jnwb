@@ -451,14 +451,13 @@ def verify_roundtrip(src_path: Path, dst_path: Path, n_check: int = 200_000) -> 
     # this script's job. What DOES matter: the destination must fail the SAME way, or not at all.
     import warnings
     warnings.filterwarnings("ignore")
-    from pynwb import NWBHDF5IO
+    from jnwb.nwb_io import read_nwb
 
     def _try_pynwb_read(p):
         try:
-            with NWBHDF5IO(str(p), "r") as io:
-                nwbfile = io.read()
-                n_units = len(nwbfile.units) if nwbfile.units is not None else 0
-                return True, f"OK -- {len(nwbfile.acquisition)} acquisition series, {n_units} units"
+            nwbfile = read_nwb(str(p))
+            n_units = len(nwbfile.units) if nwbfile.units is not None else 0
+            return True, f"OK -- {len(nwbfile.acquisition)} acquisition series, {n_units} units"
         except Exception as e:
             return False, f"{type(e).__name__}: {e}"
 

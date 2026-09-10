@@ -43,9 +43,11 @@ schema for acquisitions, electrodes, units, trials and intervals (Teeters et al.
 et al., 2022). jnwb reads NWB files through PyNWB, the reference Python API, which uses HDMF
 for the schema and HDF5 input and output. Public NWB datasets are shared on the DANDI Archive.
 
-Importing jnwb replaces HDMF's `BuildManager.construct` process-wide with a version that
-repairs malformed unit and index builders on read; if that cannot be installed, jnwb logs a
-warning. Citations and links are in [References](references.md#data-format).
+jnwb-owned NWB reads (`jnwb.nwb_io.read_nwb` and `nwb_read_io`) temporarily enable HDMF
+builder repairs for malformed unit and index builders. Repairs are scoped to the read: they do
+not alter `BuildManager.construct` at import, and a missing required `session_description`
+raises `MissingRequiredNWBFieldError` rather than synthesizing a value. Citations and links are
+in [References](references.md#data-format).
 
 ---
 

@@ -11,21 +11,6 @@ study choices — not breadth of method.
 
 # 0.1.6
 
-- **Scope the HDMF patch to jnwb's own readers.** `jnwb/__init__.py:25-96` replaces
-  `hdmf.build.manager.BuildManager.construct` on the class, for the whole interpreter, at
-  import. Every other HDMF user in the process inherits it; behaviour depends on import
-  order; correctness depends on HDMF internals; a debugger no longer shows what runs.
-- Establish the malformed-file cases requiring each of the four repairs (1-element string
-  attributes; missing `session_description`; `units.colnames` listing index columns;
-  `waveform_mean_index` / `spike_amplitudes_index` missing type or target, float index
-  data) **before** moving anything. A repair with no reproducer is a candidate for
-  deletion; the rest move to jnwb's NWB-read boundary. Do not delete the capability
-  wholesale — it recovers real malformed builders.
-- Stop fabricating `session_description`. A missing one becomes the literal
-  `'NWB session'`, indistinguishable afterwards from what an experimenter wrote, against
-  tripwire 1. Write `''` or fail loudly; either way a reader must be able to tell.
-- Test that a process which imports jnwb, then reads an NWB file through pyNWB, gets
-  unpatched HDMF behaviour.
 - **Cut import time.** Measured 2026-09-10 with `python -X importtime -c "import jnwb"`:
   `jnwb.analyzers` is 23.71 s of a 24.88 s total, and it is entirely `scipy.signal`
   (23.29 s), which is mostly `scipy.stats` (12.86 s). jnwb's own modules cost almost
