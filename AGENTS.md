@@ -9,12 +9,12 @@ phase and policy. A project that *uses* jnwb keeps its own rules in its own repo
 |---|---|
 | `jnwb/__init__.py` | The public API: `__all__` is the authoritative symbol list |
 | `jnwb/` | Library source. `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
-| `tests/` | The suite. Run it before and after a change (§5) |
-| `scripts/harness_gate.py` | Repository gates 1–12 (§5) |
+| `tests/` | The suite. Run it before and after a change (§6) |
+| `scripts/harness_gate.py` | Repository gates 1–12 (§6) |
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
-| `skills/` | Task skills, one folder per area (§6). Load one before the work it covers |
+| `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
-| `artifacts/todo_stack.md` | Open work, most consequential first: what is wrong, where, and what closing it means |
+| `artifacts/todo_stack.md` | Remaining work, grouped by the version that carries it (§2). Finished items are deleted |
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
 | `docs/references.md` | Published sources for each method, with resolved DOIs; docstrings cite the same entries |
@@ -48,19 +48,45 @@ When sources conflict, authority runs: the receipt on disk, then live repository
 then machine-readable state files, then prose. Unresolved conflict on a material point
 stops the work and surfaces both sides.
 
-## 2. Loop
+## 2. The todo stack
+
+One file holds the remaining work: `artifacts/todo_stack.md` (`docs/todo_stack.md` in a
+repository with no `artifacts/`). Group by the version that will carry the item:
+
+```markdown
+# i.j.k
+- do this
+- test this
+- if X: do Y; else: do Z
+
+# i.j.(k+1)
+- ...
+```
+
+**It contains only work not yet done.** A finished item is deleted, not ticked or moved to
+a "closed" section. Git, the changelog and the receipts hold the history and the evidence;
+duplicating them here makes a second record that goes stale on its own.
+
+## 3. Loop
 
 `W = P (R G)^N S`
 
-- **Prepare** — reconstruct goal, evidence, constraints, tools; define acceptance.
-- **Review** — observe before changing; find the highest-value justified change.
-- **Progress** — apply the smallest authorised change; preserve invariants; test.
-- **Seal** — verify acceptance, reconcile artifacts, leave a recoverable handoff.
+- **Prepare** — inspect current state and evidence; update the todo stack; order the
+  remaining work; define acceptance.
+- **Review** — review the last result; update the todo stack; choose the next item. Commit
+  validated changes, push to `dev`, verify the branch is in sync.
+- **Progress** — apply the smallest authorised change; preserve invariants; test; return to
+  Review.
+- **Seal** — verify the release is complete; remove the completed items from the stack;
+  commit, push, verify a clean sync.
 
-Review yields: acceptance met → Seal · justified action → Progress · missing evidence
-or authority → stop and ask.
+Keep running Review → Progress while useful work remains. Stop when a decision that is the
+human's to make blocks everything left, or when authority or evidence is missing.
 
-## 3. Invariants this library protects
+Do not stop after one item. Do not commit nothing. Do not leave validated changes
+unpushed. Do not cross a version boundary before sealing it.
+
+## 4. Invariants this library protects
 
 1. **No empirical value in any output that no script computed from data.** Hardcoded
    values are for visual constants or output marked synthetic. Missing data fails loudly.
@@ -82,7 +108,7 @@ or authority → stop and ask.
 7. **Call the library function instead of retyping its rule.** A retyped copy drifts from
    the docstring unnoticed. If the function's shape blocks reuse, widen the shape.
 
-## 4. Vocabulary
+## 5. Vocabulary
 
 - Association, directionality, and causality are three claims. Granger and phase slope
   index measure temporal-lag asymmetry, not anatomy.
@@ -90,7 +116,7 @@ or authority → stop and ask.
   decodability, and mechanism. Answering one does not answer another.
 - Spikes and LFP are distinct observables. Do not pool across them without namespacing.
 
-## 5. Tools
+## 6. Tools
 
 | Command | Asserts | A pass means |
 |---|---|---|
@@ -102,7 +128,7 @@ or authority → stop and ask.
 Supported interpreters are declared in `pyproject.toml` and enforced by Gate 8. CI tests
 the floor and the newest declared version.
 
-## 6. Skills
+## 7. Skills
 
 Load the skill before doing the work rather than reinventing its contents.
 
@@ -117,7 +143,7 @@ Load the skill before doing the work rather than reinventing its contents.
 | `jnwb-connectivity` | Granger, PSI, transfer entropy |
 | `jnwb-figures` | Visual QC, plotting, figure export |
 
-## 7. Changes
+## 8. Changes
 
 - Smallest change that reaches the acceptance you defined. No drive-by edits.
 - Stage exact paths. Never `git add .` or `-A`.
@@ -130,14 +156,14 @@ Load the skill before doing the work rather than reinventing its contents.
 - No secrets in the repository, context, or transcripts. If one is exposed, stop, say so,
   and recommend rotation.
 
-## 8. Writing
+## 9. Writing
 
 Cut adjective stacks, negation ("X is not Y"), restated obviousness, repeated caveats, and
 hedged claims that should be deletions. If something is unverified, remove it rather than
 labelling it. Say "policy" or "rule", never "doctrine" or "governance". Lead with the
 result.
 
-## 9. Recipes
+## 10. Recipes
 
 Each call below runs as written on synthetic arrays. NWB loading and artifact repair are in
 the `jnwb-nwb-data` and `jnwb-lfp-spectral` skills.
