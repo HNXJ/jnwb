@@ -68,8 +68,8 @@ a class of silent GPU and import failures. 0.1.2 was never released.
   one project loaded the wrong copy, disagreeing on an anatomical label, with no error).
   A gate now rejects unowned root packages, and `docs/install.md` documents the hazard and
   the `editable_mode=strict` install.
-- **Agent definitions are tracked.** `.claude/agents/` was gitignored, so a fresh clone got
-  none of them.
+- **Agent definitions are tracked** under `artifacts/agents/`. They were in a gitignored
+  `.claude/agents/`, so a fresh clone got none of them. A root `.claude/` now fails the gate.
 - **New logo** in the README, docs site, and favicon.
 
 ### Changed

@@ -87,7 +87,7 @@ Load the skill before doing the work rather than reinventing its contents.
 | `jnwb-connectivity` | Granger, PSI, transfer entropy |
 | `jnwb-figures` | Visual QC, plotting, figure export |
 
-Agent definitions live in `.claude/agents/` and are tracked, so a fresh clone has them.
+Agent definitions live in `artifacts/agents/` and are tracked. The root holds no `.claude/`.
 
 ## 7. Changes
 

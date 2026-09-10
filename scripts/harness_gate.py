@@ -183,7 +183,7 @@ PYTHON_CI_REQUIRED = ("3.12", "3.14")         # floor and head; the matrix must 
 
 #: Directories that hold tracked source. Anything else at the root is a mistake.
 SOURCE_ROOT_DIRS = {
-    "jnwb", "tests", "examples", "docs", "skills", "scripts", "artifacts", ".claude", ".github",
+    "jnwb", "tests", "examples", "docs", "skills", "scripts", "artifacts", ".github",
 }
 
 #: Build output, caches and environments. Tolerated on disk, but each must be gitignored --

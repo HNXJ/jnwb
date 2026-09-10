@@ -118,16 +118,8 @@ run_schema_test.py
 .DS_Store
 
 # Agent workspace / IDE
-#
-# .claude/ was ignored wholesale, which meant the agent definitions in .claude/agents/
-# never reached a clone: a fresh checkout got zero agents and no error. settings.json
-# had the same problem, despite a comment here claiming it was already un-ignored.
-# Both now travel with the repository. settings.local.json stays out -- that one really
-# is machine-local.
-.claude/*
-!.claude/agents/
-!.claude/settings.json
-.claude/settings.local.json
+# Agent definitions are tracked under artifacts/agents/; a root .claude/ fails the harness gate.
+.claude/
 .cursor/
 .vscode/
 .idea/
