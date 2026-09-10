@@ -11,10 +11,10 @@ Activate this skill when training population decoders (linear SVM), computing cr
 
 ## 2. Task-to-Primitive Routing Matrix
 - `jnwb.nested_cv_linear_svm(X, labels, n_splits=5)`: Leakage-safe nested cross-validated linear SVM decoding with inner regularization tuning.
-- `jnwb.assign_outer_folds(groups, n_folds)`: Group-preserving cross-validation fold assignment.
-- `jnwb.build_representation_ladder(X, ...)`: Multi-scale representational geometry decomposition.
-- `jnwb.build_time_resolved_matrix(units_data, time_bins)`: Construct time-resolved population tensors.
-- `jnwb.compute_population_trajectory(tensor, method="pca", n_components=3)`: Reduce dimensionality to state-space trajectories.
+- `jnwb.assign_outer_folds(trials, *, analysis_cols=("session", "analysis", "slot_key"), group_col="cycle")`: Group-preserving outer CV fold column on a trial DataFrame.
+- `jnwb.build_representation_ladder(raster, *, modality="SPK", spatial_axis_metadata=None)`: Multi-scale representational geometry from a trial raster.
+- `jnwb.build_time_resolved_matrix(session, area, epochs_df, time_window_ms=..., bin_size_ms=20.0)`: Trial × unit × time spike-count tensor from a session interface.
+- `jnwb.compute_population_trajectory(session, area, epochs_df, n_components=3, device="cpu")`: PCA/SVD population trajectory over time bins.
 - `jnwb.jrsa(x1, x2, metric="rsa", stats=True)`: Unified Joint Representational Similarity Analysis with permutation nulls.
 
 ## 3. Invariants & Safeguards

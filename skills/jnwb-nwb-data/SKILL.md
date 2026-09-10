@@ -14,15 +14,15 @@ Activate this skill when inspecting NWB files, resolving paths, mapping electrod
 - `jnwb.map_peak_channel_to_area(peak_channel_id, electrodes_df)`: Map channel index to brain area string.
 - `jnwb.classify_layer_from_depth(peak_channel_id, electrodes_df)`: Classify cortical depth into layer tiers ('Deep' vs 'Superficial').
 - `jnwb.enrich_units_dataframe(units_df, electrodes_df)`: Standardize units DataFrame with unit_id, area, and layer annotations.
-- `jnwb.get_all_units_metadata(nwb_file)`: Extract comprehensive unit table metadata across probes.
-- `jnwb.classify_unit_quality(unit_row)`: Assign unit quality classification based on SNR and isolation metrics.
-- `jnwb.electrode_inventory(nwb_file)`: Summarize electrode probe channels and coordinate tables.
-- `jnwb.compress_fp32(arr, bits=16)`: Lossy/lossless float compression for large electrophysiology matrices.
+- `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`: Extract comprehensive unit table metadata across sessions.
+- `jnwb.classify_unit_quality(units_df, thresholds=None)`: Add quality tier columns to a units DataFrame.
+- `jnwb.electrode_inventory(nwb_paths)`: Summarize electrode probe channels and coordinate tables.
+- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True)`: NWB file fp32 compression (path I/O, not in-memory arrays).
 
 ## 3. Invariants & Safeguards
 1. **Addressing Robustness**: `map_peak_channel_to_area` checks multiple standard column names (`location`, `area`, `group_name`) and handles multi-area strings without throwing KeyError.
 2. **Channel Coordinate Normalization**: Probe depths must be referenced consistently; check electrode DataFrame coordinates (`z`) before computing layer boundaries.
-3. **Lossless vs Lossy Compression**: `compress_fp32` requires explicit bit-precision validation to avoid truncating low-amplitude neural oscillations.
+3. **NWB compression contract**: `compress_fp32` converts on-disk NWB electrical series to fp32; verify round-trip with `verify=True` before deleting sources.
 
 ## 4. Minimal Workflow
 ```python

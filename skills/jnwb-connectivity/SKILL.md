@@ -11,11 +11,12 @@ Activate this skill when quantifying directional coupling, lag asymmetries, Gran
 
 ## 2. Task-to-Primitive Routing Matrix
 - `jnwb.granger(X, Y, order, n_surrogates, seed)`: Time-domain bivariate Granger causality with time-shift surrogate significance.
-- `jnwb.granger_spectral(X, Y, fs, order, freqs)`: Frequency-resolved spectral Granger causality.
+- `jnwb.granger_spectral(X, Y, fs, order="auto", n_freqs=256, bands=None)`: Frequency-resolved spectral Granger causality.
 - `jnwb.phase_slope_index(X, Y, fs, bands)`: Phase Slope Index (PSI) quantifying frequency-dependent driver/receiver lag.
 - `jnwb.transfer_entropy(X, Y, k=1, l=1, n_surrogates=...)`: Non-linear information-theoretic transfer entropy.
-- `jnwb.directed_connectivity(signals, fs, method="granger"|"psi"|"te")`: Multi-channel pairwise directed connectivity matrix.
-- `jnwb.directed_network(adj_matrix, ...)`: Graph-theoretic network metrics (in-degree, out-degree, asymmetry index).
+- `jnwb.directed_connectivity(X, Y, method="granger")`: Pairwise directed measure between two signals (returns `DirectedResult`; method-specific kwargs forwarded).
+- `jnwb.directed_network(signals, method="granger", labels=None, fdr=True, n_jobs=1)`: All-pairs directed coupling for a dict/array of channel signals.
+- `jnwb.network_topology(adjacency_matrix, threshold=0.3)`: Graph metrics on a thresholded adjacency matrix.
 
 ## 3. Invariants & Safeguards
 1. **Strict Epistemic Language**: Granger causality, PSI, and Transfer Entropy measure **temporal-lag asymmetry (predictive directionality)** under an observational model. Never use causal verbs ("region A drives region B causally") for observational time-series metrics.

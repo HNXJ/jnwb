@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-r"""Bilinear (rank-K matrix-factorized) logistic regression for 2D neural decoding.
+r"""Optional/experimental: bilinear (rank-K) logistic regression for 2D neural decoding.
+
+Not in ``jnwb.__all__``. Import ``jnwb.bilinear`` when the bilinear decoder is needed.
 
 WHY THIS EXISTS
     Every 2D decoder in this project so far (v5, v6) flattened each trial's (N x T) matrix --

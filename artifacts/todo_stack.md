@@ -13,38 +13,6 @@ no known material defect; an empty stack alone is insufficient.
 
 ## User-facing semantics / failure behavior
 
-## Public API and active-module classification (required for 0.1.7 100/100)
-
-- **Audit `jnwb.__all__` (111 symbols) and every active non-private module** (`bilinear.py`,
-  `nam.py`, `gpu_pca.py`, `nwb_io.py`, `_lazy_exports.py`, …) → per symbol/module classify
-  `{public primitive, intentional module-internal, optional/experimental, dead/parked}`; do
-  not export because code exists → align `__all__`, docs, tests, naming (`_` prefix where
-  compatibility permits); moved from pre-1.0 because 100/100 requires resolved surface →
-  written disposition table; `docs/api.md` and `python scripts/harness_gate.py` Gate 5/10
-  agree with runtime exports.
-
-## Skills parity (all eight skills)
-
-Existing `tests/test_skills_validation.py` proves `hasattr` only — insufficient.
-
-- `skills/jnwb-connectivity/SKILL.md` → `directed_connectivity(signals, …)` and
-  `directed_network(adj_matrix, …)` wrong; runtime is pairwise `X,Y` and
-  `directed_network(signals, …)` → align routing matrix with `jnwb.connectivity`.
-- `skills/jnwb-nwb-data/SKILL.md` → `compress_fp32(arr, bits=16)` false; runtime is NWB path
-  I/O `compress_fp32(src, dst=None, *, …)`; bit-precision safeguard not current API → align
-  with `jnwb.compression.compress_fp32`.
-- `skills/jnwb-figures/SKILL.md` → `setup_vector_graphics(font_family=…)` (no args at
-  runtime); `apply_tight_auto_axis(x_margin=…)` vs `x_span`; `resample_onsets(onsets,
-  min_interval_s)` vs `target_n`/`random_state` → align every routing row with
-  `inspect.signature` and semantics.
-- `skills/jnwb-population/SKILL.md` → `assign_outer_folds(groups, n_folds)` false; runtime
-  requires trial DataFrame + `analysis_cols`/`group_col` → align CV grouping contract.
-- **All eight skills** (`jnwb`, `jnwb-nwb-data`, `jnwb-spiking`, `jnwb-lfp-spectral`,
-  `jnwb-statistics`, `jnwb-population`, `jnwb-connectivity`, `jnwb-figures`) → audit every
-  routing row against `inspect.signature` and semantics, not symbol existence only →
-  strengthen `tests/test_skills_validation.py` with signature probes or executable
-  representative calls per routing entry where practical → full skill suite passes.
-
 ## Executable documentation defects
 
 - `docs/quickstart.md` workflow table → wrong modules (`jnwb.artifacts`, `jnwb.directed`,
@@ -148,7 +116,6 @@ itself a defect.
 - Runtime-generated `docs/api.md` diff gate (above).
 - Internal `.md` link resolver for MkDocs corpus (+ `docs/README.md` policy).
 - Non-blocking `jnwb/` comment/docstring neutrality report (above).
-- Skills signature probes (above).
 - Each gate has adversarial fixture proving it catches a known defect →
   `tests/test_harness_adversarial_gates.py` extended.
 

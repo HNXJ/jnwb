@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-r"""Neural Additive Model (NAM) for (N x T) neural decoding with per-unit attribution.
+r"""Optional/experimental: Neural Additive Model (NAM) for (N x T) decoding.
+
+Not in ``jnwb.__all__``. Import ``jnwb.nam``; requires PyTorch.
 
     logit_c(X) = b_c + sum_{i=1..N} h_i(x_i)_c
 

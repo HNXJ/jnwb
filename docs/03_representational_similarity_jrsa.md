@@ -81,11 +81,12 @@ sliding_res = jnwb.jrsa(
 
 ### GPU Acceleration Backend
 
-`jnwb.jrsa` interfaces with `jnwb.gpu_pca` and CuPy for massive tensor comparisons:
+`jnwb.jrsa` can use CuPy or other backends for large tensor comparisons via the
+``backend`` argument (resolved through ``jnwb._backend``):
 
 ```python
-# Explicitly request GPU backend
-res_gpu = jnwb.jrsa(x1, x2, metric="rsa", backend="gpu")
+# Explicitly request a GPU-oriented backend where supported
+res_gpu = jnwb.jrsa(x1, x2, metric="rsa", backend="cupy")
 ```
 
 ---

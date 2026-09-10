@@ -10,12 +10,12 @@ description: Publication-grade vector graphics, raster PSTH plotting, tight auto
 Activate this skill when generating publication figures, raster plots, PSTH visualizations, visual quality control suites, or vector graphics exports (SVG/PDF).
 
 ## 2. Task-to-Primitive Routing Matrix
-- `jnwb.setup_vector_graphics(font_family="Arial", font_size=8)`: Initialize publication rcParams for clean vector text (editable fonts in Illustrator/Inkscape).
-- `jnwb.apply_tight_auto_axis(ax, x_margin=0.02, y_margin=0.05)`: Auto-scale axes with controlled padding and remove unneeded spines.
-- `jnwb.save_figure_suite(fig, base_path, formats=("svg", "png", "pdf"), dpi=300)`: Export figure across vector and raster formats with matching dimensions.
+- `jnwb.setup_vector_graphics()`: Initialize publication rcParams for editable vector text (`svg.fonttype = 'none'`).
+- `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Auto-scale axes with controlled padding.
+- `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=("png", "pdf"))`: Export one or more figures with consistent naming.
 - `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Compute binned arrays for rendering spike rasters and PSTHs.
-- `jnwb.visual_qc(data, ...)`: Rapid multi-channel visual screening for artifact and saturation checks.
-- `jnwb.resample_onsets(onsets, min_interval_s)`: Filter closely spaced event onsets to prevent visual overplotting.
+- `jnwb.visual_qc`: Submodule for rapid multi-channel visual screening (import `jnwb.visual_qc`).
+- `jnwb.resample_onsets(onsets, target_n=100, random_state=42)`: Subsample onsets to a target count for plotting.
 
 ## 3. Invariants & Safeguards
 1. **Vector Text Integrity**: Never convert text to outlines or rasterize labels during figure export; `setup_vector_graphics` sets `svg.fonttype = 'none'` so text remains editable.

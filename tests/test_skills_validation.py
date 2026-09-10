@@ -2,6 +2,7 @@
 tests/test_skills_validation.py -- Deterministic verification of canonical repository skills.
 """
 from pathlib import Path
+import inspect
 import re
 try:
     import yaml
@@ -76,6 +77,51 @@ def test_skills_frontmatter_and_openai_yaml():
         assert agent_data["interface"].get("display_name") == skill_name
         assert "description" in agent_data["interface"]
         assert agent_data.get("policy", {}).get("allow_implicit_invocation") is True
+
+
+def _routing_matrix_section(skill_text: str) -> str:
+    if "## 2. Task-to-Primitive Routing Matrix" not in skill_text:
+        return ""
+    return skill_text.split("## 2. Task-to-Primitive Routing Matrix", 1)[1].split("## 3.", 1)[0]
+
+
+def _routing_calls(skill_text: str):
+    section = _routing_matrix_section(skill_text)
+    pattern = re.compile(r"`jnwb\.(\w+)\(([^)]*)\)`")
+    for match in pattern.finditer(section):
+        yield match.group(1), match.group(2)
+
+
+def _mentioned_parameter_names(args_str: str) -> list[str]:
+    names = []
+    for part in args_str.split(","):
+        token = part.strip()
+        if not token or token in ("...", "*") or token.startswith("**"):
+            continue
+        if "=" in token:
+            names.append(token.split("=")[0].strip())
+        elif ":" in token:
+            names.append(token.split(":")[0].strip())
+        else:
+            names.append(token)
+    return names
+
+
+def test_skill_routing_parameter_names_match_runtime():
+    """Routing rows must name real parameters, not invented signatures."""
+    for skill_name in CANONICAL_SKILLS:
+        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        for func_name, args_str in _routing_calls(content):
+            assert hasattr(jnwb, func_name), (
+                f"{skill_name}: jnwb.{func_name} referenced in routing matrix is missing"
+            )
+            sig = inspect.signature(getattr(jnwb, func_name))
+            valid = set(sig.parameters)
+            for pname in _mentioned_parameter_names(args_str):
+                assert pname in valid, (
+                    f"{skill_name}: jnwb.{func_name} has no parameter '{pname}' "
+                    f"(routing: {args_str!r}; valid: {sorted(valid)!r})"
+                )
 
 
 def test_all_referenced_symbols_exist():

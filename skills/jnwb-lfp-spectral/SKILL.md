@@ -13,12 +13,12 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 - `jnwb.complex_tfr(data, fs, freqs, n_cycles)`: Complex Morlet wavelet transform returning `ComplexTFR` with `z`, `freqs`, `times`, and `coi_mask`.
 - `jnwb.TFRAccumulator(shape)`: Welford running variance accumulator for streaming multi-trial TFR without storing full $N \times C \times F \times T$ arrays in memory.
 - `jnwb.repair_lfp_trials(segments, times_ms, z_thresh=6.0)`: Cross-channel synchrony detection ($z > 6.0$) and cross-trial median substitution.
-- `jnwb.repair_band_artifacts(tfr_power, ...)`: TFR-domain outlier artifact detection and interpolation.
-- `jnwb.channel_correlation_matrix(data)` & `jnwb.bad_channels_from_correlation(corr_matrix)`: Detect disconnected or excessively noisy probe channels.
-- `jnwb.cross_area_coherence(x, y, fs=..., freq_bands=...)`: Magnitude-squared coherence across channel pairs. `freq_bands` is required: a `{name: (fmin, fmax)}` dict or `'canonical'`.
-- `jnwb.imaginary_coherency(x, y, fs, ...)`: Volume-conduction-robust imaginary coherence.
-- `jnwb.spectral_tilt(psd, freqs, fit_range)`: Aperiodic $1/f$ spectral slope parameterization.
-- `jnwb.bipolar_reference(data, channel_pairs)`: Local differential referencing for spatial artifact reduction.
+- `jnwb.repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=6.0, sided="upper")`: TFR-domain outlier detection and interpolation.
+- `jnwb.channel_correlation_matrix(data_ch_by_time)` & `jnwb.bad_channels_from_correlation(corr, z_thresh=5.0)`: Detect disconnected or excessively noisy probe channels.
+- `jnwb.cross_area_coherence(lfp_area1, lfp_area2, fs=..., freq_bands=...)`: Magnitude-squared coherence across channel pairs. `freq_bands` is required: a `{name: (fmin, fmax)}` dict or `'canonical'`.
+- `jnwb.imaginary_coherency(x, y, fs, freq_range=(1.0, 90.0))`: Volume-conduction-robust imaginary coherence.
+- `jnwb.spectral_tilt(lfp_trace, fs, freq_range=(1.0, 100.0))`: Aperiodic $1/f$ spectral slope parameterization.
+- `jnwb.bipolar_reference(channel_data, channel_order=None)`: Local differential referencing for spatial artifact reduction.
 
 ## 3. Invariants & Safeguards
 1. **Cone of Influence (COI)**: Always check `coi_mask` when analyzing edge time points; edge coefficients are contaminated by boundary zero-padding.

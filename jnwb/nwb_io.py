@@ -1,5 +1,8 @@
 """NWB file I/O with scoped HDMF builder repairs for malformed files.
 
+Module-internal: not part of ``jnwb.__all__``. Use public metadata/compression helpers
+that call ``nwb_read_io`` / ``read_nwb`` internally.
+
 Repairs apply only while a jnwb-owned read is active. ``import jnwb`` does not alter
 HDMF global state.
 

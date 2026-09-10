@@ -15,7 +15,7 @@ Activate this skill when comparing neural responses across conditions, performin
 - `jnwb.permute_labels(y, scheme="within_group"|"global", groups=None, rng=...)`: Permute labels under an explicit exchangeability structure.
 - `jnwb.build_permutation_plan(labels, groups, n_permutations=..., seed=...)`: Generate an explicit within-group permutation manifest with SHA-256 digests.
 - `jnwb.StatisticalAnalysis.clopper_pearson_ci(k, n, alpha=0.05)`: Exact binomial confidence intervals via Beta-quantile inversion.
-- `jnwb.paired_fire_prob_test(pre_spikes, post_spikes)`: Paired exact test for firing probability changes.
+- `jnwb.paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)`: Paired bootstrap test for firing-probability changes between conditions.
 
 ## 3. Invariants & Safeguards
 1. **Exchangeability Preservation**: For grouped/hierarchical data (e.g. trials nested in sessions or blocks), use `scheme="within_group"` with explicit `groups`. Never use global permutations when trial structure induces correlation.

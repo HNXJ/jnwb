@@ -1,8 +1,7 @@
-"""
-Standalone GPU-accelerated PCA helper for arbitrary matrices in jnwb.trajectory.
-Extends existing compute_population_trajectory functionality by providing a direct
-gpu_pca(matrix, n_components=3, device='cuda') function with explicit NumPy fallback
-and verification testing.
+"""Module-internal GPU-accelerated PCA via SVD (not in ``jnwb.__all__``).
+
+Tested helper for matrix PCA with explicit CPU fallback. Public population trajectory
+analysis uses ``compute_population_trajectory``.
 """
 
 import logging
