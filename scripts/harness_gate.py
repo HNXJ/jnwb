@@ -9,7 +9,7 @@ Mechanically enforces repository controls:
   5. Documentation completeness: verifies 100% of public symbols documented in docs/.
   6. Dataset independence: rejects experiment-specific tokens, conditions, and manuscript results.
   7. Package & metadata version synchronization.
-  8. Python 3.12 sole supported target across metadata and CI.
+  8. Python floor consistency: declared support, classifiers, and CI matrix agree.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
