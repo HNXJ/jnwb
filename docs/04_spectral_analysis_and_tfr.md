@@ -228,10 +228,16 @@ tfr_res = jnwb.complex_tfr(
 
 ![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png)
 
-### Streaming TFR Accumulation (`TFRAccumulator`) & Compression (`compress_fp32`)
+### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 
 - **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM.
-- **`compress_fp32` (`jnwb.compression`)**: Compresses high-dimensional single-precision floating point arrays into quantized representations.
+- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — rewrites electrical-series datasets to `float32` inside an NWB file (path I/O, not in-memory array quantization):
+
+```python
+# src and dst are filesystem paths to .nwb files
+report = jnwb.compress_fp32("raw_session.nwb", "compressed_session.nwb", verify=True)
+assert report["verification"]["ok"] is True
+```
 
 ## References
 

@@ -123,6 +123,29 @@ class TestDocsSmokeFixtures:
         shuf = jnwb.permute_labels(labels, groups=groups, scheme="within_group", rng=rng)
         assert len(shuf) == len(labels)
 
+        plan = jnwb.build_permutation_plan(labels, groups, n_permutations=5, seed=0)
+        assert plan["scheme"] == "within_group"
+        assert plan["n_permutations"] == 5
+        assert len(plan["draw_manifest"]) == 5
+
+        epochs_df = pd.DataFrame({"start_time": np.linspace(0.0, 40.0, 20)})
+        cycles = jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)
+        quartiles = jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)
+        assert cycles.shape == (20,)
+        assert quartiles.shape == (20,)
+
+        y_true = np.linspace(0.0, 1.0, 6)
+        y_pred = y_true + 0.05 * rng.normal(size=6)
+        r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=groups, n_shuffle=20, random_state=0)
+        assert "r2_observed" in r2_ci and "p_val" in r2_ci
+
+        tfr_data = rng.normal(size=(4, 200))
+        spike_data = rng.normal(size=(4, 200))
+        modal_res = jnwb.cross_modal_comparison(
+            tfr_data, spike_data, lag_range_ms=(-100, 100), bin_ms=10.0,
+        )
+        assert "correlation" in modal_res and "lag_ms" in modal_res
+
         fires_a = np.array([True, False, True, True, False])
         fires_b = np.array([False, False, True, False, False])
         f_test = jnwb.paired_fire_prob_test(fires_a, fires_b, n_shuffles=100, n_bootstrap=100, rng=rng)
@@ -130,15 +153,70 @@ class TestDocsSmokeFixtures:
 
     def test_doc08_directed_connectivity(self, rng):
         X = rng.normal(size=500)
-        Y = rng.normal(size=500)
+        Y = np.zeros(500)
+        Y[1:] = 0.6 * X[:-1] + 0.2 * rng.normal(size=499)
+
         g_res = jnwb.granger(X, Y, order=2, n_surrogates=10, seed=0)
         assert isinstance(g_res, jnwb.DirectedResult)
+        assert g_res.p_x_to_y is not None
+        assert hasattr(g_res, "x_to_y") and hasattr(g_res, "net")
 
-        psi_res = jnwb.phase_slope_index(X, Y, fs=1000.0, n_surrogates=10, seed=0)
+        spectral_res = jnwb.granger_spectral(
+            X, Y, fs=1000.0, bands=jnwb.CANONICAL_BANDS, n_surrogates=10, seed=0,
+        )
+        assert spectral_res.spectrum is not None
+
+        psi_res = jnwb.phase_slope_index(
+            X, Y, fs=1000.0, bands=(12.0, 35.0), n_surrogates=10, seed=0,
+        )
         assert isinstance(psi_res, jnwb.DirectedResult)
+        assert psi_res.spectrum is not None
+        assert "psi_per_freq" in psi_res.spectrum
 
-        te_res = jnwb.transfer_entropy(X, Y, n_surrogates=10, seed=0)
+        te_res = jnwb.transfer_entropy(
+            X, Y, estimator="quantile", n_surrogates=10, seed=0,
+        )
         assert isinstance(te_res, jnwb.DirectedResult)
+
+        signals = {"A": X, "B": Y, "C": rng.normal(size=500)}
+        pair = jnwb.directed_connectivity(X, Y, method="granger", order=2, n_surrogates=5, seed=0)
+        assert isinstance(pair, jnwb.DirectedResult)
+
+        network = jnwb.directed_network(
+            signals, method="granger", order=2, fdr=False, n_surrogates=5, seed=0,
+        )
+        assert network["matrix"].shape == (3, 3)
+        assert "labels" in network and len(network["labels"]) == 3
+
+        topo = jnwb.network_topology(network["matrix"], threshold=0.0)
+        assert "in_degrees" in topo and "out_degrees" in topo
+        assert topo["density"] >= 0.0
+
+        spk1 = np.array([0.01, 0.05, 0.12])
+        spk2 = np.array([0.02, 0.06, 0.15])
+        mi = jnwb.spike_mutual_information(
+            spk1, spk2, time_window=(0.0, 0.5), bin_size_ms=10.0,
+        )
+        assert mi >= 0.0
+
+    def test_common_mistakes_psi_narrowband_receipt(self):
+        rng = np.random.default_rng(42)
+        fs = 1000.0
+        t = np.arange(2000) / fs
+        x = np.sin(2 * np.pi * 20 * t)
+        y = np.roll(x, int(0.01 * fs))
+        psi_narrow = jnwb.phase_slope_index(
+            x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, seed=0,
+        )
+        noise_x = rng.normal(size=2000)
+        noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
+        psi_broad = jnwb.phase_slope_index(
+            noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, seed=0,
+        )
+        assert psi_narrow.net == 0.0
+        assert np.isnan(psi_narrow.per_band["band"]["z"])
+        assert psi_broad.net > 0.5
+        assert psi_broad.per_band["band"]["z"] > 5.0
 
     def test_doc09_decoding_and_viz(self, rng, tmp_path):
         X = rng.normal(size=(20, 5))

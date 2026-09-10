@@ -179,22 +179,38 @@ print(f"Y -> X log variance ratio: {gc.y_to_x:.4f} (p = {gc.p_y_to_x:.4f})")
 Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or very narrowband signal as evidence of no directional lead:
 
 ```python
-# TRAP: A 20 Hz sinusoid with 10 ms delay gives near-zero PSI (z ~ 1.5),
-# whereas 15-30 Hz broadband noise with the identical 10 ms delay gives z > 50!
+# TRAP (receipt, seed=42, n_surrogates=50): a 20 Hz sinusoid with 10 ms delay
+# in a 19–21 Hz band gives net PSI = 0 and band z = nan (single frequency bin).
+# The same delay on 15–30 Hz broadband noise gives net ≈ 0.93 and band z ≈ 9.8.
 ```
 
-At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to compute the slope $\frac{d\phi}{df} = -2\pi \Delta t$.
+At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).
 
 ### The Correct Pattern
-Evaluate PSI over broadband frequency bands and inspect the frequency-resolved phase slope spectrum:
+Evaluate PSI over a broadband band with multiple frequency bins; inspect `per_band` and `spectrum` — not a single-bin z-score:
 
 ```python
-# CORRECT: Compute PSI across a declared physiological band
-psi = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(12.0, 35.0))
-print("Net PSI:", psi.x_to_y)
-# Inspect spectrum to confirm linear phase progression:
-freqs = psi.spectrum["freqs"]
-slopes = psi.spectrum["psi_per_freq"]
+import numpy as np
+import jnwb
+
+rng = np.random.default_rng(42)
+fs = 1000.0
+t = np.arange(2000) / fs
+x = np.sin(2 * np.pi * 20 * t)
+y = np.roll(x, int(0.01 * fs))  # 10 ms delay
+
+psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, seed=0)
+
+noise_x = rng.normal(size=2000)
+noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
+psi_broad = jnwb.phase_slope_index(
+    noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, seed=0,
+)
+
+print("Narrow band net:", psi_narrow.net)          # ~0.0
+print("Broad band net:", psi_broad.net)            # >> 0 for broadband noise + delay
+print("Broad band z:", psi_broad.per_band["band"]["z"])
+# Directional association only — not perturbational causality.
 ```
 
 ---

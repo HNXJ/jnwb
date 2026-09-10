@@ -155,8 +155,10 @@ When decoding stimulus conditions across sessions, recording blocks, or behavior
 `jnwb.permute_labels` requires callers to explicitly specify the permutation `scheme`:
 
 ```python
+import numpy as np
 import jnwb
 
+custom_rng = np.random.default_rng(12345)
 labels = np.array(["A", "B", "A", "B", "A", "B"])
 cycle_id = np.array([1, 1, 2, 2, 3, 3])
 
@@ -165,17 +167,18 @@ null_labels = jnwb.permute_labels(
     labels,
     groups=cycle_id,
     scheme="within_group",
-    rng=custom_rng
+    rng=custom_rng,
 )
 
-# Pre-build permutation plan for repetitive batch cross-validation
+# Pre-build permutation plan (within-group scheme only; returns draw manifest + seed)
 plan = jnwb.build_permutation_plan(
-    n_samples=len(labels),
+    labels,
+    cycle_id,
     n_permutations=1000,
-    groups=cycle_id,
-    scheme="within_group",
-    rng=custom_rng
+    seed=42,
 )
+assert plan["scheme"] == "within_group"
+assert plan["n_permutations"] == 1000
 ```
 
 ![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.png)
@@ -185,17 +188,28 @@ plan = jnwb.build_permutation_plan(
 ## 5. Trial Cycle Detection, Subblock Stratification & Cross-Modal Comparison
 
 ```python
-# Detect periodic stimulus cycles in trial tables
-cycle_labels = jnwb.detect_trial_cycles(trial_times, cycle_length_s=4.0)
+import pandas as pd
 
-# Assign quartile ranks within temporal subblocks
-quartiles = jnwb.assign_subblock_quartiles(trial_times, n_quartiles=4)
+epochs_df = pd.DataFrame({"start_time": np.linspace(0.0, 40.0, 20)})
 
-# Compute bootstrap confidence interval on model R2
-r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200)
+# Detect temporal clusters from inter-trial gaps (returns cycle id per row)
+cycle_labels = jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)
 
-# Cross-modal correlation and temporal alignment comparison
-modal_res = jnwb.cross_modal_comparison(lfp_envelope, spike_psth, bin_ms=10.0)
+# Assign temporal quantile buckets 0..n_quantiles-1 by start_time order
+quartiles = jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)
+
+y_true = np.linspace(0.0, 1.0, 6)
+y_pred = y_true + 0.05 * np.random.default_rng(0).normal(size=6)
+r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200, random_state=0)
+assert "r2_observed" in r2_ci and "p_val" in r2_ci
+
+# Cross-modal lag scan between aligned TFR and spike tensors (channels x time)
+tfr_data = np.random.default_rng(1).normal(size=(4, 200))
+spike_data = np.random.default_rng(2).normal(size=(4, 200))
+modal_res = jnwb.cross_modal_comparison(
+    tfr_data, spike_data, lag_range_ms=(-100, 100), bin_ms=10.0,
+)
+assert "correlation" in modal_res and "lag_ms" in modal_res
 ```
 
 ## References

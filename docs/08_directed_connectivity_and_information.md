@@ -27,28 +27,35 @@ Granger causality, Phase Slope Index, and Transfer Entropy establish statistical
 
 ## 2. Granger Causality & Spectral Granger (`granger`, `granger_spectral`, `granger_causality`)
 
-### Bivariate & Multivariate Time-Domain Granger
+Every directed estimator returns a `DirectedResult` with `x_to_y`, `y_to_x`, `net`, and optional `p_x_to_y` / `p_y_to_x` / `p_net` fields (not `statistic` / `pvalue`).
+
+### Bivariate time-domain Granger
 
 ```python
+import numpy as np
 import jnwb
 
-# X, Y: continuous 1D or trial-segmented arrays
+rng = np.random.default_rng(0)
+X = rng.normal(size=500)
+Y = np.zeros(500)
+Y[1:] = 0.6 * X[:-1] + 0.2 * rng.normal(size=499)
+
 result = jnwb.granger(
     X, Y,
-    order="auto",         # Order selection via AIC/BIC
+    order="auto",
     max_lag=20,
     criterion="bic",
-    n_surrogates=200,     # Time-shift null distribution
-    seed=0
+    n_surrogates=200,
+    seed=0,
 )
-# Returns a DirectedResult object
-print(f"F-statistic: {result.statistic:.4f}, p-value: {result.pvalue:.4f}")
-print(f"Net Directionality (X->Y vs Y->X): {result.net_direction}")
+print(f"X -> Y: {result.x_to_y:.4f} (p={result.p_x_to_y:.4f})")
+print(f"Y -> X: {result.y_to_x:.4f} (p={result.p_y_to_x:.4f})")
+print(f"Net: {result.net:.4f}")
 ```
 
-### Spectral Granger Causality (`granger_spectral`)
+### Spectral Granger (`granger_spectral`)
 
-Decomposes Granger causality into specific frequency bands:
+Frequency-resolved Granger with optional band summaries in `per_band`:
 
 ```python
 spectral_res = jnwb.granger_spectral(
@@ -56,18 +63,18 @@ spectral_res = jnwb.granger_spectral(
     fs=1000.0,
     bands=jnwb.CANONICAL_BANDS,
     n_freqs=256,
-    n_surrogates=100
+    n_surrogates=100,
+    seed=0,
 )
-# Returns frequency-resolved causality spectra and band summaries
+assert spectral_res.spectrum is not None
+print("Beta-band summary:", spectral_res.per_band.get("beta"))
 ```
 
 ---
 
 ## 3. Phase Slope Index (`phase_slope_index`)
 
-The Phase Slope Index (PSI) estimates directed coupling from the slope of the cross-spectral phase over frequency bands, robust against instantaneous volume conduction:
-
-$$\tilde{\Psi}_{xy} = \text{Im}\left(\sum_f S_{xy}^*(f) S_{xy}(f + \delta f)\right)$$
+PSI estimates lag asymmetry from the slope of cross-spectral phase across frequency bins. Positive `net` (and `x_to_y` for PSI) indicates X leads Y under the PSI convention — observational directionality, not perturbational causality.
 
 ```python
 psi_res = jnwb.phase_slope_index(
@@ -75,9 +82,13 @@ psi_res = jnwb.phase_slope_index(
     fs=1000.0,
     bands={"beta": (14.0, 30.0), "gamma": (30.0, 80.0)},
     jackknife=True,
-    n_surrogates=200
+    n_surrogates=200,
+    seed=0,
 )
-print("PSI normalized value:", psi_res.statistic)
+print("PSI X -> Y:", psi_res.x_to_y)
+print("Band summaries:", psi_res.per_band)
+if psi_res.spectrum is not None:
+    print("Freqs:", psi_res.spectrum["freqs"][:3], "...")
 ```
 
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png)
@@ -86,7 +97,7 @@ print("PSI normalized value:", psi_res.statistic)
 
 ## 4. Transfer Entropy (`transfer_entropy`)
 
-Non-parametric, model-free information-theoretic directed coupling measuring reduction in uncertainty of $Y$ given past values of $X$:
+Information-theoretic directed coupling with explicit discretization strategy:
 
 $$T_{X \to Y} = H(Y_t | Y_{t-1:t-l}) - H(Y_t | Y_{t-1:t-l}, X_{t-u:t-u-k})$$
 
@@ -94,32 +105,34 @@ $$T_{X \to Y} = H(Y_t | Y_{t-1:t-l}) - H(Y_t | Y_{t-1:t-l}, X_{t-u:t-u-k})$$
 te_res = jnwb.transfer_entropy(
     X, Y,
     k=1, l=1, delay=1,
-    estimator="quantile",   # "quantile", "symbolic", or "kraskov"
+    estimator="quantile",   # quantile | uniform | discrete | symbolic
     bins=4,
-    n_surrogates=200
+    n_surrogates=200,
+    seed=0,
 )
+print(f"TE X -> Y: {te_res.x_to_y:.4f} (p={te_res.p_x_to_y})")
 ```
 
 ---
 
 ## 5. Spike Mutual Information (`spike_mutual_information`, `spike_count_mutual_information`)
 
-Estimates mutual information between spike trains:
-
 ```python
-# Binary occupancy mutual information
+spike_times1 = np.array([0.01, 0.05, 0.12, 0.2])
+spike_times2 = np.array([0.02, 0.06, 0.15, 0.25])
+
+# Binary occupancy MI (default) or spike-count MI via estimator=
 mi_bin = jnwb.spike_mutual_information(
     spike_times1, spike_times2,
-    time_window=(0.0, 1.0),
+    time_window=(0.0, 0.5),
     bin_size_ms=10.0,
-    estimator="binary_occupancy"
+    estimator="binary_occupancy",
 )
 
-# Spike count mutual information
 mi_count = jnwb.spike_count_mutual_information(
     spike_times1, spike_times2,
-    time_window=(0.0, 1.0),
-    bin_size_ms=10.0
+    time_window=(0.0, 0.5),
+    bin_size_ms=10.0,
 )
 ```
 
@@ -127,29 +140,34 @@ mi_count = jnwb.spike_count_mutual_information(
 
 ## 6. All-to-All Directed Networks & Graph Topology
 
-### Network Matrix Computation (`directed_connectivity`, `directed_network`)
+### Pairwise and network-level coupling
+
+`directed_connectivity` is **pairwise** (two signals). `directed_network` takes a mapping of channel labels to signals and returns matrices plus per-pair `DirectedResult` objects.
 
 ```python
-# Compute pairwise connectivity matrix across N channels
-conn_matrix = jnwb.directed_connectivity(
-    data_matrix,          # (n_channels, n_timepoints)
-    method="granger",     # "granger", "psi", or "transfer_entropy"
-    fs=1000.0
-)
+signals = {"A": X, "B": Y, "C": rng.normal(size=500)}
 
-# Build graph representation with surrogate thresholding
-network = jnwb.directed_network(conn_matrix, alpha=0.01)
+pair = jnwb.directed_connectivity(X, Y, method="granger", order=2, n_surrogates=50, seed=0)
+
+network = jnwb.directed_network(
+    signals,
+    method="granger",
+    order=2,
+    fdr=True,
+    n_surrogates=50,
+    seed=0,
+)
+print("Labels:", network["labels"])
+print("Net matrix shape:", network["matrix"].shape)
 ```
 
-### Graph Topology Metrics (`network_topology`)
-
-Computes node degree, out-degree/in-degree ratios, clustering coefficients, and hub centrality:
+### Graph topology metrics (`network_topology`)
 
 ```python
-topo = jnwb.network_topology(adjacency_matrix=network.adjacency, threshold=0.3)
-print("Node in-degrees:", topo["in_degree"])
-print("Node out-degrees:", topo["out_degree"])
-print("Network density:", topo["density"])
+topo = jnwb.network_topology(network["matrix"], threshold=0.0)
+print("In-degrees:", topo["in_degrees"])
+print("Out-degrees:", topo["out_degrees"])
+print("Density:", topo["density"])
 ```
 
 ## References

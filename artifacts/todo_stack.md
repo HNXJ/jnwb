@@ -15,17 +15,6 @@ no known material defect; an empty stack alone is insufficient.
 
 ## Executable documentation defects
 
-- `docs/07_statistical_inference_and_nulls.md` §4–5 → wrong
-  `build_permutation_plan`/`detect_trial_cycles`/`assign_subblock_quartiles` signatures →
-  match runtime → extend `tests/test_docs_smoke.py`.
-- `docs/08_directed_connectivity_and_information.md` §2–§6 → wrong `DirectedResult` fields,
-  `kraskov` estimator, `directed_network` pipeline, topology key names → match runtime →
-  execute corrected blocks; extend `tests/test_docs_smoke.py`.
-- `docs/04_spectral_analysis_and_tfr.md` §5 `compress_fp32` → in-memory description false →
-  NWB path I/O per `jnwb.compression.compress_fp32`.
-- `docs/common_mistakes.md` §7 PSI z-scores → replace with receipt-backed values from
-  `phase_slope_index` docstring or probe.
-
 ## Documentation corpus (MkDocs + excluded/stale sources)
 
 - `docs/README.md` → excluded from `mkdocs.yml`; stale; duplicates nav; contains `omission/`
