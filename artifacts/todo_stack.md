@@ -11,39 +11,6 @@ no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## User-facing semantics / failure behavior
-
-## Executable documentation defects
-
-## Documentation corpus (MkDocs + excluded/stale sources)
-
-- `docs/README.md` → excluded from `mkdocs.yml`; stale; duplicates nav; contains `omission/`
-  worked example → delete if redundant or generate/keep consistent with MkDocs nav; no orphan
-  stale index → strict build + link check if retained.
-- `docs/01_architecture_and_philosophy.md` module map → `compression` described as in-memory
-  TFR quantizer; active `compress_fp32` is NWB file conversion (same class of error as
-  `docs/04` item) → correct module contract; audit absolute/prescriptive claims (`zero
-  assumptions`, hierarchical-model prescriptions, causal-language rules) as
-  `{package contract, supported guidance, convention, unsupported overstatement}` → only
-  package-contract claims remain unconditional.
-- Lazy-import note → `docs/01` and/or `docs/install.md` document 0.1.6 deferred exports →
-  matches `tests/test_import_lazy.py`.
-- `README.md` explicit closure → execute both Quickstart blocks; verify capability-table
-  symbols and placement; install extras vs `pyproject.toml`; Python support vs metadata/CI;
-  links; never hardcode public-API count; dataset-independence sentence true only after
-  provenance cleanup → new `tests/test_readme_smoke.py` or extend doc smoke probes.
-
-## API reference (`docs/api.md`) — runtime-generated truth
-
-Known defects: truncated `assert_mergeable`; `repair_band_artifacts` missing `sided`;
-`cluster_permutation_test` missing `n_jobs`; other truncated rows.
-
-- Implement **API doc generator** from `jnwb.__all__` + `inspect.signature` + runtime
-  docstrings → committed `docs/api.md` is diff of generator output; harness gate compares
-  generated vs committed and fails on any mismatch → adversarial fixtures: missing param,
-  changed default, truncated description, missing/extra symbol → Gate 5/10 use generator as
-  sole source of truth (not Markdown signature parsing).
-
 ## Project provenance / source neutrality (generic package boundary)
 
 - Targeted docstring fixes: `decoding.py`, `viz.py`, `trajectory.py:111`, `statistics.py:886`
@@ -56,12 +23,6 @@ Known defects: truncated `assert_mergeable`; `repair_band_artifacts` missing `si
 - **Non-blocking source-neutrality scan** (comments + docstrings in `jnwb/`) → report
   residue count; Gate 6 PASS is not sufficient evidence of neutrality; target user-facing
   docstrings at zero study-specific tokens.
-
-## MCP documentation
-
-- `docs/10_extending_jnwb_and_verification.md` §3 → lists nonexistent MCP tools → document
-  `inspect_nwb`, `prepare_signal_reference`, `get_event_codes_and_timings`, `add_tool` per
-  `jnwb/mcp_server/__init__.py`.
 
 ## Test / delegation boundary (standalone jnwb)
 
@@ -92,12 +53,8 @@ itself a defect.
 
 ## Documentation consistency gates (0.1.7 deliverable)
 
-- Executable-doc probes: `docs/quickstart.md`, `README.md` quickstart blocks.
-- Runtime-generated `docs/api.md` diff gate (above).
-- Internal `.md` link resolver for MkDocs corpus (+ `docs/README.md` policy).
 - Non-blocking `jnwb/` comment/docstring neutrality report (above).
-- Each gate has adversarial fixture proving it catches a known defect →
-  `tests/test_harness_adversarial_gates.py` extended.
+- Remaining adversarial gate fixtures for any new consistency checks added in 0.1.7.
 
 ## Second-audit placeholder (do not delete until 0.1.7 seal)
 

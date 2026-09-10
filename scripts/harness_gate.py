@@ -757,14 +757,22 @@ def run_full_preflight() -> bool:
         f"CI covering {list(PYTHON_CI_REQUIRED)} all agree."
     )
 
-    # 9. Documented API set equality: docs/api.md == set(jnwb.__all__)
+    # 9. API reference: set equality and generator drift
+    from scripts.generate_api_md import check_api_md_is_generated
+
     api_set_violations = check_documented_api_matches_all()
     if api_set_violations:
         print("FAIL: Documented API does not match jnwb.__all__:")
         for v in api_set_violations:
             print(f"  - {v}")
         return False
-    print("PASS: docs/api.md documents exactly the set exported in jnwb.__all__.")
+    api_gen_violations = check_api_md_is_generated()
+    if api_gen_violations:
+        print("FAIL: docs/api.md is out of sync with the API generator:")
+        for v in api_gen_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: docs/api.md matches jnwb.__all__ and the runtime API generator.")
 
     # 10. Documentation version provenance: every stated version equals the package's
     docs_version_violations = check_docs_version_matches_package()

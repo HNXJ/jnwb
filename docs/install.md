@@ -66,6 +66,14 @@ For a stricter editable install that maps `jnwb` alone instead of the whole root
 pip install -e . --config-settings editable_mode=strict
 ```
 
+## Deferred imports (0.1.6+)
+
+`import jnwb` eagerly loads the core spectral, connectivity, and TFR surface. Symbols from
+`statistics`, `metadata`, `decoding`, `ontology`, `analyzers`, `onset_fitting`, and `viz` resolve
+on first access through `jnwb.__getattr__` without importing their submodules at package import
+time. The `visual_qc` submodule is likewise deferred. This keeps `import jnwb` fast while
+preserving the full public API in `jnwb.__all__`. Verified by `tests/test_import_lazy.py`.
+
 ## Verify
 
 Run the verification snippet in your Python environment:

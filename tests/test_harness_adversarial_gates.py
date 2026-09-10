@@ -314,9 +314,19 @@ class TestDocumentationDriftGates:
         return tmp_path
 
     def test_clean_tree_passes_both_gates(self, tmp_path):
+        from scripts.generate_api_md import check_api_md_is_generated
         repo = self._scratch_repo(tmp_path)
         assert check_documented_api_matches_all(repo) == []
+        assert check_api_md_is_generated(repo) == []
         assert check_docs_version_matches_package(repo) == []
+
+    def test_api_md_generator_drift_is_caught(self, tmp_path):
+        from scripts.generate_api_md import check_api_md_is_generated
+        repo = self._scratch_repo(tmp_path)
+        api = repo / "docs/api.md"
+        api.write_text(api.read_text(encoding="utf-8") + "\n<!-- drift -->\n", encoding="utf-8")
+        violations = check_api_md_is_generated(repo)
+        assert any("API_MD_DRIFT" in v for v in violations)
 
     def test_phantom_api_row_is_caught(self, tmp_path):
         """A reference row left behind for a symbol that no longer exists."""

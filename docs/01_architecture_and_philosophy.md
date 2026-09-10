@@ -27,11 +27,12 @@ graph TD
     jnwb --> Decode[decoding: Blocked Nested CV SVM]
     jnwb --> Viz[visual_qc / viz: Publication Graphics]
 
-    jnwb -.->|Consumed by| Ext[Project Extensions: e.g. omission/]
+    jnwb -.->|Consumed by| Ext[Downstream project packages]
 ```
 
 ### The `jnwb/` Boundary Invariant
-`jnwb` makes **zero assumptions** about experimental conditions or task sequence rules.
+`jnwb` does not encode experiment-specific condition codes, task sequence rules, or manuscript
+findings in library code — those belong in downstream project packages.
 - `jnwb` never imports from downstream project directories.
 - This invariant is mechanically enforced by automated regression gates (`tests/test_jnwb_frozen_boundary.py`).
 - Downstream projects consume `jnwb` as an imported library dependency.
@@ -79,7 +80,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 ### E. Unit of Inference & Hierarchical Structure
 * Statistical tests and degrees of freedom must declare their exact inferential unit: unit, channel, trial, or session/subject.
-* Clustering across sessions or subjects must use hierarchical models (GLMM) or session-cluster bootstrap resampling.
+* When trials nest within sessions or subjects, exchangeability schemes (`within_group` permutations, grouped CV) must respect that structure; hierarchical or cluster-bootstrap analyses are the project's choice when the inferential unit is above the trial.
 
 ### F. Valid Nulls & No Synthetic Science
 * A null finding ($p \ge \alpha$) is an empirical scientific observation, not an error. Analysis parameters, frequency bands, or temporal windows are never retrofitted to achieve significance.
@@ -112,7 +113,7 @@ $$\text{claim} \in \{\text{observed}, \text{derived}, \text{inferred}, \text{ass
 | `jrsa` | Representational Similarity Analysis (RDMs, metrics) | `jrsa`, `JRSAResult` |
 | `spectral` | Multi-taper spectral analysis, coherence, CSD, and PLV | `compute_psd`, `compute_multitaper_psd`, `band_power`, `spectral_tilt`, `voltage_curvature_1d`, `current_source_density_1d`, `harmonic_analysis`, `imaginary_coherency`, `cross_area_coherence`, `bipolar_reference`, `laplacian_reference`, `to_db`, `CANONICAL_BANDS` |
 | `tfr_accumulator` | Streaming trial-wise TFR accumulation | `TFRAccumulator`, `assert_mergeable` |
-| `compression` | TFR sparse quantization and storage compression | `compress_fp32` |
+| `compression` | NWB on-disk fp32 conversion (`compress_fp32` path I/O) | `compress_fp32` |
 | `analyzers` | High-level session analyzers | `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` |
 | `connectivity` | Directed connectivity, Granger, PSI, Transfer Entropy, MI | `granger`, `granger_spectral`, `granger_causality`, `phase_slope_index`, `transfer_entropy`, `directed_connectivity`, `directed_network`, `network_topology`, `spike_mutual_information`, `spike_count_mutual_information`, `binary_occupancy_mutual_information`, `bin_spikes`, `as_trials`, `DirectedResult` |
 | `artifact_detection` | Channel and trial correlation matrix artifact detection | `channel_correlation_matrix`, `bad_channels_from_correlation`, `trial_correlation_matrix`, `bad_trials_single_channel`, `consensus_bad_trials` |
