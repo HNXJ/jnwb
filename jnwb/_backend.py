@@ -52,7 +52,7 @@ def cupy_available() -> bool:
         import cupy as cp
 
         return cp.cuda.runtime.getDeviceCount() > 0
-    except Exception:
+    except (ImportError, OSError, RuntimeError, AttributeError):
         return False
 
 
@@ -62,7 +62,7 @@ def torch_cuda_available() -> bool:
         import torch
 
         return bool(torch.cuda.is_available())
-    except Exception:
+    except (ImportError, OSError, RuntimeError, AttributeError):
         return False
 
 

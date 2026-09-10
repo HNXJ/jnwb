@@ -11,8 +11,22 @@ import pytest
 
 from jnwb.metadata import (
     classify_unit_quality, unit_census_report, get_snr_analysis, filter_by_criteria,
-    audit_units, audit_electrodes, assign_quality_tier,
+    audit_units, audit_electrodes, assign_quality_tier, get_all_units_metadata,
 )
+
+
+class TestNwbReadErrors:
+    def test_corrupt_nwb_surfaces_error_when_raise(self, tmp_path):
+        bad = tmp_path / "bad.nwb"
+        bad.write_bytes(b"not an hdf5 file")
+        with pytest.raises(OSError):
+            get_all_units_metadata(bad, on_read_error="raise")
+
+    def test_corrupt_nwb_skipped_by_default(self, tmp_path):
+        bad = tmp_path / "bad.nwb"
+        bad.write_bytes(b"not an hdf5 file")
+        out = get_all_units_metadata(bad)
+        assert out.empty
 
 
 class TestPublicImport:
@@ -120,6 +134,11 @@ class TestFilterByCriteria:
         df = pd.DataFrame({"x": [1, 2, 3]})
         out = filter_by_criteria(df, {"nonexistent_col": "V1"})
         assert len(out) == 3
+
+    def test_unknown_column_raises_when_configured(self):
+        df = pd.DataFrame({"x": [1, 2, 3]})
+        with pytest.raises(ValueError, match="unknown column"):
+            filter_by_criteria(df, {"typo_col": 1}, unknown="raise")
 
     def test_does_not_mutate_input(self):
         df = pd.DataFrame({"area": ["V1", "V4"], "x": [1, 2]})

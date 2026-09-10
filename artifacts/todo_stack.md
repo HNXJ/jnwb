@@ -13,24 +13,6 @@ no known material defect; an empty stack alone is insufficient.
 
 ## User-facing semantics / failure behavior
 
-- `jnwb/metadata.py` `filter_by_criteria` → unknown keys silently ignored → add
-  `unknown: Literal["ignore","raise"]="ignore"`; document hazard in docstring +
-  `docs/02_paths_addressing_metadata.md` + `docs/api.md` → test `unknown="raise"` on typo;
-  retain `tests/test_metadata.py:118` default behavior.
-- `jnwb/metadata.py:91` and `:338` batch loops → `except Exception: continue` silently
-  drops sessions → narrow exceptions or aggregate/report failures → corrupt-NWB test asserts
-  surfaced error.
-- `jnwb/jrsa.py:1314` Granger AIC lag selection → `except Exception: best_lag = lag` masks
-  API drift → narrow catch; warn or NaN → unit test with malformed result object.
-- **`except Exception` exhaustive audit (31 sites in active `jnwb/` per 2026-09-10 scan)** →
-  classify every broad catch as `{required external boundary, narrowable, dangerous}` across
-  `_backend.py`, `addressing.py`, `analyzers.py`, `compression.py`, `connectivity.py`,
-  `jrsa.py`, `mcp_server/*`, `metadata.py`, `spectral.py`, `tfr.py`, `trajectory.py`, …;
-  for fallbacks prove estimator/semantic identity or report fallback explicitly; narrow where
-  possible; add discriminating tests for consequential dangerous cases; do not remove
-  correct optional-backend/GPU/MCP boundary behavior merely to eliminate syntax → inventory
-  committed with per-site disposition; zero unclassified broad catches remain.
-
 ## Public API and active-module classification (required for 0.1.7 100/100)
 
 - **Audit `jnwb.__all__` (111 symbols) and every active non-private module** (`bilinear.py`,

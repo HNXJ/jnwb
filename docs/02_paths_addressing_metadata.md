@@ -125,7 +125,8 @@ tier = jnwb.assign_quality_tier(
 ### Filtering Units by Criteria
 
 ```python
-# Filter units by dictionary criteria (equality, range tuple, or set membership)
+# Filter units by dictionary criteria (equality, range tuple, or set membership).
+# Unknown keys are ignored by default; pass unknown="raise" to catch typos.
 good_v1_units = jnwb.filter_by_criteria(
     classified_units,
     criteria={

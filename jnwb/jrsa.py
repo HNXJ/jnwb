@@ -106,7 +106,7 @@ class JRSAResult:
         if self.p is not None and self.p.size > 0:
             try:
                 p_repr = f", p={float(np.nanmin(self.p)):.4g}"
-            except Exception:
+            except (TypeError, ValueError):
                 pass
         return f"JRSAResult(metric='{self.metric}', value.shape={shape}{p_repr})"
 
@@ -909,7 +909,7 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
         # torch or jax
         try:
             arr = arr.numpy()
-        except Exception:
+        except (RuntimeError, TypeError, ValueError):
             arr = np.asarray(arr)
     if hasattr(arr, "get"):
         # cupy
@@ -1001,7 +1001,7 @@ def _ensure_np(*arrays):
         if hasattr(a, "numpy"):
             try:
                 a = a.numpy()
-            except Exception:
+            except (RuntimeError, TypeError, ValueError):
                 a = np.asarray(a)
         if hasattr(a, "get"):
             a = a.get()
@@ -1311,9 +1311,11 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
                 if aic < min_aic:
                     min_aic = aic
                     best_lag = lag
-            except Exception:
-                # Fallback to last lag if AIC extraction structure changes
-                best_lag = lag
+            except (IndexError, KeyError, AttributeError, TypeError) as exc:
+                warnings.warn(
+                    f"Granger AIC extraction failed at lag {lag}: {exc}; skipping lag",
+                    stacklevel=2,
+                )
         
         f_stat = float(res[best_lag][0]["ssr_ftest"][0])
         p_val = float(res[best_lag][0]["ssr_ftest"][1])
@@ -1457,7 +1459,7 @@ def _make_exec_meta(backend_ctx, device, t0, rng):
                         seed_val = int(sub_state["state"])
                     elif isinstance(sub_state, int):
                         seed_val = sub_state
-        except Exception:
+        except (TypeError, ValueError, KeyError, AttributeError):
             pass
     return {
         "backend": backend_ctx.get("name", "numpy"),

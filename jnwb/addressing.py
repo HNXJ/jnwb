@@ -142,7 +142,7 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
             bin_idx = int(np.searchsorted(edges, local_idx, side='right')) - 1
             bin_idx = min(max(bin_idx, 0), len(areas) - 1)
             return areas[bin_idx]
-    except Exception as e:
+    except (ValueError, KeyError, IndexError, TypeError) as e:
         log.debug(f"Failed to map peak channel {peak_channel_id} to area: {e}")
 
     return None
@@ -170,7 +170,7 @@ def classify_layer_from_depth(peak_channel_id: float, electrodes_df: pd.DataFram
                 # Canonical neuroscience threshold: deep vs superficial
                 # z values > 1000 microns typically represent deep layers in these linear arrays
                 return 'Deep' if float(z_val) > 1000.0 else 'Superficial'
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         log.debug(f"Failed to classify layer for channel {peak_channel_id}: {e}")
 
     return 'Unknown'

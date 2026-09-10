@@ -184,6 +184,24 @@ class TestGranger:
         assert isinstance(result, DirectedResult)
         assert result.x_to_y > result.y_to_x
 
+    def test_malformed_aic_structure_warns_instead_of_silent_fallback(self):
+        from unittest.mock import patch
+        from jnwb.jrsa import _granger
+
+        class _BadModel:
+            @property
+            def aic(self):
+                raise AttributeError("no aic on mock statsmodels result")
+
+        fake_res = {
+            1: ({"ssr_ftest": (1.0, 0.05, 2.0)}, (None, _BadModel(), None)),
+        }
+        x = np.linspace(0, 1, 50)
+        y = np.roll(x, 1)
+        with patch("statsmodels.tsa.stattools.grangercausalitytests", return_value=fake_res):
+            with pytest.warns(UserWarning, match="Granger AIC extraction failed"):
+                _granger(x, y, max_lag=1)
+
 
 class TestPhaseSlopeIndex:
     def test_antisymmetric_under_swap(self):

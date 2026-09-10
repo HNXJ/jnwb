@@ -25,18 +25,21 @@ Date: 2026-06-25
 
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple, Union
+from typing import Literal, Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
 from jnwb.nwb_io import nwb_read_io
 
 log = logging.getLogger(__name__)
 
+_NWB_READ_ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError)
+
 
 def get_all_units_metadata(
     nwb_paths: Union[str, Path, List[Union[str, Path]]],
     filter_quality: bool = False,
-    quality_threshold: float = 1.0
+    quality_threshold: float = 1.0,
+    on_read_error: Literal["skip", "raise"] = "skip",
 ) -> pd.DataFrame:
     """
     Extract all units and metadata from one or more NWB files.
@@ -45,6 +48,8 @@ def get_all_units_metadata(
         nwb_paths: Single NWB path or list of paths
         filter_quality: If True, filter to units with quality >= quality_threshold
         quality_threshold: Quality cutoff (default 1.0 = 'good')
+        on_read_error: ``"skip"`` logs and continues on per-file read failures (default);
+            ``"raise"`` re-raises the first read/processing error.
 
     Returns:
         DataFrame with all unit metadata across sessions
@@ -88,8 +93,10 @@ def get_all_units_metadata(
 
                 all_units.append(units_df)
 
-        except Exception as e:
+        except _NWB_READ_ERRORS as e:
             log.error(f"{nwb_path.name}: {e}")
+            if on_read_error == "raise":
+                raise
             continue
 
     if not all_units:
@@ -102,7 +109,12 @@ def get_all_units_metadata(
     return result
 
 
-def filter_by_criteria(df: pd.DataFrame, criteria: Dict) -> pd.DataFrame:
+def filter_by_criteria(
+    df: pd.DataFrame,
+    criteria: Dict,
+    *,
+    unknown: Literal["ignore", "raise"] = "ignore",
+) -> pd.DataFrame:
     """
     Apply a criteria dict to a DataFrame (units, electrodes, or any other table).
 
@@ -115,9 +127,21 @@ def filter_by_criteria(df: pd.DataFrame, criteria: Dict) -> pd.DataFrame:
     - range tuple      : {'firing_rate': (10, 100)}
     - list membership  : {'area': ['V1', 'V4']}
 
-    Unknown columns in ``criteria`` are silently ignored (not an error), so a
-    single criteria dict can be reused across tables with different schemas.
+    Parameters
+    ----------
+    unknown
+        How to handle criteria keys absent from ``df`` columns. ``"ignore"`` (default)
+        skips them so one criteria dict can be reused across schemas. ``"raise"`` fails
+        on typos or stale column names.
     """
+    if unknown == "raise":
+        missing = [k for k in criteria if k not in df.columns]
+        if missing:
+            raise ValueError(
+                f"filter_by_criteria: unknown column(s) {missing!r}; "
+                "pass unknown='ignore' to skip absent keys"
+            )
+
     out = df.copy()
     for k, v in criteria.items():
         if k not in out.columns:
@@ -284,13 +308,16 @@ def get_snr_analysis(
 
 
 def electrode_inventory(
-    nwb_paths: Union[str, Path, List[Union[str, Path]]]
+    nwb_paths: Union[str, Path, List[Union[str, Path]]],
+    on_read_error: Literal["skip", "raise"] = "skip",
 ) -> pd.DataFrame:
     """
     Build inventory of electrodes, mapping to units and areas.
 
     Args:
         nwb_paths: Single or list of NWB file paths
+        on_read_error: ``"skip"`` logs and continues on per-file read failures (default);
+            ``"raise"`` re-raises the first read/processing error.
 
     Returns:
         DataFrame with electrode metadata and unit assignments
@@ -335,8 +362,10 @@ def electrode_inventory(
 
                 all_elecs.append(elec_df)
 
-        except Exception as e:
+        except _NWB_READ_ERRORS as e:
             log.error(f"{nwb_path.name}: {e}")
+            if on_read_error == "raise":
+                raise
             continue
 
     if not all_elecs:
