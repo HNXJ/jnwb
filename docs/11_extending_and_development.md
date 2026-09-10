@@ -1,6 +1,6 @@
 # 11. Extending `jnwb` & Developer Guide
 
-This document is the canonical developer authority for maintaining, extending, and testing `jnwb` without degrading the released package or violating scientific invariants.
+The rules for maintaining, extending and testing `jnwb`. For setup, branches, the checks to run and how a release is cut, see [`CONTRIBUTING.md`](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md).
 
 ---
 
@@ -98,13 +98,15 @@ jnwb/
 ├── docs/          # scientific + developer documentation
 ├── skills/        # reusable agent procedures
 ├── scripts/       # deterministic repository tooling
-├── artifacts/     # non-root work products + AGENTS.md reference
+├── artifacts/     # non-root work products, agent definitions, todo stack
 └── root           # frozen package/repository control surface
 ```
 
 ### Permitted Root Entries (Allowlist)
-- **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`, `omission/` (native example project)
-- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CHANGELOG.md`, `LICENSE`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.readthedocs.yaml`
+- **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
+- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`
+
+The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
 - **CI / VCS**: `.git/`, `.github/`
 - **Repository Artifact Container**: `artifacts/`
 
@@ -113,16 +115,16 @@ The `artifacts/` directory is the canonical location for non-package, repository
 
 ```text
 artifacts/
-├── AGENTS.md        # Generalized agent reliability policy reference artifact
+├── todo_stack.md    # Remaining work, grouped by the version that carries it
+├── agents/          # Subagent definitions (claim-verifier, code-auditor, sweep-runner)
 ├── benchmarks/      # Performance profiles, timing benchmarks, scalability receipts
-├── reports/         # Analysis reports, verification audits, coverage summaries
-├── figures/         # Intermediate visual review renders, diagnostic figures
-├── receipts/        # Hash logs, test receipts, data provenance records
-└── scratch/         # Disposable developer scripts, temporary test data
+├── data/            # Small fixtures and derived tables
+├── developer/       # Developer work products
+└── scratch/         # Disposable developer scripts, temporary test data (gitignored)
 ```
 
 - **Rule**: Temporary scripts, test data, and ad-hoc exports must be placed in `artifacts/scratch/` or ignored via `.gitignore`, never committed to root.
-- **Agent Policy Reference**: For contributors and automated systems seeking the generalized, reusable agent work policy, epistemic taxonomy (`observed` | `derived` | `inferred` | `assumed` | `unknown`), and execution grammar ($W = P(RG)^N S$), see `artifacts/AGENTS.md`.
+- **Agent Policy Reference**: The agent work policy, epistemic taxonomy (`observed` | `derived` | `inferred` | `assumed` | `unknown`), execution grammar ($W = P(RG)^N S$) and repository map are in `AGENTS.md` at the repository root.
 
 ---
 
@@ -160,5 +162,6 @@ All contributors and automated agents must adhere to the 7 scientific invariants
        │
 8. Harness Gate  Execute python scripts/harness_gate.py.
        │
-9. Seal & Push   Verify git status, stage exact paths, and push to dev branch.
+9. Seal & Push   Verify git status, stage exact paths, push to dev, delete the finished
+                 item from artifacts/todo_stack.md.
 ```

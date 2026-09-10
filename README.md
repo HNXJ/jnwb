@@ -84,6 +84,12 @@ print(len(units), "units;", jnwb.audit_units(units))
 
 Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are on [Read the Docs](https://jnwb.readthedocs.io/).
 
+## Contributing
+
+Setup, the checks to run, the branch model and the release procedure are in
+[CONTRIBUTING.md](CONTRIBUTING.md). Work lands on `dev`; `main` holds releases. The queued
+work is in [artifacts/todo_stack.md](artifacts/todo_stack.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

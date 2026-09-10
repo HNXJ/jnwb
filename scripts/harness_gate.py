@@ -196,7 +196,7 @@ EPHEMERAL_ROOT_DIRS = {
 ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
-    "LICENSE", "pyproject.toml", "README.md", ".coverage", "mkdocs.yml"
+    "CONTRIBUTING.md", "LICENSE", "pyproject.toml", "README.md", ".coverage", "mkdocs.yml"
 }
 
 
