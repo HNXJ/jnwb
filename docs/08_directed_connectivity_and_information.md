@@ -151,3 +151,7 @@ print("Node in-degrees:", topo["in_degree"])
 print("Node out-degrees:", topo["out_degree"])
 print("Network density:", topo["density"])
 ```
+
+## References
+
+The methods on this page are cited in [References](references.md).

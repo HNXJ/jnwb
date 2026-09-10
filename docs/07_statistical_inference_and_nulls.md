@@ -197,3 +197,7 @@ r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200)
 # Cross-modal correlation and temporal alignment comparison
 modal_res = jnwb.cross_modal_comparison(lfp_envelope, spike_psth, bin_ms=10.0)
 ```
+
+## References
+
+The methods on this page are cited in [References](references.md).

@@ -14,10 +14,12 @@ phase and policy. A project that *uses* jnwb keeps its own rules in its own repo
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§6). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
-| `artifacts/benchmarks/` | Performance baseline and import profile |
+| `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
+| `docs/references.md` | Published sources for each method, with resolved DOIs; docstrings cite the same entries |
 | `docs/11_extending_and_development.md` | How to add or change a function without breaking the release |
 | `examples/quickstart_jnwb.py` | Smallest end-to-end script |
+| `examples/notebooks/` | Notebooks on synthetic data; `tests/test_notebooks.py` executes every one |
 | `pyproject.toml` | Version source, dependencies, Python floor |
 | `CHANGELOG.md` | What changed per release, including breaking changes |
 | `.github/workflows/workflow.yml` | CI: tests on 3.12 and 3.14 (Ubuntu, Windows), build, docs. A `v*` tag push publishes to PyPI; an `rc` tag goes to TestPyPI |

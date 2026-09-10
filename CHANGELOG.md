@@ -4,6 +4,37 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-09-10
+
+Closes the open GitHub issues: citations, GPU and parallel execution, notebooks, the import
+benchmark, and an HSIC defect found while checking one of them.
+
+### Fixed
+
+- **HSIC accepted only 2-D inputs.** `_hsic` flattened `x1` but never `x2`, so `jrsa` with
+  1-D, 3-D, or mixed-rank inputs raised `ValueError: XA must be a 2-dimensional array` from
+  `cdist`. Both sides are now reshaped to `(n_samples, n_features)`.
+
+### Added
+
+- **`complex_tfr(device='cuda')`** convolves with `cupyx.scipy.signal.fftconvolve`, falls
+  back to CPU with a `RuntimeWarning`, and records the device it used on `ComplexTFR.device`.
+  64 channels x 10k samples x 40 frequencies: 1.27 s CPU, 0.61 s on an RTX A4000.
+- **`directed_network(n_jobs=)`** runs node pairs through `_parallel.parallel_map`. Six
+  nodes at `n_jobs=8`: transfer entropy 103.4 s -> 19.6 s, Granger 6.44 s -> 5.28 s. Results
+  are identical for any `n_jobs`.
+- **`docs/references.md`** — published sources per method with DOIs resolved on Crossref,
+  linked from the docs nav. The docstrings of the implementing functions cite the same
+  entries.
+- **`examples/notebooks/01_spectral_and_inference.ipynb`** on synthetic data, executed in CI
+  by `tests/test_notebooks.py` (9.7 s). Needs the `test` extra, which gained `nbclient`,
+  `nbformat` and `ipykernel`.
+- **`scripts/benchmark_import.py`** measures cold (empty bytecode cache) and warm
+  fresh-process imports and rewrites `artifacts/benchmarks/import_profile.txt`: 50445 ms
+  cold, 9115 ms warm, 111 public symbols on Python 3.14.3.
+- `docs/01_architecture_and_philosophy.md` gained an NWB/PyNWB/HDMF section, and
+  `docs/install.md` a GPU and parallel execution section.
+
 ## [0.1.4] - 2026-09-10
 
 Closes the boundary defects a review found in 0.1.3: executable code that gave one
@@ -201,7 +232,7 @@ a class of silent GPU and import failures. 0.1.2 was never released.
   - `channel_correlation_matrix`, `detect_flat_or_noisy_channels`, `detect_extreme_events`.
   - `repair_lfp_trials`: Outlier thresholding and cross-channel linear interpolation repair.
 - **Anatomical Addressing & Ontology**:
-  - `map_peak_channel_to_area`, `classify_layer_from_depth`.
+  - `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe`.
 - **Publication Graphics**:
   - `setup_vector_graphics`, `apply_tight_auto_axis`, `save_figure_suite`.
 - **Packaging & CI**:

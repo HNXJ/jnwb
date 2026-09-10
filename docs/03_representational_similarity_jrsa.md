@@ -94,3 +94,7 @@ res_gpu = jnwb.jrsa(x1, x2, metric="rsa", backend="gpu")
 
 1. **Missing Data Policy (`nan_policy`)**: If specific conditions lack trials, `nan_policy="omit"` propagates `NaN` across affected RDM pairs rather than fabricating zeros.
 2. **Preprocessing Invariants**: Z-scoring or standardizing features prior to correlation-distance RSA is mathematically redundant (correlation is intrinsically mean-centered and scale-invariant).
+
+## References
+
+The methods on this page are cited in [References](references.md).

@@ -36,6 +36,17 @@ graph TD
 - This invariant is mechanically enforced by automated regression gates (`tests/test_jnwb_frozen_boundary.py`).
 - Downstream projects consume `jnwb` as an imported library dependency.
 
+### NWB, PyNWB and HDMF
+
+NWB (Neurodata Without Borders) is a data standard for neurophysiology: an HDF5 layout plus a
+schema for acquisitions, electrodes, units, trials and intervals (Teeters et al., 2015; Rübel
+et al., 2022). jnwb reads NWB files through PyNWB, the reference Python API, which uses HDMF
+for the schema and HDF5 input and output. Public NWB datasets are shared on the DANDI Archive.
+
+Importing jnwb replaces HDMF's `BuildManager.construct` process-wide with a version that
+repairs malformed unit and index builders on read; if that cannot be installed, jnwb logs a
+warning. Citations and links are in [References](references.md#data-format).
+
 ---
 
 ## 2. Scientific & Epistemic Invariants

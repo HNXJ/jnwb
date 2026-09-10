@@ -20,6 +20,20 @@ pip install "jnwb[test]"        # pytest, pytest-cov, pytest-xdist test suites
 pip install "jnwb[all]"         # Complete dependency bundle
 ```
 
+### GPU and parallel execution
+
+Functions with a `device=` argument (see [Public API](api.md)) accept `'cpu'`, the default, or
+`'cuda'`. `'cuda'` runs on an NVIDIA GPU through [CuPy](https://docs.cupy.dev/en/stable/),
+installed by the `gpu` extra (CUDA 12.x). The device is resolved once per call: if CuPy or a
+GPU is missing, or the GPU run raises, the whole call runs on CPU and a `RuntimeWarning` names
+the function. Results record which device produced them: `device_used` in
+`cross_area_coherence`, `.device` on the `ComplexTFR` from `complex_tfr`.
+
+Functions with an `n_jobs=` argument run independent work items in worker processes through
+[joblib](https://joblib.readthedocs.io/en/stable/). The default is 1 (serial) and -1 uses every
+core. Work items are seeded before they are dispatched, so `n_jobs` changes speed and never a
+result. Starting workers has a cost, so raise it for calls that take seconds.
+
 ## Source Checkout
 
 Clone and install an editable development environment:

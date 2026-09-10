@@ -110,13 +110,30 @@ class TestNJobsDoesNotChangeResults:
 
         assert run(4) == run(1)
 
+    def test_directed_network_is_invariant_to_n_jobs(self):
+        from jnwb.connectivity import directed_network
+
+        gen = np.random.default_rng(4)
+        sig = gen.normal(size=(4, 6, 400))
+        sig[1, :, 3:] += 0.6 * sig[0, :, :-3]
+
+        def run(n_jobs):
+            out = directed_network(sig, method="granger", n_jobs=n_jobs)
+            return out["matrix"], out["p_matrix"]
+
+        m1, p1 = run(1)
+        m4, p4 = run(4)
+        np.testing.assert_array_equal(m4, m1)
+        np.testing.assert_array_equal(p4, p1)
+
     def test_defaults_are_serial(self):
         """A library that saturates every core by default fights the caller's own pool."""
         import inspect
 
+        from jnwb.connectivity import directed_network
         from jnwb.spectral import cross_area_coherence
         from jnwb.statistics import cluster_permutation_test
 
-        for fn in (cluster_permutation_test, cross_area_coherence):
+        for fn in (cluster_permutation_test, cross_area_coherence, directed_network):
             default = inspect.signature(fn).parameters["n_jobs"].default
             assert default == 1, f"{fn.__name__} defaults to n_jobs={default}"

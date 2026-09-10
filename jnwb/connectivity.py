@@ -48,6 +48,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._parallel import parallel_map
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -411,6 +412,10 @@ def granger_causality(
 
     Also returns residual diagnostics (lightweight ADF + Ljung–Box). Do not interpret
     GC as biological directionality when diagnostics warn.
+
+    References:
+        Granger, C. W. J. (1969). Investigating causal relations by econometric models
+        and cross-spectral methods. Econometrica. doi:10.2307/1912791
     """
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
@@ -908,6 +913,12 @@ def granger(
         band-passing the input — filtering distorts the very lag structure GC
         reads. Use :func:`granger_spectral` (Geweke decomposition of this same
         VAR) or :func:`phase_slope_index` instead.
+
+    References:
+        Granger, C. W. J. (1969). Investigating causal relations by econometric models
+        and cross-spectral methods. Econometrica. doi:10.2307/1912791
+        Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
+        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
     """
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
@@ -1189,6 +1200,10 @@ def granger_spectral(
         ``x_to_y``/``y_to_x`` are the frequency averages over the full spectrum.
         ``diagnostics['spectral_radius'] >= 1`` means the VAR is non-stationary
         and the decomposition must not be interpreted.
+
+    References:
+        Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
+        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
     """
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
@@ -1474,6 +1489,10 @@ def phase_slope_index(
         n_freq_bins, band_hz}``, and ``spectrum = {freqs, psi_per_freq, coherence}``.
         ``x_to_y`` is the summed PSI over the whole requested range with
         ``y_to_x = -x_to_y``; ``net == x_to_y``.
+
+    References:
+        Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
+        complex physical systems. Phys. Rev. Lett. doi:10.1103/PhysRevLett.100.234101
     """
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"phase_slope_index requires a positive fs; got {fs!r}")
@@ -1811,6 +1830,10 @@ def transfer_entropy(
         DirectedResult with ``unit='bits'``. ``diagnostics['samples_per_joint_state']``
         below ~10 means the estimate is undersampled and a warning fires — reduce
         ``bins``, ``k``, or ``l`` rather than reporting it.
+
+    References:
+        Schreiber, T. (2000). Measuring information transfer. Phys. Rev. Lett.
+        doi:10.1103/PhysRevLett.85.461
     """
     if estimator not in ("quantile", "uniform", "discrete", "symbolic"):
         raise ValueError(
@@ -1957,6 +1980,7 @@ def directed_network(
     labels: Optional[Sequence[str]] = None,
     fdr: bool = True,
     fdr_method: str = "bh",
+    n_jobs: int = 1,
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -1970,6 +1994,9 @@ def directed_network(
         fdr: Benjamini-Hochberg across the family of all N*(N-1) ordered pairs.
             The family is the whole matrix — correcting one cell in isolation
             would imply an undisclosed set.
+        n_jobs: CPU workers for the pairs. Default 1 (serial); -1 uses every core.
+            Each estimator seeds its surrogates from its own ``seed`` argument, so
+            the result is identical for any n_jobs.
         **kwargs: forwarded to the estimator
 
     Returns:
@@ -2001,20 +2028,24 @@ def directed_network(
     results: Dict[Tuple[str, str], DirectedResult] = {}
     warnings_all: List[str] = []
 
-    for i in range(n):
-        for j in range(i + 1, n):
-            res = directed_connectivity(series[i], series[j], method=method, **kwargs)
-            matrix[i, j] = res.x_to_y
-            matrix[j, i] = res.y_to_x
-            if res.p_x_to_y is not None:
-                p_matrix[i, j] = res.p_x_to_y
-            if res.p_y_to_x is not None:
-                p_matrix[j, i] = res.p_y_to_x
-            results[(labels[i], labels[j])] = res
-            for w in res.diagnostics.get("warnings", []):
-                tag = f"{labels[i]}<->{labels[j]}: {w}"
-                if tag not in warnings_all:
-                    warnings_all.append(tag)
+    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    pair_results = parallel_map(
+        lambda ij: directed_connectivity(series[ij[0]], series[ij[1]], method=method, **kwargs),
+        pairs,
+        n_jobs=n_jobs,
+    )
+    for (i, j), res in zip(pairs, pair_results):
+        matrix[i, j] = res.x_to_y
+        matrix[j, i] = res.y_to_x
+        if res.p_x_to_y is not None:
+            p_matrix[i, j] = res.p_x_to_y
+        if res.p_y_to_x is not None:
+            p_matrix[j, i] = res.p_y_to_x
+        results[(labels[i], labels[j])] = res
+        for w in res.diagnostics.get("warnings", []):
+            tag = f"{labels[i]}<->{labels[j]}: {w}"
+            if tag not in warnings_all:
+                warnings_all.append(tag)
 
     q_matrix = np.full((n, n), np.nan)
     if fdr:

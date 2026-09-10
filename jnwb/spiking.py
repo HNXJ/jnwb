@@ -301,6 +301,10 @@ def pairwise_phase_consistency(
 
     Returns:
         PPC value (float for 1D input, or ndarray with `axis` reduced). Returns NaN where N < 2.
+
+    References:
+        Vinck, M., et al. (2010). The pairwise phase consistency: a bias-free measure of
+        rhythmic neuronal synchronization. NeuroImage. doi:10.1016/j.neuroimage.2010.01.073
     """
     arr = np.asarray(phases, dtype=float)
     n = arr.shape[axis] if arr.ndim > 0 else 0

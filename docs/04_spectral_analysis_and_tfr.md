@@ -232,3 +232,7 @@ tfr_res = jnwb.complex_tfr(
 
 - **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM.
 - **`compress_fp32` (`jnwb.compression`)**: Compresses high-dimensional single-precision floating point arrays into quantized representations.
+
+## References
+
+The methods on this page are cited in [References](references.md).

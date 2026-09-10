@@ -104,7 +104,7 @@ class TestFallbackWarning:
 class TestCallSitesAreRouted:
     """Every GPU decision must come from _backend, not a local probe."""
 
-    ROUTED_MODULES = ["spectral", "gpu_pca", "analyzers", "connectivity"]
+    ROUTED_MODULES = ["spectral", "gpu_pca", "analyzers", "connectivity", "tfr"]
 
     def test_routed_modules_import_the_shared_resolver(self):
         import importlib
@@ -156,3 +156,48 @@ class TestDeviceRequestIsHonouredOrReported:
         rng = np.random.default_rng(0)
         with pytest.warns(RuntimeWarning, match="gpu_pca"):
             gpu_pca(rng.normal(size=(50, 10)), n_components=2)
+
+
+class TestComplexTfrDevice:
+    """complex_tfr(device='cuda') must match the CPU transform or fall back wholesale, loudly."""
+
+    @staticmethod
+    def _data():
+        return np.random.default_rng(0).normal(size=(3, 1200))
+
+    def test_cpu_is_the_default_and_is_recorded(self):
+        from jnwb.tfr import complex_tfr
+
+        out = complex_tfr(self._data(), fs=1000.0, freqs=np.array([10.0, 20.0, 40.0]))
+        assert out.device == CPU
+
+    def test_cuda_matches_cpu_or_warns(self):
+        from jnwb.tfr import complex_tfr
+
+        freqs = np.array([10.0, 20.0, 40.0])
+        cpu = complex_tfr(self._data(), fs=1000.0, freqs=freqs)
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            gpu = complex_tfr(self._data(), fs=1000.0, freqs=freqs, device="cuda")
+        if gpu_available(prefer="cupy"):
+            assert gpu.device == CUDA
+            np.testing.assert_allclose(gpu.z, cpu.z, rtol=0, atol=1e-10)
+        else:
+            assert gpu.device == CPU
+            assert any(issubclass(w.category, RuntimeWarning) for w in record)
+        np.testing.assert_array_equal(gpu.coi_mask, cpu.coi_mask)
+
+    def test_gpu_failure_falls_back_wholesale_and_warns(self, monkeypatch):
+        import jnwb._backend as backend
+        import jnwb.tfr as tfr
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("simulated CUDA failure")
+
+        monkeypatch.setattr(backend, "gpu_available", lambda prefer=None: True)
+        monkeypatch.setattr(tfr, "_convolve_gpu", boom)
+        freqs = np.array([10.0, 20.0])
+        with pytest.warns(RuntimeWarning, match="complex_tfr"):
+            out = tfr.complex_tfr(self._data(), fs=1000.0, freqs=freqs, device="cuda")
+        assert out.device == CPU
+        np.testing.assert_array_equal(out.z, tfr.complex_tfr(self._data(), fs=1000.0, freqs=freqs).z)

@@ -45,3 +45,31 @@ def test_jrsa_multilag_stacking():
     assert res_multi.value is not None
     assert res_multi.value.shape == (3,)
 
+class TestHsicInputShapes:
+    """_hsic flattened only x1, so every input that was not 2-D failed on x2 inside cdist."""
+
+    @staticmethod
+    def _hsic(u, v):
+        from jnwb.jrsa import _hsic
+
+        out = _hsic(u, v)
+        return float(out[0] if isinstance(out, tuple) else out)
+
+    def test_three_dimensional_inputs_are_flattened_per_sample(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(size=(20, 5, 6))
+        b = rng.normal(size=(20, 5, 6))
+        assert self._hsic(a, b) == pytest.approx(
+            self._hsic(a.reshape(20, -1), b.reshape(20, -1))
+        )
+
+    def test_one_dimensional_inputs_are_accepted(self):
+        rng = np.random.default_rng(1)
+        a = rng.normal(size=20)
+        assert np.isfinite(self._hsic(a, a + 0.1 * rng.normal(size=20)))
+
+    def test_mixed_dimensionality_matches_the_flattened_pair(self):
+        rng = np.random.default_rng(2)
+        a = rng.normal(size=(20, 30))
+        b = rng.normal(size=(20, 5, 6))
+        assert self._hsic(a, b) == pytest.approx(self._hsic(a, b.reshape(20, -1)))

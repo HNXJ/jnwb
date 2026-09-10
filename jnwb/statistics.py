@@ -430,6 +430,10 @@ class StatisticalAnalysis:
 
         Returns:
             FDR-adjusted q-values, same shape as input (flattened 1-D)
+
+        References:
+            Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
+            Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x
         """
         p = np.asarray(p_values, dtype=float).ravel()
         if p.size == 0:
@@ -1098,6 +1102,10 @@ def cluster_permutation_test(
         ValueError: If inputs have mismatched shapes, threshold <= 0, n_permutations < 1,
             invalid tail specification, or invalid group configuration.
         TypeError: If rng is provided but not an instance of numpy.random.Generator.
+
+    References:
+        Maris, E., & Oostenveld, R. (2007). Nonparametric statistical testing of EEG- and
+        MEG-data. J. Neurosci. Methods. doi:10.1016/j.jneumeth.2007.03.024
     """
     from scipy import ndimage
 

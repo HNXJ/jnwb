@@ -231,6 +231,14 @@ def jrsa(
     -------
     JRSAResult
         Rich result object with .summary(), .plot(), .save().
+
+    References
+    ----------
+    Kriegeskorte, N., et al. (2008). Representational similarity analysis: connecting the
+    branches of systems neuroscience. Front. Syst. Neurosci. doi:10.3389/neuro.06.004.2008
+    (``metric='rsa'``).
+    Gretton, A., et al. (2005). Measuring statistical dependence with Hilbert-Schmidt
+    norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``).
     """
     t0 = time.perf_counter()
 
@@ -1196,8 +1204,10 @@ def _hsic(x1, x2, axis=-1, sigma=1.0, **kwargs):
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     from scipy.spatial.distance import cdist
+    # Both sides need the same (n_samples, n_features) shape: cdist rejects anything else, and
+    # flattening only x1 made every non-2-D call fail on x2 instead.
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
-    Y = x2 if x2 is not None else x2.reshape(x2.shape[0], -1)
+    Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
     m = min(X.shape[0], Y.shape[0])
     X, Y = X[:m], Y[:m]
     

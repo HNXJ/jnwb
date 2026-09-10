@@ -185,6 +185,10 @@ def compute_psd(lfp_data: np.ndarray, fs: float):
 
     Returns:
         (freqs, psd) tuple.
+
+    References:
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     freqs, psd = signal.welch(lfp_data, fs=fs, nperseg=min(len(lfp_data), int(fs)), axis=0)
     return freqs, psd
@@ -223,6 +227,10 @@ def harmonic_analysis(
     Example:
         >>> analysis = harmonic_analysis(lfp_data, fs=1000.0)
         >>> print(f"Theta fundamental: {analysis['fundamental_freq']:.1f} Hz")
+
+    References:
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
     result = {
@@ -375,6 +383,10 @@ def cross_area_coherence(
         >>> coh = cross_area_coherence(v1_lfp, pfc_lfp, fs=1000.0, freq_bands='canonical')
         >>> print(f"Alpha coherence: {coh['band_coherence']['alpha']:.3f}")
         >>> print(f"p >= {coh['p_value_floor']:.4f} by construction")
+
+    References:
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "cross_area_coherence")
     # INTENTIONAL BREAK (0.1.4). None used to mean CANONICAL_BANDS, so the band
@@ -554,6 +566,10 @@ def spectral_tilt(
     Example:
         >>> tilt = spectral_tilt(lfp_data, fs=1000.0, freq_range=(1.0, 100.0))
         >>> print(f"Spectral exponent: {tilt['exponent']:.2f}")
+
+    References:
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
     result = {
@@ -647,6 +663,10 @@ def band_power(
         >>> theta_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8))
         >>> baseline_power = band_power(baseline_lfp, fs=1000.0, freq_range=(4, 8), normalize=False)
         >>> normalized_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8), baseline=baseline_lfp)
+
+    References:
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
     if len(lfp_trace) == 0:
@@ -747,6 +767,12 @@ def imaginary_coherency(
     Validated against synthetic cases in scripts/validate_imaginary_coherency.py:
     a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
     near zero; a genuinely lagged shared source drives both up.
+
+    References:
+        Nolte, G., et al. (2004). Identifying true brain interaction from EEG data using the
+        imaginary part of coherency. Clin. Neurophysiol. doi:10.1016/j.clinph.2004.04.029
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
     x = np.asarray(x, dtype=float).ravel()

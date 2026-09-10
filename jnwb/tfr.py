@@ -13,6 +13,8 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from scipy import signal
 
+from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
+
 
 @dataclass(frozen=True)
 class ComplexTFR:
@@ -30,6 +32,7 @@ class ComplexTFR:
         fs: Sampling rate in Hz.
         n_cycles: 1D array of wavelet cycles per frequency bin.
         normalization: Normalization scheme applied ('amplitude' or 'energy').
+        device: 'cpu' or 'cuda', whichever computed `z`.
     """
 
     z: np.ndarray
@@ -39,6 +42,7 @@ class ComplexTFR:
     fs: float
     n_cycles: np.ndarray
     normalization: str
+    device: str = CPU
 
     @property
     def power(self) -> np.ndarray:
@@ -109,6 +113,20 @@ def morlet_wavelet(
     return t, raw * norm_factor
 
 
+def _convolve_gpu(arr, kernels, time_dim, out_shape, dtype):
+    """Run every kernel's convolution on the GPU; return a NumPy array shaped like the CPU path."""
+    import cupy as cp
+    from cupyx.scipy.signal import fftconvolve
+
+    x = cp.asarray(arr)
+    z = np.empty(out_shape, dtype=dtype)
+    for fi, w in enumerate(kernels):
+        sl = [slice(None)] * len(out_shape)
+        sl[time_dim] = fi
+        z[tuple(sl)] = cp.asnumpy(fftconvolve(x, cp.asarray(w), mode="same", axes=time_dim)).astype(dtype)
+    return z
+
+
 def complex_tfr(
     data: np.ndarray,
     fs: float,
@@ -118,6 +136,7 @@ def complex_tfr(
     normalization: str = "amplitude",
     dtype: np.dtype = np.complex128,
     coi_sigma: float = 2.0,
+    device: str = "cpu",
 ) -> ComplexTFR:
     """Compute complex Time-Frequency Representation via Morlet wavelet convolution.
 
@@ -130,9 +149,16 @@ def complex_tfr(
         normalization: 'amplitude' (default, unit cosine -> peak |z| = 1.0) or 'energy' (L2 unit energy).
         dtype: Output complex dtype (np.complex128 or np.complex64).
         coi_sigma: Multiplier on sigma_t defining the Cone of Influence (default 2.0).
+        device: 'cpu' (default) or 'cuda'. 'cuda' convolves with CuPy and returns NumPy
+            arrays. Without a usable GPU, or if the GPU run fails, the whole transform
+            runs on CPU with a RuntimeWarning; `result.device` records which ran.
 
     Returns:
         ComplexTFR containing complex coefficients tensor `z`, `freqs`, `times`, and `coi_mask`.
+
+    References:
+        Torrence, C., & Compo, G. P. (1998). A practical guide to wavelet analysis. Bull.
+        Am. Meteorol. Soc. doi:10.1175/1520-0477(1998)079<0061:APGTWA>2.0.CO;2
     """
     arr = np.asarray(data)
     if not np.issubdtype(arr.dtype, np.number):
@@ -177,31 +203,34 @@ def complex_tfr(
     suffix_shape = arr.shape[time_dim + 1:]
     out_shape = prefix_shape + (n_freqs, n_times) + suffix_shape
 
-    z_out = np.zeros(out_shape, dtype=dtype)
+    # One kernel per frequency, shaped to broadcast against `arr` along time_dim
+    w_shape = [1] * arr.ndim
+    w_shape[time_dim] = -1
+    kernels = [
+        morlet_wavelet(freqs_arr[fi], fs, n_cycles=cycles_arr[fi], normalization=normalization)[1].reshape(w_shape)
+        for fi in range(n_freqs)
+    ]
+
+    device_used = resolve_device(device, context="complex_tfr", prefer="cupy")
+    z_out = None
+    if device_used == CUDA:
+        try:
+            z_out = _convolve_gpu(arr, kernels, time_dim, out_shape, dtype)
+        except Exception as exc:
+            warn_device_fallback("complex_tfr", exc)
+            device_used = CPU
+    if z_out is None:
+        z_out = np.zeros(out_shape, dtype=dtype)
+        for fi, w in enumerate(kernels):
+            # the frequency axis sits at time_dim in the output; time moves one to the right
+            sl = [slice(None)] * len(out_shape)
+            sl[time_dim] = fi
+            z_out[tuple(sl)] = signal.fftconvolve(arr, w, mode="same", axes=time_dim).astype(dtype)
+
     coi_mask = np.ones((n_freqs, n_times), dtype=bool)
-
-    # Convolve for each frequency
     for fi in range(n_freqs):
-        f0 = freqs_arr[fi]
         nc = cycles_arr[fi]
-        _, w = morlet_wavelet(f0, fs, n_cycles=nc, normalization=normalization)
-
-        # Reshape kernel to match input array dimensionality for fftconvolve
-        w_shape = [1] * arr.ndim
-        w_shape[time_dim] = -1
-        w_shaped = w.reshape(w_shape)
-
-        # Convolution along time_axis
-        conv_res = signal.fftconvolve(arr, w_shaped, mode="same", axes=time_dim)
-
-        # Assign into frequency slice
-        # Use slice indexing: slice for all leading dimensions, fi for freq dimension
-        sl = [slice(None)] * len(out_shape)
-        sl[time_dim] = fi
-        z_out[tuple(sl)] = conv_res.astype(dtype)
-
-        # COI mask computation for this frequency
-        sigma_t = nc / (2.0 * np.pi * f0)
+        sigma_t = nc / (2.0 * np.pi * freqs_arr[fi])
         k_coi = int(np.ceil(coi_sigma * sigma_t * fs))
         if k_coi > 0:
             coi_mask[fi, :min(k_coi, n_times)] = False
@@ -221,4 +250,5 @@ def complex_tfr(
         fs=float(fs),
         n_cycles=cycles_arr,
         normalization=normalization,
+        device=device_used,
     )
