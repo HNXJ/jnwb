@@ -1,185 +1,257 @@
 # TODO stack
 
 Remaining work only, grouped by the version that carries it. A finished item is deleted —
-git, `CHANGELOG.md` and the receipts hold the history. Ordered within each version by the
-path a post-0.1.6 completeness audit recommended.
+git, `CHANGELOG.md` and the receipts hold the history. Ordered within each version by
+dependency and risk (correctness and harness first).
 
 Completeness means no known material defect under the declared jnwb goals — including the
 smallest missing generic primitives justified by evidence, not breadth of method or a large
-new subsystem.
+new subsystem. **100/100** is awarded only after a second independent zero-based audit finds
+no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## Release / packaging workflow (policy: GitHub Release before PyPI)
+## Release / packaging workflow (GitHub Release before PyPI)
 
-0.1.6 evidence: tag push published PyPI successfully; a later GitHub Release re-ran CI and
-`publish-pypi` failed with `400 File already exists` for `jnwb-0.1.6-py3-none-any.whl`. PyPI
-artifact was unaffected; the red run is duplicate-publish noise, not a bad release.
+0.1.6 evidence: tag push published a **valid** PyPI artifact; a later GitHub Release
+re-ran CI and `publish-pypi` received `400 File already exists` for
+`jnwb-0.1.6-py3-none-any.whl` — duplicate-attempt noise, not a defective package.
 
-**Canonical order from 0.1.7 onward:** fast-forward `main` → push tag `vX.Y.Z` → create and
-publish **GitHub Release** for that tag → **then** PyPI upload. PyPI must never publish before
-the GitHub Release exists.
+**Canonical order:** validated `main` → push tag `vX.Y.Z` → publish **GitHub Release** for
+that tag → **then** PyPI upload → verify from PyPI in a fresh venv.
 
-- `CONTRIBUTING.md` § Releasing steps 4–5 → currently says tag push publishes PyPI and omits
-  GitHub Release as a required step → rewrite to: (1) push tag after CI green on `dev`;
-  (2) `gh release create vX.Y.Z` with `CHANGELOG` notes; (3) PyPI publish is triggered only
-  by the GitHub Release `published` event, not by the tag push alone → maintainer checklist
-  matches workflow.
-- `.github/workflows/workflow.yml` `publish-pypi` job `if:` → currently fires on **both**
-  `push` to `refs/tags/v*` and `release: published`, causing double publish and false-red CI
-  when both happen → restrict `publish-pypi` to `github.event_name == 'release' &&
-  github.event.action == 'published' && !github.event.release.prerelease` only; tag push runs
-  test + build/validate only (no `upload.pypi.org`). Topology review (2026-09-10): `release:
-  published` does not re-emit a release event, so no publish↔release cycle; a release run
-  still `needs: build` in the same workflow invocation (rebuilds wheel at release time).
-- `.github/workflows/workflow.yml` `publish-pypi` step → optional **safety net only**:
-  `skip-existing: true` on `pypa/gh-action-pypi-publish@release/v1` (hyphenated input per
-  upstream README; not `skip_existing`). Primary invariant remains release-before-publish;
-  duplicate upload must not be a normal successful path — if `skip-existing` masks a workflow
-  ordering bug, the mechanical test below must still fail. Use only to avoid HTTP 400 noise
-  on accidental re-publish of an already-valid artifact.
-- `tests/` workflow policy test (new) → parse `.github/workflows/workflow.yml` and assert
-  `publish-pypi` `if:` has no `push` + `refs/tags/v*` branch for non-`rc` production
-  releases; assert `release` + `published` is required; fixture proves a tag-only workflow
-  graph would fail the test → `python -m pytest tests/ -k workflow_release -q`.
-- `AGENTS.md` / `docs/11_extending_and_development.md` release prose (if any) → align with
-  GitHub-Release-before-PyPI order and with updated `CONTRIBUTING.md` → no doc still claims
-  tag push alone publishes.
+- `CONTRIBUTING.md` § Releasing → rewrite steps so tag push validates (test + build) only;
+  GitHub Release `published` triggers production PyPI; TestPyPI/`rc` behavior explicit →
+  maintainer checklist matches workflow.
+- `.github/workflows/workflow.yml` `publish-pypi` `if:` → restrict to
+  `github.event_name == 'release' && github.event.action == 'published' &&
+  !github.event.release.prerelease`; remove non-`rc` production publish on tag `push` →
+  tag-only push never calls `upload.pypi.org`; `release: published` does not re-emit release
+  (no publish↔release cycle); build still `needs:` test in same run.
+- **Do not add `skip-existing: true`** unless an independently reproduced GitHub-release
+  lifecycle requires it after topology correction. Duplicate production upload must **fail
+  loudly** (evidence of unexpected second path or artifact mismatch), not be silently
+  normalized. Correct trigger topology is the primary guard.
+- `tests/test_workflow_release_policy.py` (new) → assert production PyPI unreachable from
+  tag push alone; assert `release` + `published` required; assert prerelease cannot reach
+  production PyPI; regression fixture for the 0.1.6 dual-trigger `if:` →
+  `python -m pytest tests/test_workflow_release_policy.py -q`.
+- `AGENTS.md` §0 workflow map + any `docs/11_extending_and_development.md` release prose →
+  align with GitHub-Release-before-PyPI; no doc claims tag push alone publishes.
 
-## Executable documentation defects
+## Harness authority (`AGENTS.md`, `CLAUDE.md`, gate wording)
 
-- `docs/quickstart.md` workflow table rows → nonexistent modules `jnwb.artifacts`, `jnwb.directed`, `jnwb.stats`; `compute_psd` listed under `jnwb.tfr`; `raster_psth` / `fit_exponential_onset` listed under `jnwb.spiking` → replace with real module paths (`artifact_repair`, `connectivity`, `statistics`, `spectral`, `viz`, `onset_fitting`) or top-level exports → `mkdocs build --strict`; manual import checks for each listed module.
-- `docs/quickstart.md` §3 PSI example → `freq_range=` invalid; `psi.score` / `psi.p_value` invalid on `DirectedResult` → use `bands=(8.0, 30.0)` and `psi.x_to_y`, `psi.p_x_to_y` → execute §3 snippet in fresh interpreter.
-- `docs/quickstart.md` §6 jRSA example → `n_permutations=` does not set permutation count; `jrsa_res.p_value` invalid → use `permutations=100` and `jrsa_res.p` → execute §6 snippet; assert `parameters['permutations']==100`.
-- `examples/quickstart_jnwb.py:74` `panel_band_power` → positional `band_power(boost, FS, CANONICAL_BANDS[b], ...)` maps band tuple to `sampling_rate` → `band_power(boost, fs=FS, freq_range=jnwb.CANONICAL_BANDS[b], baseline=base)` → `python examples/quickstart_jnwb.py` exits 0 and writes figure.
-- `docs/07_statistical_inference_and_nulls.md` §4 `build_permutation_plan` example → wrong signature (`n_samples`, `scheme`, `rng`) → match `build_permutation_plan(labels, groups, *, n_permutations, seed)` → add/extend `tests/test_docs_smoke.py` or doctest execution for this block.
-- `docs/07_statistical_inference_and_nulls.md` §5 `detect_trial_cycles` / `assign_subblock_quartiles` examples → wrong args (`trial_times`, `cycle_length_s`, `n_quartiles`) → `detect_trial_cycles(epochs_df, gap_factor=10.0)`, `assign_subblock_quartiles(epochs_df, n_quantiles=4)` → execute corrected snippets against synthetic `epochs_df`.
-- `docs/08_directed_connectivity_and_information.md` §2 Granger print block → `result.statistic`, `result.pvalue`, `result.net_direction` invalid → `x_to_y`, `p_x_to_y`, `net` → execute snippet.
-- `docs/08_directed_connectivity_and_information.md` §3 PSI print → `psi_res.statistic` invalid → `psi_res.x_to_y` or `psi_res.net` → execute snippet.
-- `docs/08_directed_connectivity_and_information.md` §4 transfer entropy example → documents `estimator="kraskov"`; runtime accepts `quantile|uniform|discrete|symbolic` only → remove `kraskov`; list actual estimators → `transfer_entropy(..., estimator="symbolic")` executes.
-- `docs/08_directed_connectivity_and_information.md` §6 network pipeline → `directed_connectivity(data_matrix, method=...)` as all-pairs matrix builder and `directed_network(conn_matrix, alpha=...)` with `.adjacency` invalid → document `directed_network(signals, method=..., fdr=...)` returning `dict` with `"matrix"`; fix topology key names → execute corrected §6; `tests/test_docs_smoke.py` extension for `directed_network` + `network_topology`.
-- `docs/08_directed_connectivity_and_information.md` §6 `network_topology` print → keys `in_degree`/`out_degree` invalid → `in_degrees`/`out_degrees` per `jnwb.connectivity.network_topology` → execute snippet.
-- `docs/04_spectral_analysis_and_tfr.md` §5 `compress_fp32` bullet → describes in-memory array compression; API is NWB path I/O (`src`, `dst`, …) → rewrite to file-path workflow → cross-check against `jnwb.compression.compress_fp32` docstring.
-- `docs/common_mistakes.md` §7 PSI trap comment → illustrative z-scores (`z ~ 1.5`, `z > 50`) disagree with library docstring measured values (`z=3` sinusoid, `z=64` broadband) → replace with receipt-backed numbers from `jnwb.connectivity.phase_slope_index` docstring or a runnable probe → cite same source in prose and docstring.
-
-## API reference (`docs/api.md`) accuracy
-
-- `docs/api.md` `jnwb.assert_mergeable` row → description truncated to `**` after signature → restore full one-line description from docstring → visual review + api generator regen if applicable.
-- `docs/api.md` `jnwb.repair_band_artifacts` → missing `sided='upper'` parameter in generated signature → regenerate with `sided` → `inspect.signature(jnwb.repair_band_artifacts)` matches api row.
-- `docs/api.md` `jnwb.cluster_permutation_test` → missing `n_jobs: int = 1` in generated signature → regenerate → `inspect.signature` matches api row.
-- `docs/api.md` signature generation → audit truncated/mismatched function rows (`compress_fp32`, `get_all_units_metadata`, `fit_exponential_onset`, trajectory helpers, …) → extend generator or gate to compare `inspect.signature` for every `__all__` callable → new harness/doc gate: zero signature mismatches on required parameters.
-
-## Skills parity
-
-- `skills/jnwb-connectivity/SKILL.md` routing matrix → `directed_connectivity(signals, fs, method=...)` and `directed_network(adj_matrix, ...)` disagree with runtime (`directed_connectivity` is pairwise X,Y; `directed_network` takes `signals` matrix) → align with `jnwb.connectivity` → `tests/test_skills_validation.py` PASS after update.
+- `CLAUDE.md` → stale vs current harness: references absent `omission/CLAUDE.md`, old freeze
+  phase narrative, protected paths not in this archive, and conflicts with `AGENTS.md` on
+  commit/push policy → reconcile as authoritative harness file, minimal redirect to
+  `AGENTS.md`, or delete; must not steer agents with obsolete workspace assumptions →
+  `python scripts/harness_gate.py` still passes; no contradiction with `CONTRIBUTING.md` /
+  `AGENTS.md` on branch/commit policy.
+- `AGENTS.md` authority review → fix stale release map (tag→PyPI), protected paths listing
+  absent `omission/...` trees, test-count band, and contradiction where `CLAUDE.md` carries
+  policy but is excluded from the four permitted agent-mention locations → single coherent
+  authority map; protected-path list matches disk or is scoped explicitly.
+- `scripts/harness_gate.py` Gate 6 PASS text → currently claims
+  `Zero dataset-specific tokens in jnwb/ and skills/` but Gate 6 scans a narrower surface
+  (executable strings/names, not comments/docstrings) → rename PASS/output to exact scanned
+  surface; never equate Gate 6 PASS with full source neutrality → adversarial test that a
+  comment-only study token does not flip Gate 6.
+- **No-trace policy precision** → `AGENTS.md` forbids agent vocabulary in `CHANGELOG.md`,
+  `tests/`, `scripts/`, `docs/`, `jnwb/` comments/docstrings, but mechanical tests must
+  reference `skills/*/agents/openai.yaml` and harness prose exists in
+  `tests/test_harness_adversarial_gates.py`, `scripts/harness_gate.py` → rewrite invariant:
+  prohibit authorship/process/agent narrative outside permitted locations; **allowlist**
+  literal machine-required path/schema tokens (e.g. `agents/openai.yaml`) in mechanical
+  checks; decide whether Matplotlib `<cc:Agent>` XML namespace in
+  `docs/assets/jnwb_quickstart.svg` is in scope → encoded rule + gate or doc; apply cleanup
+  to `CHANGELOG.md` agent-definition history, `jnwb/trajectory.py` Antigravity author line,
+  `tests/test_permutation.py` agent-harness path cite, and queued provenance items without
+  breaking skill validation.
 
 ## User-facing semantics / failure behavior
 
-- `jnwb/metadata.py` `filter_by_criteria` → unknown criterion keys silently ignored (typo expands selection) → add `unknown: Literal["ignore","raise"]="ignore"`; document silent-ignore hazard, default, and `unknown="raise"` in docstring + `docs/02_paths_addressing_metadata.md` + `docs/api.md` → new test: `unknown="raise"` on misspelled key raises; default unchanged; existing `tests/test_metadata.py:118` retained.
-- `jnwb/metadata.py:91` batch unit extraction `except Exception: continue` → silently drops sessions on any failure → narrow exception types or accumulate/report failures → test with corrupt NWB path asserts surfaced error.
-- `jnwb/metadata.py:338` electrode inventory batch loop → same silent-drop pattern → same correction/verification as above.
-- `jnwb/jrsa.py:1314` Granger AIC lag selection `except Exception: best_lag = lag` → masks statsmodels/API drift → catch specific failures; warn or NaN → unit test with malformed result object.
+- `jnwb/metadata.py` `filter_by_criteria` → unknown keys silently ignored → add
+  `unknown: Literal["ignore","raise"]="ignore"`; document hazard in docstring +
+  `docs/02_paths_addressing_metadata.md` + `docs/api.md` → test `unknown="raise"` on typo;
+  retain `tests/test_metadata.py:118` default behavior.
+- `jnwb/metadata.py:91` and `:338` batch loops → `except Exception: continue` silently
+  drops sessions → narrow exceptions or aggregate/report failures → corrupt-NWB test asserts
+  surfaced error.
+- `jnwb/jrsa.py:1314` Granger AIC lag selection → `except Exception: best_lag = lag` masks
+  API drift → narrow catch; warn or NaN → unit test with malformed result object.
+- **`except Exception` exhaustive audit (31 sites in active `jnwb/` per 2026-09-10 scan)** →
+  classify every broad catch as `{required external boundary, narrowable, dangerous}` across
+  `_backend.py`, `addressing.py`, `analyzers.py`, `compression.py`, `connectivity.py`,
+  `jrsa.py`, `mcp_server/*`, `metadata.py`, `spectral.py`, `tfr.py`, `trajectory.py`, …;
+  for fallbacks prove estimator/semantic identity or report fallback explicitly; narrow where
+  possible; add discriminating tests for consequential dangerous cases; do not remove
+  correct optional-backend/GPU/MCP boundary behavior merely to eliminate syntax → inventory
+  committed with per-site disposition; zero unclassified broad catches remain.
 
-## Project provenance / agent traces (generic package boundary)
+## Public API and active-module classification (required for 0.1.7 100/100)
 
-- `jnwb/trajectory.py:8`, `tests/test_trajectory.py:4` → `Author: Antigravity` agent trace in library/tests → remove author line → `rg -n Antigravity jnwb/ tests/` empty.
-- `tests/test_permutation.py:3` → cites `artifacts/.lab/agent-harness-audit-20260810.json` → replace with git/CHANGELOG reference or delete → `rg agent-harness tests/` empty.
-- `jnwb/decoding.py` module docstring → names `OmissionSession`, `decode_omission_presence`, `omission.jnwb_ext.*` → generic “project decoders live downstream” wording → `rg OmissionSession jnwb/` comments only.
-- `jnwb/viz.py` module docstring → `OmissionSession`, `raster_suite_omission` inventory → generic viz scope only → doc review.
-- `jnwb/trajectory.py:111` Args → `session: OmissionSession object` → generic session contract (units table + spike accessor) → `rg OmissionSession jnwb/` empty in docstrings.
-- `jnwb/statistics.py:886` `confirmatory_compare` example → study tokens `omission`, `FEF`, `O+` → generic condition comparison string → doc review.
-- `jnwb/compression.py:6` example path `D:/nwb/omission/...` → neutral `D:/nwb/sub-X_ses-Y.nwb` → `rg nwb/omission jnwb/` empty.
-- `jnwb/ontology.py:126-132` `Alignment` examples `omission_relative`, `omission_slot` → generic alignment names → doc review.
-- `jnwb/artifact_repair.py` module docstring → omission corpus receipts, subject IDs, downstream figure paths, skill references → method description + overridable defaults only → `rg "V198o|fig_v1_omission|omission corpus" jnwb/` empty.
-- `jnwb/spectral.py:39-40` → claims `omission.jnwb_ext.connectivity` re-exports `CANONICAL_BANDS` → delete cross-repo claim → doc review.
-- `jnwb/statistics.py:374` `coef_rows` docstring → `fit_omission_band_power_glmm.py` script name → generic wording → `rg fit_omission jnwb/` empty.
-- **Bulk promotion provenance** (~40 `PROMOTED 2026-08-23` / `99%-jnwb-sufficiency` strings across 17 `jnwb/` modules + 9 test headers) → delete promotion blocks; keep scientific contract → `rg "PROMOTED 2026|99%-jnwb-sufficiency|promoted 2026-08-23" jnwb/ tests/` empty.
-- **Residual `omission` token scan** (~75 occurrences in `jnwb/` source per 2026-09-10 count; todo_stack previously cited 83 across 17 modules) → after targeted rewrites above, run non-blocking source-neutrality audit script; Gate 12 PASS is not sufficient evidence of neutrality → report residue count; target user-facing docstrings/comments in `jnwb/` at zero study-specific tokens.
+- **Audit `jnwb.__all__` (111 symbols) and every active non-private module** (`bilinear.py`,
+  `nam.py`, `gpu_pca.py`, `nwb_io.py`, `_lazy_exports.py`, …) → per symbol/module classify
+  `{public primitive, intentional module-internal, optional/experimental, dead/parked}`; do
+  not export because code exists → align `__all__`, docs, tests, naming (`_` prefix where
+  compatibility permits); moved from pre-1.0 because 100/100 requires resolved surface →
+  written disposition table; `docs/api.md` and `python scripts/harness_gate.py` Gate 5/10
+  agree with runtime exports.
+
+## Skills parity (all eight skills)
+
+Existing `tests/test_skills_validation.py` proves `hasattr` only — insufficient.
+
+- `skills/jnwb-connectivity/SKILL.md` → `directed_connectivity(signals, …)` and
+  `directed_network(adj_matrix, …)` wrong; runtime is pairwise `X,Y` and
+  `directed_network(signals, …)` → align routing matrix with `jnwb.connectivity`.
+- `skills/jnwb-nwb-data/SKILL.md` → `compress_fp32(arr, bits=16)` false; runtime is NWB path
+  I/O `compress_fp32(src, dst=None, *, …)`; bit-precision safeguard not current API → align
+  with `jnwb.compression.compress_fp32`.
+- `skills/jnwb-figures/SKILL.md` → `setup_vector_graphics(font_family=…)` (no args at
+  runtime); `apply_tight_auto_axis(x_margin=…)` vs `x_span`; `resample_onsets(onsets,
+  min_interval_s)` vs `target_n`/`random_state` → align every routing row with
+  `inspect.signature` and semantics.
+- `skills/jnwb-population/SKILL.md` → `assign_outer_folds(groups, n_folds)` false; runtime
+  requires trial DataFrame + `analysis_cols`/`group_col` → align CV grouping contract.
+- **All eight skills** (`jnwb`, `jnwb-nwb-data`, `jnwb-spiking`, `jnwb-lfp-spectral`,
+  `jnwb-statistics`, `jnwb-population`, `jnwb-connectivity`, `jnwb-figures`) → audit every
+  routing row against `inspect.signature` and semantics, not symbol existence only →
+  strengthen `tests/test_skills_validation.py` with signature probes or executable
+  representative calls per routing entry where practical → full skill suite passes.
+
+## Executable documentation defects
+
+- `docs/quickstart.md` workflow table → wrong modules (`jnwb.artifacts`, `jnwb.directed`,
+  `jnwb.stats`, misplaced `compute_psd`, `raster_psth`/`fit_exponential_onset`) → real module
+  paths or top-level exports → `mkdocs build --strict`; import checks.
+- `docs/quickstart.md` §3 PSI → `freq_range=`, `psi.score`/`psi.p_value` invalid →
+  `bands=`, `psi.x_to_y`, `psi.p_x_to_y` → execute snippet.
+- `docs/quickstart.md` §6 jRSA → `n_permutations=` ignored; `jrsa_res.p_value` invalid →
+  `permutations=`, `jrsa_res.p` → execute snippet; `parameters['permutations']==100`.
+- `examples/quickstart_jnwb.py:74` `band_power` positional args → `fs=`/`freq_range=` →
+  `python examples/quickstart_jnwb.py` exits 0.
+- `docs/07_statistical_inference_and_nulls.md` §4–5 → wrong
+  `build_permutation_plan`/`detect_trial_cycles`/`assign_subblock_quartiles` signatures →
+  match runtime → extend `tests/test_docs_smoke.py`.
+- `docs/08_directed_connectivity_and_information.md` §2–§6 → wrong `DirectedResult` fields,
+  `kraskov` estimator, `directed_network` pipeline, topology key names → match runtime →
+  execute corrected blocks; extend `tests/test_docs_smoke.py`.
+- `docs/04_spectral_analysis_and_tfr.md` §5 `compress_fp32` → in-memory description false →
+  NWB path I/O per `jnwb.compression.compress_fp32`.
+- `docs/common_mistakes.md` §7 PSI z-scores → replace with receipt-backed values from
+  `phase_slope_index` docstring or probe.
+
+## Documentation corpus (MkDocs + excluded/stale sources)
+
+- `docs/README.md` → excluded from `mkdocs.yml`; stale; duplicates nav; contains `omission/`
+  worked example → delete if redundant or generate/keep consistent with MkDocs nav; no orphan
+  stale index → strict build + link check if retained.
+- `docs/01_architecture_and_philosophy.md` module map → `compression` described as in-memory
+  TFR quantizer; active `compress_fp32` is NWB file conversion (same class of error as
+  `docs/04` item) → correct module contract; audit absolute/prescriptive claims (`zero
+  assumptions`, hierarchical-model prescriptions, causal-language rules) as
+  `{package contract, supported guidance, convention, unsupported overstatement}` → only
+  package-contract claims remain unconditional.
+- Lazy-import note → `docs/01` and/or `docs/install.md` document 0.1.6 deferred exports →
+  matches `tests/test_import_lazy.py`.
+- `README.md` explicit closure → execute both Quickstart blocks; verify capability-table
+  symbols and placement; install extras vs `pyproject.toml`; Python support vs metadata/CI;
+  links; never hardcode public-API count; dataset-independence sentence true only after
+  provenance cleanup → new `tests/test_readme_smoke.py` or extend doc smoke probes.
+
+## API reference (`docs/api.md`) — runtime-generated truth
+
+Known defects: truncated `assert_mergeable`; `repair_band_artifacts` missing `sided`;
+`cluster_permutation_test` missing `n_jobs`; other truncated rows.
+
+- Implement **API doc generator** from `jnwb.__all__` + `inspect.signature` + runtime
+  docstrings → committed `docs/api.md` is diff of generator output; harness gate compares
+  generated vs committed and fails on any mismatch → adversarial fixtures: missing param,
+  changed default, truncated description, missing/extra symbol → Gate 5/10 use generator as
+  sole source of truth (not Markdown signature parsing).
+
+## Project provenance / source neutrality (generic package boundary)
+
+- Targeted docstring fixes: `decoding.py`, `viz.py`, `trajectory.py:111`, `statistics.py:886`
+  and `:374`, `compression.py:6`, `ontology.py` Alignment examples, `artifact_repair.py`,
+  `spectral.py:39-40`, `jnwb/__init__.py` promotion comments (first file users inspect).
+- **Bulk promotion provenance purge** (~40 `PROMOTED 2026-08-23` / `99%-jnwb-sufficiency`
+  strings across 17 `jnwb/` modules + 9 test headers) → delete promotion blocks; keep
+  scientific contract → `rg "PROMOTED 2026|99%-jnwb-sufficiency|promoted 2026-08-23" jnwb/
+  tests/` empty.
+- **Non-blocking source-neutrality scan** (comments + docstrings in `jnwb/`) → report
+  residue count; Gate 6 PASS is not sufficient evidence of neutrality; target user-facing
+  docstrings at zero study-specific tokens.
 
 ## MCP documentation
 
-- `docs/10_extending_jnwb_and_verification.md` §3 appendix → lists nonexistent tools `read_nwb_metadata`, `query_units_by_area`, `compute_quick_psth` → document actual tools `inspect_nwb`, `prepare_signal_reference`, `get_event_codes_and_timings`, `add_tool` (optional `ALLOW_DYNAMIC_TOOLS`) → cross-check `jnwb/mcp_server/__init__.py`.
+- `docs/10_extending_jnwb_and_verification.md` §3 → lists nonexistent MCP tools → document
+  `inspect_nwb`, `prepare_signal_reference`, `get_event_codes_and_timings`, `add_tool` per
+  `jnwb/mcp_server/__init__.py`.
 
-## Architecture / user docs gaps
+## Test / delegation boundary (standalone jnwb)
 
-- No `docs/` mention of lazy public exports introduced in 0.1.6 (`jnwb._lazy_exports`, deferred scipy/sklearn/matplotlib/pynwb) → add concise note in `docs/01_architecture_and_philosophy.md` and/or `docs/install.md` (what loads at `import jnwb` vs first symbol access) → matches `tests/test_import_lazy.py` behavior.
-- `CONTRIBUTING.md:31` and `AGENTS.md` §6 → “Around 610 tests” stale (616 passed, 15 skipped, ~4 min on 2026-09-10 planning baseline) → update both to current count band and runtime receipt → re-count after next test additions.
+- `tests/` `pytest.importorskip("omission…")` (14 call sites, 8 modules) → classify each as
+  downstream delegation; **remove from jnwb suite** once downstream ownership recorded in
+  handoff/issue (do not require absent `omission/` tree for jnwb completeness); retain only
+  jnwb-owned boundary tests (`test_jnwb_frozen_boundary.py`, no-downstream-import proofs) →
+  `rg 'importorskip\("omission' tests/` empty; full `pytest tests/` passes without omission
+  installed.
 
-## Test / delegation boundary
+## Capability hypotheses (review-first; implementation not forced)
 
-- `tests/` omission delegation via `pytest.importorskip("omission…")` (14 call sites across 8 modules) → move to `omission/tests/` when that tree is present in the workspace; **blocked while `omission/` is absent** — if still blocked at stack drain, stop for Hamm's decision rather than delete the tests → `rg 'importorskip\("omission' tests/` empty after move; `test_jnwb_frozen_boundary.py` still passes without omission on `sys.path`.
+Before each item: inventory existing `jnwb/` capabilities. **A justified conclusion that the
+capability does not belong in jnwb is a valid completion outcome.** Absence of a method is not
+itself a defect.
 
-## Capability primitives (pre-1.0 completeness; smallest generic delta only)
-
-Before implementing each item: inventory whether the capability already exists under another
-name in active `jnwb/` (`channel_correlation_matrix`, `bad_channels_from_correlation`,
-`directed_network`, `cross_area_coherence`, etc.). Reduce to the missing delta. Surface
-consequential algorithm/definition choices to Hamm rather than guessing.
-
-- **`vflip2` public primitive** — `jnwb.__all__` / `docs/api.md` → `vflip2` absent from
-  active public API; no matches in current `jnwb/` (implementation/history only in
-  parked/archive code per prior state) → inspect archived implementation and provenance
-  before copying; establish exact generic numerical operation (inputs, outputs, axes, units,
-  edge behavior, electrophysiological meaning); verify jnwb ownership (not project-specific);
-  if justified, implement or reimplement the smallest clean generic primitive under identical
-  semantics — do not blindly resurrect archive code → public export + `docs/api.md` +
-  `docs/references.md` citation if published method + analytic/synthetic tests that
-  distinguish correct from plausible-but-wrong behavior + `python scripts/release_gate.py`
-  smoke resolves symbol; if ownership or semantics cannot be established independently,
-  stop and surface to Hamm without export.
-
-- **Generic LFP channel QC measurements** — `jnwb/artifact_detection.py` (correlation-based
-  bad-channel flagging only), `jnwb/artifact_repair.py` (trial repair, not per-channel QC
-  metrics) → no reusable per-channel LFP QC measurement suite with explicit time axis/rate,
-  units, NaN/Inf behavior, and failure semantics → review existing artifact/QC/spectral
-  capabilities first; define smallest missing measurement primitives only where justified
-  (candidates: missing/invalid samples, amplitude/variance outliers, saturation/clipping,
-  line-noise contamination, spectral abnormalities, flat/dead channels — each only if
-  evidence supports and scope is generic); return measurements/flags, not study-specific
-  exclusion policy; separate detection from exclude/repair/interpret decisions → synthetic
-  tests per metric/flag; no manuscript thresholds encoded as universal defaults; outputs
-  compose with existing LFP/NWB addressing (`electrode_inventory`, `map_peak_channel_to_area`,
-  etc.).
-
-- **LFP channel relation, locality, and clustering primitives** — active `jnwb/` has
-  pairwise directed estimators (`granger`, `phase_slope_index`, `directed_network`, …) but
-  no small composable primitives for data-driven channel grouping from features + optional
-  coordinates → specify generic inputs/outputs (signals/features, optional electrode
-  coordinates/metadata, relation/distance representation, clustering method, `rng`, returned
-  labels/scores); keep four layers separate: (1) channel feature/relation estimation, (2)
-  locality/spatial distance, (3) clustering, (4) downstream interpretation; reuse existing
-  connectivity/coupling estimators where mathematically appropriate — no duplicate estimators;
-  do not silently combine spatial proximity and functional relation (any combined metric must
-  expose components and weighting); clustering exposes method, parameters, randomness, and
-  degenerate-case failure; cluster labels are not anatomical or causal claims → synthetic
-  systems with known locality/relation structure recover expected grouping; permutation/label
-  invariance and seed-determinism tested where applicable; API preserves
-  `relation/locality ≠ cluster ≠ biological network`; remain a small primitive set, not a
-  network-analysis subsystem.
+- **`vflip2`** — absent from active `jnwb/`; archive/parked code only → inspect provenance;
+  establish semantics and ownership; implement smallest generic primitive only if justified;
+  else record "not in jnwb" with evidence → no export without discriminating tests + docs.
+- **LFP channel QC measurements** — partial overlap (`channel_correlation_matrix`,
+  `bad_channels_from_correlation`) → define smallest missing measurement primitives only if
+  justified; measurements/flags not study exclusion policy → synthetic tests; no universal
+  manuscript thresholds.
+- **Channel relation / locality / clustering** — small composable primitives only; four layers
+  separate; no silent spatial+functional merge; clustering algorithm choice surfaces to Hamm
+  if scientifically consequential; `relation/locality ≠ cluster ≠ biological network` →
+  synthetic grouping tests or documented "not in jnwb" outcome.
 
 ## Documentation consistency gates (0.1.7 deliverable)
 
-- Add deterministic gate(s) beyond current Gate 5/10: (a) executable-doc probe for `docs/quickstart.md` code blocks; (b) `inspect.signature` parity for all `__all__` callables in `docs/api.md`; (c) internal `.md` link resolver for `docs/`; (d) optional non-blocking `jnwb/` source-neutrality scan (comments+docstrings) reporting count without failing CI → each gate has a failing fixture test proving it catches a known defect → `python scripts/harness_gate.py` extended; adversarial tests in `tests/test_harness_adversarial_gates.py`.
+- Executable-doc probes: `docs/quickstart.md`, `README.md` quickstart blocks.
+- Runtime-generated `docs/api.md` diff gate (above).
+- Internal `.md` link resolver for MkDocs corpus (+ `docs/README.md` policy).
+- Non-blocking `jnwb/` comment/docstring neutrality report (above).
+- Workflow release policy test (above).
+- Skills signature probes (above).
+- Each gate has adversarial fixture proving it catches a known defect →
+  `tests/test_harness_adversarial_gates.py` extended.
 
 ## Second-audit placeholder (do not delete until 0.1.7 seal)
 
-- After stack empty: run partitioned independent second audit (scientific semantics, API/doc, README/nav, tests/gates, packaging/install, boundary/provenance, architecture debt). Any confirmed material finding re-enters this section before 0.1.7 is declared closed.
+- Fresh zero-based audit from **current** repository state; partitions do **not** use this
+  stack as checklist: (1) scientific/numerical semantics, (2) API/code/doc consistency,
+  (3) README/docs/nav usability, (4) tests/gates/failure behavior, (5) packaging/install/release,
+  (6) boundary/provenance/no-trace, (7) architecture/maintenance, **(8) harness/skills
+  authority (`AGENTS.md`, `CLAUDE.md`, skills, gates, workflows)**. Reconcile against live
+  code; material findings re-enter 0.1.7; 100/100 only when second audit has no known
+  material defect.
+
+## Housekeeping (docs counts)
+
+- `CONTRIBUTING.md:31` and `AGENTS.md` §6 → update test-count band and runtime receipt
+  (616 passed, 15 skipped, ~4 min planning baseline) → re-count after test additions.
 
 # Before 1.0
 
-- **Audit `jnwb.__all__`,** 111 symbols. Per symbol: a primitive a user should call
-  directly, or an implementation component exported because it was convenient? Do not
-  shrink the number for its own sake — each export is compatibility, docs, namespace and
-  import cost carried indefinitely.
-- **Replace example-based estimator coverage** with analytic, property-based or
-  composition tests. The suite is broad and adversarial already
-  (`tests/test_harness_adversarial_gates.py` tests the gates themselves); this is the
-  remaining gap.
+- **Replace example-based estimator coverage** with analytic, property-based or composition
+  tests. The suite is broad and adversarial already; this is the remaining estimator-coverage
+  gap.
 
 # Unversioned
 
 - File the omission-side issue for items 1, 2, 5 and 6 of the expert feedback register
-  (jnwb issue #4) in the omission repository. Items 3 and 4 were checked against 0.1.5;
-  3 became the HSIC fix.
+  (jnwb issue #4) in the omission repository.
 - Four more notebooks under `examples/notebooks/` (WP3 planned five, one exists).
   `tests/test_notebooks.py` picks up a new one with no test change.
