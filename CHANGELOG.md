@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Analyzer exports load lazily.** `TFRAnalyzer`, `UnitAnalyzer`, and `PopulationAnalyzer`
-  are resolved through module `__getattr__` so `import jnwb` does not import
-  `jnwb.analyzers` until one of those names is accessed.
+- **`import jnwb` defers heavy submodules.** Ontology, statistics, metadata, decoding,
+  onset-fitting, analyzer, viz, and `visual_qc` exports resolve through `__getattr__` and
+  `jnwb._lazy_exports` so scipy.stats, sklearn, matplotlib, and pynwb are not pulled in
+  until a deferred symbol is accessed.
+- **`scripts/benchmark_import.py` measures the workspace tree.** Subprocess probes now set
+  `PYTHONPATH` to the repository root so an installed site-packages copy cannot mask the
+  tree under development. The script reports warm median/mean/stdev, and `--profile` writes
+  `artifacts/benchmarks/import_breakdown.json` with importtime attribution.
 - **HDMF builder repairs are scoped to jnwb-owned NWB reads** (`jnwb.nwb_io.read_nwb`,
   `nwb_read_io`). `import jnwb` no longer replaces `BuildManager.construct` for the whole
   interpreter. All jnwb package read paths route through the read boundary.

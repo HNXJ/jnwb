@@ -16,29 +16,15 @@ __release_date__ = '2026-09-07'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
+import importlib
 import logging
 from pathlib import Path
 from typing import Union, Optional, List
 import glob
 
-log = logging.getLogger(__name__)
+from ._lazy_exports import EXPORT_MODULES, SUBMODULES
 
-# ============================================================================
-# Ontology objects (frozen public API)
-# ============================================================================
-from .ontology import (
-    Query,
-    Dataset,
-    AlignedDataset,
-    Alignment,
-    EpochCollection,
-    Question,
-    Result,
-    Interpretation,
-    Figure,
-    Provenance,
-    Lineage,
-)
+log = logging.getLogger(__name__)
 
 # ============================================================================
 # JRSA: Unified Representational Similarity Analysis
@@ -60,46 +46,18 @@ from .addressing import (
     enrich_units_dataframe,
 )
 
-from .statistics import StatisticalAnalysis
-
-_LAZY_ANALYZER_NAMES = frozenset({"TFRAnalyzer", "UnitAnalyzer", "PopulationAnalyzer"})
-
-
 def __getattr__(name: str):
-    if name in _LAZY_ANALYZER_NAMES:
-        from .analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
-
-        mapping = {
-            "TFRAnalyzer": TFRAnalyzer,
-            "UnitAnalyzer": UnitAnalyzer,
-            "PopulationAnalyzer": PopulationAnalyzer,
-        }
-        value = mapping[name]
+    if name in SUBMODULES:
+        module = importlib.import_module(f".{name}", __name__)
+        globals()[name] = module
+        return module
+    if name in EXPORT_MODULES:
+        module = importlib.import_module(f".{EXPORT_MODULES[name]}", __name__)
+        value = getattr(module, name)
         globals()[name] = value
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-# Generic paired fire-probability testing: plain spike-time/onset arrays and boolean pairs in,
-# no session or condition semantics (promoted 2026-08-23 from omission.jnwb_ext.unit_inclusion;
-# see jnwb/statistics.py's fires_in_window/paired_fire_prob_test docstrings).
-from .statistics import fires_in_window, fire_indicator, paired_fire_prob_test
-
-# Generic spike-rate windowing, shuffle-controlled p-values, temporal cycle/quantile detection,
-# and shuffle-null R^2 CI: plain arrays/DataFrames in, no session or condition semantics
-# (promoted 2026-08-23 from omission.jnwb_ext.unit_classification and
-# omission.jnwb_ext.omission_identity; see jnwb/statistics.py's docstrings).
-from .statistics import (
-    rate_in_window,
-    shuffle_pvalue_paired,
-    shuffle_pvalue_unpaired,
-    cluster_permutation_test,
-    detect_trial_cycles,
-    assign_subblock_quartiles,
-    shuffle_r2_ci,
-    cross_modal_comparison,
-)
-
-from . import visual_qc
 
 from .trajectory import (
     build_time_resolved_matrix,
@@ -125,24 +83,6 @@ from .artifact_detection import (
     trial_correlation_matrix,
     bad_trials_single_channel,
     consensus_bad_trials,
-)
-
-# Causal PSTH smoothing + causality-bounded onset-latency fit (promoted 2026-08-23 from
-# omission.jnwb_ext.onset_fitting; see jnwb/onset_fitting.py's module docstring).
-from .onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
-
-# Generic unit/electrode metadata extraction, QC classification, census reporting (promoted
-# 2026-08-23 from omission.jnwb_ext.metadata; see jnwb/metadata.py's module docstring).
-from .metadata import (
-    get_all_units_metadata,
-    classify_unit_quality,
-    unit_census_report,
-    get_snr_analysis,
-    electrode_inventory,
-    filter_by_criteria,
-    audit_units,
-    audit_electrodes,
-    assign_quality_tier,
 )
 
 # Digital filtering (SOS Butterworth bandpass and IIR notch)
@@ -192,25 +132,6 @@ from .connectivity import (
     directed_network,
 )
 
-# Generic nested-CV linear-SVM population decoding: plain (X, labels) arrays in, no session
-# object or condition semantics (promoted 2026-08-23 from omission.jnwb_ext.decoding; see
-# jnwb/decoding.py's module docstring).
-from .decoding import (
-    majority_baseline,
-    fold_majority_baseline,
-    nested_cv_linear_svm,
-)
-
-# Generic grouped leave-one-group-out CV geometry and representation contracts: plain trial
-# DataFrame / (n_trials, n_space, n_time) array in, no condition or session semantics (promoted
-# 2026-08-23 from omission.jnwb_ext.structured_identity; see jnwb/decoding.py's module
-# docstring).
-from .decoding import (
-    assign_outer_folds,
-    build_inner_validation_partitions,
-    build_representation_ladder,
-)
-
 # Generic spike-response metrics: firing rate/latency/z-score relative to behavioral epochs,
 # significance classification, spike-LFP phase locking (promoted 2026-08-23 from
 # omission.jnwb_ext.spiking; see jnwb/spiking.py's module docstring).
@@ -220,17 +141,6 @@ from .spiking import (
     phase_locking_index,
     pairwise_phase_consistency,
     gaussian_smooth_rate,
-)
-
-# Generic plotting utilities: vector-graphics setup, tight auto-scaled axes, multi-page/format
-# figure export, trial-onset resampling, array-in PSTH (promoted 2026-08-23 from
-# omission.jnwb_ext.viz; see jnwb/viz.py's module docstring).
-from .viz import (
-    setup_vector_graphics,
-    apply_tight_auto_axis,
-    save_figure_suite,
-    resample_onsets,
-    raster_psth,
 )
 
 # Export main classes and functions

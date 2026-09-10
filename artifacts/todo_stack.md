@@ -9,16 +9,6 @@ New analysis methods are not a priority until 0.1.6 and 0.1.7 are closed. Comple
 means small sufficient primitives, explicit semantics, strong composition, and no hidden
 study choices — not breadth of method.
 
-# 0.1.6
-
-- **Cut import time.** Measured 2026-09-10 with `python -X importtime -c "import jnwb"`:
-  `jnwb.analyzers` is 23.71 s of a 24.88 s total, and it is entirely `scipy.signal`
-  (23.29 s), which is mostly `scipy.stats` (12.86 s). jnwb's own modules cost almost
-  nothing; `pynwb` imports in 0.3 s. One eager chain is the whole problem.
-- Defer it so each capability imports what it needs when called. Acceptance is
-  `scripts/benchmark_import.py` against its 9115 ms warm baseline — one measure, compared
-  like with like, since run-to-run spread is large.
-
 # 0.1.7
 
 - **Remove project provenance from generic source.** 83 occurrences of `omission` across
