@@ -60,13 +60,24 @@ from .addressing import (
     enrich_units_dataframe,
 )
 
-# Analyzers (3 canonical objects)
-from .analyzers import (
-    TFRAnalyzer,
-    UnitAnalyzer,
-    PopulationAnalyzer,
-)
 from .statistics import StatisticalAnalysis
+
+_LAZY_ANALYZER_NAMES = frozenset({"TFRAnalyzer", "UnitAnalyzer", "PopulationAnalyzer"})
+
+
+def __getattr__(name: str):
+    if name in _LAZY_ANALYZER_NAMES:
+        from .analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
+
+        mapping = {
+            "TFRAnalyzer": TFRAnalyzer,
+            "UnitAnalyzer": UnitAnalyzer,
+            "PopulationAnalyzer": PopulationAnalyzer,
+        }
+        value = mapping[name]
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # Generic paired fire-probability testing: plain spike-time/onset arrays and boolean pairs in,
 # no session or condition semantics (promoted 2026-08-23 from omission.jnwb_ext.unit_inclusion;
@@ -371,3 +382,7 @@ __all__ = [
     'resample_onsets',
     'raster_psth',
 ]
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

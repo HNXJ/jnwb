@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Analyzer exports load lazily.** `TFRAnalyzer`, `UnitAnalyzer`, and `PopulationAnalyzer`
+  are resolved through module `__getattr__` so `import jnwb` does not import
+  `jnwb.analyzers` until one of those names is accessed.
 - **HDMF builder repairs are scoped to jnwb-owned NWB reads** (`jnwb.nwb_io.read_nwb`,
   `nwb_read_io`). `import jnwb` no longer replaces `BuildManager.construct` for the whole
   interpreter. All jnwb package read paths route through the read boundary.
