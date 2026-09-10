@@ -4,7 +4,8 @@ Open work on `jnwb`, most consequential first. Written 2026-09-10, immediately a
 0.1.5 shipped to PyPI. Each entry names what is wrong, where, and what closing it means.
 
 Nothing here blocks using 0.1.5. Items 1 and 2 are correctness-adjacent; the rest is
-cleanup and follow-through.
+cleanup and follow-through. Issues 1-12 and the v0.1.3-v0.1.5 release pages were closed
+out on 2026-09-10.
 
 ---
 
@@ -76,34 +77,20 @@ A review deferred this out of 0.1.4 as a non-blocker.
 contents. Provenance either goes or is stated without naming a module path jnwb cannot
 resolve.
 
-## 3. Close the five GitHub issues
-
-Replies are drafted, verified against 0.1.5, and split one file per issue:
-`scratchpad/issues/{4,9,10,11,12}.md` (session scratchpad — copy them somewhere durable
-before the session ends).
-
-Blocked on credentials, not on work. `gh` reads its token from the Windows keyring, which
-is scoped to the interactive desktop session; agent processes see an empty config entry and
-get 401. Run from a shell where `gh auth status` shows the keyring token:
-
-```powershell
-foreach ($n in 4,9,10,11,12) { gh issue close $n -R HNXJ/jnwb -c (Get-Content "$d\$n.md" -Raw) }
-```
-
-## 4. File the omission-side issue from #4
+## 3. File the omission-side issue from #4
 
 Items 1, 2, 5 and 6 of the expert feedback register are questions about the omission
 project's data and figures, not about jnwb. The jnwb-side reply says they belong in the
 omission repository; nothing files them there yet. Items 3 and 4 were checked against
 0.1.5 and are closed (3 became the HSIC fix).
 
-## 5. The remaining four notebooks
+## 4. The remaining four notebooks
 
 `examples/notebooks/01_spectral_and_inference.ipynb` covers spectral analysis and
 inference; WP3 planned five. `tests/test_notebooks.py` executes every notebook in the
 directory, so a new one is picked up with no test change.
 
-## 6. Environment: stale jnwb on Python 3.12
+## 5. Environment: stale jnwb on Python 3.12
 
 Not a repository defect — recorded because it hid a real one. Python 3.12's site-packages
 holds jnwb 0.1.1, masked whenever the working directory is the repo. It surfaced only when
