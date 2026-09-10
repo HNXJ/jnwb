@@ -1,8 +1,26 @@
 # AGENTS.md — working rules for `jnwb`
 
-The single operational contract for this repository. `CLAUDE.md` carries phase and policy;
-this file carries how to work. A project that *uses* jnwb keeps its own rules in its own
-repository.
+Start here. §0 maps the repository; the rest says how to work in it. `CLAUDE.md` carries
+phase and policy. A project that *uses* jnwb keeps its own rules in its own repository.
+
+## 0. Where things are
+
+| Path | What you get there |
+|---|---|
+| `jnwb/__init__.py` | The public API: `__all__` is the authoritative symbol list |
+| `jnwb/` | Library source. `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
+| `tests/` | The suite. Run it before and after a change (§5) |
+| `scripts/harness_gate.py` | Repository gates 1–11 (§5) |
+| `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
+| `skills/` | Task skills, one folder per area (§6). Load one before the work it covers |
+| `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
+| `artifacts/context.md` | Long-form orientation: architecture, entry points, verification commands |
+| `artifacts/benchmarks/` | Performance baseline and import profile |
+| `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
+| `examples/quickstart_jnwb.py` | Smallest end-to-end script |
+| `pyproject.toml` | Version source, dependencies, Python floor |
+| `CHANGELOG.md` | What changed per release, including breaking changes |
+| `.github/workflows/workflow.yml` | CI: tests on 3.12 and 3.14 (Ubuntu, Windows), build, docs. A `v*` tag push publishes to PyPI; an `rc` tag goes to TestPyPI |
 
 ## 1. Evidence
 
@@ -86,8 +104,6 @@ Load the skill before doing the work rather than reinventing its contents.
 | `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
 | `jnwb-connectivity` | Granger, PSI, transfer entropy |
 | `jnwb-figures` | Visual QC, plotting, figure export |
-
-Agent definitions live in `artifacts/agents/` and are tracked. The root holds no `.claude/`.
 
 ## 7. Changes
 
