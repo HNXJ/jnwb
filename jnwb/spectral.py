@@ -70,8 +70,7 @@ def _resolve_fs(
 
 def to_db(ratio):
     """``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass
-    through -- the project's "log last" rule (CLAUDE.md tripwire #3: average power, divide by
-    baseline, log exactly once). Promoted 2026-08-14 from four identical one-liners in
+    through -- average power, divide by baseline, then take the logarithm exactly once. Promoted 2026-08-14 from four identical one-liners in
     context/figures/ scripts; this enforces the convention in one place instead of by
     convention alone at 10+ inline ``10*np.log10(...)`` call sites across jnwb and scripts.
     """
@@ -100,7 +99,7 @@ def aggregate_to_db(
     This is the enforcing form of :func:`to_db`. ``to_db`` is a bare conversion: it cannot stop
     a caller who already holds decibels from averaging them. Averaging decibels is a Jensen
     error -- ``mean(log x) != log(mean x)`` -- and it biases every unit by its own noisiness,
-    which is the failure CLAUDE.md tripwire 2 ("take the logarithm last") exists to prevent.
+    which is the failure the "take the logarithm last" rule exists to prevent.
     Stating the rule did not prevent it; this function makes the correct order the only order
     reachable through the API.
 

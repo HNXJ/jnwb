@@ -1,7 +1,14 @@
 # AGENTS.md — working rules for `jnwb`
 
-Start here. §0 maps the repository; the rest says how to work in it. `CLAUDE.md` carries
-phase and policy. A project that *uses* jnwb keeps its own rules in its own repository.
+Start here. §0 maps the repository, §2 holds the remaining work and §3 is the loop that
+works through it; the rest says how to work here. `CLAUDE.md` carries phase and policy. A
+project that *uses* jnwb keeps its own rules in its own repository.
+
+**Leave no trace of yourself in the work.** Agents, assistants and this way of working are
+named in exactly four places: `skills/`, this file, one line in `README.md`, and
+`CONTRIBUTING.md`. Nowhere else — not in `jnwb/`, `tests/`, `scripts/`, `docs/`,
+`CHANGELOG.md`, docstrings, comments, or author lines. A reader of the library should see a
+library. Anything else needs a strong reason stated at the change site.
 
 ## 0. Where things are
 

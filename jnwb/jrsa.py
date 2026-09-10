@@ -8,8 +8,6 @@ Public API: exactly one function.
     >>> result.summary()
     >>> result.plot()
 
-Author: Claude Code
-Version: 1.0.0
 """
 
 from __future__ import annotations

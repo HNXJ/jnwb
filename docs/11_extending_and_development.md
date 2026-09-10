@@ -96,15 +96,15 @@ jnwb/
 ├── jnwb/          # scientific implementation
 ├── tests/         # mechanical correctness & regression gates
 ├── docs/          # scientific + developer documentation
-├── skills/        # reusable agent procedures
+├── skills/        # reusable task procedures
 ├── scripts/       # deterministic repository tooling
-├── artifacts/     # non-root work products, agent definitions, todo stack
+├── artifacts/     # non-root work products, benchmarks, todo stack
 └── root           # frozen package/repository control surface
 ```
 
 ### Permitted Root Entries (Allowlist)
 - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
-- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`
+- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
 
 The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
 - **CI / VCS**: `.git/`, `.github/`
@@ -116,7 +116,6 @@ The `artifacts/` directory is the canonical location for non-package, repository
 ```text
 artifacts/
 ├── todo_stack.md    # Remaining work, grouped by the version that carries it
-├── agents/          # Subagent definitions (claim-verifier, code-auditor, sweep-runner)
 ├── benchmarks/      # Performance profiles, timing benchmarks, scalability receipts
 ├── data/            # Small fixtures and derived tables
 ├── developer/       # Developer work products
@@ -124,13 +123,12 @@ artifacts/
 ```
 
 - **Rule**: Temporary scripts, test data, and ad-hoc exports must be placed in `artifacts/scratch/` or ignored via `.gitignore`, never committed to root.
-- **Agent Policy Reference**: The agent work policy, epistemic taxonomy (`observed` | `derived` | `inferred` | `assumed` | `unknown`), execution grammar ($W = P(RG)^N S$) and repository map are in `AGENTS.md` at the repository root.
 
 ---
 
 ## 7. Core Scientific Invariants
 
-All contributors and automated agents must adhere to the 7 scientific invariants:
+Every contributor adheres to these scientific invariants:
 
 1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool features across modalities without explicit namespace tags.
 2. **Estimand Disambiguation**: Clearly distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.

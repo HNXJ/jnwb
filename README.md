@@ -90,6 +90,8 @@ Setup, the checks to run, the branch model and the release procedure are in
 [CONTRIBUTING.md](CONTRIBUTING.md). Work lands on `dev`; `main` holds releases. The queued
 work is in [artifacts/todo_stack.md](artifacts/todo_stack.md).
 
+If you are an AI agent, read [AGENTS.md](AGENTS.md) first.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

@@ -23,8 +23,6 @@ geometry / representation-contract problem. ``build_canonical_trial_table``,
 omission.jnwb_ext.structured_identity: they are irreducibly coupled to this task's trial
 ontology and condition semantics.
 
-Author: Claude Code
-Date: 2026-06-30
 """
 
 from __future__ import annotations

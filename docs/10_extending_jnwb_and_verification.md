@@ -58,7 +58,7 @@ pytest -v tests/
 
 ## 3. Appendix: Developer Tooling & MCP Server (`jnwb/mcp_server`)
 
-For AI assistants and IDE integrations, `jnwb` includes local Model Context Protocol (MCP) server tooling in `jnwb/mcp_server`. These tools operate as developer-facing inspection sidecars and remain strictly isolated from scientific runtime imports:
+`jnwb` includes a local Model Context Protocol (MCP) server in `jnwb/mcp_server`, for editors and other tools that speak MCP. These tools are developer-facing inspection sidecars and stay isolated from scientific runtime imports:
 - `read_nwb_metadata`: Inspects session headers and channel counts.
 - `query_units_by_area`: Fast lookup of filtered unit tables.
 - `compute_quick_psth`: Instant PSTH calculation for interactive visualization.

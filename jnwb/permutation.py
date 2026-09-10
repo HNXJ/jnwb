@@ -1,9 +1,8 @@
 """Canonical label-permutation primitive for null construction.
 
-Added 2026-08-10 per the agent-harness audit (artifacts/.lab/agent-harness-audit-20260810.json,
-claim-p0-deconfound-null-ignores-cycle-grouping): `omission.jnwb_ext.omission_identity
-.decode_identity_cycle_deconfound` used leave-one-cycle-out CV for its observed statistic but a
-naive, ungrouped `rng.permutation(y)` for its null -- an exchangeability mismatch between the
+Added 2026-08-10 after an audit found a downstream decoder using leave-one-cycle-out CV for
+its observed statistic but a naive, ungrouped `rng.permutation(y)` for its null -- an
+exchangeability mismatch between the
 test statistic and the null it was compared against. `scripts/compute_omission_identity_
 leakage_safe.py` had already solved this correctly with a private `_within_cycle_permutation`
 helper; this module promotes that fix to a single, shared, explicit-scheme primitive so the

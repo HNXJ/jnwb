@@ -14,8 +14,6 @@ Core objects:
 - Interpretation: meaning and claims
 - Figure: visualization
 
-Author: Claude Code
-Date: 2026-06-25
 """
 
 from dataclasses import dataclass, field
@@ -290,7 +288,7 @@ class Interpretation:
     Meaning and claims: what does the result mean?
 
     Separates: measured evidence (Result) from scientific argument (Interpretation)
-    Immutable. Created by user or AI system after inspecting Result.
+    Immutable. Built after inspecting a Result, never from one automatically.
 
     Scientific Contracts:
     - SC-004: Interpretation never modifies Result

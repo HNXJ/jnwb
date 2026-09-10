@@ -18,8 +18,6 @@ API Layers
     Core comparison routines returning both parametric and non-parametric statistics
     with explicit multiple_comparison status.
 
-Author: Claude Code
-Date: 2025-06-24
 Revised: 2026-07-26 — Exploratory / Confirmatory API split
 """
 

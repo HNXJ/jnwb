@@ -8,7 +8,7 @@ classes, or windows anywhere; the module docstring below already demonstrated us
 ``import jnwb as oa`` before the promotion. CANONICAL_BANDS is imported from jnwb.spectral (its
 single source of truth as of the 2026-08-23 spectral.py promotion) rather than defined here.
 jnwb.jrsa's phase_slope_index delegation is now an intra-package import (see jrsa.py's
-_phase_slope) -- CLAUDE.md's "documented exception" note for it was removed the same day.
+_phase_slope).
 
 Provides methods to compute directional functional connectivity metrics (bivariate Granger Causality),
 Shannon Mutual Information between spike trains, and network graph analysis.
@@ -36,8 +36,6 @@ other regularly sampled series go through identical code:
 
 Sign convention is uniform: ``x_to_y`` is X -> Y (X leads / X predicts Y).
 
-Author: Claude Code
-Date: 2026-06-30
 """
 
 from __future__ import annotations
