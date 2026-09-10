@@ -14,6 +14,7 @@ phase and policy. A project that *uses* jnwb keeps its own rules in its own repo
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§6). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
+| `artifacts/todo_stack.md` | Open work, most consequential first: what is wrong, where, and what closing it means |
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
 | `docs/references.md` | Published sources for each method, with resolved DOIs; docstrings cite the same entries |
