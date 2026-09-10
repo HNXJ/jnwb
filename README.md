@@ -41,7 +41,7 @@ Requires Python **3.12 or newer**. Tested in CI on 3.12 and 3.14.
 
 ```bash
 pip install jnwb
-pip install jnwb==0.1.3
+pip install jnwb==0.1.4
 pip install "jnwb[torch,gpu]"   # optional
 ```
 

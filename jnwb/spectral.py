@@ -308,7 +308,7 @@ def cross_area_coherence(
     lfp_area2: np.ndarray,
     fs: Optional[float] = None,
     sampling_rate: Optional[float] = None,
-    freq_bands: Optional[Dict[str, Tuple[float, float]]] = None,
+    freq_bands: Union[Dict[str, Tuple[float, float]], str, None] = None,
     device: str = 'cpu',
     rng: Optional[np.random.Generator] = None,
     n_surrogates: int = 50,
@@ -331,9 +331,10 @@ def cross_area_coherence(
         lfp_area2: Time series from area 2
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
-        freq_bands: Dict of {'band_name': (freq_min, freq_max)}
-                   Default: CANONICAL_BANDS (theta 4-8, alpha 8-14, beta 14-30,
-                   low_gamma 30-50, high_gamma 50-80).
+        freq_bands: Required. A {'band_name': (freq_min, freq_max)} dict, or
+                   'canonical' for CANONICAL_BANDS (theta 4-8, alpha 8-14, beta 14-30,
+                   low_gamma 30-50, high_gamma 50-80). The bands decide every
+                   band_coherence and p-value, so the caller names them.
         device: 'cpu' or 'cuda' (GPU acceleration via CuPy). Resolved **once**, before
                 any coherence is computed; see `device_used` in the returned dict.
         rng: Generator for the surrogate shifts. Defaults to
@@ -371,21 +372,22 @@ def cross_area_coherence(
           caller supplied `rng` (record your own seed in that case).
 
     Example:
-        >>> coh = cross_area_coherence(v1_lfp, pfc_lfp, fs=1000.0)
+        >>> coh = cross_area_coherence(v1_lfp, pfc_lfp, fs=1000.0, freq_bands='canonical')
         >>> print(f"Alpha coherence: {coh['band_coherence']['alpha']:.3f}")
         >>> print(f"p >= {coh['p_value_floor']:.4f} by construction")
     """
     fs = _resolve_fs(fs, sampling_rate, "cross_area_coherence")
+    # INTENTIONAL BREAK (0.1.4). None used to mean CANONICAL_BANDS, so the band
+    # taxonomy -- which decides every band_coherence and p-value -- was chosen for the
+    # caller. The caller now names it, as phase_slope_index already requires.
     if freq_bands is None:
-        # INTENTIONAL BREAK (2026-08-04). The former default was the
-        # pre-correction set (delta 1-4, alpha 8-12, beta 12-30, low_gamma 30-55,
-        # high_gamma 55-90), which contradicts the settled band definitions in
-        # CLAUDE.md that every fitted coefficient in outputs/lfp_band_census_v2/
-        # uses. Band *names* are unchanged, so callers keyed by name keep working;
-        # the *numbers* move: alpha widens (8-12 -> 8-14), beta narrows
-        # (12-30 -> 14-30), low_gamma narrows (30-55 -> 30-50), high_gamma shifts
-        # (55-90 -> 50-80), and delta is dropped because no project doctrine
-        # defines its edges. Pass freq_bands= explicitly to reproduce old output.
+        raise ValueError(
+            "cross_area_coherence needs freq_bands: a {name: (fmin, fmax)} dict, or "
+            "'canonical' for CANONICAL_BANDS"
+        )
+    if isinstance(freq_bands, str):
+        if freq_bands != "canonical":
+            raise ValueError(f"freq_bands string must be 'canonical'; got {freq_bands!r}")
         freq_bands = dict(CANONICAL_BANDS)
 
     if n_surrogates < 1:

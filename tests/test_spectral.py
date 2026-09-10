@@ -115,16 +115,16 @@ class TestHarmonicAnalysis:
 class TestCrossAreaCoherence:
     def test_identical_signals_have_high_coherence(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0)
-        result = cross_area_coherence(trace, trace, sampling_rate=1000.0)
+        result = cross_area_coherence(trace, trace, sampling_rate=1000.0, freq_bands="canonical")
         assert result["band_coherence"]["theta"] > 0.9
 
     def test_mismatched_lengths_return_empty_result(self):
-        result = cross_area_coherence(np.zeros(100), np.zeros(50), sampling_rate=1000.0)
+        result = cross_area_coherence(np.zeros(100), np.zeros(50), sampling_rate=1000.0, freq_bands="canonical")
         assert result["coherence_spectrum"].size == 0
 
     def test_default_freq_bands_is_canonical_bands(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0)
-        result = cross_area_coherence(trace, trace, sampling_rate=1000.0)
+        result = cross_area_coherence(trace, trace, sampling_rate=1000.0, freq_bands="canonical")
         assert set(result["band_coherence"].keys()) == set(CANONICAL_BANDS.keys())
 
 
@@ -327,8 +327,8 @@ class TestSpectralSamplingRateResolution:
         assert res_fs["fundamental_freq"] == pytest.approx(res_sr["fundamental_freq"])
 
         # 2. cross_area_coherence
-        res_coh_fs = cross_area_coherence(sig1, sig2, fs=fs)
-        res_coh_sr = cross_area_coherence(sig1, sig2, sampling_rate=fs)
+        res_coh_fs = cross_area_coherence(sig1, sig2, fs=fs, freq_bands="canonical")
+        res_coh_sr = cross_area_coherence(sig1, sig2, sampling_rate=fs, freq_bands="canonical")
         np.testing.assert_allclose(res_coh_fs["frequencies"], res_coh_sr["frequencies"])
         np.testing.assert_allclose(res_coh_fs["coherence_spectrum"], res_coh_sr["coherence_spectrum"])
 
@@ -355,7 +355,7 @@ class TestSpectralSamplingRateResolution:
             harmonic_analysis(sig, fs=1000.0, sampling_rate=2000.0)
 
         with pytest.raises(ValueError, match="Conflicting"):
-            cross_area_coherence(sig, sig, fs=1000.0, sampling_rate=2000.0)
+            cross_area_coherence(sig, sig, fs=1000.0, sampling_rate=2000.0, freq_bands="canonical")
 
         with pytest.raises(ValueError, match="Conflicting"):
             spectral_tilt(sig, fs=1000.0, sampling_rate=2000.0)
@@ -372,7 +372,7 @@ class TestSpectralSamplingRateResolution:
             harmonic_analysis(sig)
 
         with pytest.raises(ValueError, match="requires sampling rate `fs`"):
-            cross_area_coherence(sig, sig)
+            cross_area_coherence(sig, sig, freq_bands="canonical")
 
         with pytest.raises(ValueError, match="requires sampling rate `fs`"):
             spectral_tilt(sig)
@@ -502,8 +502,8 @@ class TestCrossAreaCoherenceSurrogateContract:
     def test_rng_is_accepted_and_changes_the_null(self):
         """JNWB-003: the null used to be unseedable, so every caller got one null."""
         x, y = self._signals()
-        a = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(1))
-        b = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(2))
+        a = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(1), freq_bands="canonical")
+        b = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(2), freq_bands="canonical")
         assert a['band_coherence'] == b['band_coherence'], "observed value must not depend on the RNG"
         assert a['band_significance'] != b['band_significance'], (
             "two independent nulls produced identical p-values across every band"
@@ -511,21 +511,21 @@ class TestCrossAreaCoherenceSurrogateContract:
 
     def test_default_rng_is_reproducible_and_reports_its_seed(self):
         x, y = self._signals()
-        a = cross_area_coherence(x, y, fs=1000.0)
-        b = cross_area_coherence(x, y, fs=1000.0)
+        a = cross_area_coherence(x, y, fs=1000.0, freq_bands="canonical")
+        b = cross_area_coherence(x, y, fs=1000.0, freq_bands="canonical")
         assert a['band_significance'] == b['band_significance']
         assert a['surrogate_seed_entropy'] == 42, "the default seed must be recordable in a receipt"
 
     def test_caller_supplied_rng_reports_no_seed(self):
         """A receipt must not claim a seed jnwb did not choose."""
         x, y = self._signals()
-        out = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(99))
+        out = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(99), freq_bands="canonical")
         assert out['surrogate_seed_entropy'] is None
 
     def test_n_surrogates_sets_the_p_value_floor(self):
         """JNWB-005: the floor used to depend on input length, undisclosed."""
         x, y = self._signals()
-        out = cross_area_coherence(x, y, fs=1000.0, n_surrogates=10)
+        out = cross_area_coherence(x, y, fs=1000.0, n_surrogates=10, freq_bands="canonical")
         assert out['n_surrogates_used'] == 10
         assert out['p_value_floor'] == pytest.approx(1 / 11)
         assert min(out['band_significance'].values()) >= out['p_value_floor'] - 1e-12
@@ -533,7 +533,7 @@ class TestCrossAreaCoherenceSurrogateContract:
     def test_default_floor_permits_rejection_at_alpha_05(self):
         """The old long-signal branch gave a floor of 1/11 = 0.0909, above alpha."""
         x, y = self._signals()
-        out = cross_area_coherence(x, y, fs=1000.0)
+        out = cross_area_coherence(x, y, fs=1000.0, freq_bands="canonical")
         assert out['n_surrogates_used'] == 50
         assert out['p_value_floor'] == pytest.approx(1 / 51)
         assert out['p_value_floor'] < 0.05
@@ -542,8 +542,8 @@ class TestCrossAreaCoherenceSurrogateContract:
         """JNWB-005: len > 50000 used to silently drop 50 surrogates to 10."""
         short_x, short_y = self._signals(n=2048)
         long_x, long_y = self._signals(n=60000)
-        short = cross_area_coherence(short_x, short_y, fs=1000.0)
-        long = cross_area_coherence(long_x, long_y, fs=1000.0)
+        short = cross_area_coherence(short_x, short_y, fs=1000.0, freq_bands="canonical")
+        long = cross_area_coherence(long_x, long_y, fs=1000.0, freq_bands="canonical")
         assert short['n_surrogates_used'] == long['n_surrogates_used'] == 50
         assert short['p_value_floor'] == long['p_value_floor'], (
             "the smallest attainable p-value must not be a function of input length"
@@ -552,12 +552,12 @@ class TestCrossAreaCoherenceSurrogateContract:
     def test_invalid_n_surrogates_rejected(self):
         x, y = self._signals()
         with pytest.raises(ValueError, match="n_surrogates"):
-            cross_area_coherence(x, y, fs=1000.0, n_surrogates=0)
+            cross_area_coherence(x, y, fs=1000.0, n_surrogates=0, freq_bands="canonical")
 
     def test_device_used_is_reported_and_cpu_request_is_honoured(self):
         """JNWB-004: nothing in the result used to say which estimator produced it."""
         x, y = self._signals()
-        out = cross_area_coherence(x, y, fs=1000.0, device='cpu')
+        out = cross_area_coherence(x, y, fs=1000.0, device='cpu', freq_bands="canonical")
         assert out['device_used'] == 'cpu'
 
     def test_cuda_failure_falls_back_wholesale_and_warns(self, monkeypatch):
@@ -574,9 +574,9 @@ class TestCrossAreaCoherenceSurrogateContract:
         monkeypatch.setattr(spectral_module, "_welch_csd_gpu", always_fails)
         x, y = self._signals()
         with pytest.warns(RuntimeWarning, match="recomputing"):
-            out = cross_area_coherence(x, y, fs=1000.0, device='cuda')
+            out = cross_area_coherence(x, y, fs=1000.0, device='cuda', freq_bands="canonical")
         assert out['device_used'] == 'cpu', "the result must name the estimator that produced it"
-        cpu = cross_area_coherence(x, y, fs=1000.0, device='cpu')
+        cpu = cross_area_coherence(x, y, fs=1000.0, device='cpu', freq_bands="canonical")
         assert out['band_coherence'] == cpu['band_coherence']
         assert out['band_significance'] == cpu['band_significance'], (
             "after a wholesale fallback the null must be identical to a pure CPU run"
@@ -616,10 +616,44 @@ class TestCrossAreaCoherenceSurrogateContract:
         monkeypatch.setattr(spectral_module.signal, "coherence", counting)
         x, y = self._signals()
         n_surr = 20
-        out = cross_area_coherence(x, y, fs=1000.0, n_surrogates=n_surr)
+        out = cross_area_coherence(x, y, fs=1000.0, n_surrogates=n_surr, freq_bands="canonical")
         n_bands = len(out['band_coherence'])
         assert n_bands >= 2, "need several bands for this to mean anything"
         assert calls["n"] == n_surr + 1, (
             f"expected 1 observed + {n_surr} surrogate estimator calls, got {calls['n']}; "
             f"the per-band recomputation would be {1 + n_surr * n_bands}"
         )
+
+
+class TestCrossAreaCoherenceBandsAreExplicit:
+    """The band taxonomy decides every band p-value, so the caller names it (0.1.4)."""
+
+    @staticmethod
+    def _pair():
+        gen = np.random.default_rng(5)
+        base = gen.normal(size=2048)
+        return base + 0.3 * gen.normal(size=2048), base + 0.3 * gen.normal(size=2048)
+
+    def test_missing_bands_raises(self):
+        x, y = self._pair()
+        with pytest.raises(ValueError, match="needs freq_bands"):
+            cross_area_coherence(x, y, fs=1000.0)
+
+    def test_unknown_band_string_raises(self):
+        x, y = self._pair()
+        with pytest.raises(ValueError, match="'canonical'"):
+            cross_area_coherence(x, y, fs=1000.0, freq_bands="standard")
+
+    def test_canonical_equals_the_explicit_dict(self):
+        from jnwb.spectral import CANONICAL_BANDS
+
+        x, y = self._pair()
+        a = cross_area_coherence(x, y, fs=1000.0, freq_bands="canonical", n_surrogates=8)
+        b = cross_area_coherence(x, y, fs=1000.0, freq_bands=dict(CANONICAL_BANDS), n_surrogates=8)
+        assert a["band_coherence"] == b["band_coherence"]
+        assert a["band_significance"] == b["band_significance"]
+
+    def test_custom_bands_are_used_as_given(self):
+        x, y = self._pair()
+        out = cross_area_coherence(x, y, fs=1000.0, freq_bands={"slow": (2.0, 6.0)}, n_surrogates=8)
+        assert set(out["band_coherence"]) == {"slow"}

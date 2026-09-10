@@ -70,7 +70,6 @@ nav:
       - Decoding & Visual QC: 09_decoding_and_visual_qc.md
 
   - Tutorials & Development:
-      - Interactive Analyses: 12_interactive_analyses.md
       - Extending jnwb: 10_extending_jnwb_and_verification.md
       - Developer Guide: 11_extending_and_development.md
 

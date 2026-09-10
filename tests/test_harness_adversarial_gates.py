@@ -497,3 +497,44 @@ class TestImportShadowingGate:
                 f"{name!r} is allowed at the repository root on the promise that it is "
                 f"excluded from the distribution, but pyproject excludes {exclude}"
             )
+
+class TestProjectIdentifierGate:
+    """Gate 12 must catch a project name used as data, the 0.1.3 MCP defect."""
+
+    @staticmethod
+    def _repo(tmp_path, source):
+        pkg = tmp_path / "jnwb"
+        pkg.mkdir()
+        (pkg / "mod.py").write_text(source, encoding="utf-8")
+        return tmp_path
+
+    def test_catches_project_table_used_as_default(self, tmp_path):
+        from scripts.harness_gate import check_no_project_identifiers_in_code
+
+        repo = self._repo(tmp_path, "def f(t):\n    if 'omission_glo_passive' in t:\n        return 1\n")
+        v = check_no_project_identifiers_in_code(repo)
+        assert len(v) == 1 and "omission_glo_passive" in v[0]
+
+    def test_catches_project_name_in_identifier(self, tmp_path):
+        from scripts.harness_gate import check_no_project_identifiers_in_code
+
+        repo = self._repo(tmp_path, "omission_window = (0, 1)\n")
+        assert len(check_no_project_identifiers_in_code(repo)) == 1
+
+    def test_docstrings_comments_and_deprecated_env_vars_pass(self, tmp_path):
+        from scripts.harness_gate import check_no_project_identifiers_in_code
+
+        source = (
+            '"""Promoted from omission.jnwb_ext."""\n'
+            "# history: came from the omission project\n"
+            "LEGACY = 'OMISSION_NWB_DIR'\n"
+            "def f():\n"
+            '    """Omission-era helper."""\n'
+            "    return 1\n"
+        )
+        assert check_no_project_identifiers_in_code(self._repo(tmp_path, source)) == []
+
+    def test_live_package_is_clean(self):
+        from scripts.harness_gate import check_no_project_identifiers_in_code
+
+        assert check_no_project_identifiers_in_code() == []

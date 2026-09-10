@@ -4,6 +4,40 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-09-10
+
+Closes the boundary defects a review found in 0.1.3: executable code that gave one
+project's names meaning, and a gate that passed it.
+
+### Breaking
+
+- **`cross_area_coherence` requires `freq_bands`.** `None` meant `CANONICAL_BANDS`, so the
+  band taxonomy behind every band p-value was chosen for the caller. Pass
+  `freq_bands='canonical'` to keep 0.1.3 numbers, or a `{name: (fmin, fmax)}` dict.
+  `phase_slope_index` already worked this way.
+- **MCP `get_event_codes_and_timings` no longer prefers a table named
+  `omission_glo_passive`.** With no `event_group_path` it reads `trials`, else the file's
+  only interval table, else returns `AmbiguousPath` listing the tables. An explicit path
+  that does not exist returns `PathNotFound`; it used to return the first table instead.
+
+### Added
+
+- **Gate 12 (Project Identifiers).** Parses `jnwb/` and fails on any code string or
+  identifier containing a project name. Docstrings and comments are skipped. The
+  deprecated `OMISSION_*_DIR` variables are the only allowed names. Gates 1 and 6 both
+  passed the MCP default above.
+
+### Changed
+
+- `import jnwb` logs a warning when it cannot install its hdmf `BuildManager` repair; the
+  failure was silent. The patch is unchanged and still replaces `BuildManager.construct`
+  process-wide on import.
+- Removed `docs/12_interactive_analyses.md`, which presented one project's analysis and
+  results as jnwb documentation.
+- Removed project references from two strings in `jnwb/` that Gate 12 flagged.
+- `artifacts/context.md` and `docs/memory.md` are folded into `AGENTS.md`, which opens with
+  a map of the repository. Four `memory.md` recipes had wrong signatures.
+
 ## [0.1.3] - 2026-09-09
 
 Fixes the blocker that made 0.1.1 uninstallable, corrects three defects in

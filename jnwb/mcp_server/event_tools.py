@@ -6,15 +6,37 @@ from typing import Optional, Dict, Any
 from pynwb import NWBHDF5IO
 from jnwb.mcp_server.server import mcp
 
+
+def _default_interval_table(names):
+    """Pick the interval table when the caller named none: 'trials', else the only table.
+
+    Several tables and no 'trials' is an error listing them; guessing would give the
+    caller events from a table they never chose.
+    """
+    if 'trials' in names:
+        return 'trials'
+    if len(names) == 1:
+        return names[0]
+    if not names:
+        return {"error": "No event or interval groups found in NWB file", "error_type": "PathNotFound"}
+    return {
+        "error": f"Several interval tables and none named 'trials': {sorted(names)}. "
+                 "Pass event_group_path.",
+        "error_type": "AmbiguousPath",
+    }
+
+
 @mcp.tool()
 def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Extract all event/trial codes and their corresponding sample timestamps from an NWB file using jnwb.
-    
+
     Args:
         file_path: Path to the .nwb file.
-        event_group_path: HDF5 path to the events/trials group (e.g., '/intervals/trials' or '/intervals/omission_glo_passive'). Optional.
-        
+        event_group_path: HDF5 path to the events/trials group, e.g. '/intervals/trials'.
+            When omitted: '/intervals/trials', else the file's only interval table, else an
+            AmbiguousPath error listing the tables.
+
     Returns:
         Structured JSON metadata and list of events or error dictionary.
     """
@@ -45,38 +67,28 @@ def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] 
                             "error": f"Interval group '{name}' not found under /intervals",
                             "error_type": "PathNotFound"
                         }
-            else:
-                if nwb.intervals:
-                    if 'omission_glo_passive' in nwb.intervals:
-                        df = nwb.intervals['omission_glo_passive'].to_dataframe()
-                        event_group_path_resolved = '/intervals/omission_glo_passive'
-                    elif 'trials' in nwb.intervals:
-                        df = nwb.intervals['trials'].to_dataframe()
-                        event_group_path_resolved = '/intervals/trials'
-                    else:
-                        first_name = list(nwb.intervals.keys())[0]
-                        df = nwb.intervals[first_name].to_dataframe()
-                        event_group_path_resolved = f'/intervals/{first_name}'
-                        
+            elif nwb.intervals:
+                name = _default_interval_table(list(nwb.intervals.keys()))
+                if isinstance(name, dict):
+                    return name
+                df = nwb.intervals[name].to_dataframe()
+                event_group_path_resolved = f"/intervals/{name}"
+
         if df is None:
             with h5py.File(str(path), 'r') as f:
-                target_path = event_group_path if event_group_path else '/intervals/omission_glo_passive'
+                target_path = event_group_path or '/intervals/trials'
                 if target_path not in f:
-                    if '/intervals' in f:
-                        intervals_grp = f['/intervals']
-                        if len(intervals_grp.keys()) > 0:
-                            target_path = f"/intervals/{list(intervals_grp.keys())[0]}"
-                        else:
-                            return {
-                                "error": "No event or interval groups found in NWB file",
-                                "error_type": "PathNotFound"
-                            }
-                    else:
+                    if event_group_path:
                         return {
-                            "error": "No event or interval groups found in NWB file",
+                            "error": f"{event_group_path} not found in NWB file",
                             "error_type": "PathNotFound"
                         }
-                
+                    groups = list(f['/intervals'].keys()) if '/intervals' in f else []
+                    name = _default_interval_table(groups)
+                    if isinstance(name, dict):
+                        return name
+                    target_path = f"/intervals/{name}"
+
                 obj = f[target_path]
                 event_group_path_resolved = target_path
                 

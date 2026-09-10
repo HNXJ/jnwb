@@ -10,7 +10,7 @@ phase and policy. A project that *uses* jnwb keeps its own rules in its own repo
 | `jnwb/__init__.py` | The public API: `__all__` is the authoritative symbol list |
 | `jnwb/` | Library source. `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
 | `tests/` | The suite. Run it before and after a change (§5) |
-| `scripts/harness_gate.py` | Repository gates 1–11 (§5) |
+| `scripts/harness_gate.py` | Repository gates 1–12 (§5) |
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§6). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
@@ -92,7 +92,7 @@ or authority → stop and ask.
 | Command | Asserts | A pass means |
 |---|---|---|
 | `python -m pytest tests/ -q` | The full suite | Every test passed on the interpreter you ran |
-| `python scripts/harness_gate.py` | Gates 1–11, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing |
+| `python scripts/harness_gate.py` | Gates 1–12, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing, project identifiers in code |
 | `python scripts/release_gate.py` | Release readiness | Run before tagging |
 | `mkdocs build --strict` | Docs build | RTD sets `fail_on_warning`, so a warning here is a failed publish |
 

@@ -15,7 +15,7 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 - `jnwb.repair_lfp_trials(segments, times_ms, z_thresh=6.0)`: Cross-channel synchrony detection ($z > 6.0$) and cross-trial median substitution.
 - `jnwb.repair_band_artifacts(tfr_power, ...)`: TFR-domain outlier artifact detection and interpolation.
 - `jnwb.channel_correlation_matrix(data)` & `jnwb.bad_channels_from_correlation(corr_matrix)`: Detect disconnected or excessively noisy probe channels.
-- `jnwb.cross_area_coherence(x, y, fs, bands)`: Magnitude-squared coherence across channel pairs.
+- `jnwb.cross_area_coherence(x, y, fs=..., freq_bands=...)`: Magnitude-squared coherence across channel pairs. `freq_bands` is required: a `{name: (fmin, fmax)}` dict or `'canonical'`.
 - `jnwb.imaginary_coherency(x, y, fs, ...)`: Volume-conduction-robust imaginary coherence.
 - `jnwb.spectral_tilt(psd, freqs, fit_range)`: Aperiodic $1/f$ spectral slope parameterization.
 - `jnwb.bipolar_reference(data, channel_pairs)`: Local differential referencing for spatial artifact reduction.

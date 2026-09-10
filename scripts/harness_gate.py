@@ -526,6 +526,64 @@ def check_no_shadow_packages(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+#: Projects built on jnwb. A code string or identifier in jnwb/ containing one gives that
+#: project privileged meaning in the library.
+PROJECT_IDENTIFIERS = ("omission",)
+#: The deprecated OMISSION_*_DIR environment variables that jnwb.paths still reads, with a
+#: DeprecationWarning. The only project names jnwb/ code may contain.
+PROJECT_IDENTIFIER_ALLOWED = re.compile(r"^OMISSION_[A-Z]+_DIR$")
+
+
+def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 12 (Project Identifiers): no jnwb/ code string or name contains a project name.
+
+    Gate 1 sees imports and Gate 6 sees a fixed list of study tokens. Neither saw 0.1.3's
+    MCP tool defaulting to a project's event table ('omission_glo_passive'), so both
+    passed. This gate parses jnwb/ and checks every string constant and identifier.
+    Docstrings and comments are skipped; they may cite where code came from.
+    """
+    root = repo_root or REPO_ROOT
+    violations = []
+    for py in sorted((root / "jnwb").rglob("*.py")):
+        if "__pycache__" in py.parts:
+            continue
+        tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
+        # A string standing alone as a statement is documentation (a docstring, or an
+        # attribute docstring under a dataclass field); it never reaches running code.
+        docstrings = {
+            id(node.value) for node in ast.walk(tree)
+            if isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+        }
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if id(node) in docstrings:
+                    continue
+                text = node.value
+            elif isinstance(node, ast.Name):
+                text = node.id
+            elif isinstance(node, ast.Attribute):
+                text = node.attr
+            elif isinstance(node, ast.arg):
+                text = node.arg
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                text = node.name
+            elif isinstance(node, ast.alias):
+                text = node.name
+            else:
+                continue
+            if PROJECT_IDENTIFIER_ALLOWED.match(text):
+                continue
+            for project in PROJECT_IDENTIFIERS:
+                if project in text.lower():
+                    violations.append(
+                        f"PROJECT_IDENTIFIER: {py.relative_to(root).as_posix()}:{node.lineno} "
+                        f"uses {text[:60]!r}. A project's names belong in the project; take "
+                        f"the value as an argument instead."
+                    )
+    return violations
+
+
 # ==============================================================================
 # General Scientific Integrity Gates
 # ==============================================================================
@@ -717,6 +775,15 @@ def run_full_preflight() -> bool:
             print(f"  - {v}")
         return False
     print("PASS: No unowned importable package at the repository root.")
+
+    # 12. Project identifiers: no project name in jnwb/ code strings or names
+    identifier_violations = check_no_project_identifiers_in_code()
+    if identifier_violations:
+        print("FAIL: Project identifiers found in jnwb/ code:")
+        for v in identifier_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: No project identifiers in jnwb/ code strings or names.")
 
     print("ALL HARNESS GATES PASSED.")
     return True

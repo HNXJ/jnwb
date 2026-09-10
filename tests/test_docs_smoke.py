@@ -71,7 +71,7 @@ class TestDocsSmokeFixtures:
         tilt = jnwb.spectral_tilt(sig, sampling_rate=1000.0)
         assert "exponent" in tilt or "slope" in tilt or "spectral_tilt" in tilt
 
-        coh = jnwb.cross_area_coherence(sig, sig, sampling_rate=1000.0)
+        coh = jnwb.cross_area_coherence(sig, sig, sampling_rate=1000.0, freq_bands="canonical")
         assert "band_coherence" in coh
 
         db_val = jnwb.to_db(2.0)

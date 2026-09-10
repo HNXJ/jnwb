@@ -105,7 +105,7 @@ class TestNJobsDoesNotChangeResults:
 
         def run(n_jobs):
             return cross_area_coherence(
-                x, y, fs=1000.0, n_surrogates=32, n_jobs=n_jobs
+                x, y, fs=1000.0, n_surrogates=32, n_jobs=n_jobs, freq_bands="canonical"
             )["band_significance"]
 
         assert run(4) == run(1)

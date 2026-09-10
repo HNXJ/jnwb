@@ -36,7 +36,7 @@ class TestMCPServer(unittest.TestCase):
         )
         nwbfile.add_acquisition(es)
 
-        epochs = pynwb.epoch.TimeIntervals(name="omission_glo_passive", description="events")
+        epochs = pynwb.epoch.TimeIntervals(name="stim_events", description="events")
         epochs.add_column(name="code", description="event code")
         epochs.add_row(start_time=1.0, stop_time=2.0, code="STIM_A")
         epochs.add_row(start_time=3.0, stop_time=4.0, code="STIM_B")
@@ -86,10 +86,30 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("stop_time", first_event)
 
     def test_get_event_codes_and_timings_explicit(self):
-        res = get_event_codes_and_timings(self.file_path, event_group_path="/intervals/omission_glo_passive")
+        res = get_event_codes_and_timings(self.file_path, event_group_path="/intervals/stim_events")
         self.assertNotIn("error", res)
-        self.assertEqual(res["event_group_path"], "/intervals/omission_glo_passive")
+        self.assertEqual(res["event_group_path"], "/intervals/stim_events")
         self.assertEqual(len(res["events"]), 2)
+
+    def test_event_table_is_never_chosen_by_project_name(self):
+        """With several tables and no 'trials', the caller must choose; jnwb never guesses."""
+        path = str(pathlib.Path(self.temp_dir.name) / "two_tables.nwb")
+        nwbfile = pynwb.NWBFile(session_description="two tables", identifier="TWO",
+                                session_start_time=datetime.now(timezone.utc))
+        for name in ("omission_glo_passive", "other_events"):
+            t = pynwb.epoch.TimeIntervals(name=name, description="events")
+            t.add_row(start_time=1.0, stop_time=2.0)
+            nwbfile.add_time_intervals(t)
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+
+        res = get_event_codes_and_timings(path)
+        self.assertEqual(res.get("error_type"), "AmbiguousPath")
+        self.assertIn("other_events", res["error"])
+
+    def test_missing_explicit_path_errors_instead_of_substituting(self):
+        res = get_event_codes_and_timings(self.file_path, event_group_path="/intervals/absent")
+        self.assertEqual(res.get("error_type"), "PathNotFound")
 
     def test_prepare_signal_reference_success(self):
         target_ds = "/acquisition/ElectricalSeries/data"

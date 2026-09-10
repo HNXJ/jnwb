@@ -11,7 +11,7 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 __release_date__ = '2026-09-07'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
@@ -88,7 +88,12 @@ try:
 
     BuildManager.construct = patched_manager_construct
 except Exception as e:
-    pass
+    # The patch repairs malformed builders on read. Without it those files fail to
+    # load, so the caller hears about it now rather than at the first read.
+    logging.getLogger(__name__).warning(
+        "jnwb could not install its hdmf BuildManager repair (%s: %s); NWB files with "
+        "malformed unit or index builders may fail to read", type(e).__name__, e
+    )
 
 log = logging.getLogger(__name__)
 

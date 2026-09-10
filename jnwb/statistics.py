@@ -894,7 +894,7 @@ class StatisticalAnalysis:
         if not isinstance(hypothesis, str) or not hypothesis.strip():
             raise ValueError(
                 "confirmatory_compare() requires a non-empty hypothesis string. "
-                "Example: hypothesis='FR_omission > FR_stimulus in FEF O+ units'"
+                "Example: hypothesis='rate in condition A > rate in condition B'"
             )
         result = StatisticalAnalysis.exploratory_compare(
             group1, group2, paired=paired, n_bootstrap=n_bootstrap

@@ -97,7 +97,7 @@ class TestRepresentativeWorkflow:
         freqs, psd = jnwb.compute_psd(lfp_a, fs)
         assert freqs.shape == psd.shape
 
-        coh = jnwb.cross_area_coherence(lfp_a, lfp_b, sampling_rate=fs)
+        coh = jnwb.cross_area_coherence(lfp_a, lfp_b, sampling_rate=fs, freq_bands="canonical")
         assert isinstance(coh, dict)
 
     def test_decoding_and_null_stage(self):
@@ -193,7 +193,7 @@ class TestNoOmissionDependency:
             "lfp_b = np.sin(2 * np.pi * 10.0 * t) + 0.3 * rng.standard_normal(t.size)\n"
             "power = jnwb.band_power(lfp_a, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS['alpha'])\n"
             "freqs, psd = jnwb.compute_psd(lfp_a, 1000.0)\n"
-            "coh = jnwb.cross_area_coherence(lfp_a, lfp_b, sampling_rate=1000.0)\n"
+            "coh = jnwb.cross_area_coherence(lfp_a, lfp_b, sampling_rate=1000.0, freq_bands='canonical')\n"
             "X = np.vstack([rng.normal(-3.0, 1.0, (25, 4)), rng.normal(3.0, 1.0, (25, 4))])\n"
             "labels = np.array([0] * 25 + [1] * 25)\n"
             "result = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)\n"

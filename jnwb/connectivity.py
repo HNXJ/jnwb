@@ -1456,8 +1456,7 @@ def phase_slope_index(
         X, Y: (n_times,), (n_trials, n_times), or list of 1-D trials
         fs: sampling rate in Hz (required — PSI is a frequency-domain measure)
         bands: ``None`` for one estimate over the whole spectrum except DC
-            (``df``..``fs/2``); ``'canonical'`` for the
-            settled Omission band set (:data:`CANONICAL_BANDS`); a ``(fmin, fmax)``
+            (``df``..``fs/2``); ``'canonical'`` for :data:`CANONICAL_BANDS`; a ``(fmin, fmax)``
             tuple; or a ``{name: (fmin, fmax)}`` dict
         nperseg: Welch segment length in samples (default: n_times // 4, clipped
             to [16, n_times]). Frequency resolution is ``fs / nperseg``.
