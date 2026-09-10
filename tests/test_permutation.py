@@ -1,6 +1,6 @@
 """Unit tests for jnwb.permutation.permute_labels -- the canonical exchangeability-scheme
 primitive added 2026-08-10 to fix the naive-global-permutation-null bug found in
-decode_identity_cycle_deconfound (artifacts/.lab/agent-harness-audit-20260810.json).
+decode_identity_cycle_deconfound (harness audit receipt, 2026-08-10).
 
 Added to jnwb.__all__ 2026-08-22 (normalization Batch 2, item 1) after independent
 verification: experiment-independent semantics, no embedded omission condition

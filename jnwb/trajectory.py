@@ -1,12 +1,8 @@
-"""
-Population Trajectory Analysis using GPU-Accelerated SVD (PCA)
+"""Population trajectory analysis using GPU-accelerated SVD (PCA).
 
 Provides dimensionality reduction (PCA) via Singular Value Decomposition (SVD)
 to track and visualize population trajectories over time.
 Supports PyTorch for GPU acceleration if available.
-
-Author: Antigravity
-Date: 2026-07-04
 """
 
 import logging

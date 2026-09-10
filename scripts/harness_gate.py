@@ -309,7 +309,12 @@ def check_docs_version_matches_package(repo_root: Optional[Path] = None) -> List
 
 
 def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 6 (Dataset Independence): Assert zero experiment-specific condition tokens, p-values, or study conclusions in generic code and harness."""
+    """Gate 6 (Dataset Independence): scan a fixed forbidden-token list.
+
+    Surfaces scanned: ``jnwb/**/*.py``, ``skills/**/*.md``, ``docs/*.md``, ``AGENTS.md``,
+    and ``docs/11_extending_and_development.md``. Not scanned: ``tests/``, ``scripts/``,
+    ``CHANGELOG.md``, or general comment/docstring neutrality beyond the listed patterns.
+    """
     root = repo_root or REPO_ROOT
     violations = []
     
@@ -726,7 +731,10 @@ def run_full_preflight() -> bool:
         for v in leakage_violations:
             print(f"  - {v}")
         return False
-    print("PASS: Zero dataset-specific tokens in jnwb/ and skills/.")
+    print(
+        "PASS: No forbidden study tokens on Gate 6 scan surface "
+        "(jnwb/, skills/, selected docs)."
+    )
 
     # 7. Package and metadata version consistency check
     version_violations = check_version_consistency()

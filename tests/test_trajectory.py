@@ -1,9 +1,4 @@
-"""
-Unit tests for the population trajectory analysis module.
-
-Author: Antigravity
-Date: 2026-07-04
-"""
+"""Unit tests for the population trajectory analysis module."""
 
 import numpy as np
 import pandas as pd

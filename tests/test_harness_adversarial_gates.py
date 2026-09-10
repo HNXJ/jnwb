@@ -198,6 +198,18 @@ def summarize_log_normal_effects(unit_db_modulations):
         v5 = check_dataset_leakage(tmp_path)
         assert len(v5) == 1 and "LFP drives SPK" in v5[0]
 
+    def test_gate_6_ignores_study_prose_outside_forbidden_token_list(self, tmp_path: Path):
+        """Gate 6 checks a fixed token list — not all study-specific comments."""
+        from scripts.harness_gate import check_dataset_leakage
+        fake_jnwb = tmp_path / "jnwb"
+        fake_jnwb.mkdir()
+        (fake_jnwb / "annotated.py").write_text(
+            '# Corpus label "my_study_condition" is not on the Gate 6 list\n'
+            "def compute_rate(): pass\n",
+            encoding="utf-8",
+        )
+        assert check_dataset_leakage(tmp_path) == []
+
     def test_adversarial_probe_version_inconsistency_rejected(self, tmp_path: Path):
         """Adversarial Probe 8: Inconsistent package vs pyproject version must be caught."""
         from scripts.harness_gate import check_version_consistency

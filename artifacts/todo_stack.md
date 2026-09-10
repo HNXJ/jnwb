@@ -11,35 +11,6 @@ no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## Harness authority (`AGENTS.md`, `CLAUDE.md`, gate wording)
-
-- `CLAUDE.md` → stale vs current harness: references absent `omission/CLAUDE.md`, old freeze
-  phase narrative, protected paths not in this archive, and conflicts with `AGENTS.md` on
-  commit/push policy → reconcile as authoritative harness file, minimal redirect to
-  `AGENTS.md`, or delete; must not steer agents with obsolete workspace assumptions →
-  `python scripts/harness_gate.py` still passes; no contradiction with `CONTRIBUTING.md` /
-  `AGENTS.md` on branch/commit policy.
-- `AGENTS.md` authority review → fix stale release map (tag→PyPI), protected paths listing
-  absent `omission/...` trees, test-count band, and contradiction where `CLAUDE.md` carries
-  policy but is excluded from the four permitted agent-mention locations → single coherent
-  authority map; protected-path list matches disk or is scoped explicitly.
-- `scripts/harness_gate.py` Gate 6 PASS text → currently claims
-  `Zero dataset-specific tokens in jnwb/ and skills/` but Gate 6 scans a narrower surface
-  (executable strings/names, not comments/docstrings) → rename PASS/output to exact scanned
-  surface; never equate Gate 6 PASS with full source neutrality → adversarial test that a
-  comment-only study token does not flip Gate 6.
-- **No-trace policy precision** → `AGENTS.md` forbids agent vocabulary in `CHANGELOG.md`,
-  `tests/`, `scripts/`, `docs/`, `jnwb/` comments/docstrings, but mechanical tests must
-  reference `skills/*/agents/openai.yaml` and harness prose exists in
-  `tests/test_harness_adversarial_gates.py`, `scripts/harness_gate.py` → rewrite invariant:
-  prohibit authorship/process/agent narrative outside permitted locations; **allowlist**
-  literal machine-required path/schema tokens (e.g. `agents/openai.yaml`) in mechanical
-  checks; decide whether Matplotlib `<cc:Agent>` XML namespace in
-  `docs/assets/jnwb_quickstart.svg` is in scope → encoded rule + gate or doc; apply cleanup
-  to `CHANGELOG.md` agent-definition history, `jnwb/trajectory.py` Antigravity author line,
-  `tests/test_permutation.py` agent-harness path cite, and queued provenance items without
-  breaking skill validation.
-
 ## User-facing semantics / failure behavior
 
 - `jnwb/metadata.py` `filter_by_criteria` → unknown keys silently ignored → add

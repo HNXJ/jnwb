@@ -4,11 +4,14 @@ Start here. §0 maps the repository, §2 holds the remaining work and §3 is the
 works through it; the rest says how to work here. `CLAUDE.md` carries phase and policy. A
 project that *uses* jnwb keeps its own rules in its own repository.
 
-**Leave no trace of yourself in the work.** Agents, assistants and this way of working are
-named in exactly four places: `skills/`, this file, one line in `README.md`, and
-`CONTRIBUTING.md`. Nowhere else — not in `jnwb/`, `tests/`, `scripts/`, `docs/`,
-`CHANGELOG.md`, docstrings, comments, or author lines. A reader of the library should see a
-library. Anything else needs a strong reason stated at the change site.
+**Leave no process-authorship narrative in the library surface.** Harness vocabulary
+(agents, assistants, orchestration tooling) is named only in four places: `skills/`, this
+file, one line in `README.md`, and `CONTRIBUTING.md`. Not in `jnwb/`, `tests/`, `scripts/`,
+`docs/`, `CHANGELOG.md`, or code comments/docstrings — except **machine-required literals**
+such as the path `agents/openai.yaml` in skill-structure tests, and standard technical
+metadata in generated assets (e.g. Creative Commons RDF `cc:Agent` creator tags in Matplotlib
+SVG output). `CLAUDE.md` is a tripwire supplement, not a fifth naming location. A reader of
+the library should see a library.
 
 ## 0. Where things are
 
@@ -102,7 +105,9 @@ unpushed. Do not cross a version boundary before sealing it.
 3. **`jnwb/` imports nothing from a project folder.** The dependency runs one way. jnwb
    must behave identically whether a project package is installed or absent. Enforced by
    `tests/test_jnwb_frozen_boundary.py`. Condition codes, session labels, area vocabularies
-   and findings stay out of `jnwb/`, `docs/`, `skills/` and `tests/` (Gate 6 scans for them).
+   and findings stay out of `jnwb/`, `docs/`, `skills/` and `tests/` (Gate 6 scans a fixed
+   forbidden-token list in `jnwb/`, `skills/`, and selected docs — not `tests/` or full
+   comment/docstring neutrality; see the non-blocking scan item in the todo stack).
    A corpus convention, such as two spellings of one area, is the project's to normalise;
    a request to encode one in jnwb is a reason to stop.
 4. **Units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently**
@@ -128,7 +133,7 @@ unpushed. Do not cross a version boundary before sealing it.
 | Command | Asserts | A pass means |
 |---|---|---|
 | `python -m pytest tests/ -q` | The full suite | Every test passed on the interpreter you ran |
-| `python scripts/harness_gate.py` | Gates 1–12, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing, project identifiers in code |
+| `python scripts/harness_gate.py` | Gates 1–12, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing, forbidden study tokens in Gate 6 scan surface |
 | `python scripts/release_gate.py` | Release readiness | Run before tagging |
 | `mkdocs build --strict` | Docs build | RTD sets `fail_on_warning`, so a warning here is a failed publish |
 
@@ -157,7 +162,8 @@ Load the skill before doing the work rather than reinventing its contents.
 - Confirm branch and upstream before commit, push, or rebase. Read the target before
   deleting or overwriting.
 - Preserve originals; write revisions as new files.
-- Commit or push only when asked.
+- Commit and push validated checkpoints on `dev` per §3; do not push to `main` or tag without
+  explicit maintainer instruction.
 - A public API change is announced in `CHANGELOG.md` and carries a deprecation path where
   one is possible.
 - No secrets in the repository, context, or transcripts. If one is exposed, stop, say so,
