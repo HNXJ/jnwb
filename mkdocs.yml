@@ -55,7 +55,6 @@ nav:
       - Quickstart: quickstart.md
       - Common Mistakes: common_mistakes.md
       - Public API: api.md
-      - Recipes: memory.md
 
   - Architecture & Foundations:
       - Philosophy & Boundary: 01_architecture_and_philosophy.md

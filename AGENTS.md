@@ -14,9 +14,9 @@ phase and policy. A project that *uses* jnwb keeps its own rules in its own repo
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§6). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
-| `artifacts/context.md` | Long-form orientation: architecture, entry points, verification commands |
 | `artifacts/benchmarks/` | Performance baseline and import profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
+| `docs/11_extending_and_development.md` | How to add or change a function without breaking the release |
 | `examples/quickstart_jnwb.py` | Smallest end-to-end script |
 | `pyproject.toml` | Version source, dependencies, Python floor |
 | `CHANGELOG.md` | What changed per release, including breaking changes |
@@ -30,6 +30,9 @@ Every claim is one of `observed | derived | inferred | assumed | unknown`. Say w
 - `configured != loaded != executed != verified`.
 - `memory != current state`. Re-read the file; do not quote a path, count, or flag from
   recall.
+- A file that points at other files (this map, a skill index, a symbol list) can name
+  something that no longer exists without erroring. Resolve entries against disk.
+- Counts written in prose go stale. Re-run and read the output.
 
 **No claim without a receipt.** "Done", "passes", "fixed" require the command and its
 output in the same message. Otherwise say "ran X, got Y".
@@ -57,18 +60,24 @@ or authority → stop and ask.
 ## 3. Invariants this library protects
 
 1. **No empirical value in any output that no script computed from data.** Hardcoded
-   values are for visual constants or output marked synthetic.
+   values are for visual constants or output marked synthetic. Missing data fails loudly.
 2. **Take the logarithm last.** Average raw power, divide by baseline, `10*log10` once.
    Averaging decibels biases each site by its own noisiness. Use `aggregate_to_db`.
 3. **`jnwb/` imports nothing from a project folder.** The dependency runs one way. jnwb
    must behave identically whether a project package is installed or absent. Enforced by
-   `tests/test_jnwb_frozen_boundary.py`.
+   `tests/test_jnwb_frozen_boundary.py`. Condition codes, session labels, area vocabularies
+   and findings stay out of `jnwb/`, `docs/`, `skills/` and `tests/` (Gate 6 scans for them).
+   A corpus convention, such as two spellings of one area, is the project's to normalise;
+   a request to encode one in jnwb is a reason to stop.
 4. **Units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently**
    across a jnwb function boundary. State intentional breaks at the change site.
 5. **Nulls are explicit.** Label permutation requires a named exchangeability scheme.
-   Anything consuming randomness takes an `rng` and reports what it used.
+   Anything consuming randomness takes an `rng` (`np.random.default_rng(seed)`) and reports
+   what it used. Never call `np.random.seed()`.
 6. **Device and worker count never change a number.** `n_jobs` is a speed knob; a result
    computed on GPU records that it was.
+7. **Call the library function instead of retyping its rule.** A retyped copy drifts from
+   the docstring unnoticed. If the function's shape blocks reuse, widen the shape.
 
 ## 4. Vocabulary
 
@@ -124,3 +133,40 @@ Cut adjective stacks, negation ("X is not Y"), restated obviousness, repeated ca
 hedged claims that should be deletions. If something is unverified, remove it rather than
 labelling it. Say "policy" or "rule", never "doctrine" or "governance". Lead with the
 result.
+
+## 9. Recipes
+
+Each call below runs as written on synthetic arrays. NWB loading and artifact repair are in
+the `jnwb-nwb-data` and `jnwb-lfp-spectral` skills.
+
+```python
+import numpy as np
+import jnwb
+
+rng = np.random.default_rng(0)
+
+# Spikes: PSTH (times in s, window in ms), causal smoothing, onset fit
+t_ms, rate, sem = jnwb.raster_psth(spike_times, event_onsets, win_ms=(-200.0, 500.0), bin_ms=10.0)
+smooth = jnwb.causal_exp_smooth(rate, bin_ms=10.0, tau_ms=25.0)
+fit = jnwb.fit_exponential_onset(t_ms, smooth, t0_bounds=(0.0, 250.0))   # dict
+
+# LFP: complex TFR (mask edges with tfr.coi_mask), band power, decibels last
+tfr = jnwb.complex_tfr(lfp, fs=1000.0, freqs=np.linspace(10, 40, 4))
+beta = jnwb.band_power(lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["beta"])
+db = jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)
+
+# Bad channels from inter-channel correlation (channels x time)
+bad, summary, z = jnwb.bad_channels_from_correlation(jnwb.channel_correlation_matrix(lfp_ch), z_thresh=5.0)
+
+# Directed measures: both return DirectedResult; seed fixes the surrogates
+te = jnwb.transfer_entropy(x, y, n_surrogates=200, seed=42)
+psi = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(15.0, 30.0))
+
+# Statistics
+res = jnwb.StatisticalAnalysis.exploratory_compare(g1, g2)   # parametric + bootstrap
+q = jnwb.StatisticalAnalysis.fdr_correct(p_values)           # Benjamini-Hochberg
+```
+
+GPU: functions taking `device="cuda"` resolve it through `_backend.resolve_device` and warn
+when they fall back to CPU. Parallel: `n_jobs` (default 1) goes through
+`_parallel.parallel_map`; `n_jobs=-1` uses every core.

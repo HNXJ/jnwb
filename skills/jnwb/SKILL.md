@@ -32,8 +32,7 @@ Activate this skill when the user asks for generic electrophysiology analysis, t
 
 ## 5. Agent Memory & Operational Guidance
 For detailed workflow recipes, memory conventions, and common AI agent pitfalls, see:
-- [AGENTS.md](../../AGENTS.md) — Authoritative repository operational contract and PRGS execution grammar.
-- [docs/memory.md](../../docs/memory.md) — Comprehensive agent memory bank for end-to-end NWB workflows.
+- [AGENTS.md](../../AGENTS.md) — Repository map, working rules, and recipes.
 
 ## 6. Minimal Workflow
 ```python
