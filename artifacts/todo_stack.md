@@ -79,18 +79,16 @@ Public workflow: `inspect` → `events` / `event_onsets`. MCP `get_event_codes_a
 
 **LFP-wrapped HDMF warning:** corpus-observed for nested `LFP`/`ElectricalSeries` packaging (also on real omission NWBs); fixture structure not at fault.
 
-## 4. Four fast executable tutorials
+## 4. Four fast executable tutorials — **done** (`examples/tutorials/`, `tests/test_tutorials.py`)
 
-CI-friendly; run from clean installed wheel; use synthetic fixtures only.
-
-| # | User question | Scope |
+| # | Script | Scope |
 |---|---|---|
-| 1 | What is in this NWB? | Load each tiny fixture; `jnwb.inspect`; interpret structured output |
-| 2 | What codes exist and what are their onsets? | Discover tables/codes; select `test-synth-*`; retrieve onset times via §3 API |
-| 3 | How do I align spikes/LFP to events? | Retrieved onsets → existing `raster_psth` / `band_power` (or minimal equivalent) |
-| 4 | How do primitives compose? | inspect → select → align → one small spectral/spiking/statistical operation; no imposed study pipeline |
+| 1 | `01_inspect_nwb.py` | `jnwb.inspect` on canonical co-resident fixture |
+| 2 | `02_event_codes_and_onsets.py` | codes discovery + `events` / `event_onsets` (task/RF/flash) |
+| 3 | `03_align_spikes_lfp_to_events.py` | onsets → `raster_psth` + epoch `band_power` |
+| 4 | `04_compose_workflow.py` | inspect → onsets → `compute_response_metrics` |
 
-**Acceptance:** `tests/test_tutorials.py` (or equivalent) executes all four; no PyNWB plumbing duplicated in tutorial source; no private/downstream repo.
+Shared I/O helpers in `examples/tutorials/_support.py` (single PyNWB read site). MkDocs/README nav wiring deferred to §5.
 
 ## 5. Documentation and navigation
 

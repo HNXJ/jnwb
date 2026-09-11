@@ -95,7 +95,7 @@ def get_event_codes_and_timings(file_path: str, event_group_path: Optional[str] 
                     "error": f"Could not find a code column in /intervals/{table}",
                     "error_type": "ParseError",
                 }
-        et = events(path, table=table, code_column=code_col)
+            et = events(nwb, table=table, code_column=code_col)
         return _events_to_mcp_payload(et)
     except IntervalTableNotFoundError as exc:
         return {"error": str(exc), "error_type": "PathNotFound"}
