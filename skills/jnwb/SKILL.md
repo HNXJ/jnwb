@@ -9,13 +9,15 @@ description: Top-level router, scientific safeguard kernel, and memory bank for 
 Activate this skill when the user asks for generic electrophysiology analysis, time-frequency analysis, spike dynamics, NWB processing, neural statistics, decoding, artifact rejection, or directed connectivity.
 
 ## 2. Task-to-Primitive Routing Matrix
-- **NWB inspection, paths, metadata, electrodes, addressing, compression**: delegate to `jnwb-nwb-data`
-- **Spike raster/PSTH, latency estimation, causal smoothing, unit QC**: delegate to `jnwb-spiking`
-- **LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact repair**: delegate to `jnwb-lfp-spectral`
-- **Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG safety**: delegate to `jnwb-statistics`
-- **Linear SVM decoding, neural trajectories, jRSA, population geometry**: delegate to `jnwb-population`
-- **Directional coupling (Granger, PSI, transfer entropy) with strict causal language**: delegate to `jnwb-connectivity`
-- **Visual QC, raster PSTH plotting, multi-format figure export**: delegate to `jnwb-figures`
+- **Substantial, multi-step, or consequential repository tasks**: (feature implementation, defect investigation, API modification, refactoring, release gates) -> delegate to `jnwb-fact-action` (enforces $F \to R \to A \to V \to S$, authority loading order, and role/domain separation).
+- **Simple, bounded domain queries**:
+  - **NWB inspection, paths, metadata, electrodes, addressing, compression**: delegate to `jnwb-nwb-data`
+  - **Spike raster/PSTH, latency estimation, causal smoothing, unit QC**: delegate to `jnwb-spiking`
+  - **LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact repair**: delegate to `jnwb-lfp-spectral`
+  - **Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG safety**: delegate to `jnwb-statistics`
+  - **Linear SVM decoding, neural trajectories, jRSA, population geometry**: delegate to `jnwb-population`
+  - **Directional coupling (Granger, PSI, transfer entropy) with strict causal language**: delegate to `jnwb-connectivity`
+  - **Visual QC, raster PSTH plotting, multi-format figure export**: delegate to `jnwb-figures`
 
 ## 3. High-Performance Acceleration (CuPy & Joblib)
 - **GPU**: Operations supporting GPU execution accept `device='cuda'`, resolved once per call. If no CUDA device is present the call warns and runs on CPU; the result records which device produced it. Use `backend='cupy'` for distance-matrix speedups in `jrsa`.

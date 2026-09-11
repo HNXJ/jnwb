@@ -23,7 +23,7 @@ the library should see a library.
 | `scripts/harness_gate.py` | Repository gates 1–13 (§6) |
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
-| `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
+| `artifacts/agents/` | Portable role definitions: `authority`, `critic`, `actor`, `verifier`, `docs-harness`. Decoupled from domain skills (`role` $\perp$ `domain`). Parameterized via delegation packets |
 | `artifacts/todo_stack.md` | Remaining work, grouped by the version that carries it (§2). Finished items are deleted |
 | `artifacts/fact_stack.md` | Small, human-authorized durable facts (§2). No pending actions; agents read but do not edit without explicit authorization |
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
@@ -165,6 +165,7 @@ Load the skill before doing the work rather than reinventing its contents.
 | Skill | Covers |
 |---|---|
 | `jnwb` | Router, safeguards, entry point |
+| `jnwb-fact-action` | Execution control ($F \to R \to A \to V \to S$), authority loading order, independent verification |
 | `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing |
 | `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, unit QC |
 | `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |

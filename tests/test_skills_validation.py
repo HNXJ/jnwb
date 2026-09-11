@@ -29,6 +29,7 @@ import jnwb
 
 CANONICAL_SKILLS = {
     "jnwb",
+    "jnwb-fact-action",
     "jnwb-nwb-data",
     "jnwb-spiking",
     "jnwb-lfp-spectral",

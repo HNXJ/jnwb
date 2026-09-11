@@ -560,3 +560,114 @@ class TestProjectIdentifierGate:
         from scripts.harness_gate import check_no_project_identifiers_in_code
 
         assert check_no_project_identifiers_in_code() == []
+
+
+class TestHarnessResetContracts:
+    """Deterministic tests for generalized harness reset structure and invariants."""
+
+    def test_jnwb_fact_action_skill_exists_and_is_routable(self):
+        skill_path = REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md"
+        assert skill_path.exists(), "skills/jnwb-fact-action/SKILL.md must exist"
+        text = skill_path.read_text(encoding="utf-8")
+        assert "F -> R -> A -> V -> S" in text
+        assert "High freedom in hypothesis generation; zero freedom in project-fact completion" in text
+
+        router_text = (REPO_ROOT / "skills" / "jnwb" / "SKILL.md").read_text(encoding="utf-8")
+        assert "jnwb-fact-action" in router_text, "Router skills/jnwb/SKILL.md must route substantial work to jnwb-fact-action"
+
+    def test_all_referenced_domain_skills_exist(self):
+        skills_dir = REPO_ROOT / "skills"
+        assert skills_dir.exists()
+        skill_names = {d.name for d in skills_dir.iterdir() if d.is_dir()}
+
+        # Verify all 7 domain skills plus router and execution-control skill
+        expected = {
+            "jnwb",
+            "jnwb-fact-action",
+            "jnwb-nwb-data",
+            "jnwb-spiking",
+            "jnwb-lfp-spectral",
+            "jnwb-statistics",
+            "jnwb-population",
+            "jnwb-connectivity",
+            "jnwb-figures",
+        }
+        assert expected.issubset(skill_names), f"Missing expected skills: {expected - skill_names}"
+
+    def test_mandatory_authority_loading_order_specified(self):
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        assert "Mandatory Authority Loading Order" in skill_text
+        expected_order = [
+            "AGENTS.md",
+            "artifacts/fact_stack.md",
+            "artifacts/todo_stack.md",
+            "domain skill",
+            "evidence",
+        ]
+        for item in expected_order:
+            assert item in skill_text
+
+    def test_fact_stack_human_authorization_rule_preserved_in_instructions(self):
+        fact_stack = (REPO_ROOT / "artifacts" / "fact_stack.md").read_text(encoding="utf-8")
+        assert "Human-authorized durable facts" in fact_stack
+        assert "Hamm" in fact_stack
+
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        assert "fact_stack.md` is strictly human-authorized" in skill_text
+
+    def test_role_definitions_exist_and_role_domain_orthogonal(self):
+        expected_roles = {"authority", "critic", "actor", "verifier", "docs-harness"}
+        agents_dir = REPO_ROOT / "artifacts" / "agents"
+        assert agents_dir.exists()
+
+        existing_role_files = {p.stem for p in agents_dir.glob("*.md")}
+        assert expected_roles == existing_role_files, f"Role files mismatch: {existing_role_files ^ expected_roles}"
+
+        # Roles must be domain-orthogonal and consume domain skills
+        for role in expected_roles:
+            role_text = (agents_dir / f"{role}.md").read_text(encoding="utf-8")
+            assert "domain skill" in role_text.lower(), f"Role {role} must reference domain skill consumption"
+            assert "role" in role_text.lower()
+
+    def test_actor_cannot_be_sole_verifier_contract(self):
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        assert "actor" in skill_text and "sole verifier" in skill_text
+
+        actor_text = (REPO_ROOT / "artifacts" / "agents" / "actor.md").read_text(encoding="utf-8")
+        assert "Cannot Be Sole Verifier" in actor_text
+
+        verifier_text = (REPO_ROOT / "artifacts" / "agents" / "verifier.md").read_text(encoding="utf-8")
+        assert "Independent Verification" in verifier_text
+
+    def test_roles_are_vendor_neutral_and_project_neutral(self):
+        agents_dir = REPO_ROOT / "artifacts" / "agents"
+        forbidden_vendors = ["claude", "sonnet", "haiku", "opus", "openai", "gpt-", "gemini"]
+        forbidden_projects = ["omission"]
+
+        for md in agents_dir.glob("*.md"):
+            text = md.read_text(encoding="utf-8").lower()
+            for v in forbidden_vendors:
+                assert v not in text, f"Role {md.name} contains vendor/model name {v!r}"
+            for p in forbidden_projects:
+                assert p not in text, f"Role {md.name} contains downstream project name {p!r}"
+
+    def test_delegation_packet_and_return_contracts_exist(self):
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        packet_fields = [
+            "ROLE:", "DOMAIN SKILL:", "GOAL:", "TODO ITEM:", "AUTHORITIES:",
+            "RELEVANT FACTS:", "OBSERVED BASELINE:", "INVARIANTS:",
+            "ALLOWED SCOPE:", "ACCEPTANCE:", "STOP CONDITIONS:",
+        ]
+        for field in packet_fields:
+            assert field in skill_text, f"Missing delegation packet field {field}"
+
+        return_fields = [
+            "RESULT:", "CLAIMS:", "SMALLEST ACTION:", "VERIFICATION:", "UNRESOLVED:",
+        ]
+        for field in return_fields:
+            assert field in skill_text, f"Missing return contract field {field}"
+
+    def test_conflicting_conclusions_require_evidence_reconciliation(self):
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        assert "Evidence Reconciliation" in skill_text
+        assert "never through voting" in skill_text
