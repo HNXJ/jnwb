@@ -21,6 +21,7 @@ import zipfile
 import tarfile
 import subprocess
 import logging
+from typing import List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
@@ -38,12 +39,28 @@ def run_cmd(cmd: list[str], cwd: pathlib.Path = REPO_ROOT) -> None:
         log.info(res.stdout.strip())
 
 
+def _api_md_check_commands() -> List[List[str]]:
+    """Return generate_api_md --check commands for the current and floor interpreters."""
+    api_script = str(REPO_ROOT / "scripts" / "generate_api_md.py")
+    commands = [[sys.executable, api_script, "--check"]]
+    if sys.version_info[:2] != (3, 12):
+        py_launcher = shutil.which("py")
+        if py_launcher is not None:
+            commands.append([py_launcher, "-3.12", api_script, "--check"])
+    return commands
+
+
 def main() -> None:
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
 
     log.info("=== STEP 2: Running harness pre-flight verification gate ===")
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])
+
+    for cmd in _api_md_check_commands():
+        label = "current interpreter" if cmd[0] == sys.executable else "Python 3.12 floor"
+        log.info(f"=== STEP 2b: API docs generator drift check ({label}) ===")
+        run_cmd(cmd)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         staging_dir = pathlib.Path(tmpdir)

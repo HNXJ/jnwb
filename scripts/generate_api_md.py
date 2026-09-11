@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import inspect
-import re
-import textwrap
+import types
+import typing
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, get_args, get_origin
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,6 +18,87 @@ def _first_doc_line(obj: Any) -> str:
     return doc.strip().split("\n\n")[0].replace("\n", " ").strip()
 
 
+def _format_default(value: Any) -> str:
+    if value is None:
+        return "None"
+    if isinstance(value, str):
+        return repr(value)
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    return repr(value)
+
+
+def _format_annotation(annotation: Any) -> str:
+    """Render annotations in a Python-version-stable canonical form."""
+    if annotation is inspect.Parameter.empty:
+        return ""
+    if isinstance(annotation, str):
+        return repr(annotation)
+    if annotation is type(None):
+        return "None"
+    if isinstance(annotation, types.UnionType):
+        return " | ".join(_format_annotation(arg) for arg in get_args(annotation))
+
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+
+    if origin is typing.Union:
+        non_none = [arg for arg in args if arg is not type(None)]
+        has_none = type(None) in args
+        rendered = " | ".join(_format_annotation(arg) for arg in non_none)
+        if has_none:
+            rendered = f"{rendered} | None" if rendered else "None"
+        return rendered
+
+    if origin is typing.Literal:
+        return f"Literal[{', '.join(repr(arg) for arg in args)}]"
+
+    if origin in (list, typing.List):
+        inner = _format_annotation(args[0]) if args else "Any"
+        return f"List[{inner}]"
+
+    if origin in (tuple, typing.Tuple):
+        if not args:
+            return "Tuple"
+        if len(args) == 2 and args[1] is Ellipsis:
+            return f"Tuple[{_format_annotation(args[0])}, ...]"
+        return "Tuple[" + ", ".join(_format_annotation(arg) for arg in args) + "]"
+
+    if origin in (dict, typing.Dict):
+        if len(args) == 2:
+            return f"Dict[{_format_annotation(args[0])}, {_format_annotation(args[1])}]"
+        return "Dict"
+
+    if isinstance(annotation, type):
+        module = annotation.__module__
+        qualname = annotation.__qualname__
+        if module in ("builtins",):
+            return qualname
+        return f"{module}.{qualname}"
+
+    module = getattr(annotation, "__module__", "")
+    qualname = getattr(annotation, "__qualname__", None) or getattr(annotation, "_name", "")
+    if module and qualname:
+        if module == "builtins":
+            return qualname
+        return f"{module}.{qualname}"
+
+    text = str(annotation).replace("typing.", "")
+    if text.startswith("<class '") and text.endswith("'>"):
+        return text[len("<class '") : -len("'>")]
+    return text
+
+
+def _format_parameter(param: inspect.Parameter) -> str:
+    if param.annotation is inspect.Parameter.empty:
+        rendered = param.name
+    else:
+        rendered = f"{param.name}: {_format_annotation(param.annotation)}"
+    if param.default is not inspect.Parameter.empty:
+        rendered = f"{rendered} = {_format_default(param.default)}"
+    return rendered
+
+
 def _format_signature(obj: Any) -> str:
     if inspect.isclass(obj):
         line = _first_doc_line(obj)
@@ -27,7 +108,11 @@ def _format_signature(obj: Any) -> str:
     except (TypeError, ValueError):
         line = _first_doc_line(obj)
         return f"*{line}*" if line else "*"
-    return str(sig)
+    params = [_format_parameter(param) for param in sig.parameters.values()]
+    suffix = ""
+    if sig.return_annotation is not inspect.Signature.empty:
+        suffix = f" -> {_format_annotation(sig.return_annotation)}"
+    return f"({', '.join(params)}){suffix}"
 
 
 def _object_type_name(obj: Any) -> str:

@@ -25,6 +25,7 @@ the library should see a library.
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
 | `artifacts/todo_stack.md` | Remaining work, grouped by the version that carries it (§2). Finished items are deleted |
+| `artifacts/fact_stack.md` | Small, human-authorized durable facts (§2). No pending actions; agents read but do not edit without explicit authorization |
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
 | `docs/references.md` | Published sources for each method, with resolved DOIs; docstrings cite the same entries |
@@ -81,8 +82,10 @@ duplicating them here makes a second record that goes stale on its own.
 
 `W = P (R G)^N S`
 
-- **Prepare** — inspect current state and evidence; update the todo stack; order the
-  remaining work; define acceptance.
+- **Prepare** — read authorities, `artifacts/fact_stack.md`, `artifacts/todo_stack.md`, and
+  current evidence; order the remaining work; define acceptance. A fact is not proof that
+  mutable repository state currently satisfies it. If evidence contradicts a fact, surface
+  the conflict and request review — do not silently rewrite the fact or the evidence.
 - **Review** — review the last result; update the todo stack; choose the next item. Commit
   validated changes, push to `dev`, verify the branch is in sync.
 - **Progress** — apply the smallest authorised change; preserve invariants; test; return to

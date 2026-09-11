@@ -1308,17 +1308,28 @@ def _procrustes(x1, x2, axis=-1, **kwargs):
     return np.float64(sim), np.float64(sim), np.float64(sim), None, None
 
 
+def _grangercausalitytests_compat(data, maxlag):
+    """Call statsmodels grangercausalitytests across versions with/without ``verbose``."""
+    import inspect
+
+    from statsmodels.tsa.stattools import grangercausalitytests
+
+    kwargs = {"maxlag": maxlag}
+    if "verbose" in inspect.signature(grangercausalitytests).parameters:
+        kwargs["verbose"] = False
+    return grangercausalitytests(data, **kwargs)
+
+
 def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
     """Granger causality F-statistic (x2 → x1) with best lag selection by AIC."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     try:
-        from statsmodels.tsa.stattools import grangercausalitytests
         a = x1.ravel()
         b = x2.ravel()[:len(a)]
         data = np.column_stack([a, b])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            res = grangercausalitytests(data, maxlag=max_lag, verbose=False)
+            res = _grangercausalitytests_compat(data, maxlag=max_lag)
         
         # Select best lag from 1 to max_lag based on minimum AIC
         # statsmodels grangercausalitytests returns a dict.

@@ -44,15 +44,15 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.detect_band_outliers | function | (band_trace, z_thresh=6.0, sided='upper')<br>*Flag (trial, time) cells whose power departs from the cross-trial trend.* |
-| jnwb.repair_band_artifacts | function | (power, freqs, band_ranges=None, z_thresh=6.0, sided='upper')<br>*Per-band, cross-trial-median substitution of sparse single-trial TFR power spikes.* |
-| jnwb.repair_lfp_trials | function | (segments, times_ms=None, z_thresh=6.0, exclude_window_ms=None, reward_window_ms=None, min_trials=5)<br>*Cross-channel-synchrony detection + cross-trial-median substitution.* |
+| jnwb.detect_band_outliers | function | (band_trace, z_thresh = 6.0, sided = 'upper')<br>*Flag (trial, time) cells whose power departs from the cross-trial trend.* |
+| jnwb.repair_band_artifacts | function | (power, freqs, band_ranges = None, z_thresh = 6.0, sided = 'upper')<br>*Per-band, cross-trial-median substitution of sparse single-trial TFR power spikes.* |
+| jnwb.repair_lfp_trials | function | (segments, times_ms = None, z_thresh = 6.0, exclude_window_ms = None, reward_window_ms = None, min_trials = 5)<br>*Cross-channel-synchrony detection + cross-trial-median substitution.* |
 
 ## Module: jnwb.compression
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.compress_fp32 | function | (src: "'str | Path'", dst: "'str | Path | None'" = None, *, drop_convolved: 'bool' = False, verify: 'bool' = True, n_check: 'int' = 200000, overwrite: 'bool' = False) -> 'dict'<br>*Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.* |
+| jnwb.compress_fp32 | function | (src: "'str | Path'", dst: "'str | Path | None'" = None, drop_convolved: 'bool' = False, verify: 'bool' = True, n_check: 'int' = 200000, overwrite: 'bool' = False) -> 'dict'<br>*Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.* |
 
 ## Module: jnwb.connectivity
 
@@ -62,9 +62,9 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.as_trials | function | (X, time_axis: 'int' = -1, name: 'str' = 'X', allow_ragged: 'bool' = True) -> 'np.ndarray'<br>*Normalize any supported signal container to a ``(n_trials, n_times)`` float array.* |
 | jnwb.bin_spikes | function | (spike_times, window: 'Tuple[float, float]', bin_size_ms: 'float' = 10.0, trial_starts: 'Optional[Sequence[float]]' = None, output: 'str' = 'count', return_centers: 'bool' = False)<br>*Bridge spike data into the ``(n_trials, n_bins)`` contract used by every estimator.* |
 | jnwb.binary_occupancy_mutual_information | function | (spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window: 'Tuple[float, float]', bin_size_ms: 'float' = 10.0) -> 'float'<br>*Explicit alias for binary occupancy MI.* |
-| jnwb.directed_connectivity | function | (X, Y, method: 'str' = 'granger', **kwargs) -> 'DirectedResult'<br>*One entry point for all three directed estimators.* |
-| jnwb.directed_network | function | (signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, **kwargs) -> 'Dict[str, Any]'<br>*All-pairs directed connectivity over N nodes.* |
-| jnwb.granger | function | (X, Y, order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', Z=None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, seed: 'Optional[int]' = 0, time_axis: 'int' = -1) -> 'DirectedResult'<br>*Bivariate or conditional Granger causality between two arbitrary signals.* |
+| jnwb.directed_connectivity | function | (X, Y, method: 'str' = 'granger', kwargs) -> 'DirectedResult'<br>*One entry point for all three directed estimators.* |
+| jnwb.directed_network | function | (signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, kwargs) -> 'Dict[str, Any]'<br>*All-pairs directed connectivity over N nodes.* |
+| jnwb.granger | function | (X, Y, order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', Z = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, seed: 'Optional[int]' = 0, time_axis: 'int' = -1) -> 'DirectedResult'<br>*Bivariate or conditional Granger causality between two arbitrary signals.* |
 | jnwb.granger_causality | function | (signal1: 'np.ndarray', signal2: 'np.ndarray', order: 'Union[int, str]' = 5, device: 'str' = 'cpu', ridge: 'float' = 0.0, criterion: 'str' = 'aic') -> 'Dict[str, Union[float, dict, list]]'<br>*Compute bivariate Granger Causality (GC) values between two continuous signals.* |
 | jnwb.granger_spectral | function | (X, Y, fs: 'float', order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', n_freqs: 'int' = 256, bands: 'Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None]' = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, seed: 'Optional[int]' = 0, time_axis: 'int' = -1) -> 'DirectedResult'<br>*Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.* |
 | jnwb.network_topology | function | (adjacency_matrix: 'np.ndarray', threshold: 'float' = 0.3) -> 'Dict[str, Union[float, int, List[int]]]'<br>*Compute network graph metrics from a correlation or Granger causality matrix.* |
@@ -77,9 +77,9 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.assign_outer_folds | function | (trials: 'pd.DataFrame', *, analysis_cols: 'tuple' = ('session', 'analysis', 'slot_key'), group_col: 'str' = 'cycle') -> 'pd.DataFrame'<br>*Assign deterministic leave-one-group-out outer folds without touching features.* |
-| jnwb.build_inner_validation_partitions | function | (outer_trials: 'pd.DataFrame', *, analysis_cols: 'tuple' = ('session', 'analysis', 'slot_key')) -> 'pd.DataFrame'<br>*Build nested inner train/validation partitions from outer-training groups.* |
-| jnwb.build_representation_ladder | function | (raster: 'np.ndarray', *, modality: 'str' = 'SPK', spatial_axis_metadata: 'Union[Mapping[str, object], None]' = None) -> 'Dict[str, object]'<br>*Return R0/R1/R2 representation contracts without fitting a model.* |
+| jnwb.assign_outer_folds | function | (trials: 'pd.DataFrame', analysis_cols: 'tuple' = ('session', 'analysis', 'slot_key'), group_col: 'str' = 'cycle') -> 'pd.DataFrame'<br>*Assign deterministic leave-one-group-out outer folds without touching features.* |
+| jnwb.build_inner_validation_partitions | function | (outer_trials: 'pd.DataFrame', analysis_cols: 'tuple' = ('session', 'analysis', 'slot_key')) -> 'pd.DataFrame'<br>*Build nested inner train/validation partitions from outer-training groups.* |
+| jnwb.build_representation_ladder | function | (raster: 'np.ndarray', modality: 'str' = 'SPK', spatial_axis_metadata: 'Union[Mapping[str, object], None]' = None) -> 'Dict[str, object]'<br>*Return R0/R1/R2 representation contracts without fitting a model.* |
 | jnwb.fold_majority_baseline | function | (y_train: 'np.ndarray', y_test: 'np.ndarray') -> 'float'<br>*Accuracy of predicting the training-fold majority class on the held-out fold.* |
 | jnwb.majority_baseline | function | (labels: 'np.ndarray') -> 'float'<br>*Accuracy of always predicting the most frequent class in ``labels``.* |
 | jnwb.nested_cv_linear_svm | function | (X: 'np.ndarray', labels: 'np.ndarray', n_splits: 'int') -> 'Dict[str, Union[float, np.ndarray, dict, str]]'<br>*Outer stratified CV; inner GridSearchCV for C. No synthetic metrics.* |
@@ -96,7 +96,7 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.JRSAResult | class | *Container returned by jrsa().* |
-| jnwb.jrsa | function | (x1, x2=None, adim=-1, labels=None, align='auto', align_mode='fraction', reduction=None, metric='rsa', lag=0, window=None, sliding=False, normalize=False, standardize=False, detrend=False, nan_policy='omit', stats=True, permutations=1000, bootstrap=0, correction='fdr_bh', alpha=0.05, alternative='two-sided', backend='auto', device='auto', n_jobs=-1, batch_size=None, random_state=None, return_type='result', return_null=False, return_input=False, verbose=False, **kwargs) -> 'JRSAResult'<br>*Unified representational similarity / cross-area analysis.* |
+| jnwb.jrsa | function | (x1, x2 = None, adim = -1, labels = None, align = 'auto', align_mode = 'fraction', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', backend = 'auto', device = 'auto', n_jobs = -1, batch_size = None, random_state = None, return_type = 'result', return_null = False, return_input = False, verbose = False, kwargs) -> 'JRSAResult'<br>*Unified representational similarity / cross-area analysis.* |
 
 ## Module: jnwb.metadata
 
@@ -107,7 +107,7 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.audit_units | function | (units_df: pandas.core.frame.DataFrame) -> Dict<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
 | jnwb.classify_unit_quality | function | (units_df: pandas.core.frame.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.core.frame.DataFrame<br>*Classify units by quality based on metrics.* |
 | jnwb.electrode_inventory | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.core.frame.DataFrame<br>*Build inventory of electrodes, mapping to units and areas.* |
-| jnwb.filter_by_criteria | function | (df: pandas.core.frame.DataFrame, criteria: Dict, *, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.core.frame.DataFrame<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
+| jnwb.filter_by_criteria | function | (df: pandas.core.frame.DataFrame, criteria: Dict, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.core.frame.DataFrame<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
 | jnwb.get_all_units_metadata | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.core.frame.DataFrame<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | (units_df: pandas.core.frame.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | (units_df: pandas.core.frame.DataFrame, group_by: List[str] | None = None) -> pandas.core.frame.DataFrame<br>*Generate a census/summary report of units grouped by session/area/layer.* |
@@ -140,14 +140,14 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_permutation_plan | function | (labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', seed: 'int') -> 'dict'<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
-| jnwb.permute_labels | function | (y, *, groups=None, scheme: 'str', rng: 'np.random.Generator')<br>*Permute labels under an explicitly named exchangeability scheme.* |
+| jnwb.build_permutation_plan | function | (labels: 'Iterable[object]', groups: 'Iterable[object]', n_permutations: 'int', seed: 'int') -> 'dict'<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
+| jnwb.permute_labels | function | (y, groups = None, scheme: 'str', rng: 'np.random.Generator')<br>*Permute labels under an explicitly named exchangeability scheme.* |
 
 ## Module: jnwb.spectral
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.aggregate_to_db | function | (power, baseline, *, how: str, aggregate_over=None, nan_policy: str = 'propagate')<br>*Form a power ratio, aggregate on the RATIO scale, and take ``10*log10`` exactly once.* |
+| jnwb.aggregate_to_db | function | (power, baseline, how: str, aggregate_over = None, nan_policy: str = 'propagate')<br>*Form a power ratio, aggregate on the RATIO scale, and take ``10*log10`` exactly once.* |
 | jnwb.band_power | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float<br>*Compute power in a frequency band.* |
 | jnwb.bipolar_reference | function | (channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
 | jnwb.compute_multitaper_psd | function | (data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |
@@ -177,7 +177,7 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.StatisticalAnalysis | class | *Dual statistical testing with honest multiple-comparison handling.* |
 | jnwb.assign_subblock_quartiles | function | (epochs_df: 'pd.DataFrame', n_quantiles: 'int' = 4) -> 'np.ndarray'<br>*Assign each row a temporal quantile bucket 0..n_quantiles-1 by its own start_time order.* |
-| jnwb.cluster_permutation_test | function | (X: 'np.ndarray', Y: 'np.ndarray', *, paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'Optional[np.random.Generator]' = None, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
+| jnwb.cluster_permutation_test | function | (X: 'np.ndarray', Y: 'np.ndarray', paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'Optional[np.random.Generator]' = None, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
 | jnwb.cross_modal_comparison | function | (tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None) -> 'Dict'<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
 | jnwb.detect_trial_cycles | function | (epochs_df: 'pd.DataFrame', gap_factor: 'float' = 10.0) -> 'np.ndarray'<br>*Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.* |
 | jnwb.fire_indicator | function | (spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
