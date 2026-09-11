@@ -37,7 +37,7 @@ Several acquisitions + omitted `name` in `acquisition_channel` → `AmbiguousAcq
 ### Repository path roots (not per-file inspection)
 
 - `jnwb.paths.describe()`: report configured data roots and resolution state for a **project**
-  checkout — not a substitute for `jnwb.inspect(path)`.
+  checkout — not a substitute for `jnwb.inspect(path_or_nwb)`.
 
 ### Addressing, metadata, compression
 

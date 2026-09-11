@@ -20,7 +20,7 @@ the library should see a library.
 | `jnwb/__init__.py` | The public API: `__all__` is the authoritative symbol list |
 | `jnwb/` | Library source. `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
 | `tests/` | The suite. Run it before and after a change (§6) |
-| `scripts/harness_gate.py` | Repository gates 1–12 (§6) |
+| `scripts/harness_gate.py` | Repository gates 1–13 (§6) |
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
 | `artifacts/agents/` | Subagent definitions: `claim-verifier` re-derives one reported number from its receipt, `code-auditor` inventories a module against house standards, `sweep-runner` runs one shard of a sweep. Your host loads agents from its own directory (Claude Code: `.claude/agents/`), so copy them there to use them |
@@ -59,10 +59,20 @@ When sources conflict, authority runs: the receipt on disk, then live repository
 then machine-readable state files, then prose. Unresolved conflict on a material point
 stops the work and surfaces both sides.
 
-## 2. The todo stack
+## 2. The fact stack and todo stack
 
-One file holds the remaining work: `artifacts/todo_stack.md` (`docs/todo_stack.md` in a
-repository with no `artifacts/`). Group by the version that will carry the item:
+$$\texttt{fact\_stack} = \text{stable human-authorized facts}$$
+
+$$\texttt{todo\_stack} = \text{mutable unresolved execution}$$
+
+| File | Holds | Agents may edit? |
+|---|---|---|
+| `artifacts/fact_stack.md` | Durable project direction and invariants | No — challenge with evidence; surface conflicts to Hamm |
+| `artifacts/todo_stack.md` | Remaining executable work, grouped by version | Yes — delete finished items; add only unresolved work |
+
+(`docs/fact_stack.md` / `docs/todo_stack.md` when the repository has no `artifacts/`.)
+
+The todo stack groups work by the version that will carry it:
 
 ```markdown
 # i.j.k
@@ -74,18 +84,23 @@ repository with no `artifacts/`). Group by the version that will carry the item:
 - ...
 ```
 
-**It contains only work not yet done.** A finished item is deleted, not ticked or moved to
-a "closed" section. Git, the changelog and the receipts hold the history and the evidence;
-duplicating them here makes a second record that goes stale on its own.
+**The todo stack contains only work not yet done.** A finished item is deleted, not ticked or
+moved to a "closed" section. Git, the changelog, and receipts hold history; duplicating
+completed work here goes stale.
+
+Current evidence can falsify whether a fact still applies; it does not authorize rewriting a
+fact without Hamm.
 
 ## 3. Loop
 
 `W = P (R G)^N S`
 
-- **Prepare** — read authorities, `artifacts/fact_stack.md`, `artifacts/todo_stack.md`, and
-  current evidence; order the remaining work; define acceptance. A fact is not proof that
-  mutable repository state currently satisfies it. If evidence contradicts a fact, surface
-  the conflict and request review — do not silently rewrite the fact or the evidence.
+- **Prepare** — load, in order: (1) `AGENTS.md` (this file), (2) `artifacts/fact_stack.md`,
+  (3) `artifacts/todo_stack.md`, (4) relevant skills (§7), (5) current repository evidence
+  (re-read targets, run probes, collect receipts). Order the remaining work; define
+  acceptance. A fact is not proof that mutable repository state currently satisfies it. If
+  evidence contradicts a fact, surface the conflict to Hamm — do not silently rewrite the
+  fact or the evidence.
 - **Review** — review the last result; update the todo stack; choose the next item. Commit
   validated changes, push to `dev`, verify the branch is in sync.
 - **Progress** — apply the smallest authorised change; preserve invariants; test; return to
