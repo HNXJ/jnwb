@@ -1,5 +1,157 @@
 # TODO stack
 
+# 0.1.8
+
+**Urgent, narrow release.** Make the core NWB workflow immediately discoverable and executable:
+
+`inspect file → understand trials/events → extract onsets/data → run basic analysis`
+
+Do **not** add unrelated analysis capabilities. Implementation starts only after this stack is explicit.
+
+## 0. Structural authority receipt (prerequisite — do first)
+
+Before designing RF/flash fixtures, inspect jnwb-local evidence only; do not guess layouts from memory.
+
+**Observed in jnwb today (receipts):**
+
+| Source | Structural pattern |
+|---|---|
+| `tests/test_mcp_server.py` setUp | `acquisition/ElectricalSeries` (rate 1000 Hz, electrodes region); `/electrodes`; `/intervals/stim_events` `TimeIntervals` with string `code` column + `start_time`/`stop_time` (seconds) |
+| `tests/test_mcp_server.py` `test_event_table_is_never_chosen_by_project_name` | Multiple `/intervals/*` tables; autodiscover prefers `trials`, else sole table, else `AmbiguousPath` — never guess by project-specific table name |
+| `jnwb/mcp_server/event_tools.py` | Code-column search order: `codes`, `code`, `event_code`, `event_codes`, `value`, `type`, then substring `code`; onsets = `start_time` in seconds |
+| `tests/test_hdmf_nwb_read_boundary.py` `_write_minimal_nwb` | `/electrodes` + `/units` with `spike_times`; no acquisition LFP |
+
+**Missing structural authority (blocked — do not invent):**
+
+- **RF-mapping NWB layout** — no structural receipt in `jnwb/` tests, docs, skills, or artifacts. Only historical git references to deleted `vflip2_mapping` code (`artifacts/capability_review_0.1.7.md`), not an NWB schema.
+- **Flash NWB layout** — no structural receipt anywhere in `jnwb/`.
+- **Omission-task NWB layout** — only an ambiguity-test table name (`omission_glo_passive`) in `tests/test_mcp_server.py`; not a full structural spec.
+
+**Action:** Write `artifacts/nwb_structural_authority_0.1.8.md` documenting (a) jnwb-observed patterns above, (b) any RF/flash/task structural fields Hamm authorizes from omission-repo inspection (structure only — no condition semantics, subject IDs, or biological claims). RF/flash fixture design is **blocked** until (b) exists or Hamm approves a minimal generic structural surrogate with explicit scope limit.
+
+## 1. Canonical tiny synthetic NWB fixtures
+
+Package-owned, deterministic, reusable infrastructure (not tutorial throwaways). Neutral naming only.
+
+**Shared constraints (all fixtures):**
+
+- ~10 channels; 1000 Hz LFP sampling; ~10 trials/events; ~10 ms event/trial windows where structurally appropriate
+- Few synthetic units/spikes; explicit electrode/channel metadata; explicit interval/trial tables
+- Representative numeric and/or string event codes where the structural class uses them
+- Deterministic signals with analytically obvious content (known onset times, separable condition codes)
+- Labels: `test-synth-1`, `test-synth-2` (opaque; no experiment semantics)
+- **Forbidden:** omission condition names, biological claims, subject IDs, cortical aliases, manuscript windows, project hypotheses
+
+**Per-fixture targets:**
+
+| Fixture | Structural class | Authority status |
+|---|---|---|
+| `test-synth-task` | Task-like: acquisition LFP + electrodes + units + interval table with code column | **Authorized** from MCP synthetic pattern; extend to full 0.1.8 size spec |
+| `test-synth-rf` | RF-mapping-like layout | **Blocked** until §0 structural receipt |
+| `test-synth-flash` | Flash-like layout | **Blocked** until §0 structural receipt |
+
+**Implementation notes (when unblocked):**
+
+- Add `jnwb/testing/` or `tests/nwb_fixtures/` builder module + `write_*` functions; generate `.nwb` in CI (do not commit large binaries if builder is sufficient)
+- Builders must be importable for tutorials and wheel smoke tests
+- Mirror real structural *shape* (acquisition paths, interval table names/columns, units linkage), not project semantics
+
+## 2. `jnwb.inspect(path_or_nwb)`
+
+**Audit first:** no adequate public discovery API in `jnwb.__all__` today (`paths.describe()` ≠ per-file inspection; MCP `inspect_nwb` is not public).
+
+**Smallest generic API:**
+
+```python
+info = jnwb.inspect(path_or_nwb)  # structured dict/dataclass, not text-only
+```
+
+**Must expose:** acquisitions (names, rates, shapes, time coverage), electrodes/channels metadata, units/spiking presence, interval/event/trial tables (names, columns, representative code/label values), shapes/dimensions, neurodata types where cheap.
+
+**Human-readable display** derived from structured return; structured value is primary.
+
+**Tests:** discriminating probes on all three synthetic fixtures once built; parity with known fixture contents.
+
+**Export:** add to `jnwb.__all__`, regenerate `docs/api.md`, factor shared logic from `jnwb/mcp_server/nwb_tools.py` (MCP may wrap public API).
+
+## 3. Canonical event/onset API
+
+**Audit inventory (before coding):** NWB `trials`, interval tables, event tables, `start_time`/`stop_time`, metadata/addressing filters, MCP `get_event_codes_and_timings`, decoding trial tables, `EpochCollection`, `detect_trial_cycles` — document what stays internal vs becomes public.
+
+**Required public route:**
+
+`NWB → interval/event table → code column → select code(s) → onset timestamps`
+
+**Contract must document:**
+
+- table selection and ambiguity behavior (inherit `trials` → sole table → explicit path → error)
+- code/label column selection (explicit param; no silent guess beyond documented fallback order)
+- numeric and string codes
+- onset column (default `start_time` only when justified; other timestamp columns explicit)
+- seconds, session/time reference, ordering, dtype
+- duplicates, empty selections, missing table/column/code
+- multiple interval tables
+- **Never infer scientific meaning from code values**
+
+**Smallest API shape (design in code review):** likely `list_interval_tables`, `read_interval_table`, `event_onsets(nwb, table=..., codes=..., code_column=..., onset_column='start_time')` — exact names TBD; must be one obvious documented path.
+
+**Tests:** same API across task, RF-like, and flash-like fixtures; all ambiguity/failure cases; analytically known onset times in synthetic data.
+
+## 4. Four fast executable tutorials
+
+CI-friendly; run from clean installed wheel; use synthetic fixtures only.
+
+| # | User question | Scope |
+|---|---|---|
+| 1 | What is in this NWB? | Load each tiny fixture; `jnwb.inspect`; interpret structured output |
+| 2 | What codes exist and what are their onsets? | Discover tables/codes; select `test-synth-*`; retrieve onset times via §3 API |
+| 3 | How do I align spikes/LFP to events? | Retrieved onsets → existing `raster_psth` / `band_power` (or minimal equivalent) |
+| 4 | How do primitives compose? | inspect → select → align → one small spectral/spiking/statistical operation; no imposed study pipeline |
+
+**Acceptance:** `tests/test_tutorials.py` (or equivalent) executes all four; no PyNWB plumbing duplicated in tutorial source; no private/downstream repo.
+
+## 5. Documentation and navigation
+
+- **README:** first-user path immediately after install:
+
+  ```python
+  import jnwb
+  info = jnwb.inspect("file.nwb")
+  # → canonical event/onset workflow (§3 API)
+  ```
+
+- **MkDocs:** add prominent **Tutorials** section to `mkdocs.yml` nav; four tutorial pages
+- **API reference, tutorials, README, `skills/jnwb-nwb-data`:** same public path and terminology (no `paths.describe()` as "inspection")
+- Update `docs/quickstart.md` to point at tutorials for NWB workflows; keep synthetic-array quickstart where appropriate
+
+## 6. Harness and release gate
+
+Add deterministic proofs that:
+
+- all synthetic NWBs build and read
+- tutorials execute (local + installed-wheel job where feasible)
+- `jnwb.inspect` accurately reports fixture structure
+- event/onset extraction returns analytically known timestamps
+- fixture contents and tutorials contain no downstream-project identifiers
+- documentation acceptance: principal workflow `public capability ⇒ API reference + executable tutorial path`
+
+Wire into `tests/`, `harness_gate.py`, and/or `release_gate.py` as appropriate. Diagnose why 0.1.7 seal did not catch missing onboarding (symbol/gate coverage without workflow tutorial).
+
+## 7. 0.1.8 seal (after §1–§6 pass)
+
+- Version bump `0.1.7 → 0.1.8`; `CHANGELOG.md`; README pin
+- Full pytest, harness, strict docs, API drift check, `release_gate.py`
+- CI green on `dev`; promote to `main`; tag `v0.1.8`; GitHub Release before PyPI
+
+**0.1.8 acceptance (user-facing):** with only `pip install jnwb`, a new user can within minutes answer:
+
+1. What is in this NWB?
+2. What event codes/conditions exist?
+3. How do I obtain their onset times?
+4. How do I align spikes/LFP to those events?
+
+…without reading PyNWB internals or any downstream project repository.
+
 # Before 1.0
 
 - Replace example-based estimator coverage with analytic/property-based tests.
@@ -7,4 +159,3 @@
 # Unversioned
 
 - File omission-side expert-feedback items in the omission repository.
-- Four more notebooks under `examples/notebooks/`.
