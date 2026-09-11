@@ -99,18 +99,14 @@ Shared I/O helpers in `examples/tutorials/_support.py` (single PyNWB read site).
 - LFP-wrapped fixture: register `LFP` on `NWBFile` before nested series (warning-clean)
 - `tests/test_docs_nwb_workflow.py` (README execution, nav, skill, `mkdocs build --strict`)
 
-## 6. Harness and release gate
+## 6. Harness and release gate — **done**
 
-Add deterministic proofs that:
+- Tests: `test_tutorials.py`, `test_docs_nwb_workflow.py`, `test_nwb_events.py`, `test_nwb_synthetic_fixtures.py`, `test_nwb_inspect.py`
+- Harness gate 13: `check_nwb_onboarding_alignment` (README / tutorials / skill / MkDocs)
+- Gate 6 scan extended to `docs/tutorials/` and `examples/tutorials/`
+- `release_gate.py` wheel smoke: synthetic NWB `inspect` → `event_onsets` → `unit_spike_times` / `acquisition_channel`
 
-- all synthetic NWBs build and read
-- tutorials execute (local + installed-wheel job where feasible)
-- `jnwb.inspect` accurately reports fixture structure
-- event/onset extraction returns analytically known timestamps
-- fixture contents and tutorials contain no downstream-project identifiers
-- documentation acceptance: principal workflow `public capability ⇒ API reference + executable tutorial path`
-
-Wire into `tests/`, `harness_gate.py`, and/or `release_gate.py` as appropriate. Diagnose why 0.1.7 seal did not catch missing onboarding (symbol/gate coverage without workflow tutorial).
+**0.1.7 gap:** symbol/gate coverage without executable onboarding path; closed by tutorial CI + gate 13.
 
 ## 7. 0.1.8 seal (after §1–§6 pass)
 

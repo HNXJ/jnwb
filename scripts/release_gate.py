@@ -210,6 +210,25 @@ assert len(masks) == len(set(masks))
 elec = pd.DataFrame({'location': ['V1, V2', 'V1, V2'], 'group_name': ['probeA', 'probeA']}, index=[0, 1])
 assert jnwb.map_peak_channel_to_area(0, elec) == 'V1'
 
+# NWB discovery / events (installed synthetic fixture)
+import pathlib
+import tempfile
+from jnwb.testing.nwb_fixtures import (
+    CODE_LABEL_A,
+    TASK_TABLE,
+    canonical_co_resident_options,
+    write_synth_nwb,
+)
+nwb_path = pathlib.Path(tempfile.mkdtemp()) / 'wheel_smoke.nwb'
+receipt = write_synth_nwb(nwb_path, canonical_co_resident_options())
+info = jnwb.inspect(nwb_path)
+assert any(t['name'] == TASK_TABLE for t in info['interval_tables'])
+onsets = jnwb.event_onsets(nwb_path, table=TASK_TABLE, codes=[CODE_LABEL_A])
+assert onsets.size == len(receipt.task_onsets_s[::2])
+spikes = jnwb.unit_spike_times(nwb_path, unit_index=0)
+lfp, fs_hz = jnwb.acquisition_channel(nwb_path, name='probe_0_lfp', channel=0)
+assert spikes.size > 0 and lfp.size > 0 and fs_hz == receipt.fs_hz
+
 # Viz
 jnwb.setup_vector_graphics()
 

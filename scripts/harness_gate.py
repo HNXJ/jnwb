@@ -364,12 +364,18 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
         if harness_file.exists():
             target_files.append(harness_file)
             
-    # 4. docs/ markdown files
+    # 4. docs/ markdown files (including tutorials/)
     docs_dir = root / "docs"
     if docs_dir.exists():
-        for doc_file in docs_dir.glob("*.md"):
+        for doc_file in docs_dir.rglob("*.md"):
             if doc_file not in target_files:
                 target_files.append(doc_file)
+
+    # 5. Executable NWB tutorials (not _support.py)
+    tutorial_dir = root / "examples" / "tutorials"
+    if tutorial_dir.exists():
+        for py_file in tutorial_dir.glob("[0-9][0-9]_*.py"):
+            target_files.append(py_file)
                 
     for target in target_files:
         text = target.read_text(encoding="utf-8", errors="replace")
@@ -681,6 +687,61 @@ def check_modality_isolation(feature_names: List[str]) -> Tuple[bool, List[str]]
     return True, []
 
 
+def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 13: README, tutorials, and skill agree on the public NWB workflow."""
+    root = repo_root or REPO_ROOT
+    violations: List[str] = []
+
+    readme = root / "README.md"
+    if not readme.exists():
+        violations.append("NWB_ONBOARDING: README.md missing")
+    else:
+        text = readme.read_text(encoding="utf-8")
+        for symbol in ("jnwb.inspect", "jnwb.events", "jnwb.event_onsets"):
+            if symbol not in text:
+                violations.append(f"NWB_ONBOARDING: README missing {symbol}")
+
+    expected_scripts = [
+        "01_inspect_nwb.py",
+        "02_event_codes_and_onsets.py",
+        "03_align_spikes_lfp_to_events.py",
+        "04_compose_workflow.py",
+    ]
+    tutorial_dir = root / "examples" / "tutorials"
+    for name in expected_scripts:
+        if not (tutorial_dir / name).exists():
+            violations.append(f"NWB_ONBOARDING: missing tutorial script {name}")
+
+    for name in expected_scripts:
+        md_name = name.replace(".py", ".md")
+        md_path = root / "docs" / "tutorials" / md_name
+        if not md_path.exists():
+            violations.append(f"NWB_ONBOARDING: missing tutorial doc {md_name}")
+            continue
+        snippet = f'--8<-- "examples/tutorials/{name}"'
+        if snippet not in md_path.read_text(encoding="utf-8"):
+            violations.append(f"NWB_ONBOARDING: {md_name} not snippet-linked to {name}")
+
+    skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
+    if skill.exists():
+        skill_text = skill.read_text(encoding="utf-8")
+        for symbol in ("jnwb.inspect", "jnwb.events", "jnwb.event_onsets"):
+            if symbol not in skill_text:
+                violations.append(f"NWB_ONBOARDING: skill missing {symbol}")
+    else:
+        violations.append("NWB_ONBOARDING: skills/jnwb-nwb-data/SKILL.md missing")
+
+    mkdocs = root / "mkdocs.yml"
+    if mkdocs.exists():
+        mk = mkdocs.read_text(encoding="utf-8")
+        if "tutorials/01_inspect_nwb.md" not in mk:
+            violations.append("NWB_ONBOARDING: mkdocs.yml missing Tutorials nav entry")
+    else:
+        violations.append("NWB_ONBOARDING: mkdocs.yml missing")
+
+    return violations
+
+
 def run_full_preflight() -> bool:
     """Runs complete repository preflight check."""
     print("=== Running Harness Pre-Flight Verification Gates ===")
@@ -806,6 +867,15 @@ def run_full_preflight() -> bool:
             print(f"  - {v}")
         return False
     print("PASS: No project identifiers in jnwb/ code strings or names.")
+
+    # 13. NWB onboarding surface alignment (README, tutorials, skill, MkDocs)
+    onboarding_violations = check_nwb_onboarding_alignment()
+    if onboarding_violations:
+        print("FAIL: NWB onboarding surface misaligned:")
+        for v in onboarding_violations:
+            print(f"  - {v}")
+        return False
+    print("PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs.")
 
     print("ALL HARNESS GATES PASSED.")
     return True
