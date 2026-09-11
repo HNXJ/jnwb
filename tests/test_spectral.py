@@ -334,8 +334,8 @@ class TestSpectralSamplingRateResolution:
         assert res_tilt_fs["fit_quality"] == pytest.approx(res_tilt_sr["fit_quality"])
 
         # 4. band_power
-        bp_fs = band_power(sig1, fs=fs, freq_range=(8.0, 14.0))
-        bp_sr = band_power(sig1, sampling_rate=fs, freq_range=(8.0, 14.0))
+        bp_fs = band_power(sig1, fs=fs, freq_range=(8.0, 14.0), normalize=False)
+        bp_sr = band_power(sig1, sampling_rate=fs, freq_range=(8.0, 14.0), normalize=False)
         assert bp_fs == pytest.approx(bp_sr)
 
         # 5. imaginary_coherency

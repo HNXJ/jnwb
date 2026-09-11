@@ -638,7 +638,7 @@ def band_power(
         Power in band (units depend on normalize flag)
 
     Example:
-        >>> theta_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8))
+        >>> theta_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8), normalize=False)
         >>> baseline_power = band_power(baseline_lfp, fs=1000.0, freq_range=(4, 8), normalize=False)
         >>> normalized_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8), baseline=baseline_lfp)
 
@@ -671,6 +671,11 @@ def band_power(
     # Extract band
     mask = (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
     band_power_val = np.mean(pxx[mask]) if np.any(mask) else 0.0
+
+    if normalize and (baseline is None or len(baseline) == 0):
+        raise ValueError(
+            "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
+        )
 
     # Normalize to baseline if provided
     if normalize and baseline is not None and len(baseline) > 0:

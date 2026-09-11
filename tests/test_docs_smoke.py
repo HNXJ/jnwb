@@ -65,7 +65,9 @@ class TestDocsSmokeFixtures:
         freqs, psd = jnwb.compute_psd(sig, fs=1000.0)
         assert len(freqs) == len(psd)
 
-        bp = jnwb.band_power(sig, sampling_rate=1000.0, freq_range=(14.0, 30.0))
+        bp = jnwb.band_power(
+            sig, sampling_rate=1000.0, freq_range=(14.0, 30.0), normalize=False
+        )
         assert isinstance(bp, float) and bp >= 0.0
 
         tilt = jnwb.spectral_tilt(sig, sampling_rate=1000.0)

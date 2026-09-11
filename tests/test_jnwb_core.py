@@ -164,31 +164,26 @@ class TestUnitAnalyzer(unittest.TestCase):
     def test_autocorrelogram_valid_spikes_returns_dict(self):
         """Test autocorrelogram with valid spike times returns dict."""
         spike_times = np.sort(np.random.uniform(0, 10, 1000))  # Shorter duration
-        try:
-            result = UnitAnalyzer.autocorrelogram(spike_times, bin_size_ms=0.1, max_lag_ms=5)
-            self.assertIsInstance(result, dict)
-        except Exception:
-            # ACG may fail with certain parameter combinations, which is acceptable
-            pass
+        result = UnitAnalyzer.autocorrelogram(spike_times, bin_size_ms=0.1, max_lag_ms=5)
+        self.assertIsInstance(result, dict)
+        self.assertNotIn('error', result)
 
     def test_quality_metrics_returns_dict(self):
         """Test quality_metrics returns dict."""
         spike_times = np.sort(np.random.uniform(0, 10, 1000))
-        try:
-            result = UnitAnalyzer.quality_metrics(spike_times)
-            self.assertIsInstance(result, dict)
-        except Exception:
-            # Quality metrics may not be fully implemented
-            pass
+        result = UnitAnalyzer.quality_metrics(
+            spike_times, waveform_duration_us=400.0, firing_rate=100.0
+        )
+        self.assertIsInstance(result, dict)
+        self.assertIn('firing_rate_hz', result)
 
     def test_quality_metrics_empty_spikes(self):
         """Test quality_metrics with empty spike times."""
-        try:
-            result = UnitAnalyzer.quality_metrics(np.array([]))
-            self.assertIsInstance(result, dict)
-        except Exception:
-            # Empty input may error, which is acceptable
-            pass
+        result = UnitAnalyzer.quality_metrics(
+            np.array([]), waveform_duration_us=400.0, firing_rate=0.0
+        )
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result['n_spikes'], 0)
 
 
 class TestDataHandling(unittest.TestCase):
@@ -206,14 +201,15 @@ class TestDataHandling(unittest.TestCase):
         import warnings
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([2.0, 4.0, 6.0, 8.0, np.inf])
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                result = StatisticalAnalysis.correlate(x, y)
-                self.assertIsInstance(result, dict)
-        except Exception:
-            # Inf values may cause correlation to fail, which is acceptable
-            pass
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = StatisticalAnalysis.correlate(x, y)
+        self.assertIsInstance(result, dict)
+        self.assertTrue(
+            'error' in result
+            or np.isnan(result['parametric']['statistic'])
+            or np.isnan(result['parametric']['pval'])
+        )
 
     def test_zero_variance_handling(self):
         """Test that exploratory_compare handles zero-variance data gracefully."""
@@ -273,14 +269,14 @@ class TestRobustness(unittest.TestCase):
         import warnings
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                result = StatisticalAnalysis.exploratory_correlate(x, y)
-                self.assertIsInstance(result, dict)
-        except Exception:
-            # Constant data may cause correlation to fail (undefined), which is acceptable
-            pass
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = StatisticalAnalysis.exploratory_correlate(x, y)
+        self.assertIsInstance(result, dict)
+        self.assertTrue(
+            np.isnan(result['parametric']['statistic'])
+            or np.isnan(result['parametric']['pval'])
+        )
 
     def test_extract_band_with_small_array(self):
         """Test extract_band with small array."""

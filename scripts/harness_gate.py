@@ -10,6 +10,10 @@ Mechanically enforces repository controls:
   6. Dataset independence: rejects experiment-specific tokens, conditions, and manuscript results.
   7. Package & metadata version synchronization.
   8. Python floor consistency: declared support, classifiers, and CI matrix agree.
+  9. Runtime-generated API reference matches jnwb.__all__.
+  10. README smoke import path.
+  11. Documentation internal link integrity.
+  12. Adversarial API drift guard.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -191,6 +195,7 @@ SOURCE_ROOT_DIRS = {
 EPHEMERAL_ROOT_DIRS = {
     ".git", ".venv", "venv", "env", ".pytest_cache", ".mypy_cache", ".ruff_cache",
     "dist", "build", "_build", "site", "jnwb.egg-info", ".tox", ".lab_bundle_build",
+    "_audit_dist", "_audit_dist2",
 }
 
 ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS

@@ -4,6 +4,27 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — 0.1.7
+
+### Fixed
+
+- Monte Carlo p-values use `(b+1)/(B+1)` in `permutation_test`, `shuffle_r2_ci`, and
+  jRSA `_p_from_null`; GPU jRSA permutations are seeded from the caller's `Generator`.
+- `compare_groups(paired=True)` raises `ValueError` on unequal lengths instead of falling
+  back to an independent test.
+- `cross_modal_comparison` validates `(freq, time, trials)` / `(time, trials)` layout.
+- `spike_mutual_information` bin grid matches `bin_spikes`.
+- `granger(order="auto")` IC matches `select_optimal_lag`.
+- `granger_spectral` computes per-band surrogate p-values.
+- `band_power(normalize=True)` requires a baseline.
+- `transfer_entropy(estimator="symbolic")` reports embedded `n_times`.
+
+### Changed
+
+- jRSA metrics renamed to exact estimands: `granger_ssr_ftest`,
+  `transfer_entropy_histogram_nats` (legacy names raise with migration hint).
+- `granger_causality` deprecated; canonical estimator is `granger` → `DirectedResult`.
+
 ## [0.1.6] - 2026-09-10
 
 ### Changed

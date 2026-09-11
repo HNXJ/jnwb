@@ -1,68 +1,18 @@
-# 10. Extending `jnwb`, Domain Packages & Verification Gates
+# 10. Extending `jnwb` & verification (pointer)
 
-This document describes best practices for building domain-specific analysis pipelines on top of `jnwb`, structuring package facades, and integrating automated regression gates.
+This page is a short pointer. The maintained developer guide is **[11. Extending and development](11_extending_and_development.md)** — API changes, release gates, and how to add a function without breaking the public contract.
 
----
-
-## 1. Building Domain-Specific Projects on `jnwb`
-
-`jnwb` is designed as the generic mathematical engine for high-level neurophysiology workflows.
-
-### Architecture Pattern: The Domain Package Facade
-
-When analyzing an experiment with unique trial sequences, task conditions, or unit taxonomy rules:
-1. Keep `jnwb/` generic, frozen, and dataset-agnostic.
-2. Build an experiment-specific package (e.g., `omission/`) that imports `jnwb` and exposes specialized functions.
-3. Provide a unified package facade (e.g. `import omission as oa`) that surfaces both generic `jnwb` capabilities and project-specific extensions.
-
-```mermaid
-graph TD
-    subgraph "Generic Foundation (jnwb/)"
-        JCore[jnwb.jrsa / jnwb.spectral / jnwb.statistics / jnwb.connectivity]
-    end
-
-    subgraph "Downstream Project / Experiment"
-        ExtLayout[Task Structure & Sequence Layouts]
-        ExtClass[Custom Unit Classification Taxonomies]
-        ExtFacade[Project Pipeline Scripts]
-    end
-
-    JCore --> ExtClass
-    JCore --> ExtFacade
-    ExtLayout --> ExtFacade
-    ExtClass --> ExtFacade
-```
-
----
-
-## 2. Automated Verification Gates & Regression Infrastructure
-
-To prevent architectural drift and coordinate corruption across collaborative workflows, `jnwb` relies on automated, deterministic gates:
-
-### Automated Test Matrix
-1. **Frozen Boundary Gate (`tests/test_jnwb_frozen_boundary.py`)**: Asserts that `jnwb` contains zero unauthorized imports from downstream project folders.
-2. **Skill Tree Consolidation (`tests/test_skill_tree_consolidation.py`)**: Guards against duplicate or conflicting skill trees.
-3. **Reproducibility Regressions (`tests/test_batch_a_regressions.py`)**: Asserts cross-process seed determinism, RNG isolation, and mathematical latency invariants.
-
-### Running Verification Gates
+## Verification commands
 
 ```bash
-# Execute pre-flight verification gate
-python scripts/harness_gate.py
-
-# Run full core test suite
-pytest -v tests/
+python scripts/harness_gate.py   # gates 1–12
+python -m pytest tests/ -q
+mkdocs build --strict
+python scripts/release_gate.py   # before tagging only
 ```
 
----
+## Domain packages
 
-## 3. Appendix: Developer Tooling & MCP Server (`jnwb/mcp_server`)
+Keep `jnwb/` generic and dataset-agnostic. Experiment-specific condition codes, session layouts, and findings belong in a **downstream project package** that imports `jnwb`, not inside the library tree.
 
-`jnwb` includes a local Model Context Protocol (MCP) server in `jnwb/mcp_server`, for editors and other tools that speak MCP. These tools are developer-facing inspection sidecars and stay isolated from scientific runtime imports (see `jnwb.mcp_server.__all__`):
-
-- `inspect_nwb`: Parse an NWB file and return groups, datasets, and neurodata types.
-- `prepare_signal_reference`: Load a named dataset path for signal reference workflows.
-- `get_event_codes_and_timings`: Extract event codes and timing tables from an NWB file.
-- `add_tool`: Register a custom MCP tool on the server instance.
-
-Run the server module directly: `python -m jnwb.mcp_server`.
+For MCP inspection tools (`jnwb.mcp_server`), see the appendix in [11. Extending and development](11_extending_and_development.md).

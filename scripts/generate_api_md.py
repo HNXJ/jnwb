@@ -35,6 +35,8 @@ def _object_type_name(obj: Any) -> str:
         return "class"
     if inspect.ismodule(obj):
         return "module"
+    if isinstance(obj, (dict, tuple, frozenset, list)):
+        return "constant"
     return "function"
 
 

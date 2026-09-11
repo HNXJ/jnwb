@@ -9,7 +9,8 @@ Public entry point: :func:`compress_fp32`.
 
 Implements nwb_tfr_storage_spec.md Part 1 -- float64->float32 for LFP/MUAE, chunking,
 gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
-and measures ~2.8x on this corpus (2.77-2.94x over four real sessions, 2026-08-08/09).
+and typically yields multi-fold size reduction on large electrophysiology sessions; run
+``verify=True`` on your file to measure the exact ratio.
 
 Everything below was learned the hard way; each paragraph is a bug that reached a real
 multi-hour run before being caught. Read before modifying.

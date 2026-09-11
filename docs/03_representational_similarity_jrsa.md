@@ -19,7 +19,8 @@ graph LR
 
 ### Key Capabilities
 1. **Multivariate Distance Metrics**: Supports 14 metrics spanning linear, rank, geometric, and information-theoretic geometry:
-   `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy"`, `"phase_slope"`, `"granger"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
+   `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`, `"granger_ssr_ftest"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
+   These last two are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats on flattened arrays.
 2. **Flexible Tensor Alignments**: Handles 2D, 3D, and 4D tensors with automatic trial/time alignment (`align="auto"`, `align_mode="fraction"`, `lag=0`).
 3. **Statistical Resampling**: Built-in permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
 4. **GPU / CuPy Hardware Acceleration**: Automatic acceleration (`backend="auto"` or `backend="gpu"`) on CUDA-enabled environments with CPU fallback.

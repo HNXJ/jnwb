@@ -91,7 +91,9 @@ class TestRepresentativeWorkflow:
         lfp_a = _synthetic_lfp(rng, fs=fs, freq_hz=10.0)
         lfp_b = _synthetic_lfp(rng, fs=fs, freq_hz=10.0)
 
-        power = jnwb.band_power(lfp_a, fs=fs, freq_range=jnwb.CANONICAL_BANDS["alpha"])
+        power = jnwb.band_power(
+            lfp_a, fs=fs, freq_range=jnwb.CANONICAL_BANDS["alpha"], normalize=False
+        )
         assert np.isfinite(power)
 
         freqs, psd = jnwb.compute_psd(lfp_a, fs)
@@ -133,7 +135,9 @@ class TestRepresentativeWorkflow:
         sig = jnwb.classify_response_significance(metrics)
 
         lfp = _synthetic_lfp(rng)
-        band_pow = jnwb.band_power(lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["theta"])
+        band_pow = jnwb.band_power(
+            lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["theta"], normalize=False
+        )
 
         labels = rng.integers(0, 2, 40)
         X = rng.standard_normal((40, 3))
@@ -191,7 +195,7 @@ class TestNoOmissionDependency:
             "t = np.arange(0, 2.0, 1.0 / 1000.0)\n"
             "lfp_a = np.sin(2 * np.pi * 10.0 * t) + 0.3 * rng.standard_normal(t.size)\n"
             "lfp_b = np.sin(2 * np.pi * 10.0 * t) + 0.3 * rng.standard_normal(t.size)\n"
-            "power = jnwb.band_power(lfp_a, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS['alpha'])\n"
+            "power = jnwb.band_power(lfp_a, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS['alpha'], normalize=False)\n"
             "freqs, psd = jnwb.compute_psd(lfp_a, 1000.0)\n"
             "coh = jnwb.cross_area_coherence(lfp_a, lfp_b, sampling_rate=1000.0, freq_bands='canonical')\n"
             "X = np.vstack([rng.normal(-3.0, 1.0, (25, 4)), rng.normal(3.0, 1.0, (25, 4))])\n"

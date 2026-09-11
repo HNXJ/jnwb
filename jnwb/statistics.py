@@ -313,8 +313,8 @@ def shuffle_r2_ci(
     for i in range(n_shuffle):
         y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
         null[i] = _r2(y_perm, y_score)
-    p_val = float(np.mean(null >= r2_obs))
-    p_val = p_val if p_val > 0 else 1.0 / (n_shuffle + 1)
+    k = int(np.sum(null >= r2_obs))
+    p_val = float((1 + k) / (n_shuffle + 1))
     return {
         "r2_observed": r2_obs,
         "r2_null_ci_lo": float(np.percentile(null, 2.5)),
@@ -499,7 +499,12 @@ class StatisticalAnalysis:
             "mad2": stats.median_abs_deviation(valid2) if len(valid2) > 0 else np.nan,
         }
 
-        if paired and len(valid1) == len(valid2):
+        if paired:
+            if len(valid1) != len(valid2):
+                raise ValueError(
+                    "compare_groups(paired=True) requires equal group lengths after NaN "
+                    f"exclusion; got n1={len(valid1)}, n2={len(valid2)}"
+                )
             t_stat, t_pval = stats.ttest_rel(valid1, valid2)
             w_stat, w_pval = stats.wilcoxon(valid1, valid2)
             df = len(valid1) - 1
@@ -746,7 +751,8 @@ class StatisticalAnalysis:
             perm_y = combined[perm_idx[n_x:]]
             perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
 
-        p_value = (np.abs(perm_diffs) >= np.abs(obs_diff)).sum() / n_permutations
+        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff)))
+        p_value = (1 + k) / (n_permutations + 1)
 
         return {
             "observed_difference": float(obs_diff),
@@ -917,6 +923,22 @@ def cross_modal_comparison(
     """
     if tfr_data is None or spike_data is None:
         return {'error': 'Input arrays cannot be None'}
+
+    if tfr_data.ndim == 3 and spike_data.ndim == 2:
+        n_freq, n_time, n_trials = tfr_data.shape
+        spike_time, spike_trials = spike_data.shape
+        if n_time == spike_time and n_trials == spike_trials:
+            pass
+        elif n_trials == spike_time and n_time == spike_trials:
+            raise ValueError(
+                "tfr_data must be shaped (freq, time, trials) and spike_data (time, trials); "
+                f"got tfr_data {tfr_data.shape}, spike_data {spike_data.shape}"
+            )
+        else:
+            raise ValueError(
+                "tfr_data must be shaped (freq, time, trials) and spike_data (time, trials); "
+                f"got tfr_data {tfr_data.shape}, spike_data {spike_data.shape}"
+            )
 
     # Standardize time-series signals
     # If 3D, average over frequency

@@ -36,6 +36,7 @@ Sign convention is uniform: ``x_to_y`` is X -> Y (X leads / X predicts Y).
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -108,14 +109,14 @@ def spike_mutual_information(
     if len(spike_times1) == 0 or len(spike_times2) == 0:
         return 0.0
 
-    t_start, t_end = time_window
-    bin_sec = bin_size_ms / 1000.0
-    n_bins = int((t_end - t_start) / bin_sec)
-
+    bins1 = bin_spikes(spike_times1, window=time_window, bin_size_ms=bin_size_ms)
+    n_bins = bins1.shape[-1]
     if n_bins <= 1:
         return 0.0
 
-    bin_edges = np.linspace(t_start, t_end, n_bins + 1)
+    t_start, t_end = time_window
+    bin_sec = bin_size_ms / 1000.0
+    bin_edges = float(t_start) + bin_sec * np.arange(n_bins + 1)
     hist1, _ = np.histogram(np.sort(spike_times1), bins=bin_edges)
     hist2, _ = np.histogram(np.sort(spike_times2), bins=bin_edges)
 
@@ -410,6 +411,11 @@ def granger_causality(
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
         and cross-spectral methods. Econometrica. doi:10.2307/1912791
     """
+    warnings.warn(
+        "granger_causality is deprecated; use jnwb.granger, which returns DirectedResult.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
 
@@ -982,16 +988,8 @@ def granger(
             rss_u, _ = _ols_rss(d_u, yy, ridge)
             n_obs = d_u.shape[0]
             n_par = 1 + p * n_src
-            sigma2 = rss_u / n_obs
-            if sigma2 <= 0:
-                continue
-            ll = n_obs * np.log(sigma2)
-            if criterion == "aic":
-                ic = ll + 2 * n_par
-            elif criterion == "bic":
-                ic = ll + n_par * np.log(n_obs)
-            else:
-                ic = ll + 2 * n_par * np.log(np.log(max(n_obs, 3)))
+            rss_var = rss_u / max(n_obs - n_par, 1)
+            ic = _info_criterion(n_obs, rss_var, n_par, criterion)
             if ic < best_ic:
                 best_ic, best_p = ic, p
         return best_p
@@ -1308,6 +1306,8 @@ def granger_spectral(
         rng = _rng(seed)
         null_xy = np.empty(int(n_surrogates))
         null_yx = np.empty(int(n_surrogates))
+        null_xy_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
+        null_yx_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
         for i in range(int(n_surrogates)):
             xs = _surrogate_source(x, rng)
             a_s, sig_s, _ = _fit_var_matrix([xs, y], p, ridge=ridge)
@@ -1317,13 +1317,23 @@ def granger_spectral(
             a_s2, sig_s2, _ = _fit_var_matrix([x, ys], p, ridge=ridge)
             tmp2 = _spectral_gc_from_var(a_s2, sig_s2, freqs, fs)
             null_yx[i] = _mean_over(tmp2[0], all_mask)
+            for name, vals in per_band.items():
+                f_lo, f_hi = vals["band_hz"]
+                mask = (freqs >= f_lo) & (freqs <= f_hi)
+                if mask.sum() >= 2:
+                    null_xy_by_band[name].append(_mean_over(tmp[1], mask))
+                    null_yx_by_band[name].append(_mean_over(tmp2[0], mask))
         p_xy = float((1 + np.sum(null_xy >= total_xy)) / (n_surrogates + 1))
         p_yx = float((1 + np.sum(null_yx >= total_yx)) / (n_surrogates + 1))
         for name, vals in per_band.items():
             f_lo, f_hi = vals["band_hz"]
             mask = (freqs >= f_lo) & (freqs <= f_hi)
             if mask.sum() >= 2:
-                vals["p_surrogate"] = p_xy
+                obs_xy = vals["value"]
+                nb_xy = np.asarray(null_xy_by_band[name], dtype=float)
+                vals["p_surrogate"] = float(
+                    (1 + np.sum(nb_xy >= obs_xy)) / (len(nb_xy) + 1)
+                )
 
     return DirectedResult(
         method="granger_spectral",
@@ -1839,10 +1849,12 @@ def transfer_entropy(
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
+    embedded_n_times = n_times
 
     if estimator == "symbolic":
         xq = _ordinal_symbols(x, symbolic_order)
         yq = _ordinal_symbols(y, symbolic_order)
+        embedded_n_times = n_times - symbolic_order + 1
     else:
         xq = _discretize(x, bins, estimator)
         yq = _discretize(y, bins, estimator)
@@ -1902,7 +1914,7 @@ def transfer_entropy(
         p_y_to_x=p_yx,
         p_net=p_net,
         n_trials=n_trials,
-        n_times=n_times,
+        n_times=embedded_n_times,
         params={
             "k": int(k),
             "l": int(l),

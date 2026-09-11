@@ -30,9 +30,9 @@ Pick the appropriate pipeline module for your analytical question:
 
 ---
 
-## Canonical 6-Panel Visual Architecture
+## Executable quickstart script (6-panel figure)
 
-The `jnwb` quickstart tour exercises six foundational primitives simultaneously on a controlled signal whose ground truth is known, rendering a unified diagnostic multi-panel figure.
+`examples/quickstart_jnwb.py` is the authoritative smoke test: band power, label permutation, Granger causality, and nested-CV decoding on synthetic data, rendered as a six-panel figure.
 
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png)
 
@@ -43,6 +43,10 @@ python examples/quickstart_jnwb.py
 ```
 
 ---
+
+## Markdown API tour (extended examples)
+
+The steps below are a separate, documentation-first walkthrough (artifact repair, TFR, PSI, jRSA). They are **not** the same panels as `examples/quickstart_jnwb.py`; run the script when you need the figure smoke test.
 
 ## Step-by-Step Tour
 

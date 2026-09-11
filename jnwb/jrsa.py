@@ -176,7 +176,9 @@ def jrsa(
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
-        procrustes, granger, transfer_entropy, phase_slope.
+        procrustes, granger_ssr_ftest, transfer_entropy_histogram_nats, phase_slope.
+        The SSR F-test and histogram TE metrics are distinct from connectivity
+        ``granger`` and ``transfer_entropy``.
     lag : int | tuple | array-like
         Temporal lag(s).
     window : tuple | int or None
@@ -268,7 +270,19 @@ def jrsa(
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
     x1, x2, windows = _make_windows(x1, x2, axis_map, window, sliding)
     # --- dispatch metric ------------------------------------------------------
-    metric_fn = _METRIC_DISPATCH.get(metric.lower())
+    _LEGACY_JRSA_METRIC_NAMES = {
+        "granger": "granger_ssr_ftest",
+        "transfer_entropy": "transfer_entropy_histogram_nats",
+    }
+    metric_key = metric.lower()
+    if metric_key in _LEGACY_JRSA_METRIC_NAMES:
+        raise ValueError(
+            f"jrsa metric '{metric}' was renamed to "
+            f"'{_LEGACY_JRSA_METRIC_NAMES[metric_key]}' to reflect the actual estimand; "
+            "connectivity.granger and connectivity.transfer_entropy are distinct "
+            "directed estimators."
+        )
+    metric_fn = _METRIC_DISPATCH.get(metric_key)
     if metric_fn is None:
         raise ValueError(
             f"Unknown metric '{metric}'. "
@@ -729,8 +743,10 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwar
         null = []
         x2_work = x2 if x2 is not None else x1
         n = x2_work.shape[axis]
-        for _ in range(n_perm):
-            idx = cp.random.permutation(n)
+        seeds = rng.integers(0, 2**31 - 1, size=n_perm)
+        for seed in seeds:
+            local_rng = np.random.default_rng(int(seed))
+            idx = cp.asarray(local_rng.permutation(n))
             x2_perm = cp.take(x2_work, idx, axis=axis)
             v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
             if hasattr(v, "get"):
@@ -764,12 +780,12 @@ def _p_from_null(value, null_dist, alternative):
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
     n = len(null_dist)
     if alternative == "two-sided":
-        p = np.mean(np.abs(null_dist) >= np.abs(obs))
+        k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
     elif alternative == "greater":
-        p = np.mean(null_dist >= obs)
+        k = int(np.sum(null_dist >= obs))
     else:
-        p = np.mean(null_dist <= obs)
-    p = max(p, 1.0 / (n + 1))
+        k = int(np.sum(null_dist <= obs))
+    p = (1 + k) / (n + 1)
     return np.atleast_1d(np.float64(p))
 
 
@@ -1435,8 +1451,8 @@ _METRIC_DISPATCH = {
     "distance_correlation": _distance_correlation,
     "mutual_information": _mutual_information,
     "procrustes": _procrustes,
-    "granger": _granger,
-    "transfer_entropy": _transfer_entropy,
+    "granger_ssr_ftest": _granger,
+    "transfer_entropy_histogram_nats": _transfer_entropy,
     "phase_slope": _phase_slope,
 }
 

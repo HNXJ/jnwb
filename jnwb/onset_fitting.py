@@ -76,10 +76,9 @@ def fit_exponential_onset(
     ramping rise (as opposed to the clean single-population step-like rises used in this
     module's original synthetic self-test), an early t0 paired with a large tau reproduces
     almost the same curve as a true later t0 with small tau, so the joint optimizer routinely
-    slid to the degenerate t0~0 corner of that tradeoff. Found via a real S+/S++ positive-
-    control run (2026-08-15): most areas landed at physically implausible near-zero onsets and
-    the area-vs-hierarchy-rank test came back flat (rho=-0.02, p=0.98) instead of the expected
-    bottom-up ordering -- a joint fit cannot be trusted on this corpus's PSTHs.
+    slid to the degenerate t0~0 corner of that tradeoff. On gradually ramping real PSTHs a
+    joint fit can therefore return physically implausible near-zero onsets -- a joint fit
+    cannot be trusted on smooth multi-population rises.
     Fix: t0 is swept over a grid spanning [t0_lo, t0_hi] at t0_grid_step resolution; at EACH
     candidate t0, only (tau, amplitude, baseline) are fit (3 free parameters, much better
     conditioned since t0 no longer trades off against tau within the same optimization). The

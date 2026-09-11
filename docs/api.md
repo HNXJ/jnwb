@@ -8,9 +8,9 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.CANONICAL_BANDS | function | *dict() -> new empty dictionary dict(mapping) -> new dictionary initialized from a mapping object's     (key, value) pairs dict(iterable) -> new dictionary initialized as if via:     d = {}     for k, v in iterable:         d[k] = v dict(**kwargs) -> new dictionary initialized with the name=value pairs     in the keyword argument list.  For example:  dict(one=1, two=2)* |
-| jnwb.DB_AGGREGATIONS | function | *Built-in immutable sequence.* |
-| jnwb.DETECTION_TAILS | function | *Built-in immutable sequence.* |
+| jnwb.CANONICAL_BANDS | constant | *dict() -> new empty dictionary dict(mapping) -> new dictionary initialized from a mapping object's     (key, value) pairs dict(iterable) -> new dictionary initialized as if via:     d = {}     for k, v in iterable:         d[k] = v dict(**kwargs) -> new dictionary initialized with the name=value pairs     in the keyword argument list.  For example:  dict(one=1, two=2)* |
+| jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
+| jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
 

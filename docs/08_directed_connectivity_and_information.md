@@ -25,7 +25,10 @@ Granger causality, Phase Slope Index, and Transfer Entropy establish statistical
 
 ---
 
-## 2. Granger Causality & Spectral Granger (`granger`, `granger_spectral`, `granger_causality`)
+## 2. Granger Causality & Spectral Granger (`granger`, `granger_spectral`)
+
+> **Deprecation:** `granger_causality` (dict return type) is deprecated in 0.1.7. Use
+> `jnwb.granger`, which returns `DirectedResult`.
 
 Every directed estimator returns a `DirectedResult` with `x_to_y`, `y_to_x`, `net`, and optional `p_x_to_y` / `p_y_to_x` / `p_net` fields (not `statistic` / `pvalue`).
 
