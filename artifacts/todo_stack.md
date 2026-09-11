@@ -8,26 +8,21 @@
 
 Do **not** add unrelated analysis capabilities. Implementation starts only after this stack is explicit.
 
-## 0. Structural authority receipt (prerequisite — do first)
+## 0. Structural authority receipt — **done** (`artifacts/nwb_structural_authority_0.1.8.md`)
 
-Before designing RF/flash fixtures, inspect jnwb-local evidence only; do not guess layouts from memory.
+Read-only survey complete (2026-09-11): omission-repo code/artifacts + h5py metadata on all 22 `D:\nwb\omission\` NWBs. `D:\nwb\mglo\` empty (no NWBs).
 
-**Observed in jnwb today (receipts):**
+**Established structural classes (fixtures unblocked):**
 
-| Source | Structural pattern |
-|---|---|
-| `tests/test_mcp_server.py` setUp | `acquisition/ElectricalSeries` (rate 1000 Hz, electrodes region); `/electrodes`; `/intervals/stim_events` `TimeIntervals` with string `code` column + `start_time`/`stop_time` (seconds) |
-| `tests/test_mcp_server.py` `test_event_table_is_never_chosen_by_project_name` | Multiple `/intervals/*` tables; autodiscover prefers `trials`, else sole table, else `AmbiguousPath` — never guess by project-specific table name |
-| `jnwb/mcp_server/event_tools.py` | Code-column search order: `codes`, `code`, `event_code`, `event_codes`, `value`, `type`, then substring `code`; onsets = `start_time` in seconds |
-| `tests/test_hdmf_nwb_read_boundary.py` `_write_minimal_nwb` | `/electrodes` + `/units` with `spike_times`; no acquisition LFP |
+| Class | Provenance table | Fixture |
+|---|---|---|
+| Task / omission-like | `/intervals/omission_glo_passive` | `test-synth-task` |
+| RF-mapping-like | `/intervals/rf_mapping_v2` | `test-synth-rf` |
+| Flash-like | `/intervals/flash` | `test-synth-flash` |
 
-**Missing structural authority (blocked — do not invent):**
+**API design requirements (not blockers):** explicit interval-table selection; primary code column `codes` (string-object or float64); `start_time` onsets in seconds; acquisition may be direct `ElectricalSeries` or `LFP` wrapper with nested `*_data`.
 
-- **RF-mapping NWB layout** — no structural receipt in `jnwb/` tests, docs, skills, or artifacts. Only historical git references to deleted `vflip2_mapping` code (`artifacts/capability_review_0.1.7.md`), not an NWB schema.
-- **Flash NWB layout** — no structural receipt anywhere in `jnwb/`.
-- **Omission-task NWB layout** — only an ambiguity-test table name (`omission_glo_passive`) in `tests/test_mcp_server.py`; not a full structural spec.
-
-**Action:** Write `artifacts/nwb_structural_authority_0.1.8.md` documenting (a) jnwb-observed patterns above, (b) any RF/flash/task structural fields Hamm authorizes from omission-repo inspection (structure only — no condition semantics, subject IDs, or biological claims). RF/flash fixture design is **blocked** until (b) exists or Hamm approves a minimal generic structural surrogate with explicit scope limit.
+**Still unknown:** mglo corpus layout; omission-repo loaders for RF/flash tables (structure from disk only).
 
 ## 1. Canonical tiny synthetic NWB fixtures
 
@@ -46,9 +41,9 @@ Package-owned, deterministic, reusable infrastructure (not tutorial throwaways).
 
 | Fixture | Structural class | Authority status |
 |---|---|---|
-| `test-synth-task` | Task-like: acquisition LFP + electrodes + units + interval table with code column | **Authorized** from MCP synthetic pattern; extend to full 0.1.8 size spec |
-| `test-synth-rf` | RF-mapping-like layout | **Blocked** until §0 structural receipt |
-| `test-synth-flash` | Flash-like layout | **Blocked** until §0 structural receipt |
+| `test-synth-task` | Task-like: acquisition LFP + electrodes + units + task interval (`codes`, `task_condition_number`, …) | **Authorized** — `nwb_structural_authority_0.1.8.md` §C |
+| `test-synth-rf` | RF-mapping-like interval (`codes`, `x_position`, `y_position`, `contrast`, `size`, …) | **Authorized** — §D |
+| `test-synth-flash` | Flash-like interval (`codes`, `stimulus_number`, `task_condition_number`, …) | **Authorized** — §E |
 
 **Implementation notes (when unblocked):**
 
