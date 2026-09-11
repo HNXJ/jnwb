@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 112 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 120 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -111,6 +111,19 @@ All 112 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.get_all_units_metadata | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | (units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | (units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame<br>*Generate a census/summary report of units grouped by session/area/layer.* |
+
+## Module: jnwb.nwb_events
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.AmbiguousIntervalTableError | class | *Several interval tables are present and ``table`` was not specified.* |
+| jnwb.ColumnNotFoundError | class | *A required interval-table column is missing.* |
+| jnwb.EventTable | class | *Structured event rows from one NWB interval table.* |
+| jnwb.IntervalTableNotFoundError | class | *The requested interval table does not exist.* |
+| jnwb.InvalidOnsetValueError | class | *A selected row has a missing or non-finite onset timestamp.* |
+| jnwb.event_onsets | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
+| jnwb.events | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, code_column: 'str' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'<br>*Read event codes and onset timestamps from one interval table.* |
+| jnwb.resolve_interval_table | function | (nwb: 'NWBFile', table: 'str | None') -> 'str'<br>*Resolve an interval table name using jnwb addressing rules.* |
 
 ## Module: jnwb.nwb_inspect
 

@@ -69,28 +69,15 @@ info = jnwb.inspect(path_or_nwb)  # structured dict/dataclass, not text-only
 
 **Export:** add to `jnwb.__all__`, regenerate `docs/api.md`, factor shared logic from `jnwb/mcp_server/nwb_tools.py` (MCP may wrap public API).
 
-## 3. Canonical event/onset API
+## 3. Canonical event/onset API — **done** (`jnwb/nwb_events.py`, `tests/test_nwb_events.py`)
 
-**Audit inventory (before coding):** NWB `trials`, interval tables, event tables, `start_time`/`stop_time`, metadata/addressing filters, MCP `get_event_codes_and_timings`, decoding trial tables, `EpochCollection`, `detect_trial_cycles` — document what stays internal vs becomes public.
+Public workflow: `inspect` → `events` / `event_onsets`. MCP `get_event_codes_and_timings` wraps canonical primitives (MCP-only `code` column fallback preserved for backward compatibility).
 
-**Required public route:**
+**Exports:** `events`, `event_onsets`, `EventTable`, `resolve_interval_table`, `AmbiguousIntervalTableError`, `IntervalTableNotFoundError`, `ColumnNotFoundError`, `InvalidOnsetValueError`.
 
-`NWB → interval/event table → code column → select code(s) → onset timestamps`
+**Contract (docstrings + acceptance matrix):** explicit `table`; default `code_column="codes"`, `onset_column="start_time"`; seconds; row-order onsets; duplicates preserved; empty code selection → empty array; missing table/column → specific errors; NaN/non-finite onset → `InvalidOnsetValueError`; `trials` → sole table → ambiguity raise; no `"1"`/`1` coercion.
 
-**Contract must document:**
-
-- table selection and ambiguity behavior (inherit `trials` → sole table → explicit path → error)
-- code/label column selection (explicit param; no silent guess beyond documented fallback order)
-- numeric and string codes
-- onset column (default `start_time` only when justified; other timestamp columns explicit)
-- seconds, session/time reference, ordering, dtype
-- duplicates, empty selections, missing table/column/code
-- multiple interval tables
-- **Never infer scientific meaning from code values**
-
-**Smallest API shape (design in code review):** likely `list_interval_tables`, `read_interval_table`, `event_onsets(nwb, table=..., codes=..., code_column=..., onset_column='start_time')` — exact names TBD; must be one obvious documented path.
-
-**Tests:** same API across task, RF-like, and flash-like fixtures; all ambiguity/failure cases; analytically known onset times in synthetic data.
+**LFP-wrapped HDMF warning:** corpus-observed for nested `LFP`/`ElectricalSeries` packaging (also on real omission NWBs); fixture structure not at fault.
 
 ## 4. Four fast executable tutorials
 

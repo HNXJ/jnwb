@@ -41,6 +41,16 @@ from .tfr_accumulator import TFRAccumulator, assert_mergeable
 # NWB fp32 compression (2026-08-09), per nwb_tfr_storage_spec.md Part 1.
 from .compression import compress_fp32
 from .nwb_inspect import inspect
+from .nwb_events import (
+    AmbiguousIntervalTableError,
+    ColumnNotFoundError,
+    EventTable,
+    IntervalTableNotFoundError,
+    InvalidOnsetValueError,
+    event_onsets,
+    events,
+    resolve_interval_table,
+)
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -164,6 +174,14 @@ __all__ = [
     'assert_mergeable',
     'compress_fp32',
     'inspect',
+    'events',
+    'event_onsets',
+    'EventTable',
+    'resolve_interval_table',
+    'AmbiguousIntervalTableError',
+    'IntervalTableNotFoundError',
+    'ColumnNotFoundError',
+    'InvalidOnsetValueError',
 
     # Addressing
     'map_peak_channel_to_area',

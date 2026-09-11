@@ -30,6 +30,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "jrsa": "public",
     "metadata": "public",
     "nwb_inspect": "public",
+    "nwb_events": "public",
     "onset_fitting": "public",
     "ontology": "public",
     "paths": "public",
