@@ -90,6 +90,14 @@ class TestApiMdDeterminism:
         py_launcher = shutil.which("py")
         if py_launcher is None:
             pytest.skip("no Python launcher available for floor cross-check")
+        probe = subprocess.run(
+            [py_launcher, "-3.12", "-c", "import numpy, jnwb"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if probe.returncode != 0:
+            pytest.skip("Python 3.12 launcher is not a dependency-equipped environment")
         res = subprocess.run(
             [py_launcher, "-3.12", "scripts/generate_api_md.py", "--check"],
             cwd=REPO_ROOT,
