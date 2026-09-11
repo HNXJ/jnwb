@@ -153,7 +153,7 @@ unpushed. Do not cross a version boundary before sealing it.
 | `python -m pytest tests/ -q` | The full suite | Every test passed on the interpreter you ran |
 | `python scripts/harness_gate.py` | Gates 1–13, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing, forbidden study tokens in Gate 6 scan surface, NWB onboarding alignment |
 | `python scripts/release_gate.py` | Release readiness | Run before tagging |
-| `mkdocs build --strict` | Docs build | RTD sets `fail_on_warning`, so a warning here is a failed publish |
+| `python scripts/docs_build.py` | Docs build (strict MkDocs via `sys.executable`) | RTD sets `fail_on_warning`, so a warning here is a failed publish. Do not call bare `mkdocs`; PATH may point at another interpreter. |
 
 Supported interpreters are declared in `pyproject.toml` and enforced by Gate 8. CI tests
 the floor and the newest declared version.

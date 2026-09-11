@@ -112,7 +112,7 @@ def test_tutorial_uses_public_jnwb_not_support_readers(path: Path):
 
 def test_mkdocs_strict_build():
     res = subprocess.run(
-        [sys.executable, "-m", "mkdocs", "build", "--strict"],
+        [sys.executable, str(REPO_ROOT / "scripts" / "docs_build.py")],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

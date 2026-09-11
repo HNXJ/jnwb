@@ -77,7 +77,7 @@ Every module must be protected by deterministic test coverage in `tests/`. Tests
 - **Lockstep Updates**: Any modification to a public symbol must update both the relevant documentation guide (`docs/`) and repository skill (`skills/`) in the same commit.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
-  mkdocs build --strict
+  python scripts/docs_build.py
   ```
 
 ---

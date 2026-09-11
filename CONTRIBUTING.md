@@ -48,17 +48,18 @@ round trip.
 ```bash
 python -m pytest tests/ -q
 python scripts/harness_gate.py
-mkdocs build --strict
+python scripts/docs_build.py
 python scripts/release_gate.py
 ```
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive.
-- **`harness_gate.py`** — 12 repository gates: the project boundary, skills, paths, the
+- **`harness_gate.py`** — 13 repository gates: the project boundary, skills, paths, the
   root allowlist, docs, the public API set, version agreement, the Python policy, import
-  shadowing, and project identifiers in code. It fails on structure, not behaviour.
-- **`mkdocs build --strict`** — Read the Docs sets `fail_on_warning`, so a warning here is
-  a failed publish.
+  shadowing, project identifiers in code, and NWB onboarding alignment. It fails on
+  structure, not behaviour.
+- **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.
+  Read the Docs sets `fail_on_warning`, so a warning here is a failed publish.
 - **`release_gate.py`** — builds the wheel, installs it in a clean venv, and smoke-tests
   the installed package. Only needed before tagging, but it catches packaging mistakes
   (a module missing from the wheel, a broken extra) that the suite cannot see.

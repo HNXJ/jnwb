@@ -52,6 +52,6 @@ Run these rather than quoting counts; `jnwb.__all__` is the source of truth for 
 python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
 python scripts/harness_gate.py
 python -m pytest tests/ -q
-mkdocs build --strict
+python scripts/docs_build.py
 ```
 

@@ -71,7 +71,7 @@ jobs:
 
       - name: Build documentation with MkDocs (strict)
         run: |
-          mkdocs build --strict
+          python scripts/docs_build.py
 
       - name: Build sdist and wheel
         run: |

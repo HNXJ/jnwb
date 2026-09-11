@@ -7,7 +7,7 @@ This page is a short pointer. The maintained developer guide is **[11. Extending
 ```bash
 python scripts/harness_gate.py   # gates 1–12
 python -m pytest tests/ -q
-mkdocs build --strict
+python scripts/docs_build.py
 python scripts/release_gate.py   # before tagging only
 ```
 
