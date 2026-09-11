@@ -51,20 +51,16 @@ class TestMCPServer(unittest.TestCase):
     def test_inspect_nwb_success(self):
         res = inspect_nwb(self.file_path)
         self.assertNotIn("error", res)
-        self.assertEqual(res["session_description"], "Synthetic session for MCP testing")
-        self.assertEqual(res["identifier"], "SYNTH_MCP_001")
-        self.assertIn("session_start_time", res)
-        self.assertIn("groups", res)
-        self.assertIn("datasets", res)
-        self.assertIn("neurodata_types", res)
-
-        # Verify datasets schema
-        self.assertTrue(len(res["datasets"]) > 0)
-        for ds in res["datasets"]:
-            self.assertIn("path", ds)
-            self.assertIn("dtype", ds)
-            self.assertIn("shape", ds)
-            self.assertIsInstance(ds["shape"], list)
+        self.assertEqual(
+            res["session"]["session_description"],
+            "Synthetic session for MCP testing",
+        )
+        self.assertEqual(res["session"]["identifier"], "SYNTH_MCP_001")
+        self.assertIn("session_start_time", res["session"])
+        self.assertIn("interval_tables", res)
+        self.assertIn("acquisitions", res)
+        self.assertTrue(len(res["interval_tables"]) >= 1)
+        self.assertTrue(len(res["acquisitions"]) >= 1)
 
     def test_inspect_nwb_file_not_found(self):
         res = inspect_nwb("non_existent_file.nwb")

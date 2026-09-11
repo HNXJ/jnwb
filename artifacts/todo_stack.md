@@ -24,7 +24,7 @@ Read-only survey complete (2026-09-11): omission-repo code/artifacts + h5py meta
 
 **Still unknown:** mglo corpus layout; omission-repo loaders for RF/flash tables (structure from disk only).
 
-## 1. Canonical tiny synthetic NWB fixtures
+## 1. Canonical tiny synthetic NWB fixtures — **done** (`jnwb/testing/nwb_fixtures.py`, `tests/test_nwb_synthetic_fixtures.py`)
 
 Package-owned, deterministic, reusable infrastructure (not tutorial throwaways). Neutral naming only.
 
@@ -51,7 +51,7 @@ Package-owned, deterministic, reusable infrastructure (not tutorial throwaways).
 - Builders must be importable for tutorials and wheel smoke tests
 - Mirror real structural *shape* (acquisition paths, interval table names/columns, units linkage), not project semantics
 
-## 2. `jnwb.inspect(path_or_nwb)`
+## 2. `jnwb.inspect(path_or_nwb)` — **done** (`jnwb/nwb_inspect.py`, `tests/test_nwb_inspect.py`)
 
 **Audit first:** no adequate public discovery API in `jnwb.__all__` today (`paths.describe()` ≠ per-file inspection; MCP `inspect_nwb` is not public).
 

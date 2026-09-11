@@ -1,7 +1,7 @@
 import h5py
 from pathlib import Path
 from typing import Dict, Any
-from jnwb.nwb_io import nwb_read_io
+from jnwb.nwb_inspect import inspect
 from jnwb.mcp_server.server import mcp
 
 @mcp.tool()
@@ -23,44 +23,7 @@ def inspect_nwb(file_path: str) -> Dict[str, Any]:
         }
         
     try:
-        # Extract metadata via PyNWB
-        with nwb_read_io(str(path), load_namespaces=True) as io:
-            nwb = io.read()
-            session_description = str(nwb.session_description) if nwb.session_description else ""
-            identifier = str(nwb.identifier) if nwb.identifier else ""
-            session_start_time = nwb.session_start_time.isoformat() if nwb.session_start_time else ""
-            
-        # Extract groups and datasets via h5py to avoid loading all objects
-        groups = []
-        datasets = []
-        neurodata_types = set()
-        
-        with h5py.File(str(path), 'r') as f:
-            groups = list(f.keys())
-            
-            def visit_item(name, obj):
-                ndt = obj.attrs.get("neurodata_type")
-                if ndt:
-                    ndt_str = ndt.decode() if isinstance(ndt, bytes) else str(ndt)
-                    neurodata_types.add(ndt_str)
-                    
-                if isinstance(obj, h5py.Dataset):
-                    datasets.append({
-                        "path": "/" + name,
-                        "dtype": str(obj.dtype),
-                        "shape": list(obj.shape)
-                    })
-                    
-            f.visititems(visit_item)
-            
-        return {
-            "session_description": session_description,
-            "identifier": identifier,
-            "session_start_time": session_start_time,
-            "groups": groups,
-            "datasets": datasets,
-            "neurodata_types": sorted(list(neurodata_types))
-        }
+        return inspect(path)
     except Exception as e:
         return {
             "error": f"Failed to parse NWB file: {str(e)}",

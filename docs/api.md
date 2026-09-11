@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 111 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 112 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -111,6 +111,12 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.get_all_units_metadata | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | (units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | (units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame<br>*Generate a census/summary report of units grouped by session/area/layer.* |
+
+## Module: jnwb.nwb_inspect
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.inspect | function | (path_or_nwb: 'InspectInput') -> 'dict[str, Any]'<br>*Return structured metadata about an NWB file or in-memory NWB object.* |
 
 ## Module: jnwb.onset_fitting
 
