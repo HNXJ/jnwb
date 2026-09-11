@@ -25,6 +25,7 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 
 | Area | Representative API |
 | --- | --- |
+| NWB discovery & events | `inspect`, `events`, `event_onsets`, `unit_spike_times`, `acquisition_channel` |
 | NWB metadata & addressing | `get_all_units_metadata`, `electrode_inventory`, `map_peak_channel_to_area`, `classify_layer_from_depth` |
 | Spiking | `raster_psth`, `compute_response_metrics`, `causal_exp_smooth`, `fit_exponential_onset`, `pairwise_phase_consistency` |
 | LFP & spectral | `compute_psd`, `compute_multitaper_psd`, `band_power`, `complex_tfr`, `aggregate_to_db`, `current_source_density_1d` |
@@ -47,7 +48,21 @@ pip install "jnwb[torch,gpu]"   # optional
 
 Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplotlib`, `scikit-learn`, `statsmodels`, `joblib`.
 
-## Quickstart
+## NWB workflow
+
+`jnwb.inspect` lists acquisitions, electrodes, units, and every interval table with column samples — it does not pick a default event table. Event **codes** are opaque labels in a named column (default `codes`). **Onsets** from `jnwb.event_onsets` are in **seconds**. When several interval tables exist, pass `table=` explicitly; jnwb raises rather than guessing.
+
+```python
+import jnwb
+
+info = jnwb.inspect("recording.nwb")
+events = jnwb.events("recording.nwb", table="test_synth_task")
+onsets = jnwb.event_onsets("recording.nwb", table="test_synth_task", codes=["test-synth-1"])
+```
+
+Executable walkthroughs: [Read the Docs tutorials](https://jnwb.readthedocs.io/) or `examples/tutorials/`.
+
+## Quickstart (arrays)
 
 ```python
 import numpy as np
@@ -69,15 +84,18 @@ beta = jnwb.band_power(lfp, fs=fs, freq_range=jnwb.CANONICAL_BANDS["beta"], norm
 print(f"TFR shape: {tfr.shape}, beta power: {beta:.4f}")
 ```
 
-NWB session inventory:
+Read spikes and LFP for alignment after you have onsets:
 
 ```python
-import jnwb
+spikes = jnwb.unit_spike_times("recording.nwb", unit_index=0)
+lfp, fs_hz = jnwb.acquisition_channel("recording.nwb", name="probe_0_lfp", channel=0)
+```
 
+Unit and electrode census:
+
+```python
 units = jnwb.get_all_units_metadata("session.nwb")
 electrodes = jnwb.electrode_inventory("session.nwb")
-units = jnwb.enrich_units_dataframe(units, electrodes)
-print(len(units), "units;", jnwb.audit_units(units))
 ```
 
 ## Documentation

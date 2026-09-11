@@ -37,6 +37,8 @@ markdown_extensions:
   - admonition
   - toc:
       permalink: true
+  - pymdownx.snippets:
+      base_path: ["."]
   - pymdownx.arithmatex:
       generic: true
       smart_dollar: false
@@ -56,6 +58,12 @@ nav:
       - Common Mistakes: common_mistakes.md
       - Public API: api.md
       - References: references.md
+
+  - Tutorials:
+      - Inspect an NWB: tutorials/01_inspect_nwb.md
+      - Event Codes and Onsets: tutorials/02_event_codes_and_onsets.md
+      - Align Spikes and LFP to Events: tutorials/03_align_spikes_lfp_to_events.md
+      - Compose an Analysis: tutorials/04_compose_workflow.md
 
   - Architecture & Foundations:
       - Philosophy & Boundary: 01_architecture_and_philosophy.md

@@ -5,15 +5,17 @@ Run: python examples/tutorials/02_event_codes_and_onsets.py
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
 
+_TUTORIALS = Path(__file__).resolve().parent
+if str(_TUTORIALS) not in sys.path:
+    sys.path.insert(0, str(_TUTORIALS))
+
 import jnwb
-from examples.tutorials._support import (
-    CODE_LABEL_A,
-    CODE_LABEL_B,
-    TASK_TABLE,
-    build_canonical_fixture,
-)
+from _support import CODE_LABEL_A, CODE_LABEL_B, TASK_TABLE, build_canonical_fixture
 from jnwb.testing.nwb_fixtures import FLASH_TABLE, RF_TABLE
 
 

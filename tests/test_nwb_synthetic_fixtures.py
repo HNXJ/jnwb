@@ -152,6 +152,21 @@ class TestSynthNWBBuild:
                 assert lfp.data.shape[1] == 10
                 assert float(lfp.rate) == 1000.0
 
+    def test_lfp_wrapped_builds_without_dynamic_table_region_warning(self):
+        import warnings
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "wrapped.nwb"
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                write_synth_nwb(path, lfp_wrapped_options())
+            hdmf = [
+                w
+                for w in caught
+                if "DynamicTableRegion" in str(w.message)
+            ]
+            assert hdmf == []
+
     def test_acquisition_styles_represented(self):
         with tempfile.TemporaryDirectory() as tmp:
             direct = Path(tmp) / "direct.nwb"

@@ -5,16 +5,17 @@ Run: python examples/tutorials/03_align_spikes_lfp_to_events.py
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
 
+_TUTORIALS = Path(__file__).resolve().parent
+if str(_TUTORIALS) not in sys.path:
+    sys.path.insert(0, str(_TUTORIALS))
+
 import jnwb
-from examples.tutorials._support import (
-    CODE_LABEL_A,
-    TASK_TABLE,
-    build_canonical_fixture,
-    lfp_channel,
-    spike_times_for_unit,
-)
+from _support import CODE_LABEL_A, TASK_TABLE, build_canonical_fixture
 
 
 def main() -> None:
@@ -22,7 +23,7 @@ def main() -> None:
     onsets = jnwb.event_onsets(path, table=TASK_TABLE, codes=[CODE_LABEL_A])
     np.testing.assert_allclose(onsets, receipt.task_onsets_s[::2])
 
-    spike_times = spike_times_for_unit(path, unit_index=0)
+    spike_times = jnwb.unit_spike_times(path, unit_index=0)
     t_ms, rate_hz, sem_hz = jnwb.raster_psth(
         spike_times,
         onsets,
@@ -33,7 +34,7 @@ def main() -> None:
     assert rate_hz.size > 0
     assert np.all(np.isfinite(rate_hz))
 
-    lfp, fs_hz = lfp_channel(path, channel=0)
+    lfp, fs_hz = jnwb.acquisition_channel(path, name="probe_0_lfp", channel=0)
     assert fs_hz == receipt.fs_hz
 
     # Epoch-average band power in a short post-onset window for the first event.

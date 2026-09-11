@@ -5,8 +5,15 @@ Run: python examples/tutorials/01_inspect_nwb.py
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_TUTORIALS = Path(__file__).resolve().parent
+if str(_TUTORIALS) not in sys.path:
+    sys.path.insert(0, str(_TUTORIALS))
+
 import jnwb
-from examples.tutorials._support import CODE_LABEL_A, TASK_TABLE, build_canonical_fixture
+from _support import CODE_LABEL_A, TASK_TABLE, build_canonical_fixture
 
 
 def main() -> None:

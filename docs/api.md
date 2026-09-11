@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 120 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 126 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -129,7 +129,13 @@ All 120 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.AcquisitionNotFoundError | class | *The requested acquisition does not exist.* |
+| jnwb.AmbiguousAcquisitionError | class | *Several acquisitions are present and ``name`` was not specified.* |
+| jnwb.UnitNotFoundError | class | *The requested units-table row does not exist.* |
+| jnwb.acquisition_channel | function | (path_or_nwb: 'InspectInput', name: 'str | None' = None, channel: 'int' = 0) -> 'tuple[np.ndarray, float]'<br>*Return one continuous acquisition channel and its sampling rate in Hz.* |
 | jnwb.inspect | function | (path_or_nwb: 'InspectInput') -> 'dict[str, Any]'<br>*Return structured metadata about an NWB file or in-memory NWB object.* |
+| jnwb.resolve_acquisition | function | (nwb: 'NWBFile', name: 'str | None') -> 'str'<br>*Resolve an acquisition name.* |
+| jnwb.unit_spike_times | function | (path_or_nwb: 'InspectInput', unit_index: 'int' = 0) -> 'np.ndarray'<br>*Return spike times (seconds) for one units-table row.* |
 
 ## Module: jnwb.onset_fitting
 

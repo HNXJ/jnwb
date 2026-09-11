@@ -17,6 +17,18 @@ InspectInput = Union[PathLike, NWBFile]
 _MAX_SAMPLES = 5
 
 
+class AmbiguousAcquisitionError(Exception):
+    """Several acquisitions are present and ``name`` was not specified."""
+
+
+class AcquisitionNotFoundError(Exception):
+    """The requested acquisition does not exist."""
+
+
+class UnitNotFoundError(Exception):
+    """The requested units-table row does not exist."""
+
+
 def _decode(value: Any) -> Any:
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
@@ -165,6 +177,99 @@ def _inspect_units_h5py(units: h5py.Group) -> dict[str, Any]:
         "columns": columns,
         "has_spike_times": "spike_times" in units,
     }
+
+
+def _with_nwb(path_or_nwb: InspectInput, fn):
+    if isinstance(path_or_nwb, NWBFile):
+        return fn(path_or_nwb)
+    path = Path(path_or_nwb)
+    if not path.exists():
+        raise FileNotFoundError(f"NWB file not found: {path}")
+    with nwb_read_io(str(path), load_namespaces=True) as io:
+        return fn(io.read())
+
+
+def resolve_acquisition(nwb: NWBFile, name: str | None) -> str:
+    """Resolve an acquisition name.
+
+    When ``name`` is omitted, use the sole acquisition when exactly one exists;
+    otherwise raise :class:`AmbiguousAcquisitionError`.
+    """
+    names = sorted(nwb.acquisition.keys()) if nwb.acquisition else []
+    if not names:
+        raise AcquisitionNotFoundError("No acquisitions found in NWB file")
+    if name is not None:
+        if name not in nwb.acquisition:
+            raise AcquisitionNotFoundError(
+                f"Acquisition '{name}' not found. Available: {names}"
+            )
+        return name
+    if len(names) == 1:
+        return names[0]
+    raise AmbiguousAcquisitionError(
+        f"Several acquisitions present: {names}. Pass name=<acquisition> explicitly."
+    )
+
+
+def _electrical_series_from_acquisition(acq: Any):
+    ndt = getattr(acq, "neurodata_type", type(acq).__name__)
+    if ndt == "LFP":
+        return next(iter(acq.electrical_series.values()))
+    return acq
+
+
+def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarray:
+    """Return spike times (seconds) for one units-table row.
+
+    Parameters
+    ----------
+    path_or_nwb:
+        NWB path or in-memory :class:`pynwb.NWBFile`.
+    unit_index:
+        Row index in the units table (0-based).
+    """
+
+    def _read(nwb: NWBFile) -> np.ndarray:
+        if nwb.units is None:
+            raise UnitNotFoundError("NWB file has no units table")
+        if unit_index < 0 or unit_index >= len(nwb.units):
+            raise UnitNotFoundError(
+                f"Unit index {unit_index} out of range for {len(nwb.units)} units"
+            )
+        if "spike_times" not in nwb.units.colnames:
+            raise UnitNotFoundError("Units table has no spike_times column")
+        return np.asarray(nwb.units["spike_times"][unit_index], dtype=np.float64)
+
+    return _with_nwb(path_or_nwb, _read)
+
+
+def acquisition_channel(
+    path_or_nwb: InspectInput,
+    name: str | None = None,
+    channel: int = 0,
+) -> tuple[np.ndarray, float]:
+    """Return one continuous acquisition channel and its sampling rate in Hz.
+
+    Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and
+    ``LFP`` containers with nested electrical series (see :func:`inspect`).
+    """
+
+    def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:
+        acq_name = resolve_acquisition(nwb, name)
+        series = _electrical_series_from_acquisition(nwb.acquisition[acq_name])
+        if not hasattr(series, "data") or series.data is None:
+            raise AcquisitionNotFoundError(
+                f"Acquisition '{acq_name}' has no readable data array"
+            )
+        data = np.asarray(series.data[:, channel], dtype=np.float64)
+        rate = getattr(series, "rate", None)
+        if rate is None or (isinstance(rate, float) and np.isnan(rate)):
+            raise AcquisitionNotFoundError(
+                f"Acquisition '{acq_name}' has no constant sampling rate"
+            )
+        return data, float(rate)
+
+    return _with_nwb(path_or_nwb, _read)
 
 
 def _session_from_pynwb(nwb: NWBFile) -> dict[str, Any]:

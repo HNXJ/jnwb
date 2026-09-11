@@ -6,6 +6,10 @@ This document provides a comprehensive guide to data path resolution, anatomical
 
 ## 1. Path Management & Drive Remap Isolation (`jnwb/paths.py`)
 
+**Per-file NWB discovery** (acquisitions, interval tables, event codes) uses `jnwb.inspect` and the
+[event tutorial sequence](tutorials/02_event_codes_and_onsets.md). `jnwb.paths` resolves
+**repository data roots** for batch jobs — it does not inspect the contents of a single `.nwb` file.
+
 Electrophysiology datasets frequently span multiple storage volumes, local SSDs, network mounts, or external RAID arrays. `jnwb.paths` eliminates hardcoded absolute paths by managing dynamic root resolution via environment variables while guaranteeing stable repo-internal paths.
 
 ### Key API Functions

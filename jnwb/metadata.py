@@ -50,7 +50,15 @@ def get_all_units_metadata(
 
     for nwb_path in nwb_paths:
         nwb_path = Path(nwb_path)
-        session_id = nwb_path.stem.split("ses-")[1].split("_")[0] if "ses-" in nwb_path.stem else nwb_path.stem
+        raw_session = (
+            nwb_path.stem.split("ses-")[1].split("_")[0]
+            if "ses-" in nwb_path.stem
+            else nwb_path.stem
+        )
+        try:
+            session_id = int(raw_session)
+        except ValueError:
+            session_id = raw_session
 
         try:
             with nwb_read_io(str(nwb_path), load_namespaces=True) as io:
@@ -58,7 +66,7 @@ def get_all_units_metadata(
 
                 # Extract units
                 if nwb.units is None:
-                    log.warning(f"{session_id}: No units found")
+                    log.warning(f"{raw_session}: No units found")
                     continue
 
                 raw_units = nwb.units.to_dataframe().copy()
@@ -66,7 +74,7 @@ def get_all_units_metadata(
 
                 from jnwb.addressing import enrich_units_dataframe
                 units_df = enrich_units_dataframe(raw_units, elec_df)
-                units_df['session_id'] = int(session_id)
+                units_df['session_id'] = session_id
 
                 log.info(f"{session_id}: {len(units_df)} units extracted")
 

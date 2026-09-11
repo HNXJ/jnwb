@@ -90,19 +90,14 @@ Public workflow: `inspect` → `events` / `event_onsets`. MCP `get_event_codes_a
 
 Shared I/O helpers in `examples/tutorials/_support.py` (single PyNWB read site). MkDocs/README nav wiring deferred to §5.
 
-## 5. Documentation and navigation
+## 5. Documentation and skill alignment — **done**
 
-- **README:** first-user path immediately after install:
-
-  ```python
-  import jnwb
-  info = jnwb.inspect("file.nwb")
-  # → canonical event/onset workflow (§3 API)
-  ```
-
-- **MkDocs:** add prominent **Tutorials** section to `mkdocs.yml` nav; four tutorial pages
-- **API reference, tutorials, README, `skills/jnwb-nwb-data`:** same public path and terminology (no `paths.describe()` as "inspection")
-- Update `docs/quickstart.md` to point at tutorials for NWB workflows; keep synthetic-array quickstart where appropriate
+- README NWB workflow (`inspect` → `events` / `event_onsets`); capabilities table updated
+- MkDocs **Tutorials** nav; pages snippet-include `examples/tutorials/*.py`
+- `skills/jnwb-nwb-data` routes to public API; `paths.describe` scoped to repo roots
+- Public `unit_spike_times` / `acquisition_channel`; `_support.py` fixture-only
+- LFP-wrapped fixture: register `LFP` on `NWBFile` before nested series (warning-clean)
+- `tests/test_docs_nwb_workflow.py` (README execution, nav, skill, `mkdocs build --strict`)
 
 ## 6. Harness and release gate
 

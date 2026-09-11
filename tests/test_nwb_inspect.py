@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+import numpy as np
 import jnwb
-from jnwb.nwb_inspect import inspect
+from jnwb.nwb_inspect import acquisition_channel, inspect, unit_spike_times
 from jnwb.testing.nwb_fixtures import (
     FLASH_TABLE,
     RF_TABLE,
@@ -94,3 +95,24 @@ class TestInspect:
         info = inspect(nwb)
         assert len(info["interval_tables"]) >= 3
         assert info["electrodes"]["n_rows"] == receipt.n_channels
+
+
+class TestNWBReadHelpers:
+    def test_unit_spike_times(self, canonical_nwb):
+        path, receipt = canonical_nwb
+        spikes = unit_spike_times(path, unit_index=0)
+        expected = receipt.task_onsets_s + 0.01
+        np.testing.assert_allclose(spikes, expected)
+
+    def test_acquisition_channel(self, canonical_nwb):
+        path, receipt = canonical_nwb
+        data, fs_hz = acquisition_channel(path, name="probe_0_lfp", channel=0)
+        assert data.ndim == 1
+        assert fs_hz == receipt.fs_hz
+
+    def test_lfp_wrapped_acquisition_channel(self, tmp_path):
+        path = tmp_path / "wrapped.nwb"
+        receipt = write_synth_nwb(path, lfp_wrapped_options())
+        data, fs_hz = acquisition_channel(path, name="probe_0_lfp", channel=0)
+        assert data.size > 0
+        assert fs_hz == receipt.fs_hz

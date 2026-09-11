@@ -157,6 +157,8 @@ def _add_lfp_acquisition(
         )
         nwb.add_acquisition(es)
         return "probe_0_lfp"
+    lfp = pynwb.ecephys.LFP(name="probe_0_lfp")
+    nwb.add_acquisition(lfp)
     inner = pynwb.ecephys.ElectricalSeries(
         name="probe_0_lfp_data",
         data=data,
@@ -164,9 +166,7 @@ def _add_lfp_acquisition(
         rate=float(fs_hz),
         starting_time=0.0,
     )
-    lfp = pynwb.ecephys.LFP(name="probe_0_lfp")
     lfp.add_electrical_series(inner)
-    nwb.add_acquisition(lfp)
     return "probe_0_lfp"
 
 

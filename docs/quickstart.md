@@ -4,6 +4,17 @@ Study **electrophysiology and NWB 2.0+ datasets** — trial-level artifact repai
 
 > Documentation tracks the `dev` branch public contract. Every primitive operates on array representations or NWB structures without experiment-specific assumptions.
 
+## NWB file workflow (start here)
+
+For a new recording, use the [Tutorials](tutorials/01_inspect_nwb.md) sequence:
+
+1. [`jnwb.inspect`](tutorials/01_inspect_nwb.md) — list interval tables and columns (no default table).
+2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_event_codes_and_onsets.md) — select opaque event codes; onsets in **seconds**.
+3. [Align spikes and LFP](tutorials/03_align_spikes_lfp_to_events.md) with `unit_spike_times`, `acquisition_channel`, `raster_psth`.
+4. [Compose](tutorials/04_compose_workflow.md) discovery → selection → analysis.
+
+Run locally: `python examples/tutorials/01_inspect_nwb.py` (and `02`–`04`).
+
 ## Install & Import
 
 ```bash
