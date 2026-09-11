@@ -28,7 +28,9 @@ Verify the install:
 python -m pytest tests/ -q
 ```
 
-Around 610 tests, about three minutes. A handful skip without the optional extras.
+Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
+CI exercises the declared Python floor and newest supported version (see `pyproject.toml`).
+A small number of tests skip when optional extras are not installed.
 
 ## Branches
 

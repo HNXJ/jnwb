@@ -11,24 +11,6 @@ no known material defect; an empty stack alone is insufficient.
 
 # 0.1.7
 
-## Capability hypotheses (review-first; implementation not forced)
-
-Before each item: inventory existing `jnwb/` capabilities. **A justified conclusion that the
-capability does not belong in jnwb is a valid completion outcome.** Absence of a method is not
-itself a defect.
-
-- **`vflip2`** — absent from active `jnwb/`; archive/parked code only → inspect provenance;
-  establish semantics and ownership; implement smallest generic primitive only if justified;
-  else record "not in jnwb" with evidence → no export without discriminating tests + docs.
-- **LFP channel QC measurements** — partial overlap (`channel_correlation_matrix`,
-  `bad_channels_from_correlation`) → define smallest missing measurement primitives only if
-  justified; measurements/flags not study exclusion policy → synthetic tests; no universal
-  manuscript thresholds.
-- **Channel relation / locality / clustering** — small composable primitives only; four layers
-  separate; no silent spatial+functional merge; clustering algorithm choice surfaces to Hamm
-  if scientifically consequential; `relation/locality ≠ cluster ≠ biological network` →
-  synthetic grouping tests or documented "not in jnwb" outcome.
-
 ## Documentation consistency gates (0.1.7 deliverable)
 
 - Optional: move residual implementation receipts in `compression.py` / `onset_fitting.py` to an
@@ -43,11 +25,6 @@ itself a defect.
   authority (`AGENTS.md`, `CLAUDE.md`, skills, gates, workflows)**. Reconcile against live
   code; material findings re-enter 0.1.7; 100/100 only when second audit has no known
   material defect.
-
-## Housekeeping (docs counts)
-
-- `CONTRIBUTING.md:31` and `AGENTS.md` §6 → update test-count band and runtime receipt
-  (641 passed, 1 skipped, ~4.1 min) → re-count after further test additions.
 
 # Before 1.0
 
