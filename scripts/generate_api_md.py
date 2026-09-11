@@ -11,6 +11,20 @@ from typing import Any, Dict, List, Tuple, get_args, get_origin
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _canonical_type_name(module: str, qualname: str) -> str:
+    """Map implementation modules to stable public names across dependency versions."""
+    if module.startswith("pandas."):
+        if qualname == "DataFrame":
+            return "pandas.DataFrame"
+        if qualname == "Series":
+            return "pandas.Series"
+    if module in ("builtins",):
+        return qualname
+    if module and qualname:
+        return f"{module}.{qualname}"
+    return qualname or module
+
+
 def _first_doc_line(obj: Any) -> str:
     doc = inspect.getdoc(obj) or ""
     if not doc:
@@ -70,18 +84,12 @@ def _format_annotation(annotation: Any) -> str:
         return "Dict"
 
     if isinstance(annotation, type):
-        module = annotation.__module__
-        qualname = annotation.__qualname__
-        if module in ("builtins",):
-            return qualname
-        return f"{module}.{qualname}"
+        return _canonical_type_name(annotation.__module__, annotation.__qualname__)
 
     module = getattr(annotation, "__module__", "")
     qualname = getattr(annotation, "__qualname__", None) or getattr(annotation, "_name", "")
     if module and qualname:
-        if module == "builtins":
-            return qualname
-        return f"{module}.{qualname}"
+        return _canonical_type_name(module, qualname)
 
     text = str(annotation).replace("typing.", "")
     if text.startswith("<class '") and text.endswith("'>"):

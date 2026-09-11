@@ -54,10 +54,14 @@ API_MD_DRIFT: docs/api.md does not match scripts/generate_api_md.py output
 - `scripts/generate_api_md.py` used `str(inspect.signature(...))` directly.
 - Python **3.12** renders evaluated annotations as `Optional[List[str]]`.
 - Python **3.14** renders the same annotations as `List[str] | None`.
-- `docs/api.md` was generated on 3.14; CI matrix floor (3.12) failed Gate 9 drift checks.
+- **pandas 3.0** resolves `DataFrame`/`Series` as `pandas.DataFrame` instead of
+  `pandas.core.frame.DataFrame`; CI clean installs pull pandas 3.0.5.
+- `docs/api.md` was generated on 3.14 + pandas 2.x; CI failed Gate 9 on 3.12 and on
+  3.14 with current resolver pins.
 
 **Fix direction:** statsmodels signature guard for `verbose`; canonical annotation renderer
-in the API generator; regression gates + release_gate floor cross-check.
+(normalize Optional/Union and pandas public type names); regression gates +
+release_gate floor cross-check.
 
 ## Recovery policy
 

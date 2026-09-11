@@ -105,6 +105,13 @@ class TestApiMdDeterminism:
         rendered = _format_annotation(typing.Optional[typing.List[str]])
         assert rendered == "List[str] | None"
 
+    def test_pandas_types_use_public_names(self):
+        import pandas as pd
+        from scripts.generate_api_md import _format_annotation
+
+        assert _format_annotation(pd.DataFrame) == "pandas.DataFrame"
+        assert _format_annotation(pd.Series) == "pandas.Series"
+
 
 class TestReleaseGateCoverage:
     def test_release_gate_checks_api_md_generator(self):

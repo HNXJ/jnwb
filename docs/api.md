@@ -18,9 +18,9 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.classify_layer_from_depth | function | (peak_channel_id: float, electrodes_df: pandas.core.frame.DataFrame) -> str<br>*Classify unit cortical layer using z depth coordinates.* |
-| jnwb.enrich_units_dataframe | function | (units_df: pandas.core.frame.DataFrame, electrodes_df: pandas.core.frame.DataFrame | None) -> pandas.core.frame.DataFrame<br>*Enrich units DataFrame with standardized area, layer, and quality flags.* |
-| jnwb.map_peak_channel_to_area | function | (peak_channel_id: float, electrodes_df: pandas.core.frame.DataFrame) -> str | None<br>*Map peak channel ID to brain area location.* |
+| jnwb.classify_layer_from_depth | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str<br>*Classify unit cortical layer using z depth coordinates.* |
+| jnwb.enrich_units_dataframe | function | (units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None) -> pandas.DataFrame<br>*Enrich units DataFrame with standardized area, layer, and quality flags.* |
+| jnwb.map_peak_channel_to_area | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None<br>*Map peak channel ID to brain area location.* |
 
 ## Module: jnwb.analyzers
 
@@ -102,15 +102,15 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.assign_quality_tier | function | (quality: pandas.core.series.Series, trial_presence_fraction: pandas.core.series.Series, snr: pandas.core.series.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5) -> pandas.core.series.Series<br>*Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.* |
-| jnwb.audit_electrodes | function | (elec_df: pandas.core.frame.DataFrame, units_df: pandas.core.frame.DataFrame | None = None) -> Dict<br>*Audit electrode configuration and unit-to-electrode mapping coverage.* |
-| jnwb.audit_units | function | (units_df: pandas.core.frame.DataFrame) -> Dict<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
-| jnwb.classify_unit_quality | function | (units_df: pandas.core.frame.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.core.frame.DataFrame<br>*Classify units by quality based on metrics.* |
-| jnwb.electrode_inventory | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.core.frame.DataFrame<br>*Build inventory of electrodes, mapping to units and areas.* |
-| jnwb.filter_by_criteria | function | (df: pandas.core.frame.DataFrame, criteria: Dict, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.core.frame.DataFrame<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
-| jnwb.get_all_units_metadata | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.core.frame.DataFrame<br>*Extract all units and metadata from one or more NWB files.* |
-| jnwb.get_snr_analysis | function | (units_df: pandas.core.frame.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict<br>*Analyze SNR distribution and quality.* |
-| jnwb.unit_census_report | function | (units_df: pandas.core.frame.DataFrame, group_by: List[str] | None = None) -> pandas.core.frame.DataFrame<br>*Generate a census/summary report of units grouped by session/area/layer.* |
+| jnwb.assign_quality_tier | function | (quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5) -> pandas.Series<br>*Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.* |
+| jnwb.audit_electrodes | function | (elec_df: pandas.DataFrame, units_df: pandas.DataFrame | None = None) -> Dict<br>*Audit electrode configuration and unit-to-electrode mapping coverage.* |
+| jnwb.audit_units | function | (units_df: pandas.DataFrame) -> Dict<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
+| jnwb.classify_unit_quality | function | (units_df: pandas.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.DataFrame<br>*Classify units by quality based on metrics.* |
+| jnwb.electrode_inventory | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame<br>*Build inventory of electrodes, mapping to units and areas.* |
+| jnwb.filter_by_criteria | function | (df: pandas.DataFrame, criteria: Dict, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.DataFrame<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
+| jnwb.get_all_units_metadata | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame<br>*Extract all units and metadata from one or more NWB files.* |
+| jnwb.get_snr_analysis | function | (units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict<br>*Analyze SNR distribution and quality.* |
+| jnwb.unit_census_report | function | (units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame<br>*Generate a census/summary report of units grouped by session/area/layer.* |
 
 ## Module: jnwb.onset_fitting
 
@@ -207,8 +207,8 @@ All 111 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_time_resolved_matrix | function | (session, area: str, epochs_df: pandas.core.frame.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
-| jnwb.compute_population_trajectory | function | (session, area: str, epochs_df: pandas.core.frame.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float]<br>*Compute population trajectory using SVD/PCA. Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+| jnwb.build_time_resolved_matrix | function | (session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
+| jnwb.compute_population_trajectory | function | (session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float]<br>*Compute population trajectory using SVD/PCA. Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
 
 ## Module: jnwb.viz
 
