@@ -3,7 +3,7 @@ jnwb.jrsa – Unified Representational Similarity Analysis
 
 Public API: exactly one function.
 
-    >>> import jnwb as oa
+    >>> import jnwb
     >>> result = oa.jrsa(x1, x2, metric="rsa", stats=True)
     >>> result.summary()
     >>> result.plot()
@@ -503,6 +503,18 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
         return x1, x2, aligned_axes
     if align == "none":
         return x1, x2, aligned_axes
+    if align == "dtw":
+        try:
+            import dtw  # noqa: F401 — optional dependency: dtw-python
+        except ImportError as exc:
+            raise ImportError(
+                "jrsa align='dtw' requires the optional 'dtw-python' package; "
+                "install it or choose another align mode (e.g. 'downsample')."
+            ) from exc
+        raise NotImplementedError(
+            "jrsa align='dtw' is reserved for a future DTW alignment path; "
+            "use 'downsample', 'linear', or 'interpolate' today."
+        )
 
     aligned_axes_list = []
     for name, ax in axis_map.items():
@@ -579,10 +591,6 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
                 x2 = _interp_cubic(x2, n2, target, axis)
         except ImportError:
             x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
-    elif align == "dtw":
-        # Fallback to downsample; full DTW requires optional dep
-        warnings.warn("DTW alignment requires the 'dtw-python' package; falling back to downsample.")
-        x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
     return x1, x2
 
 

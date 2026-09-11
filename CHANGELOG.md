@@ -4,7 +4,7 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — 0.1.7
+## [0.1.7] - 2026-09-11
 
 ### Fixed
 
@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `band_power` raises when the requested band has no Welch bins.
 - jRSA CuPy bootstrap CIs seeded from the caller `Generator`.
 - Docs: `band_power` examples, `JRSAResult` fields, AGENTS recipe, MCP pointer.
+
+### Closure (second audit RG)
+
+- `jrsa(align='dtw')` raises when `dtw-python` is absent; no silent downsample fallback.
+- `jnwb-lfp-spectral` skill routes `band_power`, `aggregate_to_db`, and core filters.
+- Removed promotion/subject-ID residue from generic `jnwb/` docstrings and examples.
 
 ## [0.1.6] - 2026-09-10
 

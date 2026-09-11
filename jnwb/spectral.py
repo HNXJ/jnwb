@@ -51,9 +51,7 @@ def _resolve_fs(
 
 def to_db(ratio):
     """``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass
-    through -- average power, divide by baseline, then take the logarithm exactly once. Promoted 2026-08-14 from four identical one-liners in
-    context/figures/ scripts; this enforces the convention in one place instead of by
-    convention alone at 10+ inline ``10*np.log10(...)`` call sites across jnwb and scripts.
+    through — average power, divide by baseline, then take the logarithm exactly once.
     """
     with np.errstate(divide="ignore", invalid="ignore"):
         return 10.0 * np.log10(ratio)
@@ -725,8 +723,8 @@ def imaginary_coherency(
     zero lag, which drives the REAL part of coherency without any true circuit
     interaction. The imaginary part is insensitive to zero-lag mixing by
     construction (a purely zero-lag-mixed pair has Im(Cxy) = 0 at every
-    frequency), so it is the estimator this project's fig06/fig07 volume-
-    conduction control requires -- see context/figures/lfp_lfp_connectivity_supplement/README.md (renamed twice 2026-08-04/05: originally fig06_band_power_coupling, then fig05_lfp_lfp_coupling, now this -- this analysis is its supp_lfp_lfp_coherency.py supplement; fig05 itself is now the area x band GLMM in fig05_v1_area_hierarchy_glmm/).
+    frequency), so it is the preferred estimator when zero-lag volume conduction must be
+    suppressed.
     Callers are responsible for re-referencing (see ``bipolar_reference`` /
     ``laplacian_reference``) before calling this; imaginary coherency controls
     for zero-lag mixing but does not substitute for reducing it upstream.

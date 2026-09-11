@@ -18,8 +18,7 @@ DEFAULT_TAU_MS = 30.0
 def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_TAU_MS) -> np.ndarray:
     r"""Causal (forward-only) exponential-kernel smoothing of an already-binned rate trace.
 
-    Promoted from scripts/archive_oneoff/suite_01_raster_s_om.py::causal_exponential_smoothing
-    -- same kernel construction (finite window of 5*tau_ms, normalized, left-zero-padded
+    Same kernel construction (finite window of 5*tau_ms, normalized, left-zero-padded
     causal convolution), generalized to operate on a pre-binned rate array rather than raw
     spike times.
 

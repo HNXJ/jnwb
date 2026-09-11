@@ -54,7 +54,7 @@ def flagged_to_intervals(flagged, fs, pad_ms=40.0, merge_gap_ms=100.0):
     Belongs to the INTERVAL-INTERPOLATION repair method (``interpolate_intervals`` below),
     NOT the cross-trial-median method (``repair_lfp_trials`` above) -- the two methods are
     deliberately distinct (see module docstring's METHOD section), so this pair is not a
-    replacement for repair_lfp_trials, just its own canonical home. Promoted 2026-08-14 from
+    replacement for repair_lfp_trials, just its own canonical home. Extracted from
     byte-identical copies in ``scripts/repair_lfp_movement_artifacts.py`` and
     ``scripts/check_lfp_movement_artifacts.py`` (the latter's own docstring already flagged
     itself as an intentional, self-acknowledged duplicate: "duplicated here (not imported) to

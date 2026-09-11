@@ -2,10 +2,10 @@
 
 Public entry point: :func:`compress_fp32`.
 
-    import jnwb as oa
-    stats = oa.compress_fp32("path/to/session.nwb")                       # -> alongside, .fp32.nwb
-    stats = oa.compress_fp32(src, dst)                                    # explicit destination
-    stats = oa.compress_fp32(src, dst, verify=False)                      # skip verification
+    import jnwb
+    stats = jnwb.compress_fp32("path/to/session.nwb")                       # -> alongside, .fp32.nwb
+    stats = jnwb.compress_fp32(src, dst)                                    # explicit destination
+    stats = jnwb.compress_fp32(src, dst, verify=False)                      # skip verification
 
 Implements nwb_tfr_storage_spec.md Part 1 -- float64->float32 for LFP/MUAE, chunking,
 gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
@@ -38,12 +38,11 @@ file, where nothing was ever deleted -- the output lands at roughly SOURCE size 
 transformation correctly applied and no visible saving. Measured 64-69% of the pre-compaction
 file is reclaimed this way on real sessions. Compaction is mandatory, not an optimization.
 
-**4. This corpus is not structurally uniform.** Probe count and LFP/MUAE path nesting vary
-INDEPENDENTLY across subjects -- V198o: `probe_N_lfp/data`, 2 probes; V182o:
-`probe_N_lfp/probe_N_lfp_data/data`, 3 probes; C31o: flat paths, 3 probes. Hardcoded paths
-validated on one subject silently matched NOTHING on another, which would have shipped a
-"successful" conversion that never compressed the dominant data type. LFP/MUAE paths are
-DISCOVERED (:func:`_find_lfp_muae_paths`); the spike-train paths remain constants but raise
+**4. Multi-session NWB layouts are not structurally uniform.** Probe count and LFP/MUAE path
+nesting vary independently (flat `probe_N_lfp/data` vs an extra `probe_N_lfp_data` nesting level).
+Hardcoded paths validated on one layout silently matched nothing on another, which would have
+shipped a "successful" conversion that never compressed the dominant data type. LFP/MUAE paths
+are DISCOVERED (:func:`_find_lfp_muae_paths`); spike-train paths remain constants but raise
 loudly if absent rather than skipping silently.
 
 **5. Some sessions already carry `starting_time` alongside a redundant `timestamps` array.**
@@ -76,14 +75,10 @@ import numpy as np
 
 FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 
-# LFP/MUAE paths are DISCOVERED, not hardcoded -- corrected 2026-08-09 after sub-V182o_ses-260724
-# crashed and exposed that this corpus has (at least) three independent structural variants:
-#   V198o: acquisition/probe_N_lfp/data                       (flat, 2 probes)
-#   V182o: acquisition/probe_N_lfp/probe_N_lfp_data/data       (extra nesting, 3 probes)
-#   C31o:  acquisition/probe_N_lfp/data                        (flat, 3 probes)
-# Probe count and nesting convention are INDEPENDENT variables -- neither can be assumed from
-# subject or from another file already checked. The prior hardcoded 4-path tuple (probe_0/1
-# only, flat) silently matched NOTHING on V182o's nested paths: Step 2's `if path not in dst:
+# LFP/MUAE paths are DISCOVERED, not hardcoded -- multi-session audits exposed flat vs nested
+# `probe_N_lfp_data` layouts and varying probe counts. Probe count and nesting are independent
+# variables; neither can be assumed from another file already checked. The prior hardcoded
+# flat-path tuple silently matched NOTHING on nested layouts: Step 2's `if path not in dst:
 # continue` skipped every LFP/MUAE array with no warning, which would have shipped a "successful"
 # conversion that never actually compressed the dominant data type. Caught before it was
 # reported, by noticing the run crashed on an UNRELATED bug (the starting_time collision below)
@@ -111,7 +106,7 @@ def _find_lfp_muae_paths(f: h5py.File) -> list[str]:
 
 SPIKE_TRAIN_PATH = "processing/spike_train/spike_train_data/data"
 CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/data"
-# Verified identical across all 3 subjects checked (V198o, V182o, C31o) unlike LFP/MUAE above,
+# Verified identical across audited multi-session files unlike LFP/MUAE above,
 # so these stay as constants -- but convert() asserts they exist rather than silently skipping,
 # so a fourth session with yet another convention fails LOUDLY instead of repeating the LFP bug.
 
@@ -288,7 +283,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             stats["max_float32_err"] = max(stats["max_float32_err"], max_err[0])
 
         # Distinguish LEGITIMATE ABSENCE from an UNKNOWN CONVENTION -- both look like "expected
-        # path missing", but only one is a bug. Found 2026-08-09 on sub-V182o_ses-260713, whose
+        # path missing", but only one is a bug. Found on a nested-layout session whose
         # `processing/` group is entirely EMPTY: it stores spikes only as units/spike_times
         # (standard NWB ragged arrays), with no dense binned spike_train matrix at all. That is
         # a real structural variant of this corpus, not a path this tool failed to recognize,
@@ -352,7 +347,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
                 stats["timestamps_kept_irregular"].append(ts_path)
                 continue
 
-            # Found 2026-08-09 on sub-V182o_ses-260724: some sessions ALREADY carry a
+            # Some sessions ALREADY carry a
             # starting_time+rate dataset alongside an explicit (redundant) `timestamps` array
             # for the SAME TimeSeries, copied verbatim by Step 1. Creating a new starting_time
             # here collides. Verify the existing one is actually consistent with the timestamps
@@ -444,7 +439,7 @@ def verify_roundtrip(src_path: Path, dst_path: Path, n_check: int = 200_000) -> 
                 rec(f"{grp} timestamps reconstruction max abs err", err < 1e-6, f"{err:.6e}")
 
     # The check v1 lacked: does this actually parse as valid NWB. The bar is "does not parse
-    # WORSE than the source", not "parses cleanly" -- found 2026-08-09 on sub-V182o_ses-260724,
+    # WORSE than the source", not "parses cleanly" -- observed on a large nested-layout session,
     # whose SOURCE file already fails pynwb read (a pre-existing Device.description/manufacturer
     # attrs-stored-as-1-element-arrays defect, confirmed identical byte-for-byte in both files,
     # not introduced by this script). Requiring strict pynwb validity would block forever on any

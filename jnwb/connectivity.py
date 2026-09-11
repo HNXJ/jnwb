@@ -22,12 +22,12 @@ Modality-agnostic directed connectivity (added 2026-08-04)
 traces, binned spike counts, MUAe envelopes, band-power time courses and any
 other regularly sampled series go through identical code:
 
-    >>> import jnwb as oa
-    >>> oa.granger(v1_lfp, pfc_lfp, order='auto')          # (n_trials, n_times)
-    >>> oa.granger_spectral(v1_lfp, pfc_lfp, fs=1000.0)    # Geweke, per band
-    >>> oa.phase_slope_index(v1_lfp, pfc_lfp, fs=1000.0)   # frequency-resolved
-    >>> oa.transfer_entropy(rate_a, rate_b, n_surrogates=200)
-    >>> oa.bin_spikes(spike_times, (-0.5, 1.0), 10.0)      # spikes -> (trials, bins)
+    >>> import jnwb
+    >>> jnwb.granger(v1_lfp, pfc_lfp, order='auto')          # (n_trials, n_times)
+    >>> jnwb.granger_spectral(v1_lfp, pfc_lfp, fs=1000.0)    # Geweke, per band
+    >>> jnwb.phase_slope_index(v1_lfp, pfc_lfp, fs=1000.0)   # frequency-resolved
+    >>> jnwb.transfer_entropy(rate_a, rate_b, n_surrogates=200)
+    >>> jnwb.bin_spikes(spike_times, (-0.5, 1.0), 10.0)      # spikes -> (trials, bins)
 
 Sign convention is uniform: ``x_to_y`` is X -> Y (X leads / X predicts Y).
 

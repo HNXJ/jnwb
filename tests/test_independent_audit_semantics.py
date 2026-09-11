@@ -216,6 +216,15 @@ class TestFinalAuditRecurrence:
             jnwb.band_power(sig, fs=1000.0, freq_range=(600.0, 700.0), normalize=False)
 
 
+class TestJrsaDtwAlignContract:
+    def test_dtw_align_fails_loudly(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=(3, 40))
+        y = rng.normal(size=(3, 40))
+        with pytest.raises((ImportError, NotImplementedError), match="dtw"):
+            jnwb.jrsa(x, y, metric="pearson", align="dtw", stats=False)
+
+
 class TestGrangerCausalityDeprecation:
     def test_granger_causality_emits_deprecation_warning(self):
         rng = np.random.default_rng(0)

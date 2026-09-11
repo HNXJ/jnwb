@@ -237,8 +237,8 @@ def enrich_units_dataframe(units_df: pd.DataFrame, electrodes_df: Optional[pd.Da
             df['stable_plus'] = False
 
     # Force conversion of core types. snr/unit_id are stored as dtype=str
-    # (object) on some sessions (e.g. C31o) but float64 on others (e.g.
-    # V182o) - the same cross-session inconsistency already worked around
+    # (object) on some sessions but float64 on others — the same cross-session dtype
+    # inconsistency already worked around
     # for snr in scripts/filter_units.py. unit_id is used as an identity
     # key for equality/isin comparisons throughout the codebase (session.py
     # get_spike_times, factories.py dataset_from_session, etc.) - an

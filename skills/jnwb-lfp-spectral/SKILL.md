@@ -11,6 +11,10 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 
 ## 2. Task-to-Primitive Routing Matrix
 - `jnwb.complex_tfr(data, fs, freqs, n_cycles)`: Complex Morlet wavelet transform returning `ComplexTFR` with `z`, `freqs`, `times`, and `coi_mask`.
+- `jnwb.band_power(lfp_trace, fs, freq_range, normalize=False, baseline=None)`: Scalar Welch band power; set `normalize=False` for linear power or pass `baseline` for dB.
+- `jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)`: Decibels last — ratio aggregate then `10·log10` once.
+- `jnwb.bandpass_filter(data, fs, low_cut, high_cut)`: Zero-phase Butterworth bandpass.
+- `jnwb.notch_filter(data, fs, freq=60.0, q=30.0)`: IIR notch for line noise.
 - `jnwb.TFRAccumulator(shape)`: Welford running variance accumulator for streaming multi-trial TFR without storing full $N \times C \times F \times T$ arrays in memory.
 - `jnwb.repair_lfp_trials(segments, times_ms, z_thresh=6.0)`: Cross-channel synchrony detection ($z > 6.0$) and cross-trial median substitution.
 - `jnwb.repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=6.0, sided="upper")`: TFR-domain outlier detection and interpolation.
