@@ -136,7 +136,7 @@ unpushed. Do not cross a version boundary before sealing it.
 | Command | Asserts | A pass means |
 |---|---|---|
 | `python -m pytest tests/ -q` | The full suite | Every test passed on the interpreter you ran |
-| `python scripts/harness_gate.py` | Gates 1–12, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing, forbidden study tokens in Gate 6 scan surface |
+| `python scripts/harness_gate.py` | Gates 1–13, in order | Boundary, skills, paths, root, docs, API set, versions, Python policy, import shadowing, forbidden study tokens in Gate 6 scan surface, NWB onboarding alignment |
 | `python scripts/release_gate.py` | Release readiness | Run before tagging |
 | `mkdocs build --strict` | Docs build | RTD sets `fail_on_warning`, so a warning here is a failed publish |
 
