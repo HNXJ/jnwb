@@ -1,0 +1,8 @@
+prune tests
+prune scripts
+prune artifacts
+prune omission
+prune site
+prune _build
+global-exclude *.pyc
+global-exclude __pycache__

@@ -15,4 +15,4 @@ python scripts/release_gate.py   # before tagging only
 
 Keep `jnwb/` generic and dataset-agnostic. Experiment-specific condition codes, session layouts, and findings belong in a **downstream project package** that imports `jnwb`, not inside the library tree.
 
-For MCP inspection tools (`jnwb.mcp_server`), see the appendix in [11. Extending and development](11_extending_and_development.md).
+For MCP inspection tools, run `python -m jnwb.mcp_server` and see `jnwb.mcp_server.__all__` for registered tools.

@@ -194,8 +194,13 @@ fit = jnwb.fit_exponential_onset(t_ms, smooth, t0_bounds=(0.0, 250.0))   # dict
 
 # LFP: complex TFR (mask edges with tfr.coi_mask), band power, decibels last
 tfr = jnwb.complex_tfr(lfp, fs=1000.0, freqs=np.linspace(10, 40, 4))
-beta = jnwb.band_power(lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["beta"])
-db = jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)
+beta_raw = jnwb.band_power(
+    lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False,
+)
+baseline_raw = jnwb.band_power(
+    baseline_lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False,
+)
+db = jnwb.aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)
 
 # Bad channels from inter-channel correlation (channels x time)
 bad, summary, z = jnwb.bad_channels_from_correlation(jnwb.channel_correlation_matrix(lfp_ch), z_thresh=5.0)

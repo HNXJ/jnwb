@@ -35,7 +35,9 @@ freqs, psd = jnwb.compute_psd(lfp_trace, fs=1000.0)
 freqs_mt, psd_mt = jnwb.compute_multitaper_psd(lfp_trace, fs=1000.0, nw=3.0, k_tapers=5)
 
 # Extract scalar mean power in a specific frequency range (e.g. beta: 14-30 Hz)
-beta_power_val = jnwb.band_power(lfp_trace, fs=1000.0, freq_range=(14.0, 30.0))
+beta_power_val = jnwb.band_power(
+    lfp_trace, fs=1000.0, freq_range=(14.0, 30.0), normalize=False,
+)
 ```
 
 ### Decibel Formation (`aggregate_to_db`, `to_db`, `DB_AGGREGATIONS`)

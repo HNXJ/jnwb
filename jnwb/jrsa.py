@@ -804,8 +804,10 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=-1, **kwargs):
         boot_vals = []
         x2_work = x2 if x2 is not None else x1
         n = x1.shape[axis]
-        for _ in range(n_boot):
-            idx = cp.random.randint(0, n, size=n)
+        seeds = rng.integers(0, 2**31 - 1, size=n_boot)
+        for seed in seeds:
+            local_rng = np.random.default_rng(int(seed))
+            idx = cp.asarray(local_rng.integers(0, n, size=n))
             x1_b = cp.take(x1, idx, axis=axis)
             x2_b = cp.take(x2_work, idx, axis=axis)
             v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)

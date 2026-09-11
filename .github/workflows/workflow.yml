@@ -86,7 +86,10 @@ jobs:
         run: |
           python -c "
           import zipfile, tarfile, pathlib, sys
-          forbidden = ['omission', '_unused', '.lab', 'outputs', 'artifacts', '.git', '__pycache__']
+          forbidden = [
+            'omission', '_unused', '.lab', 'outputs', 'artifacts', '.git', '__pycache__',
+            '/tests/', '/scripts/',
+          ]
           whl = list(pathlib.Path('dist').glob('*.whl'))[0]
           with zipfile.ZipFile(whl, 'r') as z:
               for f in forbidden:

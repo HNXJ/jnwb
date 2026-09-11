@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - jRSA metrics renamed to exact estimands: `granger_ssr_ftest`,
   `transfer_entropy_histogram_nats` (legacy names raise with migration hint).
 - `granger_causality` deprecated; canonical estimator is `granger` → `DirectedResult`.
+- Sdist excludes `tests/` and `scripts/` via `MANIFEST.in`; release/CI forbidden-manifest
+  checks enforce the same policy.
+
+### Fixed (final independent audit)
+
+- `granger` VAR order guard accepts `n_obs > n_params` (not `n_obs > n_params + 1`).
+- `fit_var_bivariate` / deprecated `granger_causality` raise on undersampled series.
+- `UnitAnalyzer.psth` bin grid matches `bin_spikes` (`round` convention).
+- `compare_groups(paired=True)` requires at least two pairs.
+- `spike_mutual_information` raises on empty spike trains.
+- `band_power` raises when the requested band has no Welch bins.
+- jRSA CuPy bootstrap CIs seeded from the caller `Generator`.
+- Docs: `band_power` examples, `JRSAResult` fields, AGENTS recipe, MCP pointer.
 
 ## [0.1.6] - 2026-09-10
 

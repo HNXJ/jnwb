@@ -35,7 +35,9 @@ time = np.arange(1000) / fs
 signal = np.sin(2 * np.pi * 20.0 * time) + 0.5 * rng.normal(size=1000)
 
 freqs, psd = jnwb.compute_psd(signal, fs=fs)
-beta_power = jnwb.band_power(signal, fs=fs, freq_range=(14.0, 30.0))
+beta_power = jnwb.band_power(
+    signal, fs=fs, freq_range=(14.0, 30.0), normalize=False,
+)
 print(f"Beta band power: {beta_power:.4f}")
 ```
 

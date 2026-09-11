@@ -505,6 +505,11 @@ class StatisticalAnalysis:
                     "compare_groups(paired=True) requires equal group lengths after NaN "
                     f"exclusion; got n1={len(valid1)}, n2={len(valid2)}"
                 )
+            if len(valid1) < 2:
+                raise ValueError(
+                    "compare_groups(paired=True) requires at least two paired observations "
+                    f"after NaN exclusion; got n={len(valid1)}"
+                )
             t_stat, t_pval = stats.ttest_rel(valid1, valid2)
             w_stat, w_pval = stats.wilcoxon(valid1, valid2)
             df = len(valid1) - 1

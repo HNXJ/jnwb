@@ -65,7 +65,10 @@ def main() -> None:
         log.info(f"Produced sdist: {sdist.name} ({sdist.stat().st_size:,} bytes)")
 
         log.info("=== STEP 4: Inspecting archive manifests ===")
-        forbidden = ["omission", "_unused", ".lab", "outputs", "artifacts", ".git", "__pycache__"]
+        forbidden = [
+            "omission", "_unused", ".lab", "outputs", "artifacts", ".git", "__pycache__",
+            "/tests/", "/scripts/",
+        ]
         
         with zipfile.ZipFile(whl, "r") as z:
             whl_files = z.namelist()

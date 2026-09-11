@@ -176,6 +176,46 @@ class TestTransferEntropySymbolicMetadata:
         assert res.n_times == 50 - 3 + 1
 
 
+class TestFinalAuditRecurrence:
+    def test_granger_accepts_minimal_dof_order(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=20)
+        y = rng.normal(size=20)
+        res = jnwb.granger(x[None, :], y[None, :], order=6, n_surrogates=0, detrend=None)
+        assert res.params["order_x_to_y"] == 6
+
+    def test_granger_causality_undersampled_raises(self):
+        x = np.random.default_rng(0).normal(size=8)
+        y = np.random.default_rng(1).normal(size=8)
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match="fit_var_bivariate"):
+                jnwb.granger_causality(x, y, order=5)
+
+    def test_psth_bins_match_bin_spikes(self):
+        from jnwb.analyzers import UnitAnalyzer
+        from jnwb.connectivity import bin_spikes
+
+        st = np.sort(np.random.default_rng(0).uniform(0, 0.6, 50))
+        psth = UnitAnalyzer.psth(
+            st, trial_onsets=np.array([0.3]), window_ms=(-100, 500), bin_size_ms=7,
+        )
+        bs = bin_spikes(st, window=(-0.1, 0.5), bin_size_ms=7)
+        assert len(psth["psth"]) == bs.shape[-1]
+
+    def test_compare_groups_paired_single_pair_raises(self):
+        with pytest.raises(ValueError, match="at least two paired"):
+            StatisticalAnalysis.compare_groups([5.0], [7.0], paired=True)
+
+    def test_spike_mutual_information_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            jnwb.spike_mutual_information([], [0.1], (0.0, 1.0))
+
+    def test_band_power_empty_freq_range_raises(self):
+        sig = np.random.randn(1000)
+        with pytest.raises(ValueError, match="no Welch bins"):
+            jnwb.band_power(sig, fs=1000.0, freq_range=(600.0, 700.0), normalize=False)
+
+
 class TestGrangerCausalityDeprecation:
     def test_granger_causality_emits_deprecation_warning(self):
         rng = np.random.default_rng(0)

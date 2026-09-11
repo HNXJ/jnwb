@@ -11,9 +11,9 @@ Mechanically enforces repository controls:
   7. Package & metadata version synchronization.
   8. Python floor consistency: declared support, classifiers, and CI matrix agree.
   9. Runtime-generated API reference matches jnwb.__all__.
-  10. README smoke import path.
-  11. Documentation internal link integrity.
-  12. Adversarial API drift guard.
+  10. Documentation version provenance.
+  11. Import shadowing at repository root.
+  12. Project identifiers in jnwb/ code strings.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -195,13 +195,14 @@ SOURCE_ROOT_DIRS = {
 EPHEMERAL_ROOT_DIRS = {
     ".git", ".venv", "venv", "env", ".pytest_cache", ".mypy_cache", ".ruff_cache",
     "dist", "build", "_build", "site", "jnwb.egg-info", ".tox", ".lab_bundle_build",
-    "_audit_dist", "_audit_dist2",
+    "_audit_dist", "_audit_dist2", "_audit_dist_build",
 }
 
 ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
-    "CONTRIBUTING.md", "LICENSE", "pyproject.toml", "README.md", ".coverage", "mkdocs.yml"
+    "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
+    ".coverage", "mkdocs.yml",
 }
 
 

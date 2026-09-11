@@ -57,11 +57,11 @@ fig = result.plot()
 ### The `JRSAResult` Container Class
 
 `jnwb.JRSAResult` encapsulates:
-- `result.similarity`: Scalar or array of estimated similarities.
-- `result.pval`: Resampling p-value.
-- `result.ci`: Bootstrap confidence intervals (lower, upper).
-- `result.rdm`: Full condition dissimilarity matrix when applicable.
-- `result.null_distribution`: Array of surrogate permutation values.
+- `result.value`: Scalar or array of estimated similarities.
+- `result.p`: Resampling p-value (when `stats=True`).
+- `result.ci`: Bootstrap confidence intervals `(lower, upper)` when requested.
+- `result.statistic`: Test statistic accompanying `p` when applicable.
+- `result.null_distribution`: Array of surrogate permutation values when computed.
 
 ---
 

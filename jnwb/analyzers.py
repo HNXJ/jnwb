@@ -341,7 +341,7 @@ class UnitAnalyzer:
         """
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
-        n_bins   = int((win_sec[1] - win_sec[0]) / bin_sec)
+        n_bins   = int(round((win_sec[1] - win_sec[0]) / bin_sec))
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
         trial_psths = []

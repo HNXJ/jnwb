@@ -107,7 +107,9 @@ def spike_mutual_information(
         )
 
     if len(spike_times1) == 0 or len(spike_times2) == 0:
-        return 0.0
+        raise ValueError(
+            "spike_mutual_information requires non-empty spike_times1 and spike_times2"
+        )
 
     bins1 = bin_spikes(spike_times1, window=time_window, bin_size_ms=bin_size_ms)
     n_bins = bins1.shape[-1]
@@ -204,9 +206,9 @@ def fit_var_bivariate(
             y_gpu = cp.asarray(y)
             n = len(x_gpu)
             if n <= order * 2 + 1:
-                if return_residuals:
-                    return 1.0, 1.0, np.array([]), np.array([])
-                return 1.0, 1.0
+                raise ValueError(
+                    f"fit_var_bivariate requires n > 2*order+1; got n={n}, order={order}"
+                )
 
             target = x_gpu[order:]
             n_samples = len(target)
@@ -249,9 +251,9 @@ def fit_var_bivariate(
     # CPU implementation
     n = len(x)
     if n <= order * 2 + 1:
-        if return_residuals:
-            return 1.0, 1.0, np.array([]), np.array([])
-        return 1.0, 1.0
+        raise ValueError(
+            f"fit_var_bivariate requires n > 2*order+1; got n={n}, order={order}"
+        )
 
     target = x[order:]
     n_samples = len(target)
@@ -947,7 +949,7 @@ def granger(
         d_r, yy = _stack_var_design(tgt, restricted_sources, p)
         d_u, _ = _stack_var_design(tgt, unrestricted_sources, p)
         n_obs = d_u.shape[0]
-        if n_obs <= d_u.shape[1] + 1:
+        if n_obs <= d_u.shape[1]:
             raise ValueError(
                 f"order={p} leaves {n_obs} observations for {d_u.shape[1]} parameters; "
                 "lower the order or supply more trials/samples"
@@ -983,7 +985,7 @@ def granger(
         n_src = 2 + len(z_list)
         for p in range(1, cap + 1):
             d_u, yy = _stack_var_design(tgt, [tgt, src] + z_list, p)
-            if d_u.shape[0] <= d_u.shape[1] + 1:
+            if d_u.shape[0] <= d_u.shape[1]:
                 break
             rss_u, _ = _ols_rss(d_u, yy, ridge)
             n_obs = d_u.shape[0]

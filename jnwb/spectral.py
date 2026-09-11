@@ -670,7 +670,12 @@ def band_power(
 
     # Extract band
     mask = (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
-    band_power_val = np.mean(pxx[mask]) if np.any(mask) else 0.0
+    if not np.any(mask):
+        raise ValueError(
+            f"band_power found no Welch bins in freq_range={freq_range}; "
+            f"grid spans [{frequencies[0]:.4g}, {frequencies[-1]:.4g}] Hz"
+        )
+    band_power_val = float(np.mean(pxx[mask]))
 
     if normalize and (baseline is None or len(baseline) == 0):
         raise ValueError(
