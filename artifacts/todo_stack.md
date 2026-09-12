@@ -1,6 +1,5 @@
 # 0.2.0
 
-- 0.2.0-03: Resolve REPO_ROOT for 0.2 API. Inspect exports and call sites; if removal commitment is authoritative, remove REPO_ROOT, preserve PACKAGE_ROOT, test absence/presence, remove stale docs/skill references, verify no internal dependency remains.
 - 0.2.0-04: Eliminate unsafe layer classifier behavior (classify_layer_from_depth). Review call sites and choose between (A) explicit units + defined threshold semantics or (B) deprecate/remove in favor of forthcoming laminar API; no heuristic unit guessing; test mm, um, boundary, unsupported, NaN/Inf, implausible coordinates, and constant-label regression.
 - 0.2.0-05: Existing-code silent-science audit. Exhaustive inventory of except Exception, bare pass, fallback estimator substitution, synthetic/fabricated empirical values, global RNG mutation, salted hash() seeds, hidden fixed seeds, silent empty selections, hardcoded empirical outputs, implicit unit/axis assumptions, log/aggregation-order ambiguity, project identifiers/defaults/paths, missing-data -> valid-looking empty output, API/docs disagreement; classify each hit as safe/justified, defect, or unknown.
 - 0.2.0-06: Package-boundary audit. Mechanically inspect code, tests, docs, examples, skills, and agents for downstream leakage; verify strict editable-install behavior and wheel contents independently (no shadow packages at root).
