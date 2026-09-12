@@ -1,4 +1,8 @@
 
+# 0.1.8
+
+- CI full-test environment lacks documentation dependencies required by `test_mkdocs_strict_build`. Repair CI install command to `pip install -e ".[test,docs]"`, verify test suite dependencies, add deterministic workflow-policy test preventing recurrence, and re-verify full suite, gates, docs, release gate, and remote CI.
+
 # Before 1.0
 
 - Replace example-based estimator coverage with analytic/property-based tests.

@@ -126,3 +126,21 @@ class TestReleaseGateCoverage:
         text = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
         assert "generate_api_md.py" in text
         assert "--check" in text
+
+    def test_ci_matrix_installs_docs_dependencies(self):
+        """Mechanically enforce invariant:
+        environment runs full tests => environment contains dependencies of full tests.
+        Since test_docs_nwb_workflow.py runs test_mkdocs_strict_build in the full test suite,
+        the CI test matrix must install the [test,docs] extras.
+        """
+        import yaml
+
+        wf_path = REPO_ROOT / ".github" / "workflows" / "workflow.yml"
+        wf_data = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+        test_job = wf_data["jobs"]["test"]
+        install_steps = [
+            s for s in test_job["steps"] if s.get("name") == "Install dependencies"
+        ]
+        assert len(install_steps) == 1
+        install_run = install_steps[0].get("run", "")
+        assert 'pip install ".[test,docs]"' in install_run or ".[test,docs]" in install_run
