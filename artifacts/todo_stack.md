@@ -1,6 +1,5 @@
 # 0.2.0
 
-- 0.2.0-01: Reconstruct live authority. Inspect and record branch, HEAD, git status, origin/dev, package version, jnwb.__file__, local Python, requires-python, classifiers, CI matrix, dependencies, public exports, configured gates, skills, agents, todo_stack. Reconcile known discrepancy where previous todo said CI lacks docs dependencies while snapshot already installs .[test,docs]. Produce single baseline receipt.
 - 0.2.0-02: Re-resolve inherited issues. Check JNWB-001 through JNWB-008 against live code and tests (001-007 remain CLOSED unless contradicted; 008 OPEN if unit-unsafe layer classification and missing laminar capability reproduce; retain R01 and R02 as closed unless contradicted).
 - 0.2.0-03: Resolve REPO_ROOT for 0.2 API. Inspect exports and call sites; if removal commitment is authoritative, remove REPO_ROOT, preserve PACKAGE_ROOT, test absence/presence, remove stale docs/skill references, verify no internal dependency remains.
 - 0.2.0-04: Eliminate unsafe layer classifier behavior (classify_layer_from_depth). Review call sites and choose between (A) explicit units + defined threshold semantics or (B) deprecate/remove in favor of forthcoming laminar API; no heuristic unit guessing; test mm, um, boundary, unsupported, NaN/Inf, implausible coordinates, and constant-label regression.
