@@ -97,9 +97,9 @@ class TestEpochContinuous:
     def test_boundary_policy_drop(self):
         fs = 1000.0
         data = np.ones(2000, dtype=np.float64)
-        # First onset out of bounds, second onset in bounds
-        onsets = [0.02, 1.0]
-        epochs, _ = epoch_continuous(
+        # Onsets: 0.02 (out of bounds start -30), 1.0 (valid 950:1050), 1.98 (out of bounds end 2030)
+        onsets = [0.02, 1.0, 1.98]
+        epochs, t_axis = epoch_continuous(
             data,
             onsets=onsets,
             win_s=(-0.05, 0.05),
@@ -109,12 +109,69 @@ class TestEpochContinuous:
         assert epochs.shape == (1, 100)
         assert np.all(epochs[0] == 1.0)
 
+        # Test with return_indices=True
+        epochs_ret, t_axis_ret, retained_idx = epoch_continuous(
+            data,
+            onsets=onsets,
+            win_s=(-0.05, 0.05),
+            fs=fs,
+            boundary_policy="drop",
+            return_indices=True,
+        )
+        assert epochs_ret.shape == (1, 100)
+        assert np.array_equal(retained_idx, [1])
+        np.testing.assert_allclose(epochs_ret, epochs)
+
+    def test_rounding_and_negative_windows(self):
+        fs = 1000.0
+        # Check negative window: baseline before event (-0.3 to -0.1 s -> -300 to -100 samples)
+        data = np.arange(1000, dtype=np.float64)
+        epochs, t_axis = epoch_continuous(
+            data,
+            onsets=[0.5],
+            win_s=(-0.3, -0.1),
+            fs=fs,
+        )
+        assert epochs.shape == (1, 200)
+        assert t_axis.shape == (200,)
+        np.testing.assert_allclose(t_axis[0], -0.3)
+        np.testing.assert_allclose(t_axis[-1], -0.1 - 1.0 / fs)
+        # Center is at sample 500. Window [-300, -100) relative to center -> [200, 400)
+        np.testing.assert_array_equal(epochs[0], data[200:400])
+
+        # Test IEEE 754 round-half-to-even (banker's rounding) contract
+        # fs = 10.0 -> 0.25 * 10 = 2.5 -> rounds to 2 (even)
+        #            0.35 * 10 = 3.5 -> rounds to 4 (even)
+        #            0.15 * 10 = 1.5 -> rounds to 2 (even)
+        fs_sub = 10.0
+        data_sub = np.arange(100, dtype=np.float64)
+        epochs_sub, _ = epoch_continuous(
+            data_sub,
+            onsets=[0.15, 0.25, 0.35],
+            win_s=(0.0, 0.2),  # 2 samples
+            fs=fs_sub,
+        )
+        # Center indices:
+        # 0.15 * 10 = 1.5 -> round to even: 2 -> slice [2:4] -> [2.0, 3.0]
+        # 0.25 * 10 = 2.5 -> round to even: 2 -> slice [2:4] -> [2.0, 3.0]
+        # 0.35 * 10 = 3.5 -> round to even: 4 -> slice [4:6] -> [4.0, 5.0]
+        np.testing.assert_array_equal(epochs_sub[0], [2.0, 3.0])
+        np.testing.assert_array_equal(epochs_sub[1], [2.0, 3.0])
+        np.testing.assert_array_equal(epochs_sub[2], [4.0, 5.0])
+
     def test_empty_onsets(self):
         fs = 1000.0
         data_1d = np.ones(500)
         epochs_1d, t_axis = epoch_continuous(data_1d, [], win_s=(-0.1, 0.2), fs=fs)
         assert epochs_1d.shape == (0, 300)
         assert t_axis.shape == (300,)
+
+        # With return_indices=True
+        epochs_ret, t_axis_ret, ret_idx = epoch_continuous(
+            data_1d, [], win_s=(-0.1, 0.2), fs=fs, return_indices=True
+        )
+        assert epochs_ret.shape == (0, 300)
+        assert ret_idx.shape == (0,)
 
         data_2d = np.ones((500, 4))
         epochs_2d, _ = epoch_continuous(data_2d, [], win_s=(-0.1, 0.2), fs=fs)

@@ -77,7 +77,7 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.epoch_continuous | function | (data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', win_s: 'tuple[float, float]', fs: 'float', onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan') -> 'tuple[np.ndarray, np.ndarray]'<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
+| jnwb.epoch_continuous | function | (data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', win_s: 'tuple[float, float]', fs: 'float', onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan', return_indices: 'bool' = False) -> 'tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]'<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
 
 ## Module: jnwb.decoding
 

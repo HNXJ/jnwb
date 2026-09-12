@@ -326,7 +326,7 @@ def acquisition_channel(
     name: str | None = None,
     channel: int = 0,
 ) -> tuple[np.ndarray, float]:
-    """Return one continuous acquisition channel and its sampling rate in Hz.
+    r"""Return one continuous acquisition channel and its sampling rate in Hz.
 
     Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and
     ``LFP`` containers with nested electrical series from both
@@ -346,8 +346,10 @@ def acquisition_channel(
     Returns
     -------
     data:
-        1D ``float64`` array of physically scaled samples (scaled by
-        ``conversion`` and ``offset`` if present on the series).
+        1D ``float64`` array of physically scaled samples according to the NWB
+        specification (:math:`x_{\mathrm{physical}} = \mathrm{conversion} \cdot x_{\mathrm{stored}} + \mathrm{offset}`).
+        Units match the series ``unit`` attribute (typically ``"volts"`` for
+        :class:`~pynwb.ecephys.ElectricalSeries`).
     rate_hz:
         Sampling rate in Hz.
     """

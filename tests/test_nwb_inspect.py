@@ -208,12 +208,12 @@ class TestNWBReadHelpers:
         eg = nwb.create_electrode_group(name="eg0", description="", location="loc", device=dev)
         nwb.add_electrode(x=0.0, y=0.0, z=0.0, imp=1.0, location="loc", filtering="none", group=eg)
         region = nwb.create_electrode_table_region(region=[0], description="e0")
-        raw = np.array([[100.0], [200.0], [300.0]], dtype=np.float32)
-        conversion = 0.001
-        offset = 0.5
+        raw_int = np.array([[1000], [-500], [0]], dtype=np.int16)
+        conversion = 0.00005
+        offset = -0.01
         es = pynwb.ecephys.ElectricalSeries(
             name="calibrated_lfp",
-            data=raw,
+            data=raw_int,
             electrodes=region,
             rate=1000.0,
             starting_time=0.0,
@@ -224,7 +224,20 @@ class TestNWBReadHelpers:
         with NWBHDF5IO(str(path), "w") as io:
             io.write(nwb)
 
+        # Confirm PyNWB raw storage semantics
+        with NWBHDF5IO(str(path), "r") as io:
+            read_nwb = io.read()
+            s = read_nwb.acquisition["calibrated_lfp"]
+            assert s.unit == "volts"
+            assert s.conversion == conversion
+            assert s.offset == offset
+            # s.data[:] returns raw stored integers, NOT scaled physical values
+            np.testing.assert_array_equal(s.data[:], raw_int)
+
+        # Confirm jnwb applies physical scaling exactly once
         data, fs = acquisition_channel(path, channel=0)
-        expected = raw[:, 0] * conversion + offset
+        assert data.dtype == np.float64
+        expected = raw_int[:, 0].astype(np.float64) * conversion + offset
         np.testing.assert_allclose(data, expected)
+        assert fs == 1000.0
 
