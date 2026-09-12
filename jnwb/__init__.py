@@ -43,6 +43,7 @@ from .compression import compress_fp32
 from .nwb_inspect import (
     AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
+    ChannelIndexError,
     UnitNotFoundError,
     acquisition_channel,
     inspect,
@@ -59,6 +60,7 @@ from .nwb_events import (
     events,
     resolve_interval_table,
 )
+from .continuous import epoch_continuous
 from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
@@ -187,6 +189,7 @@ __all__ = [
     'resolve_acquisition',
     'AmbiguousAcquisitionError',
     'AcquisitionNotFoundError',
+    'ChannelIndexError',
     'UnitNotFoundError',
     'events',
     'event_onsets',
@@ -196,6 +199,7 @@ __all__ = [
     'IntervalTableNotFoundError',
     'ColumnNotFoundError',
     'InvalidOnsetValueError',
+    'epoch_continuous',
 
     # Addressing
     'map_peak_channel_to_area',

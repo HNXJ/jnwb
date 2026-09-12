@@ -25,6 +25,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "artifact_repair": "public",
     "compression": "public",
     "connectivity": "public",
+    "continuous": "public",
     "decoding": "public",
     "filtering": "public",
     "jrsa": "public",

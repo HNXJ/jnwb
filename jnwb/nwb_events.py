@@ -52,7 +52,7 @@ class EventTable:
 
     table: str
     path: str
-    code_column: str
+    code_column: str | None
     onset_column: str
     time_unit: str
     codes: tuple[Any, ...]
@@ -164,34 +164,41 @@ def _extract_onsets(
     df: pd.DataFrame,
     *,
     codes: CodeSequence | None,
-    code_column: str,
+    code_column: str | None,
     onset_column: str,
 ) -> tuple[np.ndarray, tuple[Any, ...], np.ndarray | None]:
-    if code_column not in df.columns:
-        raise ColumnNotFoundError(
-            f"Code column '{code_column}' not found. Columns: {list(df.columns)}"
-        )
     if onset_column not in df.columns:
         raise ColumnNotFoundError(
             f"Onset column '{onset_column}' not found. Columns: {list(df.columns)}"
         )
 
     wanted = _as_code_sequence(codes)
-    if wanted is not None and len(wanted) == 0:
-        return (
-            np.asarray([], dtype=np.float64),
-            tuple(),
-            np.asarray([], dtype=np.float64) if "stop_time" in df.columns else None,
+    if wanted is not None:
+        if code_column is None or code_column not in df.columns:
+            raise ColumnNotFoundError(
+                f"Code column '{code_column}' not found. Columns: {list(df.columns)}"
+            )
+        if len(wanted) == 0:
+            return (
+                np.asarray([], dtype=np.float64),
+                tuple(),
+                np.asarray([], dtype=np.float64) if "stop_time" in df.columns else None,
+            )
+    elif code_column is not None and code_column != "codes" and code_column not in df.columns:
+        raise ColumnNotFoundError(
+            f"Code column '{code_column}' not found. Columns: {list(df.columns)}"
         )
 
+    has_code_col = code_column is not None and code_column in df.columns
     selected_codes: list[Any] = []
     selected_onsets: list[float] = []
     selected_stops: list[float] = []
     has_stop = "stop_time" in df.columns
 
     for row_idx, row in df.iterrows():
-        if not _row_matches_codes(row[code_column], wanted):
-            continue
+        if wanted is not None:
+            if not _row_matches_codes(row[code_column], wanted):
+                continue
         onset_raw = row[onset_column]
         if pd.isna(onset_raw):
             raise InvalidOnsetValueError(
@@ -202,7 +209,8 @@ def _extract_onsets(
             raise InvalidOnsetValueError(
                 f"Non-finite onset in column '{onset_column}' at table row {row_idx}: {onset_raw}"
             )
-        selected_codes.append(_normalize_cell_code(row[code_column]))
+        if has_code_col:
+            selected_codes.append(_normalize_cell_code(row[code_column]))
         selected_onsets.append(onset)
         if has_stop:
             stop_raw = row["stop_time"]
@@ -224,7 +232,7 @@ def events(
     path_or_nwb: NWBInput,
     *,
     table: str | None = None,
-    code_column: str = "codes",
+    code_column: str | None = "codes",
     onset_column: str = "start_time",
 ) -> EventTable:
     """Read event codes and onset timestamps from one interval table.
@@ -238,8 +246,9 @@ def events(
         (``/intervals/test_synth_task``). When omitted, :func:`resolve_interval_table`
         applies the ``trials`` → sole-table → ambiguity rules.
     code_column:
-        Column holding event codes. Defaults to ``codes`` because that is the
-        primary supported corpus pattern; pass another name explicitly when needed.
+        Column holding event codes. Defaults to ``codes``. When ``codes`` is
+        not present in the table and no filtering is requested, onsets are
+        returned without error and ``EventTable.code_column`` is set to ``None``.
     onset_column:
         Timestamp column for event alignment. Defaults to ``start_time``.
 
@@ -250,16 +259,21 @@ def events(
     """
     def _build(nwb: NWBFile) -> EventTable:
         name, df = _read_interval_dataframe(nwb, table)
+        active_code_col = (
+            code_column
+            if (code_column is not None and code_column in df.columns)
+            else None
+        )
         onsets, codes_out, stops = _extract_onsets(
             df,
             codes=None,
-            code_column=code_column,
+            code_column=active_code_col,
             onset_column=onset_column,
         )
         return EventTable(
             table=name,
             path=f"/intervals/{name}",
-            code_column=code_column,
+            code_column=active_code_col,
             onset_column=onset_column,
             time_unit="seconds",
             codes=codes_out,
@@ -275,7 +289,7 @@ def event_onsets(
     *,
     table: str | None = None,
     codes: CodeSequence | None = None,
-    code_column: str = "codes",
+    code_column: str | None = "codes",
     onset_column: str = "start_time",
 ) -> np.ndarray:
     """Return onset timestamps (seconds) for rows matching ``codes``.
@@ -288,7 +302,8 @@ def event_onsets(
         Interval table selection; see :func:`events`.
     codes:
         One code or a sequence of codes. Matching preserves table order and
-        duplicate rows. When omitted, all rows are returned. When provided but
+        duplicate rows. When omitted (``codes=None``), all rows are returned
+        without requiring ``code_column`` to exist. When provided but
         nothing matches, returns an empty array (valid empty selection).
     code_column, onset_column:
         See :func:`events`.

@@ -4,6 +4,28 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-09-12
+
+### Added
+
+- `epoch_continuous`: Generic continuous event epoching primitive with explicit time axis,
+  `fs`, window bounds (`win_s`), onset units (`"seconds"` or `"samples"`), and boundary
+  handling policies (`"nan"`, `"error"`, `"drop"`).
+- `ChannelIndexError`: Specific public exception raised when continuous channel index is out of bounds.
+- Processing-module continuous series discovery: `inspect` surfaces `processing_continuous`
+  series (including `processing/ecephys/LFP`), and `resolve_acquisition` resolves across both
+  top-level acquisitions and processing modules.
+- Synthetic NWB test fixture option `processing_lfp_options()` with `acquisition_style="processing_lfp"`.
+
+### Fixed
+
+- Physical scaling in `acquisition_channel`: Applies `conversion` multiplier and `offset`
+  additive shift when present on `ElectricalSeries` without double-scaling.
+- 1D `ElectricalSeries` access: `acquisition_channel` handles 1D continuous arrays `(n_samples,)`
+  at `channel=0`, raising `ChannelIndexError` for `channel != 0`.
+- Event extraction without code column: `event_onsets` and `events` extract all intervals
+  when `codes=None` without requiring a default `"codes"` column.
+
 ## [0.1.7] - 2026-09-11
 
 ### Fixed

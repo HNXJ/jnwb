@@ -12,6 +12,11 @@ from dateutil.tz import tzutc
 from pynwb import NWBHDF5IO
 from pynwb.epoch import TimeIntervals
 
+import sys
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import jnwb
 from jnwb.nwb_events import event_onsets, events
 from jnwb.nwb_inspect import acquisition_channel, inspect, resolve_acquisition
@@ -50,6 +55,7 @@ def main() -> None:
     info = inspect(p)
     out["processing_lfp"] = {
         "inspect_acquisitions": [a["name"] for a in info.get("acquisitions", [])],
+        "inspect_processing": [a["name"] for a in info.get("processing_continuous", [])],
         "acquisition_channel": None,
     }
     try:

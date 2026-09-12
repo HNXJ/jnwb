@@ -244,3 +244,25 @@ class TestEdgeConstructs:
             assert resolve_interval_table(io.read(), None) == "trials"
         onsets = event_onsets(path, codes=["test-synth-1"])
         np.testing.assert_allclose(onsets, [5.0])
+
+    def test_table_without_codes_column(self, tmp_path):
+        path = tmp_path / "no_codes.nwb"
+        table = TimeIntervals(name="trials", description="trials without code column")
+        table.add_row(start_time=1.5, stop_time=2.5)
+        table.add_row(start_time=3.5, stop_time=4.5)
+        _write_interval_only_nwb(path, {"trials": table})
+
+        # codes=None extracts all onsets without requiring code column
+        onsets = event_onsets(path, codes=None)
+        np.testing.assert_allclose(onsets, [1.5, 3.5])
+
+        # events() returns EventTable without code column
+        et = events(path)
+        assert et.n_events == 2
+        assert et.code_column is None
+        assert et.codes == ()
+        np.testing.assert_allclose(et.onsets, [1.5, 3.5])
+
+        # Filtering by codes when no code column exists raises ColumnNotFoundError
+        with pytest.raises(ColumnNotFoundError):
+            event_onsets(path, codes=["some_code"])

@@ -9,13 +9,22 @@ import pytest
 
 import numpy as np
 import jnwb
-from jnwb.nwb_inspect import acquisition_channel, inspect, unit_spike_times
+from jnwb.nwb_inspect import (
+    AcquisitionNotFoundError,
+    AmbiguousAcquisitionError,
+    ChannelIndexError,
+    acquisition_channel,
+    inspect,
+    resolve_acquisition,
+    unit_spike_times,
+)
 from jnwb.testing.nwb_fixtures import (
     FLASH_TABLE,
     RF_TABLE,
     TASK_TABLE,
     canonical_co_resident_options,
     lfp_wrapped_options,
+    processing_lfp_options,
     task_only_options,
     write_synth_nwb,
 )
@@ -116,3 +125,106 @@ class TestNWBReadHelpers:
         data, fs_hz = acquisition_channel(path, name="probe_0_lfp", channel=0)
         assert data.size > 0
         assert fs_hz == receipt.fs_hz
+
+    def test_processing_lfp_discovery_and_channel(self, tmp_path):
+        path = tmp_path / "proc_lfp.nwb"
+        receipt = write_synth_nwb(path, processing_lfp_options())
+        info = inspect(path)
+        assert len(info["acquisitions"]) == 0
+        assert len(info["processing_continuous"]) == 1
+        entry = info["processing_continuous"][0]
+        assert entry["name"] == "LFP"
+        assert entry["module"] == "ecephys"
+        assert entry["rate_hz"] == receipt.fs_hz
+
+        # resolve_acquisition and acquisition_channel resolve processing LFP
+        target = resolve_acquisition(path, None)
+        assert target == "LFP"
+        data, fs_hz = acquisition_channel(path, channel=0)
+        assert data.ndim == 1
+        assert len(data) > 0
+        assert fs_hz == receipt.fs_hz
+
+    def test_1d_electrical_series_channel_access(self, tmp_path):
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBFile, NWBHDF5IO
+        import pynwb
+
+        path = tmp_path / "es_1d.nwb"
+        nwb = NWBFile(
+            session_description="1D series test",
+            identifier="TEST_1D",
+            session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+        )
+        dev = nwb.create_device(name="dev0")
+        eg = nwb.create_electrode_group(name="eg0", description="", location="loc", device=dev)
+        nwb.add_electrode(x=0.0, y=0.0, z=0.0, imp=1.0, location="loc", filtering="none", group=eg)
+        region = nwb.create_electrode_table_region(region=[0], description="e0")
+        raw = np.linspace(0.0, 10.0, 500, dtype=np.float32)
+        es = pynwb.ecephys.ElectricalSeries(
+            name="signal_1d",
+            data=raw,
+            electrodes=region,
+            rate=500.0,
+            starting_time=0.0,
+        )
+        nwb.add_acquisition(es)
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+
+        # Channel 0 succeeds for 1D
+        data, fs = acquisition_channel(path, channel=0)
+        assert data.shape == (500,)
+        assert fs == 500.0
+        np.testing.assert_allclose(data, raw)
+
+        # Out-of-range channel raises ChannelIndexError
+        with pytest.raises(ChannelIndexError):
+            acquisition_channel(path, channel=1)
+        with pytest.raises(ChannelIndexError):
+            acquisition_channel(path, channel=-1)
+
+    def test_channel_index_error_2d_series(self, canonical_nwb):
+        path, receipt = canonical_nwb
+        with pytest.raises(ChannelIndexError):
+            acquisition_channel(path, name="probe_0_lfp", channel=receipt.n_channels + 5)
+        with pytest.raises(ChannelIndexError):
+            acquisition_channel(path, name="probe_0_lfp", channel=-1)
+
+    def test_conversion_and_offset_scaling(self, tmp_path):
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBFile, NWBHDF5IO
+        import pynwb
+
+        path = tmp_path / "scaled.nwb"
+        nwb = NWBFile(
+            session_description="Scaling test",
+            identifier="TEST_SCALING",
+            session_start_time=datetime(2020, 1, 1, tzinfo=tzutc()),
+        )
+        dev = nwb.create_device(name="dev0")
+        eg = nwb.create_electrode_group(name="eg0", description="", location="loc", device=dev)
+        nwb.add_electrode(x=0.0, y=0.0, z=0.0, imp=1.0, location="loc", filtering="none", group=eg)
+        region = nwb.create_electrode_table_region(region=[0], description="e0")
+        raw = np.array([[100.0], [200.0], [300.0]], dtype=np.float32)
+        conversion = 0.001
+        offset = 0.5
+        es = pynwb.ecephys.ElectricalSeries(
+            name="calibrated_lfp",
+            data=raw,
+            electrodes=region,
+            rate=1000.0,
+            starting_time=0.0,
+            conversion=conversion,
+            offset=offset,
+        )
+        nwb.add_acquisition(es)
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+
+        data, fs = acquisition_channel(path, channel=0)
+        expected = raw[:, 0] * conversion + offset
+        np.testing.assert_allclose(data, expected)
+

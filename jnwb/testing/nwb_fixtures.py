@@ -27,7 +27,7 @@ CODE_LABEL_B = "test-synth-2"
 CODE_NUMERIC_A = 1.0
 CODE_NUMERIC_B = 2.0
 
-AcquisitionStyle = Literal["electrical_series", "lfp_wrapped"]
+AcquisitionStyle = Literal["electrical_series", "lfp_wrapped", "processing_lfp"]
 CodesDtype = Literal["string", "numeric"]
 IntervalLayout = Literal["co_resident", "task_only"]
 
@@ -83,6 +83,10 @@ def numeric_codes_options(**kwargs) -> SynthNWBBuildOptions:
 
 def task_only_options(**kwargs) -> SynthNWBBuildOptions:
     return SynthNWBBuildOptions(interval_layout="task_only", **kwargs)
+
+
+def processing_lfp_options(**kwargs) -> SynthNWBBuildOptions:
+    return SynthNWBBuildOptions(acquisition_style="processing_lfp", **kwargs)
 
 
 def _code_pair(dtype: CodesDtype, index: int) -> Union[str, float]:
@@ -157,6 +161,23 @@ def _add_lfp_acquisition(
         )
         nwb.add_acquisition(es)
         return "probe_0_lfp"
+    if style == "processing_lfp":
+        ecephys = pynwb.base.ProcessingModule(
+            name="ecephys",
+            description="synthetic intermediate ecephys processing",
+        )
+        nwb.add_processing_module(ecephys)
+        lfp = pynwb.ecephys.LFP(name="LFP")
+        inner = pynwb.ecephys.ElectricalSeries(
+            name="probe_0_lfp_data",
+            data=data,
+            electrodes=region,
+            rate=float(fs_hz),
+            starting_time=0.0,
+        )
+        lfp.add_electrical_series(inner)
+        ecephys.add(lfp)
+        return "LFP"
     lfp = pynwb.ecephys.LFP(name="probe_0_lfp")
     nwb.add_acquisition(lfp)
     inner = pynwb.ecephys.ElectricalSeries(

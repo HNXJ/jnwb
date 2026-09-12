@@ -24,15 +24,19 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   `AmbiguousIntervalTableError` when several tables and `table` omitted.
 - `jnwb.unit_spike_times(path_or_nwb, unit_index=0)` → spike times in seconds for one units row.
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
-  continuous channel (direct `ElectricalSeries` or `LFP` wrapper).
+  continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
+  calibrated by `conversion` and `offset`).
+- `jnwb.epoch_continuous(data, onsets, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
+  epochs from continuous signals aligned to event onsets.
 
 **Event code semantics:** codes are opaque interval-table labels (default column `codes`). jnwb
-does not interpret scientific meaning. String and numeric codes compare without cross-type
+does not interpret scientific meaning. When `codes=None`, no code filtering is performed and
+`code_column` is not required to exist. String and numeric codes compare without cross-type
 coercion (`"1"` ≠ `1`). Empty code selection returns an empty array; missing table/column raises
 specific errors.
 
 **Table ambiguity:** several interval tables + omitted `table` → `AmbiguousIntervalTableError`.
-Several acquisitions + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
+Several continuous series + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
 
 ### Repository path roots (not per-file inspection)
 

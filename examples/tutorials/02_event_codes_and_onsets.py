@@ -11,6 +11,9 @@ from pathlib import Path
 import numpy as np
 
 _TUTORIALS = Path(__file__).resolve().parent
+_REPO_ROOT = _TUTORIALS.parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 if str(_TUTORIALS) not in sys.path:
     sys.path.insert(0, str(_TUTORIALS))
 

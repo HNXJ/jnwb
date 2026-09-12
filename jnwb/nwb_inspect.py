@@ -25,6 +25,10 @@ class AcquisitionNotFoundError(Exception):
     """The requested acquisition does not exist."""
 
 
+class ChannelIndexError(IndexError):
+    """The requested channel index is out of range for the continuous series."""
+
+
 class UnitNotFoundError(Exception):
     """The requested units-table row does not exist."""
 
@@ -151,6 +155,42 @@ def _inspect_acquisitions_h5py(acquisition: h5py.Group) -> list[dict[str, Any]]:
     return out
 
 
+def _inspect_processing_continuous_h5py(handle: h5py.File) -> list[dict[str, Any]]:
+    if "processing" not in handle:
+        return []
+    processing = handle["processing"]
+    out: list[dict[str, Any]] = []
+    for mod_name in sorted(processing.keys()):
+        mod = processing[mod_name]
+        if not isinstance(mod, h5py.Group):
+            continue
+        for cname in sorted(mod.keys()):
+            obj = mod[cname]
+            if not isinstance(obj, h5py.Group):
+                continue
+            ndt = _ndt(obj)
+            data_path, data_ds, rate = _find_series_leaf(obj)
+            if data_ds is None:
+                continue
+            entry: dict[str, Any] = {
+                "name": cname,
+                "module": mod_name,
+                "path": f"/processing/{mod_name}/{cname}",
+                "neurodata_type": ndt,
+                "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
+                "data_shape": list(data_ds.shape),
+                "data_dtype": str(data_ds.dtype),
+            }
+            if data_path is not None:
+                entry["data_path"] = f"/processing/{mod_name}/{cname}/{data_path}"
+            if len(data_ds.shape) == 2:
+                entry["layout"] = "time_by_channel" if data_ds.shape[0] >= data_ds.shape[1] else "channel_by_time"
+            if rate is not None:
+                entry["rate_hz"] = rate
+            out.append(entry)
+    return out
+
+
 def _inspect_electrodes_h5py(electrodes: h5py.Group) -> dict[str, Any]:
     columns = []
     n_rows = None
@@ -189,26 +229,64 @@ def _with_nwb(path_or_nwb: InspectInput, fn):
         return fn(io.read())
 
 
-def resolve_acquisition(nwb: NWBFile, name: str | None) -> str:
-    """Resolve an acquisition name.
+def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
+    """Return (lookup_dict, top_level_names) for continuous series in nwb.processing."""
+    found: dict[str, Any] = {}
+    top_level: list[str] = []
+    if not nwb.processing:
+        return found, top_level
+    for mod_name, mod in nwb.processing.items():
+        interfaces = getattr(mod, "data_interfaces", {})
+        for cname, obj in interfaces.items():
+            ndt = getattr(obj, "neurodata_type", type(obj).__name__)
+            if ndt == "LFP" and hasattr(obj, "electrical_series"):
+                found[cname] = obj
+                found[f"{mod_name}/{cname}"] = obj
+                if cname not in top_level:
+                    top_level.append(cname)
+                for sname, s in obj.electrical_series.items():
+                    if sname not in found:
+                        found[sname] = s
+                    found[f"{mod_name}/{cname}/{sname}"] = s
+            elif hasattr(obj, "data") and (hasattr(obj, "rate") or hasattr(obj, "starting_time")):
+                found[cname] = obj
+                found[f"{mod_name}/{cname}"] = obj
+                if cname not in top_level:
+                    top_level.append(cname)
+    return found, top_level
 
-    When ``name`` is omitted, use the sole acquisition when exactly one exists;
-    otherwise raise :class:`AmbiguousAcquisitionError`.
+
+def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> str:
+    """Resolve an acquisition or processing continuous series name.
+
+    When ``name`` is omitted:
+    - use the sole continuous series when exactly one exists (in acquisitions or processing modules);
+    - otherwise raise :class:`AmbiguousAcquisitionError`.
     """
-    names = sorted(nwb.acquisition.keys()) if nwb.acquisition else []
-    if not names:
-        raise AcquisitionNotFoundError("No acquisitions found in NWB file")
-    if name is not None:
-        if name not in nwb.acquisition:
+    def _resolve(nwb: NWBFile) -> str:
+        acq_names = sorted(nwb.acquisition.keys()) if nwb.acquisition else []
+        proc_dict, proc_top = _find_processing_series(nwb)
+
+        all_available = sorted(set(acq_names) | set(proc_top))
+        if not all_available:
+            raise AcquisitionNotFoundError("No acquisitions or processing continuous series found in NWB file")
+
+        if name is not None:
+            if nwb.acquisition and name in nwb.acquisition:
+                return name
+            if name in proc_dict:
+                return name
             raise AcquisitionNotFoundError(
-                f"Acquisition '{name}' not found. Available: {names}"
+                f"Series '{name}' not found. Available: {all_available}"
             )
-        return name
-    if len(names) == 1:
-        return names[0]
-    raise AmbiguousAcquisitionError(
-        f"Several acquisitions present: {names}. Pass name=<acquisition> explicitly."
-    )
+
+        if len(all_available) == 1:
+            return all_available[0]
+        raise AmbiguousAcquisitionError(
+            f"Several continuous series present: {all_available}. Pass name=<series> explicitly."
+        )
+
+    return _with_nwb(path_or_nwb, _resolve)
 
 
 def _electrical_series_from_acquisition(acq: Any):
@@ -251,21 +329,75 @@ def acquisition_channel(
     """Return one continuous acquisition channel and its sampling rate in Hz.
 
     Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and
-    ``LFP`` containers with nested electrical series (see :func:`inspect`).
+    ``LFP`` containers with nested electrical series from both
+    ``/acquisition`` and processing modules (e.g. ``processing/ecephys/LFP``).
+
+    Parameters
+    ----------
+    path_or_nwb:
+        Path to an NWB file or an in-memory :class:`~pynwb.NWBFile`.
+    name:
+        Name of the continuous series or container. When omitted, resolves the
+        sole available series if unique.
+    channel:
+        Zero-based channel index. For 1D series, channel must be 0.
+        Raises :class:`ChannelIndexError` if channel is out of range.
+
+    Returns
+    -------
+    data:
+        1D ``float64`` array of physically scaled samples (scaled by
+        ``conversion`` and ``offset`` if present on the series).
+    rate_hz:
+        Sampling rate in Hz.
     """
 
     def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:
         acq_name = resolve_acquisition(nwb, name)
-        series = _electrical_series_from_acquisition(nwb.acquisition[acq_name])
+        if nwb.acquisition and acq_name in nwb.acquisition:
+            container = nwb.acquisition[acq_name]
+        else:
+            proc_dict, _ = _find_processing_series(nwb)
+            container = proc_dict[acq_name]
+        series = _electrical_series_from_acquisition(container)
         if not hasattr(series, "data") or series.data is None:
             raise AcquisitionNotFoundError(
-                f"Acquisition '{acq_name}' has no readable data array"
+                f"Series '{acq_name}' has no readable data array"
             )
-        data = np.asarray(series.data[:, channel], dtype=np.float64)
+
+        shape = series.data.shape
+        if len(shape) == 1:
+            if channel != 0:
+                raise ChannelIndexError(
+                    f"Channel index {channel} out of range for 1D series '{acq_name}' with shape {shape}"
+                )
+            data = np.asarray(series.data[:], dtype=np.float64)
+        elif len(shape) == 2:
+            if channel < 0 or channel >= shape[1]:
+                raise ChannelIndexError(
+                    f"Channel index {channel} out of range for series '{acq_name}' with {shape[1]} channels"
+                )
+            data = np.asarray(series.data[:, channel], dtype=np.float64)
+        else:
+            raise ValueError(
+                f"Unsupported series data shape {shape} for '{acq_name}' (expected 1D or 2D)"
+            )
+
+        conversion = getattr(series, "conversion", None)
+        offset = getattr(series, "offset", None)
+        if conversion is not None and not (isinstance(conversion, float) and np.isnan(conversion)):
+            c_val = float(conversion)
+            if c_val != 1.0:
+                data = data * c_val
+        if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
+            o_val = float(offset)
+            if o_val != 0.0:
+                data = data + o_val
+
         rate = getattr(series, "rate", None)
         if rate is None or (isinstance(rate, float) and np.isnan(rate)):
             raise AcquisitionNotFoundError(
-                f"Acquisition '{acq_name}' has no constant sampling rate"
+                f"Series '{acq_name}' has no constant sampling rate"
             )
         return data, float(rate)
 
@@ -334,6 +466,37 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
             if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
                 entry["rate_hz"] = float(rate)
             acquisitions.append(entry)
+        processing_continuous: list[dict[str, Any]] = []
+        if nwb.processing:
+            for mod_name, mod in sorted(nwb.processing.items()):
+                for cname, obj in sorted(getattr(mod, "data_interfaces", {}).items()):
+                    ndt = getattr(obj, "neurodata_type", type(obj).__name__)
+                    packaging = "lfp_wrapped" if ndt == "LFP" else "direct"
+                    series = obj
+                    if ndt == "LFP" and hasattr(obj, "electrical_series"):
+                        if not obj.electrical_series:
+                            continue
+                        series = next(iter(obj.electrical_series.values()))
+                    if not hasattr(series, "data") or series.data is None:
+                        continue
+                    entry = {
+                        "name": cname,
+                        "module": mod_name,
+                        "path": f"/processing/{mod_name}/{cname}",
+                        "neurodata_type": ndt,
+                        "packaging": packaging,
+                    }
+                    shape = series.data.shape
+                    entry["data_shape"] = list(shape)
+                    entry["data_dtype"] = str(series.data.dtype)
+                    if len(shape) == 2:
+                        entry["layout"] = (
+                            "time_by_channel" if shape[0] >= shape[1] else "channel_by_time"
+                        )
+                    rate = getattr(series, "rate", None)
+                    if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
+                        entry["rate_hz"] = float(rate)
+                    processing_continuous.append(entry)
         electrodes = {"n_rows": len(nwb.electrodes) if nwb.electrodes is not None else 0}
         if nwb.electrodes is not None:
             elec_df = nwb.electrodes.to_dataframe()
@@ -350,6 +513,7 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
         return {
             "session": session,
             "acquisitions": acquisitions,
+            "processing_continuous": processing_continuous,
             "electrodes": electrodes,
             "units": units,
             "interval_tables": interval_tables,
@@ -370,6 +534,11 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
             if "acquisition" in handle
             else []
         )
+        processing_continuous = (
+            _inspect_processing_continuous_h5py(handle)
+            if "processing" in handle
+            else []
+        )
         electrodes = (
             _inspect_electrodes_h5py(handle["general/extracellular_ephys/electrodes"])
             if handle.get("general/extracellular_ephys/electrodes") is not None
@@ -387,6 +556,7 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
     return {
         "session": session,
         "acquisitions": acquisitions,
+        "processing_continuous": processing_continuous,
         "electrodes": electrodes,
         "units": units,
         "interval_tables": interval_tables,

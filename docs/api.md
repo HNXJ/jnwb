@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 126 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 128 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -73,6 +73,12 @@ All 126 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.spike_mutual_information | function | (spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window: 'Tuple[float, float]', bin_size_ms: 'float' = 10.0, estimator: 'str' = 'binary_occupancy') -> 'float'<br>*Compute Shannon Mutual Information (MI) between two binned spike trains.* |
 | jnwb.transfer_entropy | function | (X, Y, k: 'int' = 1, l: 'int' = 1, delay: 'int' = 1, estimator: 'str' = 'quantile', bins: 'int' = 4, symbolic_order: 'int' = 3, bias_correction: 'Optional[str]' = 'mm', n_surrogates: 'int' = 200, seed: 'Optional[int]' = 0, detrend: 'Optional[str]' = None, time_axis: 'int' = -1) -> 'DirectedResult'<br>*Transfer entropy — model-free, nonlinear directed information flow, in bits.* |
 
+## Module: jnwb.continuous
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.epoch_continuous | function | (data: 'np.ndarray', onsets: 'np.ndarray | Sequence[float]', win_s: 'tuple[float, float]', fs: 'float', onset_unit: 'OnsetUnit' = 'seconds', boundary_policy: 'BoundaryPolicy' = 'nan') -> 'tuple[np.ndarray, np.ndarray]'<br>*Extract fixed-duration epochs from a continuous signal aligned to event onsets.* |
+
 ## Module: jnwb.decoding
 
 | Symbol | Type | Signature / Description |
@@ -121,8 +127,8 @@ All 126 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.EventTable | class | *Structured event rows from one NWB interval table.* |
 | jnwb.IntervalTableNotFoundError | class | *The requested interval table does not exist.* |
 | jnwb.InvalidOnsetValueError | class | *A selected row has a missing or non-finite onset timestamp.* |
-| jnwb.event_onsets | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
-| jnwb.events | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, code_column: 'str' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'<br>*Read event codes and onset timestamps from one interval table.* |
+| jnwb.event_onsets | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
+| jnwb.events | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'<br>*Read event codes and onset timestamps from one interval table.* |
 | jnwb.resolve_interval_table | function | (nwb: 'NWBFile', table: 'str | None') -> 'str'<br>*Resolve an interval table name using jnwb addressing rules.* |
 
 ## Module: jnwb.nwb_inspect
@@ -131,10 +137,11 @@ All 126 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.AcquisitionNotFoundError | class | *The requested acquisition does not exist.* |
 | jnwb.AmbiguousAcquisitionError | class | *Several acquisitions are present and ``name`` was not specified.* |
+| jnwb.ChannelIndexError | class | *The requested channel index is out of range for the continuous series.* |
 | jnwb.UnitNotFoundError | class | *The requested units-table row does not exist.* |
 | jnwb.acquisition_channel | function | (path_or_nwb: 'InspectInput', name: 'str | None' = None, channel: 'int' = 0) -> 'tuple[np.ndarray, float]'<br>*Return one continuous acquisition channel and its sampling rate in Hz.* |
 | jnwb.inspect | function | (path_or_nwb: 'InspectInput') -> 'dict[str, Any]'<br>*Return structured metadata about an NWB file or in-memory NWB object.* |
-| jnwb.resolve_acquisition | function | (nwb: 'NWBFile', name: 'str | None') -> 'str'<br>*Resolve an acquisition name.* |
+| jnwb.resolve_acquisition | function | (path_or_nwb: 'InspectInput', name: 'str | None' = None) -> 'str'<br>*Resolve an acquisition or processing continuous series name.* |
 | jnwb.unit_spike_times | function | (path_or_nwb: 'InspectInput', unit_index: 'int' = 0) -> 'np.ndarray'<br>*Return spike times (seconds) for one units-table row.* |
 
 ## Module: jnwb.onset_fitting

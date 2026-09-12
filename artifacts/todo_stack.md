@@ -9,50 +9,6 @@ Evidence for review reconciliation: `python scripts/reconcile_review_probes.py` 
 disk). §0–§6 (fixtures, inspect, events API, tutorials, docs/skills, harness gate 13) are
 complete on `dev`; history is in git and `CHANGELOG.md`.
 
-## Blockers (review reconciled — implement before seal)
-
-### Processing-module LFP discovery and access
-
-**Reproducer:** `ElectricalSeries` under `processing/ecephys/LFP` (no acquisition LFP).
-`jnwb.inspect` → `acquisitions: []`; `acquisition_channel` → `AcquisitionNotFoundError`.
-
-**Acceptance:** synthetic `processing_lfp_options()` fixture; `inspect` surfaces processing
-continuous series; public resolve/read reaches `processing/ecephys/LFP`; matrix test for
-inspect + `acquisition_channel`.
-
-### Event extraction without a code column when not filtering
-
-**Reproducer:** interval table with only `start_time`/`stop_time`. `event_onsets(...,
-codes=None)` and `events(...)` → `ColumnNotFoundError` for default `code_column="codes"`.
-
-**Acceptance:** `codes=None` ⇒ no code filtering; `code_column` required only when filtering
-by `codes`; fixture + tests; docstrings/skill/README aligned.
-
-### 1D `ElectricalSeries` channel access
-
-**Reproducer:** single-channel series `data.shape == (n_samples,)`. `acquisition_channel(...,
-channel=0)` → `ValueError: 2 indexing arguments for 1 dimensions`.
-
-**Acceptance:** channel 0 works for 1D and `(n_samples, n_channels)`; out-of-range channel
-raises a specific public error; fixture matrix entry.
-
-### `conversion` / `offset` scaling (verify PyNWB first)
-
-**Reproducer:** `ElectricalSeries(..., conversion=0.001, offset=0.5)`; PyNWB `series.data`
-returns stored ADC counts; `acquisition_channel` returns same unscaled values.
-
-**Acceptance:** establish PyNWB raw-vs-scaled semantics in test receipt; `acquisition_channel`
-returns physically scaled values when attributes present; document `units`/scaling; no
-double-apply.
-
-### Continuous event epoching primitive
-
-**Reproducer:** `examples/tutorials/03_align_spikes_lfp_to_events.py` uses manual
-`i0 = int(onset_s * fs_hz)` index arithmetic after `acquisition_channel`.
-
-**Acceptance:** public `epoch_continuous` (or equivalent) with explicit time/sample axis,
-`fs`, onset units, pre/post window, output shape, boundary policy, NaN/padding; impulse +
-boundary tests; Tutorial 3 rewritten to use it.
 
 ## Seal (after blockers)
 

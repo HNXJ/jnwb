@@ -11,6 +11,9 @@ from pathlib import Path
 import numpy as np
 
 _TUTORIALS = Path(__file__).resolve().parent
+_REPO_ROOT = _TUTORIALS.parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 if str(_TUTORIALS) not in sys.path:
     sys.path.insert(0, str(_TUTORIALS))
 
@@ -37,13 +40,18 @@ def main() -> None:
     lfp, fs_hz = jnwb.acquisition_channel(path, name="probe_0_lfp", channel=0)
     assert fs_hz == receipt.fs_hz
 
-    # Epoch-average band power in a short post-onset window for the first event.
-    onset_s = float(onsets[0])
-    i0 = int(onset_s * fs_hz)
-    i1 = int((onset_s + 0.4) * fs_hz)
-    segment = lfp[i0:i1]
+    # Extract continuous LFP epochs aligned to all onsets using epoch_continuous.
+    epochs, time_axis_s = jnwb.epoch_continuous(
+        lfp,
+        onsets,
+        win_s=(0.0, 0.4),
+        fs=fs_hz,
+    )
+    assert epochs.shape == (len(onsets), int(0.4 * fs_hz))
+    assert time_axis_s.shape == (int(0.4 * fs_hz),)
+
     beta = jnwb.band_power(
-        segment,
+        epochs[0],
         fs=fs_hz,
         freq_range=jnwb.CANONICAL_BANDS["beta"],
         normalize=False,
@@ -51,7 +59,8 @@ def main() -> None:
     assert np.isfinite(beta) and beta >= 0.0
 
     print(f"PSTH: {rate_hz.size} bins around {len(onsets)} onsets")
-    print(f"beta power (post-onset segment): {beta:.3f}")
+    print(f"Extracted {len(epochs)} LFP epochs of length {epochs.shape[1]}")
+    print(f"beta power (post-onset epoch 0): {beta:.3f}")
 
 
 if __name__ == "__main__":

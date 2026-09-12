@@ -89,6 +89,7 @@ Read spikes and LFP for alignment after you have onsets:
 ```python
 spikes = jnwb.unit_spike_times("recording.nwb", unit_index=0)
 lfp, fs_hz = jnwb.acquisition_channel("recording.nwb", name="probe_0_lfp", channel=0)
+epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.1, 0.4), fs=fs_hz)
 ```
 
 Unit and electrode census:
