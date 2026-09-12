@@ -4,27 +4,41 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.8] - 2026-09-12
+## [0.1.8] - 2026-09-11
 
 ### Added
 
-- `epoch_continuous`: Generic continuous event epoching primitive with explicit time axis,
-  `fs`, window bounds (`win_s`), onset units (`"seconds"` or `"samples"`), and boundary
-  handling policies (`"nan"`, `"error"`, `"drop"`).
-- `ChannelIndexError`: Specific public exception raised when continuous channel index is out of bounds.
-- Processing-module continuous series discovery: `inspect` surfaces `processing_continuous`
-  series (including `processing/ecephys/LFP`), and `resolve_acquisition` resolves across both
-  top-level acquisitions and processing modules.
-- Synthetic NWB test fixture option `processing_lfp_options()` with `acquisition_style="processing_lfp"`.
+- Synthetic structurally representative NWB test fixtures (`jnwb.testing.nwb_fixtures`):
+  Deterministic multi-channel ecephys generators supporting co-resident task and mapping
+  interval tables, non-code interval columns, custom electrode locations, and processing-module
+  packaging styles (`processing_lfp_options()`, `task_only_options()`, `dual_probe_options()`).
+- `jnwb.inspect`: Non-destructive inspection of acquisitions, electrodes, units, interval tables,
+  and processing-module continuous series with column sample inspection, without guessing default
+  event tables.
+- Canonical events and onsets workflow: `jnwb.events` and `jnwb.event_onsets` providing explicit
+  table selection, non-code interval table extraction, code-based filtering, and seconds/samples conversion.
+- Processing-module continuous series discovery: Automatic resolution of LFP series located in
+  processing modules (e.g. `processing/ecephys/LFP`) across `inspect`, `resolve_acquisition`, and
+  `acquisition_channel`.
+- `epoch_continuous`: Generic continuous event epoching primitive with explicit time-to-sample mapping
+  via IEEE 754 round-half-to-even (banker's rounding), window bounds (`win_s`), onset units (`"seconds"` or `"samples"`),
+  boundary policies (`"nan"`, `"error"`, `"drop"`), and optional event-identity preservation via `return_indices`.
+- `ChannelIndexError`: Specific exception raised on continuous channel indexing bounds violations.
+- Executable tutorial series: Four tested notebooks and documentation tutorials covering NWB discovery,
+  event alignment and PSTH calculation, continuous LFP spectral power with decibel aggregation, and
+  Granger directionality.
+- Onboarding and harness alignment: Gate 13 pre-flight verification ensuring NWB onboarding terminology,
+  workflows, and APIs remain synchronized across README, MkDocs, and task skills.
 
 ### Fixed
 
-- Physical scaling in `acquisition_channel`: Applies `conversion` multiplier and `offset`
-  additive shift when present on `ElectricalSeries` without double-scaling.
-- 1D `ElectricalSeries` access: `acquisition_channel` handles 1D continuous arrays `(n_samples,)`
-  at `channel=0`, raising `ChannelIndexError` for `channel != 0`.
-- Event extraction without code column: `event_onsets` and `events` extract all intervals
-  when `codes=None` without requiring a default `"codes"` column.
+- Calibrated continuous-channel access: `acquisition_channel` applies physical scaling
+  ($x_{\mathrm{physical}} = \mathrm{conversion} \cdot x_{\mathrm{stored}} + \mathrm{offset}$) exactly once,
+  preserving physical units inherited from `series.unit` (e.g. Volts).
+- 1D continuous array support: `acquisition_channel` gracefully accesses 1D series `(n_samples,)`
+  at `channel=0`, raising `ChannelIndexError` for non-zero channel indices.
+- Code-agnostic event extraction: `events` and `event_onsets` extract all intervals when `codes=None`
+  without requiring a default `"codes"` column.
 
 ## [0.1.7] - 2026-09-11
 

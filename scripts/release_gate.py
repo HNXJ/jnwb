@@ -152,6 +152,7 @@ except ModuleNotFoundError:
 import jnwb
 print(f'PASS: import jnwb successful from {jnwb.__file__}')
 print(f'      jnwb.__version__ = {jnwb.__version__}')
+assert jnwb.__version__ == '0.1.8', f"Expected version 0.1.8, got {jnwb.__version__}"
 pkg = pathlib.Path(jnwb.__file__).resolve()
 assert 'site-packages' in str(pkg) or 'dist-packages' in str(pkg), f'expected installed location, got {pkg}'
 out_dir = jnwb.paths.outputs_dir()
@@ -210,15 +211,17 @@ assert len(masks) == len(set(masks))
 elec = pd.DataFrame({'location': ['V1, V2', 'V1, V2'], 'group_name': ['probeA', 'probeA']}, index=[0, 1])
 assert jnwb.map_peak_channel_to_area(0, elec) == 'V1'
 
-# NWB discovery / events (installed synthetic fixture)
+# 5. NWB discovery, processing LFP, calibration, and epoching (0.1.8 contract)
 import pathlib
 import tempfile
 from jnwb.testing.nwb_fixtures import (
     CODE_LABEL_A,
     TASK_TABLE,
     canonical_co_resident_options,
+    processing_lfp_options,
     write_synth_nwb,
 )
+# Top-level acquisition test
 nwb_path = pathlib.Path(tempfile.mkdtemp()) / 'wheel_smoke.nwb'
 receipt = write_synth_nwb(nwb_path, canonical_co_resident_options())
 info = jnwb.inspect(nwb_path)
@@ -229,7 +232,30 @@ spikes = jnwb.unit_spike_times(nwb_path, unit_index=0)
 lfp, fs_hz = jnwb.acquisition_channel(nwb_path, name='probe_0_lfp', channel=0)
 assert spikes.size > 0 and lfp.size > 0 and fs_hz == receipt.fs_hz
 
-# Viz
+# Processing-module LFP discovery and calibrated access
+proc_nwb_path = pathlib.Path(tempfile.mkdtemp()) / 'wheel_proc.nwb'
+proc_receipt = write_synth_nwb(proc_nwb_path, processing_lfp_options())
+proc_info = jnwb.inspect(proc_nwb_path)
+assert len(proc_info['processing_continuous']) > 0
+assert any(p['neurodata_type'] == 'LFP' for p in proc_info['processing_continuous'])
+proc_lfp, proc_fs = jnwb.acquisition_channel(proc_nwb_path, channel=0)
+assert proc_lfp.size > 0 and proc_fs == proc_receipt.fs_hz
+
+# epoch_continuous primitive & drop retained indices
+epochs, t_axis, retained = jnwb.epoch_continuous(
+    proc_lfp,
+    onsets=[0.1, 0.5, 999.0],
+    win_s=(-0.05, 0.1),
+    fs=proc_fs,
+    boundary_policy='drop',
+    return_indices=True,
+)
+assert epochs.ndim == 2
+assert epochs.shape[0] == 2
+assert np.array_equal(retained, [0, 1])
+assert len(t_axis) == epochs.shape[1]
+
+# 6. Viz
 jnwb.setup_vector_graphics()
 
 print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
