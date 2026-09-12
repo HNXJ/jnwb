@@ -145,7 +145,7 @@ Use `jnwb`'s robust channel resolution functions, which prioritize explicit iden
 ```python
 # CORRECT: Robust addressing handles filtered, non-contiguous, or multi-area probes
 area = jnwb.map_peak_channel_to_area(peak_channel_id=10, electrodes_df=electrodes_df)
-layer = jnwb.classify_layer_from_depth(peak_channel_id=10, electrodes_df=electrodes_df)
+layer = jnwb.classify_layer_from_depth(peak_channel_id=10, electrodes_df=electrodes_df, depth_unit="um")
 ```
 
 ---

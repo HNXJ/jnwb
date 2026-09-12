@@ -25,6 +25,7 @@ def _electrodes_df():
             "location": ["V1", "PFC", None],
             "group_name": ["probeC", "probeA", "probeB"],
             "z": [500.0, 1500.0, 800.0],
+            "depth_unit": ["um", "um", "um"],
         },
         index=[0, 1, 2],
     )
@@ -87,8 +88,10 @@ def test_classify_layer_from_depth_threshold_boundary():
 
     # Exact boundary (z == 1000.0) must resolve to Superficial per the
     # `> 1000.0` (strict) comparison in the implementation.
-    boundary_elec = pd.DataFrame({"location": ["V1"], "z": [1000.0]}, index=[0])
+    boundary_elec = pd.DataFrame({"location": ["V1"], "z": [1000.0], "depth_unit": ["um"]}, index=[0])
     assert classify_layer_from_depth(0, boundary_elec) == "Superficial"
+    boundary_deep = pd.DataFrame({"location": ["V1"], "z": [1000.001], "depth_unit": ["um"]}, index=[0])
+    assert classify_layer_from_depth(0, boundary_deep) == "Deep"
 
 
 def test_map_peak_channel_to_area_with_explicit_channel_id_column_and_reset_index():
@@ -116,12 +119,114 @@ def test_classify_layer_from_depth_with_explicit_channel_id_column_and_reset_ind
         {
             "channel_id": [100, 101, 102],
             "z": [500.0, 1200.0, 1500.0],
+            "depth_unit": ["um", "um", "um"],
         },
         index=[0, 1, 2],
     )
     assert classify_layer_from_depth(100, elec) == "Superficial"
     assert classify_layer_from_depth(101, elec) == "Deep"
     assert classify_layer_from_depth(0, elec) == "Unknown"
+
+
+class TestClassifyLayerUnitSafety:
+    """Regression suite for 0.2.0-04: unit-safety in classify_layer_from_depth.
+
+    Acceptance invariant:
+        unknown or incompatible depth units -/-> plausible layer label.
+    """
+
+    def test_reproduced_silent_mm_failure_is_prevented(self):
+        # Diagnostic case: z in mm (0.5, 1.5, 2.5 mm).
+        # Without units, previously silently returned ['Superficial', 'Superficial', 'Superficial'].
+        # Now must return 'Unknown' for all channels because depth unit is unknown.
+        df_mm = pd.DataFrame({"z": [0.5, 1.5, 2.5]}, index=[0, 1, 2])
+        assert classify_layer_from_depth(0, df_mm) == "Unknown"
+        assert classify_layer_from_depth(1, df_mm) == "Unknown"
+        assert classify_layer_from_depth(2, df_mm) == "Unknown"
+
+        # With explicit depth_unit='mm', 0.5 mm is Superficial, 1.5 and 2.5 mm are Deep
+        assert classify_layer_from_depth(0, df_mm, depth_unit="mm") == "Superficial"
+        assert classify_layer_from_depth(1, df_mm, depth_unit="mm") == "Deep"
+        assert classify_layer_from_depth(2, df_mm, depth_unit="mm") == "Deep"
+
+    def test_explicit_units_um(self):
+        df_um = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df_um, depth_unit="um") == "Superficial"
+        assert classify_layer_from_depth(1, df_um, depth_unit="um") == "Deep"
+        # Alternate spellings
+        assert classify_layer_from_depth(0, df_um, depth_unit="µm") == "Superficial"
+        assert classify_layer_from_depth(1, df_um, depth_unit="microns") == "Deep"
+
+    def test_threshold_boundary_and_custom_thresholds(self):
+        df = pd.DataFrame({"z": [1000.0, 1000.001, 800.0, 1200.0]}, index=[0, 1, 2, 3])
+        # Exact boundary at 1000.0 um is Superficial
+        assert classify_layer_from_depth(0, df, depth_unit="um") == "Superficial"
+        assert classify_layer_from_depth(1, df, depth_unit="um") == "Deep"
+
+        # Custom threshold in um
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=750.0) == "Deep"
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=850.0) == "Superficial"
+
+        # Custom threshold with explicit threshold_unit='mm'
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.75, threshold_unit="mm") == "Deep"
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.85, threshold_unit="mm") == "Superficial"
+
+    def test_unsupported_units_return_unknown(self):
+        df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        for bad_unit in ["inches", "furlongs", "lightyears", "volts", ""]:
+            assert classify_layer_from_depth(0, df, depth_unit=bad_unit) == "Unknown"
+            assert classify_layer_from_depth(1, df, depth_unit=bad_unit) == "Unknown"
+
+    def test_missing_nan_and_infinite_depth(self):
+        df = pd.DataFrame({"z": [np.nan, np.inf, -np.inf, None]}, index=[0, 1, 2, 3])
+        for ch in range(4):
+            assert classify_layer_from_depth(ch, df, depth_unit="um") == "Unknown"
+
+    def test_implausible_coordinates(self):
+        # Negative depth (outside cortical column) and excessive depth (> 20 mm)
+        df = pd.DataFrame({"z": [-100.0, -0.001, 25000.0, 100000.0]}, index=[0, 1, 2, 3])
+        for ch in range(4):
+            assert classify_layer_from_depth(ch, df, depth_unit="um") == "Unknown"
+
+    def test_no_unit_guessing(self):
+        # High numerical values (e.g. 1500.0) must NOT be guessed as um
+        df_high = pd.DataFrame({"z": [1500.0]}, index=[0])
+        assert classify_layer_from_depth(0, df_high) == "Unknown"
+
+        # Low numerical values (e.g. 1.5) must NOT be guessed as mm
+        df_low = pd.DataFrame({"z": [1.5]}, index=[0])
+        assert classify_layer_from_depth(0, df_low) == "Unknown"
+
+    def test_metadata_resolution_via_column_and_attrs(self):
+        # Unit declared in column 'depth_unit'
+        df_col = pd.DataFrame({"z": [500.0, 1500.0], "depth_unit": ["um", "um"]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df_col) == "Superficial"
+        assert classify_layer_from_depth(1, df_col) == "Deep"
+
+        # Unit declared in column 'z_unit'
+        df_col2 = pd.DataFrame({"z": [0.5, 1.5], "z_unit": ["mm", "mm"]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df_col2) == "Superficial"
+        assert classify_layer_from_depth(1, df_col2) == "Deep"
+
+        # Unit declared in df.attrs['depth_unit']
+        df_attrs = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        df_attrs.attrs["depth_unit"] = "um"
+        assert classify_layer_from_depth(0, df_attrs) == "Superficial"
+        assert classify_layer_from_depth(1, df_attrs) == "Deep"
+
+        # Unit declared in df.attrs['unit']
+        df_attrs2 = pd.DataFrame({"z": [0.5, 1.5]}, index=[0, 1])
+        df_attrs2.attrs["unit"] = "mm"
+        assert classify_layer_from_depth(0, df_attrs2) == "Superficial"
+        assert classify_layer_from_depth(1, df_attrs2) == "Deep"
+
+    def test_constant_label_regression(self):
+        # Verify that mm data resolves into diverse labels, not constant 'Superficial'
+        df_linear = pd.DataFrame({"z": np.linspace(0.2, 2.0, 10)}, index=range(10))
+        labels = [classify_layer_from_depth(ch, df_linear, depth_unit="mm") for ch in range(10)]
+        assert "Superficial" in labels
+        assert "Deep" in labels
+        assert labels != ["Superficial"] * 10
 
 
 def test_map_peak_channel_to_area_non_contiguous_probe_indices():

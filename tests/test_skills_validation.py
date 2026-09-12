@@ -183,7 +183,7 @@ def test_representative_routing_probes():
     rng = np.random.default_rng(42)
 
     # 1. NWB metadata & addressing
-    elec_df = pd.DataFrame({"location": ["V1"], "z": [1200.0]}, index=[10])
+    elec_df = pd.DataFrame({"location": ["V1"], "z": [1200.0], "depth_unit": ["um"]}, index=[10])
     assert jnwb.map_peak_channel_to_area(10, elec_df) == "V1"
     assert jnwb.classify_layer_from_depth(10, elec_df) == "Deep"
 

@@ -65,6 +65,7 @@ def fig01_addressing():
         "location": [areas_str] * n_ch,
         "group_name": ["probeA"] * n_ch,
         "z": np.linspace(200.0, 1800.0, n_ch),
+        "depth_unit": ["um"] * n_ch,
     })
 
     mapped_areas = [jnwb.map_peak_channel_to_area(ch, elec_df) for ch in range(n_ch)]

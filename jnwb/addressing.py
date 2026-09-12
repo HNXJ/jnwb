@@ -148,43 +148,164 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
     return None
 
 
-def classify_layer_from_depth(peak_channel_id: float, electrodes_df: pd.DataFrame) -> str:
-    """
-    Classify unit cortical layer using z depth coordinates.
+_DEPTH_UNIT_SCALES: Dict[str, float] = {
+    "um": 1.0,
+    "µm": 1.0,
+    "micron": 1.0,
+    "microns": 1.0,
+    "micrometer": 1.0,
+    "micrometers": 1.0,
+    "mm": 1000.0,
+    "millimeter": 1000.0,
+    "millimeters": 1000.0,
+    "m": 1_000_000.0,
+    "meter": 1_000_000.0,
+    "meters": 1_000_000.0,
+}
+
+
+def _resolve_depth_unit(
+    depth_unit: Optional[str],
+    row: Optional[pd.Series],
+    electrodes_df: Optional[pd.DataFrame],
+) -> Optional[str]:
+    """Resolve depth unit string from explicit parameter or DataFrame/Series metadata."""
+    if depth_unit is not None:
+        try:
+            return str(depth_unit).strip().lower()
+        except Exception:
+            return None
+
+    if row is not None:
+        for col in ("depth_unit", "z_unit", "unit"):
+            if col in row.index and pd.notna(row[col]):
+                try:
+                    return str(row[col]).strip().lower()
+                except Exception:
+                    pass
+
+    if electrodes_df is not None:
+        for attr_name in ("depth_unit", "z_unit", "unit"):
+            val = electrodes_df.attrs.get(attr_name)
+            if val is not None and pd.notna(val):
+                try:
+                    return str(val).strip().lower()
+                except Exception:
+                    pass
+        if "z" in electrodes_df.columns:
+            val = electrodes_df["z"].attrs.get("unit")
+            if val is not None and pd.notna(val):
+                try:
+                    return str(val).strip().lower()
+                except Exception:
+                    pass
+
+    return None
+
+
+def classify_layer_from_depth(
+    peak_channel_id: float,
+    electrodes_df: pd.DataFrame,
+    *,
+    depth_unit: Optional[str] = None,
+    threshold: Optional[float] = None,
+    threshold_unit: Optional[str] = None,
+) -> str:
+    """Classify unit cortical layer using z depth coordinates.
+
+    Classifies layer based on electrode z depth ('Superficial' for <= threshold,
+    'Deep' for > threshold). To prevent scientific errors from unit ambiguity,
+    depth units must be explicitly provided via ``depth_unit`` or declared in
+    ``electrodes_df`` metadata/columns ('depth_unit', 'z_unit', 'unit').
+    If depth units are unknown or unsupported, returns 'Unknown'.
 
     Args:
         peak_channel_id: Channel identifier
         electrodes_df: NWB electrodes DataFrame
+        depth_unit: Optional unit of electrode z coordinates (e.g. 'um', 'mm', 'm').
+            If None, inspected from electrodes_df metadata.
+        threshold: Optional classification threshold. Default is 1000.0 µm.
+            If threshold_unit is None, interpreted in ``depth_unit`` units.
+        threshold_unit: Optional unit of threshold (e.g. 'um', 'mm').
 
     Returns:
         Cortical layer label ('Deep', 'Superficial', or 'Unknown')
     """
+    if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
+        return "Unknown"
+
     idx, row = _resolve_electrode_row(peak_channel_id, electrodes_df)
     if row is None:
-        return 'Unknown'
+        return "Unknown"
+
+    resolved_unit = _resolve_depth_unit(depth_unit, row, electrodes_df)
+    if resolved_unit is None or resolved_unit not in _DEPTH_UNIT_SCALES:
+        # Invariant: unknown or incompatible depth units -> 'Unknown'
+        return "Unknown"
+
+    scale = _DEPTH_UNIT_SCALES[resolved_unit]
 
     try:
-        if 'z' in electrodes_df.columns:
-            z_val = row.get('z')
-            if pd.notna(z_val):
-                # Canonical neuroscience threshold: deep vs superficial
-                # z values > 1000 microns typically represent deep layers in these linear arrays
-                return 'Deep' if float(z_val) > 1000.0 else 'Superficial'
-    except (ValueError, TypeError) as e:
+        if "z" not in electrodes_df.columns:
+            return "Unknown"
+
+        z_val = row.get("z")
+        if pd.isna(z_val):
+            return "Unknown"
+
+        z_float = float(z_val)
+        if not np.isfinite(z_float):
+            return "Unknown"
+
+        z_um = z_float * scale
+        # Physiological sanity bounds: cortical depth from pia is non-negative
+        # and bounded within primate brain coordinate bounds (< 20,000 µm)
+        if z_um < 0.0 or z_um > 20000.0:
+            return "Unknown"
+
+        if threshold is not None:
+            t_float = float(threshold)
+            if not np.isfinite(t_float):
+                return "Unknown"
+            if threshold_unit is not None:
+                t_unit_norm = str(threshold_unit).strip().lower()
+                if t_unit_norm not in _DEPTH_UNIT_SCALES:
+                    return "Unknown"
+                thresh_um = t_float * _DEPTH_UNIT_SCALES[t_unit_norm]
+            else:
+                thresh_um = t_float * scale
+        else:
+            # Default canonical threshold: 1000.0 µm
+            thresh_um = 1000.0
+
+        if thresh_um <= 0.0 or thresh_um > 20000.0 or not np.isfinite(thresh_um):
+            return "Unknown"
+
+        return "Deep" if z_um > thresh_um else "Superficial"
+    except (ValueError, TypeError, OverflowError) as e:
         log.debug(f"Failed to classify layer for channel {peak_channel_id}: {e}")
 
-    return 'Unknown'
+    return "Unknown"
 
 
-def enrich_units_dataframe(units_df: pd.DataFrame, electrodes_df: Optional[pd.DataFrame]) -> pd.DataFrame:
-    """
-    Enrich units DataFrame with standardized area, layer, and quality flags.
+def enrich_units_dataframe(
+    units_df: pd.DataFrame,
+    electrodes_df: Optional[pd.DataFrame],
+    *,
+    depth_unit: Optional[str] = None,
+    threshold: Optional[float] = None,
+    threshold_unit: Optional[str] = None,
+) -> pd.DataFrame:
+    """Enrich units DataFrame with standardized area, layer, and quality flags.
 
     Enforces SC-002: Terminology alignment (using unit_id and standard quality flags).
 
     Args:
         units_df: Raw NWB units DataFrame
         electrodes_df: Raw NWB electrodes DataFrame
+        depth_unit: Optional unit for electrode depth coordinates (e.g. 'um', 'mm').
+        threshold: Optional depth threshold for layer classification.
+        threshold_unit: Optional unit for threshold.
 
     Returns:
         Standardized and enriched DataFrame
@@ -205,7 +326,15 @@ def enrich_units_dataframe(units_df: pd.DataFrame, electrodes_df: Optional[pd.Da
     # 2. Enrich anatomical mapping if electrodes_df is provided
     if electrodes_df is not None and len(electrodes_df) > 0 and 'peak_channel_id' in df.columns:
         df['area'] = df['peak_channel_id'].apply(lambda x: map_peak_channel_to_area(x, electrodes_df))
-        df['layer'] = df['peak_channel_id'].apply(lambda x: classify_layer_from_depth(x, electrodes_df))
+        df['layer'] = df['peak_channel_id'].apply(
+            lambda x: classify_layer_from_depth(
+                x,
+                electrodes_df,
+                depth_unit=depth_unit,
+                threshold=threshold,
+                threshold_unit=threshold_unit,
+            )
+        )
         
         # Resolve group_name/probe mapping
         col_group = 'group_name' if 'group_name' in electrodes_df.columns else ('probe' if 'probe' in electrodes_df.columns else None)

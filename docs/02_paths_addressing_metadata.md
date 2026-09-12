@@ -60,12 +60,12 @@ area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=elect
 
 ### Depth-to-Layer (Laminar) Resolution (`classify_layer_from_depth`)
 
-Translates probe electrode depth ($z$-coordinate in $\mu\text{m}$) into cortical layer classification:
+Translates probe electrode depth ($z$-coordinate) into cortical layer classification with explicit unit safety:
 
 ```python
-# Classifies layer based on electrode z depth ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
-layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df)
-# Returns: 'Superficial', 'Deep', or 'Unknown'
+# Classifies layer based on electrode z depth with explicit units ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
+layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df, depth_unit="um")
+# Returns: 'Superficial', 'Deep', or 'Unknown' (unknown/incompatible units return 'Unknown')
 ```
 
 ### Enriching Units DataFrame (`enrich_units_dataframe`)
