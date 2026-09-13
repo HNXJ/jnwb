@@ -1,6 +1,5 @@
 # 0.2.0
 
-- 0.2.0-06: Package-boundary audit. Mechanically inspect code, tests, docs, examples, skills, and agents for downstream leakage; verify strict editable-install behavior and wheel contents independently (no shadow packages at root).
 - 0.2.0-07: Freeze 0.2 API rules. Define problem -> input -> shape -> units -> axes -> estimator -> aggregation -> output -> failure -> randomness -> composition -> compatibility -> tests before implementation; resolve naming for jnwb.laminar, result types, session_level namespace/module location, random-state convention, and public vs internal synthetic generators.
 - 0.2.0 release gate: Run targeted regression tests, adjacent suites, full configured suite, harness/boundary gates, docs build, build/install smoke tests, and supported remote CI; exit only when 0.1.x behavior has no known blocker and every 0.2 breaking change is explicit.
 
