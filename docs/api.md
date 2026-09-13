@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 132 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 136 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -213,11 +213,15 @@ All 132 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.StatisticalAnalysis | class | *Dual statistical testing with honest multiple-comparison handling.* |
 | jnwb.assign_subblock_quartiles | function | (epochs_df: 'pd.DataFrame', n_quantiles: 'int' = 4) -> 'np.ndarray'<br>*Assign each row a temporal quantile bucket 0..n_quantiles-1 by its own start_time order.* |
+| jnwb.clopper_pearson | function | (k: 'int', n: 'int', alpha: 'float' = 0.05) -> 'Tuple[float, float]'<br>*Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.* |
 | jnwb.cluster_permutation_test | function | (X: 'np.ndarray', Y: 'np.ndarray', paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'Optional[np.random.Generator]' = None, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
 | jnwb.cross_modal_comparison | function | (tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None) -> 'Dict'<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
 | jnwb.detect_trial_cycles | function | (epochs_df: 'pd.DataFrame', gap_factor: 'float' = 10.0) -> 'np.ndarray'<br>*Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.* |
+| jnwb.exact_sign_flip | function | (diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'Tuple[float, float, float]'<br>*Exact paired sign-flip permutation test for paired sample differences.* |
+| jnwb.fdr_correct | function | (p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |
 | jnwb.fire_indicator | function | (spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
 | jnwb.fires_in_window | function | (spike_times: 'np.ndarray', onset_s: 'float', window_ms) -> 'bool'<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
+| jnwb.mann_whitney_p_floor | function | (n1: 'int', n2: 'int', alternative: 'str' = 'two-sided') -> 'float'<br>*Attainable minimal non-zero p-value floor for a Mann-Whitney U test without ties.* |
 | jnwb.paired_fire_prob_test | function | (fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'np.random.Generator') -> 'Dict'<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
 | jnwb.rate_in_window | function | (spike_times: 'np.ndarray', onset_s: 'float', window_ms: 'Tuple[float, float]') -> 'float'<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
 | jnwb.shuffle_pvalue_paired | function | (a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |

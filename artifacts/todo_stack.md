@@ -4,7 +4,6 @@
 
 # 0.2.1
 
-- 0.2.1-03: Implement session-level exact statistics: exact sign-flip, Mann-Whitney attainable p-value floor, Clopper-Pearson, BH correction; caller-visible inferential unit and multiplicity family; test against tiny direct enumeration, n=0/1, ties, and known p-value floors.
 - 0.2.1-04: Implement io.stream_npz_array defining supported compressed NPZ representations; test full-load parity, chunk-boundary parity, dtype/order preservation, missing key, corrupt archive, unsupported compression/layout, and measured bounded peak memory (no silent full-load fallback).
 - 0.2.1-05: Implement addressing.probe_geometry extracting contact geometry from NWB coordinates with explicit units; handle multiple probes, irregular spacing, missing/duplicate coordinates, orientation, tolerance for nominal spacing, and ambiguous geometry without inferring cortical identity.
 - 0.2.1-06: Primitive integration review for all five additions (exports, typing, docstrings, examples, invalid-input behavior, boundary neutrality, adjacent composition, independent numerical review).
