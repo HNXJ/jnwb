@@ -10,6 +10,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ._backend import CUDA, resolve_device, warn_device_fallback
+
 log = logging.getLogger(__name__)
 
 
@@ -90,8 +92,15 @@ def compute_population_trajectory(
     device: str = 'cpu'
 ) -> Dict[str, Union[np.ndarray, List[int], float]]:
     """
-    Compute population trajectory using SVD/PCA.
+    Compute population trajectory using standardized correlation PCA (SVD).
     Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.
+
+    .. note::
+        This function computes standardized PCA (correlation PCA): features across units
+        are centered and z-scored to unit variance before SVD. Units contribute equally
+        to total variance regardless of baseline firing rate. This contrasts with
+        :meth:`jnwb.analyzers.UnitAnalyzer.population_trajectory` which computes
+        unstandardized covariance PCA (centering only).
 
     Args:
         session: session object exposing ``get_units`` and ``get_spike_times``
@@ -132,38 +141,40 @@ def compute_population_trajectory(
     std[std == 0.0] = 1.0
     X_scaled = (X_flat - mean) / std
 
+    actual_components = min(n_components, X_flat.shape[0], n_units)
+
+    def _svd_numpy():
+        U, S, Vt = np.linalg.svd(X_scaled, full_matrices=False)
+        proj = X_scaled @ Vt[:actual_components, :].T
+        return proj, Vt[:actual_components, :], S
+
+    resolved = resolve_device(device, context="compute_population_trajectory", prefer="torch", stacklevel=3)
+
     # Run SVD
-    if device == 'cuda':
+    if resolved == CUDA:
         try:
             import torch
-            if torch.cuda.is_available():
-                X_tensor = torch.tensor(X_scaled, dtype=torch.float32, device='cuda')
-                U, S, V = torch.linalg.svd(X_tensor, full_matrices=False)
-                V_top = V[:n_components, :]  # (n_components, n_units)
-                proj = X_tensor @ V_top.t()
-                proj_np = proj.cpu().numpy()
-                S_np = S.cpu().numpy()
-            else:
-                X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
-                U, S, V = torch.linalg.svd(X_tensor, full_matrices=False)
-                V_top = V[:n_components, :]
-                proj = X_tensor @ V_top.t()
-                proj_np = proj.numpy()
-                S_np = S.numpy()
+            X_tensor = torch.tensor(X_scaled, dtype=torch.float32, device="cuda")
+            U, S, V = torch.linalg.svd(X_tensor, full_matrices=False)
+            V_top = V[:actual_components, :]  # (actual_components, n_units)
+            proj = X_tensor @ V_top.t()
+            proj_np = proj.cpu().numpy()
+            S_np = S.cpu().numpy()
         except Exception as e:
+            warn_device_fallback("compute_population_trajectory", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
-            U, S, Vt = np.linalg.svd(X_scaled, full_matrices=False)
-            proj_np = X_scaled @ Vt[:n_components, :].T
-            S_np = S
+            proj_np, _, S_np = _svd_numpy()
     else:
-        # NumPy CPU SVD
-        U, S, Vt = np.linalg.svd(X_scaled, full_matrices=False)
-        proj_np = X_scaled @ Vt[:n_components, :].T
-        S_np = S
+        proj_np, _, S_np = _svd_numpy()
 
     # Calculate variance explained ratio
     total_var = np.sum(S_np ** 2)
-    explained_variance = np.sum(S_np[:n_components] ** 2) / total_var if total_var > 0.0 else 0.0
+    explained_variance = np.sum(S_np[:actual_components] ** 2) / total_var if total_var > 0.0 else 0.0
+
+    # If requested n_components > actual_components, pad projection along component axis
+    if actual_components < n_components:
+        pad_width = ((0, 0), (0, n_components - actual_components))
+        proj_np = np.pad(proj_np, pad_width, mode="constant", constant_values=0.0)
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)

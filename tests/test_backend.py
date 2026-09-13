@@ -104,7 +104,7 @@ class TestFallbackWarning:
 class TestCallSitesAreRouted:
     """Every GPU decision must come from _backend, not a local probe."""
 
-    ROUTED_MODULES = ["spectral", "gpu_pca", "analyzers", "connectivity", "tfr"]
+    ROUTED_MODULES = ["spectral", "gpu_pca", "analyzers", "connectivity", "tfr", "trajectory"]
 
     def test_routed_modules_import_the_shared_resolver(self):
         import importlib

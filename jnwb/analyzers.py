@@ -672,8 +672,15 @@ class PopulationAnalyzer:
         device: str = 'cpu'
     ) -> Dict[str, np.ndarray]:
         """
-        Compute population trajectories using PCA (SVD).
-        Supports GPU acceleration via PyTorch/CuPy or falls back to SciPy/scikit-learn SVD.
+        Compute population trajectories using covariance PCA (SVD on centered data).
+        Supports GPU acceleration via PyTorch/CuPy or falls back to SciPy/NumPy SVD.
+
+        .. note::
+            This method computes unstandardized covariance PCA (centering only,
+            ``X - mean(X)``). Units with larger spike count variances dominate
+            the principal components. This contrasts with
+            :func:`jnwb.compute_population_trajectory` which standardizes features
+            (correlation PCA via z-scoring).
 
         Args:
             X: Data matrix of shape (n_time_bins, n_units)

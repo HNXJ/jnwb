@@ -558,10 +558,12 @@ def spectral_tilt(
         return result
 
     # Compute power spectrum
-    if device == 'cuda':
+    resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)
+    if resolved == CUDA:
         try:
             frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
         except Exception as e:
+            warn_device_fallback("spectral_tilt", e, stacklevel=3)
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
             frequencies, pxx = signal.welch(
                 lfp_trace,
