@@ -65,6 +65,8 @@ from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
     enrich_units_dataframe,
+    probe_geometry,
+    ProbeGeometry,
 )
 
 def __getattr__(name: str):
@@ -213,6 +215,8 @@ __all__ = [
     'map_peak_channel_to_area',
     'classify_layer_from_depth',
     'enrich_units_dataframe',
+    'probe_geometry',
+    'ProbeGeometry',
 
     # Analyzers
     'TFRAnalyzer',

@@ -4,7 +4,6 @@
 
 # 0.2.1
 
-- 0.2.1-05: Implement addressing.probe_geometry extracting contact geometry from NWB coordinates with explicit units; handle multiple probes, irregular spacing, missing/duplicate coordinates, orientation, tolerance for nominal spacing, and ambiguous geometry without inferring cortical identity.
 - 0.2.1-06: Primitive integration review for all five additions (exports, typing, docstrings, examples, invalid-input behavior, boundary neutrality, adjacent composition, independent numerical review).
 - 0.2.1 release gate: All five APIs individually PASS public-API checklist; full suite, harness gates, docs build, release gate PASS.
 

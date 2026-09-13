@@ -49,7 +49,7 @@ Paths are configured via environment variables rather than source code edits:
 
 Electrophysiological datasets often store dense time series (such as LFP, multi-unit activity, or high-dimensional TFR spectra) in compressed `.npz` archives. Standard `np.load` decompresses the entire array into RAM, which causes severe memory pressure on multi-channel or multi-hour sessions.
 
-`jnwb.stream_npz_array` provides streaming, memory-bounded access to slices of arrays stored in `.npz` files (both `ZIP_DEFLATED` compressed and `ZIP_STORED` uncompressed) without full-file RAM allocation:
+`jnwb.stream_npz_array` provides streaming, memory-bounded access to slices of arrays stored in `.npz` files (both `ZIP_DEFLATED` compressed and `ZIP_STORED` uncompressed) without full-file RAM allocation. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead, avoiding silent full-array materialization:
 
 ```python
 import jnwb
@@ -102,6 +102,24 @@ Attaches standardized `unit_id`, `area`, and `layer` columns directly to units t
 ```python
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
+
+### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
+
+Extracts contact spacing, linear ordering, orientation, and layout properties from NWB electrode tables or 3D coordinate arrays with explicit units:
+
+```python
+# Extract contact geometry with explicit units (default: 'um')
+geom = jnwb.probe_geometry(electrodes_df, units="um", pitch_tolerance=0.1)
+
+# Inspect geometry properties
+print(f"Contacts: {geom.contact_positions.shape}")  # (n_channels, 3) in um
+print(f"Nominal pitch: {geom.nominal_pitch:.1f} um")
+print(f"Is linear: {geom.is_linear}, Is uniform: {geom.is_uniform}")
+print(f"Linear ordering: {geom.linear_order}")
+print(f"Shaft orientation unit vector: {geom.orientation}")
+```
+
+For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on duplicate coordinates, NaNs, ambiguous multiple probes, or unsupported length units.
 
 ![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png)
 

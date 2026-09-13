@@ -7,9 +7,10 @@ split on comma or slash only; this module carries no area vocabulary and does no
 normalize spelling or aliases.
 """
 
+from dataclasses import dataclass
 import logging
 import re
-from typing import Optional, Dict
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import pandas as pd
 import numpy as np
 
@@ -393,4 +394,302 @@ def enrich_units_dataframe(
     df = df.reset_index(drop=True)
 
     return df
+
+
+@dataclass(frozen=True)
+class ProbeGeometry:
+    """Extracted contact geometry and spatial properties for an electrode array.
+
+    Parameters
+    ----------
+    contact_positions : np.ndarray
+        Array of shape ``(n_channels, 3)`` giving 3D Cartesian coordinates of each
+        contact in micrometers (:math:`\\mu\\mathrm{m}`).
+    channel_ids : np.ndarray
+        Array of shape ``(n_channels,)`` giving original channel or electrode identifiers.
+    nominal_pitch : float | None
+        Nominal (median) inter-contact distance between adjacent ordered contacts in
+        micrometers (:math:`\\mu\\mathrm{m}`), or ``None`` if ``n_channels < 2``.
+    pitch_tolerance : float
+        Fractional tolerance used to evaluate nominal pitch uniformity.
+    is_linear : bool
+        Whether contacts fall along a single linear probe shaft within tolerance.
+    is_uniform : bool
+        Whether inter-contact spacing along the ordered contacts is uniform within tolerance.
+    linear_order : np.ndarray
+        Array of shape ``(n_channels,)`` containing integer indices sorting contacts
+        along the principal probe axis.
+    orientation : np.ndarray | None
+        Unit vector of shape ``(3,)`` giving the orientation of the principal linear axis
+        (oriented from the first sorted contact toward the last), or ``None`` if ``n_channels < 2``.
+    probe_name : str | None
+        Name or identifier of the probe group/shank, or ``None``.
+    units : str
+        Spatial coordinate units, always ``"um"``.
+    """
+
+    contact_positions: np.ndarray
+    channel_ids: np.ndarray
+    nominal_pitch: Optional[float]
+    pitch_tolerance: float
+    is_linear: bool
+    is_uniform: bool
+    linear_order: np.ndarray
+    orientation: Optional[np.ndarray]
+    probe_name: Optional[str]
+    units: str = "um"
+
+
+def probe_geometry(
+    electrodes_table: Any,
+    *,
+    probe_name: Optional[str] = None,
+    units: str = "um",
+    nominal_pitch: Optional[float] = None,
+    pitch_tolerance: float = 0.1,
+    strict_linear: bool = False,
+) -> ProbeGeometry:
+    """Extract contact geometry, linear ordering, and spacing from electrode coordinates.
+
+    Extracts contact positions and spatial geometry from an NWB electrode table or coordinate
+    array with explicit units. Converts coordinates to micrometers (:math:`\\mu\\mathrm{m}`),
+    validates inter-contact pitch within tolerance, evaluates linearity, and determines
+    ordered contact sequence along the probe shaft without inferring cortical layer identity.
+
+    Parameters
+    ----------
+    electrodes_table : pandas.DataFrame, pynwb.ecephys.ElectrodeTable, or np.ndarray
+        Electrode metadata source. Can be:
+        - A pandas DataFrame containing Cartesian coordinate columns ('x', 'y', 'z') or ('rel_x', 'rel_y', 'rel_z').
+        - A PyNWB ``ElectrodeTable`` instance.
+        - A NumPy array of shape ``(n_channels, 3)`` giving coordinate positions.
+    probe_name : str, optional
+        Specific probe/group name to filter by when the table contains multiple probes.
+        If ``None`` and multiple probes are present, raises :class:`ValueError`.
+    units : str, default "um"
+        Spatial unit of the input coordinates. Must be a supported length unit
+        (e.g. ``"um"``, ``"mm"``, ``"m"``). Raises :class:`ValueError` if unsupported.
+    nominal_pitch : float, optional
+        Expected inter-contact spacing in input units. If omitted, estimated from the
+        median Euclidean distance between adjacent ordered contacts.
+    pitch_tolerance : float, default 0.1
+        Allowable relative deviation from nominal pitch:
+        :math:`|\\Delta d - d_{\\mathrm{nom}}| \\le \\epsilon \\cdot d_{\\mathrm{nom}}`.
+        Must be non-negative.
+    strict_linear : bool, default False
+        If ``True``, raises :class:`ValueError` if the probe contacts do not conform to a
+        linear geometry within tolerance.
+
+    Returns
+    -------
+    ProbeGeometry
+        Extracted contact geometry dataclass with positions in :math:`\\mu\\mathrm{m}`.
+
+    Raises
+    ------
+    ValueError
+        If units are unknown or unsupported, coordinates contain NaNs/infinities,
+        duplicate coordinates are detected, table is empty, multiple probes are present
+        without specifying ``probe_name``, the specified probe is not found, or
+        ``strict_linear=True`` on non-linear geometry.
+    """
+    if pitch_tolerance < 0.0 or not np.isfinite(pitch_tolerance):
+        raise ValueError(f"pitch_tolerance must be a non-negative finite float, got {pitch_tolerance}")
+
+    units_norm = str(units).strip().lower()
+    if units_norm not in _DEPTH_UNIT_SCALES:
+        raise ValueError(
+            f"Unsupported coordinate units '{units}'. Supported units: {sorted(_DEPTH_UNIT_SCALES.keys())}"
+        )
+    scale = _DEPTH_UNIT_SCALES[units_norm]
+
+    # 1. Parse input table / coordinates
+    df: Optional[pd.DataFrame] = None
+    coords: Optional[np.ndarray] = None
+    channel_ids: Optional[np.ndarray] = None
+
+    if isinstance(electrodes_table, pd.DataFrame):
+        df = electrodes_table.copy()
+    elif hasattr(electrodes_table, "to_dataframe") and callable(electrodes_table.to_dataframe):
+        df = electrodes_table.to_dataframe()
+    elif isinstance(electrodes_table, (np.ndarray, list, tuple)):
+        arr = np.asarray(electrodes_table, dtype=np.float64)
+        if arr.ndim != 2 or arr.shape[1] != 3:
+            raise ValueError(
+                f"Array coordinates must have shape (n_channels, 3), got {arr.shape}"
+            )
+        coords = arr
+        channel_ids = np.arange(len(arr))
+
+    if df is not None:
+        if len(df) == 0:
+            raise ValueError("Electrodes table is empty")
+
+        # Probe filtering across possible group columns
+        group_col = None
+        for cand in ("group_name", "group", "probe", "device"):
+            if cand in df.columns:
+                group_col = cand
+                break
+
+        resolved_probe_name = probe_name
+        if group_col is not None:
+            # Check if group values are PyNWB objects with name attributes
+            group_vals = df[group_col].apply(
+                lambda v: getattr(v, "name", str(v)) if pd.notna(v) else None
+            )
+            df["_probe_group_resolved"] = group_vals
+            unique_probes = [p for p in df["_probe_group_resolved"].dropna().unique()]
+
+            if probe_name is not None:
+                df = df[df["_probe_group_resolved"] == probe_name]
+                if len(df) == 0:
+                    raise ValueError(
+                        f"Probe '{probe_name}' not found in electrodes table. Available probes: {unique_probes}"
+                    )
+            else:
+                if len(unique_probes) > 1:
+                    raise ValueError(
+                        f"Multiple probes found in electrodes table: {unique_probes}. "
+                        "Pass probe_name=<name> explicitly to select one."
+                    )
+                if len(unique_probes) == 1:
+                    resolved_probe_name = str(unique_probes[0])
+
+        # Extract coordinate columns
+        coord_cols = None
+        for cand_triplet in [("x", "y", "z"), ("rel_x", "rel_y", "rel_z")]:
+            if all(c in df.columns for c in cand_triplet):
+                coord_cols = cand_triplet
+                break
+
+        if coord_cols is None:
+            raise ValueError(
+                f"Electrodes table must contain 3D coordinates ('x', 'y', 'z'). Columns present: {list(df.columns)}"
+            )
+
+        # Extract channel identifiers
+        id_col = None
+        for cand_id in ["channel_id", "id", "electrode_id"]:
+            if cand_id in df.columns:
+                id_col = cand_id
+                break
+        if id_col is not None:
+            channel_ids = np.asarray(df[id_col].values)
+        else:
+            channel_ids = np.asarray(df.index.values)
+
+        coords_raw = df[list(coord_cols)].to_numpy(dtype=np.float64)
+        coords = coords_raw
+    else:
+        resolved_probe_name = probe_name
+
+    assert coords is not None
+    assert channel_ids is not None
+
+    n_channels = coords.shape[0]
+    if n_channels == 0:
+        raise ValueError("Cannot extract probe geometry from zero contacts")
+
+    # 2. Check finiteness
+    if not np.all(np.isfinite(coords)):
+        raise ValueError("Contact coordinates contain NaN or non-finite values")
+
+    # 3. Scale to micrometers (um)
+    coords_um = coords * scale
+
+    # 4. Check duplicate coordinates
+    # Rounded to 6 decimal places to detect exact or near-duplicate duplicates
+    _, unique_indices = np.unique(np.round(coords_um, decimals=6), axis=0, return_index=True)
+    if len(unique_indices) < n_channels:
+        raise ValueError(
+            f"Duplicate contact coordinates detected: {n_channels} channels but only {len(unique_indices)} unique locations"
+        )
+
+    # 5. Boundary case: n_channels == 1
+    if n_channels == 1:
+        return ProbeGeometry(
+            contact_positions=coords_um,
+            channel_ids=channel_ids,
+            nominal_pitch=None,
+            pitch_tolerance=pitch_tolerance,
+            is_linear=True,
+            is_uniform=True,
+            linear_order=np.array([0], dtype=int),
+            orientation=None,
+            probe_name=resolved_probe_name,
+            units="um",
+        )
+
+    # 6. Assess linearity via Principal Component Analysis (SVD)
+    centered = coords_um - np.mean(coords_um, axis=0)
+    # SVD of centered coordinates: U * S * Vt
+    # coords shape (n, 3); Vt shape (3, 3) where Vt[0] is first principal component direction
+    _, s, vt = np.linalg.svd(centered, full_matrices=False)
+    principal_dir = vt[0]
+
+    # Projections along principal component
+    projections = np.dot(centered, principal_dir)
+
+    # Sort contacts along principal direction
+    linear_order = np.argsort(projections)
+    sorted_proj = projections[linear_order]
+    sorted_coords = coords_um[linear_order]
+
+    # Ensure orientation points in the direction of sorted projections
+    if (sorted_proj[-1] - sorted_proj[0]) < 0:
+        principal_dir = -principal_dir
+        projections = np.dot(centered, principal_dir)
+        linear_order = np.argsort(projections)
+        sorted_proj = projections[linear_order]
+        sorted_coords = coords_um[linear_order]
+
+    unit_orientation = principal_dir / np.linalg.norm(principal_dir)
+
+    # Reconstructed positions along the linear axis: mean + proj * unit_orientation
+    mean_pos = np.mean(coords_um, axis=0)
+    reconstructed = mean_pos + np.outer(projections, unit_orientation)
+    residuals = np.linalg.norm(coords_um - reconstructed, axis=1)
+    max_residual = np.max(residuals)
+
+    # Inter-contact distances along sorted order
+    diffs = np.diff(sorted_coords, axis=0)
+    step_distances = np.linalg.norm(diffs, axis=1)
+
+    # Derived or explicit nominal pitch in micrometers
+    if nominal_pitch is not None:
+        nom_pitch_um = float(nominal_pitch) * scale
+        if nom_pitch_um <= 0.0 or not np.isfinite(nom_pitch_um):
+            raise ValueError(f"nominal_pitch must be positive and finite, got {nominal_pitch}")
+    else:
+        nom_pitch_um = float(np.median(step_distances))
+
+    # Linearity condition: transverse residuals must be small compared to nominal pitch
+    # Allow at most max(pitch_tolerance * nom_pitch_um, 1e-4) deviation from the line
+    line_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
+    is_linear = bool(max_residual <= line_tol)
+
+    if strict_linear and not is_linear:
+        raise ValueError(
+            f"Probe geometry is non-linear: maximum off-axis deviation {max_residual:.3f} um "
+            f"exceeds tolerance {line_tol:.3f} um"
+        )
+
+    # Uniformity condition: step distances within pitch_tolerance of nominal pitch
+    pitch_err = np.abs(step_distances - nom_pitch_um)
+    is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + 1e-6)))
+
+    return ProbeGeometry(
+        contact_positions=coords_um,
+        channel_ids=channel_ids,
+        nominal_pitch=nom_pitch_um,
+        pitch_tolerance=pitch_tolerance,
+        is_linear=is_linear,
+        is_uniform=is_uniform,
+        linear_order=linear_order,
+        orientation=unit_orientation,
+        probe_name=resolved_probe_name,
+        units="um",
+    )
+
 

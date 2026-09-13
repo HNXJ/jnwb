@@ -10,6 +10,8 @@ from jnwb.addressing import (
     classify_layer_from_depth,
     enrich_units_dataframe,
     parse_probe_areas,
+    probe_geometry,
+    ProbeGeometry,
 )
 
 
@@ -439,3 +441,153 @@ def test_channel_118_120_boundary_case_on_a_128_channel_three_area_probe():
     assert map_peak_channel_to_area(42, elec) == "V1"      # last of first third
     assert map_peak_channel_to_area(43, elec) == "V2"      # first of middle third
     assert map_peak_channel_to_area(127, elec) == "V3"
+
+
+class TestProbeGeometry:
+    def test_linear_probe_uniform_spacing_and_orientation(self):
+        # 16 contacts along z-axis, 50 um pitch
+        n = 16
+        z_coords = np.arange(n) * 50.0
+        coords = np.column_stack([np.zeros(n), np.zeros(n), z_coords])
+        
+        geom = probe_geometry(coords, units="um", pitch_tolerance=0.05)
+        assert isinstance(geom, ProbeGeometry)
+        assert geom.contact_positions.shape == (n, 3)
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+        assert np.isclose(geom.nominal_pitch, 50.0)
+        assert np.array_equal(geom.linear_order, np.arange(n))
+        assert np.allclose(geom.orientation, [0.0, 0.0, 1.0])
+        assert geom.units == "um"
+
+    def test_arbitrary_linear_orientation_and_order_recovery(self):
+        # 10 contacts along diagonal (1, 1, 0) direction, pitch = 100 um
+        n = 10
+        pitch = 100.0
+        unit_vec = np.array([1.0, 1.0, 0.0]) / np.sqrt(2.0)
+        # Shuffle presentation order
+        shuffled_indices = np.array([3, 0, 9, 2, 8, 1, 7, 4, 6, 5])
+        positions = np.array([i * pitch * unit_vec for i in shuffled_indices])
+
+        geom = probe_geometry(positions, units="um")
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+        assert np.isclose(geom.nominal_pitch, pitch)
+        # Sorted order should place contact 0 first and contact 9 last
+        assert shuffled_indices[geom.linear_order[0]] == 0
+        assert shuffled_indices[geom.linear_order[-1]] == 9
+        # Orientation should align with positive unit_vec
+        assert np.allclose(geom.orientation, unit_vec)
+
+    def test_units_conversion_mm_and_m(self):
+        # 4 contacts spaced 0.1 mm = 100 um
+        coords_mm = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.1], [0.0, 0.0, 0.2], [0.0, 0.0, 0.3]])
+        geom_mm = probe_geometry(coords_mm, units="mm")
+        assert np.isclose(geom_mm.nominal_pitch, 100.0)
+        assert np.isclose(geom_mm.contact_positions[-1, 2], 300.0)
+
+        # In meters: 0.0001 m = 100 um
+        coords_m = coords_mm * 1e-3
+        geom_m = probe_geometry(coords_m, units="m")
+        assert np.isclose(geom_m.nominal_pitch, 100.0)
+
+    def test_irregular_spacing_detected(self):
+        # Contacts with gaps: 0, 50, 100, 250, 300 (missing contact at 150, 200)
+        z = np.array([0.0, 50.0, 100.0, 250.0, 300.0])
+        coords = np.column_stack([np.zeros(len(z)), np.zeros(len(z)), z])
+        geom = probe_geometry(coords, units="um", pitch_tolerance=0.1)
+        assert geom.is_linear is True
+        assert geom.is_uniform is False  # irregular spacing
+        assert np.isclose(geom.nominal_pitch, 50.0)  # median distance is 50.0
+
+    def test_tolerance_for_nominal_spacing(self):
+        # Contacts with slight jitter within 10% tolerance
+        z = np.array([0.0, 52.0, 98.0, 151.0, 203.0])  # pitch ~ 50 um
+        coords = np.column_stack([np.zeros(len(z)), np.zeros(len(z)), z])
+        geom_strict = probe_geometry(coords, nominal_pitch=50.0, pitch_tolerance=0.02)
+        assert geom_strict.is_uniform is False  # 4% deviation exceeds 2%
+        geom_loose = probe_geometry(coords, nominal_pitch=50.0, pitch_tolerance=0.10)
+        assert geom_loose.is_uniform is True
+
+    def test_non_linear_2d_array(self):
+        # 2D planar grid (e.g. 2x2 grid)
+        coords_2d = np.array([
+            [0.0, 0.0, 0.0],
+            [50.0, 0.0, 0.0],
+            [0.0, 50.0, 0.0],
+            [50.0, 50.0, 0.0],
+        ])
+        geom = probe_geometry(coords_2d, units="um", strict_linear=False)
+        assert geom.is_linear is False
+        assert geom.is_uniform is False
+
+        # strict_linear=True must raise ValueError
+        import pytest
+        with pytest.raises(ValueError, match="non-linear"):
+            probe_geometry(coords_2d, units="um", strict_linear=True)
+
+    def test_multi_probe_selection_and_ambiguity(self):
+        import pytest
+        # DataFrame with two distinct probes
+        elec_df = pd.DataFrame({
+            "x": [0.0, 0.0, 1000.0, 1000.0],
+            "y": [0.0, 0.0, 0.0, 0.0],
+            "z": [0.0, 50.0, 0.0, 50.0],
+            "group_name": ["probe_A", "probe_A", "probe_B", "probe_B"],
+            "channel_id": [0, 1, 10, 11],
+        })
+
+        # Omitted probe_name on multi-probe table raises ValueError
+        with pytest.raises(ValueError, match="Multiple probes found"):
+            probe_geometry(elec_df)
+
+        # Non-existent probe raises ValueError
+        with pytest.raises(ValueError, match="Probe 'probe_C' not found"):
+            probe_geometry(elec_df, probe_name="probe_C")
+
+        # Explicit probe selection succeeds
+        geom_a = probe_geometry(elec_df, probe_name="probe_A")
+        assert geom_a.probe_name == "probe_A"
+        assert geom_a.contact_positions.shape == (2, 3)
+        assert np.array_equal(geom_a.channel_ids, [0, 1])
+
+        geom_b = probe_geometry(elec_df, probe_name="probe_B")
+        assert geom_b.probe_name == "probe_B"
+        assert geom_b.contact_positions.shape == (2, 3)
+        assert np.array_equal(geom_b.channel_ids, [10, 11])
+
+    def test_duplicate_coordinates_raises(self):
+        import pytest
+        # Two contacts with identical coordinates
+        dup_coords = np.array([
+            [0.0, 0.0, 100.0],
+            [0.0, 0.0, 100.0],
+            [0.0, 0.0, 200.0],
+        ])
+        with pytest.raises(ValueError, match="Duplicate contact coordinates"):
+            probe_geometry(dup_coords)
+
+    def test_non_finite_or_nan_coordinates_raises(self):
+        import pytest
+        nan_coords = np.array([
+            [0.0, 0.0, 100.0],
+            [0.0, np.nan, 200.0],
+        ])
+        with pytest.raises(ValueError, match="NaN or non-finite"):
+            probe_geometry(nan_coords)
+
+    def test_unsupported_units_raises(self):
+        import pytest
+        coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 50.0]])
+        with pytest.raises(ValueError, match="Unsupported coordinate units"):
+            probe_geometry(coords, units="lightyears")
+
+    def test_boundary_single_contact(self):
+        coords = np.array([[10.0, 20.0, 30.0]])
+        geom = probe_geometry(coords, units="um")
+        assert geom.contact_positions.shape == (1, 3)
+        assert geom.nominal_pitch is None
+        assert geom.orientation is None
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+
