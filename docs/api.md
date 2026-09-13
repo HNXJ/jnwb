@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 136 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 138 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -12,6 +12,7 @@ All 136 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
 | jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
 | jnwb.RELATIVE_POWER_MODELS | constant | *Built-in immutable sequence.* |
+| jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
 
@@ -97,6 +98,12 @@ All 136 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.bandpass_filter | function | (data: 'np.ndarray', fs: 'float', low_cut: 'float', high_cut: 'float', order: 'int' = 4, zero_phase: 'bool' = True, axis: 'int' = -1) -> 'np.ndarray'<br>*Apply a Butterworth bandpass filter using Second-Order Sections (SOS).* |
 | jnwb.notch_filter | function | (data: 'np.ndarray', fs: 'float', freq: 'float' = 60.0, q: 'float' = 30.0, zero_phase: 'bool' = True, axis: 'int' = -1) -> 'np.ndarray'<br>*Apply an IIR notch filter using Second-Order Sections (SOS) conversion.* |
+
+## Module: jnwb.io
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.stream_npz_array | function | (file_path: 'Union[str, Path]', key: 'str', slice_tuple: 'Union[slice, int, Tuple[Union[slice, int], ...]]' = (slice(None, None, None),)) -> 'np.ndarray'<br>*Stream a memory-bounded slice from an uncompressed or compressed NPZ archive.* |
 
 ## Module: jnwb.jrsa
 

@@ -28,6 +28,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "continuous": "public",
     "decoding": "public",
     "filtering": "public",
+    "io": "public",
     "jrsa": "public",
     "metadata": "public",
     "nwb_inspect": "public",

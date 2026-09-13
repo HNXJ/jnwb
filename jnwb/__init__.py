@@ -183,6 +183,10 @@ __all__ = [
     # Path resolution
     'paths',
 
+    # I/O and streaming
+    'io',
+    'stream_npz_array',
+
     # TFR accumulation / compression
     'TFRAccumulator',
     'assert_mergeable',

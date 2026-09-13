@@ -45,7 +45,34 @@ Paths are configured via environment variables rather than source code edits:
 
 ---
 
-## 2. Spatial & Laminar Addressing (`jnwb/addressing.py`)
+## 2. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)
+
+Electrophysiological datasets often store dense time series (such as LFP, multi-unit activity, or high-dimensional TFR spectra) in compressed `.npz` archives. Standard `np.load` decompresses the entire array into RAM, which causes severe memory pressure on multi-channel or multi-hour sessions.
+
+`jnwb.stream_npz_array` provides streaming, memory-bounded access to slices of arrays stored in `.npz` files (both `ZIP_DEFLATED` compressed and `ZIP_STORED` uncompressed) without full-file RAM allocation:
+
+```python
+import jnwb
+from pathlib import Path
+
+npz_path = Path("session_data.npz")
+
+# Stream only the desired channels and time slice without allocating the full array
+# e.g., channels 10:20 across time steps 1000:5000:
+sliced_data = jnwb.stream_npz_array(
+    npz_path,
+    key="lfp_matrix",
+    slice_tuple=(slice(10, 20), slice(1000, 5000)),
+)
+
+# Preserves exact dtype, shape, and C / Fortran memory order
+print(sliced_data.shape, sliced_data.dtype)
+```
+
+Also accessible as `jnwb.io.stream_npz_array`.
+
+
+## 3. Spatial & Laminar Addressing (`jnwb/addressing.py`)
 
 `jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomically meaningful area and laminar (cortical layer) assignments.
 
@@ -80,7 +107,7 @@ enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 
 ---
 
-## 3. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
+## 4. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
 
 `jnwb.metadata` provides tools for extracting spike-sorting metadata across cohorts of NWB files, categorizing unit isolation quality, computing Signal-to-Noise Ratios (SNR), and producing census reports.
 
@@ -144,7 +171,7 @@ good_v1_units = jnwb.filter_by_criteria(
 
 ---
 
-## 4. Query & Event Ontology (`jnwb/ontology.py`)
+## 5. Query & Event Ontology (`jnwb/ontology.py`)
 
 `jnwb.ontology` defines object-oriented queries, datasets, and provenance descriptors:
 
