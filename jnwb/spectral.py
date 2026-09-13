@@ -620,19 +620,19 @@ class AperiodicFitResult:
     Container for 1/f aperiodic spectral parameter estimates.
 
     Attributes:
-        offset: Broadband offset parameter `b` (log10 power intercept).
-        exponent: Aperiodic spectral slope / exponent `chi` (positive for 1/f decay).
-        knee: Knee parameter `k` (0.0 for fixed mode, >0.0 for knee mode).
-        r_squared: Coefficient of determination (R^2) of the fit in log10 space.
+        offset: Broadband offset parameter `b` (log10 power intercept), or None if fit rejected.
+        exponent: Aperiodic spectral slope / exponent `chi` (positive for 1/f decay), or None if fit rejected.
+        knee: Knee parameter `k` (>0.0 for knee mode, None for fixed mode or rejected fit).
+        r_squared: Coefficient of determination (R^2) of the fit in log10 space, or None if fit rejected.
         freq_range: Evaluated frequency range `(f_min, f_max)` in Hz.
         mode: Fitting model (`'fixed'` or `'knee'`).
         accepted: Whether the optimization successfully converged to a valid fit.
     """
 
-    offset: float
-    exponent: float
-    knee: float
-    r_squared: float
+    offset: Optional[float]
+    exponent: Optional[float]
+    knee: Optional[float]
+    r_squared: Optional[float]
     freq_range: Tuple[float, float]
     mode: str
     accepted: bool
@@ -769,7 +769,7 @@ def aperiodic_fit(
                 return AperiodicFitResult(
                     offset=b,
                     exponent=chi,
-                    knee=0.0,
+                    knee=None,
                     r_squared=r2,
                     freq_range=range_tuple,
                     mode="fixed",
@@ -777,10 +777,10 @@ def aperiodic_fit(
                 )
             except Exception:
                 return AperiodicFitResult(
-                    offset=0.0,
-                    exponent=0.0,
-                    knee=0.0,
-                    r_squared=0.0,
+                    offset=None,
+                    exponent=None,
+                    knee=None,
+                    r_squared=None,
                     freq_range=range_tuple,
                     mode="fixed",
                     accepted=False,
@@ -822,10 +822,10 @@ def aperiodic_fit(
                 )
             except Exception:
                 return AperiodicFitResult(
-                    offset=0.0,
-                    exponent=0.0,
-                    knee=0.0,
-                    r_squared=0.0,
+                    offset=None,
+                    exponent=None,
+                    knee=None,
+                    r_squared=None,
                     freq_range=range_tuple,
                     mode="knee",
                     accepted=False,

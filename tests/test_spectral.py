@@ -670,7 +670,7 @@ class TestAperiodicFit:
         assert isinstance(res, AperiodicFitResult)
         assert res.accepted is True
         assert res.mode == "fixed"
-        assert res.knee == 0.0
+        assert res.knee is None
         assert res.offset == pytest.approx(b_true, abs=1e-5)
         assert res.exponent == pytest.approx(chi_true, abs=1e-5)
         assert res.r_squared == pytest.approx(1.0, abs=1e-5)
@@ -827,3 +827,40 @@ class TestAperiodicFit:
         # Bins inside (15.0, 35.0) are [20.0, 30.0], i.e., 2 bins < 4
         with pytest.raises(ValueError, match="Insufficient frequency bins"):
             aperiodic_fit(freqs, psd, freq_range=(15.0, 35.0))
+
+    def test_rejected_fit_returns_unavailable_parameters_never_zeros(self, monkeypatch):
+        """When optimization fails to converge, accepted=False and parameters are None, never plausible numerical zeros."""
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd = 10 ** (1.5 - 1.2 * np.log10(freqs))
+
+        # 1. Fixed mode optimization failure simulation
+        def _mock_polyfit_fail(*args, **kwargs):
+            raise RuntimeError("Linear regression divergence")
+
+        monkeypatch.setattr(np, "polyfit", _mock_polyfit_fail)
+        res_fixed_fail = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="fixed")
+        assert isinstance(res_fixed_fail, AperiodicFitResult)
+        assert res_fixed_fail.accepted is False
+        assert res_fixed_fail.offset is None
+        assert res_fixed_fail.exponent is None
+        assert res_fixed_fail.knee is None
+        assert res_fixed_fail.r_squared is None
+        assert res_fixed_fail.mode == "fixed"
+        assert res_fixed_fail.freq_range == (2.0, 50.0)
+
+        # 2. Knee mode optimization failure simulation
+        from scipy import optimize
+
+        def _mock_curve_fit_fail(*args, **kwargs):
+            raise RuntimeError("Optimal parameters not found: maxfev reached")
+
+        monkeypatch.setattr(optimize, "curve_fit", _mock_curve_fit_fail)
+        res_knee_fail = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="knee")
+        assert isinstance(res_knee_fail, AperiodicFitResult)
+        assert res_knee_fail.accepted is False
+        assert res_knee_fail.offset is None
+        assert res_knee_fail.exponent is None
+        assert res_knee_fail.knee is None
+        assert res_knee_fail.r_squared is None
+        assert res_knee_fail.mode == "knee"
+        assert res_knee_fail.freq_range == (2.0, 50.0)
