@@ -91,8 +91,13 @@ NaNs behind, so this is a real choice, but never a silent one.
 ### Spectral Tilt, Harmonic Analysis & Referencing
 
 ```python
-# Estimate 1/f spectral tilt / exponent
+# Estimate 1/f spectral tilt / exponent from time series
 tilt_res = jnwb.spectral_tilt(lfp_trace, fs=1000.0, freq_range=(1.0, 100.0))
+
+# Direct aperiodic fit on pre-computed spectrum (fixed or knee mode)
+# freqs: (n_freqs,) in Hz; psd: (..., n_freqs) in (U_in)^2/Hz
+fit_res = jnwb.aperiodic_fit(freqs, psd, freq_range=(2.0, 40.0), mode="fixed")
+# Returns jnwb.AperiodicFitResult with offset, exponent, knee, r_squared, accepted
 
 # Harmonic distortion analysis
 harmonics = jnwb.harmonic_analysis(lfp_trace, fs=1000.0, harmonic_orders=3)

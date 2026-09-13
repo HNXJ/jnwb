@@ -9,9 +9,10 @@ caller that accepts it.
 
 import logging
 import warnings
-from typing import Dict, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
-from scipy import signal, stats
+from scipy import optimize, signal, stats
 import pandas as pd
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
@@ -611,6 +612,234 @@ def spectral_tilt(
     result['fit_quality'] = float(r_squared)
 
     return result
+
+
+@dataclass
+class AperiodicFitResult:
+    """
+    Container for 1/f aperiodic spectral parameter estimates.
+
+    Attributes:
+        offset: Broadband offset parameter `b` (log10 power intercept).
+        exponent: Aperiodic spectral slope / exponent `chi` (positive for 1/f decay).
+        knee: Knee parameter `k` (0.0 for fixed mode, >0.0 for knee mode).
+        r_squared: Coefficient of determination (R^2) of the fit in log10 space.
+        freq_range: Evaluated frequency range `(f_min, f_max)` in Hz.
+        mode: Fitting model (`'fixed'` or `'knee'`).
+        accepted: Whether the optimization successfully converged to a valid fit.
+    """
+
+    offset: float
+    exponent: float
+    knee: float
+    r_squared: float
+    freq_range: Tuple[float, float]
+    mode: str
+    accepted: bool
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "offset": self.offset,
+            "exponent": self.exponent,
+            "knee": self.knee,
+            "r_squared": self.r_squared,
+            "freq_range": self.freq_range,
+            "mode": self.mode,
+            "accepted": self.accepted,
+        }
+
+
+def aperiodic_fit(
+    freqs: np.ndarray,
+    psd: np.ndarray,
+    freq_range: Tuple[float, float],
+    mode: str = "fixed",
+) -> Union[AperiodicFitResult, List[Any]]:
+    """
+    Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.
+
+    Fits the standard log-log aperiodic formulation:
+        L(f) = b - log10(k + f^chi)
+
+    In `'fixed'` mode, the knee parameter is constrained to `k = 0`, reducing to
+    `L(f) = b - chi * log10(f)`. In `'knee'` mode, `k > 0` is optimized to capture
+    a low-frequency plateau.
+
+    Important Scientific Distinctions:
+        - This function operates strictly on pre-computed `(freqs, psd)` arrays;
+          it does not recompute Welch periodograms or require time-series data.
+        - By neuroscience convention (Donoghue et al. 2020), `exponent` (chi) is
+          reported as a positive number representing 1/f decay (decay rate chi).
+          In contrast, unconstrained linear slope in :func:`spectral_tilt` is negative.
+          The mathematical equivalence is `exponent_aperiodic == -slope_spectral_tilt`
+          and `offset_aperiodic == log10(offset_spectral_tilt)`.
+        - Valid inputs with non-converging or ill-conditioned fits return
+          `accepted=False` rather than raising unhandled exceptions or fabricating parameters.
+
+    Args:
+        freqs: 1D array of strictly increasing, finite frequency coordinates in Hz, shape `(n_freqs,)`.
+        psd: Power spectral density array in (U_in)^2/Hz, shape `(n_freqs,)` or `(..., n_freqs)`.
+            Must be strictly non-negative and finite.
+        freq_range: Tuple `(f_min, f_max)` in Hz defining the fitting range (inclusive).
+            Must satisfy `0 < f_min < f_max`.
+        mode: Model type, either `'fixed'` (k = 0) or `'knee'` (k > 0). Default is `'fixed'`.
+
+    Returns:
+        :class:`AperiodicFitResult` dataclass for 1D input, or nested list/array of results
+        for multidimensional PSD input matching leading batch dimensions `(...)`.
+
+    Raises:
+        ValueError: If frequencies are non-monotonic, non-positive, or non-finite;
+            if PSD contains negative, NaN, or infinite values; if `freq_range` is invalid;
+            if `mode` is unrecognized; or if fewer than 4 frequency bins fall in `freq_range`.
+
+    References:
+        Donoghue, T., et al. (2020). Parameterizing neural power spectra into periodic and
+        aperiodic components. Nature Neuroscience. doi:10.1038/s41593-020-00744-x
+    """
+    if mode not in ("fixed", "knee"):
+        raise ValueError(f"Invalid mode '{mode}'. Must be 'fixed' or 'knee'.")
+
+    freqs_arr = np.asarray(freqs, dtype=np.float64)
+    if freqs_arr.ndim != 1:
+        raise ValueError(f"freqs must be a 1D array, got ndim={freqs_arr.ndim}.")
+    if len(freqs_arr) == 0:
+        raise ValueError("freqs array is empty.")
+    if not np.all(np.isfinite(freqs_arr)):
+        raise ValueError("freqs array contains NaN or infinite values.")
+    if np.any(freqs_arr <= 0):
+        raise ValueError("freqs array must contain strictly positive frequencies (> 0).")
+    if not np.all(np.diff(freqs_arr) > 0):
+        raise ValueError("freqs array must be strictly increasing.")
+
+    if len(freq_range) != 2:
+        raise ValueError(f"freq_range must be a 2-tuple (f_min, f_max), got {freq_range}.")
+    f_min, f_max = float(freq_range[0]), float(freq_range[1])
+    if not (np.isfinite(f_min) and np.isfinite(f_max)):
+        raise ValueError(f"freq_range must contain finite bounds, got ({f_min}, {f_max}).")
+    if f_min <= 0:
+        raise ValueError(f"freq_range minimum must be strictly positive (> 0), got {f_min}.")
+    if f_min >= f_max:
+        raise ValueError(f"freq_range f_min ({f_min}) must be strictly less than f_max ({f_max}).")
+
+    psd_arr = np.asarray(psd, dtype=np.float64)
+    if psd_arr.ndim == 0:
+        raise ValueError("psd must have at least 1 dimension.")
+    if psd_arr.shape[-1] != len(freqs_arr):
+        raise ValueError(
+            f"Trailing dimension of psd ({psd_arr.shape[-1]}) does not match freqs length ({len(freqs_arr)})."
+        )
+    if not np.all(np.isfinite(psd_arr)):
+        raise ValueError("psd array contains NaN or infinite values.")
+    if np.any(psd_arr <= 0):
+        raise ValueError("psd array contains non-positive values (<= 0). Non-positive power is undefined in log space.")
+
+    # Frequency mask
+    mask = (freqs_arr >= f_min) & (freqs_arr <= f_max)
+    n_points = int(np.sum(mask))
+    if n_points < 4:
+        raise ValueError(
+            f"Insufficient frequency bins in freq_range ({f_min}, {f_max}): "
+            f"found {n_points} bins, but at least 4 are required for aperiodic fitting."
+        )
+
+    fit_freqs = freqs_arr[mask]
+    log_freqs = np.log10(fit_freqs)
+    range_tuple = (f_min, f_max)
+
+    def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:
+        fit_psd = p_1d[mask]
+        log_power = np.log10(fit_psd)
+        ss_tot = float(np.sum((log_power - np.mean(log_power)) ** 2))
+
+        if mode == "fixed":
+            try:
+                coeffs = np.polyfit(log_freqs, log_power, 1)
+                chi = float(-coeffs[0])
+                b = float(coeffs[1])
+                fitted = b - chi * log_freqs
+                ss_res = float(np.sum((log_power - fitted) ** 2))
+                r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+                return AperiodicFitResult(
+                    offset=b,
+                    exponent=chi,
+                    knee=0.0,
+                    r_squared=r2,
+                    freq_range=range_tuple,
+                    mode="fixed",
+                    accepted=True,
+                )
+            except Exception:
+                return AperiodicFitResult(
+                    offset=0.0,
+                    exponent=0.0,
+                    knee=0.0,
+                    r_squared=0.0,
+                    freq_range=range_tuple,
+                    mode="fixed",
+                    accepted=False,
+                )
+        else:
+            # Knee mode: L(f) = b - log10(k + f^chi)
+            def _knee_model(f, b_param, chi_param, k_param):
+                return b_param - np.log10(k_param + f ** chi_param)
+
+            try:
+                # Linear initialization
+                coeffs_init = np.polyfit(log_freqs, log_power, 1)
+                chi_init = max(0.01, float(-coeffs_init[0]))
+                b_init = float(coeffs_init[1])
+                p0 = [b_init, chi_init, 1.0]
+                bounds = ((-np.inf, 0.0, 0.0), (np.inf, np.inf, np.inf))
+                popt, _ = optimize.curve_fit(
+                    _knee_model,
+                    fit_freqs,
+                    log_power,
+                    p0=p0,
+                    bounds=bounds,
+                    maxfev=5000,
+                )
+                b_opt = float(popt[0])
+                chi_opt = float(popt[1])
+                k_opt = float(popt[2])
+                fitted = _knee_model(fit_freqs, b_opt, chi_opt, k_opt)
+                ss_res = float(np.sum((log_power - fitted) ** 2))
+                r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+                return AperiodicFitResult(
+                    offset=b_opt,
+                    exponent=chi_opt,
+                    knee=k_opt,
+                    r_squared=r2,
+                    freq_range=range_tuple,
+                    mode="knee",
+                    accepted=True,
+                )
+            except Exception:
+                return AperiodicFitResult(
+                    offset=0.0,
+                    exponent=0.0,
+                    knee=0.0,
+                    r_squared=0.0,
+                    freq_range=range_tuple,
+                    mode="knee",
+                    accepted=False,
+                )
+
+    if psd_arr.ndim == 1:
+        return _fit_single_1d(psd_arr)
+
+    # Multidimensional batch handling across leading dimensions
+    leading_shape = psd_arr.shape[:-1]
+    flat_psd = psd_arr.reshape(-1, len(freqs_arr))
+    results_flat = [_fit_single_1d(row) for row in flat_psd]
+    results_arr = np.array(results_flat, dtype=object).reshape(leading_shape)
+    return results_arr.tolist()
 
 
 def band_power(

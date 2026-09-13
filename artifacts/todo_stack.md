@@ -4,7 +4,6 @@
 
 # 0.2.1
 
-- 0.2.1-01: Implement spectral.aperiodic_fit(freqs, psd, freq_range, mode=...) operating on existing spectrum without silently recomputing Welch; specify fixed vs knee, shapes, axis constraints, nonpositive PSD, NaN/Inf, insufficient points, fit failure, output parameters, and units; test against analytic/synthetic spectra and malformed axes.
 - 0.2.1-02: Implement spectral.relative_power(power, baseline, model=...) with explicit estimand; test numerical distinction between mean of ratios, ratio of sums, and mean dB; prevent silent estimand substitution.
 - 0.2.1-03: Implement session-level exact statistics: exact sign-flip, Mann-Whitney attainable p-value floor, Clopper-Pearson, BH correction; caller-visible inferential unit and multiplicity family; test against tiny direct enumeration, n=0/1, ties, and known p-value floors.
 - 0.2.1-04: Implement io.stream_npz_array defining supported compressed NPZ representations; test full-load parity, chunk-boundary parity, dtype/order preservation, missing key, corrupt archive, unsupported compression/layout, and measured bounded peak memory (no silent full-load fallback).

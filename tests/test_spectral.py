@@ -13,6 +13,8 @@ from jnwb.spectral import (
     harmonic_analysis,
     cross_area_coherence,
     spectral_tilt,
+    AperiodicFitResult,
+    aperiodic_fit,
     band_power,
     imaginary_coherency,
     bipolar_reference,
@@ -32,6 +34,8 @@ class TestPublicImport:
         assert jnwb.harmonic_analysis is harmonic_analysis
         assert jnwb.cross_area_coherence is cross_area_coherence
         assert jnwb.spectral_tilt is spectral_tilt
+        assert jnwb.AperiodicFitResult is AperiodicFitResult
+        assert jnwb.aperiodic_fit is aperiodic_fit
         assert jnwb.band_power is band_power
         assert jnwb.imaginary_coherency is imaginary_coherency
         assert jnwb.bipolar_reference is bipolar_reference
@@ -652,3 +656,174 @@ class TestCrossAreaCoherenceBandsAreExplicit:
         x, y = self._pair()
         out = cross_area_coherence(x, y, fs=1000.0, freq_bands={"slow": (2.0, 6.0)}, n_surrogates=8)
         assert set(out["band_coherence"]) == {"slow"}
+
+
+class TestAperiodicFit:
+    def test_fixed_mode_analytic_recovery(self):
+        """Verify exact parameter recovery on noise-free analytic fixed spectrum."""
+        freqs = np.linspace(2.0, 100.0, 99)
+        b_true = 2.5
+        chi_true = 1.75
+        psd = 10 ** (b_true - chi_true * np.log10(freqs))
+
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 100.0), mode="fixed")
+        assert isinstance(res, AperiodicFitResult)
+        assert res.accepted is True
+        assert res.mode == "fixed"
+        assert res.knee == 0.0
+        assert res.offset == pytest.approx(b_true, abs=1e-5)
+        assert res.exponent == pytest.approx(chi_true, abs=1e-5)
+        assert res.r_squared == pytest.approx(1.0, abs=1e-5)
+        assert res.freq_range == (2.0, 100.0)
+
+    def test_knee_mode_analytic_recovery(self):
+        """Verify exact parameter recovery on noise-free analytic knee spectrum."""
+        freqs = np.linspace(1.0, 150.0, 300)
+        b_true = 3.0
+        chi_true = 2.0
+        k_true = 25.0
+        psd = 10 ** (b_true - np.log10(k_true + freqs ** chi_true))
+
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 150.0), mode="knee")
+        assert isinstance(res, AperiodicFitResult)
+        assert res.accepted is True
+        assert res.mode == "knee"
+        assert res.offset == pytest.approx(b_true, rel=1e-3)
+        assert res.exponent == pytest.approx(chi_true, rel=1e-3)
+        assert res.knee == pytest.approx(k_true, rel=1e-2)
+        assert res.r_squared == pytest.approx(1.0, abs=1e-3)
+
+    def test_amplitude_scaling_changes_offset_not_exponent(self):
+        """Scaling PSD by factor S increases offset by log10(S) while leaving exponent unchanged."""
+        freqs = np.linspace(5.0, 80.0, 76)
+        b_true = 1.2
+        chi_true = 1.4
+        psd = 10 ** (b_true - chi_true * np.log10(freqs))
+
+        scale_factor = 100.0
+        res_orig = aperiodic_fit(freqs, psd, freq_range=(5.0, 80.0), mode="fixed")
+        res_scaled = aperiodic_fit(freqs, psd * scale_factor, freq_range=(5.0, 80.0), mode="fixed")
+
+        assert res_scaled.exponent == pytest.approx(res_orig.exponent, abs=1e-6)
+        assert res_scaled.offset == pytest.approx(res_orig.offset + np.log10(scale_factor), abs=1e-6)
+        assert res_scaled.r_squared == pytest.approx(res_orig.r_squared, abs=1e-6)
+
+    def test_mathematical_agreement_with_spectral_tilt_fitting_stage(self):
+        """Verify identical regression values between aperiodic_fit (fixed) and spectral_tilt fitting math on the same PSD."""
+        freqs = np.linspace(2.0, 80.0, 79)
+        psd = 10 ** (2.0 - 1.5 * np.log10(freqs))
+
+        # Directly run linear regression as implemented in spectral_tilt
+        log_freqs = np.log10(freqs)
+        log_power = np.log10(psd)
+        tilt_coeffs = np.polyfit(log_freqs, log_power, 1)
+        tilt_exponent = float(tilt_coeffs[0])
+        tilt_offset_log = float(tilt_coeffs[1])
+
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 80.0), mode="fixed")
+
+        # In aperiodic_fit: exponent = -slope, offset = intercept
+        assert res.exponent == pytest.approx(-tilt_exponent, abs=1e-7)
+        assert res.offset == pytest.approx(tilt_offset_log, abs=1e-7)
+
+    def test_multidimensional_batch_support(self):
+        """Multi-channel PSD arrays (n_channels, n_freqs) return structured list of AperiodicFitResult."""
+        freqs = np.linspace(2.0, 60.0, 59)
+        b_vals = [1.0, 2.0, 3.0]
+        chi_vals = [1.2, 1.5, 1.8]
+        psd_multi = np.array([
+            10 ** (b - chi * np.log10(freqs))
+            for b, chi in zip(b_vals, chi_vals)
+        ])  # shape: (3, 59)
+
+        results = aperiodic_fit(freqs, psd_multi, freq_range=(2.0, 60.0), mode="fixed")
+        assert len(results) == 3
+        for i, res in enumerate(results):
+            assert isinstance(res, AperiodicFitResult)
+            assert res.offset == pytest.approx(b_vals[i], abs=1e-5)
+            assert res.exponent == pytest.approx(chi_vals[i], abs=1e-5)
+
+    def test_dict_and_mapping_interface(self):
+        """Verify mapping access and serialization methods on AperiodicFitResult."""
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd = 10 ** (1.5 - 1.2 * np.log10(freqs))
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="fixed")
+
+        assert res["offset"] == res.offset
+        assert res["exponent"] == res.exponent
+        assert res.get("mode") == "fixed"
+        assert res.get("unknown_key", "default_val") == "default_val"
+
+        d = res.to_dict()
+        assert isinstance(d, dict)
+        assert d["offset"] == res.offset
+        assert d["exponent"] == res.exponent
+        assert d["accepted"] is True
+
+    def test_determinism_repeated_calls(self):
+        """Repeated evaluation yields identical numerical results."""
+        freqs = np.linspace(2.0, 80.0, 80)
+        psd = 10 ** (2.0 - 1.5 * np.log10(freqs))
+        r1 = aperiodic_fit(freqs, psd, freq_range=(2.0, 80.0), mode="fixed")
+        r2 = aperiodic_fit(freqs, psd, freq_range=(2.0, 80.0), mode="fixed")
+        assert r1.offset == r2.offset
+        assert r1.exponent == r2.exponent
+        assert r1.r_squared == r2.r_squared
+
+    def test_invalid_mode_raises(self):
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd = np.ones_like(freqs)
+        with pytest.raises(ValueError, match="Invalid mode 'unsupported'"):
+            aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="unsupported")
+
+    def test_nonmonotonic_or_invalid_freqs_raise(self):
+        freqs_non_monotonic = np.array([1.0, 5.0, 3.0, 10.0])
+        psd = np.ones(4)
+        with pytest.raises(ValueError, match="strictly increasing"):
+            aperiodic_fit(freqs_non_monotonic, psd, freq_range=(1.0, 10.0))
+
+        freqs_negative = np.array([-1.0, 2.0, 5.0, 10.0])
+        with pytest.raises(ValueError, match="strictly positive"):
+            aperiodic_fit(freqs_negative, psd, freq_range=(1.0, 10.0))
+
+        freqs_nan = np.array([1.0, np.nan, 5.0, 10.0])
+        with pytest.raises(ValueError, match="NaN or infinite"):
+            aperiodic_fit(freqs_nan, psd, freq_range=(1.0, 10.0))
+
+    def test_invalid_psd_raises(self):
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd_zero = np.ones_like(freqs)
+        psd_zero[10] = 0.0
+        with pytest.raises(ValueError, match="non-positive"):
+            aperiodic_fit(freqs, psd_zero, freq_range=(2.0, 50.0))
+
+        psd_negative = np.ones_like(freqs)
+        psd_negative[5] = -0.5
+        with pytest.raises(ValueError, match="non-positive"):
+            aperiodic_fit(freqs, psd_negative, freq_range=(2.0, 50.0))
+
+        psd_nan = np.ones_like(freqs)
+        psd_nan[3] = np.nan
+        with pytest.raises(ValueError, match="NaN or infinite"):
+            aperiodic_fit(freqs, psd_nan, freq_range=(2.0, 50.0))
+
+        psd_mismatched = np.ones(20)
+        with pytest.raises(ValueError, match="Trailing dimension"):
+            aperiodic_fit(freqs, psd_mismatched, freq_range=(2.0, 50.0))
+
+    def test_invalid_freq_range_raises(self):
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd = np.ones_like(freqs)
+        with pytest.raises(ValueError, match="strictly less than"):
+            aperiodic_fit(freqs, psd, freq_range=(30.0, 10.0))
+
+        with pytest.raises(ValueError, match="strictly positive"):
+            aperiodic_fit(freqs, psd, freq_range=(-5.0, 20.0))
+
+    def test_insufficient_points_raises(self):
+        """Fewer than 4 bins inside freq_range raises ValueError."""
+        freqs = np.array([1.0, 10.0, 20.0, 30.0, 40.0, 50.0])
+        psd = np.ones_like(freqs)
+        # Bins inside (15.0, 35.0) are [20.0, 30.0], i.e., 2 bins < 4
+        with pytest.raises(ValueError, match="Insufficient frequency bins"):
+            aperiodic_fit(freqs, psd, freq_range=(15.0, 35.0))
