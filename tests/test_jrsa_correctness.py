@@ -73,3 +73,67 @@ class TestHsicInputShapes:
         a = rng.normal(size=(20, 30))
         b = rng.normal(size=(20, 5, 6))
         assert self._hsic(a, b) == pytest.approx(self._hsic(a, b.reshape(20, -1)))
+
+
+class TestVectorLengthMismatchSafety:
+    """_pearson, _spearman, _kendall, and _cosine must raise ValueError on mismatched lengths."""
+
+    def test_pearson_raises_on_length_mismatch(self):
+        from jnwb.jrsa import _pearson
+        x = np.arange(10, dtype=float)
+        y = np.arange(15, dtype=float)
+        with pytest.raises(ValueError, match="_pearson: vector length mismatch"):
+            _pearson(x, y)
+
+    def test_spearman_raises_on_length_mismatch(self):
+        from jnwb.jrsa import _spearman
+        x = np.arange(10, dtype=float)
+        y = np.arange(15, dtype=float)
+        with pytest.raises(ValueError, match="_spearman: vector length mismatch"):
+            _spearman(x, y)
+
+    def test_kendall_raises_on_length_mismatch(self):
+        from jnwb.jrsa import _kendall
+        x = np.arange(10, dtype=float)
+        y = np.arange(15, dtype=float)
+        with pytest.raises(ValueError, match="_kendall: vector length mismatch"):
+            _kendall(x, y)
+
+    def test_cosine_raises_on_length_mismatch(self):
+        from jnwb.jrsa import _cosine
+        x = np.arange(10, dtype=float)
+        y = np.arange(15, dtype=float)
+        with pytest.raises(ValueError, match="_cosine: vector length mismatch"):
+            _cosine(x, y)
+
+    def test_equal_length_controls(self):
+        from jnwb.jrsa import _pearson, _spearman, _kendall, _cosine
+        x = np.arange(10, dtype=float)
+        y = x + 0.1 * np.ones(10)
+        r, _, _, _, _ = _pearson(x, y)
+        rho, _, _, _, _ = _spearman(x, y)
+        tau, _, _, _, _ = _kendall(x, y)
+        cos, _, _, _, _ = _cosine(x, y)
+        assert np.isclose(r, 1.0)
+        assert np.isclose(rho, 1.0)
+        assert np.isclose(tau, 1.0)
+        assert cos > 0.99
+
+
+class TestMultipleCorrectionFallback:
+    """Test _multiple_correction and delegation to StatisticalAnalysis.fdr_correct."""
+
+    def test_multiple_correction_bh_matches_fdr_correct(self):
+        from jnwb.jrsa import _multiple_correction
+        from jnwb.statistics import StatisticalAnalysis
+        p = np.array([0.001, 0.005, 0.01, 0.01, 0.02, 0.04, 0.04, 0.05, 0.1, 0.5, 0.8, 0.99])
+        q_corr = _multiple_correction(p, method="fdr_bh", alpha=0.05)
+        q_sa = StatisticalAnalysis.fdr_correct(p, method="bh")
+        np.testing.assert_allclose(q_corr, q_sa, atol=1e-15)
+
+    def test_multiple_correction_bonferroni(self):
+        from jnwb.jrsa import _multiple_correction
+        p = np.array([0.01, 0.05, 0.5])
+        q = _multiple_correction(p, method="bonferroni", alpha=0.05)
+        np.testing.assert_allclose(q, np.array([0.03, 0.15, 1.0]))
+
