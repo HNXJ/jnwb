@@ -86,6 +86,26 @@ stands -- pass power and baseline, never decibels.
 `nan_policy="omit"` aggregates over non-NaN entries only. Artifact repair legitimately leaves
 NaNs behind, so this is a real choice, but never a silent one.
 
+#### Direct Relative Power (`relative_power`)
+
+`relative_power` computes power ratios against baseline without premature logarithmic conversions,
+providing explicit mathematical model selection:
+
+```python
+# Linear mean of ratios: E[P / B] (equal unit weighting)
+rel_linear = jnwb.relative_power(power, baseline, model="mean_of_ratios", axis=0)
+
+# Linear ratio of means: E[P] / E[B] (baseline-power-weighted average)
+rel_weighted = jnwb.relative_power(power, baseline, model="ratio_of_means", axis=0)
+
+# Decibels without spatial/trial aggregation: 10 * log10(P / B)
+rel_db = jnwb.relative_power(power, baseline, model="log_ratio")
+```
+
+The model names are published in `jnwb.RELATIVE_POWER_MODELS`. The library guarantees:
+$\text{requested estimand} = \text{returned estimand}$, with no silent conversion between
+linear and decibel representations.
+
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png)
 
 ### Spectral Tilt, Harmonic Analysis & Referencing

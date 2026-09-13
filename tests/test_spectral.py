@@ -16,6 +16,8 @@ from jnwb.spectral import (
     AperiodicFitResult,
     aperiodic_fit,
     band_power,
+    relative_power,
+    RELATIVE_POWER_MODELS,
     imaginary_coherency,
     bipolar_reference,
     laplacian_reference,
@@ -37,6 +39,8 @@ class TestPublicImport:
         assert jnwb.AperiodicFitResult is AperiodicFitResult
         assert jnwb.aperiodic_fit is aperiodic_fit
         assert jnwb.band_power is band_power
+        assert jnwb.relative_power is relative_power
+        assert jnwb.RELATIVE_POWER_MODELS is RELATIVE_POWER_MODELS
         assert jnwb.imaginary_coherency is imaginary_coherency
         assert jnwb.bipolar_reference is bipolar_reference
         assert jnwb.laplacian_reference is laplacian_reference
@@ -864,3 +868,149 @@ class TestAperiodicFit:
         assert res_knee_fail.r_squared is None
         assert res_knee_fail.mode == "knee"
         assert res_knee_fail.freq_range == (2.0, 50.0)
+
+
+class TestRelativePower:
+    def test_numerical_distinction_under_unequal_baselines(self):
+        """Under unequal baselines, mean of ratios, ratio of means, and mean dB strictly diverge."""
+        power = np.array([2.0, 8.0])
+        baseline = np.array([1.0, 2.0])
+
+        # 1. Linear mean of ratios: (2/1 + 8/2) / 2 = (2 + 4) / 2 = 3.0
+        r_mean_of_ratios = relative_power(power, baseline, model="mean_of_ratios", axis=0)
+        assert r_mean_of_ratios == pytest.approx(3.0)
+
+        # 2. Linear ratio of means: (2 + 8) / (1 + 2) = 10 / 3 = 3.3333333333333335
+        r_ratio_of_means = relative_power(power, baseline, model="ratio_of_means", axis=0)
+        assert r_ratio_of_means == pytest.approx(10.0 / 3.0)
+
+        # 3. Log ratio (elementwise dB): [10*log10(2), 10*log10(4)]
+        r_log_ratio = relative_power(power, baseline, model="log_ratio")
+        expected_db = np.array([10.0 * np.log10(2.0), 10.0 * np.log10(4.0)])
+        np.testing.assert_allclose(r_log_ratio, expected_db)
+
+        # Mean of decibels (the Jensen inequality defect)
+        mean_db = float(np.mean(r_log_ratio))
+
+        # 10*log10(mean of ratios) = 10*log10(3.0) = 4.7712 dB
+        db_from_mean_of_ratios = float(10.0 * np.log10(r_mean_of_ratios))
+
+        # 10*log10(ratio of means) = 10*log10(3.333) = 5.2288 dB
+        db_from_ratio_of_means = float(10.0 * np.log10(r_ratio_of_means))
+
+        # Verify all four quantities are strictly distinct
+        assert r_mean_of_ratios != pytest.approx(r_ratio_of_means)
+        assert db_from_mean_of_ratios != pytest.approx(db_from_ratio_of_means)
+        assert mean_db != pytest.approx(db_from_mean_of_ratios)
+        assert mean_db != pytest.approx(db_from_ratio_of_means)
+
+    def test_coincidence_under_equal_baselines(self):
+        """Under strictly equal baselines, mean of ratios and ratio of means coincide exactly."""
+        power = np.array([4.0, 10.0])
+        baseline = np.array([2.0, 2.0])
+
+        # (4/2 + 10/2) / 2 = 7 / 2 = 3.5
+        r_mor = relative_power(power, baseline, model="mean_of_ratios", axis=0)
+        # (4 + 10) / (2 + 2) = 14 / 4 = 3.5
+        r_rom = relative_power(power, baseline, model="ratio_of_means", axis=0)
+
+        assert r_mor == pytest.approx(3.5)
+        assert r_rom == pytest.approx(3.5)
+        assert r_mor == pytest.approx(r_rom)
+
+    def test_elementwise_mean_of_ratios_when_axis_is_none(self):
+        """model='mean_of_ratios' with axis=None returns elementwise linear ratios without reduction."""
+        power = np.array([[2.0, 4.0], [6.0, 8.0]])
+        baseline = np.array([[1.0, 2.0], [3.0, 4.0]])
+        res = relative_power(power, baseline, model="mean_of_ratios", axis=None)
+        expected = np.array([[2.0, 2.0], [2.0, 2.0]])
+        np.testing.assert_allclose(res, expected)
+
+    def test_ratio_of_means_reduces_all_elements_when_axis_is_none(self):
+        """model='ratio_of_means' with axis=None reduces all elements."""
+        power = np.array([[2.0, 4.0], [6.0, 8.0]])
+        baseline = np.array([[1.0, 2.0], [3.0, 4.0]])
+        res = relative_power(power, baseline, model="ratio_of_means", axis=None)
+        expected = (2.0 + 4.0 + 6.0 + 8.0) / (1.0 + 2.0 + 3.0 + 4.0)  # 20 / 10 = 2.0
+        assert res == pytest.approx(expected)
+
+    def test_broadcasting_scalar_and_array_baselines(self):
+        """Scalar baseline broadcasts across multidimensional power tensor."""
+        power = np.array([[2.0, 4.0], [8.0, 16.0]])
+        res_scalar = relative_power(power, 2.0, model="mean_of_ratios", axis=None)
+        expected = np.array([[1.0, 2.0], [4.0, 8.0]])
+        np.testing.assert_allclose(res_scalar, expected)
+
+        # 1D baseline broadcasting along axis 0
+        baseline_1d = np.array([2.0, 4.0])
+        res_broadcast = relative_power(power, baseline_1d, model="mean_of_ratios", axis=None)
+        expected_bc = np.array([[1.0, 1.0], [4.0, 4.0]])
+        np.testing.assert_allclose(res_broadcast, expected_bc)
+
+    def test_preservation_of_linear_scale(self):
+        """Linear ratios are never converted to decibels unless model='log_ratio'."""
+        power = np.array([10.0, 100.0])
+        baseline = np.array([1.0, 1.0])
+        r_linear = relative_power(power, baseline, model="mean_of_ratios", axis=0)
+        assert r_linear == pytest.approx(55.0)  # (10 + 100) / 2 = 55.0 != 10*log10(55)
+
+        r_db = relative_power(power, baseline, model="log_ratio")
+        expected_db = np.array([10.0, 20.0])
+        np.testing.assert_allclose(r_db, expected_db)
+
+    def test_axis_with_log_ratio_raises(self):
+        """Passing axis to model='log_ratio' raises ValueError (use aggregate_to_db for aggregated dB)."""
+        power = np.array([2.0, 4.0])
+        baseline = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="model='log_ratio' computes elementwise decibels"):
+            relative_power(power, baseline, model="log_ratio", axis=0)
+
+    def test_invalid_model_raises(self):
+        power = np.array([2.0, 4.0])
+        baseline = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="model must be one of"):
+            relative_power(power, baseline, model="unsupported_model")
+
+    def test_empty_inputs_raise(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            relative_power(np.array([]), np.array([]))
+
+    def test_negative_inputs_raise(self):
+        with pytest.raises(ValueError, match="power contains negative values"):
+            relative_power(np.array([-1.0, 2.0]), np.array([1.0, 2.0]))
+
+        with pytest.raises(ValueError, match="baseline contains negative values"):
+            relative_power(np.array([1.0, 2.0]), np.array([-1.0, 2.0]))
+
+    def test_nonfinite_inputs_raise(self):
+        with pytest.raises(ValueError, match="finite values"):
+            relative_power(np.array([np.nan, 2.0]), np.array([1.0, 2.0]))
+
+        with pytest.raises(ValueError, match="finite values"):
+            relative_power(np.array([1.0, 2.0]), np.array([np.inf, 2.0]))
+
+    def test_zero_baseline_division_raises(self):
+        with pytest.raises(ValueError, match="baseline contains zero values"):
+            relative_power(np.array([1.0, 2.0]), np.array([0.0, 2.0]))
+
+    def test_mismatched_nonbroadcastable_shapes_raise(self):
+        power = np.ones((3, 4))
+        baseline = np.ones((2, 5))
+        with pytest.raises(ValueError, match="cannot broadcast"):
+            relative_power(power, baseline)
+
+    def test_device_fallback_warning_on_cuda_unavailability(self):
+        """Requesting device='cuda' when unavailable emits RuntimeWarning and computes on CPU."""
+        import warnings
+        import jnwb._backend as backend
+        power = np.array([2.0, 4.0])
+        baseline = np.array([1.0, 2.0])
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            res = relative_power(power, baseline, model="mean_of_ratios", axis=0, device="cuda")
+            # If CUDA is unavailable, RuntimeWarning is emitted by resolve_device
+            cuda_warnings = [r for r in record if issubclass(r.category, RuntimeWarning)]
+            if not backend.gpu_available():
+                assert len(cuda_warnings) >= 1
+                assert "device='cuda' was requested" in str(cuda_warnings[0].message)
+        assert res == pytest.approx(2.0)

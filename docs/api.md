@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 130 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 132 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -11,6 +11,7 @@ All 130 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.CANONICAL_BANDS | constant | *dict() -> new empty dictionary dict(mapping) -> new dictionary initialized from a mapping object's     (key, value) pairs dict(iterable) -> new dictionary initialized as if via:     d = {}     for k, v in iterable:         d[k] = v dict(**kwargs) -> new dictionary initialized with the name=value pairs     in the keyword argument list.  For example:  dict(one=1, two=2)* |
 | jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
 | jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
+| jnwb.RELATIVE_POWER_MODELS | constant | *Built-in immutable sequence.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
 
@@ -191,6 +192,7 @@ All 130 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.harmonic_analysis | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), harmonic_orders: int = 3, device: str = 'cpu') -> Dict<br>*Decompose LFP trace into fundamental and harmonic components.* |
 | jnwb.imaginary_coherency | function | (x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, float]<br>*Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.* |
 | jnwb.laplacian_reference | function | (channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray<br>*1D nearest-neighbor Laplacian re-reference along a probe's depth order.* |
+| jnwb.relative_power | function | (power: numpy.ndarray, baseline: numpy.ndarray, model: str = 'mean_of_ratios', axis: int | Tuple[int, ...] | None = None, device: str = 'cpu') -> numpy.ndarray<br>*Compute relative power of a signal against baseline under an explicit mathematical estimand.* |
 | jnwb.spectral_tilt | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 100.0), device: str = 'cpu') -> Dict<br>*Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.* |
 | jnwb.to_db | function | (ratio)<br>*``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass through — average power, divide by baseline, then take the logarithm exactly once.* |
 | jnwb.voltage_curvature_1d | function | (lfp_matrix: numpy.ndarray, pitch_um: float, axis: int = 0) -> numpy.ndarray<br>*Compute the discrete second spatial derivative of extracellular potential along a laminar probe.* |

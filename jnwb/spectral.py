@@ -65,6 +65,12 @@ def to_db(ratio):
 #: that "mean_of_ratios" weights equally. A quiet default would silently pick one for the caller.
 DB_AGGREGATIONS = ("mean_of_ratios", "ratio_of_means")
 
+#: Accepted estimand models for :func:`relative_power`.
+#: - "mean_of_ratios": Arithmetic mean of per-unit ratios E[P / P0] (equal weighting per unit/channel).
+#: - "ratio_of_means": Ratio of aggregated means E[P] / E[P0] (baseline-power-weighted average).
+#: - "log_ratio": 10 * log10(P / P0) in decibels (no spatial/trial aggregation, preserving exact ratio-to-dB).
+RELATIVE_POWER_MODELS = ("mean_of_ratios", "ratio_of_means", "log_ratio")
+
 
 def aggregate_to_db(
     power,
@@ -840,6 +846,157 @@ def aperiodic_fit(
     results_flat = [_fit_single_1d(row) for row in flat_psd]
     results_arr = np.array(results_flat, dtype=object).reshape(leading_shape)
     return results_arr.tolist()
+
+
+def relative_power(
+    power: np.ndarray,
+    baseline: np.ndarray,
+    *,
+    model: str = "mean_of_ratios",
+    axis: Optional[Union[int, Tuple[int, ...]]] = None,
+    device: str = "cpu",
+) -> np.ndarray:
+    """
+    Compute relative power of a signal against baseline under an explicit mathematical estimand.
+
+    Mathematical Estimands:
+        - ``"mean_of_ratios"``:
+          Computes :math:`\\frac{1}{N} \\sum_{c=1}^{N} \\frac{P_c}{B_c}` across the specified ``axis``.
+          Treats every unit/channel with equal weight. Returns linear dimensionless ratio.
+        - ``"ratio_of_means"``:
+          Computes :math:`\\frac{\\sum_c P_c}{\\sum_c B_c}` across the specified ``axis``.
+          Equivalent to a baseline-power-weighted average of per-unit ratios:
+          :math:`\\sum_c w_c (P_c / B_c)` where :math:`w_c = B_c / \\sum_j B_j`.
+          Returns linear dimensionless ratio.
+        - ``"log_ratio"``:
+          Computes :math:`10 \\log_{10}(P / B)` elementwise in decibels (dB).
+          Preserves the log-last principle without spatial or trial aggregation.
+
+    Important Scientific Invariants:
+        - The three models represent mathematically distinct estimands. They coincide only when
+          baseline power is strictly identical across the aggregation axis. Under unequal baselines,
+          they diverge. The requested model is returned exactly as specified; the library never
+          silently converts among them.
+        - Preserves linear scale when ``"mean_of_ratios"`` or ``"ratio_of_means"`` is requested.
+          Conversion to decibels occurs only when ``model="log_ratio"`` is explicitly chosen,
+          preventing premature logarithmic transforms before aggregation (Jensen's inequality).
+        - Negative or non-finite inputs, zero baseline values, and mismatched non-broadcastable
+          shapes fail loudly by raising :class:`ValueError`.
+
+    Args:
+        power: Power array in :math:`(U_{\\text{in}})^2` or :math:`(U_{\\text{in}})^2/\\text{Hz}`.
+            Must be finite and strictly non-negative. Any shape.
+        baseline: Baseline power array in the same physical units as ``power``, broadcastable against ``power``.
+            Must be finite, strictly non-negative, and contain non-zero values where division occurs.
+        model: Estimand model, strictly one of ``"mean_of_ratios"``, ``"ratio_of_means"``, or ``"log_ratio"``.
+            Default is ``"mean_of_ratios"``.
+        axis: Axis or tuple of axes to reduce along when using ``"mean_of_ratios"`` or ``"ratio_of_means"``.
+            If ``None`` and ``model="mean_of_ratios"``, computes elementwise ratio :math:`P / B` without reduction.
+            If ``None`` and ``model="ratio_of_means"``, reduces across all elements (:math:`\\sum P / \\sum B`).
+            For ``model="log_ratio"``, ``axis`` must be ``None`` (elementwise dB transform).
+        device: Hardware device to use: ``"cpu"`` or ``"cuda"``. Resolved via :func:`resolve_device`.
+            If ``"cuda"`` is requested but unavailable, falls back to CPU with a diagnostic warning.
+
+    Returns:
+        :class:`numpy.ndarray` of relative power values matching broadcast/reduced shape.
+        Linear scale (dimensionless) for ``"mean_of_ratios"`` and ``"ratio_of_means"``;
+        decibels (:math:`\\text{dB}`) for ``"log_ratio"``.
+
+    Raises:
+        ValueError: If ``model`` is unrecognized; if any input is empty; if ``power`` or ``baseline``
+            contains negative or non-finite (NaN/Inf) values; if ``baseline`` contains zeros causing
+            division by zero; if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
+
+    Examples:
+        >>> import numpy as np
+        >>> p = np.array([2.0, 8.0])
+        >>> b = np.array([1.0, 2.0])
+        >>> # Mean of ratios: (2/1 + 8/2) / 2 = (2 + 4) / 2 = 3.0
+        >>> float(relative_power(p, b, model="mean_of_ratios", axis=0))
+        3.0
+        >>> # Ratio of means: (2 + 8) / (1 + 2) = 10 / 3 = 3.333...
+        >>> float(relative_power(p, b, model="ratio_of_means", axis=0))
+        3.3333333333333335
+        >>> # Log ratio: [10*log10(2), 10*log10(4)] = [3.010..., 6.020...]
+        >>> relative_power(p, b, model="log_ratio")
+        array([3.01029996, 6.02059991])
+    """
+    if model not in RELATIVE_POWER_MODELS:
+        raise ValueError(f"model must be one of {list(RELATIVE_POWER_MODELS)}; got {model!r}")
+
+    if model == "log_ratio" and axis is not None:
+        raise ValueError(
+            f"model='log_ratio' computes elementwise decibels without aggregation; "
+            f"got axis={axis!r}. For aggregated decibels, use jnwb.aggregate_to_db."
+        )
+
+    # Resolve device with observable fallback
+    resolved_dev = resolve_device(device, context="relative_power", prefer="cupy", stacklevel=3)
+
+    p_arr = np.asarray(power, dtype=np.float64)
+    b_arr = np.asarray(baseline, dtype=np.float64)
+
+    if p_arr.size == 0 or b_arr.size == 0:
+        raise ValueError("power and baseline inputs must not be empty.")
+
+    if not (np.all(np.isfinite(p_arr)) and np.all(np.isfinite(b_arr))):
+        raise ValueError("power and baseline inputs must contain finite values (no NaN or Inf).")
+
+    if np.any(p_arr < 0):
+        raise ValueError("power contains negative values. Power must be non-negative ratio-scale.")
+
+    if np.any(b_arr < 0):
+        raise ValueError("baseline contains negative values. Baseline must be non-negative ratio-scale.")
+
+    # Broadcast check
+    try:
+        b_broadcast = np.broadcast_to(b_arr, p_arr.shape)
+    except ValueError as e:
+        raise ValueError(
+            f"baseline shape {b_arr.shape} cannot broadcast to power shape {p_arr.shape}."
+        ) from e
+
+    if np.any(b_broadcast == 0):
+        raise ValueError("baseline contains zero values resulting in division by zero.")
+
+    # Execute computation
+    if resolved_dev == CUDA:
+        try:
+            import cupy as cp
+
+            p_gpu = cp.asarray(p_arr)
+            b_gpu = cp.asarray(b_arr)
+            b_gpu_broadcast = cp.broadcast_to(b_gpu, p_gpu.shape)
+
+            if model == "mean_of_ratios":
+                if axis is None:
+                    res_gpu = p_gpu / b_gpu_broadcast
+                else:
+                    res_gpu = cp.mean(p_gpu / b_gpu_broadcast, axis=axis)
+            elif model == "ratio_of_means":
+                num = cp.sum(p_gpu, axis=axis)
+                den = cp.sum(b_gpu_broadcast, axis=axis)
+                res_gpu = num / den
+            else:  # log_ratio
+                res_gpu = 10.0 * cp.log10(p_gpu / b_gpu_broadcast)
+
+            return cp.asnumpy(res_gpu)
+        except Exception as exc:
+            warn_device_fallback("relative_power", exc, stacklevel=3)
+            # Wholesale CPU fallback below
+
+    # CPU path
+    if model == "mean_of_ratios":
+        if axis is None:
+            return p_arr / b_broadcast
+        return np.mean(p_arr / b_broadcast, axis=axis)
+    elif model == "ratio_of_means":
+        num = np.sum(p_arr, axis=axis)
+        den = np.sum(b_broadcast, axis=axis)
+        return num / den
+    else:  # log_ratio
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return 10.0 * np.log10(p_arr / b_broadcast)
 
 
 def band_power(
