@@ -1,6 +1,5 @@
 # 0.2.0
 
-- 0.2.0 release gate: Run targeted regression tests, adjacent suites, full configured suite, harness/boundary gates, docs build, build/install smoke tests, and supported remote CI; exit only when 0.1.x behavior has no known blocker and every 0.2 breaking change is explicit.
 
 
 # 0.2.1
