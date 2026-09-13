@@ -277,9 +277,9 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
     assert pd.isna(area_values[2])
     assert list(enriched["layer"]) == ["Superficial", "Deep", "Superficial"]
 
-    # Stability flag: quality >= 1.0
+    # Stability flag: quality >= 1.0; legacy stable_plus alias removed
     assert list(enriched["is_stable"]) == [True, False, True]
-    assert list(enriched["stable_plus"]) == [True, False, True]
+    assert "stable_plus" not in enriched.columns
 
     # firing_rate coerced to numeric, invalid values become NaN not a crash
     assert enriched["firing_rate"].iloc[0] == 5.5
@@ -292,9 +292,35 @@ def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
 
     assert enriched["area"].isna().all()
     assert list(enriched["layer"]) == ["Unknown", "Unknown"]
-    assert list(enriched["group_name"]) == ["probeA", "probeA"]
+    assert enriched["group_name"].isna().all()
     # No quality column provided -> defaults to not-stable, not a crash
     assert list(enriched["is_stable"]) == [False, False]
+    assert "stable_plus" not in enriched.columns
+
+
+def test_enrich_units_dataframe_categorical_quality():
+    units = pd.DataFrame({
+        "unit_id": [0, 1, 2, 3],
+        "quality": ["good", "mua", "sua", "noise"],
+    })
+    enriched = enrich_units_dataframe(units, None)
+    assert list(enriched["is_stable"]) == [True, False, True, False]
+
+
+def test_enrich_units_dataframe_no_fabricated_probeA():
+    # electrodes_df with no probe or group_name column
+    elec = pd.DataFrame({"location": ["V1"], "z": [500.0], "depth_unit": ["um"]}, index=[0])
+    units = pd.DataFrame({"peak_channel_id": [0]})
+    enriched = enrich_units_dataframe(units, elec)
+    assert enriched["group_name"].isna().all()
+
+    # electrodes_df with explicit probe column preserves probe identity
+    elec_probe = pd.DataFrame(
+        {"location": ["V1"], "z": [500.0], "depth_unit": ["um"], "probe": ["shank2"]},
+        index=[0],
+    )
+    enriched_probe = enrich_units_dataframe(units, elec_probe)
+    assert list(enriched_probe["group_name"]) == ["shank2"]
 
 
 # ---------------------------------------------------------------------------------------------

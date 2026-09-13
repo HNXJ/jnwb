@@ -219,6 +219,15 @@ def classify_layer_from_depth(
     ``electrodes_df`` metadata/columns ('depth_unit', 'z_unit', 'unit').
     If depth units are unknown or unsupported, returns 'Unknown'.
 
+    .. note::
+        This function applies a simple geometric depth threshold along the
+        cortical column. The default threshold (1000.0 µm) and physiological
+        validity bounds (0.0 <= z <= 20,000.0 µm) are domain-specific model
+        assumptions (e.g. primate linear array penetration from pia) rather than
+        universal NWB standards. For preparations with different cortical
+        thicknesses or orientations, supply ``threshold`` explicitly. For
+        electrophysiological laminar identification, see ``jnwb.laminar`` (forthcoming).
+
     Args:
         peak_channel_id: Channel identifier
         electrodes_df: NWB electrodes DataFrame
@@ -344,26 +353,28 @@ def enrich_units_dataframe(
                 return r.get(col_group) if r is not None else None
             df['group_name'] = df['peak_channel_id'].apply(_get_group)
         else:
-            df['group_name'] = 'probeA'
+            df['group_name'] = None
     else:
         if 'area' not in df.columns:
             df['area'] = None
         if 'layer' not in df.columns:
             df['layer'] = 'Unknown'
         if 'group_name' not in df.columns:
-            df['group_name'] = 'probeA'
+            df['group_name'] = None
 
     # 3. Handle quality and stable flags
-    # Standard quality cutoff: quality >= 1.0 is stable
+    # Standard quality cutoff: quality >= 1.0 is stable for numeric metrics;
+    # for categorical quality labels, standard accepted good labels are stable.
     if 'quality' in df.columns:
-        df['quality'] = pd.to_numeric(df['quality'], errors='coerce')
-        df['is_stable'] = df['quality'] >= 1.0
-        df['stable_plus'] = df['is_stable']
+        q_num = pd.to_numeric(df['quality'], errors='coerce')
+        if q_num.notna().any():
+            df['is_stable'] = q_num >= 1.0
+        else:
+            _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
+            df['is_stable'] = df['quality'].astype(str).str.strip().str.lower().isin(_GOOD_LABELS)
     else:
         if 'is_stable' not in df.columns:
             df['is_stable'] = False
-        if 'stable_plus' not in df.columns:
-            df['stable_plus'] = False
 
     # Force conversion of core types. snr/unit_id are stored as dtype=str
     # (object) on some sessions but float64 on others — the same cross-session dtype

@@ -37,7 +37,7 @@ def get_all_units_metadata(
     Returns:
         DataFrame with all unit metadata across sessions
         Columns: unit_id, session_id, cluster_id, area, layer, quality, snr,
-                 firing_rate, waveform_duration, is_stable, stable_plus, ...
+                 firing_rate, waveform_duration, is_stable, ...
 
     Example:
         >>> units = get_all_units_metadata('/path/to/nwb')
@@ -79,7 +79,11 @@ def get_all_units_metadata(
                 log.info(f"{session_id}: {len(units_df)} units extracted")
 
                 if filter_quality:
-                    units_df = units_df[units_df['quality'] >= quality_threshold]
+                    q_num = pd.to_numeric(units_df['quality'], errors='coerce')
+                    if q_num.notna().any():
+                        units_df = units_df[q_num >= quality_threshold]
+                    elif 'is_stable' in units_df.columns:
+                        units_df = units_df[units_df['is_stable']]
                     log.info(f"  Filtered to {len(units_df)} units with quality >= {quality_threshold}")
 
                 all_units.append(units_df)
@@ -187,11 +191,13 @@ def classify_unit_quality(
     units_df['quality_class'] = 'Good'
     units_df.loc[units_df['issue_flags'].apply(len) > 0, 'quality_class'] = 'Fair'
 
-    # Check for multiple failures
-    critical_flags = ['quality<1.0', 'snr<1.0']
-    units_df.loc[units_df['issue_flags'].apply(
-        lambda x: any(f in critical_flags for f in x)
-    ), 'quality_class'] = 'Poor'
+    # Check for critical metric failures (quality, snr) -> 'Poor'
+    critical_cols = {'quality', 'snr'}
+    critical_flags = {f"{col}<{thresholds[col]}" for col in critical_cols if col in thresholds}
+    if critical_flags:
+        units_df.loc[units_df['issue_flags'].apply(
+            lambda x: any(f in critical_flags for f in x)
+        ), 'quality_class'] = 'Poor'
 
     units_df['is_valid'] = units_df['issue_flags'].apply(len) == 0
 

@@ -162,8 +162,15 @@ class TestClassifyUnitQuality:
 
     def test_custom_thresholds_override_defaults(self):
         df = classify_unit_quality(_synthetic_units(), thresholds={"firing_rate": 10.0})
-        # Every unit's firing_rate < 10.0 -> every unit flagged, none critical (not in critical_flags list)
+        # Every unit's firing_rate < 10.0 -> every unit flagged, none critical (not in critical_cols list)
         assert (df["quality_class"] == "Fair").all()
+
+    def test_custom_quality_and_snr_threshold_flags_poor(self):
+        # Custom quality threshold 1.5 -> units with quality 1.0 (unit 1, 3, 4) fail critical threshold
+        df = classify_unit_quality(_synthetic_units(), thresholds={"quality": 1.5})
+        row1 = df[df["unit_id"] == 1].iloc[0]
+        assert row1["quality_class"] == "Poor"
+        assert "quality<1.5" in row1["issue_flags"]
 
     def test_does_not_mutate_input(self):
         original = _synthetic_units()
