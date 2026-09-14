@@ -153,7 +153,7 @@ This dossier compiles the entirety of the `jnwb` generic neurophysiology & NWB a
 
 **Do NOT validate our conclusions. Your objective is to independently falsify claims, locate hidden failures, and challenge our architectural and mathematical implementations.**
 
-The internal test suite (912 passing tests), harness gates (13 deterministic pre-flight checks), documentation assertions, and architectural rules are presented here as **reproducible historical evidence, NOT as unquestionable authority**. A passing test may simply reflect an encoded misconception or a flawed mathematical invariant. 
+The internal test suite (929 passing tests), harness gates (13 deterministic pre-flight checks), documentation assertions, and architectural rules are presented here as **reproducible historical evidence, NOT as unquestionable authority**. A passing test may simply reflect an encoded misconception or a flawed mathematical invariant. 
 
 You are explicitly commissioned to evaluate the library from first principles and report all defects, questionable assumptions, silent failures, numerical instabilities, and boundary leaks.
 
@@ -202,7 +202,7 @@ You are explicitly commissioned to evaluate the library from first principles an
 | **Public API Exports** | `{num_symbols}` symbols in `jnwb.__all__` |
 | **Core Source Code Metrics** | `{len(sec6_files) + len(sec5_files)}` files, `{src_loc:,}` lines of code in `jnwb/` |
 | **Test Suite Metrics** | `{len(sec7_files)}` test modules, `{test_loc:,}` lines of test code in `tests/` |
-| **Test Execution Baseline** | `912 passed, 1 skipped, 5 subtests passed` |
+| **Test Execution Baseline** | `929 passed, 1 skipped, 5 subtests passed` |
 | **Harness Gates Baseline** | `13 / 13 gates PASS` (`scripts/harness_gate.py`) |
 | **Documentation Build** | Strict MkDocs (`python scripts/docs_build.py`) exits 0 with zero warnings |
 
@@ -315,7 +315,7 @@ python scripts/benchmark_import.py
 ```
 
 ### 11.2 Reported Baseline Receipts
-- **Pytest Output**: `912 passed, 1 skipped, 5 subtests passed in 18.2s` on Windows x86_64, Python 3.14.3.
+- **Pytest Output**: `929 passed, 1 skipped, 5 subtests passed` on Windows x86_64, Python 3.14.3.
 - **Harness Gates**: 
   - Gate 1: Frozen boundary clean (0 unauthorized project imports).
   - Gate 2: Skill tree uniqueness verified.

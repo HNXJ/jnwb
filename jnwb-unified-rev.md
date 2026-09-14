@@ -7,7 +7,7 @@ This dossier compiles the entirety of the `jnwb` generic neurophysiology & NWB a
 
 **Do NOT validate our conclusions. Your objective is to independently falsify claims, locate hidden failures, and challenge our architectural and mathematical implementations.**
 
-The internal test suite (912 passing tests), harness gates (13 deterministic pre-flight checks), documentation assertions, and architectural rules are presented here as **reproducible historical evidence, NOT as unquestionable authority**. A passing test may simply reflect an encoded misconception or a flawed mathematical invariant. 
+The internal test suite (929 passing tests), harness gates (13 deterministic pre-flight checks), documentation assertions, and architectural rules are presented here as **reproducible historical evidence, NOT as unquestionable authority**. A passing test may simply reflect an encoded misconception or a flawed mathematical invariant. 
 
 You are explicitly commissioned to evaluate the library from first principles and report all defects, questionable assumptions, silent failures, numerical instabilities, and boundary leaks.
 
@@ -41,17 +41,17 @@ You are explicitly commissioned to evaluate the library from first principles an
 
 | Metadata Property | Authoritative Value |
 | :--- | :--- |
-| **Commit SHA** | `1c1a5fa3b4f0ea695fec86c6020252ca062b15d3` (short: `1c1a5fa3`) |
+| **Commit SHA** | `326cd1a2c57c6641355c86e0dcc3ed9b8644d425` (short: `326cd1a2`) |
 | **Active Branch** | `dev` |
 | **Package Version** | `jnwb 0.1.8` (defined dynamically in `pyproject.toml` via `jnwb.__version__`) |
-| **Generation Timestamp** | `2026-09-14T14:39:27.497311+00:00` |
+| **Generation Timestamp** | `2026-09-14T19:49:07.817955+00:00` |
 | **Declared Python Floor** | `>=3.12` (pure Python wheel `py3-none-any`, no upper version pin) |
 | **Python Support Classifiers** | `3.12`, `3.13`, `3.14` |
 | **CI Test Matrix** | Python `3.12` (floor) and `3.14` (head) on `ubuntu-latest` and `windows-latest` |
 | **Public API Exports** | `144` symbols in `jnwb.__all__` |
-| **Core Source Code Metrics** | `47` files, `16,540` lines of code in `jnwb/` |
-| **Test Suite Metrics** | `57` test modules, `12,129` lines of test code in `tests/` |
-| **Test Execution Baseline** | `912 passed, 1 skipped, 5 subtests passed` |
+| **Core Source Code Metrics** | `47` files, `16,561` lines of code in `jnwb/` |
+| **Test Suite Metrics** | `57` test modules, `12,293` lines of test code in `tests/` |
+| **Test Execution Baseline** | `929 passed, 1 skipped, 5 subtests passed` |
 | **Harness Gates Baseline** | `13 / 13 gates PASS` (`scripts/harness_gate.py`) |
 | **Documentation Build** | Strict MkDocs (`python scripts/docs_build.py`) exits 0 with zero warnings |
 
@@ -80,6 +80,8 @@ artifacts/api_surface_disposition_0.1.7.md                            1240 bytes
 artifacts/benchmarks/baseline_performance.json                        3298 bytes
 artifacts/benchmarks/import_breakdown.json                            5147 bytes
 artifacts/benchmarks/import_profile.txt                                656 bytes
+artifacts/benchmarks/vflip_calibration_0.2.2.md                       2211 bytes
+artifacts/benchmarks/vflip_calibration_raw.json                      60858 bytes
 artifacts/capability_review_0.1.7.md                                  8992 bytes
 artifacts/delegation_test_handoff_0.1.7.md                            1788 bytes
 artifacts/except_exception_inventory_0.1.7.md                         1589 bytes
@@ -89,7 +91,7 @@ artifacts/independent_audit_0.1.7_final.md                            7864 bytes
 artifacts/nwb_structural_authority_0.1.8.md                          12835 bytes
 artifacts/release_recovery_0.1.7_failed.md                            2781 bytes
 artifacts/source_neutrality_scan_0.1.7.md                             1133 bytes
-artifacts/todo_stack.md                                              10043 bytes
+artifacts/todo_stack.md                                               8889 bytes
 artifacts/vflip_reference_difference_table.md                        12554 bytes
 docs/01_architecture_and_philosophy.md                               10570 bytes
 docs/02_paths_addressing_metadata.md                                  8393 bytes
@@ -144,7 +146,7 @@ jnwb/_backend.py                                                      5055 bytes
 jnwb/_lazy_exports.py                                                 2317 bytes
 jnwb/_parallel.py                                                     4071 bytes
 jnwb/addressing.py                                                   27647 bytes
-jnwb/analyzers.py                                                    31281 bytes
+jnwb/analyzers.py                                                    31997 bytes
 jnwb/artifact_detection.py                                            5330 bytes
 jnwb/artifact_repair.py                                              20034 bytes
 jnwb/bilinear.py                                                      6313 bytes
@@ -180,14 +182,14 @@ jnwb/testing/__init__.py                                               528 bytes
 jnwb/testing/nwb_fixtures.py                                         13325 bytes
 jnwb/tfr.py                                                          10001 bytes
 jnwb/tfr_accumulator.py                                               4965 bytes
-jnwb/trajectory.py                                                    7412 bytes
+jnwb/trajectory.py                                                    7497 bytes
 jnwb/visual_qc.py                                                    12401 bytes
 jnwb/viz.py                                                           5111 bytes
 mkdocs.yml                                                            2779 bytes
 pyproject.toml                                                        2513 bytes
 scripts/__init__.py                                                     34 bytes
 scripts/benchmark_import.py                                           7702 bytes
-scripts/build_unified_review.py                                      25197 bytes
+scripts/build_unified_review.py                                      25188 bytes
 scripts/docs_build.py                                                  700 bytes
 scripts/generate_api_md.py                                            7682 bytes
 scripts/harness_gate.py                                              40636 bytes
@@ -214,7 +216,7 @@ skills/jnwb/SKILL.md                                                  4229 bytes
 skills/jnwb/agents/openai.yaml                                         189 bytes
 tests/__init__.py                                                        0 bytes
 tests/test_addressing.py                                             27401 bytes
-tests/test_analyzers_coverage.py                                     10838 bytes
+tests/test_analyzers_coverage.py                                     14008 bytes
 tests/test_api_surface.py                                             1956 bytes
 tests/test_artifact_detection.py                                      5505 bytes
 tests/test_artifact_repair.py                                         9613 bytes
@@ -242,7 +244,7 @@ tests/test_jnwb_frozen_boundary.py                                    7870 bytes
 tests/test_jrsa_correctness.py                                        5675 bytes
 tests/test_jrsa_gpu.py                                                2402 bytes
 tests/test_jrsa_no_fabricated_failures.py                             2632 bytes
-tests/test_laminar.py                                                38610 bytes
+tests/test_laminar.py                                                42667 bytes
 tests/test_mcp_server.py                                              7209 bytes
 tests/test_metadata.py                                                9906 bytes
 tests/test_notebooks.py                                               1731 bytes
@@ -2722,7 +2724,7 @@ Changes vs. previous version:
 import logging
 from typing import Optional, Dict, List, Tuple
 import numpy as np
-from ._backend import CUDA, resolve_device, torch_cuda_available, warn_device_fallback
+from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -2849,13 +2851,15 @@ class TFRAnalyzer:
         deep_mask = np.asarray(layer_mask.get('deep_mask', []), dtype=bool)
 
         if len(sup_mask) != n_channels or len(deep_mask) != n_channels:
-            # Fall back to global average when mask size doesn't match channels (legacy test behavior)
-            return band_power.mean(axis=0)
+            raise ValueError(
+                f"layer_mask length mismatch: band_power has {n_channels} channels, "
+                f"but superficial_mask has {len(sup_mask)} and deep_mask has {len(deep_mask)}"
+            )
 
         sup_avg = band_power[sup_mask].mean(axis=0) if sup_mask.any() \
-                  else np.zeros(band_power.shape[1:])
+                  else np.full(band_power.shape[1:], np.nan, dtype=band_power.dtype)
         deep_avg = band_power[deep_mask].mean(axis=0) if deep_mask.any() \
-                   else np.zeros(band_power.shape[1:])
+                   else np.full(band_power.shape[1:], np.nan, dtype=band_power.dtype)
 
         return np.stack([sup_avg, deep_avg], axis=0)
 
@@ -3402,58 +3406,74 @@ class PopulationAnalyzer:
                 'components': shape (n_components, n_units)
                 'explained_variance': shape (n_components,)
                 'explained_variance_ratio': shape (n_components,)
+                'device_used': 'cpu' or 'cuda' -- device that performed the SVD
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
         n_samples = X.shape[0]
 
-        if resolve_device(device, context='population_trajectory', prefer='cupy') == CUDA:
+        device_used = CPU
+        if resolve_device(device, context='population_trajectory', prefer=None) == CUDA:
+            gpu_success = False
+            last_exc = None
             try:
                 import cupy as cp
                 X_gpu = cp.asarray(X_centered)
                 u, s, vt = cp.linalg.svd(X_gpu, full_matrices=False)
-                
+
                 u = cp.asnumpy(u)
                 s = cp.asnumpy(s)
                 vt = cp.asnumpy(vt)
-                
+
                 projection = X_centered @ vt.T[:, :n_components]
                 explained_variance = (s ** 2) / (n_samples - 1)
                 total_variance = np.sum(explained_variance)
                 explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-                
+
+                device_used = CUDA
+                gpu_success = True
                 return {
                     'projection': projection[:, :n_components],
                     'components': vt[:n_components, :],
                     'explained_variance': explained_variance[:n_components],
-                    'explained_variance_ratio': explained_variance_ratio[:n_components]
+                    'explained_variance_ratio': explained_variance_ratio[:n_components],
+                    'device_used': device_used,
                 }
             except Exception as e:
+                last_exc = e
                 log.warning(f"GPU trajectory SVD via cupy failed: {e}. Trying PyTorch...")
                 try:
                     import torch
                     if torch_cuda_available():
-                        X_gpu = torch.tensor(X_centered, dtype=torch.float32, device='cuda')
+                        X_gpu = torch.as_tensor(X_centered, device='cuda')
+                        if not X_gpu.is_floating_point():
+                            X_gpu = X_gpu.to(torch.float64)
                         u, s, v = torch.linalg.svd(X_gpu, full_matrices=False)
-                        
+
                         u = u.cpu().numpy()
                         s = s.cpu().numpy()
                         vt = v.cpu().numpy()
-                        
+
                         projection = X_centered @ vt.T[:, :n_components]
                         explained_variance = (s ** 2) / (n_samples - 1)
                         total_variance = np.sum(explained_variance)
                         explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-                        
+
+                        device_used = CUDA
+                        gpu_success = True
                         return {
                             'projection': projection[:, :n_components],
                             'components': vt[:n_components, :],
                             'explained_variance': explained_variance[:n_components],
-                            'explained_variance_ratio': explained_variance_ratio[:n_components]
+                            'explained_variance_ratio': explained_variance_ratio[:n_components],
+                            'device_used': device_used,
                         }
                 except Exception as e2:
-                    warn_device_fallback("population_trajectory", e2)
+                    last_exc = e2
                     log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
+
+            if not gpu_success and last_exc is not None:
+                warn_device_fallback("population_trajectory", last_exc)
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
         projection = X_centered @ vt.T[:, :n_components]
@@ -3465,7 +3485,8 @@ class PopulationAnalyzer:
             'projection': projection[:, :n_components],
             'components': vt[:n_components, :],
             'explained_variance': explained_variance[:n_components],
-            'explained_variance_ratio': explained_variance_ratio[:n_components]
+            'explained_variance_ratio': explained_variance_ratio[:n_components],
+            'device_used': device_used,
         }
 ===== END jnwb/analyzers.py =====
 
@@ -17408,7 +17429,9 @@ def compute_population_trajectory(
     if resolved == CUDA:
         try:
             import torch
-            X_tensor = torch.tensor(X_scaled, dtype=torch.float32, device="cuda")
+            X_tensor = torch.as_tensor(X_scaled, device="cuda")
+            if not X_tensor.is_floating_point():
+                X_tensor = X_tensor.to(torch.float64)
             U, S, V = torch.linalg.svd(X_tensor, full_matrices=False)
             V_top = V[:actual_components, :]  # (actual_components, n_units)
             proj = X_tensor @ V_top.t()
@@ -18627,6 +18650,26 @@ class TestTFRAnalyzerLayerAware(unittest.TestCase):
         deep = result[1]
         self.assertFalse(np.allclose(superficial, deep))
 
+    def test_channel_count_mask_mismatch_raises_value_error(self):
+        """Verify ValueError is raised when layer mask lengths mismatch channel count."""
+        mismatched_mask = {
+            'superficial_mask': [True] * 10,
+            'deep_mask': [False] * 10,
+        }
+        with self.assertRaises(ValueError):
+            TFRAnalyzer.average_across_channels(self.tfr_data, layer_mask=mismatched_mask)
+
+    def test_empty_layer_mask_returns_nan_not_zeros(self):
+        """Verify empty layer mask returns NaN array instead of fabricated zeros."""
+        empty_sup_mask = {
+            'superficial_mask': [False] * 128,
+            'deep_mask': [True] * 128,
+        }
+        result = TFRAnalyzer.average_across_channels(self.tfr_data, layer_mask=empty_sup_mask)
+        self.assertTrue(np.all(np.isnan(result[0])))
+        self.assertFalse(np.all(np.isnan(result[1])))
+
+
 
 class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
     """Test UnitAnalyzer autocorrelogram with fixed spike data."""
@@ -18805,9 +18848,52 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         self.assertIn('refr_violations_pct', result)
         self.assertIn('fano_factor', result)
 
+class TestPopulationAnalyzerTrajectory(unittest.TestCase):
+    """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
+
+    def setUp(self):
+        rng = np.random.default_rng(42)
+        self.X_f64 = rng.standard_normal((50, 10), dtype=np.float64)
+        self.X_f32 = rng.standard_normal((50, 10), dtype=np.float32)
+
+    def test_preserves_float64_dtype_and_reports_device(self):
+        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3)
+        self.assertEqual(res['projection'].dtype, np.float64)
+        self.assertEqual(res['components'].dtype, np.float64)
+        self.assertEqual(res['explained_variance'].dtype, np.float64)
+        self.assertEqual(res['explained_variance_ratio'].dtype, np.float64)
+        self.assertIn('device_used', res)
+        self.assertIn(res['device_used'], ('cpu', 'cuda'))
+
+    def test_preserves_float32_dtype_and_reports_device(self):
+        res = PopulationAnalyzer.population_trajectory(self.X_f32, n_components=3)
+        self.assertEqual(res['projection'].dtype, np.float32)
+        self.assertEqual(res['components'].dtype, np.float32)
+        self.assertEqual(res['explained_variance'].dtype, np.float32)
+        self.assertEqual(res['explained_variance_ratio'].dtype, np.float32)
+        self.assertIn('device_used', res)
+        self.assertIn(res['device_used'], ('cpu', 'cuda'))
+
+    def test_fallback_warning_when_gpu_fails(self):
+        import sys
+        import warnings
+        from unittest.mock import patch
+
+        with patch("jnwb.analyzers.resolve_device", return_value="cuda"):
+            with patch.dict(sys.modules, {"cupy": None}):
+                with patch("jnwb.analyzers.torch_cuda_available", return_value=False):
+                    with warnings.catch_warnings(record=True) as w:
+                        warnings.simplefilter("always")
+                        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3, device="cuda")
+                        self.assertEqual(res['device_used'], 'cpu')
+                        runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
+                        self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
+
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
 ===== END tests/test_analyzers_coverage.py =====
 
 ===== BEGIN tests/test_api_surface.py =====
@@ -24555,6 +24641,107 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res_strong.rejection_reason is None
         assert res_strong.crossover_contact is not None
         assert res_strong.support_score >= 6.0
+
+    def test_end_to_end_nwb_geometry_composition(self, tmp_path):
+        """Test full composition: generic NWB -> probe_geometry -> vflip_from_lfp -> label_layers (0.2.2-07)."""
+        import pynwb
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from scipy import signal
+
+        nwb_file = tmp_path / "composition_test.nwb"
+        nwb = pynwb.NWBFile(
+            session_description="synthetic laminar session",
+            identifier="synth_laminar_comp_001",
+            session_start_time=datetime(2026, 9, 14, tzinfo=tzutc()),
+        )
+        device = nwb.create_device(name="linear_probe_dev")
+        eg = nwb.create_electrode_group(
+            name="linear_probe",
+            description="16-ch laminar probe",
+            location="cortex",
+            device=device,
+        )
+
+        n_ch = 16
+        pitch_um = 50.0
+        for ch in range(n_ch):
+            nwb.add_electrode(
+                x=0.0,
+                y=0.0,
+                z=float(ch * pitch_um),
+                imp=1.0,
+                location=f"contact_{ch}",
+                filtering="none",
+                group=eg,
+            )
+
+        fs = 1000.0
+        t = np.arange(10000) / fs
+        rng = np.random.default_rng(42)
+
+        lfp_data = np.zeros((len(t), n_ch), dtype=np.float32)
+        for ch in range(n_ch):
+            g_w = max(0.0, 1.0 - (ch - 3.0) ** 2 / 16.0)
+            b_w = max(0.0, 1.0 - (ch - 12.0) ** 2 / 16.0)
+            w_g = rng.standard_normal(len(t))
+            sos_g = signal.butter(4, [60.0, 90.0], btype="bandpass", fs=fs, output="sos")
+            sig_g = g_w * signal.sosfiltfilt(sos_g, w_g) * 3.0
+            w_b = rng.standard_normal(len(t))
+            sos_b = signal.butter(4, [12.0, 24.0], btype="bandpass", fs=fs, output="sos")
+            sig_b = b_w * signal.sosfiltfilt(sos_b, w_b) * 3.0
+            noise = rng.standard_normal(len(t)) * 0.2
+            lfp_data[:, ch] = (sig_g + sig_b + noise).astype(np.float32)
+
+        region = nwb.create_electrode_table_region(list(range(n_ch)), description="all contacts")
+        es = pynwb.ecephys.ElectricalSeries(
+            name="probe_lfp",
+            data=lfp_data,
+            electrodes=region,
+            rate=fs,
+            starting_time=0.0,
+        )
+        nwb.add_acquisition(es)
+
+        with pynwb.NWBHDF5IO(str(nwb_file), mode="w") as io:
+            io.write(nwb)
+
+        # 1. Read electrodes table from NWB
+        with pynwb.NWBHDF5IO(str(nwb_file), mode="r") as io:
+            nwb_read = io.read()
+            elec_df = nwb_read.electrodes.to_dataframe()
+
+        # 2. Construct ProbeGeometry
+        geom = jnwb.probe_geometry(elec_df, units="um")
+        assert geom.is_linear is True
+        assert geom.nominal_pitch == pytest.approx(pitch_um, abs=1e-4)
+
+        # 3. Read LFP acquisition through jnwb.acquisition_channel
+        lfp_channels = [jnwb.acquisition_channel(nwb_file, name="probe_lfp", channel=ch)[0] for ch in range(n_ch)]
+        lfp_arr = np.array(lfp_channels)
+
+        # 4. Run vflip_from_lfp with probe_geometry
+        res = vflip_from_lfp(lfp_arr, fs=fs, probe_geometry=geom, orientation="superficial_to_deep")
+        assert res.accepted is True
+        assert res.rejection_reason is None
+        assert res.crossover_contact is not None
+        assert 7.0 <= res.crossover_contact <= 10.0
+        assert res.crossover_depth_um == pytest.approx(res.crossover_contact * pitch_um, abs=1e-3)
+        assert res.support_score >= 6.0
+
+        # 5. Classify layers via label_layers
+        layers = label_layers(res, geom, granular_thickness_um=150.0)
+        assert len(layers) == n_ch
+        # Superficial contacts (e.g. 0-6) must be labeled superficial
+        for ch in range(7):
+            assert layers[ch] == "superficial"
+        # Crossover contacts (8-9) must be labeled input
+        assert layers[8] == "input"
+        assert layers[9] == "input"
+        # Deep contacts (12-15) must be labeled deep
+        for ch in range(12, 16):
+            assert layers[ch] == "deep"
+
 
 
 
@@ -30819,7 +31006,7 @@ This dossier compiles the entirety of the `jnwb` generic neurophysiology & NWB a
 
 **Do NOT validate our conclusions. Your objective is to independently falsify claims, locate hidden failures, and challenge our architectural and mathematical implementations.**
 
-The internal test suite (912 passing tests), harness gates (13 deterministic pre-flight checks), documentation assertions, and architectural rules are presented here as **reproducible historical evidence, NOT as unquestionable authority**. A passing test may simply reflect an encoded misconception or a flawed mathematical invariant. 
+The internal test suite (929 passing tests), harness gates (13 deterministic pre-flight checks), documentation assertions, and architectural rules are presented here as **reproducible historical evidence, NOT as unquestionable authority**. A passing test may simply reflect an encoded misconception or a flawed mathematical invariant. 
 
 You are explicitly commissioned to evaluate the library from first principles and report all defects, questionable assumptions, silent failures, numerical instabilities, and boundary leaks.
 
@@ -30868,7 +31055,7 @@ You are explicitly commissioned to evaluate the library from first principles an
 | **Public API Exports** | `{num_symbols}` symbols in `jnwb.__all__` |
 | **Core Source Code Metrics** | `{len(sec6_files) + len(sec5_files)}` files, `{src_loc:,}` lines of code in `jnwb/` |
 | **Test Suite Metrics** | `{len(sec7_files)}` test modules, `{test_loc:,}` lines of test code in `tests/` |
-| **Test Execution Baseline** | `912 passed, 1 skipped, 5 subtests passed` |
+| **Test Execution Baseline** | `929 passed, 1 skipped, 5 subtests passed` |
 | **Harness Gates Baseline** | `13 / 13 gates PASS` (`scripts/harness_gate.py`) |
 | **Documentation Build** | Strict MkDocs (`python scripts/docs_build.py`) exits 0 with zero warnings |
 
@@ -30981,7 +31168,7 @@ python scripts/benchmark_import.py
 ```
 
 ### 11.2 Reported Baseline Receipts
-- **Pytest Output**: `912 passed, 1 skipped, 5 subtests passed in 18.2s` on Windows x86_64, Python 3.14.3.
+- **Pytest Output**: `929 passed, 1 skipped, 5 subtests passed` on Windows x86_64, Python 3.14.3.
 - **Harness Gates**: 
   - Gate 1: Frozen boundary clean (0 unauthorized project imports).
   - Gate 2: Skill tree uniqueness verified.
@@ -38330,7 +38517,7 @@ python scripts/benchmark_import.py
 ```
 
 ### 11.2 Reported Baseline Receipts
-- **Pytest Output**: `912 passed, 1 skipped, 5 subtests passed in 18.2s` on Windows x86_64, Python 3.14.3.
+- **Pytest Output**: `929 passed, 1 skipped, 5 subtests passed` on Windows x86_64, Python 3.14.3.
 - **Harness Gates**: 
   - Gate 1: Frozen boundary clean (0 unauthorized project imports).
   - Gate 2: Skill tree uniqueness verified.
