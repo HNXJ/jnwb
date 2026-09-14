@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 140 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 142 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -113,6 +113,13 @@ All 140 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.JRSAResult | class | *Container returned by jrsa().* |
 | jnwb.jrsa | function | (x1, x2 = None, adim = -1, labels = None, align = 'auto', align_mode = 'fraction', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', backend = 'auto', device = 'auto', n_jobs = -1, batch_size = None, random_state = None, return_type = 'result', return_null = False, return_input = False, verbose = False, kwargs) -> 'JRSAResult'<br>*Unified representational similarity / cross-area analysis.* |
+
+## Module: jnwb.laminar
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.VFlipResult | class | *Container for Vectorized Frequency-based Laminar Identity Profile (vFLIP) results.* |
+| jnwb.vflip | function | (psd: 'np.ndarray', freqs: 'np.ndarray', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile (vFLIP).* |
 
 ## Module: jnwb.metadata
 

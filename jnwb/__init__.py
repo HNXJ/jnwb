@@ -68,6 +68,10 @@ from .addressing import (
     probe_geometry,
     ProbeGeometry,
 )
+from .laminar import (
+    vflip,
+    VFlipResult,
+)
 
 def __getattr__(name: str):
     if name in SUBMODULES:
@@ -217,6 +221,10 @@ __all__ = [
     'enrich_units_dataframe',
     'probe_geometry',
     'ProbeGeometry',
+
+    # Laminar
+    'vflip',
+    'VFlipResult',
 
     # Analyzers
     'TFRAnalyzer',
