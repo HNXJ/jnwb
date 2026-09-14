@@ -11,7 +11,6 @@
 # 0.2.3
 
 - 0.2.3-REV-03: Address unnormalized channel scaling $\Omega \propto 1.5 \ln N$ in `vflip`: normalize `band_dist` by $1/\sqrt{N}$ and channel separation metric by $N$ or contact span so support threshold $\Omega$ does not shift systematically with electrode density, or state explicit geometry-scaled thresholding (EXT-REV-003).
-- 0.2.3-REV-04: Enforce downward transition polarity in `vflip`: restrict zero-crossing candidates strictly to canonical downward transitions ($v_1 \ge 0, v_2 \le 0$) along resolved orientation to reject inverted upward transitions (EXT-REV-004).
 - 0.2.3-REV-06: Fix `_welch_csd_gpu` parity and scaling: add default `detrend='constant'` matching CPU `scipy.signal.welch`, double all positive bins for odd `nperseg` ($k = 1, \dots, (N-1)/2$), and pad short segments to `nperseg` (EXT-REV-006).
 - 0.2.3-REV-07: Standardize Granger causality residual variance estimator: eliminate degree-of-freedom divisor discrepancy between restricted and unrestricted models ($N - p_r$ vs $N - p_u$) by using sample-size normalized ML residual variance ($RSS / N$) to eliminate artificial negative bias under the null (EXT-REV-007).
 - 0.2.3-REV-08: Fix multi-band Phase Slope Index (PSI) top-level p-value extraction: when aggregating across multiple bands, do not extract `p_x_to_y` solely from the first iterator band; compute an omnibus statistic or leave top-level p-value as None/omnibus with per-band reporting (EXT-REV-008).

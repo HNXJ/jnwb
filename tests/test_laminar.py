@@ -1020,6 +1020,29 @@ class TestVFlipRecoveryAndRejectionBroad:
         for ch in range(12, 16):
             assert layers[ch] == "deep"
 
+    def test_vflip_rejects_inverted_polarity_zero_crossings(self):
+        """A steep upward glitch between c_sup and c_deep must not be selected over a canonical downward crossing."""
+        n_channels, n_freqs = 16, 60
+        freqs = np.linspace(5.0, 150.0, n_freqs)
+        psd = np.ones((n_channels, n_freqs))
+        # Superficial gamma peak at ch 2, Deep beta peak at ch 14
+        psd[2, freqs >= 50.0] = 10.0
+        psd[14, freqs <= 30.0] = 10.0
+
+        # Inject an intermediate upward step between ch 8 and ch 9
+        psd[8, freqs <= 30.0] = 8.0
+        psd[9, freqs >= 50.0] = 8.0
+
+        res = vflip(psd, freqs, orientation="superficial_to_deep", min_support_score=0.0)
+        assert res.accepted is True
+        # Selected crossover contact must be a downward crossing (profile transitioning from >=0 to <=0)
+        c_cross = int(res.crossover_contact)
+        assert res.profile[c_cross] >= res.profile[c_cross + 1], (
+            f"Selected crossover contact {res.crossover_contact} must be a downward transition, "
+            f"got profile[{c_cross}]={res.profile[c_cross]:.2f} < profile[{c_cross+1}]={res.profile[c_cross+1]:.2f}"
+        )
+
+
 
 
 

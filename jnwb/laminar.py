@@ -328,15 +328,12 @@ def vflip(
         for i in range(c_sup, c_deep):
             v1 = signed_profile[i]
             v2 = signed_profile[i + 1]
-            if (v1 >= 0 and v2 <= 0) or (v1 <= 0 and v2 >= 0):
+            if (v1 > 0 and v2 <= 0) or (v1 >= 0 and v2 < 0):
                 denom = v1 - v2
-                if abs(denom) > 1e-12:
-                    sub_c = float(i + (v1 / denom))
-                else:
-                    sub_c = float(i + 0.5)
+                sub_c = float(i + (v1 / denom))
                 # Keep within interval
                 sub_c = min(float(i + 1), max(float(i), sub_c))
-                steepness = abs(v1 - v2)
+                steepness = v1 - v2
                 cross_candidates.append((sub_c, steepness))
 
         if cross_candidates:
