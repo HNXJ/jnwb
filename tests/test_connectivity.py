@@ -193,6 +193,20 @@ class TestGranger:
             with pytest.warns(UserWarning, match="Granger AIC extraction failed"):
                 _granger(x, y, max_lag=1)
 
+    def test_granger_null_non_negative_ml_variance(self):
+        """Granger causality using ML residual variance RSS/N is non-negative under plain OLS (0.2.3-REV-07)."""
+        rng = np.random.default_rng(42)
+        # 10 independent noise trials under true null
+        x = rng.standard_normal((10, 500))
+        y = rng.standard_normal((10, 500))
+
+        result = granger(x, y, order=3, n_surrogates=0, ridge=0.0)
+        assert result.x_to_y >= 0.0, f"Expected non-negative GC under plain OLS, got {result.x_to_y}"
+        assert result.y_to_x >= 0.0, f"Expected non-negative GC under plain OLS, got {result.y_to_x}"
+        assert result.x_to_y == pytest.approx(0.0, abs=0.01)
+        assert result.y_to_x == pytest.approx(0.0, abs=0.01)
+
+
 
 class TestPhaseSlopeIndex:
     def test_antisymmetric_under_swap(self):
