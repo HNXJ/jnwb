@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
+from scipy import signal
 
 from ._backend import resolve_device
 
@@ -388,3 +389,150 @@ def vflip(
         n_channels=n_channels,
         n_missing=n_missing,
     )
+
+
+def vflip_from_lfp(
+    lfp: np.ndarray,
+    fs: float,
+    *,
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+    window: str = "hann",
+    detrend: Union[str, bool] = "constant",
+    scaling: str = "density",
+    band_low: Tuple[float, float] = (8.0, 30.0),
+    band_high: Tuple[float, float] = (50.0, 150.0),
+    contact_spacing: Optional[float] = None,
+    probe_geometry: Optional[Any] = None,
+    orientation: str = "auto",
+    min_support_score: float = 6.0,
+    bad_channel_mask: Optional[np.ndarray] = None,
+    min_channels: int = 8,
+    min_peak_distance: int = 2,
+    device: str = "cpu",
+) -> VFlipResult:
+    """Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.
+
+    Strict composition:
+    1. Computes power spectral density (PSD) per channel from the multi-channel LFP time
+       series using Welch's modified periodogram method (:func:`scipy.signal.welch`).
+    2. Passes the resulting PSD matrix and explicit frequency coordinates directly to
+       :func:`vflip`.
+
+    The identity invariant holds:
+    ``vflip_from_lfp(lfp, fs, ...) == vflip(psd, freqs, ...)``
+    where ``freqs, psd = scipy.signal.welch(lfp, fs=fs, axis=1, ...)``.
+
+    Args:
+        lfp: 2D array of LFP voltage time series with shape `(n_channels, n_times)`.
+            Must contain at least two dimensions and finite numeric data.
+        fs: Sampling rate of the LFP time series in Hertz (Hz). Must be strictly positive and finite.
+        nperseg: Length of each segment for Welch's PSD estimator (default: `min(n_times, int(fs))`,
+            yielding a nominal ~1 Hz frequency resolution).
+        noverlap: Number of points to overlap between segments (default: `nperseg // 2`).
+        window: Window specification for periodogram calculation (default: `'hann'`).
+        detrend: Specifies how to detrend each segment (default: `'constant'`).
+        scaling: Selects between computing power spectral density (`'density'`) and
+            power spectrum (`'spectrum'`). Default: `'density'`.
+        band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
+        band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
+            contact ordering along the shaft.
+        orientation: Expected shaft orientation relative to channel indexing:
+            - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
+            - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
+            - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+        min_support_score: Minimum support score Omega required to accept the fit (default: 6.0).
+            Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
+        bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
+        min_channels: Minimum number of valid channels required along the shaft (default: 8).
+        min_peak_distance: Minimum channel distance required between low and high power peaks (default: 2).
+        device: Hardware device (`"cpu"` or `"cuda"`).
+
+    Returns:
+        :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
+        and diagnostic flags.
+
+    Raises:
+        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, or parameters
+            violate geometry, frequency, or numerical invariants.
+
+    References:
+        Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
+        potential power across the primate cortex. Nature Neuroscience.
+        doi:10.1038/s41593-023-01554-7
+        Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
+        spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+    """
+    # 1. Validate inputs
+    fs = float(fs)
+    if fs <= 0 or not np.isfinite(fs):
+        raise ValueError(f"fs must be strictly positive and finite (Hz), got {fs}")
+
+    lfp_arr = np.asarray(lfp, dtype=np.float64)
+    if lfp_arr.ndim != 2:
+        raise ValueError(f"lfp must be a 2D array of shape (n_channels, n_times), got ndim={lfp_arr.ndim}")
+
+    n_channels, n_times = lfp_arr.shape
+    if n_times == 0:
+        raise ValueError("lfp has zero time samples")
+
+    # 2. Welch segment parameters
+    eff_nperseg = int(min(n_times, int(fs))) if nperseg is None else int(nperseg)
+    if eff_nperseg <= 0 or eff_nperseg > n_times:
+        raise ValueError(f"nperseg must be in range [1, {n_times}], got {eff_nperseg}")
+
+    eff_noverlap = (eff_nperseg // 2) if noverlap is None else int(noverlap)
+    if eff_noverlap < 0 or eff_noverlap >= eff_nperseg:
+        raise ValueError(f"noverlap must be in range [0, {eff_nperseg - 1}], got {eff_noverlap}")
+
+    # 3. Bad channels handling before FFT:
+    # If a channel has NaNs or is masked, replace with zeros for welch computation,
+    # then restore bad rows to NaN so vflip's missing-contact interpolation handles them.
+    if bad_channel_mask is not None:
+        initial_bad = np.asarray(bad_channel_mask, dtype=bool).ravel()
+        if len(initial_bad) != n_channels:
+            raise ValueError(f"bad_channel_mask length ({len(initial_bad)}) != n_channels ({n_channels})")
+    else:
+        initial_bad = np.zeros(n_channels, dtype=bool)
+
+    non_finite_rows = ~np.all(np.isfinite(lfp_arr), axis=1)
+    effective_bad = initial_bad | non_finite_rows
+
+    clean_lfp = lfp_arr.copy()
+    if np.any(effective_bad):
+        clean_lfp[effective_bad, :] = 0.0
+
+    # 4. Compute Welch PSD across time (axis 1)
+    freqs, psd = signal.welch(
+        clean_lfp,
+        fs=fs,
+        window=window,
+        nperseg=eff_nperseg,
+        noverlap=eff_noverlap,
+        detrend=detrend,
+        scaling=scaling,
+        axis=1,
+    )
+
+    # Re-mask bad channels with NaN to ensure vflip processes them as missing
+    if np.any(effective_bad):
+        psd[effective_bad, :] = np.nan
+
+    # 5. Strict composition with vflip
+    return vflip(
+        psd,
+        freqs,
+        band_low=band_low,
+        band_high=band_high,
+        contact_spacing=contact_spacing,
+        probe_geometry=probe_geometry,
+        orientation=orientation,
+        min_support_score=min_support_score,
+        bad_channel_mask=effective_bad,
+        min_channels=min_channels,
+        min_peak_distance=min_peak_distance,
+        device=device,
+    )
+

@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 import jnwb
-from jnwb.laminar import VFlipResult, vflip
+from jnwb.laminar import VFlipResult, vflip, vflip_from_lfp
 
 
 class TestVFlipMotifRecovery:
@@ -288,3 +288,161 @@ class TestVFlipResultInterface:
 
         with pytest.raises(Exception):  # FrozenInstanceError
             res.accepted = True  # type: ignore
+
+
+class TestVFlipFromLFP:
+    """Test strict composition and invariants of vflip_from_lfp."""
+
+    def _generate_synthetic_laminar_lfp(
+        self,
+        n_channels: int = 24,
+        n_times: int = 4000,
+        fs: float = 1000.0,
+        crossover_idx: float = 11.5,
+        seed: int = 42,
+    ) -> np.ndarray:
+        """Synthesize multi-channel LFP with depth-dependent spectrolaminar oscillations."""
+        rng = np.random.default_rng(seed)
+        t = np.arange(n_times) / fs
+        lfp = np.zeros((n_channels, n_times), dtype=np.float64)
+
+        for c in range(n_channels):
+            # Background 1/f-like noise
+            noise = rng.standard_normal(n_times)
+            # Add gamma oscillation (70 Hz) in superficial contacts (c < crossover_idx)
+            gamma_weight = max(0.0, 1.0 - abs(c - 5.0) / 7.0)
+            gamma = gamma_weight * 2.0 * np.sin(2 * np.pi * 70.0 * t + rng.uniform(0, 2 * np.pi))
+
+            # Add alpha/beta oscillation (18 Hz) in deep contacts (c > crossover_idx)
+            beta_weight = max(0.0, 1.0 - abs(c - 18.0) / 7.0)
+            beta = beta_weight * 2.5 * np.sin(2 * np.pi * 18.0 * t + rng.uniform(0, 2 * np.pi))
+
+            lfp[c, :] = noise + gamma + beta
+
+        return lfp
+
+    def test_strict_welch_composition_equivalence(self):
+        """vflip_from_lfp(X) is strictly identical to vflip(welch(X))."""
+        from scipy import signal
+
+        fs = 1000.0
+        lfp = self._generate_synthetic_laminar_lfp(n_channels=20, n_times=3000, fs=fs, seed=0)
+
+        # 1. Direct call to vflip_from_lfp
+        res_comp = vflip_from_lfp(
+            lfp,
+            fs=fs,
+            nperseg=1000,
+            noverlap=500,
+            contact_spacing=50.0,
+            min_support_score=0.0,
+        )
+
+        # 2. Manual Welch PSD computation followed by vflip
+        freqs, psd = signal.welch(
+            lfp,
+            fs=fs,
+            window="hann",
+            nperseg=1000,
+            noverlap=500,
+            detrend="constant",
+            scaling="density",
+            axis=1,
+        )
+        res_manual = vflip(
+            psd,
+            freqs,
+            contact_spacing=50.0,
+            min_support_score=0.0,
+        )
+
+        # Invariant: identical outputs
+        assert res_comp.accepted == res_manual.accepted
+        assert res_comp.crossover_contact == pytest.approx(res_manual.crossover_contact, abs=1e-12)
+        assert res_comp.crossover_depth_um == pytest.approx(res_manual.crossover_depth_um, abs=1e-12)
+        assert res_comp.support_score == pytest.approx(res_manual.support_score, abs=1e-12)
+        assert res_comp.low_peak_contact == res_manual.low_peak_contact
+        assert res_comp.high_peak_contact == res_manual.high_peak_contact
+        assert res_comp.orientation == res_manual.orientation
+        np.testing.assert_allclose(res_comp.profile, res_manual.profile, atol=1e-12)
+
+    def test_welch_parameter_propagation(self):
+        """Welch segment parameters (nperseg, noverlap, window, detrend) propagate deterministically."""
+        from scipy import signal
+
+        fs = 1000.0
+        lfp = self._generate_synthetic_laminar_lfp(n_channels=16, n_times=2000, fs=fs, seed=1)
+
+        res_custom = vflip_from_lfp(
+            lfp,
+            fs=fs,
+            nperseg=500,
+            noverlap=250,
+            window="boxcar",
+            detrend=False,
+            min_support_score=0.0,
+        )
+
+        freqs_m, psd_m = signal.welch(
+            lfp,
+            fs=fs,
+            nperseg=500,
+            noverlap=250,
+            window="boxcar",
+            detrend=False,
+            axis=1,
+        )
+        res_m = vflip(psd_m, freqs_m, min_support_score=0.0)
+
+        assert res_custom.crossover_contact == pytest.approx(res_m.crossover_contact, abs=1e-12)
+        assert res_custom.support_score == pytest.approx(res_m.support_score, abs=1e-12)
+        np.testing.assert_allclose(res_custom.profile, res_m.profile, atol=1e-12)
+
+    def test_bad_channel_masking_and_interpolation(self):
+        """Masked channels and NaN rows in LFP are masked, interpolated in profile, and counted."""
+        fs = 1000.0
+        lfp = self._generate_synthetic_laminar_lfp(n_channels=20, n_times=3000, fs=fs, seed=2)
+        # Channel 3 is NaN in LFP
+        lfp[3, :] = np.nan
+        # Channel 10 is explicitly marked bad
+        bad_mask = np.zeros(20, dtype=bool)
+        bad_mask[10] = True
+
+        res = vflip_from_lfp(
+            lfp,
+            fs=fs,
+            bad_channel_mask=bad_mask,
+            min_support_score=0.0,
+        )
+        assert res.n_missing == 2
+        assert res.n_channels == 20
+        assert np.all(np.isfinite(res.profile))
+
+    def test_probe_geometry_integration(self):
+        """vflip_from_lfp accepts ProbeGeometry and calculates physical depth in um."""
+        fs = 1000.0
+        n_ch = 20
+        lfp = self._generate_synthetic_laminar_lfp(n_channels=n_ch, n_times=3000, fs=fs, seed=3)
+        pitch_um = 40.0
+        z = np.arange(n_ch) * pitch_um
+        df = pd.DataFrame({"x": np.zeros(n_ch), "y": np.zeros(n_ch), "z": z})
+        geom = jnwb.probe_geometry(df, units="um", nominal_pitch=pitch_um)
+
+        res = vflip_from_lfp(lfp, fs=fs, probe_geometry=geom, min_support_score=0.0)
+        assert res.crossover_contact is not None
+        assert res.crossover_depth_um == pytest.approx(res.crossover_contact * pitch_um, abs=1e-6)
+
+    def test_input_dimension_validation(self):
+        """1D and 3D arrays raise ValueError; invalid fs raises ValueError."""
+        with pytest.raises(ValueError, match="2D array"):
+            vflip_from_lfp(np.ones(1000), fs=1000.0)
+
+        with pytest.raises(ValueError, match="2D array"):
+            vflip_from_lfp(np.ones((2, 10, 100)), fs=1000.0)
+
+        with pytest.raises(ValueError, match="fs must be strictly positive"):
+            vflip_from_lfp(np.ones((10, 1000)), fs=-100.0)
+
+        with pytest.raises(ValueError, match="fs must be strictly positive"):
+            vflip_from_lfp(np.ones((10, 1000)), fs=np.nan)
+

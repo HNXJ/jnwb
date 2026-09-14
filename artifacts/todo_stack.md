@@ -7,10 +7,9 @@
 
 # 0.2.2
 
-- 0.2.2-03: Implement vflip_from_lfp as strict composition (LFP -> PSD -> vflip); test numerical agreement with manual composition.
 - 0.2.2-04: Implement label_layers where only accepted fits produce layer assignments; rejected or non-identifiable fits produce 'na', never guessed labels.
 - 0.2.2-05: vFLIP recovery tests on known crossover, reversed probe orientation, no-motif 1/f, white noise, missing interior contacts, frequency-grid equivalence, irregular frequency axis, insufficient channels, invalid spacing, and failed support gate.
-- 0.2.2-06: Measure calibration and false-positive behavior under deterministic synthetic ensembles reproducible from code.
+- 0.2.2-06: Measure calibration and false-positive behavior under deterministic synthetic ensembles reproducible from code; estimate empirical operating characteristics of Omega and min_support_score over broad synthetic nulls and recoverable motifs before final 0.2.x release.
 - 0.2.2-07: Test geometry composition (generic NWB -> probe_geometry -> PSD/vflip -> label_layers) with known geometry and expected result.
 - 0.2.2 release gate: Numerical behavior, rejection semantics, geometry composition, docs, API, calibration, full suite, packaging, and CI PASS independently.
 
