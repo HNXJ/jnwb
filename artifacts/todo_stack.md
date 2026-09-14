@@ -10,7 +10,6 @@
 
 # 0.2.3
 
-- 0.2.3-REV-08: Fix multi-band Phase Slope Index (PSI) top-level p-value extraction: when aggregating across multiple bands, do not extract `p_x_to_y` solely from the first iterator band; compute an omnibus statistic or leave top-level p-value as None/omnibus with per-band reporting (EXT-REV-008).
 - 0.2.3-REV-09: Fix baseline depression in `causal_exp_smooth`: replace left-zero padding with edge-value padding (`rate[0]`) to preserve constant baseline firing rates without artificial ramp-up (EXT-REV-009).
 - 0.2.3-REV-10: Fix `coi_mask` broadcasting in `complex_tfr`: reshape `coi_mask` to align with arbitrary `time_axis` positions in multi-dimensional arrays (EXT-REV-010).
 - 0.2.3-REV-11: Ensure `label_layers` assigns `"na"` to bad contacts and out-of-bounds channels even on accepted fits, matching documented invariants (EXT-REV-011).

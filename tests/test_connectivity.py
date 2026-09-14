@@ -219,6 +219,35 @@ class TestPhaseSlopeIndex:
         rev = phase_slope_index(y, x, fs=1000.0, bands=(14, 30), nperseg=256)
         assert fwd.net == pytest.approx(-rev.net, abs=1e-9)
 
+    def test_multiband_psi_omnibus_pvalue(self):
+        """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
+        from scipy import signal, stats
+        rng = np.random.default_rng(42)
+        n = 4000
+        # Filtered band-limited signal in gamma (55-75 Hz) with 5 ms delay
+        raw = rng.standard_normal(n)
+        sos = signal.butter(4, [55.0, 75.0], btype="bandpass", fs=1000.0, output="sos")
+        gamma_sig = signal.sosfiltfilt(sos, raw)
+        x = gamma_sig + 0.05 * rng.standard_normal(n)
+        y = np.roll(gamma_sig, 5) + 0.05 * rng.standard_normal(n)
+
+        # Multi-band: theta (4-8 Hz, pure noise) and gamma (55-75 Hz, strong lead)
+        bands = {"theta": (4.0, 8.0), "gamma": (55.0, 75.0)}
+        res = phase_slope_index(x, y, fs=1000.0, bands=bands, n_surrogates=0)
+
+        assert res.diagnostics["p_is_omnibus"] is True
+        p_theta = float(2 * stats.norm.sf(abs(res.per_band["theta"]["z"])))
+        p_gamma = float(2 * stats.norm.sf(abs(res.per_band["gamma"]["z"])))
+
+        # Theta has no lead (p > 0.1), Gamma has massive lead (p < 1e-10)
+        assert p_theta > 0.1
+        assert p_gamma < 1e-10
+
+        # Top-level p_x_to_y must NOT be equal to the first band (theta) p-value
+        assert res.p_x_to_y != pytest.approx(p_theta, abs=1e-4)
+        assert res.p_x_to_y < 0.05, f"Omnibus p must be significant, got {res.p_x_to_y}"
+
+
 
 class TestTransferEntropy:
     def test_x_drives_y_gives_positive_x_to_y(self):

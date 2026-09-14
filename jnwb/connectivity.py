@@ -1561,6 +1561,7 @@ def phase_slope_index(
     psi_per_freq = np.imag(np.conj(coh_full[:-1]) * coh_full[1:])
 
     per_band: Dict[str, Dict[str, Any]] = {}
+    jk_per_band: Dict[str, np.ndarray] = {}
     for name, (f_lo, f_hi) in band_map.items():
         idx = np.flatnonzero((freqs >= f_lo) & (freqs <= f_hi))
         if idx.size < 2:
@@ -1588,6 +1589,7 @@ def phase_slope_index(
                 jk[i] = _psi_from_spectra(fx[keep], fy[keep], idx)
                 keep[i] = True
             sd = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
+            jk_per_band[name] = jk
         elif jackknife:
             warnings_all.append("jackknife_needs_at_least_3_segments")
 
@@ -1625,11 +1627,26 @@ def phase_slope_index(
             )
 
     total = float(np.nansum([v["value"] for v in per_band.values()]))
-    primary = next(iter(per_band.values()))
-    p_primary = primary.get("p_surrogate")
-    if p_primary is None and np.isfinite(primary.get("z", np.nan)):
-        # two-sided normal approximation on the jackknife z (Nolte et al.)
-        p_primary = float(2 * stats.norm.sf(abs(primary["z"])))
+
+    # Top-level omnibus p-value extraction across evaluated bands (0.2.3-REV-08)
+    p_top = None
+    if len(per_band) == 1:
+        single = next(iter(per_band.values()))
+        p_top = single.get("p_surrogate")
+        if p_top is None and np.isfinite(single.get("z", np.nan)):
+            p_top = float(2 * stats.norm.sf(abs(single["z"])))
+    else:
+        if n_surrogates > 0 and null:
+            valid_band_nulls = [null[k] for k in null if np.all(np.isfinite(null[k]))]
+            if valid_band_nulls and np.isfinite(total):
+                null_tot = np.sum(valid_band_nulls, axis=0)
+                p_top = float((1 + np.sum(np.abs(null_tot) >= abs(total))) / (len(null_tot) + 1))
+        elif jackknife and n_seg >= 3 and jk_per_band:
+            jk_tot = np.sum(list(jk_per_band.values()), axis=0)
+            sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
+            if sd_tot > 0 and np.isfinite(sd_tot) and np.isfinite(total):
+                z_tot = float(total / sd_tot)
+                p_top = float(2 * stats.norm.sf(abs(z_tot)))
 
     return DirectedResult(
         method="psi",
@@ -1637,9 +1654,9 @@ def phase_slope_index(
         y_to_x=-total,
         net=total,
         unit="psi",
-        p_x_to_y=p_primary,
-        p_y_to_x=p_primary,
-        p_net=p_primary,
+        p_x_to_y=p_top,
+        p_y_to_x=p_top,
+        p_net=p_top,
         per_band=per_band,
         spectrum={
             "freqs": freqs,
@@ -1668,6 +1685,7 @@ def phase_slope_index(
             "p_source": "surrogate" if n_surrogates > 0 else ("jackknife_z" if jackknife else None),
             # PSI is antisymmetric: one test, direction carried by the sign.
             "p_covers_both_directions": True,
+            "p_is_omnibus": bool(len(per_band) > 1),
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
         },
