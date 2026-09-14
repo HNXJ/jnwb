@@ -600,6 +600,111 @@ class TestLabelLayers:
         with pytest.raises(ValueError, match="linear electrode shaft"):
             label_layers(res, geom_2d)
 
+    def test_bad_contacts_assigned_na_on_accepted_fit(self):
+        """Bad / dead / masked contacts strictly receive 'na' even on accepted fits."""
+        n_ch = 20
+        pitch = 50.0
+        geom = self._make_probe_geom(n_channels=n_ch, pitch_um=pitch)
+
+        # Crossover at contact 10, input zone [6..14]
+        bad_mask = np.zeros(n_ch, dtype=bool)
+        bad_mask[2] = True   # in superficial zone
+        bad_mask[10] = True  # at crossover (input zone)
+        bad_mask[18] = True  # in deep zone
+
+        # 1. Via explicit bad_channel_mask parameter
+        res_no_mask = VFlipResult(
+            crossover_contact=10.0,
+            crossover_depth_um=500.0,
+            support_score=10.0,
+            profile=np.zeros(n_ch),
+            low_peak_contact=18,
+            high_peak_contact=2,
+            orientation="superficial_to_deep",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=n_ch,
+            n_missing=3,
+        )
+        labels_param = label_layers(res_no_mask, geom, bad_channel_mask=bad_mask)
+        assert labels_param["ch_2"] == "na"
+        assert labels_param["ch_10"] == "na"
+        assert labels_param["ch_18"] == "na"
+        # Good contacts retain valid layer labels
+        assert labels_param["ch_1"] == "superficial"
+        assert labels_param["ch_9"] == "input"
+        assert labels_param["ch_17"] == "deep"
+
+        # 2. Via vflip_result.bad_channel_mask automatic propagation
+        res_with_mask = VFlipResult(
+            crossover_contact=10.0,
+            crossover_depth_um=500.0,
+            support_score=10.0,
+            profile=np.zeros(n_ch),
+            low_peak_contact=18,
+            high_peak_contact=2,
+            orientation="superficial_to_deep",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=n_ch,
+            n_missing=3,
+            bad_channel_mask=bad_mask,
+        )
+        labels_auto = label_layers(res_with_mask, geom)
+        assert labels_auto["ch_2"] == "na"
+        assert labels_auto["ch_10"] == "na"
+        assert labels_auto["ch_18"] == "na"
+        assert labels_auto["ch_1"] == "superficial"
+        assert labels_auto["ch_9"] == "input"
+        assert labels_auto["ch_17"] == "deep"
+
+    def test_out_of_bounds_contact_range_and_depth_range_assigned_na(self):
+        """Contacts outside contact_range or depth_range_um receive 'na'."""
+        n_ch = 20
+        pitch = 50.0
+        geom = self._make_probe_geom(n_channels=n_ch, pitch_um=pitch)
+        res = VFlipResult(
+            crossover_contact=10.0,
+            crossover_depth_um=500.0,
+            support_score=10.0,
+            profile=np.zeros(n_ch),
+            low_peak_contact=18,
+            high_peak_contact=2,
+            orientation="superficial_to_deep",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=n_ch,
+            n_missing=0,
+        )
+
+        # 1. Contact range [3, 16] -> contacts 0..2 and 17..19 become 'na'
+        labels_cr = label_layers(res, geom, contact_range=(3, 16))
+        for idx in range(3):
+            assert labels_cr[f"ch_{idx}"] == "na"
+        for idx in range(17, 20):
+            assert labels_cr[f"ch_{idx}"] == "na"
+        assert labels_cr["ch_3"] == "superficial"
+        assert labels_cr["ch_10"] == "input"
+        assert labels_cr["ch_16"] == "deep"
+
+        # 2. Depth range [200.0, 800.0] um (pitch=50 -> contact indices [4..16])
+        labels_dr = label_layers(res, geom, depth_range_um=(200.0, 800.0))
+        for idx in range(4):
+            assert labels_dr[f"ch_{idx}"] == "na"
+        for idx in range(17, 20):
+            assert labels_dr[f"ch_{idx}"] == "na"
+        assert labels_dr["ch_4"] == "superficial"
+        assert labels_dr["ch_10"] == "input"
+        assert labels_dr["ch_16"] == "deep"
+
+        # 3. Invalid bounds fail loudly
+        with pytest.raises(ValueError, match="depth_range_um bounds must be finite with min <= max"):
+            label_layers(res, geom, depth_range_um=(800.0, 200.0))
+
+        with pytest.raises(ValueError, match="contact_range bounds must be finite with min <= max"):
+            label_layers(res, geom, contact_range=(15, 5))
+
+
 
 class TestVFlipRecoveryAndRejectionBroad:
     """Comprehensive recovery and rejection test suite for vFLIP (0.2.2-05).

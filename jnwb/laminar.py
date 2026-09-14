@@ -51,6 +51,8 @@ class VFlipResult:
         rejection_reason: Diagnostic reason string if rejected, or None if accepted.
         n_channels: Total number of evaluated contacts along the probe shaft.
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
+        bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
+            masked contacts in input channel order.
     """
 
     crossover_contact: Optional[float]
@@ -64,6 +66,7 @@ class VFlipResult:
     rejection_reason: Optional[str]
     n_channels: int
     n_missing: int
+    bad_channel_mask: Optional[np.ndarray] = None
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -238,6 +241,8 @@ def vflip(
     non_finite_rows = ~np.all(np.isfinite(psd_arr), axis=1)
     bad_mask = bad_mask | non_finite_rows
 
+    effective_bad_input = bad_mask.copy()
+
     # If probe_geometry is provided, order channels along the physical shaft
     if order is not None and len(order) == n_channels:
         psd_work = psd_arr[order]
@@ -263,6 +268,7 @@ def vflip(
             rejection_reason="insufficient_channels",
             n_channels=n_channels,
             n_missing=n_missing,
+            bad_channel_mask=effective_bad_input,
         )
 
     # 3. Frequency standardization across valid contacts along the shaft
@@ -407,6 +413,7 @@ def vflip(
         rejection_reason=rejection_reason,
         n_channels=n_channels,
         n_missing=n_missing,
+        bad_channel_mask=effective_bad_input,
     )
 
 
@@ -561,6 +568,9 @@ def label_layers(
     probe_geometry: Any,
     *,
     granular_thickness_um: float = 400.0,
+    bad_channel_mask: Optional[np.ndarray] = None,
+    depth_range_um: Optional[Tuple[float, float]] = None,
+    contact_range: Optional[Tuple[float, float]] = None,
 ) -> Dict[Any, str]:
     """Assign cortical layer labels (superficial, input, deep) to probe contacts.
 
@@ -570,11 +580,14 @@ def label_layers(
       extending across a zone of width `granular_thickness_um`.
     - ``"deep"``: Infragranular layers (L5–L6), characterized by alpha/beta dominance.
     - ``"na"``: Assigned to all channels whenever `vflip_result.accepted` is `False`, or to
-      invalid/out-of-bounds contacts.
+      invalid, bad, or out-of-bounds contacts.
 
     Critical Invariant:
     Rejected or non-identifiable fits (`vflip_result.accepted is False`) strictly map
-    **all** channels to ``"na"``. Never guesses or imputes layers on failed fits.
+    **all** channels to ``"na"``. Never guesses or imputes layers on failed fits. On accepted
+    fits, bad contacts (from `bad_channel_mask` or `vflip_result.bad_channel_mask`), contacts
+    with non-finite coordinates, and contacts outside `depth_range_um` or `contact_range`
+    strictly receive ``"na"``.
 
     Args:
         vflip_result: :class:`VFlipResult` container from :func:`vflip` or :func:`vflip_from_lfp`.
@@ -582,6 +595,12 @@ def label_layers(
             and ordering along the linear probe shaft. Must satisfy `is_linear=True`.
         granular_thickness_um: Thickness of the granular layer (input zone) in micrometers (um).
             Must be strictly positive and finite (default: 400.0 um).
+        bad_channel_mask: Optional boolean array matching `probe_geometry.channel_ids`. Contacts
+            flagged True receive ``"na"``. If omitted, defaults to `vflip_result.bad_channel_mask`.
+        depth_range_um: Optional (min_depth_um, max_depth_um) tuple bounding valid cortical depth
+            along the shaft. Contacts outside this range receive ``"na"``.
+        contact_range: Optional (min_contact, max_contact) tuple bounding valid contact indices
+            along the ordered linear shaft. Contacts outside this range receive ``"na"``.
 
     Returns:
         Dictionary mapping channel identifier (from `probe_geometry.channel_ids`) to layer label
@@ -589,7 +608,8 @@ def label_layers(
 
     Raises:
         ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
-            is not linear, or channel count does not match `vflip_result.n_channels`.
+            is not linear, channel count does not match `vflip_result.n_channels`, or range bounds
+            are invalid.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -602,6 +622,20 @@ def label_layers(
         raise ValueError(
             f"granular_thickness_um must be strictly positive and finite (um), got {granular_thickness_um}"
         )
+
+    if depth_range_um is not None:
+        if len(depth_range_um) != 2:
+            raise ValueError(f"depth_range_um must be a 2-tuple (min_depth, max_depth), got {depth_range_um}")
+        min_d, max_d = float(depth_range_um[0]), float(depth_range_um[1])
+        if min_d > max_d or not (np.isfinite(min_d) and np.isfinite(max_d)):
+            raise ValueError(f"depth_range_um bounds must be finite with min <= max, got {depth_range_um}")
+
+    if contact_range is not None:
+        if len(contact_range) != 2:
+            raise ValueError(f"contact_range must be a 2-tuple (min_contact, max_contact), got {contact_range}")
+        min_c, max_c = float(contact_range[0]), float(contact_range[1])
+        if min_c > max_c or not (np.isfinite(min_c) and np.isfinite(max_c)):
+            raise ValueError(f"contact_range bounds must be finite with min <= max, got {contact_range}")
 
     if probe_geometry is None or not getattr(probe_geometry, "is_linear", False):
         raise ValueError("probe_geometry must describe a linear electrode shaft (is_linear=True)")
@@ -626,6 +660,21 @@ def label_layers(
         )
     pitch = float(nominal_pitch)
 
+    # Resolve bad channel mask
+    if bad_channel_mask is not None:
+        effective_bad = np.asarray(bad_channel_mask, dtype=bool).ravel()
+        if len(effective_bad) != n_geom_channels:
+            raise ValueError(
+                f"bad_channel_mask length ({len(effective_bad)}) does not match "
+                f"probe_geometry channel count ({n_geom_channels})"
+            )
+    else:
+        res_bad = getattr(vflip_result, "bad_channel_mask", None)
+        if res_bad is not None and len(res_bad) == n_geom_channels:
+            effective_bad = np.asarray(res_bad, dtype=bool).ravel()
+        else:
+            effective_bad = None
+
     # Number of channels spanning granular layer
     mid_half_span = (granular_thickness_um / 2.0) / pitch
     crossover = float(vflip_result.crossover_contact)
@@ -648,8 +697,42 @@ def label_layers(
         rank = np.arange(n_geom_channels, dtype=float)
 
     labels: Dict[Any, str] = {}
+    has_positions = hasattr(probe_geometry, "contact_positions") and probe_geometry.contact_positions is not None
+
     for idx, ch_id in enumerate(channel_ids):
+        # Bad / masked channel exclusion
+        if effective_bad is not None and effective_bad[idx]:
+            labels[ch_id] = "na"
+            continue
+
+        # Contact geometry validity check
+        if has_positions:
+            pos = probe_geometry.contact_positions[idx]
+            if not np.all(np.isfinite(pos)):
+                labels[ch_id] = "na"
+                continue
+
         c_pos = float(rank[idx])
+
+        # Shaft support bounds
+        if c_pos < 0 or c_pos >= n_geom_channels:
+            labels[ch_id] = "na"
+            continue
+
+        # Contact index range check
+        if contact_range is not None:
+            if not (min_c <= c_pos <= max_c):
+                labels[ch_id] = "na"
+                continue
+
+        # Physical depth range check
+        if depth_range_um is not None:
+            c_depth = c_pos * pitch
+            if not (min_d <= c_depth <= max_d):
+                labels[ch_id] = "na"
+                continue
+
+        # In-bounds cortical layer assignment
         if input_start <= c_pos <= input_end:
             labels[ch_id] = "input"
         elif c_pos < input_start:

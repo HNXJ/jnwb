@@ -10,7 +10,6 @@
 
 # 0.2.3
 
-- 0.2.3-REV-11: Ensure `label_layers` assigns `"na"` to bad contacts and out-of-bounds channels even on accepted fits, matching documented invariants (EXT-REV-011).
 - 0.2.3-01: Formalize testing.synth with reusable generators (known laminar motif, white noise, AR/autocorrelated noise, periodic shared response with no condition effect, unequal groups, missing contacts, contiguous correlation blocks, phase-gradient/coherence structures) as test infrastructure, not empirical evidence; establish canonical synthetic NWB fixture file for executable tutorials.
 - 0.2.3-02: Implement xflip locking semantics first (input axis, Pearson/Spearman/partial definitions, contiguous vs unrestricted grouping, minimum block size, boundary representation, surrogate construction preserving temporal autocorrelation where declared, RNG, p-value resolution, failure behavior).
 - 0.2.3-03: Calibrate xflip false-positive control and recovery across known blocks, no-block null, white noise, AR noise, periodic common response, unequal blocks, edge cases, same-seed determinism, and different-seed variation.
