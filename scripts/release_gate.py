@@ -255,7 +255,33 @@ assert epochs.shape[0] == 2
 assert np.array_equal(retained, [0, 1])
 assert len(t_axis) == epochs.shape[1]
 
-# 6. Viz
+# 6. 0.2.1 additions: aperiodic_fit, relative_power, exact stats, stream_npz_array, probe_geometry
+f_axis = np.linspace(5.0, 50.0, 46)
+psd_toy = 10.0 ** (2.0 - 1.5 * np.log10(f_axis))
+ap_res = jnwb.aperiodic_fit(f_axis, psd_toy, freq_range=(5.0, 50.0), mode="fixed")
+assert ap_res.accepted is True and np.isclose(ap_res.exponent, 1.5, atol=1e-3)
+
+rp = jnwb.relative_power(psd_toy * 1.5, psd_toy, model="mean_of_ratios", axis=0)
+assert np.isclose(rp, 1.5)
+
+obs_m, p_val, p_fl = jnwb.exact_sign_flip([1.0, 2.0, 3.0, 4.0], alternative="greater")
+assert np.isclose(p_val, 0.0625) and np.isclose(p_fl, 0.0625)
+mwp_fl = jnwb.mann_whitney_p_floor(3, 3, alternative="two-sided")
+assert np.isclose(mwp_fl, 0.1)
+cp_ci = jnwb.clopper_pearson(5, 10, alpha=0.05)
+assert len(cp_ci) == 2
+
+tmp_npz = pathlib.Path(tempfile.mkdtemp()) / 'test_stream.npz'
+arr_raw = np.arange(100, dtype=np.float32).reshape(10, 10)
+np.savez_compressed(tmp_npz, arr=arr_raw)
+streamed = jnwb.stream_npz_array(tmp_npz, 'arr', (slice(0, 5), slice(0, 5)))
+assert np.array_equal(streamed, arr_raw[0:5, 0:5])
+
+coords_df = pd.DataFrame({'x': [0, 0, 0, 0], 'y': [0, 0, 0, 0], 'z': [0, 20, 40, 60]})
+p_geom = jnwb.probe_geometry(coords_df, units="um", nominal_pitch=20.0, strict_linear=True)
+assert p_geom.is_linear is True and p_geom.is_uniform is True
+
+# 7. Viz
 jnwb.setup_vector_graphics()
 
 print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')

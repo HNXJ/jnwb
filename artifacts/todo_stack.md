@@ -4,8 +4,6 @@
 
 # 0.2.1
 
-- 0.2.1-06: Primitive integration review for all five additions (exports, typing, docstrings, examples, invalid-input behavior, boundary neutrality, adjacent composition, independent numerical review).
-- 0.2.1 release gate: All five APIs individually PASS public-API checklist; full suite, harness gates, docs build, release gate PASS.
 
 # 0.2.2
 
