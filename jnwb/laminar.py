@@ -123,9 +123,10 @@ def vflip(
         4. Identifies continuous sub-contact zero-crossing root :math:`c^*`:
            :math:`c^* = i + \\frac{-\\Delta(i)}{\\Delta(i+1) - \\Delta(i)}`
            located between the high-frequency peak :math:`c_{\\text{high}}` and low-frequency peak :math:`c_{\\text{low}}`.
-        5. Evaluates the support score :math:`\\Omega` based on contrast magnitude, spatial peak separation,
-           and transition monotonicity. If :math:`\\Omega < \\Omega_{\\text{thresh}}` or no valid crossover exists,
-           the fit is rejected (`accepted=False`, `crossover_contact=None`).
+        5. Evaluates the support score :math:`\\Omega` density-normalized to a canonical 24-contact reference
+           baseline (:math:`(N/24)^{1.5}`) based on contrast magnitude, fractional spatial peak separation,
+           and RMS difference profile across contacts. If :math:`\\Omega < \\Omega_{\\text{thresh}}` or no valid
+           crossover exists, the fit is rejected (`accepted=False`, `crossover_contact=None`).
 
     Args:
         psd: 2D array of power spectral densities, shape `(n_channels, n_freqs)`.
@@ -350,7 +351,13 @@ def vflip(
                 crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
-    # Components:
+    # Density-normalized to eliminate systematic channel-count scaling (EXT-REV-003).
+    # Uses canonical 24-contact reference baseline (N_ref = 24):
+    # - band_dist is normalized by sqrt(n_channels / 24) (RMS profile scaling)
+    # - sep_metric is normalized by (n_channels / 24) (fractional span scaling)
+    n_ref = 24.0
+    density_scale = float((n_channels / n_ref) ** 1.5)
+
     # 1. Spectral pole distance between low-peak and high-peak contact across standardized frequencies
     p_dist = float(np.linalg.norm(normed_psd[high_peak] - normed_psd[low_peak]))
     # 2. Band difference profile Euclidean distance across contacts
@@ -364,7 +371,7 @@ def vflip(
     # 4. Spatial separation in channels
     sep_metric = float(max(1, peak_sep))
 
-    metric = p_dist * band_dist * max(1e-4, contrast) * sep_metric
+    metric = (p_dist * band_dist * max(1e-4, contrast) * sep_metric) / density_scale
     support_score = float(np.log(max(1e-12, metric)))
 
     # 9. Acceptance determination

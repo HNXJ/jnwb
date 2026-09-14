@@ -1042,6 +1042,48 @@ class TestVFlipRecoveryAndRejectionBroad:
             f"got profile[{c_cross}]={res.profile[c_cross]:.2f} < profile[{c_cross+1}]={res.profile[c_cross+1]:.2f}"
         )
 
+    def test_vflip_support_score_density_invariance(self):
+        """Support score Omega must be invariant to electrode contact density (0.2.3-REV-03)."""
+        freqs = np.linspace(2.0, 150.0, 100)
+
+        # 1. Physical equivalence: same 1200 um column sampled at 16 vs 64 contacts
+        scores = {}
+        for n_ch in (16, 32, 64):
+            psd = np.zeros((n_ch, len(freqs)))
+            base = (freqs / freqs[0]) ** (-1.3)
+            c_sup = 0.25 * n_ch
+            c_deep = 0.75 * n_ch
+            for c in range(n_ch):
+                g_w = np.exp(-0.5 * ((c - c_sup) / (0.15 * n_ch)) ** 2)
+                b_w = np.exp(-0.5 * ((c - c_deep) / (0.15 * n_ch)) ** 2)
+                psd[c] = base + 1.5 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 1.5 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
+            res = vflip(psd, freqs, orientation="superficial_to_deep")
+            assert res.accepted is True
+            scores[n_ch] = res.support_score
+
+        # Unnormalized Omega would drift by 1.5 * ln(64 / 16) = 2.08.
+        # Density-normalized Omega should remain within 0.3 across sampling densities.
+        assert abs(scores[64] - scores[16]) < 0.3, f"Score drift across 4x density: {scores[64]} vs {scores[16]}"
+
+        # 2. Low contact count (N=8) with clear motif must pass default threshold 6.0
+        n_ch = 8
+        psd_8 = np.zeros((n_ch, len(freqs)))
+        base_8 = (freqs / freqs[0]) ** (-1.3)
+        for c in range(n_ch):
+            g_w = np.exp(-0.5 * ((c - 2.0) / 1.2) ** 2)
+            b_w = np.exp(-0.5 * ((c - 6.0) / 1.2) ** 2)
+            psd_8[c] = base_8 + 2.0 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 2.0 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
+        res_8 = vflip(psd_8, freqs, orientation="superficial_to_deep")
+        assert res_8.accepted is True
+        assert res_8.support_score >= 6.0
+
+        # 3. High contact count (N=64) with white noise must NOT artificially pass threshold 6.0
+        rng = np.random.default_rng(42)
+        psd_noise_64 = rng.exponential(scale=1.0, size=(64, len(freqs)))
+        res_noise_64 = vflip(psd_noise_64, freqs, min_support_score=6.0, orientation="auto")
+        assert res_noise_64.accepted is False
+
+
 
 
 
