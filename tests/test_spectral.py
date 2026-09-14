@@ -294,6 +294,25 @@ class TestAggregateToDb:
                                   aggregate_over=1, nan_policy="omit")
         np.testing.assert_allclose(omitted, to_db(2.0))
 
+    def test_ratio_of_means_nan_policy_omit_joint_masking(self):
+        """Under ratio_of_means with nan_policy='omit', missing samples in power must not
+        cause denominator to sum across samples excluded from numerator."""
+        p = np.array([10.0, np.nan])
+        b = np.array([10.0, 10.0])
+        # Only index 0 is valid for both (10.0 / 10.0 = 1.0 -> 0.0 dB)
+        omitted = aggregate_to_db(p, b, how="ratio_of_means", aggregate_over=0, nan_policy="omit")
+        np.testing.assert_allclose(omitted, 0.0)
+
+        # 2D array test with broadcasting
+        p2 = np.array([[10.0, np.nan], [20.0, 30.0]])
+        b2 = np.array([10.0, 10.0])
+        # For column 1, row 0 is NaN in p2, so only row 1 is valid (30.0 / 10.0 = 3.0)
+        omitted2 = aggregate_to_db(p2, b2, how="ratio_of_means", aggregate_over=0, nan_policy="omit")
+        # col 0: (10 + 20) / (10 + 10) = 30 / 20 = 1.5 -> to_db(1.5)
+        # col 1: (30) / (10) = 3.0 -> to_db(3.0)
+        np.testing.assert_allclose(omitted2, [to_db(1.5), to_db(3.0)])
+
+
     def test_no_aggregation_is_elementwise_and_logs_once(self):
         power = np.array([[2.0, 4.0]])
         baseline = np.ones((1, 2))

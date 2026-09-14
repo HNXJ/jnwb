@@ -151,9 +151,17 @@ def aggregate_to_db(
         elif how == "mean_of_ratios":
             aggregated = mean(p / b, axis=aggregate_over)
         else:
-            num = total(p, axis=aggregate_over)
-            den = total(np.broadcast_to(b, p.shape), axis=aggregate_over)
-            aggregated = num / den
+            b_bc = np.broadcast_to(b, p.shape)
+            if nan_policy == "omit":
+                valid = np.isfinite(p) & np.isfinite(b_bc)
+                num = np.sum(np.where(valid, p, 0.0), axis=aggregate_over)
+                den = np.sum(np.where(valid, b_bc, 0.0), axis=aggregate_over)
+                count = np.sum(valid, axis=aggregate_over)
+                aggregated = np.where(count > 0, num / den, np.nan)
+            else:
+                num = total(p, axis=aggregate_over)
+                den = total(b_bc, axis=aggregate_over)
+                aggregated = num / den
         return to_db(aggregated)
 
 
