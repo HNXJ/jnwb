@@ -71,6 +71,7 @@ from .addressing import (
 from .laminar import (
     vflip,
     vflip_from_lfp,
+    label_layers,
     VFlipResult,
 )
 
@@ -226,6 +227,7 @@ __all__ = [
     # Laminar
     'vflip',
     'vflip_from_lfp',
+    'label_layers',
     'VFlipResult',
 
     # Analyzers

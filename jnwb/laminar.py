@@ -536,3 +536,100 @@ def vflip_from_lfp(
         device=device,
     )
 
+
+def label_layers(
+    vflip_result: VFlipResult,
+    probe_geometry: Any,
+    *,
+    granular_thickness_um: float = 400.0,
+) -> Dict[Any, str]:
+    """Assign cortical layer labels (superficial, input, deep) to probe contacts.
+
+    Maps contacts along a linear probe shaft into canonical cortical compartments:
+    - ``"superficial"``: Supragranular layers (L1–L3), characterized by gamma dominance.
+    - ``"input"``: Granular layer 4 (L4), centered at the spectrolaminar crossover point,
+      extending across a zone of width `granular_thickness_um`.
+    - ``"deep"``: Infragranular layers (L5–L6), characterized by alpha/beta dominance.
+    - ``"na"``: Assigned to all channels whenever `vflip_result.accepted` is `False`, or to
+      invalid/out-of-bounds contacts.
+
+    Critical Invariant:
+    Rejected or non-identifiable fits (`vflip_result.accepted is False`) strictly map
+    **all** channels to ``"na"``. Never guesses or imputes layers on failed fits.
+
+    Args:
+        vflip_result: :class:`VFlipResult` container from :func:`vflip` or :func:`vflip_from_lfp`.
+        probe_geometry: :class:`jnwb.ProbeGeometry` describing the physical contact positions
+            and ordering along the linear probe shaft. Must satisfy `is_linear=True`.
+        granular_thickness_um: Thickness of the granular layer (input zone) in micrometers (um).
+            Must be strictly positive and finite (default: 400.0 um).
+
+    Returns:
+        Dictionary mapping channel identifier (from `probe_geometry.channel_ids`) to layer label
+        string: ``"superficial"``, ``"input"``, ``"deep"``, or ``"na"``.
+
+    Raises:
+        ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
+            is not linear, or channel count does not match `vflip_result.n_channels`.
+
+    References:
+        Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
+        potential power across the primate cortex. Nature Neuroscience.
+        doi:10.1038/s41593-023-01554-7
+    """
+    # 1. Parameter validation
+    granular_thickness_um = float(granular_thickness_um)
+    if granular_thickness_um <= 0 or not np.isfinite(granular_thickness_um):
+        raise ValueError(
+            f"granular_thickness_um must be strictly positive and finite (um), got {granular_thickness_um}"
+        )
+
+    if probe_geometry is None or not getattr(probe_geometry, "is_linear", False):
+        raise ValueError("probe_geometry must describe a linear electrode shaft (is_linear=True)")
+
+    channel_ids = list(probe_geometry.channel_ids)
+    n_geom_channels = len(channel_ids)
+    if n_geom_channels != vflip_result.n_channels:
+        raise ValueError(
+            f"probe_geometry channel count ({n_geom_channels}) does not match "
+            f"vflip_result.n_channels ({vflip_result.n_channels})"
+        )
+
+    # 2. Strict rejection invariant: unaccepted fits yield all "na"
+    if not vflip_result.accepted or vflip_result.crossover_contact is None:
+        return {ch_id: "na" for ch_id in channel_ids}
+
+    # 3. Determine contact positions along shaft
+    nominal_pitch = getattr(probe_geometry, "nominal_pitch", None)
+    if nominal_pitch is None or nominal_pitch <= 0:
+        raise ValueError(
+            "probe_geometry.nominal_pitch must be strictly positive to compute layer boundaries in um"
+        )
+    pitch = float(nominal_pitch)
+
+    # Number of channels spanning granular layer
+    mid_half_span = (granular_thickness_um / 2.0) / pitch
+    crossover = float(vflip_result.crossover_contact)
+
+    # Granular (input) boundary interval in contact coordinate space
+    input_start = crossover - mid_half_span
+    input_end = crossover + mid_half_span
+
+    # Orientation mapping:
+    # Under 'superficial_to_deep': lower contact indices are superficial, higher are deep.
+    # Under 'deep_to_superficial': lower contact indices are deep, higher are superficial.
+    is_sup_to_deep = (vflip_result.orientation == "superficial_to_deep")
+
+    labels: Dict[Any, str] = {}
+    for idx, ch_id in enumerate(channel_ids):
+        c_pos = float(idx)
+        if input_start <= c_pos <= input_end:
+            labels[ch_id] = "input"
+        elif c_pos < input_start:
+            labels[ch_id] = "superficial" if is_sup_to_deep else "deep"
+        else:  # c_pos > input_end
+            labels[ch_id] = "deep" if is_sup_to_deep else "superficial"
+
+    return labels
+
+

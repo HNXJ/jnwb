@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 143 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 144 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -119,6 +119,7 @@ All 143 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.VFlipResult | class | *Container for Vectorized Frequency-based Laminar Identity Profile (vFLIP) results.* |
+| jnwb.label_layers | function | (vflip_result: 'VFlipResult', probe_geometry: 'Any', granular_thickness_um: 'float' = 400.0) -> 'Dict[Any, str]'<br>*Assign cortical layer labels (superficial, input, deep) to probe contacts.* |
 | jnwb.vflip | function | (psd: 'np.ndarray', freqs: 'np.ndarray', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile (vFLIP).* |
 | jnwb.vflip_from_lfp | function | (lfp: 'np.ndarray', fs: 'float', nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, window: 'str' = 'hann', detrend: 'Union[str, bool]' = 'constant', scaling: 'str' = 'density', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.* |
 

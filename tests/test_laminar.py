@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 import jnwb
-from jnwb.laminar import VFlipResult, vflip, vflip_from_lfp
+from jnwb.laminar import VFlipResult, vflip, vflip_from_lfp, label_layers
 
 
 class TestVFlipMotifRecovery:
@@ -445,4 +445,156 @@ class TestVFlipFromLFP:
 
         with pytest.raises(ValueError, match="fs must be strictly positive"):
             vflip_from_lfp(np.ones((10, 1000)), fs=np.nan)
+
+
+class TestLabelLayers:
+    """Test layer assignment and strict failure invariants for label_layers."""
+
+    def _make_probe_geom(self, n_channels: int = 24, pitch_um: float = 50.0):
+        """Helper to construct linear ProbeGeometry."""
+        z = np.arange(n_channels) * pitch_um
+        df = pd.DataFrame({
+            "x": np.zeros(n_channels),
+            "y": np.zeros(n_channels),
+            "z": z,
+            "channel_id": [f"ch_{i}" for i in range(n_channels)],
+        })
+        return jnwb.probe_geometry(df, units="um", nominal_pitch=pitch_um)
+
+    def test_accepted_superficial_to_deep_layer_labels(self):
+        """Accepted superficial_to_deep fit correctly assigns superficial, input, and deep."""
+        n_ch = 24
+        pitch = 50.0
+        geom = self._make_probe_geom(n_channels=n_ch, pitch_um=pitch)
+        crossover = 10.0  # contact index 10 (depth 500 um)
+
+        # Granular thickness 400 um -> 400/50 = 8 channels total span (half-span = 4 channels)
+        # Input zone: [10 - 4, 10 + 4] = [6, 14] inclusive
+        res = VFlipResult(
+            crossover_contact=crossover,
+            crossover_depth_um=crossover * pitch,
+            support_score=10.0,
+            profile=np.zeros(n_ch),
+            low_peak_contact=18,
+            high_peak_contact=2,
+            orientation="superficial_to_deep",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=n_ch,
+            n_missing=0,
+        )
+
+        labels = label_layers(res, geom, granular_thickness_um=400.0)
+        assert len(labels) == n_ch
+
+        # Under superficial_to_deep:
+        # contacts 0..5 -> superficial
+        for ch_idx in range(6):
+            assert labels[f"ch_{ch_idx}"] == "superficial"
+
+        # contacts 6..14 -> input
+        for ch_idx in range(6, 15):
+            assert labels[f"ch_{ch_idx}"] == "input"
+
+        # contacts 15..23 -> deep
+        for ch_idx in range(15, 24):
+            assert labels[f"ch_{ch_idx}"] == "deep"
+
+    def test_accepted_deep_to_superficial_layer_labels(self):
+        """Accepted deep_to_superficial fit inverts superficial and deep relative to crossover."""
+        n_ch = 24
+        pitch = 50.0
+        geom = self._make_probe_geom(n_channels=n_ch, pitch_um=pitch)
+        crossover = 12.0
+
+        # Granular thickness 300 um -> 300/50 = 6 channels total (half-span = 3)
+        # Input zone: [12 - 3, 12 + 3] = [9, 15]
+        res = VFlipResult(
+            crossover_contact=crossover,
+            crossover_depth_um=crossover * pitch,
+            support_score=10.0,
+            profile=np.zeros(n_ch),
+            low_peak_contact=2,
+            high_peak_contact=20,
+            orientation="deep_to_superficial",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=n_ch,
+            n_missing=0,
+        )
+
+        labels = label_layers(res, geom, granular_thickness_um=300.0)
+
+        # Under deep_to_superficial:
+        # contacts 0..8 -> deep
+        for ch_idx in range(9):
+            assert labels[f"ch_{ch_idx}"] == "deep"
+
+        # contacts 9..15 -> input
+        for ch_idx in range(9, 16):
+            assert labels[f"ch_{ch_idx}"] == "input"
+
+        # contacts 16..23 -> superficial
+        for ch_idx in range(16, 24):
+            assert labels[f"ch_{ch_idx}"] == "superficial"
+
+    def test_rejected_fit_strictly_yields_all_na(self):
+        """Critical invariant: rejected fit yields 'na' for all channels, never guessed layers."""
+        n_ch = 20
+        geom = self._make_probe_geom(n_channels=n_ch, pitch_um=40.0)
+
+        # Rejected fit with crossover=None
+        res_rejected = VFlipResult(
+            crossover_contact=None,
+            crossover_depth_um=None,
+            support_score=2.5,
+            profile=np.zeros(n_ch),
+            low_peak_contact=15,
+            high_peak_contact=14,
+            orientation="undetermined",
+            accepted=False,
+            rejection_reason="insufficient_support",
+            n_channels=n_ch,
+            n_missing=0,
+        )
+
+        labels = label_layers(res_rejected, geom)
+        assert len(labels) == n_ch
+        assert all(label == "na" for label in labels.values())
+
+    def test_validation_errors_fail_loud(self):
+        """Invalid granular thickness, non-linear geometry, or mismatched channel counts raise ValueError."""
+        geom = self._make_probe_geom(n_channels=20, pitch_um=50.0)
+        res = VFlipResult(
+            crossover_contact=10.0,
+            crossover_depth_um=500.0,
+            support_score=10.0,
+            profile=np.zeros(20),
+            low_peak_contact=18,
+            high_peak_contact=2,
+            orientation="superficial_to_deep",
+            accepted=True,
+            rejection_reason=None,
+            n_channels=20,
+            n_missing=0,
+        )
+
+        # Negative or non-finite thickness
+        with pytest.raises(ValueError, match="granular_thickness_um must be strictly positive"):
+            label_layers(res, geom, granular_thickness_um=-100.0)
+
+        with pytest.raises(ValueError, match="granular_thickness_um must be strictly positive"):
+            label_layers(res, geom, granular_thickness_um=np.nan)
+
+        # Channel count mismatch (res has 20, geom_short has 10)
+        geom_short = self._make_probe_geom(n_channels=10, pitch_um=50.0)
+        with pytest.raises(ValueError, match="does not match"):
+            label_layers(res, geom_short)
+
+        # Non-linear geometry
+        df_2d = pd.DataFrame({"x": [0, 50, 0, 50], "y": [0, 0, 50, 50], "z": [0, 0, 0, 0]})
+        geom_2d = jnwb.probe_geometry(df_2d, units="um", nominal_pitch=50.0, strict_linear=False)
+        with pytest.raises(ValueError, match="linear electrode shaft"):
+            label_layers(res, geom_2d)
+
 
