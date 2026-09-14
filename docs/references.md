@@ -25,6 +25,13 @@ treatment in these two books.
   *Nature Neuroscience*. [doi:10.1038/s41593-020-00744-x](https://doi.org/10.1038/s41593-020-00744-x)
   — `aperiodic_fit`.
 
+## Laminar analysis
+
+- Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field potential
+  power across the primate cortex. *Nature Neuroscience*.
+  [doi:10.1038/s41593-023-01554-7](https://doi.org/10.1038/s41593-023-01554-7)
+  — `vflip`, `vflip_from_lfp`, `label_layers`.
+
 ## Coherence and phase
 
 - Nolte, G., et al. (2004). Identifying true brain interaction from EEG data using the

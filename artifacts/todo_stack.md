@@ -7,7 +7,6 @@
 
 # 0.2.2
 
-- 0.2.2-01: Establish vFLIP reference by creating explicit difference table comparing contributed implementation, publication/reference algorithm, and proposed API; no downstream empirical choices adopted without justification.
 - 0.2.2-02: Implement jnwb.laminar.vflip with explicit frequency axis, required contact spacing, explicit orientation, support score returned even on rejection, no crossover on failed support, and reported missing-contact handling; no interactive input(), no omega=-inf implicit acceptance.
 - 0.2.2-03: Implement vflip_from_lfp as strict composition (LFP -> PSD -> vflip); test numerical agreement with manual composition.
 - 0.2.2-04: Implement label_layers where only accepted fits produce layer assignments; rejected or non-identifiable fits produce 'na', never guessed labels.
