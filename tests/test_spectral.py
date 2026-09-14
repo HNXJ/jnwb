@@ -1033,3 +1033,71 @@ class TestRelativePower:
                 assert len(cuda_warnings) >= 1
                 assert "device='cuda' was requested" in str(cuda_warnings[0].message)
         assert res == pytest.approx(2.0)
+
+
+class TestWelchCsdGpuParity:
+    """Test _welch_csd_gpu numerical parity with SciPy (0.2.3-REV-06)."""
+
+    def _gpu_available(self):
+        try:
+            import cupy as cp
+            return cp.cuda.runtime.getDeviceCount() > 0
+        except Exception:
+            return False
+
+    def test_welch_csd_gpu_parity_even_nperseg(self):
+        if not self._gpu_available():
+            pytest.skip("CUDA GPU not available")
+        from scipy import signal
+        from jnwb.spectral import _welch_csd_gpu
+
+        rng = np.random.default_rng(42)
+        x = rng.standard_normal(2048) + 15.0  # non-zero mean to verify detrend='constant'
+        y = rng.standard_normal(2048) - 8.0
+        fs = 1000.0
+        nperseg = 256
+        noverlap = 128
+
+        f_cpu, p_cpu = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
+        _, csd_cpu = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+
+        f_gpu, p_gpu, _, csd_gpu = _welch_csd_gpu(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+
+        assert np.allclose(f_cpu, f_gpu)
+        assert np.allclose(p_cpu, p_gpu, rtol=1e-10, atol=1e-10)
+        assert np.allclose(csd_cpu, csd_gpu, rtol=1e-10, atol=1e-10)
+
+    def test_welch_csd_gpu_parity_odd_nperseg(self):
+        if not self._gpu_available():
+            pytest.skip("CUDA GPU not available")
+        from scipy import signal
+        from jnwb.spectral import _welch_csd_gpu
+
+        rng = np.random.default_rng(101)
+        x = rng.standard_normal(2048) + 5.0
+        y = rng.standard_normal(2048) + 2.0
+        fs = 1000.0
+        nperseg = 255  # odd nperseg
+        noverlap = 128
+
+        f_cpu, p_cpu = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
+        _, csd_cpu = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+
+        f_gpu, p_gpu, _, csd_gpu = _welch_csd_gpu(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+
+        assert np.allclose(f_cpu, f_gpu)
+        # Verifies that positive frequencies including the last bin are doubled properly
+        assert np.allclose(p_cpu, p_gpu, rtol=1e-10, atol=1e-10)
+        assert np.allclose(csd_cpu, csd_gpu, rtol=1e-10, atol=1e-10)
+
+    def test_welch_csd_gpu_short_segment_padding(self):
+        if not self._gpu_available():
+            pytest.skip("CUDA GPU not available")
+        from jnwb.spectral import _welch_csd_gpu
+
+        x = np.random.randn(50)
+        f_gpu, p_gpu, py_gpu, csd_gpu = _welch_csd_gpu(x, x, fs=100.0, nperseg=64)
+        assert len(f_gpu) == len(p_gpu) == 33
+        assert np.all(np.isfinite(p_gpu))
+        assert np.all(p_gpu >= 0)
+

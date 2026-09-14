@@ -1263,31 +1263,52 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     return result
 
 
-def _welch_csd_gpu(x: np.ndarray, y: np.ndarray, fs: float, nperseg: int, noverlap: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Helper to compute PSD and CSD on GPU using CuPy."""
+def _welch_csd_gpu(
+    x: np.ndarray,
+    y: np.ndarray,
+    fs: float,
+    nperseg: int,
+    noverlap: Optional[int] = None,
+    detrend: Union[str, bool] = "constant",
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Helper to compute PSD and CSD on GPU using CuPy matching scipy.signal.welch and csd parity.
+
+    Implements:
+    - Periodic Hann window matching scipy.signal.get_window('hann', nperseg).
+    - Segment-level detrending (default: 'constant' detrending, subtracting segment mean).
+    - Conjugate orientation matching scipy.signal.csd: conj(X) * Y.
+    - Exact one-sided scaling for even and odd nperseg (doubling positive frequencies).
+    - Zero-padding for inputs shorter than nperseg.
+    """
     import cupy as cp
     if noverlap is None:
         noverlap = nperseg // 2
     step = nperseg - noverlap
 
-    x_g = cp.asarray(x)
-    y_g = cp.asarray(y)
+    x_g = cp.asarray(x, dtype=cp.float64)
+    y_g = cp.asarray(y, dtype=cp.float64)
     n = len(x_g)
 
-    window = cp.hanning(nperseg)
-    U = cp.sum(window ** 2) / fs
+    if n < nperseg:
+        x_g = cp.pad(x_g, (0, nperseg - n))
+        y_g = cp.pad(y_g, (0, nperseg - n))
+        n = nperseg
+
+    # Periodic Hann window matching scipy.signal.get_window('hann', nperseg)
+    window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
 
     segments_x = []
     segments_y = []
     start = 0
     while start + nperseg <= n:
-        segments_x.append(x_g[start:start+nperseg] * window)
-        segments_y.append(y_g[start:start+nperseg] * window)
+        seg_x = x_g[start:start+nperseg]
+        seg_y = y_g[start:start+nperseg]
+        if detrend == "constant":
+            seg_x = seg_x - cp.mean(seg_x)
+            seg_y = seg_y - cp.mean(seg_y)
+        segments_x.append(seg_x * window)
+        segments_y.append(seg_y * window)
         start += step
-
-    if not segments_x:
-        segments_x.append(x_g[:nperseg] * window[:len(x_g)])
-        segments_y.append(y_g[:nperseg] * window[:len(y_g)])
 
     X = cp.fft.rfft(cp.stack(segments_x), axis=-1)
     Y = cp.fft.rfft(cp.stack(segments_y), axis=-1)
@@ -1296,12 +1317,17 @@ def _welch_csd_gpu(x: np.ndarray, y: np.ndarray, fs: float, nperseg: int, noverl
 
     psd_x = cp.mean(cp.abs(X) ** 2, axis=0) * scale
     psd_y = cp.mean(cp.abs(Y) ** 2, axis=0) * scale
-    csd_xy = cp.mean(X * cp.conj(Y), axis=0) * scale
+    csd_xy = cp.mean(cp.conj(X) * Y, axis=0) * scale
 
     # One-sided scaling
-    psd_x[1:-1] *= 2.0
-    psd_y[1:-1] *= 2.0
-    csd_xy[1:-1] *= 2.0
+    if nperseg % 2:
+        psd_x[1:] *= 2.0
+        psd_y[1:] *= 2.0
+        csd_xy[1:] *= 2.0
+    else:
+        psd_x[1:-1] *= 2.0
+        psd_y[1:-1] *= 2.0
+        csd_xy[1:-1] *= 2.0
 
     freqs = cp.fft.rfftfreq(nperseg, d=1.0/fs)
     return freqs.get(), psd_x.get(), psd_y.get(), csd_xy.get()
