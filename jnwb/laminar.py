@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import signal
+from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.spatial.distance import squareform
+from scipy.stats import rankdata
 
 from ._backend import resolve_device
 
@@ -741,5 +744,552 @@ def label_layers(
             labels[ch_id] = "deep" if is_sup_to_deep else "superficial"
 
     return labels
+
+
+@dataclass(frozen=True)
+class XFlipResult:
+    """Container for Cross-Channel Laminar Correlation Profile (xFLIP) results.
+
+    Attributes:
+        corr_matrix: 2D array of shape (n_channels, n_channels) containing the
+            computed or supplied inter-channel correlation matrix.
+        block_bounds: Tuple of half-open integer index intervals (start, end)
+            defining each contiguous contact block along the probe shaft.
+        boundaries: Tuple of integer contact indices where block boundaries occur.
+        labels: 1D integer array of shape (n_channels,) with block membership (0, 1, ...).
+        modularity: Observed modularity/contrast score Q = mean(within) - mean(between).
+        p_values: Dict mapping test names to Monte Carlo p-values ('omnibus' and per-boundary).
+        accepted: Boolean flag indicating whether the block partition is statistically
+            significant (p <= alpha) and satisfies all structural constraints.
+        rejection_reason: Diagnostic reason string if rejected, or None if accepted.
+        method: Correlation method used ('pearson', 'spearman', 'partial', or 'precomputed').
+        n_channels: Number of channels evaluated.
+        n_blocks: Number of detected blocks.
+    """
+
+    corr_matrix: np.ndarray
+    block_bounds: Tuple[Tuple[int, int], ...]
+    boundaries: Tuple[int, ...]
+    labels: np.ndarray
+    modularity: float
+    p_values: Dict[str, float]
+    accepted: bool
+    rejection_reason: Optional[str]
+    method: str
+    n_channels: int
+    n_blocks: int
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert result container to dictionary for serialization."""
+        return {
+            "corr_matrix": self.corr_matrix.copy(),
+            "block_bounds": self.block_bounds,
+            "boundaries": self.boundaries,
+            "labels": self.labels.copy(),
+            "modularity": float(self.modularity),
+            "p_values": dict(self.p_values),
+            "accepted": bool(self.accepted),
+            "rejection_reason": self.rejection_reason,
+            "method": str(self.method),
+            "n_channels": int(self.n_channels),
+            "n_blocks": int(self.n_blocks),
+        }
+
+
+def _compute_correlation_matrix(data: np.ndarray, method: str) -> np.ndarray:
+    """Compute (n_channels, n_channels) correlation matrix across samples.
+
+    Args:
+        data: 2D array of shape (n_channels, n_samples).
+        method: 'pearson', 'spearman', or 'partial'.
+    """
+    n_channels, n_samples = data.shape
+    if method == "pearson":
+        corr = np.corrcoef(data)
+        if np.any(np.isnan(corr)):
+            np.nan_to_num(corr, copy=False, nan=0.0)
+            np.fill_diagonal(corr, 1.0)
+        return np.clip(corr, -1.0, 1.0)
+
+    elif method == "spearman":
+        ranks = rankdata(data, axis=1)
+        corr = np.corrcoef(ranks)
+        if np.any(np.isnan(corr)):
+            np.nan_to_num(corr, copy=False, nan=0.0)
+            np.fill_diagonal(corr, 1.0)
+        return np.clip(corr, -1.0, 1.0)
+
+    elif method == "partial":
+        cov = np.cov(data)
+        if np.allclose(cov, 0.0):
+            return np.eye(n_channels, dtype=float)
+        try:
+            cond = np.linalg.cond(cov)
+            if cond > 1e12 or not np.isfinite(cond):
+                theta = np.linalg.pinv(cov)
+            else:
+                theta = np.linalg.inv(cov)
+        except np.linalg.LinAlgError:
+            theta = np.linalg.pinv(cov)
+
+        d = np.diag(theta)
+        d_pos = np.maximum(d, 1e-12)
+        denom = np.sqrt(np.outer(d_pos, d_pos))
+        p_corr = -theta / denom
+        np.fill_diagonal(p_corr, 1.0)
+        return np.clip(p_corr, -1.0, 1.0)
+
+    raise ValueError(f"Unknown correlation method '{method}'")
+
+
+def _surrogate_phase_randomize(data: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Fourier phase randomization independently per channel.
+
+    Preserves each channel's empirical power spectral density and temporal
+    autocorrelation R_{cc}(tau) while destroying cross-channel phase coherence.
+    """
+    n_channels, n_samples = data.shape
+    fft_coeffs = np.fft.rfft(data, axis=1)
+    magnitudes = np.abs(fft_coeffs)
+    n_freqs = fft_coeffs.shape[1]
+
+    rand_phases = rng.uniform(0.0, 2.0 * np.pi, size=(n_channels, n_freqs))
+    rand_phases[:, 0] = 0.0
+    if n_samples % 2 == 0:
+        rand_phases[:, -1] = 0.0
+
+    surrogate_fft = magnitudes * np.exp(1j * rand_phases)
+    return np.fft.irfft(surrogate_fft, n=n_samples, axis=1)
+
+
+def _compute_contrast(corr: np.ndarray, labels: np.ndarray) -> float:
+    """Compute block contrast Q = mean(within) - mean(between)."""
+    n = corr.shape[0]
+    triu_r, triu_c = np.triu_indices(n, k=1)
+    if len(triu_r) == 0:
+        return 0.0
+    vals = corr[triu_r, triu_c]
+    same_label = (labels[triu_r] == labels[triu_c])
+    within_cnt = int(np.sum(same_label))
+    between_cnt = int(np.sum(~same_label))
+
+    mean_within = float(np.sum(vals[same_label]) / within_cnt) if within_cnt > 0 else 0.0
+    mean_between = float(np.sum(vals[~same_label]) / between_cnt) if between_cnt > 0 else 0.0
+    return mean_within - mean_between
+
+
+def _optimal_contiguous_partition(
+    corr: np.ndarray,
+    n_blocks: int,
+    min_block_size: int,
+) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...], float, np.ndarray]:
+    """Find globally optimal contiguous partition using 1D dynamic programming.
+
+    Maximizes modularity sum: W(u, v) = S(u, v) - gamma * P(u, v),
+    where S(u, v) is sum of off-diagonal correlations in [u, v),
+    P(u, v) is number of pairs (v-u)*(v-u-1)/2,
+    and gamma is the probe-wide mean off-diagonal correlation.
+
+    Returns:
+        (block_bounds, boundaries, modularity, labels)
+    """
+    n = corr.shape[0]
+    if n_blocks == 1:
+        labels = np.zeros(n, dtype=int)
+        return ((0, n),), (), 0.0, labels
+
+    triu_idx = np.triu_indices(n, k=1)
+    gamma = float(np.mean(corr[triu_idx])) if len(triu_idx[0]) > 0 else 0.0
+
+    prefix = np.zeros((n + 1, n + 1), dtype=float)
+    prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
+
+    def interval_w(u: int, v: int) -> float:
+        sz = v - u
+        if sz < min_block_size:
+            return -np.inf
+        total_sub = prefix[v, v] - prefix[u, v] - prefix[v, u] + prefix[u, u]
+        diag_sub = float(np.sum(np.diag(corr)[u:v]))
+        s_uv = 0.5 * (total_sub - diag_sub)
+        p_uv = 0.5 * sz * (sz - 1)
+        return float(s_uv - gamma * p_uv)
+
+    dp = np.full((n_blocks + 1, n + 1), -np.inf, dtype=float)
+    parent = np.full((n_blocks + 1, n + 1), -1, dtype=int)
+
+    for j in range(min_block_size, n + 1):
+        dp[1, j] = interval_w(0, j)
+
+    for k in range(2, n_blocks + 1):
+        min_j = k * min_block_size
+        for j in range(min_j, n + 1):
+            best_val = -np.inf
+            best_u = -1
+            for u in range((k - 1) * min_block_size, j - min_block_size + 1):
+                if dp[k - 1, u] == -np.inf:
+                    continue
+                w = interval_w(u, j)
+                if w == -np.inf:
+                    continue
+                val = dp[k - 1, u] + w
+                if val > best_val:
+                    best_val = val
+                    best_u = u
+            dp[k, j] = best_val
+            parent[k, j] = best_u
+
+    if dp[n_blocks, n] == -np.inf:
+        labels = np.zeros(n, dtype=int)
+        return ((0, n),), (), 0.0, labels
+
+    cuts = []
+    curr_j = n
+    for k in range(n_blocks, 1, -1):
+        u = parent[k, curr_j]
+        cuts.append(u)
+        curr_j = u
+    cuts.reverse()
+
+    boundaries = tuple(cuts)
+    all_cuts = [0] + list(boundaries) + [n]
+    block_bounds = tuple((all_cuts[i], all_cuts[i + 1]) for i in range(len(all_cuts) - 1))
+
+    labels = np.zeros(n, dtype=int)
+    for b_idx, (st, en) in enumerate(block_bounds):
+        labels[st:en] = b_idx
+
+    modularity = _compute_contrast(corr, labels)
+    return block_bounds, boundaries, modularity, labels
+
+
+def _unrestricted_partition(
+    corr: np.ndarray,
+    n_blocks: int,
+) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...], float, np.ndarray]:
+    """Unrestricted agglomerative clustering on correlation distance matrix."""
+    n = corr.shape[0]
+    if n_blocks <= 1:
+        labels = np.zeros(n, dtype=int)
+        return ((0, n),), (), 0.0, labels
+
+    d = np.clip(1.0 - corr, 0.0, 2.0)
+    np.fill_diagonal(d, 0.0)
+    d = 0.5 * (d + d.T)
+    condensed_d = squareform(d, checks=False)
+    z = linkage(condensed_d, method="average")
+    raw_labels = fcluster(z, t=n_blocks, criterion="maxclust") - 1
+
+    unique_labels: List[int] = []
+    for lbl in raw_labels:
+        if lbl not in unique_labels:
+            unique_labels.append(lbl)
+    remap = {old: new for new, old in enumerate(unique_labels)}
+    labels = np.array([remap[lbl] for lbl in raw_labels], dtype=int)
+
+    bounds = []
+    for k in range(len(unique_labels)):
+        members = np.where(labels == k)[0]
+        if len(members) > 0:
+            bounds.append((int(np.min(members)), int(np.max(members) + 1)))
+
+    modularity = _compute_contrast(corr, labels)
+    return tuple(bounds), (), modularity, labels
+
+
+def xflip(
+    data: np.ndarray,
+    *,
+    method: str = "pearson",
+    contiguous: bool = True,
+    n_blocks: Optional[int] = 2,
+    min_block_size: int = 2,
+    n_surrogates: int = 200,
+    surrogate_method: str = "auto",
+    alpha: float = 0.05,
+    min_contrast: float = 0.05,
+    channel_axis: int = 0,
+    is_corr_matrix: Optional[bool] = None,
+    rng: Optional[Union[np.random.Generator, int]] = None,
+) -> XFlipResult:
+    """Cross-Channel Laminar Correlation Profile (xFLIP).
+
+    Evaluates cross-channel correlation blocks along laminar electrode array shafts,
+    partitions contacts into contiguous laminar compartments via exact 1D dynamic
+    programming, and tests boundary significance against temporal autocorrelation-preserving
+    Fourier phase surrogates.
+
+    Mathematical Estimator:
+        1. Correlation Estimation:
+           - Pearson: standard sample correlation across observations:
+             :math:`r_{ij} = \\frac{\\sum_t (X_{it} - \\bar{X}_i)(X_{jt} - \\bar{X}_j)}{\\sigma_i \\sigma_j}`.
+           - Spearman: rank-transformed sample correlation.
+           - Partial: inverse covariance (precision) matrix normalization:
+             :math:`r_{ij|\\text{rest}} = -\\frac{\\Theta_{ij}}{\\sqrt{\\Theta_{ii}\\Theta_{jj}}}`.
+           - Precomputed: validates symmetry, unit diagonal, and bounds [-1, 1].
+        2. Optimal Contiguous Partitioning:
+           When `contiguous=True`, computes the globally optimal segmentation into `n_blocks`
+           contiguous intervals :math:`[b_{k-1}, b_k)` via 1D dynamic programming maximizing
+           the modularity contrast over the probe-wide baseline :math:`\\gamma = \\bar{R}`:
+           :math:`W(u, v) = \\sum_{u \\le i < j < v} (R_{ij} - \\gamma)`.
+        3. Statistical Null Testing:
+           Constructs surrogates preserving each channel's empirical power spectrum and
+           temporal autocorrelation :math:`R_{cc}(\\tau)` via independent Fourier phase
+           randomization (when raw time-series data is provided), or channel identity permutation
+           (when a precomputed correlation matrix is provided).
+        4. Monte Carlo P-value Resolution:
+           Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
+           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q)}{1 + S}`.
+           No p-value can resolve to 0.0 under finite surrogate sampling.
+
+    Args:
+        data: 2D array of raw time series `(n_channels, n_samples)` or precomputed
+            correlation matrix `(n_channels, n_channels)`.
+        method: Correlation method for raw time series: `'pearson'`, `'spearman'`,
+            or `'partial'` (default: `'pearson'`).
+        contiguous: If True, partitions into contiguous contact segments along the probe
+            shaft (default: True). If False, performs unrestricted clustering.
+        n_blocks: Number of blocks to partition into, or None to evaluate over 2..K (default: 2).
+        min_block_size: Minimum channel count required per block (default: 2).
+        n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
+            surrogate p-values are not computed (NaN).
+        surrogate_method: `'auto'` (default), `'autocorr_preserving'`, or `'permute_channels'`.
+        alpha: Significance threshold for omnibus surrogate test (default: 0.05).
+        min_contrast: Minimum modularity contrast required for acceptance (default: 0.05).
+        channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
+        is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
+            correlation matrix. If None, auto-detected from shape, symmetry, and values.
+        rng: Optional NumPy Generator or integer seed for surrogate reproducibility.
+
+    Returns:
+        XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
+        `p_values`, `accepted`, and `rejection_reason`.
+
+    Raises:
+        ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
+            matrix, or contains invalid configuration parameters.
+    """
+    if method not in ("pearson", "spearman", "partial"):
+        raise ValueError(
+            f"Unknown correlation method '{method}'. Supported methods: 'pearson', 'spearman', 'partial'."
+        )
+    if min_block_size < 1:
+        raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
+    if n_blocks is not None and n_blocks < 1:
+        raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
+    if n_surrogates < 0:
+        raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+
+    arr = np.asarray(data)
+    if arr.ndim != 2:
+        raise ValueError(f"data must be a 2D array, got shape {arr.shape}")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError("Input data contains non-finite values (NaN or Inf).")
+
+    # Determine whether input is a precomputed correlation matrix
+    if is_corr_matrix is True:
+        if arr.shape[0] != arr.shape[1]:
+            raise ValueError(f"is_corr_matrix=True requires a square (n_channels, n_channels) matrix, got {arr.shape}")
+        if not np.allclose(arr, arr.T, atol=1e-4):
+            raise ValueError("Precomputed correlation matrix must be symmetric.")
+        if not np.allclose(np.diag(arr), 1.0, atol=1e-3):
+            raise ValueError("Precomputed correlation matrix diagonal elements must be 1.0.")
+        if np.any(arr < -1.0 - 1e-4) or np.any(arr > 1.0 + 1e-4):
+            raise ValueError("Precomputed correlation matrix elements must be in [-1, 1].")
+        is_corr = True
+    elif is_corr_matrix is False:
+        is_corr = False
+    else:
+        # Auto-detect
+        if (
+            arr.shape[0] == arr.shape[1]
+            and np.allclose(arr, arr.T, atol=1e-4)
+            and np.allclose(np.diag(arr), 1.0, atol=1e-3)
+            and np.all(arr >= -1.0 - 1e-4)
+            and np.all(arr <= 1.0 + 1e-4)
+        ):
+            is_corr = True
+        else:
+            is_corr = False
+
+    if not is_corr:
+        if channel_axis == 1:
+            raw_data = arr.T
+        elif channel_axis == 0:
+            raw_data = arr
+        else:
+            raise ValueError(f"channel_axis must be 0 or 1, got {channel_axis}")
+        n_channels, n_samples = raw_data.shape
+        if n_samples <= 1:
+            raise ValueError(f"Raw time-series must have at least 2 samples, got {n_samples}")
+        corr = _compute_correlation_matrix(raw_data, method)
+        resolved_method = method
+    else:
+        raw_data = None
+        corr = np.clip(arr.copy(), -1.0, 1.0)
+        n_channels = corr.shape[0]
+        resolved_method = "precomputed"
+
+    # Resolve surrogate method
+    if surrogate_method == "auto":
+        eff_surrogate_method = "autocorr_preserving" if raw_data is not None else "permute_channels"
+    elif surrogate_method in ("autocorr_preserving", "phase_randomize"):
+        if raw_data is None:
+            raise ValueError(
+                "surrogate_method='autocorr_preserving' requires raw time-series data to evaluate "
+                "temporal autocorrelation; got a precomputed correlation matrix. "
+                "Pass raw data or use surrogate_method='permute_channels'."
+            )
+        eff_surrogate_method = "autocorr_preserving"
+    elif surrogate_method in ("permute_channels", "channel_permute"):
+        eff_surrogate_method = "permute_channels"
+    else:
+        raise ValueError(
+            f"Unknown surrogate_method '{surrogate_method}'. "
+            "Supported: 'auto', 'autocorr_preserving', 'permute_channels'."
+        )
+
+    # Check structural feasibility
+    target_k = 2 if n_blocks is None else n_blocks
+    if n_channels < target_k * min_block_size:
+        labels = np.zeros(n_channels, dtype=int)
+        return XFlipResult(
+            corr_matrix=corr,
+            block_bounds=((0, n_channels),),
+            boundaries=(),
+            labels=labels,
+            modularity=0.0,
+            p_values={"omnibus": np.nan},
+            accepted=False,
+            rejection_reason=(
+                f"Total channels ({n_channels}) insufficient for {target_k} blocks "
+                f"with min_block_size {min_block_size} (requires >= {target_k * min_block_size})."
+            ),
+            method=resolved_method,
+            n_channels=n_channels,
+            n_blocks=1,
+        )
+
+    # Optimal partition on observed data
+    if n_blocks is not None:
+        if contiguous:
+            b_bounds, boundaries, obs_q, labels = _optimal_contiguous_partition(corr, target_k, min_block_size)
+        else:
+            b_bounds, boundaries, obs_q, labels = _unrestricted_partition(corr, target_k)
+    else:
+        max_k = min(4, n_channels // min_block_size)
+        best_q = -np.inf
+        best_res = None
+        target_k = 2
+        for k_cand in range(2, max_k + 1):
+            if contiguous:
+                bb, bnd, q_cand, lbl = _optimal_contiguous_partition(corr, k_cand, min_block_size)
+            else:
+                bb, bnd, q_cand, lbl = _unrestricted_partition(corr, k_cand)
+            if q_cand > best_q:
+                best_q = q_cand
+                best_res = (bb, bnd, q_cand, lbl)
+                target_k = k_cand
+        if best_res is not None:
+            b_bounds, boundaries, obs_q, labels = best_res
+        else:
+            b_bounds = ((0, n_channels),)
+            boundaries = ()
+            obs_q = 0.0
+            labels = np.zeros(n_channels, dtype=int)
+
+    # Monte Carlo surrogate null testing
+    gen = np.random.default_rng(rng)
+    p_values: Dict[str, float] = {}
+
+    if n_surrogates > 0:
+        count_exceed = 0
+        boundary_exceed = {b: 0 for b in boundaries}
+
+        for _ in range(n_surrogates):
+            if eff_surrogate_method == "autocorr_preserving":
+                surr_raw = _surrogate_phase_randomize(raw_data, gen)
+                surr_corr = _compute_correlation_matrix(surr_raw, method)
+            else:
+                if contiguous:
+                    perm = gen.permutation(n_channels)
+                    surr_corr = corr[perm, :][:, perm]
+                else:
+                    triu_idx = np.triu_indices(n_channels, k=1)
+                    perm_vals = gen.permutation(corr[triu_idx])
+                    surr_corr = np.eye(n_channels, dtype=float)
+                    surr_corr[triu_idx] = perm_vals
+                    surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
+
+            if contiguous:
+                _, _, surr_q, _ = _optimal_contiguous_partition(surr_corr, target_k, min_block_size)
+            else:
+                _, _, surr_q, _ = _unrestricted_partition(surr_corr, target_k)
+
+            if surr_q >= obs_q:
+                count_exceed += 1
+
+            for b in boundaries:
+                left_st = 0
+                right_en = n_channels
+                for bb_st, bb_en in b_bounds:
+                    if bb_en == b:
+                        left_st = bb_st
+                    elif bb_st == b:
+                        right_en = bb_en
+                        break
+
+                local_lbl = np.zeros(right_en - left_st, dtype=int)
+                local_lbl[b - left_st:] = 1
+                local_surr_q = _compute_contrast(surr_corr[left_st:right_en, left_st:right_en], local_lbl)
+                local_obs_q = _compute_contrast(corr[left_st:right_en, left_st:right_en], local_lbl)
+                if local_surr_q >= local_obs_q:
+                    boundary_exceed[b] += 1
+
+        p_omnibus = (1 + count_exceed) / (1 + n_surrogates)
+        p_values["omnibus"] = float(p_omnibus)
+        for b in boundaries:
+            p_values[f"boundary_{b}"] = float((1 + boundary_exceed[b]) / (1 + n_surrogates))
+    else:
+        p_values["omnibus"] = np.nan
+
+    # Acceptance determination
+    is_sig = (p_values["omnibus"] <= alpha) if n_surrogates > 0 else True
+    has_contrast = (obs_q >= min_contrast)
+    has_blocks = (target_k >= 2)
+
+    if is_sig and has_contrast and has_blocks:
+        accepted = True
+        rejection_reason = None
+    else:
+        accepted = False
+        reasons = []
+        if not is_sig:
+            reasons.append(f"Non-significant modularity vs surrogates (p = {p_values['omnibus']:.4f} > {alpha})")
+        if not has_contrast:
+            reasons.append(f"Modularity contrast ({obs_q:.4f}) below min_contrast ({min_contrast})")
+        if not has_blocks:
+            reasons.append(f"Fewer than 2 blocks detected (k = {target_k})")
+        rejection_reason = "; ".join(reasons)
+
+    return XFlipResult(
+        corr_matrix=corr,
+        block_bounds=b_bounds,
+        boundaries=boundaries,
+        labels=labels,
+        modularity=float(obs_q),
+        p_values=p_values,
+        accepted=accepted,
+        rejection_reason=rejection_reason,
+        method=resolved_method,
+        n_channels=n_channels,
+        n_blocks=target_k if accepted else 1,
+    )
+
 
 

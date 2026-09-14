@@ -10,7 +10,6 @@
 
 # 0.2.3
 
-- 0.2.3-02: Implement xflip locking semantics first (input axis, Pearson/Spearman/partial definitions, contiguous vs unrestricted grouping, minimum block size, boundary representation, surrogate construction preserving temporal autocorrelation where declared, RNG, p-value resolution, failure behavior).
 - 0.2.3-03: Calibrate xflip false-positive control and recovery across known blocks, no-block null, white noise, AR noise, periodic common response, unequal blocks, edge cases, same-seed determinism, and different-seed variation.
 - 0.2.3-04: Implement zflip reusing existing complex spectral primitives (imaginary coherency / wpli); docs state exact estimator.
 - 0.2.3-05: Calibrate zflip across known phase structures, gradients, zero-lag shared reference (must not manufacture imaginary coherency), independent signals, AR signals, periodic responses, same/different RNG.

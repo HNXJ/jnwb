@@ -73,6 +73,8 @@ from .laminar import (
     vflip_from_lfp,
     label_layers,
     VFlipResult,
+    xflip,
+    XFlipResult,
 )
 
 def __getattr__(name: str):
@@ -229,6 +231,8 @@ __all__ = [
     'vflip_from_lfp',
     'label_layers',
     'VFlipResult',
+    'xflip',
+    'XFlipResult',
 
     # Analyzers
     'TFRAnalyzer',

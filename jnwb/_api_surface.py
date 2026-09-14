@@ -54,6 +54,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "nwb_io": "module-internal",
     "testing": "module-internal",
     "testing.nwb_fixtures": "module-internal",
+    "testing.synth": "module-internal",
     "bilinear": "optional-experimental",
     "nam": "optional-experimental",
     "mcp_server": "optional-experimental",
