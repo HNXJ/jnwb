@@ -202,7 +202,7 @@ ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
     "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
-    ".coverage", "mkdocs.yml",
+    ".coverage", "mkdocs.yml", "jnwb-unified-rev.md",
 }
 
 
