@@ -598,3 +598,281 @@ class TestLabelLayers:
             label_layers(res, geom_2d)
 
 
+class TestVFlipRecoveryAndRejectionBroad:
+    """Comprehensive recovery and rejection test suite for vFLIP (0.2.2-05).
+
+    Directly verifies:
+      1. Known crossover recovery across varied probe depths.
+      2. Reversed probe orientation recovery and inversion symmetry.
+      3. Rejection of no-motif 1/f background power spectra.
+      4. Rejection of uncorrelated white noise spectra.
+      5. Robustness to missing interior and boundary contacts.
+      6. Invariance across regular frequency grid resolutions.
+      7. Support for irregular (e.g. geometrically spaced) frequency axes.
+      8. Structured rejection on insufficient valid channels.
+      9. Fail-loud validation on invalid spacing and non-linear geometry.
+      10. Clean rejection when support metric fails threshold under weak SNR.
+    """
+
+    def _generate_synthetic_psd(
+        self,
+        n_channels: int = 24,
+        c_crossover: float = 11.5,
+        freqs: Optional[np.ndarray] = None,
+        gamma_peak_f: float = 75.0,
+        beta_peak_f: float = 18.0,
+        noise_level: float = 0.05,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Helper to generate a clean synthetic PSD with known crossover contact."""
+        if freqs is None:
+            freqs = np.linspace(2.0, 150.0, 100)
+        psd = np.zeros((n_channels, len(freqs)), dtype=np.float64)
+        for c in range(n_channels):
+            # Superficial gamma component (peaks at c < c_crossover)
+            gamma_w = max(0.0, 1.0 - (c - (c_crossover - 4.0)) ** 2 / 40.0)
+            # Deep alpha/beta component (peaks at c > c_crossover)
+            beta_w = max(0.0, 1.0 - (c - (c_crossover + 4.0)) ** 2 / 40.0)
+            psd[c] = (
+                noise_level
+                + 2.0 * gamma_w * np.exp(-((freqs - gamma_peak_f) ** 2) / 200.0)
+                + 2.0 * beta_w * np.exp(-((freqs - beta_peak_f) ** 2) / 50.0)
+            )
+        return freqs, psd
+
+    def test_known_crossover_recovery_multiple_depths(self):
+        """vFLIP accurately recovers known crossover across superficial, middle, and deep sites."""
+        n_ch = 24
+        spacing = 50.0
+        # Probe various crossover positions along the shaft
+        for c_true in [6.5, 11.5, 17.0]:
+            freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true)
+            res = vflip(psd, freqs, contact_spacing=spacing)
+
+            assert res.accepted is True
+            assert res.rejection_reason is None
+            assert res.orientation == "superficial_to_deep"
+            assert abs(res.crossover_contact - c_true) <= 0.25
+            assert res.crossover_depth_um == pytest.approx(res.crossover_contact * spacing, abs=1e-4)
+            assert res.support_score >= 6.0
+
+    def test_reversed_probe_orientation_recovery(self):
+        """vFLIP correctly identifies deep_to_superficial orientation and preserves symmetry."""
+        n_ch = 24
+        c_true = 11.5
+        freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true)
+
+        # Reverse probe shaft indexing: contact 0 is deep, contact 23 is superficial
+        psd_rev = psd[::-1].copy()
+        c_true_rev = (n_ch - 1) - c_true
+
+        # Auto-orientation
+        res_auto = vflip(psd_rev, freqs, orientation="auto", contact_spacing=40.0)
+        assert res_auto.accepted is True
+        assert res_auto.orientation == "deep_to_superficial"
+        assert abs(res_auto.crossover_contact - c_true_rev) <= 0.25
+
+        # Explicit deep_to_superficial
+        res_deep = vflip(psd_rev, freqs, orientation="deep_to_superficial", contact_spacing=40.0)
+        assert res_deep.accepted is True
+        assert res_deep.crossover_contact == pytest.approx(res_auto.crossover_contact, abs=1e-12)
+
+        # Incompatible orientation requirement must reject
+        res_sup = vflip(psd_rev, freqs, orientation="superficial_to_deep", contact_spacing=40.0)
+        assert res_sup.accepted is False
+        assert res_sup.rejection_reason == "orientation_mismatch"
+        assert res_sup.crossover_contact is None
+
+    def test_no_motif_1_over_f_background_rejected(self):
+        """Power spectra with smooth 1/f background and no spectrolaminar dissociation are rejected."""
+        n_ch = 24
+        freqs = np.linspace(2.0, 150.0, 100)
+        rng = np.random.default_rng(42)
+
+        # 1/f^1.5 background with channel variance but no spectral dissociation
+        psd_1f = np.zeros((n_ch, len(freqs)))
+        for c in range(n_ch):
+            scale = 1.0 + 0.1 * rng.standard_normal()
+            psd_1f[c] = scale * (freqs ** -1.5)
+
+        # Default orientation
+        res = vflip(psd_1f, freqs)
+        assert res.accepted is False
+        assert res.rejection_reason in ("insufficient_support", "orientation_mismatch", "no_crossover")
+        assert res.crossover_contact is None
+
+        # Auto orientation
+        res_auto = vflip(psd_1f, freqs, orientation="auto")
+        assert res_auto.accepted is False
+        assert res_auto.rejection_reason in ("insufficient_support", "orientation_mismatch", "no_crossover")
+        assert res_auto.crossover_contact is None
+
+    def test_white_noise_rejection(self):
+        """Uncorrelated white noise spectra are rejected by the support gate."""
+        n_ch = 24
+        freqs = np.linspace(2.0, 150.0, 100)
+        rejection_count = 0
+        total_runs = 5
+
+        for seed in range(total_runs):
+            rng = np.random.default_rng(seed)
+            psd_white = rng.exponential(scale=1.0, size=(n_ch, len(freqs)))
+            res = vflip(psd_white, freqs, min_support_score=6.0, orientation="auto")
+            if not res.accepted:
+                rejection_count += 1
+                assert res.rejection_reason in ("insufficient_support", "no_crossover", "ambiguous_crossover")
+                assert res.crossover_contact is None
+
+        # White noise must reject across the overwhelming majority of draws
+        assert rejection_count >= 4
+
+    def test_missing_interior_and_boundary_contacts(self):
+        """vFLIP recovers crossover accurately despite multiple missing interior and boundary contacts."""
+        n_ch = 24
+        c_true = 11.5
+        freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true)
+
+        # Mask boundary contacts (0, 23) AND multiple interior contacts, including
+        # contacts adjacent to and spanning the crossover (e.g. 5, 6, 11, 12, 18)
+        bad_indices = [0, 5, 6, 11, 12, 18, 23]
+        bad_mask = np.zeros(n_ch, dtype=bool)
+        bad_mask[bad_indices] = True
+        psd[bad_mask] = np.nan
+
+        res = vflip(psd, freqs, bad_channel_mask=bad_mask, contact_spacing=50.0)
+
+        assert res.accepted is True
+        assert res.n_missing == len(bad_indices)
+        assert res.n_channels == n_ch
+        assert abs(res.crossover_contact - c_true) <= 0.25
+        assert np.all(np.isfinite(res.profile))
+        assert res.crossover_depth_um == pytest.approx(res.crossover_contact * 50.0, abs=1e-4)
+
+    def test_frequency_grid_resolution_invariance(self):
+        """Crossover estimate and support metric are invariant to frequency bin resolution."""
+        n_ch = 24
+        c_true = 11.5
+        results = []
+
+        # Compare fine (0.5 Hz), medium (1.0 Hz), and coarse (2.0 Hz) regular grids
+        for df in [0.5, 1.0, 2.0]:
+            f_grid = np.arange(2.0, 150.0 + df, df)
+            _, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true, freqs=f_grid)
+            res = vflip(psd, f_grid)
+            assert res.accepted is True
+            results.append(res)
+
+        crossovers = [r.crossover_contact for r in results]
+        scores = [r.support_score for r in results]
+
+        # Crossover estimates agree within 0.05 channels across all grids
+        assert max(crossovers) - min(crossovers) < 0.05
+        # Support scores agree within 1.0 (no explosion with bin count)
+        assert max(scores) - min(scores) < 1.0
+
+    def test_irregular_frequency_axis_support(self):
+        """vFLIP correctly processes non-uniformly spaced (e.g. logarithmic) frequency coordinates."""
+        n_ch = 24
+        c_true = 11.5
+        freqs_geom = np.geomspace(4.0, 150.0, 80)
+        _, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true, freqs=freqs_geom)
+
+        res = vflip(psd, freqs_geom)
+        assert res.accepted is True
+        assert abs(res.crossover_contact - c_true) <= 0.25
+        assert res.orientation == "superficial_to_deep"
+        assert res.support_score >= 6.0
+
+    def test_insufficient_channels_structured_rejection(self):
+        """Fewer than min_channels valid contacts immediately yields structured rejection."""
+        freqs = np.linspace(2.0, 150.0, 50)
+
+        # 1. Total channel count below threshold (6 < 8)
+        psd_small = np.ones((6, 50))
+        res1 = vflip(psd_small, freqs, min_channels=8)
+        assert res1.accepted is False
+        assert res1.rejection_reason == "insufficient_channels"
+        assert res1.crossover_contact is None
+        assert res1.support_score == -np.inf
+        assert res1.n_channels == 6
+
+        # 2. Total channels 24, but 18 flagged as bad -> 6 valid (< 8)
+        psd_large = np.ones((24, 50))
+        bad_mask = np.zeros(24, dtype=bool)
+        bad_mask[:18] = True
+        res2 = vflip(psd_large, freqs, bad_channel_mask=bad_mask, min_channels=8)
+        assert res2.accepted is False
+        assert res2.rejection_reason == "insufficient_channels"
+        assert res2.crossover_contact is None
+        assert res2.support_score == -np.inf
+        assert res2.n_channels == 24
+        assert res2.n_missing == 18
+
+    def test_invalid_spacing_and_geometry_validation(self):
+        """Invalid contact spacing or non-linear probe geometry raises ValueError."""
+        freqs = np.linspace(2.0, 150.0, 50)
+        psd = np.ones((16, 50))
+
+        # Negative and zero spacing
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=-10.0)
+
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=0.0)
+
+        # Non-finite spacing
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=np.nan)
+
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=np.inf)
+
+        # Non-linear 2D ProbeGeometry
+        df_2d = pd.DataFrame({
+            "x": [0, 50, 0, 50] * 4,
+            "y": [0, 0, 50, 50] * 4,
+            "z": np.arange(16),
+        })
+        geom_2d = jnwb.probe_geometry(df_2d, units="um", strict_linear=False)
+        assert geom_2d.is_linear is False
+
+        with pytest.raises(ValueError, match="linear electrode shaft"):
+            vflip(psd, freqs, probe_geometry=geom_2d)
+
+    def test_failed_support_gate_on_weak_snr(self):
+        """Sub-threshold SNR motif is rejected with reason 'insufficient_support'."""
+        n_ch = 24
+        freqs = np.linspace(2.0, 150.0, 100)
+        rng = np.random.default_rng(42)
+
+        # Noise background
+        noise = 1.0 + 0.5 * rng.exponential(scale=1.0, size=(n_ch, len(freqs)))
+
+        # Sub-threshold signal (scale=0.05)
+        psd_weak = noise.copy()
+        for c in range(n_ch):
+            g_w = max(0.0, 1.0 - (c - 7.0) ** 2 / 40.0)
+            b_w = max(0.0, 1.0 - (c - 16.0) ** 2 / 40.0)
+            psd_weak[c] += 0.05 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 0.05 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
+
+        res_weak = vflip(psd_weak, freqs, min_support_score=6.0)
+        assert res_weak.accepted is False
+        assert res_weak.rejection_reason == "insufficient_support"
+        assert res_weak.crossover_contact is None
+        assert np.isfinite(res_weak.support_score)
+        assert res_weak.support_score < 6.0
+
+        # Strong signal (scale=2.0) with identical noise background
+        psd_strong = noise.copy()
+        for c in range(n_ch):
+            g_w = max(0.0, 1.0 - (c - 7.0) ** 2 / 40.0)
+            b_w = max(0.0, 1.0 - (c - 16.0) ** 2 / 40.0)
+            psd_strong[c] += 2.0 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 2.0 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
+
+        res_strong = vflip(psd_strong, freqs, min_support_score=6.0)
+        assert res_strong.accepted is True
+        assert res_strong.rejection_reason is None
+        assert res_strong.crossover_contact is not None
+        assert res_strong.support_score >= 6.0
+
+
+
