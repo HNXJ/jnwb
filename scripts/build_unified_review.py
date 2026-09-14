@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 OUTPUT_FILE = REPO_ROOT / "jnwb-unified-rev.md"
 
 BINARY_EXTENSIONS = {".png", ".svg", ".ico", ".ipynb"}
@@ -405,6 +408,53 @@ import jnwb
 """)
 
     full_content = "".join(out)
+
+    # =========================================================================
+    # SELF-VALIDATION GATE (Refuses to write on provenance disagreement)
+    # =========================================================================
+    print("Executing self-validation checks on generated dossier...")
+    # 1. Extract version from inlined jnwb/__init__.py
+    m_pkg_ver = re.search(
+        r"===== BEGIN jnwb/__init__\.py =====.*?^__version__\s*=\s*['\"]([^'\"]+)['\"]",
+        full_content,
+        re.M | re.S,
+    )
+    if not m_pkg_ver:
+        raise ValueError("Self-validation failed: Could not extract __version__ from embedded jnwb/__init__.py")
+    embedded_version = m_pkg_ver.group(1)
+
+    # 2. Extract export count from inlined docs/api.md
+    m_api_block = re.search(r"===== BEGIN docs/api\.md =====(.*?)===== END docs/api\.md =====", full_content, re.S)
+    if not m_api_block:
+        raise ValueError("Self-validation failed: Could not extract docs/api.md block")
+    api_text = m_api_block.group(1)
+    embedded_api_rows = len(re.findall(r"^\|\s*jnwb\.[A-Za-z_][A-Za-z0-9_]*\s*\|", api_text, re.M))
+
+    # 3. Extract provenance claims from Section 2
+    m_prov_ver = re.search(r"\|\s*\*\*Package Version\*\*\s*\|\s*`jnwb ([^`]+)`", full_content)
+    if not m_prov_ver:
+        raise ValueError("Self-validation failed: Could not parse Package Version in Section 2")
+    stated_version = m_prov_ver.group(1)
+
+    m_prov_exp = re.search(r"\|\s*\*\*Public API Exports\*\*\s*\|\s*`(\d+)`\s*symbols", full_content)
+    if not m_prov_exp:
+        raise ValueError("Self-validation failed: Could not parse Public API Exports in Section 2")
+    stated_exports = int(m_prov_exp.group(1))
+
+    # Assert exact equality
+    if stated_version != embedded_version:
+        raise ValueError(
+            f"PROVENANCE DESYNCHRONIZATION DETECTED: Header claims version '{stated_version}' "
+            f"but embedded jnwb/__init__.py defines '{embedded_version}'."
+        )
+    if stated_exports != embedded_api_rows:
+        raise ValueError(
+            f"PROVENANCE DESYNCHRONIZATION DETECTED: Header claims {stated_exports} exports "
+            f"but embedded docs/api.md contains {embedded_api_rows} documented symbols."
+        )
+
+    print(f"PASS: Self-validation verified version='{stated_version}', exports={stated_exports}.")
+
     print(f"Writing {len(full_content):,} characters to {OUTPUT_FILE}...")
     OUTPUT_FILE.write_text(full_content, encoding="utf-8")
     print("Done! Artifact successfully created.")

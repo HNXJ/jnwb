@@ -147,6 +147,9 @@ class TestVFlipRejectionAndFailLoud:
 
         assert res.accepted is False
         assert res.crossover_contact is None
+        assert res.low_peak_contact is None
+        assert res.high_peak_contact is None
+        assert np.all(np.isnan(res.profile))
         assert res.rejection_reason == "insufficient_channels"
         assert res.n_channels == 6
 
@@ -792,6 +795,9 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res1.accepted is False
         assert res1.rejection_reason == "insufficient_channels"
         assert res1.crossover_contact is None
+        assert res1.low_peak_contact is None
+        assert res1.high_peak_contact is None
+        assert np.all(np.isnan(res1.profile))
         assert res1.support_score == -np.inf
         assert res1.n_channels == 6
 
@@ -803,9 +809,49 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res2.accepted is False
         assert res2.rejection_reason == "insufficient_channels"
         assert res2.crossover_contact is None
+        assert res2.low_peak_contact is None
+        assert res2.high_peak_contact is None
+        assert np.all(np.isnan(res2.profile))
         assert res2.support_score == -np.inf
         assert res2.n_channels == 24
         assert res2.n_missing == 18
+
+    def test_probe_geometry_permutation_invariance(self):
+        """vFLIP and label_layers are strictly invariant to input channel ordering under ProbeGeometry."""
+        n_ch = 16
+        pitch = 50.0
+        z = np.arange(n_ch) * pitch
+        df = pd.DataFrame({
+            "x": np.zeros(n_ch),
+            "y": np.zeros(n_ch),
+            "z": z,
+            "channel_id": [f"ch_{i}" for i in range(n_ch)],
+        })
+        geom_ordered = jnwb.probe_geometry(df, units="um")
+
+        freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=8.0)
+        res_ordered = vflip(psd, freqs, probe_geometry=geom_ordered, orientation="auto")
+        labels_ordered = label_layers(res_ordered, geom_ordered)
+
+        # Scramble contacts using a fixed pseudo-random permutation
+        rng = np.random.default_rng(42)
+        perm = rng.permutation(n_ch)
+        df_shuffled = df.iloc[perm].reset_index(drop=True)
+        geom_shuffled = jnwb.probe_geometry(df_shuffled, units="um")
+        psd_shuffled = psd[perm]
+
+        res_shuffled = vflip(psd_shuffled, freqs, probe_geometry=geom_shuffled, orientation="auto")
+        labels_shuffled = label_layers(res_shuffled, geom_shuffled)
+
+        # Invariant 1: Physical crossover depth in um is strictly invariant (within 1e-4 um)
+        assert res_ordered.crossover_depth_um == pytest.approx(res_shuffled.crossover_depth_um, abs=1e-4)
+        assert res_ordered.accepted == res_shuffled.accepted
+        assert res_ordered.support_score == pytest.approx(res_shuffled.support_score, abs=1e-4)
+
+        # Invariant 2: Per-channel cortical layer labels are 100% identical
+        for ch_id in df["channel_id"]:
+            assert labels_ordered[ch_id] == labels_shuffled[ch_id]
+
 
     def test_invalid_spacing_and_geometry_validation(self):
         """Invalid contact spacing or non-linear probe geometry raises ValueError."""

@@ -41,16 +41,16 @@ You are explicitly commissioned to evaluate the library from first principles an
 
 | Metadata Property | Authoritative Value |
 | :--- | :--- |
-| **Commit SHA** | `f6a2a17dbdd89a5681d67c52b9c87b42e93d36f0` (short: `f6a2a17d`) |
+| **Commit SHA** | `1c1a5fa3b4f0ea695fec86c6020252ca062b15d3` (short: `1c1a5fa3`) |
 | **Active Branch** | `dev` |
-| **Package Version** | `jnwb 0.1.3` (defined dynamically in `pyproject.toml` via `jnwb.__version__`) |
-| **Generation Timestamp** | `2026-09-14T14:12:16.480517+00:00` |
+| **Package Version** | `jnwb 0.1.8` (defined dynamically in `pyproject.toml` via `jnwb.__version__`) |
+| **Generation Timestamp** | `2026-09-14T14:39:27.497311+00:00` |
 | **Declared Python Floor** | `>=3.12` (pure Python wheel `py3-none-any`, no upper version pin) |
 | **Python Support Classifiers** | `3.12`, `3.13`, `3.14` |
 | **CI Test Matrix** | Python `3.12` (floor) and `3.14` (head) on `ubuntu-latest` and `windows-latest` |
-| **Public API Exports** | `111` symbols in `jnwb.__all__` |
-| **Core Source Code Metrics** | `47` files, `16,517` lines of code in `jnwb/` |
-| **Test Suite Metrics** | `57` test modules, `11,805` lines of test code in `tests/` |
+| **Public API Exports** | `144` symbols in `jnwb.__all__` |
+| **Core Source Code Metrics** | `47` files, `16,540` lines of code in `jnwb/` |
+| **Test Suite Metrics** | `57` test modules, `12,129` lines of test code in `tests/` |
 | **Test Execution Baseline** | `912 passed, 1 skipped, 5 subtests passed` |
 | **Harness Gates Baseline** | `13 / 13 gates PASS` (`scripts/harness_gate.py`) |
 | **Documentation Build** | Strict MkDocs (`python scripts/docs_build.py`) exits 0 with zero warnings |
@@ -89,7 +89,7 @@ artifacts/independent_audit_0.1.7_final.md                            7864 bytes
 artifacts/nwb_structural_authority_0.1.8.md                          12835 bytes
 artifacts/release_recovery_0.1.7_failed.md                            2781 bytes
 artifacts/source_neutrality_scan_0.1.7.md                             1133 bytes
-artifacts/todo_stack.md                                               8616 bytes
+artifacts/todo_stack.md                                              10043 bytes
 artifacts/vflip_reference_difference_table.md                        12554 bytes
 docs/01_architecture_and_philosophy.md                               10570 bytes
 docs/02_paths_addressing_metadata.md                                  8393 bytes
@@ -156,7 +156,7 @@ jnwb/filtering.py                                                     3394 bytes
 jnwb/gpu_pca.py                                                       3796 bytes
 jnwb/io.py                                                            8922 bytes
 jnwb/jrsa.py                                                         61387 bytes
-jnwb/laminar.py                                                      29094 bytes
+jnwb/laminar.py                                                      30390 bytes
 jnwb/mcp_server/__init__.py                                            400 bytes
 jnwb/mcp_server/custom_tools.py                                        101 bytes
 jnwb/mcp_server/event_tools.py                                        3780 bytes
@@ -187,7 +187,7 @@ mkdocs.yml                                                            2779 bytes
 pyproject.toml                                                        2513 bytes
 scripts/__init__.py                                                     34 bytes
 scripts/benchmark_import.py                                           7702 bytes
-scripts/build_unified_review.py                                      22769 bytes
+scripts/build_unified_review.py                                      25197 bytes
 scripts/docs_build.py                                                  700 bytes
 scripts/generate_api_md.py                                            7682 bytes
 scripts/harness_gate.py                                              40636 bytes
@@ -242,7 +242,7 @@ tests/test_jnwb_frozen_boundary.py                                    7870 bytes
 tests/test_jrsa_correctness.py                                        5675 bytes
 tests/test_jrsa_gpu.py                                                2402 bytes
 tests/test_jrsa_no_fabricated_failures.py                             2632 bytes
-tests/test_laminar.py                                                23972 bytes
+tests/test_laminar.py                                                38610 bytes
 tests/test_mcp_server.py                                              7209 bytes
 tests/test_metadata.py                                                9906 bytes
 tests/test_notebooks.py                                               1731 bytes
@@ -9336,8 +9336,8 @@ class VFlipResult:
     crossover_depth_um: Optional[float]
     support_score: float
     profile: np.ndarray
-    low_peak_contact: int
-    high_peak_contact: int
+    low_peak_contact: Optional[int]
+    high_peak_contact: Optional[int]
     orientation: str
     accepted: bool
     rejection_reason: Optional[str]
@@ -9357,8 +9357,8 @@ class VFlipResult:
             "crossover_depth_um": self.crossover_depth_um,
             "support_score": float(self.support_score),
             "profile": self.profile.copy(),
-            "low_peak_contact": int(self.low_peak_contact),
-            "high_peak_contact": int(self.high_peak_contact),
+            "low_peak_contact": int(self.low_peak_contact) if self.low_peak_contact is not None else None,
+            "high_peak_contact": int(self.high_peak_contact) if self.high_peak_contact is not None else None,
             "orientation": str(self.orientation),
             "accepted": bool(self.accepted),
             "rejection_reason": self.rejection_reason,
@@ -9486,6 +9486,7 @@ def vflip(
 
     # Validate geometry
     effective_spacing = contact_spacing
+    order = None
     if probe_geometry is not None:
         if not getattr(probe_geometry, "is_linear", False):
             raise ValueError("probe_geometry must describe a linear electrode shaft (is_linear=True)")
@@ -9496,6 +9497,7 @@ def vflip(
             )
         if effective_spacing is None:
             effective_spacing = probe_geometry.nominal_pitch
+        order = getattr(probe_geometry, "linear_order", None)
 
     if effective_spacing is not None:
         effective_spacing = float(effective_spacing)
@@ -9514,19 +9516,26 @@ def vflip(
     non_finite_rows = ~np.all(np.isfinite(psd_arr), axis=1)
     bad_mask = bad_mask | non_finite_rows
 
+    # If probe_geometry is provided, order channels along the physical shaft
+    if order is not None and len(order) == n_channels:
+        psd_work = psd_arr[order]
+        bad_mask = bad_mask[order]
+    else:
+        psd_work = psd_arr
+
     n_missing = int(np.sum(bad_mask))
     n_valid = n_channels - n_missing
 
     if n_valid < min_channels:
-        # Rejection: insufficient valid channels
-        dummy_profile = np.zeros(n_channels)
+        # Rejection: insufficient valid channels (eliminate fabricated values)
+        nan_profile = np.full(n_channels, np.nan)
         return VFlipResult(
             crossover_contact=None,
             crossover_depth_um=None,
             support_score=-np.inf,
-            profile=dummy_profile,
-            low_peak_contact=0,
-            high_peak_contact=0,
+            profile=nan_profile,
+            low_peak_contact=None,
+            high_peak_contact=None,
             orientation="undetermined",
             accepted=False,
             rejection_reason="insufficient_channels",
@@ -9534,8 +9543,8 @@ def vflip(
             n_missing=n_missing,
         )
 
-    # 3. Frequency standardization across valid contacts
-    clean_psd = psd_arr.copy()
+    # 3. Frequency standardization across valid contacts along the shaft
+    clean_psd = psd_work.copy()
     # Interpolate missing channels along depth before standardization
     valid_idx = np.where(~bad_mask)[0]
     if n_missing > 0:
@@ -9613,8 +9622,14 @@ def vflip(
             # Select candidate maximizing transition steepness
             cross_candidates.sort(key=lambda x: x[1], reverse=True)
             crossover_c = cross_candidates[0][0]
-            if effective_spacing is not None:
-                crossover_z = crossover_c * effective_spacing
+            if probe_geometry is not None and order is not None:
+                sorted_z = probe_geometry.contact_positions[order, 2]
+                if np.ptp(sorted_z) > 1e-6:
+                    crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
+                elif effective_spacing is not None:
+                    crossover_z = float(crossover_c * effective_spacing)
+            elif effective_spacing is not None:
+                crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
     # Components:
@@ -9899,9 +9914,17 @@ def label_layers(
     # Under 'deep_to_superficial': lower contact indices are deep, higher are superficial.
     is_sup_to_deep = (vflip_result.orientation == "superficial_to_deep")
 
+    # Map each channel in channel_ids to its position index along the ordered linear shaft
+    order = getattr(probe_geometry, "linear_order", None)
+    if order is not None and len(order) == n_geom_channels:
+        rank = np.empty(n_geom_channels, dtype=float)
+        rank[order] = np.arange(n_geom_channels, dtype=float)
+    else:
+        rank = np.arange(n_geom_channels, dtype=float)
+
     labels: Dict[Any, str] = {}
     for idx, ch_id in enumerate(channel_ids):
-        c_pos = float(idx)
+        c_pos = float(rank[idx])
         if input_start <= c_pos <= input_end:
             labels[ch_id] = "input"
         elif c_pos < input_start:
@@ -23760,6 +23783,9 @@ class TestVFlipRejectionAndFailLoud:
 
         assert res.accepted is False
         assert res.crossover_contact is None
+        assert res.low_peak_contact is None
+        assert res.high_peak_contact is None
+        assert np.all(np.isnan(res.profile))
         assert res.rejection_reason == "insufficient_channels"
         assert res.n_channels == 6
 
@@ -24209,6 +24235,327 @@ class TestLabelLayers:
         geom_2d = jnwb.probe_geometry(df_2d, units="um", nominal_pitch=50.0, strict_linear=False)
         with pytest.raises(ValueError, match="linear electrode shaft"):
             label_layers(res, geom_2d)
+
+
+class TestVFlipRecoveryAndRejectionBroad:
+    """Comprehensive recovery and rejection test suite for vFLIP (0.2.2-05).
+
+    Directly verifies:
+      1. Known crossover recovery across varied probe depths.
+      2. Reversed probe orientation recovery and inversion symmetry.
+      3. Rejection of no-motif 1/f background power spectra.
+      4. Rejection of uncorrelated white noise spectra.
+      5. Robustness to missing interior and boundary contacts.
+      6. Invariance across regular frequency grid resolutions.
+      7. Support for irregular (e.g. geometrically spaced) frequency axes.
+      8. Structured rejection on insufficient valid channels.
+      9. Fail-loud validation on invalid spacing and non-linear geometry.
+      10. Clean rejection when support metric fails threshold under weak SNR.
+    """
+
+    def _generate_synthetic_psd(
+        self,
+        n_channels: int = 24,
+        c_crossover: float = 11.5,
+        freqs: Optional[np.ndarray] = None,
+        gamma_peak_f: float = 75.0,
+        beta_peak_f: float = 18.0,
+        noise_level: float = 0.05,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Helper to generate a clean synthetic PSD with known crossover contact."""
+        if freqs is None:
+            freqs = np.linspace(2.0, 150.0, 100)
+        psd = np.zeros((n_channels, len(freqs)), dtype=np.float64)
+        for c in range(n_channels):
+            # Superficial gamma component (peaks at c < c_crossover)
+            gamma_w = max(0.0, 1.0 - (c - (c_crossover - 4.0)) ** 2 / 40.0)
+            # Deep alpha/beta component (peaks at c > c_crossover)
+            beta_w = max(0.0, 1.0 - (c - (c_crossover + 4.0)) ** 2 / 40.0)
+            psd[c] = (
+                noise_level
+                + 2.0 * gamma_w * np.exp(-((freqs - gamma_peak_f) ** 2) / 200.0)
+                + 2.0 * beta_w * np.exp(-((freqs - beta_peak_f) ** 2) / 50.0)
+            )
+        return freqs, psd
+
+    def test_known_crossover_recovery_multiple_depths(self):
+        """vFLIP accurately recovers known crossover across superficial, middle, and deep sites."""
+        n_ch = 24
+        spacing = 50.0
+        # Probe various crossover positions along the shaft
+        for c_true in [6.5, 11.5, 17.0]:
+            freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true)
+            res = vflip(psd, freqs, contact_spacing=spacing)
+
+            assert res.accepted is True
+            assert res.rejection_reason is None
+            assert res.orientation == "superficial_to_deep"
+            assert abs(res.crossover_contact - c_true) <= 0.25
+            assert res.crossover_depth_um == pytest.approx(res.crossover_contact * spacing, abs=1e-4)
+            assert res.support_score >= 6.0
+
+    def test_reversed_probe_orientation_recovery(self):
+        """vFLIP correctly identifies deep_to_superficial orientation and preserves symmetry."""
+        n_ch = 24
+        c_true = 11.5
+        freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true)
+
+        # Reverse probe shaft indexing: contact 0 is deep, contact 23 is superficial
+        psd_rev = psd[::-1].copy()
+        c_true_rev = (n_ch - 1) - c_true
+
+        # Auto-orientation
+        res_auto = vflip(psd_rev, freqs, orientation="auto", contact_spacing=40.0)
+        assert res_auto.accepted is True
+        assert res_auto.orientation == "deep_to_superficial"
+        assert abs(res_auto.crossover_contact - c_true_rev) <= 0.25
+
+        # Explicit deep_to_superficial
+        res_deep = vflip(psd_rev, freqs, orientation="deep_to_superficial", contact_spacing=40.0)
+        assert res_deep.accepted is True
+        assert res_deep.crossover_contact == pytest.approx(res_auto.crossover_contact, abs=1e-12)
+
+        # Incompatible orientation requirement must reject
+        res_sup = vflip(psd_rev, freqs, orientation="superficial_to_deep", contact_spacing=40.0)
+        assert res_sup.accepted is False
+        assert res_sup.rejection_reason == "orientation_mismatch"
+        assert res_sup.crossover_contact is None
+
+    def test_no_motif_1_over_f_background_rejected(self):
+        """Power spectra with smooth 1/f background and no spectrolaminar dissociation are rejected."""
+        n_ch = 24
+        freqs = np.linspace(2.0, 150.0, 100)
+        rng = np.random.default_rng(42)
+
+        # 1/f^1.5 background with channel variance but no spectral dissociation
+        psd_1f = np.zeros((n_ch, len(freqs)))
+        for c in range(n_ch):
+            scale = 1.0 + 0.1 * rng.standard_normal()
+            psd_1f[c] = scale * (freqs ** -1.5)
+
+        # Default orientation
+        res = vflip(psd_1f, freqs)
+        assert res.accepted is False
+        assert res.rejection_reason in ("insufficient_support", "orientation_mismatch", "no_crossover")
+        assert res.crossover_contact is None
+
+        # Auto orientation
+        res_auto = vflip(psd_1f, freqs, orientation="auto")
+        assert res_auto.accepted is False
+        assert res_auto.rejection_reason in ("insufficient_support", "orientation_mismatch", "no_crossover")
+        assert res_auto.crossover_contact is None
+
+    def test_white_noise_rejection(self):
+        """Uncorrelated white noise spectra are rejected by the support gate."""
+        n_ch = 24
+        freqs = np.linspace(2.0, 150.0, 100)
+        rejection_count = 0
+        total_runs = 5
+
+        for seed in range(total_runs):
+            rng = np.random.default_rng(seed)
+            psd_white = rng.exponential(scale=1.0, size=(n_ch, len(freqs)))
+            res = vflip(psd_white, freqs, min_support_score=6.0, orientation="auto")
+            if not res.accepted:
+                rejection_count += 1
+                assert res.rejection_reason in ("insufficient_support", "no_crossover", "ambiguous_crossover")
+                assert res.crossover_contact is None
+
+        # White noise must reject across the overwhelming majority of draws
+        assert rejection_count >= 4
+
+    def test_missing_interior_and_boundary_contacts(self):
+        """vFLIP recovers crossover accurately despite multiple missing interior and boundary contacts."""
+        n_ch = 24
+        c_true = 11.5
+        freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true)
+
+        # Mask boundary contacts (0, 23) AND multiple interior contacts, including
+        # contacts adjacent to and spanning the crossover (e.g. 5, 6, 11, 12, 18)
+        bad_indices = [0, 5, 6, 11, 12, 18, 23]
+        bad_mask = np.zeros(n_ch, dtype=bool)
+        bad_mask[bad_indices] = True
+        psd[bad_mask] = np.nan
+
+        res = vflip(psd, freqs, bad_channel_mask=bad_mask, contact_spacing=50.0)
+
+        assert res.accepted is True
+        assert res.n_missing == len(bad_indices)
+        assert res.n_channels == n_ch
+        assert abs(res.crossover_contact - c_true) <= 0.25
+        assert np.all(np.isfinite(res.profile))
+        assert res.crossover_depth_um == pytest.approx(res.crossover_contact * 50.0, abs=1e-4)
+
+    def test_frequency_grid_resolution_invariance(self):
+        """Crossover estimate and support metric are invariant to frequency bin resolution."""
+        n_ch = 24
+        c_true = 11.5
+        results = []
+
+        # Compare fine (0.5 Hz), medium (1.0 Hz), and coarse (2.0 Hz) regular grids
+        for df in [0.5, 1.0, 2.0]:
+            f_grid = np.arange(2.0, 150.0 + df, df)
+            _, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true, freqs=f_grid)
+            res = vflip(psd, f_grid)
+            assert res.accepted is True
+            results.append(res)
+
+        crossovers = [r.crossover_contact for r in results]
+        scores = [r.support_score for r in results]
+
+        # Crossover estimates agree within 0.05 channels across all grids
+        assert max(crossovers) - min(crossovers) < 0.05
+        # Support scores agree within 1.0 (no explosion with bin count)
+        assert max(scores) - min(scores) < 1.0
+
+    def test_irregular_frequency_axis_support(self):
+        """vFLIP correctly processes non-uniformly spaced (e.g. logarithmic) frequency coordinates."""
+        n_ch = 24
+        c_true = 11.5
+        freqs_geom = np.geomspace(4.0, 150.0, 80)
+        _, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=c_true, freqs=freqs_geom)
+
+        res = vflip(psd, freqs_geom)
+        assert res.accepted is True
+        assert abs(res.crossover_contact - c_true) <= 0.25
+        assert res.orientation == "superficial_to_deep"
+        assert res.support_score >= 6.0
+
+    def test_insufficient_channels_structured_rejection(self):
+        """Fewer than min_channels valid contacts immediately yields structured rejection."""
+        freqs = np.linspace(2.0, 150.0, 50)
+
+        # 1. Total channel count below threshold (6 < 8)
+        psd_small = np.ones((6, 50))
+        res1 = vflip(psd_small, freqs, min_channels=8)
+        assert res1.accepted is False
+        assert res1.rejection_reason == "insufficient_channels"
+        assert res1.crossover_contact is None
+        assert res1.low_peak_contact is None
+        assert res1.high_peak_contact is None
+        assert np.all(np.isnan(res1.profile))
+        assert res1.support_score == -np.inf
+        assert res1.n_channels == 6
+
+        # 2. Total channels 24, but 18 flagged as bad -> 6 valid (< 8)
+        psd_large = np.ones((24, 50))
+        bad_mask = np.zeros(24, dtype=bool)
+        bad_mask[:18] = True
+        res2 = vflip(psd_large, freqs, bad_channel_mask=bad_mask, min_channels=8)
+        assert res2.accepted is False
+        assert res2.rejection_reason == "insufficient_channels"
+        assert res2.crossover_contact is None
+        assert res2.low_peak_contact is None
+        assert res2.high_peak_contact is None
+        assert np.all(np.isnan(res2.profile))
+        assert res2.support_score == -np.inf
+        assert res2.n_channels == 24
+        assert res2.n_missing == 18
+
+    def test_probe_geometry_permutation_invariance(self):
+        """vFLIP and label_layers are strictly invariant to input channel ordering under ProbeGeometry."""
+        n_ch = 16
+        pitch = 50.0
+        z = np.arange(n_ch) * pitch
+        df = pd.DataFrame({
+            "x": np.zeros(n_ch),
+            "y": np.zeros(n_ch),
+            "z": z,
+            "channel_id": [f"ch_{i}" for i in range(n_ch)],
+        })
+        geom_ordered = jnwb.probe_geometry(df, units="um")
+
+        freqs, psd = self._generate_synthetic_psd(n_channels=n_ch, c_crossover=8.0)
+        res_ordered = vflip(psd, freqs, probe_geometry=geom_ordered, orientation="auto")
+        labels_ordered = label_layers(res_ordered, geom_ordered)
+
+        # Scramble contacts using a fixed pseudo-random permutation
+        rng = np.random.default_rng(42)
+        perm = rng.permutation(n_ch)
+        df_shuffled = df.iloc[perm].reset_index(drop=True)
+        geom_shuffled = jnwb.probe_geometry(df_shuffled, units="um")
+        psd_shuffled = psd[perm]
+
+        res_shuffled = vflip(psd_shuffled, freqs, probe_geometry=geom_shuffled, orientation="auto")
+        labels_shuffled = label_layers(res_shuffled, geom_shuffled)
+
+        # Invariant 1: Physical crossover depth in um is strictly invariant (within 1e-4 um)
+        assert res_ordered.crossover_depth_um == pytest.approx(res_shuffled.crossover_depth_um, abs=1e-4)
+        assert res_ordered.accepted == res_shuffled.accepted
+        assert res_ordered.support_score == pytest.approx(res_shuffled.support_score, abs=1e-4)
+
+        # Invariant 2: Per-channel cortical layer labels are 100% identical
+        for ch_id in df["channel_id"]:
+            assert labels_ordered[ch_id] == labels_shuffled[ch_id]
+
+
+    def test_invalid_spacing_and_geometry_validation(self):
+        """Invalid contact spacing or non-linear probe geometry raises ValueError."""
+        freqs = np.linspace(2.0, 150.0, 50)
+        psd = np.ones((16, 50))
+
+        # Negative and zero spacing
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=-10.0)
+
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=0.0)
+
+        # Non-finite spacing
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=np.nan)
+
+        with pytest.raises(ValueError, match="contact_spacing"):
+            vflip(psd, freqs, contact_spacing=np.inf)
+
+        # Non-linear 2D ProbeGeometry
+        df_2d = pd.DataFrame({
+            "x": [0, 50, 0, 50] * 4,
+            "y": [0, 0, 50, 50] * 4,
+            "z": np.arange(16),
+        })
+        geom_2d = jnwb.probe_geometry(df_2d, units="um", strict_linear=False)
+        assert geom_2d.is_linear is False
+
+        with pytest.raises(ValueError, match="linear electrode shaft"):
+            vflip(psd, freqs, probe_geometry=geom_2d)
+
+    def test_failed_support_gate_on_weak_snr(self):
+        """Sub-threshold SNR motif is rejected with reason 'insufficient_support'."""
+        n_ch = 24
+        freqs = np.linspace(2.0, 150.0, 100)
+        rng = np.random.default_rng(42)
+
+        # Noise background
+        noise = 1.0 + 0.5 * rng.exponential(scale=1.0, size=(n_ch, len(freqs)))
+
+        # Sub-threshold signal (scale=0.05)
+        psd_weak = noise.copy()
+        for c in range(n_ch):
+            g_w = max(0.0, 1.0 - (c - 7.0) ** 2 / 40.0)
+            b_w = max(0.0, 1.0 - (c - 16.0) ** 2 / 40.0)
+            psd_weak[c] += 0.05 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 0.05 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
+
+        res_weak = vflip(psd_weak, freqs, min_support_score=6.0)
+        assert res_weak.accepted is False
+        assert res_weak.rejection_reason == "insufficient_support"
+        assert res_weak.crossover_contact is None
+        assert np.isfinite(res_weak.support_score)
+        assert res_weak.support_score < 6.0
+
+        # Strong signal (scale=2.0) with identical noise background
+        psd_strong = noise.copy()
+        for c in range(n_ch):
+            g_w = max(0.0, 1.0 - (c - 7.0) ** 2 / 40.0)
+            b_w = max(0.0, 1.0 - (c - 16.0) ** 2 / 40.0)
+            psd_strong[c] += 2.0 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 2.0 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
+
+        res_strong = vflip(psd_strong, freqs, min_support_score=6.0)
+        assert res_strong.accepted is True
+        assert res_strong.rejection_reason is None
+        assert res_strong.crossover_contact is not None
+        assert res_strong.support_score >= 6.0
+
 
 
 ===== END tests/test_laminar.py =====
@@ -30328,11 +30675,14 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 OUTPUT_FILE = REPO_ROOT / "jnwb-unified-rev.md"
 
 BINARY_EXTENSIONS = {".png", ".svg", ".ico", ".ipynb"}
@@ -30724,6 +31074,53 @@ import jnwb
 """)
 
     full_content = "".join(out)
+
+    # =========================================================================
+    # SELF-VALIDATION GATE (Refuses to write on provenance disagreement)
+    # =========================================================================
+    print("Executing self-validation checks on generated dossier...")
+    # 1. Extract version from inlined jnwb/__init__.py
+    m_pkg_ver = re.search(
+        r"===== BEGIN jnwb/__init__\.py =====.*?^__version__\s*=\s*['\"]([^'\"]+)['\"]",
+        full_content,
+        re.M | re.S,
+    )
+    if not m_pkg_ver:
+        raise ValueError("Self-validation failed: Could not extract __version__ from embedded jnwb/__init__.py")
+    embedded_version = m_pkg_ver.group(1)
+
+    # 2. Extract export count from inlined docs/api.md
+    m_api_block = re.search(r"===== BEGIN docs/api\.md =====(.*?)===== END docs/api\.md =====", full_content, re.S)
+    if not m_api_block:
+        raise ValueError("Self-validation failed: Could not extract docs/api.md block")
+    api_text = m_api_block.group(1)
+    embedded_api_rows = len(re.findall(r"^\|\s*jnwb\.[A-Za-z_][A-Za-z0-9_]*\s*\|", api_text, re.M))
+
+    # 3. Extract provenance claims from Section 2
+    m_prov_ver = re.search(r"\|\s*\*\*Package Version\*\*\s*\|\s*`jnwb ([^`]+)`", full_content)
+    if not m_prov_ver:
+        raise ValueError("Self-validation failed: Could not parse Package Version in Section 2")
+    stated_version = m_prov_ver.group(1)
+
+    m_prov_exp = re.search(r"\|\s*\*\*Public API Exports\*\*\s*\|\s*`(\d+)`\s*symbols", full_content)
+    if not m_prov_exp:
+        raise ValueError("Self-validation failed: Could not parse Public API Exports in Section 2")
+    stated_exports = int(m_prov_exp.group(1))
+
+    # Assert exact equality
+    if stated_version != embedded_version:
+        raise ValueError(
+            f"PROVENANCE DESYNCHRONIZATION DETECTED: Header claims version '{stated_version}' "
+            f"but embedded jnwb/__init__.py defines '{embedded_version}'."
+        )
+    if stated_exports != embedded_api_rows:
+        raise ValueError(
+            f"PROVENANCE DESYNCHRONIZATION DETECTED: Header claims {stated_exports} exports "
+            f"but embedded docs/api.md contains {embedded_api_rows} documented symbols."
+        )
+
+    print(f"PASS: Self-validation verified version='{stated_version}', exports={stated_exports}.")
+
     print(f"Writing {len(full_content):,} characters to {OUTPUT_FILE}...")
     OUTPUT_FILE.write_text(full_content, encoding="utf-8")
     print("Done! Artifact successfully created.")

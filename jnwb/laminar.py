@@ -57,8 +57,8 @@ class VFlipResult:
     crossover_depth_um: Optional[float]
     support_score: float
     profile: np.ndarray
-    low_peak_contact: int
-    high_peak_contact: int
+    low_peak_contact: Optional[int]
+    high_peak_contact: Optional[int]
     orientation: str
     accepted: bool
     rejection_reason: Optional[str]
@@ -78,8 +78,8 @@ class VFlipResult:
             "crossover_depth_um": self.crossover_depth_um,
             "support_score": float(self.support_score),
             "profile": self.profile.copy(),
-            "low_peak_contact": int(self.low_peak_contact),
-            "high_peak_contact": int(self.high_peak_contact),
+            "low_peak_contact": int(self.low_peak_contact) if self.low_peak_contact is not None else None,
+            "high_peak_contact": int(self.high_peak_contact) if self.high_peak_contact is not None else None,
             "orientation": str(self.orientation),
             "accepted": bool(self.accepted),
             "rejection_reason": self.rejection_reason,
@@ -207,6 +207,7 @@ def vflip(
 
     # Validate geometry
     effective_spacing = contact_spacing
+    order = None
     if probe_geometry is not None:
         if not getattr(probe_geometry, "is_linear", False):
             raise ValueError("probe_geometry must describe a linear electrode shaft (is_linear=True)")
@@ -217,6 +218,7 @@ def vflip(
             )
         if effective_spacing is None:
             effective_spacing = probe_geometry.nominal_pitch
+        order = getattr(probe_geometry, "linear_order", None)
 
     if effective_spacing is not None:
         effective_spacing = float(effective_spacing)
@@ -235,19 +237,26 @@ def vflip(
     non_finite_rows = ~np.all(np.isfinite(psd_arr), axis=1)
     bad_mask = bad_mask | non_finite_rows
 
+    # If probe_geometry is provided, order channels along the physical shaft
+    if order is not None and len(order) == n_channels:
+        psd_work = psd_arr[order]
+        bad_mask = bad_mask[order]
+    else:
+        psd_work = psd_arr
+
     n_missing = int(np.sum(bad_mask))
     n_valid = n_channels - n_missing
 
     if n_valid < min_channels:
-        # Rejection: insufficient valid channels
-        dummy_profile = np.zeros(n_channels)
+        # Rejection: insufficient valid channels (eliminate fabricated values)
+        nan_profile = np.full(n_channels, np.nan)
         return VFlipResult(
             crossover_contact=None,
             crossover_depth_um=None,
             support_score=-np.inf,
-            profile=dummy_profile,
-            low_peak_contact=0,
-            high_peak_contact=0,
+            profile=nan_profile,
+            low_peak_contact=None,
+            high_peak_contact=None,
             orientation="undetermined",
             accepted=False,
             rejection_reason="insufficient_channels",
@@ -255,8 +264,8 @@ def vflip(
             n_missing=n_missing,
         )
 
-    # 3. Frequency standardization across valid contacts
-    clean_psd = psd_arr.copy()
+    # 3. Frequency standardization across valid contacts along the shaft
+    clean_psd = psd_work.copy()
     # Interpolate missing channels along depth before standardization
     valid_idx = np.where(~bad_mask)[0]
     if n_missing > 0:
@@ -334,8 +343,14 @@ def vflip(
             # Select candidate maximizing transition steepness
             cross_candidates.sort(key=lambda x: x[1], reverse=True)
             crossover_c = cross_candidates[0][0]
-            if effective_spacing is not None:
-                crossover_z = crossover_c * effective_spacing
+            if probe_geometry is not None and order is not None:
+                sorted_z = probe_geometry.contact_positions[order, 2]
+                if np.ptp(sorted_z) > 1e-6:
+                    crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
+                elif effective_spacing is not None:
+                    crossover_z = float(crossover_c * effective_spacing)
+            elif effective_spacing is not None:
+                crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
     # Components:
@@ -620,9 +635,17 @@ def label_layers(
     # Under 'deep_to_superficial': lower contact indices are deep, higher are superficial.
     is_sup_to_deep = (vflip_result.orientation == "superficial_to_deep")
 
+    # Map each channel in channel_ids to its position index along the ordered linear shaft
+    order = getattr(probe_geometry, "linear_order", None)
+    if order is not None and len(order) == n_geom_channels:
+        rank = np.empty(n_geom_channels, dtype=float)
+        rank[order] = np.arange(n_geom_channels, dtype=float)
+    else:
+        rank = np.arange(n_geom_channels, dtype=float)
+
     labels: Dict[Any, str] = {}
     for idx, ch_id in enumerate(channel_ids):
-        c_pos = float(idx)
+        c_pos = float(rank[idx])
         if input_start <= c_pos <= input_end:
             labels[ch_id] = "input"
         elif c_pos < input_start:
