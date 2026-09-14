@@ -154,7 +154,9 @@ def compute_population_trajectory(
     if resolved == CUDA:
         try:
             import torch
-            X_tensor = torch.tensor(X_scaled, dtype=torch.float32, device="cuda")
+            X_tensor = torch.as_tensor(X_scaled, device="cuda")
+            if not X_tensor.is_floating_point():
+                X_tensor = X_tensor.to(torch.float64)
             U, S, V = torch.linalg.svd(X_tensor, full_matrices=False)
             V_top = V[:actual_components, :]  # (actual_components, n_units)
             proj = X_tensor @ V_top.t()

@@ -7,12 +7,6 @@
 
 # 0.2.2
 
-- 0.2.2-06: Measure calibration and false-positive behavior under deterministic synthetic ensembles reproducible from code; estimate empirical operating characteristics of Omega and min_support_score over broad synthetic nulls and recoverable motifs before final 0.2.x release.
-- 0.2.2-07: Test geometry composition (generic NWB -> probe_geometry -> PSD/vflip -> label_layers) with known geometry and expected result.
-- 0.2.2-REV-02: TFRAnalyzer.average_across_channels must fail loudly on channel-count/mask length mismatch (replace silent fallback to global average with ValueError per docstring and header).
-- 0.2.2-REV-03: Empty layer selections in TFRAnalyzer must not become fabricated zero-valued signals (return NaN or structured unavailable state).
-- 0.2.2-REV-04: PopulationAnalyzer.population_trajectory dtype/device/fallback provenance audit (eliminate float32 downcasting in PyTorch path, preserve input dtype, report device_used, and ensure consistent fallback warning semantics).
-- 0.2.2 release gate: Numerical behavior, rejection semantics, geometry composition, docs, API, calibration, full suite, packaging, and CI PASS independently.
 
 # 0.2.3
 

@@ -94,6 +94,26 @@ class TestTFRAnalyzerLayerAware(unittest.TestCase):
         deep = result[1]
         self.assertFalse(np.allclose(superficial, deep))
 
+    def test_channel_count_mask_mismatch_raises_value_error(self):
+        """Verify ValueError is raised when layer mask lengths mismatch channel count."""
+        mismatched_mask = {
+            'superficial_mask': [True] * 10,
+            'deep_mask': [False] * 10,
+        }
+        with self.assertRaises(ValueError):
+            TFRAnalyzer.average_across_channels(self.tfr_data, layer_mask=mismatched_mask)
+
+    def test_empty_layer_mask_returns_nan_not_zeros(self):
+        """Verify empty layer mask returns NaN array instead of fabricated zeros."""
+        empty_sup_mask = {
+            'superficial_mask': [False] * 128,
+            'deep_mask': [True] * 128,
+        }
+        result = TFRAnalyzer.average_across_channels(self.tfr_data, layer_mask=empty_sup_mask)
+        self.assertTrue(np.all(np.isnan(result[0])))
+        self.assertFalse(np.all(np.isnan(result[1])))
+
+
 
 class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
     """Test UnitAnalyzer autocorrelogram with fixed spike data."""
@@ -272,6 +292,49 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         self.assertIn('refr_violations_pct', result)
         self.assertIn('fano_factor', result)
 
+class TestPopulationAnalyzerTrajectory(unittest.TestCase):
+    """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
+
+    def setUp(self):
+        rng = np.random.default_rng(42)
+        self.X_f64 = rng.standard_normal((50, 10), dtype=np.float64)
+        self.X_f32 = rng.standard_normal((50, 10), dtype=np.float32)
+
+    def test_preserves_float64_dtype_and_reports_device(self):
+        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3)
+        self.assertEqual(res['projection'].dtype, np.float64)
+        self.assertEqual(res['components'].dtype, np.float64)
+        self.assertEqual(res['explained_variance'].dtype, np.float64)
+        self.assertEqual(res['explained_variance_ratio'].dtype, np.float64)
+        self.assertIn('device_used', res)
+        self.assertIn(res['device_used'], ('cpu', 'cuda'))
+
+    def test_preserves_float32_dtype_and_reports_device(self):
+        res = PopulationAnalyzer.population_trajectory(self.X_f32, n_components=3)
+        self.assertEqual(res['projection'].dtype, np.float32)
+        self.assertEqual(res['components'].dtype, np.float32)
+        self.assertEqual(res['explained_variance'].dtype, np.float32)
+        self.assertEqual(res['explained_variance_ratio'].dtype, np.float32)
+        self.assertIn('device_used', res)
+        self.assertIn(res['device_used'], ('cpu', 'cuda'))
+
+    def test_fallback_warning_when_gpu_fails(self):
+        import sys
+        import warnings
+        from unittest.mock import patch
+
+        with patch("jnwb.analyzers.resolve_device", return_value="cuda"):
+            with patch.dict(sys.modules, {"cupy": None}):
+                with patch("jnwb.analyzers.torch_cuda_available", return_value=False):
+                    with warnings.catch_warnings(record=True) as w:
+                        warnings.simplefilter("always")
+                        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3, device="cuda")
+                        self.assertEqual(res['device_used'], 'cpu')
+                        runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
+                        self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
+
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+

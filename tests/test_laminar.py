@@ -920,5 +920,106 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res_strong.crossover_contact is not None
         assert res_strong.support_score >= 6.0
 
+    def test_end_to_end_nwb_geometry_composition(self, tmp_path):
+        """Test full composition: generic NWB -> probe_geometry -> vflip_from_lfp -> label_layers (0.2.2-07)."""
+        import pynwb
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from scipy import signal
+
+        nwb_file = tmp_path / "composition_test.nwb"
+        nwb = pynwb.NWBFile(
+            session_description="synthetic laminar session",
+            identifier="synth_laminar_comp_001",
+            session_start_time=datetime(2026, 9, 14, tzinfo=tzutc()),
+        )
+        device = nwb.create_device(name="linear_probe_dev")
+        eg = nwb.create_electrode_group(
+            name="linear_probe",
+            description="16-ch laminar probe",
+            location="cortex",
+            device=device,
+        )
+
+        n_ch = 16
+        pitch_um = 50.0
+        for ch in range(n_ch):
+            nwb.add_electrode(
+                x=0.0,
+                y=0.0,
+                z=float(ch * pitch_um),
+                imp=1.0,
+                location=f"contact_{ch}",
+                filtering="none",
+                group=eg,
+            )
+
+        fs = 1000.0
+        t = np.arange(10000) / fs
+        rng = np.random.default_rng(42)
+
+        lfp_data = np.zeros((len(t), n_ch), dtype=np.float32)
+        for ch in range(n_ch):
+            g_w = max(0.0, 1.0 - (ch - 3.0) ** 2 / 16.0)
+            b_w = max(0.0, 1.0 - (ch - 12.0) ** 2 / 16.0)
+            w_g = rng.standard_normal(len(t))
+            sos_g = signal.butter(4, [60.0, 90.0], btype="bandpass", fs=fs, output="sos")
+            sig_g = g_w * signal.sosfiltfilt(sos_g, w_g) * 3.0
+            w_b = rng.standard_normal(len(t))
+            sos_b = signal.butter(4, [12.0, 24.0], btype="bandpass", fs=fs, output="sos")
+            sig_b = b_w * signal.sosfiltfilt(sos_b, w_b) * 3.0
+            noise = rng.standard_normal(len(t)) * 0.2
+            lfp_data[:, ch] = (sig_g + sig_b + noise).astype(np.float32)
+
+        region = nwb.create_electrode_table_region(list(range(n_ch)), description="all contacts")
+        es = pynwb.ecephys.ElectricalSeries(
+            name="probe_lfp",
+            data=lfp_data,
+            electrodes=region,
+            rate=fs,
+            starting_time=0.0,
+        )
+        nwb.add_acquisition(es)
+
+        with pynwb.NWBHDF5IO(str(nwb_file), mode="w") as io:
+            io.write(nwb)
+
+        # 1. Read electrodes table from NWB
+        with pynwb.NWBHDF5IO(str(nwb_file), mode="r") as io:
+            nwb_read = io.read()
+            elec_df = nwb_read.electrodes.to_dataframe()
+
+        # 2. Construct ProbeGeometry
+        geom = jnwb.probe_geometry(elec_df, units="um")
+        assert geom.is_linear is True
+        assert geom.nominal_pitch == pytest.approx(pitch_um, abs=1e-4)
+
+        # 3. Read LFP acquisition through jnwb.acquisition_channel
+        lfp_channels = [jnwb.acquisition_channel(nwb_file, name="probe_lfp", channel=ch)[0] for ch in range(n_ch)]
+        lfp_arr = np.array(lfp_channels)
+
+        # 4. Run vflip_from_lfp with probe_geometry
+        res = vflip_from_lfp(lfp_arr, fs=fs, probe_geometry=geom, orientation="superficial_to_deep")
+        assert res.accepted is True
+        assert res.rejection_reason is None
+        assert res.crossover_contact is not None
+        assert 7.0 <= res.crossover_contact <= 10.0
+        assert res.crossover_depth_um == pytest.approx(res.crossover_contact * pitch_um, abs=1e-3)
+        assert res.support_score >= 6.0
+
+        # 5. Classify layers via label_layers
+        layers = label_layers(res, geom, granular_thickness_um=150.0)
+        assert len(layers) == n_ch
+        # Superficial contacts (e.g. 0-6) must be labeled superficial
+        for ch in range(7):
+            assert layers[ch] == "superficial"
+        # Crossover contacts (8-9) must be labeled input
+        assert layers[8] == "input"
+        assert layers[9] == "input"
+        # Deep contacts (12-15) must be labeled deep
+        for ch in range(12, 16):
+            assert layers[ch] == "deep"
+
+
 
 
