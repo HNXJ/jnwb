@@ -18,9 +18,10 @@ DEFAULT_TAU_MS = 30.0
 def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_TAU_MS) -> np.ndarray:
     r"""Causal (forward-only) exponential-kernel smoothing of an already-binned rate trace.
 
-    Same kernel construction (finite window of 5*tau_ms, normalized, left-zero-padded
-    causal convolution), generalized to operate on a pre-binned rate array rather than raw
-    spike times.
+    Same kernel construction (finite window of 5*tau_ms, normalized, left-edge-padded
+    causal convolution using edge-value rate[0]), generalized to operate on a pre-binned rate array
+    rather than raw spike times. Edge-padding preserves constant baseline firing rates without
+    artificial startup depression (0.2.3-REV-09).
 
     ESTIMATOR LATENCY PROPERTIES & HAZARD:
     A causal filter introduces an intrinsic group delay and time shift:
@@ -40,12 +41,14 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
     Returns smoothed rate, same shape as input.
     """
     rate = np.asarray(rate, dtype=float)
+    if rate.size == 0:
+        return np.empty(0, dtype=float)
     t_filter = np.arange(0, 5 * tau_ms, bin_ms)
     if t_filter.size == 0:
         t_filter = np.array([0.0])
     h = np.exp(-t_filter / tau_ms)
     h /= h.sum()
-    padded = np.concatenate([np.zeros(len(h) - 1), rate])
+    padded = np.concatenate([np.full(len(h) - 1, rate[0]), rate])
     smoothed = np.convolve(padded, h, mode="valid")
     return smoothed[: rate.size]
 
