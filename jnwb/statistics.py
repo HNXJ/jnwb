@@ -675,8 +675,23 @@ class StatisticalAnalysis:
         group1 = np.asarray(group1).flatten()
         group2 = np.asarray(group2).flatten()
 
-        valid1 = group1[~np.isnan(group1)]
-        valid2 = group2[~np.isnan(group2)]
+        if paired:
+            if len(group1) != len(group2):
+                raise ValueError(
+                    "compare_groups(paired=True) requires equal group lengths; "
+                    f"got n1={len(group1)}, n2={len(group2)}"
+                )
+            mask = np.isfinite(group1) & np.isfinite(group2)
+            valid1 = group1[mask]
+            valid2 = group2[mask]
+            if len(valid1) < 2:
+                raise ValueError(
+                    "compare_groups(paired=True) requires at least two paired observations "
+                    f"after NaN exclusion; got n={len(valid1)}"
+                )
+        else:
+            valid1 = group1[~np.isnan(group1)]
+            valid2 = group2[~np.isnan(group2)]
 
         result: Dict = {
             "n1": len(valid1),
@@ -696,16 +711,6 @@ class StatisticalAnalysis:
         }
 
         if paired:
-            if len(valid1) != len(valid2):
-                raise ValueError(
-                    "compare_groups(paired=True) requires equal group lengths after NaN "
-                    f"exclusion; got n1={len(valid1)}, n2={len(valid2)}"
-                )
-            if len(valid1) < 2:
-                raise ValueError(
-                    "compare_groups(paired=True) requires at least two paired observations "
-                    f"after NaN exclusion; got n={len(valid1)}"
-                )
             t_stat, t_pval = stats.ttest_rel(valid1, valid2)
             w_stat, w_pval = stats.wilcoxon(valid1, valid2)
             df = len(valid1) - 1
