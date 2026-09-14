@@ -10,7 +10,6 @@
 
 # 0.2.3
 
-- 0.2.3-REV-01: Fix dead / zero-variance channel blinding in `bad_channels_from_correlation`: flag flat/constant channels directly, compute robust z-scores on valid entries only without NaN propagation across good channels (EXT-REV-001).
 - 0.2.3-REV-02: Fix paired NaN alignment in `StatisticalAnalysis.compare_groups(paired=True)`: require equal input lengths and perform pairwise-complete finite masking (`mask = np.isfinite(group1) & np.isfinite(group2)`) to eliminate cross-condition pair misalignment (EXT-REV-002).
 - 0.2.3-REV-03: Address unnormalized channel scaling $\Omega \propto 1.5 \ln N$ in `vflip`: normalize `band_dist` by $1/\sqrt{N}$ and channel separation metric by $N$ or contact span so support threshold $\Omega$ does not shift systematically with electrode density, or state explicit geometry-scaled thresholding (EXT-REV-003).
 - 0.2.3-REV-04: Enforce downward transition polarity in `vflip`: restrict zero-crossing candidates strictly to canonical downward transitions ($v_1 \ge 0, v_2 \le 0$) along resolved orientation to reject inverted upward transitions (EXT-REV-004).
