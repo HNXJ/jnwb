@@ -92,6 +92,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Surrogates are verified to use the same segmentation as the observed statistic.
   Plain PSD estimators are deliberately NOT gated: a one-segment periodogram is noisy but not
   degenerate.
+- `zflip` shared the single-segment degeneracy, and it disabled one of zflip's own gates.
+  Its default `nperseg = min(N, 256)` gave one STFT segment at `N <= 256`, where adjacent
+  wPLI saturates at exactly 1.0 for any input -- so the documented `min_wpli` acceptance
+  gate passed unconditionally, and a gate that always passes is not a gate. The default is
+  now `min(max(N // 2, 8), 256)` and a segmentation yielding fewer than two segments is
+  refused. `N // 2` rather than the coherence family's `N // 8`: zflip fits a phase slope
+  inside a narrow band and needs at least 3 frequency bins there, so segment length cannot
+  be traded for segment count. This preserves the historical 256-sample segment for every
+  `N >= 512`, and a real travelling wave is now detected at `N = 256`, where the saturated
+  statistic previously caused rejection.
+- Corrected the `zflip` docstring claim that the delay bound `|tau| < 1 / (2 df)` prevents
+  phase-wrap aliasing. The bound is applied to the *estimated* delay, and a true delay
+  beyond the interval aliases to a smaller value that satisfies it, so the check cannot by
+  itself detect wrapping. The surrogate test is what rejects such cases, so `accepted`
+  rather than `delay_identifiable` is the field to trust for large true delays.
 - **INTENTIONAL BREAK (0.2.4):** `wpli` and `imaginary_coherency` raise `ValueError` for
   traces of unequal length. Both took `n = min(len(x), len(y))` and silently discarded the
   tail of the longer trace, so the two signals no longer described the same interval and
@@ -182,6 +197,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The harness test for hardcoded symbol counts had matched nothing since it was written: the
   `\b` word boundaries in its pattern were stored as backspace characters. Two docstrings in
   `jnwb/rsa.py` had the same corruption (`\rho`, `\tau`, `\frac`).
+- **INTENTIONAL BREAK (0.2.4): undefined results no longer come back as numbers.**
+  - `spectral_tilt`, `harmonic_analysis` and `band_power` raise `ValueError` for empty, NaN or
+    Inf input; they returned 0.0 or NaN powers. A trace with no positive power in range gives
+    NaN `exponent`, `offset` and `fit_quality`, and NaN `fundamental_freq` and `harmonic_ratio`,
+    instead of 0.0; a constant trace had reported a fundamental at the first bin. All three
+    resolve `device` through `_backend`, reject unrecognised names and warn on fallback.
+  - `band_power` raises when the baseline has no power in `freq_range`; it returned the linear
+    power in place of a dB value. The baseline gets its own Welch grid; a baseline shorter
+    than 4096 samples and of a different length from the trace raised `IndexError`.
+  - `harmonic_ratio` is P(fundamental) / (P(fundamental) + sum of P(orders 2..N)). Order 1 is
+    the fundamental itself and was summed into the harmonics, capping the ratio at 0.5.
+  - `laplacian_reference` raises for a single channel, which returned zeros.
+  - `rate_in_window` and `fires_in_window` raise for a window of non-positive width (0 Hz and
+    `False`), non-finite bounds or spike times, and unsorted spike times, which were miscounted.
+  - `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired` raise for NaN or Inf values, which gave
+    the minimum p-value 1/(n_shuffles+1), and for `n_shuffles` < 1. The paired test raises for
+    unequal lengths instead of truncating to the shorter. Fewer than two observations return
+    `(nan, nan)` instead of `(0.0, 1.0)`.
+  - `raster_psth` returns NaN mean and SEM for zero onsets (zeros) and validates `win_ms` and
+    `bin_ms`.
+  - `network_topology` raises for a non-square matrix or a NaN or Inf off-diagonal entry, which
+    counted as no edge.
+  - `xflip` rejects input containing a zero-variance channel and reports its correlations as NaN.
+    They were set to 0, which the partition search reads as a block boundary.
+- **Results depended on the amplitude units of the input** (absolute `1e-12` offsets and cutoffs).
+  - `jrsa` with `metric` `cka`, `rv`, `distance_correlation` or `cosine`: CKA of the same data was
+    0.72, 0.08 at `1e-3` scale and 1e-13 at `1e-6`. These metrics are now scale invariant and
+    NaN for a constant or zero input (previously 0.0). `standardize` and `normalize`
+    preprocessing no longer add an offset.
+  - `vflip` and `vflip_from_lfp`: a motif accepted at unit scale was rejected at `1e-6`, the scale
+    of LFP in volts. The PSD is rescaled to its maximum before the per-frequency
+    standardization floor. Regenerating `artifacts/benchmarks/vflip_calibration_0.2.4.md`
+    reproduced every calibration outcome exactly; only the estimator hash changed.
+  - `detect_band_outliers`, and so `repair_band_artifacts`, flagged nothing at `1e-12` power scale;
+    the degenerate-scale test is now relative to the data, and non-2-D or non-finite input
+    raises. The robust z-scores of `bad_trials_single_channel` and
+    `bad_channels_from_correlation` use the same relative test.
+- **`jrsa` on CUDA did not match the CPU.** `pearson` returned 0.0 for a constant vector (CPU: NaN)
+  and -0.007 for a true -0.27 at `1e-7` scale; `spearman` broke ties by position (-0.072 against
+  -0.088 on tied data). The GPU paths now compute the CPU definitions.
 
 ## [0.1.8] - 2026-09-11
 

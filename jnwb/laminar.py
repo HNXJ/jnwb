@@ -287,6 +287,14 @@ def vflip(
         for f_idx in range(n_freqs):
             clean_psd[:, f_idx] = np.interp(np.arange(n_channels), valid_idx, clean_psd[valid_idx, f_idx])
 
+    # Express the PSD relative to its largest value first. Z-scoring is unchanged by that
+    # rescaling except where the std floor below applies; with the floor applied to the raw PSD
+    # the result depended on amplitude units (a motif accepted at unit scale was rejected when
+    # the same LFP was expressed in volts).
+    psd_scale = float(np.max(np.abs(clean_psd)))
+    if psd_scale > 0:
+        clean_psd = clean_psd / psd_scale
+
     # Z-score normalize per frequency across contacts
     col_means = np.mean(clean_psd, axis=0)
     col_stds = np.std(clean_psd, axis=0)
@@ -480,6 +488,9 @@ def vflip_from_lfp(
         min_support_score: Minimum support score Omega required to accept the fit (default: 6.0).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
+            A channel with any NaN or Inf sample is also treated as bad: it is excluded,
+            interpolated along depth like a masked contact, and counted in
+            ``VFlipResult.n_missing``.
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
         min_peak_distance: Minimum channel distance required between low and high power peaks (default: 2).
         device: Hardware device (`"cpu"` or `"cuda"`).
@@ -1140,8 +1151,32 @@ def xflip(
         n_channels, n_samples = raw_data.shape
         if n_samples <= 1:
             raise ValueError(f"Raw time-series must have at least 2 samples, got {n_samples}")
-        corr = _compute_correlation_matrix(raw_data, method)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            corr = _compute_correlation_matrix(raw_data, method)
         resolved_method = method
+        flat = np.flatnonzero(np.ptp(raw_data, axis=1) == 0)
+        if flat.size > 0:
+            # A zero-variance channel has no correlation with any other. Its entries were set to
+            # 0, "uncorrelated", which the partition search reads as a block boundary.
+            corr = corr.copy()
+            corr[flat, :] = np.nan
+            corr[:, flat] = np.nan
+            return XFlipResult(
+                corr_matrix=corr,
+                block_bounds=((0, n_channels),),
+                boundaries=(),
+                labels=np.zeros(n_channels, dtype=int),
+                modularity=np.nan,
+                p_values={"omnibus": np.nan},
+                accepted=False,
+                rejection_reason=(
+                    f"Zero-variance channel(s) {flat.tolist()} have undefined correlation; "
+                    "mask or remove them before partitioning."
+                ),
+                method=resolved_method,
+                n_channels=n_channels,
+                n_blocks=1,
+            )
     else:
         raw_data = None
         corr = np.clip(arr.copy(), -1.0, 1.0)
