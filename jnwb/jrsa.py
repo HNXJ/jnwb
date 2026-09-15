@@ -675,11 +675,13 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
         if standardize:
             mu = xp.nanmean(arr, axis=-1, keepdims=True)
             sd = xp.nanstd(arr, axis=-1, keepdims=True)
-            arr = (arr - mu) / (sd + 1e-12)
+            # A constant row stays 0 after centring; the 1e-12 offset this replaces biased
+            # the scale of small-amplitude rows.
+            arr = (arr - mu) / xp.where(sd > 0, sd, 1.0)
         if normalize:
             lo = xp.nanmin(arr, axis=-1, keepdims=True)
             hi = xp.nanmax(arr, axis=-1, keepdims=True)
-            arr = (arr - lo) / (hi - lo + 1e-12)
+            arr = (arr - lo) / xp.where(hi > lo, hi - lo, 1.0)
         return arr
     return _prep(x1), _prep(x2)
 
@@ -1049,10 +1051,12 @@ def _pearson(x1, x2, axis=-1, **kwargs):
             b_mean = cp.mean(b)
             a_std = cp.std(a)
             b_std = cp.std(b)
-            if a_std < 1e-12 or b_std < 1e-12:
-                r = cp.array(0.0)
+            # NaN for a constant vector, as on the CPU path. The absolute cutoff and offset this
+            # replaces reported 0.0 there and shrank r at small amplitude (-0.007 for -0.27).
+            if float(a_std) == 0.0 or float(b_std) == 0.0:
+                r = cp.array(cp.nan)
             else:
-                r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std + 1e-12)
+                r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std)
             df = n - 2
             t = r * cp.sqrt(df) / cp.sqrt(1 - r ** 2 + 1e-12)
             
@@ -1095,18 +1099,21 @@ def _spearman(x1, x2, axis=-1, **kwargs):
                 raise ValueError(
                     f"_spearman: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
                 )
-            # Rank transform
-            a_rank = cp.argsort(cp.argsort(a)).astype(cp.float64)
-            b_rank = cp.argsort(cp.argsort(b)).astype(cp.float64)
+            # Average ranks for ties, as scipy.stats.spearmanr does on the CPU path. The double
+            # argsort this replaces broke ties by position, so tied data gave a different rho on
+            # the GPU and a constant vector got distinct ranks instead of an undefined result.
+            from scipy.stats import rankdata
+            a_rank = cp.asarray(rankdata(cp.asnumpy(a)))
+            b_rank = cp.asarray(rankdata(cp.asnumpy(b)))
             n = len(a)
             a_mean = cp.mean(a_rank)
             b_mean = cp.mean(b_rank)
             a_std = cp.std(a_rank)
             b_std = cp.std(b_rank)
-            if a_std < 1e-12 or b_std < 1e-12:
-                rho = cp.array(0.0)
+            if float(a_std) == 0.0 or float(b_std) == 0.0:
+                rho = cp.array(cp.nan)
             else:
-                rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std + 1e-12)
+                rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std)
             df = n - 2
             t = rho * cp.sqrt(df) / cp.sqrt(1 - rho ** 2 + 1e-12)
             
@@ -1161,7 +1168,8 @@ def _cosine(x1, x2, axis=-1, **kwargs):
                 raise ValueError(
                     f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
                 )
-            sim = cp.dot(a, b) / (cp.linalg.norm(a) * cp.linalg.norm(b) + 1e-12)
+            na, nb = float(cp.linalg.norm(a)), float(cp.linalg.norm(b))
+            sim = cp.dot(a / na, b / nb) if na > 0 and nb > 0 else cp.array(cp.nan)
             return sim, sim, cp.abs(sim), None, None
     except ImportError:
         pass
@@ -1173,7 +1181,10 @@ def _cosine(x1, x2, axis=-1, **kwargs):
         raise ValueError(
             f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
         )
-    sim = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12)
+    # Undefined (NaN) for a zero vector. The 1e-12 offset this replaces reported 0.0 there
+    # and biased small-amplitude inputs.
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    sim = np.dot(a / na, b / nb) if na > 0 and nb > 0 else np.nan
     return np.float64(sim), np.float64(sim), np.float64(abs(sim)), None, None
 
 
@@ -1214,6 +1225,15 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     Y_c = Y - np.mean(Y, axis=0, keepdims=True)
     
     # Calculate trace of Kx_c @ Ky_c which is ||X_c.T @ Y_c||_F^2
+    # CKA is invariant to scaling either input, so normalise first. The ratio used to carry a
+    # 1e-12 offset under a quantity that scales as amplitude^8, which drove CKA toward 0 for
+    # small-amplitude inputs (0.72 -> 0.08 at 1e-3 scale) and reported 0.0 for a constant one.
+    nx, ny = np.linalg.norm(X_c), np.linalg.norm(Y_c)
+    if nx == 0 or ny == 0:
+        nan = np.float64(np.nan)
+        return nan, nan, nan, None, None
+    X_c = X_c / nx
+    Y_c = Y_c / ny
     cross = X_c.T @ Y_c
     num = np.sum(cross ** 2)
     
@@ -1221,7 +1241,7 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     denom_x = np.sum((X_c.T @ X_c) ** 2)
     denom_y = np.sum((Y_c.T @ Y_c) ** 2)
     
-    cka_val = num / np.sqrt(denom_x * denom_y + 1e-12)
+    cka_val = num / np.sqrt(denom_x * denom_y)
     return np.float64(cka_val), np.float64(cka_val), np.float64(cka_val), None, None
 
 
@@ -1236,6 +1256,13 @@ def _rv(x1, x2, axis=-1, **kwargs):
     # Standard formula uses full gram matrices: S_xx = X @ X.T (m x m)
     # trace(S_xy @ S_xy.T) = trace(X @ Y.T @ Y @ X.T) = trace(X.T @ X @ Y.T @ Y)
     # = Frobenius norm of (X.T @ Y) squared. This drops calculation from O(m^3) to O(m * d1 * d2 + d1^3).
+    # RV is invariant to scaling either input; normalise first (see _cka).
+    nx, ny = np.linalg.norm(X), np.linalg.norm(Y)
+    if nx == 0 or ny == 0:
+        nan = np.float64(np.nan)
+        return nan, nan, nan, None, None
+    X = X / nx
+    Y = Y / ny
     C_xy = X.T @ Y
     num = np.sum(C_xy ** 2)
     
@@ -1244,7 +1271,7 @@ def _rv(x1, x2, axis=-1, **kwargs):
     denom_x = np.sum(C_xx ** 2)
     denom_y = np.sum(C_yy ** 2)
     
-    rv = num / np.sqrt(denom_x * denom_y + 1e-12)
+    rv = num / np.sqrt(denom_x * denom_y)
     return np.float64(rv), np.float64(rv), np.float64(rv), None, None
 
 
@@ -1302,7 +1329,9 @@ def _distance_correlation(x1, x2, axis=-1, **kwargs):
     dcov_xy = _dcov(dA, dB)
     dcov_xx = _dcov(dA, dA)
     dcov_yy = _dcov(dB, dB)
-    dc = dcov_xy / np.sqrt(dcov_xx * dcov_yy + 1e-12)
+    # Undefined (NaN) when every row of an input is identical. The 1e-12 offset this replaces
+    # reported 0.0 there and biased small-amplitude inputs.
+    dc = dcov_xy / np.sqrt(dcov_xx * dcov_yy) if dcov_xx > 0 and dcov_yy > 0 else np.nan
     return np.float64(dc), np.float64(dc), np.float64(dc), None, None
 
 

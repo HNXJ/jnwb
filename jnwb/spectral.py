@@ -65,6 +65,22 @@ def _require_band_bins(
         )
 
 
+def _require_finite_nonempty_trace(x: np.ndarray, func_name: str, name: str = "lfp_trace") -> np.ndarray:
+    """Return ``x`` as a float array, rejecting empty or non-finite input.
+
+    Empty input used to return zeros, and a NaN sample gave zeros or NaN powers. A returned
+    0 is indistinguishable from a measured absence of power or slope.
+    """
+    arr = np.asarray(x, dtype=float)
+    if arr.size == 0:
+        raise ValueError(f"{func_name}: {name} is empty; there is nothing to estimate.")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(
+            f"{func_name}: {name} must be finite; remove or repair NaN or Inf samples first."
+        )
+    return arr
+
+
 #: Imaginary cross-spectral terms below this fraction of their cross-spectral magnitude are
 #: treated as exactly zero-lag (a phase within 1e-10 rad of 0 or pi). The cutoff is
 #: relative so wPLI does not depend on the units of the input: the absolute 1e-12 it
@@ -337,7 +353,15 @@ def harmonic_analysis(
         - harmonics: {order: (freq, power)} for orders 1-N
         - spectral_profile: Full power spectrum
         - frequencies: Frequency bins for spectrum
-        - harmonic_ratio: Power ratio (fundamental / sum of harmonics)
+        - harmonic_ratio: P(fundamental) / (P(fundamental) + sum of P(orders 2..N)); 1.0
+          when no higher order falls inside ``freq_range``
+
+        ``fundamental_freq`` and ``harmonic_ratio`` are NaN, and ``harmonics`` is empty, when
+        no bin in ``freq_range`` has positive power (a constant trace).
+
+    Raises:
+        ValueError: If ``lfp_trace`` is empty or non-finite, ``freq_range`` contains no bin
+            of the Welch grid, or ``device`` is not a recognised device name.
 
     Example:
         >>> analysis = harmonic_analysis(lfp_data, fs=1000.0)
@@ -348,23 +372,22 @@ def harmonic_analysis(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
+    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "harmonic_analysis")
     result = {
-        'fundamental_freq': 0.0,
+        'fundamental_freq': float('nan'),
         'harmonics': {},
         'spectral_profile': np.array([]),
         'frequencies': np.array([]),
-        'harmonic_ratio': 0.0,
+        'harmonic_ratio': float('nan'),
     }
 
-    if len(lfp_trace) == 0:
-        return result
-
     # Compute power spectrum
-    if device == 'cuda':
+    device = resolve_device(device, context="harmonic_analysis", prefer="cupy", stacklevel=3)
+    if device == CUDA:
         try:
             frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
         except Exception as e:
-            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            warn_device_fallback("harmonic_analysis", e, stacklevel=3)
             frequencies, pxx = signal.welch(
                 lfp_trace,
                 fs=fs,
@@ -389,7 +412,10 @@ def harmonic_analysis(
     freqs_range = frequencies[mask]
     pxx_range = pxx[mask]
 
-    if len(pxx_range) == 0:
+    _require_band_bins(frequencies, mask, freq_range, "harmonic_analysis")
+    if not np.any(pxx_range > 0):
+        # No power in range, so no dominant frequency. This reported the first bin as the
+        # fundamental with zero power.
         return result
 
     # Find fundamental (peak in range)
@@ -414,14 +440,15 @@ def harmonic_analysis(
                 result['harmonics'][order] = {
                     'freq': float(harmonic_freqs[harmonic_idx]),
                     'power': float(harmonic_power),
-                    'relative_power': float(harmonic_power / fundamental_power) if fundamental_power > 0 else 0.0
+                    'relative_power': float(harmonic_power / fundamental_power) if fundamental_power > 0 else float('nan')
                 }
 
-    # Harmonic ratio (fundamental vs. harmonics)
-    if len(result['harmonics']) > 0:
-        total_harmonic_power = sum(h['power'] for h in result['harmonics'].values() if 'power' in h)
-        if total_harmonic_power > 0:
-            result['harmonic_ratio'] = float(fundamental_power / (fundamental_power + total_harmonic_power))
+    # Harmonic ratio (fundamental vs. higher harmonics). Order 1 is the fundamental itself;
+    # summing it into the harmonics counted the fundamental twice and capped the ratio at 0.5.
+    higher_harmonic_power = sum(
+        h['power'] for order, h in result['harmonics'].items() if order >= 2
+    )
+    result['harmonic_ratio'] = float(fundamental_power / (fundamental_power + higher_harmonic_power))
 
     return result
 
@@ -760,6 +787,14 @@ def spectral_tilt(
         - offset: power at 1 Hz (10^intercept)
         - fit_quality: R-squared of the linear fit
 
+        All three are NaN when fewer than two bins in ``freq_range`` have positive power (a
+        constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
+        power.
+
+    Raises:
+        ValueError: If ``lfp_trace`` is empty or contains NaN or Inf, or ``device`` is not a
+            recognised device name.
+
     Example:
         >>> tilt = spectral_tilt(lfp_data, fs=1000.0, freq_range=(1.0, 100.0))
         >>> print(f"Spectral exponent: {tilt['exponent']:.2f}")
@@ -769,14 +804,14 @@ def spectral_tilt(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
+    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "spectral_tilt")
+    # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
+    # a measured flat spectrum.
     result = {
-        'exponent': 0.0,
-        'offset': 0.0,
-        'fit_quality': 0.0,
+        'exponent': float('nan'),
+        'offset': float('nan'),
+        'fit_quality': float('nan'),
     }
-
-    if len(lfp_trace) == 0:
-        return result
 
     # Compute power spectrum
     resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)
@@ -828,7 +863,7 @@ def spectral_tilt(
     fitted = np.polyval(coeffs, log_freqs)
     ss_res = np.sum((log_power - fitted) ** 2)
     ss_tot = np.sum((log_power - np.mean(log_power)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else float('nan')
     result['fit_quality'] = float(r_squared)
 
     return result
@@ -1237,6 +1272,11 @@ def band_power(
     Returns:
         Power in band (units depend on normalize flag)
 
+    Raises:
+        ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or
+            non-finite, ``freq_range`` contains no Welch bin, the baseline has no power in
+            ``freq_range``, or ``device`` is not a recognised device name.
+
     Example:
         >>> theta_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8), normalize=False)
         >>> baseline_power = band_power(baseline_lfp, fs=1000.0, freq_range=(4, 8), normalize=False)
@@ -1247,26 +1287,26 @@ def band_power(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
-    if len(lfp_trace) == 0:
-        return 0.0
-
-    # Compute power spectrum
-    if device == 'cuda':
-        try:
-            frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
-        except Exception as e:
-            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
-            frequencies, pxx = signal.welch(
-                lfp_trace,
-                fs=fs,
-                nperseg=min(len(lfp_trace), 4096)
+    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "band_power")
+    if normalize:
+        if baseline is None or np.size(baseline) == 0:
+            raise ValueError(
+                "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
             )
-    else:
-        frequencies, pxx = signal.welch(
-            lfp_trace,
-            fs=fs,
-            nperseg=min(len(lfp_trace), 4096)
-        )
+        baseline = _require_finite_nonempty_trace(baseline, "band_power", name="baseline")
+    device = resolve_device(device, context="band_power", prefer="cupy", stacklevel=3)
+
+    def _welch(trace):
+        nperseg = min(len(trace), 4096)
+        if device == CUDA:
+            try:
+                freqs, pxx, _, _ = _welch_csd_gpu(trace, trace, fs, nperseg)
+                return freqs, pxx
+            except Exception as e:
+                warn_device_fallback("band_power", e, stacklevel=4)
+        return signal.welch(trace, fs=fs, nperseg=nperseg)
+
+    frequencies, pxx = _welch(lfp_trace)
 
     # Extract band
     mask = (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
@@ -1277,33 +1317,23 @@ def band_power(
         )
     band_power_val = float(np.mean(pxx[mask]))
 
-    if normalize and (baseline is None or len(baseline) == 0):
-        raise ValueError(
-            "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
-        )
-
-    # Normalize to baseline if provided
-    if normalize and baseline is not None and len(baseline) > 0:
-        if device == 'cuda':
-            try:
-                _, baseline_pxx, _, _ = _welch_csd_gpu(baseline, baseline, fs, min(len(baseline), 4096))
-            except Exception as e:
-                log.warning(f"GPU baseline welch failed: {e}. Falling back to CPU.")
-                _, baseline_pxx = signal.welch(
-                    baseline,
-                    fs=fs,
-                    nperseg=min(len(baseline), 4096)
-                )
-        else:
-            _, baseline_pxx = signal.welch(
-                baseline,
-                fs=fs,
-                nperseg=min(len(baseline), 4096)
+    if normalize:
+        # The baseline has its own Welch grid when its length differs from the trace's; the
+        # trace's mask applied to it raised IndexError.
+        baseline_freqs, baseline_pxx = _welch(baseline)
+        baseline_mask = (baseline_freqs >= freq_range[0]) & (baseline_freqs <= freq_range[1])
+        if not np.any(baseline_mask):
+            raise ValueError(
+                f"band_power found no Welch bins of the baseline in freq_range={freq_range}; "
+                f"baseline grid spans [{baseline_freqs[0]:.4g}, {baseline_freqs[-1]:.4g}] Hz"
             )
-        baseline_power_val = np.mean(baseline_pxx[mask]) if np.any(mask) else 1.0
-
-        if baseline_power_val > 0:
-            band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
+        baseline_power_val = float(np.mean(baseline_pxx[baseline_mask]))
+        if not baseline_power_val > 0:
+            # This returned the linear power, not a dB value, with no indication.
+            raise ValueError(
+                "band_power: the baseline has no power in freq_range, so the dB ratio is undefined"
+            )
+        band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
 
     return float(band_power_val)
 
@@ -1576,6 +1606,9 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     Returns:
         (n_channels, n_samples) Laplacian-referenced array, same channel count
         as input (unlike ``bipolar_reference``, which drops one channel).
+
+    Raises:
+        ValueError: If ``channel_data`` is not 2-D or has fewer than 2 channels.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
@@ -1583,6 +1616,9 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
     ordered = channel_data[order]
     n_ch = ordered.shape[0]
+    if n_ch < 2:
+        # A single contact has no neighbour; this returned the channel minus itself (zeros).
+        raise ValueError(f"laplacian_reference needs at least 2 channels, got {n_ch}")
     out = np.empty_like(ordered)
     for i in range(n_ch):
         if i == 0:

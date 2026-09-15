@@ -105,9 +105,15 @@ def _sine(freq_hz, sampling_rate=1000.0, duration_s=2.0, amplitude=1.0, phase=0.
 
 
 class TestHarmonicAnalysis:
-    def test_empty_input_returns_zeroed_result(self):
-        result = harmonic_analysis(np.array([]), sampling_rate=1000.0)
-        assert result["fundamental_freq"] == 0.0
+    def test_empty_input_is_rejected(self):
+        """INTENTIONAL BREAK (0.2.4): returned fundamental_freq 0.0, a valid-looking frequency."""
+        with pytest.raises(ValueError, match="empty"):
+            harmonic_analysis(np.array([]), sampling_rate=1000.0)
+
+    def test_constant_trace_has_no_fundamental(self):
+        result = harmonic_analysis(np.full(4000, 3.0), sampling_rate=1000.0)
+        assert np.isnan(result["fundamental_freq"])
+        assert np.isnan(result["harmonic_ratio"])
         assert result["harmonics"] == {}
 
     def test_finds_fundamental_frequency_of_pure_tone(self):
@@ -157,9 +163,9 @@ class TestCrossAreaCoherence:
 
 
 class TestSpectralTilt:
-    def test_empty_input_returns_zeroed_result(self):
-        result = spectral_tilt(np.array([]), sampling_rate=1000.0)
-        assert result["exponent"] == 0.0
+    def test_empty_input_is_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            spectral_tilt(np.array([]), sampling_rate=1000.0)
 
     def test_pink_noise_has_negative_exponent(self):
         rng = np.random.default_rng(0)
@@ -170,30 +176,33 @@ class TestSpectralTilt:
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
         assert result["exponent"] < 0
 
-    def test_flat_zero_signal_returns_clean_finite_result_without_warning(self):
-        # Degenerate input: all-zero LFP trace must not throw RuntimeWarning or return NaNs
+    def test_flat_zero_signal_has_undefined_tilt_without_warning(self):
+        """INTENTIONAL BREAK (0.2.4).
+
+        An all-zero trace reported exponent, offset and fit quality of 0.0, which reads as a
+        measured flat spectrum. It has no positive power to fit, so all three are NaN.
+        """
         import warnings
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             result = spectral_tilt(np.zeros(1000), sampling_rate=1000.0)
             assert len(record) == 0, f"Expected zero warnings, got: {[r.message for r in record]}"
-        assert result["exponent"] == 0.0
-        assert result["offset"] == 0.0
-        assert result["fit_quality"] == 0.0
-        assert np.isfinite(result["exponent"])
-        assert np.isfinite(result["offset"])
-        assert np.isfinite(result["fit_quality"])
+        assert np.isnan(result["exponent"])
+        assert np.isnan(result["offset"])
+        assert np.isnan(result["fit_quality"])
 
-    def test_constant_signal_returns_clean_finite_result(self):
+    def test_constant_signal_has_undefined_tilt(self):
         result = spectral_tilt(np.full(1000, 5.0), sampling_rate=1000.0)
-        assert result["exponent"] == 0.0
-        assert result["offset"] == 0.0
-        assert result["fit_quality"] == 0.0
+        assert np.isnan(result["exponent"])
+        assert np.isnan(result["offset"])
+        assert np.isnan(result["fit_quality"])
 
 
 class TestBandPower:
-    def test_empty_input_returns_zero(self):
-        assert band_power(np.array([]), sampling_rate=1000.0, freq_range=(4, 8)) == 0.0
+    def test_empty_input_is_rejected(self):
+        """INTENTIONAL BREAK (0.2.4): returned 0.0, a measured absence of power."""
+        with pytest.raises(ValueError, match="empty"):
+            band_power(np.array([]), sampling_rate=1000.0, freq_range=(4, 8), normalize=False)
 
     def test_tone_in_band_has_higher_power_than_out_of_band(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0, amplitude=5.0)

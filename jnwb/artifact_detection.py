@@ -41,7 +41,9 @@ def _robust_z(x: np.ndarray) -> np.ndarray:
         return np.full_like(x, np.nan)
     center = np.median(x[valid])
     mad = np.median(np.abs(x[valid] - center)) * MAD_SCALE
-    if mad < 1e-12:
+    # Degenerate only relative to the data: an absolute 1e-12 cutoff set every z to 0 for
+    # small-amplitude quantities such as per-trial peak amplitude in volts.
+    if mad <= np.finfo(float).eps * np.max(np.abs(x[valid])):
         res = np.zeros_like(x)
         res[~valid] = np.nan
         return res

@@ -55,9 +55,11 @@ class TestFiresInWindow:
         spikes = np.array([5.0])
         assert fires_in_window(spikes, onset_s=1.0, window_ms=(0.0, 100.0)) is False
 
-    def test_empty_or_reversed_window_returns_false(self):
+    def test_reversed_window_is_rejected(self):
+        """INTENTIONAL BREAK (0.2.4): returned False, "did not fire", for an empty window."""
         spikes = np.array([1.0])
-        assert fires_in_window(spikes, onset_s=1.0, window_ms=(100.0, 0.0)) is False
+        with pytest.raises(ValueError, match="non-positive width"):
+            fires_in_window(spikes, onset_s=1.0, window_ms=(100.0, 0.0))
 
     def test_exact_boundary_conditions_right_open(self):
         # Window: [1.0, 1.1) in seconds
@@ -102,10 +104,16 @@ class TestRateInWindow:
         assert rate_w2 == pytest.approx(20.0)
         assert rate_total == pytest.approx(15.0)
 
-    def test_empty_or_reversed_window_returns_zero(self):
-        spikes = np.array([1.05])
-        assert rate_in_window(spikes, onset_s=1.0, window_ms=(100.0, 0.0)) == 0.0
+    def test_no_spikes_is_a_zero_rate(self):
         assert rate_in_window(np.array([]), onset_s=1.0, window_ms=(0.0, 100.0)) == 0.0
+
+    def test_reversed_or_empty_window_is_rejected(self):
+        """INTENTIONAL BREAK (0.2.4): returned 0.0 Hz, a silent unit, for an undefined rate."""
+        spikes = np.array([1.05])
+        with pytest.raises(ValueError, match="non-positive width"):
+            rate_in_window(spikes, onset_s=1.0, window_ms=(100.0, 0.0))
+        with pytest.raises(ValueError, match="non-positive width"):
+            rate_in_window(spikes, onset_s=1.0, window_ms=(50.0, 50.0))
 
 
 class TestFireIndicator:
@@ -155,10 +163,10 @@ class TestPairedFireProbTest:
 
 
 class TestShufflePvaluePaired:
-    def test_too_few_trials_returns_zero_and_p_one(self):
+    def test_too_few_trials_is_undefined(self):
+        """INTENTIONAL BREAK (0.2.4): returned (0.0, 1.0), which reads as a measured null result."""
         obs, p = shuffle_pvalue_paired(np.array([1.0]), np.array([2.0]), n_shuffles=10, rng=np.random.default_rng(0))
-        assert obs == 0.0
-        assert p == 1.0
+        assert np.isnan(obs) and np.isnan(p)
 
     def test_strong_paired_difference_is_significant_greater(self):
         rng = np.random.default_rng(0)
@@ -176,10 +184,10 @@ class TestShufflePvaluePaired:
 
 
 class TestShufflePvalueUnpaired:
-    def test_too_few_trials_returns_zero_and_p_one(self):
+    def test_too_few_trials_is_undefined(self):
+        """INTENTIONAL BREAK (0.2.4): returned (0.0, 1.0), which reads as a measured null result."""
         obs, p = shuffle_pvalue_unpaired(np.array([1.0]), np.array([2.0]), n_shuffles=10, rng=np.random.default_rng(0))
-        assert obs == 0.0
-        assert p == 1.0
+        assert np.isnan(obs) and np.isnan(p)
 
     def test_strong_group_difference_is_significant(self):
         rng = np.random.default_rng(0)

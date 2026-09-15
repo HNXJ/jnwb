@@ -221,7 +221,10 @@ def detect_band_outliers(band_trace, z_thresh=TFR_Z_THRESH, sided="upper"):
 
     Returns:
         (flagged, scale) -- a bool (n_trials, n_times) mask and the pooled robust scale. A
-        scale of 0.0 means the trend was matched exactly and nothing is flagged.
+        scale of 0.0 means the trend was matched to round-off and nothing is flagged.
+
+    Raises:
+        ValueError: If ``band_trace`` is not 2-D or contains NaN or Inf.
 
     Warning:
         ``sided="both"`` is not the conservative choice. When the response under study is a
@@ -232,10 +235,17 @@ def detect_band_outliers(band_trace, z_thresh=TFR_Z_THRESH, sided="upper"):
     if sided not in DETECTION_TAILS:
         raise ValueError(f"sided must be one of {list(DETECTION_TAILS)}; got {sided!r}")
     band_trace = np.asarray(band_trace, dtype=float)
+    if band_trace.ndim != 2:
+        raise ValueError(f"band_trace must be 2-D (n_trials, n_times), got shape {band_trace.shape}")
+    if not np.all(np.isfinite(band_trace)):
+        # A NaN made the pooled scale NaN, so nothing anywhere could be flagged.
+        raise ValueError("band_trace contains NaN or Inf; repair or drop those cells first")
     trend = np.median(band_trace, axis=0)
     resid = band_trace - trend[None, :]
     scale = np.median(np.abs(resid))
-    if scale < 1e-12:
+    # Degenerate only when the residual scale is round-off relative to the data. The absolute
+    # 1e-12 cutoff this replaces flagged nothing in power expressed at small amplitude.
+    if scale <= np.finfo(float).eps * np.max(np.abs(band_trace)):
         return np.zeros(band_trace.shape, dtype=bool), 0.0
     z = resid / (1.4826 * scale)
     flagged = np.abs(z) > z_thresh if sided == "both" else z > z_thresh

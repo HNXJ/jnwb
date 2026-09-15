@@ -481,7 +481,24 @@ def network_topology(
 ) -> Dict[str, Union[float, int, List[int]]]:
     """
     Compute network graph metrics from a correlation or Granger causality matrix.
+
+    The diagonal is ignored.
+
+    Raises:
+        ValueError: If ``adjacency_matrix`` is not square 2-D, an off-diagonal entry is NaN or
+            Inf, or ``threshold`` is not finite. A NaN entry counted as "no edge", and a
+            non-square matrix returned in- and out-degree lists of different lengths.
     """
+    adjacency_matrix = np.asarray(adjacency_matrix, dtype=float)
+    if adjacency_matrix.ndim != 2 or adjacency_matrix.shape[0] != adjacency_matrix.shape[1]:
+        raise ValueError(
+            f"network_topology: adjacency_matrix must be square 2-D, got shape {adjacency_matrix.shape}"
+        )
+    off_diagonal = ~np.eye(adjacency_matrix.shape[0], dtype=bool)
+    if not np.all(np.isfinite(adjacency_matrix[off_diagonal])):
+        raise ValueError("network_topology: adjacency_matrix has NaN or Inf off the diagonal")
+    if not np.isfinite(threshold):
+        raise ValueError(f"network_topology: threshold must be finite, got {threshold}")
     adj = np.abs(adjacency_matrix) > threshold
     np.fill_diagonal(adj, False)
 

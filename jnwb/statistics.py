@@ -247,15 +247,35 @@ def fdr_correct(
     return StatisticalAnalysis.fdr_correct(p_values, method=method)
 
 
+def _spike_window_bounds(spike_times, onset_s, window_ms, func_name):
+    """Validate a spike-window query; return ``(spike_times, t0, t1)`` with bounds in seconds.
+
+    A reversed or zero-width window returned 0 Hz or "did not fire", indistinguishable from a
+    measurement, and ``searchsorted`` silently miscounted unsorted spike times.
+    """
+    if not (np.isfinite(onset_s) and np.all(np.isfinite(window_ms))):
+        raise ValueError(f"{func_name}: onset_s={onset_s} and window_ms={window_ms} must be finite")
+    if window_ms[1] <= window_ms[0]:
+        raise ValueError(f"{func_name}: window_ms={tuple(window_ms)} has non-positive width")
+    spike_times = np.asarray(spike_times, dtype=float)
+    if not np.all(np.isfinite(spike_times)):
+        raise ValueError(f"{func_name}: spike_times must be finite")
+    if spike_times.size > 1 and np.any(np.diff(spike_times) < 0):
+        raise ValueError(f"{func_name}: spike_times must be sorted ascending")
+    return spike_times, onset_s + window_ms[0] / 1000.0, onset_s + window_ms[1] / 1000.0
+
+
 def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
     """True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).
 
     Pure spike-array/searchsorted arithmetic on an arbitrary onset and window.
+    ``spike_times`` must be sorted ascending.
+
+    Raises:
+        ValueError: If the window has non-positive width (this returned False), a bound or
+            spike time is not finite, or ``spike_times`` is not sorted.
     """
-    t0 = onset_s + window_ms[0] / 1000.0
-    t1 = onset_s + window_ms[1] / 1000.0
-    if t1 <= t0:
-        return False
+    spike_times, t0, t1 = _spike_window_bounds(spike_times, onset_s, window_ms, "fires_in_window")
     n = int(np.searchsorted(spike_times, t1, side="left") - np.searchsorted(spike_times, t0, side="left"))
     return n > 0
 
@@ -357,13 +377,28 @@ def rate_in_window(spike_times: np.ndarray, onset_s: float, window_ms: Tuple[flo
     """Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.
 
     Rate-valued sibling of ``fires_in_window`` (spike count divided by window width).
+    ``spike_times`` must be sorted ascending.
+
+    Raises:
+        ValueError: If the window has non-positive width, ``onset_s``, the window or a spike
+            time is not finite, or ``spike_times`` is not sorted. The first two returned 0.0 Hz,
+            indistinguishable from a silent unit; unsorted spike times were miscounted.
     """
-    t0 = onset_s + window_ms[0] / 1000.0
-    t1 = onset_s + window_ms[1] / 1000.0
-    if t1 <= t0:
-        return 0.0
+    spike_times, t0, t1 = _spike_window_bounds(spike_times, onset_s, window_ms, "rate_in_window")
     n = int(np.searchsorted(spike_times, t1, side="left") - np.searchsorted(spike_times, t0, side="left"))
     return n / ((window_ms[1] - window_ms[0]) / 1000.0)
+
+
+def _require_shuffle_inputs(a: np.ndarray, b: np.ndarray, n_shuffles: int, func_name: str) -> None:
+    """Reject inputs for which a shuffle p-value would be fabricated.
+
+    A NaN made the observed statistic NaN and every null comparison False, so the p-value was
+    its minimum, 1/(n_shuffles+1): "significant" for any n_shuffles >= 20.
+    """
+    if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+        raise ValueError(f"{func_name}: a and b must be finite; drop or repair NaN or Inf values first")
+    if isinstance(n_shuffles, bool) or not isinstance(n_shuffles, (int, np.integer)) or n_shuffles < 1:
+        raise ValueError(f"{func_name}: n_shuffles must be a positive integer, got {n_shuffles!r}")
 
 
 def shuffle_pvalue_paired(
@@ -376,12 +411,24 @@ def shuffle_pvalue_paired(
     """Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.
 
     Null: randomly flip the sign of each paired difference (equivalent to swapping a/b labels
-    within trial). Returns (observed_diff, p_value).
+    within trial). Returns (observed_diff, p_value), or ``(nan, nan)`` for fewer than two
+    pairs, where no null distribution exists.
+
+    Raises:
+        ValueError: If ``a`` and ``b`` differ in length (they were truncated to the shorter,
+            pairing unrelated trials), contain NaN or Inf, or ``n_shuffles`` < 1.
     """
-    n = min(len(a), len(b))
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    if len(a) != len(b):
+        raise ValueError(
+            f"shuffle_pvalue_paired: a and b must be paired (equal length); got {len(a)} and {len(b)}"
+        )
+    _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_paired")
+    n = len(a)
     if n < 2:
-        return 0.0, 1.0
-    diff = np.asarray(a[:n], dtype=float) - np.asarray(b[:n], dtype=float)
+        return float("nan"), float("nan")
+    diff = a - b
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
@@ -401,11 +448,19 @@ def shuffle_pvalue_unpaired(
     rng: np.random.Generator,
     alternative: str = "greater",
 ) -> Tuple[float, float]:
-    """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling."""
+    """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
+
+    Returns (observed_diff, p_value), or ``(nan, nan)`` when either group has fewer than two
+    values.
+
+    Raises:
+        ValueError: If ``a`` or ``b`` contains NaN or Inf, or ``n_shuffles`` < 1.
+    """
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
+    _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
     if len(a) < 2 or len(b) < 2:
-        return 0.0, 1.0
+        return float("nan"), float("nan")
     obs = float(np.mean(a) - np.mean(b))
     pooled = np.concatenate([a, b])
     n_a = len(a)
