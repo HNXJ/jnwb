@@ -152,7 +152,7 @@ except ModuleNotFoundError:
 import jnwb
 print(f'PASS: import jnwb successful from {jnwb.__file__}')
 print(f'      jnwb.__version__ = {jnwb.__version__}')
-assert jnwb.__version__ == '0.1.8', f"Expected version 0.1.8, got {jnwb.__version__}"
+assert jnwb.__version__ == '0.2.4rc1', f"Expected version 0.2.4rc1, got {jnwb.__version__}"
 pkg = pathlib.Path(jnwb.__file__).resolve()
 assert 'site-packages' in str(pkg) or 'dist-packages' in str(pkg), f'expected installed location, got {pkg}'
 out_dir = jnwb.paths.outputs_dir()
@@ -281,7 +281,19 @@ coords_df = pd.DataFrame({'x': [0, 0, 0, 0], 'y': [0, 0, 0, 0], 'z': [0, 20, 40,
 p_geom = jnwb.probe_geometry(coords_df, units="um", nominal_pitch=20.0, strict_linear=True)
 assert p_geom.is_linear is True and p_geom.is_uniform is True
 
-# 7. Viz
+# 7. 0.2.4 additions: wpli, zflip, rdm
+wpli_res = jnwb.wpli(sig[:500], sig[500:], fs=1000.0, freq_range=(10.0, 40.0))
+assert hasattr(wpli_res, 'wpli') and hasattr(wpli_res, 'wpli_debiased')
+
+zflip_res = jnwb.zflip(rng.normal(size=(8, 1000)), fs=1000.0, pitch_um=20.0, freq_range=(15.0, 35.0), seed=42)
+assert hasattr(zflip_res, 'delay_identifiable') and hasattr(zflip_res, 'apparent_velocity_m_s')
+
+dist_mat = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation")
+assert dist_mat.shape == (10, 10)
+rho_rdm, p_rdm = jnwb.rdm_similarity(dist_mat, dist_mat, metric="spearman")
+assert np.isclose(rho_rdm, 1.0)
+
+# 8. Viz
 jnwb.setup_vector_graphics()
 
 print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')

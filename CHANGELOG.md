@@ -4,6 +4,29 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4rc1] - 2026-09-14
+
+### Added
+
+- Weighted Phase Lag Index (`wpli`, `WPLIResult`) in `jnwb.spectral`:
+  Phase-synchronization metric evaluating segment-resolved imaginary cross-spectra, reducing sensitivity to zero-phase-lag coupling without claiming volume-conduction immunity; reports both standard and debiased squared wPLI.
+- Laminar phase gradient analysis (`zflip`, `ZFlipResult`) in `jnwb.laminar`:
+  Cross-channel phase-gradient analysis and apparent velocity estimation with phase-frequency linearity verification ($R^2 \ge \text{min\_linearity\_r2}$) and circular-shift surrogate testing.
+- Standalone representational dissimilarity matrices (`rdm`, `rdm_similarity`) in `jnwb.rsa`:
+  Generates condensed or square symmetric RDMs across conditions or time points with support for euclidean, correlation, cosine, and mahalanobis distances; evaluates inter-RDM similarity via rank or linear correlation.
+- Comprehensive 8-part synthetic NWB tutorial suite:
+  Completely independent, zero-relative-import executable tutorials covering NWB inspection, addressing/metadata, spiking PSTH/latency, continuous LFP/Welch PSD/TFR/wPLI, dual exploratory and permutation statistics, laminar CSD/vFLIP/zFLIP, population ensembles/JRSA/decoding, and end-to-end composite pipelines.
+
+### Changed
+
+- Renamed and unified tutorial structure to match canonical 8-part progression.
+- Updated Gate 13 preflight assertions to guarantee exact snippet synchronization for all 8 tutorials.
+
+### Fixed
+
+- Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
+- Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
+
 ## [0.1.8] - 2026-09-11
 
 ### Added
