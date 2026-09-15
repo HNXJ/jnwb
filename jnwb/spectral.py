@@ -515,8 +515,17 @@ def cross_area_coherence(
                 "array."
             )
     if len(lfp_area1) != len(lfp_area2):
-        log.warning("LFP traces have different lengths")
-        return result
+        # INTENTIONAL BREAK (0.2.4). This logged a warning and returned a dict of zeros,
+        # which is indistinguishable from a measured coherence of zero: peak_coherence_
+        # value was 0.0, no key marked the result as absent, and the log line is invisible
+        # unless the caller configured logging. Coherence is defined only for paired
+        # samples, so unequal lengths are malformed input, not a zero-coupling result.
+        raise ValueError(
+            f"lfp_area1 and lfp_area2 must have the same length, got "
+            f"{len(lfp_area1)} and {len(lfp_area2)}. Coherence is defined only between "
+            "paired samples; truncating or padding to a common length is the caller's "
+            "decision, not this function's."
+        )
 
     n_samples = int(len(lfp_area1))
     if nperseg is None:

@@ -122,9 +122,33 @@ class TestCrossAreaCoherence:
         result = cross_area_coherence(trace, trace, sampling_rate=1000.0, freq_bands="canonical")
         assert result["band_coherence"]["theta"] > 0.9
 
-    def test_mismatched_lengths_return_empty_result(self):
-        result = cross_area_coherence(np.zeros(100), np.zeros(50), sampling_rate=1000.0, freq_bands="canonical")
-        assert result["coherence_spectrum"].size == 0
+    def test_mismatched_lengths_raise_rather_than_returning_zeros(self):
+        """INTENTIONAL BREAK (0.2.4).
+
+        This returned a dict of zeros with a log warning. A caller reading
+        `peak_coherence_value` got 0.0, which is exactly what a genuine measurement of
+        no coupling looks like, and no key in the result marked it as absent.
+        """
+        with pytest.raises(ValueError, match=r"must have the same length"):
+            cross_area_coherence(
+                np.zeros(100), np.zeros(50), sampling_rate=1000.0, freq_bands="canonical"
+            )
+
+    def test_mismatched_length_error_names_both_lengths(self):
+        with pytest.raises(ValueError) as excinfo:
+            cross_area_coherence(
+                np.zeros(4096), np.zeros(2048), sampling_rate=1000.0, freq_bands="canonical"
+            )
+        message = str(excinfo.value)
+        assert "4096" in message and "2048" in message
+
+    def test_equal_lengths_are_unaffected(self):
+        rng = np.random.default_rng(0)
+        out = cross_area_coherence(
+            rng.normal(size=4096), rng.normal(size=4096),
+            sampling_rate=1000.0, freq_bands="canonical", n_surrogates=3,
+        )
+        assert np.asarray(out["coherence_spectrum"]).size > 0
 
     def test_default_freq_bands_is_canonical_bands(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0)

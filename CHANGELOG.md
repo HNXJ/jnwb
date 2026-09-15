@@ -92,6 +92,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Surrogates are verified to use the same segmentation as the observed statistic.
   Plain PSD estimators are deliberately NOT gated: a one-segment periodogram is noisy but not
   degenerate.
+- **INTENTIONAL BREAK (0.2.4):** `cross_area_coherence` raises `ValueError` when its two
+  traces have different lengths. It previously logged a warning and returned a dict of zeros:
+  `peak_coherence_value` was `0.0`, which is exactly what a genuine measurement of no coupling
+  looks like, no key marked the result as absent, and the log line is invisible unless the
+  caller configured logging. Coherence is defined only between paired samples, so unequal
+  lengths are malformed input rather than a zero-coupling result; truncating or padding to a
+  common length is the caller's decision. The pre-release candidate is the correct boundary for
+  removing this behaviour.
 - `cross_area_coherence` rejects 2-D input with a `ValueError` naming the argument and its
   shape. A 2-D array was previously indexed as if it were 1-D, making `nperseg` the channel
   count and taking `argmax` over the flattened array; every shape tested failed, but with an
