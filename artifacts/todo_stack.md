@@ -10,14 +10,6 @@
 
 # 0.2.3
 
-- 0.2.3-07: Public documentation and tutorial inventory:
-  * Audit documentation surface for completeness: README, Installation, NWB workflow, API reference, Concept pages, Common mistakes, References. Every public feature satisfies API entry + minimal example + units/shapes + failure semantics + composition path.
-  * Build executable synthetic NWB tutorial suite (01 NWB basics, 02 Addressing and metadata, 03 Spiking, 04 LFP and spectral, 05 Statistics, 06 Laminar, 07 Ensembles, 08 End-to-end pipeline).
-- 0.2.3-08: Complete public-surface review auditing every module/export for naming, typing, units, axes, randomness, errors, docs, examples, deprecated names, duplicate implementations, dead code, and boundary leakage.
-- 0.2.3-09: Skills review comparing disk assertions with live exports, testing routing, verifying boundary preservation, and running skill validation.
-- 0.2.3-10: Agent review exercising authority, actor, critic, verifier, docs-harness on representative adversarial tasks verifying role separation (actor is not its own verifier).
-- 0.2.3-11: Final discovery audit repeating defect-class audit over expanded package; every demonstrated problem repaired or entered into todo_stack.md; close 0.2 feature intake.
-- 0.2.3 release gate: Feature-complete API, calibrated estimators, all unresolved work represented exactly once in todo stack, full configured gates PASS.
 
 # 0.2.4
 

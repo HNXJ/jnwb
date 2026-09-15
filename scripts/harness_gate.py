@@ -702,10 +702,14 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
                 violations.append(f"NWB_ONBOARDING: README missing {symbol}")
 
     expected_scripts = [
-        "01_inspect_nwb.py",
-        "02_event_codes_and_onsets.py",
-        "03_align_spikes_lfp_to_events.py",
-        "04_compose_workflow.py",
+        "01_nwb_basics.py",
+        "02_addressing_and_metadata.py",
+        "03_spiking.py",
+        "04_lfp_and_spectral.py",
+        "05_statistics.py",
+        "06_laminar.py",
+        "07_ensembles.py",
+        "08_end_to_end_pipeline.py",
     ]
     tutorial_dir = root / "examples" / "tutorials"
     for name in expected_scripts:
@@ -734,7 +738,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     mkdocs = root / "mkdocs.yml"
     if mkdocs.exists():
         mk = mkdocs.read_text(encoding="utf-8")
-        if "tutorials/01_inspect_nwb.md" not in mk:
+        if "tutorials/01_nwb_basics.md" not in mk:
             violations.append("NWB_ONBOARDING: mkdocs.yml missing Tutorials nav entry")
     else:
         violations.append("NWB_ONBOARDING: mkdocs.yml missing")

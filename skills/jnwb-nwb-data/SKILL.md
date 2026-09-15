@@ -80,6 +80,6 @@ lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel
 - Event/onset acceptance matrix: `tests/test_nwb_events.py`.
 
 ## 6. Canonical Documentation Links
-- [Tutorial: Inspect an NWB](../../docs/tutorials/01_inspect_nwb.md)
-- [Tutorial: Event codes and onsets](../../docs/tutorials/02_event_codes_and_onsets.md)
+- [Tutorial: NWB Basics](../../docs/tutorials/01_nwb_basics.md)
+- [Tutorial: Addressing and metadata](../../docs/tutorials/02_addressing_and_metadata.md)
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)

@@ -62,15 +62,19 @@ def test_mkdocs_tutorials_nav_order():
     else:
         paths = [next(iter(entry.values())) for entry in tutorials]
     assert paths == [
-        "tutorials/01_inspect_nwb.md",
-        "tutorials/02_event_codes_and_onsets.md",
-        "tutorials/03_align_spikes_lfp_to_events.md",
-        "tutorials/04_compose_workflow.md",
+        "tutorials/01_nwb_basics.md",
+        "tutorials/02_addressing_and_metadata.md",
+        "tutorials/03_spiking.md",
+        "tutorials/04_lfp_and_spectral.md",
+        "tutorials/05_statistics.md",
+        "tutorials/06_laminar.md",
+        "tutorials/07_ensembles.md",
+        "tutorials/08_end_to_end_pipeline.md",
     ]
 
 
 def test_tutorial_docs_include_executable_sources():
-    for n in ("01", "02", "03", "04"):
+    for n in ("01", "02", "03", "04", "05", "06", "07", "08"):
         md = (REPO_ROOT / "docs" / "tutorials" / f"{n}_*.md")
         matches = list(REPO_ROOT.glob(f"docs/tutorials/{n}_*.md"))
         assert len(matches) == 1
@@ -106,7 +110,7 @@ def test_tutorial_uses_public_jnwb_not_support_readers(path: Path):
     text = path.read_text(encoding="utf-8")
     assert "spike_times_for_unit" not in text
     assert "lfp_channel" not in text
-    if path.name.startswith("03_") or path.name.startswith("04_"):
+    if path.name.startswith("03_") or path.name.startswith("08_"):
         assert "jnwb.unit_spike_times" in text
 
 
