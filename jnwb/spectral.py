@@ -21,6 +21,55 @@ from ._parallel import parallel_map
 log = logging.getLogger(__name__)
 
 #: Default band edges (Hz) -- standard neuroscience convention; overridable per call.
+def _require_identifiable_segmentation(
+    n_samples: int, nperseg: int, noverlap: int, func_name: str, quantity: str
+) -> int:
+    """Reject a segmentation that cannot identify a cross-spectral ratio.
+
+    Shared by every estimator that divides a cross-spectrum by the auto-spectra
+    (`cross_area_coherence`, `imaginary_coherency`, `wpli`). With a single segment the
+    numerator and denominator are built from the same one spectral realization, so the
+    ratio collapses to its maximum by algebra: coherence is 1.0 at every frequency and
+    wPLI is +/-1, for ANY two signals including independent noise. Plain PSD estimators
+    are NOT affected -- a one-segment periodogram is noisy but unbiased -- so this guard
+    deliberately does not apply to them.
+    """
+    n_segments = welch_segment_count(n_samples, nperseg, noverlap)
+    if n_segments < MIN_IDENTIFIABLE_SEGMENTS:
+        raise ValueError(
+            f"{func_name}: {quantity} is not identifiable from {n_segments} Welch "
+            f"segment(s) ({n_samples} samples, nperseg={nperseg}, noverlap={noverlap}). "
+            "A single segment makes the cross-spectrum an exact function of the "
+            "auto-spectra, so the ratio saturates regardless of real coupling. Supply a "
+            "smaller nperseg, a smaller noverlap, or a longer recording."
+        )
+    return n_segments
+
+
+#: Fewest Welch segments from which magnitude-squared coherence is identifiable.
+#: With K = 1 the single cross-spectral estimate satisfies |X Y*|^2 = |X|^2 |Y|^2
+#: exactly, so the ratio is 1.0 at every frequency for any pair of signals. This is an
+#: algebraic identity, not an estimation error, and no amount of surrogate testing
+#: recovers from it: the surrogates saturate at 1.0 too. K = 2 is the mathematical
+#: boundary. It is NOT a statement about how many segments good science needs -- the
+#: null coherence still has expectation ~1/K, so K = 2 carries a null mean near 0.5.
+MIN_IDENTIFIABLE_SEGMENTS = 2
+
+#: Floor on the default segment length, so tiny inputs do not derive nperseg = 0.
+MIN_COHERENCE_NPERSEG = 8
+
+
+def welch_segment_count(n_samples: int, nperseg: int, noverlap: int) -> int:
+    """Number of Welch segments scipy will average, given the segmentation.
+
+    Mirrors the segment loop in :func:`scipy.signal.welch`: segments start every
+    ``nperseg - noverlap`` samples and only whole segments are used.
+    """
+    if nperseg <= 0 or noverlap >= nperseg or n_samples < nperseg:
+        return 0
+    return 1 + (int(n_samples) - int(nperseg)) // (int(nperseg) - int(noverlap))
+
+
 CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
     "theta": (4.0, 8.0),
     "alpha": (8.0, 14.0),
@@ -312,6 +361,8 @@ def cross_area_coherence(
     rng: Optional[np.random.Generator] = None,
     n_surrogates: int = 50,
     n_jobs: int = 1,
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
 ) -> Dict:
     """
     Compute frequency-resolved coherence between two LFP signals.
@@ -324,6 +375,14 @@ def cross_area_coherence(
     preserves each signal's autocorrelation and amplitude spectrum and destroys only the
     *relative* alignment of the two series, which is the quantity under test. Earlier
     docs called this phase randomization; that is a different null hypothesis.
+
+    Raises:
+        ValueError: if the segmentation yields fewer than
+            ``MIN_IDENTIFIABLE_SEGMENTS`` (2) Welch segments. With one segment the
+            cross-spectrum is the exact geometric mean of the auto-spectra, so
+            coherence is 1.0 everywhere by algebra and the estimator is
+            non-identifiable. Surrogate testing does not rescue this: the surrogates
+            saturate at 1.0 as well.
 
     Args:
         lfp_area1: Time series from area 1
@@ -349,6 +408,20 @@ def cross_area_coherence(
                 core. Results are identical for any n_jobs. Worth raising only when the
                 surrogates take more than about a second in total, since the process
                 pool costs a few seconds to start.
+        nperseg: Welch segment length in samples. Default ``min(max(N // 8, 8), 4096)``,
+                 which yields 15 segments for any N up to 32768 and more beyond it.
+                 INTENTIONAL BREAK (0.2.4): the previous default ``min(N, 4096)`` put
+                 every input up to ~8192 samples into a single segment, where
+                 magnitude-squared coherence is identically 1.0 for ANY two signals --
+                 independent Gaussian traces reported perfect coherence. The default was
+                 re-chosen by comparing candidate segment lengths on independent and
+                 known-coupled synthetic signals across N from 1024 to 60000; ``N // 8``
+                 separated coupled from null better than ``N // 4`` at every length
+                 tested, and a fixed length cannot serve short and long traces at once.
+                 Frequency resolution is ``fs / nperseg``, so a band narrower than that
+                 resolves to no bins and is omitted from the band outputs.
+        noverlap: Samples of overlap between segments. Default ``nperseg // 2``. Must
+                  satisfy ``0 <= noverlap < nperseg``.
 
     Returns:
         Dict with:
@@ -361,6 +434,11 @@ def cross_area_coherence(
           correction assuming independence is invalid here.
         - peak_coherence_freq: Frequency with highest coherence (Hz)
         - peak_coherence_value: Coherence at that frequency
+        - nperseg, noverlap: the segmentation actually used
+        - n_segments_used: Welch segments averaged, K. The null expectation of
+          coherence is approximately 1/K (measured 1.00-1.06 x 1/K at 50% overlap,
+          the excess growing with K because overlapping segments are correlated), so
+          K is required to interpret any coherence value this function returns.
         - device_used: 'cpu' or 'cuda' -- the estimator that produced *every* value
           here, observed and surrogate alike
         - n_surrogates_used: Surrogates actually drawn per band
@@ -417,6 +495,9 @@ def cross_area_coherence(
         'peak_coherence_freq': 0.0,
         'peak_coherence_value': 0.0,
         'device_used': 'cpu',
+        'nperseg': None,
+        'noverlap': None,
+        'n_segments_used': 0,
         'n_surrogates_used': int(n_surrogates),
         'p_value_floor': 1.0 / (int(n_surrogates) + 1),
         'surrogate_seed_entropy': seed_entropy,
@@ -437,13 +518,43 @@ def cross_area_coherence(
         log.warning("LFP traces have different lengths")
         return result
 
-    nperseg = min(len(lfp_area1), 4096)
+    n_samples = int(len(lfp_area1))
+    if nperseg is None:
+        nperseg = min(max(n_samples // 8, MIN_COHERENCE_NPERSEG), 4096)
+    nperseg = int(nperseg)
+    if nperseg < 2:
+        raise ValueError(f"nperseg must be >= 2, got {nperseg}")
+    if noverlap is None:
+        noverlap = nperseg // 2
+    noverlap = int(noverlap)
+    if not (0 <= noverlap < nperseg):
+        raise ValueError(
+            f"noverlap must satisfy 0 <= noverlap < nperseg, got noverlap={noverlap} "
+            f"with nperseg={nperseg}"
+        )
+
+    n_segments = welch_segment_count(n_samples, nperseg, noverlap)
+    if n_segments < MIN_IDENTIFIABLE_SEGMENTS:
+        step = nperseg - noverlap
+        raise ValueError(
+            f"coherence is not identifiable from {n_segments} Welch segment(s): "
+            f"{n_samples} samples with nperseg={nperseg}, noverlap={noverlap}. "
+            "With a single segment the cross-spectrum is the exact geometric mean of "
+            "the auto-spectra, so magnitude-squared coherence is identically 1.0 at "
+            "every frequency for ANY two signals, coupled or independent. Supply a "
+            f"smaller nperseg (<= {max(2, (n_samples + step) // 2)} keeps at least "
+            f"{MIN_IDENTIFIABLE_SEGMENTS} segments here), a smaller noverlap, or a "
+            "longer recording."
+        )
+    result['nperseg'] = nperseg
+    result['noverlap'] = noverlap
+    result['n_segments_used'] = n_segments
 
     def _coherence_cpu(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        return signal.coherence(x, y, fs=fs, nperseg=nperseg, noverlap=None)
+        return signal.coherence(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
 
     def _coherence_gpu(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        frequencies, psd_x, psd_y, csd_xy = _welch_csd_gpu(x, y, fs, nperseg)
+        frequencies, psd_x, psd_y, csd_xy = _welch_csd_gpu(x, y, fs, nperseg, noverlap)
         denom = psd_x * psd_y
         coherency = np.zeros_like(csd_xy, dtype=float)
         nonzero = denom > 0
@@ -1176,9 +1287,10 @@ def imaginary_coherency(
     x, y = x[:n], y[:n]
 
     if nperseg is None:
-        nperseg = min(n, 1024)
+        nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 1024)
     if noverlap is None:
         noverlap = nperseg // 2
+    _require_identifiable_segmentation(n, nperseg, noverlap, "imaginary_coherency", "coh_mag_mean")
 
     if device == 'cuda':
         try:
@@ -1276,9 +1388,10 @@ def wpli(
     x, y = x[:n], y[:n]
 
     if nperseg is None:
-        nperseg = min(n, 256)
+        nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 256)
     if noverlap is None:
         noverlap = nperseg // 2
+    _require_identifiable_segmentation(n, nperseg, noverlap, "wpli", "wpli")
 
     if device == "cuda":
         try:

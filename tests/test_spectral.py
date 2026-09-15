@@ -3,6 +3,7 @@ cross-area coherence, 1/f tilt, imaginary coherency, re-referencing).
 """
 from __future__ import annotations
 
+import jnwb
 import numpy as np
 import pytest
 
@@ -521,9 +522,22 @@ class TestCrossAreaCoherenceSurrogateContract:
         base = rng.normal(size=n)
         return base + 0.3 * rng.normal(size=n), base + 0.3 * rng.normal(size=n)
 
+    @staticmethod
+    def _uncoupled_signals(n=2048, seed=11):
+        """Independent traces, so the surrogate null is not saturated.
+
+        The coupled `_signals` pair drives every band to the p-value floor 1/(n+1)
+        under the repaired estimator, which makes two different nulls indistinguishable
+        for the wrong reason. Before 0.2.4 this test discriminated only because a
+        single Welch segment pinned observed AND surrogate coherence at 1.0, so the
+        p-values differed by tie-counting noise alone.
+        """
+        rng = np.random.default_rng(seed)
+        return rng.normal(size=n), rng.normal(size=n)
+
     def test_rng_is_accepted_and_changes_the_null(self):
         """JNWB-003: the null used to be unseedable, so every caller got one null."""
-        x, y = self._signals()
+        x, y = self._uncoupled_signals()
         a = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(1), freq_bands="canonical")
         b = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(2), freq_bands="canonical")
         assert a['band_coherence'] == b['band_coherence'], "observed value must not depend on the RNG"
@@ -1101,3 +1115,297 @@ class TestWelchCsdGpuParity:
         assert np.all(np.isfinite(p_gpu))
         assert np.all(p_gpu >= 0)
 
+
+class TestCoherenceIdentifiability:
+    """0.2.4: coherence must never be reported from a non-identifiable segmentation.
+
+    With K = 1 Welch segment, |X Y*|^2 = |X|^2 |Y|^2 exactly, so magnitude-squared
+    coherence is 1.0 at every frequency for any two signals. Before this repair the
+    default nperseg = min(N, 4096) put every input up to ~8192 samples in that regime,
+    and independent Gaussian noise reported perfect coherence with no warning.
+    """
+
+    FS = 1000.0
+    BANDS = {"beta": (15.0, 30.0)}
+
+    @staticmethod
+    def _independent(n, seed=0):
+        rng = np.random.default_rng(seed)
+        return rng.normal(size=n), rng.normal(size=n)
+
+    @staticmethod
+    def _shared_oscillation(n, fs=1000.0, f0=20.0, phase=0.0, seed=3, amp=1.0):
+        rng = np.random.default_rng(seed)
+        t = np.arange(n) / fs
+        x = amp * np.sin(2 * np.pi * f0 * t) + rng.normal(size=n)
+        y = amp * np.sin(2 * np.pi * f0 * t + phase) + rng.normal(size=n)
+        return x, y
+
+    # -- segment counting ------------------------------------------------------
+    @pytest.mark.parametrize(
+        "n_samples,nperseg,noverlap,expected",
+        [(1024, 1024, 512, 1), (1024, 512, 256, 3), (1024, 256, 128, 7),
+         (1024, 128, 0, 8), (100, 256, 128, 0), (8192, 1024, 512, 15)],
+    )
+    def test_welch_segment_count_matches_scipy(self, n_samples, nperseg, noverlap, expected):
+        from scipy.signal import spectrogram
+
+        from jnwb.spectral import welch_segment_count
+
+        assert welch_segment_count(n_samples, nperseg, noverlap) == expected
+        if expected:
+            _, _, spec = spectrogram(
+                np.zeros(n_samples), fs=self.FS, nperseg=nperseg,
+                noverlap=noverlap, mode="complex",
+            )
+            assert spec.shape[-1] == expected
+
+    # -- the defect itself -----------------------------------------------------
+    @pytest.mark.parametrize("n_samples", [1024, 2048, 4096, 5000])
+    def test_independent_signals_do_not_report_perfect_coherence(self, n_samples):
+        """The regression. Every one of these returned 1.0 before the repair."""
+        x, y = self._independent(n_samples)
+        out = cross_area_coherence(
+            x, y, fs=self.FS, freq_bands=self.BANDS, n_surrogates=10
+        )
+        spectrum = np.asarray(out["coherence_spectrum"])
+        assert out["n_segments_used"] >= 2
+        assert spectrum.mean() < 0.35, (
+            f"independent signals report mean coherence {spectrum.mean():.3f} from "
+            f"{out['n_segments_used']} segments"
+        )
+        assert out["band_coherence"]["beta"] < 0.5
+
+    @pytest.mark.parametrize("n_samples", [1024, 4096])
+    def test_single_segment_is_rejected_not_reported(self, n_samples):
+        x, y = self._independent(n_samples)
+        with pytest.raises(ValueError, match=r"not identifiable from 1 Welch segment"):
+            cross_area_coherence(
+                x, y, fs=self.FS, freq_bands=self.BANDS,
+                nperseg=n_samples, n_surrogates=3,
+            )
+
+    def test_the_rejected_configuration_would_have_returned_exactly_one(self):
+        """Proves the rejection guards a real degeneracy, not a hypothetical one."""
+        from scipy import signal as sp_signal
+
+        x, y = self._independent(2048)
+        _, coherency = sp_signal.coherence(x, y, fs=self.FS, nperseg=2048, noverlap=1024)
+        assert np.allclose(coherency, 1.0), "K=1 coherence should be identically 1.0"
+
+    def test_minimum_accepted_segment_count_is_two(self):
+        from jnwb.spectral import MIN_IDENTIFIABLE_SEGMENTS, welch_segment_count
+
+        assert MIN_IDENTIFIABLE_SEGMENTS == 2
+        x, y = self._independent(1536)
+        out = cross_area_coherence(
+            x, y, fs=self.FS, freq_bands=self.BANDS,
+            nperseg=1024, noverlap=512, n_surrogates=3,
+        )
+        assert welch_segment_count(1536, 1024, 512) == 2
+        assert out["n_segments_used"] == 2
+
+    # -- known-answer behaviour ------------------------------------------------
+    def test_identical_signals_still_report_high_coherence(self):
+        rng = np.random.default_rng(5)
+        x = rng.normal(size=8192)
+        out = cross_area_coherence(
+            x, x, fs=self.FS, freq_bands=self.BANDS, n_surrogates=10
+        )
+        assert out["band_coherence"]["beta"] > 0.99
+
+    def test_shared_oscillation_separates_from_independent_noise(self):
+        n = 8192
+        coupled_x, coupled_y = self._shared_oscillation(n)
+        indep_x, indep_y = self._independent(n, seed=9)
+        bands = {"beta": (18.0, 22.0)}
+        coupled = cross_area_coherence(
+            coupled_x, coupled_y, fs=self.FS, freq_bands=bands, n_surrogates=20
+        )
+        null = cross_area_coherence(
+            indep_x, indep_y, fs=self.FS, freq_bands=bands, n_surrogates=20
+        )
+        assert coupled["band_coherence"]["beta"] > 0.8
+        assert null["band_coherence"]["beta"] < 0.3
+        assert coupled["band_significance"]["beta"] < null["band_significance"]["beta"]
+
+    @pytest.mark.parametrize("phase", [0.0, np.pi / 4, np.pi / 2, np.pi])
+    def test_coherence_magnitude_is_insensitive_to_a_constant_phase_shift(self, phase):
+        """Coherence is a magnitude: a fixed lag changes phase, not |C|."""
+        x, y = self._shared_oscillation(8192, phase=phase)
+        out = cross_area_coherence(
+            x, y, fs=self.FS, freq_bands={"beta": (18.0, 22.0)}, n_surrogates=5
+        )
+        assert out["band_coherence"]["beta"] > 0.8
+
+    # -- parameter surface -----------------------------------------------------
+    def test_explicit_nperseg_and_noverlap_are_honoured_and_reported(self):
+        x, y = self._independent(8192)
+        out = cross_area_coherence(
+            x, y, fs=self.FS, freq_bands=self.BANDS,
+            nperseg=512, noverlap=128, n_surrogates=3,
+        )
+        assert out["nperseg"] == 512
+        assert out["noverlap"] == 128
+        assert out["n_segments_used"] == 1 + (8192 - 512) // (512 - 128)
+
+    def test_default_segmentation_is_reported(self):
+        x, y = self._independent(8192)
+        out = cross_area_coherence(
+            x, y, fs=self.FS, freq_bands=self.BANDS, n_surrogates=3
+        )
+        assert out["nperseg"] == 1024
+        assert out["noverlap"] == 512
+        assert out["n_segments_used"] == 15
+
+    @pytest.mark.parametrize("noverlap", [-1, 512, 999])
+    def test_invalid_noverlap_is_rejected(self, noverlap):
+        x, y = self._independent(8192)
+        with pytest.raises(ValueError, match=r"noverlap"):
+            cross_area_coherence(
+                x, y, fs=self.FS, freq_bands=self.BANDS,
+                nperseg=512, noverlap=noverlap, n_surrogates=3,
+            )
+
+    def test_null_coherence_falls_as_segment_count_rises(self):
+        """E[C] ~ 1/K: measured, and the trend is what makes K interpretable."""
+        x, y = self._independent(16384, seed=21)
+        means = []
+        for nperseg in (4096, 2048, 1024, 512):
+            out = cross_area_coherence(
+                x, y, fs=self.FS, freq_bands=self.BANDS,
+                nperseg=nperseg, n_surrogates=3,
+            )
+            means.append((out["n_segments_used"], np.asarray(out["coherence_spectrum"]).mean()))
+        counts = [k for k, _ in means]
+        values = [m for _, m in means]
+        assert counts == sorted(counts), "segment count should rise as nperseg falls"
+        assert values == sorted(values, reverse=True), (
+            f"null coherence should fall as K rises, got {means}"
+        )
+
+    # -- surrogates share the segmentation -------------------------------------
+    def test_surrogates_use_the_same_segmentation_as_the_observed_statistic(self):
+        """A surrogate null built at a different K belongs to a different estimator."""
+        import jnwb.spectral as spectral_module
+
+        seen = []
+        original = spectral_module.signal.coherence
+
+        def recording_coherence(x, y, **kwargs):
+            seen.append((kwargs.get("nperseg"), kwargs.get("noverlap")))
+            return original(x, y, **kwargs)
+
+        x, y = self._independent(8192)
+        try:
+            spectral_module.signal.coherence = recording_coherence
+            cross_area_coherence(
+                x, y, fs=self.FS, freq_bands=self.BANDS,
+                nperseg=512, noverlap=256, n_surrogates=4,
+            )
+        finally:
+            spectral_module.signal.coherence = original
+
+        assert len(seen) == 5, "one observed spectrum plus one per surrogate"
+        assert set(seen) == {(512, 256)}, f"surrogates used other segmentations: {set(seen)}"
+
+    def test_surrogate_null_is_not_saturated_under_the_default(self):
+        x, y = self._independent(8192, seed=31)
+        out = cross_area_coherence(
+            x, y, fs=self.FS, freq_bands=self.BANDS, n_surrogates=30
+        )
+        assert 0.0 < out["band_significance"]["beta"] < 1.0
+
+    def test_deterministic_for_a_given_surrogate_seed(self):
+        x, y = self._independent(8192)
+        kwargs = dict(fs=self.FS, freq_bands=self.BANDS, n_surrogates=8)
+        a = cross_area_coherence(x, y, rng=np.random.default_rng(4), **kwargs)
+        b = cross_area_coherence(x, y, rng=np.random.default_rng(4), **kwargs)
+        assert a["band_significance"] == b["band_significance"]
+        assert a["n_segments_used"] == b["n_segments_used"]
+
+
+class TestCrossSpectralRatioFamilyIdentifiability:
+    """The K=1 degeneracy is a property of the ratio, so every ratio estimator has it.
+
+    `cross_area_coherence` was found first; `imaginary_coherency` (coh_mag_mean = 1.0 at
+    N <= 1024) and `wpli` (wpli = 1.0 at N <= 256) had the same defect under their own
+    defaults. Plain PSD estimators are deliberately excluded: a one-segment periodogram
+    is noisy but not degenerate.
+    """
+
+    FS = 1000.0
+
+    @staticmethod
+    def _independent(n, seed=0):
+        rng = np.random.default_rng(seed)
+        return rng.normal(size=n), rng.normal(size=n)
+
+    @pytest.mark.parametrize("n_samples", [512, 1024, 4096])
+    def test_imaginary_coherency_does_not_report_unit_magnitude(self, n_samples):
+        x, y = self._independent(n_samples)
+        out = jnwb.imaginary_coherency(x, y, fs=self.FS)
+        assert out["coh_mag_mean"] < 0.5, (
+            f"independent signals report coh_mag_mean={out['coh_mag_mean']:.3f}"
+        )
+
+    @pytest.mark.parametrize("n_samples", [128, 256, 1024])
+    def test_wpli_does_not_report_unity_for_independent_signals(self, n_samples):
+        x, y = self._independent(n_samples)
+        out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+        assert out["n_segments"] >= 2
+        assert float(np.nanmean(out["wpli"])) < 0.95
+
+    def test_imaginary_coherency_rejects_a_single_segment(self):
+        x, y = self._independent(1024)
+        with pytest.raises(ValueError, match=r"not identifiable from 1 Welch segment"):
+            jnwb.imaginary_coherency(x, y, fs=self.FS, nperseg=1024)
+
+    def test_wpli_rejects_a_single_segment(self):
+        x, y = self._independent(1024)
+        with pytest.raises(ValueError, match=r"not identifiable from 1 Welch segment"):
+            jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0), nperseg=1024)
+
+    def test_rejection_names_the_function_and_the_quantity(self):
+        x, y = self._independent(1024)
+        with pytest.raises(ValueError) as excinfo:
+            jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0), nperseg=1024)
+        message = str(excinfo.value)
+        assert "wpli" in message
+        assert "nperseg=1024" in message
+
+    def test_debiased_wpli_is_approximately_unbiased_under_the_null(self):
+        """The debiased estimator is what makes wPLI usable near zero coupling."""
+        values = []
+        for seed in range(25):
+            x, y = self._independent(8192, seed=seed)
+            out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+            values.append(np.nanmean(out["wpli_debiased_sq"]))
+        mean_null = float(np.mean(values))
+        assert abs(mean_null) < 0.05, f"debiased wPLI null mean {mean_null:.4f}"
+
+    def test_plain_wpli_null_bias_falls_as_segment_count_rises(self):
+        means = []
+        for n_samples in (1024, 4096, 16384):
+            values = [
+                np.nanmean(
+                    jnwb.wpli(
+                        *self._independent(n_samples, seed=s),
+                        fs=self.FS,
+                        freq_range=(10.0, 40.0),
+                    )["wpli"]
+                )
+                for s in range(10)
+            ]
+            means.append(float(np.mean(values)))
+        assert means == sorted(means, reverse=True), (
+            f"plain wPLI null bias should fall with more segments, got {means}"
+        )
+
+    def test_plain_psd_estimators_are_not_gated(self):
+        """A one-segment periodogram is legitimate; the guard must not overreach."""
+        rng = np.random.default_rng(0)
+        trace = rng.normal(size=256)
+        freqs, psd = jnwb.compute_multitaper_psd(trace, fs=self.FS)
+        assert len(freqs) == len(psd)
+        assert np.all(np.isfinite(psd))

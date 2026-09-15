@@ -66,6 +66,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generator with a message about `c_crossover` rather than about the caller's argument.
   `build_canonical_tutorial_nwb` now rejects such a shaft up front, naming the constraint. The
   crossover is ground truth the tutorials assert against, so it is not scaled to fit.
+- **CRITICAL: cross-spectral ratio estimators reported perfect coupling for independent
+  signals.** `cross_area_coherence` used `nperseg = min(N, 4096)`, which puts every input up
+  to ~8192 samples into a *single* Welch segment. With one segment
+  `|X Y*|^2 = |X|^2 |Y|^2` holds exactly, so magnitude-squared coherence is 1.0 at every
+  frequency for any two signals. Two independent Gaussian traces of 4096 samples -- about 4 s
+  of LFP at 1 kHz -- returned `band_coherence = 1.0` with no warning, and the surrogate test
+  could not catch it because the surrogates saturate at 1.0 as well. This is an algebraic
+  non-identifiability, not an estimation error.
+  The same defect was then found in two sibling estimators that divide a cross-spectrum by the
+  auto-spectra: `imaginary_coherency` (`coh_mag_mean = 1.0` for N <= 1024) and `wpli`
+  (`wpli = 1.0` for N <= 256 under its default `nperseg = min(N, 256)`).
+  All three now derive `nperseg` as `N // 8` (capped at each function's previous ceiling) and
+  refuse any segmentation yielding fewer than `MIN_IDENTIFIABLE_SEGMENTS = 2` segments. Two is
+  the mathematical boundary, not a quality recommendation: the null expectation of coherence
+  is still about `1/K`, so K = 2 carries a null mean near 0.5. The new default was chosen by
+  comparing candidate segment lengths on independent and known-coupled synthetic signals for N
+  from 1024 to 60000; `N // 8` separated coupled from null better than `N // 4` at every length
+  tested, and no fixed length serves both short and long traces. Null coherence was measured
+  rather than assumed: `E[C]` tracks `1/K` to within 1-6 %, the excess growing with K because
+  50 %-overlapped segments are correlated. `wpli_debiased_sq` was verified to remain
+  approximately unbiased under the null (|mean| < 0.02 across K), which plain wPLI is not.
+  `cross_area_coherence` gains `nperseg` and `noverlap` parameters and reports `nperseg`,
+  `noverlap` and `n_segments_used`, since K is required to interpret any coherence it returns.
+  Surrogates are verified to use the same segmentation as the observed statistic.
+  Plain PSD estimators are deliberately NOT gated: a one-segment periodogram is noisy but not
+  degenerate.
+- `cross_area_coherence` rejects 2-D input with a `ValueError` naming the argument and its
+  shape. A 2-D array was previously indexed as if it were 1-D, making `nperseg` the channel
+  count and taking `argmax` over the flattened array; every shape tested failed, but with an
+  `IndexError` or `TypeError` from inside the estimator that named neither the argument nor
+  the contract.
 - Release verification now exercises the tutorials against the **installed wheel** (0.2.4-03).
   The distribution job previously imported the installed package and ran four inline workflows;
   the tutorials -- the only end-to-end consumers of the public API -- ran solely from the
