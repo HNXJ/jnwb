@@ -48,6 +48,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release candidate is labelled as such, with the executable source-install path given and the
   post-publication command retained (preserving version synchronisation for Gate 10).
 - Removed the one-off `jnwb-unified-rev.md` external-review dossier from the repository root.
+- **Canonical tutorial NWB built an out-of-bounds electrode region.**
+  `build_canonical_tutorial_nwb` assigned its two units to the hardcoded electrode rows `[10]`
+  and `[18]`, valid only while `n_channels > 18`. At `n_channels=12` the second unit referenced a
+  nonexistent row: newer HDMF rejects the dangling `DynamicTableRegion` at write time, while
+  older HDMF accepted it and raised only on read, so CI failed on every matrix leg while stale
+  local environments passed. Unit contacts are now derived from `TUTORIAL_UNIT_DEPTH_FRACTIONS`
+  (a unit sits at a physical depth on the shaft, so its row scales with the contact count),
+  reproducing the historical `(10, 18)` exactly at the default 24 channels and staying in range
+  for any supported length. `_validate_electrode_indices` enforces
+  `0 <= index < len(electrodes)` at construction with the offending values named, on every
+  dependency version, and the chosen contacts are reported in the ground-truth dictionary.
+  Nothing is truncated, padded, duplicated, or invented: an unrepresentable request raises.
+- The tutorial laminar crossover contact is now an explicit constant with a guard.
+  `crossover_true` was hardcoded at 10.5 while `synth_laminar_motif` requires
+  `c_crossover <= n_channels - 1`, so any `n_channels <= 10` failed deep inside the motif
+  generator with a message about `c_crossover` rather than about the caller's argument.
+  `build_canonical_tutorial_nwb` now rejects such a shaft up front, naming the constraint. The
+  crossover is ground truth the tutorials assert against, so it is not scaled to fit.
 
 ## [0.1.8] - 2026-09-11
 

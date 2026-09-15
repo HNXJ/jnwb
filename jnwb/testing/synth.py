@@ -472,6 +472,54 @@ def synth_laminar_motif(
     )
 
 
+#: Depths of the two tutorial units as a fraction of the probe shaft. A unit sits at a physical
+#: depth on the shaft, so its contact scales with the contact count rather than being a fixed
+#: row number. These fractions reproduce the historical contacts (10, 18) exactly at the default
+#: 24 channels, while remaining in range for any supported shaft length.
+TUTORIAL_UNIT_DEPTH_FRACTIONS = (10.0 / 24.0, 18.0 / 24.0)
+
+#: Contact index of the analytically known spectrolaminar crossover in the tutorial probe. Fixed,
+#: not scaled: it is ground truth the tutorials assert against.
+TUTORIAL_CROSSOVER_CONTACT = 10.5
+
+
+def _validate_electrode_indices(indices: Sequence[int], n_rows: int, label: str) -> None:
+    """Enforce the region invariant: every index must address an existing electrode row.
+
+    A ``DynamicTableRegion`` is a foreign key into the electrode table. An index at or beyond
+    the table length is a dangling reference, and newer HDMF rejects it at write time
+    (``IndexError: DynamicTableRegion values [...] are out of bounds``) where older versions
+    silently accepted it and failed later, on read. Validating here fails at the point the
+    mistake is made, with the offending values named, on every dependency version.
+    """
+    out_of_range = [int(i) for i in indices if not (0 <= int(i) < n_rows)]
+    if out_of_range:
+        raise ValueError(
+            f"{label}: electrode indices {out_of_range} are out of bounds for an electrode "
+            f"table of length {n_rows}. Every DynamicTableRegion index must satisfy "
+            f"0 <= index < {n_rows}."
+        )
+
+
+def _tutorial_unit_contacts(n_channels: int) -> Tuple[int, ...]:
+    """Contacts for the two tutorial units, scaled to the shaft and validated.
+
+    Returns distinct, in-range contacts. Truncation to the floor keeps every result strictly
+    below ``n_channels`` (each fraction is < 1), so a short shaft yields valid contacts rather
+    than a clamped or invented mapping.
+    """
+    if n_channels < 2:
+        raise ValueError(
+            f"n_channels must be at least 2 to place two distinct units; got {n_channels}")
+    contacts = tuple(int(f * n_channels) for f in TUTORIAL_UNIT_DEPTH_FRACTIONS)
+    if len(set(contacts)) != len(contacts):
+        raise ValueError(
+            f"n_channels={n_channels} is too small to place the tutorial units on distinct "
+            f"contacts; computed {contacts}.")
+    _validate_electrode_indices(contacts, n_channels, "tutorial unit contacts")
+    return contacts
+
+
 def build_canonical_tutorial_nwb(
     output_path: Optional[Union[str, Path]] = None,
     *,
@@ -509,6 +557,18 @@ def build_canonical_tutorial_nwb(
     rng = np.random.default_rng(seed)
     n_samples = int(duration_s * fs)
 
+    # The laminar crossover is an analytically known ground truth at a fixed CONTACT, so it does
+    # not scale with the shaft: a shaft shorter than the crossover contact cannot represent it.
+    # Scaling it instead would silently change the documented ground truth, so this fails loudly.
+    crossover_true = TUTORIAL_CROSSOVER_CONTACT
+    if n_channels <= crossover_true:
+        raise ValueError(
+            f"n_channels={n_channels} cannot represent the tutorial laminar crossover at contact "
+            f"{crossover_true}: the shaft addresses contacts [0, {n_channels - 1}]. Use "
+            f"n_channels >= {int(crossover_true) + 2}, or build a probe without the crossover "
+            "ground truth."
+        )
+
     # 1. Base NWB file
     nwb = pynwb.NWBFile(
         session_description="Canonical synthetic tutorial recording",
@@ -536,7 +596,6 @@ def build_canonical_tutorial_nwb(
         )
 
     # 3. Laminar LFP
-    crossover_true = 10.5
     laminar_res = synth_laminar_motif(
         n_channels=n_channels,
         n_samples=n_samples,
@@ -546,14 +605,23 @@ def build_canonical_tutorial_nwb(
         rng=rng,
     )
 
-    # Add LFP electrical series
+    # Add LFP electrical series. Every LFP column maps one-to-one onto an electrode row, so
+    # the region is the full table and the two counts must agree exactly.
+    lfp_data = laminar_res.lfp.T.astype(np.float32)          # (time, channels)
+    if lfp_data.shape[1] != len(nwb.electrodes):
+        raise ValueError(
+            f"LFP column count {lfp_data.shape[1]} does not match the electrode table length "
+            f"{len(nwb.electrodes)}; each ElectricalSeries column must correspond to exactly "
+            "one electrode row.")
+    lfp_region_indices = list(range(n_channels))
+    _validate_electrode_indices(lfp_region_indices, len(nwb.electrodes), "LFP electrode region")
     region = nwb.create_electrode_table_region(
-        region=list(range(n_channels)),
+        region=lfp_region_indices,
         description="All probe electrodes",
     )
     es = pynwb.ecephys.ElectricalSeries(
         name="lfp",
-        data=laminar_res.lfp.T.astype(np.float32),  # (time, channels)
+        data=lfp_data,
         electrodes=region,
         rate=float(fs),
         starting_time=0.0,
@@ -609,8 +677,15 @@ def build_canonical_tutorial_nwb(
     unit0_spikes.sort()
     unit1_spikes.sort()
 
-    nwb.add_unit(spike_times=np.array(unit0_spikes, dtype=float), electrodes=[10])
-    nwb.add_unit(spike_times=np.array(unit1_spikes, dtype=float), electrodes=[18])
+    # Units reference a SUBSET of electrodes -- one contact each -- so their indices are scaled
+    # to the shaft rather than hardcoded. Previously these were the literals 10 and 18, valid
+    # only while n_channels > 18: at n_channels=12 the second unit referenced a nonexistent row
+    # and newer HDMF rejected the file.
+    unit0_contact, unit1_contact = _tutorial_unit_contacts(n_channels)
+    _validate_electrode_indices(
+        (unit0_contact, unit1_contact), len(nwb.electrodes), "tutorial unit electrodes")
+    nwb.add_unit(spike_times=np.array(unit0_spikes, dtype=float), electrodes=[unit0_contact])
+    nwb.add_unit(spike_times=np.array(unit1_spikes, dtype=float), electrodes=[unit1_contact])
 
     if output_path is not None:
         p = Path(output_path)
@@ -628,6 +703,7 @@ def build_canonical_tutorial_nwb(
         "n_trials": n_trials,
         "trial_onsets": onsets,
         "unit0_latency_s": 0.050,
+        "unit_contacts": (unit0_contact, unit1_contact),
     }
 
     return nwb, ground_truth

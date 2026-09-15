@@ -9,6 +9,8 @@ import jnwb
 from jnwb.testing.synth import (
     SynthLaminarReceipt,
     build_canonical_tutorial_nwb,
+    _tutorial_unit_contacts,
+    _validate_electrode_indices,
     synth_ar_noise,
     synth_correlation_blocks,
     synth_laminar_motif,
@@ -214,3 +216,111 @@ class TestCanonicalTutorialNWB:
             assert "ecephys" in read_nwb.processing
             assert "LFP" in read_nwb.processing["ecephys"].data_interfaces
             assert len(read_nwb.units) == 2
+
+
+class TestElectrodeRegionInvariant:
+    """Every DynamicTableRegion index must address an existing electrode row.
+
+    The canonical tutorial builder hardcoded unit electrodes [10] and [18], valid only while
+    n_channels > 18. At n_channels=12 the second unit referenced a nonexistent row. Older HDMF
+    accepted the dangling reference at write time and raised only on read; newer HDMF rejects it
+    at write time, so CI failed on every matrix leg while a stale local environment passed.
+
+    These probes assert the invariant directly rather than relying on a particular HDMF version
+    to notice, so they fail against the pre-repair implementation on any supported dependency set.
+    """
+
+    @staticmethod
+    def _unit_contacts(nwb):
+        return [int(i) for u in range(len(nwb.units))
+                for i in nwb.units["electrodes"][u].index]
+
+    @pytest.mark.parametrize("n_channels", [24, 20, 19, 13, 12])
+    def test_unit_electrode_indices_are_in_bounds(self, n_channels):
+        """The defect: indices must be < the electrode table length for every shaft length."""
+        nwb, gt = build_canonical_tutorial_nwb(
+            n_channels=n_channels, duration_s=2.0, n_trials=4, seed=7)
+        n_rows = len(nwb.electrodes)
+        assert n_rows == n_channels
+        for idx in self._unit_contacts(nwb):
+            assert 0 <= idx < n_rows, (
+                f"unit references electrode row {idx} but the table has {n_rows} rows")
+
+    def test_default_shaft_preserves_the_historical_contacts(self):
+        """The repair must not silently relocate units on the default probe."""
+        contacts = _tutorial_unit_contacts(24)
+        assert contacts == (10, 18)
+
+    def test_units_occupy_distinct_contacts(self):
+        for n_channels in (24, 12, 8, 4, 2):
+            contacts = _tutorial_unit_contacts(n_channels)
+            assert len(set(contacts)) == len(contacts), (n_channels, contacts)
+
+    def test_ground_truth_reports_the_actual_contacts(self):
+        """Callers must be able to read the mapping instead of guessing it."""
+        nwb, gt = build_canonical_tutorial_nwb(
+            n_channels=12, duration_s=2.0, n_trials=4, seed=7)
+        assert gt["unit_contacts"] == (5, 9)
+        assert sorted(self._unit_contacts(nwb)) == [5, 9]
+
+    def test_lfp_region_is_one_to_one_with_electrodes(self):
+        """n_data_channels == n_electrodes: the LFP region maps each column to one row."""
+        nwb, gt = build_canonical_tutorial_nwb(
+            n_channels=12, duration_s=2.0, n_trials=4, seed=7)
+        es = nwb.processing["ecephys"].data_interfaces["LFP"].electrical_series["lfp"]
+        assert es.data.shape[1] == len(nwb.electrodes) == 12
+        assert [int(i) for i in es.electrodes.data] == list(range(12))
+
+    def test_units_reference_a_strict_subset_of_electrodes(self):
+        """n_data_channels < n_electrodes: subset semantics are supported for units."""
+        nwb, gt = build_canonical_tutorial_nwb(
+            n_channels=24, duration_s=2.0, n_trials=4, seed=7)
+        contacts = set(self._unit_contacts(nwb))
+        assert contacts.issubset(set(range(len(nwb.electrodes))))
+        assert len(contacts) < len(nwb.electrodes)
+
+    def test_out_of_range_index_fails_loudly(self):
+        """n_data_channels > n_electrodes, and any dangling index, must raise -- never truncate."""
+        with pytest.raises(ValueError, match="out of bounds"):
+            _validate_electrode_indices([0, 1, 18], n_rows=12, label="probe")
+        with pytest.raises(ValueError, match="out of bounds"):
+            _validate_electrode_indices([-1], n_rows=12, label="probe")
+        # The boundary itself: index == n_rows is one past the end.
+        with pytest.raises(ValueError, match="out of bounds"):
+            _validate_electrode_indices([12], n_rows=12, label="probe")
+        _validate_electrode_indices([0, 11], n_rows=12, label="probe")   # valid: no raise
+
+    def test_error_names_the_offending_indices_and_length(self):
+        with pytest.raises(ValueError) as excinfo:
+            _validate_electrode_indices([18], n_rows=12, label="tutorial unit electrodes")
+        message = str(excinfo.value)
+        assert "18" in message and "12" in message and "tutorial unit electrodes" in message
+
+    def test_shaft_too_short_for_two_units_raises(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            _tutorial_unit_contacts(1)
+
+    def test_round_trip_write_read_preserves_region_and_series(self, tmp_path):
+        """Round-trip through NWB: the region must survive write and read back in bounds."""
+        out_file = tmp_path / "region_roundtrip.nwb"
+        nwb, gt = build_canonical_tutorial_nwb(
+            out_file, n_channels=12, duration_s=2.0, n_trials=4, seed=7)
+        with pynwb.NWBHDF5IO(str(out_file), "r") as io:
+            read_nwb = io.read()
+            n_rows = len(read_nwb.electrodes)
+            assert n_rows == 12
+            es = read_nwb.processing["ecephys"].data_interfaces["LFP"].electrical_series["lfp"]
+            assert es.data.shape[1] == n_rows
+            for u in range(len(read_nwb.units)):
+                for idx in read_nwb.units["electrodes"][u].index:
+                    assert 0 <= int(idx) < n_rows
+
+    def test_shaft_shorter_than_the_crossover_contact_raises(self):
+        """Second defect these probes exposed: the crossover contact is fixed, the shaft is not.
+
+        crossover_true was hardcoded at 10.5 while synth_laminar_motif requires
+        c_crossover <= n_channels - 1, so every n_channels <= 10 failed deep inside the motif
+        generator with a message about c_crossover rather than about the caller's argument.
+        """
+        with pytest.raises(ValueError, match="cannot represent the tutorial laminar crossover"):
+            build_canonical_tutorial_nwb(n_channels=8, duration_s=2.0, n_trials=4, seed=7)
