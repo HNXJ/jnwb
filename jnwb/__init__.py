@@ -11,10 +11,10 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.1.8'
-__release_date__ = '2026-09-11'
+__version__ = '0.2.4rc1'
+__release_date__ = '2026-09-14'
 __author__ = 'Hamed Nejat'
-__status__ = 'Beta'
+__status__ = 'Release Candidate'
 
 import importlib
 import logging
@@ -27,9 +27,10 @@ from ._lazy_exports import EXPORT_MODULES, SUBMODULES
 log = logging.getLogger(__name__)
 
 # ============================================================================
-# JRSA: Unified Representational Similarity Analysis
+# JRSA & RSA: Unified Representational Similarity Analysis & RDM Primitives
 # ============================================================================
 from .jrsa import jrsa, JRSAResult
+from .rsa import rdm, rdm_similarity
 
 # Central path resolution (2026-08-08). `jnwb.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
@@ -65,6 +66,18 @@ from .addressing import (
     map_peak_channel_to_area,
     classify_layer_from_depth,
     enrich_units_dataframe,
+    probe_geometry,
+    ProbeGeometry,
+)
+from .laminar import (
+    vflip,
+    vflip_from_lfp,
+    label_layers,
+    VFlipResult,
+    xflip,
+    XFlipResult,
+    zflip,
+    ZFlipResult,
 )
 
 def __getattr__(name: str):
@@ -119,8 +132,13 @@ from .spectral import (
     harmonic_analysis,
     cross_area_coherence,
     spectral_tilt,
+    AperiodicFitResult,
+    aperiodic_fit,
     band_power,
+    relative_power,
+    RELATIVE_POWER_MODELS,
     imaginary_coherency,
+    wpli,
     bipolar_reference,
     laplacian_reference,
     CANONICAL_BANDS,
@@ -159,9 +177,11 @@ from .spiking import (
 
 # Export main classes and functions
 __all__ = [
-    # JRSA: Unified RSA API
+    # JRSA & RSA
     'jrsa',
     'JRSAResult',
+    'rdm',
+    'rdm_similarity',
 
     # Core ontology objects (immutable, stable)
     'Query',
@@ -178,6 +198,10 @@ __all__ = [
 
     # Path resolution
     'paths',
+
+    # I/O and streaming
+    'io',
+    'stream_npz_array',
 
     # TFR accumulation / compression
     'TFRAccumulator',
@@ -205,12 +229,28 @@ __all__ = [
     'map_peak_channel_to_area',
     'classify_layer_from_depth',
     'enrich_units_dataframe',
+    'probe_geometry',
+    'ProbeGeometry',
+
+    # Laminar
+    'vflip',
+    'vflip_from_lfp',
+    'label_layers',
+    'VFlipResult',
+    'xflip',
+    'XFlipResult',
+    'zflip',
+    'ZFlipResult',
 
     # Analyzers
     'TFRAnalyzer',
     'UnitAnalyzer',
     'PopulationAnalyzer',
     'StatisticalAnalysis',
+    'clopper_pearson',
+    'exact_sign_flip',
+    'mann_whitney_p_floor',
+    'fdr_correct',
     'fires_in_window',
     'fire_indicator',
     'paired_fire_prob_test',
@@ -272,8 +312,13 @@ __all__ = [
     'harmonic_analysis',
     'cross_area_coherence',
     'spectral_tilt',
+    'AperiodicFitResult',
+    'aperiodic_fit',
     'band_power',
+    'relative_power',
+    'RELATIVE_POWER_MODELS',
     'imaginary_coherency',
+    'wpli',
     'bipolar_reference',
     'laplacian_reference',
     'CANONICAL_BANDS',

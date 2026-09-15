@@ -14,6 +14,8 @@ from jnwb.statistics import (
     rate_in_window, shuffle_pvalue_paired, shuffle_pvalue_unpaired,
     detect_trial_cycles, assign_subblock_quartiles, shuffle_r2_ci,
     cross_modal_comparison,
+    clopper_pearson, mann_whitney_p_floor, exact_sign_flip, fdr_correct,
+    StatisticalAnalysis,
 )
 
 
@@ -30,13 +32,18 @@ class TestPublicImport:
         assert jnwb.assign_subblock_quartiles is assign_subblock_quartiles
         assert jnwb.shuffle_r2_ci is shuffle_r2_ci
         assert jnwb.cross_modal_comparison is cross_modal_comparison
+        assert jnwb.clopper_pearson is clopper_pearson
+        assert jnwb.exact_sign_flip is exact_sign_flip
+        assert jnwb.mann_whitney_p_floor is mann_whitney_p_floor
+        assert jnwb.fdr_correct is fdr_correct
 
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("fires_in_window", "fire_indicator", "paired_fire_prob_test",
                      "rate_in_window", "shuffle_pvalue_paired", "shuffle_pvalue_unpaired",
                      "detect_trial_cycles", "assign_subblock_quartiles", "shuffle_r2_ci",
-                     "cross_modal_comparison"):
+                     "cross_modal_comparison",
+                     "clopper_pearson", "exact_sign_flip", "mann_whitney_p_floor", "fdr_correct"):
             assert name in jnwb.__all__
 
 class TestFiresInWindow:
@@ -309,3 +316,182 @@ class TestCrossModalComparison:
         result = cross_modal_comparison(base, base, lag_range_ms=(-100, 100), bin_ms=10.0)
         assert result["lag_ms"] == 0.0
         assert result["correlation"]["parametric"]["statistic"] == pytest.approx(1.0, abs=1e-6)
+
+
+class TestClopperPearson:
+    def test_known_values(self):
+        # 0 successes out of 10 at alpha=0.05
+        # lower bound is 0, upper bound is 1 - (alpha/2)**(1/n) = 1 - 0.025**0.1
+        lo, hi = clopper_pearson(0, 10, alpha=0.05)
+        assert lo == 0.0
+        expected_hi = 1.0 - (0.025) ** 0.1
+        assert hi == pytest.approx(expected_hi, abs=1e-6)
+
+        # 10 successes out of 10 at alpha=0.05
+        lo, hi = clopper_pearson(10, 10, alpha=0.05)
+        assert hi == 1.0
+        expected_lo = 0.025 ** 0.1
+        assert lo == pytest.approx(expected_lo, abs=1e-6)
+
+        # 5 out of 10 at alpha=0.05 (symmetric around 0.5)
+        lo, hi = clopper_pearson(5, 10, alpha=0.05)
+        assert 0.0 < lo < 0.5 < hi < 1.0
+        assert (0.5 - lo) == pytest.approx(hi - 0.5, abs=1e-6)
+
+    def test_statistical_analysis_method_equivalence(self):
+        res1 = clopper_pearson(3, 10, alpha=0.10)
+        res2 = StatisticalAnalysis.clopper_pearson(3, 10, alpha=0.10)
+        res3 = StatisticalAnalysis.clopper_pearson_ci(3, 10, alpha=0.10)
+        assert res1 == res2 == res3
+
+    def test_invalid_inputs_raise_value_error(self):
+        with pytest.raises(ValueError, match="n must be >= 1"):
+            clopper_pearson(0, 0)
+        with pytest.raises(ValueError, match="n must be >= 1"):
+            clopper_pearson(0, -5)
+        with pytest.raises(ValueError, match="k must satisfy 0 <= k <= n"):
+            clopper_pearson(-1, 10)
+        with pytest.raises(ValueError, match="k must satisfy 0 <= k <= n"):
+            clopper_pearson(11, 10)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            clopper_pearson(5, 10, alpha=0.0)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            clopper_pearson(5, 10, alpha=1.0)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            clopper_pearson(5, 10, alpha=-0.05)
+        with pytest.raises(ValueError, match="k and n must be exact integers"):
+            clopper_pearson(2.5, 10)
+
+
+class TestMannWhitneyPFloor:
+    def test_known_floors(self):
+        # n1=3, n2=3: comb(6, 3) = 20.
+        # one-sided: 1/20 = 0.05. two-sided: 2/20 = 0.10
+        assert mann_whitney_p_floor(3, 3, alternative="two-sided") == pytest.approx(0.10, abs=1e-12)
+        assert mann_whitney_p_floor(3, 3, alternative="greater") == pytest.approx(0.05, abs=1e-12)
+        assert mann_whitney_p_floor(3, 3, alternative="less") == pytest.approx(0.05, abs=1e-12)
+
+        # n1=1, n2=1: comb(2, 1) = 2.
+        # one-sided: 1/2 = 0.5. two-sided: min(1.0, 2/2) = 1.0
+        assert mann_whitney_p_floor(1, 1, alternative="two-sided") == pytest.approx(1.0, abs=1e-12)
+        assert mann_whitney_p_floor(1, 1, alternative="greater") == pytest.approx(0.5, abs=1e-12)
+
+        # n1=4, n2=6: comb(10, 4) = 210.
+        assert mann_whitney_p_floor(4, 6, alternative="two-sided") == pytest.approx(2.0 / 210.0, abs=1e-12)
+        assert mann_whitney_p_floor(4, 6, alternative="greater") == pytest.approx(1.0 / 210.0, abs=1e-12)
+
+    def test_symmetry_in_n1_n2(self):
+        assert mann_whitney_p_floor(4, 7) == mann_whitney_p_floor(7, 4)
+
+    def test_statistical_analysis_method_equivalence(self):
+        assert StatisticalAnalysis.mann_whitney_p_floor(3, 5) == mann_whitney_p_floor(3, 5)
+
+    def test_invalid_inputs_raise_value_error(self):
+        with pytest.raises(ValueError, match="Sample sizes must be >= 1"):
+            mann_whitney_p_floor(0, 5)
+        with pytest.raises(ValueError, match="Sample sizes must be >= 1"):
+            mann_whitney_p_floor(5, 0)
+        with pytest.raises(ValueError, match="Sample sizes must be >= 1"):
+            mann_whitney_p_floor(-1, 5)
+        with pytest.raises(ValueError, match="alternative must be"):
+            mann_whitney_p_floor(3, 3, alternative="invalid_tail")
+
+
+class TestExactSignFlip:
+    def test_tiny_direct_enumeration_n3(self):
+        # diffs = [1.0, 2.0, 3.0]
+        # 2^3 = 8 combinations:
+        # sum of signs:
+        # +++: 6 (mean 2)
+        # ++-: 0 (mean 0)
+        # +-+:-2 (mean -2/3)
+        # +--:-4 (mean -4/3)
+        # -++: 4 (mean 4/3)
+        # -+-: 2 (mean 2/3)
+        # --+: 0 (mean 0)
+        # ---:-6 (mean -2)
+        # obs_mean = 2.0.
+        # greater (mean >= 2.0): only +++ -> 1/8 = 0.125
+        # less (mean <= 2.0): all 8 -> 8/8 = 1.0
+        # two-sided (|mean| >= 2.0): +++ and --- -> 2/8 = 0.25
+        obs, p_two, p_floor = exact_sign_flip([1.0, 2.0, 3.0], alternative="two-sided")
+        assert obs == pytest.approx(2.0, abs=1e-12)
+        assert p_two == pytest.approx(0.25, abs=1e-12)
+        assert p_floor == pytest.approx(0.25, abs=1e-12)
+
+        obs, p_gt, p_floor_gt = exact_sign_flip([1.0, 2.0, 3.0], alternative="greater")
+        assert p_gt == pytest.approx(0.125, abs=1e-12)
+        assert p_floor_gt == pytest.approx(0.125, abs=1e-12)
+
+        obs, p_lt, _ = exact_sign_flip([1.0, 2.0, 3.0], alternative="less")
+        assert p_lt == pytest.approx(1.0, abs=1e-12)
+
+    def test_direct_enumeration_with_zeros_and_ties(self):
+        # diffs with zero and ties
+        diffs = np.array([0.0, 2.0, -2.0, 4.0])
+        # n = 4, 16 permutations
+        obs, p_val, p_floor = exact_sign_flip(diffs, alternative="two-sided")
+        assert obs == pytest.approx(1.0, abs=1e-12)
+        assert p_floor == pytest.approx(2.0 / 16.0, abs=1e-12)
+
+        # Independent enumeration check
+        all_means = []
+        for i in range(16):
+            s = np.array([1.0 if (i >> b) & 1 else -1.0 for b in range(4)])
+            all_means.append(np.mean(s * diffs))
+        all_means = np.array(all_means)
+        expected_p = float(np.mean(np.abs(all_means) >= abs(obs) - 1e-12))
+        assert p_val == pytest.approx(expected_p, abs=1e-12)
+
+    def test_exact_sign_flip_n1(self):
+        obs, p_val, p_floor = exact_sign_flip([5.0], alternative="two-sided")
+        assert obs == 5.0
+        assert p_val == 1.0  # |+5| >= 5 and |-5| >= 5
+        assert p_floor == 1.0
+
+        obs, p_gt, _ = exact_sign_flip([5.0], alternative="greater")
+        assert p_gt == 0.5  # only +5 >= 5
+
+    def test_n_greater_than_20_monte_carlo(self):
+        rng = np.random.default_rng(123)
+        # N = 25 (> 20)
+        diffs = rng.normal(loc=1.0, scale=0.2, size=25)  # all positive -> strongly significant
+        obs, p_val, p_floor = exact_sign_flip(diffs, alternative="two-sided", n_mc=1000, rng=42)
+        assert obs == pytest.approx(np.mean(diffs), abs=1e-12)
+        # With all positive differences, null sign flips will rarely match obs
+        assert p_val < 0.01
+        assert p_floor == pytest.approx(1.0 / 1001.0, abs=1e-12)
+
+    def test_statistical_analysis_method_equivalence(self):
+        res1 = exact_sign_flip([1.0, 2.0, 3.0])
+        res2 = StatisticalAnalysis.exact_sign_flip([1.0, 2.0, 3.0])
+        assert res1 == res2
+
+    def test_invalid_inputs_raise_value_error(self):
+        with pytest.raises(ValueError, match="diffs cannot be empty"):
+            exact_sign_flip([])
+        with pytest.raises(ValueError, match="finite numerical values"):
+            exact_sign_flip([1.0, np.nan, 2.0])
+        with pytest.raises(ValueError, match="finite numerical values"):
+            exact_sign_flip([1.0, np.inf, 2.0])
+        with pytest.raises(ValueError, match="alternative must be"):
+            exact_sign_flip([1.0, 2.0], alternative="invalid")
+
+
+class TestFDRCorrect:
+    def test_standalone_matches_statistical_analysis(self):
+        p_vals = [0.001, 0.01, 0.04, 0.05, 0.2]
+        q1 = fdr_correct(p_vals)
+        q2 = StatisticalAnalysis.fdr_correct(p_vals)
+        np.testing.assert_allclose(q1, q2)
+
+    def test_empty_input(self):
+        q = fdr_correct([])
+        assert len(q) == 0
+
+    def test_monotonicity_and_bounds(self):
+        p_vals = np.array([0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.8])
+        q = fdr_correct(p_vals)
+        assert np.all(q >= p_vals)
+        assert np.all(q <= 1.0)
+

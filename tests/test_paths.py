@@ -164,48 +164,40 @@ class TestDescribeNeverRaises:
 class TestPackageRootRename:
     """JNWB-007: REPO_ROOT was jnwb's own checkout under a name consumers read as theirs.
 
-    It resolves from paths.py's own location, so in a consuming project it points at
-    the jnwb checkout. The path is well-formed and simply names the wrong tree, so
-    nothing fails loudly. One project had 41 live files building paths from it.
+    It resolved from paths.py's own location, so in a consuming project it pointed at
+    the jnwb checkout. The path was well-formed and simply named the wrong tree.
+    In 0.2.0, the deprecated REPO_ROOT alias is removed completely in favor of PACKAGE_ROOT.
     """
 
     def test_package_root_is_the_jnwb_package_parent(self):
         assert paths.PACKAGE_ROOT == Path(paths.__file__).resolve().parent.parent
         assert (paths.PACKAGE_ROOT / "jnwb" / "paths.py").exists()
 
-    def test_repo_root_alias_still_resolves(self):
-        """Existing callers keep working for one release."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            assert paths.REPO_ROOT == paths.PACKAGE_ROOT
-
-    def test_repo_root_access_warns_and_names_the_replacement(self):
-        with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            paths.REPO_ROOT
-        deprecations = [w for w in record if issubclass(w.category, DeprecationWarning)]
-        assert len(deprecations) == 1, [str(w.message) for w in record]
-        message = str(deprecations[0].message)
-        assert "PACKAGE_ROOT" in message
-        assert "0.2.0" in message, "a deprecation must say when it is removed"
+    def test_repo_root_is_absent_and_raises_attribute_error(self):
+        """0.2.0 removal commitment: paths.REPO_ROOT must not exist."""
+        assert not hasattr(paths, "REPO_ROOT")
+        with pytest.raises(AttributeError):
+            _ = paths.REPO_ROOT
 
     def test_package_root_does_not_warn(self):
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
-            paths.PACKAGE_ROOT
+            _ = paths.PACKAGE_ROOT
         assert [w for w in record if issubclass(w.category, DeprecationWarning)] == []
 
-    def test_public_surface_advertises_the_new_name_only(self):
+    def test_public_surface_advertises_package_root_only(self):
         assert "PACKAGE_ROOT" in paths.__all__
-        assert "REPO_ROOT" not in paths.__all__, "a deprecated name must not be advertised"
+        assert "REPO_ROOT" not in paths.__all__
 
     def test_unknown_attribute_still_raises_attribute_error(self):
-        """The module __getattr__ must not swallow real typos."""
+        """The module must raise AttributeError for non-existent attributes."""
         with pytest.raises(AttributeError):
-            paths.definitely_not_a_real_attribute
+            _ = paths.definitely_not_a_real_attribute
 
-    def test_describe_reports_both_keys_during_deprecation(self):
-        """A dict key cannot warn, so the old key survives one release."""
+    def test_describe_reports_package_root_and_omits_repo_root(self):
+        """describe() reports PACKAGE_ROOT and no longer contains the deprecated REPO_ROOT key."""
         result = paths.describe()
+        assert "PACKAGE_ROOT" in result
         assert result["PACKAGE_ROOT"]["path"] == str(paths.PACKAGE_ROOT)
-        assert result["REPO_ROOT"] == result["PACKAGE_ROOT"]
+        assert "REPO_ROOT" not in result
+

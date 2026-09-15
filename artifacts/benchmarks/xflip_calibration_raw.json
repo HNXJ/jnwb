@@ -1,0 +1,189 @@
+{
+  "null_ensemble": {
+    "white_noise": {
+      "n_seeds": 30,
+      "n_accepted": 0,
+      "fpr": 0.0,
+      "median_p": 0.49019607843137253,
+      "min_p": 0.0784313725490196,
+      "max_p": 1.0,
+      "median_modularity": 0.01021837202264163
+    },
+    "ar_noise": {
+      "n_seeds": 30,
+      "n_accepted": 1,
+      "fpr": 0.03333333333333333,
+      "median_p": 0.39215686274509803,
+      "min_p": 0.0196078431372549,
+      "max_p": 0.9411764705882353,
+      "median_modularity": 0.05503574688759265
+    },
+    "periodic_common_response": {
+      "n_seeds": 30,
+      "n_accepted": 0,
+      "fpr": 0.0,
+      "median_p": 0.9019607843137255,
+      "min_p": 0.7647058823529411,
+      "max_p": 0.9803921568627451,
+      "median_modularity": 0.006626800094627794
+    },
+    "smooth_spatial_gradient": {
+      "n_seeds": 30,
+      "n_accepted": 0,
+      "fpr": 0.0,
+      "median_p": 0.0196078431372549,
+      "min_p": 0.0196078431372549,
+      "max_p": 0.0196078431372549,
+      "median_modularity": 0.3270848481586283
+    }
+  },
+  "alternative_ensemble": {
+    "snr_sweep": {
+      "0.2": {
+        "rw": 0.2,
+        "tpr": 0.9,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.14670240708294768
+      },
+      "0.4": {
+        "rw": 0.4,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.34262360920561086
+      },
+      "0.6": {
+        "rw": 0.6,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.5400569111697726
+      },
+      "0.8": {
+        "rw": 0.8,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.7405765669045936
+      }
+    },
+    "unequal_sweep": {
+      "4_12": {
+        "sizes": [
+          4,
+          12
+        ],
+        "true_boundary": 4,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.5919993042306
+      },
+      "12_4": {
+        "sizes": [
+          12,
+          4
+        ],
+        "true_boundary": 12,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.5975343649767835
+      },
+      "6_18": {
+        "sizes": [
+          6,
+          18
+        ],
+        "true_boundary": 6,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "max_error": 0.0,
+        "median_modularity": 0.6045591180912738
+      }
+    },
+    "three_blocks": {
+      "6_6_6": {
+        "sizes": [
+          6,
+          6,
+          6
+        ],
+        "true_boundaries": [
+          6,
+          12
+        ],
+        "tpr": 1.0,
+        "median_error_b1": 0.0,
+        "median_error_b2": 0.0,
+        "median_modularity": 0.6996967102648269
+      },
+      "4_8_4": {
+        "sizes": [
+          4,
+          8,
+          4
+        ],
+        "true_boundaries": [
+          4,
+          12
+        ],
+        "tpr": 1.0,
+        "median_error_b1": 0.0,
+        "median_error_b2": 0.0,
+        "median_modularity": 0.6954501866684528
+      }
+    },
+    "channel_count_sweep": {
+      "8": {
+        "n_channels": 8,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.5957767261802527
+      },
+      "12": {
+        "n_channels": 12,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.6074478981030504
+      },
+      "16": {
+        "n_channels": 16,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.6142320307145785
+      },
+      "24": {
+        "n_channels": 24,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.5981242446732152
+      },
+      "32": {
+        "n_channels": 32,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.5860167903375845
+      },
+      "48": {
+        "n_channels": 48,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.5976144082162895
+      },
+      "64": {
+        "n_channels": 64,
+        "tpr": 1.0,
+        "median_error": 0.0,
+        "median_modularity": 0.6007979323746024
+      }
+    }
+  },
+  "determinism": {
+    "same_seed_identical": true,
+    "diff_seeds_modularity_invariant": true,
+    "diff_seeds_p_mean": 0.019607843137254905,
+    "diff_seeds_p_std": 3.469446951953614e-18
+  }
+}

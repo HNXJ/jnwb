@@ -60,10 +60,14 @@ nav:
       - References: references.md
 
   - Tutorials:
-      - Inspect an NWB: tutorials/01_inspect_nwb.md
-      - Event Codes and Onsets: tutorials/02_event_codes_and_onsets.md
-      - Align Spikes and LFP to Events: tutorials/03_align_spikes_lfp_to_events.md
-      - Compose an Analysis: tutorials/04_compose_workflow.md
+      - NWB Basics: tutorials/01_nwb_basics.md
+      - Addressing & Metadata: tutorials/02_addressing_and_metadata.md
+      - Spiking Dynamics: tutorials/03_spiking.md
+      - LFP & Spectral: tutorials/04_lfp_and_spectral.md
+      - Statistical Inference: tutorials/05_statistics.md
+      - Laminar Analysis: tutorials/06_laminar.md
+      - Ensembles & Decoding: tutorials/07_ensembles.md
+      - End-to-End Pipeline: tutorials/08_end_to_end_pipeline.md
 
   - Architecture & Foundations:
       - Philosophy & Boundary: 01_architecture_and_philosophy.md

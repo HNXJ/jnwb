@@ -112,3 +112,60 @@ def test_compute_population_trajectory_empty():
     assert res['trajectory'].shape == (4, 2, 5)
     assert np.all(res['trajectory'] == 0.0)
     assert res['explained_variance'] == 0.0
+
+
+class TestPopulationTrajectoryEstimandDivergence:
+    """Discriminating tests between covariance PCA (centering only) and correlation PCA (standardization)."""
+
+    def test_divergence_on_unequal_variance_features(self):
+        """Verify that covariance PCA and correlation PCA produce mathematically distinct components and variance ratios."""
+        from jnwb.analyzers import PopulationAnalyzer
+        rng = np.random.default_rng(42)
+        # 100 samples with 3 features of drastically different scales: 100.0, 1.0, 0.01
+        X = np.column_stack([
+            rng.normal(0, 100.0, 100),
+            rng.normal(0, 1.0, 100),
+            rng.normal(0, 0.01, 100),
+        ])
+
+        # PopulationAnalyzer.population_trajectory uses unstandardized covariance PCA
+        res_cov = PopulationAnalyzer.population_trajectory(X, n_components=2)
+        # Covariance PCA: feature 0 dominates first component (>99.9% of variance)
+        assert res_cov['explained_variance_ratio'][0] > 0.99
+        assert abs(res_cov['components'][0, 0]) > 0.99
+
+        # Standardized correlation PCA (as used in compute_population_trajectory / gpu_pca)
+        from jnwb.gpu_pca import gpu_pca
+        proj_corr, comp_corr, ev_ratio_corr = gpu_pca(X, n_components=2, device="cpu")
+        # Correlation PCA: features are standardized, so feature 0 does NOT dominate (>90%)
+        # All 3 features have comparable variance (~33% each)
+        assert ev_ratio_corr < 0.85
+        assert abs(comp_corr[0, 0]) < 0.85
+
+        # Projections are mathematically distinct and not equivalent
+        # Standardizing changes the subspace orientation
+        assert not np.allclose(res_cov['projection'], proj_corr)
+
+
+class TestComputePopulationTrajectoryDeviceFallback:
+    """Verify that device='cuda' on denied GPU warns via resolve_device and produces CPU results."""
+
+    def test_denied_gpu_warns_and_computes(self, monkeypatch):
+        import jnwb._backend as backend
+        monkeypatch.setattr(backend, "gpu_available", lambda prefer=None: False)
+
+        session = MockSession()
+        with pytest.warns(RuntimeWarning, match="device='cuda' was requested but no usable CUDA device was found"):
+            res = compute_population_trajectory(
+                session,
+                area='V1',
+                epochs_df=session.epochs_df,
+                time_window_ms=(0.0, 100.0),
+                bin_size_ms=20.0,
+                n_components=2,
+                device="cuda",
+            )
+        assert res['trajectory'].shape == (4, 2, 5)
+        assert 0.0 <= res['explained_variance'] <= 1.0
+
+

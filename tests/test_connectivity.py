@@ -8,6 +8,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import jnwb
+
 from jnwb.connectivity import (
     spike_mutual_information,
     binary_occupancy_mutual_information,
@@ -193,6 +195,20 @@ class TestGranger:
             with pytest.warns(UserWarning, match="Granger AIC extraction failed"):
                 _granger(x, y, max_lag=1)
 
+    def test_granger_null_non_negative_ml_variance(self):
+        """Granger causality using ML residual variance RSS/N is non-negative under plain OLS (0.2.3-REV-07)."""
+        rng = np.random.default_rng(42)
+        # 10 independent noise trials under true null
+        x = rng.standard_normal((10, 500))
+        y = rng.standard_normal((10, 500))
+
+        result = granger(x, y, order=3, n_surrogates=0, ridge=0.0)
+        assert result.x_to_y >= 0.0, f"Expected non-negative GC under plain OLS, got {result.x_to_y}"
+        assert result.y_to_x >= 0.0, f"Expected non-negative GC under plain OLS, got {result.y_to_x}"
+        assert result.x_to_y == pytest.approx(0.0, abs=0.01)
+        assert result.y_to_x == pytest.approx(0.0, abs=0.01)
+
+
 
 class TestPhaseSlopeIndex:
     def test_antisymmetric_under_swap(self):
@@ -204,6 +220,35 @@ class TestPhaseSlopeIndex:
         fwd = phase_slope_index(x, y, fs=1000.0, bands=(14, 30), nperseg=256)
         rev = phase_slope_index(y, x, fs=1000.0, bands=(14, 30), nperseg=256)
         assert fwd.net == pytest.approx(-rev.net, abs=1e-9)
+
+    def test_multiband_psi_omnibus_pvalue(self):
+        """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
+        from scipy import signal, stats
+        rng = np.random.default_rng(42)
+        n = 4000
+        # Filtered band-limited signal in gamma (55-75 Hz) with 5 ms delay
+        raw = rng.standard_normal(n)
+        sos = signal.butter(4, [55.0, 75.0], btype="bandpass", fs=1000.0, output="sos")
+        gamma_sig = signal.sosfiltfilt(sos, raw)
+        x = gamma_sig + 0.05 * rng.standard_normal(n)
+        y = np.roll(gamma_sig, 5) + 0.05 * rng.standard_normal(n)
+
+        # Multi-band: theta (4-8 Hz, pure noise) and gamma (55-75 Hz, strong lead)
+        bands = {"theta": (4.0, 8.0), "gamma": (55.0, 75.0)}
+        res = phase_slope_index(x, y, fs=1000.0, bands=bands, n_surrogates=0)
+
+        assert res.diagnostics["p_is_omnibus"] is True
+        p_theta = float(2 * stats.norm.sf(abs(res.per_band["theta"]["z"])))
+        p_gamma = float(2 * stats.norm.sf(abs(res.per_band["gamma"]["z"])))
+
+        # Theta has no lead (p > 0.1), Gamma has massive lead (p < 1e-10)
+        assert p_theta > 0.1
+        assert p_gamma < 1e-10
+
+        # Top-level p_x_to_y must NOT be equal to the first band (theta) p-value
+        assert res.p_x_to_y != pytest.approx(p_theta, abs=1e-4)
+        assert res.p_x_to_y < 0.05, f"Omnibus p must be significant, got {res.p_x_to_y}"
+
 
 
 class TestTransferEntropy:
@@ -236,3 +281,49 @@ class TestDirectedConnectivityAndNetwork:
         result = directed_network(signals, method="granger", order=2, fdr=False)
         assert "labels" in result
         assert set(result["labels"]) == {"A", "B", "C"}
+
+
+class TestCrossAreaCoherenceContract:
+    """0.2.4-09: out-of-contract input must fail loudly, not plausibly.
+
+    Both cases below previously produced a result a caller could not distinguish from a
+    real measurement, or an error naming neither the argument nor the contract.
+    """
+
+    def _bands(self):
+        return {"beta": (15.0, 30.0)}
+
+    @pytest.mark.parametrize("shape", [(6, 2048), (2, 2048), (1, 2048), (3, 512)])
+    def test_two_dimensional_input_is_rejected(self, shape):
+        rng = np.random.default_rng(0)
+        a = rng.normal(size=shape)
+        b = rng.normal(size=shape)
+        with pytest.raises(ValueError, match=r"must be a 1-D time series"):
+            jnwb.cross_area_coherence(
+                a, b, fs=1000.0, freq_bands=self._bands(), n_surrogates=3
+            )
+
+    def test_rejection_names_the_offending_argument_and_shape(self):
+        rng = np.random.default_rng(0)
+        good = rng.normal(size=1024)
+        bad = rng.normal(size=(4, 1024))
+        with pytest.raises(ValueError) as excinfo:
+            jnwb.cross_area_coherence(
+                good, bad, fs=1000.0, freq_bands=self._bands(), n_surrogates=3
+            )
+        message = str(excinfo.value)
+        assert "lfp_area2" in message
+        assert "(4, 1024)" in message
+
+    def test_one_dimensional_paired_input_still_computes(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(size=4096)
+        b = rng.normal(size=4096)
+        out = jnwb.cross_area_coherence(
+            a, b, fs=1000.0, freq_bands=self._bands(), n_surrogates=5
+        )
+        assert np.asarray(out["coherence_spectrum"]).ndim == 1
+        assert np.asarray(out["frequencies"]).size == np.asarray(out["coherence_spectrum"]).size
+        # Bounded in [0, 1]; the upper compare carries float slack because the
+        # estimator can land exactly on 1.0 (see the segment-count caveat below).
+        assert 0.0 <= out["peak_coherence_value"] <= 1.0 + 1e-9

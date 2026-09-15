@@ -10,6 +10,8 @@ from jnwb.addressing import (
     classify_layer_from_depth,
     enrich_units_dataframe,
     parse_probe_areas,
+    probe_geometry,
+    ProbeGeometry,
 )
 
 
@@ -25,6 +27,7 @@ def _electrodes_df():
             "location": ["V1", "PFC", None],
             "group_name": ["probeC", "probeA", "probeB"],
             "z": [500.0, 1500.0, 800.0],
+            "depth_unit": ["um", "um", "um"],
         },
         index=[0, 1, 2],
     )
@@ -87,8 +90,10 @@ def test_classify_layer_from_depth_threshold_boundary():
 
     # Exact boundary (z == 1000.0) must resolve to Superficial per the
     # `> 1000.0` (strict) comparison in the implementation.
-    boundary_elec = pd.DataFrame({"location": ["V1"], "z": [1000.0]}, index=[0])
+    boundary_elec = pd.DataFrame({"location": ["V1"], "z": [1000.0], "depth_unit": ["um"]}, index=[0])
     assert classify_layer_from_depth(0, boundary_elec) == "Superficial"
+    boundary_deep = pd.DataFrame({"location": ["V1"], "z": [1000.001], "depth_unit": ["um"]}, index=[0])
+    assert classify_layer_from_depth(0, boundary_deep) == "Deep"
 
 
 def test_map_peak_channel_to_area_with_explicit_channel_id_column_and_reset_index():
@@ -116,12 +121,114 @@ def test_classify_layer_from_depth_with_explicit_channel_id_column_and_reset_ind
         {
             "channel_id": [100, 101, 102],
             "z": [500.0, 1200.0, 1500.0],
+            "depth_unit": ["um", "um", "um"],
         },
         index=[0, 1, 2],
     )
     assert classify_layer_from_depth(100, elec) == "Superficial"
     assert classify_layer_from_depth(101, elec) == "Deep"
     assert classify_layer_from_depth(0, elec) == "Unknown"
+
+
+class TestClassifyLayerUnitSafety:
+    """Regression suite for 0.2.0-04: unit-safety in classify_layer_from_depth.
+
+    Acceptance invariant:
+        unknown or incompatible depth units -/-> plausible layer label.
+    """
+
+    def test_reproduced_silent_mm_failure_is_prevented(self):
+        # Diagnostic case: z in mm (0.5, 1.5, 2.5 mm).
+        # Without units, previously silently returned ['Superficial', 'Superficial', 'Superficial'].
+        # Now must return 'Unknown' for all channels because depth unit is unknown.
+        df_mm = pd.DataFrame({"z": [0.5, 1.5, 2.5]}, index=[0, 1, 2])
+        assert classify_layer_from_depth(0, df_mm) == "Unknown"
+        assert classify_layer_from_depth(1, df_mm) == "Unknown"
+        assert classify_layer_from_depth(2, df_mm) == "Unknown"
+
+        # With explicit depth_unit='mm', 0.5 mm is Superficial, 1.5 and 2.5 mm are Deep
+        assert classify_layer_from_depth(0, df_mm, depth_unit="mm") == "Superficial"
+        assert classify_layer_from_depth(1, df_mm, depth_unit="mm") == "Deep"
+        assert classify_layer_from_depth(2, df_mm, depth_unit="mm") == "Deep"
+
+    def test_explicit_units_um(self):
+        df_um = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df_um, depth_unit="um") == "Superficial"
+        assert classify_layer_from_depth(1, df_um, depth_unit="um") == "Deep"
+        # Alternate spellings
+        assert classify_layer_from_depth(0, df_um, depth_unit="µm") == "Superficial"
+        assert classify_layer_from_depth(1, df_um, depth_unit="microns") == "Deep"
+
+    def test_threshold_boundary_and_custom_thresholds(self):
+        df = pd.DataFrame({"z": [1000.0, 1000.001, 800.0, 1200.0]}, index=[0, 1, 2, 3])
+        # Exact boundary at 1000.0 um is Superficial
+        assert classify_layer_from_depth(0, df, depth_unit="um") == "Superficial"
+        assert classify_layer_from_depth(1, df, depth_unit="um") == "Deep"
+
+        # Custom threshold in um
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=750.0) == "Deep"
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=850.0) == "Superficial"
+
+        # Custom threshold with explicit threshold_unit='mm'
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.75, threshold_unit="mm") == "Deep"
+        assert classify_layer_from_depth(2, df, depth_unit="um", threshold=0.85, threshold_unit="mm") == "Superficial"
+
+    def test_unsupported_units_return_unknown(self):
+        df = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        for bad_unit in ["inches", "furlongs", "lightyears", "volts", ""]:
+            assert classify_layer_from_depth(0, df, depth_unit=bad_unit) == "Unknown"
+            assert classify_layer_from_depth(1, df, depth_unit=bad_unit) == "Unknown"
+
+    def test_missing_nan_and_infinite_depth(self):
+        df = pd.DataFrame({"z": [np.nan, np.inf, -np.inf, None]}, index=[0, 1, 2, 3])
+        for ch in range(4):
+            assert classify_layer_from_depth(ch, df, depth_unit="um") == "Unknown"
+
+    def test_implausible_coordinates(self):
+        # Negative depth (outside cortical column) and excessive depth (> 20 mm)
+        df = pd.DataFrame({"z": [-100.0, -0.001, 25000.0, 100000.0]}, index=[0, 1, 2, 3])
+        for ch in range(4):
+            assert classify_layer_from_depth(ch, df, depth_unit="um") == "Unknown"
+
+    def test_no_unit_guessing(self):
+        # High numerical values (e.g. 1500.0) must NOT be guessed as um
+        df_high = pd.DataFrame({"z": [1500.0]}, index=[0])
+        assert classify_layer_from_depth(0, df_high) == "Unknown"
+
+        # Low numerical values (e.g. 1.5) must NOT be guessed as mm
+        df_low = pd.DataFrame({"z": [1.5]}, index=[0])
+        assert classify_layer_from_depth(0, df_low) == "Unknown"
+
+    def test_metadata_resolution_via_column_and_attrs(self):
+        # Unit declared in column 'depth_unit'
+        df_col = pd.DataFrame({"z": [500.0, 1500.0], "depth_unit": ["um", "um"]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df_col) == "Superficial"
+        assert classify_layer_from_depth(1, df_col) == "Deep"
+
+        # Unit declared in column 'z_unit'
+        df_col2 = pd.DataFrame({"z": [0.5, 1.5], "z_unit": ["mm", "mm"]}, index=[0, 1])
+        assert classify_layer_from_depth(0, df_col2) == "Superficial"
+        assert classify_layer_from_depth(1, df_col2) == "Deep"
+
+        # Unit declared in df.attrs['depth_unit']
+        df_attrs = pd.DataFrame({"z": [500.0, 1500.0]}, index=[0, 1])
+        df_attrs.attrs["depth_unit"] = "um"
+        assert classify_layer_from_depth(0, df_attrs) == "Superficial"
+        assert classify_layer_from_depth(1, df_attrs) == "Deep"
+
+        # Unit declared in df.attrs['unit']
+        df_attrs2 = pd.DataFrame({"z": [0.5, 1.5]}, index=[0, 1])
+        df_attrs2.attrs["unit"] = "mm"
+        assert classify_layer_from_depth(0, df_attrs2) == "Superficial"
+        assert classify_layer_from_depth(1, df_attrs2) == "Deep"
+
+    def test_constant_label_regression(self):
+        # Verify that mm data resolves into diverse labels, not constant 'Superficial'
+        df_linear = pd.DataFrame({"z": np.linspace(0.2, 2.0, 10)}, index=range(10))
+        labels = [classify_layer_from_depth(ch, df_linear, depth_unit="mm") for ch in range(10)]
+        assert "Superficial" in labels
+        assert "Deep" in labels
+        assert labels != ["Superficial"] * 10
 
 
 def test_map_peak_channel_to_area_non_contiguous_probe_indices():
@@ -172,9 +279,9 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
     assert pd.isna(area_values[2])
     assert list(enriched["layer"]) == ["Superficial", "Deep", "Superficial"]
 
-    # Stability flag: quality >= 1.0
+    # Stability flag: quality >= 1.0; legacy stable_plus alias removed
     assert list(enriched["is_stable"]) == [True, False, True]
-    assert list(enriched["stable_plus"]) == [True, False, True]
+    assert "stable_plus" not in enriched.columns
 
     # firing_rate coerced to numeric, invalid values become NaN not a crash
     assert enriched["firing_rate"].iloc[0] == 5.5
@@ -187,9 +294,35 @@ def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
 
     assert enriched["area"].isna().all()
     assert list(enriched["layer"]) == ["Unknown", "Unknown"]
-    assert list(enriched["group_name"]) == ["probeA", "probeA"]
+    assert enriched["group_name"].isna().all()
     # No quality column provided -> defaults to not-stable, not a crash
     assert list(enriched["is_stable"]) == [False, False]
+    assert "stable_plus" not in enriched.columns
+
+
+def test_enrich_units_dataframe_categorical_quality():
+    units = pd.DataFrame({
+        "unit_id": [0, 1, 2, 3],
+        "quality": ["good", "mua", "sua", "noise"],
+    })
+    enriched = enrich_units_dataframe(units, None)
+    assert list(enriched["is_stable"]) == [True, False, True, False]
+
+
+def test_enrich_units_dataframe_no_fabricated_probeA():
+    # electrodes_df with no probe or group_name column
+    elec = pd.DataFrame({"location": ["V1"], "z": [500.0], "depth_unit": ["um"]}, index=[0])
+    units = pd.DataFrame({"peak_channel_id": [0]})
+    enriched = enrich_units_dataframe(units, elec)
+    assert enriched["group_name"].isna().all()
+
+    # electrodes_df with explicit probe column preserves probe identity
+    elec_probe = pd.DataFrame(
+        {"location": ["V1"], "z": [500.0], "depth_unit": ["um"], "probe": ["shank2"]},
+        index=[0],
+    )
+    enriched_probe = enrich_units_dataframe(units, elec_probe)
+    assert list(enriched_probe["group_name"]) == ["shank2"]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -308,3 +441,153 @@ def test_channel_118_120_boundary_case_on_a_128_channel_three_area_probe():
     assert map_peak_channel_to_area(42, elec) == "V1"      # last of first third
     assert map_peak_channel_to_area(43, elec) == "V2"      # first of middle third
     assert map_peak_channel_to_area(127, elec) == "V3"
+
+
+class TestProbeGeometry:
+    def test_linear_probe_uniform_spacing_and_orientation(self):
+        # 16 contacts along z-axis, 50 um pitch
+        n = 16
+        z_coords = np.arange(n) * 50.0
+        coords = np.column_stack([np.zeros(n), np.zeros(n), z_coords])
+        
+        geom = probe_geometry(coords, units="um", pitch_tolerance=0.05)
+        assert isinstance(geom, ProbeGeometry)
+        assert geom.contact_positions.shape == (n, 3)
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+        assert np.isclose(geom.nominal_pitch, 50.0)
+        assert np.array_equal(geom.linear_order, np.arange(n))
+        assert np.allclose(geom.orientation, [0.0, 0.0, 1.0])
+        assert geom.units == "um"
+
+    def test_arbitrary_linear_orientation_and_order_recovery(self):
+        # 10 contacts along diagonal (1, 1, 0) direction, pitch = 100 um
+        n = 10
+        pitch = 100.0
+        unit_vec = np.array([1.0, 1.0, 0.0]) / np.sqrt(2.0)
+        # Shuffle presentation order
+        shuffled_indices = np.array([3, 0, 9, 2, 8, 1, 7, 4, 6, 5])
+        positions = np.array([i * pitch * unit_vec for i in shuffled_indices])
+
+        geom = probe_geometry(positions, units="um")
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+        assert np.isclose(geom.nominal_pitch, pitch)
+        # Sorted order should place contact 0 first and contact 9 last
+        assert shuffled_indices[geom.linear_order[0]] == 0
+        assert shuffled_indices[geom.linear_order[-1]] == 9
+        # Orientation should align with positive unit_vec
+        assert np.allclose(geom.orientation, unit_vec)
+
+    def test_units_conversion_mm_and_m(self):
+        # 4 contacts spaced 0.1 mm = 100 um
+        coords_mm = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.1], [0.0, 0.0, 0.2], [0.0, 0.0, 0.3]])
+        geom_mm = probe_geometry(coords_mm, units="mm")
+        assert np.isclose(geom_mm.nominal_pitch, 100.0)
+        assert np.isclose(geom_mm.contact_positions[-1, 2], 300.0)
+
+        # In meters: 0.0001 m = 100 um
+        coords_m = coords_mm * 1e-3
+        geom_m = probe_geometry(coords_m, units="m")
+        assert np.isclose(geom_m.nominal_pitch, 100.0)
+
+    def test_irregular_spacing_detected(self):
+        # Contacts with gaps: 0, 50, 100, 250, 300 (missing contact at 150, 200)
+        z = np.array([0.0, 50.0, 100.0, 250.0, 300.0])
+        coords = np.column_stack([np.zeros(len(z)), np.zeros(len(z)), z])
+        geom = probe_geometry(coords, units="um", pitch_tolerance=0.1)
+        assert geom.is_linear is True
+        assert geom.is_uniform is False  # irregular spacing
+        assert np.isclose(geom.nominal_pitch, 50.0)  # median distance is 50.0
+
+    def test_tolerance_for_nominal_spacing(self):
+        # Contacts with slight jitter within 10% tolerance
+        z = np.array([0.0, 52.0, 98.0, 151.0, 203.0])  # pitch ~ 50 um
+        coords = np.column_stack([np.zeros(len(z)), np.zeros(len(z)), z])
+        geom_strict = probe_geometry(coords, nominal_pitch=50.0, pitch_tolerance=0.02)
+        assert geom_strict.is_uniform is False  # 4% deviation exceeds 2%
+        geom_loose = probe_geometry(coords, nominal_pitch=50.0, pitch_tolerance=0.10)
+        assert geom_loose.is_uniform is True
+
+    def test_non_linear_2d_array(self):
+        # 2D planar grid (e.g. 2x2 grid)
+        coords_2d = np.array([
+            [0.0, 0.0, 0.0],
+            [50.0, 0.0, 0.0],
+            [0.0, 50.0, 0.0],
+            [50.0, 50.0, 0.0],
+        ])
+        geom = probe_geometry(coords_2d, units="um", strict_linear=False)
+        assert geom.is_linear is False
+        assert geom.is_uniform is False
+
+        # strict_linear=True must raise ValueError
+        import pytest
+        with pytest.raises(ValueError, match="non-linear"):
+            probe_geometry(coords_2d, units="um", strict_linear=True)
+
+    def test_multi_probe_selection_and_ambiguity(self):
+        import pytest
+        # DataFrame with two distinct probes
+        elec_df = pd.DataFrame({
+            "x": [0.0, 0.0, 1000.0, 1000.0],
+            "y": [0.0, 0.0, 0.0, 0.0],
+            "z": [0.0, 50.0, 0.0, 50.0],
+            "group_name": ["probe_A", "probe_A", "probe_B", "probe_B"],
+            "channel_id": [0, 1, 10, 11],
+        })
+
+        # Omitted probe_name on multi-probe table raises ValueError
+        with pytest.raises(ValueError, match="Multiple probes found"):
+            probe_geometry(elec_df)
+
+        # Non-existent probe raises ValueError
+        with pytest.raises(ValueError, match="Probe 'probe_C' not found"):
+            probe_geometry(elec_df, probe_name="probe_C")
+
+        # Explicit probe selection succeeds
+        geom_a = probe_geometry(elec_df, probe_name="probe_A")
+        assert geom_a.probe_name == "probe_A"
+        assert geom_a.contact_positions.shape == (2, 3)
+        assert np.array_equal(geom_a.channel_ids, [0, 1])
+
+        geom_b = probe_geometry(elec_df, probe_name="probe_B")
+        assert geom_b.probe_name == "probe_B"
+        assert geom_b.contact_positions.shape == (2, 3)
+        assert np.array_equal(geom_b.channel_ids, [10, 11])
+
+    def test_duplicate_coordinates_raises(self):
+        import pytest
+        # Two contacts with identical coordinates
+        dup_coords = np.array([
+            [0.0, 0.0, 100.0],
+            [0.0, 0.0, 100.0],
+            [0.0, 0.0, 200.0],
+        ])
+        with pytest.raises(ValueError, match="Duplicate contact coordinates"):
+            probe_geometry(dup_coords)
+
+    def test_non_finite_or_nan_coordinates_raises(self):
+        import pytest
+        nan_coords = np.array([
+            [0.0, 0.0, 100.0],
+            [0.0, np.nan, 200.0],
+        ])
+        with pytest.raises(ValueError, match="NaN or non-finite"):
+            probe_geometry(nan_coords)
+
+    def test_unsupported_units_raises(self):
+        import pytest
+        coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 50.0]])
+        with pytest.raises(ValueError, match="Unsupported coordinate units"):
+            probe_geometry(coords, units="lightyears")
+
+    def test_boundary_single_contact(self):
+        coords = np.array([[10.0, 20.0, 30.0]])
+        geom = probe_geometry(coords, units="um")
+        assert geom.contact_positions.shape == (1, 3)
+        assert geom.nominal_pitch is None
+        assert geom.orientation is None
+        assert geom.is_linear is True
+        assert geom.is_uniform is True
+

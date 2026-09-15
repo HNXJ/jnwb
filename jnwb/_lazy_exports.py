@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-SUBMODULES = frozenset({"visual_qc"})
+SUBMODULES = frozenset({"visual_qc", "io", "laminar"})
 
 EXPORT_MODULES: dict[str, str] = {
+    # io
+    "stream_npz_array": "io",
     # ontology
     "Query": "ontology",
     "Dataset": "ontology",
@@ -19,6 +21,10 @@ EXPORT_MODULES: dict[str, str] = {
     "Lineage": "ontology",
     # statistics
     "StatisticalAnalysis": "statistics",
+    "clopper_pearson": "statistics",
+    "exact_sign_flip": "statistics",
+    "mann_whitney_p_floor": "statistics",
+    "fdr_correct": "statistics",
     "fires_in_window": "statistics",
     "fire_indicator": "statistics",
     "paired_fire_prob_test": "statistics",

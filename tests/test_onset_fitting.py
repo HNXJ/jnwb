@@ -33,11 +33,22 @@ class TestCausalExpSmooth:
         assert smoothed.shape == rate.shape
 
     def test_constant_input_converges_to_constant(self):
-        # Left-zero-padded causal convolution ramps up over the first ~5*tau_ms/bin_ms samples
-        # (edge effect, expected); the steady-state tail must equal the constant input.
+        # Edge-value-padded causal convolution preserves constant baseline across all bins,
+        # eliminating startup ramp-up depression (0.2.3-REV-09).
         rate = np.full(50, 7.0)
         smoothed = causal_exp_smooth(rate, bin_ms=5.0, tau_ms=30.0)
-        assert np.allclose(smoothed[-10:], 7.0, atol=1e-6)
+        assert np.allclose(smoothed, 7.0, atol=1e-12)
+
+    def test_constant_baseline_preserved_at_startup(self):
+        """Edge padding ensures constant baseline rate is preserved without startup ramp-up (0.2.3-REV-09)."""
+        rate = np.full(100, 25.0)
+        smoothed = causal_exp_smooth(rate, bin_ms=5.0, tau_ms=30.0)
+        assert np.allclose(smoothed, 25.0, atol=1e-12)
+        assert smoothed[0] == pytest.approx(25.0, abs=1e-12)
+
+    def test_empty_rate_returns_empty(self):
+        smoothed = causal_exp_smooth(np.array([]), bin_ms=5.0)
+        assert smoothed.size == 0
 
     def test_step_response_is_causal_not_acausal(self):
         # A step at index 50 must not visibly affect the smoothed trace before index 50

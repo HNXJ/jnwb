@@ -21,6 +21,16 @@ treatment in these two books.
   [doi:10.1175/1520-0477(1998)079<0061:APGTWA>2.0.CO;2](https://doi.org/10.1175/1520-0477(1998)079%3C0061:APGTWA%3E2.0.CO;2)
   — `complex_tfr` (Morlet transform and cone of influence; jnwb sets the cone at `coi_sigma`
   wavelet standard deviations).
+- Donoghue, T., et al. (2020). Parameterizing neural power spectra into periodic and aperiodic components.
+  *Nature Neuroscience*. [doi:10.1038/s41593-020-00744-x](https://doi.org/10.1038/s41593-020-00744-x)
+  — `aperiodic_fit`.
+
+## Laminar analysis
+
+- Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field potential
+  power across the primate cortex. *Nature Neuroscience*.
+  [doi:10.1038/s41593-023-01554-7](https://doi.org/10.1038/s41593-023-01554-7)
+  — `vflip`, `vflip_from_lfp`, `label_layers`.
 
 ## Coherence and phase
 

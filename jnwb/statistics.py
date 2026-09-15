@@ -24,6 +24,7 @@ Revised: 2026-07-26 — Exploratory / Confirmatory API split
 from __future__ import annotations
 
 import logging
+import math
 import warnings
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
@@ -38,17 +39,212 @@ from .permutation import permute_labels
 log = logging.getLogger(__name__)
 
 
-def clopper_pearson(k, n, alpha: float = 0.05):
+def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
     """Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.
 
-    Exact binomial interval via Beta quantiles (not a bootstrap).
+    Computes exact binomial bounds by inverting the binomial cumulative distribution
+    function through Beta distribution quantiles.
+
+    Args:
+        k: Number of successes (integer, 0 <= k <= n).
+        n: Number of trials (positive integer, n >= 1).
+        alpha: Significance level in (0, 1), default 0.05 (producing a 95% CI).
+
+    Returns:
+        Tuple[float, float]: (lower_bound, upper_bound).
+
+    Raises:
+        ValueError: If n <= 0, k < 0, k > n, or alpha is not in (0, 1).
     """
-    k, n = int(k), int(n)
-    if n == 0:
-        return (float("nan"), float("nan"))
-    lo = 0.0 if k == 0 else stats.beta.ppf(alpha / 2, k, n - k + 1)
-    hi = 1.0 if k == n else stats.beta.ppf(1 - alpha / 2, k + 1, n - k)
+    try:
+        k_int = int(k)
+        n_int = int(n)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"k and n must be integer-convertible, got k={k!r}, n={n!r}") from exc
+
+    if k != k_int or n != n_int:
+        raise ValueError(f"k and n must be exact integers, got k={k!r}, n={n!r}")
+    if n_int <= 0:
+        raise ValueError(f"n must be >= 1, got n={n_int}")
+    if k_int < 0 or k_int > n_int:
+        raise ValueError(f"k must satisfy 0 <= k <= n, got k={k_int}, n={n_int}")
+    if not (0.0 < float(alpha) < 1.0):
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+
+    lo = 0.0 if k_int == 0 else stats.beta.ppf(alpha / 2.0, k_int, n_int - k_int + 1)
+    hi = 1.0 if k_int == n_int else stats.beta.ppf(1.0 - alpha / 2.0, k_int + 1, n_int - k_int)
     return (float(lo), float(hi))
+
+
+def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> float:
+    """Attainable minimal non-zero p-value floor for a Mann-Whitney U test without ties.
+
+    Under the null hypothesis with sample sizes n1 and n2, the number of distinct rank
+    allocations is comb(n1 + n2, n1). The extreme rank configuration has probability
+    1 / comb(n1 + n2, n1).
+
+    Args:
+        n1: Sample size of group 1 (positive integer >= 1).
+        n2: Sample size of group 2 (positive integer >= 1).
+        alternative: "two-sided", "greater", or "less".
+
+    Returns:
+        float: Minimal attainable p-value under the rank permutation null.
+
+    Raises:
+        ValueError: If n1 < 1, n2 < 1, or alternative is unrecognized.
+    """
+    try:
+        n1_int = int(n1)
+        n2_int = int(n2)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"n1 and n2 must be integers, got n1={n1!r}, n2={n2!r}") from exc
+
+    if n1 != n1_int or n2 != n2_int:
+        raise ValueError(f"n1 and n2 must be exact integers, got n1={n1!r}, n2={n2!r}")
+    if n1_int < 1 or n2_int < 1:
+        raise ValueError(f"Sample sizes must be >= 1, got n1={n1_int}, n2={n2_int}")
+
+    alt = str(alternative).lower().strip()
+    if alt not in ("two-sided", "greater", "less"):
+        raise ValueError(
+            f"alternative must be 'two-sided', 'greater', or 'less', got {alternative!r}"
+        )
+
+    n_comb = math.comb(n1_int + n2_int, n1_int)
+    one_sided_floor = 1.0 / float(n_comb)
+    if alt in ("greater", "less"):
+        return float(one_sided_floor)
+    # two-sided: symmetric two-tailed floor is 2 / n_comb, capped at 1.0
+    return float(min(1.0, 2.0 * one_sided_floor))
+
+
+def exact_sign_flip(
+    diffs: Union[Sequence[float], np.ndarray],
+    alternative: str = "two-sided",
+    n_mc: int = 10000,
+    rng: Optional[Union[np.random.Generator, int]] = None,
+) -> Tuple[float, float, float]:
+    """Exact paired sign-flip permutation test for paired sample differences.
+
+    Evaluates the mean paired difference against the null distribution generated
+    by assigning independent random signs (+1 or -1) to each difference:
+
+    - For N <= 20: exact direct combinatorial enumeration across all 2^N sign flips.
+      No RNG is used or required.
+    - For N > 20: Monte Carlo sign-flip sampling with caller-controlled `rng`.
+
+    Args:
+        diffs: 1D array-like of paired differences (e.g. condition A - condition B).
+        alternative: "two-sided" (|mean_null| >= |mean_obs|),
+                     "greater" (mean_null >= mean_obs), or
+                     "less" (mean_null <= mean_obs).
+        n_mc: Number of Monte Carlo sign-flip resamples when N > 20 (default 10,000).
+        rng: Generator or integer seed for Monte Carlo when N > 20.
+
+    Returns:
+        Tuple[float, float, float]: (observed_mean, p_value, p_floor) where:
+            - observed_mean: mean of the input differences.
+            - p_value: exact or Monte Carlo p-value under the sign-flip null.
+            - p_floor: minimal attainable non-zero p-value under extreme configuration.
+
+    Raises:
+        ValueError: If diffs is empty, contains non-finite values, or alternative is invalid.
+    """
+    arr = np.asarray(diffs, dtype=float).ravel()
+    if arr.size == 0:
+        raise ValueError("diffs cannot be empty")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError("diffs must contain only finite numerical values (no NaN or Inf)")
+
+    alt = str(alternative).lower().strip()
+    if alt not in ("two-sided", "greater", "less"):
+        raise ValueError(
+            f"alternative must be 'two-sided', 'greater', or 'less', got {alternative!r}"
+        )
+
+    n = arr.size
+    obs_mean = float(np.mean(arr))
+
+    # Attainable non-zero p-value floor
+    if n <= 60:
+        total_flips = 1 << n
+        one_sided_floor = 1.0 / float(total_flips)
+        p_floor = min(1.0, 2.0 * one_sided_floor) if alt == "two-sided" else one_sided_floor
+    else:
+        p_floor = 0.0
+
+    tol = 1e-12
+
+    if n <= 20:
+        # Exact direct enumeration of all 2^N combinations
+        n_total = 1 << n
+        chunk_size = min(n_total, 65536)
+        count = 0
+        obs_abs = abs(obs_mean)
+
+        for start in range(0, n_total, chunk_size):
+            end = min(start + chunk_size, n_total)
+            indices = np.arange(start, end, dtype=np.uint32)[:, None]
+            bits = (indices >> np.arange(n, dtype=np.uint32)) & 1
+            signs = np.where(bits, 1.0, -1.0)
+            null_means = (signs @ arr) / float(n)
+
+            if alt == "two-sided":
+                count += int(np.sum(np.abs(null_means) >= obs_abs - tol))
+            elif alt == "greater":
+                count += int(np.sum(null_means >= obs_mean - tol))
+            else:  # less
+                count += int(np.sum(null_means <= obs_mean + tol))
+
+        p_value = float(count / n_total)
+    else:
+        # Monte Carlo sign-flip permutations
+        if n_mc <= 0:
+            raise ValueError(f"n_mc must be positive, got {n_mc}")
+        if rng is None:
+            gen = np.random.default_rng(42)
+        elif isinstance(rng, (int, np.integer)):
+            gen = np.random.default_rng(int(rng))
+        elif isinstance(rng, np.random.Generator):
+            gen = rng
+        else:
+            raise TypeError(
+                f"rng must be an instance of np.random.Generator, int, or None, got {type(rng).__name__}"
+            )
+
+        # Draw random +/- 1 signs: shape (n_mc, n)
+        signs = gen.choice([-1.0, 1.0], size=(n_mc, n), replace=True)
+        null_means = (signs @ arr) / float(n)
+
+        # Exact finite Monte Carlo p-value with (1 + k) / (B + 1)
+        if alt == "two-sided":
+            k = int(np.sum(np.abs(null_means) >= abs(obs_mean) - tol))
+        elif alt == "greater":
+            k = int(np.sum(null_means >= obs_mean - tol))
+        else:  # less
+            k = int(np.sum(null_means <= obs_mean + tol))
+
+        p_value = float((1.0 + k) / (float(n_mc) + 1.0))
+        p_floor = float(1.0 / (float(n_mc) + 1.0))
+
+    return (obs_mean, p_value, float(p_floor))
+
+
+def fdr_correct(
+    p_values: Union[Sequence[float], np.ndarray],
+    method: str = "bh",
+) -> np.ndarray:
+    """Benjamini-Hochberg (or compatible) FDR across a hypothesis family.
+
+    Args:
+        p_values: 1-D array of raw p-values (one per hypothesis).
+        method: Passed to ``scipy.stats.false_discovery_control``. Default "bh".
+
+    Returns:
+        np.ndarray: FDR-adjusted q-values, same shape as input (flattened 1-D).
+    """
+    return StatisticalAnalysis.fdr_correct(p_values, method=method)
 
 
 def fires_in_window(spike_times: np.ndarray, onset_s: float, window_ms) -> bool:
@@ -479,8 +675,23 @@ class StatisticalAnalysis:
         group1 = np.asarray(group1).flatten()
         group2 = np.asarray(group2).flatten()
 
-        valid1 = group1[~np.isnan(group1)]
-        valid2 = group2[~np.isnan(group2)]
+        if paired:
+            if len(group1) != len(group2):
+                raise ValueError(
+                    "compare_groups(paired=True) requires equal group lengths; "
+                    f"got n1={len(group1)}, n2={len(group2)}"
+                )
+            mask = np.isfinite(group1) & np.isfinite(group2)
+            valid1 = group1[mask]
+            valid2 = group2[mask]
+            if len(valid1) < 2:
+                raise ValueError(
+                    "compare_groups(paired=True) requires at least two paired observations "
+                    f"after NaN exclusion; got n={len(valid1)}"
+                )
+        else:
+            valid1 = group1[~np.isnan(group1)]
+            valid2 = group2[~np.isnan(group2)]
 
         result: Dict = {
             "n1": len(valid1),
@@ -500,16 +711,6 @@ class StatisticalAnalysis:
         }
 
         if paired:
-            if len(valid1) != len(valid2):
-                raise ValueError(
-                    "compare_groups(paired=True) requires equal group lengths after NaN "
-                    f"exclusion; got n1={len(valid1)}, n2={len(valid2)}"
-                )
-            if len(valid1) < 2:
-                raise ValueError(
-                    "compare_groups(paired=True) requires at least two paired observations "
-                    f"after NaN exclusion; got n={len(valid1)}"
-                )
             t_stat, t_pval = stats.ttest_rel(valid1, valid2)
             w_stat, w_pval = stats.wilcoxon(valid1, valid2)
             df = len(valid1) - 1
@@ -889,6 +1090,31 @@ class StatisticalAnalysis:
             }
         )
         return result
+
+    @staticmethod
+    def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
+        """Exact (Clopper-Pearson) binomial confidence interval via Beta quantiles."""
+        return clopper_pearson(k, n, alpha=alpha)
+
+    @staticmethod
+    def clopper_pearson_ci(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
+        """Alias for clopper_pearson for backwards compatibility."""
+        return clopper_pearson(k, n, alpha=alpha)
+
+    @staticmethod
+    def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> float:
+        """Attainable minimal non-zero p-value floor for Mann-Whitney U test without ties."""
+        return mann_whitney_p_floor(n1, n2, alternative=alternative)
+
+    @staticmethod
+    def exact_sign_flip(
+        diffs: Union[Sequence[float], np.ndarray],
+        alternative: str = "two-sided",
+        n_mc: int = 10000,
+        rng: Optional[Union[np.random.Generator, int]] = None,
+    ) -> Tuple[float, float, float]:
+        """Exact paired sign-flip permutation test for paired sample differences."""
+        return exact_sign_flip(diffs, alternative=alternative, n_mc=n_mc, rng=rng)
 
 
 def cross_modal_comparison(

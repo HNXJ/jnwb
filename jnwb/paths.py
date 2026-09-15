@@ -282,9 +282,6 @@ def describe() -> dict:
     """
     result = {
         "PACKAGE_ROOT": {"path": str(PACKAGE_ROOT), "exists": PACKAGE_ROOT.exists()},
-        # Deprecated duplicate key, removed in 0.2.0. A dict key cannot warn, so it is
-        # kept for one release so existing readers of describe() do not KeyError.
-        "REPO_ROOT": {"path": str(PACKAGE_ROOT), "exists": PACKAGE_ROOT.exists()},
         f"outputs (${ENV_OUTPUTS_DIR})": {"path": str(outputs_dir()), "exists": outputs_dir().exists()},
         f"artifacts (${ENV_ARTIFACTS_DIR})": {"path": str(artifacts_dir()), "exists": artifacts_dir().exists()},
         "layer_masks": {"path": str(layer_masks_path()), "exists": layer_masks_path().exists()},
@@ -304,35 +301,3 @@ def describe() -> dict:
             result[label] = {"path": None, "exists": False, "configured": False, "error": str(exc)}
     return result
 
-
-# --- Deprecated aliases -----------------------------------------------------
-# Removed in 0.2.0.
-_DEPRECATED_ALIASES = {
-    "REPO_ROOT": "PACKAGE_ROOT",
-}
-
-
-def __getattr__(name: str):
-    """Serve deprecated module attributes with a warning naming the replacement.
-
-    ``REPO_ROOT`` was jnwb's own checkout path under a name every consumer read as
-    its own repository root. Access still works for one release so existing callers
-    keep running, but each access says what to use instead.
-    """
-    replacement = _DEPRECATED_ALIASES.get(name)
-    if replacement is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    warnings.warn(
-        f"jnwb.paths.{name} is deprecated and will be removed in 0.2.0; use "
-        f"jnwb.paths.{replacement}. Note this is the path of the INSTALLED jnwb "
-        f"package, never the calling project's root -- if you meant your own "
-        f"repository, anchor to your own file instead "
-        f"(e.g. Path(__file__).resolve().parent.parent).",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return globals()[replacement]
-
-
-def __dir__() -> list:
-    return sorted(list(globals()) + list(_DEPRECATED_ALIASES))

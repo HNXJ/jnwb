@@ -48,6 +48,7 @@ Several continuous series + omitted `name` in `acquisition_channel` → `Ambiguo
 - `jnwb.map_peak_channel_to_area(peak_channel_id, electrodes_df)`
 - `jnwb.classify_layer_from_depth(peak_channel_id, electrodes_df)`
 - `jnwb.enrich_units_dataframe(units_df, electrodes_df)`
+- `jnwb.probe_geometry(electrodes_table, *, probe_name=None, units="um", nominal_pitch=None, pitch_tolerance=0.1, strict_linear=False)`
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
 - `jnwb.classify_unit_quality(units_df, thresholds=None)`
 - `jnwb.electrode_inventory(nwb_paths)`
@@ -79,6 +80,6 @@ lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel
 - Event/onset acceptance matrix: `tests/test_nwb_events.py`.
 
 ## 6. Canonical Documentation Links
-- [Tutorial: Inspect an NWB](../../docs/tutorials/01_inspect_nwb.md)
-- [Tutorial: Event codes and onsets](../../docs/tutorials/02_event_codes_and_onsets.md)
+- [Tutorial: NWB Basics](../../docs/tutorials/01_nwb_basics.md)
+- [Tutorial: Addressing and metadata](../../docs/tutorials/02_addressing_and_metadata.md)
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)

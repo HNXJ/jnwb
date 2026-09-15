@@ -299,3 +299,34 @@ class TestComplexTFRProbes:
                 tfr_1d = complex_tfr(data_3d[n, :, c], fs=fs, freqs=freqs, time_axis=0)
                 np.testing.assert_allclose(tfr_3d.z[n, :, :, c], tfr_1d.z, rtol=1e-12)
                 np.testing.assert_array_equal(tfr_3d.coi_mask[n, :, :, c], tfr_1d.coi_mask)
+
+    def test_probe14_coi_mask_broadcasting_and_masking(self, fs, freqs):
+        """Probe 14: coi_mask matches z shape and supports direct broadcasting/masking across arbitrary axes."""
+        rng = np.random.default_rng(42)
+
+        # 2D non-terminal: (times=400, channels=4), time_axis=0
+        data_2d = rng.normal(size=(400, 4))
+        tfr_2d = complex_tfr(data_2d, fs=fs, freqs=freqs, time_axis=0)
+        assert tfr_2d.coi_mask.shape == tfr_2d.z.shape
+        masked_power_2d = tfr_2d.power * tfr_2d.coi_mask
+        assert masked_power_2d.shape == tfr_2d.z.shape
+        valid_z_2d = tfr_2d.z[tfr_2d.coi_mask]
+        assert len(valid_z_2d) > 0
+
+        # 3D interior time axis: (trials=2, times=300, channels=3), time_axis=1
+        data_3d = rng.normal(size=(2, 300, 3))
+        tfr_3d = complex_tfr(data_3d, fs=fs, freqs=freqs, time_axis=1)
+        assert tfr_3d.coi_mask.shape == tfr_3d.z.shape
+        masked_power_3d = tfr_3d.power * tfr_3d.coi_mask
+        assert masked_power_3d.shape == tfr_3d.z.shape
+        valid_z_3d = tfr_3d.z[tfr_3d.coi_mask]
+        assert len(valid_z_3d) > 0
+
+        # 4D arbitrary axis: (epochs=2, subjects=2, times=250, channels=2), time_axis=2
+        data_4d = rng.normal(size=(2, 2, 250, 2))
+        tfr_4d = complex_tfr(data_4d, fs=fs, freqs=freqs, time_axis=2)
+        assert tfr_4d.coi_mask.shape == tfr_4d.z.shape
+        masked_power_4d = tfr_4d.power * tfr_4d.coi_mask
+        assert masked_power_4d.shape == tfr_4d.z.shape
+        assert tfr_4d.z[tfr_4d.coi_mask].ndim == 1
+

@@ -69,8 +69,25 @@ For confirmatory hypothesis testing across cohorts of channels, frequency bins, 
 
 ```python
 p_values = np.array([0.001, 0.004, 0.015, 0.048, 0.120])
-significant_mask, p_adjusted = stats.fdr_correct(p_values, alpha=0.05, method="bh")
+q_values = stats.fdr_correct(p_values, method="bh")
 ```
+
+### Exact Permutations & Combinatorial Attainable p-Value Floors
+
+When analyzing paired session or unit differences where $N$ is small, asymptotic approximations fail and minimum attainable p-values are constrained by combinatorics:
+
+```python
+# Exact paired sign flip: full 2^N enumeration for N <= 20, Monte Carlo for N > 20
+obs_mean, p_val, p_floor = jnwb.exact_sign_flip(paired_diffs, alternative="two-sided")
+
+# Attainable minimal non-zero p-value floor for Mann-Whitney rank tests without ties
+p_floor_mw = jnwb.mann_whitney_p_floor(n1=4, n2=6, alternative="two-sided")
+# comb(10, 4) = 210 -> floor = 2 / 210 ~= 0.00952
+
+# Exact Clopper-Pearson binomial confidence intervals via Beta quantiles
+lo, hi = jnwb.clopper_pearson(k=7, n=10, alpha=0.05)
+```
+
 
 ---
 

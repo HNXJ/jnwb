@@ -6,14 +6,15 @@ Study **electrophysiology and NWB 2.0+ datasets** — trial-level artifact repai
 
 ## NWB file workflow (start here)
 
-For a new recording, use the [Tutorials](tutorials/01_inspect_nwb.md) sequence:
+For a new recording, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
 
-1. [`jnwb.inspect`](tutorials/01_inspect_nwb.md) — list interval tables and columns (no default table).
-2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_event_codes_and_onsets.md) — select opaque event codes; onsets in **seconds**.
-3. [Align spikes and LFP](tutorials/03_align_spikes_lfp_to_events.md) with `unit_spike_times`, `acquisition_channel`, `raster_psth`.
-4. [Compose](tutorials/04_compose_workflow.md) discovery → selection → analysis.
+1. [`jnwb.inspect`](tutorials/01_nwb_basics.md) — list interval tables and columns (no default table).
+2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md) — select opaque event codes; onsets in **seconds**.
+3. [Spiking dynamics](tutorials/03_spiking.md) with `unit_spike_times`, `raster_psth`, `causal_exp_smooth`.
+4. [LFP and spectral](tutorials/04_lfp_and_spectral.md) with `acquisition_channel`, `epoch_continuous`, `compute_psd`, `wpli`.
+5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Pipeline](tutorials/08_end_to_end_pipeline.md).
 
-Run locally: `python examples/tutorials/01_inspect_nwb.py` (and `02`–`04`).
+Run locally: `python examples/tutorials/01_nwb_basics.py` (and `02`–`08`).
 
 ## Install & Import
 

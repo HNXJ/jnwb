@@ -15,6 +15,8 @@ Activate this skill when training population decoders (linear SVM), computing cr
 - `jnwb.build_representation_ladder(raster, *, modality="SPK", spatial_axis_metadata=None)`: Multi-scale representational geometry from a trial raster.
 - `jnwb.build_time_resolved_matrix(session, area, epochs_df, time_window_ms=..., bin_size_ms=20.0)`: Trial × unit × time spike-count tensor from a session interface.
 - `jnwb.compute_population_trajectory(session, area, epochs_df, n_components=3, device="cpu")`: PCA/SVD population trajectory over time bins.
+- `jnwb.rdm(X, metric="correlation", condensed=True)`: Representational Dissimilarity Matrix (RDM) computation with condensed or full square output.
+- `jnwb.rdm_similarity(rdm1, rdm2, metric="spearman")`: Second-order representational similarity between two RDMs.
 - `jnwb.jrsa(x1, x2, metric="rsa", stats=True)`: Unified Joint Representational Similarity Analysis with permutation nulls.
 
 ## 3. Invariants & Safeguards

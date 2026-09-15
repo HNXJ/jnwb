@@ -9,9 +9,10 @@ caller that accepts it.
 
 import logging
 import warnings
-from typing import Dict, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
-from scipy import signal, stats
+from scipy import optimize, signal, stats
 import pandas as pd
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
@@ -20,6 +21,71 @@ from ._parallel import parallel_map
 log = logging.getLogger(__name__)
 
 #: Default band edges (Hz) -- standard neuroscience convention; overridable per call.
+def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
+    """Reject unpaired traces instead of truncating to the shorter one.
+
+    INTENTIONAL BREAK (0.2.4). These estimators took ``n = min(len(x), len(y))`` and
+    silently discarded the tail of the longer trace. Truncation is a scientific decision
+    -- it changes which samples are compared and, for a mismatch, means the two traces
+    no longer describe the same interval -- so it belongs to the caller.
+    """
+    if len(x) != len(y):
+        raise ValueError(
+            f"{func_name}: x and y must have the same length, got {len(x)} and {len(y)}. "
+            "These are paired time series; truncating to the shorter one silently "
+            "changes which samples are compared, so it is the caller's decision."
+        )
+
+
+def _require_identifiable_segmentation(
+    n_samples: int, nperseg: int, noverlap: int, func_name: str, quantity: str
+) -> int:
+    """Reject a segmentation that cannot identify a cross-spectral ratio.
+
+    Shared by every estimator that divides a cross-spectrum by the auto-spectra
+    (`cross_area_coherence`, `imaginary_coherency`, `wpli`). With a single segment the
+    numerator and denominator are built from the same one spectral realization, so the
+    ratio collapses to its maximum by algebra: coherence is 1.0 at every frequency and
+    wPLI is +/-1, for ANY two signals including independent noise. Plain PSD estimators
+    are NOT affected -- a one-segment periodogram is noisy but unbiased -- so this guard
+    deliberately does not apply to them.
+    """
+    n_segments = welch_segment_count(n_samples, nperseg, noverlap)
+    if n_segments < MIN_IDENTIFIABLE_SEGMENTS:
+        raise ValueError(
+            f"{func_name}: {quantity} is not identifiable from {n_segments} Welch "
+            f"segment(s) ({n_samples} samples, nperseg={nperseg}, noverlap={noverlap}). "
+            "A single segment makes the cross-spectrum an exact function of the "
+            "auto-spectra, so the ratio saturates regardless of real coupling. Supply a "
+            "smaller nperseg, a smaller noverlap, or a longer recording."
+        )
+    return n_segments
+
+
+#: Fewest Welch segments from which magnitude-squared coherence is identifiable.
+#: With K = 1 the single cross-spectral estimate satisfies |X Y*|^2 = |X|^2 |Y|^2
+#: exactly, so the ratio is 1.0 at every frequency for any pair of signals. This is an
+#: algebraic identity, not an estimation error, and no amount of surrogate testing
+#: recovers from it: the surrogates saturate at 1.0 too. K = 2 is the mathematical
+#: boundary. It is NOT a statement about how many segments good science needs -- the
+#: null coherence still has expectation ~1/K, so K = 2 carries a null mean near 0.5.
+MIN_IDENTIFIABLE_SEGMENTS = 2
+
+#: Floor on the default segment length, so tiny inputs do not derive nperseg = 0.
+MIN_COHERENCE_NPERSEG = 8
+
+
+def welch_segment_count(n_samples: int, nperseg: int, noverlap: int) -> int:
+    """Number of Welch segments scipy will average, given the segmentation.
+
+    Mirrors the segment loop in :func:`scipy.signal.welch`: segments start every
+    ``nperseg - noverlap`` samples and only whole segments are used.
+    """
+    if nperseg <= 0 or noverlap >= nperseg or n_samples < nperseg:
+        return 0
+    return 1 + (int(n_samples) - int(nperseg)) // (int(nperseg) - int(noverlap))
+
+
 CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
     "theta": (4.0, 8.0),
     "alpha": (8.0, 14.0),
@@ -63,6 +129,12 @@ def to_db(ratio):
 #: i.e. "ratio_of_means" is a baseline-power-weighted average of the very same per-unit ratios
 #: that "mean_of_ratios" weights equally. A quiet default would silently pick one for the caller.
 DB_AGGREGATIONS = ("mean_of_ratios", "ratio_of_means")
+
+#: Accepted estimand models for :func:`relative_power`.
+#: - "mean_of_ratios": Arithmetic mean of per-unit ratios E[P / P0] (equal weighting per unit/channel).
+#: - "ratio_of_means": Ratio of aggregated means E[P] / E[P0] (baseline-power-weighted average).
+#: - "log_ratio": 10 * log10(P / P0) in decibels (no spatial/trial aggregation, preserving exact ratio-to-dB).
+RELATIVE_POWER_MODELS = ("mean_of_ratios", "ratio_of_means", "log_ratio")
 
 
 def aggregate_to_db(
@@ -144,9 +216,17 @@ def aggregate_to_db(
         elif how == "mean_of_ratios":
             aggregated = mean(p / b, axis=aggregate_over)
         else:
-            num = total(p, axis=aggregate_over)
-            den = total(np.broadcast_to(b, p.shape), axis=aggregate_over)
-            aggregated = num / den
+            b_bc = np.broadcast_to(b, p.shape)
+            if nan_policy == "omit":
+                valid = np.isfinite(p) & np.isfinite(b_bc)
+                num = np.sum(np.where(valid, p, 0.0), axis=aggregate_over)
+                den = np.sum(np.where(valid, b_bc, 0.0), axis=aggregate_over)
+                count = np.sum(valid, axis=aggregate_over)
+                aggregated = np.where(count > 0, num / den, np.nan)
+            else:
+                num = total(p, axis=aggregate_over)
+                den = total(b_bc, axis=aggregate_over)
+                aggregated = num / den
         return to_db(aggregated)
 
 
@@ -297,6 +377,8 @@ def cross_area_coherence(
     rng: Optional[np.random.Generator] = None,
     n_surrogates: int = 50,
     n_jobs: int = 1,
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
 ) -> Dict:
     """
     Compute frequency-resolved coherence between two LFP signals.
@@ -309,6 +391,14 @@ def cross_area_coherence(
     preserves each signal's autocorrelation and amplitude spectrum and destroys only the
     *relative* alignment of the two series, which is the quantity under test. Earlier
     docs called this phase randomization; that is a different null hypothesis.
+
+    Raises:
+        ValueError: if the segmentation yields fewer than
+            ``MIN_IDENTIFIABLE_SEGMENTS`` (2) Welch segments. With one segment the
+            cross-spectrum is the exact geometric mean of the auto-spectra, so
+            coherence is 1.0 everywhere by algebra and the estimator is
+            non-identifiable. Surrogate testing does not rescue this: the surrogates
+            saturate at 1.0 as well.
 
     Args:
         lfp_area1: Time series from area 1
@@ -334,6 +424,20 @@ def cross_area_coherence(
                 core. Results are identical for any n_jobs. Worth raising only when the
                 surrogates take more than about a second in total, since the process
                 pool costs a few seconds to start.
+        nperseg: Welch segment length in samples. Default ``min(max(N // 8, 8), 4096)``,
+                 which yields 15 segments for any N up to 32768 and more beyond it.
+                 INTENTIONAL BREAK (0.2.4): the previous default ``min(N, 4096)`` put
+                 every input up to ~8192 samples into a single segment, where
+                 magnitude-squared coherence is identically 1.0 for ANY two signals --
+                 independent Gaussian traces reported perfect coherence. The default was
+                 re-chosen by comparing candidate segment lengths on independent and
+                 known-coupled synthetic signals across N from 1024 to 60000; ``N // 8``
+                 separated coupled from null better than ``N // 4`` at every length
+                 tested, and a fixed length cannot serve short and long traces at once.
+                 Frequency resolution is ``fs / nperseg``, so a band narrower than that
+                 resolves to no bins and is omitted from the band outputs.
+        noverlap: Samples of overlap between segments. Default ``nperseg // 2``. Must
+                  satisfy ``0 <= noverlap < nperseg``.
 
     Returns:
         Dict with:
@@ -346,6 +450,11 @@ def cross_area_coherence(
           correction assuming independence is invalid here.
         - peak_coherence_freq: Frequency with highest coherence (Hz)
         - peak_coherence_value: Coherence at that frequency
+        - nperseg, noverlap: the segmentation actually used
+        - n_segments_used: Welch segments averaged, K. The null expectation of
+          coherence is approximately 1/K (measured 1.00-1.06 x 1/K at 50% overlap,
+          the excess growing with K because overlapping segments are correlated), so
+          K is required to interpret any coherence value this function returns.
         - device_used: 'cpu' or 'cuda' -- the estimator that produced *every* value
           here, observed and surrogate alike
         - n_surrogates_used: Surrogates actually drawn per band
@@ -402,22 +511,75 @@ def cross_area_coherence(
         'peak_coherence_freq': 0.0,
         'peak_coherence_value': 0.0,
         'device_used': 'cpu',
+        'nperseg': None,
+        'noverlap': None,
+        'n_segments_used': 0,
         'n_surrogates_used': int(n_surrogates),
         'p_value_floor': 1.0 / (int(n_surrogates) + 1),
         'surrogate_seed_entropy': seed_entropy,
     }
 
+    lfp_area1 = np.asarray(lfp_area1)
+    lfp_area2 = np.asarray(lfp_area2)
+    for name, trace in (("lfp_area1", lfp_area1), ("lfp_area2", lfp_area2)):
+        if trace.ndim != 1:
+            raise ValueError(
+                f"{name} must be a 1-D time series, got shape {trace.shape}. This function "
+                "compares two traces; to work channel-by-channel, call it per channel pair. "
+                "A 2-D array was previously accepted and then indexed as if it were 1-D, "
+                "which set nperseg to the channel count and took argmax over the flattened "
+                "array."
+            )
     if len(lfp_area1) != len(lfp_area2):
-        log.warning("LFP traces have different lengths")
-        return result
+        # INTENTIONAL BREAK (0.2.4). This logged a warning and returned a dict of zeros,
+        # which is indistinguishable from a measured coherence of zero: peak_coherence_
+        # value was 0.0, no key marked the result as absent, and the log line is invisible
+        # unless the caller configured logging. Coherence is defined only for paired
+        # samples, so unequal lengths are malformed input, not a zero-coupling result.
+        raise ValueError(
+            f"lfp_area1 and lfp_area2 must have the same length, got "
+            f"{len(lfp_area1)} and {len(lfp_area2)}. Coherence is defined only between "
+            "paired samples; truncating or padding to a common length is the caller's "
+            "decision, not this function's."
+        )
 
-    nperseg = min(len(lfp_area1), 4096)
+    n_samples = int(len(lfp_area1))
+    if nperseg is None:
+        nperseg = min(max(n_samples // 8, MIN_COHERENCE_NPERSEG), 4096)
+    nperseg = int(nperseg)
+    if nperseg < 2:
+        raise ValueError(f"nperseg must be >= 2, got {nperseg}")
+    if noverlap is None:
+        noverlap = nperseg // 2
+    noverlap = int(noverlap)
+    if not (0 <= noverlap < nperseg):
+        raise ValueError(
+            f"noverlap must satisfy 0 <= noverlap < nperseg, got noverlap={noverlap} "
+            f"with nperseg={nperseg}"
+        )
+
+    n_segments = welch_segment_count(n_samples, nperseg, noverlap)
+    if n_segments < MIN_IDENTIFIABLE_SEGMENTS:
+        step = nperseg - noverlap
+        raise ValueError(
+            f"coherence is not identifiable from {n_segments} Welch segment(s): "
+            f"{n_samples} samples with nperseg={nperseg}, noverlap={noverlap}. "
+            "With a single segment the cross-spectrum is the exact geometric mean of "
+            "the auto-spectra, so magnitude-squared coherence is identically 1.0 at "
+            "every frequency for ANY two signals, coupled or independent. Supply a "
+            f"smaller nperseg (<= {max(2, (n_samples + step) // 2)} keeps at least "
+            f"{MIN_IDENTIFIABLE_SEGMENTS} segments here), a smaller noverlap, or a "
+            "longer recording."
+        )
+    result['nperseg'] = nperseg
+    result['noverlap'] = noverlap
+    result['n_segments_used'] = n_segments
 
     def _coherence_cpu(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        return signal.coherence(x, y, fs=fs, nperseg=nperseg, noverlap=None)
+        return signal.coherence(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
 
     def _coherence_gpu(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        frequencies, psd_x, psd_y, csd_xy = _welch_csd_gpu(x, y, fs, nperseg)
+        frequencies, psd_x, psd_y, csd_xy = _welch_csd_gpu(x, y, fs, nperseg, noverlap)
         denom = psd_x * psd_y
         coherency = np.zeros_like(csd_xy, dtype=float)
         nonzero = denom > 0
@@ -558,10 +720,12 @@ def spectral_tilt(
         return result
 
     # Compute power spectrum
-    if device == 'cuda':
+    resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)
+    if resolved == CUDA:
         try:
             frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
         except Exception as e:
+            warn_device_fallback("spectral_tilt", e, stacklevel=3)
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
             frequencies, pxx = signal.welch(
                 lfp_trace,
@@ -609,6 +773,385 @@ def spectral_tilt(
     result['fit_quality'] = float(r_squared)
 
     return result
+
+
+@dataclass
+class AperiodicFitResult:
+    """
+    Container for 1/f aperiodic spectral parameter estimates.
+
+    Attributes:
+        offset: Broadband offset parameter `b` (log10 power intercept), or None if fit rejected.
+        exponent: Aperiodic spectral slope / exponent `chi` (positive for 1/f decay), or None if fit rejected.
+        knee: Knee parameter `k` (>0.0 for knee mode, None for fixed mode or rejected fit).
+        r_squared: Coefficient of determination (R^2) of the fit in log10 space, or None if fit rejected.
+        freq_range: Evaluated frequency range `(f_min, f_max)` in Hz.
+        mode: Fitting model (`'fixed'` or `'knee'`).
+        accepted: Whether the optimization successfully converged to a valid fit.
+    """
+
+    offset: Optional[float]
+    exponent: Optional[float]
+    knee: Optional[float]
+    r_squared: Optional[float]
+    freq_range: Tuple[float, float]
+    mode: str
+    accepted: bool
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "offset": self.offset,
+            "exponent": self.exponent,
+            "knee": self.knee,
+            "r_squared": self.r_squared,
+            "freq_range": self.freq_range,
+            "mode": self.mode,
+            "accepted": self.accepted,
+        }
+
+
+def aperiodic_fit(
+    freqs: np.ndarray,
+    psd: np.ndarray,
+    freq_range: Tuple[float, float],
+    mode: str = "fixed",
+) -> Union[AperiodicFitResult, List[Any]]:
+    """
+    Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.
+
+    Fits the standard log-log aperiodic formulation:
+        L(f) = b - log10(k + f^chi)
+
+    In `'fixed'` mode, the knee parameter is constrained to `k = 0`, reducing to
+    `L(f) = b - chi * log10(f)`. In `'knee'` mode, `k > 0` is optimized to capture
+    a low-frequency plateau.
+
+    Important Scientific Distinctions:
+        - This function operates strictly on pre-computed `(freqs, psd)` arrays;
+          it does not recompute Welch periodograms or require time-series data.
+        - By neuroscience convention (Donoghue et al. 2020), `exponent` (chi) is
+          reported as a positive number representing 1/f decay (decay rate chi).
+          In contrast, unconstrained linear slope in :func:`spectral_tilt` is negative.
+          The mathematical equivalence is `exponent_aperiodic == -slope_spectral_tilt`
+          and `offset_aperiodic == log10(offset_spectral_tilt)`.
+        - Valid inputs with non-converging or ill-conditioned fits return
+          `accepted=False` rather than raising unhandled exceptions or fabricating parameters.
+
+    Args:
+        freqs: 1D array of strictly increasing, finite frequency coordinates in Hz, shape `(n_freqs,)`.
+        psd: Power spectral density array in (U_in)^2/Hz, shape `(n_freqs,)` or `(..., n_freqs)`.
+            Must be strictly non-negative and finite.
+        freq_range: Tuple `(f_min, f_max)` in Hz defining the fitting range (inclusive).
+            Must satisfy `0 < f_min < f_max`.
+        mode: Model type, either `'fixed'` (k = 0) or `'knee'` (k > 0). Default is `'fixed'`.
+
+    Returns:
+        :class:`AperiodicFitResult` dataclass for 1D input, or nested list/array of results
+        for multidimensional PSD input matching leading batch dimensions `(...)`.
+
+    Raises:
+        ValueError: If frequencies are non-monotonic, non-positive, or non-finite;
+            if PSD contains negative, NaN, or infinite values; if `freq_range` is invalid;
+            if `mode` is unrecognized; or if fewer than 4 frequency bins fall in `freq_range`.
+
+    References:
+        Donoghue, T., et al. (2020). Parameterizing neural power spectra into periodic and
+        aperiodic components. Nature Neuroscience. doi:10.1038/s41593-020-00744-x
+    """
+    if mode not in ("fixed", "knee"):
+        raise ValueError(f"Invalid mode '{mode}'. Must be 'fixed' or 'knee'.")
+
+    freqs_arr = np.asarray(freqs, dtype=np.float64)
+    if freqs_arr.ndim != 1:
+        raise ValueError(f"freqs must be a 1D array, got ndim={freqs_arr.ndim}.")
+    if len(freqs_arr) == 0:
+        raise ValueError("freqs array is empty.")
+    if not np.all(np.isfinite(freqs_arr)):
+        raise ValueError("freqs array contains NaN or infinite values.")
+    if np.any(freqs_arr <= 0):
+        raise ValueError("freqs array must contain strictly positive frequencies (> 0).")
+    if not np.all(np.diff(freqs_arr) > 0):
+        raise ValueError("freqs array must be strictly increasing.")
+
+    if len(freq_range) != 2:
+        raise ValueError(f"freq_range must be a 2-tuple (f_min, f_max), got {freq_range}.")
+    f_min, f_max = float(freq_range[0]), float(freq_range[1])
+    if not (np.isfinite(f_min) and np.isfinite(f_max)):
+        raise ValueError(f"freq_range must contain finite bounds, got ({f_min}, {f_max}).")
+    if f_min <= 0:
+        raise ValueError(f"freq_range minimum must be strictly positive (> 0), got {f_min}.")
+    if f_min >= f_max:
+        raise ValueError(f"freq_range f_min ({f_min}) must be strictly less than f_max ({f_max}).")
+
+    psd_arr = np.asarray(psd, dtype=np.float64)
+    if psd_arr.ndim == 0:
+        raise ValueError("psd must have at least 1 dimension.")
+    if psd_arr.shape[-1] != len(freqs_arr):
+        raise ValueError(
+            f"Trailing dimension of psd ({psd_arr.shape[-1]}) does not match freqs length ({len(freqs_arr)})."
+        )
+    if not np.all(np.isfinite(psd_arr)):
+        raise ValueError("psd array contains NaN or infinite values.")
+    if np.any(psd_arr <= 0):
+        raise ValueError("psd array contains non-positive values (<= 0). Non-positive power is undefined in log space.")
+
+    # Frequency mask
+    mask = (freqs_arr >= f_min) & (freqs_arr <= f_max)
+    n_points = int(np.sum(mask))
+    if n_points < 4:
+        raise ValueError(
+            f"Insufficient frequency bins in freq_range ({f_min}, {f_max}): "
+            f"found {n_points} bins, but at least 4 are required for aperiodic fitting."
+        )
+
+    fit_freqs = freqs_arr[mask]
+    log_freqs = np.log10(fit_freqs)
+    range_tuple = (f_min, f_max)
+
+    def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:
+        fit_psd = p_1d[mask]
+        log_power = np.log10(fit_psd)
+        ss_tot = float(np.sum((log_power - np.mean(log_power)) ** 2))
+
+        if mode == "fixed":
+            try:
+                coeffs = np.polyfit(log_freqs, log_power, 1)
+                chi = float(-coeffs[0])
+                b = float(coeffs[1])
+                fitted = b - chi * log_freqs
+                ss_res = float(np.sum((log_power - fitted) ** 2))
+                r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+                return AperiodicFitResult(
+                    offset=b,
+                    exponent=chi,
+                    knee=None,
+                    r_squared=r2,
+                    freq_range=range_tuple,
+                    mode="fixed",
+                    accepted=True,
+                )
+            except Exception:
+                return AperiodicFitResult(
+                    offset=None,
+                    exponent=None,
+                    knee=None,
+                    r_squared=None,
+                    freq_range=range_tuple,
+                    mode="fixed",
+                    accepted=False,
+                )
+        else:
+            # Knee mode: L(f) = b - log10(k + f^chi)
+            def _knee_model(f, b_param, chi_param, k_param):
+                return b_param - np.log10(k_param + f ** chi_param)
+
+            try:
+                # Linear initialization
+                coeffs_init = np.polyfit(log_freqs, log_power, 1)
+                chi_init = max(0.01, float(-coeffs_init[0]))
+                b_init = float(coeffs_init[1])
+                p0 = [b_init, chi_init, 1.0]
+                bounds = ((-np.inf, 0.0, 0.0), (np.inf, np.inf, np.inf))
+                popt, _ = optimize.curve_fit(
+                    _knee_model,
+                    fit_freqs,
+                    log_power,
+                    p0=p0,
+                    bounds=bounds,
+                    maxfev=5000,
+                )
+                b_opt = float(popt[0])
+                chi_opt = float(popt[1])
+                k_opt = float(popt[2])
+                fitted = _knee_model(fit_freqs, b_opt, chi_opt, k_opt)
+                ss_res = float(np.sum((log_power - fitted) ** 2))
+                r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+                return AperiodicFitResult(
+                    offset=b_opt,
+                    exponent=chi_opt,
+                    knee=k_opt,
+                    r_squared=r2,
+                    freq_range=range_tuple,
+                    mode="knee",
+                    accepted=True,
+                )
+            except Exception:
+                return AperiodicFitResult(
+                    offset=None,
+                    exponent=None,
+                    knee=None,
+                    r_squared=None,
+                    freq_range=range_tuple,
+                    mode="knee",
+                    accepted=False,
+                )
+
+    if psd_arr.ndim == 1:
+        return _fit_single_1d(psd_arr)
+
+    # Multidimensional batch handling across leading dimensions
+    leading_shape = psd_arr.shape[:-1]
+    flat_psd = psd_arr.reshape(-1, len(freqs_arr))
+    results_flat = [_fit_single_1d(row) for row in flat_psd]
+    results_arr = np.array(results_flat, dtype=object).reshape(leading_shape)
+    return results_arr.tolist()
+
+
+def relative_power(
+    power: np.ndarray,
+    baseline: np.ndarray,
+    *,
+    model: str = "mean_of_ratios",
+    axis: Optional[Union[int, Tuple[int, ...]]] = None,
+    device: str = "cpu",
+) -> np.ndarray:
+    """
+    Compute relative power of a signal against baseline under an explicit mathematical estimand.
+
+    Mathematical Estimands:
+        - ``"mean_of_ratios"``:
+          Computes :math:`\\frac{1}{N} \\sum_{c=1}^{N} \\frac{P_c}{B_c}` across the specified ``axis``.
+          Treats every unit/channel with equal weight. Returns linear dimensionless ratio.
+        - ``"ratio_of_means"``:
+          Computes :math:`\\frac{\\sum_c P_c}{\\sum_c B_c}` across the specified ``axis``.
+          Equivalent to a baseline-power-weighted average of per-unit ratios:
+          :math:`\\sum_c w_c (P_c / B_c)` where :math:`w_c = B_c / \\sum_j B_j`.
+          Returns linear dimensionless ratio.
+        - ``"log_ratio"``:
+          Computes :math:`10 \\log_{10}(P / B)` elementwise in decibels (dB).
+          Preserves the log-last principle without spatial or trial aggregation.
+
+    Important Scientific Invariants:
+        - The three models represent mathematically distinct estimands. They coincide only when
+          baseline power is strictly identical across the aggregation axis. Under unequal baselines,
+          they diverge. The requested model is returned exactly as specified; the library never
+          silently converts among them.
+        - Preserves linear scale when ``"mean_of_ratios"`` or ``"ratio_of_means"`` is requested.
+          Conversion to decibels occurs only when ``model="log_ratio"`` is explicitly chosen,
+          preventing premature logarithmic transforms before aggregation (Jensen's inequality).
+        - Negative or non-finite inputs, zero baseline values, and mismatched non-broadcastable
+          shapes fail loudly by raising :class:`ValueError`.
+
+    Args:
+        power: Power array in :math:`(U_{\\text{in}})^2` or :math:`(U_{\\text{in}})^2/\\text{Hz}`.
+            Must be finite and strictly non-negative. Any shape.
+        baseline: Baseline power array in the same physical units as ``power``, broadcastable against ``power``.
+            Must be finite, strictly non-negative, and contain non-zero values where division occurs.
+        model: Estimand model, strictly one of ``"mean_of_ratios"``, ``"ratio_of_means"``, or ``"log_ratio"``.
+            Default is ``"mean_of_ratios"``.
+        axis: Axis or tuple of axes to reduce along when using ``"mean_of_ratios"`` or ``"ratio_of_means"``.
+            If ``None`` and ``model="mean_of_ratios"``, computes elementwise ratio :math:`P / B` without reduction.
+            If ``None`` and ``model="ratio_of_means"``, reduces across all elements (:math:`\\sum P / \\sum B`).
+            For ``model="log_ratio"``, ``axis`` must be ``None`` (elementwise dB transform).
+        device: Hardware device to use: ``"cpu"`` or ``"cuda"``. Resolved via :func:`resolve_device`.
+            If ``"cuda"`` is requested but unavailable, falls back to CPU with a diagnostic warning.
+
+    Returns:
+        :class:`numpy.ndarray` of relative power values matching broadcast/reduced shape.
+        Linear scale (dimensionless) for ``"mean_of_ratios"`` and ``"ratio_of_means"``;
+        decibels (:math:`\\text{dB}`) for ``"log_ratio"``.
+
+    Raises:
+        ValueError: If ``model`` is unrecognized; if any input is empty; if ``power`` or ``baseline``
+            contains negative or non-finite (NaN/Inf) values; if ``baseline`` contains zeros causing
+            division by zero; if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
+
+    Examples:
+        >>> import numpy as np
+        >>> p = np.array([2.0, 8.0])
+        >>> b = np.array([1.0, 2.0])
+        >>> # Mean of ratios: (2/1 + 8/2) / 2 = (2 + 4) / 2 = 3.0
+        >>> float(relative_power(p, b, model="mean_of_ratios", axis=0))
+        3.0
+        >>> # Ratio of means: (2 + 8) / (1 + 2) = 10 / 3 = 3.333...
+        >>> float(relative_power(p, b, model="ratio_of_means", axis=0))
+        3.3333333333333335
+        >>> # Log ratio: [10*log10(2), 10*log10(4)] = [3.010..., 6.020...]
+        >>> relative_power(p, b, model="log_ratio")
+        array([3.01029996, 6.02059991])
+    """
+    if model not in RELATIVE_POWER_MODELS:
+        raise ValueError(f"model must be one of {list(RELATIVE_POWER_MODELS)}; got {model!r}")
+
+    if model == "log_ratio" and axis is not None:
+        raise ValueError(
+            f"model='log_ratio' computes elementwise decibels without aggregation; "
+            f"got axis={axis!r}. For aggregated decibels, use jnwb.aggregate_to_db."
+        )
+
+    # Resolve device with observable fallback
+    resolved_dev = resolve_device(device, context="relative_power", prefer="cupy", stacklevel=3)
+
+    p_arr = np.asarray(power, dtype=np.float64)
+    b_arr = np.asarray(baseline, dtype=np.float64)
+
+    if p_arr.size == 0 or b_arr.size == 0:
+        raise ValueError("power and baseline inputs must not be empty.")
+
+    if not (np.all(np.isfinite(p_arr)) and np.all(np.isfinite(b_arr))):
+        raise ValueError("power and baseline inputs must contain finite values (no NaN or Inf).")
+
+    if np.any(p_arr < 0):
+        raise ValueError("power contains negative values. Power must be non-negative ratio-scale.")
+
+    if np.any(b_arr < 0):
+        raise ValueError("baseline contains negative values. Baseline must be non-negative ratio-scale.")
+
+    # Broadcast check
+    try:
+        b_broadcast = np.broadcast_to(b_arr, p_arr.shape)
+    except ValueError as e:
+        raise ValueError(
+            f"baseline shape {b_arr.shape} cannot broadcast to power shape {p_arr.shape}."
+        ) from e
+
+    if np.any(b_broadcast == 0):
+        raise ValueError("baseline contains zero values resulting in division by zero.")
+
+    # Execute computation
+    if resolved_dev == CUDA:
+        try:
+            import cupy as cp
+
+            p_gpu = cp.asarray(p_arr)
+            b_gpu = cp.asarray(b_arr)
+            b_gpu_broadcast = cp.broadcast_to(b_gpu, p_gpu.shape)
+
+            if model == "mean_of_ratios":
+                if axis is None:
+                    res_gpu = p_gpu / b_gpu_broadcast
+                else:
+                    res_gpu = cp.mean(p_gpu / b_gpu_broadcast, axis=axis)
+            elif model == "ratio_of_means":
+                num = cp.sum(p_gpu, axis=axis)
+                den = cp.sum(b_gpu_broadcast, axis=axis)
+                res_gpu = num / den
+            else:  # log_ratio
+                res_gpu = 10.0 * cp.log10(p_gpu / b_gpu_broadcast)
+
+            return cp.asnumpy(res_gpu)
+        except Exception as exc:
+            warn_device_fallback("relative_power", exc, stacklevel=3)
+            # Wholesale CPU fallback below
+
+    # CPU path
+    if model == "mean_of_ratios":
+        if axis is None:
+            return p_arr / b_broadcast
+        return np.mean(p_arr / b_broadcast, axis=axis)
+    elif model == "ratio_of_means":
+        num = np.sum(p_arr, axis=axis)
+        den = np.sum(b_broadcast, axis=axis)
+        return num / den
+    else:  # log_ratio
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return 10.0 * np.log10(p_arr / b_broadcast)
 
 
 def band_power(
@@ -735,7 +1278,8 @@ def imaginary_coherency(
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: (min_freq, max_freq) in Hz to average coherency over.
-        nperseg: Welch/CSD segment length; defaults to min(len(x), 1024).
+        nperseg: Welch/CSD segment length; defaults to ``min(max(N // 8, 8), 1024)``,
+            which keeps at least 2 segments so the ratio is identifiable.
         noverlap: defaults to nperseg // 2.
         device: 'cpu' or 'cuda' (CuPy), mirroring ``band_power``'s dispatch pattern.
 
@@ -763,15 +1307,16 @@ def imaginary_coherency(
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
-    n = min(len(x), len(y))
+    _require_equal_lengths(x, y, "imaginary_coherency")
+    n = len(x)
     if n == 0:
         return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
-    x, y = x[:n], y[:n]
 
     if nperseg is None:
-        nperseg = min(n, 1024)
+        nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 1024)
     if noverlap is None:
         noverlap = nperseg // 2
+    _require_identifiable_segmentation(n, nperseg, noverlap, "imaginary_coherency", "coh_mag_mean")
 
     if device == 'cuda':
         try:
@@ -797,6 +1342,155 @@ def imaginary_coherency(
         "icoh_mean": float(np.mean(im_part)),
         "icoh_abs_mean": float(np.mean(np.abs(im_part))),
         "coh_mag_mean": float(np.mean(coh_mag)),
+        "n_freqs": int(np.sum(mask)),
+    }
+
+
+def wpli(
+    x: np.ndarray,
+    y: np.ndarray,
+    fs: Optional[float] = None,
+    sampling_rate: Optional[float] = None,
+    freq_range: Tuple[float, float] = (1.0, 90.0),
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    r"""Weighted Phase Lag Index (wPLI) between two continuous signals.
+
+    wPLI (Vinck et al., 2011) evaluates the consistency of non-zero-phase-lag coupling
+    between two signals by weighting phase leads and lags by the magnitude of the
+    imaginary cross-spectrum across segments:
+
+    .. math::
+        \text{wPLI}(f) = \frac{|\sum_k \text{Im}(S_{xy, k}(f))|}{\sum_k |\text{Im}(S_{xy, k}(f))|}
+
+    By weighting solely by the imaginary component of the cross-spectral density,
+    wPLI reduces sensitivity specifically to zero-phase-lag coupling (such as
+    instantaneous volume conduction or shared-reference contamination). It does not
+    confer immunity to volume conduction, non-zero-lag common inputs, source mixing,
+    or reference-induced phase structure.
+
+    wPLI magnitude is strictly unsigned (:math:`\ge 0`) and measures coupling
+    consistency, not directional propagation. To infer lead/lag directionality or
+    delay, see :func:`jnwb.phase_slope_index` or :func:`jnwb.zflip`.
+
+    Args:
+        x, y: 1D time series of equal length.
+        fs: Sampling frequency in Hz (canonical).
+        sampling_rate: Supported alias for `fs` in Hz.
+        freq_range: `(min_freq, max_freq)` in Hz to average wPLI over.
+        nperseg: Welch segment length; defaults to ``min(max(N // 8, 8), 256)``, which
+            keeps at least 2 segments so the ratio is identifiable.
+        noverlap: Welch segment overlap; defaults to `nperseg // 2`.
+        device: `'cpu'` or `'cuda'` (GPU acceleration via CuPy).
+
+    Returns:
+        Dict with:
+        - ``wpli``: Float average of standard wPLI across `freq_range`.
+        - ``wpli_debiased_sq``: Float average of debiased squared wPLI across `freq_range`.
+        - ``freqs``: 1D array of frequency bins.
+        - ``wpli_spectrum``: 1D array of standard wPLI across all frequencies.
+        - ``n_segments``: Number of Welch segments evaluated.
+        - ``n_freqs``: Number of frequency bins within `freq_range`.
+
+    References:
+        Vinck, M., et al. (2011). An improved index of phase-synchronization for
+        electrophysiological data in the presence of volume-conduction, noise and
+        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055
+    """
+    fs = _resolve_fs(fs, sampling_rate, "wpli")
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    _require_equal_lengths(x, y, "wpli")
+    n = len(x)
+    if n == 0:
+        return {
+            "wpli": 0.0,
+            "wpli_debiased_sq": 0.0,
+            "freqs": np.array([], dtype=float),
+            "wpli_spectrum": np.array([], dtype=float),
+            "n_segments": 0,
+            "n_freqs": 0,
+        }
+
+    if nperseg is None:
+        nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 256)
+    if noverlap is None:
+        noverlap = nperseg // 2
+    _require_identifiable_segmentation(n, nperseg, noverlap, "wpli", "wpli")
+
+    if device == "cuda":
+        try:
+            import cupy as cp
+            # Use GPU if available
+            x_g = cp.asarray(x, dtype=cp.float64)
+            y_g = cp.asarray(y, dtype=cp.float64)
+            step = max(1, nperseg - noverlap)
+            # Window
+            window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
+            segs_x, segs_y = [], []
+            start = 0
+            while start + nperseg <= n:
+                sx = x_g[start:start+nperseg] - cp.mean(x_g[start:start+nperseg])
+                sy = y_g[start:start+nperseg] - cp.mean(y_g[start:start+nperseg])
+                segs_x.append(sx * window)
+                segs_y.append(sy * window)
+                start += step
+            if not segs_x:
+                raise ValueError(f"nperseg={nperseg} exceeds data length={n}")
+            X_fft = cp.fft.rfft(cp.stack(segs_x), axis=-1)  # (n_seg, n_freqs)
+            Y_fft = cp.fft.rfft(cp.stack(segs_y), axis=-1)
+            Sxy = cp.conj(X_fft) * Y_fft
+            I = cp.imag(Sxy).T  # (n_freqs, n_seg)
+            I = cp.where(cp.abs(I) < 1e-12, 0.0, I)
+            sum_I = cp.sum(I, axis=1)
+            sum_abs_I = cp.sum(cp.abs(I), axis=1)
+            w_f = cp.divide(cp.abs(sum_I), sum_abs_I, out=cp.zeros_like(sum_I), where=sum_abs_I > 1e-12)
+            sum_I_sq = cp.sum(I**2, axis=1)
+            num_deb = (sum_I**2) - sum_I_sq
+            den_deb = (sum_abs_I**2) - sum_I_sq
+            w_deb_sq_f = cp.divide(num_deb, den_deb, out=cp.zeros_like(num_deb), where=den_deb > 1e-12)
+            freqs = cp.fft.rfftfreq(nperseg, d=1.0 / fs).get()
+            w_f = w_f.get()
+            w_deb_sq_f = w_deb_sq_f.get()
+            n_segments = len(segs_x)
+        except Exception as e:
+            log.warning(f"GPU wPLI failed: {e}. Falling back to CPU.")
+            device = "cpu"
+
+    if device != "cuda":
+        # CPU STFT
+        freqs, _, Zx = signal.stft(
+            x, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False
+        )
+        _, _, Zy = signal.stft(
+            y, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False
+        )
+        Sxy = np.conj(Zx) * Zy  # (n_freqs, n_segments)
+        I = np.imag(Sxy)
+        I = np.where(np.abs(I) < 1e-12, 0.0, I)
+
+        sum_I = np.sum(I, axis=1)
+        sum_abs_I = np.sum(np.abs(I), axis=1)
+        w_f = np.divide(np.abs(sum_I), sum_abs_I, out=np.zeros_like(sum_I), where=sum_abs_I > 1e-12)
+
+        sum_I_sq = np.sum(I**2, axis=1)
+        num_deb = (sum_I**2) - sum_I_sq
+        den_deb = (sum_abs_I**2) - sum_I_sq
+        w_deb_sq_f = np.divide(num_deb, den_deb, out=np.zeros_like(num_deb), where=den_deb > 1e-12)
+        n_segments = Zx.shape[1]
+
+    mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+    wpli_val = float(np.mean(w_f[mask])) if np.any(mask) else 0.0
+    wpli_deb_sq_val = float(np.mean(w_deb_sq_f[mask])) if np.any(mask) else 0.0
+
+    return {
+        "wpli": wpli_val,
+        "wpli_debiased_sq": wpli_deb_sq_val,
+        "freqs": freqs,
+        "wpli_spectrum": w_f,
+        "n_segments": n_segments,
         "n_freqs": int(np.sum(mask)),
     }
 
@@ -867,31 +1561,52 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     return result
 
 
-def _welch_csd_gpu(x: np.ndarray, y: np.ndarray, fs: float, nperseg: int, noverlap: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Helper to compute PSD and CSD on GPU using CuPy."""
+def _welch_csd_gpu(
+    x: np.ndarray,
+    y: np.ndarray,
+    fs: float,
+    nperseg: int,
+    noverlap: Optional[int] = None,
+    detrend: Union[str, bool] = "constant",
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Helper to compute PSD and CSD on GPU using CuPy matching scipy.signal.welch and csd parity.
+
+    Implements:
+    - Periodic Hann window matching scipy.signal.get_window('hann', nperseg).
+    - Segment-level detrending (default: 'constant' detrending, subtracting segment mean).
+    - Conjugate orientation matching scipy.signal.csd: conj(X) * Y.
+    - Exact one-sided scaling for even and odd nperseg (doubling positive frequencies).
+    - Zero-padding for inputs shorter than nperseg.
+    """
     import cupy as cp
     if noverlap is None:
         noverlap = nperseg // 2
     step = nperseg - noverlap
 
-    x_g = cp.asarray(x)
-    y_g = cp.asarray(y)
+    x_g = cp.asarray(x, dtype=cp.float64)
+    y_g = cp.asarray(y, dtype=cp.float64)
     n = len(x_g)
 
-    window = cp.hanning(nperseg)
-    U = cp.sum(window ** 2) / fs
+    if n < nperseg:
+        x_g = cp.pad(x_g, (0, nperseg - n))
+        y_g = cp.pad(y_g, (0, nperseg - n))
+        n = nperseg
+
+    # Periodic Hann window matching scipy.signal.get_window('hann', nperseg)
+    window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
 
     segments_x = []
     segments_y = []
     start = 0
     while start + nperseg <= n:
-        segments_x.append(x_g[start:start+nperseg] * window)
-        segments_y.append(y_g[start:start+nperseg] * window)
+        seg_x = x_g[start:start+nperseg]
+        seg_y = y_g[start:start+nperseg]
+        if detrend == "constant":
+            seg_x = seg_x - cp.mean(seg_x)
+            seg_y = seg_y - cp.mean(seg_y)
+        segments_x.append(seg_x * window)
+        segments_y.append(seg_y * window)
         start += step
-
-    if not segments_x:
-        segments_x.append(x_g[:nperseg] * window[:len(x_g)])
-        segments_y.append(y_g[:nperseg] * window[:len(y_g)])
 
     X = cp.fft.rfft(cp.stack(segments_x), axis=-1)
     Y = cp.fft.rfft(cp.stack(segments_y), axis=-1)
@@ -900,12 +1615,17 @@ def _welch_csd_gpu(x: np.ndarray, y: np.ndarray, fs: float, nperseg: int, noverl
 
     psd_x = cp.mean(cp.abs(X) ** 2, axis=0) * scale
     psd_y = cp.mean(cp.abs(Y) ** 2, axis=0) * scale
-    csd_xy = cp.mean(X * cp.conj(Y), axis=0) * scale
+    csd_xy = cp.mean(cp.conj(X) * Y, axis=0) * scale
 
     # One-sided scaling
-    psd_x[1:-1] *= 2.0
-    psd_y[1:-1] *= 2.0
-    csd_xy[1:-1] *= 2.0
+    if nperseg % 2:
+        psd_x[1:] *= 2.0
+        psd_y[1:] *= 2.0
+        csd_xy[1:] *= 2.0
+    else:
+        psd_x[1:-1] *= 2.0
+        psd_y[1:-1] *= 2.0
+        csd_xy[1:-1] *= 2.0
 
     freqs = cp.fft.rfftfreq(nperseg, d=1.0/fs)
     return freqs.get(), psd_x.get(), psd_y.get(), csd_xy.get()

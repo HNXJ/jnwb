@@ -4,6 +4,129 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4rc1] - 2026-09-14
+
+### Added
+
+- Weighted Phase Lag Index (`wpli`, `WPLIResult`) in `jnwb.spectral`:
+  Phase-synchronization metric evaluating segment-resolved imaginary cross-spectra, reducing sensitivity to zero-phase-lag coupling without claiming volume-conduction immunity; reports both standard and debiased squared wPLI.
+- Laminar phase gradient analysis (`zflip`, `ZFlipResult`) in `jnwb.laminar`:
+  Cross-channel phase-gradient analysis and apparent velocity estimation with phase-frequency linearity verification ($R^2 \ge \text{min\_linearity\_r2}$) and circular-shift surrogate testing.
+- Standalone representational dissimilarity matrices (`rdm`, `rdm_similarity`) in `jnwb.rsa`:
+  Generates condensed or square symmetric RDMs across conditions or time points with support for euclidean, correlation, cosine, and mahalanobis distances; evaluates inter-RDM similarity via rank or linear correlation.
+- Comprehensive 8-part synthetic NWB tutorial suite:
+  Completely independent, zero-relative-import executable tutorials covering NWB inspection, addressing/metadata, spiking PSTH/latency, continuous LFP/Welch PSD/TFR/wPLI, dual exploratory and permutation statistics, laminar CSD/vFLIP/zFLIP, population ensembles/JRSA/decoding, and end-to-end composite pipelines.
+
+### Changed
+
+- Renamed and unified tutorial structure to match canonical 8-part progression.
+- Updated Gate 13 preflight assertions to guarantee exact snippet synchronization for all 8 tutorials.
+
+### Fixed
+
+- Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
+- Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
+- Gate 6 (dataset independence) now scans every durable user-facing surface recursively:
+  `docs/**/*.md`, `examples/**/*.py`, `examples/**/*.ipynb`, and root documents (`README.md`,
+  `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`). Previously `README.md`, `CONTRIBUTING.md`,
+  `examples/quickstart_jnwb.py`, `examples/notebooks/*.ipynb`, and non-numbered example modules
+  were unscanned. `CHANGELOG.md` remains exempt as a historical record, now via a named
+  `DATASET_SCAN_EXEMPT` entry carrying its reason rather than a silent omission.
+- Corrected the Gate 6 docstring, which described a narrower surface (`docs/*.md`,
+  non-recursive, `examples/` unmentioned) than the code actually scanned. An independent RC
+  audit read the docstring rather than the globs and reported a coverage gap that did not exist;
+  a regression test now asserts the docstring names the surfaces it scans.
+- Release gate STEP 0 checks that the required release/test tooling declared by the `[test,docs]`
+  extras is present in the active environment before qualification begins, exiting with the exact
+  provisioning command when it is not. This is a presence check on the named distributions, not a
+  proof that every dependency constraint is satisfied; `pip check` in STEP 6 remains the
+  authoritative installed-distribution consistency check. Motivation: an interpreter lacking the
+  declared docs tooling does not fail loudly, it silently measures something else -- an audit run
+  on such an interpreter recorded `1 failed, 1021 passed` where the strict-MkDocs test could not
+  import MkDocs.
+- README no longer presents `pip install jnwb==0.2.4rc1` as currently available. The unpublished
+  release candidate is labelled as such, with the executable source-install path given and the
+  post-publication command retained (preserving version synchronisation for Gate 10).
+- Removed the one-off `jnwb-unified-rev.md` external-review dossier from the repository root.
+- **Canonical tutorial NWB built an out-of-bounds electrode region.**
+  `build_canonical_tutorial_nwb` assigned its two units to the hardcoded electrode rows `[10]`
+  and `[18]`, valid only while `n_channels > 18`. At `n_channels=12` the second unit referenced a
+  nonexistent row: newer HDMF rejects the dangling `DynamicTableRegion` at write time, while
+  older HDMF accepted it and raised only on read, so CI failed on every matrix leg while stale
+  local environments passed. Unit contacts are now derived from `TUTORIAL_UNIT_DEPTH_FRACTIONS`
+  (a unit sits at a physical depth on the shaft, so its row scales with the contact count),
+  reproducing the historical `(10, 18)` exactly at the default 24 channels and staying in range
+  for any supported length. `_validate_electrode_indices` enforces
+  `0 <= index < len(electrodes)` at construction with the offending values named, on every
+  dependency version, and the chosen contacts are reported in the ground-truth dictionary.
+  Nothing is truncated, padded, duplicated, or invented: an unrepresentable request raises.
+- The tutorial laminar crossover contact is now an explicit constant with a guard.
+  `crossover_true` was hardcoded at 10.5 while `synth_laminar_motif` requires
+  `c_crossover <= n_channels - 1`, so any `n_channels <= 10` failed deep inside the motif
+  generator with a message about `c_crossover` rather than about the caller's argument.
+  `build_canonical_tutorial_nwb` now rejects such a shaft up front, naming the constraint. The
+  crossover is ground truth the tutorials assert against, so it is not scaled to fit.
+- **CRITICAL: cross-spectral ratio estimators reported perfect coupling for independent
+  signals.** `cross_area_coherence` used `nperseg = min(N, 4096)`, which puts every input up
+  to ~8192 samples into a *single* Welch segment. With one segment
+  `|X Y*|^2 = |X|^2 |Y|^2` holds exactly, so magnitude-squared coherence is 1.0 at every
+  frequency for any two signals. Two independent Gaussian traces of 4096 samples -- about 4 s
+  of LFP at 1 kHz -- returned `band_coherence = 1.0` with no warning, and the surrogate test
+  could not catch it because the surrogates saturate at 1.0 as well. This is an algebraic
+  non-identifiability, not an estimation error.
+  The same defect was then found in two sibling estimators that divide a cross-spectrum by the
+  auto-spectra: `imaginary_coherency` (`coh_mag_mean = 1.0` for N <= 1024) and `wpli`
+  (`wpli = 1.0` for N <= 256 under its default `nperseg = min(N, 256)`).
+  All three now derive `nperseg` as `N // 8` (capped at each function's previous ceiling) and
+  refuse any segmentation yielding fewer than `MIN_IDENTIFIABLE_SEGMENTS = 2` segments. Two is
+  the mathematical boundary, not a quality recommendation: the null expectation of coherence
+  is still about `1/K`, so K = 2 carries a null mean near 0.5. The new default was chosen by
+  comparing candidate segment lengths on independent and known-coupled synthetic signals for N
+  from 1024 to 60000; `N // 8` separated coupled from null better than `N // 4` at every length
+  tested, and no fixed length serves both short and long traces. Null coherence was measured
+  rather than assumed: `E[C]` tracks `1/K` to within 1-6 %, the excess growing with K because
+  50 %-overlapped segments are correlated. `wpli_debiased_sq` was verified to remain
+  approximately unbiased under the null (|mean| < 0.02 across K), which plain wPLI is not.
+  `cross_area_coherence` gains `nperseg` and `noverlap` parameters and reports `nperseg`,
+  `noverlap` and `n_segments_used`, since K is required to interpret any coherence it returns.
+  Surrogates are verified to use the same segmentation as the observed statistic.
+  Plain PSD estimators are deliberately NOT gated: a one-segment periodogram is noisy but not
+  degenerate.
+- **INTENTIONAL BREAK (0.2.4):** `wpli` and `imaginary_coherency` raise `ValueError` for
+  traces of unequal length. Both took `n = min(len(x), len(y))` and silently discarded the
+  tail of the longer trace, so the two signals no longer described the same interval and
+  nothing in the result said so. Truncation changes which samples are compared, which is the
+  caller's decision. Found during the 0.2.4-04 independent numerical audit.
+- Corrected stale `nperseg` defaults in the `wpli` and `imaginary_coherency` docstrings, which
+  the segmentation repair had invalidated. A test now asserts the documented default matches
+  the implementation, since this drift was introduced by a repair and not caught by any gate.
+- **INTENTIONAL BREAK (0.2.4):** `cross_area_coherence` raises `ValueError` when its two
+  traces have different lengths. It previously logged a warning and returned a dict of zeros:
+  `peak_coherence_value` was `0.0`, which is exactly what a genuine measurement of no coupling
+  looks like, no key marked the result as absent, and the log line is invisible unless the
+  caller configured logging. Coherence is defined only between paired samples, so unequal
+  lengths are malformed input rather than a zero-coupling result; truncating or padding to a
+  common length is the caller's decision. The pre-release candidate is the correct boundary for
+  removing this behaviour.
+- `cross_area_coherence` rejects 2-D input with a `ValueError` naming the argument and its
+  shape. A 2-D array was previously indexed as if it were 1-D, making `nperseg` the channel
+  count and taking `argmax` over the flattened array; every shape tested failed, but with an
+  `IndexError` or `TypeError` from inside the estimator that named neither the argument nor
+  the contract.
+- Release verification now exercises the tutorials against the **installed wheel** (0.2.4-03).
+  The distribution job previously imported the installed package and ran four inline workflows;
+  the tutorials -- the only end-to-end consumers of the public API -- ran solely from the
+  checkout with the repository on `PYTHONPATH`. That configuration cannot detect a subpackage
+  omitted from the wheel or an import that only resolves from the source tree. CI and the local
+  release gate (new STEP 8) now run all eight tutorials on the clean-venv interpreter with
+  `PYTHONPATH` stripped and the working directory outside the repository, and
+  `tests/test_workflow_release_policy.py` fails if either check is removed or reordered before
+  installation.
+- The release gate no longer hardcodes the expected version. `jnwb_source_version()` parses
+  `__version__` from the source tree and the isolated smoke test compares the installed wheel
+  against it, removing a hand-maintained literal of the same drift class the documentation
+  gates exist to prevent.
+
 ## [0.1.8] - 2026-09-11
 
 ### Added

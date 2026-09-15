@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 128 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 151 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -11,6 +11,8 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.CANONICAL_BANDS | constant | *dict() -> new empty dictionary dict(mapping) -> new dictionary initialized from a mapping object's     (key, value) pairs dict(iterable) -> new dictionary initialized as if via:     d = {}     for k, v in iterable:         d[k] = v dict(**kwargs) -> new dictionary initialized with the name=value pairs     in the keyword argument list.  For example:  dict(one=1, two=2)* |
 | jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
 | jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
+| jnwb.RELATIVE_POWER_MODELS | constant | *Built-in immutable sequence.* |
+| jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
 
@@ -18,9 +20,11 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.classify_layer_from_depth | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str<br>*Classify unit cortical layer using z depth coordinates.* |
-| jnwb.enrich_units_dataframe | function | (units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None) -> pandas.DataFrame<br>*Enrich units DataFrame with standardized area, layer, and quality flags.* |
+| jnwb.ProbeGeometry | class | *Extracted contact geometry and spatial properties for an electrode array.* |
+| jnwb.classify_layer_from_depth | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> str<br>*Classify unit cortical layer using z depth coordinates.* |
+| jnwb.enrich_units_dataframe | function | (units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> pandas.DataFrame<br>*Enrich units DataFrame with standardized area, layer, and quality flags.* |
 | jnwb.map_peak_channel_to_area | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None<br>*Map peak channel ID to brain area location.* |
+| jnwb.probe_geometry | function | (electrodes_table: typing.Any, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False) -> jnwb.addressing.ProbeGeometry<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
 
 ## Module: jnwb.analyzers
 
@@ -97,12 +101,31 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.bandpass_filter | function | (data: 'np.ndarray', fs: 'float', low_cut: 'float', high_cut: 'float', order: 'int' = 4, zero_phase: 'bool' = True, axis: 'int' = -1) -> 'np.ndarray'<br>*Apply a Butterworth bandpass filter using Second-Order Sections (SOS).* |
 | jnwb.notch_filter | function | (data: 'np.ndarray', fs: 'float', freq: 'float' = 60.0, q: 'float' = 30.0, zero_phase: 'bool' = True, axis: 'int' = -1) -> 'np.ndarray'<br>*Apply an IIR notch filter using Second-Order Sections (SOS) conversion.* |
 
+## Module: jnwb.io
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.stream_npz_array | function | (file_path: 'Union[str, Path]', key: 'str', slice_tuple: 'Union[slice, int, Tuple[Union[slice, int], ...]]' = (slice(None, None, None),)) -> 'np.ndarray'<br>*Stream a memory-bounded slice from an uncompressed or compressed NPZ archive.* |
+
 ## Module: jnwb.jrsa
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.JRSAResult | class | *Container returned by jrsa().* |
 | jnwb.jrsa | function | (x1, x2 = None, adim = -1, labels = None, align = 'auto', align_mode = 'fraction', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', backend = 'auto', device = 'auto', n_jobs = -1, batch_size = None, random_state = None, return_type = 'result', return_null = False, return_input = False, verbose = False, kwargs) -> 'JRSAResult'<br>*Unified representational similarity / cross-area analysis.* |
+
+## Module: jnwb.laminar
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.VFlipResult | class | *Container for Vectorized Frequency-based Laminar Identity Profile (vFLIP) results.* |
+| jnwb.XFlipResult | class | *Container for Cross-Channel Laminar Correlation Profile (xFLIP) results.* |
+| jnwb.ZFlipResult | class | *Container for zFLIP Cortical Depth Phase-Gradient & Delay Estimation results.* |
+| jnwb.label_layers | function | (vflip_result: 'VFlipResult', probe_geometry: 'Any', granular_thickness_um: 'float' = 400.0, bad_channel_mask: 'Optional[np.ndarray]' = None, depth_range_um: 'Optional[Tuple[float, float]]' = None, contact_range: 'Optional[Tuple[float, float]]' = None) -> 'Dict[Any, str]'<br>*Assign cortical layer labels (superficial, input, deep) to probe contacts.* |
+| jnwb.vflip | function | (psd: 'np.ndarray', freqs: 'np.ndarray', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile (vFLIP).* |
+| jnwb.vflip_from_lfp | function | (lfp: 'np.ndarray', fs: 'float', nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, window: 'str' = 'hann', detrend: 'Union[str, bool]' = 'constant', scaling: 'str' = 'density', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.* |
+| jnwb.xflip | function | (data: 'np.ndarray', method: 'str' = 'pearson', contiguous: 'bool' = True, n_blocks: 'Optional[int]' = 2, min_block_size: 'int' = 2, n_surrogates: 'int' = 200, surrogate_method: 'str' = 'auto', alpha: 'float' = 0.05, min_contrast: 'float' = 0.05, min_boundary_drop: 'float' = 0.05, channel_axis: 'int' = 0, is_corr_matrix: 'Optional[bool]' = None, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'XFlipResult'<br>*Cross-Channel Laminar Correlation Profile (xFLIP).* |
+| jnwb.zflip | function | (lfp_matrix: 'np.ndarray', fs: 'float', freq_range: 'Tuple[float, float]' = (15.0, 35.0), pitch_um: 'Optional[float]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, min_linearity_r2: 'float' = 0.7, min_wpli: 'float' = 0.15, n_surrogates: 'int' = 50, alpha: 'float' = 0.05, seed: 'Optional[Union[int, np.random.Generator]]' = 0) -> 'ZFlipResult'<br>*Estimate cortical depth phase gradients, propagation delay, and apparent velocity.* |
 
 ## Module: jnwb.metadata
 
@@ -175,23 +198,34 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.build_permutation_plan | function | (labels: 'Iterable[object]', groups: 'Iterable[object]', n_permutations: 'int', seed: 'int') -> 'dict'<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
 | jnwb.permute_labels | function | (y, groups = None, scheme: 'str', rng: 'np.random.Generator')<br>*Permute labels under an explicitly named exchangeability scheme.* |
 
+## Module: jnwb.rsa
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.rdm | function | (X: 'np.ndarray', metric: 'str' = 'correlation', condensed: 'bool' = True, device: 'str' = 'cpu') -> 'np.ndarray'<br>*Compute a Representational Dissimilarity Matrix (RDM) from feature vectors.* |
+| jnwb.rdm_similarity | function | (rdm1: 'np.ndarray', rdm2: 'np.ndarray', metric: 'str' = 'spearman') -> 'Tuple[float, float]'<br>*Compute second-order representational similarity between two RDMs.* |
+
 ## Module: jnwb.spectral
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.AperiodicFitResult | class | *Container for 1/f aperiodic spectral parameter estimates.* |
 | jnwb.aggregate_to_db | function | (power, baseline, how: str, aggregate_over = None, nan_policy: str = 'propagate')<br>*Form a power ratio, aggregate on the RATIO scale, and take ``10*log10`` exactly once.* |
+| jnwb.aperiodic_fit | function | (freqs: numpy.ndarray, psd: numpy.ndarray, freq_range: Tuple[float, float], mode: str = 'fixed') -> jnwb.spectral.AperiodicFitResult | List[typing.Any]<br>*Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.* |
 | jnwb.band_power | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float<br>*Compute power in a frequency band.* |
 | jnwb.bipolar_reference | function | (channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
 | jnwb.compute_multitaper_psd | function | (data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |
 | jnwb.compute_psd | function | (lfp_data: numpy.ndarray, fs: float)<br>*Welch power spectral density of a plain LFP array.* |
-| jnwb.cross_area_coherence | function | (lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: numpy.random._generator.Generator | None = None, n_surrogates: int = 50, n_jobs: int = 1) -> Dict<br>*Compute frequency-resolved coherence between two LFP signals.* |
+| jnwb.cross_area_coherence | function | (lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: numpy.random._generator.Generator | None = None, n_surrogates: int = 50, n_jobs: int = 1, nperseg: int | None = None, noverlap: int | None = None) -> Dict<br>*Compute frequency-resolved coherence between two LFP signals.* |
 | jnwb.current_source_density_1d | function | (lfp_matrix: numpy.ndarray, pitch_um: float, conductivity_s_per_m: float, axis: int = 0) -> numpy.ndarray<br>*Compute physical 1D Current Source Density (CSD) along a laminar electrode array.* |
 | jnwb.harmonic_analysis | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), harmonic_orders: int = 3, device: str = 'cpu') -> Dict<br>*Decompose LFP trace into fundamental and harmonic components.* |
 | jnwb.imaginary_coherency | function | (x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, float]<br>*Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.* |
 | jnwb.laplacian_reference | function | (channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray<br>*1D nearest-neighbor Laplacian re-reference along a probe's depth order.* |
+| jnwb.relative_power | function | (power: numpy.ndarray, baseline: numpy.ndarray, model: str = 'mean_of_ratios', axis: int | Tuple[int, ...] | None = None, device: str = 'cpu') -> numpy.ndarray<br>*Compute relative power of a signal against baseline under an explicit mathematical estimand.* |
 | jnwb.spectral_tilt | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 100.0), device: str = 'cpu') -> Dict<br>*Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.* |
 | jnwb.to_db | function | (ratio)<br>*``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass through — average power, divide by baseline, then take the logarithm exactly once.* |
 | jnwb.voltage_curvature_1d | function | (lfp_matrix: numpy.ndarray, pitch_um: float, axis: int = 0) -> numpy.ndarray<br>*Compute the discrete second spatial derivative of extracellular potential along a laminar probe.* |
+| jnwb.wpli | function | (x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, typing.Any]<br>*Weighted Phase Lag Index (wPLI) between two continuous signals.* |
 
 ## Module: jnwb.spiking
 
@@ -209,11 +243,15 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.StatisticalAnalysis | class | *Dual statistical testing with honest multiple-comparison handling.* |
 | jnwb.assign_subblock_quartiles | function | (epochs_df: 'pd.DataFrame', n_quantiles: 'int' = 4) -> 'np.ndarray'<br>*Assign each row a temporal quantile bucket 0..n_quantiles-1 by its own start_time order.* |
+| jnwb.clopper_pearson | function | (k: 'int', n: 'int', alpha: 'float' = 0.05) -> 'Tuple[float, float]'<br>*Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.* |
 | jnwb.cluster_permutation_test | function | (X: 'np.ndarray', Y: 'np.ndarray', paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'Optional[np.random.Generator]' = None, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
 | jnwb.cross_modal_comparison | function | (tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None) -> 'Dict'<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
 | jnwb.detect_trial_cycles | function | (epochs_df: 'pd.DataFrame', gap_factor: 'float' = 10.0) -> 'np.ndarray'<br>*Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.* |
+| jnwb.exact_sign_flip | function | (diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'Tuple[float, float, float]'<br>*Exact paired sign-flip permutation test for paired sample differences.* |
+| jnwb.fdr_correct | function | (p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |
 | jnwb.fire_indicator | function | (spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
 | jnwb.fires_in_window | function | (spike_times: 'np.ndarray', onset_s: 'float', window_ms) -> 'bool'<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
+| jnwb.mann_whitney_p_floor | function | (n1: 'int', n2: 'int', alternative: 'str' = 'two-sided') -> 'float'<br>*Attainable minimal non-zero p-value floor for a Mann-Whitney U test without ties.* |
 | jnwb.paired_fire_prob_test | function | (fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'np.random.Generator') -> 'Dict'<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
 | jnwb.rate_in_window | function | (spike_times: 'np.ndarray', onset_s: 'float', window_ms: 'Tuple[float, float]') -> 'float'<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
 | jnwb.shuffle_pvalue_paired | function | (a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |
@@ -240,7 +278,7 @@ All 128 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.build_time_resolved_matrix | function | (session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
-| jnwb.compute_population_trajectory | function | (session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float]<br>*Compute population trajectory using SVD/PCA. Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+| jnwb.compute_population_trajectory | function | (session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float]<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
 
 ## Module: jnwb.viz
 

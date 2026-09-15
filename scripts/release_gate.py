@@ -1,6 +1,7 @@
 """Deterministic Release Gate for jnwb.
 
 Pipeline:
+  0. Required release/test tooling is present in the active environment
   1. Full test suite execution (pytest tests/)
   2. Harness pre-flight gates
   3. Clean distribution build (sdist + wheel)
@@ -21,12 +22,90 @@ import zipfile
 import tarfile
 import subprocess
 import logging
+import re
 from typing import List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+#: Extras whose tooling must be present for release qualification to mean anything. ``docs`` is
+#: included because tests/ contains a strict MkDocs build assertion: without it the suite does
+#: not fail, it reports a *different* result, which is worse.
+REQUIRED_EXTRAS = ("test", "docs")
+
+
+_VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
+
+
+def jnwb_source_version() -> str:
+    """The version the source tree declares, parsed textually.
+
+    Read rather than imported: the gate compares the *source* declaration against what the
+    built wheel reports, so importing the package under test would make the comparison
+    tautological. Pinning the expected version as a literal here is the same drift failure
+    class the documentation gates exist to prevent.
+    """
+    init = REPO_ROOT / "jnwb" / "__init__.py"
+    match = _VERSION_RE.search(init.read_text(encoding="utf-8"))
+    if match is None:
+        raise RuntimeError(f"could not parse __version__ from {init}")
+    return match.group(1)
+
+
+def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
+    """Distribution names pyproject.toml declares for the given extras."""
+    import re
+    import tomllib
+
+    with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
+        pyproject = tomllib.load(fh)
+    optional = pyproject.get("project", {}).get("optional-dependencies", {})
+
+    names: List[str] = []
+    for extra in extras:
+        for spec in optional.get(extra, []):
+            if spec.lstrip().startswith("jnwb["):
+                continue                      # self-referential aggregate (the `all` extra)
+            name = re.split(r"[<>=!~\[;\s]", spec.strip(), maxsplit=1)[0]
+            if name and name not in names:
+                names.append(name)
+    return names
+
+
+def verify_declared_environment(extras=REQUIRED_EXTRAS) -> List[str]:
+    """Return declared tooling distributions absent from the RUNNING interpreter.
+
+    Release qualification must inspect the environment it claims to qualify. The supported-Python
+    contract lives in pyproject.toml and CI (which installs ``.[test,docs]`` on every matrix
+    leg) -- not in whatever happens to be installed on the machine invoking this script. An
+    interpreter missing declared tooling does not fail loudly; it silently produces a different
+    and better-looking result, because a test that cannot import its tool reports one failure
+    rather than exercising the surface it was written for.
+
+    This is not hypothetical: an RC audit measured "1 failed, 1021 passed" against a receipt of
+    "1026 passed, 1 skipped" purely because the invoking 3.12 interpreter lacked the declared
+    ``docs`` tooling. Both numbers were honest; only one described the declared environment.
+
+    Scope, deliberately narrow: this is a PRESENCE check on the distributions named by the
+    extras -- it answers "is the tooling installed here at all". It does NOT prove every
+    dependency constraint is satisfied, does not read version specifiers, and does not detect a
+    conflicting or broken dependency graph. ``pip check`` in STEP 6, run against the isolated
+    wheel installation, remains the authoritative installed-distribution consistency check. Use
+    this to stop a qualification run that would measure the wrong environment, not as evidence
+    that the environment is fully correct.
+    """
+    from importlib.metadata import PackageNotFoundError, distribution
+
+    missing: List[str] = []
+    for name in declared_extra_requirements(extras):
+        try:
+            distribution(name)
+        except PackageNotFoundError:
+            missing.append(name)
+    return missing
 
 
 def run_cmd(cmd: list[str], cwd: pathlib.Path = REPO_ROOT) -> None:
@@ -51,6 +130,20 @@ def _api_md_check_commands() -> List[List[str]]:
 
 
 def main() -> None:
+    log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
+    missing = verify_declared_environment()
+    if missing:
+        log.error(
+            "This interpreter (%s, Python %s) is missing required tooling: %s",
+            sys.executable, ".".join(str(v) for v in sys.version_info[:3]), ", ".join(missing))
+        log.error("Release qualification would measure an unprovisioned environment. Provision it:")
+        log.error('    "%s" -m pip install ".[%s]"', sys.executable, ",".join(REQUIRED_EXTRAS))
+        sys.exit(1)
+    log.info(
+        "PASS: required release/test tooling from [%s] is importable on Python %s "
+        "(presence check; pip check in STEP 6 verifies dependency consistency).",
+        ",".join(REQUIRED_EXTRAS), ".".join(str(v) for v in sys.version_info[:3]))
+
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
 
@@ -86,7 +179,7 @@ def main() -> None:
             "omission", "_unused", ".lab", "outputs", "artifacts", ".git", "__pycache__",
             "/tests/", "/scripts/",
         ]
-        
+
         with zipfile.ZipFile(whl, "r") as z:
             whl_files = z.namelist()
             for f in forbidden:
@@ -132,7 +225,7 @@ def main() -> None:
 
         log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
         smoke_script = staging_dir / "smoke_test.py"
-        smoke_script.write_text("""
+        smoke_script.write_text(f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + """
 import sys
 import pathlib
 import numpy as np
@@ -152,7 +245,8 @@ except ModuleNotFoundError:
 import jnwb
 print(f'PASS: import jnwb successful from {jnwb.__file__}')
 print(f'      jnwb.__version__ = {jnwb.__version__}')
-assert jnwb.__version__ == '0.1.8', f"Expected version 0.1.8, got {jnwb.__version__}"
+assert jnwb.__version__ == EXPECTED_VERSION, (
+    f'Installed wheel reports {jnwb.__version__}, source declares {EXPECTED_VERSION}')
 pkg = pathlib.Path(jnwb.__file__).resolve()
 assert 'site-packages' in str(pkg) or 'dist-packages' in str(pkg), f'expected installed location, got {pkg}'
 out_dir = jnwb.paths.outputs_dir()
@@ -255,7 +349,45 @@ assert epochs.shape[0] == 2
 assert np.array_equal(retained, [0, 1])
 assert len(t_axis) == epochs.shape[1]
 
-# 6. Viz
+# 6. 0.2.1 additions: aperiodic_fit, relative_power, exact stats, stream_npz_array, probe_geometry
+f_axis = np.linspace(5.0, 50.0, 46)
+psd_toy = 10.0 ** (2.0 - 1.5 * np.log10(f_axis))
+ap_res = jnwb.aperiodic_fit(f_axis, psd_toy, freq_range=(5.0, 50.0), mode="fixed")
+assert ap_res.accepted is True and np.isclose(ap_res.exponent, 1.5, atol=1e-3)
+
+rp = jnwb.relative_power(psd_toy * 1.5, psd_toy, model="mean_of_ratios", axis=0)
+assert np.isclose(rp, 1.5)
+
+obs_m, p_val, p_fl = jnwb.exact_sign_flip([1.0, 2.0, 3.0, 4.0], alternative="greater")
+assert np.isclose(p_val, 0.0625) and np.isclose(p_fl, 0.0625)
+mwp_fl = jnwb.mann_whitney_p_floor(3, 3, alternative="two-sided")
+assert np.isclose(mwp_fl, 0.1)
+cp_ci = jnwb.clopper_pearson(5, 10, alpha=0.05)
+assert len(cp_ci) == 2
+
+tmp_npz = pathlib.Path(tempfile.mkdtemp()) / 'test_stream.npz'
+arr_raw = np.arange(100, dtype=np.float32).reshape(10, 10)
+np.savez_compressed(tmp_npz, arr=arr_raw)
+streamed = jnwb.stream_npz_array(tmp_npz, 'arr', (slice(0, 5), slice(0, 5)))
+assert np.array_equal(streamed, arr_raw[0:5, 0:5])
+
+coords_df = pd.DataFrame({'x': [0, 0, 0, 0], 'y': [0, 0, 0, 0], 'z': [0, 20, 40, 60]})
+p_geom = jnwb.probe_geometry(coords_df, units="um", nominal_pitch=20.0, strict_linear=True)
+assert p_geom.is_linear is True and p_geom.is_uniform is True
+
+# 7. 0.2.4 additions: wpli, zflip, rdm
+wpli_res = jnwb.wpli(sig[:500], sig[500:], fs=1000.0, freq_range=(10.0, 40.0))
+assert hasattr(wpli_res, 'wpli') and hasattr(wpli_res, 'wpli_debiased')
+
+zflip_res = jnwb.zflip(rng.normal(size=(8, 1000)), fs=1000.0, pitch_um=20.0, freq_range=(15.0, 35.0), seed=42)
+assert hasattr(zflip_res, 'delay_identifiable') and hasattr(zflip_res, 'apparent_velocity_m_s')
+
+dist_mat = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation")
+assert dist_mat.shape == (10, 10)
+rho_rdm, p_rdm = jnwb.rdm_similarity(dist_mat, dist_mat, metric="spearman")
+assert np.isclose(rho_rdm, 1.0)
+
+# 8. Viz
 jnwb.setup_vector_graphics()
 
 print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
@@ -266,6 +398,25 @@ print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
             log.error(f"Smoke test failed in isolated environment:\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
             sys.exit(res.returncode)
         log.info(res.stdout.strip())
+
+        log.info("=== STEP 8: Executing tutorials against the installed wheel ===")
+        tutorials = sorted((REPO_ROOT / "examples" / "tutorials").glob("[0-9][0-9]_*.py"))
+        if not tutorials:
+            log.error("No numbered tutorials found; 0.2.4-03 cannot be verified.")
+            sys.exit(1)
+        # PYTHONPATH is stripped and the CWD is the staging directory, so a tutorial that
+        # only runs from the source tree fails here instead of passing by checkout proximity.
+        tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        for tutorial in tutorials:
+            res = subprocess.run(
+                [venv_python, str(tutorial)], cwd=str(staging_dir),
+                env=tutorial_env, capture_output=True, text=True)
+            if res.returncode != 0:
+                log.error("Tutorial %s failed against the installed wheel:\nSTDOUT:\n%s\nSTDERR:\n%s",
+                          tutorial.name, res.stdout, res.stderr)
+                sys.exit(res.returncode)
+            log.info("PASS: %s executed against the installed wheel.", tutorial.name)
+        log.info("PASS: all %d tutorials ran against the installed artifact.", len(tutorials))
 
     log.info("=============================================================")
     log.info("=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ===")

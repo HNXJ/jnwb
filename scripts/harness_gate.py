@@ -202,7 +202,7 @@ ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
     "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
-    ".coverage", "mkdocs.yml",
+    ".coverage", "mkdocs.yml", "jnwb-unified-rev.md",
 }
 
 
@@ -314,12 +314,38 @@ def check_docs_version_matches_package(repo_root: Optional[Path] = None) -> List
     return violations
 
 
+#: Root-level user-facing documents included in the Gate 6 scan. These ship to or are read by
+#: downstream users, so they carry the same dataset-independence obligation as docs/.
+DATASET_SCAN_ROOT_DOCS = ("README.md", "CONTRIBUTING.md", "AGENTS.md", "CLAUDE.md")
+
+#: Files exempt from the Gate 6 scan, each with the reason it legitimately carries a token.
+#: An exemption is a deliberate, named decision -- never a silent skip.
+DATASET_SCAN_EXEMPT = {
+    "CHANGELOG.md": "historical release record; not rewritten to satisfy a textual scan",
+}
+
+
 def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 6 (Dataset Independence): scan a fixed forbidden-token list.
 
-    Surfaces scanned: ``jnwb/**/*.py``, ``skills/**/*.md``, ``docs/*.md``, ``AGENTS.md``,
-    and ``docs/11_extending_and_development.md``. Not scanned: ``tests/``, ``scripts/``,
-    ``CHANGELOG.md``, or general comment/docstring neutrality beyond the listed patterns.
+    Scanned, recursively: ``jnwb/**/*.py``, ``skills/**/*.md``, ``docs/**/*.md``,
+    ``examples/**/*.py``, ``examples/**/*.ipynb``, and the root user-facing documents listed in
+    ``DATASET_SCAN_ROOT_DOCS``. These are the durable surfaces a reader or downstream user sees,
+    and all of them are meant to be dataset-independent.
+
+    Deliberately NOT scanned, each for a stated reason:
+      * ``tests/`` and ``scripts/`` -- harness code legitimately names the tokens it forbids.
+      * ``CHANGELOG.md`` -- a historical record; rewriting history to satisfy a scan would be
+        worse than the leak it prevents.
+      * files listed in ``DATASET_SCAN_EXEMPT`` -- see that constant for the per-file reason.
+
+    The scan is textual and pattern-bound: it proves the listed tokens are absent, not that a
+    surface is free of study-specific content in general.
+
+    This docstring is load-bearing. It previously described a narrower surface than the code
+    actually scanned (``docs/*.md``, non-recursive, with ``examples/`` unmentioned), and an
+    audit that read it rather than the implementation reported a coverage gap that did not
+    exist. Keep it synchronised with the globs below.
     """
     root = repo_root or REPO_ROOT
     violations = []
@@ -364,18 +390,34 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
         if harness_file.exists():
             target_files.append(harness_file)
             
-    # 4. docs/ markdown files (including tutorials/)
+    # 4. docs/ markdown files, recursively -- includes docs/tutorials/
     docs_dir = root / "docs"
     if docs_dir.exists():
         for doc_file in docs_dir.rglob("*.md"):
             if doc_file not in target_files:
                 target_files.append(doc_file)
 
-    # 5. Executable NWB tutorials (not _support.py)
-    tutorial_dir = root / "examples" / "tutorials"
-    if tutorial_dir.exists():
-        for py_file in tutorial_dir.glob("[0-9][0-9]_*.py"):
-            target_files.append(py_file)
+    # 5. Every example surface, recursively: executable tutorials, their support modules, the
+    #    quickstart, and notebooks. Previously only examples/tutorials/[0-9][0-9]_*.py was
+    #    scanned, which left examples/quickstart_jnwb.py, examples/notebooks/*.ipynb and any
+    #    non-numbered helper module unscanned -- all of them user-facing.
+    examples_dir = root / "examples"
+    if examples_dir.exists():
+        for pattern in ("*.py", "*.ipynb"):
+            for example_file in examples_dir.rglob(pattern):
+                if "__pycache__" in example_file.parts:
+                    continue
+                if example_file not in target_files:
+                    target_files.append(example_file)
+
+    # 6. Root-level user-facing documents (README.md above all -- the most-read file here).
+    for doc_name in DATASET_SCAN_ROOT_DOCS:
+        root_doc = root / doc_name
+        if root_doc.exists() and root_doc not in target_files:
+            target_files.append(root_doc)
+
+    target_files = [f for f in target_files
+                    if f.relative_to(root).as_posix() not in DATASET_SCAN_EXEMPT]
                 
     for target in target_files:
         text = target.read_text(encoding="utf-8", errors="replace")
@@ -702,10 +744,14 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
                 violations.append(f"NWB_ONBOARDING: README missing {symbol}")
 
     expected_scripts = [
-        "01_inspect_nwb.py",
-        "02_event_codes_and_onsets.py",
-        "03_align_spikes_lfp_to_events.py",
-        "04_compose_workflow.py",
+        "01_nwb_basics.py",
+        "02_addressing_and_metadata.py",
+        "03_spiking.py",
+        "04_lfp_and_spectral.py",
+        "05_statistics.py",
+        "06_laminar.py",
+        "07_ensembles.py",
+        "08_end_to_end_pipeline.py",
     ]
     tutorial_dir = root / "examples" / "tutorials"
     for name in expected_scripts:
@@ -734,7 +780,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     mkdocs = root / "mkdocs.yml"
     if mkdocs.exists():
         mk = mkdocs.read_text(encoding="utf-8")
-        if "tutorials/01_inspect_nwb.md" not in mk:
+        if "tutorials/01_nwb_basics.md" not in mk:
             violations.append("NWB_ONBOARDING: mkdocs.yml missing Tutorials nav entry")
     else:
         violations.append("NWB_ONBOARDING: mkdocs.yml missing")
@@ -800,7 +846,7 @@ def run_full_preflight() -> bool:
         return False
     print(
         "PASS: No forbidden study tokens on Gate 6 scan surface "
-        "(jnwb/, skills/, selected docs)."
+        "(jnwb/, skills/, docs/**, examples/**, root user-facing docs)."
     )
 
     # 7. Package and metadata version consistency check

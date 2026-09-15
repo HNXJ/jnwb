@@ -100,6 +100,36 @@ def test_determinism():
     assert np.array_equal(f1, f2) and np.array_equal(z1, z2)
     print("PASS: determinism (no RNG inside detection functions, pure function of input)")
 
+def test_dead_flat_channel_detected_without_corrupting_good_channels():
+    """A probe with a disconnected/flat (0.0 V) channel plus an independent noise channel:
+    both bad channels must be detected, and good channels must have finite, uncorrupted z-scores."""
+    rng = np.random.default_rng(42)
+    n_samples = 2000
+    shared = rng.normal(size=n_samples)
+    good = np.array([shared + rng.normal(scale=0.3, size=n_samples) for _ in range(8)])
+    # Injected ch 0 is flat (zero variance); ch 9 is independent noise
+    data = np.vstack([np.zeros((1, n_samples)), good, rng.normal(scale=2.0, size=(1, n_samples))])
+    corr = channel_correlation_matrix(data)
+    bad, summary, z = bad_channels_from_correlation(corr, z_thresh=4.0)
+
+    assert bad[0] is np.True_ or bad[0] == True, "flat channel must be flagged as bad"
+    assert bad[9] is np.True_ or bad[9] == True, "uncorrelated noise channel must be flagged as bad"
+    assert not np.any(bad[1:9]), "good channels must not be flagged as bad"
+    assert np.all(np.isfinite(z[1:9])), "good channels must retain finite, uncorrupted robust z-scores"
+    assert z[0] == -np.inf, "disconnected channel must have z = -inf"
+
+
+def test_dead_flat_trial_detected_without_corrupting_good_trials():
+    """A flat (zero variance / dropped buffer) trial must be flagged without blinding other trials."""
+    rng = np.random.default_rng(43)
+    n_trials, n_times = 50, 100
+    trials = rng.normal(size=(n_trials, n_times))
+    trials[5, :] = 0.0  # flatline / dropped trial
+    flag, corr_z, amp_z = bad_trials_single_channel(trials, corr_z_thresh=4.0, amp_z_thresh=4.0)
+    assert flag[5] is np.True_ or flag[5] == True, "flatline trial must be flagged as bad"
+    assert corr_z[5] == -np.inf
+    assert np.all(np.isfinite(corr_z[np.arange(n_trials) != 5]))
+
 
 if __name__ == "__main__":
     test_bad_channels_detected_from_low_correlation()

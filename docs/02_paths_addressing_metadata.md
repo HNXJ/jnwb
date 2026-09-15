@@ -7,7 +7,7 @@ This document provides a comprehensive guide to data path resolution, anatomical
 ## 1. Path Management & Drive Remap Isolation (`jnwb/paths.py`)
 
 **Per-file NWB discovery** (acquisitions, interval tables, event codes) uses `jnwb.inspect` and the
-[event tutorial sequence](tutorials/02_event_codes_and_onsets.md). `jnwb.paths` resolves
+[event tutorial sequence](tutorials/02_addressing_and_metadata.md). `jnwb.paths` resolves
 **repository data roots** for batch jobs — it does not inspect the contents of a single `.nwb` file.
 
 Electrophysiology datasets frequently span multiple storage volumes, local SSDs, network mounts, or external RAID arrays. `jnwb.paths` eliminates hardcoded absolute paths by managing dynamic root resolution via environment variables while guaranteeing stable repo-internal paths.
@@ -45,7 +45,34 @@ Paths are configured via environment variables rather than source code edits:
 
 ---
 
-## 2. Spatial & Laminar Addressing (`jnwb/addressing.py`)
+## 2. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)
+
+Electrophysiological datasets often store dense time series (such as LFP, multi-unit activity, or high-dimensional TFR spectra) in compressed `.npz` archives. Standard `np.load` decompresses the entire array into RAM, which causes severe memory pressure on multi-channel or multi-hour sessions.
+
+`jnwb.stream_npz_array` provides streaming, memory-bounded access to slices of arrays stored in `.npz` files (both `ZIP_DEFLATED` compressed and `ZIP_STORED` uncompressed) without full-file RAM allocation. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead, avoiding silent full-array materialization:
+
+```python
+import jnwb
+from pathlib import Path
+
+npz_path = Path("session_data.npz")
+
+# Stream only the desired channels and time slice without allocating the full array
+# e.g., channels 10:20 across time steps 1000:5000:
+sliced_data = jnwb.stream_npz_array(
+    npz_path,
+    key="lfp_matrix",
+    slice_tuple=(slice(10, 20), slice(1000, 5000)),
+)
+
+# Preserves exact dtype, shape, and C / Fortran memory order
+print(sliced_data.shape, sliced_data.dtype)
+```
+
+Also accessible as `jnwb.io.stream_npz_array`.
+
+
+## 3. Spatial & Laminar Addressing (`jnwb/addressing.py`)
 
 `jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomically meaningful area and laminar (cortical layer) assignments.
 
@@ -60,12 +87,12 @@ area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=elect
 
 ### Depth-to-Layer (Laminar) Resolution (`classify_layer_from_depth`)
 
-Translates probe electrode depth ($z$-coordinate in $\mu\text{m}$) into cortical layer classification:
+Translates probe electrode depth ($z$-coordinate) into cortical layer classification with explicit unit safety:
 
 ```python
-# Classifies layer based on electrode z depth ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
-layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df)
-# Returns: 'Superficial', 'Deep', or 'Unknown'
+# Classifies layer based on electrode z depth with explicit units ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
+layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df, depth_unit="um")
+# Returns: 'Superficial', 'Deep', or 'Unknown' (unknown/incompatible units return 'Unknown')
 ```
 
 ### Enriching Units DataFrame (`enrich_units_dataframe`)
@@ -76,11 +103,47 @@ Attaches standardized `unit_id`, `area`, and `layer` columns directly to units t
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
 
+### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
+
+Extracts contact spacing, linear ordering, orientation, and layout properties from NWB electrode tables or 3D coordinate arrays with explicit units:
+
+```python
+# Extract contact geometry with explicit units (default: 'um')
+geom = jnwb.probe_geometry(electrodes_df, units="um", pitch_tolerance=0.1)
+
+# Inspect geometry properties
+print(f"Contacts: {geom.contact_positions.shape}")  # (n_channels, 3) in um
+print(f"Nominal pitch: {geom.nominal_pitch:.1f} um")
+print(f"Is linear: {geom.is_linear}, Is uniform: {geom.is_uniform}")
+print(f"Linear ordering: {geom.linear_order}")
+print(f"Shaft orientation unit vector: {geom.orientation}")
+```
+
+For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on duplicate coordinates, NaNs, ambiguous multiple probes, or unsupported length units.
+
+### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
+
+Estimates cortical depth phase gradients, propagation latency, and apparent velocity across ordered laminar contacts:
+
+```python
+# lfp_matrix: (n_channels, n_samples) ordered along probe shaft
+z_res = jnwb.zflip(
+    lfp_matrix,
+    fs=1000.0,
+    freq_range=(15.0, 35.0),
+    pitch_um=geom.nominal_pitch,
+    n_surrogates=50,
+)
+print("Direction:", z_res.directionality)
+print("Delay gradient (s/contact):", z_res.tau_per_channel_s)
+print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
+```
+
 ![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png)
 
 ---
 
-## 3. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
+## 4. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
 
 `jnwb.metadata` provides tools for extracting spike-sorting metadata across cohorts of NWB files, categorizing unit isolation quality, computing Signal-to-Noise Ratios (SNR), and producing census reports.
 
@@ -144,7 +207,7 @@ good_v1_units = jnwb.filter_by_criteria(
 
 ---
 
-## 4. Query & Event Ontology (`jnwb/ontology.py`)
+## 5. Query & Event Ontology (`jnwb/ontology.py`)
 
 `jnwb.ontology` defines object-oriented queries, datasets, and provenance descriptors:
 

@@ -86,13 +86,38 @@ stands -- pass power and baseline, never decibels.
 `nan_policy="omit"` aggregates over non-NaN entries only. Artifact repair legitimately leaves
 NaNs behind, so this is a real choice, but never a silent one.
 
+#### Direct Relative Power (`relative_power`)
+
+`relative_power` computes power ratios against baseline without premature logarithmic conversions,
+providing explicit mathematical model selection:
+
+```python
+# Linear mean of ratios: E[P / B] (equal unit weighting)
+rel_linear = jnwb.relative_power(power, baseline, model="mean_of_ratios", axis=0)
+
+# Linear ratio of means: E[P] / E[B] (baseline-power-weighted average)
+rel_weighted = jnwb.relative_power(power, baseline, model="ratio_of_means", axis=0)
+
+# Decibels without spatial/trial aggregation: 10 * log10(P / B)
+rel_db = jnwb.relative_power(power, baseline, model="log_ratio")
+```
+
+The model names are published in `jnwb.RELATIVE_POWER_MODELS`. The library guarantees:
+$\text{requested estimand} = \text{returned estimand}$, with no silent conversion between
+linear and decibel representations.
+
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png)
 
 ### Spectral Tilt, Harmonic Analysis & Referencing
 
 ```python
-# Estimate 1/f spectral tilt / exponent
+# Estimate 1/f spectral tilt / exponent from time series
 tilt_res = jnwb.spectral_tilt(lfp_trace, fs=1000.0, freq_range=(1.0, 100.0))
+
+# Direct aperiodic fit on pre-computed spectrum (fixed or knee mode)
+# freqs: (n_freqs,) in Hz; psd: (..., n_freqs) in (U_in)^2/Hz
+fit_res = jnwb.aperiodic_fit(freqs, psd, freq_range=(2.0, 40.0), mode="fixed")
+# Returns jnwb.AperiodicFitResult with offset, exponent, knee, r_squared, accepted
 
 # Harmonic distortion analysis
 harmonics = jnwb.harmonic_analysis(lfp_trace, fs=1000.0, harmonic_orders=3)
@@ -143,16 +168,28 @@ coh_dict = jnwb.cross_area_coherence(
 # - 'frequencies': np.ndarray
 ```
 
-### Imaginary Coherency (`imaginary_coherency`)
+### Imaginary Coherency & Weighted Phase Lag Index (`imaginary_coherency`, `wpli`)
 
-Computes imaginary coherency to eliminate volume conduction / zero-lag field spread artifacts:
+Measures based on the imaginary cross-spectrum reduce sensitivity specifically to zero-phase-lag
+coupling (instantaneous volume conduction, shared reference contamination). They do not confer
+immunity to non-zero-lag common inputs, source mixing, or reference-induced phase structure.
 
 ```python
+# Imaginary coherency (Nolte et al. 2004)
 imag_coh = jnwb.imaginary_coherency(
     lfp_area1,
     lfp_area2,
     fs=1000.0,
-    freq_range=(15.0, 30.0)
+    freq_range=(15.0, 30.0),
+)
+
+# Weighted Phase Lag Index (Vinck et al. 2011)
+# Returns standard wPLI, debiased squared wPLI, and spectrum across segments
+wpli_res = jnwb.wpli(
+    lfp_area1,
+    lfp_area2,
+    fs=1000.0,
+    freq_range=(15.0, 30.0),
 )
 ```
 

@@ -137,6 +137,12 @@ unpushed. Do not cross a version boundary before sealing it.
    computed on GPU records that it was.
 7. **Call the library function instead of retyping its rule.** A retyped copy drifts from
    the docstring unnoticed. If the function's shape blocks reuse, widen the shape.
+8. **Coupling magnitude, signed direction, delay estimation, and statistical inference are distinct claims.**
+   Never infer propagation direction from unsigned coupling magnitude (e.g. wPLI >= 0). Never claim
+   physical latency or conduction velocity without a verified linear unwrapped phase-frequency
+   relation and predeclared identifiability criteria; report unavailable otherwise. Never claim
+   "immunity" or "complete suppression" of volume conduction or reference contamination; describe
+   as reducing sensitivity to zero-phase-lag coupling.
 
 ## 5. Vocabulary
 
@@ -145,6 +151,12 @@ unpushed. Do not cross a version boundary before sealing it.
 - Prevalence ("how many units respond") is a different question from magnitude,
   decodability, and mechanism. Answering one does not answer another.
 - Spikes and LFP are distinct observables. Do not pool across them without namespacing.
+- wPLI, imaginary coherency, and phase slope index reduce sensitivity specifically to
+  zero-phase-lag coupling; they do not confer immunity to volume conduction, non-zero-lag
+  common inputs, source mixing, or reference-induced phase structure.
+- Phase slope yields delay (Delta tau) only under a verified linear unwrapped phase-frequency
+  relation; v = Delta z / Delta tau is an apparent phase-delay velocity under the fitted model,
+  not unconditional propagation velocity.
 
 ## 6. Tools
 

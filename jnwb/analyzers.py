@@ -13,7 +13,7 @@ Changes vs. previous version:
 import logging
 from typing import Optional, Dict, List, Tuple
 import numpy as np
-from ._backend import CUDA, resolve_device, torch_cuda_available, warn_device_fallback
+from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -140,13 +140,15 @@ class TFRAnalyzer:
         deep_mask = np.asarray(layer_mask.get('deep_mask', []), dtype=bool)
 
         if len(sup_mask) != n_channels or len(deep_mask) != n_channels:
-            # Fall back to global average when mask size doesn't match channels (legacy test behavior)
-            return band_power.mean(axis=0)
+            raise ValueError(
+                f"layer_mask length mismatch: band_power has {n_channels} channels, "
+                f"but superficial_mask has {len(sup_mask)} and deep_mask has {len(deep_mask)}"
+            )
 
         sup_avg = band_power[sup_mask].mean(axis=0) if sup_mask.any() \
-                  else np.zeros(band_power.shape[1:])
+                  else np.full(band_power.shape[1:], np.nan, dtype=band_power.dtype)
         deep_avg = band_power[deep_mask].mean(axis=0) if deep_mask.any() \
-                   else np.zeros(band_power.shape[1:])
+                   else np.full(band_power.shape[1:], np.nan, dtype=band_power.dtype)
 
         return np.stack([sup_avg, deep_avg], axis=0)
 
@@ -672,8 +674,15 @@ class PopulationAnalyzer:
         device: str = 'cpu'
     ) -> Dict[str, np.ndarray]:
         """
-        Compute population trajectories using PCA (SVD).
-        Supports GPU acceleration via PyTorch/CuPy or falls back to SciPy/scikit-learn SVD.
+        Compute population trajectories using covariance PCA (SVD on centered data).
+        Supports GPU acceleration via PyTorch/CuPy or falls back to SciPy/NumPy SVD.
+
+        .. note::
+            This method computes unstandardized covariance PCA (centering only,
+            ``X - mean(X)``). Units with larger spike count variances dominate
+            the principal components. This contrasts with
+            :func:`jnwb.compute_population_trajectory` which standardizes features
+            (correlation PCA via z-scoring).
 
         Args:
             X: Data matrix of shape (n_time_bins, n_units)
@@ -686,58 +695,74 @@ class PopulationAnalyzer:
                 'components': shape (n_components, n_units)
                 'explained_variance': shape (n_components,)
                 'explained_variance_ratio': shape (n_components,)
+                'device_used': 'cpu' or 'cuda' -- device that performed the SVD
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
         n_samples = X.shape[0]
 
-        if resolve_device(device, context='population_trajectory', prefer='cupy') == CUDA:
+        device_used = CPU
+        if resolve_device(device, context='population_trajectory', prefer=None) == CUDA:
+            gpu_success = False
+            last_exc = None
             try:
                 import cupy as cp
                 X_gpu = cp.asarray(X_centered)
                 u, s, vt = cp.linalg.svd(X_gpu, full_matrices=False)
-                
+
                 u = cp.asnumpy(u)
                 s = cp.asnumpy(s)
                 vt = cp.asnumpy(vt)
-                
+
                 projection = X_centered @ vt.T[:, :n_components]
                 explained_variance = (s ** 2) / (n_samples - 1)
                 total_variance = np.sum(explained_variance)
                 explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-                
+
+                device_used = CUDA
+                gpu_success = True
                 return {
                     'projection': projection[:, :n_components],
                     'components': vt[:n_components, :],
                     'explained_variance': explained_variance[:n_components],
-                    'explained_variance_ratio': explained_variance_ratio[:n_components]
+                    'explained_variance_ratio': explained_variance_ratio[:n_components],
+                    'device_used': device_used,
                 }
             except Exception as e:
+                last_exc = e
                 log.warning(f"GPU trajectory SVD via cupy failed: {e}. Trying PyTorch...")
                 try:
                     import torch
                     if torch_cuda_available():
-                        X_gpu = torch.tensor(X_centered, dtype=torch.float32, device='cuda')
+                        X_gpu = torch.as_tensor(X_centered, device='cuda')
+                        if not X_gpu.is_floating_point():
+                            X_gpu = X_gpu.to(torch.float64)
                         u, s, v = torch.linalg.svd(X_gpu, full_matrices=False)
-                        
+
                         u = u.cpu().numpy()
                         s = s.cpu().numpy()
                         vt = v.cpu().numpy()
-                        
+
                         projection = X_centered @ vt.T[:, :n_components]
                         explained_variance = (s ** 2) / (n_samples - 1)
                         total_variance = np.sum(explained_variance)
                         explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-                        
+
+                        device_used = CUDA
+                        gpu_success = True
                         return {
                             'projection': projection[:, :n_components],
                             'components': vt[:n_components, :],
                             'explained_variance': explained_variance[:n_components],
-                            'explained_variance_ratio': explained_variance_ratio[:n_components]
+                            'explained_variance_ratio': explained_variance_ratio[:n_components],
+                            'device_used': device_used,
                         }
                 except Exception as e2:
-                    warn_device_fallback("population_trajectory", e2)
+                    last_exc = e2
                     log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
+
+            if not gpu_success and last_exc is not None:
+                warn_device_fallback("population_trajectory", last_exc)
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
         projection = X_centered @ vt.T[:, :n_components]
@@ -749,5 +774,6 @@ class PopulationAnalyzer:
             'projection': projection[:, :n_components],
             'components': vt[:n_components, :],
             'explained_variance': explained_variance[:n_components],
-            'explained_variance_ratio': explained_variance_ratio[:n_components]
+            'explained_variance_ratio': explained_variance_ratio[:n_components],
+            'device_used': device_used,
         }

@@ -164,11 +164,10 @@ def spike_count_mutual_information(
     )
 
 
-def _residual_variance(residuals: np.ndarray, n_params: int) -> float:
-    """RSS / (N - p) residual variance."""
+def _residual_variance(residuals: np.ndarray, n_params: Optional[int] = None) -> float:
+    """Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)."""
     n = len(residuals)
-    dof = max(n - int(n_params), 1)
-    return float(np.sum(np.asarray(residuals, dtype=float) ** 2) / dof)
+    return float(np.sum(np.asarray(residuals, dtype=float) ** 2) / max(n, 1))
 
 
 def _ridge_lstsq(A: np.ndarray, b: np.ndarray, ridge: float) -> np.ndarray:
@@ -193,10 +192,16 @@ def fit_var_bivariate(
     return_residuals: bool = False,
 ) -> Union[Tuple[float, float], Tuple[float, float, np.ndarray, np.ndarray]]:
     """
-    Fit restricted and unrestricted bivariate VAR models to compute Granger residuals.
+    Fit restricted and unrestricted VAR(p) models for bivariate Granger causality.
 
-    Residual variances use RSS / (N - p) with p = number of regressors.
-    Optional ``ridge`` shrinks non-intercept coefficients (CPU path).
+    Model 1 (restricted):   x(t) = c + sum_{i=1}^p a_i x(t-i) + e_r(t)
+    Model 2 (unrestricted): x(t) = c + sum_{i=1}^p a_i x(t-i) + sum_{i=1}^p b_i y(t-i) + e_u(t)
+
+    Returns:
+        var_restricted: Residual variance of the restricted model (RSS / N).
+        var_unrestricted: Residual variance of the unrestricted model (RSS / N).
+        residuals_restr (optional): Residual time series of the restricted model.
+        residuals_unrestr (optional): Residual time series of the unrestricted model.
     """
     if resolve_device(device, context="fit_var_bivariate", prefer="cupy") == CUDA and ridge <= 0:
         try:
@@ -227,13 +232,13 @@ def fit_var_bivariate(
             beta_restr, _, _, _ = cp.linalg.lstsq(X_reg, target, rcond=None)
             residuals_restr = target - X_reg @ beta_restr
             var_restricted = float(
-                (cp.sum(residuals_restr**2) / max(n_samples - (order + 1), 1)).get()
+                (cp.sum(residuals_restr**2) / max(n_samples, 1)).get()
             )
 
             beta_unrestr, _, _, _ = cp.linalg.lstsq(XY_reg, target, rcond=None)
             residuals_unrestr = target - XY_reg @ beta_unrestr
             var_unrestricted = float(
-                (cp.sum(residuals_unrestr**2) / max(n_samples - (2 * order + 1), 1)).get()
+                (cp.sum(residuals_unrestr**2) / max(n_samples, 1)).get()
             )
 
             if return_residuals:
@@ -283,13 +288,10 @@ def fit_var_bivariate(
 
 
 def _info_criterion(n_samples: int, rss_var: float, n_params: int, criterion: str) -> float:
-    """rss_var is already RSS/(N-p); convert to RSS for IC."""
-    if rss_var <= 0:
+    """Computes information criterion using ML residual variance sigma2 = RSS / N."""
+    if rss_var <= 0 or not np.isfinite(rss_var):
         return float("inf")
-    rss = rss_var * max(n_samples - n_params, 1)
-    sigma2 = rss / n_samples
-    if sigma2 <= 0:
-        return float("inf")
+    sigma2 = float(rss_var)
     ll_term = n_samples * np.log(sigma2)
     if criterion == "aic":
         return float(ll_term + 2 * n_params)
@@ -905,9 +907,8 @@ def granger(
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
         F-test p-values unless ``n_surrogates > 0``, in which case they are the
         surrogate p-values and the F-test values are kept in ``diagnostics``.
-        Under the null the estimate fluctuates slightly **below** zero because the
-        restricted and unrestricted variances carry different N-p divisors; read
-        magnitude together with the p-value, never the sign alone.
+        Under the null the estimate approaches zero (non-negative under plain OLS since
+        unrestricted RSS <= restricted RSS); read magnitude together with the p-value.
 
     Note:
         This is time-domain GC. Band-resolved directionality is *not* obtained by
@@ -958,8 +959,9 @@ def granger(
         rss_u, res_u = _ols_rss(d_u, yy, ridge)
         df_u = n_obs - d_u.shape[1]
         df_extra = d_u.shape[1] - d_r.shape[1]
-        sig2_r = rss_r / max(n_obs - d_r.shape[1], 1)
-        sig2_u = rss_u / max(df_u, 1)
+        # Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)
+        sig2_r = rss_r / max(n_obs, 1)
+        sig2_u = rss_u / max(n_obs, 1)
         gc_val = float(np.log(sig2_r / sig2_u)) if sig2_u > 0 else 0.0
         if rss_u > 0 and df_extra > 0 and df_u > 0:
             f_stat = ((rss_r - rss_u) / df_extra) / (rss_u / df_u)
@@ -1559,6 +1561,7 @@ def phase_slope_index(
     psi_per_freq = np.imag(np.conj(coh_full[:-1]) * coh_full[1:])
 
     per_band: Dict[str, Dict[str, Any]] = {}
+    jk_per_band: Dict[str, np.ndarray] = {}
     for name, (f_lo, f_hi) in band_map.items():
         idx = np.flatnonzero((freqs >= f_lo) & (freqs <= f_hi))
         if idx.size < 2:
@@ -1586,6 +1589,7 @@ def phase_slope_index(
                 jk[i] = _psi_from_spectra(fx[keep], fy[keep], idx)
                 keep[i] = True
             sd = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
+            jk_per_band[name] = jk
         elif jackknife:
             warnings_all.append("jackknife_needs_at_least_3_segments")
 
@@ -1623,11 +1627,26 @@ def phase_slope_index(
             )
 
     total = float(np.nansum([v["value"] for v in per_band.values()]))
-    primary = next(iter(per_band.values()))
-    p_primary = primary.get("p_surrogate")
-    if p_primary is None and np.isfinite(primary.get("z", np.nan)):
-        # two-sided normal approximation on the jackknife z (Nolte et al.)
-        p_primary = float(2 * stats.norm.sf(abs(primary["z"])))
+
+    # Top-level omnibus p-value extraction across evaluated bands (0.2.3-REV-08)
+    p_top = None
+    if len(per_band) == 1:
+        single = next(iter(per_band.values()))
+        p_top = single.get("p_surrogate")
+        if p_top is None and np.isfinite(single.get("z", np.nan)):
+            p_top = float(2 * stats.norm.sf(abs(single["z"])))
+    else:
+        if n_surrogates > 0 and null:
+            valid_band_nulls = [null[k] for k in null if np.all(np.isfinite(null[k]))]
+            if valid_band_nulls and np.isfinite(total):
+                null_tot = np.sum(valid_band_nulls, axis=0)
+                p_top = float((1 + np.sum(np.abs(null_tot) >= abs(total))) / (len(null_tot) + 1))
+        elif jackknife and n_seg >= 3 and jk_per_band:
+            jk_tot = np.sum(list(jk_per_band.values()), axis=0)
+            sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
+            if sd_tot > 0 and np.isfinite(sd_tot) and np.isfinite(total):
+                z_tot = float(total / sd_tot)
+                p_top = float(2 * stats.norm.sf(abs(z_tot)))
 
     return DirectedResult(
         method="psi",
@@ -1635,9 +1654,9 @@ def phase_slope_index(
         y_to_x=-total,
         net=total,
         unit="psi",
-        p_x_to_y=p_primary,
-        p_y_to_x=p_primary,
-        p_net=p_primary,
+        p_x_to_y=p_top,
+        p_y_to_x=p_top,
+        p_net=p_top,
         per_band=per_band,
         spectrum={
             "freqs": freqs,
@@ -1666,6 +1685,7 @@ def phase_slope_index(
             "p_source": "surrogate" if n_surrogates > 0 else ("jackknife_z" if jackknife else None),
             # PSI is antisymmetric: one test, direction carried by the sign.
             "p_covers_both_directions": True,
+            "p_is_omnibus": bool(len(per_band) > 1),
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
         },

@@ -36,11 +36,18 @@ MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviatio
 
 def _robust_z(x: np.ndarray) -> np.ndarray:
     x = np.asarray(x, dtype=float)
-    center = np.median(x)
-    mad = np.median(np.abs(x - center)) * MAD_SCALE
+    valid = np.isfinite(x)
+    if not np.any(valid):
+        return np.full_like(x, np.nan)
+    center = np.median(x[valid])
+    mad = np.median(np.abs(x[valid] - center)) * MAD_SCALE
     if mad < 1e-12:
-        return np.zeros_like(x)
-    return (x - center) / mad
+        res = np.zeros_like(x)
+        res[~valid] = np.nan
+        return res
+    z = (x - center) / mad
+    z[~valid] = np.nan
+    return z
 
 
 def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
@@ -55,10 +62,22 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
     the rest of the probe). bad = summary is a robust-z low outlier vs the OTHER channels'
     summaries (self-referential: a session with genuinely no bad channels should flag ~0)."""
     n = corr.shape[0]
+    if n < 2:
+        return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
     off_diag_mask = ~np.eye(n, dtype=bool)
-    summary = np.array([np.median(corr[i][off_diag_mask[i]]) for i in range(n)])
+    summary = np.empty(n, dtype=float)
+    unconnected = np.zeros(n, dtype=bool)
+    for i in range(n):
+        row = corr[i][off_diag_mask[i]]
+        valid_entries = row[np.isfinite(row)]
+        if len(valid_entries) == 0:
+            summary[i] = np.nan
+            unconnected[i] = True
+        else:
+            summary[i] = float(np.median(valid_entries))
     z = _robust_z(summary)
-    bad = z < -z_thresh
+    z[unconnected] = -np.inf
+    bad = (z < -z_thresh) | unconnected
     return bad, summary, z
 
 
@@ -78,13 +97,25 @@ def bad_trials_single_channel(
     channel consensus below is what actually decides exclusion)."""
     trial_waveforms = np.asarray(trial_waveforms, dtype=float)
     n = trial_waveforms.shape[0]
+    if n < 2:
+        return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
     corr = trial_correlation_matrix(trial_waveforms)
     off_diag_mask = ~np.eye(n, dtype=bool)
-    corr_summary = np.array([np.median(corr[i][off_diag_mask[i]]) for i in range(n)])
+    corr_summary = np.empty(n, dtype=float)
+    unconnected = np.zeros(n, dtype=bool)
+    for i in range(n):
+        row = corr[i][off_diag_mask[i]]
+        valid_entries = row[np.isfinite(row)]
+        if len(valid_entries) == 0:
+            corr_summary[i] = np.nan
+            unconnected[i] = True
+        else:
+            corr_summary[i] = float(np.median(valid_entries))
     corr_z = _robust_z(corr_summary)
+    corr_z[unconnected] = -np.inf
     max_amp = np.max(np.abs(trial_waveforms), axis=1)
     amp_z = _robust_z(max_amp)
-    flag = (corr_z < -corr_z_thresh) | (amp_z > amp_z_thresh)
+    flag = (corr_z < -corr_z_thresh) | (amp_z > amp_z_thresh) | unconnected
     return flag, corr_z, amp_z
 
 

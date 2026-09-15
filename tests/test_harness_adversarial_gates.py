@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import pytest
 
 from scripts.harness_gate import (
+    check_dataset_leakage,
     check_documented_api_matches_all,
     check_docs_version_matches_package,
     check_frozen_boundary,
@@ -671,3 +672,116 @@ class TestHarnessResetContracts:
         skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
         assert "Evidence Reconciliation" in skill_text
         assert "never through voting" in skill_text
+
+
+class TestGate6RecursiveCoverage:
+    """Gate 6 must see nested user-facing surfaces, not only the top level.
+
+    An audit of this gate read its docstring instead of its globs and reported a coverage gap
+    under docs/tutorials/ that did not exist -- the docstring described ``docs/*.md`` while the
+    code already walked ``docs/**/*.md``. The docstring is fixed; these probes pin the actual
+    surface so neither the code nor the description can drift again unnoticed.
+
+    Genuinely unscanned at the time, and now covered: README.md, CONTRIBUTING.md,
+    examples/quickstart_jnwb.py, examples/notebooks/*.ipynb, and non-numbered example modules.
+    """
+
+    TOKEN = "AXAB"          # an experiment condition token from the gate's own forbidden list
+
+    def _plant(self, tmp_path: Path, rel: str) -> list:
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f"# scratch surface\n{self.TOKEN}\n", encoding="utf-8")
+        return check_dataset_leakage(tmp_path)
+
+    @pytest.mark.parametrize("rel", [
+        "docs/tutorials/99_planted.md",
+        "docs/tutorials/deeply/nested/99_planted.md",
+        "examples/tutorials/99_planted.py",
+        "examples/tutorials/_support_planted.py",
+        "examples/quickstart_planted.py",
+        "examples/notebooks/99_planted.ipynb",
+        "README.md",
+        "CONTRIBUTING.md",
+    ])
+    def test_forbidden_token_is_detected_on_every_durable_surface(self, tmp_path, rel):
+        violations = self._plant(tmp_path, rel)
+        assert any(rel in v for v in violations), (
+            f"gate 6 did not detect {self.TOKEN} planted at {rel}; "
+            f"violations={violations}")
+
+    def test_changelog_is_exempt_and_the_exemption_is_documented(self, tmp_path):
+        """An exemption must be a named decision, not a silent skip."""
+        from scripts.harness_gate import DATASET_SCAN_EXEMPT
+        violations = self._plant(tmp_path, "CHANGELOG.md")
+        assert not any("CHANGELOG.md" in v for v in violations)
+        assert "CHANGELOG.md" in DATASET_SCAN_EXEMPT
+        assert DATASET_SCAN_EXEMPT["CHANGELOG.md"].strip(), "exemption must carry a reason"
+
+    def test_docstring_matches_the_globs_it_claims(self):
+        """The defect that caused the false audit finding: a docstring narrower than the code."""
+        from scripts.harness_gate import check_dataset_leakage as gate
+        doc = gate.__doc__ or ""
+        for claim in ["docs/**/*.md", "examples/**/*.py", "jnwb/**/*.py", "skills/**/*.md"]:
+            assert claim in doc, f"gate 6 docstring omits its own scanned surface: {claim}"
+        assert "recursively" in doc.lower(), (
+            "docstring must state that the scan is recursive; the non-recursive claim is "
+            "what made an auditor believe docs/tutorials/ was unscanned")
+
+    def test_probe_targets_correspond_to_real_repository_surfaces(self):
+        """The planted-token probes above are only meaningful if these files really exist.
+
+        Without this, a rename could leave the parametrized probes passing against paths the
+        repository no longer has -- green tests covering nothing.
+        """
+        from scripts.harness_gate import DATASET_SCAN_ROOT_DOCS
+        for rel in ["README.md", "CONTRIBUTING.md", "examples/quickstart_jnwb.py"]:
+            assert (REPO_ROOT / rel).exists(), f"probe target missing: {rel}"
+        assert "README.md" in DATASET_SCAN_ROOT_DOCS
+
+
+class TestDeclaredEnvironmentPreflight:
+    """Release qualification must verify the environment it claims to qualify.
+
+    An RC audit measured "1 failed, 1021 passed" on an interpreter lacking the declared `docs`
+    tooling, where the strict-MkDocs test could not import MkDocs. The repository contract
+    (pyproject `docs` extra + CI installing `.[test,docs]` on every matrix leg) was already
+    correct -- the local environment was not provisioned to it. A missing extra must therefore
+    fail loudly and early, not silently change what the suite measures.
+    """
+
+    def test_declared_requirements_include_the_docs_toolchain(self):
+        from scripts.release_gate import declared_extra_requirements
+        names = declared_extra_requirements()
+        assert "mkdocs" in names, "the docs extra must declare mkdocs; a test hard-requires it"
+        assert "pytest" in names
+
+    def test_self_referential_aggregate_extra_is_not_treated_as_a_distribution(self):
+        """`all = ["jnwb[mcp,torch,gpu,test,docs]"]` must not be probed as a package name."""
+        from scripts.release_gate import declared_extra_requirements
+        names = declared_extra_requirements(extras=("all",))
+        assert not any(n.startswith("jnwb") for n in names), names
+
+    def test_version_specifiers_and_markers_are_stripped(self):
+        from scripts.release_gate import declared_extra_requirements
+        for name in declared_extra_requirements():
+            assert not any(ch in name for ch in "<>=!~[; "), f"unparsed specifier: {name!r}"
+
+    def test_missing_distribution_is_reported(self, monkeypatch):
+        import scripts.release_gate as rg
+        from importlib.metadata import PackageNotFoundError
+
+        def fake_distribution(name):
+            if name == "mkdocs":
+                raise PackageNotFoundError(name)
+            return object()
+
+        monkeypatch.setattr("importlib.metadata.distribution", fake_distribution)
+        assert "mkdocs" in rg.verify_declared_environment()
+
+    def test_fully_provisioned_interpreter_reports_nothing_missing(self, monkeypatch):
+        """On an interpreter carrying the declared tooling, the preflight is silent."""
+        import scripts.release_gate as rg
+
+        monkeypatch.setattr("importlib.metadata.distribution", lambda name: object())
+        assert rg.verify_declared_environment() == []

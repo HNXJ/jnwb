@@ -59,6 +59,25 @@ class TestCompareGroupsPairedContract:
         res = StatisticalAnalysis.compare_groups([1, 2, 3], [2, 3, 4], paired=True)
         assert res["parametric"]["test"] == "paired_t_test"
 
+    def test_paired_asymmetric_nan_pairwise_alignment(self):
+        """Asymmetric NaNs must not shift pair alignment.
+        True paired diff across complete pairs (idx 0 and 3) is exactly 0.0."""
+        g1 = np.array([10.0, 100.0, np.nan, 20.0])
+        g2 = np.array([10.0, np.nan, 200.0, 20.0])
+        res = StatisticalAnalysis.compare_groups(g1, g2, paired=True, n_bootstrap=100)
+        assert res["n1"] == 2
+        assert res["n2"] == 2
+        assert res["mean_diff_ci"]["observed_mean_diff"] == pytest.approx(0.0)
+        assert res["parametric"]["pval"] == pytest.approx(1.0)
+
+    def test_paired_insufficient_finite_pairs_raises(self):
+        """When fewer than 2 pairs are mutually finite, ValueError must be raised."""
+        g1 = np.array([10.0, np.nan, np.nan])
+        g2 = np.array([10.0, 20.0, 30.0])
+        with pytest.raises(ValueError, match="at least two paired observations"):
+            StatisticalAnalysis.compare_groups(g1, g2, paired=True)
+
+
 
 class TestCrossModalComparisonAxes:
     def test_canonical_freq_time_trials_layout(self):

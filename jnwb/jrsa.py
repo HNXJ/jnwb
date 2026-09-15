@@ -872,13 +872,9 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
         if m_lower == "bonferroni":
             q = np.minimum(p_flat * len(p_flat), 1.0)
         else:
-            # Fallback BH
-            n = len(p_flat)
-            order = np.argsort(p_flat)
-            q = np.empty(n)
-            q[order] = p_flat[order] * n / (np.arange(1, n + 1))
-            q = np.minimum.accumulate(q[::-1])[::-1]
-            q = np.minimum(q, 1.0)
+            # Fallback BH via unified statistics module
+            from jnwb.statistics import StatisticalAnalysis
+            q = StatisticalAnalysis.fdr_correct(p_flat, method="bh")
     return q.reshape(np.asarray(p).shape)
 
 
@@ -1042,7 +1038,11 @@ def _pearson(x1, x2, axis=-1, **kwargs):
         if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
             a = x1.ravel() if x1.ndim > 1 else x1
             y2 = x2 if x2 is not None else x1
-            b = y2.ravel()[:len(a)] if y2.ndim > 1 else y2[:len(a)]
+            b = y2.ravel() if y2.ndim > 1 else y2
+            if len(a) != len(b):
+                raise ValueError(
+                    f"_pearson: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+                )
             n = len(a)
             # CuPy correlation calculation
             a_mean = cp.mean(a)
@@ -1067,9 +1067,13 @@ def _pearson(x1, x2, axis=-1, **kwargs):
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
-    n = min(len(a), len(b))
+    if len(a) != len(b):
+        raise ValueError(
+            f"_pearson: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+        )
+    n = len(a)
     from jnwb.statistics import StatisticalAnalysis
-    res = StatisticalAnalysis.exploratory_correlate(a[:n], b[:n])
+    res = StatisticalAnalysis.exploratory_correlate(a, b)
     if "error" in res:
         raise ValueError(f"_pearson: cannot compute correlation ({res['error']}, n={n})")
     p_info = res["parametric"]
@@ -1086,7 +1090,11 @@ def _spearman(x1, x2, axis=-1, **kwargs):
         if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
             a = x1.ravel() if x1.ndim > 1 else x1
             y2 = x2 if x2 is not None else x1
-            b = y2.ravel()[:len(a)] if y2.ndim > 1 else y2[:len(a)]
+            b = y2.ravel() if y2.ndim > 1 else y2
+            if len(a) != len(b):
+                raise ValueError(
+                    f"_spearman: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+                )
             # Rank transform
             a_rank = cp.argsort(cp.argsort(a)).astype(cp.float64)
             b_rank = cp.argsort(cp.argsort(b)).astype(cp.float64)
@@ -1113,9 +1121,13 @@ def _spearman(x1, x2, axis=-1, **kwargs):
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
-    n = min(len(a), len(b))
+    if len(a) != len(b):
+        raise ValueError(
+            f"_spearman: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+        )
+    n = len(a)
     from jnwb.statistics import StatisticalAnalysis
-    res = StatisticalAnalysis.exploratory_correlate(a[:n], b[:n])
+    res = StatisticalAnalysis.exploratory_correlate(a, b)
     if "error" in res:
         raise ValueError(f"_spearman: cannot compute correlation ({res['error']}, n={n})")
     np_info = res["non_parametric"]
@@ -1130,8 +1142,11 @@ def _kendall(x1, x2, axis=-1, **kwargs):
     from scipy.stats import kendalltau
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
-    n = min(len(a), len(b))
-    tau, p = kendalltau(a[:n], b[:n])
+    if len(a) != len(b):
+        raise ValueError(
+            f"_kendall: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+        )
+    tau, p = kendalltau(a, b)
     return np.float64(tau), np.float64(tau), np.float64(abs(tau)), np.float64(p), None
 
 
@@ -1141,7 +1156,11 @@ def _cosine(x1, x2, axis=-1, **kwargs):
         if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
             a = x1.ravel()
             y2 = x2 if x2 is not None else x1
-            b = y2.ravel()[:len(a)]
+            b = y2.ravel()
+            if len(a) != len(b):
+                raise ValueError(
+                    f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+                )
             sim = cp.dot(a, b) / (cp.linalg.norm(a) * cp.linalg.norm(b) + 1e-12)
             return sim, sim, cp.abs(sim), None, None
     except ImportError:
@@ -1149,21 +1168,22 @@ def _cosine(x1, x2, axis=-1, **kwargs):
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
-    b = x2.ravel()[:len(a)]
+    b = x2.ravel()
+    if len(a) != len(b):
+        raise ValueError(
+            f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
+        )
     sim = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12)
     return np.float64(sim), np.float64(sim), np.float64(abs(sim)), None, None
 
 
 def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
-    """Representational similarity analysis via condensed RDM correlation (avoiding squareform)."""
+    """Representational similarity analysis via condensed RDM correlation (delegating to jnwb.rsa)."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from scipy.spatial.distance import pdist
-    from scipy.stats import spearmanr
-    # We directly compute pdist which returns the condensed upper-triangular vector representation
-    # This avoids constructing the full square matrix via squareform and slicing.
-    v1 = pdist(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric)
-    v2 = pdist(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric)
-    rho, p = spearmanr(v1, v2)
+    from .rsa import rdm, rdm_similarity
+    v1 = rdm(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric, condensed=True)
+    v2 = rdm(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric, condensed=True)
+    rho, p = rdm_similarity(v1, v2, metric="spearman")
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 
 

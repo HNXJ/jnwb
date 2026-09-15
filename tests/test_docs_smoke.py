@@ -16,7 +16,12 @@ class TestDocsSmokeFixtures:
     def test_doc02_addressing_metadata_ontology(self, rng):
         # 1. Addressing
         elec_df = pd.DataFrame(
-            {"location": ["V1", "PFC", "V1, V2"], "group_name": ["probeA", "probeB", "probeC"], "z": [500.0, 1500.0, 800.0]},
+            {
+                "location": ["V1", "PFC", "V1, V2"],
+                "group_name": ["probeA", "probeB", "probeC"],
+                "z": [500.0, 1500.0, 800.0],
+                "depth_unit": ["um", "um", "um"],
+            },
             index=[0, 1, 2]
         )
         assert jnwb.map_peak_channel_to_area(0, elec_df) == "V1"
