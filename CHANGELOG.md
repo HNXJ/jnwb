@@ -92,6 +92,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Surrogates are verified to use the same segmentation as the observed statistic.
   Plain PSD estimators are deliberately NOT gated: a one-segment periodogram is noisy but not
   degenerate.
+- **INTENTIONAL BREAK (0.2.4):** `wpli` and `imaginary_coherency` raise `ValueError` for
+  traces of unequal length. Both took `n = min(len(x), len(y))` and silently discarded the
+  tail of the longer trace, so the two signals no longer described the same interval and
+  nothing in the result said so. Truncation changes which samples are compared, which is the
+  caller's decision. Found during the 0.2.4-04 independent numerical audit.
+- Corrected stale `nperseg` defaults in the `wpli` and `imaginary_coherency` docstrings, which
+  the segmentation repair had invalidated. A test now asserts the documented default matches
+  the implementation, since this drift was introduced by a repair and not caught by any gate.
 - **INTENTIONAL BREAK (0.2.4):** `cross_area_coherence` raises `ValueError` when its two
   traces have different lengths. It previously logged a warning and returned a dict of zeros:
   `peak_coherence_value` was `0.0`, which is exactly what a genuine measurement of no coupling

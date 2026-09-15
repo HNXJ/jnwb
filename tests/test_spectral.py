@@ -1433,3 +1433,120 @@ class TestCrossSpectralRatioFamilyIdentifiability:
         freqs, psd = jnwb.compute_multitaper_psd(trace, fs=self.FS)
         assert len(freqs) == len(psd)
         assert np.all(np.isfinite(psd))
+
+
+class TestPairedTraceContract:
+    """0.2.4-04: unpaired traces must be refused, not silently truncated.
+
+    `wpli` and `imaginary_coherency` took n = min(len(x), len(y)) and discarded the tail
+    of the longer trace. The two traces then no longer describe the same interval, and
+    nothing in the result said so. `cross_area_coherence` had the sibling form of this
+    defect (returning zeros) and was repaired in the same release.
+    """
+
+    FS = 1000.0
+
+    @staticmethod
+    def _pair(n_x, n_y, seed=0):
+        rng = np.random.default_rng(seed)
+        return rng.normal(size=n_x), rng.normal(size=n_y)
+
+    def test_wpli_rejects_unpaired_traces(self):
+        x, y = self._pair(8192, 4096)
+        with pytest.raises(ValueError, match=r"must have the same length"):
+            jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+
+    def test_imaginary_coherency_rejects_unpaired_traces(self):
+        x, y = self._pair(8192, 4096)
+        with pytest.raises(ValueError, match=r"must have the same length"):
+            jnwb.imaginary_coherency(x, y, fs=self.FS)
+
+    def test_error_names_the_function_and_both_lengths(self):
+        x, y = self._pair(8192, 4096)
+        with pytest.raises(ValueError) as excinfo:
+            jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+        message = str(excinfo.value)
+        assert "wpli" in message
+        assert "8192" in message and "4096" in message
+
+    @pytest.mark.parametrize("n_samples", [2048, 8192])
+    def test_equal_lengths_are_unaffected(self, n_samples):
+        x, y = self._pair(n_samples, n_samples)
+        out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+        assert out["n_segments"] >= 2
+        assert np.isfinite(out["wpli"])
+
+    def test_documented_defaults_match_the_implementation(self):
+        """The segmentation repair silently invalidated both docstrings once."""
+        for func in (jnwb.wpli, jnwb.imaginary_coherency):
+            doc = func.__doc__
+            assert "min(len(x), 256)" not in doc
+            assert "min(len(x), 1024)" not in doc
+            assert "N // 8" in doc
+
+    def test_wpli_matches_an_independent_oracle(self):
+        """wPLI recomputed from first principles: segment, window, detrend, rFFT.
+
+        Deliberately does not reuse any jnwb helper, so a shared bug cannot cancel.
+        """
+        from scipy import signal as sp_signal
+
+        fs, n_samples = self.FS, 8192
+        rng = np.random.default_rng(7)
+        t = np.arange(n_samples) / fs
+        x = np.sin(2 * np.pi * 20 * t) + 0.5 * rng.normal(size=n_samples)
+        y = np.sin(2 * np.pi * 20 * t + np.pi / 3) + 0.5 * rng.normal(size=n_samples)
+
+        nperseg = min(max(n_samples // 8, 8), 256)
+        noverlap = nperseg // 2
+        step = nperseg - noverlap
+        window = sp_signal.get_window("hann", nperseg)
+
+        cross = []
+        start = 0
+        while start + nperseg <= n_samples:
+            seg_x = x[start:start + nperseg]
+            seg_y = y[start:start + nperseg]
+            spec_x = np.fft.rfft((seg_x - seg_x.mean()) * window)
+            spec_y = np.fft.rfft((seg_y - seg_y.mean()) * window)
+            cross.append(np.conj(spec_x) * spec_y)
+            start += step
+        imag = np.imag(np.array(cross))
+        numerator = np.abs(imag.sum(axis=0))
+        denominator = np.abs(imag).sum(axis=0)
+        spectrum = np.divide(
+            numerator, denominator, out=np.zeros_like(numerator), where=denominator > 0
+        )
+        freqs = np.fft.rfftfreq(nperseg, d=1.0 / fs)
+        band = (freqs >= 18.0) & (freqs <= 22.0)
+        expected = float(np.mean(spectrum[band]))
+
+        out = jnwb.wpli(x, y, fs=fs, freq_range=(18.0, 22.0))
+        assert out["n_segments"] == len(cross)
+        assert out["wpli"] == pytest.approx(expected, abs=1e-12)
+
+    def test_wpli_is_insensitive_to_zero_lag_coupling(self):
+        """The defining property: wPLI weights the imaginary cross-spectrum only."""
+        fs, n_samples = self.FS, 8192
+        rng = np.random.default_rng(7)
+        t = np.arange(n_samples) / fs
+        base = np.sin(2 * np.pi * 20 * t)
+        x = base + 0.5 * rng.normal(size=n_samples)
+        zero_lag = base + 0.5 * rng.normal(size=n_samples)
+        lagged = np.sin(2 * np.pi * 20 * t + np.pi / 3) + 0.5 * rng.normal(size=n_samples)
+
+        low = jnwb.wpli(x, zero_lag, fs=fs, freq_range=(18.0, 22.0))["wpli"]
+        high = jnwb.wpli(x, lagged, fs=fs, freq_range=(18.0, 22.0))["wpli"]
+        assert low < 0.3, f"zero-lag coupling gave wPLI {low:.3f}"
+        assert high > 0.8, f"lagged coupling gave wPLI {high:.3f}"
+
+    def test_wpli_magnitude_is_unsigned_and_argument_symmetric(self):
+        fs, n_samples = self.FS, 8192
+        rng = np.random.default_rng(7)
+        t = np.arange(n_samples) / fs
+        x = np.sin(2 * np.pi * 20 * t) + 0.5 * rng.normal(size=n_samples)
+        y = np.sin(2 * np.pi * 20 * t + np.pi / 3) + 0.5 * rng.normal(size=n_samples)
+        forward = jnwb.wpli(x, y, fs=fs, freq_range=(18.0, 22.0))["wpli"]
+        reverse = jnwb.wpli(y, x, fs=fs, freq_range=(18.0, 22.0))["wpli"]
+        assert forward >= 0.0 and reverse >= 0.0
+        assert forward == pytest.approx(reverse, abs=1e-12)

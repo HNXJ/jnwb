@@ -21,6 +21,22 @@ from ._parallel import parallel_map
 log = logging.getLogger(__name__)
 
 #: Default band edges (Hz) -- standard neuroscience convention; overridable per call.
+def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
+    """Reject unpaired traces instead of truncating to the shorter one.
+
+    INTENTIONAL BREAK (0.2.4). These estimators took ``n = min(len(x), len(y))`` and
+    silently discarded the tail of the longer trace. Truncation is a scientific decision
+    -- it changes which samples are compared and, for a mismatch, means the two traces
+    no longer describe the same interval -- so it belongs to the caller.
+    """
+    if len(x) != len(y):
+        raise ValueError(
+            f"{func_name}: x and y must have the same length, got {len(x)} and {len(y)}. "
+            "These are paired time series; truncating to the shorter one silently "
+            "changes which samples are compared, so it is the caller's decision."
+        )
+
+
 def _require_identifiable_segmentation(
     n_samples: int, nperseg: int, noverlap: int, func_name: str, quantity: str
 ) -> int:
@@ -1262,7 +1278,8 @@ def imaginary_coherency(
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: (min_freq, max_freq) in Hz to average coherency over.
-        nperseg: Welch/CSD segment length; defaults to min(len(x), 1024).
+        nperseg: Welch/CSD segment length; defaults to ``min(max(N // 8, 8), 1024)``,
+            which keeps at least 2 segments so the ratio is identifiable.
         noverlap: defaults to nperseg // 2.
         device: 'cpu' or 'cuda' (CuPy), mirroring ``band_power``'s dispatch pattern.
 
@@ -1290,10 +1307,10 @@ def imaginary_coherency(
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
-    n = min(len(x), len(y))
+    _require_equal_lengths(x, y, "imaginary_coherency")
+    n = len(x)
     if n == 0:
         return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
-    x, y = x[:n], y[:n]
 
     if nperseg is None:
         nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 1024)
@@ -1363,7 +1380,8 @@ def wpli(
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: `(min_freq, max_freq)` in Hz to average wPLI over.
-        nperseg: Welch segment length; defaults to `min(len(x), 256)`.
+        nperseg: Welch segment length; defaults to ``min(max(N // 8, 8), 256)``, which
+            keeps at least 2 segments so the ratio is identifiable.
         noverlap: Welch segment overlap; defaults to `nperseg // 2`.
         device: `'cpu'` or `'cuda'` (GPU acceleration via CuPy).
 
@@ -1384,7 +1402,8 @@ def wpli(
     fs = _resolve_fs(fs, sampling_rate, "wpli")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
-    n = min(len(x), len(y))
+    _require_equal_lengths(x, y, "wpli")
+    n = len(x)
     if n == 0:
         return {
             "wpli": 0.0,
@@ -1394,7 +1413,6 @@ def wpli(
             "n_segments": 0,
             "n_freqs": 0,
         }
-    x, y = x[:n], y[:n]
 
     if nperseg is None:
         nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 256)
