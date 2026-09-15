@@ -1,6 +1,7 @@
 """Deterministic Release Gate for jnwb.
 
 Pipeline:
+  0. Required release/test tooling is present in the active environment
   1. Full test suite execution (pytest tests/)
   2. Harness pre-flight gates
   3. Clean distribution build (sdist + wheel)
@@ -29,6 +30,65 @@ log = logging.getLogger("release_gate")
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
+#: Extras whose tooling must be present for release qualification to mean anything. ``docs`` is
+#: included because tests/ contains a strict MkDocs build assertion: without it the suite does
+#: not fail, it reports a *different* result, which is worse.
+REQUIRED_EXTRAS = ("test", "docs")
+
+
+def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
+    """Distribution names pyproject.toml declares for the given extras."""
+    import re
+    import tomllib
+
+    with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
+        pyproject = tomllib.load(fh)
+    optional = pyproject.get("project", {}).get("optional-dependencies", {})
+
+    names: List[str] = []
+    for extra in extras:
+        for spec in optional.get(extra, []):
+            if spec.lstrip().startswith("jnwb["):
+                continue                      # self-referential aggregate (the `all` extra)
+            name = re.split(r"[<>=!~\[;\s]", spec.strip(), maxsplit=1)[0]
+            if name and name not in names:
+                names.append(name)
+    return names
+
+
+def verify_declared_environment(extras=REQUIRED_EXTRAS) -> List[str]:
+    """Return declared tooling distributions absent from the RUNNING interpreter.
+
+    Release qualification must inspect the environment it claims to qualify. The supported-Python
+    contract lives in pyproject.toml and CI (which installs ``.[test,docs]`` on every matrix
+    leg) -- not in whatever happens to be installed on the machine invoking this script. An
+    interpreter missing declared tooling does not fail loudly; it silently produces a different
+    and better-looking result, because a test that cannot import its tool reports one failure
+    rather than exercising the surface it was written for.
+
+    This is not hypothetical: an RC audit measured "1 failed, 1021 passed" against a receipt of
+    "1026 passed, 1 skipped" purely because the invoking 3.12 interpreter lacked the declared
+    ``docs`` tooling. Both numbers were honest; only one described the declared environment.
+
+    Scope, deliberately narrow: this is a PRESENCE check on the distributions named by the
+    extras -- it answers "is the tooling installed here at all". It does NOT prove every
+    dependency constraint is satisfied, does not read version specifiers, and does not detect a
+    conflicting or broken dependency graph. ``pip check`` in STEP 6, run against the isolated
+    wheel installation, remains the authoritative installed-distribution consistency check. Use
+    this to stop a qualification run that would measure the wrong environment, not as evidence
+    that the environment is fully correct.
+    """
+    from importlib.metadata import PackageNotFoundError, distribution
+
+    missing: List[str] = []
+    for name in declared_extra_requirements(extras):
+        try:
+            distribution(name)
+        except PackageNotFoundError:
+            missing.append(name)
+    return missing
+
+
 def run_cmd(cmd: list[str], cwd: pathlib.Path = REPO_ROOT) -> None:
     log.info(f"Executing: {' '.join(cmd)} (cwd={cwd})")
     res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
@@ -51,6 +111,20 @@ def _api_md_check_commands() -> List[List[str]]:
 
 
 def main() -> None:
+    log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
+    missing = verify_declared_environment()
+    if missing:
+        log.error(
+            "This interpreter (%s, Python %s) is missing required tooling: %s",
+            sys.executable, ".".join(str(v) for v in sys.version_info[:3]), ", ".join(missing))
+        log.error("Release qualification would measure an unprovisioned environment. Provision it:")
+        log.error('    "%s" -m pip install ".[%s]"', sys.executable, ",".join(REQUIRED_EXTRAS))
+        sys.exit(1)
+    log.info(
+        "PASS: required release/test tooling from [%s] is importable on Python %s "
+        "(presence check; pip check in STEP 6 verifies dependency consistency).",
+        ",".join(REQUIRED_EXTRAS), ".".join(str(v) for v in sys.version_info[:3]))
+
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
 

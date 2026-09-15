@@ -26,6 +26,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
 - Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
+- Gate 6 (dataset independence) now scans every durable user-facing surface recursively:
+  `docs/**/*.md`, `examples/**/*.py`, `examples/**/*.ipynb`, and root documents (`README.md`,
+  `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`). Previously `README.md`, `CONTRIBUTING.md`,
+  `examples/quickstart_jnwb.py`, `examples/notebooks/*.ipynb`, and non-numbered example modules
+  were unscanned. `CHANGELOG.md` remains exempt as a historical record, now via a named
+  `DATASET_SCAN_EXEMPT` entry carrying its reason rather than a silent omission.
+- Corrected the Gate 6 docstring, which described a narrower surface (`docs/*.md`,
+  non-recursive, `examples/` unmentioned) than the code actually scanned. An independent RC
+  audit read the docstring rather than the globs and reported a coverage gap that did not exist;
+  a regression test now asserts the docstring names the surfaces it scans.
+- Release gate STEP 0 checks that the required release/test tooling declared by the `[test,docs]`
+  extras is present in the active environment before qualification begins, exiting with the exact
+  provisioning command when it is not. This is a presence check on the named distributions, not a
+  proof that every dependency constraint is satisfied; `pip check` in STEP 6 remains the
+  authoritative installed-distribution consistency check. Motivation: an interpreter lacking the
+  declared docs tooling does not fail loudly, it silently measures something else -- an audit run
+  on such an interpreter recorded `1 failed, 1021 passed` where the strict-MkDocs test could not
+  import MkDocs.
+- README no longer presents `pip install jnwb==0.2.4rc1` as currently available. The unpublished
+  release candidate is labelled as such, with the executable source-install path given and the
+  post-publication command retained (preserving version synchronisation for Gate 10).
+- Removed the one-off `jnwb-unified-rev.md` external-review dossier from the repository root.
 
 ## [0.1.8] - 2026-09-11
 
