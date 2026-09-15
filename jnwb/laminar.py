@@ -765,6 +765,8 @@ class XFlipResult:
         method: Correlation method used ('pearson', 'spearman', 'partial', or 'precomputed').
         n_channels: Number of channels evaluated.
         n_blocks: Number of detected blocks.
+        boundary_drops: Optional dict mapping each interior boundary index to its
+            local correlation drop (within-block neighbor correlation minus cross-boundary correlation).
     """
 
     corr_matrix: np.ndarray
@@ -778,6 +780,7 @@ class XFlipResult:
     method: str
     n_channels: int
     n_blocks: int
+    boundary_drops: Optional[Dict[int, float]] = None
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -799,6 +802,7 @@ class XFlipResult:
             "method": str(self.method),
             "n_channels": int(self.n_channels),
             "n_blocks": int(self.n_blocks),
+            "boundary_drops": dict(self.boundary_drops) if self.boundary_drops is not None else {},
         }
 
 
@@ -1013,6 +1017,7 @@ def xflip(
     surrogate_method: str = "auto",
     alpha: float = 0.05,
     min_contrast: float = 0.05,
+    min_boundary_drop: float = 0.05,
     channel_axis: int = 0,
     is_corr_matrix: Optional[bool] = None,
     rng: Optional[Union[np.random.Generator, int]] = None,
@@ -1061,6 +1066,9 @@ def xflip(
         surrogate_method: `'auto'` (default), `'autocorr_preserving'`, or `'permute_channels'`.
         alpha: Significance threshold for omnibus surrogate test (default: 0.05).
         min_contrast: Minimum modularity contrast required for acceptance (default: 0.05).
+        min_boundary_drop: Minimum drop between within-block neighbor correlations and cross-boundary
+            correlation required for boundary acceptance (default: 0.05). Guards against false
+            partitioning of continuous smooth spatial gradients without sharp boundaries.
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
@@ -1258,12 +1266,31 @@ def xflip(
     else:
         p_values["omnibus"] = np.nan
 
+    # Evaluate boundary drops (local discontinuity across candidate cuts)
+    boundary_drops: Dict[int, float] = {}
+    if contiguous and len(boundaries) > 0:
+        for b in boundaries:
+            within_neighbors = []
+            if b >= 2:
+                within_neighbors.append(float(corr[b - 2, b - 1]))
+            if b < n_channels - 1:
+                within_neighbors.append(float(corr[b, b + 1]))
+            mean_near = float(np.mean(within_neighbors)) if len(within_neighbors) > 0 else 1.0
+            cross_val = float(corr[b - 1, b])
+            boundary_drops[b] = float(mean_near - cross_val)
+
     # Acceptance determination
     is_sig = (p_values["omnibus"] <= alpha) if n_surrogates > 0 else True
     has_contrast = (obs_q >= min_contrast)
     has_blocks = (target_k >= 2)
+    has_drop = True
+    if contiguous and min_boundary_drop > 0.0 and len(boundaries) > 0:
+        for b, drop_val in boundary_drops.items():
+            if drop_val < min_boundary_drop:
+                has_drop = False
+                break
 
-    if is_sig and has_contrast and has_blocks:
+    if is_sig and has_contrast and has_blocks and has_drop:
         accepted = True
         rejection_reason = None
     else:
@@ -1275,6 +1302,8 @@ def xflip(
             reasons.append(f"Modularity contrast ({obs_q:.4f}) below min_contrast ({min_contrast})")
         if not has_blocks:
             reasons.append(f"Fewer than 2 blocks detected (k = {target_k})")
+        if not has_drop:
+            reasons.append(f"Boundary drop below min_boundary_drop ({min_boundary_drop})")
         rejection_reason = "; ".join(reasons)
 
     return XFlipResult(
@@ -1289,6 +1318,7 @@ def xflip(
         method=resolved_method,
         n_channels=n_channels,
         n_blocks=target_k if accepted else 1,
+        boundary_drops=boundary_drops,
     )
 
 
