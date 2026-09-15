@@ -31,6 +31,8 @@ Activate this skill when the user asks for generic electrophysiology analysis, t
 4. **Boundary & Filter Distortions**: Mask wavelet coefficients in the Cone of Influence (`coi_mask`). Use causal exponential smoothing (`causal_exp_smooth`) to prevent future leakage.
 5. **RNG Reproducibility**: Pass explicit `numpy.random.Generator` instances (e.g. `rng = np.random.default_rng(seed)`). Never mutate global `np.random.seed()`.
 6. **Dataset-Agnostic Invariant**: `jnwb` is dataset-agnostic. Experiment-specific condition codes and folder layouts belong in user analysis scripts, never in `jnwb`.
+7. **Phase Coupling vs Directionality vs Delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
+8. **No Volume Conduction Immunity**: Measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
 
 ## 5. Agent Memory & Operational Guidance
 For detailed workflow recipes, memory conventions, and common AI agent pitfalls, see:

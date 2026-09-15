@@ -22,6 +22,8 @@ Activate this skill when quantifying directional coupling, lag asymmetries, Gran
 1. **Strict Epistemic Language**: Granger causality, PSI, and Transfer Entropy measure **temporal-lag asymmetry (predictive directionality)** under an observational model. Never use causal verbs ("region A drives region B causally") for observational time-series metrics.
 2. **Stationarity & Pre-filtering**: Time-domain Granger requires wide-sense stationary inputs; demean and detrend signals prior to model fitting.
 3. **Surrogate Null Construction**: Evaluate significance using time-shift surrogates that destroy temporal alignment while preserving autocorrelation.
+4. **Coupling vs Direction vs Delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
+5. **No Volume Conduction Immunity**: Measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
 
 ## 4. Minimal Workflow
 ```python
