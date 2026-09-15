@@ -143,6 +143,32 @@ jobs:
           print('PASS: Installed wheel verified in clean virtualenv')
           "
 
+      - name: Run tutorials against the installed wheel (no repo-relative imports)
+        shell: bash
+        run: |
+          # 0.2.4-03: the tutorials must execute against the distributed artifact, not the
+          # checkout. PYTHONPATH is cleared and the CWD is outside the repository, so an
+          # `import jnwb` that only works from the source tree fails here.
+          unset PYTHONPATH
+          cd /tmp
+          /tmp/clean_env/bin/python -c "
+          import jnwb
+          assert 'clean_env' in jnwb.__file__, f'jnwb resolved outside the clean env: {jnwb.__file__}'
+          print('Tutorials will run against:', jnwb.__file__)
+          "
+          status=0
+          for tutorial in "$GITHUB_WORKSPACE"/examples/tutorials/[0-9][0-9]_*.py; do
+            name=$(basename "$tutorial")
+            if /tmp/clean_env/bin/python "$tutorial" > "/tmp/tutorial_$name.log" 2>&1; then
+              echo "PASS: $name"
+            else
+              echo "FAIL: $name"
+              tail -30 "/tmp/tutorial_$name.log"
+              status=1
+            fi
+          done
+          exit $status
+
       - name: Store distribution artifacts
         uses: actions/upload-artifact@v4
         with:

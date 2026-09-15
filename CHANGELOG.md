@@ -66,6 +66,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generator with a message about `c_crossover` rather than about the caller's argument.
   `build_canonical_tutorial_nwb` now rejects such a shaft up front, naming the constraint. The
   crossover is ground truth the tutorials assert against, so it is not scaled to fit.
+- Release verification now exercises the tutorials against the **installed wheel** (0.2.4-03).
+  The distribution job previously imported the installed package and ran four inline workflows;
+  the tutorials -- the only end-to-end consumers of the public API -- ran solely from the
+  checkout with the repository on `PYTHONPATH`. That configuration cannot detect a subpackage
+  omitted from the wheel or an import that only resolves from the source tree. CI and the local
+  release gate (new STEP 8) now run all eight tutorials on the clean-venv interpreter with
+  `PYTHONPATH` stripped and the working directory outside the repository, and
+  `tests/test_workflow_release_policy.py` fails if either check is removed or reordered before
+  installation.
+- The release gate no longer hardcodes the expected version. `jnwb_source_version()` parses
+  `__version__` from the source tree and the isolated smoke test compares the installed wheel
+  against it, removing a hand-maintained literal of the same drift class the documentation
+  gates exist to prevent.
 
 ## [0.1.8] - 2026-09-11
 

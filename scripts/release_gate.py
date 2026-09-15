@@ -22,6 +22,7 @@ import zipfile
 import tarfile
 import subprocess
 import logging
+import re
 from typing import List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -34,6 +35,24 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: included because tests/ contains a strict MkDocs build assertion: without it the suite does
 #: not fail, it reports a *different* result, which is worse.
 REQUIRED_EXTRAS = ("test", "docs")
+
+
+_VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
+
+
+def jnwb_source_version() -> str:
+    """The version the source tree declares, parsed textually.
+
+    Read rather than imported: the gate compares the *source* declaration against what the
+    built wheel reports, so importing the package under test would make the comparison
+    tautological. Pinning the expected version as a literal here is the same drift failure
+    class the documentation gates exist to prevent.
+    """
+    init = REPO_ROOT / "jnwb" / "__init__.py"
+    match = _VERSION_RE.search(init.read_text(encoding="utf-8"))
+    if match is None:
+        raise RuntimeError(f"could not parse __version__ from {init}")
+    return match.group(1)
 
 
 def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
@@ -160,7 +179,7 @@ def main() -> None:
             "omission", "_unused", ".lab", "outputs", "artifacts", ".git", "__pycache__",
             "/tests/", "/scripts/",
         ]
-        
+
         with zipfile.ZipFile(whl, "r") as z:
             whl_files = z.namelist()
             for f in forbidden:
@@ -206,7 +225,7 @@ def main() -> None:
 
         log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
         smoke_script = staging_dir / "smoke_test.py"
-        smoke_script.write_text("""
+        smoke_script.write_text(f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + """
 import sys
 import pathlib
 import numpy as np
@@ -226,7 +245,8 @@ except ModuleNotFoundError:
 import jnwb
 print(f'PASS: import jnwb successful from {jnwb.__file__}')
 print(f'      jnwb.__version__ = {jnwb.__version__}')
-assert jnwb.__version__ == '0.2.4rc1', f"Expected version 0.2.4rc1, got {jnwb.__version__}"
+assert jnwb.__version__ == EXPECTED_VERSION, (
+    f'Installed wheel reports {jnwb.__version__}, source declares {EXPECTED_VERSION}')
 pkg = pathlib.Path(jnwb.__file__).resolve()
 assert 'site-packages' in str(pkg) or 'dist-packages' in str(pkg), f'expected installed location, got {pkg}'
 out_dir = jnwb.paths.outputs_dir()
@@ -378,6 +398,25 @@ print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
             log.error(f"Smoke test failed in isolated environment:\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
             sys.exit(res.returncode)
         log.info(res.stdout.strip())
+
+        log.info("=== STEP 8: Executing tutorials against the installed wheel ===")
+        tutorials = sorted((REPO_ROOT / "examples" / "tutorials").glob("[0-9][0-9]_*.py"))
+        if not tutorials:
+            log.error("No numbered tutorials found; 0.2.4-03 cannot be verified.")
+            sys.exit(1)
+        # PYTHONPATH is stripped and the CWD is the staging directory, so a tutorial that
+        # only runs from the source tree fails here instead of passing by checkout proximity.
+        tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        for tutorial in tutorials:
+            res = subprocess.run(
+                [venv_python, str(tutorial)], cwd=str(staging_dir),
+                env=tutorial_env, capture_output=True, text=True)
+            if res.returncode != 0:
+                log.error("Tutorial %s failed against the installed wheel:\nSTDOUT:\n%s\nSTDERR:\n%s",
+                          tutorial.name, res.stdout, res.stderr)
+                sys.exit(res.returncode)
+            log.info("PASS: %s executed against the installed wheel.", tutorial.name)
+        log.info("PASS: all %d tutorials ran against the installed artifact.", len(tutorials))
 
     log.info("=============================================================")
     log.info("=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ===")

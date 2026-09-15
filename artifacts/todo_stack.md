@@ -31,6 +31,34 @@
 - 0.2.4-16: Independent final critic pass attempting to falsify numerical correctness, boundary, API consistency, docs, skills, agents, packaging, CI, and release state.
 - 0.2.4-17: Release seal verifying acceptance predicate Q_release = Q_science & Q_API & Q_performance & Q_CPU/GPU & Q_NWB & Q_docs & Q_tutorials & Q_skills/agents & Q_distribution, changelog/version bump, clean tree, commit, push dev, remote CI PASS, merge/release per policy, tag, build, install, smoke-test, and reconcile.
 
+## 0.2.4 evidence reconciliation
+
+Status at `5c2bd7f2`+ (this commit). No commit in repository history cites a `0.2.4-NN` code, so
+no item below was previously sealed; several are nonetheless satisfied by mechanical gates built
+under other codes. CLOSED means a gate or receipt demonstrates the item's own predicate. PARTIAL
+names what is missing. Nothing here is marked from inference.
+
+| Item | Status | Evidence / named gap |
+| --- | --- | --- |
+| 01 executable stack empty | OPEN | this file is non-empty by construction; closes last |
+| 02 documentation minimization | PARTIAL | mechanical half closed (Gate 9 documented-API parity, Gate 10 derived version, strict MkDocs 0 warnings, `test_docs_links`, `test_docs_smoke`, `test_readme_smoke`). The editorial half -- duplicated explanation, excessive prose, internal codes leaking into user-facing text -- has had no pass and is not mechanically checkable |
+| 03 tutorials vs installed wheel | CLOSED | all 8 run on the clean-venv interpreter with `PYTHONPATH` stripped and CWD outside the checkout, in CI and in release gate STEP 8; `TestInstalledArtifactVerification` fails if either is removed or reordered before install |
+| 04 numerical audit of primitives | PARTIAL | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. That audit predates `wpli`, `zflip`, `rdm` (50e646aa); those three have tests but no independent adversarial pass |
+| 05 randomness and inference | PARTIAL | no global RNG mutation anywhere in `jnwb/` (no `np.random.seed`, no `random.seed`, no `PYTHONHASHSEED` dependence); `permute_labels` rejects non-`Generator` rng, is deterministic given a seed, preserves per-group label counts, and emits a draw manifest with sequential seeds and digests. CV isolation is exercised via `nested_cv_linear_svm` but not asserted as leak-free |
+| 06 NWB/addressing audit | PARTIAL | `test_nwb_synthetic_fixtures`, `test_hdmf_nwb_read_boundary`, `test_addressing`, `test_metadata`, `test_nwb_inspect` cover missing tables/columns, alternate layouts and lazy access; the electrode-region repair added out-of-range enforcement. Units/geometry/ambiguity not systematically swept |
+| 07 API audit | PARTIAL | exports == documented API == generator output is gated (Gate 9 + `generate_api_md --check` + `test_api_surface`), and skills reference only existing symbols. Signature/typing/docstring parity is not mechanically compared |
+| 08 boundary audit | CLOSED | Gate 6 scans `jnwb/`, `docs/` recursively, `examples/` recursively (`*.py`, `*.ipynb`), `skills/` and the root docs, with `TestGate6RecursiveCoverage` planting tokens on 8 surfaces; plus the no-project-identifiers gate and `test_jnwb_frozen_boundary` |
+| 09 skills/agents adversarial | PARTIAL | `test_skills_validation` covers frontmatter, routing-parameter/runtime agreement, symbol and docs-path existence, no hardcoded counts, no removed toolchain, no downstream leakage, and representative routing probes. Adversarial probes for ambiguous units and evidence conflicts are absent |
+| 10 dependency matrix | PARTIAL | base wheel installs and imports with no extras in the CI clean venv, `pip check` clean; lazy-import tests prove optional subsystems are not eager and degrade with a named error. Declared optional-extra combinations are not matrixed |
+| 11 Python/OS matrix | CLOSED | run 34921221203: 3.12 and 3.14 on ubuntu-latest and windows-latest all PASS; floor consistency gated |
+| 12 strict documentation build | CLOSED | `docs_build.py` strict, 0 warnings, locally and in CI; versions derive from `jnwb.__version__` |
+| 13 distribution audit | CLOSED | build -> manifest scan -> `twine check` -> fresh venv -> wheel + transitive install -> `pip check` -> import from site-packages outside the checkout -> numerical workflows -> tutorials |
+| 14 reproducibility | PARTIAL | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not part of that chain |
+| 15 CPU/CUDA parity | OPEN | parity assertions exist (`test_gpu_pca_cpu_and_cuda_agree_within_float32`, `test_cuda_matches_cpu_or_warns`, `test_jrsa_gpu`) but no CI runner has CUDA, so they skip or take the CPU branch. No clean-system GPU receipt exists |
+| 16 final critic pass | PARTIAL | the external review at 42b1450b produced the findings this stack has been repairing; it predates the electrode-region repair and these verification changes |
+| 17 release seal | OPEN | blocked on the conjunction above |
+
+
 # Before 1.0
 
 - Replace example-based estimator coverage with analytic/property-based tests.
