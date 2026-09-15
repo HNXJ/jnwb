@@ -75,32 +75,87 @@ names what is missing. Nothing here is marked from inference.
 
 ## Handout (2026-09-15, Opus 5 session `9fe5eb2c`)
 
-**Two agents were working in this repository at once.** This session and another
-(commit `5ff7f8d1`, same git identity) both ran 0.2.4-04 concurrently and collided. Read
-this before resuming.
+### State
 
-- Sealed by this session, CI green on 3.12/3.14 x ubuntu/windows for each:
-  `bf26b0cf` 2-D rejection + first CUDA receipt; `e5a7eecc` coherence single-segment
-  repair; `4e427ad1` mismatched-length ValueError; `d754e895` 0.2.4-15 closed under its
-  narrowed criterion; `d7d06107` unpaired-trace rejection in `wpli`/`imaginary_coherency`.
-- `1a15207f` (this session, zFLIP gate + wrap-claim correction) is pushed but **its 26
-  accompanying tests were lost**: `tests/test_zflip.py` was overwritten by the other
-  agent's work between the test run and the commit, so the commit carries `CHANGELOG.md`
-  and `jnwb/laminar.py` only. The `zflip` code change is in `HEAD` and the other agent's
-  `tests/test_zflip_audit.py` (21 tests) passes against it, but the zFLIP audit assertions
-  written here -- ground-truth delay/velocity recovery, geometry-reversal sign flip,
-  aliased-delay rejection, scale and pitch invariance, global-RNG non-mutation -- are gone
-  and should be rewritten.
-- `HEAD:jnwb/laminar.py` carries THIS session's `nperseg = min(max(N // 2, 8), 256)` rule,
-  which may have replaced the other agent's fix for the same defect. Both intended the
-  same outcome; confirm which survived and that only one remains.
-- The working tree holds ~14 files of the other agent's UNCOMMITTED work (artifact
-  detection/repair, connectivity, jrsa, statistics, viz, vFLIP calibration receipts). It
-  was not touched by this session and must not be discarded.
+`handoff metadata = persisted` (commit `c07c53fd`, pushed).
+`working implementation state = UNSEALED` -- 13 uncommitted files remain outside that
+commit. A pushed handoff commit does not mean the tree is sealed.
 
-**Next:** finish 0.2.4-04 (vFLIP normalization/calibration is the open leg; the other
-agent records vFLIP acceptance as not false-positive controlled), then 09 -> 16 -> 01.
-Do not run two agents against this working tree simultaneously.
+RC status: **BLOCKED on worktree reconciliation**, not on a human scientific decision. Once
+exclusive ownership is established, continue automatically; no approval is pending.
+
+### Why
+
+Two implementation agents ran against this worktree simultaneously, both on 0.2.4-04. See
+`AGENTS.md` §8 "One writable agent per worktree", added in response. Repository history is
+recoverable; a shared working tree is not safe for concurrent writers. The 13 uncommitted
+files are **unowned evidence**: do not discard them, do not stage them wholesale, and do not
+attribute them to either agent without inspection.
+
+### Mandatory opening sequence -- single-writer recovery protocol
+
+Perform in order. Do not edit anything before step 5 completes.
+
+1. Confirm no other agent or process is modifying `C:\workspace\jnwb`. If exclusive
+   ownership cannot be established, STOP before editing.
+2. Record `HEAD`, `origin/dev`, `git status --porcelain=v2`, `git diff --stat`, the full
+   unstaged diff, the staged diff, and recent reflog/log. This is the only snapshot of the
+   unsealed state.
+3. Read this handout at `c07c53fd`.
+4. Treat every pre-existing uncommitted modification as foreign and unresolved. Classify each
+   by provenance and scientific intent before changing it.
+5. Do NOT `stash`, `reset`, `restore`, check out files, or reformat while foreign changes
+   exist. A `git stash push`/`pop` pair is what lost work here.
+6. Reconstruct the other agent's work from `5ff7f8d1`, current `HEAD`, the working-tree
+   diff, tests, and receipts. Preserve the superior verified work, whichever session wrote it.
+7. Recover the lost zFLIP discriminators by REWRITING them from the specification below.
+   Do not restore an old file version blindly.
+8. Resolve the competing zFLIP segmentation rule by mathematical and test evidence. Exactly
+   one rule must remain in `jnwb/laminar.py`.
+9. Partition the understood foreign changes into coherent validated commits. Never
+   `git add -A` across unresolved ownership; stage exact paths.
+10. Push each validated checkpoint to `dev`, verify `HEAD == origin/dev`, and only then
+    resume 0.2.4-04.
+
+### Sealed with green CI (3.12/3.14 x ubuntu/windows), do not redo
+
+`bf26b0cf` 2-D rejection + first CUDA receipt; `e5a7eecc` coherence single-segment repair;
+`4e427ad1` mismatched-length `ValueError`; `d754e895` 0.2.4-15 closed under its narrowed
+criterion; `d7d06107` unpaired-trace rejection in `wpli`/`imaginary_coherency`.
+
+Headline result: `cross_area_coherence`, `imaginary_coherency`, `wpli` and `zflip` all
+reported perfect coupling for independent signals whenever the segmentation yielded a single
+Welch segment, because the cross-spectrum is then an exact function of the auto-spectra. All
+four now refuse `K < 2`.
+
+### Lost, and how to rebuild it
+
+`1a15207f` was meant to carry 26 zFLIP audit tests. `tests/test_zflip.py` was overwritten
+between the green test run and the commit, so the commit contains `jnwb/laminar.py` and
+`CHANGELOG.md` only. The code change IS in `HEAD` and the other agent's
+`tests/test_zflip_audit.py` (21 tests) passes against it -- 42 passed when both files were
+run -- but these assertions no longer exist and must be rewritten:
+
+- per-contact delay and apparent velocity against a synthetic travelling wave with a KNOWN
+  delay, built by frequency-domain shift (`exp(-2j*pi*f*c*dt)`) independently of the
+  implementation. Recovery was within 6 % for delay and 5 % for `pitch/dt` velocity;
+- the source band must be WIDER than the fit window, or band-edge phase noise produces a
+  spurious ~10 % velocity error that is an artifact of the test, not of `zflip`;
+- reversing channel order exactly negates and reverses `adjacent_delays_s` and flips
+  `directionality`;
+- independent noise, zero-lag input and constant input are all refused;
+- a true delay of 200 ms/contact aliases to ~12.6 ms and is caught only by the surrogate
+  test, not by the `|tau| < 1/(2 df)` bound, which constrains the ESTIMATE;
+- amplitude scaling does not change the estimate; doubling `pitch_um` doubles velocity and
+  leaves delay unchanged;
+- `seed` is reproducible and the global numpy RNG is not mutated.
+
+### Next
+
+Finish 0.2.4-04 -- vFLIP normalization/calibration is the open leg; the other agent records
+vFLIP acceptance as not false-positive controlled. Then 09 -> 16 -> 01 -> RC decision. No new
+features, no optimization projects, no speculative API changes. Do not tag, merge to `main`,
+publish, or call the RC qualified.
 
 # Before 1.0
 
