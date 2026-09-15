@@ -1178,11 +1178,19 @@ def _cosine(x1, x2, axis=-1, **kwargs):
 
 
 def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
-    """Representational similarity analysis via condensed RDM correlation (delegating to jnwb.rsa)."""
+    """Representational similarity analysis via condensed RDM correlation (delegating to jnwb.rsa).
+
+    A distance undefined for some condition pair (correlation distance of a zero-variance
+    row) makes the similarity NaN, which is what the pre-delegation `pdist` + `spearmanr`
+    implementation returned.
+    """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from .rsa import rdm, rdm_similarity
-    v1 = rdm(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric, condensed=True)
-    v2 = rdm(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric, condensed=True)
+    from .rsa import _condensed_distances, rdm_similarity
+    v1 = _condensed_distances(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), rdm_metric)
+    v2 = _condensed_distances(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), rdm_metric)
+    if not (np.all(np.isfinite(v1)) and np.all(np.isfinite(v2))):
+        nan = np.float64(np.nan)
+        return nan, nan, nan, nan, None
     rho, p = rdm_similarity(v1, v2, metric="spearman")
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 

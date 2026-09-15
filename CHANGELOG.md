@@ -8,12 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Weighted Phase Lag Index (`wpli`, `WPLIResult`) in `jnwb.spectral`:
+- Weighted Phase Lag Index (`wpli`, returning a dict) in `jnwb.spectral`:
   Phase-synchronization metric evaluating segment-resolved imaginary cross-spectra, reducing sensitivity to zero-phase-lag coupling without claiming volume-conduction immunity; reports both standard and debiased squared wPLI.
 - Laminar phase gradient analysis (`zflip`, `ZFlipResult`) in `jnwb.laminar`:
-  Cross-channel phase-gradient analysis and apparent velocity estimation with phase-frequency linearity verification ($R^2 \ge \text{min\_linearity\_r2}$) and circular-shift surrogate testing.
+  Cross-channel phase-gradient analysis and apparent velocity estimation with phase-frequency linearity verification ($R^2 \ge \text{min\_linearity\_r2}$) and per-channel Fourier phase-randomised surrogate testing.
 - Standalone representational dissimilarity matrices (`rdm`, `rdm_similarity`) in `jnwb.rsa`:
-  Generates condensed or square symmetric RDMs across conditions or time points with support for euclidean, correlation, cosine, and mahalanobis distances; evaluates inter-RDM similarity via rank or linear correlation.
+  Generates condensed or square symmetric RDMs across conditions or time points with any `scipy.spatial.distance.pdist` metric (e.g. correlation, cosine, euclidean, cityblock); evaluates inter-RDM similarity via rank or linear correlation.
 - Comprehensive 8-part synthetic NWB tutorial suite:
   Completely independent, zero-relative-import executable tutorials covering NWB inspection, addressing/metadata, spiking PSTH/latency, continuous LFP/Welch PSD/TFR/wPLI, dual exploratory and permutation statistics, laminar CSD/vFLIP/zFLIP, population ensembles/JRSA/decoding, and end-to-end composite pipelines.
 
@@ -126,6 +126,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `__version__` from the source tree and the isolated smoke test compares the installed wheel
   against it, removing a hand-maintained literal of the same drift class the documentation
   gates exist to prevent.
+- **wPLI and zFLIP depended on the amplitude units of the input.** An absolute `1e-12`
+  cutoff on the imaginary cross-spectrum was applied after STFT scaling. For a coupled pair at
+  amplitude `1e-6`, `wpli` returned `0.0`; at `1e-4` to `1e-3`, the range of volt-scaled LFP,
+  `wpli_debiased_sq` returned `0.0`; and `zflip` rejected a real travelling wave at `1e-6`.
+  The cutoff is now relative to each cross-spectral magnitude (`spectral.ZERO_LAG_RTOL`), and
+  `wpli`'s CPU path, its CuPy path and both `zflip` loops share one implementation. Results are
+  identical from amplitude `1e-9` to `1e3`.
+- **INTENTIONAL BREAK (0.2.4):** `wpli` and `imaginary_coherency` raise `ValueError` for empty
+  input, NaN or Inf samples, or a `freq_range` containing no frequency bin. Each previously
+  returned `0.0`, indistinguishable from "no coupling". Identical signals still report `0.0`,
+  where every imaginary term is exactly zero.
+- **`wpli(device='cuda')` never ran on a GPU.** `cupy.divide` rejects `where=`; the error was
+  caught and logged, and CPU results were returned. It now executes on CUDA and matches the CPU
+  to 1e-15. `wpli` and `imaginary_coherency` resolve the device through `_backend`, reject
+  unrecognised device names, and emit a `RuntimeWarning` on fallback instead of a log message.
+  See `artifacts/benchmarks/cuda_parity_0.2.4.md`.
+- **INTENTIONAL BREAK (0.2.4): `zflip` inference and identifiability.**
+  - A delay is identifiable only when every adjacent contact pair is, as the docstring stated.
+    The code required about half, and summed every pair's delay into the spatial fit: one
+    incoherent contact biased a 12-contact estimate by 16%, and on 3 contacts a delay of
+    -9.0 ms was accepted for a true +1.0 ms.
+  - `n_surrogates=0` skips the test and now gives `accepted=False`. It previously accepted
+    with `p_value=NaN`.
+  - `ValueError` for `alpha` outside (0, 1), a negative or non-integer `n_surrogates`,
+    `min_linearity_r2` or `min_wpli` outside [0, 1], a malformed `freq_range`, or non-finite
+    input. NaN input was previously processed.
+  - A result rejected for too few frequency bins reports `mean_wpli` and `adjacent_wpli` as
+    NaN rather than `0.0`.
+  - Default `nperseg` is `min(max(N // 2, 8), 256)`, unchanged for `N >= 512`; a segmentation
+    giving one segment raises. With one segment adjacent wPLI is 1.0 for any input, which made
+    `min_wpli` inert for `N <= 256`.
+  - The docstring states what the delay measures: the slope of the averaged cross-spectral
+    phase, a group delay, which zero-lag mixing pulls toward 0 (equal-power mixing halves it).
+    Both statements are tested against constructed signals.
+- **INTENTIONAL BREAK (0.2.4): `rdm` and `rdm_similarity`.**
+  - `rdm` raises `ValueError` when the metric is undefined for a condition pair (correlation
+    distance of a zero-variance row, cosine distance of a zero-norm row). Such distances were
+    set to `0`, declaring the condition identical to every other.
+  - `jrsa(metric="rsa")` returns NaN in that case again. Delegating to `rdm` in 0.2.4rc1 had
+    made it return a finite similarity, where its earlier `pdist` + `spearmanr` implementation
+    returned NaN; `tests/test_rsa_oracle.py` compares against that implementation.
+  - `rdm_similarity` raises for a non-symmetric matrix, a nonzero diagonal, or a condensed
+    length that is not `N(N-1)/2` (including empty input, which returned `0.0`). A zero RDM
+    under `'cosine'` returns NaN rather than `0.0`. The docstring notes that its p-value treats
+    RDM cells as independent and is not a test of RDM relatedness.
+  - `rdm(device=...)` validates the name and warns that there is no GPU implementation; any
+    string was previously accepted and ignored. `'manhattan'` is no longer listed as a metric
+    (`pdist` does not accept it; use `'cityblock'`).
+- **vFLIP calibration receipt described an earlier estimator.** The 0.2.2 receipt predates the
+  support-score density normalization and the crossover polarity rule, and no generator was
+  kept. `scripts/calibrate_vflip.py` regenerates `artifacts/benchmarks/vflip_calibration_0.2.4.md`
+  from the shipped estimator, recording a hash of the `vflip` source that
+  `tests/test_vflip_calibration_receipt.py` checks.
+- The harness test for hardcoded symbol counts had matched nothing since it was written: the
+  `\b` word boundaries in its pattern were stored as backspace characters. Two docstrings in
+  `jnwb/rsa.py` had the same corruption (`\rho`, `\tau`, `\frac`).
 
 ## [0.1.8] - 2026-09-11
 

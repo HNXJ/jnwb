@@ -379,7 +379,7 @@ class TestDocumentationDriftGates:
     def test_no_hardcoded_symbol_counts_remain_in_prose(self):
         """The original defect: a symbol count written into documentation."""
         import re
-        pattern = re.compile(r"\d{2,4}\s+(?:public\s+|exported\s+)?symbols", re.IGNORECASE)
+        pattern = re.compile(r"\b\d{2,4}\s+(?:public\s+|exported\s+)?symbols\b", re.IGNORECASE)
         offenders = []
         for path in [REPO_ROOT / "README.md", *sorted((REPO_ROOT / "docs").glob("*.md"))]:
             for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):

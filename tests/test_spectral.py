@@ -212,9 +212,9 @@ class TestImaginaryCoherency:
         assert result["coh_mag_mean"] > 0.5
         assert abs(result["icoh_mean"]) < 0.1
 
-    def test_empty_input_returns_zeroed_result(self):
-        result = imaginary_coherency(np.array([]), np.array([]), sampling_rate=1000.0, freq_range=(1, 100))
-        assert result["n_freqs"] == 0
+    def test_empty_input_is_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            imaginary_coherency(np.array([]), np.array([]), sampling_rate=1000.0, freq_range=(1, 100))
 
 
 class TestBipolarReference:
@@ -1373,7 +1373,13 @@ class TestCrossSpectralRatioFamilyIdentifiability:
             f"independent signals report coh_mag_mean={out['coh_mag_mean']:.3f}"
         )
 
-    @pytest.mark.parametrize("n_samples", [128, 256, 1024])
+    def test_wpli_band_without_bins_is_rejected_not_zero(self):
+        """n=128 gives nperseg=16 (62.5 Hz bins): no bin in 10-40 Hz. This returned 0.0."""
+        x, y = self._independent(128)
+        with pytest.raises(ValueError, match="contains no bin"):
+            jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+
+    @pytest.mark.parametrize("n_samples", [256, 1024])
     def test_wpli_does_not_report_unity_for_independent_signals(self, n_samples):
         x, y = self._independent(n_samples)
         out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))

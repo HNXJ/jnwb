@@ -24,6 +24,11 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 
 from ._backend import resolve_device
+from .spectral import (
+    MIN_COHERENCE_NPERSEG,
+    _require_identifiable_segmentation,
+    _wpli_from_cross_spectra,
+)
 
 log = logging.getLogger(__name__)
 
@@ -1331,7 +1336,7 @@ class ZFlipResult:
 
     Attributes:
         adjacent_wpli: 1D array of shape (n_channels - 1,) containing the weighted
-            Phase Lag Index between adjacent contacts.
+            Phase Lag Index between adjacent contacts; NaN when not computed.
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
             Positive indicates contact i leads contact i+1. Non-identifiable pairs
@@ -1341,7 +1346,7 @@ class ZFlipResult:
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
             unwrapping unambiguous interval).
-        mean_wpli: Average wPLI across adjacent contacts.
+        mean_wpli: Average wPLI across adjacent contacts; NaN when not computed.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
             under the fitted linear model (v = pitch_m / tau_per_channel), or None if
             unidentifiable or pitch_um was not provided.
@@ -1353,9 +1358,11 @@ class ZFlipResult:
             - "unidentifiable" (delay identifiability criteria not satisfied)
         delay_identifiable: Boolean indicating whether the phase-frequency relationship
             satisfies the identifiability gate across contacts.
-        p_value: Non-parametric surrogate p-value against zero-lag / phase-scrambled null.
-        accepted: Boolean flag indicating statistical significance (p <= alpha),
-            sufficient coupling (mean_wpli >= min_wpli), and identifiable delay.
+        p_value: Surrogate p-value against the per-channel phase-randomised null, or NaN
+            when the test was not performed (``n_surrogates=0``).
+        accepted: True only if the surrogate test was performed and significant
+            (p <= alpha), coupling is sufficient (mean_wpli >= min_wpli), and the delay
+            is identifiable.
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
         n_channels: Number of channels evaluated.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
@@ -1431,16 +1438,28 @@ def zflip(
     1. **Coupling vs. Direction**: wPLI evaluates coupling consistency with reduced
        sensitivity to zero-phase-lag mixing, but is strictly unsigned (:math:`\ge 0`).
        Directionality and delay are derived from the signed phase slope, not wPLI magnitude.
-    2. **Identifiability Criteria**: Delay and apparent velocity are defined only when the
-       unwrapped phase-frequency relation satisfies:
+    2. **Identifiability Criteria**: Delay and apparent velocity are defined only when
+       every adjacent contact pair satisfies:
        - Linear goodness of fit :math:`R^2 \ge \text{min\_linearity\_r2}` (default 0.70).
        - Frequency support :math:`|F| \ge 3` bins within `freq_range`.
-       - Phase delay strictly bounded within the unambiguous interval
-         :math:`|\Delta \tau| < \frac{1}{2 \Delta f}` to prevent phase wrap aliasing.
-       If any contact pair or the spatial gradient fails these criteria, delay and velocity
-       are returned as `NaN` / `None`, and `delay_identifiable = False`.
+       - Estimated delay within the unambiguous interval :math:`|\Delta \tau| < 1 / (2 \Delta f)`.
+         This bounds the estimate, not the true delay: a true delay beyond the interval
+         aliases to a smaller estimate that passes, so this check alone cannot detect
+         wrapping.
+       and the cumulative delay along the shaft is linear in contact index
+       (:math:`R^2 \ge 0.5`). If any pair or the spatial fit fails, delay and velocity
+       are returned as `NaN` / `None`, and `delay_identifiable = False`. The thresholds
+       (0.70, 0.5) are model choices, not derived constants.
     3. **Apparent Velocity**: Reported strictly as *apparent phase-delay velocity under the
        fitted linear model* (:math:`v = \Delta z / \Delta \tau`), not unconditional physical velocity.
+    4. **What the delay measures**: :math:`\Delta \tau` is the slope of the phase of the
+       segment-averaged cross-spectrum, which is a group delay; it equals the phase delay
+       only when the delay does not vary with frequency. Unlike wPLI, that phase is NOT
+       insensitive to zero-lag mixing: a zero-lag component shared by adjacent contacts
+       pulls the estimate toward 0 (equal-power mixing halves it), and superposed waves
+       travelling in opposite directions pull it toward the stronger one. Either can
+       still pass every gate, so an accepted delay is an apparent delay under the
+       single-wave model.
 
     Args:
         lfp_matrix: 2D array of shape `(n_channels, n_samples)` ordered along the probe shaft.
@@ -1449,19 +1468,26 @@ def zflip(
         fs: Sampling frequency in Hz (must be strictly positive).
         freq_range: `(min_freq, max_freq)` in Hz over which the linear phase slope is fitted.
         pitch_um: Inter-contact spacing along the shaft in micrometers (optional).
-        nperseg: Welch segment length for STFT; defaults to `min(n_samples, 256)`.
+        nperseg: Welch segment length for STFT; defaults to ``min(max(N // 2, 8), 256)``,
+            which keeps at least 2 segments so adjacent wPLI is identifiable.
         noverlap: Segment overlap; defaults to `nperseg // 2`.
         min_linearity_r2: Minimum :math:`R^2` threshold for unwrapped phase linearity (default 0.70).
         min_wpli: Minimum average adjacent wPLI required for acceptance (default 0.15).
-        n_surrogates: Number of Fourier phase-scrambled or time-shifted surrogates (default 50).
-        alpha: Significance threshold for rejection of the zero-lag/independent null (default 0.05).
+        n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
+            ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
+            attainable p-value is ``1 / (n_surrogates + 1)``.
+        alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
+            (default 0.05).
         seed: Random seed or Generator for surrogate evaluation.
 
     Returns:
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
 
     Raises:
-        ValueError: If input is not a 2D array of at least 3 channels, or `fs <= 0`.
+        ValueError: If input is not a finite 2D array of at least 3 channels, `fs <= 0`,
+            `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
+            `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
+            fewer than 2 segments.
     """
     lfp = np.asarray(lfp_matrix, dtype=float)
     if lfp.ndim != 2:
@@ -1475,11 +1501,31 @@ def zflip(
         raise ValueError(f"fs must be strictly positive and finite; got {fs}.")
     if pitch_um is not None and (pitch_um <= 0 or not np.isfinite(pitch_um)):
         raise ValueError(f"pitch_um must be strictly positive if provided; got {pitch_um}.")
+    if not np.all(np.isfinite(lfp)):
+        raise ValueError(
+            "zflip requires finite input; NaN or Inf in any contact propagates into every "
+            "segment that contains it. Remove or repair those samples first."
+        )
+    lo, hi = float(freq_range[0]), float(freq_range[1])
+    if not (np.isfinite(lo) and np.isfinite(hi) and 0.0 <= lo < hi):
+        raise ValueError(f"freq_range must be an increasing non-negative pair; got {freq_range}.")
+    if not (0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
+    if int(n_surrogates) != n_surrogates or n_surrogates < 0:
+        raise ValueError(f"n_surrogates must be a non-negative integer; got {n_surrogates}.")
+    n_surrogates = int(n_surrogates)
+    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli)):
+        if not (0.0 <= value <= 1.0):
+            raise ValueError(f"{name} must lie in [0, 1]; got {value}.")
 
     if nperseg is None:
-        nperseg = min(n_samples, 256)
+        # n // 2 rather than the coherence family's n // 8: the phase slope needs >= 3 bins
+        # inside a narrow band, so segment length is kept. Unchanged for n >= 512.
+        nperseg = min(max(n_samples // 2, MIN_COHERENCE_NPERSEG), 256)
     if noverlap is None:
         noverlap = nperseg // 2
+    # One segment saturates wPLI at 1.0 for any input, which would make min_wpli inert.
+    _require_identifiable_segmentation(n_samples, nperseg, noverlap, "zflip", "adjacent wPLI")
 
     # Multi-channel STFT: (n_channels, n_freqs, n_segments)
     freqs, _, Z = signal.stft(
@@ -1490,11 +1536,11 @@ def zflip(
     n_freq_bins = int(np.sum(mask))
     if n_freq_bins < 3:
         return ZFlipResult(
-            adjacent_wpli=np.zeros(n_channels - 1),
+            adjacent_wpli=np.full(n_channels - 1, np.nan),
             adjacent_delays_s=np.full(n_channels - 1, np.nan),
-            adjacent_linearity_r2=np.zeros(n_channels - 1),
+            adjacent_linearity_r2=np.full(n_channels - 1, np.nan),
             adjacent_identifiable=np.zeros(n_channels - 1, dtype=bool),
-            mean_wpli=0.0,
+            mean_wpli=float("nan"),
             apparent_velocity_m_s=None,
             tau_per_channel_s=float("nan"),
             directionality="unidentifiable",
@@ -1518,12 +1564,7 @@ def zflip(
     for i in range(n_channels - 1):
         # S_{i, i+1, k} = conj(Z[i]) * Z[i+1]
         Sxy = np.conj(Z[i]) * Z[i + 1]  # (n_freqs, n_segments)
-        I = np.imag(Sxy)
-        I = np.where(np.abs(I) < 1e-12, 0.0, I)
-
-        sum_I = np.sum(I, axis=1)
-        sum_abs_I = np.sum(np.abs(I), axis=1)
-        w_f = np.divide(np.abs(sum_I), sum_abs_I, out=np.zeros_like(sum_I), where=sum_abs_I > 1e-12)
+        w_f, _ = _wpli_from_cross_spectra(Sxy)
         adj_wpli[i] = float(np.mean(w_f[mask]))
 
         # Phase slope from average cross-spectrum across segments
@@ -1542,9 +1583,11 @@ def zflip(
 
     mean_wpli_val = float(np.mean(adj_wpli))
 
-    # Identifiability gate: require majority (>50%) of adjacent contacts to be identifiable
-    n_ident = int(np.sum(adj_identifiable))
-    delay_identifiable = bool(n_ident >= max(1, (n_channels - 1) // 2))
+    # Every adjacent pair must be identifiable. The cumulative delay sums all pairs, so a
+    # non-identifiable pair's delay would enter the spatial fit: one incoherent contact
+    # biased 12-contact estimates by ~16%, and on 3 contacts a single identifiable pair
+    # was accepted with the wrong sign.
+    delay_identifiable = bool(np.all(adj_identifiable))
 
     if delay_identifiable:
         # Cumulative phase delay along the array
@@ -1561,14 +1604,16 @@ def zflip(
             apparent_velocity = None
             directionality = "unidentifiable"
         else:
-            if tau_per_channel > 1e-6:
+            if tau_per_channel > 0:
                 directionality = "superficial_to_deep"
-            elif tau_per_channel < -1e-6:
+            elif tau_per_channel < 0:
                 directionality = "deep_to_superficial"
             else:
+                delay_identifiable = False
+                tau_per_channel = float("nan")
                 directionality = "unidentifiable"
 
-            if pitch_um is not None and abs(tau_per_channel) > 1e-9:
+            if pitch_um is not None and np.isfinite(tau_per_channel):
                 pitch_m = float(pitch_um) * 1e-6
                 apparent_velocity = float(abs(pitch_m / tau_per_channel))
             else:
@@ -1590,23 +1635,21 @@ def zflip(
             )
             surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
             for i in range(n_channels - 1):
-                S_s = np.conj(Z_surr[i]) * Z_surr[i + 1]
-                I_s = np.imag(S_s)
-                I_s = np.where(np.abs(I_s) < 1e-12, 0.0, I_s)
-                s_I = np.sum(I_s, axis=1)
-                s_abs = np.sum(np.abs(I_s), axis=1)
-                w_s = np.divide(np.abs(s_I), s_abs, out=np.zeros_like(s_I), where=s_abs > 1e-12)
+                w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
                 surr_adj_wpli[i] = float(np.mean(w_s[mask]))
             if np.mean(surr_adj_wpli) >= mean_wpli_val:
                 exceed_count += 1
         p_val = float((1 + exceed_count) / (1 + n_surrogates))
 
-    is_sig = (p_val <= alpha) if np.isfinite(p_val) else True
+    # No test performed means no inferential acceptance.
+    is_sig = bool(np.isfinite(p_val) and p_val <= alpha)
     has_coupling = (mean_wpli_val >= min_wpli)
     accepted = bool(is_sig and has_coupling and delay_identifiable)
 
     reasons: List[str] = []
-    if not is_sig:
+    if n_surrogates == 0:
+        reasons.append("Surrogate test not performed (n_surrogates=0)")
+    elif not is_sig:
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
     if not has_coupling:
         reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")

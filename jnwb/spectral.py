@@ -37,6 +37,65 @@ def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None
         )
 
 
+def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
+    """Reject paired traces from which no cross-spectrum can be estimated.
+
+    An empty pair used to return 0.0, and a NaN sample made every wPLI term NaN, which the
+    zero-denominator guard then reported as 0.0. Both read as "no coupling".
+    """
+    if len(x) == 0:
+        raise ValueError(f"{func_name}: x and y are empty; there is nothing to estimate.")
+    if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+        raise ValueError(
+            f"{func_name}: x and y must be finite. A NaN or Inf sample propagates into "
+            "every segment that contains it; remove or repair those samples first."
+        )
+
+
+def _require_band_bins(
+    freqs: np.ndarray, mask: np.ndarray, freq_range: Tuple[float, float], func_name: str
+) -> None:
+    """Reject a frequency range that selects no bin of the segment grid."""
+    if not np.any(mask):
+        step = float(freqs[1] - freqs[0]) if len(freqs) > 1 else float("nan")
+        raise ValueError(
+            f"{func_name}: freq_range {tuple(freq_range)} contains no bin of the "
+            f"frequency grid (0 to {float(freqs[-1]):g} Hz in steps of {step:g} Hz). "
+            "Widen freq_range or lengthen nperseg."
+        )
+
+
+#: Imaginary cross-spectral terms below this fraction of their cross-spectral magnitude are
+#: treated as exactly zero-lag (a phase within 1e-10 rad of 0 or pi). The cutoff is
+#: relative so wPLI does not depend on the units of the input: the absolute 1e-12 it
+#: replaces zeroed every term of volt-scaled LFP and reported wPLI = 0 for coupled signals.
+ZERO_LAG_RTOL = 1e-10
+
+
+def _wpli_from_cross_spectra(Sxy, xp=np):
+    """Per-frequency wPLI and debiased squared wPLI from segment cross-spectra.
+
+    ``Sxy`` has shape ``(n_freqs, n_segments)``; ``xp`` is ``numpy`` or ``cupy``. A
+    frequency with no non-zero-lag term (every imaginary part zero) reports 0 for both,
+    the zero-lag convention; the debiased estimate also reports 0 when fewer than two
+    terms are non-zero, where it is undefined.
+    """
+    imag = xp.imag(Sxy)
+    imag = xp.where(xp.abs(imag) <= ZERO_LAG_RTOL * xp.abs(Sxy), 0.0, imag)
+    sum_imag = xp.sum(imag, axis=1)
+    sum_abs = xp.sum(xp.abs(imag), axis=1)
+    sum_sq = xp.sum(imag ** 2, axis=1)
+
+    has_lag = sum_abs > 0
+    wpli_f = xp.where(has_lag, xp.abs(sum_imag) / xp.where(has_lag, sum_abs, 1.0), 0.0)
+
+    num_deb = sum_imag ** 2 - sum_sq
+    den_deb = sum_abs ** 2 - sum_sq
+    has_pairs = den_deb > ZERO_LAG_RTOL * sum_abs ** 2
+    deb_f = xp.where(has_pairs, num_deb / xp.where(has_pairs, den_deb, 1.0), 0.0)
+    return wpli_f, deb_f
+
+
 def _require_identifiable_segmentation(
     n_samples: int, nperseg: int, noverlap: int, func_name: str, quantity: str
 ) -> int:
@@ -1294,6 +1353,10 @@ def imaginary_coherency(
             coherence is dominated by zero-lag (volume-conduction-like) mixing.
           - ``n_freqs``: number of frequency bins averaged.
 
+    Raises:
+        ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
+            yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
+
     Validated against synthetic cases in scripts/validate_imaginary_coherency.py:
     a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
     near zero; a genuinely lagged shared source drives both up.
@@ -1308,9 +1371,8 @@ def imaginary_coherency(
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
+    _require_finite_nonempty_pair(x, y, "imaginary_coherency")
     n = len(x)
-    if n == 0:
-        return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
 
     if nperseg is None:
         nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 1024)
@@ -1318,11 +1380,12 @@ def imaginary_coherency(
         noverlap = nperseg // 2
     _require_identifiable_segmentation(n, nperseg, noverlap, "imaginary_coherency", "coh_mag_mean")
 
+    device = resolve_device(device, context="imaginary_coherency", prefer="cupy", stacklevel=3)
     if device == 'cuda':
         try:
             freqs, pxx, pyy, sxy = _welch_csd_gpu(x, y, fs, nperseg, noverlap)
         except Exception as e:
-            log.warning(f"GPU coherency failed: {e}. Falling back to CPU.")
+            warn_device_fallback("imaginary_coherency", e)
             device = 'cpu'
     if device != 'cuda':
         freqs, pxx = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
@@ -1330,8 +1393,7 @@ def imaginary_coherency(
         _, sxy = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
-    if not np.any(mask):
-        return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
+    _require_band_bins(freqs, mask, freq_range, "imaginary_coherency")
 
     denom = np.sqrt(np.clip(pxx[mask] * pyy[mask], 1e-30, None))
     coherency = sxy[mask] / denom
@@ -1383,7 +1445,8 @@ def wpli(
         nperseg: Welch segment length; defaults to ``min(max(N // 8, 8), 256)``, which
             keeps at least 2 segments so the ratio is identifiable.
         noverlap: Welch segment overlap; defaults to `nperseg // 2`.
-        device: `'cpu'` or `'cuda'` (GPU acceleration via CuPy).
+        device: `'cpu'` or `'cuda'` (CuPy). A CUDA failure recomputes on CPU and emits a
+            RuntimeWarning.
 
     Returns:
         Dict with:
@@ -1394,6 +1457,13 @@ def wpli(
         - ``n_segments``: Number of Welch segments evaluated.
         - ``n_freqs``: Number of frequency bins within `freq_range`.
 
+        A frequency whose segment cross-spectra are all exactly zero-lag reports 0. The
+        estimate does not depend on the amplitude units of `x` and `y`.
+
+    Raises:
+        ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
+            yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
+
     References:
         Vinck, M., et al. (2011). An improved index of phase-synchronization for
         electrophysiological data in the presence of volume-conduction, noise and
@@ -1403,16 +1473,8 @@ def wpli(
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "wpli")
+    _require_finite_nonempty_pair(x, y, "wpli")
     n = len(x)
-    if n == 0:
-        return {
-            "wpli": 0.0,
-            "wpli_debiased_sq": 0.0,
-            "freqs": np.array([], dtype=float),
-            "wpli_spectrum": np.array([], dtype=float),
-            "n_segments": 0,
-            "n_freqs": 0,
-        }
 
     if nperseg is None:
         nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 256)
@@ -1420,43 +1482,28 @@ def wpli(
         noverlap = nperseg // 2
     _require_identifiable_segmentation(n, nperseg, noverlap, "wpli", "wpli")
 
+    device = resolve_device(device, context="wpli", prefer="cupy", stacklevel=3)
     if device == "cuda":
         try:
             import cupy as cp
-            # Use GPU if available
+            from scipy import fft as sp_fft
+
             x_g = cp.asarray(x, dtype=cp.float64)
             y_g = cp.asarray(y, dtype=cp.float64)
-            step = max(1, nperseg - noverlap)
-            # Window
+            n_segments = welch_segment_count(n, nperseg, noverlap)
+            starts = cp.arange(n_segments) * (nperseg - noverlap)
+            index = starts[:, None] + cp.arange(nperseg)[None, :]
+            # Periodic Hann and no detrending, as scipy.signal.stft on the CPU path.
             window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
-            segs_x, segs_y = [], []
-            start = 0
-            while start + nperseg <= n:
-                sx = x_g[start:start+nperseg] - cp.mean(x_g[start:start+nperseg])
-                sy = y_g[start:start+nperseg] - cp.mean(y_g[start:start+nperseg])
-                segs_x.append(sx * window)
-                segs_y.append(sy * window)
-                start += step
-            if not segs_x:
-                raise ValueError(f"nperseg={nperseg} exceeds data length={n}")
-            X_fft = cp.fft.rfft(cp.stack(segs_x), axis=-1)  # (n_seg, n_freqs)
-            Y_fft = cp.fft.rfft(cp.stack(segs_y), axis=-1)
-            Sxy = cp.conj(X_fft) * Y_fft
-            I = cp.imag(Sxy).T  # (n_freqs, n_seg)
-            I = cp.where(cp.abs(I) < 1e-12, 0.0, I)
-            sum_I = cp.sum(I, axis=1)
-            sum_abs_I = cp.sum(cp.abs(I), axis=1)
-            w_f = cp.divide(cp.abs(sum_I), sum_abs_I, out=cp.zeros_like(sum_I), where=sum_abs_I > 1e-12)
-            sum_I_sq = cp.sum(I**2, axis=1)
-            num_deb = (sum_I**2) - sum_I_sq
-            den_deb = (sum_abs_I**2) - sum_I_sq
-            w_deb_sq_f = cp.divide(num_deb, den_deb, out=cp.zeros_like(num_deb), where=den_deb > 1e-12)
-            freqs = cp.fft.rfftfreq(nperseg, d=1.0 / fs).get()
+            X_fft = cp.fft.rfft(x_g[index] * window, axis=-1)  # (n_seg, n_freqs)
+            Y_fft = cp.fft.rfft(y_g[index] * window, axis=-1)
+            w_f, w_deb_sq_f = _wpli_from_cross_spectra((cp.conj(X_fft) * Y_fft).T, xp=cp)
+            # The CPU grid, so both devices select the same bins at a band edge.
+            freqs = sp_fft.rfftfreq(nperseg, 1.0 / fs)
             w_f = w_f.get()
             w_deb_sq_f = w_deb_sq_f.get()
-            n_segments = len(segs_x)
         except Exception as e:
-            log.warning(f"GPU wPLI failed: {e}. Falling back to CPU.")
+            warn_device_fallback("wpli", e)
             device = "cpu"
 
     if device != "cuda":
@@ -1467,23 +1514,13 @@ def wpli(
         _, _, Zy = signal.stft(
             y, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False
         )
-        Sxy = np.conj(Zx) * Zy  # (n_freqs, n_segments)
-        I = np.imag(Sxy)
-        I = np.where(np.abs(I) < 1e-12, 0.0, I)
-
-        sum_I = np.sum(I, axis=1)
-        sum_abs_I = np.sum(np.abs(I), axis=1)
-        w_f = np.divide(np.abs(sum_I), sum_abs_I, out=np.zeros_like(sum_I), where=sum_abs_I > 1e-12)
-
-        sum_I_sq = np.sum(I**2, axis=1)
-        num_deb = (sum_I**2) - sum_I_sq
-        den_deb = (sum_abs_I**2) - sum_I_sq
-        w_deb_sq_f = np.divide(num_deb, den_deb, out=np.zeros_like(num_deb), where=den_deb > 1e-12)
+        w_f, w_deb_sq_f = _wpli_from_cross_spectra(np.conj(Zx) * Zy)  # (n_freqs, n_segments)
         n_segments = Zx.shape[1]
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
-    wpli_val = float(np.mean(w_f[mask])) if np.any(mask) else 0.0
-    wpli_deb_sq_val = float(np.mean(w_deb_sq_f[mask])) if np.any(mask) else 0.0
+    _require_band_bins(freqs, mask, freq_range, "wpli")
+    wpli_val = float(np.mean(w_f[mask]))
+    wpli_deb_sq_val = float(np.mean(w_deb_sq_f[mask]))
 
     return {
         "wpli": wpli_val,
