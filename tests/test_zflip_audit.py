@@ -204,3 +204,100 @@ class TestUnavailableStates:
         res = jnwb.zflip(lfp, fs=FS, freq_range=BAND, n_surrogates=19, seed=0)
         assert res.mean_wpli < 0.999
         assert not res.accepted
+
+
+class TestSignConventionFromGroundTruth:
+    """The sign convention is established from constructed truth, not from the code.
+
+    Every test above survives a globally inverted convention: reversing the contact
+    order flips the label either way, and the velocity magnitude is unsigned. These
+    pin the absolute direction, the slope formula, and the fact that a wPLI magnitude
+    never decides a signed direction.
+    """
+
+    @staticmethod
+    def _variable_length_wave(n_samples, dt=DT, n_channels=6, seed=0, noise=0.05):
+        rng = np.random.default_rng(seed + 2000)
+        source = _source(seed, n=n_samples)
+        spectrum = np.fft.rfft(source)
+        freqs = np.fft.rfftfreq(n_samples, d=1.0 / FS)
+        return np.array([
+            np.fft.irfft(spectrum * np.exp(-2j * np.pi * freqs * (c * dt)), n=n_samples)
+            + noise * rng.normal(size=n_samples)
+            for c in range(n_channels)
+        ])
+
+    def test_reported_direction_matches_the_constructed_direction(self, wave):
+        """Contact c lags c-1 by dt > 0, so the wave runs toward increasing index."""
+        result = _zflip(wave)
+        assert result.delay_identifiable
+        assert result.tau_per_channel_s > 0
+        assert result.directionality == "superficial_to_deep"
+
+    def test_phase_slope_convention_matches_an_independent_oracle(self, wave):
+        """tau = -(1/2pi) d(phase)/df for the cross-spectrum conj(X_c) X_{c+1}."""
+        freqs, _, spectra = signal.stft(
+            wave, fs=FS, nperseg=256, noverlap=128, boundary=None, padded=False, axis=-1
+        )
+        band = (freqs >= BAND[0]) & (freqs <= BAND[1])
+        cross = (np.conj(spectra[0]) * spectra[1]).mean(axis=-1)[band]
+        slope = np.polyfit(freqs[band], np.unwrap(np.angle(cross)), 1)[0]
+        oracle_tau = -slope / (2.0 * np.pi)
+
+        assert oracle_tau == pytest.approx(DT, rel=0.10)
+        assert float(np.asarray(_zflip(wave).adjacent_delays_s)[0]) == pytest.approx(
+            oracle_tau, rel=0.10
+        )
+
+    @pytest.mark.parametrize("dt_ms", [0.25, 0.5, 1.0, 2.0])
+    def test_the_estimate_tracks_the_constructed_delay_across_its_range(self, dt_ms):
+        """A constant scale error passes a single-delay check; this does not."""
+        result = _zflip(_wave(dt=dt_ms / 1000.0))
+        assert result.tau_per_channel_s * 1e3 == pytest.approx(dt_ms, rel=0.08)
+        assert result.apparent_velocity_m_s == pytest.approx(
+            (PITCH_UM * 1e-6) / (dt_ms / 1000.0), rel=0.08
+        )
+
+    def test_velocity_is_unsigned_while_the_delay_carries_the_sign(self, wave):
+        forward, reverse = _zflip(wave), _zflip(wave[::-1])
+        assert forward.apparent_velocity_m_s == pytest.approx(
+            reverse.apparent_velocity_m_s, rel=1e-6
+        )
+        assert np.sign(forward.tau_per_channel_s) == -np.sign(reverse.tau_per_channel_s)
+
+    def test_wpli_magnitude_does_not_decide_the_direction(self, wave):
+        """Same coupling strength, opposite travel: only the phase slope may differ."""
+        forward, reverse = _zflip(wave), _zflip(wave[::-1])
+        assert forward.mean_wpli == pytest.approx(reverse.mean_wpli, rel=1e-6)
+        assert forward.directionality != reverse.directionality
+        assert {forward.directionality, reverse.directionality} == {
+            "superficial_to_deep",
+            "deep_to_superficial",
+        }
+
+    @pytest.mark.parametrize("n_samples", [256, 512, 2048, 40000])
+    def test_a_clean_wave_is_detected_at_every_supported_length(self, n_samples):
+        """The N // 2 default keeps enough bins in the fit band at short lengths.
+
+        Under the coherence family's N // 8 the same wave is rejected at N = 256 and
+        N = 512 (32 and 64 samples per segment leave under three bins in 15-35 Hz);
+        at N >= 1024 the two rules agree. That is why zflip does not share it.
+        """
+        result = _zflip(self._variable_length_wave(n_samples, noise=0.005))
+        assert result.accepted
+        assert result.tau_per_channel_s > 0
+        assert result.directionality == "superficial_to_deep"
+
+    @pytest.mark.parametrize("n_samples", [256, 512])
+    def test_a_short_noisy_wave_is_declined_rather_than_mis_directed(self, n_samples):
+        """0.25-0.5 s at 5% noise does not support a linear phase fit: adjacent R^2
+        scatters from 0.05 to 0.98. The estimator must decline, not guess a sign."""
+        result = _zflip(self._variable_length_wave(n_samples, noise=0.05))
+        assert not result.accepted
+        assert result.directionality == "unidentifiable"
+        assert np.isnan(result.tau_per_channel_s)
+
+    def test_a_constant_recording_is_not_given_a_direction(self):
+        result = _zflip(np.zeros((6, 8192)))
+        assert not result.accepted
+        assert result.directionality == "unidentifiable"
