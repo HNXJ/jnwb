@@ -84,6 +84,26 @@
     "peak_mb": 8.186768531799316,
     "scale": "20 trials x 8 ch x 25 freqs x 200 time"
   },
+  "wpli": {
+    "time_ms": 2.081566684258481,
+    "peak_mb": 0.24424362182617188,
+    "scale": "2 traces x 4000 samples, Welch STFT"
+  },
+  "zflip": {
+    "time_ms": 419.1072000345836,
+    "peak_mb": 4.657718340555827,
+    "scale": "16 channels x 4000 samples, 50 surrogates"
+  },
+  "rdm_condensed": {
+    "time_ms": 0.25676668155938387,
+    "peak_mb": 0.08847999572753906,
+    "scale": "50 conditions x 100 features, condensed"
+  },
+  "rdm_similarity": {
+    "time_ms": 1.7304333159700036,
+    "peak_mb": 0.1263891855875651,
+    "scale": "1,225 pairwise distances, Spearman rho"
+  },
   "_provenance": {
     "python_version": "Python 3.12.0 (Windows x86_64)",
     "hardware": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz (12 cores, 24 threads), 64 GB RAM, NVMe SSD storage, Windows 11 x86_64",

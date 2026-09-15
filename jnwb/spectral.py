@@ -1197,6 +1197,153 @@ def imaginary_coherency(
     }
 
 
+def wpli(
+    x: np.ndarray,
+    y: np.ndarray,
+    fs: Optional[float] = None,
+    sampling_rate: Optional[float] = None,
+    freq_range: Tuple[float, float] = (1.0, 90.0),
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    r"""Weighted Phase Lag Index (wPLI) between two continuous signals.
+
+    wPLI (Vinck et al., 2011) evaluates the consistency of non-zero-phase-lag coupling
+    between two signals by weighting phase leads and lags by the magnitude of the
+    imaginary cross-spectrum across segments:
+
+    .. math::
+        \text{wPLI}(f) = \frac{|\sum_k \text{Im}(S_{xy, k}(f))|}{\sum_k |\text{Im}(S_{xy, k}(f))|}
+
+    By weighting solely by the imaginary component of the cross-spectral density,
+    wPLI reduces sensitivity specifically to zero-phase-lag coupling (such as
+    instantaneous volume conduction or shared-reference contamination). It does not
+    confer immunity to volume conduction, non-zero-lag common inputs, source mixing,
+    or reference-induced phase structure.
+
+    wPLI magnitude is strictly unsigned (:math:`\ge 0`) and measures coupling
+    consistency, not directional propagation. To infer lead/lag directionality or
+    delay, see :func:`jnwb.phase_slope_index` or :func:`jnwb.zflip`.
+
+    Args:
+        x, y: 1D time series of equal length.
+        fs: Sampling frequency in Hz (canonical).
+        sampling_rate: Supported alias for `fs` in Hz.
+        freq_range: `(min_freq, max_freq)` in Hz to average wPLI over.
+        nperseg: Welch segment length; defaults to `min(len(x), 256)`.
+        noverlap: Welch segment overlap; defaults to `nperseg // 2`.
+        device: `'cpu'` or `'cuda'` (GPU acceleration via CuPy).
+
+    Returns:
+        Dict with:
+        - ``wpli``: Float average of standard wPLI across `freq_range`.
+        - ``wpli_debiased_sq``: Float average of debiased squared wPLI across `freq_range`.
+        - ``freqs``: 1D array of frequency bins.
+        - ``wpli_spectrum``: 1D array of standard wPLI across all frequencies.
+        - ``n_segments``: Number of Welch segments evaluated.
+        - ``n_freqs``: Number of frequency bins within `freq_range`.
+
+    References:
+        Vinck, M., et al. (2011). An improved index of phase-synchronization for
+        electrophysiological data in the presence of volume-conduction, noise and
+        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055
+    """
+    fs = _resolve_fs(fs, sampling_rate, "wpli")
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    n = min(len(x), len(y))
+    if n == 0:
+        return {
+            "wpli": 0.0,
+            "wpli_debiased_sq": 0.0,
+            "freqs": np.array([], dtype=float),
+            "wpli_spectrum": np.array([], dtype=float),
+            "n_segments": 0,
+            "n_freqs": 0,
+        }
+    x, y = x[:n], y[:n]
+
+    if nperseg is None:
+        nperseg = min(n, 256)
+    if noverlap is None:
+        noverlap = nperseg // 2
+
+    if device == "cuda":
+        try:
+            import cupy as cp
+            # Use GPU if available
+            x_g = cp.asarray(x, dtype=cp.float64)
+            y_g = cp.asarray(y, dtype=cp.float64)
+            step = max(1, nperseg - noverlap)
+            # Window
+            window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
+            segs_x, segs_y = [], []
+            start = 0
+            while start + nperseg <= n:
+                sx = x_g[start:start+nperseg] - cp.mean(x_g[start:start+nperseg])
+                sy = y_g[start:start+nperseg] - cp.mean(y_g[start:start+nperseg])
+                segs_x.append(sx * window)
+                segs_y.append(sy * window)
+                start += step
+            if not segs_x:
+                raise ValueError(f"nperseg={nperseg} exceeds data length={n}")
+            X_fft = cp.fft.rfft(cp.stack(segs_x), axis=-1)  # (n_seg, n_freqs)
+            Y_fft = cp.fft.rfft(cp.stack(segs_y), axis=-1)
+            Sxy = cp.conj(X_fft) * Y_fft
+            I = cp.imag(Sxy).T  # (n_freqs, n_seg)
+            I = cp.where(cp.abs(I) < 1e-12, 0.0, I)
+            sum_I = cp.sum(I, axis=1)
+            sum_abs_I = cp.sum(cp.abs(I), axis=1)
+            w_f = cp.divide(cp.abs(sum_I), sum_abs_I, out=cp.zeros_like(sum_I), where=sum_abs_I > 1e-12)
+            sum_I_sq = cp.sum(I**2, axis=1)
+            num_deb = (sum_I**2) - sum_I_sq
+            den_deb = (sum_abs_I**2) - sum_I_sq
+            w_deb_sq_f = cp.divide(num_deb, den_deb, out=cp.zeros_like(num_deb), where=den_deb > 1e-12)
+            freqs = cp.fft.rfftfreq(nperseg, d=1.0 / fs).get()
+            w_f = w_f.get()
+            w_deb_sq_f = w_deb_sq_f.get()
+            n_segments = len(segs_x)
+        except Exception as e:
+            log.warning(f"GPU wPLI failed: {e}. Falling back to CPU.")
+            device = "cpu"
+
+    if device != "cuda":
+        # CPU STFT
+        freqs, _, Zx = signal.stft(
+            x, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False
+        )
+        _, _, Zy = signal.stft(
+            y, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False
+        )
+        Sxy = np.conj(Zx) * Zy  # (n_freqs, n_segments)
+        I = np.imag(Sxy)
+        I = np.where(np.abs(I) < 1e-12, 0.0, I)
+
+        sum_I = np.sum(I, axis=1)
+        sum_abs_I = np.sum(np.abs(I), axis=1)
+        w_f = np.divide(np.abs(sum_I), sum_abs_I, out=np.zeros_like(sum_I), where=sum_abs_I > 1e-12)
+
+        sum_I_sq = np.sum(I**2, axis=1)
+        num_deb = (sum_I**2) - sum_I_sq
+        den_deb = (sum_abs_I**2) - sum_I_sq
+        w_deb_sq_f = np.divide(num_deb, den_deb, out=np.zeros_like(num_deb), where=den_deb > 1e-12)
+        n_segments = Zx.shape[1]
+
+    mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+    wpli_val = float(np.mean(w_f[mask])) if np.any(mask) else 0.0
+    wpli_deb_sq_val = float(np.mean(w_deb_sq_f[mask])) if np.any(mask) else 0.0
+
+    return {
+        "wpli": wpli_val,
+        "wpli_debiased_sq": wpli_deb_sq_val,
+        "freqs": freqs,
+        "wpli_spectrum": w_f,
+        "n_segments": n_segments,
+        "n_freqs": int(np.sum(mask)),
+    }
+
+
 def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarray] = None) -> np.ndarray:
     """
     Bipolar (adjacent-channel difference) re-reference along a probe's depth order.

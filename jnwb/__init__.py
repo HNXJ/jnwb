@@ -27,9 +27,10 @@ from ._lazy_exports import EXPORT_MODULES, SUBMODULES
 log = logging.getLogger(__name__)
 
 # ============================================================================
-# JRSA: Unified Representational Similarity Analysis
+# JRSA & RSA: Unified Representational Similarity Analysis & RDM Primitives
 # ============================================================================
 from .jrsa import jrsa, JRSAResult
+from .rsa import rdm, rdm_similarity
 
 # Central path resolution (2026-08-08). `jnwb.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
@@ -75,6 +76,8 @@ from .laminar import (
     VFlipResult,
     xflip,
     XFlipResult,
+    zflip,
+    ZFlipResult,
 )
 
 def __getattr__(name: str):
@@ -135,6 +138,7 @@ from .spectral import (
     relative_power,
     RELATIVE_POWER_MODELS,
     imaginary_coherency,
+    wpli,
     bipolar_reference,
     laplacian_reference,
     CANONICAL_BANDS,
@@ -173,9 +177,11 @@ from .spiking import (
 
 # Export main classes and functions
 __all__ = [
-    # JRSA: Unified RSA API
+    # JRSA & RSA
     'jrsa',
     'JRSAResult',
+    'rdm',
+    'rdm_similarity',
 
     # Core ontology objects (immutable, stable)
     'Query',
@@ -233,6 +239,8 @@ __all__ = [
     'VFlipResult',
     'xflip',
     'XFlipResult',
+    'zflip',
+    'ZFlipResult',
 
     # Analyzers
     'TFRAnalyzer',
@@ -310,6 +318,7 @@ __all__ = [
     'relative_power',
     'RELATIVE_POWER_MODELS',
     'imaginary_coherency',
+    'wpli',
     'bipolar_reference',
     'laplacian_reference',
     'CANONICAL_BANDS',

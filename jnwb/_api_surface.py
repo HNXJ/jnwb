@@ -38,6 +38,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "ontology": "public",
     "paths": "public",
     "permutation": "public",
+    "rsa": "public",
     "spiking": "public",
     "spectral": "public",
     "statistics": "public",

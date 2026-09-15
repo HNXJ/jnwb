@@ -1178,15 +1178,12 @@ def _cosine(x1, x2, axis=-1, **kwargs):
 
 
 def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
-    """Representational similarity analysis via condensed RDM correlation (avoiding squareform)."""
+    """Representational similarity analysis via condensed RDM correlation (delegating to jnwb.rsa)."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from scipy.spatial.distance import pdist
-    from scipy.stats import spearmanr
-    # We directly compute pdist which returns the condensed upper-triangular vector representation
-    # This avoids constructing the full square matrix via squareform and slicing.
-    v1 = pdist(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric)
-    v2 = pdist(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric)
-    rho, p = spearmanr(v1, v2)
+    from .rsa import rdm, rdm_similarity
+    v1 = rdm(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric, condensed=True)
+    v2 = rdm(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric, condensed=True)
+    rho, p = rdm_similarity(v1, v2, metric="spearman")
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 
 

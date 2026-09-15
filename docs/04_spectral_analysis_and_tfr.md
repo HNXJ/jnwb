@@ -168,16 +168,28 @@ coh_dict = jnwb.cross_area_coherence(
 # - 'frequencies': np.ndarray
 ```
 
-### Imaginary Coherency (`imaginary_coherency`)
+### Imaginary Coherency & Weighted Phase Lag Index (`imaginary_coherency`, `wpli`)
 
-Computes imaginary coherency to eliminate volume conduction / zero-lag field spread artifacts:
+Measures based on the imaginary cross-spectrum reduce sensitivity specifically to zero-phase-lag
+coupling (instantaneous volume conduction, shared reference contamination). They do not confer
+immunity to non-zero-lag common inputs, source mixing, or reference-induced phase structure.
 
 ```python
+# Imaginary coherency (Nolte et al. 2004)
 imag_coh = jnwb.imaginary_coherency(
     lfp_area1,
     lfp_area2,
     fs=1000.0,
-    freq_range=(15.0, 30.0)
+    freq_range=(15.0, 30.0),
+)
+
+# Weighted Phase Lag Index (Vinck et al. 2011)
+# Returns standard wPLI, debiased squared wPLI, and spectrum across segments
+wpli_res = jnwb.wpli(
+    lfp_area1,
+    lfp_area2,
+    fs=1000.0,
+    freq_range=(15.0, 30.0),
 )
 ```
 

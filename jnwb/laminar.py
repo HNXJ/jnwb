@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from scipy import signal
+from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
@@ -1320,6 +1320,322 @@ def xflip(
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
     )
+
+
+@dataclass(frozen=True)
+class ZFlipResult:
+    """Container for zFLIP Cortical Depth Phase-Gradient & Delay Estimation results.
+
+    zFLIP estimates laminar phase slope and propagation latency across ordered
+    electrode contacts along a linear probe shaft.
+
+    Attributes:
+        adjacent_wpli: 1D array of shape (n_channels - 1,) containing the weighted
+            Phase Lag Index between adjacent contacts.
+        adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
+            estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
+            Positive indicates contact i leads contact i+1. Non-identifiable pairs
+            are reported as NaN.
+        adjacent_linearity_r2: 1D array of shape (n_channels - 1,) containing the
+            coefficient of determination R^2 of the unwrapped phase-frequency linear fit.
+        adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
+            which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
+            unwrapping unambiguous interval).
+        mean_wpli: Average wPLI across adjacent contacts.
+        apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
+            under the fitted linear model (v = pitch_m / tau_per_channel), or None if
+            unidentifiable or pitch_um was not provided.
+        tau_per_channel_s: Spatial delay gradient in seconds per contact (positive means
+            superficial leads deep in input order), or NaN if unidentifiable.
+        directionality: String classifying propagation direction:
+            - "superficial_to_deep" (tau_per_channel_s > 0)
+            - "deep_to_superficial" (tau_per_channel_s < 0)
+            - "unidentifiable" (delay identifiability criteria not satisfied)
+        delay_identifiable: Boolean indicating whether the phase-frequency relationship
+            satisfies the identifiability gate across contacts.
+        p_value: Non-parametric surrogate p-value against zero-lag / phase-scrambled null.
+        accepted: Boolean flag indicating statistical significance (p <= alpha),
+            sufficient coupling (mean_wpli >= min_wpli), and identifiable delay.
+        rejection_reason: Diagnostic string explaining rejection, or None if accepted.
+        n_channels: Number of channels evaluated.
+        pitch_um: Inter-contact spacing in micrometers, if supplied.
+    """
+
+    adjacent_wpli: np.ndarray
+    adjacent_delays_s: np.ndarray
+    adjacent_linearity_r2: np.ndarray
+    adjacent_identifiable: np.ndarray
+    mean_wpli: float
+    apparent_velocity_m_s: Optional[float]
+    tau_per_channel_s: float
+    directionality: str
+    delay_identifiable: bool
+    p_value: float
+    accepted: bool
+    rejection_reason: Optional[str]
+    n_channels: int
+    pitch_um: Optional[float] = None
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert result container to dictionary for serialization."""
+        return {
+            "adjacent_wpli": self.adjacent_wpli.copy(),
+            "adjacent_delays_s": self.adjacent_delays_s.copy(),
+            "adjacent_linearity_r2": self.adjacent_linearity_r2.copy(),
+            "adjacent_identifiable": self.adjacent_identifiable.copy(),
+            "mean_wpli": float(self.mean_wpli),
+            "apparent_velocity_m_s": float(self.apparent_velocity_m_s) if self.apparent_velocity_m_s is not None else None,
+            "tau_per_channel_s": float(self.tau_per_channel_s) if np.isfinite(self.tau_per_channel_s) else np.nan,
+            "directionality": str(self.directionality),
+            "delay_identifiable": bool(self.delay_identifiable),
+            "p_value": float(self.p_value) if np.isfinite(self.p_value) else np.nan,
+            "accepted": bool(self.accepted),
+            "rejection_reason": self.rejection_reason,
+            "n_channels": int(self.n_channels),
+            "pitch_um": float(self.pitch_um) if self.pitch_um is not None else None,
+        }
+
+
+def zflip(
+    lfp_matrix: np.ndarray,
+    fs: float,
+    *,
+    freq_range: Tuple[float, float] = (15.0, 35.0),
+    pitch_um: Optional[float] = None,
+    nperseg: Optional[int] = None,
+    noverlap: Optional[int] = None,
+    min_linearity_r2: float = 0.70,
+    min_wpli: float = 0.15,
+    n_surrogates: int = 50,
+    alpha: float = 0.05,
+    seed: Optional[Union[int, np.random.Generator]] = 0,
+) -> ZFlipResult:
+    r"""Estimate cortical depth phase gradients, propagation delay, and apparent velocity.
+
+    Evaluates phase slopes across ordered laminar contacts. For a true physical delay
+    :math:`\Delta \tau` between contacts :math:`c` and :math:`c+1`, the phase difference
+    is linear across frequency:
+
+    .. math::
+        \Delta \phi(f) = -2\pi \Delta \tau \cdot f
+
+    where :math:`\Delta \tau = -\frac{1}{2\pi} \frac{d\Delta \phi}{df}`.
+
+    Important Epistemic Invariants & Identifiability Gates:
+    1. **Coupling vs. Direction**: wPLI evaluates coupling consistency with reduced
+       sensitivity to zero-phase-lag mixing, but is strictly unsigned (:math:`\ge 0`).
+       Directionality and delay are derived from the signed phase slope, not wPLI magnitude.
+    2. **Identifiability Criteria**: Delay and apparent velocity are defined only when the
+       unwrapped phase-frequency relation satisfies:
+       - Linear goodness of fit :math:`R^2 \ge \text{min\_linearity\_r2}` (default 0.70).
+       - Frequency support :math:`|F| \ge 3` bins within `freq_range`.
+       - Phase delay strictly bounded within the unambiguous interval
+         :math:`|\Delta \tau| < \frac{1}{2 \Delta f}` to prevent phase wrap aliasing.
+       If any contact pair or the spatial gradient fails these criteria, delay and velocity
+       are returned as `NaN` / `None`, and `delay_identifiable = False`.
+    3. **Apparent Velocity**: Reported strictly as *apparent phase-delay velocity under the
+       fitted linear model* (:math:`v = \Delta z / \Delta \tau`), not unconditional physical velocity.
+
+    Args:
+        lfp_matrix: 2D array of shape `(n_channels, n_samples)` ordered along the probe shaft.
+            Minimum 3 channels required. Pre-averaged :math:`C \times C \times F` tensors
+            are rejected with ValueError because segment information is required for wPLI.
+        fs: Sampling frequency in Hz (must be strictly positive).
+        freq_range: `(min_freq, max_freq)` in Hz over which the linear phase slope is fitted.
+        pitch_um: Inter-contact spacing along the shaft in micrometers (optional).
+        nperseg: Welch segment length for STFT; defaults to `min(n_samples, 256)`.
+        noverlap: Segment overlap; defaults to `nperseg // 2`.
+        min_linearity_r2: Minimum :math:`R^2` threshold for unwrapped phase linearity (default 0.70).
+        min_wpli: Minimum average adjacent wPLI required for acceptance (default 0.15).
+        n_surrogates: Number of Fourier phase-scrambled or time-shifted surrogates (default 50).
+        alpha: Significance threshold for rejection of the zero-lag/independent null (default 0.05).
+        seed: Random seed or Generator for surrogate evaluation.
+
+    Returns:
+        :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
+
+    Raises:
+        ValueError: If input is not a 2D array of at least 3 channels, or `fs <= 0`.
+    """
+    lfp = np.asarray(lfp_matrix, dtype=float)
+    if lfp.ndim != 2:
+        raise ValueError(
+            f"zflip requires a 2D array of shape (n_channels, n_samples); got shape {lfp.shape}."
+        )
+    n_channels, n_samples = lfp.shape
+    if n_channels < 3:
+        raise ValueError(f"zflip requires at least 3 channels along the probe shaft; got {n_channels}.")
+    if fs <= 0 or not np.isfinite(fs):
+        raise ValueError(f"fs must be strictly positive and finite; got {fs}.")
+    if pitch_um is not None and (pitch_um <= 0 or not np.isfinite(pitch_um)):
+        raise ValueError(f"pitch_um must be strictly positive if provided; got {pitch_um}.")
+
+    if nperseg is None:
+        nperseg = min(n_samples, 256)
+    if noverlap is None:
+        noverlap = nperseg // 2
+
+    # Multi-channel STFT: (n_channels, n_freqs, n_segments)
+    freqs, _, Z = signal.stft(
+        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
+    )
+
+    mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+    n_freq_bins = int(np.sum(mask))
+    if n_freq_bins < 3:
+        return ZFlipResult(
+            adjacent_wpli=np.zeros(n_channels - 1),
+            adjacent_delays_s=np.full(n_channels - 1, np.nan),
+            adjacent_linearity_r2=np.zeros(n_channels - 1),
+            adjacent_identifiable=np.zeros(n_channels - 1, dtype=bool),
+            mean_wpli=0.0,
+            apparent_velocity_m_s=None,
+            tau_per_channel_s=float("nan"),
+            directionality="unidentifiable",
+            delay_identifiable=False,
+            p_value=float("nan"),
+            accepted=False,
+            rejection_reason=f"Insufficient frequency bins in freq_range {freq_range} (got {n_freq_bins} bins, need >= 3)",
+            n_channels=n_channels,
+            pitch_um=pitch_um,
+        )
+
+    f_band = freqs[mask]
+    df = float(freqs[1] - freqs[0]) if len(freqs) > 1 else 1.0
+    max_tau_unambiguous = 1.0 / (2.0 * df) if df > 0 else np.inf
+
+    adj_wpli = np.zeros(n_channels - 1, dtype=float)
+    adj_delays = np.zeros(n_channels - 1, dtype=float)
+    adj_r2 = np.zeros(n_channels - 1, dtype=float)
+    adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
+
+    for i in range(n_channels - 1):
+        # S_{i, i+1, k} = conj(Z[i]) * Z[i+1]
+        Sxy = np.conj(Z[i]) * Z[i + 1]  # (n_freqs, n_segments)
+        I = np.imag(Sxy)
+        I = np.where(np.abs(I) < 1e-12, 0.0, I)
+
+        sum_I = np.sum(I, axis=1)
+        sum_abs_I = np.sum(np.abs(I), axis=1)
+        w_f = np.divide(np.abs(sum_I), sum_abs_I, out=np.zeros_like(sum_I), where=sum_abs_I > 1e-12)
+        adj_wpli[i] = float(np.mean(w_f[mask]))
+
+        # Phase slope from average cross-spectrum across segments
+        Sxy_mean = np.mean(Sxy, axis=1)
+        phi = np.unwrap(np.angle(Sxy_mean[mask]))
+        res = stats.linregress(f_band, phi)
+        r2 = float(res.rvalue ** 2) if np.isfinite(res.rvalue) else 0.0
+        adj_r2[i] = r2
+
+        slope = float(res.slope)
+        tau = -slope / (2.0 * np.pi)
+        adj_delays[i] = tau
+
+        if r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous:
+            adj_identifiable[i] = True
+
+    mean_wpli_val = float(np.mean(adj_wpli))
+
+    # Identifiability gate: require majority (>50%) of adjacent contacts to be identifiable
+    n_ident = int(np.sum(adj_identifiable))
+    delay_identifiable = bool(n_ident >= max(1, (n_channels - 1) // 2))
+
+    if delay_identifiable:
+        # Cumulative phase delay along the array
+        cum_delay = np.zeros(n_channels, dtype=float)
+        cum_delay[1:] = np.cumsum(adj_delays)
+        coords = np.arange(n_channels, dtype=float)
+        reg_spatial = stats.linregress(coords, cum_delay)
+        tau_per_channel = float(reg_spatial.slope)
+        spatial_r2 = float(reg_spatial.rvalue ** 2) if np.isfinite(reg_spatial.rvalue) else 0.0
+
+        if spatial_r2 < 0.50:
+            delay_identifiable = False
+            tau_per_channel = float("nan")
+            apparent_velocity = None
+            directionality = "unidentifiable"
+        else:
+            if tau_per_channel > 1e-6:
+                directionality = "superficial_to_deep"
+            elif tau_per_channel < -1e-6:
+                directionality = "deep_to_superficial"
+            else:
+                directionality = "unidentifiable"
+
+            if pitch_um is not None and abs(tau_per_channel) > 1e-9:
+                pitch_m = float(pitch_um) * 1e-6
+                apparent_velocity = float(abs(pitch_m / tau_per_channel))
+            else:
+                apparent_velocity = None
+    else:
+        tau_per_channel = float("nan")
+        apparent_velocity = None
+        directionality = "unidentifiable"
+
+    # Monte Carlo surrogate null test
+    rng = np.random.default_rng(seed)
+    p_val = float("nan")
+    if n_surrogates > 0:
+        exceed_count = 0
+        for _ in range(n_surrogates):
+            surr_lfp = _surrogate_phase_randomize(lfp, rng)
+            _, _, Z_surr = signal.stft(
+                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
+            )
+            surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
+            for i in range(n_channels - 1):
+                S_s = np.conj(Z_surr[i]) * Z_surr[i + 1]
+                I_s = np.imag(S_s)
+                I_s = np.where(np.abs(I_s) < 1e-12, 0.0, I_s)
+                s_I = np.sum(I_s, axis=1)
+                s_abs = np.sum(np.abs(I_s), axis=1)
+                w_s = np.divide(np.abs(s_I), s_abs, out=np.zeros_like(s_I), where=s_abs > 1e-12)
+                surr_adj_wpli[i] = float(np.mean(w_s[mask]))
+            if np.mean(surr_adj_wpli) >= mean_wpli_val:
+                exceed_count += 1
+        p_val = float((1 + exceed_count) / (1 + n_surrogates))
+
+    is_sig = (p_val <= alpha) if np.isfinite(p_val) else True
+    has_coupling = (mean_wpli_val >= min_wpli)
+    accepted = bool(is_sig and has_coupling and delay_identifiable)
+
+    reasons: List[str] = []
+    if not is_sig:
+        reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
+    if not has_coupling:
+        reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
+    if not delay_identifiable:
+        reasons.append("Phase-frequency relation failed linear identifiability gate")
+
+    rejection_reason = "; ".join(reasons) if not accepted else None
+
+    # Replace non-identifiable individual adjacent delays with NaN
+    cleaned_delays = adj_delays.copy()
+    cleaned_delays[~adj_identifiable] = np.nan
+
+    return ZFlipResult(
+        adjacent_wpli=adj_wpli,
+        adjacent_delays_s=cleaned_delays,
+        adjacent_linearity_r2=adj_r2,
+        adjacent_identifiable=adj_identifiable,
+        mean_wpli=mean_wpli_val,
+        apparent_velocity_m_s=apparent_velocity,
+        tau_per_channel_s=tau_per_channel,
+        directionality=directionality,
+        delay_identifiable=delay_identifiable,
+        p_value=p_val,
+        accepted=accepted,
+        rejection_reason=rejection_reason,
+        n_channels=n_channels,
+        pitch_um=pitch_um,
+    )
+
 
 
 

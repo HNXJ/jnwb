@@ -10,26 +10,6 @@
 
 # 0.2.3
 
-- 0.2.3-04: Review gate and formal mathematical specification for zflip and non-zero-phase-lag laminar estimation:
-  * Inspect `spectral`, `connectivity`, TFR, backend, laminar, synthetic generators, tests, references, and API rules; reconstruct existing imaginary-coherency, CSD, phase-slope/PSI, and surrogate functionality before adding anything; establish whether wPLI already exists internally or whether existing operations can be composed without duplication.
-  * Freeze mathematically: observation tensor $I_k(f) = \operatorname{Im}S_{xy,k}(f) \to$ segment/frequency aggregation $\to$ standard estimator $\to$ debiased squared estimator $\to$ zero denominator $\to$ NaN policy $\to$ dtype $\to$ CPU/GPU semantics.
-  * Separately freeze: zFLIP estimand $\to$ signed direction estimator $\to$ frequency interval $\to$ phase unwrapping $\to$ spatial gradient $\to$ orientation convention $\to$ delay identifiability $\to$ bidirectionality criterion $\to$ non-identifiability $\to$ geometry requirements.
-  * Define wPLI only as evidence for non-zero-phase-lag consistency, never propagation direction (wPLI magnitude is strictly unsigned, $\ge 0$).
-  * Define any delay/velocity result as identifiable only when the phase-frequency relation satisfies predeclared fit/support criteria (e.g. unwrapped phase linearity, goodness-of-fit); otherwise return unavailable values rather than plausible latency/velocity.
-  * Specify the null independently before implementation: freeze exchangeability object, preserved structure, destroyed structure, statistic, tail, and RNG. Do not manipulate derived imaginary CSD values unless the resulting null is mathematically justified.
-  * Determine whether raw time series, segment-resolved CSD, or both are valid inputs; reject averaged $C \times C \times F$ tensors when segment-resolved wPLI/surrogates are requested.
-  * Design adversarial test matrix: zero-lag common signal added on top of genuine delayed interaction, frequency-dependent delays, phase wrapping, opposite simultaneous waves, depth-dependent SNR, variable pitch, missing contacts, and signals with high wPLI but no single identifiable linear delay.
-  * Only after this review resolves all consequential rows should an implementation plan be submitted for authorization.
-- 0.2.3-RSA: Review and, if justified, factor reusable RDM/RSA primitives from `jrsa`. Inspect `jrsa`, tests, exports, dependencies, metrics, shapes, NaN/precision semantics, statistical comparison, CPU complexity/memory, condensed versus full materialization, and existing internal RDM functionality. Benchmark NumPy/SciPy, CuPy, and JAX only where available and justified. Determine the smallest generic API before implementation. Candidate surfaces are `rdm(...)` and `rdm_similarity(...)`; names/signatures are proposals, not authority. Preserve existing `jrsa` behavior unless a defect is demonstrated. If primitives are added, make `jrsa` delegate rather than retain duplicate estimators. Require full/condensed equivalence, batching equivalence, dtype behavior, nonfinite policy, symmetry/diagonal invariants, backend numerical parity, explicit backend/device reporting, complexity/memory documentation, and representative (N,D) benchmarks. Add no omission semantics. Do not add JAX/CuPy dependencies or GPU paths without measured benefit. Stop on a scientifically meaningful numerical trade-off.
-- 0.2.3-06: Computational complexity, CPU parallelism, and CUDA checklist review:
-  * Complexity inventory: Derive Big-O time and memory for every material primitive (PSD/TFR, connectivity, population trajectories, permutation/null, compressed NPZ streaming, vFLIP/xFLIP/zFLIP, NWB extraction) using standard symbols (C=channels, T=time, F=frequencies, R=trials, S=surrogates/permutations).
-  * Hotspot benchmark: Benchmark representative small, medium, and large synthetic workloads recording wall time and peak RAM.
-  * CPU parallel audit: Audit independent dimensions (channels, trials, frequencies, permutations, sessions); enforce deterministic child RNG via SeedSequence.spawn; prevent nested oversubscription.
-  * CUDA audit: Classify hotspots as CPU_ONLY_JUSTIFIED, CUDA_AVAILABLE, CUDA_WORTH_ADDING, or CUDA_NOT_JUSTIFIED.
-  * Transfer-cost gate: Accept GPU implementation only when end-to-end performance including host-device transfer materially improves an appropriate workload.
-  * Numerical parity: Verify CPU and CUDA preserve identical estimators to declared tolerance with observable failure fallback and zero mixed-estimator partial outputs.
-  * Memory scaling: Measure peak RAM/VRAM; enforce streaming APIs require memory proportional to requested output plus bounded working buffers, not full source array.
-  * Stable regression gates: Retain benchmark receipts separately without fragile wall-clock thresholds in CI.
 - 0.2.3-07: Public documentation and tutorial inventory:
   * Audit documentation surface for completeness: README, Installation, NWB workflow, API reference, Concept pages, Common mistakes, References. Every public feature satisfies API entry + minimal example + units/shapes + failure semantics + composition path.
   * Build executable synthetic NWB tutorial suite (01 NWB basics, 02 Addressing and metadata, 03 Spiking, 04 LFP and spectral, 05 Statistics, 06 Laminar, 07 Ensembles, 08 End-to-end pipeline).

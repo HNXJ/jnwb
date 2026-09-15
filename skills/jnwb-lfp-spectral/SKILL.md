@@ -21,6 +21,8 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 - `jnwb.channel_correlation_matrix(data_ch_by_time)` & `jnwb.bad_channels_from_correlation(corr, z_thresh=5.0)`: Detect disconnected or excessively noisy probe channels.
 - `jnwb.cross_area_coherence(lfp_area1, lfp_area2, fs=..., freq_bands=...)`: Magnitude-squared coherence across channel pairs. `freq_bands` is required: a `{name: (fmin, fmax)}` dict or `'canonical'`.
 - `jnwb.imaginary_coherency(x, y, fs, freq_range=(1.0, 90.0))`: Volume-conduction-robust imaginary coherence.
+- `jnwb.wpli(x, y, fs, freq_range=(1.0, 90.0))`: Weighted Phase Lag Index reducing sensitivity to zero-phase-lag mixing.
+- `jnwb.zflip(lfp_matrix, fs, freq_range=(15.0, 35.0), pitch_um=...)`: Cortical depth phase gradient, latency, and apparent velocity estimation across laminar contacts.
 - `jnwb.spectral_tilt(lfp_trace, fs, freq_range=(1.0, 100.0))`: Aperiodic $1/f$ spectral slope parameterization.
 - `jnwb.bipolar_reference(channel_data, channel_order=None)`: Local differential referencing for spatial artifact reduction.
 

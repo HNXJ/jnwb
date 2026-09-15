@@ -121,6 +121,24 @@ print(f"Shaft orientation unit vector: {geom.orientation}")
 
 For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on duplicate coordinates, NaNs, ambiguous multiple probes, or unsupported length units.
 
+### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
+
+Estimates cortical depth phase gradients, propagation latency, and apparent velocity across ordered laminar contacts:
+
+```python
+# lfp_matrix: (n_channels, n_samples) ordered along probe shaft
+z_res = jnwb.zflip(
+    lfp_matrix,
+    fs=1000.0,
+    freq_range=(15.0, 35.0),
+    pitch_um=geom.nominal_pitch,
+    n_surrogates=50,
+)
+print("Direction:", z_res.directionality)
+print("Delay gradient (s/contact):", z_res.tau_per_channel_s)
+print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
+```
+
 ![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png)
 
 ---

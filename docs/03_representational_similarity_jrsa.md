@@ -90,12 +90,29 @@ sliding_res = jnwb.jrsa(
 res_gpu = jnwb.jrsa(x1, x2, metric="rsa", backend="cupy")
 ```
 
----
-
 ## 4. Missing Condition Handling & Preprocessing Invariants
 
 1. **Missing Data Policy (`nan_policy`)**: If specific conditions lack trials, `nan_policy="omit"` propagates `NaN` across affected RDM pairs rather than fabricating zeros.
 2. **Preprocessing Invariants**: Z-scoring or standardizing features prior to correlation-distance RSA is mathematically redundant (correlation is intrinsically mean-centered and scale-invariant).
+
+---
+
+## 5. Standalone RDM Primitives (`jnwb.rdm`, `jnwb.rdm_similarity`)
+
+For workflows that build custom RDMs or compare precomputed dissimilarity matrices
+directly without running the full `jrsa` pipeline, `jnwb` exposes standalone primitives:
+
+```python
+# Compute pairwise distance matrix (N conditions x D features)
+# Returns 1D condensed vector of length N*(N-1)//2 (default)
+rdm_vec = jnwb.rdm(X, metric="correlation", condensed=True)
+
+# Or full N x N symmetric square matrix with zero diagonal
+rdm_sq = jnwb.rdm(X, metric="correlation", condensed=False)
+
+# Compare two RDMs directly (Spearman, Pearson, Kendall, or Cosine)
+rho, p_val = jnwb.rdm_similarity(rdm_vec1, rdm_vec2, metric="spearman")
+```
 
 ## References
 

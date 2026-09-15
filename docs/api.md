@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 146 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 151 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -120,10 +120,12 @@ All 146 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.VFlipResult | class | *Container for Vectorized Frequency-based Laminar Identity Profile (vFLIP) results.* |
 | jnwb.XFlipResult | class | *Container for Cross-Channel Laminar Correlation Profile (xFLIP) results.* |
+| jnwb.ZFlipResult | class | *Container for zFLIP Cortical Depth Phase-Gradient & Delay Estimation results.* |
 | jnwb.label_layers | function | (vflip_result: 'VFlipResult', probe_geometry: 'Any', granular_thickness_um: 'float' = 400.0, bad_channel_mask: 'Optional[np.ndarray]' = None, depth_range_um: 'Optional[Tuple[float, float]]' = None, contact_range: 'Optional[Tuple[float, float]]' = None) -> 'Dict[Any, str]'<br>*Assign cortical layer labels (superficial, input, deep) to probe contacts.* |
 | jnwb.vflip | function | (psd: 'np.ndarray', freqs: 'np.ndarray', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile (vFLIP).* |
 | jnwb.vflip_from_lfp | function | (lfp: 'np.ndarray', fs: 'float', nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, window: 'str' = 'hann', detrend: 'Union[str, bool]' = 'constant', scaling: 'str' = 'density', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 6.0, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.* |
 | jnwb.xflip | function | (data: 'np.ndarray', method: 'str' = 'pearson', contiguous: 'bool' = True, n_blocks: 'Optional[int]' = 2, min_block_size: 'int' = 2, n_surrogates: 'int' = 200, surrogate_method: 'str' = 'auto', alpha: 'float' = 0.05, min_contrast: 'float' = 0.05, min_boundary_drop: 'float' = 0.05, channel_axis: 'int' = 0, is_corr_matrix: 'Optional[bool]' = None, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'XFlipResult'<br>*Cross-Channel Laminar Correlation Profile (xFLIP).* |
+| jnwb.zflip | function | (lfp_matrix: 'np.ndarray', fs: 'float', freq_range: 'Tuple[float, float]' = (15.0, 35.0), pitch_um: 'Optional[float]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, min_linearity_r2: 'float' = 0.7, min_wpli: 'float' = 0.15, n_surrogates: 'int' = 50, alpha: 'float' = 0.05, seed: 'Optional[Union[int, np.random.Generator]]' = 0) -> 'ZFlipResult'<br>*Estimate cortical depth phase gradients, propagation delay, and apparent velocity.* |
 
 ## Module: jnwb.metadata
 
@@ -196,6 +198,13 @@ All 146 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.build_permutation_plan | function | (labels: 'Iterable[object]', groups: 'Iterable[object]', n_permutations: 'int', seed: 'int') -> 'dict'<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
 | jnwb.permute_labels | function | (y, groups = None, scheme: 'str', rng: 'np.random.Generator')<br>*Permute labels under an explicitly named exchangeability scheme.* |
 
+## Module: jnwb.rsa
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.rdm | function | (X: 'np.ndarray', metric: 'str' = 'correlation', condensed: 'bool' = True, device: 'str' = 'cpu') -> 'np.ndarray'<br>*Compute a Representational Dissimilarity Matrix (RDM) from feature vectors.* |
+| jnwb.rdm_similarity | function | (rdm1: 'np.ndarray', rdm2: 'np.ndarray', metric: 'str' = 'spearman') -> 'Tuple[float, float]'<br>*Compute second-order representational similarity between two RDMs.* |
+
 ## Module: jnwb.spectral
 
 | Symbol | Type | Signature / Description |
@@ -216,6 +225,7 @@ All 146 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.spectral_tilt | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 100.0), device: str = 'cpu') -> Dict<br>*Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.* |
 | jnwb.to_db | function | (ratio)<br>*``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass through — average power, divide by baseline, then take the logarithm exactly once.* |
 | jnwb.voltage_curvature_1d | function | (lfp_matrix: numpy.ndarray, pitch_um: float, axis: int = 0) -> numpy.ndarray<br>*Compute the discrete second spatial derivative of extracellular potential along a laminar probe.* |
+| jnwb.wpli | function | (x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, typing.Any]<br>*Weighted Phase Lag Index (wPLI) between two continuous signals.* |
 
 ## Module: jnwb.spiking
 
