@@ -17,7 +17,8 @@ import warnings
 import numpy as np
 import pytest
 from scipy.spatial.distance import pdist, squareform
-from scipy.stats import spearmanr
+from scipy.spatial.distance import cosine as cosine_distance
+from scipy.stats import kendalltau, pearsonr, spearmanr
 
 import jnwb
 
@@ -162,3 +163,120 @@ class TestRdmDevice:
         with pytest.warns(RuntimeWarning):
             out = jnwb.rdm(X, device="cuda")
         assert np.array_equal(out, jnwb.rdm(X))
+
+
+class TestSimilarityMetricsAgainstScipy:
+    """Each similarity metric must be the estimator it names.
+
+    ``pearson``, ``kendall`` and ``cosine`` were only range-checked (0 <= r <= 1),
+    so returning Spearman for all four, or computing cosine over the wrong axis,
+    passed. These pin each coefficient and its p-value to a SciPy oracle.
+    """
+
+    @staticmethod
+    def _pair():
+        return jnwb.rdm(_features(seed=0)), jnwb.rdm(_features(seed=5))
+
+    def test_pearson_matches_scipy(self):
+        a, b = self._pair()
+        expected = pearsonr(a, b)
+        got = jnwb.rdm_similarity(a, b, metric="pearson")
+        assert got[0] == pytest.approx(expected[0], abs=1e-12)
+        assert got[1] == pytest.approx(expected[1], abs=1e-12)
+
+    def test_spearman_matches_scipy(self):
+        a, b = self._pair()
+        expected = spearmanr(a, b)
+        got = jnwb.rdm_similarity(a, b, metric="spearman")
+        assert got[0] == pytest.approx(expected[0], abs=1e-12)
+        assert got[1] == pytest.approx(expected[1], abs=1e-12)
+
+    def test_kendall_matches_scipy(self):
+        a, b = self._pair()
+        expected = kendalltau(a, b)
+        got = jnwb.rdm_similarity(a, b, metric="kendall")
+        assert got[0] == pytest.approx(expected[0], abs=1e-12)
+        assert got[1] == pytest.approx(expected[1], abs=1e-12)
+
+    def test_cosine_is_a_similarity_and_reports_no_p_value(self):
+        a, b = self._pair()
+        got = jnwb.rdm_similarity(a, b, metric="cosine")
+        assert got[0] == pytest.approx(1.0 - cosine_distance(a, b), abs=1e-12)
+        assert np.isnan(got[1]), "cosine has no null distribution; p must not be fabricated"
+
+    def test_the_four_metrics_are_not_substituted_for_one_another(self):
+        a, b = self._pair()
+        values = [
+            jnwb.rdm_similarity(a, b, metric=m)[0]
+            for m in ("pearson", "spearman", "kendall", "cosine")
+        ]
+        assert len({round(v, 9) for v in values}) == 4, f"metrics collapsed: {values}"
+
+
+class TestRdmInvariantsHoldForEveryAcceptedMetric:
+    """``rdm`` documents pass-through to ``pdist`` for any metric it accepts, so a
+    pdist oracle would be circular. What is not delegated is the wrapper's own
+    contract -- condensed length, symmetry, zero diagonal, float64, and the
+    correspondence between the two forms -- and that was only checked for the
+    default metric.
+    """
+
+    METRICS = [
+        "correlation", "cosine", "euclidean", "cityblock", "sqeuclidean",
+        "chebyshev", "hamming", "jaccard", "minkowski", "braycurtis",
+        "canberra", "seuclidean",
+    ]
+
+    @staticmethod
+    def _positive(n=7, d=11, seed=0):
+        # Strictly positive: braycurtis and canberra are undefined at the origin.
+        return np.abs(np.random.default_rng(seed).normal(size=(n, d))) + 0.5
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_both_forms_agree_and_carry_no_fabricated_geometry(self, metric):
+        X = self._positive()
+        condensed = jnwb.rdm(X, metric=metric)
+        full = jnwb.rdm(X, metric=metric, condensed=False)
+        assert condensed.shape == (7 * 6 // 2,)
+        assert condensed.dtype == np.float64
+        assert np.array_equal(full, full.T)
+        assert np.all(np.diag(full) == 0.0)
+        assert np.allclose(squareform(full), condensed, rtol=1e-12, atol=1e-12)
+
+    # hamming and jaccard treat continuous features as categorical, so with no exact
+    # ties every pair differs in every coordinate and the RDM is constant. Rank
+    # similarity is then undefined, which is a property of the input, not a defect.
+    VARYING = [m for m in METRICS if m not in ("hamming", "jaccard")]
+
+    @pytest.mark.parametrize("metric", VARYING)
+    def test_self_similarity_is_the_maximum_for_every_metric(self, metric):
+        rdm = jnwb.rdm(self._positive(), metric=metric)
+        assert jnwb.rdm_similarity(rdm, rdm, metric="spearman")[0] == pytest.approx(1.0)
+        assert jnwb.rdm_similarity(rdm, rdm, metric="cosine")[0] == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("metric", ["hamming", "jaccard"])
+    def test_a_constant_rdm_is_undefined_not_perfectly_similar(self, metric):
+        """The degenerate case must not be reported as rho = 1.0."""
+        rdm = jnwb.rdm(self._positive(), metric=metric)
+        assert len(np.unique(rdm)) == 1
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            rho, p = jnwb.rdm_similarity(rdm, rdm, metric="spearman")
+        assert np.isnan(rho) and np.isnan(p)
+
+    def test_two_conditions_give_the_single_defined_distance(self):
+        assert jnwb.rdm(self._positive(n=2)).shape == (1,)
+
+    def test_fewer_than_two_conditions_is_rejected(self):
+        with pytest.raises(ValueError, match="at least 2 conditions"):
+            jnwb.rdm(self._positive(n=1))
+
+    def test_non_finite_features_are_rejected(self):
+        X = self._positive()
+        X[0, 0] = np.nan
+        with pytest.raises(ValueError, match="non-finite"):
+            jnwb.rdm(X)
+
+    def test_an_unknown_metric_is_rejected(self):
+        with pytest.raises(ValueError, match="(?i)metric"):
+            jnwb.rdm(self._positive(), metric="not_a_metric")
