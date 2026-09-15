@@ -8,6 +8,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import jnwb
+
 from jnwb.connectivity import (
     spike_mutual_information,
     binary_occupancy_mutual_information,
@@ -279,3 +281,49 @@ class TestDirectedConnectivityAndNetwork:
         result = directed_network(signals, method="granger", order=2, fdr=False)
         assert "labels" in result
         assert set(result["labels"]) == {"A", "B", "C"}
+
+
+class TestCrossAreaCoherenceContract:
+    """0.2.4-09: out-of-contract input must fail loudly, not plausibly.
+
+    Both cases below previously produced a result a caller could not distinguish from a
+    real measurement, or an error naming neither the argument nor the contract.
+    """
+
+    def _bands(self):
+        return {"beta": (15.0, 30.0)}
+
+    @pytest.mark.parametrize("shape", [(6, 2048), (2, 2048), (1, 2048), (3, 512)])
+    def test_two_dimensional_input_is_rejected(self, shape):
+        rng = np.random.default_rng(0)
+        a = rng.normal(size=shape)
+        b = rng.normal(size=shape)
+        with pytest.raises(ValueError, match=r"must be a 1-D time series"):
+            jnwb.cross_area_coherence(
+                a, b, fs=1000.0, freq_bands=self._bands(), n_surrogates=3
+            )
+
+    def test_rejection_names_the_offending_argument_and_shape(self):
+        rng = np.random.default_rng(0)
+        good = rng.normal(size=1024)
+        bad = rng.normal(size=(4, 1024))
+        with pytest.raises(ValueError) as excinfo:
+            jnwb.cross_area_coherence(
+                good, bad, fs=1000.0, freq_bands=self._bands(), n_surrogates=3
+            )
+        message = str(excinfo.value)
+        assert "lfp_area2" in message
+        assert "(4, 1024)" in message
+
+    def test_one_dimensional_paired_input_still_computes(self):
+        rng = np.random.default_rng(0)
+        a = rng.normal(size=4096)
+        b = rng.normal(size=4096)
+        out = jnwb.cross_area_coherence(
+            a, b, fs=1000.0, freq_bands=self._bands(), n_surrogates=5
+        )
+        assert np.asarray(out["coherence_spectrum"]).ndim == 1
+        assert np.asarray(out["frequencies"]).size == np.asarray(out["coherence_spectrum"]).size
+        # Bounded in [0, 1]; the upper compare carries float slack because the
+        # estimator can land exactly on 1.0 (see the segment-count caveat below).
+        assert 0.0 <= out["peak_coherence_value"] <= 1.0 + 1e-9

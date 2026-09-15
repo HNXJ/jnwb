@@ -422,6 +422,17 @@ def cross_area_coherence(
         'surrogate_seed_entropy': seed_entropy,
     }
 
+    lfp_area1 = np.asarray(lfp_area1)
+    lfp_area2 = np.asarray(lfp_area2)
+    for name, trace in (("lfp_area1", lfp_area1), ("lfp_area2", lfp_area2)):
+        if trace.ndim != 1:
+            raise ValueError(
+                f"{name} must be a 1-D time series, got shape {trace.shape}. This function "
+                "compares two traces; to work channel-by-channel, call it per channel pair. "
+                "A 2-D array was previously accepted and then indexed as if it were 1-D, "
+                "which set nperseg to the channel count and took argmax over the flattened "
+                "array."
+            )
     if len(lfp_area1) != len(lfp_area2):
         log.warning("LFP traces have different lengths")
         return result
