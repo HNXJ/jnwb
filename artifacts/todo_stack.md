@@ -54,7 +54,7 @@ names what is missing. Nothing here is marked from inference.
 | 12 strict documentation build | CLOSED | `docs_build.py` strict, 0 warnings, locally and in CI; versions derive from `jnwb.__version__` |
 | 13 distribution audit | CLOSED | build -> manifest scan -> `twine check` -> fresh venv -> wheel + transitive install -> `pip check` -> import from site-packages outside the checkout -> numerical workflows -> tutorials |
 | 14 reproducibility | PARTIAL | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not part of that chain |
-| 15 CPU/CUDA parity | OPEN | parity assertions exist (`test_gpu_pca_cpu_and_cuda_agree_within_float32`, `test_cuda_matches_cpu_or_warns`, `test_jrsa_gpu`) but no CI runner has CUDA, so they skip or take the CPU branch. No clean-system GPU receipt exists |
+| 15 CPU/CUDA parity | CLOSED | against the RC-scoped criterion (structural/fallback tests; representative high-risk paths on one real CUDA system; parity within declared tolerances; CI verifies CPU/fallback). 7 of 10 `resolve_device` call sites executed on an RTX A4000 with no fallback warning, parity 0 to 3.6e-04; the 3 uncovered are session-level wrappers over the same resolver, retaining structural coverage. Receipt: `artifacts/benchmarks/cuda_parity_0.2.4.md` |
 | 16 final critic pass | PARTIAL | the external review at 42b1450b produced the findings this stack has been repairing; it predates the electrode-region repair and these verification changes |
 | 17 release seal | OPEN | blocked on the conjunction above |
 
