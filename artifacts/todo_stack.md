@@ -43,7 +43,7 @@ names what is missing. Nothing here is marked from inference.
 | 01 executable stack empty | OPEN | this file is non-empty by construction; closes last |
 | 02 documentation minimization | PARTIAL | mechanical half closed (Gate 9 documented-API parity, Gate 10 derived version, strict MkDocs 0 warnings, `test_docs_links`, `test_docs_smoke`, `test_readme_smoke`). The editorial half -- duplicated explanation, excessive prose, internal codes leaking into user-facing text -- has had no pass and is not mechanically checkable |
 | 03 tutorials vs installed wheel | CLOSED | all 8 run on the clean-venv interpreter with `PYTHONPATH` stripped and CWD outside the checkout, in CI and in release gate STEP 8; `TestInstalledArtifactVerification` fails if either is removed or reordered before install |
-| 04 numerical audit of primitives | PARTIAL | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. The 0.2.4 pass over `wpli`, `imaginary_coherency`, `zflip`, `rdm`, `rdm_similarity` and `jrsa(metric='rsa')` found and repaired fabricated zeros, amplitude-unit dependence, a CUDA branch that never ran, zFLIP accepting untested or partly unidentifiable delays, and undefined RDM distances set to 0 (see CHANGELOG); regressions in `test_spectral_nonfabrication`, `test_zflip_audit`, `test_rsa_oracle`. Open: vFLIP acceptance is not false-positive controlled (below); vFLIP orientation/crossover and `label_layers` audit depend on that decision |
+| 04 numerical audit of primitives | PARTIAL | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. The 0.2.4 pass over `wpli`, `imaginary_coherency`, `zflip`, `rdm`, `rdm_similarity` and `jrsa(metric='rsa')` found and repaired fabricated zeros, amplitude-unit dependence, a CUDA branch that never ran, zFLIP accepting untested or partly unidentifiable delays, and undefined RDM distances set to 0 (see CHANGELOG); regressions in `test_spectral_nonfabrication`, `test_zflip_audit`, `test_rsa_oracle`. A degenerate-input and amplitude-unit sweep over the public numeric API (empty, singleton, NaN/Inf, constant, reversed windows, scale 1e-3..1e-20, CPU vs CUDA) repaired 17 more defects: zeros or p = 1/(n+1) returned for undefined results in spectral summaries, spike-window rates, shuffle p-values, PSTH, `laplacian_reference`, `network_topology`, `xflip`; unit-dependent `jrsa` CKA/RV/dCor/cosine, `vflip` and outlier detection; `jrsa` CUDA pearson/spearman disagreeing with CPU; `harmonic_ratio` double-counting (see CHANGELOG, `test_adversarial_inputs`). Not repaired, model choices: `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units, so it is unit-dependent by definition; PSTH SEM for N=1 is deferred below. Open: vFLIP acceptance is not false-positive controlled (below); vFLIP orientation/crossover and `label_layers` audit depend on that decision |
 | 05 randomness and inference | PARTIAL | no global RNG mutation anywhere in `jnwb/` (no `np.random.seed`, no `random.seed`, no `PYTHONHASHSEED` dependence); `permute_labels` rejects non-`Generator` rng, is deterministic given a seed, preserves per-group label counts, and emits a draw manifest with sequential seeds and digests. CV isolation is exercised via `nested_cv_linear_svm` but not asserted as leak-free |
 | 06 NWB/addressing audit | PARTIAL | `test_nwb_synthetic_fixtures`, `test_hdmf_nwb_read_boundary`, `test_addressing`, `test_metadata`, `test_nwb_inspect` cover missing tables/columns, alternate layouts and lazy access; the electrode-region repair added out-of-range enforcement. Units/geometry/ambiguity not systematically swept |
 | 07 API audit | PARTIAL | exports == documented API == generator output is gated (Gate 9 + `generate_api_md --check` + `test_api_surface`), and skills reference only existing symbols. Signature/typing/docstring parity is not mechanically compared |
@@ -72,6 +72,35 @@ names what is missing. Nothing here is marked from inference.
 - `test_frequency_grid_resolution_invariance` uses a noise-free PSD and cannot detect the
   bin-count dependence above.
 
+
+## Handout (2026-09-15, Opus 5 session `9fe5eb2c`)
+
+**Two agents were working in this repository at once.** This session and another
+(commit `5ff7f8d1`, same git identity) both ran 0.2.4-04 concurrently and collided. Read
+this before resuming.
+
+- Sealed by this session, CI green on 3.12/3.14 x ubuntu/windows for each:
+  `bf26b0cf` 2-D rejection + first CUDA receipt; `e5a7eecc` coherence single-segment
+  repair; `4e427ad1` mismatched-length ValueError; `d754e895` 0.2.4-15 closed under its
+  narrowed criterion; `d7d06107` unpaired-trace rejection in `wpli`/`imaginary_coherency`.
+- `1a15207f` (this session, zFLIP gate + wrap-claim correction) is pushed but **its 26
+  accompanying tests were lost**: `tests/test_zflip.py` was overwritten by the other
+  agent's work between the test run and the commit, so the commit carries `CHANGELOG.md`
+  and `jnwb/laminar.py` only. The `zflip` code change is in `HEAD` and the other agent's
+  `tests/test_zflip_audit.py` (21 tests) passes against it, but the zFLIP audit assertions
+  written here -- ground-truth delay/velocity recovery, geometry-reversal sign flip,
+  aliased-delay rejection, scale and pitch invariance, global-RNG non-mutation -- are gone
+  and should be rewritten.
+- `HEAD:jnwb/laminar.py` carries THIS session's `nperseg = min(max(N // 2, 8), 256)` rule,
+  which may have replaced the other agent's fix for the same defect. Both intended the
+  same outcome; confirm which survived and that only one remains.
+- The working tree holds ~14 files of the other agent's UNCOMMITTED work (artifact
+  detection/repair, connectivity, jrsa, statistics, viz, vFLIP calibration receipts). It
+  was not touched by this session and must not be discarded.
+
+**Next:** finish 0.2.4-04 (vFLIP normalization/calibration is the open leg; the other
+agent records vFLIP acceptance as not false-positive controlled), then 09 -> 16 -> 01.
+Do not run two agents against this working tree simultaneously.
 
 # Before 1.0
 
