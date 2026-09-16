@@ -45,16 +45,11 @@ pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-**This checkout is `0.2.4rc1`, a release candidate that is not yet on PyPI.** Until it is
-published, install it from a clone:
+This checkout is `0.2.4`. To install it from a clone instead of from PyPI:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs]" for development
 ```
-
-After publication, `pip install jnwb==0.2.4rc1` will fetch it. Pinning the exact version is
-required for a pre-release: `pip install jnwb` alone resolves to the latest *stable* release and
-will not select a release candidate.
 
 Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplotlib`, `scikit-learn`, `statsmodels`, `joblib`.
 

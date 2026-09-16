@@ -1,5 +1,20 @@
 # xFLIP Empirical Calibration & Operating Characteristics Receipt
 
+> **Provenance (added in 0.2.4).** The tables below were produced under 0.2.3 and no
+> generator script was retained, so they cannot be regenerated. `xflip` changed in 0.2.4:
+> it now rejects input containing a zero-variance channel and reports that channel's
+> correlations as NaN, instead of returning a correlation of 0. The null families here
+> contain no zero-variance channel, so the rates are not expected to move, but that is an
+> argument rather than a measurement.
+>
+> What is measured against the shipped estimator is `tests/test_xflip_calibration.py`,
+> which recomputes false-positive rates on the white-noise, AR, periodic-common-response
+> and smooth-gradient nulls, and recovery and localization on equal, unequal and
+> three-block alternatives and across channel counts, on every test run. Treat that as the
+> authority on current operating characteristics and this file as a historical record.
+> Unlike `vflip_calibration_0.2.4_raw.json`, this receipt is not bound to the estimator by
+> a source hash.
+
 ## 1. Null Ensemble False Positive Rates (alpha = 0.05)
 
 | Null Family | N Seeds | False Positive Rate | Median p-value | Min p-value | Max p-value | Median Modularity (Q) |

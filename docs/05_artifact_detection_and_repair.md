@@ -104,7 +104,7 @@ flagged, scale = jnwb.detect_band_outliers(band_trace, z_thresh=6.0, sided="uppe
 `scale` is `median(|resid|)` **pooled** over all `(trial, time)` — one global scale, not one per
 time bin. A per-bin MAD is itself inflated during the evoked response, and would mask a real
 outlier exactly where one matters most. A returned `scale` of `0.0` means the trend was matched
-exactly and nothing was flagged.
+to round-off (relative to the data, so the rule does not depend on power units) and nothing was flagged.
 
 !!! warning "`sided="both"` is not the conservative choice"
     The default `"upper"` flags power *increases* only. `"both"` also flags decreases — so when

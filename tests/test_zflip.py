@@ -66,9 +66,8 @@ def test_wpli_independent_noise():
 
 def test_wpli_input_shapes_and_aliases():
     """Check handling of sampling_rate alias and empty inputs."""
-    res_empty = jnwb.wpli([], [], fs=1000.0)
-    assert res_empty["wpli"] == 0.0
-    assert res_empty["n_segments"] == 0
+    with pytest.raises(ValueError, match="empty"):
+        jnwb.wpli([], [], fs=1000.0)
 
     x = np.random.randn(500)
     y = np.random.randn(500)

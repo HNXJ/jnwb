@@ -37,7 +37,11 @@ def compute_response_metrics(
         - baseline_rate: Spikes/sec during baseline
         - response_rate: Spikes/sec during response window
         - response_count: Total spikes in response window
-        - response_zscore: Z-score of response relative to baseline
+        - response_zscore: Z-score of the response FIRING RATE relative to the baseline
+          firing rate across trials. Rates, not counts, so unequal window lengths do not
+          manufacture a response. NaN when the baseline has no across-trial variance (for
+          example a silent baseline), where the normal approximation is undefined; use a
+          Poisson rate-ratio test for those units rather than reading NaN as zero.
         - latency: Time to first spike after response window start (or None)
 
     Example:
@@ -98,17 +102,33 @@ def compute_response_metrics(
     metrics['response_rate'] = float(response_rate)
     metrics['response_count'] = int(response_count_total)
 
-    # Compute z-score
+    # Compute z-score on RATES, not raw counts.
+    #
+    # The two windows need not be the same length, and the defaults are not: baseline is
+    # 0.200 s and response 0.150 s. Differencing raw counts therefore charged a
+    # homogeneous unit with a response it did not have, and the spurious z grew as the
+    # square root of the firing rate because the count difference scales with the rate
+    # while the baseline SD scales with its square root. A Poisson unit with no stimulus
+    # response at all measured z = -0.47 at 20 Hz, -1.04 at 100 Hz and -1.91 at 500 Hz,
+    # and `classify_response_significance` takes abs(z), so a fast non-responsive unit
+    # would eventually be certified as responding. Dividing each window by its own
+    # duration is exactly a no-op when the windows are equal, which is the case where
+    # differencing counts was already correct.
     if z_score and len(baseline_spikes) > 1:
-        baseline_spikes_arr = np.array(baseline_spikes)
-        response_spikes_arr = np.array(response_spikes)
+        baseline_rates = np.array(baseline_spikes, dtype=float) / baseline_duration
+        response_rates = np.array(response_spikes, dtype=float) / response_duration
 
-        baseline_std = np.std(baseline_spikes_arr)
+        baseline_std = np.std(baseline_rates)
         if baseline_std > 0:
-            baseline_mean = np.mean(baseline_spikes_arr)
-            response_mean = np.mean(response_spikes_arr)
-            response_zscore = (response_mean - baseline_mean) / baseline_std
+            response_zscore = (np.mean(response_rates) - np.mean(baseline_rates)) / baseline_std
             metrics['response_zscore'] = float(response_zscore)
+        else:
+            # A baseline with no across-trial variance leaves the normal approximation
+            # undefined; it does not mean the unit failed to respond. Reporting 0.0 here
+            # claimed 'no response' for the strongest possible evidence: a unit driven at
+            # 133 Hz from a perfectly silent baseline returned z = +0.00, 'none'. NaN says
+            # 'not assessable by this statistic' instead of fabricating a null result.
+            metrics['response_zscore'] = float('nan')
 
     # Latency
     if latencies:
@@ -134,7 +154,8 @@ def classify_response_significance(
         Dict with:
         - is_significant: bool (response passes threshold)
         - pvalue: Approximate p-value from z-score
-        - confidence: Confidence level ('high', 'medium', 'low', or 'none')
+        - confidence: Confidence level ('high', 'medium', 'low', 'none', or 'undefined'
+          when response_zscore is NaN because the baseline had no across-trial variance)
 
     Example:
         >>> sig = classify_response_significance(metrics)
@@ -152,8 +173,13 @@ def classify_response_significance(
         result['confidence'] = 'low'
         return result
 
-    # Convert z-score to p-value
+    # Convert z-score to p-value. NaN means the baseline had no across-trial variance, so
+    # this statistic cannot assess the unit; say so rather than treating it as z = 0.
     zscore = abs(metrics.get('response_zscore', 0.0))
+    if np.isnan(zscore):
+        result['confidence'] = 'undefined'
+        result['pvalue'] = float('nan')
+        return result
     if zscore > 0:
         pvalue = 2 * (1 - stats.norm.cdf(zscore))
         result['pvalue'] = pvalue
@@ -220,8 +246,20 @@ def phase_locking_index(
     if len(unit_spike_times) == 0:
         return result
 
-    # Interpolate LFP phase at spike times
-    spike_phases = np.interp(unit_spike_times, lfp_timestamps, lfp_phase, period=2*np.pi)
+    # Interpolate the LFP phase at spike times through its unit vector.
+    #
+    # np.interp's `period` is the period of the x coordinates, not of fp, so
+    # `period=2*np.pi` wrapped the spike times and the LFP timestamps modulo 6.2832
+    # SECONDS. Any recording longer than that was folded onto itself and each spike took
+    # the phase of an unrelated moment. A unit locked to phase 0 with 2 ms jitter over
+    # 60 s, whose true resultant length is 0.995, reported pli 0.305; the same unit
+    # reported 0.804 over its first 6 s, because the defect scales with duration.
+    #
+    # Interpolating cos and sin separately handles the +-pi wrap that `period` was
+    # presumably meant to address, and leaves the time axis alone.
+    cos_phase = np.interp(unit_spike_times, lfp_timestamps, np.cos(lfp_phase))
+    sin_phase = np.interp(unit_spike_times, lfp_timestamps, np.sin(lfp_phase))
+    spike_phases = np.arctan2(sin_phase, cos_phase)
 
     # Phase histogram
     phase_hist, bin_edges = np.histogram(spike_phases, bins=n_bins, range=(-np.pi, np.pi))
@@ -254,7 +292,10 @@ def phase_locking_index(
         # For large n, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n) - (24*z - 132*z^2 + 76*z^3 - 9*z^4) / (288*n^2))
         if z > 0:
             pval = np.exp(-z) * (1 + (2*z - z**2) / (4*len(spike_phases)))
-            result['rayleigh_pvalue'] = float(min(pval, 1.0))
+            # The series expansion goes negative for large z, and a negative p-value
+            # passes every `p < alpha` test and corrupts any FDR machinery downstream.
+            # `+ 0.0` normalizes the IEEE -0.0 that underflow produces here.
+            result['rayleigh_pvalue'] = float(min(max(pval, 0.0), 1.0)) + 0.0
 
     return result
 

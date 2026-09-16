@@ -215,7 +215,10 @@ def jrsa(
     batch_size : int or None
         Chunk size for large arrays.
     random_state : int or None
-        Random seed for reproducibility.
+        Random seed for reproducibility, for both the permutation null and the bootstrap.
+        May also be passed as ``seed``, the spelling used by the rest of the package;
+        passing both is an error. Leaving it None seeds from OS entropy, so the p-value
+        and confidence interval will differ between runs on identical input.
     return_type : str
         result | dict | matrix | value.
     return_null : bool
@@ -225,7 +228,10 @@ def jrsa(
     verbose : bool
         Print progress.
     **kwargs
-        Metric-specific keyword arguments.
+        Metric-specific keyword arguments (for example ``sigma`` for ``metric='hsic'``,
+        ``kernel`` for ``'cka'``, ``rdm_metric`` for ``'rsa'``, ``bins`` for
+        ``'mutual_information'``). A keyword the chosen metric does not declare raises
+        TypeError rather than being silently ignored.
 
     Returns
     -------
@@ -241,6 +247,22 @@ def jrsa(
     norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``).
     """
     t0 = time.perf_counter()
+
+    # --- seed alias -----------------------------------------------------------
+    # Every other seeded entry point in this package spells this parameter `seed`
+    # (connectivity, laminar, statistics, permutation); only jrsa spelled it
+    # `random_state`. Because jrsa forwards **kwargs to the metric, and every metric
+    # swallows **kwargs, `jrsa(..., seed=0)` used to be accepted in silence and leave
+    # random_state=None -- an entropy-seeded, irreproducible permutation test that still
+    # returned a plausible p. Four repeated calls with seed=0 gave p = 0.2736, 0.3333,
+    # 0.2637, 0.2935; with random_state=0 they give 0.2189 four times.
+    if "seed" in kwargs:
+        if random_state is not None:
+            raise TypeError(
+                "jrsa() received both `seed` and `random_state`; pass only one "
+                "(`seed` is the package-wide spelling and is an alias for `random_state`)."
+            )
+        random_state = kwargs.pop("seed")
 
     # --- collect parameter snapshot -------------------------------------------
     params = dict(
@@ -289,6 +311,22 @@ def jrsa(
             f"Choose from: {sorted(_METRIC_DISPATCH)}"
         )
 
+    # Any remaining kwargs are forwarded to the metric, which swallows **kwargs and so
+    # cannot reject a typo itself. Validate here instead: a misspelled metric option used
+    # to be dropped in silence, and the caller got a default-parameter answer.
+    _extra = set(kwargs) - _metric_kwargs(metric_fn)
+    if _extra:
+        _accepted = sorted(_metric_kwargs(metric_fn))
+        raise TypeError(
+            f"jrsa() got unexpected keyword argument(s) {sorted(_extra)} for "
+            f"metric '{metric}'. That metric accepts: {_accepted or 'no extra options'}."
+        )
+
+    # Shuffle the axis the metric actually treats as observations. See
+    # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
+    # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
+    perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+
     if verbose:
         print(f"[jrsa] computing {metric!r} …")
 
@@ -305,7 +343,7 @@ def jrsa(
 
         if stats and permutations > 0:
             null_dist = _permutation_test(
-                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
             )
             if p_raw is None:
                 p_raw = _p_from_null(value, null_dist, alternative)
@@ -334,7 +372,7 @@ def jrsa(
             c_val = None
             if stats and permutations > 0:
                 nd = _permutation_test(
-                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
                 )
                 if p is None:
                     p = _p_from_null(v, nd, alternative)
@@ -447,6 +485,17 @@ def _validate_inputs(x1, x2, nan_policy: str):
             # Find joint valid mask (neither is NaN) along the last axis
             # For multi-dimensional inputs, we assume the last axis contains the paired samples.
             # We want to keep samples where both x1 and x2 are not NaN.
+            # Say what is wrong. Mismatched shapes otherwise surfaced as a raw numpy
+            # broadcast error from inside a NaN mask, which names the shapes but not the
+            # contract they violate. (The per-metric `[:min(m1, m2)]` truncations further
+            # down are unreachable from the public entry point because of this guard; they
+            # are defensive only.)
+            if x1.shape != x2.shape:
+                raise ValueError(
+                    f"x1 and x2 must have the same shape; got {tuple(x1.shape)} and "
+                    f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
+                    f"observation count nor the feature count is truncated to match."
+                )
             nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
             # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
             # In general, if there are multiple dimensions, we project the mask down to the last axis.
@@ -675,11 +724,13 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
         if standardize:
             mu = xp.nanmean(arr, axis=-1, keepdims=True)
             sd = xp.nanstd(arr, axis=-1, keepdims=True)
-            arr = (arr - mu) / (sd + 1e-12)
+            # A constant row stays 0 after centring; the 1e-12 offset this replaces biased
+            # the scale of small-amplitude rows.
+            arr = (arr - mu) / xp.where(sd > 0, sd, 1.0)
         if normalize:
             lo = xp.nanmin(arr, axis=-1, keepdims=True)
             hi = xp.nanmax(arr, axis=-1, keepdims=True)
-            arr = (arr - lo) / (hi - lo + 1e-12)
+            arr = (arr - lo) / xp.where(hi > lo, hi - lo, 1.0)
         return arr
     return _prep(x1), _prep(x2)
 
@@ -734,6 +785,18 @@ def _apply_lag(x1, x2, axis_map, lag):
 # ===========================================================================
 # PRIVATE – statistics
 # ===========================================================================
+
+
+def _metric_kwargs(metric_fn):
+    """The keyword options a metric actually declares, excluding its **kwargs catch-all."""
+    import inspect
+
+    return {
+        name
+        for name, param in inspect.signature(metric_fn).parameters.items()
+        if param.kind is param.KEYWORD_ONLY
+        or (param.kind is param.POSITIONAL_OR_KEYWORD and param.default is not param.empty)
+    } - {"axis"}
 
 
 def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwargs):
@@ -1049,10 +1112,12 @@ def _pearson(x1, x2, axis=-1, **kwargs):
             b_mean = cp.mean(b)
             a_std = cp.std(a)
             b_std = cp.std(b)
-            if a_std < 1e-12 or b_std < 1e-12:
-                r = cp.array(0.0)
+            # NaN for a constant vector, as on the CPU path. The absolute cutoff and offset this
+            # replaces reported 0.0 there and shrank r at small amplitude (-0.007 for -0.27).
+            if float(a_std) == 0.0 or float(b_std) == 0.0:
+                r = cp.array(cp.nan)
             else:
-                r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std + 1e-12)
+                r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std)
             df = n - 2
             t = r * cp.sqrt(df) / cp.sqrt(1 - r ** 2 + 1e-12)
             
@@ -1095,18 +1160,21 @@ def _spearman(x1, x2, axis=-1, **kwargs):
                 raise ValueError(
                     f"_spearman: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
                 )
-            # Rank transform
-            a_rank = cp.argsort(cp.argsort(a)).astype(cp.float64)
-            b_rank = cp.argsort(cp.argsort(b)).astype(cp.float64)
+            # Average ranks for ties, as scipy.stats.spearmanr does on the CPU path. The double
+            # argsort this replaces broke ties by position, so tied data gave a different rho on
+            # the GPU and a constant vector got distinct ranks instead of an undefined result.
+            from scipy.stats import rankdata
+            a_rank = cp.asarray(rankdata(cp.asnumpy(a)))
+            b_rank = cp.asarray(rankdata(cp.asnumpy(b)))
             n = len(a)
             a_mean = cp.mean(a_rank)
             b_mean = cp.mean(b_rank)
             a_std = cp.std(a_rank)
             b_std = cp.std(b_rank)
-            if a_std < 1e-12 or b_std < 1e-12:
-                rho = cp.array(0.0)
+            if float(a_std) == 0.0 or float(b_std) == 0.0:
+                rho = cp.array(cp.nan)
             else:
-                rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std + 1e-12)
+                rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std)
             df = n - 2
             t = rho * cp.sqrt(df) / cp.sqrt(1 - rho ** 2 + 1e-12)
             
@@ -1161,7 +1229,8 @@ def _cosine(x1, x2, axis=-1, **kwargs):
                 raise ValueError(
                     f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
                 )
-            sim = cp.dot(a, b) / (cp.linalg.norm(a) * cp.linalg.norm(b) + 1e-12)
+            na, nb = float(cp.linalg.norm(a)), float(cp.linalg.norm(b))
+            sim = cp.dot(a / na, b / nb) if na > 0 and nb > 0 else cp.array(cp.nan)
             return sim, sim, cp.abs(sim), None, None
     except ImportError:
         pass
@@ -1173,16 +1242,27 @@ def _cosine(x1, x2, axis=-1, **kwargs):
         raise ValueError(
             f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
         )
-    sim = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12)
+    # Undefined (NaN) for a zero vector. The 1e-12 offset this replaces reported 0.0 there
+    # and biased small-amplitude inputs.
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    sim = np.dot(a / na, b / nb) if na > 0 and nb > 0 else np.nan
     return np.float64(sim), np.float64(sim), np.float64(abs(sim)), None, None
 
 
 def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
-    """Representational similarity analysis via condensed RDM correlation (delegating to jnwb.rsa)."""
+    """Representational similarity analysis via condensed RDM correlation (delegating to jnwb.rsa).
+
+    A distance undefined for some condition pair (correlation distance of a zero-variance
+    row) makes the similarity NaN, which is what the pre-delegation `pdist` + `spearmanr`
+    implementation returned.
+    """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    from .rsa import rdm, rdm_similarity
-    v1 = rdm(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), metric=rdm_metric, condensed=True)
-    v2 = rdm(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), metric=rdm_metric, condensed=True)
+    from .rsa import _condensed_distances, rdm_similarity
+    v1 = _condensed_distances(x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1), rdm_metric)
+    v2 = _condensed_distances(x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1), rdm_metric)
+    if not (np.all(np.isfinite(v1)) and np.all(np.isfinite(v2))):
+        nan = np.float64(np.nan)
+        return nan, nan, nan, nan, None
     rho, p = rdm_similarity(v1, v2, metric="spearman")
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 
@@ -1206,6 +1286,15 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     Y_c = Y - np.mean(Y, axis=0, keepdims=True)
     
     # Calculate trace of Kx_c @ Ky_c which is ||X_c.T @ Y_c||_F^2
+    # CKA is invariant to scaling either input, so normalise first. The ratio used to carry a
+    # 1e-12 offset under a quantity that scales as amplitude^8, which drove CKA toward 0 for
+    # small-amplitude inputs (0.72 -> 0.08 at 1e-3 scale) and reported 0.0 for a constant one.
+    nx, ny = np.linalg.norm(X_c), np.linalg.norm(Y_c)
+    if nx == 0 or ny == 0:
+        nan = np.float64(np.nan)
+        return nan, nan, nan, None, None
+    X_c = X_c / nx
+    Y_c = Y_c / ny
     cross = X_c.T @ Y_c
     num = np.sum(cross ** 2)
     
@@ -1213,7 +1302,7 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     denom_x = np.sum((X_c.T @ X_c) ** 2)
     denom_y = np.sum((Y_c.T @ Y_c) ** 2)
     
-    cka_val = num / np.sqrt(denom_x * denom_y + 1e-12)
+    cka_val = num / np.sqrt(denom_x * denom_y)
     return np.float64(cka_val), np.float64(cka_val), np.float64(cka_val), None, None
 
 
@@ -1228,6 +1317,21 @@ def _rv(x1, x2, axis=-1, **kwargs):
     # Standard formula uses full gram matrices: S_xx = X @ X.T (m x m)
     # trace(S_xy @ S_xy.T) = trace(X @ Y.T @ Y @ X.T) = trace(X.T @ X @ Y.T @ Y)
     # = Frobenius norm of (X.T @ Y) squared. This drops calculation from O(m^3) to O(m * d1 * d2 + d1^3).
+    # The RV coefficient is defined on column-centred matrices, exactly as _cka centres
+    # above. Without centring the Gram matrices are dominated by the common mean, so any
+    # two representations sharing an offset look identical: two independent Gaussian
+    # samples shifted by +50 returned RV = 1.0000, and independent zero-mean samples
+    # returned 0.16 where the centred value is the small-sample floor.
+    X = X - X.mean(axis=0, keepdims=True)
+    Y = Y - Y.mean(axis=0, keepdims=True)
+
+    # RV is invariant to scaling either input; normalise first (see _cka).
+    nx, ny = np.linalg.norm(X), np.linalg.norm(Y)
+    if nx == 0 or ny == 0:
+        nan = np.float64(np.nan)
+        return nan, nan, nan, None, None
+    X = X / nx
+    Y = Y / ny
     C_xy = X.T @ Y
     num = np.sum(C_xy ** 2)
     
@@ -1236,7 +1340,7 @@ def _rv(x1, x2, axis=-1, **kwargs):
     denom_x = np.sum(C_xx ** 2)
     denom_y = np.sum(C_yy ** 2)
     
-    rv = num / np.sqrt(denom_x * denom_y + 1e-12)
+    rv = num / np.sqrt(denom_x * denom_y)
     return np.float64(rv), np.float64(rv), np.float64(rv), None, None
 
 
@@ -1294,7 +1398,9 @@ def _distance_correlation(x1, x2, axis=-1, **kwargs):
     dcov_xy = _dcov(dA, dB)
     dcov_xx = _dcov(dA, dA)
     dcov_yy = _dcov(dB, dB)
-    dc = dcov_xy / np.sqrt(dcov_xx * dcov_yy + 1e-12)
+    # Undefined (NaN) when every row of an input is identical. The 1e-12 offset this replaces
+    # reported 0.0 there and biased small-amplitude inputs.
+    dc = dcov_xy / np.sqrt(dcov_xx * dcov_yy) if dcov_xx > 0 and dcov_yy > 0 else np.nan
     return np.float64(dc), np.float64(dc), np.float64(dc), None, None
 
 
@@ -1479,6 +1585,21 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
         None,
     )
 
+
+#: Metrics that consume whole representations rather than paired observations along the
+#: last axis. Each reshapes its inputs to (n_observations, n_features) and ignores `axis`
+#: entirely, so observations lie on axis 0.
+#:
+#: This matters for the permutation null. `_permutation_test` shuffled axis=-1 for every
+#: metric, which for these is the FEATURE axis -- and all of them are invariant to a
+#: permutation of features, because a column permutation is an orthogonal transform and
+#: these are all orthogonally invariant. Every permuted value therefore equalled the
+#: observed one and the null was a point mass, so p came back as exactly 1.0 regardless of
+#: the data. Measured on independent 60 x 12 Gaussian representations, `cka`, `rv`, `hsic`,
+#: `distance_correlation` and `procrustes` all reported p = 1.0000.
+_OBSERVATION_AXIS_0_METRICS = frozenset({
+    "cka", "rv", "hsic", "distance_correlation", "procrustes", "rsa",
+})
 
 _METRIC_DISPATCH = {
     "pearson": _pearson,

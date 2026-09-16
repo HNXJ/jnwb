@@ -4,16 +4,16 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.4rc1] - 2026-09-14
+## [0.2.4] - 2026-09-16
 
 ### Added
 
-- Weighted Phase Lag Index (`wpli`, `WPLIResult`) in `jnwb.spectral`:
+- Weighted Phase Lag Index (`wpli`, returning a dict) in `jnwb.spectral`:
   Phase-synchronization metric evaluating segment-resolved imaginary cross-spectra, reducing sensitivity to zero-phase-lag coupling without claiming volume-conduction immunity; reports both standard and debiased squared wPLI.
 - Laminar phase gradient analysis (`zflip`, `ZFlipResult`) in `jnwb.laminar`:
-  Cross-channel phase-gradient analysis and apparent velocity estimation with phase-frequency linearity verification ($R^2 \ge \text{min\_linearity\_r2}$) and circular-shift surrogate testing.
+  Cross-channel phase-gradient analysis and apparent velocity estimation with phase-frequency linearity verification ($R^2 \ge \text{min\_linearity\_r2}$) and per-channel Fourier phase-randomised surrogate testing.
 - Standalone representational dissimilarity matrices (`rdm`, `rdm_similarity`) in `jnwb.rsa`:
-  Generates condensed or square symmetric RDMs across conditions or time points with support for euclidean, correlation, cosine, and mahalanobis distances; evaluates inter-RDM similarity via rank or linear correlation.
+  Generates condensed or square symmetric RDMs across conditions or time points with any `scipy.spatial.distance.pdist` metric (e.g. correlation, cosine, euclidean, cityblock); evaluates inter-RDM similarity via rank or linear correlation.
 - Comprehensive 8-part synthetic NWB tutorial suite:
   Completely independent, zero-relative-import executable tutorials covering NWB inspection, addressing/metadata, spiking PSTH/latency, continuous LFP/Welch PSD/TFR/wPLI, dual exploratory and permutation statistics, laminar CSD/vFLIP/zFLIP, population ensembles/JRSA/decoding, and end-to-end composite pipelines.
 
@@ -24,6 +24,162 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`vflip` located the crossover near the centre of the sampled contacts rather than
+  where the motif reverses.** Power was z-scored per frequency across contacts, which
+  forces every column to zero mean, so both band depth profiles carried zero spatial mean
+  and their difference summed to zero identically. The zero crossing of a zero-sum profile
+  sits near the centre of the array whatever the truth is, and for a profile linear in
+  contact index it is pinned to the midpoint exactly. On a known motif at SNR 100, true
+  crossovers of 5.5 / 7.5 / 11.5 / 15.5 / 18.5 contacts were returned with bias
+  +3.98 / +2.17 / -0.01 / -1.92 / -4.75, a slope of about 0.31 estimated contacts per true
+  contact; the shift matched the removed spatial mean to within 0.5 contacts. The reported
+  crossover therefore depended on where the probe sat relative to the motif, which is the
+  quantity being measured. The defect was invisible to the previous calibration, which
+  placed every synthetic crossover at the shaft midpoint -- the one location where the bias
+  vanishes -- and to `test_known_crossover_recovery_multiple_depths`, whose compact
+  symmetric bumps also have zero spatial mean.
+
+  Power is now expressed as min-max relative power per frequency across contacts, and each
+  band depth profile is rescaled to [0, 1] before the two are differenced to locate the
+  crossover. The relative power fraction `P(c, f) / sum_k P(k, f)` was implemented and
+  measured first: being simplex-constrained it fixes each column's sum, so the difference
+  again sums to zero and the bias is unchanged (+3.81 / +2.25 / +0.11 / -1.79 / -4.43).
+  Any normalization constraining a column's mean or sum carries the defect. Shaft-wide
+  median |c* - c_true| at SNR 100 falls from 2.28 to 0.99 contacts, and the old estimator's
+  residual does not fall with SNR because it is bias rather than noise.
+- **`vflip`'s support score had a frequency-grid-dependent null**, so a fixed threshold
+  meant different false-positive rates at different recording lengths and `nperseg`. Under
+  the null a Euclidean norm over the whole grid grows as `sqrt(n_freqs)` while a band mean
+  over `n` bins has null scale `1/sqrt(n)`; the score combined one of the former with two of
+  the latter, giving a null that fell as `n_freqs^(-1/2)` and a null median that shifted by
+  `-0.5 * ln(n_freqs)`. That law reproduced the measured shift across a 126 -> 1001 bin
+  sweep to within 0.27, exactly at the largest grid. The spectral distance is now an RMS
+  across bins and the band-derived terms are returned to unit null scale, so every factor is
+  grid-free. The calibration now measures a null false-positive rate varying by 0.000 and a
+  recovery rate of 1.000 across the (length, nperseg) sweep.
+- **`vflip`'s acceptance was not false-positive controlled.** At the old default threshold
+  of 6.0 the estimator accepted white noise in 0.37 of trials, AR background in 0.43 and
+  parallel bands in 0.30, against 0.47 recovery for a true motif at SNR 1 -- a rank AUC of
+  0.568, with no threshold separating the two distributions. The estimator is recalibrated
+  end to end by `scripts/calibrate_vflip.py` over crossover location, channel count, pitch,
+  frequency-grid density, orientation, missing contacts and SNR, against the existing null
+  families. AUC is now 1.000 over 120 null and 810 recoverable-alternative trials. The
+  default `min_support_score` changes from 6.0 to **3.75**, selected at maximum margin
+  inside the band of thresholds satisfying a criterion declared before the calibration ran:
+  pooled null false-positive rate <= 0.05, recovery >= 0.80, median |c* - c_true| <= 1.5
+  contacts among accepted trials in the central half of the shaft, and null false-positive
+  rate varying by <= 0.05 across frequency grids. At 3.75 the measured values are FPR 0.000,
+  TPR 0.999, median error 1.41 contacts and grid spread 0.000. Threshold 6.0 was not
+  preserved for compatibility: it belonged to a different score.
+
+  Recovery requires a clearly resolved motif: acceptance is 0.000 at SNR <= 2, 0.367 at
+  SNR 5 and 1.000 from SNR 10, and median crossover error falls from 1.59 contacts at SNR 10
+  to 0.95 at SNR 50. At 5000 samples neither the old nor the repaired estimator localizes
+  the crossover to better than about 6 contacts at SNR 4, which is an information limit of
+  the recording rather than a property of the normalization.
+
+- **`vflip`'s crossover is still shrunk toward the centre of the shaft, and the receipt now says
+  so.** The 0.2.3 defect was a zero-sum profile that pinned the crossing to the centre
+  regardless of SNR. What remains is attenuation that recedes as noise falls. Regressing
+  estimate on truth over crossovers at 20-80% of a 24-contact shaft, now computed by the
+  calibration itself: slope 0.703 at SNR 20, 0.804 at SNR 100, 0.864 at SNR 1000, against 1.0
+  for an unbiased locator. At SNR 20 the mean signed error runs from +2.40 contacts at 20% of
+  the shaft to -1.87 at 80%. The previous receipt could not have shown this: its crossover table
+  reported only median |c* - c_true|, which stayed between 1.04 and 1.81 at every depth because
+  it cannot see a bias that changes sign. Cause: at SNR 20, 35 of 51 gamma-band bins and 7 of 12
+  beta-band bins carry no laminar source, so the per-trial min-max range is estimated from noisy
+  extremes and each profile is compressed toward its interior. No correction factor is applied;
+  the shrinkage is reported in the calibration, documented on `VFlipResult.crossover_contact`,
+  and pinned by a test in both directions. Treat a crossover near either end of the shaft as a
+  bound, not a point estimate.
+- **`phase_locking_index` folded the recording onto itself.** It called `np.interp(spike_times,
+  lfp_timestamps, lfp_phase, period=2*np.pi)`, but `np.interp`'s `period` is the period of the x
+  coordinates, not of `fp`, so spike times and LFP timestamps were wrapped modulo 6.2832 SECONDS
+  and each spike took the phase of an unrelated moment. A unit locked to phase 0 with 2 ms
+  jitter, true resultant length 0.995, reported `pli` 0.80 over 6 s, 0.31 over 60 s and 0.10
+  over 600 s. Phase is now interpolated through its unit vector, giving 0.804 / 0.808 / 0.803
+  and a `rayleigh_z` of 473.9 against an analytic 474.0. The Rayleigh p-value is also clamped
+  below: the series expansion goes negative at large z, and a negative p passes every `p <
+  alpha` test.
+- **`compute_response_metrics` differenced raw spike counts over unequal windows.** The defaults
+  are 0.200 s of baseline against 0.150 s of response, so a unit firing at a constant rate
+  scored a response it did not have, growing as the square root of the rate: z = -0.47 at 20 Hz,
+  -1.04 at 100 Hz, -1.91 at 500 Hz. `classify_response_significance` takes abs(z), so a fast
+  enough non-responsive unit is certified as responding. Rates are now z-scored instead of
+  counts, which is exactly a no-op when the windows are equal. A baseline with no across-trial
+  variance also left `response_zscore` at its initialised 0.0, reading as no response for the
+  strongest possible evidence -- a unit driven at 133 Hz from a silent baseline returned z =
+  +0.00, confidence none. It now returns NaN with confidence undefined.
+- **`jrsa` permuted the feature axis for whole-representation metrics.** `cka`, `rv`, `hsic`,
+  `distance_correlation`, `procrustes` and `rsa` reshape to (n_observations, n_features) and
+  ignore `axis`, and all are invariant to a permutation of features, so the null collapsed to a
+  point mass and p was exactly 1.0 whatever the data said. The permutation axis is now taken
+  from the metric. Measured false-positive rate over 200 independent datasets: 0.060, 0.045,
+  0.055, 0.050, 0.050 and 0.050 against a nominal 0.05, with a linearly related pair still
+  detected at p <= 0.006.
+- **`_adf_pvalue` compared a Dickey-Fuller t-statistic to the normal distribution.** The DF null
+  is shifted well to the left (5% critical value near -2.86 with a constant, not -1.645), so it
+  certified 48.4% of pure random walks as stationary at n = 200 and 46.0% at n = 2000, while its
+  docstring called itself conservative. `stationarity_ok` and `ok_for_interpretation` on Granger
+  results were therefore near coin flips on exactly the series a user needs warned about. It now
+  defers to `statsmodels` MacKinnon p-values for the same regression: 0.049 at n = 200 and 0.049
+  at n = 2000, with 100/100 stationary AR(1) series still rejecting the unit root.
+- **`cross_modal_comparison` reported the selected lag's uncorrected p-value.** On independent
+  white noise over 101 lags it called 99.5% of runs significant. It also built its lag set as a
+  symmetric sweep of +-min(|lo|, |hi|), so (0, 500) searched nothing and (100, 500) searched
+  +-100 ms. The lag set is now exactly what was documented, and the result carries
+  `lag_corrected_pvalue` from a circular-shift max-statistic null (measured FPR 0.043). Because
+  a shift relands a peak inside the window about n_lags / n_samples of the time,
+  `lag_search_resolution_floor` reports that ratio and `warnings` flags it above 0.05.
+- **`transfer_entropy` was blind to a collapsed discretization.** A collapse yields FEWER joint
+  states, so `samples_per_joint_state` rises and the undersampling check stays quiet. With spike
+  counts averaging 0.05-0.1 per bin, every quantile edge lands on 0 and the series maps to one
+  symbol: on data where X drives Y at lag 1 it returned TE = 0.0000 bits, p = 1.0,
+  `ok_for_interpretation` True and no warnings. It now reports `n_realized_states_x` and
+  `n_realized_states_y`, and warns when the discretization collapses.
+- **`permute_labels` with `scheme=within_group` returned a vacuous null for nested designs.**
+  When each group carries one condition there is nothing to permute: 1000 of 1000 draws came
+  back identical, and `build_permutation_plan` emitted a 500-row manifest carrying one distinct
+  digest while reporting `group_composition_preserved: True`. It now raises with the reason and
+  the alternatives, and the plan reports `n_permutable_groups` and `n_distinct_draws`.
+- **`repair_lfp_trials` substituted away time-locked evoked responses.** The detector is cross-
+  channel synchrony, and an evoked response is synchronous by construction, so it was flagged
+  like an artifact and replaced by the cross-trial median of itself. The trial average survived
+  while single-trial variability did not: the correlation between true single-trial amplitude
+  and the repaired peak fell from 0.9996 to 0.4607. A new `max_trial_fraction` (default 0.5)
+  never substitutes a sample flagged on more than half the trials, which is where the
+  substitution becomes self-defeating. A rare artifact on 3 of 40 trials is still fully
+  repaired.
+- **`_rv` was not centred, although `_cka` beside it is.** Any two representations sharing an
+  offset therefore looked identical: two independent Gaussian samples shifted by +50 returned RV
+  = 1.0000, now 0.178.
+- **`xflip` treated a skipped surrogate test as a passed one.** With `n_surrogates=0` it set
+  significance True and returned `accepted=True` alongside p = NaN. Pure noise was accepted in
+  119 of 120 seeds, and the test would have rejected 113 of them. Acceptance now requires the
+  test to run, matching `zflip`'s documented contract.
+- **The top multitaper bin was half-size at odd `n_fft`.** One-sided scaling excluded the last
+  bin unconditionally, but an rfft grid only has a Nyquist bin when `n_fft` is even. Integrated
+  power against the variance went from 0.9111 to 0.9999 at n = 101.
+- **`imaginary_coherency`'s denominator guard was unit-dependent.** The product of two PSDs
+  scales as the fourth power of amplitude, so an absolute 1e-30 clip collapsed the estimate for
+  recordings stored in smaller units: `icoh_mean` held at -0.5144 to a scale of 1e-6, then fell
+  to -0.000142 at 1e-8 and to zero below. The floor is now relative, and the estimate is
+  identical across sixty decades of amplitude.
+- **`confirmatory_compare` told callers to re-correct `q_parametric` across hypotheses,** which
+  compounds two BH passes. It now points at the raw p-values. `jrsa` reports a shape mismatch as
+  a contract error naming both shapes rather than a raw broadcast failure, and the release
+  gate's own smoke test is repaired: it asserted `hasattr(wpli_res, 'wpli')` on a dict, which is
+  always False, and used a key name, `wpli_debiased`, that does not exist.
+- **`jrsa` accepted a seed it never used.** It spells its seed `random_state`, while
+  `connectivity`, `laminar`, `statistics` and `permutation` all spell it `seed`; and it forwards
+  unrecognised keywords to the metric, every one of which ends in `**kwargs`. `jrsa(...,
+  seed=0)` was therefore accepted in silence with `random_state` still None, so the permutation
+  test was entropy-seeded and the result was not reproducible: four identical calls on one
+  dataset returned p = 0.2736, 0.3333, 0.2637, 0.2935, against 0.2189 four times with
+  `random_state=0`. The same hole swallowed misspelled and misdirected metric options, which
+  then returned a default-parameter answer. `seed` is now an alias for `random_state`, passing
+  both is refused, and a keyword the chosen metric does not declare raises a TypeError naming
+  the options it does accept.
 - Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
 - Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
 - Gate 6 (dataset independence) now scans every durable user-facing surface recursively:
@@ -92,6 +248,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Surrogates are verified to use the same segmentation as the observed statistic.
   Plain PSD estimators are deliberately NOT gated: a one-segment periodogram is noisy but not
   degenerate.
+- `zflip` shared the single-segment degeneracy, and it disabled one of zflip's own gates.
+  Its default `nperseg = min(N, 256)` gave one STFT segment at `N <= 256`, where adjacent
+  wPLI saturates at exactly 1.0 for any input -- so the documented `min_wpli` acceptance
+  gate passed unconditionally, and a gate that always passes is not a gate. The default is
+  now `min(max(N // 2, 8), 256)` and a segmentation yielding fewer than two segments is
+  refused. `N // 2` rather than the coherence family's `N // 8`: zflip fits a phase slope
+  inside a narrow band and needs at least 3 frequency bins there, so segment length cannot
+  be traded for segment count. This preserves the historical 256-sample segment for every
+  `N >= 512`, and a real travelling wave is now detected at `N = 256`, where the saturated
+  statistic previously caused rejection.
+- Corrected the `zflip` docstring claim that the delay bound `|tau| < 1 / (2 df)` prevents
+  phase-wrap aliasing. The bound is applied to the *estimated* delay, and a true delay
+  beyond the interval aliases to a smaller value that satisfies it, so the check cannot by
+  itself detect wrapping. The surrogate test is what rejects such cases, so `accepted`
+  rather than `delay_identifiable` is the field to trust for large true delays.
 - **INTENTIONAL BREAK (0.2.4):** `wpli` and `imaginary_coherency` raise `ValueError` for
   traces of unequal length. Both took `n = min(len(x), len(y))` and silently discarded the
   tail of the longer trace, so the two signals no longer described the same interval and
@@ -126,6 +297,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `__version__` from the source tree and the isolated smoke test compares the installed wheel
   against it, removing a hand-maintained literal of the same drift class the documentation
   gates exist to prevent.
+- **wPLI and zFLIP depended on the amplitude units of the input.** An absolute `1e-12`
+  cutoff on the imaginary cross-spectrum was applied after STFT scaling. For a coupled pair at
+  amplitude `1e-6`, `wpli` returned `0.0`; at `1e-4` to `1e-3`, the range of volt-scaled LFP,
+  `wpli_debiased_sq` returned `0.0`; and `zflip` rejected a real travelling wave at `1e-6`.
+  The cutoff is now relative to each cross-spectral magnitude (`spectral.ZERO_LAG_RTOL`), and
+  `wpli`'s CPU path, its CuPy path and both `zflip` loops share one implementation. Results are
+  identical from amplitude `1e-9` to `1e3`.
+- **INTENTIONAL BREAK (0.2.4):** `wpli` and `imaginary_coherency` raise `ValueError` for empty
+  input, NaN or Inf samples, or a `freq_range` containing no frequency bin. Each previously
+  returned `0.0`, indistinguishable from "no coupling". Identical signals still report `0.0`,
+  where every imaginary term is exactly zero.
+- **`wpli(device='cuda')` never ran on a GPU.** `cupy.divide` rejects `where=`; the error was
+  caught and logged, and CPU results were returned. It now executes on CUDA and matches the CPU
+  to 1e-15. `wpli` and `imaginary_coherency` resolve the device through `_backend`, reject
+  unrecognised device names, and emit a `RuntimeWarning` on fallback instead of a log message.
+  See `artifacts/benchmarks/cuda_parity_0.2.4.md`.
+- **INTENTIONAL BREAK (0.2.4): `zflip` inference and identifiability.**
+  - A delay is identifiable only when every adjacent contact pair is, as the docstring stated.
+    The code required about half, and summed every pair's delay into the spatial fit: one
+    incoherent contact biased a 12-contact estimate by 16%, and on 3 contacts a delay of
+    -9.0 ms was accepted for a true +1.0 ms.
+  - `n_surrogates=0` skips the test and now gives `accepted=False`. It previously accepted
+    with `p_value=NaN`.
+  - `ValueError` for `alpha` outside (0, 1), a negative or non-integer `n_surrogates`,
+    `min_linearity_r2` or `min_wpli` outside [0, 1], a malformed `freq_range`, or non-finite
+    input. NaN input was previously processed.
+  - A result rejected for too few frequency bins reports `mean_wpli` and `adjacent_wpli` as
+    NaN rather than `0.0`.
+  - Default `nperseg` is `min(max(N // 2, 8), 256)`, unchanged for `N >= 512`; a segmentation
+    giving one segment raises. With one segment adjacent wPLI is 1.0 for any input, which made
+    `min_wpli` inert for `N <= 256`.
+  - The docstring states what the delay measures: the slope of the averaged cross-spectral
+    phase, a group delay, which zero-lag mixing pulls toward 0 (equal-power mixing halves it).
+    Both statements are tested against constructed signals.
+- **INTENTIONAL BREAK (0.2.4): `rdm` and `rdm_similarity`.**
+  - `rdm` raises `ValueError` when the metric is undefined for a condition pair (correlation
+    distance of a zero-variance row, cosine distance of a zero-norm row). Such distances were
+    set to `0`, declaring the condition identical to every other.
+  - `jrsa(metric="rsa")` returns NaN in that case again. Delegating to `rdm` in 0.2.4rc1 had
+    made it return a finite similarity, where its earlier `pdist` + `spearmanr` implementation
+    returned NaN; `tests/test_rsa_oracle.py` compares against that implementation.
+  - `rdm_similarity` raises for a non-symmetric matrix, a nonzero diagonal, or a condensed
+    length that is not `N(N-1)/2` (including empty input, which returned `0.0`). A zero RDM
+    under `'cosine'` returns NaN rather than `0.0`. The docstring notes that its p-value treats
+    RDM cells as independent and is not a test of RDM relatedness.
+  - `rdm(device=...)` validates the name and warns that there is no GPU implementation; any
+    string was previously accepted and ignored. `'manhattan'` is no longer listed as a metric
+    (`pdist` does not accept it; use `'cityblock'`).
+- **vFLIP calibration receipt described an earlier estimator.** The 0.2.2 receipt predates the
+  support-score density normalization and the crossover polarity rule, and no generator was
+  kept. `scripts/calibrate_vflip.py` regenerates `artifacts/benchmarks/vflip_calibration_0.2.4.md`
+  from the shipped estimator, recording a hash of the `vflip` source that
+  `tests/test_vflip_calibration_receipt.py` checks.
+- The harness test for hardcoded symbol counts had matched nothing since it was written: the
+  `\b` word boundaries in its pattern were stored as backspace characters. Two docstrings in
+  `jnwb/rsa.py` had the same corruption (`\rho`, `\tau`, `\frac`).
+- **INTENTIONAL BREAK (0.2.4): undefined results no longer come back as numbers.**
+  - `spectral_tilt`, `harmonic_analysis` and `band_power` raise `ValueError` for empty, NaN or
+    Inf input; they returned 0.0 or NaN powers. A trace with no positive power in range gives
+    NaN `exponent`, `offset` and `fit_quality`, and NaN `fundamental_freq` and `harmonic_ratio`,
+    instead of 0.0; a constant trace had reported a fundamental at the first bin. All three
+    resolve `device` through `_backend`, reject unrecognised names and warn on fallback.
+  - `band_power` raises when the baseline has no power in `freq_range`; it returned the linear
+    power in place of a dB value. The baseline gets its own Welch grid; a baseline shorter
+    than 4096 samples and of a different length from the trace raised `IndexError`.
+  - `harmonic_ratio` is P(fundamental) / (P(fundamental) + sum of P(orders 2..N)). Order 1 is
+    the fundamental itself and was summed into the harmonics, capping the ratio at 0.5.
+  - `laplacian_reference` raises for a single channel, which returned zeros.
+  - `rate_in_window` and `fires_in_window` raise for a window of non-positive width (0 Hz and
+    `False`), non-finite bounds or spike times, and unsorted spike times, which were miscounted.
+  - `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired` raise for NaN or Inf values, which gave
+    the minimum p-value 1/(n_shuffles+1), and for `n_shuffles` < 1. The paired test raises for
+    unequal lengths instead of truncating to the shorter. Fewer than two observations return
+    `(nan, nan)` instead of `(0.0, 1.0)`.
+  - `raster_psth` returns NaN mean and SEM for zero onsets (zeros) and validates `win_ms` and
+    `bin_ms`.
+  - `network_topology` raises for a non-square matrix or a NaN or Inf off-diagonal entry, which
+    counted as no edge.
+  - `xflip` rejects input containing a zero-variance channel and reports its correlations as NaN.
+    They were set to 0, which the partition search reads as a block boundary.
+- **Results depended on the amplitude units of the input** (absolute `1e-12` offsets and cutoffs).
+  - `jrsa` with `metric` `cka`, `rv`, `distance_correlation` or `cosine`: CKA of the same data was
+    0.72, 0.08 at `1e-3` scale and 1e-13 at `1e-6`. These metrics are now scale invariant and
+    NaN for a constant or zero input (previously 0.0). `standardize` and `normalize`
+    preprocessing no longer add an offset.
+  - `vflip` and `vflip_from_lfp`: a motif accepted at unit scale was rejected at `1e-6`, the scale
+    of LFP in volts. The PSD is rescaled to its maximum before the per-frequency
+    standardization floor. Regenerating `artifacts/benchmarks/vflip_calibration_0.2.4.md`
+    reproduced every calibration outcome exactly; only the estimator hash changed.
+  - `detect_band_outliers`, and so `repair_band_artifacts`, flagged nothing at `1e-12` power scale;
+    the degenerate-scale test is now relative to the data, and non-2-D or non-finite input
+    raises. The robust z-scores of `bad_trials_single_channel` and
+    `bad_channels_from_correlation` use the same relative test.
+- **`jrsa` on CUDA did not match the CPU.** `pearson` returned 0.0 for a constant vector (CPU: NaN)
+  and -0.007 for a true -0.27 at `1e-7` scale; `spearman` broke ties by position (-0.072 against
+  -0.088 on tied data). The GPU paths now compute the CPU definitions.
 
 ## [0.1.8] - 2026-09-11
 

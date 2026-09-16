@@ -101,10 +101,11 @@ class TestResampleOnsets:
 
 
 class TestRasterPsth:
-    def test_empty_onsets_returns_zeroed_curve(self):
+    def test_empty_onsets_give_an_undefined_curve(self):
+        """INTENTIONAL BREAK (0.2.4): zero trials returned a zero PSTH, which reads as a silent unit."""
         centers, mean, sem = raster_psth(np.array([]), np.array([]), (-100, 100), bin_ms=10.0)
-        assert np.all(mean == 0)
-        assert np.all(sem == 0)
+        assert np.all(np.isnan(mean))
+        assert np.all(np.isnan(sem))
         assert len(centers) == len(mean)
 
     def test_known_rate_recovered(self):

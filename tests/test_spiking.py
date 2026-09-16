@@ -91,17 +91,61 @@ class TestPhaseLockingIndex:
         assert result["n_spikes"] == 0
 
     def test_perfectly_locked_spikes_give_high_pli_and_low_pvalue(self):
-        # Spikes always occur at the same LFP phase (0 rad) -> maximal locking.
-        n = 500
+        # Spikes on every cycle of a 5 Hz LFP, so each lands at the same phase.
+        #
+        # This fixture used to be np.linspace(0.1, 9.9, 500): evenly spaced in TIME, not
+        # in phase. On a 5 Hz LFP those spikes advance 0.098 of a cycle each, so their
+        # phases are near-uniform and p ~ 1 is the correct answer. The test passed only
+        # because np.interp(..., period=2*np.pi) folded the recording modulo 6.28 seconds
+        # and manufactured a concentration. It was asserting the defect.
         lfp_timestamps = np.linspace(0, 10, 10000)
         lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
-        # find timestamps closest to phase 0
-        spike_times = np.linspace(0.1, 9.9, n)
+        spike_times = np.arange(1, 50) * 0.2
         result = phase_locking_index(spike_times, lfp_phase, lfp_timestamps, n_bins=18)
-        assert result["n_spikes"] == n
+        assert result["n_spikes"] == len(spike_times)
         assert 0.0 <= result["peak_to_mean_contrast"] <= 1.0
         assert result["pli"] == result["peak_to_mean_contrast"]
         assert result["rayleigh_pvalue"] < 1e-10
+        assert result["rayleigh_z"] > 40.0
+
+    def test_spikes_spread_over_the_cycle_are_not_called_locked(self):
+        """The discriminator the old fixture accidentally became."""
+        lfp_timestamps = np.linspace(0, 10, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        result = phase_locking_index(
+            np.linspace(0.1, 9.9, 500), lfp_phase, lfp_timestamps, n_bins=18
+        )
+        assert result["rayleigh_pvalue"] > 0.1
+        assert result["rayleigh_z"] < 3.0
+
+    def test_locking_estimate_does_not_degrade_with_recording_length(self):
+        """np.interp's `period` is the period of x, so it wrapped the time axis: a unit
+        whose true resultant length is 0.995 reported pli 0.31 over 60 s and 0.80 over
+        6 s. The estimate must not depend on how long the recording is."""
+        rng = np.random.default_rng(0)
+        values = []
+        for duration in (6.0, 60.0, 240.0):
+            timestamps = np.arange(0.0, duration, 0.001)
+            phase = np.angle(np.exp(1j * 2 * np.pi * 8.0 * timestamps))
+            spikes = np.arange(1, int(8 * duration)) / 8.0 + rng.normal(
+                0.0, 0.002, size=int(8 * duration) - 1
+            )
+            spikes = spikes[(spikes > 0) & (spikes < duration)]
+            values.append(phase_locking_index(spikes, phase, timestamps)["pli"])
+        assert max(values) - min(values) < 0.05, f"pli drifted with duration: {values}"
+
+    def test_the_rayleigh_p_value_is_never_negative(self):
+        """The series expansion underflows negative at large z, and a negative p passes
+        every `p < alpha` test and corrupts FDR downstream."""
+        timestamps = np.arange(0.0, 600.0, 0.001)
+        phase = np.angle(np.exp(1j * 2 * np.pi * 8.0 * timestamps))
+        rng = np.random.default_rng(0)
+        spikes = np.arange(1, 4800) / 8.0 + rng.normal(0.0, 0.002, size=4799)
+        spikes = spikes[(spikes > 0) & (spikes < 600.0)]
+        result = phase_locking_index(spikes, phase, timestamps)
+        assert result["rayleigh_z"] > 1000.0
+        assert result["rayleigh_pvalue"] >= 0.0
+        assert not str(result["rayleigh_pvalue"]).startswith("-")
 
 
 class TestPairwisePhaseConsistency:
@@ -195,3 +239,63 @@ class TestGaussianSmoothRate:
         with pytest.raises(ValueError, match="strictly positive"):
             gaussian_smooth_rate(trace, bin_ms=0.0)
 
+
+
+class TestResponseMetricsDoNotManufactureResponses:
+    """`response_zscore` differenced raw spike COUNTS between a baseline and a response
+    window that need not be, and by default are not, the same length (0.200 s against
+    0.150 s). A homogeneous unit therefore scored a response it did not have, and the
+    spurious z grew as the square root of the firing rate: -0.47 at 20 Hz, -1.04 at
+    100 Hz, -1.91 at 500 Hz. `classify_response_significance` takes abs(z), so a fast
+    non-responsive unit would eventually be certified as responding.
+    """
+
+    ONSETS = np.arange(200) * 2.0
+
+    @pytest.mark.parametrize("rate", [20, 100, 500, 2000])
+    def test_a_homogeneous_unit_scores_no_response_at_any_rate(self, rate):
+        rng = np.random.default_rng(0)
+        st = np.sort(rng.uniform(0, 400, size=int(rate * 400)))
+        m = compute_response_metrics(st, self.ONSETS)
+        assert abs(m["response_zscore"]) < 1.0, (
+            f"constant-rate unit at {rate} Hz scored z = {m['response_zscore']:+.2f}"
+        )
+        assert classify_response_significance(m)["is_significant"] is False
+
+    def test_equal_windows_are_unchanged_by_the_rate_conversion(self):
+        """Dividing both windows by their own duration is exactly a no-op when they are
+        equal, which is the case where differencing counts was already correct."""
+        rng = np.random.default_rng(1)
+        st = np.sort(rng.uniform(0, 400, size=8000))
+        m = compute_response_metrics(
+            st, self.ONSETS, baseline_window=(-0.2, 0.0), response_window=(0.0, 0.2)
+        )
+        counts_b, counts_r = [], []
+        for o in self.ONSETS:
+            counts_b.append(int(np.sum((st >= o - 0.2) & (st < o))))
+            counts_r.append(int(np.sum((st >= o) & (st < o + 0.2))))
+        expected = (np.mean(counts_r) - np.mean(counts_b)) / np.std(counts_b)
+        assert m["response_zscore"] == pytest.approx(expected, rel=1e-9)
+
+    def test_a_silent_baseline_is_undefined_not_zero(self):
+        """A unit driven hard from a perfectly silent baseline returned z = +0.00 and
+        'none' -- a fabricated null on the strongest possible evidence."""
+        rng = np.random.default_rng(2)
+        st = np.sort(np.concatenate([o + rng.uniform(0.0, 0.150, size=20) for o in self.ONSETS]))
+        m = compute_response_metrics(st, self.ONSETS)
+        assert m["response_count"] == 4000
+        assert m["response_rate"] > 100.0
+        assert np.isnan(m["response_zscore"])
+        sig = classify_response_significance(m)
+        assert sig["confidence"] == "undefined" and np.isnan(sig["pvalue"])
+        assert sig["is_significant"] is False
+
+    def test_a_genuine_response_is_still_detected(self):
+        rng = np.random.default_rng(3)
+        base = np.sort(rng.uniform(0, 400, size=8000))
+        drive = np.concatenate(
+            [o + rng.uniform(0.0, 0.150, size=rng.poisson(6)) for o in self.ONSETS]
+        )
+        m = compute_response_metrics(np.sort(np.concatenate([base, drive])), self.ONSETS)
+        sig = classify_response_significance(m)
+        assert m["response_zscore"] > 3.0 and sig["is_significant"] and sig["confidence"] == "high"

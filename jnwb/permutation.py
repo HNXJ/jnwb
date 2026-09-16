@@ -65,8 +65,28 @@ def permute_labels(
     groups = np.asarray(groups)
     if groups.shape[0] != y.shape[0]:
         raise ValueError(f"groups length {groups.shape[0]} != y length {y.shape[0]}")
+    # A group holding a single distinct label cannot be permuted: rng.permutation of a
+    # constant is that constant. If NO group holds two distinct labels -- the nested design
+    # where each group carries exactly one condition -- every draw is the original labelling
+    # and the null is a point mass, so any test built on it returns p = 1.0 by construction.
+    # This used to happen silently: 1000 of 1000 draws came back identical, and
+    # build_permutation_plan emitted a 500-row manifest carrying a single distinct digest.
+    # Within-group exchangeability genuinely does not exist for that design, so say so
+    # instead of returning a vacuous null.
+    permutable = [g for g in np.unique(groups)
+                  if len(np.unique(y[groups == g])) > 1]
+    if not permutable:
+        raise ValueError(
+            "scheme='within_group' has no exchangeability for this design: every group "
+            "carries a single distinct label, so every permutation is the identity and any "
+            "p-value computed from it would be 1.0 by construction. Labels are nested "
+            "within groups here; permute at the group level instead (permute the labels "
+            "attached to whole groups), or use scheme='global' if no grouping structure "
+            "constrains the analysis."
+        )
+
     out = y.copy()
-    for g in np.unique(groups):
+    for g in permutable:
         idx = np.flatnonzero(groups == g)
         out[idx] = rng.permutation(y[idx])
     return out
@@ -121,10 +141,17 @@ def build_permutation_plan(
                 "n_groups": int(len(np.unique(group_array))),
             }
         )
+    manifest = pd.DataFrame(draws)
     return {
-        "draw_manifest": pd.DataFrame(draws),
+        "draw_manifest": manifest,
         "scheme": "within_group",
         "seed": int(seed),
         "n_permutations": int(n_permutations),
         "group_composition_preserved": True,
+        # How much null there actually is. A manifest of n_permutations rows says nothing
+        # about whether the draws differ from each other or from the observed labelling.
+        "n_permutable_groups": int(sum(
+            len(np.unique(y[group_array == g])) > 1 for g in np.unique(group_array)
+        )),
+        "n_distinct_draws": int(manifest["label_digest"].nunique()),
     }

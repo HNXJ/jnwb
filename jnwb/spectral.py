@@ -37,6 +37,81 @@ def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None
         )
 
 
+def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
+    """Reject paired traces from which no cross-spectrum can be estimated.
+
+    An empty pair used to return 0.0, and a NaN sample made every wPLI term NaN, which the
+    zero-denominator guard then reported as 0.0. Both read as "no coupling".
+    """
+    if len(x) == 0:
+        raise ValueError(f"{func_name}: x and y are empty; there is nothing to estimate.")
+    if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+        raise ValueError(
+            f"{func_name}: x and y must be finite. A NaN or Inf sample propagates into "
+            "every segment that contains it; remove or repair those samples first."
+        )
+
+
+def _require_band_bins(
+    freqs: np.ndarray, mask: np.ndarray, freq_range: Tuple[float, float], func_name: str
+) -> None:
+    """Reject a frequency range that selects no bin of the segment grid."""
+    if not np.any(mask):
+        step = float(freqs[1] - freqs[0]) if len(freqs) > 1 else float("nan")
+        raise ValueError(
+            f"{func_name}: freq_range {tuple(freq_range)} contains no bin of the "
+            f"frequency grid (0 to {float(freqs[-1]):g} Hz in steps of {step:g} Hz). "
+            "Widen freq_range or lengthen nperseg."
+        )
+
+
+def _require_finite_nonempty_trace(x: np.ndarray, func_name: str, name: str = "lfp_trace") -> np.ndarray:
+    """Return ``x`` as a float array, rejecting empty or non-finite input.
+
+    Empty input used to return zeros, and a NaN sample gave zeros or NaN powers. A returned
+    0 is indistinguishable from a measured absence of power or slope.
+    """
+    arr = np.asarray(x, dtype=float)
+    if arr.size == 0:
+        raise ValueError(f"{func_name}: {name} is empty; there is nothing to estimate.")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(
+            f"{func_name}: {name} must be finite; remove or repair NaN or Inf samples first."
+        )
+    return arr
+
+
+#: Imaginary cross-spectral terms below this fraction of their cross-spectral magnitude are
+#: treated as exactly zero-lag (a phase within 1e-10 rad of 0 or pi). The cutoff is
+#: relative so wPLI does not depend on the units of the input: the absolute 1e-12 it
+#: replaces zeroed every term of volt-scaled LFP and reported wPLI = 0 for coupled signals.
+ZERO_LAG_RTOL = 1e-10
+
+
+def _wpli_from_cross_spectra(Sxy, xp=np):
+    """Per-frequency wPLI and debiased squared wPLI from segment cross-spectra.
+
+    ``Sxy`` has shape ``(n_freqs, n_segments)``; ``xp`` is ``numpy`` or ``cupy``. A
+    frequency with no non-zero-lag term (every imaginary part zero) reports 0 for both,
+    the zero-lag convention; the debiased estimate also reports 0 when fewer than two
+    terms are non-zero, where it is undefined.
+    """
+    imag = xp.imag(Sxy)
+    imag = xp.where(xp.abs(imag) <= ZERO_LAG_RTOL * xp.abs(Sxy), 0.0, imag)
+    sum_imag = xp.sum(imag, axis=1)
+    sum_abs = xp.sum(xp.abs(imag), axis=1)
+    sum_sq = xp.sum(imag ** 2, axis=1)
+
+    has_lag = sum_abs > 0
+    wpli_f = xp.where(has_lag, xp.abs(sum_imag) / xp.where(has_lag, sum_abs, 1.0), 0.0)
+
+    num_deb = sum_imag ** 2 - sum_sq
+    den_deb = sum_abs ** 2 - sum_sq
+    has_pairs = den_deb > ZERO_LAG_RTOL * sum_abs ** 2
+    deb_f = xp.where(has_pairs, num_deb / xp.where(has_pairs, den_deb, 1.0), 0.0)
+    return wpli_f, deb_f
+
+
 def _require_identifiable_segmentation(
     n_samples: int, nperseg: int, noverlap: int, func_name: str, quantity: str
 ) -> int:
@@ -278,7 +353,15 @@ def harmonic_analysis(
         - harmonics: {order: (freq, power)} for orders 1-N
         - spectral_profile: Full power spectrum
         - frequencies: Frequency bins for spectrum
-        - harmonic_ratio: Power ratio (fundamental / sum of harmonics)
+        - harmonic_ratio: P(fundamental) / (P(fundamental) + sum of P(orders 2..N)); 1.0
+          when no higher order falls inside ``freq_range``
+
+        ``fundamental_freq`` and ``harmonic_ratio`` are NaN, and ``harmonics`` is empty, when
+        no bin in ``freq_range`` has positive power (a constant trace).
+
+    Raises:
+        ValueError: If ``lfp_trace`` is empty or non-finite, ``freq_range`` contains no bin
+            of the Welch grid, or ``device`` is not a recognised device name.
 
     Example:
         >>> analysis = harmonic_analysis(lfp_data, fs=1000.0)
@@ -289,23 +372,22 @@ def harmonic_analysis(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
+    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "harmonic_analysis")
     result = {
-        'fundamental_freq': 0.0,
+        'fundamental_freq': float('nan'),
         'harmonics': {},
         'spectral_profile': np.array([]),
         'frequencies': np.array([]),
-        'harmonic_ratio': 0.0,
+        'harmonic_ratio': float('nan'),
     }
 
-    if len(lfp_trace) == 0:
-        return result
-
     # Compute power spectrum
-    if device == 'cuda':
+    device = resolve_device(device, context="harmonic_analysis", prefer="cupy", stacklevel=3)
+    if device == CUDA:
         try:
             frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
         except Exception as e:
-            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            warn_device_fallback("harmonic_analysis", e, stacklevel=3)
             frequencies, pxx = signal.welch(
                 lfp_trace,
                 fs=fs,
@@ -330,7 +412,10 @@ def harmonic_analysis(
     freqs_range = frequencies[mask]
     pxx_range = pxx[mask]
 
-    if len(pxx_range) == 0:
+    _require_band_bins(frequencies, mask, freq_range, "harmonic_analysis")
+    if not np.any(pxx_range > 0):
+        # No power in range, so no dominant frequency. This reported the first bin as the
+        # fundamental with zero power.
         return result
 
     # Find fundamental (peak in range)
@@ -355,14 +440,15 @@ def harmonic_analysis(
                 result['harmonics'][order] = {
                     'freq': float(harmonic_freqs[harmonic_idx]),
                     'power': float(harmonic_power),
-                    'relative_power': float(harmonic_power / fundamental_power) if fundamental_power > 0 else 0.0
+                    'relative_power': float(harmonic_power / fundamental_power) if fundamental_power > 0 else float('nan')
                 }
 
-    # Harmonic ratio (fundamental vs. harmonics)
-    if len(result['harmonics']) > 0:
-        total_harmonic_power = sum(h['power'] for h in result['harmonics'].values() if 'power' in h)
-        if total_harmonic_power > 0:
-            result['harmonic_ratio'] = float(fundamental_power / (fundamental_power + total_harmonic_power))
+    # Harmonic ratio (fundamental vs. higher harmonics). Order 1 is the fundamental itself;
+    # summing it into the harmonics counted the fundamental twice and capped the ratio at 0.5.
+    higher_harmonic_power = sum(
+        h['power'] for order, h in result['harmonics'].items() if order >= 2
+    )
+    result['harmonic_ratio'] = float(fundamental_power / (fundamental_power + higher_harmonic_power))
 
     return result
 
@@ -701,6 +787,14 @@ def spectral_tilt(
         - offset: power at 1 Hz (10^intercept)
         - fit_quality: R-squared of the linear fit
 
+        All three are NaN when fewer than two bins in ``freq_range`` have positive power (a
+        constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
+        power.
+
+    Raises:
+        ValueError: If ``lfp_trace`` is empty or contains NaN or Inf, or ``device`` is not a
+            recognised device name.
+
     Example:
         >>> tilt = spectral_tilt(lfp_data, fs=1000.0, freq_range=(1.0, 100.0))
         >>> print(f"Spectral exponent: {tilt['exponent']:.2f}")
@@ -710,14 +804,14 @@ def spectral_tilt(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
+    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "spectral_tilt")
+    # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
+    # a measured flat spectrum.
     result = {
-        'exponent': 0.0,
-        'offset': 0.0,
-        'fit_quality': 0.0,
+        'exponent': float('nan'),
+        'offset': float('nan'),
+        'fit_quality': float('nan'),
     }
-
-    if len(lfp_trace) == 0:
-        return result
 
     # Compute power spectrum
     resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)
@@ -769,7 +863,7 @@ def spectral_tilt(
     fitted = np.polyval(coeffs, log_freqs)
     ss_res = np.sum((log_power - fitted) ** 2)
     ss_tot = np.sum((log_power - np.mean(log_power)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else float('nan')
     result['fit_quality'] = float(r_squared)
 
     return result
@@ -1178,6 +1272,11 @@ def band_power(
     Returns:
         Power in band (units depend on normalize flag)
 
+    Raises:
+        ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or
+            non-finite, ``freq_range`` contains no Welch bin, the baseline has no power in
+            ``freq_range``, or ``device`` is not a recognised device name.
+
     Example:
         >>> theta_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8), normalize=False)
         >>> baseline_power = band_power(baseline_lfp, fs=1000.0, freq_range=(4, 8), normalize=False)
@@ -1188,26 +1287,26 @@ def band_power(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
-    if len(lfp_trace) == 0:
-        return 0.0
-
-    # Compute power spectrum
-    if device == 'cuda':
-        try:
-            frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
-        except Exception as e:
-            log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
-            frequencies, pxx = signal.welch(
-                lfp_trace,
-                fs=fs,
-                nperseg=min(len(lfp_trace), 4096)
+    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "band_power")
+    if normalize:
+        if baseline is None or np.size(baseline) == 0:
+            raise ValueError(
+                "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
             )
-    else:
-        frequencies, pxx = signal.welch(
-            lfp_trace,
-            fs=fs,
-            nperseg=min(len(lfp_trace), 4096)
-        )
+        baseline = _require_finite_nonempty_trace(baseline, "band_power", name="baseline")
+    device = resolve_device(device, context="band_power", prefer="cupy", stacklevel=3)
+
+    def _welch(trace):
+        nperseg = min(len(trace), 4096)
+        if device == CUDA:
+            try:
+                freqs, pxx, _, _ = _welch_csd_gpu(trace, trace, fs, nperseg)
+                return freqs, pxx
+            except Exception as e:
+                warn_device_fallback("band_power", e, stacklevel=4)
+        return signal.welch(trace, fs=fs, nperseg=nperseg)
+
+    frequencies, pxx = _welch(lfp_trace)
 
     # Extract band
     mask = (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
@@ -1218,33 +1317,23 @@ def band_power(
         )
     band_power_val = float(np.mean(pxx[mask]))
 
-    if normalize and (baseline is None or len(baseline) == 0):
-        raise ValueError(
-            "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
-        )
-
-    # Normalize to baseline if provided
-    if normalize and baseline is not None and len(baseline) > 0:
-        if device == 'cuda':
-            try:
-                _, baseline_pxx, _, _ = _welch_csd_gpu(baseline, baseline, fs, min(len(baseline), 4096))
-            except Exception as e:
-                log.warning(f"GPU baseline welch failed: {e}. Falling back to CPU.")
-                _, baseline_pxx = signal.welch(
-                    baseline,
-                    fs=fs,
-                    nperseg=min(len(baseline), 4096)
-                )
-        else:
-            _, baseline_pxx = signal.welch(
-                baseline,
-                fs=fs,
-                nperseg=min(len(baseline), 4096)
+    if normalize:
+        # The baseline has its own Welch grid when its length differs from the trace's; the
+        # trace's mask applied to it raised IndexError.
+        baseline_freqs, baseline_pxx = _welch(baseline)
+        baseline_mask = (baseline_freqs >= freq_range[0]) & (baseline_freqs <= freq_range[1])
+        if not np.any(baseline_mask):
+            raise ValueError(
+                f"band_power found no Welch bins of the baseline in freq_range={freq_range}; "
+                f"baseline grid spans [{baseline_freqs[0]:.4g}, {baseline_freqs[-1]:.4g}] Hz"
             )
-        baseline_power_val = np.mean(baseline_pxx[mask]) if np.any(mask) else 1.0
-
-        if baseline_power_val > 0:
-            band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
+        baseline_power_val = float(np.mean(baseline_pxx[baseline_mask]))
+        if not baseline_power_val > 0:
+            # This returned the linear power, not a dB value, with no indication.
+            raise ValueError(
+                "band_power: the baseline has no power in freq_range, so the dB ratio is undefined"
+            )
+        band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
 
     return float(band_power_val)
 
@@ -1294,6 +1383,10 @@ def imaginary_coherency(
             coherence is dominated by zero-lag (volume-conduction-like) mixing.
           - ``n_freqs``: number of frequency bins averaged.
 
+    Raises:
+        ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
+            yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
+
     Validated against synthetic cases in scripts/validate_imaginary_coherency.py:
     a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
     near zero; a genuinely lagged shared source drives both up.
@@ -1308,9 +1401,8 @@ def imaginary_coherency(
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
+    _require_finite_nonempty_pair(x, y, "imaginary_coherency")
     n = len(x)
-    if n == 0:
-        return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
 
     if nperseg is None:
         nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 1024)
@@ -1318,11 +1410,12 @@ def imaginary_coherency(
         noverlap = nperseg // 2
     _require_identifiable_segmentation(n, nperseg, noverlap, "imaginary_coherency", "coh_mag_mean")
 
+    device = resolve_device(device, context="imaginary_coherency", prefer="cupy", stacklevel=3)
     if device == 'cuda':
         try:
             freqs, pxx, pyy, sxy = _welch_csd_gpu(x, y, fs, nperseg, noverlap)
         except Exception as e:
-            log.warning(f"GPU coherency failed: {e}. Falling back to CPU.")
+            warn_device_fallback("imaginary_coherency", e)
             device = 'cpu'
     if device != 'cuda':
         freqs, pxx = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
@@ -1330,10 +1423,19 @@ def imaginary_coherency(
         _, sxy = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
-    if not np.any(mask):
-        return {"icoh_mean": 0.0, "icoh_abs_mean": 0.0, "coh_mag_mean": 0.0, "n_freqs": 0}
+    _require_band_bins(freqs, mask, freq_range, "imaginary_coherency")
 
-    denom = np.sqrt(np.clip(pxx[mask] * pyy[mask], 1e-30, None))
+    # Coherency is scale-invariant, so its guard must be too. An absolute floor of 1e-30 on
+    # pxx*pyy is a statement about units: the product of two PSDs scales as the fourth power
+    # of the signal amplitude, so a recording stored in a smaller unit walks into the clip
+    # and the estimate collapses. Measured on a genuinely coherent pair, icoh_mean held at
+    # -0.5144 down to a scale of 1e-6 and then fell to -0.000142 at 1e-8 and to zero below
+    # that -- a fabricated zero produced by the choice of unit alone. A floor relative to
+    # the band's own largest product scales with the data and leaves the ratio untouched.
+    prod = pxx[mask] * pyy[mask]
+    prod_scale = float(np.max(prod)) if prod.size else 0.0
+    floor = np.finfo(float).tiny if prod_scale <= 0.0 else prod_scale * 1e-24
+    denom = np.sqrt(np.clip(prod, floor, None))
     coherency = sxy[mask] / denom
     im_part = np.imag(coherency)
     coh_mag = np.abs(coherency) ** 2
@@ -1383,7 +1485,8 @@ def wpli(
         nperseg: Welch segment length; defaults to ``min(max(N // 8, 8), 256)``, which
             keeps at least 2 segments so the ratio is identifiable.
         noverlap: Welch segment overlap; defaults to `nperseg // 2`.
-        device: `'cpu'` or `'cuda'` (GPU acceleration via CuPy).
+        device: `'cpu'` or `'cuda'` (CuPy). A CUDA failure recomputes on CPU and emits a
+            RuntimeWarning.
 
     Returns:
         Dict with:
@@ -1394,6 +1497,13 @@ def wpli(
         - ``n_segments``: Number of Welch segments evaluated.
         - ``n_freqs``: Number of frequency bins within `freq_range`.
 
+        A frequency whose segment cross-spectra are all exactly zero-lag reports 0. The
+        estimate does not depend on the amplitude units of `x` and `y`.
+
+    Raises:
+        ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
+            yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
+
     References:
         Vinck, M., et al. (2011). An improved index of phase-synchronization for
         electrophysiological data in the presence of volume-conduction, noise and
@@ -1403,16 +1513,8 @@ def wpli(
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "wpli")
+    _require_finite_nonempty_pair(x, y, "wpli")
     n = len(x)
-    if n == 0:
-        return {
-            "wpli": 0.0,
-            "wpli_debiased_sq": 0.0,
-            "freqs": np.array([], dtype=float),
-            "wpli_spectrum": np.array([], dtype=float),
-            "n_segments": 0,
-            "n_freqs": 0,
-        }
 
     if nperseg is None:
         nperseg = min(max(n // 8, MIN_COHERENCE_NPERSEG), 256)
@@ -1420,43 +1522,28 @@ def wpli(
         noverlap = nperseg // 2
     _require_identifiable_segmentation(n, nperseg, noverlap, "wpli", "wpli")
 
+    device = resolve_device(device, context="wpli", prefer="cupy", stacklevel=3)
     if device == "cuda":
         try:
             import cupy as cp
-            # Use GPU if available
+            from scipy import fft as sp_fft
+
             x_g = cp.asarray(x, dtype=cp.float64)
             y_g = cp.asarray(y, dtype=cp.float64)
-            step = max(1, nperseg - noverlap)
-            # Window
+            n_segments = welch_segment_count(n, nperseg, noverlap)
+            starts = cp.arange(n_segments) * (nperseg - noverlap)
+            index = starts[:, None] + cp.arange(nperseg)[None, :]
+            # Periodic Hann and no detrending, as scipy.signal.stft on the CPU path.
             window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
-            segs_x, segs_y = [], []
-            start = 0
-            while start + nperseg <= n:
-                sx = x_g[start:start+nperseg] - cp.mean(x_g[start:start+nperseg])
-                sy = y_g[start:start+nperseg] - cp.mean(y_g[start:start+nperseg])
-                segs_x.append(sx * window)
-                segs_y.append(sy * window)
-                start += step
-            if not segs_x:
-                raise ValueError(f"nperseg={nperseg} exceeds data length={n}")
-            X_fft = cp.fft.rfft(cp.stack(segs_x), axis=-1)  # (n_seg, n_freqs)
-            Y_fft = cp.fft.rfft(cp.stack(segs_y), axis=-1)
-            Sxy = cp.conj(X_fft) * Y_fft
-            I = cp.imag(Sxy).T  # (n_freqs, n_seg)
-            I = cp.where(cp.abs(I) < 1e-12, 0.0, I)
-            sum_I = cp.sum(I, axis=1)
-            sum_abs_I = cp.sum(cp.abs(I), axis=1)
-            w_f = cp.divide(cp.abs(sum_I), sum_abs_I, out=cp.zeros_like(sum_I), where=sum_abs_I > 1e-12)
-            sum_I_sq = cp.sum(I**2, axis=1)
-            num_deb = (sum_I**2) - sum_I_sq
-            den_deb = (sum_abs_I**2) - sum_I_sq
-            w_deb_sq_f = cp.divide(num_deb, den_deb, out=cp.zeros_like(num_deb), where=den_deb > 1e-12)
-            freqs = cp.fft.rfftfreq(nperseg, d=1.0 / fs).get()
+            X_fft = cp.fft.rfft(x_g[index] * window, axis=-1)  # (n_seg, n_freqs)
+            Y_fft = cp.fft.rfft(y_g[index] * window, axis=-1)
+            w_f, w_deb_sq_f = _wpli_from_cross_spectra((cp.conj(X_fft) * Y_fft).T, xp=cp)
+            # The CPU grid, so both devices select the same bins at a band edge.
+            freqs = sp_fft.rfftfreq(nperseg, 1.0 / fs)
             w_f = w_f.get()
             w_deb_sq_f = w_deb_sq_f.get()
-            n_segments = len(segs_x)
         except Exception as e:
-            log.warning(f"GPU wPLI failed: {e}. Falling back to CPU.")
+            warn_device_fallback("wpli", e)
             device = "cpu"
 
     if device != "cuda":
@@ -1467,23 +1554,13 @@ def wpli(
         _, _, Zy = signal.stft(
             y, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False
         )
-        Sxy = np.conj(Zx) * Zy  # (n_freqs, n_segments)
-        I = np.imag(Sxy)
-        I = np.where(np.abs(I) < 1e-12, 0.0, I)
-
-        sum_I = np.sum(I, axis=1)
-        sum_abs_I = np.sum(np.abs(I), axis=1)
-        w_f = np.divide(np.abs(sum_I), sum_abs_I, out=np.zeros_like(sum_I), where=sum_abs_I > 1e-12)
-
-        sum_I_sq = np.sum(I**2, axis=1)
-        num_deb = (sum_I**2) - sum_I_sq
-        den_deb = (sum_abs_I**2) - sum_I_sq
-        w_deb_sq_f = np.divide(num_deb, den_deb, out=np.zeros_like(num_deb), where=den_deb > 1e-12)
+        w_f, w_deb_sq_f = _wpli_from_cross_spectra(np.conj(Zx) * Zy)  # (n_freqs, n_segments)
         n_segments = Zx.shape[1]
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
-    wpli_val = float(np.mean(w_f[mask])) if np.any(mask) else 0.0
-    wpli_deb_sq_val = float(np.mean(w_deb_sq_f[mask])) if np.any(mask) else 0.0
+    _require_band_bins(freqs, mask, freq_range, "wpli")
+    wpli_val = float(np.mean(w_f[mask]))
+    wpli_deb_sq_val = float(np.mean(w_deb_sq_f[mask]))
 
     return {
         "wpli": wpli_val,
@@ -1539,6 +1616,9 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     Returns:
         (n_channels, n_samples) Laplacian-referenced array, same channel count
         as input (unlike ``bipolar_reference``, which drops one channel).
+
+    Raises:
+        ValueError: If ``channel_data`` is not 2-D or has fewer than 2 channels.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
@@ -1546,6 +1626,9 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
     ordered = channel_data[order]
     n_ch = ordered.shape[0]
+    if n_ch < 2:
+        # A single contact has no neighbour; this returned the channel minus itself (zeros).
+        raise ValueError(f"laplacian_reference needs at least 2 channels, got {n_ch}")
     out = np.empty_like(ordered)
     for i in range(n_ch):
         if i == 0:
@@ -1710,9 +1793,18 @@ def compute_multitaper_psd(
         tapered = flat * taper_k  # (M, N)
         fft_k = np.fft.rfft(tapered, n=n_fft, axis=-1)
         psd_k = (np.abs(fft_k) ** 2) / (fs * taper_energy)
-        # One-sided scaling
-        if n_freqs > 2:
-            psd_k[:, 1:-1] *= 2.0
+        # One-sided scaling. DC is never doubled, and the Nyquist bin is never doubled --
+        # but an rfft grid only HAS a Nyquist bin when n_fft is even. For odd n_fft the last
+        # bin is an ordinary positive frequency and must be doubled like the rest. Excluding
+        # it unconditionally left the top bin of every odd-length epoch a factor of two too
+        # small: a tone at 499.5 Hz in a 1001-sample record reported 0.0999 there against
+        # 0.1993 for the same tone one bin lower. Broadband Parseval hardly notices one bin
+        # in 501, which is why this survived a total-power check.
+        if n_fft % 2 == 0:
+            if n_freqs > 2:
+                psd_k[:, 1:-1] *= 2.0
+        elif n_freqs > 1:
+            psd_k[:, 1:] *= 2.0
         psd_accum += psd_k
 
     psd_mean = psd_accum / k_tapers

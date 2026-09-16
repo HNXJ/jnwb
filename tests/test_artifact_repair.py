@@ -226,3 +226,61 @@ class TestRepairBandArtifactsShapeContract:
         _, frac_both = repair_band_artifacts(power, freqs, sided="both")
         for band in frac_upper:
             assert frac_both[band] >= frac_upper[band]
+
+
+class TestRepairDoesNotSubstituteAwayTheEvokedResponse:
+    """The detector is cross-channel synchrony, and an evoked response is synchronous
+    across channels by construction, so it was flagged exactly like an artifact. The
+    substitution then replaced each trial's own deflection with the cross-trial median of
+    the same deflection: the trial average survived, so nothing looked wrong, while the
+    single-trial variability many analyses rest on was destroyed. Measured with the guard
+    disabled, the correlation between the true single-trial amplitude and the repaired peak
+    fell from 0.9996 to 0.4607 and the across-trial SD at the peak fell from 8.27 to 3.64,
+    while the mean moved only from 29.33 to 28.59.
+    """
+
+    PEAK = 150
+
+    @staticmethod
+    def _evoked(seed=0, n_trials=40, n_channels=16, n_times=500):
+        rng = np.random.default_rng(seed)
+        t = np.arange(n_times)
+        amplitude = rng.normal(1.0, 0.35, size=n_trials)
+        evoked = np.exp(-0.5 * ((t - 150) / 8.0) ** 2) * 30.0
+        seg = rng.standard_normal((n_trials, n_channels, n_times))
+        seg += amplitude[:, None, None] * evoked[None, None, :]
+        return seg, amplitude, (t - 100).astype(float)
+
+    def test_single_trial_amplitude_survives_the_repair(self):
+        seg, amplitude, times = self._evoked()
+        repaired, _, diag = repair_lfp_trials(seg, times_ms=times)
+        r = np.corrcoef(amplitude, repaired[:, :, self.PEAK].mean(axis=1))[0, 1]
+        assert r > 0.95, f"single-trial amplitude correlation fell to {r:.4f}"
+        assert diag["n_time_locked_samples_protected"] > 0
+        assert any("time_locked" in w for w in diag["warnings"])
+
+    def test_disabling_the_guard_reproduces_the_damage(self):
+        """Pins that the guard is what protects the response, not some other change."""
+        seg, amplitude, times = self._evoked()
+        repaired, _, diag = repair_lfp_trials(seg, times_ms=times, max_trial_fraction=None)
+        r = np.corrcoef(amplitude, repaired[:, :, self.PEAK].mean(axis=1))[0, 1]
+        assert r < 0.7
+        assert diag["n_time_locked_samples_protected"] == 0
+
+    def test_a_rare_artifact_is_still_repaired(self):
+        """The guard must not buy the response back by refusing to repair anything."""
+        rng = np.random.default_rng(1)
+        seg = rng.standard_normal((40, 16, 500))
+        for trial in (5, 11, 29):
+            seg[trial, :, 300:305] += 80.0
+        repaired, _, diag = repair_lfp_trials(seg)
+        assert np.abs(seg[:, :, 302]).max() > 70.0
+        assert np.abs(repaired[:, :, 302]).max() < 10.0
+        assert diag["n_flagged_cells"] > 0
+        assert diag["n_time_locked_samples_protected"] == 0
+
+    def test_the_per_sample_flagged_fraction_is_reported(self):
+        seg, _, times = self._evoked()
+        _, _, diag = repair_lfp_trials(seg, times_ms=times)
+        assert diag["max_fraction_trials_flagged_at_a_sample"] > 0.5
+        assert diag["max_trial_fraction"] == 0.5

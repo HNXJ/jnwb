@@ -24,6 +24,7 @@ except ImportError:
             return res
 
 import numpy as np
+import pytest
 import pandas as pd
 import jnwb
 
@@ -277,3 +278,97 @@ class TestSkillsDoNotCarryDriftingCounts:
         assert offenders == [], (
             f"these skills reference sphinx, which this repo no longer builds: {offenders}"
         )
+
+
+class TestAmbiguousUnitProbes:
+    """0.2.4-09: a skill that routes on depth must not let a unit be guessed.
+
+    Depth in a cortical column is the one quantity where a factor of 1000 still looks
+    plausible: 1200 um and 1.2 mm are the same place, and 1.2 um is a different answer
+    rather than an obviously broken one. These pin that jnwb never infers the unit from
+    the magnitude, that declaring the wrong one changes the answer, and that an
+    undeclared or unsupported unit yields no classification at all.
+    """
+
+    @staticmethod
+    def _row(z, unit=None, index=10):
+        data = {"location": ["V1"], "z": [z]}
+        if unit is not None:
+            data["depth_unit"] = [unit]
+        return pd.DataFrame(data, index=[index])
+
+    def test_the_same_physical_depth_classifies_the_same_in_either_unit(self):
+        assert jnwb.classify_layer_from_depth(10, self._row(1200.0, "um")) == "Deep"
+        assert jnwb.classify_layer_from_depth(10, self._row(1.2, "mm")) == "Deep"
+
+    def test_the_unit_is_never_inferred_from_the_magnitude(self):
+        """1.2 declared as um is 1.2 um, not a mislabelled 1.2 mm."""
+        assert jnwb.classify_layer_from_depth(10, self._row(1.2, "um")) == "Superficial"
+
+    def test_an_undeclared_unit_is_not_guessed(self):
+        assert jnwb.classify_layer_from_depth(10, self._row(1200.0)) == "Unknown"
+
+    @pytest.mark.parametrize("unit", ["furlong", "", "px"])
+    def test_an_unsupported_unit_refuses_to_classify(self, unit):
+        """Documented invariant: unknown or unsupported units give 'Unknown', never a
+        layer. A wrong label here would be silently wrong; 'Unknown' is visibly missing."""
+        assert jnwb.classify_layer_from_depth(10, self._row(1200.0, unit)) == "Unknown"
+
+    @pytest.mark.parametrize("spelling", ["um", "UM", " um ", "micron", "microns", "micrometer"])
+    def test_accepted_spellings_agree(self, spelling):
+        assert jnwb.classify_layer_from_depth(10, self._row(1200.0, spelling)) == "Deep"
+
+    def test_an_explicit_argument_overrides_a_conflicting_table_column(self):
+        """Evidence conflict with a deterministic, documented resolution: the caller's
+        explicit declaration wins, and the outcome differs, so the conflict is never
+        silently averaged or ignored."""
+        table_mm = self._row(1200.0, "mm")
+        assert jnwb.classify_layer_from_depth(10, table_mm) == "Unknown"
+        assert jnwb.classify_layer_from_depth(10, table_mm, depth_unit="um") == "Deep"
+
+    def test_probe_geometry_takes_the_declared_unit_literally(self):
+        """Millimetre coordinates declared as micrometres give a 0.05 um pitch rather
+        than a silently corrected one. The library does not second-guess the caller, so a
+        skill must declare the unit it actually has."""
+        millimetres = pd.DataFrame(
+            {"location": ["V1"] * 4, "x": [0.0] * 4, "y": [0.0] * 4,
+             "z": [0.0, 0.05, 0.10, 0.15]}
+        )
+        assert jnwb.probe_geometry(millimetres, units="um").nominal_pitch == pytest.approx(0.05)
+        micrometres = pd.DataFrame(
+            {"location": ["V1"] * 4, "x": [0.0] * 4, "y": [0.0] * 4,
+             "z": [0.0, 50.0, 100.0, 150.0]}
+        )
+        assert jnwb.probe_geometry(micrometres, units="um").nominal_pitch == pytest.approx(50.0)
+
+    def test_probe_geometry_rejects_an_unsupported_unit(self):
+        table = pd.DataFrame(
+            {"location": ["V1"] * 4, "x": [0.0] * 4, "y": [0.0] * 4,
+             "z": [0.0, 50.0, 100.0, 150.0]}
+        )
+        with pytest.raises(ValueError, match="(?i)unit"):
+            jnwb.probe_geometry(table, units="furlong")
+
+
+class TestEvidenceConflictProbes:
+    """0.2.4-09: the fact stack is human-authorized, and nothing may quietly edit it."""
+
+    def test_no_shipped_code_writes_the_fact_stack(self):
+        """`jnwb-fact-action` states that agents may read and challenge facts but must
+        never autonomously add, edit or delete them. That is only a rule if no code path
+        can do it."""
+        offenders = []
+        for path in list(Path("jnwb").rglob("*.py")) + list(Path("scripts").rglob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            if "fact_stack" in text and re.search(r"write_text|write_bytes|open\([^)]*['\"][wa]", text):
+                offenders.append(str(path))
+        assert not offenders, f"code that could rewrite the fact stack: {offenders}"
+
+    def test_the_conflict_rule_is_still_stated_in_the_skill(self):
+        text = Path("skills/jnwb-fact-action/SKILL.md").read_text(encoding="utf-8")
+        assert "MUST NOT autonomously add, edit, or delete facts" in text
+        assert "empirical receipts and discriminating tests" in text
+
+    def test_conflicting_conclusions_are_resolved_by_receipts_not_consensus(self):
+        text = Path("skills/jnwb-fact-action/SKILL.md").read_text(encoding="utf-8")
+        assert "never through voting or consensus" in text

@@ -200,6 +200,29 @@ Load the skill before doing the work rather than reinventing its contents.
 - No secrets in the repository, context, or transcripts. If one is exposed, stop, say so,
   and recommend rotation.
 
+### One writable agent per worktree
+
+A repository worktree has exactly ONE writable agent. Parallel reviewers may read it;
+parallel implementation agents require separate Git worktrees or branches.
+
+This is not advisory. On 2026-09-15 two implementation agents ran against this worktree at
+once, both auditing 0.2.4-04. One session's 26 zFLIP tests were written, run green, and then
+overwritten by the other agent between the test run and the commit, so the commit that was
+supposed to carry them contained only the source file. Nothing errored; the tests simply
+ceased to exist, and the loss was found later by reading a reflog entry that named a commit
+this session had not made.
+
+The failure mode is that a shared worktree makes a clean `git status`, a passing test run,
+and a successful commit all independently true and jointly meaningless. Recoverable history
+does not make a shared worktree safe for concurrent writers.
+
+Before editing a worktree you did not just create, confirm no other agent or process is
+modifying it. If exclusive ownership cannot be established, STOP before editing. If you find
+uncommitted changes you did not make, follow the single-writer recovery protocol in
+`artifacts/todo_stack.md`: treat them as unowned evidence, never `stash`, `reset`, `restore`,
+check out files, or reformat while they exist, and never `git add -A` across unresolved
+ownership.
+
 ## 9. Writing
 
 Cut adjective stacks, negation ("X is not Y"), restated obviousness, repeated caveats, and

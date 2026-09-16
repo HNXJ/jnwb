@@ -264,7 +264,14 @@ class TestXFlipSurrogatesAndInference:
         assert res3.modularity == res1.modularity
         assert isinstance(res3.p_values["omnibus"], float)
 
-    def test_zero_surrogates_returns_nan_p_value(self):
+    def test_zero_surrogates_returns_nan_p_value_and_withholds_acceptance(self):
+        """Not running the test is not the same as passing it.
+
+        This used to assert `accepted is True` with `n_surrogates=0`. On genuinely blocky
+        data that looks harmless, but the same rule accepted pure noise in 119 of 120
+        seeds, and the surrogate test would have rejected 113 of those with omnibus p up
+        to 0.87 -- while the reported p was NaN. `zflip` documents the opposite contract.
+        """
         data, _, _ = synth_correlation_blocks(
             block_sizes=(5, 5),
             within_corr=0.8,
@@ -274,7 +281,28 @@ class TestXFlipSurrogatesAndInference:
         )
         res = xflip(data, n_surrogates=0)
         assert np.isnan(res.p_values["omnibus"])
-        assert res.accepted is True
+        assert res.accepted is False
+        assert "not performed" in res.rejection_reason
+
+        # The very same data is accepted once the test actually runs.
+        tested = xflip(data, n_surrogates=200, rng=0)
+        assert tested.accepted is True
+        assert tested.p_values["omnibus"] <= 0.05
+
+    def test_untested_noise_is_not_accepted(self):
+        """The case the old assertion licensed."""
+        rng = np.random.default_rng(0)
+        accepted = sum(
+            xflip(
+                np.random.default_rng(seed).standard_normal((16, 2000)),
+                n_surrogates=0,
+                rng=seed,
+                min_contrast=0.0,
+                min_boundary_drop=0.0,
+            ).accepted
+            for seed in range(20)
+        )
+        assert accepted == 0
 
 
 class TestXFlipNullRejection:

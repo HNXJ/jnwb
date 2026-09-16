@@ -137,3 +137,146 @@ class TestMultipleCorrectionFallback:
         q = _multiple_correction(p, method="bonferroni", alpha=0.05)
         np.testing.assert_allclose(q, np.array([0.03, 0.15, 1.0]))
 
+
+
+class TestRvIsCentred:
+    """The RV coefficient is defined on column-centred matrices. `_rv` normalised by the
+    Frobenius norm but never centred, so the Gram matrices were dominated by the common
+    mean and any two representations sharing an offset looked identical: two independent
+    Gaussian samples shifted by +50 returned RV = 1.0000.
+    """
+
+    def test_independent_representations_sharing_an_offset_are_not_identical(self):
+        from jnwb.jrsa import _rv
+
+        rng = np.random.default_rng(0)
+        a = rng.standard_normal((100, 20)) + 50.0
+        b = rng.standard_normal((100, 20)) + 50.0
+        offset = float(_rv(a, b)[0])
+        centred = float(_rv(a - a.mean(axis=0), b - b.mean(axis=0))[0])
+        assert offset < 0.5, f"independent representations report RV = {offset:.4f}"
+        assert offset == pytest.approx(centred, abs=1e-12), (
+            "adding a constant offset changed RV, so the estimator is still not centred"
+        )
+
+    def test_rv_is_one_for_an_affine_image_of_the_same_representation(self):
+        from jnwb.jrsa import _rv
+
+        rng = np.random.default_rng(1)
+        x = rng.standard_normal((80, 12))
+        assert float(_rv(x, x)[0]) == pytest.approx(1.0, abs=1e-10)
+        assert float(_rv(x, 3.0 * x + 7.0)[0]) == pytest.approx(1.0, abs=1e-10)
+
+
+class TestPermutationNullShufflesObservations:
+    """`_permutation_test` shuffled axis=-1 for every metric. The whole-representation
+    metrics reshape to (n_observations, n_features) and ignore `axis`, so axis=-1 is their
+    FEATURE axis -- and every one of them is invariant to a permutation of features, since
+    a column permutation is an orthogonal transform. The null was therefore a point mass at
+    the observed value and p came back as exactly 1.0 whatever the data: on independent
+    60 x 12 Gaussian representations, cka, rv, hsic, distance_correlation and procrustes
+    all reported p = 1.0000.
+    """
+
+    METRICS = ["cka", "rv", "hsic", "distance_correlation", "procrustes"]
+
+    @staticmethod
+    def _pair(seed=0):
+        rng = np.random.default_rng(seed)
+        return rng.standard_normal((60, 12)), rng.standard_normal((60, 12))
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_the_null_is_not_a_point_mass(self, metric):
+        """A point-mass null puts every draw at the observed value, so p is exactly 1.0 on
+        every dataset. A live null gives p that moves with the data."""
+        ps = []
+        for seed in range(6):
+            x1, x2 = self._pair(seed)
+            res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0,
+                          stats=True, seed=seed)
+            ps.append(float(np.ravel(res.p)[0]))
+        assert len(set(ps)) > 1, (
+            f"{metric}: p was identical ({ps[0]}) on six independent datasets, so the "
+            f"permutation is shuffling an axis the metric is invariant to"
+        )
+        # A point mass puts EVERY dataset at exactly 1.0. A single p of 1.0 is a legitimate
+        # draw from a live null -- it happens with probability 1/(n_perm+1) per dataset --
+        # so the discriminating statement is that most datasets are not pinned there.
+        assert sum(pv == 1.0 for pv in ps) <= 1, f"{metric}: p = 1.0 on {ps}"
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_independent_representations_do_not_report_p_exactly_one(self, metric):
+        x1, x2 = self._pair()
+        res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0, stats=True, seed=0)
+        assert float(np.ravel(res.p)[0]) < 1.0
+
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_a_linearly_related_representation_is_detected(self, metric):
+        """The repair must not buy a live null by making the test powerless."""
+        rng = np.random.default_rng(0)
+        x1 = rng.standard_normal((60, 12))
+        x2 = x1 @ rng.standard_normal((12, 12))
+        res = oa.jrsa(x1, x2, metric=metric, permutations=500, bootstrap=0, stats=True, seed=0)
+        related_p = float(np.ravel(res.p)[0])
+        indep = oa.jrsa(*self._pair(), metric=metric, permutations=500, bootstrap=0,
+                        stats=True, seed=0)
+        assert related_p < 0.05, f"{metric}: related representations scored p = {related_p}"
+        assert related_p < float(np.ravel(indep.p)[0])
+
+
+class TestJrsaDoesNotSwallowUnknownKeywords:
+    """`jrsa` forwards **kwargs to the metric, and every metric function itself ends in
+    **kwargs, so nothing rejected a keyword neither of them understood. Two consequences
+    were measured on the pre-repair code: `jrsa(..., seed=0)` -- the spelling every other
+    seeded entry point in this package uses -- was accepted in silence while
+    `random_state` stayed None, so four repeated calls returned p = 0.2736, 0.3333,
+    0.2637, 0.2935 on identical input; and `jrsa(..., definitely_not_a_param=123)` was
+    accepted too, so a misspelled metric option silently returned the default answer.
+    """
+
+    @staticmethod
+    def _pair():
+        rng = np.random.default_rng(0)
+        return rng.standard_normal((60, 12)), rng.standard_normal((60, 12))
+
+    def test_seed_is_honoured_and_not_absorbed_into_kwargs(self):
+        x1, x2 = self._pair()
+        ps = {
+            float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=200, bootstrap=0,
+                                   stats=True, seed=0).p)[0])
+            for _ in range(4)
+        }
+        assert len(ps) == 1, f"seed=0 gave {len(ps)} different p-values on one dataset: {ps}"
+        assert ps == {
+            float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=200, bootstrap=0,
+                                   stats=True, random_state=0).p)[0])
+        }, "seed= and random_state= must name the same stream"
+
+    def test_an_unknown_keyword_is_an_error_not_a_default_answer(self):
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="definitely_not_a_param"):
+            oa.jrsa(x1, x2, metric="hsic", permutations=10, bootstrap=0, stats=True,
+                    definitely_not_a_param=123)
+
+    def test_a_metric_option_belonging_to_another_metric_is_rejected(self):
+        """`kernel` is cka's option, not hsic's; it used to be dropped in silence."""
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="kernel"):
+            oa.jrsa(x1, x2, metric="hsic", permutations=10, bootstrap=0, stats=True,
+                    kernel="linear")
+
+    def test_the_metrics_own_options_still_reach_it(self):
+        """The guard must reject typos without disabling real options."""
+        x1, x2 = self._pair()
+        a = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
+                                   stats=False, sigma=0.5).value)[0])
+        b = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
+                                   stats=False, sigma=4.0).value)[0])
+        assert a != b, "sigma reached the metric but changed nothing"
+
+    def test_passing_both_spellings_is_refused(self):
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="both"):
+            oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, seed=0,
+                    random_state=1)

@@ -179,3 +179,62 @@ class TestBuildRepresentationLadder:
         with_meta = build_representation_ladder(raster, modality="SPK", spatial_axis_metadata={"order": [0, 1, 2]})
         assert no_meta["contract"]["space_axis_topology"] == "unordered_units_permutation_equivariant_required"
         assert with_meta["contract"]["space_axis_topology"] == "metadata_ordered_units"
+
+
+class TestCrossValidationIsolation:
+    """0.2.4-05: the decoder must not see its own test folds.
+
+    Nested CV was exercised but never asserted leak-free. The discriminating regime is
+    many features and few trials: if any step that sees the labels or the full feature
+    matrix -- scaling, feature selection, hyperparameter choice -- were fitted outside the
+    outer fold, accuracy on labels that carry no information would sit well above chance
+    rather than at it.
+    """
+
+    N_TRIALS = 60
+    N_FEATURES = 200
+    SEEDS = range(10)
+
+    def test_uninformative_labels_decode_at_chance(self):
+        accuracies = []
+        for seed in self.SEEDS:
+            rng = np.random.default_rng(seed)
+            X = rng.normal(size=(self.N_TRIALS, self.N_FEATURES))
+            labels = rng.integers(0, 2, size=self.N_TRIALS)
+            accuracies.append(nested_cv_linear_svm(X, labels, n_splits=5)["accuracy"])
+        mean_accuracy = float(np.mean(accuracies))
+        assert 0.40 <= mean_accuracy <= 0.60, (
+            f"labels independent of features decoded at {mean_accuracy:.3f}; "
+            f"per-seed {np.round(accuracies, 3).tolist()}"
+        )
+
+    def test_shuffling_labels_destroys_a_real_effect(self):
+        """The paired control: the same features decode when the labels mean something."""
+        rng = np.random.default_rng(1)
+        labels = np.array([0] * 30 + [1] * 30)
+        X = rng.normal(size=(self.N_TRIALS, 20)) + labels[:, None] * 2.0
+        intact = nested_cv_linear_svm(X, labels, n_splits=5)["accuracy"]
+
+        shuffled = []
+        for seed in self.SEEDS:
+            permuted = np.random.default_rng(seed).permutation(labels)
+            shuffled.append(nested_cv_linear_svm(X, permuted, n_splits=5)["accuracy"])
+        mean_shuffled = float(np.mean(shuffled))
+
+        assert intact > 0.9, f"a separable effect decoded at only {intact:.3f}"
+        assert mean_shuffled <= 0.65, (
+            f"shuffled labels still decoded at {mean_shuffled:.3f} on the same features"
+        )
+        assert intact - mean_shuffled > 0.25
+
+    def test_the_majority_class_baseline_is_reported_on_the_same_splits(self):
+        """Without it a caller cannot tell an imbalanced dataset from a real effect."""
+        rng = np.random.default_rng(3)
+        labels = np.array([0] * 48 + [1] * 12)
+        X = rng.normal(size=(60, 20))
+        out = nested_cv_linear_svm(X, labels, n_splits=4)
+        assert "majority_baseline_accuracy" in out
+        assert out["majority_baseline_accuracy"] == pytest.approx(0.8, abs=0.1)
+        # An 80/20 split decodes at the baseline here, so accuracy alone would read as a
+        # strong result. The baseline on the same splits is what makes that visible.
+        assert out["accuracy"] == pytest.approx(out["majority_baseline_accuracy"], abs=0.1)

@@ -112,12 +112,21 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
         bin_ms: bin width in ms.
 
     Returns:
-        (bin_centers_ms, mean_rate_hz, sem_rate_hz)
+        (bin_centers_ms, mean_rate_hz, sem_rate_hz). With no onsets the mean and SEM are NaN.
+
+    Raises:
+        ValueError: If ``win_ms`` is not finite with end > start, or ``bin_ms`` is not positive.
     """
+    if not (np.all(np.isfinite(win_ms)) and win_ms[1] > win_ms[0]):
+        raise ValueError(f"raster_psth: win_ms={tuple(win_ms)} must be finite with end > start")
+    if not (np.isfinite(bin_ms) and bin_ms > 0):
+        raise ValueError(f"raster_psth: bin_ms must be positive and finite, got {bin_ms}")
+    onsets = np.asarray(onsets, dtype=float)
     edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
     centers = edges[:-1] + bin_ms / 2.0
     if onsets.size == 0:
-        return centers, np.zeros_like(centers), np.zeros_like(centers)
+        # No trials, so no trial average. This returned zeros, which reads as a silent unit.
+        return centers, np.full_like(centers, np.nan), np.full_like(centers, np.nan)
     counts = np.zeros((onsets.size, edges.size - 1))
     for i, t0 in enumerate(onsets):
         s = (st[(st >= t0 + win_ms[0] / 1000.0) & (st < t0 + win_ms[1] / 1000.0)] - t0) * 1000.0

@@ -105,9 +105,15 @@ def _sine(freq_hz, sampling_rate=1000.0, duration_s=2.0, amplitude=1.0, phase=0.
 
 
 class TestHarmonicAnalysis:
-    def test_empty_input_returns_zeroed_result(self):
-        result = harmonic_analysis(np.array([]), sampling_rate=1000.0)
-        assert result["fundamental_freq"] == 0.0
+    def test_empty_input_is_rejected(self):
+        """INTENTIONAL BREAK (0.2.4): returned fundamental_freq 0.0, a valid-looking frequency."""
+        with pytest.raises(ValueError, match="empty"):
+            harmonic_analysis(np.array([]), sampling_rate=1000.0)
+
+    def test_constant_trace_has_no_fundamental(self):
+        result = harmonic_analysis(np.full(4000, 3.0), sampling_rate=1000.0)
+        assert np.isnan(result["fundamental_freq"])
+        assert np.isnan(result["harmonic_ratio"])
         assert result["harmonics"] == {}
 
     def test_finds_fundamental_frequency_of_pure_tone(self):
@@ -157,9 +163,9 @@ class TestCrossAreaCoherence:
 
 
 class TestSpectralTilt:
-    def test_empty_input_returns_zeroed_result(self):
-        result = spectral_tilt(np.array([]), sampling_rate=1000.0)
-        assert result["exponent"] == 0.0
+    def test_empty_input_is_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            spectral_tilt(np.array([]), sampling_rate=1000.0)
 
     def test_pink_noise_has_negative_exponent(self):
         rng = np.random.default_rng(0)
@@ -170,30 +176,33 @@ class TestSpectralTilt:
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
         assert result["exponent"] < 0
 
-    def test_flat_zero_signal_returns_clean_finite_result_without_warning(self):
-        # Degenerate input: all-zero LFP trace must not throw RuntimeWarning or return NaNs
+    def test_flat_zero_signal_has_undefined_tilt_without_warning(self):
+        """INTENTIONAL BREAK (0.2.4).
+
+        An all-zero trace reported exponent, offset and fit quality of 0.0, which reads as a
+        measured flat spectrum. It has no positive power to fit, so all three are NaN.
+        """
         import warnings
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             result = spectral_tilt(np.zeros(1000), sampling_rate=1000.0)
             assert len(record) == 0, f"Expected zero warnings, got: {[r.message for r in record]}"
-        assert result["exponent"] == 0.0
-        assert result["offset"] == 0.0
-        assert result["fit_quality"] == 0.0
-        assert np.isfinite(result["exponent"])
-        assert np.isfinite(result["offset"])
-        assert np.isfinite(result["fit_quality"])
+        assert np.isnan(result["exponent"])
+        assert np.isnan(result["offset"])
+        assert np.isnan(result["fit_quality"])
 
-    def test_constant_signal_returns_clean_finite_result(self):
+    def test_constant_signal_has_undefined_tilt(self):
         result = spectral_tilt(np.full(1000, 5.0), sampling_rate=1000.0)
-        assert result["exponent"] == 0.0
-        assert result["offset"] == 0.0
-        assert result["fit_quality"] == 0.0
+        assert np.isnan(result["exponent"])
+        assert np.isnan(result["offset"])
+        assert np.isnan(result["fit_quality"])
 
 
 class TestBandPower:
-    def test_empty_input_returns_zero(self):
-        assert band_power(np.array([]), sampling_rate=1000.0, freq_range=(4, 8)) == 0.0
+    def test_empty_input_is_rejected(self):
+        """INTENTIONAL BREAK (0.2.4): returned 0.0, a measured absence of power."""
+        with pytest.raises(ValueError, match="empty"):
+            band_power(np.array([]), sampling_rate=1000.0, freq_range=(4, 8), normalize=False)
 
     def test_tone_in_band_has_higher_power_than_out_of_band(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0, amplitude=5.0)
@@ -212,9 +221,9 @@ class TestImaginaryCoherency:
         assert result["coh_mag_mean"] > 0.5
         assert abs(result["icoh_mean"]) < 0.1
 
-    def test_empty_input_returns_zeroed_result(self):
-        result = imaginary_coherency(np.array([]), np.array([]), sampling_rate=1000.0, freq_range=(1, 100))
-        assert result["n_freqs"] == 0
+    def test_empty_input_is_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            imaginary_coherency(np.array([]), np.array([]), sampling_rate=1000.0, freq_range=(1, 100))
 
 
 class TestBipolarReference:
@@ -1373,7 +1382,13 @@ class TestCrossSpectralRatioFamilyIdentifiability:
             f"independent signals report coh_mag_mean={out['coh_mag_mean']:.3f}"
         )
 
-    @pytest.mark.parametrize("n_samples", [128, 256, 1024])
+    def test_wpli_band_without_bins_is_rejected_not_zero(self):
+        """n=128 gives nperseg=16 (62.5 Hz bins): no bin in 10-40 Hz. This returned 0.0."""
+        x, y = self._independent(128)
+        with pytest.raises(ValueError, match="contains no bin"):
+            jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
+
+    @pytest.mark.parametrize("n_samples", [256, 1024])
     def test_wpli_does_not_report_unity_for_independent_signals(self, n_samples):
         x, y = self._independent(n_samples)
         out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
@@ -1550,3 +1565,77 @@ class TestPairedTraceContract:
         reverse = jnwb.wpli(y, x, fs=fs, freq_range=(18.0, 22.0))["wpli"]
         assert forward >= 0.0 and reverse >= 0.0
         assert forward == pytest.approx(reverse, abs=1e-12)
+
+
+class TestMultitaperOneSidedScalingAtOddLengths:
+    """One-sided scaling doubles every bin except DC and Nyquist. An rfft grid only HAS a
+    Nyquist bin when n_fft is even; for odd n_fft the last bin is an ordinary positive
+    frequency. Excluding it unconditionally left the top bin of every odd-length epoch a
+    factor of two small. Broadband total power hardly notices one bin in 501, which is why
+    a Parseval check did not catch it.
+    """
+
+    @staticmethod
+    def _top_bin_ratio(n, n_reps=200):
+        """Mean p[-1] / p[-2] for white noise, whose true PSD is flat."""
+        rng = np.random.default_rng(0)
+        ratios = [
+            (lambda psd: psd[-1] / psd[-2])(
+                compute_multitaper_psd(rng.standard_normal(n), fs=1000.0)[1]
+            )
+            for _ in range(n_reps)
+        ]
+        return float(np.mean(ratios))
+
+    def test_the_top_bin_of_an_odd_length_record_is_doubled_like_its_neighbour(self):
+        ratio = self._top_bin_ratio(1001)
+        assert ratio == pytest.approx(1.0, abs=0.1), (
+            f"top bin is {ratio:.3f} of its neighbour on flat-spectrum input; an odd-length "
+            f"rfft grid has no Nyquist bin, so the last bin must be doubled like the rest"
+        )
+
+    def test_the_nyquist_bin_of_an_even_length_record_is_still_not_doubled(self):
+        """The repair must not double Nyquist, which the two sides share."""
+        freqs, _ = compute_multitaper_psd(np.zeros(1000), fs=1000.0)
+        assert freqs[-1] == pytest.approx(500.0)
+        ratio = self._top_bin_ratio(1000)
+        assert ratio == pytest.approx(0.5, abs=0.1), (
+            f"Nyquist bin is {ratio:.3f} of its neighbour; it must not be doubled"
+        )
+
+    @pytest.mark.parametrize("n", [100, 101, 512, 513, 1000, 1001])
+    def test_total_power_matches_the_variance_at_either_parity(self, n):
+        x = np.random.default_rng(0).standard_normal(n)
+        freqs, psd = compute_multitaper_psd(x, fs=1000.0)
+        assert float(np.trapezoid(psd, freqs)) == pytest.approx(x.var(), rel=0.06)
+
+
+class TestImaginaryCoherencyIsScaleFree:
+    """Coherency is invariant to the amplitude units of its inputs, so its numerical guard
+    must be too. The denominator was clipped at an absolute 1e-30 on pxx*pyy, and the
+    product of two PSDs scales as the fourth power of the signal amplitude, so a recording
+    stored in a smaller unit walked into the clip. On a genuinely coherent pair, icoh_mean
+    held at -0.5144 down to a scale of 1e-6, then fell to -0.000142 at 1e-8 and to zero
+    below that: a fabricated zero produced by the choice of unit alone.
+    """
+
+    @staticmethod
+    def _coherent(n=4000, seed=0):
+        rng = np.random.default_rng(seed)
+        x = rng.standard_normal(n)
+        return x, np.roll(x, 3) + rng.standard_normal(n)
+
+    @pytest.mark.parametrize("scale", [1e-40, 1e-20, 1e-10, 1e-8, 1e-6, 1.0, 1e6, 1e20])
+    def test_the_estimate_does_not_depend_on_amplitude_units(self, scale):
+        x, y = self._coherent()
+        kw = dict(fs=1000.0, freq_range=(5.0, 100.0))
+        reference = imaginary_coherency(x, y, **kw)
+        scaled = imaginary_coherency(x * scale, y * scale, **kw)
+        assert scaled["icoh_mean"] == pytest.approx(reference["icoh_mean"], rel=1e-9)
+        assert scaled["coh_mag_mean"] == pytest.approx(reference["coh_mag_mean"], rel=1e-9)
+
+    def test_a_constant_channel_still_reports_zero_rather_than_dividing_by_zero(self):
+        x, _ = self._coherent()
+        res = imaginary_coherency(x, np.zeros_like(x), fs=1000.0, freq_range=(5.0, 100.0))
+        assert res["icoh_mean"] == 0.0 and res["coh_mag_mean"] == 0.0
+        assert np.isfinite(res["icoh_abs_mean"])

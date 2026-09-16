@@ -334,29 +334,40 @@ def select_optimal_lag(
 
 
 def _adf_pvalue(series: np.ndarray) -> float:
-    """
-    Lightweight Dickey–Fuller (no lag augmentation) p-value via OLS t-stat.
-    H0: unit root. Uses asymptotic normal approximation for the t-stat
-    (conservative diagnostic flag, not a full ADF table).
+    """Dickey-Fuller p-value (no lag augmentation, constant term). H0: unit root.
+
+    The Dickey-Fuller t-statistic is not asymptotically normal under the unit-root null:
+    its distribution is shifted well to the left, so the 5% critical value with a constant
+    is near -2.86 rather than -1.645. This used to return ``stats.norm.cdf(t_stat)``,
+    described as a conservative flag, but the error runs the other way. Measured on pure
+    random walks, it certified 48.4% of them stationary at n = 200, 46.5% at n = 500 and
+    46.0% at n = 2000, against the 5% a correct test gives, so `stationarity_ok` and
+    `ok_for_interpretation` were close to coin flips on exactly the series a user needs
+    warned about.
+
+    `statsmodels` is a hard dependency, so this defers to its MacKinnon p-values for the
+    same regression (``maxlag=0``, ``regression='c'``) rather than carrying a private and
+    wrong approximation.
     """
     y = np.asarray(series, dtype=float).ravel()
     if len(y) < 10:
         return float("nan")
-    dy = np.diff(y)
-    y_lag = y[:-1]
-    # dy = a + b * y_lag
-    X = np.column_stack([np.ones(len(y_lag)), y_lag])
-    beta, _, _, _ = np.linalg.lstsq(X, dy, rcond=None)
-    resid = dy - X @ beta
-    dof = max(len(dy) - 2, 1)
-    s2 = float(np.sum(resid**2) / dof)
-    xtx_inv = np.linalg.pinv(X.T @ X)
-    se_b = np.sqrt(max(s2 * xtx_inv[1, 1], 0.0))
-    if se_b == 0:
+    if not np.all(np.isfinite(y)) or np.ptp(y) == 0:
         return float("nan")
-    t_stat = float(beta[1] / se_b)
-    # One-sided: more negative => more evidence against unit root
-    return float(stats.norm.cdf(t_stat))
+    try:
+        import warnings
+
+        from statsmodels.tsa.stattools import adfuller
+
+        with warnings.catch_warnings():
+            # statsmodels warns that adfuller's plain-tuple return will become an
+            # ADFullerResult in 0.16. Read the p-value in a way that works either way
+            # rather than emitting a FutureWarning from every Granger diagnostic.
+            warnings.simplefilter("ignore", FutureWarning)
+            res = adfuller(y, maxlag=0, regression="c", autolag=None)
+        return float(res[1]) if isinstance(res, tuple) else float(res.pvalue)
+    except Exception:
+        return float("nan")
 
 
 def _ljung_box_pvalue(residuals: np.ndarray, nlags: int = 10) -> float:
@@ -481,7 +492,24 @@ def network_topology(
 ) -> Dict[str, Union[float, int, List[int]]]:
     """
     Compute network graph metrics from a correlation or Granger causality matrix.
+
+    The diagonal is ignored.
+
+    Raises:
+        ValueError: If ``adjacency_matrix`` is not square 2-D, an off-diagonal entry is NaN or
+            Inf, or ``threshold`` is not finite. A NaN entry counted as "no edge", and a
+            non-square matrix returned in- and out-degree lists of different lengths.
     """
+    adjacency_matrix = np.asarray(adjacency_matrix, dtype=float)
+    if adjacency_matrix.ndim != 2 or adjacency_matrix.shape[0] != adjacency_matrix.shape[1]:
+        raise ValueError(
+            f"network_topology: adjacency_matrix must be square 2-D, got shape {adjacency_matrix.shape}"
+        )
+    off_diagonal = ~np.eye(adjacency_matrix.shape[0], dtype=bool)
+    if not np.all(np.isfinite(adjacency_matrix[off_diagonal])):
+        raise ValueError("network_topology: adjacency_matrix has NaN or Inf off the diagonal")
+    if not np.isfinite(threshold):
+        raise ValueError(f"network_topology: threshold must be finite, got {threshold}")
     adj = np.abs(adjacency_matrix) > threshold
     np.fill_diagonal(adj, False)
 
@@ -1918,10 +1946,27 @@ def transfer_entropy(
         )
 
     samples_per_state = n_used / max(max(n_joint_xy, n_joint_yx), 1)
+    n_states_x = int(np.unique(xq).size)
+    n_states_y = int(np.unique(yq).size)
     warnings_all: List[str] = []
     if samples_per_state < 10:
         warnings_all.append(
             f"undersampled_te_{samples_per_state:.1f}_samples_per_joint_state"
+        )
+    # The opposite failure to undersampling, and it was invisible: a discretization that
+    # collapses reports FEWER joint states, so samples_per_joint_state goes UP and the
+    # undersampling check stays quiet. Quantile edges on a sparse series are the common
+    # case -- spike counts averaging 0.05 or 0.1 per bin are almost all zero, so every
+    # quantile edge lands on 0 and the whole series maps to one symbol. TE is then
+    # identically 0 by construction. Measured with X driving Y at lag 1: TE = 0.0000 bits,
+    # p = 1.0, ok_for_interpretation = True and no warning at all.
+    if min(n_states_x, n_states_y) < 2:
+        warnings_all.append(
+            f"degenerate_discretization_{min(n_states_x, n_states_y)}_state_te_is_identically_zero"
+        )
+    elif estimator in ("quantile", "uniform") and min(n_states_x, n_states_y) < bins:
+        warnings_all.append(
+            f"discretization_collapsed_to_{min(n_states_x, n_states_y)}_of_{bins}_requested_bins"
         )
     if n_surrogates == 0:
         warnings_all.append("no_surrogates_raw_te_is_positively_biased")
@@ -1951,6 +1996,8 @@ def transfer_entropy(
         },
         diagnostics={
             "n_embedding_samples": int(n_used),
+            "n_realized_states_x": n_states_x,
+            "n_realized_states_y": n_states_y,
             "n_joint_states_x_to_y": int(n_joint_xy),
             "n_joint_states_y_to_x": int(n_joint_yx),
             "samples_per_joint_state": float(samples_per_state),

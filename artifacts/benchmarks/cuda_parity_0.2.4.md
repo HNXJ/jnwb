@@ -55,14 +55,34 @@ neither is relied on here.
 | `vflip_from_lfp` | cupy | yes | 0.00e+00 | 1e-10 |
 | `fit_var_bivariate` | cupy | yes | 0.00e+00 | 1e-10 |
 | `gpu_pca` | torch | yes | 3.57e-04 | 1e-3 (float32 in) |
+| `wpli` | cupy | yes | 8.88e-16 | 1e-10 |
+| `imaginary_coherency` | cupy | yes | 2.22e-16 | 1e-10 |
 
 `gpu_pca` compares component magnitudes: PCA component sign is arbitrary, so a raw
 comparison would report a spurious mismatch. Its 1e-04 residual is float32 precision.
 
-Seven of the ten `resolve_device` call sites are covered. The three not exercised on
+`wpli` and `imaginary_coherency` were measured on 16384 samples with a DC offset, at
+`nperseg` 255, 256 and 1024, over every returned value (for `wpli`, the full per-frequency
+spectrum).
+
+Nine of the thirteen `resolve_device` call sites execute on hardware above. `rdm` routes
+through the resolver but has no GPU implementation: `device='cuda'` computes on CPU and emits
+a RuntimeWarning, so there is no GPU path to execute. The three not exercised on
 hardware -- `compute_population_trajectory`, `population_trajectory`, `UnitAnalyzer.acg` --
 are session-level wrappers that require NWB fixtures and route through the same resolver
 verified above; they retain structural and fallback coverage under clause 1.
+
+## Correction: `wpli` never reached the GPU
+
+An earlier revision of this receipt was accepted while `wpli(device='cuda')` had never
+executed on a GPU. Its CuPy branch called `cupy.divide(..., where=...)`, which CuPy rejects;
+the exception was caught and reported through `log.warning`, not the RuntimeWarning contract,
+so a warning-based check saw nothing, and `wpli` was absent from the table above. The branch
+also subtracted each segment's mean, which the CPU `stft` path does not, so it would have
+disagreed with the CPU had it run. `wpli` and `imaginary_coherency` now resolve the device
+through `_backend` and warn on fallback, and the CuPy branch builds the CPU frequency grid.
+`tests/test_spectral_nonfabrication.py` checks that a GPU failure warns (on every CI runner)
+and, on a CUDA host, that the GPU result matches the CPU.
 
 ## Clause 4 -- CI
 
