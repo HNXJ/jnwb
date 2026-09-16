@@ -48,46 +48,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 2. Silent and fabricated failure
 
-### 05-16 Fabricated certainty at N = 1 and at zero spikes
-- **Problem** Undefined dispersion is reported as a measured zero.
-- **Evidence** `raster_psth(spikes, [one_onset], win_ms=(0,100), bin_ms=50)` -> `mean [80. 40.], sem [0. 0.]`. `compute_response_metrics` on a unit firing at 193 Hz from one trial -> `response_zscore: 0.0`, and `classify_response_significance` -> `{'is_significant': False, 'pvalue': 1.0, 'confidence': 'none'}`; the same unit at two trials gives `nan` and `'undefined'`. Zero spikes also yields `0.0`. `UnitAnalyzer.psth` returns NaN for the same N=1 case.
-- **Change** `np.full_like(mean, np.nan)` at `viz.py:136`; default `'response_zscore'` to NaN in the dict at `spiking.py:56` so both the early return at `:60` and the `len(baseline) > 1` branch leave it undefined.
-- **Preserves** N >= 2 behaviour.
-- **Discriminator** N=1 and zero-spike cases return NaN and classify `'undefined'`, never `'none'`.
-- **Accept** `raster_psth` and `compute_response_metrics` agree with their siblings at N=1. This also settles the `Before 1.0` PSTH SEM question.
-
-### 05-17 `phase_locking_index` extrapolates out-of-range spikes to one edge phase
-- **Problem** `np.interp` clamps, so every spike outside the LFP window receives the identical endpoint phase.
-- **Evidence** Ten spikes at 500.0-500.9 s against an LFP spanning 0-10 s -> `rayleigh_z = 10.0000` (equal to n, the maximal resultant), `rayleigh_pvalue = 0.0`, `n_spikes = 10`. Half in and half out -> `z = 25.046, p = 0`.
-- **Change** Mask spikes outside `[timestamps[0], timestamps[-1]]` before the resultant and report the excluded count; `spiking.py:260`.
-- **Preserves** In-range behaviour and the repaired modulo-2*pi folding.
-- **Discriminator** Out-of-range spikes cannot raise the resultant length.
-- **Accept** All-out-of-range input returns NaN with the exclusion count reported.
-
-### 05-18 `map_peak_channel_to_area` returns the probe name as a brain area
-- **Problem** `group_name` sits in the candidate column list, so a table with no `location`/`area` column yields the probe label.
-- **Evidence** Electrode table with columns `['group_name','x','y','z']`: `map_peak_channel_to_area(0, elec)` -> `'probeA'`.
-- **Change** Drop `'group_name'` from the candidates and return NA; `addressing.py:105`.
-- **Preserves** Resolution on tables that carry an area column.
-- **Discriminator** An area-less table yields NA, not a probe name.
-- **Accept** `test_enrich_units_dataframe_no_fabricated_probeA` loses the `location` column from its fixture so the fallback it is named for is actually exercised.
-
-### 05-19 `interpolate_intervals` propagates an edge artifact across the whole segment
-- **Problem** `s = max(s,1); e = min(e,n-1)` makes the first and last samples un-repairable and then uses them as the interpolation anchors.
-- **Evidence** `interpolate_intervals([100,0,0,100,100,100,0,0,0,100], [(0,10)])` returns all ten samples as 100.
-- **Change** Reject, or edge-extrapolate, an interval whose anchor sample is itself inside the flagged region; `artifact_repair.py:95`.
-- **Preserves** Interior intervals.
-- **Discriminator** An interval touching a segment edge does not spread the artifact.
-- **Accept** Edge intervals are repaired or refused, never propagated.
-
-### 05-20 `repair_lfp_trials` reports a protection it did not apply
-- **Problem** `exclude_window_ms` is silently dropped when `times_ms is None`, and the diagnostics still echo the request.
-- **Evidence** `repair_lfp_trials(base, times_ms=None, exclude_window_ms=(90.,110.))` substitutes the sample at t-index 100 while `diagnostics['exclude_window_ms'] == (90.0, 110.0)`, `reward_excluded_cells == 0` and `warnings == []`.
-- **Change** Raise when `exclude_window_ms` is given without `times_ms`; `artifact_repair.py:196`.
-- **Preserves** Both arguments supplied, and neither supplied.
-- **Discriminator** The diagnostics never assert a window that was not applied.
-- **Accept** The half-specified call raises and names the missing argument.
-
 ### 05-21 Silent truncation and mis-pairing across four entry points
 - **Problem** Each shortens or drops input where a sibling refuses.
 - **Evidence** `as_trials([500,480,500], allow_ragged=True)` -> `(3,480)` with `warnings == []` (log only), while `allow_ragged=False` raises `ragged trial lengths [480, 500]`. `paired_fire_prob_test` with lengths 8 and 4 returns `risk_difference=0.5` pairing unrelated trials, while `shuffle_pvalue_paired` raises for exactly this and its docstring names the harm. `jrsa` with `nan_policy='propagate'` accepts `(60,6)` against `(40,6)` and silently uses the first 40, while the default policy raises. `bin_spikes` drops NaN spike times with no count.

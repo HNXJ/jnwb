@@ -133,5 +133,12 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
         counts[i], _ = np.histogram(s, bins=edges)
     rate = counts / (bin_ms / 1000.0)
     mean = rate.mean(axis=0)
-    sem = rate.std(axis=0, ddof=1) / np.sqrt(rate.shape[0]) if rate.shape[0] > 1 else np.zeros_like(mean)
+    # NaN, not zeros. One trial has no dispersion to measure, and a returned 0.0 reads as
+    # a measured absence of variability -- error bars of exactly zero on a single trial.
+    # `UnitAnalyzer.psth` already returns NaN for this case.
+    sem = (
+        rate.std(axis=0, ddof=1) / np.sqrt(rate.shape[0])
+        if rate.shape[0] > 1
+        else np.full_like(mean, np.nan)
+    )
     return centers, mean, sem

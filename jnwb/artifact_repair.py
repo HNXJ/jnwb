@@ -42,6 +42,7 @@ spike, checked before trusting on real data.
 """
 from __future__ import annotations
 
+import warnings
 import numpy as np
 
 Z_THRESH = 6.0                       # cross-channel-synchrony threshold, see docstring above
@@ -92,14 +93,41 @@ def interpolate_intervals(seg, intervals):
     out = seg.copy()
     n = seg.shape[0]
     for s, e in intervals:
-        s = max(s, 1)
-        e = min(e, n - 1)
+        s_req, e_req = int(s), int(e)
+        s = max(s_req, 1)
+        e = min(e_req, n - 1)
         if e <= s:
             continue
-        left = out[s - 1, :]
-        right = out[e, :]
-        ramp = np.linspace(0, 1, e - s + 2)[1:-1][:, None]
-        out[s:e, :] = left[None, :] + ramp * (right - left)[None, :]
+        # The anchors are the samples just outside the interval. Clamping used to pull them
+        # *inside* it whenever the interval touched an edge, so the artifact became its own
+        # repair reference: [100, 0, 0, 100, 100, 100, 0, 0, 0, 100] with the interval
+        # (0, 10) came back as ten copies of 100. An edge-touching interval is
+        # extrapolated from the one good side instead.
+        left_available = s_req >= 1
+        right_available = e_req <= n - 1
+        if not left_available and not right_available:
+            # Nothing outside the interval to anchor to. The segment is left untouched --
+            # and said so, because silently returning unrepaired data is the same class of
+            # defect as silently returning fabricated data.
+            warnings.warn(
+                f"interpolate_intervals: interval ({s_req}, {e_req}) spans the whole "
+                f"segment of {n} samples, so there is no clean sample to interpolate from. "
+                "It is left unrepaired.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            continue
+        if left_available and right_available:
+            left = out[s - 1, :]
+            right = out[e, :]
+            ramp = np.linspace(0, 1, e - s + 2)[1:-1][:, None]
+            out[s:e, :] = left[None, :] + ramp * (right - left)[None, :]
+        elif right_available:
+            # Interval runs off the left edge: hold the first good sample.
+            out[0:e, :] = out[e, :][None, :]
+        else:
+            # Interval runs off the right edge: hold the last good sample.
+            out[s:n, :] = out[s - 1, :][None, :]
     return out
 
 
@@ -161,6 +189,17 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         max_trial_fraction, n_time_locked_samples_protected,
         max_fraction_trials_flagged_at_a_sample, warnings.
     """
+    # A window is meaningless without the time axis it indexes. Both were silently dropped
+    # when `times_ms` was None, while `diagnostics` still echoed `exclude_window_ms` back
+    # and reported `reward_excluded_cells: 0` with an empty warnings list -- a protection
+    # asserted but never applied.
+    if times_ms is None and (exclude_window_ms is not None or reward_window_ms is not None):
+        given = "exclude_window_ms" if exclude_window_ms is not None else "reward_window_ms"
+        raise ValueError(
+            f"repair_lfp_trials: {given} was given without times_ms, so there is no time "
+            "axis to apply it to. The window used to be dropped while the diagnostics "
+            "still reported it as applied. Pass times_ms, or drop the window argument."
+        )
     effective_exclude = exclude_window_ms if exclude_window_ms is not None else reward_window_ms
     segments = np.asarray(segments, dtype=np.float64)
     if segments.ndim != 3:

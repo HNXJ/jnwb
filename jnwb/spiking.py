@@ -7,6 +7,7 @@ take plain spike-time arrays and caller-supplied epoch windows or LFP phase trac
 """
 
 import logging
+import warnings
 from typing import Optional, Tuple, Dict, List, Union
 import numpy as np
 import pandas as pd
@@ -52,7 +53,11 @@ def compute_response_metrics(
         'baseline_rate': 0.0,
         'response_rate': 0.0,
         'response_count': 0,
-        'response_zscore': 0.0,
+        # NaN: a z-score needs a baseline dispersion, which one trial does not provide and
+        # zero spikes do not define. 0.0 reads as "measured, and exactly at baseline", and
+        # `classify_response_significance` then returned confidence 'none' with pvalue 1.0
+        # where the two-trial case correctly returned 'undefined' and NaN.
+        'response_zscore': float('nan'),
         'latency': None,
         'n_trials': len(epoch_onsets)
     }
@@ -257,6 +262,30 @@ def phase_locking_index(
     #
     # Interpolating cos and sin separately handles the +-pi wrap that `period` was
     # presumably meant to address, and leaves the time axis alone.
+    # np.interp clamps, so every spike outside [t0, t1] received the identical endpoint
+    # phase and the resultant length grew with the number of excluded spikes. Ten spikes
+    # 500 s past the end of a 10 s recording reported rayleigh_z 10.0 -- exactly n, the
+    # maximal resultant -- with p = 0.0; mixing five of them with five in-range spikes
+    # gave p = 0.0234 where the five real spikes alone give p = 0.8335.
+    unit_spike_times = np.asarray(unit_spike_times, dtype=float)
+    lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
+    t_lo, t_hi = float(lfp_timestamps[0]), float(lfp_timestamps[-1])
+    in_range = (unit_spike_times >= t_lo) & (unit_spike_times <= t_hi)
+    n_excluded = int((~in_range).sum())
+    result['n_spikes_outside_lfp_window'] = n_excluded
+    if n_excluded:
+        warnings.warn(
+            f"phase_locking_index: {n_excluded} of {unit_spike_times.size} spike(s) fall "
+            f"outside the LFP window [{t_lo:g}, {t_hi:g}] s and are excluded. They used to "
+            "be assigned the nearest endpoint phase, which inflates the resultant length.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    unit_spike_times = unit_spike_times[in_range]
+    result['n_spikes'] = int(unit_spike_times.size)
+    if unit_spike_times.size == 0:
+        return result
+
     cos_phase = np.interp(unit_spike_times, lfp_timestamps, np.cos(lfp_phase))
     sin_phase = np.interp(unit_spike_times, lfp_timestamps, np.sin(lfp_phase))
     spike_phases = np.arctan2(sin_phase, cos_phase)

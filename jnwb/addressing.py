@@ -105,7 +105,10 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
     try:
         # Check location or area columns in electrodes_df
         col_to_check = None
-        for col in ['location', 'area', 'group_name']:
+        # `group_name` is the probe/shank label, not an anatomical area. Including it
+        # meant an electrode table with no location column returned 'probeA' as the brain
+        # area of channel 0 -- a fabricated label indistinguishable from a real one.
+        for col in ['location', 'area']:
             if col in electrodes_df.columns:
                 col_to_check = col
                 break
