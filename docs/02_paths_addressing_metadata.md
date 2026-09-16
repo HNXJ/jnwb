@@ -211,14 +211,67 @@ good_v1_units = jnwb.filter_by_criteria(
 
 `jnwb.ontology` defines object-oriented queries, datasets, and provenance descriptors:
 
-- `Query`: Declarative query on units, sessions, and areas.
+These objects record *what was asked, of which data, under which alignment, and what was
+concluded*. They hold no data-access code: nothing here opens an NWB file. They are the
+labels you attach to an analysis so that a result carries its own question, provenance and
+lineage rather than living in a filename.
+
+- `Query`: Declarative query on units, sessions, and areas. Hashable, so it works as a cache key.
 - `Dataset` & `AlignedDataset`: Encapsulation of electrophysiological data tensors with explicit alignments (`Alignment`).
 - `EpochCollection`: Structured trial epoch definitions.
 - `Question`, `Result`, `Interpretation`, `Figure`, `Provenance`, `Lineage`: Epistemic metadata classes for tracking analytical provenance.
 
 ```python
-from jnwb import Query, Dataset, EpochCollection
+import pandas as pd
+from jnwb import (Query, Dataset, Alignment, EpochCollection, Question, Result,
+                  Interpretation, Figure, Provenance, Lineage)
 
-# Construct declarative dataset query
+# 1. What subset of data? (declarative; executes nothing)
 q = Query(sessions=["ses-01", "ses-02"], areas=["V1", "PFC"])
+
+# 2. The data that query selected, and where time zero is.
+ds = Dataset(query=q, sessions=["ses-01"], units=units_df)
+aligned = ds.with_alignment(Alignment(name="stimulus_onset",
+                                      reference_event="stimulus_onset"))
+
+# 3. The trials that survived filtering, still traceable to their source.
+epochs = EpochCollection(aligned_dataset=aligned, condition="AAAB", phase=2,
+                         correct_only=True, epochs_df=trials_df)
+print(len(epochs), "epochs")
+
+# 4. The question, the measured answer, and how it was produced.
+question = Question(hypothesis="V1 responds to the deviant", signals=["spike_times"],
+                    contrast="AAAB vs AAXB", inference_unit="unit")
+result = Result(question=question,
+                statistics={"p": 0.004, "n_units": 37},
+                provenance=Provenance(software_version=jnwb.__version__,
+                                      backend="numpy", random_seed=7),
+                lineage=Lineage(source_type="EpochCollection", source_id="ses-01",
+                                operation="compute_psth"))
+
+# 5. The argument built on that evidence, and the figure that shows it.
+interp = Interpretation(claim="deviant response present", confidence="moderate",
+                        limitations=["single subject"])
+fig = Figure(result=result, interpretation=interp, title="Fig 1")
 ```
+
+**`Dataset` as a dict key.** `Dataset.__hash__` uses `query` and `sessions`, so datasets
+over the same sessions collide; `==` compares every field, using `DataFrame.equals` for
+`units`. Equality is therefore finer than the hash, which is what a dict requires.
+
+**`to_dict()` and JSON.** Every object above except `Dataset` and `AlignedDataset` has
+`to_dict()`, returning a plain nested `dict`. It converts nothing, so
+`json.dumps(result.to_dict())` raises `TypeError` when `statistics` holds NumPy values,
+which is the normal case in this package. Pass a hook:
+
+```python
+json.dumps(result.to_dict(), default=lambda o: o.tolist())
+```
+
+**Immutability.** All of these except `Figure` are `frozen` dataclasses. `frozen` prevents
+rebinding an attribute, not mutation of the object it points at -- `ds.sessions.append(...)`
+succeeds. Treat the contained lists, dicts and frames as read-only.
+
+**Deprecated.** `create_aligned_dataset`, `create_result` and `create_figure` forward to the
+constructor of the same name and add nothing. They were never exported in `__all__`; they
+now warn, and will be removed. Call the dataclass, or `Dataset.with_alignment`, directly.

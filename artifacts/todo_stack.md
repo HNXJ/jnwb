@@ -28,16 +28,6 @@ deferred to H, so later work benefits from the gate.
 Qualification runs in a clean environment built from the declared extras, or in CI. The
 development `.venv` described at the end of this file is not package evidence.
 
-## 3. API consistency
-
-### 05-32 `jnwb.ontology` is 11 public symbols no workflow can reach
-- **Problem** 387 lines, 11 exported dataclasses and 3 factories, with zero call sites in `jnwb/`, zero behavioural tests, and zero mentions in `skills/`, `examples/` or `README.md`. The module states the constructors "are intentionally absent... a generic implementation would have nothing to read from".
-- **Evidence** `Dataset, AlignedDataset, Alignment, EpochCollection, Question, Interpretation, Provenance, Lineage` are never mentioned anywhere under `tests/`; `Query`'s only behavioural line asserts a value the test just set. `create_aligned_dataset`, `create_result` and `create_figure` each return exactly one grep hit across the whole repository: their own definition.
-- **Change** Ruled 2026-09-16: retain the public surface. "No caller in this repository" is not evidence of no downstream caller, and a public library exists for callers a repository search cannot observe. Evaluate each of the 14 exports against `distinct useful operation AND documented AND tested AND generic`; remove or deprecate only those that fail, with a `CHANGELOG.md` entry and a deprecation path per `AGENTS.md` section 8. Do not reduce the API to improve an internal usage metric. The audit's evidence is therefore a documentation-and-test gap, not a removal case.
-- **Preserves** Import compatibility and every retained symbol.
-- **Discriminator** Every retained name has a behavioural test that fails when its operation breaks.
-- **Accept** No symbol in `__all__` lacks a test and a documented use; every removal cites the four-part criterion, not a call-site count.
-
 ## 4. Reproducibility and statistics
 
 ### 05-34 `nested_cv_linear_svm` gives the caller no control over the partition

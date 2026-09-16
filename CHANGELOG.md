@@ -6,8 +6,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+
+- **`jnwb.ontology.create_aligned_dataset`, `create_result` and `create_figure`.** Each
+  forwards its arguments to the constructor of the same name and adds nothing:
+  `create_result(q, s, p, l) == Result(q, s, p, l)` for every input, and
+  `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`. They were
+  never in `ontology.__all__` or `jnwb.__all__`. Calling one now raises a
+  `DeprecationWarning` naming the replacement; they will be removed in a future release.
+  Call the dataclass directly. The other eleven ontology exports are retained.
+
 ### Fixed
 
+- **`Dataset` could not be used as the dict key its own docstring advertises.** The
+  dataclass-generated `__eq__` compared the field tuples, which evaluates
+  `units_a == units_b` to a DataFrame and then takes its truth value, raising
+  `ValueError: The truth value of a DataFrame is ambiguous`. A dict consults `__eq__` on
+  every hash collision -- including between a key and an equal copy of it -- so
+  `d[dataset] = x` raised for the one use the custom `__hash__` exists to enable.
+  `Dataset` and `EpochCollection` now compare their DataFrame fields with
+  `DataFrame.equals`. Equality stays finer than `Dataset.__hash__`, which is the
+  direction the hash/eq contract requires.
+- **`Result` claimed to be serializable without qualification.** `statistics` is
+  `Dict[str, Any]` and in this package normally holds NumPy values, for which
+  `json.dumps(result.to_dict())` raises `TypeError: Object of type ndarray is not JSON
+  serializable`. The contract now states the condition and the `default=` escape hatch.
+  `to_dict()` still converts nothing, so no value is coerced or rounded on export.
+- **`ontology` documented an immutability it does not have.** `frozen=True` prevents
+  rebinding an attribute, not mutation of the list, dict or DataFrame it points at:
+  `dataset.sessions.append(...)` succeeds. The module docstring now says so. The unused
+  `hashlib`, `json`, `numpy`, `pathlib.Path` and `logging` imports, which advertised
+  content-hashing and serialization the module never implemented, are removed.
 - **`python -m jnwb.mcp_server` did not start the MCP server.** The launch command in
   `docs/10_extending_jnwb_and_verification.md` failed with "'jnwb.mcp_server' is a package and
   cannot be directly executed", including against the published wheel with the `mcp` extra

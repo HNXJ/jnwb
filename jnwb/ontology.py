@@ -2,7 +2,11 @@
 jnwb Ontology: Core Scientific Objects
 
 Frozen public API. These objects define the scientific data model.
-All are immutable unless otherwise specified.
+
+All except ``Figure`` are ``frozen`` dataclasses. ``frozen`` prevents *rebinding* an
+attribute, not mutation of an object an attribute points at: ``dataset.sessions`` is a
+``list`` and ``dataset.sessions.append(...)`` succeeds. Treat the contained lists, dicts
+and DataFrames as read-only; the ``frozen`` flag cannot enforce it for you.
 
 Core objects:
 - Query: data selection rules
@@ -16,17 +20,12 @@ Core objects:
 
 """
 
+import warnings
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Union
-from pathlib import Path
-import logging
-import json
 from datetime import datetime, timezone
-import hashlib
-import numpy as np
-import pandas as pd
+from typing import Optional, List, Dict, Any, Union
 
-log = logging.getLogger(__name__)
+import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -169,6 +168,27 @@ class Dataset:
         """Enable Dataset as dict key."""
         return hash((self.query, tuple(self.sessions)))
 
+    def __eq__(self, other: Any) -> bool:
+        """Compare every field, comparing ``units`` with ``DataFrame.equals``.
+
+        The dataclass-generated ``__eq__`` compared the field tuples, which evaluates
+        ``units_a == units_b`` to a DataFrame and then takes its truth value:
+        ``ValueError: The truth value of a DataFrame is ambiguous``. That made the dict
+        key above unusable, because a dict consults ``__eq__`` on every hash collision --
+        including the collision between a key and an equal copy of itself.
+
+        Equality is finer than the hash (which uses ``query`` and ``sessions`` only),
+        which is the direction the hash/eq contract requires.
+        """
+        if other.__class__ is not self.__class__:
+            return NotImplemented
+        return (
+            self.query == other.query
+            and self.sessions == other.sessions
+            and self.units.equals(other.units)
+            and self.metadata == other.metadata
+        )
+
     def with_alignment(self, alignment: Alignment) -> "AlignedDataset":
         """Return new AlignedDataset pairing this Dataset with an Alignment (pure relabeling,
         no data modification)."""
@@ -209,6 +229,24 @@ class EpochCollection:
 
     def __len__(self):
         return len(self.epochs_df)
+
+    def __eq__(self, other: Any) -> bool:
+        """Compare every field, comparing ``epochs_df`` with ``DataFrame.equals``.
+
+        Without this, ``a == b`` raised ``ValueError: The truth value of a DataFrame is
+        ambiguous`` -- two epoch collections could not be compared at all. This object
+        stays unhashable: it carries a DataFrame, and there is no identifying subset of
+        fields to hash it by, unlike ``Dataset``.
+        """
+        if other.__class__ is not self.__class__:
+            return NotImplemented
+        return (
+            self.aligned_dataset == other.aligned_dataset
+            and self.condition == other.condition
+            and self.phase == other.phase
+            and self.correct_only == other.correct_only
+            and self.epochs_df.equals(other.epochs_df)
+        )
 
     def to_dict(self) -> Dict:
         return {
@@ -265,7 +303,13 @@ class Result:
 
     Software Contracts:
     - SW-001: Result immutable (statistics don't change)
-    - SW-004: Result serializable
+    - SW-004: ``to_dict()`` returns a plain nested ``dict``. Whether that dict is
+      *JSON*-serializable depends on what the caller put in ``statistics``, which is
+      ``Dict[str, Any]`` and in this package normally holds NumPy values:
+      ``json.dumps(result.to_dict())`` raises ``TypeError: Object of type ndarray is not
+      JSON serializable``. Pass a ``default=`` hook, e.g.
+      ``json.dumps(result.to_dict(), default=lambda o: o.tolist())``. ``to_dict`` does not
+      convert values, so nothing is silently coerced or rounded on the way out.
     """
     question: Question
     statistics: Dict[str, Any]
@@ -339,21 +383,39 @@ class Figure:
         }
 
 
-# Factory functions (internal, not frozen)
+# Deprecated factory functions.
 #
 # create_dataset_from_query and create_epochs are intentionally absent here: both need a real
 # NWB/trial-timing data source (an open session/recording object) that these generic ontology
 # objects do not carry, so a generic implementation would have nothing to read from. Projects
 # provide their own dataset/epoch factories once they have a concrete data source to wire in.
+#
+# The three below forward their arguments to the constructor of the same name and add nothing:
+# `create_result(q, s, p, l) == Result(q, s, p, l)` for every input. They were never in
+# `__all__`. Deprecated in 0.2.5 rather than removed, per `AGENTS.md` section 8; call the
+# dataclass directly. `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`,
+# which is the documented route and is not deprecated.
+
+
+def _deprecated_factory(old: str, new: str) -> None:
+    warnings.warn(
+        f"{old} is deprecated and will be removed in a future release; it forwards to "
+        f"{new} and adds nothing. Call {new} directly.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
 
 def create_aligned_dataset(dataset: Dataset, alignment: Alignment) -> AlignedDataset:
-    """Create aligned Dataset with semantic labeling."""
+    """Deprecated. Use ``Dataset.with_alignment(alignment)`` or ``AlignedDataset(...)``."""
+    _deprecated_factory("create_aligned_dataset", "Dataset.with_alignment")
     return AlignedDataset(dataset=dataset, alignment=alignment)
 
 
 def create_result(question: Question, statistics: Dict[str, Any],
                   provenance: Provenance, lineage: Lineage) -> Result:
-    """Create immutable Result."""
+    """Deprecated. Use ``Result(...)``."""
+    _deprecated_factory("create_result", "Result")
     return Result(
         question=question,
         statistics=statistics,
@@ -364,7 +426,8 @@ def create_result(question: Question, statistics: Dict[str, Any],
 
 def create_figure(result: Result, interpretation: Interpretation,
                   title: str = "") -> Figure:
-    """Create mutable Figure from Result and Interpretation."""
+    """Deprecated. Use ``Figure(...)``."""
+    _deprecated_factory("create_figure", "Figure")
     return Figure(
         result=result,
         interpretation=interpretation,
