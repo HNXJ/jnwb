@@ -74,6 +74,51 @@ class TestComputePsd:
         peak = freqs[np.argmax(psd)]
         assert abs(peak - 40.0) < 2.0
 
+    def test_channel_major_input_agrees_with_the_multitaper_sibling(self):
+        """`nperseg` came from `len(lfp_data)` whatever `axis` meant, so an (8, 4000)
+        array was segmented into 8 samples: compute_psd returned a 5-bin spectrum while
+        compute_multitaper_psd(axis=-1) returned 2001 bins over the same data."""
+        fs = 1000.0
+        t = np.arange(4000) / fs
+        channel_major = np.stack([np.sin(2 * np.pi * 40.0 * t)] * 8)
+
+        freqs, psd = compute_psd(channel_major, fs, axis=-1)
+        mt_freqs, mt_psd = compute_multitaper_psd(channel_major, fs, axis=-1)
+
+        assert len(freqs) > 100, "axis=-1 must segment along time, not across channels"
+        peak = freqs[np.argmax(np.asarray(psd).mean(axis=0))]
+        mt_peak = mt_freqs[np.argmax(np.asarray(mt_psd).mean(axis=0))]
+        assert peak == pytest.approx(mt_peak, abs=2.0)
+        assert peak == pytest.approx(40.0, abs=2.0)
+
+    def test_the_default_axis_still_reads_time_major_data(self):
+        fs = 1000.0
+        t = np.arange(4000) / fs
+        time_major = np.stack([np.sin(2 * np.pi * 40.0 * t)] * 8).T
+        freqs, psd = compute_psd(time_major, fs)
+        assert freqs[np.argmax(np.asarray(psd).mean(axis=-1))] == pytest.approx(40.0, abs=2.0)
+
+    def test_a_single_sample_raises_rather_than_returning_a_zero_spectrum(self):
+        with pytest.raises(ValueError, match="at least"):
+            compute_psd(np.array([[1.0]]), 1000.0)
+
+    def test_empty_and_non_finite_input_raise_like_the_other_estimators(self):
+        with pytest.raises(ValueError, match="empty"):
+            compute_psd(np.array([]), 1000.0)
+        bad = np.ones(500)
+        bad[3] = np.nan
+        with pytest.raises(ValueError, match="finite"):
+            compute_psd(bad, 1000.0)
+
+    def test_a_non_positive_sampling_rate_raises(self):
+        for bad_fs in (0.0, -1000.0, np.nan, np.inf):
+            with pytest.raises(ValueError, match="positive and finite"):
+                compute_psd(np.ones(500), bad_fs)
+
+    def test_an_out_of_range_axis_raises(self):
+        with pytest.raises(ValueError, match="out of range"):
+            compute_psd(np.ones((8, 400)), 1000.0, axis=5)
+
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("to_db", "harmonic_analysis", "cross_area_coherence", "spectral_tilt",
@@ -242,6 +287,25 @@ class TestBipolarReference:
         with pytest.raises(ValueError):
             bipolar_reference(np.zeros(5))
 
+    def test_a_short_channel_order_is_refused_not_silently_truncated(self):
+        """8 channels with a 3-entry order used to return 2 channels and no warning."""
+        data = np.random.default_rng(0).normal(size=(8, 100))
+        with pytest.raises(ValueError, match="must name every channel exactly once"):
+            bipolar_reference(data, channel_order=np.arange(3))
+
+    def test_a_repeated_channel_order_is_refused(self):
+        data = np.random.default_rng(0).normal(size=(8, 100))
+        with pytest.raises(ValueError, match="permutation"):
+            bipolar_reference(data, channel_order=np.zeros(8, dtype=int))
+
+    def test_a_valid_permutation_reorders_and_is_deterministic(self):
+        data = np.random.default_rng(1).normal(size=(6, 40))
+        order = np.array([5, 4, 3, 2, 1, 0])
+        first = bipolar_reference(data, channel_order=order)
+        second = bipolar_reference(data, channel_order=order)
+        assert np.array_equal(first, second)
+        np.testing.assert_allclose(first, bipolar_reference(data[order]))
+
 
 class TestLaplacianReference:
     def test_preserves_channel_count(self):
@@ -254,6 +318,39 @@ class TestLaplacianReference:
         data = np.stack([common, common, common, common])
         out = laplacian_reference(data)
         assert np.allclose(out[1:-1], 0.0)
+
+    def test_a_non_permutation_channel_order_is_refused(self):
+        """`result[order] = out` left rows unwritten, so the function returned uninitialised
+        memory: two identical calls disagreed and values of order 1e-297 appeared in the
+        output, indistinguishable from a measured amplitude."""
+        data = np.arange(40.0).reshape(8, 5)
+        with pytest.raises(ValueError, match="permutation"):
+            laplacian_reference(data, channel_order=np.zeros(8, dtype=int))
+        with pytest.raises(ValueError, match="must name every channel exactly once"):
+            laplacian_reference(data, channel_order=np.arange(3))
+        with pytest.raises(ValueError, match="permutation"):
+            laplacian_reference(data, channel_order=np.arange(1, 9))
+
+    def test_a_non_integer_channel_order_is_refused(self):
+        data = np.arange(40.0).reshape(8, 5)
+        with pytest.raises(ValueError, match="integer index array"):
+            laplacian_reference(data, channel_order=np.linspace(0, 7, 8))
+
+    def test_repeated_calls_on_a_valid_permutation_are_bit_identical(self):
+        data = np.random.default_rng(2).normal(size=(8, 64))
+        order = np.array([3, 0, 1, 2, 7, 4, 5, 6])
+        results = [laplacian_reference(data, channel_order=order) for _ in range(5)]
+        for other in results[1:]:
+            assert np.array_equal(results[0], other)
+        assert np.isfinite(results[0]).all()
+
+    def test_channel_order_un_permutes_back_to_input_positions(self):
+        """Every channel the caller passed is present in the output at its own row."""
+        data = np.random.default_rng(3).normal(size=(5, 30))
+        order = np.array([4, 3, 2, 1, 0])
+        out = laplacian_reference(data, channel_order=order)
+        reference = laplacian_reference(data[order])
+        np.testing.assert_allclose(out[order], reference)
 
 
 class TestAggregateToDb:

@@ -170,6 +170,39 @@ CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
 }
 
 
+def _require_channel_permutation(
+    channel_order: np.ndarray, n_channels: int, func_name: str
+) -> np.ndarray:
+    """Return ``channel_order`` as an index array, rejecting anything but a permutation.
+
+    A short, long, or duplicated order silently dropped channels in ``bipolar_reference``
+    and left rows of ``laplacian_reference``'s output unwritten, so the function returned
+    whatever ``np.empty_like`` had been handed: two identical calls did not agree, and the
+    uninitialised values (order 1e-297) are not distinguishable from a measured amplitude.
+    """
+    order = np.asarray(channel_order)
+    if order.ndim != 1:
+        raise ValueError(
+            f"{func_name}: channel_order must be 1-D, got shape {order.shape}."
+        )
+    if not np.issubdtype(order.dtype, np.integer):
+        raise ValueError(
+            f"{func_name}: channel_order must be an integer index array, got dtype {order.dtype}."
+        )
+    if order.shape[0] != n_channels:
+        raise ValueError(
+            f"{func_name}: channel_order has {order.shape[0]} entries for {n_channels} "
+            "channels; it must name every channel exactly once."
+        )
+    if not np.array_equal(np.sort(order), np.arange(n_channels)):
+        raise ValueError(
+            f"{func_name}: channel_order must be a permutation of range({n_channels}); "
+            f"got {np.array2string(order, threshold=16)}. Repeated or out-of-range "
+            "indices drop channels and leave the output partly uninitialised."
+        )
+    return order
+
+
 def _resolve_fs(
     fs: Optional[float] = None,
     sampling_rate: Optional[float] = None,
@@ -305,23 +338,51 @@ def aggregate_to_db(
         return to_db(aggregated)
 
 
-def compute_psd(lfp_data: np.ndarray, fs: float):
+def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
     """Welch power spectral density of a plain LFP array.
 
     Thin ``scipy.signal.welch`` wrapper on caller-supplied traces.
 
     Args:
-        lfp_data: (n_times,) or (n_times, n_channels) array.
-        fs: sampling rate in Hz.
+        lfp_data: array with time along ``axis``; (n_times,) or (n_times, n_channels)
+            under the default.
+        fs: sampling rate in Hz (must be positive and finite).
+        axis: axis along which time is sampled (default 0, matching the documented
+            ``(n_times, n_channels)`` layout). Pass ``axis=-1`` for channel-major data.
 
     Returns:
         (freqs, psd) tuple.
+
+    Raises:
+        ValueError: If ``lfp_data`` is empty or non-finite, ``fs`` is not positive and
+            finite, or ``axis`` is out of range for ``lfp_data``.
+
+    Notes:
+        ``nperseg`` is derived from the length along ``axis``. It used to be derived from
+        ``len(lfp_data)``, the length along axis 0 whatever ``axis`` meant, so a
+        channel-major ``(8, 4000)`` array was segmented into 8 samples and returned a
+        5-bin spectrum while ``compute_multitaper_psd(..., axis=-1)`` returned 2001 bins
+        over the same data.
 
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
-    freqs, psd = signal.welch(lfp_data, fs=fs, nperseg=min(len(lfp_data), int(fs)), axis=0)
+    arr = _require_finite_nonempty_trace(lfp_data, "compute_psd", name="lfp_data")
+    if not (np.isfinite(fs) and fs > 0):
+        raise ValueError(f"compute_psd: fs must be positive and finite, got {fs}.")
+    if not -arr.ndim <= axis < arr.ndim:
+        raise ValueError(
+            f"compute_psd: axis {axis} is out of range for data of shape {arr.shape}."
+        )
+    n_times = arr.shape[axis]
+    if n_times < 2:
+        raise ValueError(
+            f"compute_psd: axis {axis} has {n_times} sample(s); a spectrum needs at least "
+            "2. A 1-sample trace used to return a 0.0 PSD, which is indistinguishable "
+            "from a measured absence of power."
+        )
+    freqs, psd = signal.welch(arr, fs=fs, nperseg=min(n_times, int(fs)), axis=axis)
     return freqs, psd
 
 
@@ -616,6 +677,11 @@ def cross_area_coherence(
                 "which set nperseg to the channel count and took argmax over the flattened "
                 "array."
             )
+    # Non-finite input made every band coherence NaN and every surrogate comparison
+    # False, so `band_significance` came out at its floor, 1/(n_surrogates+1), for every
+    # band at once -- maximal significance from a statistic that does not exist. `wpli`
+    # and `imaginary_coherency` already refuse the same input.
+    _require_finite_nonempty_pair(lfp_area1, lfp_area2, "cross_area_coherence")
     if len(lfp_area1) != len(lfp_area2):
         # INTENTIONAL BREAK (0.2.4). This logged a warning and returned a dict of zeros,
         # which is indistinguishable from a measured coherence of zero: peak_coherence_
@@ -1592,7 +1658,13 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
-    order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
+    order = (
+        np.arange(channel_data.shape[0])
+        if channel_order is None
+        else _require_channel_permutation(
+            channel_order, channel_data.shape[0], "bipolar_reference"
+        )
+    )
     ordered = channel_data[order]
     return ordered[1:] - ordered[:-1]
 
@@ -1618,12 +1690,19 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
         as input (unlike ``bipolar_reference``, which drops one channel).
 
     Raises:
-        ValueError: If ``channel_data`` is not 2-D or has fewer than 2 channels.
+        ValueError: If ``channel_data`` is not 2-D, has fewer than 2 channels, or
+            ``channel_order`` is not a permutation of ``range(n_channels)``.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
-    order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
+    order = (
+        np.arange(channel_data.shape[0])
+        if channel_order is None
+        else _require_channel_permutation(
+            channel_order, channel_data.shape[0], "laplacian_reference"
+        )
+    )
     ordered = channel_data[order]
     n_ch = ordered.shape[0]
     if n_ch < 2:

@@ -30,37 +30,13 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 1. Scientific correctness
 
-### 05-01 `laplacian_reference` / `bipolar_reference` return uninitialised memory
-- **Problem** A `channel_order` that is not a permutation leaves output rows unwritten.
-- **Evidence** `laplacian_reference(np.arange(40.).reshape(8,5), channel_order=np.zeros(8,int))` row 1 = `[0.0, 2.12199579e-314, 0.0, 0.0, 0.0]`; two identical calls are not equal. `bipolar_reference(ch8, channel_order=np.arange(3))` returns shape `(2,100)` from 8 channels; `channel_order=np.zeros(8,int)` gives all-zero rows.
-- **Change** Validate `channel_order` is a permutation of `range(n_channels)`; `spectral.py:1642`, `spectral.py:1595`.
-- **Preserves** Output shape and sign convention for valid orders.
-- **Discriminator** A non-permutation, short, or duplicate order raises; a valid order is bit-identical to today.
-- **Accept** Repeated calls on valid input are bit-identical; `channel_order` is exercised by a test (it has zero occurrences repo-wide today).
-
-### 05-02 `compute_psd` hardcodes axis 0 and contradicts its sibling
-- **Problem** No `axis` parameter, and `nperseg = min(len(lfp_data), int(fs))` reads the first axis.
-- **Evidence** One `(8, 4000)` array at 1 kHz: `compute_psd` returns 5 frequency bins with the peak at **375 Hz**; `compute_multitaper_psd(..., axis=-1)` returns 2001 bins with the peak at **40.0 Hz**. No warning from either.
-- **Change** Add `axis: int = 0`, derive `nperseg` from `shape[axis]`, and call `_require_finite_nonempty_trace` (exists at `spectral.py:68`); `spectral.py:308`.
-- **Preserves** Default behaviour for documented `(n_samples, n_channels)` input.
-- **Discriminator** The two PSD entry points agree on one array under the same `axis`; a 1-sample input raises rather than returning a 0.0 PSD.
-- **Accept** Empty, 1-sample and NaN input raise, matching `band_power` / `spectral_tilt` / `harmonic_analysis`.
-
-### 05-03 The Morlet kernel has no DC-correction term
-- **Problem** `raw = gauss * exp(1j*2*pi*f0*t)` omits the `- exp(-sigma^2 * w0^2 / 2)` admissibility term, so a DC offset enters as oscillatory amplitude.
-- **Evidence** `|sum(w)| = 1.213` at `n_cycles=1` against `4.70e-05` at `n_cycles=5`. `complex_tfr(cos(2*pi*10*t) + 1000.0, 1000., [10.], n_cycles=1)` gives a peak interior `|z| = 1214.2998` for a true amplitude of 1.0.
-- **Change** Subtract the kernel mean in `morlet_wavelet`; `tfr.py:100`.
-- **Preserves** The documented unit-cosine normalization, which holds at `n_cycles >= 5`.
-- **Discriminator** A unit cosine on a large DC offset returns `|z| ~ 1.0` at every supported `n_cycles`.
-- **Accept** Parametrized over `n_cycles in {1,3,5,10}` and offsets `{0, 10, 1000}`.
-
-### 05-04 `complex_tfr` silently discards the imaginary part
-- **Problem** A real `dtype` is accepted and cast to.
-- **Evidence** `complex_tfr(..., dtype=np.float64).z.dtype` is `float64`, behind two `ComplexWarning`s. `.phase` and `.power` then describe the real part while `ComplexTFR.normalization` and `.device` still report a valid transform.
-- **Change** Raise unless `np.issubdtype(dtype, np.complexfloating)`; `tfr.py:137`.
-- **Preserves** `complex64` and `complex128`.
-- **Discriminator** `dtype=np.float64` raises and names the accepted dtypes.
-- **Accept** No path can return a real-valued `ComplexTFR.z`.
+### 05-85 The cone of influence marks half the region edge effects actually reach
+- **Problem** Found while repairing 05-03. `coi_mask` is built from `coi_sigma` (default 2.0) while the kernel is truncated at `cutoff_sigma` (default 4.0), so samples between 2 and 4 sigma of the edge convolve against `mode="same"` zero-padding and are marked valid.
+- **Evidence** Unit cosine on a 1000-unit DC offset, DC-corrected kernel, 4000 samples at 1 kHz. Contamination ends exactly at the kernel half-width `ceil(cutoff_sigma * sigma_t * fs)` -- first clean index 191 / 319 / 637 at `n_cycles` 3 / 5 / 10 -- while `coi_mask` clears at 96 / 160 / 319. Max difference *inside* the mask: 27.1 / 18.6 / 9.42 on a unit-amplitude signal.
+- **Change** Derive the COI from the kernel support rather than an independent multiplier, or require `coi_sigma >= cutoff_sigma` and say so. `ComplexTFR`'s docstring is honest about what `coi_mask` currently means, so this is a default that does not serve the use `docs/04` puts it to; sequence it with 05-65.
+- **Preserves** An explicitly passed `coi_sigma`.
+- **Discriminator** No sample marked valid by `coi_mask` responds to a constant offset.
+- **Accept** `test_probe09_edge_and_coi_exact_boundary` and `test_probe14` are retargeted to the new contract, and `docs/04` states what the mask excludes and why an average must be taken after masking.
 
 ### 05-05 `jrsa` bootstrap CIs resample the wrong axis
 - **Problem** `perm_axis` is computed and then ignored by both `_bootstrap` call sites, which hardcode `axis=-1`.
@@ -102,14 +78,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Discriminator** A two-bin range raises instead of returning an exponent; the return records the fitted band.
 - **Accept** A requested band that gets truncated is reported, not silently narrowed.
 
-### 05-10 `phase_slope_index` reports a Gaussian tail from a 6-segment jackknife, and sums overlapping bands
-- **Problem** `2*norm.sf(|z|)` applied to a leave-one-out z with roughly `n_seg - 1` degrees of freedom; and the headline value is a raw sum over whatever band table was passed.
-- **Evidence** `n_segments=6, psi=7.2388, sd=0.3784, z=19.13, p=1.408e-81`. Same data and direction: `bands=None` -> +7.2388; `bands='canonical'` -> +3.9526; `{'beta':(14,30)}` -> +0.9899; `{'a':(14,30),'b':(14,30)}` -> +1.9799, exactly 2x.
-- **Change** Use `stats.t.sf(|z|, df=n_seg-1)`; warn when band masks overlap; `connectivity.py:1665`, `:1657`.
-- **Preserves** The sign convention and antisymmetry, both verified correct against Nolte et al. 2008.
-- **Discriminator** p responds to the segment count; duplicate bands do not double the estimate.
-- **Accept** A 6-segment call cannot report a p below what the segment count supports.
-
 ### 05-11 `granger` treats "stationarity not tested" as "stationarity passed"
 - **Problem** A blanket `except Exception: return nan` plus `stationarity_ok = bool(np.isnan(adf_p) or adf_p <= 0.05)`.
 - **Evidence** With `statsmodels` absent, `granger(random_walk_1, random_walk_2, order=3)` returns `warnings=[], ok_for_interpretation=True, stationarity_ok=True` on two pure random walks. The same absence surfaces as a *calibration* failure in `test_a_stationary_series_is_still_detected`, hiding its cause.
@@ -143,14 +111,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Accept** No timestamp array is deleted unless the reconstruction error is bounded over its whole length. Also iterate `stats["timestamps_collapsed"]` in `verify_roundtrip` rather than the hardcoded 2-element list at `compression.py:431`, which leaves every discovered auxiliary timestamp array unverified.
 
 ## 2. Silent and fabricated failure
-
-### 05-15 Undefined statistics return the most significant p the test can emit
-- **Problem** `np.abs(nan) >= np.abs(nan)` is False, so the exceedance count is 0 and `p = 1/(B+1)`. The guard that prevents this, `statistics._require_shuffle_inputs`, exists and is applied at none of these five sites.
-- **Evidence** `jrsa(ones((60,12)), gaussian, metric='cka', permutations=1000)` -> `value: nan, p: [0.000999], q: [0.000999]`. `StatisticalAnalysis.permutation_test(full(5,nan), arange(5.))` -> `{'observed_difference': nan, 'pval': 0.0196, 'significant': True}`. `shuffle_r2_ci` with one NaN score -> `{'r2_observed': nan, 'p_val': 0.0196}`. `cross_area_coherence` with one NaN -> `band_coherence` all NaN and `band_significance` all 0.0196, the floor, while `wpli` and `imaginary_coherency` hard-reject the same input. `cross_modal_comparison` with one NaN -> `lag_corrected_pvalue` 0.8607 becomes 0.004975 and `significant_lag_corrected` False becomes True.
-- **Change** One shared finiteness precondition at `jrsa._p_from_null` (`jrsa.py:847`), `statistics.permutation_test` (`:1015`), `shuffle_r2_ci` (`:554`), `cross_modal_comparison` (`:1355`) and `cross_area_coherence` (`spectral.py:727`); return NaN when the observed statistic or the entire null is non-finite.
-- **Preserves** Every p-value on finite input, and the observed-inclusive `(1+k)/(B+1)` form used everywhere.
-- **Discriminator** Non-finite input raises or returns NaN and never a p at the floor.
-- **Accept** A parametrized test feeds NaN and Inf to all five and asserts none produces a significant result.
 
 ### 05-16 Fabricated certainty at N = 1 and at zero spikes
 - **Problem** Undefined dispersion is reported as a measured zero.

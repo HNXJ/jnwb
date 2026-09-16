@@ -39,6 +39,10 @@ def _independent_reference_morlet_cwt(x: np.ndarray, fs: float, f0: float, n_cyc
     # Direct formula
     gaussian_envelope = np.exp(-0.5 * (t_vec / sigma_t) ** 2)
     carrier = np.exp(1j * 2.0 * np.pi * f0 * t_vec)
+    # Admissibility correction of Torrence & Compo (1998) eq. 6: the Morlet is only a
+    # wavelet if it integrates to zero. Omitting it left this reference agreeing with an
+    # equally uncorrected implementation to 1e-5 while both responded to DC.
+    carrier = carrier - (np.sum(gaussian_envelope * carrier) / np.sum(gaussian_envelope))
     kernel_raw = gaussian_envelope * carrier
     
     # L1 amplitude normalization factor: 2.0 / sum(gaussian_envelope)
@@ -330,3 +334,68 @@ class TestComplexTFRProbes:
         assert masked_power_4d.shape == tfr_4d.z.shape
         assert tfr_4d.z[tfr_4d.coi_mask].ndim == 1
 
+
+
+class TestMorletAdmissibilityAndDtype:
+    """05-03 / 05-04: a wavelet that responds to DC, and a real dtype that discarded half
+    the transform. Both used to be reachable through the public signature."""
+
+    @pytest.mark.parametrize("n_cycles", [1.0, 2.0, 3.0, 5.0, 10.0])
+    def test_the_kernel_integrates_to_zero_at_every_n_cycles(self, n_cycles):
+        """`|sum(w)|` was 1.21 at n_cycles=1 against 4.7e-05 at n_cycles=5, so the
+        DC response depended on the wavelet width."""
+        _, w = morlet_wavelet(10.0, 1000.0, n_cycles=n_cycles)
+        assert abs(np.sum(w)) < 1e-10
+
+    @pytest.mark.parametrize("n_cycles", [1.0, 3.0, 5.0, 10.0])
+    @pytest.mark.parametrize("offset", [0.0, 10.0, 1000.0])
+    def test_a_constant_offset_does_not_enter_as_oscillatory_amplitude(self, n_cycles, offset):
+        """A unit cosine on a 1000-unit offset reported a peak |z| of 1214.3 at
+        n_cycles=1. The recovered amplitude must not depend on the offset at all."""
+        fs = 1000.0
+        f0 = 10.0
+        t = np.arange(4000) / fs
+        signal_only = complex_tfr(np.cos(2 * np.pi * f0 * t), fs, [f0], n_cycles=n_cycles)
+        offset_added = complex_tfr(
+            np.cos(2 * np.pi * f0 * t) + offset, fs, [f0], n_cycles=n_cycles
+        )
+        # Compare strictly inside the kernel support. Samples nearer the edge than the
+        # kernel half-width convolve against `mode="same"` zero-padding, so the kernel's
+        # zero sum no longer cancels a constant -- that residual is item 05-85, not this
+        # one, and `coi_mask` does not currently cover it.
+        sigma_t = n_cycles / (2.0 * np.pi * f0)
+        half = int(np.ceil(4.0 * sigma_t * fs))
+        interior = slice(half, len(t) - half)
+        np.testing.assert_allclose(
+            np.abs(offset_added.z)[0][interior],
+            np.abs(signal_only.z)[0][interior],
+            rtol=1e-8,
+            atol=1e-8,
+        )
+
+    @pytest.mark.parametrize("n_cycles", [3.0, 5.0, 10.0])
+    def test_the_documented_unit_cosine_amplitude_survives_the_correction(self, n_cycles):
+        fs = 1000.0
+        t = np.arange(4000) / fs
+        res = complex_tfr(np.cos(2 * np.pi * 10.0 * t), fs, [10.0], n_cycles=n_cycles)
+        peak = np.abs(res.z)[0][1000:3000].max()
+        assert peak == pytest.approx(1.0, abs=1e-3)
+
+    def test_energy_normalization_survives_the_correction(self):
+        _, w = morlet_wavelet(10.0, 1000.0, n_cycles=5.0, normalization="energy")
+        assert np.sum(np.abs(w) ** 2) == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("bad_dtype", [np.float64, np.float32, np.int64])
+    def test_a_real_output_dtype_is_refused(self, bad_dtype):
+        """`dtype=np.float64` returned a ComplexWarning and a float64 `.z`, so `.phase`
+        and `.power` described the real part while `.normalization` and `.device` still
+        reported a valid transform."""
+        t = np.arange(500) / 1000.0
+        with pytest.raises(ValueError, match="complex dtype"):
+            complex_tfr(np.cos(2 * np.pi * 10 * t), 1000.0, [10.0], dtype=bad_dtype)
+
+    @pytest.mark.parametrize("good_dtype", [np.complex64, np.complex128])
+    def test_complex_dtypes_are_accepted(self, good_dtype):
+        t = np.arange(500) / 1000.0
+        res = complex_tfr(np.cos(2 * np.pi * 10 * t), 1000.0, [10.0], dtype=good_dtype)
+        assert np.issubdtype(res.z.dtype, np.complexfloating)

@@ -5,8 +5,11 @@ may live in downstream project test suites that call the same jnwb functions.
 """
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
+from scipy import stats
 
 import jnwb
 
@@ -477,3 +480,68 @@ class TestCrossModalLagSearchPaysForItself:
         res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=100, seed=0)
         assert res["lag_search_resolution_floor"] == pytest.approx(101 / 600)
         assert any("lag_window_too_wide" in w for w in res["warnings"])
+
+
+class TestPsiInferenceIsNotOverstated:
+    """05-10: a 10-segment jackknife reported p = 0.0, and overlapping bands were summed
+    twice into the headline estimate."""
+
+    @staticmethod
+    def _lagged_pair(n=6000, lag=10, seed=0):
+        rng = np.random.default_rng(seed)
+        base = rng.normal(size=n)
+        return base, np.roll(base, lag) + 0.5 * rng.normal(size=n)
+
+    def test_the_jackknife_p_reflects_the_segment_count(self):
+        """`2 * norm.sf(|z|)` gave exactly 0.0 -- a p no 10-segment jackknife can support."""
+        x, y = self._lagged_pair()
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        assert res.diagnostics["p_source"] == "jackknife_z"
+        assert res.p_net > 0.0, "a finite jackknife cannot support p = 0"
+        n_seg = res.diagnostics["n_segments"]
+        z = res.per_band["full"]["z"]
+        expected = float(2 * stats.t.sf(abs(z), df=max(n_seg - 1, 1)))
+        assert res.p_net == pytest.approx(expected, rel=1e-9)
+
+    def test_fewer_segments_give_a_larger_p_for_the_same_z(self):
+        """The Gaussian tail did not respond to the segment count at all."""
+        z = 3.2876
+        p_small = float(2 * stats.t.sf(z, df=5))
+        p_large = float(2 * stats.t.sf(z, df=200))
+        p_gauss = float(2 * stats.norm.sf(z))
+        assert p_small > p_large > p_gauss
+
+    def test_duplicate_bands_warn_instead_of_doubling_the_estimate(self):
+        """{'a': (14, 30), 'b': (14, 30)} returned exactly 2x {'beta': (14, 30)}."""
+        x, y = self._lagged_pair()
+        single = phase_slope_index(x, y, fs=1000.0, nperseg=1024, bands={"beta": (14.0, 30.0)})
+        with pytest.warns(RuntimeWarning, match="bands overlap"):
+            doubled = phase_slope_index(
+                x, y, fs=1000.0, nperseg=1024, bands={"a": (14.0, 30.0), "b": (14.0, 30.0)}
+            )
+        assert doubled.net == pytest.approx(2.0 * single.net, rel=1e-9)
+        assert any("overlapping_bands" in w for w in doubled.diagnostics["warnings"])
+
+    def test_partially_overlapping_bands_also_warn(self):
+        x, y = self._lagged_pair()
+        with pytest.warns(RuntimeWarning, match="bands overlap"):
+            phase_slope_index(
+                x, y, fs=1000.0, nperseg=1024, bands={"a": (14.0, 30.0), "b": (25.0, 40.0)}
+            )
+
+    def test_disjoint_bands_do_not_warn(self):
+        x, y = self._lagged_pair()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(
+                x, y, fs=1000.0, nperseg=1024, bands={"beta": (14.0, 30.0), "gamma": (35.0, 50.0)}
+            )
+        assert not any("overlapping_bands" in w for w in res.diagnostics["warnings"])
+
+    def test_the_sign_convention_is_unchanged(self):
+        """Antisymmetry and direction were verified correct against Nolte et al. 2008."""
+        x, y = self._lagged_pair()
+        fwd = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        rev = phase_slope_index(y, x, fs=1000.0, nperseg=1024)
+        assert fwd.net == pytest.approx(-rev.net, rel=1e-9)
+        assert fwd.net > 0.0

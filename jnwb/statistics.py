@@ -557,6 +557,12 @@ def shuffle_r2_ci(
         r = np.corrcoef(y, s)[0, 1]
         return float(r ** 2)
 
+    _require_shuffle_inputs(
+        np.asarray(y_true, dtype=float),
+        np.asarray(y_score, dtype=float),
+        n_shuffle,
+        "shuffle_r2_ci",
+    )
     r2_obs = _r2(y_true, y_score)
     rng = np.random.default_rng(random_state)
     null = np.empty(n_shuffle)
@@ -994,11 +1000,34 @@ class StatisticalAnalysis:
         elif not isinstance(rng, np.random.Generator):
             raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
 
-        x = np.asarray(x).flatten()
-        y = np.asarray(y).flatten()
+        x = np.asarray(x, dtype=float).flatten()
+        y = np.asarray(y, dtype=float).flatten()
 
-        x = x[~np.isnan(x)]
-        y = y[~np.isnan(y)]
+        n_x_in, n_y_in = len(x), len(y)
+        x = x[np.isfinite(x)]
+        y = y[np.isfinite(y)]
+        n_dropped = (n_x_in - len(x)) + (n_y_in - len(y))
+        if n_dropped:
+            warnings.warn(
+                f"permutation_test: dropped {n_dropped} non-finite sample(s) "
+                f"({n_x_in - len(x)} from x, {n_y_in - len(y)} from y). The test is on the "
+                "remaining samples.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        if len(x) < 2 or len(y) < 2:
+            # Every comparison against a NaN observed difference was False, so the
+            # exceedance count was 0 and the p-value came out at its floor, 1/(B+1):
+            # two all-NaN groups reported pval 0.0002 and significant=True.
+            return {
+                "observed_difference": float("nan"),
+                "pval": float("nan"),
+                "perm_mean": float("nan"),
+                "perm_std": float("nan"),
+                "significant": False,
+                "n_x": len(x),
+                "n_y": len(y),
+            }
 
         obs_diff = np.mean(x) - np.mean(y)
 
@@ -1021,6 +1050,8 @@ class StatisticalAnalysis:
             "perm_mean": float(np.mean(perm_diffs)),
             "perm_std": float(np.std(perm_diffs)),
             "significant": p_value < 0.05,
+            "n_x": len(x),
+            "n_y": len(y),
         }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1250,6 +1281,22 @@ def cross_modal_comparison(
     """
     if tfr_data is None or spike_data is None:
         return {'error': 'Input arrays cannot be None'}
+
+    # A single non-finite sample made every lag's correlation NaN, so every permutation
+    # comparison was False and `lag_corrected_pvalue` came out at its floor, 1/(B+1):
+    # on the same data one NaN moved it from 0.8322 to 0.000999 and flipped
+    # `significant_lag_corrected` from False to True. An all-NaN input leaked a bare
+    # KeyError('parametric') from the internals.
+    for _name, _arr in (("tfr_data", tfr_data), ("spike_data", spike_data)):
+        _a = np.asarray(_arr, dtype=float)
+        if _a.size == 0:
+            raise ValueError(f"cross_modal_comparison: {_name} is empty.")
+        if not np.all(np.isfinite(_a)):
+            raise ValueError(
+                f"cross_modal_comparison: {_name} must be finite; drop or repair NaN or "
+                "Inf values first. A non-finite sample makes every lag's statistic NaN "
+                "and drives the permutation p-value to its floor."
+            )
 
     if tfr_data.ndim == 3 and spike_data.ndim == 2:
         n_freq, n_time, n_trials = tfr_data.shape

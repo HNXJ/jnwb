@@ -845,11 +845,20 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwar
 
 
 def _p_from_null(value, null_dist, alternative):
-    """Compute p-value from null distribution."""
+    """Compute p-value from null distribution.
+
+    Returns NaN when the observed statistic or the whole null is non-finite. Comparisons
+    against NaN are all False, so the exceedance count was 0 and the p-value came out at
+    its own floor, ``1/(n+1)`` -- the *most* significant value the test can emit. A
+    constant input against a Gaussian one reported ``value: nan, p: 0.000999``.
+    """
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
+    null_dist = np.asarray(null_dist)
     n = len(null_dist)
+    if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
+        return np.atleast_1d(np.float64(np.nan))
     if alternative == "two-sided":
         k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
     elif alternative == "greater":

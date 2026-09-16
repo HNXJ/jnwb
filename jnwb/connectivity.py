@@ -1588,6 +1588,32 @@ def phase_slope_index(
     coh_full = np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
     psi_per_freq = np.imag(np.conj(coh_full[:-1]) * coh_full[1:])
 
+    # The headline `net` is a raw sum over whatever band table the caller passed, so two
+    # bands covering the same bins contribute that band twice: {'a': (14, 30), 'b':
+    # (14, 30)} returned exactly 2x the estimate of {'beta': (14, 30)} on the same data.
+    _band_bins: Dict[str, np.ndarray] = {
+        _n: np.flatnonzero((freqs >= _lo) & (freqs <= _hi))
+        for _n, (_lo, _hi) in band_map.items()
+    }
+    _overlaps = sorted(
+        {
+            tuple(sorted((_a, _b)))
+            for _a in _band_bins
+            for _b in _band_bins
+            if _a != _b and np.intersect1d(_band_bins[_a], _band_bins[_b]).size
+        }
+    )
+    if _overlaps:
+        _pairs = ", ".join(f"{_a}/{_b}" for _a, _b in _overlaps)
+        warnings_all.append(f"overlapping_bands_counted_more_than_once:{_pairs}")
+        warnings.warn(
+            "phase_slope_index: bands overlap on the frequency grid "
+            f"({_pairs}); `net` sums the bands, so the shared bins are counted once per "
+            "band. Use disjoint bands, or read `per_band` instead of `net`.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
     per_band: Dict[str, Dict[str, Any]] = {}
     jk_per_band: Dict[str, np.ndarray] = {}
     for name, (f_lo, f_hi) in band_map.items():
@@ -1662,7 +1688,12 @@ def phase_slope_index(
         single = next(iter(per_band.values()))
         p_top = single.get("p_surrogate")
         if p_top is None and np.isfinite(single.get("z", np.nan)):
-            p_top = float(2 * stats.norm.sf(abs(single["z"])))
+            # Student t, not a standard normal: the delete-one jackknife z is built from
+            # `n_seg` leave-one-out replicates and carries about `n_seg - 1` degrees of
+            # freedom. The Gaussian tail reported p = 0.0 from 10 segments, and
+            # overstated moderate evidence by an order of magnitude (z = 3.29 gave
+            # 0.001 against 0.0094 under t(9)).
+            p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_seg - 1, 1)))
     else:
         if n_surrogates > 0 and null:
             valid_band_nulls = [null[k] for k in null if np.all(np.isfinite(null[k]))]
@@ -1674,7 +1705,7 @@ def phase_slope_index(
             sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
             if sd_tot > 0 and np.isfinite(sd_tot) and np.isfinite(total):
                 z_tot = float(total / sd_tot)
-                p_top = float(2 * stats.norm.sf(abs(z_tot)))
+                p_top = float(2 * stats.t.sf(abs(z_tot), df=max(n_seg - 1, 1)))
 
     return DirectedResult(
         method="psi",

@@ -82,11 +82,20 @@ def morlet_wavelet(
         fs: Sampling rate in Hz (must be > 0).
         n_cycles: Number of wavelet cycles (must be > 0).
         normalization: 'amplitude' (L1-scaled such that a unit cosine 1.0 * cos(2*pi*f0*t)
-            yields |z| = 1.0 at f0) or 'energy' (L2-normalized such that sum(|w|^2) = 1.0).
+            yields |z| = 1.0 at f0, exactly for n_cycles >= 3 and to within the intrinsic
+            bandwidth of a very short wavelet below that) or 'energy' (L2-normalized such
+            that sum(|w|^2) = 1.0).
         cutoff_sigma: Kernel truncation half-width in units of sigma_t (default 4.0).
 
     Returns:
         (t, w): Time vector in seconds centered at 0, and complex wavelet kernel w.
+
+    Notes:
+        The kernel carries the Morlet admissibility correction, so ``sum(w) == 0`` to
+        floating-point precision at every ``n_cycles`` and the transform has no response
+        at DC. Without it the truncated kernel had ``|sum(w)| = 1.21`` at ``n_cycles=1``,
+        and a constant offset entered the transform as oscillatory amplitude: a unit
+        cosine on a 1000-unit offset reported a peak ``|z|`` of 1214 instead of 1.
     """
     if f0 <= 0:
         raise ValueError(f"f0 must be positive, got {f0}")
@@ -101,7 +110,11 @@ def morlet_wavelet(
     K = int(np.ceil(cutoff_sigma * sigma_t * fs))
     t = np.arange(-K, K + 1, dtype=np.float64) / fs
     gauss = np.exp(- (t ** 2) / (2.0 * sigma_t ** 2))
-    raw = gauss * np.exp(1j * 2.0 * np.pi * f0 * t)
+    oscillation = np.exp(1j * 2.0 * np.pi * f0 * t)
+    # Admissibility (DC) correction: subtract the Gaussian-weighted mean of the complex
+    # exponential so the discrete, truncated kernel integrates to zero.
+    oscillation = oscillation - (np.sum(gauss * oscillation) / np.sum(gauss))
+    raw = gauss * oscillation
 
     if normalization == "amplitude":
         norm_factor = 2.0 / np.sum(gauss)
@@ -167,6 +180,13 @@ def complex_tfr(
         raise ValueError("data contains NaN or Inf values")
     if fs <= 0:
         raise ValueError(f"fs must be positive, got {fs}")
+    if not np.issubdtype(np.dtype(dtype), np.complexfloating):
+        raise ValueError(
+            f"complex_tfr: dtype must be a complex dtype (np.complex128 or np.complex64), "
+            f"got {np.dtype(dtype)}. A real dtype silently discarded the imaginary part, so "
+            "`.phase` and `.power` described the real part of the transform while the result "
+            "still reported a valid normalization and device."
+        )
 
     freqs_arr = np.asarray(freqs, dtype=np.float64)
     if freqs_arr.ndim != 1 or len(freqs_arr) == 0:
