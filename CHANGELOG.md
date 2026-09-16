@@ -61,6 +61,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **jnwb could not read a single-column table that plain pynwb reads.** The smallest
+  units table a lab writes has one column, so on disk
+  `colnames = array(['spike_times'])`. jnwb's builder repair scalarizes any length-1
+  array attribute -- it exists for `description = array(['probe desc'])` -- which turned
+  that into the string `'spike_times'`, and the next `list(...)` spelled it out one
+  character per column: `ConstructError ... 'colnames': array(['s','p','i','k','e','_',
+  't','i','m','e','s','spike_times'])`. Every entry point failed on a file pynwb reads
+  without complaint: `inspect`, `events`, `unit_spike_times`, `acquisition_channel`,
+  `get_all_units_metadata` and `electrode_inventory`. `colnames` is specified as a
+  sequence, so it is excluded from the scalarization, and the `list(...)` is guarded as
+  well. This affects **any** single-column `DynamicTable`, not only `units` -- a
+  one-column table in a processing module failed identically, and the units-specific
+  guard could not have saved it.
 - **`decoding` refused valid label sets and reported a false status for others.**
   `np.bincount(labels.astype(int))` counts every integer below the maximum as a class,
   including absent ones, and refuses anything that is not a contiguous non-negative

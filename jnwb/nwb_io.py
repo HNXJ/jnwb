@@ -35,11 +35,22 @@ class MissingRequiredNWBFieldError(Exception):
         )
 
 
+#: Attributes the NWB schema specifies as sequences. A length-1 value of one of these is
+#: a one-element list, not a scalar that happens to be wrapped, so the repair below must
+#: leave it alone. 05-37: a units table with a single column carries
+#: ``colnames = array(['spike_times'])``; collapsing that to the string ``'spike_times'``
+#: made the next ``list(...)`` spell it out, one character per column, and every jnwb
+#: entry point died on a file plain pynwb reads without complaint.
+_SEQUENCE_ATTRIBUTES = frozenset({"colnames"})
+
+
 def _repair_builder(builder: Any, orig_construct: Any) -> None:
     b_name = getattr(builder, "name", None)
 
     if hasattr(builder, "attributes"):
         for key, value in builder.attributes.items():
+            if key in _SEQUENCE_ATTRIBUTES:
+                continue
             if isinstance(value, np.ndarray) and value.ndim == 1 and len(value) == 1:
                 element = value[0]
                 if isinstance(element, bytes):
@@ -55,7 +66,12 @@ def _repair_builder(builder: Any, orig_construct: Any) -> None:
         raise MissingRequiredNWBFieldError("session_description")
 
     if b_name == "units":
-        colnames = list(builder.attributes.get("colnames", []))
+        raw_colnames = builder.attributes.get("colnames", [])
+        if isinstance(raw_colnames, (str, bytes)):
+            # Belt and braces for the same defect: a bare string here would otherwise be
+            # iterated character by character, whatever put it there.
+            raw_colnames = [raw_colnames]
+        colnames = list(raw_colnames)
         for index_col in (
             "spike_times_index",
             "waveform_mean_index",

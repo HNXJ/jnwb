@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 5. NWB and user workflow
 
-### 05-37 jnwb cannot read a minimal NWB units table that pynwb reads
-- **Problem** The length-1-array-to-scalar repair collapses `colnames=array(['spike_times'])` to the string `'spike_times'`, and the next line does `list(...)` on it.
-- **Evidence** A units table whose only column is `spike_times`, written with plain pynwb. pynwb reads it: `units n = 2, colnames = ('spike_times',)`. jnwb: `ConstructError ... 'colnames': array(['s','p','i','k','e','_','t','i','m','e','s','spike_times'])`. Every entry point fails — `inspect`, `events`, `unit_spike_times`, `acquisition_channel`, `get_all_units_metadata`, `electrode_inventory` — and tutorial 00 dies with `KeyError: 's'`.
-- **Change** Exclude `colnames` from the scalarization at `nwb_io.py:43`, or guard `:58` with `np.atleast_1d` / an `isinstance(value, str)` check.
-- **Preserves** The scalar repair for the attributes it was written for.
-- **Discriminator** A single-column units table is readable through every entry point.
-- **Accept** A fixture written with plain pynwb, carrying one units column, passes the whole documented workflow. This is the most common minimal table a foreign lab writes.
-
 ### 05-38 `acquisition_channel` ignores the layout `inspect` computed
 - **Problem** It slices axis 1 unconditionally and bounds-checks `shape[1]`, never consulting the `layout` its own sibling reports.
 - **Evidence** Channel-major `(64, 1000)` data with 64 electrodes: `inspect` reports `layout: channel_by_time`; `acquisition_channel(channel=999)` returns a 64-sample time slice presented as a channel trace at 1000 Hz; `channel=1000` raises `Channel index 1000 out of range for series 'es' with 1000 channels`. Separately, the layout heuristic itself is `shape[0] >= shape[1]` with no reference to the electrode count, so a 50-sample x 100-channel recording is reported `channel_by_time` while the same dict carries `electrodes n_rows = 100`.
