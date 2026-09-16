@@ -165,7 +165,7 @@ class TestBinSpikes:
     def test_input_validation(self):
         with pytest.raises(ValueError, match="output must be 'count' or 'rate'"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.5), output="invalid")
-        with pytest.raises(ValueError, match="window must satisfy end > start"):
+        with pytest.raises(ValueError, match="window_s must satisfy end > start"):
             bin_spikes([np.array([0.1])], window=(0.5, 0.5))
         with pytest.raises(ValueError, match="yields 1 bins; need >= 2"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.1), bin_size_ms=100.0)

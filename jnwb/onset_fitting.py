@@ -12,6 +12,8 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import least_squares
 
+from ._units import resolve_unit_alias
+
 DEFAULT_TAU_MS = 30.0
 
 
@@ -65,11 +67,16 @@ def onset_model(t: np.ndarray, t0: float, tau: float, amplitude: float, baseline
 def fit_exponential_onset(
     t_ms: np.ndarray,
     rate: np.ndarray,
-    t0_bounds: tuple[float | None, float | None] = (0.0, None),
-    tau_bounds: tuple[float, float] = (1.0, 150.0),
-    baseline_window: tuple[float, float] | None = None,
+    t0_bounds_ms: tuple[float | None, float | None] | None = None,
+    tau_bounds_ms: tuple[float, float] | None = None,
+    baseline_window_ms: tuple[float, float] | None = None,
     min_amplitude: float = 0.0,
-    t0_grid_step: float = 5.0,
+    t0_grid_step_ms: float | None = None,
+    *,
+    t0_bounds: tuple[float | None, float | None] | None = None,
+    tau_bounds: tuple[float, float] | None = None,
+    baseline_window: tuple[float, float] | None = None,
+    t0_grid_step: float | None = None,
 ) -> dict:
     """Grid-search-over-t0, then bounded nonlinear least-squares fit of ``onset_model``.
 
@@ -88,34 +95,61 @@ def fit_exponential_onset(
     bounded to +/- t0_grid_step around the grid winner, for sub-grid t0 precision without
     reopening the wide-range degeneracy the grid search exists to avoid.
 
-    t0_bounds: (lo, hi); None on either side defaults to the trace's own [min(t), max(t)].
-    Enforces causality BY CONSTRUCTION -- t0 cannot leave [lo, hi] regardless of what the data
-    would otherwise support (see module docstring).
-    baseline_window: (lo, hi) in the same time units as t_ms; if None, uses the first 10% of
+    Every time parameter here is in the unit of the time axis, which is `t_ms`:
+    milliseconds. They used to be named `t0_bounds`, `tau_bounds`, `baseline_window` and
+    `t0_grid_step`, none of which said so, in a package where 23 other parameters carry
+    `_ms` and 7 carry `_s`. The old spellings still work; passing a name and its alias
+    with different values is an error rather than a silent precedence rule.
+
+    t0_bounds_ms: (lo, hi) in ms; None on either side defaults to the trace's own
+    [min(t), max(t)]. Enforces causality BY CONSTRUCTION -- t0 cannot leave [lo, hi]
+    regardless of what the data would otherwise support (see module docstring).
+    baseline_window_ms: (lo, hi) in ms; if None, uses the first 10% of
     samples as the baseline-rate initial guess (fit still frees baseline as a parameter).
     min_amplitude: lower bound on the fitted amplitude (0.0 permits a flat/no-rise fit, which
     is the correct behavior when a class genuinely does not respond in a given area).
 
     Returns dict: t0, tau, amplitude, baseline, r2, converged, cost.
     """
+    t0_bounds_ms = resolve_unit_alias(
+        t0_bounds_ms, t0_bounds, canonical_name="t0_bounds_ms",
+        alias_name="t0_bounds", func_name="fit_exponential_onset",
+        default=(0.0, None),
+    )
+    tau_bounds_ms = resolve_unit_alias(
+        tau_bounds_ms, tau_bounds, canonical_name="tau_bounds_ms",
+        alias_name="tau_bounds", func_name="fit_exponential_onset",
+        default=(1.0, 150.0),
+    )
+    baseline_window_ms = resolve_unit_alias(
+        baseline_window_ms, baseline_window, canonical_name="baseline_window_ms",
+        alias_name="baseline_window", func_name="fit_exponential_onset",
+        default=None,
+    )
+    t0_grid_step_ms = resolve_unit_alias(
+        t0_grid_step_ms, t0_grid_step, canonical_name="t0_grid_step_ms",
+        alias_name="t0_grid_step", func_name="fit_exponential_onset",
+        default=5.0,
+    )
+
     t_ms = np.asarray(t_ms, dtype=float)
     rate = np.asarray(rate, dtype=float)
     if t_ms.size < 4:
         raise ValueError(f"need at least 4 time points to fit, got {t_ms.size}")
 
-    if baseline_window is not None:
-        bmask = (t_ms >= baseline_window[0]) & (t_ms < baseline_window[1])
+    if baseline_window_ms is not None:
+        bmask = (t_ms >= baseline_window_ms[0]) & (t_ms < baseline_window_ms[1])
         baseline0 = float(np.mean(rate[bmask])) if bmask.any() else float(rate[0])
     else:
         n0 = max(1, t_ms.size // 10)
         baseline0 = float(np.mean(rate[:n0]))
 
     amp0 = float(max(rate.max() - baseline0, 1e-6))
-    t0_lo = t0_bounds[0] if t0_bounds[0] is not None else float(t_ms.min())
-    t0_hi = t0_bounds[1] if t0_bounds[1] is not None else float(t_ms.max())
+    t0_lo = t0_bounds_ms[0] if t0_bounds_ms[0] is not None else float(t_ms.min())
+    t0_hi = t0_bounds_ms[1] if t0_bounds_ms[1] is not None else float(t_ms.max())
     if t0_hi <= t0_lo:
         raise ValueError(f"t0 bounds are empty: [{t0_lo}, {t0_hi}]")
-    tau_lo, tau_hi = tau_bounds
+    tau_lo, tau_hi = tau_bounds_ms
 
     def fit_fixed_t0(t0_fixed):
         def resid3(params):
@@ -127,7 +161,7 @@ def fit_exponential_onset(
         r = least_squares(resid3, x0=x0, bounds=(lb, ub))
         return r
 
-    grid = np.arange(t0_lo, t0_hi + t0_grid_step, t0_grid_step)
+    grid = np.arange(t0_lo, t0_hi + t0_grid_step_ms, t0_grid_step_ms)
     grid = grid[grid <= t0_hi]
     if grid.size == 0 or grid[-1] < t0_hi:
         grid = np.append(grid, t0_hi)
@@ -140,8 +174,8 @@ def fit_exponential_onset(
 
     # Local refinement: joint 4-parameter fit, t0 tightly bounded around the grid winner so the
     # wide-range t0/tau tradeoff cannot reopen, seeded at the winning grid point's own solution.
-    refine_lo = max(t0_lo, best_t0 - t0_grid_step)
-    refine_hi = min(t0_hi, best_t0 + t0_grid_step)
+    refine_lo = max(t0_lo, best_t0 - t0_grid_step_ms)
+    refine_hi = min(t0_hi, best_t0 + t0_grid_step_ms)
     tau0, amp0_r, base0_r = best_res.x
 
     def resid4(params):

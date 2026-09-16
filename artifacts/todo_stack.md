@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 3. API consistency
 
-### 05-29 Unit-suffix divergence puts a 1000x error one keystroke away
-- **Problem** `_ms` (23 parameters) and `_s` (7) coexist on functions used in the same workflow, and the response/baseline windows carry no unit at all.
-- **Evidence** `examples/tutorials/03_spiking.py` calls `raster_psth(..., win_ms=(-100.,400.))` at line 38 and `compute_response_metrics(..., baseline_window=(-0.2,0.0))` at line 61 in the same body; both take a float 2-tuple and the second names no unit. `api.md:235` shows `baseline_window: Tuple[float,float] = (-0.25,-0.05)`, still with no unit. `epoch_continuous(win_s=)` is the other `_s` outlier against `raster_psth(win_ms=)`.
-- **Change** Add `_s` suffixes to the four unsuffixed window parameters, aliasing the old spelling with conflict detection, using the pattern `band_power(fs=, sampling_rate=)` already implements at `spectral.py:173`.
-- **Preserves** Existing call sites through the alias.
-- **Discriminator** Passing both spellings raises `Conflicting values`.
-- **Accept** Every time or window parameter in `__all__` carries its unit in its name.
-
 ### 05-32 `jnwb.ontology` is 11 public symbols no workflow can reach
 - **Problem** 387 lines, 11 exported dataclasses and 3 factories, with zero call sites in `jnwb/`, zero behavioural tests, and zero mentions in `skills/`, `examples/` or `README.md`. The module states the constructors "are intentionally absent... a generic implementation would have nothing to read from".
 - **Evidence** `Dataset, AlignedDataset, Alignment, EpochCollection, Question, Interpretation, Provenance, Lineage` are never mentioned anywhere under `tests/`; `Query`'s only behavioural line asserts a value the test just set. `create_aligned_dataset`, `create_result` and `create_figure` each return exactly one grep hit across the whole repository: their own definition.

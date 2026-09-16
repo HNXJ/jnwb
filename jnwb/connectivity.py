@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from ._backend import CUDA, resolve_device, warn_device_fallback
 from ._parallel import parallel_map
+from ._units import resolve_unit_alias
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -81,9 +82,11 @@ def _discrete_mi_from_labels(x: np.ndarray, y: np.ndarray) -> float:
 def spike_mutual_information(
     spike_times1: np.ndarray,
     spike_times2: np.ndarray,
-    time_window: Tuple[float, float],
+    time_window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
     estimator: str = "binary_occupancy",
+    *,
+    time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
     """
     Compute Shannon Mutual Information (MI) between two binned spike trains.
@@ -91,7 +94,8 @@ def spike_mutual_information(
     Args:
         spike_times1: Spike times of unit 1 (seconds)
         spike_times2: Spike times of unit 2 (seconds)
-        time_window: (start_time, end_time) in seconds
+        time_window_s: (start_time, end_time) in seconds. `time_window` is the old
+            spelling, kept working; it named no unit while `bin_size_ms` beside it did.
         bin_size_ms: Bin size in ms
         estimator:
             - ``binary_occupancy`` (default): MI of bin occupancy (hist > 0).
@@ -101,6 +105,11 @@ def spike_mutual_information(
     Returns:
         mi: Mutual Information in bits
     """
+    time_window_s = resolve_unit_alias(
+        time_window_s, time_window,
+        canonical_name="time_window_s", alias_name="time_window",
+        func_name="spike_mutual_information",
+    )
     if estimator not in ("binary_occupancy", "spike_count"):
         raise ValueError(
             f"Unknown estimator={estimator!r}; use 'binary_occupancy' or 'spike_count'"
@@ -111,12 +120,12 @@ def spike_mutual_information(
             "spike_mutual_information requires non-empty spike_times1 and spike_times2"
         )
 
-    bins1 = bin_spikes(spike_times1, window=time_window, bin_size_ms=bin_size_ms)
+    bins1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)
     n_bins = bins1.shape[-1]
     if n_bins <= 1:
         return 0.0
 
-    t_start, t_end = time_window
+    t_start, t_end = time_window_s
     bin_sec = bin_size_ms / 1000.0
     bin_edges = float(t_start) + bin_sec * np.arange(n_bins + 1)
     hist1, _ = np.histogram(np.sort(spike_times1), bins=bin_edges)
@@ -135,32 +144,38 @@ def spike_mutual_information(
 def binary_occupancy_mutual_information(
     spike_times1: np.ndarray,
     spike_times2: np.ndarray,
-    time_window: Tuple[float, float],
+    time_window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
+    *,
+    time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Explicit alias for binary occupancy MI."""
+    """Explicit alias for binary occupancy MI. `time_window_s` is in seconds."""
     return spike_mutual_information(
         spike_times1,
         spike_times2,
-        time_window,
+        time_window_s,
         bin_size_ms=bin_size_ms,
         estimator="binary_occupancy",
+        time_window=time_window,
     )
 
 
 def spike_count_mutual_information(
     spike_times1: np.ndarray,
     spike_times2: np.ndarray,
-    time_window: Tuple[float, float],
+    time_window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
+    *,
+    time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Discrete MI on per-bin spike counts."""
+    """Discrete MI on per-bin spike counts. `time_window_s` is in seconds."""
     return spike_mutual_information(
         spike_times1,
         spike_times2,
-        time_window,
+        time_window_s,
         bin_size_ms=bin_size_ms,
         estimator="spike_count",
+        time_window=time_window,
     )
 
 
@@ -774,11 +789,13 @@ def _count_nonfinite_spikes(spike_times, trial_starts) -> int:
 
 def bin_spikes(
     spike_times,
-    window: Tuple[float, float],
+    window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
     trial_starts: Optional[Sequence[float]] = None,
     output: str = "count",
     return_centers: bool = False,
+    *,
+    window: Optional[Tuple[float, float]] = None,
 ):
     r"""Bridge spike data into the ``(n_trials, n_bins)`` contract used by every estimator.
 
@@ -809,11 +826,17 @@ def bin_spikes(
     Returns:
         ``(n_trials, n_bins)`` float array, or ``(array, centers)`` if ``return_centers=True``.
     """
+    # `window` named no unit while its neighbour `bin_size_ms` did, in the same call.
+    # Both are times, one in seconds and one in milliseconds, and only one said so.
+    window_s = resolve_unit_alias(
+        window_s, window, canonical_name="window_s", alias_name="window",
+        func_name="bin_spikes",
+    )
     if output not in ("count", "rate"):
         raise ValueError(f"output must be 'count' or 'rate'; got {output!r}")
-    t0, t1 = float(window[0]), float(window[1])
+    t0, t1 = float(window_s[0]), float(window_s[1])
     if not t1 > t0:
-        raise ValueError(f"window must satisfy end > start; got {window}")
+        raise ValueError(f"window_s must satisfy end > start; got {window_s}")
     bin_sec = float(bin_size_ms) / 1000.0
     n_bins = int(round((t1 - t0) / bin_sec))
     if n_bins < 2:

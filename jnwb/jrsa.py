@@ -183,7 +183,12 @@ def jrsa(
     lag : int | tuple | array-like
         Temporal lag(s).
     window : tuple | int or None
-        Analysis window, e.g. (-500, 500) ms.
+        Analysis window as **sample indices** along the aligned axis: ``(start, stop)``,
+        half-open, with negative values counted from the end as in Python slicing, or an
+        integer width centred on the axis. This is not a time -- `jrsa` takes no sampling
+        rate and cannot convert one. The docstring used to read "e.g. (-500, 500) ms",
+        which on a 6-sample axis clamped to the whole axis and returned the unwindowed
+        answer with no warning.
     sliding : bool
         Use sliding window.
     normalize : bool
@@ -778,7 +783,14 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
 
 
 def _make_windows(x1, x2, axis_map, window, sliding):
-    """Extract window or build sliding windows."""
+    """Extract window or build sliding windows.
+
+    `window` is in sample indices along the aligned axis. The clamping below used to be
+    silent in both directions: `(-500, 500)` on a 6-sample axis became `(0, 6)` -- the
+    whole axis, so a caller who believed they had windowed got the unwindowed answer --
+    and `(10, 30)` became an empty slice that produced a NaN statistic rather than an
+    error. Both now say what happened.
+    """
     if window is None:
         return x1, x2, None
     ax = axis_map.get("aligned", axis_map.get(list(axis_map.keys())[0], -1))
@@ -788,12 +800,27 @@ def _make_windows(x1, x2, axis_map, window, sliding):
         center = n // 2
         start, stop = max(0, center - half), min(n, center + half)
     else:
-        start, stop = int(window[0]), int(window[1])
+        requested = (int(window[0]), int(window[1]))
+        start, stop = requested
         if start < 0:
             start = max(0, n + start)
         if stop < 0:
             stop = max(0, n + stop)
         stop = min(stop, n)
+        if start >= stop:
+            raise ValueError(
+                f"jrsa: window={window!r} selects no samples of the {n}-sample aligned "
+                f"axis (resolved to [{start}, {stop})). `window` is in sample indices, "
+                "not milliseconds."
+            )
+        if (start, stop) == (0, n) and requested != (0, n):
+            warnings.warn(
+                f"jrsa: window={window!r} covers the whole {n}-sample aligned axis after "
+                "clamping, so no windowing was applied. `window` is in sample indices, "
+                "not milliseconds.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
     slices = [slice(None)] * x1.ndim
     slices[ax] = slice(start, stop)
     x1 = x1[tuple(slices)]

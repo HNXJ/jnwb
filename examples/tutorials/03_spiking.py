@@ -53,16 +53,19 @@ def main() -> None:
         print(f"Causal smoothed peak rate: {np.max(smooth_hz):.2f} Hz")
 
         # 5. Exponential Onset Latency Fitting
-        fit = jnwb.fit_exponential_onset(t_ms, smooth_hz, t0_bounds=(0.0, 200.0))
+        fit = jnwb.fit_exponential_onset(t_ms, smooth_hz, t0_bounds_ms=(0.0, 200.0))
         assert "t0" in fit and "bound_status" in fit
         print(f"Onset latency fit: t0={fit['t0']:.1f} ms, R2={fit['r2']:.3f}, status={fit['bound_status']}")
 
         # 6. Response Metrics and Significance
+        # Every window parameter names its unit. This script mixes both scales in one
+        # body -- `win_ms` above is milliseconds, these are seconds -- and the names are
+        # what keep that straight.
         metrics = jnwb.compute_response_metrics(
             spike_times,
             onsets,
-            baseline_window=(-0.2, 0.0),
-            response_window=(0.0, 0.2),
+            baseline_window_s=(-0.2, 0.0),
+            response_window_s=(0.0, 0.2),
         )
         assert "response_rate" in metrics and "baseline_rate" in metrics
         sig = jnwb.classify_response_significance(metrics)

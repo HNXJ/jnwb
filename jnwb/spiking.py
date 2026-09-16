@@ -10,6 +10,8 @@ import logging
 import warnings
 from typing import Optional, Tuple, Dict, List, Union
 import numpy as np
+
+from ._units import resolve_unit_alias
 import pandas as pd
 from scipy import stats
 
@@ -19,19 +21,31 @@ log = logging.getLogger(__name__)
 def compute_response_metrics(
     spike_times: np.ndarray,
     epoch_onsets: np.ndarray,
-    baseline_window: Tuple[float, float] = (-0.250, -0.050),
-    response_window: Tuple[float, float] = (0.0, 0.150),
-    z_score: bool = True
+    baseline_window_s: Optional[Tuple[float, float]] = None,
+    response_window_s: Optional[Tuple[float, float]] = None,
+    z_score: bool = True,
+    *,
+    baseline_window: Optional[Tuple[float, float]] = None,
+    response_window: Optional[Tuple[float, float]] = None,
 ) -> Dict[str, float]:
     """
     Compute firing rate and spike count metrics for stimulus responses.
 
+    The windows are in **seconds**, and now say so. They used to be named
+    `baseline_window` and `response_window`, which named no unit at all, while the
+    `raster_psth(win_ms=)` a caller reaches in the same workflow is in milliseconds --
+    `examples/tutorials/03_spiking.py` calls both in one body. Both take a float 2-tuple,
+    so a swap is silent and is off by 1000. The old spellings still work; passing both
+    names with different values is an error rather than a silent precedence rule.
+
     Args:
         spike_times: Array of spike times (seconds, relative to epoch start)
         epoch_onsets: Array of epoch start times (seconds)
-        baseline_window: (start, stop) seconds relative to epoch onset for baseline
-        response_window: (start, stop) seconds relative to epoch onset for response
+        baseline_window_s: (start, stop) seconds relative to epoch onset for baseline
+        response_window_s: (start, stop) seconds relative to epoch onset for response
         z_score: If True, return z-scored response relative to baseline
+        baseline_window: Deprecated alias for `baseline_window_s`, same unit.
+        response_window: Deprecated alias for `response_window_s`, same unit.
 
     Returns:
         Dict with metrics:
@@ -49,6 +63,17 @@ def compute_response_metrics(
         >>> metrics = compute_response_metrics(spike_times, epoch_onsets)
         >>> print(f"Response z-score: {metrics['response_zscore']:.2f}")
     """
+    baseline_window_s = resolve_unit_alias(
+        baseline_window_s, baseline_window,
+        canonical_name="baseline_window_s", alias_name="baseline_window",
+        func_name="compute_response_metrics", default=(-0.250, -0.050),
+    )
+    response_window_s = resolve_unit_alias(
+        response_window_s, response_window,
+        canonical_name="response_window_s", alias_name="response_window",
+        func_name="compute_response_metrics", default=(0.0, 0.150),
+    )
+
     metrics = {
         'baseline_rate': 0.0,
         'response_rate': 0.0,
@@ -65,8 +90,8 @@ def compute_response_metrics(
     if len(epoch_onsets) == 0 or len(spike_times) == 0:
         return metrics
 
-    baseline_start, baseline_stop = baseline_window
-    response_start, response_stop = response_window
+    baseline_start, baseline_stop = baseline_window_s
+    response_start, response_stop = response_window_s
     baseline_duration = baseline_stop - baseline_start
     response_duration = response_stop - response_start
 
