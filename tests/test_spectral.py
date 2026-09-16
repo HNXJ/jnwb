@@ -1565,3 +1565,46 @@ class TestPairedTraceContract:
         reverse = jnwb.wpli(y, x, fs=fs, freq_range=(18.0, 22.0))["wpli"]
         assert forward >= 0.0 and reverse >= 0.0
         assert forward == pytest.approx(reverse, abs=1e-12)
+
+
+class TestMultitaperOneSidedScalingAtOddLengths:
+    """One-sided scaling doubles every bin except DC and Nyquist. An rfft grid only HAS a
+    Nyquist bin when n_fft is even; for odd n_fft the last bin is an ordinary positive
+    frequency. Excluding it unconditionally left the top bin of every odd-length epoch a
+    factor of two small. Broadband total power hardly notices one bin in 501, which is why
+    a Parseval check did not catch it.
+    """
+
+    @staticmethod
+    def _top_bin_ratio(n, n_reps=200):
+        """Mean p[-1] / p[-2] for white noise, whose true PSD is flat."""
+        rng = np.random.default_rng(0)
+        ratios = [
+            (lambda psd: psd[-1] / psd[-2])(
+                compute_multitaper_psd(rng.standard_normal(n), fs=1000.0)[1]
+            )
+            for _ in range(n_reps)
+        ]
+        return float(np.mean(ratios))
+
+    def test_the_top_bin_of_an_odd_length_record_is_doubled_like_its_neighbour(self):
+        ratio = self._top_bin_ratio(1001)
+        assert ratio == pytest.approx(1.0, abs=0.1), (
+            f"top bin is {ratio:.3f} of its neighbour on flat-spectrum input; an odd-length "
+            f"rfft grid has no Nyquist bin, so the last bin must be doubled like the rest"
+        )
+
+    def test_the_nyquist_bin_of_an_even_length_record_is_still_not_doubled(self):
+        """The repair must not double Nyquist, which the two sides share."""
+        freqs, _ = compute_multitaper_psd(np.zeros(1000), fs=1000.0)
+        assert freqs[-1] == pytest.approx(500.0)
+        ratio = self._top_bin_ratio(1000)
+        assert ratio == pytest.approx(0.5, abs=0.1), (
+            f"Nyquist bin is {ratio:.3f} of its neighbour; it must not be doubled"
+        )
+
+    @pytest.mark.parametrize("n", [100, 101, 512, 513, 1000, 1001])
+    def test_total_power_matches_the_variance_at_either_parity(self, n):
+        x = np.random.default_rng(0).standard_normal(n)
+        freqs, psd = compute_multitaper_psd(x, fs=1000.0)
+        assert float(np.trapezoid(psd, freqs)) == pytest.approx(x.var(), rel=0.06)

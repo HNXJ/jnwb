@@ -50,7 +50,7 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.detect_band_outliers | function | (band_trace, z_thresh = 6.0, sided = 'upper')<br>*Flag (trial, time) cells whose power departs from the cross-trial trend.* |
 | jnwb.repair_band_artifacts | function | (power, freqs, band_ranges = None, z_thresh = 6.0, sided = 'upper')<br>*Per-band, cross-trial-median substitution of sparse single-trial TFR power spikes.* |
-| jnwb.repair_lfp_trials | function | (segments, times_ms = None, z_thresh = 6.0, exclude_window_ms = None, reward_window_ms = None, min_trials = 5)<br>*Cross-channel-synchrony detection + cross-trial-median substitution.* |
+| jnwb.repair_lfp_trials | function | (segments, times_ms = None, z_thresh = 6.0, exclude_window_ms = None, reward_window_ms = None, min_trials = 5, max_trial_fraction = 0.5)<br>*Cross-channel-synchrony detection + cross-trial-median substitution.* |
 
 ## Module: jnwb.compression
 
@@ -245,7 +245,7 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.assign_subblock_quartiles | function | (epochs_df: 'pd.DataFrame', n_quantiles: 'int' = 4) -> 'np.ndarray'<br>*Assign each row a temporal quantile bucket 0..n_quantiles-1 by its own start_time order.* |
 | jnwb.clopper_pearson | function | (k: 'int', n: 'int', alpha: 'float' = 0.05) -> 'Tuple[float, float]'<br>*Exact (Clopper-Pearson) binomial confidence interval via the Beta-quantile form.* |
 | jnwb.cluster_permutation_test | function | (X: 'np.ndarray', Y: 'np.ndarray', paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'Optional[np.random.Generator]' = None, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
-| jnwb.cross_modal_comparison | function | (tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None) -> 'Dict'<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
+| jnwb.cross_modal_comparison | function | (tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None, n_permutations: 'int' = 1000, seed: 'Optional[int]' = None) -> 'Dict'<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
 | jnwb.detect_trial_cycles | function | (epochs_df: 'pd.DataFrame', gap_factor: 'float' = 10.0) -> 'np.ndarray'<br>*Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.* |
 | jnwb.exact_sign_flip | function | (diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'Tuple[float, float, float]'<br>*Exact paired sign-flip permutation test for paired sample differences.* |
 | jnwb.fdr_correct | function | (p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |

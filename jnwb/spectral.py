@@ -1783,9 +1783,18 @@ def compute_multitaper_psd(
         tapered = flat * taper_k  # (M, N)
         fft_k = np.fft.rfft(tapered, n=n_fft, axis=-1)
         psd_k = (np.abs(fft_k) ** 2) / (fs * taper_energy)
-        # One-sided scaling
-        if n_freqs > 2:
-            psd_k[:, 1:-1] *= 2.0
+        # One-sided scaling. DC is never doubled, and the Nyquist bin is never doubled --
+        # but an rfft grid only HAS a Nyquist bin when n_fft is even. For odd n_fft the last
+        # bin is an ordinary positive frequency and must be doubled like the rest. Excluding
+        # it unconditionally left the top bin of every odd-length epoch a factor of two too
+        # small: a tone at 499.5 Hz in a 1001-sample record reported 0.0999 there against
+        # 0.1993 for the same tone one bin lower. Broadband Parseval hardly notices one bin
+        # in 501, which is why this survived a total-power check.
+        if n_fft % 2 == 0:
+            if n_freqs > 2:
+                psd_k[:, 1:-1] *= 2.0
+        elif n_freqs > 1:
+            psd_k[:, 1:] *= 2.0
         psd_accum += psd_k
 
     psd_mean = psd_accum / k_tapers
