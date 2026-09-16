@@ -166,3 +166,56 @@ class TestRvIsCentred:
         x = rng.standard_normal((80, 12))
         assert float(_rv(x, x)[0]) == pytest.approx(1.0, abs=1e-10)
         assert float(_rv(x, 3.0 * x + 7.0)[0]) == pytest.approx(1.0, abs=1e-10)
+
+
+class TestPermutationNullShufflesObservations:
+    """`_permutation_test` shuffled axis=-1 for every metric. The whole-representation
+    metrics reshape to (n_observations, n_features) and ignore `axis`, so axis=-1 is their
+    FEATURE axis -- and every one of them is invariant to a permutation of features, since
+    a column permutation is an orthogonal transform. The null was therefore a point mass at
+    the observed value and p came back as exactly 1.0 whatever the data: on independent
+    60 x 12 Gaussian representations, cka, rv, hsic, distance_correlation and procrustes
+    all reported p = 1.0000.
+    """
+
+    METRICS = ["cka", "rv", "hsic", "distance_correlation", "procrustes"]
+
+    @staticmethod
+    def _pair(seed=0):
+        rng = np.random.default_rng(seed)
+        return rng.standard_normal((60, 12)), rng.standard_normal((60, 12))
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_the_null_is_not_a_point_mass(self, metric):
+        """A point-mass null puts every draw at the observed value, so p is exactly 1.0 on
+        every dataset. A live null gives p that moves with the data."""
+        ps = []
+        for seed in range(6):
+            x1, x2 = self._pair(seed)
+            res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0,
+                          stats=True, seed=seed)
+            ps.append(float(np.ravel(res.p)[0]))
+        assert len(set(ps)) > 1, (
+            f"{metric}: p was identical ({ps[0]}) on six independent datasets, so the "
+            f"permutation is shuffling an axis the metric is invariant to"
+        )
+        assert max(ps) < 1.0
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_independent_representations_do_not_report_p_exactly_one(self, metric):
+        x1, x2 = self._pair()
+        res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0, stats=True, seed=0)
+        assert float(np.ravel(res.p)[0]) < 1.0
+
+    @pytest.mark.parametrize("metric", METRICS)
+    def test_a_linearly_related_representation_is_detected(self, metric):
+        """The repair must not buy a live null by making the test powerless."""
+        rng = np.random.default_rng(0)
+        x1 = rng.standard_normal((60, 12))
+        x2 = x1 @ rng.standard_normal((12, 12))
+        res = oa.jrsa(x1, x2, metric=metric, permutations=500, bootstrap=0, stats=True, seed=0)
+        related_p = float(np.ravel(res.p)[0])
+        indep = oa.jrsa(*self._pair(), metric=metric, permutations=500, bootstrap=0,
+                        stats=True, seed=0)
+        assert related_p < 0.05, f"{metric}: related representations scored p = {related_p}"
+        assert related_p < float(np.ravel(indep.p)[0])

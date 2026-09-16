@@ -289,6 +289,11 @@ def jrsa(
             f"Choose from: {sorted(_METRIC_DISPATCH)}"
         )
 
+    # Shuffle the axis the metric actually treats as observations. See
+    # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
+    # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
+    perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+
     if verbose:
         print(f"[jrsa] computing {metric!r} …")
 
@@ -305,7 +310,7 @@ def jrsa(
 
         if stats and permutations > 0:
             null_dist = _permutation_test(
-                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
             )
             if p_raw is None:
                 p_raw = _p_from_null(value, null_dist, alternative)
@@ -334,7 +339,7 @@ def jrsa(
             c_val = None
             if stats and permutations > 0:
                 nd = _permutation_test(
-                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=-1, n_jobs=n_jobs, **kwargs
+                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
                 )
                 if p is None:
                     p = _p_from_null(v, nd, alternative)
@@ -1524,6 +1529,21 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
         None,
     )
 
+
+#: Metrics that consume whole representations rather than paired observations along the
+#: last axis. Each reshapes its inputs to (n_observations, n_features) and ignores `axis`
+#: entirely, so observations lie on axis 0.
+#:
+#: This matters for the permutation null. `_permutation_test` shuffled axis=-1 for every
+#: metric, which for these is the FEATURE axis -- and all of them are invariant to a
+#: permutation of features, because a column permutation is an orthogonal transform and
+#: these are all orthogonally invariant. Every permuted value therefore equalled the
+#: observed one and the null was a point mass, so p came back as exactly 1.0 regardless of
+#: the data. Measured on independent 60 x 12 Gaussian representations, `cka`, `rv`, `hsic`,
+#: `distance_correlation` and `procrustes` all reported p = 1.0000.
+_OBSERVATION_AXIS_0_METRICS = frozenset({
+    "cka", "rv", "hsic", "distance_correlation", "procrustes", "rsa",
+})
 
 _METRIC_DISPATCH = {
     "pearson": _pearson,
