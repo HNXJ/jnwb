@@ -168,7 +168,7 @@ Every contributor adheres to these scientific invariants:
 
 ## 9. 0.2 API Specifications & Frozen Rules
 
-This section fixes the architectural and numerical contracts for all planned 0.2 minor releases (0.2.1 through 0.2.3) prior to implementation, resolving item `0.2.0-07`.
+This section fixes the architectural and numerical contracts that every 0.2 release holds to.
 
 ### 9.1 Cross-Cutting Architectural Invariants
 
@@ -226,7 +226,7 @@ Every operation added in 0.2 conforms to the following universal library convent
 
 ---
 
-### 9.2 Planned Operation Specifications (0.2.1 through 0.2.3)
+### 9.2 Operation Specifications
 
 | Operation | Module Location | Input & Shapes | Units | Estimator & Math | Output / Result Type | Failure & Non-Identifiability | Randomness & Device | Composition & Tests |
 |---|---|---|---|---|---|---|---|---|
