@@ -391,9 +391,13 @@ assert isinstance(zflip_res.delay_identifiable, bool) and isinstance(zflip_res.a
 # White noise carries no travelling wave: the estimator must decline it and say why.
 assert zflip_res.accepted is False and zflip_res.rejection_reason
 
-dist_mat = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation")
-assert dist_mat.shape == (10, 10)
-rho_rdm, p_rdm = jnwb.rdm_similarity(dist_mat, dist_mat, metric="spearman")
+# `rdm` returns a CONDENSED vector by default; the square form is condensed=False.
+condensed = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation")
+assert condensed.shape == (45,), condensed.shape
+square = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation", condensed=False)
+assert square.shape == (10, 10), square.shape
+assert np.allclose(square, square.T) and np.allclose(np.diag(square), 0.0)
+rho_rdm, p_rdm = jnwb.rdm_similarity(condensed, condensed, metric="spearman")
 assert np.isclose(rho_rdm, 1.0)
 
 # 8. Viz

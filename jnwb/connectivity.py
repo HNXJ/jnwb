@@ -355,9 +355,17 @@ def _adf_pvalue(series: np.ndarray) -> float:
     if not np.all(np.isfinite(y)) or np.ptp(y) == 0:
         return float("nan")
     try:
+        import warnings
+
         from statsmodels.tsa.stattools import adfuller
 
-        return float(adfuller(y, maxlag=0, regression="c", autolag=None)[1])
+        with warnings.catch_warnings():
+            # statsmodels warns that adfuller's plain-tuple return will become an
+            # ADFullerResult in 0.16. Read the p-value in a way that works either way
+            # rather than emitting a FutureWarning from every Granger diagnostic.
+            warnings.simplefilter("ignore", FutureWarning)
+            res = adfuller(y, maxlag=0, regression="c", autolag=None)
+        return float(res[1]) if isinstance(res, tuple) else float(res.pvalue)
     except Exception:
         return float("nan")
 
