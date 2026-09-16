@@ -22,6 +22,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from ._rng import DEFAULT_SEED, RNGLike, sklearn_random_state
+
 log = logging.getLogger(__name__)
 
 
@@ -45,6 +47,7 @@ def nested_cv_linear_svm(
     X: np.ndarray,
     labels: np.ndarray,
     n_splits: int,
+    rng: RNGLike = DEFAULT_SEED,
 ) -> Dict[str, Union[float, np.ndarray, dict, str]]:
     """Outer stratified CV; inner GridSearchCV for C. No synthetic metrics.
 
@@ -82,13 +85,18 @@ def nested_cv_linear_svm(
             "majority_baseline_accuracy": float("nan"),
         }
 
+    # 05-34: the partition was fixed at `random_state=42` in four places with no way to
+    # vary it, so partition sensitivity could not be assessed at all. An int `rng` is
+    # handed to scikit-learn unchanged, so the default reproduces the old folds exactly.
+    random_state = sklearn_random_state(rng, func_name="nested_cv_linear_svm")
+
     n_outer = min(n_splits, max_splits)
-    outer = StratifiedKFold(n_splits=n_outer, shuffle=True, random_state=42)
+    outer = StratifiedKFold(n_splits=n_outer, shuffle=True, random_state=random_state)
     param_grid = {"clf__C": [0.01, 0.1, 1.0, 10.0]}
     pipeline = Pipeline(
         [
             ("scaler", StandardScaler()),
-            ("clf", SVC(kernel="linear", random_state=42)),
+            ("clf", SVC(kernel="linear", random_state=random_state)),
         ]
     )
 
@@ -110,7 +118,7 @@ def nested_cv_linear_svm(
             clf = Pipeline(
                 [
                     ("scaler", StandardScaler()),
-                    ("clf", SVC(kernel="linear", C=1.0, random_state=42)),
+                    ("clf", SVC(kernel="linear", C=1.0, random_state=random_state)),
                 ]
             )
             clf.fit(X_train, y_train)
@@ -121,7 +129,7 @@ def nested_cv_linear_svm(
             oof_y_score.append(clf.decision_function(X_test))
             continue
 
-        inner = StratifiedKFold(n_splits=inner_splits, shuffle=True, random_state=42)
+        inner = StratifiedKFold(n_splits=inner_splits, shuffle=True, random_state=random_state)
         grid = GridSearchCV(pipeline, param_grid, cv=inner, scoring="accuracy")
         grid.fit(X_train, y_train)
         outer_scores.append(float(grid.score(X_test, y_test)))

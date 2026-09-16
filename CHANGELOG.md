@@ -6,6 +6,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`rng=None` now means fresh entropy, and the default seed is in the signature.**
+  `exact_sign_flip`, `compare_groups`, `bootstrap_ci`, `permutation_test` and
+  `_bootstrap_mean_diff_ci` declared `rng: Optional[Generator] = None` and then ran
+  `np.random.default_rng(42)` when the caller omitted it; `cluster_permutation_test` used
+  `default_rng(0)`. `None` reads as "fresh randomness", so two calls a caller believed
+  were independent shared a null distribution and agreed exactly. The seed each function
+  was already using is now its signature default -- 42, and 0 for
+  `cluster_permutation_test`, whose different value is preserved because unifying it would
+  change published cluster p-values. **Omitting `rng` produces exactly the numbers it
+  produced before**; passing `rng=None` explicitly now draws fresh entropy, as it does
+  everywhere else in NumPy.
+- **`rng` accepts an int seed as well as a `Generator`.** These functions used to raise
+  `TypeError` for `rng=42` while seeding themselves with 42 whenever the argument was
+  omitted, and the module-level `exact_sign_flip` already accepted
+  `int | Generator | None`, so siblings disagreed about the same argument. A value that
+  names no stream -- a `str`, a `float`, a `bool` -- still raises, now naming the caller.
+
+### Added
+
+- **`nested_cv_linear_svm(..., rng=42)`.** The signature was `(X, labels, n_splits)` with
+  `random_state=42` hardcoded at four sites, so partition sensitivity could not be
+  assessed: there was no way to ask whether a decoding accuracy survived a different
+  split of the same trials. An `int` is handed to scikit-learn unchanged, so the default
+  reproduces the previous folds exactly.
+
 ### Deprecated
 
 - **`jnwb.ontology.create_aligned_dataset`, `create_result` and `create_figure`.** Each

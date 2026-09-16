@@ -38,14 +38,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Discriminator** Two different seeds give two different fold assignments.
 - **Accept** Every randomized public function takes a caller-supplied generator under one spelling. The RNG vocabulary is currently 10 spellings across 19 functions: `rng` 8, `seed` 7, `random_state` 3, `n_surrogates` 7, `n_permutations` 3, `n_shuffles` 3, plus the singletons `permutations`, `n_shuffle`, `n_bootstrap`, `random_seed`.
 
-### 05-35 Hidden default seeds make two "independent" runs share a null
-- **Problem** `exact_sign_flip`, `_bootstrap_mean_diff_ci`, `bootstrap_ci` and `permutation_test` fall back to `np.random.default_rng(42)`; `cluster_permutation_test` uses `default_rng(0)`.
-- **Evidence** `statistics.py:206, 680, 953, 993` and `:1483`; probed reproducible across calls.
-- **Change** Name the constant in the signature so it is visible, or require an explicit `rng`.
-- **Preserves** Reproducibility.
-- **Discriminator** The default seed is discoverable from the signature.
-- **Accept** No randomized function hides its default seed in the body.
-
 ### 05-36 `decoding` label handling refuses valid data and accepts invalid data
 - **Problem** `np.bincount(labels.astype(int)).min()` counts absent label values as classes of size 0, and `build_inner_validation_partitions` casts group ids with `int()`.
 - **Evidence** Same X `(40,5)`, 20 per class, separable: labels `{0,1}` -> `accuracy=0.825, status="success"`; labels `{1,2}` and `{0,2}` -> `status="insufficient_trials_for_cv"` with all metrics NaN (`np.bincount([1,1,2,2]).min() == 0`); labels `{-1,1}` -> `ValueError: 'list' argument must have no negative elements`; labels `{'a','b'}` -> `ValueError: invalid literal for int()`. `assign_outer_folds` accepts string `cycle` ids and returns `outer_fold_status="valid"`, then `build_inner_validation_partitions` on that output raises `invalid literal for int() with base 10: 'c1'`.

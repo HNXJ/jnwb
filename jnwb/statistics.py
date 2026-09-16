@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from ._parallel import parallel_map, spawn_seeds
+from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
 import pandas as pd
 from scipy import stats
 
@@ -123,7 +124,7 @@ def exact_sign_flip(
     diffs: Union[Sequence[float], np.ndarray],
     alternative: str = "two-sided",
     n_mc: int = 10000,
-    rng: Optional[Union[np.random.Generator, int]] = None,
+    rng: RNGLike = DEFAULT_SEED,
 ) -> Tuple[float, float, float]:
     """Exact paired sign-flip permutation test for paired sample differences.
 
@@ -202,16 +203,7 @@ def exact_sign_flip(
         # Monte Carlo sign-flip permutations
         if n_mc <= 0:
             raise ValueError(f"n_mc must be positive, got {n_mc}")
-        if rng is None:
-            gen = np.random.default_rng(42)
-        elif isinstance(rng, (int, np.integer)):
-            gen = np.random.default_rng(int(rng))
-        elif isinstance(rng, np.random.Generator):
-            gen = rng
-        else:
-            raise TypeError(
-                f"rng must be an instance of np.random.Generator, int, or None, got {type(rng).__name__}"
-            )
+        gen = resolve_rng(rng, func_name="exact_sign_flip")
 
         # Draw random +/- 1 signs: shape (n_mc, n)
         signs = gen.choice([-1.0, 1.0], size=(n_mc, n), replace=True)
@@ -714,12 +706,9 @@ class StatisticalAnalysis:
         paired: bool,
         n_bootstrap: int = 2000,
         ci: float = 0.95,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        if rng is None:
-            rng = np.random.default_rng(42)
-        elif not isinstance(rng, np.random.Generator):
-            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+        rng = resolve_rng(rng, func_name="_bootstrap_mean_diff_ci")
         if paired and len(a) == len(b) and len(a) > 1:
             diffs = a - b
             stats_boot = np.empty(n_bootstrap)
@@ -756,7 +745,7 @@ class StatisticalAnalysis:
         group2: np.ndarray,
         paired: bool = False,
         n_bootstrap: int = 2000,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
         """
         Compare two groups: parametric (t-test) + non-parametric (Mann-Whitney / Wilcoxon).
@@ -986,13 +975,14 @@ class StatisticalAnalysis:
         statistic_func=np.mean,
         n_bootstrap: int = 10000,
         ci: float = 0.95,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        """Bootstrap confidence intervals + parametric CI."""
-        if rng is None:
-            rng = np.random.default_rng(42)
-        elif not isinstance(rng, np.random.Generator):
-            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+        """Bootstrap confidence intervals + parametric CI.
+
+        ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
+        for fresh entropy, or a ``Generator`` to keep one stream across calls.
+        """
+        rng = resolve_rng(rng, func_name="bootstrap_ci")
 
         data = np.asarray(data).flatten()
         data = data[~np.isnan(data)]
@@ -1026,13 +1016,14 @@ class StatisticalAnalysis:
         x: np.ndarray,
         y: np.ndarray,
         n_permutations: int = 5000,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        """Permutation test for difference between two groups."""
-        if rng is None:
-            rng = np.random.default_rng(42)
-        elif not isinstance(rng, np.random.Generator):
-            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+        """Permutation test for difference between two groups.
+
+        ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
+        for fresh entropy, or a ``Generator`` to keep one stream across calls.
+        """
+        rng = resolve_rng(rng, func_name="permutation_test")
 
         x = np.asarray(x, dtype=float).flatten()
         y = np.asarray(y, dtype=float).flatten()
@@ -1244,7 +1235,7 @@ class StatisticalAnalysis:
         diffs: Union[Sequence[float], np.ndarray],
         alternative: str = "two-sided",
         n_mc: int = 10000,
-        rng: Optional[Union[np.random.Generator, int]] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Tuple[float, float, float]:
         """Exact paired sign-flip permutation test for paired sample differences."""
         return exact_sign_flip(diffs, alternative=alternative, n_mc=n_mc, rng=rng)
@@ -1492,7 +1483,7 @@ def cluster_permutation_test(
     threshold: float = 2.0,
     n_permutations: int = 1000,
     tail: str = "both",
-    rng: Optional[np.random.Generator] = None,
+    rng: RNGLike = 0,
     n_jobs: int = 1,
 ) -> Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]:
     """Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).
@@ -1567,10 +1558,7 @@ def cluster_permutation_test(
         raise ValueError(f"n_permutations must be >= 1; got {n_permutations}.")
     if tail not in ("both", "greater", "less"):
         raise ValueError(f"tail must be 'both', 'greater', or 'less'; got {tail!r}.")
-    if rng is None:
-        rng = np.random.default_rng(0)
-    elif not isinstance(rng, np.random.Generator):
-        raise TypeError("rng must be an explicit numpy.random.Generator (e.g. np.random.default_rng(seed)).")
+    rng = resolve_rng(rng, func_name="cluster_permutation_test")
 
     X_arr = np.asarray(X, dtype=float)
     Y_arr = np.asarray(Y, dtype=float)
