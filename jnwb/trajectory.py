@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
+from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
 
@@ -168,12 +169,18 @@ def compute_population_trajectory(
             proj = X_tensor @ V_top.t()
             proj_np = proj.cpu().numpy()
             S_np = S.cpu().numpy()
+            V_np = V_top.cpu().numpy()
         except Exception as e:
             warn_device_fallback("compute_population_trajectory", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
-            proj_np, _, S_np = _svd_numpy()
+            proj_np, V_np, S_np = _svd_numpy()
     else:
-        proj_np, _, S_np = _svd_numpy()
+        proj_np, V_np, S_np = _svd_numpy()
+
+    # Both branches already agree to 1e-13 in float64; what differed was the sign LAPACK
+    # and cuSOLVER happened to pick, which showed up as a trajectory reflected through
+    # the origin. See :func:`jnwb.gpu_pca.pin_component_signs`.
+    V_np, proj_np = pin_component_signs(V_np, proj_np)
 
     # Calculate variance explained ratio
     total_var = np.sum(S_np ** 2)

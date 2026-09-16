@@ -135,17 +135,26 @@ class TestCallSitesAreRouted:
 
 
 class TestDeviceRequestIsHonouredOrReported:
-    def test_gpu_pca_cpu_and_cuda_agree_within_float32(self):
-        """If this machine has a GPU, the two paths must not disagree materially."""
+    def test_gpu_pca_cpu_and_cuda_return_the_same_numbers(self):
+        """05-43: this test used to read `_, _, var_cuda = gpu_pca(...)`, keeping only
+        `explained_variance_ratio`. That scalar is invariant to a sign flip and agrees
+        to 1e-7 across float32 and float64, so it stayed green on a live A4000 while
+        `max|cpu - cuda|` on the returned projections was 8.005. Compare what the
+        function actually returns. Full parity, including the dtype rule, is in
+        `tests/test_pca_device_parity.py`."""
         from jnwb.gpu_pca import gpu_pca
 
         rng = np.random.default_rng(0)
         X = rng.normal(size=(200, 30))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            _, _, var_cuda = gpu_pca(X, n_components=3, device="cuda")
-        _, _, var_cpu = gpu_pca(X, n_components=3, device="cpu")
+            proj_cuda, comp_cuda, var_cuda = gpu_pca(X, n_components=3, device="cuda")
+        proj_cpu, comp_cpu, var_cpu = gpu_pca(X, n_components=3, device="cpu")
+
         assert var_cuda == pytest.approx(var_cpu, abs=1e-5)
+        assert proj_cuda.dtype == proj_cpu.dtype
+        assert np.max(np.abs(proj_cuda - proj_cpu)) < 1e-9
+        assert np.max(np.abs(comp_cuda - comp_cpu)) < 1e-9
 
     def test_gpu_pca_warns_when_its_default_device_is_unavailable(self, monkeypatch):
         """gpu_pca defaults to device='cuda'; returning CPU results silently is the bug."""

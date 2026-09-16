@@ -13,6 +13,38 @@ from ._backend import CUDA, resolve_device, warn_device_fallback
 log = logging.getLogger(__name__)
 
 
+def pin_component_signs(
+    components: np.ndarray, projections: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Force each component's largest-magnitude loading positive.
+
+    An SVD determines each component only up to a sign: ``V`` and ``-V`` describe the
+    same subspace and explain the same variance, and LAPACK and cuSOLVER routinely
+    choose differently for the same matrix. Callers saw that as a trajectory reflected
+    through the origin, with ``max|cpu - cuda| / |cpu| == 2`` -- the exact signature of a
+    flip, and indistinguishable from a real disagreement until you align the signs by
+    hand. `AGENTS.md` invariant 6 says the device never changes a number, so the
+    convention has to be pinned in the library rather than left to whichever routine ran.
+
+    Any rule fixed by the data works; this is the one `sklearn.utils.extmath.svd_flip`
+    uses. A component of all zeros has no largest loading and is left alone.
+
+    Args:
+        components: ``(n_components, n_features)`` right singular vectors.
+        projections: ``(n_samples, n_components)`` coordinates in that basis.
+
+    Returns:
+        The same pair, with the sign of each component and its column of the
+        projections flipped together, so their product is unchanged.
+    """
+    if components.size == 0:
+        return components, projections
+    pivot = np.argmax(np.abs(components), axis=1)
+    signs = np.sign(components[np.arange(components.shape[0]), pivot])
+    signs[signs == 0.0] = 1.0
+    return components * signs[:, None], projections * signs[None, :]
+
+
 def gpu_pca(
     matrix: np.ndarray,
     n_components: int = 3,
@@ -49,6 +81,14 @@ def gpu_pca(
     std[std == 0.0] = 1.0
     scaled = (matrix - mean) / std
 
+    # The CUDA branch used to cast to float32 while `_svd_numpy` stayed in float64, so
+    # `device=` changed the result by ~1e-4 on top of any sign flip. Decide the working
+    # dtype once, here, using numpy's own linalg promotion rule: float32 stays float32,
+    # everything else becomes float64 (which also makes float16 work, since
+    # `np.linalg.svd` rejects it outright).
+    if scaled.dtype != np.float32:
+        scaled = scaled.astype(np.float64)
+
     actual_components = min(n_components, n_samples, n_features)
 
     def _svd_numpy():
@@ -65,7 +105,7 @@ def gpu_pca(
         try:
             import torch
 
-            tensor = torch.tensor(scaled, dtype=torch.float32, device="cuda")
+            tensor = torch.as_tensor(scaled, device="cuda")
             U, S, V = torch.linalg.svd(tensor, full_matrices=False)
             V_top = V[:actual_components, :]
             proj = tensor @ V_top.t()
@@ -83,6 +123,8 @@ def gpu_pca(
         # branch used float64 NumPy, so "cpu" meant two different precisions depending
         # on which device string was passed. One CPU path now, in float64.
         proj_np, V_np, S_np = _svd_numpy()
+
+    V_np, proj_np = pin_component_signs(V_np, proj_np)
 
     total_var = np.sum(S_np ** 2)
     explained_variance_ratio = (

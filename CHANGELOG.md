@@ -104,6 +104,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`
+  returned.** `AGENTS.md` invariant 6 says the device never changes a number; on a live
+  RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while
+  `_svd_numpy` stayed in float64, and neither function pinned an SVD sign, so
+  `gpu_pca(X(4000, 60), n_components=3)` disagreed across devices by
+  `max|cpu - cuda| = 8.005` on the returned projections. Align the signs by hand and the
+  residue was 6.5e-04, the float32 part. `compute_population_trajectory` was float64 on
+  both devices already -- it uses `torch.as_tensor`, not a cast -- and differed only by
+  sign, which showed as `max_rel = 2.0`, a trajectory reflected through the origin.
+  The working dtype is now chosen before the device branch, by numpy's own linalg
+  promotion rule, so both branches see one array; float16 input consequently works
+  instead of being rejected on CPU and silently computed in float32 on CUDA. A new
+  `jnwb.gpu_pca.pin_component_signs` forces each component's largest-magnitude loading
+  positive -- the `sklearn.utils.extmath.svd_flip` convention -- and both functions apply
+  it to whichever branch ran. Measured after: 3.1e-12 and 6.5e-13, with no post-hoc
+  alignment. `explained_variance_ratio` is unchanged, being sign-invariant. Component
+  signs may now differ from previous releases; the subspace, the variance and everything
+  reconstructed from the pair are identical. The CUDA path remains the faster of the two
+  in float64 (24.2 ms against 29.8 ms on an A4000).
+
 - **Tutorial 00 broke on the two most common foreign-file shapes.** It is the page for a
   file you know nothing about, and it read `acquisition["rate_hz"]` unguarded while
   iterating `info["acquisitions"]` alone. A file storing `timestamps` instead of a

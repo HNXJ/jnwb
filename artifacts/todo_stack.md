@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 6. Performance and backend
 
-### 05-43 Device changes the number
-- **Problem** `gpu_pca` computes in float64 on CPU and float32 on CUDA, and neither it nor `compute_population_trajectory` pins an SVD sign convention.
-- **Evidence** On a live RTX A4000, `gpu_pca(X(4000,60), n_components=3)`: `cpu dtype float64` against `cuda dtype float32`, component signs `[+1, -1, -1]`, raw `max|cpu-cuda| = 8.005`; after sign alignment 6.48e-04. `compute_population_trajectory` shows `max_rel = 2.0`, the signature of a sign flip, with sign-aligned agreement at 2.71e-12.
-- **Change** Match the CPU dtype on the CUDA branch; pin a deterministic sign (force the max-abs loading of each component positive) once, before the device branch; `gpu_pca.py:69`, `trajectory.py:151`.
-- **Preserves** Numerical content up to the pinned sign.
-- **Discriminator** CPU and CUDA outputs are equal to float64 tolerance without post-hoc sign alignment.
-- **Accept** This is `AGENTS.md` invariant 6: "Device and worker count never change a number." The prior receipt's claim that parity is bounded by 3.6e-04 covers only sign-aligned components and should be corrected; the call-site count is 15, not 13.
-
 ### 05-44 Two `device=` sites deny the GPU silently
 - **Problem** One discards the resolver's result; the other gates the GPU branch off after resolution.
 - **Evidence** `vflip(..., device='cuda')` on a live A4000: `h2d=0, d2h=0`, zero warnings — `laminar.py:220` assigns to `_`. `fit_var_bivariate(..., device='cuda', ridge=0.1)`: `h2d=0, d2h=0`, no warning, because `and ridge <= 0` gates the branch; with `ridge=0` the GPU is reached at 3.81x. Without a GPU the caller is warned; with one they are silently denied, inverting the contract.
