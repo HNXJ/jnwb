@@ -17,19 +17,29 @@ InspectInput = Union[PathLike, NWBFile]
 _MAX_SAMPLES = 5
 
 
-class AmbiguousAcquisitionError(Exception):
+class NWBInspectError(Exception):
+    """Base for every error raised while addressing an NWB file's contents.
+
+    The four classes below were independent, and one of them inherited `IndexError`
+    while its three siblings inherited `Exception`, so no single `except` clause caught
+    them. They keep their existing bases, so `except IndexError` around
+    `ChannelIndexError` still works.
+    """
+
+
+class AmbiguousAcquisitionError(NWBInspectError):
     """Several acquisitions are present and ``name`` was not specified."""
 
 
-class AcquisitionNotFoundError(Exception):
+class AcquisitionNotFoundError(NWBInspectError):
     """The requested acquisition does not exist."""
 
 
-class ChannelIndexError(IndexError):
+class ChannelIndexError(NWBInspectError, IndexError):
     """The requested channel index is out of range for the continuous series."""
 
 
-class UnitNotFoundError(Exception):
+class UnitNotFoundError(NWBInspectError):
     """The requested units-table row does not exist."""
 
 

@@ -438,17 +438,36 @@ def shuffle_pvalue_paired(
     n = len(a)
     if n < 2:
         return float("nan"), float("nan")
+    alt = _require_alternative(alternative, "shuffle_pvalue_paired")
     diff = a - b
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
-    if alternative == "greater":
+    if alt == "greater":
         p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
-    elif alternative == "less":
+    elif alt == "less":
         p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
     else:
         p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
     return obs, float(p)
+
+
+def _require_alternative(alternative: str, func_name: str) -> str:
+    """Normalize and validate a tail specification.
+
+    The `if greater / elif less / else` chains this replaces had a two-sided fallthrough,
+    so `alternative='GREATER'` and `alternative='nonsense'` both silently returned the
+    two-sided p -- 0.163 where the one-sided value was 0.093. `exact_sign_flip` already
+    case-folds and validates the identical parameter.
+    """
+    alt = str(alternative).strip().lower()
+    if alt not in ("two-sided", "greater", "less"):
+        raise ValueError(
+            f"{func_name}: alternative must be one of 'two-sided', 'greater', 'less'; "
+            f"got {alternative!r}. An unrecognised value used to select 'two-sided' "
+            "silently."
+        )
+    return alt
 
 
 def shuffle_pvalue_unpaired(
@@ -456,9 +475,13 @@ def shuffle_pvalue_unpaired(
     b: np.ndarray,
     n_shuffles: int,
     rng: np.random.Generator,
-    alternative: str = "greater",
+    alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
+
+    ``alternative`` defaults to ``'two-sided'``, as in :func:`shuffle_pvalue_paired`. It
+    used to default to ``'greater'`` while its paired sibling defaulted to two-sided: on
+    one dataset the two "defaults" were p = 0.041 and p = 0.163.
 
     Returns (observed_diff, p_value), or ``(nan, nan)`` when either group has fewer than two
     values.
@@ -471,6 +494,7 @@ def shuffle_pvalue_unpaired(
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
     if len(a) < 2 or len(b) < 2:
         return float("nan"), float("nan")
+    alt = _require_alternative(alternative, "shuffle_pvalue_unpaired")
     obs = float(np.mean(a) - np.mean(b))
     pooled = np.concatenate([a, b])
     n_a = len(a)
@@ -478,9 +502,9 @@ def shuffle_pvalue_unpaired(
     for i in range(n_shuffles):
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
-    if alternative == "greater":
+    if alt == "greater":
         p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
-    elif alternative == "less":
+    elif alt == "less":
         p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
     else:
         p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
@@ -1172,6 +1196,13 @@ class StatisticalAnalysis:
             raise ValueError(
                 "confirmatory_compare() requires a non-empty hypothesis string. "
                 "Example: hypothesis='rate in condition A > rate in condition B'"
+            )
+        # `alpha=2.0` used to return `confirmed_parametric=True` for q = 0.1188 -- a
+        # confirmation at an impossible significance level, from a confirmatory API.
+        # `clopper_pearson` validates the identical parameter.
+        if not (0.0 < float(alpha) < 1.0):
+            raise ValueError(
+                f"confirmatory_compare: alpha must be in (0, 1), got {alpha}."
             )
         result = StatisticalAnalysis.exploratory_compare(
             group1, group2, paired=paired, n_bootstrap=n_bootstrap

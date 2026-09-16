@@ -587,8 +587,14 @@ def probe_geometry(
     else:
         resolved_probe_name = probe_name
 
-    assert coords is not None
-    assert channel_ids is not None
+    if coords is None or channel_ids is None:
+        # This was `assert coords is not None` with no message, so a wrong type raised a
+        # bare AssertionError('') -- and under `python -O` the assert vanished entirely and
+        # the next line ran `coords.shape` on None.
+        raise TypeError(
+            f"probe_geometry: expected an NWB electrodes table, a pandas DataFrame, or an "
+            f"(n_channels, 3) coordinate array; got {type(electrodes_table).__name__}."
+        )
 
     n_channels = coords.shape[0]
     if n_channels == 0:

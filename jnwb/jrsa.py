@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
+from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
 
 # ---------------------------------------------------------------------------
@@ -207,9 +208,12 @@ def jrsa(
     alternative : str
         two-sided | greater | less.
     backend : str
-        auto | numpy | scipy | jax | torch | cupy.
+        auto | numpy | scipy | jax | torch | cupy. Accepted for API compatibility and for
+        the input types it lets you pass; every metric converts to NumPy on its first line,
+        so this does not change where the arithmetic runs or what it returns.
     device : str
-        auto | cpu | cuda | tpu.
+        'cpu' or 'cuda', validated by the same `resolve_device` the rest of the package
+        uses -- an unknown name raises. `execution['device']` records the resolved device.
     n_jobs : int
         CPU workers (-1 = all cores).
     batch_size : int or None
@@ -279,7 +283,28 @@ def jrsa(
 
     # --- pipeline -------------------------------------------------------------
     rng = np.random.default_rng(random_state)
-    bk = _get_backend(backend, device)
+    # `device` used to be recorded verbatim, so `device='bogus_device'` ran and was
+    # reported as the device, while all 15 `resolve_device` sites raise for the same
+    # string. Routing it here makes jrsa refuse an unknown device like every other
+    # function -- and tells us what actually runs, which is the CPU: every metric calls
+    # `_ensure_np` on its first line, so an upload to cupy/torch/jax is converted straight
+    # back and the computation is NumPy either way. `execution` now says so.
+    resolved_device = resolve_device(
+        None if str(device).strip().lower() == "auto" else device,
+        context="jrsa", prefer="cupy", stacklevel=3,
+    )
+    if resolved_device == CUDA:
+        # The resolver found a GPU, but jrsa will not use it: every metric calls
+        # `_ensure_np` first. Saying so is the point -- `execution` used to record
+        # `device: 'cuda'` for arithmetic that ran on the CPU.
+        warnings.warn(
+            "jrsa: device='cuda' was requested, but every jrsa metric computes in NumPy "
+            "on the CPU. The result is unchanged and execution['device'] records 'cpu'.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        resolved_device = CPU
+    bk = _get_backend(backend, resolved_device)
 
     x1, x2 = _prepare_inputs(x1, x2, bk)
     x1, x2 = _validate_inputs(x1, x2, nan_policy)
@@ -424,7 +449,7 @@ def jrsa(
             q_corrected = _multiple_correction(p_raw, correction, alpha)
 
     # --- build result ---------------------------------------------------------
-    exec_meta = _make_exec_meta(bk, device, t0, rng)
+    exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
 
     result = _make_result(
         value=value,
@@ -947,11 +972,12 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
     p_flat = np.asarray(p).ravel()
     m_lower = method.lower()
     if m_lower not in _CORRECTION_METHOD_MAP and m_lower != "none":
-        warnings.warn(
-            f"Unrecognized correction method '{method}'. Falling back to 'fdr_bh'. "
-            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())}",
-            UserWarning,
-            stacklevel=2,
+        # This used to warn and fall back to 'fdr_bh' while `parameters['correction']`
+        # kept echoing the request, so a run corrected one way was recorded as corrected
+        # another. A typo in a correction method is not a preference to be approximated.
+        raise ValueError(
+            f"Unrecognized correction method {method!r}. "
+            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())} or 'none'."
         )
     try:
         from statsmodels.stats.multitest import multipletests
@@ -980,33 +1006,27 @@ def _confidence_interval(values, alpha=0.05):
 # PRIVATE – execution / backend
 # ===========================================================================
 
+_VALID_BACKENDS = ("auto", "numpy", "scipy", "cupy", "jax", "torch")
+
+
 def _get_backend(backend: str, device: str) -> dict:
-    """Resolve backend and device; return context dict."""
-    if backend == "auto":
-        backend = _autodetect_backend(device)
-    return {"name": backend, "device": device}
+    """Validate the requested backend and report the one that executes.
 
-
-def _autodetect_backend(device: str) -> str:
-    """Pick the best available backend."""
-    if device in ("cuda",):
-        try:
-            import cupy  # noqa: F401
-            return "cupy"
-        except ImportError:
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    return "torch"
-            except ImportError:
-                pass
-    if device in ("tpu",):
-        try:
-            import jax  # noqa: F401
-            return "jax"
-        except ImportError:
-            pass
-    return "numpy"
+    Every metric converts its inputs with `_ensure_np` before it computes anything, so
+    the executing backend is NumPy whatever was requested. This used to report the
+    *request*: `jrsa(device='cuda', backend='cupy')` recorded
+    `{'backend': 'cupy', 'device': 'cuda'}` for arithmetic that ran on the CPU, and
+    `_autodetect_backend` picked a name from what happened to be importable, which
+    likewise changed the record and nothing else. `parameters['backend']` still carries
+    what the caller asked for; `execution['backend']` now carries what ran.
+    """
+    requested = str(backend).strip().lower()
+    if requested not in _VALID_BACKENDS:
+        raise ValueError(
+            f"jrsa: unrecognised backend {backend!r}; expected one of "
+            f"{sorted(_VALID_BACKENDS)}."
+        )
+    return {"name": "numpy", "requested": requested, "device": device}
 
 
 def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
@@ -1025,14 +1045,12 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
     if hasattr(arr, "get"):
         # cupy
         arr = arr.get()
-    if bk == "numpy":
-        return np.asarray(arr, dtype=np.float64)
-    elif bk == "cupy":
-        return _backend_cupy(arr)
-    elif bk == "jax":
-        return _backend_jax(arr)
-    elif bk == "torch":
-        return _backend_torch(arr, dev)
+    # Everything above normalizes whatever the caller passed -- Signal, torch, jax, cupy --
+    # down to something numpy can take, and that is the part that matters. The dispatch that
+    # used to follow re-uploaded to cupy/jax/torch, and then every one of the 14 metrics
+    # called `_ensure_np` on its first line and pulled it straight back, so the transfer was
+    # pure cost and `execution` recorded a GPU run that executed on the CPU. jrsa is a NumPy
+    # estimator; `backend` and `device` are validated and recorded, and change no number.
     return np.asarray(arr, dtype=np.float64)
 
 
@@ -1055,44 +1073,6 @@ def _chunk_tensor(arr, batch_size, axis=-1):
         yield arr[tuple(slc)]
 
 
-# --- backend wrappers -------------------------------------------------------
-
-def _backend_numpy(arr):
-    """Ensure numpy float64 array."""
-    return np.asarray(arr, dtype=np.float64)
-
-
-def _backend_cupy(arr):
-    """Convert to cupy array; falls back to numpy if unavailable."""
-    try:
-        import cupy as cp
-        return cp.asarray(arr)
-    except ImportError:
-        warnings.warn("CuPy not available; falling back to NumPy.")
-        return np.asarray(arr, dtype=np.float64)
-
-
-def _backend_jax(arr):
-    """Convert to jax array; falls back to numpy if unavailable."""
-    try:
-        import jax.numpy as jnp
-        return jnp.asarray(arr)
-    except ImportError:
-        warnings.warn("JAX not available; falling back to NumPy.")
-        return np.asarray(arr, dtype=np.float64)
-
-
-def _backend_torch(arr, device="cpu"):
-    """Convert to torch tensor placing on correct device; falls back to numpy if unavailable."""
-    try:
-        import torch
-        t = torch.as_tensor(np.asarray(arr, dtype=np.float32))
-        if device == "cuda" and torch.cuda.is_available():
-            t = t.cuda()
-        return t
-    except ImportError:
-        warnings.warn("PyTorch not available; falling back to NumPy.")
-        return np.asarray(arr, dtype=np.float64)
 
 
 # ===========================================================================
@@ -1295,6 +1275,15 @@ def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
 
 def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     """Centered Kernel Alignment optimized for linear complexity O(md^2) when d << m."""
+    # The linear-kernel identity below is what makes this O(m*d1*d2) rather than O(m^3);
+    # it is not a Gram matrix that a kernel could be substituted into. `kernel='rbf'` and
+    # `kernel='nonsense_kernel'` were both accepted and both returned the linear answer.
+    if kernel != "linear":
+        raise NotImplementedError(
+            f"jrsa(metric='cka') implements the linear kernel only; got kernel={kernel!r}. "
+            "The linear form is computed in closed form, not from an explicit Gram matrix, "
+            "so another kernel cannot be substituted. Use metric='hsic' for a kernel CKA."
+        )
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
@@ -1649,20 +1638,17 @@ _METRIC_DISPATCH = {
 # PRIVATE – result helpers
 # ===========================================================================
 
-def _make_exec_meta(backend_ctx, device, t0, rng):
-    seed_val = None
-    if rng is not None:
-        try:
-            if hasattr(rng, "bit_generator") and hasattr(rng.bit_generator, "state"):
-                state = rng.bit_generator.state
-                if isinstance(state, dict) and "state" in state:
-                    sub_state = state["state"]
-                    if isinstance(sub_state, dict) and "state" in sub_state:
-                        seed_val = int(sub_state["state"])
-                    elif isinstance(sub_state, int):
-                        seed_val = sub_state
-        except (TypeError, ValueError, KeyError, AttributeError):
-            pass
+def _make_exec_meta(backend_ctx, device, t0, random_state):
+    """`seed` is the `random_state` that was used, so it can be fed back.
+
+    It used to be `rng.bit_generator.state['state']['state']` -- the 128-bit internal
+    counter, e.g. 69277902251545625047243999639177715869 for `random_state=7`. That is a
+    faithful record of the generator's position and a useless one for reproduction:
+    passing it back as `random_state` seeds a different stream. `None` is recorded as
+    None, which is the honest answer for a run seeded from OS entropy and, per the
+    `random_state` docstring, one that will not reproduce.
+    """
+    seed_val = random_state
     return {
         "backend": backend_ctx.get("name", "numpy"),
         "device": device,

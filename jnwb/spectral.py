@@ -37,6 +37,23 @@ def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None
         )
 
 
+def _require_1d_pair(x, y, func_name: str) -> None:
+    """Both traces are 1-D. `.ravel()` accepted a 2-D array and concatenated its channels
+    end to end: `imaginary_coherency(np.stack([x, y]), np.stack([y, x]), fs=1000.)`
+    returned a complete result computed across a discontinuity that is not in the data.
+    `cross_area_coherence` refuses the same input with the same reasoning.
+    """
+    for name, trace in ((f"{func_name} x", x), (f"{func_name} y", y)):
+        arr = np.asarray(trace)
+        if arr.ndim != 1:
+            raise ValueError(
+                f"{name} must be a 1-D time series, got shape {arr.shape}. This function "
+                "compares two traces; to work channel-by-channel, call it per channel "
+                "pair. A 2-D array was previously flattened, which joined the channels "
+                "end to end and estimated across the joins."
+            )
+
+
 def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
     """Reject paired traces from which no cross-spectrum can be estimated.
 
@@ -225,12 +242,34 @@ def _resolve_fs(
                 f"Conflicting values provided to {func_name}: fs={fs}, sampling_rate={sampling_rate}. "
                 "Specify only one (prefer fs)."
             )
-        return float(fs)
+        return _require_positive_fs(fs, func_name)
     if fs is not None:
-        return float(fs)
+        return _require_positive_fs(fs, func_name)
     if sampling_rate is not None:
-        return float(sampling_rate)
+        return _require_positive_fs(sampling_rate, func_name)
     raise ValueError(f"{func_name} requires sampling rate `fs` (in Hz).")
+
+
+def _require_positive_fs(fs, func_name: str) -> float:
+    """A sampling rate is strictly positive and finite, everywhere in this module.
+
+    This check used to be absent, so each caller failed in its own way further down --
+    or not at all. `wpli(x, y, fs=0.0)` raised `ZeroDivisionError`; `fs=-1000.0` raised a
+    ValueError describing a frequency grid running "0 to -500 Hz in steps of -3.90625
+    Hz"; `imaginary_coherency` got a clean message only because it reached scipy's own
+    guard, which names scipy's parameter rather than this contract.
+    """
+    try:
+        value = float(fs)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{func_name}: fs must be a number in Hz; got {fs!r}."
+        ) from None
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError(
+            f"{func_name}: fs must be finite and strictly positive (Hz); got {fs!r}."
+        )
+    return value
 
 
 def to_db(ratio):
@@ -1507,6 +1546,7 @@ def imaginary_coherency(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
+    _require_1d_pair(x, y, "imaginary_coherency")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
@@ -1619,6 +1659,7 @@ def wpli(
         sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055
     """
     fs = _resolve_fs(fs, sampling_rate, "wpli")
+    _require_1d_pair(x, y, "wpli")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "wpli")

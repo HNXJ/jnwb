@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 151 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 154 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -150,9 +150,10 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.EventTable | class | *Structured event rows from one NWB interval table.* |
 | jnwb.IntervalTableNotFoundError | class | *The requested interval table does not exist.* |
 | jnwb.InvalidOnsetValueError | class | *A selected row has a missing or non-finite onset timestamp.* |
+| jnwb.NWBEventError | class | *Base class for event/onset extraction errors.* |
 | jnwb.event_onsets | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, codes: 'CodeSequence | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'np.ndarray'<br>*Return onset timestamps (seconds) for rows matching ``codes``.* |
 | jnwb.events | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None, code_column: 'str | None' = 'codes', onset_column: 'str' = 'start_time') -> 'EventTable'<br>*Read event codes and onset timestamps from one interval table.* |
-| jnwb.resolve_interval_table | function | (nwb: 'NWBFile', table: 'str | None') -> 'str'<br>*Resolve an interval table name using jnwb addressing rules.* |
+| jnwb.resolve_interval_table | function | (path_or_nwb: 'NWBInput', table: 'str | None' = None) -> 'str'<br>*Resolve an interval table name using jnwb addressing rules.* |
 
 ## Module: jnwb.nwb_inspect
 
@@ -161,11 +162,18 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.AcquisitionNotFoundError | class | *The requested acquisition does not exist.* |
 | jnwb.AmbiguousAcquisitionError | class | *Several acquisitions are present and ``name`` was not specified.* |
 | jnwb.ChannelIndexError | class | *The requested channel index is out of range for the continuous series.* |
+| jnwb.NWBInspectError | class | *Base for every error raised while addressing an NWB file's contents.* |
 | jnwb.UnitNotFoundError | class | *The requested units-table row does not exist.* |
 | jnwb.acquisition_channel | function | (path_or_nwb: 'InspectInput', name: 'str | None' = None, channel: 'int' = 0) -> 'tuple[np.ndarray, float]'<br>*Return one continuous acquisition channel and its sampling rate in Hz.* |
 | jnwb.inspect | function | (path_or_nwb: 'InspectInput') -> 'dict[str, Any]'<br>*Return structured metadata about an NWB file or in-memory NWB object.* |
 | jnwb.resolve_acquisition | function | (path_or_nwb: 'InspectInput', name: 'str | None' = None) -> 'str'<br>*Resolve an acquisition or processing continuous series name.* |
 | jnwb.unit_spike_times | function | (path_or_nwb: 'InspectInput', unit_index: 'int' = 0) -> 'np.ndarray'<br>*Return spike times (seconds) for one units-table row.* |
+
+## Module: jnwb.nwb_io
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
 
 ## Module: jnwb.onset_fitting
 
@@ -255,7 +263,7 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.paired_fire_prob_test | function | (fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'np.random.Generator') -> 'Dict'<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
 | jnwb.rate_in_window | function | (spike_times: 'np.ndarray', onset_s: 'float', window_ms: 'Tuple[float, float]') -> 'float'<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
 | jnwb.shuffle_pvalue_paired | function | (a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |
-| jnwb.shuffle_pvalue_unpaired | function | (a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'greater') -> 'Tuple[float, float]'<br>*Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.* |
+| jnwb.shuffle_pvalue_unpaired | function | (a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'<br>*Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.* |
 | jnwb.shuffle_r2_ci | function | (y_true: 'np.ndarray', y_score: 'np.ndarray', groups: 'Optional[np.ndarray]' = None, n_shuffle: 'int' = 200, random_state: 'int' = 42) -> 'Dict[str, float]'<br>*R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a shuffle-null 95% CI.* |
 
 ## Module: jnwb.tfr

@@ -30,30 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 3. API consistency
 
-### 05-26 `jrsa` records the device and options it was asked for, not the ones that ran
-- **Problem** `jrsa` is the only compute module that bypasses `_backend.py`, and its provenance echoes the request.
-- **Evidence** With `cupy_available()` False: `jrsa(device='cuda', backend='cupy')` warns "CuPy not available; falling back to NumPy" and then records `execution == {'backend':'cupy', 'device':'cuda', ...}`. `device='bogus_device'` runs and is recorded verbatim, while all 15 `resolve_device` sites raise `ValueError` for the same string. `correction='bonferoni'` warns it fell back to `fdr_bh` and records `parameters['correction'] == 'bonferoni'`. `metric='cka', kernel=` is accepted and ignored: `linear`, `rbf` and `nonsense_kernel` all return 0.14404010802537645. On a live A4000 the cupy path is bit-identical to CPU (`max|diff| = 0.0`) because `_ensure_np` converts at the head of all 14 metrics, so the upload is discarded while the claim stands.
-- **Change** Route `device` through `resolve_device`; record the resolved backend and device; raise on an unknown `correction`; raise `NotImplementedError` for `kernel != 'linear'`; delete `_autodetect_backend` and the `_backend_*` helpers; `jrsa.py:964`, `:919`, `:1270`.
-- **Preserves** Numerical results on the NumPy path.
-- **Discriminator** No call leaves `execution` disagreeing with the warning emitted during it.
-- **Accept** `jrsa` rejects an unknown device name like every other routed function, and its provenance matches what executed. This is `AGENTS.md` invariant 6.
-
-### 05-27 `resolve_interval_table` does not take a path
-- **Problem** The only exported NWB entry point requiring an open `NWBFile`, with `table` required positionally and no keyword-only discipline.
-- **Evidence** Live signature `(nwb: NWBFile, table: str | None) -> str` against its exact sibling `resolve_acquisition(path_or_nwb, name=None)`. A path gives `AttributeError: 'str' object has no attribute 'intervals'`.
-- **Change** Wrap in `_with_nwb` as `resolve_acquisition` already is; default `table=None`; `nwb_events.py:78`.
-- **Preserves** The `trials` -> sole-table -> ambiguity precedence and every accepted name form.
-- **Discriminator** A path resolves; a wrong type raises a jnwb error naming both accepted types.
-- **Accept** One path-or-`NWBFile` convention across every exported NWB function, stated in the docs (neither `NWBInput` nor `InspectInput` is expanded anywhere today).
-
-### 05-28 No exception base is reachable, and contract violations arrive as incidental errors
-- **Problem** `nwb_events.NWBEventError` exists with four exported subclasses but is not in `__all__`; `nwb_io.MissingRequiredNWBFieldError` is documented at `docs/01:50` and is neither based nor exported; 350 of 397 raises are bare `ValueError`; `ChannelIndexError` inherits `IndexError` while its three siblings inherit `Exception`.
-- **Evidence** `hasattr(jnwb, 'NWBEventError')` and `hasattr(jnwb, 'MissingRequiredNWBFieldError')` are both False. `probe_geometry("x.nwb")` raises a bare `AssertionError` with an empty message (`addressing.py:587`), which disappears under `python -O` and then executes `coords.shape` on `None`.
-- **Change** Export both names; give `ChannelIndexError` its siblings' base; replace the bare assert with a `TypeError` naming the accepted types.
-- **Preserves** Existing exception identities, so current `except` clauses keep working.
-- **Discriminator** `except jnwb.NWBEventError` catches all four subclasses.
-- **Accept** Every exception class named in the docs is importable from `jnwb`.
-
 ### 05-29 Unit-suffix divergence puts a 1000x error one keystroke away
 - **Problem** `_ms` (23 parameters) and `_s` (7) coexist on functions used in the same workflow, and the response/baseline windows carry no unit at all.
 - **Evidence** `examples/tutorials/03_spiking.py` calls `raster_psth(..., win_ms=(-100.,400.))` at line 38 and `compute_response_metrics(..., baseline_window=(-0.2,0.0))` at line 61 in the same body; both take a float 2-tuple and the second names no unit. `api.md:235` shows `baseline_window: Tuple[float,float] = (-0.25,-0.05)`, still with no unit. `epoch_continuous(win_s=)` is the other `_s` outlier against `raster_psth(win_ms=)`.
@@ -61,22 +37,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Preserves** Existing call sites through the alias.
 - **Discriminator** Passing both spellings raises `Conflicting values`.
 - **Accept** Every time or window parameter in `__all__` carries its unit in its name.
-
-### 05-30 `alternative=` is unvalidated and the paired/unpaired siblings default differently
-- **Problem** An `if/elif/else` whose fallthrough is two-sided.
-- **Evidence** `shuffle_pvalue_paired(..., alternative="GREATER")` and `alternative="nonsense"` both return p = 0.03, the two-sided value. `shuffle_pvalue_paired` defaults `"two-sided"`; `shuffle_pvalue_unpaired` defaults `"greater"`; on one dataset that is p = 0.03 versus 0.227. `exact_sign_flip` validates and case-folds the identical parameter at `statistics.py:152`.
-- **Change** Validate against `{"two-sided","greater","less"}` with `.lower().strip()`; make both defaults two-sided.
-- **Preserves** Explicitly passed valid values.
-- **Discriminator** A typo raises instead of silently selecting two-sided.
-- **Accept** Both siblings share a default and reject unknown values. Same treatment for `confirmatory_compare`, which accepts `alpha=2.0` and returns `confirmed_parametric=True` while `clopper_pearson` validates `0 < alpha < 1`.
-
-### 05-31 `fs` and 2-D input are validated inconsistently across the spectral surface
-- **Problem** `_resolve_fs` never checks positivity, and `imaginary_coherency` ravels 2-D input that `cross_area_coherence` rejects.
-- **Evidence** `wpli(x, y, fs=0.0)` -> `ZeroDivisionError`; `fs=-1000.` -> a `ValueError` describing a grid "0 to -500 Hz in steps of -3.90625 Hz"; `imaginary_coherency` with the same `fs` gives a clean `ValueError`. `imaginary_coherency(np.stack([x,y]), np.stack([y,x]), fs=1000.)` returns `{'icoh_mean': 0.0061, ...}` by concatenating channels end to end; `cross_area_coherence` refuses 2-D with a detailed message.
-- **Change** Add `fs > 0 and np.isfinite(fs)` to `_resolve_fs` (`spectral.py:173`); reject `ndim != 1` in `imaginary_coherency` (`:1401`).
-- **Preserves** 1-D behaviour.
-- **Discriminator** Every spectral entry point gives the same error class for `fs=0` and for 2-D input.
-- **Accept** One parametrized bad-`fs` and bad-shape test across the spectral surface.
 
 ### 05-32 `jnwb.ontology` is 11 public symbols no workflow can reach
 - **Problem** 387 lines, 11 exported dataclasses and 3 factories, with zero call sites in `jnwb/`, zero behavioural tests, and zero mentions in `skills/`, `examples/` or `README.md`. The module states the constructors "are intentionally absent... a generic implementation would have nothing to read from".
@@ -87,14 +47,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Accept** No symbol in `__all__` lacks a test and a documented use; every removal cites the four-part criterion, not a call-site count.
 
 ## 4. Reproducibility and statistics
-
-### 05-33 `jrsa` records the generator state under the name `seed`
-- **Problem** `_make_exec_meta` reads `rng.bit_generator.state["state"]["state"]`.
-- **Evidence** `jrsa(..., random_state=7).execution["seed"]` -> 69277902251545625047243999639177715869, which cannot be fed back to reproduce the run.
-- **Change** Record the `random_state` argument; `jrsa.py:1663`.
-- **Preserves** Determinism, which is already correct: all 14 metrics reproduce bit-identically at a fixed `random_state`.
-- **Discriminator** `execution["seed"]` round-trips as a `random_state`.
-- **Accept** Feeding `execution["seed"]` back reproduces the result.
 
 ### 05-34 `nested_cv_linear_svm` gives the caller no control over the partition
 - **Problem** The signature is `(X, labels, n_splits)` with `random_state=42` hardcoded at four sites, so partition sensitivity cannot be assessed.

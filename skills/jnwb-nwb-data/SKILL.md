@@ -20,7 +20,7 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   `EventTable` with all rows from one interval table. Onsets in **seconds**.
 - `jnwb.event_onsets(path_or_nwb, table=None, codes=None, code_column="codes",
   onset_column="start_time")` → `numpy.ndarray` of onset times (seconds), table row order.
-- `jnwb.resolve_interval_table(nwb, table)` → table name using `trials` → sole table →
+- `jnwb.resolve_interval_table(path_or_nwb, table=None)` → table name using `trials` → sole table →
   `AmbiguousIntervalTableError` when several tables and `table` omitted.
 - `jnwb.unit_spike_times(path_or_nwb, unit_index=0)` → spike times in seconds for one units row.
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
@@ -60,7 +60,10 @@ use the public functions above in normal Python workflows.
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;
    pass `table=` explicitly when more than one task-like table exists.
-2. **Addressing robustness:** `map_peak_channel_to_area` checks `location`, `area`, `group_name`.
+2. **Addressing robustness:** `map_peak_channel_to_area` checks `location`, then `area`, and
+   returns `None` when neither exists. It does **not** fall back to `group_name`, which is the
+   probe/shank label: an electrode table with no anatomical column used to return `'probeA'` as
+   the brain area of channel 0, a fabricated label indistinguishable from a real one (05-18).
 3. **NWB compression contract:** `compress_fp32` converts on-disk electrical series to fp32;
    verify with `verify=True` before deleting sources.
 

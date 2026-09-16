@@ -75,8 +75,14 @@ def _normalize_table_name(table: str) -> str:
     return clean
 
 
-def resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
+def resolve_interval_table(path_or_nwb: NWBInput, table: str | None = None) -> str:
     """Resolve an interval table name using jnwb addressing rules.
+
+    Takes a path or an open ``NWBFile``, like every other exported NWB function. It used
+    to be the only one that required an already-open handle, and to require ``table``
+    positionally: a path gave ``AttributeError: 'str' object has no attribute
+    'intervals'``, against its exact sibling ``resolve_acquisition(path_or_nwb,
+    name=None)``.
 
     When ``table`` is omitted:
 
@@ -84,6 +90,15 @@ def resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
     * else use the sole interval table when exactly one exists;
     * else raise :class:`AmbiguousIntervalTableError`.
     """
+    if not isinstance(path_or_nwb, (NWBFile, str, Path)):
+        raise TypeError(
+            f"resolve_interval_table: expected a path (str or Path) or an open "
+            f"pynwb.NWBFile; got {type(path_or_nwb).__name__}."
+        )
+    return _with_nwb(path_or_nwb, lambda nwb: _resolve_interval_table(nwb, table))
+
+
+def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
     names = sorted(nwb.intervals.keys()) if nwb.intervals else []
     if not names:
         raise IntervalTableNotFoundError("No interval tables found in NWB file")
@@ -115,7 +130,7 @@ def _with_nwb(path_or_nwb: NWBInput, fn):
 
 
 def _read_interval_dataframe(nwb: NWBFile, table: str) -> pd.DataFrame:
-    name = resolve_interval_table(nwb, table)
+    name = _resolve_interval_table(nwb, table)
     return name, nwb.intervals[name].to_dataframe()
 
 
