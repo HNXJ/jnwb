@@ -132,6 +132,62 @@ are stated where a reader would look. They are work, not open decisions.
   null's grid dependence; the calibration receipt does that instead. For 0.2.5: give the test
   a noisy PSD so it measures what its name claims.
 
+## Onboarding audit (2026-09-16)
+
+Audited against one persona: a user who knows `pynwb` and nothing else, who has their own
+NWB file, wants to inspect it with jnwb, and then wants an agent to analyse it. The library
+half passed on evidence -- a foreign file written with plain pynwb (16 channels x 60 s at
+1 kHz, a standard `trials` table whose code column is named `stimulus`, 4 units, no jnwb
+fixtures) went `inspect` -> `events` -> `unit_spike_times` / `acquisition_channel` ->
+`epoch_continuous` -> `compute_psd` with no modification to the documented calls, recovering
+the injected 18.0 Hz, and `event_onsets` refused a missing code column by name rather than
+silently returning every onset. The agent half did not: the skills are not distributed, and
+nothing a user reads tells them the skills exist.
+
+- **05-01 Agent onboarding page. DONE.** `docs/agents.md` is written and in the nav: what ships and what does not, the three MCP tools with a client configuration snippet, the nine skills and why they are not in the wheel, and the safeguards to read when you have none of them. Found and fixed while writing it: `python -m jnwb.mcp_server`, the launch command doc 10 has always given, failed with "'jnwb.mcp_server' is a package and cannot be directly executed" -- the `if __name__ == "__main__"` guard sat in `__init__.py`, where a package can never satisfy it. Original text: There is no documented path from `pip install jnwb` to an
+  agent that can analyse a file. Across `docs/` and `README.md` the word "skill" appears only
+  in `docs/11_extending_and_development.md`, a contributor page; the only agent pointer is
+  README's "If you are an AI agent, read AGENTS.md first", which sits in the contributing
+  section. MCP is mentioned twice in all of `docs/` (the `jnwb[mcp]` extra in `install.md`
+  and one line in doc 10). Write a user-facing page: the skill inventory, where the skills
+  live and how to install them, an MCP configuration snippet, and what the three shipped MCP
+  tools (`inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`) do and do
+  not cover -- they are inspection only, so every analysis step is still code.
+- **05-02 Distribute the agent surface. PARTLY DONE.** `MANIFEST.in` now grafts `skills` and includes `AGENTS.md`: the rebuilt sdist carries 102 entries with 36 under `skills/`, all nine `SKILL.md` files and `AGENTS.md`, against 63 entries and none before. The wheel still does not carry the skills, and that stays a decision rather than an oversight: the canonical tree is `skills/`, and a copy under `jnwb/` is the second tree harness gate 2 and `test_no_forbidden_skill_trees_or_ide_authority` forbid. Original text: Neither artifact ships it. The 0.2.4 sdist has 63
+  entries, of which `skills/` is none, `AGENTS.md` is none, `docs/` is zero and `examples/`
+  is zero; the wheel ships `jnwb/mcp_server` but no skills. The README line naming AGENTS.md
+  is carried into the installed wheel metadata, where it links to a file the wheel does not
+  contain. Ship `skills/` and `AGENTS.md` in the sdist at minimum, and decide whether the
+  wheel should carry the skills as package data so an agent working in the user's own
+  environment can find them without cloning.
+- **05-03 A tutorial that takes the user's own file. DONE.** `examples/tutorials/00_your_own_file.py` takes a path and an optional table name, derives the table and code column from `inspect`, guards both alignment steps on what the file actually has, and writes a plain-pynwb stand-in when given no argument so it still runs unattended in the release gate. It defers table choice to jnwb rather than reimplementing it: an earlier draft took `tables[0]` and, on the canonical fixture's five interval tables, aligned to detected photodiode changes and reported 0.00 Hz without complaining. Original text: All eight tutorials write a synthetic
+  fixture into a temporary directory and assert against it; none shows a user-supplied path.
+  Tutorial 01 carries nine assertions including
+  `info["session"]["identifier"] == "TEST_SYNTH_CANONICAL"` and `n_units == 2`, so a reader
+  who points it at their own recording fails inside the tutorial rather than in their data.
+  Add a tutorial that accepts a path, derives the interval table and the code column from
+  `inspect` output instead of asserting fixture values, and still runs unattended in CI by
+  falling back to a generated file when no path is given.
+- **05-04 Make `code_column` visible where it is needed. DONE.** README and quickstart now read the column off `inspect` and pass it, and the README block is executed verbatim by `test_readme_nwb_workflow_block_executes`, which previously only reimplemented an analogous flow and would have passed whatever the README said. `events` no longer nulls an absent column in silence: the default name warns and names the columns that exist, a column the caller named raises `ColumnNotFoundError` exactly as `event_onsets` already did. Original text: A file from another lab rarely has
+  a column named `codes`. `code_column` appears only in the generated `docs/api.md` and in
+  `skills/jnwb-nwb-data/SKILL.md`; README, quickstart, the tutorials and common-mistakes all
+  say "usually `codes`" and stop. `jnwb.events(path)` on a file without that column returns
+  `code_column=None, codes=()` and raises no warning, and so does an explicitly misspelled
+  `code_column="condition"`. Show the parameter in README and quickstart, and make `events`
+  warn when the requested code column is absent, naming the columns that do exist -- the
+  information `event_onsets` already puts in its `ColumnNotFoundError`.
+- **05-06 `resolve_interval_table` does not take a path.** It is exported in `jnwb.__all__`
+  alongside `inspect`, `events`, `event_onsets` and `unit_spike_times`, all of which accept
+  a path or an in-memory `NWBFile`, but its signature is `(nwb: NWBFile, table: str | None)`
+  and passing a path raises `AttributeError: 'str' object has no attribute 'intervals'`
+  rather than a contract error. Found while writing the 05-03 tutorial, which now routes
+  table resolution through `events` instead. Either accept the same union as its peers, or
+  raise a contract error naming what it wants.
+- **05-05 An ingest section in common mistakes. DONE.** Section 9, "Assuming a Schema the File Does Not Have": no default interval table, `codes` is a jnwb default and not an NWB requirement, onsets are seconds, layout is discovered. Original text: All eight sections are downstream analysis
+  traps; none covers getting a file in. Add one: there is no default interval table, the code
+  column is not always `codes`, onsets are seconds, and the channel layout is discovered from
+  `inspect` rather than assumed.
+
 # Before 1.0
 
 - Replace example-based estimator coverage with analytic/property-based tests.

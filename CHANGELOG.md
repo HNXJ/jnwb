@@ -4,6 +4,30 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`python -m jnwb.mcp_server` did not start the MCP server.** The launch command in
+  `docs/10_extending_jnwb_and_verification.md` failed with "'jnwb.mcp_server' is a package and
+  cannot be directly executed", including against the published wheel with the `mcp` extra
+  installed, because the `if __name__ == "__main__"` guard sat in `__init__.py`, which a package
+  never satisfies. A `__main__.py` now runs the server and the unreachable guard is gone. The
+  entrypoint test previously asserted only that a FastMCP object exists; it now runs the
+  documented command.
+- **`events` nulled an absent code column in silence.** On a file whose interval table has no
+  `codes` column -- the usual case for a file from another lab -- `jnwb.events(path)` returned
+  `code_column=None, codes=()` with no warning, and `jnwb.events(path, code_column="condition")`
+  for a column that does not exist returned the same thing rather than failing, while
+  `event_onsets` with that argument raised. The two now agree: a column named by the caller must
+  exist, and the default name being absent warns and names the columns that do.
+- **Documentation for getting a file in, rather than only for analysing one.** `docs/agents.md`
+  states what `pip install jnwb` does and does not deliver to an agent, documents the three MCP
+  tools with a client configuration, and lists the nine skills.
+  `examples/tutorials/00_your_own_file.py` discovers a layout instead of asserting a fixture's
+  values. Common mistakes gains section 9 on assuming a schema. README and quickstart show
+  `code_column=`. The sdist now ships `skills/` and `AGENTS.md`.
+
 ## [0.2.4] - 2026-09-16
 
 ### Added
