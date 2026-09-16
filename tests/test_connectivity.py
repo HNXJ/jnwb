@@ -370,3 +370,110 @@ class TestStationarityDiagnosticIsCalibrated:
 
         assert np.isnan(_adf_pvalue(np.arange(5.0)))
         assert np.isnan(_adf_pvalue(np.ones(100)))
+
+
+class TestTransferEntropyReportsDegenerateDiscretization:
+    """The undersampling check could not see the opposite failure. A discretization that
+    collapses produces FEWER joint states, so samples_per_joint_state goes UP and the check
+    stays quiet. Quantile edges on a sparse series are the common case: spike counts
+    averaging 0.05-0.1 per bin are almost all zero, so every quantile edge lands on 0 and
+    the series maps to a single symbol. TE is then identically 0 by construction, and it
+    was reported as 0.0000 bits, p = 1.0, ok_for_interpretation=True, no warnings -- on
+    data where X drives Y at lag 1.
+    """
+
+    @staticmethod
+    def _coupled(rate, n=2000, seed=0):
+        rng = np.random.default_rng(seed)
+        x = rng.poisson(rate, size=n).astype(float)
+        y = np.zeros_like(x)
+        y[1:] = x[:-1] + rng.poisson(rate, size=n - 1)
+        return x, y
+
+    @pytest.mark.parametrize("rate", [0.05, 0.1])
+    def test_a_collapsed_discretization_is_not_certified_interpretable(self, rate):
+        res = transfer_entropy(*self._coupled(rate), n_surrogates=50)
+        d = res.diagnostics
+        assert res.x_to_y == 0.0
+        assert d["n_realized_states_x"] == 1 and d["n_realized_states_y"] == 1
+        assert d["ok_for_interpretation"] is False
+        assert any("degenerate_discretization" in w for w in d["warnings"])
+
+    def test_a_partially_collapsed_discretization_is_flagged(self):
+        res = transfer_entropy(*self._coupled(0.3), n_surrogates=50)
+        d = res.diagnostics
+        assert d["n_realized_states_x"] < 4
+        assert any("discretization_collapsed" in w for w in d["warnings"])
+        assert d["ok_for_interpretation"] is False
+
+    def test_a_well_sampled_signal_is_still_clean(self):
+        res = transfer_entropy(*self._coupled(5.0), n_surrogates=50)
+        d = res.diagnostics
+        assert d["n_realized_states_x"] == 4 and d["warnings"] == []
+        assert d["ok_for_interpretation"] is True
+
+    def test_the_discrete_estimator_recovers_the_coupling_on_sparse_counts(self):
+        """The documented route for integer spike counts still works on the same data the
+        quantile estimator cannot represent."""
+        x, y = self._coupled(0.1)
+        res = transfer_entropy(x.astype(int), y.astype(int), estimator="discrete", n_surrogates=50)
+        assert res.x_to_y > 0.1
+        assert res.p_x_to_y < 0.05
+        assert res.diagnostics["ok_for_interpretation"] is True
+
+
+class TestCrossModalLagSearchPaysForItself:
+    """`cross_modal_comparison` reported the p at the max-|r| lag without correcting for
+    the search, so on independent white noise over 101 lags it called 99.5% of runs
+    significant. It also swept a symmetric +-min(|lo|, |hi|) window, so (0, 500) searched
+    nothing at all and (100, 500) searched +-100 ms.
+    """
+
+    @staticmethod
+    def _independent(n=600, seed=0):
+        rng = np.random.default_rng(seed)
+        return rng.standard_normal(n), rng.standard_normal(n)
+
+    def test_the_corrected_p_is_not_the_uncorrected_one(self):
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent()
+        res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=200, seed=0)
+        assert res["n_lags_searched"] == 101
+        assert res["lag_corrected_pvalue"] > res["uncorrected_pvalue"]
+
+    @pytest.mark.parametrize(
+        "lag_range,expected_lags,lo,hi",
+        [((-500, 500), 101, -500.0, 500.0), ((-500, 100), 61, -500.0, 100.0),
+         ((0, 500), 51, 0.0, 500.0), ((100, 500), 41, 100.0, 500.0)],
+    )
+    def test_every_searched_lag_lies_inside_the_request(self, lag_range, expected_lags, lo, hi):
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent()
+        res = cross_modal_comparison(
+            x, y, lag_range_ms=lag_range, bin_ms=10.0, n_permutations=20, seed=0
+        )
+        assert res["n_lags_searched"] == expected_lags
+        assert lo <= res["lag_ms"] <= hi
+
+    def test_a_real_lagged_coupling_is_recovered_when_the_series_is_long_enough(self):
+        from jnwb.statistics import cross_modal_comparison
+
+        rng = np.random.default_rng(0)
+        x = rng.standard_normal(4000)
+        y = 0.5 * np.roll(x, 20) + rng.standard_normal(4000)
+        res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=200, seed=0)
+        assert res["lag_ms"] == pytest.approx(-200.0)
+        assert res["lag_corrected_pvalue"] < 0.05
+        assert res["warnings"] == []
+
+    def test_a_lag_window_too_wide_for_the_series_is_flagged(self):
+        """The corrected p cannot resolve below about n_lags / n_samples, so a short series
+        with a wide lag window cannot reach 0.05 however strong the coupling is."""
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent(n=600)
+        res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=100, seed=0)
+        assert res["lag_search_resolution_floor"] == pytest.approx(101 / 600)
+        assert any("lag_window_too_wide" in w for w in res["warnings"])

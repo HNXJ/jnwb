@@ -1938,10 +1938,27 @@ def transfer_entropy(
         )
 
     samples_per_state = n_used / max(max(n_joint_xy, n_joint_yx), 1)
+    n_states_x = int(np.unique(xq).size)
+    n_states_y = int(np.unique(yq).size)
     warnings_all: List[str] = []
     if samples_per_state < 10:
         warnings_all.append(
             f"undersampled_te_{samples_per_state:.1f}_samples_per_joint_state"
+        )
+    # The opposite failure to undersampling, and it was invisible: a discretization that
+    # collapses reports FEWER joint states, so samples_per_joint_state goes UP and the
+    # undersampling check stays quiet. Quantile edges on a sparse series are the common
+    # case -- spike counts averaging 0.05 or 0.1 per bin are almost all zero, so every
+    # quantile edge lands on 0 and the whole series maps to one symbol. TE is then
+    # identically 0 by construction. Measured with X driving Y at lag 1: TE = 0.0000 bits,
+    # p = 1.0, ok_for_interpretation = True and no warning at all.
+    if min(n_states_x, n_states_y) < 2:
+        warnings_all.append(
+            f"degenerate_discretization_{min(n_states_x, n_states_y)}_state_te_is_identically_zero"
+        )
+    elif estimator in ("quantile", "uniform") and min(n_states_x, n_states_y) < bins:
+        warnings_all.append(
+            f"discretization_collapsed_to_{min(n_states_x, n_states_y)}_of_{bins}_requested_bins"
         )
     if n_surrogates == 0:
         warnings_all.append("no_surrogates_raw_te_is_positively_biased")
@@ -1971,6 +1988,8 @@ def transfer_entropy(
         },
         diagnostics={
             "n_embedding_samples": int(n_used),
+            "n_realized_states_x": n_states_x,
+            "n_realized_states_y": n_states_y,
             "n_joint_states_x_to_y": int(n_joint_xy),
             "n_joint_states_y_to_x": int(n_joint_yx),
             "samples_per_joint_state": float(samples_per_state),
