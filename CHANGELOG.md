@@ -104,6 +104,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **With a GPU present, two `device='cuda'` requests were denied in silence.**
+  `jnwb/_backend.py` covered two denial reasons -- no usable device, and a device that
+  failed part-way through -- and missed the third: a device that exists but which this
+  code path cannot use. `vflip` assigned the resolver's answer to `_` and `laminar.py`
+  contains no cupy or torch call anywhere, so the request could never be honoured;
+  `fit_var_bivariate` gated its GPU branch on `... == CUDA and ridge <= 0`, after
+  resolving. Measured on an RTX A4000 by counting `cupy.asarray`: both reached the GPU
+  zero times and warned zero times. The caller *without* a GPU was warned and the caller
+  *with* one was not, so the better the hardware the quieter the denial. A new
+  `jnwb._backend.warn_no_gpu_path` names that third reason, `rdm`'s existing inline
+  warning now goes through it, and every `device='cuda'` call either reaches the GPU or
+  says why not. Two further defects found while reproducing: `select_optimal_lag`
+  re-resolved the device inside its lag loop, so one call with `max_lag=6` emitted six
+  identical warnings (`granger_causality(order='auto')` reaches it up to `2*max_lag + 2`
+  times), and every one of those warnings named `fit_var_bivariate`, which is not
+  exported. Public entry points now resolve once and announce under their own name;
+  `fit_var_bivariate` and `select_optimal_lag` take a `context` argument for it.
+
 - **`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`
   returned.** `AGENTS.md` invariant 6 says the device never changes a number; on a live
   RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while

@@ -14,7 +14,7 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from scipy import stats
 
-from ._backend import CUDA, resolve_device
+from ._backend import CUDA, resolve_device, warn_no_gpu_path
 
 log = logging.getLogger(__name__)
 
@@ -91,12 +91,7 @@ def rdm(
             would declare the condition identical to the others.
     """
     if resolve_device(device, context="rdm", prefer="cupy", stacklevel=3) == CUDA:
-        warnings.warn(
-            "rdm: device='cuda' was requested, but rdm has no GPU implementation; "
-            "computing on CPU.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        warn_no_gpu_path("rdm", "rdm has no GPU implementation", stacklevel=3)
 
     v = _condensed_distances(X, metric)
     undefined = ~np.isfinite(v)

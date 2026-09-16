@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 6. Performance and backend
 
-### 05-44 Two `device=` sites deny the GPU silently
-- **Problem** One discards the resolver's result; the other gates the GPU branch off after resolution.
-- **Evidence** `vflip(..., device='cuda')` on a live A4000: `h2d=0, d2h=0`, zero warnings — `laminar.py:220` assigns to `_`. `fit_var_bivariate(..., device='cuda', ridge=0.1)`: `h2d=0, d2h=0`, no warning, because `and ridge <= 0` gates the branch; with `ridge=0` the GPU is reached at 3.81x. Without a GPU the caller is warned; with one they are silently denied, inverting the contract.
-- **Change** Drop `device` from `vflip`'s signature or warn as `rdm` does; emit `warn_device_fallback` when `ridge > 0` forces the CPU branch; `connectivity.py:206`.
-- **Preserves** Numerical results.
-- **Discriminator** Every `device='cuda'` call either reaches the GPU or warns.
-- **Accept** All 15 resolver sites have a consistent denial contract. Also fix the two sites whose warning names a private callee (`fit_var_bivariate`) rather than the public function.
-
 ### 05-45 Three CUDA paths are slower than CPU, one by 28x
 - **Problem** Python loops with per-iteration host/device transfers.
 - **Evidence** `UnitAnalyzer.acg` at >= 30k spikes: CUDA 32231 ms against CPU 1151 ms (0.036x), with 80002 host-to-device and 240002 device-to-host transfers per call, from `int(lo[idx])`/`int(hi[idx])` inside the loop and a re-uploaded `bin_edges`. `_welch_csd_gpu` runs a 96-iteration Python segment loop: 21.94 ms against 1.83 ms for the same estimator strided, which is why `harmonic_analysis` (0.557x), `spectral_tilt` (0.567x) and `band_power` (0.44x) are all slower on CUDA. The CPU `_acg_vectorized` is separately 41-151x slower than an identical-output vectorisation (5k spikes 123.3 ms -> 0.8 ms, `array_equal == True`).

@@ -25,7 +25,7 @@ from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 
-from ._backend import resolve_device
+from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -218,8 +218,12 @@ def vflip(
     if orientation not in valid_orientations:
         raise ValueError(f"orientation must be one of {valid_orientations}, got {orientation!r}")
 
-    # Validate device
-    _ = resolve_device(device, context="vflip", prefer="cupy", stacklevel=3)
+    # Validate device. `laminar.py` contains no cupy or torch call anywhere, so a
+    # `device='cuda'` request can never be honoured here -- the resolver's answer used
+    # to be assigned to `_` and thrown away, which meant a caller with no GPU was warned
+    # and a caller with a working A4000 was not.
+    if resolve_device(device, context="vflip", prefer="cupy", stacklevel=3) == CUDA:
+        warn_no_gpu_path("vflip", "vflip has no GPU implementation", stacklevel=3)
 
     freqs_arr = np.asarray(freqs, dtype=np.float64)
     if freqs_arr.ndim != 1:
