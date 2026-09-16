@@ -55,8 +55,28 @@ names what is missing. Nothing here is marked from inference.
 | 13 distribution audit | CLOSED | build -> manifest scan -> `twine check` -> fresh venv -> wheel + transitive install -> `pip check` -> import from site-packages outside the checkout -> numerical workflows -> tutorials |
 | 14 reproducibility | CLOSED | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not run in CI, but calibration staleness is caught there: `test_vflip_calibration_receipt` fails when `vflip` changes without `scripts/calibrate_vflip.py` being rerun, and `test_xflip_calibration` recomputes xFLIP's operating characteristics from the shipped estimator |
 | 15 CPU/CUDA parity | CLOSED | against the RC-scoped criterion (structural/fallback tests; representative high-risk paths on one real CUDA system; parity within declared tolerances; CI verifies CPU/fallback). 9 of 13 `resolve_device` call sites executed on an RTX A4000 with no fallback warning, parity 0 to 3.6e-04; `rdm` has no GPU implementation and warns; the 3 uncovered are session-level wrappers over the same resolver, retaining structural coverage. The earlier 7-of-10 closure missed that `wpli(device='cuda')` never reached the GPU (repaired, receipt corrected). Receipt: `artifacts/benchmarks/cuda_parity_0.2.4.md` |
-| 16 final critic pass | PARTIAL | the external review at 42b1450b produced the findings this stack has been repairing; it predates the electrode-region repair and these verification changes |
+| 16 final critic pass | CLOSED | an independent critic was run against the repaired tree without being told the package was correct. It returned ten major findings and about fifteen minor ones. Every major finding was reproduced before any repair, and each was CONFIRMED by measurement: `jrsa` permuting the feature axis so six whole-representation metrics reported p = 1.0000 on any data; `phase_locking_index` folding the recording modulo 6.2832 s so a unit with true resultant length 0.995 reported pli 0.31 over 60 s; `cross_modal_comparison` calling 99.5% of independent runs significant and silently replacing an asymmetric lag range with a different window; `_adf_pvalue` certifying 46-48% of pure random walks as stationary; `transfer_entropy` returning 0.0000 bits with `ok_for_interpretation=True` on a genuine lag-1 coupling; `permute_labels(within_group)` returning 1000 of 1000 identical draws for nested designs; `repair_lfp_trials` dropping the single-trial amplitude correlation from 0.9996 to 0.4607; `compute_response_metrics` scoring a response on a homogeneous unit and returning 0.0 for a silent baseline; the residual vFLIP centre-shrinkage; and `_rv` returning 1.0000 for independent representations. All ten are repaired, each with tests that fail the previous code. Of the minor findings, four reproduced and are repaired (odd-`n_fft` multitaper doubling, the unit-dependent `imaginary_coherency` clip, `xflip` accepting an unrun surrogate test, the `confirmatory_compare` double-correction advice); the RSA-family silent-truncation finding is UNSUPPORTED -- the truncations are unreachable from the public entry point, which rejects mismatched shapes, though its error message was unclear and is now a contract error. The `_r2` and `aperiodic_fit` zero-return findings are UNSUPPORTED as defects: a constant score genuinely has no explanatory power, and a perfectly flat log-PSD is not reachable from real input. Three tests were found to be encoding defective historical behaviour and retargeted: `test_perfectly_locked_spikes_give_high_pli_and_low_pvalue` (fixture uniform in phase, not locked), `test_zero_surrogates_returns_nan_p_value` (asserted acceptance without a test), and `test_manifest_records_sample_and_group_counts` (nested fixture with a point-mass null). See CHANGELOG 0.2.4 Fixed |
 | 17 release seal | OPEN | blocked on the conjunction above |
+
+### Findings triaged in the 0.2.4 critic pass and deliberately not repaired
+
+- vFLIP's crossover remains shrunk toward the centre of the shaft (fitted slope 0.703 at
+  SNR 20, 0.804 at SNR 100, 0.864 at SNR 1000). The mechanism was traced, not assumed: both
+  band depth profiles are dominated by bins carrying no laminar source, so the per-trial
+  min-max range comes from noisy extremes and compresses each profile toward its interior.
+  No correction factor is applied, because a factor tuned to flatten the sweep is exactly
+  what the repair authorization forbade and the residual is a property of band-averaged
+  range-normalized profiles at finite SNR rather than a coding defect. It is measured in the
+  calibration, documented on `VFlipResult.crossover_contact`, and pinned in both directions
+  by `test_the_documented_centre_shrinkage_is_the_measured_one`.
+- `cross_modal_comparison`'s corrected p cannot resolve below about `n_lags / n_samples`,
+  because a circular shift relands a genuine peak inside the searched window about that
+  often. A shift-predictor null drawing only from beyond the window was written and measured
+  and then discarded: it rejected 11.7% of independent pairs against a nominal 5%, because
+  excluding the overlapping shifts breaks the group structure the p-value rests on. The
+  valid null is reported together with `lag_search_resolution_floor` and a warning.
+- `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units and is therefore
+  unit-dependent by definition; unchanged, as recorded under item 04.
 
 ### Open findings requiring a decision
 
