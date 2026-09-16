@@ -11,10 +11,10 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.4rc1'
-__release_date__ = '2026-09-14'
+__version__ = '0.2.4'
+__release_date__ = '2026-09-16'
 __author__ = 'Hamed Nejat'
-__status__ = 'Release Candidate'
+__status__ = 'Beta'
 
 import importlib
 import logging
