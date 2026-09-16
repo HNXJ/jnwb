@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Gate 5 no longer counts the generated reference.** It searched every `docs/*.md`,
+  `docs/api.md` included. Since `api.md` is generated from `jnwb.__all__`, the gate
+  asserted that every export appears in a file guaranteed to contain every export: it
+  could not fail, and it did not, while twelve symbols were documented nowhere a reader
+  would look. It now excludes `api.md` and matches whole words, so a page that documents
+  `AlignedDataset` is no longer credited with documenting `Dataset`.
 - **`inspect` answers with one schema, whichever way it is called.** `inspect(path)` was
   an h5py walk and `inspect(nwb)` a pynwb walk, written independently, and for the same
   file they disagreed: the file form carried `data_path` and `layout` and the object form
@@ -66,6 +72,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`docs/errors.md`: every refusal, what produced it, and the argument that resolves
+  it.** Twelve exported error classes and the two NWB resolvers appeared on no
+  hand-written page -- only in `docs/api.md`, which is generated from `jnwb.__all__` and
+  so contains every export by construction. Nine of the twelve are the resolvers and the
+  errors they raise, which is everything a reader meets on their first unfamiliar file.
+  The page quotes the real messages, and a test asserts each quoted fragment is still a
+  literal in `jnwb/*.py`, so it cannot drift into describing errors the code no longer
+  produces. Linked from the index and the mkdocs nav.
+- **`jnwb.DETECTION_TAILS` is explained** in `docs/05_artifact_detection_and_repair.md`,
+  where the one-sided/two-sided choice it names is already discussed.
 - **`nested_cv_linear_svm(..., rng=42)`.** The signature was `(X, labels, n_splits)` with
   `random_state=42` hardcoded at four sites, so partition sensitivity could not be
   assessed: there was no way to ask whether a decoding accuracy survived a different

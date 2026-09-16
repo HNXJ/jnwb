@@ -13,7 +13,7 @@ Condition codes, task structure, and experimental hypotheses belong in project c
 **New to NWB in jnwb?** Start with the [Tutorials](tutorials/01_nwb_basics.md):
 `inspect` → `events` / `event_onsets` → align spikes/LFP → compose an analysis.
 
-[Architecture](01_architecture_and_philosophy.md) · [Public API](api.md) (every exported symbol) · [Common mistakes](common_mistakes.md)
+[Architecture](01_architecture_and_philosophy.md) · [Public API](api.md) (every exported symbol) · [Common mistakes](common_mistakes.md) · [Errors](errors.md) (what each refusal means and what to pass instead)
 
 ## Install
 

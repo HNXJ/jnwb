@@ -118,6 +118,19 @@ to round-off (relative to the data, so the rule does not depend on power units) 
     The detector is exposed here precisely so the tail is an argument a caller states, rather
     than a detail buried in a copy that can drift.
 
+`jnwb.DETECTION_TAILS` is the pair of accepted values, `("upper", "both")`, exported so a
+caller can validate a configured tail before the call rather than after it:
+
+```python
+if tail not in jnwb.DETECTION_TAILS:
+    raise ValueError(f"tail must be one of {list(jnwb.DETECTION_TAILS)}")
+flagged, scale = jnwb.detect_band_outliers(band_trace, z_thresh=6.0, sided=tail)
+```
+
+`detect_band_outliers` raises `ValueError` naming the same list for anything else. There is
+no `"lower"`: a detector that flags only power decreases has no artifact rationale, and
+adding one would invite the mistake the warning above describes.
+
 **Prefer calling over retyping.** A numerical rule that is easier to retype than to reuse will
 be retyped, and the copy will diverge from its docstring without anyone noticing. That is why
 `repair_band_artifacts` calls this function rather than restating it — the rule has exactly one

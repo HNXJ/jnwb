@@ -56,6 +56,7 @@ nav:
       - Installation: install.md
       - Quickstart: quickstart.md
       - Common Mistakes: common_mistakes.md
+      - Errors: errors.md
       - Analyzing with an Agent: agents.md
       - Public API: api.md
       - References: references.md

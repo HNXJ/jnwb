@@ -220,8 +220,20 @@ def check_root_allowlist(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+GENERATED_REFERENCE = "api.md"
+
+
 def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 5 (API Completeness): Assert all public exports are documented in docs/."""
+    """Gate 5 (API Completeness): every public export is written about by a person.
+
+    05-41: this searched every ``docs/*.md``, and ``docs/api.md`` is generated from
+    ``jnwb.__all__``. The gate therefore asserted that every export appears in a file
+    guaranteed to contain every export. It passed while twelve symbols -- seven error
+    classes, the two NWB resolvers, ``EventTable`` and ``DETECTION_TAILS`` -- appeared on
+    no page a reader would find. The generated reference is excluded, so the gate now
+    means what its name says. A whole-word match, so ``events`` is not credited to a page
+    that only mentions ``event_onsets``.
+    """
     root = repo_root or REPO_ROOT
     import jnwb
     docs_dir = root / "docs"
@@ -229,13 +241,18 @@ def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[st
         return ["MISSING_DOCS_DIR: docs/ not found"]
     
     all_docs_text = ""
-    for doc_path in docs_dir.glob("*.md"):
+    for doc_path in sorted(docs_dir.glob("*.md")):
+        if doc_path.name == GENERATED_REFERENCE:
+            continue
         all_docs_text += "\n" + doc_path.read_text(encoding="utf-8")
         
     violations = []
     for symbol in jnwb.__all__:
-        if symbol not in all_docs_text:
-            violations.append(f"UNDOCUMENTED_PUBLIC_SYMBOL: Public export 'jnwb.{symbol}' is not documented in docs/")
+        if not re.search(rf"\b{re.escape(symbol)}\b", all_docs_text):
+            violations.append(
+                f"UNDOCUMENTED_PUBLIC_SYMBOL: Public export 'jnwb.{symbol}' appears in "
+                f"no hand-written docs/*.md page (docs/{GENERATED_REFERENCE} is "
+                f"generated from __all__ and does not count)")
     return violations
 
 

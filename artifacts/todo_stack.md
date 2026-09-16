@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 5. NWB and user workflow
 
-### 05-41 The errors a first-time user meets are documented nowhere but the generated reference
-- **Problem** Ten of 151 public symbols appear in no hand-written page, and eight of them are the NWB resolvers and error types.
-- **Evidence** Symbols present in `docs/api.md` and in no other `docs/**/*.md`: `resolve_acquisition, AmbiguousAcquisitionError, AcquisitionNotFoundError, ChannelIndexError, UnitNotFoundError, EventTable, resolve_interval_table, IntervalTableNotFoundError, InvalidOnsetValueError, DETECTION_TAILS`. No troubleshooting page, error index or traceback-to-fix table exists in the nav. The nearest guidance is on `docs/agents.md`, a page this reader was routed past.
-- **Change** One short page: each error class, what produced it, and the argument that resolves it. `AmbiguousIntervalTableError` is the model — it is explained in three places before it can fire, and that is the best writing on the site.
-- **Preserves** The existing refusals, which are correct.
-- **Discriminator** Every exported error class is explained on a hand-written page.
-- **Accept** Gate 5 is replaced by a check that every `__all__` symbol appears outside the generated reference (see 05-66).
-
 ### 05-42 Tutorial 00 crashes on the two most common foreign-file shapes
 - **Problem** It reads `acquisition['rate_hz']` unguarded and iterates only `info["acquisitions"]`.
 - **Evidence** A file with `timestamps` instead of `starting_time`+`rate` -> bare `KeyError: 'rate_hz'`. A file whose LFP lives in a processing module -> no acquisition line printed at all; `'processing_continuous'` never appears in the script.
