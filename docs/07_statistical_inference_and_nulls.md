@@ -192,7 +192,7 @@ plan = jnwb.build_permutation_plan(
     labels,
     cycle_id,
     n_permutations=1000,
-    seed=42,
+    rng=42,
 )
 assert plan["scheme"] == "within_group"
 assert plan["n_permutations"] == 1000
@@ -217,7 +217,7 @@ quartiles = jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)
 
 y_true = np.linspace(0.0, 1.0, 6)
 y_pred = y_true + 0.05 * np.random.default_rng(0).normal(size=6)
-r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200, random_state=0)
+r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200, rng=0)
 assert "r2_observed" in r2_ci and "p_val" in r2_ci
 
 # Cross-modal lag scan between aligned TFR and spike tensors (channels x time)

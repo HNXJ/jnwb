@@ -13,7 +13,7 @@ Activate this skill when comparing neural responses across conditions, performin
 - `jnwb.StatisticalAnalysis.compare_groups(group1, group2, paired=False)`: Dual parametric (t-test) + non-parametric (Mann-Whitney/Wilcoxon) testing with explicit effect sizes (Cohen's $d$ or $d_z$).
 - `jnwb.StatisticalAnalysis.fdr_correct(p_values, method="bh")`: Benjamini-Hochberg FDR correction across a hypothesis family.
 - `jnwb.permute_labels(y, scheme="within_group"|"global", groups=None, rng=...)`: Permute labels under an explicit exchangeability structure.
-- `jnwb.build_permutation_plan(labels, groups, n_permutations=..., seed=...)`: Generate an explicit within-group permutation manifest with SHA-256 digests.
+- `jnwb.build_permutation_plan(labels, groups, n_permutations=..., rng=...)`: Generate an explicit within-group permutation manifest with SHA-256 digests.
 - `jnwb.StatisticalAnalysis.clopper_pearson_ci(k, n, alpha=0.05)`: Exact binomial confidence intervals via Beta-quantile inversion.
 - `jnwb.paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)`: Paired bootstrap test for firing-probability changes between conditions.
 

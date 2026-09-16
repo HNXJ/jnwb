@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
@@ -1611,7 +1613,8 @@ def zflip(
     min_wpli: float = 0.15,
     n_surrogates: int = 50,
     alpha: float = 0.05,
-    seed: Optional[Union[int, np.random.Generator]] = 0,
+    rng: RNGLike = Default(0),
+    seed: Any = Default(0),
 ) -> ZFlipResult:
     r"""Estimate cortical depth phase gradients, propagation delay, and apparent velocity.
 
@@ -1668,7 +1671,8 @@ def zflip(
             attainable p-value is ``1 / (n_surrogates + 1)``.
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
-        seed: Random seed or Generator for surrogate evaluation.
+        rng: Random seed, Generator, or None for fresh entropy, for surrogate
+            evaluation (``seed`` is the old spelling and still works).
 
     Returns:
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
@@ -1679,6 +1683,7 @@ def zflip(
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
             fewer than 2 segments.
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
     lfp = np.asarray(lfp_matrix, dtype=float)
     if lfp.ndim != 2:
         raise ValueError(

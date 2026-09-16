@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`rng` is the one spelling for the random-number argument.** One concept was spelled
+  four ways across the public API: `rng` (8 functions), `seed` (7), `random_state` (3) and
+  `random_seed` (1). `granger`, `granger_spectral`, `phase_slope_index`,
+  `transfer_entropy`, `zflip`, `cross_modal_comparison`, `build_permutation_plan`,
+  `shuffle_r2_ci`, `resample_onsets` and `jrsa` now take `rng`. The old spelling remains
+  as a keyword-only alias and still works; the canonical parameter keeps its original
+  position, so positional callers are unaffected, and its original default, so no
+  number moves. Passing two spellings with different values raises
+  `ValueError: Conflicting values`, the same refusal `band_power(fs=, sampling_rate=)`
+  already used -- `jrsa` previously spelled this refusal `TypeError`, and was the only
+  place that did. `rng` is canonical rather than `seed` because the argument now accepts
+  a `Generator`, which `seed` would misname.
+- **`build_permutation_plan` refuses a `Generator` explicitly.** It is the one exception:
+  its product is a manifest of integer per-draw seeds, `rng + i`, which a `Generator`
+  cannot name and fresh entropy would make unreproducible. It now says so instead of
+  failing on `seed + i` inside the loop.
 - **`rng=None` now means fresh entropy, and the default seed is in the signature.**
   `exact_sign_flip`, `compare_groups`, `bootstrap_ci`, `permutation_test` and
   `_bootstrap_mean_diff_ci` declared `rng: Optional[Generator] = None` and then ran

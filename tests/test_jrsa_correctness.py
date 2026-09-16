@@ -276,10 +276,23 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
         assert a != b, "sigma reached the metric but changed nothing"
 
     def test_passing_both_spellings_is_refused(self):
+        """05-34 made `rng` canonical and routed jrsa through the package's shared alias
+        resolver, so the conflict is now the same `ValueError: Conflicting values` that
+        `band_power(fs=, sampling_rate=)` and the nine unit-suffixed parameters raise.
+        jrsa was the only place spelling this refusal `TypeError`.
+        """
         x1, x2 = self._pair()
-        with pytest.raises(TypeError, match="both"):
-            oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, seed=0,
-                    random_state=1)
+        for kwargs in ({"seed": 0, "random_state": 1},
+                       {"rng": 0, "seed": 1},
+                       {"rng": 0, "random_state": 1}):
+            with pytest.raises(ValueError, match="Conflicting values provided to jrsa"):
+                oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, **kwargs)
+
+    def test_agreeing_spellings_are_not_a_conflict(self):
+        x1, x2 = self._pair()
+        a = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, rng=3, seed=3)
+        b = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, rng=3)
+        assert float(np.ravel(a.p)[0]) == float(np.ravel(b.p)[0])
 
 
 # `hsic` is excluded: its *value* is not invariant to duplicating features (0.015372 ->

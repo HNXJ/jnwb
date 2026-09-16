@@ -8,10 +8,12 @@ suites belong in downstream project code.
 
 import logging
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
 
@@ -76,18 +78,31 @@ def save_figure_suite(
             log.info(f"Saved: {filepath}")
 
 
-def resample_onsets(onsets: np.ndarray, target_n: int = 100, random_state: int = 42) -> np.ndarray:
+def resample_onsets(
+    onsets: np.ndarray,
+    target_n: int = 100,
+    rng: RNGLike = Default(42),
+    *,
+    random_state: Any = Default(42),
+) -> np.ndarray:
     """Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there
     are fewer than ``target_n`` available), for a consistent raster trial count across units
     with different trial counts.
+
+    ``random_state`` is the old spelling of ``rng`` and still works; passing both
+    different values raises.
     """
     if len(onsets) == 0:
         return np.array([])
-    rng = np.random.default_rng(random_state)
+    gen = resolve_rng(
+        resolve_seed_alias(rng, random_state, alias_name="random_state",
+                           func_name="resample_onsets"),
+        func_name="resample_onsets",
+    )
     if len(onsets) >= target_n:
-        idx = rng.choice(len(onsets), size=target_n, replace=False)
+        idx = gen.choice(len(onsets), size=target_n, replace=False)
     else:
-        idx = rng.choice(len(onsets), size=target_n, replace=True)
+        idx = gen.choice(len(onsets), size=target_n, replace=True)
     return onsets[idx]
 
 

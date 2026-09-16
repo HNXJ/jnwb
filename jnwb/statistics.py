@@ -26,12 +26,13 @@ from __future__ import annotations
 import logging
 import math
 import warnings
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 from ._parallel import parallel_map, spawn_seeds
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 import pandas as pd
 from scipy import stats
 
@@ -555,7 +556,9 @@ def shuffle_r2_ci(
     y_score: np.ndarray,
     groups: Optional[np.ndarray] = None,
     n_shuffle: int = 200,
-    random_state: int = 42,
+    rng: RNGLike = Default(42),
+    *,
+    random_state: Any = Default(42),
 ) -> Dict[str, float]:
     """R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a
     shuffle-null 95% CI.
@@ -572,11 +575,13 @@ def shuffle_r2_ci(
         y_score: (n,) array, a continuous decision score.
         groups: optional (n,) group id array for within-group shuffling.
         n_shuffle: number of shuffle draws.
-        random_state: seed for the shuffle RNG.
+        rng: seed, Generator, or None for fresh entropy, for the shuffle RNG
+            (``random_state`` is the old spelling and still works).
 
     Returns:
         dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle.
     """
+    random_state = resolve_seed_alias(rng, random_state, alias_name='random_state', func_name='shuffle_r2_ci')
     def _r2(y, s):
         if np.std(s) == 0 or np.std(y) == 0:
             return 0.0
@@ -1268,7 +1273,9 @@ def cross_modal_comparison(
     lag_range_ms: Tuple[int, int] = (-500, 500),
     bin_ms: Optional[float] = None,
     n_permutations: int = 1000,
-    seed: Optional[int] = None,
+    rng: RNGLike = Default(None),
+    *,
+    seed: Any = Default(None),
 ) -> Dict:
     """Trial-averaged correlation between a TFR-derived signal and a spike-count signal.
 
@@ -1311,6 +1318,7 @@ def cross_modal_comparison(
         i.e. the TFR/LFP signal is shifted earlier than spikes), interpretation -- or
         {'error': ...} when inputs are missing or too short.
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='cross_modal_comparison')
     if tfr_data is None or spike_data is None:
         return {'error': 'Input arrays cannot be None'}
 

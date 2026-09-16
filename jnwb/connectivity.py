@@ -44,6 +44,7 @@ import numpy as np
 from ._backend import CUDA, resolve_device, warn_device_fallback
 from ._parallel import parallel_map
 from ._units import resolve_unit_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -971,8 +972,10 @@ def granger(
     ridge: float = 0.0,
     detrend: Optional[str] = "zscore",
     n_surrogates: int = 0,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Bivariate or conditional Granger causality between two arbitrary signals.
@@ -996,7 +999,8 @@ def granger(
         detrend: per-trial preprocessing, default ``'zscore'``
         n_surrogates: if > 0, also run a trial-shuffled surrogate test alongside
             the analytic F-test. Set this when residuals are not white.
-        seed: RNG seed for surrogates (default 0 — deterministic)
+        rng: RNG seed, Generator, or None for fresh entropy, for surrogates
+            (default 0 — deterministic) (``seed`` is the old spelling and still works)
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -1017,6 +1021,7 @@ def granger(
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
 
@@ -1261,8 +1266,10 @@ def granger_spectral(
     ridge: float = 0.0,
     detrend: Optional[str] = "zscore",
     n_surrogates: int = 0,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.
@@ -1304,6 +1311,7 @@ def granger_spectral(
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
 
@@ -1549,8 +1557,10 @@ def phase_slope_index(
     detrend: Optional[str] = "demean",
     jackknife: bool = True,
     n_surrogates: int = 0,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Phase Slope Index (Nolte et al., 2008) — which signal leads in phase.
@@ -1605,6 +1615,7 @@ def phase_slope_index(
         Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
         complex physical systems. Phys. Rev. Lett. doi:10.1103/PhysRevLett.100.234101
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"phase_slope_index requires a positive fs; got {fs!r}")
 
@@ -1950,9 +1961,11 @@ def transfer_entropy(
     symbolic_order: int = 3,
     bias_correction: Optional[str] = "mm",
     n_surrogates: int = 200,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     detrend: Optional[str] = None,
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Transfer entropy — model-free, nonlinear directed information flow, in bits.
@@ -1982,7 +1995,8 @@ def transfer_entropy(
         bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term, or None
         n_surrogates: surrogate draws for the p-value and bias correction.
             Set to 0 only if you are calibrating the null some other way.
-        seed: RNG seed (default 0 — deterministic)
+        rng: RNG seed, Generator, or None for fresh entropy (default 0 —
+            deterministic) (``seed`` is the old spelling and still works)
         detrend: usually ``None``; TE is invariant to monotone rescaling under
             quantile/symbolic estimators, so z-scoring buys nothing
 
@@ -1995,6 +2009,7 @@ def transfer_entropy(
         Schreiber, T. (2000). Measuring information transfer. Phys. Rev. Lett.
         doi:10.1103/PhysRevLett.85.461
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
     if estimator not in ("quantile", "uniform", "discrete", "symbolic"):
         raise ValueError(
             f"estimator must be quantile|uniform|discrete|symbolic; got {estimator!r}"

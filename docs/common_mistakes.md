@@ -199,12 +199,12 @@ t = np.arange(2000) / fs
 x = np.sin(2 * np.pi * 20 * t)
 y = np.roll(x, int(0.01 * fs))  # 10 ms delay
 
-psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, seed=0)
+psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, rng=0)
 
 noise_x = rng.normal(size=2000)
 noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
 psi_broad = jnwb.phase_slope_index(
-    noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, seed=0,
+    noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
 )
 
 print("Narrow band net:", psi_narrow.net)          # ~0.0

@@ -102,7 +102,7 @@ Compute robust, phase-slope directionality between two time series with phase-ra
 sig_a = rng.normal(size=1000)
 sig_b = np.roll(sig_a, 5) + 0.5 * rng.normal(size=1000)
 
-psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, seed=0)
+psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, rng=0)
 print(f"PSI X->Y: {psi.x_to_y:.4f}, p-value: {psi.p_x_to_y:.4f}")
 ```
 
@@ -145,6 +145,6 @@ Compare multi-condition activity patterns across modalities, areas, or models:
 X = rng.normal(size=(6, 16, 50))
 Y = X + 0.3 * rng.normal(size=(6, 16, 50))
 
-jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, random_state=0)
+jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
 print(f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}")
 ```

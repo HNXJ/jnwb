@@ -36,7 +36,7 @@ X = rng.normal(size=T)
 Y = np.zeros(T)
 Y[1:] = 0.5 * X[:-1] + 0.5 * rng.normal(size=T-1)
 
-res = jnwb.granger(X, Y, order=2, n_surrogates=50, seed=42)
+res = jnwb.granger(X, Y, order=2, n_surrogates=50, rng=42)
 assert res.x_to_y >= 0.0
 ```
 

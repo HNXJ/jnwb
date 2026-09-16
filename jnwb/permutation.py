@@ -14,9 +14,11 @@ one shows up outside this module's own `scheme="global"` path.
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
+
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 import pandas as pd
 
 SCHEMES = ("within_group", "global")
@@ -97,7 +99,8 @@ def build_permutation_plan(
     groups: Iterable[object],
     *,
     n_permutations: int,
-    seed: int,
+    rng: int = Default(REQUIRED),
+    seed: Any = Default(REQUIRED),
 ) -> dict:
     """Create an explicit within-group null plan (a manifest of digested draws); no model
     fitting occurs.
@@ -109,13 +112,24 @@ def build_permutation_plan(
         labels: label array, any dtype.
         groups: group id per sample, same length as ``labels``.
         n_permutations: number of permutation draws to generate.
-        seed: base seed; draw ``i`` uses ``seed + i``.
+        rng: base seed, an ``int``. Unlike the rest of the package this one cannot take a
+            ``Generator`` or ``None``: the plan's whole product is a manifest of integer
+            per-draw seeds, ``rng + i``, which a Generator cannot name and fresh entropy
+            would make unreproducible. (``seed`` is the old spelling and still works.)
 
     Returns:
         dict with ``draw_manifest`` (DataFrame: permutation, seed, label_digest, n_samples,
         n_groups), ``scheme`` (always "within_group"), ``seed``, ``n_permutations``, and
         ``group_composition_preserved`` (always True).
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed',
+                              func_name='build_permutation_plan')
+    if not isinstance(seed, (int, np.integer)) or isinstance(seed, bool):
+        raise TypeError(
+            "build_permutation_plan: rng must be an int base seed, because the plan "
+            "records the integer seed `rng + i` of every draw; got "
+            f"{type(seed).__name__}."
+        )
     y = np.asarray(list(labels))
     group_array = np.asarray(list(groups))
     if y.ndim != 1 or group_array.shape != y.shape:

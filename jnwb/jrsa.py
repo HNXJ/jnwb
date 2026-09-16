@@ -21,6 +21,7 @@ import numpy as np
 
 from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
+from ._rng import Default, RNGLike, resolve_seed_alias
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -147,7 +148,7 @@ def jrsa(
     device="auto",
     n_jobs=-1,
     batch_size=None,
-    random_state=None,
+    rng: RNGLike = Default(None),
     # output
     return_type="result",
     return_null=False,
@@ -257,21 +258,27 @@ def jrsa(
     """
     t0 = time.perf_counter()
 
-    # --- seed alias -----------------------------------------------------------
-    # Every other seeded entry point in this package spells this parameter `seed`
-    # (connectivity, laminar, statistics, permutation); only jrsa spelled it
-    # `random_state`. Because jrsa forwards **kwargs to the metric, and every metric
-    # swallows **kwargs, `jrsa(..., seed=0)` used to be accepted in silence and leave
-    # random_state=None -- an entropy-seeded, irreproducible permutation test that still
-    # returned a plausible p. Four repeated calls with seed=0 gave p = 0.2736, 0.3333,
-    # 0.2637, 0.2935; with random_state=0 they give 0.2189 four times.
-    if "seed" in kwargs:
-        if random_state is not None:
-            raise TypeError(
-                "jrsa() received both `seed` and `random_state`; pass only one "
-                "(`seed` is the package-wide spelling and is an alias for `random_state`)."
-            )
-        random_state = kwargs.pop("seed")
+    # --- rng alias ------------------------------------------------------------
+    # Because jrsa forwards **kwargs to the metric, and every metric swallows **kwargs,
+    # a misspelled seed used to be accepted in silence and leave the parameter at None --
+    # an entropy-seeded, irreproducible permutation test that still returned a plausible
+    # p. Four repeated calls with seed=0 gave p = 0.2736, 0.3333, 0.2637, 0.2935; with the
+    # parameter actually set they give 0.2189 four times. So every accepted spelling is
+    # popped explicitly here, and two that disagree raise.
+    #
+    # 05-34 made `rng` canonical package-wide. An earlier repair declared `seed` the
+    # package-wide spelling; that was true of 7 functions against 8 spelling it `rng`, and
+    # the argument now accepts a Generator as well as an int, which `seed` would misname.
+    _given = "rng"
+    for _alias in ("random_state", "seed"):
+        if _alias in kwargs:
+            _was_unset = isinstance(rng, Default)
+            rng = resolve_seed_alias(rng, kwargs.pop(_alias), alias_name=_alias,
+                                     func_name="jrsa", canonical_name=_given)
+            if _was_unset:
+                _given = _alias
+    random_state = resolve_seed_alias(rng, Default(None), alias_name="seed",
+                                      func_name="jrsa")
 
     # --- collect parameter snapshot -------------------------------------------
     params = dict(

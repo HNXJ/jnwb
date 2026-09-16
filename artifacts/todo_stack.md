@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 4. Reproducibility and statistics
 
-### 05-34 `nested_cv_linear_svm` gives the caller no control over the partition
-- **Problem** The signature is `(X, labels, n_splits)` with `random_state=42` hardcoded at four sites, so partition sensitivity cannot be assessed.
-- **Evidence** `decoding.py:86, 91, 113, 124`. Separately, `shuffle_r2_ci` spells it `random_state: int` and `cross_modal_comparison` spells it `seed`, against the package's dominant `rng: np.random.Generator`.
-- **Change** Add a `seed`/`rng` parameter to `nested_cv_linear_svm`; alias the divergent spellings as `jrsa` now does, with conflict detection.
-- **Preserves** Current results at the existing default.
-- **Discriminator** Two different seeds give two different fold assignments.
-- **Accept** Every randomized public function takes a caller-supplied generator under one spelling. The RNG vocabulary is currently 10 spellings across 19 functions: `rng` 8, `seed` 7, `random_state` 3, `n_surrogates` 7, `n_permutations` 3, `n_shuffles` 3, plus the singletons `permutations`, `n_shuffle`, `n_bootstrap`, `random_seed`.
-
 ### 05-36 `decoding` label handling refuses valid data and accepts invalid data
 - **Problem** `np.bincount(labels.astype(int)).min()` counts absent label values as classes of size 0, and `build_inner_validation_partitions` casts group ids with `int()`.
 - **Evidence** Same X `(40,5)`, 20 per class, separable: labels `{0,1}` -> `accuracy=0.825, status="success"`; labels `{1,2}` and `{0,2}` -> `status="insufficient_trials_for_cv"` with all metrics NaN (`np.bincount([1,1,2,2]).min() == 0`); labels `{-1,1}` -> `ValueError: 'list' argument must have no negative elements`; labels `{'a','b'}` -> `ValueError: invalid literal for int()`. `assign_outer_folds` accepts string `cycle` ids and returns `outer_fold_status="valid"`, then `build_inner_validation_partitions` on that output raises `invalid literal for int() with base 10: 'c1'`.

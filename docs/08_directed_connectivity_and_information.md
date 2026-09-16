@@ -49,7 +49,7 @@ result = jnwb.granger(
     max_lag=20,
     criterion="bic",
     n_surrogates=200,
-    seed=0,
+    rng=0,
 )
 print(f"X -> Y: {result.x_to_y:.4f} (p={result.p_x_to_y:.4f})")
 print(f"Y -> X: {result.y_to_x:.4f} (p={result.p_y_to_x:.4f})")
@@ -67,7 +67,7 @@ spectral_res = jnwb.granger_spectral(
     bands=jnwb.CANONICAL_BANDS,
     n_freqs=256,
     n_surrogates=100,
-    seed=0,
+    rng=0,
 )
 assert spectral_res.spectrum is not None
 print("Beta-band summary:", spectral_res.per_band.get("beta"))
@@ -86,7 +86,7 @@ psi_res = jnwb.phase_slope_index(
     bands={"beta": (14.0, 30.0), "gamma": (30.0, 80.0)},
     jackknife=True,
     n_surrogates=200,
-    seed=0,
+    rng=0,
 )
 print("PSI X -> Y:", psi_res.x_to_y)
 print("Band summaries:", psi_res.per_band)
@@ -111,7 +111,7 @@ te_res = jnwb.transfer_entropy(
     estimator="quantile",   # quantile | uniform | discrete | symbolic
     bins=4,
     n_surrogates=200,
-    seed=0,
+    rng=0,
 )
 print(f"TE X -> Y: {te_res.x_to_y:.4f} (p={te_res.p_x_to_y})")
 ```
@@ -150,7 +150,7 @@ mi_count = jnwb.spike_count_mutual_information(
 ```python
 signals = {"A": X, "B": Y, "C": rng.normal(size=500)}
 
-pair = jnwb.directed_connectivity(X, Y, method="granger", order=2, n_surrogates=50, seed=0)
+pair = jnwb.directed_connectivity(X, Y, method="granger", order=2, n_surrogates=50, rng=0)
 
 network = jnwb.directed_network(
     signals,
@@ -158,7 +158,7 @@ network = jnwb.directed_network(
     order=2,
     fdr=True,
     n_surrogates=50,
-    seed=0,
+    rng=0,
 )
 print("Labels:", network["labels"])
 print("Net matrix shape:", network["matrix"].shape)
