@@ -91,17 +91,61 @@ class TestPhaseLockingIndex:
         assert result["n_spikes"] == 0
 
     def test_perfectly_locked_spikes_give_high_pli_and_low_pvalue(self):
-        # Spikes always occur at the same LFP phase (0 rad) -> maximal locking.
-        n = 500
+        # Spikes on every cycle of a 5 Hz LFP, so each lands at the same phase.
+        #
+        # This fixture used to be np.linspace(0.1, 9.9, 500): evenly spaced in TIME, not
+        # in phase. On a 5 Hz LFP those spikes advance 0.098 of a cycle each, so their
+        # phases are near-uniform and p ~ 1 is the correct answer. The test passed only
+        # because np.interp(..., period=2*np.pi) folded the recording modulo 6.28 seconds
+        # and manufactured a concentration. It was asserting the defect.
         lfp_timestamps = np.linspace(0, 10, 10000)
         lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
-        # find timestamps closest to phase 0
-        spike_times = np.linspace(0.1, 9.9, n)
+        spike_times = np.arange(1, 50) * 0.2
         result = phase_locking_index(spike_times, lfp_phase, lfp_timestamps, n_bins=18)
-        assert result["n_spikes"] == n
+        assert result["n_spikes"] == len(spike_times)
         assert 0.0 <= result["peak_to_mean_contrast"] <= 1.0
         assert result["pli"] == result["peak_to_mean_contrast"]
         assert result["rayleigh_pvalue"] < 1e-10
+        assert result["rayleigh_z"] > 40.0
+
+    def test_spikes_spread_over_the_cycle_are_not_called_locked(self):
+        """The discriminator the old fixture accidentally became."""
+        lfp_timestamps = np.linspace(0, 10, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        result = phase_locking_index(
+            np.linspace(0.1, 9.9, 500), lfp_phase, lfp_timestamps, n_bins=18
+        )
+        assert result["rayleigh_pvalue"] > 0.1
+        assert result["rayleigh_z"] < 3.0
+
+    def test_locking_estimate_does_not_degrade_with_recording_length(self):
+        """np.interp's `period` is the period of x, so it wrapped the time axis: a unit
+        whose true resultant length is 0.995 reported pli 0.31 over 60 s and 0.80 over
+        6 s. The estimate must not depend on how long the recording is."""
+        rng = np.random.default_rng(0)
+        values = []
+        for duration in (6.0, 60.0, 240.0):
+            timestamps = np.arange(0.0, duration, 0.001)
+            phase = np.angle(np.exp(1j * 2 * np.pi * 8.0 * timestamps))
+            spikes = np.arange(1, int(8 * duration)) / 8.0 + rng.normal(
+                0.0, 0.002, size=int(8 * duration) - 1
+            )
+            spikes = spikes[(spikes > 0) & (spikes < duration)]
+            values.append(phase_locking_index(spikes, phase, timestamps)["pli"])
+        assert max(values) - min(values) < 0.05, f"pli drifted with duration: {values}"
+
+    def test_the_rayleigh_p_value_is_never_negative(self):
+        """The series expansion underflows negative at large z, and a negative p passes
+        every `p < alpha` test and corrupts FDR downstream."""
+        timestamps = np.arange(0.0, 600.0, 0.001)
+        phase = np.angle(np.exp(1j * 2 * np.pi * 8.0 * timestamps))
+        rng = np.random.default_rng(0)
+        spikes = np.arange(1, 4800) / 8.0 + rng.normal(0.0, 0.002, size=4799)
+        spikes = spikes[(spikes > 0) & (spikes < 600.0)]
+        result = phase_locking_index(spikes, phase, timestamps)
+        assert result["rayleigh_z"] > 1000.0
+        assert result["rayleigh_pvalue"] >= 0.0
+        assert not str(result["rayleigh_pvalue"]).startswith("-")
 
 
 class TestPairwisePhaseConsistency:

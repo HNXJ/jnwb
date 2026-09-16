@@ -220,8 +220,20 @@ def phase_locking_index(
     if len(unit_spike_times) == 0:
         return result
 
-    # Interpolate LFP phase at spike times
-    spike_phases = np.interp(unit_spike_times, lfp_timestamps, lfp_phase, period=2*np.pi)
+    # Interpolate the LFP phase at spike times through its unit vector.
+    #
+    # np.interp's `period` is the period of the x coordinates, not of fp, so
+    # `period=2*np.pi` wrapped the spike times and the LFP timestamps modulo 6.2832
+    # SECONDS. Any recording longer than that was folded onto itself and each spike took
+    # the phase of an unrelated moment. A unit locked to phase 0 with 2 ms jitter over
+    # 60 s, whose true resultant length is 0.995, reported pli 0.305; the same unit
+    # reported 0.804 over its first 6 s, because the defect scales with duration.
+    #
+    # Interpolating cos and sin separately handles the +-pi wrap that `period` was
+    # presumably meant to address, and leaves the time axis alone.
+    cos_phase = np.interp(unit_spike_times, lfp_timestamps, np.cos(lfp_phase))
+    sin_phase = np.interp(unit_spike_times, lfp_timestamps, np.sin(lfp_phase))
+    spike_phases = np.arctan2(sin_phase, cos_phase)
 
     # Phase histogram
     phase_hist, bin_edges = np.histogram(spike_phases, bins=n_bins, range=(-np.pi, np.pi))
@@ -254,7 +266,10 @@ def phase_locking_index(
         # For large n, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n) - (24*z - 132*z^2 + 76*z^3 - 9*z^4) / (288*n^2))
         if z > 0:
             pval = np.exp(-z) * (1 + (2*z - z**2) / (4*len(spike_phases)))
-            result['rayleigh_pvalue'] = float(min(pval, 1.0))
+            # The series expansion goes negative for large z, and a negative p-value
+            # passes every `p < alpha` test and corrupts any FDR machinery downstream.
+            # `+ 0.0` normalizes the IEEE -0.0 that underflow produces here.
+            result['rayleigh_pvalue'] = float(min(max(pval, 0.0), 1.0)) + 0.0
 
     return result
 
