@@ -49,6 +49,7 @@ def test_report_is_rendered_from_the_raw_receipt():
     report = REPORT.read_text(encoding="utf-8")
     assert raw["estimator_sha256"][:16] in report
     for name in ("white_noise", "ar_background", "amplitude_ramp", "parallel_bands"):
-        rate = raw["families"][name]["None"]["rate_at_default"]
+        tau = str(raw["operating"]["selected_threshold"])
+        rate = raw["families"][name]["None"]["rate_curve"][tau]
         assert f"| `{name}` |" in report
         assert f"{rate:.3f}" in report

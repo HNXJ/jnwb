@@ -43,7 +43,7 @@ names what is missing. Nothing here is marked from inference.
 | 01 executable stack empty | OPEN | this file is non-empty by construction; closes last |
 | 02 documentation minimization | PARTIAL | mechanical half closed (Gate 9 documented-API parity, Gate 10 derived version, strict MkDocs 0 warnings, `test_docs_links`, `test_docs_smoke`, `test_readme_smoke`). The editorial half -- duplicated explanation, excessive prose, internal codes leaking into user-facing text -- has had no pass and is not mechanically checkable |
 | 03 tutorials vs installed wheel | CLOSED | all 8 run on the clean-venv interpreter with `PYTHONPATH` stripped and CWD outside the checkout, in CI and in release gate STEP 8; `TestInstalledArtifactVerification` fails if either is removed or reordered before install |
-| 04 numerical audit of primitives | PARTIAL | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. The 0.2.4 pass over `wpli`, `imaginary_coherency`, `zflip`, `rdm`, `rdm_similarity` and `jrsa(metric='rsa')` found and repaired fabricated zeros, amplitude-unit dependence, a CUDA branch that never ran, zFLIP accepting untested or partly unidentifiable delays, and undefined RDM distances set to 0 (see CHANGELOG); regressions in `test_spectral_nonfabrication`, `test_zflip_audit`, `test_rsa_oracle`. A degenerate-input and amplitude-unit sweep over the public numeric API (empty, singleton, NaN/Inf, constant, reversed windows, scale 1e-3..1e-20, CPU vs CUDA) repaired 17 more defects: zeros or p = 1/(n+1) returned for undefined results in spectral summaries, spike-window rates, shuffle p-values, PSTH, `laplacian_reference`, `network_topology`, `xflip`; unit-dependent `jrsa` CKA/RV/dCor/cosine, `vflip` and outlier detection; `jrsa` CUDA pearson/spearman disagreeing with CPU; `harmonic_ratio` double-counting (see CHANGELOG, `test_adversarial_inputs`). Not repaired, model choices: `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units, so it is unit-dependent by definition; PSTH SEM for N=1 is deferred below. zFLIP's absolute sign convention, its phase-slope formula against a cross-spectral oracle, and its N // 2 segmentation rule are pinned in `test_zflip_audit`; each RSA similarity metric is pinned to a SciPy oracle and the twelve `rdm` metrics to the wrapper's own invariants in `test_rsa_oracle`. Open: vFLIP acceptance is not false-positive controlled, and its crossover is centre-biased (both below); `label_layers` consumes both |
+| 04 numerical audit of primitives | PARTIAL | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. The 0.2.4 pass over `wpli`, `imaginary_coherency`, `zflip`, `rdm`, `rdm_similarity` and `jrsa(metric='rsa')` found and repaired fabricated zeros, amplitude-unit dependence, a CUDA branch that never ran, zFLIP accepting untested or partly unidentifiable delays, and undefined RDM distances set to 0 (see CHANGELOG); regressions in `test_spectral_nonfabrication`, `test_zflip_audit`, `test_rsa_oracle`. A degenerate-input and amplitude-unit sweep over the public numeric API (empty, singleton, NaN/Inf, constant, reversed windows, scale 1e-3..1e-20, CPU vs CUDA) repaired 17 more defects: zeros or p = 1/(n+1) returned for undefined results in spectral summaries, spike-window rates, shuffle p-values, PSTH, `laplacian_reference`, `network_topology`, `xflip`; unit-dependent `jrsa` CKA/RV/dCor/cosine, `vflip` and outlier detection; `jrsa` CUDA pearson/spearman disagreeing with CPU; `harmonic_ratio` double-counting (see CHANGELOG, `test_adversarial_inputs`). Not repaired, model choices: `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units, so it is unit-dependent by definition; PSTH SEM for N=1 is deferred below. zFLIP's absolute sign convention, its phase-slope formula against a cross-spectral oracle, and its N // 2 segmentation rule are pinned in `test_zflip_audit`; each RSA similarity metric is pinned to a SciPy oracle and the twelve `rdm` metrics to the wrapper's own invariants in `test_rsa_oracle`. vFLIP's centring bias and its uncontrolled, grid-dependent acceptance are repaired: min-max relative power per frequency with each band depth profile rescaled before differencing, bin-count normalization of the score, and a threshold of 3.75 recalibrated over crossover location, channel count, pitch, grid density, orientation, missing contacts and SNR (AUC 1.000, FPR 0.000, TPR 0.999). Discriminators in `TestVFlipNormalizationRepair`, 6 of which fail the pre-repair estimator |
 | 05 randomness and inference | PARTIAL | no global RNG mutation anywhere in `jnwb/` (no `np.random.seed`, no `random.seed`, no `PYTHONHASHSEED` dependence); `permute_labels` rejects non-`Generator` rng, is deterministic given a seed, preserves per-group label counts, and emits a draw manifest with sequential seeds and digests. CV isolation is exercised via `nested_cv_linear_svm` but not asserted as leak-free |
 | 06 NWB/addressing audit | PARTIAL | `test_nwb_synthetic_fixtures`, `test_hdmf_nwb_read_boundary`, `test_addressing`, `test_metadata`, `test_nwb_inspect` cover missing tables/columns, alternate layouts and lazy access; the electrode-region repair added out-of-range enforcement. Units/geometry/ambiguity not systematically swept |
 | 07 API audit | PARTIAL | exports == documented API == generator output is gated (Gate 9 + `generate_api_md --check` + `test_api_surface`), and skills reference only existing symbols. Signature/typing/docstring parity is not mechanically compared |
@@ -60,33 +60,9 @@ names what is missing. Nothing here is marked from inference.
 
 ### Open findings requiring a decision
 
-- **vFLIP acceptance is not false-positive controlled.** `scripts/calibrate_vflip.py` on the
-  shipped estimator: `vflip_from_lfp` at defaults accepts white noise in 0.37, AR background
-  0.43, parallel bands 0.30 of 30 seeds at the default threshold 6.0 (the 0.2.2 receipt
-  reported 0.10 on a 2 Hz PSD grid). The support score's null distribution depends on the
-  number of frequency bins, so the rate moves with recording length and `nperseg`. Median
-  crossover error at SNR 5 is about 3 contacts. Repair needs a scientific choice: document
-  acceptance as uncontrolled; normalize the score for bin count and recalibrate the threshold;
-  a contact-permutation null; or withdraw acceptance for 0.2.4. `label_layers` consumes it.
-- **vFLIP's crossover estimate is pulled toward the centre of the sampled contacts.**
-  `vflip` z-scores the PSD per frequency across contacts, so both band profiles carry
-  approximately zero spatial mean and their difference crosses zero near the array centre.
-  On `synth_laminar_motif` at SNR 100 through `vflip_from_lfp` at defaults, N = 24, 25 seeds:
-  true 5.5 -> +4.07, 7.5 -> +2.19, 11.5 -> -0.17, 15.5 -> -2.01, 18.5 -> -4.88 contacts, a
-  slope of about 0.31 estimated contacts per true contact. Removing the spatial mean from the
-  generator's piecewise-linear weight profile predicts +4.36, +2.58, 0.00, -2.58, -5.38, so
-  the bias is that mean removal and not noise. It vanishes exactly at the shaft midpoint,
-  which is the only crossover the calibration ever generated, and for the compact symmetric
-  bumps in `test_laminar._generate_synthetic_psd`, which is why
-  `test_known_crossover_recovery_multiple_depths` passes at 6.5/11.5/17.0 while the LFP
-  generator shows the bias. Min-max normalization per frequency, the published FLIP
-  convention, raises the slope to about 0.76 but leaves about 1.4 contacts of bias at the
-  shaft ends. The estimate therefore depends on where the probe sat relative to the motif,
-  which is the quantity being measured. Choosing among the normalizations changes the
-  estimand and invalidates the calibration receipt, so it needs a decision.
 - `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator in the repository.
-- `test_frequency_grid_resolution_invariance` uses a noise-free PSD and cannot detect the
-  bin-count dependence above.
+- `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a
+  null's grid dependence; the calibration receipt does that instead.
 
 
 ## Handout (2026-09-15, Opus 5 session `9fe5eb2c`)

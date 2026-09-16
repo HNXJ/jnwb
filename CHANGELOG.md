@@ -24,6 +24,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`vflip` located the crossover near the centre of the sampled contacts rather than
+  where the motif reverses.** Power was z-scored per frequency across contacts, which
+  forces every column to zero mean, so both band depth profiles carried zero spatial mean
+  and their difference summed to zero identically. The zero crossing of a zero-sum profile
+  sits near the centre of the array whatever the truth is, and for a profile linear in
+  contact index it is pinned to the midpoint exactly. On a known motif at SNR 100, true
+  crossovers of 5.5 / 7.5 / 11.5 / 15.5 / 18.5 contacts were returned with bias
+  +3.98 / +2.17 / -0.01 / -1.92 / -4.75, a slope of about 0.31 estimated contacts per true
+  contact; the shift matched the removed spatial mean to within 0.5 contacts. The reported
+  crossover therefore depended on where the probe sat relative to the motif, which is the
+  quantity being measured. The defect was invisible to the previous calibration, which
+  placed every synthetic crossover at the shaft midpoint -- the one location where the bias
+  vanishes -- and to `test_known_crossover_recovery_multiple_depths`, whose compact
+  symmetric bumps also have zero spatial mean.
+
+  Power is now expressed as min-max relative power per frequency across contacts, and each
+  band depth profile is rescaled to [0, 1] before the two are differenced to locate the
+  crossover. The relative power fraction `P(c, f) / sum_k P(k, f)` was implemented and
+  measured first: being simplex-constrained it fixes each column's sum, so the difference
+  again sums to zero and the bias is unchanged (+3.81 / +2.25 / +0.11 / -1.79 / -4.43).
+  Any normalization constraining a column's mean or sum carries the defect. Shaft-wide
+  median |c* - c_true| at SNR 100 falls from 2.28 to 0.99 contacts, and the old estimator's
+  residual does not fall with SNR because it is bias rather than noise.
+- **`vflip`'s support score had a frequency-grid-dependent null**, so a fixed threshold
+  meant different false-positive rates at different recording lengths and `nperseg`. Under
+  the null a Euclidean norm over the whole grid grows as `sqrt(n_freqs)` while a band mean
+  over `n` bins has null scale `1/sqrt(n)`; the score combined one of the former with two of
+  the latter, giving a null that fell as `n_freqs^(-1/2)` and a null median that shifted by
+  `-0.5 * ln(n_freqs)`. That law reproduced the measured shift across a 126 -> 1001 bin
+  sweep to within 0.27, exactly at the largest grid. The spectral distance is now an RMS
+  across bins and the band-derived terms are returned to unit null scale, so every factor is
+  grid-free. The calibration now measures a null false-positive rate varying by 0.000 and a
+  recovery rate of 1.000 across the (length, nperseg) sweep.
+- **`vflip`'s acceptance was not false-positive controlled.** At the old default threshold
+  of 6.0 the estimator accepted white noise in 0.37 of trials, AR background in 0.43 and
+  parallel bands in 0.30, against 0.47 recovery for a true motif at SNR 1 -- a rank AUC of
+  0.568, with no threshold separating the two distributions. The estimator is recalibrated
+  end to end by `scripts/calibrate_vflip.py` over crossover location, channel count, pitch,
+  frequency-grid density, orientation, missing contacts and SNR, against the existing null
+  families. AUC is now 1.000 over 120 null and 810 recoverable-alternative trials. The
+  default `min_support_score` changes from 6.0 to **3.75**, selected at maximum margin
+  inside the band of thresholds satisfying a criterion declared before the calibration ran:
+  pooled null false-positive rate <= 0.05, recovery >= 0.80, median |c* - c_true| <= 1.5
+  contacts among accepted trials in the central half of the shaft, and null false-positive
+  rate varying by <= 0.05 across frequency grids. At 3.75 the measured values are FPR 0.000,
+  TPR 0.999, median error 1.41 contacts and grid spread 0.000. Threshold 6.0 was not
+  preserved for compatibility: it belonged to a different score.
+
+  Recovery requires a clearly resolved motif: acceptance is 0.000 at SNR <= 2, 0.367 at
+  SNR 5 and 1.000 from SNR 10, and median crossover error falls from 1.59 contacts at SNR 10
+  to 0.95 at SNR 50. At 5000 samples neither the old nor the repaired estimator localizes
+  the crossover to better than about 6 contacts at SNR 4, which is an information limit of
+  the recording rather than a property of the normalization.
+
 - Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
 - Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
 - Gate 6 (dataset independence) now scans every durable user-facing surface recursively:

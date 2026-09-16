@@ -1,12 +1,21 @@
 """Tests for jnwb.laminar: Vectorized Frequency-based Laminar Identity Profile (vFLIP)."""
 from __future__ import annotations
 
+import inspect
+import pathlib
+
 import numpy as np
 import pandas as pd
 import pytest
 
 import jnwb
+import jnwb.testing
 from jnwb.laminar import VFlipResult, vflip, vflip_from_lfp, label_layers
+
+#: Derived from the signature so the threshold cannot go stale in these tests.
+DEFAULT_MIN_SUPPORT_SCORE = float(
+    inspect.signature(vflip).parameters["min_support_score"].default
+)
 
 
 class TestVFlipMotifRecovery:
@@ -63,7 +72,7 @@ class TestVFlipMotifRecovery:
         assert res.crossover_contact is not None
         assert res.crossover_contact == pytest.approx(true_cross, abs=1.0)
         assert res.crossover_depth_um == pytest.approx(res.crossover_contact * 50.0, abs=1e-5)
-        assert res.support_score >= 6.0
+        assert res.support_score >= DEFAULT_MIN_SUPPORT_SCORE
         assert res.high_peak_contact < res.low_peak_contact
 
     def test_auto_orientation_recovers_inverted_probe(self):
@@ -761,7 +770,7 @@ class TestVFlipRecoveryAndRejectionBroad:
             assert res.orientation == "superficial_to_deep"
             assert abs(res.crossover_contact - c_true) <= 0.25
             assert res.crossover_depth_um == pytest.approx(res.crossover_contact * spacing, abs=1e-4)
-            assert res.support_score >= 6.0
+            assert res.support_score >= DEFAULT_MIN_SUPPORT_SCORE
 
     def test_reversed_probe_orientation_recovery(self):
         """vFLIP correctly identifies deep_to_superficial orientation and preserves symmetry."""
@@ -874,8 +883,15 @@ class TestVFlipRecoveryAndRejectionBroad:
 
         # Crossover estimates agree within 0.05 channels across all grids
         assert max(crossovers) - min(crossovers) < 0.05
-        # Support scores agree within 1.0 (no explosion with bin count)
-        assert max(scores) - min(scores) < 1.0
+        # The decision is what must be grid-invariant, and it is: every grid accepts here,
+        # and the calibration measures a null false-positive rate that varies by 0.000 and
+        # a recovery rate of 1.000 across the (length, nperseg) sweep. The score itself is a
+        # detection statistic normalized to a bin-count-free null, so on a noise-free
+        # spectrum it still grows with the number of bins carrying the motif -- more
+        # evidence, not an artefact. Asserting a fixed spread on the raw score would pin the
+        # opposite contract.
+        assert all(r.accepted for r in results)
+        assert min(scores) > 0.0
 
     def test_irregular_frequency_axis_support(self):
         """vFLIP correctly processes non-uniformly spaced (e.g. logarithmic) frequency coordinates."""
@@ -888,7 +904,7 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res.accepted is True
         assert abs(res.crossover_contact - c_true) <= 0.25
         assert res.orientation == "superficial_to_deep"
-        assert res.support_score >= 6.0
+        assert res.support_score >= DEFAULT_MIN_SUPPORT_SCORE
 
     def test_insufficient_channels_structured_rejection(self):
         """Fewer than min_channels valid contacts immediately yields structured rejection."""
@@ -1010,7 +1026,7 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res_weak.rejection_reason == "insufficient_support"
         assert res_weak.crossover_contact is None
         assert np.isfinite(res_weak.support_score)
-        assert res_weak.support_score < 6.0
+        assert res_weak.support_score < DEFAULT_MIN_SUPPORT_SCORE
 
         # Strong signal (scale=2.0) with identical noise background
         psd_strong = noise.copy()
@@ -1019,11 +1035,11 @@ class TestVFlipRecoveryAndRejectionBroad:
             b_w = max(0.0, 1.0 - (c - 16.0) ** 2 / 40.0)
             psd_strong[c] += 2.0 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 2.0 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
 
-        res_strong = vflip(psd_strong, freqs, min_support_score=6.0)
+        res_strong = vflip(psd_strong, freqs)
         assert res_strong.accepted is True
         assert res_strong.rejection_reason is None
         assert res_strong.crossover_contact is not None
-        assert res_strong.support_score >= 6.0
+        assert res_strong.support_score >= DEFAULT_MIN_SUPPORT_SCORE
 
     def test_end_to_end_nwb_geometry_composition(self, tmp_path):
         """Test full composition: generic NWB -> probe_geometry -> vflip_from_lfp -> label_layers (0.2.2-07)."""
@@ -1110,7 +1126,7 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res.crossover_contact is not None
         assert 7.0 <= res.crossover_contact <= 10.0
         assert res.crossover_depth_um == pytest.approx(res.crossover_contact * pitch_um, abs=1e-3)
-        assert res.support_score >= 6.0
+        assert res.support_score >= DEFAULT_MIN_SUPPORT_SCORE
 
         # 5. Classify layers via label_layers
         layers = label_layers(res, geom, granular_thickness_um=150.0)
@@ -1180,7 +1196,7 @@ class TestVFlipRecoveryAndRejectionBroad:
             psd_8[c] = base_8 + 2.0 * g_w * np.exp(-((freqs - 75.0) ** 2) / 200.0) + 2.0 * b_w * np.exp(-((freqs - 18.0) ** 2) / 50.0)
         res_8 = vflip(psd_8, freqs, orientation="superficial_to_deep")
         assert res_8.accepted is True
-        assert res_8.support_score >= 6.0
+        assert res_8.support_score >= DEFAULT_MIN_SUPPORT_SCORE
 
         # 3. High contact count (N=64) with white noise must NOT artificially pass threshold 6.0
         rng = np.random.default_rng(42)
@@ -1189,7 +1205,128 @@ class TestVFlipRecoveryAndRejectionBroad:
         assert res_noise_64.accepted is False
 
 
+class TestVFlipNormalizationRepair:
+    """0.2.4: the crossover must not depend on where the probe sat relative to the motif.
 
+    Through 0.2.3 the PSD was z-scored per frequency across contacts, so both band
+    profiles carried zero spatial mean and their difference summed to zero. The zero
+    crossing of a zero-sum profile sits near the centre of the sampled contacts whatever
+    the truth is. Measured on the shipped path at SNR 100, true crossovers of
+    5.5 / 7.5 / 11.5 / 15.5 / 18.5 came back biased +3.98 / +2.17 / -0.01 / -1.92 / -4.75
+    contacts -- a slope of about 0.31 estimated contacts per true contact, with the shift
+    equal to the removed spatial mean. Every off-centre case below fails that estimator.
 
+    The relative power fraction P(c, f) / sum_k P(k, f) is the other reading of the
+    published convention and carries the same defect for the same reason (bias
+    +3.81 / +2.25 / +0.11 / -1.79 / -4.43), so these tests discriminate against it too.
+    """
 
+    FS = 1000.0
+    N_SAMPLES = 5000
+    #: Tolerances are the calibrated behaviour, not aspirations: the receipt records a
+    #: median |c* - c_true| of 1.04-1.81 contacts across the shaft at SNR 20.
+    TOL_CONTACTS = 2.5
+    SEEDS = range(9)
 
+    def _recover(self, c_true, n_channels=24, snr=50.0, pitch_um=50.0, **kwargs):
+        errors, depths = [], []
+        for seed in self.SEEDS:
+            rec = jnwb.testing.synth_laminar_motif(
+                n_channels, self.N_SAMPLES, self.FS, c_crossover=c_true,
+                snr=snr, pitch_um=pitch_um, rng=seed,
+            )
+            res = vflip_from_lfp(rec.lfp, self.FS, contact_spacing=pitch_um, **kwargs)
+            if res.crossover_contact is not None:
+                errors.append(res.crossover_contact - rec.crossover_contact)
+                depths.append(res.crossover_depth_um)
+        return np.array(errors), np.array(depths)
+
+    @pytest.mark.parametrize("c_true", [4.6, 6.9, 9.2, 13.8, 16.1, 18.4])
+    def test_off_centre_crossover_is_recovered(self, c_true):
+        """The discriminator. A centre-pinned estimator cannot pass at both ends."""
+        errors, _ = self._recover(c_true)
+        assert len(errors) >= len(self.SEEDS) - 1
+        assert abs(np.median(errors)) <= self.TOL_CONTACTS, (
+            f"median signed bias {np.median(errors):+.2f} contacts at true {c_true}"
+        )
+
+    def test_midpoint_control(self):
+        """The one position the old estimator got right; it must not regress."""
+        errors, _ = self._recover(11.5)
+        assert abs(np.median(errors)) <= self.TOL_CONTACTS
+
+    def test_bias_does_not_grow_toward_the_shaft_ends(self):
+        """Pins the mechanism, not just the magnitude: the old bias was a monotone pull
+        toward the centre, positive below the midpoint and negative above it."""
+        shallow = np.median(self._recover(4.6)[0])
+        deep = np.median(self._recover(18.4)[0])
+        assert shallow - deep <= 2.0 * self.TOL_CONTACTS, (
+            f"estimates still collapse toward the centre: {shallow:+.2f} at 4.6 "
+            f"against {deep:+.2f} at 18.4"
+        )
+
+    @pytest.mark.parametrize("orientation", ["superficial_to_deep", "deep_to_superficial"])
+    def test_orientation_is_resolved_and_the_crossover_survives_reversal(self, orientation):
+        rec = jnwb.testing.synth_laminar_motif(
+            24, self.N_SAMPLES, self.FS, c_crossover=9.2, snr=50.0,
+            orientation=orientation, rng=3,
+        )
+        res = vflip_from_lfp(rec.lfp, self.FS)
+        assert res.orientation == orientation
+        assert res.accepted
+        assert abs(res.crossover_contact - rec.crossover_contact) <= 2.0 * self.TOL_CONTACTS
+
+    @pytest.mark.parametrize("pitch_um,n_channels", [(25.0, 48), (50.0, 24), (100.0, 12)])
+    def test_one_physical_column_gives_one_depth_at_any_pitch(self, pitch_um, n_channels):
+        """The same 1200 um column sampled at three pitches. Discretization must not
+        change where the motif is in tissue."""
+        c_true = 0.4 * (n_channels - 1)
+        _, depths = self._recover(c_true, n_channels=n_channels, pitch_um=pitch_um)
+        true_depth_um = c_true * pitch_um
+        assert np.median(depths) == pytest.approx(true_depth_um, abs=200.0)
+
+    @pytest.mark.parametrize("n_channels", [12, 24, 48])
+    def test_equivalent_motif_across_channel_counts(self, n_channels):
+        errors, _ = self._recover(0.4 * (n_channels - 1), n_channels=n_channels)
+        assert abs(np.median(errors)) <= self.TOL_CONTACTS * (n_channels / 24.0)
+
+    @pytest.mark.parametrize("nperseg", [250, 500, 1000])
+    def test_equivalent_motif_across_frequency_grids(self, nperseg):
+        errors, _ = self._recover(9.2, nperseg=nperseg)
+        assert abs(np.median(errors)) <= self.TOL_CONTACTS
+
+    def test_the_null_is_rejected_at_the_calibrated_threshold(self):
+        rng = np.random.default_rng(11)
+        for _ in range(6):
+            lfp = jnwb.testing.synth_white_noise(shape=(24, self.N_SAMPLES), rng=rng)
+            res = vflip_from_lfp(lfp, self.FS)
+            assert not res.accepted
+            assert res.crossover_contact is None
+
+    def test_recovery_improves_with_snr_and_is_absent_at_the_noise_floor(self):
+        """The calibrated operating regime: no acceptance below SNR 5, all of it by 10."""
+        rates = {}
+        for snr in (1.0, 10.0):
+            accepted = 0
+            for seed in self.SEEDS:
+                rec = jnwb.testing.synth_laminar_motif(
+                    24, self.N_SAMPLES, self.FS, c_crossover=9.2, snr=snr, rng=seed,
+                )
+                accepted += bool(vflip_from_lfp(rec.lfp, self.FS).accepted)
+            rates[snr] = accepted / len(self.SEEDS)
+        assert rates[1.0] == 0.0, f"a motif at the noise floor was accepted: {rates}"
+        assert rates[10.0] >= 0.8, f"a clear motif was not recovered: {rates}"
+
+    def test_the_default_threshold_is_the_calibrated_one(self):
+        """Threshold 6.0 belonged to the pre-repair score and must not come back."""
+        import json
+
+        raw = json.loads(
+            (pathlib.Path(__file__).resolve().parents[1]
+             / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
+             ).read_text(encoding="utf-8")
+        )
+        assert DEFAULT_MIN_SUPPORT_SCORE != 6.0
+        assert raw["operating"]["selected_threshold"] == DEFAULT_MIN_SUPPORT_SCORE
+        assert raw["operating"]["acceptance_available"] is True
+        assert raw["operating"]["curves"][str(DEFAULT_MIN_SUPPORT_SCORE)]["fpr"] <= 0.05

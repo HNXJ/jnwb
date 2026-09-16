@@ -272,7 +272,10 @@ class TestJrsaIsUnitFree:
 
 @pytest.mark.parametrize("scale", [1e-3, 1e-6, 1e-9])
 def test_vflip_does_not_depend_on_amplitude_units(scale):
-    lfp = np.asarray(jt.synth_laminar_motif(rng=0).lfp, dtype=float)
+    # snr=20 rather than the generator default of 4: after the 0.2.4 recalibration a motif
+    # at SNR 4 is below the acceptance threshold, so the default fixture would fail on
+    # ref.accepted before the unit-invariance this test exists to check is ever exercised.
+    lfp = np.asarray(jt.synth_laminar_motif(rng=0, snr=20.0).lfp, dtype=float)
     ref = jnwb.vflip_from_lfp(lfp, FS)
     got = jnwb.vflip_from_lfp(lfp * scale, FS)
     assert ref.accepted and got.accepted

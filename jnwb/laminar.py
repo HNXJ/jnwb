@@ -49,8 +49,10 @@ class VFlipResult:
             the ordered contacts, or None if rejected or contact spacing is unavailable.
         support_score: Support metric Omega evaluating contrast magnitude, peak separation,
             and transition sharpness. Returned for both accepted and rejected fits.
-        profile: 1D array of shape (n_channels,) containing the standardized spectrolaminar
-            difference profile Delta(c) along the ordered contacts.
+        profile: 1D array of shape (n_channels,) containing the spectrolaminar difference
+            profile Delta(c) along the ordered contacts, built from the two band depth
+            profiles after each is rescaled to [0, 1]. Its zero crossing is the reported
+            crossover_contact.
         low_peak_contact: Integer contact index of the low-frequency (alpha/beta) power peak.
         high_peak_contact: Integer contact index of the high-frequency (gamma) power peak.
         orientation: Resolved orientation string ('superficial_to_deep' or 'deep_to_superficial').
@@ -99,6 +101,22 @@ class VFlipResult:
         }
 
 
+def _unit_range(values: np.ndarray) -> np.ndarray:
+    """Rescale a depth profile to span [0, 1] across contacts.
+
+    Used to strip each analysis band's own additive background level and gain before the
+    two depth profiles are differenced to locate the crossover. Unlike mean- or
+    sum-constrained normalizations it leaves the profile's spatial mean free, which is
+    what carries the location of the transition.
+    """
+    lo = float(np.min(values))
+    hi = float(np.max(values))
+    span = hi - lo
+    if span < 1e-12:
+        return np.zeros_like(values)
+    return (values - lo) / span
+
+
 def vflip(
     psd: np.ndarray,
     freqs: np.ndarray,
@@ -108,7 +126,7 @@ def vflip(
     contact_spacing: Optional[float] = None,
     probe_geometry: Optional[Any] = None,
     orientation: str = "auto",
-    min_support_score: float = 6.0,
+    min_support_score: float = 3.75,
     bad_channel_mask: Optional[np.ndarray] = None,
     min_channels: int = 8,
     min_peak_distance: int = 2,
@@ -124,19 +142,29 @@ def vflip(
     and infragranular (deep) layers exhibit predominant low-frequency (alpha/beta) power.
 
     Mathematical Estimator:
-        1. Standardizes power per frequency across contacts along the shaft:
-           :math:`\\tilde{P}(c, f) = (P(c, f) - \\mu_c(f)) / \\sigma_c(f)`.
+        1. Expresses power as relative power per frequency across contacts along the
+           shaft: :math:`\\tilde{P}(c, f) = (P(c, f) - \\min_k P(k, f)) /
+           (\\max_k P(k, f) - \\min_k P(k, f))`. Through 0.2.3 this was a columnwise
+           z-score, which forced every column to zero mean across contacts and so pinned
+           the crossing of :math:`\\Delta(c)` near the centre of the sampled contacts
+           whatever the true crossover was; see the 0.2.4 entry in `CHANGELOG.md`.
         2. Computes low-band and high-band power profiles across contacts:
            :math:`L(c) = \\frac{1}{|F_{\\text{low}}|} \\sum_{f \\in F_{\\text{low}}} \\tilde{P}(c, f)`,
            :math:`H(c) = \\frac{1}{|F_{\\text{high}}|} \\sum_{f \\in F_{\\text{high}}} \\tilde{P}(c, f)`.
-        3. Forms the signed spectrolaminar difference profile:
-           :math:`\\Delta(c) = H(c) - L(c)` (oriented superficial to deep).
+        3. Rescales each depth profile to :math:`[0, 1]` across contacts, removing the
+           differing additive background the two analysis bands contribute, then forms
+           the signed spectrolaminar difference profile
+           :math:`\\Delta(c) = \\hat{H}(c) - \\hat{L}(c)` (oriented superficial to deep).
+           The support score below deliberately uses the unrescaled profiles, since
+           rescaling gives a pure noise profile the same range as a real motif.
         4. Identifies continuous sub-contact zero-crossing root :math:`c^*`:
            :math:`c^* = i + \\frac{-\\Delta(i)}{\\Delta(i+1) - \\Delta(i)}`
            located between the high-frequency peak :math:`c_{\\text{high}}` and low-frequency peak :math:`c_{\\text{low}}`.
         5. Evaluates the support score :math:`\\Omega` density-normalized to a canonical 24-contact reference
            baseline (:math:`(N/24)^{1.5}`) based on contrast magnitude, fractional spatial peak separation,
-           and RMS difference profile across contacts. If :math:`\\Omega < \\Omega_{\\text{thresh}}` or no valid
+           and RMS difference profile across contacts, with each frequency-dependent term
+           normalized for the number of contributing bins so the score's null does not
+           move with recording length or `nperseg`. If :math:`\\Omega < \\Omega_{\\text{thresh}}` or no valid
            crossover exists, the fit is rejected (`accepted=False`, `crossover_contact=None`).
 
     Args:
@@ -152,7 +180,7 @@ def vflip(
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
-        min_support_score: Minimum support score Omega required to accept the fit (default: 6.0).
+        min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
@@ -295,15 +323,50 @@ def vflip(
     if psd_scale > 0:
         clean_psd = clean_psd / psd_scale
 
-    # Z-score normalize per frequency across contacts
-    col_means = np.mean(clean_psd, axis=0)
-    col_stds = np.std(clean_psd, axis=0)
-    col_stds[col_stds < 1e-12] = 1e-12
-    normed_psd = (clean_psd - col_means) / col_stds
+    # Min-max normalize per frequency across contacts, to relative power in [0, 1].
+    #
+    # This replaces the columnwise z-score used through 0.2.3. Z-scoring forces every
+    # frequency column to zero mean across contacts, so both band profiles carry zero
+    # spatial mean and the difference profile Delta(c) = H(c) - L(c) sums to zero
+    # identically. The zero crossing of a zero-sum profile sits near the centre of the
+    # sampled contacts whatever the true crossover is: for a profile linear in contact
+    # index it is pinned to the midpoint exactly. Measured on a known motif at SNR 100,
+    # true crossovers of 5.5 / 7.5 / 11.5 / 15.5 / 18.5 were returned with bias
+    # +3.98 / +2.17 / -0.01 / -1.92 / -4.75 contacts, a slope of about 0.31 estimated
+    # contacts per true contact, and the shift equalled the removed spatial mean.
+    #
+    # The relative power fraction P(c, f) / sum_k P(k, f) is the other reading of the
+    # published convention. It constrains each column to sum to one, so both band
+    # profiles have spatial mean 1/C and Delta(c) again sums to zero: measured bias
+    # +3.81 / +2.25 / +0.11 / -1.79 / -4.43, indistinguishable from z-scoring. Any
+    # normalization that fixes a column's mean or sum carries this defect.
+    #
+    # Min-max constrains the extremes instead of the mean, leaving the spatial mean of
+    # Delta free to encode where the motif actually reverses.
+    col_min = np.min(clean_psd, axis=0)
+    col_max = np.max(clean_psd, axis=0)
+    col_range = col_max - col_min
+    col_range[col_range < 1e-12] = 1e-12
+    normed_psd = (clean_psd - col_min) / col_range
 
     # 4. Band profiles
     low_profile = np.mean(normed_psd[:, mask_low], axis=1)
     high_profile = np.mean(normed_psd[:, mask_high], axis=1)
+
+    # Depth profiles rescaled to [0, 1] across contacts, used only to locate the
+    # crossover. The two analysis bands contain different fractions of bins that carry
+    # motif power -- with a gamma source at 75 Hz in a 50-150 Hz band and a beta source
+    # at 18 Hz in an 8-30 Hz band, about 30% against about 45% -- so each band mean
+    # carries its own additive background level. Their difference is then not zero where
+    # the motif actually reverses, which displaced the crossing by about +1.9 contacts at
+    # a true crossover of 5.5. Rescaling each depth profile to a common range removes the
+    # band-specific offset and gain without constraining the spatial mean.
+    #
+    # The score below deliberately keeps the unscaled profiles: rescaling forces a pure
+    # noise profile to span [0, 1] exactly as a real motif does, which is the magnitude
+    # evidence the support score exists to weigh.
+    low_located = _unit_range(low_profile)
+    high_located = _unit_range(high_profile)
 
     low_peak = int(np.argmax(low_profile))
     high_peak = int(np.argmax(high_profile))
@@ -313,18 +376,23 @@ def vflip(
         if high_peak < low_peak:
             resolved_orientation = "superficial_to_deep"
             signed_profile = high_profile - low_profile
+            located_profile = high_located - low_located
         elif low_peak < high_peak:
             resolved_orientation = "deep_to_superficial"
             signed_profile = low_profile - high_profile
+            located_profile = low_located - high_located
         else:
             resolved_orientation = "undetermined"
             signed_profile = high_profile - low_profile
+            located_profile = high_located - low_located
     elif orientation == "superficial_to_deep":
         resolved_orientation = "superficial_to_deep"
         signed_profile = high_profile - low_profile
+        located_profile = high_located - low_located
     else:  # deep_to_superficial
         resolved_orientation = "deep_to_superficial"
         signed_profile = low_profile - high_profile
+        located_profile = low_located - high_located
 
     # 6. Orientation consistency check
     orientation_matches = True
@@ -349,8 +417,8 @@ def vflip(
         # Signed profile: positive at c_sup, negative at c_deep
         cross_candidates = []
         for i in range(c_sup, c_deep):
-            v1 = signed_profile[i]
-            v2 = signed_profile[i + 1]
+            v1 = located_profile[i]
+            v2 = located_profile[i + 1]
             if (v1 > 0 and v2 <= 0) or (v1 >= 0 and v2 < 0):
                 denom = v1 - v2
                 sub_c = float(i + (v1 / denom))
@@ -380,15 +448,33 @@ def vflip(
     n_ref = 24.0
     density_scale = float((n_channels / n_ref) ** 1.5)
 
-    # 1. Spectral pole distance between low-peak and high-peak contact across standardized frequencies
-    p_dist = float(np.linalg.norm(normed_psd[high_peak] - normed_psd[low_peak]))
-    # 2. Band difference profile Euclidean distance across contacts
-    band_dist = float(np.linalg.norm(signed_profile))
+    # Frequency-grid normalization. Under the null each normalized bin is O(1), so a
+    # Euclidean norm taken over the whole grid grows as sqrt(n_freqs), while a band mean
+    # over n bins has null scale 1/sqrt(n). The score multiplies one of the former by two
+    # of the latter, giving a null that falls as n_freqs^(-1/2); in log terms the null
+    # median shifts by -0.5 * ln(n_freqs), which reproduced the measured shift across the
+    # 126 -> 1001 bin sweep to within 0.27 (exactly at the largest grid). A fixed
+    # threshold therefore meant different false-positive rates at different recording
+    # lengths and nperseg. Taking the spectral distance as an RMS over bins, and
+    # restoring unit null scale to the band-mean terms, makes every factor grid-free.
+    # Null variance of H(c) - L(c) is (1/n_high + 1/n_low) times the per-bin variance.
+    band_bin_scale = float(np.sqrt(1.0 / (1.0 / max(1, n_high_bins) + 1.0 / max(1, n_low_bins))))
+
+    # 1. Spectral pole distance between low-peak and high-peak contact, as an RMS across
+    #    the standardized frequency grid rather than a sum-norm over it
+    p_dist = float(
+        np.linalg.norm(normed_psd[high_peak] - normed_psd[low_peak]) / np.sqrt(max(1, n_freqs))
+    )
+    # 2. Band difference profile Euclidean distance across contacts, at unit null scale
+    band_dist = float(np.linalg.norm(signed_profile) * band_bin_scale)
     # 3. Contrast magnitude across poles:
     # High-frequency dominance at high peak + Low-frequency dominance at low peak
     contrast = float(
-        (high_profile[high_peak] - low_profile[high_peak])
-        + (low_profile[low_peak] - high_profile[low_peak])
+        (
+            (high_profile[high_peak] - low_profile[high_peak])
+            + (low_profile[low_peak] - high_profile[low_peak])
+        )
+        * band_bin_scale
     )
     # 4. Spatial separation in channels
     sep_metric = float(max(1, peak_sep))
@@ -421,7 +507,7 @@ def vflip(
         crossover_contact=final_cross_c,
         crossover_depth_um=final_cross_z,
         support_score=support_score,
-        profile=signed_profile,
+        profile=located_profile,
         low_peak_contact=low_peak,
         high_peak_contact=high_peak,
         orientation=resolved_orientation,
@@ -447,7 +533,7 @@ def vflip_from_lfp(
     contact_spacing: Optional[float] = None,
     probe_geometry: Optional[Any] = None,
     orientation: str = "auto",
-    min_support_score: float = 6.0,
+    min_support_score: float = 3.75,
     bad_channel_mask: Optional[np.ndarray] = None,
     min_channels: int = 8,
     min_peak_distance: int = 2,
@@ -485,7 +571,7 @@ def vflip_from_lfp(
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
-        min_support_score: Minimum support score Omega required to accept the fit (default: 6.0).
+        min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
             A channel with any NaN or Inf sample is also treated as bad: it is excluded,
