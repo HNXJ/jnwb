@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence, Union
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from pynwb import NWBFile
@@ -160,6 +162,9 @@ def _row_matches_codes(cell: Any, wanted: tuple[CodeValue, ...] | None) -> bool:
     return any(codes_equal(cell, code) for code in wanted)
 
 
+_DEFAULT_CODE_COLUMN = "codes"
+
+
 def _extract_onsets(
     df: pd.DataFrame,
     *,
@@ -246,9 +251,14 @@ def events(
         (``/intervals/test_synth_task``). When omitted, :func:`resolve_interval_table`
         applies the ``trials`` → sole-table → ambiguity rules.
     code_column:
-        Column holding event codes. Defaults to ``codes``. When ``codes`` is
-        not present in the table and no filtering is requested, onsets are
-        returned without error and ``EventTable.code_column`` is set to ``None``.
+        Column holding event codes. Defaults to ``codes``, which is a jnwb
+        convention rather than an NWB one: a file from another lab usually names
+        this column something else, and :func:`inspect` lists the columns that
+        exist. A column named explicitly here must exist, or
+        :class:`ColumnNotFoundError` is raised naming the columns that do. The
+        default name is the one exception -- when ``codes`` is absent, onsets are
+        returned without error, ``EventTable.code_column`` is ``None``, and a
+        ``UserWarning`` names the available columns.
     onset_column:
         Timestamp column for event alignment. Defaults to ``start_time``.
 
@@ -259,11 +269,25 @@ def events(
     """
     def _build(nwb: NWBFile) -> EventTable:
         name, df = _read_interval_dataframe(nwb, table)
-        active_code_col = (
-            code_column
-            if (code_column is not None and code_column in df.columns)
-            else None
-        )
+        active_code_col = code_column
+        if code_column is not None and code_column not in df.columns:
+            # A column the caller named explicitly is a stated expectation, so it fails the
+            # same way it fails in `event_onsets`. The default name is the one case that is
+            # allowed to be absent -- a file from another lab rarely has a column called
+            # `codes` -- but it warns rather than returning an empty `codes` tuple in
+            # silence, because the column that IS there is what the caller needs next.
+            if code_column != _DEFAULT_CODE_COLUMN:
+                raise ColumnNotFoundError(
+                    f"Code column '{code_column}' not found. Columns: {list(df.columns)}"
+                )
+            warnings.warn(
+                f"No '{_DEFAULT_CODE_COLUMN}' column in interval table '{name}'; "
+                f"returning onsets without codes. Columns: {list(df.columns)}. "
+                f"Pass code_column= to read one of them as event codes.",
+                UserWarning,
+                stacklevel=3,
+            )
+            active_code_col = None
         onsets, codes_out, stops = _extract_onsets(
             df,
             codes=None,
