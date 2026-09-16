@@ -9,6 +9,25 @@ installed wheel (`pythonpath = ["."]`); `docs/api.md` is generated from `__all__
 checked against it; gate 5 is satisfied by its own generator; and a declared hard dependency
 can be absent while 1465 tests pass, because two modules convert the `ImportError` into NaN.
 
+## Execution protocol (authorized 2026-09-16)
+
+The stack is frozen. It is executed to empty in dependency batches, not as 84 approval cycles:
+A `05-01..25` scientific correctness, B `26..42` API and NWB, C `43..52` performance and
+backend, D `53..60` tests, E `61..66` docs, F `67..72` skills and agents, G `73..78` packaging,
+H `79..82` harness, I `83..84` independent critic and release.
+
+Within a batch: reproduce, repair, add the discriminator, continue. Critical and high findings
+are reproduced first. **A finding that does not reproduce is marked unsupported with its
+evidence and its item deleted -- correct code is not modified to match a wrong audit.** One
+batch-level regression and gate run, then commit and push, then the next batch.
+
+The numbering controls coverage, not ordering: when a defect being repaired is mechanically
+preventable, the smallest relevant repair from `05-79..82` is applied in that batch rather than
+deferred to H, so later work benefits from the gate.
+
+Qualification runs in a clean environment built from the declared extras, or in CI. The
+development `.venv` described at the end of this file is not package evidence.
+
 ## 1. Scientific correctness
 
 ### 05-01 `laplacian_reference` / `bipolar_reference` return uninitialised memory
@@ -208,10 +227,10 @@ can be absent while 1465 tests pass, because two modules convert the `ImportErro
 ### 05-25 An empty selection returns fabricated zeros in one module and NaN in another, and both are test-enforced
 - **Problem** `trajectory.py` and `analyzers.py` take opposite positions on the same condition, each pinned by a passing test (`test_trajectory.py:112` enforces zeros; `test_analyzers_coverage.py:106` enforces "NaN, not fabricated zeros").
 - **Evidence** Both green at `3f432306`.
-- **Change** Pick one policy and make both modules and both tests follow it. Invariant 1 of `AGENTS.md` ("no empirical value that no script computed from data") points at NaN.
-- **Preserves** Whichever behaviour is chosen, consistently.
-- **Discriminator** One documented empty-selection policy across the package.
-- **Accept** The policy is stated in `docs/common_mistakes.md` and both tests assert the same thing. **This needs a ruling before implementation.**
+- **Change** Ruled 2026-09-16: an explicitly requested population with no observations yields an *unavailable* estimate, never zero. Reconcile `trajectory.py` toward the non-fabrication semantics already in `analyzers.py`. Use NaN where the return type is a float array; use `None` or an explicit availability field where the structured type supports it. Zero stays valid only when zero was estimated from observations. Retarget `test_trajectory.py:112`.
+- **Preserves** Every non-empty selection, and `analyzers.py`'s current behaviour.
+- **Discriminator** One documented empty-selection policy across the package; reintroducing the fabricated zero fails a test.
+- **Accept** The policy is stated in `docs/common_mistakes.md`, both tests assert it, and no public function returns 0.0 for a selection it did not observe. This is `AGENTS.md` invariant 1.
 
 ## 3. API consistency
 
@@ -266,10 +285,10 @@ can be absent while 1465 tests pass, because two modules convert the `ImportErro
 ### 05-32 `jnwb.ontology` is 11 public symbols no workflow can reach
 - **Problem** 387 lines, 11 exported dataclasses and 3 factories, with zero call sites in `jnwb/`, zero behavioural tests, and zero mentions in `skills/`, `examples/` or `README.md`. The module states the constructors "are intentionally absent... a generic implementation would have nothing to read from".
 - **Evidence** `Dataset, AlignedDataset, Alignment, EpochCollection, Question, Interpretation, Provenance, Lineage` are never mentioned anywhere under `tests/`; `Query`'s only behavioural line asserts a value the test just set. `create_aligned_dataset`, `create_result` and `create_figure` each return exactly one grep hit across the whole repository: their own definition.
-- **Change** Decide: remove from `__all__`, `_lazy_exports` and `_api_surface` while keeping the module importable, or document it as a downstream contract and give it behavioural tests. A public API removal needs a `CHANGELOG.md` entry and a deprecation path per `AGENTS.md` section 8.
-- **Preserves** Import compatibility under either choice.
-- **Discriminator** Every name in `__all__` is reachable from a documented workflow.
-- **Accept** `__all__` contains no symbol without a test and a documented use. **This needs a ruling before implementation.**
+- **Change** Ruled 2026-09-16: retain the public surface. "No caller in this repository" is not evidence of no downstream caller, and a public library exists for callers a repository search cannot observe. Evaluate each of the 14 exports against `distinct useful operation AND documented AND tested AND generic`; remove or deprecate only those that fail, with a `CHANGELOG.md` entry and a deprecation path per `AGENTS.md` section 8. Do not reduce the API to improve an internal usage metric. The audit's evidence is therefore a documentation-and-test gap, not a removal case.
+- **Preserves** Import compatibility and every retained symbol.
+- **Discriminator** Every retained name has a behavioural test that fails when its operation breaks.
+- **Accept** No symbol in `__all__` lacks a test and a documented use; every removal cites the four-part criterion, not a call-site count.
 
 ## 4. Reproducibility and statistics
 
@@ -605,7 +624,7 @@ can be absent while 1465 tests pass, because two modules convert the `ImportErro
 - **Change** Decide whether `add_tool` ships. If it does: document it and its env gate, and wire `custom_tools` into `__init__.py` so the message is true. If not: drop it from `__init__.py`. Point every count at the live registry rather than restating it.
 - **Preserves** The three ingest tools.
 - **Discriminator** The documented tool list equals `mcp.list_tools()`.
-- **Accept** A test compares the documented table against the live registry. **The ship-or-drop question needs a ruling.**
+- **Accept** A test compares the documented table against the live registry. Ruled 2026-09-16: resolve from evidence, not by asking. Inspect `add_tool` for mutation scope, input validation, security boundary and overlap with the other three tools. Keep it, wire `custom_tools` in and document four tools only if it is a distinct, safe, generic operation genuinely intended for external agents; otherwise remove it from the exposed MCP surface and document three. Public exposure requires intent, and the live implementation -- not the stale docs -- is the authority on what it does.
 
 ## 11. Packaging
 
@@ -647,7 +666,7 @@ can be absent while 1465 tests pass, because two modules convert the `ImportErro
 - **Change** Recommendation from the packaging audit, for a ruling: keep `skills/` in the sdist as source, correct the `MANIFEST.in` comment to say what it does, and do not put the tree in the wheel — the consumer is a harness configured by path, not the Python runtime, and `site-packages` is the worst place to put something that must be pointed at. Close the discovery gap instead with a machine-readable pointer (a `jnwb.SKILLS_URL` constant naming the GitHub tree). The `importlib.resources` and console-entry-point routes both require the tree inside the wheel, which is the second tree gate 2 forbids.
 - **Preserves** Exactly one canonical skill tree.
 - **Discriminator** A `pip install` user can find the skills without guessing.
-- **Accept** **This needs a ruling.** It closes the open half of the carried-forward 05-02.
+- **Accept** Ruled 2026-09-16, as recommended: one canonical tree in the repository; ship `skills/` in the sdist where appropriate; do **not** create a duplicate `jnwb/.../skills` tree to force them into the wheel. Wheel runtime resources carry skills only if a runtime loader needs them, and none does -- `grep -rn "skills" jnwb/ --include=*.py` returns nothing. Packaging symmetry is not an objective. Correct the `MANIFEST.in` comment to describe what its mechanism actually does, and close the discovery gap with a machine-readable pointer. This closes the open half of the carried-forward 05-02.
 
 ### 05-78 Declared test tooling that is never invoked, and a second source of truth for the docs pins
 - **Problem** Unused declarations and duplicated configuration.
