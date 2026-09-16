@@ -1256,6 +1256,14 @@ def _rv(x1, x2, axis=-1, **kwargs):
     # Standard formula uses full gram matrices: S_xx = X @ X.T (m x m)
     # trace(S_xy @ S_xy.T) = trace(X @ Y.T @ Y @ X.T) = trace(X.T @ X @ Y.T @ Y)
     # = Frobenius norm of (X.T @ Y) squared. This drops calculation from O(m^3) to O(m * d1 * d2 + d1^3).
+    # The RV coefficient is defined on column-centred matrices, exactly as _cka centres
+    # above. Without centring the Gram matrices are dominated by the common mean, so any
+    # two representations sharing an offset look identical: two independent Gaussian
+    # samples shifted by +50 returned RV = 1.0000, and independent zero-mean samples
+    # returned 0.16 where the centred value is the small-sample floor.
+    X = X - X.mean(axis=0, keepdims=True)
+    Y = Y - Y.mean(axis=0, keepdims=True)
+
     # RV is invariant to scaling either input; normalise first (see _cka).
     nx, ny = np.linalg.norm(X), np.linalg.norm(Y)
     if nx == 0 or ny == 0:

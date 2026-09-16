@@ -137,3 +137,32 @@ class TestMultipleCorrectionFallback:
         q = _multiple_correction(p, method="bonferroni", alpha=0.05)
         np.testing.assert_allclose(q, np.array([0.03, 0.15, 1.0]))
 
+
+
+class TestRvIsCentred:
+    """The RV coefficient is defined on column-centred matrices. `_rv` normalised by the
+    Frobenius norm but never centred, so the Gram matrices were dominated by the common
+    mean and any two representations sharing an offset looked identical: two independent
+    Gaussian samples shifted by +50 returned RV = 1.0000.
+    """
+
+    def test_independent_representations_sharing_an_offset_are_not_identical(self):
+        from jnwb.jrsa import _rv
+
+        rng = np.random.default_rng(0)
+        a = rng.standard_normal((100, 20)) + 50.0
+        b = rng.standard_normal((100, 20)) + 50.0
+        offset = float(_rv(a, b)[0])
+        centred = float(_rv(a - a.mean(axis=0), b - b.mean(axis=0))[0])
+        assert offset < 0.5, f"independent representations report RV = {offset:.4f}"
+        assert offset == pytest.approx(centred, abs=1e-12), (
+            "adding a constant offset changed RV, so the estimator is still not centred"
+        )
+
+    def test_rv_is_one_for_an_affine_image_of_the_same_representation(self):
+        from jnwb.jrsa import _rv
+
+        rng = np.random.default_rng(1)
+        x = rng.standard_normal((80, 12))
+        assert float(_rv(x, x)[0]) == pytest.approx(1.0, abs=1e-10)
+        assert float(_rv(x, 3.0 * x + 7.0)[0]) == pytest.approx(1.0, abs=1e-10)

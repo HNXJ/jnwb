@@ -327,3 +327,46 @@ class TestCrossAreaCoherenceContract:
         # Bounded in [0, 1]; the upper compare carries float slack because the
         # estimator can land exactly on 1.0 (see the segment-count caveat below).
         assert 0.0 <= out["peak_coherence_value"] <= 1.0 + 1e-9
+
+
+class TestStationarityDiagnosticIsCalibrated:
+    """`_adf_pvalue` drives `stationarity_ok` and `ok_for_interpretation` on every Granger
+    result, so a miscalibrated one silently certifies non-stationary series as safe.
+
+    It used to compare the Dickey-Fuller t-statistic to the normal distribution. The DF
+    null is shifted well to the left (5% critical value near -2.86 with a constant, not
+    -1.645), so it certified roughly 46-48% of pure random walks as stationary while its
+    docstring called itself conservative.
+    """
+
+    def test_random_walks_are_not_certified_stationary(self):
+        from jnwb.connectivity import _adf_pvalue
+
+        rng = np.random.default_rng(0)
+        for n in (200, 500):
+            p = np.array([_adf_pvalue(np.cumsum(rng.standard_normal(n))) for _ in range(600)])
+            rate = float(np.mean(p <= 0.05))
+            assert rate <= 0.10, (
+                f"n={n}: {rate:.3f} of pure random walks certified stationary; a calibrated "
+                f"test rejects the unit root about 5% of the time under H0"
+            )
+
+    def test_a_stationary_series_is_still_detected(self):
+        """The repair must not buy calibration by refusing to reject anything."""
+        from jnwb.connectivity import _adf_pvalue
+
+        rng = np.random.default_rng(1)
+        hits = 0
+        for _ in range(100):
+            e = rng.standard_normal(500)
+            y = np.zeros(500)
+            for t in range(1, 500):
+                y[t] = 0.5 * y[t - 1] + e[t]
+            hits += _adf_pvalue(y) <= 0.05
+        assert hits >= 90, f"only {hits}/100 stationary AR(1) series rejected the unit root"
+
+    def test_degenerate_series_report_nan_rather_than_a_number(self):
+        from jnwb.connectivity import _adf_pvalue
+
+        assert np.isnan(_adf_pvalue(np.arange(5.0)))
+        assert np.isnan(_adf_pvalue(np.ones(100)))
