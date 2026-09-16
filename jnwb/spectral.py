@@ -1425,7 +1425,17 @@ def imaginary_coherency(
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
     _require_band_bins(freqs, mask, freq_range, "imaginary_coherency")
 
-    denom = np.sqrt(np.clip(pxx[mask] * pyy[mask], 1e-30, None))
+    # Coherency is scale-invariant, so its guard must be too. An absolute floor of 1e-30 on
+    # pxx*pyy is a statement about units: the product of two PSDs scales as the fourth power
+    # of the signal amplitude, so a recording stored in a smaller unit walks into the clip
+    # and the estimate collapses. Measured on a genuinely coherent pair, icoh_mean held at
+    # -0.5144 down to a scale of 1e-6 and then fell to -0.000142 at 1e-8 and to zero below
+    # that -- a fabricated zero produced by the choice of unit alone. A floor relative to
+    # the band's own largest product scales with the data and leaves the ratio untouched.
+    prod = pxx[mask] * pyy[mask]
+    prod_scale = float(np.max(prod)) if prod.size else 0.0
+    floor = np.finfo(float).tiny if prod_scale <= 0.0 else prod_scale * 1e-24
+    denom = np.sqrt(np.clip(prod, floor, None))
     coherency = sxy[mask] / denom
     im_part = np.imag(coherency)
     coh_mag = np.abs(coherency) ** 2

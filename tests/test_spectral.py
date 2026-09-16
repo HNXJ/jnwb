@@ -1608,3 +1608,34 @@ class TestMultitaperOneSidedScalingAtOddLengths:
         x = np.random.default_rng(0).standard_normal(n)
         freqs, psd = compute_multitaper_psd(x, fs=1000.0)
         assert float(np.trapezoid(psd, freqs)) == pytest.approx(x.var(), rel=0.06)
+
+
+class TestImaginaryCoherencyIsScaleFree:
+    """Coherency is invariant to the amplitude units of its inputs, so its numerical guard
+    must be too. The denominator was clipped at an absolute 1e-30 on pxx*pyy, and the
+    product of two PSDs scales as the fourth power of the signal amplitude, so a recording
+    stored in a smaller unit walked into the clip. On a genuinely coherent pair, icoh_mean
+    held at -0.5144 down to a scale of 1e-6, then fell to -0.000142 at 1e-8 and to zero
+    below that: a fabricated zero produced by the choice of unit alone.
+    """
+
+    @staticmethod
+    def _coherent(n=4000, seed=0):
+        rng = np.random.default_rng(seed)
+        x = rng.standard_normal(n)
+        return x, np.roll(x, 3) + rng.standard_normal(n)
+
+    @pytest.mark.parametrize("scale", [1e-40, 1e-20, 1e-10, 1e-8, 1e-6, 1.0, 1e6, 1e20])
+    def test_the_estimate_does_not_depend_on_amplitude_units(self, scale):
+        x, y = self._coherent()
+        kw = dict(fs=1000.0, freq_range=(5.0, 100.0))
+        reference = imaginary_coherency(x, y, **kw)
+        scaled = imaginary_coherency(x * scale, y * scale, **kw)
+        assert scaled["icoh_mean"] == pytest.approx(reference["icoh_mean"], rel=1e-9)
+        assert scaled["coh_mag_mean"] == pytest.approx(reference["coh_mag_mean"], rel=1e-9)
+
+    def test_a_constant_channel_still_reports_zero_rather_than_dividing_by_zero(self):
+        x, _ = self._coherent()
+        res = imaginary_coherency(x, np.zeros_like(x), fs=1000.0, freq_range=(5.0, 100.0))
+        assert res["icoh_mean"] == 0.0 and res["coh_mag_mean"] == 0.0
+        assert np.isfinite(res["icoh_abs_mean"])
