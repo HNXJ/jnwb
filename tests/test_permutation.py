@@ -145,7 +145,44 @@ class TestBuildPermutationPlan:
         )
 
     def test_manifest_records_sample_and_group_counts(self):
-        plan = build_permutation_plan([0, 0, 1, 1], [0, 0, 1, 1], n_permutations=1, seed=0)
+        # Groups [0, 0, 1, 1] with labels [0, 0, 1, 1] is a nested design: each group holds
+        # one condition, so every within-group draw is the identity. The fixture used to be
+        # exactly that, and asserted only the bookkeeping columns, so it passed on a plan
+        # whose 'null' was a point mass. Both labels now appear inside each group.
+        plan = build_permutation_plan([0, 1, 0, 1], [0, 0, 1, 1], n_permutations=1, seed=0)
         row = plan["draw_manifest"].iloc[0]
         assert row["n_samples"] == 4
         assert row["n_groups"] == 2
+
+    def test_the_plan_reports_how_much_null_it_actually_has(self):
+        plan = build_permutation_plan([0, 1, 0, 1], [0, 0, 1, 1], n_permutations=50, seed=0)
+        assert plan["n_permutable_groups"] == 2
+        assert plan["n_distinct_draws"] > 1
+
+    def test_a_nested_design_is_refused_rather_than_returning_a_vacuous_null(self):
+        """Labels nested within groups leave within-group permutation no freedom at all:
+        1000 of 1000 draws came back identical and a 500-row manifest carried a single
+        distinct digest, so any p-value built on it was 1.0 by construction."""
+        with pytest.raises(ValueError, match="no exchangeability"):
+            build_permutation_plan([0, 0, 1, 1], [0, 0, 1, 1], n_permutations=10, seed=0)
+        with pytest.raises(ValueError, match="no exchangeability"):
+            permute_labels(
+                np.array([0, 0, 1, 1]),
+                groups=np.array([0, 0, 1, 1]),
+                scheme="within_group",
+                rng=np.random.default_rng(0),
+            )
+
+    def test_partially_permutable_designs_still_work(self):
+        """Only some groups need internal label variation; the rest are simply left alone."""
+        y = np.array([0, 1, 0, 1, 1, 1])
+        g = np.array([0, 0, 1, 1, 2, 2])
+        seen = {
+            tuple(permute_labels(y, groups=g, scheme="within_group",
+                                 rng=np.random.default_rng(i)))
+            for i in range(50)
+        }
+        assert len(seen) > 1
+        for draw in seen:
+            assert draw[4:] == (1, 1)
+            assert sorted(draw[:2]) == [0, 1] and sorted(draw[2:4]) == [0, 1]
