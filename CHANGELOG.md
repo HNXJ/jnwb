@@ -4,7 +4,7 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.4rc1] - 2026-09-14
+## [0.2.4] - 2026-09-16
 
 ### Added
 
@@ -170,6 +170,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a contract error naming both shapes rather than a raw broadcast failure, and the release
   gate's own smoke test is repaired: it asserted `hasattr(wpli_res, 'wpli')` on a dict, which is
   always False, and used a key name, `wpli_debiased`, that does not exist.
+- **`jrsa` accepted a seed it never used.** It spells its seed `random_state`, while
+  `connectivity`, `laminar`, `statistics` and `permutation` all spell it `seed`; and it forwards
+  unrecognised keywords to the metric, every one of which ends in `**kwargs`. `jrsa(...,
+  seed=0)` was therefore accepted in silence with `random_state` still None, so the permutation
+  test was entropy-seeded and the result was not reproducible: four identical calls on one
+  dataset returned p = 0.2736, 0.3333, 0.2637, 0.2935, against 0.2189 four times with
+  `random_state=0`. The same hole swallowed misspelled and misdirected metric options, which
+  then returned a default-parameter answer. `seed` is now an alias for `random_state`, passing
+  both is refused, and a keyword the chosen metric does not declare raises a TypeError naming
+  the options it does accept.
 - Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
 - Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
 - Gate 6 (dataset independence) now scans every durable user-facing surface recursively:

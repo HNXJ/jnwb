@@ -215,7 +215,10 @@ def jrsa(
     batch_size : int or None
         Chunk size for large arrays.
     random_state : int or None
-        Random seed for reproducibility.
+        Random seed for reproducibility, for both the permutation null and the bootstrap.
+        May also be passed as ``seed``, the spelling used by the rest of the package;
+        passing both is an error. Leaving it None seeds from OS entropy, so the p-value
+        and confidence interval will differ between runs on identical input.
     return_type : str
         result | dict | matrix | value.
     return_null : bool
@@ -225,7 +228,10 @@ def jrsa(
     verbose : bool
         Print progress.
     **kwargs
-        Metric-specific keyword arguments.
+        Metric-specific keyword arguments (for example ``sigma`` for ``metric='hsic'``,
+        ``kernel`` for ``'cka'``, ``rdm_metric`` for ``'rsa'``, ``bins`` for
+        ``'mutual_information'``). A keyword the chosen metric does not declare raises
+        TypeError rather than being silently ignored.
 
     Returns
     -------
@@ -241,6 +247,22 @@ def jrsa(
     norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``).
     """
     t0 = time.perf_counter()
+
+    # --- seed alias -----------------------------------------------------------
+    # Every other seeded entry point in this package spells this parameter `seed`
+    # (connectivity, laminar, statistics, permutation); only jrsa spelled it
+    # `random_state`. Because jrsa forwards **kwargs to the metric, and every metric
+    # swallows **kwargs, `jrsa(..., seed=0)` used to be accepted in silence and leave
+    # random_state=None -- an entropy-seeded, irreproducible permutation test that still
+    # returned a plausible p. Four repeated calls with seed=0 gave p = 0.2736, 0.3333,
+    # 0.2637, 0.2935; with random_state=0 they give 0.2189 four times.
+    if "seed" in kwargs:
+        if random_state is not None:
+            raise TypeError(
+                "jrsa() received both `seed` and `random_state`; pass only one "
+                "(`seed` is the package-wide spelling and is an alias for `random_state`)."
+            )
+        random_state = kwargs.pop("seed")
 
     # --- collect parameter snapshot -------------------------------------------
     params = dict(
@@ -287,6 +309,17 @@ def jrsa(
         raise ValueError(
             f"Unknown metric '{metric}'. "
             f"Choose from: {sorted(_METRIC_DISPATCH)}"
+        )
+
+    # Any remaining kwargs are forwarded to the metric, which swallows **kwargs and so
+    # cannot reject a typo itself. Validate here instead: a misspelled metric option used
+    # to be dropped in silence, and the caller got a default-parameter answer.
+    _extra = set(kwargs) - _metric_kwargs(metric_fn)
+    if _extra:
+        _accepted = sorted(_metric_kwargs(metric_fn))
+        raise TypeError(
+            f"jrsa() got unexpected keyword argument(s) {sorted(_extra)} for "
+            f"metric '{metric}'. That metric accepts: {_accepted or 'no extra options'}."
         )
 
     # Shuffle the axis the metric actually treats as observations. See
@@ -752,6 +785,18 @@ def _apply_lag(x1, x2, axis_map, lag):
 # ===========================================================================
 # PRIVATE – statistics
 # ===========================================================================
+
+
+def _metric_kwargs(metric_fn):
+    """The keyword options a metric actually declares, excluding its **kwargs catch-all."""
+    import inspect
+
+    return {
+        name
+        for name, param in inspect.signature(metric_fn).parameters.items()
+        if param.kind is param.KEYWORD_ONLY
+        or (param.kind is param.POSITIONAL_OR_KEYWORD and param.default is not param.empty)
+    } - {"axis"}
 
 
 def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwargs):

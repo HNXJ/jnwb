@@ -199,13 +199,17 @@ class TestPermutationNullShufflesObservations:
             f"{metric}: p was identical ({ps[0]}) on six independent datasets, so the "
             f"permutation is shuffling an axis the metric is invariant to"
         )
-        assert max(ps) < 1.0
+        # A point mass puts EVERY dataset at exactly 1.0. A single p of 1.0 is a legitimate
+        # draw from a live null -- it happens with probability 1/(n_perm+1) per dataset --
+        # so the discriminating statement is that most datasets are not pinned there.
+        assert sum(pv == 1.0 for pv in ps) <= 1, f"{metric}: p = 1.0 on {ps}"
 
     @pytest.mark.parametrize("metric", METRICS)
     def test_independent_representations_do_not_report_p_exactly_one(self, metric):
         x1, x2 = self._pair()
         res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0, stats=True, seed=0)
         assert float(np.ravel(res.p)[0]) < 1.0
+
 
     @pytest.mark.parametrize("metric", METRICS)
     def test_a_linearly_related_representation_is_detected(self, metric):
@@ -219,3 +223,60 @@ class TestPermutationNullShufflesObservations:
                         stats=True, seed=0)
         assert related_p < 0.05, f"{metric}: related representations scored p = {related_p}"
         assert related_p < float(np.ravel(indep.p)[0])
+
+
+class TestJrsaDoesNotSwallowUnknownKeywords:
+    """`jrsa` forwards **kwargs to the metric, and every metric function itself ends in
+    **kwargs, so nothing rejected a keyword neither of them understood. Two consequences
+    were measured on the pre-repair code: `jrsa(..., seed=0)` -- the spelling every other
+    seeded entry point in this package uses -- was accepted in silence while
+    `random_state` stayed None, so four repeated calls returned p = 0.2736, 0.3333,
+    0.2637, 0.2935 on identical input; and `jrsa(..., definitely_not_a_param=123)` was
+    accepted too, so a misspelled metric option silently returned the default answer.
+    """
+
+    @staticmethod
+    def _pair():
+        rng = np.random.default_rng(0)
+        return rng.standard_normal((60, 12)), rng.standard_normal((60, 12))
+
+    def test_seed_is_honoured_and_not_absorbed_into_kwargs(self):
+        x1, x2 = self._pair()
+        ps = {
+            float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=200, bootstrap=0,
+                                   stats=True, seed=0).p)[0])
+            for _ in range(4)
+        }
+        assert len(ps) == 1, f"seed=0 gave {len(ps)} different p-values on one dataset: {ps}"
+        assert ps == {
+            float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=200, bootstrap=0,
+                                   stats=True, random_state=0).p)[0])
+        }, "seed= and random_state= must name the same stream"
+
+    def test_an_unknown_keyword_is_an_error_not_a_default_answer(self):
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="definitely_not_a_param"):
+            oa.jrsa(x1, x2, metric="hsic", permutations=10, bootstrap=0, stats=True,
+                    definitely_not_a_param=123)
+
+    def test_a_metric_option_belonging_to_another_metric_is_rejected(self):
+        """`kernel` is cka's option, not hsic's; it used to be dropped in silence."""
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="kernel"):
+            oa.jrsa(x1, x2, metric="hsic", permutations=10, bootstrap=0, stats=True,
+                    kernel="linear")
+
+    def test_the_metrics_own_options_still_reach_it(self):
+        """The guard must reject typos without disabling real options."""
+        x1, x2 = self._pair()
+        a = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
+                                   stats=False, sigma=0.5).value)[0])
+        b = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
+                                   stats=False, sigma=4.0).value)[0])
+        assert a != b, "sigma reached the metric but changed nothing"
+
+    def test_passing_both_spellings_is_refused(self):
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="both"):
+            oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, seed=0,
+                    random_state=1)
