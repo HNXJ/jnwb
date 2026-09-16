@@ -320,7 +320,17 @@ def paired_fire_prob_test(
     """
     t = np.asarray(fires_target, dtype=bool)
     u = np.asarray(fires_null, dtype=bool)
-    n = min(len(t), len(u))
+    # `n = min(len(t), len(u))` silently paired trial i of one condition with trial i of
+    # the other and dropped the remainder, so lengths 8 and 4 returned a confident
+    # risk_difference of 0.5 over four pairings that do not correspond to the same trials.
+    # `shuffle_pvalue_paired` already refuses exactly this, and its docstring names the harm.
+    if len(t) != len(u):
+        raise ValueError(
+            f"paired_fire_prob_test: fires_target and fires_null must be paired (equal "
+            f"length); got {len(t)} and {len(u)}. Trials were silently truncated to the "
+            "shorter of the two, which pairs unrelated trials."
+        )
+    n = len(t)
     if n < 2:
         return {
             "p_fire_target": float(np.mean(t)) if len(t) else float("nan"),
@@ -1534,8 +1544,15 @@ def cluster_permutation_test(
     X_arr = np.asarray(X, dtype=float)
     Y_arr = np.asarray(Y, dtype=float)
 
-    if np.isnan(X_arr).any() or np.isnan(Y_arr).any():
-        raise ValueError("Cannot perform cluster permutation test on data containing NaN values.")
+    # isfinite, not isnan. An Inf sample used to pass this guard and then drive the
+    # variance at its point to NaN, where `out=np.zeros_like(m)` left the pre-filled 0.0 --
+    # so an infinite observation guaranteed its point joined no cluster. Inf and NaN are
+    # both non-estimable, and are rejected identically.
+    if not (np.isfinite(X_arr).all() and np.isfinite(Y_arr).all()):
+        raise ValueError(
+            "Cannot perform cluster permutation test on data containing NaN or infinite "
+            "values."
+        )
 
     if scheme is None:
         scheme = "within_group" if groups is not None else "global"
@@ -1584,19 +1601,34 @@ def cluster_permutation_test(
                 raise ValueError("scheme='within_group' requires groups to be specified.")
             pooled_groups = None
 
+    def _finite_t(m: np.ndarray, se: np.ndarray) -> np.ndarray:
+        """t = m / se, with the se == 0 points answered rather than zero-filled.
+
+        Zero standard error makes the statistic 0/0. A difference that is exactly zero in
+        every observation is an *observed* zero and stays 0.0. A constant non-zero
+        difference is perfectly consistent and its t is unbounded; 0.0 was the most wrong
+        available answer there, reporting the strongest possible effect as no effect, so
+        that point is now NaN and is reported as non-estimable instead.
+        """
+        t = np.divide(m, se, out=np.zeros_like(m), where=se > 0)
+        degenerate = ~(se > 0)
+        if np.any(degenerate):
+            t = np.where(degenerate, np.where(m == 0, 0.0, np.nan), t)
+        return t
+
     def _calc_t_paired(d: np.ndarray) -> np.ndarray:
         n = d.shape[0]
         m = np.mean(d, axis=0)
         v = np.var(d, axis=0, ddof=1)
         se = np.sqrt(v / n)
-        return np.divide(m, se, out=np.zeros_like(m), where=se > 0)
+        return _finite_t(m, se)
 
     def _calc_t_unpaired(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         n_a, n_b = x1.shape[0], x2.shape[0]
         m1, m2 = np.mean(x1, axis=0), np.mean(x2, axis=0)
         v1, v2 = np.var(x1, axis=0, ddof=1), np.var(x2, axis=0, ddof=1)
         se = np.sqrt(v1 / n_a + v2 / n_b)
-        return np.divide(m1 - m2, se, out=np.zeros_like(m1), where=se > 0)
+        return _finite_t(m1 - m2, se)
 
     def _extract_clusters(t_map: np.ndarray) -> List[Tuple[float, np.ndarray]]:
         found = []
@@ -1614,6 +1646,15 @@ def cluster_permutation_test(
 
     # 1. Observed statistic map and clusters
     obs_t = _calc_t_paired(diff) if paired else _calc_t_unpaired(X_arr, Y_arr)
+    n_degenerate = int(np.isnan(obs_t).sum())
+    if n_degenerate:
+        warnings.warn(
+            f"cluster_permutation_test: {n_degenerate} point(s) have a constant non-zero "
+            "difference across observations, so the t statistic there is undefined (zero "
+            "standard error). They are reported as NaN and take part in no cluster.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     obs_clusters = _extract_clusters(obs_t)
 
     # 2. Permutation null distribution of extremal cluster statistic

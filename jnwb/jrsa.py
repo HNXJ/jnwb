@@ -495,23 +495,24 @@ def _validate_inputs(x1, x2, nan_policy: str):
         xp2 = _get_xp(x2)
         if nan_policy == "raise" and xp2.any(xp2.isnan(x2)):
             raise ValueError("NaN values found in x2 (nan_policy='raise').")
+    # Shape before NaN policy. This guard used to live inside the `omit` branch, so the
+    # other two policies skipped it and reached the per-metric `[:min(m1, m2)]`
+    # truncations: (60, 6) against (40, 6) returned a statistic under nan_policy='raise'
+    # and 'propagate' for metrics cka and procrustes, while the default 'omit' refused it.
+    # The contract is the same whatever is done about NaN, so the check is too -- and this
+    # is what makes those per-metric truncations genuinely unreachable and defensive only.
+    if x2 is not None and tuple(x1.shape) != tuple(x2.shape):
+        raise ValueError(
+            f"x1 and x2 must have the same shape; got {tuple(x1.shape)} and "
+            f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
+            f"observation count nor the feature count is truncated to match."
+        )
     if nan_policy == "omit":
         if x2 is not None:
             xp2 = _get_xp(x2)
             # Find joint valid mask (neither is NaN) along the last axis
             # For multi-dimensional inputs, we assume the last axis contains the paired samples.
             # We want to keep samples where both x1 and x2 are not NaN.
-            # Say what is wrong. Mismatched shapes otherwise surfaced as a raw numpy
-            # broadcast error from inside a NaN mask, which names the shapes but not the
-            # contract they violate. (The per-metric `[:min(m1, m2)]` truncations further
-            # down are unreachable from the public entry point because of this guard; they
-            # are defensive only.)
-            if x1.shape != x2.shape:
-                raise ValueError(
-                    f"x1 and x2 must have the same shape; got {tuple(x1.shape)} and "
-                    f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
-                    f"observation count nor the feature count is truncated to match."
-                )
             nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
             # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
             # In general, if there are multiple dimensions, we project the mask down to the last axis.

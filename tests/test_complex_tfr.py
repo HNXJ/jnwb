@@ -195,24 +195,69 @@ class TestComplexTFRProbes:
             complex_tfr(x_nan, fs=fs, freqs=freqs)
 
     def test_probe09_edge_and_coi_exact_boundary(self, fs):
-        """Probe 9: COI mask correctly bounds the declared coi_sigma * sigma_t edge region."""
+        """Probe 9: by default the COI mask bounds exactly the kernel support.
+
+        05-85. It used to be built from `coi_sigma` (2.0) while the kernel was truncated at
+        `cutoff_sigma` (4.0), so it cleared at half the region zero-padding actually
+        reached: 96 against a kernel half-width of 191 at `n_cycles=3`.
+        """
         x = np.ones(1000)
         f0 = 20.0
         n_c = 5.0
-        coi_sigma = 2.0
-        tfr = complex_tfr(x, fs=fs, freqs=np.array([f0]), n_cycles=n_c, coi_sigma=coi_sigma)
+        tfr = complex_tfr(x, fs=fs, freqs=np.array([f0]), n_cycles=n_c)
 
         sigma_t = n_c / (2.0 * np.pi * f0)
-        k_coi = int(np.ceil(coi_sigma * sigma_t * fs))  # 32 samples
+        k_kernel = int(np.ceil(4.0 * sigma_t * fs))  # cutoff_sigma * sigma_t * fs = 64
 
-        # Boundary samples [0, k_coi) must be False
-        assert not np.any(tfr.coi_mask[0, :k_coi])
-        # Sample k_coi onwards must be True
-        assert tfr.coi_mask[0, k_coi]
+        assert not np.any(tfr.coi_mask[0, :k_kernel])
+        assert tfr.coi_mask[0, k_kernel]
         assert tfr.coi_mask[0, 500]
-        assert tfr.coi_mask[0, 1000 - k_coi - 1]
-        # Right boundary samples [1000 - k_coi, 1000) must be False
-        assert not np.any(tfr.coi_mask[0, 1000 - k_coi:])
+        assert tfr.coi_mask[0, 1000 - k_kernel - 1]
+        assert not np.any(tfr.coi_mask[0, 1000 - k_kernel:])
+
+    def test_probe09b_explicit_coi_sigma_is_honoured_and_warns_when_narrow(self, fs):
+        """An explicitly passed coi_sigma still sets the region -- and says so when it
+        marks contaminated samples as valid, which is the whole defect made opt-in.
+        """
+        x = np.ones(1000)
+        f0, n_c = 20.0, 5.0
+        sigma_t = n_c / (2.0 * np.pi * f0)
+
+        with pytest.warns(RuntimeWarning, match="narrower than the kernel half-width"):
+            narrow = complex_tfr(
+                x, fs=fs, freqs=np.array([f0]), n_cycles=n_c, coi_sigma=2.0
+            )
+        k_narrow = int(np.ceil(2.0 * sigma_t * fs))
+        assert not np.any(narrow.coi_mask[0, :k_narrow])
+        assert narrow.coi_mask[0, k_narrow]
+
+        import warnings as _warnings
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            wide = complex_tfr(
+                x, fs=fs, freqs=np.array([f0]), n_cycles=n_c, coi_sigma=6.0
+            )
+        k_wide = int(np.ceil(6.0 * sigma_t * fs))
+        assert not np.any(wide.coi_mask[0, :k_wide])
+
+    @pytest.mark.parametrize("n_cycles", [3.0, 5.0, 10.0])
+    def test_probe09c_no_sample_inside_the_mask_responds_to_a_dc_offset(self, n_cycles):
+        """The behavioural form of the contract. A constant offset can only reach a sample
+        through `mode="same"` zero-padding, so every sample the mask calls valid must be
+        blind to it. The largest response inside the old mask was 28.6 / 18.6 / 9.42 on a
+        unit-amplitude scale at n_cycles 3 / 5 / 10.
+        """
+        fs, n = 1000.0, 4000
+        freqs = np.array([10.0])
+        offset = complex_tfr(
+            np.full(n, 1000.0), fs=fs, freqs=freqs, n_cycles=n_cycles
+        )
+        zero = complex_tfr(np.zeros(n), fs=fs, freqs=freqs, n_cycles=n_cycles)
+
+        response = np.abs(offset.z[0] - zero.z[0])
+        assert response.max() > 1.0, "the boundary region must actually be contaminated"
+        assert response[offset.coi_mask[0]].max() < 1e-9
 
     def test_probe10_complex64_vs_complex128_precision(self, fs, freqs):
         """Probe 10: Downcasting to complex64 has numerical error bounded by single precision."""

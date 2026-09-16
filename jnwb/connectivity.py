@@ -685,9 +685,21 @@ def as_trials(
             if not allow_ragged:
                 raise ValueError(f"{name}: ragged trial lengths {sorted(lengths)}")
             n_min = min(lengths)
+            # Both channels. `log.warning` is invisible to `warnings.simplefilter`,
+            # `pytest.warns` and `-W error`, so a caller who had asked to be told about
+            # silent data loss was not told: the truncation reached the estimator with an
+            # empty warning list. The log line stays for operators; the warning is what
+            # the caller can actually act on.
             log.warning(
                 "%s: ragged trials %s -> truncated to %d samples", name,
                 sorted(lengths), n_min,
+            )
+            warnings.warn(
+                f"{name}: ragged trial lengths {sorted(lengths)} truncated to {n_min} "
+                f"samples, discarding {sum(lengths) - n_min * len(arrs)} sample(s). Pass "
+                "allow_ragged=False to make this an error.",
+                RuntimeWarning,
+                stacklevel=3,
             )
             arrs = [a[:n_min] for a in arrs]
         arr = np.stack(arrs, axis=0)
@@ -749,6 +761,17 @@ def _detrend_trials(a: np.ndarray, mode: Optional[str]) -> np.ndarray:
     raise ValueError(f"Unknown detrend={mode!r}; use None|'demean'|'zscore'|'linear'")
 
 
+def _count_nonfinite_spikes(spike_times, trial_starts) -> int:
+    """Number of non-finite entries in `spike_times`, whatever nesting it arrived in."""
+    if trial_starts is None and isinstance(spike_times, (list, tuple)) and (
+        len(spike_times) == 0 or np.ndim(spike_times[0]) >= 1
+    ):
+        trains = [np.asarray(s, dtype=float).ravel() for s in spike_times]
+    else:
+        trains = [np.asarray(spike_times, dtype=float).ravel()]
+    return int(sum(int(np.sum(~np.isfinite(s))) for s in trains))
+
+
 def bin_spikes(
     spike_times,
     window: Tuple[float, float],
@@ -798,6 +821,18 @@ def bin_spikes(
             f"window {window} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
         )
     edges = t0 + bin_sec * np.arange(n_bins + 1)
+
+    n_nonfinite = _count_nonfinite_spikes(spike_times, trial_starts)
+    if n_nonfinite:
+        # These were dropped by the `(s >= t0) & (s < t1)` comparison, which is False for
+        # NaN, so a train of NaN spike times produced a confident all-zero rate with no
+        # indication that anything had been discarded.
+        warnings.warn(
+            f"bin_spikes: {n_nonfinite} non-finite spike time(s) dropped. They cannot be "
+            "assigned to a bin; the returned counts are over the finite spikes only.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     if trial_starts is not None:
         st = np.asarray(spike_times, dtype=float).ravel()

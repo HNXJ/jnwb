@@ -34,11 +34,25 @@ freqs, psd = jnwb.compute_psd(lfp_trace, fs=1000.0)
 # nw: time-half-bandwidth product; k_tapers defaults to int(2*nw - 1)
 freqs_mt, psd_mt = jnwb.compute_multitaper_psd(lfp_trace, fs=1000.0, nw=3.0, k_tapers=5)
 
-# Extract scalar mean power in a specific frequency range (e.g. beta: 14-30 Hz)
+# Extract the scalar mean PSD over a frequency range (e.g. beta: 14-30 Hz)
 beta_power_val = jnwb.band_power(
     lfp_trace, fs=1000.0, freq_range=(14.0, 30.0), normalize=False,
 )
 ```
+
+`band_power` returns `mean(PSD[mask])` -- a spectral **density**, in input-units^2/Hz. It is
+independent of the bandwidth, so bands of different widths are comparable to each other as
+densities but are *not* band powers: on white noise a 2 Hz band and a 30 Hz band return
+nearly the same number. If you want power in the band, integrate the PSD yourself:
+
+```python
+freqs, psd = jnwb.compute_psd(lfp_trace, fs=1000.0)
+mask = (freqs >= 14.0) & (freqs <= 30.0)
+beta_power_integrated = np.trapezoid(psd[mask], freqs[mask])  # input-units^2
+```
+
+With `normalize=True` the per-Hz factor cancels, because the result is a ratio of two
+densities over the same band.
 
 ### Decibel Formation (`aggregate_to_db`, `to_db`, `DB_AGGREGATIONS`)
 
@@ -266,6 +280,33 @@ tfr_res = jnwb.complex_tfr(
 ```
 
 ![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png)
+
+**What `coi_mask` excludes, and why the average comes after it.** Convolution runs with
+`mode="same"`, so near each edge part of the kernel hangs off the signal and is filled with
+zeros. `coi_mask` is False for exactly those samples: the excluded region is the kernel
+half-width, `ceil(cutoff_sigma * sigma_t * fs)`, which is what `coi_sigma=None` (the
+default) derives it from. A True sample is one no zero-padding reached.
+
+The contaminated samples are not merely noisier -- they are pulled toward zero by an amount
+that depends on the signal's mean, and they sit at the ends of every trial, so they bias the
+same time points in the same direction in every trial. **Average after masking, not before:**
+
+```python
+# WRONG: the edges are in the mean, and they are biased, not just noisy
+mean_power = tfr_res.power.mean(axis=-1)
+
+# CORRECT: exclude them, then average over what is left
+masked = np.where(tfr_res.coi_mask, tfr_res.power, np.nan)
+mean_power = np.nanmean(masked, axis=-1)
+
+# Streaming: TFRAccumulator takes the mask directly and keeps a per-cell count
+acc.add_trial(tfr_res.z, valid=tfr_res.coi_mask)
+```
+
+Low frequencies and high `n_cycles` both widen `sigma_t`, so both widen the excluded region:
+at 10 Hz the kernel half-width is 191 samples at `n_cycles=3` and 637 at `n_cycles=10`
+(fs = 1000 Hz). A short trial at a low frequency can be excluded end to end, which is the
+correct answer -- there is no uncontaminated estimate to report.
 
 ### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 

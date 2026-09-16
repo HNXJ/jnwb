@@ -18,6 +18,41 @@ log = logging.getLogger(__name__)
 _NWB_READ_ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError)
 
 
+def _session_id_from_path(nwb_path: Path):
+    """Session id from the filename, as an int when it parses and the stem otherwise.
+
+    `electrode_inventory` used to call `int(...)` on this unconditionally, so a perfectly
+    readable file named `mm_depth.nwb` raised ValueError -- which the broad read-error
+    tuple then swallowed as a failed read. `get_all_units_metadata` already had this
+    fallback; both readers now share it.
+    """
+    raw = (
+        nwb_path.stem.split("ses-")[1].split("_")[0]
+        if "ses-" in nwb_path.stem
+        else nwb_path.stem
+    )
+    try:
+        return int(raw), raw
+    except ValueError:
+        return raw, raw
+
+
+def _check_paths_exist(nwb_paths, caller: str) -> None:
+    """A path that is not there is not an empty cohort.
+
+    `on_read_error='skip'` plus a broad exception tuple made a nonexistent file, an
+    unreadable file and a genuinely empty table indistinguishable: all three returned an
+    empty DataFrame, reported only through `log.error`, which `warnings`, `pytest.warns`
+    and `-W error` cannot see. `inspect`, `events` and `unit_spike_times` all raise
+    `FileNotFoundError` on the same path, and these two readers now agree with them.
+    """
+    missing = [str(p) for p in nwb_paths if not Path(p).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"{caller}: NWB file not found: {', '.join(missing)}"
+        )
+
+
 def get_all_units_metadata(
     nwb_paths: Union[str, Path, List[Union[str, Path]]],
     filter_quality: bool = False,
@@ -46,19 +81,15 @@ def get_all_units_metadata(
     if isinstance(nwb_paths, (str, Path)):
         nwb_paths = [nwb_paths]
 
+    nwb_paths = list(nwb_paths)
+    _check_paths_exist(nwb_paths, "get_all_units_metadata")
+
     all_units = []
+    n_failed = 0
 
     for nwb_path in nwb_paths:
         nwb_path = Path(nwb_path)
-        raw_session = (
-            nwb_path.stem.split("ses-")[1].split("_")[0]
-            if "ses-" in nwb_path.stem
-            else nwb_path.stem
-        )
-        try:
-            session_id = int(raw_session)
-        except ValueError:
-            session_id = raw_session
+        session_id, raw_session = _session_id_from_path(nwb_path)
 
         try:
             with nwb_read_io(str(nwb_path), load_namespaces=True) as io:
@@ -92,9 +123,19 @@ def get_all_units_metadata(
             log.error(f"{nwb_path.name}: {e}")
             if on_read_error == "raise":
                 raise
+            n_failed += 1
             continue
 
     if not all_units:
+        # Per-file skipping is the point of on_read_error='skip' in a multi-file call, but
+        # when *nothing* was read there is no partial result to carry on with, and an empty
+        # frame claims an empty cohort rather than a failed read.
+        if n_failed:
+            raise RuntimeError(
+                f"get_all_units_metadata: all {n_failed} of {len(nwb_paths)} path(s) "
+                "failed to read; no units were extracted. See the log for the per-file "
+                "errors, or pass on_read_error='raise' to surface the first one."
+            )
         log.warning("No units extracted from any files")
         return pd.DataFrame()
 
@@ -324,11 +365,15 @@ def electrode_inventory(
     if isinstance(nwb_paths, (str, Path)):
         nwb_paths = [nwb_paths]
 
+    nwb_paths = list(nwb_paths)
+    _check_paths_exist(nwb_paths, "electrode_inventory")
+
     all_elecs = []
+    n_failed = 0
 
     for nwb_path in nwb_paths:
         nwb_path = Path(nwb_path)
-        session_id = nwb_path.stem.split("ses-")[1].split("_")[0] if "ses-" in nwb_path.stem else nwb_path.stem
+        session_id, _raw_session = _session_id_from_path(nwb_path)
 
         try:
             with nwb_read_io(str(nwb_path), load_namespaces=True) as io:
@@ -338,7 +383,7 @@ def electrode_inventory(
                     continue
 
                 elec_df = nwb.electrodes.to_dataframe().copy()
-                elec_df['session_id'] = int(session_id)
+                elec_df['session_id'] = session_id
                 elec_df['elec_id'] = elec_df.index
 
                 # Add unit assignment info
@@ -361,9 +406,16 @@ def electrode_inventory(
             log.error(f"{nwb_path.name}: {e}")
             if on_read_error == "raise":
                 raise
+            n_failed += 1
             continue
 
     if not all_elecs:
+        if n_failed:
+            raise RuntimeError(
+                f"electrode_inventory: all {n_failed} of {len(nwb_paths)} path(s) failed "
+                "to read; no electrodes were extracted. See the log for the per-file "
+                "errors, or pass on_read_error='raise' to surface the first one."
+            )
         log.warning("No electrode data extracted")
         return pd.DataFrame()
 

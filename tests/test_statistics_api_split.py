@@ -187,7 +187,13 @@ class TestClusterPermutation:
         rng = np.random.default_rng(123)
         n_obs, n_times = 20, 50
         baseline = rng.standard_normal((n_obs, n_times))
-        evoked = baseline.copy()
+        # The evoked condition is an independent draw plus the effect, not a copy of the
+        # baseline plus a constant. A constant offset makes the paired difference
+        # identical in every observation, so its variance is zero and its t is 0/0: nine
+        # of the ten "ground truth" bins scored exactly 0.0 and the tenth scored 7.76e16
+        # on float rounding alone. The cluster this test claims to recover was a single
+        # bin of numerical noise, and `assert np.any(mask[20:30])` passed on it.
+        evoked = baseline + 0.5 * rng.standard_normal((n_obs, n_times))
         # Add localized true cluster of activation between samples 20:30
         evoked[:, 20:30] += 2.5
 
@@ -290,8 +296,12 @@ class TestClusterPermutation:
         state_before = npr.get_state()
         rng1 = np.random.default_rng(42)
         rng2 = np.random.default_rng(42)
-        X = np.ones((5, 10))
-        Y = np.zeros((5, 10))
+        # Constant conditions give every point a zero standard error, so the whole stat
+        # map is non-estimable. This test is about RNG hygiene, but it should exercise the
+        # ordinary path while it checks it.
+        data_rng = np.random.default_rng(7)
+        X = 1.0 + data_rng.standard_normal((5, 10))
+        Y = data_rng.standard_normal((5, 10))
         res1 = cluster_permutation_test(X, Y, n_permutations=50, rng=rng1)
         res2 = cluster_permutation_test(X, Y, n_permutations=50, rng=rng2)
         state_after = npr.get_state()
@@ -423,7 +433,7 @@ class TestClusterPermutation:
         rng = np.random.default_rng(123)
         n_obs, n_times = 20, 50
         baseline = rng.standard_normal((n_obs, n_times))
-        evoked = baseline.copy()
+        evoked = baseline + 0.5 * rng.standard_normal((n_obs, n_times))
         evoked[:, 20:30] += 2.5
         res = cluster_permutation_test(
             evoked, baseline, paired=True, threshold=2.0, n_permutations=50, rng=rng,

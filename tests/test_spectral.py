@@ -1779,3 +1779,42 @@ class TestSpectralTiltBandIsHonest:
         assert np.isfinite(res["exponent"])
         assert -3.0 < res["exponent"] < 0.0
         assert res["n_bins_fitted"] >= 6
+
+
+class TestBandPowerEstimandIsDocumented:
+    """05-13: the docstring said "power in a frequency band" while the function returned
+    `mean(PSD[mask])`, a bandwidth-independent density. Nothing numerical changed; these
+    pin the estimand so the documented claim and the returned quantity cannot drift apart.
+    """
+
+    @staticmethod
+    def _trace():
+        return np.random.default_rng(0).normal(size=4000)
+
+    @pytest.mark.parametrize("band", [(19.0, 21.0), (10.0, 40.0), (4.0, 8.0)])
+    def test_band_power_is_the_mean_psd_over_the_band(self, band):
+        from scipy import signal as _signal
+
+        x = self._trace()
+        freqs, psd = _signal.welch(x, fs=1000.0, nperseg=min(len(x), 4096))
+        mask = (freqs >= band[0]) & (freqs <= band[1])
+        assert band_power(x, fs=1000.0, freq_range=band, normalize=False) == float(
+            np.mean(psd[mask])
+        )
+
+    def test_the_value_is_a_density_not_an_integrated_power(self):
+        """A 2 Hz band and a 30 Hz band of white noise agree to within 20%, where their
+        integrated powers differ by roughly the bandwidth ratio. That is the property the
+        docstring has to state, because it is what makes two bands non-comparable as
+        powers.
+        """
+        x = self._trace()
+        narrow = band_power(x, fs=1000.0, freq_range=(19.0, 21.0), normalize=False)
+        wide = band_power(x, fs=1000.0, freq_range=(10.0, 40.0), normalize=False)
+        assert 0.8 < narrow / wide < 1.25
+
+    def test_the_docstring_names_the_estimand_and_its_units(self):
+        doc = band_power.__doc__
+        assert "power spectral density" in doc.lower()
+        assert "units^2/Hz" in doc
+        assert "independent of the bandwidth" in doc

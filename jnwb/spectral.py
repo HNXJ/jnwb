@@ -1357,19 +1357,29 @@ def band_power(
     device: str = 'cpu'
 ) -> float:
     """
-    Compute power in a frequency band.
+    Mean power spectral density over a frequency band.
+
+    The estimand is ``mean(PSD[f0 <= f <= f1])`` over the Welch bins inside the band --
+    a spectral *density*, in input-units^2/Hz, not an integrated power in
+    input-units^2. It is therefore independent of the bandwidth: on white noise a 2 Hz
+    band and a 30 Hz band return nearly the same value. Two bands of different widths are
+    comparable as densities and are *not* comparable as powers; for a power, integrate the
+    PSD over the band yourself (``np.trapezoid(psd[mask], freqs[mask])`` from
+    ``compute_psd``), which is a larger number by roughly the bandwidth.
 
     Args:
         lfp_trace: Time series data
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
-        freq_range: (min_freq, max_freq) in Hz
+        freq_range: (min_freq, max_freq) in Hz, inclusive at both ends
         normalize: If True, return as dB relative to baseline
         baseline: Baseline time series for normalization (optional)
         device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
     Returns:
-        Power in band (units depend on normalize flag)
+        Mean PSD over the band in input-units^2/Hz, or, with ``normalize=True``,
+        ``10 * log10(band / baseline_band)`` in dB -- a ratio of two densities over the
+        same band, so the per-Hz normalization cancels.
 
     Raises:
         ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or

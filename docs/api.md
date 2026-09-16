@@ -212,7 +212,7 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.AperiodicFitResult | class | *Container for 1/f aperiodic spectral parameter estimates.* |
 | jnwb.aggregate_to_db | function | (power, baseline, how: str, aggregate_over = None, nan_policy: str = 'propagate')<br>*Form a power ratio, aggregate on the RATIO scale, and take ``10*log10`` exactly once.* |
 | jnwb.aperiodic_fit | function | (freqs: numpy.ndarray, psd: numpy.ndarray, freq_range: Tuple[float, float], mode: str = 'fixed') -> jnwb.spectral.AperiodicFitResult | List[typing.Any]<br>*Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.* |
-| jnwb.band_power | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float<br>*Compute power in a frequency band.* |
+| jnwb.band_power | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float<br>*Mean power spectral density over a frequency band.* |
 | jnwb.bipolar_reference | function | (channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
 | jnwb.compute_multitaper_psd | function | (data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |
 | jnwb.compute_psd | function | (lfp_data: numpy.ndarray, fs: float, axis: int = 0)<br>*Welch power spectral density of a plain LFP array.* |
@@ -263,7 +263,7 @@ All 151 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.ComplexTFR | class | *Container for complex Time-Frequency Representation outputs.* |
-| jnwb.complex_tfr | function | (data: 'np.ndarray', fs: 'float', freqs: 'np.ndarray', n_cycles: 'Union[float, np.ndarray]' = 5.0, time_axis: 'int' = -1, normalization: 'str' = 'amplitude', dtype: 'np.dtype' = <class 'numpy.complex128'>, coi_sigma: 'float' = 2.0, device: 'str' = 'cpu') -> 'ComplexTFR'<br>*Compute complex Time-Frequency Representation via Morlet wavelet convolution.* |
+| jnwb.complex_tfr | function | (data: 'np.ndarray', fs: 'float', freqs: 'np.ndarray', n_cycles: 'Union[float, np.ndarray]' = 5.0, time_axis: 'int' = -1, normalization: 'str' = 'amplitude', dtype: 'np.dtype' = <class 'numpy.complex128'>, coi_sigma: 'Optional[float]' = None, device: 'str' = 'cpu') -> 'ComplexTFR'<br>*Compute complex Time-Frequency Representation via Morlet wavelet convolution.* |
 | jnwb.morlet_wavelet | function | (f0: 'float', fs: 'float', n_cycles: 'float' = 5.0, normalization: 'str' = 'amplitude', cutoff_sigma: 'float' = 4.0) -> 'Tuple[np.ndarray, np.ndarray]'<br>*Generate a discrete complex Morlet wavelet kernel.* |
 
 ## Module: jnwb.tfr_accumulator

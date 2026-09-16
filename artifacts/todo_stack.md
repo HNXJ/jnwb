@@ -28,58 +28,6 @@ deferred to H, so later work benefits from the gate.
 Qualification runs in a clean environment built from the declared extras, or in CI. The
 development `.venv` described at the end of this file is not package evidence.
 
-## 1. Scientific correctness
-
-### 05-85 The cone of influence marks half the region edge effects actually reach
-- **Problem** Found while repairing 05-03. `coi_mask` is built from `coi_sigma` (default 2.0) while the kernel is truncated at `cutoff_sigma` (default 4.0), so samples between 2 and 4 sigma of the edge convolve against `mode="same"` zero-padding and are marked valid.
-- **Evidence** Unit cosine on a 1000-unit DC offset, DC-corrected kernel, 4000 samples at 1 kHz. Contamination ends exactly at the kernel half-width `ceil(cutoff_sigma * sigma_t * fs)` -- first clean index 191 / 319 / 637 at `n_cycles` 3 / 5 / 10 -- while `coi_mask` clears at 96 / 160 / 319. Max difference *inside* the mask: 27.1 / 18.6 / 9.42 on a unit-amplitude signal.
-- **Change** Derive the COI from the kernel support rather than an independent multiplier, or require `coi_sigma >= cutoff_sigma` and say so. `ComplexTFR`'s docstring is honest about what `coi_mask` currently means, so this is a default that does not serve the use `docs/04` puts it to; sequence it with 05-65.
-- **Preserves** An explicitly passed `coi_sigma`.
-- **Discriminator** No sample marked valid by `coi_mask` responds to a constant offset.
-- **Accept** `test_probe09_edge_and_coi_exact_boundary` and `test_probe14` are retargeted to the new contract, and `docs/04` states what the mask excludes and why an average must be taken after masking.
-
-### 05-13 `band_power` returns mean PSD while documenting "power in band"
-- **Problem** `float(np.mean(pxx[mask]))` is bandwidth-independent, so bands of different widths are not comparable as power.
-- **Evidence** `band_power(x, fs=1000., freq_range=(19.,21.), normalize=False)` = 0.22175471142697917, exactly `mean(PSD[mask])`; `np.trapezoid(PSD[mask], f[mask])` = 0.48715.
-- **Change** State the estimand and its units in the docstring; consider an `integrate=` option. Documentation change, not a numerical one.
-- **Preserves** All current values.
-- **Discriminator** The docstring names mean spectral density and its units.
-- **Accept** `docs/04` and the docstring agree on the estimand.
-
-## 2. Silent and fabricated failure
-
-### 05-21 Silent truncation and mis-pairing across four entry points
-- **Problem** Each shortens or drops input where a sibling refuses.
-- **Evidence** `as_trials([500,480,500], allow_ragged=True)` -> `(3,480)` with `warnings == []` (log only), while `allow_ragged=False` raises `ragged trial lengths [480, 500]`. `paired_fire_prob_test` with lengths 8 and 4 returns `risk_difference=0.5` pairing unrelated trials, while `shuffle_pvalue_paired` raises for exactly this and its docstring names the harm. `jrsa` with `nan_policy='propagate'` accepts `(60,6)` against `(40,6)` and silently uses the first 40, while the default policy raises. `bin_spikes` drops NaN spike times with no count.
-- **Change** `warnings.warn(..., RuntimeWarning)` alongside the ragged log; length-equality check in `paired_fire_prob_test`; hoist the `jrsa` shape check above the `nan_policy` dispatch; count and report non-finite spike times.
-- **Preserves** Every equal-length, finite path.
-- **Discriminator** Each case warns or raises; none returns a quietly shortened result.
-- **Accept** One parametrized mismatch test covering all four.
-
-### 05-23 Metadata readers turn a bad path into an empty cohort
-- **Problem** `on_read_error="skip"` plus a broad exception tuple makes a nonexistent file, an unreadable file and a genuinely empty table indistinguishable, reported through `log.error`, which `warnings`, `pytest.warns` and `-W error` cannot see.
-- **Evidence** `get_all_units_metadata(bad_path)` and `electrode_inventory(bad_path)` -> `DataFrame (0,0)` with zero warnings, while `inspect`, `events` and `unit_spike_times` all raise `FileNotFoundError` on the same path. Separately, `electrode_inventory` requires an int-parsable filename stem: a valid 4-electrode file named `mm_depth.nwb` -> `DataFrame (0,0)` with `invalid literal for int()`, while `get_all_units_metadata` on that file returns `(2,10)`.
-- **Change** Raise when every input path failed; reuse the int-or-string session fallback from `metadata.py:57` at `:341`.
-- **Preserves** Per-file skipping within a genuine multi-file call.
-- **Discriminator** A single bad path raises; a non-numeric filename returns the electrodes.
-- **Accept** All four NWB readers agree on a nonexistent path.
-
-### 05-24 `cluster_permutation_test` turns an Inf sample into a measured zero
-- **Problem** The entry guard checks `np.isnan` only, and `np.divide(..., out=np.zeros_like(m), where=se > 0)` leaves the pre-filled 0.0 when `se` is NaN.
-- **Evidence** X `(20,30)` with `X[0,0]=inf`, paired: `stat_map[0] == 0.0`; without the Inf the same point gives 2.26238157.
-- **Change** Guard with `np.isfinite(X).all()`; fill with NaN rather than 0.0; `statistics.py:1490`, `:1545`.
-- **Preserves** Finite input.
-- **Discriminator** An Inf sample raises rather than guaranteeing that point joins no cluster.
-- **Accept** Inf and NaN are rejected identically.
-
-### 05-25 An empty selection returns fabricated zeros in one module and NaN in another, and both are test-enforced
-- **Problem** `trajectory.py` and `analyzers.py` take opposite positions on the same condition, each pinned by a passing test (`test_trajectory.py:112` enforces zeros; `test_analyzers_coverage.py:106` enforces "NaN, not fabricated zeros").
-- **Evidence** Both green at `3f432306`.
-- **Change** Ruled 2026-09-16: an explicitly requested population with no observations yields an *unavailable* estimate, never zero. Reconcile `trajectory.py` toward the non-fabrication semantics already in `analyzers.py`. Use NaN where the return type is a float array; use `None` or an explicit availability field where the structured type supports it. Zero stays valid only when zero was estimated from observations. Retarget `test_trajectory.py:112`.
-- **Preserves** Every non-empty selection, and `analyzers.py`'s current behaviour.
-- **Discriminator** One documented empty-selection policy across the package; reintroducing the fabricated zero fails a test.
-- **Accept** The policy is stated in `docs/common_mistakes.md`, both tests assert it, and no public function returns 0.0 for a selection it did not observe. This is `AGENTS.md` invariant 1.
-
 ## 3. API consistency
 
 ### 05-26 `jrsa` records the device and options it was asked for, not the ones that ran
