@@ -78,6 +78,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the crossover to better than about 6 contacts at SNR 4, which is an information limit of
   the recording rather than a property of the normalization.
 
+- **`vflip`'s crossover is still shrunk toward the centre of the shaft, and the receipt now says
+  so.** The 0.2.3 defect was a zero-sum profile that pinned the crossing to the centre
+  regardless of SNR. What remains is attenuation that recedes as noise falls. Regressing
+  estimate on truth over crossovers at 20-80% of a 24-contact shaft, now computed by the
+  calibration itself: slope 0.703 at SNR 20, 0.804 at SNR 100, 0.864 at SNR 1000, against 1.0
+  for an unbiased locator. At SNR 20 the mean signed error runs from +2.40 contacts at 20% of
+  the shaft to -1.87 at 80%. The previous receipt could not have shown this: its crossover table
+  reported only median |c* - c_true|, which stayed between 1.04 and 1.81 at every depth because
+  it cannot see a bias that changes sign. Cause: at SNR 20, 35 of 51 gamma-band bins and 7 of 12
+  beta-band bins carry no laminar source, so the per-trial min-max range is estimated from noisy
+  extremes and each profile is compressed toward its interior. No correction factor is applied;
+  the shrinkage is reported in the calibration, documented on `VFlipResult.crossover_contact`,
+  and pinned by a test in both directions. Treat a crossover near either end of the shaft as a
+  bound, not a point estimate.
+- **`phase_locking_index` folded the recording onto itself.** It called `np.interp(spike_times,
+  lfp_timestamps, lfp_phase, period=2*np.pi)`, but `np.interp`'s `period` is the period of the x
+  coordinates, not of `fp`, so spike times and LFP timestamps were wrapped modulo 6.2832 SECONDS
+  and each spike took the phase of an unrelated moment. A unit locked to phase 0 with 2 ms
+  jitter, true resultant length 0.995, reported `pli` 0.80 over 6 s, 0.31 over 60 s and 0.10
+  over 600 s. Phase is now interpolated through its unit vector, giving 0.804 / 0.808 / 0.803
+  and a `rayleigh_z` of 473.9 against an analytic 474.0. The Rayleigh p-value is also clamped
+  below: the series expansion goes negative at large z, and a negative p passes every `p <
+  alpha` test.
+- **`compute_response_metrics` differenced raw spike counts over unequal windows.** The defaults
+  are 0.200 s of baseline against 0.150 s of response, so a unit firing at a constant rate
+  scored a response it did not have, growing as the square root of the rate: z = -0.47 at 20 Hz,
+  -1.04 at 100 Hz, -1.91 at 500 Hz. `classify_response_significance` takes abs(z), so a fast
+  enough non-responsive unit is certified as responding. Rates are now z-scored instead of
+  counts, which is exactly a no-op when the windows are equal. A baseline with no across-trial
+  variance also left `response_zscore` at its initialised 0.0, reading as no response for the
+  strongest possible evidence -- a unit driven at 133 Hz from a silent baseline returned z =
+  +0.00, confidence none. It now returns NaN with confidence undefined.
+- **`jrsa` permuted the feature axis for whole-representation metrics.** `cka`, `rv`, `hsic`,
+  `distance_correlation`, `procrustes` and `rsa` reshape to (n_observations, n_features) and
+  ignore `axis`, and all are invariant to a permutation of features, so the null collapsed to a
+  point mass and p was exactly 1.0 whatever the data said. The permutation axis is now taken
+  from the metric. Measured false-positive rate over 200 independent datasets: 0.060, 0.045,
+  0.055, 0.050, 0.050 and 0.050 against a nominal 0.05, with a linearly related pair still
+  detected at p <= 0.006.
+- **`_adf_pvalue` compared a Dickey-Fuller t-statistic to the normal distribution.** The DF null
+  is shifted well to the left (5% critical value near -2.86 with a constant, not -1.645), so it
+  certified 48.4% of pure random walks as stationary at n = 200 and 46.0% at n = 2000, while its
+  docstring called itself conservative. `stationarity_ok` and `ok_for_interpretation` on Granger
+  results were therefore near coin flips on exactly the series a user needs warned about. It now
+  defers to `statsmodels` MacKinnon p-values for the same regression: 0.049 at n = 200 and 0.049
+  at n = 2000, with 100/100 stationary AR(1) series still rejecting the unit root.
+- **`cross_modal_comparison` reported the selected lag's uncorrected p-value.** On independent
+  white noise over 101 lags it called 99.5% of runs significant. It also built its lag set as a
+  symmetric sweep of +-min(|lo|, |hi|), so (0, 500) searched nothing and (100, 500) searched
+  +-100 ms. The lag set is now exactly what was documented, and the result carries
+  `lag_corrected_pvalue` from a circular-shift max-statistic null (measured FPR 0.043). Because
+  a shift relands a peak inside the window about n_lags / n_samples of the time,
+  `lag_search_resolution_floor` reports that ratio and `warnings` flags it above 0.05.
+- **`transfer_entropy` was blind to a collapsed discretization.** A collapse yields FEWER joint
+  states, so `samples_per_joint_state` rises and the undersampling check stays quiet. With spike
+  counts averaging 0.05-0.1 per bin, every quantile edge lands on 0 and the series maps to one
+  symbol: on data where X drives Y at lag 1 it returned TE = 0.0000 bits, p = 1.0,
+  `ok_for_interpretation` True and no warnings. It now reports `n_realized_states_x` and
+  `n_realized_states_y`, and warns when the discretization collapses.
+- **`permute_labels` with `scheme=within_group` returned a vacuous null for nested designs.**
+  When each group carries one condition there is nothing to permute: 1000 of 1000 draws came
+  back identical, and `build_permutation_plan` emitted a 500-row manifest carrying one distinct
+  digest while reporting `group_composition_preserved: True`. It now raises with the reason and
+  the alternatives, and the plan reports `n_permutable_groups` and `n_distinct_draws`.
+- **`repair_lfp_trials` substituted away time-locked evoked responses.** The detector is cross-
+  channel synchrony, and an evoked response is synchronous by construction, so it was flagged
+  like an artifact and replaced by the cross-trial median of itself. The trial average survived
+  while single-trial variability did not: the correlation between true single-trial amplitude
+  and the repaired peak fell from 0.9996 to 0.4607. A new `max_trial_fraction` (default 0.5)
+  never substitutes a sample flagged on more than half the trials, which is where the
+  substitution becomes self-defeating. A rare artifact on 3 of 40 trials is still fully
+  repaired.
+- **`_rv` was not centred, although `_cka` beside it is.** Any two representations sharing an
+  offset therefore looked identical: two independent Gaussian samples shifted by +50 returned RV
+  = 1.0000, now 0.178.
+- **`xflip` treated a skipped surrogate test as a passed one.** With `n_surrogates=0` it set
+  significance True and returned `accepted=True` alongside p = NaN. Pure noise was accepted in
+  119 of 120 seeds, and the test would have rejected 113 of them. Acceptance now requires the
+  test to run, matching `zflip`'s documented contract.
+- **The top multitaper bin was half-size at odd `n_fft`.** One-sided scaling excluded the last
+  bin unconditionally, but an rfft grid only has a Nyquist bin when `n_fft` is even. Integrated
+  power against the variance went from 0.9111 to 0.9999 at n = 101.
+- **`imaginary_coherency`'s denominator guard was unit-dependent.** The product of two PSDs
+  scales as the fourth power of amplitude, so an absolute 1e-30 clip collapsed the estimate for
+  recordings stored in smaller units: `icoh_mean` held at -0.5144 to a scale of 1e-6, then fell
+  to -0.000142 at 1e-8 and to zero below. The floor is now relative, and the estimate is
+  identical across sixty decades of amplitude.
+- **`confirmatory_compare` told callers to re-correct `q_parametric` across hypotheses,** which
+  compounds two BH passes. It now points at the raw p-values. `jrsa` reports a shape mismatch as
+  a contract error naming both shapes rather than a raw broadcast failure, and the release
+  gate's own smoke test is repaired: it asserted `hasattr(wpli_res, 'wpli')` on a dict, which is
+  always False, and used a key name, `wpli_debiased`, that does not exist.
 - Strengthened scientific boundary assertions: replaced all absolute volume-conduction immunity claims with precise zero-phase-lag sensitivity reduction statements.
 - Upgraded release gate smoke suite to test 0.2.4 additions (`wpli`, `zflip`, `rdm`).
 - Gate 6 (dataset independence) now scans every durable user-facing surface recursively:

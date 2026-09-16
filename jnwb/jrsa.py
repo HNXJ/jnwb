@@ -452,6 +452,17 @@ def _validate_inputs(x1, x2, nan_policy: str):
             # Find joint valid mask (neither is NaN) along the last axis
             # For multi-dimensional inputs, we assume the last axis contains the paired samples.
             # We want to keep samples where both x1 and x2 are not NaN.
+            # Say what is wrong. Mismatched shapes otherwise surfaced as a raw numpy
+            # broadcast error from inside a NaN mask, which names the shapes but not the
+            # contract they violate. (The per-metric `[:min(m1, m2)]` truncations further
+            # down are unreachable from the public entry point because of this guard; they
+            # are defensive only.)
+            if x1.shape != x2.shape:
+                raise ValueError(
+                    f"x1 and x2 must have the same shape; got {tuple(x1.shape)} and "
+                    f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
+                    f"observation count nor the feature count is truncated to match."
+                )
             nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
             # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
             # In general, if there are multiple dimensions, we project the mask down to the last axis.
