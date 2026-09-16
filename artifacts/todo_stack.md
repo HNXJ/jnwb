@@ -78,16 +78,6 @@ names what is missing. Nothing here is marked from inference.
 - `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units and is therefore
   unit-dependent by definition; unchanged, as recorded under item 04.
 
-### Open findings requiring a decision
-
-- `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator and cannot be
-  regenerated. It now says so, names the 0.2.4 change to `xflip`, and points at
-  `tests/test_xflip_calibration.py`, which measures the same operating characteristics
-  against the shipped estimator on every run.
-- `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a
-  null's grid dependence; the calibration receipt does that instead.
-
-
 ## Handout (2026-09-15, Opus 5 session `9fe5eb2c`) -- RESOLVED 2026-09-16
 
 ### State
@@ -129,6 +119,21 @@ release itself: version bump to 0.2.4, harness gate, full suite, release gate, t
 main -> tag v0.2.4 -> GitHub Release -> PyPI -> install `jnwb==0.2.4` from PyPI in a fresh
 environment. 01 and 17 close on that receipt. No new features, no optimization projects, no
 speculative API changes.
+
+# 0.2.5
+
+Carried forward from 0.2.4. Neither item blocks the 0.2.4 release: both are limitations of
+a receipt or a test, each already mitigated by something that runs on every suite, and both
+are stated where a reader would look. They are work, not open decisions.
+
+- `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator and cannot be
+  regenerated. It says so, names the 0.2.4 change to `xflip`, and points at
+  `tests/test_xflip_calibration.py`, which measures the same operating characteristics
+  against the shipped estimator on every run. For 0.2.5: write the generator, or retire the
+  document in favour of the test that supersedes it.
+- `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a
+  null's grid dependence; the calibration receipt does that instead. For 0.2.5: give the test
+  a noisy PSD so it measures what its name claims.
 
 # Before 1.0
 
