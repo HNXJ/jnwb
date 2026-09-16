@@ -81,3 +81,102 @@ def test_compress_fp32_synthetic_hdf5_conversion(tmp_path):
         # Timestamp collapsing check (regular timestamps collapsed to starting_time dataset + rate attr)
         assert "starting_time" in f_dst["acquisition/probe_0_lfp"]
         assert f_dst["acquisition/probe_0_lfp/starting_time"].attrs["rate"] > 0
+
+
+class TestTimestampRegularityGate:
+    """05-14: `_is_regular` gated on relative jitter, a proxy insensitive to slow drift,
+    and then the source timestamps were deleted. The assertion that licenses the deletion
+    is the reconstruction error, so that is what must be gated."""
+
+    @staticmethod
+    def _drifting(n, base=1e-3, ramp=2e-6):
+        """A linearly ramping sample interval: tiny relative jitter, unbounded drift."""
+        dt = base * (1.0 + np.linspace(0.0, ramp, n - 1))
+        return np.concatenate([[0.0], np.cumsum(dt)])
+
+    @pytest.mark.parametrize("n", [10_000, 100_000, 1_000_000])
+    def test_a_drifting_array_is_refused_at_every_length(self, n):
+        from jnwb.compression import _is_regular
+
+        ts = self._drifting(n)
+        d = np.diff(ts)
+        relative_jitter = float(np.std(d) / np.mean(d))
+        assert relative_jitter < 1e-6, "the old gate passed this array by construction"
+
+        regular, rate = _is_regular(ts)
+        assert not regular, (
+            f"N={n}: relative jitter {relative_jitter:.3e} passes the old proxy, but the "
+            "reconstruction error does not meet the 1e-6 s bar this function declares"
+        )
+        assert rate == 0.0
+
+    def test_the_refusal_tracks_the_error_the_function_declares(self):
+        from jnwb.compression import _is_regular
+
+        ts = self._drifting(1_000_000)
+        regular, _ = _is_regular(ts)
+        rate = (len(ts) - 1) / (ts[-1] - ts[0])
+        err = float(np.max(np.abs(ts - (ts[0] + np.arange(len(ts)) / rate))))
+        assert err > 1e-6
+        assert not regular
+
+    @pytest.mark.parametrize("n", [2, 1000, 200_000])
+    def test_a_genuinely_regular_array_is_still_collapsed(self, n):
+        from jnwb.compression import _is_regular
+
+        ts = np.arange(n) / 1000.0
+        regular, rate = _is_regular(ts)
+        assert regular
+        assert rate == pytest.approx(1000.0)
+
+    def test_degenerate_arrays_are_refused(self):
+        from jnwb.compression import _is_regular
+
+        for bad in (np.array([]), np.array([1.0]), np.zeros(10), np.array([0.0, np.nan, 2.0])):
+            regular, rate = _is_regular(bad)
+            assert not regular and rate == 0.0
+
+    def test_a_blockwise_and_whole_array_gate_agree(self):
+        """The check is chunked at 1 << 20; a defect must not hide on a block boundary."""
+        from jnwb.compression import _is_regular
+
+        n = (1 << 20) + 5000
+        ts = np.arange(n) / 1000.0
+        ts[(1 << 20) + 10] += 1e-3  # one displaced sample, past the first block
+        regular, _ = _is_regular(ts)
+        assert not regular
+
+
+class TestVerifyRoundtripDoesNotDisableWarnings:
+    """05-22: `warnings.filterwarnings("ignore")` at function scope, unscoped and never
+    restored, on the default path of `compress_fp32` (`verify: bool = True`)."""
+
+    def test_the_interpreter_warning_filters_survive_a_verify(self, tmp_path):
+        import warnings
+
+        from jnwb.compression import verify_roundtrip
+
+        src = tmp_path / "a.h5"
+        dst = tmp_path / "b.h5"
+        for p in (src, dst):
+            with h5py.File(p, "w") as f:
+                f.create_dataset("units/id", data=np.arange(3))
+
+        before = list(warnings.filters)
+        verify_roundtrip(src, dst)
+        assert warnings.filters == before, "verify_roundtrip mutated the global filter state"
+
+    def test_a_warning_still_fires_after_a_verify(self, tmp_path):
+        import warnings
+
+        from jnwb.compression import verify_roundtrip
+
+        src = tmp_path / "a.h5"
+        dst = tmp_path / "b.h5"
+        for p in (src, dst):
+            with h5py.File(p, "w") as f:
+                f.create_dataset("units/id", data=np.arange(3))
+
+        verify_roundtrip(src, dst)
+        with pytest.warns(RuntimeWarning, match="still audible"):
+            warnings.warn("still audible", RuntimeWarning)

@@ -154,3 +154,126 @@ class TestXFlipAlternativeRecovery:
         assert res.accepted is True
         assert res.boundaries == (half,)
         assert res.modularity > 0.4
+
+
+def _smooth_gradient_null(seed, n_ch=16, n_t=400):
+    """Exponentially decaying spatial correlation: no boundary anywhere."""
+    rng = np.random.default_rng(seed + 1100)
+    dists = np.abs(np.arange(n_ch)[:, None] - np.arange(n_ch)[None, :])
+    return np.linalg.cholesky(np.exp(-dists / 4.0)) @ rng.normal(size=(n_ch, n_t))
+
+
+class TestXFlipGradientGateOnBothPaths:
+    """05-07: `has_drop` was initialised True and the drop test ran only under
+    `contiguous`, so the unrestricted path *skipped* the gate rather than failing it.
+    Same data, same rngs: contiguous=True accepted 0/15, contiguous=False accepted 15/15."""
+
+    @pytest.mark.parametrize("contiguous", [True, False])
+    def test_smooth_spatial_gradient_rejected_on_both_paths(self, contiguous):
+        n_seeds = 15
+        accepted = sum(
+            bool(
+                xflip(
+                    _smooth_gradient_null(s),
+                    contiguous=contiguous,
+                    n_blocks=2,
+                    min_block_size=3,
+                    n_surrogates=40,
+                    rng=s + 1200,
+                ).accepted
+            )
+            for s in range(n_seeds)
+        )
+        assert accepted / n_seeds <= 0.05
+
+    @pytest.mark.parametrize("contiguous", [True, False])
+    def test_the_gradient_is_rejected_by_the_drop_gate_not_by_accident(self, contiguous):
+        res = xflip(
+            _smooth_gradient_null(0),
+            contiguous=contiguous,
+            n_blocks=2,
+            min_block_size=3,
+            n_surrogates=40,
+            rng=1200,
+        )
+        assert not res.accepted
+        assert "min_boundary_drop" in (res.rejection_reason or "")
+
+    @pytest.mark.parametrize("contiguous", [True, False])
+    @pytest.mark.parametrize("within_corr", [0.6, 0.4])
+    def test_true_block_structure_is_still_detected_on_both_paths(self, contiguous, within_corr):
+        """The gate must reject gradients without costing the estimator its sensitivity."""
+        accepted = 0
+        for seed in range(10):
+            data, _, _ = synth_correlation_blocks(
+                block_sizes=(8, 8),
+                within_corr=within_corr,
+                between_corr=0.05,
+                n_samples=500,
+                rng=2000 + seed,
+            )
+            accepted += bool(
+                xflip(
+                    data,
+                    contiguous=contiguous,
+                    n_blocks=2,
+                    min_block_size=3,
+                    n_surrogates=200,
+                    rng=seed,
+                ).accepted
+            )
+        assert accepted == 10
+
+    def test_an_interleaved_partition_is_not_subject_to_the_gradient_gate(self):
+        """A spatial gradient cannot produce an interleaved partition, so the local-drop
+        statistic does not apply there -- and the cluster-level alternative cannot stand in
+        for it: within-minus-between is 0.3285 on the gradient null, far above the 0.05 bar."""
+        inter = np.array([
+            [1.0, 0.1, 0.8, 0.1, 0.8, 0.1],
+            [0.1, 1.0, 0.1, 0.8, 0.1, 0.8],
+            [0.8, 0.1, 1.0, 0.1, 0.8, 0.1],
+            [0.1, 0.8, 0.1, 1.0, 0.1, 0.8],
+            [0.8, 0.1, 0.8, 0.1, 1.0, 0.1],
+            [0.1, 0.8, 0.1, 0.8, 0.1, 1.0],
+        ])
+        res = xflip(
+            inter,
+            contiguous=False,
+            n_blocks=2,
+            min_block_size=2,
+            n_surrogates=200,
+            rng=0,
+            is_corr_matrix=True,
+        )
+        assert res.accepted
+        assert list(res.labels) == [0, 1, 0, 1, 0, 1]
+
+
+class TestXFlipValidatesItsThresholds:
+    """05-08: `is_sig = p <= alpha` is vacuously true for alpha >= 1. alpha=5.0 with
+    min_boundary_drop=0.0 accepted the gradient null in 15 of 15 seeds, while `zflip`
+    range-checks the identical parameter."""
+
+    @pytest.mark.parametrize(
+        "kwargs, match",
+        [
+            ({"alpha": 5.0}, "alpha must lie in"),
+            ({"alpha": 1.0}, "alpha must lie in"),
+            ({"alpha": 0.0}, "alpha must lie in"),
+            ({"alpha": float("nan")}, "alpha must lie in"),
+            ({"min_contrast": -1.0}, "min_contrast"),
+            ({"min_contrast": float("inf")}, "min_contrast"),
+            ({"min_boundary_drop": -0.5}, "min_boundary_drop"),
+            ({"min_boundary_drop": float("nan")}, "min_boundary_drop"),
+            ({"min_block_size": 0}, "min_block_size"),
+        ],
+    )
+    def test_invalid_thresholds_raise(self, kwargs, match):
+        data = np.random.default_rng(0).normal(size=(16, 400))
+        with pytest.raises(ValueError, match=match):
+            xflip(data, n_surrogates=5, **kwargs)
+
+    def test_valid_thresholds_still_run(self):
+        data = np.random.default_rng(0).normal(size=(16, 400))
+        res = xflip(data, n_surrogates=20, alpha=0.01, min_contrast=0.1, rng=1)
+        assert res.accepted in (True, False)

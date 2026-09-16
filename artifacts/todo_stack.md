@@ -54,22 +54,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Discriminator** `JRSAResult.p` changes with the permutation count.
 - **Accept** All six metrics return a p that varies with `permutations` and is consistent with `null_distribution`.
 
-### 05-07 `xflip(contiguous=False)` disables its own boundary-drop gate
-- **Problem** `has_drop` is initialised `True` and the drop test runs only under `contiguous`, so the guard documented at `laminar.py:1185` is unreachable on the unrestricted path.
-- **Evidence** Smooth-spatial-gradient null (the family `test_smooth_spatial_gradient_rejected` asserts FPR <= 0.05), 16 channels x 400 samples, 15 seeds, identical data and rngs: `contiguous=True` accepted 0/15; `contiguous=False` accepted **15/15**.
-- **Change** On the unrestricted path compute a per-cluster drop analogue, or set `has_drop=False` with a `rejection_reason` naming the undefined gate — matching the `n_surrogates=0` contract at `laminar.py:1429`, where not-tested is already not-passed.
-- **Preserves** The contiguous path exactly.
-- **Discriminator** FPR on the gradient null is controlled under both settings, or the unrestricted path refuses.
-- **Accept** `tests/test_xflip_calibration.py` parametrized over `contiguous`, both legs FPR-controlled. The calibration document's null rates are stated as conditional on `contiguous=True` or re-measured for both.
-
-### 05-08 `xflip` does not validate `alpha`
-- **Problem** `is_sig = p <= alpha` is vacuously true for `alpha >= 1`, and `alpha`, `min_contrast` and `min_boundary_drop` are unvalidated.
-- **Evidence** `xflip(smooth_gradient_null, alpha=5.0, min_boundary_drop=0.0, n_surrogates=40)` accepted 15/15 over 15 seeds. `zflip(..., alpha=5.0)` raises `ValueError: alpha must lie in (0, 1); got 5.0`.
-- **Change** Copy `zflip`'s check at `laminar.py:1659` into `xflip`; `laminar.py:1201`.
-- **Preserves** Valid alpha values.
-- **Discriminator** The two sibling estimators agree on an invalid `alpha`.
-- **Accept** `alpha`, `min_contrast` and `min_boundary_drop` are all range-checked.
-
 ### 05-09 `spectral_tilt` fits without a bin guard and hides a 0.5 Hz floor
 - **Problem** No `_require_band_bins` call, and a hardcoded `frequencies > 0.5` mask silently truncates the requested range.
 - **Evidence** `freq_range=(400., 401.)` returns `{'exponent': -813.99, 'offset': inf, 'fit_quality': 0.784}` behind only a `RuntimeWarning`. `freq_range=(0.1,100.)` and `(0.5,100.)` return a bit-identical exponent of -1.9207898483300474.
@@ -101,14 +85,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Preserves** All current values.
 - **Discriminator** The docstring names mean spectral density and its units.
 - **Accept** `docs/04` and the docstring agree on the estimand.
-
-### 05-14 `compress_fp32` deletes timestamps on a gate that does not bound the error it asserts
-- **Problem** `_is_regular` tests `std(diff)/mean(diff)`, which is insensitive to slow drift, and `verify_roundtrip` then checks only the first `n_check` rows, where drift is smallest by construction.
-- **Evidence** Linearly ramping `dt`, N = 2e7: full-array `std/mean = 8.949e-07` so `_is_regular` is True, while max reconstruction error over the full array is **0.2583 ms** against the code's own bar of 1e-6 s. Error scales linearly with N; at N ~ 1e8 it reaches ~1.3 ms. The source `timestamps` array is deleted at `compression.py:369`.
-- **Change** Gate on the asserted quantity: `max|ts - (ts[0] + arange(N)/rate)| < tol` computed blockwise in `_is_regular`; `compression.py:117`.
-- **Preserves** Genuinely regular timestamp arrays.
-- **Discriminator** A drifting array fails the gate at any N.
-- **Accept** No timestamp array is deleted unless the reconstruction error is bounded over its whole length. Also iterate `stats["timestamps_collapsed"]` in `verify_roundtrip` rather than the hardcoded 2-element list at `compression.py:431`, which leaves every discovered auxiliary timestamp array unverified.
 
 ## 2. Silent and fabricated failure
 
@@ -159,14 +135,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Preserves** Every equal-length, finite path.
 - **Discriminator** Each case warns or raises; none returns a quietly shortened result.
 - **Accept** One parametrized mismatch test covering all four.
-
-### 05-22 `compress_fp32` permanently disables every warning in the interpreter
-- **Problem** `warnings.filterwarnings("ignore")` at function scope, unscoped, never restored, on the default path.
-- **Evidence** `compression.py:449` inside `verify_roundtrip`, reached from `compress_fp32` at `:519`, whose signature is `verify: bool = True`.
-- **Change** Wrap in `warnings.catch_warnings()` and name a category.
-- **Preserves** The verification output.
-- **Discriminator** A device-fallback warning still fires after a `compress_fp32` call in the same process.
-- **Accept** A test asserts the warning filter state is unchanged across the call.
 
 ### 05-23 Metadata readers turn a bad path into an empty cohort
 - **Problem** `on_read_error="skip"` plus a broad exception tuple makes a nonexistent file, an unreadable file and a genuinely empty table indistinguishable, reported through `log.error`, which `warnings`, `pytest.warns` and `-W error` cannot see.
@@ -479,7 +447,7 @@ development `.venv` described at the end of this file is not package evidence.
 ### 05-60 The two carried-forward 0.2.4 items
 - **Problem** A receipt with no generator, and a test that cannot measure what it is named for.
 - **Evidence** `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator script. `tests/test_xflip_calibration.py` rebinds all four null families and three alternative categories to the shipped estimator, but runs 15 seeds against the document's 30 — and `assert fpr <= 0.05` at n=15 is satisfiable only by 0/15 — and has no analogue for the document's within-correlation sweep at rw = 0.2, 0.4, 0.8, nor for its localization-error columns. `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a null's grid dependence.
-- **Change** Write the generator or retire the document in favour of the test, stating which operating points the test does not cover; give the grid-invariance test a noisy PSD.
+- **Change** Write the generator or retire the document in favour of the test, stating which operating points the test does not cover; give the grid-invariance test a noisy PSD. 05-07 is now closed: the gradient gate applies on both paths (FPR 0/15 on the graded null at both settings, true-positive 10/10 at within_corr 0.6 and 0.4), so the document's null rates must be re-measured or restated as conditional on neither setting rather than on `contiguous=True`.
 - **Preserves** The measured operating characteristics.
 - **Discriminator** The retained artefact is reproducible from a script in the repository.
 - **Accept** No calibration receipt exists without a generator. Sequence after 05-07, which changes what is being calibrated.

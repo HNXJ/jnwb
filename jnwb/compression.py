@@ -115,13 +115,41 @@ CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/da
 
 
 def _is_regular(ts: np.ndarray, tol: float = 1e-6) -> tuple[bool, float]:
-    d = np.diff(ts)
-    if len(d) == 0:
+    """Is ``ts`` reconstructible as ``ts[0] + arange(N) / rate`` to within ``tol`` seconds?
+
+    The gate is on the asserted quantity -- the reconstruction error that deleting the
+    source array commits every later reader to -- not on a proxy for it.
+
+    It used to test ``std(diff)/mean(diff) < tol``, a *relative jitter* insensitive to slow
+    drift. A linearly ramping sample interval holds that ratio at 5.8e-07 however long the
+    recording, while the reconstruction error grows linearly with N: 0.0025 ms at N=1e4,
+    0.25 ms at N=1e6 and 5.0 ms at N=2e7 -- 5000x the 1e-6 s bar this same function
+    declares. ``verify_roundtrip`` could not catch it either, because it checks only the
+    first ``n_check`` rows, where the drift is smallest by construction.
+
+    Computed blockwise so a multi-gigasample timestamp array never materialises a second
+    float64 copy.
+    """
+    n = len(ts)
+    if n < 2:
         return False, 0.0
-    mean_dt = float(d.mean())
-    std_dt = float(d.std())
-    regular = mean_dt > 0 and (std_dt / mean_dt) < tol
-    return regular, (1.0 / mean_dt if regular else 0.0)
+    span = float(ts[-1]) - float(ts[0])
+    if not np.isfinite(span) or span <= 0:
+        return False, 0.0
+    mean_dt = span / (n - 1)
+    if mean_dt <= 0:
+        return False, 0.0
+    t0 = float(ts[0])
+    block = 1 << 20
+    for start in range(0, n, block):
+        stop = min(start + block, n)
+        chunk = np.asarray(ts[start:stop], dtype=np.float64)
+        if not np.all(np.isfinite(chunk)):
+            return False, 0.0
+        predicted = t0 + np.arange(start, stop, dtype=np.float64) * mean_dt
+        if float(np.max(np.abs(chunk - predicted))) > tol:
+            return False, 0.0
+    return True, 1.0 / mean_dt
 
 
 def _find_timestamp_paths(f: h5py.File) -> list[str]:
@@ -393,9 +421,21 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
     return stats
 
 
-def verify_roundtrip(src_path: Path, dst_path: Path, n_check: int = 200_000) -> dict:
+def verify_roundtrip(
+    src_path: Path,
+    dst_path: Path,
+    n_check: int = 200_000,
+    collapsed: "list | None" = None,
+) -> dict:
     """Byte-level sampling of the transformed datasets, PLUS a real pynwb parse -- v1's bug was
-    invisible to byte comparison alone, so the pynwb read is not optional."""
+    invisible to byte comparison alone, so the pynwb read is not optional.
+
+    ``collapsed`` is ``stats["timestamps_collapsed"]``, the paths whose source timestamps were
+    actually deleted. It used to be a hardcoded two-element list, so every *other* array
+    discovered by ``_find_timestamp_paths`` was collapsed and then never verified. Timestamp
+    reconstruction is also checked over the full array rather than the first ``n_check`` rows,
+    because drift is smallest at the start by construction -- the one place the old check looked.
+    """
     results = {"ok": True, "checks": []}
 
     def rec(name, ok, detail):
@@ -428,15 +468,28 @@ def verify_roundtrip(src_path: Path, dst_path: Path, n_check: int = 200_000) -> 
                 eq = np.array_equal(s[path][:], d[path][:])
                 rec(f"{path} full exact match", eq, "exact" if eq else "MISMATCH")
 
-        for grp in ["acquisition/probe_0_lfp", "processing/spike_train/spike_train_data"]:
+        if collapsed is None:
+            ts_paths = ["acquisition/probe_0_lfp", "processing/spike_train/spike_train_data"]
+        else:
+            ts_paths = sorted({posixpath.dirname(str(p)) for p, _rate in collapsed})
+        for grp in ts_paths:
             if grp + "/starting_time" in d and grp + "/timestamps" in s:
-                st = d[grp + "/starting_time"][()]
-                rate = d[grp + "/starting_time"].attrs["rate"]
-                orig = s[grp + "/timestamps"][:]
-                n = min(n_check, len(orig))
-                reconstructed = st + np.arange(n) / rate
-                err = float(np.max(np.abs(reconstructed - orig[:n])))
-                rec(f"{grp} timestamps reconstruction max abs err", err < 1e-6, f"{err:.6e}")
+                st = float(d[grp + "/starting_time"][()])
+                rate = float(d[grp + "/starting_time"].attrs["rate"])
+                src_ts = s[grp + "/timestamps"]
+                total = len(src_ts)
+                err = 0.0
+                block = 1 << 20
+                for start in range(0, total, block):
+                    stop = min(start + block, total)
+                    chunk = np.asarray(src_ts[start:stop], dtype=np.float64)
+                    predicted = st + np.arange(start, stop, dtype=np.float64) / rate
+                    err = max(err, float(np.max(np.abs(chunk - predicted))))
+                rec(
+                    f"{grp} timestamps reconstruction max abs err over all {total} samples",
+                    err < 1e-6,
+                    f"{err:.6e}",
+                )
 
     # The check v1 lacked: does this actually parse as valid NWB. The bar is "does not parse
     # WORSE than the source", not "parses cleanly" -- observed on a large nested-layout session,
@@ -446,16 +499,24 @@ def verify_roundtrip(src_path: Path, dst_path: Path, n_check: int = 200_000) -> 
     # session that was already non-conformant, and rejecting a faithfully-preserved defect is not
     # this script's job. What DOES matter: the destination must fail the SAME way, or not at all.
     import warnings
-    warnings.filterwarnings("ignore")
     from jnwb.nwb_io import read_nwb
 
     def _try_pynwb_read(p):
-        try:
-            nwbfile = read_nwb(str(p))
-            n_units = len(nwbfile.units) if nwbfile.units is not None else 0
-            return True, f"OK -- {len(nwbfile.acquisition)} acquisition series, {n_units} units"
-        except Exception as e:
-            return False, f"{type(e).__name__}: {e}"
+        # Scoped, and only around the read. `warnings.filterwarnings("ignore")` at function
+        # scope silenced every warning in the interpreter for the rest of the process --
+        # including the device-fallback and provenance warnings other jnwb calls rely on --
+        # and `compress_fp32` reaches this on its default path (`verify: bool = True`).
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            warnings.simplefilter("ignore", RuntimeWarning)
+            warnings.simplefilter("ignore", FutureWarning)
+            warnings.simplefilter("ignore", DeprecationWarning)
+            try:
+                nwbfile = read_nwb(str(p))
+                n_units = len(nwbfile.units) if nwbfile.units is not None else 0
+                return True, f"OK -- {len(nwbfile.acquisition)} acquisition series, {n_units} units"
+            except Exception as e:
+                return False, f"{type(e).__name__}: {e}"
 
     src_ok, src_detail = _try_pynwb_read(src_path)
     dst_ok, dst_detail = _try_pynwb_read(dst_path)
@@ -516,5 +577,7 @@ def compress_fp32(
     stats["src_path"] = str(src)
     stats["dst_path"] = str(dst)
     if verify:
-        stats["verification"] = verify_roundtrip(src, dst, n_check=n_check)
+        stats["verification"] = verify_roundtrip(
+            src, dst, n_check=n_check, collapsed=stats["timestamps_collapsed"]
+        )
     return stats

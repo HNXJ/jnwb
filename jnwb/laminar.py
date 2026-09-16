@@ -1087,6 +1087,17 @@ def _optimal_contiguous_partition(
     return block_bounds, boundaries, modularity, labels
 
 
+def _label_change_boundaries(labels: np.ndarray) -> Tuple[int, ...]:
+    """Positions along the probe where the cluster label changes."""
+    return tuple(int(i) for i in range(1, len(labels)) if labels[i] != labels[i - 1])
+
+
+def _partition_is_contiguous(labels: np.ndarray) -> bool:
+    """Does every cluster occupy one unbroken span of the channel index?"""
+    n_clusters = int(np.unique(labels).size)
+    return len(_label_change_boundaries(labels)) == max(n_clusters - 1, 0)
+
+
 def _unrestricted_partition(
     corr: np.ndarray,
     n_blocks: int,
@@ -1208,6 +1219,19 @@ def xflip(
         raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
     if n_surrogates < 0:
         raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+    # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
+    # equally unchecked: alpha=5.0 with min_boundary_drop=0.0 accepted a smooth spatial
+    # gradient in 15 of 15 seeds. `zflip` already range-checks the identical parameter.
+    if not (np.isfinite(alpha) and 0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
+    if not (np.isfinite(min_contrast) and min_contrast >= 0.0):
+        raise ValueError(f"min_contrast must be a finite value >= 0; got {min_contrast}.")
+    if not (np.isfinite(min_boundary_drop) and min_boundary_drop >= 0.0):
+        raise ValueError(
+            f"min_boundary_drop must be a finite value >= 0; got {min_boundary_drop}."
+        )
+    if min_block_size < 1:
+        raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
 
     arr = np.asarray(data)
     if arr.ndim != 2:
@@ -1407,9 +1431,15 @@ def xflip(
         p_values["omnibus"] = np.nan
 
     # Evaluate boundary drops (local discontinuity across candidate cuts)
+    # On the unrestricted path the partition carries no boundaries of its own, but a
+    # partition that happens to be contiguous has the same cuts the DP would have produced.
+    drop_boundaries = boundaries
+    if not contiguous and _partition_is_contiguous(labels):
+        drop_boundaries = _label_change_boundaries(labels)
+
     boundary_drops: Dict[int, float] = {}
-    if contiguous and len(boundaries) > 0:
-        for b in boundaries:
+    if len(drop_boundaries) > 0:
+        for b in drop_boundaries:
             within_neighbors = []
             if b >= 2:
                 within_neighbors.append(float(corr[b - 2, b - 1]))
@@ -1430,8 +1460,21 @@ def xflip(
     is_sig = bool(p_values["omnibus"] <= alpha) if surrogates_run else False
     has_contrast = (obs_q >= min_contrast)
     has_blocks = (target_k >= 2)
+    # The gradient gate. It used to run only under `contiguous`, while `has_drop` was
+    # initialised True, so the unrestricted path silently *skipped* it rather than failing
+    # it -- the same "not tested is not passed" error the `n_surrogates=0` contract above
+    # exists to prevent. A smooth spatial gradient was accepted in 15 of 15 seeds there
+    # where the contiguous path accepted 0 of 15.
+    #
+    # The statistic is a *local* discontinuity, and locality is the point: a smooth
+    # exponential decay separates perfectly well at the cluster level (within-minus-between
+    # is 0.3285 on the gradient null), so only the drop across the cut distinguishes a real
+    # boundary from a gradient. It is therefore applied exactly when a gradient could have
+    # produced the partition -- that is, when the partition is contiguous. A genuinely
+    # interleaved partition cannot come from a spatial gradient, so the gate does not apply
+    # and `unrestricted_partition_is_interleaved` records that it did not.
     has_drop = True
-    if contiguous and min_boundary_drop > 0.0 and len(boundaries) > 0:
+    if min_boundary_drop > 0.0 and len(drop_boundaries) > 0:
         for b, drop_val in boundary_drops.items():
             if drop_val < min_boundary_drop:
                 has_drop = False
