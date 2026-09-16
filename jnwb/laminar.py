@@ -45,6 +45,19 @@ class VFlipResult:
     Attributes:
         crossover_contact: Continuous sub-contact coordinate where the spectrolaminar profile
             crosses zero between low-frequency and high-frequency dominance peaks, or None if rejected.
+
+            The estimate is shrunk toward the centre of the sampled shaft, and the shrinkage
+            grows as SNR falls. Regressing the estimate on the truth over a 24-contact shaft
+            with the crossover placed from 20% to 80% of its length gives a slope of 0.703 at
+            SNR 20, 0.804 at SNR 100 and 0.864 at SNR 1000, against 1.0 for an unbiased
+            locator. At SNR 20 that is a mean signed error of +2.40 contacts for a crossover
+            at 20% of the shaft and -1.87 contacts at 80%. Both band depth profiles
+            are dominated by bins carrying no laminar source, so the per-trial min-max range
+            comes from noisy extremes and compresses each profile toward its interior,
+            pulling the crossing inward; this is attenuation, not a fixed offset. Treat a
+            crossover reported near either end of the shaft as a bound rather than a point
+            estimate, and prefer a probe whose span brackets the transition. Measured in
+            `artifacts/benchmarks/vflip_calibration_0.2.4.md`.
         crossover_depth_um: Physical cortical depth of the crossover in micrometers (um) along
             the ordered contacts, or None if rejected or contact spacing is unavailable.
         support_score: Support metric Omega evaluating contrast magnitude, peak separation,

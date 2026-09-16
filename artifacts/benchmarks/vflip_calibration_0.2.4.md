@@ -18,9 +18,9 @@ The threshold is chosen by the criterion declared in the script before this cali
 | 2.75 | 0.042 | 1.000 | 0.000 | 1.41 | 0.067 |
 | 3.25 | 0.000 | 1.000 | 0.000 | 1.41 | 0.033 |
 | 3.75 | 0.000 | 0.999 | 0.001 | 1.41 | 0.000 |
-| 4.25 | 0.000 | 0.980 | 0.020 | 1.41 | 0.000 |
-| 4.75 | 0.000 | 0.693 | 0.307 | 1.44 | 0.000 |
-| 5.75 | 0.000 | 0.036 | 0.964 | n/a | 0.000 |
+| 4.25 | 0.000 | 0.981 | 0.019 | 1.41 | 0.000 |
+| 4.75 | 0.000 | 0.688 | 0.312 | 1.44 | 0.000 |
+| 5.75 | 0.000 | 0.028 | 0.972 | n/a | 0.000 |
 
 ## Null families (false-positive rate)
 
@@ -97,22 +97,32 @@ The threshold is chosen by the criterion declared in the script before this cali
 
 Every alternative family calibrated through 0.2.3 placed the crossover at the shaft midpoint, the one location where the old normalization's centring bias vanished.
 
-| Crossover (fraction of shaft) | True contact | Median score | Rate at 3.75 | Median error (contacts) | p90 error (contacts) |
-|---|---|---|---|---|---|
-| 0.2 | 4.6 | 4.86 | 1.000 | 1.63 | 7.76 |
-| 0.3 | 6.9 | 4.85 | 1.000 | 1.04 | 2.79 |
-| 0.4 | 9.2 | 4.89 | 1.000 | 1.81 | 4.09 |
-| 0.5 | 11.5 | 4.86 | 1.000 | 1.12 | 2.76 |
-| 0.6 | 13.8 | 4.82 | 1.000 | 1.35 | 3.31 |
-| 0.7 | 16.1 | 4.87 | 1.000 | 1.35 | 5.49 |
-| 0.8 | 18.4 | 4.96 | 1.000 | 1.64 | 4.65 |
+| Crossover (fraction of shaft) | True contact | Median score | Rate at 3.75 | Median error (contacts) | p90 error (contacts) | Mean signed bias (contacts) |
+|---|---|---|---|---|---|---|
+| 0.2 | 4.6 | 4.86 | 1.000 | 1.63 | 7.76 | +2.40 |
+| 0.3 | 6.9 | 4.85 | 1.000 | 1.04 | 2.79 | +0.55 |
+| 0.4 | 9.2 | 4.89 | 1.000 | 1.81 | 4.09 | +1.26 |
+| 0.5 | 11.5 | 4.86 | 1.000 | 1.12 | 2.76 | -0.81 |
+| 0.6 | 13.8 | 4.82 | 1.000 | 1.35 | 3.31 | -0.76 |
+| 0.7 | 16.1 | 4.87 | 1.000 | 1.35 | 5.49 | -1.58 |
+| 0.8 | 18.4 | 4.96 | 1.000 | 1.64 | 4.65 | -1.87 |
+
+Regression of the estimate on the truth, over the whole sweep and at higher SNR on the same shaft positions:
+
+| SNR | Fitted slope | Intercept (contacts) |
+|---|---|---|
+| 20 | 0.703 | 3.30 |
+| 100 | 0.804 | 2.06 |
+| 1000 | 0.864 | 1.66 |
+
+An unbiased locator would give slope 1 and intercept 0. The estimate is shrunk toward the centre of the sampled shaft. Both band depth profiles are dominated by bins that carry no laminar source, so the per-trial min-max range is estimated from noisy extremes and each profile is compressed toward its interior, pulling the crossing inward. The slope rises monotonically with SNR in the table above, which is the signature of attenuation under finite SNR rather than a fixed offset. Report a crossover near either end of the shaft as a bound, not as a point estimate. `median |c* - c_true|` cannot show any of this: it stays near 1.4 contacts at every depth while the signed bias runs monotonically from positive to negative across the shaft.
 
 ## Orientation (N = 24, SNR = 20, resolved automatically)
 
 | Declared orientation | Median score | Rate at 3.75 | Orientation resolved correctly | Median error (contacts) |
 |---|---|---|---|---|
-| `superficial_to_deep` | 4.91 | 1.000 | 1.000 | 1.46 |
-| `deep_to_superficial` | 4.87 | 1.000 | 1.000 | 1.40 |
+| `superficial_to_deep` | 4.90 | 1.000 | 1.000 | 1.02 |
+| `deep_to_superficial` | 4.88 | 1.000 | 1.000 | 1.84 |
 
 ## Recovery by frequency grid (motif, N = 24, SNR = 20)
 
@@ -120,8 +130,8 @@ Paired with the null grid sweep above: a fixed threshold must mean the same thin
 
 | Samples | nperseg | Median score | Rate at 3.75 | Median error (contacts) |
 |---|---|---|---|---|
-| 5000 | 250 | 4.35 | 0.967 | 0.89 |
-| 5000 | 500 | 4.57 | 1.000 | 1.38 |
-| 5000 | 1000 | 4.90 | 1.000 | 1.90 |
-| 20000 | 1000 | 5.34 | 1.000 | 1.22 |
-| 20000 | 2000 | 5.83 | 1.000 | 1.28 |
+| 5000 | 250 | 4.35 | 1.000 | 1.02 |
+| 5000 | 500 | 4.58 | 0.967 | 1.42 |
+| 5000 | 1000 | 4.88 | 1.000 | 1.60 |
+| 20000 | 1000 | 5.32 | 1.000 | 0.65 |
+| 20000 | 2000 | 5.80 | 1.000 | 0.97 |

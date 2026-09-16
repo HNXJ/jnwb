@@ -376,11 +376,20 @@ p_geom = jnwb.probe_geometry(coords_df, units="um", nominal_pitch=20.0, strict_l
 assert p_geom.is_linear is True and p_geom.is_uniform is True
 
 # 7. 0.2.4 additions: wpli, zflip, rdm
+# `wpli` returns a dict, so `hasattr` is always False on it; and the debiased key is
+# `wpli_debiased_sq`, not `wpli_debiased`. Check the keys and their contracts.
 wpli_res = jnwb.wpli(sig[:500], sig[500:], fs=1000.0, freq_range=(10.0, 40.0))
-assert hasattr(wpli_res, 'wpli') and hasattr(wpli_res, 'wpli_debiased')
+assert set(wpli_res) == {'wpli', 'wpli_debiased_sq', 'freqs', 'wpli_spectrum', 'n_segments', 'n_freqs'}
+assert 0.0 <= wpli_res['wpli'] <= 1.0, wpli_res['wpli']
+assert -1.0 <= wpli_res['wpli_debiased_sq'] <= 1.0, wpli_res['wpli_debiased_sq']
+assert wpli_res['freqs'].shape == wpli_res['wpli_spectrum'].shape
+assert 1 <= wpli_res['n_freqs'] <= wpli_res['freqs'].size
+assert wpli_res['n_segments'] >= 2
 
 zflip_res = jnwb.zflip(rng.normal(size=(8, 1000)), fs=1000.0, pitch_um=20.0, freq_range=(15.0, 35.0), seed=42)
-assert hasattr(zflip_res, 'delay_identifiable') and hasattr(zflip_res, 'apparent_velocity_m_s')
+assert isinstance(zflip_res.delay_identifiable, bool) and isinstance(zflip_res.accepted, bool)
+# White noise carries no travelling wave: the estimator must decline it and say why.
+assert zflip_res.accepted is False and zflip_res.rejection_reason
 
 dist_mat = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation")
 assert dist_mat.shape == (10, 10)

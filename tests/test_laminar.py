@@ -1265,6 +1265,30 @@ class TestVFlipNormalizationRepair:
             f"against {deep:+.2f} at 18.4"
         )
 
+    def test_the_documented_centre_shrinkage_is_the_measured_one(self):
+        """The repair removed the zero-sum centring defect but not all attenuation: the
+        estimate is still shrunk toward the centre of the sampled shaft, because both band
+        depth profiles are dominated by bins carrying no laminar source and the per-trial
+        min-max range is taken from noisy extremes.
+
+        `VFlipResult.crossover_contact` documents the shrinkage as a fitted slope, and
+        `artifacts/benchmarks/vflip_calibration_0.2.4.md` measures 0.703 at SNR 20, 0.804 at
+        SNR 100 and 0.864 at SNR 1000. This pins that claim so the docstring cannot go stale
+        in either direction: a slope near 1 would mean the documentation now understates the
+        estimator and must be rewritten, and a slope below the band would be a regression.
+        The band is wide because this runs far fewer seeds than the calibration.
+        """
+        truth, est = [], []
+        for c_true in (4.6, 9.2, 13.8, 18.4):
+            errors, _ = self._recover(c_true, snr=100.0)
+            truth += [c_true] * len(errors)
+            est += list(np.asarray(errors) + c_true)
+        slope = float(np.polyfit(np.array(truth), np.array(est), 1)[0])
+        assert 0.6 <= slope <= 0.95, (
+            f"fitted slope {slope:.3f} is outside the calibrated band; the documented "
+            f"centre-shrinkage in VFlipResult.crossover_contact no longer matches the code"
+        )
+
     @pytest.mark.parametrize("orientation", ["superficial_to_deep", "deep_to_superficial"])
     def test_orientation_is_resolved_and_the_crossover_survives_reversal(self, orientation):
         rec = jnwb.testing.synth_laminar_motif(
