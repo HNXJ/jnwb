@@ -1105,8 +1105,14 @@ class StatisticalAnalysis:
         from the two dual-test p-values as a minimal within-comparison family).
 
         For cross-hypothesis correction (many units / channels / frequencies),
-        collect the ``q_parametric`` values across hypotheses and apply
-        ``fdr_correct()`` again.
+        collect the RAW ``result["parametric"]["pval"]`` across hypotheses and
+        apply ``fdr_correct()`` once. Do not feed ``q_parametric`` back into
+        ``fdr_correct()``: those values are already BH-adjusted within their own
+        comparison, and adjusting them again compounds the two corrections. A
+        p-value of 0.2694 becomes q = 0.3481 within its comparison and 0.3665
+        after a second pass over twenty hypotheses. The error is conservative --
+        it costs power rather than creating false positives -- but the resulting
+        numbers no longer carry an FDR guarantee at any level.
 
         Args:
             group1, group2: Data arrays.

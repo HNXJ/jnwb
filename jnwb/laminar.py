@@ -1177,7 +1177,8 @@ def xflip(
         n_blocks: Number of blocks to partition into, or None to evaluate over 2..K (default: 2).
         min_block_size: Minimum channel count required per block (default: 2).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
-            surrogate p-values are not computed (NaN).
+            surrogate p-values are not computed (NaN) and the result is never accepted:
+            not testing is not the same as passing, and `rejection_reason` says so.
         surrogate_method: `'auto'` (default), `'autocorr_preserving'`, or `'permute_channels'`.
         alpha: Significance threshold for omnibus surrogate test (default: 0.05).
         min_contrast: Minimum modularity contrast required for acceptance (default: 0.05).
@@ -1419,7 +1420,14 @@ def xflip(
             boundary_drops[b] = float(mean_near - cross_val)
 
     # Acceptance determination
-    is_sig = (p_values["omnibus"] <= alpha) if n_surrogates > 0 else True
+    # `n_surrogates=0` means the significance test was not performed, which is not the
+    # same as passing it. Assuming True here accepted pure noise in 119 of 120 seeds
+    # (contrast and boundary-drop gates opened), and the surrogate test would have rejected
+    # 113 of those, with omnibus p running as high as 0.87 -- while `p_values['omnibus']`
+    # was reported as NaN. `zflip` already documents the opposite contract: accepted only
+    # if the surrogate test was performed AND significant. This now matches it.
+    surrogates_run = n_surrogates > 0
+    is_sig = bool(p_values["omnibus"] <= alpha) if surrogates_run else False
     has_contrast = (obs_q >= min_contrast)
     has_blocks = (target_k >= 2)
     has_drop = True
@@ -1435,7 +1443,12 @@ def xflip(
     else:
         accepted = False
         reasons = []
-        if not is_sig:
+        if not surrogates_run:
+            reasons.append(
+                "Surrogate significance test not performed (n_surrogates=0); acceptance "
+                "requires the test to run"
+            )
+        elif not is_sig:
             reasons.append(f"Non-significant modularity vs surrogates (p = {p_values['omnibus']:.4f} > {alpha})")
         if not has_contrast:
             reasons.append(f"Modularity contrast ({obs_q:.4f}) below min_contrast ({min_contrast})")
