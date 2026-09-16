@@ -1,199 +1,726 @@
-# 0.2.0
-
-
-
-# 0.2.1
-
-
-# 0.2.2
-
-
-# 0.2.3
-
-
-# 0.2.4
-
-- 0.2.4-01: Empty the executable todo stack (zero unresolved package tasks unless explicit human decision blocks release).
-- 0.2.4-02: Documentation minimization pass: Audit and eliminate duplicated explanations, stale version statements, excessive prose, internal codes, unsupported claims, drifting screenshots, and non-executing examples; verify small, accessible docs without internal engineering manual overhead.
-- 0.2.4-03: Executable tutorial verification against installed wheel: Run all 8 tutorials (01 basics through 08 end-to-end) in a clean environment against the installed wheel without repo-relative imports; verify synthetic expected truth is known by construction and labeled synthetic.
-- 0.2.4-04: Independent numerical audit of every high-risk primitive and composition for sign, scale, units, axes, complex preservation, aggregation order, failure, boundary, and determinism.
-- 0.2.4-05: Randomness and inference audit verifying caller control of RNG, no global RNG mutation, no salted hash seeds, verified permutation exchangeability, and CV isolation.
-- 0.2.4-06: NWB/addressing audit with synthetic fixtures covering missing tables/columns, alternate layouts, identifiers, malformed labels, units, geometry, ambiguity, and lazy access (no missing metadata becomes valid-looking science).
-- 0.2.4-07: API audit verifying implementation == exports == signatures == typing == docstrings == reference docs == examples == skills with zero leaked deprecated symbols.
-- 0.2.4-08: Boundary audit scanning code, tests, docs, examples, skills, agents, defaults, and artifacts for zero downstream semantic leakage.
-- 0.2.4-09: Skills and agents adversarial acceptance testing against stale APIs, ambiguous units, downstream requests, invalid assumptions, and evidence conflicts.
-- 0.2.4-10: Dependency matrix audit verifying base install and declared optional dependency combinations, plus import-time optional dependency behavior.
-- 0.2.4-11: Supported Python and OS matrix audit derived from live metadata/CI; every required remote CI job must PASS.
-- 0.2.4-12: Strict documentation build audit with all examples/API references resolved, zero stale names, zero contradictory definitions, zero unsupported claims.
-- 0.2.4-13: Distribution audit building sdist and wheel from clean checkout, inspecting manifests, installing into clean environments, verifying site-packages resolution, and running representative numerical workflows against installed wheel.
-- 0.2.4-14: Reproducibility audit from fresh checkout -> install -> tests -> docs -> calibration -> representative workflows with zero undocumented local state.
-- 0.2.4-15: CPU/CUDA/parallelism independent verification: Confirm performance decisions and numerical parity across CPU and GPU backends on clean test systems.
-- 0.2.4-16: Independent final critic pass attempting to falsify numerical correctness, boundary, API consistency, docs, skills, agents, packaging, CI, and release state.
-- 0.2.4-17: Release seal verifying acceptance predicate Q_release = Q_science & Q_API & Q_performance & Q_CPU/GPU & Q_NWB & Q_docs & Q_tutorials & Q_skills/agents & Q_distribution, changelog/version bump, clean tree, commit, push dev, remote CI PASS, merge/release per policy, tag, build, install, smoke-test, and reconcile.
-
-## 0.2.4 evidence reconciliation
-
-Status at `5c2bd7f2`+ (this commit). No commit in repository history cites a `0.2.4-NN` code, so
-no item below was previously sealed; several are nonetheless satisfied by mechanical gates built
-under other codes. CLOSED means a gate or receipt demonstrates the item's own predicate. PARTIAL
-names what is missing. Nothing here is marked from inference.
-
-| Item | Status | Evidence / named gap |
-| --- | --- | --- |
-| 01 executable stack empty | CLOSED | every numbered 0.2.4 item is closed against evidence and nothing executable remains under the 0.2.4 heading. What the file still carries is a record (what was repaired, what was triaged and deliberately not repaired, what the handout recovered) plus a 0.2.5 section and the pre-1.0 list. Checked mechanically on 2026-09-16: every file and test module this stack cites resolves on disk |
-| 02 documentation minimization | CLOSED | mechanical half gated (Gate 9 documented-API parity, Gate 10 derived version, strict MkDocs 0 warnings, `test_docs_links`, `test_docs_smoke`, `test_readme_smoke`). Editorial pass done: no internal tracker code appears in any user-facing page (the Developer Guide's `0.2.0-07` reference and its stale "planned 0.2.1 through 0.2.3" framing are rewritten), and a paragraph-level scan across `docs/` finds no explanation duplicated between pages |
-| 03 tutorials vs installed wheel | CLOSED | all 8 run on the clean-venv interpreter with `PYTHONPATH` stripped and CWD outside the checkout, in CI and in release gate STEP 8; `TestInstalledArtifactVerification` fails if either is removed or reordered before install |
-| 04 numerical audit of primitives | CLOSED | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. The 0.2.4 pass over `wpli`, `imaginary_coherency`, `zflip`, `rdm`, `rdm_similarity` and `jrsa(metric='rsa')` found and repaired fabricated zeros, amplitude-unit dependence, a CUDA branch that never ran, zFLIP accepting untested or partly unidentifiable delays, and undefined RDM distances set to 0 (see CHANGELOG); regressions in `test_spectral_nonfabrication`, `test_zflip_audit`, `test_rsa_oracle`. A degenerate-input and amplitude-unit sweep over the public numeric API (empty, singleton, NaN/Inf, constant, reversed windows, scale 1e-3..1e-20, CPU vs CUDA) repaired 17 more defects: zeros or p = 1/(n+1) returned for undefined results in spectral summaries, spike-window rates, shuffle p-values, PSTH, `laplacian_reference`, `network_topology`, `xflip`; unit-dependent `jrsa` CKA/RV/dCor/cosine, `vflip` and outlier detection; `jrsa` CUDA pearson/spearman disagreeing with CPU; `harmonic_ratio` double-counting (see CHANGELOG, `test_adversarial_inputs`). Not repaired, model choices: `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units, so it is unit-dependent by definition; PSTH SEM for N=1 is deferred below. zFLIP's absolute sign convention, its phase-slope formula against a cross-spectral oracle, and its N // 2 segmentation rule are pinned in `test_zflip_audit`; each RSA similarity metric is pinned to a SciPy oracle and the twelve `rdm` metrics to the wrapper's own invariants in `test_rsa_oracle`. vFLIP's centring bias and its uncontrolled, grid-dependent acceptance are repaired: min-max relative power per frequency with each band depth profile rescaled before differencing, bin-count normalization of the score, and a threshold of 3.75 recalibrated over crossover location, channel count, pitch, grid density, orientation, missing contacts and SNR (AUC 1.000, FPR 0.000, TPR 0.999). Discriminators in `TestVFlipNormalizationRepair`, 6 of which fail the pre-repair estimator |
-| 05 randomness and inference | CLOSED | no global RNG mutation anywhere in `jnwb/` (no `np.random.seed`, no `random.seed`, no `PYTHONHASHSEED` dependence); `permute_labels` rejects non-`Generator` rng, is deterministic given a seed, preserves per-group label counts, and emits a draw manifest with sequential seeds and digests. CV isolation is now asserted, not just exercised: `TestCrossValidationIsolation` decodes labels drawn independently of 200 features on 60 trials -- the regime where a scaler, selector or hyperparameter fitted outside the outer fold would show -- and gets 0.535 mean accuracy over 10 seeds, while the same features decode at 1.000 with informative labels and fall back to chance when those labels are shuffled . Reopened and re-closed during the release pass: `jrsa` spelled its seed `random_state` while every other seeded entry point in the package spells it `seed`, and forwarded unknown keywords to metrics that swallow `**kwargs`, so `jrsa(..., seed=0)` was accepted in silence and left the permutation test entropy-seeded -- four repeated calls on one dataset gave p = 0.2736, 0.3333, 0.2637, 0.2935. `seed` is now an alias for `random_state` and an unknown keyword is a TypeError naming the metric's accepted options |
-| 06 NWB/addressing audit | CLOSED | `test_nwb_synthetic_fixtures`, `test_hdmf_nwb_read_boundary`, `test_addressing`, `test_metadata`, `test_nwb_inspect` cover missing tables/columns, alternate layouts and lazy access; the electrode-region repair added out-of-range enforcement. The units/geometry/ambiguity sweep is now `TestAmbiguousUnitProbes`: depth units are never inferred from magnitude, an undeclared or unsupported unit refuses to classify instead of guessing a layer, accepted spellings agree, an explicit argument deterministically overrides a conflicting table column, and `probe_geometry` takes the declared unit literally and rejects an unsupported one |
-| 07 API audit | CLOSED | exports == documented API == generator output is gated (Gate 9 + `generate_api_md --check` + `test_api_surface`), and skills reference only existing symbols. Signature and annotation parity is mechanical after all: `docs/api.md` is generated from runtime introspection and carries the full annotated signature, so any change to a parameter, default or annotation fails the gate -- observed when `min_support_score` moved from 6.0 to 3.75 (API_MD_DRIFT). The first docstring line is likewise generated and compared. Only the docstring body is outside mechanical comparison |
-| 08 boundary audit | CLOSED | Gate 6 scans `jnwb/`, `docs/` recursively, `examples/` recursively (`*.py`, `*.ipynb`), `skills/` and the root docs, with `TestGate6RecursiveCoverage` planting tokens on 8 surfaces; plus the no-project-identifiers gate and `test_jnwb_frozen_boundary` |
-| 09 skills/agents adversarial | CLOSED | `test_skills_validation` covers frontmatter, routing-parameter/runtime agreement, symbol and docs-path existence, no hardcoded counts, no removed toolchain, no downstream leakage, and representative routing probes. The missing adversarial legs are added: `TestAmbiguousUnitProbes` pins that a depth unit is never inferred from magnitude (1.2 um is Superficial, 1.2 mm is Deep), that an undeclared or unsupported unit refuses to classify rather than guessing, that accepted spellings agree, that an explicit argument deterministically overrides a conflicting table column, and that `probe_geometry` takes the declared unit literally and rejects an unsupported one; `TestEvidenceConflictProbes` pins that no shipped code path can rewrite the human-authorized fact stack and that the receipts-not-consensus rule still stands |
-| 10 dependency matrix | CLOSED | base wheel installs and imports with no extras in the CI clean venv, `pip check` clean; lazy-import tests prove optional subsystems are not eager and degrade with a named error. `TestOptionalExtras` adds what was missing without pretending to a matrix: every requirement string parses as PEP 508, `all` is asserted to cover exactly the other five extras, and importing `jnwb` is shown to pull in none of torch, cupy, jax, mcp or mkdocs. Installing all 32 combinations is deliberately not attempted -- `gpu` cannot resolve on a runner without CUDA -- and torch/gpu are exercised on real hardware in `artifacts/benchmarks/cuda_parity_0.2.4.md` |
-| 11 Python/OS matrix | CLOSED | run 34921221203: 3.12 and 3.14 on ubuntu-latest and windows-latest all PASS; floor consistency gated |
-| 12 strict documentation build | CLOSED | `docs_build.py` strict, 0 warnings, locally and in CI; versions derive from `jnwb.__version__` |
-| 13 distribution audit | CLOSED | build -> manifest scan -> `twine check` -> fresh venv -> wheel + transitive install -> `pip check` -> import from site-packages outside the checkout -> numerical workflows -> tutorials |
-| 14 reproducibility | CLOSED | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not run in CI, but calibration staleness is caught there: `test_vflip_calibration_receipt` fails when `vflip` changes without `scripts/calibrate_vflip.py` being rerun, and `test_xflip_calibration` recomputes xFLIP's operating characteristics from the shipped estimator |
-| 15 CPU/CUDA parity | CLOSED | against the RC-scoped criterion (structural/fallback tests; representative high-risk paths on one real CUDA system; parity within declared tolerances; CI verifies CPU/fallback). 9 of 13 `resolve_device` call sites executed on an RTX A4000 with no fallback warning, parity 0 to 3.6e-04; `rdm` has no GPU implementation and warns; the 3 uncovered are session-level wrappers over the same resolver, retaining structural coverage. The earlier 7-of-10 closure missed that `wpli(device='cuda')` never reached the GPU (repaired, receipt corrected). Receipt: `artifacts/benchmarks/cuda_parity_0.2.4.md` |
-| 16 final critic pass | CLOSED | an independent critic was run against the repaired tree without being told the package was correct. It returned ten major findings and about fifteen minor ones. Every major finding was reproduced before any repair, and each was CONFIRMED by measurement: `jrsa` permuting the feature axis so six whole-representation metrics reported p = 1.0000 on any data; `phase_locking_index` folding the recording modulo 6.2832 s so a unit with true resultant length 0.995 reported pli 0.31 over 60 s; `cross_modal_comparison` calling 99.5% of independent runs significant and silently replacing an asymmetric lag range with a different window; `_adf_pvalue` certifying 46-48% of pure random walks as stationary; `transfer_entropy` returning 0.0000 bits with `ok_for_interpretation=True` on a genuine lag-1 coupling; `permute_labels(within_group)` returning 1000 of 1000 identical draws for nested designs; `repair_lfp_trials` dropping the single-trial amplitude correlation from 0.9996 to 0.4607; `compute_response_metrics` scoring a response on a homogeneous unit and returning 0.0 for a silent baseline; the residual vFLIP centre-shrinkage; and `_rv` returning 1.0000 for independent representations. All ten are repaired, each with tests that fail the previous code. Of the minor findings, four reproduced and are repaired (odd-`n_fft` multitaper doubling, the unit-dependent `imaginary_coherency` clip, `xflip` accepting an unrun surrogate test, the `confirmatory_compare` double-correction advice); the RSA-family silent-truncation finding is UNSUPPORTED -- the truncations are unreachable from the public entry point, which rejects mismatched shapes, though its error message was unclear and is now a contract error. The `_r2` and `aperiodic_fit` zero-return findings are UNSUPPORTED as defects: a constant score genuinely has no explanatory power, and a perfectly flat log-PSD is not reachable from real input. Three tests were found to be encoding defective historical behaviour and retargeted: `test_perfectly_locked_spikes_give_high_pli_and_low_pvalue` (fixture uniform in phase, not locked), `test_zero_surrogates_returns_nan_p_value` (asserted acceptance without a test), and `test_manifest_records_sample_and_group_counts` (nested fixture with a point-mass null). See CHANGELOG 0.2.4 Fixed |
-| 17 release seal | CLOSED | 0.2.4 released 2026-09-16. Candidate `d09a4c52` on `dev`: full suite 1473 passed / 1 skipped, 13/13 harness gates, release gate VERIFIED through all 8 steps (151/151 `__all__` symbols resolved from the installed wheel outside the repository, 8/8 tutorials against the installed artifact), and remote CI green on 3.12 and 3.14 x ubuntu and windows. Merged to `main` as `9cfbe142` via PR #14, whose tree SHA `37a6cb08` is identical to the qualified `dev` tree. Tagged `v0.2.4` at `9cfbe142`; GitHub Release `jnwb 0.2.4` (non-draft, non-prerelease) triggered run 35062264236, whose Publish to PyPI job succeeded via Trusted Publishing. PyPI now serves 0.2.4 (`jnwb-0.2.4-py3-none-any.whl`, sha256 a5aad590f825..., and `jnwb-0.2.4.tar.gz`, sha256 1b5a90d6e52f...). Verified against the published artifact, not the checkout: `pip install --no-cache-dir --index-url https://pypi.org/simple jnwb==0.2.4` into a fresh 3.14.3 venv imports from that venv's site-packages and reports version 0.2.4, status Beta, release date 2026-09-16, 151/151 symbols resolving, a seeded `jrsa` p of 0.2189 reproducible across calls, and an unknown keyword rejected |
-
-### Findings triaged in the 0.2.4 critic pass and deliberately not repaired
-
-- vFLIP's crossover remains shrunk toward the centre of the shaft (fitted slope 0.703 at
-  SNR 20, 0.804 at SNR 100, 0.864 at SNR 1000). The mechanism was traced, not assumed: both
-  band depth profiles are dominated by bins carrying no laminar source, so the per-trial
-  min-max range comes from noisy extremes and compresses each profile toward its interior.
-  No correction factor is applied, because a factor tuned to flatten the sweep is exactly
-  what the repair authorization forbade and the residual is a property of band-averaged
-  range-normalized profiles at finite SNR rather than a coding defect. It is measured in the
-  calibration, documented on `VFlipResult.crossover_contact`, and pinned in both directions
-  by `test_the_documented_centre_shrinkage_is_the_measured_one`.
-- `cross_modal_comparison`'s corrected p cannot resolve below about `n_lags / n_samples`,
-  because a circular shift relands a genuine peak inside the searched window about that
-  often. A shift-predictor null drawing only from beyond the window was written and measured
-  and then discarded: it rejected 11.7% of independent pairs against a nominal 5%, because
-  excluding the overlapping shifts breaks the group structure the p-value rests on. The
-  valid null is reported together with `lag_search_resolution_floor` and a warning.
-- `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units and is therefore
-  unit-dependent by definition; unchanged, as recorded under item 04.
-
-## Handout (2026-09-15, Opus 5 session `9fe5eb2c`) -- RESOLVED 2026-09-16
-
-### State
-
-Resolved. The single-writer recovery protocol below was executed in full: the 13 foreign
-uncommitted files were classified by provenance rather than stashed or discarded, the
-competing zFLIP segmentation rule was settled on test evidence so that exactly one rule
-remains in `jnwb/laminar.py`, and the understood changes were partitioned into validated
-commits staged by exact path. The RC is no longer blocked on worktree reconciliation. This
-section is retained as the record of what was recovered, not as an instruction to repeat it.
-
-The zFLIP discriminators listed as lost were rewritten from the specification rather than
-restored from an old file version; they are `tests/test_zflip_audit.py`, which covers delay
-and apparent velocity against an independently constructed travelling wave, the phase-slope
-convention against an external oracle, reversal negating both delay and direction, pitch
-scaling velocity while leaving delay unchanged, amplitude invariance, refusal of independent
-noise, zero-lag and constant input, a delay beyond the unambiguous interval being declined,
-and seeded reproducibility without mutating the global numpy RNG.
-
-Standing rule that came out of it: one writable agent per worktree (`AGENTS.md` section 8).
-Two implementation agents ran against this worktree at once; a `git stash push`/`pop` pair is
-what lost work. Repository history is recoverable, a shared working tree is not.
-
-### Sealed with green CI (3.12/3.14 x ubuntu/windows), do not redo
-
-`bf26b0cf` 2-D rejection + first CUDA receipt; `e5a7eecc` coherence single-segment repair;
-`4e427ad1` mismatched-length `ValueError`; `d754e895` 0.2.4-15 closed under its narrowed
-criterion; `d7d06107` unpaired-trace rejection in `wpli`/`imaginary_coherency`.
-
-Headline result: `cross_area_coherence`, `imaginary_coherency`, `wpli` and `zflip` all
-reported perfect coupling for independent signals whenever the segmentation yielded a single
-Welch segment, because the cross-spectrum is then an exact function of the auto-spectra. All
-four now refuse `K < 2`.
-
-### Next
-
-0.2.4 is released and verified from PyPI; items 01 and 17 are closed on that receipt. Work
-continues under the 0.2.5 heading below.
-
 # 0.2.5
 
-Carried forward from 0.2.4. Neither item blocks the 0.2.4 release: both are limitations of
-a receipt or a test, each already mitigated by something that runs on every suite, and both
-are stated where a reader would look. They are work, not open decisions.
+Audited read-only at `3f432306` (0.2.4, released and served by PyPI) across code, tests,
+docs, skills, packaging, CI and backends. Each item carries the observation that produced it.
+Items are deleted when done; finished work is not recorded here.
 
-- `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator and cannot be
-  regenerated. It says so, names the 0.2.4 change to `xflip`, and points at
-  `tests/test_xflip_calibration.py`, which measures the same operating characteristics
-  against the shipped estimator on every run. For 0.2.5: write the generator, or retire the
-  document in favour of the test that supersedes it.
-- `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a
-  null's grid dependence; the calibration receipt does that instead. For 0.2.5: give the test
-  a noisy PSD so it measures what its name claims.
+What the green state did not prove: the suite runs against the checkout and never against the
+installed wheel (`pythonpath = ["."]`); `docs/api.md` is generated from `__all__` and then
+checked against it; gate 5 is satisfied by its own generator; and a declared hard dependency
+can be absent while 1465 tests pass, because two modules convert the `ImportError` into NaN.
 
-## Onboarding audit (2026-09-16)
+## 1. Scientific correctness
 
-Audited against one persona: a user who knows `pynwb` and nothing else, who has their own
-NWB file, wants to inspect it with jnwb, and then wants an agent to analyse it. The library
-half passed on evidence -- a foreign file written with plain pynwb (16 channels x 60 s at
-1 kHz, a standard `trials` table whose code column is named `stimulus`, 4 units, no jnwb
-fixtures) went `inspect` -> `events` -> `unit_spike_times` / `acquisition_channel` ->
-`epoch_continuous` -> `compute_psd` with no modification to the documented calls, recovering
-the injected 18.0 Hz, and `event_onsets` refused a missing code column by name rather than
-silently returning every onset. The agent half did not: the skills are not distributed, and
-nothing a user reads tells them the skills exist.
+### 05-01 `laplacian_reference` / `bipolar_reference` return uninitialised memory
+- **Problem** A `channel_order` that is not a permutation leaves output rows unwritten.
+- **Evidence** `laplacian_reference(np.arange(40.).reshape(8,5), channel_order=np.zeros(8,int))` row 1 = `[0.0, 2.12199579e-314, 0.0, 0.0, 0.0]`; two identical calls are not equal. `bipolar_reference(ch8, channel_order=np.arange(3))` returns shape `(2,100)` from 8 channels; `channel_order=np.zeros(8,int)` gives all-zero rows.
+- **Change** Validate `channel_order` is a permutation of `range(n_channels)`; `spectral.py:1642`, `spectral.py:1595`.
+- **Preserves** Output shape and sign convention for valid orders.
+- **Discriminator** A non-permutation, short, or duplicate order raises; a valid order is bit-identical to today.
+- **Accept** Repeated calls on valid input are bit-identical; `channel_order` is exercised by a test (it has zero occurrences repo-wide today).
 
-- **05-01 Agent onboarding page. DONE.** `docs/agents.md` is written and in the nav: what ships and what does not, the three MCP tools with a client configuration snippet, the nine skills and why they are not in the wheel, and the safeguards to read when you have none of them. Found and fixed while writing it: `python -m jnwb.mcp_server`, the launch command doc 10 has always given, failed with "'jnwb.mcp_server' is a package and cannot be directly executed" -- the `if __name__ == "__main__"` guard sat in `__init__.py`, where a package can never satisfy it. Original text: There is no documented path from `pip install jnwb` to an
-  agent that can analyse a file. Across `docs/` and `README.md` the word "skill" appears only
-  in `docs/11_extending_and_development.md`, a contributor page; the only agent pointer is
-  README's "If you are an AI agent, read AGENTS.md first", which sits in the contributing
-  section. MCP is mentioned twice in all of `docs/` (the `jnwb[mcp]` extra in `install.md`
-  and one line in doc 10). Write a user-facing page: the skill inventory, where the skills
-  live and how to install them, an MCP configuration snippet, and what the three shipped MCP
-  tools (`inspect_nwb`, `get_event_codes_and_timings`, `prepare_signal_reference`) do and do
-  not cover -- they are inspection only, so every analysis step is still code.
-- **05-02 Distribute the agent surface. PARTLY DONE.** `MANIFEST.in` now grafts `skills` and includes `AGENTS.md`: the rebuilt sdist carries 102 entries with 36 under `skills/`, all nine `SKILL.md` files and `AGENTS.md`, against 63 entries and none before. The wheel still does not carry the skills, and that stays a decision rather than an oversight: the canonical tree is `skills/`, and a copy under `jnwb/` is the second tree harness gate 2 and `test_no_forbidden_skill_trees_or_ide_authority` forbid. Original text: Neither artifact ships it. The 0.2.4 sdist has 63
-  entries, of which `skills/` is none, `AGENTS.md` is none, `docs/` is zero and `examples/`
-  is zero; the wheel ships `jnwb/mcp_server` but no skills. The README line naming AGENTS.md
-  is carried into the installed wheel metadata, where it links to a file the wheel does not
-  contain. Ship `skills/` and `AGENTS.md` in the sdist at minimum, and decide whether the
-  wheel should carry the skills as package data so an agent working in the user's own
-  environment can find them without cloning.
-- **05-03 A tutorial that takes the user's own file. DONE.** `examples/tutorials/00_your_own_file.py` takes a path and an optional table name, derives the table and code column from `inspect`, guards both alignment steps on what the file actually has, and writes a plain-pynwb stand-in when given no argument so it still runs unattended in the release gate. It defers table choice to jnwb rather than reimplementing it: an earlier draft took `tables[0]` and, on the canonical fixture's five interval tables, aligned to detected photodiode changes and reported 0.00 Hz without complaining. Original text: All eight tutorials write a synthetic
-  fixture into a temporary directory and assert against it; none shows a user-supplied path.
-  Tutorial 01 carries nine assertions including
-  `info["session"]["identifier"] == "TEST_SYNTH_CANONICAL"` and `n_units == 2`, so a reader
-  who points it at their own recording fails inside the tutorial rather than in their data.
-  Add a tutorial that accepts a path, derives the interval table and the code column from
-  `inspect` output instead of asserting fixture values, and still runs unattended in CI by
-  falling back to a generated file when no path is given.
-- **05-04 Make `code_column` visible where it is needed. DONE.** README and quickstart now read the column off `inspect` and pass it, and the README block is executed verbatim by `test_readme_nwb_workflow_block_executes`, which previously only reimplemented an analogous flow and would have passed whatever the README said. `events` no longer nulls an absent column in silence: the default name warns and names the columns that exist, a column the caller named raises `ColumnNotFoundError` exactly as `event_onsets` already did. Original text: A file from another lab rarely has
-  a column named `codes`. `code_column` appears only in the generated `docs/api.md` and in
-  `skills/jnwb-nwb-data/SKILL.md`; README, quickstart, the tutorials and common-mistakes all
-  say "usually `codes`" and stop. `jnwb.events(path)` on a file without that column returns
-  `code_column=None, codes=()` and raises no warning, and so does an explicitly misspelled
-  `code_column="condition"`. Show the parameter in README and quickstart, and make `events`
-  warn when the requested code column is absent, naming the columns that do exist -- the
-  information `event_onsets` already puts in its `ColumnNotFoundError`.
-- **05-06 `resolve_interval_table` does not take a path.** It is exported in `jnwb.__all__`
-  alongside `inspect`, `events`, `event_onsets` and `unit_spike_times`, all of which accept
-  a path or an in-memory `NWBFile`, but its signature is `(nwb: NWBFile, table: str | None)`
-  and passing a path raises `AttributeError: 'str' object has no attribute 'intervals'`
-  rather than a contract error. Found while writing the 05-03 tutorial, which now routes
-  table resolution through `events` instead. Either accept the same union as its peers, or
-  raise a contract error naming what it wants.
-- **05-05 An ingest section in common mistakes. DONE.** Section 9, "Assuming a Schema the File Does Not Have": no default interval table, `codes` is a jnwb default and not an NWB requirement, onsets are seconds, layout is discovered. Original text: All eight sections are downstream analysis
-  traps; none covers getting a file in. Add one: there is no default interval table, the code
-  column is not always `codes`, onsets are seconds, and the channel layout is discovered from
-  `inspect` rather than assumed.
+### 05-02 `compute_psd` hardcodes axis 0 and contradicts its sibling
+- **Problem** No `axis` parameter, and `nperseg = min(len(lfp_data), int(fs))` reads the first axis.
+- **Evidence** One `(8, 4000)` array at 1 kHz: `compute_psd` returns 5 frequency bins with the peak at **375 Hz**; `compute_multitaper_psd(..., axis=-1)` returns 2001 bins with the peak at **40.0 Hz**. No warning from either.
+- **Change** Add `axis: int = 0`, derive `nperseg` from `shape[axis]`, and call `_require_finite_nonempty_trace` (exists at `spectral.py:68`); `spectral.py:308`.
+- **Preserves** Default behaviour for documented `(n_samples, n_channels)` input.
+- **Discriminator** The two PSD entry points agree on one array under the same `axis`; a 1-sample input raises rather than returning a 0.0 PSD.
+- **Accept** Empty, 1-sample and NaN input raise, matching `band_power` / `spectral_tilt` / `harmonic_analysis`.
+
+### 05-03 The Morlet kernel has no DC-correction term
+- **Problem** `raw = gauss * exp(1j*2*pi*f0*t)` omits the `- exp(-sigma^2 * w0^2 / 2)` admissibility term, so a DC offset enters as oscillatory amplitude.
+- **Evidence** `|sum(w)| = 1.213` at `n_cycles=1` against `4.70e-05` at `n_cycles=5`. `complex_tfr(cos(2*pi*10*t) + 1000.0, 1000., [10.], n_cycles=1)` gives a peak interior `|z| = 1214.2998` for a true amplitude of 1.0.
+- **Change** Subtract the kernel mean in `morlet_wavelet`; `tfr.py:100`.
+- **Preserves** The documented unit-cosine normalization, which holds at `n_cycles >= 5`.
+- **Discriminator** A unit cosine on a large DC offset returns `|z| ~ 1.0` at every supported `n_cycles`.
+- **Accept** Parametrized over `n_cycles in {1,3,5,10}` and offsets `{0, 10, 1000}`.
+
+### 05-04 `complex_tfr` silently discards the imaginary part
+- **Problem** A real `dtype` is accepted and cast to.
+- **Evidence** `complex_tfr(..., dtype=np.float64).z.dtype` is `float64`, behind two `ComplexWarning`s. `.phase` and `.power` then describe the real part while `ComplexTFR.normalization` and `.device` still report a valid transform.
+- **Change** Raise unless `np.issubdtype(dtype, np.complexfloating)`; `tfr.py:137`.
+- **Preserves** `complex64` and `complex128`.
+- **Discriminator** `dtype=np.float64` raises and names the accepted dtypes.
+- **Accept** No path can return a real-valued `ComplexTFR.z`.
+
+### 05-05 `jrsa` bootstrap CIs resample the wrong axis
+- **Problem** `perm_axis` is computed and then ignored by both `_bootstrap` call sites, which hardcode `axis=-1`.
+- **Evidence** `jrsa.py:328` sets `perm_axis = 0` for the six observation-axis-0 metrics; `jrsa.py:352` and `:387` pass `axis=-1`. X,Y `(60,4)`, observed CKA 0.3600: shipped CI `[0.2047, 0.4435]`, observation-axis CI `[0.2725, 0.5281]`.
+- **Change** Pass `axis=perm_axis` at both call sites.
+- **Preserves** CIs for metrics whose observation axis is already `-1`.
+- **Discriminator** CI width responds to the number of observations, not the number of features.
+- **Accept** For `cka, rv, hsic, distance_correlation, procrustes, rsa`, doubling observations narrows the CI and doubling features does not.
+
+### 05-06 `jrsa` reports the parametric p it documents as invalid
+- **Problem** `if p_raw is None:` lets the cell-wise parametric p pre-empt the permutation p that was computed and paid for.
+- **Evidence** `permutations=10` and `permutations=2000` both return p = 0.5058969086596327, equal to `rdm_similarity(v1, v2, "spearman")[1]` — the p that `rsa.py:167` states "is not a valid test of RDM relatedness". The valid null is computed (`null_distribution.size == 2000`, 1.645 s) and gives 0.4693. Affects `rsa, pearson, spearman, kendall, phase_slope, granger_ssr_ftest`.
+- **Change** Prefer the permutation p when `permutations > 0`; keep the parametric p in a separate field; `jrsa.py:344`, `:373`.
+- **Preserves** Behaviour at `permutations=0`.
+- **Discriminator** `JRSAResult.p` changes with the permutation count.
+- **Accept** All six metrics return a p that varies with `permutations` and is consistent with `null_distribution`.
+
+### 05-07 `xflip(contiguous=False)` disables its own boundary-drop gate
+- **Problem** `has_drop` is initialised `True` and the drop test runs only under `contiguous`, so the guard documented at `laminar.py:1185` is unreachable on the unrestricted path.
+- **Evidence** Smooth-spatial-gradient null (the family `test_smooth_spatial_gradient_rejected` asserts FPR <= 0.05), 16 channels x 400 samples, 15 seeds, identical data and rngs: `contiguous=True` accepted 0/15; `contiguous=False` accepted **15/15**.
+- **Change** On the unrestricted path compute a per-cluster drop analogue, or set `has_drop=False` with a `rejection_reason` naming the undefined gate — matching the `n_surrogates=0` contract at `laminar.py:1429`, where not-tested is already not-passed.
+- **Preserves** The contiguous path exactly.
+- **Discriminator** FPR on the gradient null is controlled under both settings, or the unrestricted path refuses.
+- **Accept** `tests/test_xflip_calibration.py` parametrized over `contiguous`, both legs FPR-controlled. The calibration document's null rates are stated as conditional on `contiguous=True` or re-measured for both.
+
+### 05-08 `xflip` does not validate `alpha`
+- **Problem** `is_sig = p <= alpha` is vacuously true for `alpha >= 1`, and `alpha`, `min_contrast` and `min_boundary_drop` are unvalidated.
+- **Evidence** `xflip(smooth_gradient_null, alpha=5.0, min_boundary_drop=0.0, n_surrogates=40)` accepted 15/15 over 15 seeds. `zflip(..., alpha=5.0)` raises `ValueError: alpha must lie in (0, 1); got 5.0`.
+- **Change** Copy `zflip`'s check at `laminar.py:1659` into `xflip`; `laminar.py:1201`.
+- **Preserves** Valid alpha values.
+- **Discriminator** The two sibling estimators agree on an invalid `alpha`.
+- **Accept** `alpha`, `min_contrast` and `min_boundary_drop` are all range-checked.
+
+### 05-09 `spectral_tilt` fits without a bin guard and hides a 0.5 Hz floor
+- **Problem** No `_require_band_bins` call, and a hardcoded `frequencies > 0.5` mask silently truncates the requested range.
+- **Evidence** `freq_range=(400., 401.)` returns `{'exponent': -813.99, 'offset': inf, 'fit_quality': 0.784}` behind only a `RuntimeWarning`. `freq_range=(0.1,100.)` and `(0.5,100.)` return a bit-identical exponent of -1.9207898483300474.
+- **Change** Call `_require_band_bins` (`spectral.py:55`), require a minimum bin count for the fit, and report the bins actually fitted; `spectral.py:837`.
+- **Preserves** Fits over adequately populated ranges.
+- **Discriminator** A two-bin range raises instead of returning an exponent; the return records the fitted band.
+- **Accept** A requested band that gets truncated is reported, not silently narrowed.
+
+### 05-10 `phase_slope_index` reports a Gaussian tail from a 6-segment jackknife, and sums overlapping bands
+- **Problem** `2*norm.sf(|z|)` applied to a leave-one-out z with roughly `n_seg - 1` degrees of freedom; and the headline value is a raw sum over whatever band table was passed.
+- **Evidence** `n_segments=6, psi=7.2388, sd=0.3784, z=19.13, p=1.408e-81`. Same data and direction: `bands=None` -> +7.2388; `bands='canonical'` -> +3.9526; `{'beta':(14,30)}` -> +0.9899; `{'a':(14,30),'b':(14,30)}` -> +1.9799, exactly 2x.
+- **Change** Use `stats.t.sf(|z|, df=n_seg-1)`; warn when band masks overlap; `connectivity.py:1665`, `:1657`.
+- **Preserves** The sign convention and antisymmetry, both verified correct against Nolte et al. 2008.
+- **Discriminator** p responds to the segment count; duplicate bands do not double the estimate.
+- **Accept** A 6-segment call cannot report a p below what the segment count supports.
+
+### 05-11 `granger` treats "stationarity not tested" as "stationarity passed"
+- **Problem** A blanket `except Exception: return nan` plus `stationarity_ok = bool(np.isnan(adf_p) or adf_p <= 0.05)`.
+- **Evidence** With `statsmodels` absent, `granger(random_walk_1, random_walk_2, order=3)` returns `warnings=[], ok_for_interpretation=True, stationarity_ok=True` on two pure random walks. The same absence surfaces as a *calibration* failure in `test_a_stationary_series_is_still_detected`, hiding its cause.
+- **Change** Emit `stationarity_not_tested` into `warnings` when `adf_p` is NaN and set `ok_for_interpretation=False`; `connectivity.py:369`, `:403`.
+- **Preserves** Behaviour when the test runs.
+- **Discriminator** An untested series is never reported as interpretable.
+- **Accept** With `statsmodels` uninstalled, `granger` reports that it could not test rather than that it passed. See also 05-12 and 05-55.
+
+### 05-12 A degenerate VAR fit returns 0.0 with a clean bill of health
+- **Problem** `gc_val = log(sig2_r/sig2_u) if sig2_u > 0 else 0.0`, with no path into `warnings_all`.
+- **Evidence** `granger(np.ones(800), np.ones(800), order=3)` -> `x_to_y=0.0, y_to_x=0.0, p=nan, warnings=[], ok_for_interpretation=True`. On identical input `granger_spectral` raises `degenerate VAR residual covariance` and `transfer_entropy` warns `degenerate_discretization` with `ok=False`.
+- **Change** Append a `degenerate_residual_variance` warning and clear `ok_for_interpretation` when `sig2_u <= 0`; `connectivity.py:993`, `:1079`, and the same defect in the deprecated `granger_causality` at `:456`, `:461`.
+- **Preserves** Non-degenerate fits.
+- **Discriminator** Three sibling estimators agree on constant input.
+- **Accept** No directed estimator returns 0.0 with `ok_for_interpretation=True` from a degenerate fit.
+
+### 05-13 `band_power` returns mean PSD while documenting "power in band"
+- **Problem** `float(np.mean(pxx[mask]))` is bandwidth-independent, so bands of different widths are not comparable as power.
+- **Evidence** `band_power(x, fs=1000., freq_range=(19.,21.), normalize=False)` = 0.22175471142697917, exactly `mean(PSD[mask])`; `np.trapezoid(PSD[mask], f[mask])` = 0.48715.
+- **Change** State the estimand and its units in the docstring; consider an `integrate=` option. Documentation change, not a numerical one.
+- **Preserves** All current values.
+- **Discriminator** The docstring names mean spectral density and its units.
+- **Accept** `docs/04` and the docstring agree on the estimand.
+
+### 05-14 `compress_fp32` deletes timestamps on a gate that does not bound the error it asserts
+- **Problem** `_is_regular` tests `std(diff)/mean(diff)`, which is insensitive to slow drift, and `verify_roundtrip` then checks only the first `n_check` rows, where drift is smallest by construction.
+- **Evidence** Linearly ramping `dt`, N = 2e7: full-array `std/mean = 8.949e-07` so `_is_regular` is True, while max reconstruction error over the full array is **0.2583 ms** against the code's own bar of 1e-6 s. Error scales linearly with N; at N ~ 1e8 it reaches ~1.3 ms. The source `timestamps` array is deleted at `compression.py:369`.
+- **Change** Gate on the asserted quantity: `max|ts - (ts[0] + arange(N)/rate)| < tol` computed blockwise in `_is_regular`; `compression.py:117`.
+- **Preserves** Genuinely regular timestamp arrays.
+- **Discriminator** A drifting array fails the gate at any N.
+- **Accept** No timestamp array is deleted unless the reconstruction error is bounded over its whole length. Also iterate `stats["timestamps_collapsed"]` in `verify_roundtrip` rather than the hardcoded 2-element list at `compression.py:431`, which leaves every discovered auxiliary timestamp array unverified.
+
+## 2. Silent and fabricated failure
+
+### 05-15 Undefined statistics return the most significant p the test can emit
+- **Problem** `np.abs(nan) >= np.abs(nan)` is False, so the exceedance count is 0 and `p = 1/(B+1)`. The guard that prevents this, `statistics._require_shuffle_inputs`, exists and is applied at none of these five sites.
+- **Evidence** `jrsa(ones((60,12)), gaussian, metric='cka', permutations=1000)` -> `value: nan, p: [0.000999], q: [0.000999]`. `StatisticalAnalysis.permutation_test(full(5,nan), arange(5.))` -> `{'observed_difference': nan, 'pval': 0.0196, 'significant': True}`. `shuffle_r2_ci` with one NaN score -> `{'r2_observed': nan, 'p_val': 0.0196}`. `cross_area_coherence` with one NaN -> `band_coherence` all NaN and `band_significance` all 0.0196, the floor, while `wpli` and `imaginary_coherency` hard-reject the same input. `cross_modal_comparison` with one NaN -> `lag_corrected_pvalue` 0.8607 becomes 0.004975 and `significant_lag_corrected` False becomes True.
+- **Change** One shared finiteness precondition at `jrsa._p_from_null` (`jrsa.py:847`), `statistics.permutation_test` (`:1015`), `shuffle_r2_ci` (`:554`), `cross_modal_comparison` (`:1355`) and `cross_area_coherence` (`spectral.py:727`); return NaN when the observed statistic or the entire null is non-finite.
+- **Preserves** Every p-value on finite input, and the observed-inclusive `(1+k)/(B+1)` form used everywhere.
+- **Discriminator** Non-finite input raises or returns NaN and never a p at the floor.
+- **Accept** A parametrized test feeds NaN and Inf to all five and asserts none produces a significant result.
+
+### 05-16 Fabricated certainty at N = 1 and at zero spikes
+- **Problem** Undefined dispersion is reported as a measured zero.
+- **Evidence** `raster_psth(spikes, [one_onset], win_ms=(0,100), bin_ms=50)` -> `mean [80. 40.], sem [0. 0.]`. `compute_response_metrics` on a unit firing at 193 Hz from one trial -> `response_zscore: 0.0`, and `classify_response_significance` -> `{'is_significant': False, 'pvalue': 1.0, 'confidence': 'none'}`; the same unit at two trials gives `nan` and `'undefined'`. Zero spikes also yields `0.0`. `UnitAnalyzer.psth` returns NaN for the same N=1 case.
+- **Change** `np.full_like(mean, np.nan)` at `viz.py:136`; default `'response_zscore'` to NaN in the dict at `spiking.py:56` so both the early return at `:60` and the `len(baseline) > 1` branch leave it undefined.
+- **Preserves** N >= 2 behaviour.
+- **Discriminator** N=1 and zero-spike cases return NaN and classify `'undefined'`, never `'none'`.
+- **Accept** `raster_psth` and `compute_response_metrics` agree with their siblings at N=1. This also settles the `Before 1.0` PSTH SEM question.
+
+### 05-17 `phase_locking_index` extrapolates out-of-range spikes to one edge phase
+- **Problem** `np.interp` clamps, so every spike outside the LFP window receives the identical endpoint phase.
+- **Evidence** Ten spikes at 500.0-500.9 s against an LFP spanning 0-10 s -> `rayleigh_z = 10.0000` (equal to n, the maximal resultant), `rayleigh_pvalue = 0.0`, `n_spikes = 10`. Half in and half out -> `z = 25.046, p = 0`.
+- **Change** Mask spikes outside `[timestamps[0], timestamps[-1]]` before the resultant and report the excluded count; `spiking.py:260`.
+- **Preserves** In-range behaviour and the repaired modulo-2*pi folding.
+- **Discriminator** Out-of-range spikes cannot raise the resultant length.
+- **Accept** All-out-of-range input returns NaN with the exclusion count reported.
+
+### 05-18 `map_peak_channel_to_area` returns the probe name as a brain area
+- **Problem** `group_name` sits in the candidate column list, so a table with no `location`/`area` column yields the probe label.
+- **Evidence** Electrode table with columns `['group_name','x','y','z']`: `map_peak_channel_to_area(0, elec)` -> `'probeA'`.
+- **Change** Drop `'group_name'` from the candidates and return NA; `addressing.py:105`.
+- **Preserves** Resolution on tables that carry an area column.
+- **Discriminator** An area-less table yields NA, not a probe name.
+- **Accept** `test_enrich_units_dataframe_no_fabricated_probeA` loses the `location` column from its fixture so the fallback it is named for is actually exercised.
+
+### 05-19 `interpolate_intervals` propagates an edge artifact across the whole segment
+- **Problem** `s = max(s,1); e = min(e,n-1)` makes the first and last samples un-repairable and then uses them as the interpolation anchors.
+- **Evidence** `interpolate_intervals([100,0,0,100,100,100,0,0,0,100], [(0,10)])` returns all ten samples as 100.
+- **Change** Reject, or edge-extrapolate, an interval whose anchor sample is itself inside the flagged region; `artifact_repair.py:95`.
+- **Preserves** Interior intervals.
+- **Discriminator** An interval touching a segment edge does not spread the artifact.
+- **Accept** Edge intervals are repaired or refused, never propagated.
+
+### 05-20 `repair_lfp_trials` reports a protection it did not apply
+- **Problem** `exclude_window_ms` is silently dropped when `times_ms is None`, and the diagnostics still echo the request.
+- **Evidence** `repair_lfp_trials(base, times_ms=None, exclude_window_ms=(90.,110.))` substitutes the sample at t-index 100 while `diagnostics['exclude_window_ms'] == (90.0, 110.0)`, `reward_excluded_cells == 0` and `warnings == []`.
+- **Change** Raise when `exclude_window_ms` is given without `times_ms`; `artifact_repair.py:196`.
+- **Preserves** Both arguments supplied, and neither supplied.
+- **Discriminator** The diagnostics never assert a window that was not applied.
+- **Accept** The half-specified call raises and names the missing argument.
+
+### 05-21 Silent truncation and mis-pairing across four entry points
+- **Problem** Each shortens or drops input where a sibling refuses.
+- **Evidence** `as_trials([500,480,500], allow_ragged=True)` -> `(3,480)` with `warnings == []` (log only), while `allow_ragged=False` raises `ragged trial lengths [480, 500]`. `paired_fire_prob_test` with lengths 8 and 4 returns `risk_difference=0.5` pairing unrelated trials, while `shuffle_pvalue_paired` raises for exactly this and its docstring names the harm. `jrsa` with `nan_policy='propagate'` accepts `(60,6)` against `(40,6)` and silently uses the first 40, while the default policy raises. `bin_spikes` drops NaN spike times with no count.
+- **Change** `warnings.warn(..., RuntimeWarning)` alongside the ragged log; length-equality check in `paired_fire_prob_test`; hoist the `jrsa` shape check above the `nan_policy` dispatch; count and report non-finite spike times.
+- **Preserves** Every equal-length, finite path.
+- **Discriminator** Each case warns or raises; none returns a quietly shortened result.
+- **Accept** One parametrized mismatch test covering all four.
+
+### 05-22 `compress_fp32` permanently disables every warning in the interpreter
+- **Problem** `warnings.filterwarnings("ignore")` at function scope, unscoped, never restored, on the default path.
+- **Evidence** `compression.py:449` inside `verify_roundtrip`, reached from `compress_fp32` at `:519`, whose signature is `verify: bool = True`.
+- **Change** Wrap in `warnings.catch_warnings()` and name a category.
+- **Preserves** The verification output.
+- **Discriminator** A device-fallback warning still fires after a `compress_fp32` call in the same process.
+- **Accept** A test asserts the warning filter state is unchanged across the call.
+
+### 05-23 Metadata readers turn a bad path into an empty cohort
+- **Problem** `on_read_error="skip"` plus a broad exception tuple makes a nonexistent file, an unreadable file and a genuinely empty table indistinguishable, reported through `log.error`, which `warnings`, `pytest.warns` and `-W error` cannot see.
+- **Evidence** `get_all_units_metadata(bad_path)` and `electrode_inventory(bad_path)` -> `DataFrame (0,0)` with zero warnings, while `inspect`, `events` and `unit_spike_times` all raise `FileNotFoundError` on the same path. Separately, `electrode_inventory` requires an int-parsable filename stem: a valid 4-electrode file named `mm_depth.nwb` -> `DataFrame (0,0)` with `invalid literal for int()`, while `get_all_units_metadata` on that file returns `(2,10)`.
+- **Change** Raise when every input path failed; reuse the int-or-string session fallback from `metadata.py:57` at `:341`.
+- **Preserves** Per-file skipping within a genuine multi-file call.
+- **Discriminator** A single bad path raises; a non-numeric filename returns the electrodes.
+- **Accept** All four NWB readers agree on a nonexistent path.
+
+### 05-24 `cluster_permutation_test` turns an Inf sample into a measured zero
+- **Problem** The entry guard checks `np.isnan` only, and `np.divide(..., out=np.zeros_like(m), where=se > 0)` leaves the pre-filled 0.0 when `se` is NaN.
+- **Evidence** X `(20,30)` with `X[0,0]=inf`, paired: `stat_map[0] == 0.0`; without the Inf the same point gives 2.26238157.
+- **Change** Guard with `np.isfinite(X).all()`; fill with NaN rather than 0.0; `statistics.py:1490`, `:1545`.
+- **Preserves** Finite input.
+- **Discriminator** An Inf sample raises rather than guaranteeing that point joins no cluster.
+- **Accept** Inf and NaN are rejected identically.
+
+### 05-25 An empty selection returns fabricated zeros in one module and NaN in another, and both are test-enforced
+- **Problem** `trajectory.py` and `analyzers.py` take opposite positions on the same condition, each pinned by a passing test (`test_trajectory.py:112` enforces zeros; `test_analyzers_coverage.py:106` enforces "NaN, not fabricated zeros").
+- **Evidence** Both green at `3f432306`.
+- **Change** Pick one policy and make both modules and both tests follow it. Invariant 1 of `AGENTS.md` ("no empirical value that no script computed from data") points at NaN.
+- **Preserves** Whichever behaviour is chosen, consistently.
+- **Discriminator** One documented empty-selection policy across the package.
+- **Accept** The policy is stated in `docs/common_mistakes.md` and both tests assert the same thing. **This needs a ruling before implementation.**
+
+## 3. API consistency
+
+### 05-26 `jrsa` records the device and options it was asked for, not the ones that ran
+- **Problem** `jrsa` is the only compute module that bypasses `_backend.py`, and its provenance echoes the request.
+- **Evidence** With `cupy_available()` False: `jrsa(device='cuda', backend='cupy')` warns "CuPy not available; falling back to NumPy" and then records `execution == {'backend':'cupy', 'device':'cuda', ...}`. `device='bogus_device'` runs and is recorded verbatim, while all 15 `resolve_device` sites raise `ValueError` for the same string. `correction='bonferoni'` warns it fell back to `fdr_bh` and records `parameters['correction'] == 'bonferoni'`. `metric='cka', kernel=` is accepted and ignored: `linear`, `rbf` and `nonsense_kernel` all return 0.14404010802537645. On a live A4000 the cupy path is bit-identical to CPU (`max|diff| = 0.0`) because `_ensure_np` converts at the head of all 14 metrics, so the upload is discarded while the claim stands.
+- **Change** Route `device` through `resolve_device`; record the resolved backend and device; raise on an unknown `correction`; raise `NotImplementedError` for `kernel != 'linear'`; delete `_autodetect_backend` and the `_backend_*` helpers; `jrsa.py:964`, `:919`, `:1270`.
+- **Preserves** Numerical results on the NumPy path.
+- **Discriminator** No call leaves `execution` disagreeing with the warning emitted during it.
+- **Accept** `jrsa` rejects an unknown device name like every other routed function, and its provenance matches what executed. This is `AGENTS.md` invariant 6.
+
+### 05-27 `resolve_interval_table` does not take a path
+- **Problem** The only exported NWB entry point requiring an open `NWBFile`, with `table` required positionally and no keyword-only discipline.
+- **Evidence** Live signature `(nwb: NWBFile, table: str | None) -> str` against its exact sibling `resolve_acquisition(path_or_nwb, name=None)`. A path gives `AttributeError: 'str' object has no attribute 'intervals'`.
+- **Change** Wrap in `_with_nwb` as `resolve_acquisition` already is; default `table=None`; `nwb_events.py:78`.
+- **Preserves** The `trials` -> sole-table -> ambiguity precedence and every accepted name form.
+- **Discriminator** A path resolves; a wrong type raises a jnwb error naming both accepted types.
+- **Accept** One path-or-`NWBFile` convention across every exported NWB function, stated in the docs (neither `NWBInput` nor `InspectInput` is expanded anywhere today).
+
+### 05-28 No exception base is reachable, and contract violations arrive as incidental errors
+- **Problem** `nwb_events.NWBEventError` exists with four exported subclasses but is not in `__all__`; `nwb_io.MissingRequiredNWBFieldError` is documented at `docs/01:50` and is neither based nor exported; 350 of 397 raises are bare `ValueError`; `ChannelIndexError` inherits `IndexError` while its three siblings inherit `Exception`.
+- **Evidence** `hasattr(jnwb, 'NWBEventError')` and `hasattr(jnwb, 'MissingRequiredNWBFieldError')` are both False. `probe_geometry("x.nwb")` raises a bare `AssertionError` with an empty message (`addressing.py:587`), which disappears under `python -O` and then executes `coords.shape` on `None`.
+- **Change** Export both names; give `ChannelIndexError` its siblings' base; replace the bare assert with a `TypeError` naming the accepted types.
+- **Preserves** Existing exception identities, so current `except` clauses keep working.
+- **Discriminator** `except jnwb.NWBEventError` catches all four subclasses.
+- **Accept** Every exception class named in the docs is importable from `jnwb`.
+
+### 05-29 Unit-suffix divergence puts a 1000x error one keystroke away
+- **Problem** `_ms` (23 parameters) and `_s` (7) coexist on functions used in the same workflow, and the response/baseline windows carry no unit at all.
+- **Evidence** `examples/tutorials/03_spiking.py` calls `raster_psth(..., win_ms=(-100.,400.))` at line 38 and `compute_response_metrics(..., baseline_window=(-0.2,0.0))` at line 61 in the same body; both take a float 2-tuple and the second names no unit. `api.md:235` shows `baseline_window: Tuple[float,float] = (-0.25,-0.05)`, still with no unit. `epoch_continuous(win_s=)` is the other `_s` outlier against `raster_psth(win_ms=)`.
+- **Change** Add `_s` suffixes to the four unsuffixed window parameters, aliasing the old spelling with conflict detection, using the pattern `band_power(fs=, sampling_rate=)` already implements at `spectral.py:173`.
+- **Preserves** Existing call sites through the alias.
+- **Discriminator** Passing both spellings raises `Conflicting values`.
+- **Accept** Every time or window parameter in `__all__` carries its unit in its name.
+
+### 05-30 `alternative=` is unvalidated and the paired/unpaired siblings default differently
+- **Problem** An `if/elif/else` whose fallthrough is two-sided.
+- **Evidence** `shuffle_pvalue_paired(..., alternative="GREATER")` and `alternative="nonsense"` both return p = 0.03, the two-sided value. `shuffle_pvalue_paired` defaults `"two-sided"`; `shuffle_pvalue_unpaired` defaults `"greater"`; on one dataset that is p = 0.03 versus 0.227. `exact_sign_flip` validates and case-folds the identical parameter at `statistics.py:152`.
+- **Change** Validate against `{"two-sided","greater","less"}` with `.lower().strip()`; make both defaults two-sided.
+- **Preserves** Explicitly passed valid values.
+- **Discriminator** A typo raises instead of silently selecting two-sided.
+- **Accept** Both siblings share a default and reject unknown values. Same treatment for `confirmatory_compare`, which accepts `alpha=2.0` and returns `confirmed_parametric=True` while `clopper_pearson` validates `0 < alpha < 1`.
+
+### 05-31 `fs` and 2-D input are validated inconsistently across the spectral surface
+- **Problem** `_resolve_fs` never checks positivity, and `imaginary_coherency` ravels 2-D input that `cross_area_coherence` rejects.
+- **Evidence** `wpli(x, y, fs=0.0)` -> `ZeroDivisionError`; `fs=-1000.` -> a `ValueError` describing a grid "0 to -500 Hz in steps of -3.90625 Hz"; `imaginary_coherency` with the same `fs` gives a clean `ValueError`. `imaginary_coherency(np.stack([x,y]), np.stack([y,x]), fs=1000.)` returns `{'icoh_mean': 0.0061, ...}` by concatenating channels end to end; `cross_area_coherence` refuses 2-D with a detailed message.
+- **Change** Add `fs > 0 and np.isfinite(fs)` to `_resolve_fs` (`spectral.py:173`); reject `ndim != 1` in `imaginary_coherency` (`:1401`).
+- **Preserves** 1-D behaviour.
+- **Discriminator** Every spectral entry point gives the same error class for `fs=0` and for 2-D input.
+- **Accept** One parametrized bad-`fs` and bad-shape test across the spectral surface.
+
+### 05-32 `jnwb.ontology` is 11 public symbols no workflow can reach
+- **Problem** 387 lines, 11 exported dataclasses and 3 factories, with zero call sites in `jnwb/`, zero behavioural tests, and zero mentions in `skills/`, `examples/` or `README.md`. The module states the constructors "are intentionally absent... a generic implementation would have nothing to read from".
+- **Evidence** `Dataset, AlignedDataset, Alignment, EpochCollection, Question, Interpretation, Provenance, Lineage` are never mentioned anywhere under `tests/`; `Query`'s only behavioural line asserts a value the test just set. `create_aligned_dataset`, `create_result` and `create_figure` each return exactly one grep hit across the whole repository: their own definition.
+- **Change** Decide: remove from `__all__`, `_lazy_exports` and `_api_surface` while keeping the module importable, or document it as a downstream contract and give it behavioural tests. A public API removal needs a `CHANGELOG.md` entry and a deprecation path per `AGENTS.md` section 8.
+- **Preserves** Import compatibility under either choice.
+- **Discriminator** Every name in `__all__` is reachable from a documented workflow.
+- **Accept** `__all__` contains no symbol without a test and a documented use. **This needs a ruling before implementation.**
+
+## 4. Reproducibility and statistics
+
+### 05-33 `jrsa` records the generator state under the name `seed`
+- **Problem** `_make_exec_meta` reads `rng.bit_generator.state["state"]["state"]`.
+- **Evidence** `jrsa(..., random_state=7).execution["seed"]` -> 69277902251545625047243999639177715869, which cannot be fed back to reproduce the run.
+- **Change** Record the `random_state` argument; `jrsa.py:1663`.
+- **Preserves** Determinism, which is already correct: all 14 metrics reproduce bit-identically at a fixed `random_state`.
+- **Discriminator** `execution["seed"]` round-trips as a `random_state`.
+- **Accept** Feeding `execution["seed"]` back reproduces the result.
+
+### 05-34 `nested_cv_linear_svm` gives the caller no control over the partition
+- **Problem** The signature is `(X, labels, n_splits)` with `random_state=42` hardcoded at four sites, so partition sensitivity cannot be assessed.
+- **Evidence** `decoding.py:86, 91, 113, 124`. Separately, `shuffle_r2_ci` spells it `random_state: int` and `cross_modal_comparison` spells it `seed`, against the package's dominant `rng: np.random.Generator`.
+- **Change** Add a `seed`/`rng` parameter to `nested_cv_linear_svm`; alias the divergent spellings as `jrsa` now does, with conflict detection.
+- **Preserves** Current results at the existing default.
+- **Discriminator** Two different seeds give two different fold assignments.
+- **Accept** Every randomized public function takes a caller-supplied generator under one spelling. The RNG vocabulary is currently 10 spellings across 19 functions: `rng` 8, `seed` 7, `random_state` 3, `n_surrogates` 7, `n_permutations` 3, `n_shuffles` 3, plus the singletons `permutations`, `n_shuffle`, `n_bootstrap`, `random_seed`.
+
+### 05-35 Hidden default seeds make two "independent" runs share a null
+- **Problem** `exact_sign_flip`, `_bootstrap_mean_diff_ci`, `bootstrap_ci` and `permutation_test` fall back to `np.random.default_rng(42)`; `cluster_permutation_test` uses `default_rng(0)`.
+- **Evidence** `statistics.py:206, 680, 953, 993` and `:1483`; probed reproducible across calls.
+- **Change** Name the constant in the signature so it is visible, or require an explicit `rng`.
+- **Preserves** Reproducibility.
+- **Discriminator** The default seed is discoverable from the signature.
+- **Accept** No randomized function hides its default seed in the body.
+
+### 05-36 `decoding` label handling refuses valid data and accepts invalid data
+- **Problem** `np.bincount(labels.astype(int)).min()` counts absent label values as classes of size 0, and `build_inner_validation_partitions` casts group ids with `int()`.
+- **Evidence** Same X `(40,5)`, 20 per class, separable: labels `{0,1}` -> `accuracy=0.825, status="success"`; labels `{1,2}` and `{0,2}` -> `status="insufficient_trials_for_cv"` with all metrics NaN (`np.bincount([1,1,2,2]).min() == 0`); labels `{-1,1}` -> `ValueError: 'list' argument must have no negative elements`; labels `{'a','b'}` -> `ValueError: invalid literal for int()`. `assign_outer_folds` accepts string `cycle` ids and returns `outer_fold_status="valid"`, then `build_inner_validation_partitions` on that output raises `invalid literal for int() with base 10: 'c1'`.
+- **Change** `np.unique(labels, return_counts=True)[1].min()`; drop the `int()` casts at `decoding.py:262`, `:264`; check `len(np.unique(labels)) >= 2` before `max_splits`.
+- **Preserves** Contiguous 0-based integer labels.
+- **Discriminator** Any two-class label set of adequate size decodes; the documented two-step pipeline round-trips its own group ids.
+- **Accept** `status` never asserts something false about the data.
+
+## 5. NWB and user workflow
+
+### 05-37 jnwb cannot read a minimal NWB units table that pynwb reads
+- **Problem** The length-1-array-to-scalar repair collapses `colnames=array(['spike_times'])` to the string `'spike_times'`, and the next line does `list(...)` on it.
+- **Evidence** A units table whose only column is `spike_times`, written with plain pynwb. pynwb reads it: `units n = 2, colnames = ('spike_times',)`. jnwb: `ConstructError ... 'colnames': array(['s','p','i','k','e','_','t','i','m','e','s','spike_times'])`. Every entry point fails — `inspect`, `events`, `unit_spike_times`, `acquisition_channel`, `get_all_units_metadata`, `electrode_inventory` — and tutorial 00 dies with `KeyError: 's'`.
+- **Change** Exclude `colnames` from the scalarization at `nwb_io.py:43`, or guard `:58` with `np.atleast_1d` / an `isinstance(value, str)` check.
+- **Preserves** The scalar repair for the attributes it was written for.
+- **Discriminator** A single-column units table is readable through every entry point.
+- **Accept** A fixture written with plain pynwb, carrying one units column, passes the whole documented workflow. This is the most common minimal table a foreign lab writes.
+
+### 05-38 `acquisition_channel` ignores the layout `inspect` computed
+- **Problem** It slices axis 1 unconditionally and bounds-checks `shape[1]`, never consulting the `layout` its own sibling reports.
+- **Evidence** Channel-major `(64, 1000)` data with 64 electrodes: `inspect` reports `layout: channel_by_time`; `acquisition_channel(channel=999)` returns a 64-sample time slice presented as a channel trace at 1000 Hz; `channel=1000` raises `Channel index 1000 out of range for series 'es' with 1000 channels`. Separately, the layout heuristic itself is `shape[0] >= shape[1]` with no reference to the electrode count, so a 50-sample x 100-channel recording is reported `channel_by_time` while the same dict carries `electrodes n_rows = 100`.
+- **Change** Decide the axis by matching a dimension against `len(nwb.electrodes)`; emit `layout: 'ambiguous'` when both or neither match; have `acquisition_channel` honour it; `nwb_inspect.py:151, 187, 359, 496`.
+- **Preserves** Time-major files, and the verified-correct `conversion`/`offset` scaling.
+- **Discriminator** A channel-major file either returns the correct trace or raises naming the layout; the bound check reports the true channel count.
+- **Accept** Both orientations round-trip, with the electrode count as the arbiter.
+
+### 05-39 `inspect(path)` and `inspect(NWBFile)` return different schemas
+- **Problem** Two independent implementations, an h5py walk and a pynwb walk, with no shared schema; and `_find_series_leaf` takes the first `data` leaf and the first `rate` leaf independently.
+- **Evidence** `inspect(path)` acquisition keys include `data_path` and `layout`; `inspect(NWBFile)` omits both. Interval columns: path gives `['id','start_time','stop_time']` with `shape` and dtypes `int64,float64,float64`; NWBFile gives `['start_time','stop_time']` with no `shape` and dtypes `float64,float64`. `units`: path gives `{'n_rows','columns','has_spike_times'}`, NWBFile gives `{'n_rows'}`. On one legal file with an `LFP` container holding `lfp_alpha` (1000 Hz) and `lfp_beta` (500 Hz): `inspect(path)` reports `rate_hz: 500.0` with `data_path` pointing at `lfp_alpha`, `inspect(NWBFile)` reports `rate_hz: 1000.0`, and `acquisition_channel` returns `lfp_alpha` at 1000 Hz — three answers for one object.
+- **Change** One builder producing one schema; iterate `electrical_series` explicitly and raise `AmbiguousAcquisitionError` when a container holds more than one. Also raise on an acquisition/processing name collision, which is currently resolved by precedence with no warning (`nwb_inspect.py:359`).
+- **Preserves** The path-based schema, which is the richer one.
+- **Discriminator** The two call forms return equal dicts for the same file; a multi-series container refuses rather than picking.
+- **Accept** Passing an open handle, the only documented way to avoid reopening the file, does not change the answer.
+
+### 05-40 Onsets in milliseconds are accepted as seconds and produce a confident number
+- **Problem** `time_unit="seconds"` is asserted as a literal and never checked against the file's own extent.
+- **Evidence** A file with onsets 1000-5000 and a 1.0 s recording: `events()` returns `EventTable(time_unit='seconds', onsets=[1000. 2000. ...])` with no warning; `epoch_continuous` returns `(5, 800)` with all five rows NaN and no warning; tutorial 00 prints "5 events, onsets in seconds ... spectral peak at 0.0 Hz". Relatedly, `epoch_continuous` on a NaN onset returns shape `(1,0)` with a numpy overflow warning, where `events()` raises `InvalidOnsetValueError` for the same NaN.
+- **Change** Warn in `epoch_continuous` when most epochs fall entirely outside the data under `boundary_policy="nan"`; reject non-finite onsets there with the same `InvalidOnsetValueError` `events` uses.
+- **Preserves** Legitimate partially-out-of-bounds epochs.
+- **Discriminator** A wholly out-of-range onset set warns or raises rather than returning all-NaN epochs.
+- **Accept** The three entry points agree on a NaN onset.
+
+### 05-41 The errors a first-time user meets are documented nowhere but the generated reference
+- **Problem** Ten of 151 public symbols appear in no hand-written page, and eight of them are the NWB resolvers and error types.
+- **Evidence** Symbols present in `docs/api.md` and in no other `docs/**/*.md`: `resolve_acquisition, AmbiguousAcquisitionError, AcquisitionNotFoundError, ChannelIndexError, UnitNotFoundError, EventTable, resolve_interval_table, IntervalTableNotFoundError, InvalidOnsetValueError, DETECTION_TAILS`. No troubleshooting page, error index or traceback-to-fix table exists in the nav. The nearest guidance is on `docs/agents.md`, a page this reader was routed past.
+- **Change** One short page: each error class, what produced it, and the argument that resolves it. `AmbiguousIntervalTableError` is the model — it is explained in three places before it can fire, and that is the best writing on the site.
+- **Preserves** The existing refusals, which are correct.
+- **Discriminator** Every exported error class is explained on a hand-written page.
+- **Accept** Gate 5 is replaced by a check that every `__all__` symbol appears outside the generated reference (see 05-66).
+
+### 05-42 Tutorial 00 crashes on the two most common foreign-file shapes
+- **Problem** It reads `acquisition['rate_hz']` unguarded and iterates only `info["acquisitions"]`.
+- **Evidence** A file with `timestamps` instead of `starting_time`+`rate` -> bare `KeyError: 'rate_hz'`. A file whose LFP lives in a processing module -> no acquisition line printed at all; `'processing_continuous'` never appears in the script.
+- **Change** Guard the key and fall back to `info["processing_continuous"]`; `examples/tutorials/00_your_own_file.py:110`.
+- **Preserves** The discovery-not-assumption design, which is verified working: on a 16-channel foreign file it found `condition` as the code column and recovered the injected 23.0 Hz.
+- **Discriminator** Irregularly-sampled and processing-module files complete the tutorial.
+- **Accept** Tutorial 00 runs against all fixture shapes in `jnwb/testing/nwb_fixtures.py` plus a timestamps-only file.
+
+## 6. Performance and backend
+
+### 05-43 Device changes the number
+- **Problem** `gpu_pca` computes in float64 on CPU and float32 on CUDA, and neither it nor `compute_population_trajectory` pins an SVD sign convention.
+- **Evidence** On a live RTX A4000, `gpu_pca(X(4000,60), n_components=3)`: `cpu dtype float64` against `cuda dtype float32`, component signs `[+1, -1, -1]`, raw `max|cpu-cuda| = 8.005`; after sign alignment 6.48e-04. `compute_population_trajectory` shows `max_rel = 2.0`, the signature of a sign flip, with sign-aligned agreement at 2.71e-12.
+- **Change** Match the CPU dtype on the CUDA branch; pin a deterministic sign (force the max-abs loading of each component positive) once, before the device branch; `gpu_pca.py:69`, `trajectory.py:151`.
+- **Preserves** Numerical content up to the pinned sign.
+- **Discriminator** CPU and CUDA outputs are equal to float64 tolerance without post-hoc sign alignment.
+- **Accept** This is `AGENTS.md` invariant 6: "Device and worker count never change a number." The prior receipt's claim that parity is bounded by 3.6e-04 covers only sign-aligned components and should be corrected; the call-site count is 15, not 13.
+
+### 05-44 Two `device=` sites deny the GPU silently
+- **Problem** One discards the resolver's result; the other gates the GPU branch off after resolution.
+- **Evidence** `vflip(..., device='cuda')` on a live A4000: `h2d=0, d2h=0`, zero warnings — `laminar.py:220` assigns to `_`. `fit_var_bivariate(..., device='cuda', ridge=0.1)`: `h2d=0, d2h=0`, no warning, because `and ridge <= 0` gates the branch; with `ridge=0` the GPU is reached at 3.81x. Without a GPU the caller is warned; with one they are silently denied, inverting the contract.
+- **Change** Drop `device` from `vflip`'s signature or warn as `rdm` does; emit `warn_device_fallback` when `ridge > 0` forces the CPU branch; `connectivity.py:206`.
+- **Preserves** Numerical results.
+- **Discriminator** Every `device='cuda'` call either reaches the GPU or warns.
+- **Accept** All 15 resolver sites have a consistent denial contract. Also fix the two sites whose warning names a private callee (`fit_var_bivariate`) rather than the public function.
+
+### 05-45 Three CUDA paths are slower than CPU, one by 28x
+- **Problem** Python loops with per-iteration host/device transfers.
+- **Evidence** `UnitAnalyzer.acg` at >= 30k spikes: CUDA 32231 ms against CPU 1151 ms (0.036x), with 80002 host-to-device and 240002 device-to-host transfers per call, from `int(lo[idx])`/`int(hi[idx])` inside the loop and a re-uploaded `bin_edges`. `_welch_csd_gpu` runs a 96-iteration Python segment loop: 21.94 ms against 1.83 ms for the same estimator strided, which is why `harmonic_analysis` (0.557x), `spectral_tilt` (0.567x) and `band_power` (0.44x) are all slower on CUDA. The CPU `_acg_vectorized` is separately 41-151x slower than an identical-output vectorisation (5k spikes 123.3 ms -> 0.8 ms, `array_equal == True`).
+- **Change** Hoist `bin_edges` and use the gather the `<30000` branch already implements; build the segment matrix with one strided index; vectorise the CPU ACG; `analyzers.py:437`, `:459`, `spectral.py:1680`.
+- **Preserves** Outputs bit-identically (verified for the ACG).
+- **Discriminator** No `device='cuda'` path is slower than its CPU sibling.
+- **Accept** Measured before and after on the same machine, recorded in `artifacts/benchmarks/`.
+
+### 05-46 `jrsa` defaults to `n_jobs=-1` and is 125x slower for it
+- **Problem** It is the only entry point overriding the shared module's documented default of 1.
+- **Evidence** 40x6 inputs, `metric='cka'`, `permutations=500`: `n_jobs=1` 0.07 s, `n_jobs=-1` (the default) 8.75 s. `_parallel.py:65` states the rule: "Parallelism only pays when the total serial work exceeds roughly a second."
+- **Change** Default `n_jobs=1`, or size-gate the pool inside `_parallel_map`; `jrsa.py:145`.
+- **Preserves** Results, which are already invariant to `n_jobs`.
+- **Discriminator** A small default-argument call does not start a process pool.
+- **Accept** The default is no slower than serial at any input size.
+
+### 05-47 `_optimal_contiguous_partition` re-sums a diagonal inside the DP inner loop
+- **Problem** `interval_w` re-sums `np.diag(corr)[u:v]` per call, making an O(K n^2) DP into O(K n^3), while the off-diagonal term two lines above is already prefix-summed.
+- **Evidence** 19.86 / 60.76 / 275.84 ms at n = 64/128/256 (about n^2.9); with a prefix-summed diagonal, 4.84 / 14.80 / 77.28 ms, and `block_bounds`, `boundaries` and `modularity` bit-identical at every n. Paid `n_surrogates + 1` times: at n=128 with the default 200 surrogates, about 12.2 s becomes about 3.0 s.
+- **Change** `dcum = np.concatenate([[0.0], np.cumsum(np.diag(corr))])`; `diag_sub = dcum[v] - dcum[u]`; `laminar.py:1037`.
+- **Preserves** Bit-identical output.
+- **Discriminator** Same results, measured speedup.
+- **Accept** 3.5x or better at n >= 128, outputs unchanged.
+
+### 05-48 `import jnwb` costs about 2 s, and 80% of it is two eager submodules
+- **Problem** `__init__.py` imports `rsa` and `nwb_inspect` at module scope, pulling `scipy.spatial.distance` + `scipy.stats` and `pynwb` -> `hdmf` -> `pandas`.
+- **Evidence** `-X importtime`: total 1.875 s, `jnwb.rsa` 0.96 s cumulative, `jnwb.nwb_inspect` 0.54 s. Eager in `sys.modules` after import: scipy, pynwb, hdmf, h5py, pandas. Deferred and confirmed working: sklearn, statsmodels, matplotlib, joblib. jnwb's own frames cost about 1.3 ms.
+- **Change** Move `rsa` into `EXPORT_MODULES`; the mechanism exists and works. `nwb_inspect` is harder because `jnwb.inspect` is the documented entry point, so treat it as a separate decision.
+- **Preserves** `jnwb.rdm` and `jnwb.rdm_similarity` resolving on attribute access.
+- **Discriminator** `scipy.spatial` is absent from `sys.modules` after `import jnwb`.
+- **Accept** Import time roughly halves; `tests/test_import_lazy.py` covers the new deferrals.
+
+### 05-49 The import benchmark measures itself and its receipt is five releases stale
+- **Problem** `tracemalloc.start()` runs before `t0 = time.perf_counter()` inside the probe.
+- **Evidence** The script reports 8076 ms warm; direct measurement without tracemalloc is 2124 ms median, and with tracemalloc 7209 ms — the script over-reports by 3.3x. `artifacts/benchmarks/import_profile.txt` states "jnwb 0.1.6 (111 public symbols)" against the current 0.2.4 and 151 symbols; nothing gates it, unlike the vflip receipt.
+- **Change** Time the import in a probe without tracemalloc and measure peak memory in a separate process; `scripts/benchmark_import.py:34`. Add a receipt-staleness test mirroring `tests/test_vflip_calibration_receipt.py`, failing when the version in `import_profile.txt` differs from `jnwb.__version__`.
+- **Preserves** The script's interface.
+- **Discriminator** The reported number matches an independent wall-clock measurement.
+- **Accept** The receipt regenerates and is gated. Also delete the superseded `vflip_calibration_0.2.2.md` and `vflip_calibration_raw.json`.
+
+## 7. Code simplification
+
+### 05-50 Nine symbols have no caller anywhere
+- **Problem** Dead code carried in the package.
+- **Evidence** Each returns exactly one grep hit across `jnwb/ tests/ examples/ docs/ skills/ scripts/` — its own definition: `_confidence_interval` (`jrsa.py:944`), `_chunk_tensor` (`jrsa.py:1022`), `_backend_numpy` (`jrsa.py:1034`), `compare_old_new_criteria` (`metadata.py:524`), `old_new_summary_table` (`metadata.py:567`), `create_aligned_dataset` / `create_result` / `create_figure` (`ontology.py:349, 354, 365`), `coef_rows` (`statistics.py:579`). No version shims exist below the declared floor: a scan for `sys.version_info`, `np.__version__`, `NumpyVersion` and friends across `jnwb/` returns zero hits.
+- **Change** Delete, except the three `ontology` factories, which are settled by 05-32.
+- **Preserves** Everything else; none is exported.
+- **Discriminator** The suite and all 13 gates stay green.
+- **Accept** Zero unreferenced module-level symbols in `jnwb/`.
+
+### 05-51 Utilities implemented twice
+- **Problem** Duplicate definitions that can drift.
+- **Evidence** `_with_nwb` is byte-identical in `nwb_events.py:107` and `nwb_inspect.py:222`, differing only in the type-alias name — the only name defined twice in the package. `channel_correlation_matrix` (`artifact_detection.py:32`) and `trial_correlation_matrix` (`:83`) are AST-identical, both `np.corrcoef(np.asarray(x, dtype=float))`, differing only in docstring. `statistics.py` forwards `clopper_pearson`, `mann_whitney_p_floor` and `exact_sign_flip` from class to module and `fdr_correct` from module to class, so the delegation direction cannot be inferred; `clopper_pearson_ci` is an alias of a delegate. `_parallel_map` (`jrsa.py:1013`) exists only to change one default. `tfr_dir`/`meta_dir`/`conndb_dir` are three copies of one six-line body.
+- **Change** One shared `_with_nwb`; keep both correlation names but have one call the other; state the delegation direction in each forwarder's summary line; parameterise the three path helpers.
+- **Preserves** Every public name.
+- **Discriminator** No helper body appears twice.
+- **Accept** `_with_nwb` has one definition.
+
+### 05-52 Five modules carry unrelated responsibilities
+- **Problem** Module boundaries that no longer match the code.
+- **Evidence** `laminar.py` (1831) holds three independent estimators with private helpers used by nothing else, splitting cleanly at lines 862 and 1476. `connectivity.py` (2144) interleaves spike-train information theory (`56-164` and `1728-2010`) with VAR/Granger (`167-1720`). `spectral.py` (1913) carries 208 lines of spatial re-referencing and CSD that belong with `laminar`. `jrsa.py` (1740) holds a private device subsystem duplicating `_backend.py` — deleted by 05-26. `statistics.py` (1633) duplicates its own module surface inside `StatisticalAnalysis` (565 lines, 5 pure forwarders). `analyzers.py` (779) holds three unrelated static-method namespaces with no shared state.
+- **Change** Split along the named line boundaries, re-exporting from the original module names so no import breaks.
+- **Preserves** Every import path and `__all__`.
+- **Discriminator** `from jnwb.laminar import vflip` and `import jnwb; jnwb.vflip` both keep working.
+- **Accept** No module carries two unrelated responsibilities; suite and gates green. Sequence this after sections 1-6, since it moves the code those items repair.
+
+## 8. Test simplification
+
+### 05-53 Assertions that cannot fail
+- **Problem** Tests that are green regardless of the code.
+- **Evidence** `test_docs_nwb_workflow.py:124` asserts a long string is absent from `re.findall` output, which returns match substrings that can never contain it — and `skills/jnwb-nwb-data/SKILL.md:57` does contain the forbidden token. `test_representative_workflow.py:171` installs an import blocker defining `find_module`, removed from the meta-path protocol in 3.12, so it blocks nothing on the 3.14.3 interpreter; its own docstring calls it "the load-bearing assertion", and `test_jnwb_frozen_boundary.py:123` does it correctly with `find_spec`. `test_jnwb_frozen_boundary.py:78` iterates `AUTHORIZED_EXCEPTIONS`, which is `set()`. `test_jnwb_core.py` puts its assertions inside `if 'error' not in result:`, so replacing every `StatisticalAnalysis` method with an error dict leaves 25 of 26 passing.
+- **Change** Repair each to assert what its name says.
+- **Preserves** Intended coverage.
+- **Discriminator** Each fails when the condition it names is reintroduced.
+- **Accept** Verified by mutation, one mutation per repaired test.
+
+### 05-54 Estimators with no discriminating test
+- **Problem** Mutating the implementation changes no test result.
+- **Evidence** Forcing `imaginary_coherency`'s `icoh_mean`/`icoh_abs_mean` to 0.0 changes zero of 1483 tests — every assertion is a null case or a self-comparison, in a file named `nonfabrication`. Mutating `shuffle_pvalue_paired`/`unpaired` to `1/(n+1)`, `shuffle_r2_ci.p_val` to 0.001, `paired_fire_prob_test.p` to 0.0001, `confirmed_*` to `True`, and `fdr_correct` to `return p.copy()` all pass: no null-data control and no BH oracle exists anywhere. A `bipolar_reference` sign flip and removal of `laplacian_reference`'s un-permute both pass. `tests/test_gpu_pca.py`'s "numpy reference" is a line-by-line copy of the implementation's own `_svd_numpy` branch, and all three tests pass `device="cpu"`, so the GPU branch has zero coverage.
+- **Change** Add a lagged-pair positive control with an independent cross-spectral oracle for `imaginary_coherency` (clone `test_wpli_matches_an_independent_oracle`); seeded null cases asserting `p > 0.2` for the statistics group; one hardcoded BH oracle; a pinned sign for the referencing functions.
+- **Preserves** Existing tests.
+- **Discriminator** Each new test fails under the stated mutation.
+- **Accept** No estimator in sections 1-2 survives its own mutation.
+
+### 05-55 Test names that overclaim, and one that lets a missing dependency pass as a calibration failure
+- **Problem** Bodies narrower than their names.
+- **Evidence** `test_readme_quickstart_blocks_execute` never opens `README.md` — the `README` constant is unused in the function — and has already drifted: README line 96 says `t0_bounds=(0.0, 200.0)`, the test says `(0.0, 250.0)`. `test_readme_python_version_matches_policy` asserts the literals `"3.12"` and `"3.14"` and never reads `pyproject.toml`. `test_no_routed_module_probes_with_a_bare_cupy_import` searches only for `torch.cuda.is_available()`. `test_gpu_pca_cpu_and_cuda_agree_within_float32` has no GPU branch, so it compares CPU to CPU and reports PASS. `test_rsa_oracle`'s "SciPy oracle" tests call the identical SciPy function the implementation calls. `test_xflip_calibration`'s three FPR tests all pass with the surrogate gate removed entirely. `test_the_documented_centre_shrinkage_is_the_measured_one` hardcodes `0.6..0.95` while the receipt records 0.804 and the code gives 0.778. `test_onset_fitting.py:91` allows +/-60 ms where the measured error is 3.57 ms. Two `test_release_recovery_gates` tests patch `statsmodels` without importing it defensively, so a missing hard dependency surfaces as `ModuleNotFoundError` inside a mock.
+- **Change** Repair each name-body mismatch; add `pytest.importorskip("statsmodels")` where a test patches it; tighten the onset tolerance to 15 ms.
+- **Preserves** Coverage.
+- **Discriminator** Each fails under the defect its name describes.
+- **Accept** No test name asserts more than its body checks.
+
+### 05-56 The vflip receipt hashes only part of what it certifies
+- **Problem** `estimator_sha256` hashes `getsource(vflip)` alone, while `vflip` calls `_unit_range`, `_from_lfp` and `_device`.
+- **Evidence** A line-count-preserving `_unit_range` mutation reintroducing the 0.2.4 centring defect (median bias +1.45 -> +6.66) leaves the receipt reading "current" and the file passing 4/4.
+- **Change** Hash the closure, not the function; `scripts/calibrate_vflip.py:84`.
+- **Preserves** The receipt format.
+- **Discriminator** A helper mutation invalidates the receipt.
+- **Accept** Mutating any function `vflip` calls fails `test_vflip_calibration_receipt`.
+
+### 05-57 A test rewrites a tracked source file and leaks an environment variable
+- **Problem** `tests/test_mcp_server.py:138` rewrites `jnwb/mcp_server/custom_tools.py`, a tracked file, restoring in `finally`; and line 2 sets `os.environ["ALLOW_DYNAMIC_TOOLS"]="1"` at import, process-wide.
+- **Evidence** A kill or timeout leaves the tree dirty; `pytest-xdist` is declared, so two workers would race on one file.
+- **Change** Write to `tmp_path`; set the variable with `monkeypatch.setenv`.
+- **Preserves** The coverage.
+- **Discriminator** `git status` is clean after an interrupted run.
+- **Accept** No test writes inside `jnwb/`.
+
+### 05-58 The suite spends 105 s on a 9.54 GiB fixture that carries no extra failure class
+- **Problem** `tests/test_analyzers_coverage.py:27` allocates `np.random.randn(128,200,500,100)`.
+- **Evidence** 27 s per test, 3 tests. At `(2,200,2,2)` (12.8 KiB) the mutation profile is byte-identical across four mutants; only the frequency axis is load-bearing. Verified on a copy: 3.09 s against 100.53 s, same 25 test ids, same outcomes. Lines 51 (1.14 GiB) and 270 (0.24 GiB) are the same pattern. Full suite is 383 s.
+- **Change** Shrink the fixtures to the dimensions that discriminate.
+- **Preserves** The 25 test ids and their outcomes.
+- **Discriminator** The same mutants are caught.
+- **Accept** About 27% of suite wall time recovered with no coverage loss.
+
+### 05-59 Removable and mergeable tests
+- **Problem** Tests that cannot fail, or duplicate another's failure class.
+- **Evidence** `tests/test_rsa.py` in full (every failure class is covered by `test_rsa_oracle.py`; under a `pdist**2` mutation it caught nothing). `test_jnwb_frozen_boundary::test_jnwb_all_symbols_resolve` duplicates `test_api_surface::test_public_exports_resolve`. `test_addressing::test_area_resolution_is_identical_with_and_without_omission_importable` spawns two subprocesses and compares jnwb to itself, since the module is importable in neither arm; its own comment predicts this. `test_paths.py:93` puts `Path.cwd()` on both sides; `:173` restates the expression it checks. `test_spectral.py:901` instruments a `curve_fit` mock that is never invoked (`{'polyfit': 2, 'curve_fit': 0}`), so both halves test one path. `tests/test_parallel.py::TestParallelMap` spends 18.45 s squaring at most 100 integers.
+- **Change** Delete the named tests; merge the seven `TestPublicImport`-style tests into one parametrized surface test and `TestHarnessResetContracts`' nine substring assertions into one.
+- **Preserves** Every failure class.
+- **Discriminator** The mutation set caught before and after is identical.
+- **Accept** Deletion justified per test by the mutation it still catches elsewhere.
+
+### 05-60 The two carried-forward 0.2.4 items
+- **Problem** A receipt with no generator, and a test that cannot measure what it is named for.
+- **Evidence** `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator script. `tests/test_xflip_calibration.py` rebinds all four null families and three alternative categories to the shipped estimator, but runs 15 seeds against the document's 30 — and `assert fpr <= 0.05` at n=15 is satisfiable only by 0/15 — and has no analogue for the document's within-correlation sweep at rw = 0.2, 0.4, 0.8, nor for its localization-error columns. `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a null's grid dependence.
+- **Change** Write the generator or retire the document in favour of the test, stating which operating points the test does not cover; give the grid-invariance test a noisy PSD.
+- **Preserves** The measured operating characteristics.
+- **Discriminator** The retained artefact is reproducible from a script in the repository.
+- **Accept** No calibration receipt exists without a generator. Sequence after 05-07, which changes what is being calibrated.
+
+## 9. Documentation
+
+### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
+
+### 05-61 Six documented calls do not run
+- **Problem** Signatures and call shapes that drifted.
+- **Evidence** `docs/05:78` `repair_lfp_trials(..., window_ms=)` -> `TypeError: unexpected keyword argument 'window_ms'` (live: `exclude_window_ms`). `docs/05:49` `bad_trials_single_channel(..., r_thresh=0.2)` -> unexpected keyword (live: `corr_z_thresh=5.0`, a z-score not a raw correlation). `docs/06:33` `compute_response_metrics(..., event_onsets=)` -> "Did you mean 'epoch_onsets'?". `docs/06:33` `classify_response_significance(spike_times=..., alpha=0.01)` -> unexpected keyword; live it takes `(metrics: Dict[str,float], zscore_threshold, min_spike_count)`, i.e. the output of the previous call — the composition the page exists to teach, taught backwards. `docs/09:39` `assign_outer_folds(labels, n_splits=5, groups=)` -> live takes a DataFrame. `docs/09:39` `build_representation_ladder(X, labels, feature_names=)` -> live takes `(raster, *, modality, spatial_axis_metadata)` and `labels` is not an input. `docs/11` section 9.2 documents `zflip` with `phase_gradient` and `wpli_profile` fields that do not exist, contradicting the correct contract at `docs/02:128`.
+- **Change** Fix each against the live signature.
+- **Preserves** The pedagogy.
+- **Discriminator** Every documented snippet runs.
+- **Accept** A test extracts and executes every runnable fenced block, with CWD outside the checkout. Today only 1 of README's 4 python blocks is executed by any test.
+
+### 05-62 The executable quickstart is not executable, and the README prints a fabricated onset
+- **Problem** One script died to a tightened validation; one example has no signal to recover.
+- **Evidence** `examples/quickstart_jnwb.py:126` raises `ValueError: scheme='within_group' has no exchangeability for this design` — the panel deliberately builds a constant-within-group label to demonstrate that the null cannot move, and the library now refuses to produce it. Both README and `docs/quickstart.md:54` call the script "executable", and `examples/figures/jnwb_quickstart.png` is its stale output. Separately, README's arrays quickstart runs and prints `Onset t0: 165.0 ms (R2=-0.00, None)` from `rng.uniform(0.0, 10.0, 300)`, homogeneous noise with no onset, with `bound_status` of `None` displayed as a status.
+- **Change** Catch the refusal in the panel and plot it as the result, which is the lesson; inject a real onset into the README example or print the refusal when `r2` shows the fit is unusable.
+- **Preserves** Both narratives.
+- **Discriminator** The script exits 0; the README example reports a number it actually recovered.
+- **Accept** `examples/quickstart_jnwb.py` runs in CI. It is currently executed by nothing.
+
+### 05-63 The only runnable instruction on ten pages needs files that ship in neither artifact
+- **Problem** `examples/` is in neither the wheel (`include = ["jnwb*"]`) nor the sdist (not in `MANIFEST.in`), yet `python examples/tutorials/NN_*.py` is the sole runnable line on `quickstart.md` and all nine tutorial pages, and `install.md` never says a clone is required.
+- **Evidence** Wheel 53 entries, sdist 100 entries, `examples/` absent from both.
+- **Change** One line in `install.md` and `quickstart.md` saying the tutorials require a clone. `docs/agents.md:14` already does this correctly for `AGENTS.md` and `skills/`.
+- **Preserves** The tutorials as CI-executed pedagogy, which is the right place for them.
+- **Discriminator** A `pip install` user is told what they do and do not have.
+- **Accept** Every runnable instruction states its prerequisite.
+
+### 05-64 Contributor material on the user-facing path, and one page that is a pointer
+- **Problem** About 3,900 of 22,181 words (17.6%) address contributors from the nav.
+- **Evidence** `docs/10_extending_jnwb_and_verification.md` (117 words) says "This page is a short pointer"; three of its four blocks duplicate `CONTRIBUTING.md`'s "Before you push", and its unique MCP line points at `agents.md`. That duplication already produced a stale fact: it says "gates 1-12" while the runner prints 13 and `CONTRIBUTING.md:57` says 13. `docs/11` (2,764 words) is contributor material under a "Tutorials & Development" heading, with sections 4, 5, 6 and 8 restating `CONTRIBUTING.md` near-verbatim and cross-referencing it circularly — but its section 9.2 (1,431 words) is the only documentation anywhere for `aperiodic_fit`, `vflip`, `xflip`, `zflip`, `probe_geometry`, `stream_npz_array` and `label_layers`. `docs/01` sections 1-3 name an internal scaffolding marker and a test file. The "logarithm last" rule appears four times in about 400 words. `api.md` is listed twice in the nav (28 entries, 27 unique).
+- **Change** Delete `docs/10` and its nav entry; promote `docs/11` section 9.2 to a real page and move the rest to `CONTRIBUTING.md`; cut `docs/01` sections 1-3 keeping section 2C, the only statement of the causal-verb rule; keep one canonical statement of the logarithm rule in `common_mistakes.md` and link to it; drop the duplicate `api.md` nav entry.
+- **Preserves** Every user-facing fact, including all of 9.2.
+- **Discriminator** No page on the user nav addresses contributors.
+- **Accept** Strict build clean; no orphan pages and no dead nav entries, both currently true.
+
+### 05-65 Numbers are produced without saying what they license, and without units
+- **Problem** Pages print an estimate and stop.
+- **Evidence** `docs/02` prints `zflip`'s `directionality`, `tau_per_channel_s` and `apparent_velocity_m_s` with "propagation latency" framing and no note that apparent phase velocity is not conduction velocity — contradicting `AGENTS.md` section 5 and `docs/01` section 2C. `docs/07` prints a cluster-mass p with no statement that a significant cluster licenses "the conditions differ somewhere in the window" and not its onset, offset, peak or extent, and computes `cross_modal_comparison`'s `lag_ms` on white noise with no sign convention given. `docs/09` claims its fold partitioning prevents temporal-autocorrelation leakage and then shows `nested_cv_linear_svm(X, labels, n_splits=5)` with no `groups`. `docs/04` hands over `tfr_res.coi_mask` as a field name, never explaining edge contamination or that masking must precede any average, and never states the CSD sign convention, which is the interpretation. `docs/08` never states bits versus nats for TE or MI. `docs/tutorials/03, 04, 05, 06, 08` contain no unit token at all.
+- **Change** One interpretation sentence per produced number; units at the point of production.
+- **Preserves** The analyses.
+- **Discriminator** Every page that prints a number says what it does not license.
+- **Accept** Reviewed against `docs/common_mistakes.md`, which already holds most of these rules.
+
+### 05-66 README links are dead on PyPI
+- **Problem** `readme = "README.md"` makes it the long description, and PyPI does not rewrite relative links.
+- **Evidence** `README.md:130,132,136` link to `CONTRIBUTING.md`, `artifacts/todo_stack.md`, `AGENTS.md` and `LICENSE`; `artifacts/` is additionally pruned from the sdist.
+- **Change** Absolutise to `https://github.com/HNXJ/jnwb/blob/main/...`.
+- **Preserves** In-repo navigation.
+- **Discriminator** Every README link resolves from the PyPI page.
+- **Accept** Checked against the rendered long description. Also delete the dangling `examples/quickstart_jnwb.py:17` pointer to an `omission/` example project that is not in this repository.
+
+## 10. Skills and agents
+
+### 05-67 Six routing rows teach a signature the code does not have, and one flips a sign
+- **Problem** Rows carry hardcoded signatures with no process keeping them true.
+- **Evidence** `skills/jnwb-statistics/SKILL.md:18` gives `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)`; live is `(fires_target, fires_null, n_shuffles, n_bootstrap, rng)`. On one dataset the correct order gives `risk_difference = +0.6` and the skill's order gives **-0.6**, with no error — and the skill omits the required `n_shuffles`. `jnwb-lfp-spectral:32` tells the reader to inspect `frac_flagged` to bound median substitution; the real key is `max_fraction_trials_flagged_at_a_sample`, so `info.get('frac_flagged', 0)` silently skips the check. `jnwb-nwb-data:29` calls `epoch_continuous(data, onsets, win_s, fs)` positionally against a keyword-only signature. `jnwb-population:13` gives `nested_cv_linear_svm(..., n_splits=5)`; there is no default. `jnwb-lfp-spectral:14` shows `band_power(..., normalize=False)` as the signature; the default is `True`, which raises without a baseline. `jnwb-lfp-spectral:22` describes `cross_area_coherence` as working "across channel pairs"; 2-D input is refused by design.
+- **Change** Correct all six against the live signatures.
+- **Preserves** The routing structure, which is sound.
+- **Discriminator** Each row executes as written.
+- **Accept** Gated by 05-68.
+
+### 05-68 The test that exists to catch 05-67 checks only that parameter names exist
+- **Problem** `test_skill_routing_parameter_names_match_runtime` asserts `pname in sig.parameters` and nothing about order, required-ness, defaults or keyword-only markers; and its regex cannot span nested parentheses.
+- **Evidence** Reconstructing the `paired_fire_prob_test` row, all four named parameters are present, so the test passes despite the swapped order and the missing required argument. The regex silently skips 7 of 61 routing rows, every one with a tuple default: `apply_tight_auto_axis`, `save_figure_suite`, `imaginary_coherency`, `wpli`, `zflip`, `spectral_tilt`, `assign_outer_folds`. Suite: 28 passed.
+- **Change** Match parameters positionally against `sig.parameters` order, assert every required parameter appears, compare stated defaults to live ones, and balance parentheses in the regex; `tests/test_skills_validation.py:112`.
+- **Preserves** The existing checks.
+- **Discriminator** Reintroducing any of the six 05-67 rows fails the suite.
+- **Accept** All 61 rows are checked, none skipped.
+
+### 05-69 `AGENTS.md` has no rule keeping skills in sync, and three of its own statements are stale
+- **Problem** Section 8 requires a public API change to update `CHANGELOG.md` with a deprecation path; nothing requires updating `skills/`, although skills hardcode signatures in 61 rows. That single gap produced every item in 05-67.
+- **Evidence** Section 10 asserts "Each call below runs as written on synthetic arrays"; `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)` raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because `band_power` returns a float — so the canonical demonstration of the repo's most-repeated safeguard does not run. Section 4.3 points at "the non-blocking scan item in the todo stack", which does not exist. Section 10's statistics entry point is `StatisticalAnalysis.exploratory_compare` while `skills/jnwb-statistics:13` routes to `compare_groups`; both exist and their return keys differ.
+- **Change** Add to section 8: a public API change updates the routing rows in `skills/` in the same commit. Fix the recipe to build a per-trial array before `aggregate_over=0`. Remove the dangling pointer. Pick one comparison entry point.
+- **Preserves** Everything else in `AGENTS.md`.
+- **Discriminator** Section 10 executes end to end.
+- **Accept** A test executes every fenced block in `AGENTS.md`, and resolves every path and section it cites.
+
+### 05-70 An entire subsystem and three function families are unrouted
+- **Problem** Skills predate parts of the API.
+- **Evidence** No skill mentions `vflip`, `vflip_from_lfp`, `xflip`, `label_layers`, `current_source_density_1d`, `voltage_curvature_1d`, `VFlipResult` or `XFlipResult`, while `zflip` sits in lfp-spectral and `probe_geometry` in nwb-data; probes for "assign cortical layers" and "compute CSD" match no trigger. `cluster_permutation_test` appears in no routing matrix. `spike_mutual_information`, `spike_count_mutual_information`, `binary_occupancy_mutual_information` and `cross_modal_comparison` are unmentioned — and the last deliberately crosses modalities, which interacts with the router's "never pool across modalities" rule with no guidance either way. `bin_spikes`, `fires_in_window`, `rate_in_window` and `fire_indicator`, the half-open-bin family whose purpose is preventing the double-count in `common_mistakes.md` section 2, are unmentioned in the skill that owns binning.
+- **Change** Add a `jnwb-laminar` skill owning the depth estimators, or a laminar section plus a router line; route the other three families.
+- **Preserves** Exactly one canonical skill tree at `skills/`.
+- **Discriminator** Every public symbol is reachable from a routing row or is deliberately out of scope.
+- **Accept** Currently 84 of 151 symbols are mentioned by no skill; that set is reviewed and justified.
+
+### 05-71 One skill overclaims a safeguard the router and `AGENTS.md` both state correctly
+- **Problem** `skills/jnwb-lfp-spectral/SKILL.md:23` calls `imaginary_coherency` "volume-conduction-robust", while the router section 4.8 and `AGENTS.md` section 5 both say these measures "reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity". Its neighbouring `wpli` row uses the correct phrasing.
+- **Evidence** Same file, adjacent lines.
+- **Change** Match the `wpli` row. Also add the narrowband PSI exclusion: the connectivity skill's own verification instruction ("verify PSI returns positive slope for driver") fails on narrowband — a 20 Hz sinusoid with 10 ms delay over a 19-21 Hz band gives `net=0.0000, sd=0.0, n_freq_bins=3, z=1.07e8`, while the same delay over 15-30 Hz gives 0.9161. And add the group-delay caveat to `jnwb-spiking`: it mandates `causal_exp_smooth` for latency without stating that the filter shifts onset by about 0.7*tau (measured: tau=25 gives +10 ms, tau=50 gives +30 ms), which `common_mistakes.md` section 8 documents and no skill repeats.
+- **Preserves** The safeguards, which are otherwise the tree's best asset.
+- **Discriminator** No skill states a stronger claim than the router.
+- **Accept** Cross-checked against `AGENTS.md` section 5 and `docs/common_mistakes.md`.
+
+### 05-72 The MCP server has a fourth tool that writes code, is undocumented, and never loads
+- **Problem** `docs/agents.md:24` says "Three tools, all of them ingest"; `mcp.list_tools()` returns four.
+- **Evidence** `['inspect_nwb', 'prepare_signal_reference', 'get_event_codes_and_timings', 'add_tool']`. `add_tool(code)` writes Python source into the installed package directory, gated only by `ALLOW_DYNAMIC_TOOLS=1`, and appends to `custom_tools.py` — which `jnwb/mcp_server/__init__.py` does not import, so its "Please restart the MCP server to load the new tool" message is false at any restart. `docs/10:18` gives a third number by pointing at `jnwb.mcp_server.__all__`, which has five entries.
+- **Change** Decide whether `add_tool` ships. If it does: document it and its env gate, and wire `custom_tools` into `__init__.py` so the message is true. If not: drop it from `__init__.py`. Point every count at the live registry rather than restating it.
+- **Preserves** The three ingest tools.
+- **Discriminator** The documented tool list equals `mcp.list_tools()`.
+- **Accept** A test compares the documented table against the live registry. **The ship-or-drop question needs a ruling.**
+
+## 11. Packaging
+
+### 05-73 A build from `dev` today produces a different distribution calling itself 0.2.4
+- **Problem** The version is not bumped after a release, and nothing compares the declared version against what the index already serves.
+- **Evidence** HEAD is 5 commits past `v0.2.4` with `__version__ = '0.2.4'` and 20 non-empty lines under `## [Unreleased]` naming three shipped fixes. Local wheel against the PyPI wheel: `> jnwb/mcp_server/__main__.py`. Local sdist carries `AGENTS.md` and `skills/` (261,291 B) where PyPI's does not (238,292 B). `test_release_date_matches_the_changelog_entry_for_this_version` passes, because it compares the version to its own changelog entry and never to the index.
+- **Change** Add a release-gate step: fail when `jnwb.__version__` already appears in the PyPI index and `CHANGELOG.md` has a non-empty `## [Unreleased]`.
+- **Preserves** The existing version-sync gate 7.
+- **Discriminator** The current tree fails the new check.
+- **Accept** Two distributions can never share a version string.
+
+### 05-74 Seven of ten dependency floors cannot be installed on any supported interpreter
+- **Problem** Floors copied from an older support window and never re-derived after the 3.12 floor landed.
+- **Evidence** PyPI metadata: `numpy==1.22.0` tags `['cp310','cp38','cp39','pp38','sdist']`; `scipy==1.8.0` declares `requires_python '>=3.8,<3.11'`, which contradicts `requires-python = ">=3.12"` outright; `pandas==1.4.0`, `h5py==3.6.0`, `matplotlib==3.5.0`, `scikit-learn==1.0.0`, `statsmodels==0.13.0` ship no cp312 or pure-python wheel. Separately `jnwb.statistics` and `jnwb.connectivity` call `scipy.stats.false_discovery_control`, added in SciPy 1.11, three minor versions above the declared floor — masked only because scipy <1.11 cannot install on 3.12.
+- **Change** Raise each floor to the oldest release with a cp312 artifact, or delete the floors and state that the package takes whatever pip resolves on 3.12.
+- **Preserves** Current resolutions, which are all far above the floors.
+- **Discriminator** Every declared floor is installable on the declared interpreter.
+- **Accept** `pip install 'numpy==<floor>'` succeeds on 3.12 for each dependency.
+
+### 05-75 The forbidden-path check cannot see `tests/` or `scripts/` in the wheel
+- **Problem** `forbidden = [..., '/tests/', '/scripts/']` substring-matched against archive entries whose delimiters differ by format.
+- **Evidence** `'/tests/' in 'tests/__init__.py'` is False. Wheel entries have no leading component, so the check works only for the sdist, whose entries are `jnwb-0.2.4/tests/...`.
+- **Change** Match on path components for the wheel; keep the substring form for the sdist; `workflow.yml:89`, `release_gate.py:178`.
+- **Preserves** The sdist check.
+- **Discriminator** A wheel containing a top-level `tests` package fails.
+- **Accept** Verified by constructing such a wheel in a scratch directory.
+
+### 05-76 CI never runs the suite against the installed distribution
+- **Problem** `pytest -v tests/` runs from the checkout root and `pythonpath = ["."]` puts the checkout ahead of site-packages, so the four-cell matrix tests the source tree that also happens to have the package installed. Only the single-cell build job touches the wheel.
+- **Evidence** `workflow.yml:49`, `pyproject.toml:107`. Several test docstrings reason about wheel behaviour while importing the checkout.
+- **Change** One matrix leg, or one extra step, that installs the built wheel and runs pytest from a directory outside the checkout with `pythonpath` overridden.
+- **Preserves** The existing legs, which need `pythonpath` for the `scripts.*` gate tests.
+- **Discriminator** A defect present only in the packaged artifact fails CI.
+- **Accept** The claim "tested against the installed wheel" becomes true for the suite, not only for the tutorials.
+
+### 05-77 The skills distribution decision
+- **Problem** `MANIFEST.in`'s comment describes an outcome its mechanism does not produce.
+- **Evidence** `graft skills` places the tree at the sdist root, outside any package; `packages.find` is `include = ["jnwb*"]`, so `pip install jnwb-0.2.4.tar.gz` installs `jnwb/` and discards `skills/` and `AGENTS.md`. Only someone who untars by hand receives them — and the sdist carries no `docs/`, `tests/` or `scripts/`, so 11 of 12 skill documentation links dangle inside it and the skills' own verification steps cannot run there. `grep -rn "skills" jnwb/ --include=*.py` returns zero hits: nothing in the runtime reads them.
+- **Change** Recommendation from the packaging audit, for a ruling: keep `skills/` in the sdist as source, correct the `MANIFEST.in` comment to say what it does, and do not put the tree in the wheel — the consumer is a harness configured by path, not the Python runtime, and `site-packages` is the worst place to put something that must be pointed at. Close the discovery gap instead with a machine-readable pointer (a `jnwb.SKILLS_URL` constant naming the GitHub tree). The `importlib.resources` and console-entry-point routes both require the tree inside the wheel, which is the second tree gate 2 forbids.
+- **Preserves** Exactly one canonical skill tree.
+- **Discriminator** A `pip install` user can find the skills without guessing.
+- **Accept** **This needs a ruling.** It closes the open half of the carried-forward 05-02.
+
+### 05-78 Declared test tooling that is never invoked, and a second source of truth for the docs pins
+- **Problem** Unused declarations and duplicated configuration.
+- **Evidence** `pytest-cov` and `pytest-xdist` are declared, and the `test` extra pulls `pytest-cov-7.1.0`, `coverage-7.16.1`, `pytest-xdist-3.8.0` and `execnet-2.1.2` onto all four CI cells; there is no `addopts`, no `--cov` and no `-n` anywhere in the repository. `.readthedocs.yaml` installs both `docs/requirements.txt` and `.[docs]`; the two lists are byte-identical today and nothing compares them, while `fail_on_warning: true` means a drift is a failed publish. Also: `scripts/build_unified_review.py` and `scripts/reconcile_review_probes.py` have zero references anywhere (625 lines), and `harness_gate.py:205` holds a root-allowlist exemption for `jnwb-unified-rev.md`, the output of the first of them.
+- **Change** Drop both pytest plugins or make the declaration true with an `addopts`; delete `docs/requirements.txt` and its `.readthedocs.yaml` entry; retire both dead scripts and the allowlist entry.
+- **Preserves** Every live script: `docs_build`, `generate_api_md`, `harness_gate`, `release_gate`, `calibrate_vflip`, `mkdocs_version_hook`, `benchmark_import`.
+- **Discriminator** Every declared dependency and every script has a caller.
+- **Accept** All six extras resolve (verified: `mcp` 24, `torch` 9, `gpu` 6, `test` 78, `docs` 25, `all` 107 packages, all exit 0, `all` an exact union). Note `jnwb[gpu]` installs cleanly with no CUDA and yields no GPU, because plain `jax`/`jaxlib` from PyPI is CPU-only: it should be `jax[cuda12]`.
+
+## 12. Harness and gates
+
+### 05-79 Nine of thirteen gates can pass on a broken tree
+- **Problem** Presence and substring checks standing in for behaviour.
+- **Evidence, each reproduced** Gate 11: a root directory containing `.py` files and no `__init__.py` is importable as a PEP 420 namespace package and is not flagged, so JNWB-002 reproduces green; `test_non_package_directory_is_not_flagged` locks the hole in. Gate 13: a README stating the three symbols are REMOVED, all nine tutorials raising `SystemExit`, and a commented-out mkdocs nav line all pass. Gate 5: satisfied by `docs/api.md`, which is generated from `__all__` — it cannot fail while gate 9 passes, and substring matching means short names match inside longer ones. Gate 7: a `pyproject.toml` whose `attr` binding sits inside a comment, plus `version = "0.0.1"`, passes. Gate 8: every block is guarded by `if <file>.exists():` with no `else`, so an empty directory passes the Python-policy gate; and `PYTHON_CI_REQUIRED` omits 3.13 while the gate prints "all agree" for a classifier set that includes it. Gate 3: the drive-letter allowlist does not include `E:/`, which is in use on this machine. Gate 2: checks one hardcoded path, so a duplicate tree at `jnwb/skills/` or `docs/skills/` passes. Gate 4: the allowlist carries four entries that do not exist. Gates 5, 10 and `test_docs_links` all use non-recursive `glob("*.md")` and therefore miss the same nine live files under `docs/tutorials/` — reproduced by planting `jnwb==0.0.9` there.
+- **Change** Gate 11 -> `find_spec`. Gate 13 -> parse the mkdocs YAML and `compile()` each tutorial, or demote it. Gate 5 -> retire, subsumed by gate 9, and replace with the check 05-41 needs: every `__all__` symbol mentioned outside the generated reference. Gate 7 -> parse with `tomllib`. Gate 8 -> add `else: violations.append(...)` three times, and either test 3.13 or change the PASS string. Gate 3 -> match `^[A-Za-z]:[\\/]`. Gate 2 -> glob `**/SKILL.md` and assert every hit is under `skills/`. Gate 4 -> prune the four stale entries. Three `glob` -> `rglob`.
+- **Preserves** Gates 1, 6, 9 and 12, which are behavioural and well-documented.
+- **Discriminator** Each repaired gate fails the adversarial tree that currently passes it.
+- **Accept** `tests/test_harness_adversarial_gates.py` gains one constructed-input probe per repaired gate. Its `TestGateNumberingIntegrity` machinery is the right model. Also wire the four checks that ship but never run: `check_protected_paths` (all three paths missing), `validate_receipt_provenance`, `check_logarithm_last_rule`, `check_modality_isolation`.
+
+### 05-80 Nothing enforces the todo-stack rule or resolves `AGENTS.md`'s own pointers
+- **Problem** `AGENTS.md` section 2 states the stack holds only work not yet done; no gate or test checks it, which is why the stack accumulated a completed-work table, and no check resolves the file's own references, which is why section 4.3 points at a deleted item.
+- **Evidence** `grep -rn "todo_stack" scripts/ tests/` returns one hit, a path string. The stale pointer is confirmed by `grep -in "non-blocking" artifacts/todo_stack.md` returning nothing.
+- **Change** A test that resolves every path, test name and section reference in `AGENTS.md` and both stacks, and asserts the stack carries no "CLOSED"/"DONE" markers.
+- **Preserves** Both stacks' formats.
+- **Discriminator** Reintroducing a dangling pointer fails the suite.
+- **Accept** The registry-staleness class that produced this item is mechanically prevented.
+
+### 05-81 `scripts/harness_gate.py` and `scripts/mkdocs_version_hook.py` describe themselves wrongly
+- **Problem** Module docstrings drifted from the code.
+- **Evidence** `harness_gate.py`'s docstring lists gates 1-12; the runner prints 13. `mkdocs_version_hook.py:12` says "the package pins >=3.12,<3.13", while `pyproject.toml:17` is `>=3.12` and `harness_gate.py:493` fails the build on any `<` in that spec — so the comment cites the exact upper pin the harness exists to forbid. `connectivity.py:16` claims "Residual variance uses explicit N - p divisors" while `_residual_variance` ignores its `n_params` argument and returns RSS/N. `artifact_detection.py:93` documents returns as `(flag, corr_summary, amp_per_trial)` while the code returns z-scores (measured: `third[7] = 332.40` against a true `max|amp|` of 54.21). `tfr_accumulator.py:1` promises float64/complex128 accumulation; the persisted dtypes are float32/complex64.
+- **Change** Correct each docstring; drop the dead `n_params`.
+- **Preserves** Behaviour.
+- **Discriminator** `test_docstring_matches_the_globs_it_claims`, which already exists for gate 6, is generalised.
+- **Accept** No module docstring contradicts its code.
+
+### 05-82 CI hygiene
+- **Problem** Three small gaps on a publish-capable pipeline.
+- **Evidence** No workflow-level `concurrency:` or `permissions:`, so rapid pushes run overlapping publish-capable pipelines. `pypa/gh-action-pypi-publish@release/v1` is a mutable branch ref on the two jobs holding `id-token: write`. `workflow_dispatch.inputs.target` defaults to `testpypi`, so any manual dispatch publishes unless the operator picks `none`. Confirmed clean: no `continue-on-error`, no `|| true`, no `set +e` anywhere; `if-no-files-found: error` is set; the production PyPI trigger is correctly narrow.
+- **Change** Add `concurrency` and a `permissions: {contents: read}` floor; pin the publish action to a commit SHA with a version comment; flip the dispatch default to `none`.
+- **Preserves** The publication ordering in `artifacts/fact_stack.md`.
+- **Discriminator** A second push cancels the first; a manual dispatch publishes nothing by default.
+- **Accept** `tests/test_workflow_release_policy.py` extended to cover the dispatch default.
+
+## 13. Close-out
+
+### 05-83 Independent adversarial pass over the repaired tree
+- **Problem** The repairs above touch every subsystem and several change what other items calibrate.
+- **Change** One independent pass attempting to falsify: numerical correctness, failure semantics, API consistency, docs, skills, packaging, CI and gate efficacy — reproducing each finding before repairing it, as the 0.2.4 pass did.
+- **Preserves** Nothing by assumption.
+- **Discriminator** Findings are reproduced before repair and pinned by a test that fails the previous code.
+- **Accept** Every major finding either repaired with a failing-before test or recorded as triaged with its measurement.
+
+### 05-84 Release seal
+- **Problem** 0.2.5 is not releasable until the above is closed.
+- **Change** Bump version, release date and status; write the CHANGELOG; clean tree; push `dev`; remote CI green on the full matrix; merge per the ordering in `artifacts/fact_stack.md`; tag; release; verify from the published artifact rather than a local build.
+- **Preserves** Release publication ordering: validate on `main`, tag, GitHub Release, production PyPI.
+- **Discriminator** A fresh venv installs from PyPI and reproduces the version, status, release date and full symbol set.
+- **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Before 1.0
 
-- Replace example-based estimator coverage with analytic/property-based tests.
-- PSTH SEM policy for `N=1` trials (zero vs NaN) if statistical contract tightened.
-- Processing-module discovery generalization beyond LFP if corpus requires it.
+- Replace example-based estimator coverage with analytic or property-based tests.
+- Processing-module discovery generalization beyond LFP if a corpus requires it.
 
 # Unversioned
 
 - File omission-side expert-feedback items in the omission repository.
+
+# Environment note, not repository work
+
+The development virtualenv at `.venv` has `omission` editable-installed
+(`__editable__.omission-0.1.0.pth`) and jnwb not installed (`pip show jnwb` -> not found), and
+is missing `statsmodels`, a declared hard dependency, plus `mkdocs` and `nbclient`. Every local
+receipt is therefore taken in an environment the boundary gates would reject, and 7 of the
+1472 local test failures trace to it while CI is green. This is machine configuration, not a
+repository change.
