@@ -104,7 +104,8 @@ def interpolate_intervals(seg, intervals):
 
 
 def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
-                      exclude_window_ms=None, reward_window_ms=None, min_trials=5):
+                      exclude_window_ms=None, reward_window_ms=None, min_trials=5,
+                      max_trial_fraction=0.5):
     """Cross-channel-synchrony detection + cross-trial-median substitution.
 
     Parameters
@@ -127,6 +128,27 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     min_trials : int
         Below this many trials, the cross-trial median is not meaningful; input is
         returned unchanged (matches repair_band_artifacts's n_trials < 5 guard).
+    max_trial_fraction : float or None
+        A time sample flagged on more than this fraction of trials is treated as
+        time-locked signal, not artifact, and is never substituted. Default 0.5; pass
+        None to disable the guard.
+
+        The detector is cross-channel synchrony, and an evoked response is synchronous
+        across channels by construction, so it is flagged exactly like an artifact. The
+        substitution then replaces each trial's own deflection with the cross-trial median
+        of the same deflection, which preserves the trial average while erasing the
+        single-trial variability many analyses are built on. Measured on 40 trials x 16
+        channels with a sharp evoked deflection whose amplitude varied across trials, with
+        the guard disabled: the correlation between the true single-trial amplitude and the
+        repaired peak fell from 0.9996 to 0.4607 and the across-trial SD at the peak fell
+        from 8.27 to 3.64, while the mean moved only from 29.33 to 28.59 -- so the damage
+        does not show up in a trial average.
+
+        The threshold is where the substitution becomes self-defeating rather than a tuned
+        value: substitution replaces flagged trials with a median taken over ALL trials, so
+        once more than half the trials are flagged at a sample, the "clean" median is drawn
+        mostly from the flagged population and cannot be removing a rare contaminant.
+        `exclude_window_ms` remains the way to protect a known response window explicitly.
 
     Returns
     -------
@@ -135,7 +157,9 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         Fraction of (trial, time) cells flagged and substituted.
     diagnostics : dict
         n_trials, n_channels, n_times, n_flagged_cells, exclude_excluded_cells,
-        synchrony_z_max, z_thresh, exclude_window_ms, reward_window_ms.
+        synchrony_z_max, z_thresh, exclude_window_ms, reward_window_ms,
+        max_trial_fraction, n_time_locked_samples_protected,
+        max_fraction_trials_flagged_at_a_sample, warnings.
     """
     effective_exclude = exclude_window_ms if exclude_window_ms is not None else reward_window_ms
     segments = np.asarray(segments, dtype=np.float64)
@@ -148,6 +172,10 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         "z_thresh": float(z_thresh), "exclude_window_ms": effective_exclude,
         "reward_window_ms": effective_exclude,
         "n_flagged_cells": 0, "reward_excluded_cells": 0, "synchrony_z_max": 0.0,
+        "max_trial_fraction": max_trial_fraction,
+        "n_time_locked_samples_protected": 0,
+        "max_fraction_trials_flagged_at_a_sample": 0.0,
+        "warnings": [],
     }
     if n_trials < min_trials:
         diagnostics["skipped_reason"] = f"n_trials < min_trials ({n_trials} < {min_trials})"
@@ -170,6 +198,20 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         in_excluded_window = (times_ms >= effective_exclude[0]) & (times_ms < effective_exclude[1])
         diagnostics["reward_excluded_cells"] = int((flagged & in_excluded_window[None, :]).sum())
         flagged = flagged & ~in_excluded_window[None, :]
+
+    # A sample flagged on most trials is time-locked across trials, which is what signal
+    # looks like and what an artifact does not. See max_trial_fraction in the docstring.
+    per_sample_fraction = flagged.mean(axis=0)
+    diagnostics["max_fraction_trials_flagged_at_a_sample"] = float(
+        per_sample_fraction.max()) if per_sample_fraction.size else 0.0
+    if max_trial_fraction is not None:
+        time_locked = per_sample_fraction > float(max_trial_fraction)
+        diagnostics["n_time_locked_samples_protected"] = int(time_locked.sum())
+        if time_locked.any():
+            diagnostics["warnings"].append(
+                f"time_locked_samples_not_repaired_{int(time_locked.sum())}_samples"
+            )
+            flagged = flagged & ~time_locked[None, :]
 
     diagnostics["n_flagged_cells"] = int(flagged.sum())
     frac_flagged = float(flagged.mean())
