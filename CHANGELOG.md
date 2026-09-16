@@ -88,6 +88,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`epoch_continuous` turned a non-finite onset into an in-bounds extraction of
+  nothing.** `np.round(nan * fs).astype(np.int64)` is `INT64_MIN`, and `idx + n_pre` then
+  overflowed to a large *positive* start with a large *negative* end. The bounds test
+  `0 <= start and end <= n_samples` is true of that pair, so the window took the
+  in-bounds branch and `arr[start:end]` returned an empty slice: one epoch of shape
+  `(0,)`, reported as a clean extraction, beside a `time_axis_s` of 800 samples. Mixed
+  with one valid onset it reached `np.stack` and raised `ValueError: all input arrays
+  must have the same shape` -- a numpy error naming neither the onset nor the argument.
+  A non-finite onset now raises `InvalidOnsetValueError` naming its index, which is the
+  refusal `events` and `event_onsets` already gave for the same value.
+- **Onsets on a different clock from the data returned a confident all-NaN array.**
+  `start_time` is seconds in the NWB specification and milliseconds in plenty of the
+  toolboxes that write these files. Onsets of 1000-5000 against a 1.0 s recording gave
+  `epoch_continuous` shape `(5, 800)`, correct dtype, correct time axis, every value NaN,
+  and no warning; the mean is NaN, the spectrum peaks at 0 Hz and the figure is blank.
+  Under `boundary_policy="nan"`, a warning is now issued when most epochs fall entirely
+  outside `[0, n_samples)`, naming both spans and the likely unit. A single stray event
+  does not warn, and an epoch overhanging either edge of the recording is ordinary and
+  still silent. `time_unit` on an `EventTable` remains a label: the interval table
+  carries no extent to check it against, so the check lives where the onsets meet the
+  continuous data.
 - **A sampling rate was read from one series and reported beside another's samples.**
   `_find_series_leaf` walked a container's whole subtree with `visititems` and took the
   first `data` leaf and the first `rate` leaf **independently**. On an `LFP` container

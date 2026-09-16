@@ -335,3 +335,48 @@ elif res["explained_variance"] < 0.01:
 A count is the exception that proves the rule. `bin_spikes` returns `0` for a bin a unit was
 recorded through and did not fire in: that zero *was* observed, and it is correct. This is
 `AGENTS.md` invariant 1 -- no empirical value that no script computed from data.
+
+
+## 11. Onsets on a Different Clock from the Data
+
+### The Mistake
+`start_time` is seconds in the NWB specification, and milliseconds in plenty of the
+toolboxes that wrote the file you were handed. Nothing in the file says which, and the
+difference is a factor of 1000 that every function downstream will accept:
+
+```python
+# WRONG: the onsets are milliseconds, the file is a 1.0 s recording, nothing says so
+onsets = jnwb.event_onsets("recording.nwb", table="trials")   # [1000. 2000. ... 5000.]
+epochs, t = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.2, 0.6), fs=fs)
+epochs.shape          # (5, 800) -- the right shape
+np.all(np.isnan(epochs))   # True -- and not one number in it
+```
+
+A mean of that is NaN, a spectrum of it peaks at 0 Hz, and a figure of it is blank. The
+array is the correct shape with the correct dtype beside a correct time axis, so nothing
+in it reads as an error.
+
+### The Correct Pattern
+Compare the onsets against the extent of the data before trusting either:
+
+```python
+data, fs = jnwb.acquisition_channel("recording.nwb", channel=0)
+duration_s = len(data) / fs
+onsets = jnwb.event_onsets("recording.nwb", table="trials")
+if onsets.max() > duration_s:
+    onsets = onsets / 1000.0        # they were milliseconds; say so in the script
+epochs, t = jnwb.epoch_continuous(data, onsets, win_s=(-0.2, 0.6), fs=fs)
+```
+
+`epoch_continuous` now warns when most epochs fall entirely outside the data under
+`boundary_policy="nan"`, naming both spans, because that is what a unit mismatch looks
+like. A single stray event does not warn -- events near the edges of a recording are
+ordinary, and their epochs are partly NaN by design.
+
+A non-finite onset is refused outright, with `InvalidOnsetValueError`, which is what
+`events` and `event_onsets` already did. It used to be cast to `INT64_MIN`, overflow into
+a start after the end, and come back as an in-bounds extraction of zero samples.
+
+`time_unit` on an `EventTable` is a label, not a measurement: the interval table carries
+no extent to check it against. The check is possible only where the onsets meet the
+continuous data, which is `epoch_continuous`.

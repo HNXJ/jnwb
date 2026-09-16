@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 5. NWB and user workflow
 
-### 05-40 Onsets in milliseconds are accepted as seconds and produce a confident number
-- **Problem** `time_unit="seconds"` is asserted as a literal and never checked against the file's own extent.
-- **Evidence** A file with onsets 1000-5000 and a 1.0 s recording: `events()` returns `EventTable(time_unit='seconds', onsets=[1000. 2000. ...])` with no warning; `epoch_continuous` returns `(5, 800)` with all five rows NaN and no warning; tutorial 00 prints "5 events, onsets in seconds ... spectral peak at 0.0 Hz". Relatedly, `epoch_continuous` on a NaN onset returns shape `(1,0)` with a numpy overflow warning, where `events()` raises `InvalidOnsetValueError` for the same NaN.
-- **Change** Warn in `epoch_continuous` when most epochs fall entirely outside the data under `boundary_policy="nan"`; reject non-finite onsets there with the same `InvalidOnsetValueError` `events` uses.
-- **Preserves** Legitimate partially-out-of-bounds epochs.
-- **Discriminator** A wholly out-of-range onset set warns or raises rather than returning all-NaN epochs.
-- **Accept** The three entry points agree on a NaN onset.
-
 ### 05-41 The errors a first-time user meets are documented nowhere but the generated reference
 - **Problem** Ten of 151 public symbols appear in no hand-written page, and eight of them are the NWB resolvers and error types.
 - **Evidence** Symbols present in `docs/api.md` and in no other `docs/**/*.md`: `resolve_acquisition, AmbiguousAcquisitionError, AcquisitionNotFoundError, ChannelIndexError, UnitNotFoundError, EventTable, resolve_interval_table, IntervalTableNotFoundError, InvalidOnsetValueError, DETECTION_TAILS`. No troubleshooting page, error index or traceback-to-fix table exists in the nav. The nearest guidance is on `docs/agents.md`, a page this reader was routed past.
