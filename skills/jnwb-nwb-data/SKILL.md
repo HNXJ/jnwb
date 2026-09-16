@@ -38,6 +38,15 @@ specific errors.
 **Table ambiguity:** several interval tables + omitted `table` → `AmbiguousIntervalTableError`.
 Several continuous series + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
 
+**One schema:** `inspect(path)` and `inspect(nwb_object)` return the same dict for the same
+file, including `data_path`, `layout` and `series` on every continuous entry. Every key in
+`jnwb.nwb_inspect.CONTINUOUS_KEYS` is always present, `None` when unknown.
+
+**Several series in one container:** an `LFP` wrapping more than one `ElectricalSeries` reports
+`series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and
+`acquisition_channel(name=<container>)` raises `AmbiguousAcquisitionError`. Name the series.
+A name that exists in both `/acquisition` and a processing module is refused the same way.
+
 **Array orientation:** `inspect` reports `layout` per 2-D series, decided by the series' own
 electrode region rather than by which side is longer. `acquisition_channel` honours it, so
 `channel=k` is the same channel whether the file is time-by-channel or channel-by-time. When the

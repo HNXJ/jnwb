@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 5. NWB and user workflow
 
-### 05-39 `inspect(path)` and `inspect(NWBFile)` return different schemas
-- **Problem** Two independent implementations, an h5py walk and a pynwb walk, with no shared schema; and `_find_series_leaf` takes the first `data` leaf and the first `rate` leaf independently.
-- **Evidence** `inspect(path)` acquisition keys include `data_path` and `layout`; `inspect(NWBFile)` omits both. Interval columns: path gives `['id','start_time','stop_time']` with `shape` and dtypes `int64,float64,float64`; NWBFile gives `['start_time','stop_time']` with no `shape` and dtypes `float64,float64`. `units`: path gives `{'n_rows','columns','has_spike_times'}`, NWBFile gives `{'n_rows'}`. On one legal file with an `LFP` container holding `lfp_alpha` (1000 Hz) and `lfp_beta` (500 Hz): `inspect(path)` reports `rate_hz: 500.0` with `data_path` pointing at `lfp_alpha`, `inspect(NWBFile)` reports `rate_hz: 1000.0`, and `acquisition_channel` returns `lfp_alpha` at 1000 Hz — three answers for one object.
-- **Change** One builder producing one schema; iterate `electrical_series` explicitly and raise `AmbiguousAcquisitionError` when a container holds more than one. Also raise on an acquisition/processing name collision, which is currently resolved by precedence with no warning (`nwb_inspect.py:359`).
-- **Preserves** The path-based schema, which is the richer one.
-- **Discriminator** The two call forms return equal dicts for the same file; a multi-series container refuses rather than picking.
-- **Accept** Passing an open handle, the only documented way to avoid reopening the file, does not change the answer.
-
 ### 05-40 Onsets in milliseconds are accepted as seconds and produce a confident number
 - **Problem** `time_unit="seconds"` is asserted as a literal and never checked against the file's own extent.
 - **Evidence** A file with onsets 1000-5000 and a 1.0 s recording: `events()` returns `EventTable(time_unit='seconds', onsets=[1000. 2000. ...])` with no warning; `epoch_continuous` returns `(5, 800)` with all five rows NaN and no warning; tutorial 00 prints "5 events, onsets in seconds ... spectral peak at 0.0 Hz". Relatedly, `epoch_continuous` on a NaN onset returns shape `(1,0)` with a numpy overflow warning, where `events()` raises `InvalidOnsetValueError` for the same NaN.

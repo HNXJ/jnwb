@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`inspect` answers with one schema, whichever way it is called.** `inspect(path)` was
+  an h5py walk and `inspect(nwb)` a pynwb walk, written independently, and for the same
+  file they disagreed: the file form carried `data_path` and `layout` and the object form
+  did not; an interval table had four columns from the file (`codes`, `id`, `start_time`,
+  `stop_time`) and three from the object, because `to_dataframe()` makes `id` the index;
+  and `codes` was dtype `object` from one and `str` from the other. An `NWBFile` that was
+  read from a file is now described by that file, so passing an open handle -- the
+  documented way to avoid reopening -- gives the same dict as passing the path. An
+  `NWBFile` with no file behind it is described from its arrays in the same schema, and
+  now includes its `trials`, `epochs` and `invalid_times` tables, which are not in
+  `nwb.intervals` until the file has been written and read back. Every entry carries
+  every key in `jnwb.nwb_inspect.CONTINUOUS_KEYS`, `None` where the value is unknown,
+  rather than a key set that varied with the file's contents.
+- **A continuous container holding several series is a question, not an answer.** An
+  `LFP` container wrapping `lfp_alpha` (1000 Hz) and `lfp_beta` (500 Hz) now reports
+  `series: ["lfp_alpha", "lfp_beta"]` with `rate_hz`, `data_path`, `data_shape`,
+  `data_dtype` and `layout` all `None`, and `acquisition_channel(name="LFP")` raises
+  `AmbiguousAcquisitionError` naming both. Name either series to read it. Containers
+  wrapping exactly one series are unchanged.
+- **A name that means two different objects is refused.** A series called `shared` in
+  both `/acquisition` and a processing module resolved to the acquisition one, decided by
+  the order of two `if` statements and documented nowhere. `resolve_acquisition` and
+  `acquisition_channel` now raise `AmbiguousAcquisitionError` naming both locations.
 - **`rng` is the one spelling for the random-number argument.** One concept was spelled
   four ways across the public API: `rng` (8 functions), `seed` (7), `random_state` (3) and
   `random_seed` (1). `granger`, `granger_spectral`, `phase_slope_index`,
@@ -65,6 +88,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A sampling rate was read from one series and reported beside another's samples.**
+  `_find_series_leaf` walked a container's whole subtree with `visititems` and took the
+  first `data` leaf and the first `rate` leaf **independently**. On an `LFP` container
+  holding `lfp_alpha` at 1000 Hz and `lfp_beta` at 500 Hz, `inspect(path)` reported
+  `rate_hz: 500.0` beside `data_path: .../lfp_alpha/data` and `data_shape: [100, 4]` --
+  `lfp_beta`'s rate against `lfp_alpha`'s array. `inspect(nwb)` said 1000 Hz and
+  `acquisition_channel` returned `lfp_alpha` at 1000 Hz: three answers for one object.
+  A rate that belongs to different samples is not a visible error; it shifts every
+  frequency by the ratio of the two rates. `data` and `rate` now always come from the
+  same group, and a container holding several series yields several members rather than
+  one blend of them.
 - **`acquisition_channel` returned a transposed recording as a channel trace.** The
   channel axis of a 2-D series was decided by `shape[0] >= shape[1]` -- whichever side is
   longer -- and `acquisition_channel` did not consult even that: it always sliced
