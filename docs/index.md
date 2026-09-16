@@ -51,6 +51,7 @@ print(f"Beta band power: {beta_power:.4f}")
 - [Architecture](01_architecture_and_philosophy.md) — scope, units, and dataset independence
 - [Addressing & metadata](02_paths_addressing_metadata.md)
 - [Public API](api.md) — every symbol in `jnwb.__all__`, gate-enforced
+- [Analyzing with an agent](agents.md) — what ships, the MCP server, and the skills
 - [References](references.md) — published sources for each method
 ## Figures
 

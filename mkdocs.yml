@@ -56,10 +56,12 @@ nav:
       - Installation: install.md
       - Quickstart: quickstart.md
       - Common Mistakes: common_mistakes.md
+      - Analyzing with an Agent: agents.md
       - Public API: api.md
       - References: references.md
 
   - Tutorials:
+      - Your Own NWB File: tutorials/00_your_own_file.md
       - NWB Basics: tutorials/01_nwb_basics.md
       - Addressing & Metadata: tutorials/02_addressing_and_metadata.md
       - Spiking Dynamics: tutorials/03_spiking.md

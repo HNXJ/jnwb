@@ -236,3 +236,49 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 1. Fix $\tau$ and $\Delta t$ uniformly across all conditions being compared.
 2. Use causality-bounded parametric fitting (`jnwb.fit_exponential_onset`) which models $t_0$ as the true takeoff point rather than taking arbitrary threshold-crossing latencies.
 3. Check `fit["bound_status"]` to confirm the estimate is not pinned to the outer parameter bounds.
+
+---
+
+## 9. Assuming a Schema the File Does Not Have
+
+### The Mistake
+Carrying one recording's layout into the next one:
+
+```python
+# WRONG: every one of these is an assumption, and none of them errors loudly
+onsets = jnwb.event_onsets("recording.nwb")                     # which interval table?
+table = jnwb.events("recording.nwb")                            # which column holds codes?
+lfp, fs = jnwb.acquisition_channel("recording.nwb", channel=0)  # which acquisition, what layout?
+```
+
+NWB constrains the container, not the contents. `codes` is a jnwb default rather than an NWB
+requirement, so a file from another lab usually names that column `stimulus`, `condition`,
+`trial_type` or nothing at all. A file may hold five interval tables, of which the one you
+want is not the first. Onsets are seconds here and milliseconds in plenty of other
+toolboxes, and a continuous array may be stored time-by-channel or channel-by-time.
+
+### The Correct Pattern
+Read the layout first and pass what you found:
+
+```python
+# CORRECT: inspect reports the structure; every choice after it is explicit
+info = jnwb.inspect("recording.nwb")
+
+for table in info["interval_tables"]:
+    print(table["name"], [column["name"] for column in table["columns"]])
+for acquisition in info["acquisitions"]:
+    print(acquisition["name"], acquisition["data_shape"], acquisition["layout"], acquisition["rate_hz"])
+
+onsets = jnwb.event_onsets(
+    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+)
+```
+
+The guards are there to be used rather than worked around. Several interval tables and none
+named `trials` raises `AmbiguousIntervalTableError` listing the names; a code column that
+does not exist raises `ColumnNotFoundError` listing the columns that do; a table with no
+`codes` column returns its onsets and warns that it found no codes. Each message contains
+the argument you need, so the fix is to pass it rather than to fall back to a default.
+
+`examples/tutorials/00_your_own_file.py` is this pattern end to end on a file it has never
+seen.

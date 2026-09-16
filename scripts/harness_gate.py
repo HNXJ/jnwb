@@ -744,6 +744,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
                 violations.append(f"NWB_ONBOARDING: README missing {symbol}")
 
     expected_scripts = [
+        "00_your_own_file.py",
         "01_nwb_basics.py",
         "02_addressing_and_metadata.py",
         "03_spiking.py",

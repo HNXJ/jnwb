@@ -20,32 +20,58 @@ SKILL = REPO_ROOT / "skills" / "jnwb-nwb-data" / "SKILL.md"
 TUTORIAL_DIR = REPO_ROOT / "examples" / "tutorials"
 
 
-def test_readme_nwb_workflow_block_executes(tmp_path):
-    from jnwb.testing.nwb_fixtures import (
-        CODE_LABEL_A,
-        TASK_TABLE,
-        canonical_co_resident_options,
-        write_synth_nwb,
+def test_readme_nwb_workflow_block_executes(tmp_path, monkeypatch):
+    """Execute the README's NWB block verbatim, which is what this test's name claims.
+
+    It used to reimplement an analogous flow against the canonical fixture instead, so the
+    README could have drifted to anything and this would still have passed.
+    """
+    from datetime import datetime, timezone
+
+    from pynwb import NWBFile, NWBHDF5IO
+    from pynwb.ecephys import ElectricalSeries
+
+    # A file shaped like the README's example: a `trials` table whose code column is named
+    # `stimulus`, which is the case the block exists to teach.
+    nwb = NWBFile(
+        session_description="readme example",
+        identifier="README_BLOCK",
+        session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(
+        name="shank0", description="d", location="unknown", device=device
+    )
+    for index in range(4):
+        nwb.add_electrode(group=group, location="unknown", x=0.0, y=0.0, z=float(index))
+    region = nwb.create_electrode_table_region(list(range(4)), "all")
+    nwb.add_acquisition(
+        ElectricalSeries(
+            name="lfp", data=np.zeros((1000, 4), dtype="float32"),
+            electrodes=region, starting_time=0.0, rate=1000.0,
+        )
+    )
+    nwb.add_trial_column(name="stimulus", description="stimulus label")
+    for index, onset in enumerate((0.1, 0.3, 0.5, 0.7)):
+        nwb.add_trial(
+            start_time=onset, stop_time=onset + 0.05,
+            stimulus="grating" if index % 2 == 0 else "blank",
+        )
+    with NWBHDF5IO(str(tmp_path / "recording.nwb"), "w") as io:
+        io.write(nwb)
 
-    path = tmp_path / "recording.nwb"
-    receipt = write_synth_nwb(path, canonical_co_resident_options())
+    fence = "```python" + chr(10) + "(.*?)```"
+    blocks = re.findall(fence, README.read_text(encoding="utf-8"), re.S)
+    workflow = [b for b in blocks if "jnwb.inspect(" in b and "event_onsets(" in b]
+    assert len(workflow) == 1, f"expected one NWB workflow block, found {len(workflow)}"
 
-    info = jnwb.inspect(path)
-    assert info["session"]["identifier"]
-    assert any(t["name"] == TASK_TABLE for t in info["interval_tables"])
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    exec(compile(workflow[0], "README.md", "exec"), namespace)
 
-    et = jnwb.events(path, table=TASK_TABLE)
-    assert et.time_unit == "seconds"
-    assert et.n_events == len(receipt.task_onsets_s)
-
-    onsets = jnwb.event_onsets(path, table=TASK_TABLE, codes=[CODE_LABEL_A])
-    np.testing.assert_allclose(onsets, receipt.task_onsets_s[::2])
-
-    spikes = jnwb.unit_spike_times(path, unit_index=0)
-    assert spikes.size > 0
-    _, fs_hz = jnwb.acquisition_channel(path, name="probe_0_lfp", channel=0)
-    assert fs_hz == receipt.fs_hz
+    assert namespace["onsets"].size == 2
+    np.testing.assert_allclose(namespace["onsets"], [0.1, 0.5])
+    assert namespace["table"].code_column == "stimulus"
 
 
 def test_readme_documents_inspect_events_onsets():
@@ -61,16 +87,15 @@ def test_mkdocs_tutorials_nav_order():
         paths = list(tutorials.values())
     else:
         paths = [next(iter(entry.values())) for entry in tutorials]
-    assert paths == [
-        "tutorials/01_nwb_basics.md",
-        "tutorials/02_addressing_and_metadata.md",
-        "tutorials/03_spiking.md",
-        "tutorials/04_lfp_and_spectral.md",
-        "tutorials/05_statistics.md",
-        "tutorials/06_laminar.md",
-        "tutorials/07_ensembles.md",
-        "tutorials/08_end_to_end_pipeline.md",
+    # Derived from the scripts on disk rather than restated here: a hardcoded copy of this
+    # list is a second registry that goes stale the moment a tutorial is added, which is
+    # exactly what happened when 00 arrived.
+    expected = [
+        f"tutorials/{script.stem}.md"
+        for script in sorted(TUTORIAL_DIR.glob("[0-9][0-9]_*.py"))
     ]
+    assert len(expected) >= 8
+    assert paths == expected
 
 
 def test_tutorial_docs_include_executable_sources():

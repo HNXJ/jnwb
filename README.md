@@ -61,9 +61,23 @@ Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplot
 import jnwb
 
 info = jnwb.inspect("recording.nwb")
-events = jnwb.events("recording.nwb", table="test_synth_task")
-onsets = jnwb.event_onsets("recording.nwb", table="test_synth_task", codes=["test-synth-1"])
+
+# Read the layout off the inspection rather than assuming it.
+for table in info["interval_tables"]:
+    print(table["name"], [column["name"] for column in table["columns"]])
+# trials ['id', 'start_time', 'stimulus', 'stop_time']
+
+table = jnwb.events("recording.nwb", table="trials", code_column="stimulus")
+onsets = jnwb.event_onsets(
+    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+)
 ```
+
+`codes` is jnwb's default column name, not an NWB requirement — a file from another lab
+usually names it something else, which is why the column comes from `inspect` rather than
+from habit. Naming a column that does not exist raises `ColumnNotFoundError` listing the
+columns that do; omitting `code_column` on a table with no `codes` column returns the
+onsets and warns.
 
 Executable walkthroughs: [Read the Docs tutorials](https://jnwb.readthedocs.io/) or `examples/tutorials/`.
 
