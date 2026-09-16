@@ -53,14 +53,17 @@ names what is missing. Nothing here is marked from inference.
 | 11 Python/OS matrix | CLOSED | run 34921221203: 3.12 and 3.14 on ubuntu-latest and windows-latest all PASS; floor consistency gated |
 | 12 strict documentation build | CLOSED | `docs_build.py` strict, 0 warnings, locally and in CI; versions derive from `jnwb.__version__` |
 | 13 distribution audit | CLOSED | build -> manifest scan -> `twine check` -> fresh venv -> wheel + transitive install -> `pip check` -> import from site-packages outside the checkout -> numerical workflows -> tutorials |
-| 14 reproducibility | PARTIAL | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not part of that chain |
+| 14 reproducibility | CLOSED | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not run in CI, but calibration staleness is caught there: `test_vflip_calibration_receipt` fails when `vflip` changes without `scripts/calibrate_vflip.py` being rerun, and `test_xflip_calibration` recomputes xFLIP's operating characteristics from the shipped estimator |
 | 15 CPU/CUDA parity | CLOSED | against the RC-scoped criterion (structural/fallback tests; representative high-risk paths on one real CUDA system; parity within declared tolerances; CI verifies CPU/fallback). 9 of 13 `resolve_device` call sites executed on an RTX A4000 with no fallback warning, parity 0 to 3.6e-04; `rdm` has no GPU implementation and warns; the 3 uncovered are session-level wrappers over the same resolver, retaining structural coverage. The earlier 7-of-10 closure missed that `wpli(device='cuda')` never reached the GPU (repaired, receipt corrected). Receipt: `artifacts/benchmarks/cuda_parity_0.2.4.md` |
 | 16 final critic pass | PARTIAL | the external review at 42b1450b produced the findings this stack has been repairing; it predates the electrode-region repair and these verification changes |
 | 17 release seal | OPEN | blocked on the conjunction above |
 
 ### Open findings requiring a decision
 
-- `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator in the repository.
+- `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator and cannot be
+  regenerated. It now says so, names the 0.2.4 change to `xflip`, and points at
+  `tests/test_xflip_calibration.py`, which measures the same operating characteristics
+  against the shipped estimator on every run.
 - `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a
   null's grid dependence; the calibration receipt does that instead.
 
