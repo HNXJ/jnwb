@@ -45,6 +45,7 @@ from .nwb_io import MissingRequiredNWBFieldError
 from .nwb_inspect import (
     AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
+    AmbiguousLayoutError,
     ChannelIndexError,
     NWBInspectError,
     UnitNotFoundError,
@@ -216,6 +217,7 @@ __all__ = [
     'resolve_acquisition',
     'NWBInspectError',
     'AmbiguousAcquisitionError',
+    'AmbiguousLayoutError',
     'AcquisitionNotFoundError',
     'ChannelIndexError',
     'UnitNotFoundError',

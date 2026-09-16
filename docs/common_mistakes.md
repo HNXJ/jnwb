@@ -248,7 +248,7 @@ Carrying one recording's layout into the next one:
 # WRONG: every one of these is an assumption, and none of them errors loudly
 onsets = jnwb.event_onsets("recording.nwb")                     # which interval table?
 table = jnwb.events("recording.nwb")                            # which column holds codes?
-lfp, fs = jnwb.acquisition_channel("recording.nwb", channel=0)  # which acquisition, what layout?
+lfp, fs = jnwb.acquisition_channel("recording.nwb", channel=0)  # which acquisition?
 ```
 
 NWB constrains the container, not the contents. `codes` is a jnwb default rather than an NWB
@@ -256,6 +256,14 @@ requirement, so a file from another lab usually names that column `stimulus`, `c
 `trial_type` or nothing at all. A file may hold five interval tables, of which the one you
 want is not the first. Onsets are seconds here and milliseconds in plenty of other
 toolboxes, and a continuous array may be stored time-by-channel or channel-by-time.
+
+The one of those jnwb resolves for you is the array orientation: `acquisition_channel`
+reads the channel axis from the series' own electrode region, so `channel=0` is the same
+channel in either orientation, and `inspect` reports which one it found under `layout`.
+Where the electrode count settles nothing -- neither dimension matches it, or the array is
+square so both do -- `layout` is `"ambiguous"` and `acquisition_channel` raises
+`AmbiguousLayoutError` rather than return a slice taken across channels at one instant as
+though it were a channel's time course.
 
 ### The Correct Pattern
 Read the layout first and pass what you found:

@@ -27,6 +27,15 @@ class NWBInspectError(Exception):
     """
 
 
+class AmbiguousLayoutError(NWBInspectError):
+    """The channel axis of a 2-D continuous series cannot be determined.
+
+    Raised when neither dimension of the data matches the series' electrode count, or
+    when both do. Guessing here returns a slice taken across channels at one instant as
+    though it were one channel's time course.
+    """
+
+
 class AmbiguousAcquisitionError(NWBInspectError):
     """Several acquisitions are present and ``name`` was not specified."""
 
@@ -138,6 +147,71 @@ def _inspect_intervals_h5py(intervals: h5py.Group) -> list[dict[str, Any]]:
     return tables
 
 
+TIME_BY_CHANNEL = "time_by_channel"
+CHANNEL_BY_TIME = "channel_by_time"
+AMBIGUOUS_LAYOUT = "ambiguous"
+
+
+def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None:
+    """Length of the electrode region sitting beside `data`, or ``None``.
+
+    The series' own region is the arbiter, not the whole electrode table: a series may
+    cover a subset of a 384-channel probe.
+    """
+    if data_relpath is None:
+        return None
+    node: Any = group
+    for part in data_relpath.split("/")[:-1]:
+        node = node.get(part)
+        if not isinstance(node, h5py.Group):
+            return None
+    region = node.get("electrodes")
+    if region is None:
+        return None
+    try:
+        n = len(region)
+    except TypeError:
+        return None
+    return int(n) or None
+
+
+def _pynwb_channel_count(series: Any) -> int | None:
+    """The same arbiter on the pynwb path: ``len(series.electrodes)``."""
+    region = getattr(series, "electrodes", None)
+    if region is None:
+        return None
+    try:
+        n = len(region)
+    except TypeError:
+        return None
+    return int(n) or None
+
+
+def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
+    """Decide which axis of a 2-D continuous series holds channels.
+
+    05-38: this was ``shape[0] >= shape[1]``, which never consulted the electrode count.
+    A 64-channel x 1000-sample recording came out ``channel_by_time`` only by accident of
+    being wider than tall, and a 50-sample x 100-channel one came out ``channel_by_time``
+    while the same ``inspect`` dict carried 100 electrodes.
+
+    Returns ``(layout, basis)``. ``basis`` is internal and says whether the answer came
+    from the electrode count or from the shape guess that is all there is without one.
+    """
+    rows, cols = int(shape[0]), int(shape[1])
+    if n_channels:
+        n = int(n_channels)
+        if cols == n and rows != n:
+            return TIME_BY_CHANNEL, "electrode_count"
+        if rows == n and cols != n:
+            return CHANNEL_BY_TIME, "electrode_count"
+        # Both sides match (a square array) or neither does. Guessing here is exactly how
+        # a slice across channels gets returned as a channel's time course.
+        return AMBIGUOUS_LAYOUT, "electrode_count"
+    # Nothing to arbitrate with. The shape heuristic is the only answer available.
+    return (TIME_BY_CHANNEL if rows >= cols else CHANNEL_BY_TIME), "shape"
+
+
 def _inspect_acquisitions_h5py(acquisition: h5py.Group) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for name in sorted(acquisition.keys()):
@@ -158,7 +232,8 @@ def _inspect_acquisitions_h5py(acquisition: h5py.Group) -> list[dict[str, Any]]:
             entry["data_shape"] = list(data_ds.shape)
             entry["data_dtype"] = str(data_ds.dtype)
             if len(data_ds.shape) == 2:
-                entry["layout"] = "time_by_channel" if data_ds.shape[0] >= data_ds.shape[1] else "channel_by_time"
+                entry["layout"] = _resolve_layout(
+                    data_ds.shape, _h5_channel_count(obj, data_path))[0]
         if rate is not None:
             entry["rate_hz"] = rate
         out.append(entry)
@@ -194,7 +269,8 @@ def _inspect_processing_continuous_h5py(handle: h5py.File) -> list[dict[str, Any
             if data_path is not None:
                 entry["data_path"] = f"/processing/{mod_name}/{cname}/{data_path}"
             if len(data_ds.shape) == 2:
-                entry["layout"] = "time_by_channel" if data_ds.shape[0] >= data_ds.shape[1] else "channel_by_time"
+                entry["layout"] = _resolve_layout(
+                    data_ds.shape, _h5_channel_count(obj, data_path))[0]
             if rate is not None:
                 entry["rate_hz"] = rate
             out.append(entry)
@@ -350,8 +426,12 @@ def acquisition_channel(
         Name of the continuous series or container. When omitted, resolves the
         sole available series if unique.
     channel:
-        Zero-based channel index. For 1D series, channel must be 0.
-        Raises :class:`ChannelIndexError` if channel is out of range.
+        Zero-based channel index, in the series' own channel axis. That axis is read
+        from the series' electrode region, so ``channel=k`` is the same channel whether
+        the array is stored time-by-channel or channel-by-time.
+        Raises :class:`ChannelIndexError` if channel is out of range, and
+        :class:`AmbiguousLayoutError` when the electrode count matches neither dimension
+        of a 2-D array or matches both. For 1D series, channel must be 0.
 
     Returns
     -------
@@ -385,11 +465,32 @@ def acquisition_channel(
                 )
             data = np.asarray(series.data[:], dtype=np.float64)
         elif len(shape) == 2:
-            if channel < 0 or channel >= shape[1]:
-                raise ChannelIndexError(
-                    f"Channel index {channel} out of range for series '{acq_name}' with {shape[1]} channels"
+            # 05-38: this sliced axis 1 unconditionally and bounds-checked shape[1],
+            # never consulting the layout its own sibling `inspect` reports. On a
+            # channel-major (64, 1000) series with 64 electrodes, channel=0 returned
+            # data[:, 0] -- 64 samples taken across channels at one instant -- as a
+            # 1000 Hz channel trace, channel=999 returned another such slice, and
+            # channel=1000 raised "out of range ... with 1000 channels" for a file
+            # that has 64 of them.
+            n_channels = _pynwb_channel_count(series)
+            layout, basis = _resolve_layout(shape, n_channels)
+            if layout == AMBIGUOUS_LAYOUT:
+                raise AmbiguousLayoutError(
+                    f"Cannot tell which axis of series '{acq_name}' holds channels: "
+                    f"shape {tuple(shape)} against {n_channels} electrodes, so neither "
+                    f"dimension matches or both do. Guessing would return a slice "
+                    f"across channels as a channel's time course."
                 )
-            data = np.asarray(series.data[:, channel], dtype=np.float64)
+            n = shape[1] if layout == TIME_BY_CHANNEL else shape[0]
+            if channel < 0 or channel >= n:
+                raise ChannelIndexError(
+                    f"Channel index {channel} out of range for series '{acq_name}' "
+                    f"with {n} channels (layout {layout}, decided by {basis})"
+                )
+            if layout == TIME_BY_CHANNEL:
+                data = np.asarray(series.data[:, channel], dtype=np.float64)
+            else:
+                data = np.asarray(series.data[channel, :], dtype=np.float64)
         else:
             raise ValueError(
                 f"Unsupported series data shape {shape} for '{acq_name}' (expected 1D or 2D)"
@@ -502,9 +603,8 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
                     entry["data_shape"] = list(shape)
                     entry["data_dtype"] = str(series.data.dtype)
                     if len(shape) == 2:
-                        entry["layout"] = (
-                            "time_by_channel" if shape[0] >= shape[1] else "channel_by_time"
-                        )
+                        entry["layout"] = _resolve_layout(
+                            shape, _pynwb_channel_count(series))[0]
                     rate = getattr(series, "rate", None)
                     if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
                         entry["rate_hz"] = float(rate)

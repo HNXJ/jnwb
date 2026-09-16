@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   assessed: there was no way to ask whether a decoding accuracy survived a different
   split of the same trials. An `int` is handed to scikit-learn unchanged, so the default
   reproduces the previous folds exactly.
+- **`jnwb.AmbiguousLayoutError`.** Raised by `acquisition_channel` when the channel axis
+  of a 2-D series cannot be determined, and reported by `inspect` as
+  `layout: "ambiguous"`. A subclass of `NWBInspectError`, like the other inspection
+  errors.
 
 ### Deprecated
 
@@ -61,6 +65,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`acquisition_channel` returned a transposed recording as a channel trace.** The
+  channel axis of a 2-D series was decided by `shape[0] >= shape[1]` -- whichever side is
+  longer -- and `acquisition_channel` did not consult even that: it always sliced
+  `data[:, channel]` and bounds-checked `shape[1]`. On a channel-major `(64, 1000)`
+  `ElectricalSeries` with 64 electrodes, `channel=0` returned the 64 samples `data[:, 0]`
+  -- one instant across all channels -- as a 1000 Hz trace; `channel=999` returned
+  another such slice instead of raising; and `channel=1000` raised `Channel index 1000
+  out of range for series 'es' with 1000 channels` for a file with 64 of them. pynwb
+  itself warns on write that such data "is oriented incorrectly", so this is an
+  orientation real files are in. The axis is now read from the series' own electrode
+  region -- not from the longer side, and not from the whole electrode table, since a
+  series may cover a subset of a 384-channel probe -- at all three sites that report
+  `layout` and in `acquisition_channel` itself. Where the electrode count settles nothing
+  (neither dimension matches it, or the array is square so both do) `layout` is
+  `"ambiguous"` and reading a channel raises `AmbiguousLayoutError` rather than return a
+  plausible-looking array with the wrong meaning. Time-by-channel files are unaffected,
+  and now hold by the electrode count rather than by being taller than wide.
 - **jnwb could not read a single-column table that plain pynwb reads.** The smallest
   units table a lab writes has one column, so on disk
   `colnames = array(['spike_times'])`. jnwb's builder repair scalarizes any length-1

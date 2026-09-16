@@ -38,6 +38,12 @@ specific errors.
 **Table ambiguity:** several interval tables + omitted `table` → `AmbiguousIntervalTableError`.
 Several continuous series + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
 
+**Array orientation:** `inspect` reports `layout` per 2-D series, decided by the series' own
+electrode region rather than by which side is longer. `acquisition_channel` honours it, so
+`channel=k` is the same channel whether the file is time-by-channel or channel-by-time. When the
+electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
+`acquisition_channel` raises `AmbiguousLayoutError`.
+
 ### Repository path roots (not per-file inspection)
 
 - `jnwb.paths.describe()`: report configured data roots and resolution state for a **project**

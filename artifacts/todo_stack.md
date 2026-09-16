@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 5. NWB and user workflow
 
-### 05-38 `acquisition_channel` ignores the layout `inspect` computed
-- **Problem** It slices axis 1 unconditionally and bounds-checks `shape[1]`, never consulting the `layout` its own sibling reports.
-- **Evidence** Channel-major `(64, 1000)` data with 64 electrodes: `inspect` reports `layout: channel_by_time`; `acquisition_channel(channel=999)` returns a 64-sample time slice presented as a channel trace at 1000 Hz; `channel=1000` raises `Channel index 1000 out of range for series 'es' with 1000 channels`. Separately, the layout heuristic itself is `shape[0] >= shape[1]` with no reference to the electrode count, so a 50-sample x 100-channel recording is reported `channel_by_time` while the same dict carries `electrodes n_rows = 100`.
-- **Change** Decide the axis by matching a dimension against `len(nwb.electrodes)`; emit `layout: 'ambiguous'` when both or neither match; have `acquisition_channel` honour it; `nwb_inspect.py:151, 187, 359, 496`.
-- **Preserves** Time-major files, and the verified-correct `conversion`/`offset` scaling.
-- **Discriminator** A channel-major file either returns the correct trace or raises naming the layout; the bound check reports the true channel count.
-- **Accept** Both orientations round-trip, with the electrode count as the arbiter.
-
 ### 05-39 `inspect(path)` and `inspect(NWBFile)` return different schemas
 - **Problem** Two independent implementations, an h5py walk and a pynwb walk, with no shared schema; and `_find_series_leaf` takes the first `data` leaf and the first `rate` leaf independently.
 - **Evidence** `inspect(path)` acquisition keys include `data_path` and `layout`; `inspect(NWBFile)` omits both. Interval columns: path gives `['id','start_time','stop_time']` with `shape` and dtypes `int64,float64,float64`; NWBFile gives `['start_time','stop_time']` with no `shape` and dtypes `float64,float64`. `units`: path gives `{'n_rows','columns','has_spike_times'}`, NWBFile gives `{'n_rows'}`. On one legal file with an `LFP` container holding `lfp_alpha` (1000 Hz) and `lfp_beta` (500 Hz): `inspect(path)` reports `rate_hz: 500.0` with `data_path` pointing at `lfp_alpha`, `inspect(NWBFile)` reports `rate_hz: 1000.0`, and `acquisition_channel` returns `lfp_alpha` at 1000 Hz — three answers for one object.

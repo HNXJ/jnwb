@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 154 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 155 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -161,6 +161,7 @@ All 154 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.AcquisitionNotFoundError | class | *The requested acquisition does not exist.* |
 | jnwb.AmbiguousAcquisitionError | class | *Several acquisitions are present and ``name`` was not specified.* |
+| jnwb.AmbiguousLayoutError | class | *The channel axis of a 2-D continuous series cannot be determined.* |
 | jnwb.ChannelIndexError | class | *The requested channel index is out of range for the continuous series.* |
 | jnwb.NWBInspectError | class | *Base for every error raised while addressing an NWB file's contents.* |
 | jnwb.UnitNotFoundError | class | *The requested units-table row does not exist.* |
