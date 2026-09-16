@@ -170,6 +170,35 @@ class TestMCPServerEntrypoint(unittest.TestCase):
         self.assertIsInstance(server.mcp, FastMCP)
         self.assertEqual(server.mcp.name, "jnwb-mcp-server")
 
+    def test_the_documented_launch_command_actually_launches(self):
+        """`docs/10_extending_jnwb_and_verification.md` tells the reader to run
+        `python -m jnwb.mcp_server`. That failed with "'jnwb.mcp_server' is a package and
+        cannot be directly executed", including against the published wheel with the `mcp`
+        extra installed, because the package had no `__main__` submodule -- the
+        `if __name__ == "__main__": mcp.run()` guard sat in `__init__.py`, where it can
+        never be true. The class above passed throughout: it checked that a FastMCP object
+        exists, not that the server starts.
+        """
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "jnwb.mcp_server"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120,
+        )
+        self.assertNotIn("cannot be directly executed", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+    def test_the_entry_point_is_a_module_not_an_unreachable_guard(self):
+        import importlib.util
+
+        self.assertIsNotNone(importlib.util.find_spec("jnwb.mcp_server.__main__"))
+        init = (
+            pathlib.Path(__file__).resolve().parents[1]
+            / "jnwb" / "mcp_server" / "__init__.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("mcp.run()", init)
+
 
 if __name__ == "__main__":
     unittest.main()

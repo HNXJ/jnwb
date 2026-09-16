@@ -10,6 +10,3 @@ __all__ = [
     "get_event_codes_and_timings",
     "add_tool"
 ]
-
-if __name__ == "__main__":
-    mcp.run()
