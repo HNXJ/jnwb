@@ -28,16 +28,6 @@ deferred to H, so later work benefits from the gate.
 Qualification runs in a clean environment built from the declared extras, or in CI. The
 development `.venv` described at the end of this file is not package evidence.
 
-## 5. NWB and user workflow
-
-### 05-42 Tutorial 00 crashes on the two most common foreign-file shapes
-- **Problem** It reads `acquisition['rate_hz']` unguarded and iterates only `info["acquisitions"]`.
-- **Evidence** A file with `timestamps` instead of `starting_time`+`rate` -> bare `KeyError: 'rate_hz'`. A file whose LFP lives in a processing module -> no acquisition line printed at all; `'processing_continuous'` never appears in the script.
-- **Change** Guard the key and fall back to `info["processing_continuous"]`; `examples/tutorials/00_your_own_file.py:110`.
-- **Preserves** The discovery-not-assumption design, which is verified working: on a 16-channel foreign file it found `condition` as the code column and recovered the injected 23.0 Hz.
-- **Discriminator** Irregularly-sampled and processing-module files complete the tutorial.
-- **Accept** Tutorial 00 runs against all fixture shapes in `jnwb/testing/nwb_fixtures.py` plus a timestamps-only file.
-
 ## 6. Performance and backend
 
 ### 05-43 Device changes the number

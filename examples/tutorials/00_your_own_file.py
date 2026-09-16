@@ -93,6 +93,37 @@ def choose_code_column(table: dict) -> str | None:
     return None
 
 
+def continuous_series(info: dict) -> list[dict]:
+    """Every continuous series in the file, acquisitions first.
+
+    05-42: the tutorial iterated `info["acquisitions"]` alone, so a file whose LFP lives
+    in a processing module -- which is where `LFP` containers usually live -- printed no
+    continuous line at all and then claimed it had aligned the layout. `inspect` reports
+    both lists with the same keys; a reader looking for their data has to look in both.
+    """
+    return list(info["acquisitions"]) + list(info["processing_continuous"])
+
+
+def describe_continuous(entry: dict) -> str:
+    """One line per series, saying plainly what is unknown rather than printing `None`.
+
+    `rate_hz` is `None` for a series stored with `timestamps` instead of a constant rate,
+    and for a container wrapping several series that do not share one. `data_shape` and
+    `layout` are `None` in the second case for the same reason.
+    """
+    where = f"Processing/{entry['module']}" if "module" in entry else "Acquisition"
+    shape = entry["data_shape"] if entry["data_shape"] is not None else "unknown shape"
+    if entry["rate_hz"] is None:
+        if entry.get("series") and len(entry["series"]) > 1:
+            rate = f"several series ({', '.join(entry['series'])}), no shared rate"
+        else:
+            rate = "no constant rate (irregularly sampled)"
+    else:
+        rate = f"{entry['rate_hz']} Hz"
+    layout = entry["layout"] or "layout undetermined"
+    return f"{where} {entry['name']}: shape {shape}, {rate}, {layout}"
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         if len(sys.argv) > 1:
@@ -107,11 +138,11 @@ def main() -> None:
         info = jnwb.inspect(path)
         print(f"Session: {info['session']['identifier']}")
         print(f"Units: {info['units']['n_rows']}")
-        for acquisition in info["acquisitions"]:
-            print(
-                f"Acquisition {acquisition['name']}: shape {acquisition['data_shape']}, "
-                f"{acquisition['rate_hz']} Hz, layout {acquisition['layout']}"
-            )
+        continuous = continuous_series(info)
+        if not continuous:
+            print("No continuous series anywhere in the file.")
+        for entry in continuous:
+            print(f"{describe_continuous(entry)}")
 
         tables = info["interval_tables"]
         if not tables:
@@ -160,17 +191,40 @@ def main() -> None:
             )
 
         # 4. Align a continuous channel, if the file has one.
-        if info["acquisitions"]:
-            name = info["acquisitions"][0]["name"]
-            signal, fs_hz = jnwb.acquisition_channel(path, name=name, channel=0)
+        aligned = False
+        for entry in continuous:
+            name = entry["name"]
+            if entry.get("rate_hz") is None:
+                # Either the series carries `timestamps` rather than a constant rate, or
+                # it is a container wrapping several series with different rates. Both
+                # are legal files; neither has one sampling rate to epoch by.
+                print(f"{name}: no constant sampling rate, so not epoched here. "
+                      f"Read its timestamps and resample if you need a spectrum.")
+                continue
+            try:
+                signal, fs_hz = jnwb.acquisition_channel(path, name=name, channel=0)
+            except jnwb.NWBInspectError as err:
+                print(f"{name}: {err}")
+                continue
             epochs, _ = jnwb.epoch_continuous(signal, onsets, win_s=(-0.2, 0.6), fs=fs_hz)
             freqs, psd = jnwb.compute_psd(signal, fs=fs_hz)
             print(
                 f"{name}: {epochs.shape[0]} epochs of {epochs.shape[1]} samples, "
                 f"spectral peak at {freqs[np.argmax(psd)]:.1f} Hz"
             )
+            aligned = True
+            break
 
-        print("Layout discovered and aligned without assuming a schema.")
+        # The closing line reports what happened rather than what was hoped for. A
+        # script that says "aligned" after aligning nothing is how a blank figure gets
+        # believed.
+        if aligned:
+            print("Layout discovered and aligned without assuming a schema.")
+        elif continuous:
+            print("Layout discovered; no continuous series could be aligned, and the "
+                  "lines above say why for each one.")
+        else:
+            print("Layout discovered; this file has no continuous series to align.")
 
 
 if __name__ == "__main__":

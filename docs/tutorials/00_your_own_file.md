@@ -15,7 +15,7 @@ With no argument it writes a small stand-in with plain `pynwb` first, so the scr
 anywhere. The stand-in names its code column `stimulus` rather than `codes`, because that is
 the situation the discovery step exists for.
 
-## Three things the script does not assume
+## Four things the script does not assume
 
 **Which interval table.** `jnwb` resolves `trials`, then a sole table, then refuses. On a
 file with five interval tables the refusal names them all and asks for one:
@@ -37,6 +37,25 @@ sample values, then passes that name explicitly. Naming a column that does not e
 
 **That spikes or a continuous channel exist at all.** Both alignment steps are guarded by
 what `inspect` reported, because a file may carry neither.
+
+**Where the continuous data lives, or that it has a sampling rate.** `inspect` returns two
+lists, `acquisitions` and `processing_continuous`, and an `LFP` container usually lives in
+the second. The script reads both. It also handles the values that can legitimately be
+absent: `rate_hz` is `None` for a series stored with `timestamps` instead of a constant
+rate, and `data_shape`, `layout` and `rate_hz` are all `None` for a container wrapping
+several series that do not share one. Each case prints what is unknown and why that series
+was not epoched, rather than a bare `None` or a traceback:
+
+```
+Acquisition lfp: shape [2000, 8], no constant rate (irregularly sampled), time_by_channel
+lfp: no constant sampling rate, so not epoched here. Read its timestamps and resample if
+you need a spectrum.
+Layout discovered; no continuous series could be aligned, and the lines above say why for
+each one.
+```
+
+The closing line reports what happened rather than what was hoped for. A script that says
+"aligned" after aligning nothing is how a blank figure gets believed.
 
 ## Source
 

@@ -104,6 +104,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Tutorial 00 broke on the two most common foreign-file shapes.** It is the page for a
+  file you know nothing about, and it read `acquisition["rate_hz"]` unguarded while
+  iterating `info["acquisitions"]` alone. A file storing `timestamps` instead of a
+  constant rate printed `None Hz` and then died at section 4 with an uncaught
+  `AcquisitionNotFoundError: Series 'lfp' has no constant sampling rate`. A file whose LFP
+  lives in a processing module -- where an `LFP` container usually lives -- printed no
+  continuous line at all, silently skipped the alignment, and still claimed "Layout
+  discovered and aligned without assuming a schema"; the string `processing_continuous`
+  did not appear in the script. It now reads both lists, says in words what each absent
+  value means, catches an `NWBInspectError` from a series it cannot read, and closes by
+  reporting what actually happened. On a processing-module file it recovers the injected
+  23.0 Hz it previously never looked for.
+
 - **`epoch_continuous` turned a non-finite onset into an in-bounds extraction of
   nothing.** `np.round(nan * fs).astype(np.int64)` is `INT64_MIN`, and `idx + n_pre` then
   overflowed to a large *positive* start with a large *negative* end. The bounds test
