@@ -1736,3 +1736,46 @@ class TestImaginaryCoherencyIsScaleFree:
         res = imaginary_coherency(x, np.zeros_like(x), fs=1000.0, freq_range=(5.0, 100.0))
         assert res["icoh_mean"] == 0.0 and res["coh_mag_mean"] == 0.0
         assert np.isfinite(res["icoh_abs_mean"])
+
+
+class TestSpectralTiltBandIsHonest:
+    """05-09: no bin guard, and a hidden 0.5 Hz floor that silently narrowed the request."""
+
+    @staticmethod
+    def _pink(n=4000, seed=0):
+        rng = np.random.default_rng(seed)
+        return np.cumsum(rng.normal(size=n)) / 30.0 + rng.normal(size=n)
+
+    def test_a_band_too_narrow_to_fit_raises(self):
+        """freq_range=(400, 401) returned exponent -995.2, offset inf and fit_quality
+        0.687 behind nothing but a RuntimeWarning."""
+        with pytest.raises(ValueError, match="bin"):
+            spectral_tilt(self._pink(), fs=1000.0, freq_range=(400.0, 401.0))
+
+    def test_a_band_off_the_grid_entirely_raises(self):
+        with pytest.raises(ValueError, match="no bin|bin"):
+            spectral_tilt(self._pink(), fs=1000.0, freq_range=(499.0, 499.5))
+
+    def test_the_fitted_band_is_reported_not_the_requested_one(self):
+        """(0.1, 100) and (0.5, 100) returned a bit-identical exponent, because everything
+        below the 0.5 Hz floor was dropped with nothing to say so."""
+        x = self._pink()
+        low = spectral_tilt(x, fs=1000.0, freq_range=(0.1, 100.0))
+        at_floor = spectral_tilt(x, fs=1000.0, freq_range=(0.5, 100.0))
+        assert low["exponent"] == at_floor["exponent"]
+        assert low["fitted_band_hz"] == at_floor["fitted_band_hz"]
+        assert low["fitted_band_hz"][0] > 0.5
+        assert low["n_bins_fitted"] == at_floor["n_bins_fitted"] > 0
+
+    def test_a_constant_trace_is_undefined_not_an_error(self):
+        """A band with bins but no positive power is a different condition from a band
+        with too few bins: the tilt is undefined, which is NaN, not a malformed request."""
+        res = spectral_tilt(np.ones(4000), fs=1000.0)
+        assert np.isnan(res["exponent"])
+        assert np.isnan(res["offset"])
+
+    def test_a_wide_band_still_recovers_a_plausible_exponent(self):
+        res = spectral_tilt(self._pink(), fs=1000.0, freq_range=(1.0, 100.0))
+        assert np.isfinite(res["exponent"])
+        assert -3.0 < res["exponent"] < 0.0
+        assert res["n_bins_fitted"] >= 6

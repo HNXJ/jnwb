@@ -392,16 +392,25 @@ def _series_diagnostics(series: np.ndarray, residuals: np.ndarray, order: int) -
     adf_p = _adf_pvalue(series)
     lb_p = _ljung_box_pvalue(residuals, nlags=min(10, max(order * 2, 2)))
     warnings = []
-    if not np.isnan(adf_p) and adf_p > 0.05:
+    # Not tested is not passed. `bool(np.isnan(adf_p) or ...)` reported stationarity_ok
+    # True whenever the test could not run -- most importantly when `statsmodels`, a
+    # declared hard dependency, is absent, since `_adf_pvalue` converts that ImportError
+    # into NaN. Two pure random walks then came back ok_for_interpretation=True with an
+    # empty warnings list.
+    if np.isnan(adf_p):
+        warnings.append("stationarity_not_tested")
+    elif adf_p > 0.05:
         warnings.append("possible_nonstationarity_adf_p>0.05")
-    if not np.isnan(lb_p) and lb_p < 0.05:
+    if np.isnan(lb_p):
+        warnings.append("residual_whiteness_not_tested")
+    elif lb_p < 0.05:
         warnings.append("residual_autocorrelation_ljung_box_p<0.05")
     return {
         "adf_pvalue": adf_p,
         "ljung_box_pvalue": lb_p,
         "warnings": warnings,
-        "stationarity_ok": bool(np.isnan(adf_p) or adf_p <= 0.05),
-        "residual_whiteness_ok": bool(np.isnan(lb_p) or lb_p >= 0.05),
+        "stationarity_ok": bool(not np.isnan(adf_p) and adf_p <= 0.05),
+        "residual_whiteness_ok": bool(not np.isnan(lb_p) and lb_p >= 0.05),
     }
 
 
@@ -990,7 +999,13 @@ def granger(
         # Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)
         sig2_r = rss_r / max(n_obs, 1)
         sig2_u = rss_u / max(n_obs, 1)
-        gc_val = float(np.log(sig2_r / sig2_u)) if sig2_u > 0 else 0.0
+        # A zero unrestricted residual variance means the VAR could not be fitted, not
+        # that the directed influence is zero. Returning 0.0 made `granger(ones, ones)`
+        # report x_to_y = y_to_x = 0.0 with an empty warnings list and
+        # ok_for_interpretation = True, while `granger_spectral` raises and
+        # `transfer_entropy` warns `degenerate_discretization` on the identical input.
+        degenerate = not (sig2_u > 0) or not np.isfinite(sig2_u)
+        gc_val = float(np.log(sig2_r / sig2_u)) if not degenerate else float("nan")
         if rss_u > 0 and df_extra > 0 and df_u > 0:
             f_stat = ((rss_r - rss_u) / df_extra) / (rss_u / df_u)
             p_val = float(stats.f.sf(max(f_stat, 0.0), df_extra, df_u))
@@ -1006,6 +1021,7 @@ def granger(
             "resid_u": res_u,
             "sig2_restricted": float(sig2_r),
             "sig2_unrestricted": float(sig2_u),
+            "degenerate": bool(degenerate),
         }
 
     def _select_order(src: np.ndarray, tgt: np.ndarray) -> int:
@@ -1077,6 +1093,8 @@ def granger(
     block = n_times - order_yx
     diag_yx = _series_diagnostics(x[0], fit_yx["resid_u"][:block], order_yx)
     warnings_all = list(dict.fromkeys(diag_xy["warnings"] + diag_yx["warnings"]))
+    if fit_xy.get("degenerate") or fit_yx.get("degenerate"):
+        warnings_all.append("degenerate_residual_variance_var_not_identifiable")
     if order == "auto" and max(order_xy, order_yx) >= max(1, min(max_lag, (n_times - 2) // 3)):
         warnings_all.append("selected_order_hit_max_lag_ceiling")
 

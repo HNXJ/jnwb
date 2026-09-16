@@ -5,6 +5,8 @@ may live in downstream project test suites that call the same jnwb functions.
 """
 from __future__ import annotations
 
+import ast
+import pathlib
 import warnings
 
 import numpy as np
@@ -545,3 +547,80 @@ class TestPsiInferenceIsNotOverstated:
         rev = phase_slope_index(y, x, fs=1000.0, nperseg=1024)
         assert fwd.net == pytest.approx(-rev.net, rel=1e-9)
         assert fwd.net > 0.0
+
+
+class TestGrangerNotTestedIsNotPassed:
+    """05-11 / 05-12: an untested assumption and a degenerate fit were both reported as
+    interpretable results."""
+
+    # `sys.path[0]` for a script is the script's own directory, not the cwd, so without
+    # this the probe would import whatever `jnwb` happens to be in site-packages rather
+    # than the checkout under test.
+    STATIONARITY_PROBE = [
+        "import sys, numpy as np",
+        "sys.path.insert(0, REPO_ROOT_PLACEHOLDER)",
+        "class B:",
+        "    def find_spec(self, name, path=None, target=None):",
+        "        if name == 'statsmodels' or name.startswith('statsmodels.'):",
+        "            raise ImportError('blocked for this probe')",
+        "        return None",
+        "sys.meta_path.insert(0, B())",
+        "for m in [k for k in sys.modules if k.startswith('statsmodels')]:",
+        "    del sys.modules[m]",
+        "from jnwb.connectivity import granger",
+        "rng = np.random.default_rng(0)",
+        "a = np.cumsum(rng.normal(size=800))",
+        "b = np.cumsum(rng.normal(size=800))",
+        "d = granger(a, b, order=3).diagnostics",
+        "print(repr((d['ok_for_interpretation'], d['warnings'])))",
+    ]
+
+    def test_an_untested_stationarity_assumption_is_not_reported_as_passed(self, tmp_path):
+        """`_adf_pvalue` turns a missing `statsmodels` into NaN, and
+        `bool(np.isnan(adf_p) or ...)` turned that into stationarity_ok=True: two pure
+        random walks came back ok_for_interpretation=True with an empty warnings list.
+
+        Run in a subprocess because blocking an import mid-process is not reversible.
+        """
+        import subprocess
+        import sys as _sys
+
+        script = tmp_path / "probe.py"
+        repo_root = pathlib.Path(__file__).resolve().parents[1]
+        lines = [
+            line.replace("REPO_ROOT_PLACEHOLDER", repr(str(repo_root)))
+            for line in self.STATIONARITY_PROBE
+        ]
+        script.write_text(chr(10).join(lines), encoding="utf-8")
+        out = subprocess.run(
+            [_sys.executable, str(script)],
+            cwd=str(pathlib.Path(__file__).resolve().parents[1]),
+            capture_output=True,
+            text=True,
+        )
+        assert out.returncode == 0, out.stderr
+        ok, warns = ast.literal_eval(out.stdout.strip().splitlines()[-1])
+        assert ok is False, "an untested assumption must not be reported as interpretable"
+        assert "stationarity_not_tested" in warns
+
+    def test_a_tested_and_passing_series_is_still_interpretable(self):
+        rng = np.random.default_rng(1)
+        g = granger(rng.normal(size=800), rng.normal(size=800), order=3)
+        assert g.diagnostics["warnings"] == []
+        assert g.diagnostics["ok_for_interpretation"] is True
+
+    def test_a_degenerate_fit_is_not_a_measured_zero(self):
+        """granger(ones, ones) returned x_to_y = y_to_x = 0.0 with an empty warnings list
+        and ok_for_interpretation=True, while transfer_entropy warns on the same input."""
+        constant = np.ones(800)
+        g = granger(constant, constant, order=3)
+        assert np.isnan(g.x_to_y)
+        assert np.isnan(g.y_to_x)
+        assert any("degenerate" in w for w in g.diagnostics["warnings"])
+        assert g.diagnostics["ok_for_interpretation"] is False
+
+    def test_the_degenerate_verdict_matches_its_siblings(self):
+        constant = np.ones(800)
+        g = granger(constant, constant, order=3)
+        te = transfer_entropy(constant, constant)
+        assert g.diagnostics["ok_for_interpretation"] == te.diagnostics["ok_for_interpretation"] is False

@@ -52,6 +52,16 @@ def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) 
         )
 
 
+#: Bins at or below this frequency are excluded from the 1/f fit: the DC and near-DC bins
+#: of a Welch spectrum are dominated by the detrending residual, not by the aperiodic slope.
+#: It is a property of the estimator, so `spectral_tilt` reports the band it actually fitted.
+_TILT_DC_FLOOR_HZ = 0.5
+
+#: Minimum usable bins for a 1/f fit. Below this the "exponent" is an interpolation
+#: through a handful of points rather than an estimate.
+_MIN_TILT_BINS = 6
+
+
 def _require_band_bins(
     freqs: np.ndarray, mask: np.ndarray, freq_range: Tuple[float, float], func_name: str
 ) -> None:
@@ -877,6 +887,11 @@ def spectral_tilt(
         'exponent': float('nan'),
         'offset': float('nan'),
         'fit_quality': float('nan'),
+        # The band actually fitted, which is not the band requested: bins at or below
+        # _TILT_DC_FLOOR_HZ are excluded, so freq_range=(0.1, 100) and (0.5, 100) returned
+        # a bit-identical exponent with nothing to say they had been silently merged.
+        'fitted_band_hz': (float('nan'), float('nan')),
+        'n_bins_fitted': 0,
     }
 
     # Compute power spectrum
@@ -899,18 +914,36 @@ def spectral_tilt(
             nperseg=min(len(lfp_trace), 4096)
         )
 
-    # Filter to range and remove DC
-    mask = (frequencies > 0.5) & (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
+    # Filter to range and remove DC. The 0.5 Hz floor is part of the estimand, not a
+    # detail: `freq_range=(0.1, 100)` and `(0.5, 100)` returned a bit-identical exponent
+    # because everything below 0.5 Hz was dropped without a word. The band actually
+    # fitted is now reported, so a silently narrowed request is visible.
+    mask = (frequencies > _TILT_DC_FLOOR_HZ) & (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
+    _require_band_bins(frequencies, mask, freq_range, "spectral_tilt")
     freqs = frequencies[mask]
 
-    if len(freqs) < 2 or np.all(pxx[mask] <= 0):
-        return result
+    # Two separate conditions, which must not be conflated:
+    #
+    #   (a) the requested band is too narrow to fit on this grid -- a malformed request,
+    #       which raises. freq_range=(400, 401) selected 5 bins and returned exponent
+    #       -995.2 with offset inf and a fit_quality of 0.687, behind only a RuntimeWarning.
+    #
+    #   (b) the band has bins but none carries positive power -- a constant or zero trace,
+    #       where the tilt is genuinely undefined and NaN is the answer, not an error.
+    if freqs.size < _MIN_TILT_BINS:
+        raise ValueError(
+            f"spectral_tilt: freq_range {tuple(freq_range)} selects {int(freqs.size)} "
+            f"bin(s) of the Welch grid above {_TILT_DC_FLOOR_HZ} Hz; a 1/f fit needs at "
+            f"least {_MIN_TILT_BINS}. Widen freq_range or lengthen nperseg."
+        )
 
     valid = pxx[mask] > 0
     if np.sum(valid) < 2:
         return result
 
     freqs = freqs[valid]
+    result['fitted_band_hz'] = (float(freqs[0]), float(freqs[-1]))
+    result['n_bins_fitted'] = int(freqs.size)
     # Fit 1/f slope on log-log scale
     # Power = Offset * f^exponent
     # log(Power) = log(Offset) + exponent * log(freq)

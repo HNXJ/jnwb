@@ -345,11 +345,24 @@ def jrsa(
             null_dist = _permutation_test(
                 x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
             )
-            if p_raw is None:
-                p_raw = _p_from_null(value, null_dist, alternative)
+            # The permutation p wins whenever it was computed. `if p_raw is None` let the
+            # metric's own cell-wise parametric p pre-empt it, so `rsa`, `pearson`,
+            # `spearman`, `kendall`, `phase_slope` and `granger_ssr_ftest` returned a p that
+            # did not move between permutations=10 and permutations=2000 -- it was
+            # `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:167 states "is not a
+            # valid test of RDM relatedness". The valid null was computed and discarded.
+            p_parametric = p_raw
+            p_raw = _p_from_null(value, null_dist, alternative)
 
         if bootstrap > 0:
-            ci = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+            # `perm_axis`, not -1. The observation axis is axis 0 for the six metrics in
+            # `_OBSERVATION_AXIS_0_METRICS`; resampling axis -1 there bootstrapped the
+            # *features*, so the interval answered "how much does this depend on which
+            # columns I measured" instead of "on which observations I sampled".
+            ci = _bootstrap(
+                x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
+                n_jobs=n_jobs, **kwargs
+            )
 
         q_corrected = None
         if stats and p_raw is not None and correction.lower() != "none":
@@ -374,13 +387,16 @@ def jrsa(
                 nd = _permutation_test(
                     x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
                 )
-                if p is None:
-                    p = _p_from_null(v, nd, alternative)
-                    p_list[-1] = p
+                # See the single-lag branch: the permutation p wins when it exists.
+                p = _p_from_null(v, nd, alternative)
+                p_list[-1] = p
                 null_dist_list.append(nd)
                 
             if bootstrap > 0:
-                c_val = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+                c_val = _bootstrap(
+                    x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
+                    n_jobs=n_jobs, **kwargs
+                )
                 ci_list.append(c_val)
         
         xp = _get_xp(x1)
