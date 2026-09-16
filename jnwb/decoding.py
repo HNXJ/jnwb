@@ -32,15 +32,18 @@ def majority_baseline(labels: np.ndarray) -> float:
     labels = np.asarray(labels)
     if len(labels) == 0:
         return float("nan")
-    counts = np.bincount(labels.astype(int))
+    # 05-36: `np.bincount(labels.astype(int))` requires contiguous non-negative integers.
+    # `np.unique` counts the classes that are present, whatever they are called, so
+    # labels {1, 2}, {-1, 1} and {'a', 'b'} are counted rather than miscounted or refused.
+    counts = np.unique(labels, return_counts=True)[1]
     return float(counts.max() / len(labels))
 
 
 def fold_majority_baseline(y_train: np.ndarray, y_test: np.ndarray) -> float:
     """Accuracy of predicting the training-fold majority class on the held-out fold."""
-    counts = np.bincount(np.asarray(y_train).astype(int))
-    majority_class = int(np.argmax(counts))
-    return float(np.mean(np.asarray(y_test).astype(int) == majority_class))
+    classes, counts = np.unique(np.asarray(y_train), return_counts=True)
+    majority_class = classes[int(np.argmax(counts))]
+    return float(np.mean(np.asarray(y_test) == majority_class))
 
 
 def nested_cv_linear_svm(
@@ -59,7 +62,9 @@ def nested_cv_linear_svm(
 
     Args:
         X: (n_trials, n_features) feature matrix.
-        labels: (n_trials,) integer class labels (binary).
+        labels: (n_trials,) class labels, two classes. Any dtype whose values
+            ``np.unique`` can group -- integers need be neither contiguous nor
+            non-negative, and strings work.
         n_splits: requested number of outer folds; clipped to the minority
             class count when there are too few trials per class.
 
@@ -67,12 +72,29 @@ def nested_cv_linear_svm(
         dict with accuracy, fold_accuracies, best_params, status, cv_scheme,
         f1, auc, majority_baseline_accuracy. ``status`` is
         ``"insufficient_trials_for_cv"`` (all metrics NaN) when the minority
-        class has fewer than 2 trials, else ``"success"``.
+        class has fewer than 2 trials, ``"insufficient_classes_for_cv"`` when
+        fewer than two distinct labels are present, else ``"success"``.
     """
     X = np.asarray(X, dtype=float)
     labels = np.asarray(labels)
-    n_per_class = np.bincount(labels.astype(int))
-    max_splits = int(n_per_class.min()) if len(n_per_class) else 0
+    # 05-36: this was `np.bincount(labels.astype(int)).min()`, which counts every integer
+    # below the maximum as a class -- including ones that are absent. Labels {1, 2} scored
+    # a class of size 0 and returned `status="insufficient_trials_for_cv"` for 20
+    # separable trials per class; {-1, 1} and {'a', 'b'} raised out of `bincount` and
+    # `int()`. `status` is a claim about the data, so it must not be one bincount made up.
+    classes, n_per_class = np.unique(labels, return_counts=True)
+    if len(classes) < 2:
+        return {
+            "accuracy": float("nan"),
+            "fold_accuracies": np.array([]),
+            "best_params": {},
+            "status": "insufficient_classes_for_cv",
+            "cv_scheme": "nested_stratified",
+            "f1": float("nan"),
+            "auc": float("nan"),
+            "majority_baseline_accuracy": float("nan"),
+        }
+    max_splits = int(n_per_class.min())
     if max_splits < 2:
         return {
             "accuracy": float("nan"),
@@ -112,7 +134,7 @@ def nested_cv_linear_svm(
         y_train, y_test = labels[train_idx], labels[test_idx]
         fold_majority_accs.append(fold_majority_baseline(y_train, y_test))
 
-        inner_splits = min(3, int(np.bincount(y_train.astype(int)).min()))
+        inner_splits = min(3, int(np.unique(y_train, return_counts=True)[1].min()))
         if inner_splits < 2:
             # Fall back to fixed C when inner CV is impossible
             clf = Pipeline(
@@ -153,11 +175,20 @@ def nested_cv_linear_svm(
         f1 = float("nan")
         auc = float("nan")
     else:
-        f1 = float(f1_score(y_true_pooled, y_pred_pooled, zero_division=0))
-        try:
-            auc = float(roc_auc_score(y_true_pooled, y_score_pooled))
-        except ValueError:
-            auc = float("nan")
+        # 05-36: both metrics were left to sklearn's `pos_label=1` default, which is a
+        # different class depending on what the classes are called. Labels {0, 1} scored
+        # f1 = 0.8571 and the same trials relabelled {1, 2} scored 0.8421, because 1 is
+        # the higher class in one and the lower in the other; labels {0, 2} and
+        # {'a', 'b'} raised `pos_label=1 is not a valid label`, and the bare
+        # `except ValueError` turned that into a NaN AUC for a value that is perfectly
+        # computable. The positive class is `classes[1]` -- the second in sorted order,
+        # which is also the class `decision_function` scores toward, since sklearn sorts
+        # `clf.classes_`. So the metrics now depend on the data, not on the names.
+        positive = classes[1]
+        y_true_bin = (y_true_pooled == positive).astype(int)
+        y_pred_bin = (y_pred_pooled == positive).astype(int)
+        f1 = float(f1_score(y_true_bin, y_pred_bin, zero_division=0))
+        auc = float(roc_auc_score(y_true_bin, y_score_pooled))
 
     return {
         "accuracy": float(np.mean(outer_scores)),
@@ -267,9 +298,14 @@ def build_inner_validation_partitions(
                                 if trial["outer_group"] == inner_group
                                 else "inner_train"
                             ),
-                            "inner_group": int(inner_group),
-                            "trial_group": int(trial["outer_group"]),
-                            "validation_group": int(inner_group),
+                            # 05-36: these were `int(...)`. `assign_outer_folds` accepts
+                            # string group ids and reports `outer_fold_status="valid"`,
+                            # and then its own documented successor raised
+                            # `invalid literal for int() with base 10: 'c2'` on that
+                            # output. The group id is an opaque label, not a number.
+                            "inner_group": inner_group,
+                            "trial_group": trial["outer_group"],
+                            "validation_group": inner_group,
                         }
                     )
     return pd.DataFrame(rows)

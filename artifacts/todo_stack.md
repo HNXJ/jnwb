@@ -28,16 +28,6 @@ deferred to H, so later work benefits from the gate.
 Qualification runs in a clean environment built from the declared extras, or in CI. The
 development `.venv` described at the end of this file is not package evidence.
 
-## 4. Reproducibility and statistics
-
-### 05-36 `decoding` label handling refuses valid data and accepts invalid data
-- **Problem** `np.bincount(labels.astype(int)).min()` counts absent label values as classes of size 0, and `build_inner_validation_partitions` casts group ids with `int()`.
-- **Evidence** Same X `(40,5)`, 20 per class, separable: labels `{0,1}` -> `accuracy=0.825, status="success"`; labels `{1,2}` and `{0,2}` -> `status="insufficient_trials_for_cv"` with all metrics NaN (`np.bincount([1,1,2,2]).min() == 0`); labels `{-1,1}` -> `ValueError: 'list' argument must have no negative elements`; labels `{'a','b'}` -> `ValueError: invalid literal for int()`. `assign_outer_folds` accepts string `cycle` ids and returns `outer_fold_status="valid"`, then `build_inner_validation_partitions` on that output raises `invalid literal for int() with base 10: 'c1'`.
-- **Change** `np.unique(labels, return_counts=True)[1].min()`; drop the `int()` casts at `decoding.py:262`, `:264`; check `len(np.unique(labels)) >= 2` before `max_splits`.
-- **Preserves** Contiguous 0-based integer labels.
-- **Discriminator** Any two-class label set of adequate size decodes; the documented two-step pipeline round-trips its own group ids.
-- **Accept** `status` never asserts something false about the data.
-
 ## 5. NWB and user workflow
 
 ### 05-37 jnwb cannot read a minimal NWB units table that pynwb reads

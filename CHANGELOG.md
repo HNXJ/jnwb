@@ -61,6 +61,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`decoding` refused valid label sets and reported a false status for others.**
+  `np.bincount(labels.astype(int))` counts every integer below the maximum as a class,
+  including absent ones, and refuses anything that is not a contiguous non-negative
+  integer. One separable 40-trial dataset, 20 per class, relabelled: `{0, 1}` gave
+  accuracy 0.846; `{1, 2}` and `{0, 2}` gave `status="insufficient_trials_for_cv"` with
+  every metric NaN; `{-1, 1}` raised `'list' argument must have no negative elements`;
+  `{'a', 'b'}` raised `invalid literal for int()`. `nested_cv_linear_svm`,
+  `majority_baseline` and `fold_majority_baseline` now count with `np.unique`, so any
+  two-class label set of adequate size decodes and every metric is identical across
+  relabellings. A new `status="insufficient_classes_for_cv"` covers a single-class input,
+  which is not a claim about trial counts. Contiguous 0-based integer labels produce
+  byte-identical results.
+- **`f1` and `auc` depended on what the classes were called.** Both were left to
+  scikit-learn's `pos_label=1` default, so `{0, 1}` scored f1 = 0.857143 and the same
+  trials as `{1, 2}` scored 0.842105. `{0, 2}` and `{'a', 'b'}` raised
+  `pos_label=1 is not a valid label`, and a bare `except ValueError` turned that into a
+  NaN AUC for a computable value. The positive class is now `classes[1]`, the second in
+  sorted order, which is the class `decision_function` scores toward.
+- **The two-step partition pipeline could not consume its own output.**
+  `assign_outer_folds` accepts string group ids and reports `outer_fold_status="valid"`;
+  `build_inner_validation_partitions` then raised
+  `invalid literal for int() with base 10: 'c2'` on that frame. Group ids are opaque
+  labels and are no longer cast to `int`. Fold indices and trial ids, which are genuinely
+  positional, still are.
 - **`Dataset` could not be used as the dict key its own docstring advertises.** The
   dataclass-generated `__eq__` compared the field tuples, which evaluates
   `units_a == units_b` to a DataFrame and then takes its truth value, raising
