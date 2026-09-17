@@ -299,6 +299,14 @@ development `.venv` described at the end of this file is not package evidence.
 - **Discriminator** Findings are reproduced before repair and pinned by a test that fails the previous code.
 - **Accept** Every major finding either repaired with a failing-before test or recorded as triaged with its measurement.
 
+### 05-85 Code / docs / skills / tests triangle audit
+- **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
+- **Runs** After 05-83 and before 05-84. Added to the frozen stack 2026-09-17 by the ruling recorded in `artifacts/direction.md`; numbered after the last frozen item because the frozen numbers are a record.
+- **Change** For each public capability, establish that implementation, documentation, skill routing and tests/evidence agree on name, inputs, shapes, units, axes, estimator, outputs, failure behaviour, randomness, and the verification that applies. Mechanically where a gate can decide it, independently where it cannot.
+- **Preserves** The existing rule that a skill may not hold a mutable API fact that documentation and exports also hold.
+- **Discriminator** A seeded contradiction between any two faces is found by the audit.
+- **Accept** No capability has contradictory faces. A capability with no skill routing passes when it needs none; absence of routing is not a finding.
+
 ### 05-84 Release seal
 - **Problem** 0.2.5 is not releasable until the above is closed.
 - **Change** Bump version, release date and status; write the CHANGELOG; clean tree; push `dev`; remote CI green on the full matrix; merge per the ordering in `artifacts/fact_stack.md`; tag; release; verify from the published artifact rather than a local build.

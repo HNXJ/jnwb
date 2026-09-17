@@ -5,6 +5,10 @@ nothing here may be started before it is empty, the independent critic has run, 
 release is sealed. This file exists so that requests arriving mid-pass are not lost and
 do not enlarge the object being stabilized.
 
+Everything here is subject to `artifacts/direction.md`, which sets what the package is
+for and which of its four faces -- code, documentation, skills, tests -- carries which
+authority. An addition that cannot state all four does not ship.
+
 ## P1. RDM and geometry surface (request from the omission team, ruled 2026-09-17)
 
 The request arrived as ten candidate APIs. It is accepted in substance and rejected in
