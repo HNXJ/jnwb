@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`CANONICAL_VFLIP_BANDS` is now the source of the bands, not a third copy of them.**
+  The constant had no references, and deleting it would have been the wrong direction:
+  the same two intervals were written out as literal defaults in `vflip` and
+  `vflip_from_lfp`, so one fact was maintained in three places. The defaults now read
+  from the constant. **No value changes** -- (8.0, 30.0) and (50.0, 150.0) either way --
+  and the vFLIP calibration was rerun to prove it: the receipt's `estimator_sha256` moves
+  because `vflip`'s source did, and every other field in
+  `vflip_calibration_0.2.4_raw.json` is identical across 30 seeds, every null and
+  alternative family, and every sweep.
 - **`jrsa` no longer defaults to every core, which was making it slower.** It was the
   only public function in the package overriding `n_jobs`'s documented default of 1, and
   the override cost more than it bought: measured one call per interpreter on a 40x6
@@ -88,6 +97,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Provenance` records the jnwb that ran, not the one the caller names.**
+  `software_version` is a required caller argument and nothing derived it, so a record
+  could name a version that never executed and, the dataclass being frozen, keep it
+  faithfully. There was also no path, and a version cannot identify an implementation on
+  its own: an editable install of a development tree and a release in `site-packages`
+  report theirs the same way and are routinely different code. `jnwb_version` and
+  `jnwb_path` are read from the executing package and are `init=False`, so a caller
+  cannot pass them -- caller metadata supplements the observed identity and cannot
+  override it. `software_version` stays, as the caller's own claim; when the two
+  disagree, `version_claim_matches_execution` is False and the disagreement is in the
+  record rather than behind it. Both new fields appear in `to_dict()`.
+
 - **`docs/errors.md`: every refusal, what produced it, and the argument that resolves
   it.** Twelve exported error classes and the two NWB resolvers appeared on no
   hand-written page -- only in `docs/api.md`, which is generated from `jnwb.__all__` and
@@ -108,6 +129,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `layout: "ambiguous"`. A subclass of `NWBInspectError`, like the other inspection
   errors.
 
+### Removed
+
+- **Two `jrsa` helpers nothing reached.** `_confidence_interval`, an analytic normal
+  approximation superseded by the percentile bootstrap that is the live path, and
+  `_chunk_tensor` (see above). Both private.
+
 ### Deprecated
 
 - **`jnwb.ontology.create_aligned_dataset`, `create_result` and `create_figure`.** Each
@@ -120,6 +147,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`jrsa` recorded a `batch_size` it never used.** The parameter was accepted,
+  documented as "Chunk size for large arrays", and copied into the result's
+  `parameters` -- and nothing chunked. `_chunk_tensor`, the module's only chunking
+  helper, had no callers: across `batch_size` None, 1, 4, 32 and 10000 the value, p-value
+  and interval are identical, and the helper is entered zero times. A result could
+  therefore carry `batch_size=32` in its provenance for a run that made one pass. This is
+  the defect already fixed here for `device` and `backend`, and the same rule applies --
+  `parameters` carries the request, `execution` carries what ran -- so
+  `execution['batch_size']` is now recorded, and is always None because jrsa does not
+  chunk. The helper is deleted rather than left where it reads as an implementation.
+  **No number changes.**
+- **`jrsa`'s confidence interval does not follow `alpha`, and now says so.** `alpha`
+  sets the significance threshold for the multiple-comparison correction; it never
+  reaches `_bootstrap`, which takes a fixed 2.5/97.5 percentile interval. `alpha=0.5`
+  and `alpha=0.01` return the same interval. The docstrings for `alpha` and `ci` state
+  the fixed 95% level; the interval itself is unchanged, and a test pins it so that
+  changing the level has to be deliberate.
 - **`classify_layer_from_depth` still called `jnwb.laminar` forthcoming.** It has
   shipped: the module imports and `vflip`, `VFlipResult`, `xflip` and `XFlipResult` are
   all exported. A reader following the cross-reference was told the thing they were being

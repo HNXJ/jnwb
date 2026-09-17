@@ -356,3 +356,43 @@ class TestTheModuleImportsOnlyWhatItUses:
 
     def test_what_it_does_use_is_still_there(self):
         assert hasattr(O, "pd") and hasattr(O, "warnings") and hasattr(O, "datetime")
+
+
+class TestProvenanceRecordsThePackageThatRan:
+    """05-50. `software_version` is the caller's claim and nothing derived it, so a
+    record could name a version that never executed -- and, being frozen, keep it. A
+    version alone cannot identify an implementation either: an editable install of a
+    development tree and a release in site-packages report theirs the same way.
+    """
+
+    def test_the_running_version_and_path_are_observed_not_supplied(self):
+        import jnwb
+        from pathlib import Path
+
+        p = O.Provenance(software_version="not-a-version", backend="numpy")
+        assert p.jnwb_version == jnwb.__version__
+        assert p.jnwb_path == str(Path(jnwb.__file__).parent)
+
+    def test_a_caller_cannot_overwrite_the_observed_identity(self):
+        with pytest.raises(TypeError):
+            O.Provenance(software_version="0.0.1", backend="numpy",
+                         jnwb_version="9.9.9")
+        with pytest.raises(TypeError):
+            O.Provenance(software_version="0.0.1", backend="numpy",
+                         jnwb_path="/somewhere/else")
+
+    def test_a_claim_that_disagrees_with_execution_is_visible(self):
+        import jnwb
+
+        honest = O.Provenance(software_version=jnwb.__version__, backend="numpy")
+        lying = O.Provenance(software_version="0.0.1", backend="numpy")
+        assert honest.version_claim_matches_execution
+        assert not lying.version_claim_matches_execution
+
+    def test_both_observed_fields_survive_to_dict(self):
+        import jnwb
+
+        d = O.Provenance(software_version="0.0.1", backend="numpy").to_dict()
+        assert d["jnwb_version"] == jnwb.__version__
+        assert d["jnwb_path"].endswith("jnwb")
+        assert d["software_version"] == "0.0.1"

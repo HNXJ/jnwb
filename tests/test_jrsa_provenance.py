@@ -143,3 +143,63 @@ class TestSeedRoundTrips:
         """
         x1, x2 = xy
         assert jnwb.jrsa(x1, x2, metric="cka", permutations=20).execution["seed"] is None
+
+
+class TestBatchSizeIsRecordedAsWhatRan:
+    """05-50. `batch_size` was accepted, documented as "Chunk size for large arrays",
+    and copied into `parameters` -- and nothing chunked. The only chunking helper in the
+    module had no callers, so a result could carry `batch_size=32` in its provenance for
+    a run that made one pass. Same defect as the device and backend echoes above, and
+    the same rule fixes it: `execution` says what happened.
+    """
+
+    def test_execution_reports_no_batching_however_much_was_asked_for(self, xy):
+        x1, x2 = xy
+        for asked in (None, 1, 4, 32, 10_000):
+            res = jnwb.jrsa(x1, x2, metric="cka", permutations=20,
+                            batch_size=asked, random_state=7)
+            assert res.execution["batch_size"] is None, (
+                f"execution claims batching for batch_size={asked!r}; jrsa does not chunk"
+            )
+
+    def test_the_request_is_still_kept_where_requests_go(self, xy):
+        x1, x2 = xy
+        res = jnwb.jrsa(x1, x2, metric="cka", permutations=20,
+                        batch_size=32, random_state=7)
+        assert res.parameters["batch_size"] == 32
+
+    def test_asking_for_a_batch_size_changes_no_number(self, xy):
+        """If this ever fails, something started chunking and `execution` must stop
+        saying None -- the test is the pair to the one above, not a duplicate of it.
+        """
+        x1, x2 = xy
+        base = jnwb.jrsa(x1, x2, metric="cka", permutations=50, bootstrap=50,
+                         random_state=7)
+        for asked in (1, 4, 32, 10_000):
+            other = jnwb.jrsa(x1, x2, metric="cka", permutations=50, bootstrap=50,
+                              batch_size=asked, random_state=7)
+            np.testing.assert_array_equal(np.asarray(base.value), np.asarray(other.value))
+            np.testing.assert_array_equal(np.asarray(base.p), np.asarray(other.p))
+            np.testing.assert_array_equal(np.asarray(base.ci), np.asarray(other.ci))
+
+    def test_the_helper_that_promised_chunking_is_gone(self):
+        import importlib
+
+        mod = importlib.import_module("jnwb.jrsa")
+        assert not hasattr(mod, "_chunk_tensor"), (
+            "the chunking helper is back; either wire it to batch_size or drop it, but "
+            "do not leave it where it reads as an implementation"
+        )
+
+    def test_alpha_does_not_move_the_interval_it_does_not_set(self, xy):
+        """The CI is a fixed 95% percentile bootstrap. That is now documented; this
+        pins it, so a change to the level has to be deliberate.
+        """
+        x1, x2 = xy
+        widths = set()
+        for a in (0.5, 0.05, 0.01):
+            res = jnwb.jrsa(x1, x2, metric="cka", permutations=20, bootstrap=100,
+                            alpha=a, random_state=7)
+            ci = np.asarray(res.ci).ravel()
+            widths.add((float(ci[0]), float(ci[1])))
+        assert len(widths) == 1, f"alpha changed the interval: {widths}"

@@ -46,7 +46,10 @@ class JRSAResult:
     df : np.ndarray | None
         Degrees of freedom.
     ci : np.ndarray | None
-        Confidence intervals, shape (…, 2).
+        Percentile bootstrap interval, shape (…, 2), fixed at 95% (the 2.5th and 97.5th
+        percentiles of the bootstrap distribution). `alpha` sets the significance
+        threshold for the multiple-comparison correction and does not change this
+        interval.
     metric : str
         Metric name.
     axes : tuple
@@ -64,7 +67,8 @@ class JRSAResult:
     aligned_x2 : np.ndarray | None
         Internally aligned x2 (if return_input=True).
     execution : dict
-        Runtime metadata (backend, device, runtime, memory, seed).
+        Runtime metadata (backend, device, batch_size, runtime, memory, seed). What ran,
+        not what was asked for; the request is in `parameters`.
     """
 
     value: np.ndarray
@@ -210,7 +214,8 @@ def jrsa(
         Multiple-comparison correction: none | bonferroni | holm |
         holm-sidak | fdr_bh | fdr_by | cluster | maxT.
     alpha : float
-        Significance threshold.
+        Significance threshold for the multiple-comparison correction. It does not set
+        the width of `ci`, which is a fixed 95% percentile bootstrap interval.
     alternative : str
         two-sided | greater | less.
     backend : str
@@ -232,7 +237,12 @@ def jrsa(
         400x60 input with 10000 permutations ran 10.8 s serial against 5.6 s on all
         cores. `n_jobs` never changes a number.
     batch_size : int or None
-        Chunk size for large arrays.
+        Accepted and recorded in `parameters`; nothing is chunked. jrsa evaluates each
+        metric over the whole array in one pass, and the helper that used to chunk had no
+        callers -- across batch_size None, 1, 4, 32 and 10000 the value, p-value and
+        interval are identical. `execution['batch_size']` records what ran, which is
+        always None, on the same rule as `backend` and `device`: `parameters` carries the
+        request, `execution` carries what happened.
     random_state : int or None
         Random seed for reproducibility, for both the permutation null and the bootstrap.
         May also be passed as ``seed``, the spelling used by the rest of the package;
@@ -1036,15 +1046,6 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
     return q.reshape(np.asarray(p).shape)
 
 
-def _confidence_interval(values, alpha=0.05):
-    """Analytical CI from normal approximation."""
-    from scipy import stats as sp_stats
-    n = len(values)
-    se = sp_stats.sem(values)
-    ci = sp_stats.t.interval(1 - alpha, df=n - 1, loc=np.mean(values), scale=se)
-    return np.asarray(ci)
-
-
 # ===========================================================================
 # PRIVATE – execution / backend
 # ===========================================================================
@@ -1095,18 +1096,6 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
     # pure cost and `execution` recorded a GPU run that executed on the CPU. jrsa is a NumPy
     # estimator; `backend` and `device` are validated and recorded, and change no number.
     return np.asarray(arr, dtype=np.float64)
-
-
-def _chunk_tensor(arr, batch_size, axis=-1):
-    """Yield slices of arr along axis."""
-    n = arr.shape[axis]
-    for start in range(0, n, batch_size):
-        stop = min(start + batch_size, n)
-        slc = [slice(None)] * arr.ndim
-        slc[axis] = slice(start, stop)
-        yield arr[tuple(slc)]
-
-
 
 
 # ===========================================================================
@@ -1686,6 +1675,9 @@ def _make_exec_meta(backend_ctx, device, t0, random_state):
     return {
         "backend": backend_ctx.get("name", "numpy"),
         "device": device,
+        # None means one pass over the whole array, which is always: jrsa does not chunk,
+        # whatever `parameters['batch_size']` asked for.
+        "batch_size": None,
         "runtime": time.perf_counter() - t0,
         "memory": None,
         "seed": seed_val,

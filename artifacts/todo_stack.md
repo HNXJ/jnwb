@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-50 Nine symbols have no caller anywhere
-- **Problem** Dead code carried in the package.
-- **Evidence** Each returns exactly one grep hit across `jnwb/ tests/ examples/ docs/ skills/ scripts/` — its own definition: `_confidence_interval` (`jrsa.py:944`), `_chunk_tensor` (`jrsa.py:1022`), `_backend_numpy` (`jrsa.py:1034`), `compare_old_new_criteria` (`metadata.py:524`), `old_new_summary_table` (`metadata.py:567`), `create_aligned_dataset` / `create_result` / `create_figure` (`ontology.py:349, 354, 365`), `coef_rows` (`statistics.py:579`). No version shims exist below the declared floor: a scan for `sys.version_info`, `np.__version__`, `NumpyVersion` and friends across `jnwb/` returns zero hits.
-- **Change** Delete, except the three `ontology` factories, which are settled by 05-32.
-- **Preserves** Everything else; none is exported.
-- **Discriminator** The suite and all 13 gates stay green.
-- **Accept** Zero unreferenced module-level symbols in `jnwb/`.
-
 ### 05-51 Utilities implemented twice
 - **Problem** Duplicate definitions that can drift.
 - **Evidence** `_with_nwb` is byte-identical in `nwb_events.py:107` and `nwb_inspect.py:222`, differing only in the type-alias name — the only name defined twice in the package. `channel_correlation_matrix` (`artifact_detection.py:32`) and `trial_correlation_matrix` (`:83`) are AST-identical, both `np.corrcoef(np.asarray(x, dtype=float))`, differing only in docstring. `statistics.py` forwards `clopper_pearson`, `mann_whitney_p_floor` and `exact_sign_flip` from class to module and `fdr_correct` from module to class, so the delegation direction cannot be inferred; `clopper_pearson_ci` is an alias of a delegate. `_parallel_map` (`jrsa.py:1013`) exists only to change one default. `tfr_dir`/`meta_dir`/`conndb_dir` are three copies of one six-line body.

@@ -585,6 +585,13 @@ def compare_old_new_criteria(
 
     Retained in metadata.py for module-level compatibility with downstream unit inclusion
     curation pipelines. Not exported in top-level jnwb namespace.
+
+    INTENTIONAL BREAK. ``class_col_new`` and ``class_col_old`` are required and precede
+    the key arguments. When this function was promoted into the package they had study-
+    specific defaults, which named one corpus's columns and do not belong in a neutral
+    library; removing them made an existing two-positional call raise
+    ``TypeError: missing 2 required positional arguments``. Name the two columns
+    explicitly.
     """
     new_s, new_u = new_key
     old_s, old_u = old_key

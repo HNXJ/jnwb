@@ -28,6 +28,21 @@ from typing import Optional, List, Dict, Any, Union
 import pandas as pd
 
 
+def _running_jnwb() -> Dict[str, str]:
+    """The version and location of the jnwb that is executing, read at construction.
+
+    Not the caller's claim about it. Both imports are taken here rather than at module
+    scope: `jnwb/__init__.py` imports this module, and `tests/test_ontology.py` holds
+    this module to importing only what it uses at the top level. By the time anything
+    constructs a ``Provenance`` the package is in ``sys.modules``.
+    """
+    from pathlib import Path
+
+    import jnwb
+
+    return {"version": jnwb.__version__, "path": str(Path(jnwb.__file__).parent)}
+
+
 @dataclass(frozen=True)
 class Provenance:
     """
@@ -35,6 +50,17 @@ class Provenance:
 
     Captures: software version, backend, timestamp, seed, parameters.
     Part of every Result. Immutable.
+
+    Two of the fields are observed rather than supplied. ``jnwb_version`` and
+    ``jnwb_path`` are read from the package that is executing, are ``init=False``, and
+    cannot be passed to the constructor -- a record cannot claim an implementation that
+    did not run. ``software_version`` remains the caller's own statement, which is not
+    the same fact: nothing stops it naming a version that never executed, and when the
+    two disagree the disagreement is now in the record instead of hidden behind it.
+
+    ``jnwb_path`` is there because a version cannot identify an implementation on its
+    own. An editable install of a development tree and a release in ``site-packages``
+    report a version the same way, and they are routinely different code.
     """
     software_version: str
     backend: str  # "numpy", "jax", "dask", etc.
@@ -43,6 +69,15 @@ class Provenance:
     git_commit: Optional[str] = None
     parameters: Dict[str, Any] = field(default_factory=dict)
     environment: Dict[str, str] = field(default_factory=dict)
+    jnwb_version: str = field(init=False,
+                              default_factory=lambda: _running_jnwb()["version"])
+    jnwb_path: str = field(init=False,
+                           default_factory=lambda: _running_jnwb()["path"])
+
+    @property
+    def version_claim_matches_execution(self) -> bool:
+        """Whether the caller's ``software_version`` names the jnwb that ran."""
+        return self.software_version == self.jnwb_version
 
     def to_dict(self) -> Dict:
         return {
@@ -53,6 +88,8 @@ class Provenance:
             'git_commit': self.git_commit,
             'parameters': self.parameters,
             'environment': self.environment,
+            'jnwb_version': self.jnwb_version,
+            'jnwb_path': self.jnwb_path,
         }
 
 
