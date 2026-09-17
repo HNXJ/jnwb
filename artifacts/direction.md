@@ -5,59 +5,71 @@ Ruling of record; supersedes any longer draft.
 
 ## Identity
 
-JNWB is a reliable scientific toolbox for analysis of NWB neurodata, designed for direct
-use by researchers and constrained use by AI agents.
+JNWB is a Python toolbox for reliable analysis of Neurodata Without Borders datasets,
+designed for direct use by researchers and reliable composition by AI agents.
 
-Described for a reader:
+Both are first-class entry paths. A researcher does not reach the operations through the
+AI layer:
 
-> JNWB provides small, tested scientific tools, aligned documentation, and AI skills for
-> composing reliable analyses of NWB datasets. AI assists with discovery, composition,
-> execution and verification; scientific choices and interpretation stay explicit.
+                     /  researcher  \
+    NWB data  ----->                  -----> JNWB operations -----> verification
+                     \  AI skills   /
 
-AI-native usability is a design property, not part of the identity. The package stays
-scientifically useful with no agent present, and "AI-native" is never a reason to add a
-second copy of the scientific interface.
+The package separates into a core and a layer, which is what keeps the identity free of
+its own tooling:
 
-    JNWB = generic NWB operations
-         + explicit scientific semantics
-         + AI-usable routing
-         + verification
+    JNWB core       = scientific operations + documentation + verification
+    AI-native JNWB  = JNWB core + skills
+
+The core is the package. It stays scientifically useful with no agent present. Skills add
+routing over it and are never a reason to add a second copy of the scientific
+interface.
 
 ## Authority
 
     code implements    docs explain    skills route    tests verify
 
-Construction order, which is also the order of authority:
+Documentation, code and tests constrain each other. They are not a pipeline, and none of
+the three is free to move without the other two:
 
-    scientific intent -> documented operation -> code -> tests/evidence
+    scientific intent -> documented API <-> code <-> tests
 
-The skill is a routing layer, not a semantic authority:
+The skill sits outside that triangle and acts on it:
 
-    question -> skill -> documented operation -> execution -> verification
+    skill -> discover, constrain, compose, execute, verify
 
 A skill may not hold a mutable API fact that documentation and exports also hold. It
 names the operation; documentation defines it.
 
-## Skill behaviour
+## The AI-native layer
 
 A skill routes to an operation or it declines. Four cases:
 
-    supported analysis       -> execute
-    missing information      -> request it
-    non-identifiable result  -> report the failure
-    unsupported claim        -> do not infer it
+    supported task            -> compose and execute
+    missing input             -> request it
+    non-identifiable result   -> report the failure
+    unsupported inference     -> decline
 
     skill decides how; the tested operation performs what
 
-This extends the rule that estimator failure is never converted into plausible finite
-output. A skill may not convert an unsupported question into a supported-looking answer
-either. Declining is a correct outcome, and a skill that cannot decline is incomplete.
+This extends the existing failure semantics rather than adding an AI-specific scientific
+rule: estimator failure is never converted into a plausible finite result or label, and a
+skill may not convert an unsupported question into a supported-looking answer. Declining
+is a correct outcome, and a skill that cannot decline is incomplete.
 
 ## Boundary
 
 JNWB owns generic, testable operations. Study-specific conditions, hypotheses and
-interpretation stay downstream. An operation belongs here when it can be specified and
-verified without naming a study.
+interpretation stay downstream. An operation belongs here when all five hold:
+
+    generic                  it is not about one dataset's structure
+    dataset-independent      it names no study, session or condition
+    scientifically stable    its definition does not move with a hypothesis
+    explicitly parameterized scientific choices are caller inputs, not defaults in hiding
+    independently testable   it can be verified without the study that motivated it
+
+New code is written when this test finds a genuine missing generic capability, not when
+composition of what exists would have answered the question.
 
 ## Surface
 
@@ -70,8 +82,11 @@ documentation rich" means coverage, not files or prose.
 - Examples demonstrate composition; they do not duplicate the reference documentation.
 - Presentation assets derive from maintained documentation figures.
 
-Documentation and presentation share source assets. Public documentation stays dry and
-technically useful; diagrams and examples are reused in slides from there.
+Documentation and presentation share source assets, in one direction. Documentation is
+the scientific source a presentation is derived from; it is never shaped to be
+slide-like. Canonical diagrams, examples, capability maps, terminology and evidence are
+maintained in the documentation, and slide compositions are derived from them.
+Documentation optimised for presentation distorts the thing being presented.
 
 This is what lets the package become richer and smaller at once.
 
