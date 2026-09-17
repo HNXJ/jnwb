@@ -167,9 +167,13 @@ class TestNoOmissionDependency:
         """
         script = (
             "import sys\n"
+            # `find_spec`, not `find_module`: the latter left the meta-path protocol in
+            # 3.12 and is never consulted, so a blocker defining it blocks nothing and
+            # this test passed while proving nothing. test_jnwb_frozen_boundary.py has
+            # always used `find_spec`.
             "class _BlockOmission:\n"
-            "    def find_module(self, name, path=None):\n"
-            "        if name == 'omission' or name.startswith('omission.'):\n"
+            "    def find_spec(self, fullname, path=None, target=None):\n"
+            "        if fullname == 'omission' or fullname.startswith('omission.'):\n"
             "            raise ImportError('omission/ blocked for this test')\n"
             "        return None\n"
             "sys.meta_path.insert(0, _BlockOmission())\n"

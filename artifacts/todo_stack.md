@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-53 Assertions that cannot fail
-- **Problem** Tests that are green regardless of the code.
-- **Evidence** `test_docs_nwb_workflow.py:124` asserts a long string is absent from `re.findall` output, which returns match substrings that can never contain it — and `skills/jnwb-nwb-data/SKILL.md:57` does contain the forbidden token. `test_representative_workflow.py:171` installs an import blocker defining `find_module`, removed from the meta-path protocol in 3.12, so it blocks nothing on the 3.14.3 interpreter; its own docstring calls it "the load-bearing assertion", and `test_jnwb_frozen_boundary.py:123` does it correctly with `find_spec`. `test_jnwb_frozen_boundary.py:78` iterates `AUTHORIZED_EXCEPTIONS`, which is `set()`. `test_jnwb_core.py` puts its assertions inside `if 'error' not in result:`, so replacing every `StatisticalAnalysis` method with an error dict leaves 25 of 26 passing.
-- **Change** Repair each to assert what its name says.
-- **Preserves** Intended coverage.
-- **Discriminator** Each fails when the condition it names is reintroduced.
-- **Accept** Verified by mutation, one mutation per repaired test.
-
 ### 05-54 Estimators with no discriminating test
 - **Problem** Mutating the implementation changes no test result.
 - **Evidence** Forcing `imaginary_coherency`'s `icoh_mean`/`icoh_abs_mean` to 0.0 changes zero of 1483 tests — every assertion is a null case or a self-comparison, in a file named `nonfabrication`. Mutating `shuffle_pvalue_paired`/`unpaired` to `1/(n+1)`, `shuffle_r2_ci.p_val` to 0.001, `paired_fire_prob_test.p` to 0.0001, `confirmed_*` to `True`, and `fdr_correct` to `return p.copy()` all pass: no null-data control and no BH oracle exists anywhere. A `bipolar_reference` sign flip and removal of `laplacian_reference`'s un-permute both pass. `tests/test_gpu_pca.py`'s "numpy reference" is a line-by-line copy of the implementation's own `_svd_numpy` branch, and all three tests pass `device="cpu"`, so the GPU branch has zero coverage.

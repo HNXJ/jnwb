@@ -121,8 +121,16 @@ def test_skill_routes_to_public_nwb_api():
         assert symbol in text
     assert "paths.describe()" in text
     assert "not a substitute for `jnwb.inspect" in text
-    assert "get_event_codes_and_timings" not in re.findall(
-        r"^-\s+`get_event_codes", text
+    # Routing rows look like "- `jnwb.inspect(path_or_nwb)`". The MCP tools are named
+    # further down in prose that steers readers to the public functions, which is correct,
+    # so only a routing row counts as routing callers away from the public API.
+    routed = re.findall(r"^-\s+`([A-Za-z_][\w.]*)", text, re.MULTILINE)
+    assert routed, (
+        "no routing rows matched, so this assertion checks nothing -- the skill's row "
+        "format changed and the pattern above needs updating with it"
+    )
+    assert "get_event_codes_and_timings" not in routed, (
+        "a routing row sends callers to an MCP tool instead of the public API"
     )
 
 

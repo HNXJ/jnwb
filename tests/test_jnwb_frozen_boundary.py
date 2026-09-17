@@ -75,6 +75,29 @@ class TestJnwbFrozenBoundary:
             + "\n".join(violations)
         )
 
+    def test_the_module_level_import_detector_works(self):
+        """`AUTHORIZED_EXCEPTIONS` is empty, so the test below iterates nothing.
+
+        That is the intended state, and it means the detector the test depends on is
+        never exercised: it would keep passing if `_omission_imports` stopped finding
+        anything. Exercise it directly, so the first exception added is checked by code
+        known to work.
+        """
+        src = (
+            "import omission.alpha\n"
+            "from omission.beta import thing\n"
+            "import numpy\n"
+            "def f():\n"
+            "    import omission.gamma\n"
+        )
+        found = [(mod, at_module_level)
+                 for _, mod, at_module_level in sorted(_omission_imports(ast.parse(src)))]
+        assert found == [
+            ("omission.alpha", True),
+            ("omission.beta", True),
+            ("omission.gamma", False),
+        ], found
+
     def test_authorized_exceptions_are_lazy_not_module_level(self):
         # Both authorized exceptions must be call-time imports inside a function body, never
         # at module level -- `import jnwb` alone must never require omission/ to exist.

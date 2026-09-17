@@ -50,8 +50,8 @@ class TestStatisticalAnalysis(unittest.TestCase):
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = StatisticalAnalysis.exploratory_compare(data.copy(), data.copy())
         self.assertIsInstance(result, dict)
-        if 'error' not in result:
-            self.assertIn('parametric', result)
+        self.assertNotIn('error', result)
+        self.assertIn('parametric', result)
         # No deprecated keys in exploratory API
         self.assertNotIn('fdr_pval_parametric', result)
 
@@ -61,9 +61,9 @@ class TestStatisticalAnalysis(unittest.TestCase):
         y = 2 * x + 1  # Perfect linear relationship
         result = StatisticalAnalysis.exploratory_correlate(x, y)
         self.assertIsInstance(result, dict)
-        if 'error' not in result:
-            pearson_r = result['parametric']['statistic']
-            self.assertGreater(pearson_r, 0.99)
+        self.assertNotIn('error', result)
+        pearson_r = result['parametric']['statistic']
+        self.assertGreater(pearson_r, 0.99)
         self.assertNotIn('fdr_pval_parametric', result)
 
     def test_correlate_no_correlation(self):
@@ -72,9 +72,9 @@ class TestStatisticalAnalysis(unittest.TestCase):
         y = np.random.randn(100)
         result = StatisticalAnalysis.exploratory_correlate(x, y)
         self.assertIsInstance(result, dict)
-        if 'error' not in result:
-            self.assertIn('parametric', result)
-            self.assertIn('non_parametric', result)
+        self.assertNotIn('error', result)
+        self.assertIn('parametric', result)
+        self.assertIn('non_parametric', result)
         self.assertNotIn('fdr_pval_parametric', result)
 
     def test_bootstrap_ci_valid_data(self):

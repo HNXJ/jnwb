@@ -176,6 +176,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four tests asserted things that could not be false.** `test_docs_nwb_workflow.py`
+  asserted a token was absent from `re.findall` output, which returns match substrings
+  that can never contain a longer string -- and the pattern had no `re.MULTILINE`, so the
+  list was empty regardless. `test_representative_workflow.py`, whose own docstring calls
+  it "the load-bearing assertion", blocked `omission` with a meta-path finder defining
+  `find_module`, dropped from the protocol in 3.12: on 3.14.3 a `find_module` blocker
+  imports the blocked module anyway, while a `find_spec` blocker raises. With the blocker
+  made live, the workflow still runs without `omission`, so the claim was true and simply
+  untested. `test_jnwb_frozen_boundary.py` iterates `AUTHORIZED_EXCEPTIONS`, which is
+  `set()`; the loop is correct and stays, and the detector it depends on is now exercised
+  directly, so the first exception added is checked by code known to work. Three tests in
+  `test_jnwb_core.py` kept their assertions behind `if 'error' not in result:`: replacing
+  all 14 public `StatisticalAnalysis` callables with a stub returning `{'error': ...}`
+  left 23 of 26 tests passing. Each repair is verified by a mutation that reintroduces the
+  condition it names, and the two pattern-driven tests additionally fail when their
+  pattern stops matching, rather than going quietly blind a second time.
 - **Dict-style access on the result dataclasses now fails the way a dict fails.**
   `DirectedResult`, `VFlipResult`, `XFlipResult`, `ZFlipResult` and `AperiodicFitResult`
   each carried a copied `__getitem__`/`get` pair, introduced "so callers written against
