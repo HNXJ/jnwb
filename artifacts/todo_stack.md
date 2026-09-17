@@ -28,16 +28,6 @@ deferred to H, so later work benefits from the gate.
 Qualification runs in a clean environment built from the declared extras, or in CI. The
 development `.venv` described at the end of this file is not package evidence.
 
-## 6. Performance and backend
-
-### 05-49 The import benchmark measures itself and its receipt is five releases stale
-- **Problem** `tracemalloc.start()` runs before `t0 = time.perf_counter()` inside the probe.
-- **Evidence** The script reports 8076 ms warm; direct measurement without tracemalloc is 2124 ms median, and with tracemalloc 7209 ms — the script over-reports by 3.3x. `artifacts/benchmarks/import_profile.txt` states "jnwb 0.1.6 (111 public symbols)" against the current 0.2.4 and 151 symbols; nothing gates it, unlike the vflip receipt.
-- **Change** Time the import in a probe without tracemalloc and measure peak memory in a separate process; `scripts/benchmark_import.py:34`. Add a receipt-staleness test mirroring `tests/test_vflip_calibration_receipt.py`, failing when the version in `import_profile.txt` differs from `jnwb.__version__`.
-- **Preserves** The script's interface.
-- **Discriminator** The reported number matches an independent wall-clock measurement.
-- **Accept** The receipt regenerates and is gated. Also delete the superseded `vflip_calibration_0.2.2.md` and `vflip_calibration_raw.json`.
-
 ## 7. Code simplification
 
 ### 05-50 Nine symbols have no caller anywhere

@@ -120,6 +120,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The import benchmark was timing an import it had slowed down 3.3x, and its receipt
+  was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before
+  its timer, so the import it measured ran with allocation tracing on. Seven interleaved
+  fresh-process repetitions: 7724 ms traced against 2317 ms clean. Moving the
+  `tracemalloc.start()` below the timed region is not the fix -- the allocations have
+  already happened by then and the peak comes back 0.0 MB -- so timing and memory are now
+  measured by separate probes in separate processes. The regenerated receipt reports
+  2151 ms warm where the old one reported 6244 ms, and 10460 ms cold where it reported
+  39342 ms. Nothing gated the receipt, unlike the vFLIP one, so
+  `artifacts/benchmarks/import_profile.txt` still announced "jnwb 0.1.6 (111 public
+  symbols)" at 0.2.4 with 155, and `import_breakdown.json` was older still at 0.1.5 --
+  while itself recording an importtime tree of 1898 ms against its own 6859 ms warm
+  median, the same contradiction visible inside one file. The regenerated pair is 2348 ms
+  and 2151 ms: two measurement methods that now agree within 9%. `tests/test_import_profile_receipt.py` now fails when
+  either receipt names a different version than `jnwb.__version__`, when the timing probe
+  instruments the import, and when the probe's own number disagrees with an independent
+  wall-clock import. `--write` regenerates both receipts, so the gate is satisfiable by
+  the command `AGENTS.md` documents. The superseded `vflip_calibration_0.2.2.md` and
+  `vflip_calibration_raw.json`, which described the pre-density-normalized support score
+  and carried no estimator hash, are deleted.
 - **`docs/install.md` claimed the deferred imports keep `import jnwb` fast.** They do not.
   `import jnwb` takes about 1.9 s, and about 1.8 s of that is `scipy`, `pandas` and `pynwb`,
   which the eagerly imported surface needs. What the deferrals buy is keeping
