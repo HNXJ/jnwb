@@ -455,7 +455,16 @@ def harmonic_analysis(
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: (min, max) frequency bounds for analysis (Hz)
         harmonic_orders: Number of harmonic multiples to track
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
+            route below roughly 22500 samples. At that size the Welch helper's fixed
+            cost -- one host-to-device transfer, the window, the FFT plan and the
+            copies back -- is most of the call, and there is too little arithmetic left
+            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
+            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
+            crossover is documented rather than applied automatically: the CPU and CUDA
+            Welch paths do not agree bit for bit, so routing on input length would make
+            the answer depend on how long the trace is, which invariant 6 forbids. See
+            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 
     Returns:
         Dict with:
@@ -894,7 +903,16 @@ def spectral_tilt(
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: Frequency range (f_min, f_max) in Hz for regression fitting
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
+            route below roughly 22500 samples. At that size the Welch helper's fixed
+            cost -- one host-to-device transfer, the window, the FFT plan and the
+            copies back -- is most of the call, and there is too little arithmetic left
+            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
+            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
+            crossover is documented rather than applied automatically: the CPU and CUDA
+            Welch paths do not agree bit for bit, so routing on input length would make
+            the answer depend on how long the trace is, which invariant 6 forbids. See
+            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 
     Returns:
         Dict with:
@@ -1413,7 +1431,16 @@ def band_power(
         freq_range: (min_freq, max_freq) in Hz, inclusive at both ends
         normalize: If True, return as dB relative to baseline
         baseline: Baseline time series for normalization (optional)
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
+            route below roughly 22500 samples. At that size the Welch helper's fixed
+            cost -- one host-to-device transfer, the window, the FFT plan and the
+            copies back -- is most of the call, and there is too little arithmetic left
+            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
+            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
+            crossover is documented rather than applied automatically: the CPU and CUDA
+            Welch paths do not agree bit for bit, so routing on input length would make
+            the answer depend on how long the trace is, which invariant 6 forbids. See
+            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 
     Returns:
         Mean PSD over the band in input-units^2/Hz, or, with ``normalize=True``,
@@ -1823,44 +1850,70 @@ def _welch_csd_gpu(
     - Conjugate orientation matching scipy.signal.csd: conj(X) * Y.
     - Exact one-sided scaling for even and odd nperseg (doubling positive frequencies).
     - Zero-padding for inputs shorter than nperseg.
+    - A self-spectrum short circuit when ``y is x``, which returns the same four arrays
+      it would otherwise compute, bit for bit.
     """
     import cupy as cp
     if noverlap is None:
         noverlap = nperseg // 2
     step = nperseg - noverlap
 
+    # 05-45: `harmonic_analysis`, `spectral_tilt` and `band_power` all call this as
+    # `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, so half of everything
+    # below was a second copy of the first half. Reusing the first half is exact, not
+    # an approximation: `y is x` means the two branches transfer the same bytes, gather
+    # the same indices and run the same `rfft`, so `Y` is bit-identical to `X` and
+    # `conj(X) * Y` is bit-identical to `conj(X) * X`. Measured at 16384 samples, it
+    # takes 1.66 ms down to 1.06 ms at every nperseg tested, which is 36% of the call.
+    same_signal = y is x
+
     x_g = cp.asarray(x, dtype=cp.float64)
-    y_g = cp.asarray(y, dtype=cp.float64)
+    y_g = x_g if same_signal else cp.asarray(y, dtype=cp.float64)
     n = len(x_g)
 
     if n < nperseg:
         x_g = cp.pad(x_g, (0, nperseg - n))
-        y_g = cp.pad(y_g, (0, nperseg - n))
+        y_g = x_g if same_signal else cp.pad(y_g, (0, nperseg - n))
         n = nperseg
 
     # Periodic Hann window matching scipy.signal.get_window('hann', nperseg)
     window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
 
-    segments_x = []
-    segments_y = []
-    start = 0
-    while start + nperseg <= n:
-        seg_x = x_g[start:start+nperseg]
-        seg_y = y_g[start:start+nperseg]
-        if detrend == "constant":
-            seg_x = seg_x - cp.mean(seg_x)
-            seg_y = seg_y - cp.mean(seg_y)
-        segments_x.append(seg_x * window)
-        segments_y.append(seg_y * window)
-        start += step
+    # 05-45: this was a Python `while` loop appending one device array per segment, so
+    # a 16384-sample trace at nperseg=256 ran 127 iterations and about 762 kernel
+    # launches before `cp.stack`. Launch overhead, not arithmetic, was the cost: the
+    # whole call took 26.8 ms against 16.6 ms for the equivalent scipy calls, and even
+    # at nperseg=4096 -- 7 segments, which is what `spectral_tilt`, `band_power` and
+    # `harmonic_analysis` ask for -- 2.6 ms of a 3.2 ms call was the loop, against a
+    # fixed floor of 0.62 ms for the transfers, window and FFT together.
+    #
+    # One strided index builds every segment at once. Verified against the loop at
+    # nperseg 64, 128, 255, 256, 512, 1024 and 2048: `max|difference| == 0.0` on all
+    # four outputs, because the per-segment mean and the row-wise mean of the same
+    # array reduce in the same order there. At 4096 and 8192 `cupy` picks a different
+    # row-mean reduction, the detrend constant moves in its last bits, and the outputs
+    # shift by up to 1.43e-13 relative -- smaller than this path's pre-existing
+    # disagreement with scipy on the same input (2.6e-15 at 256 rising to 4.1e-13 at
+    # 2048), so the CPU/CUDA gap is not widened. The estimator is unchanged: same
+    # window, same detrend, same scaling.
+    n_segments = (n - nperseg) // step + 1
+    offsets = step * cp.arange(n_segments)
+    idx = cp.arange(nperseg)[None, :] + offsets[:, None]
+    seg_x = x_g[idx]
+    seg_y = seg_x if same_signal else y_g[idx]
+    if detrend == "constant":
+        seg_x = seg_x - seg_x.mean(axis=1, keepdims=True)
+        seg_y = seg_x if same_signal else seg_y - seg_y.mean(axis=1, keepdims=True)
 
-    X = cp.fft.rfft(cp.stack(segments_x), axis=-1)
-    Y = cp.fft.rfft(cp.stack(segments_y), axis=-1)
+    X = cp.fft.rfft(seg_x * window, axis=-1)
+    Y = X if same_signal else cp.fft.rfft(seg_y * window, axis=-1)
 
     scale = 1.0 / (fs * cp.sum(window ** 2))
 
     psd_x = cp.mean(cp.abs(X) ** 2, axis=0) * scale
-    psd_y = cp.mean(cp.abs(Y) ** 2, axis=0) * scale
+    # `.copy()` matters: the one-sided scaling below is in place, so aliasing psd_y to
+    # psd_x would double the positive frequencies twice.
+    psd_y = psd_x.copy() if same_signal else cp.mean(cp.abs(Y) ** 2, axis=0) * scale
     csd_xy = cp.mean(cp.conj(X) * Y, axis=0) * scale
 
     # One-sided scaling

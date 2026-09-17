@@ -104,6 +104,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Two CUDA paths were slower than their CPU siblings, one by 23x, because they
+  launched one kernel per element.** `UnitAnalyzer._acg_vectorized` had two GPU branches
+  and neither was usable at scale: below 30000 spikes it built the full `N x N`
+  difference matrix, which at 29999 spikes -- just under the threshold the code treated
+  as safe -- asks for 6.71 GiB of device memory for one autocorrelogram; at or above
+  30000 it chunked by 1000 and then looped in Python *inside* the chunk, so 35000 spikes
+  meant 35001 uploads of a loop-invariant `bin_edges`, 35000 `cupy.histogram` launches
+  and 70000 forced device-to-host synchronisations. `_welch_csd_gpu` appended one device
+  array per Welch segment, 127 of them for a 16384-sample trace at `nperseg=256`. The
+  cost was the launches, not the host/device transfers: at 35000 spikes the launches are
+  76% of the accounted time and the transfers 24%. One `_acg_histogram` now serves both
+  devices and histograms once per chunk rather than once per spike, with the chunk width
+  taken from the widest window actually present; one strided index builds every Welch
+  segment at once; and because `harmonic_analysis`, `spectral_tilt` and `band_power` all
+  call the Welch helper as `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, a
+  `y is x` short circuit stops it computing its own second half and discarding it.
+  Paired on an RTX A4000, `T_cuda / T_cpu` for the autocorrelogram goes from 23.302 to
+  0.060 at 35000 spikes, and the Welch helper from 1.493 to 0.100 at `nperseg=256`.
+  Every output is unchanged bit for bit: the autocorrelogram counts match the previous
+  implementation on both devices, and 112 of 112 Welch arrays across 28 input cases are
+  identical. The three entry points remain slower on CUDA below roughly 22500 samples,
+  where the fixed transfer-and-plan cost is most of the call; that crossover is now
+  documented in each `device:` parameter rather than papered over by routing on input
+  length, which would make the answer depend on trace length. Receipt:
+  `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 - **With a GPU present, two `device='cuda'` requests were denied in silence.**
   `jnwb/_backend.py` covered two denial reasons -- no usable device, and a device that
   failed part-way through -- and missed the third: a device that exists but which this

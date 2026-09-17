@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 6. Performance and backend
 
-### 05-45 Three CUDA paths are slower than CPU, one by 28x
-- **Problem** Python loops with per-iteration host/device transfers.
-- **Evidence** `UnitAnalyzer.acg` at >= 30k spikes: CUDA 32231 ms against CPU 1151 ms (0.036x), with 80002 host-to-device and 240002 device-to-host transfers per call, from `int(lo[idx])`/`int(hi[idx])` inside the loop and a re-uploaded `bin_edges`. `_welch_csd_gpu` runs a 96-iteration Python segment loop: 21.94 ms against 1.83 ms for the same estimator strided, which is why `harmonic_analysis` (0.557x), `spectral_tilt` (0.567x) and `band_power` (0.44x) are all slower on CUDA. The CPU `_acg_vectorized` is separately 41-151x slower than an identical-output vectorisation (5k spikes 123.3 ms -> 0.8 ms, `array_equal == True`).
-- **Change** Hoist `bin_edges` and use the gather the `<30000` branch already implements; build the segment matrix with one strided index; vectorise the CPU ACG; `analyzers.py:437`, `:459`, `spectral.py:1680`.
-- **Preserves** Outputs bit-identically (verified for the ACG).
-- **Discriminator** No `device='cuda'` path is slower than its CPU sibling.
-- **Accept** Measured before and after on the same machine, recorded in `artifacts/benchmarks/`.
-
 ### 05-46 `jrsa` defaults to `n_jobs=-1` and is 125x slower for it
 - **Problem** It is the only entry point overriding the shared module's documented default of 1.
 - **Evidence** 40x6 inputs, `metric='cka'`, `permutations=500`: `n_jobs=1` 0.07 s, `n_jobs=-1` (the default) 8.75 s. `_parallel.py:65` states the rule: "Parallelism only pays when the total serial work exceeds roughly a second."
