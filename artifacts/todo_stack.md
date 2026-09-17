@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 6. Performance and backend
 
-### 05-48 `import jnwb` costs about 2 s, and 80% of it is two eager submodules
-- **Problem** `__init__.py` imports `rsa` and `nwb_inspect` at module scope, pulling `scipy.spatial.distance` + `scipy.stats` and `pynwb` -> `hdmf` -> `pandas`.
-- **Evidence** `-X importtime`: total 1.875 s, `jnwb.rsa` 0.96 s cumulative, `jnwb.nwb_inspect` 0.54 s. Eager in `sys.modules` after import: scipy, pynwb, hdmf, h5py, pandas. Deferred and confirmed working: sklearn, statsmodels, matplotlib, joblib. jnwb's own frames cost about 1.3 ms.
-- **Change** Move `rsa` into `EXPORT_MODULES`; the mechanism exists and works. `nwb_inspect` is harder because `jnwb.inspect` is the documented entry point, so treat it as a separate decision.
-- **Preserves** `jnwb.rdm` and `jnwb.rdm_similarity` resolving on attribute access.
-- **Discriminator** `scipy.spatial` is absent from `sys.modules` after `import jnwb`.
-- **Accept** Import time roughly halves; `tests/test_import_lazy.py` covers the new deferrals.
-
 ### 05-49 The import benchmark measures itself and its receipt is five releases stale
 - **Problem** `tracemalloc.start()` runs before `t0 = time.perf_counter()` inside the probe.
 - **Evidence** The script reports 8076 ms warm; direct measurement without tracemalloc is 2124 ms median, and with tracemalloc 7209 ms — the script over-reports by 3.3x. `artifacts/benchmarks/import_profile.txt` states "jnwb 0.1.6 (111 public symbols)" against the current 0.2.4 and 151 symbols; nothing gates it, unlike the vflip receipt.

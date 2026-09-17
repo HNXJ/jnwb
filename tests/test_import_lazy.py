@@ -131,3 +131,102 @@ class TestOptionalExtras:
         for optional in ("torch", "cupy", "jax", "mcp", "mkdocs"):
             if optional in requirements:
                 assert optional not in loaded, f"importing jnwb eagerly loaded {optional}"
+
+
+class TestWhatImportingJnwbActuallyCosts:
+    """05-48 reported `import jnwb` at about 2 s with "80% of it two eager submodules",
+    and prescribed moving `rsa` into `EXPORT_MODULES`. The cost reproduces; the
+    mechanism does not.
+
+    Measured on a repaired tree against a `HEAD` worktree, five interleaved repetitions:
+    deferring `rsa` changed the import time by nothing. The item's discriminator --
+    `scipy.spatial` absent from `sys.modules` -- cannot be reached that way either,
+    because `laminar`, `spectral`, `connectivity` and `spiking` all import `scipy.stats`
+    at module scope and are all imported eagerly, and `scipy.stats` pulls
+    `scipy.spatial` itself through `scipy.spatial._kdtree`.
+
+    `rsa` looked responsible only because it is the *first* eager module to touch scipy,
+    so `-X importtime` charges it the whole shared cost. Three measurements of the same
+    package have now blamed three different modules: `artifacts/benchmarks/` blamed
+    `jnwb.tfr` and `jnwb.addressing` at 0.1.5, the audit blamed `rsa` and `nwb_inspect`,
+    and a run at 0.2.4 blames `rsa` and `nwb_io`. The order changed; the cost did not.
+
+    What the cost actually is, timed inside fresh interpreters, median of five:
+    numpy 0.12 s, the first scipy submodule +1.09 s, every further scipy submodule about
+    0.00 s, pandas +0.31 s, pynwb +0.30 s -- 1.82 s for everything the eager surface
+    needs, against 1.87 s for `import jnwb`. jnwb's own module bodies are the remaining
+    0.05 s. Whichever scipy submodule is imported first pays: `scipy.signal` first costs
+    1.22 s and makes `scipy.stats` free, while `scipy.stats` first costs 1.13 s and
+    leaves `scipy.signal` at 0.09 s.
+
+    So no single-module deferral can help. Removing scipy from the eager graph means
+    deferring seven modules, pandas six more, pynwb three; that is most of the package
+    and a different change from the one the item describes. These tests pin what is
+    true now, so that a regression is caught and a deliberate improvement is noticed.
+    """
+
+    @staticmethod
+    def _eager_top_level():
+        import subprocess
+        import sys
+
+        code = (
+            "import sys\n"
+            "before = set(sys.modules)\n"
+            "import jnwb\n"
+            "std = set(sys.stdlib_module_names)\n"
+            "added = {m.split('.')[0] for m in sys.modules if m not in before}\n"
+            "print(' '.join(sorted(m for m in added if m not in std "
+            "and not m.startswith('_'))))\n"
+        )
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(REPO_ROOT)
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                                text=True, cwd=REPO_ROOT, env=env, check=False)
+        assert result.returncode == 0, result.stderr
+        return set(result.stdout.split())
+
+    def test_no_heavy_optional_dependency_is_imported_eagerly(self):
+        """The deferrals that do pay for themselves. `sklearn`, `statsmodels`,
+        `matplotlib` and `joblib` are reached only through `EXPORT_MODULES`, and nothing
+        guarded that until now -- `TestOptionalExtras` checks only the packages declared
+        as extras, which these are not."""
+        eager = self._eager_top_level()
+
+        heavy = {"sklearn", "scikit_learn", "statsmodels", "matplotlib", "joblib",
+                 "numba", "seaborn", "plotly", "networkx", "sympy", "torch", "cupy",
+                 "jax"}
+        found = sorted(eager & heavy)
+
+        assert not found, (
+            f"importing jnwb now eagerly loads {found}; defer the module that pulls it "
+            f"through jnwb/_lazy_exports.py")
+
+    def test_the_eager_surface_is_the_one_the_docs_describe(self):
+        """`docs/install.md` says which surface loads eagerly. If a future change defers
+        scipy, pandas or pynwb, this fails -- update the doc, do not undo the work."""
+        eager = self._eager_top_level()
+
+        assert {"numpy", "scipy", "pandas", "pynwb"} <= eager, (
+            f"the eager surface shrank to {sorted(eager)}; docs/install.md still "
+            f"describes scipy, pandas and pynwb as eagerly loaded")
+
+    def test_deferring_one_module_cannot_remove_a_shared_dependency(self):
+        """The mechanism behind the item's failure, stated as an executable fact: more
+        than one eagerly imported module imports scipy at module scope, so no single
+        deferral removes it."""
+        import re
+
+        importers = []
+        for path in sorted((REPO_ROOT / "jnwb").glob("*.py")):
+            head = path.read_text(encoding="utf-8", errors="replace")
+            if re.search(r"^(from scipy|import scipy)", head, re.MULTILINE):
+                importers.append(path.stem)
+
+        init = (REPO_ROOT / "jnwb" / "__init__.py").read_text(encoding="utf-8")
+        eager_importers = [m for m in importers
+                           if re.search(rf"^from \.{m} import", init, re.MULTILINE)]
+
+        assert len(eager_importers) > 1, (
+            f"only {eager_importers} imports scipy eagerly; a single deferral would now "
+            f"remove it, so 05-48's prescription may be worth revisiting")

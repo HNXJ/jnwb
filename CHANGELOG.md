@@ -120,6 +120,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`docs/install.md` claimed the deferred imports keep `import jnwb` fast.** They do not.
+  `import jnwb` takes about 1.9 s, and about 1.8 s of that is `scipy`, `pandas` and `pynwb`,
+  which the eagerly imported surface needs. What the deferrals buy is keeping
+  `scikit-learn`, `statsmodels`, `matplotlib` and `joblib` out of the import, which nothing
+  guarded until now -- the existing extras test only covers packages declared as extras, and
+  these are not. `tests/test_import_lazy.py` now pins the eager third-party surface, so a
+  newly added eager heavy dependency fails a test instead of reaching a release. The install
+  page says what the import costs and where the time goes.
 - **`xflip` re-summed the same diagonal slice inside its dynamic-programming loop.**
   `_optimal_contiguous_partition` answered the off-diagonal half of `W(u, v)` from a 2-D
   prefix sum in constant time, then computed the diagonal half as
