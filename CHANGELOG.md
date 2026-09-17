@@ -120,6 +120,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`classify_layer_from_depth` still called `jnwb.laminar` forthcoming.** It has
+  shipped: the module imports and `vflip`, `VFlipResult`, `xflip` and `XFlipResult` are
+  all exported. A reader following the cross-reference was told the thing they were being
+  sent to did not exist yet. The qualifier is removed and `docs/api.md`, which is
+  generated from the docstrings, is regenerated.
 - **The import benchmark was timing an import it had slowed down 3.3x, and its receipt
   was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before
   its timer, so the import it measured ran with allocation tracing on. Seven interleaved

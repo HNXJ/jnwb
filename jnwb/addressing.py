@@ -230,7 +230,7 @@ def classify_layer_from_depth(
         assumptions (e.g. primate linear array penetration from pia) rather than
         universal NWB standards. For preparations with different cortical
         thicknesses or orientations, supply ``threshold`` explicitly. For
-        electrophysiological laminar identification, see ``jnwb.laminar`` (forthcoming).
+        electrophysiological laminar identification, see ``jnwb.laminar``.
 
     Args:
         peak_channel_id: Channel identifier
