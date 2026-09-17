@@ -120,6 +120,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`xflip` re-summed the same diagonal slice inside its dynamic-programming loop.**
+  `_optimal_contiguous_partition` answered the off-diagonal half of `W(u, v)` from a 2-D
+  prefix sum in constant time, then computed the diagonal half as
+  `np.sum(np.diag(corr)[u:v])` on every call. `np.diag` returns a view, so nothing was
+  copied, but the call, the slice and the reduction together cost 4.82 of the 5.56
+  microseconds an `interval_w` call took -- 87% of it -- and the DP makes about 93000 of
+  them at 256 channels, once for the observed matrix and once per surrogate. Prefix-
+  summing the diagonal once makes `xflip` 3.6x to 3.9x faster on the partition step at
+  128 channels and above, and 3.3x end to end at 128 channels with the default 200
+  surrogates: 10.63 s to 3.22 s. `block_bounds`, `boundaries`, `labels`, `modularity`
+  and every p-value are unchanged. The change is not bit-identical in the DP's internal
+  values -- a difference of two running totals rounds differently from a pairwise
+  reduction, by up to 4e-15 here -- but those values cannot reach the answer: for a
+  fixed `(k, j)` every candidate partition tiles `[0, j)`, so the per-block diagonal
+  terms sum to the same constant in every candidate and cancel out of the comparison,
+  and the returned modularity is computed separately from the labels.
 - **Two CUDA paths were slower than their CPU siblings, one by 23x, because they
   launched one kernel per element.** `UnitAnalyzer._acg_vectorized` had two GPU branches
   and neither was usable at scale: below 30000 spikes it built the full `N x N`

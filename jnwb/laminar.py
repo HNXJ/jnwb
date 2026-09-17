@@ -1034,13 +1034,29 @@ def _optimal_contiguous_partition(
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
+    # 05-47: the off-diagonal term below was already answered from `prefix` in constant
+    # time while the diagonal term re-summed a slice on every call. `np.diag` returns a
+    # view, so nothing was copied, but the call plus the slice plus the reduction cost
+    # 4.82 of the 5.56 microseconds an `interval_w` call took -- 87% of it -- and the DP
+    # makes about 93000 of them at n=256 with n_blocks=4, once per surrogate. Prefix-
+    # summing the diagonal answers it the way the off-diagonal term is already answered.
+    #
+    # This is not bit-identical to re-summing: a difference of two running totals is a
+    # different floating-point operation from a pairwise reduction, and on a real
+    # correlation matrix -- whose diagonal `np.corrcoef` does not always make exactly
+    # 1.0 -- the two disagree by up to 4e-15. It cannot reach the answer. For a fixed
+    # (k, j) every candidate partition tiles [0, j), so the per-block diagonal terms sum
+    # to `f(j) - f(0)` whatever the cuts are: the same constant in every candidate,
+    # cancelling out of the comparison. The returned modularity is computed separately
+    # by `_compute_contrast` from the labels, and never sees `dp` at all.
+    diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
 
     def interval_w(u: int, v: int) -> float:
         sz = v - u
         if sz < min_block_size:
             return -np.inf
         total_sub = prefix[v, v] - prefix[u, v] - prefix[v, u] + prefix[u, u]
-        diag_sub = float(np.sum(np.diag(corr)[u:v]))
+        diag_sub = diag_cum[v] - diag_cum[u]
         s_uv = 0.5 * (total_sub - diag_sub)
         p_uv = 0.5 * sz * (sz - 1)
         return float(s_uv - gamma * p_uv)

@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 6. Performance and backend
 
-### 05-47 `_optimal_contiguous_partition` re-sums a diagonal inside the DP inner loop
-- **Problem** `interval_w` re-sums `np.diag(corr)[u:v]` per call, making an O(K n^2) DP into O(K n^3), while the off-diagonal term two lines above is already prefix-summed.
-- **Evidence** 19.86 / 60.76 / 275.84 ms at n = 64/128/256 (about n^2.9); with a prefix-summed diagonal, 4.84 / 14.80 / 77.28 ms, and `block_bounds`, `boundaries` and `modularity` bit-identical at every n. Paid `n_surrogates + 1` times: at n=128 with the default 200 surrogates, about 12.2 s becomes about 3.0 s.
-- **Change** `dcum = np.concatenate([[0.0], np.cumsum(np.diag(corr))])`; `diag_sub = dcum[v] - dcum[u]`; `laminar.py:1037`.
-- **Preserves** Bit-identical output.
-- **Discriminator** Same results, measured speedup.
-- **Accept** 3.5x or better at n >= 128, outputs unchanged.
-
 ### 05-48 `import jnwb` costs about 2 s, and 80% of it is two eager submodules
 - **Problem** `__init__.py` imports `rsa` and `nwb_inspect` at module scope, pulling `scipy.spatial.distance` + `scipy.stats` and `pynwb` -> `hdmf` -> `pandas`.
 - **Evidence** `-X importtime`: total 1.875 s, `jnwb.rsa` 0.96 s cumulative, `jnwb.nwb_inspect` 0.54 s. Eager in `sys.modules` after import: scipy, pynwb, hdmf, h5py, pandas. Deferred and confirmed working: sklearn, statsmodels, matplotlib, joblib. jnwb's own frames cost about 1.3 ms.
