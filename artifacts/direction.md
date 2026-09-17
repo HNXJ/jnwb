@@ -8,6 +8,12 @@ Ruling of record; supersedes any longer draft.
 JNWB is a reliable scientific toolbox for analysis of NWB neurodata, designed for direct
 use by researchers and constrained use by AI agents.
 
+Described for a reader:
+
+> JNWB provides small, tested scientific tools, aligned documentation, and AI skills for
+> composing reliable analyses of NWB datasets. AI assists with discovery, composition,
+> execution and verification; scientific choices and interpretation stay explicit.
+
 AI-native usability is a design property, not part of the identity. The package stays
 scientifically useful with no agent present, and "AI-native" is never a reason to add a
 second copy of the scientific interface.
@@ -31,6 +37,21 @@ The skill is a routing layer, not a semantic authority:
 
 A skill may not hold a mutable API fact that documentation and exports also hold. It
 names the operation; documentation defines it.
+
+## Skill behaviour
+
+A skill routes to an operation or it declines. Four cases:
+
+    supported analysis       -> execute
+    missing information      -> request it
+    non-identifiable result  -> report the failure
+    unsupported claim        -> do not infer it
+
+    skill decides how; the tested operation performs what
+
+This extends the rule that estimator failure is never converted into plausible finite
+output. A skill may not convert an unsupported question into a supported-looking answer
+either. Declining is a correct outcome, and a skill that cannot decline is incomplete.
 
 ## Boundary
 
@@ -83,3 +104,19 @@ the audit consumes those results rather than reproducing them.
 
 The audit is a 0.2.5 close-out gate (`artifacts/todo_stack.md`, 05-85), run once after the
 stack empties and the independent critic completes, before the release seal.
+
+## Prior art
+
+*Reimagining research papers as interactive and reliable AI agents* (Paper2Agent) converts
+individual papers into agents exposing tools, resources and workflow prompts, validating
+each executable tool before exposing it and excluding the ones that keep failing. Its
+decomposition is the one above reached from the other direction: tools to code, resources
+to documentation, prompts to skills.
+
+JNWB sits in the complementary position -- one maintained, dataset-agnostic toolbox for
+NWB neurodata rather than a per-paper conversion -- and takes verification further, since
+these tests cover units, axes, randomness, null models, leakage and failure states rather
+than reproduction of reference outputs alone.
+
+The paper is CC BY-NC-ND. Its figures are not reproduced or adapted here, in JNWB
+documentation, or in any JNWB presentation; the architecture figure is JNWB's own.

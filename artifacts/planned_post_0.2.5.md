@@ -9,6 +9,25 @@ Everything here is subject to `artifacts/direction.md`, which sets what the pack
 for and which of its four faces -- code, documentation, skills, tests -- carries which
 authority. An addition that cannot state all four does not ship.
 
+## P0. Does the routing layer help? (hypothesis, ruled 2026-09-17)
+
+    H: an agent given JNWB's skills and tested operations outperforms the same agent
+       given raw repository access, on a predefined set of NWB analysis tasks.
+
+Paper2Agent reports a gap in that direction. That is evidence about its implementation
+and its benchmark, and it does not transfer here by analogy. The work is to state the
+task set and measure it.
+
+Constraints, all of which have to hold before the first run rather than after it: the
+task set is fixed and frozen before measurement; both arms get the same model and the
+same budget; out-of-scope tasks are included, where the correct outcome is a refusal and
+an answer scores zero; correctness is judged on the semantic dimensions of 05-85 -- shape,
+units, axes, estimator, aggregation, failure, randomness, identity, composition -- rather
+than on resemblance to a reference output.
+
+A result either way is publishable and useful. A result measured after seeing the tasks
+is neither.
+
 ## P1. RDM and geometry surface (request from the omission team, ruled 2026-09-17)
 
 The request arrived as ten candidate APIs. It is accepted in substance and rejected in
