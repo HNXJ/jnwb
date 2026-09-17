@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 6. Performance and backend
 
-### 05-46 `jrsa` defaults to `n_jobs=-1` and is 125x slower for it
-- **Problem** It is the only entry point overriding the shared module's documented default of 1.
-- **Evidence** 40x6 inputs, `metric='cka'`, `permutations=500`: `n_jobs=1` 0.07 s, `n_jobs=-1` (the default) 8.75 s. `_parallel.py:65` states the rule: "Parallelism only pays when the total serial work exceeds roughly a second."
-- **Change** Default `n_jobs=1`, or size-gate the pool inside `_parallel_map`; `jrsa.py:145`.
-- **Preserves** Results, which are already invariant to `n_jobs`.
-- **Discriminator** A small default-argument call does not start a process pool.
-- **Accept** The default is no slower than serial at any input size.
-
 ### 05-47 `_optimal_contiguous_partition` re-sums a diagonal inside the DP inner loop
 - **Problem** `interval_w` re-sums `np.diag(corr)[u:v]` per call, making an O(K n^2) DP into O(K n^3), while the off-diagonal term two lines above is already prefix-summed.
 - **Evidence** 19.86 / 60.76 / 275.84 ms at n = 64/128/256 (about n^2.9); with a prefix-summed diagonal, 4.84 / 14.80 / 77.28 ms, and `block_bounds`, `boundaries` and `modularity` bit-identical at every n. Paid `n_surrogates + 1` times: at n=128 with the default 200 surrogates, about 12.2 s becomes about 3.0 s.

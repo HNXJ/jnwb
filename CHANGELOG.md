@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`jrsa` no longer defaults to every core, which was making it slower.** It was the
+  only public function in the package overriding `n_jobs`'s documented default of 1, and
+  the override cost more than it bought: measured one call per interpreter on a 40x6
+  input with the documented default of 1000 permutations, `jrsa(x1, x2)` ran 10x to 24x
+  *slower* with `n_jobs=-1` than serial. The cause is not joblib. Starting 24 workers for
+  a callable that closes over nothing takes 0.77 s; doing it for a callable the workers
+  must import this package to unpickle takes 4.47 s, because each worker pays
+  `import jnwb` -- 1.79 s in a fresh interpreter -- first. Every parallel call site in
+  this library passes such a callable, so no small input can repay it, and the break-even
+  is roughly five seconds of serial work rather than the one second `_parallel.py`
+  claimed. A 400x60 input with 10000 permutations is past it: 10.8 s serial against 5.6 s
+  on all cores. The default is now 1 everywhere, `jrsa` included; pass `n_jobs=-1` to opt
+  in. **No number changes** -- `n_jobs` is a speed knob, and the statistic and p-value are
+  bit-identical between the old default and the new one on identical input and `rng`.
+  Benchmarks that call twice in one process will not reproduce the old cost, because the
+  second call reuses the pool and takes about 0.04 s.
 - **Gate 5 no longer counts the generated reference.** It searched every `docs/*.md`,
   `docs/api.md` included. Since `api.md` is generated from `jnwb.__all__`, the gate
   asserted that every export appears in a file guaranteed to contain every export: it

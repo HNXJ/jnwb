@@ -146,7 +146,7 @@ def jrsa(
     # execution
     backend="auto",
     device="auto",
-    n_jobs=-1,
+    n_jobs=1,
     batch_size=None,
     rng: RNGLike = Default(None),
     # output
@@ -221,7 +221,16 @@ def jrsa(
         'cpu' or 'cuda', validated by the same `resolve_device` the rest of the package
         uses -- an unknown name raises. `execution['device']` records the resolved device.
     n_jobs : int
-        CPU workers (-1 = all cores).
+        CPU workers. Default 1 (serial), the same default as everywhere else in the
+        package; -1 means all cores. Opt in only when the serial work is large enough
+        to repay the first parallel call, which costs several seconds because every
+        worker imports this package before it can unpickle the callable. Measured one
+        call per interpreter on a contended machine, `jrsa(x1, x2)` on a 40x6 input with
+        the default 1000 permutations was 10x to 24x slower with `n_jobs=-1` than
+        serial across repeated runs; the absolute seconds moved with the contention, the
+        ordering did not. It starts to pay at roughly five seconds of serial work -- a
+        400x60 input with 10000 permutations ran 10.8 s serial against 5.6 s on all
+        cores. `n_jobs` never changes a number.
     batch_size : int or None
         Chunk size for large arrays.
     random_state : int or None
@@ -875,7 +884,7 @@ def _metric_kwargs(metric_fn):
     } - {"axis"}
 
 
-def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwargs):
+def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwargs):
     """Label-shuffle permutation test; returns null distribution, optimized for GPU if needed."""
     is_cp = False
     try:
@@ -916,7 +925,7 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwar
         v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
         return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
 
-    null = _parallel_map(_run_single_perm, seeds, n_jobs=n_jobs)
+    null = parallel_map(_run_single_perm, seeds, n_jobs=n_jobs)
     return np.asarray(null)
 
 
@@ -945,7 +954,7 @@ def _p_from_null(value, null_dist, alternative):
     return np.atleast_1d(np.float64(p))
 
 
-def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=-1, **kwargs):
+def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
     """Percentile bootstrap; returns (lower, upper) CI array, optimized for GPU if needed."""
     is_cp = False
     try:
@@ -988,7 +997,7 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=-1, **kwargs):
         v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)
         return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
 
-    boot_vals = _parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
+    boot_vals = parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
     boot_arr = np.asarray(boot_vals)
     ci = np.percentile(boot_arr, [2.5, 97.5])
     return ci
@@ -1086,15 +1095,6 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
     # pure cost and `execution` recorded a GPU run that executed on the CPU. jrsa is a NumPy
     # estimator; `backend` and `device` are validated and recorded, and change no number.
     return np.asarray(arr, dtype=np.float64)
-
-
-def _parallel_map(fn, items, n_jobs=-1):
-    """Map fn over items, delegating to the shared chunked implementation.
-
-    Kept as a thin alias: jrsa's public functions default to n_jobs=-1, unlike the rest
-    of the library, and callers depend on that.
-    """
-    return parallel_map(fn, items, n_jobs=n_jobs)
 
 
 def _chunk_tensor(arr, batch_size, axis=-1):

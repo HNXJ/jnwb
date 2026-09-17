@@ -137,3 +137,130 @@ class TestNJobsDoesNotChangeResults:
         for fn in (cluster_permutation_test, cross_area_coherence, directed_network):
             default = inspect.signature(fn).parameters["n_jobs"].default
             assert default == 1, f"{fn.__name__} defaults to n_jobs={default}"
+
+
+class TestTheDefaultIsSerialEverywhere:
+    """05-46: `jrsa` defaulted to `n_jobs=-1`, the only public function in the package
+    that did, and it made an unqualified call slower rather than faster.
+
+    The first parallel call in a process costs about 4.5 s. Only 0.77 s of that is
+    joblib starting 24 workers; the rest is each worker running `import jnwb` -- 1.79 s
+    in a fresh interpreter -- before it can unpickle the callable. Every parallel call
+    site in this library passes such a callable, so no small input can repay it. A
+    40x6 input with the default 1000 permutations took 0.47 s serial and 4.87 s on all
+    cores, measured one call per interpreter.
+
+    A benchmark that calls twice in one process hides this: the second call reuses the
+    pool and costs 0.04 s. That is why the ratio has to be measured cold.
+    """
+
+    @staticmethod
+    def _public_n_jobs_defaults():
+        import inspect
+
+        import jnwb
+
+        found = {}
+        for name in jnwb.__all__:
+            obj = getattr(jnwb, name, None)
+            if not callable(obj):
+                continue
+            try:
+                sig = inspect.signature(obj)
+            except (TypeError, ValueError):
+                continue
+            param = sig.parameters.get("n_jobs")
+            if param is not None and param.default is not inspect.Parameter.empty:
+                found[name] = param.default
+        return found
+
+    def test_every_public_n_jobs_default_is_serial(self):
+        """Discovered from `jnwb.__all__` rather than listed, so a new function that
+        reintroduces `-1` fails here instead of being found by a user."""
+        defaults = self._public_n_jobs_defaults()
+
+        assert defaults, "no public function exposes n_jobs; the scan found nothing"
+        offenders = {name: default for name, default in defaults.items()
+                     if resolve_n_jobs(default) != 1}
+        assert not offenders, f"public defaults that start a pool: {offenders}"
+
+    def test_the_scan_actually_reaches_jrsa(self):
+        """Without this, the test above passes if the scan silently finds nothing
+        interesting -- `jrsa` is the function 05-46 was about."""
+        assert "jrsa" in self._public_n_jobs_defaults()
+
+    def test_a_default_call_does_not_start_a_process_pool(self, monkeypatch):
+        """The discriminator. `parallel_map` imports joblib only when it has decided to
+        parallelise, so a `Parallel` that refuses to be constructed is enough."""
+        import joblib
+
+        class _Refuses:
+            def __init__(self, *args, **kwargs):
+                raise AssertionError(f"a process pool was started: {args}, {kwargs}")
+
+        monkeypatch.setattr(joblib, "Parallel", _Refuses)
+
+        from jnwb import jrsa
+
+        rng = np.random.default_rng(0)
+        res = jrsa(rng.standard_normal((20, 4)), rng.standard_normal((20, 4)),
+                   metric="cka", permutations=20, rng=np.random.default_rng(0))
+
+        assert np.isfinite(np.asarray(res.statistic)).all()
+
+    def test_a_bootstrap_without_workers_does_not_start_one_either(self, monkeypatch):
+        """`bootstrap` defaults to 0, so the default call above never reaches the
+        bootstrap's own `parallel_map`. Asking for a confidence interval is not asking
+        for workers."""
+        import joblib
+
+        class _Refuses:
+            def __init__(self, *args, **kwargs):
+                raise AssertionError(f"a process pool was started: {args}, {kwargs}")
+
+        monkeypatch.setattr(joblib, "Parallel", _Refuses)
+
+        from jnwb import jrsa
+
+        rng = np.random.default_rng(0)
+        res = jrsa(rng.standard_normal((20, 4)), rng.standard_normal((20, 4)),
+                   metric="cka", permutations=0, bootstrap=20,
+                   rng=np.random.default_rng(0))
+
+        assert np.isfinite(np.asarray(res.statistic)).all()
+
+    def test_asking_for_workers_still_parallelises(self, monkeypatch):
+        """The guard against fixing the default by breaking the knob."""
+        import joblib
+
+        built = []
+        original = joblib.Parallel
+
+        class _Recording(original):
+            def __init__(self, *args, **kwargs):
+                built.append(kwargs.get("n_jobs"))
+                super().__init__(*args, **kwargs)
+
+        monkeypatch.setattr(joblib, "Parallel", _Recording)
+
+        out = parallel_map(_square, list(range(50)), n_jobs=2)
+
+        assert out == [_square(i) for i in range(50)]
+        assert built == [2], f"expected one pool for two workers, got {built}"
+
+    def test_jrsa_gives_the_same_numbers_with_and_without_workers(self):
+        """`n_jobs` is a speed knob (`AGENTS.md` 6). This is the invariant that lets the
+        default change at all, and it was not covered anywhere before."""
+        from jnwb import jrsa
+
+        rng = np.random.default_rng(0)
+        x1, x2 = rng.standard_normal((30, 5)), rng.standard_normal((30, 5))
+
+        serial = jrsa(x1, x2, metric="cka", permutations=100, n_jobs=1,
+                      rng=np.random.default_rng(7))
+        workers = jrsa(x1, x2, metric="cka", permutations=100, n_jobs=2,
+                       rng=np.random.default_rng(7))
+
+        assert np.array_equal(np.asarray(serial.statistic),
+                              np.asarray(workers.statistic))
+        assert np.array_equal(np.asarray(serial.p), np.asarray(workers.p))
