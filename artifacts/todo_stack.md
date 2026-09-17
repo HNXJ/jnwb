@@ -30,16 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-52 Five modules carry unrelated responsibilities
-- **Problem** Module boundaries that no longer match the code.
-- **Evidence** `laminar.py` (1831) holds three independent estimators with private helpers used by nothing else, splitting cleanly at lines 862 and 1476. `connectivity.py` (2144) interleaves spike-train information theory (`56-164` and `1728-2010`) with VAR/Granger (`167-1720`). `spectral.py` (1913) carries 208 lines of spatial re-referencing and CSD that belong with `laminar`. `jrsa.py` (1740) holds a private device subsystem duplicating `_backend.py` — deleted by 05-26. `statistics.py` (1633) duplicates its own module surface inside `StatisticalAnalysis` (565 lines, 5 pure forwarders). `analyzers.py` (779) holds three unrelated static-method namespaces with no shared state.
-- **Change** Split along the named line boundaries, re-exporting from the original module names so no import breaks.
-- **Preserves** Every import path and `__all__`.
-- **Discriminator** `from jnwb.laminar import vflip` and `import jnwb; jnwb.vflip` both keep working.
-- **Accept** No module carries two unrelated responsibilities; suite and gates green. Sequence this after sections 1-6, since it moves the code those items repair.
-
-## 8. Test simplification
-
 ### 05-53 Assertions that cannot fail
 - **Problem** Tests that are green regardless of the code.
 - **Evidence** `test_docs_nwb_workflow.py:124` asserts a long string is absent from `re.findall` output, which returns match substrings that can never contain it — and `skills/jnwb-nwb-data/SKILL.md:57` does contain the forbidden token. `test_representative_workflow.py:171` installs an import blocker defining `find_module`, removed from the meta-path protocol in 3.12, so it blocks nothing on the 3.14.3 interpreter; its own docstring calls it "the load-bearing assertion", and `test_jnwb_frozen_boundary.py:123` does it correctly with `find_spec`. `test_jnwb_frozen_boundary.py:78` iterates `AUTHORIZED_EXCEPTIONS`, which is `set()`. `test_jnwb_core.py` puts its assertions inside `if 'error' not in result:`, so replacing every `StatisticalAnalysis` method with an error dict leaves 25 of 26 passing.
@@ -314,6 +304,47 @@ development `.venv` described at the end of this file is not package evidence.
 - **Preserves** Release publication ordering: validate on `main`, tag, GitHub Release, production PyPI.
 - **Discriminator** A fresh venv installs from PyPI and reproduces the version, status, release date and full symbol set.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
+
+# Findings marked unsupported
+
+## 05-52 Five modules carry unrelated responsibilities -- deleted 2026-09-17
+
+Evidence regenerated against `5f229231`. The item's numbers predate 05-26, 05-49, 05-50
+and 05-51, all of which edited these files. Structure measured as the intra-module
+dependency graph over top-level symbols: a component is a disjoint cluster, and a
+component is interleaved when another cluster's symbols fall inside its line span.
+
+| module | claimed | actual lines | components | splits at a line? |
+|---|---|---|---|---|
+| `laminar` | 1831, three estimators, split at 862 and 1476 | 1882 | 2 | 862 yes; 1476 now lands inside a comment mid-function |
+| `connectivity` | 2144, IT at 56-164 and 1728-2010, VAR at 167-1720 | 2304 | 2 plus 1 isolated | no -- 14 symbols interleave one span, 3 the other |
+| `spectral` | 1913, 208 lines of re-referencing and CSD | 2124 | 7 | CSD yes (2028-2123, 94 lines); re-referencing no (3 symbols scattered over 201-1829, 112 lines) |
+| `jrsa` | 1740, device subsystem duplicating `_backend.py` | 1778 | 2 | already closed by 05-26: `jrsa.py:22` imports `CPU, CUDA, resolve_device` from `._backend` |
+| `statistics` | 1633, five pure forwarders | 1764 | 8 | forwarder direction resolved in 05-51 |
+| `analyzers` | 779, three namespaces with no shared state | 805 | 3, zero edges | yes |
+
+Three reasons the change is not made.
+
+`laminar` does not hold three independent estimators. `xflip` and `zflip` share
+`_surrogate_phase_randomize`, the only edge joining them. A three-way split either
+duplicates that helper, reintroducing what 05-51 removed, or adds a fourth module the
+item does not name.
+
+Four of six modules interleave, so "split along the named line boundaries" is not
+available. The change is a reorder plus a split, a diff in which every line moves and a
+semantic change is invisible to review -- during a pass whose purpose is to stop the
+object moving.
+
+The split buys nothing measurable. `Preserves: every import path and __all__` means
+re-export, and `jnwb/__init__.py` imports `laminar`, `spectral` and `connectivity`
+eagerly at lines 76, 132 and 156. Per-module self import time is 1.5-5.9 ms of 2347.8 ms
+total (`artifacts/benchmarks/import_breakdown.json`, 0.2.4); the remainder is scipy and
+sklearn, charged to whichever module imports them first and needed by both halves either
+way. API, import cost and symbol set are identical before and after, while
+`_api_surface.py` gains entries -- surface added, none removed.
+
+`analyzers.py` reproduces exactly: three classes, three components, no edges between
+them. It is left alone for the third reason, which applies to it as much as to the rest.
 
 # Before 1.0
 
