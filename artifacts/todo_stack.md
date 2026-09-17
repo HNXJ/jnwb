@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-54 Estimators with no discriminating test
-- **Problem** Mutating the implementation changes no test result.
-- **Evidence** Forcing `imaginary_coherency`'s `icoh_mean`/`icoh_abs_mean` to 0.0 changes zero of 1483 tests — every assertion is a null case or a self-comparison, in a file named `nonfabrication`. Mutating `shuffle_pvalue_paired`/`unpaired` to `1/(n+1)`, `shuffle_r2_ci.p_val` to 0.001, `paired_fire_prob_test.p` to 0.0001, `confirmed_*` to `True`, and `fdr_correct` to `return p.copy()` all pass: no null-data control and no BH oracle exists anywhere. A `bipolar_reference` sign flip and removal of `laplacian_reference`'s un-permute both pass. `tests/test_gpu_pca.py`'s "numpy reference" is a line-by-line copy of the implementation's own `_svd_numpy` branch, and all three tests pass `device="cpu"`, so the GPU branch has zero coverage.
-- **Change** Add a lagged-pair positive control with an independent cross-spectral oracle for `imaginary_coherency` (clone `test_wpli_matches_an_independent_oracle`); seeded null cases asserting `p > 0.2` for the statistics group; one hardcoded BH oracle; a pinned sign for the referencing functions.
-- **Preserves** Existing tests.
-- **Discriminator** Each new test fails under the stated mutation.
-- **Accept** No estimator in sections 1-2 survives its own mutation.
-
 ### 05-55 Test names that overclaim, and one that lets a missing dependency pass as a calibration failure
 - **Problem** Bodies narrower than their names.
 - **Evidence** `test_readme_quickstart_blocks_execute` never opens `README.md` — the `README` constant is unused in the function — and has already drifted: README line 96 says `t0_bounds=(0.0, 200.0)`, the test says `(0.0, 250.0)`. `test_readme_python_version_matches_policy` asserts the literals `"3.12"` and `"3.14"` and never reads `pyproject.toml`. `test_no_routed_module_probes_with_a_bare_cupy_import` searches only for `torch.cuda.is_available()`. `test_gpu_pca_cpu_and_cuda_agree_within_float32` has no GPU branch, so it compares CPU to CPU and reports PASS. `test_rsa_oracle`'s "SciPy oracle" tests call the identical SciPy function the implementation calls. `test_xflip_calibration`'s three FPR tests all pass with the surrogate gate removed entirely. `test_the_documented_centre_shrinkage_is_the_measured_one` hardcodes `0.6..0.95` while the receipt records 0.804 and the code gives 0.778. `test_onset_fitting.py:91` allows +/-60 ms where the measured error is 3.57 ms. Two `test_release_recovery_gates` tests patch `statsmodels` without importing it defensively, so a missing hard dependency surfaces as `ModuleNotFoundError` inside a mock.

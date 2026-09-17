@@ -176,6 +176,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four estimators had no test that could tell them from a constant.** Each of the
+  audit's nine candidates was run as a mutation against the whole suite before anything
+  was changed, because "nothing catches this" is a claim about the suite, not about one
+  file. Four mutations survived all 2391 tests: `imaginary_coherency` returning 0.0 for
+  both `icoh_mean` and `icoh_abs_mean`, `paired_fire_prob_test` pinned to p = 0.0001,
+  `confirmatory_compare` confirming everything, and `bipolar_reference` with its sign
+  flipped. `imaginary_coherency` now has a positive control checked against an oracle
+  that recomputes Im(coherency) from segment, detrend, window and rFFT, reusing no jnwb
+  helper and no scipy spectral estimator; the two p-values are calibrated across 20 null
+  draws in each direction, since one seed showing a large p-value is a draw rather than a
+  property; and the referencing sign is pinned to an exact expected array. Separately,
+  `tests/test_gpu_pca.py` compared the implementation against a line-for-line copy of its
+  own `_svd_numpy` branch and compared with `abs(corr)`, which is sign-invariant, so
+  `pin_component_signs` was uncovered too; it now checks against an eigendecomposition of
+  the scatter matrix, asserts the documented sign convention directly, and exercises the
+  CUDA fallback's control flow without a GPU. **No estimator changed.** All ten repairs
+  are verified by mutation, including the reverse of each constant, so a test asserting
+  "not significant" also rejects "always significant".
+- **Four of the audit's nine claims did not reproduce and no code was changed for them.**
+  Mutating both shuffle p-values to `1/(n+1)`, `shuffle_r2_ci.p_val` to 0.001,
+  `fdr_correct` to return its input, and `laplacian_reference` to skip its un-permute all
+  failed the existing suite. The catching tests are
+  `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`,
+  `test_independent_audit_semantics.py::TestMonteCarloPValueConvention::test_shuffle_r2_ci_uses_one_plus_k_over_b_plus_one`,
+  `test_jrsa_correctness.py::TestMultipleCorrectionFallback::test_multiple_correction_bh_matches_fdr_correct`
+  and `test_spectral.py::TestLaplacianReference::test_channel_order_un_permutes_back_to_input_positions`.
 - **Four tests asserted things that could not be false.** `test_docs_nwb_workflow.py`
   asserted a token was absent from `re.findall` output, which returns match substrings
   that can never contain a longer string -- and the pattern had no `re.MULTILINE`, so the
