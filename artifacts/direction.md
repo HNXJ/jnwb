@@ -60,12 +60,26 @@ For each public capability, the four faces are
 
     C = (I implementation, D documentation, S skill routing, T tests/evidence)
 
-and they must agree on: name, inputs, shapes, units, axes, estimator, outputs, failure
-behaviour, randomness, and the verification that applies.
+Agreement is checked per semantic dimension, over the faces that make a claim about that
+dimension:
 
-A capability with no skill routing passes when it needs none. A capability whose four
-faces contradict each other fails.
+    for every capability c and dimension d:
+        |{ meaning(c, d, f) : f claims d }| <= 1
 
-The triangle audit is a 0.2.5 close-out gate (`artifacts/todo_stack.md`, 05-85). It runs
-once after the stack empties and the independent critic completes, before the release
-seal.
+A demonstrated disagreement fails. A dimension the operation requires and no face
+specifies fails. A dimension the operation does not have is N/A, not missing. A skill
+silent on a dimension passes when routing does not require it.
+
+The dimensions are shape, units, axes, estimator, aggregation, failure behaviour,
+randomness, identity/provenance, and composition where an operation is reached through a
+skill that sequences it with others. Composition carries its own claims: order of
+operations, order of aggregation, whether identifiers survive, and which signal class is
+substituted for which. A routing layer can get every individual operation right and still
+compose them into a wrong result, without restating any mathematics.
+
+Presence stays with the gates. Public-symbol presence, API generation and export
+agreement, documentation coverage and onboarding alignment are decided deterministically;
+the audit consumes those results rather than reproducing them.
+
+The audit is a 0.2.5 close-out gate (`artifacts/todo_stack.md`, 05-85), run once after the
+stack empties and the independent critic completes, before the release seal.

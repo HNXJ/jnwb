@@ -302,10 +302,11 @@ development `.venv` described at the end of this file is not package evidence.
 ### 05-85 Code / docs / skills / tests triangle audit
 - **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
 - **Runs** After 05-83 and before 05-84. Added to the frozen stack 2026-09-17 by the ruling recorded in `artifacts/direction.md`; numbered after the last frozen item because the frozen numbers are a record.
-- **Change** For each public capability, establish that implementation, documentation, skill routing and tests/evidence agree on name, inputs, shapes, units, axes, estimator, outputs, failure behaviour, randomness, and the verification that applies. Mechanically where a gate can decide it, independently where it cannot.
-- **Preserves** The existing rule that a skill may not hold a mutable API fact that documentation and exports also hold.
-- **Discriminator** A seeded contradiction between any two faces is found by the audit.
-- **Accept** No capability has contradictory faces. A capability with no skill routing passes when it needs none; absence of routing is not a finding.
+- **Scope** Semantic agreement, not duplicate presence. Public-symbol presence, API generation and export agreement, documentation coverage and onboarding alignment stay with the deterministic gates that already decide them (5, 9, 13 and the skill-vs-exports rule). 05-85 consumes those results and does not re-derive them.
+- **Change** For each important capability, compare the faces that make a claim about each of: shape, units, axes, estimator, aggregation, failure behaviour, randomness, identity/provenance, and composition where the capability is reached through a skill that sequences it with others. Composition carries its own claims — order of operations, order of aggregation, whether identifiers survive, and which signal class is substituted for which — because a routing layer can get every individual operation right and still compose them into a wrong result without restating any mathematics.
+- **Preserves** The rule that a skill may not hold a mutable API fact that documentation and exports also hold.
+- **Discriminator** A seeded contradiction on a semantic dimension is found; a seeded presence-only defect is left to the gate that owns it.
+- **Accept** For every capability `c` and dimension `d`, the faces that claim `d` carry at most one meaning between them. A demonstrated disagreement fails. A dimension the operation requires and no face specifies fails. A dimension the operation does not have is N/A, not missing. A skill silent on `d` passes when routing does not require it.
 
 ### 05-84 Release seal
 - **Problem** 0.2.5 is not releasable until the above is closed.
