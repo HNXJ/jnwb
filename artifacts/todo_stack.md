@@ -148,6 +148,14 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 10. Skills and agents
 
+**Acceptance condition for every item in this section** (ruled 2026-09-17, stated in
+`artifacts/direction.md` under "Skill behaviour"): a skill routes to an operation or it
+declines -- supported analysis executes, missing information is requested, a
+non-identifiable result is reported as a failure, an unsupported claim is not inferred.
+Where an item already edits a skill, the edited skill must satisfy this and representative
+routing behaviour must be tested. Skills are release surfaces: verify against live exports
+and docs, not against the skill's own text.
+
 ### 05-67 Six routing rows teach a signature the code does not have, and one flips a sign
 - **Problem** Rows carry hardcoded signatures with no process keeping them true.
 - **Evidence** `skills/jnwb-statistics/SKILL.md:18` gives `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)`; live is `(fires_target, fires_null, n_shuffles, n_bootstrap, rng)`. On one dataset the correct order gives `risk_difference = +0.6` and the skill's order gives **-0.6**, with no error — and the skill omits the required `n_shuffles`. `jnwb-lfp-spectral:32` tells the reader to inspect `frac_flagged` to bound median substitution; the real key is `max_fraction_trials_flagged_at_a_sample`, so `info.get('frac_flagged', 0)` silently skips the check. `jnwb-nwb-data:29` calls `epoch_continuous(data, onsets, win_s, fs)` positionally against a keyword-only signature. `jnwb-population:13` gives `nested_cv_linear_svm(..., n_splits=5)`; there is no default. `jnwb-lfp-spectral:14` shows `band_power(..., normalize=False)` as the signature; the default is `True`, which raises without a baseline. `jnwb-lfp-spectral:22` describes `cross_area_coherence` as working "across channel pairs"; 2-D input is refused by design.
