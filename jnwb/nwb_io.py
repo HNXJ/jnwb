@@ -14,10 +14,15 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
-from typing import Any, Iterator
+from pathlib import Path
+from typing import Any, Iterator, Union
 
 import numpy as np
-from pynwb import NWBHDF5IO
+from pynwb import NWBFile, NWBHDF5IO
+
+PathLike = Union[str, Path]
+#: What every path-or-handle entry point in `nwb_events` and `nwb_inspect` accepts.
+NWBInput = Union[PathLike, NWBFile]
 
 _patch_depth = 0
 _patch_lock = threading.Lock()
@@ -151,3 +156,18 @@ def read_nwb(path: Any, **kwargs: Any) -> Any:
     """Read an NWB file through jnwb's scoped HDMF builder repairs."""
     with nwb_read_io(path, "r", **kwargs) as io:
         return io.read()
+
+
+def _with_nwb(path_or_nwb: NWBInput, fn):
+    """Call ``fn`` with an open NWBFile, opening and closing ``path_or_nwb`` if needed.
+
+    An already-open handle is passed straight through and is not closed here: the caller
+    that opened it owns it.
+    """
+    if isinstance(path_or_nwb, NWBFile):
+        return fn(path_or_nwb)
+    path = Path(path_or_nwb)
+    if not path.exists():
+        raise FileNotFoundError(f"NWB file not found: {path}")
+    with nwb_read_io(str(path), load_namespaces=True) as io:
+        return fn(io.read())

@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-51 Utilities implemented twice
-- **Problem** Duplicate definitions that can drift.
-- **Evidence** `_with_nwb` is byte-identical in `nwb_events.py:107` and `nwb_inspect.py:222`, differing only in the type-alias name — the only name defined twice in the package. `channel_correlation_matrix` (`artifact_detection.py:32`) and `trial_correlation_matrix` (`:83`) are AST-identical, both `np.corrcoef(np.asarray(x, dtype=float))`, differing only in docstring. `statistics.py` forwards `clopper_pearson`, `mann_whitney_p_floor` and `exact_sign_flip` from class to module and `fdr_correct` from module to class, so the delegation direction cannot be inferred; `clopper_pearson_ci` is an alias of a delegate. `_parallel_map` (`jrsa.py:1013`) exists only to change one default. `tfr_dir`/`meta_dir`/`conndb_dir` are three copies of one six-line body.
-- **Change** One shared `_with_nwb`; keep both correlation names but have one call the other; state the delegation direction in each forwarder's summary line; parameterise the three path helpers.
-- **Preserves** Every public name.
-- **Discriminator** No helper body appears twice.
-- **Accept** `_with_nwb` has one definition.
-
 ### 05-52 Five modules carry unrelated responsibilities
 - **Problem** Module boundaries that no longer match the code.
 - **Evidence** `laminar.py` (1831) holds three independent estimators with private helpers used by nothing else, splitting cleanly at lines 862 and 1476. `connectivity.py` (2144) interleaves spike-train information theory (`56-164` and `1728-2010`) with VAR/Granger (`167-1720`). `spectral.py` (1913) carries 208 lines of spatial re-referencing and CSD that belong with `laminar`. `jrsa.py` (1740) holds a private device subsystem duplicating `_backend.py` — deleted by 05-26. `statistics.py` (1633) duplicates its own module surface inside `StatisticalAnalysis` (565 lines, 5 pure forwarders). `analyzers.py` (779) holds three unrelated static-method namespaces with no shared state.

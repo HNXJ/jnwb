@@ -15,6 +15,7 @@ import numpy as np
 from scipy import optimize, signal, stats
 import pandas as pd
 
+from ._dictlike import DictAccessMixin
 from ._backend import CUDA, resolve_device, warn_device_fallback
 from ._parallel import parallel_map
 
@@ -1026,7 +1027,7 @@ def spectral_tilt(
 
 
 @dataclass
-class AperiodicFitResult:
+class AperiodicFitResult(DictAccessMixin):
     """
     Container for 1/f aperiodic spectral parameter estimates.
 
@@ -1047,12 +1048,6 @@ class AperiodicFitResult:
     freq_range: Tuple[float, float]
     mode: str
     accepted: bool
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> Dict[str, Any]:
         return {

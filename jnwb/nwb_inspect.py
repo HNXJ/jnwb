@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import h5py
 import numpy as np
 from pynwb import NWBFile
 
-from jnwb.nwb_io import nwb_read_io
+from jnwb.nwb_io import NWBInput, _with_nwb, nwb_read_io
 
-PathLike = Union[str, Path]
-InspectInput = Union[PathLike, NWBFile]
+#: Historical spelling of `NWBInput`; this module's entry points are annotated with it.
+InspectInput = NWBInput
 
 _MAX_SAMPLES = 5
 
@@ -321,16 +321,6 @@ def _inspect_units_h5py(units: h5py.Group) -> dict[str, Any]:
         "columns": columns,
         "has_spike_times": "spike_times" in units,
     }
-
-
-def _with_nwb(path_or_nwb: InspectInput, fn):
-    if isinstance(path_or_nwb, NWBFile):
-        return fn(path_or_nwb)
-    path = Path(path_or_nwb)
-    if not path.exists():
-        raise FileNotFoundError(f"NWB file not found: {path}")
-    with nwb_read_io(str(path), load_namespaces=True) as io:
-        return fn(io.read())
 
 
 def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:

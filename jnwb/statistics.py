@@ -230,6 +230,10 @@ def fdr_correct(
 ) -> np.ndarray:
     """Benjamini-Hochberg (or compatible) FDR across a hypothesis family.
 
+    This one forwards the other way: `StatisticalAnalysis.fdr_correct` holds the
+    implementation and this module-level name delegates to it. The other four
+    module/class pairs in this file run class -> module.
+
     Args:
         p_values: 1-D array of raw p-values (one per hypothesis).
         method: Passed to ``scipy.stats.false_discovery_control``. Default "bh".
@@ -1222,17 +1226,26 @@ class StatisticalAnalysis:
 
     @staticmethod
     def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
-        """Exact (Clopper-Pearson) binomial confidence interval via Beta quantiles."""
+        """Exact (Clopper-Pearson) binomial confidence interval via Beta quantiles.
+
+        Forwards to the module-level `clopper_pearson`, which holds the implementation.
+        """
         return clopper_pearson(k, n, alpha=alpha)
 
     @staticmethod
     def clopper_pearson_ci(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
-        """Alias for clopper_pearson for backwards compatibility."""
+        """Older spelling of `clopper_pearson`, kept for callers that used it.
+
+        Forwards to the module-level `clopper_pearson`, same as the method it aliases.
+        """
         return clopper_pearson(k, n, alpha=alpha)
 
     @staticmethod
     def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> float:
-        """Attainable minimal non-zero p-value floor for Mann-Whitney U test without ties."""
+        """Attainable minimal non-zero p-value floor for Mann-Whitney U test without ties.
+
+        Forwards to the module-level `mann_whitney_p_floor`, which holds the implementation.
+        """
         return mann_whitney_p_floor(n1, n2, alternative=alternative)
 
     @staticmethod
@@ -1242,7 +1255,10 @@ class StatisticalAnalysis:
         n_mc: int = 10000,
         rng: RNGLike = DEFAULT_SEED,
     ) -> Tuple[float, float, float]:
-        """Exact paired sign-flip permutation test for paired sample differences."""
+        """Exact paired sign-flip permutation test for paired sample differences.
+
+        Forwards to the module-level `exact_sign_flip`, which holds the implementation.
+        """
         return exact_sign_flip(diffs, alternative=alternative, n_mc=n_mc, rng=rng)
 
 

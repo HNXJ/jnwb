@@ -52,9 +52,15 @@ def _robust_z(x: np.ndarray) -> np.ndarray:
     return z
 
 
+def _pearson_rows(x: np.ndarray) -> np.ndarray:
+    """Pearson correlation between the rows of a 2-D array. The body both public
+    correlation helpers share: they differ in what a row is, not in what is computed."""
+    return np.corrcoef(np.asarray(x, dtype=float))
+
+
 def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
     """data_ch_by_time: (n_channels, n_samples). Returns (n_channels, n_channels) Pearson corr."""
-    return np.corrcoef(np.asarray(data_ch_by_time, dtype=float))
+    return _pearson_rows(data_ch_by_time)
 
 
 def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -85,7 +91,7 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
 
 def trial_correlation_matrix(trial_waveforms: np.ndarray) -> np.ndarray:
     """trial_waveforms: (n_trials, n_times), single channel. Returns (n_trials, n_trials) corr."""
-    return np.corrcoef(np.asarray(trial_waveforms, dtype=float))
+    return _pearson_rows(trial_waveforms)
 
 
 def bad_trials_single_channel(

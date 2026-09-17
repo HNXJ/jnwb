@@ -49,6 +49,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "visual_qc": "public",
     "_api_surface": "module-internal",
     "_backend": "module-internal",
+    "_dictlike": "module-internal",
     "_lazy_exports": "module-internal",
     "_parallel": "module-internal",
     "_rng": "module-internal",

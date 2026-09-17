@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from ._dictlike import DictAccessMixin
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
@@ -41,7 +42,7 @@ CANONICAL_VFLIP_BANDS: Dict[str, Tuple[float, float]] = {
 
 
 @dataclass(frozen=True)
-class VFlipResult:
+class VFlipResult(DictAccessMixin):
     """Container for Vectorized Frequency-based Laminar Identity Profile (vFLIP) results.
 
     Attributes:
@@ -92,12 +93,6 @@ class VFlipResult:
     n_channels: int
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -868,7 +863,7 @@ def label_layers(
 
 
 @dataclass(frozen=True)
-class XFlipResult:
+class XFlipResult(DictAccessMixin):
     """Container for Cross-Channel Laminar Correlation Profile (xFLIP) results.
 
     Attributes:
@@ -902,12 +897,6 @@ class XFlipResult:
     n_channels: int
     n_blocks: int
     boundary_drops: Optional[Dict[int, float]] = None
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1540,7 +1529,7 @@ def xflip(
 
 
 @dataclass(frozen=True)
-class ZFlipResult:
+class ZFlipResult(DictAccessMixin):
     """Container for zFLIP Cortical Depth Phase-Gradient & Delay Estimation results.
 
     zFLIP estimates laminar phase slope and propagation latency across ordered
@@ -1594,12 +1583,6 @@ class ZFlipResult:
     rejection_reason: Optional[str]
     n_channels: int
     pitch_um: Optional[float] = None
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""

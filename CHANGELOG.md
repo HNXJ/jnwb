@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Five copies of the dict-access shim became one `jnwb._dictlike.DictAccessMixin`.**
+  The five classes above now declare the mixin instead of each carrying the pair, so the
+  fix above landed once rather than five times. Read access only: these are records of a
+  computation, not mappings to build, so there is no `__setitem__` and no iteration, and
+  each class keeps its own `to_dict()`.
+- **`_with_nwb` has one definition.** It was byte-identical in `jnwb/nwb_events.py` and
+  `jnwb/nwb_inspect.py`, annotated with two aliases -- `NWBInput` and `InspectInput` --
+  that spell the same type, over a `PathLike` that was also written out twice. All three
+  names now live in `jnwb.nwb_io`, which both modules already imported `nwb_read_io`
+  from. `jnwb.nwb_inspect.InspectInput` remains as an alias of `NWBInput`. The two
+  module-local `PathLike` aliases are gone; `jnwb.nwb_io.PathLike` is the same type, and
+  no importer of either copy exists anywhere in this repository or the workspace.
+- **`channel_correlation_matrix` and `trial_correlation_matrix` share their body.** Both
+  were `np.corrcoef(np.asarray(x, dtype=float))`; both now call one private
+  `_pearson_rows`. Both public names are kept, because the difference between them is
+  what a row means, not what is computed.
+- **`tfr_dir`, `meta_dir` and `conndb_dir` share their body.** Three copies of the same
+  six lines, differing only in which three constants they named, now pass those three
+  constants to one `_configured_dir`. Each keeps its own docstring naming its own
+  variables. Merging them exposed a gap: the documented order
+  `override > $JNWB_*_DIR > $OMISSION_*_DIR (deprecated)` was tested for `nwb_dir`, which
+  has its own body, but never for these three -- a mutation making the deprecated
+  variable win passed the whole suite. It is tested now, for all three.
+- **The `statistics.py` forwarders say which way they point.** `clopper_pearson`,
+  `clopper_pearson_ci`, `mann_whitney_p_floor` and `exact_sign_flip` forward from
+  `StatisticalAnalysis` to the module-level implementation; `fdr_correct` runs the other
+  way, module to class. The direction could not be inferred from either side and is now
+  stated in each summary. No delegation was redirected: changing one would move results
+  for callers of the other spelling.
 - **`CANONICAL_VFLIP_BANDS` is now the source of the bands, not a third copy of them.**
   The constant had no references, and deleting it would have been the wrong direction:
   the same two intervals were written out as literal defaults in `vflip` and
@@ -146,6 +175,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Call the dataclass directly. The other eleven ontology exports are retained.
 
 ### Fixed
+
+- **Dict-style access on the result dataclasses now fails the way a dict fails.**
+  `DirectedResult`, `VFlipResult`, `XFlipResult`, `ZFlipResult` and `AperiodicFitResult`
+  each carried a copied `__getitem__`/`get` pair, introduced "so callers written against
+  the older dict-returning functions in this module keep working". It did not keep them
+  working. `__getitem__` was `return getattr(self, key)`, so a missing key raised
+  `AttributeError` and a migrated call site's `except KeyError` did not catch it; and
+  with no `__contains__` defined, `"method" in result` fell back to the integer index
+  protocol and raised `TypeError: attribute name must be string, not 'int'`. The
+  behaviour was only ever tested for keys that were present, which is how five copies of
+  a broken promise survived. A miss now raises `KeyError`, a non-string key is a miss
+  rather than a `TypeError`, and `in` answers. **Every key that resolved before resolves
+  to the same value**; only the behaviour on a key that does not resolve changed.
 
 - **`jrsa` recorded a `batch_size` it never used.** The parameter was accepted,
   documented as "Chunk size for large arrays", and copied into the result's

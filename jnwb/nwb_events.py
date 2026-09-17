@@ -12,10 +12,7 @@ import numpy as np
 import pandas as pd
 from pynwb import NWBFile
 
-from jnwb.nwb_io import nwb_read_io
-
-PathLike = Union[str, Path]
-NWBInput = Union[PathLike, NWBFile]
+from jnwb.nwb_io import NWBInput, _with_nwb
 CodeValue = Union[str, int, float]
 CodeSequence = Union[CodeValue, Sequence[CodeValue]]
 
@@ -117,16 +114,6 @@ def _resolve_interval_table(nwb: NWBFile, table: str | None) -> str:
         "Several interval tables and none named 'trials': "
         f"{names}. Pass table=<name> explicitly."
     )
-
-
-def _with_nwb(path_or_nwb: NWBInput, fn):
-    if isinstance(path_or_nwb, NWBFile):
-        return fn(path_or_nwb)
-    path = Path(path_or_nwb)
-    if not path.exists():
-        raise FileNotFoundError(f"NWB file not found: {path}")
-    with nwb_read_io(str(path), load_namespaces=True) as io:
-        return fn(io.read())
 
 
 def _read_interval_dataframe(nwb: NWBFile, table: str) -> pd.DataFrame:

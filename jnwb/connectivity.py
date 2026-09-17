@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
+from ._dictlike import DictAccessMixin
 from ._backend import (
     CPU,
     CUDA,
@@ -616,7 +617,7 @@ def network_topology(
 
 
 @dataclass
-class DirectedResult:
+class DirectedResult(DictAccessMixin):
     """
     Uniform return type for every directed connectivity estimator.
 
@@ -652,14 +653,6 @@ class DirectedResult:
     fs: Optional[float] = None
     params: Dict[str, Any] = field(default_factory=dict)
     diagnostics: Dict[str, Any] = field(default_factory=dict)
-
-    # dict-style access, so callers written against the older dict-returning
-    # functions in this module keep working
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> Dict[str, Any]:
         out = {
