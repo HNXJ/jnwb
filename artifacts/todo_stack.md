@@ -32,14 +32,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
 
-### 05-61 Six documented calls do not run
-- **Problem** Signatures and call shapes that drifted.
-- **Evidence** `docs/05:78` `repair_lfp_trials(..., window_ms=)` -> `TypeError: unexpected keyword argument 'window_ms'` (live: `exclude_window_ms`). `docs/05:49` `bad_trials_single_channel(..., r_thresh=0.2)` -> unexpected keyword (live: `corr_z_thresh=5.0`, a z-score not a raw correlation). `docs/06:33` `compute_response_metrics(..., event_onsets=)` -> "Did you mean 'epoch_onsets'?". `docs/06:33` `classify_response_significance(spike_times=..., alpha=0.01)` -> unexpected keyword; live it takes `(metrics: Dict[str,float], zscore_threshold, min_spike_count)`, i.e. the output of the previous call — the composition the page exists to teach, taught backwards. `docs/09:39` `assign_outer_folds(labels, n_splits=5, groups=)` -> live takes a DataFrame. `docs/09:39` `build_representation_ladder(X, labels, feature_names=)` -> live takes `(raster, *, modality, spatial_axis_metadata)` and `labels` is not an input. `docs/11` section 9.2 documents `zflip` with `phase_gradient` and `wpli_profile` fields that do not exist, contradicting the correct contract at `docs/02:128`.
-- **Change** Fix each against the live signature.
-- **Preserves** The pedagogy.
-- **Discriminator** Every documented snippet runs.
-- **Accept** A test extracts and executes every runnable fenced block, with CWD outside the checkout. Today only 1 of README's 4 python blocks is executed by any test.
-
 ### 05-62 The executable quickstart is not executable, and the README prints a fabricated onset
 - **Problem** One script died to a tightened validation; one example has no signal to recover.
 - **Evidence** `examples/quickstart_jnwb.py:126` raises `ValueError: scheme='within_group' has no exchangeability for this design` — the panel deliberately builds a constant-within-group label to demonstrate that the null cannot move, and the library now refuses to produce it. Both README and `docs/quickstart.md:54` call the script "executable", and `examples/figures/jnwb_quickstart.png` is its stale output. Separately, README's arrays quickstart runs and prints `Onset t0: 165.0 ms (R2=-0.00, None)` from `rng.uniform(0.0, 10.0, 300)`, homogeneous noise with no onset, with `bound_status` of `None` displayed as a status.
@@ -269,6 +261,12 @@ and docs, not against the skill's own text.
      survives a mutation that makes `_condensed_distances` ignore its `metric` argument
      entirely -- the oracle catches it, so the suite is covered, but the test named for
      metrics does not detect that metrics are ignored.
+  9. **`tests/test_docs_smoke.py` may be a second copy of the documentation.** Its ten
+     tests hand-transcribe the documented workflows instead of reading the pages, so all
+     ten passed while six documented calls raised `TypeError` -- the pattern 05-55
+     removed from `tests/test_readme_smoke.py`. 05-61 added parse and execute checks that
+     read the pages directly. Whether the transcribed file still carries failure classes
+     those do not has not been measured, so it was neither deleted nor trusted.
 
 ### 05-85 Code / docs / skills / tests triangle audit
 - **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.

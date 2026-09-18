@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts
   now, with the rate they stand in for measured at 30 seeds in the receipt. No outcome
   changes and no mutation separates the two spellings: this is a statement repair.
+- **`tests/test_docs_smoke.py` was green throughout.** Its ten tests hand-transcribe the
+  documented workflows rather than reading the pages, so six documented calls could raise
+  `TypeError` while it passed -- the same second-copy pattern 0.2.5 removed from
+  `tests/test_readme_smoke.py`. It is left alone here and carried to the independent pass
+  as a known unknown; nothing has measured whether it holds failure classes the new
+  parse and execute checks do not.
 - **A comparison against a package that is not installed now says so.**
   `test_area_resolution_is_identical_with_and_without_omission_importable` runs jnwb in
   two subprocesses, one with `omission` blocked, and asserts they agree. The blocked arm
@@ -182,6 +188,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_docs_call_shapes.py` checks the documentation against the signatures that
+  ship.** Executing the blocks would not have caught the six defects above: 88 of the 113
+  `python` blocks are fragments over variables their page never defines, so they are not
+  runnable, and an execute-everything test skips exactly the pages where the drift is.
+  These parse the blocks instead and check every keyword and positional count against
+  `inspect.signature`, across 152 documented calls on 29 pages, fragments included. Four
+  discriminators kill, one per check.
+  It also asserts that every `python` block parses rather than skipping the ones that do
+  not. That check exists because writing this repair put a paragraph of prose inside a
+  fence: the block stopped being Python, the sweep skipped it, and everything still
+  reported green while the page a reader copies from was broken.
+  The 12 blocks that bind every name they use, name no data file and carry no MkDocs
+  include directive are executed with the working directory outside the checkout. The
+  suite otherwise runs from the repository root with `pythonpath = ["."]`, so a block
+  reaching for a relative path finds the checkout and passes for a reason a reader
+  installing from PyPI does not have.
+
 - **`Provenance` records the jnwb that ran, not the one the caller names.**
   `software_version` is a required caller argument and nothing derived it, so a record
   could name a version that never executed and, the dataclass being frozen, keep it
@@ -231,6 +254,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Call the dataclass directly. The other eleven ontology exports are retained.
 
 ### Fixed
+
+- **Six documented calls raised `TypeError` on the first line a reader would copy, and
+  two of them were inverted rather than renamed.**
+  `repair_lfp_trials(window_ms=(-100, 500))` was commented "Active evaluation interval".
+  The live parameter is `exclude_window_ms`, and it means the opposite: samples inside it
+  are never flagged for repair. A reader who fixed only the name would have suppressed
+  repair over exactly the window they meant to analyse, so the example now uses it for
+  what it is for -- protecting an interval whose deflection is signal.
+  `bad_trials_single_channel(r_thresh=0.2)` was commented "Minimum acceptable correlation
+  with template". The live parameter is `corr_z_thresh`, default 5.0, a robust-z outlier
+  threshold on a trial's median correlation to the *other trials*; there is no template,
+  and 0.2 as a z threshold would flag nearly everything.
+  `docs/06` taught a two-step composition backwards: `classify_response_significance`
+  consumes the dict `compute_response_metrics` returns, and the page passed it that
+  function's inputs instead, then printed two result keys the function does not return.
+  `alpha=0.01` becomes `zscore_threshold=2.58`, the two-sided 99% cutoff, so the example
+  keeps its meaning. `docs/09` called `assign_outer_folds` with a label vector and
+  `n_splits`/`groups` when it takes a trial table, and `build_representation_ladder` with
+  labels and feature names when it takes a `(n_trials, n_space, n_time)` raster and no
+  labels at all; the flow diagram above them, which routed the ladder out of training,
+  is corrected too. `docs/11` section 9.2 documented `ZFlipResult.phase_gradient` and
+  `.wpli_profile`, neither of which is a field of the result, in the only documentation
+  those estimators had.
 
 - **A grid-invariance test that could only measure determinism.**
   `test_frequency_grid_resolution_invariance` asserted that the crossover estimate moved

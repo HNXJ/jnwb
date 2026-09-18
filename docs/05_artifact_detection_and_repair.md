@@ -52,10 +52,16 @@ trial_corr = jnwb.trial_correlation_matrix(trials_data)
 
 bad_trials, corr_z, amp_z = jnwb.bad_trials_single_channel(
     trials_data,
-    r_thresh=0.2,       # Minimum acceptable correlation with template
-    amp_z_thresh=4.0    # Maximum acceptable peak-amplitude z-score
+    corr_z_thresh=5.0,  # Flag a trial whose median correlation to the OTHER trials
+                        # is this many robust-z below theirs. It is a z-score, not a
+                        # correlation, and there is no template: the comparison is
+                        # against the rest of the trials on this channel.
+    amp_z_thresh=5.0    # Maximum acceptable peak-amplitude robust-z
 )
 ```
+
+Either condition alone flags a trial. On a single channel that is deliberately
+permissive; cross-channel consensus below is what decides exclusion.
 
 ### Consensus Bad Trials Across Channels
 Aggregates bad trial flags across multiple channels using a consensus voting threshold:
@@ -83,8 +89,13 @@ import jnwb
 repaired_lfp, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
     segments,
     times_ms=times_ms,
-    z_thresh=6.0,          # Threshold for cross-channel synchronous deviation
-    window_ms=(-100, 500)   # Active evaluation interval
+    z_thresh=6.0,                    # Cross-channel synchronous-deviation threshold
+    exclude_window_ms=(400.0, 600.0)  # PROTECTED, not analysed: samples inside this
+                                      # window are never flagged for repair. Use it
+                                      # for an interval whose large deflection is
+                                      # signal -- a reward artefact, say -- that the
+                                      # synchrony detector would otherwise substitute
+                                      # away. Omit it to evaluate the whole epoch.
 )
 
 print(f"Total time-samples flagged and repaired: {frac_flagged * 100:.2f}%")

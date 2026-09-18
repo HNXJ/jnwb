@@ -31,24 +31,28 @@ time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
 ### Response Metrics & Significance Classification
 
 ```python
-# Compute peak firing rate, baseline rate, modulation index, and latency
+# Compute peak firing rate, baseline rate, modulation index, and latency.
+# The window arguments are in SECONDS and say so in their names; the
+# raster_psth(win_ms=) call above is in milliseconds, and both take a float
+# 2-tuple, so the suffix is the only thing standing between you and a factor
+# of 1000.
 metrics = jnwb.compute_response_metrics(
     spike_times=spike_times_s,
-    event_onsets=trial_onsets_s,
-    baseline_window=(-0.2, 0.0),
-    response_window=(0.0, 0.4)
+    epoch_onsets=trial_onsets_s,
+    baseline_window_s=(-0.2, 0.0),
+    response_window_s=(0.0, 0.4),
 )
 
-# Classify whether unit shows statistically significant increase or decrease
-sig_result = jnwb.classify_response_significance(
-    spike_times=spike_times_s,
-    event_onsets=trial_onsets_s,
-    baseline_window=(-0.2, 0.0),
-    response_window=(0.0, 0.4),
-    alpha=0.01
-)
-print("Is responsive:", sig_result["is_responsive"])
-print("Modulation direction:", sig_result["direction"])
+# Classification consumes the metrics computed above -- not the spike times again.
+# The two calls compose in one direction only: measure, then classify.
+# zscore_threshold is the cutoff on the response z-score; 2.58 is the two-sided
+# 99% cutoff, the equivalent of alpha = 0.01.
+sig_result = jnwb.classify_response_significance(metrics, zscore_threshold=2.58)
+print("Significant:", sig_result["is_significant"])
+print("Approximate p-value:", sig_result["pvalue"])
+# "undefined" means the baseline had no across-trial variance, so the z-score is
+# NaN and no classification was made. It is not a weak response.
+print("Confidence:", sig_result["confidence"])
 ```
 
 ### Spike-LFP Phase Locking (`phase_locking_index`, `pairwise_phase_consistency`)
