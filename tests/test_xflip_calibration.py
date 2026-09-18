@@ -46,6 +46,51 @@ class TestXFlipNullCalibration:
         fpr = accepted / n_seeds
         assert fpr <= 0.07  # Poisson / binomial sampling bound for n=15 at alpha=0.05
 
+    def test_acceptance_requires_the_surrogate_test_to_pass(self):
+        """The gate these tests are named for, asserted rather than assumed.
+
+        Removing the significance decision entirely -- `is_sig` unconditionally true
+        whenever surrogates ran -- leaves `test_white_noise_fpr_controlled`,
+        `test_periodic_common_response_fpr_controlled`,
+        `test_smooth_spatial_gradient_rejected` and all nine tests in
+        `TestXFlipGradientGateOnBothPaths` passing, because the contrast and
+        boundary-drop gates reject those nulls on their own. Only the AR-noise case
+        above notices, and only as a rate.
+
+        Correlated noise is where the distinction is visible: the other gates open and
+        the surrogate test is the sole reason for rejection on 14 of 25 seeds, with
+        omnibus p running to 0.56. Acceptance must therefore imply significance.
+        """
+        alpha = 0.05
+        sole_surrogate = 0
+        for s in range(25):
+            ar = synth_ar_noise(600, n_channels=16, fs=1000.0, tau_s=0.030, rng=s + 700)
+            res = xflip(
+                ar,
+                n_blocks=2,
+                min_block_size=3,
+                n_surrogates=40,
+                surrogate_method="autocorr_preserving",
+                rng=s + 600,
+                alpha=alpha,
+            )
+            p = float(res.p_values["omnibus"])
+            if res.accepted:
+                assert p <= alpha, (
+                    f"seed {s} accepted with omnibus p = {p:.4f} > alpha = {alpha}; "
+                    "acceptance is not gated on the surrogate significance test"
+                )
+                continue
+            reasons = [
+                r.strip() for r in (res.rejection_reason or "").split(";") if r.strip()
+            ]
+            if len(reasons) == 1 and reasons[0].startswith("Non-significant modularity"):
+                sole_surrogate += 1
+        assert sole_surrogate >= 8, (
+            f"only {sole_surrogate} of 25 seeds were rejected by the surrogate test "
+            "alone; without them this test cannot tell that gate from the ones beside it"
+        )
+
     def test_periodic_common_response_fpr_controlled(self):
         n_seeds = 15
         accepted = 0

@@ -115,22 +115,66 @@ class TestCallSitesAreRouted:
                 f"jnwb.{name} does not route its device decision through _backend"
             )
 
-    def test_no_routed_module_probes_with_a_bare_cupy_import(self):
-        """`import cupy` succeeds with no driver, so it never proved a GPU existed."""
+    def test_no_routed_module_decides_capability_by_importing_a_gpu_library(self):
+        """`import cupy` succeeds with no driver, so it never proved a GPU existed.
+
+        Named for cupy, this searched only for `torch.cuda.is_available()`, so the
+        defect in its own docstring -- a bare cupy import standing in for a capability
+        decision -- was the one case it could not report. The rule is checked over both
+        libraries and by import rather than by one spelling of one probe: a function
+        that imports a GPU library must also resolve capability, unless it is a `*_gpu`
+        implementation, which by construction runs only after a caller has resolved.
+        """
+        import ast
         import pathlib
-        import re
 
         root = pathlib.Path(__file__).resolve().parents[1] / "jnwb"
+        gpu_libs = {"cupy", "torch"}
+
+        def imports_a_gpu_library(node):
+            for child in ast.walk(node):
+                if isinstance(child, ast.Import):
+                    for alias in child.names:
+                        if alias.name.split(".")[0] in gpu_libs:
+                            yield child.lineno, alias.name
+                elif isinstance(child, ast.ImportFrom) and child.module:
+                    if child.module.split(".")[0] in gpu_libs:
+                        yield child.lineno, child.module
+
+        def resolves_capability(node):
+            return any(
+                (getattr(c.func, "id", None) or getattr(c.func, "attr", None))
+                in ("resolve_device", "gpu_available")
+                for c in ast.walk(node)
+                if isinstance(c, ast.Call)
+            )
+
         offenders = []
+        checked = 0
         for name in self.ROUTED_MODULES:
-            text = (root / f"{name}.py").read_text(encoding="utf-8")
-            # A capability *decision* looks like `if <import/attr> ...:`; using cupy
-            # inside an already-resolved branch is fine.
-            for match in re.finditer(r"^\s*if .*torch\.cuda\.is_available\(\)", text, re.M):
-                offenders.append(f"{name}: {match.group(0).strip()}")
+            tree = ast.parse((root / f"{name}.py").read_text(encoding="utf-8"))
+            for node in tree.body:
+                for lineno, mod in imports_a_gpu_library(
+                    ast.Module(body=[node], type_ignores=[])
+                ):
+                    if isinstance(node, (ast.Import, ast.ImportFrom)):
+                        offenders.append(f"{name}.py:{lineno}: module-level {mod}")
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                found = list(imports_a_gpu_library(fn))
+                if not found:
+                    continue
+                checked += 1
+                if fn.name.endswith("_gpu") or resolves_capability(fn):
+                    continue
+                for lineno, mod in found:
+                    offenders.append(f"{name}.py:{lineno}: {fn.name} imports {mod}")
+
+        assert checked, "no routed module imports a GPU library; this test checks nothing"
         assert offenders == [], (
-            "device capability must be decided by _backend.resolve_device, not re-probed "
-            "at the call site: " + "; ".join(offenders)
+            "device capability must be decided by _backend.resolve_device, not by whether "
+            "an import succeeded: " + "; ".join(offenders)
         )
 
 

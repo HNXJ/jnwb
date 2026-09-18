@@ -176,6 +176,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Seven tests asserted less than their names claimed.** Each claim was reproduced
+  before anything was changed, and each repair was then mutation-checked against the
+  defect its name describes; all seven mutants were killed.
+  `test_readme_quickstart_blocks_execute` held a hand-copied transcription and never
+  opened `README.md` -- the module-level `README` constant was unused in the body -- so
+  the two had already drifted, the README passing `t0_bounds=(0.0, 200.0)` where the copy
+  asserted `(0.0, 250.0)`. It now executes the README's own fenced blocks, so there is no
+  second copy to drift. `test_readme_python_version_matches_policy` asserted that the
+  literals `"3.12"` and `"3.14"` appear somewhere in the README, which survives any change
+  to `requires-python` or to the CI matrix; it now reads `pyproject.toml` and
+  `.github/workflows/workflow.yml` and compares them against what the README states.
+  `test_no_routed_module_probes_with_a_bare_cupy_import` searched only for
+  `torch.cuda.is_available()`, so the bare cupy import named in its own docstring was the
+  one case it could not report; it now checks both libraries by import across the routed
+  modules, allowing `*_gpu` implementations, which run only after a caller has resolved.
+  Three `rdm_similarity` tests compared the dispatcher against the same SciPy function it
+  dispatches to; the coefficients are now computed from each estimator's definition.
+  `test_the_documented_centre_shrinkage_is_the_measured_one` allowed a slope anywhere in
+  `[0.60, 0.95]`, 3.8 times the estimator's measured spread and wide enough to admit the
+  0.95 that the test's own docstring says must be reported; measured over five disjoint
+  nine-seed sets the slope runs 0.7557 to 0.8487, and the band is now `[0.70, 0.90]`.
+  `test_recovers_known_onset_within_tolerance` allowed +/-60 ms on a 50 ms onset, so a fit
+  reporting 0 ms passed a test named for recovery; the error at this seed is 3.57 ms and
+  the bound is now 8 ms.
+- **xFLIP's surrogate significance test was gated by one test.** Removing the decision
+  entirely -- `is_sig` unconditionally true whenever surrogates ran -- left three of the
+  four false-positive-rate tests and all nine `TestXFlipGradientGateOnBothPaths` tests
+  passing, because the contrast and boundary-drop gates reject those nulls without it.
+  Only the AR-noise case noticed, and only as a rate. On correlated noise the other gates
+  open and the surrogate test is the sole reason for rejection on 14 of 25 seeds, with
+  omnibus p running to 0.56, so acceptance is now asserted to imply significance there,
+  with a non-vacuity guard on how many such seeds occur.
 - **Four estimators had no test that could tell them from a constant.** Each of the
   audit's nine candidates was run as a mutation against the whole suite before anything
   was changed, because "nothing catches this" is a claim about the suite, not about one

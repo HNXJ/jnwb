@@ -1276,7 +1276,11 @@ class TestVFlipNormalizationRepair:
         SNR 100 and 0.864 at SNR 1000. This pins that claim so the docstring cannot go stale
         in either direction: a slope near 1 would mean the documentation now understates the
         estimator and must be rewritten, and a slope below the band would be a regression.
-        The band is wide because this runs far fewer seeds than the calibration.
+        The band is set from the estimator's measured spread, not from a guess at it.
+        Over five disjoint nine-seed sets the fitted slope runs 0.7557 to 0.8487 (sd
+        0.0330); as this test runs it is 0.7779. The band was [0.60, 0.95], 3.8 times
+        that spread and wide enough to admit 0.95 -- which is the "slope near 1" the
+        paragraph above says must be reported, so the test could not report it.
         """
         truth, est = [], []
         for c_true in (4.6, 9.2, 13.8, 18.4):
@@ -1284,7 +1288,7 @@ class TestVFlipNormalizationRepair:
             truth += [c_true] * len(errors)
             est += list(np.asarray(errors) + c_true)
         slope = float(np.polyfit(np.array(truth), np.array(est), 1)[0])
-        assert 0.6 <= slope <= 0.95, (
+        assert 0.70 <= slope <= 0.90, (
             f"fitted slope {slope:.3f} is outside the calibrated band; the documented "
             f"centre-shrinkage in VFlipResult.crossover_contact no longer matches the code"
         )

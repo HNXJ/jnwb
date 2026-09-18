@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-55 Test names that overclaim, and one that lets a missing dependency pass as a calibration failure
-- **Problem** Bodies narrower than their names.
-- **Evidence** `test_readme_quickstart_blocks_execute` never opens `README.md` — the `README` constant is unused in the function — and has already drifted: README line 96 says `t0_bounds=(0.0, 200.0)`, the test says `(0.0, 250.0)`. `test_readme_python_version_matches_policy` asserts the literals `"3.12"` and `"3.14"` and never reads `pyproject.toml`. `test_no_routed_module_probes_with_a_bare_cupy_import` searches only for `torch.cuda.is_available()`. `test_gpu_pca_cpu_and_cuda_agree_within_float32` has no GPU branch, so it compares CPU to CPU and reports PASS. `test_rsa_oracle`'s "SciPy oracle" tests call the identical SciPy function the implementation calls. `test_xflip_calibration`'s three FPR tests all pass with the surrogate gate removed entirely. `test_the_documented_centre_shrinkage_is_the_measured_one` hardcodes `0.6..0.95` while the receipt records 0.804 and the code gives 0.778. `test_onset_fitting.py:91` allows +/-60 ms where the measured error is 3.57 ms. Two `test_release_recovery_gates` tests patch `statsmodels` without importing it defensively, so a missing hard dependency surfaces as `ModuleNotFoundError` inside a mock.
-- **Change** Repair each name-body mismatch; add `pytest.importorskip("statsmodels")` where a test patches it; tighten the onset tolerance to 15 ms.
-- **Preserves** Coverage.
-- **Discriminator** Each fails under the defect its name describes.
-- **Accept** No test name asserts more than its body checks.
-
 ### 05-56 The vflip receipt hashes only part of what it certifies
 - **Problem** `estimator_sha256` hashes `getsource(vflip)` alone, while `vflip` calls `_unit_range`, `_from_lfp` and `_device`.
 - **Evidence** A line-count-preserving `_unit_range` mutation reintroducing the 0.2.4 centring defect (median bias +1.45 -> +6.66) leaves the receipt reading "current" and the file passing 4/4.
@@ -304,6 +296,35 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-55 claims 4, 5 and 9 -- graded 2026-09-17
+
+Seven of the item's nine claims reproduced and were repaired at this commit. Three did
+not hold as written, and the corrections are recorded here because they outlive the item.
+
+**Claim 4 is stale.** `test_gpu_pca_cpu_and_cuda_agree_within_float32` no longer exists.
+05-43 renamed and repaired it at `c72d9c2a` to
+`test_gpu_pca_cpu_and_cuda_return_the_same_numbers`, which compares `proj`, `comp` and
+`var` rather than the sign-invariant variance ratio. No change was made for this claim.
+
+**Claim 9 does not reproduce, and the change it proposed is harmful.** The item asks for
+`pytest.importorskip("statsmodels")` in the two `test_release_recovery_gates` tests that
+patch it. `statsmodels>=0.13.0` is a required install dependency at `pyproject.toml:50`,
+not an optional extra, so a `ModuleNotFoundError` there is a broken installation and
+should fail loudly. `importorskip` would convert that into a silent skip. No test in the
+suite guards `statsmodels`, and the convention is right. No change was made.
+
+**Claim 5 reproduces as a mechanism but not as a loss of coverage.** `rdm_similarity`
+(`jnwb/rsa.py:197`) is a dispatcher whose `pearson` arm is `stats.pearsonr(v1, v2)`, and
+the test compared it against `pearsonr(a, b)` -- the same function on the same inputs, so
+the assertion was an identity. That much is confirmed by reading the dispatcher. The
+implied consequence is not: under a mutant replacing the `pearson` arm with an uncentred
+cosine, *both* the replacement definitional oracle and a replica of the old circular
+assertion failed. A wrong implementation diverges from the SciPy value it is compared
+against, so the old test did catch implementation defects. The repair was still made --
+it removes the test's dependence on SciPy's correctness and on the implementation
+continuing to delegate -- but it closed no measured gap, and the item's framing overstated
+what the circularity cost.
 
 ## 05-52 Five modules carry unrelated responsibilities -- deleted 2026-09-17
 
