@@ -42,14 +42,6 @@ Where an item already edits a skill, the edited skill must satisfy this and repr
 routing behaviour must be tested. Skills are release surfaces: verify against live exports
 and docs, not against the skill's own text.
 
-### 05-72 The MCP server has a fourth tool that writes code, is undocumented, and never loads
-- **Problem** `docs/agents.md:24` says "Three tools, all of them ingest"; `mcp.list_tools()` returns four.
-- **Evidence** `['inspect_nwb', 'prepare_signal_reference', 'get_event_codes_and_timings', 'add_tool']`. `add_tool(code)` writes Python source into the installed package directory, gated only by `ALLOW_DYNAMIC_TOOLS=1`, and appends to `custom_tools.py` — which `jnwb/mcp_server/__init__.py` does not import, so its "Please restart the MCP server to load the new tool" message is false at any restart. `docs/10:18` gives a third number by pointing at `jnwb.mcp_server.__all__`, which has five entries.
-- **Change** Decide whether `add_tool` ships. If it does: document it and its env gate, and wire `custom_tools` into `__init__.py` so the message is true. If not: drop it from `__init__.py`. Point every count at the live registry rather than restating it.
-- **Preserves** The three ingest tools.
-- **Discriminator** The documented tool list equals `mcp.list_tools()`.
-- **Accept** A test compares the documented table against the live registry. Ruled 2026-09-16: resolve from evidence, not by asking. Inspect `add_tool` for mutation scope, input validation, security boundary and overlap with the other three tools. Keep it, wire `custom_tools` in and document four tools only if it is a distinct, safe, generic operation genuinely intended for external agents; otherwise remove it from the exposed MCP surface and document three. Public exposure requires intent, and the live implementation -- not the stale docs -- is the authority on what it does.
-
 ## 11. Packaging
 
 ### 05-73 A build from `dev` today produces a different distribution calling itself 0.2.4
@@ -206,6 +198,20 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-72 third count already gone, and the ruling is removal -- recorded 2026-09-18
+
+Two of the three counts reproduced: `docs/agents.md` says three tools at lines 12 and 24,
+`mcp.list_tools()` returned four, and `jnwb.mcp_server.__all__` had five entries. The
+third pointer, `docs/10:18`, no longer exists -- 05-64 deleted that page and replaced it
+with `docs/10_operation_specifications.md`, which says nothing about the MCP server.
+
+The item left the keep-or-drop decision to the implementation. It was dropped, on three
+grounds, each checked rather than assumed: nothing imports `custom_tools`, so the
+registration never took effect and the restart message was false; validation was
+`ast.parse` plus the presence of a function definition, with the write target inside the
+install; and no surface documented it. The removal went past the item's "drop it from
+`__init__.py`" to deleting `meta_tools.py` and `custom_tools.py`, because an unreferenced
+module whose whole content is a code-writing primitive is the same defect one import away.
 ## 05-70 counted 84 of 151 -- corrected 2026-09-18
 
 The shape of the finding reproduced; the numbers did not. `jnwb.__all__` exports 155

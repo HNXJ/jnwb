@@ -1,20 +1,18 @@
 """Tests for the jnwb MCP server tools.
 
-This file used to set ``ALLOW_DYNAMIC_TOOLS=1`` in ``os.environ`` at import. That is
-process-wide and was never undone, so importing it took the variable from unset to ``"1"``
-for every test that ran afterwards -- and left the server's own security gate untested,
-because with the variable forced on, `add_tool` could never take its refusal path. The
-variable is now set per test and restored, including back to absent.
+The server exposes three tools and all of them ingest. A fourth, `add_tool`, wrote
+caller-supplied Python into the installed package and was removed in 0.2.5; the tests that
+exercised it went with it. What replaced them is a check that the documented tool table and
+the live registry are the same set, which is the thing that was actually wrong.
 """
-import hashlib
-import os
+import importlib
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import patch
 
 import numpy as np
 import pynwb
@@ -22,22 +20,12 @@ import pytest
 
 pytest.importorskip("mcp")
 from jnwb.mcp_server import (  # noqa: E402
-    add_tool,
     get_event_codes_and_timings,
     inspect_nwb,
-    meta_tools,
     prepare_signal_reference,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-
-#: `add_tool` writes next to `meta_tools`, so this is resolved the same way the code under
-#: test resolves it rather than by spelling the path out a second time.
-CUSTOM_TOOLS = pathlib.Path(meta_tools.__file__).parent / "custom_tools.py"
-
-#: Captured at import, before any test in this file runs, so a test that modifies the
-#: tracked module is visible even when it is the cleanup that failed.
-_CUSTOM_TOOLS_SHA_AT_IMPORT = hashlib.sha256(CUSTOM_TOOLS.read_bytes()).hexdigest()
 
 #: The tool source every `add_tool` success path in this file registers.
 DUMMY_TOOL_CODE = '''
@@ -160,78 +148,6 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("error", res)
         self.assertEqual(res["error_type"], "PathNotFound")
 
-    def test_add_tool_syntax_error(self):
-        with patch.dict(os.environ, {"ALLOW_DYNAMIC_TOOLS": "1"}):
-            res = add_tool("def invalid_syntax(:")
-        self.assertIn("error", res)
-        self.assertEqual(res["error_type"], "ParseError")
-
-    def test_add_tool_no_function(self):
-        with patch.dict(os.environ, {"ALLOW_DYNAMIC_TOOLS": "1"}):
-            res = add_tool("x = 42\nprint(x)")
-        self.assertIn("error", res)
-        self.assertEqual(res["error_type"], "ParseError")
-
-    def test_add_tool_refuses_when_dynamic_registration_is_disabled(self):
-        """The refusal path, which had no test while the variable was forced on.
-
-        `add_tool` writes executable code into the installed package, so its gate is the
-        only thing standing between a prompt and an import-time side effect. Setting
-        ALLOW_DYNAMIC_TOOLS=1 at module import meant this branch was unreachable for the
-        whole file.
-        """
-        with patch.dict(os.environ):
-            os.environ.pop("ALLOW_DYNAMIC_TOOLS", None)
-            res = add_tool(DUMMY_TOOL_CODE)
-        self.assertEqual(res["error_type"], "SecurityRestriction")
-        self.assertEqual(
-            hashlib.sha256(CUSTOM_TOOLS.read_bytes()).hexdigest(),
-            _CUSTOM_TOOLS_SHA_AT_IMPORT,
-            "a refused registration still wrote to the tracked module",
-        )
-
-    def test_add_tool_appends_and_rejects_a_duplicate(self):
-        """Exercises `add_tool` against an isolated copy, not the tracked module.
-
-        This used to append to `jnwb/mcp_server/custom_tools.py` and restore it in a
-        `finally`. A `finally` survives a failing assertion but not a kill or a timeout:
-        interrupted between the write and the restore, the run left
-        `M jnwb/mcp_server/custom_tools.py` with 110 bytes appended. `pytest-xdist` is
-        declared, so two workers would also race on that one file. The restore was byte
-        exact only by luck -- `read_text` plus `write_text` round-trips through universal
-        newlines, so it held because that file is CRLF and would have rewritten every
-        line ending had it been LF.
-
-        `add_tool` resolves its target as `Path(__file__).parent / "custom_tools.py"` at
-        call time, so pointing the module at a temporary directory runs the same code --
-        duplicate check and decorator insertion included -- with nothing tracked in reach.
-        """
-        before = CUSTOM_TOOLS.read_bytes()
-
-        with tempfile.TemporaryDirectory() as tmp:
-            sandbox = pathlib.Path(tmp)
-            (sandbox / "custom_tools.py").write_bytes(before)
-
-            with patch.object(meta_tools, "__file__", str(sandbox / "meta_tools.py")):
-                with patch.dict(os.environ, {"ALLOW_DYNAMIC_TOOLS": "1"}):
-                    res = add_tool(DUMMY_TOOL_CODE)
-                    self.assertEqual(res.get("status"), "success")
-                    self.assertEqual(res.get("added_tool"), "test_temp_dummy_tool")
-
-                    updated = (sandbox / "custom_tools.py").read_text(encoding="utf-8")
-                    self.assertIn("def test_temp_dummy_tool", updated)
-                    self.assertIn("@mcp.tool()", updated)
-
-                    dup_res = add_tool(DUMMY_TOOL_CODE)
-                    self.assertIn("error", dup_res)
-                    self.assertEqual(dup_res["error_type"], "DuplicateTool")
-
-        self.assertEqual(
-            CUSTOM_TOOLS.read_bytes(), before,
-            "the tracked custom_tools.py was modified by a test that no longer writes it",
-        )
-
-
 class TestMCPServerEntrypoint(unittest.TestCase):
     def test_server_module_exposes_fastmcp_instance(self):
         from jnwb.mcp_server import server
@@ -270,52 +186,88 @@ class TestMCPServerEntrypoint(unittest.TestCase):
         self.assertNotIn("mcp.run()", init)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestTheDocumentedSurfaceIsTheLiveSurface(unittest.TestCase):
+    """Three sources gave three different tool counts, and none of them asked the server.
 
-
-class TestThisFileLeavesTheProcessAndTheTreeAsItFoundThem(unittest.TestCase):
-    """The two contamination classes the 0.2.5 audit found in this file.
-
-    Both were real. Importing the module took ALLOW_DYNAMIC_TOOLS from unset to "1"
-    process-wide, and `add_tool`'s success test appended to a tracked module with a
-    `finally` as its only protection -- killed between the write and the restore, a run
-    left `M jnwb/mcp_server/custom_tools.py`, 101 bytes to 211.
+    `docs/agents.md` said three, `mcp.list_tools()` returned four, and
+    `jnwb.mcp_server.__all__` had five entries. A count written down is a claim about code
+    that drifts silently; these read the registry.
     """
 
-    def test_importing_this_module_does_not_enable_dynamic_tool_registration(self):
-        """Measured in a child interpreter, so it holds wherever the assignment sits.
+    def _live_tool_names(self):
+        import asyncio
 
-        The variable is stripped from the child's environment first, so this asserts the
-        import does not set it rather than that it happens to be absent here.
+        from jnwb.mcp_server import mcp
+
+        return {tool.name for tool in asyncio.run(mcp.list_tools())}
+
+    def _documented_tool_names(self):
+        page = (ROOT / "docs" / "agents.md").read_text(encoding="utf-8")
+        section = page.partition("## The MCP server")[2]
+        self.assertTrue(section.strip(), "docs/agents.md has no MCP server section")
+        # The tool table only: the page carries a skills table further down whose first
+        # column is shaped the same way.
+        table = section.partition("| Tool | Signature | Returns |")[2]
+        table = table.partition("\n\n")[0]
+        names = set(re.findall(r"^\| `(\w+)` \|", table, re.M))
+        self.assertTrue(names, "the MCP tool table has no rows; this test checks nothing")
+        return names
+
+    def test_the_documented_table_lists_exactly_the_registered_tools(self):
+        documented = self._documented_tool_names()
+        live = self._live_tool_names()
+        self.assertEqual(
+            documented, live,
+            f"documented {sorted(documented)} but the server registers {sorted(live)}",
+        )
+
+    def test_the_prose_count_matches_the_number_of_tools(self):
+        page = (ROOT / "docs" / "agents.md").read_text(encoding="utf-8")
+        words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+        stated = {
+            words[m.lower()]
+            for m in re.findall(r"\b(One|Two|Three|Four|Five|Six|two|three|four|five|six)\b"
+                                r"(?= tools)", page)
+        }
+        self.assertTrue(stated, "no page prose states a tool count; this test checks nothing")
+        self.assertEqual(
+            stated, {len(self._live_tool_names())},
+            f"the page says {sorted(stated)} tools; the server registers "
+            f"{len(self._live_tool_names())}",
+        )
+
+    def test_the_package_exports_exactly_the_registered_tools_and_the_server(self):
+        import jnwb.mcp_server as package
+
+        exported = set(package.__all__)
+        self.assertIn("mcp", exported, "the server object is not exported")
+        self.assertEqual(
+            exported - {"mcp"}, self._live_tool_names(),
+            f"__all__ carries {sorted(exported - {'mcp'})} against a registry of "
+            f"{sorted(self._live_tool_names())}",
+        )
+
+    def test_no_tool_writes_executable_code_into_the_package(self):
+        """`add_tool` appended caller-supplied Python to a module inside the install.
+
+        The gate was one environment variable, the validation was `ast.parse` plus "has a
+        function in it", and nothing imported the file it wrote, so the tool it registered
+        never loaded at any restart. Its absence is the contract now.
         """
-        script = (
-            "import os, sys\n"
-            f"sys.path.insert(0, {str(ROOT)!r})\n"
-            f"sys.path.insert(0, {str(ROOT / 'tests')!r})\n"
-            "print(repr(os.environ.get('ALLOW_DYNAMIC_TOOLS')))\n"
-            "import test_mcp_server\n"
-            "print(repr(os.environ.get('ALLOW_DYNAMIC_TOOLS')))\n"
-        )
-        env = {k: v for k, v in os.environ.items() if k != "ALLOW_DYNAMIC_TOOLS"}
-        proc = subprocess.run(
-            [sys.executable, "-c", script],
-            capture_output=True, text=True, env=env, cwd=str(ROOT), timeout=300,
-        )
-        self.assertEqual(proc.returncode, 0, proc.stderr[-2000:])
-        lines = proc.stdout.strip().splitlines()
-        self.assertEqual(len(lines), 2, f"unexpected child output: {proc.stdout!r}")
-        self.assertEqual(lines[0], "None", "the child interpreter already had it set")
-        self.assertEqual(
-            lines[1], "None",
-            "importing this module enabled dynamic tool registration for every test "
-            "that runs after it, and hid the security gate's refusal path",
+        package_dir = pathlib.Path(
+            importlib.import_module("jnwb.mcp_server").__file__
+        ).parent
+        for module in sorted(package_dir.glob("*.py")):
+            source = module.read_text(encoding="utf-8")
+            self.assertNotIn(
+                "write_text", source,
+                f"{module.name} writes into the installed package directory",
+            )
+        self.assertFalse(
+            (package_dir / "custom_tools.py").exists(),
+            "custom_tools.py is back; it is a write target inside the install",
         )
 
-    def test_the_tracked_custom_tools_module_is_byte_identical(self):
-        """bytes before == bytes after, for the file a test used to rewrite in place."""
-        self.assertEqual(
-            hashlib.sha256(CUSTOM_TOOLS.read_bytes()).hexdigest(),
-            _CUSTOM_TOOLS_SHA_AT_IMPORT,
-            f"{CUSTOM_TOOLS} changed while this file's tests ran",
-        )
+
+if __name__ == "__main__":
+    unittest.main()

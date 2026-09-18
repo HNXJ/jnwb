@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`add_tool`, and with it the MCP server's ability to write code into its own
+  install.** The tool took Python source from a caller and appended it to
+  `jnwb/mcp_server/custom_tools.py`, resolved as `Path(__file__).parent`, which on an
+  ordinary install is `site-packages`. Validation was `ast.parse` plus "contains a
+  function definition", so module-level statements in the submitted source were written
+  verbatim and would run on import; the entire boundary was `ALLOW_DYNAMIC_TOOLS=1`. It
+  also never worked: nothing imports `custom_tools`, so the tool it registered did not
+  load at any restart and its "Please restart the MCP server" message was false every
+  time. It was documented nowhere -- `docs/agents.md` described three tools and said "all
+  of them ingest" while `mcp.list_tools()` returned four and `jnwb.mcp_server.__all__`
+  carried five entries. A code-writing primitive that no surface claims, cannot function,
+  and is one import away from executing caller-supplied source is removed rather than
+  documented: `meta_tools.py` and `custom_tools.py` are gone, and the five tests that
+  exercised the tool went with them.
+
 ### Changed
 
 - **Two thirds of the public API was reachable from no routing row.** 81 of 155 exported
@@ -247,6 +264,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The MCP tool table is checked against the live registry.** Four tests in
+  `tests/test_mcp_server.py` compare the documented table, the prose count and
+  `jnwb.mcp_server.__all__` against `mcp.list_tools()`, and assert that no module in the
+  server package writes into the installed package directory. Three sources had given
+  three different counts because each restated a number instead of asking the server.
+  Five discriminators kill, including putting a write-capable module back.
 - **`tests/test_import_provenance.py` asserts which `jnwb` the suite is testing.** A green
   suite says nothing about this checkout unless the package it imported came from this
   checkout. Three checks: the interpreter running pytest imports the expected package

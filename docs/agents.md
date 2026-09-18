@@ -9,7 +9,7 @@ the rest.
 | Surface | Ships in the wheel | What it covers |
 |---|---|---|
 | The library | yes | Every symbol in `jnwb.__all__`, with docstrings |
-| MCP server | yes (needs the `mcp` extra) | File inspection only — three tools |
+| MCP server | yes (needs the `mcp` extra) | File inspection only — three tools, listed below |
 | Skills | **no** | The routing and scientific safeguards |
 | `AGENTS.md` | **no** (in the sdist) | Repository map, working rules, recipes |
 
@@ -21,7 +21,9 @@ asymmetry a cause. Those live in the skills and in
 
 ## The MCP server
 
-Three tools, all of them ingest. Install the extra and run the module:
+Three tools, all of them ingest: the server reads NWB files and returns what it found. It writes nothing, and it has no tool that registers another tool. The table below is the whole surface -- it is checked against the server's live registry, so a tool without a row here is a failure, not an omission.
+
+Install the extra and run the module:
 
 ```bash
 pip install "jnwb[mcp]"
