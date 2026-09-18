@@ -46,14 +46,6 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-80 Nothing enforces the todo-stack rule or resolves `AGENTS.md`'s own pointers
-- **Problem** `AGENTS.md` section 2 states the stack holds only work not yet done; no gate or test checks it, which is why the stack accumulated a completed-work table, and no check resolves the file's own references, which is why section 4.3 points at a deleted item.
-- **Evidence** `grep -rn "todo_stack" scripts/ tests/` returns one hit, a path string. The stale pointer is confirmed by `grep -in "non-blocking" artifacts/todo_stack.md` returning nothing.
-- **Change** A test that resolves every path, test name and section reference in `AGENTS.md` and both stacks, and asserts the stack carries no "CLOSED"/"DONE" markers.
-- **Preserves** Both stacks' formats.
-- **Discriminator** Reintroducing a dangling pointer fails the suite.
-- **Accept** The registry-staleness class that produced this item is mechanically prevented.
-
 ### 05-81 `scripts/harness_gate.py` and `scripts/mkdocs_version_hook.py` describe themselves wrongly
 - **Problem** Module docstrings drifted from the code.
 - **Evidence** `harness_gate.py`'s docstring lists gates 1-12; the runner prints 13. `mkdocs_version_hook.py:12` says "the package pins >=3.12,<3.13", while `pyproject.toml:17` is `>=3.12` and `harness_gate.py:493` fails the build on any `<` in that spec — so the comment cites the exact upper pin the harness exists to forbid. `connectivity.py:16` claims "Residual variance uses explicit N - p divisors" while `_residual_variance` ignores its `n_params` argument and returns RSS/N. `artifact_detection.py:93` documents returns as `(flag, corr_summary, amp_per_trial)` while the code returns z-scores (measured: `third[7] = 332.40` against a true `max|amp|` of 54.21). `tfr_accumulator.py:1` promises float64/complex128 accumulation; the persisted dtypes are float32/complex64.
@@ -141,6 +133,32 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-80 the evidence is superseded, and half the change would be wrong -- recorded 2026-09-18
+
+The item's two evidence lines no longer hold. `grep -rn "todo_stack" scripts/ tests/`
+returns four test modules, not one path string. `AGENTS.md` has no section 4.3 -- it runs
+`## 0.` to `## 10.` with a single subsection, under 8 -- and the dead pointer the item
+names is already asserted absent by
+`test_agents_md_does_not_point_at_a_todo_item_that_is_not_there`, which also resolves any
+other item `AGENTS.md` names against the live stack.
+`test_every_repository_path_agents_md_cites_exists` already resolves every
+directory-prefixed path the document cites, with a floor on how much it matched.
+
+What did reproduce is narrower and is repaired: nothing resolved the document's own `§N`
+cross-references, nothing resolved a file named without a directory (the sweep's regex
+requires one of seven directory names in front, so `pyproject.toml` and `CHANGELOG.md`
+were invisible to it), nothing resolved anything in `artifacts/fact_stack.md`, and
+nothing held the todo stack to the section 2 rule.
+
+Not done, and deliberately: the item asks that every path in both stacks resolve. For the
+todo stack that check would be wrong. The stack is a record of findings as well as a plan,
+and a record correctly names what the finding caused to be deleted -- measured, eight of
+its cited paths and one test name are of exactly that kind, including
+`docs/requirements.txt`, which the note one item above names because 05-78 removed it, and
+`test_gpu_pca_cpu_and_cuda_agree_within_float32`, which the stack itself describes as no
+longer existing. A resolving sweep over that file would force the evidence to be deleted
+to stay green. The fact stack carries no such record and is swept in full.
 
 ## 05-79 four sub-claims did not reproduce -- recorded 2026-09-18
 

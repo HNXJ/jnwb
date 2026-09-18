@@ -71,6 +71,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Nothing resolved what `AGENTS.md` and the two stacks point at, beyond the paths one
+  test already swept.** A registry goes stale silently: the file that points at other
+  files can name something that is gone without ever erroring.
+  `tests/test_pointer_documents_resolve.py` adds the four sweeps that were missing --
+  every `§N` cross-reference in `AGENTS.md` names a section it defines, the section
+  numbers run contiguously from zero so a reference cannot survive the deletion of what
+  it pointed at, every file named without a directory matches a tracked file, and every
+  path the fact stack cites resolves. It also mechanizes the `AGENTS.md` section 2 rule
+  that the todo stack holds only work not yet done, which is what the completed-work
+  table that had accumulated there broke. Each sweep is a function over text rather than
+  a loop inside a test, so every one is driven twice: over the live document, where it
+  must find nothing, and over a document built to carry the defect, where it must find
+  it. Ten discriminating mutations all fail the suite.
+
+  Two corrections. The item's evidence -- `grep -rn "todo_stack" scripts/ tests/`
+  returning one hit, and `AGENTS.md` pointing at a deleted item -- is superseded: four
+  test modules reference the stack today, `test_agents_md_recipes.py` already resolves
+  every directory-prefixed path `AGENTS.md` cites and already asserts the specific dead
+  pointer is gone, and the section the item names does not exist in the document, which
+  now runs `## 0.` to `## 10.` with no subsections under 4. Second, the item asked for
+  every path in both stacks to resolve. Not done for the todo stack, and the check would
+  be wrong: the stack is a record of findings as well as a plan, and eight of the paths
+  it cites are files a finding caused to be deleted -- `docs/requirements.txt`, removed
+  one item earlier, is named in the note recording that removal. Resolving them would
+  mean deleting the evidence. The fact stack, which carries no such record, is swept in
+  full.
+
+### Fixed
+
 - **Nine of the thirteen preflight gates passed the tree they exist to reject.** Each
   was a presence or substring check standing in for behaviour, and each was confirmed by
   building the tree and watching it pass before anything was changed. Gate 11 asked for
