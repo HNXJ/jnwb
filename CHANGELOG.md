@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Two thirds of the public API was reachable from no routing row.** 81 of 155 exported
+  symbols were mentioned by no skill, and the gap was not a long tail: the whole laminar
+  depth subsystem (`vflip`, `vflip_from_lfp`, `xflip`, `label_layers`,
+  `current_source_density_1d`, `voltage_curvature_1d`, `aperiodic_fit`),
+  `cluster_permutation_test`, the spike mutual-information family, `cross_modal_comparison`
+  and the half-open bin family that exists to prevent the double count
+  `docs/common_mistakes.md` section 2 describes. A probe for "assign cortical layers" or
+  "compute CSD" matched no trigger in the tree. 44 rows were added across six skills, each
+  signature read off `inspect.signature` rather than retyped, and the root router gained a
+  laminar delegation line. 111 symbols now carry a row; the remaining 44 are exceptions,
+  `jnwb.ontology` types, result containers, analyzer facades, constants, the `io` alias and
+  one undocumented internal -- each excluded by category, with the category's claim
+  asserted.
 - **`AGENTS.md` §8 now requires a public API change to update the routing rows in the same
   commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing
   about the 65 rows in `skills/` that hardcode signatures. That single gap produced every
@@ -234,6 +247,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_skill_symbol_coverage.py` holds the whole of `jnwb.__all__` against the
+  skill tree.** Every public callable must be reachable as a *call* in a routing row --
+  prose naming a function teaches nothing about how to invoke it, and an earlier draft of
+  this check passed after the `vflip` row was deleted, because the word survived in a
+  neighbouring sentence. Everything else must appear in a categorised exclusion list whose
+  category is itself asserted: exceptions are `Exception` subclasses, ontology types come
+  from `jnwb.ontology`, each excluded container is verified against the live return
+  annotation of the operation credited with producing it, constants are not callable, and
+  the one excluded internal is excluded only while it has no docstring. Stale entries fail:
+  a name the package no longer exports, or one a skill has since started routing. Six
+  discriminators kill, including deleting the laminar router line -- which is checked
+  against whichever skill actually routes `label_layers`, not against a fixed name.
 - **`tests/test_agents_md_recipes.py` executes every fenced block in `AGENTS.md` and
   resolves every repository path it cites**, with the working directory outside the
   checkout so a block reaching for a relative path fails there. It also checks that no

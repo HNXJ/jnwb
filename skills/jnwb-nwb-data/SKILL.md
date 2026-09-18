@@ -72,6 +72,16 @@ electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
 MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for agent hosts;
 use the public functions above in normal Python workflows.
 
+- `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalises any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
+- `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` rather than picking one when the name is absent or ambiguous.
+- `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materialising the array.
+- `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
+- `jnwb.unit_census_report(units_df, group_by=None)`: Census of units grouped by session, area or layer.
+- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
+- `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
+- `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
+- `jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)` and `jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)`: Recording-structure labels -- cycle boundaries from a gap threshold, and temporal quantile buckets by `start_time` order. Both are grouping variables for `permute_labels` and `cluster_permutation_test`, not results.
+
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;
    pass `table=` explicitly when more than one task-like table exists.

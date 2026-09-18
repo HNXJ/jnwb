@@ -18,6 +18,11 @@ Activate this skill when quantifying directional coupling, lag asymmetries, Gran
 - `jnwb.directed_network(signals, method="granger", labels=None, fdr=True, n_jobs=1)`: All-pairs directed coupling for a dict/array of channel signals.
 - `jnwb.network_topology(adjacency_matrix, threshold=0.3)`: Graph metrics on a thresholded adjacency matrix.
 
+- `jnwb.spike_mutual_information(spike_times1, spike_times2, time_window_s=None, bin_size_ms=10.0, estimator="binary_occupancy")`, `jnwb.binary_occupancy_mutual_information(spike_times1, spike_times2, time_window_s=None, bin_size_ms=10.0)` and `jnwb.spike_count_mutual_information(spike_times1, spike_times2, time_window_s=None, bin_size_ms=10.0)`: Mutual information between two spike trains, in **bits** ($\log_2$). MI is symmetric: it carries no direction however the arguments are ordered.
+- `jnwb.cross_modal_comparison(tfr_data, spike_data, lag_range_ms=(-500, 500), bin_ms=None, n_permutations=1000, rng=None)`: Best-lag correlation between a TFR-derived series and a spike-count series, both reduced to 1-D as `(n_times, n_trials)`. `lag_ms` is negative when the LFP leads spikes. Read `lag_corrected_pvalue`, not the parametric p, which pays nothing for the lag search. This is the one routed operation that deliberately crosses modalities: it correlates two series without pooling them into one feature space, which is what the no-modality-pooling rule forbids. Report it as a cross-modal association at a lag, never as one modality driving the other.
+
+- `jnwb.granger_causality(signal1, signal2, order=5, device="cpu", ridge=0.0, criterion="aic")`: The bivariate GC computation `granger` wraps. Prefer `granger`, which carries surrogate testing; this one returns the raw values. Directional language is licensed by prediction improvement, not by causation.
+
 ## 3. Invariants & Safeguards
 1. **Strict Epistemic Language**: Granger causality, PSI, and Transfer Entropy measure **temporal-lag asymmetry (predictive directionality)** under an observational model. Never use causal verbs ("region A drives region B causally") for observational time-series metrics.
 2. **Stationarity & Pre-filtering**: Time-domain Granger requires wide-sense stationary inputs; demean and detrend signals prior to model fitting.

@@ -19,6 +19,11 @@ Activate this skill when training population decoders (linear SVM), computing cr
 - `jnwb.rdm_similarity(rdm1, rdm2, metric="spearman")`: Second-order representational similarity between two RDMs.
 - `jnwb.jrsa(x1, x2, metric="rsa", stats=True)`: Unified Joint Representational Similarity Analysis with permutation nulls.
 
+- `jnwb.fold_majority_baseline(y_train, y_test)`: Accuracy of predicting the training fold's majority class on the held-out fold. Report decoding accuracy against this, never against 1/n_classes, whenever classes are unbalanced.
+- `jnwb.build_inner_validation_partitions(outer_trials, *, analysis_cols=("session", "analysis", "slot_key"))`: Inner train/validation partitions built from outer-training groups only, so hyperparameter selection never sees the outer test fold.
+
+- `jnwb.majority_baseline(labels)`: Accuracy of always predicting the most frequent class in `labels`. This is the whole-set baseline; use `fold_majority_baseline` inside cross-validation, where the majority is a property of the training fold.
+
 ## 3. Invariants & Safeguards
 1. **No CV Information Leakage**: Data preprocessing (centering, scaling) and hyperparameter selection must occur inside the training fold of `nested_cv_linear_svm`.
 2. **Majority Baseline Verification**: Always compare decoding accuracy against `majority_baseline(labels)` rather than theoretical $1/K$ when class counts are unbalanced.

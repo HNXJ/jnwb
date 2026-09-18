@@ -14,6 +14,7 @@ Activate this skill when the user asks for generic electrophysiology analysis, t
   - **NWB inspection, paths, metadata, electrodes, addressing, compression**: delegate to `jnwb-nwb-data`
   - **Spike raster/PSTH, latency estimation, causal smoothing, unit QC**: delegate to `jnwb-spiking`
   - **LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact repair**: delegate to `jnwb-lfp-spectral`
+  - **Laminar depth: assigning cortical layers, crossover contacts, CSD, probe geometry**: delegate to `jnwb-lfp-spectral` (depth estimators consume the spectra and correlation matrices that skill produces) and `jnwb-nwb-data` for the electrode table
   - **Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG safety**: delegate to `jnwb-statistics`
   - **Linear SVM decoding, neural trajectories, jRSA, population geometry**: delegate to `jnwb-population`
   - **Directional coupling (Granger, PSI, transfer entropy) with strict causal language**: delegate to `jnwb-connectivity`

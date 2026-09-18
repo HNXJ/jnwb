@@ -42,14 +42,6 @@ Where an item already edits a skill, the edited skill must satisfy this and repr
 routing behaviour must be tested. Skills are release surfaces: verify against live exports
 and docs, not against the skill's own text.
 
-### 05-70 An entire subsystem and three function families are unrouted
-- **Problem** Skills predate parts of the API.
-- **Evidence** No skill mentions `vflip`, `vflip_from_lfp`, `xflip`, `label_layers`, `current_source_density_1d`, `voltage_curvature_1d`, `VFlipResult` or `XFlipResult`, while `zflip` sits in lfp-spectral and `probe_geometry` in nwb-data; probes for "assign cortical layers" and "compute CSD" match no trigger. `cluster_permutation_test` appears in no routing matrix. `spike_mutual_information`, `spike_count_mutual_information`, `binary_occupancy_mutual_information` and `cross_modal_comparison` are unmentioned — and the last deliberately crosses modalities, which interacts with the router's "never pool across modalities" rule with no guidance either way. `bin_spikes`, `fires_in_window`, `rate_in_window` and `fire_indicator`, the half-open-bin family whose purpose is preventing the double-count in `common_mistakes.md` section 2, are unmentioned in the skill that owns binning.
-- **Change** Add a `jnwb-laminar` skill owning the depth estimators, or a laminar section plus a router line; route the other three families.
-- **Preserves** Exactly one canonical skill tree at `skills/`.
-- **Discriminator** Every public symbol is reachable from a routing row or is deliberately out of scope.
-- **Accept** Currently 84 of 151 symbols are mentioned by no skill; that set is reviewed and justified.
-
 ### 05-71 One skill overclaims a safeguard the router and `AGENTS.md` both state correctly
 - **Problem** `skills/jnwb-lfp-spectral/SKILL.md:23` calls `imaginary_coherency` "volume-conduction-robust", while the router section 4.8 and `AGENTS.md` section 5 both say these measures "reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity". Its neighbouring `wpli` row uses the correct phrasing.
 - **Evidence** Same file, adjacent lines.
@@ -222,6 +214,23 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-70 counted 84 of 151 -- corrected 2026-09-18
+
+The shape of the finding reproduced; the numbers did not. `jnwb.__all__` exports 155
+symbols, not 151, and 81 were mentioned by no skill, not 84. Every symbol the item names
+individually was genuinely unrouted, so the change stands as written.
+
+The item's Accept asks for the unmentioned set to be reviewed and justified. It was, and
+the review changed the standard: mention is not routing. A symbol named in a sentence is
+not callable from that sentence, so the coverage test requires a routing row for every
+public callable and accepts a bare mention only for constants and types. Under that
+stricter reading the tree ends at 111 symbols carrying a row and 44 excluded by category;
+a count of mentions would have reported 126 and 29 for the same tree.
+
+The `jnwb-laminar` skill was not created; the item's second option was taken. The depth
+estimators consume the PSDs and correlation matrices `jnwb-lfp-spectral` already produces,
+a separate skill would have to restate that half to be usable, and the skill tree is
+doctrine. The router gains the laminar trigger either way.
 ## 05-67 found three more rows than it listed -- extended 2026-09-18
 
 All six rows reproduce as described. The strengthened check from 05-68 found three the
