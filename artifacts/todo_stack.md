@@ -46,16 +46,6 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-82 CI hygiene
-- **Problem** Three small gaps on a publish-capable pipeline.
-- **Evidence** No workflow-level `concurrency:` or `permissions:`, so rapid pushes run overlapping publish-capable pipelines. `pypa/gh-action-pypi-publish@release/v1` is a mutable branch ref on the two jobs holding `id-token: write`. `workflow_dispatch.inputs.target` defaults to `testpypi`, so any manual dispatch publishes unless the operator picks `none`. Confirmed clean: no `continue-on-error`, no `|| true`, no `set +e` anywhere; `if-no-files-found: error` is set; the production PyPI trigger is correctly narrow.
-- **Change** Add `concurrency` and a `permissions: {contents: read}` floor; pin the publish action to a commit SHA with a version comment; flip the dispatch default to `none`.
-- **Preserves** The publication ordering in `artifacts/fact_stack.md`.
-- **Discriminator** A second push cancels the first; a manual dispatch publishes nothing by default.
-- **Accept** `tests/test_workflow_release_policy.py` extended to cover the dispatch default.
-
-## 13. Close-out
-
 ### 05-83 Independent adversarial pass over the repaired tree
 - **Problem** The repairs above touch every subsystem and several change what other items calibrate.
 - **Change** One independent pass attempting to falsify: numerical correctness, failure semantics, API consistency, docs, skills, packaging, CI and gate efficacy — reproducing each finding before repairing it, as the 0.2.4 pass did.
@@ -125,6 +115,26 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-82 everything reproduced, one change made narrower than asked -- recorded 2026-09-18
+
+All three gaps were present exactly as described, including the item's four confirmations:
+no `continue-on-error`, no `|| true`, no `set +e`, `if-no-files-found: error` set, and the
+production PyPI trigger correctly narrow.
+
+One change is narrower than the item's wording. The Discriminator reads "a second push
+cancels the first", and `cancel-in-progress` is deliberately not unconditional: it is false
+for `refs/tags/*` and for `release` events. Those are the refs that actually upload, and a
+run cancelled between `build` and `publish-pypi` would leave a GitHub Release published
+with nothing on PyPI -- the ordering `artifacts/fact_stack.md` fixes, broken by the thing
+meant to protect it. For every other ref, which is every push to `main` and `dev` and every
+pull request, the second push cancels the first as the item asks.
+
+The pin resolves a moving target, so it is recorded here: on 2026-09-18,
+`pypa/gh-action-pypi-publish` `release/v1`, tag `v1.14.2` and commit
+`dc37677b2e1c63e2034f94d8a5b11f265b73ba33` were the same object, resolved through the
+GitHub API rather than read from a badge. The pin is that commit; the branch will move and
+the pin will not, which is the point.
 
 ## 05-81 the tfr_accumulator claim does not reproduce as stated -- recorded 2026-09-18
 

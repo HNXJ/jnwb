@@ -11,13 +11,29 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Publication target (testpypi or none)"
+        description: "Publication target (none or testpypi)"
         required: true
-        default: "testpypi"
+        # Defaulted to testpypi, so pressing Run workflow without reading the form
+        # published. Publishing is the deliberate choice, not the resting state.
+        default: "none"
         type: choice
         options:
-          - "testpypi"
           - "none"
+          - "testpypi"
+
+# Least privilege at the top, raised per job where a job needs it: the two publish jobs
+# each ask for id-token: write. Without a floor here every job inherited whatever the
+# repository default was, on a pipeline that can upload to PyPI.
+permissions:
+  contents: read
+
+# One run per ref. Two pushes in quick succession ran overlapping publish-capable
+# pipelines; the later one now cancels the earlier. Tags and releases are excluded: those
+# are the refs that actually publish, and cancelling one mid-upload is the failure this
+# is meant to prevent, not a cost worth paying for a faster queue.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'release' }}
 
 jobs:
   test:
@@ -226,7 +242,10 @@ jobs:
           path: dist/
 
       - name: Publish to TestPyPI via Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Pinned to a commit, not the mutable release/v1 branch: this step runs with
+        # id-token: write, so whatever that branch points at can mint an OIDC token for
+        # this project. dc37677 is the commit v1.14.2 tags (released 2026-07-29).
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/
@@ -253,7 +272,8 @@ jobs:
           path: dist/
 
       - name: Publish to PyPI via Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Same pin as the TestPyPI job, and for the same reason.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           packages-dir: dist/
           verbose: true

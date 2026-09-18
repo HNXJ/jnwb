@@ -71,6 +71,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three gaps on a pipeline that can upload to PyPI.** The workflow declared no
+  `permissions` floor, so every job inherited the repository default while two of them ask
+  for `id-token: write`; `permissions: {contents: read}` is now set at the top and only the
+  two publish jobs raise it. It declared no `concurrency`, so two pushes in quick
+  succession ran overlapping publish-capable pipelines; runs are now grouped per ref, and
+  cancellation is disabled for tags and releases, because cancelling a run mid-upload is
+  the failure the grouping exists to prevent rather than a cost worth paying for a shorter
+  queue. And both publish steps used `pypa/gh-action-pypi-publish@release/v1`, a mutable
+  branch on a step that mints an OIDC token for this project; both are pinned to
+  `dc37677b2e1c63e2034f94d8a5b11f265b73ba33`, the commit `v1.14.2` tags, with the version
+  in a comment beside it so the pin can be read and updated. `workflow_dispatch` defaulted
+  to `testpypi`, so pressing Run workflow without reading the form published; the default
+  is now `none`, and the test checks the trigger condition as well as the default, since a
+  default that no job reads would prove nothing.
+
+  The publication ordering in `artifacts/fact_stack.md` -- validate on `main`, tag, GitHub
+  Release, production PyPI -- is untouched, and the tests that hold it still pass. Ten
+  discriminating mutations, one per change plus the ways each could be half-made, all fail
+  the suite.
+
+### Fixed
+
 - **Five docstrings described code other than the code under them.**
   `scripts/harness_gate.py` listed twelve gates while its runner printed thirteen, and its
   entry for gate 2 still read "Protected path safety" long after that check became

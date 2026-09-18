@@ -210,3 +210,75 @@ class TestShippedReleaseMetadataMatchesTheRelease:
                 "the version is final but the package still calls itself a release candidate"
             )
 
+
+
+class TestPublishCapablePipelineHygiene:
+    """Three gaps on a pipeline that can upload to PyPI, each reproduced before repair.
+
+    No workflow-level ``permissions``, so every job inherited the repository default while
+    two of them ask for ``id-token: write``. No ``concurrency``, so two pushes in quick
+    succession ran overlapping publish-capable pipelines. And ``workflow_dispatch`` defaulted
+    to ``testpypi``, so pressing Run workflow without reading the form published.
+    """
+
+    def test_a_least_privilege_floor_is_declared_at_the_workflow_level(self):
+        permissions = _load_workflow().get("permissions")
+        assert permissions == {"contents": "read"}, permissions
+
+    def test_only_the_publish_jobs_raise_that_floor(self):
+        jobs = _load_workflow()["jobs"]
+        raised = {
+            name: job["permissions"]
+            for name, job in jobs.items()
+            if isinstance(job, dict) and "permissions" in job
+        }
+        assert set(raised) == {"publish-testpypi", "publish-pypi"}, raised
+        for name, permissions in raised.items():
+            assert permissions.get("id-token") == "write", (name, permissions)
+
+    def test_one_run_per_ref(self):
+        concurrency = _load_workflow().get("concurrency")
+        assert concurrency, "no concurrency group; overlapping runs are possible again"
+        assert "github.ref" in concurrency["group"], concurrency
+
+    def test_a_run_that_can_publish_is_never_cancelled_mid_upload(self):
+        """Cancelling a tag or release run is the failure this is meant to prevent."""
+        cancel = str(_load_workflow()["concurrency"]["cancel-in-progress"])
+        assert "refs/tags/" in cancel and "release" in cancel, cancel
+        assert cancel.strip().lower() not in {"true", "${{ true }}"}, cancel
+
+    def test_a_manual_dispatch_publishes_nothing_by_default(self):
+        target = _load_workflow()[True]["workflow_dispatch"]["inputs"]["target"]
+        assert target["default"] == "none", target
+        assert set(target["options"]) == {"none", "testpypi"}, target
+
+    def test_the_default_really_does_reach_no_publish_job(self):
+        """The condition, not just the default: `none` must satisfy neither publish job."""
+        jobs = _load_workflow()["jobs"]
+        for name in ("publish-testpypi", "publish-pypi"):
+            condition = " ".join(str(jobs[name]["if"]).split())
+            assert "inputs.target == 'none'" not in condition, (name, condition)
+        testpypi = " ".join(str(jobs["publish-testpypi"]["if"]).split())
+        assert "inputs.target == 'testpypi'" in testpypi, testpypi
+        assert "workflow_dispatch" not in " ".join(str(jobs["publish-pypi"]["if"]).split())
+
+    def test_every_third_party_action_is_pinned_to_a_commit(self):
+        """A branch ref on a step holding `id-token: write` is whatever that branch becomes."""
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        uses = re.findall(r"^\s*uses:\s*(\S+)", text, re.M)
+        assert len(uses) >= 6, f"only {len(uses)} actions found; the sweep is wrong"
+        publishers = [u for u in uses if "pypi-publish" in u]
+        assert len(publishers) == 2, publishers
+        for ref in publishers:
+            _, _, version = ref.partition("@")
+            assert re.fullmatch(r"[0-9a-f]{40}", version), (
+                f"{ref} is not pinned to a commit; a mutable ref can be moved under a step "
+                f"that mints an OIDC token for this project"
+            )
+
+    def test_each_pin_records_which_version_it_is(self):
+        """A bare 40-hex string nobody can read is a pin that never gets updated."""
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        pinned = re.findall(r"uses:\s*\S*pypi-publish@[0-9a-f]{40}\s*#\s*(v[\d.]+)", text)
+        assert len(pinned) == 2, f"a pin carries no version comment: {pinned}"
+        assert len(set(pinned)) == 1, f"the two publish jobs pin different versions: {pinned}"
