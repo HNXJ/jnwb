@@ -46,14 +46,6 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-79 Nine of thirteen gates can pass on a broken tree
-- **Problem** Presence and substring checks standing in for behaviour.
-- **Evidence, each reproduced** Gate 11: a root directory containing `.py` files and no `__init__.py` is importable as a PEP 420 namespace package and is not flagged, so JNWB-002 reproduces green; `test_non_package_directory_is_not_flagged` locks the hole in. Gate 13: a README stating the three symbols are REMOVED, all nine tutorials raising `SystemExit`, and a commented-out mkdocs nav line all pass. Gate 5: satisfied by `docs/api.md`, which is generated from `__all__` — it cannot fail while gate 9 passes, and substring matching means short names match inside longer ones. Gate 7: a `pyproject.toml` whose `attr` binding sits inside a comment, plus `version = "0.0.1"`, passes. Gate 8: every block is guarded by `if <file>.exists():` with no `else`, so an empty directory passes the Python-policy gate; and `PYTHON_CI_REQUIRED` omits 3.13 while the gate prints "all agree" for a classifier set that includes it. Gate 3: the drive-letter allowlist does not include `E:/`, which is in use on this machine. Gate 2: checks one hardcoded path, so a duplicate tree at `jnwb/skills/` or `docs/skills/` passes. Gate 4: the allowlist carries four entries that do not exist. Gates 5, 10 and `test_docs_links` all use non-recursive `glob("*.md")` and therefore miss the same nine live files under `docs/tutorials/` — reproduced by planting `jnwb==0.0.9` there.
-- **Change** Gate 11 -> `find_spec`. Gate 13 -> parse the mkdocs YAML and `compile()` each tutorial, or demote it. Gate 5 -> retire, subsumed by gate 9, and replace with the check 05-41 needs: every `__all__` symbol mentioned outside the generated reference. Gate 7 -> parse with `tomllib`. Gate 8 -> add `else: violations.append(...)` three times, and either test 3.13 or change the PASS string. Gate 3 -> match `^[A-Za-z]:[\\/]`. Gate 2 -> glob `**/SKILL.md` and assert every hit is under `skills/`. Gate 4 -> prune the four stale entries. Three `glob` -> `rglob`.
-- **Preserves** Gates 1, 6, 9 and 12, which are behavioural and well-documented.
-- **Discriminator** Each repaired gate fails the adversarial tree that currently passes it.
-- **Accept** `tests/test_harness_adversarial_gates.py` gains one constructed-input probe per repaired gate. Its `TestGateNumberingIntegrity` machinery is the right model. Also wire the four checks that ship but never run: `check_protected_paths` (all three paths missing), `validate_receipt_provenance`, `check_logarithm_last_rule`, `check_modality_isolation`.
-
 ### 05-80 Nothing enforces the todo-stack rule or resolves `AGENTS.md`'s own pointers
 - **Problem** `AGENTS.md` section 2 states the stack holds only work not yet done; no gate or test checks it, which is why the stack accumulated a completed-work table, and no check resolves the file's own references, which is why section 4.3 points at a deleted item.
 - **Evidence** `grep -rn "todo_stack" scripts/ tests/` returns one hit, a path string. The stale pointer is confirmed by `grep -in "non-blocking" artifacts/todo_stack.md` returning nothing.
@@ -149,6 +141,43 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-79 four sub-claims did not reproduce -- recorded 2026-09-18
+
+Nine gates were repaired and the item's central claim held everywhere it was tested:
+each adversarial tree was built and watched to pass before anything changed. Four
+sub-claims did not survive being checked.
+
+Gate 4's allowlist was said to carry four entries that do not exist. Three do not
+(`_audit_dist`, `_audit_dist2`, `_audit_dist_build`) and are pruned. The fourth absence
+is deliberate and says so where it lives, and the new test requires exactly that: an
+allowlisted file that is absent must carry its reason in the source or be pruned.
+
+Gate 5 was to be retired as subsumed by gate 9, on the grounds that it takes credit from
+the generated `docs/api.md` and matches substrings. Both were already repaired by 05-41:
+the gate skips `GENERATED_REFERENCE` and matches with `\b...\b`, and its docstring
+records the twelve symbols that repair surfaced. Only the non-recursive glob remained, so
+the gate was widened rather than retired -- retiring a check whose two stated defects are
+already gone would remove live coverage.
+
+Gate 8's PASS line was said to print "all agree" over a classifier set including 3.13
+while `PYTHON_CI_REQUIRED` omits it. The line names the two sets separately --
+`classifiers ['3.12', '3.13', '3.14'], CI covering ['3.12', '3.14'] all agree` -- so it
+asserts agreement between what is declared and what is tested, not that 3.13 is tested.
+It is unchanged. Whether CI should test 3.13 is a matrix decision, not a defect here.
+
+Of the four checks said to ship but never run, three do run:
+`validate_receipt_provenance`, `check_logarithm_last_rule` and `check_modality_isolation`
+are each imported and exercised by `tests/test_harness_adversarial_gates.py`. Only
+`check_protected_paths` was dead, and its `PROTECTED_PATHS` named another repository's
+`omission/...` directories, so it is removed rather than wired: wiring it would have
+meant inventing paths for it to protect.
+
+One process note. The discriminator harness left the D13 mutant (`rglob` -> `glob`) live
+in `tests/test_docs_links.py` despite asserting a digest match after the restore, and the
+full suite caught it. A pre/post digest comparison across the whole run, outside the
+per-case try/finally, is now what the run is trusted on; the second run came back
+byte-identical on all three mutated files.
 
 ## 05-78 one half superseded by work done since the audit -- recorded 2026-09-18
 

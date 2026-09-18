@@ -34,13 +34,6 @@ OMISSION_DIR = REPO_ROOT / "omission"
 
 AUTHORIZED_JNWB_EXCEPTIONS: set = set()
 
-PROTECTED_PATHS = [
-    "omission/context/figures",
-    "omission/scripts",
-    "omission-data/SKILL.md",
-]
-
-
 class HarnessGateFailure(Exception):
     """Raised when a mechanical harness boundary is violated."""
     pass
@@ -79,19 +72,6 @@ def check_frozen_boundary(jnwb_path: Optional[Path] = None) -> List[str]:
     return violations
 
 
-def check_protected_paths(staged_or_modified_paths: List[str]) -> List[str]:
-    """Protected-path check (not a numbered preflight gate; argument-driven).
-
-    Prevent accidental modification of protected concurrent paths.
-    """
-    violations = []
-    for p in staged_or_modified_paths:
-        p_norm = p.replace("\\", "/").strip()
-        for prot in PROTECTED_PATHS:
-            if p_norm == prot or p_norm.startswith(prot + "/"):
-                violations.append(f"PROTECTED_PATH_VIOLATION: Attempted mutation to protected concurrent work: {p_norm}")
-    return violations
-
 
 def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path]) -> Tuple[bool, str]:
     """Receipt provenance check (not a numbered preflight gate; argument-driven).
@@ -116,19 +96,23 @@ def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path])
 
 
 def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 2 (Skill Tree Uniqueness): Enforce single canonical skill tree.
-    
-    Prohibits recreation of duplicate .agents/skills/ trees.
-    The single tracked canonical skill tree is skills/.
+    """Gate 2 (Skill Tree Uniqueness): every SKILL.md in the tree lives under skills/.
+
+    This checked one hardcoded path, ``.agents/skills``, so a duplicate tree anywhere else
+    passed: `jnwb/skills/` and `docs/skills/` were both accepted when constructed. The
+    canonical tree is `skills/`, and a second one is the hazard whatever it is called.
     """
     root = repo_root or REPO_ROOT
     violations = []
-    agents_skills = root / ".agents" / "skills"
-    if agents_skills.exists():
-        violations.append(
-            f"DUPLICATE_SKILL_TREE: {agents_skills} exists. "
-            "Canonical generic skills live exclusively in skills/."
-        )
+    for skill in sorted(root.rglob("SKILL.md")):
+        relative = skill.relative_to(root)
+        if relative.parts[0] in EPHEMERAL_ROOT_DIRS:
+            continue  # another package's skills inside a .venv are not this tree
+        if relative.parts[0] != "skills":
+            violations.append(
+                f"DUPLICATE_SKILL_TREE: {relative.as_posix()} is a SKILL.md outside skills/. "
+                "The canonical tree is skills/; a second tree is what this gate exists for."
+            )
     return violations
 
 
@@ -139,9 +123,12 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
     if not tests_dir.exists():
         return []
     violations = []
+    # Any drive letter, not C: and D:. This machine keeps its analysis data on E:, so the
+    # allowlist shape of the original pattern exempted exactly the paths in use here: a
+    # test pinned to "E:/analysis/derived/session.nwb" passed.
     drive_patterns = [
-        re.compile(r'["\']([CDcd]:/(?:nwb|analysis|data|workspace|Users|home)[^"\']*)["\']'),
-        re.compile(r'["\']([CDcd]:\\(?:nwb|analysis|data|workspace|Users|home)[^"\']*)["\']'),
+        re.compile(r'["\']([A-Za-z]:/(?:nwb|analysis|data|workspace|Users|home)[^"\']*)["\']'),
+        re.compile(r'["\']([A-Za-z]:\\(?:nwb|analysis|data|workspace|Users|home)[^"\']*)["\']'),
         re.compile(r'["\'](/Users/[^"\']+)["\']'),
         re.compile(r'["\'](/home/(?!runner)[^"\']+)["\']'),
     ]
@@ -174,7 +161,11 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
 # These two are jnwb's own, are excluded from the wheel, and are the residual hazard
 # documented in docs/install.md -- nothing else may join them.
 OWNED_ROOT_PACKAGES = {"jnwb"}
-INTERNAL_ROOT_PACKAGES = {"scripts", "tests"}
+# jnwb's own directories, all excluded from the wheel. `docs/` and `examples/` joined the list
+# when this gate started seeing namespace packages: `docs/generate_figures.py` and
+# `examples/quickstart_jnwb.py` make both importable without an __init__.py, which is the same
+# exposure and the same residual hazard documented in docs/install.md. Nothing else may join.
+INTERNAL_ROOT_PACKAGES = {"scripts", "tests", "docs", "examples"}
 
 # --- Python support policy -------------------------------------------------
 # Corrected 2026-09-09. The earlier "3.12 only" rule was a decision scoped to one
@@ -195,7 +186,6 @@ SOURCE_ROOT_DIRS = {
 EPHEMERAL_ROOT_DIRS = {
     ".git", ".venv", "venv", "env", ".pytest_cache", ".mypy_cache", ".ruff_cache",
     "dist", "build", "_build", "site", "jnwb.egg-info", ".tox", ".lab_bundle_build",
-    "_audit_dist", "_audit_dist2", "_audit_dist_build",
 }
 
 ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
@@ -247,7 +237,9 @@ def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[st
         return ["MISSING_DOCS_DIR: docs/ not found"]
     
     all_docs_text = ""
-    for doc_path in sorted(docs_dir.glob("*.md")):
+    # rglob: docs/tutorials/ holds nine live pages that glob("*.md") never read, so a
+    # symbol documented only there counted as undocumented.
+    for doc_path in sorted(docs_dir.rglob("*.md")):
         if doc_path.name == GENERATED_REFERENCE:
             continue
         all_docs_text += "\n" + doc_path.read_text(encoding="utf-8")
@@ -325,7 +317,10 @@ def check_docs_version_matches_package(repo_root: Optional[Path] = None) -> List
                     f"DOCS_VERSION_MISMATCH: mkdocs.yml extra.jnwb_version is {found!r}, "
                     f"but jnwb.__version__ is {expected!r}")
 
-    for md in [root / "README.md", *sorted((root / "docs").glob("*.md"))]:
+    # rglob for the same reason as Gate 5, and here it is a hole rather than a
+    # strictness bug: a `jnwb==0.0.9` pin planted in docs/tutorials/01_nwb_basics.md
+    # passed this gate.
+    for md in [root / "README.md", *sorted((root / "docs").rglob("*.md"))]:
         if not md.exists():
             continue
         for found in re.findall(r"jnwb==([0-9][0-9A-Za-z.\-]*)", md.read_text(encoding="utf-8")):
@@ -464,12 +459,32 @@ def check_version_consistency(repo_root: Optional[Path] = None) -> List[str]:
     if not pyproject_path.exists():
         return ["MISSING_PYPROJECT: pyproject.toml not found"]
     
-    pyproject_text = pyproject_path.read_text(encoding="utf-8")
-    has_dynamic = 'version = { attr = "jnwb.__version__" }' in pyproject_text or 'version = {attr = "jnwb.__version__"}' in pyproject_text
-    has_static = f'version = "{version}"' in pyproject_text
-    if not (has_dynamic or has_static):
-        return [f"VERSION_INCONSISTENCY: pyproject.toml does not bind to jnwb.__version__ ({version})"]
-        
+    # Parsed, not substring-matched. The old check looked for the binding anywhere in the
+    # file, so a pyproject.toml carrying `version = "0.0.1"` and the attr binding inside a
+    # comment passed: the comment satisfied has_dynamic and the wrong version was never
+    # compared to anything.
+    import tomllib
+
+    try:
+        with open(pyproject_path, "rb") as handle:
+            project = tomllib.load(handle).get("project", {})
+    except tomllib.TOMLDecodeError as exc:
+        return [f"UNPARSEABLE_PYPROJECT: {exc}"]
+
+    declared = project.get("version")
+    dynamic = project.get("dynamic") or []
+    if declared is None:
+        if "version" not in dynamic:
+            return [
+                "VERSION_INCONSISTENCY: pyproject.toml declares neither a version nor "
+                'dynamic = ["version"]'
+            ]
+        return []
+    if declared != version:
+        return [
+            f"VERSION_INCONSISTENCY: pyproject.toml declares version {declared!r}, but "
+            f"jnwb.__version__ is {version!r}"
+        ]
     return []
 
 
@@ -499,7 +514,11 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
     violations = []
 
     # 1. pyproject.toml: floor, no ceiling, classifiers == PYTHON_SUPPORTED
+    # Each of the three blocks below used to be `if <file>.exists():` with no else, so an
+    # empty directory passed the whole gate. A missing file is a failure, not a pass.
     pyproject_path = root / "pyproject.toml"
+    if not pyproject_path.exists():
+        violations.append("PYTHON_FLOOR_INCONSISTENCY: pyproject.toml not found")
     if pyproject_path.exists():
         pyproject_text = pyproject_path.read_text(encoding="utf-8")
 
@@ -539,6 +558,8 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
 
     # 2. .readthedocs.yaml: one interpreter, inside the supported range
     rtd_path = root / ".readthedocs.yaml"
+    if not rtd_path.exists():
+        violations.append("PYTHON_FLOOR_INCONSISTENCY: .readthedocs.yaml not found")
     if rtd_path.exists():
         rtd_text = rtd_path.read_text(encoding="utf-8")
         pinned = re.search(r'python:\s*"(\d+\.\d+)"', rtd_text)
@@ -552,6 +573,10 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
 
     # 3. workflow.yml: the matrix must cover the floor and the newest declared version
     workflow_path = root / ".github" / "workflows" / "workflow.yml"
+    if not workflow_path.exists():
+        violations.append(
+            "PYTHON_FLOOR_INCONSISTENCY: .github/workflows/workflow.yml not found"
+        )
     if workflow_path.exists():
         wf_text = workflow_path.read_text(encoding="utf-8")
         matrix = re.search(r"python-version:\s*\[([^\]]*)\]", wf_text)
@@ -598,12 +623,21 @@ def check_no_shadow_packages(repo_root: Optional[Path] = None) -> List[str]:
             continue
         if entry.name.startswith(".") or entry.name.endswith(".egg-info"):
             continue
-        if (entry / "__init__.py").exists():
+        if entry.name in EPHEMERAL_ROOT_DIRS:
+            continue
+        # An __init__.py is not what makes a directory importable. Since PEP 420 a plain
+        # directory holding .py files imports as a namespace package, which is how
+        # JNWB-002 happened: the gate asked for __init__.py, found none, and passed the
+        # tree that produced the incident. Confirmed with importlib.util.find_spec, which
+        # resolves such a directory with origin None.
+        importable = (entry / "__init__.py").exists() or any(entry.glob("*.py"))
+        if importable:
+            kind = "package" if (entry / "__init__.py").exists() else "namespace package"
             violations.append(
-                f"SHADOW_PACKAGE: '{entry.name}/' has an __init__.py at the repository root, so "
-                f"`import {entry.name}` resolves inside the jnwb checkout for every editable "
-                f"install, shadowing any consumer package of that name. Move it out of the "
-                f"library checkout."
+                f"SHADOW_PACKAGE: '{entry.name}/' is importable as a {kind} at the repository "
+                f"root, so `import {entry.name}` resolves inside the jnwb checkout for every "
+                f"editable install, shadowing any consumer package of that name. Move it out "
+                f"of the library checkout."
             )
     return violations
 
@@ -752,8 +786,19 @@ def check_modality_isolation(feature_names: List[str]) -> Tuple[bool, List[str]]
     return True, []
 
 
+#: The public NWB entry points Gate 13 holds the onboarding surface to.
+NWB_ONBOARDING_SYMBOLS = ("jnwb.inspect", "jnwb.events", "jnwb.event_onsets")
+
+
 def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 13: README, tutorials, and skill agree on the public NWB workflow."""
+    """Gate 13: README, tutorials, and skill agree on the public NWB workflow.
+
+    This was a presence check and passed a tree it should have rejected: a README saying
+    the three symbols are REMOVED still contains their names, nine tutorials whose whole
+    body is ``raise SystemExit`` still exist as files, and a nav line commented out in
+    mkdocs.yml is still a substring of the file. Each of the three is now checked for the
+    property it was standing in for -- a call, a runnable module, a parsed nav entry.
+    """
     root = repo_root or REPO_ROOT
     violations: List[str] = []
 
@@ -762,9 +807,13 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
         violations.append("NWB_ONBOARDING: README.md missing")
     else:
         text = readme.read_text(encoding="utf-8")
-        for symbol in ("jnwb.inspect", "jnwb.events", "jnwb.event_onsets"):
-            if symbol not in text:
-                violations.append(f"NWB_ONBOARDING: README missing {symbol}")
+        for symbol in NWB_ONBOARDING_SYMBOLS:
+            # A call, not a mention: "jnwb.inspect is REMOVED" mentions it too.
+            if f"{symbol}(" not in text:
+                violations.append(
+                    f"NWB_ONBOARDING: README never calls {symbol}; naming it is not the same "
+                    f"as showing a reader how to use it"
+                )
 
     expected_scripts = [
         "00_your_own_file.py",
@@ -779,8 +828,26 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     ]
     tutorial_dir = root / "examples" / "tutorials"
     for name in expected_scripts:
-        if not (tutorial_dir / name).exists():
+        script = tutorial_dir / name
+        if not script.exists():
             violations.append(f"NWB_ONBOARDING: missing tutorial script {name}")
+            continue
+        source = script.read_text(encoding="utf-8")
+        try:
+            tree = ast.parse(source, filename=str(script))
+        except SyntaxError as exc:
+            violations.append(f"NWB_ONBOARDING: {name} does not parse: {exc}")
+            continue
+        # A file that exists is not a tutorial that runs. Nine of them rewritten to
+        # `raise SystemExit(...)` passed this gate, because the check was existence.
+        if any(isinstance(node, ast.Raise) for node in tree.body):
+            violations.append(
+                f"NWB_ONBOARDING: {name} raises at module level, so importing or running it "
+                f"never reaches the workflow it documents"
+            )
+        functions = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+        if "main" not in functions:
+            violations.append(f"NWB_ONBOARDING: {name} defines no main()")
 
     for name in expected_scripts:
         md_name = name.replace(".py", ".md")
@@ -795,19 +862,45 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
     if skill.exists():
         skill_text = skill.read_text(encoding="utf-8")
-        for symbol in ("jnwb.inspect", "jnwb.events", "jnwb.event_onsets"):
-            if symbol not in skill_text:
-                violations.append(f"NWB_ONBOARDING: skill missing {symbol}")
+        for symbol in NWB_ONBOARDING_SYMBOLS:
+            if f"{symbol}(" not in skill_text:
+                violations.append(
+                    f"NWB_ONBOARDING: the skill names {symbol} but never routes a call to it"
+                )
     else:
         violations.append("NWB_ONBOARDING: skills/jnwb-nwb-data/SKILL.md missing")
 
     mkdocs = root / "mkdocs.yml"
-    if mkdocs.exists():
-        mk = mkdocs.read_text(encoding="utf-8")
-        if "tutorials/01_nwb_basics.md" not in mk:
-            violations.append("NWB_ONBOARDING: mkdocs.yml missing Tutorials nav entry")
-    else:
+    if not mkdocs.exists():
         violations.append("NWB_ONBOARDING: mkdocs.yml missing")
+    else:
+        # Parsed, not substring-matched: a commented-out nav line is still a substring of
+        # the file, so the page would be missing from the built site while this passed.
+        import yaml
+
+        try:
+            config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            config = {}
+            violations.append(f"NWB_ONBOARDING: mkdocs.yml does not parse: {exc}")
+
+        def _pages(node) -> List[str]:
+            if isinstance(node, str):
+                return [node]
+            if isinstance(node, dict):
+                return [p for value in node.values() for p in _pages(value)]
+            if isinstance(node, list):
+                return [p for item in node for p in _pages(item)]
+            return []
+
+        nav_pages = set(_pages(config.get("nav", [])))
+        for name in expected_scripts:
+            page = f"tutorials/{name.replace('.py', '.md')}"
+            if page not in nav_pages:
+                violations.append(
+                    f"NWB_ONBOARDING: {page} is not in the mkdocs nav, so the built site "
+                    f"does not carry it"
+                )
 
     return violations
 

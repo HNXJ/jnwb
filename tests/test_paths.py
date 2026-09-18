@@ -81,10 +81,10 @@ class TestOverrideAndEnvVarPrecedence:
             assert paths.conndb_dir() == Path("Z:/legacy_data") / paths.CONNDB_SUBDIR
 
     def test_primary_analysis_dir_subtrees_follow_env_var(self, monkeypatch):
-        monkeypatch.setenv(paths.ENV_ANALYSIS_DIR, "Z:/data")
-        assert paths.tfr_dir() == Path("Z:/data") / paths.TFR_SUBDIR
-        assert paths.meta_dir() == Path("Z:/data") / paths.META_SUBDIR
-        assert paths.conndb_dir() == Path("Z:/data") / paths.CONNDB_SUBDIR
+        monkeypatch.setenv(paths.ENV_ANALYSIS_DIR, "Z:/synthetic_data")
+        assert paths.tfr_dir() == Path("Z:/synthetic_data") / paths.TFR_SUBDIR
+        assert paths.meta_dir() == Path("Z:/synthetic_data") / paths.META_SUBDIR
+        assert paths.conndb_dir() == Path("Z:/synthetic_data") / paths.CONNDB_SUBDIR
 
     @pytest.mark.parametrize("fn, primary, legacy", [
         ("tfr_dir", "ENV_TFR_DIR", "LEGACY_ENV_TFR_DIR"),

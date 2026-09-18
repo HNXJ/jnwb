@@ -69,6 +69,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented: `meta_tools.py` and `custom_tools.py` are gone, and the five tests that
   exercised the tool went with them.
 
+### Fixed
+
+- **Nine of the thirteen preflight gates passed the tree they exist to reject.** Each
+  was a presence or substring check standing in for behaviour, and each was confirmed by
+  building the tree and watching it pass before anything was changed. Gate 11 asked for
+  an `__init__.py`, but since PEP 420 a directory holding `.py` files and no `__init__.py`
+  imports as a namespace package -- `importlib.util.find_spec` resolves it with
+  `origin is None` -- so the shape that produced JNWB-002, 88 of 190 importing files
+  taking the wrong copy of a user project, reproduced green; it now tests importability
+  and skips `.venv`-class directories, whose other packages are not this tree's problem.
+  Gate 13 accepted a README stating the three NWB entry points are REMOVED, nine tutorials
+  whose entire body is `raise SystemExit`, and a nav line commented out of `mkdocs.yml`:
+  it now requires a call rather than a mention, parses each tutorial and rejects a
+  module-level raise or a missing `main()`, and reads the nav through `yaml.safe_load`
+  instead of matching the file as text. Gate 7 passed a `pyproject.toml` carrying
+  `version = "0.0.1"` whose `attr` binding sat inside a comment, because the binding was
+  searched for anywhere in the file and the declared version was never compared to
+  anything; it now loads the file with `tomllib` and compares. Gate 8 guarded all three of
+  its blocks with `if <file>.exists():` and no `else`, so an empty directory passed the
+  Python-policy gate; a missing file is now a violation. Gate 3's drive-letter allowlist
+  covered `C:` and `D:` only, which exempted exactly the paths in use on the machine that
+  runs it -- a test pinned to `E:/analysis/derived/session.nwb` passed -- and now matches
+  any drive. Gate 2 checked one hardcoded path, so a duplicate skill tree at `jnwb/skills/`
+  or `docs/skills/` passed; it now finds every `SKILL.md` in the tree and requires it to be
+  under `skills/`. Gates 5 and 10 and `tests/test_docs_links.py` all globbed `docs/*.md`
+  non-recursively and so read none of the nine live pages under `docs/tutorials/`,
+  reproduced by planting a `jnwb==0.0.9` pin there and watching the version gate pass.
+  Gate 4 allowlisted three one-off audit directories that outlived the audit.
+  `tests/test_gates_reject_the_trees_they_passed.py` rebuilds one adversarial tree per
+  repaired gate and asserts both directions, since a gate that rejects everything is as
+  useless as one that rejects nothing; fourteen discriminating mutations, one per repair,
+  all fail the suite. `check_protected_paths` shipped with no caller and pointed at another
+  repository's paths, and is removed.
+
+  Four corrections to the report that prompted this. Gate 4 carried three stale entries,
+  not four. Gate 5's two other defects -- credit from the generated `docs/api.md`, and
+  substring matching crediting `events` to a page that only says `event_onsets` -- were
+  already repaired by the 05-41 work, which excludes the generated reference and matches
+  whole words; the non-recursive glob was all that remained, so the gate was widened rather
+  than retired. Gate 8's PASS line was said to claim agreement over a classifier set
+  including 3.13 while CI omits it, but the line names the two sets separately
+  (`classifiers [...], CI covering [...]`) and claims nothing about 3.13 being tested.
+  Of the four checks said to ship without ever running, three --
+  `validate_receipt_provenance`, `check_logarithm_last_rule` and `check_modality_isolation`
+  -- are exercised by `tests/test_harness_adversarial_gates.py`; only
+  `check_protected_paths` was dead.
+
 ### Changed
 
 - **Nine dependency floors named releases that cannot be installed on any interpreter

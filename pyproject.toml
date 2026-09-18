@@ -97,7 +97,7 @@ version = { attr = "jnwb.__version__" }
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["jnwb*"]
-exclude = ["omission*", "tests*", "docs*", "scripts*", "artifacts*", "jnwb._unused*", "jnwb._unused", ".lab_bundle_build*"]
+exclude = ["omission*", "tests*", "docs*", "scripts*", "examples*", "artifacts*", "jnwb._unused*", "jnwb._unused", ".lab_bundle_build*"]
 
 [tool.setuptools.package-data]
 jnwb = ["py.typed"]
