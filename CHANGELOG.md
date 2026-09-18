@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A comparison against a package that is not installed now says so.**
+  `test_area_resolution_is_identical_with_and_without_omission_importable` runs jnwb in
+  two subprocesses, one with `omission` blocked, and asserts they agree. The blocked arm
+  proves its own block took effect; nothing proved the *unblocked* arm could import what
+  it was comparing against. Where `omission` is absent, as here, both arms ran identical
+  code and the test passed by comparing jnwb to itself. It now skips explicitly when
+  `omission` is not importable. Deleting it was rejected: the comparison is real wherever
+  the dependency exists, and a skip converts a false pass into declared non-execution
+  rather than removing the coverage.
+- **One of two byte-identical `__all__` completeness tests is gone.**
+  `tests/test_api_surface.py::test_public_exports_resolve` and
+  `tests/test_jnwb_frozen_boundary.py::test_jnwb_all_symbols_resolve` evaluated the same
+  expression under the same assertion, so no mutation could separate them. The
+  frozen-boundary copy is kept, because its comment records why `__all__` completeness
+  belongs to the 0.2.x freeze contract.
+- **`TestParallelMap` was not spending its time squaring integers, and it keeps its
+  `n_jobs=32`.** The class costs 14.9-15.2 s over three runs, close to the 18.45 s
+  reported, but not for the stated reason, and the waste it was reported to contain is
+  not there. `parallel_map` dispatches
+  `n_chunks = min(len(items), workers * chunks_per_worker)` chunks (`_parallel.py:103`),
+  which is 2 for the 2 items in `test_more_workers_than_items` whatever `n_jobs` says,
+  and loky spawns a worker per task, so `n_jobs=32` never started 32 interpreters.
+  Measured back to back under the same load, 32 against 4 is 7.47 s against 6.66 s per
+  isolated run -- 0.81 s of executor construction, not 28 avoided interpreter starts.
+  An earlier 3.49 s figure for that test came from `--durations` taken while two
+  unrelated jobs were running on the same machine. 0.81 s does not pay for losing an
+  incidental case -- 32 also exceeds this machine's 24 CPUs, which 4 does not -- so the
+  test is unchanged. The remaining 7.5-7.8 s is `test_chunking_covers_every_item_exactly_once`,
+  which buys boundary coverage at, below and above `n_jobs` and is what the class is for.
 - **Five copies of the dict-access shim became one `jnwb._dictlike.DictAccessMixin`.**
   The five classes above now declare the mixin instead of each carrying the pair, so the
   fix above landed once rather than five times. Read access only: these are records of a
@@ -175,6 +204,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Call the dataclass directly. The other eleven ontology exports are retained.
 
 ### Fixed
+
+- **A mock that could not be reached, in the test named for it.**
+  `test_rejected_fit_returns_unavailable_parameters_never_zeros` checked both failure
+  modes of `aperiodic_fit` in one body: it installed a failing `np.polyfit` for the
+  fixed-mode half and never undid it, then installed a failing `optimize.curve_fit` for
+  the knee half. The knee branch calls `np.polyfit` (`spectral.py:1201`) before
+  `optimize.curve_fit` (`:1206`) inside one `try`, so it raised on the leaked patch and
+  the `curve_fit` mock was never reached. Measured, not read: replacing that mock with
+  one that *succeeds* -- which should have flipped `accepted` to True and broken four
+  assertions -- left the test passing. The knee `except` branch was still exercised, by
+  the wrong failure; what went untested was the one the test is named for. It is now two
+  tests, each patching only what it injects, and the knee half counts its own mock's
+  invocations, so a mock that stops being reached fails instead of passing silently.
+  Both discriminators kill: reintroducing the leaked patch, and making the mock succeed.
 
 - **A 9.537 GiB fixture bought three shape assertions.**
   `tests/test_analyzers_coverage.py` allocated `randn(128, 200, 500, 100)` -- 9.537 GiB of

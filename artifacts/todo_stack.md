@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-59 Removable and mergeable tests
-- **Problem** Tests that cannot fail, or duplicate another's failure class.
-- **Evidence** `tests/test_rsa.py` in full (every failure class is covered by `test_rsa_oracle.py`; under a `pdist**2` mutation it caught nothing). `test_jnwb_frozen_boundary::test_jnwb_all_symbols_resolve` duplicates `test_api_surface::test_public_exports_resolve`. `test_addressing::test_area_resolution_is_identical_with_and_without_omission_importable` spawns two subprocesses and compares jnwb to itself, since the module is importable in neither arm; its own comment predicts this. `test_paths.py:93` puts `Path.cwd()` on both sides; `:173` restates the expression it checks. `test_spectral.py:901` instruments a `curve_fit` mock that is never invoked (`{'polyfit': 2, 'curve_fit': 0}`), so both halves test one path. `tests/test_parallel.py::TestParallelMap` spends 18.45 s squaring at most 100 integers.
-- **Change** Delete the named tests; merge the seven `TestPublicImport`-style tests into one parametrized surface test and `TestHarnessResetContracts`' nine substring assertions into one.
-- **Preserves** Every failure class.
-- **Discriminator** The mutation set caught before and after is identical.
-- **Accept** Deletion justified per test by the mutation it still catches elsewhere.
-
 ### 05-60 The two carried-forward 0.2.4 items
 - **Problem** A receipt with no generator, and a test that cannot measure what it is named for.
 - **Evidence** `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator script. `tests/test_xflip_calibration.py` rebinds all four null families and three alternative categories to the shipped estimator, but runs 15 seeds against the document's 30 — and `assert fpr <= 0.05` at n=15 is satisfiable only by 0/15 — and has no analogue for the document's within-correlation sweep at rw = 0.2, 0.4, 0.8, nor for its localization-error columns. `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a null's grid dependence.
@@ -260,7 +252,33 @@ and docs, not against the skill's own text.
      replacing the frequency-axis `mean` with a `sum`. Both change every returned number
      while preserving shape. Measured at both the old 9.537 GiB fixture and the current
      one, so this is a pre-existing gap the fixture shrink neither caused nor closed.
-  6. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
+  6. **Tracked files may still be rewritten through a text round-trip.**
+     *Mechanism:* `read_text` normalizes every line ending to `\n` and `write_text` emits
+     the running platform's `os.linesep`, so the pair reproduces a file's bytes only when
+     its endings already match that platform, and rewrites them otherwise -- in either
+     direction. `read_text` also conceals the difference from any check written the same
+     way, so a test of this cannot use it.
+     *Measured:* `jnwb/mcp_server/custom_tools.py` is CRLF (read as bytes), and on this
+     Windows machine the round-trip reproduced its 101 bytes exactly. That instance was
+     removed in 05-57.
+     *Derived, not run:* `.github/workflows/workflow.yml:29` runs the matrix on
+     `ubuntu-latest` as well, where the same code path converts that file to LF instead, so
+     the restore preserved bytes on one half of the matrix and modified a tracked file on
+     the other. Whether any other tracked file is rewritten this way, by a test or a
+     script, has not been swept.
+  7. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
+  8. **Three `tests/test_rsa.py` tests are redundant only for the classes that were
+     probed.** 05-59 refuted the proposed deletion of that file: it uniquely carries five
+     failure classes, and the suite without it kills none of them -- `rdm` accepting a
+     sub-2D input, and all four `rdm_similarity` rejection paths, including an unknown
+     metric name silently computing Spearman. Of the remaining tests,
+     `test_rdm_shapes_and_invariants`, `test_rdm_similarity_comparison` and
+     `test_rdm_metrics` were redundant against every mutant aimed at them, but assertions
+     in each (zero diagonal, condensed/square round-trip) were reached by no mutant, so
+     their redundancy is measured only where it was measured. `test_rdm_metrics` also
+     survives a mutation that makes `_condensed_distances` ignore its `metric` argument
+     entirely -- the oracle catches it, so the suite is covered, but the test named for
+     metrics does not detect that metrics are ignored.
 
 ### 05-85 Code / docs / skills / tests triangle audit
 - **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.

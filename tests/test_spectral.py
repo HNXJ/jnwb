@@ -995,42 +995,57 @@ class TestAperiodicFit:
         with pytest.raises(ValueError, match="Insufficient frequency bins"):
             aperiodic_fit(freqs, psd, freq_range=(15.0, 35.0))
 
-    def test_rejected_fit_returns_unavailable_parameters_never_zeros(self, monkeypatch):
-        """When optimization fails to converge, accepted=False and parameters are None, never plausible numerical zeros."""
+    def test_fixed_mode_rejection_returns_unavailable_parameters_never_zeros(self, monkeypatch):
+        """When the linear fit fails, accepted=False and parameters are None, never plausible numerical zeros."""
         freqs = np.linspace(2.0, 50.0, 49)
         psd = 10 ** (1.5 - 1.2 * np.log10(freqs))
 
-        # 1. Fixed mode optimization failure simulation
         def _mock_polyfit_fail(*args, **kwargs):
             raise RuntimeError("Linear regression divergence")
 
         monkeypatch.setattr(np, "polyfit", _mock_polyfit_fail)
-        res_fixed_fail = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="fixed")
-        assert isinstance(res_fixed_fail, AperiodicFitResult)
-        assert res_fixed_fail.accepted is False
-        assert res_fixed_fail.offset is None
-        assert res_fixed_fail.exponent is None
-        assert res_fixed_fail.knee is None
-        assert res_fixed_fail.r_squared is None
-        assert res_fixed_fail.mode == "fixed"
-        assert res_fixed_fail.freq_range == (2.0, 50.0)
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="fixed")
+        assert isinstance(res, AperiodicFitResult)
+        assert res.accepted is False
+        assert res.offset is None
+        assert res.exponent is None
+        assert res.knee is None
+        assert res.r_squared is None
+        assert res.mode == "fixed"
+        assert res.freq_range == (2.0, 50.0)
 
-        # 2. Knee mode optimization failure simulation
+    def test_knee_mode_rejection_returns_unavailable_parameters_never_zeros(self, monkeypatch):
+        """Same contract when `curve_fit` fails to converge.
+
+        This used to be the second half of the fixed-mode test, which left its failing
+        `np.polyfit` patch installed. The knee branch calls `np.polyfit` before
+        `optimize.curve_fit` inside one `try`, so it raised on the leaked patch and the
+        `curve_fit` mock below was never reached -- replacing that mock with one that
+        succeeded did not change the result. Patching only `curve_fit` here restores the
+        failure mode the test is named for, and the call count keeps it honest: if the
+        mock ever stops being reached again, this fails instead of passing silently.
+        """
         from scipy import optimize
 
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd = 10 ** (1.5 - 1.2 * np.log10(freqs))
+        calls = {"n": 0}
+
         def _mock_curve_fit_fail(*args, **kwargs):
+            calls["n"] += 1
             raise RuntimeError("Optimal parameters not found: maxfev reached")
 
         monkeypatch.setattr(optimize, "curve_fit", _mock_curve_fit_fail)
-        res_knee_fail = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="knee")
-        assert isinstance(res_knee_fail, AperiodicFitResult)
-        assert res_knee_fail.accepted is False
-        assert res_knee_fail.offset is None
-        assert res_knee_fail.exponent is None
-        assert res_knee_fail.knee is None
-        assert res_knee_fail.r_squared is None
-        assert res_knee_fail.mode == "knee"
-        assert res_knee_fail.freq_range == (2.0, 50.0)
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="knee")
+        assert calls["n"] == 1, "curve_fit was never reached, so nothing here was tested"
+        assert isinstance(res, AperiodicFitResult)
+        assert res.accepted is False
+        assert res.offset is None
+        assert res.exponent is None
+        assert res.knee is None
+        assert res.r_squared is None
+        assert res.mode == "knee"
+        assert res.freq_range == (2.0, 50.0)
 
 
 class TestRelativePower:
