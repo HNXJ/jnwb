@@ -44,14 +44,6 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-74 Seven of ten dependency floors cannot be installed on any supported interpreter
-- **Problem** Floors copied from an older support window and never re-derived after the 3.12 floor landed.
-- **Evidence** PyPI metadata: `numpy==1.22.0` tags `['cp310','cp38','cp39','pp38','sdist']`; `scipy==1.8.0` declares `requires_python '>=3.8,<3.11'`, which contradicts `requires-python = ">=3.12"` outright; `pandas==1.4.0`, `h5py==3.6.0`, `matplotlib==3.5.0`, `scikit-learn==1.0.0`, `statsmodels==0.13.0` ship no cp312 or pure-python wheel. Separately `jnwb.statistics` and `jnwb.connectivity` call `scipy.stats.false_discovery_control`, added in SciPy 1.11, three minor versions above the declared floor — masked only because scipy <1.11 cannot install on 3.12.
-- **Change** Raise each floor to the oldest release with a cp312 artifact, or delete the floors and state that the package takes whatever pip resolves on 3.12.
-- **Preserves** Current resolutions, which are all far above the floors.
-- **Discriminator** Every declared floor is installable on the declared interpreter.
-- **Accept** `pip install 'numpy==<floor>'` succeeds on 3.12 for each dependency.
-
 ### 05-75 The forbidden-path check cannot see `tests/` or `scripts/` in the wheel
 - **Problem** `forbidden = [..., '/tests/', '/scripts/']` substring-matched against archive entries whose delimiters differ by format.
 - **Evidence** `'/tests/' in 'tests/__init__.py'` is False. Wheel entries have no leading component, so the check works only for the sdist, whose entries are `jnwb-0.2.4/tests/...`.
@@ -190,6 +182,30 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-74 nine floors, not seven -- corrected 2026-09-18
+
+The finding reproduced and grew. The item names seven defective floors; nine are.
+`torch>=1.12.0` and `pyyaml>=6.0` have exactly the defect the item describes and were
+not listed: neither release ships a cp312 or pure-python wheel (torch 1.12.0 stops at
+cp310, pyyaml 6.0 at cp311). Both moved in the same commit, because raising seven of
+nine would have left the gate red on the two that remained.
+
+The item's title also reads "of ten"; `pyproject.toml` declares 23 `>=` floors across
+the core list and the `torch`, `test` and `docs` extras. The other fourteen are clean:
+each resolves to a release with a usable wheel. The gate checks all 23, not the ten.
+
+Of the nine, one is the requires_python contradiction the item names (`scipy==1.8.0`
+declares `'>=3.8,<3.11'`); the other eight ship no usable wheel. The scipy floor had a
+second, independent reason to move that the item records: `false_discovery_control`
+arrived in 1.11. `tests/` derives that requirement from the call sites rather than
+asserting 1.11 as a constant, so it disappears if the calls do.
+
+The Accept asks for `pip install 'numpy==<floor>'` to succeed on 3.12 for each
+dependency. It was met by reading the index metadata for each floor rather than by
+running 23 installs: the question is whether an installable artifact exists for cp312,
+which the wheel tags and `requires_python` answer directly. Installing them would also
+have required a throwaway environment per dependency and would have tested this
+machine's resolver as much as the declaration.
 ## 05-73 divergence measured larger, commit count unverifiable here -- recorded 2026-09-18
 
 The finding reproduced and grew. `jnwb.__version__` is 0.2.4, the index serves 0.2.4, and

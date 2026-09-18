@@ -37,6 +37,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Nine dependency floors named releases that cannot be installed on any interpreter
+  this package supports.** `requires-python` moved to `>=3.12` while the floors stayed
+  where an older support window had left them, and nothing ever resolves a floor in
+  practice, so no install tried. `scipy>=1.8.0` was the plainest contradiction: that
+  release declares `requires_python '>=3.8,<3.11'`, which excludes the interpreter
+  `pyproject.toml` requires, and it also predates `scipy.stats.false_discovery_control`,
+  which `jnwb/statistics.py` and `jnwb/connectivity.py` call. The other eight ship no
+  cp312 or pure-python wheel at all -- `numpy 1.22.0` ships cp38 through cp310, `pyyaml
+  6.0` stops at cp311. Each floor is now the oldest final release carrying a wheel a 3.12
+  can use, read off the index rather than chosen: numpy 1.22.0 -> 1.26.0, scipy 1.8.0 ->
+  1.11.2, pandas 1.4.0 -> 2.1.1, h5py 3.6.0 -> 3.10.0, matplotlib 3.5.0 -> 3.7.3,
+  scikit-learn 1.0.0 -> 1.3.1, statsmodels 0.13.0 -> 0.14.0, torch 1.12.0 -> 2.2.0 and
+  pyyaml 6.0 -> 6.0.1. Resolved versions do not move: every environment in use already
+  sat years above these floors, which is why the contradiction went unseen.
+- **The release gate checks every declared floor against the index before it builds
+  anything.** STEP 0c reads all 23 floors from `pyproject.toml` and derives the
+  interpreter tag from `requires-python` rather than writing `cp312` down, so the check
+  cannot outlive the support window whose movement produced this drift. `>=` is read as a
+  lower bound, so the release checked is the oldest one *satisfying* the floor:
+  `pytest-xdist>=3.0` resolves to 3.0.2, and there is no 3.0 -- an earlier draft asked the
+  index for the literal floor string and reported the 404 as a missing release, which is a
+  fact about URL spelling. An unreachable index reads as unverified, not as clear, with
+  one named override (`JNWB_SKIP_INDEX_CHECK=1`).
+  `tests/test_dependency_floors_are_installable.py` drives the pure functions with stubbed
+  metadata so the same answers hold offline, records the oldest cp312 release of each
+  pinned package so lowering a floor fails in the suite rather than at release time, and
+  asserts the check is actually called from `main()` before the build step.
 - **Two thirds of the public API was reachable from no routing row.** 81 of 155 exported
   symbols were mentioned by no skill, and the gap was not a long tail: the whole laminar
   depth subsystem (`vflip`, `vflip_from_lfp`, `xflip`, `label_layers`,
