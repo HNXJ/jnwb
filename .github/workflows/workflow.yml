@@ -83,27 +83,24 @@ jobs:
 
       - name: Inspect archive manifests (anti-pollution check)
         shell: bash
+        # The rule lives in scripts/release_gate.py and is called from here rather than
+        # copied. The copy that used to live in this file carried the same defect, so
+        # repairing one would have left CI shipping wheels with the suite inside them.
         run: |
           python -c "
-          import zipfile, tarfile, pathlib, sys
-          forbidden = [
-            'omission', '_unused', '.lab', 'outputs', 'artifacts', '.git', '__pycache__',
-            '/tests/', '/scripts/',
-          ]
+          import pathlib, sys, tarfile, zipfile
+          sys.path.insert(0, '.')
+          from scripts.release_gate import forbidden_entries
           whl = list(pathlib.Path('dist').glob('*.whl'))[0]
           with zipfile.ZipFile(whl, 'r') as z:
-              for f in forbidden:
-                  hits = [n for n in z.namelist() if f in n]
-                  if hits:
-                      print(f'ERROR: Forbidden {f} in wheel: {hits}')
-                      sys.exit(1)
+              problems = ['wheel: ' + p for p in forbidden_entries(z.namelist())]
           sdist = list(pathlib.Path('dist').glob('*.tar.gz'))[0]
           with tarfile.open(sdist, 'r:gz') as t:
-              for f in forbidden:
-                  hits = [n for n in t.getnames() if f in n]
-                  if hits:
-                      print(f'ERROR: Forbidden {f} in sdist: {hits}')
-                      sys.exit(1)
+              problems += ['sdist: ' + p for p in forbidden_entries(t.getnames())]
+          if problems:
+              for problem in problems:
+                  print('ERROR: ' + problem)
+              sys.exit(1)
           print('PASS: Distribution manifests clean.')
           "
 

@@ -464,6 +464,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The anti-pollution check could not see anything a wheel carries at its top level.**
+  It searched entry names for the substrings `/tests/` and `/scripts/`. A wheel entry has
+  no leading distribution directory, so `"/tests/" in "tests/__init__.py"` is False: a
+  wheel shipping the entire test suite and `scripts/` passed. The sdist was checked only
+  by the accident of its layout, whose entries are `jnwb-0.2.5/tests/...`. Confirmed by
+  building both archive shapes and running the old loop over them -- the wheel was
+  accepted, the sdist rejected. Matching is now on path components, split on both
+  separators, so the same rule reads a wheel, an sdist and an archive written with
+  backslashes. The same change removes the reverse error: `artifacts` no longer rejects a
+  module legitimately named `lfp_artifacts.py`, because the forbidden names are
+  directories. `omission` and `_unused` stay substring rules, since they are pollution
+  markers that must not survive inside a file name either.
+- **The forbidden list and `MANIFEST.in` disagreed about what must not ship.** The gate
+  never rejected `site/` or `_build/`, both of which the sdist prunes, and `.lab` caught
+  the directory that exists, `.lab_bundle_build`, only as a substring -- which component
+  matching would have silently dropped. The list now covers every `prune` target plus
+  build, cache and checkout directories, and a test derives the prune targets from
+  `MANIFEST.in` so adding one without teaching the gate fails in the suite.
+- **CI carried its own copy of the same defective list.** Repairing the gate alone would
+  have left the published pipeline shipping wheels with the suite inside them. The
+  workflow step now calls `scripts.release_gate.forbidden_entries` instead of restating
+  the rule, and `tests/test_distribution_manifest_inspection.py` extracts that step's
+  Python out of the YAML and runs it against a constructed `dist/`, so a syntax error or
+  a bad import in the snippet fails in the suite rather than on a release branch.
+  Receipts: the real built wheel (54 entries) and sdist (103 entries) are clean under the
+  repaired rule, and nine discriminating mutations all fail the suite.
 - **A test asserted a warning that only a machine with a GPU can produce, and CI had been
   red for 48 consecutive runs, since 2026-09-16, because of it.**
   `test_requesting_cuda_says_it_will_not_be_used_and_records_cpu` waited for "computes in

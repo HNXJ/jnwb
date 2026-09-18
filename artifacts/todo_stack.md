@@ -44,14 +44,6 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-75 The forbidden-path check cannot see `tests/` or `scripts/` in the wheel
-- **Problem** `forbidden = [..., '/tests/', '/scripts/']` substring-matched against archive entries whose delimiters differ by format.
-- **Evidence** `'/tests/' in 'tests/__init__.py'` is False. Wheel entries have no leading component, so the check works only for the sdist, whose entries are `jnwb-0.2.4/tests/...`.
-- **Change** Match on path components for the wheel; keep the substring form for the sdist; `workflow.yml:89`, `release_gate.py:178`.
-- **Preserves** The sdist check.
-- **Discriminator** A wheel containing a top-level `tests` package fails.
-- **Accept** Verified by constructing such a wheel in a scratch directory.
-
 ### 05-76 CI never runs the suite against the installed distribution
 - **Problem** `pytest -v tests/` runs from the checkout root and `pythonpath = ["."]` puts the checkout ahead of site-packages, so the four-cell matrix tests the source tree that also happens to have the package installed. Only the single-cell build job touches the wheel.
 - **Evidence** `workflow.yml:49`, `pyproject.toml:107`. Several test docstrings reason about wheel behaviour while importing the checkout.
@@ -182,6 +174,35 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-75 reproduced exactly; the repair is wider than the item -- recorded 2026-09-18
+
+The mechanism reproduced as stated. A wheel-shaped zip carrying `tests/__init__.py`,
+`tests/test_secret.py` and `scripts/release_gate.py` was accepted by the old loop; the
+sdist-shaped tarball with the same content was rejected on `/tests/`.
+
+The item proposes component matching for the wheel and keeping the substring form for
+the sdist. That was not done: one rule, applied to both, is the smaller thing to get
+right, and the sdist layout passes it. Three things the item does not name were repaired
+in the same commit because leaving them would have left the check unsound:
+
+- The gate never rejected `site/` or `_build/`, which `MANIFEST.in` prunes. The two
+  lists had drifted, which is the same defect class as the one being repaired, so the
+  prune targets are now derived from `MANIFEST.in` in the suite.
+- `.lab` matched the directory that exists, `.lab_bundle_build`, only as a substring.
+  Switching to component matching would have silently dropped it; both names are listed.
+- CI carried a byte-identical copy of the same defective list. Repairing only the local
+  gate would have left the published pipeline shipping the same wheel. The workflow step
+  now calls the gate's matcher, and the suite runs that step's Python out of the YAML.
+
+Component matching narrows one case deliberately: `artifacts` used to reject a module
+named `lfp_artifacts.py`. That is a false positive, not protection, and it is now
+accepted. `omission` and `_unused` stay substring rules -- they are markers, not
+directories.
+
+The Accept asks for a wheel containing a top-level `tests` package to fail. It does,
+constructed in the scratch directory and again from within the suite. The real built
+wheel (54 entries) and sdist (103 entries) are clean under the repaired rule, so the
+change adds no false positive to the artifacts this package actually produces.
 ## 05-74 nine floors, not seven -- corrected 2026-09-18
 
 The finding reproduced and grew. The item names seven defective floors; nine are.

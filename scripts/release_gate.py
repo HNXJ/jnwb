@@ -28,7 +28,7 @@ import tarfile
 import subprocess
 import logging
 import re
-from typing import List, Optional, Set, Tuple
+from typing import Iterable, List, Optional, Set, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
@@ -131,6 +131,47 @@ def check_version_is_not_already_published(
         f"jnwb/__init__.py and move [Unreleased] under a new heading before building a "
         f"release."
     ]
+
+
+#: Directory names that must not appear as a path component anywhere in a distribution.
+#: Matched on components rather than as substrings: the previous rule searched for
+#: ``/tests/``, which no wheel entry contains -- wheel entries have no leading distribution
+#: directory, so ``"/tests/" in "tests/__init__.py"`` is False and a wheel carrying the whole
+#: suite passed. Component matching also stops the reverse error, where ``artifacts`` would
+#: reject a module legitimately named ``foo_artifacts.py``.
+FORBIDDEN_COMPONENTS = frozenset({
+    # Every `prune` target in MANIFEST.in. The two lists said different things: the gate
+    # never rejected `site` or `_build`, which the sdist prunes.
+    "tests", "scripts", "artifacts", "omission", "site", "_build",
+    # Build, cache and checkout noise. `.lab_bundle_build` is the directory that actually
+    # exists; the old rule caught it only because `.lab` was a substring match.
+    "dist", ".git", ".github", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__",
+    ".lab", ".lab_bundle_build", "outputs",
+})
+
+#: Pollution markers forbidden anywhere in an entry name, including inside a file name.
+#: These are not directories, so a component check would be the weaker rule here.
+FORBIDDEN_SUBSTRINGS = ("omission", "_unused")
+
+
+def forbidden_entries(names: Iterable[str]) -> List[str]:
+    """Every archive entry that must not ship, each with the rule that rejected it.
+
+    Entries are split on both separators. A zip written by a tool that did not normalise
+    paths can carry backslashes, and splitting on ``/`` alone would read
+    ``tests\\test_x.py`` as a single component and miss it.
+    """
+    problems = []
+    for name in names:
+        parts = [part for part in re.split(r"[\\/]+", name) if part and part != "."]
+        hit = next((part for part in parts if part in FORBIDDEN_COMPONENTS), None)
+        if hit is not None:
+            problems.append(f"{name}: forbidden path component {hit!r}")
+            continue
+        token = next((t for t in FORBIDDEN_SUBSTRINGS if t in name), None)
+        if token is not None:
+            problems.append(f"{name}: forbidden token {token!r}")
+    return problems
 
 
 #: A dependency floor written as ``name>=version``. Anything else -- an unpinned requirement,
@@ -441,28 +482,22 @@ def main() -> None:
         log.info(f"Produced sdist: {sdist.name} ({sdist.stat().st_size:,} bytes)")
 
         log.info("=== STEP 4: Inspecting archive manifests ===")
-        forbidden = [
-            "omission", "_unused", ".lab", "outputs", "artifacts", ".git", "__pycache__",
-            "/tests/", "/scripts/",
-        ]
 
         with zipfile.ZipFile(whl, "r") as z:
-            whl_files = z.namelist()
-            for f in forbidden:
-                hits = [n for n in whl_files if f in n]
-                if hits:
-                    log.error(f"Forbidden entry {f} found in wheel: {hits}")
-                    sys.exit(1)
-        log.info("PASS: Wheel archive contains zero forbidden entries (no _unused, no omission).")
+            whl_problems = forbidden_entries(z.namelist())
+        if whl_problems:
+            for problem in whl_problems:
+                log.error("wheel: %s", problem)
+            sys.exit(1)
+        log.info("PASS: Wheel archive contains zero forbidden entries.")
 
         with tarfile.open(sdist, "r:gz") as t:
-            sdist_files = t.getnames()
-            for f in forbidden:
-                hits = [n for n in sdist_files if f in n]
-                if hits:
-                    log.error(f"Forbidden entry {f} found in sdist: {hits}")
-                    sys.exit(1)
-        log.info("PASS: Sdist archive contains zero forbidden entries (no _unused, no omission).")
+            sdist_problems = forbidden_entries(t.getnames())
+        if sdist_problems:
+            for problem in sdist_problems:
+                log.error("sdist: %s", problem)
+            sys.exit(1)
+        log.info("PASS: Sdist archive contains zero forbidden entries.")
 
         log.info("=== STEP 5: Validating metadata with twine ===")
         run_cmd([sys.executable, "-m", "twine", "check", str(whl), str(sdist)])
