@@ -402,7 +402,7 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
             target_files.append(skill_file)
             
     # 3. Core harness authority and developer guides
-    for harness_name in ["AGENTS.md", "docs/11_extending_and_development.md"]:
+    for harness_name in ["AGENTS.md", "CONTRIBUTING.md"]:
         harness_file = root / harness_name
         if harness_file.exists():
             target_files.append(harness_file)

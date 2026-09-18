@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The documentation site stopped addressing contributors.** About a sixth of the
+  published words were rules for changing `jnwb`, on the user navigation.
+  `docs/10_extending_jnwb_and_verification.md` was 117 words whose own first sentence
+  called it a pointer; three of its four commands are the checks `CONTRIBUTING.md` lists,
+  its MCP line points at `agents.md`, and its domain-package paragraph is the boundary
+  invariant in `docs/01`. It had drifted inside that loop, saying "gates 1-12" where the
+  runner prints 13. It is deleted. `docs/11_extending_and_development.md` sections 1-8 --
+  what belongs in the library, naming and typing rules, the probe classes a test must
+  cover, the root allowlist, the development flow -- move into `CONTRIBUTING.md`, which
+  had been saying those rules lived in `docs/11` while `docs/11` said the mechanics lived
+  in `CONTRIBUTING.md`.
+  Section 9 is not contributor material and did not move there. 9.1 fixes the RNG, device,
+  failure-state, shape and unit conventions every public function holds to, and 9.2 is the
+  per-operation table: for several estimators the only statement anywhere of what the
+  result type carries and what happens when a fit cannot be supported. Both are now
+  `docs/10_operation_specifications.md`, a page of its own on the nav, moved as bytes with
+  their heading levels rebased.
+  `api.md` was listed twice, as "Public API" and as "Full Surface Contract"; the second
+  group held nothing else and is gone. `docs/01` cited the test file that enforces the
+  boundary invariant and `PLACEHOLDER-DUMMY`, an internal scaffolding marker; `install.md`
+  cited a gate number in `scripts/harness_gate.py` and the test file that verifies deferred
+  imports. All four name files that ship in neither the wheel nor the sdist.
 - **The xFLIP calibration receipt can be regenerated, and now is.**
   `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers
   could not be reproduced or rechecked, and two changes had already invalidated them:
@@ -188,6 +210,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_docs_user_navigation.py` holds the shape rather than the episode.** Every
+  nav entry resolves, no page is listed twice, no page exists off the nav, no page on the
+  nav names a test file, a gate script or the scaffolding marker, and the specification
+  page still carries every operation and convention the split was supposed to preserve.
+  Five discriminators kill.
 - **`tests/test_docs_runnable_prerequisites.py` holds the statement and the fact it
   asserts together.** One test sweeps every `python examples/` instruction in `docs/` and
   requires the prerequisite within the text that follows it; another reads

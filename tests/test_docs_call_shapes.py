@@ -126,11 +126,13 @@ def test_no_documented_call_passes_more_positionals_than_the_signature_accepts()
 
 
 @pytest.mark.parametrize("field", ["phase_gradient", "wpli_profile"])
-def test_docs_11_does_not_document_zflip_fields_that_do_not_exist(field):
-    """Section 9.2 named two `zflip` result fields that were never on the result.
+def test_the_spec_page_does_not_document_zflip_fields_that_do_not_exist(field):
+    """The operation table named two `zflip` result fields that were never on the result.
 
     `docs/02` states the correct contract, so the two pages contradicted each other and the
-    wrong one was the only documentation those estimators had.
+    wrong one was the only documentation those estimators had. The table was section 9.2 of
+    `docs/11_extending_and_development.md` when this was written and is now
+    `docs/10_operation_specifications.md`, a page of its own.
     """
     from jnwb.laminar import ZFlipResult
 
@@ -139,9 +141,10 @@ def test_docs_11_does_not_document_zflip_fields_that_do_not_exist(field):
         f"{field} exists now; this test is asserting the wrong direction and should be "
         "replaced by one that checks the documentation mentions it"
     )
-    text = (ROOT / "docs" / "11_extending_and_development.md").read_text(encoding="utf-8")
+    text = (ROOT / "docs" / "10_operation_specifications.md").read_text(encoding="utf-8")
     assert field not in text, (
-        f"docs/11 documents ZFlipResult.{field}, which is not a field of the result; "
+        f"the spec page documents ZFlipResult.{field}, which is not a field of the "
+        f"result; "
         f"the live fields are {sorted(live)}"
     )
 

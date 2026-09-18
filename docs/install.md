@@ -59,8 +59,8 @@ signal you would get. This has happened in practice — two copies of one projec
 disagreed on a label, and most importing files took the stale one.
 
 Keep your analysis project in its own directory, beside the jnwb checkout rather than
-inside it. jnwb's own harness enforces the equivalent invariant on this repository
-(`scripts/harness_gate.py`, Gate 11), and the published wheel ships only `jnwb/`.
+inside it. jnwb's own harness enforces the equivalent invariant on this repository,
+and the published wheel ships only `jnwb/`.
 
 For a stricter editable install that maps `jnwb` alone instead of the whole root:
 
@@ -75,7 +75,7 @@ pip install -e . --config-settings editable_mode=strict
 on first access through `jnwb.__getattr__` without importing their submodules at package import
 time. The `visual_qc` submodule is likewise deferred. This keeps `scikit-learn`, `statsmodels`,
 `matplotlib` and `joblib` out of the import while preserving the full public API in
-`jnwb.__all__`. Verified by `tests/test_import_lazy.py`.
+`jnwb.__all__`, which the suite verifies symbol by symbol.
 
 It does not make the import quick. `import jnwb` takes about 1.9 s, and about 1.8 s of that is
 `scipy`, `pandas` and `pynwb`, which the eager surface needs: roughly 1.1 s for the first `scipy`

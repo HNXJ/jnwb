@@ -241,7 +241,7 @@ class TestMCPServerEntrypoint(unittest.TestCase):
         self.assertEqual(server.mcp.name, "jnwb-mcp-server")
 
     def test_the_documented_launch_command_actually_launches(self):
-        """`docs/10_extending_jnwb_and_verification.md` tells the reader to run
+        """`docs/agents.md` tells the reader to run
         `python -m jnwb.mcp_server`. That failed with "'jnwb.mcp_server' is a package and
         cannot be directly executed", including against the published wheel with the `mcp`
         extra installed, because the package had no `__main__` submodule -- the

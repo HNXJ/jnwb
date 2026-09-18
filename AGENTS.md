@@ -29,7 +29,7 @@ the library should see a library.
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
 | `docs/references.md` | Published sources for each method, with resolved DOIs; docstrings cite the same entries |
-| `docs/11_extending_and_development.md` | How to add or change a function without breaking the release |
+| `CONTRIBUTING.md` | How to add or change a function without breaking the release |
 | `examples/quickstart_jnwb.py` | Smallest end-to-end script |
 | `examples/notebooks/` | Notebooks on synthetic data; `tests/test_notebooks.py` executes every one |
 | `pyproject.toml` | Version source, dependencies, Python floor |

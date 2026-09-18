@@ -39,4 +39,4 @@ jnwb.apply_tight_auto_axis(ax)
 - Verify `save_figure_suite` writes valid files for all requested formats.
 
 ## 6. Canonical Documentation Links
-- [`docs/10_extending_jnwb_and_verification.md`](../../docs/10_extending_jnwb_and_verification.md)
+- [`docs/09_decoding_and_visual_qc.md`](../../docs/09_decoding_and_visual_qc.md)

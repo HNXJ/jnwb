@@ -32,14 +32,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
 
-### 05-64 Contributor material on the user-facing path, and one page that is a pointer
-- **Problem** About 3,900 of 22,181 words (17.6%) address contributors from the nav.
-- **Evidence** `docs/10_extending_jnwb_and_verification.md` (117 words) says "This page is a short pointer"; three of its four blocks duplicate `CONTRIBUTING.md`'s "Before you push", and its unique MCP line points at `agents.md`. That duplication already produced a stale fact: it says "gates 1-12" while the runner prints 13 and `CONTRIBUTING.md:57` says 13. `docs/11` (2,764 words) is contributor material under a "Tutorials & Development" heading, with sections 4, 5, 6 and 8 restating `CONTRIBUTING.md` near-verbatim and cross-referencing it circularly — but its section 9.2 (1,431 words) is the only documentation anywhere for `aperiodic_fit`, `vflip`, `xflip`, `zflip`, `probe_geometry`, `stream_npz_array` and `label_layers`. `docs/01` sections 1-3 name an internal scaffolding marker and a test file. The "logarithm last" rule appears four times in about 400 words. `api.md` is listed twice in the nav (28 entries, 27 unique).
-- **Change** Delete `docs/10` and its nav entry; promote `docs/11` section 9.2 to a real page and move the rest to `CONTRIBUTING.md`; cut `docs/01` sections 1-3 keeping section 2C, the only statement of the causal-verb rule; keep one canonical statement of the logarithm rule in `common_mistakes.md` and link to it; drop the duplicate `api.md` nav entry.
-- **Preserves** Every user-facing fact, including all of 9.2.
-- **Discriminator** No page on the user nav addresses contributors.
-- **Accept** Strict build clean; no orphan pages and no dead nav entries, both currently true.
-
 ### 05-65 Numbers are produced without saying what they license, and without units
 - **Problem** Pages print an estimate and stop.
 - **Evidence** `docs/02` prints `zflip`'s `directionality`, `tau_per_channel_s` and `apparent_velocity_m_s` with "propagation latency" framing and no note that apparent phase velocity is not conduction velocity — contradicting `AGENTS.md` section 5 and `docs/01` section 2C. `docs/07` prints a cluster-mass p with no statement that a significant cluster licenses "the conditions differ somewhere in the window" and not its onset, offset, peak or extent, and computes `cross_modal_comparison`'s `lag_ms` on white noise with no sign convention given. `docs/09` claims its fold partitioning prevents temporal-autocorrelation leakage and then shows `nested_cv_linear_svm(X, labels, n_splits=5)` with no `groups`. `docs/04` hands over `tfr_res.coi_mask` as a field name, never explaining edge contamination or that masking must precede any average, and never states the CSD sign convention, which is the interpretation. `docs/08` never states bits versus nats for TE or MI. `docs/tutorials/03, 04, 05, 06, 08` contain no unit token at all.
@@ -269,6 +261,25 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-64 cut docs/01 sections 1-3 -- not followed 2026-09-18
+
+The item prescribed cutting `docs/01` sections 1-3 and keeping only section 2C, on the
+evidence that those sections "name an internal scaffolding marker and a test file". Both
+leaks reproduce, and both are single clauses: `tests/test_jnwb_frozen_boundary.py` inside
+the boundary invariant, and `PLACEHOLDER-DUMMY` inside the synthetic-data rule. The
+sections around them are signal class independence, estimand disambiguation, the causal
+verb hierarchy, the unit of inference, valid nulls and the observed/derived/inferred/
+assumed/unknown vocabulary -- user-facing science, and the only statement of most of it.
+Cutting them would delete every user-facing fact in three sections to remove two clauses,
+against the item's own Preserves clause. The two clauses were removed instead.
+
+The audit's other 05-64 claims reproduce with drift in the counts: 117 and 2,781 words
+(2,764 claimed), 29 nav entries with 28 unique (28 and 27 claimed), 24,155 words over 28
+pages (22,181 claimed). `docs/11` section 9.2 is not the only documentation of all seven
+symbols it names -- `aperiodic_fit` is also in `docs/04`, and `zflip`, `probe_geometry`
+and `stream_npz_array` in `docs/02` -- but it is the only statement of their result
+fields and failure semantics, which is what the repair preserved.
 
 ## 05-59 whole-file deletion of `tests/test_rsa.py` -- refuted 2026-09-18
 
