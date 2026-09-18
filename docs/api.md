@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 155 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 156 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -12,6 +12,7 @@ All 155 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
 | jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
 | jnwb.RELATIVE_POWER_MODELS | constant | *Built-in immutable sequence.* |
+| jnwb.SKILLS_URL | function | *str(object='') -> str str(bytes_or_buffer[, encoding[, errors]]) -> str* |
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |

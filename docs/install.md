@@ -18,7 +18,8 @@ A wheel carries the library, and the sdist adds `AGENTS.md` and `skills/`. Neith
 pip install "jnwb[torch,gpu]"   # PyTorch, CuPy, and CUDA 12.x acceleration
 pip install "jnwb[mcp]"         # Model Context Protocol server tooling
 pip install "jnwb[docs]"        # MkDocs documentation builder
-pip install "jnwb[test]"        # pytest, pytest-cov, pytest-xdist test suites
+pip install "jnwb[test]"        # pytest and pytest-xdist, plus the build and notebook
+                               # tooling the release gate and the tutorial tests need
 pip install "jnwb[all]"         # Complete dependency bundle
 ```
 

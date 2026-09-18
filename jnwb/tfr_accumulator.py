@@ -7,6 +7,13 @@ because phase cannot be recovered from power after the fact.
 
 The property the whole design rests on: ``merge(A, B) == summarize(A ∪ B)`` to floating-point
 tolerance. Tested in tests/test_tfr_accumulator.py.
+
+In memory the accumulators are float64 and complex128. ``write`` halves that on the way to
+disk -- ``mean`` and ``M2`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
+int32 -- so a summary that has been through HDF5 carries single-precision sufficient
+statistics, and merges of reloaded groups hold to that tolerance rather than to float64's.
+The downcast is deliberate: these arrays are (channels, freqs, times) and the storage is
+the binding cost. Nothing here promised otherwise, but nothing said it either.
 """
 
 from __future__ import annotations

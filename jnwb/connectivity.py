@@ -13,7 +13,10 @@ MI estimators:
 - ``spike_count`` — MI of per-bin spike counts (discrete)
 
 Granger returns residual diagnostics; optional ridge VAR; lag selection via AIC/BIC/HQIC.
-Residual variance uses explicit N - p divisors.
+Residual variance is the maximum-likelihood RSS / N, not RSS / (N - p): the Geweke measure
+is a log ratio of ML variances, and the information criteria in ``_info_criterion`` carry
+their own explicit parameter counts. This line read ``explicit N - p divisors`` while
+``_residual_variance`` took an ``n_params`` argument it never used.
 
 Modality-agnostic directed connectivity (added 2026-08-04)
 ---------------------------------------------------------
@@ -187,8 +190,13 @@ def spike_count_mutual_information(
     )
 
 
-def _residual_variance(residuals: np.ndarray, n_params: Optional[int] = None) -> float:
-    """Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)."""
+def _residual_variance(residuals: np.ndarray) -> float:
+    """Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07).
+
+    Took an ``n_params`` argument until 0.2.5 and never read it, so both call sites passed a
+    parameter count into a divisor that was always ``N``. Removed rather than honoured: the
+    ML convention is what the Geweke log ratio wants.
+    """
     n = len(residuals)
     return float(np.sum(np.asarray(residuals, dtype=float) ** 2) / max(n, 1))
 
@@ -312,11 +320,11 @@ def fit_var_bivariate(
 
     beta_restr = _ridge_lstsq(X_reg, target, ridge)
     residuals_restr = target - X_reg @ beta_restr
-    var_restricted = _residual_variance(residuals_restr, order + 1)
+    var_restricted = _residual_variance(residuals_restr)
 
     beta_unrestr = _ridge_lstsq(XY_reg, target, ridge)
     residuals_unrestr = target - XY_reg @ beta_unrestr
-    var_unrestricted = _residual_variance(residuals_unrestr, 2 * order + 1)
+    var_unrestricted = _residual_variance(residuals_unrestr)
 
     if return_residuals:
         return var_restricted, var_unrestricted, residuals_restr, residuals_unrestr

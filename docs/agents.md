@@ -63,6 +63,22 @@ alongside an `agents/openai.yaml` manifest. They are not in the wheel: the canon
 forbid. To use them, clone the repository or unpack the sdist and point your agent at that
 directory.
 
+`pip install jnwb` does not deliver them either way, including from the sdist: the build
+installs `jnwb/` and discards everything beside it. An installed copy therefore carries a
+pointer rather than the files. `jnwb.SKILLS_URL` names the skills tree for the tag matching
+the installed version, so an agent that has only the package can find the skills written
+against the API it is holding:
+
+```python
+import jnwb
+
+jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.4/skills'
+```
+
+Inside an unpacked sdist the skill files are present but their links to `docs/` are not:
+`docs/` is pruned, so 11 of their 12 repository-relative links resolve only in a checkout.
+The pointer above is the route that works from anywhere.
+
 | Skill | Covers |
 |---|---|
 | `jnwb` | Router, scientific safeguards, entry point |

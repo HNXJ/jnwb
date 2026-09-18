@@ -1,7 +1,15 @@
-# The agent surface. Without these the sdist ships a library whose README tells an agent to
-# read AGENTS.md, and no AGENTS.md. Skills stay canonical at skills/ -- copying them under
-# jnwb/ would create the second skill tree that harness gate 2 forbids, so the wheel does
-# not carry them yet.
+# The agent surface, for whoever unpacks the tarball. `pip install` does not deliver it:
+# packages.find is `include = ["jnwb*"]`, so an install of this sdist writes jnwb/ into
+# site-packages and discards skills/ and AGENTS.md -- verified by installing the built
+# sdist into a clean environment, which yields jnwb/ and nothing else. The skill files'
+# links to docs/ dangle here too, because docs/ is not in the sdist: 11 of their 12
+# repository-relative links do not resolve inside the tarball.
+#
+# That is the intended outcome, not an oversight. A skill is read by a harness pointed at
+# a directory, nothing in jnwb/ reads one (`grep -rn skills jnwb/ --include=*.py` is
+# empty), and copying the tree under jnwb/ to force it into the wheel would create the
+# second skill tree that harness gate 2 forbids. An installed copy finds them through
+# `jnwb.SKILLS_URL` instead.
 graft skills
 include AGENTS.md
 

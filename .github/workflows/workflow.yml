@@ -11,13 +11,29 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Publication target (testpypi or none)"
+        description: "Publication target (none or testpypi)"
         required: true
-        default: "testpypi"
+        # Defaulted to testpypi, so pressing Run workflow without reading the form
+        # published. Publishing is the deliberate choice, not the resting state.
+        default: "none"
         type: choice
         options:
-          - "testpypi"
           - "none"
+          - "testpypi"
+
+# Least privilege at the top, raised per job where a job needs it: the two publish jobs
+# each ask for id-token: write. Without a floor here every job inherited whatever the
+# repository default was, on a pipeline that can upload to PyPI.
+permissions:
+  contents: read
+
+# One run per ref. Two pushes in quick succession ran overlapping publish-capable
+# pipelines; the later one now cancels the earlier. Tags and releases are excluded: those
+# are the refs that actually publish, and cancelling one mid-upload is the failure this
+# is meant to prevent, not a cost worth paying for a faster queue.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'release' }}
 
 jobs:
   test:
@@ -83,27 +99,24 @@ jobs:
 
       - name: Inspect archive manifests (anti-pollution check)
         shell: bash
+        # The rule lives in scripts/release_gate.py and is called from here rather than
+        # copied. The copy that used to live in this file carried the same defect, so
+        # repairing one would have left CI shipping wheels with the suite inside them.
         run: |
           python -c "
-          import zipfile, tarfile, pathlib, sys
-          forbidden = [
-            'omission', '_unused', '.lab', 'outputs', 'artifacts', '.git', '__pycache__',
-            '/tests/', '/scripts/',
-          ]
+          import pathlib, sys, tarfile, zipfile
+          sys.path.insert(0, '.')
+          from scripts.release_gate import forbidden_entries
           whl = list(pathlib.Path('dist').glob('*.whl'))[0]
           with zipfile.ZipFile(whl, 'r') as z:
-              for f in forbidden:
-                  hits = [n for n in z.namelist() if f in n]
-                  if hits:
-                      print(f'ERROR: Forbidden {f} in wheel: {hits}')
-                      sys.exit(1)
+              problems = ['wheel: ' + p for p in forbidden_entries(z.namelist())]
           sdist = list(pathlib.Path('dist').glob('*.tar.gz'))[0]
           with tarfile.open(sdist, 'r:gz') as t:
-              for f in forbidden:
-                  hits = [n for n in t.getnames() if f in n]
-                  if hits:
-                      print(f'ERROR: Forbidden {f} in sdist: {hits}')
-                      sys.exit(1)
+              problems += ['sdist: ' + p for p in forbidden_entries(t.getnames())]
+          if problems:
+              for problem in problems:
+                  print('ERROR: ' + problem)
+              sys.exit(1)
           print('PASS: Distribution manifests clean.')
           "
 
@@ -143,13 +156,47 @@ jobs:
           print('PASS: Installed wheel verified in clean virtualenv')
           "
 
+      - name: Run the test suite against the installed wheel
+        shell: bash
+        run: |
+          # The matrix legs run `pytest tests/` from the repository root, where
+          # `pythonpath = ["."]` and `tests/__init__.py` both put the source tree ahead of
+          # site-packages: they test the checkout, which merely also has the package
+          # installed. This runs the same suite against the wheel built above -- from
+          # outside the repository, with `pythonpath` cleared and pytest's rootdir
+          # insertion suppressed by importlib import mode. JNWB_EXPECTED_PACKAGE_ROOT
+          # makes tests/test_import_provenance.py assert that the package under test is
+          # the installed one, so a leg that quietly falls back to the checkout fails
+          # instead of passing. The test tooling is read out of pyproject.toml rather
+          # than listed again here, and jnwb itself is not reinstalled from source.
+          unset PYTHONPATH
+          python - <<'PY'
+          import pathlib, tomllib
+          extras = tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']
+          requirements = extras['test'] + extras['docs']
+          pathlib.Path('/tmp/test-requirements.txt').write_text('\n'.join(requirements))
+          PY
+          /tmp/clean_env/bin/pip install -r /tmp/test-requirements.txt
+          purelib=$(/tmp/clean_env/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          echo "Suite will run against: $purelib/jnwb"
+          cd /tmp
+          JNWB_EXPECTED_PACKAGE_ROOT="$purelib" /tmp/clean_env/bin/python -m pytest \
+            --import-mode=importlib -o pythonpath= -n auto \
+            --rootdir="$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/tests" -q
+
       - name: Run tutorials against the installed wheel (no repo-relative imports)
         shell: bash
         run: |
           # 0.2.4-03: the tutorials must execute against the distributed artifact, not the
           # checkout. PYTHONPATH is cleared and the CWD is outside the repository, so an
           # `import jnwb` that only works from the source tree fails here.
+          #
+          # Each tutorial also carries a guard that prefers the checkout it ships in, which
+          # is right when a reader runs it from a clone and wrong here: it found the
+          # sibling package under $GITHUB_WORKSPACE and sent this step back to the source
+          # tree. JNWB_EXPECTED_PACKAGE_ROOT tells the guard to stand aside.
           unset PYTHONPATH
+          export JNWB_EXPECTED_PACKAGE_ROOT=$(/tmp/clean_env/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
           cd /tmp
           /tmp/clean_env/bin/python -c "
           import jnwb
@@ -195,7 +242,10 @@ jobs:
           path: dist/
 
       - name: Publish to TestPyPI via Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Pinned to a commit, not the mutable release/v1 branch: this step runs with
+        # id-token: write, so whatever that branch points at can mint an OIDC token for
+        # this project. dc37677 is the commit v1.14.2 tags (released 2026-07-29).
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/
@@ -222,7 +272,8 @@ jobs:
           path: dist/
 
       - name: Publish to PyPI via Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Same pin as the TestPyPI job, and for the same reason.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           packages-dir: dist/
           verbose: true

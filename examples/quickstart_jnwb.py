@@ -30,8 +30,12 @@ from pathlib import Path
 # library, and every panel still says CORRECT. Prefer the checkout this file belongs to;
 # a copy downloaded next to a pip-installed jnwb finds no sibling package and is
 # unaffected.
+# A run that is deliberately qualifying an installed copy says so with
+# JNWB_EXPECTED_PACKAGE_ROOT, and then this guard stands aside.
 _CHECKOUT = Path(__file__).resolve().parents[1]
-if (_CHECKOUT / "jnwb" / "__init__.py").exists():
+if not os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") and (
+    _CHECKOUT / "jnwb" / "__init__.py"
+).exists():
     sys.path.insert(0, str(_CHECKOUT))
 
 import matplotlib

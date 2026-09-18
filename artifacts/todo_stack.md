@@ -44,89 +44,7 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-73 A build from `dev` today produces a different distribution calling itself 0.2.4
-- **Problem** The version is not bumped after a release, and nothing compares the declared version against what the index already serves.
-- **Evidence** HEAD is 5 commits past `v0.2.4` with `__version__ = '0.2.4'` and 20 non-empty lines under `## [Unreleased]` naming three shipped fixes. Local wheel against the PyPI wheel: `> jnwb/mcp_server/__main__.py`. Local sdist carries `AGENTS.md` and `skills/` (261,291 B) where PyPI's does not (238,292 B). `test_release_date_matches_the_changelog_entry_for_this_version` passes, because it compares the version to its own changelog entry and never to the index.
-- **Change** Add a release-gate step: fail when `jnwb.__version__` already appears in the PyPI index and `CHANGELOG.md` has a non-empty `## [Unreleased]`.
-- **Preserves** The existing version-sync gate 7.
-- **Discriminator** The current tree fails the new check.
-- **Accept** Two distributions can never share a version string.
-
-### 05-74 Seven of ten dependency floors cannot be installed on any supported interpreter
-- **Problem** Floors copied from an older support window and never re-derived after the 3.12 floor landed.
-- **Evidence** PyPI metadata: `numpy==1.22.0` tags `['cp310','cp38','cp39','pp38','sdist']`; `scipy==1.8.0` declares `requires_python '>=3.8,<3.11'`, which contradicts `requires-python = ">=3.12"` outright; `pandas==1.4.0`, `h5py==3.6.0`, `matplotlib==3.5.0`, `scikit-learn==1.0.0`, `statsmodels==0.13.0` ship no cp312 or pure-python wheel. Separately `jnwb.statistics` and `jnwb.connectivity` call `scipy.stats.false_discovery_control`, added in SciPy 1.11, three minor versions above the declared floor — masked only because scipy <1.11 cannot install on 3.12.
-- **Change** Raise each floor to the oldest release with a cp312 artifact, or delete the floors and state that the package takes whatever pip resolves on 3.12.
-- **Preserves** Current resolutions, which are all far above the floors.
-- **Discriminator** Every declared floor is installable on the declared interpreter.
-- **Accept** `pip install 'numpy==<floor>'` succeeds on 3.12 for each dependency.
-
-### 05-75 The forbidden-path check cannot see `tests/` or `scripts/` in the wheel
-- **Problem** `forbidden = [..., '/tests/', '/scripts/']` substring-matched against archive entries whose delimiters differ by format.
-- **Evidence** `'/tests/' in 'tests/__init__.py'` is False. Wheel entries have no leading component, so the check works only for the sdist, whose entries are `jnwb-0.2.4/tests/...`.
-- **Change** Match on path components for the wheel; keep the substring form for the sdist; `workflow.yml:89`, `release_gate.py:178`.
-- **Preserves** The sdist check.
-- **Discriminator** A wheel containing a top-level `tests` package fails.
-- **Accept** Verified by constructing such a wheel in a scratch directory.
-
-### 05-76 CI never runs the suite against the installed distribution
-- **Problem** `pytest -v tests/` runs from the checkout root and `pythonpath = ["."]` puts the checkout ahead of site-packages, so the four-cell matrix tests the source tree that also happens to have the package installed. Only the single-cell build job touches the wheel.
-- **Evidence** `workflow.yml:49`, `pyproject.toml:107`. Several test docstrings reason about wheel behaviour while importing the checkout.
-- **Change** One matrix leg, or one extra step, that installs the built wheel and runs pytest from a directory outside the checkout with `pythonpath` overridden.
-- **Preserves** The existing legs, which need `pythonpath` for the `scripts.*` gate tests.
-- **Discriminator** A defect present only in the packaged artifact fails CI.
-- **Accept** The claim "tested against the installed wheel" becomes true for the suite, not only for the tutorials.
-
-### 05-77 The skills distribution decision
-- **Problem** `MANIFEST.in`'s comment describes an outcome its mechanism does not produce.
-- **Evidence** `graft skills` places the tree at the sdist root, outside any package; `packages.find` is `include = ["jnwb*"]`, so `pip install jnwb-0.2.4.tar.gz` installs `jnwb/` and discards `skills/` and `AGENTS.md`. Only someone who untars by hand receives them — and the sdist carries no `docs/`, `tests/` or `scripts/`, so 11 of 12 skill documentation links dangle inside it and the skills' own verification steps cannot run there. `grep -rn "skills" jnwb/ --include=*.py` returns zero hits: nothing in the runtime reads them.
-- **Change** Recommendation from the packaging audit, for a ruling: keep `skills/` in the sdist as source, correct the `MANIFEST.in` comment to say what it does, and do not put the tree in the wheel — the consumer is a harness configured by path, not the Python runtime, and `site-packages` is the worst place to put something that must be pointed at. Close the discovery gap instead with a machine-readable pointer (a `jnwb.SKILLS_URL` constant naming the GitHub tree). The `importlib.resources` and console-entry-point routes both require the tree inside the wheel, which is the second tree gate 2 forbids.
-- **Preserves** Exactly one canonical skill tree.
-- **Discriminator** A `pip install` user can find the skills without guessing.
-- **Accept** Ruled 2026-09-16, as recommended: one canonical tree in the repository; ship `skills/` in the sdist where appropriate; do **not** create a duplicate `jnwb/.../skills` tree to force them into the wheel. Wheel runtime resources carry skills only if a runtime loader needs them, and none does -- `grep -rn "skills" jnwb/ --include=*.py` returns nothing. Packaging symmetry is not an objective. Correct the `MANIFEST.in` comment to describe what its mechanism actually does, and close the discovery gap with a machine-readable pointer. This closes the open half of the carried-forward 05-02.
-
-### 05-78 Declared test tooling that is never invoked, and a second source of truth for the docs pins
-- **Problem** Unused declarations and duplicated configuration.
-- **Evidence** `pytest-cov` and `pytest-xdist` are declared, and the `test` extra pulls `pytest-cov-7.1.0`, `coverage-7.16.1`, `pytest-xdist-3.8.0` and `execnet-2.1.2` onto all four CI cells; there is no `addopts`, no `--cov` and no `-n` anywhere in the repository. `.readthedocs.yaml` installs both `docs/requirements.txt` and `.[docs]`; the two lists are byte-identical today and nothing compares them, while `fail_on_warning: true` means a drift is a failed publish. Also: `scripts/build_unified_review.py` and `scripts/reconcile_review_probes.py` have zero references anywhere (625 lines), and `harness_gate.py:205` holds a root-allowlist exemption for `jnwb-unified-rev.md`, the output of the first of them.
-- **Change** Drop both pytest plugins or make the declaration true with an `addopts`; delete `docs/requirements.txt` and its `.readthedocs.yaml` entry; retire both dead scripts and the allowlist entry.
-- **Preserves** Every live script: `docs_build`, `generate_api_md`, `harness_gate`, `release_gate`, `calibrate_vflip`, `mkdocs_version_hook`, `benchmark_import`.
-- **Discriminator** Every declared dependency and every script has a caller.
-- **Accept** All six extras resolve (verified: `mcp` 24, `torch` 9, `gpu` 6, `test` 78, `docs` 25, `all` 107 packages, all exit 0, `all` an exact union). Note `jnwb[gpu]` installs cleanly with no CUDA and yields no GPU, because plain `jax`/`jaxlib` from PyPI is CPU-only: it should be `jax[cuda12]`.
-
 ## 12. Harness and gates
-
-### 05-79 Nine of thirteen gates can pass on a broken tree
-- **Problem** Presence and substring checks standing in for behaviour.
-- **Evidence, each reproduced** Gate 11: a root directory containing `.py` files and no `__init__.py` is importable as a PEP 420 namespace package and is not flagged, so JNWB-002 reproduces green; `test_non_package_directory_is_not_flagged` locks the hole in. Gate 13: a README stating the three symbols are REMOVED, all nine tutorials raising `SystemExit`, and a commented-out mkdocs nav line all pass. Gate 5: satisfied by `docs/api.md`, which is generated from `__all__` — it cannot fail while gate 9 passes, and substring matching means short names match inside longer ones. Gate 7: a `pyproject.toml` whose `attr` binding sits inside a comment, plus `version = "0.0.1"`, passes. Gate 8: every block is guarded by `if <file>.exists():` with no `else`, so an empty directory passes the Python-policy gate; and `PYTHON_CI_REQUIRED` omits 3.13 while the gate prints "all agree" for a classifier set that includes it. Gate 3: the drive-letter allowlist does not include `E:/`, which is in use on this machine. Gate 2: checks one hardcoded path, so a duplicate tree at `jnwb/skills/` or `docs/skills/` passes. Gate 4: the allowlist carries four entries that do not exist. Gates 5, 10 and `test_docs_links` all use non-recursive `glob("*.md")` and therefore miss the same nine live files under `docs/tutorials/` — reproduced by planting `jnwb==0.0.9` there.
-- **Change** Gate 11 -> `find_spec`. Gate 13 -> parse the mkdocs YAML and `compile()` each tutorial, or demote it. Gate 5 -> retire, subsumed by gate 9, and replace with the check 05-41 needs: every `__all__` symbol mentioned outside the generated reference. Gate 7 -> parse with `tomllib`. Gate 8 -> add `else: violations.append(...)` three times, and either test 3.13 or change the PASS string. Gate 3 -> match `^[A-Za-z]:[\\/]`. Gate 2 -> glob `**/SKILL.md` and assert every hit is under `skills/`. Gate 4 -> prune the four stale entries. Three `glob` -> `rglob`.
-- **Preserves** Gates 1, 6, 9 and 12, which are behavioural and well-documented.
-- **Discriminator** Each repaired gate fails the adversarial tree that currently passes it.
-- **Accept** `tests/test_harness_adversarial_gates.py` gains one constructed-input probe per repaired gate. Its `TestGateNumberingIntegrity` machinery is the right model. Also wire the four checks that ship but never run: `check_protected_paths` (all three paths missing), `validate_receipt_provenance`, `check_logarithm_last_rule`, `check_modality_isolation`.
-
-### 05-80 Nothing enforces the todo-stack rule or resolves `AGENTS.md`'s own pointers
-- **Problem** `AGENTS.md` section 2 states the stack holds only work not yet done; no gate or test checks it, which is why the stack accumulated a completed-work table, and no check resolves the file's own references, which is why section 4.3 points at a deleted item.
-- **Evidence** `grep -rn "todo_stack" scripts/ tests/` returns one hit, a path string. The stale pointer is confirmed by `grep -in "non-blocking" artifacts/todo_stack.md` returning nothing.
-- **Change** A test that resolves every path, test name and section reference in `AGENTS.md` and both stacks, and asserts the stack carries no "CLOSED"/"DONE" markers.
-- **Preserves** Both stacks' formats.
-- **Discriminator** Reintroducing a dangling pointer fails the suite.
-- **Accept** The registry-staleness class that produced this item is mechanically prevented.
-
-### 05-81 `scripts/harness_gate.py` and `scripts/mkdocs_version_hook.py` describe themselves wrongly
-- **Problem** Module docstrings drifted from the code.
-- **Evidence** `harness_gate.py`'s docstring lists gates 1-12; the runner prints 13. `mkdocs_version_hook.py:12` says "the package pins >=3.12,<3.13", while `pyproject.toml:17` is `>=3.12` and `harness_gate.py:493` fails the build on any `<` in that spec — so the comment cites the exact upper pin the harness exists to forbid. `connectivity.py:16` claims "Residual variance uses explicit N - p divisors" while `_residual_variance` ignores its `n_params` argument and returns RSS/N. `artifact_detection.py:93` documents returns as `(flag, corr_summary, amp_per_trial)` while the code returns z-scores (measured: `third[7] = 332.40` against a true `max|amp|` of 54.21). `tfr_accumulator.py:1` promises float64/complex128 accumulation; the persisted dtypes are float32/complex64.
-- **Change** Correct each docstring; drop the dead `n_params`.
-- **Preserves** Behaviour.
-- **Discriminator** `test_docstring_matches_the_globs_it_claims`, which already exists for gate 6, is generalised.
-- **Accept** No module docstring contradicts its code.
-
-### 05-82 CI hygiene
-- **Problem** Three small gaps on a publish-capable pipeline.
-- **Evidence** No workflow-level `concurrency:` or `permissions:`, so rapid pushes run overlapping publish-capable pipelines. `pypa/gh-action-pypi-publish@release/v1` is a mutable branch ref on the two jobs holding `id-token: write`. `workflow_dispatch.inputs.target` defaults to `testpypi`, so any manual dispatch publishes unless the operator picks `none`. Confirmed clean: no `continue-on-error`, no `|| true`, no `set +e` anywhere; `if-no-files-found: error` is set; the production PyPI trigger is correctly narrow.
-- **Change** Add `concurrency` and a `permissions: {contents: read}` floor; pin the publish action to a commit SHA with a version comment; flip the dispatch default to `none`.
-- **Preserves** The publication ordering in `artifacts/fact_stack.md`.
-- **Discriminator** A second push cancels the first; a manual dispatch publishes nothing by default.
-- **Accept** `tests/test_workflow_release_policy.py` extended to cover the dispatch default.
-
-## 13. Close-out
 
 ### 05-83 Independent adversarial pass over the repaired tree
 - **Problem** The repairs above touch every subsystem and several change what other items calibrate.
@@ -198,6 +116,250 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-82 everything reproduced, one change made narrower than asked -- recorded 2026-09-18
+
+All three gaps were present exactly as described, including the item's four confirmations:
+no `continue-on-error`, no `|| true`, no `set +e`, `if-no-files-found: error` set, and the
+production PyPI trigger correctly narrow.
+
+One change is narrower than the item's wording. The Discriminator reads "a second push
+cancels the first", and `cancel-in-progress` is deliberately not unconditional: it is false
+for `refs/tags/*` and for `release` events. Those are the refs that actually upload, and a
+run cancelled between `build` and `publish-pypi` would leave a GitHub Release published
+with nothing on PyPI -- the ordering `artifacts/fact_stack.md` fixes, broken by the thing
+meant to protect it. For every other ref, which is every push to `main` and `dev` and every
+pull request, the second push cancels the first as the item asks.
+
+The pin resolves a moving target, so it is recorded here: on 2026-09-18,
+`pypa/gh-action-pypi-publish` `release/v1`, tag `v1.14.2` and commit
+`dc37677b2e1c63e2034f94d8a5b11f265b73ba33` were the same object, resolved through the
+GitHub API rather than read from a badge. The pin is that commit; the branch will move and
+the pin will not, which is the point.
+
+## 05-81 the tfr_accumulator claim does not reproduce as stated -- recorded 2026-09-18
+
+Four of the five docstrings reproduced exactly as described and are corrected. The fifth
+does not. The item reads "`tfr_accumulator.py:1` promises float64/complex128 accumulation;
+the persisted dtypes are float32/complex64". Both halves are true and they are not in
+conflict: the module docstring and the class docstring describe *accumulation*, and
+accumulation is float64/complex128 -- `__init__` allocates `np.float64` for `mean` and `M2`
+and `np.complex128` for `sum_z` and `sum_unit_z`. The downcast happens in `write`, which
+the docstring never described in either direction.
+
+So there was no false claim to correct, but there was a real omission of the same kind:
+nothing said that a summary round-tripped through HDF5 carries single-precision sufficient
+statistics, which is what the module's central property -- `merge(A, B) == summarize(A u B)`
+to floating-point tolerance -- holds to after a reload. That is now stated, with the reason
+the downcast is deliberate.
+
+The Accept condition, "no module docstring contradicts its code", is not achievable as a
+single mechanical check and is not claimed. What is mechanized is each of the five claims
+against the thing it is a claim about, plus one general sweep -- `Returns (...)` arity
+across every module in `jnwb/`, eight functions today. Prose about what a function means
+cannot be checked; counts, names, dtypes and numbers can, and those are what these are.
+
+## 05-80 the evidence is superseded, and half the change would be wrong -- recorded 2026-09-18
+
+The item's two evidence lines no longer hold. `grep -rn "todo_stack" scripts/ tests/`
+returns four test modules, not one path string. `AGENTS.md` has no section 4.3 -- it runs
+`## 0.` to `## 10.` with a single subsection, under 8 -- and the dead pointer the item
+names is already asserted absent by
+`test_agents_md_does_not_point_at_a_todo_item_that_is_not_there`, which also resolves any
+other item `AGENTS.md` names against the live stack.
+`test_every_repository_path_agents_md_cites_exists` already resolves every
+directory-prefixed path the document cites, with a floor on how much it matched.
+
+What did reproduce is narrower and is repaired: nothing resolved the document's own `§N`
+cross-references, nothing resolved a file named without a directory (the sweep's regex
+requires one of seven directory names in front, so `pyproject.toml` and `CHANGELOG.md`
+were invisible to it), nothing resolved anything in `artifacts/fact_stack.md`, and
+nothing held the todo stack to the section 2 rule.
+
+Not done, and deliberately: the item asks that every path in both stacks resolve. For the
+todo stack that check would be wrong. The stack is a record of findings as well as a plan,
+and a record correctly names what the finding caused to be deleted -- measured, eight of
+its cited paths and one test name are of exactly that kind, including
+`docs/requirements.txt`, which the note one item above names because 05-78 removed it, and
+`test_gpu_pca_cpu_and_cuda_agree_within_float32`, which the stack itself describes as no
+longer existing. A resolving sweep over that file would force the evidence to be deleted
+to stay green. The fact stack carries no such record and is swept in full.
+
+## 05-79 four sub-claims did not reproduce -- recorded 2026-09-18
+
+Nine gates were repaired and the item's central claim held everywhere it was tested:
+each adversarial tree was built and watched to pass before anything changed. Four
+sub-claims did not survive being checked.
+
+Gate 4's allowlist was said to carry four entries that do not exist. Three do not
+(`_audit_dist`, `_audit_dist2`, `_audit_dist_build`) and are pruned. The fourth absence
+is deliberate and says so where it lives, and the new test requires exactly that: an
+allowlisted file that is absent must carry its reason in the source or be pruned.
+
+Gate 5 was to be retired as subsumed by gate 9, on the grounds that it takes credit from
+the generated `docs/api.md` and matches substrings. Both were already repaired by 05-41:
+the gate skips `GENERATED_REFERENCE` and matches with `\b...\b`, and its docstring
+records the twelve symbols that repair surfaced. Only the non-recursive glob remained, so
+the gate was widened rather than retired -- retiring a check whose two stated defects are
+already gone would remove live coverage.
+
+Gate 8's PASS line was said to print "all agree" over a classifier set including 3.13
+while `PYTHON_CI_REQUIRED` omits it. The line names the two sets separately --
+`classifiers ['3.12', '3.13', '3.14'], CI covering ['3.12', '3.14'] all agree` -- so it
+asserts agreement between what is declared and what is tested, not that 3.13 is tested.
+It is unchanged. Whether CI should test 3.13 is a matrix decision, not a defect here.
+
+Of the four checks said to ship but never run, three do run:
+`validate_receipt_provenance`, `check_logarithm_last_rule` and `check_modality_isolation`
+are each imported and exercised by `tests/test_harness_adversarial_gates.py`. Only
+`check_protected_paths` was dead, and its `PROTECTED_PATHS` named another repository's
+`omission/...` directories, so it is removed rather than wired: wiring it would have
+meant inventing paths for it to protect.
+
+One process note. The discriminator harness left the D13 mutant (`rglob` -> `glob`) live
+in `tests/test_docs_links.py` despite asserting a digest match after the restore, and the
+full suite caught it. A pre/post digest comparison across the whole run, outside the
+per-case try/finally, is now what the run is trusted on; the second run came back
+byte-identical on all three mutated files.
+
+## 05-78 one half superseded by work done since the audit -- recorded 2026-09-18
+
+The item says neither `pytest-cov` nor `pytest-xdist` has a caller: no `addopts`, no
+`--cov`, no `-n` anywhere. That was true at the audit and is now half true.
+`pytest-xdist` acquired a caller in this execution -- the installed-wheel leg added for
+05-76 runs `pytest ... -n auto` -- so it is declared and used, and stays. `pytest-cov`
+still had none and is removed rather than given an `addopts`: adding coverage to every
+run is a new gate with a threshold to argue about, and the item's own alternative was
+to drop it.
+
+Everything else reproduced. `docs/requirements.txt` and the `[docs]` extra were
+byte-identical, `.readthedocs.yaml` installed both, and `fail_on_warning: true` makes a
+drift a failed publish; the file and its entry are gone. The two scripts measured 464
+and 161 lines, 625 together as stated, with no reference anywhere outside themselves,
+and the root allowlist still carried `jnwb-unified-rev.md`.
+
+The Accept records that all six extras resolve and notes that `jnwb[gpu]` installs
+cleanly with no CUDA because plain `jax`/`jaxlib` from PyPI is CPU-only, and that it
+should be `jax[cuda12]`. Not acted on: `jax[cuda12]` publishes no Windows wheel, so it
+would turn a working install into a failing one on this platform. That is a packaging
+decision with a user-visible consequence, not a defect to repair in passing, and it is
+left for the release seal to rule on.
+## 05-77 every figure in the item reproduced -- recorded 2026-09-18
+
+Checked rather than accepted. Installing the built 0.2.4 sdist into a clean 3.12
+environment yields `jnwb/` and `jnwb-0.2.4.dist-info/` and nothing else: no `SKILL.md`
+and no `AGENTS.md` anywhere in the environment. The sdist itself carries all nine
+skills and `AGENTS.md` at its root. Of the skills' 12 repository-relative links, 11
+point into `docs/`, which the sdist prunes, so they resolve only in a checkout --
+exactly the count the item gives. `grep -rn "skills" jnwb/ --include=*.py` returns
+nothing.
+
+Executed as ruled: one canonical tree, `skills/` still grafted into the sdist, no copy
+under `jnwb/`, the `MANIFEST.in` comment rewritten to describe its mechanism, and
+`jnwb.SKILLS_URL` added as the machine-readable pointer. The pointer names the tag for
+the installed version rather than a branch, so an agent that has only the package finds
+the routing rows written against the API it is holding; both forms were checked live
+and return 200.
+
+Not done, and deliberately outside the ruling: the 11 dangling links were left as
+relative paths. Rewriting them to the published documentation site would make them
+resolve inside the tarball, but it would also change seven skill files, which are
+doctrine-adjacent, for a gap the ruling chose to close with a pointer instead. Flagged
+here rather than actioned.
+## 05-76 reproduced, and the claim was worse than stated -- recorded 2026-09-18
+
+The mechanism reproduced exactly. With the wheel installed into a clean 3.12
+environment, `pytest tests/` run from the repository root imports
+`C:/workspace/jnwb/jnwb`, not the installed copy; `test_import_provenance.py` says so
+when `JNWB_EXPECTED_PACKAGE_ROOT` names the environment.
+
+Two corrections to the item. `pythonpath = ["."]` is not the only mechanism:
+`tests/__init__.py` makes `tests` a package, so pytest's prepend import mode inserts the
+repository root as well. Clearing `pythonpath` alone changes nothing; the leg also needs
+`--import-mode=importlib`. And the item says only the build job touches the wheel -- the
+tutorial step had stopped touching it too, because the checkout guard added with the
+import-provenance repair finds the sibling package under `$GITHUB_WORKSPACE` and
+prepends the source tree. That step's name has been false since that commit.
+
+Running the suite against an installed copy was not merely absent; it was impossible.
+Sixteen tests failed for three reasons, each a defect in its own right: five test
+modules prepended the repository root to `sys.path` and re-shadowed the package under
+test, two opened `skills/...` relative to the working directory, and one located
+`CHANGELOG.md` through `jnwb.__file__`. All three are repaired, and the scanners that
+keep them out are in `tests/test_the_suite_can_qualify_an_installed_copy.py`.
+
+The Discriminator asks that a defect present only in the packaged artifact fail CI. It
+now can: the leg runs the whole suite against the wheel. Against the built 0.2.4 wheel
+the result is 2499 passed, 48 skipped -- 46 more skips than the checkout run, all of
+them GPU-gated tests, because the clean environment has no CuPy. That is the same
+condition a CI runner is in, so the leg is no weaker there than the matrix legs are.
+## 05-75 reproduced exactly; the repair is wider than the item -- recorded 2026-09-18
+
+The mechanism reproduced as stated. A wheel-shaped zip carrying `tests/__init__.py`,
+`tests/test_secret.py` and `scripts/release_gate.py` was accepted by the old loop; the
+sdist-shaped tarball with the same content was rejected on `/tests/`.
+
+The item proposes component matching for the wheel and keeping the substring form for
+the sdist. That was not done: one rule, applied to both, is the smaller thing to get
+right, and the sdist layout passes it. Three things the item does not name were repaired
+in the same commit because leaving them would have left the check unsound:
+
+- The gate never rejected `site/` or `_build/`, which `MANIFEST.in` prunes. The two
+  lists had drifted, which is the same defect class as the one being repaired, so the
+  prune targets are now derived from `MANIFEST.in` in the suite.
+- `.lab` matched the directory that exists, `.lab_bundle_build`, only as a substring.
+  Switching to component matching would have silently dropped it; both names are listed.
+- CI carried a byte-identical copy of the same defective list. Repairing only the local
+  gate would have left the published pipeline shipping the same wheel. The workflow step
+  now calls the gate's matcher, and the suite runs that step's Python out of the YAML.
+
+Component matching narrows one case deliberately: `artifacts` used to reject a module
+named `lfp_artifacts.py`. That is a false positive, not protection, and it is now
+accepted. `omission` and `_unused` stay substring rules -- they are markers, not
+directories.
+
+The Accept asks for a wheel containing a top-level `tests` package to fail. It does,
+constructed in the scratch directory and again from within the suite. The real built
+wheel (54 entries) and sdist (103 entries) are clean under the repaired rule, so the
+change adds no false positive to the artifacts this package actually produces.
+## 05-74 nine floors, not seven -- corrected 2026-09-18
+
+The finding reproduced and grew. The item names seven defective floors; nine are.
+`torch>=1.12.0` and `pyyaml>=6.0` have exactly the defect the item describes and were
+not listed: neither release ships a cp312 or pure-python wheel (torch 1.12.0 stops at
+cp310, pyyaml 6.0 at cp311). Both moved in the same commit, because raising seven of
+nine would have left the gate red on the two that remained.
+
+The item's title also reads "of ten"; `pyproject.toml` declares 23 `>=` floors across
+the core list and the `torch`, `test` and `docs` extras. The other fourteen are clean:
+each resolves to a release with a usable wheel. The gate checks all 23, not the ten.
+
+Of the nine, one is the requires_python contradiction the item names (`scipy==1.8.0`
+declares `'>=3.8,<3.11'`); the other eight ship no usable wheel. The scipy floor had a
+second, independent reason to move that the item records: `false_discovery_control`
+arrived in 1.11. `tests/` derives that requirement from the call sites rather than
+asserting 1.11 as a constant, so it disappears if the calls do.
+
+The Accept asks for `pip install 'numpy==<floor>'` to succeed on 3.12 for each
+dependency. It was met by reading the index metadata for each floor rather than by
+running 23 installs: the question is whether an installable artifact exists for cp312,
+which the wheel tags and `requires_python` answer directly. Installing them would also
+have required a throwaway environment per dependency and would have tested this
+machine's resolver as much as the declaration.
+## 05-73 divergence measured larger, commit count unverifiable here -- recorded 2026-09-18
+
+The finding reproduced and grew. `jnwb.__version__` is 0.2.4, the index serves 0.2.4, and
+`## [Unreleased]` holds 1009 non-empty lines, not the 20 the audit measured.
+
+One figure could not be checked from this clone: "HEAD is 5 commits past `v0.2.4`". The
+tag objects are missing locally, so `git describe` and `git rev-list v0.2.4..HEAD` both
+abort. That is a defect of this checkout, not of the repository, and it does not affect
+the finding -- the version collision is established from the index and the changelog
+without needing a commit count.
+
+The check lives in `scripts/release_gate.py`, not `scripts/harness_gate.py`: it needs the
+network, and a per-commit gate that reaches the internet fails for reasons that have
+nothing to do with the tree. The suite drives every branch through the pure function and
+stubs the transport, so it gives the same answer offline.
 ## 05-72 third count already gone, and the ruling is removal -- recorded 2026-09-18
 
 Two of the three counts reproduced: `docs/agents.md` says three tools at lines 12 and 24,

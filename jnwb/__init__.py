@@ -16,6 +16,16 @@ __release_date__ = '2026-09-16'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
+#: Where the agent skills live. They are not in the wheel and are not importable: a skill
+#: is read by a harness that is pointed at a directory, and `site-packages` is the worst
+#: place to put something that has to be pointed at. Copying the tree under `jnwb/` would
+#: also create the second skill tree that harness gate 2 forbids. The sdist carries them
+#: at its root, which reaches whoever unpacks the tarball and nobody who runs
+#: `pip install`, so this pointer is what an installed copy can offer. It names the tag
+#: matching this version, not a branch, so the skills found are the ones written against
+#: this API.
+SKILLS_URL = f'https://github.com/HNXJ/jnwb/tree/v{__version__}/skills'
+
 import importlib
 import logging
 from pathlib import Path
@@ -375,6 +385,9 @@ __all__ = [
     'save_figure_suite',
     'resample_onsets',
     'raster_psth',
+
+    # Where to find the agent skills, which ship in the sdist and not in the wheel
+    'SKILLS_URL',
 ]
 
 

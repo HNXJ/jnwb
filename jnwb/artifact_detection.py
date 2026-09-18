@@ -99,10 +99,18 @@ def bad_trials_single_channel(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """trial_waveforms: (n_trials, n_times), single GOOD channel.
 
-    Returns (flag_per_trial, corr_summary_per_trial, amp_per_trial). A trial is flagged if its
-    median correlation to all other trials on this channel is a low robust-z outlier, OR its own
-    max |amplitude| is a high robust-z outlier (either is sufficient on a single channel; cross-
-    channel consensus below is what actually decides exclusion)."""
+    Returns (flag_per_trial, corr_z_per_trial, amp_z_per_trial) -- robust z-scores, not the
+    summaries they are computed from. This said ``corr_summary_per_trial, amp_per_trial``, so a
+    reader took the third element for an amplitude in the signal's own unit; measured on one
+    fixture, element seven was 332.40 against a true max |amplitude| of 54.21. The docs and the
+    tests already named them ``corr_z`` and ``amp_z``; only this line did not. Note that
+    ``bad_channels_from_correlation`` above returns the summary *and* its z, so the two are not
+    the same shape of return.
+
+    A trial is flagged if its median correlation to all other trials on this channel is a low
+    robust-z outlier, OR its own max |amplitude| is a high robust-z outlier (either is
+    sufficient on a single channel; cross-channel consensus below is what actually decides
+    exclusion)."""
     trial_waveforms = np.asarray(trial_waveforms, dtype=float)
     n = trial_waveforms.shape[0]
     if n < 2:

@@ -13,7 +13,11 @@ import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
+# installed copy and silently redirect a wheel-qualification run back to the source tree.
+_REPO_ROOT = str(Path(__file__).resolve().parents[1])
+if _REPO_ROOT not in sys.path:
+    sys.path.append(_REPO_ROOT)
 
 from jnwb.statistics import StatisticalAnalysis
 from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer

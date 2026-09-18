@@ -2,6 +2,8 @@
 
 Pipeline:
   0. Required release/test tooling is present in the active environment
+  0b. The declared version is not one the package index already serves
+  0c. Every declared dependency floor installs on the declared interpreter
   1. Full test suite execution (pytest tests/)
   2. Harness pre-flight gates
   3. Clean distribution build (sdist + wheel)
@@ -13,17 +15,20 @@ Pipeline:
 Exits 0 on complete verified success; non-zero otherwise.
 """
 
+import json
 import os
 import sys
 import shutil
 import tempfile
 import pathlib
+import urllib.error
+import urllib.request
 import zipfile
 import tarfile
 import subprocess
 import logging
 import re
-from typing import List
+from typing import Iterable, List, Optional, Set, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
@@ -53,6 +58,282 @@ def jnwb_source_version() -> str:
     if match is None:
         raise RuntimeError(f"could not parse __version__ from {init}")
     return match.group(1)
+
+
+#: Where the published version list is read from. A release gate that never asks the index
+#: cannot tell a rebuild from a release: it compares the declared version to the changelog
+#: entry the same tree wrote, which agrees with itself by construction.
+PYPI_JSON_URL = "https://pypi.org/pypi/{name}/json"
+
+#: Set to "1" to build without consulting the index. Named, logged and deliberate -- an
+#: offline release is a decision, not a default.
+SKIP_INDEX_ENV = "JNWB_SKIP_INDEX_CHECK"
+
+
+def published_versions(name: str = "jnwb", timeout: float = 30.0) -> Optional[Set[str]]:
+    """Versions the index already serves, or ``None`` when it could not be reached.
+
+    ``None`` is not "nothing is published". The caller must treat an unreachable index as
+    unverified rather than clear, or the gate passes hardest exactly when the network is
+    down.
+    """
+    url = PYPI_JSON_URL.format(name=name)
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            payload = json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return set()  # never published; a first release is not a collision
+        return None
+    except Exception:  # noqa: BLE001 - any transport failure is "unverified"
+        return None
+    return set(payload.get("releases", {}))
+
+
+def unreleased_entry_lines(changelog: Optional[str] = None) -> List[str]:
+    """Non-empty lines under ``## [Unreleased]``, up to the next ``## `` heading."""
+    text = changelog if changelog is not None else (
+        REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    body = text.partition("## [Unreleased]")[2]
+    end = body.find("\n## ")
+    if end != -1:
+        body = body[:end]
+    return [line for line in body.splitlines() if line.strip()]
+
+
+def check_version_is_not_already_published(
+    version: str,
+    published: Optional[Set[str]],
+    unreleased: Optional[List[str]] = None,
+) -> List[str]:
+    """Two distributions can never share a version string.
+
+    Split from the network call so the suite can exercise every branch without reaching the
+    index, and so an offline run has one named way through rather than a silent one.
+    """
+    if published is None:
+        if os.environ.get(SKIP_INDEX_ENV) == "1":
+            return []
+        return [
+            f"the package index could not be reached, so it is unknown whether {version} "
+            f"is already published. Set {SKIP_INDEX_ENV}=1 to build anyway."
+        ]
+    if version not in published:
+        return []
+    pending = unreleased if unreleased is not None else unreleased_entry_lines()
+    detail = (
+        f" and CHANGELOG.md has {len(pending)} non-empty lines under [Unreleased], so the "
+        f"two would not even carry the same contents"
+        if pending else ""
+    )
+    return [
+        f"version {version} is already on the index{detail}. Bump "
+        f"jnwb/__init__.py and move [Unreleased] under a new heading before building a "
+        f"release."
+    ]
+
+
+#: Directory names that must not appear as a path component anywhere in a distribution.
+#: Matched on components rather than as substrings: the previous rule searched for
+#: ``/tests/``, which no wheel entry contains -- wheel entries have no leading distribution
+#: directory, so ``"/tests/" in "tests/__init__.py"`` is False and a wheel carrying the whole
+#: suite passed. Component matching also stops the reverse error, where ``artifacts`` would
+#: reject a module legitimately named ``foo_artifacts.py``.
+FORBIDDEN_COMPONENTS = frozenset({
+    # Every `prune` target in MANIFEST.in. The two lists said different things: the gate
+    # never rejected `site` or `_build`, which the sdist prunes.
+    "tests", "scripts", "artifacts", "omission", "site", "_build",
+    # Build, cache and checkout noise. `.lab_bundle_build` is the directory that actually
+    # exists; the old rule caught it only because `.lab` was a substring match.
+    "dist", ".git", ".github", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__",
+    ".lab", ".lab_bundle_build", "outputs",
+})
+
+#: Pollution markers forbidden anywhere in an entry name, including inside a file name.
+#: These are not directories, so a component check would be the weaker rule here.
+FORBIDDEN_SUBSTRINGS = ("omission", "_unused")
+
+
+def forbidden_entries(names: Iterable[str]) -> List[str]:
+    """Every archive entry that must not ship, each with the rule that rejected it.
+
+    Entries are split on both separators. A zip written by a tool that did not normalise
+    paths can carry backslashes, and splitting on ``/`` alone would read
+    ``tests\\test_x.py`` as a single component and miss it.
+    """
+    problems = []
+    for name in names:
+        parts = [part for part in re.split(r"[\\/]+", name) if part and part != "."]
+        hit = next((part for part in parts if part in FORBIDDEN_COMPONENTS), None)
+        if hit is not None:
+            problems.append(f"{name}: forbidden path component {hit!r}")
+            continue
+        token = next((t for t in FORBIDDEN_SUBSTRINGS if t in name), None)
+        if token is not None:
+            problems.append(f"{name}: forbidden token {token!r}")
+    return problems
+
+
+#: A dependency floor written as ``name>=version``. Anything else -- an unpinned requirement,
+#: an extra reference like ``jnwb[all]`` -- states no floor and is nothing to check.
+_FLOOR_RE = re.compile(r"^([A-Za-z0-9_.\-]+)\s*>=\s*([0-9][^\s,;\[]*)")
+
+
+def declared_dependency_floors() -> List[Tuple[str, str, str]]:
+    """``(extra, name, floor)`` for every ``>=`` pin in pyproject.toml.
+
+    ``extra`` is ``""`` for a core dependency, so a failure says where the pin lives.
+    """
+    import tomllib
+
+    with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
+        project = tomllib.load(fh)["project"]
+
+    groups = [("", project.get("dependencies", []))]
+    for extra, items in (project.get("optional-dependencies") or {}).items():
+        groups.append((extra, items))
+
+    floors = []
+    for extra, items in groups:
+        for item in items:
+            match = _FLOOR_RE.match(item.strip())
+            if match:
+                floors.append((extra, match.group(1), match.group(2)))
+    return floors
+
+
+def interpreter_floor_tag(requires_python: Optional[str] = None) -> str:
+    """The cp tag of the oldest interpreter this package claims to support.
+
+    Derived from ``requires-python`` rather than written down: a floor check that hardcodes
+    ``cp312`` keeps passing after the support window moves, which is the drift that produced
+    the defect it exists to catch.
+    """
+    import tomllib
+
+    if requires_python is None:
+        with open(REPO_ROOT / "pyproject.toml", "rb") as fh:
+            requires_python = tomllib.load(fh)["project"]["requires-python"]
+    match = re.search(r">=\s*(\d+)\.(\d+)", requires_python or "")
+    if not match:
+        raise RuntimeError(f"no minimum interpreter in requires-python {requires_python!r}")
+    return f"cp{match.group(1)}{match.group(2)}"
+
+
+def package_releases(name: str, timeout: float = 30.0) -> Optional[dict]:
+    """Every release of a package, or ``None`` when the index is unreachable."""
+    url = PYPI_JSON_URL.format(name=name)
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {"releases": {}}  # no such package at all
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def lowest_release_satisfying(payload: dict, floor: str) -> Optional[str]:
+    """The oldest final release at or above ``floor`` -- what a minimal resolution installs.
+
+    A ``>=`` pin is a lower bound, not a version that has to exist: ``pytest-xdist>=3.0`` is
+    satisfied by ``3.0.2`` and there is no ``3.0`` on the index. Checking the literal floor
+    string reported that as missing, which is a fact about PyPI's URL scheme rather than about
+    whether the requirement can be installed.
+    """
+    from packaging.version import InvalidVersion, Version
+
+    try:
+        wanted = Version(floor)
+    except InvalidVersion:
+        return None
+    candidates = []
+    for version in payload.get("releases", {}):
+        try:
+            parsed = Version(version)
+        except InvalidVersion:
+            continue
+        if parsed.is_prerelease or parsed.is_devrelease:
+            continue
+        if parsed >= wanted:
+            candidates.append((parsed, version))
+    if not candidates:
+        return None
+    return min(candidates)[1]
+
+
+def check_floor_is_installable(
+    name: str,
+    floor: str,
+    payload: Optional[dict],
+    tag: str,
+    extra: str = "",
+) -> List[str]:
+    """A declared floor must be installable on the interpreter the package declares.
+
+    Seven core floors and two extras were copied from an older support window and never
+    re-derived: ``scipy>=1.8.0`` declares ``requires_python '>=3.8,<3.11'``, which contradicts
+    ``requires-python = ">=3.12"`` outright, and six more ship no wheel any 3.12 can use.
+    Nothing noticed, because the resolutions in use are years above the floors.
+
+    What is checked is the oldest release the pin allows, because that is what a resolver
+    asked for a minimal install would choose.
+    """
+    where = f"{name}>={floor}" + (f" [{extra}]" if extra else "")
+    if payload is None:
+        if os.environ.get(SKIP_INDEX_ENV) == "1":
+            return []
+        return [f"{where}: the index could not be reached, so the floor is unverified"]
+
+    resolved = lowest_release_satisfying(payload, floor)
+    if resolved is None:
+        return [f"{where}: the index serves no release satisfying that floor"]
+
+    files = payload.get("releases", {}).get(resolved) or []
+    # Per-file, because that is where the index records it on this endpoint.
+    declared = ""
+    for entry in files:
+        declared = str(entry.get("requires_python") or "") or declared
+    urls = files
+    if resolved != floor:
+        where = f"{where} (oldest allowed: {resolved})"
+    if _python_excluded(declared, tag):
+        return [
+            f"{where}: that release declares requires_python {declared!r}, which excludes the "
+            f"{tag} this package requires"
+        ]
+
+    tags: Set[str] = set()
+    for entry in urls:
+        filename = entry.get("filename", "")
+        if filename.endswith(".whl"):
+            tags.update(filename.rsplit("-", 3)[1].split("."))
+    if tags & {tag, "py3", "py2"}:
+        return []
+    return [
+        f"{where}: no {tag} or pure-python wheel; that release ships {sorted(tags) or 'no wheel'}"
+    ]
+
+
+def _python_excluded(requires_python: str, tag: str) -> bool:
+    """Whether ``requires_python`` rules out the interpreter named by ``tag``.
+
+    Only the upper bound is read. A lower bound below the floor is the normal case, and an
+    exact parse of every specifier form is a packaging library's job, not a gate's.
+    """
+    if not requires_python:
+        return False
+    major, minor = int(tag[2]), int(tag[3:])
+    for clause in requires_python.split(","):
+        clause = clause.strip()
+        match = re.match(r"^<\s*(\d+)\.(\d+)", clause)
+        if match and (major, minor) >= (int(match.group(1)), int(match.group(2))):
+            return True
+        match = re.match(r"^<=\s*(\d+)\.(\d+)", clause)
+        if match and (major, minor) > (int(match.group(1)), int(match.group(2))):
+            return True
+    return False
 
 
 def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
@@ -144,6 +425,32 @@ def main() -> None:
         "(presence check; pip check in STEP 6 verifies dependency consistency).",
         ",".join(REQUIRED_EXTRAS), ".".join(str(v) for v in sys.version_info[:3]))
 
+    log.info("=== STEP 0b: Checking the declared version against the package index ===")
+    version = jnwb_source_version()
+    collisions = check_version_is_not_already_published(version, published_versions())
+    if collisions:
+        for problem in collisions:
+            log.error("%s", problem)
+        sys.exit(1)
+    log.info(
+        "PASS: %s is not a version the index already serves.", version)
+
+    log.info("=== STEP 0c: Checking every declared dependency floor is installable ===")
+    tag = interpreter_floor_tag()
+    floor_problems: List[str] = []
+    floors = declared_dependency_floors()
+    if not floors:
+        log.error("pyproject.toml declares no dependency floors; this check is vacuous")
+        sys.exit(1)
+    for extra, name, floor in floors:
+        floor_problems.extend(check_floor_is_installable(
+            name, floor, package_releases(name), tag, extra))
+    if floor_problems:
+        for problem in floor_problems:
+            log.error("%s", problem)
+        sys.exit(1)
+    log.info("PASS: all %d declared floors install on %s.", len(floors), tag)
+
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
 
@@ -175,28 +482,22 @@ def main() -> None:
         log.info(f"Produced sdist: {sdist.name} ({sdist.stat().st_size:,} bytes)")
 
         log.info("=== STEP 4: Inspecting archive manifests ===")
-        forbidden = [
-            "omission", "_unused", ".lab", "outputs", "artifacts", ".git", "__pycache__",
-            "/tests/", "/scripts/",
-        ]
 
         with zipfile.ZipFile(whl, "r") as z:
-            whl_files = z.namelist()
-            for f in forbidden:
-                hits = [n for n in whl_files if f in n]
-                if hits:
-                    log.error(f"Forbidden entry {f} found in wheel: {hits}")
-                    sys.exit(1)
-        log.info("PASS: Wheel archive contains zero forbidden entries (no _unused, no omission).")
+            whl_problems = forbidden_entries(z.namelist())
+        if whl_problems:
+            for problem in whl_problems:
+                log.error("wheel: %s", problem)
+            sys.exit(1)
+        log.info("PASS: Wheel archive contains zero forbidden entries.")
 
         with tarfile.open(sdist, "r:gz") as t:
-            sdist_files = t.getnames()
-            for f in forbidden:
-                hits = [n for n in sdist_files if f in n]
-                if hits:
-                    log.error(f"Forbidden entry {f} found in sdist: {hits}")
-                    sys.exit(1)
-        log.info("PASS: Sdist archive contains zero forbidden entries (no _unused, no omission).")
+            sdist_problems = forbidden_entries(t.getnames())
+        if sdist_problems:
+            for problem in sdist_problems:
+                log.error("sdist: %s", problem)
+            sys.exit(1)
+        log.info("PASS: Sdist archive contains zero forbidden entries.")
 
         log.info("=== STEP 5: Validating metadata with twine ===")
         run_cmd([sys.executable, "-m", "twine", "check", str(whl), str(sdist)])
