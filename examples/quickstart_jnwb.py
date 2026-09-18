@@ -123,17 +123,34 @@ def panel_permutation(ax) -> str:
         return max((x > thr).astype(int).__eq__(labels).mean() for thr in np.linspace(-1, 2, 40))
 
     glob = [acc(jnwb.permute_labels(y, scheme="global", rng=rng)) for _ in range(300)]
-    within = [acc(jnwb.permute_labels(y, groups=groups, scheme="within_group", rng=rng))
-              for _ in range(300)]
     bins = np.linspace(0.4, 1.0, 26)
     ax.hist(glob, bins=bins, color="#BBBBBB", label='scheme="global"')
-    ax.hist(within, bins=bins, color=BAD, alpha=0.75, label='scheme="within_group"')
     ax.axvline(acc(y), color=TRUTH, lw=1.4, label="observed")
+
+    # The point of this panel used to be a histogram of the within-group null sitting
+    # on a single value. jnwb will not produce that null any more: with one label per
+    # group every permutation is the identity, so the "null" is a point mass and any
+    # p-value from it is 1.0 by construction. The refusal states the same lesson more
+    # strongly than the degenerate histogram did, so it is drawn rather than avoided.
+    try:
+        within = [acc(jnwb.permute_labels(y, groups=groups, scheme="within_group",
+                                          rng=rng)) for _ in range(300)]
+        ax.hist(within, bins=bins, color=BAD, alpha=0.75, label='scheme="within_group"')
+        caption = ("a within-group null on group-constant labels cannot move; the "
+                   "global null can, and would look significant")
+    except ValueError as refusal:
+        ax.text(0.5, 0.55, "scheme=\"within_group\"\nrefused", transform=ax.transAxes,
+                ha="center", va="center", fontsize=7.5, color=BAD, weight="bold")
+        ax.text(0.5, 0.34, textwrap.fill(str(refusal).split(":")[0], 34),
+                transform=ax.transAxes, ha="center", va="center", fontsize=5.8,
+                color=BAD)
+        caption = ("the within-group null is refused here, not merely narrow: labels are "
+                   "nested in groups, so every permutation is the identity. The global "
+                   "null does move, and would look significant")
     ax.set_xlabel("readout accuracy under the null")
     ax.set_ylabel("permutations")
     ax.legend(frameon=False, fontsize=6.2, loc="upper left")
-    return ("a within-group null on group-constant labels cannot move; the global null can, "
-            "and would look significant")
+    return caption
 
 
 def panel_connectivity(ax) -> str:
@@ -191,6 +208,11 @@ PANELS = [
 
 
 def main() -> None:
+    # Which jnwb is this? Run as `python examples/quickstart_jnwb.py`, Python puts
+    # `examples/` on sys.path and not the repository root, so `import jnwb` resolves to
+    # whatever is installed rather than to the checkout this file sits in. Printing it
+    # turns a silent substitution into a visible one.
+    print(f"jnwb {jnwb.__version__} from {os.path.dirname(jnwb.__file__)}")
     os.makedirs(OUT, exist_ok=True)
     plt.rcParams.update({"font.family": "serif", "font.size": 8, "axes.titlesize": 8.5,
                          "svg.fonttype": "none", "axes.linewidth": 0.8})

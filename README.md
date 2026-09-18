@@ -88,13 +88,16 @@ import numpy as np
 import jnwb
 
 rng = np.random.default_rng(42)
-spikes = np.sort(rng.uniform(0.0, 10.0, 300))
-events = np.array([1.0, 3.0, 5.0, 7.0])
+events = np.arange(1.0, 21.0, 0.5)                          # 40 trials, 0.5 s apart
+lags = 0.060 + rng.uniform(0.0, 0.34, (events.size, 25))    # each responds from t0 = 60 ms
+spikes = np.sort(np.concatenate([rng.uniform(0.0, 21.5, 110),   # homogeneous background
+                                 (events[:, None] + lags).ravel()]))
 
 time_bins, rate_hz, _ = jnwb.raster_psth(spikes, events, win_ms=(-100.0, 400.0), bin_ms=10.0)
 smooth_hz = jnwb.causal_exp_smooth(rate_hz, bin_ms=10.0, tau_ms=25.0)
 fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds=(0.0, 200.0))
-print(f"Onset t0: {fit['t0']:.1f} ms (R2={fit['r2']:.2f}, {fit['bound_status']})")
+print(f"Onset t0: {fit['t0']:.1f} ms of a true 60.0 "
+      f"(R2={fit['r2']:.2f}, {fit['bound_status'] or 'interior'})")
 
 fs = 1000.0
 lfp = rng.normal(size=1000)

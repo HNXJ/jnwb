@@ -188,6 +188,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_examples_quickstart.py` runs the script that nothing ran.**
+  `AGENTS.md` names `examples/quickstart_jnwb.py` the smallest end-to-end script and
+  `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it
+  stayed broken across a release. `main()` is called with its module-level `OUT` redirected
+  at a temporary directory, because the figure it writes is tracked and its bytes vary by
+  matplotlib version. One test asserts the permutation panel reaches its `except` branch
+  rather than its histogram, so the branch is never silently untested.
+  `tests/test_readme_smoke.py` executed the arrays quickstart throughout and could not
+  catch what it printed: execution says nothing raised, not that the number means
+  anything. The block now states the onset it injects, and the test reads the fit back and
+  holds it to that truth, to an R^2 floor, and to finishing in the interior of its bounds.
+- **The quickstart script says which `jnwb` it imported.** Run the way both pages instruct,
+  `python examples/quickstart_jnwb.py` puts `examples/` on `sys.path` and not the
+  repository root, so `import jnwb` resolves to whatever is installed. Measuring this item
+  hit exactly that: the script ran to exit 0 against jnwb 0.1.8 from site-packages while
+  sitting in a 0.2.4 checkout, rendering six panels that all said CORRECT about a different
+  library, and the first reading reported the defect as not reproducing. One printed line
+  makes the substitution visible.
 - **`tests/test_docs_call_shapes.py` checks the documentation against the signatures that
   ship.** Executing the blocks would not have caught the six defects above: 88 of the 113
   `python` blocks are fragments over variables their page never defines, so they are not
@@ -255,6 +273,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script both README and `docs/quickstart.md` call executable exited 1 without
+  writing a figure.** 0.2.x tightened `permute_labels` to refuse a design with one label
+  per group, and that is exactly the design `examples/quickstart_jnwb.py`'s permutation
+  panel builds on purpose, to show that such a null cannot move. The panel raised at the
+  fourth of six panels, so nothing was rendered and `examples/figures/jnwb_quickstart.png`
+  was the output of an older library. The refusal is now caught and drawn: it states the
+  same lesson more strongly than a histogram of a point mass did, and the global null,
+  which does move and would look significant, is still plotted beside it.
+- **The README's arrays quickstart printed an onset it had not recovered.**
+  `Onset t0: 180.0 ms (R2=0.00, None)` was fitted to `rng.uniform(0.0, 10.0, 300)` over
+  four events -- homogeneous noise containing no onset at any latency. An R^2 of 0.00 is
+  the fit reporting that it explains none of the variance, so 180.0 ms was whatever the
+  optimiser landed on, printed on the front page as a result. The example now injects a
+  real onset at 60 ms in three lines and recovers 59.6 ms at R^2 = 0.99. It also prints
+  `bound_status or 'interior'`: `None` is not a missing value, it is the fit finishing
+  inside `t0_bounds`, which is the good case, and it was displayed as though it were a
+  status.
 - **Six documented calls raised `TypeError` on the first line a reader would copy, and
   two of them were inverted rather than renamed.**
   `repair_lfp_trials(window_ms=(-100, 500))` was commented "Active evaluation interval".

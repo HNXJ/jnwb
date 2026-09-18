@@ -32,14 +32,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
 
-### 05-62 The executable quickstart is not executable, and the README prints a fabricated onset
-- **Problem** One script died to a tightened validation; one example has no signal to recover.
-- **Evidence** `examples/quickstart_jnwb.py:126` raises `ValueError: scheme='within_group' has no exchangeability for this design` — the panel deliberately builds a constant-within-group label to demonstrate that the null cannot move, and the library now refuses to produce it. Both README and `docs/quickstart.md:54` call the script "executable", and `examples/figures/jnwb_quickstart.png` is its stale output. Separately, README's arrays quickstart runs and prints `Onset t0: 165.0 ms (R2=-0.00, None)` from `rng.uniform(0.0, 10.0, 300)`, homogeneous noise with no onset, with `bound_status` of `None` displayed as a status.
-- **Change** Catch the refusal in the panel and plot it as the result, which is the lesson; inject a real onset into the README example or print the refusal when `r2` shows the fit is unusable.
-- **Preserves** Both narratives.
-- **Discriminator** The script exits 0; the README example reports a number it actually recovered.
-- **Accept** `examples/quickstart_jnwb.py` runs in CI. It is currently executed by nothing.
-
 ### 05-63 The only runnable instruction on ten pages needs files that ship in neither artifact
 - **Problem** `examples/` is in neither the wheel (`include = ["jnwb*"]`) nor the sdist (not in `MANIFEST.in`), yet `python examples/tutorials/NN_*.py` is the sole runnable line on `quickstart.md` and all nine tutorial pages, and `install.md` never says a clone is required.
 - **Evidence** Wheel 53 entries, sdist 100 entries, `examples/` absent from both.

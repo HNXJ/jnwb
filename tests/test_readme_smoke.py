@@ -38,6 +38,42 @@ def test_readme_quickstart_blocks_execute():
         exec(compile(block, "README.md", "exec"), namespace)  # noqa: S102 - the point
 
 
+def test_readme_arrays_quickstart_recovers_the_onset_it_prints():
+    """Executing a block does not check what it prints.
+
+    The block above ran green for the whole of 0.2.x while printing an onset of 180.0 ms
+    with an R^2 of 0.00, fitted to `rng.uniform(0.0, 10.0, 300)` -- homogeneous noise over
+    four events, containing no onset for the fit to find. An R^2 of 0.00 is the fit
+    reporting that it explains none of the variance; the number beside it was whatever the
+    optimiser landed on, printed on the front page as a result.
+
+    The block now injects a real onset and names it, so the fit can be held to it.
+    """
+    text = README.read_text(encoding="utf-8")
+    section = text.split("## Quickstart (arrays)", 1)[1]
+    blocks = _self_contained_python_blocks(section)
+    assert blocks, "the arrays quickstart block was not found; this test checks nothing"
+
+    block = blocks[0]
+    truth = re.search(r"of a true (\d+\.\d+)", block)
+    assert truth, "the block no longer states the onset it is recovering"
+    t0_true = float(truth.group(1))
+
+    namespace = {"__name__": "__readme__"}
+    exec(compile(block, "README.md", "exec"), namespace)  # noqa: S102 - the point
+    fit = namespace["fit"]
+    assert fit["r2"] > 0.9, (
+        f"R^2 = {fit['r2']:.2f}: the block prints a t0 the fit cannot support"
+    )
+    assert abs(fit["t0"] - t0_true) < 15.0, (
+        f"recovered t0 = {fit['t0']:.1f} ms against a stated truth of {t0_true} ms"
+    )
+    assert fit["bound_status"] is None, (
+        f"the fit finished pinned at its {fit['bound_status']} bound, so t0_bounds, not "
+        "the data, chose the printed number"
+    )
+
+
 def test_readme_capability_table_symbols_exist():
     text = README.read_text(encoding="utf-8")
     table_section = text.split("## Capabilities", 1)[1].split("## Installation", 1)[0]
