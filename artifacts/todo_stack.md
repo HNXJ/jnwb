@@ -28,16 +28,6 @@ deferred to H, so later work benefits from the gate.
 Qualification runs in a clean environment built from the declared extras, or in CI. The
 development `.venv` described at the end of this file is not package evidence.
 
-## 7. Code simplification
-
-### 05-60 The two carried-forward 0.2.4 items
-- **Problem** A receipt with no generator, and a test that cannot measure what it is named for.
-- **Evidence** `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator script. `tests/test_xflip_calibration.py` rebinds all four null families and three alternative categories to the shipped estimator, but runs 15 seeds against the document's 30 — and `assert fpr <= 0.05` at n=15 is satisfiable only by 0/15 — and has no analogue for the document's within-correlation sweep at rw = 0.2, 0.4, 0.8, nor for its localization-error columns. `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a null's grid dependence.
-- **Change** Write the generator or retire the document in favour of the test, stating which operating points the test does not cover; give the grid-invariance test a noisy PSD. 05-07 is now closed: the gradient gate applies on both paths (FPR 0/15 on the graded null at both settings, true-positive 10/10 at within_corr 0.6 and 0.4), so the document's null rates must be re-measured or restated as conditional on neither setting rather than on `contiguous=True`.
-- **Preserves** The measured operating characteristics.
-- **Discriminator** The retained artefact is reproducible from a script in the repository.
-- **Accept** No calibration receipt exists without a generator. Sequence after 05-07, which changes what is being calibrated.
-
 ## 9. Documentation
 
 ### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
@@ -298,6 +288,52 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-59 whole-file deletion of `tests/test_rsa.py` -- refuted 2026-09-18
+
+The item asked for the file to be deleted, on the evidence that every failure class it
+carries is covered by `test_rsa_oracle.py` and that it caught nothing under a `pdist**2`
+mutation. The `pdist**2` observation reproduces. The conclusion does not.
+
+Deletion was decided per failure class rather than per file: fifteen mutations of
+`jnwb/rsa.py` and `jnwb/jrsa.py` were run against `tests/test_rsa.py` and the oracle
+separately, and anything only the former caught was rerun against the whole suite with
+that file ignored. Five classes are uniquely carried by it, and the suite without it
+kills none of them:
+
+| Mutation | Only carrier | Caught elsewhere |
+|---|---|---|
+| `rdm` accepts input with fewer than 2 dimensions | `test_rdm_input_validation` | nothing |
+| `rdm_similarity` accepts mismatched lengths | `test_rdm_similarity_validation` | nothing |
+| `rdm_similarity` accepts a non-square 2D RDM | `test_rdm_similarity_validation` | nothing |
+| `rdm_similarity` accepts non-finite RDMs | `test_rdm_similarity_validation` | nothing |
+| an unknown metric silently computes Spearman | `test_rdm_similarity_validation` | nothing |
+
+Four of those sit in `test_rdm_similarity_validation`, which the item's evidence never
+mentions and which the first nine mutants never reached. Absence of kills against
+mutations aimed at other failure classes is not evidence of redundancy, and treating it
+as such would have deleted the only guard on every `rdm_similarity` rejection path.
+
+The stated justification fails independently. J1, reintroducing the 05-06 defect where
+the parametric p pre-empts the permutation null, is not caught by the oracle either, so
+"every failure class is covered by `test_rsa_oracle.py`" is false as written. It is
+caught elsewhere -- by `test_jrsa_correctness.py::TestPermutationPWins`, which asserts
+that invariant by name rather than incidentally -- but `test_jrsa_delegation_parity`
+also carries statistic-delegation parity and the `permutations=0` fallback, neither of
+which any mutant reached.
+
+Both merges in the item's Change are refused on inspection rather than measurement. The
+nine `TestPublicImport` classes are not duplicates of each other; each hardcodes its own
+module's export names, and parametrizing them over `EXPORT_MODULES` would check that
+registry against itself -- the circularity 05-55 removed from `test_rsa_oracle.py`.
+`TestHarnessResetContracts` is not nine substring assertions of one thing but six
+distinct doctrine contracts across different files; merging them trades six named
+failures for one anonymous failure on the gates that guard doctrine.
+
+Claim 6 reproduces in magnitude and not in attribution, and the edit it prompted was
+reverted: `parallel_map` dispatches `min(len(items), workers * chunks_per_worker)`
+chunks (`_parallel.py:103`), 2 for 2 items whatever `n_jobs` says, so `n_jobs=32` never
+started 32 interpreters. Measured back to back under the same load, 32 against 4 is
+7.47 s against 6.66 s.
 ## 05-55 claims 4, 5 and 9 -- graded 2026-09-17
 
 Seven of the item's nine claims reproduced and were repaired at this commit. Three did

@@ -25,8 +25,10 @@ class TestXFlipNullCalibration:
             res = xflip(white, n_blocks=2, min_block_size=3, n_surrogates=40, rng=s + 600)
             if res.accepted:
                 accepted += 1
-        fpr = accepted / n_seeds
-        assert fpr <= 0.05
+        # At 15 seeds `fpr <= 0.05` admits no acceptance at all -- one is 0.067 -- so
+        # the assertion is written as the count it actually is. The rate this bounds is
+        # measured at 30 seeds in artifacts/benchmarks/xflip_calibration_0.2.5.md.
+        assert accepted == 0, f"{accepted}/{n_seeds} null seeds accepted"
 
     def test_ar_noise_fpr_controlled(self):
         n_seeds = 15
@@ -43,8 +45,10 @@ class TestXFlipNullCalibration:
             )
             if res.accepted:
                 accepted += 1
-        fpr = accepted / n_seeds
-        assert fpr <= 0.07  # Poisson / binomial sampling bound for n=15 at alpha=0.05
+        # 0.07 at 15 seeds admits exactly one acceptance, which is what this asserts.
+        # Correlated noise is the one family whose rate the surrogate test alone
+        # controls, and the receipt measures it at 0.067 over 30 seeds.
+        assert accepted <= 1, f"{accepted}/{n_seeds} AR null seeds accepted"
 
     def test_acceptance_requires_the_surrogate_test_to_pass(self):
         """The gate these tests are named for, asserted rather than assumed.
@@ -107,8 +111,10 @@ class TestXFlipNullCalibration:
             res = xflip(ch_data, n_blocks=2, min_block_size=3, n_surrogates=40, rng=s + 1000)
             if res.accepted:
                 accepted += 1
-        fpr = accepted / n_seeds
-        assert fpr <= 0.05
+        # At 15 seeds `fpr <= 0.05` admits no acceptance at all -- one is 0.067 -- so
+        # the assertion is written as the count it actually is. The rate this bounds is
+        # measured at 30 seeds in artifacts/benchmarks/xflip_calibration_0.2.5.md.
+        assert accepted == 0, f"{accepted}/{n_seeds} null seeds accepted"
 
     def test_smooth_spatial_gradient_rejected(self):
         n_seeds = 15
@@ -124,8 +130,10 @@ class TestXFlipNullCalibration:
             res = xflip(data, n_blocks=2, min_block_size=3, n_surrogates=40, rng=s + 1200)
             if res.accepted:
                 accepted += 1
-        fpr = accepted / n_seeds
-        assert fpr <= 0.05
+        # At 15 seeds `fpr <= 0.05` admits no acceptance at all -- one is 0.067 -- so
+        # the assertion is written as the count it actually is. The rate this bounds is
+        # measured at 30 seeds in artifacts/benchmarks/xflip_calibration_0.2.5.md.
+        assert accepted == 0, f"{accepted}/{n_seeds} null seeds accepted"
 
 
 class TestXFlipAlternativeRecovery:

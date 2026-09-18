@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The xFLIP calibration receipt can be regenerated, and now is.**
+  `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers
+  could not be reproduced or rechecked, and two changes had already invalidated them:
+  0.2.4 made `xflip` reject a zero-variance channel rather than report its correlation as
+  0, and 05-07 found the smooth-gradient drop gate was skipped on the `contiguous=False`
+  path, so the null rates were conditional on a setting the document did not name. It is
+  replaced by `scripts/calibrate_xflip.py`, `xflip_calibration_0.2.5.md` and a raw JSON
+  bound to a SHA-256 over `xflip` and every module-level function in `jnwb.laminar` it can
+  reach. Changing any of them without rerunning the generator now fails
+  `tests/test_xflip_calibration_receipt.py` -- verified against both `xflip` itself and
+  `_compute_contrast`, a helper it reaches but never names, which is the case that
+  defeated the vFLIP receipt when its hash covered one function.
+  Most cells reproduce. Two moved and are read rather than only reported: `ar_noise` is
+  0.067 against the old 0.033, above the nominal alpha, though 2 of 30 sits inside the
+  binomial interval for a true 0.05; and `smooth_spatial_gradient` has median, min and max
+  omnibus p all at the 1/201 floor, so every gradient is maximally significant under the
+  permutation test and the 0.000 acceptance rate is produced entirely by the
+  boundary-drop gate. A reader seeing only the rate would conclude the opposite of what
+  05-07 established. The receipt also records the operating point the old one left
+  unstated -- surrogate count, minimum block size, alpha, samples per channel -- and what
+  it does not cover. Regenerating it twice produced identical numbers.
+- **Four null-rate assertions say what they enforce.** `fpr = accepted / 15` with
+  `assert fpr <= 0.05` is satisfied only by zero acceptances, since one is 0.067, and the
+  AR test's 0.07 admits exactly one. Written as rates they look like bounds with slack;
+  they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts
+  now, with the rate they stand in for measured at 30 seeds in the receipt. No outcome
+  changes and no mutation separates the two spellings: this is a statement repair.
 - **A comparison against a package that is not installed now says so.**
   `test_area_resolution_is_identical_with_and_without_omission_importable` runs jnwb in
   two subprocesses, one with `omission` blocked, and asserts they agree. The blocked arm
@@ -204,6 +231,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Call the dataclass directly. The other eleven ontology exports are retained.
 
 ### Fixed
+
+- **A grid-invariance test that could only measure determinism.**
+  `test_frequency_grid_resolution_invariance` asserted that the crossover estimate moved
+  by less than 0.05 channels between 0.5, 1.0 and 2.0 Hz grids. Its PSD came from a helper
+  whose `noise_level` is a constant additive floor, not a random draw, so the spectrum was
+  deterministic and the measured spread was exactly 0.0000. The bound could not fail, and
+  it is not a grid-invariance bound: under multiplicative lognormal jitter of only 0.1 the
+  spread is 0.17 to 0.37, and the same assertion fails. The helper takes a `jitter_sigma`
+  now; the deterministic test is kept under a name that says what it measures, and a
+  second test measures invariance on a spectrum where the estimate actually moves. Over
+  40 seeds at sigma 0.25 every seed is accepted on every grid and the per-seed spread runs
+  0.0696 to 0.5603, median 0.2381, so what is asserted is the decision plus a bound with
+  headroom over the measured maximum, with a lower guard so the test cannot silently
+  degenerate back into the deterministic one. Both discriminators kill: the old 0.05 bound
+  fails at 0.5603 on noisy input, and switching the jitter off trips the guard.
 
 - **A mock that could not be reached, in the test named for it.**
   `test_rejected_fit_returns_unavailable_parameters_never_zeros` checked both failure
