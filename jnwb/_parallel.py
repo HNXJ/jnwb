@@ -68,8 +68,16 @@ def parallel_map(
     process startup and pickling dominated. Chunking the same loop into 4 batches per
     worker turned that into 4.2x faster.
 
-    Parallelism only pays when the total serial work exceeds roughly a second; joblib's
-    process pool costs a few seconds to start. Below that, leave `n_jobs=1`.
+    Parallelism only pays when the total serial work exceeds roughly **five seconds**,
+    and the reason is not joblib. Spinning up 24 workers for a callable that closes over
+    nothing takes 0.77 s; doing it for a callable the workers must import this package to
+    unpickle takes 4.47 s, because each worker pays `import jnwb` -- 1.79 s in a fresh
+    interpreter -- before it can run anything. Every parallel call site in this library
+    passes such a callable, so several seconds is the real floor for the first parallel
+    call in a process; the figures here were measured on a contended machine and the
+    absolute values move, the ordering does not. Later calls reuse the pool and cost about 0.04 s, which is why a benchmark
+    that calls twice in one process makes the floor disappear. Below that, leave
+    `n_jobs=1`.
 
     Falls back to a serial comprehension when joblib is missing, so parallelism is an
     optimisation rather than a dependency. Result order always matches `items`.

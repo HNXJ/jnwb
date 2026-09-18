@@ -1,230 +1,237 @@
 {
   "python": "3.14.3",
   "platform": "Windows-11-10.0.26200-SP0",
-  "version": "0.1.5",
-  "symbols": 111,
+  "version": "0.2.4",
+  "symbols": 155,
   "torch_loaded": false,
   "cold": {
-    "ms": 28892.097600000852,
-    "peak_mb": 99.36565589904785,
-    "modules": 1205,
-    "version": "0.1.5",
-    "symbols": 111,
-    "torch_loaded": false
+    "ms": 10459.654100006446,
+    "modules": 1350,
+    "version": "0.2.4",
+    "symbols": 155,
+    "torch_loaded": false,
+    "peak_mb": 101.42446231842041
   },
-  "warm_median_ms": 6859.449700001278,
-  "warm_mean_ms": 6873.674710000341,
-  "warm_stdev_ms": 340.8741798165973,
-  "warm_min_ms": 6471.9547999993665,
-  "warm_max_ms": 7396.132599998964,
-  "warm_peak_mb": 76.28313112258911,
-  "modules": 1205,
+  "warm_median_ms": 2151.2701000319794,
+  "warm_mean_ms": 2210.2127200108953,
+  "warm_stdev_ms": 187.95909301250785,
+  "warm_min_ms": 2056.127700023353,
+  "warm_max_ms": 2725.768500007689,
+  "warm_peak_mb": 85.89791011810303,
+  "modules": 1350,
   "runs": 10,
   "breakdown": {
-    "jnwb_total_ms": 1897.793,
+    "jnwb_total_ms": 2347.8,
     "top_jnwb_modules": [
       {
         "name": "jnwb",
-        "self_ms": 1.19,
-        "cum_ms": 1897.793
+        "self_ms": 1.668,
+        "cum_ms": 2347.8
       },
       {
-        "name": "jnwb.tfr",
-        "self_ms": 2.847,
-        "cum_ms": 1133.515
+        "name": "jnwb.rsa",
+        "self_ms": 2.97,
+        "cum_ms": 1190.991
       },
       {
-        "name": "jnwb.addressing",
-        "self_ms": 1.101,
-        "cum_ms": 443.785
-      },
-      {
-        "name": "jnwb.compression",
-        "self_ms": 1.003,
-        "cum_ms": 142.391
+        "name": "jnwb.nwb_io",
+        "self_ms": 1.048,
+        "cum_ms": 722.065
       },
       {
         "name": "jnwb.jrsa",
-        "self_ms": 2.122,
-        "cum_ms": 121.873
+        "self_ms": 2.377,
+        "cum_ms": 156.228
       },
       {
-        "name": "jnwb.paths",
-        "self_ms": 1.058,
-        "cum_ms": 5.636
+        "name": "jnwb.laminar",
+        "self_ms": 5.894,
+        "cum_ms": 122.947
+      },
+      {
+        "name": "jnwb.compression",
+        "self_ms": 1.463,
+        "cum_ms": 89.85
+      },
+      {
+        "name": "jnwb._rng",
+        "self_ms": 0.821,
+        "cum_ms": 23.407
       },
       {
         "name": "jnwb.connectivity",
-        "self_ms": 2.203,
-        "cum_ms": 2.203
+        "self_ms": 2.332,
+        "cum_ms": 2.999
+      },
+      {
+        "name": "jnwb.paths",
+        "self_ms": 1.428,
+        "cum_ms": 2.956
+      },
+      {
+        "name": "jnwb.addressing",
+        "self_ms": 2.737,
+        "cum_ms": 2.737
       },
       {
         "name": "jnwb.trajectory",
-        "self_ms": 0.599,
-        "cum_ms": 1.852
-      },
-      {
-        "name": "jnwb.gpu_pca",
-        "self_ms": 0.639,
-        "cum_ms": 1.254
-      },
-      {
-        "name": "jnwb._lazy_exports",
-        "self_ms": 0.988,
-        "cum_ms": 0.988
-      },
-      {
-        "name": "jnwb.spiking",
-        "self_ms": 0.954,
-        "cum_ms": 0.954
+        "self_ms": 1.442,
+        "cum_ms": 2.644
       },
       {
         "name": "jnwb.spectral",
-        "self_ms": 0.862,
-        "cum_ms": 0.862
+        "self_ms": 2.299,
+        "cum_ms": 2.299
+      },
+      {
+        "name": "jnwb.nwb_events",
+        "self_ms": 1.965,
+        "cum_ms": 1.965
+      },
+      {
+        "name": "jnwb.tfr",
+        "self_ms": 1.637,
+        "cum_ms": 1.637
+      },
+      {
+        "name": "jnwb.gpu_pca",
+        "self_ms": 1.203,
+        "cum_ms": 1.203
+      },
+      {
+        "name": "jnwb.nwb_inspect",
+        "self_ms": 1.091,
+        "cum_ms": 1.091
+      },
+      {
+        "name": "jnwb._lazy_exports",
+        "self_ms": 1.066,
+        "cum_ms": 1.066
       },
       {
         "name": "jnwb.tfr_accumulator",
-        "self_ms": 0.773,
-        "cum_ms": 0.773
-      },
-      {
-        "name": "jnwb.artifact_detection",
-        "self_ms": 0.66,
-        "cum_ms": 0.66
-      },
-      {
-        "name": "jnwb.artifact_repair",
-        "self_ms": 0.659,
-        "cum_ms": 0.659
-      },
-      {
-        "name": "jnwb._backend",
-        "self_ms": 0.616,
-        "cum_ms": 0.616
-      },
-      {
-        "name": "jnwb.filtering",
-        "self_ms": 0.604,
-        "cum_ms": 0.604
-      },
-      {
-        "name": "jnwb._parallel",
-        "self_ms": 0.595,
-        "cum_ms": 0.595
+        "self_ms": 1.002,
+        "cum_ms": 1.002
       },
       {
         "name": "jnwb.permutation",
-        "self_ms": 0.562,
-        "cum_ms": 0.562
+        "self_ms": 0.901,
+        "cum_ms": 0.901
+      },
+      {
+        "name": "jnwb.artifact_repair",
+        "self_ms": 0.882,
+        "cum_ms": 0.882
       }
     ],
     "top_third_party": [
       {
-        "name": "scipy.signal._support_alternative_backends",
-        "self_ms": 56.011,
-        "cum_ms": 1100.385
+        "name": "pynwb",
+        "self_ms": 20.034,
+        "cum_ms": 721.017
       },
       {
-        "name": "scipy.signal._signal_api",
-        "self_ms": 1.158,
-        "cum_ms": 899.708
+        "name": "hdmf",
+        "self_ms": 1.163,
+        "cum_ms": 526.367
       },
       {
-        "name": "pandas",
-        "self_ms": 1.633,
-        "cum_ms": 442.685
+        "name": "hdmf.backends.hdf5.h5_utils",
+        "self_ms": 0.024,
+        "cum_ms": 520.221
       },
       {
-        "name": "scipy.signal._peak_finding",
-        "self_ms": 1.007,
-        "cum_ms": 371.138
+        "name": "hdmf.backends.hdf5",
+        "self_ms": 0.021,
+        "cum_ms": 520.198
       },
       {
-        "name": "scipy.stats",
-        "self_ms": 1.729,
-        "cum_ms": 368.55
+        "name": "hdmf.backends",
+        "self_ms": 0.888,
+        "cum_ms": 520.177
       },
       {
-        "name": "scipy.signal._spline_filters",
-        "self_ms": 1.319,
-        "cum_ms": 349.548
+        "name": "hdmf.backends.hdf5",
+        "self_ms": 1.107,
+        "cum_ms": 519.29
       },
       {
-        "name": "scipy.signal._signaltools",
-        "self_ms": 2.913,
-        "cum_ms": 348.23
+        "name": "scipy.spatial.distance",
+        "self_ms": 0.03,
+        "cum_ms": 513.836
       },
       {
-        "name": "pandas.core.api",
-        "self_ms": 0.715,
-        "cum_ms": 307.544
+        "name": "scipy.spatial",
+        "self_ms": 1.181,
+        "cum_ms": 513.806
       },
       {
         "name": "scipy.stats._stats_py",
-        "self_ms": 48.072,
-        "cum_ms": 216.797
+        "self_ms": 47.097,
+        "cum_ms": 476.859
       },
       {
-        "name": "scipy.signal._ltisys",
-        "self_ms": 1.573,
-        "cum_ms": 198.383
+        "name": "hdmf.backends.hdf5.h5tools",
+        "self_ms": 2.445,
+        "cum_ms": 455.255
       },
       {
-        "name": "scipy.interpolate",
-        "self_ms": 1.064,
-        "cum_ms": 193.436
+        "name": "hdmf.backends.io",
+        "self_ms": 1.26,
+        "cum_ms": 451.261
       },
       {
-        "name": "scipy.signal.windows",
-        "self_ms": 1.047,
-        "cum_ms": 165.52
+        "name": "hdmf.build",
+        "self_ms": 1.105,
+        "cum_ms": 449.284
       },
       {
-        "name": "scipy.interpolate._interpolate",
-        "self_ms": 3.802,
-        "cum_ms": 165.493
+        "name": "hdmf.build.classgenerator",
+        "self_ms": 1.344,
+        "cum_ms": 440.465
       },
       {
-        "name": "scipy.signal.windows._windows",
-        "self_ms": 16.679,
-        "cum_ms": 162.911
+        "name": "hdmf.container",
+        "self_ms": 2.707,
+        "cum_ms": 439.122
       },
       {
-        "name": "scipy.interpolate._fitpack_py",
-        "self_ms": 4.258,
-        "cum_ms": 156.96
+        "name": "scipy.spatial._kdtree",
+        "self_ms": 1.891,
+        "cum_ms": 436.595
       },
       {
-        "name": "scipy.interpolate._bsplines",
-        "self_ms": 3.497,
-        "cum_ms": 150.186
+        "name": "pandas",
+        "self_ms": 1.709,
+        "cum_ms": 432.372
       },
       {
-        "name": "scipy.optimize",
-        "self_ms": 1.438,
-        "cum_ms": 145.81
+        "name": "scipy.spatial._ckdtree",
+        "self_ms": 1.422,
+        "cum_ms": 307.829
       },
       {
-        "name": "scipy._lib._array_api",
-        "self_ms": 1.68,
-        "cum_ms": 143.832
+        "name": "scipy.sparse",
+        "self_ms": 1.615,
+        "cum_ms": 306.407
       },
       {
-        "name": "scipy.stats.distributions",
-        "self_ms": 0.919,
-        "cum_ms": 142.328
+        "name": "scipy.sparse._csr",
+        "self_ms": 1.017,
+        "cum_ms": 277.45
       },
       {
-        "name": "h5py",
-        "self_ms": 1.56,
-        "cum_ms": 141.389
+        "name": "scipy.sparse._compressed",
+        "self_ms": 1.379,
+        "cum_ms": 275.631
       }
     ],
     "heavy_third_party_roots": [
       "h5py",
+      "hdmf",
       "numpy",
       "pandas",
+      "pynwb",
       "scipy"
     ]
   }

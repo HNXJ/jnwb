@@ -26,11 +26,13 @@ from __future__ import annotations
 import logging
 import math
 import warnings
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 from ._parallel import parallel_map, spawn_seeds
+from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 import pandas as pd
 from scipy import stats
 
@@ -123,7 +125,7 @@ def exact_sign_flip(
     diffs: Union[Sequence[float], np.ndarray],
     alternative: str = "two-sided",
     n_mc: int = 10000,
-    rng: Optional[Union[np.random.Generator, int]] = None,
+    rng: RNGLike = DEFAULT_SEED,
 ) -> Tuple[float, float, float]:
     """Exact paired sign-flip permutation test for paired sample differences.
 
@@ -202,16 +204,7 @@ def exact_sign_flip(
         # Monte Carlo sign-flip permutations
         if n_mc <= 0:
             raise ValueError(f"n_mc must be positive, got {n_mc}")
-        if rng is None:
-            gen = np.random.default_rng(42)
-        elif isinstance(rng, (int, np.integer)):
-            gen = np.random.default_rng(int(rng))
-        elif isinstance(rng, np.random.Generator):
-            gen = rng
-        else:
-            raise TypeError(
-                f"rng must be an instance of np.random.Generator, int, or None, got {type(rng).__name__}"
-            )
+        gen = resolve_rng(rng, func_name="exact_sign_flip")
 
         # Draw random +/- 1 signs: shape (n_mc, n)
         signs = gen.choice([-1.0, 1.0], size=(n_mc, n), replace=True)
@@ -236,6 +229,10 @@ def fdr_correct(
     method: str = "bh",
 ) -> np.ndarray:
     """Benjamini-Hochberg (or compatible) FDR across a hypothesis family.
+
+    This one forwards the other way: `StatisticalAnalysis.fdr_correct` holds the
+    implementation and this module-level name delegates to it. The other four
+    module/class pairs in this file run class -> module.
 
     Args:
         p_values: 1-D array of raw p-values (one per hypothesis).
@@ -320,7 +317,17 @@ def paired_fire_prob_test(
     """
     t = np.asarray(fires_target, dtype=bool)
     u = np.asarray(fires_null, dtype=bool)
-    n = min(len(t), len(u))
+    # `n = min(len(t), len(u))` silently paired trial i of one condition with trial i of
+    # the other and dropped the remainder, so lengths 8 and 4 returned a confident
+    # risk_difference of 0.5 over four pairings that do not correspond to the same trials.
+    # `shuffle_pvalue_paired` already refuses exactly this, and its docstring names the harm.
+    if len(t) != len(u):
+        raise ValueError(
+            f"paired_fire_prob_test: fires_target and fires_null must be paired (equal "
+            f"length); got {len(t)} and {len(u)}. Trials were silently truncated to the "
+            "shorter of the two, which pairs unrelated trials."
+        )
+    n = len(t)
     if n < 2:
         return {
             "p_fire_target": float(np.mean(t)) if len(t) else float("nan"),
@@ -428,17 +435,36 @@ def shuffle_pvalue_paired(
     n = len(a)
     if n < 2:
         return float("nan"), float("nan")
+    alt = _require_alternative(alternative, "shuffle_pvalue_paired")
     diff = a - b
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
-    if alternative == "greater":
+    if alt == "greater":
         p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
-    elif alternative == "less":
+    elif alt == "less":
         p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
     else:
         p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
     return obs, float(p)
+
+
+def _require_alternative(alternative: str, func_name: str) -> str:
+    """Normalize and validate a tail specification.
+
+    The `if greater / elif less / else` chains this replaces had a two-sided fallthrough,
+    so `alternative='GREATER'` and `alternative='nonsense'` both silently returned the
+    two-sided p -- 0.163 where the one-sided value was 0.093. `exact_sign_flip` already
+    case-folds and validates the identical parameter.
+    """
+    alt = str(alternative).strip().lower()
+    if alt not in ("two-sided", "greater", "less"):
+        raise ValueError(
+            f"{func_name}: alternative must be one of 'two-sided', 'greater', 'less'; "
+            f"got {alternative!r}. An unrecognised value used to select 'two-sided' "
+            "silently."
+        )
+    return alt
 
 
 def shuffle_pvalue_unpaired(
@@ -446,9 +472,13 @@ def shuffle_pvalue_unpaired(
     b: np.ndarray,
     n_shuffles: int,
     rng: np.random.Generator,
-    alternative: str = "greater",
+    alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
+
+    ``alternative`` defaults to ``'two-sided'``, as in :func:`shuffle_pvalue_paired`. It
+    used to default to ``'greater'`` while its paired sibling defaulted to two-sided: on
+    one dataset the two "defaults" were p = 0.041 and p = 0.163.
 
     Returns (observed_diff, p_value), or ``(nan, nan)`` when either group has fewer than two
     values.
@@ -461,6 +491,7 @@ def shuffle_pvalue_unpaired(
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
     if len(a) < 2 or len(b) < 2:
         return float("nan"), float("nan")
+    alt = _require_alternative(alternative, "shuffle_pvalue_unpaired")
     obs = float(np.mean(a) - np.mean(b))
     pooled = np.concatenate([a, b])
     n_a = len(a)
@@ -468,9 +499,9 @@ def shuffle_pvalue_unpaired(
     for i in range(n_shuffles):
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
-    if alternative == "greater":
+    if alt == "greater":
         p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
-    elif alternative == "less":
+    elif alt == "less":
         p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
     else:
         p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
@@ -529,7 +560,9 @@ def shuffle_r2_ci(
     y_score: np.ndarray,
     groups: Optional[np.ndarray] = None,
     n_shuffle: int = 200,
-    random_state: int = 42,
+    rng: RNGLike = Default(42),
+    *,
+    random_state: Any = Default(42),
 ) -> Dict[str, float]:
     """R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a
     shuffle-null 95% CI.
@@ -546,17 +579,25 @@ def shuffle_r2_ci(
         y_score: (n,) array, a continuous decision score.
         groups: optional (n,) group id array for within-group shuffling.
         n_shuffle: number of shuffle draws.
-        random_state: seed for the shuffle RNG.
+        rng: seed, Generator, or None for fresh entropy, for the shuffle RNG
+            (``random_state`` is the old spelling and still works).
 
     Returns:
         dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle.
     """
+    random_state = resolve_seed_alias(rng, random_state, alias_name='random_state', func_name='shuffle_r2_ci')
     def _r2(y, s):
         if np.std(s) == 0 or np.std(y) == 0:
             return 0.0
         r = np.corrcoef(y, s)[0, 1]
         return float(r ** 2)
 
+    _require_shuffle_inputs(
+        np.asarray(y_true, dtype=float),
+        np.asarray(y_score, dtype=float),
+        n_shuffle,
+        "shuffle_r2_ci",
+    )
     r2_obs = _r2(y_true, y_score)
     rng = np.random.default_rng(random_state)
     null = np.empty(n_shuffle)
@@ -674,12 +715,9 @@ class StatisticalAnalysis:
         paired: bool,
         n_bootstrap: int = 2000,
         ci: float = 0.95,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        if rng is None:
-            rng = np.random.default_rng(42)
-        elif not isinstance(rng, np.random.Generator):
-            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+        rng = resolve_rng(rng, func_name="_bootstrap_mean_diff_ci")
         if paired and len(a) == len(b) and len(a) > 1:
             diffs = a - b
             stats_boot = np.empty(n_bootstrap)
@@ -716,7 +754,7 @@ class StatisticalAnalysis:
         group2: np.ndarray,
         paired: bool = False,
         n_bootstrap: int = 2000,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
         """
         Compare two groups: parametric (t-test) + non-parametric (Mann-Whitney / Wilcoxon).
@@ -946,13 +984,14 @@ class StatisticalAnalysis:
         statistic_func=np.mean,
         n_bootstrap: int = 10000,
         ci: float = 0.95,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        """Bootstrap confidence intervals + parametric CI."""
-        if rng is None:
-            rng = np.random.default_rng(42)
-        elif not isinstance(rng, np.random.Generator):
-            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+        """Bootstrap confidence intervals + parametric CI.
+
+        ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
+        for fresh entropy, or a ``Generator`` to keep one stream across calls.
+        """
+        rng = resolve_rng(rng, func_name="bootstrap_ci")
 
         data = np.asarray(data).flatten()
         data = data[~np.isnan(data)]
@@ -986,19 +1025,43 @@ class StatisticalAnalysis:
         x: np.ndarray,
         y: np.ndarray,
         n_permutations: int = 5000,
-        rng: Optional[np.random.Generator] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        """Permutation test for difference between two groups."""
-        if rng is None:
-            rng = np.random.default_rng(42)
-        elif not isinstance(rng, np.random.Generator):
-            raise TypeError(f"rng must be an instance of np.random.Generator, got {type(rng).__name__}")
+        """Permutation test for difference between two groups.
 
-        x = np.asarray(x).flatten()
-        y = np.asarray(y).flatten()
+        ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
+        for fresh entropy, or a ``Generator`` to keep one stream across calls.
+        """
+        rng = resolve_rng(rng, func_name="permutation_test")
 
-        x = x[~np.isnan(x)]
-        y = y[~np.isnan(y)]
+        x = np.asarray(x, dtype=float).flatten()
+        y = np.asarray(y, dtype=float).flatten()
+
+        n_x_in, n_y_in = len(x), len(y)
+        x = x[np.isfinite(x)]
+        y = y[np.isfinite(y)]
+        n_dropped = (n_x_in - len(x)) + (n_y_in - len(y))
+        if n_dropped:
+            warnings.warn(
+                f"permutation_test: dropped {n_dropped} non-finite sample(s) "
+                f"({n_x_in - len(x)} from x, {n_y_in - len(y)} from y). The test is on the "
+                "remaining samples.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        if len(x) < 2 or len(y) < 2:
+            # Every comparison against a NaN observed difference was False, so the
+            # exceedance count was 0 and the p-value came out at its floor, 1/(B+1):
+            # two all-NaN groups reported pval 0.0002 and significant=True.
+            return {
+                "observed_difference": float("nan"),
+                "pval": float("nan"),
+                "perm_mean": float("nan"),
+                "perm_std": float("nan"),
+                "significant": False,
+                "n_x": len(x),
+                "n_y": len(y),
+            }
 
         obs_diff = np.mean(x) - np.mean(y)
 
@@ -1021,6 +1084,8 @@ class StatisticalAnalysis:
             "perm_mean": float(np.mean(perm_diffs)),
             "perm_std": float(np.std(perm_diffs)),
             "significant": p_value < 0.05,
+            "n_x": len(x),
+            "n_y": len(y),
         }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1132,6 +1197,13 @@ class StatisticalAnalysis:
                 "confirmatory_compare() requires a non-empty hypothesis string. "
                 "Example: hypothesis='rate in condition A > rate in condition B'"
             )
+        # `alpha=2.0` used to return `confirmed_parametric=True` for q = 0.1188 -- a
+        # confirmation at an impossible significance level, from a confirmatory API.
+        # `clopper_pearson` validates the identical parameter.
+        if not (0.0 < float(alpha) < 1.0):
+            raise ValueError(
+                f"confirmatory_compare: alpha must be in (0, 1), got {alpha}."
+            )
         result = StatisticalAnalysis.exploratory_compare(
             group1, group2, paired=paired, n_bootstrap=n_bootstrap
         )
@@ -1154,17 +1226,26 @@ class StatisticalAnalysis:
 
     @staticmethod
     def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
-        """Exact (Clopper-Pearson) binomial confidence interval via Beta quantiles."""
+        """Exact (Clopper-Pearson) binomial confidence interval via Beta quantiles.
+
+        Forwards to the module-level `clopper_pearson`, which holds the implementation.
+        """
         return clopper_pearson(k, n, alpha=alpha)
 
     @staticmethod
     def clopper_pearson_ci(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
-        """Alias for clopper_pearson for backwards compatibility."""
+        """Older spelling of `clopper_pearson`, kept for callers that used it.
+
+        Forwards to the module-level `clopper_pearson`, same as the method it aliases.
+        """
         return clopper_pearson(k, n, alpha=alpha)
 
     @staticmethod
     def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> float:
-        """Attainable minimal non-zero p-value floor for Mann-Whitney U test without ties."""
+        """Attainable minimal non-zero p-value floor for Mann-Whitney U test without ties.
+
+        Forwards to the module-level `mann_whitney_p_floor`, which holds the implementation.
+        """
         return mann_whitney_p_floor(n1, n2, alternative=alternative)
 
     @staticmethod
@@ -1172,9 +1253,12 @@ class StatisticalAnalysis:
         diffs: Union[Sequence[float], np.ndarray],
         alternative: str = "two-sided",
         n_mc: int = 10000,
-        rng: Optional[Union[np.random.Generator, int]] = None,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Tuple[float, float, float]:
-        """Exact paired sign-flip permutation test for paired sample differences."""
+        """Exact paired sign-flip permutation test for paired sample differences.
+
+        Forwards to the module-level `exact_sign_flip`, which holds the implementation.
+        """
         return exact_sign_flip(diffs, alternative=alternative, n_mc=n_mc, rng=rng)
 
 
@@ -1205,7 +1289,9 @@ def cross_modal_comparison(
     lag_range_ms: Tuple[int, int] = (-500, 500),
     bin_ms: Optional[float] = None,
     n_permutations: int = 1000,
-    seed: Optional[int] = None,
+    rng: RNGLike = Default(None),
+    *,
+    seed: Any = Default(None),
 ) -> Dict:
     """Trial-averaged correlation between a TFR-derived signal and a spike-count signal.
 
@@ -1248,8 +1334,25 @@ def cross_modal_comparison(
         i.e. the TFR/LFP signal is shifted earlier than spikes), interpretation -- or
         {'error': ...} when inputs are missing or too short.
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='cross_modal_comparison')
     if tfr_data is None or spike_data is None:
         return {'error': 'Input arrays cannot be None'}
+
+    # A single non-finite sample made every lag's correlation NaN, so every permutation
+    # comparison was False and `lag_corrected_pvalue` came out at its floor, 1/(B+1):
+    # on the same data one NaN moved it from 0.8322 to 0.000999 and flipped
+    # `significant_lag_corrected` from False to True. An all-NaN input leaked a bare
+    # KeyError('parametric') from the internals.
+    for _name, _arr in (("tfr_data", tfr_data), ("spike_data", spike_data)):
+        _a = np.asarray(_arr, dtype=float)
+        if _a.size == 0:
+            raise ValueError(f"cross_modal_comparison: {_name} is empty.")
+        if not np.all(np.isfinite(_a)):
+            raise ValueError(
+                f"cross_modal_comparison: {_name} must be finite; drop or repair NaN or "
+                "Inf values first. A non-finite sample makes every lag's statistic NaN "
+                "and drives the permutation p-value to its floor."
+            )
 
     if tfr_data.ndim == 3 and spike_data.ndim == 2:
         n_freq, n_time, n_trials = tfr_data.shape
@@ -1404,7 +1507,7 @@ def cluster_permutation_test(
     threshold: float = 2.0,
     n_permutations: int = 1000,
     tail: str = "both",
-    rng: Optional[np.random.Generator] = None,
+    rng: RNGLike = 0,
     n_jobs: int = 1,
 ) -> Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]:
     """Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).
@@ -1479,16 +1582,20 @@ def cluster_permutation_test(
         raise ValueError(f"n_permutations must be >= 1; got {n_permutations}.")
     if tail not in ("both", "greater", "less"):
         raise ValueError(f"tail must be 'both', 'greater', or 'less'; got {tail!r}.")
-    if rng is None:
-        rng = np.random.default_rng(0)
-    elif not isinstance(rng, np.random.Generator):
-        raise TypeError("rng must be an explicit numpy.random.Generator (e.g. np.random.default_rng(seed)).")
+    rng = resolve_rng(rng, func_name="cluster_permutation_test")
 
     X_arr = np.asarray(X, dtype=float)
     Y_arr = np.asarray(Y, dtype=float)
 
-    if np.isnan(X_arr).any() or np.isnan(Y_arr).any():
-        raise ValueError("Cannot perform cluster permutation test on data containing NaN values.")
+    # isfinite, not isnan. An Inf sample used to pass this guard and then drive the
+    # variance at its point to NaN, where `out=np.zeros_like(m)` left the pre-filled 0.0 --
+    # so an infinite observation guaranteed its point joined no cluster. Inf and NaN are
+    # both non-estimable, and are rejected identically.
+    if not (np.isfinite(X_arr).all() and np.isfinite(Y_arr).all()):
+        raise ValueError(
+            "Cannot perform cluster permutation test on data containing NaN or infinite "
+            "values."
+        )
 
     if scheme is None:
         scheme = "within_group" if groups is not None else "global"
@@ -1537,19 +1644,34 @@ def cluster_permutation_test(
                 raise ValueError("scheme='within_group' requires groups to be specified.")
             pooled_groups = None
 
+    def _finite_t(m: np.ndarray, se: np.ndarray) -> np.ndarray:
+        """t = m / se, with the se == 0 points answered rather than zero-filled.
+
+        Zero standard error makes the statistic 0/0. A difference that is exactly zero in
+        every observation is an *observed* zero and stays 0.0. A constant non-zero
+        difference is perfectly consistent and its t is unbounded; 0.0 was the most wrong
+        available answer there, reporting the strongest possible effect as no effect, so
+        that point is now NaN and is reported as non-estimable instead.
+        """
+        t = np.divide(m, se, out=np.zeros_like(m), where=se > 0)
+        degenerate = ~(se > 0)
+        if np.any(degenerate):
+            t = np.where(degenerate, np.where(m == 0, 0.0, np.nan), t)
+        return t
+
     def _calc_t_paired(d: np.ndarray) -> np.ndarray:
         n = d.shape[0]
         m = np.mean(d, axis=0)
         v = np.var(d, axis=0, ddof=1)
         se = np.sqrt(v / n)
-        return np.divide(m, se, out=np.zeros_like(m), where=se > 0)
+        return _finite_t(m, se)
 
     def _calc_t_unpaired(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         n_a, n_b = x1.shape[0], x2.shape[0]
         m1, m2 = np.mean(x1, axis=0), np.mean(x2, axis=0)
         v1, v2 = np.var(x1, axis=0, ddof=1), np.var(x2, axis=0, ddof=1)
         se = np.sqrt(v1 / n_a + v2 / n_b)
-        return np.divide(m1 - m2, se, out=np.zeros_like(m1), where=se > 0)
+        return _finite_t(m1 - m2, se)
 
     def _extract_clusters(t_map: np.ndarray) -> List[Tuple[float, np.ndarray]]:
         found = []
@@ -1567,6 +1689,15 @@ def cluster_permutation_test(
 
     # 1. Observed statistic map and clusters
     obs_t = _calc_t_paired(diff) if paired else _calc_t_unpaired(X_arr, Y_arr)
+    n_degenerate = int(np.isnan(obs_t).sum())
+    if n_degenerate:
+        warnings.warn(
+            f"cluster_permutation_test: {n_degenerate} point(s) have a constant non-zero "
+            "difference across observations, so the t statistic there is undefined (zero "
+            "standard error). They are reported as NaN and take part in no cluster.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     obs_clusters = _extract_clusters(obs_t)
 
     # 2. Permutation null distribution of extremal cluster statistic

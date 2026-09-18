@@ -4,6 +4,1038 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- **`CLAUDE.md`, so `AGENTS.md` is the only repository-level instruction file.** The file
+  held 215 bytes and no operative rule: it pointed at `AGENTS.md` and said not to keep a
+  second rule set there. `AGENTS.md` pointed back, claiming `CLAUDE.md` "carries phase and
+  policy" -- a statement about a file that carried a pointer. Two files describing each
+  other is a fork waiting to happen, so the one operative instruction, single authority,
+  is now stated in `AGENTS.md` itself and the file is gone from tracked state. It is
+  git-ignored rather than forbidden, and stays on the root-freeze allowlist, so a
+  contributor's own copy neither lands in the repository nor trips a gate.
+  `tests/test_single_agent_instruction_file.py` holds all of that: no tracked root
+  instruction file besides `AGENTS.md` (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,
+  `.cursorrules`, `.windsurfrules`), the ignore rule resolves, and no live surface cites
+  the deleted file as a source of rules.
+- **`add_tool`, and with it the MCP server's ability to write code into its own
+  install.** The tool took Python source from a caller and appended it to
+  `jnwb/mcp_server/custom_tools.py`, resolved as `Path(__file__).parent`, which on an
+  ordinary install is `site-packages`. Validation was `ast.parse` plus "contains a
+  function definition", so module-level statements in the submitted source were written
+  verbatim and would run on import; the entire boundary was `ALLOW_DYNAMIC_TOOLS=1`. It
+  also never worked: nothing imports `custom_tools`, so the tool it registered did not
+  load at any restart and its "Please restart the MCP server" message was false every
+  time. It was documented nowhere -- `docs/agents.md` described three tools and said "all
+  of them ingest" while `mcp.list_tools()` returned four and `jnwb.mcp_server.__all__`
+  carried five entries. A code-writing primitive that no surface claims, cannot function,
+  and is one import away from executing caller-supplied source is removed rather than
+  documented: `meta_tools.py` and `custom_tools.py` are gone, and the five tests that
+  exercised the tool went with them.
+
+### Changed
+
+- **Two thirds of the public API was reachable from no routing row.** 81 of 155 exported
+  symbols were mentioned by no skill, and the gap was not a long tail: the whole laminar
+  depth subsystem (`vflip`, `vflip_from_lfp`, `xflip`, `label_layers`,
+  `current_source_density_1d`, `voltage_curvature_1d`, `aperiodic_fit`),
+  `cluster_permutation_test`, the spike mutual-information family, `cross_modal_comparison`
+  and the half-open bin family that exists to prevent the double count
+  `docs/common_mistakes.md` section 2 describes. A probe for "assign cortical layers" or
+  "compute CSD" matched no trigger in the tree. 44 rows were added across six skills, each
+  signature read off `inspect.signature` rather than retyped, and the root router gained a
+  laminar delegation line. 111 symbols now carry a row; the remaining 44 are exceptions,
+  `jnwb.ontology` types, result containers, analyzer facades, constants, the `io` alias and
+  one undocumented internal -- each excluded by category, with the category's claim
+  asserted.
+- **`AGENTS.md` §8 now requires a public API change to update the routing rows in the same
+  commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing
+  about the 65 rows in `skills/` that hardcode signatures. That single gap produced every
+  defect in the routing matrices.
+- **The routing check did not see dotted rows at all.** Its pattern was `` `jnwb\.(\w+)\(``,
+  which does not match `jnwb.StatisticalAnalysis.exploratory_compare(...)`, so the four
+  `StatisticalAnalysis` rows were never checked -- found by writing one with the arguments
+  in the wrong order and the wrong default and watching the suite pass. It resolves dotted
+  attributes now and asserts it matched at least 65 rows.
+- **The test that existed to catch those rows checked only that the names exist.**
+  `test_skill_routing_parameter_names_match_runtime` asserted `pname in sig.parameters`
+  and nothing else, so the swapped `paired_fire_prob_test` row passed it: all four names
+  it gave are real parameters. Its regex could not span a nested parenthesis either, so it
+  silently skipped the 7 rows carrying a tuple default -- `assign_outer_folds`, `zflip`,
+  `wpli`, `imaginary_coherency`, `spectral_tilt`, `apply_tight_auto_axis` and
+  `save_figure_suite` -- and a row that is not matched is not checked.
+  It now walks balanced parentheses, matches positional arguments against their position
+  in the signature, rejects a keyword-only parameter passed positionally, requires every
+  parameter that has no default to appear, and compares each stated default to the live
+  one. It asserts it matched at least 61 rows, so a regex that stops matching fails rather
+  than passing quietly. Two notations are honoured rather than flagged: `rng=...` says
+  "pass something here" and states nothing about a default, and
+  `scheme="within_group"|"global"` states admissible values, which is routing
+  information. Seven discriminators kill, one per corrected row.
+- **The documentation site stopped addressing contributors.** About a sixth of the
+  published words were rules for changing `jnwb`, on the user navigation.
+  `docs/10_extending_jnwb_and_verification.md` was 117 words whose own first sentence
+  called it a pointer; three of its four commands are the checks `CONTRIBUTING.md` lists,
+  its MCP line points at `agents.md`, and its domain-package paragraph is the boundary
+  invariant in `docs/01`. It had drifted inside that loop, saying "gates 1-12" where the
+  runner prints 13. It is deleted. `docs/11_extending_and_development.md` sections 1-8 --
+  what belongs in the library, naming and typing rules, the probe classes a test must
+  cover, the root allowlist, the development flow -- move into `CONTRIBUTING.md`, which
+  had been saying those rules lived in `docs/11` while `docs/11` said the mechanics lived
+  in `CONTRIBUTING.md`.
+  Section 9 is not contributor material and did not move there. 9.1 fixes the RNG, device,
+  failure-state, shape and unit conventions every public function holds to, and 9.2 is the
+  per-operation table: for several estimators the only statement anywhere of what the
+  result type carries and what happens when a fit cannot be supported. Both are now
+  `docs/10_operation_specifications.md`, a page of its own on the nav, moved as bytes with
+  their heading levels rebased.
+  `api.md` was listed twice, as "Public API" and as "Full Surface Contract"; the second
+  group held nothing else and is gone. `docs/01` cited the test file that enforces the
+  boundary invariant and `PLACEHOLDER-DUMMY`, an internal scaffolding marker; `install.md`
+  cited a gate number in `scripts/harness_gate.py` and the test file that verifies deferred
+  imports. All four name files that ship in neither the wheel nor the sdist.
+- **The xFLIP calibration receipt can be regenerated, and now is.**
+  `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers
+  could not be reproduced or rechecked, and two changes had already invalidated them:
+  0.2.4 made `xflip` reject a zero-variance channel rather than report its correlation as
+  0, and 05-07 found the smooth-gradient drop gate was skipped on the `contiguous=False`
+  path, so the null rates were conditional on a setting the document did not name. It is
+  replaced by `scripts/calibrate_xflip.py`, `xflip_calibration_0.2.5.md` and a raw JSON
+  bound to a SHA-256 over `xflip` and every module-level function in `jnwb.laminar` it can
+  reach. Changing any of them without rerunning the generator now fails
+  `tests/test_xflip_calibration_receipt.py` -- verified against both `xflip` itself and
+  `_compute_contrast`, a helper it reaches but never names, which is the case that
+  defeated the vFLIP receipt when its hash covered one function.
+  Most cells reproduce. Two moved and are read rather than only reported: `ar_noise` is
+  0.067 against the old 0.033, above the nominal alpha, though 2 of 30 sits inside the
+  binomial interval for a true 0.05; and `smooth_spatial_gradient` has median, min and max
+  omnibus p all at the 1/201 floor, so every gradient is maximally significant under the
+  permutation test and the 0.000 acceptance rate is produced entirely by the
+  boundary-drop gate. A reader seeing only the rate would conclude the opposite of what
+  05-07 established. The receipt also records the operating point the old one left
+  unstated -- surrogate count, minimum block size, alpha, samples per channel -- and what
+  it does not cover. Regenerating it twice produced identical numbers.
+- **Four null-rate assertions say what they enforce.** `fpr = accepted / 15` with
+  `assert fpr <= 0.05` is satisfied only by zero acceptances, since one is 0.067, and the
+  AR test's 0.07 admits exactly one. Written as rates they look like bounds with slack;
+  they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts
+  now, with the rate they stand in for measured at 30 seeds in the receipt. No outcome
+  changes and no mutation separates the two spellings: this is a statement repair.
+- **`tests/test_docs_smoke.py` was green throughout.** Its ten tests hand-transcribe the
+  documented workflows rather than reading the pages, so six documented calls could raise
+  `TypeError` while it passed -- the same second-copy pattern 0.2.5 removed from
+  `tests/test_readme_smoke.py`. It is left alone here and carried to the independent pass
+  as a known unknown; nothing has measured whether it holds failure classes the new
+  parse and execute checks do not.
+- **A comparison against a package that is not installed now says so.**
+  `test_area_resolution_is_identical_with_and_without_omission_importable` runs jnwb in
+  two subprocesses, one with `omission` blocked, and asserts they agree. The blocked arm
+  proves its own block took effect; nothing proved the *unblocked* arm could import what
+  it was comparing against. Where `omission` is absent, as here, both arms ran identical
+  code and the test passed by comparing jnwb to itself. It now skips explicitly when
+  `omission` is not importable. Deleting it was rejected: the comparison is real wherever
+  the dependency exists, and a skip converts a false pass into declared non-execution
+  rather than removing the coverage.
+- **One of two byte-identical `__all__` completeness tests is gone.**
+  `tests/test_api_surface.py::test_public_exports_resolve` and
+  `tests/test_jnwb_frozen_boundary.py::test_jnwb_all_symbols_resolve` evaluated the same
+  expression under the same assertion, so no mutation could separate them. The
+  frozen-boundary copy is kept, because its comment records why `__all__` completeness
+  belongs to the 0.2.x freeze contract.
+- **`TestParallelMap` was not spending its time squaring integers, and it keeps its
+  `n_jobs=32`.** The class costs 14.9-15.2 s over three runs, close to the 18.45 s
+  reported, but not for the stated reason, and the waste it was reported to contain is
+  not there. `parallel_map` dispatches
+  `n_chunks = min(len(items), workers * chunks_per_worker)` chunks (`_parallel.py:103`),
+  which is 2 for the 2 items in `test_more_workers_than_items` whatever `n_jobs` says,
+  and loky spawns a worker per task, so `n_jobs=32` never started 32 interpreters.
+  Measured back to back under the same load, 32 against 4 is 7.47 s against 6.66 s per
+  isolated run -- 0.81 s of executor construction, not 28 avoided interpreter starts.
+  An earlier 3.49 s figure for that test came from `--durations` taken while two
+  unrelated jobs were running on the same machine. 0.81 s does not pay for losing an
+  incidental case -- 32 also exceeds this machine's 24 CPUs, which 4 does not -- so the
+  test is unchanged. The remaining 7.5-7.8 s is `test_chunking_covers_every_item_exactly_once`,
+  which buys boundary coverage at, below and above `n_jobs` and is what the class is for.
+- **Five copies of the dict-access shim became one `jnwb._dictlike.DictAccessMixin`.**
+  The five classes above now declare the mixin instead of each carrying the pair, so the
+  fix above landed once rather than five times. Read access only: these are records of a
+  computation, not mappings to build, so there is no `__setitem__` and no iteration, and
+  each class keeps its own `to_dict()`.
+- **`_with_nwb` has one definition.** It was byte-identical in `jnwb/nwb_events.py` and
+  `jnwb/nwb_inspect.py`, annotated with two aliases -- `NWBInput` and `InspectInput` --
+  that spell the same type, over a `PathLike` that was also written out twice. All three
+  names now live in `jnwb.nwb_io`, which both modules already imported `nwb_read_io`
+  from. `jnwb.nwb_inspect.InspectInput` remains as an alias of `NWBInput`. The two
+  module-local `PathLike` aliases are gone; `jnwb.nwb_io.PathLike` is the same type, and
+  no importer of either copy exists anywhere in this repository or the workspace.
+- **`channel_correlation_matrix` and `trial_correlation_matrix` share their body.** Both
+  were `np.corrcoef(np.asarray(x, dtype=float))`; both now call one private
+  `_pearson_rows`. Both public names are kept, because the difference between them is
+  what a row means, not what is computed.
+- **`tfr_dir`, `meta_dir` and `conndb_dir` share their body.** Three copies of the same
+  six lines, differing only in which three constants they named, now pass those three
+  constants to one `_configured_dir`. Each keeps its own docstring naming its own
+  variables. Merging them exposed a gap: the documented order
+  `override > $JNWB_*_DIR > $OMISSION_*_DIR (deprecated)` was tested for `nwb_dir`, which
+  has its own body, but never for these three -- a mutation making the deprecated
+  variable win passed the whole suite. It is tested now, for all three.
+- **The `statistics.py` forwarders say which way they point.** `clopper_pearson`,
+  `clopper_pearson_ci`, `mann_whitney_p_floor` and `exact_sign_flip` forward from
+  `StatisticalAnalysis` to the module-level implementation; `fdr_correct` runs the other
+  way, module to class. The direction could not be inferred from either side and is now
+  stated in each summary. No delegation was redirected: changing one would move results
+  for callers of the other spelling.
+- **`CANONICAL_VFLIP_BANDS` is now the source of the bands, not a third copy of them.**
+  The constant had no references, and deleting it would have been the wrong direction:
+  the same two intervals were written out as literal defaults in `vflip` and
+  `vflip_from_lfp`, so one fact was maintained in three places. The defaults now read
+  from the constant. **No value changes** -- (8.0, 30.0) and (50.0, 150.0) either way --
+  and the vFLIP calibration was rerun to prove it: the receipt's `estimator_sha256` moves
+  because `vflip`'s source did, and every other field in
+  `vflip_calibration_0.2.4_raw.json` is identical across 30 seeds, every null and
+  alternative family, and every sweep.
+- **`jrsa` no longer defaults to every core, which was making it slower.** It was the
+  only public function in the package overriding `n_jobs`'s documented default of 1, and
+  the override cost more than it bought: measured one call per interpreter on a 40x6
+  input with the documented default of 1000 permutations, `jrsa(x1, x2)` ran 10x to 24x
+  *slower* with `n_jobs=-1` than serial. The cause is not joblib. Starting 24 workers for
+  a callable that closes over nothing takes 0.77 s; doing it for a callable the workers
+  must import this package to unpickle takes 4.47 s, because each worker pays
+  `import jnwb` -- 1.79 s in a fresh interpreter -- first. Every parallel call site in
+  this library passes such a callable, so no small input can repay it, and the break-even
+  is roughly five seconds of serial work rather than the one second `_parallel.py`
+  claimed. A 400x60 input with 10000 permutations is past it: 10.8 s serial against 5.6 s
+  on all cores. The default is now 1 everywhere, `jrsa` included; pass `n_jobs=-1` to opt
+  in. **No number changes** -- `n_jobs` is a speed knob, and the statistic and p-value are
+  bit-identical between the old default and the new one on identical input and `rng`.
+  Benchmarks that call twice in one process will not reproduce the old cost, because the
+  second call reuses the pool and takes about 0.04 s.
+- **Gate 5 no longer counts the generated reference.** It searched every `docs/*.md`,
+  `docs/api.md` included. Since `api.md` is generated from `jnwb.__all__`, the gate
+  asserted that every export appears in a file guaranteed to contain every export: it
+  could not fail, and it did not, while twelve symbols were documented nowhere a reader
+  would look. It now excludes `api.md` and matches whole words, so a page that documents
+  `AlignedDataset` is no longer credited with documenting `Dataset`.
+- **`inspect` answers with one schema, whichever way it is called.** `inspect(path)` was
+  an h5py walk and `inspect(nwb)` a pynwb walk, written independently, and for the same
+  file they disagreed: the file form carried `data_path` and `layout` and the object form
+  did not; an interval table had four columns from the file (`codes`, `id`, `start_time`,
+  `stop_time`) and three from the object, because `to_dataframe()` makes `id` the index;
+  and `codes` was dtype `object` from one and `str` from the other. An `NWBFile` that was
+  read from a file is now described by that file, so passing an open handle -- the
+  documented way to avoid reopening -- gives the same dict as passing the path. An
+  `NWBFile` with no file behind it is described from its arrays in the same schema, and
+  now includes its `trials`, `epochs` and `invalid_times` tables, which are not in
+  `nwb.intervals` until the file has been written and read back. Every entry carries
+  every key in `jnwb.nwb_inspect.CONTINUOUS_KEYS`, `None` where the value is unknown,
+  rather than a key set that varied with the file's contents.
+- **A continuous container holding several series is a question, not an answer.** An
+  `LFP` container wrapping `lfp_alpha` (1000 Hz) and `lfp_beta` (500 Hz) now reports
+  `series: ["lfp_alpha", "lfp_beta"]` with `rate_hz`, `data_path`, `data_shape`,
+  `data_dtype` and `layout` all `None`, and `acquisition_channel(name="LFP")` raises
+  `AmbiguousAcquisitionError` naming both. Name either series to read it. Containers
+  wrapping exactly one series are unchanged.
+- **A name that means two different objects is refused.** A series called `shared` in
+  both `/acquisition` and a processing module resolved to the acquisition one, decided by
+  the order of two `if` statements and documented nowhere. `resolve_acquisition` and
+  `acquisition_channel` now raise `AmbiguousAcquisitionError` naming both locations.
+- **`rng` is the one spelling for the random-number argument.** One concept was spelled
+  four ways across the public API: `rng` (8 functions), `seed` (7), `random_state` (3) and
+  `random_seed` (1). `granger`, `granger_spectral`, `phase_slope_index`,
+  `transfer_entropy`, `zflip`, `cross_modal_comparison`, `build_permutation_plan`,
+  `shuffle_r2_ci`, `resample_onsets` and `jrsa` now take `rng`. The old spelling remains
+  as a keyword-only alias and still works; the canonical parameter keeps its original
+  position, so positional callers are unaffected, and its original default, so no
+  number moves. Passing two spellings with different values raises
+  `ValueError: Conflicting values`, the same refusal `band_power(fs=, sampling_rate=)`
+  already used -- `jrsa` previously spelled this refusal `TypeError`, and was the only
+  place that did. `rng` is canonical rather than `seed` because the argument now accepts
+  a `Generator`, which `seed` would misname.
+- **`build_permutation_plan` refuses a `Generator` explicitly.** It is the one exception:
+  its product is a manifest of integer per-draw seeds, `rng + i`, which a `Generator`
+  cannot name and fresh entropy would make unreproducible. It now says so instead of
+  failing on `seed + i` inside the loop.
+- **`rng=None` now means fresh entropy, and the default seed is in the signature.**
+  `exact_sign_flip`, `compare_groups`, `bootstrap_ci`, `permutation_test` and
+  `_bootstrap_mean_diff_ci` declared `rng: Optional[Generator] = None` and then ran
+  `np.random.default_rng(42)` when the caller omitted it; `cluster_permutation_test` used
+  `default_rng(0)`. `None` reads as "fresh randomness", so two calls a caller believed
+  were independent shared a null distribution and agreed exactly. The seed each function
+  was already using is now its signature default -- 42, and 0 for
+  `cluster_permutation_test`, whose different value is preserved because unifying it would
+  change published cluster p-values. **Omitting `rng` produces exactly the numbers it
+  produced before**; passing `rng=None` explicitly now draws fresh entropy, as it does
+  everywhere else in NumPy.
+- **`rng` accepts an int seed as well as a `Generator`.** These functions used to raise
+  `TypeError` for `rng=42` while seeding themselves with 42 whenever the argument was
+  omitted, and the module-level `exact_sign_flip` already accepted
+  `int | Generator | None`, so siblings disagreed about the same argument. A value that
+  names no stream -- a `str`, a `float`, a `bool` -- still raises, now naming the caller.
+
+### Added
+
+- **The MCP tool table is checked against the live registry.** Four tests in
+  `tests/test_mcp_server.py` compare the documented table, the prose count and
+  `jnwb.mcp_server.__all__` against `mcp.list_tools()`, and assert that no module in the
+  server package writes into the installed package directory. Three sources had given
+  three different counts because each restated a number instead of asking the server.
+  Five discriminators kill, including putting a write-capable module back.
+- **`tests/test_import_provenance.py` asserts which `jnwb` the suite is testing.** A green
+  suite says nothing about this checkout unless the package it imported came from this
+  checkout. Three checks: the interpreter running pytest imports the expected package
+  directory, no second importable copy shadows it on `sys.path`, and every example, probed
+  from its own directory through its real prologue, resolves to the same one.
+  `JNWB_EXPECTED_PACKAGE_ROOT` names a different root when a built wheel or an installed
+  copy is deliberately under test, so the check narrows rather than disappears. A standing
+  rule to check `jnwb.__file__` in every probe did not prevent this failure, which makes it
+  a harness defect rather than an operator lapse; it is asserted now instead of remembered.
+- **`tests/test_skill_claims_match_the_router.py` re-runs the numbers a skill prints.** No
+  routing row for a phase-lag measure may use immunity or robustness language unnegated,
+  and the two quantitative caveats are verified by execution, not by matching prose: the
+  narrowband PSI collapse and the `tau*ln 2` group delay are both measured in the test, and
+  the skill's stated millisecond shifts are checked against that measurement.
+- **`tests/test_skill_symbol_coverage.py` holds the whole of `jnwb.__all__` against the
+  skill tree.** Every public callable must be reachable as a *call* in a routing row --
+  prose naming a function teaches nothing about how to invoke it, and an earlier draft of
+  this check passed after the `vflip` row was deleted, because the word survived in a
+  neighbouring sentence. Everything else must appear in a categorised exclusion list whose
+  category is itself asserted: exceptions are `Exception` subclasses, ontology types come
+  from `jnwb.ontology`, each excluded container is verified against the live return
+  annotation of the operation credited with producing it, constants are not callable, and
+  the one excluded internal is excluded only while it has no docstring. Stale entries fail:
+  a name the package no longer exports, or one a skill has since started routing. Six
+  discriminators kill, including deleting the laminar router line -- which is checked
+  against whichever skill actually routes `label_layers`, not against a fixed name.
+- **`tests/test_agents_md_recipes.py` executes every fenced block in `AGENTS.md` and
+  resolves every repository path it cites**, with the working directory outside the
+  checkout so a block reaching for a relative path fails there. It also checks that no
+  pointer names a todo item the stack does not hold, that §8 carries the skills rule, and
+  that `AGENTS.md` and the statistics skill call the same comparison entry point -- which
+  a signature check cannot see, because both are valid calls. Six discriminators kill.
+- **`tests/test_skill_routing_behaviour.py` runs what a signature cannot express.** Two of
+  the corrected rows are not signature defects: one named a result key `repair_lfp_trials`
+  does not return, the other described a two-trace estimator as working across channel
+  pairs. Both are checked by calling the library, along with the behaviour that makes the
+  argument order worth correcting -- the swapped `paired_fire_prob_test` call returns the
+  negated effect rather than raising.
+- **`tests/test_docs_interpretation_statements.py` checks each statement against the code
+  it describes.** A test that only greps for the sentence keeps passing when the sentence
+  goes stale, so the unit is read off the result, the sign convention off the docstring,
+  the absence of `groups` off the signature, and the cross-modal numbers off a re-run of
+  the documented call. Eight discriminators kill. One survived first: deleting the transfer
+  entropy unit left the page passing because the mutual-information paragraph below also
+  says bits, so that check is per section now.
+- **`tests/test_docs_user_navigation.py` holds the shape rather than the episode.** Every
+  nav entry resolves, no page is listed twice, no page exists off the nav, no page on the
+  nav names a test file, a gate script or the scaffolding marker, and the specification
+  page still carries every operation and convention the split was supposed to preserve.
+  Five discriminators kill.
+- **`tests/test_docs_runnable_prerequisites.py` holds the statement and the fact it
+  asserts together.** One test sweeps every `python examples/` instruction in `docs/` and
+  requires the prerequisite within the text that follows it; another reads
+  `pyproject.toml` and `MANIFEST.in` and fails if `examples/` starts shipping, which would
+  make the note wrong in the other direction. The first was written per page and a
+  discriminator survived it: `quickstart.md` carries two instructions, so deleting one
+  note left the other's text in the file and the check still passed. It is per instruction
+  now, and all four discriminators kill.
+- **`tests/test_examples_quickstart.py` runs the script that nothing ran.**
+  `AGENTS.md` names `examples/quickstart_jnwb.py` the smallest end-to-end script and
+  `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it
+  stayed broken across a release. `main()` is called with its module-level `OUT` redirected
+  at a temporary directory, because the figure it writes is tracked and its bytes vary by
+  matplotlib version. One test asserts the permutation panel reaches its `except` branch
+  rather than its histogram, so the branch is never silently untested.
+  `tests/test_readme_smoke.py` executed the arrays quickstart throughout and could not
+  catch what it printed: execution says nothing raised, not that the number means
+  anything. The block now states the onset it injects, and the test reads the fit back and
+  holds it to that truth, to an R^2 floor, and to finishing in the interior of its bounds.
+- **The quickstart script says which `jnwb` it imported.** Run the way both pages instruct,
+  `python examples/quickstart_jnwb.py` puts `examples/` on `sys.path` and not the
+  repository root, so `import jnwb` resolves to whatever is installed. Measuring this item
+  hit exactly that: the script ran to exit 0 against jnwb 0.1.8 from site-packages while
+  sitting in a 0.2.4 checkout, rendering six panels that all said CORRECT about a different
+  library, and the first reading reported the defect as not reproducing. One printed line
+  makes the substitution visible.
+- **`tests/test_docs_call_shapes.py` checks the documentation against the signatures that
+  ship.** Executing the blocks would not have caught the six defects above: 88 of the 113
+  `python` blocks are fragments over variables their page never defines, so they are not
+  runnable, and an execute-everything test skips exactly the pages where the drift is.
+  These parse the blocks instead and check every keyword and positional count against
+  `inspect.signature`, across 152 documented calls on 29 pages, fragments included. Four
+  discriminators kill, one per check.
+  It also asserts that every `python` block parses rather than skipping the ones that do
+  not. That check exists because writing this repair put a paragraph of prose inside a
+  fence: the block stopped being Python, the sweep skipped it, and everything still
+  reported green while the page a reader copies from was broken.
+  The 12 blocks that bind every name they use, name no data file and carry no MkDocs
+  include directive are executed with the working directory outside the checkout. The
+  suite otherwise runs from the repository root with `pythonpath = ["."]`, so a block
+  reaching for a relative path finds the checkout and passes for a reason a reader
+  installing from PyPI does not have.
+
+- **`Provenance` records the jnwb that ran, not the one the caller names.**
+  `software_version` is a required caller argument and nothing derived it, so a record
+  could name a version that never executed and, the dataclass being frozen, keep it
+  faithfully. There was also no path, and a version cannot identify an implementation on
+  its own: an editable install of a development tree and a release in `site-packages`
+  report theirs the same way and are routinely different code. `jnwb_version` and
+  `jnwb_path` are read from the executing package and are `init=False`, so a caller
+  cannot pass them -- caller metadata supplements the observed identity and cannot
+  override it. `software_version` stays, as the caller's own claim; when the two
+  disagree, `version_claim_matches_execution` is False and the disagreement is in the
+  record rather than behind it. Both new fields appear in `to_dict()`.
+
+- **`docs/errors.md`: every refusal, what produced it, and the argument that resolves
+  it.** Twelve exported error classes and the two NWB resolvers appeared on no
+  hand-written page -- only in `docs/api.md`, which is generated from `jnwb.__all__` and
+  so contains every export by construction. Nine of the twelve are the resolvers and the
+  errors they raise, which is everything a reader meets on their first unfamiliar file.
+  The page quotes the real messages, and a test asserts each quoted fragment is still a
+  literal in `jnwb/*.py`, so it cannot drift into describing errors the code no longer
+  produces. Linked from the index and the mkdocs nav.
+- **`jnwb.DETECTION_TAILS` is explained** in `docs/05_artifact_detection_and_repair.md`,
+  where the one-sided/two-sided choice it names is already discussed.
+- **`nested_cv_linear_svm(..., rng=42)`.** The signature was `(X, labels, n_splits)` with
+  `random_state=42` hardcoded at four sites, so partition sensitivity could not be
+  assessed: there was no way to ask whether a decoding accuracy survived a different
+  split of the same trials. An `int` is handed to scikit-learn unchanged, so the default
+  reproduces the previous folds exactly.
+- **`jnwb.AmbiguousLayoutError`.** Raised by `acquisition_channel` when the channel axis
+  of a 2-D series cannot be determined, and reported by `inspect` as
+  `layout: "ambiguous"`. A subclass of `NWBInspectError`, like the other inspection
+  errors.
+
+### Removed
+
+- **Two `jrsa` helpers nothing reached.** `_confidence_interval`, an analytic normal
+  approximation superseded by the percentile bootstrap that is the live path, and
+  `_chunk_tensor` (see above). Both private.
+
+### Deprecated
+
+- **`jnwb.ontology.create_aligned_dataset`, `create_result` and `create_figure`.** Each
+  forwards its arguments to the constructor of the same name and adds nothing:
+  `create_result(q, s, p, l) == Result(q, s, p, l)` for every input, and
+  `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`. They were
+  never in `ontology.__all__` or `jnwb.__all__`. Calling one now raises a
+  `DeprecationWarning` naming the replacement; they will be removed in a future release.
+  Call the dataclass directly. The other eleven ontology exports are retained.
+
+### Fixed
+
+- **A test asserted a warning that only a machine with a GPU can produce, and CI had been
+  red for 48 consecutive runs, since 2026-09-16, because of it.**
+  `test_requesting_cuda_says_it_will_not_be_used_and_records_cpu` waited for "computes in
+  NumPy", the message `jrsa` emits when `resolve_device` returns `cuda` and `jrsa` then
+  declines to use it. On a machine with no usable CUDA device -- every CI runner --
+  `resolve_device` refuses first with a different message and `jrsa`'s branch is never
+  reached, so the regex matched nothing and the test failed on all three legs while
+  passing on a workstation with a GPU. The claim under test holds in both environments;
+  each is now held to its own message rather than to a weakened alternation.
+- **`test_jrsa_cupy_gpu_execution` carried the same defect one step removed.** Its guard
+  skipped when `import cupy` failed, but CuPy installs without a GPU, and on such a
+  machine the test ran and failed for exactly the reason above. It skips on the absence
+  of a usable device now, not on the absence of a package. Verified by simulating a
+  GPU-less machine: both tests fail before the repair and pass after it.
+- **Every example, run the way its own documentation says to run it, imported the wrong
+  package.** Measured from `examples/` and `examples/tutorials/`: `import jnwb` resolved to
+  an installed `jnwb` in `site-packages`, not to the checkout the file sits in. Python puts
+  the script's directory on `sys.path`, never the repository root. That is how a `0.1.8`
+  install rendered the six-panel quickstart figure from inside a `0.2.4` checkout with
+  every panel still labelled CORRECT, and how a defect under investigation appeared not to
+  reproduce. All ten scripts now prefer the checkout they belong to, and only when they are
+  in one -- a copy downloaded next to a pip-installed `jnwb` finds no sibling package and
+  is unaffected.
+- **A skill claimed a safeguard the router denies.** `jnwb-lfp-spectral` described
+  `imaginary_coherency` as "volume-conduction-robust" while the router's own invariant 8
+  and `AGENTS.md` section 5 both say these measures reduce sensitivity to zero-phase-lag
+  coupling and establish no immunity -- and the adjacent `wpli` row already said it
+  correctly. The row now matches. `jnwb-connectivity` told the reader to verify PSI sign on
+  a driver without saying over what band: a 20 Hz sine delayed by 10 ms gives
+  `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` -- the
+  narrow band reports nothing, with the wrong sign, because at one frequency a delay and a
+  phase offset are the same thing. `jnwb-spiking` mandated `causal_exp_smooth` for latency
+  without stating that the filter delays the latency: the step response reaches half
+  amplitude at `tau*ln 2`, measured at +17 ms for `tau_ms=25` and +34 ms for `tau_ms=50`.
+- **`AGENTS.md` said "each call below runs as written" and none of them did.** Section 10
+  bound a generator and then called eight functions on names no block defined --
+  `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:
+  `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)`
+  raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because
+  `band_power` returns a float and there is no axis to aggregate over. That is the
+  canonical demonstration of the rule this repository states most often -- take the
+  logarithm last -- and it did not run. The recipe builds per-trial powers now, and the
+  whole block executes. Two calls used deprecated aliases (`seed=`, `t0_bounds=`) and use
+  the live names. Section 4.3 pointed at a todo item that does not exist. Section 10 used
+  `exploratory_compare` while the statistics skill routed to `compare_groups`: both exist,
+  their returned keys differ, and an agent reading one and calling the other reads keys
+  that are not there. The skill routes to `exploratory_compare`, which its own workflow
+  and invariants now name too.
+- **Nine routing rows taught a signature the library does not have.** A skill's routing
+  matrix is what an agent calls from, and these were hardcoded with nothing keeping them
+  true. `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)` had
+  the first two arguments the wrong way round, omitted the required `n_shuffles` and
+  invented a default for `n_bootstrap`; supply the missing argument and keep the order and
+  the call succeeds with `risk_difference` negated and `odds_ratio` inverted, measured
+  here as +0.55 against -0.55 on the same data. `epoch_continuous(data, onsets, win_s,
+  fs)` passes two keyword-only parameters positionally. `nested_cv_linear_svm(...,
+  n_splits=5)` gives a default to a required argument. `band_power(..., normalize=False)`
+  states the opposite of the live default, which is `True` and raises without a baseline.
+  `cross_area_coherence` was described as working "across channel pairs"; a 2-D array is
+  refused by design. `repair_lfp_trials`'s guard was to be read from `frac_flagged`, which
+  is not a key it returns -- `info.get('frac_flagged', 0)` skips the check and reports
+  nothing. Three more were found by the strengthened test: `granger(X, Y, order,
+  n_surrogates, seed)` names the deprecated keyword-only alias rather than `rng`;
+  `fit_exponential_onset(t_ms, rate, t0_bounds, tau_bounds)` names the keyword-only
+  aliases in the positional slots of `t0_bounds_ms` and `tau_bounds_ms`; and
+  `aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)` gives a
+  default to a keyword-only argument that deliberately has none, and states the wrong
+  default for the other.
+- **Five pages printed an estimate and stopped.** Each now says what the number does not
+  support, next to where it is produced, and each statement is taken from the
+  implementation rather than from the page. `docs/02` framed `zflip`'s delay gradient as
+  "propagation latency" and printed `apparent_velocity_m_s` with no note that an apparent
+  phase velocity is not a conduction velocity -- two sources with a fixed offset, a
+  travelling field wave and volume conduction from one distant generator all produce the
+  same gradient -- and that `directionality` is a direction in depth, not of influence.
+  `docs/07` printed a cluster p with nothing about what a significant cluster licenses:
+  the conditions differ somewhere in the window, and the cluster's onset, offset, peak and
+  width are not estimates, because the threshold that made it significant defined its
+  edges. `docs/04` handed over a CSD map in A/m^3 with no sign convention, which is the
+  interpretation: negative is a sink, inward current, the signature of excitatory input,
+  and reading it the other way inverts every conclusion about which depth receives input.
+  `docs/08` printed transfer entropy and two mutual informations with no log base; all
+  three are in bits, and `transfer_entropy` returns `unit='bits'` rather than leaving it
+  to be inferred. `docs/09` called its decoders leakage-resistant directly above
+  `nested_cv_linear_svm(X, labels, n_splits=5)`, which takes no `groups` argument at all:
+  the protection is `assign_outer_folds` further down, and the page now says so.
+- **`docs/07`'s cross-modal example correlated four points while presenting 200.** It
+  passed `(4, 200)` and called it `channels x time`; the reduction reads a 2-D array as
+  `(n_times, n_trials)`, so the call swept three lags over a four-sample series,
+  `lag_search_resolution_floor` came back 0.75 and `warnings` said so, and the page read
+  neither. It is time-major now, seeds the circular-shift null behind
+  `lag_corrected_pvalue` -- without `rng` that p moves between runs, which the example was
+  quoting as though it did not -- and states the sign of `lag_ms`.
+- **Four README links were dead on the page the README is rendered on.**
+  `readme = "README.md"` makes the file the PyPI long description, and PyPI renders it
+  verbatim without rewriting relative links, so `[CONTRIBUTING.md](CONTRIBUTING.md)`
+  resolved against pypi.org. One was worse than dead: `artifacts/` is pruned from the
+  sdist, so `artifacts/todo_stack.md` is not in the archive the page describes either, and
+  the line now says so. All four are absolute to `blob/main`, checked against the long
+  description extracted from a built sdist's `PKG-INFO` rather than against the file they
+  came from. `tests/test_readme_smoke.py` resolves each `blob/main` target against the
+  checkout, so an absolute link cannot be wrong in the other direction.
+  `examples/quickstart_jnwb.py` also pointed at an `omission/` example project for "real
+  results computed from real recordings". It is not in this repository and never was.
+- **Ten pages gave a runnable instruction that a `pip install` reader cannot follow.**
+  `examples/` is not a package, so `packages.find include = ["jnwb*"]` leaves it out of
+  the wheel, and `MANIFEST.in` grafts `skills` and `AGENTS.md` but not `examples`, so it
+  is out of the sdist too -- built here, 56 wheel entries and 105 sdist entries, no path
+  matching "example" in either. `python examples/tutorials/NN_*.py` was nonetheless the
+  only runnable line on all nine tutorial pages, and `quickstart.md` gave it twice, while
+  `install.md` led with `pip install jnwb` and offered a clone as a development
+  alternative. Each instruction now states the prerequisite where it stands, because a
+  reader arriving from a search engine lands on the tutorial page and not on the index,
+  and `install.md` says what each artifact carries. `docs/agents.md` already did this for
+  `AGENTS.md` and `skills/`.
+- **`docs/assets/jnwb_quickstart.png` was a copy of the quickstart figure from 2026-09-05
+  and the only rendering a documentation reader sees.** It showed a permutation panel the
+  library has since refused to compute -- the script wrote no figure at all, having exited
+  1 -- so the page illustrated a version of jnwb that no longer exists. Regenerating one
+  copy and not the other is the same second-copy failure in its usual form, so the two are
+  now held to byte identity by a test.
+- **The script both README and `docs/quickstart.md` call executable exited 1 without
+  writing a figure.** 0.2.x tightened `permute_labels` to refuse a design with one label
+  per group, and that is exactly the design `examples/quickstart_jnwb.py`'s permutation
+  panel builds on purpose, to show that such a null cannot move. The panel raised at the
+  fourth of six panels, so nothing was rendered and `examples/figures/jnwb_quickstart.png`
+  was the output of an older library. The refusal is now caught and drawn: it states the
+  same lesson more strongly than a histogram of a point mass did, and the global null,
+  which does move and would look significant, is still plotted beside it.
+- **The README's arrays quickstart printed an onset it had not recovered.**
+  `Onset t0: 180.0 ms (R2=0.00, None)` was fitted to `rng.uniform(0.0, 10.0, 300)` over
+  four events -- homogeneous noise containing no onset at any latency. An R^2 of 0.00 is
+  the fit reporting that it explains none of the variance, so 180.0 ms was whatever the
+  optimiser landed on, printed on the front page as a result. The example now injects a
+  real onset at 60 ms in three lines and recovers 59.6 ms at R^2 = 0.99. It also prints
+  `bound_status or 'interior'`: `None` is not a missing value, it is the fit finishing
+  inside `t0_bounds`, which is the good case, and it was displayed as though it were a
+  status.
+- **Six documented calls raised `TypeError` on the first line a reader would copy, and
+  two of them were inverted rather than renamed.**
+  `repair_lfp_trials(window_ms=(-100, 500))` was commented "Active evaluation interval".
+  The live parameter is `exclude_window_ms`, and it means the opposite: samples inside it
+  are never flagged for repair. A reader who fixed only the name would have suppressed
+  repair over exactly the window they meant to analyse, so the example now uses it for
+  what it is for -- protecting an interval whose deflection is signal.
+  `bad_trials_single_channel(r_thresh=0.2)` was commented "Minimum acceptable correlation
+  with template". The live parameter is `corr_z_thresh`, default 5.0, a robust-z outlier
+  threshold on a trial's median correlation to the *other trials*; there is no template,
+  and 0.2 as a z threshold would flag nearly everything.
+  `docs/06` taught a two-step composition backwards: `classify_response_significance`
+  consumes the dict `compute_response_metrics` returns, and the page passed it that
+  function's inputs instead, then printed two result keys the function does not return.
+  `alpha=0.01` becomes `zscore_threshold=2.58`, the two-sided 99% cutoff, so the example
+  keeps its meaning. `docs/09` called `assign_outer_folds` with a label vector and
+  `n_splits`/`groups` when it takes a trial table, and `build_representation_ladder` with
+  labels and feature names when it takes a `(n_trials, n_space, n_time)` raster and no
+  labels at all; the flow diagram above them, which routed the ladder out of training,
+  is corrected too. `docs/11` section 9.2 documented `ZFlipResult.phase_gradient` and
+  `.wpli_profile`, neither of which is a field of the result, in the only documentation
+  those estimators had.
+
+- **A grid-invariance test that could only measure determinism.**
+  `test_frequency_grid_resolution_invariance` asserted that the crossover estimate moved
+  by less than 0.05 channels between 0.5, 1.0 and 2.0 Hz grids. Its PSD came from a helper
+  whose `noise_level` is a constant additive floor, not a random draw, so the spectrum was
+  deterministic and the measured spread was exactly 0.0000. The bound could not fail, and
+  it is not a grid-invariance bound: under multiplicative lognormal jitter of only 0.1 the
+  spread is 0.17 to 0.37, and the same assertion fails. The helper takes a `jitter_sigma`
+  now; the deterministic test is kept under a name that says what it measures, and a
+  second test measures invariance on a spectrum where the estimate actually moves. Over
+  40 seeds at sigma 0.25 every seed is accepted on every grid and the per-seed spread runs
+  0.0696 to 0.5603, median 0.2381, so what is asserted is the decision plus a bound with
+  headroom over the measured maximum, with a lower guard so the test cannot silently
+  degenerate back into the deterministic one. Both discriminators kill: the old 0.05 bound
+  fails at 0.5603 on noisy input, and switching the jitter off trips the guard.
+
+- **A mock that could not be reached, in the test named for it.**
+  `test_rejected_fit_returns_unavailable_parameters_never_zeros` checked both failure
+  modes of `aperiodic_fit` in one body: it installed a failing `np.polyfit` for the
+  fixed-mode half and never undid it, then installed a failing `optimize.curve_fit` for
+  the knee half. The knee branch calls `np.polyfit` (`spectral.py:1201`) before
+  `optimize.curve_fit` (`:1206`) inside one `try`, so it raised on the leaked patch and
+  the `curve_fit` mock was never reached. Measured, not read: replacing that mock with
+  one that *succeeds* -- which should have flipped `accepted` to True and broken four
+  assertions -- left the test passing. The knee `except` branch was still exercised, by
+  the wrong failure; what went untested was the one the test is named for. It is now two
+  tests, each patching only what it injects, and the knee half counts its own mock's
+  invocations, so a mock that stops being reached fails instead of passing silently.
+  Both discriminators kill: reintroducing the leaked patch, and making the mock succeed.
+
+- **A 9.537 GiB fixture bought three shape assertions.**
+  `tests/test_analyzers_coverage.py` allocated `randn(128, 200, 500, 100)` -- 9.537 GiB of
+  float64 -- plus 1.144 GiB and 0.358 GiB more, to assert that trailing dimensions survive
+  a mean. Only the frequency axis is load-bearing: `extract_band` selects bins by comparing
+  `freqs` against the band bounds, and every other axis reaches the tests as a number in a
+  shape assertion. The frequency axes and their `linspace` coordinates are unchanged, so
+  the same bins fall in each band; the trailing axes are now 2 to 5. The file runs in
+  6.92 s against 131.93 s, with the same 25 test ids, the same 5 subtests, and the same
+  outcomes.
+  Preservation was measured rather than assumed: six mutations of `jnwb/analyzers.py` were
+  run against the whole file at both fixture sizes, including two expected to survive,
+  because a profile made only of kills cannot detect a shrink that loses a failure class it
+  never had. The same four mutants are killed and the same two survive. One profile is not
+  identical but a strict superset: ignoring `freq_axis` additionally fails
+  `test_extract_band_bounds` at the smaller size, because taking a band's bin indices along
+  a length-2 axis raises instead of silently returning a wrongly-shaped array. No failure
+  class was lost.
+  The saving at suite level is smaller than the file-level one and smaller than the audit
+  projected. Two full-suite runs before the change took 502.66 s and 502.87 s and two after
+  took 473.30 s and 479.18 s, so about 27 s is recovered, near 5%, not the 27% the item
+  claimed. The item's arithmetic was consistent with its own measurements -- 105 s of a
+  383 s suite -- but the fixture costs about 27 s inside the suite against 125 s standalone:
+  allocating 9.537 GiB from a fresh process pays the operating system for pages it has to
+  zero, while the same allocation inside a long run reuses a heap that has already grown.
+  The change stands on removing 11.04 GiB of allocation and 125 s from anyone running that
+  file alone; the suite-level headline does not.
+- **A test rewrote a tracked module and leaked an environment variable process-wide.**
+  Both reproduced. `tests/test_mcp_server.py` set `ALLOW_DYNAMIC_TOOLS=1` in `os.environ`
+  at import: measured in a fresh interpreter, importing it took the variable from unset to
+  `"1"` for every test that ran afterwards. And `test_add_tool_success_and_cleanup`
+  appended to `jnwb/mcp_server/custom_tools.py`, a tracked file, with a `finally` as its
+  only protection. A `finally` survives a failing assertion but not a kill or a timeout:
+  interrupted between the write and the restore, a run left
+  `M jnwb/mcp_server/custom_tools.py`, 101 bytes to 211. `pytest-xdist` is declared, so
+  two workers would also race on that one file. The restore was byte-exact only by luck --
+  `read_text` plus `write_text` round-trips through universal newlines, so it held because
+  that file is CRLF and would have rewritten all four line endings had it been LF.
+  The tracked write is now gone rather than guarded: `add_tool` resolves its target from
+  `Path(__file__).parent` at call time, so the test points the module at a temporary
+  directory and exercises the same code -- duplicate check and decorator insertion
+  included -- with nothing tracked in reach. The variable is set per test with
+  `patch.dict` and restored, including back to absent, which is the case that was actually
+  in play.
+- **`add_tool`'s security gate had no test.** Forcing `ALLOW_DYNAMIC_TOOLS=1` at import
+  made the refusal branch unreachable for the whole file, so the one check standing
+  between a prompt and executable code written into the installed package was never
+  exercised. It is now, and it also asserts that a refused registration writes nothing.
+  Both leaks are asserted as contracts rather than assumed: one measures the variable in
+  a child interpreter, so it holds wherever an assignment is placed, and one compares the
+  tracked module's bytes against a digest captured at import. Reintroducing either defect
+  fails the matching contract.
+- **The vFLIP calibration receipt certified one function of the estimator.**
+  `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band
+  normalization to `_unit_range`. Recentring that helper on its own mean -- a
+  line-count-preserving change that moved the median signed bias off-centre from +0.053
+  to -0.123 contacts -- left the receipt reading "current" and
+  `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The hash now covers `vflip`
+  and every module-level function in `jnwb.laminar` it can reach, resolved from the call
+  graph rather than listed, so a helper added later is covered without anyone remembering
+  to extend a list. The reachable set is recomputed in the test and compared against the
+  set the generator hashes, so the receipt cannot quietly narrow again. Both mutations --
+  the helper and `vflip`'s own source -- now fail the receipt test; the helper mutation
+  previously survived it. Two of the three helpers the item named, `_from_lfp` and
+  `_device`, are not module-level functions in `jnwb/laminar.py`; the closure is `vflip`
+  and `_unit_range`. The receipt was regenerated rather than edited: of 12924 leaf values
+  in the raw JSON, exactly one changed, the hash, which confirms the estimator is
+  unchanged and the calibration is fully seeded.
+- **Seven tests asserted less than their names claimed.** Each claim was reproduced
+  before anything was changed, and each repair was then mutation-checked against the
+  defect its name describes; all seven mutants were killed.
+  `test_readme_quickstart_blocks_execute` held a hand-copied transcription and never
+  opened `README.md` -- the module-level `README` constant was unused in the body -- so
+  the two had already drifted, the README passing `t0_bounds=(0.0, 200.0)` where the copy
+  asserted `(0.0, 250.0)`. It now executes the README's own fenced blocks, so there is no
+  second copy to drift. `test_readme_python_version_matches_policy` asserted that the
+  literals `"3.12"` and `"3.14"` appear somewhere in the README, which survives any change
+  to `requires-python` or to the CI matrix; it now reads `pyproject.toml` and
+  `.github/workflows/workflow.yml` and compares them against what the README states.
+  `test_no_routed_module_probes_with_a_bare_cupy_import` searched only for
+  `torch.cuda.is_available()`, so the bare cupy import named in its own docstring was the
+  one case it could not report; it now checks both libraries by import across the routed
+  modules, allowing `*_gpu` implementations, which run only after a caller has resolved.
+  Three `rdm_similarity` tests compared the dispatcher against the same SciPy function it
+  dispatches to; the coefficients are now computed from each estimator's definition.
+  `test_the_documented_centre_shrinkage_is_the_measured_one` allowed a slope anywhere in
+  `[0.60, 0.95]`, 3.8 times the estimator's measured spread and wide enough to admit the
+  0.95 that the test's own docstring says must be reported; measured over five disjoint
+  nine-seed sets the slope runs 0.7557 to 0.8487, and the band is now `[0.70, 0.90]`.
+  `test_recovers_known_onset_within_tolerance` allowed +/-60 ms on a 50 ms onset, so a fit
+  reporting 0 ms passed a test named for recovery; the error at this seed is 3.57 ms and
+  the bound is now 8 ms.
+- **xFLIP's surrogate significance test was gated by one test.** Removing the decision
+  entirely -- `is_sig` unconditionally true whenever surrogates ran -- left three of the
+  four false-positive-rate tests and all nine `TestXFlipGradientGateOnBothPaths` tests
+  passing, because the contrast and boundary-drop gates reject those nulls without it.
+  Only the AR-noise case noticed, and only as a rate. On correlated noise the other gates
+  open and the surrogate test is the sole reason for rejection on 14 of 25 seeds, with
+  omnibus p running to 0.56, so acceptance is now asserted to imply significance there,
+  with a non-vacuity guard on how many such seeds occur.
+- **Four estimators had no test that could tell them from a constant.** Each of the
+  audit's nine candidates was run as a mutation against the whole suite before anything
+  was changed, because "nothing catches this" is a claim about the suite, not about one
+  file. Four mutations survived all 2391 tests: `imaginary_coherency` returning 0.0 for
+  both `icoh_mean` and `icoh_abs_mean`, `paired_fire_prob_test` pinned to p = 0.0001,
+  `confirmatory_compare` confirming everything, and `bipolar_reference` with its sign
+  flipped. `imaginary_coherency` now has a positive control checked against an oracle
+  that recomputes Im(coherency) from segment, detrend, window and rFFT, reusing no jnwb
+  helper and no scipy spectral estimator; the two p-values are calibrated across 20 null
+  draws in each direction, since one seed showing a large p-value is a draw rather than a
+  property; and the referencing sign is pinned to an exact expected array. Separately,
+  `tests/test_gpu_pca.py` compared the implementation against a line-for-line copy of its
+  own `_svd_numpy` branch and compared with `abs(corr)`, which is sign-invariant, so
+  `pin_component_signs` was uncovered too; it now checks against an eigendecomposition of
+  the scatter matrix, asserts the documented sign convention directly, and exercises the
+  CUDA fallback's control flow without a GPU. **No estimator changed.** All ten repairs
+  are verified by mutation, including the reverse of each constant, so a test asserting
+  "not significant" also rejects "always significant".
+- **Four of the audit's nine claims did not reproduce and no code was changed for them.**
+  Mutating both shuffle p-values to `1/(n+1)`, `shuffle_r2_ci.p_val` to 0.001,
+  `fdr_correct` to return its input, and `laplacian_reference` to skip its un-permute all
+  failed the existing suite. The catching tests are
+  `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`,
+  `test_independent_audit_semantics.py::TestMonteCarloPValueConvention::test_shuffle_r2_ci_uses_one_plus_k_over_b_plus_one`,
+  `test_jrsa_correctness.py::TestMultipleCorrectionFallback::test_multiple_correction_bh_matches_fdr_correct`
+  and `test_spectral.py::TestLaplacianReference::test_channel_order_un_permutes_back_to_input_positions`.
+- **Four tests asserted things that could not be false.** `test_docs_nwb_workflow.py`
+  asserted a token was absent from `re.findall` output, which returns match substrings
+  that can never contain a longer string -- and the pattern had no `re.MULTILINE`, so the
+  list was empty regardless. `test_representative_workflow.py`, whose own docstring calls
+  it "the load-bearing assertion", blocked `omission` with a meta-path finder defining
+  `find_module`, dropped from the protocol in 3.12: on 3.14.3 a `find_module` blocker
+  imports the blocked module anyway, while a `find_spec` blocker raises. With the blocker
+  made live, the workflow still runs without `omission`, so the claim was true and simply
+  untested. `test_jnwb_frozen_boundary.py` iterates `AUTHORIZED_EXCEPTIONS`, which is
+  `set()`; the loop is correct and stays, and the detector it depends on is now exercised
+  directly, so the first exception added is checked by code known to work. Three tests in
+  `test_jnwb_core.py` kept their assertions behind `if 'error' not in result:`: replacing
+  all 14 public `StatisticalAnalysis` callables with a stub returning `{'error': ...}`
+  left 23 of 26 tests passing. Each repair is verified by a mutation that reintroduces the
+  condition it names, and the two pattern-driven tests additionally fail when their
+  pattern stops matching, rather than going quietly blind a second time.
+- **Dict-style access on the result dataclasses now fails the way a dict fails.**
+  `DirectedResult`, `VFlipResult`, `XFlipResult`, `ZFlipResult` and `AperiodicFitResult`
+  each carried a copied `__getitem__`/`get` pair, introduced "so callers written against
+  the older dict-returning functions in this module keep working". It did not keep them
+  working. `__getitem__` was `return getattr(self, key)`, so a missing key raised
+  `AttributeError` and a migrated call site's `except KeyError` did not catch it; and
+  with no `__contains__` defined, `"method" in result` fell back to the integer index
+  protocol and raised `TypeError: attribute name must be string, not 'int'`. The
+  behaviour was only ever tested for keys that were present, which is how five copies of
+  a broken promise survived. A miss now raises `KeyError`, a non-string key is a miss
+  rather than a `TypeError`, and `in` answers. **Every key that resolved before resolves
+  to the same value**; only the behaviour on a key that does not resolve changed.
+
+- **`jrsa` recorded a `batch_size` it never used.** The parameter was accepted,
+  documented as "Chunk size for large arrays", and copied into the result's
+  `parameters` -- and nothing chunked. `_chunk_tensor`, the module's only chunking
+  helper, had no callers: across `batch_size` None, 1, 4, 32 and 10000 the value, p-value
+  and interval are identical, and the helper is entered zero times. A result could
+  therefore carry `batch_size=32` in its provenance for a run that made one pass. This is
+  the defect already fixed here for `device` and `backend`, and the same rule applies --
+  `parameters` carries the request, `execution` carries what ran -- so
+  `execution['batch_size']` is now recorded, and is always None because jrsa does not
+  chunk. The helper is deleted rather than left where it reads as an implementation.
+  **No number changes.**
+- **`jrsa`'s confidence interval does not follow `alpha`, and now says so.** `alpha`
+  sets the significance threshold for the multiple-comparison correction; it never
+  reaches `_bootstrap`, which takes a fixed 2.5/97.5 percentile interval. `alpha=0.5`
+  and `alpha=0.01` return the same interval. The docstrings for `alpha` and `ci` state
+  the fixed 95% level; the interval itself is unchanged, and a test pins it so that
+  changing the level has to be deliberate.
+- **`classify_layer_from_depth` still called `jnwb.laminar` forthcoming.** It has
+  shipped: the module imports and `vflip`, `VFlipResult`, `xflip` and `XFlipResult` are
+  all exported. A reader following the cross-reference was told the thing they were being
+  sent to did not exist yet. The qualifier is removed and `docs/api.md`, which is
+  generated from the docstrings, is regenerated.
+- **The import benchmark was timing an import it had slowed down 3.3x, and its receipt
+  was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before
+  its timer, so the import it measured ran with allocation tracing on. Seven interleaved
+  fresh-process repetitions: 7724 ms traced against 2317 ms clean. Moving the
+  `tracemalloc.start()` below the timed region is not the fix -- the allocations have
+  already happened by then and the peak comes back 0.0 MB -- so timing and memory are now
+  measured by separate probes in separate processes. The regenerated receipt reports
+  2151 ms warm where the old one reported 6244 ms, and 10460 ms cold where it reported
+  39342 ms. Nothing gated the receipt, unlike the vFLIP one, so
+  `artifacts/benchmarks/import_profile.txt` still announced "jnwb 0.1.6 (111 public
+  symbols)" at 0.2.4 with 155, and `import_breakdown.json` was older still at 0.1.5 --
+  while itself recording an importtime tree of 1898 ms against its own 6859 ms warm
+  median, the same contradiction visible inside one file. The regenerated pair is 2348 ms
+  and 2151 ms: two measurement methods that now agree within 9%. `tests/test_import_profile_receipt.py` now fails when
+  either receipt names a different version than `jnwb.__version__`, when the timing probe
+  instruments the import, and when the probe's own number disagrees with an independent
+  wall-clock import. `--write` regenerates both receipts, so the gate is satisfiable by
+  the command `AGENTS.md` documents. The superseded `vflip_calibration_0.2.2.md` and
+  `vflip_calibration_raw.json`, which described the pre-density-normalized support score
+  and carried no estimator hash, are deleted.
+- **`docs/install.md` claimed the deferred imports keep `import jnwb` fast.** They do not.
+  `import jnwb` takes about 1.9 s, and about 1.8 s of that is `scipy`, `pandas` and `pynwb`,
+  which the eagerly imported surface needs. What the deferrals buy is keeping
+  `scikit-learn`, `statsmodels`, `matplotlib` and `joblib` out of the import, which nothing
+  guarded until now -- the existing extras test only covers packages declared as extras, and
+  these are not. `tests/test_import_lazy.py` now pins the eager third-party surface, so a
+  newly added eager heavy dependency fails a test instead of reaching a release. The install
+  page says what the import costs and where the time goes.
+- **`xflip` re-summed the same diagonal slice inside its dynamic-programming loop.**
+  `_optimal_contiguous_partition` answered the off-diagonal half of `W(u, v)` from a 2-D
+  prefix sum in constant time, then computed the diagonal half as
+  `np.sum(np.diag(corr)[u:v])` on every call. `np.diag` returns a view, so nothing was
+  copied, but the call, the slice and the reduction together cost 4.82 of the 5.56
+  microseconds an `interval_w` call took -- 87% of it -- and the DP makes about 93000 of
+  them at 256 channels, once for the observed matrix and once per surrogate. Prefix-
+  summing the diagonal once makes `xflip` 3.6x to 3.9x faster on the partition step at
+  128 channels and above, and 3.3x end to end at 128 channels with the default 200
+  surrogates: 10.63 s to 3.22 s. `block_bounds`, `boundaries`, `labels`, `modularity`
+  and every p-value are unchanged. The change is not bit-identical in the DP's internal
+  values -- a difference of two running totals rounds differently from a pairwise
+  reduction, by up to 4e-15 here -- but those values cannot reach the answer: for a
+  fixed `(k, j)` every candidate partition tiles `[0, j)`, so the per-block diagonal
+  terms sum to the same constant in every candidate and cancel out of the comparison,
+  and the returned modularity is computed separately from the labels.
+- **Two CUDA paths were slower than their CPU siblings, one by 23x, because they
+  launched one kernel per element.** `UnitAnalyzer._acg_vectorized` had two GPU branches
+  and neither was usable at scale: below 30000 spikes it built the full `N x N`
+  difference matrix, which at 29999 spikes -- just under the threshold the code treated
+  as safe -- asks for 6.71 GiB of device memory for one autocorrelogram; at or above
+  30000 it chunked by 1000 and then looped in Python *inside* the chunk, so 35000 spikes
+  meant 35001 uploads of a loop-invariant `bin_edges`, 35000 `cupy.histogram` launches
+  and 70000 forced device-to-host synchronisations. `_welch_csd_gpu` appended one device
+  array per Welch segment, 127 of them for a 16384-sample trace at `nperseg=256`. The
+  cost was the launches, not the host/device transfers: at 35000 spikes the launches are
+  76% of the accounted time and the transfers 24%. One `_acg_histogram` now serves both
+  devices and histograms once per chunk rather than once per spike, with the chunk width
+  taken from the widest window actually present; one strided index builds every Welch
+  segment at once; and because `harmonic_analysis`, `spectral_tilt` and `band_power` all
+  call the Welch helper as `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, a
+  `y is x` short circuit stops it computing its own second half and discarding it.
+  Paired on an RTX A4000, `T_cuda / T_cpu` for the autocorrelogram goes from 23.302 to
+  0.060 at 35000 spikes, and the Welch helper from 1.493 to 0.100 at `nperseg=256`.
+  Every output is unchanged bit for bit: the autocorrelogram counts match the previous
+  implementation on both devices, and 112 of 112 Welch arrays across 28 input cases are
+  identical. The three entry points remain slower on CUDA below roughly 22500 samples,
+  where the fixed transfer-and-plan cost is most of the call; that crossover is now
+  documented in each `device:` parameter rather than papered over by routing on input
+  length, which would make the answer depend on trace length. Receipt:
+  `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
+- **With a GPU present, two `device='cuda'` requests were denied in silence.**
+  `jnwb/_backend.py` covered two denial reasons -- no usable device, and a device that
+  failed part-way through -- and missed the third: a device that exists but which this
+  code path cannot use. `vflip` assigned the resolver's answer to `_` and `laminar.py`
+  contains no cupy or torch call anywhere, so the request could never be honoured;
+  `fit_var_bivariate` gated its GPU branch on `... == CUDA and ridge <= 0`, after
+  resolving. Measured on an RTX A4000 by counting `cupy.asarray`: both reached the GPU
+  zero times and warned zero times. The caller *without* a GPU was warned and the caller
+  *with* one was not, so the better the hardware the quieter the denial. A new
+  `jnwb._backend.warn_no_gpu_path` names that third reason, `rdm`'s existing inline
+  warning now goes through it, and every `device='cuda'` call either reaches the GPU or
+  says why not. Two further defects found while reproducing: `select_optimal_lag`
+  re-resolved the device inside its lag loop, so one call with `max_lag=6` emitted six
+  identical warnings (`granger_causality(order='auto')` reaches it up to `2*max_lag + 2`
+  times), and every one of those warnings named `fit_var_bivariate`, which is not
+  exported. Public entry points now resolve once and announce under their own name;
+  `fit_var_bivariate` and `select_optimal_lag` take a `context` argument for it.
+
+- **`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`
+  returned.** `AGENTS.md` invariant 6 says the device never changes a number; on a live
+  RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while
+  `_svd_numpy` stayed in float64, and neither function pinned an SVD sign, so
+  `gpu_pca(X(4000, 60), n_components=3)` disagreed across devices by
+  `max|cpu - cuda| = 8.005` on the returned projections. Align the signs by hand and the
+  residue was 6.5e-04, the float32 part. `compute_population_trajectory` was float64 on
+  both devices already -- it uses `torch.as_tensor`, not a cast -- and differed only by
+  sign, which showed as `max_rel = 2.0`, a trajectory reflected through the origin.
+  The working dtype is now chosen before the device branch, by numpy's own linalg
+  promotion rule, so both branches see one array; float16 input consequently works
+  instead of being rejected on CPU and silently computed in float32 on CUDA. A new
+  `jnwb.gpu_pca.pin_component_signs` forces each component's largest-magnitude loading
+  positive -- the `sklearn.utils.extmath.svd_flip` convention -- and both functions apply
+  it to whichever branch ran. Measured after: 3.1e-12 and 6.5e-13, with no post-hoc
+  alignment. `explained_variance_ratio` is unchanged, being sign-invariant. Component
+  signs may now differ from previous releases; the subspace, the variance and everything
+  reconstructed from the pair are identical. The CUDA path remains the faster of the two
+  in float64 (24.2 ms against 29.8 ms on an A4000).
+
+- **Tutorial 00 broke on the two most common foreign-file shapes.** It is the page for a
+  file you know nothing about, and it read `acquisition["rate_hz"]` unguarded while
+  iterating `info["acquisitions"]` alone. A file storing `timestamps` instead of a
+  constant rate printed `None Hz` and then died at section 4 with an uncaught
+  `AcquisitionNotFoundError: Series 'lfp' has no constant sampling rate`. A file whose LFP
+  lives in a processing module -- where an `LFP` container usually lives -- printed no
+  continuous line at all, silently skipped the alignment, and still claimed "Layout
+  discovered and aligned without assuming a schema"; the string `processing_continuous`
+  did not appear in the script. It now reads both lists, says in words what each absent
+  value means, catches an `NWBInspectError` from a series it cannot read, and closes by
+  reporting what actually happened. On a processing-module file it recovers the injected
+  23.0 Hz it previously never looked for.
+
+- **`epoch_continuous` turned a non-finite onset into an in-bounds extraction of
+  nothing.** `np.round(nan * fs).astype(np.int64)` is `INT64_MIN`, and `idx + n_pre` then
+  overflowed to a large *positive* start with a large *negative* end. The bounds test
+  `0 <= start and end <= n_samples` is true of that pair, so the window took the
+  in-bounds branch and `arr[start:end]` returned an empty slice: one epoch of shape
+  `(0,)`, reported as a clean extraction, beside a `time_axis_s` of 800 samples. Mixed
+  with one valid onset it reached `np.stack` and raised `ValueError: all input arrays
+  must have the same shape` -- a numpy error naming neither the onset nor the argument.
+  A non-finite onset now raises `InvalidOnsetValueError` naming its index, which is the
+  refusal `events` and `event_onsets` already gave for the same value.
+- **Onsets on a different clock from the data returned a confident all-NaN array.**
+  `start_time` is seconds in the NWB specification and milliseconds in plenty of the
+  toolboxes that write these files. Onsets of 1000-5000 against a 1.0 s recording gave
+  `epoch_continuous` shape `(5, 800)`, correct dtype, correct time axis, every value NaN,
+  and no warning; the mean is NaN, the spectrum peaks at 0 Hz and the figure is blank.
+  Under `boundary_policy="nan"`, a warning is now issued when most epochs fall entirely
+  outside `[0, n_samples)`, naming both spans and the likely unit. A single stray event
+  does not warn, and an epoch overhanging either edge of the recording is ordinary and
+  still silent. `time_unit` on an `EventTable` remains a label: the interval table
+  carries no extent to check it against, so the check lives where the onsets meet the
+  continuous data.
+- **A sampling rate was read from one series and reported beside another's samples.**
+  `_find_series_leaf` walked a container's whole subtree with `visititems` and took the
+  first `data` leaf and the first `rate` leaf **independently**. On an `LFP` container
+  holding `lfp_alpha` at 1000 Hz and `lfp_beta` at 500 Hz, `inspect(path)` reported
+  `rate_hz: 500.0` beside `data_path: .../lfp_alpha/data` and `data_shape: [100, 4]` --
+  `lfp_beta`'s rate against `lfp_alpha`'s array. `inspect(nwb)` said 1000 Hz and
+  `acquisition_channel` returned `lfp_alpha` at 1000 Hz: three answers for one object.
+  A rate that belongs to different samples is not a visible error; it shifts every
+  frequency by the ratio of the two rates. `data` and `rate` now always come from the
+  same group, and a container holding several series yields several members rather than
+  one blend of them.
+- **`acquisition_channel` returned a transposed recording as a channel trace.** The
+  channel axis of a 2-D series was decided by `shape[0] >= shape[1]` -- whichever side is
+  longer -- and `acquisition_channel` did not consult even that: it always sliced
+  `data[:, channel]` and bounds-checked `shape[1]`. On a channel-major `(64, 1000)`
+  `ElectricalSeries` with 64 electrodes, `channel=0` returned the 64 samples `data[:, 0]`
+  -- one instant across all channels -- as a 1000 Hz trace; `channel=999` returned
+  another such slice instead of raising; and `channel=1000` raised `Channel index 1000
+  out of range for series 'es' with 1000 channels` for a file with 64 of them. pynwb
+  itself warns on write that such data "is oriented incorrectly", so this is an
+  orientation real files are in. The axis is now read from the series' own electrode
+  region -- not from the longer side, and not from the whole electrode table, since a
+  series may cover a subset of a 384-channel probe -- at all three sites that report
+  `layout` and in `acquisition_channel` itself. Where the electrode count settles nothing
+  (neither dimension matches it, or the array is square so both do) `layout` is
+  `"ambiguous"` and reading a channel raises `AmbiguousLayoutError` rather than return a
+  plausible-looking array with the wrong meaning. Time-by-channel files are unaffected,
+  and now hold by the electrode count rather than by being taller than wide.
+- **jnwb could not read a single-column table that plain pynwb reads.** The smallest
+  units table a lab writes has one column, so on disk
+  `colnames = array(['spike_times'])`. jnwb's builder repair scalarizes any length-1
+  array attribute -- it exists for `description = array(['probe desc'])` -- which turned
+  that into the string `'spike_times'`, and the next `list(...)` spelled it out one
+  character per column: `ConstructError ... 'colnames': array(['s','p','i','k','e','_',
+  't','i','m','e','s','spike_times'])`. Every entry point failed on a file pynwb reads
+  without complaint: `inspect`, `events`, `unit_spike_times`, `acquisition_channel`,
+  `get_all_units_metadata` and `electrode_inventory`. `colnames` is specified as a
+  sequence, so it is excluded from the scalarization, and the `list(...)` is guarded as
+  well. This affects **any** single-column `DynamicTable`, not only `units` -- a
+  one-column table in a processing module failed identically, and the units-specific
+  guard could not have saved it.
+- **`decoding` refused valid label sets and reported a false status for others.**
+  `np.bincount(labels.astype(int))` counts every integer below the maximum as a class,
+  including absent ones, and refuses anything that is not a contiguous non-negative
+  integer. One separable 40-trial dataset, 20 per class, relabelled: `{0, 1}` gave
+  accuracy 0.846; `{1, 2}` and `{0, 2}` gave `status="insufficient_trials_for_cv"` with
+  every metric NaN; `{-1, 1}` raised `'list' argument must have no negative elements`;
+  `{'a', 'b'}` raised `invalid literal for int()`. `nested_cv_linear_svm`,
+  `majority_baseline` and `fold_majority_baseline` now count with `np.unique`, so any
+  two-class label set of adequate size decodes and every metric is identical across
+  relabellings. A new `status="insufficient_classes_for_cv"` covers a single-class input,
+  which is not a claim about trial counts. Contiguous 0-based integer labels produce
+  byte-identical results.
+- **`f1` and `auc` depended on what the classes were called.** Both were left to
+  scikit-learn's `pos_label=1` default, so `{0, 1}` scored f1 = 0.857143 and the same
+  trials as `{1, 2}` scored 0.842105. `{0, 2}` and `{'a', 'b'}` raised
+  `pos_label=1 is not a valid label`, and a bare `except ValueError` turned that into a
+  NaN AUC for a computable value. The positive class is now `classes[1]`, the second in
+  sorted order, which is the class `decision_function` scores toward.
+- **The two-step partition pipeline could not consume its own output.**
+  `assign_outer_folds` accepts string group ids and reports `outer_fold_status="valid"`;
+  `build_inner_validation_partitions` then raised
+  `invalid literal for int() with base 10: 'c2'` on that frame. Group ids are opaque
+  labels and are no longer cast to `int`. Fold indices and trial ids, which are genuinely
+  positional, still are.
+- **`Dataset` could not be used as the dict key its own docstring advertises.** The
+  dataclass-generated `__eq__` compared the field tuples, which evaluates
+  `units_a == units_b` to a DataFrame and then takes its truth value, raising
+  `ValueError: The truth value of a DataFrame is ambiguous`. A dict consults `__eq__` on
+  every hash collision -- including between a key and an equal copy of it -- so
+  `d[dataset] = x` raised for the one use the custom `__hash__` exists to enable.
+  `Dataset` and `EpochCollection` now compare their DataFrame fields with
+  `DataFrame.equals`. Equality stays finer than `Dataset.__hash__`, which is the
+  direction the hash/eq contract requires.
+- **`Result` claimed to be serializable without qualification.** `statistics` is
+  `Dict[str, Any]` and in this package normally holds NumPy values, for which
+  `json.dumps(result.to_dict())` raises `TypeError: Object of type ndarray is not JSON
+  serializable`. The contract now states the condition and the `default=` escape hatch.
+  `to_dict()` still converts nothing, so no value is coerced or rounded on export.
+- **`ontology` documented an immutability it does not have.** `frozen=True` prevents
+  rebinding an attribute, not mutation of the list, dict or DataFrame it points at:
+  `dataset.sessions.append(...)` succeeds. The module docstring now says so. The unused
+  `hashlib`, `json`, `numpy`, `pathlib.Path` and `logging` imports, which advertised
+  content-hashing and serialization the module never implemented, are removed.
+- **`python -m jnwb.mcp_server` did not start the MCP server.** The launch command in
+  `docs/10_extending_jnwb_and_verification.md` failed with "'jnwb.mcp_server' is a package and
+  cannot be directly executed", including against the published wheel with the `mcp` extra
+  installed, because the `if __name__ == "__main__"` guard sat in `__init__.py`, which a package
+  never satisfies. A `__main__.py` now runs the server and the unreachable guard is gone. The
+  entrypoint test previously asserted only that a FastMCP object exists; it now runs the
+  documented command.
+- **`events` nulled an absent code column in silence.** On a file whose interval table has no
+  `codes` column -- the usual case for a file from another lab -- `jnwb.events(path)` returned
+  `code_column=None, codes=()` with no warning, and `jnwb.events(path, code_column="condition")`
+  for a column that does not exist returned the same thing rather than failing, while
+  `event_onsets` with that argument raised. The two now agree: a column named by the caller must
+  exist, and the default name being absent warns and names the columns that do.
+- **Documentation for getting a file in, rather than only for analysing one.** `docs/agents.md`
+  states what `pip install jnwb` does and does not deliver to an agent, documents the three MCP
+  tools with a client configuration, and lists the nine skills.
+  `examples/tutorials/00_your_own_file.py` discovers a layout instead of asserting a fixture's
+  values. Common mistakes gains section 9 on assuming a schema. README and quickstart show
+  `code_column=`. The sdist now ships `skills/` and `AGENTS.md`.
+
 ## [0.2.4] - 2026-09-16
 
 ### Added

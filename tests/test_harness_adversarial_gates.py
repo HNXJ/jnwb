@@ -162,7 +162,7 @@ def summarize_log_normal_effects(unit_db_modulations):
         (fake_skills / "SKILL.md").write_text(clean_text, encoding="utf-8")
         (tmp_path / "AGENTS.md").write_text(clean_text, encoding="utf-8")
         (fake_artifacts / "AGENTS.md").write_text(clean_text, encoding="utf-8")
-        (fake_docs / "11_extending_and_development.md").write_text(clean_text, encoding="utf-8")
+        (fake_docs / "10_operation_specifications.md").write_text(clean_text, encoding="utf-8")
 
         assert len(check_dataset_leakage(tmp_path)) == 0, "Clean generic terms should not trigger violations!"
 
@@ -178,13 +178,13 @@ def summarize_log_normal_effects(unit_db_modulations):
         assert len(v2) == 1 and "0.053" in v2[0]
         (tmp_path / "AGENTS.md").write_text(clean_text, encoding="utf-8")
 
-        # 3. Leak study-specific finding into docs/11_extending_and_development.md
-        (fake_docs / "11_extending_and_development.md").write_text(
+        # 3. Leak study-specific finding into a docs/ page
+        (fake_docs / "10_operation_specifications.md").write_text(
             "Found beta/gamma temporal resolvability > theta/alpha at session level\n", encoding="utf-8"
         )
         v3 = check_dataset_leakage(tmp_path)
         assert len(v3) >= 1 and any("beta/gamma" in v for v in v3)
-        (fake_docs / "11_extending_and_development.md").write_text(clean_text, encoding="utf-8")
+        (fake_docs / "10_operation_specifications.md").write_text(clean_text, encoding="utf-8")
 
         # 4. Leak study-specific concept into the root AGENTS.md.
         # artifacts/AGENTS.md was a near-duplicate of the root file and was removed in

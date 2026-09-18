@@ -74,6 +74,51 @@ class TestComputePsd:
         peak = freqs[np.argmax(psd)]
         assert abs(peak - 40.0) < 2.0
 
+    def test_channel_major_input_agrees_with_the_multitaper_sibling(self):
+        """`nperseg` came from `len(lfp_data)` whatever `axis` meant, so an (8, 4000)
+        array was segmented into 8 samples: compute_psd returned a 5-bin spectrum while
+        compute_multitaper_psd(axis=-1) returned 2001 bins over the same data."""
+        fs = 1000.0
+        t = np.arange(4000) / fs
+        channel_major = np.stack([np.sin(2 * np.pi * 40.0 * t)] * 8)
+
+        freqs, psd = compute_psd(channel_major, fs, axis=-1)
+        mt_freqs, mt_psd = compute_multitaper_psd(channel_major, fs, axis=-1)
+
+        assert len(freqs) > 100, "axis=-1 must segment along time, not across channels"
+        peak = freqs[np.argmax(np.asarray(psd).mean(axis=0))]
+        mt_peak = mt_freqs[np.argmax(np.asarray(mt_psd).mean(axis=0))]
+        assert peak == pytest.approx(mt_peak, abs=2.0)
+        assert peak == pytest.approx(40.0, abs=2.0)
+
+    def test_the_default_axis_still_reads_time_major_data(self):
+        fs = 1000.0
+        t = np.arange(4000) / fs
+        time_major = np.stack([np.sin(2 * np.pi * 40.0 * t)] * 8).T
+        freqs, psd = compute_psd(time_major, fs)
+        assert freqs[np.argmax(np.asarray(psd).mean(axis=-1))] == pytest.approx(40.0, abs=2.0)
+
+    def test_a_single_sample_raises_rather_than_returning_a_zero_spectrum(self):
+        with pytest.raises(ValueError, match="at least"):
+            compute_psd(np.array([[1.0]]), 1000.0)
+
+    def test_empty_and_non_finite_input_raise_like_the_other_estimators(self):
+        with pytest.raises(ValueError, match="empty"):
+            compute_psd(np.array([]), 1000.0)
+        bad = np.ones(500)
+        bad[3] = np.nan
+        with pytest.raises(ValueError, match="finite"):
+            compute_psd(bad, 1000.0)
+
+    def test_a_non_positive_sampling_rate_raises(self):
+        for bad_fs in (0.0, -1000.0, np.nan, np.inf):
+            with pytest.raises(ValueError, match="positive and finite"):
+                compute_psd(np.ones(500), bad_fs)
+
+    def test_an_out_of_range_axis_raises(self):
+        with pytest.raises(ValueError, match="out of range"):
+            compute_psd(np.ones((8, 400)), 1000.0, axis=5)
+
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("to_db", "harmonic_analysis", "cross_area_coherence", "spectral_tilt",
@@ -242,6 +287,25 @@ class TestBipolarReference:
         with pytest.raises(ValueError):
             bipolar_reference(np.zeros(5))
 
+    def test_a_short_channel_order_is_refused_not_silently_truncated(self):
+        """8 channels with a 3-entry order used to return 2 channels and no warning."""
+        data = np.random.default_rng(0).normal(size=(8, 100))
+        with pytest.raises(ValueError, match="must name every channel exactly once"):
+            bipolar_reference(data, channel_order=np.arange(3))
+
+    def test_a_repeated_channel_order_is_refused(self):
+        data = np.random.default_rng(0).normal(size=(8, 100))
+        with pytest.raises(ValueError, match="permutation"):
+            bipolar_reference(data, channel_order=np.zeros(8, dtype=int))
+
+    def test_a_valid_permutation_reorders_and_is_deterministic(self):
+        data = np.random.default_rng(1).normal(size=(6, 40))
+        order = np.array([5, 4, 3, 2, 1, 0])
+        first = bipolar_reference(data, channel_order=order)
+        second = bipolar_reference(data, channel_order=order)
+        assert np.array_equal(first, second)
+        np.testing.assert_allclose(first, bipolar_reference(data[order]))
+
 
 class TestLaplacianReference:
     def test_preserves_channel_count(self):
@@ -254,6 +318,39 @@ class TestLaplacianReference:
         data = np.stack([common, common, common, common])
         out = laplacian_reference(data)
         assert np.allclose(out[1:-1], 0.0)
+
+    def test_a_non_permutation_channel_order_is_refused(self):
+        """`result[order] = out` left rows unwritten, so the function returned uninitialised
+        memory: two identical calls disagreed and values of order 1e-297 appeared in the
+        output, indistinguishable from a measured amplitude."""
+        data = np.arange(40.0).reshape(8, 5)
+        with pytest.raises(ValueError, match="permutation"):
+            laplacian_reference(data, channel_order=np.zeros(8, dtype=int))
+        with pytest.raises(ValueError, match="must name every channel exactly once"):
+            laplacian_reference(data, channel_order=np.arange(3))
+        with pytest.raises(ValueError, match="permutation"):
+            laplacian_reference(data, channel_order=np.arange(1, 9))
+
+    def test_a_non_integer_channel_order_is_refused(self):
+        data = np.arange(40.0).reshape(8, 5)
+        with pytest.raises(ValueError, match="integer index array"):
+            laplacian_reference(data, channel_order=np.linspace(0, 7, 8))
+
+    def test_repeated_calls_on_a_valid_permutation_are_bit_identical(self):
+        data = np.random.default_rng(2).normal(size=(8, 64))
+        order = np.array([3, 0, 1, 2, 7, 4, 5, 6])
+        results = [laplacian_reference(data, channel_order=order) for _ in range(5)]
+        for other in results[1:]:
+            assert np.array_equal(results[0], other)
+        assert np.isfinite(results[0]).all()
+
+    def test_channel_order_un_permutes_back_to_input_positions(self):
+        """Every channel the caller passed is present in the output at its own row."""
+        data = np.random.default_rng(3).normal(size=(5, 30))
+        order = np.array([4, 3, 2, 1, 0])
+        out = laplacian_reference(data, channel_order=order)
+        reference = laplacian_reference(data[order])
+        np.testing.assert_allclose(out[order], reference)
 
 
 class TestAggregateToDb:
@@ -898,42 +995,57 @@ class TestAperiodicFit:
         with pytest.raises(ValueError, match="Insufficient frequency bins"):
             aperiodic_fit(freqs, psd, freq_range=(15.0, 35.0))
 
-    def test_rejected_fit_returns_unavailable_parameters_never_zeros(self, monkeypatch):
-        """When optimization fails to converge, accepted=False and parameters are None, never plausible numerical zeros."""
+    def test_fixed_mode_rejection_returns_unavailable_parameters_never_zeros(self, monkeypatch):
+        """When the linear fit fails, accepted=False and parameters are None, never plausible numerical zeros."""
         freqs = np.linspace(2.0, 50.0, 49)
         psd = 10 ** (1.5 - 1.2 * np.log10(freqs))
 
-        # 1. Fixed mode optimization failure simulation
         def _mock_polyfit_fail(*args, **kwargs):
             raise RuntimeError("Linear regression divergence")
 
         monkeypatch.setattr(np, "polyfit", _mock_polyfit_fail)
-        res_fixed_fail = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="fixed")
-        assert isinstance(res_fixed_fail, AperiodicFitResult)
-        assert res_fixed_fail.accepted is False
-        assert res_fixed_fail.offset is None
-        assert res_fixed_fail.exponent is None
-        assert res_fixed_fail.knee is None
-        assert res_fixed_fail.r_squared is None
-        assert res_fixed_fail.mode == "fixed"
-        assert res_fixed_fail.freq_range == (2.0, 50.0)
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="fixed")
+        assert isinstance(res, AperiodicFitResult)
+        assert res.accepted is False
+        assert res.offset is None
+        assert res.exponent is None
+        assert res.knee is None
+        assert res.r_squared is None
+        assert res.mode == "fixed"
+        assert res.freq_range == (2.0, 50.0)
 
-        # 2. Knee mode optimization failure simulation
+    def test_knee_mode_rejection_returns_unavailable_parameters_never_zeros(self, monkeypatch):
+        """Same contract when `curve_fit` fails to converge.
+
+        This used to be the second half of the fixed-mode test, which left its failing
+        `np.polyfit` patch installed. The knee branch calls `np.polyfit` before
+        `optimize.curve_fit` inside one `try`, so it raised on the leaked patch and the
+        `curve_fit` mock below was never reached -- replacing that mock with one that
+        succeeded did not change the result. Patching only `curve_fit` here restores the
+        failure mode the test is named for, and the call count keeps it honest: if the
+        mock ever stops being reached again, this fails instead of passing silently.
+        """
         from scipy import optimize
 
+        freqs = np.linspace(2.0, 50.0, 49)
+        psd = 10 ** (1.5 - 1.2 * np.log10(freqs))
+        calls = {"n": 0}
+
         def _mock_curve_fit_fail(*args, **kwargs):
+            calls["n"] += 1
             raise RuntimeError("Optimal parameters not found: maxfev reached")
 
         monkeypatch.setattr(optimize, "curve_fit", _mock_curve_fit_fail)
-        res_knee_fail = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="knee")
-        assert isinstance(res_knee_fail, AperiodicFitResult)
-        assert res_knee_fail.accepted is False
-        assert res_knee_fail.offset is None
-        assert res_knee_fail.exponent is None
-        assert res_knee_fail.knee is None
-        assert res_knee_fail.r_squared is None
-        assert res_knee_fail.mode == "knee"
-        assert res_knee_fail.freq_range == (2.0, 50.0)
+        res = aperiodic_fit(freqs, psd, freq_range=(2.0, 50.0), mode="knee")
+        assert calls["n"] == 1, "curve_fit was never reached, so nothing here was tested"
+        assert isinstance(res, AperiodicFitResult)
+        assert res.accepted is False
+        assert res.offset is None
+        assert res.exponent is None
+        assert res.knee is None
+        assert res.r_squared is None
+        assert res.mode == "knee"
+        assert res.freq_range == (2.0, 50.0)
 
 
 class TestRelativePower:
@@ -1639,3 +1751,85 @@ class TestImaginaryCoherencyIsScaleFree:
         res = imaginary_coherency(x, np.zeros_like(x), fs=1000.0, freq_range=(5.0, 100.0))
         assert res["icoh_mean"] == 0.0 and res["coh_mag_mean"] == 0.0
         assert np.isfinite(res["icoh_abs_mean"])
+
+
+class TestSpectralTiltBandIsHonest:
+    """05-09: no bin guard, and a hidden 0.5 Hz floor that silently narrowed the request."""
+
+    @staticmethod
+    def _pink(n=4000, seed=0):
+        rng = np.random.default_rng(seed)
+        return np.cumsum(rng.normal(size=n)) / 30.0 + rng.normal(size=n)
+
+    def test_a_band_too_narrow_to_fit_raises(self):
+        """freq_range=(400, 401) returned exponent -995.2, offset inf and fit_quality
+        0.687 behind nothing but a RuntimeWarning."""
+        with pytest.raises(ValueError, match="bin"):
+            spectral_tilt(self._pink(), fs=1000.0, freq_range=(400.0, 401.0))
+
+    def test_a_band_off_the_grid_entirely_raises(self):
+        with pytest.raises(ValueError, match="no bin|bin"):
+            spectral_tilt(self._pink(), fs=1000.0, freq_range=(499.0, 499.5))
+
+    def test_the_fitted_band_is_reported_not_the_requested_one(self):
+        """(0.1, 100) and (0.5, 100) returned a bit-identical exponent, because everything
+        below the 0.5 Hz floor was dropped with nothing to say so."""
+        x = self._pink()
+        low = spectral_tilt(x, fs=1000.0, freq_range=(0.1, 100.0))
+        at_floor = spectral_tilt(x, fs=1000.0, freq_range=(0.5, 100.0))
+        assert low["exponent"] == at_floor["exponent"]
+        assert low["fitted_band_hz"] == at_floor["fitted_band_hz"]
+        assert low["fitted_band_hz"][0] > 0.5
+        assert low["n_bins_fitted"] == at_floor["n_bins_fitted"] > 0
+
+    def test_a_constant_trace_is_undefined_not_an_error(self):
+        """A band with bins but no positive power is a different condition from a band
+        with too few bins: the tilt is undefined, which is NaN, not a malformed request."""
+        res = spectral_tilt(np.ones(4000), fs=1000.0)
+        assert np.isnan(res["exponent"])
+        assert np.isnan(res["offset"])
+
+    def test_a_wide_band_still_recovers_a_plausible_exponent(self):
+        res = spectral_tilt(self._pink(), fs=1000.0, freq_range=(1.0, 100.0))
+        assert np.isfinite(res["exponent"])
+        assert -3.0 < res["exponent"] < 0.0
+        assert res["n_bins_fitted"] >= 6
+
+
+class TestBandPowerEstimandIsDocumented:
+    """05-13: the docstring said "power in a frequency band" while the function returned
+    `mean(PSD[mask])`, a bandwidth-independent density. Nothing numerical changed; these
+    pin the estimand so the documented claim and the returned quantity cannot drift apart.
+    """
+
+    @staticmethod
+    def _trace():
+        return np.random.default_rng(0).normal(size=4000)
+
+    @pytest.mark.parametrize("band", [(19.0, 21.0), (10.0, 40.0), (4.0, 8.0)])
+    def test_band_power_is_the_mean_psd_over_the_band(self, band):
+        from scipy import signal as _signal
+
+        x = self._trace()
+        freqs, psd = _signal.welch(x, fs=1000.0, nperseg=min(len(x), 4096))
+        mask = (freqs >= band[0]) & (freqs <= band[1])
+        assert band_power(x, fs=1000.0, freq_range=band, normalize=False) == float(
+            np.mean(psd[mask])
+        )
+
+    def test_the_value_is_a_density_not_an_integrated_power(self):
+        """A 2 Hz band and a 30 Hz band of white noise agree to within 20%, where their
+        integrated powers differ by roughly the bandwidth ratio. That is the property the
+        docstring has to state, because it is what makes two bands non-comparable as
+        powers.
+        """
+        x = self._trace()
+        narrow = band_power(x, fs=1000.0, freq_range=(19.0, 21.0), normalize=False)
+        wide = band_power(x, fs=1000.0, freq_range=(10.0, 40.0), normalize=False)
+        assert 0.8 < narrow / wide < 1.25
+
+    def test_the_docstring_names_the_estimand_and_its_units(self):
+        doc = band_power.__doc__
+        assert "power spectral density" in doc.lower()
+        assert "units^2/Hz" in doc
+        assert "independent of the bandwidth" in doc

@@ -5,8 +5,13 @@ may live in downstream project test suites that call the same jnwb functions.
 """
 from __future__ import annotations
 
+import ast
+import pathlib
+import warnings
+
 import numpy as np
 import pytest
+from scipy import stats
 
 import jnwb
 
@@ -160,7 +165,7 @@ class TestBinSpikes:
     def test_input_validation(self):
         with pytest.raises(ValueError, match="output must be 'count' or 'rate'"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.5), output="invalid")
-        with pytest.raises(ValueError, match="window must satisfy end > start"):
+        with pytest.raises(ValueError, match="window_s must satisfy end > start"):
             bin_spikes([np.array([0.1])], window=(0.5, 0.5))
         with pytest.raises(ValueError, match="yields 1 bins; need >= 2"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.1), bin_size_ms=100.0)
@@ -477,3 +482,145 @@ class TestCrossModalLagSearchPaysForItself:
         res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=100, seed=0)
         assert res["lag_search_resolution_floor"] == pytest.approx(101 / 600)
         assert any("lag_window_too_wide" in w for w in res["warnings"])
+
+
+class TestPsiInferenceIsNotOverstated:
+    """05-10: a 10-segment jackknife reported p = 0.0, and overlapping bands were summed
+    twice into the headline estimate."""
+
+    @staticmethod
+    def _lagged_pair(n=6000, lag=10, seed=0):
+        rng = np.random.default_rng(seed)
+        base = rng.normal(size=n)
+        return base, np.roll(base, lag) + 0.5 * rng.normal(size=n)
+
+    def test_the_jackknife_p_reflects_the_segment_count(self):
+        """`2 * norm.sf(|z|)` gave exactly 0.0 -- a p no 10-segment jackknife can support."""
+        x, y = self._lagged_pair()
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        assert res.diagnostics["p_source"] == "jackknife_z"
+        assert res.p_net > 0.0, "a finite jackknife cannot support p = 0"
+        n_seg = res.diagnostics["n_segments"]
+        z = res.per_band["full"]["z"]
+        expected = float(2 * stats.t.sf(abs(z), df=max(n_seg - 1, 1)))
+        assert res.p_net == pytest.approx(expected, rel=1e-9)
+
+    def test_fewer_segments_give_a_larger_p_for_the_same_z(self):
+        """The Gaussian tail did not respond to the segment count at all."""
+        z = 3.2876
+        p_small = float(2 * stats.t.sf(z, df=5))
+        p_large = float(2 * stats.t.sf(z, df=200))
+        p_gauss = float(2 * stats.norm.sf(z))
+        assert p_small > p_large > p_gauss
+
+    def test_duplicate_bands_warn_instead_of_doubling_the_estimate(self):
+        """{'a': (14, 30), 'b': (14, 30)} returned exactly 2x {'beta': (14, 30)}."""
+        x, y = self._lagged_pair()
+        single = phase_slope_index(x, y, fs=1000.0, nperseg=1024, bands={"beta": (14.0, 30.0)})
+        with pytest.warns(RuntimeWarning, match="bands overlap"):
+            doubled = phase_slope_index(
+                x, y, fs=1000.0, nperseg=1024, bands={"a": (14.0, 30.0), "b": (14.0, 30.0)}
+            )
+        assert doubled.net == pytest.approx(2.0 * single.net, rel=1e-9)
+        assert any("overlapping_bands" in w for w in doubled.diagnostics["warnings"])
+
+    def test_partially_overlapping_bands_also_warn(self):
+        x, y = self._lagged_pair()
+        with pytest.warns(RuntimeWarning, match="bands overlap"):
+            phase_slope_index(
+                x, y, fs=1000.0, nperseg=1024, bands={"a": (14.0, 30.0), "b": (25.0, 40.0)}
+            )
+
+    def test_disjoint_bands_do_not_warn(self):
+        x, y = self._lagged_pair()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(
+                x, y, fs=1000.0, nperseg=1024, bands={"beta": (14.0, 30.0), "gamma": (35.0, 50.0)}
+            )
+        assert not any("overlapping_bands" in w for w in res.diagnostics["warnings"])
+
+    def test_the_sign_convention_is_unchanged(self):
+        """Antisymmetry and direction were verified correct against Nolte et al. 2008."""
+        x, y = self._lagged_pair()
+        fwd = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        rev = phase_slope_index(y, x, fs=1000.0, nperseg=1024)
+        assert fwd.net == pytest.approx(-rev.net, rel=1e-9)
+        assert fwd.net > 0.0
+
+
+class TestGrangerNotTestedIsNotPassed:
+    """05-11 / 05-12: an untested assumption and a degenerate fit were both reported as
+    interpretable results."""
+
+    # `sys.path[0]` for a script is the script's own directory, not the cwd, so without
+    # this the probe would import whatever `jnwb` happens to be in site-packages rather
+    # than the checkout under test.
+    STATIONARITY_PROBE = [
+        "import sys, numpy as np",
+        "sys.path.insert(0, REPO_ROOT_PLACEHOLDER)",
+        "class B:",
+        "    def find_spec(self, name, path=None, target=None):",
+        "        if name == 'statsmodels' or name.startswith('statsmodels.'):",
+        "            raise ImportError('blocked for this probe')",
+        "        return None",
+        "sys.meta_path.insert(0, B())",
+        "for m in [k for k in sys.modules if k.startswith('statsmodels')]:",
+        "    del sys.modules[m]",
+        "from jnwb.connectivity import granger",
+        "rng = np.random.default_rng(0)",
+        "a = np.cumsum(rng.normal(size=800))",
+        "b = np.cumsum(rng.normal(size=800))",
+        "d = granger(a, b, order=3).diagnostics",
+        "print(repr((d['ok_for_interpretation'], d['warnings'])))",
+    ]
+
+    def test_an_untested_stationarity_assumption_is_not_reported_as_passed(self, tmp_path):
+        """`_adf_pvalue` turns a missing `statsmodels` into NaN, and
+        `bool(np.isnan(adf_p) or ...)` turned that into stationarity_ok=True: two pure
+        random walks came back ok_for_interpretation=True with an empty warnings list.
+
+        Run in a subprocess because blocking an import mid-process is not reversible.
+        """
+        import subprocess
+        import sys as _sys
+
+        script = tmp_path / "probe.py"
+        repo_root = pathlib.Path(__file__).resolve().parents[1]
+        lines = [
+            line.replace("REPO_ROOT_PLACEHOLDER", repr(str(repo_root)))
+            for line in self.STATIONARITY_PROBE
+        ]
+        script.write_text(chr(10).join(lines), encoding="utf-8")
+        out = subprocess.run(
+            [_sys.executable, str(script)],
+            cwd=str(pathlib.Path(__file__).resolve().parents[1]),
+            capture_output=True,
+            text=True,
+        )
+        assert out.returncode == 0, out.stderr
+        ok, warns = ast.literal_eval(out.stdout.strip().splitlines()[-1])
+        assert ok is False, "an untested assumption must not be reported as interpretable"
+        assert "stationarity_not_tested" in warns
+
+    def test_a_tested_and_passing_series_is_still_interpretable(self):
+        rng = np.random.default_rng(1)
+        g = granger(rng.normal(size=800), rng.normal(size=800), order=3)
+        assert g.diagnostics["warnings"] == []
+        assert g.diagnostics["ok_for_interpretation"] is True
+
+    def test_a_degenerate_fit_is_not_a_measured_zero(self):
+        """granger(ones, ones) returned x_to_y = y_to_x = 0.0 with an empty warnings list
+        and ok_for_interpretation=True, while transfer_entropy warns on the same input."""
+        constant = np.ones(800)
+        g = granger(constant, constant, order=3)
+        assert np.isnan(g.x_to_y)
+        assert np.isnan(g.y_to_x)
+        assert any("degenerate" in w for w in g.diagnostics["warnings"])
+        assert g.diagnostics["ok_for_interpretation"] is False
+
+    def test_the_degenerate_verdict_matches_its_siblings(self):
+        constant = np.ones(800)
+        g = granger(constant, constant, order=3)
+        te = transfer_entropy(constant, constant)
+        assert g.diagnostics["ok_for_interpretation"] == te.diagnostics["ok_for_interpretation"] is False

@@ -276,7 +276,115 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
         assert a != b, "sigma reached the metric but changed nothing"
 
     def test_passing_both_spellings_is_refused(self):
+        """05-34 made `rng` canonical and routed jrsa through the package's shared alias
+        resolver, so the conflict is now the same `ValueError: Conflicting values` that
+        `band_power(fs=, sampling_rate=)` and the nine unit-suffixed parameters raise.
+        jrsa was the only place spelling this refusal `TypeError`.
+        """
         x1, x2 = self._pair()
-        with pytest.raises(TypeError, match="both"):
-            oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, seed=0,
-                    random_state=1)
+        for kwargs in ({"seed": 0, "random_state": 1},
+                       {"rng": 0, "seed": 1},
+                       {"rng": 0, "random_state": 1}):
+            with pytest.raises(ValueError, match="Conflicting values provided to jrsa"):
+                oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, **kwargs)
+
+    def test_agreeing_spellings_are_not_a_conflict(self):
+        x1, x2 = self._pair()
+        a = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, rng=3, seed=3)
+        b = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, rng=3)
+        assert float(np.ravel(a.p)[0]) == float(np.ravel(b.p)[0])
+
+
+# `hsic` is excluded: its *value* is not invariant to duplicating features (0.015372 ->
+# 0.016030), so the premise of the test below does not hold for it.
+_OBS_AXIS_0_FEATURE_INVARIANT = ["cka", "rv", "distance_correlation", "procrustes", "rsa"]
+
+
+class TestBootstrapResamplesObservations:
+    """05-05: `perm_axis` was computed and then ignored by both `_bootstrap` call sites,
+    which hardcoded axis=-1. For the six observation-axis-0 metrics the interval therefore
+    answered "how much does this depend on which columns I measured" rather than "on which
+    observations I sampled"."""
+
+    @pytest.mark.parametrize("metric", _OBS_AXIS_0_FEATURE_INVARIANT)
+    def test_the_interval_is_invariant_to_duplicating_features(self, metric):
+        """Duplicating every feature column leaves an observation-resampled interval
+        unchanged; a feature-resampled one draws from 2p columns instead of p."""
+        rng = np.random.default_rng(5)
+        x = rng.normal(size=(60, 4))
+        y = x * 0.6 + 0.8 * rng.normal(size=(60, 4))
+
+        def width(a, b):
+            res = oa.jrsa(a, b, metric=metric, bootstrap=2000, random_state=11)
+            ci = np.asarray(res.ci).ravel()
+            return float(ci[1] - ci[0])
+
+        plain = width(x, y)
+        duplicated = width(np.hstack([x, x]), np.hstack([y, y]))
+        # Four of these agree to 1e-15; `rsa` to 2.4e-06, from float accumulation in the
+        # RDM. A feature-axis bootstrap resamples 8 columns instead of 4 and moves the
+        # width by tens of percent, so 1e-4 separates the two cases by four orders.
+        assert duplicated == pytest.approx(plain, rel=1e-4)
+
+    @pytest.mark.parametrize("metric", ["cka", "rv"])
+    def test_more_observations_narrow_the_interval(self, metric):
+        rng = np.random.default_rng(7)
+
+        def width(n):
+            x = rng.normal(size=(n, 4))
+            y = x * 0.6 + 0.8 * rng.normal(size=(n, 4))
+            res = oa.jrsa(x, y, metric=metric, bootstrap=2000, random_state=11)
+            ci = np.asarray(res.ci).ravel()
+            return float(ci[1] - ci[0])
+
+        assert width(400) < width(50)
+
+
+class TestPermutationPWins:
+    """05-06: `if p_raw is None` let the metric's own cell-wise parametric p pre-empt the
+    permutation p that had already been computed. `oa.jrsa(..., metric="rsa")` returned the
+    identical value at permutations=10 and permutations=2000 -- it was
+    `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:167 states is not a valid test
+    of RDM relatedness."""
+
+    PARAMETRIC_METRICS = ["rsa", "pearson", "spearman", "kendall"]
+
+    @pytest.mark.parametrize("metric", PARAMETRIC_METRICS)
+    def test_p_responds_to_the_permutation_count(self, metric):
+        rng = np.random.default_rng(3)
+        a = rng.normal(size=(40, 6))
+        b = rng.normal(size=(40, 6))
+        low = float(np.atleast_1d(oa.jrsa(a, b, metric=metric, permutations=10, random_state=2).p)[0])
+        high = float(np.atleast_1d(oa.jrsa(a, b, metric=metric, permutations=2000, random_state=2).p)[0])
+        assert low != pytest.approx(high, abs=1e-12), (
+            f"{metric}: p did not move between 10 and 2000 permutations, so it is not a "
+            "permutation p"
+        )
+
+    def test_the_reported_p_is_not_the_parametric_one(self):
+        from jnwb.rsa import rdm, rdm_similarity
+
+        rng = np.random.default_rng(3)
+        a = rng.normal(size=(40, 6))
+        b = rng.normal(size=(40, 6))
+        parametric = rdm_similarity(rdm(a), rdm(b), "spearman")[1]
+        reported = float(np.atleast_1d(oa.jrsa(a, b, metric="rsa", permutations=2000, random_state=2).p)[0])
+        assert reported != pytest.approx(parametric, abs=1e-12)
+
+    def test_p_is_a_valid_probability_and_respects_the_permutation_floor(self):
+        rng = np.random.default_rng(4)
+        a = rng.normal(size=(40, 6))
+        b = rng.normal(size=(40, 6))
+        for perms in (10, 200, 2000):
+            p = float(np.atleast_1d(oa.jrsa(a, b, metric="rsa", permutations=perms, random_state=2).p)[0])
+            assert 1.0 / (perms + 1.0) <= p <= 1.0
+
+    def test_permutations_zero_still_returns_the_parametric_p(self):
+        from jnwb.rsa import rdm, rdm_similarity
+
+        rng = np.random.default_rng(3)
+        a = rng.normal(size=(40, 6))
+        b = rng.normal(size=(40, 6))
+        parametric = rdm_similarity(rdm(a), rdm(b), "spearman")[1]
+        res = oa.jrsa(a, b, metric="rsa", permutations=0, random_state=2)
+        assert float(np.atleast_1d(res.p)[0]) == pytest.approx(parametric)

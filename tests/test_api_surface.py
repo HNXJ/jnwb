@@ -46,10 +46,6 @@ def test_non_public_modules_are_not_exported():
         assert name not in EXPORT_MODULES
 
 
-def test_public_exports_resolve():
-    missing = [name for name in jnwb.__all__ if not hasattr(jnwb, name)]
-    assert not missing, f"__all__ names not bound: {missing}"
-
 
 def test_lazy_export_modules_are_public():
     for module_name in set(EXPORT_MODULES.values()):

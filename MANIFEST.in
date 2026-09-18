@@ -1,3 +1,10 @@
+# The agent surface. Without these the sdist ships a library whose README tells an agent to
+# read AGENTS.md, and no AGENTS.md. Skills stay canonical at skills/ -- copying them under
+# jnwb/ would create the second skill tree that harness gate 2 forbids, so the wheel does
+# not carry them yet.
+graft skills
+include AGENTS.md
+
 prune tests
 prune scripts
 prune artifacts

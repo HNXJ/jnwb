@@ -86,6 +86,35 @@ class TestOverrideAndEnvVarPrecedence:
         assert paths.meta_dir() == Path("Z:/data") / paths.META_SUBDIR
         assert paths.conndb_dir() == Path("Z:/data") / paths.CONNDB_SUBDIR
 
+    @pytest.mark.parametrize("fn, primary, legacy", [
+        ("tfr_dir", "ENV_TFR_DIR", "LEGACY_ENV_TFR_DIR"),
+        ("meta_dir", "ENV_META_DIR", "LEGACY_ENV_META_DIR"),
+        ("conndb_dir", "ENV_CONNDB_DIR", "LEGACY_ENV_CONNDB_DIR"),
+    ])
+    def test_subtree_primary_env_var_wins_over_its_legacy_one(
+        self, monkeypatch, fn, primary, legacy
+    ):
+        """The order each of the three docstrings states, for its own two variables.
+
+        Covered for `nwb_dir` above, but `nwb_dir` has its own body; these three share
+        one, so an inversion in it would move all three at once.
+        """
+        monkeypatch.setenv(getattr(paths, primary), "Y:/primary")
+        monkeypatch.setenv(getattr(paths, legacy), "Z:/legacy")
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            assert getattr(paths, fn)() == Path("Y:/primary")
+            assert not any(issubclass(w.category, DeprecationWarning) for w in record)
+
+    @pytest.mark.parametrize("fn, primary", [
+        ("tfr_dir", "ENV_TFR_DIR"),
+        ("meta_dir", "ENV_META_DIR"),
+        ("conndb_dir", "ENV_CONNDB_DIR"),
+    ])
+    def test_subtree_override_wins_over_its_env_var(self, monkeypatch, fn, primary):
+        monkeypatch.setenv(getattr(paths, primary), "Y:/from_env")
+        assert getattr(paths, fn)(override="X:/custom") == Path("X:/custom")
+
 
 class TestOutputsAndArtifacts:
     def test_default_fallback_to_process_cwd(self):

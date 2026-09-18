@@ -7,6 +7,7 @@ boundary masking, and direct compatibility with `TFRAccumulator`.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
@@ -25,10 +26,17 @@ class ComplexTFR:
         freqs: 1D array of frequency coordinates in Hz.
         times: 1D array of relative time coordinates in seconds.
         coi_mask: Boolean array matching or broadcastable to `z`, where True indicates
-            interior samples outside the declared boundary region (t >= coi_sigma * sigma_t
-            and t < T - coi_sigma * sigma_t). Note that wavelet tails decay exponentially
-            rather than compactly; coi_mask marks the operational threshold where kernel
-            amplitude is within the declared coi_sigma * sigma_t envelope.
+            samples no part of whose kernel support fell outside the signal. By default the
+            region is the kernel half-width itself, `ceil(cutoff_sigma * sigma_t * fs)`, so
+            a True sample is one that `mode="same"` zero-padding could not reach. Take any
+            average *after* masking.
+
+            This used to be built from an independent `coi_sigma` (2.0) while the kernel
+            was truncated at `cutoff_sigma` (4.0), so samples between 2 and 4 sigma of the
+            edge convolved against zero-padding and were still marked valid: on a unit
+            cosine over a 1000-unit DC offset the largest response inside the mask was 28.6
+            at `n_cycles=3`. An explicitly passed `coi_sigma` still sets the region, and
+            warns when it is narrower than the kernel.
         fs: Sampling rate in Hz.
         n_cycles: 1D array of wavelet cycles per frequency bin.
         normalization: Normalization scheme applied ('amplitude' or 'energy').
@@ -82,11 +90,20 @@ def morlet_wavelet(
         fs: Sampling rate in Hz (must be > 0).
         n_cycles: Number of wavelet cycles (must be > 0).
         normalization: 'amplitude' (L1-scaled such that a unit cosine 1.0 * cos(2*pi*f0*t)
-            yields |z| = 1.0 at f0) or 'energy' (L2-normalized such that sum(|w|^2) = 1.0).
+            yields |z| = 1.0 at f0, exactly for n_cycles >= 3 and to within the intrinsic
+            bandwidth of a very short wavelet below that) or 'energy' (L2-normalized such
+            that sum(|w|^2) = 1.0).
         cutoff_sigma: Kernel truncation half-width in units of sigma_t (default 4.0).
 
     Returns:
         (t, w): Time vector in seconds centered at 0, and complex wavelet kernel w.
+
+    Notes:
+        The kernel carries the Morlet admissibility correction, so ``sum(w) == 0`` to
+        floating-point precision at every ``n_cycles`` and the transform has no response
+        at DC. Without it the truncated kernel had ``|sum(w)| = 1.21`` at ``n_cycles=1``,
+        and a constant offset entered the transform as oscillatory amplitude: a unit
+        cosine on a 1000-unit offset reported a peak ``|z|`` of 1214 instead of 1.
     """
     if f0 <= 0:
         raise ValueError(f"f0 must be positive, got {f0}")
@@ -101,7 +118,11 @@ def morlet_wavelet(
     K = int(np.ceil(cutoff_sigma * sigma_t * fs))
     t = np.arange(-K, K + 1, dtype=np.float64) / fs
     gauss = np.exp(- (t ** 2) / (2.0 * sigma_t ** 2))
-    raw = gauss * np.exp(1j * 2.0 * np.pi * f0 * t)
+    oscillation = np.exp(1j * 2.0 * np.pi * f0 * t)
+    # Admissibility (DC) correction: subtract the Gaussian-weighted mean of the complex
+    # exponential so the discrete, truncated kernel integrates to zero.
+    oscillation = oscillation - (np.sum(gauss * oscillation) / np.sum(gauss))
+    raw = gauss * oscillation
 
     if normalization == "amplitude":
         norm_factor = 2.0 / np.sum(gauss)
@@ -135,7 +156,7 @@ def complex_tfr(
     time_axis: int = -1,
     normalization: str = "amplitude",
     dtype: np.dtype = np.complex128,
-    coi_sigma: float = 2.0,
+    coi_sigma: Optional[float] = None,
     device: str = "cpu",
 ) -> ComplexTFR:
     """Compute complex Time-Frequency Representation via Morlet wavelet convolution.
@@ -148,7 +169,11 @@ def complex_tfr(
         time_axis: Axis along which time is sampled (default -1).
         normalization: 'amplitude' (default, unit cosine -> peak |z| = 1.0) or 'energy' (L2 unit energy).
         dtype: Output complex dtype (np.complex128 or np.complex64).
-        coi_sigma: Multiplier on sigma_t defining the Cone of Influence (default 2.0).
+        coi_sigma: Multiplier on sigma_t defining the Cone of Influence. `None` (default)
+            derives it from the kernel support, so the mask excludes exactly the samples
+            that `mode="same"` zero-padding reached. A float sets the region explicitly and
+            warns if it is narrower than the kernel half-width, because the mask then marks
+            contaminated samples as valid.
         device: 'cpu' (default) or 'cuda'. 'cuda' convolves with CuPy and returns NumPy
             arrays. Without a usable GPU, or if the GPU run fails, the whole transform
             runs on CPU with a RuntimeWarning; `result.device` records which ran.
@@ -167,6 +192,13 @@ def complex_tfr(
         raise ValueError("data contains NaN or Inf values")
     if fs <= 0:
         raise ValueError(f"fs must be positive, got {fs}")
+    if not np.issubdtype(np.dtype(dtype), np.complexfloating):
+        raise ValueError(
+            f"complex_tfr: dtype must be a complex dtype (np.complex128 or np.complex64), "
+            f"got {np.dtype(dtype)}. A real dtype silently discarded the imaginary part, so "
+            "`.phase` and `.power` described the real part of the transform while the result "
+            "still reported a valid normalization and device."
+        )
 
     freqs_arr = np.asarray(freqs, dtype=np.float64)
     if freqs_arr.ndim != 1 or len(freqs_arr) == 0:
@@ -228,13 +260,35 @@ def complex_tfr(
             z_out[tuple(sl)] = signal.fftconvolve(arr, w, mode="same", axes=time_dim).astype(dtype)
 
     coi_mask = np.ones((n_freqs, n_times), dtype=bool)
+    narrower_than_kernel = []
     for fi in range(n_freqs):
         nc = cycles_arr[fi]
         sigma_t = nc / (2.0 * np.pi * freqs_arr[fi])
-        k_coi = int(np.ceil(coi_sigma * sigma_t * fs))
+        # The kernel is `2 * K + 1` long, so `K` is exactly how far zero-padding reaches
+        # under `mode="same"`. Measuring it from the kernel keeps the mask true to whatever
+        # `cutoff_sigma` the kernel was built with, instead of re-deriving it from a
+        # multiplier that was free to disagree.
+        k_kernel = (kernels[fi].size - 1) // 2
+        if coi_sigma is None:
+            k_coi = k_kernel
+        else:
+            k_coi = int(np.ceil(coi_sigma * sigma_t * fs))
+            if k_coi < k_kernel:
+                narrower_than_kernel.append(float(freqs_arr[fi]))
         if k_coi > 0:
             coi_mask[fi, :min(k_coi, n_times)] = False
             coi_mask[fi, max(0, n_times - k_coi):] = False
+
+    if narrower_than_kernel:
+        warnings.warn(
+            f"complex_tfr: coi_sigma={coi_sigma} is narrower than the kernel half-width at "
+            f"{len(narrower_than_kernel)} frequency/frequencies (e.g. "
+            f"{narrower_than_kernel[0]:g} Hz), so coi_mask marks samples as valid that "
+            "convolved against zero-padding. Pass coi_sigma=None to derive it from the "
+            "kernel.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # Broadcast coi_mask to match z_out leading/trailing dimensions if any
     coi_broadcast = np.broadcast_to(

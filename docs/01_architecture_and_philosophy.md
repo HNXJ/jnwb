@@ -34,7 +34,7 @@ graph TD
 `jnwb` does not encode experiment-specific condition codes, task sequence rules, or manuscript
 findings in library code — those belong in downstream project packages.
 - `jnwb` never imports from downstream project directories.
-- This invariant is mechanically enforced by automated regression gates (`tests/test_jnwb_frozen_boundary.py`).
+- This invariant is mechanically enforced by automated regression gates.
 - Downstream projects consume `jnwb` as an imported library dependency.
 
 ### NWB, PyNWB and HDMF
@@ -84,7 +84,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 ### F. Valid Nulls & No Synthetic Science
 * A null finding ($p \ge \alpha$) is an empirical scientific observation, not an error. Analysis parameters, frequency bands, or temporal windows are never retrofitted to achieve significance.
-* Outputs must never contain synthetic or placeholder values unless clearly marked with an explicit `PLACEHOLDER-DUMMY` warning during scaffolding.
+* Outputs must never contain synthetic or placeholder values. Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
 
 ---
 

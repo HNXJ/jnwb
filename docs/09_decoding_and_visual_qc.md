@@ -10,11 +10,11 @@ This document details nested cross-validated population decoding, baselines, aut
 
 ```mermaid
 graph LR
-    X[Feature Matrix X, Labels y] --> Outer[assign_outer_folds: Group/Blocked Partitions]
+    Trials[Trial table: trial_id, session, analysis, slot_key, cycle] --> Outer[assign_outer_folds: leave-one-group-out]
     Outer --> Inner[build_inner_validation_partitions]
     Inner --> Train[nested_cv_linear_svm]
     Train --> Base[majority_baseline / fold_majority_baseline]
-    Train --> Ladder[build_representation_ladder]
+    Raster[Raster: n_trials x n_space x n_time] --> Ladder[build_representation_ladder: R0/R1/R2 contracts]
 ```
 
 ### Nested CV Linear SVM Decoding (`nested_cv_linear_svm`)
@@ -32,6 +32,15 @@ print("F1 Score:", decode_res["f1"])
 print("ROC-AUC:", decode_res["auc"])
 ```
 
+**This call does not hold out groups.** `nested_cv_linear_svm(X, labels, n_splits, rng)`
+takes no `groups` argument: its folds are drawn over rows. When rows are trials from the
+same block, cycle or session, neighbouring trials share slow drift and a fold boundary
+inside a block leaks it, so the accuracy is above what the same decoder would reach on a
+held-out block. The protection is upstream, in `assign_outer_folds` below, which holds out
+whole groups; pass its partitions rather than expecting this function to infer them.
+Read the accuracy against `majority_baseline_accuracy`, which is returned for that
+purpose and is not 0.5 unless the classes are balanced.
+
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png)
 
 ### Baselines & Fold Partitions
@@ -43,14 +52,23 @@ base_acc = jnwb.majority_baseline(labels)
 # Fold-aware majority baseline
 fold_acc = jnwb.fold_majority_baseline(y_train, y_test)
 
-# Assign outer cross-validation folds preserving group integrity
-outer_folds = jnwb.assign_outer_folds(labels, n_splits=5, groups=session_ids)
+# Assign outer folds by holding out whole groups. This takes a trial TABLE, not a
+# label vector: `trials` needs trial_id, the analysis_cols that identify an
+# independent stratum, and the group column that folds hold out whole. Folds are
+# assigned separately within each stratum, and a stratum with fewer than two groups
+# is marked "insufficient_groups" rather than given an invented split.
+outer_folds = jnwb.assign_outer_folds(trials, group_col="cycle")
 
-# Partition inner validation splits for hyperparameter tuning
+# Nested inner train/validation partitions. The outer test group is never used in an
+# inner partition.
 inner_splits = jnwb.build_inner_validation_partitions(outer_folds)
 
-# Evaluate cumulative feature ladder
-ladder_res = jnwb.build_representation_ladder(X, labels, feature_names=feature_list)
+# R0/R1/R2 representation contracts from a (n_trials, n_space, n_time) raster.
+# This fits no model and takes no labels: it reports what each representation
+# preserves. R0 collapses time, R1 vectorizes without discarding samples, R2 keeps
+# the tensor and records the space-axis topology constraint. LFP requires
+# spatial_axis_metadata; SPK units are unordered without a preregistered order.
+ladder_res = jnwb.build_representation_ladder(raster, modality="SPK")
 ```
 
 ---

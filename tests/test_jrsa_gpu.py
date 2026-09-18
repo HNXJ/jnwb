@@ -3,17 +3,24 @@ import pytest
 import jnwb as oa
 
 
-def _cupy_available() -> bool:
+def _cuda_device_is_usable() -> bool:
+    """Importable is not usable.
+
+    This used to be `import cupy` in a try block. CuPy installs without a GPU, and on such a
+    machine the test below ran and failed: `jrsa` refuses the device in `resolve_device` and
+    warns that none was found, never reaching the "computes in NumPy" message the test waits
+    for. CI never saw it because CI does not install CuPy at all.
+    """
     try:
-        import cupy  # noqa: F401
-    except ImportError:
+        from jnwb._backend import gpu_available
+    except ImportError:  # pragma: no cover - jnwb is a hard dependency of this file
         return False
-    return True
+    return bool(gpu_available(prefer="cupy"))
 
 
 requires_cupy = pytest.mark.skipif(
-    not _cupy_available(),
-    reason="cupy not installed / no CUDA GPU available on this machine",
+    not _cuda_device_is_usable(),
+    reason="no usable CUDA device via CuPy on this machine",
 )
 
 
@@ -30,14 +37,22 @@ def test_jrsa_cupy_gpu_execution():
     assert res_cpu.value is not None
     assert res_cpu.execution["device"] == "cpu"
 
-    # Run with CuPy (GPU) device
-    res_gpu = oa.jrsa(x, y, metric="pearson", device="cuda", stats=True, permutations=100)
+    # Run with CuPy (GPU) requested. 05-26: jrsa does not execute on the GPU -- every
+    # metric calls `_ensure_np` on its first line, so the upload was converted straight
+    # back and the arithmetic ran on the CPU. This used to assert
+    # `execution["device"] == "cuda"`, which is what made the false provenance look
+    # verified. The request is still honoured as a request, and recorded in `parameters`.
+    with pytest.warns(RuntimeWarning, match="computes in NumPy"):
+        res_gpu = oa.jrsa(x, y, metric="pearson", device="cuda", stats=True, permutations=100)
     assert res_gpu.value is not None
-    assert res_gpu.execution["device"] == "cuda"
-    assert res_gpu.execution["backend"] == "cupy"
+    assert res_gpu.execution["device"] == "cpu"
+    assert res_gpu.execution["backend"] == "numpy"
+    assert res_gpu.parameters["device"] == "cuda"
+    assert res_gpu.parameters["backend"] == "auto"
 
-    # Check value consistency between CPU and GPU
-    np.testing.assert_allclose(res_cpu.value, res_gpu.value, rtol=1e-5)
+    # The values agree exactly, not merely to rtol: it is the same code path.
+    # `AGENTS.md` invariant 6 -- the device never changes a number.
+    np.testing.assert_array_equal(np.asarray(res_cpu.value), np.asarray(res_gpu.value))
     
     # Test spearman correlation consistency
     res_spearman_cpu = oa.jrsa(x, y, metric="spearman", device="cpu")

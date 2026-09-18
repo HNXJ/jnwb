@@ -21,20 +21,29 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
     """Test TFRAnalyzer band extraction methods."""
 
     def setUp(self):
-        """Create mock TFR data."""
+        """Create mock TFR data.
+
+        The frequency axis is the only load-bearing one: `extract_band` picks bins by
+        comparing `freqs` against the band bounds, and the trailing axes are carried
+        through a mean and reach these tests only as numbers in a shape assertion. This
+        was (128, 200, 500, 100) -- 9.537 GiB of float64, about 34 s per test to assert
+        that three dimensions survive -- against the same outcomes at 2.4 KiB. The
+        frequency axis and its coordinates are unchanged, so the same bins fall in each
+        band.
+        """
         np.random.seed(42)
         self.freqs = np.linspace(1.0, 150.0, 200)
-        self.tfr_data = np.random.randn(128, 200, 500, 100)
+        self.tfr_data = np.random.randn(2, 200, 3, 2)
 
     def test_extract_band_alpha(self):
         """Verify alpha band extraction (8-12/15 Hz)."""
         result = TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1)
-        self.assertEqual(result.shape, (128, 500, 100))
+        self.assertEqual(result.shape, (2, 3, 2))
 
     def test_extract_band_beta(self):
         """Verify beta band extraction (15-30 Hz)."""
         result = TFRAnalyzer.extract_band(self.tfr_data, 'beta', freqs=self.freqs, freq_axis=1)
-        self.assertEqual(result.shape, (128, 500, 100))
+        self.assertEqual(result.shape, (2, 3, 2))
 
     def test_extract_band_bounds(self):
         """Verify extracted band is float."""
@@ -46,15 +55,20 @@ class TestTFRAnalyzerTrialAverage(unittest.TestCase):
     """Test trial averaging in TFRAnalyzer."""
 
     def setUp(self):
-        """Create mock TFR data."""
+        """Create mock TFR data.
+
+        `trial_average` reduces the last axis and has no frequency semantics, so no axis
+        here is load-bearing beyond the trial axis needing at least two samples for the
+        `ddof=1` standard deviation. This was (64, 100, 300, 80), 1.144 GiB.
+        """
         np.random.seed(42)
-        self.tfr_data = np.random.randn(64, 100, 300, 80)
+        self.tfr_data = np.random.randn(2, 3, 4, 5)
 
     def test_trial_average_shape(self):
         """Verify trial average returns dict with mean array reduced over trials."""
         result = TFRAnalyzer.trial_average(self.tfr_data)
         self.assertIn('mean', result)
-        self.assertEqual(result['mean'].shape, (64, 100, 300))
+        self.assertEqual(result['mean'].shape, (2, 3, 4))
 
     def test_trial_average_values(self):
         """Verify trial average computes mean correctly."""
@@ -264,10 +278,14 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
     """Test all band extraction methods."""
 
     def setUp(self):
-        """Create TFR data."""
+        """Create TFR data.
+
+        As above, the 150-bin frequency axis and its coordinates are what decide which
+        bins each of the five bands selects; the rest was 0.358 GiB of shape assertion.
+        """
         np.random.seed(42)
         self.freqs = np.linspace(1.0, 150.0, 150)
-        self.tfr_data = np.random.randn(32, 150, 200, 50)
+        self.tfr_data = np.random.randn(2, 150, 3, 4)
 
     def test_all_bands_extractable(self):
         """Verify all standard bands can be extracted."""
@@ -276,8 +294,8 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
             with self.subTest(band=band):
                 result = TFRAnalyzer.extract_band(self.tfr_data, band, freqs=self.freqs, freq_axis=1)
                 self.assertEqual(len(result.shape), 3)
-                self.assertEqual(result.shape[0], 32)
-                self.assertEqual(result.shape[1], 200)
+                self.assertEqual(result.shape[0], 2)
+                self.assertEqual(result.shape[1], 3)
 
 
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):

@@ -105,7 +105,10 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
     try:
         # Check location or area columns in electrodes_df
         col_to_check = None
-        for col in ['location', 'area', 'group_name']:
+        # `group_name` is the probe/shank label, not an anatomical area. Including it
+        # meant an electrode table with no location column returned 'probeA' as the brain
+        # area of channel 0 -- a fabricated label indistinguishable from a real one.
+        for col in ['location', 'area']:
             if col in electrodes_df.columns:
                 col_to_check = col
                 break
@@ -227,7 +230,7 @@ def classify_layer_from_depth(
         assumptions (e.g. primate linear array penetration from pia) rather than
         universal NWB standards. For preparations with different cortical
         thicknesses or orientations, supply ``threshold`` explicitly. For
-        electrophysiological laminar identification, see ``jnwb.laminar`` (forthcoming).
+        electrophysiological laminar identification, see ``jnwb.laminar``.
 
     Args:
         peak_channel_id: Channel identifier
@@ -584,8 +587,14 @@ def probe_geometry(
     else:
         resolved_probe_name = probe_name
 
-    assert coords is not None
-    assert channel_ids is not None
+    if coords is None or channel_ids is None:
+        # This was `assert coords is not None` with no message, so a wrong type raised a
+        # bare AssertionError('') -- and under `python -O` the assert vanished entirely and
+        # the next line ran `coords.shape` on None.
+        raise TypeError(
+            f"probe_geometry: expected an NWB electrodes table, a pandas DataFrame, or an "
+            f"(n_channels, 3) coordinate array; got {type(electrodes_table).__name__}."
+        )
 
     n_channels = coords.shape[0]
     if n_channels == 0:

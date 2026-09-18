@@ -8,8 +8,12 @@ Two estimands, each from its own subprocesses so nothing is already imported:
 
 The OS file cache is warm for both; a disk-cold import cannot be produced without rebooting.
 
+Peak memory comes from further processes of its own. Tracing allocations makes the import
+itself about 3.3x slower, so a probe that starts `tracemalloc` before its timer reports the
+traced cost rather than the real one; the two measurements cannot share a process.
+
     python scripts/benchmark_import.py            # print the profile
-    python scripts/benchmark_import.py --write    # also rewrite artifacts/benchmarks/import_profile.txt
+    python scripts/benchmark_import.py --write    # also rewrite both receipts in artifacts/benchmarks/
     python scripts/benchmark_import.py --profile  # include importtime attribution breakdown
 """
 from __future__ import annotations
@@ -29,22 +33,28 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROFILE_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "import_profile.txt"
 BREAKDOWN_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "import_breakdown.json"
 
+# Nothing here may instrument the import: `tracemalloc` in particular triples it.
 PROBE = """
-import json, sys, time, tracemalloc
+import json, sys, time
 before = set(sys.modules)
-tracemalloc.start()
 t0 = time.perf_counter()
 import jnwb
 elapsed = time.perf_counter() - t0
-peak = tracemalloc.get_traced_memory()[1]
 print(json.dumps({
     "ms": elapsed * 1000.0,
-    "peak_mb": peak / 2**20,
     "modules": len(set(sys.modules) - before),
     "version": jnwb.__version__,
     "symbols": len(jnwb.__all__),
     "torch_loaded": "torch" in sys.modules,
 }))
+"""
+
+# The other half of the split: this one traces and does not time.
+MEMORY_PROBE = """
+import json, tracemalloc
+tracemalloc.start()
+import jnwb
+print(json.dumps({"peak_mb": tracemalloc.get_traced_memory()[1] / 2**20}))
 """
 
 PROFILE_PROBE = r"""
@@ -102,11 +112,15 @@ def _run(cache_dir: str, probe: str = PROBE) -> dict:
     return json.loads(out.stdout.strip().splitlines()[-1])
 
 
-def measure(runs: int, profile: bool = False) -> dict:
+def measure(runs: int) -> dict:
     with tempfile.TemporaryDirectory() as cache_dir:
         cold = _run(cache_dir)
         warm = [_run(cache_dir) for _ in range(runs)]
-        breakdown = _run(cache_dir, PROFILE_PROBE) if profile else None
+        warm_peak = _run(cache_dir, MEMORY_PROBE)["peak_mb"]
+        breakdown = _run(cache_dir, PROFILE_PROBE)
+    # A cold peak needs a cache as empty as the cold timing run had.
+    with tempfile.TemporaryDirectory() as cold_cache:
+        cold["peak_mb"] = _run(cold_cache, MEMORY_PROBE)["peak_mb"]
     warm_ms = [r["ms"] for r in warm]
     result = {
         "python": platform.python_version(),
@@ -120,7 +134,7 @@ def measure(runs: int, profile: bool = False) -> dict:
         "warm_stdev_ms": statistics.pstdev(warm_ms) if len(warm_ms) > 1 else 0.0,
         "warm_min_ms": min(warm_ms),
         "warm_max_ms": max(warm_ms),
-        "warm_peak_mb": statistics.median(r["peak_mb"] for r in warm),
+        "warm_peak_mb": warm_peak,
         "modules": warm[0]["modules"],
         "runs": runs,
         "breakdown": breakdown,
@@ -128,7 +142,7 @@ def measure(runs: int, profile: bool = False) -> dict:
     return result
 
 
-def render(p: dict) -> str:
+def render(p: dict, profile: bool = False) -> str:
     lines = [
         "# jnwb import profile",
         "",
@@ -152,12 +166,18 @@ def render(p: dict) -> str:
         ),
         "",
         "Peak memory is what tracemalloc sees, which excludes allocations made by C extensions.",
+        "It is measured in separate processes from the timings, one per cache state: tracing the",
+        "import also slows it down about 3.3x, so a probe that does both reports neither.",
     ]
-    if p.get("breakdown"):
+    if profile and p.get("breakdown"):
         b = p["breakdown"]
         lines.extend([
             "",
             "## importtime attribution (`import jnwb` only)",
+            "",
+            "Attribution, not causation: `-X importtime` charges a shared dependency entirely to",
+            "whichever module imports it first, so the module at the top of these tables is the",
+            "one that got there first, not the one responsible for the cost.",
             "",
             f"- jnwb cumulative tree: {b['jnwb_total_ms']:.0f} ms",
             f"- heavy third-party roots (>= 50 ms cumulative): {', '.join(b['heavy_third_party_roots']) or 'none'}",
@@ -192,21 +212,17 @@ def main() -> int:
     parser.add_argument(
         "--profile",
         action="store_true",
-        help="attach importtime attribution and write import_breakdown.json",
+        help="also render the importtime attribution tables into the profile",
     )
     args = parser.parse_args()
-    payload = measure(args.runs, profile=args.profile)
-    text = render(payload)
+    payload = measure(args.runs)
+    text = render(payload, profile=args.profile)
     print(text)
     if args.write:
         PROFILE_PATH.write_text(text, encoding="utf-8")
-        print(f"wrote {PROFILE_PATH.relative_to(REPO_ROOT)}")
-    if args.profile and payload.get("breakdown") is not None:
-        BREAKDOWN_PATH.write_text(
-            json.dumps(payload, indent=2),
-            encoding="utf-8",
-        )
-        print(f"wrote {BREAKDOWN_PATH.relative_to(REPO_ROOT)}")
+        BREAKDOWN_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        for path in (PROFILE_PATH, BREAKDOWN_PATH):
+            print(f"wrote {path.relative_to(REPO_ROOT)}")
     return 0
 
 

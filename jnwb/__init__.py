@@ -41,10 +41,13 @@ from .tfr_accumulator import TFRAccumulator, assert_mergeable
 
 # NWB fp32 compression (2026-08-09), per nwb_tfr_storage_spec.md Part 1.
 from .compression import compress_fp32
+from .nwb_io import MissingRequiredNWBFieldError
 from .nwb_inspect import (
     AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
+    AmbiguousLayoutError,
     ChannelIndexError,
+    NWBInspectError,
     UnitNotFoundError,
     acquisition_channel,
     inspect,
@@ -57,6 +60,7 @@ from .nwb_events import (
     EventTable,
     IntervalTableNotFoundError,
     InvalidOnsetValueError,
+    NWBEventError,
     event_onsets,
     events,
     resolve_interval_table,
@@ -211,14 +215,18 @@ __all__ = [
     'unit_spike_times',
     'acquisition_channel',
     'resolve_acquisition',
+    'NWBInspectError',
     'AmbiguousAcquisitionError',
+    'AmbiguousLayoutError',
     'AcquisitionNotFoundError',
     'ChannelIndexError',
     'UnitNotFoundError',
+    'MissingRequiredNWBFieldError',
     'events',
     'event_onsets',
     'EventTable',
     'resolve_interval_table',
+    'NWBEventError',
     'AmbiguousIntervalTableError',
     'IntervalTableNotFoundError',
     'ColumnNotFoundError',

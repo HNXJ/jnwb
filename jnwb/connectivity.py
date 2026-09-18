@@ -41,8 +41,17 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._dictlike import DictAccessMixin
+from ._backend import (
+    CPU,
+    CUDA,
+    resolve_device,
+    warn_device_fallback,
+    warn_no_gpu_path,
+)
 from ._parallel import parallel_map
+from ._units import resolve_unit_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -81,9 +90,11 @@ def _discrete_mi_from_labels(x: np.ndarray, y: np.ndarray) -> float:
 def spike_mutual_information(
     spike_times1: np.ndarray,
     spike_times2: np.ndarray,
-    time_window: Tuple[float, float],
+    time_window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
     estimator: str = "binary_occupancy",
+    *,
+    time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
     """
     Compute Shannon Mutual Information (MI) between two binned spike trains.
@@ -91,7 +102,8 @@ def spike_mutual_information(
     Args:
         spike_times1: Spike times of unit 1 (seconds)
         spike_times2: Spike times of unit 2 (seconds)
-        time_window: (start_time, end_time) in seconds
+        time_window_s: (start_time, end_time) in seconds. `time_window` is the old
+            spelling, kept working; it named no unit while `bin_size_ms` beside it did.
         bin_size_ms: Bin size in ms
         estimator:
             - ``binary_occupancy`` (default): MI of bin occupancy (hist > 0).
@@ -101,6 +113,11 @@ def spike_mutual_information(
     Returns:
         mi: Mutual Information in bits
     """
+    time_window_s = resolve_unit_alias(
+        time_window_s, time_window,
+        canonical_name="time_window_s", alias_name="time_window",
+        func_name="spike_mutual_information",
+    )
     if estimator not in ("binary_occupancy", "spike_count"):
         raise ValueError(
             f"Unknown estimator={estimator!r}; use 'binary_occupancy' or 'spike_count'"
@@ -111,12 +128,12 @@ def spike_mutual_information(
             "spike_mutual_information requires non-empty spike_times1 and spike_times2"
         )
 
-    bins1 = bin_spikes(spike_times1, window=time_window, bin_size_ms=bin_size_ms)
+    bins1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)
     n_bins = bins1.shape[-1]
     if n_bins <= 1:
         return 0.0
 
-    t_start, t_end = time_window
+    t_start, t_end = time_window_s
     bin_sec = bin_size_ms / 1000.0
     bin_edges = float(t_start) + bin_sec * np.arange(n_bins + 1)
     hist1, _ = np.histogram(np.sort(spike_times1), bins=bin_edges)
@@ -135,32 +152,38 @@ def spike_mutual_information(
 def binary_occupancy_mutual_information(
     spike_times1: np.ndarray,
     spike_times2: np.ndarray,
-    time_window: Tuple[float, float],
+    time_window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
+    *,
+    time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Explicit alias for binary occupancy MI."""
+    """Explicit alias for binary occupancy MI. `time_window_s` is in seconds."""
     return spike_mutual_information(
         spike_times1,
         spike_times2,
-        time_window,
+        time_window_s,
         bin_size_ms=bin_size_ms,
         estimator="binary_occupancy",
+        time_window=time_window,
     )
 
 
 def spike_count_mutual_information(
     spike_times1: np.ndarray,
     spike_times2: np.ndarray,
-    time_window: Tuple[float, float],
+    time_window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
+    *,
+    time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Discrete MI on per-bin spike counts."""
+    """Discrete MI on per-bin spike counts. `time_window_s` is in seconds."""
     return spike_mutual_information(
         spike_times1,
         spike_times2,
-        time_window,
+        time_window_s,
         bin_size_ms=bin_size_ms,
         estimator="spike_count",
+        time_window=time_window,
     )
 
 
@@ -190,6 +213,7 @@ def fit_var_bivariate(
     device: str = "cpu",
     ridge: float = 0.0,
     return_residuals: bool = False,
+    context: str = "fit_var_bivariate",
 ) -> Union[Tuple[float, float], Tuple[float, float, np.ndarray, np.ndarray]]:
     """
     Fit restricted and unrestricted VAR(p) models for bivariate Granger causality.
@@ -202,8 +226,20 @@ def fit_var_bivariate(
         var_unrestricted: Residual variance of the unrestricted model (RSS / N).
         residuals_restr (optional): Residual time series of the restricted model.
         residuals_unrestr (optional): Residual time series of the unrestricted model.
+
+    Args:
+        context: The public function the caller invoked, used in device warnings.
+            `fit_var_bivariate` is not exported, so naming it sends the reader to code
+            they did not call.
     """
-    if resolve_device(device, context="fit_var_bivariate", prefer="cupy") == CUDA and ridge <= 0:
+    resolved = resolve_device(device, context=context, prefer="cupy")
+    if resolved == CUDA and ridge > 0:
+        # The GPU branch solves by lstsq only; the ridge penalty is applied in the CPU
+        # branch below. Requesting both used to skip the GPU with nothing said.
+        warn_no_gpu_path(
+            context, "the ridge-penalised solver has no GPU path (pass ridge=0 to use "
+                     "the GPU)")
+    if resolved == CUDA and ridge <= 0:
         try:
             import cupy as cp
 
@@ -250,7 +286,7 @@ def fit_var_bivariate(
                 )
             return var_restricted, var_unrestricted
         except Exception as e:
-            warn_device_fallback("fit_var_bivariate", e)
+            warn_device_fallback(context, e)
             log.warning(f"CUDA VAR fitting failed: {e}. Falling back to CPU.")
 
     # CPU implementation
@@ -309,6 +345,7 @@ def select_optimal_lag(
     device: str = "cpu",
     criterion: str = "aic",
     ridge: float = 0.0,
+    context: str = "select_optimal_lag",
 ) -> int:
     """
     Select optimal VAR order p using AIC, BIC, or HQIC on the unrestricted model.
@@ -321,8 +358,19 @@ def select_optimal_lag(
     if actual_max < 1:
         return 1
 
+    # Once, before the loop. This used to resolve inside `fit_var_bivariate` on every
+    # iteration, so one `select_optimal_lag(max_lag=6, device='cuda')` on a machine with
+    # no GPU emitted six identical warnings.
+    resolved = resolve_device(device, context=context, prefer="cupy")
+    if resolved == CUDA and ridge > 0:
+        warn_no_gpu_path(
+            context, "the ridge-penalised solver has no GPU path (pass ridge=0 to use "
+                     "the GPU)")
+        resolved = CPU
+
     for p in range(1, actual_max + 1):
-        _, var_unrestricted = fit_var_bivariate(x, y, p, device=device, ridge=ridge)
+        _, var_unrestricted = fit_var_bivariate(
+            x, y, p, device=resolved, ridge=ridge, context=context)
         n_samples = n - p
         n_params = 2 * p + 1
         ic = _info_criterion(n_samples, var_unrestricted, n_params, criterion)
@@ -392,16 +440,25 @@ def _series_diagnostics(series: np.ndarray, residuals: np.ndarray, order: int) -
     adf_p = _adf_pvalue(series)
     lb_p = _ljung_box_pvalue(residuals, nlags=min(10, max(order * 2, 2)))
     warnings = []
-    if not np.isnan(adf_p) and adf_p > 0.05:
+    # Not tested is not passed. `bool(np.isnan(adf_p) or ...)` reported stationarity_ok
+    # True whenever the test could not run -- most importantly when `statsmodels`, a
+    # declared hard dependency, is absent, since `_adf_pvalue` converts that ImportError
+    # into NaN. Two pure random walks then came back ok_for_interpretation=True with an
+    # empty warnings list.
+    if np.isnan(adf_p):
+        warnings.append("stationarity_not_tested")
+    elif adf_p > 0.05:
         warnings.append("possible_nonstationarity_adf_p>0.05")
-    if not np.isnan(lb_p) and lb_p < 0.05:
+    if np.isnan(lb_p):
+        warnings.append("residual_whiteness_not_tested")
+    elif lb_p < 0.05:
         warnings.append("residual_autocorrelation_ljung_box_p<0.05")
     return {
         "adf_pvalue": adf_p,
         "ljung_box_pvalue": lb_p,
         "warnings": warnings,
-        "stationarity_ok": bool(np.isnan(adf_p) or adf_p <= 0.05),
-        "residual_whiteness_ok": bool(np.isnan(lb_p) or lb_p >= 0.05),
+        "stationarity_ok": bool(not np.isnan(adf_p) and adf_p <= 0.05),
+        "residual_whiteness_ok": bool(not np.isnan(lb_p) and lb_p >= 0.05),
     }
 
 
@@ -439,24 +496,38 @@ def granger_causality(
     s1 = (s1 - np.mean(s1)) / std1 if std1 > 0 else np.zeros_like(s1)
     s2 = (s2 - np.mean(s2)) / std2 if std2 > 0 else np.zeros_like(s2)
 
+    # One device decision for the whole call, announced under the name the caller used.
+    # With order='auto' this function reaches `fit_var_bivariate` up to 2*max_lag + 2
+    # times; each used to resolve for itself and warn as "fit_var_bivariate".
+    resolved = resolve_device(device, context="granger_causality", prefer="cupy")
+    if resolved == CUDA and ridge > 0:
+        warn_no_gpu_path(
+            "granger_causality",
+            "the ridge-penalised solver has no GPU path (pass ridge=0 to use the GPU)")
+        resolved = CPU
+
     if order == "auto":
         order_2_to_1 = select_optimal_lag(
-            s1, s2, device=device, criterion=criterion, ridge=ridge
+            s1, s2, device=resolved, criterion=criterion, ridge=ridge,
+            context="granger_causality"
         )
         order_1_to_2 = select_optimal_lag(
-            s2, s1, device=device, criterion=criterion, ridge=ridge
+            s2, s1, device=resolved, criterion=criterion, ridge=ridge,
+            context="granger_causality"
         )
     else:
         order_2_to_1 = int(order)
         order_1_to_2 = int(order)
 
     var_r1, var_u1, res_r1, res_u1 = fit_var_bivariate(
-        s1, s2, order_2_to_1, device=device, ridge=ridge, return_residuals=True
+        s1, s2, order_2_to_1, device=resolved, ridge=ridge, return_residuals=True,
+        context="granger_causality"
     )
     f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else 0.0
 
     var_r2, var_u2, res_r2, res_u2 = fit_var_bivariate(
-        s2, s1, order_1_to_2, device=device, ridge=ridge, return_residuals=True
+        s2, s1, order_1_to_2, device=resolved, ridge=ridge, return_residuals=True,
+        context="granger_causality"
     )
     f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
 
@@ -546,7 +617,7 @@ def network_topology(
 
 
 @dataclass
-class DirectedResult:
+class DirectedResult(DictAccessMixin):
     """
     Uniform return type for every directed connectivity estimator.
 
@@ -582,14 +653,6 @@ class DirectedResult:
     fs: Optional[float] = None
     params: Dict[str, Any] = field(default_factory=dict)
     diagnostics: Dict[str, Any] = field(default_factory=dict)
-
-    # dict-style access, so callers written against the older dict-returning
-    # functions in this module keep working
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> Dict[str, Any]:
         out = {
@@ -676,9 +739,21 @@ def as_trials(
             if not allow_ragged:
                 raise ValueError(f"{name}: ragged trial lengths {sorted(lengths)}")
             n_min = min(lengths)
+            # Both channels. `log.warning` is invisible to `warnings.simplefilter`,
+            # `pytest.warns` and `-W error`, so a caller who had asked to be told about
+            # silent data loss was not told: the truncation reached the estimator with an
+            # empty warning list. The log line stays for operators; the warning is what
+            # the caller can actually act on.
             log.warning(
                 "%s: ragged trials %s -> truncated to %d samples", name,
                 sorted(lengths), n_min,
+            )
+            warnings.warn(
+                f"{name}: ragged trial lengths {sorted(lengths)} truncated to {n_min} "
+                f"samples, discarding {sum(lengths) - n_min * len(arrs)} sample(s). Pass "
+                "allow_ragged=False to make this an error.",
+                RuntimeWarning,
+                stacklevel=3,
             )
             arrs = [a[:n_min] for a in arrs]
         arr = np.stack(arrs, axis=0)
@@ -740,13 +815,26 @@ def _detrend_trials(a: np.ndarray, mode: Optional[str]) -> np.ndarray:
     raise ValueError(f"Unknown detrend={mode!r}; use None|'demean'|'zscore'|'linear'")
 
 
+def _count_nonfinite_spikes(spike_times, trial_starts) -> int:
+    """Number of non-finite entries in `spike_times`, whatever nesting it arrived in."""
+    if trial_starts is None and isinstance(spike_times, (list, tuple)) and (
+        len(spike_times) == 0 or np.ndim(spike_times[0]) >= 1
+    ):
+        trains = [np.asarray(s, dtype=float).ravel() for s in spike_times]
+    else:
+        trains = [np.asarray(spike_times, dtype=float).ravel()]
+    return int(sum(int(np.sum(~np.isfinite(s))) for s in trains))
+
+
 def bin_spikes(
     spike_times,
-    window: Tuple[float, float],
+    window_s: Optional[Tuple[float, float]] = None,
     bin_size_ms: float = 10.0,
     trial_starts: Optional[Sequence[float]] = None,
     output: str = "count",
     return_centers: bool = False,
+    *,
+    window: Optional[Tuple[float, float]] = None,
 ):
     r"""Bridge spike data into the ``(n_trials, n_bins)`` contract used by every estimator.
 
@@ -777,11 +865,17 @@ def bin_spikes(
     Returns:
         ``(n_trials, n_bins)`` float array, or ``(array, centers)`` if ``return_centers=True``.
     """
+    # `window` named no unit while its neighbour `bin_size_ms` did, in the same call.
+    # Both are times, one in seconds and one in milliseconds, and only one said so.
+    window_s = resolve_unit_alias(
+        window_s, window, canonical_name="window_s", alias_name="window",
+        func_name="bin_spikes",
+    )
     if output not in ("count", "rate"):
         raise ValueError(f"output must be 'count' or 'rate'; got {output!r}")
-    t0, t1 = float(window[0]), float(window[1])
+    t0, t1 = float(window_s[0]), float(window_s[1])
     if not t1 > t0:
-        raise ValueError(f"window must satisfy end > start; got {window}")
+        raise ValueError(f"window_s must satisfy end > start; got {window_s}")
     bin_sec = float(bin_size_ms) / 1000.0
     n_bins = int(round((t1 - t0) / bin_sec))
     if n_bins < 2:
@@ -789,6 +883,18 @@ def bin_spikes(
             f"window {window} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
         )
     edges = t0 + bin_sec * np.arange(n_bins + 1)
+
+    n_nonfinite = _count_nonfinite_spikes(spike_times, trial_starts)
+    if n_nonfinite:
+        # These were dropped by the `(s >= t0) & (s < t1)` comparison, which is False for
+        # NaN, so a train of NaN spike times produced a confident all-zero rate with no
+        # indication that anything had been discarded.
+        warnings.warn(
+            f"bin_spikes: {n_nonfinite} non-finite spike time(s) dropped. They cannot be "
+            "assigned to a bin; the returned counts are over the finite spikes only.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     if trial_starts is not None:
         st = np.asarray(spike_times, dtype=float).ravel()
@@ -904,8 +1010,10 @@ def granger(
     ridge: float = 0.0,
     detrend: Optional[str] = "zscore",
     n_surrogates: int = 0,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Bivariate or conditional Granger causality between two arbitrary signals.
@@ -929,7 +1037,8 @@ def granger(
         detrend: per-trial preprocessing, default ``'zscore'``
         n_surrogates: if > 0, also run a trial-shuffled surrogate test alongside
             the analytic F-test. Set this when residuals are not white.
-        seed: RNG seed for surrogates (default 0 — deterministic)
+        rng: RNG seed, Generator, or None for fresh entropy, for surrogates
+            (default 0 — deterministic) (``seed`` is the old spelling and still works)
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -950,6 +1059,7 @@ def granger(
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
 
@@ -990,7 +1100,13 @@ def granger(
         # Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)
         sig2_r = rss_r / max(n_obs, 1)
         sig2_u = rss_u / max(n_obs, 1)
-        gc_val = float(np.log(sig2_r / sig2_u)) if sig2_u > 0 else 0.0
+        # A zero unrestricted residual variance means the VAR could not be fitted, not
+        # that the directed influence is zero. Returning 0.0 made `granger(ones, ones)`
+        # report x_to_y = y_to_x = 0.0 with an empty warnings list and
+        # ok_for_interpretation = True, while `granger_spectral` raises and
+        # `transfer_entropy` warns `degenerate_discretization` on the identical input.
+        degenerate = not (sig2_u > 0) or not np.isfinite(sig2_u)
+        gc_val = float(np.log(sig2_r / sig2_u)) if not degenerate else float("nan")
         if rss_u > 0 and df_extra > 0 and df_u > 0:
             f_stat = ((rss_r - rss_u) / df_extra) / (rss_u / df_u)
             p_val = float(stats.f.sf(max(f_stat, 0.0), df_extra, df_u))
@@ -1006,6 +1122,7 @@ def granger(
             "resid_u": res_u,
             "sig2_restricted": float(sig2_r),
             "sig2_unrestricted": float(sig2_u),
+            "degenerate": bool(degenerate),
         }
 
     def _select_order(src: np.ndarray, tgt: np.ndarray) -> int:
@@ -1077,6 +1194,8 @@ def granger(
     block = n_times - order_yx
     diag_yx = _series_diagnostics(x[0], fit_yx["resid_u"][:block], order_yx)
     warnings_all = list(dict.fromkeys(diag_xy["warnings"] + diag_yx["warnings"]))
+    if fit_xy.get("degenerate") or fit_yx.get("degenerate"):
+        warnings_all.append("degenerate_residual_variance_var_not_identifiable")
     if order == "auto" and max(order_xy, order_yx) >= max(1, min(max_lag, (n_times - 2) // 3)):
         warnings_all.append("selected_order_hit_max_lag_ceiling")
 
@@ -1185,8 +1304,10 @@ def granger_spectral(
     ridge: float = 0.0,
     detrend: Optional[str] = "zscore",
     n_surrogates: int = 0,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.
@@ -1228,6 +1349,7 @@ def granger_spectral(
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
 
@@ -1473,8 +1595,10 @@ def phase_slope_index(
     detrend: Optional[str] = "demean",
     jackknife: bool = True,
     n_surrogates: int = 0,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Phase Slope Index (Nolte et al., 2008) — which signal leads in phase.
@@ -1529,6 +1653,7 @@ def phase_slope_index(
         Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
         complex physical systems. Phys. Rev. Lett. doi:10.1103/PhysRevLett.100.234101
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"phase_slope_index requires a positive fs; got {fs!r}")
 
@@ -1587,6 +1712,32 @@ def phase_slope_index(
     denom = np.sqrt(sxx * syy)
     coh_full = np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
     psi_per_freq = np.imag(np.conj(coh_full[:-1]) * coh_full[1:])
+
+    # The headline `net` is a raw sum over whatever band table the caller passed, so two
+    # bands covering the same bins contribute that band twice: {'a': (14, 30), 'b':
+    # (14, 30)} returned exactly 2x the estimate of {'beta': (14, 30)} on the same data.
+    _band_bins: Dict[str, np.ndarray] = {
+        _n: np.flatnonzero((freqs >= _lo) & (freqs <= _hi))
+        for _n, (_lo, _hi) in band_map.items()
+    }
+    _overlaps = sorted(
+        {
+            tuple(sorted((_a, _b)))
+            for _a in _band_bins
+            for _b in _band_bins
+            if _a != _b and np.intersect1d(_band_bins[_a], _band_bins[_b]).size
+        }
+    )
+    if _overlaps:
+        _pairs = ", ".join(f"{_a}/{_b}" for _a, _b in _overlaps)
+        warnings_all.append(f"overlapping_bands_counted_more_than_once:{_pairs}")
+        warnings.warn(
+            "phase_slope_index: bands overlap on the frequency grid "
+            f"({_pairs}); `net` sums the bands, so the shared bins are counted once per "
+            "band. Use disjoint bands, or read `per_band` instead of `net`.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     per_band: Dict[str, Dict[str, Any]] = {}
     jk_per_band: Dict[str, np.ndarray] = {}
@@ -1662,7 +1813,12 @@ def phase_slope_index(
         single = next(iter(per_band.values()))
         p_top = single.get("p_surrogate")
         if p_top is None and np.isfinite(single.get("z", np.nan)):
-            p_top = float(2 * stats.norm.sf(abs(single["z"])))
+            # Student t, not a standard normal: the delete-one jackknife z is built from
+            # `n_seg` leave-one-out replicates and carries about `n_seg - 1` degrees of
+            # freedom. The Gaussian tail reported p = 0.0 from 10 segments, and
+            # overstated moderate evidence by an order of magnitude (z = 3.29 gave
+            # 0.001 against 0.0094 under t(9)).
+            p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_seg - 1, 1)))
     else:
         if n_surrogates > 0 and null:
             valid_band_nulls = [null[k] for k in null if np.all(np.isfinite(null[k]))]
@@ -1674,7 +1830,7 @@ def phase_slope_index(
             sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
             if sd_tot > 0 and np.isfinite(sd_tot) and np.isfinite(total):
                 z_tot = float(total / sd_tot)
-                p_top = float(2 * stats.norm.sf(abs(z_tot)))
+                p_top = float(2 * stats.t.sf(abs(z_tot), df=max(n_seg - 1, 1)))
 
     return DirectedResult(
         method="psi",
@@ -1843,9 +1999,11 @@ def transfer_entropy(
     symbolic_order: int = 3,
     bias_correction: Optional[str] = "mm",
     n_surrogates: int = 200,
-    seed: Optional[int] = 0,
+    rng: RNGLike = Default(0),
     detrend: Optional[str] = None,
     time_axis: int = -1,
+    *,
+    seed: Any = Default(0),
 ) -> DirectedResult:
     """
     Transfer entropy — model-free, nonlinear directed information flow, in bits.
@@ -1875,7 +2033,8 @@ def transfer_entropy(
         bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term, or None
         n_surrogates: surrogate draws for the p-value and bias correction.
             Set to 0 only if you are calibrating the null some other way.
-        seed: RNG seed (default 0 — deterministic)
+        rng: RNG seed, Generator, or None for fresh entropy (default 0 —
+            deterministic) (``seed`` is the old spelling and still works)
         detrend: usually ``None``; TE is invariant to monotone rescaling under
             quantile/symbolic estimators, so z-scoring buys nothing
 
@@ -1888,6 +2047,7 @@ def transfer_entropy(
         Schreiber, T. (2000). Measuring information transfer. Phys. Rev. Lett.
         doi:10.1103/PhysRevLett.85.461
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
     if estimator not in ("quantile", "uniform", "discrete", "symbolic"):
         raise ValueError(
             f"estimator must be quantile|uniform|discrete|symbolic; got {estimator!r}"

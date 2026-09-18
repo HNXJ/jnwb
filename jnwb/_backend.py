@@ -2,8 +2,8 @@
 
 Private module.
 
-Fifteen call sites across seven modules each carried their own probe and fallback
-policy, which caused two problems:
+Eighteen call sites across nine modules route through here. Each used to carry its own
+probe and fallback policy, which caused two problems:
 
 * **The sites asked different questions.** Some treated a bare ``import cupy`` as proof
   of a usable GPU; others asked ``torch.cuda.is_available()``. CuPy imports fine with
@@ -15,7 +15,20 @@ policy, which caused two problems:
   returned dict said nothing.
 
 A requested accelerator that cannot be delivered warrants a warning, every time. CPU
-callers are silent, since nothing was denied them.
+callers are silent, since nothing was denied them. There are exactly three ways to be
+denied, and each has one function here, so a caller sees the same contract everywhere:
+
+* **No usable device.** :func:`resolve_device` probes and warns.
+* **A device that failed mid-computation.** :func:`warn_device_fallback`, after the
+  partial GPU work has been discarded.
+* **A device that exists but this code path cannot use.** :func:`warn_no_gpu_path`.
+  Either the function has no GPU implementation at all, or the particular arguments
+  select a branch that has none. This was the silent case: the caller with no GPU was
+  warned and the caller with one was not, which inverts the contract.
+
+Resolve once per public entry point, before any loop, and pass the resolved device to
+internal helpers. A helper that re-resolves inside a loop warns once per iteration and
+names itself rather than the function the caller invoked.
 
 CPU and GPU paths here differ numerically, and in places use different estimators
 (windows, detrending, reduction order). Anything reporting a device-dependent number
@@ -35,6 +48,7 @@ __all__ = [
     "gpu_available",
     "resolve_device",
     "warn_device_fallback",
+    "warn_no_gpu_path",
 ]
 
 CPU = "cpu"
@@ -130,6 +144,31 @@ def resolve_device(
         stacklevel=stacklevel,
     )
     return CPU
+
+
+def warn_no_gpu_path(context: str, reason: str, *, stacklevel: int = 3) -> None:
+    """Announce that a usable GPU exists but this code path will not use it.
+
+    The third denial reason, and the one that used to be silent. :func:`resolve_device`
+    covers "no device was found" and :func:`warn_device_fallback` covers "the device
+    failed part-way through"; neither fires when the device is fine and the function
+    simply has no GPU branch for these arguments. A caller on a CPU-only machine was
+    warned and a caller on an A4000 was not, so the better the hardware the quieter the
+    denial.
+
+    Args:
+        context: The function the caller actually invoked, not the private helper that
+            noticed. A warning naming an internal callee sends the reader to code they
+            did not call.
+        reason: Why this path has no GPU, phrased to complete "but ...". Say what would
+            have to change, so the caller can decide whether to change it.
+        stacklevel: Passed to :func:`warnings.warn` so the warning points at user code.
+    """
+    warnings.warn(
+        f"{context}: device='cuda' was requested, but {reason}; computing on CPU.",
+        RuntimeWarning,
+        stacklevel=stacklevel,
+    )
 
 
 def warn_device_fallback(context: str, exc: BaseException, *, stacklevel: int = 3) -> None:

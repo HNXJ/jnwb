@@ -18,12 +18,15 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
+from ._dictlike import DictAccessMixin
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 
-from ._backend import resolve_device
+from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -39,7 +42,7 @@ CANONICAL_VFLIP_BANDS: Dict[str, Tuple[float, float]] = {
 
 
 @dataclass(frozen=True)
-class VFlipResult:
+class VFlipResult(DictAccessMixin):
     """Container for Vectorized Frequency-based Laminar Identity Profile (vFLIP) results.
 
     Attributes:
@@ -91,12 +94,6 @@ class VFlipResult:
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
 
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
-
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
         return {
@@ -134,8 +131,8 @@ def vflip(
     psd: np.ndarray,
     freqs: np.ndarray,
     *,
-    band_low: Tuple[float, float] = (8.0, 30.0),
-    band_high: Tuple[float, float] = (50.0, 150.0),
+    band_low: Tuple[float, float] = CANONICAL_VFLIP_BANDS["low"],
+    band_high: Tuple[float, float] = CANONICAL_VFLIP_BANDS["high"],
     contact_spacing: Optional[float] = None,
     probe_geometry: Optional[Any] = None,
     orientation: str = "auto",
@@ -216,8 +213,12 @@ def vflip(
     if orientation not in valid_orientations:
         raise ValueError(f"orientation must be one of {valid_orientations}, got {orientation!r}")
 
-    # Validate device
-    _ = resolve_device(device, context="vflip", prefer="cupy", stacklevel=3)
+    # Validate device. `laminar.py` contains no cupy or torch call anywhere, so a
+    # `device='cuda'` request can never be honoured here -- the resolver's answer used
+    # to be assigned to `_` and thrown away, which meant a caller with no GPU was warned
+    # and a caller with a working A4000 was not.
+    if resolve_device(device, context="vflip", prefer="cupy", stacklevel=3) == CUDA:
+        warn_no_gpu_path("vflip", "vflip has no GPU implementation", stacklevel=3)
 
     freqs_arr = np.asarray(freqs, dtype=np.float64)
     if freqs_arr.ndim != 1:
@@ -541,8 +542,8 @@ def vflip_from_lfp(
     window: str = "hann",
     detrend: Union[str, bool] = "constant",
     scaling: str = "density",
-    band_low: Tuple[float, float] = (8.0, 30.0),
-    band_high: Tuple[float, float] = (50.0, 150.0),
+    band_low: Tuple[float, float] = CANONICAL_VFLIP_BANDS["low"],
+    band_high: Tuple[float, float] = CANONICAL_VFLIP_BANDS["high"],
     contact_spacing: Optional[float] = None,
     probe_geometry: Optional[Any] = None,
     orientation: str = "auto",
@@ -862,7 +863,7 @@ def label_layers(
 
 
 @dataclass(frozen=True)
-class XFlipResult:
+class XFlipResult(DictAccessMixin):
     """Container for Cross-Channel Laminar Correlation Profile (xFLIP) results.
 
     Attributes:
@@ -896,12 +897,6 @@ class XFlipResult:
     n_channels: int
     n_blocks: int
     boundary_drops: Optional[Dict[int, float]] = None
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1028,13 +1023,29 @@ def _optimal_contiguous_partition(
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
+    # 05-47: the off-diagonal term below was already answered from `prefix` in constant
+    # time while the diagonal term re-summed a slice on every call. `np.diag` returns a
+    # view, so nothing was copied, but the call plus the slice plus the reduction cost
+    # 4.82 of the 5.56 microseconds an `interval_w` call took -- 87% of it -- and the DP
+    # makes about 93000 of them at n=256 with n_blocks=4, once per surrogate. Prefix-
+    # summing the diagonal answers it the way the off-diagonal term is already answered.
+    #
+    # This is not bit-identical to re-summing: a difference of two running totals is a
+    # different floating-point operation from a pairwise reduction, and on a real
+    # correlation matrix -- whose diagonal `np.corrcoef` does not always make exactly
+    # 1.0 -- the two disagree by up to 4e-15. It cannot reach the answer. For a fixed
+    # (k, j) every candidate partition tiles [0, j), so the per-block diagonal terms sum
+    # to `f(j) - f(0)` whatever the cuts are: the same constant in every candidate,
+    # cancelling out of the comparison. The returned modularity is computed separately
+    # by `_compute_contrast` from the labels, and never sees `dp` at all.
+    diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
 
     def interval_w(u: int, v: int) -> float:
         sz = v - u
         if sz < min_block_size:
             return -np.inf
         total_sub = prefix[v, v] - prefix[u, v] - prefix[v, u] + prefix[u, u]
-        diag_sub = float(np.sum(np.diag(corr)[u:v]))
+        diag_sub = diag_cum[v] - diag_cum[u]
         s_uv = 0.5 * (total_sub - diag_sub)
         p_uv = 0.5 * sz * (sz - 1)
         return float(s_uv - gamma * p_uv)
@@ -1085,6 +1096,17 @@ def _optimal_contiguous_partition(
 
     modularity = _compute_contrast(corr, labels)
     return block_bounds, boundaries, modularity, labels
+
+
+def _label_change_boundaries(labels: np.ndarray) -> Tuple[int, ...]:
+    """Positions along the probe where the cluster label changes."""
+    return tuple(int(i) for i in range(1, len(labels)) if labels[i] != labels[i - 1])
+
+
+def _partition_is_contiguous(labels: np.ndarray) -> bool:
+    """Does every cluster occupy one unbroken span of the channel index?"""
+    n_clusters = int(np.unique(labels).size)
+    return len(_label_change_boundaries(labels)) == max(n_clusters - 1, 0)
 
 
 def _unrestricted_partition(
@@ -1208,6 +1230,19 @@ def xflip(
         raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
     if n_surrogates < 0:
         raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+    # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
+    # equally unchecked: alpha=5.0 with min_boundary_drop=0.0 accepted a smooth spatial
+    # gradient in 15 of 15 seeds. `zflip` already range-checks the identical parameter.
+    if not (np.isfinite(alpha) and 0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must lie in (0, 1); got {alpha}.")
+    if not (np.isfinite(min_contrast) and min_contrast >= 0.0):
+        raise ValueError(f"min_contrast must be a finite value >= 0; got {min_contrast}.")
+    if not (np.isfinite(min_boundary_drop) and min_boundary_drop >= 0.0):
+        raise ValueError(
+            f"min_boundary_drop must be a finite value >= 0; got {min_boundary_drop}."
+        )
+    if min_block_size < 1:
+        raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
 
     arr = np.asarray(data)
     if arr.ndim != 2:
@@ -1407,9 +1442,15 @@ def xflip(
         p_values["omnibus"] = np.nan
 
     # Evaluate boundary drops (local discontinuity across candidate cuts)
+    # On the unrestricted path the partition carries no boundaries of its own, but a
+    # partition that happens to be contiguous has the same cuts the DP would have produced.
+    drop_boundaries = boundaries
+    if not contiguous and _partition_is_contiguous(labels):
+        drop_boundaries = _label_change_boundaries(labels)
+
     boundary_drops: Dict[int, float] = {}
-    if contiguous and len(boundaries) > 0:
-        for b in boundaries:
+    if len(drop_boundaries) > 0:
+        for b in drop_boundaries:
             within_neighbors = []
             if b >= 2:
                 within_neighbors.append(float(corr[b - 2, b - 1]))
@@ -1430,8 +1471,21 @@ def xflip(
     is_sig = bool(p_values["omnibus"] <= alpha) if surrogates_run else False
     has_contrast = (obs_q >= min_contrast)
     has_blocks = (target_k >= 2)
+    # The gradient gate. It used to run only under `contiguous`, while `has_drop` was
+    # initialised True, so the unrestricted path silently *skipped* it rather than failing
+    # it -- the same "not tested is not passed" error the `n_surrogates=0` contract above
+    # exists to prevent. A smooth spatial gradient was accepted in 15 of 15 seeds there
+    # where the contiguous path accepted 0 of 15.
+    #
+    # The statistic is a *local* discontinuity, and locality is the point: a smooth
+    # exponential decay separates perfectly well at the cluster level (within-minus-between
+    # is 0.3285 on the gradient null), so only the drop across the cut distinguishes a real
+    # boundary from a gradient. It is therefore applied exactly when a gradient could have
+    # produced the partition -- that is, when the partition is contiguous. A genuinely
+    # interleaved partition cannot come from a spatial gradient, so the gate does not apply
+    # and `unrestricted_partition_is_interleaved` records that it did not.
     has_drop = True
-    if contiguous and min_boundary_drop > 0.0 and len(boundaries) > 0:
+    if min_boundary_drop > 0.0 and len(drop_boundaries) > 0:
         for b, drop_val in boundary_drops.items():
             if drop_val < min_boundary_drop:
                 has_drop = False
@@ -1475,7 +1529,7 @@ def xflip(
 
 
 @dataclass(frozen=True)
-class ZFlipResult:
+class ZFlipResult(DictAccessMixin):
     """Container for zFLIP Cortical Depth Phase-Gradient & Delay Estimation results.
 
     zFLIP estimates laminar phase slope and propagation latency across ordered
@@ -1530,12 +1584,6 @@ class ZFlipResult:
     n_channels: int
     pitch_um: Optional[float] = None
 
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
-
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
         return {
@@ -1568,7 +1616,8 @@ def zflip(
     min_wpli: float = 0.15,
     n_surrogates: int = 50,
     alpha: float = 0.05,
-    seed: Optional[Union[int, np.random.Generator]] = 0,
+    rng: RNGLike = Default(0),
+    seed: Any = Default(0),
 ) -> ZFlipResult:
     r"""Estimate cortical depth phase gradients, propagation delay, and apparent velocity.
 
@@ -1625,7 +1674,8 @@ def zflip(
             attainable p-value is ``1 / (n_surrogates + 1)``.
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
-        seed: Random seed or Generator for surrogate evaluation.
+        rng: Random seed, Generator, or None for fresh entropy, for surrogate
+            evaluation (``seed`` is the old spelling and still works).
 
     Returns:
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
@@ -1636,6 +1686,7 @@ def zflip(
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
             fewer than 2 segments.
     """
+    seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
     lfp = np.asarray(lfp_matrix, dtype=float)
     if lfp.ndim != 2:
         raise ValueError(

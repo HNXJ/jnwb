@@ -19,7 +19,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
+from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
+from ._rng import Default, RNGLike, resolve_seed_alias
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -44,7 +46,10 @@ class JRSAResult:
     df : np.ndarray | None
         Degrees of freedom.
     ci : np.ndarray | None
-        Confidence intervals, shape (…, 2).
+        Percentile bootstrap interval, shape (…, 2), fixed at 95% (the 2.5th and 97.5th
+        percentiles of the bootstrap distribution). `alpha` sets the significance
+        threshold for the multiple-comparison correction and does not change this
+        interval.
     metric : str
         Metric name.
     axes : tuple
@@ -62,7 +67,8 @@ class JRSAResult:
     aligned_x2 : np.ndarray | None
         Internally aligned x2 (if return_input=True).
     execution : dict
-        Runtime metadata (backend, device, runtime, memory, seed).
+        Runtime metadata (backend, device, batch_size, runtime, memory, seed). What ran,
+        not what was asked for; the request is in `parameters`.
     """
 
     value: np.ndarray
@@ -144,9 +150,9 @@ def jrsa(
     # execution
     backend="auto",
     device="auto",
-    n_jobs=-1,
+    n_jobs=1,
     batch_size=None,
-    random_state=None,
+    rng: RNGLike = Default(None),
     # output
     return_type="result",
     return_null=False,
@@ -182,7 +188,12 @@ def jrsa(
     lag : int | tuple | array-like
         Temporal lag(s).
     window : tuple | int or None
-        Analysis window, e.g. (-500, 500) ms.
+        Analysis window as **sample indices** along the aligned axis: ``(start, stop)``,
+        half-open, with negative values counted from the end as in Python slicing, or an
+        integer width centred on the axis. This is not a time -- `jrsa` takes no sampling
+        rate and cannot convert one. The docstring used to read "e.g. (-500, 500) ms",
+        which on a 6-sample axis clamped to the whole axis and returned the unwindowed
+        answer with no warning.
     sliding : bool
         Use sliding window.
     normalize : bool
@@ -203,17 +214,35 @@ def jrsa(
         Multiple-comparison correction: none | bonferroni | holm |
         holm-sidak | fdr_bh | fdr_by | cluster | maxT.
     alpha : float
-        Significance threshold.
+        Significance threshold for the multiple-comparison correction. It does not set
+        the width of `ci`, which is a fixed 95% percentile bootstrap interval.
     alternative : str
         two-sided | greater | less.
     backend : str
-        auto | numpy | scipy | jax | torch | cupy.
+        auto | numpy | scipy | jax | torch | cupy. Accepted for API compatibility and for
+        the input types it lets you pass; every metric converts to NumPy on its first line,
+        so this does not change where the arithmetic runs or what it returns.
     device : str
-        auto | cpu | cuda | tpu.
+        'cpu' or 'cuda', validated by the same `resolve_device` the rest of the package
+        uses -- an unknown name raises. `execution['device']` records the resolved device.
     n_jobs : int
-        CPU workers (-1 = all cores).
+        CPU workers. Default 1 (serial), the same default as everywhere else in the
+        package; -1 means all cores. Opt in only when the serial work is large enough
+        to repay the first parallel call, which costs several seconds because every
+        worker imports this package before it can unpickle the callable. Measured one
+        call per interpreter on a contended machine, `jrsa(x1, x2)` on a 40x6 input with
+        the default 1000 permutations was 10x to 24x slower with `n_jobs=-1` than
+        serial across repeated runs; the absolute seconds moved with the contention, the
+        ordering did not. It starts to pay at roughly five seconds of serial work -- a
+        400x60 input with 10000 permutations ran 10.8 s serial against 5.6 s on all
+        cores. `n_jobs` never changes a number.
     batch_size : int or None
-        Chunk size for large arrays.
+        Accepted and recorded in `parameters`; nothing is chunked. jrsa evaluates each
+        metric over the whole array in one pass, and the helper that used to chunk had no
+        callers -- across batch_size None, 1, 4, 32 and 10000 the value, p-value and
+        interval are identical. `execution['batch_size']` records what ran, which is
+        always None, on the same rule as `backend` and `device`: `parameters` carries the
+        request, `execution` carries what happened.
     random_state : int or None
         Random seed for reproducibility, for both the permutation null and the bootstrap.
         May also be passed as ``seed``, the spelling used by the rest of the package;
@@ -248,21 +277,27 @@ def jrsa(
     """
     t0 = time.perf_counter()
 
-    # --- seed alias -----------------------------------------------------------
-    # Every other seeded entry point in this package spells this parameter `seed`
-    # (connectivity, laminar, statistics, permutation); only jrsa spelled it
-    # `random_state`. Because jrsa forwards **kwargs to the metric, and every metric
-    # swallows **kwargs, `jrsa(..., seed=0)` used to be accepted in silence and leave
-    # random_state=None -- an entropy-seeded, irreproducible permutation test that still
-    # returned a plausible p. Four repeated calls with seed=0 gave p = 0.2736, 0.3333,
-    # 0.2637, 0.2935; with random_state=0 they give 0.2189 four times.
-    if "seed" in kwargs:
-        if random_state is not None:
-            raise TypeError(
-                "jrsa() received both `seed` and `random_state`; pass only one "
-                "(`seed` is the package-wide spelling and is an alias for `random_state`)."
-            )
-        random_state = kwargs.pop("seed")
+    # --- rng alias ------------------------------------------------------------
+    # Because jrsa forwards **kwargs to the metric, and every metric swallows **kwargs,
+    # a misspelled seed used to be accepted in silence and leave the parameter at None --
+    # an entropy-seeded, irreproducible permutation test that still returned a plausible
+    # p. Four repeated calls with seed=0 gave p = 0.2736, 0.3333, 0.2637, 0.2935; with the
+    # parameter actually set they give 0.2189 four times. So every accepted spelling is
+    # popped explicitly here, and two that disagree raise.
+    #
+    # 05-34 made `rng` canonical package-wide. An earlier repair declared `seed` the
+    # package-wide spelling; that was true of 7 functions against 8 spelling it `rng`, and
+    # the argument now accepts a Generator as well as an int, which `seed` would misname.
+    _given = "rng"
+    for _alias in ("random_state", "seed"):
+        if _alias in kwargs:
+            _was_unset = isinstance(rng, Default)
+            rng = resolve_seed_alias(rng, kwargs.pop(_alias), alias_name=_alias,
+                                     func_name="jrsa", canonical_name=_given)
+            if _was_unset:
+                _given = _alias
+    random_state = resolve_seed_alias(rng, Default(None), alias_name="seed",
+                                      func_name="jrsa")
 
     # --- collect parameter snapshot -------------------------------------------
     params = dict(
@@ -279,7 +314,28 @@ def jrsa(
 
     # --- pipeline -------------------------------------------------------------
     rng = np.random.default_rng(random_state)
-    bk = _get_backend(backend, device)
+    # `device` used to be recorded verbatim, so `device='bogus_device'` ran and was
+    # reported as the device, while all 15 `resolve_device` sites raise for the same
+    # string. Routing it here makes jrsa refuse an unknown device like every other
+    # function -- and tells us what actually runs, which is the CPU: every metric calls
+    # `_ensure_np` on its first line, so an upload to cupy/torch/jax is converted straight
+    # back and the computation is NumPy either way. `execution` now says so.
+    resolved_device = resolve_device(
+        None if str(device).strip().lower() == "auto" else device,
+        context="jrsa", prefer="cupy", stacklevel=3,
+    )
+    if resolved_device == CUDA:
+        # The resolver found a GPU, but jrsa will not use it: every metric calls
+        # `_ensure_np` first. Saying so is the point -- `execution` used to record
+        # `device: 'cuda'` for arithmetic that ran on the CPU.
+        warnings.warn(
+            "jrsa: device='cuda' was requested, but every jrsa metric computes in NumPy "
+            "on the CPU. The result is unchanged and execution['device'] records 'cpu'.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        resolved_device = CPU
+    bk = _get_backend(backend, resolved_device)
 
     x1, x2 = _prepare_inputs(x1, x2, bk)
     x1, x2 = _validate_inputs(x1, x2, nan_policy)
@@ -345,11 +401,24 @@ def jrsa(
             null_dist = _permutation_test(
                 x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
             )
-            if p_raw is None:
-                p_raw = _p_from_null(value, null_dist, alternative)
+            # The permutation p wins whenever it was computed. `if p_raw is None` let the
+            # metric's own cell-wise parametric p pre-empt it, so `rsa`, `pearson`,
+            # `spearman`, `kendall`, `phase_slope` and `granger_ssr_ftest` returned a p that
+            # did not move between permutations=10 and permutations=2000 -- it was
+            # `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:167 states "is not a
+            # valid test of RDM relatedness". The valid null was computed and discarded.
+            p_parametric = p_raw
+            p_raw = _p_from_null(value, null_dist, alternative)
 
         if bootstrap > 0:
-            ci = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+            # `perm_axis`, not -1. The observation axis is axis 0 for the six metrics in
+            # `_OBSERVATION_AXIS_0_METRICS`; resampling axis -1 there bootstrapped the
+            # *features*, so the interval answered "how much does this depend on which
+            # columns I measured" instead of "on which observations I sampled".
+            ci = _bootstrap(
+                x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
+                n_jobs=n_jobs, **kwargs
+            )
 
         q_corrected = None
         if stats and p_raw is not None and correction.lower() != "none":
@@ -374,13 +443,16 @@ def jrsa(
                 nd = _permutation_test(
                     x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
                 )
-                if p is None:
-                    p = _p_from_null(v, nd, alternative)
-                    p_list[-1] = p
+                # See the single-lag branch: the permutation p wins when it exists.
+                p = _p_from_null(v, nd, alternative)
+                p_list[-1] = p
                 null_dist_list.append(nd)
                 
             if bootstrap > 0:
-                c_val = _bootstrap(x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=-1, n_jobs=n_jobs, **kwargs)
+                c_val = _bootstrap(
+                    x1_lagged, x2_lagged, metric_fn, bootstrap, rng, axis=perm_axis,
+                    n_jobs=n_jobs, **kwargs
+                )
                 ci_list.append(c_val)
         
         xp = _get_xp(x1)
@@ -408,7 +480,7 @@ def jrsa(
             q_corrected = _multiple_correction(p_raw, correction, alpha)
 
     # --- build result ---------------------------------------------------------
-    exec_meta = _make_exec_meta(bk, device, t0, rng)
+    exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
 
     result = _make_result(
         value=value,
@@ -479,23 +551,24 @@ def _validate_inputs(x1, x2, nan_policy: str):
         xp2 = _get_xp(x2)
         if nan_policy == "raise" and xp2.any(xp2.isnan(x2)):
             raise ValueError("NaN values found in x2 (nan_policy='raise').")
+    # Shape before NaN policy. This guard used to live inside the `omit` branch, so the
+    # other two policies skipped it and reached the per-metric `[:min(m1, m2)]`
+    # truncations: (60, 6) against (40, 6) returned a statistic under nan_policy='raise'
+    # and 'propagate' for metrics cka and procrustes, while the default 'omit' refused it.
+    # The contract is the same whatever is done about NaN, so the check is too -- and this
+    # is what makes those per-metric truncations genuinely unreachable and defensive only.
+    if x2 is not None and tuple(x1.shape) != tuple(x2.shape):
+        raise ValueError(
+            f"x1 and x2 must have the same shape; got {tuple(x1.shape)} and "
+            f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
+            f"observation count nor the feature count is truncated to match."
+        )
     if nan_policy == "omit":
         if x2 is not None:
             xp2 = _get_xp(x2)
             # Find joint valid mask (neither is NaN) along the last axis
             # For multi-dimensional inputs, we assume the last axis contains the paired samples.
             # We want to keep samples where both x1 and x2 are not NaN.
-            # Say what is wrong. Mismatched shapes otherwise surfaced as a raw numpy
-            # broadcast error from inside a NaN mask, which names the shapes but not the
-            # contract they violate. (The per-metric `[:min(m1, m2)]` truncations further
-            # down are unreachable from the public entry point because of this guard; they
-            # are defensive only.)
-            if x1.shape != x2.shape:
-                raise ValueError(
-                    f"x1 and x2 must have the same shape; got {tuple(x1.shape)} and "
-                    f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
-                    f"observation count nor the feature count is truncated to match."
-                )
             nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
             # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
             # In general, if there are multiple dimensions, we project the mask down to the last axis.
@@ -736,7 +809,14 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
 
 
 def _make_windows(x1, x2, axis_map, window, sliding):
-    """Extract window or build sliding windows."""
+    """Extract window or build sliding windows.
+
+    `window` is in sample indices along the aligned axis. The clamping below used to be
+    silent in both directions: `(-500, 500)` on a 6-sample axis became `(0, 6)` -- the
+    whole axis, so a caller who believed they had windowed got the unwindowed answer --
+    and `(10, 30)` became an empty slice that produced a NaN statistic rather than an
+    error. Both now say what happened.
+    """
     if window is None:
         return x1, x2, None
     ax = axis_map.get("aligned", axis_map.get(list(axis_map.keys())[0], -1))
@@ -746,12 +826,27 @@ def _make_windows(x1, x2, axis_map, window, sliding):
         center = n // 2
         start, stop = max(0, center - half), min(n, center + half)
     else:
-        start, stop = int(window[0]), int(window[1])
+        requested = (int(window[0]), int(window[1]))
+        start, stop = requested
         if start < 0:
             start = max(0, n + start)
         if stop < 0:
             stop = max(0, n + stop)
         stop = min(stop, n)
+        if start >= stop:
+            raise ValueError(
+                f"jrsa: window={window!r} selects no samples of the {n}-sample aligned "
+                f"axis (resolved to [{start}, {stop})). `window` is in sample indices, "
+                "not milliseconds."
+            )
+        if (start, stop) == (0, n) and requested != (0, n):
+            warnings.warn(
+                f"jrsa: window={window!r} covers the whole {n}-sample aligned axis after "
+                "clamping, so no windowing was applied. `window` is in sample indices, "
+                "not milliseconds.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
     slices = [slice(None)] * x1.ndim
     slices[ax] = slice(start, stop)
     x1 = x1[tuple(slices)]
@@ -799,7 +894,7 @@ def _metric_kwargs(metric_fn):
     } - {"axis"}
 
 
-def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwargs):
+def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwargs):
     """Label-shuffle permutation test; returns null distribution, optimized for GPU if needed."""
     is_cp = False
     try:
@@ -840,16 +935,25 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=-1, **kwar
         v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
         return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
 
-    null = _parallel_map(_run_single_perm, seeds, n_jobs=n_jobs)
+    null = parallel_map(_run_single_perm, seeds, n_jobs=n_jobs)
     return np.asarray(null)
 
 
 def _p_from_null(value, null_dist, alternative):
-    """Compute p-value from null distribution."""
+    """Compute p-value from null distribution.
+
+    Returns NaN when the observed statistic or the whole null is non-finite. Comparisons
+    against NaN are all False, so the exceedance count was 0 and the p-value came out at
+    its own floor, ``1/(n+1)`` -- the *most* significant value the test can emit. A
+    constant input against a Gaussian one reported ``value: nan, p: 0.000999``.
+    """
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
+    null_dist = np.asarray(null_dist)
     n = len(null_dist)
+    if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
+        return np.atleast_1d(np.float64(np.nan))
     if alternative == "two-sided":
         k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
     elif alternative == "greater":
@@ -860,7 +964,7 @@ def _p_from_null(value, null_dist, alternative):
     return np.atleast_1d(np.float64(p))
 
 
-def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=-1, **kwargs):
+def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
     """Percentile bootstrap; returns (lower, upper) CI array, optimized for GPU if needed."""
     is_cp = False
     try:
@@ -903,7 +1007,7 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=-1, **kwargs):
         v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)
         return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
 
-    boot_vals = _parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
+    boot_vals = parallel_map(_run_single_boot, seeds, n_jobs=n_jobs)
     boot_arr = np.asarray(boot_vals)
     ci = np.percentile(boot_arr, [2.5, 97.5])
     return ci
@@ -921,11 +1025,12 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
     p_flat = np.asarray(p).ravel()
     m_lower = method.lower()
     if m_lower not in _CORRECTION_METHOD_MAP and m_lower != "none":
-        warnings.warn(
-            f"Unrecognized correction method '{method}'. Falling back to 'fdr_bh'. "
-            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())}",
-            UserWarning,
-            stacklevel=2,
+        # This used to warn and fall back to 'fdr_bh' while `parameters['correction']`
+        # kept echoing the request, so a run corrected one way was recorded as corrected
+        # another. A typo in a correction method is not a preference to be approximated.
+        raise ValueError(
+            f"Unrecognized correction method {method!r}. "
+            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())} or 'none'."
         )
     try:
         from statsmodels.stats.multitest import multipletests
@@ -941,46 +1046,31 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
     return q.reshape(np.asarray(p).shape)
 
 
-def _confidence_interval(values, alpha=0.05):
-    """Analytical CI from normal approximation."""
-    from scipy import stats as sp_stats
-    n = len(values)
-    se = sp_stats.sem(values)
-    ci = sp_stats.t.interval(1 - alpha, df=n - 1, loc=np.mean(values), scale=se)
-    return np.asarray(ci)
-
-
 # ===========================================================================
 # PRIVATE – execution / backend
 # ===========================================================================
 
+_VALID_BACKENDS = ("auto", "numpy", "scipy", "cupy", "jax", "torch")
+
+
 def _get_backend(backend: str, device: str) -> dict:
-    """Resolve backend and device; return context dict."""
-    if backend == "auto":
-        backend = _autodetect_backend(device)
-    return {"name": backend, "device": device}
+    """Validate the requested backend and report the one that executes.
 
-
-def _autodetect_backend(device: str) -> str:
-    """Pick the best available backend."""
-    if device in ("cuda",):
-        try:
-            import cupy  # noqa: F401
-            return "cupy"
-        except ImportError:
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    return "torch"
-            except ImportError:
-                pass
-    if device in ("tpu",):
-        try:
-            import jax  # noqa: F401
-            return "jax"
-        except ImportError:
-            pass
-    return "numpy"
+    Every metric converts its inputs with `_ensure_np` before it computes anything, so
+    the executing backend is NumPy whatever was requested. This used to report the
+    *request*: `jrsa(device='cuda', backend='cupy')` recorded
+    `{'backend': 'cupy', 'device': 'cuda'}` for arithmetic that ran on the CPU, and
+    `_autodetect_backend` picked a name from what happened to be importable, which
+    likewise changed the record and nothing else. `parameters['backend']` still carries
+    what the caller asked for; `execution['backend']` now carries what ran.
+    """
+    requested = str(backend).strip().lower()
+    if requested not in _VALID_BACKENDS:
+        raise ValueError(
+            f"jrsa: unrecognised backend {backend!r}; expected one of "
+            f"{sorted(_VALID_BACKENDS)}."
+        )
+    return {"name": "numpy", "requested": requested, "device": device}
 
 
 def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
@@ -999,74 +1089,13 @@ def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
     if hasattr(arr, "get"):
         # cupy
         arr = arr.get()
-    if bk == "numpy":
-        return np.asarray(arr, dtype=np.float64)
-    elif bk == "cupy":
-        return _backend_cupy(arr)
-    elif bk == "jax":
-        return _backend_jax(arr)
-    elif bk == "torch":
-        return _backend_torch(arr, dev)
+    # Everything above normalizes whatever the caller passed -- Signal, torch, jax, cupy --
+    # down to something numpy can take, and that is the part that matters. The dispatch that
+    # used to follow re-uploaded to cupy/jax/torch, and then every one of the 14 metrics
+    # called `_ensure_np` on its first line and pulled it straight back, so the transfer was
+    # pure cost and `execution` recorded a GPU run that executed on the CPU. jrsa is a NumPy
+    # estimator; `backend` and `device` are validated and recorded, and change no number.
     return np.asarray(arr, dtype=np.float64)
-
-
-def _parallel_map(fn, items, n_jobs=-1):
-    """Map fn over items, delegating to the shared chunked implementation.
-
-    Kept as a thin alias: jrsa's public functions default to n_jobs=-1, unlike the rest
-    of the library, and callers depend on that.
-    """
-    return parallel_map(fn, items, n_jobs=n_jobs)
-
-
-def _chunk_tensor(arr, batch_size, axis=-1):
-    """Yield slices of arr along axis."""
-    n = arr.shape[axis]
-    for start in range(0, n, batch_size):
-        stop = min(start + batch_size, n)
-        slc = [slice(None)] * arr.ndim
-        slc[axis] = slice(start, stop)
-        yield arr[tuple(slc)]
-
-
-# --- backend wrappers -------------------------------------------------------
-
-def _backend_numpy(arr):
-    """Ensure numpy float64 array."""
-    return np.asarray(arr, dtype=np.float64)
-
-
-def _backend_cupy(arr):
-    """Convert to cupy array; falls back to numpy if unavailable."""
-    try:
-        import cupy as cp
-        return cp.asarray(arr)
-    except ImportError:
-        warnings.warn("CuPy not available; falling back to NumPy.")
-        return np.asarray(arr, dtype=np.float64)
-
-
-def _backend_jax(arr):
-    """Convert to jax array; falls back to numpy if unavailable."""
-    try:
-        import jax.numpy as jnp
-        return jnp.asarray(arr)
-    except ImportError:
-        warnings.warn("JAX not available; falling back to NumPy.")
-        return np.asarray(arr, dtype=np.float64)
-
-
-def _backend_torch(arr, device="cpu"):
-    """Convert to torch tensor placing on correct device; falls back to numpy if unavailable."""
-    try:
-        import torch
-        t = torch.as_tensor(np.asarray(arr, dtype=np.float32))
-        if device == "cuda" and torch.cuda.is_available():
-            t = t.cuda()
-        return t
-    except ImportError:
-        warnings.warn("PyTorch not available; falling back to NumPy.")
-        return np.asarray(arr, dtype=np.float64)
 
 
 # ===========================================================================
@@ -1269,6 +1298,15 @@ def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
 
 def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     """Centered Kernel Alignment optimized for linear complexity O(md^2) when d << m."""
+    # The linear-kernel identity below is what makes this O(m*d1*d2) rather than O(m^3);
+    # it is not a Gram matrix that a kernel could be substituted into. `kernel='rbf'` and
+    # `kernel='nonsense_kernel'` were both accepted and both returned the linear answer.
+    if kernel != "linear":
+        raise NotImplementedError(
+            f"jrsa(metric='cka') implements the linear kernel only; got kernel={kernel!r}. "
+            "The linear form is computed in closed form, not from an explicit Gram matrix, "
+            "so another kernel cannot be substituted. Use metric='hsic' for a kernel CKA."
+        )
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
@@ -1623,23 +1661,23 @@ _METRIC_DISPATCH = {
 # PRIVATE – result helpers
 # ===========================================================================
 
-def _make_exec_meta(backend_ctx, device, t0, rng):
-    seed_val = None
-    if rng is not None:
-        try:
-            if hasattr(rng, "bit_generator") and hasattr(rng.bit_generator, "state"):
-                state = rng.bit_generator.state
-                if isinstance(state, dict) and "state" in state:
-                    sub_state = state["state"]
-                    if isinstance(sub_state, dict) and "state" in sub_state:
-                        seed_val = int(sub_state["state"])
-                    elif isinstance(sub_state, int):
-                        seed_val = sub_state
-        except (TypeError, ValueError, KeyError, AttributeError):
-            pass
+def _make_exec_meta(backend_ctx, device, t0, random_state):
+    """`seed` is the `random_state` that was used, so it can be fed back.
+
+    It used to be `rng.bit_generator.state['state']['state']` -- the 128-bit internal
+    counter, e.g. 69277902251545625047243999639177715869 for `random_state=7`. That is a
+    faithful record of the generator's position and a useless one for reproduction:
+    passing it back as `random_state` seeds a different stream. `None` is recorded as
+    None, which is the honest answer for a run seeded from OS entropy and, per the
+    `random_state` docstring, one that will not reproduce.
+    """
+    seed_val = random_state
     return {
         "backend": backend_ctx.get("name", "numpy"),
         "device": device,
+        # None means one pass over the whole array, which is always: jrsa does not chunk,
+        # whatever `parameters['batch_size']` asked for.
+        "batch_size": None,
         "runtime": time.perf_counter() - t0,
         "memory": None,
         "seed": seed_val,

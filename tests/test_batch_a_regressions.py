@@ -108,15 +108,29 @@ class TestStatisticsRNG:
         assert res1["bootstrap_std"] == res3["bootstrap_std"]
 
     def test_invalid_rng_type_raises_type_error(self):
+        """05-35 retargeted an int from "rejected" to "a seed".
+
+        This used to assert that `bootstrap_ci(data, rng=42)` raises, while the same
+        function ran `np.random.default_rng(42)` whenever `rng` was omitted. The strict
+        path was the explicit one and the lax path was the default one, which is backwards;
+        and the module-level `exact_sign_flip` already accepted `int | Generator | None`,
+        so the siblings disagreed about the same argument. What must still raise is a type
+        that names no stream at all.
+        """
         data = np.array([1.0, 2.0, 3.0])
-        with pytest.raises(TypeError, match="rng must be an instance of np.random.Generator"):
-            StatisticalAnalysis.bootstrap_ci(data, rng=42)
+        for bad in ("not_an_rng", 3.5, [1, 2], {"seed": 1}):
+            with pytest.raises(TypeError, match="rng must be an int seed"):
+                StatisticalAnalysis.bootstrap_ci(data, rng=bad)
+            with pytest.raises(TypeError, match="rng must be an int seed"):
+                StatisticalAnalysis.permutation_test(data, data, rng=bad)
+            with pytest.raises(TypeError, match="rng must be an int seed"):
+                StatisticalAnalysis.compare_groups(data, data, rng=bad)
 
-        with pytest.raises(TypeError, match="rng must be an instance of np.random.Generator"):
-            StatisticalAnalysis.permutation_test(data, data, rng="not_an_rng")
-
-        with pytest.raises(TypeError, match="rng must be an instance of np.random.Generator"):
-            StatisticalAnalysis.compare_groups(data, data, rng=123)
+    def test_an_int_is_a_seed_and_agrees_with_the_generator_it_names(self):
+        data = np.array([1.0, 2.0, 3.0])
+        assert StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500, rng=42) == \
+               StatisticalAnalysis.bootstrap_ci(data, n_bootstrap=500,
+                                                rng=np.random.default_rng(42))
 
 
 class TestArtifactDetectionPublicAPI:

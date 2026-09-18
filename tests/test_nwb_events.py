@@ -256,8 +256,9 @@ class TestEdgeConstructs:
         onsets = event_onsets(path, codes=None)
         np.testing.assert_allclose(onsets, [1.5, 3.5])
 
-        # events() returns EventTable without code column
-        et = events(path)
+        # events() returns EventTable without code column, and says so out loud
+        with pytest.warns(UserWarning, match="No 'codes' column"):
+            et = events(path)
         assert et.n_events == 2
         assert et.code_column is None
         assert et.codes == ()
@@ -266,3 +267,56 @@ class TestEdgeConstructs:
         # Filtering by codes when no code column exists raises ColumnNotFoundError
         with pytest.raises(ColumnNotFoundError):
             event_onsets(path, codes=["some_code"])
+
+
+class TestAnAbsentCodeColumnIsNotSilent:
+    """`events` used to null ANY absent `code_column` before reading the table, so the
+    raise in `_extract_onsets` for an explicitly named missing column was unreachable
+    through it. Two things followed on a file from another lab, whose trials table had a
+    column named `stimulus`: `events(path)` returned `code_column=None, codes=()` with no
+    warning, and `events(path, code_column="condition")` -- a name the caller invented --
+    returned exactly the same thing instead of failing, while `event_onsets` with the same
+    argument raised. The two entry points now agree.
+    """
+
+    @staticmethod
+    def _foreign(tmp_path):
+        path = tmp_path / "foreign.nwb"
+        table = TimeIntervals(name="trials", description="a table from another lab")
+        table.add_column(name="stimulus", description="stimulus label")
+        table.add_row(start_time=1.0, stop_time=2.0, stimulus="grating")
+        table.add_row(start_time=3.0, stop_time=4.0, stimulus="blank")
+        _write_interval_only_nwb(path, {"trials": table})
+        return path
+
+    def test_the_default_column_being_absent_warns_and_names_the_real_columns(self, tmp_path):
+        path = self._foreign(tmp_path)
+        with pytest.warns(UserWarning) as record:
+            et = events(path)
+        message = str(record[0].message)
+        assert "stimulus" in message, message
+        assert "code_column" in message, message
+        assert et.code_column is None
+        np.testing.assert_allclose(et.onsets, [1.0, 3.0])
+
+    def test_a_column_the_caller_named_must_exist(self, tmp_path):
+        path = self._foreign(tmp_path)
+        with pytest.raises(ColumnNotFoundError, match="condition"):
+            events(path, code_column="condition")
+
+    def test_events_and_event_onsets_agree_about_the_same_mistake(self, tmp_path):
+        path = self._foreign(tmp_path)
+        with pytest.raises(ColumnNotFoundError):
+            events(path, code_column="condition")
+        with pytest.raises(ColumnNotFoundError):
+            event_onsets(path, code_column="condition")
+
+    def test_the_real_column_still_reads_normally(self, tmp_path):
+        path = self._foreign(tmp_path)
+        et = events(path, code_column="stimulus")
+        assert et.code_column == "stimulus"
+        assert et.codes == ("grating", "blank")
+        np.testing.assert_allclose(
+            event_onsets(path, codes=["grating"], code_column="stimulus"), [1.0]
+        )
+

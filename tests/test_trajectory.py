@@ -97,8 +97,16 @@ def test_compute_population_trajectory():
 
 
 def test_compute_population_trajectory_empty():
+    """05-25. An explicitly requested population with no observations yields an
+    *unavailable* estimate, never zero. Zeros are a point in state space like any other, so
+    the fabricated version put the population at the origin and reported
+    `explained_variance == 0.0` -- "PCA ran and explained nothing" rather than "PCA did not
+    run". `TFRAnalyzer.average_across_channels` already answers NaN for the same condition
+    (`test_analyzers_coverage.py::test_empty_layer_mask_returns_nan_not_zeros`); this is
+    the package-wide policy, and `AGENTS.md` invariant 1.
+    """
     session = MockSession()
-    
+
     # Area with no units
     res = compute_population_trajectory(
         session,
@@ -108,10 +116,47 @@ def test_compute_population_trajectory_empty():
         bin_size_ms=20.0,
         n_components=2
     )
-    
+
     assert res['trajectory'].shape == (4, 2, 5)
-    assert np.all(res['trajectory'] == 0.0)
-    assert res['explained_variance'] == 0.0
+    assert np.all(np.isnan(res['trajectory']))
+    assert np.isnan(res['explained_variance'])
+    assert res['unit_ids'] == []
+    # The bins themselves were requested, not estimated, so they stay real.
+    assert np.all(np.isfinite(res['bin_centers']))
+
+
+def test_components_that_could_not_be_estimated_are_not_zero():
+    """Padding to `n_components` with 0.0 made a component that does not exist look like a
+    component whose projection was measured to be zero. One unit supports one component.
+    """
+    session = MockSession()
+    res = compute_population_trajectory(
+        session,
+        area='V1',
+        epochs_df=session.epochs_df,
+        time_window_ms=(0.0, 100.0),
+        bin_size_ms=20.0,
+        n_components=8,
+    )
+    n_real = len(res['unit_ids'])
+    assert 0 < n_real < 8
+    assert np.all(np.isfinite(res['trajectory'][:, :n_real, :]))
+    assert np.all(np.isnan(res['trajectory'][:, n_real:, :]))
+
+
+def test_a_population_with_no_variance_has_no_explained_variance_ratio():
+    """`total_var == 0` is not a ratio of zero; there is no ratio."""
+    session = MockSession()
+    session.spikes = {k: np.array([]) for k in session.spikes}
+    res = compute_population_trajectory(
+        session,
+        area='V1',
+        epochs_df=session.epochs_df,
+        time_window_ms=(0.0, 100.0),
+        bin_size_ms=20.0,
+        n_components=2,
+    )
+    assert np.isnan(res['explained_variance'])
 
 
 class TestPopulationTrajectoryEstimandDivergence:

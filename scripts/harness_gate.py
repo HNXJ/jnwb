@@ -202,6 +202,9 @@ ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
     "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
+    # CLAUDE.md is git-ignored and untracked: AGENTS.md is the only repository-level
+    # instruction file. It stays on this list so a contributor's own ignored copy does
+    # not trip the root freeze -- permitted locally, never part of the repository.
     ".coverage", "mkdocs.yml", "jnwb-unified-rev.md",
 }
 
@@ -220,8 +223,20 @@ def check_root_allowlist(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+GENERATED_REFERENCE = "api.md"
+
+
 def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 5 (API Completeness): Assert all public exports are documented in docs/."""
+    """Gate 5 (API Completeness): every public export is written about by a person.
+
+    05-41: this searched every ``docs/*.md``, and ``docs/api.md`` is generated from
+    ``jnwb.__all__``. The gate therefore asserted that every export appears in a file
+    guaranteed to contain every export. It passed while twelve symbols -- seven error
+    classes, the two NWB resolvers, ``EventTable`` and ``DETECTION_TAILS`` -- appeared on
+    no page a reader would find. The generated reference is excluded, so the gate now
+    means what its name says. A whole-word match, so ``events`` is not credited to a page
+    that only mentions ``event_onsets``.
+    """
     root = repo_root or REPO_ROOT
     import jnwb
     docs_dir = root / "docs"
@@ -229,13 +244,18 @@ def check_public_symbols_documented(repo_root: Optional[Path] = None) -> List[st
         return ["MISSING_DOCS_DIR: docs/ not found"]
     
     all_docs_text = ""
-    for doc_path in docs_dir.glob("*.md"):
+    for doc_path in sorted(docs_dir.glob("*.md")):
+        if doc_path.name == GENERATED_REFERENCE:
+            continue
         all_docs_text += "\n" + doc_path.read_text(encoding="utf-8")
         
     violations = []
     for symbol in jnwb.__all__:
-        if symbol not in all_docs_text:
-            violations.append(f"UNDOCUMENTED_PUBLIC_SYMBOL: Public export 'jnwb.{symbol}' is not documented in docs/")
+        if not re.search(rf"\b{re.escape(symbol)}\b", all_docs_text):
+            violations.append(
+                f"UNDOCUMENTED_PUBLIC_SYMBOL: Public export 'jnwb.{symbol}' appears in "
+                f"no hand-written docs/*.md page (docs/{GENERATED_REFERENCE} is "
+                f"generated from __all__ and does not count)")
     return violations
 
 
@@ -316,7 +336,7 @@ def check_docs_version_matches_package(repo_root: Optional[Path] = None) -> List
 
 #: Root-level user-facing documents included in the Gate 6 scan. These ship to or are read by
 #: downstream users, so they carry the same dataset-independence obligation as docs/.
-DATASET_SCAN_ROOT_DOCS = ("README.md", "CONTRIBUTING.md", "AGENTS.md", "CLAUDE.md")
+DATASET_SCAN_ROOT_DOCS = ("README.md", "CONTRIBUTING.md", "AGENTS.md")
 
 #: Files exempt from the Gate 6 scan, each with the reason it legitimately carries a token.
 #: An exemption is a deliberate, named decision -- never a silent skip.
@@ -385,7 +405,7 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
             target_files.append(skill_file)
             
     # 3. Core harness authority and developer guides
-    for harness_name in ["AGENTS.md", "docs/11_extending_and_development.md"]:
+    for harness_name in ["AGENTS.md", "CONTRIBUTING.md"]:
         harness_file = root / harness_name
         if harness_file.exists():
             target_files.append(harness_file)
@@ -744,6 +764,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
                 violations.append(f"NWB_ONBOARDING: README missing {symbol}")
 
     expected_scripts = [
+        "00_your_own_file.py",
         "01_nwb_basics.py",
         "02_addressing_and_metadata.py",
         "03_spiking.py",

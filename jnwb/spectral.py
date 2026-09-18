@@ -15,6 +15,7 @@ import numpy as np
 from scipy import optimize, signal, stats
 import pandas as pd
 
+from ._dictlike import DictAccessMixin
 from ._backend import CUDA, resolve_device, warn_device_fallback
 from ._parallel import parallel_map
 
@@ -37,6 +38,23 @@ def _require_equal_lengths(x: np.ndarray, y: np.ndarray, func_name: str) -> None
         )
 
 
+def _require_1d_pair(x, y, func_name: str) -> None:
+    """Both traces are 1-D. `.ravel()` accepted a 2-D array and concatenated its channels
+    end to end: `imaginary_coherency(np.stack([x, y]), np.stack([y, x]), fs=1000.)`
+    returned a complete result computed across a discontinuity that is not in the data.
+    `cross_area_coherence` refuses the same input with the same reasoning.
+    """
+    for name, trace in ((f"{func_name} x", x), (f"{func_name} y", y)):
+        arr = np.asarray(trace)
+        if arr.ndim != 1:
+            raise ValueError(
+                f"{name} must be a 1-D time series, got shape {arr.shape}. This function "
+                "compares two traces; to work channel-by-channel, call it per channel "
+                "pair. A 2-D array was previously flattened, which joined the channels "
+                "end to end and estimated across the joins."
+            )
+
+
 def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) -> None:
     """Reject paired traces from which no cross-spectrum can be estimated.
 
@@ -50,6 +68,16 @@ def _require_finite_nonempty_pair(x: np.ndarray, y: np.ndarray, func_name: str) 
             f"{func_name}: x and y must be finite. A NaN or Inf sample propagates into "
             "every segment that contains it; remove or repair those samples first."
         )
+
+
+#: Bins at or below this frequency are excluded from the 1/f fit: the DC and near-DC bins
+#: of a Welch spectrum are dominated by the detrending residual, not by the aperiodic slope.
+#: It is a property of the estimator, so `spectral_tilt` reports the band it actually fitted.
+_TILT_DC_FLOOR_HZ = 0.5
+
+#: Minimum usable bins for a 1/f fit. Below this the "exponent" is an interpolation
+#: through a handful of points rather than an estimate.
+_MIN_TILT_BINS = 6
 
 
 def _require_band_bins(
@@ -170,6 +198,39 @@ CANONICAL_BANDS: Dict[str, Tuple[float, float]] = {
 }
 
 
+def _require_channel_permutation(
+    channel_order: np.ndarray, n_channels: int, func_name: str
+) -> np.ndarray:
+    """Return ``channel_order`` as an index array, rejecting anything but a permutation.
+
+    A short, long, or duplicated order silently dropped channels in ``bipolar_reference``
+    and left rows of ``laplacian_reference``'s output unwritten, so the function returned
+    whatever ``np.empty_like`` had been handed: two identical calls did not agree, and the
+    uninitialised values (order 1e-297) are not distinguishable from a measured amplitude.
+    """
+    order = np.asarray(channel_order)
+    if order.ndim != 1:
+        raise ValueError(
+            f"{func_name}: channel_order must be 1-D, got shape {order.shape}."
+        )
+    if not np.issubdtype(order.dtype, np.integer):
+        raise ValueError(
+            f"{func_name}: channel_order must be an integer index array, got dtype {order.dtype}."
+        )
+    if order.shape[0] != n_channels:
+        raise ValueError(
+            f"{func_name}: channel_order has {order.shape[0]} entries for {n_channels} "
+            "channels; it must name every channel exactly once."
+        )
+    if not np.array_equal(np.sort(order), np.arange(n_channels)):
+        raise ValueError(
+            f"{func_name}: channel_order must be a permutation of range({n_channels}); "
+            f"got {np.array2string(order, threshold=16)}. Repeated or out-of-range "
+            "indices drop channels and leave the output partly uninitialised."
+        )
+    return order
+
+
 def _resolve_fs(
     fs: Optional[float] = None,
     sampling_rate: Optional[float] = None,
@@ -182,12 +243,34 @@ def _resolve_fs(
                 f"Conflicting values provided to {func_name}: fs={fs}, sampling_rate={sampling_rate}. "
                 "Specify only one (prefer fs)."
             )
-        return float(fs)
+        return _require_positive_fs(fs, func_name)
     if fs is not None:
-        return float(fs)
+        return _require_positive_fs(fs, func_name)
     if sampling_rate is not None:
-        return float(sampling_rate)
+        return _require_positive_fs(sampling_rate, func_name)
     raise ValueError(f"{func_name} requires sampling rate `fs` (in Hz).")
+
+
+def _require_positive_fs(fs, func_name: str) -> float:
+    """A sampling rate is strictly positive and finite, everywhere in this module.
+
+    This check used to be absent, so each caller failed in its own way further down --
+    or not at all. `wpli(x, y, fs=0.0)` raised `ZeroDivisionError`; `fs=-1000.0` raised a
+    ValueError describing a frequency grid running "0 to -500 Hz in steps of -3.90625
+    Hz"; `imaginary_coherency` got a clean message only because it reached scipy's own
+    guard, which names scipy's parameter rather than this contract.
+    """
+    try:
+        value = float(fs)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{func_name}: fs must be a number in Hz; got {fs!r}."
+        ) from None
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError(
+            f"{func_name}: fs must be finite and strictly positive (Hz); got {fs!r}."
+        )
+    return value
 
 
 def to_db(ratio):
@@ -305,23 +388,51 @@ def aggregate_to_db(
         return to_db(aggregated)
 
 
-def compute_psd(lfp_data: np.ndarray, fs: float):
+def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
     """Welch power spectral density of a plain LFP array.
 
     Thin ``scipy.signal.welch`` wrapper on caller-supplied traces.
 
     Args:
-        lfp_data: (n_times,) or (n_times, n_channels) array.
-        fs: sampling rate in Hz.
+        lfp_data: array with time along ``axis``; (n_times,) or (n_times, n_channels)
+            under the default.
+        fs: sampling rate in Hz (must be positive and finite).
+        axis: axis along which time is sampled (default 0, matching the documented
+            ``(n_times, n_channels)`` layout). Pass ``axis=-1`` for channel-major data.
 
     Returns:
         (freqs, psd) tuple.
+
+    Raises:
+        ValueError: If ``lfp_data`` is empty or non-finite, ``fs`` is not positive and
+            finite, or ``axis`` is out of range for ``lfp_data``.
+
+    Notes:
+        ``nperseg`` is derived from the length along ``axis``. It used to be derived from
+        ``len(lfp_data)``, the length along axis 0 whatever ``axis`` meant, so a
+        channel-major ``(8, 4000)`` array was segmented into 8 samples and returned a
+        5-bin spectrum while ``compute_multitaper_psd(..., axis=-1)`` returned 2001 bins
+        over the same data.
 
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
-    freqs, psd = signal.welch(lfp_data, fs=fs, nperseg=min(len(lfp_data), int(fs)), axis=0)
+    arr = _require_finite_nonempty_trace(lfp_data, "compute_psd", name="lfp_data")
+    if not (np.isfinite(fs) and fs > 0):
+        raise ValueError(f"compute_psd: fs must be positive and finite, got {fs}.")
+    if not -arr.ndim <= axis < arr.ndim:
+        raise ValueError(
+            f"compute_psd: axis {axis} is out of range for data of shape {arr.shape}."
+        )
+    n_times = arr.shape[axis]
+    if n_times < 2:
+        raise ValueError(
+            f"compute_psd: axis {axis} has {n_times} sample(s); a spectrum needs at least "
+            "2. A 1-sample trace used to return a 0.0 PSD, which is indistinguishable "
+            "from a measured absence of power."
+        )
+    freqs, psd = signal.welch(arr, fs=fs, nperseg=min(n_times, int(fs)), axis=axis)
     return freqs, psd
 
 
@@ -345,7 +456,16 @@ def harmonic_analysis(
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: (min, max) frequency bounds for analysis (Hz)
         harmonic_orders: Number of harmonic multiples to track
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
+            route below roughly 22500 samples. At that size the Welch helper's fixed
+            cost -- one host-to-device transfer, the window, the FFT plan and the
+            copies back -- is most of the call, and there is too little arithmetic left
+            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
+            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
+            crossover is documented rather than applied automatically: the CPU and CUDA
+            Welch paths do not agree bit for bit, so routing on input length would make
+            the answer depend on how long the trace is, which invariant 6 forbids. See
+            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 
     Returns:
         Dict with:
@@ -616,6 +736,11 @@ def cross_area_coherence(
                 "which set nperseg to the channel count and took argmax over the flattened "
                 "array."
             )
+    # Non-finite input made every band coherence NaN and every surrogate comparison
+    # False, so `band_significance` came out at its floor, 1/(n_surrogates+1), for every
+    # band at once -- maximal significance from a statistic that does not exist. `wpli`
+    # and `imaginary_coherency` already refuse the same input.
+    _require_finite_nonempty_pair(lfp_area1, lfp_area2, "cross_area_coherence")
     if len(lfp_area1) != len(lfp_area2):
         # INTENTIONAL BREAK (0.2.4). This logged a warning and returned a dict of zeros,
         # which is indistinguishable from a measured coherence of zero: peak_coherence_
@@ -779,7 +904,16 @@ def spectral_tilt(
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
         freq_range: Frequency range (f_min, f_max) in Hz for regression fitting
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
+            route below roughly 22500 samples. At that size the Welch helper's fixed
+            cost -- one host-to-device transfer, the window, the FFT plan and the
+            copies back -- is most of the call, and there is too little arithmetic left
+            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
+            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
+            crossover is documented rather than applied automatically: the CPU and CUDA
+            Welch paths do not agree bit for bit, so routing on input length would make
+            the answer depend on how long the trace is, which invariant 6 forbids. See
+            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 
     Returns:
         Dict with:
@@ -811,6 +945,11 @@ def spectral_tilt(
         'exponent': float('nan'),
         'offset': float('nan'),
         'fit_quality': float('nan'),
+        # The band actually fitted, which is not the band requested: bins at or below
+        # _TILT_DC_FLOOR_HZ are excluded, so freq_range=(0.1, 100) and (0.5, 100) returned
+        # a bit-identical exponent with nothing to say they had been silently merged.
+        'fitted_band_hz': (float('nan'), float('nan')),
+        'n_bins_fitted': 0,
     }
 
     # Compute power spectrum
@@ -833,18 +972,36 @@ def spectral_tilt(
             nperseg=min(len(lfp_trace), 4096)
         )
 
-    # Filter to range and remove DC
-    mask = (frequencies > 0.5) & (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
+    # Filter to range and remove DC. The 0.5 Hz floor is part of the estimand, not a
+    # detail: `freq_range=(0.1, 100)` and `(0.5, 100)` returned a bit-identical exponent
+    # because everything below 0.5 Hz was dropped without a word. The band actually
+    # fitted is now reported, so a silently narrowed request is visible.
+    mask = (frequencies > _TILT_DC_FLOOR_HZ) & (frequencies >= freq_range[0]) & (frequencies <= freq_range[1])
+    _require_band_bins(frequencies, mask, freq_range, "spectral_tilt")
     freqs = frequencies[mask]
 
-    if len(freqs) < 2 or np.all(pxx[mask] <= 0):
-        return result
+    # Two separate conditions, which must not be conflated:
+    #
+    #   (a) the requested band is too narrow to fit on this grid -- a malformed request,
+    #       which raises. freq_range=(400, 401) selected 5 bins and returned exponent
+    #       -995.2 with offset inf and a fit_quality of 0.687, behind only a RuntimeWarning.
+    #
+    #   (b) the band has bins but none carries positive power -- a constant or zero trace,
+    #       where the tilt is genuinely undefined and NaN is the answer, not an error.
+    if freqs.size < _MIN_TILT_BINS:
+        raise ValueError(
+            f"spectral_tilt: freq_range {tuple(freq_range)} selects {int(freqs.size)} "
+            f"bin(s) of the Welch grid above {_TILT_DC_FLOOR_HZ} Hz; a 1/f fit needs at "
+            f"least {_MIN_TILT_BINS}. Widen freq_range or lengthen nperseg."
+        )
 
     valid = pxx[mask] > 0
     if np.sum(valid) < 2:
         return result
 
     freqs = freqs[valid]
+    result['fitted_band_hz'] = (float(freqs[0]), float(freqs[-1]))
+    result['n_bins_fitted'] = int(freqs.size)
     # Fit 1/f slope on log-log scale
     # Power = Offset * f^exponent
     # log(Power) = log(Offset) + exponent * log(freq)
@@ -870,7 +1027,7 @@ def spectral_tilt(
 
 
 @dataclass
-class AperiodicFitResult:
+class AperiodicFitResult(DictAccessMixin):
     """
     Container for 1/f aperiodic spectral parameter estimates.
 
@@ -891,12 +1048,6 @@ class AperiodicFitResult:
     freq_range: Tuple[float, float]
     mode: str
     accepted: bool
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return getattr(self, key, default)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -1258,19 +1409,38 @@ def band_power(
     device: str = 'cpu'
 ) -> float:
     """
-    Compute power in a frequency band.
+    Mean power spectral density over a frequency band.
+
+    The estimand is ``mean(PSD[f0 <= f <= f1])`` over the Welch bins inside the band --
+    a spectral *density*, in input-units^2/Hz, not an integrated power in
+    input-units^2. It is therefore independent of the bandwidth: on white noise a 2 Hz
+    band and a 30 Hz band return nearly the same value. Two bands of different widths are
+    comparable as densities and are *not* comparable as powers; for a power, integrate the
+    PSD over the band yourself (``np.trapezoid(psd[mask], freqs[mask])`` from
+    ``compute_psd``), which is a larger number by roughly the bandwidth.
 
     Args:
         lfp_trace: Time series data
         fs: Sampling frequency in Hz (canonical).
         sampling_rate: Supported alias for `fs` in Hz.
-        freq_range: (min_freq, max_freq) in Hz
+        freq_range: (min_freq, max_freq) in Hz, inclusive at both ends
         normalize: If True, return as dB relative to baseline
         baseline: Baseline time series for normalization (optional)
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
+        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
+            route below roughly 22500 samples. At that size the Welch helper's fixed
+            cost -- one host-to-device transfer, the window, the FFT plan and the
+            copies back -- is most of the call, and there is too little arithmetic left
+            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
+            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
+            crossover is documented rather than applied automatically: the CPU and CUDA
+            Welch paths do not agree bit for bit, so routing on input length would make
+            the answer depend on how long the trace is, which invariant 6 forbids. See
+            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 
     Returns:
-        Power in band (units depend on normalize flag)
+        Mean PSD over the band in input-units^2/Hz, or, with ``normalize=True``,
+        ``10 * log10(band / baseline_band)`` in dB -- a ratio of two densities over the
+        same band, so the per-Hz normalization cancels.
 
     Raises:
         ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or
@@ -1398,6 +1568,7 @@ def imaginary_coherency(
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
     """
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
+    _require_1d_pair(x, y, "imaginary_coherency")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
@@ -1510,6 +1681,7 @@ def wpli(
         sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055
     """
     fs = _resolve_fs(fs, sampling_rate, "wpli")
+    _require_1d_pair(x, y, "wpli")
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "wpli")
@@ -1592,7 +1764,13 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
-    order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
+    order = (
+        np.arange(channel_data.shape[0])
+        if channel_order is None
+        else _require_channel_permutation(
+            channel_order, channel_data.shape[0], "bipolar_reference"
+        )
+    )
     ordered = channel_data[order]
     return ordered[1:] - ordered[:-1]
 
@@ -1618,12 +1796,19 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
         as input (unlike ``bipolar_reference``, which drops one channel).
 
     Raises:
-        ValueError: If ``channel_data`` is not 2-D or has fewer than 2 channels.
+        ValueError: If ``channel_data`` is not 2-D, has fewer than 2 channels, or
+            ``channel_order`` is not a permutation of ``range(n_channels)``.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
         raise ValueError(f"channel_data must be 2D (n_channels, n_samples), got shape {channel_data.shape}")
-    order = np.arange(channel_data.shape[0]) if channel_order is None else np.asarray(channel_order)
+    order = (
+        np.arange(channel_data.shape[0])
+        if channel_order is None
+        else _require_channel_permutation(
+            channel_order, channel_data.shape[0], "laplacian_reference"
+        )
+    )
     ordered = channel_data[order]
     n_ch = ordered.shape[0]
     if n_ch < 2:
@@ -1660,44 +1845,70 @@ def _welch_csd_gpu(
     - Conjugate orientation matching scipy.signal.csd: conj(X) * Y.
     - Exact one-sided scaling for even and odd nperseg (doubling positive frequencies).
     - Zero-padding for inputs shorter than nperseg.
+    - A self-spectrum short circuit when ``y is x``, which returns the same four arrays
+      it would otherwise compute, bit for bit.
     """
     import cupy as cp
     if noverlap is None:
         noverlap = nperseg // 2
     step = nperseg - noverlap
 
+    # 05-45: `harmonic_analysis`, `spectral_tilt` and `band_power` all call this as
+    # `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, so half of everything
+    # below was a second copy of the first half. Reusing the first half is exact, not
+    # an approximation: `y is x` means the two branches transfer the same bytes, gather
+    # the same indices and run the same `rfft`, so `Y` is bit-identical to `X` and
+    # `conj(X) * Y` is bit-identical to `conj(X) * X`. Measured at 16384 samples, it
+    # takes 1.66 ms down to 1.06 ms at every nperseg tested, which is 36% of the call.
+    same_signal = y is x
+
     x_g = cp.asarray(x, dtype=cp.float64)
-    y_g = cp.asarray(y, dtype=cp.float64)
+    y_g = x_g if same_signal else cp.asarray(y, dtype=cp.float64)
     n = len(x_g)
 
     if n < nperseg:
         x_g = cp.pad(x_g, (0, nperseg - n))
-        y_g = cp.pad(y_g, (0, nperseg - n))
+        y_g = x_g if same_signal else cp.pad(y_g, (0, nperseg - n))
         n = nperseg
 
     # Periodic Hann window matching scipy.signal.get_window('hann', nperseg)
     window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
 
-    segments_x = []
-    segments_y = []
-    start = 0
-    while start + nperseg <= n:
-        seg_x = x_g[start:start+nperseg]
-        seg_y = y_g[start:start+nperseg]
-        if detrend == "constant":
-            seg_x = seg_x - cp.mean(seg_x)
-            seg_y = seg_y - cp.mean(seg_y)
-        segments_x.append(seg_x * window)
-        segments_y.append(seg_y * window)
-        start += step
+    # 05-45: this was a Python `while` loop appending one device array per segment, so
+    # a 16384-sample trace at nperseg=256 ran 127 iterations and about 762 kernel
+    # launches before `cp.stack`. Launch overhead, not arithmetic, was the cost: the
+    # whole call took 26.8 ms against 16.6 ms for the equivalent scipy calls, and even
+    # at nperseg=4096 -- 7 segments, which is what `spectral_tilt`, `band_power` and
+    # `harmonic_analysis` ask for -- 2.6 ms of a 3.2 ms call was the loop, against a
+    # fixed floor of 0.62 ms for the transfers, window and FFT together.
+    #
+    # One strided index builds every segment at once. Verified against the loop at
+    # nperseg 64, 128, 255, 256, 512, 1024 and 2048: `max|difference| == 0.0` on all
+    # four outputs, because the per-segment mean and the row-wise mean of the same
+    # array reduce in the same order there. At 4096 and 8192 `cupy` picks a different
+    # row-mean reduction, the detrend constant moves in its last bits, and the outputs
+    # shift by up to 1.43e-13 relative -- smaller than this path's pre-existing
+    # disagreement with scipy on the same input (2.6e-15 at 256 rising to 4.1e-13 at
+    # 2048), so the CPU/CUDA gap is not widened. The estimator is unchanged: same
+    # window, same detrend, same scaling.
+    n_segments = (n - nperseg) // step + 1
+    offsets = step * cp.arange(n_segments)
+    idx = cp.arange(nperseg)[None, :] + offsets[:, None]
+    seg_x = x_g[idx]
+    seg_y = seg_x if same_signal else y_g[idx]
+    if detrend == "constant":
+        seg_x = seg_x - seg_x.mean(axis=1, keepdims=True)
+        seg_y = seg_x if same_signal else seg_y - seg_y.mean(axis=1, keepdims=True)
 
-    X = cp.fft.rfft(cp.stack(segments_x), axis=-1)
-    Y = cp.fft.rfft(cp.stack(segments_y), axis=-1)
+    X = cp.fft.rfft(seg_x * window, axis=-1)
+    Y = X if same_signal else cp.fft.rfft(seg_y * window, axis=-1)
 
     scale = 1.0 / (fs * cp.sum(window ** 2))
 
     psd_x = cp.mean(cp.abs(X) ** 2, axis=0) * scale
-    psd_y = cp.mean(cp.abs(Y) ** 2, axis=0) * scale
+    # `.copy()` matters: the one-sided scaling below is in place, so aliasing psd_y to
+    # psd_x would double the positive frequencies twice.
+    psd_y = psd_x.copy() if same_signal else cp.mean(cp.abs(Y) ** 2, axis=0) * scale
     csd_xy = cp.mean(cp.conj(X) * Y, axis=0) * scale
 
     # One-sided scaling

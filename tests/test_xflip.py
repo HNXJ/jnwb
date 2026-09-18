@@ -357,3 +357,219 @@ class TestXFlipContainer:
         assert "modularity" in d
         assert "p_values" in d
         assert "accepted" in d
+
+
+class TestTheContiguousPartitionIsStillTheArgmax:
+    """05-47: `interval_w` answered its off-diagonal term from a 2-D prefix sum in
+    constant time, then re-summed `np.diag(corr)[u:v]` on every call. `np.diag` returns
+    a view so nothing was copied, but the call, slice and reduction cost 4.82 of the
+    5.56 microseconds a call took -- 87% -- and the DP makes about 93000 calls at
+    n=256. `xflip` pays it `n_surrogates + 1` times.
+
+    The item predicted this made an O(K n^2) DP into O(K n^3), "about n^2.9". It did
+    not: measured 2.01, 2.03 and 2.06 at n = 128, 256 and 512, and 1.98 to 2.16 after
+    the repair. numpy's fixed per-call overhead swamps the per-element work at these
+    sizes, so the re-sum behaves as a constant. The item's own figures say the same
+    thing -- 19.86 / 60.76 / 275.84 ms gives exponents of 1.61 and 2.18, not 2.9. The
+    repair is worth 3.6x to 3.9x, and it is a constant, not an order.
+
+    Prefix-summing the diagonal is not bit-identical to re-summing it: a difference of
+    two running totals is a different floating-point operation from a pairwise
+    reduction. Inside the reachable domain the difference is at most 4e-15 on a term of
+    order 1 and reached no decision in 315 configurations; it changes the answer only
+    for matrices no caller can supply, such as a 1e12 diagonal against 1e-6
+    off-diagonals. These tests therefore pin the objective, not the arithmetic.
+    """
+
+    @staticmethod
+    def _objective(corr, cuts, gamma):
+        """The quantity the DP maximises, summed directly from `corr`.
+
+        An oracle written from the docstring -- "S(u, v) is sum of off-diagonal
+        correlations in [u, v), P(u, v) is (v-u)(v-u-1)/2" -- rather than from either
+        implementation, so it cannot inherit a mistake from the code under test.
+        """
+        total = 0.0
+        for u, v in cuts:
+            s = 0.0
+            for i in range(u, v):
+                for j in range(i + 1, v):
+                    s += corr[i, j]
+            total += s - gamma * (0.5 * (v - u) * (v - u - 1))
+        return total
+
+    @staticmethod
+    def _all_contiguous_partitions(n, k, min_size):
+        """Every way to cut 0..n into k contiguous blocks of at least min_size."""
+        if k == 1:
+            if n >= min_size:
+                yield [(0, n)]
+            return
+
+        def rec(start, remaining, acc):
+            if remaining == 1:
+                if n - start >= min_size:
+                    yield acc + [(start, n)]
+                return
+            for end in range(start + min_size, n - (remaining - 1) * min_size + 1):
+                yield from rec(end, remaining - 1, acc + [(start, end)])
+
+        yield from rec(0, k, [])
+
+    @pytest.mark.parametrize("n_blocks", [2, 3])
+    def test_the_dp_finds_the_true_maximum(self, n_blocks):
+        """Exhaustive check against brute force. Small n, so every partition can be
+        enumerated and scored from the definition."""
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        n, min_size = 12, 2
+        for seed in range(6):
+            rng = np.random.default_rng(seed)
+            m = rng.uniform(-1.0, 1.0, (n, n))
+            corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
+            np.fill_diagonal(corr, 1.0)
+            triu = np.triu_indices(n, k=1)
+            gamma = float(np.mean(corr[triu]))
+
+            bounds, _, _, _ = _optimal_contiguous_partition(corr, n_blocks, min_size)
+            got = self._objective(corr, bounds, gamma)
+            best = max(self._objective(corr, p, gamma)
+                       for p in self._all_contiguous_partitions(n, n_blocks, min_size))
+
+            assert got == pytest.approx(best, rel=1e-12), (
+                f"seed={seed}: DP scored {got}, the best partition scores {best}")
+
+    def test_the_brute_force_oracle_can_tell_partitions_apart(self):
+        """Without this, the test above passes if every partition scores the same."""
+        rng = np.random.default_rng(0)
+        m = rng.uniform(-1.0, 1.0, (12, 12))
+        corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
+        np.fill_diagonal(corr, 1.0)
+        gamma = float(np.mean(corr[np.triu_indices(12, k=1)]))
+
+        scores = {self._objective(corr, p, gamma)
+                  for p in self._all_contiguous_partitions(12, 2, 2)}
+
+        assert len(scores) > 1, "the oracle gives every partition the same score"
+
+    def test_the_diagonal_is_read_once_per_call_not_once_per_interval(self, monkeypatch):
+        """The discriminator, without a stopwatch. Before the repair `np.diag` was
+        called once for every `interval_w` that passed the size check -- about 4900
+        times at n=64. It is now called once, to build the prefix sum."""
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        counts = {}
+        original = np.diag
+
+        def counting(*args, **kwargs):
+            counts["n"] = counts.get("n", 0) + 1
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(np, "diag", counting)
+
+        rng = np.random.default_rng(0)
+        for n in (32, 64):
+            m = rng.uniform(-1.0, 1.0, (n, n))
+            corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
+            np.fill_diagonal(corr, 1.0)
+            counts["n"] = 0
+
+            _optimal_contiguous_partition(corr, 3, 2)
+
+            assert counts["n"] <= 2, (
+                f"np.diag called {counts['n']} times at n={n}; the diagonal is being "
+                f"re-read inside the loop")
+
+    @pytest.mark.parametrize("n_blocks", [2, 3, 4])
+    def test_a_matrix_of_exact_ties_still_partitions(self, n_blocks):
+        """Every off-diagonal equal means every partition of a given shape scores
+        identically, so the argmax is decided entirely by the tie-break. A change in
+        the last bits of the score would be maximally visible here."""
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        n = 24
+        corr = np.full((n, n), 0.5)
+        np.fill_diagonal(corr, 1.0)
+
+        bounds, boundaries, _, labels = _optimal_contiguous_partition(corr, n_blocks, 2)
+
+        assert len(bounds) == n_blocks
+        assert bounds[0][0] == 0 and bounds[-1][1] == n
+        assert len(set(labels.tolist())) == n_blocks
+
+    @pytest.mark.parametrize("spike_at", [3, 11, 19])
+    def test_one_large_diagonal_entry_does_not_attract_a_cut(self, spike_at):
+        """The objective is defined on off-diagonal entries, so the diagonal must not
+        influence where the cuts fall -- at all, not merely by little.
+
+        A unit diagonal cannot show this: the per-block diagonal sums then differ
+        between candidate partitions only by a constant, so a diagonal term that is
+        subtly wrong still gives the right answer. Here every off-diagonal is equal, so
+        the true objective ties every partition of a given shape, and the diagonal is
+        flat except for one spike. Anything that lets the diagonal leak into the score
+        pulls the cut to the spike.
+        """
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        n = 24
+        corr = np.full((n, n), 0.5)
+
+        flat = corr.copy()
+        np.fill_diagonal(flat, 1.0)
+        spiked = corr.copy()
+        d = np.full(n, -1.0)
+        d[spike_at] = 1.0
+        np.fill_diagonal(spiked, d)
+
+        a = _optimal_contiguous_partition(flat, 2, 2)
+        b = _optimal_contiguous_partition(spiked, 2, 2)
+
+        assert a[1] == b[1], (
+            f"the cut moved from {a[1]} to {b[1]} when only the diagonal changed")
+        assert np.array_equal(a[3], b[3])
+
+    @pytest.mark.parametrize("seed", [0, 1, 2, 3])
+    def test_the_partition_ignores_the_diagonal_on_a_structured_matrix(self, seed):
+        """The same invariant where there is real structure to find, so a cut that is
+        pinned by the off-diagonal signal still must not drift with the diagonal."""
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        rng = np.random.default_rng(seed)
+        n = 32
+        lab = (np.arange(n) >= 13).astype(float)
+        m = (lab[:, None] == lab[None, :]) * 0.6 + 0.2
+        m = np.clip(0.5 * (m + m.T) + 0.05 * rng.standard_normal((n, n)), -1.0, 1.0)
+
+        unit = m.copy()
+        np.fill_diagonal(unit, 1.0)
+        varied = m.copy()
+        np.fill_diagonal(varied, rng.uniform(-1.0, 1.0, n))
+
+        a = _optimal_contiguous_partition(unit, 3, 2)
+        b = _optimal_contiguous_partition(varied, 3, 2)
+
+        assert a[0] == b[0]
+        assert a[1] == b[1]
+        assert np.array_equal(a[3], b[3])
+
+    def test_a_non_unit_diagonal_does_not_change_the_partition(self):
+        """`np.corrcoef` does not always return an exactly unit diagonal -- 0.999...978
+        occurs -- and the partial-correlation path and a clipped user matrix can differ
+        further. The objective ignores the diagonal, so the partition must not depend
+        on it."""
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        rng = np.random.default_rng(0)
+        m = rng.uniform(-1.0, 1.0, (40, 40))
+        corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
+        np.fill_diagonal(corr, 1.0)
+
+        perturbed = corr.copy()
+        np.fill_diagonal(perturbed, rng.uniform(-1.0, 1.0, 40))
+
+        a = _optimal_contiguous_partition(corr, 3, 2)
+        b = _optimal_contiguous_partition(perturbed, 3, 2)
+
+        assert a[0] == b[0]
+        assert a[1] == b[1]
+        assert np.array_equal(a[3], b[3])

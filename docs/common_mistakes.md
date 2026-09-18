@@ -199,12 +199,12 @@ t = np.arange(2000) / fs
 x = np.sin(2 * np.pi * 20 * t)
 y = np.roll(x, int(0.01 * fs))  # 10 ms delay
 
-psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, seed=0)
+psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, rng=0)
 
 noise_x = rng.normal(size=2000)
 noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
 psi_broad = jnwb.phase_slope_index(
-    noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, seed=0,
+    noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
 )
 
 print("Narrow band net:", psi_narrow.net)          # ~0.0
@@ -236,3 +236,147 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 1. Fix $\tau$ and $\Delta t$ uniformly across all conditions being compared.
 2. Use causality-bounded parametric fitting (`jnwb.fit_exponential_onset`) which models $t_0$ as the true takeoff point rather than taking arbitrary threshold-crossing latencies.
 3. Check `fit["bound_status"]` to confirm the estimate is not pinned to the outer parameter bounds.
+
+---
+
+## 9. Assuming a Schema the File Does Not Have
+
+### The Mistake
+Carrying one recording's layout into the next one:
+
+```python
+# WRONG: every one of these is an assumption, and none of them errors loudly
+onsets = jnwb.event_onsets("recording.nwb")                     # which interval table?
+table = jnwb.events("recording.nwb")                            # which column holds codes?
+lfp, fs = jnwb.acquisition_channel("recording.nwb", channel=0)  # which acquisition?
+```
+
+NWB constrains the container, not the contents. `codes` is a jnwb default rather than an NWB
+requirement, so a file from another lab usually names that column `stimulus`, `condition`,
+`trial_type` or nothing at all. A file may hold five interval tables, of which the one you
+want is not the first. Onsets are seconds here and milliseconds in plenty of other
+toolboxes, and a continuous array may be stored time-by-channel or channel-by-time.
+
+The one of those jnwb resolves for you is the array orientation: `acquisition_channel`
+reads the channel axis from the series' own electrode region, so `channel=0` is the same
+channel in either orientation, and `inspect` reports which one it found under `layout`.
+Where the electrode count settles nothing -- neither dimension matches it, or the array is
+square so both do -- `layout` is `"ambiguous"` and `acquisition_channel` raises
+`AmbiguousLayoutError` rather than return a slice taken across channels at one instant as
+though it were a channel's time course.
+
+### The Correct Pattern
+Read the layout first and pass what you found:
+
+```python
+# CORRECT: inspect reports the structure; every choice after it is explicit
+info = jnwb.inspect("recording.nwb")
+
+for table in info["interval_tables"]:
+    print(table["name"], [column["name"] for column in table["columns"]])
+for acquisition in info["acquisitions"]:
+    print(acquisition["name"], acquisition["data_shape"], acquisition["layout"], acquisition["rate_hz"])
+
+onsets = jnwb.event_onsets(
+    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+)
+```
+
+The guards are there to be used rather than worked around. Several interval tables and none
+named `trials` raises `AmbiguousIntervalTableError` listing the names; a code column that
+does not exist raises `ColumnNotFoundError` listing the columns that do; a table with no
+`codes` column returns its onsets and warns that it found no codes. Each message contains
+the argument you need, so the fix is to pass it rather than to fall back to a default.
+
+`examples/tutorials/00_your_own_file.py` is this pattern end to end on a file it has never
+seen.
+
+
+## 10. Reading a Zero That Was Never Estimated
+
+A zero returned for a selection that contained nothing is indistinguishable, downstream,
+from a zero that was measured. It plots, it averages, it enters a t-test, and it drags the
+group mean toward the origin -- and nothing in the array says which kind it was.
+
+**The policy across `jnwb`: an explicitly requested population with no observations yields an
+*unavailable* estimate, never zero.** Zero is a valid answer only when zero was estimated
+from observations.
+
+* Where the return type is a float array, the unavailable value is `NaN`.
+* Where the type supports it, it is `None` or an explicit availability field.
+* A component that could not be estimated -- fewer units than requested components, no
+  variance to decompose -- is `NaN`, not a padded `0.0`.
+
+```python
+# An area with no units. The trajectory is not at the origin; there is no trajectory.
+res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs)
+assert np.all(np.isnan(res["trajectory"]))
+assert np.isnan(res["explained_variance"])
+
+# An empty layer mask. The average over no channels is not zero.
+sup, deep = jnwb.TFRAnalyzer.average_across_channels(tfr, layer_mask=mask)
+assert np.all(np.isnan(sup))
+```
+
+So check availability rather than magnitude:
+
+```python
+# WRONG: an unobserved population and a silent one give the same answer
+if res["explained_variance"] == 0.0:
+    ...
+
+# CORRECT: the two conditions are distinguishable, so distinguish them
+if np.isnan(res["explained_variance"]):
+    ...          # PCA did not run -- nothing was selected
+elif res["explained_variance"] < 0.01:
+    ...          # PCA ran and found almost no structure
+```
+
+A count is the exception that proves the rule. `bin_spikes` returns `0` for a bin a unit was
+recorded through and did not fire in: that zero *was* observed, and it is correct. This is
+`AGENTS.md` invariant 1 -- no empirical value that no script computed from data.
+
+
+## 11. Onsets on a Different Clock from the Data
+
+### The Mistake
+`start_time` is seconds in the NWB specification, and milliseconds in plenty of the
+toolboxes that wrote the file you were handed. Nothing in the file says which, and the
+difference is a factor of 1000 that every function downstream will accept:
+
+```python
+# WRONG: the onsets are milliseconds, the file is a 1.0 s recording, nothing says so
+onsets = jnwb.event_onsets("recording.nwb", table="trials")   # [1000. 2000. ... 5000.]
+epochs, t = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.2, 0.6), fs=fs)
+epochs.shape          # (5, 800) -- the right shape
+np.all(np.isnan(epochs))   # True -- and not one number in it
+```
+
+A mean of that is NaN, a spectrum of it peaks at 0 Hz, and a figure of it is blank. The
+array is the correct shape with the correct dtype beside a correct time axis, so nothing
+in it reads as an error.
+
+### The Correct Pattern
+Compare the onsets against the extent of the data before trusting either:
+
+```python
+data, fs = jnwb.acquisition_channel("recording.nwb", channel=0)
+duration_s = len(data) / fs
+onsets = jnwb.event_onsets("recording.nwb", table="trials")
+if onsets.max() > duration_s:
+    onsets = onsets / 1000.0        # they were milliseconds; say so in the script
+epochs, t = jnwb.epoch_continuous(data, onsets, win_s=(-0.2, 0.6), fs=fs)
+```
+
+`epoch_continuous` now warns when most epochs fall entirely outside the data under
+`boundary_policy="nan"`, naming both spans, because that is what a unit mismatch looks
+like. A single stray event does not warn -- events near the edges of a recording are
+ordinary, and their epochs are partly NaN by design.
+
+A non-finite onset is refused outright, with `InvalidOnsetValueError`, which is what
+`events` and `event_onsets` already did. It used to be cast to `INT64_MIN`, overflow into
+a start after the end, and come back as an in-bounds extraction of zero samples.
+
+`time_unit` on an `EventTable` is a label, not a measurement: the interval table carries
+no extent to check it against. The check is possible only where the onsets meet the
+continuous data, which is `epoch_continuous`.

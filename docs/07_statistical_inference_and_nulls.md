@@ -162,6 +162,14 @@ for c in res_grouped["clusters"]:
     print(f"Cluster mass: {c['statistic']:.2f}, p-value: {c['p_value']:.4f}")
 ```
 
+**What a significant cluster licenses.** The test controls the family-wise error rate over
+the whole search, and the statement it supports is that the conditions differ *somewhere*
+in the searched window. It does not license the cluster's own extent: its onset, its
+offset, its peak and its width are not estimates with error bars, because the cluster was
+defined by the same threshold that made it significant, and moving `threshold` moves all
+four. Report the effect as present in the window, not as beginning at the cluster's first
+sample.
+
 ---
 
 ## 4. Exchangeable Label Permutation Schemes (`jnwb.permutation`)
@@ -192,7 +200,7 @@ plan = jnwb.build_permutation_plan(
     labels,
     cycle_id,
     n_permutations=1000,
-    seed=42,
+    rng=42,
 )
 assert plan["scheme"] == "within_group"
 assert plan["n_permutations"] == 1000
@@ -217,17 +225,36 @@ quartiles = jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)
 
 y_true = np.linspace(0.0, 1.0, 6)
 y_pred = y_true + 0.05 * np.random.default_rng(0).normal(size=6)
-r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200, random_state=0)
+r2_ci = jnwb.shuffle_r2_ci(y_true, y_pred, groups=cycle_id, n_shuffle=200, rng=0)
 assert "r2_observed" in r2_ci and "p_val" in r2_ci
 
-# Cross-modal lag scan between aligned TFR and spike tensors (channels x time)
-tfr_data = np.random.default_rng(1).normal(size=(4, 200))
-spike_data = np.random.default_rng(2).normal(size=(4, 200))
+# Cross-modal lag scan between aligned TFR and spike tensors. Both are reduced to a
+# single series before the sweep, so TIME is the first axis: (n_times, n_trials).
+tfr_data = np.random.default_rng(1).normal(size=(200, 4))
+spike_data = np.random.default_rng(2).normal(size=(200, 4))
 modal_res = jnwb.cross_modal_comparison(
-    tfr_data, spike_data, lag_range_ms=(-100, 100), bin_ms=10.0,
+    tfr_data, spike_data, lag_range_ms=(-100, 100), bin_ms=10.0, rng=0,
 )
 assert "correlation" in modal_res and "lag_ms" in modal_res
+# rng seeds the circular-shift null behind lag_corrected_pvalue; without it that p moves
+# from run to run, while lag_ms does not.
+print(modal_res["lag_ms"], modal_res["lag_corrected_pvalue"])   # 100.0, 0.892
+print(modal_res["warnings"])   # the lag window is wide for a 200-sample series
 ```
+
+**The axis order, the sign of `lag_ms`, and which p-value to read.** This example used to
+pass `(4, 200)` and call it `channels x time`. The reduction reads a 2-D array as
+`(n_times, n_trials)`, so it produced a four-sample series, swept three lags, and returned
+a correlation over four points; `lag_search_resolution_floor` was 0.75 and `warnings` said
+so, and nothing on the page read either.
+
+`lag_ms` is in milliseconds and is negative when the TFR/LFP signal leads spikes, positive
+when it lags them; `lfp_leads_spikes` carries the same fact so the convention need not be
+remembered. Read `lag_corrected_pvalue`, not `correlation['parametric']['pval']`: the
+latter is the p at the winning lag and pays nothing for having searched the others. On
+white noise over 101 lags it falls below 0.05 in 99.5% of runs. The inputs here *are*
+independent white noise, and the corrected p is 0.892 -- the right answer, from the right
+field.
 
 ## References
 

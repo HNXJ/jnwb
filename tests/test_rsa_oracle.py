@@ -18,7 +18,8 @@ import numpy as np
 import pytest
 from scipy.spatial.distance import pdist, squareform
 from scipy.spatial.distance import cosine as cosine_distance
-from scipy.stats import kendalltau, pearsonr, spearmanr
+from scipy.stats import kendalltau, spearmanr
+from scipy.stats import t as student_t
 
 import jnwb
 
@@ -168,35 +169,85 @@ class TestRdmDevice:
 class TestSimilarityMetricsAgainstScipy:
     """Each similarity metric must be the estimator it names.
 
-    ``pearson``, ``kendall`` and ``cosine`` were only range-checked (0 <= r <= 1),
-    so returning Spearman for all four, or computing cosine over the wrong axis,
-    passed. These pin each coefficient and its p-value to a SciPy oracle.
+    ``pearson``, ``kendall`` and ``cosine`` were only range-checked (0 <= r <= 1), so
+    returning Spearman for all four, or computing cosine over the wrong axis, passed.
+
+    The replacement for that check was itself circular: `rdm_similarity` is a dispatcher
+    whose ``pearson`` arm is `stats.pearsonr(v1, v2)`, and the test compared it to
+    `pearsonr(a, b)` -- the same function on the same inputs. An identity cannot fail on
+    a wrong coefficient, only on wrong routing. The coefficients below are computed from
+    each estimator's definition, so routing and value are both checked. P-values for the
+    two correlation metrics come from the shared ``t`` transform, which is not the
+    estimator under test; Kendall's null is left to SciPy and labelled as delegated.
     """
 
     @staticmethod
     def _pair():
         return jnwb.rdm(_features(seed=0)), jnwb.rdm(_features(seed=5))
 
-    def test_pearson_matches_scipy(self):
+    @staticmethod
+    def _pearson_by_definition(u, v):
+        du = np.asarray(u, dtype=np.float64) - np.mean(u)
+        dv = np.asarray(v, dtype=np.float64) - np.mean(v)
+        return float(du @ dv / (np.linalg.norm(du) * np.linalg.norm(dv)))
+
+    @staticmethod
+    def _ranks(u):
+        u = np.asarray(u, dtype=np.float64)
+        assert len(np.unique(u)) == u.size, (
+            "this ranking is only correct without ties, and the fixture has some"
+        )
+        order = np.argsort(u)
+        out = np.empty(u.size, dtype=np.float64)
+        out[order] = np.arange(1, u.size + 1, dtype=np.float64)
+        return out
+
+    @staticmethod
+    def _kendall_tau_by_counting(u, v):
+        n = len(u)
+        concordant = discordant = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                s = np.sign(u[i] - u[j]) * np.sign(v[i] - v[j])
+                if s > 0:
+                    concordant += 1
+                elif s < 0:
+                    discordant += 1
+        return float((concordant - discordant) / (n * (n - 1) / 2))
+
+    @staticmethod
+    def _two_sided_p(r, n):
+        t_stat = r * np.sqrt((n - 2) / (1 - r * r))
+        return float(2 * student_t.sf(abs(t_stat), n - 2))
+
+    def test_the_oracles_are_not_trivially_satisfiable(self):
+        """Guards every test below: an oracle agreeing at r = 0 or r = 1 proves nothing."""
         a, b = self._pair()
-        expected = pearsonr(a, b)
+        r = self._pearson_by_definition(a, b)
+        assert 0.02 < abs(r) < 0.98, f"fixture correlation {r:.4f} is degenerate"
+        assert len(a) == 36, f"condensed length {len(a)}; the p-value dof would be wrong"
+
+    def test_pearson_matches_its_definition(self):
+        a, b = self._pair()
+        expected = self._pearson_by_definition(a, b)
         got = jnwb.rdm_similarity(a, b, metric="pearson")
-        assert got[0] == pytest.approx(expected[0], abs=1e-12)
-        assert got[1] == pytest.approx(expected[1], abs=1e-12)
+        assert got[0] == pytest.approx(expected, abs=1e-12)
+        assert got[1] == pytest.approx(self._two_sided_p(expected, len(a)), rel=1e-9)
 
-    def test_spearman_matches_scipy(self):
+    def test_spearman_is_pearson_on_the_ranks(self):
         a, b = self._pair()
-        expected = spearmanr(a, b)
+        expected = self._pearson_by_definition(self._ranks(a), self._ranks(b))
         got = jnwb.rdm_similarity(a, b, metric="spearman")
-        assert got[0] == pytest.approx(expected[0], abs=1e-12)
-        assert got[1] == pytest.approx(expected[1], abs=1e-12)
+        assert got[0] == pytest.approx(expected, abs=1e-12)
+        assert got[1] == pytest.approx(self._two_sided_p(expected, len(a)), rel=1e-9)
 
-    def test_kendall_matches_scipy(self):
+    def test_kendall_matches_a_counted_tau(self):
         a, b = self._pair()
-        expected = kendalltau(a, b)
+        expected = self._kendall_tau_by_counting(a, b)
         got = jnwb.rdm_similarity(a, b, metric="kendall")
-        assert got[0] == pytest.approx(expected[0], abs=1e-12)
-        assert got[1] == pytest.approx(expected[1], abs=1e-12)
+        assert got[0] == pytest.approx(expected, abs=1e-12)
+        # Kendall's null distribution is delegated to SciPy, not re-derived here.
+        assert got[1] == pytest.approx(kendalltau(a, b)[1], abs=1e-12)
 
     def test_cosine_is_a_similarity_and_reports_no_p_value(self):
         a, b = self._pair()

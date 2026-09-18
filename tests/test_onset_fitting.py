@@ -86,10 +86,18 @@ class TestFitExponentialOnset:
         return t_ms, smoothed
 
     def test_recovers_known_onset_within_tolerance(self):
+        """The tolerance is tied to this construction at this seed.
+
+        `2 * DEFAULT_TAU_MS` is 60 ms, wider than the 50 ms onset being recovered, so a
+        fit that reported onset at 0 ms or at 109 ms passed a test named for recovery.
+        The error here is 3.57 ms. The bound is not a general one: over 40 seeds this
+        construction has p95 20.7 ms and max 29.3 ms, so a fixed 15 ms bound would fail
+        6 of them. Reseed this test and the bound has to be re-measured.
+        """
         t_ms, rate = self._synthetic_psth(50.0, 20.0, 30.0, 5.0, n_trials=60, seed=0)
         fit = fit_exponential_onset(t_ms, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0))
-        assert abs(fit["t0"] - 50.0) < 2 * DEFAULT_TAU_MS
         assert fit["converged"]
+        assert abs(fit["t0"] - 50.0) < 8.0
 
     def test_causality_bound_clamps_pre_window_onset(self):
         # True onset before the allowed window -- fit must not report a t0 outside bounds

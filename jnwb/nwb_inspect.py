@@ -3,33 +3,52 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import h5py
 import numpy as np
 from pynwb import NWBFile
 
-from jnwb.nwb_io import nwb_read_io
+from jnwb.nwb_io import NWBInput, _with_nwb, nwb_read_io
 
-PathLike = Union[str, Path]
-InspectInput = Union[PathLike, NWBFile]
+#: Historical spelling of `NWBInput`; this module's entry points are annotated with it.
+InspectInput = NWBInput
 
 _MAX_SAMPLES = 5
 
 
-class AmbiguousAcquisitionError(Exception):
+class NWBInspectError(Exception):
+    """Base for every error raised while addressing an NWB file's contents.
+
+    The four classes below were independent, and one of them inherited `IndexError`
+    while its three siblings inherited `Exception`, so no single `except` clause caught
+    them. They keep their existing bases, so `except IndexError` around
+    `ChannelIndexError` still works.
+    """
+
+
+class AmbiguousLayoutError(NWBInspectError):
+    """The channel axis of a 2-D continuous series cannot be determined.
+
+    Raised when neither dimension of the data matches the series' electrode count, or
+    when both do. Guessing here returns a slice taken across channels at one instant as
+    though it were one channel's time course.
+    """
+
+
+class AmbiguousAcquisitionError(NWBInspectError):
     """Several acquisitions are present and ``name`` was not specified."""
 
 
-class AcquisitionNotFoundError(Exception):
+class AcquisitionNotFoundError(NWBInspectError):
     """The requested acquisition does not exist."""
 
 
-class ChannelIndexError(IndexError):
+class ChannelIndexError(NWBInspectError, IndexError):
     """The requested channel index is out of range for the continuous series."""
 
 
-class UnitNotFoundError(Exception):
+class UnitNotFoundError(NWBInspectError):
     """The requested units-table row does not exist."""
 
 
@@ -65,34 +84,44 @@ def _sample_column(ds: h5py.Dataset, n: int = _MAX_SAMPLES) -> list[Any]:
     return out
 
 
-def _find_series_leaf(group: h5py.Group) -> tuple[str | None, h5py.Dataset | None, float | None]:
-    """Return (data_relpath, data_dataset, rate) for an acquisition object."""
-    data_path: str | None = None
-    data_ds: h5py.Dataset | None = None
-    rate: float | None = None
+def _series_rate(group: h5py.Group) -> float | None:
+    """Sampling rate declared by one series group, in Hz."""
+    st = group.get("starting_time")
+    if st is not None and "rate" in getattr(st, "attrs", {}):
+        return float(st.attrs["rate"])
+    rate = group.get("rate")
+    if isinstance(rate, h5py.Dataset):
+        return float(rate[()])
+    return None
 
-    def visit(name: str, obj: h5py.Dataset | h5py.Group) -> None:
-        nonlocal data_path, data_ds, rate
-        if isinstance(obj, h5py.Dataset):
-            leaf = name.rsplit("/", 1)[-1]
-            if leaf == "data" and data_ds is None:
-                data_path = name
-                data_ds = obj
-            if leaf == "rate" and rate is None:
-                rate = float(obj[()])
-            if leaf == "starting_time" and "rate" in obj.attrs:
-                rate = float(obj.attrs["rate"])
 
-    group.visititems(visit)
-    if rate is None:
-        for _, obj in group.items():
-            if isinstance(obj, h5py.Group):
-                nested = _find_series_leaf(obj)
-                if nested[2] is not None and rate is None:
-                    rate = nested[2]
-                if nested[1] is not None and data_ds is None:
-                    data_path, data_ds, _ = nested
-    return data_path, data_ds, rate
+def _series_members(group: h5py.Group) -> list[tuple[str | None, str, h5py.Dataset, float | None]]:
+    """Every continuous series directly under one container, as
+    ``(series_name, data_relpath, data_dataset, rate_hz)``.
+
+    05-39: the predecessor walked the whole subtree with ``visititems``, taking the first
+    ``data`` leaf and the first ``rate`` leaf **independently**. On an `LFP` container
+    holding `lfp_alpha` at 1000 Hz and `lfp_beta` at 500 Hz it reported `lfp_alpha`'s
+    shape and path beside `lfp_beta`'s rate -- a sampling rate that belonged to a
+    different array. Here ``data`` and ``rate`` always come from the same group, and a
+    container holding several series returns several members rather than one blend of
+    them.
+
+    ``series_name`` is ``None`` for a series that is itself the container (a direct
+    `ElectricalSeries`), and the wrapped name otherwise.
+    """
+    direct = group.get("data")
+    if isinstance(direct, h5py.Dataset):
+        return [(None, "data", direct, _series_rate(group))]
+    members: list[tuple[str | None, str, h5py.Dataset, float | None]] = []
+    for name in sorted(group.keys()):
+        child = group[name]
+        if not isinstance(child, h5py.Group):
+            continue
+        for sub_name, rel, ds, rate in _series_members(child):
+            members.append((name if sub_name is None else f"{name}/{sub_name}",
+                            f"{name}/{rel}", ds, rate))
+    return members
 
 
 def _inspect_intervals_h5py(intervals: h5py.Group) -> list[dict[str, Any]]:
@@ -128,30 +157,119 @@ def _inspect_intervals_h5py(intervals: h5py.Group) -> list[dict[str, Any]]:
     return tables
 
 
+TIME_BY_CHANNEL = "time_by_channel"
+CHANNEL_BY_TIME = "channel_by_time"
+AMBIGUOUS_LAYOUT = "ambiguous"
+
+
+def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None:
+    """Length of the electrode region sitting beside `data`, or ``None``.
+
+    The series' own region is the arbiter, not the whole electrode table: a series may
+    cover a subset of a 384-channel probe.
+    """
+    if data_relpath is None:
+        return None
+    node: Any = group
+    for part in data_relpath.split("/")[:-1]:
+        node = node.get(part)
+        if not isinstance(node, h5py.Group):
+            return None
+    region = node.get("electrodes")
+    if region is None:
+        return None
+    try:
+        n = len(region)
+    except TypeError:
+        return None
+    return int(n) or None
+
+
+def _pynwb_channel_count(series: Any) -> int | None:
+    """The same arbiter on the pynwb path: ``len(series.electrodes)``."""
+    region = getattr(series, "electrodes", None)
+    if region is None:
+        return None
+    try:
+        n = len(region)
+    except TypeError:
+        return None
+    return int(n) or None
+
+
+def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
+    """Decide which axis of a 2-D continuous series holds channels.
+
+    05-38: this was ``shape[0] >= shape[1]``, which never consulted the electrode count.
+    A 64-channel x 1000-sample recording came out ``channel_by_time`` only by accident of
+    being wider than tall, and a 50-sample x 100-channel one came out ``channel_by_time``
+    while the same ``inspect`` dict carried 100 electrodes.
+
+    Returns ``(layout, basis)``. ``basis`` is internal and says whether the answer came
+    from the electrode count or from the shape guess that is all there is without one.
+    """
+    rows, cols = int(shape[0]), int(shape[1])
+    if n_channels:
+        n = int(n_channels)
+        if cols == n and rows != n:
+            return TIME_BY_CHANNEL, "electrode_count"
+        if rows == n and cols != n:
+            return CHANNEL_BY_TIME, "electrode_count"
+        # Both sides match (a square array) or neither does. Guessing here is exactly how
+        # a slice across channels gets returned as a channel's time course.
+        return AMBIGUOUS_LAYOUT, "electrode_count"
+    # Nothing to arbitrate with. The shape heuristic is the only answer available.
+    return (TIME_BY_CHANNEL if rows >= cols else CHANNEL_BY_TIME), "shape"
+
+
+CONTINUOUS_KEYS = (
+    "name", "path", "neurodata_type", "packaging", "series",
+    "data_path", "data_shape", "data_dtype", "layout", "rate_hz",
+)
+
+
+def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str, Any]:
+    """One `processing_continuous`/`acquisitions` entry, from the file.
+
+    05-39: every key in `CONTINUOUS_KEYS` is always present, `None` where it is not
+    known, so `inspect` reports one schema rather than a key set that depends on what
+    the file happened to contain.
+    """
+    ndt = _ndt(group)
+    members = _series_members(group)
+    entry: dict[str, Any] = {
+        "name": name,
+        "path": path,
+        "neurodata_type": ndt,
+        "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
+        "series": [m[0] for m in members if m[0] is not None] or None,
+        "data_path": None,
+        "data_shape": None,
+        "data_dtype": None,
+        "layout": None,
+        "rate_hz": None,
+    }
+    # Several series under one container is a question, not an answer: which one is "the"
+    # rate, shape and path? The caller names the series it wants.
+    if len(members) == 1:
+        _, relpath, data_ds, rate = members[0]
+        entry["data_path"] = f"{path}/{relpath}"
+        entry["data_shape"] = list(data_ds.shape)
+        entry["data_dtype"] = str(data_ds.dtype)
+        if len(data_ds.shape) == 2:
+            entry["layout"] = _resolve_layout(
+                data_ds.shape, _h5_channel_count(group, relpath))[0]
+        entry["rate_hz"] = rate
+    return entry
+
+
 def _inspect_acquisitions_h5py(acquisition: h5py.Group) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for name in sorted(acquisition.keys()):
         obj = acquisition[name]
         if not isinstance(obj, h5py.Group):
             continue
-        ndt = _ndt(obj)
-        data_path, data_ds, rate = _find_series_leaf(obj)
-        entry: dict[str, Any] = {
-            "name": name,
-            "path": f"/acquisition/{name}",
-            "neurodata_type": ndt,
-            "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
-        }
-        if data_path is not None:
-            entry["data_path"] = f"/acquisition/{name}/{data_path}"
-        if data_ds is not None:
-            entry["data_shape"] = list(data_ds.shape)
-            entry["data_dtype"] = str(data_ds.dtype)
-            if len(data_ds.shape) == 2:
-                entry["layout"] = "time_by_channel" if data_ds.shape[0] >= data_ds.shape[1] else "channel_by_time"
-        if rate is not None:
-            entry["rate_hz"] = rate
-        out.append(entry)
+        out.append(_continuous_entry_h5py(obj, name, f"/acquisition/{name}"))
     return out
 
 
@@ -168,25 +286,11 @@ def _inspect_processing_continuous_h5py(handle: h5py.File) -> list[dict[str, Any
             obj = mod[cname]
             if not isinstance(obj, h5py.Group):
                 continue
-            ndt = _ndt(obj)
-            data_path, data_ds, rate = _find_series_leaf(obj)
-            if data_ds is None:
+            if not _series_members(obj):
                 continue
-            entry: dict[str, Any] = {
-                "name": cname,
-                "module": mod_name,
-                "path": f"/processing/{mod_name}/{cname}",
-                "neurodata_type": ndt,
-                "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
-                "data_shape": list(data_ds.shape),
-                "data_dtype": str(data_ds.dtype),
-            }
-            if data_path is not None:
-                entry["data_path"] = f"/processing/{mod_name}/{cname}/{data_path}"
-            if len(data_ds.shape) == 2:
-                entry["layout"] = "time_by_channel" if data_ds.shape[0] >= data_ds.shape[1] else "channel_by_time"
-            if rate is not None:
-                entry["rate_hz"] = rate
+            entry = _continuous_entry_h5py(
+                obj, cname, f"/processing/{mod_name}/{cname}")
+            entry["module"] = mod_name
             out.append(entry)
     return out
 
@@ -217,16 +321,6 @@ def _inspect_units_h5py(units: h5py.Group) -> dict[str, Any]:
         "columns": columns,
         "has_spike_times": "spike_times" in units,
     }
-
-
-def _with_nwb(path_or_nwb: InspectInput, fn):
-    if isinstance(path_or_nwb, NWBFile):
-        return fn(path_or_nwb)
-    path = Path(path_or_nwb)
-    if not path.exists():
-        raise FileNotFoundError(f"NWB file not found: {path}")
-    with nwb_read_io(str(path), load_namespaces=True) as io:
-        return fn(io.read())
 
 
 def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
@@ -272,9 +366,20 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
             raise AcquisitionNotFoundError("No acquisitions or processing continuous series found in NWB file")
 
         if name is not None:
-            if nwb.acquisition and name in nwb.acquisition:
-                return name
-            if name in proc_dict:
+            in_acquisition = bool(nwb.acquisition) and name in nwb.acquisition
+            in_processing = name in proc_dict
+            # 05-39: both used to be true happily, and acquisition won by the order of
+            # these two `if`s. Nothing said so, and the two objects are different data.
+            if in_acquisition and in_processing:
+                qualified = sorted(
+                    k for k in proc_dict if "/" in k and k.rsplit("/", 1)[-1] == name
+                )
+                raise AmbiguousAcquisitionError(
+                    f"'{name}' names both /acquisition/{name} and "
+                    f"{qualified or ['a processing series']}. "
+                    f"Pass the qualified processing name to mean the latter."
+                )
+            if in_acquisition or in_processing:
                 return name
             raise AcquisitionNotFoundError(
                 f"Series '{name}' not found. Available: {all_available}"
@@ -289,11 +394,28 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
     return _with_nwb(path_or_nwb, _resolve)
 
 
-def _electrical_series_from_acquisition(acq: Any):
+def _electrical_series_from_acquisition(acq: Any, name: str | None = None):
+    """Unwrap an `LFP` container to the series it holds.
+
+    05-39: this was ``next(iter(...))``, so a container holding two series silently
+    returned whichever came first, while `inspect` reported a third answer built from
+    both. A container that holds more than one series is a question for the caller.
+    """
     ndt = getattr(acq, "neurodata_type", type(acq).__name__)
-    if ndt == "LFP":
-        return next(iter(acq.electrical_series.values()))
-    return acq
+    if ndt != "LFP":
+        return acq
+    wrapped = getattr(acq, "electrical_series", None) or {}
+    label = name or getattr(acq, "name", "LFP")
+    if not wrapped:
+        raise AcquisitionNotFoundError(
+            f"Container '{label}' holds no electrical series"
+        )
+    if len(wrapped) > 1:
+        raise AmbiguousAcquisitionError(
+            f"Container '{label}' wraps {len(wrapped)} electrical series: "
+            f"{sorted(wrapped)}. Pass name=<series> explicitly."
+        )
+    return next(iter(wrapped.values()))
 
 
 def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarray:
@@ -340,8 +462,12 @@ def acquisition_channel(
         Name of the continuous series or container. When omitted, resolves the
         sole available series if unique.
     channel:
-        Zero-based channel index. For 1D series, channel must be 0.
-        Raises :class:`ChannelIndexError` if channel is out of range.
+        Zero-based channel index, in the series' own channel axis. That axis is read
+        from the series' electrode region, so ``channel=k`` is the same channel whether
+        the array is stored time-by-channel or channel-by-time.
+        Raises :class:`ChannelIndexError` if channel is out of range, and
+        :class:`AmbiguousLayoutError` when the electrode count matches neither dimension
+        of a 2-D array or matches both. For 1D series, channel must be 0.
 
     Returns
     -------
@@ -361,7 +487,7 @@ def acquisition_channel(
         else:
             proc_dict, _ = _find_processing_series(nwb)
             container = proc_dict[acq_name]
-        series = _electrical_series_from_acquisition(container)
+        series = _electrical_series_from_acquisition(container, acq_name)
         if not hasattr(series, "data") or series.data is None:
             raise AcquisitionNotFoundError(
                 f"Series '{acq_name}' has no readable data array"
@@ -375,11 +501,32 @@ def acquisition_channel(
                 )
             data = np.asarray(series.data[:], dtype=np.float64)
         elif len(shape) == 2:
-            if channel < 0 or channel >= shape[1]:
-                raise ChannelIndexError(
-                    f"Channel index {channel} out of range for series '{acq_name}' with {shape[1]} channels"
+            # 05-38: this sliced axis 1 unconditionally and bounds-checked shape[1],
+            # never consulting the layout its own sibling `inspect` reports. On a
+            # channel-major (64, 1000) series with 64 electrodes, channel=0 returned
+            # data[:, 0] -- 64 samples taken across channels at one instant -- as a
+            # 1000 Hz channel trace, channel=999 returned another such slice, and
+            # channel=1000 raised "out of range ... with 1000 channels" for a file
+            # that has 64 of them.
+            n_channels = _pynwb_channel_count(series)
+            layout, basis = _resolve_layout(shape, n_channels)
+            if layout == AMBIGUOUS_LAYOUT:
+                raise AmbiguousLayoutError(
+                    f"Cannot tell which axis of series '{acq_name}' holds channels: "
+                    f"shape {tuple(shape)} against {n_channels} electrodes, so neither "
+                    f"dimension matches or both do. Guessing would return a slice "
+                    f"across channels as a channel's time course."
                 )
-            data = np.asarray(series.data[:, channel], dtype=np.float64)
+            n = shape[1] if layout == TIME_BY_CHANNEL else shape[0]
+            if channel < 0 or channel >= n:
+                raise ChannelIndexError(
+                    f"Channel index {channel} out of range for series '{acq_name}' "
+                    f"with {n} channels (layout {layout}, decided by {basis})"
+                )
+            if layout == TIME_BY_CHANNEL:
+                data = np.asarray(series.data[:, channel], dtype=np.float64)
+            else:
+                data = np.asarray(series.data[channel, :], dtype=np.float64)
         else:
             raise ValueError(
                 f"Unsupported series data shape {shape} for '{acq_name}' (expected 1D or 2D)"
@@ -416,118 +563,157 @@ def _session_from_pynwb(nwb: NWBFile) -> dict[str, Any]:
     }
 
 
-def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
-    """Return structured metadata about an NWB file or in-memory NWB object.
+def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
+    """The `CONTINUOUS_KEYS` entry for one container, from the object model.
 
-    Discovery only: lists acquisitions, electrodes, units, and **all** interval
-    tables with columns and sample values. Does not select a default event table.
+    Same keys, same meanings and the same refusal as `_continuous_entry_h5py`, so the
+    two call forms of `inspect` do not describe the same file with two vocabularies.
     """
-    if isinstance(path_or_nwb, NWBFile):
-        nwb = path_or_nwb
-        session = _session_from_pynwb(nwb)
-        interval_tables: list[dict[str, Any]] = []
-        if nwb.intervals:
-            for name in sorted(nwb.intervals.keys()):
-                df = nwb.intervals[name].to_dataframe()
-                columns = []
-                for col in df.columns:
-                    sample = df[col].head(_MAX_SAMPLES).tolist()
-                    columns.append(
-                        {
-                            "name": str(col),
-                            "dtype": str(df[col].dtype),
-                            "sample_values": sample,
-                        }
-                    )
-                interval_tables.append(
-                    {
-                        "name": name,
-                        "path": f"/intervals/{name}",
-                        "n_rows": len(df),
-                        "columns": columns,
-                    }
-                )
-        acquisitions: list[dict[str, Any]] = []
-        for name, obj in sorted(nwb.acquisition.items()):
-            ndt = getattr(obj, "neurodata_type", type(obj).__name__)
-            packaging = "lfp_wrapped" if ndt == "LFP" else "direct"
-            series = obj
-            if ndt == "LFP":
-                series = next(iter(obj.electrical_series.values()))
-            entry: dict[str, Any] = {
-                "name": name,
-                "path": f"/acquisition/{name}",
-                "neurodata_type": ndt,
-                "packaging": packaging,
-            }
-            if hasattr(series, "data") and series.data is not None:
-                shape = series.data.shape
-                entry["data_shape"] = list(shape)
-                entry["data_dtype"] = str(series.data.dtype)
-            rate = getattr(series, "rate", None)
-            if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
-                entry["rate_hz"] = float(rate)
-            acquisitions.append(entry)
-        processing_continuous: list[dict[str, Any]] = []
-        if nwb.processing:
-            for mod_name, mod in sorted(nwb.processing.items()):
-                for cname, obj in sorted(getattr(mod, "data_interfaces", {}).items()):
-                    ndt = getattr(obj, "neurodata_type", type(obj).__name__)
-                    packaging = "lfp_wrapped" if ndt == "LFP" else "direct"
-                    series = obj
-                    if ndt == "LFP" and hasattr(obj, "electrical_series"):
-                        if not obj.electrical_series:
-                            continue
-                        series = next(iter(obj.electrical_series.values()))
-                    if not hasattr(series, "data") or series.data is None:
-                        continue
-                    entry = {
-                        "name": cname,
-                        "module": mod_name,
-                        "path": f"/processing/{mod_name}/{cname}",
-                        "neurodata_type": ndt,
-                        "packaging": packaging,
-                    }
-                    shape = series.data.shape
-                    entry["data_shape"] = list(shape)
-                    entry["data_dtype"] = str(series.data.dtype)
-                    if len(shape) == 2:
-                        entry["layout"] = (
-                            "time_by_channel" if shape[0] >= shape[1] else "channel_by_time"
-                        )
-                    rate = getattr(series, "rate", None)
-                    if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
-                        entry["rate_hz"] = float(rate)
-                    processing_continuous.append(entry)
-        electrodes = {"n_rows": len(nwb.electrodes) if nwb.electrodes is not None else 0}
-        if nwb.electrodes is not None:
-            elec_df = nwb.electrodes.to_dataframe()
-            electrodes["columns"] = [
-                {"name": str(c), "dtype": str(elec_df[c].dtype)} for c in elec_df.columns
-            ]
-        units = {"n_rows": len(nwb.units) if nwb.units is not None else 0}
-        if nwb.units is not None:
-            units["has_spike_times"] = "spike_times" in nwb.units.colnames
-            units_df = nwb.units.to_dataframe()
-            units["columns"] = [
-                {"name": str(c), "dtype": str(units_df[c].dtype)} for c in units_df.columns
-            ]
-        return {
-            "session": session,
-            "acquisitions": acquisitions,
-            "processing_continuous": processing_continuous,
-            "electrodes": electrodes,
-            "units": units,
-            "interval_tables": interval_tables,
-            "time_unit": "seconds",
+    ndt = getattr(obj, "neurodata_type", type(obj).__name__)
+    entry: dict[str, Any] = {
+        "name": name,
+        "path": path,
+        "neurodata_type": ndt,
+        "packaging": "lfp_wrapped" if ndt == "LFP" else "direct",
+        "series": None,
+        "data_path": None,
+        "data_shape": None,
+        "data_dtype": None,
+        "layout": None,
+        "rate_hz": None,
+    }
+    if ndt == "LFP":
+        wrapped = dict(getattr(obj, "electrical_series", None) or {})
+        entry["series"] = sorted(wrapped) or None
+        if len(wrapped) != 1:
+            return entry
+        series_name = next(iter(sorted(wrapped)))
+        series = wrapped[series_name]
+        relpath = f"{series_name}/data"
+    else:
+        series = obj
+        relpath = "data"
+
+    data = getattr(series, "data", None)
+    if data is None:
+        return entry
+    shape = getattr(data, "shape", None)
+    if shape is None:
+        shape = np.shape(data)
+    dtype = getattr(data, "dtype", None)
+    if dtype is None:
+        dtype = np.asarray(data).dtype
+    entry["data_path"] = f"{path}/{relpath}"
+    entry["data_shape"] = list(shape)
+    entry["data_dtype"] = str(dtype)
+    if len(shape) == 2:
+        entry["layout"] = _resolve_layout(shape, _pynwb_channel_count(series))[0]
+    rate = getattr(series, "rate", None)
+    if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
+        entry["rate_hz"] = float(rate)
+    return entry
+
+
+def _table_columns_pynwb(table: Any, with_shape: bool, with_samples: bool) -> list[dict[str, Any]]:
+    """Columns of a `DynamicTable`, including its `id` column, sorted by name.
+
+    `id` is a column of every `DynamicTable`; `to_dataframe()` makes it the index, which
+    is why the object form used to report one fewer column than the file form.
+    """
+    df = table.to_dataframe()
+    series = {"id": df.index.to_series()}
+    for col in df.columns:
+        series[str(col)] = df[col]
+    out: list[dict[str, Any]] = []
+    for col_name in sorted(series):
+        values = series[col_name]
+        entry: dict[str, Any] = {"name": col_name, "dtype": str(values.dtype)}
+        if with_shape:
+            entry["shape"] = [len(values)]
+        if with_samples:
+            entry["sample_values"] = values.head(_MAX_SAMPLES).tolist()
+        out.append(entry)
+    return out
+
+
+def _inspect_object(nwb: NWBFile) -> dict[str, Any]:
+    """`inspect` for an NWB object with no file behind it.
+
+    Produces the schema `_inspect_file` produces. The values it cannot know are the ones
+    that exist only on disk -- a dtype chosen at write time, for instance -- and those
+    come from the in-memory arrays instead.
+    """
+    # `nwb.intervals` is empty until the file is written and read back: in memory
+    # `add_trial` populates `nwb.trials` and nothing else, so the object form used to
+    # report no interval tables at all for a file that plainly has one.
+    tables: dict[str, Any] = dict(nwb.intervals or {})
+    for attr in ("trials", "epochs", "invalid_times"):
+        table = getattr(nwb, attr, None)
+        if table is not None and attr not in tables:
+            tables[attr] = table
+
+    interval_tables: list[dict[str, Any]] = []
+    for name in sorted(tables):
+        table = tables[name]
+        interval_tables.append({
+            "name": name,
+            "path": f"/intervals/{name}",
+            "n_rows": len(table),
+            "columns": _table_columns_pynwb(table, with_shape=True, with_samples=True),
+        })
+
+    acquisitions = [
+        _continuous_entry_pynwb(obj, name, f"/acquisition/{name}")
+        for name, obj in sorted((nwb.acquisition or {}).items())
+    ]
+
+    processing_continuous: list[dict[str, Any]] = []
+    for mod_name, mod in sorted((nwb.processing or {}).items()):
+        for cname, obj in sorted(getattr(mod, "data_interfaces", {}).items()):
+            entry = _continuous_entry_pynwb(
+                obj, cname, f"/processing/{mod_name}/{cname}")
+            if entry["data_path"] is None and entry["series"] is None:
+                continue          # not a continuous series at all
+            entry["module"] = mod_name
+            processing_continuous.append(entry)
+
+    if nwb.electrodes is not None:
+        electrodes = {
+            "n_rows": len(nwb.electrodes),
+            "columns": _table_columns_pynwb(
+                nwb.electrodes, with_shape=False, with_samples=False),
         }
+    else:
+        electrodes = {"n_rows": 0, "columns": []}
 
-    path = Path(path_or_nwb)
-    if not path.exists():
-        raise FileNotFoundError(f"NWB file not found: {path}")
+    if nwb.units is not None:
+        units = {
+            "n_rows": len(nwb.units),
+            "columns": _table_columns_pynwb(
+                nwb.units, with_shape=False, with_samples=False),
+            "has_spike_times": "spike_times" in nwb.units.colnames,
+        }
+    else:
+        units = {"n_rows": 0, "columns": [], "has_spike_times": False}
 
-    with nwb_read_io(str(path), load_namespaces=True) as io:
-        nwb = io.read()
+    return {
+        "session": _session_from_pynwb(nwb),
+        "acquisitions": acquisitions,
+        "processing_continuous": processing_continuous,
+        "electrodes": electrodes,
+        "units": units,
+        "interval_tables": interval_tables,
+        "time_unit": "seconds",
+    }
+
+
+def _inspect_file(path: Path, nwb: NWBFile | None = None) -> dict[str, Any]:
+    """`inspect` for a file on disk. `nwb`, when given, is an already-read handle on the
+    same file, used for the session block so the file is not opened with pynwb twice."""
+    if nwb is None:
+        with nwb_read_io(str(path), load_namespaces=True) as io:
+            session = _session_from_pynwb(io.read())
+    else:
         session = _session_from_pynwb(nwb)
 
     with h5py.File(path, "r") as handle:
@@ -564,3 +750,30 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
         "interval_tables": interval_tables,
         "time_unit": "seconds",
     }
+
+
+def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
+    """Return structured metadata about an NWB file or in-memory NWB object.
+
+    Discovery only: lists acquisitions, electrodes, units, and **all** interval
+    tables with columns and sample values. Does not select a default event table.
+
+    Both call forms answer with one schema. 05-39: they used to be two independent
+    walks, so ``inspect(path)`` and ``inspect(nwb)`` reported different keys, different
+    column lists and different dtypes for the same file. An `NWBFile` that was read from
+    a file is now described by that file, which is what makes passing an open handle --
+    the documented way to avoid reopening -- give the same answer as passing the path.
+    An `NWBFile` with no file behind it is described from its arrays, in the same schema.
+    """
+    if isinstance(path_or_nwb, NWBFile):
+        source = getattr(path_or_nwb, "container_source", None)
+        if source:
+            source_path = Path(str(source))
+            if source_path.exists():
+                return _inspect_file(source_path, nwb=path_or_nwb)
+        return _inspect_object(path_or_nwb)
+
+    path = Path(path_or_nwb)
+    if not path.exists():
+        raise FileNotFoundError(f"NWB file not found: {path}")
+    return _inspect_file(path)

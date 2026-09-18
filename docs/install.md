@@ -8,6 +8,8 @@ pip install -U jnwb
 
 The current library release is dataset-agnostic. The public surface is documented in [Public API](api.md) and is the contents of `jnwb.__all__`.
 
+A wheel carries the library, and the sdist adds `AGENTS.md` and `skills/`. Neither carries `examples/`, so the executable tutorials the [Quickstart](quickstart.md) and [Tutorials](tutorials/01_nwb_basics.md) tell you to run need the [source checkout](#source-checkout) below. [What an agent gets](agents.md) has the full table.
+
 ### Optional Acceleration Backends & Extras
 
 `jnwb` is structured with modular extras so production workflows install only what they need:
@@ -57,8 +59,8 @@ signal you would get. This has happened in practice — two copies of one projec
 disagreed on a label, and most importing files took the stale one.
 
 Keep your analysis project in its own directory, beside the jnwb checkout rather than
-inside it. jnwb's own harness enforces the equivalent invariant on this repository
-(`scripts/harness_gate.py`, Gate 11), and the published wheel ships only `jnwb/`.
+inside it. jnwb's own harness enforces the equivalent invariant on this repository,
+and the published wheel ships only `jnwb/`.
 
 For a stricter editable install that maps `jnwb` alone instead of the whole root:
 
@@ -71,8 +73,17 @@ pip install -e . --config-settings editable_mode=strict
 `import jnwb` eagerly loads the core spectral, connectivity, and TFR surface. Symbols from
 `statistics`, `metadata`, `decoding`, `ontology`, `analyzers`, `onset_fitting`, and `viz` resolve
 on first access through `jnwb.__getattr__` without importing their submodules at package import
-time. The `visual_qc` submodule is likewise deferred. This keeps `import jnwb` fast while
-preserving the full public API in `jnwb.__all__`. Verified by `tests/test_import_lazy.py`.
+time. The `visual_qc` submodule is likewise deferred. This keeps `scikit-learn`, `statsmodels`,
+`matplotlib` and `joblib` out of the import while preserving the full public API in
+`jnwb.__all__`, which the suite verifies symbol by symbol.
+
+It does not make the import quick. `import jnwb` takes about 1.9 s, and about 1.8 s of that is
+`scipy`, `pandas` and `pynwb`, which the eager surface needs: roughly 1.1 s for the first `scipy`
+submodule imported, then 0.3 s each for `pandas` and `pynwb`, on top of 0.1 s for `numpy`. jnwb's
+own module bodies are about 0.05 s of it. Deferring any single module does not change this --
+`scipy` alone is imported at module scope by seven eagerly imported modules, so whichever one
+runs first is charged the shared cost and the rest are free. Import the package once at process
+start rather than per task.
 
 ## Verify
 

@@ -372,7 +372,24 @@ def _area_map_in_subprocess(block_omission: bool) -> str:
     return out.stdout.strip()
 
 
+def _omission_is_importable() -> bool:
+    """Whether the unblocked arm has anything to compare jnwb against."""
+    out = subprocess.run([sys.executable, "-c", "import omission"],
+                         capture_output=True, text=True,
+                         cwd=str(Path(__file__).resolve().parent.parent))
+    return out.returncode == 0
+
+
 def test_area_resolution_is_identical_with_and_without_omission_importable():
+    # The blocked arm proves its own block took effect. Nothing proved the *unblocked*
+    # arm could import what it is supposed to compare against, so where omission is not
+    # installed both arms ran identical code and this passed by comparing jnwb to
+    # itself. Skipping says so out loud instead; the comparison is real wherever the
+    # dependency exists, which is why this is a skip and not a deletion.
+    import pytest  # local, as everywhere else in this file
+
+    if not _omission_is_importable():
+        pytest.skip("omission is not importable here, so both arms would run identical code and the comparison would be vacuous")
     with_omission = _area_map_in_subprocess(block_omission=False)
     without_omission = _area_map_in_subprocess(block_omission=True)
     assert with_omission == without_omission, (

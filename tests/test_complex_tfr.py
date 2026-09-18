@@ -39,6 +39,10 @@ def _independent_reference_morlet_cwt(x: np.ndarray, fs: float, f0: float, n_cyc
     # Direct formula
     gaussian_envelope = np.exp(-0.5 * (t_vec / sigma_t) ** 2)
     carrier = np.exp(1j * 2.0 * np.pi * f0 * t_vec)
+    # Admissibility correction of Torrence & Compo (1998) eq. 6: the Morlet is only a
+    # wavelet if it integrates to zero. Omitting it left this reference agreeing with an
+    # equally uncorrected implementation to 1e-5 while both responded to DC.
+    carrier = carrier - (np.sum(gaussian_envelope * carrier) / np.sum(gaussian_envelope))
     kernel_raw = gaussian_envelope * carrier
     
     # L1 amplitude normalization factor: 2.0 / sum(gaussian_envelope)
@@ -191,24 +195,69 @@ class TestComplexTFRProbes:
             complex_tfr(x_nan, fs=fs, freqs=freqs)
 
     def test_probe09_edge_and_coi_exact_boundary(self, fs):
-        """Probe 9: COI mask correctly bounds the declared coi_sigma * sigma_t edge region."""
+        """Probe 9: by default the COI mask bounds exactly the kernel support.
+
+        05-85. It used to be built from `coi_sigma` (2.0) while the kernel was truncated at
+        `cutoff_sigma` (4.0), so it cleared at half the region zero-padding actually
+        reached: 96 against a kernel half-width of 191 at `n_cycles=3`.
+        """
         x = np.ones(1000)
         f0 = 20.0
         n_c = 5.0
-        coi_sigma = 2.0
-        tfr = complex_tfr(x, fs=fs, freqs=np.array([f0]), n_cycles=n_c, coi_sigma=coi_sigma)
+        tfr = complex_tfr(x, fs=fs, freqs=np.array([f0]), n_cycles=n_c)
 
         sigma_t = n_c / (2.0 * np.pi * f0)
-        k_coi = int(np.ceil(coi_sigma * sigma_t * fs))  # 32 samples
+        k_kernel = int(np.ceil(4.0 * sigma_t * fs))  # cutoff_sigma * sigma_t * fs = 64
 
-        # Boundary samples [0, k_coi) must be False
-        assert not np.any(tfr.coi_mask[0, :k_coi])
-        # Sample k_coi onwards must be True
-        assert tfr.coi_mask[0, k_coi]
+        assert not np.any(tfr.coi_mask[0, :k_kernel])
+        assert tfr.coi_mask[0, k_kernel]
         assert tfr.coi_mask[0, 500]
-        assert tfr.coi_mask[0, 1000 - k_coi - 1]
-        # Right boundary samples [1000 - k_coi, 1000) must be False
-        assert not np.any(tfr.coi_mask[0, 1000 - k_coi:])
+        assert tfr.coi_mask[0, 1000 - k_kernel - 1]
+        assert not np.any(tfr.coi_mask[0, 1000 - k_kernel:])
+
+    def test_probe09b_explicit_coi_sigma_is_honoured_and_warns_when_narrow(self, fs):
+        """An explicitly passed coi_sigma still sets the region -- and says so when it
+        marks contaminated samples as valid, which is the whole defect made opt-in.
+        """
+        x = np.ones(1000)
+        f0, n_c = 20.0, 5.0
+        sigma_t = n_c / (2.0 * np.pi * f0)
+
+        with pytest.warns(RuntimeWarning, match="narrower than the kernel half-width"):
+            narrow = complex_tfr(
+                x, fs=fs, freqs=np.array([f0]), n_cycles=n_c, coi_sigma=2.0
+            )
+        k_narrow = int(np.ceil(2.0 * sigma_t * fs))
+        assert not np.any(narrow.coi_mask[0, :k_narrow])
+        assert narrow.coi_mask[0, k_narrow]
+
+        import warnings as _warnings
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            wide = complex_tfr(
+                x, fs=fs, freqs=np.array([f0]), n_cycles=n_c, coi_sigma=6.0
+            )
+        k_wide = int(np.ceil(6.0 * sigma_t * fs))
+        assert not np.any(wide.coi_mask[0, :k_wide])
+
+    @pytest.mark.parametrize("n_cycles", [3.0, 5.0, 10.0])
+    def test_probe09c_no_sample_inside_the_mask_responds_to_a_dc_offset(self, n_cycles):
+        """The behavioural form of the contract. A constant offset can only reach a sample
+        through `mode="same"` zero-padding, so every sample the mask calls valid must be
+        blind to it. The largest response inside the old mask was 28.6 / 18.6 / 9.42 on a
+        unit-amplitude scale at n_cycles 3 / 5 / 10.
+        """
+        fs, n = 1000.0, 4000
+        freqs = np.array([10.0])
+        offset = complex_tfr(
+            np.full(n, 1000.0), fs=fs, freqs=freqs, n_cycles=n_cycles
+        )
+        zero = complex_tfr(np.zeros(n), fs=fs, freqs=freqs, n_cycles=n_cycles)
+
+        response = np.abs(offset.z[0] - zero.z[0])
+        assert response.max() > 1.0, "the boundary region must actually be contaminated"
+        assert response[offset.coi_mask[0]].max() < 1e-9
 
     def test_probe10_complex64_vs_complex128_precision(self, fs, freqs):
         """Probe 10: Downcasting to complex64 has numerical error bounded by single precision."""
@@ -330,3 +379,68 @@ class TestComplexTFRProbes:
         assert masked_power_4d.shape == tfr_4d.z.shape
         assert tfr_4d.z[tfr_4d.coi_mask].ndim == 1
 
+
+
+class TestMorletAdmissibilityAndDtype:
+    """05-03 / 05-04: a wavelet that responds to DC, and a real dtype that discarded half
+    the transform. Both used to be reachable through the public signature."""
+
+    @pytest.mark.parametrize("n_cycles", [1.0, 2.0, 3.0, 5.0, 10.0])
+    def test_the_kernel_integrates_to_zero_at_every_n_cycles(self, n_cycles):
+        """`|sum(w)|` was 1.21 at n_cycles=1 against 4.7e-05 at n_cycles=5, so the
+        DC response depended on the wavelet width."""
+        _, w = morlet_wavelet(10.0, 1000.0, n_cycles=n_cycles)
+        assert abs(np.sum(w)) < 1e-10
+
+    @pytest.mark.parametrize("n_cycles", [1.0, 3.0, 5.0, 10.0])
+    @pytest.mark.parametrize("offset", [0.0, 10.0, 1000.0])
+    def test_a_constant_offset_does_not_enter_as_oscillatory_amplitude(self, n_cycles, offset):
+        """A unit cosine on a 1000-unit offset reported a peak |z| of 1214.3 at
+        n_cycles=1. The recovered amplitude must not depend on the offset at all."""
+        fs = 1000.0
+        f0 = 10.0
+        t = np.arange(4000) / fs
+        signal_only = complex_tfr(np.cos(2 * np.pi * f0 * t), fs, [f0], n_cycles=n_cycles)
+        offset_added = complex_tfr(
+            np.cos(2 * np.pi * f0 * t) + offset, fs, [f0], n_cycles=n_cycles
+        )
+        # Compare strictly inside the kernel support. Samples nearer the edge than the
+        # kernel half-width convolve against `mode="same"` zero-padding, so the kernel's
+        # zero sum no longer cancels a constant -- that residual is item 05-85, not this
+        # one, and `coi_mask` does not currently cover it.
+        sigma_t = n_cycles / (2.0 * np.pi * f0)
+        half = int(np.ceil(4.0 * sigma_t * fs))
+        interior = slice(half, len(t) - half)
+        np.testing.assert_allclose(
+            np.abs(offset_added.z)[0][interior],
+            np.abs(signal_only.z)[0][interior],
+            rtol=1e-8,
+            atol=1e-8,
+        )
+
+    @pytest.mark.parametrize("n_cycles", [3.0, 5.0, 10.0])
+    def test_the_documented_unit_cosine_amplitude_survives_the_correction(self, n_cycles):
+        fs = 1000.0
+        t = np.arange(4000) / fs
+        res = complex_tfr(np.cos(2 * np.pi * 10.0 * t), fs, [10.0], n_cycles=n_cycles)
+        peak = np.abs(res.z)[0][1000:3000].max()
+        assert peak == pytest.approx(1.0, abs=1e-3)
+
+    def test_energy_normalization_survives_the_correction(self):
+        _, w = morlet_wavelet(10.0, 1000.0, n_cycles=5.0, normalization="energy")
+        assert np.sum(np.abs(w) ** 2) == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("bad_dtype", [np.float64, np.float32, np.int64])
+    def test_a_real_output_dtype_is_refused(self, bad_dtype):
+        """`dtype=np.float64` returned a ComplexWarning and a float64 `.z`, so `.phase`
+        and `.power` described the real part while `.normalization` and `.device` still
+        reported a valid transform."""
+        t = np.arange(500) / 1000.0
+        with pytest.raises(ValueError, match="complex dtype"):
+            complex_tfr(np.cos(2 * np.pi * 10 * t), 1000.0, [10.0], dtype=bad_dtype)
+
+    @pytest.mark.parametrize("good_dtype", [np.complex64, np.complex128])
+    def test_complex_dtypes_are_accepted(self, good_dtype):
+        t = np.arange(500) / 1000.0
+        res = complex_tfr(np.cos(2 * np.pi * 10 * t), 1000.0, [10.0], dtype=good_dtype)
+        assert np.issubdtype(res.z.dtype, np.complexfloating)

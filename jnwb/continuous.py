@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Literal, Sequence, Union
+
 import numpy as np
 
 
@@ -58,6 +60,14 @@ def epoch_continuous(
     onset_unit:
         Unit of ``onsets``. ``"seconds"`` (default) converts onsets to samples using
         ``fs``; ``"samples"`` treats onsets as integer sample indices.
+
+        A non-finite onset raises :class:`~jnwb.nwb_events.InvalidOnsetValueError`,
+        the same refusal ``events`` and ``event_onsets`` give. Under
+        ``boundary_policy="nan"``, a warning is issued when most epochs fall entirely
+        outside ``[0, n_samples)`` and are therefore all-NaN: that is what onsets on a
+        different clock look like -- milliseconds read as seconds, most often -- and it
+        is otherwise indistinguishable from a correctly shaped result. Individual
+        epochs overhanging either edge are ordinary and do not warn.
     boundary_policy:
         Policy for epoch windows extending beyond continuous signal boundaries
         ``[0, n_samples)``:
@@ -110,15 +120,54 @@ def epoch_continuous(
             empty_epochs = np.empty((0, n_win, arr.shape[1]), dtype=arr.dtype)
         return (empty_epochs, time_axis_s, empty_ret) if return_indices else (empty_epochs, time_axis_s)
 
-    if onset_unit == "seconds":
-        center_indices = np.round(onsets_arr.astype(np.float64) * fs).astype(np.int64)
-    elif onset_unit == "samples":
-        center_indices = np.round(onsets_arr.astype(np.float64)).astype(np.int64)
-    else:
+    if onset_unit not in ("seconds", "samples"):
         raise ValueError(f"Unknown onset_unit: '{onset_unit}'. Expected 'seconds' or 'samples'")
-
     if boundary_policy not in ("nan", "error", "drop"):
         raise ValueError(f"Unknown boundary_policy: '{boundary_policy}'. Expected 'nan', 'error', or 'drop'")
+
+    onsets_f = onsets_arr.astype(np.float64)
+    # 05-40: a non-finite onset used to be cast to int64, which makes NaN INT64_MIN, and
+    # `idx + n_pre` then overflowed to a large positive start with a large negative end.
+    # `0 <= start and end <= n_samples` is true of that pair, so the window took the
+    # in-bounds branch and `arr[start:end]` returned an empty slice: one epoch of shape
+    # (0,) reported as a clean extraction, against a `time_axis_s` of 800 samples. Mixed
+    # with one valid onset it reached `np.stack` and died there on mismatched shapes.
+    # `events` and `event_onsets` already refuse a non-finite onset; this is the third
+    # entry point, and it now refuses the same way.
+    bad = np.flatnonzero(~np.isfinite(onsets_f))
+    if bad.size:
+        from jnwb.nwb_events import InvalidOnsetValueError
+
+        first = int(bad[0])
+        extra = (f" ({bad.size} of {onsets_f.size} onsets are non-finite)"
+                 if bad.size > 1 else "")
+        raise InvalidOnsetValueError(
+            f"Non-finite onset at index {first}: {onsets_arr[first]!r}{extra}"
+        )
+
+    if onset_unit == "seconds":
+        center_indices = np.round(onsets_f * fs).astype(np.int64)
+    else:
+        center_indices = np.round(onsets_f).astype(np.int64)
+
+    if boundary_policy == "nan":
+        starts = center_indices + n_pre
+        # An epoch that does not overlap [0, n_samples) at all is nothing but NaN. One or
+        # two of those is ordinary. A majority means the onsets and the data are not on
+        # the same clock, and the common cause is milliseconds read as seconds -- which
+        # otherwise returns a full-sized, correctly-shaped, entirely-NaN array in silence.
+        outside = int(np.count_nonzero((starts + n_win <= 0) | (starts >= n_samples)))
+        if outside * 2 > onsets_f.size:
+            unit = "s" if onset_unit == "seconds" else "samples"
+            span = n_samples / fs if onset_unit == "seconds" else float(n_samples)
+            warnings.warn(
+                f"{outside} of {onsets_f.size} epochs fall entirely outside the data and "
+                f"are all-NaN: onsets span {onsets_f.min():g} to {onsets_f.max():g} "
+                f"{unit} while the data covers 0 to {span:g} {unit}. Check the onset "
+                f"unit; onsets in milliseconds read as seconds land here.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     epochs_list: list[np.ndarray] = []
     retained_list: list[int] = []

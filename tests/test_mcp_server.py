@@ -1,15 +1,38 @@
-import os
-os.environ["ALLOW_DYNAMIC_TOOLS"] = "1"
-import unittest
-import tempfile
+"""Tests for the jnwb MCP server tools.
+
+The server exposes three tools and all of them ingest. A fourth, `add_tool`, wrote
+caller-supplied Python into the installed package and was removed in 0.2.5; the tests that
+exercised it went with it. What replaced them is a check that the documented tool table and
+the live registry are the same set, which is the thing that was actually wrong.
+"""
+import importlib
 import pathlib
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
 from datetime import datetime, timezone
-import pytest
+
 import numpy as np
 import pynwb
+import pytest
 
 pytest.importorskip("mcp")
-from jnwb.mcp_server import inspect_nwb, get_event_codes_and_timings, prepare_signal_reference, add_tool
+from jnwb.mcp_server import (  # noqa: E402
+    get_event_codes_and_timings,
+    inspect_nwb,
+    prepare_signal_reference,
+)
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+#: The tool source every `add_tool` success path in this file registers.
+DUMMY_TOOL_CODE = '''
+def test_temp_dummy_tool(a: int) -> str:
+    """A dummy test tool."""
+    return f"val_{a}"
+'''
 
 
 class TestMCPServer(unittest.TestCase):
@@ -125,43 +148,6 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("error", res)
         self.assertEqual(res["error_type"], "PathNotFound")
 
-    def test_add_tool_syntax_error(self):
-        res = add_tool("def invalid_syntax(:")
-        self.assertIn("error", res)
-        self.assertEqual(res["error_type"], "ParseError")
-
-    def test_add_tool_no_function(self):
-        res = add_tool("x = 42\nprint(x)")
-        self.assertIn("error", res)
-        self.assertEqual(res["error_type"], "ParseError")
-
-    def test_add_tool_success_and_cleanup(self):
-        custom_tools_path = pathlib.Path(__file__).parents[1] / "jnwb" / "mcp_server" / "custom_tools.py"
-        original_content = custom_tools_path.read_text(encoding="utf-8")
-
-        new_tool_code = '''
-def test_temp_dummy_tool(a: int) -> str:
-    """A dummy test tool."""
-    return f"val_{a}"
-'''
-        try:
-            res = add_tool(new_tool_code)
-            self.assertEqual(res.get("status"), "success")
-            self.assertEqual(res.get("added_tool"), "test_temp_dummy_tool")
-
-            updated_content = custom_tools_path.read_text(encoding="utf-8")
-            self.assertIn("def test_temp_dummy_tool", updated_content)
-            self.assertIn("@mcp.tool()", updated_content)
-
-            # Try adding again to verify duplicate error
-            dup_res = add_tool(new_tool_code)
-            self.assertIn("error", dup_res)
-            self.assertEqual(dup_res["error_type"], "DuplicateTool")
-
-        finally:
-            custom_tools_path.write_text(original_content, encoding="utf-8")
-
-
 class TestMCPServerEntrypoint(unittest.TestCase):
     def test_server_module_exposes_fastmcp_instance(self):
         from jnwb.mcp_server import server
@@ -169,6 +155,118 @@ class TestMCPServerEntrypoint(unittest.TestCase):
 
         self.assertIsInstance(server.mcp, FastMCP)
         self.assertEqual(server.mcp.name, "jnwb-mcp-server")
+
+    def test_the_documented_launch_command_actually_launches(self):
+        """`docs/agents.md` tells the reader to run
+        `python -m jnwb.mcp_server`. That failed with "'jnwb.mcp_server' is a package and
+        cannot be directly executed", including against the published wheel with the `mcp`
+        extra installed, because the package had no `__main__` submodule -- the
+        `if __name__ == "__main__": mcp.run()` guard sat in `__init__.py`, where it can
+        never be true. The class above passed throughout: it checked that a FastMCP object
+        exists, not that the server starts.
+        """
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "jnwb.mcp_server"],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120,
+        )
+        self.assertNotIn("cannot be directly executed", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+    def test_the_entry_point_is_a_module_not_an_unreachable_guard(self):
+        import importlib.util
+
+        self.assertIsNotNone(importlib.util.find_spec("jnwb.mcp_server.__main__"))
+        init = (
+            pathlib.Path(__file__).resolve().parents[1]
+            / "jnwb" / "mcp_server" / "__init__.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("mcp.run()", init)
+
+
+class TestTheDocumentedSurfaceIsTheLiveSurface(unittest.TestCase):
+    """Three sources gave three different tool counts, and none of them asked the server.
+
+    `docs/agents.md` said three, `mcp.list_tools()` returned four, and
+    `jnwb.mcp_server.__all__` had five entries. A count written down is a claim about code
+    that drifts silently; these read the registry.
+    """
+
+    def _live_tool_names(self):
+        import asyncio
+
+        from jnwb.mcp_server import mcp
+
+        return {tool.name for tool in asyncio.run(mcp.list_tools())}
+
+    def _documented_tool_names(self):
+        page = (ROOT / "docs" / "agents.md").read_text(encoding="utf-8")
+        section = page.partition("## The MCP server")[2]
+        self.assertTrue(section.strip(), "docs/agents.md has no MCP server section")
+        # The tool table only: the page carries a skills table further down whose first
+        # column is shaped the same way.
+        table = section.partition("| Tool | Signature | Returns |")[2]
+        table = table.partition("\n\n")[0]
+        names = set(re.findall(r"^\| `(\w+)` \|", table, re.M))
+        self.assertTrue(names, "the MCP tool table has no rows; this test checks nothing")
+        return names
+
+    def test_the_documented_table_lists_exactly_the_registered_tools(self):
+        documented = self._documented_tool_names()
+        live = self._live_tool_names()
+        self.assertEqual(
+            documented, live,
+            f"documented {sorted(documented)} but the server registers {sorted(live)}",
+        )
+
+    def test_the_prose_count_matches_the_number_of_tools(self):
+        page = (ROOT / "docs" / "agents.md").read_text(encoding="utf-8")
+        words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+        stated = {
+            words[m.lower()]
+            for m in re.findall(r"\b(One|Two|Three|Four|Five|Six|two|three|four|five|six)\b"
+                                r"(?= tools)", page)
+        }
+        self.assertTrue(stated, "no page prose states a tool count; this test checks nothing")
+        self.assertEqual(
+            stated, {len(self._live_tool_names())},
+            f"the page says {sorted(stated)} tools; the server registers "
+            f"{len(self._live_tool_names())}",
+        )
+
+    def test_the_package_exports_exactly_the_registered_tools_and_the_server(self):
+        import jnwb.mcp_server as package
+
+        exported = set(package.__all__)
+        self.assertIn("mcp", exported, "the server object is not exported")
+        self.assertEqual(
+            exported - {"mcp"}, self._live_tool_names(),
+            f"__all__ carries {sorted(exported - {'mcp'})} against a registry of "
+            f"{sorted(self._live_tool_names())}",
+        )
+
+    def test_no_tool_writes_executable_code_into_the_package(self):
+        """`add_tool` appended caller-supplied Python to a module inside the install.
+
+        The gate was one environment variable, the validation was `ast.parse` plus "has a
+        function in it", and nothing imported the file it wrote, so the tool it registered
+        never loaded at any restart. Its absence is the contract now.
+        """
+        package_dir = pathlib.Path(
+            importlib.import_module("jnwb.mcp_server").__file__
+        ).parent
+        for module in sorted(package_dir.glob("*.py")):
+            source = module.read_text(encoding="utf-8")
+            self.assertNotIn(
+                "write_text", source,
+                f"{module.name} writes into the installed package directory",
+            )
+        self.assertFalse(
+            (package_dir / "custom_tools.py").exists(),
+            "custom_tools.py is back; it is a write target inside the install",
+        )
 
 
 if __name__ == "__main__":

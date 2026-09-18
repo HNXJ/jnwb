@@ -1,146 +1,417 @@
-# 0.2.0
-
-
-
-# 0.2.1
-
-
-# 0.2.2
-
-
-# 0.2.3
-
-
-# 0.2.4
-
-- 0.2.4-01: Empty the executable todo stack (zero unresolved package tasks unless explicit human decision blocks release).
-- 0.2.4-02: Documentation minimization pass: Audit and eliminate duplicated explanations, stale version statements, excessive prose, internal codes, unsupported claims, drifting screenshots, and non-executing examples; verify small, accessible docs without internal engineering manual overhead.
-- 0.2.4-03: Executable tutorial verification against installed wheel: Run all 8 tutorials (01 basics through 08 end-to-end) in a clean environment against the installed wheel without repo-relative imports; verify synthetic expected truth is known by construction and labeled synthetic.
-- 0.2.4-04: Independent numerical audit of every high-risk primitive and composition for sign, scale, units, axes, complex preservation, aggregation order, failure, boundary, and determinism.
-- 0.2.4-05: Randomness and inference audit verifying caller control of RNG, no global RNG mutation, no salted hash seeds, verified permutation exchangeability, and CV isolation.
-- 0.2.4-06: NWB/addressing audit with synthetic fixtures covering missing tables/columns, alternate layouts, identifiers, malformed labels, units, geometry, ambiguity, and lazy access (no missing metadata becomes valid-looking science).
-- 0.2.4-07: API audit verifying implementation == exports == signatures == typing == docstrings == reference docs == examples == skills with zero leaked deprecated symbols.
-- 0.2.4-08: Boundary audit scanning code, tests, docs, examples, skills, agents, defaults, and artifacts for zero downstream semantic leakage.
-- 0.2.4-09: Skills and agents adversarial acceptance testing against stale APIs, ambiguous units, downstream requests, invalid assumptions, and evidence conflicts.
-- 0.2.4-10: Dependency matrix audit verifying base install and declared optional dependency combinations, plus import-time optional dependency behavior.
-- 0.2.4-11: Supported Python and OS matrix audit derived from live metadata/CI; every required remote CI job must PASS.
-- 0.2.4-12: Strict documentation build audit with all examples/API references resolved, zero stale names, zero contradictory definitions, zero unsupported claims.
-- 0.2.4-13: Distribution audit building sdist and wheel from clean checkout, inspecting manifests, installing into clean environments, verifying site-packages resolution, and running representative numerical workflows against installed wheel.
-- 0.2.4-14: Reproducibility audit from fresh checkout -> install -> tests -> docs -> calibration -> representative workflows with zero undocumented local state.
-- 0.2.4-15: CPU/CUDA/parallelism independent verification: Confirm performance decisions and numerical parity across CPU and GPU backends on clean test systems.
-- 0.2.4-16: Independent final critic pass attempting to falsify numerical correctness, boundary, API consistency, docs, skills, agents, packaging, CI, and release state.
-- 0.2.4-17: Release seal verifying acceptance predicate Q_release = Q_science & Q_API & Q_performance & Q_CPU/GPU & Q_NWB & Q_docs & Q_tutorials & Q_skills/agents & Q_distribution, changelog/version bump, clean tree, commit, push dev, remote CI PASS, merge/release per policy, tag, build, install, smoke-test, and reconcile.
-
-## 0.2.4 evidence reconciliation
-
-Status at `5c2bd7f2`+ (this commit). No commit in repository history cites a `0.2.4-NN` code, so
-no item below was previously sealed; several are nonetheless satisfied by mechanical gates built
-under other codes. CLOSED means a gate or receipt demonstrates the item's own predicate. PARTIAL
-names what is missing. Nothing here is marked from inference.
-
-| Item | Status | Evidence / named gap |
-| --- | --- | --- |
-| 01 executable stack empty | OPEN | this file is non-empty by construction; closes last |
-| 02 documentation minimization | CLOSED | mechanical half gated (Gate 9 documented-API parity, Gate 10 derived version, strict MkDocs 0 warnings, `test_docs_links`, `test_docs_smoke`, `test_readme_smoke`). Editorial pass done: no internal tracker code appears in any user-facing page (the Developer Guide's `0.2.0-07` reference and its stale "planned 0.2.1 through 0.2.3" framing are rewritten), and a paragraph-level scan across `docs/` finds no explanation duplicated between pages |
-| 03 tutorials vs installed wheel | CLOSED | all 8 run on the clean-venv interpreter with `PYTHONPATH` stripped and CWD outside the checkout, in CI and in release gate STEP 8; `TestInstalledArtifactVerification` fails if either is removed or reordered before install |
-| 04 numerical audit of primitives | CLOSED | 0.2.3-REV-01..11 repaired eleven externally-found numerical defects, with `test_independent_audit_semantics` / `test_audit_reproducers` as regressions. The 0.2.4 pass over `wpli`, `imaginary_coherency`, `zflip`, `rdm`, `rdm_similarity` and `jrsa(metric='rsa')` found and repaired fabricated zeros, amplitude-unit dependence, a CUDA branch that never ran, zFLIP accepting untested or partly unidentifiable delays, and undefined RDM distances set to 0 (see CHANGELOG); regressions in `test_spectral_nonfabrication`, `test_zflip_audit`, `test_rsa_oracle`. A degenerate-input and amplitude-unit sweep over the public numeric API (empty, singleton, NaN/Inf, constant, reversed windows, scale 1e-3..1e-20, CPU vs CUDA) repaired 17 more defects: zeros or p = 1/(n+1) returned for undefined results in spectral summaries, spike-window rates, shuffle p-values, PSTH, `laplacian_reference`, `network_topology`, `xflip`; unit-dependent `jrsa` CKA/RV/dCor/cosine, `vflip` and outlier detection; `jrsa` CUDA pearson/spearman disagreeing with CPU; `harmonic_ratio` double-counting (see CHANGELOG, `test_adversarial_inputs`). Not repaired, model choices: `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units, so it is unit-dependent by definition; PSTH SEM for N=1 is deferred below. zFLIP's absolute sign convention, its phase-slope formula against a cross-spectral oracle, and its N // 2 segmentation rule are pinned in `test_zflip_audit`; each RSA similarity metric is pinned to a SciPy oracle and the twelve `rdm` metrics to the wrapper's own invariants in `test_rsa_oracle`. vFLIP's centring bias and its uncontrolled, grid-dependent acceptance are repaired: min-max relative power per frequency with each band depth profile rescaled before differencing, bin-count normalization of the score, and a threshold of 3.75 recalibrated over crossover location, channel count, pitch, grid density, orientation, missing contacts and SNR (AUC 1.000, FPR 0.000, TPR 0.999). Discriminators in `TestVFlipNormalizationRepair`, 6 of which fail the pre-repair estimator |
-| 05 randomness and inference | CLOSED | no global RNG mutation anywhere in `jnwb/` (no `np.random.seed`, no `random.seed`, no `PYTHONHASHSEED` dependence); `permute_labels` rejects non-`Generator` rng, is deterministic given a seed, preserves per-group label counts, and emits a draw manifest with sequential seeds and digests. CV isolation is now asserted, not just exercised: `TestCrossValidationIsolation` decodes labels drawn independently of 200 features on 60 trials -- the regime where a scaler, selector or hyperparameter fitted outside the outer fold would show -- and gets 0.535 mean accuracy over 10 seeds, while the same features decode at 1.000 with informative labels and fall back to chance when those labels are shuffled . Reopened and re-closed during the release pass: `jrsa` spelled its seed `random_state` while every other seeded entry point in the package spells it `seed`, and forwarded unknown keywords to metrics that swallow `**kwargs`, so `jrsa(..., seed=0)` was accepted in silence and left the permutation test entropy-seeded -- four repeated calls on one dataset gave p = 0.2736, 0.3333, 0.2637, 0.2935. `seed` is now an alias for `random_state` and an unknown keyword is a TypeError naming the metric's accepted options |
-| 06 NWB/addressing audit | CLOSED | `test_nwb_synthetic_fixtures`, `test_hdmf_nwb_read_boundary`, `test_addressing`, `test_metadata`, `test_nwb_inspect` cover missing tables/columns, alternate layouts and lazy access; the electrode-region repair added out-of-range enforcement. The units/geometry/ambiguity sweep is now `TestAmbiguousUnitProbes`: depth units are never inferred from magnitude, an undeclared or unsupported unit refuses to classify instead of guessing a layer, accepted spellings agree, an explicit argument deterministically overrides a conflicting table column, and `probe_geometry` takes the declared unit literally and rejects an unsupported one |
-| 07 API audit | CLOSED | exports == documented API == generator output is gated (Gate 9 + `generate_api_md --check` + `test_api_surface`), and skills reference only existing symbols. Signature and annotation parity is mechanical after all: `docs/api.md` is generated from runtime introspection and carries the full annotated signature, so any change to a parameter, default or annotation fails the gate -- observed when `min_support_score` moved from 6.0 to 3.75 (API_MD_DRIFT). The first docstring line is likewise generated and compared. Only the docstring body is outside mechanical comparison |
-| 08 boundary audit | CLOSED | Gate 6 scans `jnwb/`, `docs/` recursively, `examples/` recursively (`*.py`, `*.ipynb`), `skills/` and the root docs, with `TestGate6RecursiveCoverage` planting tokens on 8 surfaces; plus the no-project-identifiers gate and `test_jnwb_frozen_boundary` |
-| 09 skills/agents adversarial | CLOSED | `test_skills_validation` covers frontmatter, routing-parameter/runtime agreement, symbol and docs-path existence, no hardcoded counts, no removed toolchain, no downstream leakage, and representative routing probes. The missing adversarial legs are added: `TestAmbiguousUnitProbes` pins that a depth unit is never inferred from magnitude (1.2 um is Superficial, 1.2 mm is Deep), that an undeclared or unsupported unit refuses to classify rather than guessing, that accepted spellings agree, that an explicit argument deterministically overrides a conflicting table column, and that `probe_geometry` takes the declared unit literally and rejects an unsupported one; `TestEvidenceConflictProbes` pins that no shipped code path can rewrite the human-authorized fact stack and that the receipts-not-consensus rule still stands |
-| 10 dependency matrix | CLOSED | base wheel installs and imports with no extras in the CI clean venv, `pip check` clean; lazy-import tests prove optional subsystems are not eager and degrade with a named error. `TestOptionalExtras` adds what was missing without pretending to a matrix: every requirement string parses as PEP 508, `all` is asserted to cover exactly the other five extras, and importing `jnwb` is shown to pull in none of torch, cupy, jax, mcp or mkdocs. Installing all 32 combinations is deliberately not attempted -- `gpu` cannot resolve on a runner without CUDA -- and torch/gpu are exercised on real hardware in `artifacts/benchmarks/cuda_parity_0.2.4.md` |
-| 11 Python/OS matrix | CLOSED | run 34921221203: 3.12 and 3.14 on ubuntu-latest and windows-latest all PASS; floor consistency gated |
-| 12 strict documentation build | CLOSED | `docs_build.py` strict, 0 warnings, locally and in CI; versions derive from `jnwb.__version__` |
-| 13 distribution audit | CLOSED | build -> manifest scan -> `twine check` -> fresh venv -> wheel + transitive install -> `pip check` -> import from site-packages outside the checkout -> numerical workflows -> tutorials |
-| 14 reproducibility | CLOSED | CI performs checkout -> install -> tests -> docs -> build -> install -> smoke -> tutorials from a clean runner each run. Calibration regeneration is not run in CI, but calibration staleness is caught there: `test_vflip_calibration_receipt` fails when `vflip` changes without `scripts/calibrate_vflip.py` being rerun, and `test_xflip_calibration` recomputes xFLIP's operating characteristics from the shipped estimator |
-| 15 CPU/CUDA parity | CLOSED | against the RC-scoped criterion (structural/fallback tests; representative high-risk paths on one real CUDA system; parity within declared tolerances; CI verifies CPU/fallback). 9 of 13 `resolve_device` call sites executed on an RTX A4000 with no fallback warning, parity 0 to 3.6e-04; `rdm` has no GPU implementation and warns; the 3 uncovered are session-level wrappers over the same resolver, retaining structural coverage. The earlier 7-of-10 closure missed that `wpli(device='cuda')` never reached the GPU (repaired, receipt corrected). Receipt: `artifacts/benchmarks/cuda_parity_0.2.4.md` |
-| 16 final critic pass | CLOSED | an independent critic was run against the repaired tree without being told the package was correct. It returned ten major findings and about fifteen minor ones. Every major finding was reproduced before any repair, and each was CONFIRMED by measurement: `jrsa` permuting the feature axis so six whole-representation metrics reported p = 1.0000 on any data; `phase_locking_index` folding the recording modulo 6.2832 s so a unit with true resultant length 0.995 reported pli 0.31 over 60 s; `cross_modal_comparison` calling 99.5% of independent runs significant and silently replacing an asymmetric lag range with a different window; `_adf_pvalue` certifying 46-48% of pure random walks as stationary; `transfer_entropy` returning 0.0000 bits with `ok_for_interpretation=True` on a genuine lag-1 coupling; `permute_labels(within_group)` returning 1000 of 1000 identical draws for nested designs; `repair_lfp_trials` dropping the single-trial amplitude correlation from 0.9996 to 0.4607; `compute_response_metrics` scoring a response on a homogeneous unit and returning 0.0 for a silent baseline; the residual vFLIP centre-shrinkage; and `_rv` returning 1.0000 for independent representations. All ten are repaired, each with tests that fail the previous code. Of the minor findings, four reproduced and are repaired (odd-`n_fft` multitaper doubling, the unit-dependent `imaginary_coherency` clip, `xflip` accepting an unrun surrogate test, the `confirmatory_compare` double-correction advice); the RSA-family silent-truncation finding is UNSUPPORTED -- the truncations are unreachable from the public entry point, which rejects mismatched shapes, though its error message was unclear and is now a contract error. The `_r2` and `aperiodic_fit` zero-return findings are UNSUPPORTED as defects: a constant score genuinely has no explanatory power, and a perfectly flat log-PSD is not reachable from real input. Three tests were found to be encoding defective historical behaviour and retargeted: `test_perfectly_locked_spikes_give_high_pli_and_low_pvalue` (fixture uniform in phase, not locked), `test_zero_surrogates_returns_nan_p_value` (asserted acceptance without a test), and `test_manifest_records_sample_and_group_counts` (nested fixture with a point-mass null). See CHANGELOG 0.2.4 Fixed |
-| 17 release seal | OPEN | blocked on the conjunction above |
-
-### Findings triaged in the 0.2.4 critic pass and deliberately not repaired
-
-- vFLIP's crossover remains shrunk toward the centre of the shaft (fitted slope 0.703 at
-  SNR 20, 0.804 at SNR 100, 0.864 at SNR 1000). The mechanism was traced, not assumed: both
-  band depth profiles are dominated by bins carrying no laminar source, so the per-trial
-  min-max range comes from noisy extremes and compresses each profile toward its interior.
-  No correction factor is applied, because a factor tuned to flatten the sweep is exactly
-  what the repair authorization forbade and the residual is a property of band-averaged
-  range-normalized profiles at finite SNR rather than a coding defect. It is measured in the
-  calibration, documented on `VFlipResult.crossover_contact`, and pinned in both directions
-  by `test_the_documented_centre_shrinkage_is_the_measured_one`.
-- `cross_modal_comparison`'s corrected p cannot resolve below about `n_lags / n_samples`,
-  because a circular shift relands a genuine peak inside the searched window about that
-  often. A shift-predictor null drawing only from beyond the window was written and measured
-  and then discarded: it rejected 11.7% of independent pairs against a nominal 5%, because
-  excluding the overlapping shifts breaks the group structure the p-value rests on. The
-  valid null is reported together with `lag_search_resolution_floor` and a warning.
-- `jrsa(metric='hsic')` uses a fixed RBF bandwidth in data units and is therefore
-  unit-dependent by definition; unchanged, as recorded under item 04.
-
-## Handout (2026-09-15, Opus 5 session `9fe5eb2c`) -- RESOLVED 2026-09-16
-
-### State
-
-Resolved. The single-writer recovery protocol below was executed in full: the 13 foreign
-uncommitted files were classified by provenance rather than stashed or discarded, the
-competing zFLIP segmentation rule was settled on test evidence so that exactly one rule
-remains in `jnwb/laminar.py`, and the understood changes were partitioned into validated
-commits staged by exact path. The RC is no longer blocked on worktree reconciliation. This
-section is retained as the record of what was recovered, not as an instruction to repeat it.
-
-The zFLIP discriminators listed as lost were rewritten from the specification rather than
-restored from an old file version; they are `tests/test_zflip_audit.py`, which covers delay
-and apparent velocity against an independently constructed travelling wave, the phase-slope
-convention against an external oracle, reversal negating both delay and direction, pitch
-scaling velocity while leaving delay unchanged, amplitude invariance, refusal of independent
-noise, zero-lag and constant input, a delay beyond the unambiguous interval being declined,
-and seeded reproducibility without mutating the global numpy RNG.
-
-Standing rule that came out of it: one writable agent per worktree (`AGENTS.md` section 8).
-Two implementation agents ran against this worktree at once; a `git stash push`/`pop` pair is
-what lost work. Repository history is recoverable, a shared working tree is not.
-
-### Sealed with green CI (3.12/3.14 x ubuntu/windows), do not redo
-
-`bf26b0cf` 2-D rejection + first CUDA receipt; `e5a7eecc` coherence single-segment repair;
-`4e427ad1` mismatched-length `ValueError`; `d754e895` 0.2.4-15 closed under its narrowed
-criterion; `d7d06107` unpaired-trace rejection in `wpli`/`imaginary_coherency`.
-
-Headline result: `cross_area_coherence`, `imaginary_coherency`, `wpli` and `zflip` all
-reported perfect coupling for independent signals whenever the segmentation yielded a single
-Welch segment, because the cross-spectrum is then an exact function of the auto-spectra. All
-four now refuse `K < 2`.
-
-### Next
-
-All numbered items except 01 and 17 are closed, including 02 and 16. Remaining work is the
-release itself: version bump to 0.2.4, harness gate, full suite, release gate, then dev -> CI ->
-main -> tag v0.2.4 -> GitHub Release -> PyPI -> install `jnwb==0.2.4` from PyPI in a fresh
-environment. 01 and 17 close on that receipt. No new features, no optimization projects, no
-speculative API changes.
-
 # 0.2.5
 
-Carried forward from 0.2.4. Neither item blocks the 0.2.4 release: both are limitations of
-a receipt or a test, each already mitigated by something that runs on every suite, and both
-are stated where a reader would look. They are work, not open decisions.
+Audited read-only at `3f432306` (0.2.4, released and served by PyPI) across code, tests,
+docs, skills, packaging, CI and backends. Each item carries the observation that produced it.
+Items are deleted when done; finished work is not recorded here.
 
-- `artifacts/benchmarks/xflip_calibration_0.2.3.md` has no generator and cannot be
-  regenerated. It says so, names the 0.2.4 change to `xflip`, and points at
-  `tests/test_xflip_calibration.py`, which measures the same operating characteristics
-  against the shipped estimator on every run. For 0.2.5: write the generator, or retire the
-  document in favour of the test that supersedes it.
-- `test_frequency_grid_resolution_invariance` uses a noise-free PSD, so it cannot measure a
-  null's grid dependence; the calibration receipt does that instead. For 0.2.5: give the test
-  a noisy PSD so it measures what its name claims.
+What the green state did not prove: the suite runs against the checkout and never against the
+installed wheel (`pythonpath = ["."]`); `docs/api.md` is generated from `__all__` and then
+checked against it; gate 5 is satisfied by its own generator; and a declared hard dependency
+can be absent while 1465 tests pass, because two modules convert the `ImportError` into NaN.
+
+## Execution protocol (authorized 2026-09-16)
+
+The stack is frozen. It is executed to empty in dependency batches, not as 84 approval cycles:
+A `05-01..25` scientific correctness, B `26..42` API and NWB, C `43..52` performance and
+backend, D `53..60` tests, E `61..66` docs, F `67..72` skills and agents, G `73..78` packaging,
+H `79..82` harness, I `83..84` independent critic and release.
+
+Within a batch: reproduce, repair, add the discriminator, continue. Critical and high findings
+are reproduced first. **A finding that does not reproduce is marked unsupported with its
+evidence and its item deleted -- correct code is not modified to match a wrong audit.** One
+batch-level regression and gate run, then commit and push, then the next batch.
+
+The numbering controls coverage, not ordering: when a defect being repaired is mechanically
+preventable, the smallest relevant repair from `05-79..82` is applied in that batch rather than
+deferred to H, so later work benefits from the gate.
+
+Qualification runs in a clean environment built from the declared extras, or in CI. The
+development `.venv` described at the end of this file is not package evidence.
+
+## 9. Documentation
+
+### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
+
+## 10. Skills and agents
+
+**Acceptance condition for every item in this section** (ruled 2026-09-17, stated in
+`artifacts/direction.md` under "Skill behaviour"): a skill routes to an operation or it
+declines -- supported analysis executes, missing information is requested, a
+non-identifiable result is reported as a failure, an unsupported claim is not inferred.
+Where an item already edits a skill, the edited skill must satisfy this and representative
+routing behaviour must be tested. Skills are release surfaces: verify against live exports
+and docs, not against the skill's own text.
+
+## 11. Packaging
+
+### 05-73 A build from `dev` today produces a different distribution calling itself 0.2.4
+- **Problem** The version is not bumped after a release, and nothing compares the declared version against what the index already serves.
+- **Evidence** HEAD is 5 commits past `v0.2.4` with `__version__ = '0.2.4'` and 20 non-empty lines under `## [Unreleased]` naming three shipped fixes. Local wheel against the PyPI wheel: `> jnwb/mcp_server/__main__.py`. Local sdist carries `AGENTS.md` and `skills/` (261,291 B) where PyPI's does not (238,292 B). `test_release_date_matches_the_changelog_entry_for_this_version` passes, because it compares the version to its own changelog entry and never to the index.
+- **Change** Add a release-gate step: fail when `jnwb.__version__` already appears in the PyPI index and `CHANGELOG.md` has a non-empty `## [Unreleased]`.
+- **Preserves** The existing version-sync gate 7.
+- **Discriminator** The current tree fails the new check.
+- **Accept** Two distributions can never share a version string.
+
+### 05-74 Seven of ten dependency floors cannot be installed on any supported interpreter
+- **Problem** Floors copied from an older support window and never re-derived after the 3.12 floor landed.
+- **Evidence** PyPI metadata: `numpy==1.22.0` tags `['cp310','cp38','cp39','pp38','sdist']`; `scipy==1.8.0` declares `requires_python '>=3.8,<3.11'`, which contradicts `requires-python = ">=3.12"` outright; `pandas==1.4.0`, `h5py==3.6.0`, `matplotlib==3.5.0`, `scikit-learn==1.0.0`, `statsmodels==0.13.0` ship no cp312 or pure-python wheel. Separately `jnwb.statistics` and `jnwb.connectivity` call `scipy.stats.false_discovery_control`, added in SciPy 1.11, three minor versions above the declared floor — masked only because scipy <1.11 cannot install on 3.12.
+- **Change** Raise each floor to the oldest release with a cp312 artifact, or delete the floors and state that the package takes whatever pip resolves on 3.12.
+- **Preserves** Current resolutions, which are all far above the floors.
+- **Discriminator** Every declared floor is installable on the declared interpreter.
+- **Accept** `pip install 'numpy==<floor>'` succeeds on 3.12 for each dependency.
+
+### 05-75 The forbidden-path check cannot see `tests/` or `scripts/` in the wheel
+- **Problem** `forbidden = [..., '/tests/', '/scripts/']` substring-matched against archive entries whose delimiters differ by format.
+- **Evidence** `'/tests/' in 'tests/__init__.py'` is False. Wheel entries have no leading component, so the check works only for the sdist, whose entries are `jnwb-0.2.4/tests/...`.
+- **Change** Match on path components for the wheel; keep the substring form for the sdist; `workflow.yml:89`, `release_gate.py:178`.
+- **Preserves** The sdist check.
+- **Discriminator** A wheel containing a top-level `tests` package fails.
+- **Accept** Verified by constructing such a wheel in a scratch directory.
+
+### 05-76 CI never runs the suite against the installed distribution
+- **Problem** `pytest -v tests/` runs from the checkout root and `pythonpath = ["."]` puts the checkout ahead of site-packages, so the four-cell matrix tests the source tree that also happens to have the package installed. Only the single-cell build job touches the wheel.
+- **Evidence** `workflow.yml:49`, `pyproject.toml:107`. Several test docstrings reason about wheel behaviour while importing the checkout.
+- **Change** One matrix leg, or one extra step, that installs the built wheel and runs pytest from a directory outside the checkout with `pythonpath` overridden.
+- **Preserves** The existing legs, which need `pythonpath` for the `scripts.*` gate tests.
+- **Discriminator** A defect present only in the packaged artifact fails CI.
+- **Accept** The claim "tested against the installed wheel" becomes true for the suite, not only for the tutorials.
+
+### 05-77 The skills distribution decision
+- **Problem** `MANIFEST.in`'s comment describes an outcome its mechanism does not produce.
+- **Evidence** `graft skills` places the tree at the sdist root, outside any package; `packages.find` is `include = ["jnwb*"]`, so `pip install jnwb-0.2.4.tar.gz` installs `jnwb/` and discards `skills/` and `AGENTS.md`. Only someone who untars by hand receives them — and the sdist carries no `docs/`, `tests/` or `scripts/`, so 11 of 12 skill documentation links dangle inside it and the skills' own verification steps cannot run there. `grep -rn "skills" jnwb/ --include=*.py` returns zero hits: nothing in the runtime reads them.
+- **Change** Recommendation from the packaging audit, for a ruling: keep `skills/` in the sdist as source, correct the `MANIFEST.in` comment to say what it does, and do not put the tree in the wheel — the consumer is a harness configured by path, not the Python runtime, and `site-packages` is the worst place to put something that must be pointed at. Close the discovery gap instead with a machine-readable pointer (a `jnwb.SKILLS_URL` constant naming the GitHub tree). The `importlib.resources` and console-entry-point routes both require the tree inside the wheel, which is the second tree gate 2 forbids.
+- **Preserves** Exactly one canonical skill tree.
+- **Discriminator** A `pip install` user can find the skills without guessing.
+- **Accept** Ruled 2026-09-16, as recommended: one canonical tree in the repository; ship `skills/` in the sdist where appropriate; do **not** create a duplicate `jnwb/.../skills` tree to force them into the wheel. Wheel runtime resources carry skills only if a runtime loader needs them, and none does -- `grep -rn "skills" jnwb/ --include=*.py` returns nothing. Packaging symmetry is not an objective. Correct the `MANIFEST.in` comment to describe what its mechanism actually does, and close the discovery gap with a machine-readable pointer. This closes the open half of the carried-forward 05-02.
+
+### 05-78 Declared test tooling that is never invoked, and a second source of truth for the docs pins
+- **Problem** Unused declarations and duplicated configuration.
+- **Evidence** `pytest-cov` and `pytest-xdist` are declared, and the `test` extra pulls `pytest-cov-7.1.0`, `coverage-7.16.1`, `pytest-xdist-3.8.0` and `execnet-2.1.2` onto all four CI cells; there is no `addopts`, no `--cov` and no `-n` anywhere in the repository. `.readthedocs.yaml` installs both `docs/requirements.txt` and `.[docs]`; the two lists are byte-identical today and nothing compares them, while `fail_on_warning: true` means a drift is a failed publish. Also: `scripts/build_unified_review.py` and `scripts/reconcile_review_probes.py` have zero references anywhere (625 lines), and `harness_gate.py:205` holds a root-allowlist exemption for `jnwb-unified-rev.md`, the output of the first of them.
+- **Change** Drop both pytest plugins or make the declaration true with an `addopts`; delete `docs/requirements.txt` and its `.readthedocs.yaml` entry; retire both dead scripts and the allowlist entry.
+- **Preserves** Every live script: `docs_build`, `generate_api_md`, `harness_gate`, `release_gate`, `calibrate_vflip`, `mkdocs_version_hook`, `benchmark_import`.
+- **Discriminator** Every declared dependency and every script has a caller.
+- **Accept** All six extras resolve (verified: `mcp` 24, `torch` 9, `gpu` 6, `test` 78, `docs` 25, `all` 107 packages, all exit 0, `all` an exact union). Note `jnwb[gpu]` installs cleanly with no CUDA and yields no GPU, because plain `jax`/`jaxlib` from PyPI is CPU-only: it should be `jax[cuda12]`.
+
+## 12. Harness and gates
+
+### 05-79 Nine of thirteen gates can pass on a broken tree
+- **Problem** Presence and substring checks standing in for behaviour.
+- **Evidence, each reproduced** Gate 11: a root directory containing `.py` files and no `__init__.py` is importable as a PEP 420 namespace package and is not flagged, so JNWB-002 reproduces green; `test_non_package_directory_is_not_flagged` locks the hole in. Gate 13: a README stating the three symbols are REMOVED, all nine tutorials raising `SystemExit`, and a commented-out mkdocs nav line all pass. Gate 5: satisfied by `docs/api.md`, which is generated from `__all__` — it cannot fail while gate 9 passes, and substring matching means short names match inside longer ones. Gate 7: a `pyproject.toml` whose `attr` binding sits inside a comment, plus `version = "0.0.1"`, passes. Gate 8: every block is guarded by `if <file>.exists():` with no `else`, so an empty directory passes the Python-policy gate; and `PYTHON_CI_REQUIRED` omits 3.13 while the gate prints "all agree" for a classifier set that includes it. Gate 3: the drive-letter allowlist does not include `E:/`, which is in use on this machine. Gate 2: checks one hardcoded path, so a duplicate tree at `jnwb/skills/` or `docs/skills/` passes. Gate 4: the allowlist carries four entries that do not exist. Gates 5, 10 and `test_docs_links` all use non-recursive `glob("*.md")` and therefore miss the same nine live files under `docs/tutorials/` — reproduced by planting `jnwb==0.0.9` there.
+- **Change** Gate 11 -> `find_spec`. Gate 13 -> parse the mkdocs YAML and `compile()` each tutorial, or demote it. Gate 5 -> retire, subsumed by gate 9, and replace with the check 05-41 needs: every `__all__` symbol mentioned outside the generated reference. Gate 7 -> parse with `tomllib`. Gate 8 -> add `else: violations.append(...)` three times, and either test 3.13 or change the PASS string. Gate 3 -> match `^[A-Za-z]:[\\/]`. Gate 2 -> glob `**/SKILL.md` and assert every hit is under `skills/`. Gate 4 -> prune the four stale entries. Three `glob` -> `rglob`.
+- **Preserves** Gates 1, 6, 9 and 12, which are behavioural and well-documented.
+- **Discriminator** Each repaired gate fails the adversarial tree that currently passes it.
+- **Accept** `tests/test_harness_adversarial_gates.py` gains one constructed-input probe per repaired gate. Its `TestGateNumberingIntegrity` machinery is the right model. Also wire the four checks that ship but never run: `check_protected_paths` (all three paths missing), `validate_receipt_provenance`, `check_logarithm_last_rule`, `check_modality_isolation`.
+
+### 05-80 Nothing enforces the todo-stack rule or resolves `AGENTS.md`'s own pointers
+- **Problem** `AGENTS.md` section 2 states the stack holds only work not yet done; no gate or test checks it, which is why the stack accumulated a completed-work table, and no check resolves the file's own references, which is why section 4.3 points at a deleted item.
+- **Evidence** `grep -rn "todo_stack" scripts/ tests/` returns one hit, a path string. The stale pointer is confirmed by `grep -in "non-blocking" artifacts/todo_stack.md` returning nothing.
+- **Change** A test that resolves every path, test name and section reference in `AGENTS.md` and both stacks, and asserts the stack carries no "CLOSED"/"DONE" markers.
+- **Preserves** Both stacks' formats.
+- **Discriminator** Reintroducing a dangling pointer fails the suite.
+- **Accept** The registry-staleness class that produced this item is mechanically prevented.
+
+### 05-81 `scripts/harness_gate.py` and `scripts/mkdocs_version_hook.py` describe themselves wrongly
+- **Problem** Module docstrings drifted from the code.
+- **Evidence** `harness_gate.py`'s docstring lists gates 1-12; the runner prints 13. `mkdocs_version_hook.py:12` says "the package pins >=3.12,<3.13", while `pyproject.toml:17` is `>=3.12` and `harness_gate.py:493` fails the build on any `<` in that spec — so the comment cites the exact upper pin the harness exists to forbid. `connectivity.py:16` claims "Residual variance uses explicit N - p divisors" while `_residual_variance` ignores its `n_params` argument and returns RSS/N. `artifact_detection.py:93` documents returns as `(flag, corr_summary, amp_per_trial)` while the code returns z-scores (measured: `third[7] = 332.40` against a true `max|amp|` of 54.21). `tfr_accumulator.py:1` promises float64/complex128 accumulation; the persisted dtypes are float32/complex64.
+- **Change** Correct each docstring; drop the dead `n_params`.
+- **Preserves** Behaviour.
+- **Discriminator** `test_docstring_matches_the_globs_it_claims`, which already exists for gate 6, is generalised.
+- **Accept** No module docstring contradicts its code.
+
+### 05-82 CI hygiene
+- **Problem** Three small gaps on a publish-capable pipeline.
+- **Evidence** No workflow-level `concurrency:` or `permissions:`, so rapid pushes run overlapping publish-capable pipelines. `pypa/gh-action-pypi-publish@release/v1` is a mutable branch ref on the two jobs holding `id-token: write`. `workflow_dispatch.inputs.target` defaults to `testpypi`, so any manual dispatch publishes unless the operator picks `none`. Confirmed clean: no `continue-on-error`, no `|| true`, no `set +e` anywhere; `if-no-files-found: error` is set; the production PyPI trigger is correctly narrow.
+- **Change** Add `concurrency` and a `permissions: {contents: read}` floor; pin the publish action to a commit SHA with a version comment; flip the dispatch default to `none`.
+- **Preserves** The publication ordering in `artifacts/fact_stack.md`.
+- **Discriminator** A second push cancels the first; a manual dispatch publishes nothing by default.
+- **Accept** `tests/test_workflow_release_policy.py` extended to cover the dispatch default.
+
+## 13. Close-out
+
+### 05-83 Independent adversarial pass over the repaired tree
+- **Problem** The repairs above touch every subsystem and several change what other items calibrate.
+- **Change** One independent pass attempting to falsify: numerical correctness, failure semantics, API consistency, docs, skills, packaging, CI and gate efficacy — reproducing each finding before repairing it, as the 0.2.4 pass did.
+- **Preserves** Nothing by assumption.
+- **Discriminator** Findings are reproduced before repair and pinned by a test that fails the previous code.
+- **Accept** Every major finding either repaired with a failing-before test or recorded as triaged with its measurement.
+- **Mandatory targets** These are not discretionary. Each is a known unknown carried into the pass, and each must be resolved or restated with a measurement rather than dropped:
+  1. **Mutation restoration has stronger detection than its cause explains.** Write-restore harnesses have repeatedly shown detection that the stated mechanism does not account for. Unresolved since the 0.2.4 pass.
+  2. **Python 3.14 Torch import is collection-order fragile.** An ad-hoc pytest subset can fail three `test_backend` tests and segfault. Reproduced at a sealed commit; pre-existing, not caused by any 0.2.5 repair.
+  3. **Section 1-2 estimator mutation completeness is unknown.** 05-54's Accept read "no estimator in sections 1-2 survives its own mutation", which is broader than the nine candidates its evidence named. Those nine are closed at `da3fb343`. Whether every other estimator in those sections has a discriminating test has not been measured.
+  4. **`_welch_csd_gpu`'s conjugation orientation is unverified.** The CPU path is derived from scipy's documented `conj(X) * Y` and tested at `tests/test_estimator_discrimination.py`. The CUDA path computes its own cross spectrum. A sign inversion there makes GPU and CPU disagree on `icoh_mean` while both look plausible, and no test reaches it: the fallback test establishes control flow only, and nothing in the suite executes on GPU.
+  5. **`TFRAnalyzer.extract_band` is asserted by shape only.** Its three
+     `TestTFRAnalyzerBandExtraction` tests and the five-band subtest check `result.shape`
+     and `result.dtype`, never a value. Two mutations survive the whole file as a result:
+     dropping the band's upper bound so every frequency above `f_min` is included, and
+     replacing the frequency-axis `mean` with a `sum`. Both change every returned number
+     while preserving shape. Measured at both the old 9.537 GiB fixture and the current
+     one, so this is a pre-existing gap the fixture shrink neither caused nor closed.
+  6. **Tracked files may still be rewritten through a text round-trip.**
+     *Mechanism:* `read_text` normalizes every line ending to `\n` and `write_text` emits
+     the running platform's `os.linesep`, so the pair reproduces a file's bytes only when
+     its endings already match that platform, and rewrites them otherwise -- in either
+     direction. `read_text` also conceals the difference from any check written the same
+     way, so a test of this cannot use it.
+     *Measured:* `jnwb/mcp_server/custom_tools.py` is CRLF (read as bytes), and on this
+     Windows machine the round-trip reproduced its 101 bytes exactly. That instance was
+     removed in 05-57.
+     *Derived, not run:* `.github/workflows/workflow.yml:29` runs the matrix on
+     `ubuntu-latest` as well, where the same code path converts that file to LF instead, so
+     the restore preserved bytes on one half of the matrix and modified a tracked file on
+     the other. Whether any other tracked file is rewritten this way, by a test or a
+     script, has not been swept.
+  7. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
+  8. **Three `tests/test_rsa.py` tests are redundant only for the classes that were
+     probed.** 05-59 refuted the proposed deletion of that file: it uniquely carries five
+     failure classes, and the suite without it kills none of them -- `rdm` accepting a
+     sub-2D input, and all four `rdm_similarity` rejection paths, including an unknown
+     metric name silently computing Spearman. Of the remaining tests,
+     `test_rdm_shapes_and_invariants`, `test_rdm_similarity_comparison` and
+     `test_rdm_metrics` were redundant against every mutant aimed at them, but assertions
+     in each (zero diagonal, condensed/square round-trip) were reached by no mutant, so
+     their redundancy is measured only where it was measured. `test_rdm_metrics` also
+     survives a mutation that makes `_condensed_distances` ignore its `metric` argument
+     entirely -- the oracle catches it, so the suite is covered, but the test named for
+     metrics does not detect that metrics are ignored.
+  9. **`tests/test_docs_smoke.py` may be a second copy of the documentation.** Its ten
+     tests hand-transcribe the documented workflows instead of reading the pages, so all
+     ten passed while six documented calls raised `TypeError` -- the pattern 05-55
+     removed from `tests/test_readme_smoke.py`. 05-61 added parse and execute checks that
+     read the pages directly. Whether the transcribed file still carries failure classes
+     those do not has not been measured, so it was neither deleted nor trusted.
+
+### 05-85 Code / docs / skills / tests triangle audit
+- **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
+- **Runs** After 05-83 and before 05-84. Added to the frozen stack 2026-09-17 by the ruling recorded in `artifacts/direction.md`; numbered after the last frozen item because the frozen numbers are a record.
+- **Scope** Semantic agreement, not duplicate presence. Public-symbol presence, API generation and export agreement, documentation coverage and onboarding alignment stay with the deterministic gates that already decide them (5, 9, 13 and the skill-vs-exports rule). 05-85 consumes those results and does not re-derive them.
+- **Change** For each important capability, compare the faces that make a claim about each of: shape, units, axes, estimator, aggregation, failure behaviour, randomness, identity/provenance, and composition where the capability is reached through a skill that sequences it with others. Composition carries its own claims — order of operations, order of aggregation, whether identifiers survive, and which signal class is substituted for which — because a routing layer can get every individual operation right and still compose them into a wrong result without restating any mathematics.
+- **Preserves** The rule that a skill may not hold a mutable API fact that documentation and exports also hold.
+- **Discriminator** A seeded contradiction on a semantic dimension is found; a seeded presence-only defect is left to the gate that owns it.
+- **Accept** For every capability `c` and dimension `d`, the faces that claim `d` carry at most one meaning between them. A demonstrated disagreement fails. A dimension the operation requires and no face specifies fails. A dimension the operation does not have is N/A, not missing. A skill silent on `d` passes when routing does not require it.
+
+### 05-84 Release seal
+- **Problem** 0.2.5 is not releasable until the above is closed.
+- **Change** Bump version, release date and status; write the CHANGELOG; clean tree; push `dev`; remote CI green on the full matrix; merge per the ordering in `artifacts/fact_stack.md`; tag; release; verify from the published artifact rather than a local build.
+- **Preserves** Release publication ordering: validate on `main`, tag, GitHub Release, production PyPI.
+- **Discriminator** A fresh venv installs from PyPI and reproduces the version, status, release date and full symbol set.
+- **Accept** Verified from PyPI, not from a local wheel or cache.
+
+# Findings marked unsupported
+
+## 05-72 third count already gone, and the ruling is removal -- recorded 2026-09-18
+
+Two of the three counts reproduced: `docs/agents.md` says three tools at lines 12 and 24,
+`mcp.list_tools()` returned four, and `jnwb.mcp_server.__all__` had five entries. The
+third pointer, `docs/10:18`, no longer exists -- 05-64 deleted that page and replaced it
+with `docs/10_operation_specifications.md`, which says nothing about the MCP server.
+
+The item left the keep-or-drop decision to the implementation. It was dropped, on three
+grounds, each checked rather than assumed: nothing imports `custom_tools`, so the
+registration never took effect and the restart message was false; validation was
+`ast.parse` plus the presence of a function definition, with the write target inside the
+install; and no surface documented it. The removal went past the item's "drop it from
+`__init__.py`" to deleting `meta_tools.py` and `custom_tools.py`, because an unreferenced
+module whose whole content is a code-writing primitive is the same defect one import away.
+## 05-70 counted 84 of 151 -- corrected 2026-09-18
+
+The shape of the finding reproduced; the numbers did not. `jnwb.__all__` exports 155
+symbols, not 151, and 81 were mentioned by no skill, not 84. Every symbol the item names
+individually was genuinely unrouted, so the change stands as written.
+
+The item's Accept asks for the unmentioned set to be reviewed and justified. It was, and
+the review changed the standard: mention is not routing. A symbol named in a sentence is
+not callable from that sentence, so the coverage test requires a routing row for every
+public callable and accepts a bare mention only for constants and types. Under that
+stricter reading the tree ends at 111 symbols carrying a row and 44 excluded by category;
+a count of mentions would have reported 126 and 29 for the same tree.
+
+The `jnwb-laminar` skill was not created; the item's second option was taken. The depth
+estimators consume the PSDs and correlation matrices `jnwb-lfp-spectral` already produces,
+a separate skill would have to restate that half to be usable, and the skill tree is
+doctrine. The router gains the laminar trigger either way.
+## 05-67 found three more rows than it listed -- extended 2026-09-18
+
+All six rows reproduce as described. The strengthened check from 05-68 found three the
+audit did not list, each of a kind the old check could not see: `granger` naming the
+deprecated keyword-only `seed` instead of `rng`; `fit_exponential_onset` naming the
+keyword-only aliases `t0_bounds`/`tau_bounds` in the positional slots of `t0_bounds_ms`
+and `tau_bounds_ms`; and `aggregate_to_db` giving a default to a keyword-only argument
+that deliberately has none while stating the wrong default for `aggregate_over`. One of
+the three, `save_figure_suite`'s `formats`, sat inside a tuple default and so was in the
+7 rows the old regex skipped entirely. Nine rows corrected, not six.
+
+One detail of the audit's `paired_fire_prob_test` evidence is sharper than stated: the
+row as written raises `TypeError` for the missing `n_shuffles`, so a reader copying it
+verbatim gets an error. The silent sign flip is what happens next, when the reader adds
+the missing argument and keeps the order.
+
+## 05-65 claims about `coi_mask` and tutorial units -- partly refuted 2026-09-18
+
+Two of the item's six claims do not hold as stated.
+
+`docs/04` does not hand over `coi_mask` as a bare field name: the page carries a section
+headed "What `coi_mask` excludes, and why the average comes after it", explaining the
+`mode="same"` zero fill, the kernel-width exclusion and the bias from averaging before
+masking. That was repaired earlier in 0.2.5. The CSD half of the same claim reproduces and
+was fixed.
+
+"`docs/tutorials/03, 04, 05, 06, 08` contain no unit token at all" is true of the five
+`.md` files and false of the pages. Each includes its script with `--8<--`, and the
+included scripts carry Hz, ms, um and seconds for 03, 04, 06 and 08. `05_statistics.py`
+genuinely had none, and its quantities are the ones a unit changes; it was repaired.
+
+The audit's implied mechanism for `docs/09` is also wrong. It reads as though the example
+should pass `groups`; `nested_cv_linear_svm(X, labels, n_splits, rng)` has no such
+parameter. The defect is real in the other direction -- the page promises protection the
+function does not provide -- so the page now says where the protection actually is.
+
+## 05-64 cut docs/01 sections 1-3 -- not followed 2026-09-18
+
+The item prescribed cutting `docs/01` sections 1-3 and keeping only section 2C, on the
+evidence that those sections "name an internal scaffolding marker and a test file". Both
+leaks reproduce, and both are single clauses: `tests/test_jnwb_frozen_boundary.py` inside
+the boundary invariant, and `PLACEHOLDER-DUMMY` inside the synthetic-data rule. The
+sections around them are signal class independence, estimand disambiguation, the causal
+verb hierarchy, the unit of inference, valid nulls and the observed/derived/inferred/
+assumed/unknown vocabulary -- user-facing science, and the only statement of most of it.
+Cutting them would delete every user-facing fact in three sections to remove two clauses,
+against the item's own Preserves clause. The two clauses were removed instead.
+
+The audit's other 05-64 claims reproduce with drift in the counts: 117 and 2,781 words
+(2,764 claimed), 29 nav entries with 28 unique (28 and 27 claimed), 24,155 words over 28
+pages (22,181 claimed). `docs/11` section 9.2 is not the only documentation of all seven
+symbols it names -- `aperiodic_fit` is also in `docs/04`, and `zflip`, `probe_geometry`
+and `stream_npz_array` in `docs/02` -- but it is the only statement of their result
+fields and failure semantics, which is what the repair preserved.
+
+## 05-59 whole-file deletion of `tests/test_rsa.py` -- refuted 2026-09-18
+
+The item asked for the file to be deleted, on the evidence that every failure class it
+carries is covered by `test_rsa_oracle.py` and that it caught nothing under a `pdist**2`
+mutation. The `pdist**2` observation reproduces. The conclusion does not.
+
+Deletion was decided per failure class rather than per file: fifteen mutations of
+`jnwb/rsa.py` and `jnwb/jrsa.py` were run against `tests/test_rsa.py` and the oracle
+separately, and anything only the former caught was rerun against the whole suite with
+that file ignored. Five classes are uniquely carried by it, and the suite without it
+kills none of them:
+
+| Mutation | Only carrier | Caught elsewhere |
+|---|---|---|
+| `rdm` accepts input with fewer than 2 dimensions | `test_rdm_input_validation` | nothing |
+| `rdm_similarity` accepts mismatched lengths | `test_rdm_similarity_validation` | nothing |
+| `rdm_similarity` accepts a non-square 2D RDM | `test_rdm_similarity_validation` | nothing |
+| `rdm_similarity` accepts non-finite RDMs | `test_rdm_similarity_validation` | nothing |
+| an unknown metric silently computes Spearman | `test_rdm_similarity_validation` | nothing |
+
+Four of those sit in `test_rdm_similarity_validation`, which the item's evidence never
+mentions and which the first nine mutants never reached. Absence of kills against
+mutations aimed at other failure classes is not evidence of redundancy, and treating it
+as such would have deleted the only guard on every `rdm_similarity` rejection path.
+
+The stated justification fails independently. J1, reintroducing the 05-06 defect where
+the parametric p pre-empts the permutation null, is not caught by the oracle either, so
+"every failure class is covered by `test_rsa_oracle.py`" is false as written. It is
+caught elsewhere -- by `test_jrsa_correctness.py::TestPermutationPWins`, which asserts
+that invariant by name rather than incidentally -- but `test_jrsa_delegation_parity`
+also carries statistic-delegation parity and the `permutations=0` fallback, neither of
+which any mutant reached.
+
+Both merges in the item's Change are refused on inspection rather than measurement. The
+nine `TestPublicImport` classes are not duplicates of each other; each hardcodes its own
+module's export names, and parametrizing them over `EXPORT_MODULES` would check that
+registry against itself -- the circularity 05-55 removed from `test_rsa_oracle.py`.
+`TestHarnessResetContracts` is not nine substring assertions of one thing but six
+distinct doctrine contracts across different files; merging them trades six named
+failures for one anonymous failure on the gates that guard doctrine.
+
+Claim 6 reproduces in magnitude and not in attribution, and the edit it prompted was
+reverted: `parallel_map` dispatches `min(len(items), workers * chunks_per_worker)`
+chunks (`_parallel.py:103`), 2 for 2 items whatever `n_jobs` says, so `n_jobs=32` never
+started 32 interpreters. Measured back to back under the same load, 32 against 4 is
+7.47 s against 6.66 s.
+## 05-55 claims 4, 5 and 9 -- graded 2026-09-17
+
+Seven of the item's nine claims reproduced and were repaired at this commit. Three did
+not hold as written, and the corrections are recorded here because they outlive the item.
+
+**Claim 4 is stale.** `test_gpu_pca_cpu_and_cuda_agree_within_float32` no longer exists.
+05-43 renamed and repaired it at `c72d9c2a` to
+`test_gpu_pca_cpu_and_cuda_return_the_same_numbers`, which compares `proj`, `comp` and
+`var` rather than the sign-invariant variance ratio. No change was made for this claim.
+
+**Claim 9 does not reproduce, and the change it proposed is harmful.** The item asks for
+`pytest.importorskip("statsmodels")` in the two `test_release_recovery_gates` tests that
+patch it. `statsmodels>=0.13.0` is a required install dependency at `pyproject.toml:50`,
+not an optional extra, so a `ModuleNotFoundError` there is a broken installation and
+should fail loudly. `importorskip` would convert that into a silent skip. No test in the
+suite guards `statsmodels`, and the convention is right. No change was made.
+
+**Claim 5 reproduces as a mechanism but not as a loss of coverage.** `rdm_similarity`
+(`jnwb/rsa.py:197`) is a dispatcher whose `pearson` arm is `stats.pearsonr(v1, v2)`, and
+the test compared it against `pearsonr(a, b)` -- the same function on the same inputs, so
+the assertion was an identity. That much is confirmed by reading the dispatcher. The
+implied consequence is not: under a mutant replacing the `pearson` arm with an uncentred
+cosine, *both* the replacement definitional oracle and a replica of the old circular
+assertion failed. A wrong implementation diverges from the SciPy value it is compared
+against, so the old test did catch implementation defects. The repair was still made --
+it removes the test's dependence on SciPy's correctness and on the implementation
+continuing to delegate -- but it closed no measured gap, and the item's framing overstated
+what the circularity cost.
+
+## 05-52 Five modules carry unrelated responsibilities -- deleted 2026-09-17
+
+Evidence regenerated against `5f229231`. The item's numbers predate 05-26, 05-49, 05-50
+and 05-51, all of which edited these files. Structure measured as the intra-module
+dependency graph over top-level symbols: a component is a disjoint cluster, and a
+component is interleaved when another cluster's symbols fall inside its line span.
+
+| module | claimed | actual lines | components | splits at a line? |
+|---|---|---|---|---|
+| `laminar` | 1831, three estimators, split at 862 and 1476 | 1882 | 2 | 862 yes; 1476 now lands inside a comment mid-function |
+| `connectivity` | 2144, IT at 56-164 and 1728-2010, VAR at 167-1720 | 2304 | 2 plus 1 isolated | no -- 14 symbols interleave one span, 3 the other |
+| `spectral` | 1913, 208 lines of re-referencing and CSD | 2124 | 7 | CSD yes (2028-2123, 94 lines); re-referencing no (3 symbols scattered over 201-1829, 112 lines) |
+| `jrsa` | 1740, device subsystem duplicating `_backend.py` | 1778 | 2 | already closed by 05-26: `jrsa.py:22` imports `CPU, CUDA, resolve_device` from `._backend` |
+| `statistics` | 1633, five pure forwarders | 1764 | 8 | forwarder direction resolved in 05-51 |
+| `analyzers` | 779, three namespaces with no shared state | 805 | 3, zero edges | yes |
+
+Three reasons the change is not made.
+
+`laminar` does not hold three independent estimators. `xflip` and `zflip` share
+`_surrogate_phase_randomize`, the only edge joining them. A three-way split either
+duplicates that helper, reintroducing what 05-51 removed, or adds a fourth module the
+item does not name.
+
+Four of six modules interleave, so "split along the named line boundaries" is not
+available. The change is a reorder plus a split, a diff in which every line moves and a
+semantic change is invisible to review -- during a pass whose purpose is to stop the
+object moving.
+
+The split buys nothing measurable. `Preserves: every import path and __all__` means
+re-export, and `jnwb/__init__.py` imports `laminar`, `spectral` and `connectivity`
+eagerly at lines 76, 132 and 156. Per-module self import time is 1.5-5.9 ms of 2347.8 ms
+total (`artifacts/benchmarks/import_breakdown.json`, 0.2.4); the remainder is scipy and
+sklearn, charged to whichever module imports them first and needed by both halves either
+way. API, import cost and symbol set are identical before and after, while
+`_api_surface.py` gains entries -- surface added, none removed.
+
+`analyzers.py` reproduces exactly: three classes, three components, no edges between
+them. It is left alone for the third reason, which applies to it as much as to the rest.
 
 # Before 1.0
 
-- Replace example-based estimator coverage with analytic/property-based tests.
-- PSTH SEM policy for `N=1` trials (zero vs NaN) if statistical contract tightened.
-- Processing-module discovery generalization beyond LFP if corpus requires it.
+- Replace example-based estimator coverage with analytic or property-based tests.
+- Processing-module discovery generalization beyond LFP if a corpus requires it.
 
 # Unversioned
 
 - File omission-side expert-feedback items in the omission repository.
+
+# Environment note, not repository work
+
+The development virtualenv at `.venv` has `omission` editable-installed
+(`__editable__.omission-0.1.0.pth`) and jnwb not installed (`pip show jnwb` -> not found), and
+is missing `statsmodels`, a declared hard dependency, plus `mkdocs` and `nbclient`. Every local
+receipt is therefore taken in an environment the boundary gates would reject, and 7 of the
+1472 local test failures trace to it while CI is green. This is machine configuration, not a
+repository change.

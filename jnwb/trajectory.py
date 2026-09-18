@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
+from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
 
@@ -125,9 +126,15 @@ def compute_population_trajectory(
 
     n_trials, n_units, n_bins = X.shape
     if n_units == 0 or n_trials == 0:
+        # An explicitly requested population with no observations has no trajectory, and
+        # zeros are a point in state space like any other: a caller plotting the result
+        # saw a population sitting at the origin, and `explained_variance == 0.0` reads as
+        # "PCA ran and explained nothing" rather than "PCA did not run". `TFRAnalyzer`
+        # already answers NaN for the same condition. Zero stays valid only where zero was
+        # estimated from observations.
         return {
-            'trajectory': np.zeros((n_trials, n_components, n_bins)),
-            'explained_variance': 0.0,
+            'trajectory': np.full((n_trials, n_components, n_bins), np.nan),
+            'explained_variance': float('nan'),
             'unit_ids': [],
             'bin_centers': bin_centers
         }
@@ -162,21 +169,33 @@ def compute_population_trajectory(
             proj = X_tensor @ V_top.t()
             proj_np = proj.cpu().numpy()
             S_np = S.cpu().numpy()
+            V_np = V_top.cpu().numpy()
         except Exception as e:
             warn_device_fallback("compute_population_trajectory", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
-            proj_np, _, S_np = _svd_numpy()
+            proj_np, V_np, S_np = _svd_numpy()
     else:
-        proj_np, _, S_np = _svd_numpy()
+        proj_np, V_np, S_np = _svd_numpy()
+
+    # Both branches already agree to 1e-13 in float64; what differed was the sign LAPACK
+    # and cuSOLVER happened to pick, which showed up as a trajectory reflected through
+    # the origin. See :func:`jnwb.gpu_pca.pin_component_signs`.
+    V_np, proj_np = pin_component_signs(V_np, proj_np)
 
     # Calculate variance explained ratio
     total_var = np.sum(S_np ** 2)
-    explained_variance = np.sum(S_np[:actual_components] ** 2) / total_var if total_var > 0.0 else 0.0
+    # No total variance means no ratio, not a ratio of zero.
+    explained_variance = (
+        np.sum(S_np[:actual_components] ** 2) / total_var if total_var > 0.0 else np.nan
+    )
 
     # If requested n_components > actual_components, pad projection along component axis
     if actual_components < n_components:
+        # These components do not exist -- there were not enough units or samples to
+        # estimate them. Zero-padding made them indistinguishable from a component whose
+        # projection was measured to be zero.
         pad_width = ((0, 0), (0, n_components - actual_components))
-        proj_np = np.pad(proj_np, pad_width, mode="constant", constant_values=0.0)
+        proj_np = np.pad(proj_np, pad_width, mode="constant", constant_values=np.nan)
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)

@@ -160,18 +160,33 @@ def analysis_dir(*parts: str, override: str | os.PathLike | None = None) -> Path
     return root.joinpath(*parts)
 
 
+def _configured_dir(
+    override: str | os.PathLike | None,
+    env: str,
+    legacy_env: str,
+    subdir: str,
+) -> Path:
+    """The body behind `tfr_dir`, `meta_dir` and `conndb_dir`.
+
+    Precedence: explicit ``override`` > ``$env`` > ``$legacy_env`` (deprecated) >
+    ``<analysis_dir>/subdir``. Each caller supplies its own three names and documents
+    them concretely; only this resolution order is shared.
+    """
+    if override is not None:
+        return Path(override)
+    env_path = _resolve_env(env, legacy_env)
+    if env_path:
+        return Path(env_path)
+    return Path(analysis_dir(subdir))
+
+
 def tfr_dir(override: str | os.PathLike | None = None) -> Path:
     """Directory holding precomputed TFR arrays.
 
     Precedence: explicit ``override`` > ``$JNWB_TFR_DIR`` > ``$OMISSION_TFR_DIR`` (deprecated) >
     ``<analysis_dir>/tfr_arrays``.
     """
-    if override is not None:
-        return Path(override)
-    env_path = _resolve_env(ENV_TFR_DIR, LEGACY_ENV_TFR_DIR)
-    if env_path:
-        return Path(env_path)
-    return Path(analysis_dir(TFR_SUBDIR))
+    return _configured_dir(override, ENV_TFR_DIR, LEGACY_ENV_TFR_DIR, TFR_SUBDIR)
 
 
 def meta_dir(override: str | os.PathLike | None = None) -> Path:
@@ -180,12 +195,7 @@ def meta_dir(override: str | os.PathLike | None = None) -> Path:
     Precedence: explicit ``override`` > ``$JNWB_META_DIR`` > ``$OMISSION_META_DIR`` (deprecated) >
     ``<analysis_dir>/metadata``.
     """
-    if override is not None:
-        return Path(override)
-    env_path = _resolve_env(ENV_META_DIR, LEGACY_ENV_META_DIR)
-    if env_path:
-        return Path(env_path)
-    return Path(analysis_dir(META_SUBDIR))
+    return _configured_dir(override, ENV_META_DIR, LEGACY_ENV_META_DIR, META_SUBDIR)
 
 
 def conndb_dir(override: str | os.PathLike | None = None) -> Path:
@@ -194,12 +204,7 @@ def conndb_dir(override: str | os.PathLike | None = None) -> Path:
     Precedence: explicit ``override`` > ``$JNWB_CONNDB_DIR`` > ``$OMISSION_CONNDB_DIR`` (deprecated) >
     ``<analysis_dir>/connectivity_databases``.
     """
-    if override is not None:
-        return Path(override)
-    env_path = _resolve_env(ENV_CONNDB_DIR, LEGACY_ENV_CONNDB_DIR)
-    if env_path:
-        return Path(env_path)
-    return Path(analysis_dir(CONNDB_SUBDIR))
+    return _configured_dir(override, ENV_CONNDB_DIR, LEGACY_ENV_CONNDB_DIR, CONNDB_SUBDIR)
 
 
 def outputs_dir(*parts: str, override: str | os.PathLike | None = None) -> Path:

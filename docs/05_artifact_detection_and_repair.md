@@ -52,10 +52,16 @@ trial_corr = jnwb.trial_correlation_matrix(trials_data)
 
 bad_trials, corr_z, amp_z = jnwb.bad_trials_single_channel(
     trials_data,
-    r_thresh=0.2,       # Minimum acceptable correlation with template
-    amp_z_thresh=4.0    # Maximum acceptable peak-amplitude z-score
+    corr_z_thresh=5.0,  # Flag a trial whose median correlation to the OTHER trials
+                        # is this many robust-z below theirs. It is a z-score, not a
+                        # correlation, and there is no template: the comparison is
+                        # against the rest of the trials on this channel.
+    amp_z_thresh=5.0    # Maximum acceptable peak-amplitude robust-z
 )
 ```
+
+Either condition alone flags a trial. On a single channel that is deliberately
+permissive; cross-channel consensus below is what decides exclusion.
 
 ### Consensus Bad Trials Across Channels
 Aggregates bad trial flags across multiple channels using a consensus voting threshold:
@@ -83,8 +89,13 @@ import jnwb
 repaired_lfp, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
     segments,
     times_ms=times_ms,
-    z_thresh=6.0,          # Threshold for cross-channel synchronous deviation
-    window_ms=(-100, 500)   # Active evaluation interval
+    z_thresh=6.0,                    # Cross-channel synchronous-deviation threshold
+    exclude_window_ms=(400.0, 600.0)  # PROTECTED, not analysed: samples inside this
+                                      # window are never flagged for repair. Use it
+                                      # for an interval whose large deflection is
+                                      # signal -- a reward artefact, say -- that the
+                                      # synchrony detector would otherwise substitute
+                                      # away. Omit it to evaluate the whole epoch.
 )
 
 print(f"Total time-samples flagged and repaired: {frac_flagged * 100:.2f}%")
@@ -117,6 +128,19 @@ to round-off (relative to the data, so the rule does not depend on power units) 
     two-sided test while its own docstring claimed parity with the one-sided library version.
     The detector is exposed here precisely so the tail is an argument a caller states, rather
     than a detail buried in a copy that can drift.
+
+`jnwb.DETECTION_TAILS` is the pair of accepted values, `("upper", "both")`, exported so a
+caller can validate a configured tail before the call rather than after it:
+
+```python
+if tail not in jnwb.DETECTION_TAILS:
+    raise ValueError(f"tail must be one of {list(jnwb.DETECTION_TAILS)}")
+flagged, scale = jnwb.detect_band_outliers(band_trace, z_thresh=6.0, sided=tail)
+```
+
+`detect_band_outliers` raises `ValueError` naming the same list for anything else. There is
+no `"lower"`: a detector that flags only power decreases has no artifact rationale, and
+adding one would invite the mistake the warning above describes.
 
 **Prefer calling over retyping.** A numerical rule that is easier to retype than to reuse will
 be retyped, and the copy will diverge from its docstring without anyone noticing. That is why

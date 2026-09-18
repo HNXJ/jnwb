@@ -56,10 +56,13 @@ nav:
       - Installation: install.md
       - Quickstart: quickstart.md
       - Common Mistakes: common_mistakes.md
+      - Errors: errors.md
+      - Analyzing with an Agent: agents.md
       - Public API: api.md
       - References: references.md
 
   - Tutorials:
+      - Your Own NWB File: tutorials/00_your_own_file.md
       - NWB Basics: tutorials/01_nwb_basics.md
       - Addressing & Metadata: tutorials/02_addressing_and_metadata.md
       - Spiking Dynamics: tutorials/03_spiking.md
@@ -74,6 +77,7 @@ nav:
       - Paths & Addressing: 02_paths_addressing_metadata.md
       - Representational Similarity: 03_representational_similarity_jrsa.md
       - Spectral Analysis & TFR: 04_spectral_analysis_and_tfr.md
+      - Operation Specifications: 10_operation_specifications.md
 
   - Signal Processing & Dynamics:
       - Artifact Detection & Repair: 05_artifact_detection_and_repair.md
@@ -82,12 +86,6 @@ nav:
       - Directed Connectivity: 08_directed_connectivity_and_information.md
       - Decoding & Visual QC: 09_decoding_and_visual_qc.md
 
-  - Tutorials & Development:
-      - Extending jnwb: 10_extending_jnwb_and_verification.md
-      - Developer Guide: 11_extending_and_development.md
-
-  - API Reference:
-      - Full Surface Contract: api.md
 
 # extra.jnwb_version is injected at build time by the hook below, from jnwb.__version__.
 # It is deliberately not written here: a duplicated version is correct only until the next

@@ -61,9 +61,23 @@ Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplot
 import jnwb
 
 info = jnwb.inspect("recording.nwb")
-events = jnwb.events("recording.nwb", table="test_synth_task")
-onsets = jnwb.event_onsets("recording.nwb", table="test_synth_task", codes=["test-synth-1"])
+
+# Read the layout off the inspection rather than assuming it.
+for table in info["interval_tables"]:
+    print(table["name"], [column["name"] for column in table["columns"]])
+# trials ['id', 'start_time', 'stimulus', 'stop_time']
+
+table = jnwb.events("recording.nwb", table="trials", code_column="stimulus")
+onsets = jnwb.event_onsets(
+    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+)
 ```
+
+`codes` is jnwb's default column name, not an NWB requirement — a file from another lab
+usually names it something else, which is why the column comes from `inspect` rather than
+from habit. Naming a column that does not exist raises `ColumnNotFoundError` listing the
+columns that do; omitting `code_column` on a table with no `codes` column returns the
+onsets and warns.
 
 Executable walkthroughs: [Read the Docs tutorials](https://jnwb.readthedocs.io/) or `examples/tutorials/`.
 
@@ -74,13 +88,16 @@ import numpy as np
 import jnwb
 
 rng = np.random.default_rng(42)
-spikes = np.sort(rng.uniform(0.0, 10.0, 300))
-events = np.array([1.0, 3.0, 5.0, 7.0])
+events = np.arange(1.0, 21.0, 0.5)                          # 40 trials, 0.5 s apart
+lags = 0.060 + rng.uniform(0.0, 0.34, (events.size, 25))    # each responds from t0 = 60 ms
+spikes = np.sort(np.concatenate([rng.uniform(0.0, 21.5, 110),   # homogeneous background
+                                 (events[:, None] + lags).ravel()]))
 
 time_bins, rate_hz, _ = jnwb.raster_psth(spikes, events, win_ms=(-100.0, 400.0), bin_ms=10.0)
 smooth_hz = jnwb.causal_exp_smooth(rate_hz, bin_ms=10.0, tau_ms=25.0)
 fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds=(0.0, 200.0))
-print(f"Onset t0: {fit['t0']:.1f} ms (R2={fit['r2']:.2f}, {fit['bound_status']})")
+print(f"Onset t0: {fit['t0']:.1f} ms of a true 60.0 "
+      f"(R2={fit['r2']:.2f}, {fit['bound_status'] or 'interior'})")
 
 fs = 1000.0
 lfp = rng.normal(size=1000)
@@ -111,11 +128,12 @@ Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are
 ## Contributing
 
 Setup, the checks to run, the branch model and the release procedure are in
-[CONTRIBUTING.md](CONTRIBUTING.md). Work lands on `dev`; `main` holds releases. The queued
-work is in [artifacts/todo_stack.md](artifacts/todo_stack.md).
+[CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
+The queued work is in [artifacts/todo_stack.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/todo_stack.md), which is
+in the repository only -- `artifacts/` is pruned from the sdist.
 
-If you are an AI agent, read [AGENTS.md](AGENTS.md) first.
+If you are an AI agent, read [AGENTS.md](https://github.com/HNXJ/jnwb/blob/main/AGENTS.md) first.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/HNXJ/jnwb/blob/main/LICENSE).

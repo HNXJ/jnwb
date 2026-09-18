@@ -8,9 +8,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+import jnwb
 from jnwb.metadata import (
     classify_unit_quality, unit_census_report, get_snr_analysis, filter_by_criteria,
     audit_units, audit_electrodes, assign_quality_tier, get_all_units_metadata,
+    electrode_inventory,
 )
 
 
@@ -21,11 +23,28 @@ class TestNwbReadErrors:
         with pytest.raises(OSError):
             get_all_units_metadata(bad, on_read_error="raise")
 
-    def test_corrupt_nwb_skipped_by_default(self, tmp_path):
+    def test_every_path_failing_is_not_an_empty_cohort(self, tmp_path):
+        """05-23. `on_read_error='skip'` is for carrying on with a partial result in a
+        multi-file call. With nothing read there is no partial result, and the empty frame
+        this used to return claimed an empty cohort instead of a failed read -- reported
+        only through `log.error`, which `pytest.warns` and `-W error` cannot see.
+        """
         bad = tmp_path / "bad.nwb"
         bad.write_bytes(b"not an hdf5 file")
-        out = get_all_units_metadata(bad)
-        assert out.empty
+        with pytest.raises(RuntimeError, match="all 1 of 1 path"):
+            get_all_units_metadata(bad)
+        with pytest.raises(RuntimeError, match="all 1 of 1 path"):
+            electrode_inventory(bad)
+
+    def test_a_nonexistent_path_raises_like_every_other_reader(self, tmp_path):
+        """`inspect`, `events` and `unit_spike_times` all raise FileNotFoundError here."""
+        missing = tmp_path / "absent.nwb"
+        for reader in (get_all_units_metadata, electrode_inventory):
+            with pytest.raises(FileNotFoundError, match="not found"):
+                reader(missing)
+        for name in ("inspect", "events", "unit_spike_times"):
+            with pytest.raises(FileNotFoundError):
+                getattr(jnwb, name)(missing)
 
 
 class TestPublicImport:
@@ -240,3 +259,67 @@ class TestAssignQualityTier:
             pd.Series([1]), pd.Series([0.99]), pd.Series([float("nan")]),
         )
         assert tier.iloc[0] == "unstable"
+
+
+def _write_minimal_nwb(path):
+    """Four electrodes and two units, enough for both readers."""
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    nwb = pynwb.NWBFile(
+        session_description="s", identifier="i",
+        session_start_time=datetime.now(timezone.utc),
+    )
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(
+        name="probeA", description="d", location="V1", device=device
+    )
+    for z in range(4):
+        nwb.add_electrode(
+            x=0.0, y=0.0, z=float(z), location="V1", group=group, group_name="probeA"
+        )
+    nwb.add_unit_column(name="peak_channel_id", description="peak channel")
+    nwb.add_unit(spike_times=[0.1, 0.2], peak_channel_id=0.0)
+    nwb.add_unit(spike_times=[0.3], peak_channel_id=1.0)
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    return path
+
+
+class TestSessionIdFromFilename:
+    """05-23, second half. `electrode_inventory` called `int(stem)` unconditionally, so a
+    readable 4-electrode file named `mm_depth.nwb` raised ValueError -- which the broad
+    read-error tuple swallowed as a failed read, returning DataFrame (0, 0). The sibling
+    `get_all_units_metadata` already had the int-or-string fallback and returned (2, 10).
+    """
+
+    def test_a_non_numeric_stem_still_returns_the_electrodes(self, tmp_path):
+        path = _write_minimal_nwb(tmp_path / "mm_depth.nwb")
+        elecs = electrode_inventory(path)
+        units = get_all_units_metadata(path)
+        assert len(elecs) == 4, "a readable file is not an empty cohort"
+        assert len(units) == 2
+        assert elecs["session_id"].unique().tolist() == ["mm_depth"]
+        assert units["session_id"].unique().tolist() == ["mm_depth"]
+
+    def test_a_numeric_session_stem_is_still_an_int(self, tmp_path):
+        path = _write_minimal_nwb(tmp_path / "ses-260724_ecephys.nwb")
+        assert electrode_inventory(path)["session_id"].unique().tolist() == [260724]
+        assert get_all_units_metadata(path)["session_id"].unique().tolist() == [260724]
+
+    def test_both_readers_agree_on_the_session_id(self, tmp_path):
+        for name in ("mm_depth.nwb", "ses-260724_ecephys.nwb"):
+            path = _write_minimal_nwb(tmp_path / name)
+            assert (
+                electrode_inventory(path)["session_id"].unique().tolist()
+                == get_all_units_metadata(path)["session_id"].unique().tolist()
+            )
+
+    def test_one_bad_path_among_several_still_skips(self, tmp_path):
+        """Per-file skipping is what on_read_error='skip' is for, and it survives."""
+        good = _write_minimal_nwb(tmp_path / "ses-260724_ecephys.nwb")
+        bad = tmp_path / "corrupt.nwb"
+        bad.write_bytes(b"not an hdf5 file")
+        assert len(electrode_inventory([good, bad])) == 4
+        assert len(get_all_units_metadata([good, bad])) == 2

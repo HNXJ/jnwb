@@ -20,13 +20,13 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   `EventTable` with all rows from one interval table. Onsets in **seconds**.
 - `jnwb.event_onsets(path_or_nwb, table=None, codes=None, code_column="codes",
   onset_column="start_time")` → `numpy.ndarray` of onset times (seconds), table row order.
-- `jnwb.resolve_interval_table(nwb, table)` → table name using `trials` → sole table →
+- `jnwb.resolve_interval_table(path_or_nwb, table=None)` → table name using `trials` → sole table →
   `AmbiguousIntervalTableError` when several tables and `table` omitted.
 - `jnwb.unit_spike_times(path_or_nwb, unit_index=0)` → spike times in seconds for one units row.
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
   calibrated by `conversion` and `offset`).
-- `jnwb.epoch_continuous(data, onsets, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
+- `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
   epochs from continuous signals aligned to event onsets.
 
 **Event code semantics:** codes are opaque interval-table labels (default column `codes`). jnwb
@@ -37,6 +37,21 @@ specific errors.
 
 **Table ambiguity:** several interval tables + omitted `table` → `AmbiguousIntervalTableError`.
 Several continuous series + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
+
+**One schema:** `inspect(path)` and `inspect(nwb_object)` return the same dict for the same
+file, including `data_path`, `layout` and `series` on every continuous entry. Every key in
+`jnwb.nwb_inspect.CONTINUOUS_KEYS` is always present, `None` when unknown.
+
+**Several series in one container:** an `LFP` wrapping more than one `ElectricalSeries` reports
+`series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and
+`acquisition_channel(name=<container>)` raises `AmbiguousAcquisitionError`. Name the series.
+A name that exists in both `/acquisition` and a processing module is refused the same way.
+
+**Array orientation:** `inspect` reports `layout` per 2-D series, decided by the series' own
+electrode region rather than by which side is longer. `acquisition_channel` honours it, so
+`channel=k` is the same channel whether the file is time-by-channel or channel-by-time. When the
+electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
+`acquisition_channel` raises `AmbiguousLayoutError`.
 
 ### Repository path roots (not per-file inspection)
 
@@ -57,10 +72,23 @@ Several continuous series + omitted `name` in `acquisition_channel` → `Ambiguo
 MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for agent hosts;
 use the public functions above in normal Python workflows.
 
+- `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalises any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
+- `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` rather than picking one when the name is absent or ambiguous.
+- `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materialising the array.
+- `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
+- `jnwb.unit_census_report(units_df, group_by=None)`: Census of units grouped by session, area or layer.
+- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
+- `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
+- `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
+- `jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)` and `jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)`: Recording-structure labels -- cycle boundaries from a gap threshold, and temporal quantile buckets by `start_time` order. Both are grouping variables for `permute_labels` and `cluster_permutation_test`, not results.
+
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;
    pass `table=` explicitly when more than one task-like table exists.
-2. **Addressing robustness:** `map_peak_channel_to_area` checks `location`, `area`, `group_name`.
+2. **Addressing robustness:** `map_peak_channel_to_area` checks `location`, then `area`, and
+   returns `None` when neither exists. It does **not** fall back to `group_name`, which is the
+   probe/shank label: an electrode table with no anatomical column used to return `'probeA'` as
+   the brain area of channel 0, a fabricated label indistinguishable from a real one (05-18).
 3. **NWB compression contract:** `compress_fp32` converts on-disk electrical series to fp32;
    verify with `verify=True` before deleting sources.
 

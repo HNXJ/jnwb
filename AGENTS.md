@@ -1,8 +1,10 @@
 # AGENTS.md — working rules for `jnwb`
 
 Start here. §0 maps the repository, §2 holds the remaining work and §3 is the loop that
-works through it; the rest says how to work here. `CLAUDE.md` carries phase and policy. A
-project that *uses* jnwb keeps its own rules in its own repository.
+works through it; the rest says how to work here. **This file is the only repository-level
+instruction file.** There is no second rule set at the root and no per-assistant variant;
+a rule that is not here is not a rule of this repository. A project that *uses* jnwb keeps
+its own rules in its own repository.
 
 **Leave no process-authorship narrative in the library surface.** Harness vocabulary
 (agents, assistants, orchestration tooling) is named only in four places: `skills/`, this
@@ -10,8 +12,7 @@ file, one line in `README.md`, and `CONTRIBUTING.md`. Not in `jnwb/`, `tests/`, 
 `docs/`, `CHANGELOG.md`, or code comments/docstrings — except **machine-required literals**
 such as the path `agents/openai.yaml` in skill-structure tests, and standard technical
 metadata in generated assets (e.g. Creative Commons RDF `cc:Agent` creator tags in Matplotlib
-SVG output). `CLAUDE.md` is a tripwire supplement, not a fifth naming location. A reader of
-the library should see a library.
+SVG output). A reader of the library should see a library.
 
 ## 0. Where things are
 
@@ -29,7 +30,7 @@ the library should see a library.
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
 | `docs/references.md` | Published sources for each method, with resolved DOIs; docstrings cite the same entries |
-| `docs/11_extending_and_development.md` | How to add or change a function without breaking the release |
+| `CONTRIBUTING.md` | How to add or change a function without breaking the release |
 | `examples/quickstart_jnwb.py` | Smallest end-to-end script |
 | `examples/notebooks/` | Notebooks on synthetic data; `tests/test_notebooks.py` executes every one |
 | `pyproject.toml` | Version source, dependencies, Python floor |
@@ -125,7 +126,7 @@ unpushed. Do not cross a version boundary before sealing it.
    `tests/test_jnwb_frozen_boundary.py`. Condition codes, session labels, area vocabularies
    and findings stay out of `jnwb/`, `docs/`, `skills/` and `tests/` (Gate 6 scans a fixed
    forbidden-token list in `jnwb/`, `skills/`, and selected docs — not `tests/` or full
-   comment/docstring neutrality; see the non-blocking scan item in the todo stack).
+   comment/docstring neutrality).
    A corpus convention, such as two spellings of one area, is the project's to normalise;
    a request to encode one in jnwb is a reason to stop.
 4. **Units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently**
@@ -196,7 +197,11 @@ Load the skill before doing the work rather than reinventing its contents.
 - Commit and push validated checkpoints on `dev` per §3; do not push to `main` or tag without
   explicit maintainer instruction.
 - A public API change is announced in `CHANGELOG.md` and carries a deprecation path where
-  one is possible.
+  one is possible, **and updates the routing rows in `skills/` in the same commit**. The
+  rows hardcode signatures; nothing else keeps them true, and
+  `tests/test_skills_validation.py` checks every row against `inspect.signature`, so a
+  change that skips this fails the suite rather than shipping a row that calls the old
+  signature.
 - No secrets in the repository, context, or transcripts. If one is exposed, stop, say so,
   and recommend rotation.
 
@@ -240,28 +245,48 @@ import numpy as np
 import jnwb
 
 rng = np.random.default_rng(0)
+fs = 1000.0
+
+# Synthetic inputs, so every call below runs as written.
+spike_times = np.sort(rng.uniform(0.0, 20.0, 4000))          # s
+event_onsets = np.arange(1.0, 19.0, 0.5)                     # s
+lfp = rng.normal(size=4000)                                  # one channel, n_times
+baseline_lfp = rng.normal(size=4000)
+lfp_trials = rng.normal(size=(20, 4000))                     # trials x time
+baseline_trials = rng.normal(size=(20, 4000))
+lfp_ch = rng.normal(size=(8, 4000))                          # channels x time
+x, y = rng.normal(size=2000), rng.normal(size=2000)
+g1, g2 = rng.normal(0.0, 1.0, 40), rng.normal(0.5, 1.0, 40)
+p_values = rng.uniform(0.0, 1.0, 10)
 
 # Spikes: PSTH (times in s, window in ms), causal smoothing, onset fit
 t_ms, rate, sem = jnwb.raster_psth(spike_times, event_onsets, win_ms=(-200.0, 500.0), bin_ms=10.0)
 smooth = jnwb.causal_exp_smooth(rate, bin_ms=10.0, tau_ms=25.0)
-fit = jnwb.fit_exponential_onset(t_ms, smooth, t0_bounds=(0.0, 250.0))   # dict
+fit = jnwb.fit_exponential_onset(t_ms, smooth, t0_bounds_ms=(0.0, 250.0))   # dict
+# fit['bound_status'] is None for an interior fit and 'lower'/'upper' when the optimiser
+# stopped at a bound, where t0 is the bound rather than an estimate.
 
 # LFP: complex TFR (mask edges with tfr.coi_mask), band power, decibels last
-tfr = jnwb.complex_tfr(lfp, fs=1000.0, freqs=np.linspace(10, 40, 4))
-beta_raw = jnwb.band_power(
-    lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False,
-)
-baseline_raw = jnwb.band_power(
-    baseline_lfp, fs=1000.0, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False,
-)
+tfr = jnwb.complex_tfr(lfp, fs=fs, freqs=np.linspace(10, 40, 4))
+
+# aggregate_to_db aggregates on the RATIO scale, so it needs the per-trial powers, not one
+# number: band_power returns a float, and `aggregate_over=0` over a float raises AxisError.
+beta_raw = np.array([
+    jnwb.band_power(trial, fs=fs, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False)
+    for trial in lfp_trials
+])
+baseline_raw = np.array([
+    jnwb.band_power(trial, fs=fs, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False)
+    for trial in baseline_trials
+])
 db = jnwb.aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)
 
 # Bad channels from inter-channel correlation (channels x time)
 bad, summary, z = jnwb.bad_channels_from_correlation(jnwb.channel_correlation_matrix(lfp_ch), z_thresh=5.0)
 
-# Directed measures: both return DirectedResult; seed fixes the surrogates
-te = jnwb.transfer_entropy(x, y, n_surrogates=200, seed=42)
-psi = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(15.0, 30.0))
+# Directed measures: both return DirectedResult; rng fixes the surrogates
+te = jnwb.transfer_entropy(x, y, n_surrogates=200, rng=42)
+psi = jnwb.phase_slope_index(x, y, fs=fs, bands=(15.0, 30.0))
 
 # Statistics
 res = jnwb.StatisticalAnalysis.exploratory_compare(g1, g2)   # parametric + bootstrap

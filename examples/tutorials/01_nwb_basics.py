@@ -5,8 +5,16 @@ Run: python examples/tutorials/01_nwb_basics.py
 
 from __future__ import annotations
 
+import sys
+
 import tempfile
 from pathlib import Path
+
+# This file is run from a checkout, so prefer that checkout over any installed jnwb:
+# Python puts this directory on sys.path, not the repository root.
+_CHECKOUT = Path(__file__).resolve().parents[2]
+if (_CHECKOUT / "jnwb" / "__init__.py").exists():
+    sys.path.insert(0, str(_CHECKOUT))
 
 import jnwb
 from jnwb.testing.nwb_fixtures import (

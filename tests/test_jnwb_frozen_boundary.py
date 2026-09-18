@@ -6,8 +6,8 @@ package happens to be installed.
 Naming note (corrected 2026-09-09): this file is called "frozen_boundary" and its docstring
 used to claim it enforced the jnwb/ edit freeze. It never did, and could not -- nothing here
 looks at whether jnwb/ was edited. It enforces the dependency DIRECTION. The edit freeze was
-lifted on 2026-09-09 (see CLAUDE.md); this boundary is unaffected and still live, because it
-never rested on the freeze.
+lifted on 2026-09-09; this boundary is unaffected and still live, because it never rested
+on the freeze.
 
 A human reading a policy is not a technical guarantee that no new jnwb/ change quietly
 reintroduces a project coupling. These tests are.
@@ -69,11 +69,34 @@ class TestJnwbFrozenBoundary:
                 if (rel, modname) not in AUTHORIZED_EXCEPTIONS:
                     violations.append(f"jnwb/{rel}:{lineno} imports {modname!r}")
         assert not violations, (
-            "jnwb/ imports from omission/ (see CLAUDE.md's freeze policy and AUTHORIZED_EXCEPTIONS in this test). "
+            "jnwb/ imports from omission/ (see AUTHORIZED_EXCEPTIONS in this test). "
             "Either this is a new coupling that needs Hamm's explicit authorization before it "
             "can land, or AUTHORIZED_EXCEPTIONS needs updating alongside it:\n"
             + "\n".join(violations)
         )
+
+    def test_the_module_level_import_detector_works(self):
+        """`AUTHORIZED_EXCEPTIONS` is empty, so the test below iterates nothing.
+
+        That is the intended state, and it means the detector the test depends on is
+        never exercised: it would keep passing if `_omission_imports` stopped finding
+        anything. Exercise it directly, so the first exception added is checked by code
+        known to work.
+        """
+        src = (
+            "import omission.alpha\n"
+            "from omission.beta import thing\n"
+            "import numpy\n"
+            "def f():\n"
+            "    import omission.gamma\n"
+        )
+        found = [(mod, at_module_level)
+                 for _, mod, at_module_level in sorted(_omission_imports(ast.parse(src)))]
+        assert found == [
+            ("omission.alpha", True),
+            ("omission.beta", True),
+            ("omission.gamma", False),
+        ], found
 
     def test_authorized_exceptions_are_lazy_not_module_level(self):
         # Both authorized exceptions must be call-time imports inside a function body, never

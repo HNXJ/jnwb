@@ -8,13 +8,14 @@ Study **electrophysiology and NWB 2.0+ datasets** — trial-level artifact repai
 
 For a new recording, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
 
+0. [Your own NWB file](tutorials/00_your_own_file.md) — discover the layout of a file you did not write.
 1. [`jnwb.inspect`](tutorials/01_nwb_basics.md) — list interval tables and columns (no default table).
-2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md) — select opaque event codes; onsets in **seconds**.
+2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md) — select opaque event codes; onsets in **seconds**. `codes` is jnwb's default column name, not an NWB one, so pass `code_column=` with whatever `inspect` reported.
 3. [Spiking dynamics](tutorials/03_spiking.md) with `unit_spike_times`, `raster_psth`, `causal_exp_smooth`.
 4. [LFP and spectral](tutorials/04_lfp_and_spectral.md) with `acquisition_channel`, `epoch_continuous`, `compute_psd`, `wpli`.
 5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Pipeline](tutorials/08_end_to_end_pipeline.md).
 
-Run locally: `python examples/tutorials/01_nwb_basics.py` (and `02`–`08`).
+Run locally: `python examples/tutorials/00_your_own_file.py` (add your own file path as an argument), then `01_nwb_basics.py` and `02`–`08`. `examples/` ships in neither the wheel nor the sdist, so these need a [clone](install.md#source-checkout), not `pip install jnwb`.
 
 ## Install & Import
 
@@ -53,6 +54,8 @@ Run the complete quickstart script locally:
 ```bash
 python examples/quickstart_jnwb.py
 ```
+
+`examples/` ships in neither the wheel nor the sdist, so this line needs a [clone](install.md#source-checkout), not `pip install jnwb`.
 
 ---
 
@@ -101,7 +104,7 @@ Compute robust, phase-slope directionality between two time series with phase-ra
 sig_a = rng.normal(size=1000)
 sig_b = np.roll(sig_a, 5) + 0.5 * rng.normal(size=1000)
 
-psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, seed=0)
+psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, rng=0)
 print(f"PSI X->Y: {psi.x_to_y:.4f}, p-value: {psi.p_x_to_y:.4f}")
 ```
 
@@ -144,6 +147,6 @@ Compare multi-condition activity patterns across modalities, areas, or models:
 X = rng.normal(size=(6, 16, 50))
 Y = X + 0.3 * rng.normal(size=(6, 16, 50))
 
-jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, random_state=0)
+jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
 print(f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}")
 ```
