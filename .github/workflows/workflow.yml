@@ -140,13 +140,47 @@ jobs:
           print('PASS: Installed wheel verified in clean virtualenv')
           "
 
+      - name: Run the test suite against the installed wheel
+        shell: bash
+        run: |
+          # The matrix legs run `pytest tests/` from the repository root, where
+          # `pythonpath = ["."]` and `tests/__init__.py` both put the source tree ahead of
+          # site-packages: they test the checkout, which merely also has the package
+          # installed. This runs the same suite against the wheel built above -- from
+          # outside the repository, with `pythonpath` cleared and pytest's rootdir
+          # insertion suppressed by importlib import mode. JNWB_EXPECTED_PACKAGE_ROOT
+          # makes tests/test_import_provenance.py assert that the package under test is
+          # the installed one, so a leg that quietly falls back to the checkout fails
+          # instead of passing. The test tooling is read out of pyproject.toml rather
+          # than listed again here, and jnwb itself is not reinstalled from source.
+          unset PYTHONPATH
+          python - <<'PY'
+          import pathlib, tomllib
+          extras = tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']
+          requirements = extras['test'] + extras['docs']
+          pathlib.Path('/tmp/test-requirements.txt').write_text('\n'.join(requirements))
+          PY
+          /tmp/clean_env/bin/pip install -r /tmp/test-requirements.txt
+          purelib=$(/tmp/clean_env/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          echo "Suite will run against: $purelib/jnwb"
+          cd /tmp
+          JNWB_EXPECTED_PACKAGE_ROOT="$purelib" /tmp/clean_env/bin/python -m pytest \
+            --import-mode=importlib -o pythonpath= -n auto \
+            --rootdir="$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/tests" -q
+
       - name: Run tutorials against the installed wheel (no repo-relative imports)
         shell: bash
         run: |
           # 0.2.4-03: the tutorials must execute against the distributed artifact, not the
           # checkout. PYTHONPATH is cleared and the CWD is outside the repository, so an
           # `import jnwb` that only works from the source tree fails here.
+          #
+          # Each tutorial also carries a guard that prefers the checkout it ships in, which
+          # is right when a reader runs it from a clone and wrong here: it found the
+          # sibling package under $GITHUB_WORKSPACE and sent this step back to the source
+          # tree. JNWB_EXPECTED_PACKAGE_ROOT tells the guard to stand aside.
           unset PYTHONPATH
+          export JNWB_EXPECTED_PACKAGE_ROOT=$(/tmp/clean_env/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
           cd /tmp
           /tmp/clean_env/bin/python -c "
           import jnwb

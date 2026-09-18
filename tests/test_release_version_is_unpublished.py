@@ -22,8 +22,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+# Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
+# installed copy and silently redirect a wheel-qualification run back to the source tree.
 if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+    sys.path.append(str(ROOT))
 
 from scripts.release_gate import (  # noqa: E402
     SKIP_INDEX_ENV,

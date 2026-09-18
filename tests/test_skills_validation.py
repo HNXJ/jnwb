@@ -467,11 +467,13 @@ class TestEvidenceConflictProbes:
                 offenders.append(str(path))
         assert not offenders, f"code that could rewrite the fact stack: {offenders}"
 
+    # Both read through SKILLS_DIR rather than a bare relative path: a path relative to
+    # the current directory resolves only when pytest is run from the repository root.
     def test_the_conflict_rule_is_still_stated_in_the_skill(self):
-        text = Path("skills/jnwb-fact-action/SKILL.md").read_text(encoding="utf-8")
+        text = (SKILLS_DIR / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
         assert "MUST NOT autonomously add, edit, or delete facts" in text
         assert "empirical receipts and discriminating tests" in text
 
     def test_conflicting_conclusions_are_resolved_by_receipts_not_consensus(self):
-        text = Path("skills/jnwb-fact-action/SKILL.md").read_text(encoding="utf-8")
+        text = (SKILLS_DIR / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
         assert "never through voting or consensus" in text

@@ -11,7 +11,10 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+# Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
+# installed copy and silently redirect a wheel-qualification run back to the source tree.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
 
 import pytest
 

@@ -338,7 +338,10 @@ class TestDeprecatedFactoriesWarnAndStillWork:
     def test_the_deprecation_is_announced_in_the_changelog(self, name):
         from pathlib import Path
 
-        changelog = Path(jnwb.__file__).resolve().parent.parent / "CHANGELOG.md"
+        # From this file, not from `jnwb.__file__`: the package's parent is the
+        # repository only when the import came from the checkout, so against an
+        # installed wheel this read site-packages and failed.
+        changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.md"
         assert name in changelog.read_text(encoding="utf-8"), (
             f"AGENTS.md section 8: a public API change is announced in CHANGELOG.md"
         )

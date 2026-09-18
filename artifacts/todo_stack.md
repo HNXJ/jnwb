@@ -44,14 +44,6 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-76 CI never runs the suite against the installed distribution
-- **Problem** `pytest -v tests/` runs from the checkout root and `pythonpath = ["."]` puts the checkout ahead of site-packages, so the four-cell matrix tests the source tree that also happens to have the package installed. Only the single-cell build job touches the wheel.
-- **Evidence** `workflow.yml:49`, `pyproject.toml:107`. Several test docstrings reason about wheel behaviour while importing the checkout.
-- **Change** One matrix leg, or one extra step, that installs the built wheel and runs pytest from a directory outside the checkout with `pythonpath` overridden.
-- **Preserves** The existing legs, which need `pythonpath` for the `scripts.*` gate tests.
-- **Discriminator** A defect present only in the packaged artifact fails CI.
-- **Accept** The claim "tested against the installed wheel" becomes true for the suite, not only for the tutorials.
-
 ### 05-77 The skills distribution decision
 - **Problem** `MANIFEST.in`'s comment describes an outcome its mechanism does not produce.
 - **Evidence** `graft skills` places the tree at the sdist root, outside any package; `packages.find` is `include = ["jnwb*"]`, so `pip install jnwb-0.2.4.tar.gz` installs `jnwb/` and discards `skills/` and `AGENTS.md`. Only someone who untars by hand receives them — and the sdist carries no `docs/`, `tests/` or `scripts/`, so 11 of 12 skill documentation links dangle inside it and the skills' own verification steps cannot run there. `grep -rn "skills" jnwb/ --include=*.py` returns zero hits: nothing in the runtime reads them.
@@ -174,6 +166,33 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-76 reproduced, and the claim was worse than stated -- recorded 2026-09-18
+
+The mechanism reproduced exactly. With the wheel installed into a clean 3.12
+environment, `pytest tests/` run from the repository root imports
+`C:/workspace/jnwb/jnwb`, not the installed copy; `test_import_provenance.py` says so
+when `JNWB_EXPECTED_PACKAGE_ROOT` names the environment.
+
+Two corrections to the item. `pythonpath = ["."]` is not the only mechanism:
+`tests/__init__.py` makes `tests` a package, so pytest's prepend import mode inserts the
+repository root as well. Clearing `pythonpath` alone changes nothing; the leg also needs
+`--import-mode=importlib`. And the item says only the build job touches the wheel -- the
+tutorial step had stopped touching it too, because the checkout guard added with the
+import-provenance repair finds the sibling package under `$GITHUB_WORKSPACE` and
+prepends the source tree. That step's name has been false since that commit.
+
+Running the suite against an installed copy was not merely absent; it was impossible.
+Sixteen tests failed for three reasons, each a defect in its own right: five test
+modules prepended the repository root to `sys.path` and re-shadowed the package under
+test, two opened `skills/...` relative to the working directory, and one located
+`CHANGELOG.md` through `jnwb.__file__`. All three are repaired, and the scanners that
+keep them out are in `tests/test_the_suite_can_qualify_an_installed_copy.py`.
+
+The Discriminator asks that a defect present only in the packaged artifact fail CI. It
+now can: the leg runs the whole suite against the wheel. Against the built 0.2.4 wheel
+the result is 2499 passed, 48 skipped -- 46 more skips than the checkout run, all of
+them GPU-gated tests, because the clean environment has no CuPy. That is the same
+condition a CI runner is in, so the leg is no weaker there than the matrix legs are.
 ## 05-75 reproduced exactly; the repair is wider than the item -- recorded 2026-09-18
 
 The mechanism reproduced as stated. A wheel-shaped zip carrying `tests/__init__.py`,

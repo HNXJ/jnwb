@@ -13,9 +13,16 @@ from pathlib import Path
 import numpy as np
 
 # This file is run from a checkout, so prefer that checkout over any installed jnwb:
-# Python puts this directory on sys.path, not the repository root.
+# Python puts this directory on sys.path, not the repository root. A run that is
+# deliberately qualifying an installed copy says so with JNWB_EXPECTED_PACKAGE_ROOT,
+# and then this guard stands aside -- otherwise it would quietly redirect CI's
+# installed-wheel tutorial step back to the checkout.
+import os
+
 _CHECKOUT = Path(__file__).resolve().parents[2]
-if (_CHECKOUT / "jnwb" / "__init__.py").exists():
+if not os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") and (
+    _CHECKOUT / "jnwb" / "__init__.py"
+).exists():
     sys.path.insert(0, str(_CHECKOUT))
 
 import jnwb

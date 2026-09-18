@@ -464,6 +464,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CI never ran the test suite against the distribution it built.** The four matrix legs
+  run `pytest tests/` from the repository root, where `pythonpath = ["."]` and
+  `tests/__init__.py` both put the source tree ahead of site-packages: they test the
+  checkout, which merely also has the package installed. Only the smoke step touched the
+  wheel. The build job now runs the whole suite against the installed wheel from outside
+  the repository, with `pythonpath` cleared and pytest's rootdir insertion suppressed by
+  importlib import mode, and `JNWB_EXPECTED_PACKAGE_ROOT` pointed at the clean
+  environment so `tests/test_import_provenance.py` fails the leg rather than letting a
+  silent fallback to the checkout pass. The test tooling is read out of
+  `pyproject.toml`'s extras rather than listed again in the workflow. Receipt: 2499
+  passed, 48 skipped against an installed wheel in a clean 3.12 environment; the extra
+  skips are the GPU-gated tests, which have no CuPy there.
+- **Running it that way found three defects that made the claim impossible, not merely
+  untested.** Five test modules prepended the repository root to `sys.path` so they could
+  import `scripts.*`, which also put the checkout's `jnwb/` first and re-shadowed whatever
+  package was under test; they now append, since `scripts/` exists only in a checkout and
+  nothing else can supply it. Two `test_skills_validation` tests opened
+  `skills/jnwb-fact-action/SKILL.md` relative to the current directory, so they passed
+  only because pytest happened to be run from the root. And
+  `test_the_deprecation_is_announced_in_the_changelog` located `CHANGELOG.md` as
+  `jnwb.__file__/../..`, which is the repository only when the import came from the
+  checkout. All three now derive their paths from the test file.
+- **The examples' checkout guard had already falsified CI's "Run tutorials against the
+  installed wheel" step.** The guard added with the import-provenance repair prefers the
+  checkout an example ships in, which is right for `python examples/tutorials/03_spiking.py`
+  and wrong for a step that runs those same files out of `$GITHUB_WORKSPACE`: it found the
+  sibling package and sent the step back to the source tree, under a step name saying
+  otherwise. All ten examples now stand the guard aside when
+  `JNWB_EXPECTED_PACKAGE_ROOT` is set -- the name the harness already uses for "this run
+  is qualifying a different copy" -- and the tutorial step sets it.
+  `tests/test_the_suite_can_qualify_an_installed_copy.py` holds the shape of all of it:
+  no test module may prepend the root, no test may open a repository file through the
+  working directory, every example's guard condition must name the variable (read from
+  the syntax tree, because the comment above it names it too), and the new CI leg must
+  keep each of its clauses. Eleven discriminating mutations all fail the suite.
 - **The anti-pollution check could not see anything a wheel carries at its top level.**
   It searched entry names for the substrings `/tests/` and `/scripts/`. A wheel entry has
   no leading distribution directory, so `"/tests/" in "tests/__init__.py"` is False: a
