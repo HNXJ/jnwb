@@ -11,15 +11,15 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 
 ## 2. Task-to-Primitive Routing Matrix
 - `jnwb.complex_tfr(data, fs, freqs, n_cycles)`: Complex Morlet wavelet transform returning `ComplexTFR` with `z`, `freqs`, `times`, and `coi_mask`.
-- `jnwb.band_power(lfp_trace, fs, freq_range, normalize=False, baseline=None)`: Scalar Welch band power; set `normalize=False` for linear power or pass `baseline` for dB.
-- `jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)`: Decibels last — ratio aggregate then `10·log10` once.
+- `jnwb.band_power(lfp_trace, fs=None, freq_range=(1.0, 90.0), normalize=True, baseline=None)`: Scalar Welch band power. `normalize` defaults to **True**, which requires a non-empty `baseline` and raises `ValueError` without one; pass `normalize=False` for linear power in the input's units squared.
+- `jnwb.aggregate_to_db(power, baseline, *, how="mean_of_ratios"|"ratio_of_means", aggregate_over=None)`: Decibels last — ratio aggregate then `10·log10` once. `how` is keyword-only and has no default: the estimand is named, not inherited.
 - `jnwb.bandpass_filter(data, fs, low_cut, high_cut)`: Zero-phase Butterworth bandpass.
 - `jnwb.notch_filter(data, fs, freq=60.0, q=30.0)`: IIR notch for line noise.
 - `jnwb.TFRAccumulator(shape)`: Welford running variance accumulator for streaming multi-trial TFR without storing full $N \times C \times F \times T$ arrays in memory.
 - `jnwb.repair_lfp_trials(segments, times_ms, z_thresh=6.0)`: Cross-channel synchrony detection ($z > 6.0$) and cross-trial median substitution.
 - `jnwb.repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=6.0, sided="upper")`: TFR-domain outlier detection and interpolation.
 - `jnwb.channel_correlation_matrix(data_ch_by_time)` & `jnwb.bad_channels_from_correlation(corr, z_thresh=5.0)`: Detect disconnected or excessively noisy probe channels.
-- `jnwb.cross_area_coherence(lfp_area1, lfp_area2, fs=..., freq_bands=...)`: Magnitude-squared coherence across channel pairs. `freq_bands` is required: a `{name: (fmin, fmax)}` dict or `'canonical'`.
+- `jnwb.cross_area_coherence(lfp_area1, lfp_area2, fs=..., freq_bands=...)`: Magnitude-squared coherence between **two 1-D traces**. A 2-D array is refused by design: call it per channel pair rather than handing it a channels-by-time matrix. `freq_bands` is required: a `{name: (fmin, fmax)}` dict or `'canonical'`.
 - `jnwb.imaginary_coherency(x, y, fs, freq_range=(1.0, 90.0))`: Volume-conduction-robust imaginary coherence.
 - `jnwb.wpli(x, y, fs, freq_range=(1.0, 90.0))`: Weighted Phase Lag Index reducing sensitivity to zero-phase-lag mixing.
 - `jnwb.zflip(lfp_matrix, fs, freq_range=(15.0, 35.0), pitch_um=...)`: Cortical depth phase gradient, latency, and apparent velocity estimation across laminar contacts.
@@ -29,7 +29,7 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 ## 3. Invariants & Safeguards
 1. **Cone of Influence (COI)**: Always check `coi_mask` when analyzing edge time points; edge coefficients are contaminated by boundary zero-padding.
 2. **Logarithm Last**: Compute average raw power across trials first, then compute $10 \cdot \log_{10}(\text{power})$ at the reporting step.
-3. **LFP Artifact Substitution vs Exclusion**: `repair_lfp_trials` uses cross-trial median substitution; inspect `frac_flagged` to ensure excessive trials (>20%) are not replaced.
+3. **LFP Artifact Substitution vs Exclusion**: `repair_lfp_trials` uses cross-trial median substitution. There is no `frac_flagged` key -- `info.get('frac_flagged', 0)` skips the check silently. The reported value is `max_fraction_trials_flagged_at_a_sample`, and the guard that acts on it is the `max_trial_fraction` argument (default 0.5): a sample flagged on more than that fraction of trials is treated as time-locked signal and never substituted, because past half the median is drawn mostly from flagged trials.
 
 ## 4. Minimal Workflow
 ```python

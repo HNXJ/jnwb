@@ -12,7 +12,7 @@ Activate this skill when generating publication figures, raster plots, PSTH visu
 ## 2. Task-to-Primitive Routing Matrix
 - `jnwb.setup_vector_graphics()`: Initialize publication rcParams for editable vector text (`svg.fonttype = 'none'`).
 - `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Auto-scale axes with controlled padding.
-- `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=("png", "pdf"))`: Export one or more figures with consistent naming.
+- `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=["png", "pdf"])`: Export one or more figures with consistent naming.
 - `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Compute binned arrays for rendering spike rasters and PSTHs.
 - `jnwb.visual_qc`: Submodule for rapid multi-channel visual screening (import `jnwb.visual_qc`).
 - `jnwb.resample_onsets(onsets, target_n=100, rng=42)`: Subsample onsets to a target count for plotting.

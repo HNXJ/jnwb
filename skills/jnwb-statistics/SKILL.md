@@ -15,7 +15,7 @@ Activate this skill when comparing neural responses across conditions, performin
 - `jnwb.permute_labels(y, scheme="within_group"|"global", groups=None, rng=...)`: Permute labels under an explicit exchangeability structure.
 - `jnwb.build_permutation_plan(labels, groups, n_permutations=..., rng=...)`: Generate an explicit within-group permutation manifest with SHA-256 digests.
 - `jnwb.StatisticalAnalysis.clopper_pearson_ci(k, n, alpha=0.05)`: Exact binomial confidence intervals via Beta-quantile inversion.
-- `jnwb.paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)`: Paired bootstrap test for firing-probability changes between conditions.
+- `jnwb.paired_fire_prob_test(fires_target, fires_null, n_shuffles, n_bootstrap, rng)`: Paired bootstrap test for firing-probability changes between conditions. All five are required and `rng` must be a `Generator`, not a seed. **Target first.** Swapping the first two arguments returns a valid result with `risk_difference` negated and `odds_ratio` inverted, and raises nothing.
 
 ## 3. Invariants & Safeguards
 1. **Exchangeability Preservation**: For grouped/hierarchical data (e.g. trials nested in sessions or blocks), use `scheme="within_group"` with explicit `groups`. Never use global permutations when trial structure induces correlation.

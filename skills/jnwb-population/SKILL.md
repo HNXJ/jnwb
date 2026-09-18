@@ -10,7 +10,7 @@ description: Population decoding, nested CV linear SVM, neural trajectories, joi
 Activate this skill when training population decoders (linear SVM), computing cross-validated representational geometry, population state-space trajectories, or Joint RSA (jRSA).
 
 ## 2. Task-to-Primitive Routing Matrix
-- `jnwb.nested_cv_linear_svm(X, labels, n_splits=5)`: Leakage-safe nested cross-validated linear SVM decoding with inner regularization tuning.
+- `jnwb.nested_cv_linear_svm(X, labels, n_splits, rng=42)`: Nested cross-validated linear SVM decoding with inner regularization tuning. `n_splits` has no default. The folds are drawn over rows and it takes no `groups`: to hold out whole blocks or cycles, build the partitions with `assign_outer_folds` first.
 - `jnwb.assign_outer_folds(trials, *, analysis_cols=("session", "analysis", "slot_key"), group_col="cycle")`: Group-preserving outer CV fold column on a trial DataFrame.
 - `jnwb.build_representation_ladder(raster, *, modality="SPK", spatial_axis_metadata=None)`: Multi-scale representational geometry from a trial raster.
 - `jnwb.build_time_resolved_matrix(session, area, epochs_df, time_window_ms=..., bin_size_ms=20.0)`: Trial × unit × time spike-count tensor from a session interface.

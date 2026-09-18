@@ -42,22 +42,6 @@ Where an item already edits a skill, the edited skill must satisfy this and repr
 routing behaviour must be tested. Skills are release surfaces: verify against live exports
 and docs, not against the skill's own text.
 
-### 05-67 Six routing rows teach a signature the code does not have, and one flips a sign
-- **Problem** Rows carry hardcoded signatures with no process keeping them true.
-- **Evidence** `skills/jnwb-statistics/SKILL.md:18` gives `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)`; live is `(fires_target, fires_null, n_shuffles, n_bootstrap, rng)`. On one dataset the correct order gives `risk_difference = +0.6` and the skill's order gives **-0.6**, with no error — and the skill omits the required `n_shuffles`. `jnwb-lfp-spectral:32` tells the reader to inspect `frac_flagged` to bound median substitution; the real key is `max_fraction_trials_flagged_at_a_sample`, so `info.get('frac_flagged', 0)` silently skips the check. `jnwb-nwb-data:29` calls `epoch_continuous(data, onsets, win_s, fs)` positionally against a keyword-only signature. `jnwb-population:13` gives `nested_cv_linear_svm(..., n_splits=5)`; there is no default. `jnwb-lfp-spectral:14` shows `band_power(..., normalize=False)` as the signature; the default is `True`, which raises without a baseline. `jnwb-lfp-spectral:22` describes `cross_area_coherence` as working "across channel pairs"; 2-D input is refused by design.
-- **Change** Correct all six against the live signatures.
-- **Preserves** The routing structure, which is sound.
-- **Discriminator** Each row executes as written.
-- **Accept** Gated by 05-68.
-
-### 05-68 The test that exists to catch 05-67 checks only that parameter names exist
-- **Problem** `test_skill_routing_parameter_names_match_runtime` asserts `pname in sig.parameters` and nothing about order, required-ness, defaults or keyword-only markers; and its regex cannot span nested parentheses.
-- **Evidence** Reconstructing the `paired_fire_prob_test` row, all four named parameters are present, so the test passes despite the swapped order and the missing required argument. The regex silently skips 7 of 61 routing rows, every one with a tuple default: `apply_tight_auto_axis`, `save_figure_suite`, `imaginary_coherency`, `wpli`, `zflip`, `spectral_tilt`, `assign_outer_folds`. Suite: 28 passed.
-- **Change** Match parameters positionally against `sig.parameters` order, assert every required parameter appears, compare stated defaults to live ones, and balance parentheses in the regex; `tests/test_skills_validation.py:112`.
-- **Preserves** The existing checks.
-- **Discriminator** Reintroducing any of the six 05-67 rows fails the suite.
-- **Accept** All 61 rows are checked, none skipped.
-
 ### 05-69 `AGENTS.md` has no rule keeping skills in sync, and three of its own statements are stale
 - **Problem** Section 8 requires a public API change to update `CHANGELOG.md` with a deprecation path; nothing requires updating `skills/`, although skills hardcode signatures in 61 rows. That single gap produced every item in 05-67.
 - **Evidence** Section 10 asserts "Each call below runs as written on synthetic arrays"; `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)` raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because `band_power` returns a float — so the canonical demonstration of the repo's most-repeated safeguard does not run. Section 4.3 points at "the non-blocking scan item in the todo stack", which does not exist. Section 10's statistics entry point is `StatisticalAnalysis.exploratory_compare` while `skills/jnwb-statistics:13` routes to `compare_groups`; both exist and their return keys differ.
@@ -245,6 +229,22 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-67 found three more rows than it listed -- extended 2026-09-18
+
+All six rows reproduce as described. The strengthened check from 05-68 found three the
+audit did not list, each of a kind the old check could not see: `granger` naming the
+deprecated keyword-only `seed` instead of `rng`; `fit_exponential_onset` naming the
+keyword-only aliases `t0_bounds`/`tau_bounds` in the positional slots of `t0_bounds_ms`
+and `tau_bounds_ms`; and `aggregate_to_db` giving a default to a keyword-only argument
+that deliberately has none while stating the wrong default for `aggregate_over`. One of
+the three, `save_figure_suite`'s `formats`, sat inside a tuple default and so was in the
+7 rows the old regex skipped entirely. Nine rows corrected, not six.
+
+One detail of the audit's `paired_fire_prob_test` evidence is sharper than stated: the
+row as written raises `TypeError` for the missing `n_shuffles`, so a reader copying it
+verbatim gets an error. The silent sign flip is what happens next, when the reader adds
+the missing argument and keeps the order.
 
 ## 05-65 claims about `coi_mask` and tutorial units -- partly refuted 2026-09-18
 

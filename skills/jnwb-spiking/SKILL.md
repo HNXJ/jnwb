@@ -12,7 +12,7 @@ Activate this skill when computing spike rasters, PSTHs, causal firing rate smoo
 ## 2. Task-to-Primitive Routing Matrix
 - `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Compute trial-aligned PSTH and SEM firing rates in Hz.
 - `jnwb.causal_exp_smooth(rate, bin_ms, tau_ms)`: Apply forward-only finite exponential smoothing kernel ($5\tau$) with zero future leakage.
-- `jnwb.fit_exponential_onset(t_ms, rate, t0_bounds, tau_bounds)`: Grid-search + bounded nonlinear least-squares fit of onset latency $t_0$.
+- `jnwb.fit_exponential_onset(t_ms, rate, t0_bounds_ms=None, tau_bounds_ms=None)`: Grid-search + bounded nonlinear least-squares fit of onset latency $t_0$.
 - `jnwb.compute_response_metrics(spike_times, epoch_onsets, baseline_window=..., response_window=...)`: Baseline/response rates, modulation index, and z-score.
 - `jnwb.classify_response_significance(metrics, zscore_threshold=1.96)`: Significance classification from precomputed response metrics.
 - `jnwb.phase_locking_index(unit_spike_times, lfp_phase, lfp_timestamps, n_bins=18)`: Spike-field phase locking index.

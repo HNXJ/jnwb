@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The test that existed to catch those rows checked only that the names exist.**
+  `test_skill_routing_parameter_names_match_runtime` asserted `pname in sig.parameters`
+  and nothing else, so the swapped `paired_fire_prob_test` row passed it: all four names
+  it gave are real parameters. Its regex could not span a nested parenthesis either, so it
+  silently skipped the 7 rows carrying a tuple default -- `assign_outer_folds`, `zflip`,
+  `wpli`, `imaginary_coherency`, `spectral_tilt`, `apply_tight_auto_axis` and
+  `save_figure_suite` -- and a row that is not matched is not checked.
+  It now walks balanced parentheses, matches positional arguments against their position
+  in the signature, rejects a keyword-only parameter passed positionally, requires every
+  parameter that has no default to appear, and compares each stated default to the live
+  one. It asserts it matched at least 61 rows, so a regex that stops matching fails rather
+  than passing quietly. Two notations are honoured rather than flagged: `rng=...` says
+  "pass something here" and states nothing about a default, and
+  `scheme="within_group"|"global"` states admissible values, which is routing
+  information. Seven discriminators kill, one per corrected row.
 - **The documentation site stopped addressing contributors.** About a sixth of the
   published words were rules for changing `jnwb`, on the user navigation.
   `docs/10_extending_jnwb_and_verification.md` was 117 words whose own first sentence
@@ -210,6 +225,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_skill_routing_behaviour.py` runs what a signature cannot express.** Two of
+  the corrected rows are not signature defects: one named a result key `repair_lfp_trials`
+  does not return, the other described a two-trace estimator as working across channel
+  pairs. Both are checked by calling the library, along with the behaviour that makes the
+  argument order worth correcting -- the swapped `paired_fire_prob_test` call returns the
+  negated effect rather than raising.
 - **`tests/test_docs_interpretation_statements.py` checks each statement against the code
   it describes.** A test that only greps for the sentence keeps passing when the sentence
   goes stale, so the unit is read off the result, the sign convention off the docstring,
@@ -315,6 +336,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Nine routing rows taught a signature the library does not have.** A skill's routing
+  matrix is what an agent calls from, and these were hardcoded with nothing keeping them
+  true. `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)` had
+  the first two arguments the wrong way round, omitted the required `n_shuffles` and
+  invented a default for `n_bootstrap`; supply the missing argument and keep the order and
+  the call succeeds with `risk_difference` negated and `odds_ratio` inverted, measured
+  here as +0.55 against -0.55 on the same data. `epoch_continuous(data, onsets, win_s,
+  fs)` passes two keyword-only parameters positionally. `nested_cv_linear_svm(...,
+  n_splits=5)` gives a default to a required argument. `band_power(..., normalize=False)`
+  states the opposite of the live default, which is `True` and raises without a baseline.
+  `cross_area_coherence` was described as working "across channel pairs"; a 2-D array is
+  refused by design. `repair_lfp_trials`'s guard was to be read from `frac_flagged`, which
+  is not a key it returns -- `info.get('frac_flagged', 0)` skips the check and reports
+  nothing. Three more were found by the strengthened test: `granger(X, Y, order,
+  n_surrogates, seed)` names the deprecated keyword-only alias rather than `rng`;
+  `fit_exponential_onset(t_ms, rate, t0_bounds, tau_bounds)` names the keyword-only
+  aliases in the positional slots of `t0_bounds_ms` and `tau_bounds_ms`; and
+  `aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)` gives a
+  default to a keyword-only argument that deliberately has none, and states the wrong
+  default for the other.
 - **Five pages printed an estimate and stopped.** Each now says what the number does not
   support, next to where it is produced, and each statement is taken from the
   implementation rather than from the page. `docs/02` framed `zflip`'s delay gradient as

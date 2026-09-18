@@ -2,6 +2,7 @@
 tests/test_skills_validation.py -- Deterministic verification of canonical repository skills.
 """
 from pathlib import Path
+import ast
 import inspect
 import re
 try:
@@ -88,42 +89,137 @@ def _routing_matrix_section(skill_text: str) -> str:
 
 
 def _routing_calls(skill_text: str):
+    r"""Every ``jnwb.name(...)`` in the routing matrix, with balanced parentheses.
+
+    The previous pattern was ``\(([^)]*)\)``, which cannot span a nested parenthesis, so
+    it silently skipped every row carrying a tuple default -- 7 of the 61 rows, including
+    ``assign_outer_folds``, ``zflip``, ``wpli`` and ``save_figure_suite``. A row that is not
+    matched is not checked, and nothing said so.
+    """
     section = _routing_matrix_section(skill_text)
-    pattern = re.compile(r"`jnwb\.(\w+)\(([^)]*)\)`")
-    for match in pattern.finditer(section):
-        yield match.group(1), match.group(2)
+    for match in re.finditer(r"`jnwb\.(\w+)\(", section):
+        depth, i = 1, match.end()
+        while i < len(section) and depth:
+            depth += {"(": 1, ")": -1}.get(section[i], 0)
+            i += 1
+        if depth == 0:
+            yield match.group(1), section[match.end():i - 1]
 
 
-def _mentioned_parameter_names(args_str: str) -> list[str]:
-    names = []
-    for part in args_str.split(","):
-        token = part.strip()
-        if not token or token in ("...", "*") or token.startswith("**"):
+def _mentioned_parameters(args_str: str):
+    """(name, written_default_or_None, written_positionally) for each argument in a row.
+
+    ``...`` as a value means the row is declining to state the default, which is allowed;
+    it is returned as the string ``"..."`` and compared against nothing.
+    """
+    out, depth, token, keyword_only = [], 0, "", False
+    for ch in args_str + ",":
+        if ch == "," and depth == 0:
+            token = token.strip()
+            if token == "*":
+                # Everything a row writes after a bare * is keyword-only, as in the signature.
+                keyword_only = True
+            elif token and token not in ("...", "/") and not token.startswith("**"):
+                name, sep, default = token.partition("=")
+                name = name.split(":")[0].strip()
+                out.append((name, default.strip() if sep else None,
+                            not sep and not keyword_only))
+            token = ""
             continue
-        if "=" in token:
-            names.append(token.split("=")[0].strip())
-        elif ":" in token:
-            names.append(token.split(":")[0].strip())
-        else:
-            names.append(token)
-    return names
+        depth += {"(": 1, "[": 1, "{": 1, ")": -1, "]": -1, "}": -1}.get(ch, 0)
+        token += ch
+    return out
 
 
-def test_skill_routing_parameter_names_match_runtime():
-    """Routing rows must name real parameters, not invented signatures."""
+def _is_enumeration(written: str) -> bool:
+    """``scheme="within_group"|"global"`` states the admissible values, not a default.
+
+    A row may say what a required argument accepts; that is routing information and the
+    reason several rows use this notation. It is not a claim about a default, so the default
+    checks do not apply to it -- but the parameter must still exist and still be in order.
+    """
+    return "|" in written
+
+
+def _live_default_matches(live, written: str) -> bool:
+    """Compare a stated default against the live one by value, then by text."""
+    try:
+        return ast.literal_eval(written) == live
+    except (ValueError, SyntaxError):
+        return str(live) == written
+
+
+def test_skill_routing_signatures_match_runtime():
+    """Routing rows must be callable as written, not merely name real parameters.
+
+    The previous test asserted ``pname in sig.parameters`` and nothing else. Every one of
+    these passed it: ``paired_fire_prob_test(fires_null, fires_target, ...)`` with the first
+    two arguments swapped, which negates ``risk_difference`` and raises nothing;
+    ``epoch_continuous(data, onsets, win_s, fs)`` against a keyword-only signature;
+    ``nested_cv_linear_svm(..., n_splits=5)`` where ``n_splits`` has no default;
+    ``band_power(..., normalize=False)`` where the live default is ``True`` and raises
+    without a baseline.
+    """
+    checked = 0
     for skill_name in CANONICAL_SKILLS:
         content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
         for func_name, args_str in _routing_calls(content):
             assert hasattr(jnwb, func_name), (
                 f"{skill_name}: jnwb.{func_name} referenced in routing matrix is missing"
             )
+            checked += 1
             sig = inspect.signature(getattr(jnwb, func_name))
-            valid = set(sig.parameters)
-            for pname in _mentioned_parameter_names(args_str):
-                assert pname in valid, (
-                    f"{skill_name}: jnwb.{func_name} has no parameter '{pname}' "
-                    f"(routing: {args_str!r}; valid: {sorted(valid)!r})"
+            order = list(sig.parameters)
+            written = _mentioned_parameters(args_str)
+            where = f"{skill_name}: jnwb.{func_name}({args_str})"
+
+            for name, default, positional in written:
+                param = sig.parameters.get(name)
+                assert param is not None, (
+                    f"{where} has no parameter {name!r}; live: {order!r}"
                 )
+                if positional:
+                    assert param.kind is not param.KEYWORD_ONLY, (
+                        f"{where} passes {name!r} positionally, but it is keyword-only"
+                    )
+                # `rng=...` says "pass something here", not "the default is ...", so it
+                # states nothing about a default and is checked for neither.
+                if default is not None and default != "..." and not _is_enumeration(default):
+                    assert param.default is not param.empty, (
+                        f"{where} gives {name}={default}, but {name!r} has no default"
+                    )
+                    assert _live_default_matches(param.default, default), (
+                        f"{where} gives {name}={default}; the live default is "
+                        f"{param.default!r}"
+                    )
+
+            # Only positionally written arguments have an order to be wrong about: a row
+            # that writes `groups=None, scheme=...` is calling by keyword, and keyword order
+            # is free. A positional argument, though, binds by position, so the k-th one
+            # written must be the k-th parameter -- which is what
+            # `paired_fire_prob_test(fires_null, fires_target, ...)` was not.
+            for k, name in enumerate(n for n, _, positional in written if positional):
+                assert order.index(name) == k, (
+                    f"{where} passes {name!r} as positional argument {k}, but it is "
+                    f"parameter {order.index(name)} of {order!r}"
+                )
+
+            required = [
+                n for n, p in sig.parameters.items()
+                if p.default is p.empty
+                and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+            ]
+            named = {n for n, _, _ in written}
+            missing = [n for n in required if n not in named]
+            assert not missing, (
+                f"{where} omits required parameter(s) {missing!r}; a reader copying this row "
+                f"gets a TypeError, or supplies them in the wrong order"
+            )
+
+    assert checked >= 61, (
+        f"only {checked} routing rows were matched; rows that are not matched are not "
+        f"checked, which is how 7 of them went unread"
+    )
 
 
 def test_all_referenced_symbols_exist():

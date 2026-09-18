@@ -26,7 +26,7 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
   calibrated by `conversion` and `offset`).
-- `jnwb.epoch_continuous(data, onsets, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
+- `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
   epochs from continuous signals aligned to event onsets.
 
 **Event code semantics:** codes are opaque interval-table labels (default column `codes`). jnwb
