@@ -71,6 +71,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Five docstrings described code other than the code under them.**
+  `scripts/harness_gate.py` listed twelve gates while its runner printed thirteen, and its
+  entry for gate 2 still read "Protected path safety" long after that check became
+  skill-tree uniqueness. `scripts/mkdocs_version_hook.py` cited `>=3.12,<3.13` while
+  `pyproject.toml` requires `>=3.12` and gate 8 fails the build on any `<` in that
+  specifier -- the comment named the exact upper pin the harness exists to forbid.
+  `jnwb/connectivity.py` claimed explicit `N - p` divisors while `_residual_variance`
+  returned `RSS / N` and ignored the `n_params` argument it took; the maximum-likelihood
+  convention is deliberate, so the line is corrected and the dead parameter removed from
+  the signature and both call sites. `jnwb/artifact_detection.py` named its second and
+  third returns a correlation summary and an amplitude when both are robust z-scores, so a
+  reader took element seven for an amplitude in the signal's own unit -- measured, 332.40
+  against a true max |amplitude| of 54.21; the pages and the tests already called them
+  `corr_z` and `amp_z`, and only the docstring did not. `jnwb/tfr_accumulator.py` described
+  float64/complex128 accumulation, which is accurate, and said nothing about `write`
+  halving every dtype on the way to disk, so a summary that has been through HDF5 carries
+  single-precision sufficient statistics and merges to that tolerance rather than
+  float64's.
+
+  `tests/test_module_docstrings_match_their_code.py` checks each claim against the thing it
+  is a claim about: the runner's own numbered gate list and the function each number calls,
+  the value `tomllib` reads from `pyproject.toml`, the parsed body of `_residual_variance`,
+  the names in the return statement, the dtypes in the `write` and `__init__` calls. It also
+  sweeps every module in `jnwb/` for a `Returns (...)` line promising a different count than
+  the code returns, which is the part of such a claim that can be checked without knowing
+  what the function means. Eleven of fourteen discriminating mutations fail the suite; the
+  three that survive are leaf assertions inside a test -- a comparison tautologised, a
+  measured premise, a sweep floor -- which only a duplicate of themselves could catch.
+  Seven gate entries were reworded to name their own check, because "Repository root
+  freeze" and "Documentation completeness" share no identifying word with
+  `check_root_allowlist` and `check_public_symbols_documented`, and a check that cannot
+  tell those apart passed the gate 2 entry on the word "tree".
+
+  One correction and one repair to work committed an hour earlier. The report's
+  `tfr_accumulator` claim does not reproduce as stated: line 1 promises accumulation, and
+  accumulation really is float64/complex128; what was undocumented was the persistence
+  downcast, which is a defect of the same kind and is now written down. Separately,
+  `test_every_allowlisted_file_either_exists_or_is_deliberately_ignored`, added with the
+  gate repairs, asked whether an allowlisted root file exists. It passed here on a
+  `.coverage` left over from before `pytest-cov` was removed and failed on all four CI
+  cells, which check out clean. It now asks whether the entry names a tracked file, which
+  is what the allowlist is claiming; a working tree's untracked residue is not that.
+
+### Fixed
+
 - **Nothing resolved what `AGENTS.md` and the two stacks point at, beyond the paths one
   test already swept.** A registry goes stale silently: the file that points at other
   files can name something that is gone without ever erroring.

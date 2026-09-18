@@ -7,8 +7,9 @@ substitutes it wherever a page writes the ``{{ jnwb_version }}`` placeholder.
 
 The version is parsed from ``jnwb/__init__.py`` textually rather than by importing ``jnwb``:
 the documentation build may run on a different interpreter than the one the package supports
-(the package pins >=3.12,<3.13), and a docs build must not depend on the library being
-importable under it.
+(the package requires >=3.12, with no upper pin -- gate 8 of ``scripts/harness_gate.py``
+fails the build on any ``<`` in that specifier), and a docs build must not depend on the
+library being importable under it.
 
 ``scripts/harness_gate.py`` gate 10 verifies the resulting invariant: every version the docs
 state equals the package's.

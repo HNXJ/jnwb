@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -339,14 +340,32 @@ class TestGate4AllowlistCarriesNoDeadEntries:
         for stale in ["_audit_dist", "_audit_dist2", "_audit_dist_build"]:
             assert stale not in EPHEMERAL_ROOT_DIRS, f"{stale} is still allowlisted"
 
-    def test_every_allowlisted_file_either_exists_or_is_deliberately_ignored(self):
-        """One entry is intentionally absent, and the reason is written where it lives."""
-        source = (REPO_ROOT / "scripts" / "harness_gate.py").read_text(encoding="utf-8")
-        missing = sorted(name for name in ALLOWED_ROOT_FILES if not (REPO_ROOT / name).exists())
-        for name in missing:
-            assert f"{name} is git-ignored" in source, (
-                f"{name} is allowlisted, absent, and unexplained -- prune it or say why"
-            )
+    def test_every_allowlisted_file_is_tracked_or_deliberately_ignored(self):
+        """Two entries are intentionally untracked, and the reason is written where they live.
+
+        Tracked, not present: the first form of this test asked whether the file exists, so
+        it passed on any machine carrying a leftover -- a `.coverage` from before 05-78
+        removed `pytest-cov` -- and failed on all four CI cells, which check out clean. What
+        the allowlist is claiming is that the entry corresponds to something the repository
+        has, and a working tree's untracked residue is not that.
+        """
+        lines = (REPO_ROOT / "scripts" / "harness_gate.py").read_text(encoding="utf-8").splitlines()
+        comments = [ln for ln in lines if ln.lstrip().startswith("#")]
+        tracked = set(
+            subprocess.run(
+                ["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
+            ).stdout.split()
+        )
+        assert len(tracked) > 100, f"git ls-files returned {len(tracked)} paths"
+        unexplained = sorted(
+            name
+            for name in ALLOWED_ROOT_FILES
+            if name not in tracked
+            and not any(name in ln and "git-ignored" in ln for ln in comments)
+        )
+        assert not unexplained, (
+            f"allowlisted, untracked and unexplained -- prune these or say why: {unexplained}"
+        )
 
 
 # ------------------------------------------------- the docs link check (not a gate)

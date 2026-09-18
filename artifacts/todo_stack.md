@@ -46,14 +46,6 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-81 `scripts/harness_gate.py` and `scripts/mkdocs_version_hook.py` describe themselves wrongly
-- **Problem** Module docstrings drifted from the code.
-- **Evidence** `harness_gate.py`'s docstring lists gates 1-12; the runner prints 13. `mkdocs_version_hook.py:12` says "the package pins >=3.12,<3.13", while `pyproject.toml:17` is `>=3.12` and `harness_gate.py:493` fails the build on any `<` in that spec — so the comment cites the exact upper pin the harness exists to forbid. `connectivity.py:16` claims "Residual variance uses explicit N - p divisors" while `_residual_variance` ignores its `n_params` argument and returns RSS/N. `artifact_detection.py:93` documents returns as `(flag, corr_summary, amp_per_trial)` while the code returns z-scores (measured: `third[7] = 332.40` against a true `max|amp|` of 54.21). `tfr_accumulator.py:1` promises float64/complex128 accumulation; the persisted dtypes are float32/complex64.
-- **Change** Correct each docstring; drop the dead `n_params`.
-- **Preserves** Behaviour.
-- **Discriminator** `test_docstring_matches_the_globs_it_claims`, which already exists for gate 6, is generalised.
-- **Accept** No module docstring contradicts its code.
-
 ### 05-82 CI hygiene
 - **Problem** Three small gaps on a publish-capable pipeline.
 - **Evidence** No workflow-level `concurrency:` or `permissions:`, so rapid pushes run overlapping publish-capable pipelines. `pypa/gh-action-pypi-publish@release/v1` is a mutable branch ref on the two jobs holding `id-token: write`. `workflow_dispatch.inputs.target` defaults to `testpypi`, so any manual dispatch publishes unless the operator picks `none`. Confirmed clean: no `continue-on-error`, no `|| true`, no `set +e` anywhere; `if-no-files-found: error` is set; the production PyPI trigger is correctly narrow.
@@ -133,6 +125,28 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-81 the tfr_accumulator claim does not reproduce as stated -- recorded 2026-09-18
+
+Four of the five docstrings reproduced exactly as described and are corrected. The fifth
+does not. The item reads "`tfr_accumulator.py:1` promises float64/complex128 accumulation;
+the persisted dtypes are float32/complex64". Both halves are true and they are not in
+conflict: the module docstring and the class docstring describe *accumulation*, and
+accumulation is float64/complex128 -- `__init__` allocates `np.float64` for `mean` and `M2`
+and `np.complex128` for `sum_z` and `sum_unit_z`. The downcast happens in `write`, which
+the docstring never described in either direction.
+
+So there was no false claim to correct, but there was a real omission of the same kind:
+nothing said that a summary round-tripped through HDF5 carries single-precision sufficient
+statistics, which is what the module's central property -- `merge(A, B) == summarize(A u B)`
+to floating-point tolerance -- holds to after a reload. That is now stated, with the reason
+the downcast is deliberate.
+
+The Accept condition, "no module docstring contradicts its code", is not achievable as a
+single mechanical check and is not claimed. What is mechanized is each of the five claims
+against the thing it is a claim about, plus one general sweep -- `Returns (...)` arity
+across every module in `jnwb/`, eight functions today. Prose about what a function means
+cannot be checked; counts, names, dtypes and numbers can, and those are what these are.
 
 ## 05-80 the evidence is superseded, and half the change would be wrong -- recorded 2026-09-18
 

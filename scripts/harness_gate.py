@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """Deterministic Operational & Scientific Harness Gate for jnwb generic library.
 
-Mechanically enforces repository controls:
+Mechanically enforces repository controls. The list is the runner's, in its order, and
+`tests/test_module_docstrings_match_their_code.py` holds the two to each other: this
+said twelve while the runner printed thirteen, and gate 2 had been rewritten from
+protected paths to skill-tree uniqueness without the list noticing.
+
   1. Frozen jnwb boundary: no unauthorized imports from project folders.
-  2. Protected path safety: protects concurrent working tree directories.
+  2. Skill tree uniqueness: every SKILL.md in the tree lives under skills/.
   3. Machine-local path exclusion: rejects hardcoded drive letters in test suites.
-  4. Repository root freeze: permits only tracked, authorized root files.
-  5. Documentation completeness: verifies 100% of public symbols documented in docs/.
-  6. Dataset independence: rejects experiment-specific tokens, conditions, and manuscript results.
-  7. Package & metadata version synchronization.
+  4. Root allowlist: permits only tracked, authorized root files.
+  5. Public symbols documented: every public export is written about by a person.
+  6. Dataset leakage: rejects experiment-specific tokens, conditions, and manuscript results.
+  7. Version consistency: package and metadata agree.
   8. Python floor consistency: declared support, classifiers, and CI matrix agree.
-  9. Runtime-generated API reference matches jnwb.__all__.
-  10. Documentation version provenance.
-  11. Import shadowing at repository root.
+  9. Documented API matches jnwb.__all__, and the runtime generator agrees.
+  10. Docs version matches package: every version the documentation states.
+  11. No shadow packages: nothing importable at the repository root that jnwb does not own.
   12. Project identifiers in jnwb/ code strings.
+  13. NWB onboarding surface alignment across README, tutorials, skill, and MkDocs.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
