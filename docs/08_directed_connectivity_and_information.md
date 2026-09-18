@@ -114,7 +114,14 @@ te_res = jnwb.transfer_entropy(
     rng=0,
 )
 print(f"TE X -> Y: {te_res.x_to_y:.4f} (p={te_res.p_x_to_y})")
+print("units:", te_res.unit)   # bits
 ```
+
+TE is reported in **bits** (the estimator uses $\log_2$), and the result carries
+`unit='bits'` rather than leaving the base to be inferred. A TE of 0.05 bits is not
+0.05 nats and not a percentage. The quantity is a reduction in uncertainty about $Y_t$
+given $X$'s past: directed predictability, not a mechanism, and its magnitude depends on
+the discretization (`estimator`, `bins`) as well as on the coupling.
 
 ---
 
@@ -138,6 +145,11 @@ mi_count = jnwb.spike_count_mutual_information(
     bin_size_ms=10.0,
 )
 ```
+
+Both mutual informations are in **bits**, from the same $\log_2$ convention. MI is
+symmetric, so neither value carries a direction however the arguments are ordered, and
+both are bounded above by the entropy of the coarser variable: with 10 ms bins over a
+0.5 s window, binary occupancy MI cannot exceed 1 bit per bin.
 
 ---
 

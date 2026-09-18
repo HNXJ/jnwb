@@ -210,6 +210,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_docs_interpretation_statements.py` checks each statement against the code
+  it describes.** A test that only greps for the sentence keeps passing when the sentence
+  goes stale, so the unit is read off the result, the sign convention off the docstring,
+  the absence of `groups` off the signature, and the cross-modal numbers off a re-run of
+  the documented call. Eight discriminators kill. One survived first: deleting the transfer
+  entropy unit left the page passing because the mutual-information paragraph below also
+  says bits, so that check is per section now.
 - **`tests/test_docs_user_navigation.py` holds the shape rather than the episode.** Every
   nav entry resolves, no page is listed twice, no page exists off the nav, no page on the
   nav names a test file, a gate script or the scaffolding marker, and the specification
@@ -308,6 +315,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Five pages printed an estimate and stopped.** Each now says what the number does not
+  support, next to where it is produced, and each statement is taken from the
+  implementation rather than from the page. `docs/02` framed `zflip`'s delay gradient as
+  "propagation latency" and printed `apparent_velocity_m_s` with no note that an apparent
+  phase velocity is not a conduction velocity -- two sources with a fixed offset, a
+  travelling field wave and volume conduction from one distant generator all produce the
+  same gradient -- and that `directionality` is a direction in depth, not of influence.
+  `docs/07` printed a cluster p with nothing about what a significant cluster licenses:
+  the conditions differ somewhere in the window, and the cluster's onset, offset, peak and
+  width are not estimates, because the threshold that made it significant defined its
+  edges. `docs/04` handed over a CSD map in A/m^3 with no sign convention, which is the
+  interpretation: negative is a sink, inward current, the signature of excitatory input,
+  and reading it the other way inverts every conclusion about which depth receives input.
+  `docs/08` printed transfer entropy and two mutual informations with no log base; all
+  three are in bits, and `transfer_entropy` returns `unit='bits'` rather than leaving it
+  to be inferred. `docs/09` called its decoders leakage-resistant directly above
+  `nested_cv_linear_svm(X, labels, n_splits=5)`, which takes no `groups` argument at all:
+  the protection is `assign_outer_folds` further down, and the page now says so.
+- **`docs/07`'s cross-modal example correlated four points while presenting 200.** It
+  passed `(4, 200)` and called it `channels x time`; the reduction reads a 2-D array as
+  `(n_times, n_trials)`, so the call swept three lags over a four-sample series,
+  `lag_search_resolution_floor` came back 0.75 and `warnings` said so, and the page read
+  neither. It is time-major now, seeds the circular-shift null behind
+  `lag_corrected_pvalue` -- without `rng` that p moves between runs, which the example was
+  quoting as though it did not -- and states the sign of `lag_ms`.
 - **Four README links were dead on the page the README is rendered on.**
   `readme = "README.md"` makes the file the PyPI long description, and PyPI renders it
   verbatim without rewriting relative links, so `[CONTRIBUTING.md](CONTRIBUTING.md)`

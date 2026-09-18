@@ -123,7 +123,7 @@ For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on dupl
 
 ### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
 
-Estimates cortical depth phase gradients, propagation latency, and apparent velocity across ordered laminar contacts:
+Estimates cortical depth phase gradients, the per-contact delay, and an apparent velocity across ordered laminar contacts:
 
 ```python
 # lfp_matrix: (n_channels, n_samples) ordered along probe shaft
@@ -138,6 +138,18 @@ print("Direction:", z_res.directionality)
 print("Delay gradient (s/contact):", z_res.tau_per_channel_s)
 print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
 ```
+
+**What these three numbers license.** `tau_per_channel_s` is a delay per contact in
+seconds, fitted to the phase gradient across depth; `apparent_velocity_m_s` is that
+gradient expressed as a speed in metres per second, using `pitch_um` for the spacing.
+It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
+shape is produced by axonal conduction, but also by two sources with a fixed phase offset,
+by a travelling wave in the local field, and by volume conduction from a single distant
+generator. `directionality` names the sign of the gradient along the contact ordering, so
+it is a direction in *depth*, not a direction of causal influence. Reporting any of the
+three as a conduction speed or as evidence that one layer drives another is the
+association-to-causality step that [Architecture &
+Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules out.
 
 ![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png)
 

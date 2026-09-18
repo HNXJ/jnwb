@@ -32,14 +32,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
 
-### 05-65 Numbers are produced without saying what they license, and without units
-- **Problem** Pages print an estimate and stop.
-- **Evidence** `docs/02` prints `zflip`'s `directionality`, `tau_per_channel_s` and `apparent_velocity_m_s` with "propagation latency" framing and no note that apparent phase velocity is not conduction velocity — contradicting `AGENTS.md` section 5 and `docs/01` section 2C. `docs/07` prints a cluster-mass p with no statement that a significant cluster licenses "the conditions differ somewhere in the window" and not its onset, offset, peak or extent, and computes `cross_modal_comparison`'s `lag_ms` on white noise with no sign convention given. `docs/09` claims its fold partitioning prevents temporal-autocorrelation leakage and then shows `nested_cv_linear_svm(X, labels, n_splits=5)` with no `groups`. `docs/04` hands over `tfr_res.coi_mask` as a field name, never explaining edge contamination or that masking must precede any average, and never states the CSD sign convention, which is the interpretation. `docs/08` never states bits versus nats for TE or MI. `docs/tutorials/03, 04, 05, 06, 08` contain no unit token at all.
-- **Change** One interpretation sentence per produced number; units at the point of production.
-- **Preserves** The analyses.
-- **Discriminator** Every page that prints a number says what it does not license.
-- **Accept** Reviewed against `docs/common_mistakes.md`, which already holds most of these rules.
-
 ## 10. Skills and agents
 
 **Acceptance condition for every item in this section** (ruled 2026-09-17, stated in
@@ -253,6 +245,26 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-65 claims about `coi_mask` and tutorial units -- partly refuted 2026-09-18
+
+Two of the item's six claims do not hold as stated.
+
+`docs/04` does not hand over `coi_mask` as a bare field name: the page carries a section
+headed "What `coi_mask` excludes, and why the average comes after it", explaining the
+`mode="same"` zero fill, the kernel-width exclusion and the bias from averaging before
+masking. That was repaired earlier in 0.2.5. The CSD half of the same claim reproduces and
+was fixed.
+
+"`docs/tutorials/03, 04, 05, 06, 08` contain no unit token at all" is true of the five
+`.md` files and false of the pages. Each includes its script with `--8<--`, and the
+included scripts carry Hz, ms, um and seconds for 03, 04, 06 and 08. `05_statistics.py`
+genuinely had none, and its quantities are the ones a unit changes; it was repaired.
+
+The audit's implied mechanism for `docs/09` is also wrong. It reads as though the example
+should pass `groups`; `nested_cv_linear_svm(X, labels, n_splits, rng)` has no such
+parameter. The defect is real in the other direction -- the page promises protection the
+function does not provide -- so the page now says where the protection actually is.
 
 ## 05-64 cut docs/01 sections 1-3 -- not followed 2026-09-18
 

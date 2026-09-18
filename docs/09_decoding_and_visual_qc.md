@@ -32,6 +32,15 @@ print("F1 Score:", decode_res["f1"])
 print("ROC-AUC:", decode_res["auc"])
 ```
 
+**This call does not hold out groups.** `nested_cv_linear_svm(X, labels, n_splits, rng)`
+takes no `groups` argument: its folds are drawn over rows. When rows are trials from the
+same block, cycle or session, neighbouring trials share slow drift and a fold boundary
+inside a block leaks it, so the accuracy is above what the same decoder would reach on a
+held-out block. The protection is upstream, in `assign_outer_folds` below, which holds out
+whole groups; pass its partitions rather than expecting this function to infer them.
+Read the accuracy against `majority_baseline_accuracy`, which is returned for that
+purpose and is not 0.5 unless the classes are balanced.
+
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png)
 
 ### Baselines & Fold Partitions

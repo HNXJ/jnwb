@@ -147,6 +147,14 @@ curv = jnwb.voltage_curvature_1d(lfp_probe, pitch_um=100.0, axis=0)
 csd = jnwb.current_source_density_1d(lfp_probe, pitch_um=100.0, conductivity_s_per_m=0.3, axis=0)
 ```
 
+**The CSD sign is the interpretation.** Output is in $\text{A}/\text{m}^3$, and the sign
+convention is fixed: *negative* is a current **sink**, inward transmembrane current, the
+signature of excitatory synaptic input; *positive* is a current **source**, the outward
+return current. Reading the map with the opposite sign inverts every conclusion about
+which depth receives input, so check the convention before comparing against a figure
+from elsewhere -- the opposite convention is also in common use. A sink at a given depth
+is evidence of current entering there, not of which structure supplied it.
+
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 
 Zero-phase (`zero_phase=True`, acausal forward-backward) and causal (`zero_phase=False`) filtering via Second-Order Sections (SOS):

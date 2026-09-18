@@ -13,9 +13,11 @@ import jnwb
 def main() -> None:
     rng = np.random.default_rng(42)
 
-    # Synthetic trial responses for two conditions (e.g. firing rates or band power)
-    group_a = rng.normal(loc=12.0, scale=2.5, size=30)
-    group_b = rng.normal(loc=15.0, scale=2.5, size=30)
+    # Synthetic per-trial firing rates in Hz, 30 trials per condition. The unit is
+    # declared because the difference below is reported in it: a mean difference of 3
+    # is 3 Hz here, and would be 3 dB or 3 uV^2 for another response measure.
+    group_a = rng.normal(loc=12.0, scale=2.5, size=30)   # Hz
+    group_b = rng.normal(loc=15.0, scale=2.5, size=30)   # Hz
 
     # 1. Exploratory Comparison (Parametric t-test + Bootstrap CI)
     comp = jnwb.StatisticalAnalysis.exploratory_compare(group_a, group_b)
@@ -24,13 +26,13 @@ def main() -> None:
     p_val = comp["parametric"]["pval"]
     boot_ci = comp["mean_diff_ci"]["bootstrap_ci"]
     print(f"Group comparison: t={t_stat:.2f}, p={p_val:.4e}")
-    print(f"Bootstrap 95% CI on difference: [{boot_ci[0]:.2f}, {boot_ci[1]:.2f}]")
+    print(f"Bootstrap 95% CI on the difference in Hz: [{boot_ci[0]:.2f}, {boot_ci[1]:.2f}]")
 
     # 2. Bootstrap Confidence Intervals
     boot = jnwb.StatisticalAnalysis.bootstrap_ci(group_b, n_bootstrap=1000, rng=rng)
     ci_low, ci_high = boot["bootstrap_ci"]
     assert ci_low < ci_high
-    print(f"Group B mean: {np.mean(group_b):.2f} [95% CI: {ci_low:.2f}, {ci_high:.2f}]")
+    print(f"Group B mean: {np.mean(group_b):.2f} Hz [95% CI: {ci_low:.2f}, {ci_high:.2f}]")
 
     # 3. Label Permutation with Explicit Exchangeability
     labels = np.array(["condA"] * 30 + ["condB"] * 30)
@@ -64,6 +66,12 @@ def main() -> None:
     print(f"Cluster permutation test: detected {len(clust_res['clusters'])} candidate cluster(s)")
     if clust_res["clusters"]:
         print(f"Top cluster p-value: {clust_res['clusters'][0]['p_value']:.4f}")
+        # A significant cluster licenses "the conditions differ somewhere in the
+        # searched window" and nothing about where. The cluster's onset, offset, peak
+        # and width are not estimates: the same threshold that made it significant
+        # defined its edges, and changing `threshold` moves all four. The effect was
+        # injected into bins 20-30 here, so compare the cluster against that -- but
+        # report it as present in the window, not as beginning at bin 20.
 
 
 if __name__ == "__main__":
