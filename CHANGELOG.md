@@ -25,6 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`pytest-cov`, `docs/requirements.txt`, and 625 lines of script nothing called.**
+  `pytest-cov` was declared in the `test` extra and pulled onto all four CI cells on every
+  push; there is no `addopts`, no `--cov` and no coverage configuration anywhere, so it was
+  installed and never invoked. `pytest-xdist` was in the same position and stays, because
+  the new installed-wheel leg passes `-n auto`. `docs/requirements.txt` held a
+  byte-identical copy of the `[docs]` extra and was installed alongside it by
+  `.readthedocs.yaml`; nothing compared the two, and `fail_on_warning: true` makes a drift
+  a failed publish rather than a warning, so the extra is now the only source.
+  `scripts/build_unified_review.py` (464 lines) and `scripts/reconcile_review_probes.py`
+  (161) had no reference anywhere in the repository, and the root-freeze allowlist still
+  exempted `jnwb-unified-rev.md`, the output of the first of them -- an artifact the
+  changelog records as having been removed from the root. Both scripts and the exemption
+  are gone. `tests/test_every_declaration_has_a_caller.py` records, per declared test
+  dependency, the token that proves something invokes it, refuses a new declaration with
+  no recorded caller, refuses a row for a package the extra no longer has, and refuses a
+  script in `scripts/` that nothing else in the repository mentions. Nine discriminating
+  mutations all fail the suite.
 - **`CLAUDE.md`, so `AGENTS.md` is the only repository-level instruction file.** The file
   held 215 bytes and no operative rule: it pointed at `AGENTS.md` and said not to keep a
   second rule set there. `AGENTS.md` pointed back, claiming `CLAUDE.md` "carries phase and

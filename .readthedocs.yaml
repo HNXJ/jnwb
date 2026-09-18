@@ -7,7 +7,9 @@ build:
 
 python:
   install:
-    - requirements: docs/requirements.txt
+    # One source of truth. docs/requirements.txt used to be installed first and held a
+    # byte-identical copy of the [docs] extra; nothing compared them, and with
+    # fail_on_warning below a drift is a failed publish rather than a warning.
     - method: pip
       path: .
       extra_requirements:

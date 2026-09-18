@@ -64,7 +64,6 @@ gpu = [
 ]
 test = [
     "pytest>=7.0",
-    "pytest-cov>=5.0",
     "pytest-xdist>=3.0",
     "build>=1.0.0",
     "twine>=4.0.0",

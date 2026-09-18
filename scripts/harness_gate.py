@@ -205,7 +205,10 @@ ALLOWED_ROOT_FILES = {
     # CLAUDE.md is git-ignored and untracked: AGENTS.md is the only repository-level
     # instruction file. It stays on this list so a contributor's own ignored copy does
     # not trip the root freeze -- permitted locally, never part of the repository.
-    ".coverage", "mkdocs.yml", "jnwb-unified-rev.md",
+    # .coverage stays: it is git-ignored, and a contributor running coverage from their
+    # own environment should not trip the root freeze. jnwb-unified-rev.md left with the
+    # script that produced it.
+    ".coverage", "mkdocs.yml",
 }
 
 

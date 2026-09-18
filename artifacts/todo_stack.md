@@ -44,14 +44,6 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-78 Declared test tooling that is never invoked, and a second source of truth for the docs pins
-- **Problem** Unused declarations and duplicated configuration.
-- **Evidence** `pytest-cov` and `pytest-xdist` are declared, and the `test` extra pulls `pytest-cov-7.1.0`, `coverage-7.16.1`, `pytest-xdist-3.8.0` and `execnet-2.1.2` onto all four CI cells; there is no `addopts`, no `--cov` and no `-n` anywhere in the repository. `.readthedocs.yaml` installs both `docs/requirements.txt` and `.[docs]`; the two lists are byte-identical today and nothing compares them, while `fail_on_warning: true` means a drift is a failed publish. Also: `scripts/build_unified_review.py` and `scripts/reconcile_review_probes.py` have zero references anywhere (625 lines), and `harness_gate.py:205` holds a root-allowlist exemption for `jnwb-unified-rev.md`, the output of the first of them.
-- **Change** Drop both pytest plugins or make the declaration true with an `addopts`; delete `docs/requirements.txt` and its `.readthedocs.yaml` entry; retire both dead scripts and the allowlist entry.
-- **Preserves** Every live script: `docs_build`, `generate_api_md`, `harness_gate`, `release_gate`, `calibrate_vflip`, `mkdocs_version_hook`, `benchmark_import`.
-- **Discriminator** Every declared dependency and every script has a caller.
-- **Accept** All six extras resolve (verified: `mcp` 24, `torch` 9, `gpu` 6, `test` 78, `docs` 25, `all` 107 packages, all exit 0, `all` an exact union). Note `jnwb[gpu]` installs cleanly with no CUDA and yields no GPU, because plain `jax`/`jaxlib` from PyPI is CPU-only: it should be `jax[cuda12]`.
-
 ## 12. Harness and gates
 
 ### 05-79 Nine of thirteen gates can pass on a broken tree
@@ -158,6 +150,28 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-78 one half superseded by work done since the audit -- recorded 2026-09-18
+
+The item says neither `pytest-cov` nor `pytest-xdist` has a caller: no `addopts`, no
+`--cov`, no `-n` anywhere. That was true at the audit and is now half true.
+`pytest-xdist` acquired a caller in this execution -- the installed-wheel leg added for
+05-76 runs `pytest ... -n auto` -- so it is declared and used, and stays. `pytest-cov`
+still had none and is removed rather than given an `addopts`: adding coverage to every
+run is a new gate with a threshold to argue about, and the item's own alternative was
+to drop it.
+
+Everything else reproduced. `docs/requirements.txt` and the `[docs]` extra were
+byte-identical, `.readthedocs.yaml` installed both, and `fail_on_warning: true` makes a
+drift a failed publish; the file and its entry are gone. The two scripts measured 464
+and 161 lines, 625 together as stated, with no reference anywhere outside themselves,
+and the root allowlist still carried `jnwb-unified-rev.md`.
+
+The Accept records that all six extras resolve and notes that `jnwb[gpu]` installs
+cleanly with no CUDA because plain `jax`/`jaxlib` from PyPI is CPU-only, and that it
+should be `jax[cuda12]`. Not acted on: `jax[cuda12]` publishes no Windows wheel, so it
+would turn a working install into a failing one on this platform. That is a packaging
+decision with a user-visible consequence, not a defect to repair in passing, and it is
+left for the release seal to rule on.
 ## 05-77 every figure in the item reproduced -- recorded 2026-09-18
 
 Checked rather than accepted. Installing the built 0.2.4 sdist into a clean 3.12
