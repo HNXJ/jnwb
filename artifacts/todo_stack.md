@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-56 The vflip receipt hashes only part of what it certifies
-- **Problem** `estimator_sha256` hashes `getsource(vflip)` alone, while `vflip` calls `_unit_range`, `_from_lfp` and `_device`.
-- **Evidence** A line-count-preserving `_unit_range` mutation reintroducing the 0.2.4 centring defect (median bias +1.45 -> +6.66) leaves the receipt reading "current" and the file passing 4/4.
-- **Change** Hash the closure, not the function; `scripts/calibrate_vflip.py:84`.
-- **Preserves** The receipt format.
-- **Discriminator** A helper mutation invalidates the receipt.
-- **Accept** Mutating any function `vflip` calls fails `test_vflip_calibration_receipt`.
-
 ### 05-57 A test rewrites a tracked source file and leaks an environment variable
 - **Problem** `tests/test_mcp_server.py:138` rewrites `jnwb/mcp_server/custom_tools.py`, a tracked file, restoring in `finally`; and line 2 sets `os.environ["ALLOW_DYNAMIC_TOOLS"]="1"` at import, process-wide.
 - **Evidence** A kill or timeout leaves the tree dirty; `pytest-xdist` is declared, so two workers would race on one file.

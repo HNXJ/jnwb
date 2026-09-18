@@ -176,6 +176,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The vFLIP calibration receipt certified one function of the estimator.**
+  `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band
+  normalization to `_unit_range`. Recentring that helper on its own mean -- a
+  line-count-preserving change that moved the median signed bias off-centre from +0.053
+  to -0.123 contacts -- left the receipt reading "current" and
+  `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The hash now covers `vflip`
+  and every module-level function in `jnwb.laminar` it can reach, resolved from the call
+  graph rather than listed, so a helper added later is covered without anyone remembering
+  to extend a list. The reachable set is recomputed in the test and compared against the
+  set the generator hashes, so the receipt cannot quietly narrow again. Both mutations --
+  the helper and `vflip`'s own source -- now fail the receipt test; the helper mutation
+  previously survived it. Two of the three helpers the item named, `_from_lfp` and
+  `_device`, are not module-level functions in `jnwb/laminar.py`; the closure is `vflip`
+  and `_unit_range`. The receipt was regenerated rather than edited: of 12924 leaf values
+  in the raw JSON, exactly one changed, the hash, which confirms the estimator is
+  unchanged and the calibration is fully seeded.
 - **Seven tests asserted less than their names claimed.** Each claim was reproduced
   before anything was changed, and each repair was then mutation-checked against the
   defect its name describes; all seven mutants were killed.
