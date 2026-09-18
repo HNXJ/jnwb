@@ -24,6 +24,27 @@ def xy():
     return rng.normal(size=(40, 6)), rng.normal(size=(40, 6))
 
 
+def _cuda_refusal_pattern() -> str:
+    """Which refusal `device='cuda'` earns here, and why there are two of them.
+
+    Requesting CUDA is refused on every machine, but by whichever check gets there first.
+    Where a usable device exists, `resolve_device` returns `cuda` and `jrsa` itself explains
+    that its metrics compute in NumPy. Where none exists -- every CI runner, and any
+    developer machine without CuPy -- `resolve_device` refuses earlier and `jrsa`'s branch is
+    never reached.
+
+    Matching only the first message asserted a string that a GPU-less machine cannot produce,
+    so this test failed on all three CI legs while passing on a workstation with an RTX A4000.
+    Each environment is still held to its own message rather than to a weakened alternation.
+    """
+    from jnwb._backend import CUDA, resolve_device
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        usable = resolve_device("cuda", context="probe", prefer="cupy") == CUDA
+    return "computes in NumPy" if usable else "no usable CUDA device was found"
+
+
 class TestExecutionRecordsWhatRan:
     """05-26. `AGENTS.md` invariant 6: the device never changes a number -- which also
     means the record of the device must not claim one that did not run it.
@@ -59,7 +80,7 @@ class TestExecutionRecordsWhatRan:
         `_ensure_np` and pulled it straight back.
         """
         x1, x2 = xy
-        with pytest.warns(RuntimeWarning, match="computes in NumPy"):
+        with pytest.warns(RuntimeWarning, match=_cuda_refusal_pattern()):
             res = jnwb.jrsa(
                 x1, x2, metric="cka", permutations=0, device="cuda", backend="cupy"
             )

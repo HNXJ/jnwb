@@ -3,17 +3,24 @@ import pytest
 import jnwb as oa
 
 
-def _cupy_available() -> bool:
+def _cuda_device_is_usable() -> bool:
+    """Importable is not usable.
+
+    This used to be `import cupy` in a try block. CuPy installs without a GPU, and on such a
+    machine the test below ran and failed: `jrsa` refuses the device in `resolve_device` and
+    warns that none was found, never reaching the "computes in NumPy" message the test waits
+    for. CI never saw it because CI does not install CuPy at all.
+    """
     try:
-        import cupy  # noqa: F401
-    except ImportError:
+        from jnwb._backend import gpu_available
+    except ImportError:  # pragma: no cover - jnwb is a hard dependency of this file
         return False
-    return True
+    return bool(gpu_available(prefer="cupy"))
 
 
 requires_cupy = pytest.mark.skipif(
-    not _cupy_available(),
-    reason="cupy not installed / no CUDA GPU available on this machine",
+    not _cuda_device_is_usable(),
+    reason="no usable CUDA device via CuPy on this machine",
 )
 
 

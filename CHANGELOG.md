@@ -425,6 +425,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A test asserted a warning that only a machine with a GPU can produce, and CI had been
+  red for 48 consecutive runs, since 2026-09-16, because of it.**
+  `test_requesting_cuda_says_it_will_not_be_used_and_records_cpu` waited for "computes in
+  NumPy", the message `jrsa` emits when `resolve_device` returns `cuda` and `jrsa` then
+  declines to use it. On a machine with no usable CUDA device -- every CI runner --
+  `resolve_device` refuses first with a different message and `jrsa`'s branch is never
+  reached, so the regex matched nothing and the test failed on all three legs while
+  passing on a workstation with a GPU. The claim under test holds in both environments;
+  each is now held to its own message rather than to a weakened alternation.
+- **`test_jrsa_cupy_gpu_execution` carried the same defect one step removed.** Its guard
+  skipped when `import cupy` failed, but CuPy installs without a GPU, and on such a
+  machine the test ran and failed for exactly the reason above. It skips on the absence
+  of a usable device now, not on the absence of a package. Verified by simulating a
+  GPU-less machine: both tests fail before the repair and pass after it.
 - **Every example, run the way its own documentation says to run it, imported the wrong
   package.** Measured from `examples/` and `examples/tutorials/`: `import jnwb` resolved to
   an installed `jnwb` in `site-packages`, not to the checkout the file sits in. Python puts
