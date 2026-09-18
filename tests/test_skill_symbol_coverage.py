@@ -83,8 +83,13 @@ NAMESPACES = ["StatisticalAnalysis"]
 # make the matrix ambiguous about which one an agent should call.
 ANALYZERS = ["PopulationAnalyzer", "TFRAnalyzer", "UnitAnalyzer"]
 
-# Enumerations and tables that a routed operation validates its arguments against.
-CONSTANTS = ["CANONICAL_BANDS", "DB_AGGREGATIONS", "DETECTION_TAILS", "RELATIVE_POWER_MODELS"]
+# Enumerations and tables that a routed operation validates its arguments against, plus the
+# pointer an installed copy carries in place of the skills themselves -- SKILLS_URL is how a
+# harness finds the routing rows, so it cannot be routed by one.
+CONSTANTS = [
+    "CANONICAL_BANDS", "DB_AGGREGATIONS", "DETECTION_TAILS", "RELATIVE_POWER_MODELS",
+    "SKILLS_URL",
+]
 
 # The submodule alias; its contents are routed individually.
 MODULES = ["io"]
@@ -240,7 +245,10 @@ def test_excluded_constants_are_not_callable() -> None:
     for name in CONSTANTS:
         obj = getattr(jnwb, name)
         assert not callable(obj), f"{name} is callable; it is an operation, so route it"
-        assert isinstance(obj, (dict, tuple, list, frozenset)), f"{name} is a {type(obj)}"
+        # `str` is here for SKILLS_URL. It is deliberately narrow: an excluded constant has
+        # to be data, so a function that slipped into this list fails on the line above and a
+        # class fails here.
+        assert isinstance(obj, (dict, tuple, list, frozenset, str)), f"{name} is a {type(obj)}"
 
 
 def test_excluded_modules_are_modules() -> None:

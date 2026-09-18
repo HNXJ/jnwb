@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`jnwb.SKILLS_URL`, so an installed copy can say where the skills are.** The skills are
+  not in the wheel and are not importable, which is the 2026-09-16 ruling and not an
+  accident: a skill is read by a harness pointed at a directory, `site-packages` is the
+  worst place to put something that has to be pointed at, nothing in `jnwb/` reads one, and
+  a copy under `jnwb/` would be the second skill tree harness gate 2 forbids. What was
+  missing was a way to find them from a `pip install`. The constant names the skills tree
+  for the tag matching the installed version -- not a branch -- so an agent holding only
+  the package finds the routing rows written against the API it is holding.
+  `tests/test_skills_are_findable_from_an_installed_copy.py` holds the pointer to the
+  version (read from the source, so a literal that happens to match today does not pass),
+  to the repository the documentation names, and to the example printed in
+  `docs/agents.md`; it also keeps a second skill tree from appearing and checks the graft
+  against a real sdist whenever one of the current version is present, which is every CI
+  run of the installed-wheel leg. Eight discriminating mutations all fail the suite.
+
 ### Removed
 
 - **`CLAUDE.md`, so `AGENTS.md` is the only repository-level instruction file.** The file
@@ -464,6 +481,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`MANIFEST.in`'s comment described an outcome its mechanism does not produce.** It said
+  that without the graft "the sdist ships a library whose README tells an agent to read
+  AGENTS.md, and no AGENTS.md". `packages.find` is `include = ["jnwb*"]`, so installing
+  that sdist writes `jnwb/` into site-packages and discards `skills/` and `AGENTS.md`:
+  installing the built 0.2.4 sdist into a clean 3.12 environment yields `jnwb/` and
+  `jnwb-0.2.4.dist-info/` and nothing else, with no `SKILL.md` or `AGENTS.md` anywhere in
+  the environment. Only someone who unpacks the tarball by hand receives them, and 11 of
+  the skills' 12 repository-relative links point into `docs/`, which the sdist prunes. The
+  comment now says that, and says why it is the intended outcome rather than an oversight.
 - **CI never ran the test suite against the distribution it built.** The four matrix legs
   run `pytest tests/` from the repository root, where `pythonpath = ["."]` and
   `tests/__init__.py` both put the source tree ahead of site-packages: they test the

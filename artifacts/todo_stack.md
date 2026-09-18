@@ -44,14 +44,6 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-77 The skills distribution decision
-- **Problem** `MANIFEST.in`'s comment describes an outcome its mechanism does not produce.
-- **Evidence** `graft skills` places the tree at the sdist root, outside any package; `packages.find` is `include = ["jnwb*"]`, so `pip install jnwb-0.2.4.tar.gz` installs `jnwb/` and discards `skills/` and `AGENTS.md`. Only someone who untars by hand receives them — and the sdist carries no `docs/`, `tests/` or `scripts/`, so 11 of 12 skill documentation links dangle inside it and the skills' own verification steps cannot run there. `grep -rn "skills" jnwb/ --include=*.py` returns zero hits: nothing in the runtime reads them.
-- **Change** Recommendation from the packaging audit, for a ruling: keep `skills/` in the sdist as source, correct the `MANIFEST.in` comment to say what it does, and do not put the tree in the wheel — the consumer is a harness configured by path, not the Python runtime, and `site-packages` is the worst place to put something that must be pointed at. Close the discovery gap instead with a machine-readable pointer (a `jnwb.SKILLS_URL` constant naming the GitHub tree). The `importlib.resources` and console-entry-point routes both require the tree inside the wheel, which is the second tree gate 2 forbids.
-- **Preserves** Exactly one canonical skill tree.
-- **Discriminator** A `pip install` user can find the skills without guessing.
-- **Accept** Ruled 2026-09-16, as recommended: one canonical tree in the repository; ship `skills/` in the sdist where appropriate; do **not** create a duplicate `jnwb/.../skills` tree to force them into the wheel. Wheel runtime resources carry skills only if a runtime loader needs them, and none does -- `grep -rn "skills" jnwb/ --include=*.py` returns nothing. Packaging symmetry is not an objective. Correct the `MANIFEST.in` comment to describe what its mechanism actually does, and close the discovery gap with a machine-readable pointer. This closes the open half of the carried-forward 05-02.
-
 ### 05-78 Declared test tooling that is never invoked, and a second source of truth for the docs pins
 - **Problem** Unused declarations and duplicated configuration.
 - **Evidence** `pytest-cov` and `pytest-xdist` are declared, and the `test` extra pulls `pytest-cov-7.1.0`, `coverage-7.16.1`, `pytest-xdist-3.8.0` and `execnet-2.1.2` onto all four CI cells; there is no `addopts`, no `--cov` and no `-n` anywhere in the repository. `.readthedocs.yaml` installs both `docs/requirements.txt` and `.[docs]`; the two lists are byte-identical today and nothing compares them, while `fail_on_warning: true` means a drift is a failed publish. Also: `scripts/build_unified_review.py` and `scripts/reconcile_review_probes.py` have zero references anywhere (625 lines), and `harness_gate.py:205` holds a root-allowlist exemption for `jnwb-unified-rev.md`, the output of the first of them.
@@ -166,6 +158,28 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-77 every figure in the item reproduced -- recorded 2026-09-18
+
+Checked rather than accepted. Installing the built 0.2.4 sdist into a clean 3.12
+environment yields `jnwb/` and `jnwb-0.2.4.dist-info/` and nothing else: no `SKILL.md`
+and no `AGENTS.md` anywhere in the environment. The sdist itself carries all nine
+skills and `AGENTS.md` at its root. Of the skills' 12 repository-relative links, 11
+point into `docs/`, which the sdist prunes, so they resolve only in a checkout --
+exactly the count the item gives. `grep -rn "skills" jnwb/ --include=*.py` returns
+nothing.
+
+Executed as ruled: one canonical tree, `skills/` still grafted into the sdist, no copy
+under `jnwb/`, the `MANIFEST.in` comment rewritten to describe its mechanism, and
+`jnwb.SKILLS_URL` added as the machine-readable pointer. The pointer names the tag for
+the installed version rather than a branch, so an agent that has only the package finds
+the routing rows written against the API it is holding; both forms were checked live
+and return 200.
+
+Not done, and deliberately outside the ruling: the 11 dangling links were left as
+relative paths. Rewriting them to the published documentation site would make them
+resolve inside the tarball, but it would also change seven skill files, which are
+doctrine-adjacent, for a gap the ruling chose to close with a pointer instead. Flagged
+here rather than actioned.
 ## 05-76 reproduced, and the claim was worse than stated -- recorded 2026-09-18
 
 The mechanism reproduced exactly. With the wheel installed into a clean 3.12
