@@ -280,6 +280,12 @@ and docs, not against the skill's own text.
 - **Preserves** Nothing by assumption.
 - **Discriminator** Findings are reproduced before repair and pinned by a test that fails the previous code.
 - **Accept** Every major finding either repaired with a failing-before test or recorded as triaged with its measurement.
+- **Mandatory targets** These are not discretionary. Each is a known unknown carried into the pass, and each must be resolved or restated with a measurement rather than dropped:
+  1. **Mutation restoration has stronger detection than its cause explains.** Write-restore harnesses have repeatedly shown detection that the stated mechanism does not account for. Unresolved since the 0.2.4 pass.
+  2. **Python 3.14 Torch import is collection-order fragile.** An ad-hoc pytest subset can fail three `test_backend` tests and segfault. Reproduced at a sealed commit; pre-existing, not caused by any 0.2.5 repair.
+  3. **Section 1-2 estimator mutation completeness is unknown.** 05-54's Accept read "no estimator in sections 1-2 survives its own mutation", which is broader than the nine candidates its evidence named. Those nine are closed at `da3fb343`. Whether every other estimator in those sections has a discriminating test has not been measured.
+  4. **`_welch_csd_gpu`'s conjugation orientation is unverified.** The CPU path is derived from scipy's documented `conj(X) * Y` and tested at `tests/test_estimator_discrimination.py`. The CUDA path computes its own cross spectrum. A sign inversion there makes GPU and CPU disagree on `icoh_mean` while both look plausible, and no test reaches it: the fallback test establishes control flow only, and nothing in the suite executes on GPU.
+  5. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
 
 ### 05-85 Code / docs / skills / tests triangle audit
 - **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
