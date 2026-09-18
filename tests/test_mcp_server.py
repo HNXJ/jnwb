@@ -1,15 +1,50 @@
+"""Tests for the jnwb MCP server tools.
+
+This file used to set ``ALLOW_DYNAMIC_TOOLS=1`` in ``os.environ`` at import. That is
+process-wide and was never undone, so importing it took the variable from unset to ``"1"``
+for every test that ran afterwards -- and left the server's own security gate untested,
+because with the variable forced on, `add_tool` could never take its refusal path. The
+variable is now set per test and restored, including back to absent.
+"""
+import hashlib
 import os
-os.environ["ALLOW_DYNAMIC_TOOLS"] = "1"
-import unittest
-import tempfile
 import pathlib
+import subprocess
+import sys
+import tempfile
+import unittest
 from datetime import datetime, timezone
-import pytest
+from unittest.mock import patch
+
 import numpy as np
 import pynwb
+import pytest
 
 pytest.importorskip("mcp")
-from jnwb.mcp_server import inspect_nwb, get_event_codes_and_timings, prepare_signal_reference, add_tool
+from jnwb.mcp_server import (  # noqa: E402
+    add_tool,
+    get_event_codes_and_timings,
+    inspect_nwb,
+    meta_tools,
+    prepare_signal_reference,
+)
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+#: `add_tool` writes next to `meta_tools`, so this is resolved the same way the code under
+#: test resolves it rather than by spelling the path out a second time.
+CUSTOM_TOOLS = pathlib.Path(meta_tools.__file__).parent / "custom_tools.py"
+
+#: Captured at import, before any test in this file runs, so a test that modifies the
+#: tracked module is visible even when it is the cleanup that failed.
+_CUSTOM_TOOLS_SHA_AT_IMPORT = hashlib.sha256(CUSTOM_TOOLS.read_bytes()).hexdigest()
+
+#: The tool source every `add_tool` success path in this file registers.
+DUMMY_TOOL_CODE = '''
+def test_temp_dummy_tool(a: int) -> str:
+    """A dummy test tool."""
+    return f"val_{a}"
+'''
 
 
 class TestMCPServer(unittest.TestCase):
@@ -126,40 +161,75 @@ class TestMCPServer(unittest.TestCase):
         self.assertEqual(res["error_type"], "PathNotFound")
 
     def test_add_tool_syntax_error(self):
-        res = add_tool("def invalid_syntax(:")
+        with patch.dict(os.environ, {"ALLOW_DYNAMIC_TOOLS": "1"}):
+            res = add_tool("def invalid_syntax(:")
         self.assertIn("error", res)
         self.assertEqual(res["error_type"], "ParseError")
 
     def test_add_tool_no_function(self):
-        res = add_tool("x = 42\nprint(x)")
+        with patch.dict(os.environ, {"ALLOW_DYNAMIC_TOOLS": "1"}):
+            res = add_tool("x = 42\nprint(x)")
         self.assertIn("error", res)
         self.assertEqual(res["error_type"], "ParseError")
 
-    def test_add_tool_success_and_cleanup(self):
-        custom_tools_path = pathlib.Path(__file__).parents[1] / "jnwb" / "mcp_server" / "custom_tools.py"
-        original_content = custom_tools_path.read_text(encoding="utf-8")
+    def test_add_tool_refuses_when_dynamic_registration_is_disabled(self):
+        """The refusal path, which had no test while the variable was forced on.
 
-        new_tool_code = '''
-def test_temp_dummy_tool(a: int) -> str:
-    """A dummy test tool."""
-    return f"val_{a}"
-'''
-        try:
-            res = add_tool(new_tool_code)
-            self.assertEqual(res.get("status"), "success")
-            self.assertEqual(res.get("added_tool"), "test_temp_dummy_tool")
+        `add_tool` writes executable code into the installed package, so its gate is the
+        only thing standing between a prompt and an import-time side effect. Setting
+        ALLOW_DYNAMIC_TOOLS=1 at module import meant this branch was unreachable for the
+        whole file.
+        """
+        with patch.dict(os.environ):
+            os.environ.pop("ALLOW_DYNAMIC_TOOLS", None)
+            res = add_tool(DUMMY_TOOL_CODE)
+        self.assertEqual(res["error_type"], "SecurityRestriction")
+        self.assertEqual(
+            hashlib.sha256(CUSTOM_TOOLS.read_bytes()).hexdigest(),
+            _CUSTOM_TOOLS_SHA_AT_IMPORT,
+            "a refused registration still wrote to the tracked module",
+        )
 
-            updated_content = custom_tools_path.read_text(encoding="utf-8")
-            self.assertIn("def test_temp_dummy_tool", updated_content)
-            self.assertIn("@mcp.tool()", updated_content)
+    def test_add_tool_appends_and_rejects_a_duplicate(self):
+        """Exercises `add_tool` against an isolated copy, not the tracked module.
 
-            # Try adding again to verify duplicate error
-            dup_res = add_tool(new_tool_code)
-            self.assertIn("error", dup_res)
-            self.assertEqual(dup_res["error_type"], "DuplicateTool")
+        This used to append to `jnwb/mcp_server/custom_tools.py` and restore it in a
+        `finally`. A `finally` survives a failing assertion but not a kill or a timeout:
+        interrupted between the write and the restore, the run left
+        `M jnwb/mcp_server/custom_tools.py` with 110 bytes appended. `pytest-xdist` is
+        declared, so two workers would also race on that one file. The restore was byte
+        exact only by luck -- `read_text` plus `write_text` round-trips through universal
+        newlines, so it held because that file is CRLF and would have rewritten every
+        line ending had it been LF.
 
-        finally:
-            custom_tools_path.write_text(original_content, encoding="utf-8")
+        `add_tool` resolves its target as `Path(__file__).parent / "custom_tools.py"` at
+        call time, so pointing the module at a temporary directory runs the same code --
+        duplicate check and decorator insertion included -- with nothing tracked in reach.
+        """
+        before = CUSTOM_TOOLS.read_bytes()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = pathlib.Path(tmp)
+            (sandbox / "custom_tools.py").write_bytes(before)
+
+            with patch.object(meta_tools, "__file__", str(sandbox / "meta_tools.py")):
+                with patch.dict(os.environ, {"ALLOW_DYNAMIC_TOOLS": "1"}):
+                    res = add_tool(DUMMY_TOOL_CODE)
+                    self.assertEqual(res.get("status"), "success")
+                    self.assertEqual(res.get("added_tool"), "test_temp_dummy_tool")
+
+                    updated = (sandbox / "custom_tools.py").read_text(encoding="utf-8")
+                    self.assertIn("def test_temp_dummy_tool", updated)
+                    self.assertIn("@mcp.tool()", updated)
+
+                    dup_res = add_tool(DUMMY_TOOL_CODE)
+                    self.assertIn("error", dup_res)
+                    self.assertEqual(dup_res["error_type"], "DuplicateTool")
+
+        self.assertEqual(
+            CUSTOM_TOOLS.read_bytes(), before,
+            "the tracked custom_tools.py was modified by a test that no longer writes it",
+        )
 
 
 class TestMCPServerEntrypoint(unittest.TestCase):
@@ -202,3 +272,50 @@ class TestMCPServerEntrypoint(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestThisFileLeavesTheProcessAndTheTreeAsItFoundThem(unittest.TestCase):
+    """The two contamination classes the 0.2.5 audit found in this file.
+
+    Both were real. Importing the module took ALLOW_DYNAMIC_TOOLS from unset to "1"
+    process-wide, and `add_tool`'s success test appended to a tracked module with a
+    `finally` as its only protection -- killed between the write and the restore, a run
+    left `M jnwb/mcp_server/custom_tools.py`, 101 bytes to 211.
+    """
+
+    def test_importing_this_module_does_not_enable_dynamic_tool_registration(self):
+        """Measured in a child interpreter, so it holds wherever the assignment sits.
+
+        The variable is stripped from the child's environment first, so this asserts the
+        import does not set it rather than that it happens to be absent here.
+        """
+        script = (
+            "import os, sys\n"
+            f"sys.path.insert(0, {str(ROOT)!r})\n"
+            f"sys.path.insert(0, {str(ROOT / 'tests')!r})\n"
+            "print(repr(os.environ.get('ALLOW_DYNAMIC_TOOLS')))\n"
+            "import test_mcp_server\n"
+            "print(repr(os.environ.get('ALLOW_DYNAMIC_TOOLS')))\n"
+        )
+        env = {k: v for k, v in os.environ.items() if k != "ALLOW_DYNAMIC_TOOLS"}
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True, text=True, env=env, cwd=str(ROOT), timeout=300,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr[-2000:])
+        lines = proc.stdout.strip().splitlines()
+        self.assertEqual(len(lines), 2, f"unexpected child output: {proc.stdout!r}")
+        self.assertEqual(lines[0], "None", "the child interpreter already had it set")
+        self.assertEqual(
+            lines[1], "None",
+            "importing this module enabled dynamic tool registration for every test "
+            "that runs after it, and hid the security gate's refusal path",
+        )
+
+    def test_the_tracked_custom_tools_module_is_byte_identical(self):
+        """bytes before == bytes after, for the file a test used to rewrite in place."""
+        self.assertEqual(
+            hashlib.sha256(CUSTOM_TOOLS.read_bytes()).hexdigest(),
+            _CUSTOM_TOOLS_SHA_AT_IMPORT,
+            f"{CUSTOM_TOOLS} changed while this file's tests ran",
+        )

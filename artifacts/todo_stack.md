@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-57 A test rewrites a tracked source file and leaks an environment variable
-- **Problem** `tests/test_mcp_server.py:138` rewrites `jnwb/mcp_server/custom_tools.py`, a tracked file, restoring in `finally`; and line 2 sets `os.environ["ALLOW_DYNAMIC_TOOLS"]="1"` at import, process-wide.
-- **Evidence** A kill or timeout leaves the tree dirty; `pytest-xdist` is declared, so two workers would race on one file.
-- **Change** Write to `tmp_path`; set the variable with `monkeypatch.setenv`.
-- **Preserves** The coverage.
-- **Discriminator** `git status` is clean after an interrupted run.
-- **Accept** No test writes inside `jnwb/`.
-
 ### 05-58 The suite spends 105 s on a 9.54 GiB fixture that carries no extra failure class
 - **Problem** `tests/test_analyzers_coverage.py:27` allocates `np.random.randn(128,200,500,100)`.
 - **Evidence** 27 s per test, 3 tests. At `(2,200,2,2)` (12.8 KiB) the mutation profile is byte-identical across four mutants; only the frequency axis is load-bearing. Verified on a copy: 3.09 s against 100.53 s, same 25 test ids, same outcomes. Lines 51 (1.14 GiB) and 270 (0.24 GiB) are the same pattern. Full suite is 383 s.

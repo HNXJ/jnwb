@@ -176,6 +176,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A test rewrote a tracked module and leaked an environment variable process-wide.**
+  Both reproduced. `tests/test_mcp_server.py` set `ALLOW_DYNAMIC_TOOLS=1` in `os.environ`
+  at import: measured in a fresh interpreter, importing it took the variable from unset to
+  `"1"` for every test that ran afterwards. And `test_add_tool_success_and_cleanup`
+  appended to `jnwb/mcp_server/custom_tools.py`, a tracked file, with a `finally` as its
+  only protection. A `finally` survives a failing assertion but not a kill or a timeout:
+  interrupted between the write and the restore, a run left
+  `M jnwb/mcp_server/custom_tools.py`, 101 bytes to 211. `pytest-xdist` is declared, so
+  two workers would also race on that one file. The restore was byte-exact only by luck --
+  `read_text` plus `write_text` round-trips through universal newlines, so it held because
+  that file is CRLF and would have rewritten all four line endings had it been LF.
+  The tracked write is now gone rather than guarded: `add_tool` resolves its target from
+  `Path(__file__).parent` at call time, so the test points the module at a temporary
+  directory and exercises the same code -- duplicate check and decorator insertion
+  included -- with nothing tracked in reach. The variable is set per test with
+  `patch.dict` and restored, including back to absent, which is the case that was actually
+  in play.
+- **`add_tool`'s security gate had no test.** Forcing `ALLOW_DYNAMIC_TOOLS=1` at import
+  made the refusal branch unreachable for the whole file, so the one check standing
+  between a prompt and executable code written into the installed package was never
+  exercised. It is now, and it also asserts that a refused registration writes nothing.
+  Both leaks are asserted as contracts rather than assumed: one measures the variable in
+  a child interpreter, so it holds wherever an assignment is placed, and one compares the
+  tracked module's bytes against a digest captured at import. Reintroducing either defect
+  fails the matching contract.
 - **The vFLIP calibration receipt certified one function of the estimator.**
   `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band
   normalization to `_unit_range`. Recentring that helper on its own mean -- a
