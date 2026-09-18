@@ -276,6 +276,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The release gate asks the package index whether this version already exists.** It
+  compared the declared version to the changelog entry the same tree wrote, which agree by
+  construction; nothing compared either against what is actually served. A build from this
+  tree today produces a wheel calling itself 0.2.4 while PyPI already serves a 0.2.4 whose
+  contents differ, with 1009 non-empty lines of shipped work sitting under
+  `## [Unreleased]`. STEP 0b now refuses to build a version the index already has, and
+  says how many pending entries prove the two would differ. An unreachable index is
+  reported as unverified rather than clear -- otherwise the gate passes most easily when
+  the network is down -- and `JNWB_SKIP_INDEX_CHECK=1` is the one named way to build
+  offline, which still does not excuse a collision the gate already knows about. Six
+  discriminators kill, including commenting out the call, which an earlier version of the
+  wiring check read as a call because it searched text rather than the syntax tree.
 - **The MCP tool table is checked against the live registry.** Four tests in
   `tests/test_mcp_server.py` compare the documented table, the prose count and
   `jnwb.mcp_server.__all__` against `mcp.list_tools()`, and assert that no module in the

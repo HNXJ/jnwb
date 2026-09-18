@@ -44,14 +44,6 @@ and docs, not against the skill's own text.
 
 ## 11. Packaging
 
-### 05-73 A build from `dev` today produces a different distribution calling itself 0.2.4
-- **Problem** The version is not bumped after a release, and nothing compares the declared version against what the index already serves.
-- **Evidence** HEAD is 5 commits past `v0.2.4` with `__version__ = '0.2.4'` and 20 non-empty lines under `## [Unreleased]` naming three shipped fixes. Local wheel against the PyPI wheel: `> jnwb/mcp_server/__main__.py`. Local sdist carries `AGENTS.md` and `skills/` (261,291 B) where PyPI's does not (238,292 B). `test_release_date_matches_the_changelog_entry_for_this_version` passes, because it compares the version to its own changelog entry and never to the index.
-- **Change** Add a release-gate step: fail when `jnwb.__version__` already appears in the PyPI index and `CHANGELOG.md` has a non-empty `## [Unreleased]`.
-- **Preserves** The existing version-sync gate 7.
-- **Discriminator** The current tree fails the new check.
-- **Accept** Two distributions can never share a version string.
-
 ### 05-74 Seven of ten dependency floors cannot be installed on any supported interpreter
 - **Problem** Floors copied from an older support window and never re-derived after the 3.12 floor landed.
 - **Evidence** PyPI metadata: `numpy==1.22.0` tags `['cp310','cp38','cp39','pp38','sdist']`; `scipy==1.8.0` declares `requires_python '>=3.8,<3.11'`, which contradicts `requires-python = ">=3.12"` outright; `pandas==1.4.0`, `h5py==3.6.0`, `matplotlib==3.5.0`, `scikit-learn==1.0.0`, `statsmodels==0.13.0` ship no cp312 or pure-python wheel. Separately `jnwb.statistics` and `jnwb.connectivity` call `scipy.stats.false_discovery_control`, added in SciPy 1.11, three minor versions above the declared floor — masked only because scipy <1.11 cannot install on 3.12.
@@ -198,6 +190,21 @@ and docs, not against the skill's own text.
 
 # Findings marked unsupported
 
+## 05-73 divergence measured larger, commit count unverifiable here -- recorded 2026-09-18
+
+The finding reproduced and grew. `jnwb.__version__` is 0.2.4, the index serves 0.2.4, and
+`## [Unreleased]` holds 1009 non-empty lines, not the 20 the audit measured.
+
+One figure could not be checked from this clone: "HEAD is 5 commits past `v0.2.4`". The
+tag objects are missing locally, so `git describe` and `git rev-list v0.2.4..HEAD` both
+abort. That is a defect of this checkout, not of the repository, and it does not affect
+the finding -- the version collision is established from the index and the changelog
+without needing a commit count.
+
+The check lives in `scripts/release_gate.py`, not `scripts/harness_gate.py`: it needs the
+network, and a per-commit gate that reaches the internet fails for reasons that have
+nothing to do with the tree. The suite drives every branch through the pure function and
+stubs the transport, so it gives the same answer offline.
 ## 05-72 third count already gone, and the ruling is removal -- recorded 2026-09-18
 
 Two of the three counts reproduced: `docs/agents.md` says three tools at lines 12 and 24,

@@ -2,6 +2,7 @@
 
 Pipeline:
   0. Required release/test tooling is present in the active environment
+  0b. The declared version is not one the package index already serves
   1. Full test suite execution (pytest tests/)
   2. Harness pre-flight gates
   3. Clean distribution build (sdist + wheel)
@@ -13,17 +14,20 @@ Pipeline:
 Exits 0 on complete verified success; non-zero otherwise.
 """
 
+import json
 import os
 import sys
 import shutil
 import tempfile
 import pathlib
+import urllib.error
+import urllib.request
 import zipfile
 import tarfile
 import subprocess
 import logging
 import re
-from typing import List
+from typing import List, Optional, Set
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
@@ -53,6 +57,79 @@ def jnwb_source_version() -> str:
     if match is None:
         raise RuntimeError(f"could not parse __version__ from {init}")
     return match.group(1)
+
+
+#: Where the published version list is read from. A release gate that never asks the index
+#: cannot tell a rebuild from a release: it compares the declared version to the changelog
+#: entry the same tree wrote, which agrees with itself by construction.
+PYPI_JSON_URL = "https://pypi.org/pypi/{name}/json"
+
+#: Set to "1" to build without consulting the index. Named, logged and deliberate -- an
+#: offline release is a decision, not a default.
+SKIP_INDEX_ENV = "JNWB_SKIP_INDEX_CHECK"
+
+
+def published_versions(name: str = "jnwb", timeout: float = 30.0) -> Optional[Set[str]]:
+    """Versions the index already serves, or ``None`` when it could not be reached.
+
+    ``None`` is not "nothing is published". The caller must treat an unreachable index as
+    unverified rather than clear, or the gate passes hardest exactly when the network is
+    down.
+    """
+    url = PYPI_JSON_URL.format(name=name)
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            payload = json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return set()  # never published; a first release is not a collision
+        return None
+    except Exception:  # noqa: BLE001 - any transport failure is "unverified"
+        return None
+    return set(payload.get("releases", {}))
+
+
+def unreleased_entry_lines(changelog: Optional[str] = None) -> List[str]:
+    """Non-empty lines under ``## [Unreleased]``, up to the next ``## `` heading."""
+    text = changelog if changelog is not None else (
+        REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    body = text.partition("## [Unreleased]")[2]
+    end = body.find("\n## ")
+    if end != -1:
+        body = body[:end]
+    return [line for line in body.splitlines() if line.strip()]
+
+
+def check_version_is_not_already_published(
+    version: str,
+    published: Optional[Set[str]],
+    unreleased: Optional[List[str]] = None,
+) -> List[str]:
+    """Two distributions can never share a version string.
+
+    Split from the network call so the suite can exercise every branch without reaching the
+    index, and so an offline run has one named way through rather than a silent one.
+    """
+    if published is None:
+        if os.environ.get(SKIP_INDEX_ENV) == "1":
+            return []
+        return [
+            f"the package index could not be reached, so it is unknown whether {version} "
+            f"is already published. Set {SKIP_INDEX_ENV}=1 to build anyway."
+        ]
+    if version not in published:
+        return []
+    pending = unreleased if unreleased is not None else unreleased_entry_lines()
+    detail = (
+        f" and CHANGELOG.md has {len(pending)} non-empty lines under [Unreleased], so the "
+        f"two would not even carry the same contents"
+        if pending else ""
+    )
+    return [
+        f"version {version} is already on the index{detail}. Bump "
+        f"jnwb/__init__.py and move [Unreleased] under a new heading before building a "
+        f"release."
+    ]
 
 
 def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
@@ -143,6 +220,16 @@ def main() -> None:
         "PASS: required release/test tooling from [%s] is importable on Python %s "
         "(presence check; pip check in STEP 6 verifies dependency consistency).",
         ",".join(REQUIRED_EXTRAS), ".".join(str(v) for v in sys.version_info[:3]))
+
+    log.info("=== STEP 0b: Checking the declared version against the package index ===")
+    version = jnwb_source_version()
+    collisions = check_version_is_not_already_published(version, published_versions())
+    if collisions:
+        for problem in collisions:
+            log.error("%s", problem)
+        sys.exit(1)
+    log.info(
+        "PASS: %s is not a version the index already serves.", version)
 
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
