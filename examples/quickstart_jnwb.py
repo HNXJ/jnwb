@@ -14,8 +14,6 @@ WHY SIMULATED, AND HOW IT IS MARKED
     is labelled SIMULATED in the figure itself, per this repo's rule that synthetic content is
     never presented as measured. No number here is an empirical result about any dataset.
 
-    For real results computed from real recordings, see the `omission/` example project.
-
 OUTPUT
     examples/figures/jnwb_quickstart.{svg,png}
 """

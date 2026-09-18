@@ -40,14 +40,6 @@ development `.venv` described at the end of this file is not package evidence.
 - **Discriminator** Every page that prints a number says what it does not license.
 - **Accept** Reviewed against `docs/common_mistakes.md`, which already holds most of these rules.
 
-### 05-66 README links are dead on PyPI
-- **Problem** `readme = "README.md"` makes it the long description, and PyPI does not rewrite relative links.
-- **Evidence** `README.md:130,132,136` link to `CONTRIBUTING.md`, `artifacts/todo_stack.md`, `AGENTS.md` and `LICENSE`; `artifacts/` is additionally pruned from the sdist.
-- **Change** Absolutise to `https://github.com/HNXJ/jnwb/blob/main/...`.
-- **Preserves** In-repo navigation.
-- **Discriminator** Every README link resolves from the PyPI page.
-- **Accept** Checked against the rendered long description. Also delete the dangling `examples/quickstart_jnwb.py:17` pointer to an `omission/` example project that is not in this repository.
-
 ## 10. Skills and agents
 
 **Acceptance condition for every item in this section** (ruled 2026-09-17, stated in

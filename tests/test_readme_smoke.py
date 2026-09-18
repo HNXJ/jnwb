@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 
 import jnwb
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
+#: Where a repository-relative path has to be written so that it also resolves from PyPI.
+BLOB = "https://github.com/HNXJ/jnwb/blob/main/"
 
 
 def _self_contained_python_blocks(text):
@@ -72,6 +75,36 @@ def test_readme_arrays_quickstart_recovers_the_onset_it_prints():
         f"the fit finished pinned at its {fit['bound_status']} bound, so t0_bounds, not "
         "the data, chose the printed number"
     )
+
+
+def test_readme_links_resolve_from_the_page_that_renders_it():
+    """`readme = "README.md"` makes this file the PyPI long description.
+
+    PyPI renders it verbatim and does not rewrite relative links, so
+    `[CONTRIBUTING.md](CONTRIBUTING.md)` resolved against pypi.org and 404'd. One of the
+    four was worse than dead: `artifacts/` is pruned from the sdist by `MANIFEST.in`, so
+    `artifacts/todo_stack.md` is not in the artifact the page describes either.
+
+    An absolute link can be wrong in the other direction -- a URL that looks right and
+    points at nothing -- so each `blob/main` target is resolved against the checkout.
+    """
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["project"]["readme"] == "README.md", (
+        "README.md is no longer the long description; this test guards the wrong file"
+    )
+
+    links = re.findall(r"\[([^\]]+)\]\(([^)]+)\)", README.read_text(encoding="utf-8"))
+    assert len(links) >= 8, f"only {len(links)} links found; the sweep has stopped working"
+    for label, target in links:
+        assert target.startswith(("http://", "https://")), (
+            f"README link {label!r} -> {target!r} is relative, so it is dead on the PyPI "
+            "page this file is rendered on"
+        )
+        if target.startswith(BLOB):
+            rel = target[len(BLOB):]
+            assert (REPO_ROOT / rel).exists(), (
+                f"README link {label!r} points at {rel}, which is not in the repository"
+            )
 
 
 def test_readme_capability_table_symbols_exist():

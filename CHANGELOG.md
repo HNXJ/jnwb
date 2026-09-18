@@ -308,6 +308,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four README links were dead on the page the README is rendered on.**
+  `readme = "README.md"` makes the file the PyPI long description, and PyPI renders it
+  verbatim without rewriting relative links, so `[CONTRIBUTING.md](CONTRIBUTING.md)`
+  resolved against pypi.org. One was worse than dead: `artifacts/` is pruned from the
+  sdist, so `artifacts/todo_stack.md` is not in the archive the page describes either, and
+  the line now says so. All four are absolute to `blob/main`, checked against the long
+  description extracted from a built sdist's `PKG-INFO` rather than against the file they
+  came from. `tests/test_readme_smoke.py` resolves each `blob/main` target against the
+  checkout, so an absolute link cannot be wrong in the other direction.
+  `examples/quickstart_jnwb.py` also pointed at an `omission/` example project for "real
+  results computed from real recordings". It is not in this repository and never was.
 - **Ten pages gave a runnable instruction that a `pip install` reader cannot follow.**
   `examples/` is not a package, so `packages.find include = ["jnwb*"]` leaves it out of
   the wheel, and `MANIFEST.in` grafts `skills` and `AGENTS.md` but not `examples`, so it

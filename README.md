@@ -128,11 +128,12 @@ Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are
 ## Contributing
 
 Setup, the checks to run, the branch model and the release procedure are in
-[CONTRIBUTING.md](CONTRIBUTING.md). Work lands on `dev`; `main` holds releases. The queued
-work is in [artifacts/todo_stack.md](artifacts/todo_stack.md).
+[CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
+The queued work is in [artifacts/todo_stack.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/todo_stack.md), which is
+in the repository only -- `artifacts/` is pruned from the sdist.
 
-If you are an AI agent, read [AGENTS.md](AGENTS.md) first.
+If you are an AI agent, read [AGENTS.md](https://github.com/HNXJ/jnwb/blob/main/AGENTS.md) first.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/HNXJ/jnwb/blob/main/LICENSE).
