@@ -247,6 +247,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_import_provenance.py` asserts which `jnwb` the suite is testing.** A green
+  suite says nothing about this checkout unless the package it imported came from this
+  checkout. Three checks: the interpreter running pytest imports the expected package
+  directory, no second importable copy shadows it on `sys.path`, and every example, probed
+  from its own directory through its real prologue, resolves to the same one.
+  `JNWB_EXPECTED_PACKAGE_ROOT` names a different root when a built wheel or an installed
+  copy is deliberately under test, so the check narrows rather than disappears. A standing
+  rule to check `jnwb.__file__` in every probe did not prevent this failure, which makes it
+  a harness defect rather than an operator lapse; it is asserted now instead of remembered.
+- **`tests/test_skill_claims_match_the_router.py` re-runs the numbers a skill prints.** No
+  routing row for a phase-lag measure may use immunity or robustness language unnegated,
+  and the two quantitative caveats are verified by execution, not by matching prose: the
+  narrowband PSI collapse and the `tau*ln 2` group delay are both measured in the test, and
+  the skill's stated millisecond shifts are checked against that measurement.
 - **`tests/test_skill_symbol_coverage.py` holds the whole of `jnwb.__all__` against the
   skill tree.** Every public callable must be reachable as a *call* in a routing row --
   prose naming a function teaches nothing about how to invoke it, and an earlier draft of
@@ -376,6 +390,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Every example, run the way its own documentation says to run it, imported the wrong
+  package.** Measured from `examples/` and `examples/tutorials/`: `import jnwb` resolved to
+  an installed `jnwb` in `site-packages`, not to the checkout the file sits in. Python puts
+  the script's directory on `sys.path`, never the repository root. That is how a `0.1.8`
+  install rendered the six-panel quickstart figure from inside a `0.2.4` checkout with
+  every panel still labelled CORRECT, and how a defect under investigation appeared not to
+  reproduce. All ten scripts now prefer the checkout they belong to, and only when they are
+  in one -- a copy downloaded next to a pip-installed `jnwb` finds no sibling package and
+  is unaffected.
+- **A skill claimed a safeguard the router denies.** `jnwb-lfp-spectral` described
+  `imaginary_coherency` as "volume-conduction-robust" while the router's own invariant 8
+  and `AGENTS.md` section 5 both say these measures reduce sensitivity to zero-phase-lag
+  coupling and establish no immunity -- and the adjacent `wpli` row already said it
+  correctly. The row now matches. `jnwb-connectivity` told the reader to verify PSI sign on
+  a driver without saying over what band: a 20 Hz sine delayed by 10 ms gives
+  `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` -- the
+  narrow band reports nothing, with the wrong sign, because at one frequency a delay and a
+  phase offset are the same thing. `jnwb-spiking` mandated `causal_exp_smooth` for latency
+  without stating that the filter delays the latency: the step response reaches half
+  amplitude at `tau*ln 2`, measured at +17 ms for `tau_ms=25` and +34 ms for `tau_ms=50`.
 - **`AGENTS.md` said "each call below runs as written" and none of them did.** Section 10
   bound a generator and then called eight functions on names no block defined --
   `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:

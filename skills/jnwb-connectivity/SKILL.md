@@ -47,7 +47,7 @@ assert res.x_to_y >= 0.0
 
 ## 5. Verification
 - Verify Granger asymmetry $F_{X \to Y} > F_{Y \to X}$ on synthetic unidirectional autoregressive simulations.
-- Verify PSI returns positive slope for driver and negative for receiver.
+- Verify PSI returns positive slope for driver and negative for receiver **over a band wide enough to hold several frequency bins**. Run on broadband input, not a sinusoid: a 20 Hz sine delayed by 10 ms gives `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` on the same data -- the narrow band reports nothing, with the wrong sign. At one discrete frequency a delay and a constant phase offset are the same thing, so there is no slope to estimate; see `docs/common_mistakes.md` section 7.
 
 ## 6. Canonical Documentation Links
 - [`docs/08_directed_connectivity_and_information.md`](../../docs/08_directed_connectivity_and_information.md)

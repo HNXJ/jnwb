@@ -20,7 +20,19 @@ OUTPUT
 from __future__ import annotations
 
 import os
+import sys
 import textwrap
+from pathlib import Path
+
+# Python puts THIS directory on sys.path, not the repository root, so a plain
+# `import jnwb` resolves to whatever happens to be installed. Running this file from a
+# checkout while an older jnwb sits in site-packages renders a figure of that older
+# library, and every panel still says CORRECT. Prefer the checkout this file belongs to;
+# a copy downloaded next to a pip-installed jnwb finds no sibling package and is
+# unaffected.
+_CHECKOUT = Path(__file__).resolve().parents[1]
+if (_CHECKOUT / "jnwb" / "__init__.py").exists():
+    sys.path.insert(0, str(_CHECKOUT))
 
 import matplotlib
 matplotlib.use("Agg")

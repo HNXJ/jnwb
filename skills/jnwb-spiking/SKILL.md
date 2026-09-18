@@ -24,6 +24,7 @@ Activate this skill when computing spike rasters, PSTHs, causal firing rate smoo
 
 ## 3. Invariants & Safeguards
 1. **Causal Filter Geometry**: Never use acausal Gaussian smoothing when estimating response latency. `causal_exp_smooth` strictly operates on past bins ($t \le t_0$).
+1b. **Causal is not free**: `causal_exp_smooth` leaks nothing from the future, but it delays the onset it is used to measure. A step response reaches half amplitude at $\tau\ln 2 \approx 0.69\,\tau$ -- measured on a 1 ms step, `tau_ms=25` lands $+17$ ms late and `tau_ms=50` lands $+34$ ms late. Subtract the filter delay, or hold `tau_ms` fixed across every condition and band being compared; a latency difference between two traces smoothed at different `tau_ms` is a difference between the filters. `docs/common_mistakes.md` section 8 gives the 10% and centroid delays too.
 2. **Onset Bound Checking**: Inspect `fit['bound_status']`. If $t_0$ reaches bounds (`'lower'` or `'upper'`), mark as censored/boundary-constrained; do not report as interior physiological onset.
 3. **Time Base Units**: `st` and `onsets` are in seconds; `win_ms`, `bin_ms`, and `tau_ms` are in milliseconds.
 
