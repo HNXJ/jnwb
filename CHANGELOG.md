@@ -176,6 +176,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A 9.537 GiB fixture bought three shape assertions.**
+  `tests/test_analyzers_coverage.py` allocated `randn(128, 200, 500, 100)` -- 9.537 GiB of
+  float64 -- plus 1.144 GiB and 0.358 GiB more, to assert that trailing dimensions survive
+  a mean. Only the frequency axis is load-bearing: `extract_band` selects bins by comparing
+  `freqs` against the band bounds, and every other axis reaches the tests as a number in a
+  shape assertion. The frequency axes and their `linspace` coordinates are unchanged, so
+  the same bins fall in each band; the trailing axes are now 2 to 5. The file runs in
+  6.92 s against 131.93 s, with the same 25 test ids, the same 5 subtests, and the same
+  outcomes.
+  Preservation was measured rather than assumed: six mutations of `jnwb/analyzers.py` were
+  run against the whole file at both fixture sizes, including two expected to survive,
+  because a profile made only of kills cannot detect a shrink that loses a failure class it
+  never had. The same four mutants are killed and the same two survive. One profile is not
+  identical but a strict superset: ignoring `freq_axis` additionally fails
+  `test_extract_band_bounds` at the smaller size, because taking a band's bin indices along
+  a length-2 axis raises instead of silently returning a wrongly-shaped array. No failure
+  class was lost.
+  The saving at suite level is smaller than the file-level one and smaller than the audit
+  projected. Two full-suite runs before the change took 502.66 s and 502.87 s and two after
+  took 473.30 s and 479.18 s, so about 27 s is recovered, near 5%, not the 27% the item
+  claimed. The item's arithmetic was consistent with its own measurements -- 105 s of a
+  383 s suite -- but the fixture costs about 27 s inside the suite against 125 s standalone:
+  allocating 9.537 GiB from a fresh process pays the operating system for pages it has to
+  zero, while the same allocation inside a long run reuses a heap that has already grown.
+  The change stands on removing 11.04 GiB of allocation and 125 s from anyone running that
+  file alone; the suite-level headline does not.
 - **A test rewrote a tracked module and leaked an environment variable process-wide.**
   Both reproduced. `tests/test_mcp_server.py` set `ALLOW_DYNAMIC_TOOLS=1` in `os.environ`
   at import: measured in a fresh interpreter, importing it took the variable from unset to

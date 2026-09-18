@@ -30,14 +30,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ## 7. Code simplification
 
-### 05-58 The suite spends 105 s on a 9.54 GiB fixture that carries no extra failure class
-- **Problem** `tests/test_analyzers_coverage.py:27` allocates `np.random.randn(128,200,500,100)`.
-- **Evidence** 27 s per test, 3 tests. At `(2,200,2,2)` (12.8 KiB) the mutation profile is byte-identical across four mutants; only the frequency axis is load-bearing. Verified on a copy: 3.09 s against 100.53 s, same 25 test ids, same outcomes. Lines 51 (1.14 GiB) and 270 (0.24 GiB) are the same pattern. Full suite is 383 s.
-- **Change** Shrink the fixtures to the dimensions that discriminate.
-- **Preserves** The 25 test ids and their outcomes.
-- **Discriminator** The same mutants are caught.
-- **Accept** About 27% of suite wall time recovered with no coverage loss.
-
 ### 05-59 Removable and mergeable tests
 - **Problem** Tests that cannot fail, or duplicate another's failure class.
 - **Evidence** `tests/test_rsa.py` in full (every failure class is covered by `test_rsa_oracle.py`; under a `pdist**2` mutation it caught nothing). `test_jnwb_frozen_boundary::test_jnwb_all_symbols_resolve` duplicates `test_api_surface::test_public_exports_resolve`. `test_addressing::test_area_resolution_is_identical_with_and_without_omission_importable` spawns two subprocesses and compares jnwb to itself, since the module is importable in neither arm; its own comment predicts this. `test_paths.py:93` puts `Path.cwd()` on both sides; `:173` restates the expression it checks. `test_spectral.py:901` instruments a `curve_fit` mock that is never invoked (`{'polyfit': 2, 'curve_fit': 0}`), so both halves test one path. `tests/test_parallel.py::TestParallelMap` spends 18.45 s squaring at most 100 integers.
@@ -261,7 +253,14 @@ and docs, not against the skill's own text.
   2. **Python 3.14 Torch import is collection-order fragile.** An ad-hoc pytest subset can fail three `test_backend` tests and segfault. Reproduced at a sealed commit; pre-existing, not caused by any 0.2.5 repair.
   3. **Section 1-2 estimator mutation completeness is unknown.** 05-54's Accept read "no estimator in sections 1-2 survives its own mutation", which is broader than the nine candidates its evidence named. Those nine are closed at `da3fb343`. Whether every other estimator in those sections has a discriminating test has not been measured.
   4. **`_welch_csd_gpu`'s conjugation orientation is unverified.** The CPU path is derived from scipy's documented `conj(X) * Y` and tested at `tests/test_estimator_discrimination.py`. The CUDA path computes its own cross spectrum. A sign inversion there makes GPU and CPU disagree on `icoh_mean` while both look plausible, and no test reaches it: the fallback test establishes control flow only, and nothing in the suite executes on GPU.
-  5. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
+  5. **`TFRAnalyzer.extract_band` is asserted by shape only.** Its three
+     `TestTFRAnalyzerBandExtraction` tests and the five-band subtest check `result.shape`
+     and `result.dtype`, never a value. Two mutations survive the whole file as a result:
+     dropping the band's upper bound so every frequency above `f_min` is included, and
+     replacing the frequency-axis `mean` with a `sum`. Both change every returned number
+     while preserving shape. Measured at both the old 9.537 GiB fixture and the current
+     one, so this is a pre-existing gap the fixture shrink neither caused nor closed.
+  6. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
 
 ### 05-85 Code / docs / skills / tests triangle audit
 - **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
