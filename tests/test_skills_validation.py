@@ -97,7 +97,10 @@ def _routing_calls(skill_text: str):
     matched is not checked, and nothing said so.
     """
     section = _routing_matrix_section(skill_text)
-    for match in re.finditer(r"`jnwb\.(\w+)\(", section):
+    # Dotted attributes too: `jnwb.StatisticalAnalysis.exploratory_compare(...)` did not match
+    # `jnwb\.(\w+)\(` at all, so every StatisticalAnalysis row went unchecked -- which is how
+    # a row stating n_bootstrap=10000 against a live default of 2000 passed this file.
+    for match in re.finditer(r"`jnwb\.((?:\w+\.)*\w+)\(", section):
         depth, i = 1, match.end()
         while i < len(section) and depth:
             depth += {"(": 1, ")": -1}.get(section[i], 0)
@@ -164,11 +167,14 @@ def test_skill_routing_signatures_match_runtime():
     for skill_name in CANONICAL_SKILLS:
         content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
         for func_name, args_str in _routing_calls(content):
-            assert hasattr(jnwb, func_name), (
-                f"{skill_name}: jnwb.{func_name} referenced in routing matrix is missing"
-            )
+            target = jnwb
+            for attr in func_name.split("."):
+                assert hasattr(target, attr), (
+                    f"{skill_name}: jnwb.{func_name} referenced in routing matrix is missing"
+                )
+                target = getattr(target, attr)
             checked += 1
-            sig = inspect.signature(getattr(jnwb, func_name))
+            sig = inspect.signature(target)
             order = list(sig.parameters)
             written = _mentioned_parameters(args_str)
             where = f"{skill_name}: jnwb.{func_name}({args_str})"
@@ -216,9 +222,10 @@ def test_skill_routing_signatures_match_runtime():
                 f"gets a TypeError, or supplies them in the wrong order"
             )
 
-    assert checked >= 61, (
+    assert checked >= 65, (
         f"only {checked} routing rows were matched; rows that are not matched are not "
-        f"checked, which is how 7 of them went unread"
+        f"checked, which is how 7 tuple-bearing rows and 4 StatisticalAnalysis rows went "
+        f"unread"
     )
 
 

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`AGENTS.md` §8 now requires a public API change to update the routing rows in the same
+  commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing
+  about the 65 rows in `skills/` that hardcode signatures. That single gap produced every
+  defect in the routing matrices.
+- **The routing check did not see dotted rows at all.** Its pattern was `` `jnwb\.(\w+)\(``,
+  which does not match `jnwb.StatisticalAnalysis.exploratory_compare(...)`, so the four
+  `StatisticalAnalysis` rows were never checked -- found by writing one with the arguments
+  in the wrong order and the wrong default and watching the suite pass. It resolves dotted
+  attributes now and asserts it matched at least 65 rows.
 - **The test that existed to catch those rows checked only that the names exist.**
   `test_skill_routing_parameter_names_match_runtime` asserted `pname in sig.parameters`
   and nothing else, so the swapped `paired_fire_prob_test` row passed it: all four names
@@ -225,6 +234,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_agents_md_recipes.py` executes every fenced block in `AGENTS.md` and
+  resolves every repository path it cites**, with the working directory outside the
+  checkout so a block reaching for a relative path fails there. It also checks that no
+  pointer names a todo item the stack does not hold, that §8 carries the skills rule, and
+  that `AGENTS.md` and the statistics skill call the same comparison entry point -- which
+  a signature check cannot see, because both are valid calls. Six discriminators kill.
 - **`tests/test_skill_routing_behaviour.py` runs what a signature cannot express.** Two of
   the corrected rows are not signature defects: one named a result key `repair_lfp_trials`
   does not return, the other described a two-trace estimator as working across channel
@@ -336,6 +351,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`AGENTS.md` said "each call below runs as written" and none of them did.** Section 10
+  bound a generator and then called eight functions on names no block defined --
+  `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:
+  `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)`
+  raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because
+  `band_power` returns a float and there is no axis to aggregate over. That is the
+  canonical demonstration of the rule this repository states most often -- take the
+  logarithm last -- and it did not run. The recipe builds per-trial powers now, and the
+  whole block executes. Two calls used deprecated aliases (`seed=`, `t0_bounds=`) and use
+  the live names. Section 4.3 pointed at a todo item that does not exist. Section 10 used
+  `exploratory_compare` while the statistics skill routed to `compare_groups`: both exist,
+  their returned keys differ, and an agent reading one and calling the other reads keys
+  that are not there. The skill routes to `exploratory_compare`, which its own workflow
+  and invariants now name too.
 - **Nine routing rows taught a signature the library does not have.** A skill's routing
   matrix is what an agent calls from, and these were hardcoded with nothing keeping them
   true. `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)` had

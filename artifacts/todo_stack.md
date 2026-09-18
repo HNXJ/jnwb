@@ -42,14 +42,6 @@ Where an item already edits a skill, the edited skill must satisfy this and repr
 routing behaviour must be tested. Skills are release surfaces: verify against live exports
 and docs, not against the skill's own text.
 
-### 05-69 `AGENTS.md` has no rule keeping skills in sync, and three of its own statements are stale
-- **Problem** Section 8 requires a public API change to update `CHANGELOG.md` with a deprecation path; nothing requires updating `skills/`, although skills hardcode signatures in 61 rows. That single gap produced every item in 05-67.
-- **Evidence** Section 10 asserts "Each call below runs as written on synthetic arrays"; `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)` raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because `band_power` returns a float — so the canonical demonstration of the repo's most-repeated safeguard does not run. Section 4.3 points at "the non-blocking scan item in the todo stack", which does not exist. Section 10's statistics entry point is `StatisticalAnalysis.exploratory_compare` while `skills/jnwb-statistics:13` routes to `compare_groups`; both exist and their return keys differ.
-- **Change** Add to section 8: a public API change updates the routing rows in `skills/` in the same commit. Fix the recipe to build a per-trial array before `aggregate_over=0`. Remove the dangling pointer. Pick one comparison entry point.
-- **Preserves** Everything else in `AGENTS.md`.
-- **Discriminator** Section 10 executes end to end.
-- **Accept** A test executes every fenced block in `AGENTS.md`, and resolves every path and section it cites.
-
 ### 05-70 An entire subsystem and three function families are unrouted
 - **Problem** Skills predate parts of the API.
 - **Evidence** No skill mentions `vflip`, `vflip_from_lfp`, `xflip`, `label_layers`, `current_source_density_1d`, `voltage_curvature_1d`, `VFlipResult` or `XFlipResult`, while `zflip` sits in lfp-spectral and `probe_geometry` in nwb-data; probes for "assign cortical layers" and "compute CSD" match no trigger. `cluster_permutation_test` appears in no routing matrix. `spike_mutual_information`, `spike_count_mutual_information`, `binary_occupancy_mutual_information` and `cross_modal_comparison` are unmentioned — and the last deliberately crosses modalities, which interacts with the router's "never pool across modalities" rule with no guidance either way. `bin_spikes`, `fires_in_window`, `rate_in_window` and `fire_indicator`, the half-open-bin family whose purpose is preventing the double-count in `common_mistakes.md` section 2, are unmentioned in the skill that owns binning.
