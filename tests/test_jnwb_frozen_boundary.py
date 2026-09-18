@@ -6,8 +6,8 @@ package happens to be installed.
 Naming note (corrected 2026-09-09): this file is called "frozen_boundary" and its docstring
 used to claim it enforced the jnwb/ edit freeze. It never did, and could not -- nothing here
 looks at whether jnwb/ was edited. It enforces the dependency DIRECTION. The edit freeze was
-lifted on 2026-09-09 (see CLAUDE.md); this boundary is unaffected and still live, because it
-never rested on the freeze.
+lifted on 2026-09-09; this boundary is unaffected and still live, because it never rested
+on the freeze.
 
 A human reading a policy is not a technical guarantee that no new jnwb/ change quietly
 reintroduces a project coupling. These tests are.
@@ -69,7 +69,7 @@ class TestJnwbFrozenBoundary:
                 if (rel, modname) not in AUTHORIZED_EXCEPTIONS:
                     violations.append(f"jnwb/{rel}:{lineno} imports {modname!r}")
         assert not violations, (
-            "jnwb/ imports from omission/ (see CLAUDE.md's freeze policy and AUTHORIZED_EXCEPTIONS in this test). "
+            "jnwb/ imports from omission/ (see AUTHORIZED_EXCEPTIONS in this test). "
             "Either this is a new coupling that needs Hamm's explicit authorization before it "
             "can land, or AUTHORIZED_EXCEPTIONS needs updating alongside it:\n"
             + "\n".join(violations)

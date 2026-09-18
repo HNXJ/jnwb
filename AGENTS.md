@@ -1,8 +1,10 @@
 # AGENTS.md — working rules for `jnwb`
 
 Start here. §0 maps the repository, §2 holds the remaining work and §3 is the loop that
-works through it; the rest says how to work here. `CLAUDE.md` carries phase and policy. A
-project that *uses* jnwb keeps its own rules in its own repository.
+works through it; the rest says how to work here. **This file is the only repository-level
+instruction file.** There is no second rule set at the root and no per-assistant variant;
+a rule that is not here is not a rule of this repository. A project that *uses* jnwb keeps
+its own rules in its own repository.
 
 **Leave no process-authorship narrative in the library surface.** Harness vocabulary
 (agents, assistants, orchestration tooling) is named only in four places: `skills/`, this
@@ -10,8 +12,7 @@ file, one line in `README.md`, and `CONTRIBUTING.md`. Not in `jnwb/`, `tests/`, 
 `docs/`, `CHANGELOG.md`, or code comments/docstrings — except **machine-required literals**
 such as the path `agents/openai.yaml` in skill-structure tests, and standard technical
 metadata in generated assets (e.g. Creative Commons RDF `cc:Agent` creator tags in Matplotlib
-SVG output). `CLAUDE.md` is a tripwire supplement, not a fifth naming location. A reader of
-the library should see a library.
+SVG output). A reader of the library should see a library.
 
 ## 0. Where things are
 

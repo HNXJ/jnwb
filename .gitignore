@@ -127,4 +127,6 @@ run_schema_test.py
 
 # scratch and build artifacts
 tmp/
-
+# AGENTS.md is the only repository-level instruction file. A local CLAUDE.md is a
+# contributor's own business and is never tracked here.
+/CLAUDE.md

@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`CLAUDE.md`, so `AGENTS.md` is the only repository-level instruction file.** The file
+  held 215 bytes and no operative rule: it pointed at `AGENTS.md` and said not to keep a
+  second rule set there. `AGENTS.md` pointed back, claiming `CLAUDE.md` "carries phase and
+  policy" -- a statement about a file that carried a pointer. Two files describing each
+  other is a fork waiting to happen, so the one operative instruction, single authority,
+  is now stated in `AGENTS.md` itself and the file is gone from tracked state. It is
+  git-ignored rather than forbidden, and stays on the root-freeze allowlist, so a
+  contributor's own copy neither lands in the repository nor trips a gate.
+  `tests/test_single_agent_instruction_file.py` holds all of that: no tracked root
+  instruction file besides `AGENTS.md` (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,
+  `.cursorrules`, `.windsurfrules`), the ignore rule resolves, and no live surface cites
+  the deleted file as a source of rules.
 - **`add_tool`, and with it the MCP server's ability to write code into its own
   install.** The tool took Python source from a caller and appended it to
   `jnwb/mcp_server/custom_tools.py`, resolved as `Path(__file__).parent`, which on an
