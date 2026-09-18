@@ -9,6 +9,8 @@ Run the executable tutorial:
 python examples/tutorials/06_laminar.py
 ```
 
+`examples/` ships in neither the wheel nor the sdist, so this line needs a [clone](../install.md#source-checkout), not `pip install jnwb`.
+
 ## Source
 
 The page below is included from the tutorial script; edit the script, not this block.

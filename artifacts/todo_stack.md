@@ -32,14 +32,6 @@ development `.venv` described at the end of this file is not package evidence.
 
 ### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
 
-### 05-63 The only runnable instruction on ten pages needs files that ship in neither artifact
-- **Problem** `examples/` is in neither the wheel (`include = ["jnwb*"]`) nor the sdist (not in `MANIFEST.in`), yet `python examples/tutorials/NN_*.py` is the sole runnable line on `quickstart.md` and all nine tutorial pages, and `install.md` never says a clone is required.
-- **Evidence** Wheel 53 entries, sdist 100 entries, `examples/` absent from both.
-- **Change** One line in `install.md` and `quickstart.md` saying the tutorials require a clone. `docs/agents.md:14` already does this correctly for `AGENTS.md` and `skills/`.
-- **Preserves** The tutorials as CI-executed pedagogy, which is the right place for them.
-- **Discriminator** A `pip install` user is told what they do and do not have.
-- **Accept** Every runnable instruction states its prerequisite.
-
 ### 05-64 Contributor material on the user-facing path, and one page that is a pointer
 - **Problem** About 3,900 of 22,181 words (17.6%) address contributors from the nav.
 - **Evidence** `docs/10_extending_jnwb_and_verification.md` (117 words) says "This page is a short pointer"; three of its four blocks duplicate `CONTRIBUTING.md`'s "Before you push", and its unique MCP line points at `agents.md`. That duplication already produced a stale fact: it says "gates 1-12" while the runner prints 13 and `CONTRIBUTING.md:57` says 13. `docs/11` (2,764 words) is contributor material under a "Tutorials & Development" heading, with sections 4, 5, 6 and 8 restating `CONTRIBUTING.md` near-verbatim and cross-referencing it circularly — but its section 9.2 (1,431 words) is the only documentation anywhere for `aperiodic_fit`, `vflip`, `xflip`, `zflip`, `probe_geometry`, `stream_npz_array` and `label_layers`. `docs/01` sections 1-3 name an internal scaffolding marker and a test file. The "logarithm last" rule appears four times in about 400 words. `api.md` is listed twice in the nav (28 entries, 27 unique).

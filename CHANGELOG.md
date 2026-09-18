@@ -188,6 +188,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`tests/test_docs_runnable_prerequisites.py` holds the statement and the fact it
+  asserts together.** One test sweeps every `python examples/` instruction in `docs/` and
+  requires the prerequisite within the text that follows it; another reads
+  `pyproject.toml` and `MANIFEST.in` and fails if `examples/` starts shipping, which would
+  make the note wrong in the other direction. The first was written per page and a
+  discriminator survived it: `quickstart.md` carries two instructions, so deleting one
+  note left the other's text in the file and the check still passed. It is per instruction
+  now, and all four discriminators kill.
 - **`tests/test_examples_quickstart.py` runs the script that nothing ran.**
   `AGENTS.md` names `examples/quickstart_jnwb.py` the smallest end-to-end script and
   `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it
@@ -273,6 +281,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Ten pages gave a runnable instruction that a `pip install` reader cannot follow.**
+  `examples/` is not a package, so `packages.find include = ["jnwb*"]` leaves it out of
+  the wheel, and `MANIFEST.in` grafts `skills` and `AGENTS.md` but not `examples`, so it
+  is out of the sdist too -- built here, 56 wheel entries and 105 sdist entries, no path
+  matching "example" in either. `python examples/tutorials/NN_*.py` was nonetheless the
+  only runnable line on all nine tutorial pages, and `quickstart.md` gave it twice, while
+  `install.md` led with `pip install jnwb` and offered a clone as a development
+  alternative. Each instruction now states the prerequisite where it stands, because a
+  reader arriving from a search engine lands on the tutorial page and not on the index,
+  and `install.md` says what each artifact carries. `docs/agents.md` already did this for
+  `AGENTS.md` and `skills/`.
+- **`docs/assets/jnwb_quickstart.png` was a copy of the quickstart figure from 2026-09-05
+  and the only rendering a documentation reader sees.** It showed a permutation panel the
+  library has since refused to compute -- the script wrote no figure at all, having exited
+  1 -- so the page illustrated a version of jnwb that no longer exists. Regenerating one
+  copy and not the other is the same second-copy failure in its usual form, so the two are
+  now held to byte identity by a test.
 - **The script both README and `docs/quickstart.md` call executable exited 1 without
   writing a figure.** 0.2.x tightened `permute_labels` to refuse a design with one label
   per group, and that is exactly the design `examples/quickstart_jnwb.py`'s permutation

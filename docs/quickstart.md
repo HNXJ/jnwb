@@ -15,7 +15,7 @@ For a new recording, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
 4. [LFP and spectral](tutorials/04_lfp_and_spectral.md) with `acquisition_channel`, `epoch_continuous`, `compute_psd`, `wpli`.
 5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Pipeline](tutorials/08_end_to_end_pipeline.md).
 
-Run locally: `python examples/tutorials/00_your_own_file.py` (add your own file path as an argument), then `01_nwb_basics.py` and `02`–`08`.
+Run locally: `python examples/tutorials/00_your_own_file.py` (add your own file path as an argument), then `01_nwb_basics.py` and `02`–`08`. `examples/` ships in neither the wheel nor the sdist, so these need a [clone](install.md#source-checkout), not `pip install jnwb`.
 
 ## Install & Import
 
@@ -54,6 +54,8 @@ Run the complete quickstart script locally:
 ```bash
 python examples/quickstart_jnwb.py
 ```
+
+`examples/` ships in neither the wheel nor the sdist, so this line needs a [clone](install.md#source-checkout), not `pip install jnwb`.
 
 ---
 

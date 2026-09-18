@@ -11,6 +11,8 @@ layout off [`jnwb.inspect`](../02_paths_addressing_metadata.md) and adapts to wh
 python examples/tutorials/00_your_own_file.py /path/to/recording.nwb
 ```
 
+`examples/` ships in neither the wheel nor the sdist, so this line needs a [clone](../install.md#source-checkout), not `pip install jnwb`.
+
 With no argument it writes a small stand-in with plain `pynwb` first, so the script runs
 anywhere. The stand-in names its code column `stimulus` rather than `codes`, because that is
 the situation the discovery step exists for.

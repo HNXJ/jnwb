@@ -8,6 +8,8 @@ pip install -U jnwb
 
 The current library release is dataset-agnostic. The public surface is documented in [Public API](api.md) and is the contents of `jnwb.__all__`.
 
+A wheel carries the library, and the sdist adds `AGENTS.md` and `skills/`. Neither carries `examples/`, so the executable tutorials the [Quickstart](quickstart.md) and [Tutorials](tutorials/01_nwb_basics.md) tell you to run need the [source checkout](#source-checkout) below. [What an agent gets](agents.md) has the full table.
+
 ### Optional Acceleration Backends & Extras
 
 `jnwb` is structured with modular extras so production workflows install only what they need:
