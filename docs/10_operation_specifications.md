@@ -42,7 +42,18 @@ Every operation added in 0.2 conforms to the following universal library convent
 
 ### 5. Axis & Dimension Vocabulary
 - Array dimensions follow standard named tensor shapes:
-  - Continuous signals: `(n_times, n_channels)`
+  - Continuous signals: **channel-major `(n_channels, n_times)`**, except where a
+    function says otherwise in its own signature. This line read `(n_times, n_channels)`
+    until 0.2.5 and named the minority: of the ten exported functions taking a 2-D
+    continuous signal, eight are channel-major (`bipolar_reference`,
+    `laplacian_reference`, `channel_correlation_matrix`, `current_source_density_1d`,
+    `voltage_curvature_1d`, `vflip_from_lfp`, `xflip`, `zflip` -- the spatial, re-reference
+    and depth family, for which a channel axis is the axis being operated on) and two are
+    time-major (`compute_psd`, whose `axis` argument selects it explicitly and defaults to
+    0, and `epoch_continuous`, which returns `(n_events, n_window_samples, n_channels)`).
+    A blanket claim matters here because a reader consults this section exactly when a
+    docstring is silent, and a transposed array of a probe with many channels stays
+    plausible: `laplacian_reference` on it returns the right shape and the wrong numbers.
   - Trial-aligned epochs: `(n_trials, n_channels, n_times)`
   - Time-frequency representations: `(n_trials, n_channels, n_freqs, n_times)` or `(n_channels, n_freqs, n_times)`
   - Spectral profiles: `(n_channels, n_freqs)`
