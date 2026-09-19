@@ -6,13 +6,21 @@ instruction file.** There is no second rule set at the root and no per-assistant
 a rule that is not here is not a rule of this repository. A project that *uses* jnwb keeps
 its own rules in its own repository.
 
-**Leave no process-authorship narrative in the library surface.** Harness vocabulary
-(agents, assistants, orchestration tooling) is named only in four places: `skills/`, this
-file, one line in `README.md`, and `CONTRIBUTING.md`. Not in `jnwb/`, `tests/`, `scripts/`,
-`docs/`, `CHANGELOG.md`, or code comments/docstrings — except **machine-required literals**
-such as the path `agents/openai.yaml` in skill-structure tests, and standard technical
-metadata in generated assets (e.g. Creative Commons RDF `cc:Agent` creator tags in Matplotlib
-SVG output). A reader of the library should see a library.
+**Leave no process-authorship narrative in the library surface.** Public documentation may
+describe AI agents, skills, routing, and agent-assisted use when these are public jnwb
+capabilities. Internal harness terminology, repository agent roles, implementation process,
+and private coordination vocabulary must not leak into public documentation unless required
+to explain a public interface.
+
+Not in `jnwb/`, `tests/`, `scripts/`, `CHANGELOG.md`, or code comments/docstrings — except
+**machine-required literals** such as the path `agents/openai.yaml` in skill-structure tests,
+and standard technical metadata in generated assets (e.g. Creative Commons RDF `cc:Agent`
+creator tags in Matplotlib SVG output). A reader of the library should see a library.
+
+Amended 2026-09-19. The previous rule named `docs/` among the places harness vocabulary may
+not appear, which contradicted an intentionally agent-usable package and was already broken
+by four published pages. The boundary is now public capability against internal process, not
+the word "agent".
 
 ## 0. Where things are
 
@@ -24,7 +32,7 @@ SVG output). A reader of the library should see a library.
 | `scripts/harness_gate.py` | Repository gates 1–13 (§6) |
 | `scripts/release_gate.py` | Builds the wheel, installs it in a clean venv, smoke-tests it |
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
-| `artifacts/agents/` | Portable role definitions: `authority`, `critic`, `actor`, `verifier`, `docs-harness`. Decoupled from domain skills (`role` $\perp$ `domain`). Parameterized via delegation packets |
+| `artifacts/agents/` | Portable role definitions: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer`. Decoupled from domain skills (`role` $\perp$ `domain`). Parameterized via delegation packets |
 | `artifacts/todo_stack.md` | Remaining work, grouped by the version that carries it (§2). Finished items are deleted |
 | `artifacts/fact_stack.md` | Small, human-authorized durable facts (§2). No pending actions; agents read but do not edit without explicit authorization |
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
@@ -35,7 +43,7 @@ SVG output). A reader of the library should see a library.
 | `examples/notebooks/` | Notebooks on synthetic data; `tests/test_notebooks.py` executes every one |
 | `pyproject.toml` | Version source, dependencies, Python floor |
 | `CHANGELOG.md` | What changed per release, including breaking changes |
-| `.github/workflows/workflow.yml` | CI: tests on 3.12 and 3.14 (Ubuntu, Windows), build, docs. Tag push validates only; production PyPI on GitHub Release `published`; `rc`/prerelease → TestPyPI |
+| `.github/workflows/workflow.yml` | CI: tests on 3.12, 3.13 and 3.14 (Ubuntu, Windows), build, docs. Tag push validates only; production PyPI on GitHub Release `published`; `rc`/prerelease → TestPyPI |
 
 ## 1. Evidence
 

@@ -6,6 +6,7 @@ mechanically caught and rejected by the harness gate.
 from __future__ import annotations
 
 import ast
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -627,6 +628,17 @@ class TestHarnessResetContracts:
 
         existing_role_files = {p.stem for p in agents_dir.glob("*.md")}
         assert expected_roles == existing_role_files, f"Role files mismatch: {existing_role_files ^ expected_roles}"
+
+        # The ROLE enum in the delegation contract was a field name nothing read: a role
+        # could be added here and never offered to a dispatcher, or listed there and have
+        # no definition to load. Both halves now have to agree.
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        enum_line = re.search(r"^ROLE:\s*(.+)$", skill_text, re.MULTILINE)
+        assert enum_line, "skills/jnwb-fact-action/SKILL.md has no ROLE: enum to validate"
+        enumerated = {r.strip() for r in enum_line.group(1).split("|")}
+        assert enumerated == existing_role_files, (
+            f"ROLE enum and artifacts/agents/ disagree: {enumerated ^ existing_role_files}"
+        )
 
         # Roles must be domain-orthogonal and consume domain skills
         for role in expected_roles:

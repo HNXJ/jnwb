@@ -179,7 +179,7 @@ INTERNAL_ROOT_PACKAGES = {"scripts", "tests", "docs", "examples"}
 # no ceiling; CI tests the floor and the newest declared version.
 PYTHON_FLOOR = "3.12"
 PYTHON_SUPPORTED = ("3.12", "3.13", "3.14")   # what the classifiers must claim
-PYTHON_CI_REQUIRED = ("3.12", "3.14")         # floor and head; the matrix must cover both
+PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14")  # every claimed version must be tested
 
 #: Directories that hold tracked source. Anything else at the root is a mistake.
 SOURCE_ROOT_DIRS = {
@@ -510,8 +510,10 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
        ceiling exists, and an upper pin locks users out of interpreters that work.
     2. The classifier set equals PYTHON_SUPPORTED exactly, in both directions: nothing
        below the floor, and nothing claimed that is not declared.
-    3. The CI matrix contains every version in PYTHON_CI_REQUIRED (the floor and the
-       newest declared version). It is no longer required to be a singleton.
+    3. The CI matrix contains every version in PYTHON_CI_REQUIRED, which is now every
+       version the classifiers claim. Requiring only the floor and the head is what let
+       0.2.5 ship a 3.13 classifier that CI never exercised, and let this gate report the
+       three surfaces as agreeing while one claimed version was untested.
     4. `.readthedocs.yaml` pins one interpreter drawn from PYTHON_SUPPORTED. A docs
        build needs one version, not a matrix -- it just may not drift outside the range.
     """

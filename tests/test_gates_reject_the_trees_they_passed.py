@@ -206,10 +206,21 @@ class TestGate8FailsOnAbsenceRatherThanSkipping:
         assert check_python_floor_consistency(REPO_ROOT) == []
 
     def test_the_pass_line_does_not_claim_more_coverage_than_the_matrix_has(self):
-        """3.13 is supported and untested; the report must say which set is which."""
-        assert "3.13" in PYTHON_SUPPORTED
-        assert "3.13" not in PYTHON_CI_REQUIRED
+        """The report must name the CI set separately from the declared set.
+
+        Written when 3.13 was declared and untested, this pinned that specific gap. The gap
+        was closed on 2026-09-19 by adding 3.13 to the matrix, which made the premise false
+        and this test fail -- correctly. What is worth keeping is not the gap but the
+        wording: a PASS line that prints only the declared set reads as a coverage claim on
+        any future tree where the two sets drift apart again.
+        """
+        assert set(PYTHON_CI_REQUIRED) <= set(PYTHON_SUPPORTED), (
+            "CI cannot require a version that is not declared supported"
+        )
         report = (REPO_ROOT / "scripts" / "harness_gate.py").read_text(encoding="utf-8")
+        assert "classifiers {list(PYTHON_SUPPORTED)}" in report, (
+            "the PASS line no longer names the declared set"
+        )
         assert "CI covering {list(PYTHON_CI_REQUIRED)}" in report, (
             "the PASS line no longer names the CI set separately from the declared set, so it "
             "reads as though every supported version is tested"

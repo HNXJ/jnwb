@@ -76,8 +76,15 @@ after. `Accept` the mechanical condition. `Stop` conditions beyond the standing 
 
 `artifacts/alignment_review_0.2.5.md` (31 confirmed, 12 upheld with dissent, 4 refuted, 36
 unverified; identifiers there are stable and are what 06-03 cites), `artifacts/planned_post_0.2.5.md`,
-the two residual limits recorded by 05-85 in `artifacts/todo_stack_0.2.5.md`, and the carried
-`granger_causality(order=...)` candidate.
+the two residual limits recorded by 05-85 in `artifacts/todo_stack_0.2.5.md`, the carried
+`granger_causality(order=...)` candidate, and the downstream consumer report at
+`E:/omission/context/state/JNWB_HANDOUT_20260919.md` (measured against installed 0.2.5, commit
+`efdba80`), whose admitted items are 06-41 through 06-46.
+
+A consumer report is evidence of a consumer's experience, not of a jnwb defect. Its items are
+reproduced here against this tree before anything is written, and the three capability and
+dependency asks end in a scoping proposal for a human ruling, never in an implementation: new
+capability is frozen out of this cycle by the non-goals below.
 
 **Every imported finding enters as a hypothesis to reproduce, never as a defect to implement.**
 The review's own adversarial pass refuted four findings that read as solid.
@@ -92,7 +99,7 @@ The direction of repair is fixed: **package evidence plus human ruling produces 
 goal.** A desired presentation never produces a new package identity. This binds the "dynamic"
 wording, the AI-native positioning and the topology figure in particular.
 
-Batch 0 completes before any substantive edit elsewhere. Three of its five items require a human
+Batch 0 completes before any substantive edit elsewhere. Three of its eight items require a human
 ruling and cannot be dispatched to any agent.
 
 ### 06-01 Rule the corrected goal statement
@@ -127,8 +134,11 @@ modules already check; surface that cost before ruling.
 
 ### 06-03 Disposition every imported finding
 
-Role: jnwb-developer. Skill: none. Blocked by: none.
+Role: jnwb-developer. Skill: none. Blocked by: 06-04.
 Reads: `artifacts/alignment_review_0.2.5.md`. Writes: `artifacts/findings_0.2.6.md`.
+This dispositions imported findings against current repository state, and 06-04 is what
+establishes that state. Running the two independently lets a finding be graded stale against a
+basis nobody re-resolved.
 Build a ledger resolving each of the 31 confirmed and 12 dissent-carrying findings, by its
 identifier, to one of: reproduced, refuted, stale, already repaired, deferred. **No finding may
 disappear for falling outside a batch.** Every deferred entry records why it is out of scope and
@@ -149,9 +159,63 @@ support, CI matrix, exports, skills, published documentation, packaging, gates.
 Accept: a receipt per line, each a command and its output.
 Stop: any recorded value disagrees with the live tree.
 
+### 06-41 Scope the length-1 attribute array read failure
+
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
+Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H1.
+A consumer reports that 8 of 22 NWB files fail to open because `general/devices/probeA`
+stores `description` and `manufacturer` as length-1 object arrays, which hdmf rejects as
+`ndarray` where `str` is required. The ninth failing file is reported to fail separately at
+`root/units` with `Columns must be the same length`; it is a different defect and is recorded,
+not merged into this one.
+Reproduce: construct a minimal NWB file whose device attributes are length-1 object arrays --
+the consumer's corpus is not distributable, so a synthetic reproducer is the only admissible
+evidence -- and show that the jnwb entry point that opens a session raises. If a constructed
+file opens cleanly, the report does not reproduce against this tree and the item returns
+`unsupported`.
+Do: nothing to `jnwb/`. Return a proposal stating the entry point that would carry a tolerant
+read, what "tolerant" would and would not squeeze, how a squeezed value would be recorded so a
+caller can tell it was squeezed, and which of the frozen non-goals it touches.
+Accept: a synthetic reproducer that fails, plus a proposal in that form. A tolerant read path is
+new capability and is not implemented under this item.
+Stop: the proposal would require deciding whether jnwb tolerates malformed files. That is a
+human ruling on scope, not a developer judgement.
+
+### 06-42 Scope the hdmf and pandas version contradiction
+
+Role: jnwb-developer. Skill: none. Blocked by: 06-04. Writes: none.
+Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H2.
+A consumer reports that hdmf 4.3.1 declares `pandas<3,>=1.2.0`, that their corpus needs pandas
+3.0.5 for units-table construction to succeed, and that installing jnwb resolves pandas back to
+2.3.3 and breaks them.
+Reproduce: resolve what jnwb itself declares for pandas and hdmf, and whether jnwb's declaration
+or hdmf's transitive pin is what moves the resolver. A contradiction inside a dependency jnwb
+merely requires is not the same finding as a contradiction jnwb declares.
+Do: nothing to `pyproject.toml`. Return which side owns the pin, with the receipt.
+Accept: the owner is named from the live dependency metadata, not inferred.
+Stop: the answer is "hdmf must move". jnwb cannot relax another project's pin, and deciding to
+diverge from a dependency's declared range is a human ruling.
+
+### 06-43 Scope the unit-to-layer mapping gap
+
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none. Writes: none.
+Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H4.
+A consumer reports that no export maps a unit to its peak channel's electrophysiological layer,
+and that the two layer-bearing taxonomies are not joinable: `laminar.label_layers` returns
+`superficial | input | deep | na` while `addressing.classify_layer_from_depth` returns
+`Superficial | Deep | Unknown` from a geometric threshold.
+Reproduce: enumerate every layer-bearing export on this tree and show, by execution, whether any
+composition of them answers "which layer is this unit in". The claim to test is the absence of a
+capability, which is refuted by one working composition.
+Do: nothing. If the gap reproduces, return a proposal for the minimal helper, its signature, the
+label set it returns, and what it does where the peak channel is absent or ambiguous.
+Accept: either a composition that closes the gap, which deletes this item, or a proposal.
+Stop: a new estimator is required. Adding one is frozen out of this cycle.
+
 ### 06-05 Freeze the acceptance set and the non-goals
 
-Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-03, 06-04. Writes: this file.
+Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-03, 06-04, 06-41, 06-42, 06-43.
+Writes: this file.
 Accept: the frozen set is dated and the non-goals section below is part of it.
 
 ## Batch 1. Public truth and reachability
@@ -212,11 +276,16 @@ Writes: `README.md`, `docs/install.md`, and the release body through the API.
 Reproduce: `gh release view v0.2.5 --json body -q .body` ends "Python 3.10 through 3.14" while
 `grep -n requires-python pyproject.toml` gives `>=3.12`; `grep -n "3.10 through 3.14" CHANGELOG.md`
 shows the phrase was inherited from the 0.1.0 entry. `docs/install.md` states no minimum at all.
-Do: correct the release body and state the minimum on the install page.
-Stop and surface: whether 3.13 is supported. Harness gate 8 reports the 3.12 floor, classifiers
-`['3.12','3.13','3.14']` and CI `['3.12','3.14']` as agreeing, so the gap is permitted by design.
-Absence from CI is not evidence of non-support. This half needs a ruling, not a repair.
-Accept: every surface states one minimum, and the 3.13 question is recorded as ruled or open.
+Ruled 2026-09-19: supported Python is 3.12, 3.13 and 3.14, and 3.13 is added to CI rather than
+having its classifier withdrawn. The v0.2.5 release body was corrected to "Python 3.12 through
+3.14" on the day of the ruling; `.github/workflows/workflow.yml` and `PYTHON_CI_REQUIRED` in
+`scripts/harness_gate.py` were changed with it, so gate 8 now requires every claimed version to
+be tested instead of only the floor and the head. Immutable historical artifacts are not
+rewritten to look retroactively correct.
+Do: converge the remaining surfaces -- `README.md` and `docs/install.md` -- on that policy, and
+add the qualification evidence.
+Accept: every surface states the same supported set, and gate 8 fails if a classifier names a
+version the matrix does not test.
 
 ### 06-11 Gate the release body
 
@@ -307,6 +376,58 @@ One packet per ledger entry disposed `reproduced` and claimed by no other item, 
 consequence first. Writes: named per packet from the finding's own receipt.
 Accept: each returns `repaired` with a discriminator, or `unsupported` with evidence.
 
+### 06-44 The fdr_pval keys that are not FDR-corrected
+
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
+Writes: `jnwb/statistics.py`, `tests/`, and the documentation page that names the keys.
+A consumer reports that `fdr_pval_parametric` and `fdr_pval_nonparametric`, referenced at
+`statistics.py:1117`, `:1132` and `:1147`, mirror the raw p-values. This is the same shape as
+06-15: a plausible value under a label that says it is something else, returned with no error.
+Reproduce: call the producing function on input whose raw and corrected p-values must differ,
+and compare the `fdr_*` key against both. Reproduction is the two being equal where correction
+would have changed them.
+Do: either correct the values or remove the keys. Do not rename a key to something vaguer.
+Discriminator: a test that fails against the current implementation and passes after.
+Accept: no key whose name asserts a correction returns an uncorrected value; the choice between
+correcting and removing is recorded with its reason.
+Stop: removing the keys breaks a documented return schema. That is an API change and needs a
+ruling.
+
+### 06-45 Automatic dual testing in compare_groups
+
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-44.
+Writes: `jnwb/statistics.py`, `tests/`, the routed skill file.
+A consumer reports that `compare_groups` and `compare_multiple_groups` return parametric and
+non-parametric results by construction, with no `test=`, which makes a pre-registered family
+budget unenforceable because the caller cannot declare one primary test.
+Reproduce: show from the live signature and return value that both are always computed and that
+no parameter selects one.
+Do: the smallest change that lets a caller name one primary test, with the second available
+only on request. A docstring that merely warns is not sufficient here: the defect is that the
+count of tests performed is not under the caller's control.
+Discriminator: a call naming one test that returns the other's keys fails after the change.
+Accept: the primary test is explicit at the call site, the existing default behaviour is either
+preserved or its change recorded in `CHANGELOG.md`, and the skill row matches the new signature.
+Stop: the minimal change is not backward compatible. Escalate rather than choosing.
+
+### 06-46 permutation_test on grouped data
+
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
+Writes: `jnwb/statistics.py` or its docstring, `tests/`.
+A consumer reports that `StatisticalAnalysis.permutation_test` is a flat ungrouped shuffle with
+no `groups=` or `scheme=`, while `jnwb.permutation.permute_labels` already implements grouped
+schemes; they report it having shipped as a real bug once.
+Reproduce: show from the live signature that no grouping is accepted, and construct grouped
+input where a flat shuffle and a within-group shuffle give materially different null
+distributions. Reproduction is that difference, not the signature alone.
+Do: the smaller of the two admissible repairs -- accept the same grouping arguments, or state in
+the docstring that the method must not be used on grouped data and name `permute_labels` as the
+tool that must be used instead. Prefer the docstring where accepting grouping would duplicate
+`permute_labels`.
+Discriminator: whichever repair is chosen, a check that fails before it and passes after.
+Accept: a caller reading only the method's own documentation cannot apply it to grouped data
+believing it is correct.
+
 ## Batch 3. Coherence of code, documentation, tests and skills
 
 05-85 recorded two limits: composition's aggregation order and identifier survival were not
@@ -321,6 +442,12 @@ Writes: `artifacts/composition_subset_0.2.6.md`.
 Name the producer-consumer chains before any test in 06-19 through 06-23 is written. Within the
 declared subset, unknown is not a pass. The boundary of the subset is part of the acceptance
 record, not an omission from it.
+The developer packet proposes the smallest high-consequence set from reproduced evidence; the
+authority packet rules it. The proposal states, for every chain:
+
+    producer -> consumer -> risk -> failure class -> existing evidence -> proposed discriminator
+
+A count of chains is not a proposal. The six fields are what make the boundary reviewable.
 Accept: each later item in this batch cites chains from this file and adds none of its own.
 Stop: a chain proposed for the subset has no consumer in the public API; that is a capability
 question, not a composition one.
@@ -515,6 +642,20 @@ Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`, and the release body th
 dev green, pull request and main green, tag validates without publishing, GitHub Release,
 production index, then verification from the index in a clean environment. A tag alone validates
 artifacts and does not publish; publication happens on the release.
+
+## Reported and not admitted
+
+Not frozen and not scheduled. Recorded so that nothing reported disappears by not being chosen.
+
+- **H3, staggered shafts read as non-linear.** `probe_geometry` is reported to return
+  `is_linear=False` and `nominal_pitch=47.17` for a shaft whose contacts advance by a constant
+  25 um with a 40 um lateral stagger, `47.17` being `sqrt(25^2 + 40^2)`; `label_layers` then
+  refuses those channels, reportedly 25% of the consumer's corpus. Of the seven handout items
+  offered, this is the one not admitted to 0.2.6. The reporter named it and H1 as their two
+  unblockers, so the omission is worth confirming as deliberate before Batch 2 closes.
+- **The ninth unreadable file.** Reported to fail at `root/units` with `Columns must be the same
+  length`, separately from the eight that fail on device attributes. Not admitted; recorded so
+  that repairing 06-41 is not mistaken for restoring all nine files.
 
 ## Out of 0.2.6 scope
 
