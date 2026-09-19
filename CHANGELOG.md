@@ -71,6 +71,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The axis specification declared the convention two of ten functions use.**
+  `docs/10_operation_specifications.md` section 5 gave one blanket order for continuous
+  signals, `(n_times, n_channels)`. Of the ten exported functions taking a 2-D continuous
+  signal, eight are channel-major -- `bipolar_reference`, `laplacian_reference`,
+  `channel_correlation_matrix`, `current_source_density_1d`, `voltage_curvature_1d`,
+  `vflip_from_lfp`, `xflip`, `zflip`, the spatial, re-reference and depth family -- and only
+  `compute_psd`, whose `axis` argument selects the order explicitly, and `epoch_continuous`
+  follow the declared one. The line is consulted exactly when a function's own docstring is
+  silent, and a transposed continuous signal is not a loud failure: `laplacian_reference` on
+  a probe with many channels returns an array of the expected shape holding a spatial
+  derivative taken across time, raising nothing and warning nothing.
+  `tests/test_axis_convention_matches_the_specification.py` pins the convention by executing
+  the functions rather than by reading their docstrings, since a docstring is one more face;
+  two further tests fail if the declared default stops being the majority, or if a new
+  time-major function is not added to the exception list. Six discriminating mutations, all
+  killed.
+
+- **Two exported functions computing one estimand answered 0.75 and 0.0.**
+  `majority_baseline(labels)` and `fold_majority_baseline(y_train, y_test)` both document
+  the accuracy of predicting the majority class, so handed one label set as both folds they
+  compute the same quantity. On eight labels of which six were NaN the first returned 0.75
+  and the second 0.0. `np.unique` collects NaNs into a single group, so `majority_baseline`
+  counted "missing" as a class and scored the absence itself, while `fold_majority_baseline`
+  selected that same NaN as the majority class and then tested it with `y_test == nan`,
+  false everywhere. Both now refuse a non-finite label, naming how many of how many are
+  missing: neither answer was right, and accuracy of predicting the majority class is
+  undefined when some labels name no class. Inexact dtypes only, so string and object labels
+  reach `np.unique` exactly as before, and the empty-label NaN that 05-36 chose is unchanged.
+  `nested_cv_linear_svm` is not affected and never was -- scikit-learn rejects a NaN `y`
+  before a baseline is computed, which the new tests record rather than change. Seven
+  discriminating mutations, all killed.
+
 - **Eighteen estimators whose returned numbers no test constrained.** 22 mutations, each
   preserving shape, keys and dtype and changing a returned number, were run against the
   whole suite; 18 survived all 2679 tests. Among them: `compute_psd` returning a spectrum

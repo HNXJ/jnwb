@@ -27,9 +27,42 @@ from ._rng import DEFAULT_SEED, RNGLike, sklearn_random_state
 log = logging.getLogger(__name__)
 
 
-def majority_baseline(labels: np.ndarray) -> float:
-    """Accuracy of always predicting the most frequent class in ``labels``."""
+def _reject_missing_labels(labels: np.ndarray, func_name: str, name: str) -> np.ndarray:
+    """05-85: a missing label is not a class, and the two baselines disagreed about it.
+
+    ``np.unique`` collects NaNs into one group, so ``majority_baseline`` counted "missing"
+    as the majority class and scored it: eight labels of which six were NaN returned 0.75.
+    ``fold_majority_baseline`` selected the same NaN as the majority class and then tested
+    it with ``y_test == nan``, which is False everywhere, so the same eight labels returned
+    0.0. Two exported functions documenting one estimand answered 0.75 and 0.0 for the same
+    input, and neither said anything.
+
+    ``nested_cv_linear_svm`` never reached either number -- scikit-learn rejects a NaN ``y``
+    first -- so this closes the direct route to a baseline computed from absent labels, and
+    makes the two agree by refusing rather than by picking one of the two answers. Neither
+    was right: accuracy of predicting the majority class is undefined when some labels name
+    no class.
+    """
     labels = np.asarray(labels)
+    # Only inexact dtypes can carry NaN or infinity; object and string labels are compared
+    # by equality and are left to `np.unique` exactly as before.
+    if labels.dtype.kind in "fc" and not np.all(np.isfinite(labels)):
+        n_missing = int(np.count_nonzero(~np.isfinite(labels)))
+        raise ValueError(
+            f"{func_name}: {name} contains {n_missing} non-finite label(s) of "
+            f"{labels.size}. A missing label is not a class -- counting it as one scored "
+            f"the absence itself. Drop those trials, or label them explicitly."
+        )
+    return labels
+
+
+def majority_baseline(labels: np.ndarray) -> float:
+    """Accuracy of always predicting the most frequent class in ``labels``.
+
+    Raises:
+        ValueError: If ``labels`` contains NaN or infinity.
+    """
+    labels = _reject_missing_labels(labels, "majority_baseline", "labels")
     if len(labels) == 0:
         return float("nan")
     # 05-36: `np.bincount(labels.astype(int))` requires contiguous non-negative integers.
@@ -40,10 +73,16 @@ def majority_baseline(labels: np.ndarray) -> float:
 
 
 def fold_majority_baseline(y_train: np.ndarray, y_test: np.ndarray) -> float:
-    """Accuracy of predicting the training-fold majority class on the held-out fold."""
-    classes, counts = np.unique(np.asarray(y_train), return_counts=True)
+    """Accuracy of predicting the training-fold majority class on the held-out fold.
+
+    Raises:
+        ValueError: If either fold contains NaN or infinity.
+    """
+    y_train = _reject_missing_labels(y_train, "fold_majority_baseline", "y_train")
+    y_test = _reject_missing_labels(y_test, "fold_majority_baseline", "y_test")
+    classes, counts = np.unique(y_train, return_counts=True)
     majority_class = classes[int(np.argmax(counts))]
-    return float(np.mean(np.asarray(y_test) == majority_class))
+    return float(np.mean(y_test == majority_class))
 
 
 def nested_cv_linear_svm(
