@@ -40,12 +40,11 @@ ALLOWED = {
         "Downstream: same importer and pipeline as compare_old_new_criteria, called "
         "with group_cols=('area', 'quality_tier')."
     ),
-    "coef_rows": (
-        "Downstream: called in three modules, and one of them exists only because "
-        "exclude_vc/estimate_key/stat_key are settable -- it delegates here instead of "
-        "keeping a forked copy. It is also re-exported by a consumer module, so "
-        "deleting it breaks importers that never named jnwb."
-    ),
+    # coef_rows was exempted here as reachable only from downstream repositories. 05-83
+    # measured that swapping its ci_lo for its ci_hi changed a returned number and survived
+    # the whole suite, so tests/test_estimator_values_are_pinned.py now calls it and the
+    # exemption is spent. The downstream callers are still real; they are no longer the
+    # only ones.
     "MADELANE_VIOLET": "Palette member; MADELANE_GOLD from the same set is used.",
     "MADELANE_WHITE": "Palette member; MADELANE_GOLD from the same set is used.",
     "MADELANE_GRAY": "Palette member; MADELANE_GOLD from the same set is used.",
