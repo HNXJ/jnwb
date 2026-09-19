@@ -510,7 +510,8 @@ unknowns, the mutation evidence, the public claims and the release artifacts.
 
 ### 06-40 Release
 
-Role: human, with verifier receipts. Blocked by: 06-39.
+Role: human, with verifier receipts. Skill: none. Blocked by: 06-39.
+Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`, and the release body through the API.
 dev green, pull request and main green, tag validates without publishing, GitHub Release,
 production index, then verification from the index in a clean environment. A tag alone validates
 artifacts and does not publish; publication happens on the release.
