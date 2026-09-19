@@ -46,14 +46,52 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-84 Release seal
-- **Problem** 0.2.5 is not releasable until the above is closed.
-- **Change** Bump version, release date and status; write the CHANGELOG; clean tree; push `dev`; remote CI green on the full matrix; merge per the ordering in `artifacts/fact_stack.md`; tag; release; verify from the published artifact rather than a local build.
-- **Preserves** Release publication ordering: validate on `main`, tag, GitHub Release, production PyPI.
-- **Discriminator** A fresh venv installs from PyPI and reproduces the version, status, release date and full symbol set.
-- **Accept** Verified from PyPI, not from a local wheel or cache.
+*Empty. 0.2.5 is released; the records below say what each closed item measured.*
 
 # Findings marked unsupported
+
+## 05-84 released and verified from PyPI, not from the build that made it -- recorded 2026-09-19
+
+`__version__` 0.2.5, `__release_date__` 2026-09-19, `__status__` Beta unchanged because the
+wheel's own classifier says Beta, and the CHANGELOG's `[Unreleased]` heading became
+`[0.2.5] - 2026-09-19` over 120 entries.
+
+**Three receipts had to move with the version, and two of the three were found by tests
+rather than remembered:** `artifacts/benchmarks/import_profile.txt` and
+`import_breakdown.json` record the version they were generated from and failed until
+regenerated; `docs/agents.md` carried a `SKILLS_URL` example pinned to v0.2.4 and failed.
+`README.md` said "This checkout is `0.2.4`" and **nothing failed**, because nothing read it.
+It was found by grep, which is not a gate, so
+`tests/test_prose_version_claims_are_live.py` now fails when a version mention appears in
+`README.md` or `docs/` that is neither the live version nor declared history. It cannot
+classify them itself -- "deprecated in 0.1.7" and "this checkout is 0.1.7" are the same shape
+and only one should move on a bump -- so the two historical mentions are listed individually
+and a second test fails if that allowlist starts excusing text that is gone. Five
+discriminating mutations, all killed; the fifth survived first and exposed a real gap, both
+checks having skipped an entire line when it carried the pinned claim, so a stale version
+beside a correct one was excused by it.
+
+**Publication ordering held, and was observed rather than assumed.** Merge of
+[#18](https://github.com/HNXJ/jnwb/pull/18) to `main` as `0caf730a`, full matrix green;
+`v0.2.5` tagged on that commit, and the tag run's `Publish to PyPI` and `Publish to TestPyPI`
+jobs both reported **skipped** -- which is the fact `artifacts/fact_stack.md` asserts, that a
+tag push validates artifacts without uploading. The GitHub Release then ran `Publish to
+PyPI` to success.
+
+**Accept: verified from PyPI, not from the local wheel.** A fresh venv, `pip install
+jnwb==0.2.5` from `https://pypi.org/simple`, reports version 0.2.5, distribution metadata
+0.2.5, release date 2026-09-19, status Beta, and 156 exports whose sorted `__all__` is
+identical to the checkout's with no symbol on either side alone. `jnwb.__file__` resolves
+inside that venv, not into the checkout. The three 05-85 repairs were re-checked against the
+published copy rather than assumed to have shipped: `majority_baseline` refuses a missing
+label, `laplacian_reference` is channel-major with a flat interior on a channel ramp,
+`cross_modal_comparison` returns no `lag_corrected_pvalue` on its default branch, and
+`bin_spikes` returns `(n_trials, n_bins)`. `SKILLS_URL` resolves: HTTP 200 at
+`tree/v0.2.5/skills`.
+
+Local evidence taken before publishing, and not used in place of the above: full suite 2876
+passed, 3 skipped; sdist and wheel built and passed `twine check`; the local wheel installed
+into a separate clean venv and reported the same version and exports.
 
 ## 05-85 three contradictions between faces, seven dimensions swept, two limits recorded -- recorded 2026-09-19
 
