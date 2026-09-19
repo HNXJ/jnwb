@@ -45,7 +45,7 @@ pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.4`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.5`. To install it from a clone instead of from PyPI:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs]" for development
