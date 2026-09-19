@@ -145,9 +145,10 @@ class TestTheSpecificationDeclaresTheMajorityConvention:
     def test_the_declared_default_is_still_the_majority(self):
         """The claim that makes the line true, checked against the code rather than assumed.
 
-        This is what fails if the balance shifts: adding time-major functions until they
-        outnumber the channel-major ones would make section 5 wrong again, and no test of
-        its wording alone would notice.
+        A coarse backstop, and deliberately so: it fires only on a wholesale shift, not on
+        one function changing sides. Flipping a single function leaves seven against three
+        and this still passes, which is why the exception list is pinned by equality above
+        rather than left to this.
         """
         conventions = continuous_signal_conventions(public_docs())
         channel_major = conventions["channel_major"]
@@ -157,12 +158,18 @@ class TestTheSpecificationDeclaresTheMajorityConvention:
             f"are time-major against {sorted(channel_major)}"
         )
 
-    def test_every_time_major_function_is_named_as_an_exception(self):
-        """A new time-major function must be added to the list, not left to the blanket."""
+    def test_the_time_major_functions_are_exactly_the_ones_listed(self):
+        """A new time-major function must be added to the list, not left to the blanket.
+
+        Set equality, not membership. An earlier version asked only whether each
+        time-major function was named anywhere in section 5, which every function in the
+        channel-major list already is: flipping `channel_correlation_matrix` to time-major
+        left that test passing, because the section still contained its name. Equality
+        fails in both directions -- a function that becomes time-major, and one of the two
+        listed exceptions that stops being one.
+        """
         time_major = continuous_signal_conventions(public_docs())["time_major"]
-        section = spec_section_5()
-        unlisted = sorted(name for name in time_major if name not in section)
-        assert not unlisted, (
-            f"{unlisted} are time-major but section 5 does not name them, so it claims "
-            f"they are channel-major"
+        assert time_major == set(TIME_MAJOR), (
+            f"section 5 lists {sorted(TIME_MAJOR)} as the time-major exceptions, but the "
+            f"docstrings say {sorted(time_major)}"
         )

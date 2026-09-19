@@ -101,9 +101,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   derivative taken across time, raising nothing and warning nothing.
   `tests/test_axis_convention_matches_the_specification.py` pins the convention by executing
   the functions rather than by reading their docstrings, since a docstring is one more face;
-  two further tests fail if the declared default stops being the majority, or if a new
-  time-major function is not added to the exception list. Six discriminating mutations, all
-  killed.
+  two further tests fail if a function changes sides without the exception list changing
+  with it. Seven of eight discriminating mutations are killed; the survivor is the
+  majority-count backstop, which by construction only fires on a wholesale shift and leaves
+  a single function flipping to the exception list pinned beside it. An earlier harness
+  reported six kills it had not made: it passed bare test names as pytest selectors, every
+  test in the module is a method on a class, so nothing was collected and the non-zero exit
+  was read as a failure. The corrected harness runs every selector against the clean tree
+  first and refuses to report a verdict for one that does not name a passing test.
 
 - **Two exported functions computing one estimand answered 0.75 and 0.0.**
   `majority_baseline(labels)` and `fold_majority_baseline(y_train, y_test)` both document
