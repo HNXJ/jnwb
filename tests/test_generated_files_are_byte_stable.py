@@ -134,12 +134,25 @@ class TestGeneratorsPinTheirLineEndings:
 
 class TestGeneratedFilesAreLf:
     @pytest.mark.parametrize("rel", GENERATED_FILES)
-    def test_the_committed_bytes_contain_no_carriage_return(self, rel: str):
-        raw = (REPO_ROOT / rel).read_bytes()
-        n_crlf = raw.count(b"\r\n")
-        assert b"\r" not in raw, (
-            f"{rel} holds {n_crlf} CRLF endings; the script that generates it emits LF, "
-            f"so the next regeneration is a whole-file diff"
+    def test_the_stored_bytes_contain_no_carriage_return(self, rel: str):
+        """The index, not the working tree.
+
+        An earlier version of this test read the file from disk and failed on both Windows
+        CI legs while passing here, because the runners leave `core.autocrlf` at its
+        Windows default of true and rewrite LF to CRLF on checkout. The working tree's
+        endings are therefore a property of the checkout's configuration, not of the
+        repository, and asserting them tests the runner. What has to be LF is what is
+        stored, so that the two halves of the matrix agree on the bytes and a regeneration
+        on either one is a no-op.
+        """
+        eol = subprocess.run(
+            ["git", "ls-files", "--eol", "--", rel], cwd=REPO_ROOT,
+            capture_output=True, text=True, check=True).stdout
+        assert eol.strip(), f"{rel} is not tracked, so it has no stored bytes"
+        index_eol = eol.split()[0]
+        assert index_eol in ("i/lf", "i/none"), (
+            f"{rel} is stored as {index_eol}; the script that generates it emits LF, so "
+            f"anything else makes the next regeneration a whole-file diff"
         )
 
     @pytest.mark.parametrize("rel", GENERATED_FILES)
@@ -152,13 +165,20 @@ class TestGeneratedFilesAreLf:
 
 
 class TestTheApiDocIsByteIdenticalToItsGenerator:
-    def test_regenerating_it_would_change_no_byte(self):
-        """`check_api_md_is_generated` compares normalized text and cannot see endings."""
+    def test_regenerating_it_would_change_no_stored_byte(self):
+        """`check_api_md_is_generated` compares normalized text and cannot see endings.
+
+        Compared against the stored blob rather than the file on disk, for the same
+        reason as TestGeneratedFilesAreLf: a checkout with `core.autocrlf` true holds
+        CRLF whatever the repository stores.
+        """
         from scripts.generate_api_md import generate_api_markdown
 
         generated = generate_api_markdown(REPO_ROOT).encode("utf-8")
-        committed = (REPO_ROOT / "docs" / "api.md").read_bytes()
-        assert generated == committed, (
-            "docs/api.md differs from its generator's bytes; --check passes because it "
-            "compares read_text output, which normalizes line endings away"
+        stored = subprocess.run(
+            ["git", "show", ":docs/api.md"], cwd=REPO_ROOT,
+            capture_output=True, check=True).stdout
+        assert generated == stored, (
+            "docs/api.md's stored bytes differ from its generator's; --check passes "
+            "because it compares read_text output, which normalizes endings away"
         )

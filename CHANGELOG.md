@@ -99,7 +99,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drift gate stayed green either way. The five write sites now pin `newline="\n"` and the
   six files are converted, content byte-identical;
   `tests/test_generated_files_are_byte_stable.py` reads bytes throughout, because a check
-  written with `read_text` cannot see this class of defect at all.
+  written with `read_text` cannot see this class of defect at all. It reads them from the
+  index rather than from disk: the Windows CI runners leave `core.autocrlf` at its Windows
+  default of true and rewrite LF to CRLF on checkout, so a working tree's endings are a
+  property of the checkout and not of the repository. What has to agree across the matrix
+  is what is stored.
 - **A wall clock read once under contention could fail an unrelated test.**
   `test_the_probe_agrees_with_an_independent_wall_clock` timed two fresh imports once each
   against a 1.6x threshold, and failed once in 22 full-suite runs under `pytest -n auto` on

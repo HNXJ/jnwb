@@ -137,6 +137,17 @@ by three scripts whose `write_text` calls let `os.linesep` choose the line endin
 the gate passed before and after a whole-file churn -- which is why every assertion in the
 new module reads bytes.
 
+A correction to that target's own premise, found by CI rejecting the first version of the
+test. "Working-tree bytes are blob bytes" is true of this machine, where `core.autocrlf` is
+false, and false of the Windows CI runners, which leave it at the Windows default of true
+and rewrite LF to CRLF on checkout. The first test read the six files from disk and failed
+on both Windows legs while passing here: it was asserting a property of the checkout's
+configuration, not of the repository. The invariant that matters is what is *stored* -- so
+that the two halves of the matrix agree on the bytes and a regeneration on either is a
+no-op -- and the tests now read the index, through `git ls-files --eol` and `git show :`.
+A working-tree-only change is deliberately no longer detected, and the discriminator that
+used to make one was replaced by one that reaches the stored bytes.
+
 ## 05-82 everything reproduced, one change made narrower than asked -- recorded 2026-09-18
 
 All three gaps were present exactly as described, including the item's four confirmations:
