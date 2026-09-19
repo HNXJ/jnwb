@@ -15,6 +15,7 @@ one more face, and the point of this module is that faces disagree.
 
 from __future__ import annotations
 
+import ast
 import inspect
 import re
 from pathlib import Path
@@ -123,6 +124,104 @@ class TestTheCodeIsChannelMajor:
         rng = np.random.default_rng(0)
         freqs, psd = jnwb.compute_psd(rng.standard_normal((512, 2)), fs=256.0)
         assert psd.shape == (freqs.size, 2)
+
+
+CHANNEL_MAJOR_PRODUCERS = frozenset({
+    "bipolar_reference", "laplacian_reference", "channel_correlation_matrix",
+    "current_source_density_1d", "voltage_curvature_1d", "vflip_from_lfp", "xflip", "zflip",
+})
+TIME_MAJOR_CONSUMERS = frozenset({"compute_psd", "epoch_continuous"})
+
+
+def _called_name(node: ast.Call):
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    if isinstance(func, ast.Name):
+        return func.id
+    return None
+
+
+def cross_convention_hops(source: str) -> list[tuple[int, str, str]]:
+    """Names bound from a channel-major call and passed straight to a time-major one.
+
+    This is the composition form of the specification defect, and the form that produces a
+    number rather than an error: `laplacian_reference` returns `(n_channels, n_times)` and
+    `compute_psd` reads time from axis 0, so the chain computes a spectrum over as many
+    samples as the probe has channels. Both calls are correct alone and a signature check
+    passes both. A transpose or an explicit `axis=` on the hop settles it either way.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    produced: dict[str, str] = {}
+    hops = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            producer = _called_name(node.value)
+            if producer in CHANNEL_MAJOR_PRODUCERS:
+                for target in node.targets:
+                    names = (target.elts if isinstance(target, ast.Tuple) else [target])
+                    for elt in names:
+                        if isinstance(elt, ast.Name):
+                            produced[elt.id] = producer
+        if isinstance(node, ast.Call) and _called_name(node) in TIME_MAJOR_CONSUMERS:
+            if any(kw.arg == "axis" for kw in node.keywords):
+                continue
+            for arg in node.args:
+                if isinstance(arg, ast.Name) and arg.id in produced:
+                    hops.append((node.lineno, produced[arg.id], _called_name(node)))
+    return hops
+
+
+class TestTheCompositionSweepFindsWhatItIsFor:
+    """Nothing in the repository chains the two, so the sweep is driven over seeds."""
+
+    def test_it_finds_a_bare_hop(self):
+        assert cross_convention_hops(
+            "import jnwb\n"
+            "reref = jnwb.laplacian_reference(lfp)\n"
+            "f, p = jnwb.compute_psd(reref, fs=1000.0)\n"
+        ) == [(3, "laplacian_reference", "compute_psd")]
+
+    def test_an_explicit_axis_settles_it(self):
+        assert cross_convention_hops(
+            "import jnwb\n"
+            "reref = jnwb.laplacian_reference(lfp)\n"
+            "f, p = jnwb.compute_psd(reref, fs=1000.0, axis=-1)\n"
+        ) == []
+
+    def test_a_transpose_settles_it(self):
+        assert cross_convention_hops(
+            "import jnwb\n"
+            "reref = jnwb.laplacian_reference(lfp)\n"
+            "f, p = jnwb.compute_psd(reref.T, fs=1000.0)\n"
+        ) == []
+
+    def test_an_unrelated_call_is_not_a_hop(self):
+        assert cross_convention_hops(
+            "import jnwb\nf, p = jnwb.compute_psd(raw, fs=1000.0)\n") == []
+
+
+class TestNoFaceChainsTheTwoConventions:
+    @pytest.mark.parametrize("rel", sorted(
+        p.relative_to(REPO_ROOT).as_posix()
+        for p in list(REPO_ROOT.glob("skills/*/SKILL.md"))
+        + list(REPO_ROOT.glob("examples/**/*.py"))
+        + list(REPO_ROOT.glob("jnwb/*.py"))))
+    def test_it_carries_no_cross_convention_hop(self, rel: str):
+        path = REPO_ROOT / rel
+        text = path.read_text(encoding="utf-8")
+        sources = ([text] if rel.endswith(".py")
+                   else re.findall(r"```(?:python|py)\n(.*?)```", text, re.S))
+        for source in sources:
+            hops = cross_convention_hops(source)
+            assert not hops, (
+                f"{rel} feeds a channel-major result straight into a time-major argument: "
+                f"{hops}. Both calls are right on their own and the result has a plausible "
+                f"shape, so nothing else will say so."
+            )
 
 
 class TestTheSpecificationDeclaresTheMajorityConvention:
