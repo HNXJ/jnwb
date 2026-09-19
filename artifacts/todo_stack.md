@@ -46,14 +46,17 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-85 Code / docs / skills / tests triangle audit
-- **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
-- **Runs** After 05-83 and before 05-84. Added to the frozen stack 2026-09-17 by the ruling recorded in `artifacts/direction.md`; numbered after the last frozen item because the frozen numbers are a record.
-- **Scope** Semantic agreement, not duplicate presence. Public-symbol presence, API generation and export agreement, documentation coverage and onboarding alignment stay with the deterministic gates that already decide them (5, 9, 13 and the skill-vs-exports rule). 05-85 consumes those results and does not re-derive them.
-- **Change** For each important capability, compare the faces that make a claim about each of: shape, units, axes, estimator, aggregation, failure behaviour, randomness, identity/provenance, and composition where the capability is reached through a skill that sequences it with others. Composition carries its own claims — order of operations, order of aggregation, whether identifiers survive, and which signal class is substituted for which — because a routing layer can get every individual operation right and still compose them into a wrong result without restating any mathematics.
-- **Preserves** The rule that a skill may not hold a mutable API fact that documentation and exports also hold.
-- **Discriminator** A seeded contradiction on a semantic dimension is found; a seeded presence-only defect is left to the gate that owns it.
-- **Accept** For every capability `c` and dimension `d`, the faces that claim `d` carry at most one meaning between them. A demonstrated disagreement fails. A dimension the operation requires and no face specifies fails. A dimension the operation does not have is N/A, not missing. A skill silent on `d` passes when routing does not require it.
+### 05-84 Release seal
+- **Problem** 0.2.5 is not releasable until the above is closed.
+- **Change** Bump version, release date and status; write the CHANGELOG; clean tree; push `dev`; remote CI green on the full matrix; merge per the ordering in `artifacts/fact_stack.md`; tag; release; verify from the published artifact rather than a local build.
+- **Preserves** Release publication ordering: validate on `main`, tag, GitHub Release, production PyPI.
+- **Discriminator** A fresh venv installs from PyPI and reproduces the version, status, release date and full symbol set.
+- **Accept** Verified from PyPI, not from a local wheel or cache.
+
+# Findings marked unsupported
+
+## 05-85 three contradictions between faces, seven dimensions swept, two limits recorded -- recorded 2026-09-19
+
 - **Discriminator run 2026-09-19** Both halves, over the three new modules and `tests/test_skills_validation.py`. A seeded semantic contradiction (section 5 reverted to the minority order) failed the 05-85 modules and not the presence gate. A seeded presence-only defect (a routing row naming `jnwb.cross_modal_comparisons`, which does not exist) failed the presence gate and not the 05-85 modules. Neither suite fired on the other's seed, so 05-85 has not taken over gates 5, 9 and 13.
 - **Swept 2026-09-19, by dimension, with the instrument used**
   - *Units* — 37 unit-suffixed parameters against their own `Args`/`Parameters` entries in both docstring styles, against every sentence in `skills/`, `docs/`, `examples/` and `README.md` naming a parameter and a unit, and against the magnitude of every literal passed to a unit-bearing parameter in 314 parsed sources. **No contradiction in meaning.** The first pass read only Google-style `Args:` and reported zero over a population it had never parsed; the second parses both and covers 19 of the 37. The four prose hits and ten magnitude hits were all false positives, read individually.
@@ -67,14 +70,6 @@ and docs, not against the skill's own text.
 - **Not covered, and why** Composition's *aggregation-order* and *identifier-survival* claims were not swept: no instrument was built to compare a multi-step skill workflow against an executed equivalent, and those remain with `tests/test_skill_routing_behaviour.py` (05-67, six rows executed), `tests/test_docs_smoke.py` and `tests/test_docs_nwb_workflow.py`. *Shape* is covered for every function that declares a return shape, but only those. The introspective sweep was inconclusive -- 3 of 29 candidates callable, and both disagreements it reported were its own, one from reading `bipolar_reference`'s input claim as a return claim and one from handing `compute_psd` a channel-major array -- so it was replaced with fixtures in `tests/test_declared_return_shapes.py`. Five exported functions declare a named shape in a `Returns:` block. Three are checked by calling them (`bin_spikes`, `detect_band_outliers`, and `laplacian_reference` in the axis module), with dimensions chosen mutually distinct so a transposed return fails rather than coincides; five discriminating mutations, all killed. `build_time_resolved_matrix` and `compute_population_trajectory` each take a live NWB session and are not constructible in the suite, so the module asserts that they still declare a shape and still take a session, which keeps the gap stated rather than implied by their absence. A test fails if a sixth function starts declaring a return shape without being covered or named. Functions that declare no return shape at all are outside this: the dimension is unclaimed for them, which the accept criterion treats as N/A rather than missing only where the operation does not require it -- that judgement was not made function by function. A capability-by-capability matrix over all nine dimensions was not built; the sweep is by dimension across the API instead, which finds a contradiction wherever it is but does not certify that every capability was examined on every dimension.
 - **Gap found in an existing gate** `tests/test_skill_routing_behaviour.py` catches a routing row naming a result key the function never returns. It does not catch a row naming a key the function returns only on a non-default branch, which is how the `cross_modal_comparison` row survived 05-67. Covered for that one row by `tests/test_cross_modal_comparison_faces_agree.py`; not generalised, because only two routing rows instruct the reader to read a named key and both are now verified.
 
-### 05-84 Release seal
-- **Problem** 0.2.5 is not releasable until the above is closed.
-- **Change** Bump version, release date and status; write the CHANGELOG; clean tree; push `dev`; remote CI green on the full matrix; merge per the ordering in `artifacts/fact_stack.md`; tag; release; verify from the published artifact rather than a local build.
-- **Preserves** Release publication ordering: validate on `main`, tag, GitHub Release, production PyPI.
-- **Discriminator** A fresh venv installs from PyPI and reproduces the version, status, release date and full symbol set.
-- **Accept** Verified from PyPI, not from a local wheel or cache.
-
-# Findings marked unsupported
 
 ## 05-83 five targets repaired, two end in a measurement, one reported kill was not real -- recorded 2026-09-18
 
