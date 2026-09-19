@@ -71,6 +71,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The five declared return shapes are now checked by calling the function.**
+  A wrong return shape in a docstring is invisible from inside: the array is whatever shape
+  the code makes it, every test of that array passes, and only a reader building the next
+  step from the documentation is misled. `tests/test_declared_return_shapes.py` checks the
+  three that can be constructed (`bin_spikes`, `detect_band_outliers`, and
+  `laplacian_reference` in the axis module) with dimensions chosen mutually distinct, so a
+  transposed return fails rather than coincides. `build_time_resolved_matrix` and
+  `compute_population_trajectory` take a live NWB session and are not constructible in the
+  suite; the module asserts that they still declare a shape and still take a session, so the
+  gap is stated rather than implied by their absence, and a sixth function that starts
+  declaring a return shape fails until it is covered or named. Five discriminating
+  mutations, all killed.
+
 - **A skill routed one estimator and the default call computed the other.**
   `skills/jnwb-connectivity/SKILL.md` routed `cross_modal_comparison` as a best-lag
   correlation, showed `bin_ms=None` in the routing signature, and told the reader to "Read
