@@ -50,6 +50,32 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
         result = TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1)
         self.assertEqual(result.dtype, float)
 
+    def test_extract_band_value_is_the_mean_over_in_band_bins_only(self):
+        """The returned number, not just its shape.
+
+        Every assertion above this one reads `result.shape` or `result.dtype`, so two
+        mutations that change every returned number while preserving shape passed this
+        whole file: dropping the band's upper bound, and replacing the frequency-axis
+        mean with a sum. Measured, the suite does catch both -- through
+        `tests/test_audit_reproducers.py`, and for the sum also through
+        `tests/test_jnwb_core.py` -- so the file was blind, not the suite. Core
+        arithmetic should not depend on an audit probe for its only oracle.
+
+        Each bin carries its own frequency in Hz as its power, so the correct alpha
+        result is the mean of the in-band frequencies. alpha is [8.0, 14.0] inclusive
+        and the bins are the integers 1..20, so seven are selected and 77/7 is exactly
+        11.0 in binary floating point. Dropping the upper bound admits bins 15..20,
+        each larger than the true mean, and gives 14.0; the sum gives 77.0.
+        """
+        freqs = np.linspace(1.0, 20.0, 20)
+        self.assertTrue(np.array_equal(freqs, np.arange(1.0, 21.0)), freqs)
+        tfr = np.tile(freqs[None, :, None], (1, 1, 2))
+
+        result = TFRAnalyzer.extract_band(tfr, 'alpha', freqs=freqs, freq_axis=1)
+
+        self.assertEqual(result.shape, (1, 2))
+        np.testing.assert_allclose(result, 11.0)
+
 
 class TestTFRAnalyzerTrialAverage(unittest.TestCase):
     """Test trial averaging in TFRAnalyzer."""

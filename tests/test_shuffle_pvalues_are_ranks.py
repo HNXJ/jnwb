@@ -1,0 +1,143 @@
+"""The two shuffle p-values, held to an oracle instead of to an incidental guard.
+
+05-54 proposed that collapsing both `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired`
+to the floor `1/(n_shuffles + 1)` survives the suite. It does not: the mutant dies against
+`tests/test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`,
+through its closing `assert plain[1] != two[1]`. That is a case-folding test, and a folding
+inequality is not evidence that a p-value is a rank. The coverage is real and incidental,
+and it disappears the moment that guard is relaxed.
+
+The oracles here are independent of the estimators under test. For the paired statistic,
+`exact_sign_flip` enumerates all 2^N sign flips for N <= 20 and is itself pinned against a
+separate enumeration in `tests/test_statistics.py`. For the unpaired statistic, this file
+enumerates every C(n_a + n_b, n_a) label assignment directly.
+"""
+
+from __future__ import annotations
+
+import itertools
+
+import numpy as np
+import pytest
+
+from jnwb.statistics import exact_sign_flip, shuffle_pvalue_paired, shuffle_pvalue_unpaired
+
+N_SHUFFLES = 4999
+FLOOR = 1.0 / (N_SHUFFLES + 1.0)
+
+
+def _paired_pair(effect: float, n: int = 14, seed: int = 3):
+    """A paired sample with a known mean difference and enough spread to leave a rank."""
+    rng = np.random.default_rng(seed)
+    b = rng.normal(0.0, 1.0, size=n)
+    a = b + effect + rng.normal(0.0, 1.0, size=n)
+    return a, b
+
+
+def _exhaustive_unpaired_p(a, b, alternative: str) -> float:
+    """Every label assignment, enumerated. C(10, 5) = 252 splits."""
+    pooled = np.concatenate([a, b])
+    n_a = len(a)
+    obs = float(np.mean(a) - np.mean(b))
+    total = np.sum(pooled)
+    stats = []
+    for idx in itertools.combinations(range(len(pooled)), n_a):
+        left = pooled[list(idx)].sum()
+        stats.append(left / n_a - (total - left) / (len(pooled) - n_a))
+    null = np.asarray(stats)
+    if alternative == "greater":
+        return float(np.mean(null >= obs))
+    if alternative == "less":
+        return float(np.mean(null <= obs))
+    return float(np.mean(np.abs(null) >= abs(obs)))
+
+
+class TestThePairedPValueIsTheRankItClaimsToBe:
+    @pytest.mark.parametrize("alternative", ["two-sided", "greater"])
+    def test_it_approximates_the_exact_sign_flip_enumeration(self, alternative: str):
+        a, b = _paired_pair(effect=0.2)
+        obs, p = shuffle_pvalue_paired(
+            a, b, n_shuffles=N_SHUFFLES, rng=np.random.default_rng(11),
+            alternative=alternative,
+        )
+        exact_obs, exact_p, _ = exact_sign_flip(a - b, alternative=alternative)
+
+        assert obs == pytest.approx(exact_obs)
+        # Monte Carlo over 4999 draws of a 2^14 null: three standard errors is ~0.02 here.
+        assert p == pytest.approx(exact_p, abs=0.02), (p, exact_p)
+
+    def test_the_value_is_neither_the_floor_nor_one(self):
+        """A collapse to `1/(n+1)` and a collapse to 1 are both constants; a rank is not."""
+        a, b = _paired_pair(effect=0.2)
+        _, p = shuffle_pvalue_paired(
+            a, b, n_shuffles=N_SHUFFLES, rng=np.random.default_rng(11), alternative="greater"
+        )
+        assert FLOOR < p < 1.0, p
+
+    def test_a_larger_effect_gives_a_smaller_p(self):
+        """The ordering a rank must have, which no constant can reproduce."""
+        ps = []
+        for effect in (0.0, 0.2, 0.4, 0.8):
+            a, b = _paired_pair(effect=effect)
+            _, p = shuffle_pvalue_paired(
+                a, b, n_shuffles=N_SHUFFLES, rng=np.random.default_rng(11),
+                alternative="greater",
+            )
+            ps.append(p)
+        assert ps == sorted(ps, reverse=True), ps
+        assert ps[0] > 0.1 and ps[-1] == pytest.approx(FLOOR), ps
+
+
+class TestTheUnpairedPValueIsTheRankItClaimsToBe:
+    @staticmethod
+    def _groups(separation: float):
+        return (
+            np.array([0.0, 1.0, 2.0, 3.0, 4.0]) + separation,
+            np.array([0.5, 1.5, 2.5, 3.5, 4.5]),
+        )
+
+    @pytest.mark.parametrize("alternative", ["two-sided", "greater"])
+    def test_it_approximates_an_exhaustive_label_enumeration(self, alternative: str):
+        a, b = self._groups(separation=1.5)
+        obs, p = shuffle_pvalue_unpaired(
+            a, b, n_shuffles=N_SHUFFLES, rng=np.random.default_rng(5),
+            alternative=alternative,
+        )
+        exact = _exhaustive_unpaired_p(a, b, alternative)
+
+        assert obs == pytest.approx(float(np.mean(a) - np.mean(b)))
+        assert p == pytest.approx(exact, abs=0.02), (p, exact)
+
+    def test_the_value_is_neither_the_floor_nor_one(self):
+        a, b = self._groups(separation=1.5)
+        _, p = shuffle_pvalue_unpaired(
+            a, b, n_shuffles=N_SHUFFLES, rng=np.random.default_rng(5), alternative="greater"
+        )
+        assert FLOOR < p < 1.0, p
+
+    def test_a_larger_separation_gives_a_smaller_p(self):
+        ps = []
+        for separation in (0.0, 1.0, 2.0, 10.0):
+            a, b = self._groups(separation)
+            _, p = shuffle_pvalue_unpaired(
+                a, b, n_shuffles=N_SHUFFLES, rng=np.random.default_rng(5),
+                alternative="greater",
+            )
+            ps.append(p)
+        assert ps == sorted(ps, reverse=True), ps
+        assert ps[0] > 0.1, ps
+
+
+class TestTheIncidentalGuardIsStillThere:
+    """If the folding test's guard is ever relaxed, this file is what remains."""
+
+    def test_the_folding_test_still_carries_the_inequality_it_carried(self):
+        from pathlib import Path
+
+        source = (Path(__file__).resolve().parents[1] / "tests" / "test_api_consistency.py").read_text(
+            encoding="utf-8"
+        )
+        assert "assert plain[1] != two[1]" in source, (
+            "the guard that incidentally covered the p-value collapse is gone; the tests "
+            "above are now the only thing holding it"
+        )
