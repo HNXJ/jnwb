@@ -148,6 +148,22 @@ no-op -- and the tests now read the index, through `git ls-files --eol` and `git
 A working-tree-only change is deliberately no longer detected, and the discriminator that
 used to make one was replaced by one that reaches the stored bytes.
 
+### What this pass covered, and what it did not
+
+The item's Change clause named numerical correctness, failure semantics, API consistency,
+docs, skills, packaging, CI and gate efficacy. The weight fell on numerical correctness --
+where it found the most, 18 estimators with no discriminating test -- and on CI and gate
+efficacy, where it found a gate blind to the defect it was written for, a load-sensitive
+test that misattributes kills, and three generators that disagree across the matrix.
+Failure semantics and API consistency were exercised through the nine mandatory targets
+that touch them, not swept independently.
+
+Docs, skills and packaging were not swept again here. Packaging and CI were the subject of
+05-73..05-78 and 05-82, and the code/docs/skills/tests comparison is 05-85's whole scope,
+which runs next and is explicitly scoped to semantic agreement across those faces. Recording
+this so the item's deletion is not read as a claim that every surface it names was
+independently falsified in this pass.
+
 ## 05-82 everything reproduced, one change made narrower than asked -- recorded 2026-09-18
 
 All three gaps were present exactly as described, including the item's four confirmations:
