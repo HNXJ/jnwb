@@ -219,8 +219,12 @@ def main() -> int:
     text = render(payload, profile=args.profile)
     print(text)
     if args.write:
-        PROFILE_PATH.write_text(text, encoding="utf-8")
-        BREAKDOWN_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        # newline="\n" on both: see scripts/generate_api_md.py. These two files are
+        # tracked, so a platform-dependent ending makes --write a whole-file diff.
+        PROFILE_PATH.write_text(text, encoding="utf-8", newline="\n")
+        BREAKDOWN_PATH.write_text(
+            json.dumps(payload, indent=2), encoding="utf-8", newline="\n"
+        )
         for path in (PROFILE_PATH, BREAKDOWN_PATH):
             print(f"wrote {path.relative_to(REPO_ROOT)}")
     return 0

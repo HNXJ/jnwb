@@ -213,7 +213,11 @@ def main() -> None:
     text = generate_api_markdown()
     if args.write:
         out = REPO_ROOT / "docs" / "api.md"
-        out.write_text(text, encoding="utf-8")
+        # newline="\n": the default lets os.linesep decide, so the same generator
+        # emitted CRLF here and LF on the Linux half of the matrix, rewriting every
+        # line of a tracked file. --check compares read_text output, which normalizes
+        # endings, so it stayed green either way.
+        out.write_text(text, encoding="utf-8", newline="\n")
         print(f"Wrote {out}")
     elif args.check:
         violations = check_api_md_is_generated()

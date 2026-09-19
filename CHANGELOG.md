@@ -71,6 +71,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Eighteen estimators whose returned numbers no test constrained.** 22 mutations, each
+  preserving shape, keys and dtype and changing a returned number, were run against the
+  whole suite; 18 survived all 2679 tests. Among them: `compute_psd` returning a spectrum
+  instead of a density, `spectral_tilt` fitting its frequency axis in log2, the Laplacian
+  kernel rescaled, spike mutual information reported in nats, network density dividing by
+  n^2, all three Granger statistics in log2, the Miller-Madow correction added in the wrong
+  unit, Cohen's d halved, eta-squared dropping its group-size weight, the bootstrap's alpha
+  left unhalved, `coef_rows` reading its upper bound into `ci_lo`, the response p-value
+  turned one-sided, the smoothing kernel's ms-to-bin conversion halved, the PSTH's rate off
+  by the ms-to-s factor, the pooled MAD multiplied by 1.4826, and trial repair substituting
+  a mean where the median is specified. `tests/test_estimator_values_are_pinned.py` pins
+  each to an oracle independent of the code under test -- closed forms where one exists
+  (v_i = i^2 gives a discrete Laplacian of exactly -1; groups 1..5 against 3..7 give
+  d = -2/sqrt(2.5); four trials at 0/1/3/4 give a pooled MAD of exactly 1.5), analytic
+  identities where none does (Parseval, MI(x, x) = H(x), the normal survival function,
+  Geweke's decomposition tying spectral Granger to the time-domain value), and, for two,
+  a quantity the same call already computes by a path the mutation does not touch. All 18
+  mutants are killed by the test written for them, with the unmutated control passing and
+  every source digest identical before and after.
+- **Three generators wrote a different file on each half of the CI matrix.** `write_text`
+  without `newline=` emits `os.linesep`, so `scripts/generate_api_md.py`,
+  `scripts/benchmark_import.py` and `scripts/calibrate_vflip.py` produced CRLF on Windows
+  and LF on Linux for six tracked files. With `core.autocrlf` false and no `.gitattributes`
+  those bytes are the blob, so regenerating on the other platform rewrote every line.
+  `check_api_md_is_generated` compares `read_text` output, which normalises endings, so the
+  drift gate stayed green either way. The five write sites now pin `newline="\n"` and the
+  six files are converted, content byte-identical;
+  `tests/test_generated_files_are_byte_stable.py` reads bytes throughout, because a check
+  written with `read_text` cannot see this class of defect at all. It reads them from the
+  index rather than from disk: the Windows CI runners leave `core.autocrlf` at its Windows
+  default of true and rewrite LF to CRLF on checkout, so a working tree's endings are a
+  property of the checkout and not of the repository. What has to agree across the matrix
+  is what is stored.
+- **A wall clock read once under contention could fail an unrelated test.**
+  `test_the_probe_agrees_with_an_independent_wall_clock` timed two fresh imports once each
+  against a 1.6x threshold, and failed once in 22 full-suite runs under `pytest -n auto` on
+  24 cores. In a mutation sweep that reads as a kill charged to whatever was mutated. It
+  now retries: the instrumentation defect it exists for costs 3.33x on every repetition and
+  still fails all three attempts, while one unlucky sample no longer fails at all.
+
+
 - **Three gaps on a pipeline that can upload to PyPI.** The workflow declared no
   `permissions` floor, so every job inherited the repository default while two of them ask
   for `id-token: write`; `permissions: {contents: read}` is now set at the top and only the

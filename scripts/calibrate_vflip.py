@@ -676,8 +676,13 @@ def main(argv=None) -> int:
 
     data = run(args.n_seeds, args.n_jobs)
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    (args.out_dir / "vflip_calibration_0.2.4_raw.json").write_text(json.dumps(data, indent=1), encoding="utf-8")
-    (args.out_dir / "vflip_calibration_0.2.4.md").write_text(render(data), encoding="utf-8")
+    # newline="\n" on both: see scripts/generate_api_md.py.
+    (args.out_dir / "vflip_calibration_0.2.4_raw.json").write_text(
+        json.dumps(data, indent=1), encoding="utf-8", newline="\n"
+    )
+    (args.out_dir / "vflip_calibration_0.2.4.md").write_text(
+        render(data), encoding="utf-8", newline="\n"
+    )
     print(render(data))
     return 0
 

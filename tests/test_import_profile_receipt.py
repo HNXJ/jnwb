@@ -132,11 +132,31 @@ def test_the_probe_agrees_with_an_independent_wall_clock():
 
     The margin is wide on both sides: healthy runs differed by at most 1.23x across
     seven repetitions on a contended machine, and the defect this replaces was 3.33x.
+
+    One sample per side was not enough. Under `pytest -n auto` on 24 cores this failed
+    once in 22 full-suite runs, and the run it failed was a mutation sweep, so the
+    failure was recorded against `np.log` -> `np.log2` inside `granger_spectral` -- an
+    expression no import executes, in a mutant two clean re-runs show the suite does not
+    otherwise catch. A wall clock read once under contention is the only thing that
+    moved. It passed six of six on an idle tree.
+
+    Retrying is the repair rather than a wider threshold, because the defect is
+    systematic: instrumentation that costs 3.33x costs it on every repetition, so three
+    contended samples still fail while one unlucky sample no longer does. The threshold
+    stays at 1.6 and the healthy path still pays for two imports.
     """
-    reference = _time_import(REFERENCE)
-    shipped = _time_import(PROBE)
-    assert reference > 0.0
-    assert shipped / reference < 1.6, (
-        f"the shipped probe reports {shipped:.0f} ms where an uninstrumented import "
-        f"takes {reference:.0f} ms; something in the probe is being measured too"
-    )
+    attempts = 3
+    ratios = []
+    for _ in range(attempts):
+        reference = _time_import(REFERENCE)
+        shipped = _time_import(PROBE)
+        assert reference > 0.0, "the uninstrumented reference import reported 0 ms"
+        ratios.append(shipped / reference)
+        if ratios[-1] < 1.6:
+            break
+    else:
+        raise AssertionError(
+            f"the shipped probe stayed above 1.6x an uninstrumented import across "
+            f"{attempts} attempts (ratios {[round(r, 2) for r in ratios]}); something in "
+            f"the probe is being measured too"
+        )

@@ -451,3 +451,65 @@ class TestTheSelfSpectrumShortCircuit:
         _, psd_x, psd_y, _ = _welch_csd_gpu(x, y, 1000.0, 256)
 
         assert not np.array_equal(psd_x, psd_y)
+
+
+@requires_cuda
+class TestTheCudaCrossSpectrumAgreesWithScipy:
+    """An oracle from outside this file.
+
+    Every other check on `_welch_csd_gpu` compares it to a reference written here, and
+    that reference computes `cp.conj(X) * Y` too -- so the two agree on the orientation
+    because they were written to. scipy is the independent statement of what `csd` means,
+    and the conjugation orientation is the part of it that inverts the sign of every
+    directional result without changing a magnitude: `imaginary_coherency` reports which
+    signal leads.
+
+    Measured on an RTX A4000 with cupy 14.0.1 before this test existed: the CUDA path
+    agrees with `scipy.signal.csd` to 3.6e-16 relative at nperseg 256 and 4.0e-16 at
+    1024, and disagrees with its conjugate by 1.41. The orientation was already right.
+    What was missing was anything that would say so if it stopped being.
+    """
+
+    @staticmethod
+    def _lagging_pair(n=16384, fs=1000.0):
+        """A pair with a definite lead, so the imaginary part has a sign to get wrong."""
+        rng = np.random.default_rng(0)
+        t = np.arange(n) / fs
+        x = np.sin(2 * np.pi * 20.0 * t) + 0.3 * rng.normal(size=n)
+        y = np.sin(2 * np.pi * 20.0 * t - np.pi / 4) + 0.3 * rng.normal(size=n)
+        return x, y, fs
+
+    @pytest.mark.parametrize("nperseg", [256, 1024])
+    def test_it_matches_scipy_and_not_scipys_conjugate(self, nperseg):
+        from scipy import signal
+
+        from jnwb.spectral import _welch_csd_gpu
+
+        x, y, fs = self._lagging_pair()
+        noverlap = nperseg // 2
+        freqs, psd_x, psd_y, csd_xy = _welch_csd_gpu(x, y, fs, nperseg, noverlap)
+        f_ref, csd_ref = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+        _, psd_x_ref = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
+        _, psd_y_ref = signal.welch(y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+
+        assert np.allclose(freqs, f_ref)
+        scale = np.max(np.abs(csd_ref))
+        assert np.max(np.abs(csd_xy - csd_ref)) / scale < 1e-12
+        assert np.max(np.abs(psd_x - psd_x_ref)) / np.max(psd_x_ref) < 1e-12
+        assert np.max(np.abs(psd_y - psd_y_ref)) / np.max(psd_y_ref) < 1e-12
+        # The discriminating half: the conjugate is a different answer, not a rounding.
+        assert np.max(np.abs(csd_xy - np.conj(csd_ref))) / scale > 0.1
+
+    def test_imaginary_coherency_reports_the_same_lead_on_both_devices(self):
+        """A sign inversion here is a directional claim about which area leads."""
+        from jnwb.spectral import imaginary_coherency
+
+        x, y, fs = self._lagging_pair()
+        kwargs = dict(fs=fs, freq_range=(15.0, 25.0), nperseg=256, noverlap=128)
+        gpu = imaginary_coherency(x, y, device="cuda", **kwargs)
+        cpu = imaginary_coherency(x, y, device="cpu", **kwargs)
+
+        assert gpu["icoh_mean"] < 0.0, gpu["icoh_mean"]
+        assert np.sign(gpu["icoh_mean"]) == np.sign(cpu["icoh_mean"])
+        assert abs(gpu["icoh_mean"] - cpu["icoh_mean"]) < 1e-12
+        assert abs(gpu["coh_mag_mean"] - cpu["coh_mag_mean"]) < 1e-12

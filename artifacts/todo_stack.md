@@ -46,58 +46,6 @@ and docs, not against the skill's own text.
 
 ## 12. Harness and gates
 
-### 05-83 Independent adversarial pass over the repaired tree
-- **Problem** The repairs above touch every subsystem and several change what other items calibrate.
-- **Change** One independent pass attempting to falsify: numerical correctness, failure semantics, API consistency, docs, skills, packaging, CI and gate efficacy — reproducing each finding before repairing it, as the 0.2.4 pass did.
-- **Preserves** Nothing by assumption.
-- **Discriminator** Findings are reproduced before repair and pinned by a test that fails the previous code.
-- **Accept** Every major finding either repaired with a failing-before test or recorded as triaged with its measurement.
-- **Mandatory targets** These are not discretionary. Each is a known unknown carried into the pass, and each must be resolved or restated with a measurement rather than dropped:
-  1. **Mutation restoration has stronger detection than its cause explains.** Write-restore harnesses have repeatedly shown detection that the stated mechanism does not account for. Unresolved since the 0.2.4 pass.
-  2. **Python 3.14 Torch import is collection-order fragile.** An ad-hoc pytest subset can fail three `test_backend` tests and segfault. Reproduced at a sealed commit; pre-existing, not caused by any 0.2.5 repair.
-  3. **Section 1-2 estimator mutation completeness is unknown.** 05-54's Accept read "no estimator in sections 1-2 survives its own mutation", which is broader than the nine candidates its evidence named. Those nine are closed at `da3fb343`. Whether every other estimator in those sections has a discriminating test has not been measured.
-  4. **`_welch_csd_gpu`'s conjugation orientation is unverified.** The CPU path is derived from scipy's documented `conj(X) * Y` and tested at `tests/test_estimator_discrimination.py`. The CUDA path computes its own cross spectrum. A sign inversion there makes GPU and CPU disagree on `icoh_mean` while both look plausible, and no test reaches it: the fallback test establishes control flow only, and nothing in the suite executes on GPU.
-  5. **`TFRAnalyzer.extract_band` is asserted by shape only.** Its three
-     `TestTFRAnalyzerBandExtraction` tests and the five-band subtest check `result.shape`
-     and `result.dtype`, never a value. Two mutations survive the whole file as a result:
-     dropping the band's upper bound so every frequency above `f_min` is included, and
-     replacing the frequency-axis `mean` with a `sum`. Both change every returned number
-     while preserving shape. Measured at both the old 9.537 GiB fixture and the current
-     one, so this is a pre-existing gap the fixture shrink neither caused nor closed.
-  6. **Tracked files may still be rewritten through a text round-trip.**
-     *Mechanism:* `read_text` normalizes every line ending to `\n` and `write_text` emits
-     the running platform's `os.linesep`, so the pair reproduces a file's bytes only when
-     its endings already match that platform, and rewrites them otherwise -- in either
-     direction. `read_text` also conceals the difference from any check written the same
-     way, so a test of this cannot use it.
-     *Measured:* `jnwb/mcp_server/custom_tools.py` is CRLF (read as bytes), and on this
-     Windows machine the round-trip reproduced its 101 bytes exactly. That instance was
-     removed in 05-57.
-     *Derived, not run:* `.github/workflows/workflow.yml:29` runs the matrix on
-     `ubuntu-latest` as well, where the same code path converts that file to LF instead, so
-     the restore preserved bytes on one half of the matrix and modified a tracked file on
-     the other. Whether any other tracked file is rewritten this way, by a test or a
-     script, has not been swept.
-  7. **One 05-54 mutant is killed only incidentally.** Collapsing both shuffle p-values to `1/(n+1)` dies against `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`, a case-folding test, through its `assert plain[1] != two[1]` guard. The "nothing catches this" claim is false, so nothing was repaired; but a folding inequality is not evidence of p-value correctness, and that coverage disappears if the guard is relaxed.
-  8. **Three `tests/test_rsa.py` tests are redundant only for the classes that were
-     probed.** 05-59 refuted the proposed deletion of that file: it uniquely carries five
-     failure classes, and the suite without it kills none of them -- `rdm` accepting a
-     sub-2D input, and all four `rdm_similarity` rejection paths, including an unknown
-     metric name silently computing Spearman. Of the remaining tests,
-     `test_rdm_shapes_and_invariants`, `test_rdm_similarity_comparison` and
-     `test_rdm_metrics` were redundant against every mutant aimed at them, but assertions
-     in each (zero diagonal, condensed/square round-trip) were reached by no mutant, so
-     their redundancy is measured only where it was measured. `test_rdm_metrics` also
-     survives a mutation that makes `_condensed_distances` ignore its `metric` argument
-     entirely -- the oracle catches it, so the suite is covered, but the test named for
-     metrics does not detect that metrics are ignored.
-  9. **`tests/test_docs_smoke.py` may be a second copy of the documentation.** Its ten
-     tests hand-transcribe the documented workflows instead of reading the pages, so all
-     ten passed while six documented calls raised `TypeError` -- the pattern 05-55
-     removed from `tests/test_readme_smoke.py`. 05-61 added parse and execute checks that
-     read the pages directly. Whether the transcribed file still carries failure classes
-     those do not has not been measured, so it was neither deleted nor trusted.
-
 ### 05-85 Code / docs / skills / tests triangle audit
 - **Problem** The four faces of a capability can disagree without any of them failing on its own. Nothing currently checks them against each other.
 - **Runs** After 05-83 and before 05-84. Added to the frozen stack 2026-09-17 by the ruling recorded in `artifacts/direction.md`; numbered after the last frozen item because the frozen numbers are a record.
@@ -115,6 +63,106 @@ and docs, not against the skill's own text.
 - **Accept** Verified from PyPI, not from a local wheel or cache.
 
 # Findings marked unsupported
+
+## 05-83 five targets repaired, two end in a measurement, one reported kill was not real -- recorded 2026-09-18
+
+**Target 3 (estimator mutation completeness) reproduced, and wider than the item implies.**
+22 mutations, each preserving shape, keys and dtype and changing a returned number, run
+against the whole suite: 18 survived all 2679 tests.
+`tests/test_estimator_values_are_pinned.py` pins every one. Re-running all 18 against it
+kills all 18, with the unmutated control passing and all six source digests identical
+before and after.
+
+**One reported kill was not real.** `np.log` -> `np.log2` in `granger_spectral` was recorded
+as killed by `test_the_probe_agrees_with_an_independent_wall_clock`, which times two
+imports -- an expression no import executes. Two clean re-runs return SURVIVED. Target 1's
+phenomenon, caught in the act: the test sampled a wall clock once per side and failed once
+in 22 runs under 24-way contention, and because that run was a mutation sweep the failure
+was charged to the mutant. It now retries, which the systematic 3.33x defect it exists for
+still fails (ratios [3.85, 3.05, 3.48]) while one unlucky sample does not. This is one
+cause, measured; it does not claim to be the only one. What it did here was hide a real gap
+rather than invent one, so "stronger detection than its cause explains" is better read as
+*misattributed* detection.
+
+**Target 2 (Python 3.14 Torch collection-order fragility) reproduced exactly, and not
+repairable from inside jnwb.**
+
+Reproduction: `python -m pytest tests/test_analyzers_coverage.py
+tests/test_backend.py::TestCapabilityProbes` exits 3221225477 (0xC0000005, access
+violation) and fails the same three `TestCapabilityProbes` tests the item named.
+
+Mechanism, from `faulthandler`: the crash is inside `torch/__init__.py:444` during a C
+extension's `create_module`, reached from the deferred `import torch` at
+`jnwb/_backend.py:76` in `torch_cuda_available()`. It is the *first* torch import in a
+process where `test_analyzers_coverage` has already initialised CUDA.
+
+No repair is available here. The deferred import is deliberate --
+`tests/test_import_profile_receipt.py` asserts `import jnwb` does not load torch -- so
+making it eager trades this for a documented regression. And an access violation is not a
+Python exception, so no `except` tuple in `torch_cuda_available` can catch it.
+
+Scope, measured rather than assumed:
+- The full suite does **not** reproduce it single-process: 2735 passed in 8:49.
+- CI runs `pytest -v tests/` single-process and includes a 3.14 leg, but its runners have
+  no CUDA, so the CuPy initialisation this needs never happens.
+- Why the full single-process run is immune while the two-module subset is not is **not
+  established**. The obvious explanation -- that something imports torch earlier -- is
+  false: no test module imports torch or cupy at collection time.
+- The item's attribution to Python 3.14 could not be tested here. The local 3.12
+  interpreter has torch but not cupy, so the sequence the crash needs cannot be run on it.
+
+**Target 8 (`tests/test_rsa.py` redundancy) resolved where 05-59 could not measure it.**
+05-59 recorded that two assertions -- zero diagonal and the condensed/square round-trip --
+were reached by no mutant. They are unreachable, not merely unreached: `rdm` returns `v`
+condensed and `squareform(v)` square, so both properties hold for any `v` that `squareform`
+accepts. They assert scipy's contract, not jnwb's. Confirmed by mutation: doubling every
+returned distance leaves both passing.
+
+The mutation 05-59 named as surviving `test_rdm_metrics` -- `_condensed_distances` ignoring
+its `metric` argument -- was run against the whole suite and against the suite without
+`tests/test_rsa.py`. Both die, with an identical set of eight failures, every one of them
+in `tests/test_rsa_oracle.py`. The doubling mutation behaves the same way: five failures,
+the same set both times. `tests/test_rsa.py` contributes to neither.
+
+So the redundancy 05-59 measured now extends to the assertions it could not probe. The file
+still stays: 05-59's other finding is untouched by either mutation here -- it uniquely
+carries five failure classes, all of them rejection paths, and nothing in this measurement
+reaches those. Nothing in `tests/test_rsa.py` is changed.
+
+**Targets 4, 5, 6, 7 and 9** reproduced and were repaired, each with a test that fails the
+previous code. Target 6 was the largest: `core.autocrlf` is false and there is no
+`.gitattributes`, so working-tree bytes are blob bytes, and six tracked files were generated
+by three scripts whose `write_text` calls let `os.linesep` choose the line ending.
+`check_api_md_is_generated` compares `read_text` output, which normalises endings away, so
+the gate passed before and after a whole-file churn -- which is why every assertion in the
+new module reads bytes.
+
+A correction to that target's own premise, found by CI rejecting the first version of the
+test. "Working-tree bytes are blob bytes" is true of this machine, where `core.autocrlf` is
+false, and false of the Windows CI runners, which leave it at the Windows default of true
+and rewrite LF to CRLF on checkout. The first test read the six files from disk and failed
+on both Windows legs while passing here: it was asserting a property of the checkout's
+configuration, not of the repository. The invariant that matters is what is *stored* -- so
+that the two halves of the matrix agree on the bytes and a regeneration on either is a
+no-op -- and the tests now read the index, through `git ls-files --eol` and `git show :`.
+A working-tree-only change is deliberately no longer detected, and the discriminator that
+used to make one was replaced by one that reaches the stored bytes.
+
+### What this pass covered, and what it did not
+
+The item's Change clause named numerical correctness, failure semantics, API consistency,
+docs, skills, packaging, CI and gate efficacy. The weight fell on numerical correctness --
+where it found the most, 18 estimators with no discriminating test -- and on CI and gate
+efficacy, where it found a gate blind to the defect it was written for, a load-sensitive
+test that misattributes kills, and three generators that disagree across the matrix.
+Failure semantics and API consistency were exercised through the nine mandatory targets
+that touch them, not swept independently.
+
+Docs, skills and packaging were not swept again here. Packaging and CI were the subject of
+05-73..05-78 and 05-82, and the code/docs/skills/tests comparison is 05-85's whole scope,
+which runs next and is explicitly scoped to semantic agreement across those faces. Recording
+this so the item's deletion is not read as a claim that every surface it names was
+independently falsified in this pass.
 
 ## 05-82 everything reproduced, one change made narrower than asked -- recorded 2026-09-18
 
