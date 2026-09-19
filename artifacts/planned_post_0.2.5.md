@@ -1,9 +1,10 @@
 # Planned work after 0.2.5
 
-Not part of the frozen 0.2.5 stack. `artifacts/todo_stack.md` is executing to empty and
-nothing here may be started before it is empty, the independent critic has run, and the
-release is sealed. This file exists so that requests arriving mid-pass are not lost and
-do not enlarge the object being stabilized.
+Not part of the frozen 0.2.5 stack, whose record is `artifacts/todo_stack_0.2.5.md`. That
+stack executed to empty, the independent critic ran, and 0.2.5 was released and verified
+from the index on 2026-09-19. This file exists so that requests arriving mid-pass were not
+lost and did not enlarge the object being stabilized. Nothing here is thereby authorized:
+it is candidate input to a cycle that must reproduce each item, not a queue of accepted work.
 
 Everything here is subject to `artifacts/direction.md`, which sets what the package is
 for and which of its four faces -- code, documentation, skills, tests -- carries which
