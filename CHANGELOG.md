@@ -71,6 +71,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A skill routed one estimator and the default call computed the other.**
+  `skills/jnwb-connectivity/SKILL.md` routed `cross_modal_comparison` as a best-lag
+  correlation, showed `bin_ms=None` in the routing signature, and told the reader to "Read
+  `lag_corrected_pvalue`, not the parametric p". Called exactly as routed it returns five
+  keys and `lag_corrected_pvalue` is not among them: the frequency/trial-reduced series are
+  plain 1-D arrays of unknown bin width, so `lag_range_ms` cannot be converted to a sample
+  shift and a single zero-lag correlation is computed instead, with `n_permutations` and
+  `rng` accepted and unused. An agent following the skill reached for an absent key, having
+  been told in the same sentence not to trust the one that was present. The function's own
+  docstring and its `interpretation` field were already explicit that `bin_ms` selects
+  between two estimators -- the disagreement was between two faces, not inside the code --
+  so the skill row was rewritten to describe both and
+  `tests/test_cross_modal_comparison_faces_agree.py` pins the behaviour each face has to
+  describe. Reverting the row to its exact previous wording fails two of the new tests; a
+  third earlier version of one of them did not, because it looked for `bin_ms` in the whole
+  row, where the leading signature always carries it.
+
 - **The axis specification declared the convention two of ten functions use.**
   `docs/10_operation_specifications.md` section 5 gave one blanket order for continuous
   signals, `(n_times, n_channels)`. Of the ten exported functions taking a 2-D continuous
