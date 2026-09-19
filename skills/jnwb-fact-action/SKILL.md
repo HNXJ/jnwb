@@ -63,7 +63,7 @@ The execution loop formalizes $W = P(RG)^N S$:
 When delegating sub-tasks to separate subagents or roles, decouple the role from the domain skill. Every delegated packet must follow the standard contract:
 
 ```text
-ROLE: authority | critic | actor | verifier | docs-harness
+ROLE: authority | critic | actor | verifier | docs-harness | jnwb-developer
 DOMAIN SKILL: <canonical domain skill, e.g. jnwb-nwb-data>
 GOAL: <precise outcome>
 TODO ITEM: <item from todo_stack.md>

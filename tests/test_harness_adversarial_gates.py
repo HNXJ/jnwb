@@ -620,7 +620,8 @@ class TestHarnessResetContracts:
         assert "fact_stack.md` is strictly human-authorized" in skill_text
 
     def test_role_definitions_exist_and_role_domain_orthogonal(self):
-        expected_roles = {"authority", "critic", "actor", "verifier", "docs-harness"}
+        expected_roles = {"authority", "critic", "actor", "verifier", "docs-harness",
+                          "jnwb-developer"}
         agents_dir = REPO_ROOT / "artifacts" / "agents"
         assert agents_dir.exists()
 
