@@ -10,6 +10,9 @@ This is also the caller for `scripts/measure_agents_md_duplication.py`. A measur
 nothing runs reports on whatever the repository looked like the day someone last ran it by hand.
 """
 
+import contextlib
+import importlib.util
+import io
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +25,16 @@ SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 #: What the measurement returned on 2026-09-19, recorded in `artifacts/agents_md_duplication.md`.
 #: A ratchet, not a target: 06-72 drives it to zero, and until then it may not rise.
 BASELINE_DUPLICATED = 8
-BASELINE_ECHOED = 10
+#: Measured 9 on 2026-09-20. Set to the measurement, not above it: 06-64 found a unit of unclaimed
+#: slack here, and slack in a ratchet is a gain someone can give back without the test noticing.
+BASELINE_ECHOED = 9
+
+#: The thresholds the baselines are counts *of*. Without pinning these, the counts above are
+#: satisfiable by turning a knob: 06-64 demonstrated eight (HIGH, MED) pairs that report fewer
+#: duplicates with the text byte-identical and every test green. A threshold change is a decision
+#: and must read as a constant edit in a diff, not as a measurement improving.
+EXPECTED_HIGH = 0.34
+EXPECTED_MED = 0.18
 
 
 @pytest.fixture(scope="module")
@@ -43,9 +55,47 @@ def measurement() -> dict:
             counts["echoed"] = int(line.split(":")[1].split("(")[0].strip())
         elif line.startswith("AGENTS.md:"):
             counts["sentences"] = int(line.split(",")[1].split()[0])
-    missing = {"duplicated", "echoed", "sentences"} - set(counts)
+        elif line.startswith("ROOT:"):
+            counts["root"] = line.split(":", 1)[1].strip()
+    missing = {"duplicated", "echoed", "sentences", "root"} - set(counts)
     assert not missing, f"the script's output no longer reports {missing}:\n{done.stdout[:800]}"
     return counts
+
+
+def test_the_thresholds_the_counts_are_counts_of_are_pinned():
+    """A count is meaningless without the threshold it counts above.
+
+    06-64 turned `(0.34, 0.18)` into `(0.40, 0.35)` and watched `duplicated` fall from 8 to 6 with
+    `AGENTS.md` byte-identical and all four tests green -- then the "lower the baseline when you
+    beat it" test invites banking that as a gain. Reading the constants out of the script makes
+    the knob-turn a visible constant edit rather than an improvement.
+    """
+    spec = importlib.util.spec_from_file_location("_measure_thresholds", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    # The script does its work at import time and prints; run it with stdout parked.
+    with contextlib.redirect_stdout(io.StringIO()):
+        spec.loader.exec_module(module)
+    assert (module.HIGH, module.MED) == (EXPECTED_HIGH, EXPECTED_MED), (
+        f"the measurement thresholds moved to {(module.HIGH, module.MED)}. Every baseline in this "
+        "file counts pairs above them, so changing one silently rescales all of them. If the move "
+        "is deliberate, update EXPECTED_HIGH/EXPECTED_MED and re-record the baselines together."
+    )
+
+
+def test_the_script_measures_the_tree_it_lives_in(measurement):
+    """It hard-coded one machine's checkout, so the ratchet passed with the file under test gone.
+
+    06-64 deleted `AGENTS.md` from a copy and got `4 passed`. `ROOT` is now derived from
+    `__file__`; this keeps it derived. Gate 3 covers `scripts/` for the same reason, but a gate and
+    a test failing for one defect is the point, not redundancy.
+    """
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "parents[1]" in source and "pathlib.Path(r\"" not in source, (
+        "the measurement script names an absolute path again; it must derive ROOT from __file__"
+    )
+    assert measurement["root"] == str(REPO_ROOT), (
+        f"the script measured {measurement['root']!r}, not the tree under test ({REPO_ROOT})"
+    )
 
 
 def test_the_measurement_still_finds_something_to_measure(measurement):

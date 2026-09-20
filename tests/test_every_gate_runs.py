@@ -96,18 +96,83 @@ def test_a_gate_that_raises_is_reported_and_does_not_stop_the_rest(capsys):
 
 
 def test_a_gate_that_does_not_execute_is_named_not_passing(capsys):
-    """A gate that vanishes from the output looks exactly like a gate with nothing to say."""
+    """A gate that vanishes from the output looks exactly like a gate with nothing to say.
+
+    This asserted nothing of the kind. Its second `monkeypatch.setattr` rebuilt the list from
+    `harness_gate.GATES`, which was already the truncated three-element list, so the only live
+    assertion was `run_full_preflight() is True` on a passing tree. 06-64 deleted the entire
+    NOT RUN block and this test -- and the whole suite -- stayed green.
+
+    An interrupt is the one thing that genuinely abandons a gate, so that is what is simulated.
+    """
+    def interrupts() -> list:
+        raise KeyboardInterrupt("simulated interrupt part-way through the run")
+
     with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(harness_gate, "GATES", harness_gate.GATES[:3])
-        assert harness_gate.run_full_preflight() is True
-        capsys.readouterr()
-
-        # A gate present in the list but skipped by the loop must be reported, not dropped.
+        gates = list(harness_gate.GATES)
+        # Gate 2 of 3 is abandoned; gate 3 therefore never runs.
         monkeypatch.setattr(
-            harness_gate, "GATES", [(n, run, p) for n, run, p in harness_gate.GATES]
+            harness_gate,
+            "GATES",
+            [gates[0], (gates[1][0], interrupts, gates[1][2]), gates[2]],
         )
+        with pytest.raises(KeyboardInterrupt):
+            harness_gate.run_full_preflight()
+        out = capsys.readouterr().out
 
-    assert harness_gate.run_full_preflight() is True
+    abandoned, never_reached = gates[1][0], gates[2][0]
+    assert f"NOT RUN: gate {abandoned}" in out, (
+        f"the abandoned gate {abandoned} is absent from the report:\n{out}"
+    )
+    assert f"NOT RUN: gate {never_reached}" in out, (
+        f"gate {never_reached} never ran and was not named:\n{out}"
+    )
+    assert "OVERALL: FAIL." in out, f"an interrupted run did not report FAIL:\n{out}"
+    assert "1 of 3 gates executed" in out, f"the executed count is wrong:\n{out}"
+
+
+def test_the_not_run_branch_is_reachable_at_all(capsys):
+    """The discriminator for the branch itself: delete it and this must fail.
+
+    `not_run` was unreachable before 2026-09-20 -- every path through the loop appended to
+    `executed`, so the list was always empty and the block was dead code that read as a safeguard.
+    """
+    def interrupts() -> list:
+        raise SystemExit(2)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        gates = list(harness_gate.GATES)
+        monkeypatch.setattr(harness_gate, "GATES", [(gates[0][0], interrupts, gates[0][2])])
+        with pytest.raises(SystemExit):
+            harness_gate.run_full_preflight()
+        out = capsys.readouterr().out
+
+    assert "NOT RUN" in out, (
+        "a run abandoned at its first gate produced no NOT RUN line, so the branch is dead "
+        f"code again:\n{out}"
+    )
+
+
+def test_a_failing_pass_line_does_not_abort_the_run(capsys):
+    """`pass_line()` sat outside the try, so a broken formatter killed every later gate."""
+    def explodes() -> str:
+        raise RuntimeError("formatter is broken")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        gates = list(harness_gate.GATES)
+        monkeypatch.setattr(
+            harness_gate,
+            "GATES",
+            [(gates[0][0], gates[0][1], explodes), gates[1], gates[2]],
+        )
+        verdict = harness_gate.run_full_preflight()
+        out = capsys.readouterr().out
+
+    assert verdict is False, "a gate whose pass line raised was reported as passing"
+    assert "3 of 3 gates executed" in out, (
+        f"a broken formatter stopped the run instead of failing one gate:\n{out}"
+    )
+    assert "NOT RUN" not in out, f"gates were skipped by a formatter error:\n{out}"
 
 
 def test_pass_requires_every_gate_and_not_merely_no_failures(capsys):

@@ -652,52 +652,116 @@ class TestHarnessResetContracts:
         )
         section = self._loading_order_section(skill_text)
 
-        # The DIRECTIVE must name the authority, not merely the section somewhere. Matching the
-        # whole section passed a mutant that deleted the directive and left the paragraph
-        # explaining the drift, which also says "AGENTS.md §3" -- mentioning is not delegating.
-        directive = next(
-            (para for para in re.split(r"\n\s*\n", section.strip())
-             if re.search(r"\bMUST\b|\bmust\b", para)),
-            "",
+        # The directive is the FIRST paragraph, by position. Selecting it by "contains must"
+        # let 06-64 add a later paragraph carrying `MUST` and a mention of the section while the
+        # real directive was gone; `\bMUST\b` also matches `MUST NOT`, so a repudiation of the
+        # pointer read as the pointer. Position cannot be gamed by adding prose further down.
+        paragraphs = [p for p in re.split(r"\n\s*\n", section.strip()) if p.strip()]
+        assert paragraphs, (
+            f"the skill's loading-order section is empty. It says:\n{section[:400]}"
         )
-        assert directive, (
-            f"the skill's §2 states no loading requirement at all. It says:\n{section[:400]}"
+        directive = paragraphs[0]
+        assert re.search(r"\b(MUST|must)\b", directive), (
+            f"the skill's loading-order section opens with no requirement:\n{directive[:400]}"
         )
-        assert re.search(r"`?AGENTS\.md`?\s*§3", directive), (
-            "the skill's loading directive does not point at AGENTS.md §3, which is the sole "
-            f"loading-order authority. The directive says:\n{directive[:400]}"
+        assert not re.search(r"\b(MUST NOT|must not|obsolete|superseded|do not use)\b", directive), (
+            "the loading directive negates or retires the authority it should delegate to:\n"
+            f"{directive[:400]}"
+        )
+        target = self._canonical_section_reference(directive)
+        assert target, (
+            "the skill's loading directive does not point at a section of AGENTS.md, which is the "
+            f"sole loading-order authority. The directive says:\n{directive[:400]}"
         )
 
-        enumerated = re.findall(r"(?m)^\s*\d+\.\s+`?(artifacts/\w+\.md|AGENTS\.md)`?", section)
+        # Resolve the pointer. The skill said "§3" while nothing checked that AGENTS.md's §3 is
+        # the loop; renumbering AGENTS.md left the skill pointing at whatever landed there.
+        agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        heading = re.search(rf"(?m)^## {re.escape(target)}\. (.+)$", agents)
+        assert heading, (
+            f"the skill points at AGENTS.md §{target}, which has no such numbered section"
+        )
+        assert "Loop" in heading.group(1), (
+            f"the skill points at AGENTS.md §{target}, which is {heading.group(1)!r}, not the Loop "
+            "that carries Prepare's loading order"
+        )
+
+        # Scan the WHOLE skill, not §2: 06-64 moved the order into §4 and left a decoy §2.
+        # Accept dashes and asterisks as well as numerals -- an ordered list written with bullets
+        # is still a second copy of the order.
+        enumerated = re.findall(
+            r"(?m)^\s*(?:\d+\.|[-*])\s+`?(artifacts/\w+\.md|AGENTS\.md)`?", skill_text
+        )
         assert not enumerated, (
             "the skill carries its own ordered source list again. A second copy of the order is "
             f"the mechanism that produced P-14: {enumerated}"
         )
 
-    def test_the_canonical_loading_order_reaches_every_slot(self):
-        """Delegation is only worth having if the target order is complete."""
+    def test_the_canonical_loading_order_reaches_every_slot_in_order(self):
+        """Delegation is only worth having if the target order is complete AND ordered.
+
+        This asserted five substrings were present -- a membership check, which is the same
+        "these strings appear" proxy the commit retiring P-42 claimed to remove, reinstated one
+        file over. 06-64 scrambled Prepare's order and negated it outright; both passed. An order
+        is a sequence, so the assertion is on indices.
+        """
         agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         prepare = agents.split("- **Prepare**", 1)[1].split("- **Review**", 1)[0]
-        for slot_file in (
+
+        assert not re.search(r"\b(do NOT load|do not load|must not load)\b", prepare), (
+            f"Prepare tells the reader not to load its own list:\n{prepare[:400]}"
+        )
+
+        # The order Prepare must state. `goal` before `fact` is the substantive part: a fact is
+        # not proof that state satisfies the goal, so the goal is read first.
+        expected = [
+            "AGENTS.md",
             "artifacts/goal.md",
-            "artifacts/state.md",
             "artifacts/fact_stack.md",
+            "artifacts/state.md",
             "artifacts/problem_stack.md",
             "artifacts/todo_stack.md",
-        ):
-            assert slot_file in prepare, (
-                f"AGENTS.md §3 Prepare never loads {slot_file}, so a packet following it cannot "
-                "rank a slot it never reads"
+        ]
+        positions = {}
+        for source in expected:
+            index = prepare.find(source)
+            assert index >= 0, (
+                f"AGENTS.md §3 Prepare never loads {source}, so a packet following it cannot rank "
+                "a slot it never reads"
             )
+            positions[source] = index
+        actual = sorted(expected, key=positions.get)
+        assert actual == expected, (
+            "AGENTS.md §3 Prepare loads its sources out of order:\n"
+            f"  declared: {expected}\n  found:    {actual}"
+        )
+
+    @staticmethod
+    def _canonical_section_reference(directive: str) -> "str | None":
+        """The AGENTS.md section number a directive delegates to, or None."""
+        match = re.search(r"`?AGENTS\.md`?\s*(?:§|section\s*)(\d+)", directive)
+        return match.group(1) if match else None
 
     @staticmethod
     def _loading_order_section(skill_text: str) -> str:
-        """The skill's §2, by heading rather than by line number."""
+        """The skill's loading-order section, found by HEADING TEXT rather than by number.
+
+        Matching `## 2.` let 06-64 move the order to §4 and leave a decoy §2 behind. The section
+        is identified by what it is called, and the next `##` at any number ends it.
+        """
+        # `[^\n]*` for the heading line, not `.*` -- under re.S a dot crosses newlines and the
+        # heading match swallows the file, leaving an empty body. SKILL.md is CRLF, so the body
+        # is normalised before it is split into paragraphs.
         match = re.search(
-            r"(?m)^## 2\. .*?$(.*?)(?=^## 3\.)", skill_text, re.S
+            r"(?mi)^##+ [\d.]*\s*[^\n]*Authority Loading Order[^\n]*\n(.*?)(?=^##+ )",
+            skill_text,
+            re.S,
         )
-        assert match, "the skill has no §2; the sweep is wrong, not the file"
-        return match.group(1)
+        assert match, (
+            "the skill has no Authority Loading Order section; the sweep is wrong, or the section "
+            "was renamed, and either way this test cannot report on what it did not find"
+        )
+        return match.group(1).replace("\r\n", "\n")
 
     def test_fact_stack_human_authorization_rule_preserved_in_instructions(self):
         fact_stack = (REPO_ROOT / "artifacts" / "fact_stack.md").read_text(encoding="utf-8")

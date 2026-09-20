@@ -116,8 +116,54 @@ def _is_inside_nested_checkout(skill: Path, root: Path) -> bool:
     for parent in skill.parents:
         if parent == root:
             return False
-        if (parent / ".git").exists():
+        if _is_git_admin_entry(parent / ".git"):
             return True
+    return False
+
+
+def _test_job_matrix(workflow_text: str) -> Optional[set]:
+    """The python-version matrix of the `test` job specifically, or None if it has none.
+
+    Read by path rather than by first regex match: a decoy `python-version:` list anywhere above
+    `jobs.test` satisfied the old search while the job that actually runs the suite tested
+    something else. PyYAML is a hard dependency of mkdocs, which this repository already builds
+    with, so parsing costs nothing new; the regex fallback exists so a YAML error degrades to the
+    previous behaviour rather than to silence.
+    """
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover - mkdocs pulls PyYAML in every supported env
+        yaml = None
+    if yaml is not None:
+        try:
+            doc = yaml.safe_load(workflow_text)
+            versions = doc["jobs"]["test"]["strategy"]["matrix"]["python-version"]
+            return {str(v) for v in versions}
+        except (yaml.YAMLError, KeyError, TypeError):
+            return None
+    matrix = re.search(r"python-version:\s*\[([^\]]*)\]", workflow_text)
+    return set(re.findall(r'"(\d+\.\d+)"', matrix.group(1))) if matrix else None
+
+
+def _is_git_admin_entry(entry: Path) -> bool:
+    """True only for a real git administrative entry, not for anything named ``.git``.
+
+    Existence by name was the test until 06-64 showed what it buys: a zero-byte file
+    ``.claude/.git`` or an empty directory ``docs/.git`` made a duplicate skill tree beneath it
+    invisible to gate 2, which is the exemption swallowing the rule it was carved out of.
+    Presence of the name is the proxy; being a checkout is the invariant.
+
+    A clone carries a directory holding ``HEAD``. A linked worktree carries a file whose first
+    line reads ``gitdir: <path>``. Nothing else is a checkout root.
+    """
+    try:
+        if entry.is_dir():
+            return (entry / "HEAD").is_file()
+        if entry.is_file():
+            with entry.open("r", encoding="utf-8", errors="replace") as handle:
+                return handle.readline().startswith("gitdir:")
+    except OSError:
+        return False
     return False
 
 
@@ -145,10 +191,17 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
 
 
 def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]:
-    """Gate 3 (Test Independence): Enforce that tests do not contain machine-local hardcoded drive paths."""
+    """Gate 3 (Test Independence): no machine-local hardcoded drive paths in tests or scripts.
+
+    Scanned `tests/` alone until 2026-09-20, when a script shelled out to BY the suite was added
+    to `scripts/` carrying `C:\\workspace\\jnwb`. The pattern below matched it; the scope never
+    reached it, so the test that ran that script measured one machine's tree wherever it ran.
+    A gate whose scope excludes the directory the defect lands in is not a weaker gate, it is
+    absent. `scripts/` is in scope because the suite executes it.
+    """
     root = repo_root or REPO_ROOT
-    tests_dir = root / "tests"
-    if not tests_dir.exists():
+    scan_dirs = [d for d in (root / "tests", root / "scripts") if d.exists()]
+    if not scan_dirs:
         return []
     violations = []
     # Any drive letter, not C: and D:. This machine keeps its analysis data on E:, so the
@@ -160,7 +213,7 @@ def check_no_hardcoded_test_paths(repo_root: Optional[Path] = None) -> List[str]
         re.compile(r'["\'](/Users/[^"\']+)["\']'),
         re.compile(r'["\'](/home/(?!runner)[^"\']+)["\']'),
     ]
-    for py_file in tests_dir.rglob("*.py"):
+    for py_file in sorted(p for d in scan_dirs for p in d.rglob("*.py")):
         if py_file.name == "test_harness_adversarial_gates.py":
             continue
         try:
@@ -584,6 +637,29 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
                     f"PYTHON_FLOOR_INCONSISTENCY: requires-python {spec!r} does not declare a "
                     f">={PYTHON_FLOOR} floor"
                 )
+            # And against the surfaces themselves, with no constant in between. Comparing only to
+            # PYTHON_FLOOR let 06-64 move requires-python, PYTHON_FLOOR and the order of
+            # PYTHON_SUPPORTED together and pass 13 gates and 241 tests while pip would refuse to
+            # install on a version whose classifier the package still advertises. An editor can
+            # change a constant; it cannot make the lowest classifier stop being the lowest.
+            stated_floor = re.search(r">=\s*(\d+\.\d+)", spec)
+            if stated_floor is not None:
+                declared_versions = sorted(
+                    {
+                        m.group(1)
+                        for m in re.finditer(
+                            r'"Programming Language :: Python :: (\d+\.\d+)"', pyproject_text
+                        )
+                    },
+                    key=lambda v: tuple(int(p) for p in v.split(".")),
+                )
+                if declared_versions and stated_floor.group(1) != declared_versions[0]:
+                    violations.append(
+                        f"PYTHON_FLOOR_DISAGREES_WITH_CLASSIFIERS: requires-python declares a "
+                        f">={stated_floor.group(1)} floor while the lowest classifier is "
+                        f"{declared_versions[0]}. A user on {declared_versions[0]} is told the "
+                        "package supports them and pip refuses to install it."
+                    )
             if "<" in spec:
                 violations.append(
                     f"PYTHON_UPPER_PIN: requires-python {spec!r} carries an upper bound. jnwb is a "
@@ -631,11 +707,17 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
         )
     if workflow_path.exists():
         wf_text = workflow_path.read_text(encoding="utf-8")
-        matrix = re.search(r"python-version:\s*\[([^\]]*)\]", wf_text)
-        if matrix is None:
-            violations.append("PYTHON_FLOOR_INCONSISTENCY: workflow.yml declares no python-version matrix")
+        # By path, not by first match. `re.search` took whichever `python-version:` list came
+        # first in the file, so 06-64 put a decoy job above `jobs.test` and passed gate 8 with the
+        # real matrix saying something else. "The first matrix in the file" was the proxy; "the
+        # matrix the test job runs" is the invariant, and only a parse reaches it.
+        tested = _test_job_matrix(wf_text)
+        if tested is None:
+            violations.append(
+                "PYTHON_FLOOR_INCONSISTENCY: workflow.yml declares no python-version matrix under "
+                "jobs.test.strategy.matrix"
+            )
         else:
-            tested = set(re.findall(r'"(\d+\.\d+)"', matrix.group(1)))
             for required in PYTHON_CI_REQUIRED:
                 if required not in tested:
                     violations.append(
@@ -1072,24 +1154,41 @@ def run_full_preflight() -> bool:
     executed: List[int] = []
     failed: List[int] = []
 
-    for number, run, pass_line in GATES:
-        try:
-            found = run()
-        except Exception as exc:  # a gate that breaks must not hide the gates after it
+    # The report is a function and the loop is wrapped, because `not_run` used to be unreachable:
+    # both the success and the `except` path appended to `executed`, so the only way to skip a
+    # gate was an escaping BaseException -- which also skipped the reporting that would have said
+    # so. A NOT RUN line nothing can produce is not a safeguard, it is a comment. 06-64 deleted
+    # the whole block and the suite stayed green.
+    try:
+        for number, run, pass_line in GATES:
+            try:
+                found = run()
+                if found:
+                    failed.append(number)
+                    for header, violations in found:
+                        print(header)
+                        for violation in violations:
+                            print(f"  - {violation}")
+                else:
+                    # Inside the try: a pass_line() that raises used to abort the runner with no
+                    # verdict at all, which is the same failure this gate table exists to prevent.
+                    print(pass_line())
+            except Exception as exc:  # a gate that breaks must not hide the gates after it
+                failed.append(number)
+                print(f"ERROR: gate {number} raised {type(exc).__name__}: {exc}")
+            # Appended last, so a gate abandoned part-way is genuinely not executed.
             executed.append(number)
-            failed.append(number)
-            print(f"ERROR: gate {number} raised {type(exc).__name__}: {exc}")
-            continue
-        executed.append(number)
-        if found:
-            failed.append(number)
-            for header, violations in found:
-                print(header)
-                for violation in violations:
-                    print(f"  - {violation}")
-        else:
-            print(pass_line())
+    except BaseException:
+        # SystemExit, KeyboardInterrupt, or anything else that is not an ordinary error. Say which
+        # gates never ran before letting it go; an interrupted run must not read as a clean one.
+        _print_preflight_verdict(executed, failed)
+        raise
 
+    return _print_preflight_verdict(executed, failed)
+
+
+def _print_preflight_verdict(executed: List[int], failed: List[int]) -> bool:
+    """Name every gate's state, then the verdict. Unknown is never reported as passing."""
     not_run = [number for number, _, _ in GATES if number not in executed]
     for number in not_run:
         print(f"NOT RUN: gate {number} did not execute; its state is unknown, not passing.")
@@ -1101,7 +1200,7 @@ def run_full_preflight() -> bool:
         )
         return False
 
-    print("ALL HARNESS GATES PASSED.")
+    print(f"ALL HARNESS GATES PASSED. {len(executed)} of {len(GATES)} gates executed.")
     return True
 
 

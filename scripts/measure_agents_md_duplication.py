@@ -13,7 +13,11 @@ import pathlib
 import re
 import unicodedata
 
-ROOT = pathlib.Path(r"C:\workspace\jnwb")
+#: Derived, never literal. This read `C:\workspace\jnwb` until 06-64 showed what that costs: the
+#: script measured that one tree no matter which tree invoked it, so the ratchet in
+#: `tests/test_agents_md_stays_a_router.py` stayed green with the AGENTS.md under test deleted.
+#: A machine-local path in a script the suite shells out to makes the check a property of a laptop.
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 AGENTS = ROOT / "AGENTS.md"
 
 OTHERS = [
@@ -99,6 +103,9 @@ rows.sort(key=lambda r: -r[0])
 high = [r for r in rows if r[0] >= HIGH]
 med = [r for r in rows if MED <= r[0] < HIGH]
 
+# Say which tree was measured. A measurement that does not name its subject cannot be checked
+# against the tree the caller meant, which is exactly how the hard-coded ROOT went unnoticed.
+print(f"ROOT: {ROOT}")
 print(f"AGENTS.md: {total_lines} lines, {len(rows)} claim-bearing sentences")
 print(f"compared against {len(elsewhere)} sentences in {len(OTHERS)} other authorities\n")
 print(f"DUPLICATED (Jaccard >= {HIGH}): {len(high)}  ({100*len(high)/max(1,len(rows)):.1f}%)")

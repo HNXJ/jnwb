@@ -86,6 +86,13 @@ def function_name_words(name: str) -> "set[str]":
     return {w for w in name.split("_") if len(w) >= IDENTIFYING} - {"check", "validate"}
 
 
+def harness_gate_module():
+    """The gate module, imported once so counts come from the structure rather than a literal."""
+    from scripts import harness_gate
+
+    return harness_gate
+
+
 def _adapter_check(source: str, adapter: str) -> "str | None":
     """The first check an adapter function calls, found by reading its own def block."""
     block = re.search(rf"^def {re.escape(adapter)}\(.*?(?=^def |\Z)", source, re.M | re.S)
@@ -121,20 +128,49 @@ def runner_gate_calls(source: str) -> "dict[str, str]":
     return calls
 
 
+#: How many identifying words a docstring entry must share with the check it describes.
+#: One was the bar until 06-64 rewrote gate 2's entry to "Uniqueness of the CI matrix: the Python
+#: versions in the workflow are distinct" -- one word shared with `check_skill_tree_uniqueness`,
+#: describing a different check entirely, and the sweep passed. One shared word licenses any
+#: sentence containing it.
+REQUIRED_SHARED_WORDS = 2
+
+
 def entries_not_naming_their_check(doc: str, calls: "dict[str, str]") -> "list[str]":
-    """Documented gate entries that share no identifying word with the function they run."""
+    """Documented gate entries that do not identify the function they run.
+
+    A check whose name yields fewer than `REQUIRED_SHARED_WORDS` identifying words cannot meet the
+    higher bar, so for those the entry must instead overlap the check's own docstring -- otherwise
+    the rule would be unsatisfiable rather than strict.
+    """
     offenders = []
     for number, entry in re.findall(r"^ {2}(\d+)\. (.+)$", doc, re.M):
         function = calls.get(number)
         if function is None:
             offenders.append(f"gate {number}: the runner calls nothing under that number")
             continue
-        if not function_name_words(function) & identifying_words(entry):
-            offenders.append(
-                f"gate {number}: the docstring says {entry!r} while the runner calls "
-                f"{function}(), with no identifying word in common"
-            )
+        name_words = function_name_words(function)
+        shared = name_words & identifying_words(entry)
+        required = min(REQUIRED_SHARED_WORDS, len(name_words))
+        if len(shared) >= required and shared:
+            continue
+        # Fall back to the check's own docstring before reporting: a check named with one
+        # identifying word is described, not renamed, by the entry.
+        own_doc = check_docstring(function)
+        if own_doc and len(identifying_words(own_doc) & identifying_words(entry)) >= 2:
+            continue
+        offenders.append(
+            f"gate {number}: the docstring says {entry!r} while the runner calls "
+            f"{function}(), sharing {sorted(shared)} -- fewer than {required} identifying words, "
+            "and the entry does not match the check's own docstring either"
+        )
     return offenders
+
+
+def check_docstring(function_name: str) -> str:
+    """The named check's own docstring, or '' when it cannot be resolved."""
+    function = getattr(harness_gate_module(), function_name, None)
+    return (function.__doc__ or "") if function is not None else ""
 
 
 def returns_arity_mismatches(root: Path) -> "list[str]":
@@ -235,17 +271,45 @@ class TestTheHarnessGateListsTheGatesItRuns:
         """The case that passed: "Protected path safety" against a skill-tree check."""
         doc = "  2. Protected path safety: protects concurrent working tree directories."
         offenders = entries_not_naming_their_check(doc, {"2": "check_skill_tree_uniqueness"})
-        assert len(offenders) == 1 and "no identifying word" in offenders[0], offenders
+        # Assert the substance -- one offender, naming the gate and the check it actually runs --
+        # rather than the wording, which pinned a sentence and broke when the sentence improved.
+        assert len(offenders) == 1, offenders
+        assert "gate 2" in offenders[0] and "check_skill_tree_uniqueness" in offenders[0], offenders
+
+    def test_one_shared_word_is_not_enough(self):
+        """06-64's G3: an entry sharing a single word described a different check and passed."""
+        doc = "  2. Uniqueness of the CI matrix: the Python versions in the workflow are distinct."
+        offenders = entries_not_naming_their_check(doc, {"2": "check_skill_tree_uniqueness"})
+        assert len(offenders) == 1, (
+            "an entry sharing only the word 'uniqueness' with check_skill_tree_uniqueness, while "
+            f"describing the CI matrix, was accepted: {offenders}"
+        )
 
     def test_an_entry_the_runner_does_not_run_is_found(self):
         offenders = entries_not_naming_their_check("  14. Something new.", {})
         assert offenders == ["gate 14: the runner calls nothing under that number"]
 
     def test_the_count_matches_what_the_runner_prints(self):
+        """The name promised a comparison the body never made.
+
+        `printed` was computed from the `PASS: ` literals and then never used; the only assertion
+        compared the docstring count against the literal 13, which is not "what the runner prints"
+        by any reading. Both sides are now derived and compared to each other.
+        """
         doc = module_docstring(HARNESS_GATE)
-        printed = HARNESS_GATE.read_text(encoding="utf-8").count('"PASS: ')
-        printed += HARNESS_GATE.read_text(encoding="utf-8").count('f"PASS: ')
-        assert len(DOCSTRING_GATE.findall(doc)) == 13, DOCSTRING_GATE.findall(doc)
+        source = HARNESS_GATE.read_text(encoding="utf-8")
+        # Not `count('"PASS: ') + count('f"PASS: ')`: an f-string literal contains the plain one
+        # as a substring, so that sum double-counted every computed pass line. The old code did
+        # exactly that and went unnoticed because the value was discarded.
+        printed = source.count('"PASS: ')
+        documented = len(DOCSTRING_GATE.findall(doc))
+        declared = len(harness_gate_module().GATES)
+        assert documented == declared == printed, (
+            "the three counts of the gates disagree:\n"
+            f"  module docstring entries: {documented}\n"
+            f"  entries in GATES:         {declared}\n"
+            f"  'PASS: ' literals:        {printed}"
+        )
 
 
 class TestTheVersionHookQuotesTheRealRequiresPython:

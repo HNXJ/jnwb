@@ -29,6 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.harness_gate import (  # noqa: E402
     EPHEMERAL_ROOT_DIRS,
     TOOL_ROOT_DIRS,
+    _is_git_admin_entry,
     check_root_allowlist,
     check_skill_tree_uniqueness,
 )
@@ -45,6 +46,19 @@ def _tree_with_a_skill(root: pathlib.Path, where: str) -> pathlib.Path:
     skill = second / "SKILL.md"
     skill.write_text("# second\n", encoding="utf-8")
     return skill
+
+
+def _real_clone_dot_git(root: pathlib.Path) -> pathlib.Path:
+    """Build the ``.git`` of an ordinary clone: a directory holding ``HEAD``.
+
+    A bare ``mkdir()`` is not this. It is an empty directory that happens to be named ``.git``,
+    which is the counterfeit the test below pins -- and which this fixture silently was until
+    2026-09-20, so the ``nested-clone`` case tested the evasion rather than the clone.
+    """
+    dot_git = root / ".git"
+    dot_git.mkdir()
+    (dot_git / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    return dot_git
 
 
 def test_a_plain_duplicate_tree_still_fails(tmp_path):
@@ -80,10 +94,43 @@ def test_a_nested_checkout_does_not_fail(tmp_path, dot_git_is_a_file):
     if dot_git_is_a_file:
         (checkout_root / ".git").write_text("gitdir: /elsewhere/.git/worktrees/agent-a\n", encoding="utf-8")
     else:
-        (checkout_root / ".git").mkdir()
+        _real_clone_dot_git(checkout_root)
 
     assert skill.is_file(), "the fixture must actually place a SKILL.md inside the checkout"
     assert check_skill_tree_uniqueness(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "make_marker, why",
+    [
+        pytest.param(
+            lambda root: (root / ".git").mkdir(),
+            "an empty directory named .git",
+            id="empty-dir",
+        ),
+        pytest.param(
+            lambda root: (root / ".git").write_text("not a gitdir pointer\n", encoding="utf-8"),
+            "a file named .git that points nowhere",
+            id="file-without-gitdir",
+        ),
+    ],
+)
+def test_a_counterfeit_dot_git_does_not_buy_the_exemption(tmp_path, make_marker, why):
+    """The other half of the pair, and the reason the fixture above had to be repaired.
+
+    Until 2026-09-20 the ``nested-clone`` fixture built its ``.git`` with a bare ``mkdir()``, so
+    the case named after a clone was in fact this case -- and the gate's own check was
+    ``(parent / ".git").exists()``, which both of these satisfy. Anyone could hide a duplicate
+    skill tree from gate 2 by creating an empty directory beside it. The fixture agreed with the
+    defect, so nothing failed.
+    """
+    _tree_with_a_skill(tmp_path, "docs/skills/jnwb-elsewhere")
+    make_marker(tmp_path / "docs")
+
+    violations = check_skill_tree_uniqueness(tmp_path)
+
+    assert len(violations) == 1, f"{why} was accepted as a checkout: {violations}"
+    assert "docs/skills/jnwb-elsewhere/SKILL.md" in violations[0]
 
 
 def test_a_duplicate_inside_a_nested_checkout_is_still_that_checkouts_business(tmp_path):
@@ -193,4 +240,9 @@ def test_every_live_worktree_is_a_real_checkout():
         # directory on disk is. One that no longer exists holds no SKILL.md and is no hazard.
         if not root.exists():
             continue
-        assert (root / ".git").exists(), f"{root} is a worktree with no .git entry"
+        # `.exists()` was the assertion here, and it is the proxy rather than the invariant: an
+        # empty directory named `.git` satisfies it. The gate rests on `_is_git_admin_entry`, so
+        # this guard must rest on the same predicate or it can pass while the gate would fail.
+        assert _is_git_admin_entry(root / ".git"), (
+            f"{root} carries no valid .git administrative entry, so gate 2 would not skip it"
+        )
