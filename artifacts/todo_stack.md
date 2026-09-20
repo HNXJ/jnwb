@@ -219,10 +219,10 @@ changes behaviour for files that open today; (d) something else.
 Accept: the ruled cell, the table written into `docs/errors.md`, and a test per row.
 Stop: no agent takes this item.
 
-### 06-64 Verify the four repairs of 2026-09-19
+### 06-64 Verify the repairs of 2026-09-19
 
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The actor is never the verifier, and four repairs landed today with their author's own receipts.
+The actor is never the verifier, and seven repairs landed today with their author's own receipts.
 Each is a separate read-only packet against the exact diff, never against the author's summary.
 
 | Diff | Repaired | The claim most worth attacking |
@@ -233,6 +233,7 @@ Each is a separate read-only packet against the exact diff, never against the au
 | `nwb_io.py`, `allow_missing` and the squeeze warning | this session | That the default is still refusal. Do **not** verify that `""` is unmistakable -- it is not, and 06-67 rules it |
 | collect-all gate reporting | this session | That no gate can be positioned so its failure hides another, and that `PASS` requires all 13 to have executed rather than none to have complained |
 | test-provenance scanners | this session | That the three new scanners encode the invariant and not a third proxy, and that the two pre-existing `jnwb.__file__` uses they permit really do hold for an installed copy |
+| the gate-order tests, `7e7d1f47` | this session | That rewriting them to read `GATES` did not weaken them. The author's own mutants were a swapped check and a renumbered gate; find a third the rewritten sweep no longer catches, starting with a gate present in the table but absent from the module docstring |
 
 Recorded as P-37: all three harness repairs share one cause, a proxy mistaken for the invariant.
 The verification that matters is therefore not "does the repair work" but **"is the new check the
