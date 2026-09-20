@@ -1233,6 +1233,141 @@ Accept: each of the eight is ruled as a chain to complete or an export to withdr
 Stop: this item does not withdraw an export before the ruling. Withdrawing a public name is a
 breaking change and a release decision.
 
+### 06-86 Resolve the two sources that disagree about computational order
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/computational_order.md`, `tests/`.
+P-34. Eight measured exponents contradict `artifacts/benchmarks/complexity_inventory.md`, which
+records them as "verified": INV-05 claims +1.00 against a measured +2.14; INV-06 claims +2.00 for
+two granger exports measuring +1.07 and +1.11; INV-08 claims +1.00 against +0.62; INV-13 claims
++2.00 and +1.00 against +0.54 and +0.47; INV-14 claims +0.00 and +1.00 against +0.83 and +0.49.
+The likely cause is that the inventory was verified against heap allocations and never timed, so
+two documents measure different quantities under one word. This is release condition (2): a
+document calling an unmeasured claim "verified" is the defect, independent of which number is
+right.
+Reproduce: re-run the timed sweep for the eight, and establish what the inventory's "verified"
+actually verified by reading the script that produced it.
+Do: name the quantity in both documents. If they measure different things, say which, and stop
+using one word for both. Do not reconcile the numbers by re-baselining the inventory to the
+timings -- that would make the contradiction disappear without establishing which was measured.
+Discriminator: a test asserts the inventory names its quantity, and fails if a row records an
+exponent with no stated measurement method.
+Accept: P-34 closes, and the word "verified" appears only where a method is named.
+Stop: the script that produced the inventory no longer exists or cannot be run. Then the
+inventory's claims are unfalsifiable, which is a stronger finding than a disagreement, and it is
+reported rather than patched.
+
+### 06-87 Record what reading order off the source costs
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `docs/documentation_form.md` or `artifacts/agents/jnwb-developer.md`.
+P-36, and a one-line repair rather than a project. Reading computational order off the source was
+wrong on six specs in both directions: five where a source reading predicted a gap no measurement
+found, and one exponential case a reading of the loop structure would not have caught. A nested
+loop is not evidence of the order it looks like.
+Do: write that as a rule where the next person doing order work will read it. One sentence, with
+the count, because the count is what makes it credible.
+Discriminator: none needed; this is prose. Its absence is the defect and its presence closes it.
+Accept: P-36 closes.
+Stop: neither file is the right home. Then say which is, and put it there.
+
+### 06-88 Stamp compressed files with provenance that exists
+
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none.
+Writes: `jnwb/compression.py`, `tests/test_compression.py`.
+P-30, and worse in production than the row originally recorded: **22 of 22 real files** carry
+`conversion_script = "scripts/convert_nwb_compressed.py"`, which does not exist in this
+repository, and newly written files still mint it. Every compressed file points at a script
+nobody can run, which is provenance that actively misleads rather than merely missing.
+Reproduce: write a file and read its `conversion_script` attribute back; confirm the path does
+not resolve.
+Do: stamp something that resolves -- the module and the version that did the work -- or stop
+claiming a script. Do not add a script to make the string true; that is satisfying the stamp
+rather than the caller.
+Discriminator: a test resolves the stamped provenance against the repository and fails when it
+does not exist. The 22 already-written files are not rewritten; the row records that their stamp
+stays wrong, which is the same shape as P-C6.
+Accept: P-30 closes, and newly written files carry provenance a reader can follow.
+Stop: the attribute is part of a format contract a consumer already reads. Then changing it is a
+compatibility decision, not a repair.
+
+### 06-89 Document the unit-to-layer composition
+
+Role: docs-harness. Skill: `jnwb-population`. Blocked by: 06-49. Writes: `docs/`, `skills/`.
+P-20. The composition works today through existing exports and no document or skill shows it, so
+a capability that exists is unreachable by reading -- which is precisely the reachability failure
+class 0.2.6 exists to close.
+Reproduce: compose it from the public API and record the call sequence that works.
+Do: document the sequence on the page that owns the operations, and give the routing skill a
+pointer. The skill names the operation; documentation defines it, per `artifacts/direction.md`.
+Discriminator: a reader following only the published page reaches layer labels from a units table
+without reading source.
+Accept: P-20 closes.
+Stop: the composition depends on P-49's index-space defect being resolved first. Then this waits
+on 06-77 and says so rather than documenting a sequence that mislabels anatomy.
+
+### 06-90 Make an absent `peak_channel_id` visible
+
+Role: jnwb-developer. Skill: `jnwb-population`. Blocked by: none.
+Writes: `jnwb/addressing.py`, `tests/`, `docs/`.
+P-22, restated after re-measurement. The row said `jnwb/addressing.py:340` assumes the column
+exists. It does not: `:341` guards with `'peak_channel_id' in df.columns`. The real defect is what
+the guard does -- when the column is absent the caller silently receives a frame with no `area`
+and no `layer` column, no warning, and no indication that enrichment was skipped. That is the
+06-16 substitution class in its quiet form: absence of output standing in for absence of input.
+Separately and still true: no export derives `peak_channel_id` from an NWB units table, so a
+caller who has only a units table cannot supply it.
+Reproduce: call the enrichment with and without the column and diff the returned columns.
+Do: make the skip observable -- warn, or return a stated indicator -- and decide whether to add a
+derivation or to document that the caller supplies it. Both are acceptable; silence is not.
+Discriminator: the no-column call is distinguishable from the with-column call by something other
+than counting columns.
+Accept: P-22 closes on its restated wording.
+Stop: making the skip loud breaks a caller who relies on the silent path. Record the caller.
+
+### 06-91 Make a packet verify its own baseline
+
+Role: jnwb-developer. Skill: `jnwb-fact-action`. Blocked by: none.
+Writes: `skills/jnwb-fact-action/SKILL.md`, `AGENTS.md`, `tests/`.
+P-28. The provisioner branched three fan-out agents from `5ecc12eb`, 192 commits behind the
+`f23d96ce` their packets named. `artifacts/goal.md`, `artifacts/problem_stack.md` and
+`artifacts/agents/jnwb-developer.md` did not exist there and the cited line numbers pointed at
+unrelated code. All three detected it independently; a packet that had trusted its baseline would
+have measured the 0.1.8 tree and reported against it as though it were current.
+Measured 2026-09-20: neither `AGENTS.md` nor the skill requires a packet to check the commit it
+was given against the commit its packet names. The packet contract has an `OBSERVED BASELINE`
+field, and it records what the packet ran, not whether it ran it on the right tree.
+Do: make the first action of a packet the comparison of `git rev-parse HEAD` against the packet's
+declared baseline, and a stop condition when they differ. Skill files are doctrine-adjacent, so
+propose the wording rather than applying it unilaterally.
+Discriminator: a packet handed a baseline that does not match its worktree stops, and says both
+SHAs.
+Accept: P-28 closes.
+Stop: the packet contract is Hamm's to amend. If the wording changes what a packet is obliged to
+do rather than how it checks, it is a ruling.
+
+### 06-92 Rule the fact-slot sentence on CI coverage
+
+Role: human ruling. Skill: none. Blocked by: none. **AUTONOMY: none.**
+Writes: `artifacts/fact_stack.md`, after the ruling only.
+P-41. `artifacts/fact_stack.md:58` reads "CI tests the declared floor and newest supported
+version." Three sources falsify it, and the important one is not the workflow:
+
+| Source | What it says |
+|---|---|
+| `.github/workflows/workflow.yml:41-46` | `os: [ubuntu-latest, windows-latest]` x `python-version: ["3.12","3.13","3.14"]` -- six legs, all three declared versions |
+| `AGENTS.md:200-202` | the 2026-09-19 amendment that retired this policy, with its stated reason. Read it there -- restating it here would give the claim a second home, which is P-15 |
+| `artifacts/goal.md` | "Every claimed version is exercised in CI" |
+
+The last is the one that matters: `goal` and `fact` are both slots Hamm rules, and they state
+incompatible policies about the same thing. An agent loading both in the order `AGENTS.md` §3
+prescribes receives two authoritative and contradictory claims.
+The `fact` slot is not agent-editable, so this item assembles and does not write. Hamm's own
+instruction stands: the replacement records observed policy and state, rather than merely
+inverting the stale wording.
+Accept: the sentence is replaced by Hamm, and `goal.md` and `fact_stack.md` agree.
+Stop: this item writes nothing to `artifacts/fact_stack.md` before the ruling.
+
 ## Reported and not admitted
 
 Not frozen and not scheduled. Recorded so that nothing reported disappears by not being chosen.
