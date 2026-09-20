@@ -131,7 +131,9 @@ results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review iden
 
 ### 06-62 Measure what AGENTS.md duplicates, then reduce it
 
-Role: docs-harness. Skill: none. Blocked by: 06-61. Writes: `AGENTS.md`.
+Role: docs-harness. Skill: none. Blocked by: none -- 06-61 was ruled C on 2026-09-19 and deleted as complete. `AGENTS.md`
+§3 is the sole loading-order authority and the skill points at it, which is the premise this
+item needed. Writes: `AGENTS.md`.
 Recorded as P-15. The operating contract requires `AGENTS.md` to be a thin router -- scope,
 authority, project map, canonical state, required capabilities, invariants, verification, stop
 conditions -- and to duplicate no project truth. It is over 360 lines. Size is not evidence of
@@ -291,87 +293,12 @@ it, and the existing 13 gates still pass.
 Stop: the one-sentence rule cannot be stated, or the gate can only pass by editing the four
 published pages. Both mean the boundary is not yet mechanical; say so and leave it to prose.
 
-### 06-69 Assemble the compress_fp32 candidate-policy table
-
-Role: critic. Skill: `jnwb-nwb-io`. Blocked by: none. Writes: `artifacts/compress_fp32_policy.md`.
-Read-only against the library; the only write is the new artifact.
-06-13 is `AUTONOMY: none` and cannot be ruled without this. Hamm named the columns; produce one
-row per candidate selection rule, and measure every cell rather than reasoning it out.
-
-| Column | What the cell must contain |
-|---|---|
-| exact selection rule | the predicate, as code that could be pasted in |
-| current behaviour | what ships today under that rule |
-| LFP behaviour | downcast or preserved, measured on a real series |
-| MUAe behaviour | the same, measured |
-| other acquisition series | the same, measured |
-| processing-module series | the same, measured |
-| arbitrary user series | the same, measured |
-| data newly downcast | what this rule loses that today's does not |
-| data no longer downcast | what this rule preserves that today's does not |
-| compatibility impact | what breaks for a caller who has already written files |
-| inferable from NWB semantics? | whether the rule reads the data model or only names |
-| reversible? | whether the consequence can be undone from the written file |
-
-The candidate set includes, at minimum: today's rule; explicit caller selection (`select=`);
-`neurodata_type`-driven selection; and unit-driven selection. Add any candidate the evidence
-suggests, and state for each whether the existing contract survives it.
-Fact established by the earlier packet and not to be re-derived: all four candidates examined so
-far change what is lost, the corpus fixtures carry zero `neurodata_type`, and
-`convolved_spike_train` is deliberately preserved. Reproduce those three before relying on them.
-Accept: every cell is measured or explicitly marked unmeasurable with the reason. A cell reasoned
-from the source without running it is not acceptable evidence here.
-Stop: a candidate cannot be measured without writing files outside the scratch area.
-
-### 06-70 Assemble the authority loading-order comparison
-
-Role: critic. Skill: none. Blocked by: none. Writes: `artifacts/authority_loading_order.md`.
-06-61 is `AUTONOMY: none` and cannot be ruled from shorthand. Recorded as P-14, sibling of P-15.
-Do: state each candidate loading order explicitly, as the mapping
-
-    source -> {goal, state, fact, problem, todo}
-
-for every source the skill and `AGENTS.md` §3 name, in the order that candidate loads them. For
-each candidate give: the conflict-resolution rule when two sources write the same slot; which
-slot each source is authoritative for; and **one concrete adversarial example** where the
-candidates diverge -- a real pair of files in this tree, not a hypothetical.
-Reproduce: `skills/jnwb-fact-action/SKILL.md` loading order against `AGENTS.md` §3 Prepare, and
-record where they already disagree. That disagreement is P-14; the table must show which
-candidate resolves it and how.
-Accept: every candidate is a complete mapping over all five slots, and the adversarial example
-produces a different outcome under at least two candidates.
-Stop: the candidates turn out to be the same order stated twice; say so and close P-14 as
-not-a-defect with the evidence.
-
-### 06-71 Assemble the missingness truth table
-
-Role: critic. Skill: `jnwb-nwb-io`. Blocked by: none. Writes: `artifacts/missingness_table.md`.
-06-67 is `AUTONOMY: none`. The empty-string behaviour ships but is **not** ruled, and
-`artifacts/goal.md` §4 now marks that paragraph provisional. Do not implement any change to it.
-One row per on-disk state, with the six states named explicitly: absent field; explicit `None`;
-empty string `""`; malformed value; allowed-missing field; present valid value.
-
-| Column | What the cell must contain |
-|---|---|
-| current behaviour | what `read_nwb` does today, run, not read off the source |
-| proposed behaviour | the candidate, stated as an observable outcome |
-| compatibility consequence | what changes for a caller on the shipped version |
-| information lost by collapsing | whether two distinct on-disk states become indistinguishable |
-
-Rows 3 and 4 are the disputed ones and carry the weight: a genuinely empty on-disk description is
-value-identical to a waived one, which is the actual ambiguity -- not a competing prior
-specification, because none exists.
-Reproduce: build all six states with h5py and verify each in bytes before reading it. The 2x2
-reproducer in `tests/test_nwb_read_tolerance_and_visibility.py` already builds four of them.
-Accept: every cell is the output of a run, and the last column says yes or no for every row with
-the two collapsed states named where it says yes.
-Stop: a state cannot be constructed on disk; record it as unreachable with the attempt.
-
 ## Batch 1. Public truth and reachability
 
 ### 06-06 Publish the canonical architecture page
 
-Role: docs-harness. Skill: jnwb. Blocked by: 06-01, 06-02.
+Role: docs-harness. Skill: jnwb. Blocked by: none -- 06-01 and 06-02 were both ruled
+2026-09-19 and deleted as complete. This item read as blocked for a day after it was not.
 Reads: `artifacts/direction.md`. Writes: a new page under `docs/`, `mkdocs.yml`,
 `docs/index.md`, `docs/agents.md`.
 Do: extract the durable content of the ruling into a maintained page -- identity, the two entry
@@ -624,6 +551,10 @@ over a declared subset and records the subset's boundary as part of the result.
 
 Role: authority, on a proposal from jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/composition_subset_0.2.6.md`.
+The proposal is assembled and sits at `artifacts/composition_subset_proposal_0.2.6.md`: 10
+chains, 11 exclusions, 6 stop conditions, with H1, H2 and H3 reproduced. The declared write
+above is the **ruled** subset and stays absent until Hamm rules, so this item is not complete
+when the proposal exists.
 Name the producer-consumer chains before any test in 06-19 through 06-23 is written. Within the
 declared subset, unknown is not a pass. The boundary of the subset is part of the acceptance
 record, not an omission from it.
@@ -1099,6 +1030,208 @@ Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`, and the release body th
 dev green, pull request and main green, tag validates without publishing, GitHub Release,
 production index, then verification from the index in a clean environment. A tag alone validates
 artifacts and does not publish; publication happens on the release.
+
+## Batch 8. Problems found while executing 0.2.6
+
+Every item below claims a row opened in `artifacts/problem_stack.md` after this stack was
+frozen. They are collected in their own batch rather than filed into Batches 1 through 7 because
+their common property is when they were found, not what they touch: each came out of a packet
+measuring something else. The release condition is that both stacks are empty, so a problem
+found during execution needs an item exactly as much as a problem found during planning.
+
+Two are `AUTONOMY: none`. They are capability decisions -- what jnwb owes a mistyped corpus, and
+whether an export with no consumer is an unfinished chain or a mistake -- and neither has a
+repair that is correct independent of the ruling.
+
+### 06-76 Resolve `correction='none'` and the test set that cannot reach it
+
+Role: jnwb-developer. Skill: `jnwb-statistics`. Blocked by: none. Writes: `jnwb/jrsa.py`,
+`tests/test_jrsa_correction_fallback.py`, `artifacts/problem_stack.md`.
+P-50, P-51, P-52, and P-31 which P-50 supersedes. `'none'` is not a key of
+`_CORRECTION_METHOD_MAP`, so `.get('none', 'fdr_bh')` returns Benjamini-Hochberg under the label
+`none` when statsmodels is present, and raises `ImportError` demanding statsmodels when it is
+absent -- asking for no correction requires the library that does correction. Both are live on
+the main path; P-31 recorded the first as latent and that framing is now wrong.
+Reproduce: call the estimator with `correction='none'` under both import conditions and record
+what comes back. Do not read the call sites' short-circuit as a defence; the function is public.
+Do: make `'none'` mean no correction, explicitly, in the map or ahead of it. Then repair the test
+set: `SUBSTITUTED_METHODS` is derived from `_CORRECTION_METHOD_MAP`, so it is structurally
+incapable of covering a value missing from that map. Enumerate the accepted values from the
+documented contract instead, and assert the map matches the enumeration. Rename
+`test_holm_never_returns_the_benjamini_hochberg_values`, or restore an assertion that runs, so
+the name matches what it enforces. Change `p_flat * len(p_flat)` to a float multiplier.
+Discriminator: delete `'none'` from wherever the repair puts it and a test must fail naming
+`'none'`; the old derived-case-set spelling must fail the new enumeration assertion.
+Accept: P-50, P-51, P-52 close; P-31 closes as superseded with the evidence that replaced it.
+Stop: making `'none'` explicit changes what a documented default returns. Say so and stop; that
+is a contract change, not a repair.
+
+### 06-77 Refuse or reconcile the two crossover index spaces
+
+Role: jnwb-developer. Skill: `jnwb-lfp-spectral`. Blocked by: none. Writes: `jnwb/laminar.py`,
+`tests/`, `docs/`.
+P-49, and the most consequential open row: layer labels are scientific output. `vflip` reorders
+`psd_arr[order]` only when `probe_geometry` is supplied (`jnwb/laminar.py:297`); `label_layers`
+always builds `rank` from `probe_geometry.linear_order` (`:811-815`); the boundary check compares
+only channel **count** (`:763-768`). Measured: 18 of 24 contacts receive a different layer,
+`accepted=True`, no warning.
+Reproduce: run `vflip` without geometry and `label_layers` with it over a table order non-monotone
+in depth, and count differing labels. A channel **reversal** will not do -- it is
+permutation-covariant here because `probe_geometry` re-derives its principal direction, so that
+test passes and proves nothing.
+Do: decide which index space `crossover_contact` is in, name it in the signature or the docstring,
+and make the mismatch a refusal at the boundary rather than a silent reorder. A count check is not
+a frame check.
+Discriminator: the non-monotone case raises or warns; the all-geometry case still returns 0 of 24
+differing and stays silent.
+Accept: P-49 closes, and a test holds the refusal.
+Stop: the correct index space cannot be established from the code and the documentation together.
+That is a contract question for Hamm, not a repair.
+
+### 06-78 Give the preserved series a dtype test before claiming it survives
+
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. Writes: `tests/test_compression.py`.
+P-48. `convolved_spike_train` appears twice in the compression tests, both times in fixture
+construction, with no dtype assertion. 06-69 measured three candidate policies that downcast it
+while passing 15 of 15 tests, so "the existing contract survives R1, R2 and R4" is a statement
+about candidates that happen not to break an unenforced rule.
+Reproduce: assert the dtype the contract requires, then apply one of 06-69's downcasting
+candidates and confirm the new test fails where the 15 did not.
+Do: add the assertion. Nothing else -- this item exists so 06-13 can be ruled against an enforced
+contract rather than an assumed one.
+Discriminator: the downcasting candidate above fails; the shipped policy passes.
+Accept: P-48 closes, and 06-13's "survives" column means something testable.
+Stop: the contract's required dtype is not stated anywhere. Then the contract is the thing that is
+missing, and that is a finding, not a test.
+
+### 06-79 Make the chunk shape follow the dataset rank
+
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. Writes: `jnwb/compression.py`,
+`tests/test_compression.py`.
+P-47, and a sequencing item rather than a policy one. `jnwb/compression.py:293`, `:339` and `:354`
+all build `chunks = (min(N, shape[0]), n)` and hand it to `create_dataset` at `:172`, so a 1-D
+dataset raises `ValueError: 'chunks' must have same rank`. Latent today because nothing selects a
+1-D dataset, and load-bearing the moment `select=` exists, which every explicit-caller-selection
+candidate in 06-13 implies.
+Reproduce: compress a 1-D dataset and record the raise.
+Do: derive the chunk shape from the dataset's rank. Do not special-case rank 1.
+Discriminator: a 1-D and a 3-D dataset both compress; the 2-D chunk shape on the real corpus is
+byte-identical to today's.
+Accept: P-47 closes, and 06-13 can be ruled without its repair being blocked by this.
+Stop: the corpus 2-D chunking changes at all. That is a re-baseline, not a repair.
+
+### 06-80 Resolve every `Skill:` field against `skills/`
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`, `tests/`,
+`artifacts/todo_stack.md`.
+P-53. Two items named `jnwb-nwb-io`, which has never existed. The name reached two dispatched
+packets, nothing errored, and a packet worked around it silently. The standing rule is that a file
+pointing at other files goes stale without erroring; this pointer was **born wrong**, so a
+staleness check would not have caught it either. Mechanically preventable, which is the criterion
+for a gate.
+Reproduce: list every `Skill:` value in the stack and diff it against `skills/`. Today that is
+`jnwb-nwb-io` twice, plus the placeholder forms `per skill`, `per module`, `per finding` and
+`per chain`, which are legitimate and must stay legal.
+Do: add a gate resolving each `Skill:` value that is not a declared placeholder against a
+directory under `skills/` holding a `SKILL.md`. Do the same for `Role:` against `artifacts/agents/`
+if that costs nothing extra. **Widened by P-57:** resolve the cross-references between the
+two stacks as well -- a `Blocked by:` field and a problem's `Answered in` column may name only
+a live item. Both went stale during this release with no error: two items sat blocked by
+rulings that had already happened, and two problems pointed at items deleted as complete.
+Discriminator: reintroducing `jnwb-nwb-io` into any item fails the gate; every placeholder form
+still passes; renaming a real skill directory fails the gate.
+Accept: P-53 closes, the gate joins the collect-all table with its own number, the module
+docstring lists it, and the count assertions in `tests/test_module_docstrings_match_their_code.py`
+still agree on all three sides.
+Stop: the placeholder forms cannot be distinguished from a typo by any rule. Then the stack's own
+notation is the defect and it is repaired first.
+
+### 06-81 Make the copy under test identifiable
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/`, `tests/`.
+P-44. The installed copy and this worktree both report `0.2.5` while their `read_nwb` signatures
+differ -- the installed one raises `TypeError: unrecognized argument: 'allow_missing'`. A probe
+that identifies a copy by `__version__` cannot tell them apart, which is the weak point in the
+`tests inspect the selected installation` invariant: the scanners assert which copy is imported,
+but a probe taking the shortcut is unprotected.
+Reproduce: import both copies and compare `__version__` against `inspect.signature(read_nwb)`.
+Do: decide what identifies a copy -- `__file__`, a build marker, or a dev-suffixed version -- and
+make the answer available without importing a private name.
+Discriminator: the two copies above compare unequal under the new identifier while both still
+report `0.2.5`.
+Accept: P-44 closes, and 06-35's clean-environment matrix can state which copy each cell measured.
+Stop: the only honest answer is to bump the working version, which is a release decision.
+
+### 06-82 Reach the waiver from the public API
+
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: 06-67. Writes: `jnwb/__init__.py`,
+`jnwb/nwb_io.py`, `docs/`, `tests/`.
+P-43 and P-46. `MissingRequiredNWBFieldError` is exported and documented; `read_nwb`, `nwb_read_io`,
+`hdmf_build_repair_context` and `SqueezedAttributeWarning` are in neither `__all__` nor
+`dir(jnwb)`, and `read_nwb(path, allow_missing=...)` is reachable only by importing the submodule
+directly. **06-41 was ruled, implemented, and is unreachable from the public API** -- the caller
+whose report produced the ruling cannot use what was ruled. Separately, a soft link to a valid
+description is refused outright by default and with `ValueError: already exists in root.links`
+when waived, although the value is on disk and reachable: refusing a file whose required field
+**is** present is a false refusal, not a conservative default.
+Blocked by 06-67 because the shape of the export depends on what a waiver is ruled to mean.
+Reproduce: `import jnwb; jnwb.read_nwb` and record the `AttributeError`; then open the soft-link
+file both ways and record both failures.
+Do: export the remedy beside the error, document it on the page that documents the error, and
+make the soft-link case resolve the link rather than refuse it.
+Discriminator: a caller who catches `MissingRequiredNWBFieldError` can reach the waiver without
+importing a submodule; the soft-link file opens with the correct description and no waiver.
+Accept: P-43 and P-46 close.
+Stop: 06-67 rules that a waived field must be represented in a way the current signature cannot
+express. Then the signature is the item, and this one waits.
+
+### 06-83 Verify the gate-2 administrative-entry repair
+
+Role: critic. Skill: none. Blocked by: none. Writes: `artifacts/problem_stack.md`.
+P-56, and the same shape as 06-64: a repair made by the dispatcher is verified by someone else.
+P-40 closed `repaired` on a repair that was itself the proxy -- "`.git` exists by name" excuses an
+empty directory -- and its own `nested-clone` fixture built exactly that counterfeit, so the
+discriminator agreed with the defect and passed. `_is_git_admin_entry` now requires a directory
+holding `HEAD`, or a file whose first line is `gitdir:`.
+Reproduce: the three mutants recorded on P-56, re-derived rather than re-run from the script.
+Do: establish whether the new predicate is the invariant or a third proxy. Specifically: a
+directory holding an empty `HEAD`; a `gitdir:` file pointing at a path that does not exist; a real
+worktree whose admin directory is unreadable. Say which of these the gate should accept and
+whether it does.
+Discriminator: at least one case the packet constructs that the new predicate gets wrong, or a
+stated argument that the three above are the complete boundary.
+Accept: P-56 closes `repaired` with the verifier's evidence, or re-opens with the case that breaks it.
+Stop: none. A verifier that finds nothing reports finding nothing.
+
+### 06-84 Decide whether the corpus `neurodata_type` mistyping is jnwb's problem
+
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: Hamm. **AUTONOMY: none.**
+Writes: `artifacts/problem_stack.md`, and code only after the ruling.
+P-54. Measured across 22 real sessions: 9 type spike-train containers as `ElectricalSeries`,
+including an int16 dataset, 12 type the same logical series as `TimeSeries`, and 1 omits
+`neurodata_type` entirely. 06-69 found this while measuring something else and no item claims it.
+The decision is whether jnwb refuses, warns, or is indifferent to a container whose declared type
+contradicts its contents. `artifacts/fact_stack.md` says a function's signal class must not be
+silently substituted across a jnwb boundary, which argues for at least a warning; it also says
+jnwb is dataset-agnostic, which argues that a corpus's typing is the corpus's business.
+Those two pull opposite ways here, which is why this is a ruling and not a repair.
+Accept: the row closes as a decision with its reason, or as an item that implements the decision.
+Stop: this item does not implement anything before the ruling.
+
+### 06-85 Decide the eight producers with no public consumer
+
+Role: jnwb-developer. Skill: none. Blocked by: Hamm. **AUTONOMY: none.**
+Writes: `artifacts/problem_stack.md`, and `jnwb/__init__.py` or `docs/` only after the ruling.
+P-55. `assign_outer_folds`, `build_inner_validation_partitions`, `fit_exponential_onset`,
+`aperiodic_fit`, `xflip`, `zflip`, `consensus_bad_trials` and `detect_band_outliers` produce output
+that no public jnwb operation consumes -- the decoder accepts neither `groups` nor a fold column.
+06-18's stop condition fired correctly and it did not propose them for the composition subset.
+A producer whose output nothing public consumes is either an unfinished chain or an export that
+should not be public, and the two have opposite repairs. `artifacts/goal.md` §2 says a skill names
+an operation and documentation defines it; neither says an operation must terminate somewhere.
+Accept: each of the eight is ruled as a chain to complete or an export to withdraw.
+Stop: this item does not withdraw an export before the ruling. Withdrawing a public name is a
+breaking change and a release decision.
 
 ## Reported and not admitted
 
