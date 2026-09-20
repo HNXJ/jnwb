@@ -1013,7 +1013,12 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
     return ci
 
 
+# Every accepted value of `correction`, and the `statsmodels` method it runs. `None` means
+# no correction. 'none' is a key here rather than a special case outside the map so that the
+# accepted set has one home: while it was absent, `.get('none', 'fdr_bh')` returned
+# Benjamini-Hochberg q-values under the label 'none'.
 _CORRECTION_METHOD_MAP = {
+    "none": None,
     "fdr_bh": "fdr_bh", "fdr_by": "fdr_by",
     "bonferroni": "bonferroni", "holm": "holm",
     "holm-sidak": "holm-sidak",
@@ -1021,20 +1026,27 @@ _CORRECTION_METHOD_MAP = {
 
 
 def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray:
-    """Apply multiple-comparison correction; returns q-values."""
+    """Apply multiple-comparison correction; returns q-values.
+
+    ``method='none'`` applies no correction: the q-values are the p-values, as float64.
+    """
     p_flat = np.asarray(p).ravel()
     m_lower = method.lower()
-    if m_lower not in _CORRECTION_METHOD_MAP and m_lower != "none":
+    if m_lower not in _CORRECTION_METHOD_MAP:
         # This used to warn and fall back to 'fdr_bh' while `parameters['correction']`
         # kept echoing the request, so a run corrected one way was recorded as corrected
         # another. A typo in a correction method is not a preference to be approximated.
         raise ValueError(
             f"Unrecognized correction method {method!r}. "
-            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())} or 'none'."
+            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())}."
         )
+    sm_method = _CORRECTION_METHOD_MAP[m_lower]
+    if sm_method is None:
+        # Returns before the `statsmodels` import: asking for no correction must not
+        # require the library that does correction.
+        return np.array(p, dtype=np.float64)
     try:
         from statsmodels.stats.multitest import multipletests
-        sm_method = _CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")
         _, q, _, _ = multipletests(p_flat, alpha=alpha, method=sm_method)
     except ImportError as exc:
         # `statsmodels` is a hard dependency, so this runs only where a declared
@@ -1048,7 +1060,11 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
         # at 1 is Bonferroni, and it reproduces `multipletests(method='bonferroni')`
         # exactly, so the recorded label stays true.
         if m_lower == "bonferroni":
-            q = np.minimum(p_flat * len(p_flat), 1.0)
+            # `float(...)`, not `len(...)`: an integer p-array times a Python int keeps the
+            # array's integer dtype, and the product then overflows a narrow one. The
+            # float multiplier reproduces `multipletests(method='bonferroni')` for every
+            # input dtype, and is bit-identical to the int multiplier for float input.
+            q = np.minimum(p_flat * float(len(p_flat)), 1.0)
         else:
             raise ImportError(
                 f"jrsa correction={method!r} requires 'statsmodels', which is a declared "

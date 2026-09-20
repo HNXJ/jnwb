@@ -110,6 +110,42 @@ capability is frozen out of this cycle by the non-goals below.
 **Every imported finding enters as a hypothesis to reproduce, never as a defect to implement.**
 The review's own adversarial pass refuted four findings that read as solid.
 
+## Dispatch map
+
+Measured at `6efe2d95`, and the reason this section exists: **48 of the items below have no
+blocker**, so the plan was never blocked -- it was unparallelized. Reading 1200 lines to find the
+next safe piece of work is the cost this map removes.
+
+Two agents may run at once exactly when their `Writes` sets are disjoint. That is why a `Writes`
+field naming a directory is a defect and not a shorthand: 24 items declared `tests/`, which made
+them all look mutually exclusive when almost none of them are. Lane items now name files.
+
+A **lane** owns one worktree and runs its items in sequence. Lanes run concurrently.
+
+| Lane | Owns, exclusively | Items, in order |
+|---|---|---|
+| compression | `jnwb/compression.py`, `tests/test_compression.py` | 06-79, 06-78, 06-65, 06-66 |
+| statistics | `jnwb/statistics.py`, `tests/test_statistics.py` | 06-44, then 06-45, then 06-46 |
+| docs form | `docs/`, `mkdocs.yml`, `README.md` | 06-49, then 06-51; 06-50 is independent |
+| doctrine | `AGENTS.md`, `skills/`, `CONTRIBUTING.md` | 06-62, 06-72, 06-68, 06-91 |
+| skills | `skills/*/SKILL.md`, `tests/test_skills_validation.py` | 06-12, then 06-24 |
+
+Four things the map makes visible that the batches did not:
+
+1. **The compression lane runs before 06-13's ruling, not after.** `select=` is not implementable
+   until 06-79 makes the chunk shape follow the dataset rank, and "the existing contract survives
+   R1, R2 and R4" is unfalsifiable until 06-78 gives that contract a test. Whatever is ruled, these
+   four come first.
+2. **The docs lane is the critical path.** 06-49 blocks 06-51 and 06-53, so it is serial and must
+   start first while other lanes fill the time.
+3. **`AGENTS.md` is a single-writer surface.** 06-62, 06-72, 06-68 and 06-91 all write it, so they
+   are one lane and never concurrent, whatever batch they are filed under.
+4. **The dispatcher writes the stacks.** 06-80 and 06-83 name `artifacts/*_stack.md` in their work;
+   a packet does not edit them. It reports the disposition it believes a row has earned.
+
+Six items wait on a human ruling and no lane contains them: 06-13, 06-18, 06-67, 06-84, 06-85 and
+06-92. 06-18 alone gates six others and is the largest single unblock available.
+
 ## Batch 0. Goal and authority
 
 The goal statement is the artifact 0.2.6 is scored against, and two of its three pillars name
@@ -148,23 +184,6 @@ Accept: every remaining section is router content by the contract's list, and no
 in two places. Line count is the consequence, not the target.
 Stop: a duplicated claim's owner does not exist yet. Create the owner or leave the claim; do not
 delete it because it is repeated.
-
-### 06-75 Report the observed interpreter-CI policy for Hamm's fact update
-
-Role: critic. Skill: none. Blocked by: none. Writes: none. AUTONOMY: max.
-P-41. `artifacts/fact_stack.md:58` carries a policy the repository falsifies. The `fact` slot is
-not agent-editable, so this packet reports and does not repair. Hamm rules the replacement text.
-Hamm's instruction, binding on the shape of the report: **the fact should record observed policy
-and state, not merely invert the stale wording.**
-Do: report three things and nothing else. (1) The precise stale sentence at
-`artifacts/fact_stack.md:58`, quoted with its line number. (2) The three actual CI legs, read from
-`.github/workflows/workflow.yml`, with the line number and the operating systems each runs on.
-(3) What the repository *observably* does about interpreter coverage -- the `requires-python`
-floor, the classifier list, what gate 8 enforces, and whether any declared version has no CI leg.
-Accept: every one of the three is quoted from the file that owns it, with a line number, and the
-report proposes no replacement sentence. Proposing the wording is Hamm's, not this packet's.
-Stop: the stale sentence is not at line 58, or `workflow.yml` does not run three legs. Either
-means P-41's premise moved; report the correction and stop.
 
 ### 06-67 Rule the missingness truth table for the read path
 
@@ -249,13 +268,17 @@ this item's.
 ### 06-66 Point the compression provenance at a script that exists
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/`.
-Recorded as P-30. `compress_fp32` stamps every output with
-`conversion_script = "scripts/convert_nwb_compressed.py"`, which is not in the repository. Every
-compressed file carries provenance naming a script nobody can run. Carried from
+Writes: `jnwb/compression.py`, `tests/test_compression.py`.
+Recorded as P-30, and measured worse in production than the row first recorded: **22 of 22
+real files** carry `conversion_script = "scripts/convert_nwb_compressed.py"`, which is not in the
+repository, and newly written files still mint it. Provenance that names a script nobody can run
+does not merely fail to help -- it sends a reader somewhere that does not exist. Carried from
 `alignment_review_0.2.5.md:611` and still true.
 Do: stamp something that resolves -- the public entry point that actually performed the
-conversion is the obvious candidate.
+conversion is the obvious candidate. Do **not** add a script to make the existing string true;
+that satisfies the stamp rather than the caller.
+The 22 already-written files are not rewritten. Their stamp stays wrong, which is the same shape
+as P-C6: a shipped artifact cannot be retested retroactively, and only a later write corrects it.
 Discriminator: a check that resolves the stamped value against the tree and fails when it does
 not exist. The reason this survived a release is that nothing ever resolved it.
 Accept: the stamp resolves, and the check fails on a seeded bad stamp.
@@ -463,7 +486,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 ### 06-44 The fdr_pval keys that are not FDR-corrected
 
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py`, `tests/`, and the documentation page that names the keys.
+Writes: `jnwb/statistics.py`, `tests/test_statistics.py`, and the documentation page that names the keys.
 A consumer reports that `fdr_pval_parametric` and `fdr_pval_nonparametric`, referenced at
 `statistics.py:1117`, `:1132` and `:1147`, mirror the raw p-values. This is the same shape as
 06-15: a plausible value under a label that says it is something else, returned with no error.
@@ -480,7 +503,7 @@ ruling.
 ### 06-45 Automatic dual testing in compare_groups
 
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-44.
-Writes: `jnwb/statistics.py`, `tests/`, the routed skill file.
+Writes: `jnwb/statistics.py`, `tests/test_statistics.py`, the routed skill file.
 A consumer reports that `compare_groups` and `compare_multiple_groups` return parametric and
 non-parametric results by construction, with no `test=`, which makes a pre-registered family
 budget unenforceable because the caller cannot declare one primary test.
@@ -497,7 +520,7 @@ Stop: the minimal change is not backward compatible. Escalate rather than choosi
 ### 06-46 permutation_test on grouped data
 
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py` or its docstring, `tests/`.
+Writes: `jnwb/statistics.py` or its docstring, `tests/test_statistics.py`.
 A consumer reports that `StatisticalAnalysis.permutation_test` is a flat ungrouped shuffle with
 no `groups=` or `scheme=`, while `jnwb.permutation.permute_labels` already implements grouped
 schemes; they report it having shipped as a real bug once.
@@ -774,7 +797,8 @@ worse than leaving them alone.
 
 ### 06-49 One term per concept
 
-Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/`, `tests/`.
+Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/`, `tests/test_documentation_form.py` (new -- it does not exist at
+`6efe2d95`, verified, and is named here so the lane's write scope is knowable in advance).
 Unblocked 2026-09-19: 06-48 now covers only the figure section, and vocabulary does not depend on
 it. Rule F5 of `docs/documentation_form.md` is this item's target.
 Reproduce: build the term inventory first. For each concept the documentation names, list every
@@ -927,6 +951,9 @@ divergence; an undocumented one is a defect and goes to the problem stack.
 ### 06-58 Reduce the orders the inventory named
 
 Role: jnwb-developer. Skill: per module. Blocked by: 06-57. Writes: per packet.
+Not 06-86, which reads like it: that item resolves a contradiction inside
+`artifacts/benchmarks/complexity_inventory.md`, a different file. This one reduces measured
+orders in `artifacts/computational_order.md`. Titles nearly collide; the work does not.
 The inventory exists: `artifacts/computational_order.md`, 156 exports, 189 sweeps, with a ranked
 queue in its section 10. One packet per gap, highest exponent gap first.
 Take the ranking for what it is. It orders how badly an export degrades as input grows, **not**
@@ -1122,8 +1149,8 @@ Stop: the corpus 2-D chunking changes at all. That is a re-baseline, not a repai
 
 ### 06-80 Resolve every `Skill:` field against `skills/`
 
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`, `tests/`,
-`artifacts/todo_stack.md`.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`. NOT the stacks:
+the dispatcher writes those, so a gate item never edits the file it gates.
 P-53. Two items named `jnwb-nwb-io`, which has never existed. The name reached two dispatched
 packets, nothing errored, and a packet worked around it silently. The standing rule is that a file
 pointing at other files goes stale without erroring; this pointer was **born wrong**, so a
@@ -1237,6 +1264,9 @@ breaking change and a release decision.
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/computational_order.md`, `tests/`.
+Not 06-58, which reads like it: that item reduces measured orders in
+`artifacts/computational_order.md`. This one resolves a contradiction inside a different file
+and changes no code. They were nearly merged on the strength of their titles.
 P-34. Eight measured exponents contradict `artifacts/benchmarks/complexity_inventory.md`, which
 records them as "verified": INV-05 claims +1.00 against a measured +2.14; INV-06 claims +2.00 for
 two granger exports measuring +1.07 and +1.11; INV-08 claims +1.00 against +0.62; INV-13 claims
@@ -1270,26 +1300,6 @@ the count, because the count is what makes it credible.
 Discriminator: none needed; this is prose. Its absence is the defect and its presence closes it.
 Accept: P-36 closes.
 Stop: neither file is the right home. Then say which is, and put it there.
-
-### 06-88 Stamp compressed files with provenance that exists
-
-Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/test_compression.py`.
-P-30, and worse in production than the row originally recorded: **22 of 22 real files** carry
-`conversion_script = "scripts/convert_nwb_compressed.py"`, which does not exist in this
-repository, and newly written files still mint it. Every compressed file points at a script
-nobody can run, which is provenance that actively misleads rather than merely missing.
-Reproduce: write a file and read its `conversion_script` attribute back; confirm the path does
-not resolve.
-Do: stamp something that resolves -- the module and the version that did the work -- or stop
-claiming a script. Do not add a script to make the string true; that is satisfying the stamp
-rather than the caller.
-Discriminator: a test resolves the stamped provenance against the repository and fails when it
-does not exist. The 22 already-written files are not rewritten; the row records that their stamp
-stays wrong, which is the same shape as P-C6.
-Accept: P-30 closes, and newly written files carry provenance a reader can follow.
-Stop: the attribute is part of a format contract a consumer already reads. Then changing it is a
-compatibility decision, not a repair.
 
 ### 06-89 Document the unit-to-layer composition
 
@@ -1328,7 +1338,7 @@ Stop: making the skip loud breaks a caller who relies on the silent path. Record
 ### 06-91 Make a packet verify its own baseline
 
 Role: jnwb-developer. Skill: `jnwb-fact-action`. Blocked by: none.
-Writes: `skills/jnwb-fact-action/SKILL.md`, `AGENTS.md`, `tests/`.
+Writes: `skills/jnwb-fact-action/SKILL.md`, `AGENTS.md`, `tests/test_harness_adversarial_gates.py`.
 P-28. The provisioner branched three fan-out agents from `5ecc12eb`, 192 commits behind the
 `f23d96ce` their packets named. `artifacts/goal.md`, `artifacts/problem_stack.md` and
 `artifacts/agents/jnwb-developer.md` did not exist there and the cited line numbers pointed at

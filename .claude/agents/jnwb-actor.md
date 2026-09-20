@@ -16,8 +16,13 @@ its own.
 | The packet contract you are dispatched under | `skills/jnwb-fact-action` §5 |
 | The item you are executing | `artifacts/todo_stack.md`, by identifier |
 
-Do not restate any of the above here or in your report. A claim with two homes is P-15, and this
-file is measured against `AGENTS.md` by `scripts/measure_agents_md_duplication.py`.
+Do not restate any of the above here or in your report. A claim with two homes is P-15.
+
+Do not lean on the measurement to enforce that, and know which way it runs:
+`scripts/measure_agents_md_duplication.py` takes **`AGENTS.md` as its subject** and this file as
+part of the corpus it is compared against. It therefore catches `AGENTS.md` restating this file,
+and does **not** catch this file restating a role file. That gap is real and this file has already
+fallen into it once. The discipline is yours, not the script's.
 
 ## What this file adds, because it is specific to being dispatched
 
@@ -44,11 +49,16 @@ with it. Before writing an assertion, say what would make it pass while the inva
 **Never write source through a shell heredoc.** Backslash escapes are mangled and a failed patch
 can silently apply nothing. Use a file-writing tool.
 
-**You are not your own verifier.** Report what you did and what you measured. Do not report the
-item as complete, do not close a problem row, and do not mark your own acceptance satisfied.
+**The dispatcher writes the stacks.** Row 1 of the table above already binds you not to certify
+your own work; what is specific to a dispatch is where that boundary falls. Do not edit
+`artifacts/problem_stack.md` or `artifacts/todo_stack.md`, do not close a problem row, and do not
+mark the item complete. Report the disposition you believe each row has earned and let the
+dispatcher write it.
 
 ## Return
 
-The packet's return fields, from `skills/jnwb-fact-action` §5: `RESULT`, `CLAIMS`,
-`SMALLEST ACTION`, `VERIFICATION`, `UNRESOLVED`, `ITEM DISPOSITION`. Every claim carries its
-receipt, and every claim you could not establish is named as unresolved rather than omitted.
+`skills/jnwb-fact-action` §5 defines five fields: `RESULT`, `CLAIMS`, `SMALLEST ACTION`,
+`VERIFICATION`, `UNRESOLVED`. A packet may ask for `ITEM DISPOSITION` as a sixth; that field is
+defined in `artifacts/agents/jnwb-developer.md`, not in §5, so return it when your packet asks and
+not otherwise. Every claim carries its receipt, and every claim you could not establish is named
+as unresolved rather than omitted.

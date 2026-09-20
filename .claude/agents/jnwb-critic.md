@@ -16,8 +16,13 @@ its own.
 | The packet contract you are dispatched under | `skills/jnwb-fact-action` §5 |
 | The item you are executing | `artifacts/todo_stack.md`, by identifier |
 
-Do not restate any of the above here or in your report. A claim with two homes is P-15, and this
-file is measured against `AGENTS.md` by `scripts/measure_agents_md_duplication.py`.
+Do not restate any of the above here or in your report. A claim with two homes is P-15.
+
+Do not lean on the measurement to enforce that, and know which way it runs:
+`scripts/measure_agents_md_duplication.py` takes **`AGENTS.md` as its subject** and this file as
+part of the corpus it is compared against. It therefore catches `AGENTS.md` restating this file,
+and does **not** catch this file restating a role file. That gap is real and this file has already
+fallen into it once. The discipline is yours, not the script's.
 
 ## What this file adds, because it is specific to being dispatched
 
@@ -51,7 +56,8 @@ one to be agreeable. If a premise you were given is false, say so and say what r
 
 ## Return
 
-The packet's return fields, from `skills/jnwb-fact-action` §5: `RESULT`, `CLAIMS`,
-`SMALLEST ACTION`, `VERIFICATION`, `UNRESOLVED`, `ITEM DISPOSITION`. `RESULT` is `PASS`, `DEFECT`
-or `BLOCKED`. Every claim carries its receipt; every claim you could not establish is named as
-unresolved rather than omitted.
+`skills/jnwb-fact-action` §5 defines five fields: `RESULT`, `CLAIMS`, `SMALLEST ACTION`,
+`VERIFICATION`, `UNRESOLVED`. `RESULT` is `PASS`, `DEFECT` or `BLOCKED`. `ITEM DISPOSITION` is
+**not** one of them -- it is defined in `artifacts/agents/jnwb-developer.md` and belongs to an
+implementing packet, so return it only if your packet asks. Every claim carries its receipt; every
+claim you could not establish is named as unresolved rather than omitted.
