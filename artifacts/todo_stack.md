@@ -87,7 +87,9 @@ unverified; identifiers there are stable), disposed in `artifacts/findings_0.2.6
 the two residual limits recorded by 05-85 in `artifacts/todo_stack_0.2.5.md`, the carried
 `granger_causality(order=...)` candidate, and the downstream consumer report at
 `E:/omission/context/state/JNWB_HANDOUT_20260919.md` (measured against installed 0.2.5, commit
-`efdba80`), whose admitted items are 06-41 through 06-46.
+`efdba80`). Of its seven admitted items, 06-43 was refuted by a working composition and
+deleted; 06-41 is being rewritten after its first framing proved to test a path the reporter's
+files cannot reach; 06-42, 06-44 through 06-47 stand.
 
 A consumer report is evidence of a consumer's experience, not of a jnwb defect. Its items are
 reproduced here against this tree before anything is written, and the three capability and
@@ -144,27 +146,46 @@ Accept: the rule and `docs/` agree, and a check exists for whichever side was ru
 Stop: the ruling would require rewriting `docs/agents.md`, which is a maintained asset four test
 modules already check; surface that cost before ruling.
 
-### 06-41 Scope the length-1 attribute array read failure
+### 06-41 Rule on opening a file that lacks a required field
 
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
-Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H1.
-A consumer reports that 8 of 22 NWB files fail to open because `general/devices/probeA`
-stores `description` and `manufacturer` as length-1 object arrays, which hdmf rejects as
-`ndarray` where `str` is required. The ninth failing file is reported to fail separately at
-`root/units` with `Columns must be the same length`; it is a different defect and is recorded,
-not merged into this one.
-Reproduce: construct a minimal NWB file whose device attributes are length-1 object arrays --
-the consumer's corpus is not distributable, so a synthetic reproducer is the only admissible
-evidence -- and show that the jnwb entry point that opens a session raises. If a constructed
-file opens cleanly, the report does not reproduce against this tree and the item returns
-`unsupported`.
-Do: nothing to `jnwb/`. Return a proposal stating the entry point that would carry a tolerant
-read, what "tolerant" would and would not squeeze, how a squeezed value would be recorded so a
-caller can tell it was squeezed, and which of the frozen non-goals it touches.
-Accept: a synthetic reproducer that fails, plus a proposal in that form. A tolerant read path is
-new capability and is not implemented under this item.
-Stop: the proposal would require deciding whether jnwb tolerates malformed files. That is a
-human ruling on scope, not a developer judgement.
+Role: human ruling. Skill: none. Blocked by: none. Writes: `artifacts/goal.md` if the ruling
+changes a non-goal.
+The measurement is complete and this item is now only the ruling it produced. Its first framing
+named the wrong defect: it asked about length-1 device attribute arrays, and that framing tested
+a path the reporter's files cannot reach.
+
+A 2x2 reproducer -- `session_description` present or absent, crossed with device attributes
+scalar or length-1 object array -- was measured through both `pynwb.NWBHDF5IO` and
+`jnwb.nwb_io.read_nwb`, with the mutations confirmed in bytes with h5py before every read:
+
+| | device attrs scalar | device attrs length-1 array |
+|---|---|---|
+| `session_description` present | both open | pynwb `ConstructError`; **jnwb opens**, `description` a `str` |
+| `session_description` absent | both refuse | both refuse, **for different reasons** |
+
+The consumer's corpus is the bottom-right cell. jnwb refuses there at `jnwb/nwb_io.py:71` with
+`MissingRequiredNWBFieldError`, and it refuses *first*: `_repair_builder` was instrumented and
+receives exactly one builder, `('root', 'NWBFile')`, where the passing cells pass 95 and include
+the Device. HDMF never constructs the Device, so **the length-1 squeeze at `nwb_io.py:59-64` is
+unreachable on that shape** -- untested, not failing. The earlier packet's reproducer carried a
+`session_description`, which is the top-right cell, which is why it saw only the squeeze.
+
+Two facts bound the ruling. There is no escape hatch today: `read_nwb` and `nwb_read_io` forward
+`**kwargs` to `NWBHDF5IO` and the check at line 71 runs unconditionally for every `mode == "r"`
+read, every path-taking reader funnels through it, and `docs/errors.md:153` says so outright --
+"There is no argument to pass: the file is incomplete." And the refusal is deliberate, though
+less clearly mandated than it first looks: `artifacts/goal.md` section 4 forbids substituting
+synthetic values "for missing empirical data in an analysis path", and `session_description` is
+metadata read outside any analysis path. The non-goal is adjacent to this refusal rather than the
+source of it. Whether it should be read to cover required metadata is itself part of the ruling.
+
+Rule between: (a) the refusal stands and the consumer repairs their files upstream; (b) an
+explicit opt-in such as `read_nwb(path, allow_missing=("session_description",))` that refuses by
+default, synthesizes nothing, and records on the returned object what it tolerated; (c) something
+else.
+Accept: the ruling, written into `artifacts/goal.md` if it moves a non-goal, and an item written
+for the implementation if it authorizes one. See also P-17.
+Stop: no agent takes this item.
 
 ### 06-42 Scope the hdmf and pandas version contradiction
 
@@ -181,25 +202,44 @@ Accept: the owner is named from the live dependency metadata, not inferred.
 Stop: the answer is "hdmf must move". jnwb cannot relax another project's pin, and deciding to
 diverge from a dependency's declared range is a human ruling.
 
-### 06-43 Scope the unit-to-layer mapping gap
+### 06-61 Reconcile the skill's authority loading order with the five X slots
 
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none. Writes: none.
-Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H4.
-A consumer reports that no export maps a unit to its peak channel's electrophysiological layer,
-and that the two layer-bearing taxonomies are not joinable: `laminar.label_layers` returns
-`superficial | input | deep | na` while `addressing.classify_layer_from_depth` returns
-`Superficial | Deep | Unknown` from a geometric threshold.
-Reproduce: enumerate every layer-bearing export on this tree and show, by execution, whether any
-composition of them answers "which layer is this unit in". The claim to test is the absence of a
-capability, which is refuted by one working composition.
-Do: nothing. If the gap reproduces, return a proposal for the minimal helper, its signature, the
-label set it returns, and what it does where the peak channel is absent or ambiguous.
-Accept: either a composition that closes the gap, which deletes this item, or a proposal.
-Stop: a new estimator is required. Adding one is frozen out of this cycle.
+Role: human ruling. Skill: none. Blocked by: none. Writes: `skills/jnwb-fact-action/SKILL.md`,
+`tests/test_harness_adversarial_gates.py`.
+Problem P-15's sibling, recorded as P-14. `AGENTS.md` §3 now loads `goal.md`, `state.md` and
+`problem_stack.md` alongside the fact and todo stacks. The skill's Mandatory Authority Loading
+Order still names five items and omits three of them, and packets follow the skill rather than
+this file, so three slots of `X` reach no packet.
+Reproduce: `grep -n -A8 "Mandatory Authority Loading Order" skills/jnwb-fact-action/SKILL.md`
+against `AGENTS.md` §3. Reproduced when the two lists differ.
+Do: rule the skill amendment. A skill file is doctrine-adjacent and is not edited on a
+developer's judgement.
+Accept: the two orders agree and `tests/test_harness_adversarial_gates.py` asserts the agreement
+by parsing both, not by listing either.
+Stop: the ruling would require loading an artifact that does not exist on a fresh clone.
+`artifacts/state.md` is generated and ignored, so the order must say regenerate-then-read.
+
+### 06-62 Measure what AGENTS.md duplicates, then reduce it
+
+Role: docs-harness. Skill: none. Blocked by: 06-61. Writes: `AGENTS.md`.
+Recorded as P-15. The operating contract requires `AGENTS.md` to be a thin router -- scope,
+authority, project map, canonical state, required capabilities, invariants, verification, stop
+conditions -- and to duplicate no project truth. It is over 360 lines. Size is not evidence of
+duplication, so measure before cutting.
+Reproduce: for each section, name the slot of `X`, the skill, or the generated artifact that
+already carries its content. A section with no such owner is router content and stays.
+Do: move each duplicated claim to its owner and leave a pointer. Nothing is deleted that has no
+other home.
+Discriminator: a claim moved to its owner is found by following the pointer, and the check that
+guarded it still passes.
+Accept: every remaining section is router content by the contract's list, and no claim appears
+in two places. Line count is the consequence, not the target.
+Stop: a duplicated claim's owner does not exist yet. Create the owner or leave the claim; do not
+delete it because it is repeated.
 
 ### 06-05 Freeze the acceptance set and the non-goals
 
-Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-41, 06-42, 06-43.
+Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-41, 06-42.
 Writes: this file.
 Accept: the frozen set is dated and the non-goals section below is part of it.
 
