@@ -165,26 +165,6 @@ The basis reconstruction and the findings disposition are done and therefore del
 results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review identifiers, and in
 `artifacts/problem_stack.md`, which carries what they found and could not repair.
 
-### 06-62 Measure what AGENTS.md duplicates, then reduce it
-
-Role: docs-harness. Skill: none. Blocked by: none -- 06-61 was ruled C on 2026-09-19 and deleted as complete. `AGENTS.md`
-§3 is the sole loading-order authority and the skill points at it, which is the premise this
-item needed. Writes: `AGENTS.md`.
-Recorded as P-15. The operating contract requires `AGENTS.md` to be a thin router -- scope,
-authority, project map, canonical state, required capabilities, invariants, verification, stop
-conditions -- and to duplicate no project truth. It is over 360 lines. Size is not evidence of
-duplication, so measure before cutting.
-Reproduce: for each section, name the slot of `X`, the skill, or the generated artifact that
-already carries its content. A section with no such owner is router content and stays.
-Do: move each duplicated claim to its owner and leave a pointer. Nothing is deleted that has no
-other home.
-Discriminator: a claim moved to its owner is found by following the pointer, and the check that
-guarded it still passes.
-Accept: every remaining section is router content by the contract's list, and no claim appears
-in two places. Line count is the consequence, not the target.
-Stop: a duplicated claim's owner does not exist yet. Create the owner or leave the claim; do not
-delete it because it is repeated.
-
 ### 06-67 Rule the missingness truth table for the read path
 
 Role: human ruling. Skill: none. Blocked by: none. Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, AUTONOMY: none.
@@ -245,44 +225,6 @@ assume the author was motivated to see them pass.
 Accept: each claim independently reproduced, or the disagreement stated with its evidence.
 Stop: a repair cannot be verified without changing it. Say so; do not change it.
 
-### 06-65 Anchor the compression path match
-
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/test_compression.py`.
-Recorded as P-29, and independent of the 06-13 ruling: this is wrong under every candidate
-default, so it does not wait for one.
-Reproduce: the corpus pattern is applied with an unanchored `.search()`. Measured by 06-13, 6 of
-6 adversarial names are selected for lossy fp32 downcast, among them
-`stimulus/probe_0_lfp/data`, `analysis/probe_0_lfp/data`, `scratch/backup_probe_0_lfp/data` and
-`acquisition/my_probe_0_lfp/data`. A path in `/scratch` being silently downcast is not a
-selection policy anyone chose.
-Do: anchor the match so the pattern selects the group it names and not any path whose tail
-contains it.
-Discriminator: those six names, which must stop being selected, and the corpus path, which must
-continue to be.
-Accept: the six adversarial names are rejected, `acquisition/probe_0_lfp/data` is still selected,
-and `tests/test_compression.py` passes unchanged.
-Stop: anchoring changes which corpus paths are selected. That is the 06-13 ruling's business, not
-this item's.
-
-### 06-66 Point the compression provenance at a script that exists
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/test_compression.py`.
-Recorded as P-30, and measured worse in production than the row first recorded: **22 of 22
-real files** carry `conversion_script = "scripts/convert_nwb_compressed.py"`, which is not in the
-repository, and newly written files still mint it. Provenance that names a script nobody can run
-does not merely fail to help -- it sends a reader somewhere that does not exist. Carried from
-`alignment_review_0.2.5.md:611` and still true.
-Do: stamp something that resolves -- the public entry point that actually performed the
-conversion is the obvious candidate. Do **not** add a script to make the existing string true;
-that satisfies the stamp rather than the caller.
-The 22 already-written files are not rewritten. Their stamp stays wrong, which is the same shape
-as P-C6: a shipped artifact cannot be retested retroactively, and only a later write corrects it.
-Discriminator: a check that resolves the stamped value against the tree and fails when it does
-not exist. The reason this survived a release is that nothing ever resolved it.
-Accept: the stamp resolves, and the check fails on a seeded bad stamp.
-
 ### 06-05 Freeze the acceptance set and the non-goals
 
 Role: human ruling. Skill: none. Blocked by: 06-13. AUTONOMY: none.
@@ -292,29 +234,6 @@ Freeze the set from **live reproduced state**, not by copying the planning text:
 is re-established against this tree at the moment of freezing, and one that cannot be reproduced
 does not enter the set.
 Accept: the frozen set is dated and the non-goals section below is part of it.
-
-### 06-68 Gate the public-vocabulary boundary
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`,
-`tests/test_harness_adversarial_gates.py`, `AGENTS.md` docstring list.
-06-02 was ruled on 2026-09-19: public documentation may describe agents, skills and routing as
-public capabilities; internal repository-agent roles, harness and process vocabulary, private
-coordination state and implementation-only terminology may not appear there. The ruling says to
-gate the distinction mechanically **where practical**, and the phrase is load-bearing: the old
-rule failed because it gated the word "agent", which is a proxy for the boundary and not the
-boundary. Do not rebuild that.
-Reproduce: `grep -rni "packet\|todo stack\|problem stack\|worktree\|harness gate\|fan out" docs/`
-and record which hits are internal process and which explain a public interface. Reproduced when
-the two sets are distinguishable by a rule you can state in one sentence.
-Do: gate the terms that are internal by construction and have no public-interface use --
-delegation packets, the todo and problem stacks, worktrees, batches, harness gates, agent role
-names from `artifacts/agents/`. Do not gate "agent", "skill" or "routing".
-Discriminator: a new `docs/` page containing "delegation packet" fails the gate; `docs/agents.md`
-and the four published pages that legitimately describe agent-assisted use pass unchanged.
-Accept: the gate runs in the collect-all table with its own number, the module docstring lists
-it, and the existing 13 gates still pass.
-Stop: the one-sentence rule cannot be stated, or the gate can only pass by editing the four
-published pages. Both mean the boundary is not yet mechanical; say so and leave it to prose.
 
 ## Batch 1. Public truth and reachability
 
@@ -379,19 +298,6 @@ status -- against package metadata. Derive rather than maintain a second prose r
 Discriminator: a body naming a version or a Python floor that metadata contradicts is rejected.
 Accept: the check runs without network access against a supplied body string, and separately
 against the live body when a token is present.
-
-### 06-12 Repair the relative_power routing row
-
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
-Writes: `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
-Reproduce: the row states the model is named in the result; a provenance-asserting probe shows
-`jnwb.relative_power` returns a bare array with no `model` attribute and no structured dtype.
-Do: repair the skill claim, not the API. A richer return needs independent scientific
-justification and is out of scope here.
-Discriminator: restore the original wording; the new check fails.
-Accept: a check covering the class, not the instance -- a skill claim about return *contents*,
-which the signature harness cannot see. Note the amendment rule: the skill edit is authorized by
-this item and by nothing wider.
 
 ## Batch 2. Scientific defects
 
@@ -482,58 +388,6 @@ Role: jnwb-developer. Skill: per finding. Blocked by: none.
 One packet per ledger entry disposed `reproduced` and claimed by no other item, highest
 consequence first. Writes: named per packet from the finding's own receipt.
 Accept: each returns `repaired` with a discriminator, or `unsupported` with evidence.
-
-### 06-44 The fdr_pval keys that are not FDR-corrected
-
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py`, `tests/test_statistics.py`, and the documentation page that names the keys.
-A consumer reports that `fdr_pval_parametric` and `fdr_pval_nonparametric`, referenced at
-`statistics.py:1117`, `:1132` and `:1147`, mirror the raw p-values. This is the same shape as
-06-15: a plausible value under a label that says it is something else, returned with no error.
-Reproduce: call the producing function on input whose raw and corrected p-values must differ,
-and compare the `fdr_*` key against both. Reproduction is the two being equal where correction
-would have changed them.
-Do: either correct the values or remove the keys. Do not rename a key to something vaguer.
-Discriminator: a test that fails against the current implementation and passes after.
-Accept: no key whose name asserts a correction returns an uncorrected value; the choice between
-correcting and removing is recorded with its reason.
-Stop: removing the keys breaks a documented return schema. That is an API change and needs a
-ruling.
-
-### 06-45 Automatic dual testing in compare_groups
-
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-44.
-Writes: `jnwb/statistics.py`, `tests/test_statistics.py`, the routed skill file.
-A consumer reports that `compare_groups` and `compare_multiple_groups` return parametric and
-non-parametric results by construction, with no `test=`, which makes a pre-registered family
-budget unenforceable because the caller cannot declare one primary test.
-Reproduce: show from the live signature and return value that both are always computed and that
-no parameter selects one.
-Do: the smallest change that lets a caller name one primary test, with the second available
-only on request. A docstring that merely warns is not sufficient here: the defect is that the
-count of tests performed is not under the caller's control.
-Discriminator: a call naming one test that returns the other's keys fails after the change.
-Accept: the primary test is explicit at the call site, the existing default behaviour is either
-preserved or its change recorded in `CHANGELOG.md`, and the skill row matches the new signature.
-Stop: the minimal change is not backward compatible. Escalate rather than choosing.
-
-### 06-46 permutation_test on grouped data
-
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py` or its docstring, `tests/test_statistics.py`.
-A consumer reports that `StatisticalAnalysis.permutation_test` is a flat ungrouped shuffle with
-no `groups=` or `scheme=`, while `jnwb.permutation.permute_labels` already implements grouped
-schemes; they report it having shipped as a real bug once.
-Reproduce: show from the live signature that no grouping is accepted, and construct grouped
-input where a flat shuffle and a within-group shuffle give materially different null
-distributions. Reproduction is that difference, not the signature alone.
-Do: the smaller of the two admissible repairs -- accept the same grouping arguments, or state in
-the docstring that the method must not be used on grouped data and name `permute_labels` as the
-tool that must be used instead. Prefer the docstring where accepting grouping would duplicate
-`permute_labels`.
-Discriminator: whichever repair is chosen, a check that fails before it and passes after.
-Accept: a caller reading only the method's own documentation cannot apply it to grouped data
-believing it is correct.
 
 ### 06-47 Staggered electrode shafts read as non-linear
 
@@ -686,28 +540,6 @@ Discriminator: a selector naming no test must be rejected before any verdict, no
 kill.
 Accept: no verdict is emitted by a harness that has not first proven its own selectors.
 
-### 06-72 Resolve the eight duplicated claims in AGENTS.md
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `AGENTS.md`, `CONTRIBUTING.md`.
-Excluded is `artifacts/fact_stack.md`, though the duplication runs through it: that file is not
-agent-editable and only Hamm closes P-41. Report the wording the fact slot needs; do not
-apply it.
-P-15 said 436 lines against a thin-router contract, and that the duplication was unmeasured so
-the size was not yet evidence. It is measured now, in `artifacts/agents_md_duplication.md`:
-181 claim-bearing sentences, **8 duplicated (4.4%)** and 10 echoed (5.5%). Size is not the
-defect. Eight specific claims with two homes are.
-Do: for each of the eight, decide which file owns the claim and make the other one point at it.
-The owner is the file whose slot the claim belongs to (`AGENTS.md` §2), not the one that says it
-better. One case — the fixpoint sentence at Jaccard 1.00, verbatim in `AGENTS.md` §11 and
-`artifacts/problem_stack.md` — is a pure copy and settles by deletion from the non-owner.
-Discriminator: re-run the measurement script; the eight are gone and no new pair appears above
-0.34.
-Accept: the duplicate count is 0 at the 0.34 threshold, every gate still passes, and no claim was
-deleted from both homes.
-Stop: a duplicate turns out to be two different claims that merely share vocabulary. Say which,
-and leave both.
-
 ### 06-73 Exclude the derived cache by path, not by extension
 
 Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `.gitignore`, `tests/`.
@@ -797,42 +629,6 @@ documentation, and reachability is what 0.2.6 claims.
 The order matters: the contract is declared first, because a verbosity or formatting judgement
 made page by page is a preference, and twenty-seven pages edited to twenty-seven preferences is
 worse than leaving them alone.
-
-### 06-49 One term per concept
-
-Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/`, `tests/test_documentation_form.py`.
-That test file is new -- verified absent at b150063d -- and is named anyway so the lane's
-write scope is knowable before it starts. Only backticked paths belong in a `Writes:` field;
-a commit hash in one reads as a path to anything that parses it.
-Unblocked 2026-09-19: 06-48 now covers only the figure section, and vocabulary does not depend on
-it. Rule F5 of `docs/documentation_form.md` is this item's target.
-Reproduce: build the term inventory first. For each concept the documentation names, list every
-surface form in use across `docs/`, `README.md` and the skill files. Reproduction is any concept
-with more than one surface form.
-Do: pick one form per concept and converge. Where two forms mean subtly different things, that
-is not a synonym problem and the item records the distinction instead of collapsing it.
-Discriminator: reintroduce a superseded term on one page; the check names the page and the term.
-Accept: a machine-checked vocabulary list, and no concept in it with a second surface form.
-Stop: a term is fixed by an upstream project, such as NWB's own nomenclature. Those are adopted,
-not renamed.
-
-### 06-50 Reorganize the left menu
-
-Role: docs-harness. Skill: none. Blocked by: none. Writes: `mkdocs.yml`.
-The nav has 28 entries and every target resolves, so this is not a broken-link item. The order is
-the question: it currently reflects the order the pages were written.
-Rules N1, N2, N3 and N5 of `docs/documentation_form.md` already hold -- four groups, depth two,
-every target on disk, no group of one. **N4 is this item's entire content**: a top-level group is
-named for the question a reader arrives with, not for the material it contains. Two measured
-violations: "Getting started" carries the generated API reference, the bibliography and the
-documentation-form contract, none of which anyone arriving to get started is looking for; and
-"Architecture & Foundations" carries `03_representational_similarity_jrsa.md` and
-`04_spectral_analysis_and_tfr.md`, which are methods rather than architecture.
-Do: order by arrival. A reader arrives with one of a small number of questions, and the menu's
-top level answers which question this reader has. Group depth stays at two.
-Accept: every page is reachable in at most two clicks from a top-level group whose name a reader
-would pick without opening it, and no group holds one page.
-Stop: the ordering requires splitting or merging pages. That is 06-51's business.
 
 ### 06-51 Reduce verbosity against the contract
 
@@ -1117,38 +913,6 @@ Accept: P-49 closes, and a test holds the refusal.
 Stop: the correct index space cannot be established from the code and the documentation together.
 That is a contract question for Hamm, not a repair.
 
-### 06-78 Give the preserved series a dtype test before claiming it survives
-
-Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. Writes: `tests/test_compression.py`.
-P-48. `convolved_spike_train` appears twice in the compression tests, both times in fixture
-construction, with no dtype assertion. 06-69 measured three candidate policies that downcast it
-while passing 15 of 15 tests, so "the existing contract survives R1, R2 and R4" is a statement
-about candidates that happen not to break an unenforced rule.
-Reproduce: assert the dtype the contract requires, then apply one of 06-69's downcasting
-candidates and confirm the new test fails where the 15 did not.
-Do: add the assertion. Nothing else -- this item exists so 06-13 can be ruled against an enforced
-contract rather than an assumed one.
-Discriminator: the downcasting candidate above fails; the shipped policy passes.
-Accept: P-48 closes, and 06-13's "survives" column means something testable.
-Stop: the contract's required dtype is not stated anywhere. Then the contract is the thing that is
-missing, and that is a finding, not a test.
-
-### 06-79 Make the chunk shape follow the dataset rank
-
-Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. Writes: `jnwb/compression.py`,
-`tests/test_compression.py`.
-P-47, and a sequencing item rather than a policy one. `jnwb/compression.py:293`, `:339` and `:354`
-all build `chunks = (min(N, shape[0]), n)` and hand it to `create_dataset` at `:172`, so a 1-D
-dataset raises `ValueError: 'chunks' must have same rank`. Latent today because nothing selects a
-1-D dataset, and load-bearing the moment `select=` exists, which every explicit-caller-selection
-candidate in 06-13 implies.
-Reproduce: compress a 1-D dataset and record the raise.
-Do: derive the chunk shape from the dataset's rank. Do not special-case rank 1.
-Discriminator: a 1-D and a 3-D dataset both compress; the 2-D chunk shape on the real corpus is
-byte-identical to today's.
-Accept: P-47 closes, and 06-13 can be ruled without its repair being blocked by this.
-Stop: the corpus 2-D chunking changes at all. That is a re-baseline, not a repair.
-
 ### 06-80 Resolve every `Skill:` field against `skills/`
 
 Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`. NOT the stacks:
@@ -1336,33 +1100,6 @@ Discriminator: the no-column call is distinguishable from the with-column call b
 than counting columns.
 Accept: P-22 closes on its restated wording.
 Stop: making the skip loud breaks a caller who relies on the silent path. Record the caller.
-
-### 06-91 Make a packet verify its own baseline
-
-Role: jnwb-developer. Skill: `jnwb-fact-action`. Blocked by: none.
-Writes: `skills/jnwb-fact-action/SKILL.md`, `AGENTS.md`, `tests/test_harness_adversarial_gates.py`.
-P-28. The provisioner branched three fan-out agents from `5ecc12eb`, 192 commits behind the
-`f23d96ce` their packets named. `artifacts/goal.md`, `artifacts/problem_stack.md` and
-`artifacts/agents/jnwb-developer.md` did not exist there and the cited line numbers pointed at
-unrelated code. All three detected it independently; a packet that had trusted its baseline would
-have measured the 0.1.8 tree and reported against it as though it were current.
-Measured 2026-09-20: neither `AGENTS.md` nor the skill requires a packet to check the commit it
-was given against the commit its packet names. The packet contract has an `OBSERVED BASELINE`
-field, and it records what the packet ran, not whether it ran it on the right tree.
-**The premise is no longer historical.** Reproduced 2026-09-20: the first agent dispatched after
-this item was written was provisioned at `5ecc12eb` -- the same stale commit -- while its packet
-named `8a46d19e`. It was caught only because the check had by then been written into
-`.claude/agents/jnwb-actor.md` as a first action. That raises this item from a good practice to a
-required one, and it means the provisioner, not the packet author, is the thing that is unreliable.
-Do: make the first action of a packet the comparison of `git rev-parse HEAD` against the packet's
-declared baseline, and a stop condition when they differ. The remedy that works is
-`git merge --ff-only <baseline>`; record it, and record that `git reset --hard` is not it. Skill files are doctrine-adjacent, so
-propose the wording rather than applying it unilaterally.
-Discriminator: a packet handed a baseline that does not match its worktree stops, and says both
-SHAs.
-Accept: P-28 closes.
-Stop: the packet contract is Hamm's to amend. If the wording changes what a packet is obliged to
-do rather than how it checks, it is a ruling.
 
 ### 06-92 Rule the fact-slot sentence on CI coverage
 
