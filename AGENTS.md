@@ -7,20 +7,20 @@ a rule that is not here is not a rule of this repository. A project that *uses* 
 its own rules in its own repository.
 
 **Leave no process-authorship narrative in the library surface.** Public documentation may
-describe AI agents, skills, routing, and agent-assisted use when these are public jnwb
-capabilities. Internal harness terminology, repository agent roles, implementation process,
-and private coordination vocabulary must not leak into public documentation unless required
-to explain a public interface.
+describe AI agents, skills, routing, and AI-assisted use when these are public jnwb
+capabilities. Internal repository-agent roles, harness and process vocabulary, private
+coordination state, and implementation-only terminology must not leak into public
+documentation unless required to document a public interface.
 
 Not in `jnwb/`, `tests/`, `scripts/`, `CHANGELOG.md`, or code comments/docstrings — except
 **machine-required literals** such as the path `agents/openai.yaml` in skill-structure tests,
 and standard technical metadata in generated assets (e.g. Creative Commons RDF `cc:Agent`
 creator tags in Matplotlib SVG output). A reader of the library should see a library.
 
-Amended 2026-09-19. The previous rule named `docs/` among the places harness vocabulary may
-not appear, which contradicted an intentionally agent-usable package and was already broken
+Ruled 2026-09-19 (06-02). The previous rule named `docs/` among the places harness vocabulary
+may not appear, which contradicted an intentionally agent-usable package and was already broken
 by four published pages. The boundary is now public capability against internal process, not
-the word "agent".
+the word "agent". The distinction is gated mechanically where practical; 06-68 builds the gate.
 
 ## 0. Where things are
 
@@ -137,7 +137,9 @@ fact without Hamm.
   commit, push, verify a clean sync.
 
 Keep running Review → Progress while useful work remains. Stop when a decision that is the
-human's to make blocks everything left, or when authority or evidence is missing.
+human's to make blocks everything left, or when authority or evidence is missing. **Who drives
+this loop is set by §12**: at `autonomy=max` the actor and critic select and sequence the work
+themselves and continue past a failing test, a surviving mutant or a wrong audit claim.
 
 Do not stop after one item. Do not commit nothing. Do not leave validated changes
 unpushed. Do not cross a version boundary before sealing it.
@@ -358,6 +360,13 @@ evidence of its correctness, and the algorithm does not have to be independently
 does not remove tests: existing coverage stays, and regression behaviour is still tested. The
 ruling narrows what must be re-proved, not what must be exercised.
 
+**A red harness is not evidence that the remaining gates passed.** `scripts/harness_gate.py`
+collects every gate and reports each as `PASS`, `FAIL` or `NOT RUN`; a gate that raised is
+`ERROR`, and the run still continues. Any packet that reports gate state reports all of them in
+those terms. A packet may never say "not my defect" because its own diff did not cause the
+*first* failure -- that ordering is an artifact of the runner, not a finding. Ruled 2026-09-19
+after one false positive at gate 2 of 13 left eleven gates unrun and the tree looking clean.
+
 **`accepted` is the only way a problem closes without being fixed.** It records a reason that
 would survive a hostile reader, and it is never used because a repair is merely inconvenient. A
 shipped artifact that cannot be retested is the shape of a legitimate `accepted`.
@@ -369,3 +378,59 @@ and narrow. These three conditions are what makes the next claim wider without m
 each one is checkable, and the third makes the other two hold at the same moment rather than in
 sequence. Without the fixpoint the third condition cannot terminate, because the process that
 empties a stack is the same process that fills it.
+
+## 12. Autonomy
+
+Ruled 2026-09-19. Autonomy is an execution parameter, orthogonal to role: it says **who drives
+the loop of §3 and when Hamm must intervene**. It does not say what an agent is allowed to do.
+
+    autonomy != authority
+
+`max` is maximum initiative *inside existing authority*. It grants no permission a lower level
+lacks. An actor at `max` that needs an authority it does not have is in the same position as an
+actor at `none`: it stops and says so.
+
+| Level | The agent | Hamm |
+|---|---|---|
+| `none` | Observes and reviews. Proposes the next action; mutates no project state unless that exact action is separately authorised. | Leads every consequential step |
+| `mid` | Executes one authorised packet end to end: reproduce, smallest repair, test, adversarial review, reconcile, commit and push where already authorised. Stops at scope expansion, consequential ambiguity, a new scientific or API decision, or a conflict with authority. | Defines the packet; resolves decisions and exceptions |
+| `max` | Actor and critic **lead the work**. They reconstruct state, choose and sequence it, route packets, reproduce, repair, attack, verify, reconcile both stacks, and continue to the next item without being asked. | Defines goal, acceptance and invariants; rules only genuine decision points |
+
+### The loop at `max`
+
+    actor -> critic -> actor -> verifier, repeating
+
+Reconstruct live state and the remaining acceptance conditions. Select the highest-value
+executable work. Reproduce before changing. Make the smallest justified repair. Let the critic
+independently attack the repair, its assumptions, its tests and its claim of completion. Resolve
+what the critic demonstrates. Establish acceptance by independent verification. Reconcile
+`problem` and `todo` so completed work disappears. Commit and push where persistence is already
+authorised. Select the next item. Continue to a fixpoint or a decision boundary.
+
+### Stops that bind even at `max`
+
+Continuing past any of these would require inventing authority:
+
+- scientific meaning admits more than one defensible choice;
+- public API semantics need a consequential choice;
+- the package scope or boundary would change;
+- the acceptance criteria themselves would change;
+- an irreversible external action is not already authorised;
+- evidence conflicts with a higher authority;
+- two valid alternatives carry a material trade-off and neither dominates;
+- required evidence or capability is unavailable.
+
+### Not stops at `max`
+
+These are the work, not a reason to hand it back: a failing test; a wrong audit claim; a
+surviving mutant; a repair that opens another defect; an environment bug CI exposes; a stale
+item; a planned implementation that turns out unsupported; a new todo that must be created; a
+first attempt that fails.
+
+### Setting it
+
+    AUTONOMY: none | mid | max
+
+Inheritance is project default, then batch override, then packet override. **The narrowest scope
+wins.** The project default for jnwb is `max`. An item that carries no `AUTONOMY:` line inherits
+it. Human rulings and the release item carry an explicit `none`.

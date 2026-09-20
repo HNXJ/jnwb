@@ -1,7 +1,11 @@
 # Goal
 
-Ruled 2026-09-19. The statement jnwb is measured against. Subject to `artifacts/direction.md`,
-which it does not restate.
+Ruled 2026-09-19 by Hamm (06-01), five decisions, each authoritative for 0.2.6. The statement
+jnwb is measured against. Subject to `artifacts/direction.md`, which it does not restate.
+
+Every later item that cites a goal claim cites this file. Two things this ruling forbids adding
+merely to satisfy the superseded goal: raw-data-to-NWB conversion, and an authorization
+subsystem.
 
 This exists because two pillars of an earlier goal statement named capabilities the package does
 not have and does not intend to build. Repairing the repository against an unrevised goal cannot
@@ -27,8 +31,10 @@ defines it.
 
 ## 3. Authorization
 
-Authorization is not a jnwb capability claim. The relevant boundary is that scientific choices
-remain explicit: an agent may execute operations, and may not decide scientific assumptions.
+"Requires authorizations" is removed as a package capability claim. The actual control mechanism
+is two things jnwb does have: scientific choices are explicit, and refusal boundaries are real.
+An agent may execute operations; it may not decide scientific assumptions. No authorization
+subsystem is added to satisfy the superseded goal.
 
 ## 4. Synthetic data
 
@@ -42,11 +48,14 @@ than on a frozen rule. The rule now extends to required metadata, with one bound
 
 A read never invents metadata a file does not contain. A caller may waive a specific required
 field by naming it -- `read_nwb(path, allow_missing=("session_description",))` -- and waiving it
-must not produce a plausible value. Where an upstream constructor requires the field to exist at
-all, as pynwb does for `session_description`, jnwb supplies the empty string and nothing else:
-falsy, unmistakable for a real description, and recorded on the returned object as
-`jnwb_waived_requirements` so anything written from that read can state the file was incomplete.
-The default is refusal, and the default does not move.
+must not produce a plausible value. The default is refusal, and the default does not move.
+
+**Provisional, pending 06-67.** What a waived field holds where an upstream constructor requires
+it to exist at all -- as pynwb does for `session_description` -- is *not* ruled. The shipped
+implementation supplies the empty string and records `jnwb_waived_requirements` on the returned
+object, and that empty string is **not** unmistakable for a real description: a genuinely empty
+on-disk description is value-identical to a waived one. 06-67 rules the missingness truth table;
+until it does, this paragraph states current behaviour, not a decision.
 
 ## 5. Dynamic
 

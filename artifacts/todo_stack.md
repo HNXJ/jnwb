@@ -41,6 +41,14 @@ STOP CONDITIONS:  the item's Stop, plus the standing conditions below
 
 ### Dispatch rules
 
+**`AUTONOMY: max` is this stack's default** (`AGENTS.md` §12). An item carrying no `AUTONOMY:`
+line inherits it: the actor and critic select the work, reproduce, repair, attack the repair,
+verify, reconcile both stacks and move to the next item without being asked. A failing test, a
+surviving mutant, a wrong audit claim or a newly discovered todo is the work, not a handback.
+Items marked `AUTONOMY: none` are human rulings and the release; an agent may assemble their
+evidence and may not make the decision. Autonomy is not authority: `max` grants no permission
+that `none` lacks.
+
 **One writable agent per worktree.** Two agents writing one checkout have silently lost green
 tests here before. A batch runs at most one packet with a non-empty `Writes` per worktree;
 concurrent writers each get their own worktree and are merged one at a time. Packets whose
@@ -112,46 +120,18 @@ The direction of repair is fixed: **package evidence plus human ruling produces 
 goal.** A desired presentation never produces a new package identity. This binds the "dynamic"
 wording, the AI-native positioning and the topology figure in particular.
 
-Batch 0 completes before any substantive edit elsewhere. Three of its six items require a human
-ruling and cannot be dispatched to any agent.
+Batch 0 completes before any substantive edit elsewhere. 06-01 and 06-02 were ruled on
+2026-09-19, and `artifacts/goal.md` plus the vocabulary rule at the head of `AGENTS.md` carry
+those rulings. What remains of this batch is three items Hamm must decide (`AUTONOMY: none`) and
+the read-only packets that assemble the evidence each decision needs.
 
 The basis reconstruction and the findings disposition are done and therefore deleted. Their
 results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review identifiers, and in
 `artifacts/problem_stack.md`, which carries what they found and could not repair.
 
-### 06-01 Rule the corrected goal statement
-
-Role: human ruling. Skill: none. Blocked by: none. Writes: a new goal statement, path to be
-ruled.
-Reads: `artifacts/direction.md`, `artifacts/alignment_review_0.2.5.md` §Confirmed.
-Five decisions, each derived from package evidence rather than from a desired slide:
-(a) researcher and AI agent are parallel entry paths; AI is never a mandatory intermediate
-layer. (b) code, documentation and tests constrain each other, and skills route over that tested
-surface holding no mutable API fact of their own. (c) authorization is not a jnwb capability; the
-real boundary is that an agent may execute operations and may not decide scientific assumptions.
-(d) "does not generate data" means no substitution of synthetic values for missing empirical
-observations in an analysis path, with `jnwb.testing` named as test and calibration
-infrastructure and not an analysis surface. (e) "dynamic" means adaptation to unfamiliar NWB
-structure, not raw-data-to-NWB conversion.
-Accept: the ruling exists, is dated, and every later item that cites a goal claim cites it.
-Stop: any decision that would widen the package boundary; that is not a wording ruling.
-
-### 06-02 Reconcile the agent-vocabulary rule
-
-Role: human ruling. Skill: none. Blocked by: none. Writes: `AGENTS.md`.
-Reproduce: `grep -n "Harness vocabulary" AGENTS.md` gives the rule restricting agent vocabulary
-to four places, excluding `docs/`; `grep -rni "agent" docs/*.md` shows `docs/` already carries it.
-Reproduced when both hold and no gate enforces either side.
-A known contradiction between a rule and its own subject is a stop condition, and 06-06 writes
-an architecture page into exactly the excluded directory.
-Do: rule the scope of the vocabulary restriction.
-Accept: the rule and `docs/` agree, and a check exists for whichever side was ruled.
-Stop: the ruling would require rewriting `docs/agents.md`, which is a maintained asset four test
-modules already check; surface that cost before ruling.
-
 ### 06-61 Reconcile the skill's authority loading order with the five X slots
 
-Role: human ruling. Skill: none. Blocked by: none. Writes: `skills/jnwb-fact-action/SKILL.md`,
+Role: human ruling. Skill: none. Blocked by: none. Writes: `skills/jnwb-fact-action/SKILL.md`, AUTONOMY: none.
 `tests/test_harness_adversarial_gates.py`.
 Problem P-15's sibling, recorded as P-14. `AGENTS.md` §3 now loads `goal.md`, `state.md` and
 `problem_stack.md` alongside the fact and todo stacks. The skill's Mandatory Authority Loading
@@ -186,7 +166,7 @@ delete it because it is repeated.
 
 ### 06-67 Rule the missingness truth table for the read path
 
-Role: human ruling. Skill: none. Blocked by: none. Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`,
+Role: human ruling. Skill: none. Blocked by: none. Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, AUTONOMY: none.
 `docs/errors.md`, `tests/`.
 The opt-in shipped on 2026-09-19 and one cell of its behaviour is undecided. Stating it as a table
 first, because sentinel semantics decided after implementation are decided by the implementation.
@@ -280,9 +260,112 @@ Accept: the stamp resolves, and the check fails on a seeded bad stamp.
 
 ### 06-05 Freeze the acceptance set and the non-goals
 
-Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-13.
+Role: human ruling. Skill: none. Blocked by: 06-13. AUTONOMY: none.
 Writes: this file.
+06-01 and 06-02 were ruled on 2026-09-19 and are no longer blockers; 06-13 is the last one.
+Freeze the set from **live reproduced state**, not by copying the planning text: each condition
+is re-established against this tree at the moment of freezing, and one that cannot be reproduced
+does not enter the set.
 Accept: the frozen set is dated and the non-goals section below is part of it.
+
+### 06-68 Gate the public-vocabulary boundary
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`,
+`tests/test_harness_adversarial_gates.py`, `AGENTS.md` docstring list.
+06-02 was ruled on 2026-09-19: public documentation may describe agents, skills and routing as
+public capabilities; internal repository-agent roles, harness and process vocabulary, private
+coordination state and implementation-only terminology may not appear there. The ruling says to
+gate the distinction mechanically **where practical**, and the phrase is load-bearing: the old
+rule failed because it gated the word "agent", which is a proxy for the boundary and not the
+boundary. Do not rebuild that.
+Reproduce: `grep -rni "packet\|todo stack\|problem stack\|worktree\|harness gate\|fan out" docs/`
+and record which hits are internal process and which explain a public interface. Reproduced when
+the two sets are distinguishable by a rule you can state in one sentence.
+Do: gate the terms that are internal by construction and have no public-interface use --
+delegation packets, the todo and problem stacks, worktrees, batches, harness gates, agent role
+names from `artifacts/agents/`. Do not gate "agent", "skill" or "routing".
+Discriminator: a new `docs/` page containing "delegation packet" fails the gate; `docs/agents.md`
+and the four published pages that legitimately describe agent-assisted use pass unchanged.
+Accept: the gate runs in the collect-all table with its own number, the module docstring lists
+it, and the existing 13 gates still pass.
+Stop: the one-sentence rule cannot be stated, or the gate can only pass by editing the four
+published pages. Both mean the boundary is not yet mechanical; say so and leave it to prose.
+
+### 06-69 Assemble the compress_fp32 candidate-policy table
+
+Role: critic. Skill: `jnwb-nwb-io`. Blocked by: none. Writes: `artifacts/compress_fp32_policy.md`.
+Read-only against the library; the only write is the new artifact.
+06-13 is `AUTONOMY: none` and cannot be ruled without this. Hamm named the columns; produce one
+row per candidate selection rule, and measure every cell rather than reasoning it out.
+
+| Column | What the cell must contain |
+|---|---|
+| exact selection rule | the predicate, as code that could be pasted in |
+| current behaviour | what ships today under that rule |
+| LFP behaviour | downcast or preserved, measured on a real series |
+| MUAe behaviour | the same, measured |
+| other acquisition series | the same, measured |
+| processing-module series | the same, measured |
+| arbitrary user series | the same, measured |
+| data newly downcast | what this rule loses that today's does not |
+| data no longer downcast | what this rule preserves that today's does not |
+| compatibility impact | what breaks for a caller who has already written files |
+| inferable from NWB semantics? | whether the rule reads the data model or only names |
+| reversible? | whether the consequence can be undone from the written file |
+
+The candidate set includes, at minimum: today's rule; explicit caller selection (`select=`);
+`neurodata_type`-driven selection; and unit-driven selection. Add any candidate the evidence
+suggests, and state for each whether the existing contract survives it.
+Fact established by the earlier packet and not to be re-derived: all four candidates examined so
+far change what is lost, the corpus fixtures carry zero `neurodata_type`, and
+`convolved_spike_train` is deliberately preserved. Reproduce those three before relying on them.
+Accept: every cell is measured or explicitly marked unmeasurable with the reason. A cell reasoned
+from the source without running it is not acceptable evidence here.
+Stop: a candidate cannot be measured without writing files outside the scratch area.
+
+### 06-70 Assemble the authority loading-order comparison
+
+Role: critic. Skill: none. Blocked by: none. Writes: `artifacts/authority_loading_order.md`.
+06-61 is `AUTONOMY: none` and cannot be ruled from shorthand. Recorded as P-14, sibling of P-15.
+Do: state each candidate loading order explicitly, as the mapping
+
+    source -> {goal, state, fact, problem, todo}
+
+for every source the skill and `AGENTS.md` §3 name, in the order that candidate loads them. For
+each candidate give: the conflict-resolution rule when two sources write the same slot; which
+slot each source is authoritative for; and **one concrete adversarial example** where the
+candidates diverge -- a real pair of files in this tree, not a hypothetical.
+Reproduce: `skills/jnwb-fact-action/SKILL.md` loading order against `AGENTS.md` §3 Prepare, and
+record where they already disagree. That disagreement is P-14; the table must show which
+candidate resolves it and how.
+Accept: every candidate is a complete mapping over all five slots, and the adversarial example
+produces a different outcome under at least two candidates.
+Stop: the candidates turn out to be the same order stated twice; say so and close P-14 as
+not-a-defect with the evidence.
+
+### 06-71 Assemble the missingness truth table
+
+Role: critic. Skill: `jnwb-nwb-io`. Blocked by: none. Writes: `artifacts/missingness_table.md`.
+06-67 is `AUTONOMY: none`. The empty-string behaviour ships but is **not** ruled, and
+`artifacts/goal.md` §4 now marks that paragraph provisional. Do not implement any change to it.
+One row per on-disk state, with the six states named explicitly: absent field; explicit `None`;
+empty string `""`; malformed value; allowed-missing field; present valid value.
+
+| Column | What the cell must contain |
+|---|---|
+| current behaviour | what `read_nwb` does today, run, not read off the source |
+| proposed behaviour | the candidate, stated as an observable outcome |
+| compatibility consequence | what changes for a caller on the shipped version |
+| information lost by collapsing | whether two distinct on-disk states become indistinguishable |
+
+Rows 3 and 4 are the disputed ones and carry the weight: a genuinely empty on-disk description is
+value-identical to a waived one, which is the actual ambiguity -- not a competing prior
+specification, because none exists.
+Reproduce: build all six states with h5py and verify each in bytes before reading it. The 2x2
+reproducer in `tests/test_nwb_read_tolerance_and_visibility.py` already builds four of them.
+Accept: every cell is the output of a run, and the last column says yes or no for every row with
+the two collapsed states named where it says yes.
+Stop: a state cannot be constructed on disk; record it as unreachable with the attempt.
 
 ## Batch 1. Public truth and reachability
 
@@ -364,7 +447,7 @@ this item and by nothing wider.
 
 ### 06-13 Rule the default selection of compress_fp32
 
-Role: human ruling. Skill: none. Blocked by: none. Writes: this file, then an implementation item.
+Role: human ruling. Skill: none. Blocked by: none. Writes: this file, then an implementation item. AUTONOMY: none.
 The item's named stop condition fired, and it was proven mechanically rather than asserted. The
 mechanical split -- generic mechanics, with selection as an explicit `select=` caller input -- is
 designed and ready. It is blocked on one thing only: what happens when the caller says nothing.
@@ -962,7 +1045,7 @@ repaired, never that repairing it is inconvenient.
 
 ### 06-40 Release
 
-Role: human, with verifier receipts. Skill: none. Blocked by: 06-60.
+Role: human, with verifier receipts. Skill: none. Blocked by: 06-60. AUTONOMY: none.
 Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`, and the release body through the API.
 dev green, pull request and main green, tag validates without publishing, GitHub Release,
 production index, then verification from the index in a clean environment. A tag alone validates
