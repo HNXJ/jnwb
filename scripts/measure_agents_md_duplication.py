@@ -31,6 +31,10 @@ OTHERS = [
 ]
 OTHERS += sorted(ROOT.glob("skills/*/SKILL.md"))
 OTHERS += sorted(ROOT.glob("artifacts/agents/*.md"))
+# Dispatchable subagent definitions. They route over the role files and AGENTS.md rather than
+# restating either, and they are measured here so that stays true: a routing file nothing
+# measures is precisely where a second home for a claim appears without anyone noticing.
+OTHERS += sorted(ROOT.glob(".claude/agents/*.md"))
 
 WORD = re.compile(r"[a-z0-9_]+")
 N = 4
