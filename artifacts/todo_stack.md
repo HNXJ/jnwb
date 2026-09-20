@@ -1337,8 +1337,14 @@ have measured the 0.1.8 tree and reported against it as though it were current.
 Measured 2026-09-20: neither `AGENTS.md` nor the skill requires a packet to check the commit it
 was given against the commit its packet names. The packet contract has an `OBSERVED BASELINE`
 field, and it records what the packet ran, not whether it ran it on the right tree.
+**The premise is no longer historical.** Reproduced 2026-09-20: the first agent dispatched after
+this item was written was provisioned at `5ecc12eb` -- the same stale commit -- while its packet
+named `8a46d19e`. It was caught only because the check had by then been written into
+`.claude/agents/jnwb-actor.md` as a first action. That raises this item from a good practice to a
+required one, and it means the provisioner, not the packet author, is the thing that is unreliable.
 Do: make the first action of a packet the comparison of `git rev-parse HEAD` against the packet's
-declared baseline, and a stop condition when they differ. Skill files are doctrine-adjacent, so
+declared baseline, and a stop condition when they differ. The remedy that works is
+`git merge --ff-only <baseline>`; record it, and record that `git reset --hard` is not it. Skill files are doctrine-adjacent, so
 propose the wording rather than applying it unilaterally.
 Discriminator: a packet handed a baseline that does not match its worktree stops, and says both
 SHAs.
