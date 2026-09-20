@@ -110,7 +110,7 @@ print(f"PSI X->Y: {psi.x_to_y:.4f}, p-value: {psi.p_x_to_y:.4f}")
 
 ### 4. Spiking PSTH & Onset Dynamics
 
-Calculate peristimulus time histograms with bootstrap confidence intervals and fit parametric latency models:
+Calculate PSTHs with bootstrap confidence intervals and fit parametric latency models:
 
 ```python
 spk_times = np.sort(rng.uniform(0, 10, 200))

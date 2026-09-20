@@ -1,6 +1,6 @@
 # 06. Spike Extraction, PSTH & Onset Dynamics
 
-This document details spike rate extraction, Peristimulus Time Histogram (PSTH) generation, response significance classification, spike-LFP phase locking, causal smoothing latency physics, causality-bounded exponential onset fitting, and neural population trajectories in `jnwb`.
+This document details firing rate extraction, Peristimulus Time Histogram (PSTH) generation, response significance classification, spike-LFP phase locking, causal smoothing latency physics, causality-bounded exponential onset fitting, and neural population trajectories in `jnwb`.
 
 ---
 
@@ -55,7 +55,7 @@ print("Approximate p-value:", sig_result["pvalue"])
 print("Confidence:", sig_result["confidence"])
 ```
 
-### Spike-LFP Phase Locking (`phase_locking_index`, `pairwise_phase_consistency`)
+### Spike-LFP Phase Locking (`phase_locking_index`)
 
 Computes circular phase distribution, Rayleigh circular non-uniformity test, and descriptive peak-to-mean histogram contrast of spike occurrences relative to an LFP phase time series. Key `'pli'` is maintained strictly as a backwards-compatibility alias for `'peak_to_mean_contrast'`:
 
@@ -71,7 +71,7 @@ print("Preferred Phase (rad):", pli_result["preferred_phase"])
 print("Rayleigh z:", pli_result["rayleigh_z"], "p-value:", pli_result["rayleigh_pvalue"])
 ```
 
-#### Pairwise Phase Consistency (`pairwise_phase_consistency`)
+### Pairwise Phase Consistency (`pairwise_phase_consistency`)
 Unlike heuristic histogram contrast or PLV/PLI, which has substantial positive sample-size bias ($\mathbb{E}[\text{PLV}] \sim 1/\sqrt{N}$ under noise), Vinck et al. (2010)'s Pairwise Phase Consistency (PPC) is an asymptotically unbiased estimator of squared phase synchronization and is the **recommended estimator** for population and across-unit comparisons:
 
 $$\text{PPC} = \frac{2}{N(N-1)} \sum_{j=1}^{N-1} \sum_{k=j+1}^N \cos(\theta_j - \theta_k)$$
@@ -161,10 +161,20 @@ When an onset lies outside the search interval (e.g. pre-stimulus noise or uncon
 ```python
 import jnwb
 
-# spike_matrices: Dict[unit_id -> (n_trials, n_times)]
-# Assemble time-resolved population matrix: (n_trials * n_times, n_units)
-matrix, metadata = jnwb.build_time_resolved_matrix(spike_matrices)
+# Both functions read the session themselves. They take the same three inputs --
+# an open session, an area, and a trial table -- and neither consumes the other's
+# output; `compute_population_trajectory` is not `build_time_resolved_matrix`
+# followed by PCA on the returned matrix.
 
-# Compute low-dimensional population trajectory (e.g. Top 3 Principal Components)
-trajectory_res = jnwb.compute_population_trajectory(matrix, n_components=3)
+# Assemble the time-resolved population tensor: (n_trials, n_units, n_bins)
+X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
+    session, area="V1", epochs_df=trials_df,
+)
+
+# Low-dimensional population trajectory, from the same three inputs.
+# Returns a dict: trajectory (n_trials, n_components, n_bins), explained_variance,
+# unit_ids, bin_centers.
+trajectory_res = jnwb.compute_population_trajectory(
+    session, area="V1", epochs_df=trials_df, n_components=3,
+)
 ```

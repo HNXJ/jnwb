@@ -24,6 +24,7 @@ from scripts.harness_gate import (
     check_documented_api_matches_all,
     check_docs_version_matches_package,
     check_frozen_boundary,
+    check_internal_process_vocabulary,
     check_logarithm_last_rule,
     check_modality_isolation,
     validate_receipt_provenance,
@@ -737,6 +738,88 @@ class TestHarnessResetContracts:
         )
 
     @staticmethod
+    def _prepare_block() -> str:
+        agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        return agents.split("- **Prepare**", 1)[1].split("- **Review**", 1)[0]
+
+    def test_prepare_loads_the_ruling_the_goal_is_subject_to(self):
+        """P-66: `artifacts/goal.md` declares itself subject to a file no loading order loaded.
+
+        `direction.md:3-4` calls itself a ruling of record and `goal.md:4` submits to it, but
+        AGENTS.md named it nowhere -- so after 06-61 made §3 the *sole* loading-order authority,
+        an agent following the sole authority never read a ruling of record. Position matters as
+        much as presence: a ruling the goal is subject to and that is read after the goal cannot
+        change how the goal is read.
+        """
+        prepare = self._prepare_block()
+        direction = prepare.find("artifacts/direction.md")
+        goal = prepare.find("artifacts/goal.md")
+        assert direction >= 0, (
+            "AGENTS.md §3 Prepare does not load artifacts/direction.md, which artifacts/goal.md "
+            "declares itself subject to. That is P-66: the sole loading-order authority omits a "
+            f"ruling of record.\n{prepare[:600]}"
+        )
+        assert goal >= 0 and direction < goal, (
+            "Prepare loads artifacts/goal.md before the ruling it is subject to"
+        )
+        assert (REPO_ROOT / "artifacts" / "direction.md").is_file(), (
+            "Prepare names artifacts/direction.md and the file is not there"
+        )
+
+    def test_prepare_requires_the_baseline_check_before_it_reads_anything(self):
+        """P-28 / 06-91. The provisioner is the unreliable part, so the packet must check.
+
+        Asserted structurally rather than by looking for a sentence. The order is the claim: a
+        baseline check placed after the loading list is a check a packet performs having already
+        read, cited and reasoned about the wrong tree, which is precisely what happened three
+        times. Membership alone would pass that arrangement.
+        """
+        prepare = self._prepare_block()
+        read_head = prepare.find("git rev-parse HEAD")
+        loading = prepare.find("load, in order")
+        assert read_head >= 0, (
+            f"AGENTS.md §3 Prepare no longer tells a packet to read HEAD:\n{prepare[:600]}"
+        )
+        assert loading >= 0, "Prepare no longer has a loading list"
+        assert read_head < loading, (
+            "Prepare checks the baseline after loading the authorities. A packet that reads first "
+            "has already cited the wrong tree by the time it finds out."
+        )
+        assert "--ff-only" in prepare, (
+            "Prepare states the problem and not the remedy; `git merge --ff-only` is the one that "
+            "works and it is named in P-28's disposition"
+        )
+        assert re.search(r"Never\s+`git reset --hard`", prepare), (
+            "Prepare no longer rules out `git reset --hard`. It is the remedy an agent reaches "
+            "for under time pressure and it discards whatever the tree was carrying."
+        )
+
+    def test_the_packet_contract_requires_a_baseline_commit(self):
+        """The field a packet checks, and it is a field of its own.
+
+        `OBSERVED BASELINE` records the behaviour a packet reproduced; it is silent on whether it
+        reproduced it on the right tree, which is how P-28 survived three fan-outs with the
+        contract already carrying that field. Both fields, and the procedure in exactly one place.
+        """
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        assert "BASELINE COMMIT:" in skill_text, (
+            "the delegation packet contract has no BASELINE COMMIT field, so a packet is never "
+            "told which tree it was written against"
+        )
+        assert "OBSERVED BASELINE:" in skill_text, (
+            "BASELINE COMMIT replaced OBSERVED BASELINE rather than joining it; they record "
+            "different things"
+        )
+        # One home. The skill delegating to §3 is the repair for P-14 and P-15 both; a skill that
+        # re-states the remedy is a second copy that will drift from the first.
+        assert "--ff-only" not in skill_text, (
+            "the skill carries its own copy of the baseline remedy. AGENTS.md §3 Prepare is where "
+            "that procedure lives; a second copy is the mechanism P-14 was caused by."
+        )
+
+    @staticmethod
     def _canonical_section_reference(directive: str) -> "str | None":
         """The AGENTS.md section number a directive delegates to, or None."""
         match = re.search(r"`?AGENTS\.md`?\s*(?:§|section\s*)(\d+)", directive)
@@ -771,6 +854,41 @@ class TestHarnessResetContracts:
         skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
         assert "fact_stack.md` is strictly human-authorized" in skill_text
 
+    @staticmethod
+    def _roles_agents_md_enumerates(agents_md: str) -> "set[str] | None":
+        """The role names AGENTS.md's `artifacts/agents/` row lists, or None if it lists none.
+
+        P-64: the role set had three homes -- the directory, the `ROLE:` enum, and AGENTS.md's
+        map -- and the check below read the first two. Renaming a role in AGENTS.md reproduced
+        P-C2 with the suite green, which is how P-C2 came to be closed `repaired` on a guard that
+        could not catch its return.
+
+        The row is found by the path it documents rather than by line number or table position,
+        and an empty result is distinguished from a missing row: AGENTS.md is a router, so a row
+        that points at the directory instead of copying its contents is the *better* state and
+        must not read as a drifted one. What may not happen is a row that lists roles and lists
+        them wrongly.
+        """
+        row = next(
+            (line for line in agents_md.splitlines() if "artifacts/agents/" in line),
+            None,
+        )
+        assert row is not None, (
+            "AGENTS.md no longer mentions artifacts/agents/ at all. This check reports on the row "
+            "it finds, so a missing row would silently make it vacuous -- which is the defect it "
+            "exists to close, one level up."
+        )
+        # The ENUMERATION, not every code span on the line. Taking all backticked tokens was
+        # tried and is wrong: the same row says "(`role` $\\perp$ `domain`)", so the naive read
+        # returns eight names for six roles and fails on a correct tree. An enumeration is a run
+        # of code spans joined by commas, so that is what is matched, and a lone span is not one.
+        token = r"`[a-z][a-z0-9-]*`"
+        runs = re.findall(rf"{token}(?:\s*,\s*(?:and\s+)?{token})+", row)
+        if not runs:
+            return None
+        longest = max(runs, key=lambda run: run.count("`"))
+        return set(re.findall(r"`([a-z][a-z0-9-]*)`", longest))
+
     def test_role_definitions_exist_and_role_domain_orthogonal(self):
         expected_roles = {"authority", "critic", "actor", "verifier", "docs-harness",
                           "jnwb-developer"}
@@ -791,11 +909,73 @@ class TestHarnessResetContracts:
             f"ROLE enum and artifacts/agents/ disagree: {enumerated ^ existing_role_files}"
         )
 
+        # The third home. P-64: renaming a role in AGENTS.md left both assertions above green.
+        agents_md = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        listed = self._roles_agents_md_enumerates(agents_md)
+        if listed is not None:
+            assert listed == existing_role_files, (
+                "AGENTS.md's artifacts/agents/ row and the directory disagree: "
+                f"{listed ^ existing_role_files}. AGENTS.md names {sorted(listed)}; the files on "
+                f"disk are {sorted(existing_role_files)}. Either the row is stale or a role was "
+                "renamed in one home and not the others -- which is P-C2, and is exactly what "
+                "this assertion exists to stop recurring."
+            )
+
         # Roles must be domain-orthogonal and consume domain skills
         for role in expected_roles:
             role_text = (agents_dir / f"{role}.md").read_text(encoding="utf-8")
             assert "domain skill" in role_text.lower(), f"Role {role} must reference domain skill consumption"
             assert "role" in role_text.lower()
+
+    #: The live row's shape, so the cases below are variations on something real rather than on a
+    #: guess about what AGENTS.md looks like.
+    _ROLE_ROW = (
+        "| `artifacts/agents/` | Portable role definitions: `authority`, `critic`, `actor`, "
+        "`verifier`, `docs-harness`, `jnwb-developer`. Decoupled from domain skills "
+        "(`role` $\\perp$ `domain`). Parameterized via delegation packets |"
+    )
+
+    def test_the_role_row_reader_ignores_code_spans_that_are_not_the_list(self):
+        """`role` and `domain` are code-spanned on the same line and are not roles.
+
+        Reading every backticked token returns eight names for six roles, so the check would fail
+        on a correct tree -- and the repair for that is a real one, not an intersection with the
+        directory, which would drop a renamed role and make the whole check vacuous.
+        """
+        assert self._roles_agents_md_enumerates(self._ROLE_ROW) == {
+            "authority", "critic", "actor", "verifier", "docs-harness", "jnwb-developer",
+        }
+
+    def test_a_role_renamed_only_in_agents_md_is_detected(self):
+        """THE DISCRIMINATOR for P-64. This is the edit that used to leave the suite green."""
+        renamed = self._ROLE_ROW.replace("`verifier`", "`checker`")
+        found = self._roles_agents_md_enumerates(renamed)
+        on_disk = {p.stem for p in (REPO_ROOT / "artifacts" / "agents").glob("*.md")}
+        assert found != on_disk, (
+            "AGENTS.md renaming `verifier` to `checker` was not detected as a disagreement with "
+            f"artifacts/agents/; the reader returned {found}"
+        )
+        assert "checker" in found and "verifier" not in found
+
+    def test_a_role_dropped_only_in_agents_md_is_detected(self):
+        """P-C2's original shape: five names in AGENTS.md where six files exist."""
+        dropped = self._ROLE_ROW.replace(", `jnwb-developer`", "")
+        found = self._roles_agents_md_enumerates(dropped)
+        assert found == {"authority", "critic", "actor", "verifier", "docs-harness"}
+
+    def test_a_row_that_points_instead_of_listing_is_allowed(self):
+        """A router that stops copying the directory is the better state, not a drifted one."""
+        pointer = "| `artifacts/agents/` | Portable role definitions, one file per `role` |"
+        assert self._roles_agents_md_enumerates(pointer) is None
+
+    def test_a_missing_row_is_a_failure_and_not_a_vacuous_pass(self):
+        """The reader must not go quiet when the thing it reads disappears.
+
+        A sweep that finds nothing reports nothing, which is indistinguishable from a clean tree
+        -- P-37's shape, and the reason this reader asserts before it parses.
+        """
+        with pytest.raises(AssertionError, match="no longer mentions artifacts/agents/"):
+            self._roles_agents_md_enumerates("| `skills/` | Task skills |")
 
     def test_actor_cannot_be_sole_verifier_contract(self):
         skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
@@ -839,6 +1019,128 @@ class TestHarnessResetContracts:
         skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
         assert "Evidence Reconciliation" in skill_text
         assert "never through voting" in skill_text
+
+
+class TestGate14InternalProcessVocabulary:
+    """Gate 14 must catch the mechanism and not the word.
+
+    06-02 retired a rule that banned "agent" from `docs/`; it was already broken by four
+    published pages the day it was written, because agents, skills and routing are public jnwb
+    capabilities. The replacement gates phrases that are internal by construction. Both halves
+    are load-bearing and both are tested here: the terms it catches, and the terms it must not.
+    """
+
+    @staticmethod
+    def _docs(tmp_path: Path, **pages: str) -> Path:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        for name, body in pages.items():
+            (docs / f"{name}.md").write_text(body, encoding="utf-8")
+        return tmp_path
+
+    def test_a_page_naming_a_delegation_packet_fails(self, tmp_path: Path):
+        """06-68's stated discriminator, in its stated words."""
+        root = self._docs(tmp_path, guide="Hand the delegation packet to the next role.\n")
+        violations = check_internal_process_vocabulary(root)
+        assert any("delegation packet" in v.lower() for v in violations), violations
+        assert "docs/guide.md:1" in violations[0], violations
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "Work is queued in the todo stack.",
+            "See artifacts/problem_stack.md for defects.",
+            "Run the harness gate before pushing.",
+            "Each agent gets its own worktree.",
+            "Three worktrees ran in parallel.",
+            "The fan-out returned four reports.",
+            "The docs-harness role owns this page.",
+            "Dispatched to jnwb-developer.",
+        ],
+    )
+    def test_each_internal_mechanism_is_caught(self, tmp_path: Path, line: str):
+        """One case per term class, so a term silently dropped from the list is visible here."""
+        root = self._docs(tmp_path, page=line + "\n")
+        assert check_internal_process_vocabulary(root), f"not caught: {line!r}"
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "An AI agent can call every operation a researcher can.",
+            "Load the skill that covers the work before doing it.",
+            "Routing sends spectral questions to the LFP skill.",
+            "Use `read_nwb` for repository data roots in batch jobs.",
+            "`jrsa(..., batch_size=None)` controls the chunk size.",
+            "The authority loading order is documented for agent use.",
+            "The actor in a two-party protocol is the caller.",
+        ],
+    )
+    def test_public_capability_language_is_not_caught(self, tmp_path: Path, line: str):
+        """THE 06-02 DEFECT. Every line here is the kind the retired rule failed on.
+
+        A gate that fires on these is the old proxy rebuilt, and it fails this test rather than
+        four published pages six months later.
+        """
+        root = self._docs(tmp_path, page=line + "\n")
+        assert check_internal_process_vocabulary(root) == [], line
+
+    def test_the_live_docs_tree_passes(self):
+        """The four pages that legitimately describe agent-assisted use stay unedited."""
+        assert check_internal_process_vocabulary(REPO_ROOT) == []
+        assert (REPO_ROOT / "docs" / "agents.md").is_file(), (
+            "docs/agents.md is the page the gate most needed not to break; it is gone"
+        )
+
+    def test_case_and_spacing_variants_do_not_slip_through(self, tmp_path: Path):
+        """Literal matching would pass 'Delegation Packets' and 'fan out'."""
+        root = self._docs(
+            tmp_path,
+            a="Delegation Packets are handed out.\n",
+            b="The fan out covered four lanes.\n",
+            c="Check the Harness  Gate output.\n",
+        )
+        caught = {v.split()[1].rsplit(":", 1)[0] for v in check_internal_process_vocabulary(root)}
+        assert caught == {"docs/a.md", "docs/b.md", "docs/c.md"}, caught
+
+    def test_a_term_inside_a_longer_word_is_not_a_hit(self, tmp_path: Path):
+        """The word boundaries are what keep this from being a substring grep."""
+        root = self._docs(tmp_path, page="The subworktreeish counter is unrelated.\n")
+        assert check_internal_process_vocabulary(root) == []
+
+    def test_a_hyphenated_compound_is_still_the_term(self, tmp_path: Path):
+        """Guarding against `[\\w-]` rather than `\\w` loses exactly these spellings."""
+        root = self._docs(
+            tmp_path,
+            a="Run it worktree-local.\n",
+            b="A harness-gate-adjacent concern.\n",
+        )
+        caught = {v.split()[1].rsplit(":", 1)[0] for v in check_internal_process_vocabulary(root)}
+        assert caught == {"docs/a.md", "docs/b.md"}, caught
+
+    def test_an_empty_docs_tree_is_a_failure_and_not_a_pass(self, tmp_path: Path):
+        """A sweep over nothing reports nothing, which reads exactly like a clean tree.
+
+        This is P-37's shape and the reason gate 8 fails on a missing file rather than skipping
+        it. Without this the gate passes on any tree where `docs/` moved or the glob broke.
+        """
+        (tmp_path / "docs").mkdir()
+        violations = check_internal_process_vocabulary(tmp_path)
+        assert violations and "sweep is broken" in violations[0], violations
+
+    def test_the_term_list_is_not_empty(self):
+        """An emptied list passes every case above except this one."""
+        from scripts.harness_gate import INTERNAL_PROCESS_TERMS
+
+        assert len(INTERNAL_PROCESS_TERMS) >= 10, INTERNAL_PROCESS_TERMS
+        assert "todo_stack.md" in INTERNAL_PROCESS_TERMS, (
+            "todo_stack.md was dropped from the gated terms. It is the term that found the one "
+            "live hit outside this gate's scope, and dropping it is the edit that makes the "
+            "question go away without answering it."
+        )
+        for word in ("agent", "skill", "routing", "batch", "authority"):
+            assert word not in INTERNAL_PROCESS_TERMS, (
+                f"{word!r} is a public capability; gating it rebuilds the rule 06-02 retired"
+            )
 
 
 class TestGate6RecursiveCoverage:

@@ -75,6 +75,18 @@ import numpy as np
 
 FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 
+# Stamped into every file this module writes, as `conversion_script` and inside each converted
+# dataset's `stored_dtype_note`. P-30: both used to name `scripts/convert_nwb_compressed.py`,
+# which has never existed in this repository -- 22 of 22 real sessions carry that dead path, and
+# nothing ever resolved it, which is how it survived a release. Provenance that names a script
+# nobody can run does not merely fail to help; it sends a reader somewhere that does not exist.
+# The repair is to name the public entry point that actually performed the conversion, NOT to add
+# a script that makes the old string true -- that would satisfy the stamp rather than the caller.
+# Resolvable as a dotted attribute: `getattr(importlib.import_module("jnwb"), "compress_fp32")`.
+# Files written before this change are not rewritten; their stamp stays wrong, and only a later
+# write corrects it.
+CONVERSION_ENTRY_POINT = "jnwb.compress_fp32"
+
 # LFP/MUAE paths are DISCOVERED, not hardcoded -- multi-session audits exposed flat vs nested
 # `probe_N_lfp_data` layouts and varying probe counts. Probe count and nesting are independent
 # variables; neither can be assumed from another file already checked. The prior hardcoded
@@ -90,14 +102,33 @@ FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 # (probe_0_lfp/probe_0_lfp_data/electrodes/data), which has a different rank/shape and crashed
 # create_dataset on a chunk-rank mismatch. Caught in the synthetic fixture before it could repeat
 # against a real 100+ GiB file.
-_LFP_MUAE_RE = re.compile(r"(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
+#
+# ANCHORED, and matched with `fullmatch` rather than `search` (P-29). The pattern used to end in
+# `/data$` and be applied with `.search()`, so it matched any path whose TAIL contained the
+# corpus name: `stimulus/probe_0_lfp/data`, `analysis/probe_0_lfp/data`,
+# `scratch/backup_probe_0_lfp/data`, `general/extra/probe_0_lfp/data`, `scratch/probe_0_muae/data`
+# and `acquisition/my_probe_0_lfp/data` were all selected for the IRREVERSIBLE float32 downcast --
+# 6 of 6 adversarial names. A dataset in `scratch/` being silently downcast is not a selection
+# policy anyone chose. Two independent things are anchored here: the group must sit directly under
+# `acquisition/` (the head anchor), and `probe_N_lfp` must be a WHOLE path segment rather than the
+# tail of one, which is what rejects `my_probe_0_lfp`. Measured on the real corpus across 22
+# sessions: selection is identical to the unanchored form on all of them, because every real match
+# already sits under `acquisition/`. This narrows the exposure to hand-built and future files; it
+# does not re-baseline what the corpus selects.
+#
+# `^` and `$` are redundant under `fullmatch` and are written anyway: they keep the invariant
+# true if the call site ever reverts to `search`, which is the exact slip this row is about. A
+# mutation run confirmed the need -- with the anchors absent, swapping `fullmatch` for `search`
+# reselected `scratch/acquisition/probe_0_lfp/data` and `acquisition/probe_0_lfp/datastore` while
+# every adversarial name recorded in P-29 still passed.
+_LFP_MUAE_RE = re.compile(r"^acquisition/(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
 
 
 def _find_lfp_muae_paths(f: h5py.File) -> list[str]:
     paths: list[str] = []
 
     def w(name, obj):
-        if isinstance(obj, h5py.Dataset) and _LFP_MUAE_RE.search(name):
+        if isinstance(obj, h5py.Dataset) and _LFP_MUAE_RE.fullmatch(name):
             paths.append("/" + name)
 
     f.visititems(w)
@@ -159,6 +190,31 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
             paths.append(name)
     f.visititems(w)
     return paths
+
+
+def _chunk_shape(shape, max_rows: int) -> tuple:
+    """Chunk shape for a dataset of ANY rank: cap the first axis, keep every other axis whole.
+
+    P-47. All three call sites used to build ``(min(max_rows, shape[0]), n)`` unconditionally --
+    a rank-2 tuple regardless of the dataset -- so a 1-D dataset raised ``ValueError: 'chunks'
+    must have same rank as dataset shape`` out of ``create_dataset``, and a 3-D one raised it
+    too. Latent only because today's selector cannot reach anything but 2-D arrays; load-bearing
+    the moment a caller names the dataset itself.
+
+    Rank 2 is unchanged **by construction**, not by coincidence: ``n`` was already ``shape[1]``
+    whenever ``ndim == 2``, so this returns the identical tuple the call sites built. The corpus
+    chunking is derived here rather than assumed, not re-baselined.
+
+    Each axis is clamped to at least 1 because HDF5 rejects a zero-length chunk dimension; an
+    empty dataset previously produced ``chunks=(0, n)`` and failed inside h5py.
+    """
+    if not shape:
+        raise ValueError(
+            "cannot chunk a rank-0 (scalar) dataset: chunked storage, which gzip+shuffle "
+            "requires, has no meaning for a dataset with no dimensions"
+        )
+    first = max(1, min(int(max_rows), int(shape[0])))
+    return (first,) + tuple(max(1, int(d)) for d in shape[1:])
 
 
 def _replace_dataset_data(dst: h5py.File, path: str, new_shape, new_dtype, chunks, filt,
@@ -268,6 +324,10 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
     stats = {"max_float32_err": 0.0, "timestamps_collapsed": [], "timestamps_kept_irregular": []}
     t0 = time.time()
 
+    # Imported at call time, not module scope: `jnwb/__init__.py` imports this module, so a
+    # top-level `from jnwb import __version__` would be a circular import.
+    from jnwb import __version__ as _jnwb_version
+
     # Write to a temp path first -- this file WILL be padded with unreclaimed freed space from
     # the delete+recreate steps below (see module docstring). Compacted into dst_path at the end.
     bloated_path = dst_path.with_name(dst_path.stem + ".bloated.tmp" + dst_path.suffix)
@@ -289,8 +349,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
         for path in lfp_muae_paths:
             print(f"    {path}")
             src_ds = src[path]
-            n_ch = src_ds.shape[1] if src_ds.ndim == 2 else 1
-            chunks = (min(16384, src_ds.shape[0]), n_ch)
+            chunks = _chunk_shape(src_ds.shape, 16384)
             max_err = [0.0]
 
             def fill(ds, src_ds=src_ds, max_err=max_err):
@@ -305,8 +364,9 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
 
             _replace_dataset_data(dst, path, src_ds.shape, np.float32, chunks, FILT, fill)
             dst[path].attrs["stored_dtype_note"] = (
-                f"cast from float64 to float32 at write time by scripts/convert_nwb_compressed.py "
-                f"v2 on {time.strftime('%Y-%m-%d')}; measured max abs round-trip err {max_err[0]:.6e}"
+                f"cast from float64 to float32 at write time by {CONVERSION_ENTRY_POINT} "
+                f"v{_jnwb_version} on {time.strftime('%Y-%m-%d')}; measured max abs round-trip "
+                f"err {max_err[0]:.6e}"
             )
             stats["max_float32_err"] = max(stats["max_float32_err"], max_err[0])
 
@@ -335,8 +395,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
 
         if SPIKE_TRAIN_PATH in dst:
             src_ds = src[SPIKE_TRAIN_PATH]
-            n_units = src_ds.shape[1] if src_ds.ndim == 2 else 1
-            chunks = (min(65536, src_ds.shape[0]), n_units)
+            chunks = _chunk_shape(src_ds.shape, 65536)
 
             def fill_st(ds, src_ds=src_ds):
                 block = 2_000_000
@@ -350,8 +409,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             # Source has NO compression on this array at all -- recompressing in place, with
             # the data fully intact, is a strict win: smaller on disk, nothing lost.
             src_ds = src[CONVOLVED_PATH]
-            n_ch = src_ds.shape[1] if src_ds.ndim == 2 else 1
-            chunks = (min(16384, src_ds.shape[0]), n_ch)
+            chunks = _chunk_shape(src_ds.shape, 16384)
 
             def fill_cv(ds, src_ds=src_ds):
                 block = 1_000_000
@@ -400,8 +458,11 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             st_ds.attrs["unit"] = src[ts_path].attrs.get("unit", "seconds")
             stats["timestamps_collapsed"].append((ts_path, rate))
 
-        dst.attrs["conversion_script"] = "scripts/convert_nwb_compressed.py"
-        dst.attrs["conversion_script_version"] = "v2"
+        dst.attrs["conversion_script"] = CONVERSION_ENTRY_POINT
+        # INTENTIONAL BREAK, stated at the change site per the "invariants do not change silently"
+        # rule: this field used to read "v2", the version of a script that never existed. It now
+        # versions the thing `conversion_script` actually names, so the pair resolves together.
+        dst.attrs["conversion_script_version"] = _jnwb_version
         dst.attrs["conversion_date"] = time.strftime("%Y-%m-%d")
         dst.attrs["conversion_source_file"] = str(src_path)
         dst.attrs["conversion_kept_convolved_spike_train"] = not drop_convolved

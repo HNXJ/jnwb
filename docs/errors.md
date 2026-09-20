@@ -8,6 +8,24 @@ pass one of them.
 
 The messages below are the real ones, taken from a file written with plain pynwb.
 
+## What to pass
+
+| Error | Raised by | The fix |
+|---|---|---|
+| `AmbiguousAcquisitionError` | `acquisition_channel`, `resolve_acquisition` | `name=` one of the series in the message |
+| `AcquisitionNotFoundError` | `acquisition_channel`, `resolve_acquisition` | `name=` one of the names under `Available` |
+| `ChannelIndexError` | `acquisition_channel` | `channel=` below the stated count |
+| `AmbiguousLayoutError` | `acquisition_channel` | Nothing. Read and transpose the array yourself |
+| `UnitNotFoundError` | `unit_spike_times` | `unit_index=` below the stated count |
+| `AmbiguousIntervalTableError` | `events`, `event_onsets`, `resolve_interval_table` | `table=` one of the names in the message |
+| `IntervalTableNotFoundError` | `events`, `event_onsets`, `resolve_interval_table` | `table=` one of the names under `Available` |
+| `ColumnNotFoundError` | `events`, `event_onsets` | `code_column=` one of the listed columns |
+| `InvalidOnsetValueError` | `events`, `event_onsets`, `epoch_continuous` | Drop or repair the row the message names |
+| `MissingRequiredNWBFieldError` | any read | Nothing. Repair the file |
+
+`NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
+directly. The rest of this page is why each refusal exists, which the table cannot carry.
+
 ## Finding the name to pass
 
 Two resolvers answer "what would jnwb pick, and is that unambiguous?" without reading any
@@ -49,59 +67,50 @@ except jnwb.NWBInspectError as exc:
 
 > Several continuous series present: ['probe_0_lfp', 'probe_1_lfp']. Pass name=&lt;series&gt; explicitly.
 
-Raised by `acquisition_channel` and `resolve_acquisition` when `name` is omitted and the
-file holds more than one continuous series. **Pass `name=` one of the names in the
-message.**
-
-It is also raised for two narrower kinds of ambiguity:
+Two narrower kinds of ambiguity raise the same class:
 
 > Container 'LFP' wraps 2 electrical series: ['lfp_alpha', 'lfp_beta']. Pass name=&lt;series&gt; explicitly.
 
-An `LFP` container holding several series has no single rate, shape or path. **Pass
-`name=` the series itself**, not the container.
+An `LFP` container holding several series has no single rate, shape or path, so name the
+series itself rather than the container.
 
 > 'shared' names both /acquisition/shared and ['ecephys/shared'].
 
 The same name exists in `/acquisition` and in a processing module, and they are different
-data. **Pass the qualified processing name** (`"ecephys/shared"`) to mean the latter.
+data. The qualified processing name (`"ecephys/shared"`) means the latter.
 
 ### `AcquisitionNotFoundError`
 
 > Series 'nope' not found. Available: ['probe_0_lfp', 'probe_1_lfp']
 
-The name does not exist. **Pass one of the names in `Available`.** The same class is
-raised when a series exists but has no readable data array, and when it has no constant
-sampling rate — a series with explicit `timestamps` rather than a `rate` cannot be
-epoched by sample index.
+The same class is raised when a series exists but has no readable data array, and when it
+has no constant sampling rate — a series with explicit `timestamps` rather than a `rate`
+cannot be epoched by sample index.
 
 ### `ChannelIndexError`
 
 > Channel index 99 out of range for series 'only' with 4 channels (layout time_by_channel, decided by electrode_count)
 
-The channel index is outside the series. The message states the true channel count, which
-axis holds channels and how that was decided — `electrode_count` means it was read from
-the series' electrode region, `shape` means it was guessed from which dimension is longer
-because the series carries no electrode information. **Pass `channel=` below the stated
-count.**
+The message states which axis holds channels and how that was decided:
+`electrode_count` means it was read from the series' electrode region, `shape` means it
+was guessed from which dimension is longer, because the series carries no electrode
+information.
 
 ### `AmbiguousLayoutError`
 
 > Cannot tell which axis of series 'square' holds channels: shape (4, 4) against 4 electrodes, so neither dimension matches or both do. Guessing would return a slice across channels as a channel's time course.
 
-The channel axis cannot be determined: the electrode count matches neither dimension, or
-the array is square so it matches both. There is no argument that resolves this one,
-because the file does not contain the answer. `inspect` reports `layout: "ambiguous"` for
-the same series. **Read the array yourself** and transpose it according to what you know
-about how it was recorded; jnwb will not pick an axis, because a wrong pick returns one
-instant sampled across channels dressed as a channel's time course.
+There is no argument that resolves this one, because the file does not contain the answer.
+`inspect` reports `layout: "ambiguous"` for the same series. Transpose the array according
+to what you know about how it was recorded; jnwb will not pick an axis, because a wrong
+pick returns one instant sampled across channels dressed as a channel's time course.
 
 ### `UnitNotFoundError`
 
 > Unit index 7 out of range for 1 units
 
-Raised by `unit_spike_times` for an out-of-range row, for a file with no units table, and
-for a units table with no `spike_times` column. **Pass `unit_index=` below the stated
-count**, or check `jnwb.inspect(path)["units"]`.
+Raised for an out-of-range row, for a file with no units table, and for a units table with
+no `spike_times` column. `jnwb.inspect(path)["units"]` shows which of the three it is.
 
 ## Reading events: `NWBEventError`
 
@@ -111,24 +120,19 @@ count**, or check `jnwb.inspect(path)["units"]`.
 
 > Several interval tables and none named 'trials': ['blocks', 'stimuli']. Pass table=&lt;name&gt; explicitly.
 
-Raised by `events`, `event_onsets` and `resolve_interval_table` when `table` is omitted,
-several interval tables exist and none is called `trials`. **Pass `table=` one of the
-names in the message.** Note that a file with a `trials` table *and* five others does not
-raise: `trials` wins. Pass `table=` anyway when you mean one of the others.
+A file with a `trials` table *and* five others does not raise: `trials` wins. Pass
+`table=` anyway when you mean one of the others.
 
 ### `IntervalTableNotFoundError`
 
 > Interval table 'nope' not found. Available: ['trials']
 
-**Pass one of the names in `Available`.**
-
 ### `ColumnNotFoundError`
 
 > Code column 'nope' not found. Columns: ['start_time', 'stop_time']
 
-The interval table exists and the requested `code_column` does not. **Pass `code_column=`
-one of the listed columns.** `codes` is a jnwb default, not an NWB requirement — a file
-from another lab usually calls that column `stimulus`, `condition` or `trial_type`.
+`codes` is a jnwb default, not an NWB requirement — a file from another lab usually calls
+that column `stimulus`, `condition` or `trial_type`.
 
 Omitting `code_column` on a table with no `codes` column is *not* an error: the onsets are
 returned with a warning that no codes were found, because the onsets are what you need
@@ -141,30 +145,27 @@ specific.
 
 > Non-finite onset at index 0: np.float64(nan)
 
-A selected row has a missing or non-finite onset. All three entry points agree: `events`,
-`event_onsets` and `epoch_continuous` refuse it rather than carry `NaN` into an index
-computation. **Drop or repair the offending row**; the message names it.
+All three entry points agree: `events`, `event_onsets` and `epoch_continuous` refuse a
+missing or non-finite onset rather than carry `NaN` into an index computation.
 
 ## Reading the file at all: `MissingRequiredNWBFieldError`
 
 > NWB file is missing required field 'session_description'; jnwb does not synthesize required metadata
 
 Raised while reading, when a field the NWB specification requires is absent from the file
-on disk. There is no argument to pass: the file is incomplete. **Repair the file** — the
-exception carries the missing field name as `exc.field_name`. jnwb will not invent a value
-for a field the specification requires, because a synthesized `session_description`
-propagates into every figure caption and table that reads it.
+on disk. The exception carries the missing field name as `exc.field_name`. jnwb will not
+invent a value for a field the specification requires, because a synthesized
+`session_description` propagates into every figure caption and table that reads it.
 
 ## Warnings, not errors
 
 Two conditions warn rather than raise, because in both cases the caller gets something
 usable and the risk is that it is silently wrong.
 
-- **No `codes` column** (`events`, `event_onsets`): the onsets are returned without codes.
-- **Most epochs entirely outside the data** (`epoch_continuous`, under
-  `boundary_policy="nan"`): the returned array is the right shape and entirely `NaN`,
-  which is what onsets in milliseconds look like when read as seconds. The warning names
-  both spans. See [Common mistakes §11](common_mistakes.md).
+| Condition | Raised by | What you get |
+|---|---|---|
+| No `codes` column | `events`, `event_onsets` | The onsets, without codes |
+| Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 
 Turn either into an error while developing:
 

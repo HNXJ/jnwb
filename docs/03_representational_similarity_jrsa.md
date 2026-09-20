@@ -1,6 +1,6 @@
 # 03. Representational Similarity Analysis (JRSA)
 
-`jnwb.jrsa` provides a representational similarity analysis (RSA) engine tailored for high-dimensional neural time series, multi-channel LFP arrays, and population spike rate tensors.
+`jnwb.jrsa` provides a representational similarity analysis (RSA) engine tailored for high-dimensional neural time series, multi-channel LFP arrays, and population firing rate tensors.
 
 ---
 

@@ -1,6 +1,6 @@
 # 04. Spectral Analysis, Coherence & Time-Frequency Representations (TFR)
 
-This document details spectral power estimation, time-frequency decomposition, cross-area coherence, memory-efficient accumulation, coordinate-explicit band extraction, and decibel transformations in `jnwb`.
+This document details spectral power estimation, time-frequency representations, cross-area coherence, memory-efficient accumulation, coordinate-explicit band extraction, and decibel transformations in `jnwb`.
 
 ---
 
@@ -100,7 +100,7 @@ stands -- pass power and baseline, never decibels.
 `nan_policy="omit"` aggregates over non-NaN entries only. Artifact repair legitimately leaves
 NaNs behind, so this is a real choice, but never a silent one.
 
-#### Direct Relative Power (`relative_power`)
+### Direct Relative Power (`relative_power`)
 
 `relative_power` computes power ratios against baseline without premature logarithmic conversions,
 providing explicit mathematical model selection:

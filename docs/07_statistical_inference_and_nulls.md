@@ -9,10 +9,16 @@ This document details statistical inference, bootstrap confidence intervals, exc
 `jnwb.statistics.StatisticalAnalysis` provides a unified interface for parametric, non-parametric, and resampling-based inference.
 
 ### Local RNG Injection & Global RNG Isolation
-All statistical resampling functions accept an optional `rng: np.random.Generator`.
-- **Isolated Determinism**: By default, functions instantiate an internal generator (`default_rng(42)`) to ensure repeatable outputs without mutating Python or NumPy global RNG state.
-- **Caller Control**: Callers can supply independent `np.random.Generator` streams for parallel sweeps.
-- **Strict Typing**: Supplying a non-`Generator` object raises an explicit `TypeError`.
+
+Resampling functions that draw take an optional `rng: np.random.Generator`. The exceptions
+are `exploratory_compare` and `exploratory_correlate`, whose signatures carry no `rng` and
+no `**kwargs`: passing one raises `TypeError`.
+
+| Property | What it means |
+|---|---|
+| Isolated determinism | With `rng` omitted, the function builds its own `default_rng(42)`. Python's and NumPy's global RNG state is never read or mutated |
+| Caller control | An independent `np.random.Generator` per worker makes parallel sweeps reproducible |
+| Strict typing | A non-`Generator` object raises `TypeError` rather than being coerced |
 
 ```python
 import numpy as np
@@ -51,13 +57,13 @@ print("Permutation p-value:", perm_res["pval"])
 `StatisticalAnalysis.exploratory_compare` and `StatisticalAnalysis.exploratory_correlate` compute unadjusted dual parametric and non-parametric statistics for exploratory screening without FDR theatre:
 
 ```python
-# Exploratory dual comparison
+# Exploratory dual comparison. No `rng` parameter exists on this one -- passing it
+# raises TypeError. The bootstrap inside uses its own default_rng(42).
 comparison = stats.exploratory_compare(
     group1,
     group2,
     paired=False,
     n_bootstrap=2000,
-    rng=custom_rng
 )
 # Returns clean parametric ('parametric') and non-parametric ('non_parametric') metrics,
 # alongside bootstrap mean difference confidence intervals.

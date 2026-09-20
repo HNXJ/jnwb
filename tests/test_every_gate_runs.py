@@ -56,15 +56,18 @@ def test_a_failure_at_gate_2_does_not_stop_the_gates_after_it(capsys):
         out = capsys.readouterr().out
 
     assert "SEEDED_VIOLATION" in out
-    # Twelve gates still had something to say, and gate 13 is the proof the runner reached the end.
+    # Every gate but the seeded one still had something to say, and the last gate in the table
+    # is the proof the runner reached the end. Derived from GATES rather than written as a
+    # literal: three literals in this file went stale the moment gate 14 landed, in a module
+    # that computes every one of its other counts.
     assert out.count("PASS:") == len(harness_gate.GATES) - 1
     assert "NWB onboarding workflow aligned" in out
     assert "OVERALL: FAIL" in out
-    assert "13 of 13 gates executed" in out
+    assert f"{len(harness_gate.GATES)} of {len(harness_gate.GATES)} gates executed" in out
 
 
 @pytest.mark.parametrize("number", [n for n, _, _ in harness_gate.GATES])
-def test_any_single_gate_failing_still_runs_all_thirteen(capsys, number):
+def test_any_single_gate_failing_still_runs_all_of_them(capsys, number):
     """Not just gate 2. No gate may be positioned such that its failure hides another."""
     with pytest.MonkeyPatch.context() as monkeypatch:
         _seed_one_failing_gate(monkeypatch, number)
@@ -92,7 +95,7 @@ def test_a_gate_that_raises_is_reported_and_does_not_stop_the_rest(capsys):
 
     assert "ERROR: gate 5 raised RuntimeError: gate is broken" in out
     assert out.count("PASS:") == len(harness_gate.GATES) - 1
-    assert "13 of 13 gates executed" in out
+    assert f"{len(harness_gate.GATES)} of {len(harness_gate.GATES)} gates executed" in out
 
 
 def test_a_gate_that_does_not_execute_is_named_not_passing(capsys):
@@ -184,4 +187,4 @@ def test_pass_requires_every_gate_and_not_merely_no_failures(capsys):
 
     # An empty gate list trivially passes, which is why the count is asserted separately here and
     # in test_the_live_repository_passes_every_gate rather than inferred from the verdict line.
-    assert len(harness_gate.GATES) == 13
+    assert len(harness_gate.GATES) == 14

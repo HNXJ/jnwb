@@ -19,6 +19,7 @@ protected paths to skill-tree uniqueness without the list noticing.
   11. No shadow packages: nothing importable at the repository root that jnwb does not own.
   12. Project identifiers in jnwb/ code strings.
   13. NWB onboarding surface alignment across README, tutorials, skill, and MkDocs.
+  14. Internal process vocabulary kept out of public documentation.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -1053,6 +1054,124 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     return violations
 
 
+#: Terms naming a mechanism of this repository's own process of building jnwb, gated as phrases
+#: rather than as words.
+#:
+#: The one-sentence rule: a term belongs here when it names part of how this repository is worked
+#: on -- the delegation packets, the two stacks, the worktrees, the harness gates, the role files
+#: -- and is spelled specifically enough that no sentence about what jnwb does for a caller can
+#: contain it.
+#:
+#: The second half is the whole difficulty, and 06-02 retired a rule that failed it. The old rule
+#: gated the word "agent", which is a proxy: agents, skills and routing are public jnwb
+#: capabilities and five published pages describe them. Each exclusion below was resolved against
+#: the live corpus rather than assumed, because a gate justified by a guess is the same defect one
+#: layer up:
+#:
+#:   "agent", "skill", "routing"  -- public capabilities; `docs/agents.md` is an entire page of them
+#:   "batch"                      -- `docs/02:11` "batch jobs", `docs/api.md` `batch_size=`
+#:   "authority"                  -- `docs/agents.md:85` "authority loading order"
+#:   "actor", "critic", "verifier" -- ordinary English before they are role names here
+#:   "packet" unqualified         -- gating it would be gating a word again; see the gap below
+#:
+#: Four of the six stems under `artifacts/agents/` are ordinary English, so only the two that are
+#: internal by construction appear here. **This gate therefore does not claim that no internal
+#: vocabulary reaches `docs/`; it claims that these terms do not.** One known leak sits in the
+#: gap by design: `docs/documentation_form.md:23` uses "packet" in its internal sense, and
+#: catching it needs the sentence rewritten first, not a looser pattern here.
+INTERNAL_PROCESS_TERMS: Tuple[str, ...] = (
+    "delegation packet",
+    "todo stack",
+    "todo_stack.md",
+    "problem stack",
+    "problem_stack.md",
+    "fact_stack.md",
+    "harness gate",
+    "harness_gate.py",
+    "worktree",
+    "fan-out",
+    "artifacts/agents/",
+    "docs-harness",
+    "jnwb-developer",
+)
+
+
+def _internal_term_pattern(term: str) -> Any:
+    """Match one gated term allowing plural, case and space/hyphen variation.
+
+    Spelling the terms as plain literals would let "Delegation Packets" and "fan out" through,
+    which is a gate passing for the wrong reason rather than a gate with a narrow scope.
+
+    Built by splitting and rejoining rather than by patching `re.escape`'s output. Escaping first
+    and then replacing "\\ " and "\\-" in sequence was tried and is silently wrong: the first
+    substitution inserts a "[\\s\\-]+" that contains "\\-", which the second substitution then
+    rewrites into "[\\s[\\s\\-]+]+". That compiles, matches nothing that matters, and made three
+    of the multi-word terms dead while the gate still reported PASS.
+    """
+    body = r"[\s\-]+".join(re.escape(part) for part in re.split(r"[\s-]+", term))
+    # The edges guard against `\w` and not against `[\w-]`. Excluding a neighbouring hyphen was
+    # tried and loses the compounds these terms are most often written as: "worktree-local" and
+    # "harness-gate-adjacent" both escaped it while meaning exactly the gated thing.
+    pattern = f"(?<!\\w){body}s?"
+    # Only guard the right edge when the term ends in a word character: `artifacts/agents/` is
+    # always followed by a filename, and a trailing `(?!\w)` would make it match nothing.
+    if term[-1].isalnum() or term[-1] == "_":
+        pattern += "(?!\\w)"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 14 (Internal Process Vocabulary): repository-process terms stay out of public docs.
+
+    06-02 ruled the boundary on 2026-09-19: public documentation may describe agents, skills and
+    routing, because those are jnwb capabilities a caller uses; internal repository-agent roles,
+    harness and process vocabulary, private coordination state and implementation-only
+    terminology may not appear there. The ruling says to gate the distinction mechanically *where
+    practical*, and that qualifier is load-bearing -- the rule it replaced gated the word "agent"
+    and was broken by four published pages the day it was written.
+
+    Scope is `docs/**/*.md`, which is the surface 06-02 and 06-68 both name. A generated or
+    included page is scanned like any other, and its fix goes to the generator.
+
+    `README.md` is deliberately **not** in scope, and the reason is a measurement rather than an
+    oversight. Scanning it too was tried first and it fails on one line: `README.md:132` links
+    `artifacts/todo_stack.md` from the Contributing section, to tell a contributor where the
+    queued work is. Whether the most public file in the repository may point at private
+    coordination state is a boundary question for the ruling that owns the boundary, not
+    something a gate should settle by being widened until it wins. Widen the scope here once that
+    line is ruled on -- and do not instead drop `todo_stack.md` from the term list, which is the
+    edit that would make this pass while the boundary moved.
+    """
+    root = repo_root or REPO_ROOT
+    violations = []
+
+    docs_dir = root / "docs"
+    pages = sorted(docs_dir.rglob("*.md")) if docs_dir.is_dir() else []
+
+    # A sweep that finds no files reports no violations, which reads exactly like a clean tree.
+    # Gate 8's three `if not path.exists()` blocks exist for the same reason.
+    if not pages:
+        return [
+            "INTERNAL_VOCABULARY: no public documentation found to scan under "
+            f"{docs_dir}; the sweep is broken, not the tree"
+        ]
+
+    patterns = [(term, _internal_term_pattern(term)) for term in INTERNAL_PROCESS_TERMS]
+    for page in pages:
+        rel = page.relative_to(root).as_posix()
+        for lineno, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
+            for term, pattern in patterns:
+                found = pattern.search(line)
+                if found:
+                    violations.append(
+                        f"INTERNAL_VOCABULARY: {rel}:{lineno} says {found.group(0)!r}. "
+                        f"{term!r} names part of how this repository is worked on and has no "
+                        "public-interface use. Say what the reader can do, or move the sentence "
+                        "out of the published documentation."
+                    )
+    return violations
+
+
 def _one(check: Any, header: str) -> Any:
     """Adapt a check returning violations into the (header, violations) shape the runner wants."""
 
@@ -1126,6 +1245,11 @@ GATES: List[Tuple[int, Any, Any]] = [
      lambda: "PASS: No project identifiers in jnwb/ code strings or names."),
     (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
      lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
+    (14, _one(check_internal_process_vocabulary,
+              "FAIL: Internal process vocabulary found in public documentation:"),
+     lambda: f"PASS: No internal process vocabulary in docs/ ({len(INTERNAL_PROCESS_TERMS)} "
+             "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
+             "among them)."),
 ]
 
 

@@ -22,12 +22,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 
-#: What the measurement returned on 2026-09-19, recorded in `artifacts/agents_md_duplication.md`.
-#: A ratchet, not a target: 06-72 drives it to zero, and until then it may not rise.
-BASELINE_DUPLICATED = 8
-#: Measured 9 on 2026-09-20. Set to the measurement, not above it: 06-64 found a unit of unclaimed
-#: slack here, and slack in a ratchet is a gain someone can give back without the test noticing.
-BASELINE_ECHOED = 9
+#: Measured on 2026-09-20 after 06-72, recorded in `artifacts/agents_md_duplication.md`.
+#: A ratchet, not a target: it may not rise. Zero is the floor and the target was reached, so
+#: from here the ratchet only defends the gain.
+BASELINE_DUPLICATED = 0
+#: Set to the measurement, not above it: 06-64 found a unit of unclaimed slack here, and slack
+#: in a ratchet is a gain someone can give back without the test noticing.
+BASELINE_ECHOED = 6
 
 #: The thresholds the baselines are counts *of*. Without pinning these, the counts above are
 #: satisfiable by turning a knob: 06-64 demonstrated eight (HIGH, MED) pairs that report fewer

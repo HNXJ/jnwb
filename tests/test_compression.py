@@ -1,3 +1,5 @@
+import importlib
+import re
 import tempfile
 import pathlib
 import pytest
@@ -5,6 +7,16 @@ import numpy as np
 import h5py
 
 import jnwb
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# No `assert jnwb.__file__ is under REPO_ROOT` here, deliberately. Import provenance is real --
+# a by-path probe silently imports the INSTALLED jnwb from site-packages -- but asserting it in
+# this module makes an installed run impossible, and `tests/test_the_suite_can_qualify_an_
+# installed_copy.py` enforces that only `tests/test_import_provenance.py` may make that claim,
+# because it is the one module that honours JNWB_EXPECTED_PACKAGE_ROOT and so works in both
+# modes. REPO_ROOT below is used to resolve stamped provenance strings, not to qualify the
+# package under test.
 
 
 def test_compress_fp32_missing_src_raises_file_not_found():
@@ -180,3 +192,417 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
         verify_roundtrip(src, dst)
         with pytest.warns(RuntimeWarning, match="still audible"):
             warnings.warn("still audible", RuntimeWarning)
+
+
+# --------------------------------------------------------------------------------------------
+# 06-79 / P-47: the chunk shape must follow the dataset's rank.
+# --------------------------------------------------------------------------------------------
+
+
+def _lfp_only_file(path, shape, dtype=np.float64, seed=0):
+    """A file whose only convertible dataset is one LFP array of the given shape.
+
+    `processing/` is omitted entirely, not left empty: convert() distinguishes a legitimately
+    absent spike train from an unrecognised convention, and only the absent case proceeds.
+    """
+    rng = np.random.default_rng(seed)
+    with h5py.File(path, "w") as f:
+        grp = f.create_group("acquisition").create_group("probe_0_lfp")
+        grp.create_dataset("data", data=rng.normal(0.0, 50.0, size=shape).astype(dtype))
+    return path
+
+
+class TestChunkShapeFollowsTheDatasetRank:
+    """P-47. All three call sites built `(min(cap, shape[0]), n)` unconditionally, so anything
+    that was not rank 2 raised `ValueError: 'chunks' must have same rank as dataset shape`.
+
+    The proxy to avoid: "a 1-D file compresses without raising" passes if the repair hands
+    `chunks=None` to h5py, which auto-guesses a chunk shape -- and would silently re-baseline the
+    2-D corpus chunking that this item's Stop condition forbids changing. So the rank cases assert
+    the chunk shape actually written, and the 2-D case is pinned to the pre-change expression.
+    """
+
+    CAP = 16384
+
+    @pytest.mark.parametrize("shape", [(500,), (500, 4), (500, 4, 2), (40000,), (40000, 3)])
+    def test_a_dataset_of_any_rank_compresses(self, tmp_path, shape):
+        src = _lfp_only_file(tmp_path / "r.nwb", shape)
+        dst = tmp_path / "r.fp32.nwb"
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(dst, "r") as f:
+            ds = f["acquisition/probe_0_lfp/data"]
+            assert ds.shape == shape
+            assert ds.dtype == np.float32
+            assert ds.chunks is not None, "compression requires chunked storage"
+            assert len(ds.chunks) == len(shape), (
+                f"chunk rank {len(ds.chunks)} does not match dataset rank {len(shape)}"
+            )
+
+    @pytest.mark.parametrize("shape", [(1, 1), (500, 4), (16384, 8), (16385, 8), (40000, 3)])
+    def test_the_2d_chunk_shape_is_exactly_what_it_was_before(self, shape):
+        """The Stop condition on 06-79 is that corpus 2-D chunking must not change at all.
+
+        This is the pre-change expression, verbatim: `n` was `shape[1]` whenever `ndim == 2`,
+        so the derived tuple must equal it for every 2-D shape, not merely for one fixture.
+        """
+        from jnwb.compression import _chunk_shape
+
+        assert _chunk_shape(shape, self.CAP) == (min(self.CAP, shape[0]), shape[1])
+
+    def test_the_first_axis_is_capped_and_the_others_are_kept_whole(self):
+        from jnwb.compression import _chunk_shape
+
+        assert _chunk_shape((40000,), self.CAP) == (self.CAP,)
+        assert _chunk_shape((500,), self.CAP) == (500,)
+        assert _chunk_shape((40000, 4, 2), self.CAP) == (self.CAP, 4, 2)
+
+    def test_a_scalar_dataset_is_refused_with_a_reason(self):
+        """Rank 0 has no chunk shape, and gzip+shuffle cannot apply to unchunked storage.
+        Failing here names the cause; letting it through produces h5py's own opaque message."""
+        from jnwb.compression import _chunk_shape
+
+        with pytest.raises(ValueError, match="rank-0"):
+            _chunk_shape((), self.CAP)
+
+    # P-47 names THREE call sites -- LFP, spike_train and convolved_spike_train. A mutation run
+    # showed the tests above cover only the LFP one: reverting either of the other two to the
+    # rank-2 tuple was not caught, because no fixture gave those datasets a rank but 2.
+    ALL_THREE = [
+        "acquisition/probe_0_lfp/data",
+        "processing/spike_train/spike_train_data/data",
+        "processing/convolved_spike_train/convolved_spike_train_data/data",
+    ]
+
+    @pytest.mark.parametrize("shape", [(300,), (300, 2, 2)])
+    def test_every_call_site_follows_the_rank(self, tmp_path, shape):
+        rng = np.random.default_rng(5)
+        src = tmp_path / "three.nwb"
+        dst = tmp_path / "three.fp32.nwb"
+        with h5py.File(src, "w") as f:
+            for path in self.ALL_THREE:
+                f.create_dataset(path, data=rng.normal(0, 1, size=shape).astype(np.float64))
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(dst, "r") as f:
+            for path in self.ALL_THREE:
+                ds = f[path]
+                assert ds.shape == shape, path
+                assert ds.chunks is not None, path
+                assert len(ds.chunks) == len(shape), (
+                    f"{path}: chunk rank {len(ds.chunks)} != dataset rank {len(shape)}"
+                )
+
+    def test_the_2d_data_survives_the_roundtrip_unchanged_in_value(self, tmp_path):
+        """Deriving the chunk shape must not disturb what is written, only how it is stored."""
+        src = _lfp_only_file(tmp_path / "v.nwb", (2000, 6), seed=7)
+        dst = tmp_path / "v.fp32.nwb"
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
+            expected = s["acquisition/probe_0_lfp/data"][:].astype(np.float32)
+            assert np.array_equal(d["acquisition/probe_0_lfp/data"][:], expected)
+
+
+# --------------------------------------------------------------------------------------------
+# 06-78 / P-48: the preserved series needs a dtype test before anything can claim it survives.
+# --------------------------------------------------------------------------------------------
+
+
+def _file_with_convolved(path, conv_dtype, n=200, n_units=4, seed=3):
+    rng = np.random.default_rng(seed)
+    with h5py.File(path, "w") as f:
+        f.create_group("acquisition").create_group("probe_0_lfp").create_dataset(
+            "data", data=rng.normal(0.0, 50.0, size=(n, 2)).astype(np.float64)
+        )
+        f.create_dataset(
+            "processing/spike_train/spike_train_data/data",
+            data=rng.integers(0, 5, size=(n, n_units), dtype=np.int16),
+        )
+        f.create_dataset(
+            "processing/convolved_spike_train/convolved_spike_train_data/data",
+            data=(rng.normal(0.0, 1.0, size=(n, n_units))).astype(conv_dtype),
+        )
+    return path
+
+
+class TestConvolvedSpikeTrainIsPreservedExactly:
+    """P-48. `convolved_spike_train` appeared twice in this file, both times in fixture
+    construction, with nothing asserted about it. Three candidate policies downcast it while
+    passing all 15 tests, so "the contract survives" was a claim about an unenforced rule.
+
+    The contract, from module docstring point 7 and from `convert()` passing `src_ds.dtype`
+    straight through: the array is recompressed IN PLACE with the data fully intact. The required
+    dtype is therefore the source's own, whatever that is -- not a fixed type.
+
+    The proxy to avoid: `assert dst.dtype == np.float64` passes if the code hardcodes float64,
+    and it would keep passing while a float32 source was silently promoted. So the dtype cases are
+    parametrised and each asserts preservation of *its own* input dtype.
+    """
+
+    @pytest.mark.parametrize("conv_dtype", [np.float64, np.float32, np.int16])
+    def test_the_dtype_is_the_source_dtype(self, tmp_path, conv_dtype):
+        from jnwb.compression import CONVOLVED_PATH
+
+        src = _file_with_convolved(tmp_path / "c.nwb", conv_dtype)
+        dst = tmp_path / "c.fp32.nwb"
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
+            assert d[CONVOLVED_PATH].dtype == s[CONVOLVED_PATH].dtype == np.dtype(conv_dtype), (
+                f"convolved_spike_train was written as {d[CONVOLVED_PATH].dtype}, but the "
+                f"contract preserves the source dtype {np.dtype(conv_dtype)}"
+            )
+
+    @pytest.mark.parametrize("conv_dtype", [np.float64, np.float32, np.int16])
+    def test_every_value_is_bit_identical(self, tmp_path, conv_dtype):
+        """Recompression is lossless by contract: "smaller on disk, nothing lost". A dtype
+        assertion alone would pass a policy that kept the dtype and perturbed the values."""
+        from jnwb.compression import CONVOLVED_PATH
+
+        src = _file_with_convolved(tmp_path / "c.nwb", conv_dtype)
+        dst = tmp_path / "c.fp32.nwb"
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
+            assert np.array_equal(s[CONVOLVED_PATH][:], d[CONVOLVED_PATH][:])
+
+    def test_the_spike_train_counts_keep_their_integer_dtype(self, tmp_path):
+        """The same unenforced-contract shape one dataset over: `spike_train` is int16 counts,
+        and a float32 policy that reached it would be silent data conversion."""
+        from jnwb.compression import SPIKE_TRAIN_PATH
+
+        src = _file_with_convolved(tmp_path / "c.nwb", np.float64)
+        dst = tmp_path / "c.fp32.nwb"
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
+            assert d[SPIKE_TRAIN_PATH].dtype == s[SPIKE_TRAIN_PATH].dtype == np.int16
+            assert np.array_equal(s[SPIKE_TRAIN_PATH][:], d[SPIKE_TRAIN_PATH][:])
+
+
+# --------------------------------------------------------------------------------------------
+# 06-65 / P-29: the corpus pattern must select the group it names, not any path ending in it.
+# --------------------------------------------------------------------------------------------
+
+
+class TestTheSelectorIsAnchored:
+    """P-29. An unanchored `.search()` selected 6 of 6 adversarial names for the IRREVERSIBLE
+    float32 downcast, including a path under `scratch/`.
+
+    The proxy to avoid: "none of the six is selected" passes for a selector that selects nothing
+    at all. Both halves are asserted in every direction -- the six are rejected AND the corpus
+    paths are still chosen, in the same file, from one call.
+    """
+
+    ADVERSARIAL = [
+        "stimulus/probe_0_lfp/data",
+        "analysis/probe_0_lfp/data",
+        "scratch/backup_probe_0_lfp/data",
+        "acquisition/my_probe_0_lfp/data",
+        "general/extra/probe_0_lfp/data",
+        "scratch/probe_0_muae/data",
+        # Beyond the six recorded in P-29. A mutation run showed the six above are all rejected
+        # by the literal `acquisition/` text alone, so they pass a selector that is not actually
+        # anchored -- they could not tell `fullmatch` from `search`. These three can: each embeds
+        # the exact corpus path inside a longer one, at the head or the tail.
+        "scratch/acquisition/probe_0_lfp/data",
+        "my_acquisition/probe_0_lfp/data",
+        "acquisition/probe_0_lfp/datastore",
+    ]
+    CORPUS = [
+        "acquisition/probe_0_lfp/data",
+        "acquisition/probe_1_muae/data",
+        "acquisition/probe_0_lfp/probe_0_lfp_data/data",
+    ]
+
+    @pytest.fixture
+    def selected(self, tmp_path):
+        from jnwb.compression import _find_lfp_muae_paths
+
+        path = tmp_path / "sel.nwb"
+        with h5py.File(path, "w") as f:
+            for p in self.ADVERSARIAL + self.CORPUS:
+                f.create_dataset(p, data=np.zeros((8, 2), dtype=np.float64))
+        with h5py.File(path, "r") as f:
+            return set(_find_lfp_muae_paths(f))
+
+    @pytest.mark.parametrize("path", ADVERSARIAL)
+    def test_a_path_outside_the_named_group_is_rejected(self, selected, path):
+        assert "/" + path not in selected, (
+            f"{path} is selected for an irreversible float32 downcast, but it is not the group "
+            "the corpus pattern names"
+        )
+
+    @pytest.mark.parametrize("path", CORPUS)
+    def test_the_corpus_paths_are_still_selected(self, selected, path):
+        assert "/" + path in selected, (
+            f"{path} stopped being selected; anchoring must not change the corpus selection"
+        )
+
+    def test_the_selector_selects_exactly_the_corpus_set(self, selected):
+        assert selected == {"/" + p for p in self.CORPUS}
+
+    def test_a_renamed_acquisition_group_is_not_reached_by_a_tail_match(self, tmp_path):
+        """`my_probe_0_lfp` is the specific shape of the defect: the corpus name as the TAIL of a
+        longer segment, in the right parent group. A head anchor alone would not reject it."""
+        from jnwb.compression import _find_lfp_muae_paths
+
+        path = tmp_path / "tail.nwb"
+        with h5py.File(path, "w") as f:
+            f.create_dataset("acquisition/my_probe_0_lfp/data", data=np.zeros((4, 2)))
+            f.create_dataset("acquisition/probe_0_lfp_extra/data", data=np.zeros((4, 2)))
+        with h5py.File(path, "r") as f:
+            assert _find_lfp_muae_paths(f) == []
+
+    def test_an_adversarial_file_writes_its_non_corpus_arrays_through_untouched(self, tmp_path):
+        """End to end, not just the selector: the float64 array under `scratch/` must still be
+        float64 in the output, because selection is what licenses the cast."""
+        src = tmp_path / "adv.nwb"
+        dst = tmp_path / "adv.fp32.nwb"
+        rng = np.random.default_rng(11)
+        with h5py.File(src, "w") as f:
+            f.create_dataset("acquisition/probe_0_lfp/data",
+                             data=rng.normal(0, 50, size=(300, 4)).astype(np.float64))
+            f.create_dataset("scratch/backup_probe_0_lfp/data",
+                             data=rng.normal(0, 50, size=(300, 4)).astype(np.float64))
+
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+
+        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
+            assert d["acquisition/probe_0_lfp/data"].dtype == np.float32
+            assert d["scratch/backup_probe_0_lfp/data"].dtype == np.float64
+            assert np.array_equal(s["scratch/backup_probe_0_lfp/data"][:],
+                                  d["scratch/backup_probe_0_lfp/data"][:])
+
+
+# --------------------------------------------------------------------------------------------
+# 06-66 / P-30: the provenance stamp must name something that exists.
+# --------------------------------------------------------------------------------------------
+
+_DOTTED = re.compile(r"^[A-Za-z_][\w.]*$")
+_SCRIPT_LIKE = re.compile(r"[\w./\\-]+\.py\b")
+
+
+def _resolves_in_this_tree(value: str) -> bool:
+    """Does `value` name something a reader of a converted file could actually reach?
+
+    Two admissible forms: a repository-relative file path, resolved against the tree, and a
+    dotted attribute path, resolved by importing the longest importable prefix and walking the
+    rest. Anything else does not resolve. This is the check whose ABSENCE let P-30 survive a
+    release -- nothing ever resolved the stamp.
+    """
+    value = value.strip()
+    if not value:
+        return False
+    if "/" in value or "\\" in value or value.endswith(".py"):
+        return (REPO_ROOT / value).exists()
+    if not _DOTTED.match(value):
+        return False
+    parts = value.split(".")
+    for i in range(len(parts), 0, -1):
+        try:
+            obj = importlib.import_module(".".join(parts[:i]))
+        except ImportError:
+            continue
+        for attr in parts[i:]:
+            if not hasattr(obj, attr):
+                return False
+            obj = getattr(obj, attr)
+        return True
+    return False
+
+
+class TestTheResolverDiscriminates:
+    """Establish that the check can fail before trusting it to pass. A resolver that returned
+    True unconditionally would make every test below vacuous."""
+
+    def test_the_stamp_this_item_exists_to_remove_does_not_resolve(self):
+        assert not _resolves_in_this_tree("scripts/convert_nwb_compressed.py")
+
+    def test_a_missing_dotted_attribute_does_not_resolve(self):
+        assert not _resolves_in_this_tree("jnwb.no_such_entry_point_12345")
+
+    def test_a_missing_module_does_not_resolve(self):
+        assert not _resolves_in_this_tree("no_such_module_12345.thing")
+
+    def test_a_real_file_and_a_real_attribute_both_resolve(self):
+        # This module's own repo-relative path, so the positive case holds wherever the suite
+        # runs from rather than assuming a `scripts/` directory sits beside it.
+        own = pathlib.Path(__file__).resolve().relative_to(REPO_ROOT).as_posix()
+        assert _resolves_in_this_tree(own)
+        assert _resolves_in_this_tree("jnwb.compress_fp32")
+
+
+class TestWrittenProvenanceResolves:
+    """P-30. 22 of 22 real sessions stamp a script that is not in the repository, and newly
+    written files still minted it.
+
+    The proxy to avoid, twice over. (1) `assert stamp == "jnwb.compress_fp32"` pins a spelling,
+    not the property -- it would pass unchanged after the entry point was renamed away. So the
+    stamp is resolved, not compared. (2) Checking only `conversion_script` passes while the
+    per-dataset `stored_dtype_note` still names the dead script, which it did: fixing one attr
+    and leaving the other is a partial repair that a single-attr check cannot see. So every
+    string attribute in the written file is swept.
+    """
+
+    @pytest.fixture
+    def written(self, tmp_path):
+        src = _file_with_convolved(tmp_path / "prov.nwb", np.float64)
+        dst = tmp_path / "prov.fp32.nwb"
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        return dst
+
+    def test_the_conversion_script_stamp_resolves(self, written):
+        with h5py.File(written, "r") as f:
+            stamp = f.attrs["conversion_script"]
+        assert _resolves_in_this_tree(str(stamp)), (
+            f"conversion_script = {stamp!r} does not resolve against this tree; provenance "
+            "sends the reader somewhere that does not exist"
+        )
+
+    def test_the_stamp_names_a_callable_entry_point(self, written):
+        with h5py.File(written, "r") as f:
+            stamp = str(f.attrs["conversion_script"])
+        module_name, _, attr = stamp.rpartition(".")
+        entry = getattr(importlib.import_module(module_name), attr)
+        assert callable(entry)
+        assert entry is jnwb.compress_fp32
+
+    def test_no_stamped_string_names_a_script_that_is_absent(self, written):
+        """The sweep that makes a partial repair visible: every `.py` token in every string
+        attribute, anywhere in the file, must resolve."""
+        offenders = []
+
+        def check(where, attrs):
+            for key, value in attrs.items():
+                if not isinstance(value, (str, bytes, np.bytes_, np.str_)):
+                    continue
+                text = value.decode() if isinstance(value, (bytes, np.bytes_)) else str(value)
+                for token in _SCRIPT_LIKE.findall(text):
+                    if not _resolves_in_this_tree(token):
+                        offenders.append(f"{where}:{key} -> {token}")
+
+        with h5py.File(written, "r") as f:
+            check("/", f.attrs)
+            f.visititems(lambda name, obj: check(name, obj.attrs))
+
+        assert offenders == [], f"provenance names scripts that do not exist: {offenders}"
+
+    def test_the_per_dataset_note_names_the_same_entry_point(self, written):
+        """Binds the two stamps together so they cannot drift apart again."""
+        with h5py.File(written, "r") as f:
+            stamp = str(f.attrs["conversion_script"])
+            note = str(f["acquisition/probe_0_lfp/data"].attrs["stored_dtype_note"])
+        assert stamp in note, f"stored_dtype_note does not name {stamp}: {note!r}"
+
+    def test_the_stamped_version_is_the_version_of_what_the_stamp_names(self, written):
+        with h5py.File(written, "r") as f:
+            version = str(f.attrs["conversion_script_version"])
+        assert version == jnwb.__version__

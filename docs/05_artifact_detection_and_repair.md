@@ -90,10 +90,10 @@ repaired_lfp, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
     segments,
     times_ms=times_ms,
     z_thresh=6.0,                    # Cross-channel synchronous-deviation threshold
-    exclude_window_ms=(400.0, 600.0)  # PROTECTED, not analysed: samples inside this
+    exclude_window_ms=(400.0, 600.0)  # PROTECTED, not analyzed: samples inside this
                                       # window are never flagged for repair. Use it
                                       # for an interval whose large deflection is
-                                      # signal -- a reward artefact, say -- that the
+                                      # signal -- a reward artifact, say -- that the
                                       # synchrony detector would otherwise substitute
                                       # away. Omit it to evaluate the whole epoch.
 )
@@ -178,7 +178,7 @@ the 3-D path is the 4-D path with a length-1 channel axis, not a second implemen
 
 | Function | Primary Input | Returns | Purpose |
 |----------|---------------|---------|---------|
-| `channel_correlation_matrix` | $(C \times T)$ | $(C \times C)$ | Inter-electrode correlation |
+| `channel_correlation_matrix` | $(C \times T)$ | $(C \times C)$ | Inter-channel correlation |
 | `bad_channels_from_correlation` | $(C \times C)$ | `(bad_mask, mean_corr, z_scores)` | Outlier channel detection |
 | `trial_correlation_matrix` | $(N \times T)$ | $(N \times N)$ | Inter-trial waveform correlation |
 | `bad_trials_single_channel` | $(N \times T)$ | `(bad_mask, corr_z, amp_z)` | Per-channel bad trial detection |

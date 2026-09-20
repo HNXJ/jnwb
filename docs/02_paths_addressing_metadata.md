@@ -141,10 +141,10 @@ print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
 
 **What these three numbers license.** `tau_per_channel_s` is a delay per contact in
 seconds, fitted to the phase gradient across depth; `apparent_velocity_m_s` is that
-gradient expressed as a speed in metres per second, using `pitch_um` for the spacing.
+gradient expressed as a speed in meters per second, using `pitch_um` for the spacing.
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
 shape is produced by axonal conduction, but also by two sources with a fixed phase offset,
-by a travelling wave in the local field, and by volume conduction from a single distant
+by a traveling wave in the local field, and by volume conduction from a single distant
 generator. `directionality` names the sign of the gradient along the contact ordering, so
 it is a direction in *depth*, not a direction of causal influence. Reporting any of the
 three as a conduction speed or as evidence that one layer drives another is the
@@ -169,7 +169,7 @@ nwb_files = ["sub-01_ses-01.nwb", "sub-01_ses-02.nwb"]
 # Extract all units across multiple sessions into a unified pandas DataFrame
 units_df = jnwb.get_all_units_metadata(nwb_files, filter_quality=False)
 
-# Classify unit quality tiers (attaches quality_class: 'Good'|'MUA'|'Noise', is_valid, issue_flags)
+# Classify unit quality tiers (attaches quality_class: 'Good'|'Fair'|'Poor', is_valid, issue_flags)
 classified_units = jnwb.classify_unit_quality(units_df)
 
 # Generate a census summary grouped by brain area
@@ -193,11 +193,13 @@ elec_audit = jnwb.audit_electrodes(electrodes_df, units_df)
 # Generate multi-session electrode inventory
 inventory = jnwb.electrode_inventory(nwb_files)
 
-# Assign explicit quality tier based on presence fraction and SNR
+# Assign explicit quality tier ('mua' | 'stable' | 'unstable') from presence and SNR.
+# All three arguments are per-unit Series, not scalars, and `quality` is the integer
+# sorter code (0 = MUA, 1 = single-unit candidate), not a word.
 tier = jnwb.assign_quality_tier(
-    quality="good",
-    trial_presence_fraction=0.95,
-    snr=4.5
+    quality=classified_units["quality"],
+    trial_presence_fraction=classified_units["trial_presence_fraction"],
+    snr=classified_units["snr"],
 )
 ```
 

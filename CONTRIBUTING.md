@@ -9,8 +9,9 @@ documentation, in
 
 ## Setup
 
-Python 3.12 or newer. CI runs 3.12 and 3.14 on Ubuntu and Windows, so a change must work on
-both ends of that range.
+Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows — six legs, and
+`pyproject.toml` is where the declared set lives — so a change must work across the whole range,
+not only at its ends.
 
 ```bash
 git clone git@github.com:HNXJ/jnwb.git
@@ -31,8 +32,8 @@ python -m pytest tests/ -q
 ```
 
 Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
-CI exercises the declared Python floor and newest supported version (see `pyproject.toml`).
-A small number of tests skip when optional extras are not installed.
+CI exercises every version `pyproject.toml` declares, so a version the package claims is a
+version CI runs. A small number of tests skip when optional extras are not installed.
 
 ## Branches
 
@@ -44,27 +45,35 @@ work you have run the full checks on. Never force-push either branch.
 
 ## Before you push
 
-Four checks, in this order. All four run in CI, so running them locally only saves you a
+Three checks, in this order. All three run in CI, so running them locally only saves you a
 round trip.
 
 ```bash
 python -m pytest tests/ -q
 python scripts/harness_gate.py
 python scripts/docs_build.py
-python scripts/release_gate.py
 ```
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive.
-- **`harness_gate.py`** — 13 repository gates: the project boundary, skills, paths, the
+- **`harness_gate.py`** — 14 repository gates: the project boundary, skills, paths, the
   root allowlist, docs, the public API set, version agreement, the Python policy, import
-  shadowing, project identifiers in code, and NWB onboarding alignment. It fails on
-  structure, not behaviour.
+  shadowing, project identifiers in code, NWB onboarding alignment, and repository-process
+  vocabulary in `docs/`. It fails on structure, not behaviour.
 - **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.
   Read the Docs sets `fail_on_warning`, so a warning here is a failed publish.
+
+A fourth check exists and is **not** part of this sequence:
+
+```bash
+python scripts/release_gate.py
+```
+
 - **`release_gate.py`** — builds the wheel, installs it in a clean venv, and smoke-tests
-  the installed package. Only needed before tagging, but it catches packaging mistakes
-  (a module missing from the wheel, a broken extra) that the suite cannot see.
+  the installed package. It catches packaging mistakes (a module missing from the wheel, a
+  broken extra) that the suite cannot see. Run it before tagging, not before pushing: it needs
+  network access to build an environment, and no CI job executes it — the workflow imports
+  `forbidden_entries` from it to check the built artifacts and never calls its `main`.
 
 Stage exact paths. `git add .` sweeps in build output and scratch files.
 
@@ -237,7 +246,8 @@ finish something, delete it from the stack in the same commit.
 
 ## Releasing
 
-Maintainers only, and only from a clean `dev` with all four checks green.
+Maintainers only, and only from a clean `dev` with the three pre-push checks green and
+`release_gate.py` green as well — tagging is the point at which it stops being optional.
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
    entry.

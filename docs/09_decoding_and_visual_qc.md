@@ -34,7 +34,7 @@ print("ROC-AUC:", decode_res["auc"])
 
 **This call does not hold out groups.** `nested_cv_linear_svm(X, labels, n_splits, rng)`
 takes no `groups` argument: its folds are drawn over rows. When rows are trials from the
-same block, cycle or session, neighbouring trials share slow drift and a fold boundary
+same block, cycle or session, neighboring trials share slow drift and a fold boundary
 inside a block leaks it, so the accuracy is above what the same decoder would reach on a
 held-out block. The protection is upstream, in `assign_outer_folds` below, which holds out
 whole groups; pass its partitions rather than expecting this function to infer them.
@@ -79,17 +79,23 @@ ladder_res = jnwb.build_representation_ladder(raster, modality="SPK")
 
 ### Unit Waveform Pagination & Noise Diagnostics
 
+All three take a units or comparison **DataFrame**, not raw signals, and none of them
+groups for you.
+
 ```python
 import jnwb
 
-# Multi-panel distribution of Unit SNR, Firing Rates, and Isolation Distance
-fig_dist = jnwb.visual_qc.plot_unit_quality_distribution(units_df, group_by="area")
+# Multi-panel distribution of unit SNR, firing rates, and isolation distance.
+# `session_ids` filters rows; there is no `group_by` parameter.
+fig_dist = jnwb.visual_qc.plot_unit_quality_distribution(units_df, session_ids=[1, 2])
 
-# 2x2 Noise vs. Signal Diagnostic Panel
-fig_noise = jnwb.visual_qc.plot_noise_vs_signal(lfp_segments, spike_trains)
+# 2x2 noise vs. signal diagnostic panel, from the same units table --
+# not from LFP segments or spike trains.
+fig_noise = jnwb.visual_qc.plot_noise_vs_signal(units_df)
 
-# Multi-session QC comparison bars
-fig_comp = jnwb.visual_qc.compare_session_quality(session_qc_list)
+# Multi-session QC comparison bars. Takes the DataFrame that
+# diagnostics.compare_sessions() returns, not a list of per-session results.
+fig_comp = jnwb.visual_qc.compare_session_quality(sessions_comparison_df)
 ```
 
 ---
@@ -105,10 +111,20 @@ import jnwb
 
 # Call once at the start of a script or notebook
 jnwb.setup_vector_graphics()
-# Sets:
-# - svg.fonttype = 'none' (preserves text as true SVG text elements)
-# - pdf.fonttype = 42     (TrueType font embedding)
-# - ps.fonttype = 42
+# Sets exactly three rcParams:
+# - svg.fonttype    = 'none'  (preserves text as true SVG text elements)
+# - font.sans-serif = ['Arial', 'Helvetica', 'DejaVu Sans']
+# - font.family     = 'sans-serif'
+```
+
+**SVG only.** It does not touch `pdf.fonttype` or `ps.fonttype`, so PDF and EPS exports
+still embed text as Type-3 paths. Set those yourself when the target is PDF:
+
+```python
+import matplotlib.pyplot as plt
+
+plt.rcParams["pdf.fonttype"] = 42
+plt.rcParams["ps.fonttype"] = 42
 ```
 
 ### Tight Auto-Axis Bounding (`apply_tight_auto_axis`)

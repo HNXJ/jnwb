@@ -157,9 +157,11 @@ Interpreting Granger causality, Phase Slope Index (PSI), or Transfer Entropy (TE
 
 $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
-- **Granger causality**: Evaluates whether past values of $X$ improve linear autoregressive prediction of $Y$. It can be confounded by unobserved common inputs or differing signal-to-noise ratios.
-- **Phase Slope Index**: Quantifies whether phase differences between $X$ and $Y$ increase linearly with frequency (indicating a consistent time delay). It cannot rule out a common driver with asymmetric conduction delays.
-- **Transfer Entropy**: Information-theoretic reduction in uncertainty of $Y$ given $X$'s past. Non-parametric, but still observational.
+| Metric | What it measures | What it cannot rule out |
+|---|---|---|
+| Granger causality | Whether past values of $X$ improve linear autoregressive prediction of $Y$ | Unobserved common inputs; differing signal-to-noise ratios |
+| Phase Slope Index | Whether phase differences between $X$ and $Y$ grow linearly with frequency, indicating a consistent time delay | A common driver with asymmetric conduction delays |
+| Transfer Entropy | Information-theoretic reduction in uncertainty of $Y$ given $X$'s past. Non-parametric | Anything: it is still observational |
 
 ### The Correct Pattern
 Report directed metrics as **statistical predictability** or **phase-lead asymmetries**, reserving causal claims for perturbation experiments (e.g. optogenetics, microstimulation, lesioning):
@@ -226,9 +228,12 @@ Comparing onset latencies across frequency bands or conditions when different sm
 ```
 
 A causal filter introduces a deterministic group delay:
-- **Impulse response centroid (mean delay)**: $\bar{t} = \tau_{\text{ms}}$
-- **Step response 50% amplitude rise delay**: $t_{50\%} = \tau_{\text{ms}} \ln(2) \approx 0.693 \cdot \tau_{\text{ms}}$
-- **Step response 10% amplitude rise delay**: $t_{10\%} = \tau_{\text{ms}} \ln(1/0.9) \approx 0.105 \cdot \tau_{\text{ms}}$
+
+| Measure | Delay |
+|---|---|
+| Impulse response centroid (mean delay) | $\bar{t} = \tau_{\text{ms}}$ |
+| Step response 50% amplitude rise | $t_{50\%} = \tau_{\text{ms}} \ln(2) \approx 0.693 \cdot \tau_{\text{ms}}$ |
+| Step response 10% amplitude rise | $t_{10\%} = \tau_{\text{ms}} \ln(1/0.9) \approx 0.105 \cdot \tau_{\text{ms}}$ |
 
 $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 
@@ -291,6 +296,7 @@ the argument you need, so the fix is to pass it rather than to fall back to a de
 `examples/tutorials/00_your_own_file.py` is this pattern end to end on a file it has never
 seen.
 
+---
 
 ## 10. Reading a Zero That Was Never Estimated
 
@@ -302,10 +308,11 @@ group mean toward the origin -- and nothing in the array says which kind it was.
 *unavailable* estimate, never zero.** Zero is a valid answer only when zero was estimated
 from observations.
 
-* Where the return type is a float array, the unavailable value is `NaN`.
-* Where the type supports it, it is `None` or an explicit availability field.
-* A component that could not be estimated -- fewer units than requested components, no
-  variance to decompose -- is `NaN`, not a padded `0.0`.
+| Where the estimate lives | The unavailable value |
+|---|---|
+| A float array | `NaN` |
+| A type that can carry absence | `None`, or an explicit availability field |
+| A component that could not be estimated — fewer units than requested components, no variance to decompose | `NaN`, never a padded `0.0` |
 
 ```python
 # An area with no units. The trajectory is not at the origin; there is no trajectory.
@@ -336,6 +343,7 @@ A count is the exception that proves the rule. `bin_spikes` returns `0` for a bi
 recorded through and did not fire in: that zero *was* observed, and it is correct. This is
 `AGENTS.md` invariant 1 -- no empirical value that no script computed from data.
 
+---
 
 ## 11. Onsets on a Different Clock from the Data
 

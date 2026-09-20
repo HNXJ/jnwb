@@ -24,11 +24,11 @@ this file once `AGENTS.md` changes.
 
 | Quantity | Value |
 |---|---|
-| Lines in `AGENTS.md` | 436 |
-| Claim-bearing sentences | 181 |
-| Sentences compared against | 1365, across 22 other authorities |
-| **Duplicated** (Jaccard ≥ 0.34) | **8 — 4.4%** |
-| Echoed (0.18 ≤ Jaccard < 0.34) | 10 — 5.5% |
+| Lines in `AGENTS.md` | 446 |
+| Claim-bearing sentences | 187 |
+| Sentences compared against | 1969, across 24 other authorities |
+| **Duplicated** (Jaccard ≥ 0.34) | **0 — 0.0%** |
+| Echoed (0.18 ≤ Jaccard < 0.34) | 6 — 3.2% |
 
 Where it sits:
 

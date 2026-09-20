@@ -900,14 +900,11 @@ Condition 2 of the release acceptance in `AGENTS.md` §11. `jnwb/_backend.py` an
 ones, so this batch is about uniformity and truthfulness of a mechanism that is already there,
 not about building one.
 
-Ruled 2026-09-19: CPU, parallel CPU and CUDA are exercised on the development machine. The JAX
-Metal path is implemented and declared unverified, because no machine here can execute it. A
-declared gap is admissible; an unbacked claim is not.
-
-Ruled 2026-09-19: where an implementation matches the official documentation of the method it
-implements, a citation to that documentation is sufficient evidence of correctness and the
-algorithm is not independently re-derived. This narrows what must be re-proved. It does not
-remove tests, and existing coverage stays.
+Two rulings of 2026-09-19 govern this batch -- the JAX Metal path is declared unverified rather
+than claimed, and conformance to an official reference is sufficient evidence. Both are stated
+in `AGENTS.md` §11 (`:356-358` and `:367-368`), and were restated here in full, which made this
+file the second home for a ruling it does not own. The header above already routes to §11; that
+pointer is the whole of what belongs here.
 
 ### 06-55 One precision switch
 

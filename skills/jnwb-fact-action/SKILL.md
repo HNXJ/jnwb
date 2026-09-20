@@ -68,12 +68,21 @@ GOAL: <precise outcome>
 TODO ITEM: <item from todo_stack.md>
 AUTHORITIES: <receipts / files>
 RELEVANT FACTS: <from fact_stack.md>
+BASELINE COMMIT: <the SHA this packet was written against>
 OBSERVED BASELINE: <reproduced behavior before change>
 INVARIANTS: <preserved properties>
 ALLOWED SCOPE: <exact files permitted to change>
 ACCEPTANCE: <concrete passing criteria>
 STOP CONDITIONS: <when to stop and surface>
 ```
+
+`BASELINE COMMIT` is the one field a packet must act on before it reads anything else. Verifying
+it is the first step of Prepare in `AGENTS.md` §3, which defines both the comparison and the
+remedy and is the only place either is written down; this skill adds only that the check is not
+optional and that a mismatch stops the packet rather than being worked around. Two fields are
+needed rather than one because `OBSERVED BASELINE` records the behaviour a packet reproduced and
+says nothing about whether it reproduced it on the right tree, which is how P-28 survived three
+fan-outs with that field already in the contract.
 
 Every delegated result must return:
 

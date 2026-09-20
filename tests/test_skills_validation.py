@@ -3,6 +3,7 @@ tests/test_skills_validation.py -- Deterministic verification of canonical repos
 """
 from pathlib import Path
 import ast
+import dataclasses
 import inspect
 import re
 try:
@@ -82,10 +83,28 @@ def test_skills_frontmatter_and_openai_yaml():
         assert agent_data.get("policy", {}).get("allow_implicit_invocation") is True
 
 
+#: Every inline ``jnwb.name(`` occurrence, counted by a pattern that does no parsing.
+#: `_routing_calls` walks parentheses to extract arguments; this one only finds openings.
+#: Two independent readings of the same corpus, which is the point -- see
+#: `test_every_inline_routing_call_is_reached_by_the_parser`.
+_CALL_OPENING = re.compile(r"`jnwb\.(?:\w+\.)*\w+\(")
+
+
 def _routing_matrix_section(skill_text: str) -> str:
-    if "## 2. Task-to-Primitive Routing Matrix" not in skill_text:
-        return ""
-    return skill_text.split("## 2. Task-to-Primitive Routing Matrix", 1)[1].split("## 3.", 1)[0]
+    """The text routing rows are read from: the whole file.
+
+    This used to return only the ``## 2. Task-to-Primitive Routing Matrix`` window, so a
+    default-bearing row written anywhere else was invisible. Widening it to the whole file
+    changed the corpus from 116 rows to 116: **no row currently lives outside the window**,
+    in any of the nine skills. The widening is therefore worth nothing today and is kept
+    because it removes the class rather than the instance -- a row added to ``## 3.`` is now
+    checked instead of silently skipped.
+
+    Fenced code blocks stay out on their own: every pattern here requires a leading
+    backtick, and a ``## 4. Minimal Workflow`` block is not inline code. That is why the two
+    counts agree rather than the window having been doing useful work.
+    """
+    return skill_text
 
 
 def _routing_calls(skill_text: str):
@@ -229,17 +248,257 @@ def test_skill_routing_signatures_match_runtime():
     )
 
 
+def test_every_inline_routing_call_is_reached_by_the_parser():
+    """The parser must read every routing row that exists, not every row it can parse.
+
+    `_routing_calls` decides its own corpus twice over: it picks a section, then walks
+    parentheses, and a row lost at either step is a row nothing checks. That has happened --
+    7 tuple-bearing rows and 4 dotted `StatisticalAnalysis` rows were each silently dropped,
+    and the count assertion below them stayed green because it only ever saw the survivors.
+
+    So the corpus here is counted by `_CALL_OPENING`, which finds call openings and parses
+    nothing. A test whose case set comes from the machinery under test cannot reach the case
+    that machinery loses; these two readings are independent, so a divergence is a dropped
+    row and names the skill it was dropped from.
+    """
+    divergences = []
+    total_found = 0
+    for skill_name in sorted(CANONICAL_SKILLS):
+        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        found = len(_CALL_OPENING.findall(content))
+        parsed = len(list(_routing_calls(content)))
+        total_found += found
+        if found != parsed:
+            divergences.append(
+                f"{skill_name}: {found} inline `jnwb.<name>(` openings in the file, "
+                f"{parsed} reached by _routing_calls"
+            )
+    assert divergences == [], (
+        "routing rows exist that the parser never yields, so nothing checks them: "
+        + "; ".join(divergences)
+    )
+    assert total_found >= 65, (
+        f"only {total_found} routing rows found in the whole skill corpus; agreement "
+        f"between two readings of an empty corpus is not evidence of anything"
+    )
+
+
+#: `jnwb.<name>` references that are not public API and are not routing targets.
+#: `__all__` and `__version__` are the package's own metadata, named when a skill talks
+#: about the API rather than routing to a function.
+_PACKAGE_METADATA = re.compile(r"^__\w+__$")
+
+#: Known breaches of the publicity invariant, owned elsewhere. Asserted by **equality**:
+#: a new private route fails, and repairing one of these without deleting its entry also
+#: fails, so the quarantine cannot outlive the defect.
+#:
+#: P-59: `skills/jnwb-nwb-data/SKILL.md` routes at `jnwb.nwb_inspect.CONTINUOUS_KEYS`.
+#: `nwb_inspect` is a submodule, reachable by attribute and absent from `__all__`. The
+#: skill file is not this lane's to edit; the proxy in this test was.
+_NON_PUBLIC_ROUTES_PENDING_REPAIR = {
+    ("jnwb-nwb-data", "nwb_inspect"),
+}
+
+
 def test_all_referenced_symbols_exist():
-    """Verify every jnwb.<symbol> referenced in skills exists in jnwb package."""
+    """A routed symbol must be *public*, not merely reachable by attribute.
+
+    This asserted `hasattr(jnwb, symbol)` and nothing else. Every submodule satisfies that,
+    so the test green-lit `jnwb.nwb_inspect.CONTINUOUS_KEYS` -- a private constant behind a
+    submodule that `__all__` does not export and `docs/` does not document. Reachability is
+    the proxy; membership of `__all__` is the invariant, because `__all__` is what
+    `AGENTS.md` section 0 calls the authoritative symbol list and what the API docs are
+    generated from. An import that works today and is renamed tomorrow without a
+    deprecation is exactly what routing an agent at a non-export buys.
+
+    Both halves are asserted: a name in `__all__` that does not resolve is equally a broken
+    route, and asserting only membership would trade one proxy for another.
+    """
     pattern = re.compile(r"\bjnwb\.([a-zA-Z0-9_]+)")
+    public = set(jnwb.__all__)
 
-    for skill_name in CANONICAL_SKILLS:
-        skill_md = SKILLS_DIR / skill_name / "SKILL.md"
-        content = skill_md.read_text(encoding="utf-8")
-        matches = pattern.findall(content)
+    checked = 0
+    breaches = set()
+    for skill_name in sorted(CANONICAL_SKILLS):
+        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        for symbol in pattern.findall(content):
+            if _PACKAGE_METADATA.match(symbol):
+                continue
+            checked += 1
+            assert hasattr(jnwb, symbol), (
+                f"jnwb.{symbol} referenced in {skill_name} does not resolve"
+            )
+            if symbol not in public:
+                breaches.add((skill_name, symbol))
 
-        for symbol in matches:
-            assert hasattr(jnwb, symbol), f"Symbol jnwb.{symbol} referenced in {skill_name} does not exist!"
+    assert checked >= 100, (
+        f"only {checked} jnwb.<symbol> references were examined across the skill corpus; "
+        f"a pattern that stops matching passes this test without checking anything"
+    )
+    assert breaches == _NON_PUBLIC_ROUTES_PENDING_REPAIR, (
+        "skills route at symbols that jnwb.__all__ does not export.\n"
+        f"  newly private: {sorted(breaches - _NON_PUBLIC_ROUTES_PENDING_REPAIR)}\n"
+        f"  repaired, delete from the quarantine: "
+        f"{sorted(_NON_PUBLIC_ROUTES_PENDING_REPAIR - breaches)}"
+    )
+
+    unresolved = [s for s in jnwb.__all__ if not hasattr(jnwb, s)]
+    assert unresolved == [], f"jnwb.__all__ exports names that do not resolve: {unresolved}"
+
+
+#: A row saying the return is of some named type, optionally naming fields on it.
+_CLAIM_RETURN_TYPE = re.compile(
+    r"[Rr]eturn(?:s|ing)\s+`([A-Z]\w*)`(?:\s+with\s+((?:`\w+`(?:,\s*)?(?:and\s+)?)+))?"
+)
+#: A row saying the return carries a record of something.
+_CLAIM_CARRIES = re.compile(r"\b(?:named|recorded) in the result\b", re.I)
+#: A row saying the return carries no record -- the negative of the above, and equally a
+#: claim about contents. An agent acts on it by storing the choice itself.
+_CLAIM_BARE_ARRAY = re.compile(r"\bbare array\b", re.I)
+_CLAIM_RECORDS_NO = re.compile(r"\brecords no (\w+)\b", re.I)
+
+
+def _probe_complex_tfr():
+    rng = np.random.default_rng(7)
+    return jnwb.complex_tfr(rng.normal(size=(2, 128)), fs=1000.0,
+                            freqs=np.array([10.0, 20.0, 40.0]))
+
+
+def _probe_vflip():
+    freqs = np.linspace(1.0, 150.0, 80)
+    psd = np.stack([
+        (3.0 if c < 8 else 0.5) * np.exp(-((freqs - 20.0) ** 2) / 50.0)
+        + (0.5 if c < 8 else 3.0) * np.exp(-((freqs - 90.0) ** 2) / 400.0)
+        + 1.0 / freqs
+        for c in range(16)
+    ])
+    return jnwb.vflip(psd, freqs)
+
+
+def _probe_xflip():
+    rng = np.random.default_rng(3)
+    a, b = rng.normal(size=300), rng.normal(size=300)
+    data = np.stack([(a if c < 6 else b) + 0.3 * rng.normal(size=300) for c in range(12)])
+    return jnwb.xflip(data, n_surrogates=20, rng=np.random.default_rng(1))
+
+
+def _probe_aperiodic_fit():
+    freqs = np.linspace(2.0, 100.0, 60)
+    return jnwb.aperiodic_fit(freqs, 10.0 * freqs ** -1.5, (2.0, 100.0))
+
+
+def _probe_directed_connectivity():
+    rng = np.random.default_rng(11)
+    X = rng.normal(size=200)
+    Y = np.zeros(200)
+    Y[1:] = 0.5 * X[:-1] + 0.5 * rng.normal(size=199)
+    return jnwb.directed_connectivity(X, Y, method="granger", order=2,
+                                      n_surrogates=10, seed=42)
+
+
+def _probe_relative_power():
+    rng = np.random.default_rng(5)
+    return jnwb.relative_power(rng.random((4, 8)) + 1.0, rng.random((4, 8)) + 1.0,
+                               model="mean_of_ratios", axis=1)
+
+
+#: One executed call per routed symbol that makes a claim about its return's contents.
+#: The oracle is the returned object. A return *annotation* would be the same authors'
+#: second claim about the same thing, and `-> ComplexTFR` on a function that returns a
+#: dict reads identically to one that does not.
+_RETURN_CONTENT_PROBES = {
+    "complex_tfr": _probe_complex_tfr,
+    "vflip": _probe_vflip,
+    "xflip": _probe_xflip,
+    "aperiodic_fit": _probe_aperiodic_fit,
+    "directed_connectivity": _probe_directed_connectivity,
+    "relative_power": _probe_relative_power,
+}
+
+
+def _is_record(obj) -> bool:
+    """Can this object carry a named field at all?"""
+    return dataclasses.is_dataclass(type(obj)) or hasattr(type(obj), "_fields")
+
+
+def _return_content_claims():
+    """(skill, line, symbol, kind, payload) for every claim a row makes about its return."""
+    for skill_name in sorted(CANONICAL_SKILLS):
+        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        for line_no, line in enumerate(content.splitlines(), 1):
+            head = re.match(r"- `jnwb\.((?:\w+\.)*\w+)\(", line)
+            if not head:
+                continue
+            sym = head.group(1)
+            for m in _CLAIM_RETURN_TYPE.finditer(line):
+                fields = re.findall(r"`(\w+)`", m.group(2)) if m.group(2) else []
+                yield skill_name, line_no, sym, "type", (m.group(1), fields)
+            if _CLAIM_CARRIES.search(line):
+                yield skill_name, line_no, sym, "carries", None
+            if _CLAIM_BARE_ARRAY.search(line):
+                yield skill_name, line_no, sym, "bare", None
+            for m in _CLAIM_RECORDS_NO.finditer(line):
+                yield skill_name, line_no, sym, "records_no", m.group(1)
+
+
+def test_skill_return_contents_claims_match_runtime():
+    """What a row says the return *contains* is settled by calling it.
+
+    The signature harness above reads `inspect.signature`, so it cannot see one word of
+    this: `relative_power` was documented as naming its estimand in the result, and returns
+    a bare `float64` array with no `model` anywhere on it. `mean_of_ratios` and
+    `ratio_of_means` differ by 7% on the same input here, so an agent that believed the row
+    had no way to tell two different quantities apart downstream.
+
+    The case set is the skill text, because the skill text is the claim; the oracle is the
+    live call, because the library is the truth. Every claim must have a probe -- a claim
+    nobody executes is the defect, not an exemption -- and both directions are checked, so
+    a row asserting an absence fails once the API grows the field.
+    """
+    claims = list(_return_content_claims())
+    assert len(claims) >= 5, (
+        f"only {len(claims)} return-contents claims were recognised in the skill corpus; "
+        f"a claim pattern that stops matching passes this test by finding nothing"
+    )
+
+    uncovered = sorted({c[2] for c in claims} - set(_RETURN_CONTENT_PROBES))
+    assert uncovered == [], (
+        f"these routed symbols claim something about their return and no probe calls them, "
+        f"so the claim is unverified: {uncovered}"
+    )
+
+    live = {name: probe() for name, probe in _RETURN_CONTENT_PROBES.items()}
+
+    for skill_name, line_no, sym, kind, payload in claims:
+        out = live[sym]
+        where = f"{skill_name}/SKILL.md:{line_no} jnwb.{sym}"
+        if kind == "type":
+            claimed_type, claimed_fields = payload
+            assert type(out).__name__ == claimed_type, (
+                f"{where} says it returns `{claimed_type}`; the call returns "
+                f"{type(out).__name__}"
+            )
+            missing = [f for f in claimed_fields if not hasattr(out, f)]
+            assert not missing, (
+                f"{where} names {missing!r} on the returned `{claimed_type}`; the object "
+                f"has no such attribute"
+            )
+        elif kind == "carries":
+            assert _is_record(out), (
+                f"{where} says a value is named in the result, but the call returns "
+                f"{type(out).__name__}, which carries no named field at all"
+            )
+        elif kind == "bare":
+            assert not _is_record(out), (
+                f"{where} calls the return a bare array; the call returns "
+                f"{type(out).__name__}, which does carry named fields -- the row now "
+                f"understates what an agent can read back"
+            )
+        elif kind == "records_no":
+            assert not hasattr(out, payload), (
+                f"{where} says the return records no {payload!r}; the returned "
+                f"{type(out).__name__} has that attribute, so the row is stale"
+            )
 
 
 def test_all_referenced_docs_paths_exist():
