@@ -971,140 +971,135 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     return violations
 
 
-def run_full_preflight() -> bool:
-    """Runs complete repository preflight check."""
-    print("=== Running Harness Pre-Flight Verification Gates ===")
-    
-    # 1. Boundary check
-    violations = check_frozen_boundary()
-    if violations:
-        print("FAIL: jnwb/ frozen boundary check failed:")
-        for v in violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: jnwb/ frozen boundary clean (zero unauthorized project imports).")
-    
-    # 2. Skill tree uniqueness check
-    skill_violations = check_skill_tree_uniqueness()
-    if skill_violations:
-        print("FAIL: Skill tree uniqueness violated:")
-        for v in skill_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: Single canonical skill tree verified (no .agents/skills/ duplicate).")
-    
-    # 3. Test independence check (no machine-local hardcoded paths)
-    test_path_violations = check_no_hardcoded_test_paths()
-    if test_path_violations:
-        print("FAIL: Hardcoded machine-local paths detected in tests:")
-        for v in test_path_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: Tests free of machine-local hardcoded drive paths.")
-            
-    # 4. Root allowlist check
-    root_violations = check_root_allowlist()
-    if root_violations:
-        print("FAIL: Repository root allowlist violated:")
-        for v in root_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: Repository root strictly frozen & clean.")
+def _one(check: Any, header: str) -> Any:
+    """Adapt a check returning violations into the (header, violations) shape the runner wants."""
 
-    # 5. Public symbols documentation completeness check
-    symbol_violations = check_public_symbols_documented()
-    if symbol_violations:
-        print("FAIL: Undocumented public symbols detected:")
-        for v in symbol_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: 100% of public symbols documented in docs/.")
+    def run() -> List[Tuple[str, List[str]]]:
+        violations = check()
+        return [(header, violations)] if violations else []
 
-    # 6. Dataset independence / leakage check
-    leakage_violations = check_dataset_leakage()
-    if leakage_violations:
-        print("FAIL: Dataset leakage detected in generic modules:")
-        for v in leakage_violations:
-            print(f"  - {v}")
-        return False
-    print(
-        "PASS: No forbidden study tokens on Gate 6 scan surface "
-        "(jnwb/, skills/, docs/**, examples/**, root user-facing docs)."
-    )
+    return run
 
-    # 7. Package and metadata version consistency check
-    version_violations = check_version_consistency()
-    if version_violations:
-        print("FAIL: Version inconsistency detected:")
-        for v in version_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: Package and pyproject.toml versions synchronized.")
 
-    # 8. Python floor consistency: declared support, classifiers and CI agree
-    py_floor_violations = check_python_floor_consistency()
-    if py_floor_violations:
-        print("FAIL: Python support policy inconsistency detected:")
-        for v in py_floor_violations:
-            print(f"  - {v}")
-        return False
-    print(
+def _api_reference_checks() -> List[Tuple[str, List[str]]]:
+    """Adapter, not a gate: the API reference is two checks under one PASS line.
+
+    Deliberately does not open with ``Gate N``. That prefix is how
+    ``tests/test_harness_adversarial_gates.py`` discovers which function *is* a numbered gate, and
+    a helper claiming the number would read as the gate being declared twice.
+    """
+    from scripts.generate_api_md import check_api_md_is_generated
+
+    found: List[Tuple[str, List[str]]] = []
+    set_violations = check_documented_api_matches_all()
+    if set_violations:
+        found.append(("FAIL: Documented API does not match jnwb.__all__:", set_violations))
+    generator_violations = check_api_md_is_generated()
+    if generator_violations:
+        found.append(
+            ("FAIL: docs/api.md is out of sync with the API generator:", generator_violations)
+        )
+    return found
+
+
+def _python_pass_line() -> str:
+    return (
         f"PASS: Python >={PYTHON_FLOOR} floor, classifiers {list(PYTHON_SUPPORTED)}, "
         f"CI covering {list(PYTHON_CI_REQUIRED)} all agree."
     )
 
-    # 9. API reference: set equality and generator drift
-    from scripts.generate_api_md import check_api_md_is_generated
 
-    api_set_violations = check_documented_api_matches_all()
-    if api_set_violations:
-        print("FAIL: Documented API does not match jnwb.__all__:")
-        for v in api_set_violations:
-            print(f"  - {v}")
-        return False
-    api_gen_violations = check_api_md_is_generated()
-    if api_gen_violations:
-        print("FAIL: docs/api.md is out of sync with the API generator:")
-        for v in api_gen_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: docs/api.md matches jnwb.__all__ and the runtime API generator.")
+#: Every gate, in the runner's order, as (number, run, pass_line). `pass_line` is a callable
+#: because two gates compute their message from constants. The numbers are the ones this module's
+#: docstring lists, and `tests/test_module_docstrings_match_their_code.py` holds the two together.
+GATES: List[Tuple[int, Any, Any]] = [
+    (1, _one(check_frozen_boundary, "FAIL: jnwb/ frozen boundary check failed:"),
+     lambda: "PASS: jnwb/ frozen boundary clean (zero unauthorized project imports)."),
+    (2, _one(check_skill_tree_uniqueness, "FAIL: Skill tree uniqueness violated:"),
+     lambda: "PASS: Single canonical skill tree verified (no .agents/skills/ duplicate)."),
+    (3, _one(check_no_hardcoded_test_paths,
+             "FAIL: Hardcoded machine-local paths detected in tests:"),
+     lambda: "PASS: Tests free of machine-local hardcoded drive paths."),
+    (4, _one(check_root_allowlist, "FAIL: Repository root allowlist violated:"),
+     lambda: "PASS: Repository root strictly frozen & clean."),
+    (5, _one(check_public_symbols_documented, "FAIL: Undocumented public symbols detected:"),
+     lambda: "PASS: 100% of public symbols documented in docs/."),
+    (6, _one(check_dataset_leakage, "FAIL: Dataset leakage detected in generic modules:"),
+     lambda: "PASS: No forbidden study tokens on Gate 6 scan surface "
+             "(jnwb/, skills/, docs/**, examples/**, root user-facing docs)."),
+    (7, _one(check_version_consistency, "FAIL: Version inconsistency detected:"),
+     lambda: "PASS: Package and pyproject.toml versions synchronized."),
+    (8, _one(check_python_floor_consistency,
+             "FAIL: Python support policy inconsistency detected:"), _python_pass_line),
+    (9, _api_reference_checks,
+     lambda: "PASS: docs/api.md matches jnwb.__all__ and the runtime API generator."),
+    (10, _one(check_docs_version_matches_package,
+              "FAIL: Documentation version does not match the package version:"),
+     lambda: "PASS: Documentation versions derive from jnwb.__version__."),
+    (11, _one(check_no_shadow_packages,
+              "FAIL: Import-shadowing package detected at repository root:"),
+     lambda: "PASS: No unowned importable package at the repository root."),
+    (12, _one(check_no_project_identifiers_in_code,
+              "FAIL: Project identifiers found in jnwb/ code:"),
+     lambda: "PASS: No project identifiers in jnwb/ code strings or names."),
+    (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
+     lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
+]
 
-    # 10. Documentation version provenance: every stated version equals the package's
-    docs_version_violations = check_docs_version_matches_package()
-    if docs_version_violations:
-        print("FAIL: Documentation version does not match the package version:")
-        for v in docs_version_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: Documentation versions derive from jnwb.__version__.")
 
-    # 11. Import shadowing: no unowned importable package at the repository root
-    shadow_violations = check_no_shadow_packages()
-    if shadow_violations:
-        print("FAIL: Import-shadowing package detected at repository root:")
-        for v in shadow_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: No unowned importable package at the repository root.")
+def run_full_preflight() -> bool:
+    """Run every gate and report each one's state independently.
 
-    # 12. Project identifiers: no project name in jnwb/ code strings or names
-    identifier_violations = check_no_project_identifiers_in_code()
-    if identifier_violations:
-        print("FAIL: Project identifiers found in jnwb/ code:")
-        for v in identifier_violations:
-            print(f"  - {v}")
-        return False
-    print("PASS: No project identifiers in jnwb/ code strings or names.")
+    This returned at the first failure until 2026-09-19, and the cost of that was measured rather
+    than argued: agent worktrees inside the repository tripped gate 2, the runner stopped, and
+    gates 3 through 13 did not run -- including gate 4, which held a second, genuine instance of
+    the same defect and only became visible once gate 2 was fixed. One PASS line was printed where
+    thirteen were expected, and three separate packets reported the resulting red suite as
+    unrelated to their work without anyone establishing that the remaining gates had executed at
+    all. A first failure makes every later gate *unknown*, and the workflow was treating them as
+    observed.
 
-    # 13. NWB onboarding surface alignment (README, tutorials, skill, MkDocs)
-    onboarding_violations = check_nwb_onboarding_alignment()
-    if onboarding_violations:
-        print("FAIL: NWB onboarding surface misaligned:")
-        for v in onboarding_violations:
-            print(f"  - {v}")
+    So every gate now runs, whatever the ones before it did, and the contract is:
+
+        harness PASS  <=>  every gate executed and every gate passed
+
+    A gate that raises is reported ERROR and does not stop the rest. A gate that genuinely cannot
+    be reached is reported NOT RUN by name, because a gate that vanishes from the output looks
+    exactly like a gate with nothing to say.
+    """
+    print("=== Running Harness Pre-Flight Verification Gates ===")
+
+    executed: List[int] = []
+    failed: List[int] = []
+
+    for number, run, pass_line in GATES:
+        try:
+            found = run()
+        except Exception as exc:  # a gate that breaks must not hide the gates after it
+            executed.append(number)
+            failed.append(number)
+            print(f"ERROR: gate {number} raised {type(exc).__name__}: {exc}")
+            continue
+        executed.append(number)
+        if found:
+            failed.append(number)
+            for header, violations in found:
+                print(header)
+                for violation in violations:
+                    print(f"  - {violation}")
+        else:
+            print(pass_line())
+
+    not_run = [number for number, _, _ in GATES if number not in executed]
+    for number in not_run:
+        print(f"NOT RUN: gate {number} did not execute; its state is unknown, not passing.")
+
+    if failed or not_run:
+        print(
+            f"OVERALL: FAIL. {len(executed)} of {len(GATES)} gates executed; "
+            f"failed: {failed or 'none'}; not run: {not_run or 'none'}."
+        )
         return False
-    print("PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs.")
 
     print("ALL HARNESS GATES PASSED.")
     return True

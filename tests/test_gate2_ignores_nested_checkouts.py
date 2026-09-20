@@ -187,4 +187,10 @@ def test_every_live_worktree_is_a_real_checkout():
     ]
     nested = [r for r in roots if r.resolve() != REPO_ROOT and REPO_ROOT in r.resolve().parents]
     for root in nested:
+        # `git worktree list` keeps reporting a worktree whose directory has been deleted until
+        # `git worktree prune` succeeds, and on Windows the prune can fail on a locked admin file
+        # while the checkout itself is long gone. A listing entry is not the invariant; a
+        # directory on disk is. One that no longer exists holds no SKILL.md and is no hazard.
+        if not root.exists():
+            continue
         assert (root / ".git").exists(), f"{root} is a worktree with no .git entry"

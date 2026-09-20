@@ -431,35 +431,74 @@ class TestGateNumberingIntegrity:
             f"gate numbers must be contiguous from 1; got {numbers}"
         )
 
-    def test_gate_numbers_follow_preflight_execution_order(self):
-        """The number IS the position in run_full_preflight(), not a free label."""
+    @staticmethod
+    def _runner_order() -> list[str]:
+        """The check each gate runs, in the order the runner runs them, read from GATES.
+
+        These two tests searched `run_full_preflight`'s source text for ``name()``. That worked
+        while the runner was a straight line of calls, and stopped working on 2026-09-19 when it
+        became a table so that one failing gate could no longer stop the rest. The invariant is
+        unchanged -- the number is the execution position -- but `GATES` is now where execution
+        order lives, and reading the structure beats grepping the function that walks it.
+        """
         import inspect
 
         from scripts import harness_gate
 
+        known = {
+            name for name in dir(harness_gate)
+            if name.startswith("check_") and callable(getattr(harness_gate, name))
+        }
+        names = []
+        for _number, run, _pass_line in harness_gate.GATES:
+            # An entry is either a check wrapped by `_one`, which closes over it, or a bespoke
+            # adapter that calls its checks in its body. Take the closure when there is one, and
+            # otherwise read the adapter's source -- the adapter is the gate's only caller.
+            closed = [
+                cell.cell_contents.__name__
+                for cell in (run.__closure__ or ())
+                if callable(cell.cell_contents) and cell.cell_contents.__name__ in known
+            ]
+            if closed:
+                names.extend(closed)
+                continue
+            body = inspect.getsource(run)
+            names.extend(sorted(
+                (name for name in known if f"{name}()" in body),
+                key=lambda n: body.find(f"{n}()"),
+            ))
+        return names
+
+    def test_gate_numbers_follow_preflight_execution_order(self):
+        """The number IS the position in the runner's table, not a free label."""
         numbered = self._numbered_gates()
-        body = inspect.getsource(harness_gate.run_full_preflight)
-        called_order = [
-            name for name in
-            sorted(numbered.values(), key=lambda n: body.find(f"{n}()"))
-            if f"{name}()" in body
-        ]
+        order = self._runner_order()
         expected = [numbered[n] for n in sorted(numbered)]
-        assert called_order == expected, (
-            "gate numbering disagrees with run_full_preflight() call order:\n"
+        ran = [name for name in order if name in set(numbered.values())]
+        assert ran == expected, (
+            "gate numbering disagrees with the runner's order:\n"
             f"  by number: {expected}\n"
-            f"  by call:   {called_order}"
+            f"  by table:  {ran}"
         )
 
     def test_every_numbered_gate_runs_in_preflight(self):
         """An unnumbered helper is fine; a numbered gate that never runs is not."""
-        import inspect
+        order = set(self._runner_order())
+        orphans = [name for name in self._numbered_gates().values() if name not in order]
+        assert orphans == [], f"numbered gates absent from the runner's table: {orphans}"
 
+    def test_the_runner_declares_exactly_the_numbered_gates(self):
+        """Neither direction may drift: no unnumbered entry in the table, no gate left out."""
         from scripts import harness_gate
 
-        body = inspect.getsource(harness_gate.run_full_preflight)
-        orphans = [name for name in self._numbered_gates().values() if f"{name}()" not in body]
-        assert orphans == [], f"numbered gates absent from run_full_preflight(): {orphans}"
+        numbered = self._numbered_gates()
+        assert len(harness_gate.GATES) == len(numbered), (
+            f"{len(harness_gate.GATES)} entries in the runner's table against "
+            f"{len(numbered)} numbered gates"
+        )
+        assert [n for n, _, _ in harness_gate.GATES] == sorted(numbered), (
+            "the table's numbers are not the docstring numbers in order"
+        )
 
 
 class TestImportShadowingGate:

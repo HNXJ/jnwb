@@ -282,3 +282,92 @@ def test_this_file_would_have_caught_the_defects_it_documents() -> None:
         and str(node.args[0].value).startswith("skills/")
     ]
     assert hits, "the scanner would not have seen the working-directory path"
+
+
+#: The one module allowed to assert which `jnwb` is under test. It is the designated outer
+#: harness: it reads `JNWB_EXPECTED_PACKAGE_ROOT`, so it qualifies an installed copy as readily
+#: as the working tree. Any other module asserting provenance pins the suite to the checkout.
+PROVENANCE_HARNESS = "test_import_provenance.py"
+
+
+def test_no_test_module_rebinds_the_front_of_sys_path() -> None:
+    """`sys.path.insert(0, ...)` is one spelling of forcing the import; these are the others.
+
+    Ruled 2026-09-19. The rule is not "append rather than prepend" -- that is a proxy. The
+    invariant is that a test inspects the installation it was pointed at and does not choose one:
+
+        tests inspect the selected installation; tests do not select the installation
+
+    Subprocess environments are deliberately excluded. Six modules set `PYTHONPATH` when spawning
+    a child, and that is the child choosing what to measure, which is the point of those probes.
+    What is forbidden is changing what *this* session imports.
+    """
+    offenders = []
+    for module in _test_modules():
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            # sys.path[0] = something
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Subscript)
+                        and ast.unparse(target.value) == "sys.path"
+                        and ast.unparse(target.slice) == "0"
+                    ):
+                        offenders.append(f"{module.name}:{node.lineno} assigns sys.path[0]")
+                    # sys.path = [...] + sys.path
+                    if ast.unparse(target) == "sys.path" and isinstance(node.value, ast.BinOp):
+                        offenders.append(
+                            f"{module.name}:{node.lineno} rebinds sys.path by concatenation"
+                        )
+    assert not offenders, (
+        "these modules choose the installation instead of inspecting the selected one: "
+        f"{offenders}"
+    )
+
+
+def test_only_the_designated_harness_asserts_which_jnwb_is_under_test() -> None:
+    """A module-level `assert ... in jnwb.__file__.parents` makes an installed run impossible.
+
+    This is the defect that produced the rule: two modules written on 2026-09-19 asserted the
+    package resolved to the working tree, which is true of a checkout run and false of exactly
+    the run the suite exists to support. Provenance belongs in one place that knows both modes.
+    """
+    offenders = []
+    for module in _test_modules():
+        if module.name == PROVENANCE_HARNESS:
+            continue
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assert):
+                continue
+            rendered = ast.unparse(node.test)
+            if "jnwb.__file__" not in rendered:
+                continue
+            # Comparing `jnwb.__file__` against another runtime value is fine and is done in two
+            # places: the quickstart must print the jnwb it ran, and a Provenance record must
+            # carry the path it observed. Both hold for an installed copy. What breaks installed
+            # qualification is asserting the package sits under *this checkout*, so that is what
+            # is matched -- the checkout root, however the module spells it.
+            if not any(
+                root in rendered for root in ("REPO_ROOT", "ROOT", "_ROOT", "show-toplevel")
+            ):
+                continue
+            offenders.append(
+                f"{module.name}:{node.lineno} asserts jnwb resolves under the checkout root"
+            )
+    assert not offenders, (
+        f"only {PROVENANCE_HARNESS} may assert which jnwb is under test, because it is the one "
+        f"module that honours JNWB_EXPECTED_PACKAGE_ROOT and so works in both modes: {offenders}"
+    )
+
+
+def test_the_designated_harness_still_exists_and_supports_both_modes() -> None:
+    """The two rules above point at one module. A pointer file goes stale without erroring."""
+    harness = TESTS / PROVENANCE_HARNESS
+    assert harness.is_file(), f"{PROVENANCE_HARNESS} is named as the provenance harness and is gone"
+    source = harness.read_text(encoding="utf-8")
+    assert "JNWB_EXPECTED_PACKAGE_ROOT" in source, (
+        f"{PROVENANCE_HARNESS} no longer reads JNWB_EXPECTED_PACKAGE_ROOT, so it can no longer "
+        "qualify an installed copy, and the exemption above has nothing behind it"
+    )

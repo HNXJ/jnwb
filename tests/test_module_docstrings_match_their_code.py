@@ -36,7 +36,6 @@ TFR_ACCUMULATOR = REPO_ROOT / "jnwb" / "tfr_accumulator.py"
 #: A numbered line in a module docstring's list of gates: "  7. Package & metadata ...".
 DOCSTRING_GATE = re.compile(r"^ {2}(\d+)\. ", re.M)
 #: The runner's own numbered comments: "    # 7. Package and metadata version ...".
-RUNNER_GATE = re.compile(r"^    # (\d+)\. ", re.M)
 #: A "Returns (a, b, c)" line anywhere in a function docstring.
 RETURNS_TUPLE = re.compile(r"Returns?\s+\(([^)]*)\)", re.I)
 
@@ -87,19 +86,38 @@ def function_name_words(name: str) -> "set[str]":
     return {w for w in name.split("_") if len(w) >= IDENTIFYING} - {"check", "validate"}
 
 
+def _adapter_check(source: str, adapter: str) -> "str | None":
+    """The first check an adapter function calls, found by reading its own def block."""
+    block = re.search(rf"^def {re.escape(adapter)}\(.*?(?=^def |\Z)", source, re.M | re.S)
+    if not block:
+        return None
+    call = re.search(r"\b((?:check|validate)_\w+)\s*\(", block.group(0))
+    return call.group(1) if call else None
+
+
 def runner_gate_calls(source: str) -> "dict[str, str]":
-    """Each numbered gate in the runner, mapped to the check function it calls."""
-    lines = source.splitlines()
+    """Each numbered gate in the runner, mapped to the check function it calls.
+
+    This read the `# N.` comments above a straight line of calls in `run_full_preflight`. On
+    2026-09-19 the runner became the `GATES` table so that one failing gate could no longer stop
+    the rest, and the numbers moved into the table entries. Same question, current source of it.
+    """
+    table = re.search(r"^GATES[^=]*= \[(.*?)^\]", source, re.M | re.S)
+    if not table:
+        return {}
     calls = {}
-    for i, line in enumerate(lines):
-        match = re.match(r"^    # (\d+)\. ", line)
-        if not match:
+    for number, entry in re.findall(r"^    \((\d+), (.*?)(?=^    \(\d+, |\Z)",
+                                    table.group(1), re.M | re.S):
+        # `_one(check_x, ...)` passes the check as a reference, so match the bare name here.
+        call = re.search(r"\b((?:check|validate)_\w+)", entry)
+        if call:
+            calls[number] = call.group(1)
             continue
-        for follow in lines[i + 1 : i + 8]:
-            call = re.search(r"\b((?:check|validate)_\w+)\s*\(", follow)
-            if call:
-                calls[match.group(1)] = call.group(1)
-                break
+        # A bespoke adapter names no check on the entry line; it calls them in its own body.
+        adapter = re.match(r"\s*(_\w+)", entry)
+        resolved = _adapter_check(source, adapter.group(1)) if adapter else None
+        if resolved:
+            calls[number] = resolved
     return calls
 
 
@@ -195,18 +213,11 @@ class TestTheHarnessGateListsTheGatesItRuns:
     def test_the_numbering_matches_the_runner(self):
         doc = module_docstring(HARNESS_GATE)
         source = HARNESS_GATE.read_text(encoding="utf-8")
-        # The runner's numbered comments restart inside two helpers, so take the longest run
-        # that begins at 1 and ascends -- the preflight sequence at the bottom of the file.
-        runs, current = [], []
-        for number in (int(n) for n in RUNNER_GATE.findall(source)):
-            if number == 1:
-                current = [1]
-                runs.append(current)
-            elif current and number == current[-1] + 1:
-                current.append(number)
-            else:
-                current = []
-        runner = max(runs, key=len)
+        # This used to hunt for the longest ascending run of `# N.` comments, because numbered
+        # comments restarted inside two helpers. The `GATES` table states each number once, so
+        # the heuristic is gone and the numbers are simply read.
+        # Table order, not sorted: a table that ran 5 before 4 must still fail here.
+        runner = [int(n) for n in runner_gate_calls(source)]
         documented = [int(n) for n in DOCSTRING_GATE.findall(doc)]
         assert len(runner) >= 13, f"only {len(runner)} runner gates parsed; the sweep is wrong"
         assert documented == runner, (

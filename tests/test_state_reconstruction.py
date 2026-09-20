@@ -88,9 +88,14 @@ def test_the_measured_values_match_the_tree(generated: str):
     """
     import jnwb
 
-    assert pathlib.Path(REPO_ROOT) in pathlib.Path(jnwb.__file__).resolve().parents, (
-        f"tests are measuring {jnwb.__file__}, not the checkout"
-    )
+    # Skipped rather than asserted when the package under test is not this checkout. The
+    # generator is a checkout-only script and reports on the checkout, so comparing its output
+    # against an installed copy's version would fail for the wrong reason. Asserting the package
+    # sits here instead would pin the whole suite to the tree, which is the thing
+    # `tests/test_the_suite_can_qualify_an_installed_copy.py` exists to prevent -- and this line
+    # was one of the two violations that produced that rule on 2026-09-19.
+    if pathlib.Path(REPO_ROOT) not in pathlib.Path(jnwb.__file__).resolve().parents:
+        pytest.skip(f"qualifying {jnwb.__file__}, not this checkout; the generator reports on the tree")
     assert f"| `jnwb.__version__` | `{jnwb.__version__}` |" in generated
     assert f"| `len(jnwb.__all__)` | {len(jnwb.__all__)} |" in generated
 

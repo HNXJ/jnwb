@@ -184,6 +184,41 @@ in two places. Line count is the consequence, not the target.
 Stop: a duplicated claim's owner does not exist yet. Create the owner or leave the claim; do not
 delete it because it is repeated.
 
+### 06-67 Rule the missingness truth table for the read path
+
+Role: human ruling. Skill: none. Blocked by: none. Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`,
+`docs/errors.md`, `tests/`.
+The opt-in shipped on 2026-09-19 and one cell of its behaviour is undecided. Stating it as a table
+first, because sentinel semantics decided after implementation are decided by the implementation.
+
+One correction to how this was framed. There is **no prior competing specification** for the empty
+string; nothing in jnwb assigned it a meaning before this session. It was chosen here as the
+least-deceptive value once pynwb made true absence impossible -- `NWBFile.__init__` takes
+`session_description` as a required positional argument, so waiving jnwb's check alone leaves the
+file unopenable. The question is therefore whether to introduce the overload at all, not how to
+reconcile two requests.
+
+| On disk | `allow_missing` | Today | Ruled? |
+|---|---|---|---|
+| present, non-empty | default | the value | yes, unchanged |
+| absent | default | `MissingRequiredNWBFieldError` | yes, unchanged |
+| absent | field named | opens; field reads `""`; `jnwb_waived_requirements == ("session_description",)` | **the open cell** |
+| **present and empty on disk** | default | opens; field reads `""`; `jnwb_waived_requirements == ()` | **the ambiguity** |
+| present, wrong type | either | undefined; no refusal exists for it | not yet a case |
+| field named that jnwb never refuses on | either | `ValueError`, rejected rather than silently doing nothing | yes, unchanged |
+
+Rows three and four are the problem: **a file that genuinely records an empty description is
+value-identical to one whose description was waived.** They are distinguishable only by
+`jnwb_waived_requirements`, and only for a caller who reads it. A caller who checks
+`nwbfile.session_description` alone cannot tell them apart.
+Rule between: (a) keep `""` and rely on the waiver attribute, documenting that the value alone
+does not distinguish the two; (b) use a sentinel that cannot occur on disk, which trades
+"indistinguishable from empty" for "a value no NWB reader expects"; (c) refuse a file whose
+`session_description` is present and empty, making `""` unambiguously jnwb's mark -- which
+changes behaviour for files that open today; (d) something else.
+Accept: the ruled cell, the table written into `docs/errors.md`, and a test per row.
+Stop: no agent takes this item.
+
 ### 06-64 Verify the four repairs of 2026-09-19
 
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
@@ -195,7 +230,13 @@ Each is a separate read-only packet against the exact diff, never against the au
 | gate 8, classifier-versus-matrix | 06-10 agent | That the new check cannot be satisfied by editing the constants, which is how the old one failed |
 | `jrsa.py` correction fallback | 06-15 agent | That every statsmodels-present value is bitwise unchanged, and that `bonferroni`'s surviving fallback really does reproduce statsmodels |
 | gate 2 and gate 4, nested checkouts | this session | That a genuine duplicate skill tree still fails. A repair that only makes worktrees pass is a hole |
-| `nwb_io.py`, `allow_missing` and the squeeze warning | this session | That the default is still refusal, and that the empty-string sentinel cannot be mistaken for a value the file contained |
+| `nwb_io.py`, `allow_missing` and the squeeze warning | this session | That the default is still refusal. Do **not** verify that `""` is unmistakable -- it is not, and 06-67 rules it |
+| collect-all gate reporting | this session | That no gate can be positioned so its failure hides another, and that `PASS` requires all 13 to have executed rather than none to have complained |
+| test-provenance scanners | this session | That the three new scanners encode the invariant and not a third proxy, and that the two pre-existing `jnwb.__file__` uses they permit really do hold for an installed copy |
+
+Recorded as P-37: all three harness repairs share one cause, a proxy mistaken for the invariant.
+The verification that matters is therefore not "does the repair work" but **"is the new check the
+invariant, or a better-shaped proxy for it"**. Attack that.
 
 Do: re-run each discriminator from the diff, not from the report. For the two this session wrote,
 assume the author was motivated to see them pass.
@@ -349,7 +390,21 @@ honest about itself, but a dataset-specific literal still governs when the calle
 (b) the default becomes `None` and selection is required, which breaks every existing caller;
 (c) the default becomes a generic rule, which changes what is lost, including for a series the
 docstring promises to preserve.
-Accept: the ruling, and an implementation item written against it.
+
+The governing principle, ruled 2026-09-19: **irreversible lossy selection must be explicit where
+no generic semantic rule exists.** No candidate is semantics-preserving, so genericity alone is
+not a reason to pick one. That points at (b), with a compatibility path only if its behaviour can
+be documented precisely.
+**Before the ruling, this table is required** -- one row per candidate policy, filled by
+measurement rather than by reading the selector:
+
+| Candidate policy | LFP | MUAe | spikes | behavioural series | arbitrary acquisition | information newly lost | previously compressed, now preserved |
+|---|---|---|---|---|---|---|---|
+
+The last two columns are the ruling. A policy that loses nothing new and preserves nothing newly
+is the status quo under another name; any other policy changes which data is irreversibly reduced
+to fp32, and that is what is being decided.
+Accept: the table, then the ruling, then an implementation item written against it.
 Stop: no agent takes this item. See also P-29, which is independent of this ruling and repairable
 without it.
 
@@ -818,6 +873,18 @@ Nine gaps are corroborated by measurement and are the queue. Two are worth namin
 jackknife path that causes it is the library **default**; and `stream_npz_array` reads and
 discards the leading elements instead of seeking, measured 710x slower than seek-then-read at
 n=1.6e7.
+
+**An undesirable exponent is not a mandate**, ruled 2026-09-19. Each packet establishes three
+things before touching code: that the exponent is stable on re-measurement, why the path scales as
+it does, and whether it violates an actual performance contract rather than merely looking wrong.
+A measured number is a finding. Optimising because a figure is unattractive is how a correct
+implementation gets rewritten into a subtly different one, and the 06-54 inventory exists to stop
+exactly that reasoning, not to license it.
+The inventory's coverage claim is also bounded, and the bound matters here: 106 + 48 + 2 = 156
+establishes complete **classification coverage of the exports**. It does not establish complete
+**complexity characterisation** -- 30 gaps are invisible to the method (P-35) and 8 admissible
+orders are `unknown`. Do not read the partition as a statement that the package is now fully
+characterised.
 Five specs where a source reading predicted a gap and the measurement found none are recorded as
 `no gap` and are **not** in the queue. Do not re-derive them from the source: reading order off
 the source was wrong on six specs, which is P-36.
