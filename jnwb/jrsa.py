@@ -1036,13 +1036,26 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
         from statsmodels.stats.multitest import multipletests
         sm_method = _CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")
         _, q, _, _ = multipletests(p_flat, alpha=alpha, method=sm_method)
-    except ImportError:
+    except ImportError as exc:
+        # `statsmodels` is a hard dependency, so this runs only where a declared
+        # dependency is missing. It used to route every method but 'bonferroni' to
+        # Benjamini-Hochberg while `parameters['correction']` kept echoing the request:
+        # a 'holm' run was recorded as 'holm' and was in fact 'fdr_bh'. Same principle as
+        # the unrecognised-method branch above -- an estimator that cannot run is not a
+        # licence to return a differently-computed number under the requested label.
+        #
+        # 'bonferroni' keeps its fallback because it is not a substitution: p*m clipped
+        # at 1 is Bonferroni, and it reproduces `multipletests(method='bonferroni')`
+        # exactly, so the recorded label stays true.
         if m_lower == "bonferroni":
             q = np.minimum(p_flat * len(p_flat), 1.0)
         else:
-            # Fallback BH via unified statistics module
-            from jnwb.statistics import StatisticalAnalysis
-            q = StatisticalAnalysis.fdr_correct(p_flat, method="bh")
+            raise ImportError(
+                f"jrsa correction={method!r} requires 'statsmodels', which is a declared "
+                f"dependency of jnwb and could not be imported. Install it "
+                f"(pip install 'statsmodels>=0.14.0'), or pass correction='bonferroni', "
+                f"which jnwb computes without it."
+            ) from exc
     return q.reshape(np.asarray(p).shape)
 
 

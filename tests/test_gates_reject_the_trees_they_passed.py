@@ -227,6 +227,81 @@ class TestGate8FailsOnAbsenceRatherThanSkipping:
         )
 
 
+class TestGate8ComparesTheClassifiersAgainstTheMatrixItself:
+    """A version the classifiers claim and no CI leg runs must fail, whatever the constants say.
+
+    Every other gate-8 assertion routes through PYTHON_SUPPORTED or PYTHON_CI_REQUIRED, and
+    every one of them is a containment or a membership. Shrinking both constants together
+    therefore satisfies all of them at once: reverting PYTHON_CI_REQUIRED to
+    ("3.12", "3.14") and shrinking the matrix to match made the gate print "all agree" over
+    a declared 3.13 that no leg exercised, and left the suite green. The constants are the
+    thing an editor changes to make the check agree with a wrong tree, so this check reads
+    pyproject.toml and workflow.yml and compares them to each other.
+    """
+
+    @staticmethod
+    def _write_tree(root: Path, classifiers: tuple[str, ...], matrix: tuple[str, ...]) -> None:
+        """A tree that is well formed apart from the relation under test."""
+        classifier_lines = "".join(
+            f'    "Programming Language :: Python :: {v}",\n' for v in classifiers
+        )
+        (root / "pyproject.toml").write_text(
+            "[project]\n"
+            'name = "jnwb"\n'
+            'requires-python = ">=3.12"\n'
+            f"classifiers = [\n{classifier_lines}]\n",
+            encoding="utf-8",
+        )
+        (root / ".readthedocs.yaml").write_text(
+            'build:\n  tools:\n    python: "3.12"\n', encoding="utf-8"
+        )
+        workflows = root / ".github" / "workflows"
+        workflows.mkdir(parents=True, exist_ok=True)
+        matrix_entry = ", ".join(f'"{v}"' for v in matrix)
+        (workflows / "workflow.yml").write_text(
+            "jobs:\n  test:\n    strategy:\n      matrix:\n"
+            f"        python-version: [ {matrix_entry} ]\n",
+            encoding="utf-8",
+        )
+
+    def test_a_classifier_no_leg_runs_is_rejected(self, tmp_path: Path):
+        self._write_tree(tmp_path, ("3.12", "3.13", "3.14"), ("3.12", "3.14"))
+        violations = check_python_floor_consistency(tmp_path)
+        assert any("PYTHON_CLASSIFIER_UNTESTED" in v and "3.13" in v for v in violations), (
+            f"a tree declaring 3.13 whose matrix runs only 3.12 and 3.14 was accepted: {violations}"
+        )
+
+    def test_the_rejection_does_not_depend_on_the_constants(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """The reproduction: shrink both constants to the matrix and the defect must still fail.
+
+        With PYTHON_CI_REQUIRED reverted, the matrix covers everything it requires and the
+        classifier set still equals PYTHON_SUPPORTED, so checks 2 and 3 are both satisfied.
+        Only a file-to-file comparison survives this.
+        """
+        import scripts.harness_gate as harness_gate
+
+        monkeypatch.setattr(harness_gate, "PYTHON_CI_REQUIRED", ("3.12", "3.14"))
+        self._write_tree(tmp_path, ("3.12", "3.13", "3.14"), ("3.12", "3.14"))
+        violations = harness_gate.check_python_floor_consistency(tmp_path)
+        assert any("PYTHON_CLASSIFIER_UNTESTED" in v and "3.13" in v for v in violations), (
+            "shrinking PYTHON_CI_REQUIRED to match the shrunken matrix silenced the gate, "
+            f"which is the defect this check exists to prevent: {violations}"
+        )
+
+    def test_a_matrix_that_runs_every_classifier_is_accepted(self, tmp_path: Path):
+        self._write_tree(tmp_path, ("3.12", "3.13", "3.14"), ("3.12", "3.13", "3.14"))
+        violations = check_python_floor_consistency(tmp_path)
+        assert not any("PYTHON_CLASSIFIER_UNTESTED" in v for v in violations), (
+            f"a matrix running every declared version was rejected: {violations}"
+        )
+
+    def test_this_repository_declares_nothing_it_does_not_run(self):
+        violations = check_python_floor_consistency(REPO_ROOT)
+        assert not any("PYTHON_CLASSIFIER_UNTESTED" in v for v in violations), violations
+
+
 # --------------------------------------------------------------------- Gates 5 and 10
 class TestGates5And10ReadEveryPage:
     """Both used `glob('*.md')`, so the nine pages under `docs/tutorials/` were never read."""

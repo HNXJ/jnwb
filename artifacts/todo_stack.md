@@ -87,9 +87,12 @@ unverified; identifiers there are stable), disposed in `artifacts/findings_0.2.6
 the two residual limits recorded by 05-85 in `artifacts/todo_stack_0.2.5.md`, the carried
 `granger_causality(order=...)` candidate, and the downstream consumer report at
 `E:/omission/context/state/JNWB_HANDOUT_20260919.md` (measured against installed 0.2.5, commit
-`efdba80`). Of its seven admitted items, 06-43 was refuted by a working composition and
-deleted; 06-41 is being rewritten after its first framing proved to test a path the reporter's
-files cannot reach; 06-42, 06-44 through 06-47 stand.
+`efdba80`). Of its seven admitted items, three are closed and four stand. 06-43 was refuted by a
+working composition. 06-41 was reframed after a 2x2 reproducer showed its first framing tested a
+path the reporter's files cannot reach, then ruled and implemented: `read_nwb` gained
+`allow_missing`, and the squeeze now warns. 06-42 established that hdmf owns the pandas pin, and
+the ruling pinned this machine's environment rather than restating a bound jnwb does not own.
+06-44 through 06-47 stand.
 
 A consumer report is evidence of a consumer's experience, not of a jnwb defect. Its items are
 reproduced here against this tree before anything is written, and the three capability and
@@ -146,62 +149,6 @@ Accept: the rule and `docs/` agree, and a check exists for whichever side was ru
 Stop: the ruling would require rewriting `docs/agents.md`, which is a maintained asset four test
 modules already check; surface that cost before ruling.
 
-### 06-41 Rule on opening a file that lacks a required field
-
-Role: human ruling. Skill: none. Blocked by: none. Writes: `artifacts/goal.md` if the ruling
-changes a non-goal.
-The measurement is complete and this item is now only the ruling it produced. Its first framing
-named the wrong defect: it asked about length-1 device attribute arrays, and that framing tested
-a path the reporter's files cannot reach.
-
-A 2x2 reproducer -- `session_description` present or absent, crossed with device attributes
-scalar or length-1 object array -- was measured through both `pynwb.NWBHDF5IO` and
-`jnwb.nwb_io.read_nwb`, with the mutations confirmed in bytes with h5py before every read:
-
-| | device attrs scalar | device attrs length-1 array |
-|---|---|---|
-| `session_description` present | both open | pynwb `ConstructError`; **jnwb opens**, `description` a `str` |
-| `session_description` absent | both refuse | both refuse, **for different reasons** |
-
-The consumer's corpus is the bottom-right cell. jnwb refuses there at `jnwb/nwb_io.py:71` with
-`MissingRequiredNWBFieldError`, and it refuses *first*: `_repair_builder` was instrumented and
-receives exactly one builder, `('root', 'NWBFile')`, where the passing cells pass 95 and include
-the Device. HDMF never constructs the Device, so **the length-1 squeeze at `nwb_io.py:59-64` is
-unreachable on that shape** -- untested, not failing. The earlier packet's reproducer carried a
-`session_description`, which is the top-right cell, which is why it saw only the squeeze.
-
-Two facts bound the ruling. There is no escape hatch today: `read_nwb` and `nwb_read_io` forward
-`**kwargs` to `NWBHDF5IO` and the check at line 71 runs unconditionally for every `mode == "r"`
-read, every path-taking reader funnels through it, and `docs/errors.md:153` says so outright --
-"There is no argument to pass: the file is incomplete." And the refusal is deliberate, though
-less clearly mandated than it first looks: `artifacts/goal.md` section 4 forbids substituting
-synthetic values "for missing empirical data in an analysis path", and `session_description` is
-metadata read outside any analysis path. The non-goal is adjacent to this refusal rather than the
-source of it. Whether it should be read to cover required metadata is itself part of the ruling.
-
-Rule between: (a) the refusal stands and the consumer repairs their files upstream; (b) an
-explicit opt-in such as `read_nwb(path, allow_missing=("session_description",))` that refuses by
-default, synthesizes nothing, and records on the returned object what it tolerated; (c) something
-else.
-Accept: the ruling, written into `artifacts/goal.md` if it moves a non-goal, and an item written
-for the implementation if it authorizes one. See also P-17.
-Stop: no agent takes this item.
-
-### 06-42 Scope the hdmf and pandas version contradiction
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: none.
-Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H2.
-A consumer reports that hdmf 4.3.1 declares `pandas<3,>=1.2.0`, that their corpus needs pandas
-3.0.5 for units-table construction to succeed, and that installing jnwb resolves pandas back to
-2.3.3 and breaks them.
-Reproduce: resolve what jnwb itself declares for pandas and hdmf, and whether jnwb's declaration
-or hdmf's transitive pin is what moves the resolver. A contradiction inside a dependency jnwb
-merely requires is not the same finding as a contradiction jnwb declares.
-Do: nothing to `pyproject.toml`. Return which side owns the pin, with the receipt.
-Accept: the owner is named from the live dependency metadata, not inferred.
-Stop: the answer is "hdmf must move". jnwb cannot relax another project's pin, and deciding to
-diverge from a dependency's declared range is a human ruling.
-
 ### 06-61 Reconcile the skill's authority loading order with the five X slots
 
 Role: human ruling. Skill: none. Blocked by: none. Writes: `skills/jnwb-fact-action/SKILL.md`,
@@ -237,9 +184,61 @@ in two places. Line count is the consequence, not the target.
 Stop: a duplicated claim's owner does not exist yet. Create the owner or leave the claim; do not
 delete it because it is repeated.
 
+### 06-64 Verify the four repairs of 2026-09-19
+
+Role: verifier. Skill: none. Blocked by: none. Writes: none.
+The actor is never the verifier, and four repairs landed today with their author's own receipts.
+Each is a separate read-only packet against the exact diff, never against the author's summary.
+
+| Diff | Repaired | The claim most worth attacking |
+|---|---|---|
+| gate 8, classifier-versus-matrix | 06-10 agent | That the new check cannot be satisfied by editing the constants, which is how the old one failed |
+| `jrsa.py` correction fallback | 06-15 agent | That every statsmodels-present value is bitwise unchanged, and that `bonferroni`'s surviving fallback really does reproduce statsmodels |
+| gate 2 and gate 4, nested checkouts | this session | That a genuine duplicate skill tree still fails. A repair that only makes worktrees pass is a hole |
+| `nwb_io.py`, `allow_missing` and the squeeze warning | this session | That the default is still refusal, and that the empty-string sentinel cannot be mistaken for a value the file contained |
+
+Do: re-run each discriminator from the diff, not from the report. For the two this session wrote,
+assume the author was motivated to see them pass.
+Accept: each claim independently reproduced, or the disagreement stated with its evidence.
+Stop: a repair cannot be verified without changing it. Say so; do not change it.
+
+### 06-65 Anchor the compression path match
+
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/compression.py`, `tests/test_compression.py`.
+Recorded as P-29, and independent of the 06-13 ruling: this is wrong under every candidate
+default, so it does not wait for one.
+Reproduce: the corpus pattern is applied with an unanchored `.search()`. Measured by 06-13, 6 of
+6 adversarial names are selected for lossy fp32 downcast, among them
+`stimulus/probe_0_lfp/data`, `analysis/probe_0_lfp/data`, `scratch/backup_probe_0_lfp/data` and
+`acquisition/my_probe_0_lfp/data`. A path in `/scratch` being silently downcast is not a
+selection policy anyone chose.
+Do: anchor the match so the pattern selects the group it names and not any path whose tail
+contains it.
+Discriminator: those six names, which must stop being selected, and the corpus path, which must
+continue to be.
+Accept: the six adversarial names are rejected, `acquisition/probe_0_lfp/data` is still selected,
+and `tests/test_compression.py` passes unchanged.
+Stop: anchoring changes which corpus paths are selected. That is the 06-13 ruling's business, not
+this item's.
+
+### 06-66 Point the compression provenance at a script that exists
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `jnwb/compression.py`, `tests/`.
+Recorded as P-30. `compress_fp32` stamps every output with
+`conversion_script = "scripts/convert_nwb_compressed.py"`, which is not in the repository. Every
+compressed file carries provenance naming a script nobody can run. Carried from
+`alignment_review_0.2.5.md:611` and still true.
+Do: stamp something that resolves -- the public entry point that actually performed the
+conversion is the obvious candidate.
+Discriminator: a check that resolves the stamped value against the tree and fails when it does
+not exist. The reason this survived a release is that nothing ever resolved it.
+Accept: the stamp resolves, and the check fails on a seeded bad stamp.
+
 ### 06-05 Freeze the acceptance set and the non-goals
 
-Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-41, 06-42.
+Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-13.
 Writes: this file.
 Accept: the frozen set is dated and the non-goals section below is part of it.
 
@@ -294,38 +293,9 @@ Discriminator: revert the generator change and regenerate; the new check fails.
 Accept: no name in `jnwb.__all__` whose runtime value is not callable is typed `function` in
 `docs/api.md`, and harness gate 9 still passes.
 
-### 06-10 One truth for Python support
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/`.
-Ruled 2026-09-19: supported Python is 3.12, 3.13 and 3.14, and 3.13 is added to CI rather than
-having its classifier withdrawn. Immutable historical artifacts are not rewritten to look
-retroactively correct.
-
-**The surface convergence is already done and is not this item's work.** On 2026-09-19, commit
-`026b9a6f`, the v0.2.5 release body was corrected to "Python 3.12 through 3.14", the CI matrix
-and `PYTHON_CI_REQUIRED` gained 3.13, and `README.md`, `docs/install.md`, `AGENTS.md` and the
-gate's own comments were converged on the ruling. What remains is the durable prevention the
-ruling called for, and only that.
-
-Reproduce: the gap is in the constants, not the surfaces. Gate 8 checks that the CI matrix covers
-`PYTHON_CI_REQUIRED` and that the classifiers equal `PYTHON_SUPPORTED`, but nothing relates the
-two constants. Revert `PYTHON_CI_REQUIRED` to `("3.12", "3.14")` and shrink the matrix to match:
-gate 8 prints "all agree", the suite stays green, and a declared 3.13 goes untested again. Every
-existing assertion is a containment or a membership -- `set(PYTHON_CI_REQUIRED) <=
-set(PYTHON_SUPPORTED)`, floor in, head in -- and all four survive that revert. Reproduction is
-that green run.
-Do: make gate 8 compare the classifier set against the matrix itself, so a claimed version no leg
-runs is a gate failure regardless of what the constants say. Prefer this to asserting the two
-constants equal: the constants are the thing that can be edited to make the check agree with a
-wrong tree.
-Discriminator: the revert above, which must fail the gate afterwards and does not today.
-Accept: a version in the classifiers that no CI leg exercises fails `python scripts/harness_gate.py`,
-demonstrated by running it against a constructed tree carrying that defect.
-
 ### 06-11 Gate the release body
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-10.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/release_gate.py`, a new test module under `tests/`.
 The release body is the one version-bearing surface nothing reads, and a correct changelog does
 not make it correct.
@@ -350,22 +320,38 @@ this item and by nothing wider.
 
 ## Batch 2. Scientific defects
 
-### 06-13 compress_fp32 dataset specificity
+### 06-13 Rule the default selection of compress_fp32
 
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/test_compression.py`, `docs/`, `skills/jnwb-nwb-data/SKILL.md`.
-Reproduce: `jnwb/compression.py:93` compiles `probe_\d+_(?:lfp|muae)`; `:107` and `:108` fix
-spike-train paths; `:472` names `acquisition/probe_0_lfp`. Confirm `compress_fp32` is in
-`jnwb.__all__` by probe.
-Do: apply the boundary test of `artifacts/direction.md` -- generic, dataset-independent,
-scientifically stable, explicitly parameterized, independently testable. Separate generic
-mechanics from dataset-specific selection and make the selection an explicit caller input.
-Discriminator: adversarial names that must not be matched silently, and a standard NWB layout
-that must not be mistaken for the corpus one.
-Accept: no dataset-specific literal governs behaviour without a caller saying so, and the
-existing compression tests still pass.
-Stop: preserving the current default would require keeping a corpus name in a code path; surface
-the compatibility question rather than deciding it.
+Role: human ruling. Skill: none. Blocked by: none. Writes: this file, then an implementation item.
+The item's named stop condition fired, and it was proven mechanically rather than asserted. The
+mechanical split -- generic mechanics, with selection as an explicit `select=` caller input -- is
+designed and ready. It is blocked on one thing only: what happens when the caller says nothing.
+
+`compress_fp32` currently selects `acquisition/probe_0_lfp/data` via the corpus pattern
+`probe_\d+_(?:lfp|muae)`. Four candidate dataset-independent defaults were measured against the
+corpus fixtures and **every one changes what is lost**:
+
+| Candidate default | Diverges by |
+|---|---|
+| float64 and 2-D | newly downcasts `eye_position` and `convolved_spike_train` |
+| float64 and basename `data` | the same two |
+| float64, under `acquisition/`, basename `data` | newly downcasts `eye_position` |
+| parent `neurodata_type == ElectricalSeries` | no longer casts `probe_0_lfp`, which `tests/test_compression.py:73` asserts is float32 |
+
+Two measured facts close off the obvious escapes. The corpus fixtures carry **zero**
+`neurodata_type` attributes, so type-based selection selects nothing there. And
+`convolved_spike_train` is float64 and *deliberately* not downcast -- the docstring says so -- so
+dtype and rank cannot separate it from LFP. A standard NWB file (`ElectricalSeries` plus an
+`ecephys` module) is refused outright with `KeyError`.
+
+Rule between: (a) the default becomes a named, caller-overridable corpus preset -- status quo,
+honest about itself, but a dataset-specific literal still governs when the caller is silent;
+(b) the default becomes `None` and selection is required, which breaks every existing caller;
+(c) the default becomes a generic rule, which changes what is lost, including for a series the
+docstring promises to preserve.
+Accept: the ruling, and an implementation item written against it.
+Stop: no agent takes this item. See also P-29, which is independent of this ruling and repairable
+without it.
 
 ### 06-14 granger_causality order validation
 
@@ -380,25 +366,21 @@ first.
 Accept: invalid orders raise rather than returning a plausible number; documentation and the
 skill row agree with the implementation.
 
-### 06-15 The jrsa correction fallback
-
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `tests/`.
-Reproduce: `jnwb/jrsa.py:1039-1045` routes every method except `bonferroni` to
-Benjamini-Hochberg when `statsmodels` is unimportable, while the recorded correction still echoes
-the request. Reachable only where a declared hard dependency is absent, so reproduce by
-simulating the import failure rather than by breaking the environment.
-Do: raise, as the unrecognised-method path at `:1027-1034` already does. Its comment states the
-principle: a run corrected one way was recorded as corrected another.
-Discriminator: restore the fallback; a check asserting that `holm` never returns values
-elementwise equal to `fdr_bh` on a seeded p-vector fails.
-Accept: an estimator failure is not converted into a plausible labelled result.
-
 ### 06-16 Sweep the substitution class
 
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-15. Writes: `tests/`, then per finding.
-The two repairs above share one shape: a fallback producing a differently-computed but plausible
-result under the original label. Sweep the package for it rather than fixing two instances.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Writes: `tests/`, then per finding.
+Repaired instances share one shape: a fallback producing a differently-computed but plausible
+result under the original label. 06-15 was one -- statsmodels absent routed every method except
+`bonferroni` to Benjamini-Hochberg while the recorded correction echoed the request -- and it now
+raises. Sweep the package for the shape rather than fixing instances one at a time.
+Two live leads, both recorded while 06-15 was being repaired and neither chased:
+**P-31**, `_CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")` in `jnwb/jrsa.py`, where
+`correction="none"` passes validation and is then BH-corrected under the label `none`.
+Unreachable today because both `jrsa()` call sites short-circuit first, so it is a latent
+instance and exactly what a sweep is for.
+**P-21**, two exports emitting a column named `layer` whose values are not the labels a reader
+would expect, one of them silently reading `Unknown`. Same shape in data rather than in an
+estimator, which is the part a statistics-only sweep would miss.
 Do: extract the check as a module-level function and drive it over the live tree, which must find
 nothing further, and over constructed seeds carrying the defect, which it must find. A sweep that
 has never found anything is not evidence.
@@ -671,29 +653,6 @@ The order matters: the contract is declared first, because a verbosity or format
 made page by page is a preference, and twenty-seven pages edited to twenty-seven preferences is
 worse than leaving them alone.
 
-### 06-48 Complete the figure section of the documentation form contract
-
-Role: docs-harness. Skill: none. Blocked by: P-24 ruling. Writes: `docs/documentation_form.md`.
-The contract exists: `docs/documentation_form.md`, on the nav, written 2026-09-19. Seven form
-rules, five nav rules, verbosity ceilings by page kind, and a table of four proposed rules that
-were removed with the reason each was removed. Only the figure section is unfinished, and it is
-unfinished for a reason that is not a writing problem.
-
-The item's stop condition fired, as designed. "Figures are inline SVG, never raster" would forbid
-what seven pages do today, and the item says that is a signal the rule is wrong rather than the
-pages. It was removed and recorded as removed. The deeper obstruction is P-24: `mkdocs.yml`
-declares one palette scheme, `slate`, with no light scheme and no toggle, so "renders in both
-themes" is not checkable against this tree at all. Two rules survive regardless and are already
-written -- no figure encodes its own background colour, and no figure is adapted from
-Paper2Agent.
-
-A third measurement belongs to the contract and is already in it: ten of twenty-seven pages are
-not authored prose. `docs/api.md` is generated by `scripts/generate_api_md.py`, and the nine
-`docs/tutorials/*.md` are wrappers that `--8<--` include `examples/tutorials/*.py`. Recorded as
-P-25, and 06-51 now carries the carve-out.
-Do: once P-24 is ruled, write the figure rules the ruling makes checkable, and delete this item.
-Accept: the figure section states rules rather than an explanation of why it cannot.
-
 ### 06-49 One term per concept
 
 Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/`, `tests/`.
@@ -751,30 +710,31 @@ the restatement, keep the one that is load-bearing.
 
 ### 06-52 Figures that carry structure
 
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-30, P-24 ruling. Writes: `docs/`,
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-30. Writes: `docs/`,
 `docs/assets/`, `tests/`.
+Unblocked 2026-09-19. This item's acceptance named a comparison the site could not make: there was
+one palette scheme. `mkdocs.yml` now carries `slate` and `default`, each with a toggle, so
+"renders in both themes" is executable as written and a figure that hardcodes a background is
+falsifiable. The rules are G1 through G4 of `docs/documentation_form.md`; take them from there.
 Do: place the canonical diagrams from 06-30 into the pages whose structure they carry, as inline
-HTML or SVG rather than as raster images, so they scale and remain searchable. Each figure is
-theme-matched: no figure encodes its own background colour.
-
-**This item's acceptance does not currently parse against the tree.** It accepted on "renders
-legibly in both the light and the dark MkDocs theme" and discriminated by "switch the theme".
-Measured 2026-09-19: `mkdocs.yml:25-26` declares exactly one palette scheme, `slate`. There is no
-light scheme and no toggle, so there is no theme to switch to and no second rendering to compare.
-Recorded as P-24. Adding a light scheme is new user-visible behaviour and a scope decision, not a
-repair, so this item waits on the ruling rather than assuming either answer. Seven pages carry
-raster PNGs from `docs/assets/figures/`; whether those are this item's debt to clear is the same
-ruling (P-26).
-Discriminator, once the ruling exists: a figure that hardcoded a colour is caught. How it is
-caught depends on whether a second theme exists.
-Accept: every figure renders in both themes, every figure is referenced by the prose around it,
-and no page carries a figure that repeats what its adjacent table already says.
+SVG, so they scale and remain searchable.
+**Format is not this item's licence to convert.** The seven existing raster PNGs under
+`docs/assets/figures/` stay. An inline-SVG rule was proposed for the contract and removed because
+it would forbid what those seven pages already do. Bring new figures in as SVG; leave the rasters
+alone unless one actually fails G1 or G2, in which case fix that figure and say which rule it
+broke.
+Discriminator: switch the scheme. A figure that hardcoded a colour becomes unreadable under the
+other one and the check catches it.
+Accept: every figure satisfies G1 through G4, every figure is referenced by the prose around it,
+and no page carries a figure that repeats what its adjacent table already says. Closes P-26.
 Stop: a figure would need to be adapted from Paper2Agent. Its licence forbids derivative figures
 and `artifacts/direction.md` records the constraint.
+Stop: a figure needs plotly or kaleido. Ruled 2026-09-19 that neither is declared, so a page
+depending on them builds here and fails in CI. That is G4, and it is recorded as P-33.
 
 ### 06-53 Gate the documentation form
 
-Role: docs-harness. Skill: none. Blocked by: 06-48, 06-49, 06-50, 06-51, 06-52.
+Role: docs-harness. Skill: none. Blocked by: 06-49, 06-50, 06-51, 06-52. The contract itself is written.
 Writes: `scripts/`, `tests/`.
 A contract nothing enforces decays to a preference within one cycle.
 Do: make the mechanically checkable rules into checks -- the vocabulary list, heading depth, nav
@@ -800,17 +760,6 @@ Ruled 2026-09-19: where an implementation matches the official documentation of 
 implements, a citation to that documentation is sufficient evidence of correctness and the
 algorithm is not independently re-derived. This narrows what must be re-proved. It does not
 remove tests, and existing coverage stays.
-
-### 06-54 Inventory the computational order
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `artifacts/`.
-Measure before changing anything. For each public export whose cost grows with input size,
-record the order it achieves and the order its problem admits, with the measurement that shows
-it. An export whose two orders agree is recorded as such and is not touched.
-Accept: a table of exports with measured and admissible order, and every gap named. No
-optimisation happens under this item.
-Stop: the admissible order is a research question rather than a known result. Record it as
-unknown; an assumed lower bound is not evidence.
 
 ### 06-55 One precision switch
 
@@ -858,8 +807,23 @@ divergence; an undocumented one is a defect and goes to the problem stack.
 
 ### 06-58 Reduce the orders the inventory named
 
-Role: jnwb-developer. Skill: per module. Blocked by: 06-54, 06-57. Writes: per packet.
-One packet per gap from 06-54, highest cost first.
+Role: jnwb-developer. Skill: per module. Blocked by: 06-57. Writes: per packet.
+The inventory exists: `artifacts/computational_order.md`, 156 exports, 189 sweeps, with a ranked
+queue in its section 10. One packet per gap, highest exponent gap first.
+Take the ranking for what it is. It orders how badly an export degrades as input grows, **not**
+wall clock: `fit_exponential_onset` at 532 ms is the most expensive single call in the baseline
+and carries no order gap at all, so it is not this item's business.
+Nine gaps are corroborated by measurement and are the queue. Two are worth naming here:
+`phase_slope_index` measures **+2.14** in `n_samples` against an admissible T(S*L), and the
+jackknife path that causes it is the library **default**; and `stream_npz_array` reads and
+discards the leading elements instead of seeking, measured 710x slower than seek-then-read at
+n=1.6e7.
+Five specs where a source reading predicted a gap and the measurement found none are recorded as
+`no gap` and are **not** in the queue. Do not re-derive them from the source: reading order off
+the source was wrong on six specs, which is P-36.
+Thirty further gaps are invisible to a single-parameter sweep (P-35) and are not in the queue
+either. A flat exponent there is not evidence against the gap, and chasing one needs a
+two-parameter surface first.
 Discriminator: a timing or operation-count measurement that separates the two orders on inputs
 large enough for the difference to exceed noise.
 Accept: the new order is measured, not argued, and every numerical result is unchanged within a
@@ -884,7 +848,7 @@ collects and passes pristine before any verdict counts.
 
 ### 06-35 Clean-environment matrix
 
-Role: verifier. Skill: none. Blocked by: 06-10. Writes: none.
+Role: verifier. Skill: none. Blocked by: none. Writes: none.
 Across the declared Python and operating-system support, resolving the 3.13 question. The
 development virtualenv is not package evidence.
 

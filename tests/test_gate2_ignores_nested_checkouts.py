@@ -20,7 +20,11 @@ import sys
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+# Appended, never prepended: `tests/test_the_suite_can_qualify_an_installed_copy.py` requires that
+# no test module put the checkout ahead of the package under test, so the suite can be run against
+# an installed copy. `scripts/` ships in no wheel, so appending is enough to import the gate.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
 
 from scripts.harness_gate import (  # noqa: E402
     EPHEMERAL_ROOT_DIRS,
@@ -120,6 +124,31 @@ def test_gate_4_tolerates_the_tool_directory(tmp_path):
     (tmp_path / ".claude" / "worktrees").mkdir(parents=True)
 
     assert [v for v in check_root_allowlist(tmp_path) if ".claude" in v] == []
+
+
+@pytest.mark.parametrize(
+    "dot_git_is_a_file",
+    [pytest.param(True, id="linked-worktree"), pytest.param(False, id="ordinary-clone")],
+)
+def test_gate_4_accepts_dot_git_whichever_type_it_is(tmp_path, dot_git_is_a_file):
+    """`.git` is the checkout marker, and its type varies by checkout kind.
+
+    Allowlisted only as a directory, it made gate 4 reject every linked worktree and abort
+    before gates 5 through 13. Three packets reported the same red suite independently.
+    """
+    if dot_git_is_a_file:
+        (tmp_path / ".git").write_text("gitdir: /elsewhere/.git/worktrees/agent-a\n", encoding="utf-8")
+    else:
+        (tmp_path / ".git").mkdir()
+
+    assert [v for v in check_root_allowlist(tmp_path) if ".git" in v] == []
+
+
+def test_gate_4_still_rejects_an_unknown_root_file(tmp_path):
+    """The `.git` exemption is one name, not a widening of the file allowlist."""
+    (tmp_path / "leftover.txt").write_text("x", encoding="utf-8")
+
+    assert any("leftover.txt" in v for v in check_root_allowlist(tmp_path))
 
 
 def test_gate_4_still_rejects_an_unknown_root_directory(tmp_path):

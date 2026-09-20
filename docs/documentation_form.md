@@ -74,19 +74,26 @@ get started is looking for, and "Architecture & Foundations" carries two method 
 
 ## Figures
 
-The figure rules are **deliberately incomplete**. `mkdocs.yml` declares one palette scheme,
-`slate`, with no light scheme and no toggle, so "renders in both themes" cannot be checked against
-this tree and is not a rule here yet. Seven pages carry raster PNGs from `docs/assets/figures/`.
-Whether those are debt for 06-52 to clear or evidence that an inline-SVG rule is wrong depends on
-a decision nobody has made. Recorded as P-24 and P-26 in `artifacts/problem_stack.md`; this
-section is completed when they are.
-
-What holds regardless of that decision:
+The site has two palette schemes, `slate` and `default`, each with a toggle, keyed on
+`prefers-color-scheme`. It had one until 2026-09-19, which is why the rules below can be checked
+at all: a figure that hardcoded a light background was previously unfalsifiable, because there was
+no light ground to compare it against.
 
 | # | Rule | How it is checked |
 |---|---|---|
-| G1 | No figure encodes its own background colour. | grep for a background fill in each figure source |
-| G2 | No figure is adapted from Paper2Agent. Its licence forbids derivative figures. | review; the constraint is recorded in `artifacts/direction.md` |
+| G1 | No figure encodes its own background colour. | grep each figure source for a background fill |
+| G2 | A figure is legible under both palette schemes. | render under each and compare |
+| G3 | No figure is adapted from Paper2Agent. Its licence forbids derivative figures. | review; the constraint is recorded in `artifacts/direction.md` |
+| G4 | No documentation figure requires a library the `docs` extra does not declare. | build the docs in a clean environment |
+
+**Format is not a rule.** Seven pages carry raster PNGs from `docs/assets/figures/` and they stay.
+An inline-SVG requirement was proposed and removed: it would have forbidden what seven pages do,
+which is the signal that a rule is wrong rather than the pages. New figures that carry structure
+are inline SVG because it scales and stays searchable, and that is a reason, not a rule.
+
+G4 exists because plotly 6.6.0 and kaleido 1.2.0 are installed on the development machine and
+declared in no extra. A page that rendered through them would build here and fail in CI, and
+nothing would say why. Ruled 2026-09-19: they are not added, so figures render without them.
 
 ## Rules that were proposed and removed
 

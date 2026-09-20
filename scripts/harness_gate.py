@@ -242,6 +242,12 @@ def check_root_allowlist(repo_root: Optional[Path] = None) -> List[str]:
     root = repo_root or REPO_ROOT
     violations = []
     for entry in root.iterdir():
+        # `.git` is the checkout marker, not repository content, and its TYPE varies: a directory
+        # in an ordinary clone, a one-line file in a linked worktree. It was allowlisted only as a
+        # directory, so gate 4 rejected every agent worktree and took gates 5 through 13 with it.
+        # Three separate packets reported the same red suite before this was found.
+        if entry.name == ".git":
+            continue
         if entry.is_dir():
             if entry.name not in ALLOWED_ROOT_DIRS:
                 violations.append(f"UNAUTHORIZED_ROOT_DIR: Disallowed directory at repository root: {entry.name}")
@@ -546,9 +552,18 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
        three surfaces as agreeing while one claimed version was untested.
     4. `.readthedocs.yaml` pins one interpreter drawn from PYTHON_SUPPORTED. A docs
        build needs one version, not a matrix -- it just may not drift outside the range.
+    5. Every classifier in `pyproject.toml` is run by a leg of the `workflow.yml` matrix.
+       Checks 2 and 3 both route through a constant in this file, so shrinking
+       PYTHON_SUPPORTED and PYTHON_CI_REQUIRED together satisfies both while a declared
+       version goes untested -- every assertion in them is a containment or a membership,
+       and all of them survive that edit. This check reads the two files and compares them
+       to each other, so no edit to a constant can make it agree with a wrong tree.
     """
     root = repo_root or REPO_ROOT
     violations = []
+    # Set by block 1 when pyproject.toml is readable; block 3 compares it against the
+    # matrix. None means the classifiers are unknown, which block 1 has already reported.
+    declared: Optional[set] = None
 
     # 1. pyproject.toml: floor, no ceiling, classifiers == PYTHON_SUPPORTED
     # Each of the three blocks below used to be `if <file>.exists():` with no else, so an
@@ -632,6 +647,20 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
                     f"PYTHON_CI_UNSUPPORTED: workflow.yml tests Python {untested}, which is not in "
                     f"the declared supported set {sorted(PYTHON_SUPPORTED)}"
                 )
+
+            # 3b. The two files against each other, with no constant in between.
+            # PYTHON_CI_REQUIRED is what an editor changes to make this gate agree with a
+            # tree that ships an untested classifier: reverting it to ("3.12", "3.14") and
+            # shrinking the matrix to match leaves every check above satisfied and prints
+            # "all agree" over a 3.13 no leg runs. This one cannot be satisfied that way,
+            # because neither side of it is a constant.
+            if declared is not None:
+                for unrun in sorted(declared - tested):
+                    violations.append(
+                        f"PYTHON_CLASSIFIER_UNTESTED: pyproject.toml carries a classifier for "
+                        f"Python {unrun}, which no leg of the workflow.yml test matrix "
+                        f"{sorted(tested)} runs. A claimed version is a tested version."
+                    )
 
     return violations
 

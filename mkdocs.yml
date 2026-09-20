@@ -23,9 +23,24 @@ theme:
     - search.highlight
     - content.code.copy
   palette:
-    - scheme: slate
+    # Two schemes with a toggle, added 2026-09-19. There was one, `slate`, so item 06-52's
+    # acceptance -- "renders legibly in both the light and the dark theme" -- named a comparison
+    # this site could not make, and a figure that hardcoded a light background was unfalsifiable.
+    # `media` makes the first entry the default for a visitor whose OS prefers dark.
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: deep purple
       accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
 
 extra_css:
   - _theme_override.css
