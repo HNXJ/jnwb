@@ -129,23 +129,6 @@ The basis reconstruction and the findings disposition are done and therefore del
 results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review identifiers, and in
 `artifacts/problem_stack.md`, which carries what they found and could not repair.
 
-### 06-61 Reconcile the skill's authority loading order with the five X slots
-
-Role: human ruling. Skill: none. Blocked by: none. Writes: `skills/jnwb-fact-action/SKILL.md`, AUTONOMY: none.
-`tests/test_harness_adversarial_gates.py`.
-Problem P-15's sibling, recorded as P-14. `AGENTS.md` §3 now loads `goal.md`, `state.md` and
-`problem_stack.md` alongside the fact and todo stacks. The skill's Mandatory Authority Loading
-Order still names five items and omits three of them, and packets follow the skill rather than
-this file, so three slots of `X` reach no packet.
-Reproduce: `grep -n -A8 "Mandatory Authority Loading Order" skills/jnwb-fact-action/SKILL.md`
-against `AGENTS.md` §3. Reproduced when the two lists differ.
-Do: rule the skill amendment. A skill file is doctrine-adjacent and is not edited on a
-developer's judgement.
-Accept: the two orders agree and `tests/test_harness_adversarial_gates.py` asserts the agreement
-by parsing both, not by listing either.
-Stop: the ruling would require loading an artifact that does not exist on a fresh clone.
-`artifacts/state.md` is generated and ignored, so the order must say regenerate-then-read.
-
 ### 06-62 Measure what AGENTS.md duplicates, then reduce it
 
 Role: docs-harness. Skill: none. Blocked by: 06-61. Writes: `AGENTS.md`.
@@ -163,6 +146,23 @@ Accept: every remaining section is router content by the contract's list, and no
 in two places. Line count is the consequence, not the target.
 Stop: a duplicated claim's owner does not exist yet. Create the owner or leave the claim; do not
 delete it because it is repeated.
+
+### 06-75 Report the observed interpreter-CI policy for Hamm's fact update
+
+Role: critic. Skill: none. Blocked by: none. Writes: none. AUTONOMY: max.
+P-41. `artifacts/fact_stack.md:58` carries a policy the repository falsifies. The `fact` slot is
+not agent-editable, so this packet reports and does not repair. Hamm rules the replacement text.
+Hamm's instruction, binding on the shape of the report: **the fact should record observed policy
+and state, not merely invert the stale wording.**
+Do: report three things and nothing else. (1) The precise stale sentence at
+`artifacts/fact_stack.md:58`, quoted with its line number. (2) The three actual CI legs, read from
+`.github/workflows/workflow.yml`, with the line number and the operating systems each runs on.
+(3) What the repository *observably* does about interpreter coverage -- the `requires-python`
+floor, the classifier list, what gate 8 enforces, and whether any declared version has no CI leg.
+Accept: every one of the three is quoted from the file that owns it, with a line number, and the
+report proposes no replacement sentence. Proposing the wording is Hamm's, not this packet's.
+Stop: the stale sentence is not at line 58, or `workflow.yml` does not run three legs. Either
+means P-41's premise moved; report the correction and stop.
 
 ### 06-67 Rule the missingness truth table for the read path
 
@@ -731,6 +731,55 @@ real gap.
 Discriminator: a selector naming no test must be rejected before any verdict, not counted as a
 kill.
 Accept: no verdict is emitted by a harness that has not first proven its own selectors.
+
+### 06-72 Resolve the eight duplicated claims in AGENTS.md
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `AGENTS.md`, `artifacts/fact_stack.md` (pointer only), `CONTRIBUTING.md`.
+P-15 said 436 lines against a thin-router contract, and that the duplication was unmeasured so
+the size was not yet evidence. It is measured now, in `artifacts/agents_md_duplication.md`:
+181 claim-bearing sentences, **8 duplicated (4.4%)** and 10 echoed (5.5%). Size is not the
+defect. Eight specific claims with two homes are.
+Do: for each of the eight, decide which file owns the claim and make the other one point at it.
+The owner is the file whose slot the claim belongs to (`AGENTS.md` §2), not the one that says it
+better. One case — the fixpoint sentence at Jaccard 1.00, verbatim in `AGENTS.md` §11 and
+`artifacts/problem_stack.md` — is a pure copy and settles by deletion from the non-owner.
+Discriminator: re-run the measurement script; the eight are gone and no new pair appears above
+0.34.
+Accept: the duplicate count is 0 at the 0.34 threshold, every gate still passes, and no claim was
+deleted from both homes.
+Stop: a duplicate turns out to be two different claims that merely share vocabulary. Say which,
+and leave both.
+
+### 06-73 Exclude the derived cache by path, not by extension
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `.gitignore`, `tests/`.
+P-10. `.gitignore` excludes the 6.7 GB derived cache under `artifacts/developer/.cache/` by
+extension (`*.pkl`). A cache file written with any other suffix lands untracked and is visible to
+a careless `git add -A` — and the repository rule is to stage exact paths precisely because that
+failure mode is real.
+Reproduce: write a file with a non-`.pkl` suffix under that directory and confirm `git status`
+shows it. Delete it afterwards and confirm the tree is clean again.
+Do: exclude the directory by path. Keep the extension rule if it covers anything the path rule
+does not.
+Discriminator: the probe file above is invisible to `git status` after the change, and a
+tracked file elsewhere with the same suffix is unaffected.
+Accept: a test asserts the path exclusion, so a later `.gitignore` edit cannot silently undo it.
+Stop: the cache directory is not where the row says it is. Re-measure and correct the row first.
+
+### 06-74 Dispose of the collection-order fragility
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `tests/`, `artifacts/problem_stack.md`.
+P-12, carried. An ad-hoc pytest subset can fail three `test_backend` tests and segfault; the full
+suite passes. The release requires no `open` problem, so this ends as a repair or as an
+`accepted` with a reason that survives a hostile reader — it cannot simply stay carried.
+Reproduce: find the minimal subset that segfaults, and confirm the same tests pass in a full run.
+Do: establish whether the fragility is a test-isolation defect in this repository or a property of
+an imported extension module. If the former, repair it. If the latter, `accepted` naming the
+module and the evidence.
+Discriminator: the minimal failing subset passes after the repair, and the full suite is unchanged.
+Accept: P-12 closes as `repaired` or `accepted`, never as carried.
+Stop: the segfault cannot be reproduced at all. Then the premise is false and the row goes.
 
 ## Batch 4. Maintained evidence and demonstrations
 

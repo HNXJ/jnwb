@@ -638,18 +638,66 @@ class TestHarnessResetContracts:
         }
         assert expected.issubset(skill_names), f"Missing expected skills: {expected - skill_names}"
 
-    def test_mandatory_authority_loading_order_specified(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
-        assert "Mandatory Authority Loading Order" in skill_text
-        expected_order = [
-            "AGENTS.md",
+    def test_mandatory_authority_loading_order_delegates_to_the_canonical_authority(self):
+        """The skill points at the one loading order; it does not carry a second one.
+
+        This asserted that five hardcoded strings appeared in the file, which passed whenever the
+        text matched that literal, whatever the order meant -- and it green-lit precisely the
+        five-source list P-14 showed was wrong. Recorded as P-42, the fourth instance of P-37:
+        "these strings appear" was the proxy, "the skill delegates the order" is the invariant.
+        Ruled 2026-09-19 (06-61, candidate C).
+        """
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        section = self._loading_order_section(skill_text)
+
+        # The DIRECTIVE must name the authority, not merely the section somewhere. Matching the
+        # whole section passed a mutant that deleted the directive and left the paragraph
+        # explaining the drift, which also says "AGENTS.md §3" -- mentioning is not delegating.
+        directive = next(
+            (para for para in re.split(r"\n\s*\n", section.strip())
+             if re.search(r"\bMUST\b|\bmust\b", para)),
+            "",
+        )
+        assert directive, (
+            f"the skill's §2 states no loading requirement at all. It says:\n{section[:400]}"
+        )
+        assert re.search(r"`?AGENTS\.md`?\s*§3", directive), (
+            "the skill's loading directive does not point at AGENTS.md §3, which is the sole "
+            f"loading-order authority. The directive says:\n{directive[:400]}"
+        )
+
+        enumerated = re.findall(r"(?m)^\s*\d+\.\s+`?(artifacts/\w+\.md|AGENTS\.md)`?", section)
+        assert not enumerated, (
+            "the skill carries its own ordered source list again. A second copy of the order is "
+            f"the mechanism that produced P-14: {enumerated}"
+        )
+
+    def test_the_canonical_loading_order_reaches_every_slot(self):
+        """Delegation is only worth having if the target order is complete."""
+        agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        prepare = agents.split("- **Prepare**", 1)[1].split("- **Review**", 1)[0]
+        for slot_file in (
+            "artifacts/goal.md",
+            "artifacts/state.md",
             "artifacts/fact_stack.md",
+            "artifacts/problem_stack.md",
             "artifacts/todo_stack.md",
-            "domain skill",
-            "evidence",
-        ]
-        for item in expected_order:
-            assert item in skill_text
+        ):
+            assert slot_file in prepare, (
+                f"AGENTS.md §3 Prepare never loads {slot_file}, so a packet following it cannot "
+                "rank a slot it never reads"
+            )
+
+    @staticmethod
+    def _loading_order_section(skill_text: str) -> str:
+        """The skill's §2, by heading rather than by line number."""
+        match = re.search(
+            r"(?m)^## 2\. .*?$(.*?)(?=^## 3\.)", skill_text, re.S
+        )
+        assert match, "the skill has no §2; the sweep is wrong, not the file"
+        return match.group(1)
 
     def test_fact_stack_human_authorization_rule_preserved_in_instructions(self):
         fact_stack = (REPO_ROOT / "artifacts" / "fact_stack.md").read_text(encoding="utf-8")

@@ -11,12 +11,11 @@ Activate this skill for any substantial, multi-step, or consequential repository
 Simple, single-domain reference lookups may route directly to domain skills. All multi-step work must route through `jnwb-fact-action`.
 
 ## 2. Mandatory Authority Loading Order
-Before inspecting or altering code, an agent MUST load authorities in strict sequence:
-1. `AGENTS.md` (repository invariants, operational rules, workflow grammar)
-2. `artifacts/fact_stack.md` (human-authorized durable facts)
-3. `artifacts/todo_stack.md` (unresolved executable work)
-4. Relevant domain skill (e.g. `jnwb-nwb-data`, `jnwb-lfp-spectral`, `jnwb-statistics`)
-5. Current repository evidence (re-read targets, execute probes, inspect live tree)
+Before inspecting or altering code, an agent MUST load the authorities listed in **`AGENTS.md` §3 Prepare, in the order given there**. That is the sole loading-order authority; this skill carries no list of its own.
+
+That order reaches every slot of $X$, which `AGENTS.md` §2 defines. A loading order leaving a slot unreachable is not a shorter version of this one — it is a different one, and it cannot rank what it never loads.
+
+Ruled 2026-09-19 (06-61, candidate C). This section previously enumerated five sources of its own. The enumeration drifted from `AGENTS.md` §3, which by then named eight, leaving `goal`, `state` and `problem` unreachable to any packet that followed this file — recorded as P-14. The repair is not a corrected copy: a second copy is the mechanism that produced the drift, so there is now one authority and a pointer to it.
 
 ## 3. Core Epistemic Invariants
 - **High freedom in hypothesis generation; zero freedom in project-fact completion.**
@@ -33,7 +32,7 @@ Before inspecting or altering code, an agent MUST load authorities in strict seq
 The execution loop formalizes $W = P(RG)^N S$:
 
 ### F — Frame
-- Load authorities in the mandatory sequence (1–5).
+- Load authorities per §2, which delegates the order to `AGENTS.md` §3 Prepare.
 - Identify the exact todo item from `artifacts/todo_stack.md`.
 - Reconstruct the estimand, units, coordinate frames, boundaries, and acceptance criteria.
 - Select the relevant domain skill (`role` $\perp$ `domain`).
