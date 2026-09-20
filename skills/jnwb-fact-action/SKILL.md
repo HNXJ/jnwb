@@ -84,6 +84,16 @@ needed rather than one because `OBSERVED BASELINE` records the behaviour a packe
 says nothing about whether it reproduced it on the right tree, which is how P-28 survived three
 fan-outs with that field already in the contract.
 
+`ACCEPTANCE` must name a whole-suite run whenever `ALLOWED SCOPE` permits adding, renaming or
+moving a test file. A scoped selector cannot observe a rule that a different module enforces,
+so an acceptance built from the harness gate and the packet's own test module is satisfiable
+while such a rule is broken. Measured: a provenance assertion added to `tests/test_compression.py`
+violated the reservation in `tests/test_the_suite_can_qualify_an_installed_copy.py` that only
+`test_import_provenance.py` may assert which installation is under test; the gate reported 14
+of 14 and the packet's own module passed, and only the whole suite failed. This is a rule about
+what an acceptance must be able to detect, not a rule that every packet runs everything: a
+packet whose scope cannot reach a test file does not need it.
+
 Every delegated result must return:
 
 ```text

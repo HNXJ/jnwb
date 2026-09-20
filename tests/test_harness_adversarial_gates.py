@@ -819,6 +819,43 @@ class TestHarnessResetContracts:
             "that procedure lives; a second copy is the mechanism P-14 was caused by."
         )
 
+    def test_the_packet_contract_requires_an_acceptance_that_can_fail(self):
+        """An acceptance a scoped selector satisfies is not an acceptance.
+
+        Five lanes ran under a packet template whose acceptance was the harness gate plus the
+        packet's own test module. Both passed while a cross-module reservation was violated --
+        only the whole suite caught it. The contract now has to say so, because the alternative
+        is that every future dispatcher rediscovers it the same way.
+
+        Asserted on meaning rather than on a phrase: the rule must tie the whole-suite
+        requirement to test-file scope, so a packet that cannot add a test file is not forced
+        to run everything and the rule stays proportionate."""
+        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        assert "ACCEPTANCE:" in skill_text, "the packet contract lost its ACCEPTANCE field"
+        section = skill_text.split("## 5. Delegation Protocol", 1)[1].split("\n## ", 1)[0]
+        # On the sentence, not on the words. The first version of this test asserted that
+        # "whole-suite" and "test file" appear somewhere in the file; the paragraph states each
+        # twice, so deleting the rule left the words behind and two mutants survived. A rule is a
+        # sentence that says a thing, and both halves have to be in it.
+        sentences = re.split(r"(?<=\.)\s+", " ".join(section.split()))
+        rule = [
+            s for s in sentences
+            if "ACCEPTANCE" in s and re.search(r"whole[- ]suite", s, re.IGNORECASE)
+        ]
+        assert len(rule) == 1, (
+            "the packet contract has no single sentence requiring a whole-suite run as part of "
+            "ACCEPTANCE, so an acceptance of 'the harness gate and my own test module' is still "
+            f"contract-conformant -- which is what let a cross-module reservation be violated "
+            f"with both of those green (matched {len(rule)} candidate sentences)"
+        )
+        assert re.search(r"test file", rule[0], re.IGNORECASE), (
+            "the whole-suite requirement is stated without its scope. It applies to packets whose "
+            "ALLOWED SCOPE can reach a test file; stated unconditionally it means 'always run "
+            "everything', which is disproportionate and gets relaxed away rather than obeyed"
+        )
+
     @staticmethod
     def _canonical_section_reference(directive: str) -> "str | None":
         """The AGENTS.md section number a directive delegates to, or None."""

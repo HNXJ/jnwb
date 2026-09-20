@@ -858,6 +858,38 @@ artifacts and does not publish; publication happens on the release.
 
 ## Batch 8. Problems found while executing 0.2.6
 
+### 06-93 Stop the spiking skill instructing a 17 ms error into scientific output
+
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
+Writes: `skills/jnwb-spiking/SKILL.md`.
+P-58, measured twice and independently. `skills/jnwb-spiking/SKILL.md:27` states that causal
+smoothing delays the onset it measures, that `tau_ms=25` lands +17 ms late, and that the filter
+delay should be subtracted. The skill routes to `fit_exponential_onset` and to no
+threshold-crossing operation at all, so the correction is attached to the one readout it does not
+apply to. An agent following it subtracts 17 ms from a result that is already right, silently,
+into layer-onset figures.
+Reproduce: 1 ms bins, unit step at true t0 = 100 ms, `fit_exponential_onset(t0_bounds_ms=(0,300))`,
+sweeping `tau_ms` over 10, 25, 50, 100. The half-amplitude crossing lands at 105.87, 116.16,
+133.32, 163.46 -- error scaling with tau at about 0.69*tau, which is tau*ln2. The fit lands at
+99.07, 99.12, 99.04, 99.00 -- a **tau-invariant** bias near -0.9 ms, which is bin resolution and
+not filter delay. Holds for t0 in {60, 100, 150, 220} and under noise at sd 0.05.
+Do: scope the correction to a threshold crossing, state that `fit_exponential_onset` is not one,
+and give the contrast that lets a reader tell which readout they are holding -- the crossing
+scales with tau, the fit does not. Keep the existing instruction to hold `tau_ms` fixed across
+compared conditions; that part is correct and load-bearing. `docs/common_mistakes.md` section 8
+already scopes this properly and is the model. Drafted replacement wording is in the 2026-09-20
+skills-lane report; treat it as a proposal to verify, not as text to paste.
+Discriminator: a test that fails if the skill tells a reader to subtract a filter delay from a
+fitted onset, and passes when the instruction is scoped to a crossing. Assert on the sentence that
+carries the instruction, not on the presence of the words -- P-88's first repair attempt failed
+exactly that way, and two mutants proved it.
+Accept: the skill's stated numbers reproduce on the sweep above; no instruction applies a crossing
+correction to a fitted onset; `pytest -q tests/test_skills_validation.py` passes; harness gate PASS
+lines counted at 14.
+Stop: if the measurement disagrees with the tau-invariance above, stop and report -- the repair
+depends on it, and a third independent measurement disagreeing with the first two is a result, not
+a nuisance.
+
 Every item below claims a row opened in `artifacts/problem_stack.md` after this stack was
 frozen. They are collected in their own batch rather than filed into Batches 1 through 7 because
 their common property is when they were found, not what they touch: each came out of a packet
