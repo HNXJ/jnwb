@@ -60,6 +60,7 @@ nav:
       - Analyzing with an Agent: agents.md
       - Public API: api.md
       - References: references.md
+      - Documentation Form: documentation_form.md
 
   - Tutorials:
       - Your Own NWB File: tutorials/00_your_own_file.md

@@ -100,6 +100,27 @@ def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path])
     return True, f"PROVENANCE_VALID: Claim '{claim_name}' artifact exists: {path} ({path.stat().st_size} bytes)"
 
 
+def _is_inside_nested_checkout(skill: Path, root: Path) -> bool:
+    """True when this ``SKILL.md`` belongs to a second git checkout nested inside the tree.
+
+    A git checkout root carries a ``.git`` entry: a directory for a clone, a file for a linked
+    worktree. What it contains is this same ``skills/`` tree seen through another checkout, not a
+    second tree, so gate 2 has nothing to say about it.
+
+    This is detected rather than hardcoded. The agent fan-out this project runs puts worktrees
+    under ``.claude/worktrees/`` today, but that is where this harness happens to place them and
+    not a property of the thing being excluded; a path literal would stop working the moment they
+    moved. Being untracked is deliberately *not* the test: a duplicate skill tree that is merely
+    gitignored is still a tree an agent can read, which is the hazard gate 2 exists for.
+    """
+    for parent in skill.parents:
+        if parent == root:
+            return False
+        if (parent / ".git").exists():
+            return True
+    return False
+
+
 def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 2 (Skill Tree Uniqueness): every SKILL.md in the tree lives under skills/.
 
@@ -113,6 +134,8 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
         relative = skill.relative_to(root)
         if relative.parts[0] in EPHEMERAL_ROOT_DIRS:
             continue  # another package's skills inside a .venv are not this tree
+        if _is_inside_nested_checkout(skill, root):
+            continue  # a worktree is this tree seen twice, not two trees
         if relative.parts[0] != "skills":
             violations.append(
                 f"DUPLICATE_SKILL_TREE: {relative.as_posix()} is a SKILL.md outside skills/. "
@@ -194,7 +217,13 @@ EPHEMERAL_ROOT_DIRS = {
     "dist", "build", "_build", "site", "jnwb.egg-info", ".tox", ".lab_bundle_build",
 }
 
-ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS
+#: Directories a development tool owns at the root. Gitignored, never shipped, and deliberately
+#: kept OUT of EPHEMERAL_ROOT_DIRS: gate 2 skips everything in that set, and `.claude/skills/` is
+#: a real location an agent reads skills from, so a duplicate tree placed there must still fail.
+#: Gate 2 excuses only a nested git checkout inside this directory, which is a different rule.
+TOOL_ROOT_DIRS = {".claude"}
+
+ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS | TOOL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
     "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
