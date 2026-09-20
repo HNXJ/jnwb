@@ -177,7 +177,8 @@ unpushed. Do not cross a version boundary before sealing it.
 | `python scripts/docs_build.py` | Docs build (strict MkDocs via `sys.executable`) | RTD sets `fail_on_warning`, so a warning here is a failed publish. Do not call bare `mkdocs`; PATH may point at another interpreter. |
 
 Supported interpreters are declared in `pyproject.toml` and enforced by Gate 8. CI tests
-the floor and the newest declared version.
+every declared version. Amended 2026-09-19: this said "the floor and the newest declared
+version", which is the policy that let 0.2.5 ship a 3.13 classifier no CI leg exercised.
 
 ## 7. Skills
 

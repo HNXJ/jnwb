@@ -272,20 +272,31 @@ Accept: no name in `jnwb.__all__` whose runtime value is not callable is typed `
 ### 06-10 One truth for Python support
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `README.md`, `docs/install.md`, and the release body through the API.
-Reproduce: `gh release view v0.2.5 --json body -q .body` ends "Python 3.10 through 3.14" while
-`grep -n requires-python pyproject.toml` gives `>=3.12`; `grep -n "3.10 through 3.14" CHANGELOG.md`
-shows the phrase was inherited from the 0.1.0 entry. `docs/install.md` states no minimum at all.
+Writes: `scripts/harness_gate.py`, `tests/`.
 Ruled 2026-09-19: supported Python is 3.12, 3.13 and 3.14, and 3.13 is added to CI rather than
-having its classifier withdrawn. The v0.2.5 release body was corrected to "Python 3.12 through
-3.14" on the day of the ruling; `.github/workflows/workflow.yml` and `PYTHON_CI_REQUIRED` in
-`scripts/harness_gate.py` were changed with it, so gate 8 now requires every claimed version to
-be tested instead of only the floor and the head. Immutable historical artifacts are not
-rewritten to look retroactively correct.
-Do: converge the remaining surfaces -- `README.md` and `docs/install.md` -- on that policy, and
-add the qualification evidence.
-Accept: every surface states the same supported set, and gate 8 fails if a classifier names a
-version the matrix does not test.
+having its classifier withdrawn. Immutable historical artifacts are not rewritten to look
+retroactively correct.
+
+**The surface convergence is already done and is not this item's work.** On 2026-09-19, commit
+`026b9a6f`, the v0.2.5 release body was corrected to "Python 3.12 through 3.14", the CI matrix
+and `PYTHON_CI_REQUIRED` gained 3.13, and `README.md`, `docs/install.md`, `AGENTS.md` and the
+gate's own comments were converged on the ruling. What remains is the durable prevention the
+ruling called for, and only that.
+
+Reproduce: the gap is in the constants, not the surfaces. Gate 8 checks that the CI matrix covers
+`PYTHON_CI_REQUIRED` and that the classifiers equal `PYTHON_SUPPORTED`, but nothing relates the
+two constants. Revert `PYTHON_CI_REQUIRED` to `("3.12", "3.14")` and shrink the matrix to match:
+gate 8 prints "all agree", the suite stays green, and a declared 3.13 goes untested again. Every
+existing assertion is a containment or a membership -- `set(PYTHON_CI_REQUIRED) <=
+set(PYTHON_SUPPORTED)`, floor in, head in -- and all four survive that revert. Reproduction is
+that green run.
+Do: make gate 8 compare the classifier set against the matrix itself, so a claimed version no leg
+runs is a gate failure regardless of what the constants say. Prefer this to asserting the two
+constants equal: the constants are the thing that can be edited to make the check agree with a
+wrong tree.
+Discriminator: the revert above, which must fail the gate afterwards and does not today.
+Accept: a version in the classifiers that no CI leg exercises fails `python scripts/harness_gate.py`,
+demonstrated by running it against a constructed tree carrying that defect.
 
 ### 06-11 Gate the release body
 
@@ -653,6 +664,12 @@ Not frozen and not scheduled. Recorded so that nothing reported disappears by no
   refuses those channels, reportedly 25% of the consumer's corpus. Of the seven handout items
   offered, this is the one not admitted to 0.2.6. The reporter named it and H1 as their two
   unblockers, so the omission is worth confirming as deliberate before Batch 2 closes.
+- **`dist/` holds only superseded artifacts.** 06-04 observed `jnwb-0.1.1`, `jnwb-0.1.3` and
+  `jnwb-0.2.4.tar.gz` and no 0.2.5 build, so
+  `tests/test_distribution_manifest_inspection.py::test_any_distribution_present_in_this_checkout_is_clean`
+  currently inspects three releases nobody ships and never the one that did. The test is not
+  wrong; the evidence under it is stale. 06-37 builds a fresh artifact and is where this is
+  answered, so it is recorded here rather than given its own item.
 - **The ninth unreadable file.** Reported to fail at `root/units` with `Columns must be the same
   length`, separately from the eight that fail on device attributes. Not admitted; recorded so
   that repairing 06-41 is not mistaken for restoring all nine files.

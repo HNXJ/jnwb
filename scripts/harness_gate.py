@@ -176,7 +176,8 @@ INTERNAL_ROOT_PACKAGES = {"scripts", "tests", "docs", "examples"}
 # Corrected 2026-09-09. The earlier "3.12 only" rule was a decision scoped to one
 # specific run that got generalized into repository-wide policy; it shipped an upper
 # pin in 0.1.1 and made that release uninstallable. Declared support is a floor with
-# no ceiling; CI tests the floor and the newest declared version.
+# no ceiling; CI tests every declared version. Testing only the floor and the head is
+# what let 0.2.5 ship a 3.13 classifier no leg of the matrix ever ran.
 PYTHON_FLOOR = "3.12"
 PYTHON_SUPPORTED = ("3.12", "3.13", "3.14")   # what the classifiers must claim
 PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14")  # every claimed version must be tested
@@ -578,7 +579,7 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
                 f"outside the supported set {sorted(PYTHON_SUPPORTED)}"
             )
 
-    # 3. workflow.yml: the matrix must cover the floor and the newest declared version
+    # 3. workflow.yml: the matrix must cover every version in PYTHON_CI_REQUIRED
     workflow_path = root / ".github" / "workflows" / "workflow.yml"
     if not workflow_path.exists():
         violations.append(
