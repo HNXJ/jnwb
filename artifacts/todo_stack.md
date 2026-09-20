@@ -112,7 +112,7 @@ The review's own adversarial pass refuted four findings that read as solid.
 
 ## Dispatch map
 
-Measured at `6efe2d95`, and the reason this section exists: **48 of the items below have no
+Measured at `b150063d`, and the reason this section exists: **45 of the 74 items below have no
 blocker**, so the plan was never blocked -- it was unparallelized. Reading 1200 lines to find the
 next safe piece of work is the cost this map removes.
 
@@ -689,7 +689,10 @@ Accept: no verdict is emitted by a harness that has not first proven its own sel
 ### 06-72 Resolve the eight duplicated claims in AGENTS.md
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `AGENTS.md`, `artifacts/fact_stack.md` (pointer only), `CONTRIBUTING.md`.
+Writes: `AGENTS.md`, `CONTRIBUTING.md`.
+Excluded is `artifacts/fact_stack.md`, though the duplication runs through it: that file is not
+agent-editable and only Hamm closes P-41. Report the wording the fact slot needs; do not
+apply it.
 P-15 said 436 lines against a thin-router contract, and that the duplication was unmeasured so
 the size was not yet evidence. It is measured now, in `artifacts/agents_md_duplication.md`:
 181 claim-bearing sentences, **8 duplicated (4.4%)** and 10 echoed (5.5%). Size is not the
@@ -797,8 +800,10 @@ worse than leaving them alone.
 
 ### 06-49 One term per concept
 
-Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/`, `tests/test_documentation_form.py` (new -- it does not exist at
-`6efe2d95`, verified, and is named here so the lane's write scope is knowable in advance).
+Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/`, `tests/test_documentation_form.py`.
+That test file is new -- verified absent at b150063d -- and is named anyway so the lane's
+write scope is knowable before it starts. Only backticked paths belong in a `Writes:` field;
+a commit hash in one reads as a path to anything that parses it.
 Unblocked 2026-09-19: 06-48 now covers only the figure section, and vocabulary does not depend on
 it. Rule F5 of `docs/documentation_form.md` is this item's target.
 Reproduce: build the term inventory first. For each concept the documentation names, list every
