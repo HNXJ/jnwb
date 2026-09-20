@@ -410,7 +410,76 @@ def _api_md_check_commands() -> List[List[str]]:
     return commands
 
 
+PROBLEM_DISPOSITIONS = frozenset({"open", "repaired", "accepted", "not-a-defect"})
+
+
+def open_problems(root: pathlib.Path = REPO_ROOT) -> List[str]:
+    """Rows in the problem stack's ``## Open`` section.
+
+    AGENTS.md §11 condition 3: a release requires none. The section is the unit, not a status
+    column: a row moves to ``## Closed`` with a disposition when it is answered, so a row that
+    is still under ``## Open`` is open whatever its text says.
+    """
+    path = root / "artifacts" / "problem_stack.md"
+    if not path.exists():
+        return [f"{path} is missing; condition 3 cannot be evaluated"]
+    rows, section = [], None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"^## (?P<title>.+?)\s*$", line)
+        if heading:
+            section = heading.group("title")
+            continue
+        if section != "Open":
+            continue
+        row = re.match(r"^\|\s*(?P<id>P-\d+)\s*\|\s*(?P<statement>.+?)\s*\|", line)
+        if row:
+            rows.append(f"{row.group('id')}: {row.group('statement')[:110]}")
+    return rows
+
+
+def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
+    """Item headings left in the todo stack. Finished items are deleted, so any heading is work."""
+    path = root / "artifacts" / "todo_stack.md"
+    if not path.exists():
+        return [f"{path} is missing; condition 3 cannot be evaluated"]
+    return [
+        m.group(0).lstrip("# ").strip()
+        for m in re.finditer(r"^### \d\d-\d\d .+$", path.read_text(encoding="utf-8"), re.MULTILINE)
+    ]
+
+
+def check_stacks_are_empty(root: pathlib.Path = REPO_ROOT) -> List[str]:
+    """AGENTS.md §11 condition 3, as a release-time check.
+
+    Deliberately not a harness gate. Both stacks are non-empty for almost all of a cycle, and a
+    gate that fails every day is a gate people learn to skip. This runs where emptiness is
+    actually required: at release.
+    """
+    violations = []
+    problems = open_problems(root)
+    if problems:
+        violations.append(
+            f"artifacts/problem_stack.md holds {len(problems)} open problem(s): " + "; ".join(problems)
+        )
+    todos = remaining_todo_items(root)
+    if todos:
+        violations.append(
+            f"artifacts/todo_stack.md holds {len(todos)} item(s): " + "; ".join(t[:40] for t in todos[:8])
+            + (" ..." if len(todos) > 8 else "")
+        )
+    return violations
+
+
 def main() -> None:
+    log.info("=== STEP 0a: Checking both stacks are empty (AGENTS.md section 11, condition 3) ===")
+    stack_violations = check_stacks_are_empty()
+    if stack_violations:
+        for violation in stack_violations:
+            log.error(violation)
+        log.error("A release requires no open problem and no remaining todo item.")
+        sys.exit(1)
+    log.info("PASS: the todo stack and the problem stack are both empty.")
+
     log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
     missing = verify_declared_environment()
     if missing:

@@ -34,6 +34,7 @@ the word "agent".
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
 | `artifacts/agents/` | Portable role definitions: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer`. Decoupled from domain skills (`role` $\perp$ `domain`). Parameterized via delegation packets |
 | `artifacts/todo_stack.md` | Remaining work, grouped by the version that carries it (§2). Finished items are deleted |
+| `artifacts/problem_stack.md` | Defects, contradictions and unknowns as they are found (§2). A release requires no `open` entry (§11) |
 | `artifacts/fact_stack.md` | Small, human-authorized durable facts (§2). No pending actions; agents read but do not edit without explicit authorization |
 | `artifacts/benchmarks/` | Performance baseline and import profile. `python scripts/benchmark_import.py --write` regenerates the profile |
 | `docs/` | User docs, built by MkDocs. `api.md` lists every public symbol; `common_mistakes.md` lists the failure modes jnwb guards against |
@@ -68,7 +69,7 @@ When sources conflict, authority runs: the receipt on disk, then live repository
 then machine-readable state files, then prose. Unresolved conflict on a material point
 stops the work and surfaces both sides.
 
-## 2. The fact stack and todo stack
+## 2. The fact stack, todo stack and problem stack
 
 $$\texttt{fact\_stack} = \text{stable human-authorized facts}$$
 
@@ -78,6 +79,7 @@ $$\texttt{todo\_stack} = \text{mutable unresolved execution}$$
 |---|---|---|
 | `artifacts/fact_stack.md` | Durable project direction and invariants | No — challenge with evidence; surface conflicts to Hamm |
 | `artifacts/todo_stack.md` | Remaining executable work, grouped by version | Yes — delete finished items; add only unresolved work |
+| `artifacts/problem_stack.md` | Defects, contradictions and unknowns as found | Yes — add on discovery; close only by repairing, accepting with a reason, or showing the premise false |
 
 (`docs/fact_stack.md` / `docs/todo_stack.md` when the repository has no `artifacts/`.)
 
@@ -305,3 +307,48 @@ q = jnwb.StatisticalAnalysis.fdr_correct(p_values)           # Benjamini-Hochber
 GPU: functions taking `device="cuda"` resolve it through `_backend.resolve_device` and warn
 when they fall back to CPU. Parallel: `n_jobs` (default 1) goes through
 `_parallel.parallel_map`; `n_jobs=-1` uses every core.
+
+## 11. Release acceptance
+
+Standing from 2026-09-19, for every release from 0.2.6 onward. A release opens only when all
+three conditions hold at once. Each names the evidence that closes it, because a condition
+without a check is a preference.
+
+**1. Documentation is low-verbosity and consistently formed.** Pages say the thing once. Tables
+carry comparable facts, lists carry enumerations, paragraphs carry reasoning, and figures carry
+structure; a page that uses prose where a table belongs has not met this. Figures are theme-matched
+and render in both light and dark. One term per concept across every page. The left menu is
+organized by how a reader arrives, not by how the files were written.
+
+**2. Code is low-complexity and switchable.** Each operation runs at the best computational order
+its problem admits, and the order is recorded where it is not obvious. Precision switches between
+32-bit and 64-bit through one mechanism. Execution switches between CPU, parallel CPU, CUDA and
+JAX Metal through one mechanism. CPU, parallel CPU and CUDA are exercised on the development
+machine; the Metal path is implemented and declared unverified, because no machine here can run it
+and an unbacked claim is worse than a stated gap.
+
+**3. Both stacks are empty.** `artifacts/todo_stack.md` holds no item and `artifacts/problem_stack.md`
+holds no `open` problem, including every problem detected while emptying them. Emptiness is a
+fixpoint: the release opens when one full pass over the documentation, the code and both stacks
+discovers no new problem. A pass that finds something re-opens the cycle. This is a terminating
+condition, not a date.
+
+### Evidence standards for these conditions
+
+**Conformance to an official reference is sufficient.** Where an implementation matches the
+official documentation of the method it implements, a citation to that documentation is sufficient
+evidence of its correctness, and the algorithm does not have to be independently re-derived. This
+does not remove tests: existing coverage stays, and regression behaviour is still tested. The
+ruling narrows what must be re-proved, not what must be exercised.
+
+**`accepted` is the only way a problem closes without being fixed.** It records a reason that
+would survive a hostile reader, and it is never used because a repair is merely inconvenient. A
+shipped artifact that cannot be retested is the shape of a legitimate `accepted`.
+
+### Why this is written down
+
+0.2.5 closed as "no known material defect under its completed acceptance set", which was honest
+and narrow. These three conditions are what makes the next claim wider without making it vaguer:
+each one is checkable, and the third makes the other two hold at the same moment rather than in
+sequence. Without the fixpoint the third condition cannot terminate, because the process that
+empties a stack is the same process that fills it.

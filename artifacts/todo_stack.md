@@ -9,7 +9,14 @@ Items are deleted when done; finished work is not recorded here. The closure rec
 0.2.5 raised per-surface correctness. The next failure class is system-level: jnwb can hold
 correct code, tests, documentation and skills while its public identity, examples, diagrams,
 packaging and presentation-facing claims disagree with each other or cannot be reached.
-0.2.6 is a coherence, reachability and evidence release. It adds no scientific capability.
+0.2.6 is a coherence, reachability and evidence release, extended on 2026-09-19 by the three
+release conditions in `AGENTS.md` §11: documentation form, computational form, and both stacks
+empty. It adds no scientific capability. The computational work makes an existing backend
+mechanism uniform and truthful; it does not add an estimator.
+
+`artifacts/problem_stack.md` is the companion to this file. This one holds work that was
+planned; that one holds defects found while doing it. A problem is not deleted when an item
+claims it, and the release requires that file to hold no `open` entry.
 
 ## How this stack is executed
 
@@ -75,7 +82,8 @@ after. `Accept` the mechanical condition. `Stop` conditions beyond the standing 
 ### Imported evidence
 
 `artifacts/alignment_review_0.2.5.md` (31 confirmed, 12 upheld with dissent, 4 refuted, 36
-unverified; identifiers there are stable and are what 06-03 cites), `artifacts/planned_post_0.2.5.md`,
+unverified; identifiers there are stable), disposed in `artifacts/findings_0.2.6.md`,
+`artifacts/planned_post_0.2.5.md`,
 the two residual limits recorded by 05-85 in `artifacts/todo_stack_0.2.5.md`, the carried
 `granger_causality(order=...)` candidate, and the downstream consumer report at
 `E:/omission/context/state/JNWB_HANDOUT_20260919.md` (measured against installed 0.2.5, commit
@@ -99,8 +107,12 @@ The direction of repair is fixed: **package evidence plus human ruling produces 
 goal.** A desired presentation never produces a new package identity. This binds the "dynamic"
 wording, the AI-native positioning and the topology figure in particular.
 
-Batch 0 completes before any substantive edit elsewhere. Three of its eight items require a human
+Batch 0 completes before any substantive edit elsewhere. Three of its six items require a human
 ruling and cannot be dispatched to any agent.
+
+The basis reconstruction and the findings disposition are done and therefore deleted. Their
+results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review identifiers, and in
+`artifacts/problem_stack.md`, which carries what they found and could not repair.
 
 ### 06-01 Rule the corrected goal statement
 
@@ -132,33 +144,6 @@ Accept: the rule and `docs/` agree, and a check exists for whichever side was ru
 Stop: the ruling would require rewriting `docs/agents.md`, which is a maintained asset four test
 modules already check; surface that cost before ruling.
 
-### 06-03 Disposition every imported finding
-
-Role: jnwb-developer. Skill: none. Blocked by: 06-04.
-Reads: `artifacts/alignment_review_0.2.5.md`. Writes: `artifacts/findings_0.2.6.md`.
-This dispositions imported findings against current repository state, and 06-04 is what
-establishes that state. Running the two independently lets a finding be graded stale against a
-basis nobody re-resolved.
-Build a ledger resolving each of the 31 confirmed and 12 dissent-carrying findings, by its
-identifier, to one of: reproduced, refuted, stale, already repaired, deferred. **No finding may
-disappear for falling outside a batch.** Every deferred entry records why it is out of scope and
-where it stays discoverable. The 36 unverified findings are listed by identifier only, so the set
-stays recoverable, and are not individually dispositioned unless a batch reaches one.
-Known correction to carry: `public-claims/classifier-3-13-never-tested` is weaker than graded.
-`python scripts/harness_gate.py` prints that the 3.12 floor, the classifiers and the CI matrix
-"all agree", so the gate permits the gap by design; this is a policy question, not a broken gate.
-Accept: every identifier in the review resolves to exactly one disposition in the ledger, and a
-check asserts that the identifier sets match.
-Discriminator: delete one entry from the ledger; the check fails.
-
-### 06-04 Reconstruct the live basis
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: none.
-Re-resolve rather than recall: branch, HEAD, tree state, package metadata, declared Python
-support, CI matrix, exports, skills, published documentation, packaging, gates.
-Accept: a receipt per line, each a command and its output.
-Stop: any recorded value disagrees with the live tree.
-
 ### 06-41 Scope the length-1 attribute array read failure
 
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
@@ -183,7 +168,7 @@ human ruling on scope, not a developer judgement.
 
 ### 06-42 Scope the hdmf and pandas version contradiction
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-04. Writes: none.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: none.
 Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H2.
 A consumer reports that hdmf 4.3.1 declares `pandas<3,>=1.2.0`, that their corpus needs pandas
 3.0.5 for units-table construction to succeed, and that installing jnwb resolves pandas back to
@@ -214,7 +199,7 @@ Stop: a new estimator is required. Adding one is frozen out of this cycle.
 
 ### 06-05 Freeze the acceptance set and the non-goals
 
-Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-03, 06-04, 06-41, 06-42, 06-43.
+Role: human ruling. Skill: none. Blocked by: 06-01, 06-02, 06-41, 06-42, 06-43.
 Writes: this file.
 Accept: the frozen set is dated and the non-goals section below is part of it.
 
@@ -382,7 +367,7 @@ repair.
 
 ### 06-17 Confirmed findings not claimed by another item
 
-Role: jnwb-developer. Skill: per finding. Blocked by: 06-03.
+Role: jnwb-developer. Skill: per finding. Blocked by: none.
 One packet per ledger entry disposed `reproduced` and claimed by no other item, highest
 consequence first. Writes: named per packet from the finding's own receipt.
 Accept: each returns `repaired` with a discriminator, or `unsupported` with evidence.
@@ -438,6 +423,34 @@ tool that must be used instead. Prefer the docstring where accepting grouping wo
 Discriminator: whichever repair is chosen, a check that fails before it and passes after.
 Accept: a caller reading only the method's own documentation cannot apply it to grouped data
 believing it is correct.
+
+### 06-47 Staggered electrode shafts read as non-linear
+
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
+Writes: `jnwb/addressing.py`, `jnwb/laminar.py`, `tests/`.
+Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H3.
+Admitted 2026-09-19 after the reporter named it, with H1, as one of their two unblockers.
+A consumer reports that `probe_geometry` returns `is_linear=False` and `nominal_pitch=47.17`
+for a shaft whose contacts advance by a constant 25 um along z with a 40 um lateral stagger in
+x. `47.17` is `sqrt(25^2 + 40^2)`, so the lateral offset is being measured as advance along the
+shaft. `label_layers` then refuses those channels: reportedly 9 of 36 probes and 25% of their
+channels.
+Reproduce: construct a two-column staggered shaft with a constant axial pitch and a fixed
+lateral offset, and show `probe_geometry` reporting it non-linear with a pitch equal to the
+hypotenuse rather than the axial step. Reproduction is that specific arithmetic, not merely
+`is_linear=False`.
+Do: measure pitch along the dominant axis of contact advance and record the lateral offset as a
+stagger rather than as non-linearity. A staggered shaft is linear in the sense `label_layers`
+needs, which is that depth is monotone along one axis.
+Discriminator: the constructed staggered shaft, which must report the axial pitch after the
+change and the hypotenuse before it; and a genuinely non-linear arrangement, which must still
+report `is_linear=False` afterwards. Both directions, or the repair is just a widened tolerance.
+Accept: no arrangement whose contacts advance monotonically along one axis is refused by
+`label_layers` for lateral stagger alone, and the layer labels computed over a staggered shaft
+are checked, not just their count. Widening which contacts are labelled changes what every
+label is computed over.
+Stop: the repair would change layer labels on shafts that already work. That is a silent result
+change and needs a ruling, not a developer judgement.
 
 ## Batch 3. Coherence of code, documentation, tests and skills
 
@@ -608,7 +621,185 @@ admissible cannot gate a release without giving the experiment a result to reach
 Accept: task set, scoring rubric, arms, repetitions, refusal scoring and inferential unit are all
 declared, and the document states that none of it has been executed.
 
-## Batch 5. Independent closure and release
+## Batch 5. Documentation form
+
+Condition 1 of the release acceptance in `AGENTS.md` §11. The pages are accurate after Batch 1;
+this batch is about whether they can be read. A correct page nobody finishes is not reachable
+documentation, and reachability is what 0.2.6 claims.
+
+The order matters: the contract is declared first, because a verbosity or formatting judgement
+made page by page is a preference, and twenty-seven pages edited to twenty-seven preferences is
+worse than leaving them alone.
+
+### 06-48 Declare the documentation form contract
+
+Role: docs-harness. Skill: none. Blocked by: none. Writes: `docs/` (one new page), `mkdocs.yml`.
+Do: write the contract the other items in this batch are measured against. It fixes: when a
+table is required rather than prose (any set of comparable facts with more than two members);
+when a list is required (enumerations with no ordering claim); what a paragraph is for
+(reasoning, not enumeration); the figure policy; and the heading depth a page may reach.
+Verbosity is specified as a ceiling per page kind, not as a global word count: a tutorial and an
+API page fail differently.
+Accept: every rule in the contract is checkable by reading one page against it and getting the
+same answer twice. A rule that needs taste is removed, not softened.
+Stop: the contract would forbid something four or more existing pages do. That is a signal the
+rule is wrong, not that the pages are.
+
+### 06-49 One term per concept
+
+Role: docs-harness. Skill: none. Blocked by: 06-48. Writes: `docs/`, `tests/`.
+Reproduce: build the term inventory first. For each concept the documentation names, list every
+surface form in use across `docs/`, `README.md` and the skill files. Reproduction is any concept
+with more than one surface form.
+Do: pick one form per concept and converge. Where two forms mean subtly different things, that
+is not a synonym problem and the item records the distinction instead of collapsing it.
+Discriminator: reintroduce a superseded term on one page; the check names the page and the term.
+Accept: a machine-checked vocabulary list, and no concept in it with a second surface form.
+Stop: a term is fixed by an upstream project, such as NWB's own nomenclature. Those are adopted,
+not renamed.
+
+### 06-50 Reorganize the left menu
+
+Role: docs-harness. Skill: none. Blocked by: 06-48. Writes: `mkdocs.yml`.
+The nav has 27 entries and every target resolves, so this is not a broken-link item. The order is
+the question: it currently reflects the order the pages were written.
+Do: order by arrival. A reader arrives with one of a small number of questions, and the menu's
+top level answers which question this reader has. Group depth stays at two.
+Accept: every page is reachable in at most two clicks from a top-level group whose name a reader
+would pick without opening it, and no group holds one page.
+Stop: the ordering requires splitting or merging pages. That is 06-51's business.
+
+### 06-51 Reduce verbosity against the contract
+
+Role: docs-harness. Skill: none. Blocked by: 06-48, 06-49. Writes: `docs/`, `README.md`.
+One packet per page, not one packet for the set. A batch handed twenty-seven pages trims the easy
+ones and rewrites the hard one.
+Do: per page, apply the contract. Prose carrying comparable facts becomes a table; restated
+obviousness, hedges and repeated caveats are cut; anything unverified is removed rather than
+labelled.
+Accept: the page satisfies every rule in the contract, and no fact present before is absent
+after. Shorter is not the acceptance condition; shorter while lossless is.
+Stop: applying the contract would delete a caveat that a test or a gate exists to enforce. Cut
+the restatement, keep the one that is load-bearing.
+
+### 06-52 Figures that carry structure
+
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-48, 06-30. Writes: `docs/`,
+`docs/assets/`, `tests/`.
+Do: place the canonical diagrams from 06-30 into the pages whose structure they carry, as inline
+HTML or SVG rather than as raster images, so they scale and remain searchable. Each figure is
+theme-matched: it renders legibly in both the light and the dark MkDocs theme, and no figure
+encodes its own background colour.
+Discriminator: switch the theme; a figure that hardcoded a colour becomes unreadable and the
+check catches it.
+Accept: every figure renders in both themes, every figure is referenced by the prose around it,
+and no page carries a figure that repeats what its adjacent table already says.
+Stop: a figure would need to be adapted from Paper2Agent. Its licence forbids derivative figures
+and `artifacts/direction.md` records the constraint.
+
+### 06-53 Gate the documentation form
+
+Role: docs-harness. Skill: none. Blocked by: 06-48, 06-49, 06-50, 06-51, 06-52.
+Writes: `scripts/`, `tests/`.
+A contract nothing enforces decays to a preference within one cycle.
+Do: make the mechanically checkable rules into checks -- the vocabulary list, heading depth, nav
+shape, figure theme-independence, and the presence of a table where a page states more than two
+comparable facts in prose.
+Discriminator: each check is shown failing on a constructed page that breaks exactly its rule.
+Accept: every check fails on its own seeded violation and passes on the live tree. A rule that
+cannot be expressed as a check is recorded in the contract as a review item, not silently
+dropped.
+
+## Batch 6. Computational form
+
+Condition 2 of the release acceptance in `AGENTS.md` §11. `jnwb/_backend.py` and
+`jnwb/_parallel.py` already exist, with 34 `resolve_device` call sites and 11 `parallel_map`
+ones, so this batch is about uniformity and truthfulness of a mechanism that is already there,
+not about building one.
+
+Ruled 2026-09-19: CPU, parallel CPU and CUDA are exercised on the development machine. The JAX
+Metal path is implemented and declared unverified, because no machine here can execute it. A
+declared gap is admissible; an unbacked claim is not.
+
+Ruled 2026-09-19: where an implementation matches the official documentation of the method it
+implements, a citation to that documentation is sufficient evidence of correctness and the
+algorithm is not independently re-derived. This narrows what must be re-proved. It does not
+remove tests, and existing coverage stays.
+
+### 06-54 Inventory the computational order
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `artifacts/`.
+Measure before changing anything. For each public export whose cost grows with input size,
+record the order it achieves and the order its problem admits, with the measurement that shows
+it. An export whose two orders agree is recorded as such and is not touched.
+Accept: a table of exports with measured and admissible order, and every gap named. No
+optimisation happens under this item.
+Stop: the admissible order is a research question rather than a known result. Record it as
+unknown; an assumed lower bound is not evidence.
+
+### 06-55 One precision switch
+
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/`, `tests/`.
+Reproduce: enumerate how precision is currently selected across the 29 modules that mention a
+dtype. Reproduction is more than one mechanism, or any path where the output dtype is not
+determined by the input and the caller's request.
+Do: one mechanism for 32-bit and 64-bit, applied uniformly. A function that cannot honour a
+requested precision says so rather than silently upcasting.
+Discriminator: request the precision a function does not honour; before the change it returns
+the other one silently, after it raises or is documented to promote.
+Accept: the dtype of every public return is a stated function of the input dtype and the
+request, and a test asserts it for the declared high-risk subset.
+Stop: honouring 32-bit would change a result beyond its documented tolerance. Record the
+function as 64-bit only; do not quietly return 64-bit from a 32-bit request.
+
+### 06-56 One execution switch
+
+Role: jnwb-developer. Skill: none. Blocked by: 06-55. Writes: `jnwb/`, `tests/`.
+Reproduce: `jnwb/jrsa.py:222` documents a backend parameter as "accepted for API compatibility".
+A parameter accepted and ignored is the substitution class of 06-16 in another form: the caller
+asks for one thing, receives another, and nothing errors. Establish for every backend-taking
+export whether the argument selects anything.
+Do: one mechanism for CPU, parallel CPU, CUDA and JAX Metal. Every backend argument either
+selects a backend or is rejected. A fallback is announced, never silent.
+Discriminator: request an unavailable backend; it must fail or warn, and the warning must name
+what ran instead.
+Accept: CPU, parallel CPU and CUDA each produce results agreeing within a stated tolerance on
+the declared high-risk subset, measured on this machine. The Metal path is implemented and
+documented as unverified, and no page, docstring or release note claims it works.
+Stop: two backends disagree beyond tolerance. That is a correctness defect, not a dispatch
+defect, and it stops the packet.
+
+### 06-57 Cite the reference where the implementation matches it
+
+Role: jnwb-developer. Skill: per module. Blocked by: none. Writes: `jnwb/`, `docs/references.md`.
+Do: where an implementation follows a published or official reference, cite that reference at the
+implementation and in `docs/references.md`. Under the 2026-09-19 ruling the citation is the
+evidence of correctness and the algorithm is not re-derived.
+Accept: every cited reference resolves, and the citation names the specific result implemented
+rather than the paper in general. A citation to a whole paper does not say which equation was
+followed and is not sufficient evidence.
+Stop: the implementation and the reference differ. A deliberate divergence is documented at the
+divergence; an undocumented one is a defect and goes to the problem stack.
+
+### 06-58 Reduce the orders the inventory named
+
+Role: jnwb-developer. Skill: per module. Blocked by: 06-54, 06-57. Writes: per packet.
+One packet per gap from 06-54, highest cost first.
+Discriminator: a timing or operation-count measurement that separates the two orders on inputs
+large enough for the difference to exceed noise.
+Accept: the new order is measured, not argued, and every numerical result is unchanged within a
+stated tolerance against a frozen output from before the change.
+Stop: the faster order changes results beyond tolerance. Correctness outranks order.
+
+### 06-59 Gate the computational contract
+
+Role: jnwb-developer. Skill: none. Blocked by: 06-55, 06-56, 06-58. Writes: `scripts/`, `tests/`.
+Do: make the contract enforceable -- a backend argument that selects nothing fails; a precision
+request silently ignored fails; an export added without a recorded order fails.
+Discriminator: each check shown failing on a seeded violation.
+Accept: every check fails on its own seeded violation and passes on the live tree.
+
+## Batch 7. Independent closure and release
 
 ### 06-34 Adversarial mutation pass
 
@@ -646,9 +837,25 @@ Role: critic. Skill: none. Blocked by: 06-34 through 06-38. Writes: none.
 A reviewer that implemented none of the repairs, over the acceptance set, the unresolved
 unknowns, the mutation evidence, the public claims and the release artifacts.
 
+### 06-60 Both stacks empty, verified by a pass that finds nothing
+
+Role: critic. Skill: none. Blocked by: 06-39. Writes: `artifacts/problem_stack.md`.
+Condition 3 of `AGENTS.md` §11, and the item that decides whether the release opens.
+Do: one full pass over the documentation, the code and both stacks. Anything found is written to
+the problem stack, which re-opens the cycle: the batch that owns it runs, and this item runs
+again. The pass is not a review of the repairs, which is 06-39's job; it is a search for what
+nobody has looked at yet.
+Accept: `artifacts/todo_stack.md` holds no item, `artifacts/problem_stack.md` holds no `open`
+problem, and this pass discovered nothing new. All three at the same moment, which is the point
+of the fixpoint -- two of them holding while the third is being worked is the state every cycle
+passes through and is not the terminating condition.
+Stop: the pass finds something whose repair needs a human ruling. The cycle stays open; it does
+not close by reclassifying the finding as `accepted`. `accepted` records that a problem cannot be
+repaired, never that repairing it is inconvenient.
+
 ### 06-40 Release
 
-Role: human, with verifier receipts. Skill: none. Blocked by: 06-39.
+Role: human, with verifier receipts. Skill: none. Blocked by: 06-60.
 Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`, and the release body through the API.
 dev green, pull request and main green, tag validates without publishing, GitHub Release,
 production index, then verification from the index in a clean environment. A tag alone validates
@@ -658,13 +865,7 @@ artifacts and does not publish; publication happens on the release.
 
 Not frozen and not scheduled. Recorded so that nothing reported disappears by not being chosen.
 
-- **H3, staggered shafts read as non-linear.** `probe_geometry` is reported to return
-  `is_linear=False` and `nominal_pitch=47.17` for a shaft whose contacts advance by a constant
-  25 um with a 40 um lateral stagger, `47.17` being `sqrt(25^2 + 40^2)`; `label_layers` then
-  refuses those channels, reportedly 25% of the consumer's corpus. Of the seven handout items
-  offered, this is the one not admitted to 0.2.6. The reporter named it and H1 as their two
-  unblockers, so the omission is worth confirming as deliberate before Batch 2 closes.
-- **`dist/` holds only superseded artifacts.** 06-04 observed `jnwb-0.1.1`, `jnwb-0.1.3` and
+- **`dist/` holds only superseded artifacts.** The basis reconstruction observed `jnwb-0.1.1`, `jnwb-0.1.3` and
   `jnwb-0.2.4.tar.gz` and no 0.2.5 build, so
   `tests/test_distribution_manifest_inspection.py::test_any_distribution_present_in_this_checkout_is_clean`
   currently inspects three releases nobody ships and never the one that did. The test is not
@@ -698,8 +899,19 @@ Frozen as part of the acceptance set. Each needs its own authorization.
   + documentation assets render and are regenerable
   + one real NWB end-to-end example with provenance
   + published artifact independently verified from the index
+  + documentation low-verbosity and consistently formed, against a declared contract
+  + one precision switch and one execution switch, CPU, parallel CPU and CUDA exercised here
+  + both stacks empty, confirmed by a full pass that discovered nothing new
 
 The fifth line is bounded deliberately and does not claim package-wide semantic completeness.
 The form matches 0.2.5's closure: no known material defect under a stated acceptance set, not a
 claim of exhaustive correctness. What changed is that the set is cross-surface and compositional
 rather than per-surface.
+
+The last three lines were added on 2026-09-19, before this set was frozen, and they are the
+three conditions of `AGENTS.md` §11. They are not a second release: 06-05 freezes this set with
+them in it. The last of the three is what makes the other two hold at the same moment, because a
+cycle that satisfies its conditions in sequence has satisfied none of them together.
+
+One line that is deliberately absent: a claim that the JAX Metal backend works. It is
+implemented and declared unverified, since no machine available here can execute it.
