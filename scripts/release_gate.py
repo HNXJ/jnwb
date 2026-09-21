@@ -1019,8 +1019,22 @@ _RETIREMENT_MARKER = re.compile(
 )
 
 
+# A cell that is nothing but item ids -- `06-17`, or `06-17, 06-35` -- is a bare pointer. The
+# column is named `Answered in`, so an id standing alone in it IS the ownership claim; there is
+# no prose for it to be a passing mention of. Measured: P-02, P-04 and P-06 each carry exactly
+# one id and nothing else.
+#
+# Recognising only the phrases (`owned by`, `claimed by`, `belongs to`) missed the commonest
+# form and made the check narrower than the invariant, which is the same mistake in the same
+# direction as the `BLOCKER` guard it replaced -- a proxy for "the owning item" that happened to
+# match most of the examples in front of it.
+_BARE_POINTER = re.compile(r"^[\s,;.]*\d\d-\d+(?:[\s,;]+(?:and\s+)?\d\d-\d+)*[\s,;.]*$")
+
+
 def ownership_refs(cell: str) -> List[str]:
     """Item ids this cell claims as owners, in order of appearance."""
+    if _BARE_POINTER.match(cell):
+        return re.findall(r"\d\d-\d+", cell)
     out: List[str] = []
     for group in _OWNERSHIP_REF.findall(cell):
         out.extend(re.findall(r"\d\d-\d+", group))

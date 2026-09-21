@@ -201,7 +201,7 @@ unpushed. Do not cross a version boundary before sealing it.
 | Command | Asserts | A pass means |
 |---|---|---|
 | `python -m pytest tests/ -q` | The full suite | Every test passed on the interpreter you ran |
-| `python scripts/harness_gate.py` | Gates 1–16, in order | Boundary, skill-tree uniqueness, machine-local paths in tests, root allowlist, public symbols documented, forbidden study tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, Python floor and classifier/CI agreement, `docs/api.md` against `__all__` and the generator, docs versions derived from `__version__`, no unowned importable package at the root, project identifiers in `jnwb/` code, NWB onboarding alignment, internal process vocabulary in `docs/`, stack form, line-ending consistency |
+| `python scripts/harness_gate.py` | Gates 1–16, in order | `CONTRIBUTING.md` names what each gate checks; `GATES` in the script is the authority for how many there are |
 | `python scripts/release_gate.py` | Release readiness | Run before tagging |
 | `python scripts/docs_build.py` | Docs build (strict MkDocs via `sys.executable`) | A warning fails the publish; `CONTRIBUTING.md` says why. Do not call bare `mkdocs`; PATH may point at another interpreter. |
 
