@@ -119,6 +119,46 @@ def _scopes(text: str) -> List[Tuple[str, str]]:
     return [("<module>", ast.unparse(ast.fix_missing_locations(residual)))] + functions
 
 
+def _sentence_units(text: str) -> List[str]:
+    """`text` split into sentences, for prose that may carry a bullet list.
+
+    Two splits, and the second exists because the first is not enough on a docstring. A period
+    followed by a capital or a backtick ends a sentence -- written that way so
+    `jnwb.fit_exponential_onset` and `docs/common_mistakes.md` are not cut in half, and neither
+    is a decimal such as `-0.118`. But `causal_exp_smooth`'s docstring opens with a heading and
+    a bullet list whose lines end in colons and formulae, none of which is a period before a
+    capital, so that rule alone glues the entire block into one span.
+
+    That is not a pedantic distinction. A first draft of the 06-95 assertions used the period
+    rule alone, and the sentence it reported as carrying the filter-delay instruction was the
+    whole `ESTIMATOR LATENCY PROPERTIES & HAZARD` block -- which contains every word the
+    assertions look for, somewhere. The check passed while pinning nothing, which is the exact
+    shape those assertions exist to prevent. Structural breaks are therefore taken first: a
+    blank line, a line-ending colon, and a line opening a bullet.
+    """
+    units = re.split(r"(?m):[ \t]*\n|\n[ \t]*\n|\n(?=[ \t]*[-*][ \t])", text)
+    out: List[str] = []
+    for unit in units:
+        collapsed = " ".join(unit.split())
+        if collapsed:
+            out.extend(re.split(r"(?<=\.)\s+(?=[A-Z`])", collapsed))
+    return out
+
+
+def _delay_sentences(text: str) -> List[str]:
+    """Sentences of `text` that instruct removing a filter or group delay from something.
+
+    One definition serves the spiking skill's safeguards section and `causal_exp_smooth`'s
+    docstring, so the two faces of the rule are held to one reading rather than to two copies
+    of it that can drift.
+    """
+    return [
+        s for s in _sentence_units(text)
+        if re.search(r"(filter|group)\s+delay", s, re.I)
+        and re.search(r"\b(subtract|remove|correct)", s, re.I)
+    ]
+
+
 _WRITE_CALL = re.compile(r"""write_text|write_bytes|open\([^)]*['"][wa]""")
 
 
@@ -1094,30 +1134,29 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
     SKILL = Path(__file__).resolve().parents[1] / "skills" / "jnwb-spiking" / "SKILL.md"
     HEADING = "## 3. Invariants & Safeguards"
 
-    def _sentences(self):
-        """Sentences of the safeguards section, whitespace-collapsed.
-
-        Split on a period followed by a capital or a backtick, so `jnwb.fit_exponential_onset`
-        and `docs/common_mistakes.md` are not cut in half. The file is CRLF; collapsing
-        whitespace normalises it.
-        """
+    def _section(self):
+        """The raw text of the safeguards section. The file is CRLF."""
         text = self.SKILL.read_text(encoding="utf-8")
         assert self.HEADING in text, (
             f"{self.SKILL.name} has no {self.HEADING!r} section, so every assertion below "
             "would pass vacuously"
         )
-        section = text.split(self.HEADING, 1)[1].split("\n## ", 1)[0]
-        sentences = re.split(r"(?<=\.)\s+(?=[A-Z`])", " ".join(section.split()))
+        return text.split(self.HEADING, 1)[1].split("\n## ", 1)[0]
+
+    def _sentences(self):
+        """Sentences of the safeguards section, by the shared split."""
+        sentences = _sentence_units(self._section())
         assert len(sentences) > 1, "the safeguards section did not split into sentences"
         return sentences
 
     def _delay_corrections(self):
-        """Sentences that speak about removing a filter or group delay from something."""
-        return [
-            s for s in self._sentences()
-            if re.search(r"(filter|group)\s+delay", s, re.I)
-            and re.search(r"\b(subtract|remove|correct)", s, re.I)
-        ]
+        """Sentences that speak about removing a filter or group delay from something.
+
+        `_delay_sentences` is the shared definition, read here against the raw section so the
+        skill and the docstring are held to one rule rather than to two copies of it.
+        """
+        self._sentences()  # keeps the heading assertion on the path
+        return _delay_sentences(self._section())
 
     def test_the_correction_names_its_readout_in_the_sentence_that_gives_it(self):
         giving = [s for s in self._delay_corrections() if "fit_exponential_onset" not in s]
@@ -1160,6 +1199,79 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
             "tau-invariance. That contrast is the only way a reader tells which readout they "
             "hold: the crossing error scales with tau_ms, the fit's -0.9 ms bias does not and "
             f"tracks bin_ms instead (found {len(contrast)} candidate sentences)"
+        )
+
+    def test_the_docstring_carries_the_same_scope_as_the_skill(self):
+        """P-110/06-95: the skill was scoped and the docstring next to the code was not.
+
+        `causal_exp_smooth`'s docstring stated `t_observed = t_signal + t_estimator` as a
+        general identity and then told the reader not to compare latencies without accounting
+        for estimator delay, with no scope at all. A reader holding a fitted t0 -- which is the
+        only onset this module produces -- would apply the correction and turn a -0.9 ms bias
+        into about -18 ms at tau_ms=25.
+
+        The three assertions below are the skill's own three, run against the docstring, so the
+        two faces cannot drift apart: whichever one is edited, the other must state the same
+        rule or this fails. They are reused rather than restated, because a second copy of an
+        assertion is a second thing to keep in step.
+        """
+        from jnwb.onset_fitting import causal_exp_smooth
+
+        doc = causal_exp_smooth.__doc__
+        assert doc, "causal_exp_smooth has no docstring, so every assertion here is vacuous"
+        sentences = _delay_sentences(doc)
+
+        giving = [s for s in sentences if "fit_exponential_onset" not in s]
+        assert len(giving) == 1, (
+            "expected exactly one docstring sentence instructing a filter-delay correction "
+            f"without naming the fit; found {len(giving)}: {giving}"
+        )
+        assert re.search(r"threshold crossing", giving[0], re.I), (
+            "the docstring's filter-delay correction does not name the readout it applies to, "
+            f"so it reads as applying to a fitted t0 as well: {giving[0]!r}"
+        )
+        assert re.search(r"\bonly\b", giving[0], re.I), (
+            "the docstring mentions a crossing but does not restrict the correction to one: "
+            f"{giving[0]!r}"
+        )
+
+        about_fit = [s for s in sentences if "fit_exponential_onset" in s]
+        assert len(about_fit) == 1, (
+            "expected exactly one docstring sentence relating fit_exponential_onset to the "
+            f"filter-delay correction; found {len(about_fit)}: {about_fit}"
+        )
+        assert re.search(r"\bnot\b", about_fit[0]), (
+            "the docstring names fit_exponential_onset alongside the correction without "
+            f"withholding the correction from it: {about_fit[0]!r}"
+        )
+
+        contrast = [
+            s for s in _sentence_units(doc)
+            if re.search(r"crossing", s, re.I) and re.search(r"invariant", s, re.I)
+        ]
+        assert len(contrast) == 1, (
+            "no single docstring sentence contrasts the crossing's tau-scaling against the "
+            "fit's tau-invariance, which is the only way a reader tells which readout they "
+            f"hold (found {len(contrast)})"
+        )
+
+    def test_a_second_unscoped_instruction_in_the_docstring_is_caught(self):
+        """The mutant 06-93 settled on, applied to the docstring.
+
+        Every word of the repaired text is left intact and one more unscoped instruction is
+        added. A check for the presence of "subtract" and "threshold crossing" would stay green
+        -- the repaired text states both more than once -- which is how two mutants survived
+        the first repair of P-88. Pinning one sentence is what kills it.
+        """
+        from jnwb.onset_fitting import causal_exp_smooth
+
+        mutant = causal_exp_smooth.__doc__ + (
+            "\n    Subtract the filter delay from the onset before comparing conditions.\n"
+        )
+        giving = [s for s in _delay_sentences(mutant) if "fit_exponential_onset" not in s]
+        assert len(giving) == 2, (
+            "the added unscoped instruction was not seen as a second correction-giving "
+            f"sentence, so this discriminator does not discriminate: {giving}"
         )
 
     def test_tau_ms_is_still_held_fixed_across_compared_conditions(self):
