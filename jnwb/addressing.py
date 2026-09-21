@@ -399,6 +399,12 @@ def enrich_units_dataframe(
     return df
 
 
+# Smallest advance along the shaft axis, as a fraction of the mean advance, that still
+# counts as two contacts sitting at distinct depths. Contacts that share a depth (a planar
+# grid, a paired ladder) fall far below this and do not describe a shaft.
+_MIN_AXIAL_STEP_FRACTION = 0.2
+
+
 @dataclass(frozen=True)
 class ProbeGeometry:
     """Extracted contact geometry and spatial properties for an electrode array.
@@ -417,6 +423,8 @@ class ProbeGeometry:
         Fractional tolerance used to evaluate nominal pitch uniformity.
     is_linear : bool
         Whether contacts fall along a single linear probe shaft within tolerance.
+        A staggered (zig-zag / multi-column) shaft is linear: what matters is that
+        contacts advance monotonically along the shaft axis, not that they are collinear.
     is_uniform : bool
         Whether inter-contact spacing along the ordered contacts is uniform within tolerance.
     linear_order : np.ndarray
@@ -429,6 +437,13 @@ class ProbeGeometry:
         Name or identifier of the probe group/shank, or ``None``.
     units : str
         Spatial coordinate units, always ``"um"``.
+    stagger_um : float
+        Lateral extent of the contacts perpendicular to the shaft axis, in micrometers
+        (:math:`\\mu\\mathrm{m}`). ``0.0`` for a single-column (collinear) shaft; for a
+        staggered two-column shaft this is the separation between the columns.
+    is_staggered : bool
+        Whether the contacts carry a lateral offset from the shaft axis large enough
+        that the shaft is not collinear. A staggered shaft is still ``is_linear=True``.
     """
 
     contact_positions: np.ndarray
@@ -441,6 +456,8 @@ class ProbeGeometry:
     orientation: Optional[np.ndarray]
     probe_name: Optional[str]
     units: str = "um"
+    stagger_um: float = 0.0
+    is_staggered: bool = False
 
 
 def probe_geometry(
@@ -451,6 +468,7 @@ def probe_geometry(
     nominal_pitch: Optional[float] = None,
     pitch_tolerance: float = 0.1,
     strict_linear: bool = False,
+    stagger_tolerance_um: float = 100.0,
 ) -> ProbeGeometry:
     """Extract contact geometry, linear ordering, and spacing from electrode coordinates.
 
@@ -474,7 +492,10 @@ def probe_geometry(
         (e.g. ``"um"``, ``"mm"``, ``"m"``). Raises :class:`ValueError` if unsupported.
     nominal_pitch : float, optional
         Expected inter-contact spacing in input units. If omitted, estimated from the
-        median Euclidean distance between adjacent ordered contacts.
+        median *advance along the shaft axis* between adjacent ordered contacts. On a
+        staggered shaft this is the axial step, not the contact-to-contact chord: a shaft
+        advancing 25 :math:`\\mu\\mathrm{m}` per contact with a 40 :math:`\\mu\\mathrm{m}`
+        lateral stagger has a pitch of 25, not :math:`\\sqrt{25^2 + 40^2}`.
     pitch_tolerance : float, default 0.1
         Allowable relative deviation from nominal pitch:
         :math:`|\\Delta d - d_{\\mathrm{nom}}| \\le \\epsilon \\cdot d_{\\mathrm{nom}}`.
@@ -482,6 +503,11 @@ def probe_geometry(
     strict_linear : bool, default False
         If ``True``, raises :class:`ValueError` if the probe contacts do not conform to a
         linear geometry within tolerance.
+    stagger_tolerance_um : float, default 100.0
+        Maximum lateral extent, in micrometers (:math:`\\mu\\mathrm{m}`), that contacts may
+        span perpendicular to the shaft axis while still counting as a single linear shaft.
+        Standard staggered / zig-zag multi-column shafts sit well inside this bound; a
+        planar grid or a scattered arrangement does not. Must be non-negative and finite.
 
     Returns
     -------
@@ -498,6 +524,11 @@ def probe_geometry(
     """
     if pitch_tolerance < 0.0 or not np.isfinite(pitch_tolerance):
         raise ValueError(f"pitch_tolerance must be a non-negative finite float, got {pitch_tolerance}")
+
+    if stagger_tolerance_um < 0.0 or not np.isfinite(stagger_tolerance_um):
+        raise ValueError(
+            f"stagger_tolerance_um must be a non-negative finite float, got {stagger_tolerance_um}"
+        )
 
     units_norm = str(units).strip().lower()
     if units_norm not in _DEPTH_UNIT_SCALES:
@@ -628,6 +659,8 @@ def probe_geometry(
             orientation=None,
             probe_name=resolved_probe_name,
             units="um",
+            stagger_um=0.0,
+            is_staggered=False,
         )
 
     # 6. Assess linearity via Principal Component Analysis (SVD)
@@ -653,17 +686,49 @@ def probe_geometry(
         sorted_proj = projections[linear_order]
         sorted_coords = coords_um[linear_order]
 
+    mean_pos = np.mean(coords_um, axis=0)
+
+    # 6b. Refine the shaft axis so a lateral stagger cannot tilt it.
+    # On a zig-zag shaft the alternating lateral offset is correlated with the contact
+    # index, which pulls the raw principal component off the true shaft axis and leaks
+    # part of the stagger into the measured advance. Averaging each half of the ordered
+    # contacts cancels any repeating lateral pattern, leaving pure advance along the shaft.
+    # This relies on the initial ordering already being by depth, which holds while the
+    # lateral extent stays well under the axial span -- comfortably true for any stagger
+    # inside stagger_tolerance_um, and the geometry is refused as non-linear before the
+    # estimate would degrade.
+    half = n_channels // 2
+    if half >= 1:
+        lo_centroid = np.mean(sorted_coords[:half], axis=0)
+        hi_centroid = np.mean(sorted_coords[n_channels - half:], axis=0)
+        delta = hi_centroid - lo_centroid
+        delta_norm = float(np.linalg.norm(delta))
+        if delta_norm > 0.0:
+            principal_dir = delta / delta_norm
+            projections = np.dot(coords_um - mean_pos, principal_dir)
+            linear_order = np.argsort(projections)
+            sorted_proj = projections[linear_order]
+            sorted_coords = coords_um[linear_order]
+
     unit_orientation = principal_dir / np.linalg.norm(principal_dir)
 
     # Reconstructed positions along the linear axis: mean + proj * unit_orientation
-    mean_pos = np.mean(coords_um, axis=0)
     reconstructed = mean_pos + np.outer(projections, unit_orientation)
-    residuals = np.linalg.norm(coords_um - reconstructed, axis=1)
+    lateral_offsets = coords_um - reconstructed
+    residuals = np.linalg.norm(lateral_offsets, axis=1)
     max_residual = np.max(residuals)
 
-    # Inter-contact distances along sorted order
-    diffs = np.diff(sorted_coords, axis=0)
-    step_distances = np.linalg.norm(diffs, axis=1)
+    # Lateral extent: how wide the shaft is, measured across its dominant lateral
+    # direction. A single-column shaft is 0; a staggered two-column shaft is the
+    # column separation. This is a stagger, not a departure from linearity.
+    _, _, lateral_vt = np.linalg.svd(lateral_offsets, full_matrices=False)
+    stagger_um = float(np.ptp(np.dot(lateral_offsets, lateral_vt[0])))
+
+    # Advance along the shaft axis between adjacent ordered contacts. Deliberately not
+    # the 3D chord between contacts: on a staggered shaft the chord is the hypotenuse of
+    # (axial step, lateral stagger) and would report the stagger as advance.
+    axial_steps = np.diff(sorted_proj)
+    axial_span = float(sorted_proj[-1] - sorted_proj[0])
 
     # Derived or explicit nominal pitch in micrometers
     if nominal_pitch is not None:
@@ -671,21 +736,41 @@ def probe_geometry(
         if nom_pitch_um <= 0.0 or not np.isfinite(nom_pitch_um):
             raise ValueError(f"nominal_pitch must be positive and finite, got {nominal_pitch}")
     else:
-        nom_pitch_um = float(np.median(step_distances))
+        nom_pitch_um = float(np.median(axial_steps))
 
-    # Linearity condition: transverse residuals must be small compared to nominal pitch
-    # Allow at most max(pitch_tolerance * nom_pitch_um, 1e-4) deviation from the line
-    line_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
-    is_linear = bool(max_residual <= line_tol)
+    # Linearity condition, in the sense the laminar path needs: contacts must sit at
+    # distinct, monotonically advancing depths along one axis, and their lateral offset
+    # must be a bounded stagger rather than open scatter. Collinearity is not required.
+    mean_axial_step = axial_span / (n_channels - 1)
+    if mean_axial_step > 0.0:
+        advances_monotonically = bool(
+            np.all(axial_steps >= _MIN_AXIAL_STEP_FRACTION * mean_axial_step)
+        )
+    else:
+        advances_monotonically = False
+    stagger_within_tolerance = bool(stagger_um <= stagger_tolerance_um)
+    is_linear = bool(advances_monotonically and stagger_within_tolerance)
 
     if strict_linear and not is_linear:
-        raise ValueError(
-            f"Probe geometry is non-linear: maximum off-axis deviation {max_residual:.3f} um "
-            f"exceeds tolerance {line_tol:.3f} um"
-        )
+        if not advances_monotonically:
+            reason = (
+                f"contacts do not advance monotonically along the shaft axis "
+                f"(smallest axial step {float(np.min(axial_steps)):.3f} um against a mean of "
+                f"{mean_axial_step:.3f} um)"
+            )
+        else:
+            reason = (
+                f"lateral extent {stagger_um:.3f} um exceeds stagger tolerance "
+                f"{float(stagger_tolerance_um):.3f} um"
+            )
+        raise ValueError(f"Probe geometry is non-linear: {reason}")
 
-    # Uniformity condition: step distances within pitch_tolerance of nominal pitch
-    pitch_err = np.abs(step_distances - nom_pitch_um)
+    # A shaft is staggered when its lateral extent puts it outside collinearity.
+    collinear_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
+    is_staggered = bool(stagger_um > collinear_tol)
+
+    # Uniformity condition: axial steps within pitch_tolerance of nominal pitch
+    pitch_err = np.abs(axial_steps - nom_pitch_um)
     is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + 1e-6)))
 
     return ProbeGeometry(
@@ -699,6 +784,8 @@ def probe_geometry(
         orientation=unit_orientation,
         probe_name=resolved_probe_name,
         units="um",
+        stagger_um=stagger_um,
+        is_staggered=is_staggered,
     )
 
 

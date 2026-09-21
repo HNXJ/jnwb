@@ -25,7 +25,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.classify_layer_from_depth | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> str<br>*Classify unit cortical layer using z depth coordinates.* |
 | jnwb.enrich_units_dataframe | function | (units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> pandas.DataFrame<br>*Enrich units DataFrame with standardized area, layer, and quality flags.* |
 | jnwb.map_peak_channel_to_area | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None<br>*Map peak channel ID to brain area location.* |
-| jnwb.probe_geometry | function | (electrodes_table: typing.Any, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False) -> jnwb.addressing.ProbeGeometry<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
+| jnwb.probe_geometry | function | (electrodes_table: typing.Any, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False, stagger_tolerance_um: float = 100.0) -> jnwb.addressing.ProbeGeometry<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
 
 ## Module: jnwb.analyzers
 

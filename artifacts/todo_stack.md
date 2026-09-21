@@ -470,34 +470,6 @@ declares its own set from the finding's receipt. Not schedulable as a single lan
 a parser reading this field returned the token `repaired`, scraped off the Accept line below.
 Accept: each returns `repaired` with a discriminator, or `unsupported` with evidence.
 
-### 06-47 Staggered electrode shafts read as non-linear
-
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/addressing.py`, `jnwb/laminar.py`, `tests/test_staggered_shafts.py`.
-Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H3.
-Admitted 2026-09-19 after the reporter named it, with H1, as one of their two unblockers.
-A consumer reports that `probe_geometry` returns `is_linear=False` and `nominal_pitch=47.17`
-for a shaft whose contacts advance by a constant 25 um along z with a 40 um lateral stagger in
-x. `47.17` is `sqrt(25^2 + 40^2)`, so the lateral offset is being measured as advance along the
-shaft. `label_layers` then refuses those channels: reportedly 9 of 36 probes and 25% of their
-channels.
-Reproduce: construct a two-column staggered shaft with a constant axial pitch and a fixed
-lateral offset, and show `probe_geometry` reporting it non-linear with a pitch equal to the
-hypotenuse rather than the axial step. Reproduction is that specific arithmetic, not merely
-`is_linear=False`.
-Do: measure pitch along the dominant axis of contact advance and record the lateral offset as a
-stagger rather than as non-linearity. A staggered shaft is linear in the sense `label_layers`
-needs, which is that depth is monotone along one axis.
-Discriminator: the constructed staggered shaft, which must report the axial pitch after the
-change and the hypotenuse before it; and a genuinely non-linear arrangement, which must still
-report `is_linear=False` afterwards. Both directions, or the repair is just a widened tolerance.
-Accept: no arrangement whose contacts advance monotonically along one axis is refused by
-`label_layers` for lateral stagger alone, and the layer labels computed over a staggered shaft
-are checked, not just their count. Widening which contacts are labelled changes what every
-label is computed over.
-Stop: the repair would change layer labels on shafts that already work. That is a silent result
-change and needs a ruling, not a developer judgement.
-
 ## Batch 3. Coherence of code, documentation, tests and skills
 
 05-85 recorded two limits: composition's aggregation order and identifier survival were not
@@ -538,16 +510,6 @@ objective is not removing generators from documentation; it is that a normal ana
 never implies inventing data.
 Accept: every example block executes in the suite, and each block's input class is declared and
 checked.
-
-### 06-27 Semantic mutation classes over the declared subset
-
-Role: jnwb-developer. Skill: per chain. Blocked by: none.
-**Unblocked 2026-09-21:** 06-28 closed -- `scripts/mutation_harness.py` and its validity suite are in the tree, 25 of 25 mutants killed, so the harness this item needs exists.
-Unblocked from 06-18 on 2026-09-20: the subset is ruled and all ten chains are declared. Writes: `tests/test_semantic_mutation_classes.py`.
-Unit scaling, axis swap, sign flip, conjugation, density against spectrum, mean against median
-and sum, log before aggregate, permutation p-value substitution, generator ignored, support gate
-removed, failure converted to a default, identity restoration removed, result key deleted,
-signature drift. A class list, not a mutation score.
 
 ### 06-74 Dispose of the collection-order fragility
 
@@ -945,23 +907,6 @@ still agree on all three sides.
 Stop: the placeholder forms cannot be distinguished from a typo by any rule. Then the stack's own
 notation is the defect and it is repaired first.
 
-### 06-81 Make the copy under test identifiable
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/__init__.py`,
-`tests/test_import_provenance.py`.
-P-44. The installed copy and this worktree both report `0.2.5` while their `read_nwb` signatures
-differ -- the installed one raises `TypeError: unrecognized argument: 'allow_missing'`. A probe
-that identifies a copy by `__version__` cannot tell them apart, which is the weak point in the
-`tests inspect the selected installation` invariant: the scanners assert which copy is imported,
-but a probe taking the shortcut is unprotected.
-Reproduce: import both copies and compare `__version__` against `inspect.signature(read_nwb)`.
-Do: decide what identifies a copy -- `__file__`, a build marker, or a dev-suffixed version -- and
-make the answer available without importing a private name.
-Discriminator: the two copies above compare unequal under the new identifier while both still
-report `0.2.5`.
-Accept: P-44 closes, and 06-35's clean-environment matrix can state which copy each cell measured.
-Stop: the only honest answer is to bump the working version, which is a release decision.
-
 ### 06-82 Reach the waiver from the public API
 
 Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: 06-67. Writes: `jnwb/__init__.py`,
@@ -1212,27 +1157,6 @@ than read off the verdict line, and the mutant is recorded in the item.
 Stop: the wiring would require importing the generator to build the oracle. That reintroduces
 the fixed point and is the one thing this item exists to prevent.
 
-### 06-100 Make the docs call-shape check reach the pages it claims to check
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_docs_call_shapes.py`.
-P-84, whose cause is measured and is **three independent defects, not one**. The test is the
-reason ten documented-call defects survived to be found by hand.
-Reproduce: print the corpus the collector actually walks -- which pages, which fence kinds, which
-call forms -- before changing a line. The three causes to confirm: `:122` compares
-`len(node.args) > len(slots)`, one-sided and never calling `bind`, so too-few-positionals passes;
-the collector requires `func.value` to be an `ast.Name` equal to `"jnwb"`, so every
-`jnwb.visual_qc.f(...)` call is skipped outright; and `docs/10` contains zero ```python fences, so
-the page holding P-72 and P-74 was never in the corpus at all.
-Do: widen the corpus first, then the assertion. Repairing the assertion alone still misses six of
-the ten.
-Discriminator: each of the ten known defects is reintroduced one at a time and the test fails for
-each. **Prove the selector passes pristine before reading any failure as a kill.**
-Accept: the test states which pages and which call forms it covers, and that statement is itself
-checked rather than written in a docstring.
-Stop: if widening the corpus surfaces defects beyond the ten, record them and do not repair them
-here -- this item fixes the check, not what the check finds.
-
 ### 06-101 Rule which surface is wrong when the quickstart's last line raises
 
 Role: human ruling. Skill: none. Blocked by: none.
@@ -1252,45 +1176,112 @@ chosen gains a test that fails if the shapes drift apart again.
 Stop: do not repair the page before the ruling. A page edit would close the visible symptom and
 leave the asymmetry that caused it.
 
-### 06-102 Retire the two convention texts that would undo a completed repair
+### 06-107 cross_area_coherence shows its default seed in the signature
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `CONTRIBUTING.md`, `docs/10_reproducibility_and_rng.md`.
-P-73, and the direction of repair is settled by measurement rather than taste: the signatures are
-correct and the prose is stale. Both texts prescribe `rng: Optional[Union[Generator, int]] = None`.
-Measured: **19 of 23 `rng` parameters deliberately do not present `None`**, and `jnwb/_rng.py`
-records that moving the seed into the signature **was the 05-35 repair** -- five functions once
-declared `rng=None` and then ran `default_rng(42)` internally, which is the bug the convention
-would reintroduce.
-Do: state the convention the code actually follows, and say why, so the next contributor does not
-read the old form as the intended one.
-Discriminator: a test asserts the documented form against the live signatures, so the two cannot
-drift apart again. That is the durable half of this item -- the prose edit alone has a shelf life.
-Accept: no convention text prescribes a form the package does not use, and the check names the
-four parameters that legitimately do present `None`.
-Stop: do not change any signature. This item repairs documentation and adds a check.
+Writes: `jnwb/spectral.py`, `tests/test_rng_convention_matches_the_signatures.py`.
+P-164. The function declares `rng=None` and resolves it to `SeedSequence(42)` at
+`jnwb/spectral.py:706-710`, against the convention that a default seed is visible in the
+signature. It is **not** an 05-35 survivor -- it discloses the entropy to the caller as
+`surrogate_seed_entropy` (`:725`, documented `:670`) -- so this is a convention repair, not a
+correctness repair, and must not be described as the latter.
+Do: give the parameter a visible default so `inspect.signature` and `help()` report the stream
+a bare call draws, preserving `surrogate_seed_entropy` for callers who already read it.
+Discriminator: `test_cross_area_coherence_shows_its_seed_in_the_signature` is a **strict**
+xfail today. A correct repair turns it green; a repair that only moves the literal leaves the
+sibling test (which calls the function twice) still passing, so both must be checked.
+Accept: the strict xfail flips to a pass, `surrogate_seed_entropy` still reaches the caller,
+and CONTRIBUTING.md's deviation note is removed in the same change because it becomes false.
+Stop: if the visible default would change the numbers any current caller gets, that is a
+behaviour change and needs a ruling, not a developer judgement.
 
-### 06-103 The state file asserts a protection that does not exist
+### 06-108 a layer label never rests on one ulp of pitch
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-**Unblocked 2026-09-20:** 06-94 closed, so the gate script is free. Whoever takes this item holds `scripts/harness_gate.py` and must not run concurrently with 06-105, which writes it too.
-Writes: `scripts/reconstruct_state.py`, `tests/test_state_basis_is_checked.py`.
-P-65, and it is P-37 inside the `state` slot. `artifacts/state.md:4-5` asserts "a gate fails when
-this file no longer matches the tree, so a stale basis cannot be read as a current one." **No gate
-reads it.** `harness_gate.py` never mentions the file, and the gate ran 13/13 while the file was
-stale. The one test invoking `--check` asserts `"PASS" in out or "ERROR" in out`, which **both
-outcomes satisfy** -- a check that cannot fail. The sentence is emitted by
-`scripts/reconstruct_state.py:122`, so every regeneration re-asserts the protection afresh.
-Do: either make the claim true or stop making it. If a gate is added it belongs in the gate
-script, which 06-94 has since closed and released -- **that block is discharged**;
-the single-writer constraint against 06-105 and 06-106 is what remains. The previous wording
-survived the unblocking and still read as a live block. See P-163.
-Discriminator: staleness is introduced deliberately and the check fails. The existing
-`"PASS" in out or "ERROR" in out` assertion must fail too under an inverted outcome, or it is
-being replaced by another tautology.
-Accept: `artifacts/state.md` claims exactly what is enforced, and the enforcing check distinguishes
-its two outcomes.
-Stop: `artifacts/state.md` content is not this item's to rewrite beyond the one false sentence.
+Writes: `jnwb/laminar.py`, `tests/test_laminar.py`.
+P-166. `mid_half_span = (granular_thickness_um / 2.0) / pitch` with the **closed** test
+`input_start <= c_pos <= input_end` means a contact exactly at the boundary is included, so one
+ulp of `pitch` decides its label. At the default `granular_thickness_um=400.0` the half-span is
+exactly integral for Neuropixels 1.0 (20 um -> 10.0), a linear V-probe (50 um -> 4.0) and a
+100 um laminar array (2.0). **This is live on the most common hardware in the field, not a
+fixture artefact.**
+Do: make the boundary convention explicit and pinned rather than emergent -- decide and document
+whether a contact exactly at +/- granular/2 is `input`, and compare with a stated tolerance
+rather than on exact float equality.
+Discriminator: perturb `pitch` by one ulp and by 1e-9 relative; the label set must not change.
+Today it does, for any integral half-span.
+Accept: a test enumerates the three hardware pitches above at the default thickness and pins the
+boundary contact's label; the convention is stated in the docstring next to the interval.
+Stop: if pinning the convention changes labels for a non-integral half-span, the repair has
+reached past the knife edge and needs re-deriving.
+
+### 06-109 the state-reconstruction module collects under the wheel-leg flags
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_state_reconstruction.py`.
+P-168. The module fails **collection** -- not assertion -- under the flags documented at
+`.github/workflows/workflow.yml:183-185`, with `ModuleNotFoundError: No module named
+'scripts.reconstruct_state'`: `scripts` is excluded from the wheel (`pyproject.toml:100`) and
+that leg clears `pythonpath` and uses importlib import mode. A collection failure is the worst
+shape, because a leg that never ran the module looks exactly like one where it passed.
+Do: import the generator lazily inside the one test that needs it and skip with a stated reason,
+which is the shape `tests/test_state_basis_is_checked.py` already demonstrates surviving.
+Discriminator: run the module from outside the repo with `--import-mode=importlib -o pythonpath=`
+before and after; before it errors at collection, after it collects and skips with its reason.
+Accept: the module collects under those flags, and the count of tests that actually run there is
+reported rather than inferred.
+Stop: **not verified against CI itself**, only reproduced locally from the documented flags. If
+CI does not reproduce it, re-derive before changing anything.
+
+### 06-110 a type oracle for documented call shapes
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_docs_call_shapes.py`.
+P-167 remainder. P-79b, P-79c and P-82 are **not catchable by any call-shape check**: all three
+`Signature.bind` cleanly and are wrong-*type*, not wrong-shape -- `plot_noise_vs_signal(units_df,
+figsize=...)` really does accept two positionals. 06-100 measured this rather than assuming it.
+Do: add a type oracle over the same corpus 06-100 widened, checking documented argument
+expressions against annotated parameter types where both are resolvable.
+Discriminator: the three named defects must be caught; the corpus must stay green otherwise.
+Accept: each of P-79b, P-79c, P-82 is killed by a named assertion, and the count of corpus calls
+the oracle can rule on is stated as a measured figure, not as a fraction of the whole.
+Stop: if the oracle can rule on fewer calls than it skips, say so and stop -- a checker that
+abstains on the majority is a proxy, which is the whole shape of P-37.
+
+### 06-111 the mutation harness can record an intentional survivor
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/mutation_harness.py`, `tests/test_mutation_harness_validity.py`.
+P-172. A `Verdict` with `killed=False` is only ever a failure, so a **measured** coverage gap
+cannot be pinned in the suite and has to live in a report instead. 06-27 found two such gaps and
+both are narrated rather than tested, which is exactly how a measured hole becomes a forgotten
+one.
+Do: add a way to declare an expected survivor with its reason, so a known gap is asserted to
+still be a gap and fails loudly when someone closes it without updating the record.
+Discriminator: an expected survivor that starts being killed must fail the harness.
+Accept: 06-27's two measured gaps (P-170, P-171) are expressed as expected survivors and the
+narration is deleted.
+Stop: `scripts/mutation_harness.py` is single-writer. Do not run concurrently with any item
+naming it.
+
+### 06-112 a gate reads artifacts/state.md when it is present
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`.
+**Single-writer warning:** 06-105, 06-106 and 06-111 write files in this set's vicinity; 06-105
+and 06-106 write this same file. None may run concurrently.
+Handover from 06-103, which could not write the gate because the file was outside its scope. A
+regenerating gate is **not** tractable: `build()` shells out to `scripts/harness_gate.py` and
+would recurse. A `--check`-only gate is. Absent -> PASS, because absence is the fresh-checkout
+state and `reconstruct_state.py --check` already reports it.
+Do: compare the `| HEAD | <40 hex> |` row against `git rev-parse HEAD` when the file is present.
+Discriminator: zero the HEAD row, the gate must fail; restore it and `grep -c '^PASS'` must read
+**17**, counted from PASS lines rather than off the verdict line.
+Accept: gate count rises to 17 by PASS-line count, and
+`tests/test_state_basis_is_checked.py::test_the_generated_prose_agrees_with_whether_a_gate_reads_the_file`
+fails **by design** until the emitted sentence is updated to say what the gate does -- that
+coupling is the point, and 06-103's M5 mutant proves it fires.
+Stop: if the gate would need to regenerate rather than check, stop -- that is the recursion.
 
 ### 06-104 Close the skill coverage and authority gaps as one pass
 

@@ -12,9 +12,12 @@ disappears rather than lingering.
     python scripts/reconstruct_state.py            # write artifacts/state.md
     python scripts/reconstruct_state.py --check     # exit 1 if the file is stale
 
-`--check` is what a gate calls. Staleness is HEAD having moved since the file was written, so
-that is all it compares: a full-text comparison would fail on every uncommitted edit, and a
-check that fails all day is one people stop running. It runs no probes and no gate.
+`--check` is what `AGENTS.md` section 3 Prepare runs before reading the file, and what
+`tests/test_state_basis_is_checked.py` runs on every suite run. No harness gate calls it, and
+the prose this script emits must keep saying so: P-65 is what happened when it claimed
+otherwise. Staleness is HEAD having moved since the file was written, so that is all it
+compares: a full-text comparison would fail on every uncommitted edit, and a check that fails
+all day is one people stop running. It runs no probes and no gate.
 """
 
 from __future__ import annotations
@@ -119,8 +122,10 @@ def build() -> str:
     return f"""# State
 
 The `state` slot of `X = {{goal, state, fact, problem, todo}}`: verified mutable truth about
-this working tree. Regenerate with `python scripts/reconstruct_state.py`; a gate fails when this
-file no longer matches the tree, so a stale basis cannot be read as a current one.
+this working tree. Regenerate with `python scripts/reconstruct_state.py`; `--check` compares the
+HEAD recorded below against the live one and exits 1 when they differ, and the suite runs that
+same comparison whenever this file is present. No harness gate reads this file, so a copy nobody
+has checked since HEAD moved reads like a current one.
 
 Every value here is `observed` -- a command and its output, re-resolved on each run. Nothing is
 transcribed and nothing survives a regeneration that stops being true. This file is not

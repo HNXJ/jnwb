@@ -94,7 +94,47 @@ from .laminar import (
     ZFlipResult,
 )
 
+#: `__version__` is a literal, so two copies carry the same string whether or not they carry
+#: the same code. That is how an installed `0.2.5` whose `read_nwb` accepts no `allow_missing`
+#: was taken for this one: the string matched and the behaviour did not. `__package_id__` is
+#: computed rather than declared -- sha256 over this package's own `.py` sources, keyed by
+#: their paths relative to the package root -- and the root comes from `__file__`, so a copy
+#: can only ever fingerprint itself. An installed jnwb hashes the files in `site-packages`
+#: however many checkouts sit next to it.
+#:
+#: Sources are hashed as raw bytes, so a copy rewritten to CRLF reports a different id. That
+#: is the intended direction: this answers "is this the same copy", and it is allowed to say
+#: no to two copies that merely behave alike, never yes to two that differ.
+#:
+#: Resolved on first access through `__getattr__` below, which keeps it off the import path
+#: and out of the import-time budget `test_import_profile_receipt.py` pins.
+def _compute_package_id() -> str:
+    import hashlib
+
+    package_dir = Path(__file__).resolve().parent
+    sources = sorted(
+        path for path in package_dir.rglob("*.py") if "__pycache__" not in path.parts
+    )
+    if not sources:
+        # An empty scan hashes to one constant for every copy, so it would report agreement
+        # between copies precisely when it had measured neither. Refuse instead.
+        raise RuntimeError(
+            f"no Python sources under {package_dir}, so this copy of jnwb cannot be "
+            f"fingerprinted; __file__ is the only identifier available here"
+        )
+    digest = hashlib.sha256()
+    for path in sources:
+        digest.update(path.relative_to(package_dir).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
 def __getattr__(name: str):
+    if name == "__package_id__":
+        value = _compute_package_id()
+        globals()[name] = value
+        return value
     if name in SUBMODULES:
         module = importlib.import_module(f".{name}", __name__)
         globals()[name] = module
@@ -392,4 +432,6 @@ __all__ = [
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+    # `__package_id__` is resolved lazily, so it is absent from `globals()` until something
+    # asks for it. Naming it here makes it discoverable before that first access.
+    return sorted(set(globals()) | set(__all__) | {'__package_id__'})

@@ -15,8 +15,17 @@ These are contracts for callers. The rules for *adding* an operation are in
 Every operation added in 0.2 conforms to the following universal library conventions:
 
 ### 1. RNG Convention
-- Functions consuming stochasticity accept an explicit parameter:
-  `rng: Optional[Union[np.random.Generator, int]] = None`.
+- Functions consuming stochasticity accept `rng`: an `int` seed, a `np.random.Generator`, or `None`.
+- **The default you see is the seed you get.** Most `rng` parameters default to the seed the
+  function will use -- `42`, `0`, or no default at all where the caller must choose -- so
+  `inspect.signature` and `help()` report the stream a bare call draws. A body that reads a
+  `None` default and substitutes a fixed seed is a repaired defect: five functions did that, so
+  two calls a caller believed were independent returned the same null. `jnwb/_rng.py` holds the
+  history and the resolver.
+- **`None` means fresh OS entropy**, as in NumPy. Three public functions default to it because
+  drawing fresh per call is their contract: `cross_modal_comparison`, `jrsa` and `xflip`.
+  `cross_area_coherence` also presents `rng=None` but resolves it to seed 42, reported back in
+  `surrogate_seed_entropy`; pass an explicit `rng` to vary its surrogates.
 - **Generator Preservation & Resolution**:
   If `isinstance(rng, np.random.Generator)`, the caller-provided generator is used directly, preserving its exact mutation state and sequence progression. If `rng` is an integer seed or `None`, it is converted via:
   ```python
