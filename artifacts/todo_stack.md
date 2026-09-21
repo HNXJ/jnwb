@@ -970,30 +970,6 @@ consistent ones do not.
 Stop: if warning once per container turns out to mean warning thousands of times on a
 real session, stop and report -- a warning nobody can read is not the ruled behaviour.
 
-### 06-85 Decide the eight producers with no public consumer
-
-Role: jnwb-developer. Skill: none. Blocked by: none. **Ruled by Hamm 2026-09-20:
-decide each of the eight separately.**
-Writes: `artifacts/problem_stack.md`, and `jnwb/__init__.py` or `docs/*.md` only after the ruling.
-P-55. `assign_outer_folds`, `build_inner_validation_partitions`, `fit_exponential_onset`,
-`aperiodic_fit`, `xflip`, `zflip`, `consensus_bad_trials` and `detect_band_outliers` produce output
-that no public jnwb operation consumes -- the decoder accepts neither `groups` nor a fold column.
-06-18's stop condition fired correctly and it did not propose them for the composition subset.
-A producer whose output nothing public consumes is either an unfinished chain or an export that
-should not be public, and the two have opposite repairs. `artifacts/goal.md` §2 says a skill names
-an operation and documentation defines it; neither says an operation must terminate somewhere.
-**The ruling.** One blanket rule would be wrong for at least one of the eight: the
-fold builders look like unfinished chains given the decoder gap, while
-`fit_exponential_onset` and `aperiodic_fit` are outputs a user reads directly and
-terminate legitimately. Each is decided on its own.
-Do: for each of the eight, state which it is and why, in one row -- unfinished chain,
-or terminal output for the caller. Bring the eight rows back with a recommendation
-each; the second ruling is on the rows, not on the principle.
-Accept: eight rows, each with a reason that does not generalise to the other seven
-without being restated.
-Stop: this item does not withdraw an export. Withdrawing a public name is a
-breaking change and a release decision.
-
 ### 06-86 Resolve the two sources that disagree about computational order
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
@@ -1157,6 +1133,72 @@ Accept: no instruction in `jnwb/onset_fitting.py` applies a filter-delay correct
 onset, the skill and the docstring state the same rule, and the mutant above is killed.
 Stop: this item does not change what `causal_exp_smooth` computes. If the wording cannot be fixed
 without changing behaviour, stop and report.
+
+### 06-96 Stop the decoding page instructing an impossible action
+
+Role: docs-harness. Skill: none. Blocked by: none.
+Writes: `docs/09_decoding_and_visual_qc.md`, `tests/test_docs_decoding_chain.py`.
+P-122. The page contradicts itself inside one screen: a mermaid edge at line 15 asserts
+`build_inner_validation_partitions -> nested_cv_linear_svm`, lines 35-40 state in bold that the
+decoder takes no `groups` argument, line 40 instructs the reader to "pass its partitions" anyway,
+and line 64 computes `inner_splits` and never uses it again. The prose half is already correct and
+is not the thing to change.
+Do: redraw the edge to end where the API ends, and say plainly that the partitions are applied by
+the caller, with what that costs. Either drop `inner_splits` from the example or show what a
+caller actually does with it.
+Discriminator: a test that fails on the page as it stands today. Assert the composition, not the
+wording -- every operation the diagram draws an edge into accepts the producer's output, checked
+against the live signature rather than against the page. **A test asserting the current text
+passes on a page that still tells the reader to do the impossible**, which is what a snapshot
+would do here.
+Accept: P-122 closes; no edge in the page's diagrams names a composition the signatures refuse;
+no assigned name in a worked example is unused.
+Stop: this item does not add a parameter to `nested_cv_linear_svm`. If the honest diagram turns
+out to need one, stop and report -- that is a capability decision.
+
+### 06-97 Give `xflip` a documented call site
+
+Role: docs-harness. Skill: `jnwb-laminar`. Blocked by: none.
+Writes: `docs/06_spikes_psth_and_onset_dynamics.md`, `examples/tutorials/06_laminar.py`,
+`tests/test_docs_decoding_chain.py`.
+P-55's residue, recorded at `artifacts/unconsumed_producers_0.2.6.md`. `xflip` is the only one of
+the eight producers with **zero** documented call sites; the other seven have between one and
+five, and `zflip` -- its nearest sibling, ruled a terminal output on the same grounds -- has a
+worked example that reads its fields directly. The measured reason `xflip` reads as an unfinished
+chain is that absence, not its output.
+Do: a worked example that reads `XFlipResult` fields the way `examples/tutorials/06_laminar.py`
+already reads `ZFlipResult`, so the two siblings are reachable by the same route.
+Discriminator: the example executes in the suite and reads at least one field the operation
+actually returns, checked against the live dataclass rather than against a written list of names.
+Accept: `xflip` has a documented, executed call site; the ruling's "the gap is documentation"
+reading is discharged rather than asserted.
+Stop: this item adds no consumer and does not change what `xflip` returns.
+
+### 06-98 No tracked file may carry both line-ending conventions
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `.gitattributes`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`,
+`skills/jnwb-nwb-data/SKILL.md`, `artifacts/agents/actor.md`, `artifacts/agents/authority.md`,
+`artifacts/agents/critic.md`, `artifacts/agents/docs-harness.md`, `artifacts/agents/verifier.md`,
+`docs/_theme_override.css`, `skills/jnwb-fact-action/agents/openai.yaml`.
+P-124. Eight tracked files carry both CRLF and bare LF. A mixed file is a defect under any policy,
+which is why this item repairs those and does **not** decide whether `skills/` should stay CRLF --
+that is a separate question and the measurement is in the row.
+Do: normalise each of the eight to the convention its own directory already holds -- LF everywhere
+except `skills/`, which is CRLF 16 of 18. `skills/jnwb-nwb-data/SKILL.md` is the only substantial
+one at 98 CRLF against 15 LF; it becomes CRLF. **This changes line endings and not one character
+of content**, which the discriminator must show rather than assert.
+Do: declare the measured convention in `.gitattributes` so a fresh clone reproduces it, and gate
+it, because a convention nothing reads is what produced this row.
+Discriminator: the gate fails on a seeded mixed file and passes on the live tree, and a second
+check shows each normalised file is byte-identical to its predecessor once line endings are
+folded -- compare content hashes with endings normalised, not the raw bytes, since the raw bytes
+are exactly what changed. **Verify in bytes; a `read_text` comparison would pass no matter what
+happened**, which is the standing rule this item is an instance of.
+Accept: no tracked text file carries both conventions; `.gitattributes` states the measured
+convention; the gate fails on its own seed; content is provably unchanged.
+Stop: this item does not renormalise any file that is already internally uniform, and does not
+settle whether `skills/` should be CRLF. If normalising a file changes a content hash, stop.
 
 ## Reported and not admitted
 
