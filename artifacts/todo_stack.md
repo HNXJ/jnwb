@@ -173,6 +173,7 @@ results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review iden
 ### 06-67 Rule the missingness truth table for the read path
 
 Role: human ruling. Skill: none. Blocked by: none. AUTONOMY: none.
+Release: UNCLASSIFIED.
 Writes: `artifacts/problem_stack.md`.
 **Write set corrected 2026-09-20.** It previously read `jnwb/nwb_io.py`, `artifacts/goal.md`,
 `docs/errors.md` and a bare `tests/`, with `AUTONOMY: none.` spliced into the middle of the
@@ -258,6 +259,7 @@ Stop: no agent takes this item.
 ### 06-64 Verify the repairs of 2026-09-19
 
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
+Release: UNCLASSIFIED.
 The actor is never the verifier, and seven repairs landed today with their author's own receipts.
 Each is a separate read-only packet against the exact diff, never against the author's summary.
 
@@ -283,6 +285,7 @@ Stop: a repair cannot be verified without changing it. Say so; do not change it.
 ### 06-05 Freeze the acceptance set and the non-goals
 
 Role: human ruling. Skill: none. Blocked by: 06-13. AUTONOMY: none.
+Release: UNCLASSIFIED.
 Writes: `artifacts/todo_stack.md`.
 06-01 and 06-02 were ruled on 2026-09-19 and are no longer blockers; 06-13 is the last one.
 Freeze the set from **live reproduced state**, not by copying the planning text: each condition
@@ -295,6 +298,7 @@ Accept: the frozen set is dated and the non-goals section below is part of it.
 ### 06-06 Publish the canonical architecture page
 
 Role: docs-harness. Skill: jnwb. Blocked by: none.
+Release: UNCLASSIFIED.
 06-01 and 06-02 were both ruled
 2026-09-19 and deleted as complete. This item read as blocked for a day after it was not.
 Reads: `artifacts/direction.md`. Writes: a new page under `docs/*.md` (named at dispatch;
@@ -311,6 +315,7 @@ Stop: 06-02 is unruled.
 ### 06-07 Gate architecture reachability
 
 Role: jnwb-developer. Skill: none. Blocked by: 06-06. Writes:
+Release: UNCLASSIFIED.
 `tests/test_architecture_page_reachability.py`.
 Assert: the page is a navigation target; `docs/agents.md` links it; no maintained public asset
 draws the researcher-through-AI chain; the public identity does not require an agent to be
@@ -325,6 +330,7 @@ breaks on rewording and passes on a reversed meaning.
 ### 06-13 Rule the default selection of compress_fp32
 
 Role: human ruling. Skill: none. Blocked by: none. Writes: this file, then an implementation item. AUTONOMY: none.
+Release: UNCLASSIFIED.
 The item's named stop condition fired, and it was proven mechanically rather than asserted. The
 mechanical split -- generic mechanics, with selection as an explicit `select=` caller input -- is
 designed and ready. It is blocked on one thing only: what happens when the caller says nothing.
@@ -428,6 +434,7 @@ independent of this ruling; the older artifact's section 5 still discusses them 
 ### 06-14 granger_causality order validation
 
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `jnwb/connectivity.py`, `tests/test_granger_order_validation.py`,
 `docs/08_directed_connectivity_and_information.md`,
 `skills/jnwb-connectivity/SKILL.md`.
@@ -442,6 +449,7 @@ skill row agree with the implementation.
 ### 06-16 Sweep the substitution class
 
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Writes:
+Release: UNCLASSIFIED.
 `tests/test_substitution_class_sweep.py`, then per finding, named in the packet.
 Repaired instances share one shape: a fallback producing a differently-computed but plausible
 result under the original label. 06-15 was one -- statsmodels absent routed every method except
@@ -464,6 +472,7 @@ repair.
 ### 06-17 Confirmed findings not claimed by another item
 
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
+Release: UNCLASSIFIED.
 One packet per ledger entry disposed `reproduced` and claimed by no other item, highest
 consequence first. Writes: **deferred -- this item dispatches packets and writes nothing itself**; each packet
 declares its own set from the finding's receipt. Not schedulable as a single lane. See P-162:
@@ -480,6 +489,7 @@ over a declared subset and records the subset's boundary as part of the result.
 ### 06-24 Skill routing against live behaviour
 
 Role: jnwb-developer. Skill: per skill, nine packets. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: the routed skill file and `tests/test_skills_validation.py`.
 Every routing row: the callable exists, the signature matches, the return type and keys match,
 units match, failure behaviour matches. Conditional return schemas are in scope -- a skill must
@@ -490,6 +500,7 @@ Accept: every claim checked by execution against the live export, not against th
 ### 06-25 Decline behaviour as executable evidence
 
 Role: jnwb-developer. Skill: per skill. Blocked by: 06-24. Writes:
+Release: UNCLASSIFIED.
 `tests/test_skill_decline_behaviour.py`, and the routed `skills/*/SKILL.md`.
 Representative cases per applicable skill for all four outcomes of `artifacts/direction.md`:
 supported routes, missing input is requested, a non-identifiable result is reported as a failure,
@@ -501,6 +512,7 @@ satisfies that or is recorded as not requiring it.
 ### 06-26 Worked examples stop teaching synthesis
 
 Role: jnwb-developer. Skill: per skill. Blocked by: none. Writes: `skills/*/SKILL.md`,
+Release: UNCLASSIFIED.
 `tests/test_skill_examples_execute.py`.
 Reproduce: six of nine skill files build example inputs with a random generator; only
 `skills/jnwb-nwb-data/SKILL.md` opens a file. No test executes any example block.
@@ -514,6 +526,7 @@ checked.
 ### 06-74 Dispose of the collection-order fragility
 
 Role: jnwb-developer. Skill: none. Blocked by: none. Writes:
+Release: UNCLASSIFIED.
 `tests/test_collection_order_stability.py`, `artifacts/problem_stack.md`.
 P-12, carried. An ad-hoc pytest subset can fail three `test_backend` tests and segfault; the full
 suite passes. The release requires no `open` problem, so this ends as a repair or as an
@@ -531,6 +544,7 @@ Stop: the segfault cannot be reproduced at all. Then the premise is false and th
 ### 06-29 Make generated figures maintained
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `docs/generate_figures.py`, `tests/test_generated_figures_are_maintained.py`,
 `scripts/harness_gate.py`.
 Reproduce: nothing runs the generator -- not CI, not `scripts/harness_gate.py`, not
@@ -544,6 +558,7 @@ figure.
 ### 06-30 Produce the canonical diagrams
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06.
+Release: UNCLASSIFIED.
 06-08 closed 2026-09-20 and is no longer a blocker.
 Writes: `docs/*.md`, `docs/assets/*.svg`.
 Dual entry; code, documentation and tests with skill routing over them; the four-outcome
@@ -555,6 +570,7 @@ here, not restated.
 ### 06-31 One real NWB end-to-end example
 
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: **data-access authority, which is Hamm's to grant** -- re-marked 2026-09-20 after
+Release: UNCLASSIFIED.
 the item stopped on its own Stop clause. See P-149.
 All four routes to a real NWB file are closed, measured rather than assumed: the `D:` corpus
 **exists and is denied by policy** (`jnwb.paths.describe()` resolves it; a read was refused);
@@ -588,6 +604,7 @@ a synthetic one and calling it an example.
 ### 06-32 Separate empirical from synthetic
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31, and **transitively on the same data-access grant** -- recorded 2026-09-20,
+Release: UNCLASSIFIED.
 see P-149. Writes: `docs/*.md`, `examples/*.py`,
 `tests/test_synthetic_figures_are_labelled.py`.
 Visibly and structurally, in the documentation tree and in the figures.
@@ -596,6 +613,7 @@ Accept: a check that a page carrying a synthetic figure says so.
 ### 06-33 Retain the benchmark design as explicitly unrun
 
 Role: docs-harness. Skill: none. Blocked by: none. Writes: `artifacts/planned_post_0.2.5.md`.
+Release: UNCLASSIFIED.
 Bring the ruled hypothesis to pre-registration quality and mark it unrun. It is not an acceptance
 criterion for this release: an empirical comparison whose either outcome is scientifically
 admissible cannot gate a release without giving the experiment a result to reach.
@@ -615,6 +633,7 @@ worse than leaving them alone.
 ### 06-51 Reduce verbosity against the contract
 
 Role: docs-harness. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 **Unblocked 2026-09-20:** 06-49 closed and left the stack. Writes: `docs/*.md`, `README.md`.
 One packet per page, not one packet for the set. A batch handed twenty-seven pages trims the easy
 ones and rewrites the hard one.
@@ -638,6 +657,7 @@ the restatement, keep the one that is load-bearing.
 ### 06-52 Figures that carry structure
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-30. Writes: `docs/*.md`,
+Release: UNCLASSIFIED.
 `docs/assets/*.svg`, `tests/test_figure_form.py`.
 Unblocked 2026-09-19. This item's acceptance named a comparison the site could not make: there was
 one palette scheme. `mkdocs.yml` now carries `slate` and `default`, each with a toggle, so
@@ -662,6 +682,7 @@ depending on them builds here and fails in CI. That is G4, and it is recorded as
 ### 06-53 Gate the documentation form
 
 Role: docs-harness. Skill: none. Blocked by: 06-51, 06-52.
+Release: UNCLASSIFIED.
 **Narrowed 2026-09-20:** 06-49 and 06-50 closed and left the stack. The contract itself is written.
 Writes: `scripts/docs_form_gate.py` (new), `tests/test_docs_form_gate.py`.
 A contract nothing enforces decays to a preference within one cycle.
@@ -689,6 +710,7 @@ pointer is the whole of what belongs here.
 ### 06-56 One execution switch
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 **Unblocked 2026-09-21:** 06-55 closed. `jnwb/_precision.py` and the policy registry are in the tree, and `resolve_working_dtype` is the shared rule this item generalises from.
 Writes: `jnwb/*.py`,
 `tests/test_execution_switch.py`.
@@ -709,6 +731,7 @@ defect, and it stops the packet.
 ### 06-57 Cite the reference where the implementation matches it
 
 Role: jnwb-developer. Skill: per module. Blocked by: none. Writes: `jnwb/*.py`,
+Release: UNCLASSIFIED.
 `docs/references.md`.
 Do: where an implementation follows a published or official reference, cite that reference at the
 implementation and in `docs/references.md`. Under the 2026-09-19 ruling the citation is the
@@ -722,6 +745,7 @@ divergence; an undocumented one is a defect and goes to the problem stack.
 ### 06-58 Reduce the orders the inventory named
 
 Role: jnwb-developer. Skill: per module. Blocked by: 06-57. Writes: per packet.
+Release: UNCLASSIFIED.
 Not 06-86, which reads like it: that item resolves a contradiction inside
 `artifacts/benchmarks/complexity_inventory.md`, a different file. This one reduces measured
 orders in `artifacts/computational_order.md`. Titles nearly collide; the work does not.
@@ -762,6 +786,7 @@ Stop: the faster order changes results beyond tolerance. Correctness outranks or
 ### 06-59 Gate the computational contract
 
 Role: jnwb-developer. Skill: none. Blocked by: 06-56, 06-58.
+Release: UNCLASSIFIED.
 **Narrowed 2026-09-21:** 06-55 closed and left the stack.
 Writes:
 `scripts/computational_contract_gate.py` (new),
@@ -776,18 +801,21 @@ Accept: every check fails on its own seeded violation and passes on the live tre
 ### 06-34 Adversarial mutation pass
 
 Role: critic. Skill: none. Blocked by: all of Batch 3. Writes: none.
+Release: UNCLASSIFIED.
 Seed known semantic defects and require the intended gate to catch each one. Every selector
 collects and passes pristine before any verdict counts.
 
 ### 06-35 Clean-environment matrix
 
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
+Release: UNCLASSIFIED.
 Across the declared Python and operating-system support, resolving the 3.13 question. The
 development virtualenv is not package evidence.
 
 ### 06-36 Documentation qualification
 
 Role: verifier. Skill: none. Blocked by: 06-06, 06-29, 06-30. Writes: none.
+Release: UNCLASSIFIED.
 06-08 closed 2026-09-20 and is no longer a blocker.
 Strict build; diagrams render as diagrams, asserted against built output; generated assets
 current; links resolve; no stale version claim; the canonical architecture page reachable from
@@ -796,23 +824,27 @@ the navigation.
 ### 06-37 Distribution qualification
 
 Role: verifier. Skill: none. Blocked by: all repairs. Writes: none.
+Release: UNCLASSIFIED.
 Source distribution and wheel: contents, metadata, imports, exports, `SKILLS_URL`, representative
 workflows, documentation-facing constants, no checkout shadowing.
 
 ### 06-38 Fresh-install workflow
 
 Role: verifier. Skill: jnwb-nwb-data. Blocked by: 06-37. Writes: none.
+Release: UNCLASSIFIED.
 From the published candidate rather than the checkout: install, open an NWB file, analyse, verify.
 
 ### 06-39 Independent critic
 
 Role: critic. Skill: none. Blocked by: 06-34 through 06-38. Writes: none.
+Release: UNCLASSIFIED.
 A reviewer that implemented none of the repairs, over the acceptance set, the unresolved
 unknowns, the mutation evidence, the public claims and the release artifacts.
 
 ### 06-60 Both stacks empty, verified by a pass that finds nothing
 
 Role: critic. Skill: none. Blocked by: 06-39. Writes: `artifacts/problem_stack.md`.
+Release: UNCLASSIFIED.
 Condition 3 of `AGENTS.md` §11, and the item that decides whether the release opens.
 Do: one full pass over the documentation, the code and both stacks. Anything found is written to
 the problem stack, which re-opens the cycle: the batch that owns it runs, and this item runs
@@ -829,6 +861,7 @@ repaired, never that repairing it is inconvenient.
 ### 06-40 Release
 
 Role: human, with verifier receipts. Skill: none. Blocked by: 06-60. AUTONOMY: none.
+Release: UNCLASSIFIED.
 Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`, and the release body through the API.
 dev green, pull request and main green, tag validates without publishing, GitHub Release,
 production index, then verification from the index in a clean environment. A tag alone validates
@@ -839,6 +872,7 @@ artifacts and does not publish; publication happens on the release.
 ### 06-76 Resolve `correction='none'` and the test set that cannot reach it
 
 Role: jnwb-developer. Skill: `jnwb-statistics`. Blocked by: none. Writes: `jnwb/jrsa.py`,
+Release: UNCLASSIFIED.
 `tests/test_jrsa_correction_fallback.py`, `artifacts/problem_stack.md`.
 P-50, P-51, P-52, and P-31 which P-50 supersedes. `'none'` is not a key of
 `_CORRECTION_METHOD_MAP`, so `.get('none', 'fdr_bh')` returns Benjamini-Hochberg under the label
@@ -862,6 +896,7 @@ is a contract change, not a repair.
 ### 06-77 Refuse or reconcile the two crossover index spaces
 
 Role: jnwb-developer. Skill: `jnwb-lfp-spectral`. Blocked by: none. Writes: `jnwb/laminar.py`,
+Release: UNCLASSIFIED.
 `tests/test_crossover_index_spaces.py`, `docs/02_paths_addressing_metadata.md`.
 P-49, and the most consequential open row: layer labels are scientific output. `vflip` reorders
 `psd_arr[order]` only when `probe_geometry` is supplied (`jnwb/laminar.py:297`); `label_layers`
@@ -884,6 +919,7 @@ That is a contract question for Hamm, not a repair.
 ### 06-80 Resolve every `Skill:` field against `skills/`
 
 Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`. NOT the stacks:
+Release: UNCLASSIFIED.
 the dispatcher writes those, so a gate item never edits the file it gates.
 P-53. Two items named `jnwb-nwb-io`, which has never existed. The name reached two dispatched
 packets, nothing errored, and a packet worked around it silently. The standing rule is that a file
@@ -910,6 +946,7 @@ notation is the defect and it is repaired first.
 ### 06-82 Reach the waiver from the public API
 
 Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: 06-67. Writes: `jnwb/__init__.py`,
+Release: UNCLASSIFIED.
 `jnwb/nwb_io.py`, `docs/*.md`, `tests/test_public_api_reachability.py`.
 P-43 and P-46. `MissingRequiredNWBFieldError` is exported and documented; `read_nwb`, `nwb_read_io`,
 `hdmf_build_repair_context` and `SqueezedAttributeWarning` are in neither `__all__` nor
@@ -933,6 +970,7 @@ express. Then the signature is the item, and this one waits.
 ### 06-83 Verify the gate-2 administrative-entry repair
 
 Role: critic. Skill: none. Blocked by: none. Writes: `artifacts/problem_stack.md`.
+Release: UNCLASSIFIED.
 P-56, and the same shape as 06-64: a repair made by the dispatcher is verified by someone else.
 P-40 closed `repaired` on a repair that was itself the proxy -- "`.git` exists by name" excuses an
 empty directory -- and its own `nested-clone` fixture built exactly that counterfeit, so the
@@ -951,6 +989,7 @@ Stop: none. A verifier that finds nothing reports finding nothing.
 ### 06-86 Resolve the two sources that disagree about computational order
 
 Role: jnwb-developer. Skill: none. Blocked by: **a Hamm ruling -- does the inventory assert `O` or
+Release: UNCLASSIFIED.
 Theta?** Re-marked 2026-09-21; the field said `none` while the item's own text said "Blocked on
 one ruling" and its Accept clause said P-34 closes only once that ruling is recorded. The
 scheduler offered it as dispatchable. See P-163, and P-34/P-127 for the ruling itself.
@@ -998,6 +1037,7 @@ reported rather than patched.
 ### 06-87 Record what reading order off the source costs
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `docs/documentation_form.md` or `artifacts/agents/jnwb-developer.md`.
 P-36, and a one-line repair rather than a project. Reading computational order off the source was
 wrong on six specs in both directions: five where a source reading predicted a gap no measurement
@@ -1012,6 +1052,7 @@ Stop: neither file is the right home. Then say which is, and put it there.
 ### 06-89 Document the unit-to-layer composition
 
 Role: docs-harness. Skill: `jnwb-population`. Blocked by: none.
+Release: UNCLASSIFIED.
 **Unblocked 2026-09-20:** 06-49 closed and left the stack. Writes: `docs/*.md`,
 `skills/*/SKILL.md`.
 P-20. The composition works today through existing exports and no document or skill shows it, so
@@ -1029,6 +1070,7 @@ on 06-77 and says so rather than documenting a sequence that mislabels anatomy.
 ### 06-90 Make an absent `peak_channel_id` visible
 
 Role: jnwb-developer. Skill: `jnwb-population`. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `jnwb/addressing.py`, `tests/test_absent_peak_channel_id.py`,
 `docs/02_paths_addressing_metadata.md`.
 P-22, restated after re-measurement. The row said `jnwb/addressing.py:340` assumes the column
@@ -1049,6 +1091,7 @@ Stop: making the skip loud breaks a caller who relies on the silent path. Record
 ### 06-92 Rule the fact-slot sentence on CI coverage
 
 Role: human ruling. Skill: none. Blocked by: none. **AUTONOMY: none.**
+Release: UNCLASSIFIED.
 Writes: `artifacts/fact_stack.md`, after the ruling only.
 P-41. `artifacts/fact_stack.md:58` reads "CI tests the declared floor and newest supported
 version." Three sources falsify it, and the important one is not the workflow:
@@ -1071,6 +1114,7 @@ Stop: this item writes nothing to `artifacts/fact_stack.md` before the ruling.
 ### 06-95 Scope the estimator-delay identity in the smoother's docstring
 
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `jnwb/onset_fitting.py`, `tests/test_skills_validation.py`.
 P-110, found by the 06-93 lane and left unrepaired because `jnwb/**` was a hard stop for it.
 `causal_exp_smooth`'s docstring states `t_observed = t_signal + t_estimator(tau_ms, bin_ms)` as a
@@ -1094,6 +1138,7 @@ without changing behaviour, stop and report.
 ### 06-97 Give `xflip` a documented call site
 
 Role: docs-harness. Skill: `jnwb-laminar`. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `docs/06_spikes_psth_and_onset_dynamics.md`, `examples/tutorials/06_laminar.py`,
 `tests/test_docs_decoding_chain.py`.
 **`tests/test_docs_decoding_chain.py` already exists** -- 06-96 created it on 2026-09-20 with 8 tests gating mermaid edges on every
@@ -1114,6 +1159,7 @@ Stop: this item adds no consumer and does not change what `xflip` returns.
 ### 06-99 Verify the container-type predicate against the corpus
 
 Role: verifier. Skill: `jnwb-nwb-data`. Blocked by: **corpus access, which is Hamm's to grant.**
+Release: UNCLASSIFIED.
 Writes: `artifacts/problem_stack.md`.
 P-54's remaining condition, and the only one. 06-84 implemented the ruling and proved it with ten
 killed mutants, including a refuse-instead-of-warn mutant, so warn-never-refuse is tested rather
@@ -1139,6 +1185,7 @@ blocked rather than being closed on fixture evidence, which is the whole point o
 ### 06-106 Gate 9 checks the Type column against the runtime
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `scripts/harness_gate.py`.
 **Single-writer warning:** 06-103 and 06-105 write the same file. None of the three may run
 concurrently with another.
@@ -1160,6 +1207,7 @@ the fixed point and is the one thing this item exists to prevent.
 ### 06-101 Rule which surface is wrong when the quickstart's last line raises
 
 Role: human ruling. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `artifacts/problem_stack.md`.
 P-83, and it is on the newcomer path: `docs/quickstart.md:151` prints `float(jrsa_res.p)` and
 raises. With `stats=True`, `JRSAResult.p` is shape `(1,)` while `value`, `statistic` and `ci` are
@@ -1179,6 +1227,7 @@ leave the asymmetry that caused it.
 ### 06-113 A run states the tree it ran against
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `scripts/mutation_harness.py`, `tests/test_mutation_harness_validity.py`.
 **Single-writer warning:** 06-111 writes the same two files. The two may not run concurrently,
 and 06-111's `expected_survivor` work is the natural companion to this one.
@@ -1201,6 +1250,7 @@ say so -- a gate that must be told what to ignore becomes a gate nobody runs.
 ### 06-107 cross_area_coherence shows its default seed in the signature
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `jnwb/spectral.py`, `tests/test_rng_convention_matches_the_signatures.py`.
 P-164. The function declares `rng=None` and resolves it to `SeedSequence(42)` at
 `jnwb/spectral.py:706-710`, against the convention that a default seed is visible in the
@@ -1220,6 +1270,7 @@ behaviour change and needs a ruling, not a developer judgement.
 ### 06-108 a layer label never rests on one ulp of pitch
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `jnwb/laminar.py`, `tests/test_laminar.py`.
 P-166. `mid_half_span = (granular_thickness_um / 2.0) / pitch` with the **closed** test
 `input_start <= c_pos <= input_end` means a contact exactly at the boundary is included, so one
@@ -1240,6 +1291,7 @@ reached past the knife edge and needs re-deriving.
 ### 06-109 the state-reconstruction module collects under the wheel-leg flags
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `tests/test_state_reconstruction.py`.
 P-168. The module fails **collection** -- not assertion -- under the flags documented at
 `.github/workflows/workflow.yml:183-185`, with `ModuleNotFoundError: No module named
@@ -1258,6 +1310,7 @@ CI does not reproduce it, re-derive before changing anything.
 ### 06-110 a type oracle for documented call shapes
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `tests/test_docs_call_shapes.py`.
 P-167 remainder. P-79b, P-79c and P-82 are **not catchable by any call-shape check**: all three
 `Signature.bind` cleanly and are wrong-*type*, not wrong-shape -- `plot_noise_vs_signal(units_df,
@@ -1273,6 +1326,7 @@ abstains on the majority is a proxy, which is the whole shape of P-37.
 ### 06-111 the mutation harness can record an intentional survivor
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `scripts/mutation_harness.py`, `tests/test_mutation_harness_validity.py`.
 P-172. A `Verdict` with `killed=False` is only ever a failure, so a **measured** coverage gap
 cannot be pinned in the suite and has to live in a report instead. 06-27 found two such gaps and
@@ -1289,6 +1343,7 @@ naming it.
 ### 06-112 a gate reads artifacts/state.md when it is present
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `scripts/harness_gate.py`.
 **Single-writer warning:** 06-105, 06-106 and 06-111 write files in this set's vicinity; 06-105
 and 06-106 write this same file. None may run concurrently.
@@ -1308,6 +1363,7 @@ Stop: if the gate would need to regenerate rather than check, stop -- that is th
 ### 06-104 Close the skill coverage and authority gaps as one pass
 
 Role: docs-harness. Skill: `jnwb-fact-action`. Blocked by: none.
+Release: UNCLASSIFIED.
 Writes: `artifacts/skills_coverage_0.2.6.md`.
 P-63, P-61, P-100 and P-101, which are one surface seen four ways and should not be four packets.
 | Row | What is measured |
@@ -1330,6 +1386,7 @@ belong to whoever holds `scripts/harness_gate.py`.
 ### 06-105 Make gate 8 enforce the convergence the goal says it enforces
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
+Release: UNCLASSIFIED.
 **Unblocked 2026-09-20:** 06-94 closed, so the gate script is free. The previous wording recorded this item as blocking **itself** -- a typo for "06-94, since it and this item both write the gate script". Do not run concurrently with 06-103, which writes the same file.
 Writes: `scripts/harness_gate.py`, `tests/test_gate8_covers_every_version_surface.py`.
 P-68. `artifacts/goal.md:70` claims gate 8 enforces convergence across `requires-python`, the

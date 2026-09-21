@@ -1,0 +1,297 @@
+"""Condition 3 of ``AGENTS.md`` section 11, as amended 2026-09-21, as a check that can fail.
+
+The old condition was "both stacks are empty". It was replaced because it could not terminate:
+across 29 commits of the 0.2.6 cycle the open-problem count went 29 -> 101 while the item count
+stayed flat, since the apparatus that discovers defects is itself the largest source of them. A
+criterion that demands the record of discovered truth reach zero rewards not discovering, not
+recording, and repairing the machinery that records repairs.
+
+What replaced it is narrower in what it demands and *not* weaker in what it tolerates:
+
+  1. every open problem carries an explicit disposition;
+  2. no ``BLOCKER`` remains;
+  3. no todo item is still required for this cycle;
+  4. every ``DEFERRED`` names a destination and a reason;
+  5. no dangling problem <-> todo reference;
+  6. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
+
+Every test here drives the check over a constructed tree, and every one of the six is shown
+**both ways** -- the compliant tree passes, and breaking exactly that one thing fails. A test
+that only asserted the live tree reports violations would pass against a function that always
+returns one, which is the shape this repository has spent a cycle removing.
+
+The classification semantics and these discriminators land BEFORE any row is classified. That
+ordering is the point: a criterion relaxed and then immediately applied to the existing backlog
+is backlog laundering, and the process constraint in section 11 forbids it.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+
+import pytest
+
+from scripts.release_gate import (
+    DISPOSITIONS,
+    NEXT_CYCLE,
+    blocker_fixpoint_receipt,
+    check_release_readiness,
+    open_problem_dispositions,
+    todo_release_fields,
+)
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+HEAD = "a" * 40
+
+_PROBLEMS = """# Problem stack
+
+## Open
+
+| ID | Problem | Found by | Disposition | Answered in |
+|---|---|---|---|---|
+{open_rows}
+
+## Closed
+
+| ID | Problem | Disposition | Evidence |
+|---|---|---|---|
+| P-C1 | something that was real | `repaired` | a commit |
+"""
+
+_TODOS = """# {cycle}
+
+Items are deleted when done.
+
+{items}
+## Acceptance
+"""
+
+_RECEIPT = """# Blocker fixpoint receipt
+
+| field | value |
+|---|---|
+| commit | `{commit}` |
+| new release-blocking problems found | {found} |
+"""
+
+_DEFERRED = f"DEFERRED->{NEXT_CYCLE}"
+_GOOD_DEFER_REASON = (
+    f"carried to {NEXT_CYCLE}: cosmetic only, changes no shipped behaviour and no evidence"
+)
+
+
+def _tree(tmp_path, *, open_rows=(), items=(), commit=HEAD, found=0, receipt=True):
+    (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "artifacts" / "problem_stack.md").write_text(
+        _PROBLEMS.format(open_rows="\n".join(open_rows)), encoding="utf-8")
+    (tmp_path / "artifacts" / "todo_stack.md").write_text(
+        _TODOS.format(cycle=NEXT_CYCLE, items="\n".join(items)), encoding="utf-8")
+    if receipt:
+        (tmp_path / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
+            _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
+    return tmp_path
+
+
+def _row(pid, disposition, answered="nothing further"):
+    return f"| {pid} | a thing that is true | a packet | {disposition} | {answered} |"
+
+
+def _item(ident, release):
+    return (f"### {ident} Something\n\nRole: jnwb-developer. Skill: none. Blocked by: none.\n"
+            f"Release: {release}.\nWrites: `jnwb/x.py`.\n")
+
+
+# --- the compliant tree, which every discriminator below is measured against ------------------
+
+def test_a_compliant_tree_passes(tmp_path):
+    """The other side of every discriminator. Without this they would all pass vacuously."""
+    root = _tree(tmp_path,
+                 open_rows=[_row("P-01", _DEFERRED, _GOOD_DEFER_REASON),
+                            _row("P-02", "ACCEPTED", "cannot be retested; shipped artifact")],
+                 items=[_item("07-01", f"deferred-{NEXT_CYCLE}")])
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+def test_carrying_forward_a_hundred_problems_is_not_a_violation(tmp_path):
+    """The whole point of the amendment: the record is preserved, not emptied."""
+    rows = [_row(f"P-{n:02d}", _DEFERRED, _GOOD_DEFER_REASON) for n in range(1, 101)]
+    root = _tree(tmp_path, open_rows=rows)
+    assert check_release_readiness(root, head=HEAD) == []
+    assert len(open_problem_dispositions(root)) == 100
+
+
+# --- 1. explicit disposition -------------------------------------------------------------------
+
+def test_an_unclassified_problem_fails(tmp_path):
+    root = _tree(tmp_path, open_rows=[_row("P-01", "UNCLASSIFIED")])
+    v = check_release_readiness(root, head=HEAD)
+    assert v and "no valid disposition" in v[0] and "P-01" in v[0]
+
+
+@pytest.mark.parametrize("bogus", ["blocker", "Deferred", "WONTFIX", "", "`BLOCKER`"])
+def test_a_disposition_outside_the_declared_set_fails(tmp_path, bogus):
+    """Case and backticks included: a near-miss spelling must not read as a valid disposition."""
+    root = _tree(tmp_path, open_rows=[_row("P-01", bogus, _GOOD_DEFER_REASON)])
+    v = check_release_readiness(root, head=HEAD)
+    assert v and "no valid disposition" in v[0]
+
+
+# --- 2. no blocker remains ---------------------------------------------------------------------
+
+def test_one_blocker_fails(tmp_path):
+    root = _tree(tmp_path, open_rows=[_row("P-07", "BLOCKER", "06-01 will fix it")],
+                 items=[_item("06-01", f"deferred-{NEXT_CYCLE}")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("release-blocking problem(s) remain" in x and "P-07" in x for x in v)
+
+
+def test_a_blocker_in_a_test_file_blocks_exactly_as_hard_as_one_in_the_package(tmp_path):
+    """Path is not a classifier. P-174 is why: a mutant in a test file disabled the check that
+    would have caught it, and made four green suite runs mean less than they said."""
+    root = _tree(tmp_path, open_rows=[
+        "| P-174 | a mutant in `tests/test_docs_links.py` disabled the check | git status "
+        "| BLOCKER | 06-113 |"], items=[_item("06-113", f"deferred-{NEXT_CYCLE}")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("P-174" in x for x in v)
+
+
+# --- 3. no required item remains ---------------------------------------------------------------
+
+def test_an_item_still_required_this_cycle_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("06-99", "required-0.2.6")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "06-99" in x for x in v)
+
+
+def test_an_item_with_no_release_field_fails(tmp_path):
+    root = _tree(tmp_path)
+    (root / "artifacts" / "todo_stack.md").write_text(
+        _TODOS.format(cycle=NEXT_CYCLE,
+                      items="### 06-98 Something\n\nRole: jnwb-developer.\n"), encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "06-98" in x for x in v), \
+        "an item with no Release: field read as deferred rather than as unclassified"
+
+
+# --- 4. a deferral must say where and why ------------------------------------------------------
+
+def test_a_deferral_with_no_destination_fails(tmp_path):
+    root = _tree(tmp_path, open_rows=[_row("P-01", _DEFERRED, "later, probably, somehow ok yes")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("destination and reason" in x for x in v)
+
+
+def test_a_deferral_with_a_destination_but_no_reason_fails(tmp_path):
+    root = _tree(tmp_path, open_rows=[_row("P-01", _DEFERRED, NEXT_CYCLE)])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("destination and reason" in x for x in v)
+
+
+# --- 5. no dangling reference ------------------------------------------------------------------
+
+def test_a_blocker_pointing_at_a_nonexistent_item_fails(tmp_path):
+    root = _tree(tmp_path, open_rows=[_row("P-01", "BLOCKER", "06-77 owns it")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("dangling" in x and "06-77" in x for x in v)
+
+
+def test_an_item_citing_a_nonexistent_problem_fails(tmp_path):
+    root = _tree(tmp_path, items=[
+        f"### 07-02 Something\n\nRole: jnwb-developer.\nRelease: deferred-{NEXT_CYCLE}.\n"
+        "P-999. That row does not exist.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("dangling" in x and "P-999" in x for x in v)
+
+
+# --- 6. the closure receipt --------------------------------------------------------------------
+
+def test_a_missing_receipt_fails(tmp_path):
+    root = _tree(tmp_path, receipt=False)
+    v = check_release_readiness(root, head=HEAD)
+    assert any("blocker_fixpoint_receipt" in x for x in v)
+
+
+def test_a_receipt_from_a_different_commit_fails(tmp_path):
+    """A closure pass that ran against other bytes is not evidence about these bytes."""
+    root = _tree(tmp_path, commit="b" * 40)
+    v = check_release_readiness(root, head=HEAD)
+    assert any("did not run against the tree being released" in x for x in v)
+
+
+def test_a_receipt_reporting_new_blockers_fails(tmp_path):
+    root = _tree(tmp_path, found=2)
+    v = check_release_readiness(root, head=HEAD)
+    assert any("found 2 new release-blocking" in x for x in v)
+
+
+def test_the_fixpoint_is_new_blockers_and_not_new_observations(tmp_path):
+    """The narrowing that makes condition 3 terminate at all, pinned as behaviour.
+
+    A closure pass that discovers fifty 0.2.7-quality observations and zero blockers must
+    still close the release. If this ever fails, the fixpoint has silently widened back to
+    the form that could not terminate.
+    """
+    rows = [_row(f"P-{n:02d}", _DEFERRED, _GOOD_DEFER_REASON) for n in range(1, 51)]
+    root = _tree(tmp_path, open_rows=rows, found=0)
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+# --- absence must not read as compliance -------------------------------------------------------
+
+def test_a_missing_problem_stack_does_not_pass(tmp_path):
+    """Every block in gate 8 was once ``if <file>.exists():`` with no else, so an empty
+    directory passed. A condition satisfied by deleting its own evidence is worse than none."""
+    (tmp_path / "artifacts").mkdir(parents=True)
+    (tmp_path / "artifacts" / "todo_stack.md").write_text(
+        _TODOS.format(cycle=NEXT_CYCLE, items=""), encoding="utf-8")
+    v = check_release_readiness(tmp_path, head=HEAD)
+    assert v, "a tree with no problem stack at all passed the release check"
+
+
+# --- the live tree -----------------------------------------------------------------------------
+
+def test_the_live_stacks_are_readable_by_the_parsers():
+    """Not an emptiness assertion. A formatting change that silently reduced either file to
+    zero rows would otherwise read as a satisfied release condition."""
+    assert todo_release_fields(REPO_ROOT), "the todo stack parsed to zero items"
+    assert open_problem_dispositions(REPO_ROOT), "the problem stack parsed to zero open rows"
+
+
+def test_every_live_open_row_parses_to_a_disposition_cell():
+    """A row whose cell count is wrong yields ``MALFORMED`` rather than a silent skip."""
+    rows = open_problem_dispositions(REPO_ROOT)
+    malformed = [pid for pid, disp, _ in rows if disp == "MALFORMED"]
+    assert not malformed, f"open rows that do not parse to five columns: {malformed}"
+
+
+def test_the_live_closed_rows_use_only_declared_dispositions():
+    """Checks every closed row's disposition cell, backticked or not.
+
+    The previous form of this test matched only ``` `disposition` ``` in backticks, so rows
+    written without them were invisible to it -- and three such rows were written during 0.2.6.
+    """
+    text = (REPO_ROOT / "artifacts" / "problem_stack.md").read_text(encoding="utf-8")
+    closed = text.split("\n## Closed\n", 1)
+    assert len(closed) == 2, "the problem stack has no Closed section"
+    allowed = {"repaired", "accepted", "not-a-defect"}
+    unknown = []
+    for line in closed[1].splitlines():
+        if not line.startswith("| P-"):
+            continue
+        cells = [c.strip() for c in re.split(r"(?<!\\)\|", line)]
+        if len(cells) != 6:
+            unknown.append(f"{cells[1]}: {len(cells) - 2} columns")
+            continue
+        if cells[3].strip("`").lower() not in allowed:
+            unknown.append(f"{cells[1]}: {cells[3][:30]!r}")
+    assert not unknown, f"closed rows with an undeclared disposition: {unknown}"
+
+
+def test_the_receipt_parser_reads_nothing_from_an_absent_receipt():
+    commit, found = blocker_fixpoint_receipt(pathlib.Path("/nonexistent-tree"))
+    assert commit is None and found is None
+
+
+def test_the_declared_dispositions_are_exactly_the_three_ruled():
+    assert set(DISPOSITIONS) == {"BLOCKER", f"DEFERRED->{NEXT_CYCLE}", "ACCEPTED"}

@@ -713,37 +713,184 @@ def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
     ]
 
 
-def check_stacks_are_empty(root: pathlib.Path = REPO_ROOT) -> List[str]:
-    """AGENTS.md §11 condition 3, as a release-time check.
+RELEASE_CYCLE = "0.2.6"
+NEXT_CYCLE = "0.2.7"
+DISPOSITIONS = ("BLOCKER", f"DEFERRED->{NEXT_CYCLE}", "ACCEPTED")
+RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
+_UNESCAPED_PIPE = re.compile(r"(?<!\\)\|")
 
-    Deliberately not a harness gate. Both stacks are non-empty for almost all of a cycle, and a
-    gate that fails every day is a gate people learn to skip. This runs where emptiness is
-    actually required: at release.
+
+def open_problem_dispositions(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
+    """``(id, disposition, answered_in)`` for every row under ``## Open``.
+
+    The disposition is a COLUMN, not a prefix parsed out of prose. A status inferred from the
+    beginning of a sentence is a proxy for the status, and this repository has spent a cycle
+    paying for proxies (P-37). Cells are split on unescaped ``|`` only, because GFM splits
+    cells before it parses inline code and a ``|`` inside backticks must be written ``\\|``.
     """
-    violations = []
-    problems = open_problems(root)
-    if problems:
+    path = root / "artifacts" / "problem_stack.md"
+    if not path.exists():
+        return []
+    rows, section = [], None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"^## (?P<title>.+?)\s*$", line)
+        if heading:
+            section = heading.group("title")
+            continue
+        if section != "Open" or not line.startswith("| P-"):
+            continue
+        cells = [c.strip() for c in _UNESCAPED_PIPE.split(line)]
+        if len(cells) != 7:          # '' | id | problem | found by | disposition | answered | ''
+            rows.append((cells[1] if len(cells) > 1 else "?", "MALFORMED", ""))
+            continue
+        rows.append((cells[1], cells[4], cells[5]))
+    return rows
+
+
+def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
+    """``(id, title, release)`` for every item heading in the todo stack."""
+    path = root / "artifacts" / "todo_stack.md"
+    if not path.exists():
+        return []
+    text = path.read_text(encoding="utf-8")
+    out = []
+    for m in re.finditer(r"^### (\d\d-\d+) ([^\n]*)\n(.*?)(?=\n### |\n## |\Z)", text, re.S | re.M):
+        # Capture to end of line and strip one trailing sentence period. Stopping at the first
+        # `.` would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value compares
+        # unequal to the deferred marker -- so every deferred item would read as still required.
+        field = re.search(r"^Release:\s*([^\n]*)", m.group(3), re.M)
+        value = field.group(1).strip().rstrip(".").strip() if field else "MISSING"
+        out.append((m.group(1), m.group(2).strip(), value))
+    return out
+
+
+def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[str], Optional[int]]:
+    """``(commit, new_blockers)`` from the closure-pass receipt, or ``(None, None)``."""
+    path = root / RECEIPT_PATH
+    if not path.exists():
+        return None, None
+    text = path.read_text(encoding="utf-8")
+    commit = re.search(r"^\|\s*commit\s*\|\s*`([0-9a-f]{40})`\s*\|", text, re.M)
+    found = re.search(r"^\|\s*new release-blocking problems found\s*\|\s*(\d+)\s*\|", text, re.M)
+    return (commit.group(1) if commit else None,
+            int(found.group(1)) if found else None)
+
+
+def check_release_readiness(root: pathlib.Path = REPO_ROOT,
+                            head: Optional[str] = None) -> List[str]:
+    """AGENTS.md section 11 condition 3, as amended 2026-09-21.
+
+    Not "both stacks are empty". A known issue is not a release-blocking issue, and requiring
+    the record of discovered truth to reach zero rewards not discovering and not recording.
+    What is required instead, mechanically:
+
+      1. every open problem carries an explicit disposition;
+      2. no `BLOCKER` remains;
+      3. no todo item is still required for this cycle;
+      4. every `DEFERRED` names a destination and a reason;
+      5. no dangling problem <-> todo reference;
+      6. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
+
+    Deliberately still not a harness gate, for the original reason: this is false for almost
+    all of a cycle, and a gate that fails every day is a gate people learn to skip.
+    """
+    violations: List[str] = []
+    rows = open_problem_dispositions(root)
+
+    # 1. explicit disposition on every open row
+    unclassified = [f"{i} ({d})" for i, d, _ in rows if d not in DISPOSITIONS]
+    if unclassified:
         violations.append(
-            f"artifacts/problem_stack.md holds {len(problems)} open problem(s): " + "; ".join(problems)
-        )
-    todos = remaining_todo_items(root)
-    if todos:
+            f"{len(unclassified)} open problem(s) carry no valid disposition "
+            f"(need one of {', '.join(DISPOSITIONS)}): " + "; ".join(unclassified[:10])
+            + (" ..." if len(unclassified) > 10 else ""))
+
+    # 2. no blocker remains
+    blockers = [i for i, d, _ in rows if d == "BLOCKER"]
+    if blockers:
         violations.append(
-            f"artifacts/todo_stack.md holds {len(todos)} item(s): " + "; ".join(t[:40] for t in todos[:8])
-            + (" ..." if len(todos) > 8 else "")
-        )
+            f"{len(blockers)} release-blocking problem(s) remain: " + "; ".join(blockers[:12])
+            + (" ..." if len(blockers) > 12 else ""))
+
+    # 3. no required item remains
+    items = todo_release_fields(root)
+    required = [f"{i} {t[:34]}" for i, t, r in items if r != f"deferred-{NEXT_CYCLE}"]
+    if required:
+        violations.append(
+            f"{len(required)} todo item(s) are still required for {RELEASE_CYCLE}: "
+            + "; ".join(required[:8]) + (" ..." if len(required) > 8 else ""))
+
+    # 4. every DEFERRED names a destination and a reason
+    thin = [i for i, d, ans in rows
+            if d == f"DEFERRED->{NEXT_CYCLE}" and (NEXT_CYCLE not in ans or len(ans) < 40)]
+    if thin:
+        violations.append(
+            f"{len(thin)} deferred problem(s) do not name a destination and reason in their "
+            f"`Answered in` cell: " + "; ".join(thin[:10]))
+
+    # 5. no dangling reference in either direction
+    live_items = {i for i, _, _ in items}
+    known_problems = set(re.findall(
+        r"^\|\s*(P-\d+)\s*\|", (root / "artifacts" / "problem_stack.md").read_text(
+            encoding="utf-8") if (root / "artifacts" / "problem_stack.md").exists() else "", re.M))
+    dangling = []
+    for pid, disp, ans in rows:
+        for ref in set(re.findall(r"\b(\d\d-\d+)\b", ans)):
+            if disp == "BLOCKER" and ref not in live_items:
+                dangling.append(f"{pid} -> {ref} (item not in the stack)")
+    todo_text = (root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8") \
+        if (root / "artifacts" / "todo_stack.md").exists() else ""
+    for ref in sorted(set(re.findall(r"\b(P-\d+)\b", todo_text))):
+        if ref not in known_problems:
+            dangling.append(f"todo stack -> {ref} (no such problem row)")
+    if dangling:
+        violations.append(f"{len(dangling)} dangling reference(s): " + "; ".join(dangling[:10]))
+
+    # 6. the independent closure receipt
+    commit, found = blocker_fixpoint_receipt(root)
+    if commit is None:
+        violations.append(
+            f"{RECEIPT_PATH} is missing or states no commit; the blocker-focused fixpoint pass "
+            "has not been recorded")
+    elif head is not None and commit != head:
+        violations.append(
+            f"{RECEIPT_PATH} records commit {commit[:12]}, but HEAD is {head[:12]}: the closure "
+            "pass did not run against the tree being released")
+    if found is None:
+        violations.append(f"{RECEIPT_PATH} does not state how many new release-blocking "
+                          "problems the closure pass found")
+    elif found != 0:
+        violations.append(
+            f"the closure pass found {found} new release-blocking problem(s); the fixpoint is "
+            "zero NEW BLOCKERS, not zero new observations")
     return violations
 
 
 def main() -> None:
-    log.info("=== STEP 0a: Checking both stacks are empty (AGENTS.md section 11, condition 3) ===")
-    stack_violations = check_stacks_are_empty()
+    log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
+    try:
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
+                              text=True, check=True).stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        head = None
+    stack_violations = check_release_readiness(head=head)
     if stack_violations:
         for violation in stack_violations:
             log.error(violation)
-        log.error("A release requires no open problem and no remaining todo item.")
+        log.error(
+            "A release requires: every open problem explicitly disposed; zero BLOCKER problems; "
+            "zero todo items still required for this cycle; every DEFERRED naming its "
+            "destination and reason; no dangling references; and a blocker-focused closure "
+            "receipt at HEAD reporting zero new blockers. A known issue is not a blocking issue, "
+            "but the record of it is not allowed to be silent about which it is.")
         sys.exit(1)
-    log.info("PASS: the todo stack and the problem stack are both empty.")
+    rows = open_problem_dispositions()
+    deferred = sum(1 for _, d, _ in rows if d.startswith("DEFERRED"))
+    accepted = sum(1 for _, d, _ in rows if d == "ACCEPTED")
+    log.info(
+        "PASS: no release-blocking problem and no required item remain. %d open problem(s) "
+        "carry forward (%d deferred to %s, %d accepted); the record is preserved, not emptied.",
+        len(rows), deferred, NEXT_CYCLE, accepted)
 
     log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
     missing = verify_declared_environment()

@@ -357,10 +357,56 @@ JAX Metal through one mechanism. CPU, parallel CPU and CUDA are exercised on the
 machine; the Metal path is implemented and declared unverified, because no machine here can run it
 and an unbacked claim is worse than a stated gap.
 
-**3. Both stacks are empty.** `artifacts/todo_stack.md` holds no item and `artifacts/problem_stack.md`
-holds no `open` problem, including every problem detected while emptying them. Emptiness is a
-fixpoint, and `artifacts/problem_stack.md` states that rule where it states the dispositions that
-close a row. It is a terminating condition, not a date.
+**3. No release-blocking problem or required item remains, and an independent blocker-focused
+closure pass finds no new one.** Ruled 2026-09-21, replacing "both stacks are empty". A known
+issue is not a release-blocking issue. The problem stack is a record of discovered truth, and
+requiring that record to reach zero rewards not discovering, not recording, and repairing the
+machinery that records repairs — the measured dynamics of 0.2.6 are the evidence: across 29
+commits the open count went 29 → 101 while the item count stayed flat, because the apparatus
+that finds defects is itself the largest source of them.
+
+Every open problem carries exactly one **disposition**:
+
+| Disposition | Meaning |
+|---|---|
+| `BLOCKER` | must be resolved before this release opens |
+| `DEFERRED->0.2.7` | recorded, carried forward, named destination and reason |
+| `ACCEPTED` | closed without a fix, under the standard below |
+
+A problem is a **`BLOCKER`** if *any* of these hold:
+
+- shipped scientific or API behaviour can be wrong;
+- public docs or skills can cause scientifically wrong use;
+- a package boundary or release claim is materially false;
+- a test, harness or CI defect can invalidate evidence required for this release's acceptance;
+- packaging, install or provenance can make qualification test the wrong artifact;
+- required acceptance evidence is missing or unreliable;
+- an unresolved human ruling changes shipped semantics.
+
+A problem is **`DEFERRED`** only when *all* of these are established:
+
+- it does not change shipped scientific or API behaviour;
+- it does not materially mislead public users or agents;
+- it cannot invalidate any evidence relied upon for this release;
+- leaving it unresolved does not make a required gate unknown;
+- its disposition and evidence are preserved in the next cycle's stack.
+
+**Path is not a classifier.** A defect in `tests/`, `scripts/` or `artifacts/` blocks exactly as
+hard as one in `jnwb/` when it can invalidate release evidence. P-174 is the standing example: a
+mutant in a test file disabled the check that would have caught it and made four green suite runs
+mean less than they said. The question is never where a row lives. It is: *does this affect the
+artifact, a public scientific instruction, or the validity of the evidence used to release it?*
+
+**The fixpoint is blocker-focused.** The terminating condition is that a final independent pass
+finds **no new release-blocking material problem** — not that it finds nothing. New observations
+of 0.2.7 quality may be discovered and recorded during that pass without resetting closure. This
+is what makes condition 3 terminate at all: the old form could not, because the process that
+empties a stack is the same process that fills it.
+
+**A relaxed criterion must not become backlog laundering.** The classification semantics and their
+discriminators land before any row is classified; an independent critic classifies; and a second
+independent pass attacks every proposed `DEFERRED` with one question — *could this defect make any
+evidence used to qualify this release falsely pass?* If yes, it is restored to `BLOCKER`.
 
 ### Evidence standards for these conditions
 
@@ -386,8 +432,17 @@ shipped artifact that cannot be retested is the shape of a legitimate `accepted`
 0.2.5 closed as "no known material defect under its completed acceptance set", which was honest
 and narrow. These three conditions are what makes the next claim wider without making it vaguer:
 each one is checkable, and the third makes the other two hold at the same moment rather than in
-sequence. Without the fixpoint the third condition cannot terminate, because the process that
-empties a stack is the same process that fills it.
+sequence.
+
+The 2026-09-21 amendment corrects an error in the original third condition rather than relaxing
+it. That condition already named its own failure mode — "the process that empties a stack is the
+same process that fills it" — and then concluded that a global fixpoint would resolve it. It does
+not. A global fixpoint over *all* discovered problems terminates only if discovery stops, and in a
+repository whose auditing machinery is designed to find ever more remote process defects, discovery
+stopping is a symptom rather than a goal. Narrowing the fixpoint to *release-blocking material*
+problems keeps the terminating property and keeps the record complete, and the blocker predicate
+above is what stops the narrowing from being a loophole: it is broader than "is it in `jnwb/`",
+and it deliberately catches apparatus defects that can make evidence falsely pass.
 
 ## 12. Autonomy
 
