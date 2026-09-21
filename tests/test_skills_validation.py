@@ -2,6 +2,7 @@
 tests/test_skills_validation.py -- Deterministic verification of canonical repository skills.
 """
 from pathlib import Path
+from typing import List, Tuple
 import ast
 import dataclasses
 import inspect
@@ -45,6 +46,92 @@ CANONICAL_SKILLS = {
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT_DIR / "skills"
 DOCS_DIR = ROOT_DIR / "docs"
+
+
+def _executable_source(text: str) -> str:
+    """`text` with comments and docstrings removed, so a probe reads code and not prose.
+
+    A file-level co-occurrence probe over raw text cannot tell a write call from a sentence
+    about one. `scripts/harness_gate.py` lists `fact_stack.md` as a gated vocabulary term and
+    explains in a docstring that `Path.write_text` rewrites line endings on Windows; read as
+    raw text those two facts make it a file that "could rewrite the fact stack", and it does
+    not write anything at all.
+
+    Narrowing a check is how a blind spot gets made, so the narrowing is stated precisely: a
+    comment and a docstring cannot execute, therefore removing them cannot hide a real writer.
+    Anything that runs survives. `ast.unparse` drops comments as a consequence of round-tripping
+    the tree; the docstrings are removed explicitly. A file that does not parse is returned
+    unchanged, so a syntax error makes the probe more conservative rather than blind.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return text
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list) or not isinstance(
+            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            continue
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            body.pop(0)
+            if not body:
+                body.append(ast.Pass())
+    return ast.unparse(ast.fix_missing_locations(tree))
+
+
+def _scopes(text: str) -> List[Tuple[str, str]]:
+    """`(name, source)` for each executable scope: every function, plus what is left of the
+    module once the functions are lifted out of it.
+
+    A co-occurrence probe over a whole file asks "does this file mention the fact stack
+    anywhere, and call a write anywhere", which are two different places in a file of any
+    size. `scripts/harness_gate.py` names `fact_stack.md` in its gated-vocabulary tuple and
+    names `write_text` in a violation message four hundred lines away, telling an author which
+    API caused a line-ending conversion. Neither is a write of the fact stack, and no amount of
+    stripping prose changes that, because both are executable.
+
+    Scoping the question to one function narrows it to something a writer cannot escape: code
+    that writes a named file holds the name and the call in the same body. The residual module
+    scope is kept for the same reason, since a module-level statement can write too.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return [("<unparsed>", text)]
+
+    functions: List[Tuple[str, str]] = []
+
+    class _Lift(ast.NodeTransformer):
+        def _take(self, node):
+            functions.append((node.name, ast.unparse(ast.fix_missing_locations(node))))
+            return ast.Pass()
+
+        visit_FunctionDef = _take
+        visit_AsyncFunctionDef = _take
+
+    residual = _Lift().visit(ast.parse(text))
+    return [("<module>", ast.unparse(ast.fix_missing_locations(residual)))] + functions
+
+
+_WRITE_CALL = re.compile(r"""write_text|write_bytes|open\([^)]*['"][wa]""")
+
+
+def _fact_stack_writers(paths) -> List[str]:
+    """The paths among `paths` holding a scope that names the fact stack and writes a file."""
+    offenders = []
+    for path in paths:
+        source = _executable_source(Path(path).read_text(encoding="utf-8"))
+        for _name, scope in _scopes(source):
+            if "fact_stack" in scope and _WRITE_CALL.search(scope):
+                offenders.append(str(path))
+                break
+    return offenders
 
 
 def test_canonical_skills_directories_exist():
@@ -719,12 +806,67 @@ class TestEvidenceConflictProbes:
         """`jnwb-fact-action` states that agents may read and challenge facts but must
         never autonomously add, edit or delete them. That is only a rule if no code path
         can do it."""
-        offenders = []
-        for path in list(Path("jnwb").rglob("*.py")) + list(Path("scripts").rglob("*.py")):
-            text = path.read_text(encoding="utf-8")
-            if "fact_stack" in text and re.search(r"write_text|write_bytes|open\([^)]*['\"][wa]", text):
-                offenders.append(str(path))
+        offenders = _fact_stack_writers(
+            list(Path("jnwb").rglob("*.py")) + list(Path("scripts").rglob("*.py"))
+        )
         assert not offenders, f"code that could rewrite the fact stack: {offenders}"
+
+    def test_the_probe_still_catches_a_real_writer(self, tmp_path: Path):
+        """The discriminator for the narrowing above, in both scope kinds.
+
+        The live answer is zero offenders, and a zero proves nothing on its own. A writer at
+        module level and a writer inside a function are each planted and each caught.
+        """
+        (tmp_path / "top.py").write_text(
+            "from pathlib import Path\nPath('artifacts/fact_stack.md').write_text('x')\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "nested.py").write_text(
+            "from pathlib import Path\n\n\n"
+            "def repair():\n"
+            "    target = Path('artifacts/fact_stack.md')\n"
+            "    target.write_text('x')\n",
+            encoding="utf-8",
+        )
+        caught = _fact_stack_writers(sorted(tmp_path.glob("*.py")))
+        assert len(caught) == 2, caught
+
+    def test_the_probe_ignores_a_comment_about_writing(self, tmp_path: Path):
+        """Prose naming the API is not a call of it."""
+        (tmp_path / "prose.py").write_text(
+            "# Path('fact_stack.md').write_text('x') would be wrong\n"
+            '"""fact_stack.md is named here, and write_text is explained here."""\n'
+            "value = 1\n",
+            encoding="utf-8",
+        )
+        assert _fact_stack_writers([tmp_path / "prose.py"]) == []
+
+    def test_two_unrelated_mentions_in_one_file_are_not_a_writer(self, tmp_path: Path):
+        """The case that forced the scoping, reduced to its shape.
+
+        `scripts/harness_gate.py` names `fact_stack.md` in its gated-vocabulary tuple and names
+        `write_text` in a violation message that tells an author which API converted their line
+        endings. Both are executable, so stripping prose does not separate them -- but they are
+        four hundred lines and two scopes apart, and neither writes anything.
+        """
+        (tmp_path / "gate.py").write_text(
+            "TERMS = ('fact_stack.md', 'todo_stack.md')\n\n\n"
+            "def explain():\n"
+            "    return 'use newline= or write bytes; write_text translates line endings'\n",
+            encoding="utf-8",
+        )
+        assert _fact_stack_writers([tmp_path / "gate.py"]) == []
+
+    def test_the_probe_reads_the_real_harness_gate(self):
+        """The file the scoping was built for is actually scanned, and actually clears."""
+        gate = Path("scripts") / "harness_gate.py"
+        assert gate.is_file(), f"{gate} is gone; the case above no longer has a subject"
+        text = gate.read_text(encoding="utf-8")
+        assert "fact_stack.md" in text and "write_text" in text, (
+            "harness_gate.py no longer carries both halves of the co-occurrence, so this test "
+            "would pass for a reason that has nothing to do with the scoping"
+        )
+        assert _fact_stack_writers([gate]) == []
 
     # Both read through SKILLS_DIR rather than a bare relative path: a path relative to
     # the current directory resolves only when pytest is run from the repository root.

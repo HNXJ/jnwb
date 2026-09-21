@@ -25,7 +25,7 @@ applying exactly where it is written.
 
 **Generated and included pages are governed through their source, never by editing the page.**
 Ten of twenty-seven pages are in those two rows. An edit to one of them is discarded by the next
-build, silently. Any packet that trims, retitles or reformats documentation takes the seventeen
+build, silently. Any change that trims, retitles or reformats documentation takes the seventeen
 authored pages and leaves the other ten alone; if a generated page violates a rule, the fix goes
 to the generator or the script it includes.
 
@@ -65,9 +65,11 @@ without reporting itself as a page that uses one.
 | Concept | Use | Not |
 |---|---|---|
 | A recording defect, and its repair | `artifact`, `artifacts` | `artefact`, `artefacts` |
-| Scaling to a common range | `normalize`, `normalized`, `normalization` | `normalise`, `normalised`, `normalisation` |
+| Scaling to a common range | `normalize`, `normalizes`, `normalized`, `normalizing`, `normalization` | `normalise`, `normalises`, `normalised`, `normalising`, `normalisation` |
 | Examining data | `analyze`, `analyzing`, `analyzed` | `analyse`, `analysing`, `analysed` |
-| Adjacency in space or time | `neighboring` | `neighbouring` |
+| Adjacency in space or time | `neighboring`, `neighbor`, `neighbors` | `neighbouring`, `neighbour`, `neighbours` |
+| Respecting a stated setting | `honor`, `honors`, `honored` | `honour`, `honours`, `honoured` |
+| Bringing a value into memory | `materialize`, `materializes`, `materializing`, `materialized` | `materialise`, `materialises`, `materialising`, `materialised` |
 | A rendered color | `color`, `colors` | `colour`, `colours` |
 | Metric distance | `meters`, `micrometers` | `metres`, `micrometres` |
 | Observable conduct | `behavioral` | `behavioural` |

@@ -57,17 +57,66 @@ _VOCABULARY_HEADING_LINE = re.compile(rf"^{re.escape(VOCABULARY_HEADING)}\s*$", 
 # --------------------------------------------------------------------------- corpus
 
 
+_FENCE_BLOCK = re.compile(r"^```[^\n]*\n(.*?)^```", re.S | re.M)
+#: A whole-line or trailing `#` comment inside a fenced block. A `#` inside a string literal is
+#: not excluded; that imprecision was measured rather than argued about, and across the 277
+#: comment lines in `docs/*.md` it produces no false positive.
+_FENCE_COMMENT = re.compile(r"#(.*)$", re.M)
+
+
+def _fenced_comments(text: str) -> str:
+    """The comment text inside fenced code blocks, which `_prose` strips along with the code."""
+    return "\n".join(
+        comment
+        for block in _FENCE_BLOCK.findall(text)
+        for comment in _FENCE_COMMENT.findall(block)
+    )
+
+
 def _corpus() -> list[tuple[str, str]]:
     """The pages a vocabulary rule can actually be applied to, as (name, text).
 
-    Top-level `docs/*.md` less the generated reference, plus `README.md`. The nine
-    `docs/tutorials/*.md` are excluded because each is a `--8<--` wrapper around a script
-    in `examples/tutorials/`: the words a reader sees are in the script, and an edit to
-    the wrapper is discarded by the next build.
+    Top-level `docs/*.md`, plus `README.md`, plus three surfaces this corpus used to exclude
+    (P-95). The nine `docs/tutorials/*.md` wrappers are still excluded, but for the reason
+    that names their replacement: each is a `--8<--` wrapper around a script in
+    `examples/tutorials/`, so the words a reader sees are in the script and an edit to the
+    wrapper is discarded by the next build. The scripts are therefore scanned instead.
+
+    The three additions, and why each is published prose rather than internal text:
+
+    | Surface | Read by | Fix goes to |
+    |---|---|---|
+    | `skills/*/SKILL.md` | agents routing to the library | the skill file |
+    | `docs/api.md` | readers of the reference | the generator or a jnwb docstring |
+    | `examples/tutorials/*.py` | readers of the tutorials | the script |
+
+    `docs/api.md` is generated, so it cannot be corrected in place -- but a superseded form
+    reaching it is still a defect on a published page, and the gate naming it is what sends
+    the fix to the generator instead of to the page.
     """
     pages = [(p.name, p.read_text(encoding="utf-8"))
              for p in sorted(DOCS.glob("*.md")) if p.name != GENERATED]
     pages.append(("README.md", (REPO_ROOT / "README.md").read_text(encoding="utf-8")))
+
+    # Code comments inside fenced blocks are prose a reader reads, and `_prose` strips fences
+    # whole, so they were invisible. Two in `docs/05` were corrected by hand with no guard, and
+    # a hand fix with no guard is the shape that comes back (P-95). Measured before adding:
+    # 277 comment lines across `docs/*.md`, 0 superseded forms and 0 false positives, so this
+    # costs nothing and closes the gap those two corrections sat in.
+    for page in sorted(DOCS.glob("*.md")):
+        comments = _fenced_comments(page.read_text(encoding="utf-8"))
+        if comments.strip():
+            pages.append((f"{page.name} (code comments)", comments))
+
+    generated = DOCS / GENERATED
+    if generated.is_file():
+        pages.append((f"docs/{GENERATED}", generated.read_text(encoding="utf-8")))
+    for skill in sorted((REPO_ROOT / "skills").glob("*/SKILL.md")):
+        pages.append((f"skills/{skill.parent.name}/SKILL.md",
+                      skill.read_text(encoding="utf-8")))
+    for script in sorted((REPO_ROOT / "examples" / "tutorials").glob("*.py")):
+        pages.append((f"examples/tutorials/{script.name}",
+                      script.read_text(encoding="utf-8")))
     return pages
 
 
@@ -171,6 +220,23 @@ def _word(term: str) -> re.Pattern[str]:
     return re.compile(rf"\b{re.escape(term)}\b", re.I)
 
 
+#: Every superseded form is matched exactly, and the inflections are listed in the contract
+#: rather than derived here.
+#:
+#: A draft of the P-95 repair tolerated a trailing `s` on the superseded side, reasoning that a
+#: plural of a forbidden word is forbidden too. **That reasoning is wrong, and the corpus said
+#: so immediately**: `analyse` is superseded, and `analyse` + `s` is "analyses", the ordinary
+#: plural of "analysis", which is correct American English. It fired on
+#: `docs/01_architecture_and_philosophy.md:61` and `:83` -- two pages already inside the gated
+#: corpus, and correct as written.
+#:
+#: So the rule stays exact. An unlisted inflection is closed by adding it to the table in
+#: `docs/documentation_form.md`, where a human reads it, and not by a matcher that guesses at
+#: English. The same argument was already being made here about `-ing` and `-ation`; it applies
+#: to `-s` and the draft failed to apply it.
+_superseded_word = _word
+
+
 def vocabulary_violations(pages: list[tuple[str, str]],
                           rows: list[VocabularyRow]) -> list[str]:
     """Every superseded surface form still in the prose, named with its page.
@@ -187,7 +253,7 @@ def vocabulary_violations(pages: list[tuple[str, str]],
             for good in row.preferred:
                 scrubbed = _word(good).sub(" ", scrubbed)
             for bad in row.superseded:
-                if _word(bad).search(scrubbed):
+                if _superseded_word(bad).search(scrubbed):
                     found.append(f"{name}: {bad!r} -- {row.concept} is written "
                                  f"{row.head!r}")
     return sorted(set(found))
@@ -200,8 +266,14 @@ def test_the_corpus_reaches_the_authored_pages():
     """Bypass this is written against: the corpus is empty, or is the generated page
     alone, so every scan below passes over nothing."""
     names = {name for name, _ in _corpus()}
-    assert GENERATED not in names, "the generated reference is not governed by this check"
-    assert not any(n.startswith("tutorials") for n in names)
+    assert GENERATED not in names, (
+        "the generated reference is scanned under its full path `docs/api.md`, never under "
+        "its bare name -- the distinction is what says the fix goes to the generator"
+    )
+    assert not any(n.startswith("tutorials") for n in names), (
+        "the nine `--8<--` wrapper pages stay excluded; the scripts they include are scanned "
+        "in their place, because an edit to a wrapper is discarded by the next build"
+    )
     for expected in ("index.md", "common_mistakes.md", "errors.md", "quickstart.md",
                      "10_operation_specifications.md", "documentation_form.md",
                      "README.md"):
@@ -210,6 +282,52 @@ def test_the_corpus_reaches_the_authored_pages():
 
     words = sum(len(_prose(text).split()) for _, text in _corpus())
     assert words > 8000, f"only {words} words of prose; the corpus has collapsed"
+
+
+def test_the_corpus_reaches_the_three_surfaces_it_used_to_exclude():
+    """P-95: a widening that silently globs nothing looks exactly like a clean tree.
+
+    Each of the three additions is asserted to be present and non-trivial, because an empty
+    glob returns an empty list and every scan above then passes over it without a word.
+    """
+    corpus = _corpus()
+    names = {name for name, _ in corpus}
+
+    skills = [n for n in names if n.startswith("skills/")]
+    tutorials = [n for n in names if n.startswith("examples/tutorials/")]
+    comments = [n for n in names if n.endswith("(code comments)")]
+
+    assert len(skills) >= 8, f"the skill corpus collapsed to {sorted(skills)}"
+    assert len(tutorials) >= 9, f"the tutorial corpus collapsed to {sorted(tutorials)}"
+    assert comments, "no fenced code comments collected from any page"
+    assert f"docs/{GENERATED}" in names, "the generated reference fell out of the corpus"
+
+    for surface, prefix in (("skills", "skills/"),
+                            ("tutorials", "examples/tutorials/"),
+                            ("generated reference", f"docs/{GENERATED}")):
+        words = sum(len(_prose(text).split())
+                    for name, text in corpus if name.startswith(prefix))
+        assert words > 100, f"the {surface} surface contributes only {words} words"
+
+
+@pytest.mark.parametrize(
+    "label, text",
+    [
+        ("skills/jnwb-fake/SKILL.md", "This normalises the array before use.\n"),
+        ("examples/tutorials/99_fake.py", "# Uses the neighbouring channel.\n"),
+        ("docs/api.md", "Returns the colour of the trace.\n"),
+        ("fake.md (code comments)", " honours the declared unit\n"),
+    ],
+)
+def test_a_superseded_form_on_each_widened_surface_is_caught(label: str, text: str):
+    """The discriminator for the widening: each surface is scanned, not merely listed.
+
+    Driven through `vocabulary_violations` with a constructed page rather than by editing a
+    real one, so the test proves the rule applies to that surface without depending on a
+    violation existing there -- and the four live ones have been repaired, so none does.
+    """
+    violations = vocabulary_violations([(label, text)], _vocabulary())
+    assert violations, f"a superseded form on {label} was not caught"
 
 
 def test_stripping_code_leaves_the_prose_behind():

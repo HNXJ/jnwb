@@ -48,7 +48,7 @@ file, including `data_path`, `layout` and `series` on every continuous entry. Ev
 A name that exists in both `/acquisition` and a processing module is refused the same way.
 
 **Array orientation:** `inspect` reports `layout` per 2-D series, decided by the series' own
-electrode region rather than by which side is longer. `acquisition_channel` honours it, so
+electrode region rather than by which side is longer. `acquisition_channel` honors it, so
 `channel=k` is the same channel whether the file is time-by-channel or channel-by-time. When the
 electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
 `acquisition_channel` raises `AmbiguousLayoutError`.
@@ -72,9 +72,9 @@ electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
 MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for agent hosts;
 use the public functions above in normal Python workflows.
 
-- `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalises any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
+- `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
 - `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` rather than picking one when the name is absent or ambiguous.
-- `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materialising the array.
+- `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
 - `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
 - `jnwb.unit_census_report(units_df, group_by=None)`: Census of units grouped by session, area or layer.
 - `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.

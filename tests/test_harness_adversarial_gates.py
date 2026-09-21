@@ -21,6 +21,8 @@ import pytest
 
 from scripts.harness_gate import (
     GENERATED_FROM,
+    INTERNAL_PROCESS_TERMS,
+    _internal_term_pattern,
     check_dataset_leakage,
     check_documented_api_matches_all,
     check_docs_version_matches_package,
@@ -1079,10 +1081,17 @@ class TestGate14InternalProcessVocabulary:
         return tmp_path
 
     def test_a_page_naming_a_delegation_packet_fails(self, tmp_path: Path):
-        """06-68's stated discriminator, in its stated words."""
+        """06-68's stated discriminator, in its stated words.
+
+        The sentence is unchanged; what it is caught BY changed. "delegation packet" was
+        removed from the term list when the bare "packet" was gated, because the bare term
+        already matched it and a subsumed entry can never fire on its own (P-98). So the
+        assertion is on the gate refusing the sentence, not on which entry did it -- pinning
+        the entry would make this test fail for a correct narrowing of the list.
+        """
         root = self._docs(tmp_path, guide="Hand the delegation packet to the next role.\n")
         violations = check_internal_process_vocabulary(root)
-        assert any("delegation packet" in v.lower() for v in violations), violations
+        assert any("packet" in v.lower() for v in violations), violations
         assert "docs/guide.md:1" in violations[0], violations
 
     @pytest.mark.parametrize(
@@ -1096,6 +1105,7 @@ class TestGate14InternalProcessVocabulary:
             "The fan-out returned four reports.",
             "The docs-harness role owns this page.",
             "Dispatched to jnwb-developer.",
+            "Hand the packet to the next role.",
         ],
     )
     def test_each_internal_mechanism_is_caught(self, tmp_path: Path, line: str):
@@ -1123,6 +1133,26 @@ class TestGate14InternalProcessVocabulary:
         """
         root = self._docs(tmp_path, page=line + "\n")
         assert check_internal_process_vocabulary(root) == [], line
+
+    def test_no_term_is_subsumed_by_another(self):
+        """A term another term already matches can never be the sole reason for a violation.
+
+        It is not harmless: every hit is then reported twice, and the entry reads as coverage
+        it does not add. This module already carries the scar -- three multi-word terms were
+        silently dead while the gate reported PASS -- so the condition is asserted rather than
+        watched for. "delegation packet" became subsumed the moment "packet" was gated, and was
+        removed rather than left to look like a second rule (P-98).
+        """
+        subsumed = [
+            (term, other)
+            for term in INTERNAL_PROCESS_TERMS
+            for other in INTERNAL_PROCESS_TERMS
+            if term != other and _internal_term_pattern(other).search(term)
+        ]
+        assert subsumed == [], (
+            f"these terms are already matched by another entry, so they can never fire "
+            f"independently: {subsumed}"
+        )
 
     def test_the_live_docs_tree_passes(self):
         """The four pages that legitimately describe agent-assisted use stay unedited."""

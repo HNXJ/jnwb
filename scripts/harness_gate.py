@@ -1076,15 +1076,25 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
 #:   "batch"                      -- `docs/02:11` "batch jobs", `docs/api.md` `batch_size=`
 #:   "authority"                  -- `docs/agents.md:85` "authority loading order"
 #:   "actor", "critic", "verifier" -- ordinary English before they are role names here
-#:   "packet" unqualified         -- gating it would be gating a word again; see the gap below
 #:
 #: Four of the six stems under `artifacts/agents/` are ordinary English, so only the two that are
 #: internal by construction appear here. **This gate therefore does not claim that no internal
-#: vocabulary reaches `docs/`; it claims that these terms do not.** One known leak sits in the
-#: gap by design: `docs/documentation_form.md:23` uses "packet" in its internal sense, and
-#: catching it needs the sentence rewritten first, not a looser pattern here.
+#: vocabulary reaches `docs/`; it claims that these terms do not.**
+#:
+#: "packet" was held out of this list while one legitimate-looking use remained --
+#: `docs/documentation_form.md:23` used it in its internal sense, and gating it then would have
+#: been gating a common word to catch one sentence, which is the 06-02 failure mode. That
+#: sentence now reads "any change that trims, retitles or reformats documentation", and `grep`
+#: across `docs/` finds **zero** remaining occurrences of the word in any form, so the bare term
+#: is gated and its live zero is a true negative rather than a gap (P-98). The use that would
+#: legitimately reintroduce it is a networking one -- a streaming page describing packets on the
+#: wire -- and that is the case to revisit this entry for, not a reason to leave it ungated now.
 INTERNAL_PROCESS_TERMS: Tuple[str, ...] = (
-    "delegation packet",
+    # "delegation packet" was removed when "packet" was added: the bare term subsumes it, so it
+    # could never be the sole reason for a violation and every hit would be reported twice. A
+    # term that cannot fire on its own is the dead-entry class this module already carries a
+    # scar from -- three multi-word terms were silently dead while the gate reported PASS.
+    "packet",
     "todo stack",
     "todo_stack.md",
     "problem stack",
@@ -1737,6 +1747,89 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+def _convention(data: bytes) -> Optional[str]:
+    """`"CRLF"`, `"LF"`, `"mixed"`, or `None` for a file with no line endings at all."""
+    crlf = data.count(b"\r\n")
+    bare = data.count(b"\n") - crlf
+    if crlf and bare:
+        return "mixed"
+    if crlf:
+        return "CRLF"
+    if bare:
+        return "LF"
+    return None
+
+
+def _wholesale_conversions(root: Path) -> List[str]:
+    """Files whose line-ending convention differs from the bytes committed at HEAD.
+
+    **Gate 16 fails a file that MIXES the two conventions; it cannot see a file whose
+    convention was CONVERTED wholesale, which is the failure that actually happens** (P-159).
+    The dispatcher inserted a 13-line notice into `artifacts/compress_fp32_policy.md` with
+    `pathlib.Path.write_text`, which opens with `newline=None` and translates `\\n` to
+    `os.linesep` on Windows. The file was pure LF, 206 lines, 0 CRLF; afterwards it was 0 LF
+    and 219 CRLF -- every line rewritten, a 425-line diff for a 13-line insertion, and the real
+    change buried inside it. **Gate 16 passes that**, because the result is perfectly uniform.
+
+    `.gitattributes` states the invariant correctly -- the tree is `-text`, so the committed
+    bytes are the convention. The mixed-file rule is a *proxy* for it, and the two are not the
+    same: the gap is exactly where the conversion lives. That is P-37's shape, and P-159
+    records it as the seventh measured instance this cycle of a check that passes for the
+    wrong reason.
+
+    So this compares against the committed bytes rather than against the file itself. It is a
+    working-tree check by nature, which is also when the accident is recoverable: once the
+    conversion is committed, HEAD carries it and there is nothing left to compare to. A clean
+    tree yields nothing, so the discriminators in
+    `tests/test_line_endings_survive_an_edit.py` construct a repository and convert a file in
+    it -- a live zero here would otherwise be indistinguishable from a working check.
+    """
+    # An unborn branch -- `git init` with nothing committed -- has no committed bytes for a file
+    # to have departed from, so there is nothing to compare and that is not a failure. It is
+    # distinguished from a broken git here rather than swallowed with it: a bare `except` around
+    # the diff reported "could not compare against HEAD" for five adversarial fixtures that are
+    # working exactly as intended, which is a check failing on the absence of its own subject.
+    if subprocess.run(
+        ["git", "rev-parse", "--verify", "-q", "HEAD"],
+        cwd=root, capture_output=True,
+    ).returncode != 0:
+        return []
+    try:
+        changed = subprocess.run(
+            ["git", "diff", "--name-only", "-z", "HEAD"],
+            cwd=root, capture_output=True, text=True, check=True,
+        ).stdout.split("\0")
+    except Exception as exc:
+        return [f"LINE_ENDINGS: could not compare against HEAD under {root} ({exc})"]
+
+    violations: List[str] = []
+    for relative in filter(None, changed):
+        path = root / relative
+        if not path.is_file():
+            continue  # deleted in the working tree
+        data = path.read_bytes()
+        if b"\0" in data[:8000]:
+            continue
+        try:
+            committed = subprocess.run(
+                ["git", "show", f"HEAD:{relative}"],
+                cwd=root, capture_output=True, check=True,
+            ).stdout
+        except Exception:
+            continue  # added in the working tree, so there is no committed convention yet
+        before, after = _convention(committed), _convention(data)
+        if before is None or after is None or before == after or "mixed" in (before, after):
+            continue  # a mixed file is gate 16's other rule, and is already reported there
+        violations.append(
+            f"LINE_ENDINGS: {relative} was committed as {before} and is now {after}. Every "
+            f"line of the file is rewritten, so the real change is buried in a whole-file "
+            f"diff and a byte-anchored edit against it will match nothing. This is what "
+            f"`pathlib.Path.write_text` does on Windows, because it opens with newline=None "
+            f"and translates to os.linesep -- pass newline='' or write bytes."
+        )
+    return violations
+
+
 def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 16 (Line Ending Consistency): no tracked text file mixes CRLF and bare LF.
 
@@ -1781,6 +1874,7 @@ def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]
                 "mixes conventions is inconsistent under any policy; normalise it to the one "
                 "its own directory already holds."
             )
+    violations.extend(_wholesale_conversions(root))
     if not scanned:
         violations.append(
             f"LINE_ENDINGS: no tracked text file found under {root}; the sweep is broken"
