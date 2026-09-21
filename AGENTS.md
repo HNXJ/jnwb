@@ -126,11 +126,16 @@ completed work here goes stale.
 
 - **Prepare** — **establish the tree before reading it.** Run `git rev-parse HEAD` and compare it
   against the baseline you were given, as the first action of the session and before opening any
-  file. This is not a formality: the worktree provisioner has branched agents 192, 202 and 205
-  commits behind their stated baseline (P-28), where the cited line numbers point at unrelated
+  file. `python scripts/verify_lane.py --baseline <commit>` does both this and the isolation
+  check below, and names which of the two drift directions it found. This is not a formality:
+  the worktree provisioner has branched agents 192, 202, 205 and most recently 232 commits
+  behind their stated baseline (P-28, P-153), where the cited line numbers point at unrelated
   code, the named artifacts do not exist, and nothing errors. If the two differ, run
   `git merge --ff-only <baseline>`; if that is not a fast-forward, stop and report both SHAs.
   **Never `git reset --hard`** — it discards work the tree may be carrying for someone else.
+  **A packet names the baseline commit and never a distance**: a commit count is stale the
+  moment the dispatcher commits again, and one packet quoted 213 against a baseline two commits
+  later than that figure was measured from, which the lane then measured as 216.
   Then load, in order: (1) `AGENTS.md` (this file), (2) `artifacts/direction.md`,
   (3) `artifacts/goal.md`, (4) `artifacts/fact_stack.md`, (5) `artifacts/state.md`, regenerating
   it first if `scripts/reconstruct_state.py --check` fails, (6) `artifacts/problem_stack.md`,
@@ -268,6 +273,12 @@ uncommitted changes you did not make, follow the single-writer recovery protocol
 `artifacts/todo_stack.md`: treat them as unowned evidence, never `stash`, `reset`, `restore`,
 check out files, or reformat while they exist, and never `git add -A` across unresolved
 ownership.
+
+**A fan-out requests isolation explicitly, and a lane confirms it is not in the main checkout
+before its first write** — `scripts/verify_lane.py` refuses the main tree unless
+`--allow-main-tree` says the caller is deliberately the single writer. Six lanes have been
+dispatched into the main checkout at once; P-144 in `artifacts/problem_stack.md` carries what
+happened and why nothing broke.
 
 ## 9. Writing
 

@@ -7,11 +7,11 @@ off its own text, printed with the row, so a wrong placement is visible rather t
 | Kind | Blockers | Meaning |
 |---|---|---|
 | `OWNED` | 22 | a live item already claims it; execute that item |
-| `EXECUTE` | 22 | no owner and no stated human dependency; needs a node |
+| `EXECUTE` | 19 | no owner and no stated human dependency; needs a node |
 | `RULING` | 11 | the row itself says a human decision decides it |
 | `GRANT` | 2 | blocked on corpus access, which is Hamm's to give |
 
-57 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
+54 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
 item but not in a position the ownership pattern recognised. All of them are settled here by
 reading them, and the pattern itself was wrong rather than merely narrow: **the column is named
 "Answered in", so a bare item id standing alone in that cell IS the ownership pointer.** P-02,
@@ -64,11 +64,14 @@ by an agent; P-91 changes a shipped return shape.
 | P-87 | **N7 executed.** The mechanism was already in the tree -- `scripts/mutation_harness.py` derives its state directory from the worktree, refuses a path outside it, and locks one session per worktree with a real OS-level lock. **The missing half was the sentence**: measured, no document named the harness, so every lane hand-rolled one into the shared scratchpad. `CONTRIBUTING.md` now requires it, with the reason travelling alongside | `repaired` |
 | P-134 | **N7 executed.** Same repair as P-87. The row's own prescription was "a naming rule, not a fix ... and the packet contract says so" -- the first clause was implemented and only the second was outstanding | `repaired` |
 | P-173 | **N8 executed**, taking the row's *second* offered resolution. Measured through the gate's own field parser: 7 of 52 items name a path under `jnwb/` and none names `docs/api.md`, so requiring them all to would serialize the package-touching work -- P-108 in a new spelling. `GENERATED_FROM` declares the closure and the obligation sits on the integrator; gate 15 resolves every entry against disk, because a file pointing at other files goes stale without erroring | `repaired` |
+| P-28 | **N6 executed.** `AGENTS.md` §3 already ordered the baseline comparison; what it lacked was a way to run it. `scripts/verify_lane.py --baseline <commit>` performs it, and §3 points at the script rather than restating it | `repaired` |
+| P-153 | **N6 executed.** Both standing conditions are now mechanical: a distance is refused outright as a baseline, and `AGENTS.md` §3 states that a packet names the commit and never a distance, which was unwritten. Measured from this tree: 232 commits ahead of `5ecc12eb`, continuing the 192 -> 213 -> 216 -> ~220 sequence. A defect inside the repair is recorded with it -- the first draft advised a no-op fast-forward for a baseline that was *behind*, and the two drift directions now carry different messages | `repaired` |
+| P-144 | **N6 executed.** The main checkout is refused unless `--allow-main-tree` declares the caller deliberately the single writer, detected by comparing `--absolute-git-dir` against `--git-common-dir` rather than by a path convention. The §"One writable agent" paragraph points at P-144's row for the incident rather than retelling it -- the first draft retold it and the router test caught the duplication at 0.71 against a baseline of 0 | `repaired` |
 | P-161 | Condition 5 of STEP 0a now walks the problem-to-item direction, reading **only** the `Answered in` cell -- the narrowing P-161 proved necessary, because the problem cell carries history and a whole-row scan false-flags P-14. `_BARE_POINTER` recognises the bare-id form. Discriminated in both directions by `test_a_deferred_problem_pointing_at_a_dead_item_fails` and `..._pointing_at_a_live_item_passes`. Measured on the live stack: **0 dangling references.** | `repaired` |
 
 ## Tier 2 --- executable nodes
 
-Seven nodes absorb 20 of the 22 `EXECUTE` blockers; P-107 and P-156 stand alone.
+Six nodes absorb 17 of the 19 `EXECUTE` blockers; P-107 and P-156 stand alone.
 
 **N1 and N2 are executed and their six blockers are closed** -- see Tier 1. Executed nodes are
 recorded there rather than here, so a node's claim is checked against the stack's closed set
@@ -82,7 +85,6 @@ edit closes both.
 | N3 The statistics surface states its own correction | P-92, P-61 | `correlate`/`exploratory_correlate` always compute both Pearson and Spearman with no parameter naming one; six skills carry implementation authority, two of which have drifted from the code | D5 for P-91's shape |
 | N4 The computational-order documents claim only what a receipt can supply | P-118, P-127, P-128, P-131 | the inventory claims verification its receipt cannot supply, `computational_order.md` cites `INV-01`..`INV-14` against it, the measurement harness behind it does not exist by the document's own words, and the ratified subset cites uncommitted receipts | **D3** |
 | N5 Gate scope equals gate claim | P-95, P-98, P-150, P-159 | the vocabulary gate excludes `skills/`, `docs/api.md` and the tutorials; a published page leaks internal process vocabulary; the tutorial corpus is a closed loop two gates pass on; gate 16 cannot see a wholesale line-ending conversion | P-98 is ordered: docs rewrite, then gate |
-| N6 Worktree provisioning cuts from HEAD | P-28, P-153, P-144 | every worktree is cut from `5ecc12eb` rather than current HEAD and the distance grows; six lanes were once fanned into the main tree with no isolation | --- |
 | N9 The stack's own summaries are derived | P-133, P-103, P-15 | a canonical summary inside the stack went stale and nothing errored; two items are honest partials that must not read as complete; `AGENTS.md` is 501 lines against a contract requiring a thin router | --- |
 | N10 Gate 15 reads a field, not a sentence | P-125, P-149, P-163 | gate 15 passed on 14 items whose `Writes:` fields had been cut in half, and would pass on the repaired file for the same reason it passed on the broken one --- it reads a sentence | --- |
 | N11 Every estimator records the device it ran on | P-62 | `relative_power` downgrades to CPU silently; `spectral_tilt` and `wpli` carry no device field at all, against a skill that promises both. 06-56 owns the `jnwb/` half; **the skill sentence is unowned, and skills are doctrine-adjacent --- propose the wording, do not edit it** | 06-56 for the code half |
@@ -151,10 +153,10 @@ found during the pass is recorded and carried forward without re-opening the cyc
 ## The convergence question, stated as a measurement
 
 Whether this terminates is decidable from one number, and it is not known yet: how many of the
-22 `EXECUTE` blockers a node closes without introducing one. Across 0.2.6 the open count went
+19 `EXECUTE` blockers a node closes without introducing one. Across 0.2.6 the open count went
 29 -> 101 while the item count stayed flat, so the historical rate of new-blockers-per-repair in
 this repository is **above** one.
 
 The amendment makes the criterion convergent in principle by excluding non-blocking discovery
 from the fixpoint. It does not make it convergent in fact: that depends on the rate being below
-one. Seven nodes is a small enough batch to measure it directly rather than argue it.
+one. Six nodes is a small enough batch to measure it directly rather than argue it.
