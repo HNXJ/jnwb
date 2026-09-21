@@ -160,6 +160,31 @@ Every module must be protected by deterministic test coverage in `tests/`. Tests
 - **Numerical Stability**: Safeguards against divide-by-zero, NaN propagation, ill-conditioned matrices, and float precision overflow.
 - **Regression Tests**: Every corrected bug or edge case must be accompanied by an adversarial regression test.
 
+### Mutation runs go through the harness
+
+A mutation run — editing the tree to check that a test can fail, then restoring it — must use
+`scripts/mutation_harness.py`. Do not hand-roll one.
+
+The harness derives its state directory from the worktree being operated on, refuses to touch a
+path outside that worktree, and admits one session per worktree under an OS-level lock. That is
+not ceremony. A worktree isolates the repository and **not** the session scratchpad, so two
+lanes writing a file called `mutate.py` into the shared scratchpad collide — measured three
+times across two batches, once between a live mutation harness and another lane's harness
+pointing at a third worktree.
+
+The danger is not the lost file, it is the **restore**. A write-restore harness reads its own
+script to know what to put back; if that script is replaced between mutate and restore, the
+restore targets a tree the session does not own, and leaves a live mutant in a tree nobody is
+looking at. Every collision so far was benign and visible, caught by hash. The same race with a
+restore in flight would not be.
+
+The harness also refuses to report a kill it has not earned: it proves each selector collects
+and passes on the pristine tree first, verifies every restore by sha256 per mutant rather than
+once at the end, and requires the specific node id to appear as `FAILED` rather than accepting
+that the run merely went red. A selector naming a bare test method where the test is a class
+method collects nothing and exits non-zero, which is indistinguishable from a kill — that
+produced six false kills in 0.2.5 and hid a real gap behind them.
+
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.

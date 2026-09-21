@@ -1258,6 +1258,42 @@ def _writes_fields(text: str) -> List[Tuple[int, str]]:
 _ESCAPED_PIPE = re.compile(r"\\\|")
 
 
+#: Files that are *derived*, with what invalidates each and what regenerates it. This is the
+#: generation closure P-173 asked for, written down: a lane's write set can be complete,
+#: correct and disjoint and still invalidate a file outside it, so disjointness alone is not
+#: sufficient for concurrency. 06-47 added a parameter to `probe_geometry`'s signature and
+#: `docs/api.md` went stale the moment it landed, because no lane edits that page by hand and
+#: so it was in no lane's write set. The integrated suite went 25 failed, 18 of them
+#: `test_every_gate_runs.py` cascading from one real gate-9 failure -- 25 masks on one defect,
+#: and a count of failures is not a count of causes.
+#:
+#: The obligation is placed on the **integrator**, not on the write sets, and that choice was
+#: measured rather than assumed: 7 of 52 live items name a path under `jnwb/` and none names
+#: `docs/api.md`, so requiring them all to name it would make those 7 mutually exclusive with
+#: one another and declare a maximum parallelism of one across every item that touches the
+#: package. That is exactly the defect P-108 recorded for bare directories, in a new spelling.
+#:
+#: `tracked` distinguishes a file that must be committed in step from one generated per tree
+#: and deliberately gitignored -- `artifacts/state.md` is the latter, so its absence in a
+#: fresh worktree is correct and not drift.
+GENERATED_FROM = (
+    {
+        "derived": "docs/api.md",
+        "sources": ("jnwb/",),
+        "generator": "scripts/generate_api_md.py",
+        "verified_by": "gate 9, which regenerates the page and compares it to the committed copy",
+        "tracked": True,
+    },
+    {
+        "derived": "artifacts/state.md",
+        "sources": ("<any HEAD move>",),
+        "generator": "scripts/reconstruct_state.py",
+        "verified_by": "`--check`, which AGENTS.md section 3 Prepare runs before reading the file",
+        "tracked": False,
+    },
+)
+
+
 def _row_delimiters(line: str) -> int:
     return _ESCAPED_PIPE.sub("", line).count("|")
 
@@ -1337,6 +1373,39 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
             )
     if not rows:
         violations.append(f"STACK_FORM: no table row found in {PROBLEM_STACK}; the sweep is broken")
+
+    # The generation closure is a file that points at other files, so it goes stale without
+    # erroring: a generator that is renamed or a derived path that moves leaves a declaration
+    # that still reads as true. Resolve every entry against disk rather than trusting it.
+    if not GENERATED_FROM:
+        violations.append(
+            "STACK_FORM: GENERATED_FROM is empty, so the generation closure declares nothing "
+            "and this check passes vacuously"
+        )
+    for entry in GENERATED_FROM:
+        generator = root / entry["generator"]
+        if not generator.is_file():
+            violations.append(
+                f"STACK_FORM: GENERATED_FROM names {entry['generator']} as the generator of "
+                f"{entry['derived']}, and no such file exists. A closure that points at a "
+                "missing generator cannot tell an integrator what to regenerate."
+            )
+        derived = root / entry["derived"]
+        if entry["tracked"] and not derived.is_file():
+            violations.append(
+                f"STACK_FORM: GENERATED_FROM declares {entry['derived']} tracked and derived, "
+                f"and it is not in the tree. Either it was retired and the entry is stale, or "
+                "it was lost."
+            )
+        for source in entry["sources"]:
+            if source.startswith("<"):
+                continue  # a described trigger, e.g. a HEAD move, not a path
+            if not (root / source).exists():
+                violations.append(
+                    f"STACK_FORM: GENERATED_FROM says {entry['derived']} derives from "
+                    f"{source}, which is not in the tree, so the closure is describing a "
+                    "dependency that no longer exists."
+                )
     return violations
 
 
@@ -1472,7 +1541,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (15, _one(check_stack_form_consistency,
               "FAIL: Coordination stack form is not machine-readable:"),
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths; "
-             "every problem row carries its own table's column count)."),
+             "every problem row carries its own table's column count; every GENERATED_FROM "
+             "entry resolves against the tree)."),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),
      lambda: "PASS: Line endings consistent (no tracked text file mixes CRLF and bare LF)."),
