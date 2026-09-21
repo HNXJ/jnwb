@@ -295,3 +295,23 @@ def test_the_receipt_parser_reads_nothing_from_an_absent_receipt():
 
 def test_the_declared_dispositions_are_exactly_the_three_ruled():
     assert set(DISPOSITIONS) == {"BLOCKER", f"DEFERRED->{NEXT_CYCLE}", "ACCEPTED"}
+
+
+@pytest.mark.parametrize("ident", ["06-01", "06-99", "06-100", "06-113", "07-5"])
+def test_an_item_id_of_any_digit_width_is_counted(tmp_path, ident):
+    """P-175. The parsers matched ``\\d\\d-\\d\\d``, which requires EXACTLY two digits after the
+    hyphen. Ids passed three digits at 06-100, so eleven items were invisible to the release
+    gate's own emptiness check -- including 06-101, an unresolved human ruling. A release check
+    that cannot see part of the stack it is checking reports emptiness it has not established.
+    """
+    root = _tree(tmp_path, items=[_item(ident, "required-0.2.6")])
+    assert [i for i, _, _ in todo_release_fields(root)] == [ident]
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and ident in x for x in v), \
+        f"item {ident} was invisible to the release check"
+
+
+def test_the_live_item_count_agrees_between_both_parsers():
+    """Two parsers counted the live stack differently for days and neither was cross-checked."""
+    from scripts.release_gate import remaining_todo_items
+    assert len(remaining_todo_items(REPO_ROOT)) == len(todo_release_fields(REPO_ROOT))

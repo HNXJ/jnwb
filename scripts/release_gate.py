@@ -681,9 +681,11 @@ PROBLEM_DISPOSITIONS = frozenset({"open", "repaired", "accepted", "not-a-defect"
 def open_problems(root: pathlib.Path = REPO_ROOT) -> List[str]:
     """Rows in the problem stack's ``## Open`` section.
 
-    AGENTS.md §11 condition 3: a release requires none. The section is the unit, not a status
-    column: a row moves to ``## Closed`` with a disposition when it is answered, so a row that
-    is still under ``## Open`` is open whatever its text says.
+    A count of what is recorded and unresolved, which is NOT the release condition. Since the
+    2026-09-21 amendment a release requires no *release-blocking* problem, and open rows carry
+    forward by design -- see :func:`check_release_readiness`. The section is still the unit for
+    open-versus-closed: a row moves to ``## Closed`` with a disposition when it is answered, so
+    a row under ``## Open`` is open whatever its text says.
     """
     path = root / "artifacts" / "problem_stack.md"
     if not path.exists():
@@ -707,9 +709,13 @@ def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
     path = root / "artifacts" / "todo_stack.md"
     if not path.exists():
         return [f"{path} is missing; condition 3 cannot be evaluated"]
+    # `\d\d-\d+`, not `\d\d-\d\d`: item ids passed three digits at 06-100, and the two-digit
+    # form matched none of them. Measured at 1be7c144: 46 of 57 items counted, 11 invisible --
+    # including 06-101, an unresolved human ruling. Under the pre-amendment condition that made
+    # STEP 0a able to pass with eleven items outstanding.
     return [
         m.group(0).lstrip("# ").strip()
-        for m in re.finditer(r"^### \d\d-\d\d .+$", path.read_text(encoding="utf-8"), re.MULTILINE)
+        for m in re.finditer(r"^### \d\d-\d+ .+$", path.read_text(encoding="utf-8"), re.MULTILINE)
     ]
 
 

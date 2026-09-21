@@ -100,18 +100,25 @@ def build() -> str:
 
     todo_path = REPO_ROOT / "artifacts" / "todo_stack.md"
     todo_items = (
-        len(re.findall(r"^### \d\d-\d\d ", todo_path.read_text(encoding="utf-8"), re.MULTILINE))
+        # `\d\d-\d+`: ids passed three digits at 06-100 and the two-digit form matched none of
+        # them, undercounting 57 items as 46. See the same repair in release_gate.py.
+        len(re.findall(r"^### \d\d-\d+ ", todo_path.read_text(encoding="utf-8"), re.MULTILINE))
         if todo_path.exists()
         else "UNRESOLVED (file absent)"
     )
 
     sys.path.insert(0, str(REPO_ROOT))
     try:
-        from scripts.release_gate import open_problems
+        from scripts.release_gate import open_problem_dispositions, open_problems
 
         problems = len(open_problems(REPO_ROOT))
+        _rows = open_problem_dispositions(REPO_ROOT)
+        blockers = sum(1 for _, d, _ in _rows if d == "BLOCKER")
+        unclassified = sum(1 for _, d, _ in _rows
+                           if d not in ("BLOCKER", "DEFERRED->0.2.7", "ACCEPTED"))
     except Exception as exc:  # pragma: no cover - defensive
         problems = f"UNRESOLVED ({type(exc).__name__})"
+        blockers = unclassified = f"UNRESOLVED ({type(exc).__name__})"
 
     matrix = run("git", "grep", "-h", "-m1", "python-version:", "--", ".github/workflows")
     upstream = run("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
@@ -179,13 +186,16 @@ that also has jnwb installed imports the installed copy; the probe fails rather 
 
 ## Release readiness
 
-`AGENTS.md` section 11 requires both stacks empty. Neither is, which is the expected state of an
-open cycle.
+`AGENTS.md` section 11, as amended 2026-09-21, does **not** require either stack to be empty. It
+requires no release-blocking problem, no item still required this cycle, and an independent
+blocker-focused pass finding no new blocker. Open rows carry forward by design: the problem stack
+is a record of discovered truth, and emptying it was the criterion that could not terminate.
 
 | Stack | Remaining |
 |---|---|
 | `artifacts/todo_stack.md` | {todo_items} items |
-| `artifacts/problem_stack.md` | {problems} open problems |
+| `artifacts/problem_stack.md` | {problems} open rows, of which **{blockers} BLOCKER** |
+| unclassified rows | {unclassified} (each must carry a disposition before a release opens) |
 """
 
 

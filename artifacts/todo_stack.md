@@ -841,22 +841,31 @@ Release: UNCLASSIFIED.
 A reviewer that implemented none of the repairs, over the acceptance set, the unresolved
 unknowns, the mutation evidence, the public claims and the release artifacts.
 
-### 06-60 Both stacks empty, verified by a pass that finds nothing
+### 06-60 No blocker remains, verified by an independent pass that finds no new one
 
-Role: critic. Skill: none. Blocked by: 06-39. Writes: `artifacts/problem_stack.md`.
-Release: UNCLASSIFIED.
-Condition 3 of `AGENTS.md` §11, and the item that decides whether the release opens.
-Do: one full pass over the documentation, the code and both stacks. Anything found is written to
-the problem stack, which re-opens the cycle: the batch that owns it runs, and this item runs
-again. The pass is not a review of the repairs, which is 06-39's job; it is a search for what
-nobody has looked at yet.
-Accept: `artifacts/todo_stack.md` holds no item, `artifacts/problem_stack.md` holds no `open`
-problem, and this pass discovered nothing new. All three at the same moment, which is the point
-of the fixpoint -- two of them holding while the third is being worked is the state every cycle
-passes through and is not the terminating condition.
-Stop: the pass finds something whose repair needs a human ruling. The cycle stays open; it does
-not close by reclassifying the finding as `accepted`. `accepted` records that a problem cannot be
-repaired, never that repairing it is inconvenient.
+Role: critic. Skill: none. Blocked by: 06-39.
+Release: required-0.2.6.
+Writes: `artifacts/blocker_fixpoint_receipt.md`.
+Condition 3 of `AGENTS.md` §11 **as amended 2026-09-21**, and the item that decides whether the
+release opens. The amendment replaced "both stacks empty" because that form could not terminate:
+across 29 commits of this cycle the open count went 29 -> 101 while the item count stayed flat,
+since the apparatus that discovers defects is the largest source of them.
+Do: one independent pass over the documentation, the code and both stacks, applying the blocker
+predicate in §11. Anything found that is release-blocking re-opens the cycle: the batch that owns
+it runs, and this item runs again. Anything found that is not release-blocking is **recorded and
+deferred**, and does not re-open the cycle. The pass is not a review of the repairs, which is
+06-39's job; it is a search for what nobody has looked at yet.
+Accept: `artifacts/blocker_fixpoint_receipt.md` exists, names the commit it ran against, and
+reports **zero new release-blocking problems**. The fixpoint is zero new BLOCKERS, not zero new
+observations -- new 0.2.7-quality rows may be written during the pass without resetting closure.
+`scripts/release_gate.py` STEP 0a reads this receipt and refuses a receipt from any commit other
+than HEAD, because a pass that ran against other bytes is not evidence about these bytes.
+Discriminator: `tests/test_release_requires_no_blocker.py` shows all six STEP 0a checks both
+ways, including that fifty new deferred observations and zero blockers still close the release.
+Stop: the pass finds something release-blocking whose repair needs a human ruling. The cycle stays
+open; it does not close by reclassifying the finding as `accepted`, and it does not close by
+deferring it. `accepted` records that a problem cannot be repaired, never that repairing it is
+inconvenient; `DEFERRED` requires all five of its conditions to be **established**, not plausible.
 
 ### 06-40 Release
 
@@ -1448,7 +1457,9 @@ Frozen as part of the acceptance set. Each needs its own authorization.
   + published artifact independently verified from the index
   + documentation low-verbosity and consistently formed, against a declared contract
   + one precision switch and one execution switch, CPU, parallel CPU and CUDA exercised here
-  + both stacks empty, confirmed by a full pass that discovered nothing new
+  + no release-blocking problem and no required item remaining, confirmed by an independent
+    blocker-focused pass that discovered no new blocker (amended 2026-09-21; the record of
+    discovered truth carries forward rather than being emptied)
 
 The fifth line is bounded deliberately and does not claim package-wide semantic completeness.
 The form matches 0.2.5's closure: no known material defect under a stated acceptance set, not a
