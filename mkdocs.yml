@@ -59,7 +59,19 @@ markdown_extensions:
       smart_dollar: false
       tex_inline_wrap: ["\\(", "\\)"]
       tex_block_wrap: ["\\[", "\\]"]
-  - pymdownx.superfences
+  # Without custom_fences a ```mermaid fence is syntax-highlighted rather than drawn, and
+  # five published pages showed `graph TD` as a code listing. `class: mermaid` produces the
+  # <pre class="mermaid"> element mkdocs-material's bundle queries.
+  #
+  # `format:` is omitted deliberately. Material's documented recipe spells it
+  # `!!python/name:pymdownx.superfences.fence_code_format`, but that is already the default
+  # (superfences.py: `custom.get('format', fence_code_format)`), and writing the tag would
+  # make this file unreadable to yaml.safe_load -- which harness gate 13 and three tests use
+  # to parse the nav. Adding the tag "for completeness" would break them.
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
   - pymdownx.highlight
   - pymdownx.details
   - pymdownx.tabbed:

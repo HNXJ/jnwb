@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,12 @@ import h5py
 import numpy as np
 from pynwb import NWBFile
 
-from jnwb.nwb_io import NWBInput, _with_nwb, nwb_read_io
+from jnwb.nwb_io import (
+    ContainerTypeContradictionWarning,
+    NWBInput,
+    _with_nwb,
+    nwb_read_io,
+)
 
 #: Historical spelling of `NWBInput`; this module's entry points are annotated with it.
 InspectInput = NWBInput
@@ -162,6 +168,22 @@ CHANNEL_BY_TIME = "channel_by_time"
 AMBIGUOUS_LAYOUT = "ambiguous"
 
 
+def _series_group(container: h5py.Group, data_relpath: str) -> h5py.Group | None:
+    """The group that directly holds one series' `data`, resolved from its relpath.
+
+    `_series_members` reports where each `data` leaf sits but not the group owning it, and the
+    owner is what carries that series' own `neurodata_type`: the members of an `LFP` container
+    are `ElectricalSeries` and the container is not. Resolving the path here keeps
+    `_series_members`' return shape untouched.
+    """
+    node: Any = container
+    for part in data_relpath.split("/")[:-1]:
+        node = node.get(part)
+        if not isinstance(node, h5py.Group):
+            return None
+    return node
+
+
 def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None:
     """Length of the electrode region sitting beside `data`, or ``None``.
 
@@ -170,11 +192,9 @@ def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None
     """
     if data_relpath is None:
         return None
-    node: Any = group
-    for part in data_relpath.split("/")[:-1]:
-        node = node.get(part)
-        if not isinstance(node, h5py.Group):
-            return None
+    node = _series_group(group, data_relpath)
+    if node is None:
+        return None
     region = node.get("electrodes")
     if region is None:
         return None
@@ -227,6 +247,84 @@ CONTINUOUS_KEYS = (
     "data_path", "data_shape", "data_dtype", "layout", "rate_hz",
 )
 
+#: Data units the NWB core schema pins to a declared type. These are *fixed values* in the
+#: standard, not defaults -- ``ElectricalSeries.data.unit`` carries ``value: volts``, which is
+#: why a stored unit that differs contradicts the declaration rather than merely overriding it.
+#: It is also why the file is the only place the disagreement survives: pynwb substitutes the
+#: fixed value on read, so an `ElectricalSeries` whose file stores ``n.a.`` still reports
+#: ``volts`` through the object model.
+_SCHEMA_FIXED_DATA_UNIT = {"ElectricalSeries": "volts"}
+
+
+def _series_unit(data_ds: h5py.Dataset) -> str | None:
+    """The `unit` recorded beside one series' `data`, or ``None`` when it carries none."""
+    raw = data_ds.attrs.get("unit")
+    return None if raw is None else _decode(raw)
+
+
+def _type_contradictions(
+    container: h5py.Group,
+    members: list[tuple[str | None, str, h5py.Dataset, float | None]],
+) -> list[str]:
+    """One phrase per series whose own declared type disagrees with what it stores.
+
+    Two shapes are reported and nothing else is:
+
+    * a declared type the schema fixes a data unit for, where the stored unit is a different
+      one -- the container says extracellular voltage and holds something that is not;
+    * no declared type at all, where nothing in the file says what the series holds.
+
+    A series carrying no `unit` is deliberately not reported. An absent unit contradicts
+    nothing, and a warning that also fires on every merely incomplete file carries no more
+    information than one that fires on all of them.
+    """
+    findings: list[str] = []
+    for series_name, relpath, data_ds, _rate in members:
+        owner = _series_group(container, relpath)
+        if owner is None:
+            continue
+        label = series_name or "data"
+        ndt = _ndt(owner)
+        unit = _series_unit(data_ds)
+        if ndt is None:
+            stored = f"unit {unit!r}" if unit is not None else "no unit"
+            findings.append(
+                f"{label} declares no neurodata_type, so nothing in the file says what signal "
+                f"class it holds; it stores {stored} with dtype {data_ds.dtype}"
+            )
+            continue
+        fixed = _SCHEMA_FIXED_DATA_UNIT.get(ndt)
+        if fixed is not None and unit is not None and unit != fixed:
+            findings.append(
+                f"{label} declares neurodata_type {ndt!r}, for which the NWB schema fixes the "
+                f"data unit to {fixed!r}, but it stores unit {unit!r} with dtype "
+                f"{data_ds.dtype}"
+            )
+    return findings
+
+
+def _warn_type_contradiction(
+    container: h5py.Group,
+    path: str,
+    members: list[tuple[str | None, str, h5py.Dataset, float | None]],
+) -> None:
+    """Report, once per container, every series in it whose declared type disagrees.
+
+    Ruled 2026-09-20 (06-84): warn, never refuse. The warning is the whole signal; no jnwb
+    operation branches on it and the container is read exactly as it would have been.
+    """
+    findings = _type_contradictions(container, members)
+    if not findings:
+        return
+    warnings.warn(
+        f"{path}: declared type disagrees with what the file stores. "
+        + "; ".join(findings)
+        + ". jnwb reads the container unchanged and nothing downstream branches on this "
+        "warning; the typing is the file's to correct.",
+        ContainerTypeContradictionWarning,
+        stacklevel=2,
+    )
+
 
 def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str, Any]:
     """One `processing_continuous`/`acquisitions` entry, from the file.
@@ -237,6 +335,11 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
     """
     ndt = _ndt(group)
     members = _series_members(group)
+    # 06-84: report a container whose declared type contradicts its contents, and proceed.
+    # This sits on the h5py path because it is the only one that can witness the
+    # contradiction: pynwb substitutes the schema's fixed `unit` on read, and drops an
+    # untyped container from the object model entirely.
+    _warn_type_contradiction(group, path, members)
     entry: dict[str, Any] = {
         "name": name,
         "path": path,

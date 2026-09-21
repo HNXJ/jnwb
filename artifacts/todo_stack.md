@@ -143,8 +143,13 @@ Four things the map makes visible that the batches did not:
 4. **The dispatcher writes the stacks.** 06-80 and 06-83 name `artifacts/*_stack.md` in their work;
    a packet does not edit them. It reports the disposition it believes a row has earned.
 
-Six items wait on a human ruling and no lane contains them: 06-13, 06-18, 06-67, 06-84, 06-85 and
-06-92. 06-18 alone gates six others and is the largest single unblock available.
+Four items wait on a human ruling and no lane contains them: 06-05, 06-13, 06-67 and 06-92. None gates more than one other item, so the decision frontier is
+no longer the largest single unblock -- **as of 2026-09-20 it is not the binding constraint on this
+release.** 06-18 was the one that gated six, and it is ruled and closed; 06-84 and 06-85 are closed
+too. Three further rulings exist as problem rows with no item and are not counted here: P-114
+(`aggregate_to_db` and `mean_of_ratios`), P-122 (whether the decoder gains `groups`) and the
+`O`-versus-`Θ` question under P-34 and P-127. 06-99 is blocked on corpus access, which is also
+Hamm's to grant.
 
 ## Batch 0. Goal and authority
 
@@ -263,18 +268,6 @@ Discriminator: reinsert the chain into a maintained page; the test fails. Remove
 the test fails.
 Accept: behaviour-shaped assertions only. A whole-prose snapshot fails this item, because it
 breaks on rewording and passes on a reversed meaning.
-
-### 06-08 Make diagrams render
-
-Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
-Writes: `mkdocs.yml`, `tests/test_diagrams_render.py`.
-Reproduce: `grep -n "custom_fences\|mermaid" mkdocs.yml` exits non-zero while
-`grep -rn '```mermaid' docs/*.md` returns five fences. Reproduced when both hold.
-Do: configure rendering for the fences already present. No new diagram in this item.
-Discriminator: remove the configuration; the new check fails.
-Accept: a strict build produces, for each of the five pages, output carrying a mermaid container
-rather than a highlighted code block containing `graph TD`. Assert against the built HTML, not
-against `mkdocs.yml`.
 
 ### 06-09 Correct the SKILLS_URL entry on the public API page
 
@@ -535,7 +528,7 @@ figure.
 
 ### 06-30 Produce the canonical diagrams
 
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06, 06-08.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06. 06-08 closed 2026-09-20.
 Writes: `docs/*.md`, `docs/assets/*.svg`.
 Dual entry; code, documentation and tests with skill routing over them; the four-outcome
 decision; NWB to analysis; the package boundary. One maintained source each, original to jnwb.
@@ -765,7 +758,7 @@ development virtualenv is not package evidence.
 
 ### 06-36 Documentation qualification
 
-Role: verifier. Skill: none. Blocked by: 06-06, 06-08, 06-29, 06-30. Writes: none.
+Role: verifier. Skill: none. Blocked by: 06-06, 06-29, 06-30. 06-08 closed 2026-09-20. Writes: none.
 Strict build; diagrams render as diagrams, asserted against built output; generated assets
 current; links resolve; no stale version claim; the canonical architecture page reachable from
 the navigation.
@@ -942,34 +935,6 @@ stated argument that the three above are the complete boundary.
 Accept: P-56 closes `repaired` with the verifier's evidence, or re-opens with the case that breaks it.
 Stop: none. A verifier that finds nothing reports finding nothing.
 
-### 06-84 Decide whether the corpus `neurodata_type` mistyping is jnwb's problem
-
-Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. **Ruled by Hamm
-2026-09-20: warn, never refuse.**
-Writes: `artifacts/problem_stack.md`, and code only after the ruling.
-P-54. Measured across 22 real sessions: 9 type spike-train containers as `ElectricalSeries`,
-including an int16 dataset, 12 type the same logical series as `TimeSeries`, and 1 omits
-`neurodata_type` entirely. 06-69 found this while measuring something else and no item claims it.
-The decision is whether jnwb refuses, warns, or is indifferent to a container whose declared type
-contradicts its contents. `artifacts/fact_stack.md` says a function's signal class must not be
-silently substituted across a jnwb boundary, which argues for at least a warning; it also says
-jnwb is dataset-agnostic, which argues that a corpus's typing is the corpus's business.
-Those two pull opposite ways here, which is why this is a ruling and not a repair.
-**The ruling, and its reason.** jnwb reports the contradiction between a container's
-declared type and its contents, and proceeds. This honours the fact-slot rule that a
-signal class must not be silently substituted across a jnwb boundary, without making
-jnwb the arbiter of a corpus's metadata -- which is what refusing would do, and it
-would make 9 of 22 real sessions unreadable without an override.
-Do: warn once per container, naming the declared type and what the contents indicate.
-The warning is the signal; nothing downstream changes behaviour on it.
-Discriminator: a container whose declared type contradicts its contents warns, and one
-whose type agrees does not. Assert on the warning's content, not merely that a warning
-was raised -- a warning that fires on everything carries no information.
-Accept: all 22 sessions still read; the 9 mistyped and the 1 untyped warn; the 12
-consistent ones do not.
-Stop: if warning once per container turns out to mean warning thousands of times on a
-real session, stop and report -- a warning nobody can read is not the ruled behaviour.
-
 ### 06-86 Resolve the two sources that disagree about computational order
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
@@ -993,7 +958,23 @@ using one word for both. Do not reconcile the numbers by re-baselining the inven
 timings -- that would make the contradiction disappear without establishing which was measured.
 Discriminator: a test asserts the inventory names its quantity, and fails if a row records an
 exponent with no stated measurement method.
-Accept: P-34 closes, and the word "verified" appears only where a method is named.
+**Re-scoped 2026-09-20 after the lane stopped on its stop condition.** Both halves of the
+Reproduce step are unexecutable: no generator for the inventory has ever existed on any
+branch, and `artifacts/computational_order.md:789` says its own harness and calibration
+scripts were scratch files. The lane wrote nothing, which was correct -- repairing the
+"verified" clause would have meant inventing provenance for the six rows nothing measured.
+What the item found instead is P-127, P-128, P-131 and P-132, and that **P-34's own premise
+and count were wrong**. One correction to the lane's report, re-derived on integration: the
+receipt `artifacts/benchmarks/baseline_performance.json` is committed and well-formed, with
+timings, heap figures and a full provenance block. The receipt is not the defect. The
+coverage is -- 6 of 14 rows absent, 13 of 14 single-scale.
+Blocked on one ruling: does the inventory assert `O` or `Θ`? Its notation says upper
+bound, its "Dominant Kernel" column hints at tightness, and the answer decides whether six
+of the eight rows are defects or correct. That is an `AGENTS.md` section 12 stop.
+Accept: the word "verified" appears only where a method is named and a scale range exists
+to support it, and a row with no measurement says so rather than being covered by a blanket
+clause. P-34 closes only once the `O`-versus-Θ ruling is recorded, since its count
+depends on it.
 Stop: the script that produced the inventory no longer exists or cannot be run. Then the
 inventory's claims are unfalsifiable, which is a stronger finding than a disagreement, and it is
 reported rather than patched.
@@ -1199,6 +1180,31 @@ Accept: no tracked text file carries both conventions; `.gitattributes` states t
 convention; the gate fails on its own seed; content is provably unchanged.
 Stop: this item does not renormalise any file that is already internally uniform, and does not
 settle whether `skills/` should be CRLF. If normalising a file changes a content hash, stop.
+
+### 06-99 Verify the container-type predicate against the corpus
+
+Role: verifier. Skill: `jnwb-nwb-data`. Blocked by: **corpus access, which is Hamm's to grant.**
+Writes: `artifacts/problem_stack.md`.
+P-54's remaining condition, and the only one. 06-84 implemented the ruling and proved it with ten
+killed mutants, including a refuse-instead-of-warn mutant, so warn-never-refuse is tested rather
+than assumed. What it could not do is run the predicate on real files: `D:` was outside its
+packet, and a read of the corpus from this session was refused by the host's data-handling policy.
+The gap is exactly one claim. The predicate is "the declared type has a schema-fixed data unit and
+the stored unit differs". If the mistyped sessions happen to store `unit: volts` on their spike
+containers, **the predicate does not fire on them and the repair does not do what the row says**,
+while every fixture still passes. That is the P-37 shape, and it is the reason this item exists
+instead of P-54 being closed.
+Do: over the corpus, record per session the declared `neurodata_type` and the stored `data` unit
+and dtype of each acquisition container, and check the counts against the ruling's premise. Read
+attributes and dtypes only; no array data is needed and none should be read.
+Discriminator: the counts are measured, not restated from P-54. **P-54's own numbers are one of
+the things under test** -- a scan of `D:/nwb` from this session counted 24 `.nwb` files where the
+row says 22 sessions, which may be two corpora under one root or may mean the row is counting
+something else.
+Accept: the predicate's behaviour on the corpus is stated with counts; P-54 closes as `repaired`
+if it fires where the ruling says, or the predicate is corrected if it does not.
+Stop: this item reads the corpus and writes nothing to it. If access is not granted it stays
+blocked rather than being closed on fixture evidence, which is the whole point of the row.
 
 ## Reported and not admitted
 
