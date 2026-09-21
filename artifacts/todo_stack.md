@@ -197,19 +197,62 @@ reconcile two requests.
 | absent | default | `MissingRequiredNWBFieldError` | yes, unchanged |
 | absent | field named | opens; field reads `""`; `jnwb_waived_requirements == ("session_description",)` | **the open cell** |
 | **present and empty on disk** | default | opens; field reads `""`; `jnwb_waived_requirements == ()` | **the ambiguity** |
-| present, wrong type | either | undefined; no refusal exists for it | not yet a case |
+| present, wrong type | either | **measured, and it is not undefined**: a `(1,)` string array opens silently and returns the scalar, byte-identically to a genuine value. Other encodings refuse. | **falsified 2026-09-20 -- it is a case, and a silent one.** P-158 |
 | field named that jnwb never refuses on | either | `ValueError`, rejected rather than silently doing nothing | yes, unchanged |
 
 Rows three and four are the problem: **a file that genuinely records an empty description is
 value-identical to one whose description was waived.** They are distinguishable only by
 `jnwb_waived_requirements`, and only for a caller who reads it. A caller who checks
 `nwbfile.session_description` alone cannot tell them apart.
+
+**Measured 2026-09-20, and it is worse than two rows in two ways** (`artifacts/missingness_table.md`):
+- **Six states collapse, not two.** Under a defensive waiver, absent, genuinely-empty vlen,
+  genuinely-empty fixed `S1`, a NUL-byte `S2` dataset, a dangling `SoftLink` and a broken
+  `ExternalLink` all return an identical `''` with an identical waiver flag. The last three are
+  not in the table above. The only discriminator across all six is a transient
+  `BrokenLinkWarning` for the two link states, which is not an observable on the returned object.
+- **The named discriminator does not discriminate.** `jnwb_waived_requirements` records the
+  **request, not the event**: a *valid* file read with the same waiver also reports
+  `('session_description',)`. So it cannot separate a waived file from a valid one, which is the
+  pair option (a) depends on it for. That is **P-157**, and it is a defect independent of this
+  ruling.
 Rule between: (a) keep `""` and rely on the waiver attribute, documenting that the value alone
 does not distinguish the two; (b) use a sentinel that cannot occur on disk, which trades
 "indistinguishable from empty" for "a value no NWB reader expects"; (c) refuse a file whose
 `session_description` is present and empty, making `""` unambiguously jnwb's mark -- which
 changes behaviour for files that open today; (d) something else.
+
+**All four were run on 2026-09-20 and (d) is occupied.** Each row is an executed read, not a
+design sketch:
+
+| Option | As measured | Tells absent from empty? | Cost |
+|---|---|---|---|
+| **(a)** | `c3a` status quo | **No** under a defensive waiver -- every observable is equal. Yes only if the caller waives *per file, after a default read already raised*, which distinguishes them only for a caller who already knew | none, and it does not work |
+| **(b)** text sentinel | `c3b1` | Yes, via `sd` itself | `sd` stops being falsy for a waived file, and a synthesized value appears on an object whose contract says nothing is synthesized |
+| **(b)** str subclass | `c3b2` | Yes, via `type(sd)`; `sd == ''` and `bool(sd) is False` still hold | invisible to `repr`, to logging, and to anything round-tripping through `str()` |
+| **(c)** refuse empty | `c3c` | Yes -- state 3 stops opening | **the only candidate that breaks a currently-working read**, and the waiver cannot rescue it |
+| **(d)** event flag | `c3d` | **Yes**, via `jnwb_waived_requirements` made to record what was *actually* waived rather than what was *requested* | **no value changes and no read starts or stops failing** -- and it repairs P-157 as a side effect, since the flag stops lying on valid files |
+
+This does not rule. It records that (d) is not empty: `c3d` is the only measured candidate that
+separates the states without changing a value or breaking a read, and it is the one option the
+item's own text did not name.
+
+**A fact that bears on whether the cell is worth ruling at all: the opt-in is unreachable from
+the public API.** No public entry point accepts `allow_missing`; `jnwb.inspect`, `events`,
+`event_onsets`, `unit_spike_times` and `acquisition_channel` all raise
+`MissingRequiredNWBFieldError` on a waived file. `MissingRequiredNWBFieldError` is exported and
+in `__all__`; `read_nwb` and `nwb_read_io` are neither. **The error is public and the opt-in that
+clears it is not** -- the only route is importing `jnwb.nwb_io`, a module whose own docstring
+calls itself module-internal. A two-step workaround exists and was measured.
 Accept: the ruled cell, the table written into `docs/errors.md`, and a test per row.
+Evidence, which this item did not cite before 2026-09-20 (P-155):
+
+| Source | Carries |
+|---|---|
+| `artifacts/missingness_table.md` | all six states executed at baseline `577847f2`, on both the worktree and the installed copy, which disagree; five candidates for row 3 and three for row 4; three further collapsing states; every fixture confirmed in raw bytes and by decoded object-header dataspace messages, not by asking h5py |
+| P-157 | the waiver flag records the request rather than the event, so option (a)'s discriminator reports a waiver on files that waived nothing |
+| P-158 | a `(1,)` string array is silently flattened to a scalar, so "present, wrong type" is a live silent case rather than "not yet a case" |
+
 Stop: no agent takes this item.
 
 ### 06-64 Verify the repairs of 2026-09-19
@@ -322,11 +365,31 @@ corpus fixtures and **every one changes what is lost**:
 | float64, under `acquisition/`, basename `data` | newly downcasts `eye_position` |
 | parent `neurodata_type == ElectricalSeries` | no longer casts `probe_0_lfp`, which `tests/test_compression.py:73` asserts is float32 |
 
-Two measured facts close off the obvious escapes. The corpus fixtures carry **zero**
-`neurodata_type` attributes, so type-based selection selects nothing there. And
-`convolved_spike_train` is float64 and *deliberately* not downcast -- the docstring says so -- so
-dtype and rank cannot separate it from LFP. A standard NWB file (`ElectricalSeries` plus an
-`ecephys` module) is refused outright with `KeyError`.
+**Superseded 2026-09-20.** Four candidates became seven, measured end to end rather than by
+divergence, and the line reference above predates 06-78, which took `tests/test_compression.py`
+from 15 tests to 61. The table below carries the current measurement.
+
+Two measured facts close off the obvious escapes -- **and all three of this paragraph's claims
+were re-measured on 2026-09-20: one confirmed, one confirmed-for-the-selector but refuted as an
+outcome, one found half true** (`artifacts/compress_fp32_default_candidates.md` section 6).
+- The corpus fixtures carry **zero** `neurodata_type` attributes, so type-based selection
+  selects nothing there. **Confirmed** on both fixture populations. But on the *real* corpus the
+  attribute is not vacuous, it is **inconsistent**: the same logical series is `ElectricalSeries`
+  in 9 of 22 sessions, `TimeSeries` in 12, untyped in 1 -- and where it fires it selects the
+  series the docstring preserves, one of them **int16**. Casting int16 spike counts to float32 is
+  a type change in a different family, not a precision downcast. See P-54.
+- `convolved_spike_train` is float64 and *deliberately* not downcast, so dtype and rank cannot
+  separate it from LFP. **Confirmed for the selector, refuted as an outcome.** `convert()`
+  rewrites the guarded paths at source dtype *after* the selector loop, so C1 and C2 do not in
+  fact downcast it -- they leave a **false provenance stamp** on a bit-identical float64 dataset.
+  That is **P-104**, and it is why option (b) needs a disposition for the override layer as well
+  as the default: a caller naming a guarded path in `select=` gets a no-op plus a false receipt,
+  so `select=` would not mean what its name says.
+- A standard NWB file is refused outright with `KeyError`. **Half true, and the true half is not
+  about `ElectricalSeries`.** A standard file whose `processing/` is empty converts successfully;
+  the refusal comes from the `SPIKE_TRAIN_PATH`/`CONVOLVED_PATH` guard firing on *any* non-empty
+  `processing/`. That is the spike-train-constants layer, which option (b) does not touch -- so
+  this premise is not evidence that the tool is corpus-bound at the selection layer.
 
 Rule between: (a) the default becomes a named, caller-overridable corpus preset -- status quo,
 honest about itself, but a dataset-specific literal still governs when the caller is silent;
@@ -338,18 +401,54 @@ The governing principle, ruled 2026-09-19: **irreversible lossy selection must b
 no generic semantic rule exists.** No candidate is semantics-preserving, so genericity alone is
 not a reason to pick one. That points at (b), with a compatibility path only if its behaviour can
 be documented precisely.
-**Before the ruling, this table is required** -- one row per candidate policy, filled by
-measurement rather than by reading the selector:
+**The required table was delivered on 2026-09-20 and this item never absorbed it. See P-155.**
+It is `artifacts/compress_fp32_default_candidates.md`, written at baseline `c0d53a47` with
+exactly the columns named here, seven candidate rows rather than four (C0-C6; C5 and C6 were
+added and are justified in its section 3), and every cell an executed outcome rather than a
+reading of the selector. Its section 8 measures each candidate against the current
+`tests/test_compression.py`, so the candidates are comparable on one contract:
 
-| Candidate policy | LFP | MUAe | spikes | behavioural series | arbitrary acquisition | information newly lost | previously compressed, now preserved |
-|---|---|---|---|---|---|---|---|
+| Candidate | Contract | Candidate | Contract |
+|---|---|---|---|
+| **C0** status quo (anchored preset) | **61 passed** | C4 parent `neurodata_type` | 15 failed, 46 passed |
+| C1 float64 and 2-D | 17 failed, 44 passed | C5 `electrodes` sibling | 15 failed, 46 passed |
+| C2 float64 and basename `data` | 11 failed, 50 passed | C6 cast measured bit-exact | 21 failed, 40 passed |
+| **C3** float64, `acquisition/`, basename | **3 failed, 58 passed** -- least breakage | | |
 
-The last two columns are the ruling. A policy that loses nothing new and preserves nothing newly
-is the status quo under another name; any other policy changes which data is irreversibly reduced
-to fp32, and that is what is being decided.
-Accept: the table, then the ruling, then an implementation item written against it.
-Stop: no agent takes this item. See also P-29, which is independent of this ruling and repairable
-without it.
+The last two columns of the required table -- "the ruling" -- are filled there for every row.
+What they show: **no candidate loses nothing new while preserving nothing newly**, so none is the
+status quo under another name, and the governing principle finds no generic rule to defer to.
+C4, C5 and C6 each **drop all three** datasets the status quo casts; C1, C2 and C3 each **add**
+behavioural or arbitrary series to the irreversible cast. C3's three failures are all the P-29
+shape -- reaching too far by name -- rather than dropping LFP. C6, the only candidate that could
+be semantics-preserving in the sense the governing principle uses, **selects nothing on any
+fixture**, so it compresses nothing.
+
+Real-corpus cells are `UNRESOLVED` there, blocked on the same `D:` grant as 06-99 and 06-31. An
+earlier packet measured them at baseline `577847f2` in `artifacts/compress_fp32_policy.md`, whose
+header now carries a supersession notice naming which of its rows still hold. **Its C-1 finding
+is the one that most changes this ruling: across all 22 real sessions, every dataset today's rule
+selects is already float32, so the cast is the identity there.** What the default governs is
+future and non-corpus files, not the data now on disk.
+
+**What is still unmeasured is options (a) and (b), not (c).** Both were measured only at
+`577847f2`, against a suite of 15 tests that is now 61, as rows R4 and R3 of the older artifact.
+A measurement packet for them is out. Until it returns, option (b)'s cost to the existing
+contract is not known at this baseline -- and at the old one it broke `verify_roundtrip` for
+already-compressed files, which is the compatibility question the ruling turns on.
+Accept: the ruling, then an implementation item written against it. The table condition is **met
+for option (c)** and **outstanding for (a) and (b)**.
+Evidence, none of which this item cited before 2026-09-20:
+
+| Source | Carries |
+|---|---|
+| `artifacts/compress_fp32_default_candidates.md` | the required table, C0-C6, at baseline `c0d53a47`; the contract cost of each; the premise verdicts in its section 6 |
+| `artifacts/compress_fp32_policy.md` | the 22-session real-corpus measurements at `577847f2`, and options (a)/(b) as R4/R3 against the old 15-test suite. Superseded in part -- read its header first |
+| P-104 | the override layer is broken independently of the ruling: a guarded path in `select=` is a no-op plus a false provenance stamp |
+| P-54 | `neurodata_type` is inconsistent across the real corpus, which is what makes C4 unreliable rather than merely vacuous |
+
+Stop: no agent takes this item. See also P-29 and P-30, both now `repaired`, which were
+independent of this ruling; the older artifact's section 5 still discusses them as open.
 
 ### 06-14 granger_causality order validation
 

@@ -1,5 +1,18 @@
 # `compress_fp32` candidate-policy table (06-69)
 
+> **Partly superseded, 2026-09-20 (P-106).** Read this notice before citing any row.
+>
+> | Still holds | Superseded |
+> |---|---|
+> | The **real-corpus measurements** -- C-1, C-2, C-3, the per-session selection histograms and section 3. Selection logic did not change after this baseline, so which paths each candidate selects is unaffected. **C-1 is the finding that most bears on the ruling: every dataset today's rule selects is already float32 on all 22 sessions, so the cast is the identity there.** | **The row labelled "R1 today" is no longer today.** P-29 is `repaired`; the shipped selector is the anchored `fullmatch` form, which this table calls R2. Every "newly lost vs today" cell is therefore measured against a baseline row that has moved -- harmless on the corpus, where R1 and R2 are identical on all 22, but not on the adversarial-path column. |
+> | The **options (a) and (b)** definitions, as rows R4 and R3. | **Every contract count.** 06-78 took `tests/test_compression.py` from 15 tests to 61, so "15 passed", "4 failed, 11 passed" and "1 failed, 14 passed" are all stale. |
+> | The P-30 evidence that 22 of 22 real files carry the dead-script stamp. | **Section 4's 1-D crash.** 06-79 made `_chunk_shape` follow rank, so R8/R9 no longer abort on a 1-D float64 series -- they **silently downcast** it. A loud refusal became a silent irreversible cast, which inverts those rows' real-corpus verdicts. |
+> | -- | **Section 5's P-29 and P-30**, both now `repaired`. |
+>
+> For the current fixture measurement of the generic candidates, and for the premise verdicts,
+> use `artifacts/compress_fp32_default_candidates.md` (baseline `c0d53a47`). This file remains
+> the only source for the 22-session corpus numbers.
+
 Evidence for the 06-13 ruling. Assembled by measurement; no cell is read off the source.
 **This table does not choose a default.** 06-13 is `AUTONOMY: none`.
 
