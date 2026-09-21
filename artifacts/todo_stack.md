@@ -864,48 +864,6 @@ artifacts and does not publish; publication happens on the release.
 
 ## Batch 8. Problems found while executing 0.2.6
 
-### 06-93 Stop the spiking skill instructing a 17 ms error into scientific output
-
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `skills/jnwb-spiking/SKILL.md`.
-P-58, measured twice and independently. `skills/jnwb-spiking/SKILL.md:27` states that causal
-smoothing delays the onset it measures, that `tau_ms=25` lands +17 ms late, and that the filter
-delay should be subtracted. The skill routes to `fit_exponential_onset` and to no
-threshold-crossing operation at all, so the correction is attached to the one readout it does not
-apply to. An agent following it subtracts 17 ms from a result that is already right, silently,
-into layer-onset figures.
-Reproduce: 1 ms bins, unit step at true t0 = 100 ms, `fit_exponential_onset(t0_bounds_ms=(0,300))`,
-sweeping `tau_ms` over 10, 25, 50, 100. The half-amplitude crossing lands at 105.87, 116.16,
-133.32, 163.46 -- error scaling with tau at about 0.69*tau, which is tau*ln2. The fit lands at
-99.07, 99.12, 99.04, 99.00 -- a **tau-invariant** bias near -0.9 ms, which is bin resolution and
-not filter delay. Holds for t0 in {60, 100, 150, 220} and under noise at sd 0.05.
-Do: scope the correction to a threshold crossing, state that `fit_exponential_onset` is not one,
-and give the contrast that lets a reader tell which readout they are holding -- the crossing
-scales with tau, the fit does not. Keep the existing instruction to hold `tau_ms` fixed across
-compared conditions; that part is correct and load-bearing. `docs/common_mistakes.md` section 8
-already scopes this properly and is the model. Drafted replacement wording is in the 2026-09-20
-skills-lane report; treat it as a proposal to verify, not as text to paste.
-Discriminator: a test that fails if the skill tells a reader to subtract a filter delay from a
-fitted onset, and passes when the instruction is scoped to a crossing. Assert on the sentence that
-carries the instruction, not on the presence of the words -- P-88's first repair attempt failed
-exactly that way, and two mutants proved it.
-Accept: the skill's stated numbers reproduce on the sweep above; no instruction applies a crossing
-correction to a fitted onset; `pytest -q tests/test_skills_validation.py` passes; harness gate PASS
-lines counted at 14.
-Stop: if the measurement disagrees with the tau-invariance above, stop and report -- the repair
-depends on it, and a third independent measurement disagreeing with the first two is a result, not
-a nuisance.
-
-Every item below claims a row opened in `artifacts/problem_stack.md` after this stack was
-frozen. They are collected in their own batch rather than filed into Batches 1 through 7 because
-their common property is when they were found, not what they touch: each came out of a packet
-measuring something else. The release condition is that both stacks are empty, so a problem
-found during execution needs an item exactly as much as a problem found during planning.
-
-Two are `AUTONOMY: none`. They are capability decisions -- what jnwb owes a mistyped corpus, and
-whether an export with no consumer is an unfinished chain or a mistake -- and neither has a
-repair that is correct independent of the ruling.
-
 ### 06-76 Resolve `correction='none'` and the test set that cannot reach it
 
 Role: jnwb-developer. Skill: `jnwb-statistics`. Blocked by: none. Writes: `jnwb/jrsa.py`,
@@ -1201,6 +1159,15 @@ disjoint, and a bare directory cannot be compared against anything. Measured at 
 more than half its work. A glob passes -- `docs/*.md` conflicts honestly with `docs/api.md`,
 which is the answer a scheduler needs; `docs/` conflicts with everything and says nothing.
 
+Where check A is hard is the field boundary, not the pattern. A first cut here bounded the field
+at 220 characters and reported two violations that were prose -- 06-67 discussing `tests/` and
+06-73 naming the `artifacts/developer/.cache/` directory it exists to exclude. Both are correct
+items. Bound the field at its own sentence end and the count is zero. **A check that fires on
+prose is worse than no check: it trains a reader to dismiss its output, which is how the one real
+violation gets waved through.** Seed the discriminator with both -- a genuine bare directory in a
+`Writes:` field, and a directory named in the prose of an item whose field is clean -- and require
+the first to fail the check and the second to pass it.
+
 **Check B, table form.** Every row of `artifacts/problem_stack.md` carries exactly the delimiter
 count its own table's header declares, counting `\|` inside a code span as content rather than as
 a delimiter. `Open` is four columns and `Closed` is four different ones, which is why rows get
@@ -1218,6 +1185,29 @@ assert 14 are updated in the same change rather than left to fail later.
 Stop: this item does not rewrite any item's content, only the form of the `Writes` field if a
 later edit reintroduces a directory. It does not touch `artifacts/fact_stack.md` or
 `artifacts/goal.md`.
+
+### 06-95 Scope the estimator-delay identity in the smoother's docstring
+
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
+Writes: `jnwb/onset_fitting.py`, `tests/test_skills_validation.py`.
+P-110, found by the 06-93 lane and left unrepaired because `jnwb/**` was a hard stop for it.
+`causal_exp_smooth`'s docstring states `t_observed = t_signal + t_estimator(tau_ms, bin_ms)` as a
+general identity and then instructs the reader not to read latency differences without accounting
+for estimator delay, with no scope. The identity is true of a threshold crossing on the smoothed
+trace and false of `fit_exponential_onset`, which sits in the same module and whose bias is
+tau-invariant. 06-93 established the numbers: crossing error tracks tau*ln2 while the fitted t0
+holds about -0.9 ms and follows `bin_ms`, measured at -0.118, -0.365, -0.860, -1.854 and -4.805 ms
+for bin 0.25, 0.5, 1, 2 and 5 ms.
+Do: scope the identity to the readout it describes, and name the fit as exempt, in the wording
+06-93 settled on for the skill so the two faces cannot drift apart again.
+Discriminator: extend the 06-93 assertions to the docstring. Pin one sentence carrying both the
+instruction and its scope -- not the presence of the words, which the repaired text states more
+than once each. The decisive mutant is the one 06-93 used: add a second, unscoped instruction
+leaving every word intact, and require the assertion to fail.
+Accept: no instruction in `jnwb/onset_fitting.py` applies a filter-delay correction to a fitted
+onset, the skill and the docstring state the same rule, and the mutant above is killed.
+Stop: this item does not change what `causal_exp_smooth` computes. If the wording cannot be fixed
+without changing behaviour, stop and report.
 
 ## Reported and not admitted
 

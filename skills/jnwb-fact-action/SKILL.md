@@ -94,6 +94,15 @@ of 14 and the packet's own module passed, and only the whole suite failed. This 
 what an acceptance must be able to detect, not a rule that every packet runs everything: a
 packet whose scope cannot reach a test file does not need it.
 
+The converse binds too: `ALLOWED SCOPE` must permit a test file whenever `ACCEPTANCE` requires a
+discriminator proven by mutation. A discriminator is a test, so a packet that demands one while
+scoping the change to a single non-test file states two conditions that cannot both be met, and
+the agent has to choose which instruction to break. Measured: the 06-93 packet scoped the change
+to `skills/jnwb-spiking/SKILL.md` "and nothing else" and required six mutants and a killed
+assertion each; the lane wrote the discriminator into `tests/test_skills_validation.py`, judged
+correctly, and had to report the excursion for ratification instead of reporting its result.
+A packet that forces that choice is defective whichever way the agent resolves it.
+
 Every delegated result must return:
 
 ```text

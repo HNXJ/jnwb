@@ -736,3 +736,107 @@ class TestEvidenceConflictProbes:
     def test_conflicting_conclusions_are_resolved_by_receipts_not_consensus(self):
         text = (SKILLS_DIR / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
         assert "never through voting or consensus" in text
+
+
+class TestCausalFilterDelayIsScopedToAThresholdCrossing:
+    """P-58. The spiking skill told an agent to subtract a filter delay from a fitted onset.
+
+    `causal_exp_smooth` delays a threshold crossing by about tau*ln2, and the skill carried
+    that correction as an unscoped instruction while routing onsets only to
+    `fit_exponential_onset`, which is a parametric fit rather than a crossing. Measured on a
+    1 ms unit step at a true t0 of 100 ms: the crossing lands +5.9, +16.2, +33.3 and +67.6 ms
+    late for tau_ms of 10, 25, 50 and 100, while the fit holds a tau-invariant -0.9 ms that
+    tracks bin_ms. Obeying the instruction turned -0.9 ms into -18.2 ms at tau_ms=25, silently,
+    in scientific output.
+
+    What would make these assertions pass while the invariant is violated: checking that the
+    words "subtract" and "threshold crossing" each occur somewhere in the section. The
+    repaired paragraph states both more than once, so deleting the scope from the instruction
+    would leave the words behind and the check would stay green. That is how two mutants
+    survived the first repair of P-88. Each assertion below therefore pins one sentence and
+    requires it to carry the instruction and its scope together, so removing either half kills
+    it.
+    """
+
+    SKILL = Path(__file__).resolve().parents[1] / "skills" / "jnwb-spiking" / "SKILL.md"
+    HEADING = "## 3. Invariants & Safeguards"
+
+    def _sentences(self):
+        """Sentences of the safeguards section, whitespace-collapsed.
+
+        Split on a period followed by a capital or a backtick, so `jnwb.fit_exponential_onset`
+        and `docs/common_mistakes.md` are not cut in half. The file is CRLF; collapsing
+        whitespace normalises it.
+        """
+        text = self.SKILL.read_text(encoding="utf-8")
+        assert self.HEADING in text, (
+            f"{self.SKILL.name} has no {self.HEADING!r} section, so every assertion below "
+            "would pass vacuously"
+        )
+        section = text.split(self.HEADING, 1)[1].split("\n## ", 1)[0]
+        sentences = re.split(r"(?<=\.)\s+(?=[A-Z`])", " ".join(section.split()))
+        assert len(sentences) > 1, "the safeguards section did not split into sentences"
+        return sentences
+
+    def _delay_corrections(self):
+        """Sentences that speak about removing a filter or group delay from something."""
+        return [
+            s for s in self._sentences()
+            if re.search(r"(filter|group)\s+delay", s, re.I)
+            and re.search(r"\b(subtract|remove|correct)", s, re.I)
+        ]
+
+    def test_the_correction_names_its_readout_in_the_sentence_that_gives_it(self):
+        giving = [s for s in self._delay_corrections() if "fit_exponential_onset" not in s]
+        assert len(giving) == 1, (
+            "expected exactly one sentence instructing a filter-delay correction without "
+            f"naming the fit; found {len(giving)}: {giving}"
+        )
+        assert re.search(r"threshold crossing", giving[0], re.I), (
+            "the filter-delay correction does not name the readout it applies to, so it reads "
+            "as applying to whatever onset the agent is holding -- including a fitted t0, "
+            f"where subtracting tau*ln2 injects about -18 ms at tau_ms=25: {giving[0]!r}"
+        )
+        assert re.search(r"\bonly\b", giving[0], re.I), (
+            "the correction mentions a crossing but does not restrict itself to one, so it "
+            f"still reads as permitting the same correction on a fitted onset: {giving[0]!r}"
+        )
+
+    def test_the_fit_is_withheld_from_the_correction_in_one_sentence(self):
+        about_fit = [s for s in self._delay_corrections() if "fit_exponential_onset" in s]
+        assert len(about_fit) == 1, (
+            "expected exactly one sentence relating fit_exponential_onset to the filter-delay "
+            f"correction; found {len(about_fit)}: {about_fit}"
+        )
+        assert re.search(r"\bnot\b", about_fit[0]), (
+            "the sentence naming fit_exponential_onset alongside the filter-delay correction "
+            f"does not withhold the correction from it: {about_fit[0]!r}"
+        )
+        assert re.search(r"threshold crossing", about_fit[0], re.I), (
+            "the exemption does not say what fit_exponential_onset is being distinguished "
+            f"from, so a reader cannot match it against their own readout: {about_fit[0]!r}"
+        )
+
+    def test_the_tau_contrast_that_identifies_the_readout_is_one_sentence(self):
+        contrast = [
+            s for s in self._sentences()
+            if re.search(r"crossing", s, re.I) and re.search(r"invariant", s, re.I)
+        ]
+        assert len(contrast) == 1, (
+            "no single sentence contrasts the crossing's tau-scaling against the fit's "
+            "tau-invariance. That contrast is the only way a reader tells which readout they "
+            "hold: the crossing error scales with tau_ms, the fit's -0.9 ms bias does not and "
+            f"tracks bin_ms instead (found {len(contrast)} candidate sentences)"
+        )
+
+    def test_tau_ms_is_still_held_fixed_across_compared_conditions(self):
+        """The half of the original safeguard that was correct and is load-bearing."""
+        fixed = [
+            s for s in self._sentences()
+            if re.search(r"`tau_ms` fixed", s) and re.search(r"compar", s, re.I)
+        ]
+        assert len(fixed) == 1, (
+            "the instruction to hold tau_ms fixed across compared conditions was dropped; a "
+            "latency difference between two traces smoothed at different tau_ms is a "
+            f"difference between the filters (found {len(fixed)})"
+        )
