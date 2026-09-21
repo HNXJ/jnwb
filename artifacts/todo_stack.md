@@ -465,7 +465,9 @@ repair.
 
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
 One packet per ledger entry disposed `reproduced` and claimed by no other item, highest
-consequence first. Writes: named per packet from the finding's own receipt.
+consequence first. Writes: **deferred -- this item dispatches packets and writes nothing itself**; each packet
+declares its own set from the finding's receipt. Not schedulable as a single lane. See P-162:
+a parser reading this field returned the token `repaired`, scraped off the Accept line below.
 Accept: each returns `repaired` with a discriminator, or `unsupported` with evidence.
 
 ### 06-47 Staggered electrode shafts read as non-linear
