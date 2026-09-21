@@ -111,20 +111,45 @@ class TestNJobsDoesNotChangeResults:
         assert run(4) == run(1)
 
     def test_directed_network_is_invariant_to_n_jobs(self):
+        """P-113: this asserted the invariance of a constant.
+
+        It left ``n_surrogates`` at its default of 0, so ``p_matrix`` was analytic F-test
+        output with no randomness drawn at all -- measured, ``rng=7`` and ``rng=99`` returned
+        identical matrices. An ``n_jobs`` invariance assertion over that cannot fail whatever
+        the parallel path does, because there are no per-worker random streams to get wrong,
+        which is the only thing ``n_jobs`` could plausibly change here.
+
+        Surrogates are now requested, so the quantity under test carries drawn randomness.
+        The seed-sensitivity leg below is not decoration: it is what stops this test silently
+        reverting to asserting a constant if a future default, or a change in how surrogate
+        kwargs are threaded, makes the draws inert again. Without it the repair would swap one
+        vacuous assertion for another.
+        """
         from jnwb.connectivity import directed_network
 
         gen = np.random.default_rng(4)
         sig = gen.normal(size=(4, 6, 400))
         sig[1, :, 3:] += 0.6 * sig[0, :, :-3]
 
-        def run(n_jobs):
-            out = directed_network(sig, method="granger", n_jobs=n_jobs)
+        def run(n_jobs, seed=7):
+            out = directed_network(
+                sig, method="granger", n_jobs=n_jobs, n_surrogates=32, rng=seed
+            )
             return out["matrix"], out["p_matrix"]
 
         m1, p1 = run(1)
         m4, p4 = run(4)
         np.testing.assert_array_equal(m4, m1)
         np.testing.assert_array_equal(p4, p1)
+
+        # The randomness is load-bearing: a different seed must move `p_matrix`. `matrix` is
+        # the Granger statistic and stays deterministic, so only the surrogate-derived half
+        # can carry this, and comparing the wrong half would restore the original defect.
+        _, p_other = run(1, seed=99)
+        assert not np.array_equal(p1, p_other, equal_nan=True), (
+            "p_matrix did not move when the seed changed, so no randomness is being drawn "
+            "and the n_jobs assertions above cannot fail -- the exact defect P-113 recorded"
+        )
 
     def test_defaults_are_serial(self):
         """A library that saturates every core by default fights the caller's own pool."""

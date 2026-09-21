@@ -7,11 +7,11 @@ off its own text, printed with the row, so a wrong placement is visible rather t
 | Kind | Blockers | Meaning |
 |---|---|---|
 | `OWNED` | 22 | a live item already claims it; execute that item |
-| `EXECUTE` | 27 | no owner and no stated human dependency; needs a node |
-| `RULING` | 10 | the row itself says a human decision decides it |
+| `EXECUTE` | 25 | no owner and no stated human dependency; needs a node |
+| `RULING` | 11 | the row itself says a human decision decides it |
 | `GRANT` | 2 | blocked on corpus access, which is Hamm's to give |
 
-61 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
+60 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
 item but not in a position the ownership pattern recognised. All of them are settled here by
 reading them, and the pattern itself was wrong rather than merely narrow: **the column is named
 "Answered in", so a bare item id standing alone in that cell IS the ownership pointer.** P-02,
@@ -20,12 +20,13 @@ P-04 and P-06 each carry nothing else. The pattern looked only for phrases (`own
 two-tier check was written to avoid, reintroduced inside the fix for it. `_BARE_POINTER` in
 `scripts/release_gate.py` is the repair.
 
-Two placements changed on a second reading, and both were mine:
+Three placements changed on a second reading, and all three were mine:
 
 | Row | First placement | Correct placement | What the row actually says |
 |---|---|---|---|
 | P-151 | `EXECUTE` | `OWNED` by 06-106 | "The gate half is outstanding and is now 06-106" -- an ownership claim in prose the pattern does not match |
 | P-161 | `EXECUTE` | repaired, Tier 1 | it asks for the problem-to-item check that landed this cycle, including the narrowing it proved necessary |
+| P-114 | `EXECUTE` (node N13) | `RULING`, D6 | the row says "needs an `AGENTS.md` section 12 ruling" in as many words. It was placed as executable because its discriminator "accepts either resolution" -- but a permissive discriminator does not make the choice an agent's, and the only implementable resolution changes a documented default and a skill sentence |
 
 ## Tier 0 --- nothing below Tier 2 can start without these
 
@@ -39,6 +40,7 @@ decision is the subgraph it freezes, not the decision itself.
 | D3 | §11 condition 2's artifact | node N4 entirely (P-118, P-127, P-128, P-131) |
 | D4 | `hnxj.github.io/jnwb` --- delete Pages or add a deploy job | the "available remotely" clause of the goal |
 | D5 | The seven ruling items | 06-05, 06-13, 06-67, 06-92, 06-101 and `RULING` blockers P-03, P-34, P-42, P-45, P-68, P-91, P-93, P-96, P-105, P-162 |
+| D6 | `aggregate_to_db(..., aggregate_over=None)` ignores `how` and returns the elementwise ratio. On accumulator output that ratio **is** `ratio_of_means`, so `how="mean_of_ratios"` delivers the other estimand -- 1.43 dB minimum, 6.38 dB median separation, and the identity is exact (3.55e-15 over 980 interior cells). Refusing the combination is the only implementable fix, since delivering `mean_of_ratios` needs a trial axis the accumulator has consumed. But refusing breaks the signature's own default, `docs/api.md`, and a sentence in `skills/jnwb-lfp-spectral/SKILL.md:15`. **(a)** refuse when `aggregate_over is None`, accepting the default-argument break and the skill edit, or **(b)** keep the behaviour and document that `how` is inert without aggregation? | P-114 |
 
 `RULING` blockers map onto D5 except where noted: P-93 needs a reading of `AGENTS.md` §8 on
 whether an additive public API change requires a CHANGELOG entry and a deprecation path; P-96 is
@@ -58,11 +60,12 @@ by an agent; P-91 changes a shipped return shape.
 | P-112 | **N2 executed.** `gaussian_smooth_rate` reports rather than refuses -- the row left the direction open and reporting is the non-breaking half. The spread is measured on the output, not predicted from sigma, because the kernel's reach is truncated at an array edge and a computed radius would overstate the loss exactly where it occurs. No `nan_policy` parameter was added: P-93 is the open ruling on additive API changes, and warning needs none. 17 interior / 9 at an epoch edge stay pinned separately | `repaired` |
 | P-120 | **N2 executed, and more cheaply than the row anticipated.** Its premise was that a second h5py open is needed; measured, it is not -- a lazily read series leaves `series.data` a live `h5py.Dataset`, so `series.data.attrs['unit']` returns the stored value. `series.unit` does read `'volts'` for a file storing `'n.a.'`, as the row says. The warning now fires where the conversion is applied, not only where the contradiction is declared | `repaired` |
 | P-123 | **N2 executed.** `label_layers` checks the result structurally and *first*: the defect lived in the ordering, since `or` short-circuits and the missing field was never read in the ordinary `accepted=False` case. Both accepted states are pinned | `repaired` |
+| P-113 | **N12 executed.** The test left `n_surrogates=0`, so `p_matrix` was analytic F-test output with no randomness drawn and the `n_jobs` assertion could not fail. Surrogates are now requested, and a **seed-sensitivity leg** asserts `p_matrix` moves when the seed changes, so the test cannot silently revert to asserting a constant. It compares `p_matrix` and not `matrix`, which stays deterministic across seeds -- comparing that half would have restored the defect under a new spelling | `repaired` |
 | P-161 | Condition 5 of STEP 0a now walks the problem-to-item direction, reading **only** the `Answered in` cell -- the narrowing P-161 proved necessary, because the problem cell carries history and a whole-row scan false-flags P-14. `_BARE_POINTER` recognises the bare-id form. Discriminated in both directions by `test_a_deferred_problem_pointing_at_a_dead_item_fails` and `..._pointing_at_a_live_item_passes`. Measured on the live stack: **0 dangling references.** | `repaired` |
 
 ## Tier 2 --- executable nodes
 
-Eleven nodes absorb 25 of the 27 `EXECUTE` blockers; P-107 and P-156 stand alone.
+Nine nodes absorb 23 of the 25 `EXECUTE` blockers; P-107 and P-156 stand alone.
 
 **N1 and N2 are executed and their six blockers are closed** -- see Tier 1. Executed nodes are
 recorded there rather than here, so a node's claim is checked against the stack's closed set
@@ -82,8 +85,6 @@ edit closes both.
 | N9 The stack's own summaries are derived | P-133, P-103, P-15 | a canonical summary inside the stack went stale and nothing errored; two items are honest partials that must not read as complete; `AGENTS.md` is 501 lines against a contract requiring a thin router | --- |
 | N10 Gate 15 reads a field, not a sentence | P-125, P-149, P-163 | gate 15 passed on 14 items whose `Writes:` fields had been cut in half, and would pass on the repaired file for the same reason it passed on the broken one --- it reads a sentence | --- |
 | N11 Every estimator records the device it ran on | P-62 | `relative_power` downgrades to CPU silently; `spectral_tilt` and `wpli` carry no device field at all, against a skill that promises both. 06-56 owns the `jnwb/` half; **the skill sentence is unowned, and skills are doctrine-adjacent --- propose the wording, do not edit it** | 06-56 for the code half |
-| N12 A parallel-invariance test varies something | P-113 | `test_directed_network_is_invariant_to_n_jobs` leaves `n_surrogates=0`, so it asserts the invariance of a constant and cannot fail whatever the parallel path does. P-37 instance sixteen | --- |
-| N13 `mean_of_ratios` delivers the estimand it names | P-114 | `TFRAccumulator` has already consumed the trial axis, so the ratio is formed on trial-averaged power while the call names the other estimand --- and 06-19 pins it as an exact identity, measured at `3.55e-15` over 980 interior cells | --- |
 
 Not absorbed, and deliberately separate:
 
@@ -149,10 +150,10 @@ found during the pass is recorded and carried forward without re-opening the cyc
 ## The convergence question, stated as a measurement
 
 Whether this terminates is decidable from one number, and it is not known yet: how many of the
-33 `EXECUTE` blockers a node closes without introducing one. Across 0.2.6 the open count went
+25 `EXECUTE` blockers a node closes without introducing one. Across 0.2.6 the open count went
 29 -> 101 while the item count stayed flat, so the historical rate of new-blockers-per-repair in
 this repository is **above** one.
 
 The amendment makes the criterion convergent in principle by excluding non-blocking discovery
 from the fixpoint. It does not make it convergent in fact: that depends on the rate being below
-one. Thirteen nodes is a small enough batch to measure it directly rather than argue it.
+one. Nine nodes is a small enough batch to measure it directly rather than argue it.
