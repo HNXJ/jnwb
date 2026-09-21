@@ -9,6 +9,7 @@ from typing import Tuple, Dict, Any
 import numpy as np
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._precision import resolve_working_dtype
 
 log = logging.getLogger(__name__)
 
@@ -67,11 +68,19 @@ def gpu_pca(
     if matrix.ndim != 2:
         raise ValueError(f"gpu_pca expects a 2D matrix, got shape {matrix.shape}")
 
+    # One rule decides the output dtype, and every return path below goes through it.
+    # It used to be applied at the arithmetic alone, so the two paths that return without
+    # doing any arithmetic -- the empty early return here, and the padding at the end --
+    # both handed back float64 for a float32 matrix. The output dtype then depended on
+    # whether the input happened to be empty, or on whether `n_components` happened to
+    # exceed the rank, rather than on the input dtype (P-137, P-145).
+    working = resolve_working_dtype(matrix.dtype)
+
     n_samples, n_features = matrix.shape
     if n_samples == 0 or n_features == 0:
         return (
-            np.zeros((n_samples, n_components)),
-            np.zeros((n_components, n_features)),
+            np.zeros((n_samples, n_components), working),
+            np.zeros((n_components, n_features), working),
             0.0
         )
 
@@ -82,12 +91,12 @@ def gpu_pca(
     scaled = (matrix - mean) / std
 
     # The CUDA branch used to cast to float32 while `_svd_numpy` stayed in float64, so
-    # `device=` changed the result by ~1e-4 on top of any sign flip. Decide the working
-    # dtype once, here, using numpy's own linalg promotion rule: float32 stays float32,
-    # everything else becomes float64 (which also makes float16 work, since
-    # `np.linalg.svd` rejects it outright).
-    if scaled.dtype != np.float32:
-        scaled = scaled.astype(np.float64)
+    # `device=` changed the result by ~1e-4 on top of any sign flip. The working dtype is
+    # decided once, above, by `resolve_working_dtype`: float32 stays float32, everything
+    # else becomes float64 (which also makes float16 work, since `np.linalg.svd` rejects
+    # it outright). Centering and scaling can promote, so re-apply the rule to the result.
+    if scaled.dtype != working:
+        scaled = scaled.astype(working)
 
     actual_components = min(n_components, n_samples, n_features)
 
@@ -133,13 +142,16 @@ def gpu_pca(
         else 0.0
     )
 
-    # If requested n_components > min(n_samples, n_features), pad output
+    # If requested n_components > min(n_samples, n_features), pad output. The padding is
+    # allocated in the working dtype: a bare np.zeros defaults to float64 and upcasts a
+    # float32 result on assignment, so whether the caller got float32 back depended on
+    # whether the rank happened to cover n_components (P-145).
     if actual_components < n_components:
-        pad_proj = np.zeros((n_samples, n_components))
+        pad_proj = np.zeros((n_samples, n_components), working)
         pad_proj[:, :actual_components] = proj_np
         proj_np = pad_proj
 
-        pad_comp = np.zeros((n_components, n_features))
+        pad_comp = np.zeros((n_components, n_features), working)
         pad_comp[:actual_components, :] = V_np
         V_np = pad_comp
 

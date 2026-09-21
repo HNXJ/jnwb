@@ -320,31 +320,6 @@ the test fails.
 Accept: behaviour-shaped assertions only. A whole-prose snapshot fails this item, because it
 breaks on rewording and passes on a reversed meaning.
 
-### 06-09 Correct the SKILLS_URL entry on the public API page
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/generate_api_md.py`, `docs/api.md`, `tests/test_api_md_member_types.py`.
-Reproduce: `grep -n "SKILLS_URL" docs/api.md` shows it typed `function` with the `str`
-constructor docstring, while a provenance-asserting probe shows `type(jnwb.SKILLS_URL) is str`
-and `callable(jnwb.SKILLS_URL)` is false.
-Do: repair the generator's scalar-constant branch, which enumerates container types only, then
-regenerate. Never hand-patch generated output.
-Discriminator: revert the generator change and regenerate; the new check fails.
-Accept: no name in `jnwb.__all__` whose runtime value is not callable is typed `function` in
-`docs/api.md`, and harness gate 9 still passes.
-
-### 06-11 Gate the release body
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/release_gate.py`, `tests/test_release_body_gate.py`.
-The release body is the one version-bearing surface nothing reads, and a correct changelog does
-not make it correct.
-Do: check its mechanically knowable claims -- version, Python support, install command, release
-status -- against package metadata. Derive rather than maintain a second prose replica.
-Discriminator: a body naming a version or a Python floor that metadata contradicts is rejected.
-Accept: the check runs without network access against a supplied body string, and separately
-against the live body when a token is present.
-
 ## Batch 2. Scientific defects
 
 ### 06-13 Rule the default selection of compress_fp32
@@ -564,44 +539,13 @@ checked.
 
 ### 06-27 Semantic mutation classes over the declared subset
 
-Role: jnwb-developer. Skill: per chain. Blocked by: 06-28.
+Role: jnwb-developer. Skill: per chain. Blocked by: none.
+**Unblocked 2026-09-21:** 06-28 closed -- `scripts/mutation_harness.py` and its validity suite are in the tree, 25 of 25 mutants killed, so the harness this item needs exists.
 Unblocked from 06-18 on 2026-09-20: the subset is ruled and all ten chains are declared. Writes: `tests/test_semantic_mutation_classes.py`.
 Unit scaling, axis swap, sign flip, conjugation, density against spectrum, mean against median
 and sum, log before aggregate, permutation p-value substitution, generator ignored, support gate
 removed, failure converted to a default, identity restoration removed, result key deleted,
 signature drift. A class list, not a mutation score.
-
-### 06-28 Mutation harness validity as a precondition
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/mutation_harness.py` (new),
-`tests/test_mutation_harness_validity.py`.
-Per case, enforced by the harness itself: the pristine selector collects; the pristine selector
-passes; the mutation lands exactly once; the source differs; the expected test is collected under
-mutation; the mutant fails on the semantic property; the restore is byte-exact; the whole-run
-digest is clean.
-Selectors must be class-qualified where the test is a method: a bare test name collects nothing,
-exits non-zero, and reads as a kill. Six false kills were reported this way in 0.2.5 and hid a
-real gap.
-Discriminator: a selector naming no test must be rejected before any verdict, not counted as a
-kill.
-Accept: no verdict is emitted by a harness that has not first proven its own selectors.
-
-### 06-73 Exclude the derived cache by path, not by extension
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `.gitignore`,
-`tests/test_gitignore_excludes_cache_by_path.py`.
-P-10. `.gitignore` excludes the 6.7 GB derived cache under `artifacts/developer/.cache/` by
-extension (`*.pkl`). A cache file written with any other suffix lands untracked and is visible to
-a careless `git add -A` — and the repository rule is to stage exact paths precisely because that
-failure mode is real.
-Reproduce: write a file with a non-`.pkl` suffix under that directory and confirm `git status`
-shows it. Delete it afterwards and confirm the tree is clean again.
-Do: exclude the directory by path. Keep the extension rule if it covers anything the path rule
-does not.
-Discriminator: the probe file above is invisible to `git status` after the change, and a
-tracked file elsewhere with the same suffix is unaffected.
-Accept: a test asserts the path exclusion, so a later `.gitignore` edit cannot silently undo it.
-Stop: the cache directory is not where the row says it is. Re-measure and correct the row first.
 
 ### 06-74 Dispose of the collection-order fragility
 
@@ -778,49 +722,11 @@ in `AGENTS.md` §11 (`:356-358` and `:367-368`), and were restated here in full,
 file the second home for a ruling it does not own. The header above already routes to §11; that
 pointer is the whole of what belongs here.
 
-### 06-55 One precision switch
-
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/*.py`,
-`tests/test_precision_switch.py`.
-Reproduce: enumerate how precision is currently selected across the 29 modules that mention a
-dtype. Reproduction is more than one mechanism, or any path where the output dtype is not
-determined by the input and the caller's request.
-Do: one mechanism for 32-bit and 64-bit, applied uniformly. A function that cannot honour a
-requested precision says so rather than silently upcasting.
-Discriminator: request the precision a function does not honour; before the change it returns
-the other one silently, after it raises or is documented to promote.
-Accept: the dtype of every public return is a stated function of the input dtype and the
-request, and a test asserts it for the declared high-risk subset.
-Stop: honouring 32-bit would change a result beyond its documented tolerance. Record the
-function as 64-bit only; do not quietly return 64-bit from a 32-bit request.
-**Reproduce is COMPLETE as of 2026-09-20; the re-dispatch is implementation, not investigation.**
-The first attempt stopped correctly on ownership -- it had been placed in the main tree alongside
-five other lanes (P-144) -- but it finished the enumeration first. Do not redo it; verify the
-figures you rely on, then proceed.
-| Measured | Value |
-|---|---|
-| Distinct precision mechanisms | **8**, excluding integer and index casts: float64 hardcode (132 sites across 21 modules), float32 hardcode, complex128 hardcode, complex64 hardcode, input-conditional promotion, caller request, torch hardcode, cupy hardcode |
-| Public functions accepting a precision request | **exactly one** -- `complex_tfr(dtype=)` at `jnwb/tfr.py:158`, and it honours it on both paths. The only others are private |
-| Behaviours on identical float32 input | **three incompatible ones coexist**: upcast (`bandpass_filter`, `current_source_density_1d`, `voltage_curvature_1d`, `channel_correlation_matrix`, `gaussian_smooth_rate`, `as_trials`, `aggregate_to_db`, and the float fields of `granger`/`transfer_entropy`/`phase_slope_index`), preserve (`to_db`, `epoch_continuous`), by request (`complex_tfr`) |
-| Sharpest single case | **`to_db` and `aggregate_to_db` disagree** -- same module, documented as the bare and the enforcing form of the same conversion, and float32 in gives float32 and float64 respectively |
-| Module count | **27** under an AST classifier, **29** under the looser grep this item's text used. The item's "29" is restated with its pattern rather than left bare |
-| Backend stop condition | **Does not fire.** `jnwb/_backend.py` contains zero dtype mentions, so unifying precision does not require touching device selection. Precision is device-entangled at call sites only -- `jnwb/spectral.py:1710-1711`, `jnwb/analyzers.py:765`, `jnwb/nam.py` -- which is outside this item |
-Two defects fell out and are recorded as **P-136** and **P-137**; neither is covered by any test.
-**P-136 fires this item's own Stop clause**: `TFRAccumulator` must be recorded 64-bit only, with a
-refusal carrying the measured figures, not given a 32-bit path.
-Scope discipline carried forward: do **not** add a precision parameter to the other modules. That
-changes numeric results package-wide for float32 input and no single lane can verify it. A stated
-policy registry naming each declared-subset function `preserves_input` / `always_double` /
-`by_request` / `double_only`, read by the test rather than restated in it, satisfies "a stated
-function of the input dtype and the request"; the migration is a separate item.
-Still unmeasured, and the re-dispatch should close it: per-field policies for `vflip`,
-`label_layers`, `enrich_units_dataframe`, `build_permutation_plan`, `cluster_permutation_test`
-and `directed_network`, which return structured objects. `cluster_permutation_test` has no
-`seed=` parameter, so the first probe never exercised it.
-
 ### 06-56 One execution switch
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-55. Writes: `jnwb/*.py`,
+Role: jnwb-developer. Skill: none. Blocked by: none.
+**Unblocked 2026-09-21:** 06-55 closed. `jnwb/_precision.py` and the policy registry are in the tree, and `resolve_working_dtype` is the shared rule this item generalises from.
+Writes: `jnwb/*.py`,
 `tests/test_execution_switch.py`.
 Reproduce: `jnwb/jrsa.py:222` documents a backend parameter as "accepted for API compatibility".
 A parameter accepted and ignored is the substitution class of 06-16 in another form: the caller
@@ -891,7 +797,9 @@ Stop: the faster order changes results beyond tolerance. Correctness outranks or
 
 ### 06-59 Gate the computational contract
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-55, 06-56, 06-58. Writes:
+Role: jnwb-developer. Skill: none. Blocked by: 06-56, 06-58.
+**Narrowed 2026-09-21:** 06-55 closed and left the stack.
+Writes:
 `scripts/computational_contract_gate.py` (new),
 `tests/test_computational_contract_gate.py`.
 Do: make the contract enforceable -- a backend argument that selects nothing fails; a precision
@@ -1277,6 +1185,27 @@ Accept: the predicate's behaviour on the corpus is stated with counts; P-54 clos
 if it fires where the ruling says, or the predicate is corrected if it does not.
 Stop: this item reads the corpus and writes nothing to it. If access is not granted it stays
 blocked rather than being closed on fixture evidence, which is the whole point of the row.
+
+### 06-106 Gate 9 checks the Type column against the runtime
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`.
+**Single-writer warning:** 06-103 and 06-105 write the same file. None of the three may run
+concurrently with another.
+P-151. Gate 9's two checks constrain the first column and the page-versus-generator agreement,
+and nothing constrains the Type column against the live object. 06-09 proved it rather than
+argued it: `_object_type_name` returning the literal `"BLINDSPOT"` for all 156 exports, page
+regenerated, gate still `16 of 16`.
+The test landed as `tests/test_api_md_member_types.py` with its oracle written out rather than
+imported, because importing the generator's classifier rebuilds the fixed point. **The gate does
+not yet run that check**, so the durable half is outstanding.
+Do: wire a gate that asserts each row's Type against the runtime object, with the oracle stated
+independently of `scripts/generate_api_md.py`.
+Discriminator: the `BLINDSPOT` mutant must fail the gate, and the pristine tree must pass it.
+Accept: the gate count rises by one, the new PASS line is counted by `grep -c '^PASS'` rather
+than read off the verdict line, and the mutant is recorded in the item.
+Stop: the wiring would require importing the generator to build the oracle. That reintroduces
+the fixed point and is the one thing this item exists to prevent.
 
 ### 06-100 Make the docs call-shape check reach the pages it claims to check
 

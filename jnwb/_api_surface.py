@@ -52,6 +52,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "_dictlike": "module-internal",
     "_lazy_exports": "module-internal",
     "_parallel": "module-internal",
+    "_precision": "module-internal",
     "_rng": "module-internal",
     "_units": "module-internal",
     "gpu_pca": "module-internal",

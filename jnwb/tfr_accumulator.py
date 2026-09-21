@@ -22,11 +22,52 @@ from typing import Dict, Optional
 
 import numpy as np
 
+from ._precision import (
+    WELFORD_32_BIT_TOLERANCE_BREACH,
+    PrecisionNotSupportedError,
+)
+
 
 class TFRAccumulator:
-    """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128."""
+    """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
-    def __init__(self, shape: tuple):
+    Registered ``double_only`` in :data:`jnwb._precision.PRECISION_POLICY`. A 32-bit
+    request is refused rather than honoured: see :meth:`__init__`.
+    """
+
+    def __init__(self, shape: tuple, *, dtype=None):
+        """Allocate the accumulators.
+
+        Args:
+            shape: ``(n_channels, n_freqs, n_times)``.
+            dtype: the precision requested for accumulation. ``None`` (default) accumulates
+                in float64/complex128, unchanged from before this parameter existed. A
+                double request -- ``np.float64`` or ``np.complex128`` -- is accepted and is
+                the same thing said explicitly. A single-precision request is **refused**.
+
+        Raises:
+            PrecisionNotSupportedError: if a 32-bit precision is requested. Welford's
+                update subtracts two nearly equal numbers, and at 32 bits the surviving
+                variance misses the ``rtol=1e-8`` that ``tests/test_tfr_accumulator.py``
+                holds :meth:`var` to. Refusing is item 06-55's stop clause: returning
+                float64 from a float32 request would be the silent substitution the item
+                exists to remove, and offering a 32-bit path would ship a documented
+                tolerance the code cannot meet.
+        """
+        if dtype is not None:
+            requested = np.dtype(dtype)
+            if requested not in (np.dtype(np.float64), np.dtype(np.complex128)):
+                low, high = WELFORD_32_BIT_TOLERANCE_BREACH
+                raise PrecisionNotSupportedError(
+                    f"TFRAccumulator cannot accumulate in {requested.name}: it is "
+                    "64-bit only. A 32-bit Welford update loses the variance to "
+                    "cancellation -- measured against the 64-bit reference, the relative "
+                    f"error exceeds the documented rtol=1e-8 of var() by {low}x to "
+                    f"{high}x across mean-to-standard-deviation ratios of 1 to 10000, so "
+                    "the breach does not depend on an unfavourable regime. Pass "
+                    "dtype=np.float64, or None, and downcast after summarising; write() "
+                    "already stores float32/complex64 on the way to disk."
+                )
         # shape = (n_channels, n_freqs, n_times)
         self.n = np.zeros(shape, np.int64)
         self.mean = np.zeros(shape, np.float64)  # of |z|^2

@@ -124,13 +124,41 @@ def _format_signature(obj: Any) -> str:
 
 
 def _object_type_name(obj: Any) -> str:
+    """Classify by asking the object what it is.
+
+    ``callable`` replaces ``isinstance(obj, (dict, tuple, frozenset, list))``. That
+    enumeration had to be maintained, and the one scalar constant in ``__all__`` was missing
+    from it, so a ``str`` URL was typed "function" and described by the ``str`` constructor.
+    """
     if inspect.isclass(obj):
         return "class"
     if inspect.ismodule(obj):
         return "module"
-    if isinstance(obj, (dict, tuple, frozenset, list)):
-        return "constant"
-    return "function"
+    if callable(obj):
+        return "function"
+    return "constant"
+
+
+def _format_cell(obj: Any, kind: str) -> str:
+    """Render the Signature / Description cell.
+
+    A constant renders as its type. ``inspect.getdoc`` falls back to ``type(obj).__doc__``
+    for an instance, so asking a value for its docstring returns the builtin type's: the
+    ``str`` constructor signature described a URL constant, and a 370-character ``dict()``
+    constructor docstring described a band table. That held for all five constants --
+    ``inspect.getdoc(obj) == inspect.getdoc(type(obj))`` for every one.
+
+    The value stays out of the cell. ``SKILLS_URL`` interpolates ``jnwb.__version__``, and
+    this page regenerates on demand, so rendering the value would freeze one release's
+    version into a committed file.
+    """
+    if kind == "constant":
+        return _canonical_type_name(type(obj).__module__, type(obj).__qualname__)
+    sig = _format_signature(obj)
+    desc = _first_doc_line(obj)
+    if desc and not sig.startswith("*"):
+        return f"{sig}<br>*{desc}*"
+    return sig
 
 
 def _module_for_symbol(jnwb: Any, name: str) -> str:
@@ -174,12 +202,7 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
         for symbol in sorted(grouped[module_name]):
             obj = getattr(jnwb, symbol)
             typ = _object_type_name(obj)
-            sig = _format_signature(obj)
-            desc = _first_doc_line(obj)
-            cell = sig
-            if desc and not sig.startswith("*"):
-                cell = f"{sig}<br>*{desc}*"
-            lines.append(f"| jnwb.{symbol} | {typ} | {cell} |")
+            lines.append(f"| jnwb.{symbol} | {typ} | {_format_cell(obj, typ)} |")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"

@@ -8,11 +8,11 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.CANONICAL_BANDS | constant | *dict() -> new empty dictionary dict(mapping) -> new dictionary initialized from a mapping object's     (key, value) pairs dict(iterable) -> new dictionary initialized as if via:     d = {}     for k, v in iterable:         d[k] = v dict(**kwargs) -> new dictionary initialized with the name=value pairs     in the keyword argument list.  For example:  dict(one=1, two=2)* |
-| jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
-| jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
-| jnwb.RELATIVE_POWER_MODELS | constant | *Built-in immutable sequence.* |
-| jnwb.SKILLS_URL | function | *str(object='') -> str str(bytes_or_buffer[, encoding[, errors]]) -> str* |
+| jnwb.CANONICAL_BANDS | constant | dict |
+| jnwb.DB_AGGREGATIONS | constant | tuple |
+| jnwb.DETECTION_TAILS | constant | tuple |
+| jnwb.RELATIVE_POWER_MODELS | constant | tuple |
+| jnwb.SKILLS_URL | constant | str |
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |

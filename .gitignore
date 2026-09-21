@@ -145,3 +145,11 @@ tmp/
 # scripts/reconstruct_state.py. Committing it would make it record its own parent
 # commit and be stale from the moment it lands.
 artifacts/state.md
+
+# The derived cache: regenerated from the raw NWB files, 6.7 GB across 88 files when this rule
+# landed. It was excluded only by the blanket extension rules -- *.pkl caught 66 of those files
+# and *.json the other 22 -- so the directory itself matched nothing, and a cache file written
+# with any other suffix was untracked and visible, one careless `git add -A` from the index.
+# P-10. Excluded by path, so the suffix no longer decides. The extension rules above stay: they
+# cover *.pkl and *.json everywhere else in the repository, which a rule anchored here cannot.
+artifacts/developer/.cache/

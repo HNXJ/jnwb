@@ -4,6 +4,7 @@ Pipeline:
   0. Required release/test tooling is present in the active environment
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
+  0d. The release body's version, Python support and install command match package metadata
   1. Full test suite execution (pytest tests/)
   2. Harness pre-flight gates
   3. Clean distribution build (sdist + wheel)
@@ -28,7 +29,7 @@ import tarfile
 import subprocess
 import logging
 import re
-from typing import Iterable, List, Optional, Set, Tuple
+from typing import Iterable, List, NamedTuple, Optional, Set, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("release_gate")
@@ -45,15 +46,19 @@ REQUIRED_EXTRAS = ("test", "docs")
 _VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
 
 
-def jnwb_source_version() -> str:
+def jnwb_source_version(root: Optional[pathlib.Path] = None) -> str:
     """The version the source tree declares, parsed textually.
 
     Read rather than imported: the gate compares the *source* declaration against what the
     built wheel reports, so importing the package under test would make the comparison
     tautological. Pinning the expected version as a literal here is the same drift failure
     class the documentation gates exist to prevent.
+
+    ``root`` is parameterised so the release-body checks below can be driven over a
+    constructed tree. A check that can only run against the live repository is one whose
+    failure branch is never exercised.
     """
-    init = REPO_ROOT / "jnwb" / "__init__.py"
+    init = (root or REPO_ROOT) / "jnwb" / "__init__.py"
     match = _VERSION_RE.search(init.read_text(encoding="utf-8"))
     if match is None:
         raise RuntimeError(f"could not parse __version__ from {init}")
@@ -336,6 +341,266 @@ def _python_excluded(requires_python: str, tag: str) -> bool:
     return False
 
 
+class ReleaseMetadata(NamedTuple):
+    """What the package itself says, as the release body's claims will be judged against it."""
+
+    name: str
+    version: str
+    python_floor: str
+    python_ceiling: str
+    python_supported: Tuple[str, ...]
+
+
+def _version_tuple(value: str) -> Tuple[int, ...]:
+    return tuple(int(part) for part in value.split("."))
+
+
+def release_metadata(root: Optional[pathlib.Path] = None) -> ReleaseMetadata:
+    """Derive the release's mechanically knowable facts from package metadata.
+
+    Every field is read, never written down here. A second copy of the supported-Python
+    window in this file would be the defect the body check exists to catch, one surface
+    further in: P-126 records four places in this repository asserting a stale gate count
+    right now, each of them a replica that drifted because nothing derived it.
+
+    The floor comes from ``requires-python`` and the ceiling from the highest versioned
+    classifier. Harness gate 8 independently enforces that those two agree with each other,
+    with ``.readthedocs.yaml`` and with the CI matrix, so reading them here adds a consumer
+    of that invariant rather than a competing statement of it.
+    """
+    root = root or REPO_ROOT
+    import tomllib
+
+    with open(root / "pyproject.toml", "rb") as handle:
+        project = tomllib.load(handle)["project"]
+
+    requires = project.get("requires-python") or ""
+    floor = re.search(r">=\s*(\d+\.\d+)", requires)
+    if floor is None:
+        raise RuntimeError(f"no minimum interpreter in requires-python {requires!r}")
+
+    supported = sorted(
+        {
+            m.group(1)
+            for m in re.finditer(
+                r"Programming Language :: Python :: (\d+\.\d+)",
+                "\n".join(project.get("classifiers", [])),
+            )
+        },
+        key=_version_tuple,
+    )
+    if not supported:
+        raise RuntimeError(f"{root / 'pyproject.toml'} declares no versioned Python classifier")
+
+    return ReleaseMetadata(
+        name=project["name"],
+        version=jnwb_source_version(root),
+        python_floor=floor.group(1),
+        python_ceiling=supported[-1],
+        python_supported=tuple(supported),
+    )
+
+
+def _normalize_distribution(name: str) -> str:
+    """PEP 503 normalisation, so ``jnwb``, ``jnwb_`` and ``JNWB`` are one name."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+#: An install instruction. The version pin is optional so an *unpinned* command is reported
+#: rather than skipped -- "no `==` was found" must not read as "the version agrees".
+_INSTALL_RE = re.compile(
+    r"pip\s+install\s+(?:(?:-U|--upgrade|--pre)\s+)*"
+    r"(?P<name>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)"
+    r"(?:\s*==\s*(?P<version>[0-9][A-Za-z0-9.!+-]*))?"
+)
+
+#: A statement about supported Python. Three shapes, distinguished because they claim
+#: different things: a closed range ("3.12 through 3.14") claims a floor and a ceiling, an
+#: open one ("3.12+", "3.12 or newer") claims only a floor, and a bare mention ("Python
+#: 3.11") claims only that the version is relevant to this package.
+_PY_SUPPORT_RE = re.compile(
+    r"Python\s*(?P<ge>>=\s*)?(?P<low>\d+\.\d+)"
+    r"(?:\s*(?:through|thru|to|[-‐-―])\s*(?P<high>\d+\.\d+)"
+    r"|\s*(?P<plus>\+)"
+    r"|(?P<ornewer>\s+or\s+(?:newer|later|above|higher)))?",
+    re.IGNORECASE,
+)
+
+
+def _claims_a_floor(match: "re.Match[str]") -> bool:
+    """Whether a matched statement asserts a support window rather than merely naming a version.
+
+    Every open-ended form needs its own group. Leaving ``>=`` and "or newer" uncaptured made
+    both parse as bare mentions: ``Python >=3.12`` then satisfied nothing, and a body whose
+    only support statement used that spelling was reported as stating no range at all.
+    """
+    return any(match.group(name) for name in ("high", "plus", "ge", "ornewer"))
+
+
+def check_release_body_claims(
+    body: str,
+    metadata: ReleaseMetadata,
+    *,
+    tag_name: Optional[str] = None,
+    is_prerelease: Optional[bool] = None,
+) -> List[str]:
+    """Judge a release body's mechanically knowable claims against package metadata.
+
+    Pure and offline: it takes the body as a string so the whole rule set is exercisable
+    without a token, a network or a published release.
+
+    Scope is deliberately the claims metadata can settle -- the distribution name and version
+    in the install command, the supported-Python window, the tag, and whether the prerelease
+    flag matches PEP 440. It does **not** judge the narrative: "120 entries", "18 survived"
+    and "no API removals beyond those listed" are claims about the changelog and about an API
+    diff, not about metadata, and inventing a source of truth for them here would be the
+    replica this check exists to avoid.
+
+    Absence is a violation, not a pass. A body stating no install command and no support
+    range satisfies every comparison below by having nothing to compare, which is precisely
+    the shape that lets a wrong body through. The v0.2.5 body shipped "Python 3.10 through
+    3.14" against a ``>=3.12`` floor and no check read it.
+    """
+    from packaging.version import InvalidVersion, Version
+
+    violations: List[str] = []
+
+    installs = list(_INSTALL_RE.finditer(body))
+    if not installs:
+        violations.append(
+            "the body states no `pip install` command, so its install instruction and the "
+            f"version it pins cannot be checked. State one naming "
+            f"{metadata.name}=={metadata.version}."
+        )
+    for match in installs:
+        if _normalize_distribution(match.group("name")) != _normalize_distribution(metadata.name):
+            violations.append(
+                f"install command names distribution {match.group('name')!r}, but this package "
+                f"is {metadata.name!r}"
+            )
+        pinned = match.group("version")
+        if pinned is None:
+            violations.append(
+                f"install command `{match.group(0).strip()}` pins no version; a release body "
+                f"must pin =={metadata.version} so the reader installs the release it describes"
+            )
+        elif pinned != metadata.version:
+            violations.append(
+                f"install command installs version {pinned}, but this release is "
+                f"{metadata.version}"
+            )
+
+    statements = list(_PY_SUPPORT_RE.finditer(body))
+    if not any(_claims_a_floor(m) for m in statements):
+        violations.append(
+            "the body states no Python support range, so its support claim cannot be checked. "
+            f"State one, e.g. 'Python {metadata.python_floor} through {metadata.python_ceiling}'."
+        )
+    for match in statements:
+        low, high = match.group("low"), match.group("high")
+        if _claims_a_floor(match):
+            if low != metadata.python_floor:
+                violations.append(
+                    f"{match.group(0).strip()!r} claims a {low} floor; pyproject.toml declares "
+                    f">={metadata.python_floor}"
+                )
+            if high and high != metadata.python_ceiling:
+                violations.append(
+                    f"{match.group(0).strip()!r} claims a {high} ceiling; the highest classifier "
+                    f"is {metadata.python_ceiling}"
+                )
+        elif low not in metadata.python_supported:
+            violations.append(
+                f"the body names Python {low}, which is not in the supported set "
+                f"{list(metadata.python_supported)}"
+            )
+
+    if tag_name is not None and tag_name.lstrip("vV") != metadata.version:
+        violations.append(
+            f"release tag {tag_name!r} does not name the declared version {metadata.version}"
+        )
+
+    if is_prerelease is not None:
+        try:
+            expected = Version(metadata.version).is_prerelease
+        except InvalidVersion:
+            expected = None
+        if expected is not None and bool(is_prerelease) != expected:
+            violations.append(
+                f"the release is marked prerelease={bool(is_prerelease)}, but version "
+                f"{metadata.version} is "
+                f"{'a prerelease' if expected else 'a final release'} under PEP 440"
+            )
+
+    return violations
+
+
+#: The live check ran and its verdict is in ``violations``.
+BODY_CHECKED = "checked"
+#: The live check did not run. This is not a pass, and the two must never share a value:
+#: ``artifacts/state.md``'s ``--check`` asserts ``"PASS" in out or "ERROR" in out``, which
+#: both outcomes satisfy, and it has protected nothing for a cycle.
+BODY_SKIPPED = "skipped"
+
+
+class LiveBodyOutcome(NamedTuple):
+    """Tri-state so a caller cannot read "could not check" as "checked and clean"."""
+
+    status: str
+    detail: str
+    violations: List[str]
+
+
+def check_live_release_body(
+    metadata: ReleaseMetadata,
+    runner=None,
+    timeout: float = 30.0,
+) -> LiveBodyOutcome:
+    """Check the published release body for this version, or say why it was not checked.
+
+    Every way of not reaching the release -- no ``gh``, no token, no network, no release
+    published for this version yet -- returns ``BODY_SKIPPED`` with the reason. None of them
+    fails the gate: before the tag exists there is no body to read, which is the normal
+    pre-tag state rather than a defect. None of them passes it either.
+    """
+    run = runner if runner is not None else subprocess.run
+    tag = f"v{metadata.version}"
+    try:
+        result = run(
+            ["gh", "release", "view", tag, "--json", "body,tagName,isDraft,isPrerelease"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except FileNotFoundError:
+        return LiveBodyOutcome(BODY_SKIPPED, "the `gh` CLI is not on PATH", [])
+    except Exception as exc:  # noqa: BLE001 - any transport or tooling failure is "not checked"
+        return LiveBodyOutcome(BODY_SKIPPED, f"`gh release view {tag}` failed: {exc}", [])
+
+    if result.returncode != 0:
+        reason = (result.stderr or result.stdout or "").strip().splitlines()
+        return LiveBodyOutcome(
+            BODY_SKIPPED,
+            f"`gh release view {tag}` exited {result.returncode}: "
+            f"{reason[0] if reason else 'no diagnostic'}",
+            [],
+        )
+
+    try:
+        payload = json.loads(result.stdout)
+    except ValueError as exc:
+        return LiveBodyOutcome(BODY_SKIPPED, f"`gh release view {tag}` returned non-JSON: {exc}", [])
+
+    violations = check_release_body_claims(
+        payload.get("body") or "",
+        metadata,
+        tag_name=payload.get("tagName"),
+        is_prerelease=payload.get("isPrerelease"),
+    )
+    detail = f"tag {payload.get('tagName')!r}, draft={payload.get('isDraft')}"
+    return LiveBodyOutcome(BODY_CHECKED, detail, violations)
+
+
 def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
     """Distribution names pyproject.toml declares for the given extras."""
     import re
@@ -519,6 +784,28 @@ def main() -> None:
             log.error("%s", problem)
         sys.exit(1)
     log.info("PASS: all %d declared floors install on %s.", len(floors), tag)
+
+    log.info("=== STEP 0d: Checking the release body against package metadata ===")
+    metadata = release_metadata()
+    body_outcome = check_live_release_body(metadata)
+    if body_outcome.violations:
+        for problem in body_outcome.violations:
+            log.error("release body: %s", problem)
+        log.error(
+            "The release body is a published, version-bearing surface. Correct it with "
+            "`gh release edit v%s --notes-file <file>` and re-run.", metadata.version)
+        sys.exit(1)
+    if body_outcome.status == BODY_SKIPPED:
+        # Logged as SKIP, never as PASS. An unreachable release means the body's claims are
+        # unverified; reporting that as success is the failure mode this step was added for.
+        log.warning("SKIP: the release body was NOT checked -- %s", body_outcome.detail)
+        log.warning(
+            "      Its version, Python support and install command remain unverified. This "
+            "is not a pass.")
+    else:
+        log.info(
+            "PASS: the release body for %s agrees with package metadata (%s).",
+            metadata.version, body_outcome.detail)
 
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
