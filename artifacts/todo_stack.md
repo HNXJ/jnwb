@@ -667,6 +667,30 @@ Accept: the dtype of every public return is a stated function of the input dtype
 request, and a test asserts it for the declared high-risk subset.
 Stop: honouring 32-bit would change a result beyond its documented tolerance. Record the
 function as 64-bit only; do not quietly return 64-bit from a 32-bit request.
+**Reproduce is COMPLETE as of 2026-09-20; the re-dispatch is implementation, not investigation.**
+The first attempt stopped correctly on ownership -- it had been placed in the main tree alongside
+five other lanes (P-144) -- but it finished the enumeration first. Do not redo it; verify the
+figures you rely on, then proceed.
+| Measured | Value |
+|---|---|
+| Distinct precision mechanisms | **8**, excluding integer and index casts: float64 hardcode (132 sites across 21 modules), float32 hardcode, complex128 hardcode, complex64 hardcode, input-conditional promotion, caller request, torch hardcode, cupy hardcode |
+| Public functions accepting a precision request | **exactly one** -- `complex_tfr(dtype=)` at `jnwb/tfr.py:158`, and it honours it on both paths. The only others are private |
+| Behaviours on identical float32 input | **three incompatible ones coexist**: upcast (`bandpass_filter`, `current_source_density_1d`, `voltage_curvature_1d`, `channel_correlation_matrix`, `gaussian_smooth_rate`, `as_trials`, `aggregate_to_db`, and the float fields of `granger`/`transfer_entropy`/`phase_slope_index`), preserve (`to_db`, `epoch_continuous`), by request (`complex_tfr`) |
+| Sharpest single case | **`to_db` and `aggregate_to_db` disagree** -- same module, documented as the bare and the enforcing form of the same conversion, and float32 in gives float32 and float64 respectively |
+| Module count | **27** under an AST classifier, **29** under the looser grep this item's text used. The item's "29" is restated with its pattern rather than left bare |
+| Backend stop condition | **Does not fire.** `jnwb/_backend.py` contains zero dtype mentions, so unifying precision does not require touching device selection. Precision is device-entangled at call sites only -- `jnwb/spectral.py:1710-1711`, `jnwb/analyzers.py:765`, `jnwb/nam.py` -- which is outside this item |
+Two defects fell out and are recorded as **P-136** and **P-137**; neither is covered by any test.
+**P-136 fires this item's own Stop clause**: `TFRAccumulator` must be recorded 64-bit only, with a
+refusal carrying the measured figures, not given a 32-bit path.
+Scope discipline carried forward: do **not** add a precision parameter to the other modules. That
+changes numeric results package-wide for float32 input and no single lane can verify it. A stated
+policy registry naming each declared-subset function `preserves_input` / `always_double` /
+`by_request` / `double_only`, read by the test rather than restated in it, satisfies "a stated
+function of the input dtype and the request"; the migration is a separate item.
+Still unmeasured, and the re-dispatch should close it: per-field policies for `vflip`,
+`label_layers`, `enrich_units_dataframe`, `build_permutation_plan`, `cluster_permutation_test`
+and `directed_network`, which return structured objects. `cluster_permutation_test` has no
+`seed=` parameter, so the first probe never exercised it.
 
 ### 06-56 One execution switch
 
