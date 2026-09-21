@@ -1005,7 +1005,10 @@ Stop: none. A verifier that finds nothing reports finding nothing.
 
 ### 06-86 Resolve the two sources that disagree about computational order
 
-Role: jnwb-developer. Skill: none. Blocked by: none.
+Role: jnwb-developer. Skill: none. Blocked by: **a Hamm ruling -- does the inventory assert `O` or
+Theta?** Re-marked 2026-09-21; the field said `none` while the item's own text said "Blocked on
+one ruling" and its Accept clause said P-34 closes only once that ruling is recorded. The
+scheduler offered it as dispatchable. See P-163, and P-34/P-127 for the ruling itself.
 Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/computational_order.md`,
 `tests/test_computational_order_sources_agree.py`.
 Not 06-58, which reads like it: that item reduces measured orders in
@@ -1278,8 +1281,10 @@ reads it.** `harness_gate.py` never mentions the file, and the gate ran 13/13 wh
 stale. The one test invoking `--check` asserts `"PASS" in out or "ERROR" in out`, which **both
 outcomes satisfy** -- a check that cannot fail. The sentence is emitted by
 `scripts/reconstruct_state.py:122`, so every regeneration re-asserts the protection afresh.
-Do: either make the claim true or stop making it. If a gate is added it belongs in 06-94's set,
-which is why this item is blocked on it rather than racing it.
+Do: either make the claim true or stop making it. If a gate is added it belongs in the gate
+script, which 06-94 has since closed and released -- **that block is discharged**;
+the single-writer constraint against 06-105 and 06-106 is what remains. The previous wording
+survived the unblocking and still read as a live block. See P-163.
 Discriminator: staleness is introduced deliberately and the check fails. The existing
 `"PASS" in out or "ERROR" in out` assertion must fail too under an inverted outcome, or it is
 being replaced by another tautology.
