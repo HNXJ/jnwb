@@ -1462,6 +1462,93 @@ def _blocked_by_none_contradictions(
     return flagged, suppressed
 
 
+#: A count of items in summary prose, including the elided form "three more" where the noun
+#: carries over from the preceding clause. Requiring the literal word "items" missed the one
+#: live instance while matching two sentences that state counts about items they never list.
+_ITEM_COUNT = re.compile(
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+"
+    r"(?:(?:more|further)\b\s*(?:items?\b)?|items?\b)",
+    re.IGNORECASE,
+)
+_COUNT_VALUE = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
+#: A clause break. The ids an assertion enumerates sit in its own clause, so ids beyond the
+#: break belong to a different statement -- which is what separates a miscount from "it
+#: assigned 16 items to five lanes ... -- the compression lane pointed at 06-24 and 06-51".
+_CLAUSE_BREAK = re.compile(r"\s--\s|;")
+
+
+def _summary_regions(text: str) -> List[Tuple[int, int]]:
+    """The spans of `todo_stack.md` that are prose ABOUT items rather than an item body.
+
+    A count inside an item is that item's own statement about its work. A count in a batch
+    preamble is a summary of the items below it, and is derived data stored as prose.
+    """
+    starts = [m.start() for m in _ITEM_HEADER.finditer(text)]
+    heads = [m.start() for m in re.finditer(r"^## ", text, re.MULTILINE)]
+    regions: List[Tuple[int, int]] = []
+    cursor = 0
+    for start in starts:
+        if start > cursor:
+            regions.append((cursor, start))
+        following = [h for h in heads if h > start]
+        cursor = following[0] if following else len(text)
+    if cursor < len(text):
+        regions.append((cursor, len(text)))
+    return regions
+
+
+def _miscounted_summaries(text: str) -> List[Tuple[int, str, int, List[str], str]]:
+    """Summary sentences whose stated item count disagrees with the ids they enumerate.
+
+    P-133: Batch 0 opened with "Six items wait on a human ruling ... 06-13, 06-18, 06-67,
+    06-84, 06-85 and 06-92". Four waited, not six; three of the six named had closed earlier
+    the same day; and none of the four gated more than one item, so the sentence named a
+    binding constraint that no longer bound. Every number in it is recomputable from the
+    fields below it, so storing it as prose could only ever drift, and re-deriving it by hand
+    is a fix with a shelf life.
+
+    **"Recompute each count a summary asserts" is not mechanically reliable in general** --
+    a first attempt counted every id in the sentence and flagged 2 of 2 as false positives,
+    because one sentence carries several counts each governing its own list, and because
+    "it assigned 16 items to five lanes, and 14 of those 16 were retired" states counts about
+    items it never enumerates. What *is* reliable is the enumerated form, which is the shape
+    P-133's own instance had: a count, then the ids, within one clause.
+
+    Measured on the live stack: 1 flagged, and it was real -- "three more are blocked on
+    authority Hamm holds: 06-31 and 06-32 on the corpus grant, 06-86 and 06-99 on a ruling
+    and that grant respectively" names four. A stricter variant requiring the ids to form a
+    contiguous run flagged exactly the same sentence, so it buys no separation and is not
+    used.
+
+    The corollary is that a summary asserting a count **without** naming the items cannot be
+    checked at all. Batch 0's "three items Hamm must decide" was such a claim, and was two.
+    It was rewritten to name them rather than checked by a second mechanism, so the prose is
+    now in a form this one rule covers.
+    """
+    flagged: List[Tuple[int, str, int, List[str], str]] = []
+    for start, end in _summary_regions(text):
+        base = text.count("\n", 0, start) + 1
+        flat, spans = _unwrapped_spans(text[start:end])
+        for a, b in spans:
+            sentence = flat[a:b].strip()
+            counts = list(_ITEM_COUNT.finditer(sentence))
+            for index, counted in enumerate(counts):
+                word = counted.group(1).lower()
+                asserted = _COUNT_VALUE.get(word, int(word) if word.isdigit() else None)
+                if asserted is None:
+                    continue
+                stop = counts[index + 1].start() if index + 1 < len(counts) else len(sentence)
+                brk = _CLAUSE_BREAK.search(sentence, counted.end(), stop)
+                span = sentence[counted.end():brk.start() if brk else stop]
+                ids = sorted(set(_ITEM_ID.findall(span)))
+                if ids and asserted != len(ids):
+                    flagged.append((base, counted.group(0).strip(), asserted, ids, sentence))
+    return flagged
+
+
 #: Unescaped `|` delimits a GFM table cell. `\|` is content wherever it appears, including
 #: inside a code span: GFM splits a row into cells *before* it parses inline code, which is
 #: why P-29 and P-81 shipped rows whose backticked pipes silently became extra columns.
@@ -1564,6 +1651,12 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
             print(
                 f"STACK_FORM note: {TODO_STACK}:{lineno} item {item_id} asserts a block and was "
                 f"suppressed, {why} -- \"{sentence[:180]}\""
+            )
+        for lineno, phrase, asserted, ids, sentence in _miscounted_summaries(stack_text):
+            violations.append(
+                f"STACK_FORM: {TODO_STACK}:{lineno} a summary says '{phrase}' and then names "
+                f"{len(ids)} -- {', '.join(ids)}. The count is derived from the items below it, "
+                f"so prose can only drift from them: \"{sentence[:160]}\""
             )
         for lineno, field in fields:
             for span in re.findall(r"`([^`\n]*)`", field):
@@ -1777,7 +1870,8 @@ GATES: List[Tuple[int, Any, Any]] = [
               "FAIL: Coordination stack form is not machine-readable:"),
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
              "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
-             "its own item's text; every problem row carries its own table's column count; "
+             "its own item's text; every summary count agrees with the items it names; "
+             "every problem row carries its own table's column count; "
              "every GENERATED_FROM entry resolves against the tree)."),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),

@@ -151,7 +151,7 @@ Four things the map makes visible that the batches did not:
 4. **The dispatcher writes the stacks.** 06-80 and 06-83 name `artifacts/*_stack.md` in their work;
    a packet does not edit them. It reports the disposition it believes a row has earned.
 
-Five items are ruling items in their own right -- 06-05, 06-13, 06-67, 06-92 and 06-101 -- and three more are blocked on authority Hamm holds: 06-31 and 06-32 on the corpus grant, 06-86 and 06-99 on a ruling and that grant respectively. None gates more than one other item, so the decision frontier is
+Five items are ruling items in their own right -- 06-05, 06-13, 06-67, 06-92 and 06-101 -- and four more are blocked on authority Hamm holds: 06-31 and 06-32 on the corpus grant, 06-86 and 06-99 on a ruling and that grant respectively. None gates more than one other item, so the decision frontier is
 no longer the largest single unblock -- **as of 2026-09-20 it is not the binding constraint on this
 release.** 06-18 was the one that gated six, and it is ruled and closed; 06-84 and 06-85 are closed
 too. Three further rulings exist as problem rows with no item and are not counted here: P-114
@@ -171,8 +171,10 @@ wording, the AI-native positioning and the topology figure in particular.
 
 Batch 0 completes before any substantive edit elsewhere. 06-01 and 06-02 were ruled on
 2026-09-19, and `artifacts/goal.md` plus the vocabulary rule at the head of `AGENTS.md` carry
-those rulings. What remains of this batch is three items Hamm must decide (`AUTONOMY: none`) and
-the read-only packets that assemble the evidence each decision needs.
+those rulings. What remains of this batch is two items Hamm must decide (`AUTONOMY: none`) --
+06-67 and 06-05 -- and the read-only packets that assemble the evidence each decision needs.
+The items are named rather than only counted so the count is checkable: gate 15 recomputes it,
+and the sentence said three while two remained (P-133).
 
 The basis reconstruction and the findings disposition are done and therefore deleted. Their
 results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review identifiers, and in
@@ -507,6 +509,10 @@ Every routing row: the callable exists, the signature matches, the return type a
 units match, failure behaviour matches. Conditional return schemas are in scope -- a skill must
 not name a key that exists only under an unstated branch, which is the `cross_modal_comparison`
 defect repaired in 0.2.5.
+**Partially executed, and not to be read as complete (P-103).** The validator half is
+delivered. The rows of the other eight skill files have not been checked against live
+behaviour, so this item is one of nine packets done, not nine. The lane reported this rather
+than claiming the item.
 Accept: every claim checked by execution against the live export, not against the skill's text.
 
 ### 06-25 Decline behaviour as executable evidence
@@ -661,6 +667,12 @@ one that will show whether rule F2 can be applied without taste.
 Do: per page, apply the contract. Prose carrying comparable facts becomes a table; restated
 obviousness, hedges and repeated caveats are cut; anything unverified is removed rather than
 labelled.
+**Partially executed, and not to be read as complete (P-103).** Two of the seventeen authored
+pages have had a per-page pass. F1 and F5 were established to hold corpus-wide, but the other
+fifteen pages have had none, and `docs/02` and `docs/04` are over the length ceiling for a
+reason the contract now records as a *split*, which this item's own stop condition hands
+elsewhere. The lane reported this rather than claiming the item, which is the behaviour the
+stop condition exists to produce.
 Accept: the page satisfies every rule in the contract, and no fact present before is absent
 after. Shorter is not the acceptance condition; shorter while lossless is.
 Stop: applying the contract would delete a caveat that a test or a gate exists to enforce. Cut

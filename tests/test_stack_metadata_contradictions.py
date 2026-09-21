@@ -34,6 +34,7 @@ from scripts.harness_gate import (  # noqa: E402
     _ANY_BLOCK_ASSERTION,
     _BLOCK_ASSERTIONS,
     _blocked_by_none_contradictions,
+    _miscounted_summaries,
     _stack_items,
     _stop_clause_spans,
     _suspected_truncated_writes,
@@ -328,6 +329,101 @@ class TestTheSuppressionsAreVisibleAndCorrect:
         assert any("06-86" in v and "Blocked by: none" in v for v in violations), (
             f"the gate did not report the contradiction: {violations}"
         )
+
+
+class TestASummaryCountAgreesWithWhatItNames:
+    """P-133: a canonical summary inside the stack went stale and nothing errored.
+
+    Batch 0 opened with "Six items wait on a human ruling ... 06-13, 06-18, 06-67, 06-84,
+    06-85 and 06-92". Four waited; three of the six named had closed earlier the same day; and
+    none of the four gated more than one item, so the sentence named a binding constraint that
+    no longer bound. Every number in it is recomputable from the fields below it, so re-deriving
+    it by hand is a fix with a shelf life.
+    """
+
+    # P-133's own sentence, as the row records it.
+    STALE = (
+        "## Batch 0. Goal and authority\n\n"
+        "Six items wait on a human ruling: 06-13, 06-18, 06-67, 06-84 and 06-85.\n\n"
+        "### 06-13 Something\n\nRole: human ruling. Blocked by: none.\nWrites: `docs/a.md`.\n"
+    )
+
+    def test_a_count_that_disagrees_with_its_list_is_flagged(self):
+        flagged = _miscounted_summaries(self.STALE)
+        assert len(flagged) == 1, f"the miscount was not seen: {flagged}"
+        _lineno, phrase, asserted, ids, _sentence = flagged[0]
+        assert asserted == 6 and len(ids) == 5, (phrase, asserted, ids)
+
+    def test_a_count_that_agrees_is_not_flagged(self):
+        agreeing = self.STALE.replace("Six items", "Five items")
+        assert _miscounted_summaries(agreeing) == []
+
+    def test_a_count_inside_an_item_body_is_not_a_summary(self):
+        # A count inside an item is that item's statement about its own work; only prose ABOUT
+        # items is derived data. Without this the check would read every item's Do: clause.
+        inside = (
+            "## Batch 0\n\n### 06-13 Something\n\nRole: jnwb-developer. Blocked by: none.\n"
+            "Writes: `docs/a.md`.\nDo: reconcile six items -- 06-01, 06-02 -- by hand.\n"
+        )
+        assert _miscounted_summaries(inside) == []
+
+    def test_a_count_with_no_ids_is_not_flagged(self):
+        # A summary asserting a count without naming the items cannot be checked. Batch 0's
+        # "three items Hamm must decide" was such a claim, and was two; it was rewritten to
+        # name them rather than checked by a second mechanism.
+        vague = (
+            "## Batch 0\n\nWhat remains is three items Hamm must decide.\n\n"
+            "### 06-13 A\n\nRole: human ruling. Blocked by: none.\nWrites: `docs/a.md`.\n"
+        )
+        assert _miscounted_summaries(vague) == []
+
+    def test_ids_beyond_a_clause_break_belong_to_another_statement(self):
+        # "it assigned 16 items to five lanes ... -- the compression lane pointed at 06-24 and
+        # 06-51" is not a miscount. A first draft flagged it, and one like it, as 2 of 2 false
+        # positives.
+        other_clause = (
+            "## Batch 0\n\nIt assigned 16 items to five lanes -- the compression lane "
+            "pointed at 06-24 and 06-51.\n\n"
+            "### 06-13 A\n\nRole: human ruling. Blocked by: none.\nWrites: `docs/a.md`.\n"
+        )
+        assert _miscounted_summaries(other_clause) == []
+
+    def test_the_elided_form_is_counted(self):
+        # "three more are blocked" carries the noun over from the preceding clause. Requiring
+        # the literal word "items" missed the one live instance on the real stack.
+        elided = (
+            "## Batch 0\n\nTwo items are ruling items -- 06-13 and 06-67 -- and three more "
+            "are blocked on authority: 06-31, 06-32, 06-86 and 06-99.\n\n"
+            "### 06-13 A\n\nRole: human ruling. Blocked by: none.\nWrites: `docs/a.md`.\n"
+        )
+        flagged = _miscounted_summaries(elided)
+        assert len(flagged) == 1, f"the elided count was not read: {flagged}"
+        assert flagged[0][2] == 3 and len(flagged[0][3]) == 4
+
+    def test_each_count_governs_only_its_own_list(self):
+        # The sentence above carries two counts. The first is correct and must not absorb the
+        # second's ids -- a draft that let it do so reported the correct count as a miscount.
+        elided = (
+            "## Batch 0\n\nTwo items are ruling items -- 06-13 and 06-67 -- and three more "
+            "are blocked on authority: 06-31, 06-32 and 06-86.\n\n"
+            "### 06-13 A\n\nRole: human ruling. Blocked by: none.\nWrites: `docs/a.md`.\n"
+        )
+        assert _miscounted_summaries(elided) == []
+
+    def test_the_live_stack_agrees_with_itself(self):
+        flagged = _miscounted_summaries(TODO_STACK.read_text(encoding="utf-8"))
+        assert flagged == [], f"a live summary disagrees with the items it names: {flagged}"
+
+    def test_the_gate_reports_a_miscount(self, tmp_path):
+        (tmp_path / "artifacts").mkdir()
+        (tmp_path / "artifacts" / "todo_stack.md").write_text(self.STALE, encoding="utf-8")
+        (tmp_path / "artifacts" / "problem_stack.md").write_text(
+            "| ID | Problem | Disposition | Evidence |\n|---|---|---|---|\n"
+            "| P-01 | a row | repaired | evidence |\n",
+            encoding="utf-8",
+        )
+        violations = check_stack_form_consistency(repo_root=tmp_path)
+        assert any("a summary says" in v for v in violations), violations
 
 
 class TestTheUnwrappingIsNotALineScan:
