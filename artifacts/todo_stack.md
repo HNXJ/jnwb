@@ -251,7 +251,8 @@ Accept: the frozen set is dated and the non-goals section below is part of it.
 
 ### 06-06 Publish the canonical architecture page
 
-Role: docs-harness. Skill: jnwb. Blocked by: none -- 06-01 and 06-02 were both ruled
+Role: docs-harness. Skill: jnwb. Blocked by: none.
+06-01 and 06-02 were both ruled
 2026-09-19 and deleted as complete. This item read as blocked for a day after it was not.
 Reads: `artifacts/direction.md`. Writes: a new page under `docs/*.md` (named at dispatch;
 `docs/01_architecture_and_philosophy.md`
@@ -464,8 +465,8 @@ checked.
 
 ### 06-27 Semantic mutation classes over the declared subset
 
-Role: jnwb-developer. Skill: per chain. Blocked by: 06-28. Unblocked from 06-18 on 2026-09-20: the subset is ruled and all
-ten chains are declared. Writes: `tests/test_semantic_mutation_classes.py`.
+Role: jnwb-developer. Skill: per chain. Blocked by: 06-28.
+Unblocked from 06-18 on 2026-09-20: the subset is ruled and all ten chains are declared. Writes: `tests/test_semantic_mutation_classes.py`.
 Unit scaling, axis swap, sign flip, conjugation, density against spectrum, mean against median
 and sum, log before aggregate, permutation p-value substitution, generator ignored, support gate
 removed, failure converted to a default, identity restoration removed, result key deleted,
@@ -535,7 +536,8 @@ figure.
 
 ### 06-30 Produce the canonical diagrams
 
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06. 06-08 closed 2026-09-20.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06.
+06-08 closed 2026-09-20 and is no longer a blocker.
 Writes: `docs/*.md`, `docs/assets/*.svg`.
 Dual entry; code, documentation and tests with skill routing over them; the four-outcome
 decision; NWB to analysis; the package boundary. One maintained source each, original to jnwb.
@@ -545,7 +547,29 @@ here, not restated.
 
 ### 06-31 One real NWB end-to-end example
 
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: **data-access authority, which is Hamm's to grant** -- re-marked 2026-09-20 after
+the item stopped on its own Stop clause. See P-149.
+All four routes to a real NWB file are closed, measured rather than assumed: the `D:` corpus
+**exists and is denied by policy** (`jnwb.paths.describe()` resolves it; a read was refused);
+downloading requires user permission that has not been given; remote streaming needs `ros3`
+(absent from this h5py build), or `remfile`/`dandi` (not importable), or a declared `fsspec`
+dependency -- and `pyproject.toml` is **not in this item's write set**, so the item cannot
+deliver the "remotely accessible" half of its own text; and every fixture in the repository is
+synthetic (`git ls-files` finds zero tracked `.nwb`; `jnwb/testing/nwb_fixtures.py` builds from
+`np.random.default_rng(seed)`).
+**The lane refused to build the obvious workaround and was right to.** A script plus a test that
+skips when data is absent would skip **forever** in CI, passing in two gates while the invariant
+it names is violated, and would later be cited as "06-31 verified". That is the P-37 shape.
+Capability-fit checklist for whoever resumes, derived by measuring call sites across
+`examples/tutorials/*.py`: an interval table with onset and code columns (`event_onsets`, 8 sites);
+a sorted `units` table (`unit_spike_times`, 3); a continuous `ElectricalSeries` with a
+**constant** `rate` (`acquisition_channel` 5 and `epoch_continuous` 8 -- a timestamps-stored
+series has `rate_hz: None` and is not epochable); an electrodes table with depth and location for
+`vflip_from_lfp`/`zflip`. Note the item says select "by capability fit", which can only be
+established from the bytes -- **so the selection step is itself blocked.**
+A third disposition exists and needs a ruling: rescope the item to a documented procedure for a
+reader's own file, exercised against a synthetic stand-in, with the limitation stated in the
+page rather than hidden by a skip. That needs no grant.
 Writes: `docs/tutorials/*.md`, `examples/*.py`, `tests/test_real_nwb_example.py`.
 Select a small, redistributable or remotely accessible public dataset by capability fit, not by
 name. Open, inspect, select, analyse, verify, visualise, reusing the operations the skills route,
@@ -556,7 +580,8 @@ a synthetic one and calling it an example.
 
 ### 06-32 Separate empirical from synthetic
 
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31. Writes: `docs/*.md`, `examples/*.py`,
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31, and **transitively on the same data-access grant** -- recorded 2026-09-20,
+see P-149. Writes: `docs/*.md`, `examples/*.py`,
 `tests/test_synthetic_figures_are_labelled.py`.
 Visibly and structurally, in the documentation tree and in the figures.
 Accept: a check that a page carrying a synthetic figure says so.
@@ -582,7 +607,8 @@ worse than leaving them alone.
 
 ### 06-51 Reduce verbosity against the contract
 
-Role: docs-harness. Skill: none. Blocked by: 06-49. Writes: `docs/*.md`, `README.md`.
+Role: docs-harness. Skill: none. Blocked by: none.
+**Unblocked 2026-09-20:** 06-49 closed and left the stack. Writes: `docs/*.md`, `README.md`.
 One packet per page, not one packet for the set. A batch handed twenty-seven pages trims the easy
 ones and rewrites the hard one.
 
@@ -628,7 +654,8 @@ depending on them builds here and fails in CI. That is G4, and it is recorded as
 
 ### 06-53 Gate the documentation form
 
-Role: docs-harness. Skill: none. Blocked by: 06-49, 06-50, 06-51, 06-52. The contract itself is written.
+Role: docs-harness. Skill: none. Blocked by: 06-51, 06-52.
+**Narrowed 2026-09-20:** 06-49 and 06-50 closed and left the stack. The contract itself is written.
 Writes: `scripts/docs_form_gate.py` (new), `tests/test_docs_form_gate.py`.
 A contract nothing enforces decays to a preference within one cycle.
 Do: make the mechanically checkable rules into checks -- the vocabulary list, heading depth, nav
@@ -789,7 +816,8 @@ development virtualenv is not package evidence.
 
 ### 06-36 Documentation qualification
 
-Role: verifier. Skill: none. Blocked by: 06-06, 06-29, 06-30. 06-08 closed 2026-09-20. Writes: none.
+Role: verifier. Skill: none. Blocked by: 06-06, 06-29, 06-30. Writes: none.
+06-08 closed 2026-09-20 and is no longer a blocker.
 Strict build; diagrams render as diagrams, asserted against built output; generated assets
 current; links resolve; no stale version claim; the canonical architecture page reachable from
 the navigation.
@@ -897,7 +925,7 @@ Reproduce: list every `Skill:` value in the stack and diff it against `skills/`.
 Do: add a gate resolving each `Skill:` value that is not a declared placeholder against a
 directory under `skills/` holding a `SKILL.md`. Do the same for `Role:` against `artifacts/agents/`
 if that costs nothing extra. **Widened by P-57:** resolve the cross-references between the
-two stacks as well -- a `Blocked by:` field and a problem's `Answered in` column may name only
+two stacks as well -- a blocker field and a problem's `Answered in` column may name only
 a live item. Both went stale during this release with no error: two items sat blocked by
 rulings that had already happened, and two problems pointed at items deleted as complete.
 Discriminator: reintroducing `jnwb-nwb-io` into any item fails the gate; every placeholder form
@@ -1026,7 +1054,8 @@ Stop: neither file is the right home. Then say which is, and put it there.
 
 ### 06-89 Document the unit-to-layer composition
 
-Role: docs-harness. Skill: `jnwb-population`. Blocked by: 06-49. Writes: `docs/*.md`,
+Role: docs-harness. Skill: `jnwb-population`. Blocked by: none.
+**Unblocked 2026-09-20:** 06-49 closed and left the stack. Writes: `docs/*.md`,
 `skills/*/SKILL.md`.
 P-20. The composition works today through existing exports and no document or skill shows it, so
 a capability that exists is unreachable by reading -- which is precisely the reachability failure
@@ -1210,7 +1239,8 @@ Stop: do not change any signature. This item repairs documentation and adds a ch
 
 ### 06-103 The state file asserts a protection that does not exist
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-94 -- both write the gate script.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+**Unblocked 2026-09-20:** 06-94 closed, so the gate script is free. Whoever takes this item holds `scripts/harness_gate.py` and must not run concurrently with 06-105, which writes it too.
 Writes: `scripts/reconstruct_state.py`, `tests/test_state_basis_is_checked.py`.
 P-65, and it is P-37 inside the `state` slot. `artifacts/state.md:4-5` asserts "a gate fails when
 this file no longer matches the tree, so a stale basis cannot be read as a current one." **No gate
@@ -1251,7 +1281,8 @@ belong to whoever holds `scripts/harness_gate.py`.
 
 ### 06-105 Make gate 8 enforce the convergence the goal says it enforces
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-94, 06-105 and it both write the gate script.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+**Unblocked 2026-09-20:** 06-94 closed, so the gate script is free. The previous wording recorded this item as blocking **itself** -- a typo for "06-94, since it and this item both write the gate script". Do not run concurrently with 06-103, which writes the same file.
 Writes: `scripts/harness_gate.py`, `tests/test_gate8_covers_every_version_surface.py`.
 P-68. `artifacts/goal.md:70` claims gate 8 enforces convergence across `requires-python`, the
 classifiers, the CI matrix, the install documentation, the README and release material. **Gate 8
