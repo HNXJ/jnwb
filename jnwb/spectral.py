@@ -18,6 +18,7 @@ import pandas as pd
 from ._dictlike import DictAccessMixin
 from ._backend import CUDA, resolve_device, warn_device_fallback
 from ._parallel import parallel_map
+from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
 
 log = logging.getLogger(__name__)
 
@@ -580,7 +581,7 @@ def cross_area_coherence(
     sampling_rate: Optional[float] = None,
     freq_bands: Union[Dict[str, Tuple[float, float]], str, None] = None,
     device: str = 'cpu',
-    rng: Optional[np.random.Generator] = None,
+    rng: RNGLike = DEFAULT_SEED,
     n_surrogates: int = 50,
     n_jobs: int = 1,
     nperseg: Optional[int] = None,
@@ -617,10 +618,16 @@ def cross_area_coherence(
                    band_coherence and p-value, so the caller names them.
         device: 'cpu' or 'cuda' (GPU acceleration via CuPy). Resolved **once**, before
                 any coherence is computed; see `device_used` in the returned dict.
-        rng: Generator for the surrogate shifts. Defaults to
-             ``np.random.default_rng(42)``, matching the convention in
-             `jnwb.statistics`. Previously hardcoded and unreachable, so every caller
-             got the same 50 surrogates and no seed could be recorded.
+        rng: Randomness for the surrogate shifts: an ``int`` seed, a
+             ``numpy.random.Generator``, or ``None`` for fresh OS entropy. Defaults to
+             ``DEFAULT_SEED`` (42), the seed this function has always used, so
+             ``inspect.signature`` and ``help()`` report the stream a bare call draws.
+             INTENTIONAL BREAK (0.2.6): the default was spelled ``None`` and resolved to
+             ``SeedSequence(42)`` in the body. A bare call is unchanged --
+             ``default_rng(42)`` and ``default_rng(SeedSequence(42))`` are the same
+             stream -- but an explicit ``rng=None`` now means what it means everywhere
+             else in this package and in NumPy: fresh entropy per call, where it
+             previously returned seed 42's surrogates.
         n_surrogates: Number of circular-shift surrogates per band (default 50).
                       Sets the resolution of the test: with the (count + 1) / (n + 1)
                       estimator the smallest attainable p-value is
@@ -667,8 +674,11 @@ def cross_area_coherence(
         - p_value_floor: Smallest p-value this call could return,
           1 / (n_surrogates_used + 1). A p-value at the floor means "not resolvable
           with this many surrogates".
-        - surrogate_seed_entropy: Entropy of the default generator, or None when the
-          caller supplied `rng` (record your own seed in that case).
+        - surrogate_seed_entropy: The entropy the surrogate generator was built from --
+          42 for a bare call, the seed you passed for an int `rng`, and the fresh OS
+          entropy actually drawn for `rng=None`, which is what makes that draw
+          reproducible after the fact. None only when you supplied a `Generator`, whose
+          stream position this function cannot recover; record your own seed in that case.
 
     Example:
         >>> coh = cross_area_coherence(v1_lfp, pfc_lfp, fs=1000.0, freq_bands='canonical')
@@ -703,9 +713,20 @@ def cross_area_coherence(
     # reject on a long recording, and the return value said nothing. The count is now
     # uniform and the floor it implies is reported. Pass n_surrogates=10 for the old
     # cost.
+    # The seed is in the signature, not here: `inspect.signature` reports the stream a
+    # bare call draws. `SeedSequence` is kept because it is the only route to the entropy
+    # `surrogate_seed_entropy` reports -- including for `rng=None`, where it captures the
+    # OS entropy that was drawn so the caller can reproduce a fresh-entropy run.
+    # `resolve_rng` is called for its type contract (a float or bool seed is refused
+    # rather than truncated); its Generator is discarded because the disclosing one is
+    # built from the sequence.
     seed_entropy = None
-    if rng is None:
-        seed_sequence = np.random.SeedSequence(42)
+    if not isinstance(rng, np.random.Generator):
+        # An int seed or None. A caller-supplied Generator is used as-is instead, so
+        # successive calls advance one stream rather than restarting it, and its position
+        # is not recoverable -- surrogate_seed_entropy stays None for that case alone.
+        resolve_rng(rng, func_name="cross_area_coherence")
+        seed_sequence = np.random.SeedSequence(rng)
         seed_entropy = int(seed_sequence.entropy)
         rng = np.random.default_rng(seed_sequence)
 

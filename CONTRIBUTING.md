@@ -56,10 +56,13 @@ python scripts/docs_build.py
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive.
-- **`harness_gate.py`** — 14 repository gates: the project boundary, skills, paths, the
-  root allowlist, docs, the public API set, version agreement, the Python policy, import
-  shadowing, project identifiers in code, NWB onboarding alignment, and repository-process
-  vocabulary in `docs/`. It fails on structure, not behaviour.
+- **`harness_gate.py`** — 16 repository gates: the project boundary, skill-tree uniqueness,
+  machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
+  tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
+  floor and its classifier/CI agreement, `docs/api.md` against `__all__` and the generator,
+  docs versions derived from `__version__`, no unowned importable package at the root, project
+  identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`,
+  stack form, and line-ending consistency. It fails on structure, not behaviour.
 - **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.
   Read the Docs sets `fail_on_warning`, so a warning here is a failed publish.
 
@@ -71,9 +74,18 @@ python scripts/release_gate.py
 
 - **`release_gate.py`** — builds the wheel, installs it in a clean venv, and smoke-tests
   the installed package. It catches packaging mistakes (a module missing from the wheel, a
-  broken extra) that the suite cannot see. Run it before tagging, not before pushing: it needs
-  network access to build an environment, and no CI job executes it — the workflow imports
-  `forbidden_entries` from it to check the built artifacts and never calls its `main`.
+  broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
+  commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
+  in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
+  dependency fails. Run it before tagging, not before pushing: it needs network access to
+  build an environment and an authenticated `gh` to read the pipeline, and no CI job executes
+  it — the workflow imports `forbidden_entries` from it to check the built artifacts and never
+  calls its `main`.
+
+  If `gh` is unavailable, unauthenticated, or the commit has no finished run, the CI step
+  reports *unresolved* and the gate stops. That is deliberate: the alternative passes hardest
+  exactly when the release is least verifiable. `JNWB_SKIP_CI_CHECK=1` proceeds anyway and
+  says loudly in the log that the tag carries no CI evidence.
 
 Stage exact paths. `git add .` sweeps in build output and scratch files.
 
@@ -117,7 +129,7 @@ All code in `jnwb` must satisfy the following implementation standards:
 2. **Explicit Dimensions, Units & Coordinates**: Always specify physical units (e.g. `fs: float` in Hz, time in seconds, frequencies in Hz). Never confuse array indices with physical coordinate values.
 3. **Stable Terminology**: Use standardized parameter names across modules (`fs` or `sampling_rate`, `time_window`, `freq_range`, `alpha`, `rng`).
 4. **Typed Public Signatures**: Type-annotate public function arguments and return types.
-5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. One deviation from this rule is live and documented rather than silent: `cross_area_coherence` declares `rng=None` and resolves it to `SeedSequence(42)`, disclosing the entropy to its caller as `surrogate_seed_entropy` in the returned dict instead of in its signature — real, but not the silent form 05-35 describes. A strict `xfail` in `tests/test_rng_convention_matches_the_signatures.py` holds the place until it is repaired. **Never mutate global state** (`np.random.seed()`).
+5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_convention_matches_the_signatures.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
 6. **No Hidden Filesystem Assumptions**: Never hardcode relative paths, machine-specific drive letters, or external network dependencies in library functions.
 7. **No Silent Numerical Clipping / Censoring**: Never silently clamp, filter, or discard invalid values unless explicitly requested by a parameter.
 8. **Explicit Boundary / Failure States**: When a fit hits parameter bounds or optimization fails, return explicit status flags (e.g. `bound_status: "lower" | "upper" | None`) rather than masking errors as valid interior solutions.
@@ -251,8 +263,15 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
    entry.
-2. Commit to `dev`, push, and wait for CI to pass on that exact commit.
-3. Fast-forward `main` to `dev` and push it.
+2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`
+   now checks this rather than trusting you to: it resolves the run whose head SHA is the
+   commit under qualification and requires every unconditional job to have concluded
+   `success`.
+3. Merge `dev` into `main` and push it. Not a fast-forward: `main` carries the merge commit
+   of every previous release PR, so `git merge --ff-only dev` fails there and always has.
+   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
+   `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
+   all went through a PR merge; this step said "fast-forward" through all of them.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) only — it does **not**
    upload to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`

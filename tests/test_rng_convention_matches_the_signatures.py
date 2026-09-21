@@ -15,19 +15,21 @@ from `inspect.signature`. A check that read its expected value out of the same i
 it validates would agree with itself under every corruption, which is the defect class this
 cycle keeps producing.
 
-**The one deviation, stated precisely.** `cross_area_coherence` declares `rng=None` against
-the convention and resolves it to `np.random.SeedSequence(42)`. It is **not** an 05-35
-survivor: 05-35's defect was a *silent* fixed seed, and this function discloses the entropy
-it used through `surrogate_seed_entropy` in its return value (`jnwb/spectral.py:725`,
-documented at `:670`). A caller can learn the seed; they just cannot read it off the
-signature, which is where this repository's convention puts it. Weaker than 05-35, and real.
+**The one deviation, and its repair (06-107 / P-164).** `cross_area_coherence` used to
+declare `rng=None` and resolve it to `np.random.SeedSequence(42)`. It was never an 05-35
+survivor -- 05-35's defect was a *silent* fixed seed, and this function always disclosed the
+entropy through `surrogate_seed_entropy` in its return value -- but a caller still could not
+read the stream off the signature, which is where this repository's convention puts it. The
+signature now says `rng: RNGLike = DEFAULT_SEED`. A bare call is unchanged, because
+`default_rng(42)` and `default_rng(SeedSequence(42))` are the same stream; an explicit
+`rng=None` now means fresh OS entropy, as it does everywhere else in the package.
 
 **Why this module exists when `test_rng_control.py` already guards 05-35.** That module
-cannot see this deviation, for three independent reasons, each closed by a different
-assertion here:
+could not see the deviation, for three independent reasons, each closed by a different
+assertion here -- and each still open for the next one:
 
-1. Its `SEEDED` tuple is hand-maintained and never names `cross_area_coherence`, so its
-   signature check never covered it. Closed by `test_exactly_these_four_present_none`,
+1. Its `SEEDED` tuple is hand-maintained and never named `cross_area_coherence`, so its
+   signature check never covered it. Closed by `test_exactly_these_three_present_none`,
    which enumerates every `rng` parameter from `jnwb.__all__` rather than from a list a
    contributor must remember to extend, and by `test_the_walk_reaches_the_rng_parameters`,
    which fails if that enumeration ever collapses.
@@ -36,9 +38,8 @@ assertion here:
    the public API exports, wherever it is defined.
 3. Its regex `default_rng\\((\\d+)\\)` cannot match `default_rng(seed_sequence)` however many
    modules it scans. Closed by
-   `test_cross_area_coherence_deviates_from_the_convention_but_discloses_its_seed`, which
-   detects the fixed seed by *calling the function twice*, so no spelling of the source
-   evades it.
+   `test_cross_area_coherence_draws_the_stream_its_signature_advertises`, which establishes
+   the stream by *calling the function*, so no spelling of the source evades it.
 
 **What would make each check below pass while the rule it names is violated.**
 
@@ -48,13 +49,16 @@ assertion here:
   `test_the_prose_files_are_readable_and_nonempty`.
 - The stale-form matcher never matches anything, so no text can ever fail it. Held by
   `test_the_stale_form_matcher_can_fire`, which runs it against the string it hunts.
-- The exception list is read as a tolerance ("at most four may present None"), so a new
-  `rng=None` slips in. Held by `test_exactly_these_four_present_none`, an equality: under
+- The exception list is read as a tolerance ("at most three may present None"), so a new
+  `rng=None` slips in. Held by `test_exactly_these_three_present_none`, an equality: under
   a subset assertion in either direction the drift survives.
-- The deviation gets blessed as a legitimate `None`. Held by
-  `test_cross_area_coherence_shows_its_seed_in_the_signature`, a strict xfail that fails
-  the day the signature is brought into line, forcing these lists and both convention
-  texts to be updated together rather than left stale.
+- `cross_area_coherence` regresses to `rng=None` and nothing notices, because the
+  equality above is edited to re-admit it. Held by
+  `test_cross_area_coherence_shows_its_seed_in_the_signature`, which names the function
+  directly and reads its default, so re-admitting it to `PRESENTS_NONE` does not silence
+  this one; and by
+  `test_cross_area_coherence_draws_the_stream_its_signature_advertises`, which would fail
+  on the numbers even if every signature assertion were deleted.
 - A name is added to `FRESH_ENTROPY` and is reported as verified without ever being
   called, because the probe dispatch falls through to another function. Held by
   `test_every_fresh_entropy_function_has_its_own_probe`. This one is not hypothetical:
@@ -87,19 +91,20 @@ OLD_FORM = re.compile(
 )
 
 #: Every public `rng` parameter whose default presents `None` to the caller.
-PRESENTS_NONE = frozenset(
-    {"cross_area_coherence", "cross_modal_comparison", "jrsa", "xflip"}
-)
+PRESENTS_NONE = frozenset({"cross_modal_comparison", "jrsa", "xflip"})
 
 #: Of those, the ones where `None` resolves to fresh OS entropy, which is the contract.
+#: These are now the same set: after 06-107 no public default presents `None` for any
+#: other reason, and the two names are kept apart because they mean different things and
+#: a future divergence should be visible rather than an edit to one frozenset.
 FRESH_ENTROPY = frozenset({"cross_modal_comparison", "jrsa", "xflip"})
 
-#: The one that presents `None`, resolves it to a fixed seed, and hands that seed back in
-#: its return value instead of showing it in the signature.
-DISCLOSED_FIXED_SEED = "cross_area_coherence"
-
-#: The key `cross_area_coherence` discloses its seed through.
+#: The key `cross_area_coherence` discloses the entropy it used through. Still populated
+#: after the repair -- the disclosure was the one part of the old behaviour worth keeping.
 DISCLOSURE_KEY = "surrogate_seed_entropy"
+
+#: The seed `cross_area_coherence` has always used, now visible in its signature.
+COHERENCE_DEFAULT_SEED = 42
 
 EXPECTED_TOTAL = 23
 
@@ -197,7 +202,7 @@ def test_no_convention_text_prescribes_the_retired_form(path):
 # --- acceptance 2 and 3: documented exception set == live signatures --------------------
 
 
-def test_exactly_these_four_present_none():
+def test_exactly_these_three_present_none():
     """Equality, not a ceiling. A tolerance in either direction lets drift through, and
     this enumeration is what covers the functions a hand-maintained list would omit."""
     live = {q for q, d in _rng_parameters() if _presents_none(d)}
@@ -209,7 +214,7 @@ def test_exactly_these_four_present_none():
     )
 
 
-def test_the_other_nineteen_show_the_seed_they_will_use():
+def test_the_other_twenty_show_the_seed_they_will_use():
     others = [(q, d) for q, d in _rng_parameters() if not _presents_none(d)]
     assert len(others) == EXPECTED_TOTAL - len(PRESENTS_NONE)
     for qualname, default in others:
@@ -224,7 +229,7 @@ def test_the_other_nineteen_show_the_seed_they_will_use():
 def test_the_spec_page_names_every_function_whose_rng_default_is_none():
     """Parsed off the prose, compared against the literals above -- two independent sources."""
     text = SPEC_PAGE.read_text(encoding="utf-8")
-    expected = FRESH_ENTROPY | {DISCLOSED_FIXED_SEED}
+    expected = set(FRESH_ENTROPY)
     named = {n for n in expected if f"`{n}`" in text}
     assert named == expected, (
         "the RNG section of the specification page no longer names every function whose "
@@ -290,40 +295,76 @@ def test_none_really_means_fresh_entropy(name):
     )
 
 
-def test_cross_area_coherence_deviates_from_the_convention_but_discloses_its_seed():
-    """The deviation pinned in full, so it cannot quietly become something else.
+def test_cross_area_coherence_draws_the_stream_its_signature_advertises():
+    """06-107: the successor to the test that pinned the deviation.
 
-    Three facts, and all three are the current truth: the signature presents `None`; the
-    resolution is a fixed seed, caught by calling twice rather than by reading the source;
-    and the seed reaches the caller in the return value. The third is what separates this
-    from 05-35, where the seed was unknowable.
+    Its predecessor asserted the *deviation* -- that `rng=None` resolved to a fixed seed --
+    by calling the function twice. That technique is the point, and it is the only one of
+    these assertions that survives every rewrite of the source, so it is kept and pointed
+    at the convention instead. A repair that only moved the literal would have left the
+    predecessor green while its name went false; this one fails on the numbers.
+
+    Three facts, none of them read off the source:
+
+    1. A bare call and an explicit `rng=42` produce the same surrogates, so the number in
+       the signature is the number the body uses. A body that ignored its parameter and
+       kept `SeedSequence(42)` internally would also pass this one -- which is why (2)
+       exists.
+    2. An explicit `rng=7` produces *different* surrogates, so the parameter is actually
+       reaching the generator rather than being decorative.
+    3. `rng=None` now draws fresh entropy per call, which is what the signature's `None`
+       means everywhere else in the package, and the entropy it drew still reaches the
+       caller through `surrogate_seed_entropy`.
     """
-    default = inspect.signature(jnwb.cross_area_coherence).parameters["rng"].default
-    assert _presents_none(default), "cross_area_coherence no longer presents rng=None"
-
     a, b = _coherence_inputs()
+
+    bare = jnwb.cross_area_coherence(a, b, **COHERENCE_KW)
+    explicit = jnwb.cross_area_coherence(
+        a, b, rng=COHERENCE_DEFAULT_SEED, **COHERENCE_KW
+    )
+    assert bare["band_significance"] == explicit["band_significance"], (
+        f"a bare call and rng={COHERENCE_DEFAULT_SEED} disagree, so the seed in the "
+        "signature is not the seed the body uses -- the signature is decorative"
+    )
+    assert bare[DISCLOSURE_KEY] == COHERENCE_DEFAULT_SEED, (
+        f"{DISCLOSURE_KEY} no longer reports the default seed; the disclosure that made "
+        "the old deviation survivable must survive its repair"
+    )
+
+    other = jnwb.cross_area_coherence(a, b, rng=7, **COHERENCE_KW)
+    assert other[DISCLOSURE_KEY] == 7
+    assert other["band_significance"] != bare["band_significance"], (
+        "rng=7 and the default seed produced identical surrogates, so the rng parameter "
+        "is not reaching the generator at all"
+    )
+
     one = jnwb.cross_area_coherence(a, b, rng=None, **COHERENCE_KW)
     two = jnwb.cross_area_coherence(a, b, rng=None, **COHERENCE_KW)
-    assert one["band_significance"] == two["band_significance"], (
-        "cross_area_coherence now draws fresh entropy for rng=None; it has joined "
-        "FRESH_ENTROPY and this module and both convention texts need updating"
+    assert one["band_significance"] != two["band_significance"], (
+        "two rng=None calls agreed exactly, so None still resolves to a fixed seed -- the "
+        "05-35 defect, now in the place the 06-107 repair was supposed to clear"
     )
-    assert one[DISCLOSURE_KEY] == 42 == two[DISCLOSURE_KEY], (
-        f"the seed is no longer disclosed through {DISCLOSURE_KEY}; without that this "
-        "would be a silent fixed seed, which is the 05-35 defect rather than a deviation"
+    assert one[DISCLOSURE_KEY] != two[DISCLOSURE_KEY], (
+        f"rng=None reported the same {DISCLOSURE_KEY} twice; fresh entropy that is not "
+        "disclosed per call cannot be reproduced afterwards"
     )
+    assert one[DISCLOSURE_KEY] is not None and two[DISCLOSURE_KEY] is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Convention: the default seed is visible in the signature. cross_area_coherence "
-        "declares rng=None and resolves np.random.SeedSequence(42) at spectral.py:706-710, "
-        "disclosing the entropy through surrogate_seed_entropy in its return instead. When "
-        "the signature is brought into line this xpasses, and strict mode then fails so "
-        "PRESENTS_NONE, FRESH_ENTROPY and both convention texts are updated together."
-    ),
-)
 def test_cross_area_coherence_shows_its_seed_in_the_signature():
+    """06-107 repaired P-164; this was a strict xfail until it did.
+
+    Named separately from the equality in `test_exactly_these_three_present_none` on
+    purpose: re-admitting `cross_area_coherence` to `PRESENTS_NONE` would silence that one
+    and not this one.
+    """
     default = inspect.signature(jnwb.cross_area_coherence).parameters["rng"].default
-    assert not _presents_none(default)
+    assert not _presents_none(default), (
+        "cross_area_coherence presents rng=None again; P-164 has regressed and the "
+        "signature no longer reports the stream a bare call draws"
+    )
+    value = default.value if isinstance(default, Default) else default
+    assert value == COHERENCE_DEFAULT_SEED, (
+        f"the visible default moved from {COHERENCE_DEFAULT_SEED} to {value!r}. Changing "
+        "it changes every published number from a bare call; it is a constant, not a knob"
+    )

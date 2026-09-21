@@ -5,6 +5,7 @@ Pipeline:
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
+  0e. CI concluded success, per required leg, for the exact commit being qualified
   1. Full test suite execution (pytest tests/)
   2. Harness pre-flight gates
   3. Clean distribution build (sdist + wheel)
@@ -601,6 +602,259 @@ def check_live_release_body(
     return LiveBodyOutcome(BODY_CHECKED, detail, violations)
 
 
+#: The workflow whose jobs constitute "CI passed". One file, read rather than summarised:
+#: a list of required job names written down here would drift from the matrix the moment a
+#: Python version is added, and drift silently, because a leg nobody asks about is a leg
+#: nobody misses.
+CI_WORKFLOW_PATH = ".github/workflows/workflow.yml"
+
+#: Set to "1" to tag without resolving CI. Named, logged loudly and never the default: the
+#: whole point of the check is that a red pipeline must not be taggable by omission.
+SKIP_CI_ENV = "JNWB_SKIP_CI_CHECK"
+
+#: Every required leg ran and concluded success. The only value that is a pass.
+CI_VERIFIED = "verified"
+#: CI was resolved and is not green. A defect in the commit.
+CI_FAILED = "failed"
+#: CI could not be resolved -- no ``gh``, no auth, no network, no run for this SHA, a run
+#: still executing, unreadable output. Not a defect in the commit and not a pass either;
+#: kept distinct from :data:`CI_FAILED` so the operator is told which problem they have.
+CI_UNRESOLVED = "unresolved"
+
+
+class CIOutcome(NamedTuple):
+    """Tri-state, so "could not tell" can never be read as "green"."""
+
+    status: str
+    detail: str
+    legs: List[Tuple[str, str, str]]   # (job name, status, conclusion)
+    violations: List[str]
+
+
+_MATRIX_REF = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_.\-]+)\s*\}\}")
+
+
+def required_ci_jobs(workflow: Optional[str] = None,
+                     root: Optional[pathlib.Path] = None) -> List[str]:
+    """The job names that must have run and passed, expanded over the strategy matrix.
+
+    Derived from the workflow file, for the reason recorded at :data:`CI_WORKFLOW_PATH`.
+
+    A job carrying an ``if:`` is excluded: the two publish jobs are conditional by design and
+    report ``skipped`` on an ordinary push, so requiring them would make the check fail for
+    every commit and therefore be switched off. A job *without* an ``if:`` is unconditional,
+    and ``skipped`` on such a job means an upstream ``needs:`` never produced it -- which is
+    exactly the shape this check exists to catch. Measured at 30c425cf: ``Build & Validate
+    Distribution`` is ``needs: test``, and with four test legs red it reported ``skipped``
+    rather than ``failure``. A rule reading "no job concluded failure" calls that green.
+    """
+    import itertools
+
+    import yaml
+
+    if workflow is None:
+        workflow = ((root or REPO_ROOT) / CI_WORKFLOW_PATH).read_text(encoding="utf-8")
+    document = yaml.safe_load(workflow) or {}
+    jobs = document.get("jobs") or {}
+
+    names: List[str] = []
+    for job_id, job in jobs.items():
+        if not isinstance(job, dict) or "if" in job:
+            continue
+        template = str(job.get("name") or job_id)
+        matrix = ((job.get("strategy") or {}).get("matrix")) or {}
+        axes = {
+            key: value for key, value in matrix.items()
+            if isinstance(value, list) and key not in ("include", "exclude")
+        }
+        if not axes or not _MATRIX_REF.search(template):
+            names.append(template.strip())
+            continue
+        keys = sorted(axes)
+        for combination in itertools.product(*(axes[key] for key in keys)):
+            values = {k: str(v) for k, v in zip(keys, combination)}
+            names.append(_MATRIX_REF.sub(
+                lambda m: values.get(m.group(1), m.group(0)), template).strip())
+    return names
+
+
+def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Optional[str]]:
+    """``(run, None)`` or ``(None, reason)`` for the newest run whose head is ``sha``.
+
+    The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
+    run, and the answer is checked anyway: a gate that trusts the query and reports on the
+    branch's latest run would pass while a *different* commit was being tagged, which is this
+    repository's dominant defect shape (P-37) rather than a hypothetical one.
+    """
+    try:
+        payload = json.loads(stdout)
+    except ValueError as exc:
+        return None, f"`gh run list` returned unreadable JSON: {exc}"
+    if not isinstance(payload, list):
+        return None, f"`gh run list` returned {type(payload).__name__}, expected a list of runs"
+
+    matching = [
+        run for run in payload
+        if isinstance(run, dict) and str(run.get("headSha") or "").lower() == sha.lower()
+    ]
+    if not matching:
+        seen = sorted({str(r.get("headSha"))[:12] for r in payload if isinstance(r, dict)})
+        return None, (
+            f"no workflow run has head commit {sha[:12]}; the query returned "
+            f"{len(payload)} run(s) for {seen or 'no commit'}. Push this commit and let CI "
+            f"run before tagging it."
+        )
+    # Newest first is gh's order; databaseId is monotonic, so re-derive rather than assume.
+    return max(matching, key=lambda r: r.get("databaseId") or 0), None
+
+
+class JobVerdict(NamedTuple):
+    """Per-leg findings, split by *kind* rather than by reading the message text.
+
+    ``failures`` are statements about the commit; ``unresolved`` are statements about the
+    measurement. Deciding between them by sniffing for a substring in the rendered message
+    would make the verdict depend on the wording of its own error string -- a proxy for the
+    thing, and the class of defect P-37 enumerates.
+    """
+
+    legs: List[Tuple[str, str, str]]
+    failures: List[str]
+    unresolved: List[str]
+
+
+def evaluate_ci_jobs(required: Iterable[str], payload: object) -> JobVerdict:
+    """Judge one run's jobs against the required job names.
+
+    Per leg, never in aggregate. A run's own ``conclusion`` can read ``success`` while a leg
+    was skipped or cancelled, so the aggregate answers a weaker question than the one asked.
+    """
+    if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+        return JobVerdict([], [], ["`gh run view` returned no readable `jobs` array"])
+
+    legs: List[Tuple[str, str, str]] = []
+    by_name: dict = {}
+    for job in payload["jobs"]:
+        if not isinstance(job, dict):
+            continue
+        row = (str(job.get("name")), str(job.get("status")), str(job.get("conclusion")))
+        legs.append(row)
+        by_name.setdefault(row[0], row)
+
+    failures: List[str] = []
+    unresolved: List[str] = []
+    for name in required:
+        row = by_name.get(name)
+        if row is None:
+            failures.append(
+                f"required leg {name!r} is absent from the run: it never started, so nothing "
+                f"about it has been verified")
+            continue
+        _, status, conclusion = row
+        if status != "completed":
+            unresolved.append(
+                f"required leg {name!r} is {status!r} and has not concluded yet")
+        elif conclusion != "success":
+            failures.append(f"required leg {name!r} concluded {conclusion!r}, not 'success'")
+    return JobVerdict(legs, failures, unresolved)
+
+
+def check_ci_conclusion(sha: str,
+                        required: Optional[Iterable[str]] = None,
+                        runner=None,
+                        timeout: float = 60.0) -> CIOutcome:
+    """Resolve the CI verdict for exactly the commit ``sha``.
+
+    Fails closed. Every way of not reaching an answer -- no ``gh`` on PATH, no
+    authentication, no network, no run for this SHA, a run still executing, unreadable
+    output -- returns :data:`CI_UNRESOLVED` with a reason that says which, and the caller
+    treats that as non-passing. The alternative fails hardest when the network is down,
+    which is when a release is least verifiable.
+
+    ``git fetch`` is deliberately not used: this clone's fetch aborts on missing v0.1.x tag
+    objects, so a check built on it would be unresolvable here forever.
+    """
+    run = runner if runner is not None else subprocess.run
+    if required is None:
+        try:
+            required = required_ci_jobs()
+        except Exception as exc:  # noqa: BLE001 - an unreadable workflow is unresolved, not green
+            return CIOutcome(
+                CI_UNRESOLVED, f"the required job list could not be derived from "
+                               f"{CI_WORKFLOW_PATH}: {exc}", [], [])
+    required = list(required)
+    if not required:
+        return CIOutcome(
+            CI_UNRESOLVED,
+            f"{CI_WORKFLOW_PATH} declares no unconditional job, so 'CI passed' would be "
+            f"vacuously true", [], [])
+
+    def invoke(args: List[str]) -> Tuple[Optional[str], Optional[str]]:
+        try:
+            result = run(args, capture_output=True, text=True, timeout=timeout)
+        except FileNotFoundError:
+            return None, "the `gh` CLI is not on PATH"
+        except Exception as exc:  # noqa: BLE001
+            return None, f"`{' '.join(args[:3])}` failed: {exc}"
+        if result.returncode != 0:
+            first = (result.stderr or result.stdout or "").strip().splitlines()
+            return None, (f"`{' '.join(args[:3])}` exited {result.returncode}: "
+                          f"{first[0] if first else 'no diagnostic'}")
+        return result.stdout, None
+
+    stdout, error = invoke([
+        "gh", "run", "list", "--commit", sha, "--limit", "20",
+        "--json", "databaseId,headSha,status,conclusion,workflowName",
+    ])
+    if error is not None:
+        return CIOutcome(CI_UNRESOLVED, error, [], [])
+
+    selected, reason = select_run_for_commit(sha, stdout or "")
+    if selected is None:
+        return CIOutcome(CI_UNRESOLVED, reason or "no run selected", [], [])
+
+    run_id = str(selected.get("databaseId"))
+    where = (f"run {run_id} ({selected.get('workflowName')}) at "
+             f"{str(selected.get('headSha'))[:12]}")
+    if selected.get("status") != "completed":
+        return CIOutcome(
+            CI_UNRESOLVED,
+            f"{where} is {selected.get('status')!r} and has not concluded yet", [], [])
+
+    stdout, error = invoke(["gh", "run", "view", run_id, "--json", "jobs,headSha,conclusion"])
+    if error is not None:
+        return CIOutcome(CI_UNRESOLVED, error, [], [])
+    try:
+        detail_payload = json.loads(stdout or "")
+    except ValueError as exc:
+        return CIOutcome(
+            CI_UNRESOLVED, f"`gh run view {run_id}` returned unreadable JSON: {exc}", [], [])
+
+    # The second call is asked for its head SHA too, and it is checked: two `gh` invocations
+    # are two chances to be handed a different run.
+    returned_sha = str((detail_payload or {}).get("headSha") or "")
+    if returned_sha and returned_sha.lower() != sha.lower():
+        return CIOutcome(
+            CI_UNRESOLVED,
+            f"`gh run view {run_id}` reports head {returned_sha[:12]}, not {sha[:12]}", [], [])
+
+    verdict = evaluate_ci_jobs(required, detail_payload)
+    if verdict.failures:
+        return CIOutcome(CI_FAILED, where, verdict.legs,
+                         verdict.failures + verdict.unresolved)
+    if verdict.unresolved:
+        return CIOutcome(CI_UNRESOLVED, where, verdict.legs, verdict.unresolved)
+    return CIOutcome(CI_VERIFIED, where, verdict.legs, [])
+
+
+def format_leg_table(legs: Iterable[Tuple[str, str, str]]) -> List[str]:
+    """The per-leg verdicts as aligned rows, so the report shows what was measured."""
+    rows = list(legs)
+    if not rows:
+        return ["    (no jobs reported)"]
+    width = max(len(name) for name, _, _ in rows)
+    return [f"    {name.ljust(width)}  {status:<10}  {conclusion}" for name, status, conclusion in rows]
+
+
 def declared_extra_requirements(extras=REQUIRED_EXTRAS) -> List[str]:
     """Distribution names pyproject.toml declares for the given extras."""
     import re
@@ -725,6 +979,53 @@ DISPOSITIONS = ("BLOCKER", f"DEFERRED->{NEXT_CYCLE}", "ACCEPTED")
 RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
 _UNESCAPED_PIPE = re.compile(r"(?<!\\)\|")
 
+# A todo-item reference, and NOT a fragment of an ISO date. `\b(\d\d-\d+)\b` matched `09-20`
+# inside `2026-09-20`, so a row whose `Answered in` cell said "Repaired 2026-09-20, closed by
+# 06-83" reported a dangling reference to item `09-20`. Measured live at 30c425cf on P-56 and
+# P-69, both of which carry a repair date next to a real item id.
+#
+# The narrowing must not be `\b(0\d-\d+)\b`: `09` also begins with a zero, so that form matches
+# the date fragment identically and only looks like a repair. Measured -- it changes nothing on
+# all four failing cases. Neither may it become `\d\d-\d\d`, which is P-175: item ids reached
+# three digits at 06-100 and the two-digit form matched none of them.
+#
+# The distinguishing feature of a date fragment is the character before it: a hyphen or a digit.
+# Rejecting both ends keeps every id width (`07-5`, `06-36`, `06-100`) and drops every date.
+_ITEM_REF = re.compile(r"(?<![\d-])(\d\d-\d+)(?![\d-])")
+
+
+# An item id in OWNERSHIP position: the row is claiming that item carries the problem, so the
+# id is a pointer and must resolve to a live item. One phrase may name several ids, as P-09's
+# "Claimed by 06-81 and 06-35" does, so the trailing group absorbs a comma/`and` list.
+#
+# This distinction is not cosmetic. Resolving *every* id in the cell treats "06-72 closed and
+# left the stack" -- an accurate statement about a retired item -- as a dangling pointer, which
+# is the same mistake in the opposite direction: "any id in the cell" is a proxy for "the owning
+# item". Measured when the vacuous `BLOCKER` guard was removed: 21 references flagged, of which
+# 4 were ownership claims on retired items and 17 were correct history.
+_OWNERSHIP_REF = re.compile(
+    r"(?:owned by|claimed by|belongs to)\s+((?:\d\d-\d+)(?:\s*(?:,|and|\s)\s*\d\d-\d+)*)",
+    re.IGNORECASE,
+)
+
+# A row is allowed to name a retired item, but only by saying so. Without this, narrowing the
+# check to ownership position would leave every other mention unchecked -- and stale prose that
+# discusses a deleted item as though it were live is exactly what goes unnoticed. A cell that
+# names a non-live id must carry one of these words, so the retirement is stated rather than
+# assumed by the reader.
+_RETIREMENT_MARKER = re.compile(
+    r"\b(retired|closed|gone|deleted|withdrawn|left the stack|superseded|renumbered)\b",
+    re.IGNORECASE,
+)
+
+
+def ownership_refs(cell: str) -> List[str]:
+    """Item ids this cell claims as owners, in order of appearance."""
+    out: List[str] = []
+    for group in _OWNERSHIP_REF.findall(cell):
+        out.extend(re.findall(r"\d\d-\d+", group))
+    return out
+
 
 def open_problem_dispositions(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
     """``(id, disposition, answered_in)`` for every row under ``## Open``.
@@ -841,9 +1142,34 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             encoding="utf-8") if (root / "artifacts" / "problem_stack.md").exists() else "", re.M))
     dangling = []
     for pid, disp, ans in rows:
-        for ref in set(re.findall(r"\b(\d\d-\d+)\b", ans)):
-            if disp == "BLOCKER" and ref not in live_items:
-                dangling.append(f"{pid} -> {ref} (item not in the stack)")
+        # Every open row, not only the `BLOCKER` ones. The guard here read
+        # `if disp == "BLOCKER" and ref not in live_items`, which made this check vacuous in
+        # exactly the state that matters: condition 2 above requires zero `BLOCKER` rows, so at
+        # the moment conditions 1 and 2 are both satisfied -- the only state in which the
+        # release qualifies -- this loop body could not execute, and the check reported zero
+        # dangling references unconditionally. Measured at the time it was found: 21 dangling
+        # `Answered in` values sat in open rows and the gate reported none.
+        #
+        # It also made `_ITEM_REF` dead code for this direction. That regex carries a
+        # documented repair for ISO-date false positives, tested by calling the pattern
+        # directly rather than by running the gate -- which is why the tests passed while the
+        # code path they were defending could never run.
+        #
+        # A deferred problem's references matter *more* than a blocker's, not less: deferral is
+        # granted on the condition that the problem's evidence is preserved for the next cycle,
+        # and a pointer to an item that no longer exists is precisely that condition failing.
+        owned = set(ownership_refs(ans))
+        for ref in sorted(owned):
+            if ref not in live_items:
+                dangling.append(
+                    f"{pid} ({disp}) claims owner {ref}, which is not in the stack")
+        # Every other mention must admit that the item is gone.
+        others = set(_ITEM_REF.findall(ans)) - owned
+        for ref in sorted(others):
+            if ref not in live_items and not _RETIREMENT_MARKER.search(ans):
+                dangling.append(
+                    f"{pid} ({disp}) names {ref} as though it were live; the item is not in "
+                    f"the stack and the cell does not say it was retired")
     todo_text = (root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8") \
         if (root / "artifacts" / "todo_stack.md").exists() else ""
     for ref in sorted(set(re.findall(r"\b(P-\d+)\b", todo_text))):
@@ -959,6 +1285,41 @@ def main() -> None:
         log.info(
             "PASS: the release body for %s agrees with package metadata (%s).",
             metadata.version, body_outcome.detail)
+
+    log.info("=== STEP 0e: Resolving the CI conclusion for the commit being qualified ===")
+    skip_ci = os.environ.get(SKIP_CI_ENV) == "1"
+    if head is None:
+        ci = CIOutcome(CI_UNRESOLVED, "HEAD could not be resolved with `git rev-parse`", [], [])
+    else:
+        ci = check_ci_conclusion(head)
+    if ci.legs:
+        log.info("CI legs for %s:", ci.detail)
+        for row in format_leg_table(ci.legs):
+            log.info("%s", row)
+    if ci.status == CI_VERIFIED:
+        log.info("PASS: every required CI leg ran and concluded success for %s (%s).",
+                 (head or "?")[:12], ci.detail)
+    else:
+        logger = log.warning if skip_ci else log.error
+        headline = ("CI is NOT green for this commit" if ci.status == CI_FAILED
+                    else "the CI conclusion for this commit could NOT be resolved")
+        logger("%s: %s", headline, ci.detail)
+        for problem in ci.violations:
+            logger("  %s", problem)
+        if skip_ci:
+            log.warning(
+                "SKIPPED: %s=1 is set, so a commit whose CI is %s is being allowed through. "
+                "This is not a pass -- it is a decision to tag without CI evidence.",
+                SKIP_CI_ENV, ci.status)
+        else:
+            log.error(
+                "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
+                "aggregate 'no failure' is not that: a job with `needs:` reports `skipped` "
+                "when its dependency failed, so a red suite can leave the build job showing "
+                "no red at all. Push this commit, let CI finish green, then re-run. To tag "
+                "without CI evidence anyway, set %s=1 -- deliberately, and knowing it is "
+                "recorded here as unverified.", SKIP_CI_ENV)
+            sys.exit(1)
 
     log.info("=== STEP 1: Running full test suite ===")
     run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])

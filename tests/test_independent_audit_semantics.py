@@ -47,7 +47,12 @@ class TestMonteCarloPValueConvention:
         from jnwb.jrsa import _p_from_null
 
         p = _p_from_null(0.5, np.array([0.0, 0.0, 0.0, 0.0, 1.0]), "two-sided")
-        assert float(p[0]) == pytest.approx(2.0 / 6.0)
+        # `float(p)`, not `float(p[0])`. `_p_from_null` returns a 0-d array, matching
+        # `value`, `statistic` and `effect`; it used to return shape ``(1,)`` and the
+        # subscript was unwrapping that stray axis. The assertion is about the
+        # Monte-Carlo convention, not about `p` being indexable -- the sibling test
+        # above asserts the same convention on a plain scalar.
+        assert float(p) == pytest.approx(2.0 / 6.0)
 
 
 class TestCompareGroupsPairedContract:

@@ -212,7 +212,10 @@ def jrsa(
         Bootstrap iterations for confidence intervals.
     correction : str
         Multiple-comparison correction: none | bonferroni | holm |
-        holm-sidak | fdr_bh | fdr_by | cluster | maxT.
+        holm-sidak | fdr_bh | fdr_by.
+        Any other value raises `ValueError`; there is no fallback. This list used to end
+        "| cluster | maxT", neither of which was ever implemented -- both raised -- so the
+        docstring advertised two methods a caller could not use (P-85).
     alpha : float
         Significance threshold for the multiple-comparison correction. It does not set
         the width of `ci`, which is a fixed 95% percentile bootstrap interval.
@@ -946,6 +949,17 @@ def _p_from_null(value, null_dist, alternative):
     against NaN are all False, so the exceedance count was 0 and the p-value came out at
     its own floor, ``1/(n+1)`` -- the *most* significant value the test can emit. A
     constant input against a Gaussian one reported ``value: nan, p: 0.000999``.
+
+    Returns a 0-d array, matching `value`, `statistic` and `effect`. This used to return
+    `np.atleast_1d(...)`, a shape-``(1,)`` array, for a result whose every other field was
+    0-d: one scalar p-value wrapped in a length-1 axis. Under
+    NumPy>=2 -- the floor `pyproject.toml` declares -- `float()` on that array raises
+    `TypeError`, so the documented quickstart line
+    ``float(jrsa_res.p)`` did not run (P-83). This function reduces `value` to a single
+    scalar `obs` before it counts anything, so it has no vector-valued case to preserve;
+    a vector-valued `p` still arises where it is real, from `_stack_lags` over multiple
+    lags, which now yields shape ``(n_lags,)`` and so matches `value` there too instead
+    of the former ``(n_lags, 1)``.
     """
     if hasattr(value, "get"):
         value = value.get()
@@ -953,7 +967,7 @@ def _p_from_null(value, null_dist, alternative):
     null_dist = np.asarray(null_dist)
     n = len(null_dist)
     if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
-        return np.atleast_1d(np.float64(np.nan))
+        return np.asarray(np.nan, dtype=np.float64)
     if alternative == "two-sided":
         k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
     elif alternative == "greater":
@@ -961,7 +975,7 @@ def _p_from_null(value, null_dist, alternative):
     else:
         k = int(np.sum(null_dist <= obs))
     p = (1 + k) / (n + 1)
-    return np.atleast_1d(np.float64(p))
+    return np.asarray(p, dtype=np.float64)
 
 
 def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):

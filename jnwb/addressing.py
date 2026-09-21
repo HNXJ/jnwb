@@ -678,13 +678,44 @@ def probe_geometry(
     sorted_proj = projections[linear_order]
     sorted_coords = coords_um[linear_order]
 
-    # Ensure orientation points in the direction of sorted projections
-    if (sorted_proj[-1] - sorted_proj[0]) < 0:
+    # Pin the sign of the principal axis to electrode-table row order.
+    #
+    # A singular vector's sign is arbitrary -- `v` and `-v` describe the same axis -- and which
+    # one LAPACK returns can change under a perturbation far below any physical tolerance. When
+    # it changes, `linear_order` reverses end to end. Measured on the unrepaired module: a
+    # straight 24-contact shaft at 100 um pitch with `z` scaled by `1 - 1e-9` reversed
+    # `linear_order` from `[0..23]` to `[23..0]` and `orientation` from `[0, 0, 1]` to
+    # `[0, 0, -1]`.
+    #
+    # The guard here used to read `if (sorted_proj[-1] - sorted_proj[0]) < 0:`. That branch was
+    # unreachable: `sorted_proj = projections[np.argsort(projections)]` is ascending by
+    # construction, so the difference is non-negative for every possible input. It could not
+    # correct anything, and while it stood the returned ordering was whichever sign LAPACK
+    # happened to produce.
+    #
+    # The informative comparison is against row order, not against the sorted projections.
+    # `jnwb.laminar.vflip` documents `orientation` as being relative to channel indexing, so the
+    # axis must advance with the electrode table.
+    row_index = np.arange(n_channels, dtype=np.float64)
+    row_covariance = float(
+        np.dot(projections - projections.mean(), row_index - row_index.mean())
+    )
+    if row_covariance < 0.0:
         principal_dir = -principal_dir
-        projections = np.dot(centered, principal_dir)
-        linear_order = np.argsort(projections)
-        sorted_proj = projections[linear_order]
-        sorted_coords = coords_um[linear_order]
+    elif row_covariance == 0.0:
+        # The axis is orthogonal to row order, so row order carries no direction to follow and
+        # the arbitrary LAPACK sign would show through. Fall back to a convention that depends
+        # only on the vector itself: its first non-zero component is positive.
+        nonzero = np.flatnonzero(principal_dir)
+        if nonzero.size and principal_dir[nonzero[0]] < 0.0:
+            principal_dir = -principal_dir
+
+    # Recomputed unconditionally rather than inside each branch: one dot product, and no path
+    # can leave `projections` disagreeing with the `principal_dir` that is returned.
+    projections = np.dot(centered, principal_dir)
+    linear_order = np.argsort(projections)
+    sorted_proj = projections[linear_order]
+    sorted_coords = coords_um[linear_order]
 
     mean_pos = np.mean(coords_um, axis=0)
 

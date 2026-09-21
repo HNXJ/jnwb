@@ -40,6 +40,14 @@ CANONICAL_VFLIP_BANDS: Dict[str, Tuple[float, float]] = {
     "high": (50.0, 150.0),  # supragranular (superficial) gamma dominance
 }
 
+#: Half-width, in contacts, of the tolerance band around the granular layer boundary used
+#: by :func:`label_layers`. The granular interval is closed, so without a tolerance a
+#: contact sitting exactly on the boundary -- which is the ordinary case on real hardware,
+#: see :func:`label_layers` -- has its layer decided by the last bit of the pitch.
+#: 1e-6 contacts is a millionth of a contact spacing and some four orders of magnitude
+#: above the float error a realistic pitch and crossover carry.
+LAYER_BOUNDARY_TOL_CONTACTS: float = 1e-6
+
 
 @dataclass(frozen=True)
 class VFlipResult(DictAccessMixin):
@@ -79,6 +87,19 @@ class VFlipResult(DictAccessMixin):
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
         bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
             masked contacts in input channel order.
+        index_space: Which axis ``crossover_contact``, ``profile``, ``low_peak_contact`` and
+            ``high_peak_contact`` are indexed on.
+
+            - ``"shaft_rank"``: position along the physical shaft, superficial end first.
+              Produced when `vflip` was given a `probe_geometry` carrying a usable
+              `linear_order`, which reorders the PSD rows before the fit.
+            - ``"channel"``: the row order of the PSD array as supplied. Produced when no
+              geometry was given, so no reordering happened.
+
+            The two coincide only when the electrode table is already ordered along the
+            shaft. :func:`label_layers` always reads shaft-rank, so it refuses a
+            ``"channel"`` result whenever the geometry it is handed has a non-identity
+            `linear_order` rather than mixing the two axes silently.
     """
 
     crossover_contact: Optional[float]
@@ -93,6 +114,7 @@ class VFlipResult(DictAccessMixin):
     n_channels: int
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
+    index_space: str = "channel"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -108,6 +130,7 @@ class VFlipResult(DictAccessMixin):
             "rejection_reason": self.rejection_reason,
             "n_channels": int(self.n_channels),
             "n_missing": int(self.n_missing),
+            "index_space": str(self.index_space),
         }
 
 
@@ -293,12 +316,20 @@ def vflip(
 
     effective_bad_input = bad_mask.copy()
 
-    # If probe_geometry is provided, order channels along the physical shaft
+    # If probe_geometry is provided, order channels along the physical shaft.
+    #
+    # Everything downstream -- the profile, the two peak contacts and the crossover --
+    # is then indexed on shaft rank rather than on PSD row. Without a usable
+    # `linear_order` no reorder happens and those indices stay in PSD row order. The two
+    # axes coincide only for a table already ordered along the shaft, so which one was
+    # used travels on the result and is checked at the `label_layers` boundary.
     if order is not None and len(order) == n_channels:
         psd_work = psd_arr[order]
         bad_mask = bad_mask[order]
+        index_space = "shaft_rank"
     else:
         psd_work = psd_arr
+        index_space = "channel"
 
     n_missing = int(np.sum(bad_mask))
     n_valid = n_channels - n_missing
@@ -319,6 +350,7 @@ def vflip(
             n_channels=n_channels,
             n_missing=n_missing,
             bad_channel_mask=effective_bad_input,
+            index_space=index_space,
         )
 
     # 3. Frequency standardization across valid contacts along the shaft
@@ -530,6 +562,7 @@ def vflip(
         n_channels=n_channels,
         n_missing=n_missing,
         bad_channel_mask=effective_bad_input,
+        index_space=index_space,
     )
 
 
@@ -696,7 +729,14 @@ def label_layers(
     Maps contacts along a linear probe shaft into canonical cortical compartments:
     - ``"superficial"``: Supragranular layers (L1–L3), characterized by gamma dominance.
     - ``"input"``: Granular layer 4 (L4), centered at the spectrolaminar crossover point,
-      extending across a zone of width `granular_thickness_um`.
+      extending across a zone of width `granular_thickness_um`. The zone is **closed**:
+      a contact exactly `granular_thickness_um / 2` from the crossover is ``"input"``,
+      and the comparison carries a tolerance of
+      :data:`LAYER_BOUNDARY_TOL_CONTACTS` contacts so that convention is decided by the
+      stated rule rather than by the last bit of the pitch. Exact equality is the
+      ordinary case, not an edge case: at the default 400 um thickness the half-span is
+      exactly 10 contacts on a 20 um Neuropixels 1.0, 4 on a 50 um V-probe and 2 on a
+      100 um laminar array.
     - ``"deep"``: Infragranular layers (L5–L6), characterized by alpha/beta dominance.
     - ``"na"``: Assigned to all channels whenever `vflip_result.accepted` is `False`, or to
       invalid, bad, or out-of-bounds contacts.
@@ -725,10 +765,18 @@ def label_layers(
         Dictionary mapping channel identifier (from `probe_geometry.channel_ids`) to layer label
         string: ``"superficial"``, ``"input"``, ``"deep"``, or ``"na"``.
 
+    Index space:
+        Contacts are placed by their rank along `probe_geometry.linear_order`, so
+        `vflip_result.crossover_contact` must be a shaft rank too. A result carrying
+        ``index_space='channel'`` was fitted on unreordered PSD rows; it is accepted only
+        when this geometry's `linear_order` is the identity, where the two axes coincide,
+        and raises otherwise.
+
     Raises:
         ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
-            is not linear, channel count does not match `vflip_result.n_channels`, or range bounds
-            are invalid.
+            is not linear, channel count does not match `vflip_result.n_channels`, range bounds
+            are invalid, or `vflip_result.index_space` is not the shaft rank this geometry
+            requires.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -798,9 +846,22 @@ def label_layers(
     mid_half_span = (granular_thickness_um / 2.0) / pitch
     crossover = float(vflip_result.crossover_contact)
 
-    # Granular (input) boundary interval in contact coordinate space
+    # Granular (input) boundary interval in contact coordinate space.
+    #
+    # The interval is CLOSED: a contact lying exactly `granular_thickness_um / 2` from the
+    # crossover is `input`. Compared exactly, that convention is decided by float noise
+    # rather than by anatomy, because the half-span is an exact integer on the pitches
+    # most used in the field -- at the default 400 um thickness, 10.0 contacts on a
+    # Neuropixels 1.0 (20 um), 4.0 on a 50 um V-probe, 2.0 on a 100 um laminar array --
+    # and one ulp of `pitch` then moves the boundary contact to `superficial` or `deep`.
+    # A non-round pitch such as 23.7 um gives 8.43882 and never sits on the edge.
+    #
+    # The comparison therefore carries an explicit tolerance. It is far below one contact
+    # spacing, so it can never pull in a contact that is genuinely a different contact,
+    # and far above the float error a realistic pitch carries.
     input_start = crossover - mid_half_span
     input_end = crossover + mid_half_span
+    boundary_tol = LAYER_BOUNDARY_TOL_CONTACTS * max(1.0, abs(mid_half_span), abs(crossover))
 
     # Orientation mapping:
     # Under 'superficial_to_deep': lower contact indices are superficial, higher are deep.
@@ -814,6 +875,27 @@ def label_layers(
         rank[order] = np.arange(n_geom_channels, dtype=float)
     else:
         rank = np.arange(n_geom_channels, dtype=float)
+
+    # Index-space boundary. `rank` above is shaft rank, and the crossover is compared
+    # against it, so a crossover measured on unreordered PSD rows is only meaningful when
+    # this table is already ordered along the shaft. Refuse rather than mix the two axes:
+    # a rotated or two-bank table returns a full set of confident layer labels for the
+    # wrong contacts, with `accepted=True` and nothing to read as a warning.
+    #
+    # A permutation cannot be pushed through a continuous sub-contact coordinate, and the
+    # profile it came from was fitted on contacts that were not neighbours on the shaft,
+    # so there is no correction to apply here -- only a refusal.
+    result_space = str(getattr(vflip_result, "index_space", "channel"))
+    if result_space != "shaft_rank" and not np.array_equal(
+        rank, np.arange(n_geom_channels, dtype=float)
+    ):
+        raise ValueError(
+            "vflip_result.crossover_contact is indexed on "
+            f"{result_space!r} (raw PSD row order) but probe_geometry has a non-identity "
+            "linear_order, so label_layers would read it as a shaft rank and label the "
+            "wrong contacts. Pass the same probe_geometry to vflip (or vflip_from_lfp) "
+            "so the fit is computed in shaft-rank space."
+        )
 
     labels: Dict[Any, str] = {}
     has_positions = hasattr(probe_geometry, "contact_positions") and probe_geometry.contact_positions is not None
@@ -851,8 +933,8 @@ def label_layers(
                 labels[ch_id] = "na"
                 continue
 
-        # In-bounds cortical layer assignment
-        if input_start <= c_pos <= input_end:
+        # In-bounds cortical layer assignment, on the closed interval documented above
+        if (input_start - boundary_tol) <= c_pos <= (input_end + boundary_tol):
             labels[ch_id] = "input"
         elif c_pos < input_start:
             labels[ch_id] = "superficial" if is_sup_to_deep else "deep"

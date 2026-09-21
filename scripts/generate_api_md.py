@@ -1,7 +1,9 @@
 """Generate docs/api.md from the runtime public surface (jnwb.__all__)."""
 from __future__ import annotations
 
+import importlib
 import inspect
+import sys
 import types
 import typing
 from collections import defaultdict
@@ -9,6 +11,39 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, get_args, get_origin
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _public_stdlib_module(module: str, qualname: str) -> str:
+    """Collapse a private standard-library submodule to the module that re-exports it.
+
+    CPython reorganises standard-library internals between releases, and a class's
+    ``__module__`` follows the reorganisation. ``pathlib.Path.__module__`` is ``pathlib``
+    on 3.12, ``pathlib._local`` on 3.13 (3.13 split ``pathlib`` into a package), and
+    ``pathlib`` again on 3.14. Rendering that raw makes this page interpreter-dependent,
+    and six CI legs check ``--check`` against one committed file, so at most one of them
+    could ever have been green.
+
+    The shorter name is accepted only when the public parent re-exports the very object
+    the private path names, so this cannot invent a name that does not resolve. Scope is
+    the standard library: a third-party module path varies with the dependency version,
+    not the interpreter, and is handled by the explicit map in ``_canonical_type_name``.
+    """
+    parts = module.split(".")
+    if not parts or parts[0] not in sys.stdlib_module_names or "." in qualname:
+        return module
+    while len(parts) > 1 and parts[-1].startswith("_"):
+        candidate = ".".join(parts[:-1])
+        try:
+            parent = importlib.import_module(candidate)
+        except Exception:
+            break
+        obj = getattr(parent, qualname, None)
+        if getattr(obj, "__module__", None) != module:
+            break
+        if getattr(obj, "__qualname__", None) != qualname:
+            break
+        parts = parts[:-1]
+    return ".".join(parts)
 
 
 def _canonical_type_name(module: str, qualname: str) -> str:
@@ -21,7 +56,7 @@ def _canonical_type_name(module: str, qualname: str) -> str:
     if module in ("builtins",):
         return qualname
     if module and qualname:
-        return f"{module}.{qualname}"
+        return f"{_public_stdlib_module(module, qualname)}.{qualname}"
     return qualname or module
 
 

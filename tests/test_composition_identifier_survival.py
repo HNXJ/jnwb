@@ -135,14 +135,6 @@ def test_geometry_at_both_ends_recovers_the_depth_ordered_labels(two_bank, depth
 # --------------------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "P-49: vflip without probe_geometry returns crossover_contact in PSD-row space, "
-        "label_layers always reads it as a shaft rank, and only the channel count is "
-        "checked across the boundary"
-    ),
-)
 def test_layer_labels_survive_a_vflip_computed_without_geometry(two_bank, depth_ordered_truth):
     """Either the labels are the depth-ordered ones, or the boundary refuses the result.
 

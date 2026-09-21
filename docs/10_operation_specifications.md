@@ -24,8 +24,6 @@ Every operation added in 0.2 conforms to the following universal library convent
   history and the resolver.
 - **`None` means fresh OS entropy**, as in NumPy. Three public functions default to it because
   drawing fresh per call is their contract: `cross_modal_comparison`, `jrsa` and `xflip`.
-  `cross_area_coherence` also presents `rng=None` but resolves it to seed 42, reported back in
-  `surrogate_seed_entropy`; pass an explicit `rng` to vary its surrogates.
 - **Generator Preservation & Resolution**:
   If `isinstance(rng, np.random.Generator)`, the caller-provided generator is used directly, preserving its exact mutation state and sequence progression. If `rng` is an integer seed or `None`, it is converted via:
   ```python

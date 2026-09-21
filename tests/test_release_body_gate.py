@@ -21,11 +21,23 @@ import ast
 import inspect
 import pathlib
 import subprocess
+import sys
 import textwrap
 
 import pytest
 
-from scripts.release_gate import (
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# `scripts/` is excluded from the wheel, and the leg that qualifies the built artifact runs this
+# suite from outside the checkout, so nothing puts the repository on `sys.path` there. A
+# module-scope `from scripts...` raises ModuleNotFoundError -- a collection *error*, which pytest
+# reports as `Interrupted` and which can take unrelated modules down with it.
+# `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
+# session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.release_gate import (  # noqa: E402
     BODY_CHECKED,
     BODY_SKIPPED,
     LiveBodyOutcome,
@@ -34,8 +46,6 @@ from scripts.release_gate import (
     check_release_body_claims,
     release_metadata,
 )
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 #: A metadata set deliberately unlike this repository's: a different distribution name, a
 #: different version and a support window sharing no endpoint with jnwb's 3.12-3.14. A rule

@@ -17,7 +17,25 @@ import sys
 
 import pytest
 
-from scripts.reconstruct_state import (
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# `scripts/` is deliberately excluded from the wheel (`pyproject.toml`
+# `[tool.setuptools.packages.find] exclude`), and the leg that qualifies the built artifact runs
+# this suite from outside the repository with `-o pythonpath=` and `--import-mode=importlib`, so
+# nothing puts the checkout on `sys.path`. A module-scope `from scripts...` therefore raised
+# `ModuleNotFoundError` there -- a collection *error*, which pytest reports as `Interrupted` and
+# which can take unrelated modules down with it. It was masked in the full run only because
+# `tests/test_dependency_floors_are_installable.py` sorts earlier and appends the root as a side
+# effect, so the defect was invisible and one filename rename away from firing.
+#
+# `append`, never `insert`: the generator under test lives in the checkout and is read from disk
+# there, but the *package* under test must stay the installed copy.
+# `tests/test_the_suite_can_qualify_an_installed_copy.py` exists because
+# `sys.path.insert(0, REPO_ROOT)` re-shadows it for the whole session.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.reconstruct_state import (  # noqa: E402
     HEAD_ROW_RE,
     STATE_PATH,
     build,
@@ -25,7 +43,6 @@ from scripts.reconstruct_state import (
     run,
 )
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 _TIMESTAMP_RE = re.compile(r"^Regenerated .*$", re.MULTILINE)
 
 

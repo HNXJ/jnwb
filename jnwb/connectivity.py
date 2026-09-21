@@ -2022,7 +2022,8 @@ def transfer_entropy(
     TE is positively biased at finite sample size, so a raw TE > 0 means nothing
     on its own. This implementation therefore runs a surrogate test by default
     and reports both the raw value and ``bias_corrected`` (raw minus surrogate
-    mean, the "effective transfer entropy").
+    mean, the "effective transfer entropy"). With ``n_surrogates=0`` there is no
+    null to subtract and the ``bias_corrected_*`` keys are absent.
 
     Args:
         X, Y: (n_times,), (n_trials, n_times), or list of 1-D trials
@@ -2169,8 +2170,15 @@ def transfer_entropy(
             "n_joint_states_x_to_y": int(n_joint_xy),
             "n_joint_states_y_to_x": int(n_joint_yx),
             "samples_per_joint_state": float(samples_per_state),
-            "bias_corrected_x_to_y": eff_xy,
-            "bias_corrected_y_to_x": eff_yx,
+            # Only present when surrogates ran. Without them there is no null
+            # mean to subtract, and eff_* still holds the raw estimate -- a
+            # value under this name would claim a correction that never
+            # happened. Granger reports the pair the same way.
+            **(
+                {"bias_corrected_x_to_y": eff_xy, "bias_corrected_y_to_x": eff_yx}
+                if n_surrogates > 0
+                else {}
+            ),
             "surrogates": surrogate_info,
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
@@ -2290,9 +2298,15 @@ def directed_network(
                 warnings_all.append(tag)
 
     q_matrix = np.full((n, n), np.nan)
+    # The family is the set of off-diagonal p-values that actually reached
+    # false_discovery_control, not every off-diagonal cell: an estimator that
+    # returns no p-value (TE without surrogates) or a pair that failed leaves
+    # NaN, and those cells are never corrected.
+    fdr_family_size = 0
     if fdr:
         off = ~np.eye(n, dtype=bool)
         finite = off & np.isfinite(p_matrix)
+        fdr_family_size = int(finite.sum())
         if finite.any():
             q_matrix[finite] = stats.false_discovery_control(
                 p_matrix[finite], method=fdr_method
@@ -2305,7 +2319,7 @@ def directed_network(
         "labels": labels,
         "method": method,
         "n_nodes": n,
-        "fdr_family_size": int(n * (n - 1)) if fdr else 0,
+        "fdr_family_size": fdr_family_size,
         "results": results,
         "params": kwargs,
         "warnings": warnings_all,

@@ -29,10 +29,22 @@ from __future__ import annotations
 
 import pathlib
 import re
+import sys
 
 import pytest
 
-from scripts.release_gate import (
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# `scripts/` is excluded from the wheel, and the leg that qualifies the built artifact runs this
+# suite from outside the checkout, so nothing puts the repository on `sys.path` there. A
+# module-scope `from scripts...` raises ModuleNotFoundError -- a collection *error*, which pytest
+# reports as `Interrupted` and which can take unrelated modules down with it.
+# `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
+# session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.release_gate import (  # noqa: E402
     DISPOSITIONS,
     NEXT_CYCLE,
     blocker_fixpoint_receipt,
@@ -40,8 +52,6 @@ from scripts.release_gate import (
     open_problem_dispositions,
     todo_release_fields,
 )
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 HEAD = "a" * 40
 
 _PROBLEMS = """# Problem stack
@@ -315,3 +325,94 @@ def test_the_live_item_count_agrees_between_both_parsers():
     """Two parsers counted the live stack differently for days and neither was cross-checked."""
     from scripts.release_gate import remaining_todo_items
     assert len(remaining_todo_items(REPO_ROOT)) == len(todo_release_fields(REPO_ROOT))
+
+
+@pytest.mark.parametrize(
+    "cell, expected",
+    [
+        ("Repaired 2026-09-20, closed by 06-83.", ["06-83"]),
+        ("Answered in 06-13; ruled 2026-09-19.", ["06-13"]),
+        ("06-94 closed 2026-09-20 and 06-98 retired", ["06-94", "06-98"]),
+        ("2026-09-21", []),
+        ("06-36", ["06-36"]),
+        ("06-100", ["06-100"]),
+        ("07-5", ["07-5"]),
+    ],
+)
+def test_an_iso_date_is_not_read_as_an_item_reference(cell, expected):
+    """A repair date next to an item id produced a dangling reference to the date.
+
+    ``\\b(\\d\\d-\\d+)\\b`` matched ``09-20`` inside ``2026-09-20``. Measured live at 30c425cf:
+    P-56's cell yielded ``['06-83', '09-20']`` and P-69's ``['06-94', '09-20']``, so
+    dispositioning either row BLOCKER would have reported a reference to an item that never
+    existed. The gate errs toward failing, so it hid nothing -- but the obvious repair is the
+    trap. Two narrowings that look right and are not:
+
+    * ``\\b(0\\d-\\d+)\\b`` -- ``09`` also begins with a zero, so it matches the date fragment
+      identically. Measured: it changes the result on none of the four failing cases.
+    * ``\\d\\d-\\d\\d`` -- that is P-175, which made eleven three-digit items invisible.
+
+    This is the parametrization that distinguishes all three, which is why it enumerates both
+    real ids and real dates rather than asserting on the live stack alone.
+    """
+    from scripts.release_gate import _ITEM_REF
+    assert sorted(set(_ITEM_REF.findall(cell))) == sorted(expected)
+
+
+def test_the_item_reference_pattern_rejects_both_known_wrong_narrowings():
+    """Pins the two rejected candidates so neither can be reintroduced as a simplification."""
+    import re
+
+    from scripts.release_gate import _ITEM_REF
+
+    dated = "Repaired 2026-09-20, closed by 06-83."
+    assert re.findall(r"\b(\d\d-\d+)\b", dated) == ["09-20", "06-83"], \
+        "the original pattern no longer reproduces the defect; this test's premise is stale"
+    assert re.findall(r"\b(0\d-\d+)\b", dated) == ["09-20", "06-83"], \
+        "the 0\\d narrowing no longer reproduces the defect; this test's premise is stale"
+    assert _ITEM_REF.findall(dated) == ["06-83"]
+    # And the P-175 direction, so a later narrowing cannot trade one defect for the other.
+    assert _ITEM_REF.findall("06-100") == ["06-100"]
+
+
+def test_a_deferred_problem_pointing_at_a_dead_item_fails(tmp_path):
+    """Condition 5 must inspect every open row, not only the `BLOCKER` ones.
+
+    The guard in `check_release_readiness` read `if disp == "BLOCKER" and ref not in
+    live_items`. Condition 2 requires zero `BLOCKER` rows, so the loop body could not execute
+    in the one state where the release qualifies: the check reported zero dangling references
+    unconditionally, and 21 real ones sat in the live stack while it did.
+
+    `test_a_blocker_pointing_at_a_nonexistent_item_fails` could not catch that. Its row is a
+    `BLOCKER`, so condition 2 fails the tree by itself and the assertion is satisfied whatever
+    condition 5 does. This tree is compliant in every other respect -- zero blockers, every
+    disposition declared, a good deferral reason, a valid receipt -- so the *only* thing that
+    can fail it is condition 5 reading a deferred row.
+    """
+    root = _tree(
+        tmp_path,
+        open_rows=[_row("P-01", _DEFERRED, f"{_GOOD_DEFER_REASON}; 06-77 carries it")],
+        items=[_item("07-01", f"deferred-{NEXT_CYCLE}")],
+    )
+    violations = check_release_readiness(root, head=HEAD)
+    assert any("dangling" in v for v in violations), (
+        "a deferred problem naming an item that is not in the stack was not reported; "
+        f"condition 5 is not reading non-blocker rows. Violations: {violations}"
+    )
+    assert any("06-77" in v for v in violations), (
+        f"the dangling reference was reported without naming the dead item: {violations}"
+    )
+
+
+def test_a_deferred_problem_pointing_at_a_live_item_passes(tmp_path):
+    """The other side, so the test above cannot pass by failing every tree.
+
+    A deferral is granted on the condition that its evidence is preserved for the next cycle,
+    which is what a resolvable pointer establishes. Naming a live item must therefore be clean.
+    """
+    root = _tree(
+        tmp_path,
+        open_rows=[_row("P-01", _DEFERRED, f"{_GOOD_DEFER_REASON}; 07-01 carries it")],
+        items=[_item("07-01", f"deferred-{NEXT_CYCLE}")],
+    )
+    assert check_release_readiness(root, head=HEAD) == []

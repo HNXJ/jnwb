@@ -19,6 +19,13 @@ substitution ran on the label `'none'` -- Benjamini-Hochberg with statsmodels pr
 an `ImportError` demanding statsmodels without it. The case set here was derived from that
 map, so it could not reach a value the map was missing. `ACCEPTED_CORRECTIONS` is now a
 literal and the map is checked against it.
+
+P-181 corrects how the frozen vectors are compared. They were asserted with
+`assert_array_equal`, which on a value computed through `pow` is a bit-exactness assertion
+across platforms; the ubuntu legs of CI failed it by one and two ulp. The comparison is now
+chosen per method -- tolerant only where a libm transcendental is in the path, exact
+everywhere else -- and `test_the_ubuntu_measured_holm_sidak_vector_is_accepted` is the
+discriminator, which reproduces the Linux failure on any platform.
 """
 
 from __future__ import annotations
@@ -75,6 +82,61 @@ Q_STATSMODELS_PRESENT = {
         0.4991628178860116, 0.4991628178860116,
     ],
 }
+
+# P-181. The frozen vectors above were recorded on Windows, so they encode this machine's
+# libm. `holm-sidak` computes ``1 - (1 - p)**n``, and `pow` is a libm function that glibc
+# and MSVC round differently in the last place: GitHub Actions run 35632380292 failed this
+# file on all three ubuntu legs and no windows leg, at 2 of 8 elements, by 1 and 2 ulp.
+#
+# `np.testing.assert_array_equal` on a value computed through `pow` asserts bit-exactness
+# across platforms. That is not a property this repository can hold and not the property
+# the test is named for: the invariant is that the fallback agrees with statsmodels, and
+# agreement to floating-point precision is what that means.
+#
+# Only the methods that route through a transcendental are relaxed. The others are
+# multiply-and-compare in IEEE-754 double, which every conforming platform rounds
+# identically, and weakening a correctly-exact assertion would be a blind spot, not a fix:
+#
+#   bonferroni  `p * 8.0` clipped at 1. 8 is a power of two, so the multiply only shifts
+#               the exponent -- exact for every input, no rounding at all.
+#   holm        `p_sorted * arange(m, 0, -1)`, running maximum, clip. Multiplies by small
+#               integers; each is a single correctly-rounded IEEE operation.
+#   fdr_bh      `p_sorted * m / arange(1, m+1)`, running minimum. Multiply and divide only.
+#   fdr_by      fdr_bh scaled by `sum(1/arange(1, m+1))`. Reciprocals and an 8-element sum.
+#               Deterministic per IEEE; the three ubuntu legs agreed with the frozen bytes.
+#   none        returns a copy of the input. No arithmetic.
+#
+TRANSCENDENTAL_METHODS = frozenset({"holm-sidak"})
+
+# Budget, in ulps of the result, for one pow evaluated by two different libms:
+#   - each implementation is within 1 ulp of the correctly-rounded `pow`, so the two can
+#     disagree by 2 ulp in `(1 - p)**n`;
+#   - `1 - x` amplifies that relative error by `x / (1 - x)`, which over this p-vector
+#     peaks at 2.63 (measured, at p=0.2760, n=1), giving 5.3 ulp;
+#   - the subtraction and the running maximum add at most 1 ulp more.
+# That is 6.3 ulp. `4 * eps` is 6.6 ulp at 0.415 and 8.0 ulp at 0.499 -- the smallest round
+# multiple of eps above the budget. `3 * eps` (5.0-6.0 ulp) would sit under it.
+#
+# The measured cross-platform divergence is 2.48e-16, so this bound is 3.6x it. What it
+# still catches: the nearest genuinely-wrong result that can be constructed here -- one
+# element with the step-down exponent off by one -- differs by 9.77e-2 relative, 1.1e14
+# times this tolerance. Substituting any other correction method differs by 0.29 to 1.00.
+LIBM_RTOL = 4 * np.finfo(np.float64).eps
+
+
+def assert_agrees_with_statsmodels(actual, expected, method):
+    """Compare against a frozen statsmodels vector at the precision the method warrants.
+
+    Exact for everything computed by multiplication; tolerant only where a libm
+    transcendental is in the path. `atol=0` deliberately: these q-values are all of order
+    0.2 to 1.0, so a relative bound is the whole bound, and a non-zero `atol` would admit
+    an absolute error near zero that `rtol` was chosen to forbid.
+    """
+    expected = np.asarray(expected)
+    if method in TRANSCENDENTAL_METHODS:
+        np.testing.assert_allclose(actual, expected, rtol=LIBM_RTOL, atol=0.0)
+    else:
+        np.testing.assert_array_equal(actual, expected)
 
 # Every accepted value of `correction`, written out. This used to be spelled
 # `set(_CORRECTION_METHOD_MAP) - {"bonferroni"}`, which derives the case set from the same
@@ -275,7 +337,7 @@ def test_the_raise_is_catchable_and_carries_its_cause():
 def test_statsmodels_present_values_are_unchanged(method):
     """The repair touches only the branch where statsmodels is missing."""
     q = _multiple_correction(P_SEEDED, method, ALPHA)
-    np.testing.assert_array_equal(q, np.asarray(Q_STATSMODELS_PRESENT[method]))
+    assert_agrees_with_statsmodels(q, Q_STATSMODELS_PRESENT[method], method)
     assert q.dtype == np.float64
     assert q.shape == P_SEEDED.shape
 
@@ -284,6 +346,85 @@ def test_shape_and_dtype_survive_a_two_dimensional_input():
     q = _multiple_correction(P_SEEDED.reshape(2, 4), "holm", ALPHA)
     assert q.shape == (2, 4)
     assert q.dtype == np.float64
+    # `holm` is multiply-and-compare, so this stays bit-exact. Routed through the helper
+    # so that the exactness is a stated classification rather than an accident of which
+    # assertion was typed here.
+    assert_agrees_with_statsmodels(
+        q.ravel(), Q_STATSMODELS_PRESENT["holm"], "holm"
+    )
+
+
+# The values GitHub Actions measured on ubuntu-latest at 30c425cf, run 35632380292. Six of
+# eight elements matched the frozen vector; the two that did not are quoted in the failure
+# report and are written out here. This is the CI failure, reproducible on Windows.
+Q_HOLM_SIDAK_AS_UBUNTU_MEASURED = (
+    [0.4149654942587872, 0.4481820278730369]
+    + Q_STATSMODELS_PRESENT["holm-sidak"][2:]
+)
+
+
+def test_the_ubuntu_measured_holm_sidak_vector_is_accepted():
+    """THE DISCRIMINATOR for P-181, and it runs on Windows.
+
+    This machine is one of the two configurations where the bug does not reproduce, so the
+    failure cannot be provoked by running the fallback. It is provoked instead by feeding
+    the numbers the ubuntu legs actually produced through the comparison the file uses: the
+    bit-exact form rejects them with exactly the CI error, the tolerant form accepts them.
+    Restore `assert_array_equal` here and this fails.
+    """
+    frozen = np.asarray(Q_STATSMODELS_PRESENT["holm-sidak"])
+    ubuntu = np.asarray(Q_HOLM_SIDAK_AS_UBUNTU_MEASURED)
+    assert not np.array_equal(ubuntu, frozen), (
+        "the ubuntu vector is bit-identical to the frozen one, so this test would pass "
+        "without discriminating"
+    )
+    assert_agrees_with_statsmodels(ubuntu, frozen, "holm-sidak")
+
+
+def test_the_tolerance_admits_a_few_ulps_and_nothing_larger():
+    """The tolerance's two-sided property, stated as a test rather than as a comment.
+
+    A tolerance that cannot fail is worse than the bit-exact assertion it replaces, so the
+    upper half matters as much as the lower: nudging the frozen vector by `np.nextafter`
+    must pass, and every genuinely different correction must still be killed.
+    """
+    frozen = np.asarray(Q_STATSMODELS_PRESENT["holm-sidak"])
+
+    nudged = np.nextafter(frozen, np.inf)
+    nudged[1] = np.nextafter(nudged[1], np.inf)  # 2 ulp, as ubuntu measured at [1]
+    with pytest.raises(AssertionError):
+        np.testing.assert_array_equal(nudged, frozen)  # the assertion being replaced
+    assert_agrees_with_statsmodels(nudged, frozen, "holm-sidak")
+
+    # A wrong fallback is not a rounding difference. Every other correction method, and the
+    # nearest constructible arithmetic error, must still fail.
+    for other in ("holm", "fdr_bh", "fdr_by", "bonferroni"):
+        with pytest.raises(AssertionError):
+            assert_agrees_with_statsmodels(
+                np.asarray(Q_STATSMODELS_PRESENT[other]), frozen, "holm-sidak"
+            )
+
+    exponent_off_by_one = frozen.copy()
+    exponent_off_by_one[0] = 1.0 - (1.0 - P_SEEDED[0]) ** (P_SEEDED.size - 1)
+    with pytest.raises(AssertionError):
+        assert_agrees_with_statsmodels(exponent_off_by_one, frozen, "holm-sidak")
+
+
+def test_only_the_transcendental_methods_are_relaxed():
+    """The classification is the point: relaxing a correctly-exact comparison would hide a
+    real regression. `bonferroni` multiplies by 8, a power of two, so it does not round at
+    all; `holm`, `fdr_bh` and `fdr_by` are multiplies and divides; `none` copies."""
+    assert TRANSCENDENTAL_METHODS == {"holm-sidak"}
+    assert TRANSCENDENTAL_METHODS <= set(ACCEPTED_CORRECTIONS)
+
+    for method in set(Q_STATSMODELS_PRESENT) - TRANSCENDENTAL_METHODS:
+        frozen = np.asarray(Q_STATSMODELS_PRESENT[method])
+        with pytest.raises(AssertionError):
+            assert_agrees_with_statsmodels(np.nextafter(frozen, np.inf), frozen, method)
+
+    # And the exactness claimed for bonferroni is arithmetic, not a measurement: p*8 shifts
+    # the exponent and cannot round.
     np.testing.assert_array_equal(
-        q.ravel(), np.asarray(Q_STATSMODELS_PRESENT["holm"])
+        np.minimum(P_SEEDED * 8.0, 1.0),
+        np.asarray(Q_STATSMODELS_PRESENT["bonferroni"]),
     )

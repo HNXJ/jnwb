@@ -360,19 +360,18 @@ def test_the_two_index_spaces_actually_diverge_on_this_probe() -> None:
         without_geometry.crossover_contact
     ), "the fixture must place the two index spaces apart"
 
-    # Nothing on the result records which space its crossover is expressed in, which
-    # is why the boundary cannot tell them apart.
+    # The result now records which space its crossover is expressed in, and that field is
+    # what lets the boundary tell the two apart. Before P-49 was repaired nothing on the
+    # result carried it, `label_layers` read every crossover as a shaft rank, and this test
+    # recorded the geometry-omitted result being accepted here with no warning and no
+    # error. That acceptance is now a refusal, and asserting it belongs to
+    # test_label_layers_refuses_a_vflip_result_computed_without_probe_geometry; this
+    # fixture's own soundness claim is the divergence above.
+    assert without_geometry.index_space == "channel"
+    assert with_geometry.index_space == "shaft_rank"
     assert "probe_geometry" not in without_geometry.to_dict()
 
-    labels = label_layers(without_geometry, geometry, granular_thickness_um=150.0)
-    assert len(labels) == _N_CONTACTS, "accepted today, with no warning and no error"
 
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="P-49: label_layers reads crossover_contact as a shaft rank even when vflip "
-    "computed it as a PSD row index, and refuses nothing at the boundary",
-)
 def test_label_layers_refuses_a_vflip_result_computed_without_probe_geometry() -> None:
     """The refusal leg of H1. The mislabelling it prevents is 06-20's; this is the refusal.
 
