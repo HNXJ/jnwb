@@ -11,7 +11,15 @@ Shingled Jaccard on 4-grams of words, which survives rewording better than a lit
 """
 import pathlib
 import re
+import sys
 import unicodedata
+
+# The sentences printed below are repository prose, so they carry whatever characters the
+# authorities carry -- `→` among them. On Windows stdout defaults to cp1252, which cannot encode
+# it, and the script died mid-listing with a UnicodeEncodeError that the suite reported as "the
+# measurement script failed". A diagnostic that cannot print its own finding is not one.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
 
 #: Derived, never literal. This read `C:\workspace\jnwb` until 06-64 showed what that costs: the
 #: script measured that one tree no matter which tree invoked it, so the ratchet in
@@ -129,6 +137,15 @@ for sec, (n, h, m) in sorted(by_section.items(), key=lambda kv: -kv[1][1]):
 
 print(f"\nTOP DUPLICATES — each is one claim with two homes:")
 for score, sec, s, where, other in high[:20]:
+    print(f"\n  {score:.2f}  {sec[:52]}")
+    print(f"        AGENTS.md: {s[:130]}")
+    print(f"        {where}: {other[:130]}")
+
+# The echo band is tested with its own baseline, so it has to be readable too. Listing only the
+# duplicates left `test_echoed_claims_do_not_increase` able to fail while the script it names as
+# the diagnostic printed nothing about the sentence that moved the count.
+print(f"\nECHOES — each is a claim that reads like one elsewhere:")
+for score, sec, s, where, other in med:
     print(f"\n  {score:.2f}  {sec[:52]}")
     print(f"        AGENTS.md: {s[:130]}")
     print(f"        {where}: {other[:130]}")

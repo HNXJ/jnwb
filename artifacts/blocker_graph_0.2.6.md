@@ -7,11 +7,11 @@ off its own text, printed with the row, so a wrong placement is visible rather t
 | Kind | Blockers | Meaning |
 |---|---|---|
 | `OWNED` | 22 | a live item already claims it; execute that item |
-| `EXECUTE` | 19 | no owner and no stated human dependency; needs a node |
+| `EXECUTE` | 16 | no owner and no stated human dependency; needs a node |
 | `RULING` | 11 | the row itself says a human decision decides it |
 | `GRANT` | 2 | blocked on corpus access, which is Hamm's to give |
 
-54 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
+51 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
 item but not in a position the ownership pattern recognised. All of them are settled here by
 reading them, and the pattern itself was wrong rather than merely narrow: **the column is named
 "Answered in", so a bare item id standing alone in that cell IS the ownership pointer.** P-02,
@@ -67,11 +67,14 @@ by an agent; P-91 changes a shipped return shape.
 | P-28 | **N6 executed.** `AGENTS.md` §3 already ordered the baseline comparison; what it lacked was a way to run it. `scripts/verify_lane.py --baseline <commit>` performs it, and §3 points at the script rather than restating it | `repaired` |
 | P-153 | **N6 executed.** Both standing conditions are now mechanical: a distance is refused outright as a baseline, and `AGENTS.md` §3 states that a packet names the commit and never a distance, which was unwritten. Measured from this tree: 232 commits ahead of `5ecc12eb`, continuing the 192 -> 213 -> 216 -> ~220 sequence. A defect inside the repair is recorded with it -- the first draft advised a no-op fast-forward for a baseline that was *behind*, and the two drift directions now carry different messages | `repaired` |
 | P-144 | **N6 executed.** The main checkout is refused unless `--allow-main-tree` declares the caller deliberately the single writer, detected by comparing `--absolute-git-dir` against `--git-common-dir` rather than by a path convention. The §"One writable agent" paragraph points at P-144's row for the incident rather than retelling it -- the first draft retold it and the router test caught the duplication at 0.71 against a baseline of 0 | `repaired` |
+| P-125 | **N10 executed, and the prescribed repair was rejected on measurement.** A run of backtick tokens reads *fewer* tokens than the sentence rule in 6 fields and more in none, because the fields interleave prose. The boundary is kept; gate 15 now reports a `Writes:` field followed immediately by more paths, turning a silent truncation into a visible question. 0 flagged live, 0 bare directories hidden, and 06-67's recorded text is driven through the check as a discriminator | `repaired` |
+| P-149 | **N10 executed.** Gate 15 flags a `Blocked by: none` contradicted by the item's own unwrapped text, and **found a third live instance on its first run** -- 06-13, a `Role: human ruling` item whose field said `none` while its text named a ruling and the `D:` grant. The row's second clause was implemented and measured: 3 of 52 flagged, all 3 false positives, each naming a path in order to exclude it. Declined on measurement, not deferred | `repaired` |
+| P-163 | **N10 executed** to the row's own recipe, printing every suppression. The row's attempt-1 failure recurred inside the repair with "line" replaced by "sentence": a `Stop:` clause runs to the next field label, not the next full stop, and reading the corrected suppression found 06-89 waiting on two discharged things. One false positive (06-80) was reworded rather than excluded by a rule | `repaired` |
 | P-161 | Condition 5 of STEP 0a now walks the problem-to-item direction, reading **only** the `Answered in` cell -- the narrowing P-161 proved necessary, because the problem cell carries history and a whole-row scan false-flags P-14. `_BARE_POINTER` recognises the bare-id form. Discriminated in both directions by `test_a_deferred_problem_pointing_at_a_dead_item_fails` and `..._pointing_at_a_live_item_passes`. Measured on the live stack: **0 dangling references.** | `repaired` |
 
 ## Tier 2 --- executable nodes
 
-Six nodes absorb 17 of the 19 `EXECUTE` blockers; P-107 and P-156 stand alone.
+Five nodes absorb 14 of the 16 `EXECUTE` blockers; P-107 and P-156 stand alone.
 
 **N1 and N2 are executed and their six blockers are closed** -- see Tier 1. Executed nodes are
 recorded there rather than here, so a node's claim is checked against the stack's closed set
@@ -86,7 +89,6 @@ edit closes both.
 | N4 The computational-order documents claim only what a receipt can supply | P-118, P-127, P-128, P-131 | the inventory claims verification its receipt cannot supply, `computational_order.md` cites `INV-01`..`INV-14` against it, the measurement harness behind it does not exist by the document's own words, and the ratified subset cites uncommitted receipts | **D3** |
 | N5 Gate scope equals gate claim | P-95, P-98, P-150, P-159 | the vocabulary gate excludes `skills/`, `docs/api.md` and the tutorials; a published page leaks internal process vocabulary; the tutorial corpus is a closed loop two gates pass on; gate 16 cannot see a wholesale line-ending conversion | P-98 is ordered: docs rewrite, then gate |
 | N9 The stack's own summaries are derived | P-133, P-103, P-15 | a canonical summary inside the stack went stale and nothing errored; two items are honest partials that must not read as complete; `AGENTS.md` is 501 lines against a contract requiring a thin router | --- |
-| N10 Gate 15 reads a field, not a sentence | P-125, P-149, P-163 | gate 15 passed on 14 items whose `Writes:` fields had been cut in half, and would pass on the repaired file for the same reason it passed on the broken one --- it reads a sentence | --- |
 | N11 Every estimator records the device it ran on | P-62 | `relative_power` downgrades to CPU silently; `spectral_tilt` and `wpli` carry no device field at all, against a skill that promises both. 06-56 owns the `jnwb/` half; **the skill sentence is unowned, and skills are doctrine-adjacent --- propose the wording, do not edit it** | 06-56 for the code half |
 
 Not absorbed, and deliberately separate:
@@ -159,4 +161,4 @@ this repository is **above** one.
 
 The amendment makes the criterion convergent in principle by excluding non-blocking discovery
 from the fixpoint. It does not make it convergent in fact: that depends on the rate being below
-one. Six nodes is a small enough batch to measure it directly rather than argue it.
+one. Five nodes is a small enough batch to measure it directly rather than argue it.

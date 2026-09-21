@@ -133,9 +133,9 @@ completed work here goes stale.
   code, the named artifacts do not exist, and nothing errors. If the two differ, run
   `git merge --ff-only <baseline>`; if that is not a fast-forward, stop and report both SHAs.
   **Never `git reset --hard`** — it discards work the tree may be carrying for someone else.
-  **A packet names the baseline commit and never a distance**: a commit count is stale the
-  moment the dispatcher commits again, and one packet quoted 213 against a baseline two commits
-  later than that figure was measured from, which the lane then measured as 216.
+  **A packet names the baseline commit and never a distance** — `verify_lane.py` refuses a
+  distance outright. P-153's row carries why, and the measurements, rather than this file
+  restating them.
   Then load, in order: (1) `AGENTS.md` (this file), (2) `artifacts/direction.md`,
   (3) `artifacts/goal.md`, (4) `artifacts/fact_stack.md`, (5) `artifacts/state.md`, regenerating
   it first if `scripts/reconstruct_state.py --check` fails, (6) `artifacts/problem_stack.md`,

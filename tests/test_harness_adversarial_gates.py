@@ -20,6 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 import pytest
 
 from scripts.harness_gate import (
+    GENERATED_FROM,
     check_dataset_leakage,
     check_documented_api_matches_all,
     check_docs_version_matches_package,
@@ -1330,6 +1331,26 @@ def _stack_tree(tmp_path: Path, todo: str, problem: str) -> Path:
     (root / "artifacts").mkdir(parents=True)
     (root / "artifacts" / "todo_stack.md").write_text(todo, encoding="utf-8")
     (root / "artifacts" / "problem_stack.md").write_text(problem, encoding="utf-8")
+
+    # Gate 15 also resolves the generation closure against the tree, so a tree carrying only the
+    # two stacks reports four closure violations and every table-shape test here counts five
+    # findings where it asserts one. The closure is a property of the real repository, not of a
+    # constructed stack, so the fixture satisfies it and each test is left measuring the one
+    # thing it is named after.
+    #
+    # Built FROM `GENERATED_FROM` rather than from a hard-coded list: a fixture listing the
+    # paths itself is one more file pointing at other files, and it would go stale silently the
+    # next time the closure gains an entry -- which is the defect the closure exists to catch.
+    for entry in GENERATED_FROM:
+        for relative in (entry["generator"], entry["derived"], *entry["sources"]):
+            if relative.startswith("<"):
+                continue  # a described trigger, e.g. a HEAD move, not a path
+            target = root / relative
+            if relative.endswith("/"):
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("", encoding="utf-8")
     return root
 
 

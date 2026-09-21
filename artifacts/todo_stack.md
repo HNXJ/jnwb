@@ -338,7 +338,11 @@ breaks on rewording and passes on a reversed meaning.
 ### 06-13 Rule the default selection of compress_fp32
 
 Release: required-0.2.6.
-Role: human ruling. Skill: none. Blocked by: none. Writes: this file, then an implementation item. AUTONOMY: none.
+Role: human ruling. Skill: none. Blocked by: **a Hamm ruling on the no-argument default, and
+the `D:` grant for the real-corpus cells.** Re-marked 2026-09-21; the field said `none` while
+the item's own text said "It is blocked on one thing only" and named the same `D:` grant that
+06-99 and 06-31 wait on. Found by gate 15's contradiction check, which is P-149's shape in a
+third item. Writes: this file, then an implementation item. AUTONOMY: none.
 The item's named stop condition fired, and it was proven mechanically rather than asserted. The
 mechanical split -- generic mechanics, with selection as an explicit `select=` caller input -- is
 designed and ready. It is blocked on one thing only: what happens when the caller says nothing.
@@ -903,8 +907,8 @@ Do: add a gate resolving each `Skill:` value that is not a declared placeholder 
 directory under `skills/` holding a `SKILL.md`. Do the same for `Role:` against `artifacts/agents/`
 if that costs nothing extra. **Widened by P-57:** resolve the cross-references between the
 two stacks as well -- a blocker field and a problem's `Answered in` column may name only
-a live item. Both went stale during this release with no error: two items sat blocked by
-rulings that had already happened, and two problems pointed at items deleted as complete.
+a live item. Both went stale during this release with no error: two items named rulings that
+had already happened, and two problems pointed at items deleted as complete.
 Discriminator: reintroducing `jnwb-nwb-io` into any item fails the gate; every placeholder form
 still passes; renaming a real skill directory fails the gate.
 Accept: P-53 closes, the gate joins the collect-all table with its own number, the module
@@ -1034,8 +1038,10 @@ pointer. The skill names the operation; documentation defines it, per `artifacts
 Discriminator: a reader following only the published page reaches layer labels from a units table
 without reading source.
 Accept: P-20 closes.
-Stop: the composition depends on P-49's index-space defect being resolved first. Then this waits
-on 06-77 and says so rather than documenting a sequence that mislabels anatomy.
+Stop: the composition depended on P-49's index-space defect being resolved first, and on 06-77.
+Both are discharged -- P-49 is repaired and 06-77 retired complete at `9904fd7f` -- so the
+sequence this documents no longer mislabels anatomy. Found stale 2026-09-21 by gate 15's
+contradiction check, whose printed suppression named an item with no live header.
 
 ### 06-90 Make an absent `peak_channel_id` visible
 

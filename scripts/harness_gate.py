@@ -1232,8 +1232,18 @@ def _writes_fields(text: str) -> List[Tuple[int, str]]:
     worse than no check, because it teaches its reader to dismiss the output, and that is how
     the one real violation gets waved through.
     """
+    return [(lineno, field) for lineno, field, _end in _writes_field_spans(text)]
+
+
+def _writes_field_spans(text: str) -> List[Tuple[int, str, int]]:
+    """`_writes_fields` plus each field's end offset, which the truncation check needs.
+
+    Split out rather than duplicated: a second copy of this scan would be a second boundary
+    rule, and the two would drift. The offset is what `_suspected_truncated_writes` inspects,
+    and recovering it with `text.find` instead would alias two identical fields to one site.
+    """
     mask = _code_span_mask(text)
-    fields: List[Tuple[int, str]] = []
+    spans: List[Tuple[int, str, int]] = []
     for label in re.finditer(r"Writes:", text):
         if mask[label.start()]:
             continue  # the rule quoted in prose, not a field declaring a write set
@@ -1248,8 +1258,208 @@ def _writes_fields(text: str) -> List[Tuple[int, str]]:
             ):
                 break
             index += 1
-        fields.append((text.count("\n", 0, label.start()) + 1, text[label.end():index]))
-    return fields
+        spans.append(
+            (text.count("\n", 0, label.start()) + 1, text[label.end():index], index)
+        )
+    return spans
+
+
+#: Content that continues a `Writes:` field past the point the sentence boundary stopped: a run
+#: of backtick tokens, optionally joined by commas or `and`. Anything else -- a capital letter, a
+#: field label, prose -- is the next sentence and not part of the field.
+_CONTINUES_AS_PATHS = re.compile(r"[\s]*(?:and\s+)?`[^`\n]*`(?:[\s,]*(?:and\s+)?`[^`\n]*`)*")
+
+
+def _suspected_truncated_writes(text: str) -> List[Tuple[int, str]]:
+    """`Writes:` fields whose text ends immediately before more path-like tokens.
+
+    06-67 read ``Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, AUTONOMY: none.`` on one line
+    and ``` `docs/errors.md`, `tests/`. ``` on the next. Any parser bounded by a sentence stops
+    at that full stop and never sees the last two entries, one of which was a genuine bare
+    `tests/` -- the exact P-108 defect this gate exists to catch, sitting undetected inside the
+    gate's own live zero (P-125).
+
+    The boundary is **not** changed, because the replacement P-125 prescribes -- a run of
+    backtick tokens separated only by commas and whitespace -- does not fit the data. Measured
+    against the live stack, that rule read *fewer* tokens in six fields and more in none, and
+    nothing at all in two: the fields legitimately interleave prose, as in
+    ``Writes: a new page under `docs/*.md` (named at dispatch; ...)`` and
+    ``Writes: the routed skill file and `tests/test_skills_validation.py``. Bounding at the
+    next field label instead runs into free-prose bodies, which is the false-positive failure
+    the boundary docstring already records.
+
+    So instead of moving the boundary, the gate says when it might be in the wrong place. A
+    field followed immediately by more backticked paths is reported for a human to read. That
+    turns a silent truncation into a visible question, and needs no solution to a boundary
+    problem the stack's own format does not admit.
+
+    Measured on the live stack at the time of writing: zero fields flagged, and zero bare
+    directories hidden from the sentence rule. This is a tripwire for the shape's return, not
+    a repair of a live instance -- 06-67's field was repaired by hand when P-125 was raised.
+    """
+    flagged: List[Tuple[int, str]] = []
+    for lineno, _field, end in _writes_field_spans(text):
+        after = end + 1 if end < len(text) and text[end] == "." else end
+        match = _CONTINUES_AS_PATHS.match(text, after)
+        if not match or not match.group(0).strip():
+            continue
+        tail = match.group(0)
+        if not any("/" in token for token in re.findall(r"`([^`\n]*)`", tail)):
+            continue  # a backticked identifier is prose continuing; only paths look truncated
+        flagged.append((lineno, " ".join(tail.split())))
+    return flagged
+
+
+#: A present-tense assertion that the item is blocked. Deliberately shallow, and deliberately
+#: not taught to parse negation: the repair sentence written to discharge 06-103's stale block
+#: read "this item is no longer blocked on it", which a phrase list matches as an assertion.
+#: That sentence was reworded to "that block is discharged" instead, because a phrase list that
+#: tries to read polarity is a worse thing to trust than one that is obviously shallow and
+#: prints what it suppressed (P-163).
+_BLOCK_ASSERTIONS = (
+    "blocked on",
+    "blocked by",
+    "is blocked",
+    "blocked until",
+    "waits on",
+    "waiting on",
+    "cannot start until",
+    "needs a ruling",
+    "requires a ruling",
+    "awaits a ruling",
+)
+
+#: The phrase list as one alternation, longest first so `blocked until` is not read as the
+#: shorter `blocked` prefix of another entry.
+_ANY_BLOCK_ASSERTION = re.compile(
+    "|".join(re.escape(p) for p in sorted(_BLOCK_ASSERTIONS, key=len, reverse=True))
+)
+
+_ITEM_HEADER = re.compile(r"^### (06-\d+)\b", re.MULTILINE)
+_ITEM_ID = re.compile(r"\b06-\d+\b")
+
+
+def _stack_items(text: str) -> List[Tuple[int, str, str]]:
+    """Every `### 06-NN` item, as (line number, id, item text including its header)."""
+    starts = list(_ITEM_HEADER.finditer(text))
+    items: List[Tuple[int, str, str]] = []
+    for position, match in enumerate(starts):
+        end = starts[position + 1].start() if position + 1 < len(starts) else len(text)
+        items.append(
+            (text.count("\n", 0, match.start()) + 1, match.group(1), text[match.start():end])
+        )
+    return items
+
+
+#: A field label opens a new clause, and so closes the one before it. Used to bound a `Stop:`
+#: clause, which runs to the next label and *not* to the next full stop: 06-89's stop reads
+#: "Stop: ... resolved first. Then this waits on 06-77 ...", so the assertion sits one sentence
+#: after the key. A first draft keyed the suppression on the sentence and missed it -- P-163's
+#: attempt-1 failure with "line" replaced by "sentence", which is P-37 again.
+_FIELD_LABEL = re.compile(
+    r"\b(?:Release|Role|Skill|Blocked by|Reads|Writes|Reproduce|Do|Discriminator|Accept|"
+    r"AUTONOMY|Stop):"
+)
+
+
+def _unwrapped_spans(text: str) -> Tuple[str, List[Tuple[int, int]]]:
+    """`text` unwrapped, with each sentence's `(start, end)` offsets into the unwrapped string.
+
+    Offsets rather than substrings, because both suppressions below key on where a match sits
+    relative to a clause that can begin in an earlier sentence.
+    """
+    flat = " ".join(text.split())
+    mask = _code_span_mask(flat)
+    spans, start = [], 0
+    for index, char in enumerate(flat):
+        if char == "." and not mask[index] and index + 1 < len(flat) and flat[index + 1] == " ":
+            spans.append((start, index + 1))
+            start = index + 1
+    spans.append((start, len(flat)))
+    return flat, [(a, b) for a, b in spans if flat[a:b].strip()]
+
+
+def _stop_clause_spans(flat: str) -> List[Tuple[int, int]]:
+    """Where each `Stop:` clause begins and ends in an unwrapped item body."""
+    spans = []
+    for stop in re.finditer(r"\bStop:", flat):
+        following = _FIELD_LABEL.search(flat, stop.end())
+        spans.append((stop.start(), following.start() if following else len(flat)))
+    return spans
+
+
+def _unwrapped_sentences(text: str) -> List[str]:
+    """`text` with its hard wrapping removed, split into sentences outside code spans.
+
+    **A physical line is not a semantic unit in this file.** A line-based version of the check
+    below flagged three items and suppressed none, because the stack is hard-wrapped and both
+    exclusion keys -- a `Stop:` clause and the blocking item's id -- sat on the *previous*
+    physical line. Unwrapping raised recall as well as precision: it surfaced 06-89, which the
+    line scan had missed entirely (P-163). This is P-125's mechanism in a third guise -- a
+    proxy for a unit of meaning mistaken for the unit.
+    """
+    flat, spans = _unwrapped_spans(text)
+    return [flat[a:b].strip() for a, b in spans]
+
+
+def _blocked_by_none_contradictions(
+    text: str,
+) -> Tuple[List[Tuple[int, str, str]], List[Tuple[int, str, str, str]]]:
+    """Items declaring `Blocked by: none` whose own text asserts they are blocked.
+
+    06-31 recorded `Blocked by: none` and was in fact blocked on data-access authority; 06-32
+    inherited that block through `Blocked by: 06-31`, unrecorded too. 06-86 read
+    `Blocked by: none` while its body said "Blocked on one ruling" and its Accept clause said
+    P-34 closes only once that ruling is recorded -- and the scheduler offered it as
+    dispatchable, twice (P-149). The metadata is *confidently wrong rather than absent*, which
+    is why every reader trusts it.
+
+    Returns `(flagged, suppressed)`. **Both are returned, and the caller prints the
+    suppressions**, because a narrowing that is invisible is how P-125 turned a false positive
+    into a blind spot: one of the two cases silenced there was real. Two suppressions are
+    applied, each keyed on the match's own position rather than on the sentence it sits in:
+
+    | Suppressed when | Why |
+    |---|---|
+    | a `Stop:` clause opens before the match | the field states the stop; the clause describes it |
+    | every item id in the sentence has retired | the block named is discharged with its item |
+    """
+    live = {match.group(1) for match in _ITEM_HEADER.finditer(text)}
+    flagged: List[Tuple[int, str, str]] = []
+    suppressed: List[Tuple[int, str, str, str]] = []
+
+    for lineno, item_id, body in _stack_items(text):
+        field = re.search(r"Blocked by:\s*([^.\n]*)", body)
+        if not field or field.group(1).strip().lower().rstrip(".") != "none":
+            continue
+        # Excise *every* field declaration, not just the one read above. `Blocked by: none.`
+        # matches the phrase list on its own, and a first draft flagged 33 of 52 live items on
+        # nothing but their own metadata. Removing only the first left a second declaration --
+        # which a malformed item can carry -- readable as prose.
+        prose = re.sub(r"Blocked by:\s*[^.\n]*", " ", body)
+        flat, spans = _unwrapped_spans(prose)
+        stops = _stop_clause_spans(flat)
+        for start, end in spans:
+            sentence = flat[start:end].strip()
+            # Every occurrence of every phrase, not the first: a sentence whose opening match
+            # is suppressed can carry a real assertion afterwards, and stopping at the first
+            # would let the suppression cover it.
+            reason = None
+            for hit in _ANY_BLOCK_ASSERTION.finditer(flat.lower(), start, end):
+                at = hit.start()
+                if any(a <= at < b for a, b in stops):
+                    reason = "inside a `Stop:` clause"
+                    continue
+                named = set(_ITEM_ID.findall(sentence)) - {item_id}
+                if named and not (named & live):
+                    reason = f"names only retired items: {', '.join(sorted(named))}"
+                    continue
+                flagged.append((lineno, item_id, sentence))
+                reason = None
+                break
+            if reason is not None:
+                suppressed.append((lineno, item_id, sentence, reason))
+    return flagged, suppressed
 
 
 #: Unescaped `|` delimits a GFM table cell. `\|` is content wherever it appears, including
@@ -1329,6 +1539,31 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
         if not fields:
             violations.append(
                 f"STACK_FORM: no 'Writes:' field found in {TODO_STACK}; the sweep is broken"
+            )
+        stack_text = todo_path.read_text(encoding="utf-8")
+        for lineno, tail in _suspected_truncated_writes(stack_text):
+            violations.append(
+                f"STACK_FORM: {TODO_STACK}:{lineno} has a 'Writes:' field followed immediately "
+                f"by more paths -- {tail}. The field is bounded at a sentence, so those entries "
+                "are not being read, and a bare directory among them would be invisible to the "
+                "check above. Put the whole write set in one sentence."
+            )
+        flagged, suppressed = _blocked_by_none_contradictions(stack_text)
+        for lineno, item_id, sentence in flagged:
+            violations.append(
+                f"STACK_FORM: {TODO_STACK}:{lineno} item {item_id} declares 'Blocked by: none' "
+                f"and its own text says it is blocked -- \"{sentence[:180]}\". A scheduler reads "
+                "the field, so the item is offered as dispatchable. Record the block in the "
+                "field, or reword the sentence if the block is discharged."
+            )
+        # Printed whether or not anything was flagged. A suppression nobody reads is how the
+        # narrowing in P-125 turned a false positive into a blind spot -- one of the two cases
+        # silenced there was real. These go to stdout rather than into `violations`: they are
+        # not defects, and a reader has to be able to check that each narrowing was right.
+        for lineno, item_id, sentence, why in suppressed:
+            print(
+                f"STACK_FORM note: {TODO_STACK}:{lineno} item {item_id} asserts a block and was "
+                f"suppressed, {why} -- \"{sentence[:180]}\""
             )
         for lineno, field in fields:
             for span in re.findall(r"`([^`\n]*)`", field):
@@ -1540,9 +1775,10 @@ GATES: List[Tuple[int, Any, Any]] = [
              "among them)."),
     (15, _one(check_stack_form_consistency,
               "FAIL: Coordination stack form is not machine-readable:"),
-     lambda: "PASS: Stack form consistent (every declared write set names comparable paths; "
-             "every problem row carries its own table's column count; every GENERATED_FROM "
-             "entry resolves against the tree)."),
+     lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
+             "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
+             "its own item's text; every problem row carries its own table's column count; "
+             "every GENERATED_FROM entry resolves against the tree)."),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),
      lambda: "PASS: Line endings consistent (no tracked text file mixes CRLF and bare LF)."),

@@ -189,8 +189,18 @@ CASES: tuple[SemanticMutation, ...] = (
         "H4",
         "correlation-taken-over-samples-not-channels",
         "jnwb/artifact_detection.py",
-        "    return _pearson_rows(data_ch_by_time)\n",
-        "    return _pearson_rows(np.asarray(data_ch_by_time).T)\n",
+        # Re-anchored: `channel_correlation_matrix` gained the N1 orientation guard, so the
+        # call now passes the coerced `arr` rather than the raw argument. The anchor matched
+        # zero times for one commit, and **a case whose anchor matches nothing exits non-zero
+        # and reads exactly like a kill** -- the failure `scripts/mutation_harness.py` exists
+        # to prevent, reintroduced from outside it by an edit to the mutated file.
+        #
+        # The mutant transposes AFTER the guard on purpose: the guard rejects a time-major
+        # *argument*, and this class asks whether anything notices the axes being swapped
+        # underneath a correctly-shaped one. A mutant the guard caught would prove the guard
+        # works, not that the verdict's shape is checked.
+        "    return _pearson_rows(arr)\n",
+        "    return _pearson_rows(arr.T)\n",
         (
             "tests/test_composition_axis.py"
             "::test_h4_the_channel_major_verdict_has_one_entry_per_channel_and_finds_bad_ones",

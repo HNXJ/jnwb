@@ -131,8 +131,10 @@ def build() -> str:
 The `state` slot of `X = {{goal, state, fact, problem, todo}}`: verified mutable truth about
 this working tree. Regenerate with `python scripts/reconstruct_state.py`; `--check` compares the
 HEAD recorded below against the live one and exits 1 when they differ, and the suite runs that
-same comparison whenever this file is present. No harness gate reads this file, so a copy nobody
-has checked since HEAD moved reads like a current one.
+same comparison whenever this file is present. Gate 15 resolves this file's entry in
+`GENERATED_FROM` -- it checks that the generator named above still exists, and deliberately does
+not require the file itself, which is untracked. So nothing mechanical reads the *contents*
+below, and a copy nobody has regenerated since HEAD moved still reads like a current one.
 
 Every value here is `observed` -- a command and its output, re-resolved on each run. Nothing is
 transcribed and nothing survives a regeneration that stops being true. This file is not
