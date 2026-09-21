@@ -175,16 +175,10 @@ def test_h2_naming_each_axis_makes_the_two_layouts_agree(consumer: str) -> None:
 
 
 @pytest.mark.parametrize("consumer", LAMINAR_CONSUMERS)
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "P-115: on a time-major array bandpass_filter (axis=-1) and the laminar consumers "
-        "(axis=0) are wrong in opposite directions and neither raises; the result is a "
-        "finite array in A/m^3 whose second derivative was taken along time"
-    ),
-)
 def test_h2_the_time_major_default_spelling_must_raise_or_agree(consumer: str) -> None:
-    """Measured today: shape (5998, 64) against (62, 6000), RMS ratio 0.109, no error.
+    """Measured when P-115 was raised: shape (5998, 64) against (62, 6000), RMS ratio 0.109,
+    no error. The strict xfail this carried is removed: `jnwb._layout` refuses the time-major
+    spelling on two independent physical bounds, and this test takes a refusal as satisfaction.
 
     The invariant is that a caller who hands the pair a time-major array is either refused or
     given the same answer up to a transpose. Which of the two is a source decision and is not
@@ -292,16 +286,11 @@ def test_h3_as_trials_reads_the_named_axis_and_a_transpose_swaps_the_meaning() -
 
 
 @pytest.mark.parametrize("estimator", SILENT_ESTIMATORS)
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "P-116: a (n_times, n_trials) array under the default time_axis=-1 is read as "
-        "n_times trials of n_trials samples, and the estimate collapses toward zero and "
-        "reads as 'no coupling' -- the conclusion that looks safe"
-    ),
-)
 def test_h3_a_transposed_trial_array_must_not_read_as_no_coupling(estimator: str) -> None:
-    """Measured today at 7 x 400: x_to_y 1.90 correct against 1.1e-07 transposed.
+    """Measured when P-116 was raised, at 7 x 400: x_to_y 1.90 correct against 1.1e-07
+    transposed. The strict xfail this carried is removed: `require_trial_length` refuses a
+    trial too short to carry the estimator's own lag structure, which is the quantity pooling
+    hid -- 400 trials of 7 samples supply thousands of design rows in total.
 
     Across six seeds the understatement ranges from 5,147x to 17,716,885x; transfer_entropy
     goes negative on the transposed layout, which a non-negative quantity cannot be.
@@ -392,17 +381,11 @@ def test_h4_the_channel_major_verdict_has_one_entry_per_channel_and_finds_bad_on
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "P-117: channel_correlation_matrix on a (n_times, n_channels) array returns an "
-        "n_times square matrix, and bad_channels_from_correlation turns it into an "
-        "n_times-long verdict flagging nothing -- a safety gate that tests no channel"
-    ),
-)
 def test_h4_a_time_major_array_must_not_yield_a_verdict_over_samples() -> None:
-    """Measured today: (6000, 64) in, a (6000, 6000) matrix out, a 6000-entry verdict
-    flagging 0 "channels", and no error anywhere. The caller reads "no bad channels" from a
+    """Measured when P-117 was raised: (6000, 64) in, a (6000, 6000) matrix out, a 6000-entry
+    verdict flagging 0 "channels", and no error anywhere. The strict xfail this carried is
+    removed: `channel_correlation_matrix` now refuses at the point where rows stop being
+    channels. The caller read "no bad channels" from a
     computation that never looked at a channel.
 
     Either step may be the one that refuses -- where the guard belongs is a source decision

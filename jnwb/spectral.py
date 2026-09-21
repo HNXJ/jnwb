@@ -17,6 +17,7 @@ import pandas as pd
 
 from ._dictlike import DictAccessMixin
 from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._layout import require_channel_major
 from ._parallel import parallel_map
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
 
@@ -2084,6 +2085,12 @@ def voltage_curvature_1d(
     if pitch_um <= 0:
         raise ValueError(f"Electrode pitch must be strictly positive; got {pitch_um} um.")
     arr = np.asarray(lfp_matrix, dtype=float)
+    # Before the count is read as a contact count, check it can be one. `bandpass_filter`
+    # defaults axis=-1 and this function defaults axis=0, so the obvious two-call chain hands
+    # the second derivative a time axis and neither call raised.
+    require_channel_major(
+        arr, axis, "voltage_curvature_1d", pitch_um=pitch_um, argument="lfp_matrix"
+    )
     n_ch = arr.shape[axis]
     if n_ch < 3:
         raise ValueError(f"Voltage curvature requires at least 3 channels along spatial axis; got {n_ch}.")

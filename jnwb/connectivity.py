@@ -54,6 +54,7 @@ from ._backend import (
 )
 from ._parallel import parallel_map
 from ._units import resolve_unit_alias
+from ._layout import require_trial_length
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import stats
 
@@ -1072,6 +1073,16 @@ def granger(
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
+    # Checked on the resolved trial shape, before detrending: a transposed array read as many
+    # very short trials pools into plenty of design rows, so nothing further down is short of
+    # data and nothing raised. The missing quantity is within-trial extent.
+    require_trial_length(
+        x,
+        max_lag if isinstance(order, str) else int(order),
+        "granger",
+        history_name="max_lag" if isinstance(order, str) else "order",
+        time_axis=time_axis,
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
 
@@ -1362,6 +1373,13 @@ def granger_spectral(
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
+    require_trial_length(
+        x,
+        max_lag if isinstance(order, str) else int(order),
+        "granger_spectral",
+        history_name="max_lag" if isinstance(order, str) else "order",
+        time_axis=time_axis,
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
@@ -2065,6 +2083,14 @@ def transfer_entropy(
         raise ValueError(f"k, l, delay must all be >= 1; got k={k}, l={l}, delay={delay}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
+    # The embedding consumes max(k, delay * l) leading samples per trial, and `symbolic`
+    # consumes symbolic_order - 1 more before that.
+    _history = max(int(k), int(delay) * int(l))
+    if estimator == "symbolic":
+        _history += int(symbolic_order) - 1
+    require_trial_length(
+        x, _history, "transfer_entropy", history_name="k/l/delay", time_axis=time_axis
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape

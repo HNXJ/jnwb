@@ -31,6 +31,8 @@ from typing import Tuple
 
 import numpy as np
 
+from ._layout import require_channel_major
+
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
 
 
@@ -59,8 +61,19 @@ def _pearson_rows(x: np.ndarray) -> np.ndarray:
 
 
 def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
-    """data_ch_by_time: (n_channels, n_samples). Returns (n_channels, n_channels) Pearson corr."""
-    return _pearson_rows(data_ch_by_time)
+    """data_ch_by_time: (n_channels, n_samples). Returns (n_channels, n_channels) Pearson corr.
+
+    A time-major array used to pass straight through: a (6000, 64) input returned a
+    (6000, 6000) matrix, and ``bad_channels_from_correlation`` then reported a 6000-entry
+    verdict flagging 0 "channels". The refusal is here rather than in the verdict because
+    this is where rows stop being channels.
+    """
+    arr = np.asarray(data_ch_by_time, dtype=float)
+    if arr.ndim == 2:
+        require_channel_major(
+            arr, 0, "channel_correlation_matrix", argument="data_ch_by_time"
+        )
+    return _pearson_rows(arr)
 
 
 def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
