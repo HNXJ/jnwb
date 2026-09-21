@@ -1176,6 +1176,28 @@ chosen gains a test that fails if the shapes drift apart again.
 Stop: do not repair the page before the ruling. A page edit would close the visible symptom and
 leave the asymmetry that caused it.
 
+### 06-113 A run states the tree it ran against
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/mutation_harness.py`, `tests/test_mutation_harness_validity.py`.
+**Single-writer warning:** 06-111 writes the same two files. The two may not run concurrently,
+and 06-111's `expected_survivor` work is the natural companion to this one.
+P-174. A mutant left by a harness that predates the journal is invisible to the journal, because
+`_read_journal` returns `[]` for a **missing** file and for an **unparseable** one alike -- so an
+absence of records reads as an absence of mutants, and a report that "the journal is empty"
+carries no information about the tree. A mutant that suppresses a check is additionally invisible
+to the suite, because the check it suppresses is the one that would fail.
+Do: distinguish "no journal" from "journal says nothing outstanding", and make a run state the
+tree it ran against -- compare `git status --porcelain` for tracked source paths against the set
+the caller declares it intends to have modified, and refuse rather than proceed on a surprise.
+Discriminator: plant a no-op-shaped mutant (one that breaks no test) in a tracked file, run, and
+the run must refuse. Restore, and it must proceed. The 0.2.5 D13 mutant broke something and was
+caught; this one broke nothing and was not, so **the discriminator must use the silent shape**.
+Accept: a missing journal is reported as unknown rather than empty; a run over a tree with
+undeclared modifications refuses; and the refusal names the offending paths.
+Stop: if the check would have to enumerate legitimate in-progress edits to stay usable, stop and
+say so -- a gate that must be told what to ignore becomes a gate nobody runs.
+
 ### 06-107 cross_area_coherence shows its default seed in the signature
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
