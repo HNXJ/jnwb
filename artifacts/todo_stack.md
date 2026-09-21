@@ -424,30 +424,10 @@ swept, and no capability-by-capability matrix was built. A matrix over every pub
 every dimension is its own release and is not attempted here. This batch closes the named limits
 over a declared subset and records the subset's boundary as part of the result.
 
-### 06-18 Declare the high-risk subset
-
-Role: authority, on a proposal from jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/composition_subset_0.2.6.md`.
-The proposal is assembled and sits at `artifacts/composition_subset_proposal_0.2.6.md`: 10
-chains, 11 exclusions, 6 stop conditions, with H1, H2 and H3 reproduced. The declared write
-above is the **ruled** subset and stays absent until Hamm rules, so this item is not complete
-when the proposal exists.
-Name the producer-consumer chains before any test in 06-19 through 06-23 is written. Within the
-declared subset, unknown is not a pass. The boundary of the subset is part of the acceptance
-record, not an omission from it.
-The developer packet proposes the smallest high-consequence set from reproduced evidence; the
-authority packet rules it. The proposal states, for every chain:
-
-    producer -> consumer -> risk -> failure class -> existing evidence -> proposed discriminator
-
-A count of chains is not a proposal. The six fields are what make the boundary reviewable.
-Accept: each later item in this batch cites chains from this file and adds none of its own.
-Stop: a chain proposed for the subset has no consumer in the public API; that is a capability
-question, not a composition one.
-
 ### 06-19 Aggregation order
 
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: 06-18. Writes: `tests/`.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
 Channel aggregation against ratio; averaging against log and dB; trial and session aggregation;
 band integration; baseline normalisation; group weighting; non-finite filtering relative to
 aggregation.
@@ -457,7 +437,8 @@ Accept: for each chain, the documented order is the computed order, shown by exe
 
 ### 06-20 Identifier survival
 
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 06-18. Writes: `tests/`.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
 Channel, unit, probe, area, trial and session identity through selection, transform, filtering,
 permutation and aggregation.
 Discriminator: permute the input order; a positional reassignment that has become semantic
@@ -466,7 +447,8 @@ Accept: no identifier is reconstructed from position anywhere in the declared su
 
 ### 06-21 Axis composition
 
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: 06-18. Writes: `tests/`.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
 Extend 05-85's per-function axis work to chains, especially channel-major to time-major
 boundaries.
 Discriminator: deliberately unequal dimensions, so a transpose cannot pass by coincidence. Equal
@@ -474,14 +456,16 @@ dimensions fail this item.
 
 ### 06-22 Failure propagation
 
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-18. Writes: `tests/`.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
 A missing, ambiguous or non-identifiable intermediate must produce an explicit downstream
 failure, never a zero, a non-finite value read as a result, or an empty valid-looking output.
 Accept: for each chain, the failure surfaces at the boundary where it arises.
 
 ### 06-23 Randomness propagation
 
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-18. Writes: `tests/`.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
 The caller's generator reaches every stochastic child; no child reseeds; one seed reproduces a
 whole workflow; observed and null estimators stay identical where the comparison requires it.
 Discriminator: a child that reseeds produces identical output across two different caller seeds.
@@ -520,7 +504,8 @@ checked.
 
 ### 06-27 Semantic mutation classes over the declared subset
 
-Role: jnwb-developer. Skill: per chain. Blocked by: 06-18, 06-28. Writes: `tests/`.
+Role: jnwb-developer. Skill: per chain. Blocked by: 06-28. Unblocked from 06-18 on 2026-09-20: the subset is ruled and all
+ten chains are declared. Writes: `tests/`.
 Unit scaling, axis swap, sign flip, conjugation, density against spectrum, mean against median
 and sum, log before aggregate, permutation p-value substitution, generator ignored, support gate
 removed, failure converted to a default, identity restoration removed, result key deleted,
@@ -1030,7 +1015,8 @@ Stop: none. A verifier that finds nothing reports finding nothing.
 
 ### 06-84 Decide whether the corpus `neurodata_type` mistyping is jnwb's problem
 
-Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: Hamm. **AUTONOMY: none.**
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. **Ruled by Hamm
+2026-09-20: warn, never refuse.**
 Writes: `artifacts/problem_stack.md`, and code only after the ruling.
 P-54. Measured across 22 real sessions: 9 type spike-train containers as `ElectricalSeries`,
 including an int16 dataset, 12 type the same logical series as `TimeSeries`, and 1 omits
@@ -1040,12 +1026,25 @@ contradicts its contents. `artifacts/fact_stack.md` says a function's signal cla
 silently substituted across a jnwb boundary, which argues for at least a warning; it also says
 jnwb is dataset-agnostic, which argues that a corpus's typing is the corpus's business.
 Those two pull opposite ways here, which is why this is a ruling and not a repair.
-Accept: the row closes as a decision with its reason, or as an item that implements the decision.
-Stop: this item does not implement anything before the ruling.
+**The ruling, and its reason.** jnwb reports the contradiction between a container's
+declared type and its contents, and proceeds. This honours the fact-slot rule that a
+signal class must not be silently substituted across a jnwb boundary, without making
+jnwb the arbiter of a corpus's metadata -- which is what refusing would do, and it
+would make 9 of 22 real sessions unreadable without an override.
+Do: warn once per container, naming the declared type and what the contents indicate.
+The warning is the signal; nothing downstream changes behaviour on it.
+Discriminator: a container whose declared type contradicts its contents warns, and one
+whose type agrees does not. Assert on the warning's content, not merely that a warning
+was raised -- a warning that fires on everything carries no information.
+Accept: all 22 sessions still read; the 9 mistyped and the 1 untyped warn; the 12
+consistent ones do not.
+Stop: if warning once per container turns out to mean warning thousands of times on a
+real session, stop and report -- a warning nobody can read is not the ruled behaviour.
 
 ### 06-85 Decide the eight producers with no public consumer
 
-Role: jnwb-developer. Skill: none. Blocked by: Hamm. **AUTONOMY: none.**
+Role: jnwb-developer. Skill: none. Blocked by: none. **Ruled by Hamm 2026-09-20:
+decide each of the eight separately.**
 Writes: `artifacts/problem_stack.md`, and `jnwb/__init__.py` or `docs/` only after the ruling.
 P-55. `assign_outer_folds`, `build_inner_validation_partitions`, `fit_exponential_onset`,
 `aperiodic_fit`, `xflip`, `zflip`, `consensus_bad_trials` and `detect_band_outliers` produce output
@@ -1054,8 +1053,16 @@ that no public jnwb operation consumes -- the decoder accepts neither `groups` n
 A producer whose output nothing public consumes is either an unfinished chain or an export that
 should not be public, and the two have opposite repairs. `artifacts/goal.md` §2 says a skill names
 an operation and documentation defines it; neither says an operation must terminate somewhere.
-Accept: each of the eight is ruled as a chain to complete or an export to withdraw.
-Stop: this item does not withdraw an export before the ruling. Withdrawing a public name is a
+**The ruling.** One blanket rule would be wrong for at least one of the eight: the
+fold builders look like unfinished chains given the decoder gap, while
+`fit_exponential_onset` and `aperiodic_fit` are outputs a user reads directly and
+terminate legitimately. Each is decided on its own.
+Do: for each of the eight, state which it is and why, in one row -- unfinished chain,
+or terminal output for the caller. Bring the eight rows back with a recommendation
+each; the second ruling is on the rows, not on the principle.
+Accept: eight rows, each with a reason that does not generalise to the other seven
+without being restated.
+Stop: this item does not withdraw an export. Withdrawing a public name is a
 breaking change and a release decision.
 
 ### 06-86 Resolve the two sources that disagree about computational order
