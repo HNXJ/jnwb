@@ -546,6 +546,54 @@ def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarr
     return _with_nwb(path_or_nwb, _read)
 
 
+def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str) -> None:
+    """Warn when the type this series declares fixes a data unit the file does not store.
+
+    `inspect` warns where the contradiction is *declared*; this is where the harm *lands*.
+    An int16 spike container declared `ElectricalSeries` is exactly the case where applying
+    the volts conversion is wrong, and this function returned the converted array and warned
+    nothing.
+
+    The object model cannot witness the disagreement: pynwb substitutes the schema's fixed
+    value on read, so `series.unit` reads ``'volts'`` for a file that stores ``'n.a.'`` --
+    measured. What *is* reachable is the unit recorded beside `data`, because a lazily read
+    series leaves `series.data` as a live `h5py.Dataset` carrying its own attrs. No second
+    open is needed, which is cheaper than this defect was first recorded as costing.
+
+    For an in-memory file never written to disk there is no stored unit and nothing to
+    contradict, so `data` has no attrs and this returns silently.
+    """
+    ndt = getattr(series, "neurodata_type", type(series).__name__)
+    fixed = _SCHEMA_FIXED_DATA_UNIT.get(ndt)
+    if fixed is None:
+        return
+    data = getattr(series, "data", None)
+    attrs = getattr(data, "attrs", None)
+    if attrs is None:
+        return
+    try:
+        stored = attrs.get("unit")
+    except Exception:
+        return
+    if stored is None:
+        return
+    stored = _decode(stored)
+    if stored == fixed:
+        return
+    conversion = getattr(series, "conversion", None)
+    dtype = getattr(data, "dtype", None)
+    warnings.warn(
+        f"acquisition_channel: series '{acq_name}' declares neurodata_type {ndt!r}, for which "
+        f"the NWB schema fixes the data unit to {fixed!r}, but the file stores unit "
+        f"{stored!r} (dtype {dtype}). The returned array has had conversion="
+        f"{conversion!r} applied and is being presented as {fixed}, which is wrong if the "
+        f"series does not hold extracellular voltage. `series.unit` cannot show you this: "
+        f"pynwb substitutes the schema's fixed value on read.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
 def acquisition_channel(
     path_or_nwb: InspectInput,
     name: str | None = None,
@@ -595,6 +643,10 @@ def acquisition_channel(
             raise AcquisitionNotFoundError(
                 f"Series '{acq_name}' has no readable data array"
             )
+
+        # Warned before the array is read and scaled, so the caller sees the contradiction
+        # even if reading the slice then fails for an unrelated reason.
+        _warn_if_declared_unit_contradicts_storage(series, acq_name)
 
         shape = series.data.shape
         if len(shape) == 1:

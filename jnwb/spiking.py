@@ -426,6 +426,20 @@ def gaussian_smooth_rate(
             If sigma_ms <= 0, returns a copy of `rate` un-smoothed.
         axis: Axis along which to smooth (default: -1, the time axis).
 
+    Non-finite input:
+        A Gaussian kernel is a weighted sum, so one non-finite bin contaminates every bin the
+        kernel reaches. This is the one consumer of six that accepts an epoch truncated by the
+        end of the recording, and it used to neither refuse nor report the support it lost.
+        Measured at ``bin_ms=10, sigma_ms=20``: an interior NaN bin widens 1 into 17, and the
+        NaN a boundary policy actually produces sits at an *epoch edge*, where the kernel
+        reaches one side only and the same call widens 1 into 9. Contamination is nine times
+        the defect at the boundary and seventeen times it in the interior.
+
+        The array is still returned -- refusing would break every caller who is knowingly
+        smoothing a padded epoch -- but a ``RuntimeWarning`` now names how many bins went in
+        non-finite and how many came out that way, so the loss is reported rather than
+        silent. Mask or interpolate before calling if the spread is unacceptable.
+
     Returns:
         Smoothed array of the same shape and float dtype as `rate`.
 
@@ -440,5 +454,25 @@ def gaussian_smooth_rate(
 
     from scipy.ndimage import gaussian_filter1d
     sigma_bins = sigma_ms / bin_ms
-    return gaussian_filter1d(arr, sigma=sigma_bins, axis=axis, mode="reflect")
+    out = gaussian_filter1d(arr, sigma=sigma_bins, axis=axis, mode="reflect")
+
+    # Measured on the output rather than predicted from sigma: the kernel's reach is truncated
+    # at an array edge, so a boundary NaN spreads less far than an interior one and a computed
+    # radius would overstate the loss at exactly the position where the loss actually occurs.
+    # No `nan_policy` argument is offered here on purpose -- whether an additive public API
+    # change requires a CHANGELOG entry and a deprecation path is an open ruling (P-93), and
+    # warning needs no new parameter.
+    n_bad_in = int(np.count_nonzero(~np.isfinite(arr)))
+    if n_bad_in:
+        n_bad_out = int(np.count_nonzero(~np.isfinite(out)))
+        warnings.warn(
+            f"gaussian_smooth_rate: {n_bad_in} non-finite bin(s) of {arr.size} spread to "
+            f"{n_bad_out} after smoothing at sigma_ms={sigma_ms} / bin_ms={bin_ms} "
+            f"({sigma_bins:g} bins). A Gaussian kernel is a weighted sum, so every bin the "
+            "kernel reaches is contaminated. Mask or interpolate the non-finite bins before "
+            "smoothing if that spread is not intended.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return out
 

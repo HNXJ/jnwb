@@ -175,13 +175,20 @@ def test_every_consumer_h7_names_is_covered_here() -> None:
 # --------------------------------------------------------------------------------------
 
 
-def test_gaussian_smooth_rate_spreads_a_boundary_nan_and_says_nothing() -> None:
-    """Pins what the composition does today: one NaN bin in, nine out, no warning.
+def test_gaussian_smooth_rate_spreads_a_boundary_nan_and_now_says_so() -> None:
+    """One NaN bin in, nine out -- and the caller is told.
 
-    This records the measurement rather than the repair. The widening is bounded by
-    the kernel radius -- ``sigma_bins = 2`` and ``gaussian_filter1d``'s default
-    ``truncate=4.0`` give a radius of 8 -- so a boundary NaN, which sits at an epoch
-    edge by construction, contaminates 8 further bins on its one available side.
+    The magnitude is the durable half of this test and is unchanged by the repair: the
+    widening is bounded by the kernel radius -- ``sigma_bins = 2`` and
+    ``gaussian_filter1d``'s default ``truncate=4.0`` give a radius of 8 -- so a boundary
+    NaN, which sits at an epoch edge by construction, contaminates 8 further bins on its
+    one available side.
+
+    This test previously asserted that the contamination was *silent*, recording the
+    measurement rather than the repair. P-112 is repaired, so that clause is inverted
+    rather than deleted: the number of contaminated bins and the fact that the caller
+    hears about them are both pinned, and the warning must carry the measured count so a
+    warning that merely fires is not mistaken for one that reports.
     """
     interior, truncated = _rate_epochs()
 
@@ -191,11 +198,19 @@ def test_gaussian_smooth_rate_spreads_a_boundary_nan_and_says_nothing() -> None:
 
     assert np.isnan(truncated).sum() == 1
     assert np.isnan(smoothed).sum() == 9, "kernel radius 8, one-sided at the epoch edge"
-    assert [str(w.message) for w in caught] == [], "the contamination is silent today"
+    messages = [str(w.message) for w in caught]
+    assert len(messages) == 1, messages
+    assert "spread to 9" in messages[0], messages[0]
 
     # Control: the same call on the interior epoch stays finite, so the NaN in the
-    # output came from the boundary and not from the smoothing itself.
-    assert np.isfinite(gaussian_smooth_rate(interior, bin_ms=BIN_MS, sigma_ms=SIGMA_MS)).all()
+    # output came from the boundary and not from the smoothing itself -- and it warns
+    # nothing, so the new warning is not unconditional.
+    with warnings.catch_warnings(record=True) as clean_caught:
+        warnings.simplefilter("always")
+        assert np.isfinite(
+            gaussian_smooth_rate(interior, bin_ms=BIN_MS, sigma_ms=SIGMA_MS)
+        ).all()
+    assert [str(w.message) for w in clean_caught] == []
 
 
 def test_an_interior_nan_bin_widens_into_seventeen() -> None:
@@ -216,20 +231,17 @@ def test_an_interior_nan_bin_widens_into_seventeen() -> None:
     assert np.isnan(gaussian_smooth_rate(edge_nan, bin_ms=BIN_MS, sigma_ms=SIGMA_MS)).sum() == 9
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P-112: gaussian_smooth_rate consumes a boundary NaN silently -- it neither "
-    "refuses the trace nor reports the support the kernel lost",
-)
 def test_gaussian_smooth_rate_tells_the_caller_it_lost_support() -> None:
-    """The invariant, which fails today: the caller is told, one way or the other.
+    """The invariant: the caller is told, one way or the other.
 
-    Which way is a repair decision and is not presumed here -- refusing the trace and
-    reporting the lost support are both acceptable, and this asserts the disjunction.
-    The control that makes this fixture meaningful lives in
-    ``test_gaussian_smooth_rate_spreads_a_boundary_nan_and_says_nothing``, deliberately
-    outside this test: a strict xfail whose own setup breaks still reports xfail, so a
-    control placed in here could mask exactly the failure it exists to detect.
+    Which way was a repair decision and is not presumed here -- refusing the trace and
+    reporting the lost support are both acceptable, and this asserts the disjunction. The
+    repair chose reporting, so that callers knowingly smoothing a padded epoch are not
+    broken. The strict xfail this carried is removed; the control that makes the fixture
+    meaningful still lives in
+    ``test_gaussian_smooth_rate_spreads_a_boundary_nan_and_now_says_so``, deliberately
+    outside this test, because a strict xfail whose own setup breaks still reports xfail
+    and a control placed in here could have masked the failure it existed to detect.
     """
     _, truncated = _rate_epochs()
 

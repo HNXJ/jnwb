@@ -7,11 +7,11 @@ off its own text, printed with the row, so a wrong placement is visible rather t
 | Kind | Blockers | Meaning |
 |---|---|---|
 | `OWNED` | 22 | a live item already claims it; execute that item |
-| `EXECUTE` | 30 | no owner and no stated human dependency; needs a node |
+| `EXECUTE` | 27 | no owner and no stated human dependency; needs a node |
 | `RULING` | 10 | the row itself says a human decision decides it |
 | `GRANT` | 2 | blocked on corpus access, which is Hamm's to give |
 
-64 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
+61 blockers, 52 live items. The first pass left a fifth bucket, `OWNED?` -- the row named a live
 item but not in a position the ownership pattern recognised. All of them are settled here by
 reading them, and the pattern itself was wrong rather than merely narrow: **the column is named
 "Answered in", so a bare item id standing alone in that cell IS the ownership pointer.** P-02,
@@ -55,22 +55,24 @@ by an agent; P-91 changes a shipped return shape.
 | P-115 | **N1 executed.** `jnwb/_layout.py` `require_channel_major` refuses an array whose named axis cannot be a probe's channel axis, on two independent physical bounds: `MAX_LAMINAR_CHANNELS` (1024, against 384 simultaneously recorded sites on the densest device in wide use) and `MAX_PROBE_SPAN_UM` (100 mm, against a 10 mm shank). Two bounds because a contact count under the limit can still imply an impossible shank. The strict xfail on `test_h2_the_time_major_default_spelling_must_raise_or_agree` now XPASSes for both consumers and is removed | `repaired` |
 | P-116 | **N1 executed.** `require_trial_length` refuses a trial too short to carry the estimator's own lag structure. Pooling is what hid this: 400 trials of 7 samples supply thousands of design rows in total, so nothing downstream was short of data. The other three estimators are raised to `phase_slope_index`'s standard rather than its standard being lowered -- its refusal test still passes. The strict xfail now XPASSes for all three and is removed | `repaired` |
 | P-117 | **N1 executed.** The guard sits in `channel_correlation_matrix`, where rows stop being channels, not in the verdict downstream. Reproduced exactly with the guard removed: (6000, 64) in, a (6000, 6000) matrix out, a 6000-entry verdict flagging 0 "channels", all finite, no error. The strict xfail now XPASSes and is removed | `repaired` |
+| P-112 | **N2 executed.** `gaussian_smooth_rate` reports rather than refuses -- the row left the direction open and reporting is the non-breaking half. The spread is measured on the output, not predicted from sigma, because the kernel's reach is truncated at an array edge and a computed radius would overstate the loss exactly where it occurs. No `nan_policy` parameter was added: P-93 is the open ruling on additive API changes, and warning needs none. 17 interior / 9 at an epoch edge stay pinned separately | `repaired` |
+| P-120 | **N2 executed, and more cheaply than the row anticipated.** Its premise was that a second h5py open is needed; measured, it is not -- a lazily read series leaves `series.data` a live `h5py.Dataset`, so `series.data.attrs['unit']` returns the stored value. `series.unit` does read `'volts'` for a file storing `'n.a.'`, as the row says. The warning now fires where the conversion is applied, not only where the contradiction is declared | `repaired` |
+| P-123 | **N2 executed.** `label_layers` checks the result structurally and *first*: the defect lived in the ordering, since `or` short-circuits and the missing field was never read in the ordinary `accepted=False` case. Both accepted states are pinned | `repaired` |
 | P-161 | Condition 5 of STEP 0a now walks the problem-to-item direction, reading **only** the `Answered in` cell -- the narrowing P-161 proved necessary, because the problem cell carries history and a whole-row scan false-flags P-14. `_BARE_POINTER` recognises the bare-id form. Discriminated in both directions by `test_a_deferred_problem_pointing_at_a_dead_item_fails` and `..._pointing_at_a_live_item_passes`. Measured on the live stack: **0 dangling references.** | `repaired` |
 
 ## Tier 2 --- executable nodes
 
-Twelve nodes absorb 28 of the 30 `EXECUTE` blockers; P-107 and P-156 stand alone.
+Eleven nodes absorb 25 of the 27 `EXECUTE` blockers; P-107 and P-156 stand alone.
 
-**N1 is executed and its three blockers are closed** -- see Tier 1. It is recorded there rather
-than here so its claim is checked against the stack's closed set instead of taken on the node's
-word.
+**N1 and N2 are executed and their six blockers are closed** -- see Tier 1. Executed nodes are
+recorded there rather than here, so a node's claim is checked against the stack's closed set
+instead of taken on the node's word.
 
 Grouping is by shared repair surface, not by theme: two blockers share a node only when one
 edit closes both.
 
 | Node | Closes | Surface | Depends on |
 |---|---|---|---|
-| N2 A silent no-op is refused | P-112, P-120, P-123 | `gaussian_smooth_rate` consumes a boundary NaN and widens it; `label_layers` returns 24 `'na'` for a result type it cannot use; the container warning fires where the contradiction is declared and not where the harm lands | --- |
 | N3 The statistics surface states its own correction | P-92, P-61 | `correlate`/`exploratory_correlate` always compute both Pearson and Spearman with no parameter naming one; six skills carry implementation authority, two of which have drifted from the code | D5 for P-91's shape |
 | N4 The computational-order documents claim only what a receipt can supply | P-118, P-127, P-128, P-131 | the inventory claims verification its receipt cannot supply, `computational_order.md` cites `INV-01`..`INV-14` against it, the measurement harness behind it does not exist by the document's own words, and the ratified subset cites uncommitted receipts | **D3** |
 | N5 Gate scope equals gate claim | P-95, P-98, P-150, P-159 | the vocabulary gate excludes `skills/`, `docs/api.md` and the tutorials; a published page leaks internal process vocabulary; the tutorial corpus is a closed loop two gates pass on; gate 16 cannot see a wholesale line-ending conversion | P-98 is ordered: docs rewrite, then gate |

@@ -784,6 +784,27 @@ def label_layers(
         doi:10.1038/s41593-023-01554-7
     """
     # 1. Parameter validation
+    #
+    # The result type is checked first, and structurally rather than by class, because this
+    # function is duck-typed on `crossover_contact`. Handed an `XFlipResult` or `ZFlipResult`,
+    # which do not carry that field, it used to raise a bare `AttributeError` when
+    # `accepted=True` -- and when `accepted=False`, the ordinary case, `or` short-circuits
+    # before the field is ever read, so it took the all-"na" path and returned a full-length
+    # label array with no error and no warning. A wrong-type result then reads as an honest
+    # negative result, which is the failure direction that does not get noticed.
+    #
+    # Structural and not `isinstance`: any result that genuinely carries this geometry's
+    # fields is usable, so the requirement is the fields, not the class.
+    _required = ("accepted", "crossover_contact", "n_channels", "index_space")
+    _missing = [f for f in _required if not hasattr(vflip_result, f)]
+    if _missing:
+        raise TypeError(
+            f"label_layers requires a vflip-style result carrying {list(_required)}; "
+            f"{type(vflip_result).__name__} is missing {_missing}. Layer labelling is defined "
+            "against the spectrolaminar crossover along a linear shaft, so a result from a "
+            "different flip axis cannot be relabelled into it."
+        )
+
     granular_thickness_um = float(granular_thickness_um)
     if granular_thickness_um <= 0 or not np.isfinite(granular_thickness_um):
         raise ValueError(
