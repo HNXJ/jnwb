@@ -172,8 +172,15 @@ results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review iden
 
 ### 06-67 Rule the missingness truth table for the read path
 
-Role: human ruling. Skill: none. Blocked by: none. Writes: `jnwb/nwb_io.py`, `artifacts/goal.md`, AUTONOMY: none.
-`docs/errors.md`, `tests/`.
+Role: human ruling. Skill: none. Blocked by: none. AUTONOMY: none.
+Writes: `artifacts/problem_stack.md`.
+**Write set corrected 2026-09-20.** It previously read `jnwb/nwb_io.py`, `artifacts/goal.md`,
+`docs/errors.md` and a bare `tests/`, with `AUTONOMY: none.` spliced into the middle of the
+list -- a full stop that made every entry after it invisible to any parser bounded by a
+sentence. Two defects in one field: the ruling declared an implementation write set it does
+not perform, and three of its four entries could not be read. **06-82 already owns**
+`jnwb/nwb_io.py`, `docs/*.md` and the test; this item produces a decision, and 06-82 applies
+it. See P-125.
 The opt-in shipped on 2026-09-19 and one cell of its behaviour is undecided. Stating it as a table
 first, because sentinel semantics decided after implementation are decided by the implementation.
 
@@ -233,7 +240,7 @@ Stop: a repair cannot be verified without changing it. Say so; do not change it.
 ### 06-05 Freeze the acceptance set and the non-goals
 
 Role: human ruling. Skill: none. Blocked by: 06-13. AUTONOMY: none.
-Writes: this file.
+Writes: `artifacts/todo_stack.md`.
 06-01 and 06-02 were ruled on 2026-09-19 and are no longer blockers; 06-13 is the last one.
 Freeze the set from **live reproduced state**, not by copying the planning text: each condition
 is re-established against this tree at the moment of freezing, and one that cannot be reproduced
@@ -1051,47 +1058,6 @@ inverting the stale wording.
 Accept: the sentence is replaced by Hamm, and `goal.md` and `fact_stack.md` agree.
 Stop: this item writes nothing to `artifacts/fact_stack.md` before the ruling.
 
-### 06-94 Gate the two stack-form defects that keep recurring
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
-P-108 and the closed-table column slip. Both are defects in the form of the stacks themselves,
-both were repaired by hand this release, and both recur because nothing reads the files.
-
-**Check A, schedulability.** No `Writes:` field may contain a code span ending in `/`.
-`AGENTS.md`'s lane rule is that two agents run concurrently iff their `Writes` sets are provably
-disjoint, and a bare directory cannot be compared against anything. Measured at `5257e430`: 37 of
-60 items named one and 31 named `tests/`, so the stack declared a maximum parallelism of 1 across
-more than half its work. A glob passes -- `docs/*.md` conflicts honestly with `docs/api.md`,
-which is the answer a scheduler needs; `docs/` conflicts with everything and says nothing.
-
-Where check A is hard is the field boundary, not the pattern. A first cut here bounded the field
-at 220 characters and reported two violations that were prose -- 06-67 discussing `tests/` and
-06-73 naming the `artifacts/developer/.cache/` directory it exists to exclude. Both are correct
-items. Bound the field at its own sentence end and the count is zero. **A check that fires on
-prose is worse than no check: it trains a reader to dismiss its output, which is how the one real
-violation gets waved through.** Seed the discriminator with both -- a genuine bare directory in a
-`Writes:` field, and a directory named in the prose of an item whose field is clean -- and require
-the first to fail the check and the second to pass it.
-
-**Check B, table form.** Every row of `artifacts/problem_stack.md` carries exactly the delimiter
-count its own table's header declares, counting `\|` inside a code span as content rather than as
-a delimiter. `Open` is four columns and `Closed` is four different ones, which is why rows get
-written with the wrong shape when a row moves between them: this session wrote a `Found by` cell
-into a `Closed` row that has no such column, having already repaired the same shape in P-38, P-39
-and P-40, and an unescaped pipe inside a code span in P-29 and P-81.
-
-Discriminator: each check fails on a seeded violation of its own rule and passes on the live tree.
-Seed check A with a bare `tests/` in one item and check B with both shapes -- a missing cell and an
-unescaped pipe inside backticks. A check that only passes proves nothing here, because the tree is
-clean at the moment the check is written; that is the state 06-23's packet calls out and it applies
-to the gate itself.
-Accept: gate count rises to 15 with both checks failing on their seeds, and the surfaces that
-assert 14 are updated in the same change rather than left to fail later.
-Stop: this item does not rewrite any item's content, only the form of the `Writes` field if a
-later edit reintroduces a directory. It does not touch `artifacts/fact_stack.md` or
-`artifacts/goal.md`.
-
 ### 06-95 Scope the estimator-delay identity in the smoother's docstring
 
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
@@ -1115,33 +1081,13 @@ onset, the skill and the docstring state the same rule, and the mutant above is 
 Stop: this item does not change what `causal_exp_smooth` computes. If the wording cannot be fixed
 without changing behaviour, stop and report.
 
-### 06-96 Stop the decoding page instructing an impossible action
-
-Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `docs/09_decoding_and_visual_qc.md`, `tests/test_docs_decoding_chain.py`.
-P-122. The page contradicts itself inside one screen: a mermaid edge at line 15 asserts
-`build_inner_validation_partitions -> nested_cv_linear_svm`, lines 35-40 state in bold that the
-decoder takes no `groups` argument, line 40 instructs the reader to "pass its partitions" anyway,
-and line 64 computes `inner_splits` and never uses it again. The prose half is already correct and
-is not the thing to change.
-Do: redraw the edge to end where the API ends, and say plainly that the partitions are applied by
-the caller, with what that costs. Either drop `inner_splits` from the example or show what a
-caller actually does with it.
-Discriminator: a test that fails on the page as it stands today. Assert the composition, not the
-wording -- every operation the diagram draws an edge into accepts the producer's output, checked
-against the live signature rather than against the page. **A test asserting the current text
-passes on a page that still tells the reader to do the impossible**, which is what a snapshot
-would do here.
-Accept: P-122 closes; no edge in the page's diagrams names a composition the signatures refuse;
-no assigned name in a worked example is unused.
-Stop: this item does not add a parameter to `nested_cv_linear_svm`. If the honest diagram turns
-out to need one, stop and report -- that is a capability decision.
-
 ### 06-97 Give `xflip` a documented call site
 
 Role: docs-harness. Skill: `jnwb-laminar`. Blocked by: none.
 Writes: `docs/06_spikes_psth_and_onset_dynamics.md`, `examples/tutorials/06_laminar.py`,
 `tests/test_docs_decoding_chain.py`.
+**`tests/test_docs_decoding_chain.py` already exists** -- 06-96 created it on 2026-09-20 with 8 tests gating mermaid edges on every
+`docs/` page. Extend that module; do not create it. It must not be held by two lanes at once.
 P-55's residue, recorded at `artifacts/unconsumed_producers_0.2.6.md`. `xflip` is the only one of
 the eight producers with **zero** documented call sites; the other seven have between one and
 five, and `zflip` -- its nearest sibling, ruled a terminal output on the same grounds -- has a
@@ -1154,32 +1100,6 @@ actually returns, checked against the live dataclass rather than against a writt
 Accept: `xflip` has a documented, executed call site; the ruling's "the gap is documentation"
 reading is discharged rather than asserted.
 Stop: this item adds no consumer and does not change what `xflip` returns.
-
-### 06-98 No tracked file may carry both line-ending conventions
-
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `.gitattributes`, `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`,
-`skills/jnwb-nwb-data/SKILL.md`, `artifacts/agents/actor.md`, `artifacts/agents/authority.md`,
-`artifacts/agents/critic.md`, `artifacts/agents/docs-harness.md`, `artifacts/agents/verifier.md`,
-`docs/_theme_override.css`, `skills/jnwb-fact-action/agents/openai.yaml`.
-P-124. Eight tracked files carry both CRLF and bare LF. A mixed file is a defect under any policy,
-which is why this item repairs those and does **not** decide whether `skills/` should stay CRLF --
-that is a separate question and the measurement is in the row.
-Do: normalise each of the eight to the convention its own directory already holds -- LF everywhere
-except `skills/`, which is CRLF 16 of 18. `skills/jnwb-nwb-data/SKILL.md` is the only substantial
-one at 98 CRLF against 15 LF; it becomes CRLF. **This changes line endings and not one character
-of content**, which the discriminator must show rather than assert.
-Do: declare the measured convention in `.gitattributes` so a fresh clone reproduces it, and gate
-it, because a convention nothing reads is what produced this row.
-Discriminator: the gate fails on a seeded mixed file and passes on the live tree, and a second
-check shows each normalised file is byte-identical to its predecessor once line endings are
-folded -- compare content hashes with endings normalised, not the raw bytes, since the raw bytes
-are exactly what changed. **Verify in bytes; a `read_text` comparison would pass no matter what
-happened**, which is the standing rule this item is an instance of.
-Accept: no tracked text file carries both conventions; `.gitattributes` states the measured
-convention; the gate fails on its own seed; content is provably unchanged.
-Stop: this item does not renormalise any file that is already internally uniform, and does not
-settle whether `skills/` should be CRLF. If normalising a file changes a content hash, stop.
 
 ### 06-99 Verify the container-type predicate against the corpus
 
@@ -1205,6 +1125,128 @@ Accept: the predicate's behaviour on the corpus is stated with counts; P-54 clos
 if it fires where the ruling says, or the predicate is corrected if it does not.
 Stop: this item reads the corpus and writes nothing to it. If access is not granted it stays
 blocked rather than being closed on fixture evidence, which is the whole point of the row.
+
+### 06-100 Make the docs call-shape check reach the pages it claims to check
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_docs_call_shapes.py`.
+P-84, whose cause is measured and is **three independent defects, not one**. The test is the
+reason ten documented-call defects survived to be found by hand.
+Reproduce: print the corpus the collector actually walks -- which pages, which fence kinds, which
+call forms -- before changing a line. The three causes to confirm: `:122` compares
+`len(node.args) > len(slots)`, one-sided and never calling `bind`, so too-few-positionals passes;
+the collector requires `func.value` to be an `ast.Name` equal to `"jnwb"`, so every
+`jnwb.visual_qc.f(...)` call is skipped outright; and `docs/10` contains zero ```python fences, so
+the page holding P-72 and P-74 was never in the corpus at all.
+Do: widen the corpus first, then the assertion. Repairing the assertion alone still misses six of
+the ten.
+Discriminator: each of the ten known defects is reintroduced one at a time and the test fails for
+each. **Prove the selector passes pristine before reading any failure as a kill.**
+Accept: the test states which pages and which call forms it covers, and that statement is itself
+checked rather than written in a docstring.
+Stop: if widening the corpus surfaces defects beyond the ten, record them and do not repair them
+here -- this item fixes the check, not what the check finds.
+
+### 06-101 Rule which surface is wrong when the quickstart's last line raises
+
+Role: human ruling. Skill: none. Blocked by: none.
+Writes: `artifacts/problem_stack.md`.
+P-83, and it is on the newcomer path: `docs/quickstart.md:151` prints `float(jrsa_res.p)` and
+raises. With `stats=True`, `JRSAResult.p` is shape `(1,)` while `value`, `statistic` and `ci` are
+0-d, and `float()` on a 1-element array is an error under NumPy >= 2, which
+`pyproject.toml:42` (`numpy>=1.26.0`) admits. `q` is a second instance, same shape.
+The two repairs are not equivalent and neither is free:
+| Repair | Cost |
+|---|---|
+| Fix the page -- wrap in `.item()` or index | `p` stays asymmetric with its own siblings, and the next reader writes the same line again |
+| Fix the field -- make `p` and `q` 0-d like the others | A public-API shape change; any caller indexing `p[0]` breaks |
+Rule between them. The evidence is assembled and this item writes no code either way.
+Accept: the ruling is recorded, P-83 gains an owning item under it, and whichever surface is
+chosen gains a test that fails if the shapes drift apart again.
+Stop: do not repair the page before the ruling. A page edit would close the visible symptom and
+leave the asymmetry that caused it.
+
+### 06-102 Retire the two convention texts that would undo a completed repair
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `CONTRIBUTING.md`, `docs/10_reproducibility_and_rng.md`.
+P-73, and the direction of repair is settled by measurement rather than taste: the signatures are
+correct and the prose is stale. Both texts prescribe `rng: Optional[Union[Generator, int]] = None`.
+Measured: **19 of 23 `rng` parameters deliberately do not present `None`**, and `jnwb/_rng.py`
+records that moving the seed into the signature **was the 05-35 repair** -- five functions once
+declared `rng=None` and then ran `default_rng(42)` internally, which is the bug the convention
+would reintroduce.
+Do: state the convention the code actually follows, and say why, so the next contributor does not
+read the old form as the intended one.
+Discriminator: a test asserts the documented form against the live signatures, so the two cannot
+drift apart again. That is the durable half of this item -- the prose edit alone has a shelf life.
+Accept: no convention text prescribes a form the package does not use, and the check names the
+four parameters that legitimately do present `None`.
+Stop: do not change any signature. This item repairs documentation and adds a check.
+
+### 06-103 The state file asserts a protection that does not exist
+
+Role: jnwb-developer. Skill: none. Blocked by: 06-94 -- both write the gate script.
+Writes: `scripts/reconstruct_state.py`, `tests/test_state_basis_is_checked.py`.
+P-65, and it is P-37 inside the `state` slot. `artifacts/state.md:4-5` asserts "a gate fails when
+this file no longer matches the tree, so a stale basis cannot be read as a current one." **No gate
+reads it.** `harness_gate.py` never mentions the file, and the gate ran 13/13 while the file was
+stale. The one test invoking `--check` asserts `"PASS" in out or "ERROR" in out`, which **both
+outcomes satisfy** -- a check that cannot fail. The sentence is emitted by
+`scripts/reconstruct_state.py:122`, so every regeneration re-asserts the protection afresh.
+Do: either make the claim true or stop making it. If a gate is added it belongs in 06-94's set,
+which is why this item is blocked on it rather than racing it.
+Discriminator: staleness is introduced deliberately and the check fails. The existing
+`"PASS" in out or "ERROR" in out` assertion must fail too under an inverted outcome, or it is
+being replaced by another tautology.
+Accept: `artifacts/state.md` claims exactly what is enforced, and the enforcing check distinguishes
+its two outcomes.
+Stop: `artifacts/state.md` content is not this item's to rewrite beyond the one false sentence.
+
+### 06-104 Close the skill coverage and authority gaps as one pass
+
+Role: docs-harness. Skill: `jnwb-fact-action`. Blocked by: none.
+Writes: `artifacts/skills_coverage_0.2.6.md`.
+P-63, P-61, P-100 and P-101, which are one surface seen four ways and should not be four packets.
+| Row | What is measured |
+|---|---|
+| P-63 | **30 public exports are named in no skill**, including `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` and the whole `Query`/`Question`/`Result`/`Interpretation`/`Lineage`/`Provenance` cluster -- an agent-facing subsystem no skill discovers |
+| P-61 | **Eight statements across six skills carry implementation authority rather than routing** -- joblib pool internals, the Welford accumulator, `10*log10(ratio)`, the fitted exponential form, Beta-quantile inversion, the `location`-then-`area` order, and what `granger` wraps |
+| P-100 | Gate 14 gates **2 of the 6** agent role names; `authority`, `critic`, `actor` and `verifier` are ordinary English and are not gated |
+| P-101 | `checked >= 65` in the skills signature test sits against **116 actual rows** -- a floor loose enough that a mass deletion passes |
+**Skill files are doctrine-adjacent: this item proposes wording and applies none of it.** It writes
+one artifact carrying the coverage table, the eight statements with a routing rewrite for each, and
+the two harness repairs (the gate's name set, the floor).
+Discriminator: the coverage count is recomputed from `jnwb.__all__` and the skill tree at the time
+of writing, not copied from P-63. **P-63's own number is under test** -- a row asserting 30 was
+written before this cycle changed the export surface.
+Accept: every one of the four rows has either a proposed edit or a measured reason it needs none,
+and the floor repair is stated as a number derived from the tree.
+Stop: propose, do not apply. Any edit to `skills/**` requires Hamm, and the two harness repairs
+belong to whoever holds `scripts/harness_gate.py`.
+
+### 06-105 Make gate 8 enforce the convergence the goal says it enforces
+
+Role: jnwb-developer. Skill: none. Blocked by: 06-94, 06-105 and it both write the gate script.
+Writes: `scripts/harness_gate.py`, `tests/test_gate8_covers_every_version_surface.py`.
+P-68. `artifacts/goal.md:70` claims gate 8 enforces convergence across `requires-python`, the
+classifiers, the CI matrix, the install documentation, the README and release material. **Gate 8
+reads three files**: `.github/`, `.readthedocs.yaml`, `pyproject.toml`. No README, no
+`docs/install.md`. P-C4 is the evidence that nothing mechanical holds the rest -- it records
+`docs/install.md` being corrected **by hand**.
+Two repairs are available and they are not equivalent. Narrowing the claim edits
+`artifacts/goal.md`, which is Hamm's slot and not an agent's to touch. **Widening the gate makes
+the existing claim true and needs no ruling**, so that is the direction unless it proves
+impossible.
+Do: extend gate 8 to the two surfaces it omits. Derive the expected version from
+`jnwb.__version__` and `pyproject.toml` rather than maintaining a list.
+Discriminator: a version is skewed in the README, and separately in `docs/install.md`, and the
+gate fails for each. **Prove the selector passes pristine first** -- a gate that reads a file it
+cannot find also reports zero violations.
+Accept: every surface `artifacts/goal.md:70` names is read by gate 8, and P-68 closes as
+`repaired` without `artifacts/goal.md` being edited. If some named surface genuinely cannot be
+checked mechanically, say which and why, and P-68 then needs Hamm rather than this item.
+Stop: do not edit `artifacts/goal.md`. If the claim cannot be made true, report that and stop.
 
 ## Reported and not admitted
 

@@ -20,6 +20,8 @@ protected paths to skill-tree uniqueness without the list noticing.
   12. Project identifiers in jnwb/ code strings.
   13. NWB onboarding surface alignment across README, tutorials, skill, and MkDocs.
   14. Internal process vocabulary kept out of public documentation.
+  15. Stack form consistency: declared write sets are comparable and problem rows keep shape.
+  16. Line ending consistency: no tracked text file carries both conventions at once.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -28,6 +30,7 @@ from __future__ import annotations
 import ast
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -279,6 +282,7 @@ TOOL_ROOT_DIRS = {".claude"}
 
 ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS | TOOL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
+    ".gitattributes",
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
     "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
     # CLAUDE.md is git-ignored and untracked: AGENTS.md is the only repository-level
@@ -1172,6 +1176,221 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     return violations
 
 
+#: The two coordination stacks gate 15 reads. Both are tracked; a missing one is a broken
+#: sweep rather than a clean tree, and is reported as such.
+TODO_STACK = "artifacts/todo_stack.md"
+PROBLEM_STACK = "artifacts/problem_stack.md"
+
+
+def _code_span_mask(text: str) -> bytearray:
+    """A byte per character, 1 where that character sits inside a code span or fenced block.
+
+    The stacks quote their own rules, so this cannot be skipped. `artifacts/todo_stack.md`
+    contains the literal ``Writes:`` inside a code span twice, where 06-94 states the rule it
+    is asking for. A scanner that treats those as field labels starts in the middle of a span,
+    has its backtick parity inverted from that point on, and pairs the gaps *between* code
+    spans instead of the spans. The first version of this check did exactly that: two labels
+    swallowed 12,488 and 11,377 characters to the end of the file, and it still reported zero
+    violations -- not because the stack was clean, but because it was no longer looking at
+    code spans at all. A run-on field is the failure this mask exists to prevent.
+    """
+    mask = bytearray(len(text))
+    index, end = 0, len(text)
+    while index < end:
+        if text.startswith("```", index):
+            close = text.find("```", index + 3)
+            close = end if close == -1 else close + 3
+            for offset in range(index, close):
+                mask[offset] = 1
+            index = close
+            continue
+        if text[index] == "`":
+            close = text.find("`", index + 1)
+            newline = text.find("\n", index + 1)
+            # An inline span closes on its own line; a lone backtick is not a span.
+            if close != -1 and (newline == -1 or close < newline):
+                for offset in range(index, close + 1):
+                    mask[offset] = 1
+                index = close + 1
+                continue
+        index += 1
+    return mask
+
+
+def _writes_fields(text: str) -> List[Tuple[int, str]]:
+    """Every `Writes:` field, as (line number, field text), bounded at its own sentence end.
+
+    The boundary is where this check is hard, not the pattern. A field wraps across up to four
+    lines, and a `.` inside a code span is content -- `docs/api.md` is a path, not two
+    sentences -- so the scan ends at the first `.` outside a code span that is followed by
+    whitespace, with a blank line as a backstop so a malformed field cannot run past its own
+    paragraph.
+
+    Bounding by a fixed character count instead reports prose as a violation. At 220 characters
+    this named 06-67, whose text *discusses* `tests/`, and 06-73, which names the cache
+    directory it exists to exclude. Both items are correct. A check that fires on prose is
+    worse than no check, because it teaches its reader to dismiss the output, and that is how
+    the one real violation gets waved through.
+    """
+    mask = _code_span_mask(text)
+    fields: List[Tuple[int, str]] = []
+    for label in re.finditer(r"Writes:", text):
+        if mask[label.start()]:
+            continue  # the rule quoted in prose, not a field declaring a write set
+        index = label.end()
+        paragraph = text.find("\n\n", index)
+        stop = len(text) if paragraph == -1 else paragraph
+        while index < stop:
+            if (
+                text[index] == "."
+                and not mask[index]
+                and (index + 1 >= stop or text[index + 1].isspace())
+            ):
+                break
+            index += 1
+        fields.append((text.count("\n", 0, label.start()) + 1, text[label.end():index]))
+    return fields
+
+
+#: Unescaped `|` delimits a GFM table cell. `\|` is content wherever it appears, including
+#: inside a code span: GFM splits a row into cells *before* it parses inline code, which is
+#: why P-29 and P-81 shipped rows whose backticked pipes silently became extra columns.
+_ESCAPED_PIPE = re.compile(r"\\\|")
+
+
+def _row_delimiters(line: str) -> int:
+    return _ESCAPED_PIPE.sub("", line).count("|")
+
+
+def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 15 (Stack Form Consistency): the coordination stacks stay machine-readable.
+
+    Two defects in the form of the stacks themselves, both repaired by hand during 0.2.6 and
+    both recurring because nothing read the files.
+
+    **Declared write sets must be comparable.** Two agents may run concurrently exactly when
+    their `Writes` sets are provably disjoint, so a `Writes:` field naming a bare directory
+    answers no question a scheduler asks. Measured at `5257e430`: 37 of 60 items named one and
+    31 named the same directory, which declared a maximum parallelism of one across more than
+    half the work (P-108). A glob passes, because `docs/*.md` conflicts honestly with
+    `docs/api.md` while `docs/` conflicts with everything and says nothing.
+
+    **Every problem row carries its own table's column count.** The open table is
+    `ID | Problem | Found by | Answered in` and the closed table is
+    `ID | Problem | Disposition | Evidence` -- four columns each, but not the same four, so a
+    row moving between them acquires the wrong shape. This shipped five times in one session.
+    """
+    root = repo_root or REPO_ROOT
+    violations: List[str] = []
+
+    todo_path = root / TODO_STACK
+    if not todo_path.is_file():
+        violations.append(f"STACK_FORM: {TODO_STACK} is missing; the sweep is broken, not the tree")
+    else:
+        fields = _writes_fields(todo_path.read_text(encoding="utf-8"))
+        # A sweep that finds no field reports no violation, which reads exactly like a clean
+        # stack. Gate 14 and gate 8 guard the same way.
+        if not fields:
+            violations.append(
+                f"STACK_FORM: no 'Writes:' field found in {TODO_STACK}; the sweep is broken"
+            )
+        for lineno, field in fields:
+            for span in re.findall(r"`([^`\n]*)`", field):
+                if span.endswith("/"):
+                    violations.append(
+                        f"STACK_FORM: {TODO_STACK}:{lineno} declares `{span}` in its 'Writes:' "
+                        "field. A bare directory cannot be compared against another item's "
+                        "write set, so the item is mutually exclusive with everything that "
+                        "touches the tree. Name the files, or a glob if the item genuinely "
+                        "spans them."
+                    )
+
+    problem_path = root / PROBLEM_STACK
+    if not problem_path.is_file():
+        violations.append(
+            f"STACK_FORM: {PROBLEM_STACK} is missing; the sweep is broken, not the tree"
+        )
+        return violations
+
+    header, header_line, rows, fenced = None, 0, 0, False
+    for lineno, raw in enumerate(problem_path.read_text(encoding="utf-8").splitlines(), 1):
+        if raw.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        line = raw.strip()
+        if not line.startswith("|"):
+            header = None  # a blank line or a heading ends the table
+            continue
+        rows += 1
+        count = _row_delimiters(line)
+        if header is None:
+            header, header_line = count, lineno
+            continue
+        if count != header:
+            violations.append(
+                f"STACK_FORM: {PROBLEM_STACK}:{lineno} has {count} cell delimiters against the "
+                f"{header} its table declares at line {header_line}. Either a cell is missing, "
+                "or a `|` inside a code span was left unescaped -- GFM splits cells before it "
+                r"parses inline code, so write `\|` even inside backticks."
+            )
+    if not rows:
+        violations.append(f"STACK_FORM: no table row found in {PROBLEM_STACK}; the sweep is broken")
+    return violations
+
+
+def check_line_ending_consistency(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 16 (Line Ending Consistency): no tracked text file mixes CRLF and bare LF.
+
+    P-124. Nothing declared a convention and eight tracked files carried both at once. This is
+    not cosmetic: a byte-mode edit anchored with the wrong ending matches nothing and reads
+    exactly like "the text is not there", and `git apply` refuses a patch whose context lines
+    disagree -- five `git apply --check` runs failed in one release before the cause was found.
+
+    The gate deliberately holds each file only against *itself*. Whether `skills/` should stay
+    CRLF while every other directory is LF is a cross-directory policy question that P-124
+    records the measurement for and does not answer; a mixed file is a defect under either
+    answer. `.gitattributes` marks the tree `-text` so a clone reproduces the committed bytes
+    on every platform rather than leaving it to each contributor's `core.autocrlf`.
+    """
+    root = repo_root or REPO_ROOT
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split("\0")
+    except Exception as exc:  # no git, or not a checkout: say so rather than passing
+        return [f"LINE_ENDINGS: could not list tracked files under {root} ({exc})"]
+
+    violations: List[str] = []
+    scanned = 0
+    for relative in filter(None, tracked):
+        path = root / relative
+        if not path.is_file():
+            continue  # listed but not checked out, e.g. a sparse checkout
+        data = path.read_bytes()
+        if b"\0" in data[:8000]:
+            continue  # binary
+        crlf = data.count(b"\r\n")
+        bare = data.count(b"\n") - crlf
+        scanned += 1
+        if crlf and bare:
+            violations.append(
+                f"LINE_ENDINGS: {relative} carries {crlf} CRLF and {bare} bare LF. A file that "
+                "mixes conventions is inconsistent under any policy; normalise it to the one "
+                "its own directory already holds."
+            )
+    if not scanned:
+        violations.append(
+            f"LINE_ENDINGS: no tracked text file found under {root}; the sweep is broken"
+        )
+    return violations
+
+
 def _one(check: Any, header: str) -> Any:
     """Adapt a check returning violations into the (header, violations) shape the runner wants."""
 
@@ -1250,6 +1469,13 @@ GATES: List[Tuple[int, Any, Any]] = [
      lambda: f"PASS: No internal process vocabulary in docs/ ({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
              "among them)."),
+    (15, _one(check_stack_form_consistency,
+              "FAIL: Coordination stack form is not machine-readable:"),
+     lambda: "PASS: Stack form consistent (every declared write set names comparable paths; "
+             "every problem row carries its own table's column count)."),
+    (16, _one(check_line_ending_consistency,
+              "FAIL: Tracked files carry both line-ending conventions:"),
+     lambda: "PASS: Line endings consistent (no tracked text file mixes CRLF and bare LF)."),
 ]
 
 

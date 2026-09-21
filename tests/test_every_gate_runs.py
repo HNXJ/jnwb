@@ -187,4 +187,6 @@ def test_pass_requires_every_gate_and_not_merely_no_failures(capsys):
 
     # An empty gate list trivially passes, which is why the count is asserted separately here and
     # in test_the_live_repository_passes_every_gate rather than inferred from the verdict line.
-    assert len(harness_gate.GATES) == 14
+    # Deliberately a literal: deriving it from GATES would compare the value to itself and
+    # assert nothing. Adding a gate means bumping it -- 14 -> 16 when 06-94 and 06-98 landed.
+    assert len(harness_gate.GATES) == 16

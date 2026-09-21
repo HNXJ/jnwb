@@ -25,8 +25,10 @@ from scripts.harness_gate import (
     check_docs_version_matches_package,
     check_frozen_boundary,
     check_internal_process_vocabulary,
+    check_line_ending_consistency,
     check_logarithm_last_rule,
     check_modality_isolation,
+    check_stack_form_consistency,
     validate_receipt_provenance,
 )
 
@@ -1291,3 +1293,300 @@ class TestDeclaredEnvironmentPreflight:
 
         monkeypatch.setattr("importlib.metadata.distribution", lambda name: object())
         assert rg.verify_declared_environment() == []
+
+
+# ------------------------------------------------- gate 15: coordination stack form
+
+#: A problem stack with both tables well formed. Four columns each, but not the same four --
+#: which is the whole reason a row moving between them acquires the wrong shape.
+CLEAN_PROBLEM_STACK = """# Problem stack
+
+## Open
+
+| ID | Problem | Found by | Answered in |
+|---|---|---|---|
+| P-1 | A defect | this session | Open -- unowned |
+
+## Closed
+
+| ID | Problem | Disposition | Evidence |
+|---|---|---|---|
+| P-2 | Another defect | `repaired` | A receipt |
+"""
+
+#: An item whose declared write set names files. Nothing here is a directory.
+CLEAN_TODO_STACK = """# 0.2.6
+
+### 06-01 An ordinary item
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_one.py`.
+Body text that says what the item does.
+"""
+
+
+def _stack_tree(tmp_path: Path, todo: str, problem: str) -> Path:
+    root = tmp_path / "tree"
+    (root / "artifacts").mkdir(parents=True)
+    (root / "artifacts" / "todo_stack.md").write_text(todo, encoding="utf-8")
+    (root / "artifacts" / "problem_stack.md").write_text(problem, encoding="utf-8")
+    return root
+
+
+class TestGate15DeclaredWriteSetsAreComparable:
+    """P-108: 37 of 60 items named a bare directory, 31 of them the same one.
+
+    Two agents may run at once exactly when their `Writes` sets are provably disjoint, so an
+    item declaring a directory is mutually exclusive with everything that touches the tree.
+    The stack declared a maximum parallelism of one across more than half its work, and the
+    cost was paid per dispatch rather than seen.
+    """
+
+    def test_the_live_stack_passes(self):
+        """The selector must pass pristine before any failure of it can be read as a kill."""
+        assert check_stack_form_consistency() == []
+
+    def test_a_bare_directory_in_a_writes_field_is_rejected(self, tmp_path: Path):
+        seeded = CLEAN_TODO_STACK.replace("`tests/test_one.py`", "`tests/`")
+        found = check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_PROBLEM_STACK))
+        assert len(found) == 1, found
+        # The line number is asserted too: a report that cannot point at the field is not
+        # actionable, and the field starts on the stack's sixth line.
+        assert "`tests/`" in found[0] and "todo_stack.md:6" in found[0], found
+
+    def test_a_glob_is_not_a_bare_directory(self, tmp_path: Path):
+        """`docs/*.md` conflicts honestly with `docs/api.md`; `docs/` conflicts with everything."""
+        seeded = CLEAN_TODO_STACK.replace("`tests/test_one.py`", "`docs/*.md`")
+        assert check_stack_form_consistency(_stack_tree(tmp_path, seeded, CLEAN_PROBLEM_STACK)) == []
+
+    def test_a_directory_named_in_prose_is_not_reported(self, tmp_path: Path):
+        """The false positive a fixed-width field boundary produced, kept as a live case.
+
+        Bounding the field at 220 characters reported two items whose fields were clean and
+        whose *prose* named a directory -- 06-67 discussing `tests/`, and 06-73 naming the
+        cache directory it exists to exclude. Both items were correct. A check that fires on
+        prose is worse than no check: it teaches its reader to dismiss the output, which is
+        how the one real violation gets waved through.
+        """
+        prose = CLEAN_TODO_STACK + """
+### 06-02 An item whose prose names directories
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/release_gate.py`.
+This item discusses `tests/` at length, and names the `artifacts/developer/.cache/`
+directory that it exists to exclude. Neither is a declared write set.
+"""
+        assert check_stack_form_consistency(_stack_tree(tmp_path, prose, CLEAN_PROBLEM_STACK)) == []
+
+    def test_the_rule_quoted_in_a_code_span_is_not_read_as_a_field(self, tmp_path: Path):
+        """The defect this check shipped with, found before it was committed.
+
+        The stack states its own rule, so `` `Writes:` `` occurs inside a code span. A scanner
+        that treats that as a field label begins mid-span, has its backtick parity inverted
+        from that point on, and pairs the gaps *between* code spans instead of the spans. On
+        the live stack two such labels swallowed 12,488 and 11,377 characters to the end of
+        the file -- and the check still reported zero violations, not because the stack was
+        clean but because it had stopped looking at code spans at all.
+        """
+        from scripts.harness_gate import _writes_fields
+
+        quoting = CLEAN_TODO_STACK + """
+### 06-03 An item that states the rule
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/release_gate.py`.
+**Check A.** No `Writes:` field may contain a code span ending in `/`, because a bare
+directory such as `docs/` cannot be compared against `docs/api.md`.
+"""
+        fields = _writes_fields(quoting)
+        # Two real fields, not three: the quoted label declares nothing.
+        assert len(fields) == 2, fields
+        # And neither ran past its own paragraph into the sentence that states the rule.
+        assert all("Check A" not in text for _, text in fields), fields
+        assert check_stack_form_consistency(
+            _stack_tree(tmp_path, quoting, CLEAN_PROBLEM_STACK)
+        ) == []
+
+    def test_a_missing_todo_stack_is_reported_rather_than_passing(self, tmp_path: Path):
+        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, CLEAN_PROBLEM_STACK)
+        (root / "artifacts" / "todo_stack.md").unlink()
+        found = check_stack_form_consistency(root)
+        assert any("todo_stack.md is missing" in line for line in found), found
+
+    def test_a_stack_with_no_fields_is_reported_rather_than_passing(self, tmp_path: Path):
+        """A sweep that finds nothing reads exactly like a clean stack."""
+        root = _stack_tree(tmp_path, "# 0.2.6\n\nNo items.\n", CLEAN_PROBLEM_STACK)
+        found = check_stack_form_consistency(root)
+        assert any("the sweep is broken" in line for line in found), found
+
+    def test_a_missing_problem_stack_is_reported_rather_than_passing(self, tmp_path: Path):
+        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, CLEAN_PROBLEM_STACK)
+        (root / "artifacts" / "problem_stack.md").unlink()
+        found = check_stack_form_consistency(root)
+        assert any("problem_stack.md is missing" in line for line in found), found
+
+    def test_a_problem_stack_with_no_rows_is_reported_rather_than_passing(self, tmp_path: Path):
+        root = _stack_tree(tmp_path, CLEAN_TODO_STACK, "# Problem stack\n\nNothing yet.\n")
+        found = check_stack_form_consistency(root)
+        assert any("no table row found" in line for line in found), found
+
+
+class TestGate15ProblemRowsKeepTheirTableShape:
+    """`Open` is `ID | Problem | Found by | Answered in`; `Closed` swaps the last two columns.
+
+    Four columns each and not the same four, so a row moving between the tables acquires the
+    wrong shape. One session repaired this in P-38, P-39 and P-40, then wrote a `Found by`
+    cell into a `Closed` row anyway, and separately shipped unescaped pipes in P-29, P-81 and
+    P-114. Five instances, one mistake.
+    """
+
+    def test_a_row_missing_a_cell_is_rejected(self, tmp_path: Path):
+        seeded = CLEAN_PROBLEM_STACK.replace(
+            "| P-1 | A defect | this session | Open -- unowned |",
+            "| P-1 | A defect | Open -- unowned |",
+        )
+        found = check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, seeded))
+        assert len(found) == 1, found
+        assert "4 cell delimiters against the 5" in found[0], found
+
+    def test_an_unescaped_pipe_inside_a_code_span_is_rejected(self, tmp_path: Path):
+        """GFM splits a row into cells before it parses inline code, so backticks do not protect."""
+        seeded = CLEAN_PROBLEM_STACK.replace(
+            "| P-1 | A defect |", "| P-1 | A defect matching `a|b` |"
+        )
+        found = check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, seeded))
+        assert len(found) == 1, found
+        assert "6 cell delimiters against the 5" in found[0], found
+
+    def test_an_escaped_pipe_inside_a_code_span_is_content(self, tmp_path: Path):
+        r"""The control for the case above: `a\|b` is one cell, and P-114 relies on it."""
+        clean = CLEAN_PROBLEM_STACK.replace(
+            "| P-1 | A defect |", r"| P-1 | A defect matching `a\|b` |"
+        )
+        assert check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, clean)) == []
+
+    def test_each_table_is_held_to_its_own_header(self, tmp_path: Path):
+        """A two-column table elsewhere in the file must not become the whole file's shape."""
+        with_small_table = CLEAN_PROBLEM_STACK.replace(
+            "## Open",
+            "## The rule\n\n| Term | Meaning |\n|---|---|\n| open | unresolved |\n\n## Open",
+        )
+        assert check_stack_form_consistency(
+            _stack_tree(tmp_path, CLEAN_TODO_STACK, with_small_table)
+        ) == []
+
+
+# ------------------------------------------------- gate 16: line-ending consistency
+
+
+def _tracked_tree(tmp_path: Path, files: "dict[str, bytes]") -> Path:
+    """A real git checkout carrying `files`, because the gate reads `git ls-files`.
+
+    The premise is asserted rather than assumed: a fixture whose `git add` silently did
+    nothing would leave the gate scanning an empty tree, and an empty scan reports the same
+    "sweep is broken" violation a seeded defect does -- so the seed would appear to be caught
+    while nothing was ever read.
+    """
+    import subprocess
+
+    root = tmp_path / "tree"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    for relative, data in files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    if files:
+        subprocess.run(["git", "add", "--", *files], cwd=root, check=True)
+    listed = subprocess.run(
+        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert sorted(listed) == sorted(files), f"fixture tracks {listed}, not {sorted(files)}"
+    return root
+
+
+class TestGate16LineEndingConsistency:
+    """P-124: eight tracked files carried both conventions, and nothing declared one.
+
+    A byte-mode edit anchored with the wrong ending matches nothing and reads exactly like
+    "the text is not there"; `git apply` refuses a patch whose context lines disagree. Five
+    `git apply --check` runs failed in one release before the cause was found.
+    """
+
+    def test_the_live_tree_passes(self):
+        """Pristine first: a selector that collects nothing also returns a non-empty list."""
+        assert check_line_ending_consistency() == []
+
+    def test_a_uniform_lf_file_is_accepted(self, tmp_path: Path):
+        root = _tracked_tree(tmp_path, {"a.md": b"one\ntwo\nthree\n"})
+        assert check_line_ending_consistency(root) == []
+
+    def test_a_uniform_crlf_file_is_accepted(self, tmp_path: Path):
+        """The gate holds each file against itself. It does not rule on which convention wins.
+
+        Whether `skills/` should stay CRLF while every other directory is LF is a
+        cross-directory decision P-124 records the measurement for and does not take.
+        """
+        root = _tracked_tree(tmp_path, {"a.md": b"one\r\ntwo\r\nthree\r\n"})
+        assert check_line_ending_consistency(root) == []
+
+    def test_a_mixed_file_is_rejected(self, tmp_path: Path):
+        root = _tracked_tree(tmp_path, {"a.md": b"one\r\ntwo\nthree\r\n"})
+        found = check_line_ending_consistency(root)
+        assert len(found) == 1, found
+        assert "a.md carries 2 CRLF and 1 bare LF" in found[0], found
+
+    def test_only_the_mixed_file_is_named(self, tmp_path: Path):
+        root = _tracked_tree(
+            tmp_path,
+            {"lf.md": b"a\nb\n", "crlf.md": b"a\r\nb\r\n", "mixed.md": b"a\r\nb\n"},
+        )
+        found = check_line_ending_consistency(root)
+        assert len(found) == 1 and "mixed.md" in found[0], found
+
+    def test_a_binary_file_is_not_scanned(self, tmp_path: Path):
+        """A PNG carrying both byte pairs is not a text file with a line-ending problem.
+
+        A text file sits beside it deliberately. With the binary alone the tree has nothing
+        to scan, and the gate then reports a broken sweep -- which would make this pass for
+        the wrong reason, saying nothing about whether the binary was skipped.
+        """
+        root = _tracked_tree(
+            tmp_path,
+            {"x.bin": b"\x89PNG\x00\r\n\x1a\n\x00\r\n", "a.md": b"text\n"},
+        )
+        assert check_line_ending_consistency(root) == []
+
+    def test_a_checkout_tracking_nothing_is_reported_rather_than_passing(self, tmp_path: Path):
+        """An empty index must not read as a tree with no line-ending defect in it."""
+        found = check_line_ending_consistency(_tracked_tree(tmp_path, {}))
+        assert found and "the sweep is broken" in found[0], found
+
+    def test_an_unreadable_listing_is_reported_rather_than_passing(self, tmp_path: Path):
+        """Not a git checkout: the gate must say so instead of finding nothing wrong."""
+        plain = tmp_path / "not-a-repo"
+        plain.mkdir()
+        found = check_line_ending_consistency(plain)
+        assert found and "could not list tracked files" in found[0], found
+
+
+class TestTheLineEndingPolicyIsDeclared:
+    """A convention nothing reads is what produced P-124 in the first place."""
+
+    def test_gitattributes_is_tracked_and_allowlisted(self):
+        from scripts.harness_gate import ALLOWED_ROOT_FILES
+
+        assert (REPO_ROOT / ".gitattributes").is_file()
+        assert ".gitattributes" in ALLOWED_ROOT_FILES, (
+            "gate 4 freezes the repository root; an unlisted root file fails it"
+        )
+
+    def test_it_disables_conversion_rather_than_choosing_a_convention(self):
+        """`-text` makes a clone reproduce the committed bytes on every platform.
+
+        Declaring `eol=lf` instead would silently take the cross-directory decision P-124
+        leaves open, by rewriting every CRLF blob on the next checkout.
+        """
+        text = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
+        directives = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+        assert directives == ["* -text"], directives

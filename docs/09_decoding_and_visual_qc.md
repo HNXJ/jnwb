@@ -12,8 +12,9 @@ This document details nested cross-validated population decoding, baselines, aut
 graph LR
     Trials[Trial table: trial_id, session, analysis, slot_key, cycle] --> Outer[assign_outer_folds: leave-one-group-out]
     Outer --> Inner[build_inner_validation_partitions]
-    Inner --> Train[nested_cv_linear_svm]
-    Train --> Base[majority_baseline / fold_majority_baseline]
+    Inner --> Apply[Caller indexes its own X and labels by trial_id, and fits its own estimator]
+    Feats[X: n_samples x n_features, with labels: n_samples] --> Train[nested_cv_linear_svm: stratified folds over rows]
+    Feats --> Base[majority_baseline / fold_majority_baseline]
     Raster[Raster: n_trials x n_space x n_time] --> Ladder[build_representation_ladder: R0/R1/R2 contracts]
 ```
 
@@ -36,10 +37,16 @@ print("ROC-AUC:", decode_res["auc"])
 takes no `groups` argument: its folds are drawn over rows. When rows are trials from the
 same block, cycle or session, neighboring trials share slow drift and a fold boundary
 inside a block leaks it, so the accuracy is above what the same decoder would reach on a
-held-out block. The protection is upstream, in `assign_outer_folds` below, which holds out
-whole groups; pass its partitions rather than expecting this function to infer them.
-Read the accuracy against `majority_baseline_accuracy`, which is returned for that
-purpose and is not 0.5 unless the classes are balanced.
+held-out block.
+
+`assign_outer_folds` and `build_inner_validation_partitions` below compute the
+group-held-out partitions, and **no jnwb call applies them.** The decoder declares no
+parameter that takes a partition table, and it returns metrics rather than a fitted
+estimator, so a caller cannot score a held-out group with it either. Applying them means
+fitting your own estimator over the trial ids they list. Treat what this function returns
+as a row-wise upper bound on the grouped number and report it as one, read against
+`majority_baseline_accuracy`, which is returned for that purpose and is not 0.5 unless the
+classes are balanced.
 
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png)
 
@@ -59,9 +66,18 @@ fold_acc = jnwb.fold_majority_baseline(y_train, y_test)
 # is marked "insufficient_groups" rather than given an invented split.
 outer_folds = jnwb.assign_outer_folds(trials, group_col="cycle")
 
-# Nested inner train/validation partitions. The outer test group is never used in an
-# inner partition.
+# Nested inner train/validation partitions, long format: one row per
+# (stratum, outer_fold, inner_fold, trial_id), with `inner_role` one of
+# "inner_train", "inner_validation", "insufficient_training_groups". The outer test
+# group is never used in an inner partition.
 inner_splits = jnwb.build_inner_validation_partitions(outer_folds)
+
+# Applying them is the caller's job: select the trial ids for one inner fold, then index
+# your own X and labels with them and fit your own estimator. No jnwb call takes this
+# table, and nested_cv_linear_svm returns no fitted estimator to reuse.
+one_fold = inner_splits[(inner_splits["outer_fold"] == 0) & (inner_splits["inner_fold"] == 0)]
+train_ids = one_fold.loc[one_fold["inner_role"] == "inner_train", "trial_id"].to_numpy()
+val_ids = one_fold.loc[one_fold["inner_role"] == "inner_validation", "trial_id"].to_numpy()
 
 # R0/R1/R2 representation contracts from a (n_trials, n_space, n_time) raster.
 # This fits no model and takes no labels: it reports what each representation
