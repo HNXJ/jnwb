@@ -241,8 +241,9 @@ Accept: the frozen set is dated and the non-goals section below is part of it.
 
 Role: docs-harness. Skill: jnwb. Blocked by: none -- 06-01 and 06-02 were both ruled
 2026-09-19 and deleted as complete. This item read as blocked for a day after it was not.
-Reads: `artifacts/direction.md`. Writes: a new page under `docs/`, `mkdocs.yml`,
-`docs/index.md`, `docs/agents.md`.
+Reads: `artifacts/direction.md`. Writes: a new page under `docs/*.md` (named at dispatch;
+`docs/01_architecture_and_philosophy.md`
+already exists and is not it), `mkdocs.yml`, `docs/index.md`, `docs/agents.md`.
 Do: extract the durable content of the ruling into a maintained page -- identity, the two entry
 paths, the code/documentation/tests relation with skills acting on it, the four routing cases,
 the boundary test. No ruling or process language in the public version. The artifact remains the
@@ -253,7 +254,8 @@ Stop: 06-02 is unruled.
 
 ### 06-07 Gate architecture reachability
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-06. Writes: a new test module under `tests/`.
+Role: jnwb-developer. Skill: none. Blocked by: 06-06. Writes:
+`tests/test_architecture_page_reachability.py`.
 Assert: the page is a navigation target; `docs/agents.md` links it; no maintained public asset
 draws the researcher-through-AI chain; the public identity does not require an agent to be
 present; no maintained asset describes skills as an implementation authority.
@@ -265,7 +267,7 @@ breaks on rewording and passes on a reversed meaning.
 ### 06-08 Make diagrams render
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
-Writes: `mkdocs.yml`, a new test module under `tests/`.
+Writes: `mkdocs.yml`, `tests/test_diagrams_render.py`.
 Reproduce: `grep -n "custom_fences\|mermaid" mkdocs.yml` exits non-zero while
 `grep -rn '```mermaid' docs/*.md` returns five fences. Reproduced when both hold.
 Do: configure rendering for the fences already present. No new diagram in this item.
@@ -277,7 +279,7 @@ against `mkdocs.yml`.
 ### 06-09 Correct the SKILLS_URL entry on the public API page
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/generate_api_md.py`, `docs/api.md`, a new test module under `tests/`.
+Writes: `scripts/generate_api_md.py`, `docs/api.md`, `tests/test_api_md_member_types.py`.
 Reproduce: `grep -n "SKILLS_URL" docs/api.md` shows it typed `function` with the `str`
 constructor docstring, while a provenance-asserting probe shows `type(jnwb.SKILLS_URL) is str`
 and `callable(jnwb.SKILLS_URL)` is false.
@@ -290,7 +292,7 @@ Accept: no name in `jnwb.__all__` whose runtime value is not callable is typed `
 ### 06-11 Gate the release body
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/release_gate.py`, a new test module under `tests/`.
+Writes: `scripts/release_gate.py`, `tests/test_release_body_gate.py`.
 The release body is the one version-bearing surface nothing reads, and a correct changelog does
 not make it correct.
 Do: check its mechanically knowable claims -- version, Python support, install command, release
@@ -351,7 +353,8 @@ without it.
 ### 06-14 granger_causality order validation
 
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity.py`, `tests/`, `docs/08_directed_connectivity_and_information.md`,
+Writes: `jnwb/connectivity.py`, `tests/test_granger_order_validation.py`,
+`docs/08_directed_connectivity_and_information.md`,
 `skills/jnwb-connectivity/SKILL.md`.
 Reproduce the carried candidate at `jnwb/connectivity.py` around the `order` parameter before
 anything else; it was deferred, not established.
@@ -363,7 +366,8 @@ skill row agree with the implementation.
 
 ### 06-16 Sweep the substitution class
 
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Writes: `tests/`, then per finding.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Writes:
+`tests/test_substitution_class_sweep.py`, then per finding, named in the packet.
 Repaired instances share one shape: a fallback producing a differently-computed but plausible
 result under the original label. 06-15 was one -- statsmodels absent routed every method except
 `bonferroni` to Benjamini-Hochberg while the recorded correction echoed the request -- and it now
@@ -392,7 +396,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 ### 06-47 Staggered electrode shafts read as non-linear
 
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/addressing.py`, `jnwb/laminar.py`, `tests/`.
+Writes: `jnwb/addressing.py`, `jnwb/laminar.py`, `tests/test_staggered_shafts.py`.
 Reads: `E:/omission/context/state/JNWB_HANDOUT_20260919.md` section H3.
 Admitted 2026-09-19 after the reporter named it, with H1, as one of their two unblockers.
 A consumer reports that `probe_geometry` returns `is_linear=False` and `nominal_pitch=47.17`
@@ -427,7 +431,8 @@ over a declared subset and records the subset's boundary as part of the result.
 ### 06-19 Aggregation order
 
 Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
+`tests/test_composition_aggregation_order.py`.
 Channel aggregation against ratio; averaging against log and dB; trial and session aggregation;
 band integration; baseline normalisation; group weighting; non-finite filtering relative to
 aggregation.
@@ -438,7 +443,8 @@ Accept: for each chain, the documented order is the computed order, shown by exe
 ### 06-20 Identifier survival
 
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
+`tests/test_composition_identifier_survival.py`.
 Channel, unit, probe, area, trial and session identity through selection, transform, filtering,
 permutation and aggregation.
 Discriminator: permute the input order; a positional reassignment that has become semantic
@@ -448,7 +454,8 @@ Accept: no identifier is reconstructed from position anywhere in the declared su
 ### 06-21 Axis composition
 
 Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
+`tests/test_composition_axis.py`.
 Extend 05-85's per-function axis work to chains, especially channel-major to time-major
 boundaries.
 Discriminator: deliberately unequal dimensions, so a transpose cannot pass by coincidence. Equal
@@ -457,7 +464,8 @@ dimensions fail this item.
 ### 06-22 Failure propagation
 
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
+`tests/test_composition_failure_propagation.py`.
 A missing, ambiguous or non-identifiable intermediate must produce an explicit downstream
 failure, never a zero, a non-finite value read as a result, or an empty valid-looking output.
 Accept: for each chain, the failure surfaces at the boundary where it arises.
@@ -465,7 +473,8 @@ Accept: for each chain, the failure surfaces at the boundary where it arises.
 ### 06-23 Randomness propagation
 
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes: `tests/`.
+`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
+`tests/test_composition_randomness.py`.
 The caller's generator reaches every stochastic child; no child reseeds; one seed reproduces a
 whole workflow; observed and null estimators stay identical where the comparison requires it.
 Discriminator: a child that reseeds produces identical output across two different caller seeds.
@@ -482,7 +491,8 @@ Accept: every claim checked by execution against the live export, not against th
 
 ### 06-25 Decline behaviour as executable evidence
 
-Role: jnwb-developer. Skill: per skill. Blocked by: 06-24. Writes: `tests/`, skill files.
+Role: jnwb-developer. Skill: per skill. Blocked by: 06-24. Writes:
+`tests/test_skill_decline_behaviour.py`, and the routed `skills/*/SKILL.md`.
 Representative cases per applicable skill for all four outcomes of `artifacts/direction.md`:
 supported routes, missing input is requested, a non-identifiable result is reported as a failure,
 an unsupported claim is declined. No language model is required to test this layer: the check is
@@ -492,7 +502,8 @@ satisfies that or is recorded as not requiring it.
 
 ### 06-26 Worked examples stop teaching synthesis
 
-Role: jnwb-developer. Skill: per skill. Blocked by: none. Writes: skill files, `tests/`.
+Role: jnwb-developer. Skill: per skill. Blocked by: none. Writes: `skills/*/SKILL.md`,
+`tests/test_skill_examples_execute.py`.
 Reproduce: six of nine skill files build example inputs with a random generator; only
 `skills/jnwb-nwb-data/SKILL.md` opens a file. No test executes any example block.
 Do: classify every example input as real NWB, deterministic minimal array, stochastic synthetic,
@@ -505,7 +516,7 @@ checked.
 ### 06-27 Semantic mutation classes over the declared subset
 
 Role: jnwb-developer. Skill: per chain. Blocked by: 06-28. Unblocked from 06-18 on 2026-09-20: the subset is ruled and all
-ten chains are declared. Writes: `tests/`.
+ten chains are declared. Writes: `tests/test_semantic_mutation_classes.py`.
 Unit scaling, axis swap, sign flip, conjugation, density against spectrum, mean against median
 and sum, log before aggregate, permutation p-value substitution, generator ignored, support gate
 removed, failure converted to a default, identity restoration removed, result key deleted,
@@ -513,7 +524,8 @@ signature drift. A class list, not a mutation score.
 
 ### 06-28 Mutation harness validity as a precondition
 
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `tests/`, `scripts/`.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `scripts/mutation_harness.py` (new),
+`tests/test_mutation_harness_validity.py`.
 Per case, enforced by the harness itself: the pristine selector collects; the pristine selector
 passes; the mutation lands exactly once; the source differs; the expected test is collected under
 mutation; the mutant fails on the semantic property; the restore is byte-exact; the whole-run
@@ -527,7 +539,8 @@ Accept: no verdict is emitted by a harness that has not first proven its own sel
 
 ### 06-73 Exclude the derived cache by path, not by extension
 
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `.gitignore`, `tests/`.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `.gitignore`,
+`tests/test_gitignore_excludes_cache_by_path.py`.
 P-10. `.gitignore` excludes the 6.7 GB derived cache under `artifacts/developer/.cache/` by
 extension (`*.pkl`). A cache file written with any other suffix lands untracked and is visible to
 a careless `git add -A` — and the repository rule is to stage exact paths precisely because that
@@ -543,7 +556,8 @@ Stop: the cache directory is not where the row says it is. Re-measure and correc
 
 ### 06-74 Dispose of the collection-order fragility
 
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `tests/`, `artifacts/problem_stack.md`.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes:
+`tests/test_collection_order_stability.py`, `artifacts/problem_stack.md`.
 P-12, carried. An ad-hoc pytest subset can fail three `test_backend` tests and segfault; the full
 suite passes. The release requires no `open` problem, so this ends as a repair or as an
 `accepted` with a reason that survives a hostile reader — it cannot simply stay carried.
@@ -560,7 +574,8 @@ Stop: the segfault cannot be reproduced at all. Then the premise is false and th
 ### 06-29 Make generated figures maintained
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
-Writes: `docs/generate_figures.py`, `tests/`, a gate.
+Writes: `docs/generate_figures.py`, `tests/test_generated_figures_are_maintained.py`,
+`scripts/harness_gate.py`.
 Reproduce: nothing runs the generator -- not CI, not `scripts/harness_gate.py`, not
 `scripts/release_gate.py`, not `.readthedocs.yaml`, not any test -- and re-running it reproduces
 none of its outputs byte-identically.
@@ -572,7 +587,7 @@ figure.
 ### 06-30 Produce the canonical diagrams
 
 Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06, 06-08.
-Writes: `docs/`, `docs/assets/`.
+Writes: `docs/*.md`, `docs/assets/*.svg`.
 Dual entry; code, documentation and tests with skill routing over them; the four-outcome
 decision; NWB to analysis; the package boundary. One maintained source each, original to jnwb.
 Stop: the external prior art is licensed no-derivatives; no figure of it is adapted, in
@@ -582,7 +597,7 @@ here, not restated.
 ### 06-31 One real NWB end-to-end example
 
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `docs/tutorials/`, `examples/`, `tests/`.
+Writes: `docs/tutorials/*.md`, `examples/*.py`, `tests/test_real_nwb_example.py`.
 Select a small, redistributable or remotely accessible public dataset by capability fit, not by
 name. Open, inspect, select, analyse, verify, visualise, reusing the operations the skills route,
 with provenance sufficient to reproduce the result.
@@ -592,7 +607,8 @@ a synthetic one and calling it an example.
 
 ### 06-32 Separate empirical from synthetic
 
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31. Writes: `docs/`, `examples/`, `tests/`.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31. Writes: `docs/*.md`, `examples/*.py`,
+`tests/test_synthetic_figures_are_labelled.py`.
 Visibly and structurally, in the documentation tree and in the figures.
 Accept: a check that a page carrying a synthetic figure says so.
 
@@ -617,7 +633,7 @@ worse than leaving them alone.
 
 ### 06-51 Reduce verbosity against the contract
 
-Role: docs-harness. Skill: none. Blocked by: 06-49. Writes: `docs/`, `README.md`.
+Role: docs-harness. Skill: none. Blocked by: 06-49. Writes: `docs/*.md`, `README.md`.
 One packet per page, not one packet for the set. A batch handed twenty-seven pages trims the easy
 ones and rewrites the hard one.
 
@@ -639,8 +655,8 @@ the restatement, keep the one that is load-bearing.
 
 ### 06-52 Figures that carry structure
 
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-30. Writes: `docs/`,
-`docs/assets/`, `tests/`.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-30. Writes: `docs/*.md`,
+`docs/assets/*.svg`, `tests/test_figure_form.py`.
 Unblocked 2026-09-19. This item's acceptance named a comparison the site could not make: there was
 one palette scheme. `mkdocs.yml` now carries `slate` and `default`, each with a toggle, so
 "renders in both themes" is executable as written and a figure that hardcodes a background is
@@ -664,7 +680,7 @@ depending on them builds here and fails in CI. That is G4, and it is recorded as
 ### 06-53 Gate the documentation form
 
 Role: docs-harness. Skill: none. Blocked by: 06-49, 06-50, 06-51, 06-52. The contract itself is written.
-Writes: `scripts/`, `tests/`.
+Writes: `scripts/docs_form_gate.py` (new), `tests/test_docs_form_gate.py`.
 A contract nothing enforces decays to a preference within one cycle.
 Do: make the mechanically checkable rules into checks -- the vocabulary list, heading depth, nav
 shape, figure theme-independence, and the presence of a table where a page states more than two
@@ -689,7 +705,8 @@ pointer is the whole of what belongs here.
 
 ### 06-55 One precision switch
 
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/`, `tests/`.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/*.py`,
+`tests/test_precision_switch.py`.
 Reproduce: enumerate how precision is currently selected across the 29 modules that mention a
 dtype. Reproduction is more than one mechanism, or any path where the output dtype is not
 determined by the input and the caller's request.
@@ -704,7 +721,8 @@ function as 64-bit only; do not quietly return 64-bit from a 32-bit request.
 
 ### 06-56 One execution switch
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-55. Writes: `jnwb/`, `tests/`.
+Role: jnwb-developer. Skill: none. Blocked by: 06-55. Writes: `jnwb/*.py`,
+`tests/test_execution_switch.py`.
 Reproduce: `jnwb/jrsa.py:222` documents a backend parameter as "accepted for API compatibility".
 A parameter accepted and ignored is the substitution class of 06-16 in another form: the caller
 asks for one thing, receives another, and nothing errors. Establish for every backend-taking
@@ -721,7 +739,8 @@ defect, and it stops the packet.
 
 ### 06-57 Cite the reference where the implementation matches it
 
-Role: jnwb-developer. Skill: per module. Blocked by: none. Writes: `jnwb/`, `docs/references.md`.
+Role: jnwb-developer. Skill: per module. Blocked by: none. Writes: `jnwb/*.py`,
+`docs/references.md`.
 Do: where an implementation follows a published or official reference, cite that reference at the
 implementation and in `docs/references.md`. Under the 2026-09-19 ruling the citation is the
 evidence of correctness and the algorithm is not re-derived.
@@ -773,7 +792,9 @@ Stop: the faster order changes results beyond tolerance. Correctness outranks or
 
 ### 06-59 Gate the computational contract
 
-Role: jnwb-developer. Skill: none. Blocked by: 06-55, 06-56, 06-58. Writes: `scripts/`, `tests/`.
+Role: jnwb-developer. Skill: none. Blocked by: 06-55, 06-56, 06-58. Writes:
+`scripts/computational_contract_gate.py` (new),
+`tests/test_computational_contract_gate.py`.
 Do: make the contract enforceable -- a backend argument that selects nothing fails; a precision
 request silently ignored fails; an export added without a recorded order fails.
 Discriminator: each check shown failing on a seeded violation.
@@ -911,7 +932,7 @@ is a contract change, not a repair.
 ### 06-77 Refuse or reconcile the two crossover index spaces
 
 Role: jnwb-developer. Skill: `jnwb-lfp-spectral`. Blocked by: none. Writes: `jnwb/laminar.py`,
-`tests/`, `docs/`.
+`tests/test_crossover_index_spaces.py`, `docs/02_paths_addressing_metadata.md`.
 P-49, and the most consequential open row: layer labels are scientific output. `vflip` reorders
 `psd_arr[order]` only when `probe_geometry` is supplied (`jnwb/laminar.py:297`); `label_layers`
 always builds `rank` from `probe_geometry.linear_order` (`:811-815`); the boundary check compares
@@ -958,7 +979,8 @@ notation is the defect and it is repaired first.
 
 ### 06-81 Make the copy under test identifiable
 
-Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/`, `tests/`.
+Role: jnwb-developer. Skill: none. Blocked by: none. Writes: `jnwb/__init__.py`,
+`tests/test_import_provenance.py`.
 P-44. The installed copy and this worktree both report `0.2.5` while their `read_nwb` signatures
 differ -- the installed one raises `TypeError: unrecognized argument: 'allow_missing'`. A probe
 that identifies a copy by `__version__` cannot tell them apart, which is the weak point in the
@@ -975,7 +997,7 @@ Stop: the only honest answer is to bump the working version, which is a release 
 ### 06-82 Reach the waiver from the public API
 
 Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: 06-67. Writes: `jnwb/__init__.py`,
-`jnwb/nwb_io.py`, `docs/`, `tests/`.
+`jnwb/nwb_io.py`, `docs/*.md`, `tests/test_public_api_reachability.py`.
 P-43 and P-46. `MissingRequiredNWBFieldError` is exported and documented; `read_nwb`, `nwb_read_io`,
 `hdmf_build_repair_context` and `SqueezedAttributeWarning` are in neither `__all__` nor
 `dir(jnwb)`, and `read_nwb(path, allow_missing=...)` is reachable only by importing the submodule
@@ -1045,7 +1067,7 @@ real session, stop and report -- a warning nobody can read is not the ruled beha
 
 Role: jnwb-developer. Skill: none. Blocked by: none. **Ruled by Hamm 2026-09-20:
 decide each of the eight separately.**
-Writes: `artifacts/problem_stack.md`, and `jnwb/__init__.py` or `docs/` only after the ruling.
+Writes: `artifacts/problem_stack.md`, and `jnwb/__init__.py` or `docs/*.md` only after the ruling.
 P-55. `assign_outer_folds`, `build_inner_validation_partitions`, `fit_exponential_onset`,
 `aperiodic_fit`, `xflip`, `zflip`, `consensus_bad_trials` and `detect_band_outliers` produce output
 that no public jnwb operation consumes -- the decoder accepts neither `groups` nor a fold column.
@@ -1068,7 +1090,8 @@ breaking change and a release decision.
 ### 06-86 Resolve the two sources that disagree about computational order
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/computational_order.md`, `tests/`.
+Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/computational_order.md`,
+`tests/test_computational_order_sources_agree.py`.
 Not 06-58, which reads like it: that item reduces measured orders in
 `artifacts/computational_order.md`. This one resolves a contradiction inside a different file
 and changes no code. They were nearly merged on the strength of their titles.
@@ -1108,7 +1131,8 @@ Stop: neither file is the right home. Then say which is, and put it there.
 
 ### 06-89 Document the unit-to-layer composition
 
-Role: docs-harness. Skill: `jnwb-population`. Blocked by: 06-49. Writes: `docs/`, `skills/`.
+Role: docs-harness. Skill: `jnwb-population`. Blocked by: 06-49. Writes: `docs/*.md`,
+`skills/*/SKILL.md`.
 P-20. The composition works today through existing exports and no document or skill shows it, so
 a capability that exists is unreachable by reading -- which is precisely the reachability failure
 class 0.2.6 exists to close.
@@ -1124,7 +1148,8 @@ on 06-77 and says so rather than documenting a sequence that mislabels anatomy.
 ### 06-90 Make an absent `peak_channel_id` visible
 
 Role: jnwb-developer. Skill: `jnwb-population`. Blocked by: none.
-Writes: `jnwb/addressing.py`, `tests/`, `docs/`.
+Writes: `jnwb/addressing.py`, `tests/test_absent_peak_channel_id.py`,
+`docs/02_paths_addressing_metadata.md`.
 P-22, restated after re-measurement. The row said `jnwb/addressing.py:340` assumes the column
 exists. It does not: `:341` guards with `'peak_channel_id' in df.columns`. The real defect is what
 the guard does -- when the column is absent the caller silently receives a frame with no `area`
@@ -1161,6 +1186,38 @@ instruction stands: the replacement records observed policy and state, rather th
 inverting the stale wording.
 Accept: the sentence is replaced by Hamm, and `goal.md` and `fact_stack.md` agree.
 Stop: this item writes nothing to `artifacts/fact_stack.md` before the ruling.
+
+### 06-94 Gate the two stack-form defects that keep recurring
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
+P-108 and the closed-table column slip. Both are defects in the form of the stacks themselves,
+both were repaired by hand this release, and both recur because nothing reads the files.
+
+**Check A, schedulability.** No `Writes:` field may contain a code span ending in `/`.
+`AGENTS.md`'s lane rule is that two agents run concurrently iff their `Writes` sets are provably
+disjoint, and a bare directory cannot be compared against anything. Measured at `5257e430`: 37 of
+60 items named one and 31 named `tests/`, so the stack declared a maximum parallelism of 1 across
+more than half its work. A glob passes -- `docs/*.md` conflicts honestly with `docs/api.md`,
+which is the answer a scheduler needs; `docs/` conflicts with everything and says nothing.
+
+**Check B, table form.** Every row of `artifacts/problem_stack.md` carries exactly the delimiter
+count its own table's header declares, counting `\|` inside a code span as content rather than as
+a delimiter. `Open` is four columns and `Closed` is four different ones, which is why rows get
+written with the wrong shape when a row moves between them: this session wrote a `Found by` cell
+into a `Closed` row that has no such column, having already repaired the same shape in P-38, P-39
+and P-40, and an unescaped pipe inside a code span in P-29 and P-81.
+
+Discriminator: each check fails on a seeded violation of its own rule and passes on the live tree.
+Seed check A with a bare `tests/` in one item and check B with both shapes -- a missing cell and an
+unescaped pipe inside backticks. A check that only passes proves nothing here, because the tree is
+clean at the moment the check is written; that is the state 06-23's packet calls out and it applies
+to the gate itself.
+Accept: gate count rises to 15 with both checks failing on their seeds, and the surfaces that
+assert 14 are updated in the same change rather than left to fail later.
+Stop: this item does not rewrite any item's content, only the form of the `Writes` field if a
+later edit reintroduces a directory. It does not touch `artifacts/fact_stack.md` or
+`artifacts/goal.md`.
 
 ## Reported and not admitted
 
