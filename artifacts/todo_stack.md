@@ -428,57 +428,6 @@ swept, and no capability-by-capability matrix was built. A matrix over every pub
 every dimension is its own release and is not attempted here. This batch closes the named limits
 over a declared subset and records the subset's boundary as part of the result.
 
-### 06-19 Aggregation order
-
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
-`tests/test_composition_aggregation_order.py`.
-Channel aggregation against ratio; averaging against log and dB; trial and session aggregation;
-band integration; baseline normalisation; group weighting; non-finite filtering relative to
-aggregation.
-Discriminator: asymmetric inputs where the two orders differ by more than tolerance. An input on
-which both orders agree tests nothing and fails this item.
-Accept: for each chain, the documented order is the computed order, shown by execution.
-
-### 06-20 Identifier survival
-
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
-`tests/test_composition_identifier_survival.py`.
-Channel, unit, probe, area, trial and session identity through selection, transform, filtering,
-permutation and aggregation.
-Discriminator: permute the input order; a positional reassignment that has become semantic
-identity produces a different answer.
-Accept: no identifier is reconstructed from position anywhere in the declared subset.
-
-### 06-21 Axis composition
-
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
-`tests/test_composition_axis.py`.
-Extend 05-85's per-function axis work to chains, especially channel-major to time-major
-boundaries.
-Discriminator: deliberately unequal dimensions, so a transpose cannot pass by coincidence. Equal
-dimensions fail this item.
-
-### 06-22 Failure propagation
-
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
-`tests/test_composition_failure_propagation.py`.
-A missing, ambiguous or non-identifiable intermediate must produce an explicit downstream
-failure, never a zero, a non-finite value read as a result, or an empty valid-looking output.
-Accept: for each chain, the failure surfaces at the boundary where it arises.
-
-### 06-23 Randomness propagation
-
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none. Unblocked 2026-09-20: 06-18 ruled, subset at
-`artifacts/composition_subset_0.2.6.md`, all ten chains ratified. Writes:
-`tests/test_composition_randomness.py`.
-The caller's generator reaches every stochastic child; no child reseeds; one seed reproduces a
-whole workflow; observed and null estimators stay identical where the comparison requires it.
-Discriminator: a child that reseeds produces identical output across two different caller seeds.
-
 ### 06-24 Skill routing against live behaviour
 
 Role: jnwb-developer. Skill: per skill, nine packets. Blocked by: none.
