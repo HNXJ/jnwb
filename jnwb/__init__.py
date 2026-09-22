@@ -419,12 +419,13 @@ __all__ = [
     'pairwise_phase_consistency',
     'gaussian_smooth_rate',
 
-    # Plotting utilities
+    # Plotting utilities (matplotlib legacy and pure Plotly engine)
     'setup_vector_graphics',
     'apply_tight_auto_axis',
     'save_figure_suite',
     'resample_onsets',
     'raster_psth',
+    'vis',
 
     # Where to find the agent skills, which ship in the sdist and not in the wheel
     'SKILLS_URL',
