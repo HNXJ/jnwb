@@ -806,9 +806,13 @@ class TestEvidenceConflictProbes:
         """`jnwb-fact-action` states that agents may read and challenge facts but must
         never autonomously add, edit or delete them. That is only a rule if no code path
         can do it."""
-        offenders = _fact_stack_writers(
-            list(Path("jnwb").rglob("*.py")) + list(Path("scripts").rglob("*.py"))
+        # Rooted at the checkout: run from elsewhere, a bare `Path("jnwb")` globbed nothing and
+        # this passed having read no file.
+        scanned = list((ROOT_DIR / "jnwb").rglob("*.py")) + list(
+            (ROOT_DIR / "scripts").rglob("*.py")
         )
+        assert len(scanned) > 20, f"only {len(scanned)} files scanned; the glob is wrong"
+        offenders = _fact_stack_writers(scanned)
         assert not offenders, f"code that could rewrite the fact stack: {offenders}"
 
     def test_the_probe_still_catches_a_real_writer(self, tmp_path: Path):
@@ -859,7 +863,7 @@ class TestEvidenceConflictProbes:
 
     def test_the_probe_reads_the_real_harness_gate(self):
         """The file the scoping was built for is actually scanned, and actually clears."""
-        gate = Path("scripts") / "harness_gate.py"
+        gate = ROOT_DIR / "scripts" / "harness_gate.py"
         assert gate.is_file(), f"{gate} is gone; the case above no longer has a subject"
         text = gate.read_text(encoding="utf-8")
         assert "fact_stack.md" in text and "write_text" in text, (

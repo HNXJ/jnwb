@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import subprocess
 import sys
 import textwrap
@@ -72,21 +73,30 @@ def test_no_test_module_puts_the_checkout_ahead_of_the_package_under_test() -> N
     )
 
 
+_REPO_DIRS = ("skills", "docs", "examples", "scripts", "artifacts", "tests", "jnwb")
+
+
+def _cwd_relative_paths(source: str, name: str) -> list[str]:
+    """`Path("scripts/x")` and `Path("scripts") / "x"` alike: a bare directory name is the root."""
+    offenders = []
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        if node.func.id != "Path" or not node.args:
+            continue
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            head = first.value.replace("\\", "/").split("/", 1)[0]
+            if head in _REPO_DIRS:
+                offenders.append(f"{name}:{node.lineno} opens {first.value!r}")
+    return offenders
+
+
 def test_no_test_reads_a_repository_file_through_the_current_directory() -> None:
     """`Path("skills/x/SKILL.md")` resolves only when pytest is run from the root."""
-    prefixes = ("skills/", "docs/", "examples/", "scripts/", "artifacts/", "tests/", "jnwb/")
     offenders = []
     for module in _test_modules():
-        tree = ast.parse(module.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
-                continue
-            if node.func.id != "Path" or not node.args:
-                continue
-            first = node.args[0]
-            if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                if first.value.startswith(prefixes):
-                    offenders.append(f"{module.name}:{node.lineno} opens {first.value!r}")
+        offenders += _cwd_relative_paths(module.read_text(encoding="utf-8"), module.name)
     assert not offenders, (
         f"these paths depend on the working directory; derive them from __file__: {offenders}"
     )
@@ -271,23 +281,72 @@ def test_this_file_would_have_caught_the_defects_it_documents() -> None:
     assert inserts, "the scanner would not have seen the prepend it was written for"
     assert not any("scripts" in ast.unparse(node.args[1]) for node in inserts)
 
-    old_relative = 'from pathlib import Path\nPath("skills/jnwb-fact-action/SKILL.md")\n'
-    tree = ast.parse(old_relative)
-    hits = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "Path"
-        and isinstance(node.args[0], ast.Constant)
-        and str(node.args[0].value).startswith("skills/")
-    ]
-    assert hits, "the scanner would not have seen the working-directory path"
+    # The scanners themselves, not a copy of their logic. The second path and the aliased
+    # assertion are the two spellings that reached the installed-wheel CI leg on 2026-09-22.
+    for source in (
+        'from pathlib import Path\nPath("skills/jnwb-fact-action/SKILL.md")\n',
+        'from pathlib import Path\ngate = Path("scripts") / "harness_gate.py"\n',
+    ):
+        assert _cwd_relative_paths(source, "old.py"), f"not seen: {source!r}"
+    assert not _cwd_relative_paths('Path(__file__).parent / "scripts"\n', "ok.py")
+
+    for source in (
+        "import jnwb\nassert REPO_ROOT in Path(jnwb.__file__).parents\n",
+        "import jnwb.connectivity as C\n"
+        "assert os.path.abspath(C.__file__).startswith(here)\n",
+    ):
+        assert _checkout_provenance_asserts(source, "old.py"), f"not seen: {source!r}"
+    for source in (
+        "import jnwb\nassert record.path == jnwb.__file__\n",
+        "from jnwb import paths\n"
+        "assert paths.PACKAGE_ROOT == Path(paths.__file__).resolve().parent.parent\n",
+    ):
+        assert not _checkout_provenance_asserts(source, "ok.py"), (
+            f"a comparison that holds for an installed copy too was flagged: {source!r}"
+        )
 
 
 #: The one module allowed to assert which `jnwb` is under test. It is the designated outer
 #: harness: it reads `JNWB_EXPECTED_PACKAGE_ROOT`, so it qualifies an installed copy as readily
 #: as the working tree. Any other module asserting provenance pins the suite to the checkout.
 PROVENANCE_HARNESS = "test_import_provenance.py"
+
+#: How an assertion places a module under a directory. Equality is left out on purpose: the
+#: quickstart prints the jnwb it ran and a Provenance record carries the path it observed, and
+#: both compare `__file__` against another runtime value that holds for an installed copy too.
+#: Root names match as whole identifiers, so `PACKAGE_ROOT` -- the package's own location, which
+#: moves with an installed copy -- is not read as the checkout.
+_CONTAINMENT = re.compile(
+    r"\b(REPO_ROOT|ROOT|ROOT_DIR|_ROOT)\b|show-toplevel|\.startswith\(|\.is_relative_to\(|\.parents\b"
+)
+
+
+def _jnwb_bound_names(tree: ast.Module) -> set[str]:
+    """Every local name an import binds to jnwb or one of its submodules."""
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "jnwb" or alias.name.startswith("jnwb."):
+                    names.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if node.module == "jnwb" or node.module.startswith("jnwb."):
+                names.update(alias.asname or alias.name for alias in node.names)
+    return names
+
+
+def _checkout_provenance_asserts(source: str, name: str) -> list[str]:
+    """Asserts that a jnwb module's `__file__` sits under a directory, however it is spelled."""
+    tree = ast.parse(source)
+    watched = {f"{bound}.__file__" for bound in _jnwb_bound_names(tree) | {"jnwb"}}
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assert):
+            continue
+        rendered = ast.unparse(node.test)
+        if any(w in rendered for w in watched) and _CONTAINMENT.search(rendered):
+            offenders.append(f"{name}:{node.lineno} asserts jnwb resolves under the checkout root")
+    return offenders
 
 
 def test_no_test_module_rebinds_the_front_of_sys_path() -> None:
@@ -337,25 +396,7 @@ def test_only_the_designated_harness_asserts_which_jnwb_is_under_test() -> None:
     for module in _test_modules():
         if module.name == PROVENANCE_HARNESS:
             continue
-        tree = ast.parse(module.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Assert):
-                continue
-            rendered = ast.unparse(node.test)
-            if "jnwb.__file__" not in rendered:
-                continue
-            # Comparing `jnwb.__file__` against another runtime value is fine and is done in two
-            # places: the quickstart must print the jnwb it ran, and a Provenance record must
-            # carry the path it observed. Both hold for an installed copy. What breaks installed
-            # qualification is asserting the package sits under *this checkout*, so that is what
-            # is matched -- the checkout root, however the module spells it.
-            if not any(
-                root in rendered for root in ("REPO_ROOT", "ROOT", "_ROOT", "show-toplevel")
-            ):
-                continue
-            offenders.append(
-                f"{module.name}:{node.lineno} asserts jnwb resolves under the checkout root"
-            )
+        offenders += _checkout_provenance_asserts(module.read_text(encoding="utf-8"), module.name)
     assert not offenders, (
         f"only {PROVENANCE_HARNESS} may assert which jnwb is under test, because it is the one "
         f"module that honours JNWB_EXPECTED_PACKAGE_ROOT and so works in both modes: {offenders}"

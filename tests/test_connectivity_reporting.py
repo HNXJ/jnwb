@@ -10,21 +10,14 @@ describes. Every assertion here compares the reported field against the thing it
 names, recomputed from the returned matrices.
 """
 
-import os
-
 import numpy as np
 import pytest
 
 import jnwb.connectivity as C
 from jnwb.connectivity import directed_network, granger, transfer_entropy
 
-
-def test_module_under_test_is_the_working_tree():
-    """A stale site-packages jnwb would make every other test here meaningless."""
-    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    assert os.path.abspath(C.__file__).startswith(here), (
-        f"connectivity imported from {C.__file__}, not from {here}"
-    )
+# Which jnwb is under test is asserted once, in tests/test_import_provenance.py, which honours
+# JNWB_EXPECTED_PACKAGE_ROOT; asserting the checkout here failed the installed-wheel CI leg.
 
 
 @pytest.fixture(scope="module")
