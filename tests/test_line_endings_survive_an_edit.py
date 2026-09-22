@@ -77,8 +77,11 @@ class TestTheConversionIsSeen:
         _git(root, "init", "-q")
         _git(root, "config", "user.email", "test@example.invalid")
         _git(root, "config", "user.name", "test")
+        # Without `-text`, a host with core.autocrlf=true (the Windows runners) stores the CRLF
+        # file as LF, and the LF rewrite below is then no conversion at all.
+        (root / ".gitattributes").write_bytes(b"* -text\n")
         (root / "skill.md").write_bytes(CRLF_BODY)
-        _git(root, "add", "skill.md")
+        _git(root, "add", ".gitattributes", "skill.md")
         _git(root, "commit", "-q", "-m", "seed")
 
         (root / "skill.md").write_bytes(LF_BODY)
