@@ -1,12 +1,8 @@
 # 09. Population Decoding, Visual QC & Publication Graphics
 
-This document details nested cross-validated population decoding, baselines, automated visual quality control (QC), and publication-ready vector graphic exports in `jnwb`.
-
----
-
 ## 1. Population Decoding & Nested Cross-Validation (`jnwb.decoding`)
 
-`jnwb.decoding` provides linear support vector machine (SVM) decoders with nested cross-validation and fold partitioning schemes designed to prevent temporal autocorrelation leakage.
+`jnwb.decoding` provides a linear support vector machine (SVM) decoder with nested cross-validation, majority baselines, and separate fold-partitioning functions that hold out whole groups against temporal autocorrelation leakage.
 
 The diagram below has three entry points and no edge between them, which is the separation this
 page turns on: the partitioning chain on the trial table never reaches `nested_cv_linear_svm`.
@@ -82,8 +78,7 @@ outer_folds = jnwb.assign_outer_folds(trials, group_col="cycle")
 inner_splits = jnwb.build_inner_validation_partitions(outer_folds)
 
 # Applying them is the caller's job: select the trial ids for one inner fold, then index
-# your own X and labels with them and fit your own estimator. No jnwb call takes this
-# table, and nested_cv_linear_svm returns no fitted estimator to reuse.
+# your own X and labels with them and fit your own estimator.
 one_fold = inner_splits[(inner_splits["outer_fold"] == 0) & (inner_splits["inner_fold"] == 0)]
 train_ids = one_fold.loc[one_fold["inner_role"] == "inner_train", "trial_id"].to_numpy()
 val_ids = one_fold.loc[one_fold["inner_role"] == "inner_validation", "trial_id"].to_numpy()
@@ -100,7 +95,7 @@ ladder_res = jnwb.build_representation_ladder(raster, modality="SPK")
 
 ## 2. Automated Electrophysiology Visual QC (`jnwb.visual_qc`)
 
-`jnwb.visual_qc` generates standardized multi-panel figures for inspecting spike sorting fidelity, waveform stability, and noise distributions.
+`jnwb.visual_qc` draws multi-panel figures for inspecting spike sorting, waveform stability, and noise distributions.
 
 ### Unit Waveform Pagination & Noise Diagnostics
 
@@ -154,7 +149,9 @@ plt.rcParams["ps.fonttype"] = 42
 
 ### Tight Auto-Axis Bounding (`apply_tight_auto_axis`)
 
-Eliminates dead margin whitespace while respecting physical domain constraints:
+Pins the x-axis to `x_span` and fits the y-axis to the plotted lines with a margin. The y lower
+limit is floored at 0, so negative values are drawn outside the axes; do not use it on signed
+data such as z-scores or LFP.
 
 ```python
 import matplotlib.pyplot as plt
@@ -162,13 +159,13 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 ax.plot([0, 1, 2], [10, 20, 15])
 
-# Set tight limits around active data span, with 10% margin
+# x-axis pinned to (0, 2); y-axis fitted to the line with a 10% margin
 jnwb.apply_tight_auto_axis(ax, x_span=(0, 2), y_margin=0.10)
 ```
 
 ### Multi-Format Figure Suite Saving (`save_figure_suite`)
 
-Saves figures atomically across multiple formats (SVG for layout, PDF for vector review, PNG for slide presentations) at 300+ DPI:
+Saves each figure in each requested format (SVG for layout, PDF for vector review, PNG for slide presentations), one file per figure and format, at `dpi` (default 300) for the raster formats:
 
 ```python
 jnwb.save_figure_suite(
