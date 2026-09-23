@@ -452,3 +452,47 @@ class TestEveryReturnsLineHasTheRightArity:
         )
         assert returns_arity_mismatches(tmp_path) == []
         assert returns_arity_checked(tmp_path) == 1
+
+
+#: Where a contributor or an agent is told how many gates there are.
+GATE_COUNT_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "artifacts/agents.md")
+GATE_COUNT_GLOBS = ("artifacts/agents/*.md",)
+
+#: "Gates 1-16" (any dash) and "18 repository gates" / "18 gates". A count written as a word, a
+#: "gate 2 of 13" recalling one run, or a quoted "18 of 18 gates executed" receipt is not a claim
+#: about the current total.
+GATE_COUNT = re.compile(
+    r"\b[Gg]ates\s+1\s*[-–—]\s*(\d+)\b"
+    r"|(?<![\w.-])(\d+)\s+(?:repository\s+|harness\s+)?gates\b(?!\s+executed)"
+)
+
+
+def prose_gate_counts(text: str) -> "list[int]":
+    return [int(a or b) for a, b in GATE_COUNT.findall(text)]
+
+
+class TestProseGateCountsFollowTheRunner:
+    """Four surfaces stated a gate count, nothing read them, and all four drifted together."""
+
+    def _surfaces(self):
+        paths = [REPO_ROOT / p for p in GATE_COUNT_SURFACES]
+        for pattern in GATE_COUNT_GLOBS:
+            paths.extend(sorted(REPO_ROOT.glob(pattern)))
+        return [p for p in paths if p.is_file()]
+
+    def test_every_stated_count_is_the_number_of_gates(self):
+        total = len(harness_gate_module().GATES)
+        offenders = [
+            f"{p.relative_to(REPO_ROOT).as_posix()}: says {n}"
+            for p in self._surfaces()
+            for n in prose_gate_counts(p.read_text(encoding="utf-8"))
+            if n != total
+        ]
+        assert not offenders, f"GATES holds {total}: {offenders}"
+
+    def test_the_reader_finds_both_forms_and_leaves_recollections(self):
+        text = (
+            "Run and verify Gates 1–16. It runs 18 repository gates. Eleven gates stayed unrun "
+            "after gate 2 of 13 failed, and the run printed 13 of 13 gates executed."
+        )
+        assert prose_gate_counts(text) == [16, 18]
