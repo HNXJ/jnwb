@@ -51,7 +51,8 @@ as a row-wise upper bound on the grouped number and report it as one, read again
 `majority_baseline_accuracy`, which is returned for that purpose and is not 0.5 unless the
 classes are balanced.
 
-![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png)
+![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png#only-light)
+![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.dark.png#only-dark)
 
 Panel A of that figure is the per-fold accuracy drawn against `majority_baseline_accuracy`,
 which is the comparison the paragraph above asks for. Panel B is the out-of-fold AUC and F1 against chance. Both

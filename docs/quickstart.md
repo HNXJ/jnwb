@@ -47,7 +47,8 @@ Pick the module for your analytical question:
 
 `examples/quickstart_jnwb.py` is the authoritative smoke test: artifact repair, band power, onset fitting, label permutation, Granger causality and nested-CV decoding on synthetic data, one panel each.
 
-![jnwb Quickstart Figure](assets/jnwb_quickstart.png)
+![jnwb Quickstart Figure](assets/jnwb_quickstart.png#only-light)
+![jnwb Quickstart Figure](assets/jnwb_quickstart.dark.png#only-dark)
 
 Each of the six panels is one operation -- artifact repair, band power, onset fitting, a
 permutation test, Granger coupling and decoding -- drawn from a run on synthetic data that the

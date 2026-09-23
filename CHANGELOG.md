@@ -125,6 +125,10 @@ Carried by 0.2.6.
   `tau_ms` on a graded rise rather than as the true takeoff time; the architecture page says the
   wheel installs the operations while documentation and tests live in the repository; the GPU
   line of the router skill names every function that computes on or records the device.
+- **Figures follow the page's palette scheme.** Every documentation figure is drawn twice on a
+  transparent background, for the light and the dark scheme, and each page shows the one that
+  matches; the dark scheme's surfaces no longer paint the light scheme dark. The permutation
+  figure's title names the paired sign-flip null it draws. The agent page lists all ten skills.
 - **The architecture page draws its structure.** Four diagrams replace two tables and add two
   views: what defines, implements, verifies and routes to an operation; the four outcomes
   of a task as a decision; the path from an NWB session to a verified result; and the

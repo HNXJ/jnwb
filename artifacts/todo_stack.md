@@ -49,7 +49,7 @@ barrier above.
 | W2 |  |
 | W3 |  |
 | W4 | 06-24 |
-| W5 | 06-52, 06-56, 06-25 |
+| W5 | 06-56, 06-25 |
 | W6 | 06-58 |
 | W7 | 06-59, 06-129 |
 | W8 |  |
@@ -111,21 +111,6 @@ schemas. The validator is delivered; the rows of eight skill files are unchecked
 Accept: every claim checked by execution against the live export.
 
 ## W5. Figures, execution switch and decline
-
-### 06-52 Figures that carry structure
-
-Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
-Writes: `docs/*.md`, `docs/assets/*.svg`, `docs/assets/*.png`, `docs/assets/figures/*.png`, `docs/generate_figures.py`, `docs/_theme_override.css`, `examples/quickstart_jnwb.py`, `tests/test_figure_form.py`.
-Widened 2026-09-23 by ruling (P-178): the figure captions are on `dev`; the known-failure lists
-of the retired lane were not taken. Repair, not pin: P-205 (opaque white rasters, the orphan
-quickstart SVG), P-206 (the theme stylesheet paints dark chrome under both schemes, so G2 is
-unobservable), P-207 (the fig08 title names `permute_labels`; the generator sign-flips), and the
-contract page's counts (nine raster pages, not seven) and item identifiers (P-208).
-Rules G1-G4 of `docs/documentation_form.md`. Place the canonical diagrams as inline SVG; the
-seven raster PNGs stay unless one fails G1 or G2, which is then fixed and named.
-Discriminator: switch the palette scheme; a figure with a hardcoded colour is caught.
-Accept: every figure satisfies G1-G4 and is referenced by its prose; P-26 closes.
 
 ### 06-56 One execution switch
 
@@ -198,7 +183,7 @@ Stop: a cut would delete a caveat a test or gate enforces.
 ### 06-53 Gate the documentation form
 
 Release: required-0.2.6.
-Role: docs-harness. Skill: none. Blocked by: 06-51, 06-52.
+Role: docs-harness. Skill: none. Blocked by: 06-51.
 Writes: `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`.
 Vocabulary list, heading depth, nav shape, figure theme-independence, and a table where a page
 states more than two comparable facts in prose.
@@ -222,7 +207,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 and P-34 into 06-58. Current list: P-62 (the skill GPU line, re-worded after the second pass). P-118 (the H2 and H5 cells). P-212 (`docs/quickstart.md` panels; the fig04 image titles at `ae9248fc`; the fig09 half with P-217). P-213 (`docs/common_mistakes.md` and `docs/06` section 3). P-225 (`docs/architecture.md` against the wheel and `artifacts/direction.md`, including the "Generic" criterion). P-217 (the 0.001% slack and its one-digit self-test; the metadata-less PNG now fails). P-222 (the three further `jnwb.vis` docstrings). The reference citations (`docs/references.md`, `tests/test_references_resolve.py` and the docstring citation blocks; judge each claimed match against its source, and whether each documented divergence is stated where it happens). P-104, P-92, P-93 (`select=` on `compress_fp32` and `convert`, `method=` on the correlation functions, and the CHANGELOG entries; judge the acceptance of integer and boolean datasets in `select=`). The architecture reachability test, widened after the second pass (`tests/test_architecture_page_reachability.py`: spaced edge labels read, an unparseable diagram line fails, and the two phrase patterns cover `needs an agent` and `authoritative`; judge whether they are now wide enough). The four diagrams on `docs/architecture.md` (judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (the `docs/tutorials/09_open_data.md` leftover only). The rows 06-140 repairs join this list when it lands.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 and P-34 into 06-58. Current list: P-62 (the skill GPU line, re-worded after the second pass). P-118 (the H2 and H5 cells). P-212 (`docs/quickstart.md` panels; the fig04 image titles at `ae9248fc`; the fig09 half with P-217). P-213 (`docs/common_mistakes.md` and `docs/06` section 3). P-225 (`docs/architecture.md` against the wheel and `artifacts/direction.md`, including the "Generic" criterion). P-217 (the 0.001% slack and its one-digit self-test; the metadata-less PNG now fails). P-222 (the three further `jnwb.vis` docstrings). The reference citations (`docs/references.md`, `tests/test_references_resolve.py` and the docstring citation blocks; judge each claimed match against its source, and whether each documented divergence is stated where it happens). The figure form (`tests/test_figure_form.py`, the light and dark variants from `docs/generate_figures.py` and `examples/quickstart_jnwb.py`, `docs/_theme_override.css`; P-205, P-206, P-207, P-208 and P-26: judge each dark variant's legibility by eye and whether the contrast floor of 2 is a real G2 check). P-104, P-92, P-93 (`select=` on `compress_fp32` and `convert`, `method=` on the correlation functions, and the CHANGELOG entries; judge the acceptance of integer and boolean datasets in `select=`). The architecture reachability test, widened after the second pass (`tests/test_architecture_page_reachability.py`: spaced edge labels read, an unparseable diagram line fails, and the two phrase patterns cover `needs an agent` and `authoritative`; judge whether they are now wide enough). The four diagrams on `docs/architecture.md` (judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (the `docs/tutorials/09_open_data.md` leftover only). The rows 06-140 repairs join this list when it lands.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -341,7 +326,7 @@ Frozen 2026-09-23 (06-05, closed), each line re-established against the live tre
 | documentation assets render and are regenerable | `tests/test_generated_figures_are_maintained.py`, 06-36 |
 | one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified at `a9993322`; P-199 and P-200 carry its gaps), `tests/test_synthetic_figures_are_labelled.py` |
 | published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
-| documentation low-verbosity and consistently formed, against a declared contract | 06-51, 06-52, 06-53, `docs/glossary.md` |
+| documentation low-verbosity and consistently formed, against a declared contract | 06-51, 06-53, `docs/glossary.md`, `tests/test_figure_form.py` |
 | one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56, 06-59 |
 | every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
 | a read invents no metadata, and a named waiver is recorded as it happened | `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_public_api_reachability.py` |

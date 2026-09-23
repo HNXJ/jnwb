@@ -101,7 +101,8 @@ if psi_res.spectrum is not None:
     print("Freqs:", psi_res.spectrum["freqs"][:3], "...")
 ```
 
-![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png)
+![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png#only-light)
+![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.dark.png#only-dark)
 
 Panel A of that figure is `jnwb.granger` at order 15 on a synthetic pair with a known lead, and panel B is
 `jnwb.phase_slope_index` on the same pair. Both name a direction in the statistics, and neither

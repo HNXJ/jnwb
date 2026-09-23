@@ -120,7 +120,8 @@ The model names are published in `jnwb.RELATIVE_POWER_MODELS`. The library guara
 $\text{requested estimand} = \text{returned estimand}$, with no silent conversion between
 linear and decibel representations.
 
-![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png)
+![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
+![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
 
 Panel A of that figure is synthetic per-unit power ratios on the ratio scale. Panel B puts the two
 `jnwb.aggregate_to_db` contracts beside the mean of per-unit decibels, which is the Jensen error
@@ -159,7 +160,8 @@ which depth receives input, so check the convention before comparing against a f
 from elsewhere -- the opposite convention is also in common use. A sink at a given depth
 is evidence of current entering there, not of which structure supplied it.
 
-![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png)
+![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png#only-light)
+![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.dark.png#only-dark)
 
 Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
 falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.spectral_tilt` recovering the
@@ -295,7 +297,8 @@ tfr_res = jnwb.complex_tfr(
 # - tfr_res.amplitude: np.ndarray (|z|)
 ```
 
-![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png)
+![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png#only-light)
+![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.dark.png#only-dark)
 
 Panel A of that figure is a synthetic LFP trace carrying one transient oscillatory burst and panel B is
 `jnwb.complex_tfr` on it with the cone of influence drawn, so the region the next paragraph

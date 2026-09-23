@@ -26,7 +26,8 @@ time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
 )
 ```
 
-![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png)
+![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png#only-light)
+![Spike Raster and PSTH](assets/figures/fig02_raster_psth.dark.png#only-dark)
 
 Panel A of that figure is a synthetic raster over 30 trials and panel B is `jnwb.bin_spikes` on the same
 spikes. Both panels share one time axis, so what the binning discards is read off the pair; the
@@ -145,7 +146,8 @@ print(f"Goodness-of-fit R2: {fit['r2']:.4f}")
 print(f"Optimizer Bound Status: {fit['bound_status']}")
 ```
 
-![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.png)
+![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.png#only-light)
+![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.dark.png#only-dark)
 
 That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed synthetic rate it
 was fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The

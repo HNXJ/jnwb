@@ -212,7 +212,8 @@ assert plan["scheme"] == "within_group"
 assert plan["n_permutations"] == 1000
 ```
 
-![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.png)
+![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.png#only-light)
+![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.dark.png#only-dark)
 
 That figure is a within-pair sign-flip null over 2000 draws on synthetic paired differences, with the observed mean difference,
 the 95th percentile and the $(1 + \Sigma)/(N + 1)$ p-value drawn on it. The exchangeability the

@@ -19,12 +19,19 @@ DOCS = REPO_ROOT / "docs"
 EMPIRICAL = {}
 
 IMAGE = re.compile(r"^!\[[^\]]*\]\(([^)\s]+)\)\s*$", re.M)
+#: The dark-scheme variant of a figure sits on the line after its light one; it is the same
+#: figure, so it is neither counted again nor read as the light variant's caption.
+DARK_VARIANT = "#only-dark"
 
 
 def figure_captions(text: str):
     """Each (image path, caption) on a page: the caption is the next non-empty paragraph."""
     for m in IMAGE.finditer(text):
+        if m.group(1).endswith(DARK_VARIANT):
+            continue
         rest = text[m.end():].lstrip("\n")
+        while (following := IMAGE.match(rest)) and following.group(1).endswith(DARK_VARIANT):
+            rest = rest[following.end():].lstrip("\n")
         yield m.group(1), rest.split("\n\n", 1)[0]
 
 
@@ -60,3 +67,13 @@ def test_an_unlabelled_caption_is_caught(tmp_path):
         encoding="utf-8",
     )
     assert unlabelled([page], root=tmp_path) == ["p.md: assets/a.png"]
+
+
+def test_the_dark_variant_is_skipped_to_reach_the_caption(tmp_path):
+    page = tmp_path / "p.md"
+    page.write_text(
+        "![A](assets/a.png#only-light)\n![A](assets/a.dark.png#only-dark)\n\nPanel A is a trace.\n\n"
+        "![B](assets/b.png#only-light)\n![B](assets/b.dark.png#only-dark)\n\nA synthetic trace.\n",
+        encoding="utf-8",
+    )
+    assert unlabelled([page], root=tmp_path) == ["p.md: assets/a.png#only-light"]

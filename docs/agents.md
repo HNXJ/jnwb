@@ -57,7 +57,7 @@ to the real layout instead of an assumed one.
 
 ## The skills
 
-Nine skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
+Ten skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
 repository, and in the sdist. Each is a `SKILL.md` with a description and routing rules,
 alongside an `agents/openai.yaml` manifest. They are not in the wheel: the canonical tree is
 `skills/`, and a copy under `jnwb/` would be a second tree, which the repository's own gates
@@ -91,6 +91,7 @@ The pointer above is the route that works from anywhere.
 | `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
 | `jnwb-connectivity` | Granger, PSI, transfer entropy |
 | `jnwb-figures` | Visual QC, plotting, figure export |
+| `jnwb-landmark-viz` | Plotly figures through `jnwb.vis` (the optional `vis` extra) |
 
 The router skill carries the safeguards worth reading even if you never install a skill:
 spikes and LFP are distinct observables and are not pooled; association, directionality and

@@ -153,7 +153,8 @@ three as a conduction speed or as evidence that one layer drives another is the
 association-to-causality step that [Architecture &
 Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules out.
 
-![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png)
+![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png#only-light)
+![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.dark.png#only-dark)
 
 On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
 partitioning 24 contacts of one probe

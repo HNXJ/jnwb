@@ -78,7 +78,8 @@ def regenerated(tmp_path_factory):
 
 def test_every_committed_figure_has_a_generator():
     committed = {p.name for p in FIGURE_DIR.glob("*.png")}
-    registered = set(_registry())
+    # Each registered figure is written once per theme: NAME.png (light) and NAME.dark.png.
+    registered = {n for name in _registry() for n in (name, name.replace(".png", ".dark.png"))}
     assert committed == registered, (
         f"no generator: {sorted(committed - registered)}; "
         f"generator writes an uncommitted figure: {sorted(registered - committed)}"

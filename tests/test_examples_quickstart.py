@@ -46,9 +46,9 @@ def test_the_quickstart_script_runs_end_to_end(quickstart, monkeypatch, tmp_path
     monkeypatch.setattr(quickstart, "OUT", str(tmp_path))
     quickstart.main()
 
-    for ext in ("svg", "png"):
-        written = tmp_path / f"jnwb_quickstart.{ext}"
-        assert written.is_file() and written.stat().st_size > 0, f"no {ext} was written"
+    for name in ("jnwb_quickstart.svg", "jnwb_quickstart.png", "jnwb_quickstart.dark.png"):
+        written = tmp_path / name
+        assert written.is_file() and written.stat().st_size > 0, f"no {name} was written"
 
     out = capsys.readouterr().out
     for _, api, _ in quickstart.PANELS:

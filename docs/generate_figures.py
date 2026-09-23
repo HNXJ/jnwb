@@ -30,15 +30,22 @@ import jnwb
 FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
 OUT_DIR = FIGURE_DIR
 
-# Theme Palette (Slate + Matte Violet + Matte Gold + Accents)
+# Every figure is drawn twice on a transparent background, in the light theme as NAME.png and in
+# the dark theme as NAME.dark.png; a page shows the one matching its palette scheme through
+# Material's `#only-light` and `#only-dark`. No figure paints its own background.
 C_VIOLET = "#7048e8"
 C_GOLD = "#c3aa5f"
-C_DARK = "#2d2d2d"
 C_GRAY = "#888888"
-C_LIGHT_GRAY = "#e0e0e0"
 C_RED = "#d9534f"
 C_GREEN = "#2e7d32"
-C_BG = "#fafafa"
+
+THEMES = {
+    "light": {"fg": "#2d2d2d", "edge": "#b0b0b0", "faint": "#e0e0e0", "suffix": ".png"},
+    "dark": {"fg": "#e0e0e0", "edge": "#6a6a6a", "faint": "#555555", "suffix": ".dark.png"},
+}
+C_DARK = THEMES["light"]["fg"]
+C_LIGHT_GRAY = THEMES["light"]["faint"]
+SUFFIX = THEMES["light"]["suffix"]
 
 plt.rcParams.update({
     "font.family": "sans-serif",
@@ -49,11 +56,31 @@ plt.rcParams.update({
     "ytick.labelsize": 7.5,
     "legend.fontsize": 7.5,
     "figure.titlesize": 10.5,
-    "axes.edgecolor": "#cccccc",
     "axes.linewidth": 0.8,
-    "axes.facecolor": "white",
-    "figure.facecolor": "white",
+    "axes.facecolor": "none",
+    "figure.facecolor": "none",
+    "savefig.transparent": True,
 })
+
+
+def apply_theme(name):
+    """Set the foreground colours every figure draws with; the background stays transparent."""
+    global C_DARK, C_LIGHT_GRAY, SUFFIX
+    theme = THEMES[name]
+    C_DARK, C_LIGHT_GRAY, SUFFIX = theme["fg"], theme["faint"], theme["suffix"]
+    plt.rcParams.update({
+        "text.color": theme["fg"],
+        "axes.labelcolor": theme["fg"],
+        "axes.titlecolor": theme["fg"],
+        "xtick.color": theme["fg"],
+        "ytick.color": theme["fg"],
+        "axes.edgecolor": theme["edge"],
+        "legend.labelcolor": theme["fg"],
+    })
+
+
+def _save(fig, name):
+    fig.savefig(OUT_DIR / name.replace(".png", SUFFIX))
 
 
 def fig01_addressing():
@@ -102,7 +129,7 @@ def fig01_addressing():
     ax2.invert_yaxis()
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig01_addressing_laminar.png")
+    _save(fig, "fig01_addressing_laminar.png")
     plt.close(fig)
 
 
@@ -151,7 +178,7 @@ def fig02_spikes_psth():
     ax2.legend(frameon=False, loc="upper right")
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig02_raster_psth.png")
+    _save(fig, "fig02_raster_psth.png")
     plt.close(fig)
 
 
@@ -186,7 +213,7 @@ def fig03_onset():
     ax.legend(frameon=False, loc="upper left", fontsize=7.2)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig03_onset_fitting.png")
+    _save(fig, "fig03_onset_fitting.png")
     plt.close(fig)
 
 
@@ -228,7 +255,7 @@ def fig04_spectral_tilt():
     ax2.legend(frameon=False, loc="lower left", fontsize=7.2)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig04_psd_spectral_tilt.png")
+    _save(fig, "fig04_psd_spectral_tilt.png")
     plt.close(fig)
 
 
@@ -268,7 +295,7 @@ def fig05_complex_tfr():
     leg = ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper left", labelcolor="white", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig05_complex_tfr_coi.png")
+    _save(fig, "fig05_complex_tfr_coi.png")
     plt.close(fig)
 
 
@@ -315,7 +342,7 @@ def fig06_aggregate_db():
     ax2.set_title("B. Decibel Aggregation Contracts\n(jnwb.aggregate_to_db)", pad=8)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig06_aggregate_to_db.png")
+    _save(fig, "fig06_aggregate_to_db.png")
     plt.close(fig)
 
 
@@ -361,7 +388,7 @@ def fig07_decoding():
     ax2.legend(frameon=False, loc="lower right", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig07_population_decoding.png")
+    _save(fig, "fig07_population_decoding.png")
     plt.close(fig)
 
 
@@ -394,11 +421,11 @@ def fig08_permutation():
 
     ax.set_xlabel("Mean Paired Difference (Δ Fire Rate)")
     ax.set_ylabel("Probability Density")
-    ax.set_title("Exchangeable Within-Group Permutation Null (jnwb.permute_labels)", pad=8)
+    ax.set_title("Paired Sign-Flip Permutation Null", pad=8)
     ax.legend(frameon=False, loc="upper left", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig08_permutation_null.png")
+    _save(fig, "fig08_permutation_null.png")
     plt.close(fig)
 
 
@@ -447,7 +474,7 @@ def fig09_directed_connectivity():
     ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig09_directed_connectivity.png")
+    _save(fig, "fig09_directed_connectivity.png")
     plt.close(fig)
 
 
@@ -485,7 +512,7 @@ def fig10_artifact_repair():
     ax2.legend(frameon=False, loc="upper right", fontsize=7.2)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig10_artifact_repair.png")
+    _save(fig, "fig10_artifact_repair.png")
     plt.close(fig)
 
 
@@ -513,11 +540,13 @@ def main(argv=None):
     args = parser.parse_args(argv)
     OUT_DIR = args.out_dir
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for name in args.only:
-        FIGURES[name]()
-        plt.close("all")
-        print(f"  [OK] {name}")
-    print(f"{len(args.only)} figure(s) written to {OUT_DIR}")
+    for theme in THEMES:
+        apply_theme(theme)
+        for name in args.only:
+            FIGURES[name]()
+            plt.close("all")
+            print(f"  [OK] {name.replace('.png', SUFFIX)}")
+    print(f"{len(args.only)} figure(s) in {len(THEMES)} themes written to {OUT_DIR}")
 
 
 if __name__ == "__main__":
