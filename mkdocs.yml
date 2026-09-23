@@ -98,6 +98,7 @@ nav:
       - Laminar Analysis: tutorials/06_laminar.md
       - Ensembles & Decoding: tutorials/07_ensembles.md
       - End-to-End Pipeline: tutorials/08_end_to_end_pipeline.md
+      - Open Data: tutorials/09_open_data.md
 
   - Doing an analysis:
       - Paths & Addressing: 02_paths_addressing_metadata.md

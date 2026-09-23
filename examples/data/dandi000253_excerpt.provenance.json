@@ -1,0 +1,108 @@
+{
+  "dandiset": {
+    "identifier": "DANDI:000253",
+    "version": "0.240503.0152",
+    "name": "Allen Institute Openscope - Global/Local Oddball project",
+    "doi": "10.48324/dandi.000253/0.240503.0152",
+    "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152",
+    "license": "CC-BY-4.0",
+    "citation": "Westerberg, Jake; Durand, Severine; Cabasco, Hannah; Belski, Hannah; Loeffler, Henry; Bawany, Ahad; Peene, R. Carter; Han, Warren; Nguyen, Katrina; Ha, Vivian; Johnson, Tye; Grasso, Conor; Hardcastle, Ben; Young, Ahrial; Swapp, Jackie; Gillis, Ryan; Ouellette, Ben; Caldejon, Shiella; Williford, Ali; Groblewski, A. Peter; Olsen, Shawn; Kiselycznyk, Carly; Lecoq, Jerome; Maier, Alex; Bastos, Andre (2024) Allen Institute Openscope - Global/Local Oddball project (Version 0.240503.0152) [Data set]. DANDI archive. https://doi.org/10.48324/dandi.000253/0.240503.0152"
+  },
+  "assets": {
+    "units": {
+      "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+      "path": "sub-649323/sub-649323_ses-1232959154_ogen.nwb",
+      "size": 2413138449,
+      "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1",
+      "sha256_verified_locally": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+    },
+    "lfp": {
+      "asset_id": "56e98383-75da-4da3-a61d-39b6f814d9e5",
+      "path": "sub-649323/sub-649323_ses-1232959154_probe-1_ecephys.nwb",
+      "size": 1906777325,
+      "sha256": "5727ccb88e6665b87cdacb8a0db0d1da0f9447268e832243d392cc104b934bd5",
+      "sha256_verified_locally": "5727ccb88e6665b87cdacb8a0db0d1da0f9447268e832243d392cc104b934bd5"
+    }
+  },
+  "builder": "scripts/build_open_data_excerpt.py",
+  "built_utc": "2026-09-23T02:52:44+00:00",
+  "software": {
+    "python": "3.14.3",
+    "numpy": "2.4.6",
+    "h5py": "3.16.0",
+    "pynwb": "3.1.3"
+  },
+  "selection": {
+    "probe": "probeB",
+    "lfp_area_prefix": "VISpm",
+    "lfp_channel_stride": 2,
+    "stimulus_block": 1.0,
+    "n_units": 297,
+    "n_electrodes": 384,
+    "lfp_channel_ids": [
+      1234,
+      1242,
+      1250,
+      1258,
+      1266,
+      1274,
+      1282,
+      1290,
+      1298,
+      1306
+    ],
+    "n_grating_rows": 125
+  },
+  "windows_spike_clock_s": {
+    "start": [
+      3.569168801852582,
+      13.569168801852582
+    ],
+    "window": [
+      102.49431,
+      229.09904
+    ],
+    "end": [
+      9114.314115354235,
+      9124.314115354235
+    ]
+  },
+  "lfp_sample_ranges": {
+    "start": [
+      0,
+      12500
+    ],
+    "window": [
+      123031,
+      282538
+    ],
+    "end": [
+      11388420,
+      11400920
+    ]
+  },
+  "source_values": {
+    "lfp_n_samples": 11400920,
+    "lfp_first_timestamp": 0.0,
+    "lfp_last_timestamp": 273622056.0,
+    "lfp_timestamp_step": 24.0,
+    "lfp_timestamp_step_is_uniform_over_all_samples": true,
+    "lfp_timestamps_unit_label": "seconds",
+    "probe_first_spike_s": 3.569168801852582,
+    "probe_last_spike_s": 9124.314115354235,
+    "declared_rates_hz": {
+      "device_sampling_rate_hz": 30000.0,
+      "electrode_group_lfp_sampling_rate_hz": 1250.0
+    }
+  },
+  "builder_clock_estimate": {
+    "note": "used only to choose the window's samples; the tutorial re-derives it",
+    "tick_rate_per_s": 29999.967941591047,
+    "lfp_rate_hz": 1249.9986642329602
+  },
+  "excerpt": {
+    "path": "examples/data/dandi000253_excerpt.nwb",
+    "size_bytes": 7799687,
+    "sha256": "19a69fc51827ff818bd0266a688319edb314e07927745f609ddcd6484bb44d86"
+  }
+}
