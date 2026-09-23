@@ -870,3 +870,60 @@ class TestASelectionTheConversionDropsIsRefused:
             else:
                 jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[SCALAR])
         assert list(out.iterdir()) == []
+
+
+def _respell(path, how):
+    """Another spelling HDF5 resolves to the same object as ``path``."""
+    head, _, tail = path.partition("/")
+    return {"double": f"{head}//{tail}", "dot": f"{head}/./{tail}", "trailing": path + "/"}[how]
+
+
+SPELLINGS = ["double", "dot", "trailing"]
+
+
+class TestASelectionIsResolvedBeforeItIsCompared:
+    """Every `select=` entry is compared as the object HDF5 resolves it to, not as the string the
+    caller typed.
+
+    The proxy to avoid: guards that hold for the one spelling each test types. A guarded path
+    written `a//b` or `a/./b` used to pass the guard and stamp a float32 cast note on a dataset
+    that stayed float64, and a trailing `/` raised only after the temporary file existed. So each
+    refusal runs under every spelling and asserts the output directory is empty, and a respelled
+    castable path must be cast exactly once under its own name.
+    """
+
+    @pytest.fixture
+    def src(self, tmp_path):
+        return _file_with_timestamps(tmp_path / "ts.nwb")
+
+    @pytest.mark.parametrize("how", SPELLINGS)
+    def test_a_respelled_guarded_path_is_refused_before_anything_is_written(
+        self, src, tmp_path, how
+    ):
+        # `convolved_spike_train` is float64 here, so only the guard can refuse it; the integer
+        # `spike_train` would also be refused by the dtype check and could not tell them apart.
+        from jnwb.compression import CONVOLVED_PATH
+
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="source dtype"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False,
+                               select=[OTHER, _respell(CONVOLVED_PATH, how)])
+        assert list(out.iterdir()) == []
+
+    @pytest.mark.parametrize("how", SPELLINGS)
+    def test_a_respelled_dropped_timestamps_array_is_refused(self, src, tmp_path, how):
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="starting_time and rate"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False,
+                               select=[OTHER, _respell(REGULAR_TS, how)])
+        assert list(out.iterdir()) == []
+
+    @pytest.mark.parametrize("how", SPELLINGS)
+    def test_a_respelled_castable_path_is_cast_once_under_its_own_name(self, src, tmp_path, how):
+        dst = tmp_path / "cast.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=[OTHER, _respell(OTHER, how)])
+        assert stats["cast_paths"] == ["/" + OTHER]
+        assert _cast_notes(dst) == {OTHER: np.dtype(np.float32)}
+        assert list(tmp_path.glob("*.tmp*")) == []

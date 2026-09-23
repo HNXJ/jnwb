@@ -166,6 +166,10 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
     must not be a path convert() rewrites afterwards. Anything else raises before a byte is
     written, because it would otherwise end as a silent no-op or a receipt for a cast that did
     not happen.
+
+    Each entry is resolved to the name HDF5 gives the object it opens, and every check compares
+    that name rather than the caller's spelling: ``a//b``, ``a/./b`` and ``a/b/`` all open
+    ``/a/b``, and a check on the spelling would let them past a guard that ``a/b`` meets.
     """
     if select is None:
         return _find_lfp_muae_paths(src)
@@ -173,7 +177,15 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
         raise TypeError(
             "select= takes a list of dataset paths, not one string; write select=[path]"
         )
-    paths = sorted({"/" + str(p).lstrip("/") for p in select})
+    resolved = set()
+    for entry in select:
+        requested = "/" + str(entry).lstrip("/")
+        if requested not in src:
+            raise KeyError(
+                f"select= names {str(entry)}, which is not in {Path(src.filename).name}"
+            )
+        resolved.add(src[requested].name)
+    paths = sorted(resolved)
     for path in paths:
         rel = path[1:]
         if rel in _GUARDED_PATHS:
@@ -181,9 +193,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 f"select= names {rel}, which compress_fp32 always rewrites at its source dtype; "
                 "it cannot be cast to float32. Remove it from select=."
             )
-        if rel not in src:
-            raise KeyError(f"select= names {rel}, which is not in {Path(src.filename).name}")
-        obj = src[rel]
+        obj = src[path]
         if not isinstance(obj, h5py.Dataset):
             raise TypeError(f"select= names {rel}, which is a group, not a dataset")
         if obj.dtype.kind != "f":
@@ -709,7 +719,8 @@ def compress_fp32(
         dst: output path. Defaults to ``<src stem>.fp32.nwb`` beside ``src``.
         select: dataset paths to cast to float32, such as
             ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
-            nothing. The cast is IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE
+            nothing. Each path is checked, cast and reported under the name of the dataset it
+            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE
             preset and emits ``FutureWarning``; ``select=`` becomes required in 0.2.7.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
