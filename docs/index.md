@@ -13,7 +13,7 @@ Condition codes, task structure, and experimental hypotheses belong in project c
 **New to NWB in jnwb?** Start with the [Tutorials](tutorials/01_nwb_basics.md):
 `inspect` → `events` / `event_onsets` → align spikes/LFP → compose an analysis.
 
-[Architecture](01_architecture_and_philosophy.md) · [Public API](api.md) (every exported symbol) · [Common mistakes](common_mistakes.md) · [Errors](errors.md) (what each refusal means and what to pass instead)
+[Architecture](architecture.md) · [Public API](api.md) (every exported symbol) · [Common mistakes](common_mistakes.md) · [Errors](errors.md) (what each refusal means and what to pass instead)
 
 ## Install
 
@@ -22,7 +22,7 @@ pip install -U jnwb
 pip install "jnwb[torch,gpu]"   # optional CuPy / PyTorch
 ```
 
-Requires Python 3.12 or newer; CI tests 3.12 and 3.14. See [Installation](install.md).
+Requires Python 3.12 or newer; CI tests 3.12, 3.13 and 3.14. See [Installation](install.md).
 
 ## Example
 
@@ -48,7 +48,8 @@ print(f"Beta band power: {beta_power:.4f}")
 
 - [Quickstart](quickstart.md) — runnable tour of core primitives
 - [Installation](install.md) — setup and verification
-- [Architecture](01_architecture_and_philosophy.md) — scope, units, and dataset independence
+- [Architecture](architecture.md) — the two entry paths, how skills route, and what belongs in jnwb
+- [Philosophy & boundary](01_architecture_and_philosophy.md) — scope, units, and dataset independence
 - [Addressing & metadata](02_paths_addressing_metadata.md)
 - [Public API](api.md) — every symbol in `jnwb.__all__`, gate-enforced
 - [Analyzing with an agent](agents.md) — what ships, the MCP server, and the skills

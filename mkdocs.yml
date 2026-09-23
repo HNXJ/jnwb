@@ -120,6 +120,7 @@ nav:
       - References: references.md
 
   - Design & conventions:
+      - Architecture: architecture.md
       - Philosophy & Boundary: 01_architecture_and_philosophy.md
       - Documentation Form: documentation_form.md
 

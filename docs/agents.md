@@ -2,7 +2,8 @@
 
 `jnwb` is usable by a coding agent, but almost none of that is automatic. This page says
 exactly what reaches your machine from `pip install jnwb`, what does not, and how to supply
-the rest.
+the rest. [Architecture](architecture.md) shows where skills sit relative to the library and
+the four outcomes a skill can end a task in.
 
 ## What the installed package gives you
 
