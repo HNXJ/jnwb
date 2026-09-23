@@ -276,25 +276,32 @@ class TestH6AccumulatorToDecibels:
 
     @pytest.mark.parametrize("form", [
         "mean", "asarray", "asarray_of_mean", "stack", "stack_mean", "tolist", "list_of_rows",
+        "asarray_of_row", "asarray_of_slice", "asarray_of_reshape", "asarray_of_transpose",
     ])
     def test_every_markable_form_of_accumulator_power_is_refused(self, h6_chain, form):
         """The refusal follows the trial mean through the forms a caller reaches for.
 
         The baseline is a plain per-trial mean, so only the power argument can trigger it.
+        The last four are plain views of a sliced, reshaped or transposed marked view, whose
+        base chain passes through two marked links before it reaches the buffer.
         """
         acc = h6_chain["acc"]
-        power = {
-            "mean": lambda: acc.mean,
-            "asarray": lambda: np.asarray(acc.power()),
-            "asarray_of_mean": lambda: np.asarray(acc.mean)[0],
-            "stack": lambda: np.stack([acc.power()])[0],
-            "stack_mean": lambda: np.stack([acc.power(), acc.power()]).mean(axis=0),
-            "tolist": lambda: acc.power().tolist(),
-            "list_of_rows": lambda: list(np.asarray(acc.power())),
-        }[form]()
-        baseline = h6_chain["baseline"].mean(axis=0)
-        if form == "asarray_of_mean":
-            baseline = baseline[0]
+        same = lambda b: b  # noqa: E731
+        power, shape_baseline = {
+            "mean": (lambda: acc.mean, same),
+            "asarray": (lambda: np.asarray(acc.power()), same),
+            "asarray_of_mean": (lambda: np.asarray(acc.mean)[0], lambda b: b[0]),
+            "stack": (lambda: np.stack([acc.power()])[0], same),
+            "stack_mean": (lambda: np.stack([acc.power(), acc.power()]).mean(axis=0), same),
+            "tolist": (lambda: acc.power().tolist(), same),
+            "list_of_rows": (lambda: list(np.asarray(acc.power())), same),
+            "asarray_of_row": (lambda: np.asarray(acc.power()[0]), lambda b: b[0]),
+            "asarray_of_slice": (lambda: np.asarray(acc.mean[..., 2:6]), lambda b: b[..., 2:6]),
+            "asarray_of_reshape": (lambda: np.asarray(acc.mean.reshape(-1)), lambda b: b.reshape(-1)),
+            "asarray_of_transpose": (lambda: np.asarray(acc.power().T), lambda b: b.T),
+        }[form]
+        power = power()
+        baseline = shape_baseline(h6_chain["baseline"].mean(axis=0))
         with pytest.raises(ValueError, match="needs per-trial power"):
             jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=None)
         jnwb.aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=None)

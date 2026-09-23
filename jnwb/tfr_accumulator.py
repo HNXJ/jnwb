@@ -76,7 +76,11 @@ def _is_trial_averaged(obj) -> bool:
     if isinstance(obj, (_TrialAveragedPower, _TrialAveragedList)):
         return True
     if isinstance(obj, np.ndarray):
-        owner = obj if obj.base is None else obj.base
+        # NumPy collapses a view's base chain to the owner only while every link is the same
+        # type, so a plain view of a sliced subclass view is three links from the buffer.
+        owner = obj
+        while isinstance(owner.base, np.ndarray):
+            owner = owner.base
         return _TRIAL_AVERAGED_BUFFERS.get(id(owner)) is owner
     if isinstance(obj, (list, tuple)):
         return any(

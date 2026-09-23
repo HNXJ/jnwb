@@ -1033,7 +1033,12 @@ _ITEM_SHAPED = re.compile(r"^[\s*_`\[(#]*\d+-\d+(?!\d|-\d)")
 # quoted, indented or lowercase field still marks its heading as an item rather than as prose,
 # and makes an item's release unreadable rather than letting its canonical line speak alone.
 _RELEASE_VALUE = re.compile(r"^Release:\s*(.*)$")
-_RELEASE_ANY = re.compile(r"^[\s>*_+`-]*(?:\d+[.)][\s>*_+`-]*)?Release[*_`]*\s*:", re.IGNORECASE)
+# Searched anywhere in a line, so a field in a table cell or wrapped in HTML tags is seen too.
+_RELEASE_ANY = re.compile(r"(?<![\w-])Release(?:[*_`]|</?\w+[^>]*>)*\s*:", re.IGNORECASE)
+# The two other heading syntaxes Markdown renders: a setext underline below a paragraph line,
+# and an HTML heading element. Either one read as body text hid its item under the one above.
+_SETEXT_UNDERLINE = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
+_HTML_HEADING = re.compile(r"^\s*<h([1-6])\b[^>]*>(.*?)</h\1>\s*$", re.IGNORECASE)
 
 
 def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]:
@@ -1053,17 +1058,21 @@ def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]
     """
     sections: List[Tuple[Optional[str], List[str]]] = [(None, [])]
     for line in text.splitlines():
-        heading = _HEADING.match(line) or _CONTAINED_HEADING.match(line)
+        heading = (_HEADING.match(line) or _CONTAINED_HEADING.match(line)
+                   or _HTML_HEADING.match(line))
+        body = sections[-1][1]
         if heading:
             sections.append(((heading.group(2) or "").strip(), []))
+        elif _SETEXT_UNDERLINE.match(line) and body and body[-1].strip():
+            sections.append((body.pop().strip(), []))
         else:
-            sections[-1][1].append(line)
+            body.append(line)
     items: List[Tuple[str, str, str]] = []
     unparseable: List[str] = []
     for title, body in sections:
         values = [m.group(1).strip().rstrip(".").strip()
                   for m in map(_RELEASE_VALUE.match, body) if m]
-        has_field = any(_RELEASE_ANY.match(line) for line in body)
+        has_field = any(_RELEASE_ANY.search(line) for line in body)
         item = _ITEM_HEADING.match(title) if title is not None else None
         if item:
             distinct = list(dict.fromkeys(values))
@@ -1074,7 +1083,7 @@ def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]
             value = ("MISSING" if not distinct else distinct[0] if len(distinct) == 1
                      else "CONFLICTING: " + " / ".join(distinct))
             noncanonical = [line.strip() for line in body
-                            if _RELEASE_ANY.match(line) and not _RELEASE_VALUE.match(line)]
+                            if _RELEASE_ANY.search(line) and not _RELEASE_VALUE.match(line)]
             if noncanonical:
                 value = "NONCANONICAL"
                 unparseable.append(

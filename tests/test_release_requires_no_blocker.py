@@ -371,6 +371,8 @@ def test_an_item_stating_two_release_values_is_required(tmp_path):
     "  Release: required-0.2.6.",
     "release: required-0.2.6.",
     "1. Release: required-0.2.6.",
+    "| Scope | Release: required-0.2.6. |",
+    "<b>Release:</b> required-0.2.6.",
 ])
 def test_a_deferred_item_with_a_noncanonical_second_release_line_fails_closed(tmp_path, second):
     """Only the canonical line was read, so a second value in any other form went unseen."""
@@ -383,6 +385,9 @@ def test_a_deferred_item_with_a_noncanonical_second_release_line_fails_closed(tm
 @pytest.mark.parametrize("hidden", [
     "> ### 99-902 A quoted item\n>\n> Release: required-0.2.6.\n",
     "- ### 99-902 A listed item\n\n  Release: required-0.2.6.\n",
+    "99-902 A setext item with no field\n===\n\nBody text.\n",
+    "99-902 A setext item with no field\n---\n\nBody text.\n",
+    "<h3>99-902 An HTML item with no field</h3>\n\nBody text.\n",
 ])
 def test_a_contained_heading_after_a_deferred_item_is_read_as_an_item(tmp_path, hidden):
     """A heading in a blockquote or list item was body text of the deferred item above it."""

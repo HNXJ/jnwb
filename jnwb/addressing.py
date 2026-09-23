@@ -445,7 +445,12 @@ def _enrich_units_dataframe(
     # Standard quality cutoff: quality >= 1.0 is stable for numeric metrics;
     # for categorical quality labels, standard accepted good labels are stable.
     quality = df['quality'] if 'quality' in df.columns else None
-    if quality is not None and (quality.notna() & (quality.astype(str).str.strip() != '')).any():
+    # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
+    # one ("nan", "None") rather than a real NaN.
+    _MISSING_TEXT = {"", "nan", "none", "null", "na", "n/a"}
+    if quality is not None and (
+        quality.notna() & ~quality.astype(str).str.strip().str.lower().isin(_MISSING_TEXT)
+    ).any():
         q_num = pd.to_numeric(quality, errors='coerce')
         if q_num.notna().any():
             df['is_stable'] = q_num >= 1.0
