@@ -112,3 +112,50 @@ def test_the_linear_jackknife_equals_leaving_each_segment_out():
     assert fast.shape == (n_seg,)
     assert np.ptp(direct) > 0.1, "the replicates must differ, or any constant passes"
     np.testing.assert_allclose(fast, direct, rtol=1e-9, atol=1e-12)
+
+
+def test_a_stored_entry_seeks_and_a_compressed_one_reads(tmp_path, monkeypatch):
+    import numpy as np
+
+    import jnwb.io
+
+    arr = np.arange(50_000, dtype=np.float64)
+    stored, deflated = tmp_path / "s.npz", tmp_path / "d.npz"
+    np.savez(stored, a=arr)
+    np.savez_compressed(deflated, a=arr)
+    real_read_skip = jnwb.io._read_skip
+    read = []
+
+    def counting_read_skip(f, n_bytes, *args, **kwargs):
+        read.append(n_bytes)
+        return real_read_skip(f, n_bytes, *args, **kwargs)
+
+    monkeypatch.setattr(jnwb.io, "_read_skip", counting_read_skip)
+    tail = (slice(49_000, None),)
+    np.testing.assert_array_equal(jnwb.io.stream_npz_array(stored, "a", tail), arr[tail])
+    assert read == [], "a stored entry was read through to skip its leading elements"
+    np.testing.assert_array_equal(jnwb.io.stream_npz_array(deflated, "a", tail), arr[tail])
+    # A compressed entry cannot seek; zipfile would emulate it with reads of up to 16 MiB.
+    assert read == [49_000 * 8]
+
+
+def test_a_stored_entry_shorter_than_its_header_still_fails(tmp_path):
+    import io
+    import zipfile
+
+    import numpy as np
+    import pytest
+
+    import jnwb.io
+
+    buf = io.BytesIO()
+    np.lib.format.write_array_header_1_0(
+        buf, {"descr": "<f8", "fortran_order": False, "shape": (1000,)}
+    )
+    buf.write(np.ones(100).tobytes())
+    path = tmp_path / "short.npz"
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("a.npy", buf.getvalue())
+    # Seeking clamps at the end of the entry; without a check this returns uninitialised memory.
+    with pytest.raises(ValueError, match="corrupt"):
+        jnwb.io.stream_npz_array(path, "a", (slice(900, 1000),))

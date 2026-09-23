@@ -31,12 +31,25 @@ def _read_skip(f, n_bytes: int, chunk_size: int = 65536) -> None:
         n_bytes -= n_read
 
 
+def _seek_skip(f, n_bytes: int) -> None:
+    """Advance a stored (uncompressed) archive entry by n_bytes without reading them.
+
+    ``ZipExtFile.seek`` clamps a target past the end of the entry instead of failing, so the
+    landing position is checked: a header that promises more elements than the entry holds must
+    fail here as it does through ``_read_skip``.
+    """
+    target = f.tell() + n_bytes
+    if f.seek(target) != target:
+        raise EOFError("Unexpected EOF while streaming NPZ archive entry")
+
+
 def _stream_slice(
     f,
     shape: Tuple[int, ...],
     fortran_order: bool,
     dtype: np.dtype,
     slice_tuple: Union[slice, int, Tuple[Union[slice, int], ...]],
+    seekable: bool = False,
 ) -> np.ndarray:
     """Stream sliced elements from an open .npy stream in monotonic element order."""
     if isinstance(slice_tuple, (slice, int, np.integer)):
@@ -87,6 +100,9 @@ def _stream_slice(
 
     out = np.empty(out_shape, dtype=dtype, order=order)
     curr_elem = 0
+    # A stored entry seeks past what the slice skips, so time follows what is read. A compressed
+    # entry has no random access and must be decompressed up to the last selected element.
+    skip = _seek_skip if seekable else _read_skip
 
     def forward_to_elem(target_elem: int) -> None:
         nonlocal curr_elem
@@ -96,7 +112,7 @@ def _stream_slice(
                 f"Internal streaming error: target element {target_elem} < current element {curr_elem}"
             )
         if diff_elems > 0:
-            _read_skip(f, diff_elems * itemsize)
+            skip(f, diff_elems * itemsize)
             curr_elem = target_elem
 
 
@@ -165,6 +181,12 @@ def stream_npz_array(
     and compressed archives ZIP_DEFLATED). Preserves exact dtype, shape, and Fortran/C
     memory order.
 
+    Time depends on the compression. A stored archive (``np.savez``) seeks past what the slice
+    skips, so time follows the number of elements read. A compressed archive
+    (``np.savez_compressed``) is decompressed from the start of the array to its last selected
+    element. Seeking means the entry's CRC-32 is checked only when the slice skips nothing;
+    read the whole array to verify the file.
+
     Args:
         file_path: Path to the .npz archive on disk.
         key: Array key within the archive (with or without '.npy' suffix).
@@ -227,6 +249,7 @@ def stream_npz_array(
                     fortran_order=fortran_order,
                     dtype=dtype,
                     slice_tuple=slice_tuple,
+                    seekable=info.compress_type == zipfile.ZIP_STORED and f.seekable(),
                 )
         except (KeyError, ValueError):
             raise
