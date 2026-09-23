@@ -828,8 +828,8 @@ class StatisticalAnalysis:
 
         A test the data cannot support -- an empty group, one observation per group, two
         identical constant groups, or paired groups whose every difference is zero -- reports
-        its ``statistic`` and ``pval`` as NaN, and its ``significant_*`` flag is False. An
-        effect size whose SD is zero or undefined is NaN.
+        its ``statistic`` and ``pval`` as NaN, a t-test's ``df`` as float NaN, and its
+        ``significant_*`` flag is False. An effect size whose SD is zero or undefined is NaN.
 
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
@@ -891,7 +891,8 @@ class StatisticalAnalysis:
                     "test": "paired_t_test",
                     "statistic": float(t_stat),
                     "pval": float(t_pval),
-                    "df": int(df),
+                    # A test with no estimate has no degrees of freedom either.
+                    "df": float("nan") if np.isnan(t_stat) else int(df),
                     "effect_size": cohens_dz,
                     "effect_size_name": "cohens_dz",
                 }
@@ -925,7 +926,7 @@ class StatisticalAnalysis:
                     "test": "independent_t_test",
                     "statistic": float(t_stat),
                     "pval": float(t_pval),
-                    "df": int(df),
+                    "df": float("nan") if np.isnan(t_stat) else int(df),
                     "effect_size": float(cohens_d),
                     "effect_size_name": "cohens_d_pooled",
                 }
@@ -959,8 +960,9 @@ class StatisticalAnalysis:
 
         A test the data cannot support -- an empty group, one observation per group for the
         ANOVA, or identical constant groups -- reports its ``statistic`` and ``pval`` as NaN,
-        and its ``significant_*`` flag is False. ``eta_squared`` is NaN when the data have no
-        variance.
+        and its ``significant_*`` flag is False; an ANOVA with no estimate reports
+        ``df_between`` and ``df_within`` as float NaN, and ``group_sizes`` keeps the counts.
+        ``eta_squared`` is NaN when the data have no variance.
 
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"``
@@ -1003,8 +1005,9 @@ class StatisticalAnalysis:
                 "test": "one_way_anova",
                 "statistic": float(f_stat),
                 "pval": float(f_pval),
-                "df_between": int(df_between),
-                "df_within": int(df_within),
+                # A test with no estimate has no degrees of freedom; group_sizes keeps the counts.
+                "df_between": float("nan") if np.isnan(f_stat) else int(df_between),
+                "df_within": float("nan") if np.isnan(f_stat) else int(df_within),
                 "effect_size": float(eta_squared),
                 "effect_size_name": "eta_squared",
             }

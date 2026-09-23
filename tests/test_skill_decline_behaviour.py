@@ -472,6 +472,7 @@ def _compare_with_an_empty_group():
     t = stats.ttest_ind(one, twenty)
     assert defined["pval"] == pytest.approx(t.pvalue)
     assert defined["effect_size"] == pytest.approx(t.statistic * np.sqrt(1 / 1 + 1 / 20))
+    assert type(defined["df"]) is int and defined["df"] == 19
 
     res = jnwb.StatisticalAnalysis.confirmatory_compare(
         np.array([]), twenty, hypothesis="the groups differ", n_bootstrap=50
@@ -480,7 +481,7 @@ def _compare_with_an_empty_group():
         f"{block}.{key}": res[block][key]
         for block in ("parametric", "non_parametric") for key in ("statistic", "pval")
     }
-    values.update(effect_size=res["parametric"]["effect_size"],
+    values.update(effect_size=res["parametric"]["effect_size"], df=res["parametric"]["df"],
                   q_parametric=res["q_parametric"], q_nonparametric=res["q_nonparametric"])
     # Paired groups whose every difference is zero leave the signed-rank test no rank.
     paired = jnwb.StatisticalAnalysis.exploratory_compare(

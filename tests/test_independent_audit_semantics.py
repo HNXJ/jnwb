@@ -76,6 +76,7 @@ class TestCompareGroupsPairedContract:
         # Every difference is zero, so the t statistic is 0/0: no test, not p = 1.
         assert np.isnan(res["parametric"]["pval"])
         assert np.isnan(res["parametric"]["effect_size"])
+        assert np.isnan(res["parametric"]["df"])
         assert res["significant_parametric"] is False
 
     def test_paired_insufficient_finite_pairs_raises(self):

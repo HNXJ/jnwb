@@ -1025,5 +1025,13 @@ def test_a_multi_group_comparison_with_no_test_reports_nan(groups):
     for block in ("parametric", "non_parametric"):
         assert np.isnan(res[block]["statistic"]) and np.isnan(res[block]["pval"])
     assert np.isnan(res["parametric"]["effect_size"])
+    assert np.isnan(res["parametric"]["df_between"]) and np.isnan(res["parametric"]["df_within"])
+    assert res["group_sizes"] == [len(g) for g in groups.values()]
     assert res["significant_parametric"] is False and res["significant_nonparametric"] is False
+    # A defined ANOVA keeps its integer degrees of freedom.
+    defined = StatisticalAnalysis.exploratory_multi(
+        {"a": np.arange(5.0), "b": np.arange(5.0) + 1, "c": np.arange(5.0) + 3}
+    )["parametric"]
+    assert (defined["df_between"], defined["df_within"]) == (2, 12)
+    assert type(defined["df_between"]) is int and type(defined["df_within"]) is int
 
