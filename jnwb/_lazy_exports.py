@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-SUBMODULES = frozenset({"visual_qc", "io", "laminar", "vis"})
+SUBMODULES = frozenset({"visual_qc", "io", "laminar"})
 
 EXPORT_MODULES: dict[str, str] = {
     # io
