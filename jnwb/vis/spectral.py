@@ -2,8 +2,10 @@
 jnwb.vis.spectral -- Publication-grade spectral modulation and functional connectivity in pure Plotly.
 
 Implements Motif 4 (Bastos 2020, Mendoza-Halliday 2024, Westerberg 2024):
-- Area x Frequency Band modulation matrices with Benjamini-Hochberg FDR indicators
-- Directed Granger causality spectra for both directions of a pair, with null ribbons
+- Area x Frequency Band modulation matrices with significance markers from a caller-supplied mask
+- Directed Granger causality spectra for both directions of a pair, with caller-supplied null ribbons
+
+No statistic is computed here: every mask, interval and null is a caller input.
 - Phase-Amplitude Coupling (PAC) comodulograms
 """
 
@@ -31,7 +33,7 @@ def plot_spectral_modulation_matrix(
     colorbar_title: str = "ΔdB",
 ) -> None:
     """
-    Render an Area x Band spectral modulation matrix with FDR-corrected significance markers.
+    Render an Area x Band spectral modulation matrix with significance markers from ``sig_mask``.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
@@ -40,7 +42,8 @@ def plot_spectral_modulation_matrix(
         delta_db_matrix: 2D array of shape [n_areas, n_bands].
         areas: List of area names.
         bands: List of frequency band names (e.g. ['θ', 'α', 'β', 'low γ', 'high γ']).
-        sig_mask: Boolean 2D array indicating FDR-significant cells (q_BH <= 0.05).
+        sig_mask: Boolean 2D array of cells to mark, computed by the caller (for example
+            ``jnwb.fdr_correct`` q-values at or below 0.05).
         cmap: Diverging colormap name (default 'RdBu_r' centered at 0).
         title: Panel title.
         colorbar_title: Title for colorbar.

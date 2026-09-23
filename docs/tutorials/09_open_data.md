@@ -69,7 +69,7 @@ The script refuses a file whose size or SHA-256 differs from the published asset
 
 ## Deriving the LFP clock
 
-The excerpt keeps the recording's first and last LFP sample and its first and last spike, so
+The excerpt keeps the session's first and last LFP sample and its first and last spike, so
 both spans cover the whole 9121 s session.
 
 | Quantity | How | Value |

@@ -160,7 +160,10 @@ def plot_opposing_gradients(
     title: Optional[str] = "Opposing Laminar Gradients",
 ) -> None:
     """
-    Render opposing gamma vs. alpha/beta laminar power gradients with bootstrap CIs.
+    Render opposing gamma vs. alpha/beta laminar power gradients with caller-supplied intervals.
+
+    The intervals in ``ci_gamma`` and ``ci_alphabeta`` are drawn as given; nothing here
+    computes them.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.

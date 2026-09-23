@@ -100,7 +100,7 @@ An operation belongs in jnwb when all five hold:
 
 | Criterion | Holds when |
 |---|---|
-| Generic | it is about NWB data in general, not one dataset's structure |
+| Generic | it is not about one dataset's structure |
 | Dataset-independent | it names no study, session or condition |
 | Scientifically stable | its definition does not move with a hypothesis |
 | Explicitly parameterized | every scientific choice is a caller input, not a default in hiding |

@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
 MKDOCS = REPO_ROOT / "mkdocs.yml"
@@ -21,20 +23,21 @@ AGENT = re.compile(r"\bagents?\b|\bAI\b|\bskills?\b", re.I)
 OPERATIONS = re.compile(r"\boperations?\b", re.I)
 
 NODE = re.compile(r"([A-Za-z_][\w]*)\s*(?:\[([^\]]*)\]|\(([^)]*)\)|\{([^}]*)\})?")
-EDGE = re.compile(r"(-{2,}>|-\.+->|={2,}>)(?:\|[^|]*\|)?")
+EDGE = re.compile(r"(-{2,}>|-\.+->|={2,}>)\s*(?:\|[^|]*\|)?")
 
 #: Phrases that make an agent a precondition of using jnwb.
 AGENT_REQUIRED = re.compile(
-    r"requires? an? (?:AI )?agent|agent[- ](?:first|only)|only (?:through|via) an? (?:AI|agent)"
-    r"|must (?:use|go through) an? (?:AI )?agent",
+    r"(?:requires?|needs?|depends? on) an? (?:AI )?agent|agent[- ](?:first|only)"
+    r"|only (?:through|via|with) an? (?:AI|agent)"
+    r"|must (?:use|go through|be driven by) an? (?:AI )?agent",
     re.I,
 )
 
 #: A skill as the subject of a sentence that makes it the authority over an operation.
 SKILL_AUTHORITY = re.compile(
     r"\bskills?\s+(?:is|are|acts? as|serves? as)\s+(?:the\s+)?(?:\w+\s+)?"
-    r"(?:authority|source of truth|canonical)"
-    r"|\bskills?\s+(?:define|defines|implement|implements|specify|specifies)\b",
+    r"(?:authority|authoritative|source of truth|canonical)"
+    r"|\bskills?\s+(?:define|defines|implement|implements|specify|specifies|decides? what)\b",
     re.I,
 )
 
@@ -64,10 +67,10 @@ def _graph(block):
         parts = EDGE.split(line)
         ids = []
         for chunk in parts[::2]:
-            m = NODE.match(chunk.strip())
-            if not m:
-                ids = []
-                break
+            m = NODE.fullmatch(chunk.strip())
+            # Fail closed: a line the reader cannot parse would otherwise drop its edges, and a
+            # dropped researcher-to-agent edge reads exactly like an absent one.
+            assert m, f"diagram line the reader cannot parse: {line!r}"
             node_id = m.group(1)
             label = next((g for g in m.groups()[1:] if g), None)
             if label is not None or node_id not in labels:
@@ -168,3 +171,9 @@ def test_the_diagram_reader_sees_edges_and_labels():
     chained, chain_edges = _graph("graph LR\n    R[Researcher] --> A[AI agent] --> O[operations]\n")
     assert _paths(chained, chain_edges, "R", AGENT, avoid=None)
     assert not _paths(chained, chain_edges, "R", OPERATIONS, avoid=AGENT)
+    spaced, spaced_edges = _graph("graph LR\n    R[Researcher] --> |asks| A[AI agent]\n")
+    assert spaced_edges == [("R", "A")]
+    with pytest.raises(AssertionError, match="cannot parse"):
+        _graph("graph LR\n    R[Researcher] --> A[agent] & B[skills]\n")
+    assert AGENT_REQUIRED.search("Using jnwb needs an AI agent.")
+    assert SKILL_AUTHORITY.search("The skill is authoritative over the estimator.")

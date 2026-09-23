@@ -37,7 +37,9 @@ def plot_hierarchy_regression(
     fit_line_color: str = "#C0392B",
 ) -> None:
     """
-    Render a cortical hierarchy regression panel with explicit error bars and permutation nulls.
+    Render a cortical hierarchy regression panel with caller-supplied error bars and null.
+
+    The error bars, ``p_perm`` and ``null_ribbon`` are drawn as given; nothing here computes them.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.

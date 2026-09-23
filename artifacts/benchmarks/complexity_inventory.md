@@ -58,7 +58,7 @@ input scales.
 |---|---|---|
 | `complex_tfr` | `CUDA_AVAILABLE` | CuPy FFT accelerates large channel/frequency tensors |
 | `band_power` / `_welch_csd_gpu` | `CUDA_AVAILABLE` | CuPy implementation with exact SciPy parity and CPU fallback |
-| `jrsa` (`_cka`, `_rv`) | `CUDA_AVAILABLE` | Large matrix dot products benefit from GPU linear algebra |
+| `jrsa` (`_cka`, `_rv`) | CPU only | Every metric runs in NumPy; a `device='cuda'` request warns and records `execution['device'] == 'cpu'` |
 | `wpli` | `CUDA_AVAILABLE` | Segment FFT and tensor reduction implemented on CuPy with CPU fallback |
 | `nested_cv_linear_svm` | `CPU_ONLY_JUSTIFIED` | Scikit-learn LinearSVC / liblinear is optimized for CPU |
 | `vflip` / `xflip` / `zflip` | `CPU_ONLY_JUSTIFIED` | Channel counts ($C \le 128$) are small; host-device transfer cost exceeds compute benefit |
