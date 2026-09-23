@@ -16,6 +16,13 @@ Carried by 0.2.6.
   dependencies are unchanged. Without the extra, `import jnwb` and every other export work,
   and accessing `jnwb.vis` raises `ImportError` naming `pip install jnwb[vis]`.
   `from jnwb import *` needs the extra, because `vis` is in `jnwb.__all__`.
+- **An open-data tutorial on a real public recording.** `examples/tutorials/09_open_data.py`
+  and the "Open Data" page read a 7.8 MB excerpt of DANDI 000253 v0.240503.0152 (CC-BY-4.0,
+  doi:10.48324/dandi.000253/0.240503.0152), committed under `examples/data/` and kept out of
+  the wheel. The tutorial derives the LFP clock from the file -- the timestamps are clock ticks,
+  giving 1249.9987 Hz, with sample 0 placed within 10 ms -- then computes a PSTH by cortical
+  layer and band power by depth. `scripts/build_open_data_excerpt.py` rebuilds the excerpt
+  from the published assets after checking their SHA-256.
 
 ### Changed
 

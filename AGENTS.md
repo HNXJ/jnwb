@@ -234,6 +234,7 @@ Load the skill before doing the work rather than reinventing its contents.
 | `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
 | `jnwb-connectivity` | Granger, PSI, transfer entropy |
 | `jnwb-figures` | Visual QC, plotting, figure export |
+| `jnwb-landmark-viz` | Plotly publication figures through `jnwb.vis` (optional `vis` extra) |
 
 ## 8. Changes
 

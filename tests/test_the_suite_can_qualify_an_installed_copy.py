@@ -103,12 +103,12 @@ def test_no_test_reads_a_repository_file_through_the_current_directory() -> None
 
 
 def test_every_example_guard_stands_aside_for_a_deliberate_installed_run() -> None:
-    """Read from the syntax tree of all ten, so a new example cannot be added without it.
+    """Read from the syntax tree of all eleven, so a new example cannot be added without it.
 
     Not a text search for the variable name: the comment above the guard names it too, so a
     guard stripped back to `if (_CHECKOUT / "jnwb").exists()` would still match the string.
     """
-    assert len(EXAMPLES) == 10, f"{len(EXAMPLES)} examples found, expected 10"
+    assert len(EXAMPLES) == 11, f"{len(EXAMPLES)} examples found, expected 11"
     for example in EXAMPLES:
         tree = ast.parse(example.read_text(encoding="utf-8"))
         guards = [

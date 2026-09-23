@@ -45,9 +45,9 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123 |
-| W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120 |
-| W3 | 06-118, 06-30, 06-31 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123, 06-132, 06-133, 06-134 |
+| W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120, 06-135 |
+| W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
 | W6 | 06-58, 06-32 |
@@ -86,7 +86,7 @@ Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
 Covers P-53 and P-57 (gate 17, and `scripts/release_gate.py` STEP 0a for `Answered in`), P-61,
 P-62 (skill half), P-99, P-151 (gate 18), P-165, P-177, P-179, the `t0_bounds_ms` example in
-`skills/jnwb-spiking/SKILL.md`, P-181 (`skills/jnwb/SKILL.md` on `jrsa`), P-170 (the PSI spectrum sign), P-174 (the journal read before replay, and release STEP 2a running `KNOWN_GAPS` in a detached worktree of HEAD), and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
+`skills/jnwb-spiking/SKILL.md`, P-181 (`skills/jnwb/SKILL.md` on `jrsa`), P-170 (the PSI spectrum sign), the open-data example (`09_open_data.py`, its excerpt builder and the clock derivation, `02502805`), P-174 (the journal read before replay, and release STEP 2a running `KNOWN_GAPS` in a detached worktree of HEAD), and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
 One packet per diff. An independent critic already ran mutants against gates 17 and 18 and the
 `jrsa` checks; its receipts are the starting point, not the verdict.
 Do: re-run each discriminator from the diff; show every selector passes pristine before counting a
@@ -263,6 +263,39 @@ Discriminator: a seeded `P-12` in a `jnwb/` docstring fails the gate; the pristi
 Accept: P-182 closes.
 Stop: an identifier carries meaning a reader of the library needs; state the meaning instead.
 
+### 06-132 `jnwb.vis` carries no project vocabulary
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
+Writes: `jnwb/vis/*.py`, `tests/test_vis.py`, `skills/jnwb-landmark-viz/SKILL.md`.
+P-184. `jnwb/vis/spectral.py` defaults its labels to named cortical pathways, `jnwb/vis/theme.py` names a condition in a colour comment, and `tests/test_vis.py` and the skill's sidecar example carry one study's findings and corpus name. `AGENTS.md` §4.3 keeps condition codes, area vocabularies and findings out of `jnwb/`, `skills/` and `tests/`, and gate 6 did not see them.
+Do: replace each with neutral placeholders the caller overrides; hand the tokens that are corpus-specific by construction to 06-129, which extends the `jnwb/` scan.
+Discriminator: `git grep` over the Writes finds none of the reported tokens; `tests/test_vis.py` still exercises every panel.
+Accept: P-184 closes; `tests/test_vis.py` passes with the neutral fixtures.
+Stop: a default carries scientific meaning a caller relies on; name it and ask.
+
+### 06-133 An atlas layer label is one location, not two areas
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/addressing.py`, `tests/test_addressing.py`.
+P-188. `map_peak_channel_to_area` treats every `/` as a boundary between areas on one probe, so the atlas label `VISpm2/3` is split into `VISpm2` and `3` and resolved by channel position (reproduced 2026-09-22: `VISpm2/3 -> 'VISpm2'`, while `VISpm4 -> 'VISpm4'`).
+Do: a `/` segment that does not start with a letter continues the preceding label rather than naming an area, so `V1/V2` still splits and `VISpm2/3` does not.
+Discriminator: `VISpm2/3` resolves to itself; `V1/V2` still resolves by position; both fail on the other rule.
+Accept: P-188 closes; the docstring states the rule.
+Stop: a corpus label has a `/` segment that is a real area name starting with a digit.
+
+### 06-134 A series named inside a container can be read
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/nwb_inspect.py`, `tests/test_acquisition_layout.py`, `skills/jnwb-nwb-data/SKILL.md`.
+P-189. `acquisition_channel` documents `name` as "the continuous series or container", and on a container wrapping several series raises `AmbiguousAcquisitionError` telling the caller to "Pass name=<series> explicitly"; passing the series name then raises `AcquisitionNotFoundError`, so none of the series is reachable (reproduced on `examples/data/dandi000253_excerpt.nwb`).
+Do: resolve a name that matches a series nested in an `LFP` or `FilteredEphys` container, in `/acquisition` and in processing modules; a name matching two nested series raises naming both.
+Discriminator: each of the excerpt's three nested series is returned by name; removing the nested lookup fails the test.
+Accept: P-189 closes; the returned rate for a series stored with timestamps is checked against the tutorial's derived rate, and a rate that cannot be derived is refused rather than returned (Hamm, 2026-09-22: never assume a sampling rate).
+Stop: resolving by nested name would change which series an existing call returns.
+
 ## W2. API repairs
 
 ### 06-07 Gate architecture reachability
@@ -372,6 +405,14 @@ Discriminator: a summary sentence stating an item total that differs from the li
 Accept: P-176 closes.
 Stop: 06-105 also writes `scripts/harness_gate.py`; the two run one after the other.
 
+### 06-135 A page for `jnwb.vis`
+
+Release: required-0.2.6.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-132.
+Writes: `docs/vis.md`, `mkdocs.yml`, `docs/install.md`.
+P-187, P-183. The public `jnwb.vis` is reachable only through an `install.md` line and its `api.md` row. Ruled 2026-09-22 (P-183): `vis` stays in `__all__`, so `from jnwb import *` without the extra raises an `ImportError` naming `pip install jnwb[vis]`; the page and `docs/install.md` say so.
+Accept: the page is in the navigation, shows one canvas built from supplied arrays, and the strict build passes; P-183 and P-187 close.
+
 ## W3. Statistics surface, diagrams and the open-data example
 
 ### 06-118 `correlate` names its method
@@ -396,34 +437,6 @@ Dual entry; code, documentation and tests with skill routing over them; the four
 NWB to analysis; the package boundary. One maintained source each, original to jnwb.
 Stop: a figure would adapt the external prior art, whose licence forbids derivatives
 (`artifacts/direction.md`).
-
-### 06-31 Open data end to end: download, adapt, analyse, visualise
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `scripts/build_open_data_excerpt.py`, `examples/data/dandi000253_excerpt.nwb`, `examples/data/dandi000253_excerpt.provenance.json`, `examples/tutorials/09_open_data.py`, `docs/tutorials/09_open_data.md`, `mkdocs.yml`, `tests/test_open_data_example.py`.
-Ruled 2026-09-22: the Global/Local Oddball dataset, DANDI 000253 version `0.240503.0152`
-(CC-BY-4.0; DOI `10.48324/dandi.000253/0.240503.0152`), is the example, and CI runs on a small
-committed excerpt of the real files. The page is also the general guide to reading open data.
-Source files, downloaded with their DANDI SHA-256 verified, in `E:/jnwb_data/dandi000253/`:
-session 1232959154 `_ogen.nwb` (units, stimulus intervals, electrodes) and `_probe-1_ecephys.nwb`
-(probe B LFP).
-**The adapt step is real.** The LFP `timestamps` are clock ticks labelled `seconds` (step 24). The
-sampling rate is never assumed: measured 2026-09-22, the tick rate is 29999.968 per second (LFP
-tick span over probe-B spike span), so the LFP rate is 1249.9987 Hz, and sample 0 sits at
-3.569-3.576 s on the spike clock (first spike; spike-LFP cross-correlation peak in two windows
-5000 s apart agreeing to 0.8 ms). The page teaches that derivation and states its ±10 ms bound,
-which excludes millisecond LFP latency claims.
-Do: the builder copies a short real window (probe-B units and their electrodes, the grating
-intervals in the window, one probe's LFP in the window) with the raw tick timestamps preserved,
-and records asset ids, source hashes and the window in the provenance file. The example opens
-the excerpt, inspects it, derives the clock from the data, then runs PSTH by layer
-(`peak_channel_id` to electrode `location`) and band power, verifies, and plots.
-Discriminator: the example's derived rate differs from any hardcoded constant it could have
-used, and the test fails if the derivation is replaced by a literal.
-Accept: the example runs in CI with no skip; the excerpt is under 20 MB and outside the wheel;
-attribution and licence are on the page.
-Stop: the derivation disagrees with the recorded values beyond its stated residual.
 
 ## W4. Maintained figures, skill routing and references
 
@@ -511,7 +524,7 @@ Stop: the faster order changes results beyond tolerance.
 ### 06-32 Separate empirical from synthetic
 
 Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/*.md`, `examples/*.py`, `tests/test_synthetic_figures_are_labelled.py`.
 Accept: a page carrying a synthetic figure says so, checked mechanically.
 
@@ -706,7 +719,7 @@ Frozen by 06-05. Each line names what establishes it.
 | skills route, decline, and are tested against live behaviour | 06-24, 06-25 |
 | cross-surface and compositional audit complete over the declared high-risk set | 06-124, `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` |
 | documentation assets render and are regenerable | 06-29, 06-36 |
-| one real NWB end-to-end example with provenance | 06-31, 06-32 |
+| one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified by 06-122), 06-32 |
 | published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
 | documentation low-verbosity and consistently formed, against a declared contract | 06-51, 06-52, 06-53, 06-119 |
 | one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56, 06-59 |

@@ -62,6 +62,9 @@ gallery_src/
 *.png
 !examples/figures/jnwb_quickstart.png
 !examples/figures/jnwb_quickstart.svg
+# The committed open-data excerpt: the one tracked data directory and NWB file.
+!examples/data/
+!examples/data/dandi000253_excerpt.nwb
 !docs/assets/*.png
 !docs/assets/*.svg
 !docs/assets/**/*.png
@@ -74,6 +77,7 @@ gallery_src/
 # non-source formats (repo is code + ipynb + markdown only)
 *.json
 !artifacts/benchmarks/*.json
+!examples/data/*.provenance.json
 *.asv
 *.mexw64
 *.mlx
