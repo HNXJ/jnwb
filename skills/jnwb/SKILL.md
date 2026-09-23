@@ -21,7 +21,7 @@ Activate this skill when the user asks for generic electrophysiology analysis, t
   - **Visual QC, raster PSTH plotting, multi-format figure export**: delegate to `jnwb-figures`
 
 ## 3. High-Performance Acceleration (CuPy & Joblib)
-- **GPU**: Operations whose signature takes `device` accept `device='cuda'`. Fallback is not yet uniform across them: some warn and record the device on the result, some fall back to CPU silently, and some results carry no device field. Treat a result as CPU-computed unless it records `device='cuda'`. Use `backend='cupy'` for distance-matrix speedups in `jrsa`.
+- **GPU**: Operations whose signature takes `device` accept `device='cuda'`. Fallback is not yet uniform across them: some warn and record the device on the result, some fall back to CPU silently, and some results carry no device field. Treat a result as CPU-computed unless it records `device='cuda'`. `jrsa` computes every metric in NumPy on the CPU whatever its `backend` or `device`; a `device='cuda'` request warns and records `execution['device'] == 'cpu'`.
 - **Parallel CPU**: `n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere, and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process has a start-up cost of several seconds.
 - **Artifact Rejection & Repair**: Pre-filter LFP matrices using `bad_channels_from_correlation`, `consensus_bad_trials`, and `repair_lfp_trials`.
 

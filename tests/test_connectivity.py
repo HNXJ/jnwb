@@ -548,6 +548,20 @@ class TestPsiInferenceIsNotOverstated:
         assert fwd.net == pytest.approx(-rev.net, rel=1e-9)
         assert fwd.net > 0.0
 
+    def test_the_returned_spectrum_carries_the_same_sign_as_net(self):
+        """The spectrum is public and plotted; summed over the band's adjacent-bin pairs it is
+        the band estimate itself, so its sign is pinned by the headline value."""
+        x, y = self._lagged_pair()
+        fwd = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        rev = phase_slope_index(y, x, fs=1000.0, nperseg=1024)
+        freqs = fwd.spectrum["freqs"]
+        lo, hi = fwd.per_band["full"]["band_hz"]
+        idx = np.flatnonzero((freqs >= lo) & (freqs <= hi))
+        in_band = fwd.spectrum["psi_per_freq"][idx[:-1]].sum()
+        assert in_band == pytest.approx(fwd.net, rel=1e-9)
+        np.testing.assert_allclose(
+            fwd.spectrum["psi_per_freq"], -rev.spectrum["psi_per_freq"], atol=1e-12)
+
 
 class TestGrangerNotTestedIsNotPassed:
     """05-11 / 05-12: an untested assumption and a degenerate fit were both reported as

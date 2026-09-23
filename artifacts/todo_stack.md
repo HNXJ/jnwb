@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-113, 06-105, 06-86, 06-124, 06-126, 06-33, 06-123, 06-128 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-113, 06-105, 06-86, 06-124, 06-33, 06-123 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120 |
 | W3 | 06-118, 06-30, 06-31 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -86,7 +86,7 @@ Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
 Covers P-53 and P-57 (gate 17, and `scripts/release_gate.py` STEP 0a for `Answered in`), P-61,
 P-62 (skill half), P-99, P-151 (gate 18), P-165, P-177, P-179, the `t0_bounds_ms` example in
-`skills/jnwb-spiking/SKILL.md`, and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
+`skills/jnwb-spiking/SKILL.md`, P-181 (`skills/jnwb/SKILL.md` on `jrsa`), P-170 (the PSI spectrum sign), and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
 One packet per diff. An independent critic already ran mutants against gates 17 and 18 and the
 `jrsa` checks; its receipts are the starting point, not the verdict.
 Do: re-run each discriminator from the diff; show every selector passes pristine before counting a
@@ -244,19 +244,6 @@ committed generator is marked unmeasured.
 Discriminator: `probe_axis` and `probe_tfr` no longer occur in the file.
 Accept: P-118 closes, and the Acceptance line on the high-risk set names this file.
 
-### 06-126 Pin the sign of the PSI spectrum
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity.py`, `scripts/mutation_harness.py`.
-P-170. `spectrum["psi_per_freq"]` is public and plotted, and no test reads its sign.
-Do: assert the sign on a constructed lead/lag pair of known direction, then remove the P-170
-entry from `KNOWN_GAPS`, which this assertion kills by design.
-Discriminator: conjugating `psi_per_freq` in `jnwb/connectivity.py` fails the new assertion; the
-selector passes pristine; the restore is confirmed by hash.
-Accept: P-170 closes `repaired`.
-Stop: 06-113 holds `scripts/mutation_harness.py`; run after it, never beside it.
-
 ### 06-33 Retain the benchmark design as explicitly unrun
 
 Release: required-0.2.6.
@@ -275,17 +262,6 @@ cherry-picked as `917352fe`. Left: lane `fig` (`C:/workspace/jnwb-lanes/fig`), w
 work that pins every failing raster as a known-failure list instead of repairing it.
 Do: say what in that lane is sound and belongs in 06-52, and what repeats the P-37 shape.
 Accept: a recommendation per file; P-178 closes when Hamm has ruled on it and the tree is removed.
-
-### 06-128 A skill claims a GPU speedup `jrsa` does not have
-
-Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb. Blocked by: none.
-Writes: `skills/jnwb/SKILL.md`.
-P-181. The GPU bullet tells readers to use `backend='cupy'` for distance-matrix speedups in `jrsa`;
-the `jrsa` docstring says `backend` does not change where the arithmetic runs and every metric
-computes in NumPy.
-Accept: the sentence states what `jrsa` does on each backend, matching its docstring and its
-recorded `execution['device']`.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 

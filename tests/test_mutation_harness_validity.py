@@ -1153,11 +1153,12 @@ def _resolve_node_id(node_id: str) -> bool:
     return True
 
 
-def test_the_two_measured_gaps_are_recorded_as_expected_survivors() -> None:
-    """06-27 measured P-170 and P-171 and could only narrate them. They are declared now."""
-    assert len(KNOWN_GAPS) == 2
+def test_the_measured_gaps_are_recorded_as_expected_survivors() -> None:
+    """06-27 measured P-170 and P-171 and could only narrate them. P-170 is now killed by
+    `test_the_returned_spectrum_carries_the_same_sign_as_net`; P-171 stays declared."""
+    assert len(KNOWN_GAPS) == 1
     recorded = {gap.name.split(" | ")[0] for gap in KNOWN_GAPS}
-    assert recorded == {"P-170", "P-171"}, recorded
+    assert recorded == {"P-171"}, recorded
     for gap in KNOWN_GAPS:
         assert gap.expected_survivor is True
         assert len(gap.survivor_reason.split()) >= 15, (

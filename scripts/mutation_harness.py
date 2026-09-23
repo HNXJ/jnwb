@@ -1166,35 +1166,6 @@ def load_cases(path: Path) -> list[MutationCase]:
 #: name still exists in the file it names.
 KNOWN_GAPS: tuple[MutationCase, ...] = (
     MutationCase(
-        name="P-170 | the returned PSI spectrum's sign is pinned by nothing",
-        path="jnwb/connectivity.py",
-        original='            "psi_per_freq": psi_per_freq,\n',
-        replacement='            "psi_per_freq": -psi_per_freq,\n',
-        selector=(
-            "tests/test_connectivity.py::TestPsiInferenceIsNotOverstated"
-            "::test_the_sign_convention_is_unchanged",
-        ),
-        must_fail=(
-            "tests/test_connectivity.py::TestPsiInferenceIsNotOverstated"
-            "::test_the_sign_convention_is_unchanged",
-        ),
-        semantic_property=(
-            "the per-frequency PSI spectrum handed back to the caller carries the same sign "
-            "convention as the scalar net that is computed from it"
-        ),
-        expected_survivor=True,
-        survivor_reason=(
-            "P-170. The test named for the sign convention reads only `fwd.net` and `rev.net`, "
-            "which are computed before this dict is built, so the returned spectrum's sign is "
-            "unpinned. Recorded as measured, deliberately narrow: this is a statement about that "
-            "one selector. Closing it means a new assertion in tests/test_connectivity.py. "
-            "NOTE: P-170 is worded as a *conjugation* of psi_per_freq. That mutation is a "
-            "mathematical identity -- psi_per_freq is np.imag(...), a real array -- so it could "
-            "not be detected by any test and would be a vacuous survivor. The sign flip is the "
-            "same gap in a form that is actually observable."
-        ),
-    ),
-    MutationCase(
         name="P-171 | density-versus-power is named by a test that measures a ratio",
         path="jnwb/spectral.py",
         original="        return signal.welch(trace, fs=fs, nperseg=nperseg)\n",
