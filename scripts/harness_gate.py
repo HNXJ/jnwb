@@ -1705,6 +1705,69 @@ def _miscounted_summaries(text: str) -> List[Tuple[int, str, int, List[str], str
     return flagged
 
 
+#: A numeral immediately followed by "item"/"items". The lookbehind keeps the digits after the
+#: hyphen of an item id, a problem row or a date, and those after a decimal point, a thousands
+#: comma or a section sign, from reading as a count.
+_NUMERAL_ITEMS = re.compile(r"(?<![\w.,\xa7-])(\d+)\s+items?\b", re.IGNORECASE)
+#: What makes that count a claim about the whole stack rather than about a subset of it.
+_TOTAL_BEFORE = re.compile(r"(?:\bof\s+the|\ball(?:\s+of\s+the|\s+the)?)\s+$", re.IGNORECASE)
+_TOTAL_AFTER = re.compile(r"\s+(?:below\b|in\s+(?:this|the)\s+stack\b)", re.IGNORECASE)
+
+
+def _inside_quotation(sentence: str, at: int) -> bool:
+    """Whether offset `at` sits inside a double-quoted span: a report of what a line once said."""
+    before = sentence[:at]
+    opened = before.count("\N{LEFT DOUBLE QUOTATION MARK}")
+    closed = before.count("\N{RIGHT DOUBLE QUOTATION MARK}")
+    return before.count('"') % 2 == 1 or opened > closed
+
+
+def _stale_item_totals(text: str) -> List[Tuple[int, str, int, int, str]]:
+    """Summary sentences stating a total number of items that differs from the live count.
+
+    The dispatch map read "37 of the 57 items below" while the stack held 52, and before that
+    "45 of the 74 items below" through twenty revisions of the stack as it shrank to 57. Neither
+    names an id, so `_miscounted_summaries` has nothing to count them against; the total is
+    checkable only against the stack itself, which is the count of `### 06-NN` headers.
+
+    A total is a numeral directly before "items", outside code spans and quotations, in a
+    summary region, whose clause names no item id, and which is marked as the whole stack:
+    preceded by "of the", "all", "all the" or "all of the", or followed by "below" or "in
+    this/the stack". Run over every revision of the stack, this flagged the two stale totals
+    above and nothing else. Two unmarked counts in the same history, "It assigned 16 items to
+    five lanes" and "24 items declared `tests/`", are statements about a subset, and a
+    quotation of an earlier total (the map once read "45 of the 74 items below") is history
+    rather than a claim; none of the three is flagged.
+
+    Not caught, by design: number words ("fifty-seven items"), an adjective between the numeral
+    and the noun ("57 open items"), a total phrased without a marker ("the stack holds 57
+    items"), counts inside an item body, and the subset numeral in "37 of the 57".
+    """
+    live = len(_ITEM_HEADER.findall(text))
+    stale: List[Tuple[int, str, int, int, str]] = []
+    for start, end in _summary_regions(text):
+        base = text.count("\n", 0, start) + 1
+        flat, spans = _unwrapped_spans(text[start:end])
+        mask = _code_span_mask(flat)
+        for a, b in spans:
+            sentence = flat[a:b]
+            for counted in _NUMERAL_ITEMS.finditer(sentence):
+                if mask[a + counted.start()] or _inside_quotation(sentence, counted.start()):
+                    continue
+                if not (
+                    _TOTAL_BEFORE.search(sentence[:counted.start()])
+                    or _TOTAL_AFTER.match(sentence, counted.end())
+                ):
+                    continue
+                brk = _CLAUSE_BREAK.search(sentence, counted.end())
+                if _ITEM_ID.search(sentence[counted.end():brk.start() if brk else len(sentence)]):
+                    continue  # an enumerated count is `_miscounted_summaries`'s to check
+                asserted = int(counted.group(1))
+                if asserted != live:
+                    stale.append((base, counted.group(0), asserted, live, sentence.strip()))
+    return stale
+
+
 #: Unescaped `|` delimits a GFM table cell. `\|` is content wherever it appears, including
 #: inside a code span: GFM splits a row into cells *before* it parses inline code, which is
 #: why P-29 and P-81 shipped rows whose backticked pipes silently became extra columns.
@@ -1813,6 +1876,12 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
                 f"STACK_FORM: {TODO_STACK}:{lineno} a summary says '{phrase}' and then names "
                 f"{len(ids)} -- {', '.join(ids)}. The count is derived from the items below it, "
                 f"so prose can only drift from them: \"{sentence[:160]}\""
+            )
+        for lineno, phrase, asserted, live, sentence in _stale_item_totals(stack_text):
+            violations.append(
+                f"STACK_FORM: {TODO_STACK}:{lineno} a summary states a total of '{phrase}' and "
+                f"the stack holds {live}. A total is derived from the items, so prose can only "
+                f"drift from it; drop the number or name the items: \"{sentence[:160]}\""
             )
         for lineno, field in fields:
             for span in re.findall(r"`([^`\n]*)`", field):
@@ -2416,6 +2485,7 @@ GATES: List[Tuple[int, Any, Any]] = [
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
              "is not truncated by a stray full stop; no 'Blocked by: none' is contradicted by "
              "its own item's text; every summary count agrees with the items it names; "
+             "no summary states an item total the stack does not hold; "
              "every problem row carries its own table's column count; "
              "every GENERATED_FROM entry resolves against the tree)."),
     (16, _one(check_line_ending_consistency,

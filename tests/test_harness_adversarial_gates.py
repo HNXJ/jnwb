@@ -1529,6 +1529,103 @@ class TestGate15ProblemRowsKeepTheirTableShape:
         ) == []
 
 
+#: Two items, the second naming the first, so a count of id mentions (three) differs from the
+#: count of items (two).
+TWO_ITEMS = """
+### 06-01 An ordinary item
+
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`.
+Body text.
+
+### 06-02 A second item
+
+Role: jnwb-developer. Skill: none. Blocked by: 06-01.
+Writes: `tests/test_one.py`.
+Body text.
+"""
+
+
+def _summary_then_items(summary: str) -> str:
+    return f"# 0.2.6\n\n## Dispatch map\n\n{summary}\n\n## W1. Work\n{TWO_ITEMS}"
+
+
+class TestGate15StatedItemTotals:
+    """A summary total that names no ids is checkable only against the stack itself.
+
+    The dispatch map read "37 of the 57 items below" while the stack held 52 items, and the
+    gate passed: its count check reads only a count followed by the ids it enumerates.
+    """
+
+    def test_a_stale_total_fails_the_gate(self, tmp_path: Path):
+        todo = _summary_then_items("Measured today: 37 of the 57 items below have no blocker.")
+        found = check_stack_form_consistency(_stack_tree(tmp_path, todo, CLEAN_PROBLEM_STACK))
+        assert len(found) == 1, found
+        assert "'57 items'" in found[0] and "the stack holds 2" in found[0], found
+
+    def test_a_total_equal_to_the_live_count_passes(self, tmp_path: Path):
+        todo = _summary_then_items("Measured today: 1 of the 2 items below has no blocker.")
+        assert check_stack_form_consistency(
+            _stack_tree(tmp_path, todo, CLEAN_PROBLEM_STACK)
+        ) == []
+
+    @pytest.mark.parametrize("summary", [
+        "All 5 items ship in 0.2.6.",
+        "All the 5 items ship in 0.2.6.",
+        "All of the 5 items ship in 0.2.6.",
+        "The 5 items below ship in 0.2.6.",
+        "There are 5 items in this stack.",
+        "There are 5 items in the stack.",
+        "| Total | 5 items below |",
+    ])
+    def test_every_total_marker_is_read(self, summary):
+        from scripts.harness_gate import _stale_item_totals
+
+        found = _stale_item_totals(_summary_then_items(summary))
+        assert [(asserted, live) for _l, _p, asserted, live, _s in found] == [(5, 2)], found
+
+    @pytest.mark.parametrize("summary", [
+        # a subset, not a total: no marker
+        "It assigned 16 items to five lanes.",
+        "Here 24 items declared a bare directory.",
+        # digits of an id, a date or a decimal are not a count
+        "The map for 06-57 items below is gone.",
+        "Filed on 2026-09-57 items below.",
+        "Roughly 2.57 items below.",
+        "Roughly 1,057 items below.",
+        "See AGENTS.md \N{SECTION SIGN}5 items below.",
+        # a quotation reports what a line once said
+        'The map once read "45 of the 74 items below" and stood.',
+        "The map once read \N{LEFT DOUBLE QUOTATION MARK}45 of the 74 items below"
+        "\N{RIGHT DOUBLE QUOTATION MARK} and stood.",
+        # a code span quotes rather than asserts
+        "The pattern `of the 57 items below` is what the gate reads.",
+        # an enumerated count belongs to the other rule
+        "The 3 items below wait on a ruling: 06-01 and 06-02.",
+        # number words are deliberately out of scope
+        "All fifty-seven items ship in 0.2.6.",
+    ])
+    def test_what_is_not_a_stated_total(self, summary):
+        from scripts.harness_gate import _stale_item_totals
+
+        assert _stale_item_totals(_summary_then_items(summary)) == []
+
+    def test_a_count_inside_an_item_body_is_not_a_summary(self):
+        from scripts.harness_gate import _stale_item_totals
+
+        todo = _summary_then_items("Nothing is counted here.").replace(
+            "Body text.\n\n### 06-02", "Do: reconcile all 9 items below.\n\n### 06-02"
+        )
+        assert "all 9 items below" in todo
+        assert _stale_item_totals(todo) == []
+
+    def test_the_live_stack_states_no_stale_total(self):
+        from scripts.harness_gate import TODO_STACK, _stale_item_totals
+
+        text = (REPO_ROOT / TODO_STACK).read_text(encoding="utf-8")
+        assert _stale_item_totals(text) == []
+
+
 # ------------------------------------------------- gate 16: line-ending consistency
 
 
