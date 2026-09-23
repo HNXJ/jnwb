@@ -261,9 +261,12 @@ def _probe_cross_modal_comparison():
     seed = np.random.default_rng(11)
     u, v = seed.normal(size=300), seed.normal(size=300)
     key = "lag_corrected_pvalue"
-    return (
-        jnwb.cross_modal_comparison(u, v, bin_ms=10.0, rng=None)[key],
-        jnwb.cross_modal_comparison(u, v, bin_ms=10.0, rng=None)[key],
+    # A permutation p-value takes one of about a dozen likely values here, so two fresh
+    # calls coincide about one run in fifty (seen on CI). Three calls a side make an
+    # exact agreement by chance about one in 10**5.
+    return tuple(
+        tuple(jnwb.cross_modal_comparison(u, v, bin_ms=10.0, rng=None)[key] for _ in range(3))
+        for _side in range(2)
     )
 
 
