@@ -1,16 +1,14 @@
 # 04. Spectral Analysis, Coherence & Time-Frequency Representations (TFR)
 
-This document details spectral power estimation, time-frequency representations, cross-area coherence, memory-efficient accumulation, coordinate-explicit band extraction, and decibel transformations in `jnwb`.
+Power spectra, decibel formation, coherence, and Morlet TFRs with streaming accumulation.
 
 ---
 
 ## 1. Canonical Frequency Bands & Spectral Decomposition (`jnwb.spectral`)
 
-`jnwb.spectral` provides standard tools for computing spectral power density, cross-spectral density, coherence, and referencing.
-
 ### Canonical Frequency Bands (`CANONICAL_BANDS`)
 
-Unless customized by the user, `jnwb` standardizes frequency bands across modules:
+One band table, shared across modules:
 
 ```python
 import jnwb
@@ -102,8 +100,7 @@ NaNs behind, so this is a real choice, but never a silent one.
 
 ### Direct Relative Power (`relative_power`)
 
-`relative_power` computes power ratios against baseline without premature logarithmic conversions,
-providing explicit mathematical model selection:
+`relative_power` forms the ratio against baseline under a named model:
 
 ```python
 # Linear mean of ratios: E[P / B] (equal unit weighting)
@@ -116,9 +113,8 @@ rel_weighted = jnwb.relative_power(power, baseline, model="ratio_of_means", axis
 rel_db = jnwb.relative_power(power, baseline, model="log_ratio")
 ```
 
-The model names are published in `jnwb.RELATIVE_POWER_MODELS`. The library guarantees:
-$\text{requested estimand} = \text{returned estimand}$, with no silent conversion between
-linear and decibel representations.
+The model names are in `jnwb.RELATIVE_POWER_MODELS`. The returned estimand is the requested
+one; nothing converts silently between linear and decibel.
 
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
@@ -256,20 +252,7 @@ beta_power = TFRAnalyzer.extract_band(
 
 ---
 
-## 4. Decibel Transformation (`to_db`) & Estimand Considerations
-
-`jnwb.to_db(ratio)` computes $10 \log_{10}(\text{ratio})$.
-
-### Estimand Aggregation Notice
-For baseline-normalized relative power estimands:
-$$\text{RelPower}(f, t) = \frac{\bar{P}_{\text{response}}(f, t)}{\bar{P}_{\text{baseline}}(f)}$$
-$$\text{Decibels}(f, t) = 10 \log_{10}\left(\text{RelPower}(f, t)\right) = \text{jnwb.to\_db}(\text{RelPower})$$
-
-> **Design Note**: In relative power analyses, averaging raw power across trials before computing the ratio and applying `to_db` once at the end preserves the arithmetic mean of physical power. `jnwb` supplies the operation `to_db` without fixing one aggregation for every workflow.
-
----
-
-## 5. Complex Morlet Time-Frequency Representations & Accumulation
+## 4. Complex Morlet Time-Frequency Representations & Accumulation
 
 ### Complex Morlet Transform (`complex_tfr`, `morlet_wavelet`)
 
@@ -335,7 +318,7 @@ correct answer -- there is no uncontaminated estimate to report.
 
 ### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 
-- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM.
+- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM. Its output has already averaged over trials, so `aggregate_to_db(how="mean_of_ratios")` refuses it; pass per-trial power for that estimand.
 - **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). Omitting `select=` is deprecated: it falls back to a preset and warns:
 
 ```python

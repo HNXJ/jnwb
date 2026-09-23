@@ -1,6 +1,6 @@
 # 07. Statistical Inference, Resampling & Null Hypothesis Modeling
 
-This document details statistical inference, bootstrap confidence intervals, exchangeable label permutations, false discovery control, paired fire probability testing, and cycle detection in `jnwb`.
+Bootstrap intervals, permutations under a named exchangeability scheme, FDR control, fire-probability tests and trial-cycle detection.
 
 ---
 
@@ -24,7 +24,6 @@ no `**kwargs`: passing one raises `TypeError`.
 import numpy as np
 from jnwb import StatisticalAnalysis as stats
 
-# Supply an independent, caller-controlled local Generator
 custom_rng = np.random.default_rng(12345)
 
 # Bootstrap Confidence Intervals
@@ -54,19 +53,17 @@ print("Permutation p-value:", perm_res["pval"])
 
 ### Exploratory vs Confirmatory Comparisons
 
-`StatisticalAnalysis.exploratory_compare` and `StatisticalAnalysis.exploratory_correlate` compute unadjusted dual parametric and non-parametric statistics for exploratory screening without FDR theatre:
+`StatisticalAnalysis.exploratory_compare` and `StatisticalAnalysis.exploratory_correlate` compute unadjusted parametric and non-parametric statistics for screening; their results carry `correction: "none"`:
 
 ```python
-# Exploratory dual comparison. No `rng` parameter exists on this one -- passing it
-# raises TypeError. The bootstrap inside uses its own default_rng(42).
+# No `rng` parameter: the bootstrap inside uses its own default_rng(42).
 comparison = stats.exploratory_compare(
     group1,
     group2,
     paired=False,
     n_bootstrap=2000,
 )
-# Returns clean parametric ('parametric') and non-parametric ('non_parametric') metrics,
-# alongside bootstrap mean difference confidence intervals.
+# Keys include 'parametric', 'non_parametric' and the bootstrap CI of the mean difference.
 ```
 
 ### Benjamini-Hochberg FDR Control (`fdr_correct`)
@@ -98,8 +95,6 @@ lo, hi = jnwb.clopper_pearson(k=7, n=10, alpha=0.05)
 ---
 
 ## 3. Standalone Rate Extraction & Paired Binary Fire Probability
-
-`jnwb` exports top-level standalone statistical functions:
 
 ```python
 import jnwb
@@ -253,11 +248,9 @@ print(modal_res["lag_ms"], modal_res["lag_corrected_pvalue"])   # 100.0, 0.892
 print(modal_res["warnings"])   # the lag window is wide for a 200-sample series
 ```
 
-**The axis order, the sign of `lag_ms`, and which p-value to read.** This example used to
-pass `(4, 200)` and call it `channels x time`. The reduction reads a 2-D array as
-`(n_times, n_trials)`, so it produced a four-sample series, swept three lags, and returned
-a correlation over four points; `lag_search_resolution_floor` was 0.75 and `warnings` said
-so, and nothing on the page read either.
+**The axis order, the sign of `lag_ms`, and which p-value to read.** A 2-D input is read as
+`(n_times, n_trials)`. Passed transposed, a `(4, 200)` array becomes a four-sample series;
+`lag_search_resolution_floor` and `warnings` report it.
 
 `lag_ms` is in milliseconds and is negative when the TFR/LFP signal leads spikes, positive
 when it lags them; `lfp_leads_spikes` carries the same fact so the convention need not be

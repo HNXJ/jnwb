@@ -14,20 +14,17 @@ Four kinds of page, with different rules, because a tutorial and an API page fai
 
 | Kind | Pages | Authored where |
 |---|---|---|
-| Authored | `index`, `install`, `quickstart`, `errors`, `common_mistakes`, `agents`, `references`, and `01`–`10` | the Markdown page itself |
+| Authored | `index`, `install`, `quickstart`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, and `01`–`10` (20 pages) | the Markdown page itself |
 | Generated | `api.md` | `scripts/generate_api_md.py` |
-| Included | the 9 `tutorials/*.md` | `examples/tutorials/*.py`, pulled in by a snippet include |
+| Included | the 10 `tutorials/*.md` | `examples/tutorials/*.py`, pulled in by a snippet include |
 | Contract | this page | the Markdown page itself; F1 and F5 bind it like any other, and it has no length ceiling |
 
-That last row exists because the site carries 28 pages and the three rows above it accounted
-for 27. This page governed everything except itself, which is the shape of a rule that stops
-applying exactly where it is written.
+The four rows cover all 32 pages in the nav, this one included.
 
 **Generated and included pages are governed through their source, never by editing the page.**
-Ten of twenty-seven pages are in those two rows. An edit to one of them is discarded by the next
-build, silently. Any change that trims, retitles or reformats documentation takes the seventeen
-authored pages and leaves the other ten alone; if a generated page violates a rule, the fix goes
-to the generator or the script it includes.
+An edit to one of those eleven pages is discarded by the next build, silently. A change that
+trims, retitles or reformats documentation edits the authored pages; if a generated or included
+page violates a rule, the fix goes to the generator or the script it includes.
 
 ## Form
 
@@ -107,24 +104,21 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 707, `quickstart` at 741 and `agents` at 852 sit under it |
-| Concept (`01`–`09`) | 1200 words | seven of the nine sit under it |
-| Reference (`api.md`, `references.md`, `10_operation_specifications.md`) | none | length is a function of the API's size, and trimming it removes facts |
+| Task (`install`, `quickstart`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 795, `quickstart` at 804 and `agents` at 884 sit under it |
+| Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | nine of the eleven sit under it |
+| Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 
-Measured 2026-09-20. Four pages sit over their ceiling, and each owes the one sentence the
-rule asks for:
+Measured 2026-09-23 with `wc -w`. Four pages sit over their ceiling, and each owes the one
+sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2338 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1520 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
-| `04_spectral_analysis_and_tfr` | 1769 | same shape: PSD, coherence, analyzers and Morlet TFR share a page |
-| `errors` | 1150 | twelve error classes, each with its verbatim message. The messages are pinned to the source, so they are not paraphrasable |
-
-`07_statistical_inference_and_nulls` at 1201 is one word over and is not worth an edit;
-recording that is cheaper than pretending the ceiling is exact.
+| `common_mistakes` | 2300 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
+| `02_paths_addressing_metadata` | 1555 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
+| `04_spectral_analysis_and_tfr` | 1863 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
+| `errors` | 1679 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation
 
@@ -136,7 +130,7 @@ recording that is cheaper than pretending the ceiling is exact.
 | N4 | A top-level group is named for the question a reader arrives with, not for the material it contains. | review |
 | N5 | Every nav target resolves to a file on disk. | parse `mkdocs.yml` against the tree |
 
-All five hold today: six groups, depth two, 28 targets, all resolving, none holding one page.
+All five hold today: six groups, depth two, 32 targets, all resolving, none holding one page.
 
 N4 was the open one until the nav was reordered by arrival rather than by the order the pages
 were written. "Getting started" carried the public API reference, the bibliography and this

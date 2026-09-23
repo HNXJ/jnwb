@@ -1,16 +1,15 @@
 # 02. Paths, Addressing, Metadata & Ontology
 
-This document provides a comprehensive guide to data path resolution, anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality auditing, and query ontology in `jnwb`.
+Data roots, streaming reads, anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality audits and the query ontology.
 
 ---
 
 ## 1. Path Management & Drive Remap Isolation (`jnwb/paths.py`)
 
-**Per-file NWB discovery** (acquisitions, interval tables, event codes) uses `jnwb.inspect` and the
-[event tutorial sequence](tutorials/02_addressing_and_metadata.md). `jnwb.paths` resolves
-**repository data roots** for batch jobs — it does not inspect the contents of a single `.nwb` file.
-
-Electrophysiology datasets frequently span multiple storage volumes, local SSDs, network mounts, or external RAID arrays. `jnwb.paths` eliminates hardcoded absolute paths by managing dynamic root resolution via environment variables while guaranteeing stable repo-internal paths.
+`jnwb.paths` resolves data roots for batch jobs from environment variables, so no absolute path
+is written into code. It does not look inside a `.nwb` file: per-file discovery (acquisitions,
+interval tables, event codes) is `jnwb.inspect` and the
+[addressing tutorial](tutorials/02_addressing_and_metadata.md).
 
 ### Key API Functions
 
@@ -34,22 +33,22 @@ nwb_dir = jnwb.paths.nwb_dir()
 ```
 
 ### Environment Variable Mapping
-Paths are configured via environment variables rather than source code edits:
 
 | Path Key | Environment Variable | Default Fallback | Purpose |
 |----------|----------------------|------------------|---------|
-| `nwb_dir` | `JNWB_NWB_DIR` / `OMISSION_NWB_DIR` | `None` (must be set) | Directory containing primary `.nwb` session files |
-| `analysis_dir` | `JNWB_ANALYSIS_DIR` / `OMISSION_ANALYSIS_DIR` | `None` (must be set) | Analysis root volume |
-| `outputs` | `JNWB_OUTPUTS_DIR` / `OMISSION_OUTPUTS_DIR` | `<cwd>/outputs` | Processed tables, analysis summaries |
-| `artifacts` | `JNWB_ARTIFACTS_DIR` / `OMISSION_ARTIFACTS_DIR` | `<cwd>/artifacts` | Evidence logs, metadata sidecars |
+| `nwb_dir` | `JNWB_NWB_DIR` | `None` (must be set) | Directory containing primary `.nwb` session files |
+| `analysis_dir` | `JNWB_ANALYSIS_DIR` | `None` (must be set) | Analysis root volume |
+| `outputs` | `JNWB_OUTPUTS_DIR` | `<cwd>/outputs` | Processed tables, analysis summaries |
+| `artifacts` | `JNWB_ARTIFACTS_DIR` | `<cwd>/artifacts` | Evidence logs, metadata sidecars |
+
+Each variable still reads a legacy `OMISSION_*` alias of the same suffix, with a
+`DeprecationWarning`.
 
 ---
 
 ## 2. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)
 
-Electrophysiological datasets often store dense time series (such as LFP, multi-unit activity, or high-dimensional TFR spectra) in compressed `.npz` archives. Standard `np.load` decompresses the entire array into RAM, which causes severe memory pressure on multi-channel or multi-hour sessions.
-
-`jnwb.stream_npz_array` provides streaming, memory-bounded access to slices of arrays stored in `.npz` files (both `ZIP_DEFLATED` compressed and `ZIP_STORED` uncompressed) without full-file RAM allocation. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead, avoiding silent full-array materialization:
+`np.load` decompresses a whole `.npz` array into RAM. `jnwb.stream_npz_array` reads a slice of it, from `ZIP_DEFLATED` and `ZIP_STORED` archives alike. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead. A stored entry is seeked past what the slice skips; a compressed one is read forward up to the slice's last element, so its time grows with the slice's position:
 
 ```python
 import jnwb
@@ -165,8 +164,6 @@ boundary it cuts at drawn. Both are spatial assignments and neither carries a ca
 
 ## 4. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
 
-`jnwb.metadata` provides tools for extracting spike-sorting metadata across cohorts of NWB files, categorizing unit isolation quality, computing Signal-to-Noise Ratios (SNR), and producing census reports.
-
 ### Multi-Session Metadata Extraction & Classification
 
 ```python
@@ -230,8 +227,6 @@ good_v1_units = jnwb.filter_by_criteria(
 ---
 
 ## 5. Query & Event Ontology (`jnwb/ontology.py`)
-
-`jnwb.ontology` defines object-oriented queries, datasets, and provenance descriptors:
 
 These objects record *what was asked, of which data, under which alignment, and what was
 concluded*. They hold no data-access code: nothing here opens an NWB file. They are the

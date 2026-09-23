@@ -1,8 +1,6 @@
 # Common Mistakes
 
-A guide for failure modes in neuronal data analysis, and how `jnwb` prevents them.
-
-Every item corresponds to a real issue identified during the auditing of `jnwb`.
+Failure modes in neuronal data analysis, and how `jnwb` guards against each.
 
 ---
 
@@ -340,8 +338,7 @@ elif res["explained_variance"] < 0.01:
 ```
 
 A count is the exception that proves the rule. `bin_spikes` returns `0` for a bin a unit was
-recorded through and did not fire in: that zero *was* observed, and it is correct. This is
-`AGENTS.md` invariant 1 -- no empirical value that no script computed from data.
+recorded through and did not fire in: that zero *was* observed, and it is correct.
 
 ---
 
@@ -376,14 +373,11 @@ if onsets.max() > duration_s:
 epochs, t = jnwb.epoch_continuous(data, onsets, win_s=(-0.2, 0.6), fs=fs)
 ```
 
-`epoch_continuous` now warns when most epochs fall entirely outside the data under
+`epoch_continuous` warns when most epochs fall entirely outside the data under
 `boundary_policy="nan"`, naming both spans, because that is what a unit mismatch looks
 like. A single stray event does not warn -- events near the edges of a recording are
-ordinary, and their epochs are partly NaN by design.
-
-A non-finite onset is refused outright, with `InvalidOnsetValueError`, which is what
-`events` and `event_onsets` already did. It used to be cast to `INT64_MIN`, overflow into
-a start after the end, and come back as an in-bounds extraction of zero samples.
+ordinary, and their epochs are partly NaN by design. A non-finite onset raises
+`InvalidOnsetValueError`, as in `events` and `event_onsets`.
 
 `time_unit` on an `EventTable` is a label, not a measurement: the interval table carries
 no extent to check it against. The check is possible only where the onsets meet the

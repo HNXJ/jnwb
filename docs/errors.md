@@ -226,7 +226,7 @@ usable and the risk is that it is silently wrong.
 | No `codes` column | `events`, `event_onsets` | The onsets, without codes |
 | Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 
-Turn either into an error while developing:
+Turn all three into errors while developing:
 
 ```python
 import warnings
