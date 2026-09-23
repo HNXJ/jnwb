@@ -1,12 +1,8 @@
 # 08. Directed Connectivity, Information Dynamics & Network Topology
 
-This document details directed functional and effective connectivity, spectral Granger causality, Phase Slope Index (PSI), Transfer Entropy (TE), spike mutual information, and network graph topology in `jnwb`.
-
----
-
 ## 1. Overview & Directed Invariants
 
-`jnwb.connectivity` provides estimators for directed interaction between continuous time series (LFP, EEG) and point processes (spike trains).
+`jnwb.connectivity` provides estimators for directed interaction between continuous time series (LFP, EEG) and point processes (spike trains): Granger and spectral Granger, Phase Slope Index (PSI), Transfer Entropy (TE), spike mutual information, and network topology.
 
 The diagram below shows which estimators feed the network layer. Spike mutual information is the
 one that does not: it is a pairwise quantity here and no edge carries it into the graph.
@@ -24,7 +20,7 @@ graph LR
 
 ### Invariant: Statistical Predictability vs. Physical Causality
 $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
-Granger causality, Phase Slope Index, and Transfer Entropy establish statistical predictability / lag asymmetry in observed time series. `jnwb` distinguishes statistical directed metrics from perturbational physical causality.
+Granger causality, PSI, and TE establish statistical predictability / lag asymmetry in observed time series. `jnwb` distinguishes statistical directed metrics from perturbational physical causality.
 
 ---
 
