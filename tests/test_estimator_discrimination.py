@@ -29,7 +29,8 @@ from jnwb.statistics import StatisticalAnalysis, paired_fire_prob_test
 
 
 class TestImaginaryCoherencyAgainstAnIndependentOracle:
-    """Kills: `icoh_mean` and `icoh_abs_mean` forced to 0.0.
+    """Kills: `icoh_mean` and `icoh_abs_mean` forced to 0.0, and the cross spectrum's
+    orientation reversed.
 
     The existing coverage lives in a file named `nonfabrication` and is entirely
     rejection cases plus one null case asserting `abs(icoh_mean) < 0.1`, which 0.0
@@ -61,7 +62,8 @@ class TestImaginaryCoherencyAgainstAnIndependentOracle:
         Y = np.array(segs_y)
         pxx = np.mean(np.abs(X) ** 2, axis=0)
         pyy = np.mean(np.abs(Y) ** 2, axis=0)
-        sxy = np.mean(np.conj(X) * Y, axis=0)
+        # The orientation `phase_slope_index` uses: positive imaginary part when x leads.
+        sxy = np.mean(X * np.conj(Y), axis=0)
         coh = sxy / np.sqrt(pxx * pyy)
         freqs = np.fft.rfftfreq(nperseg, d=1.0 / fs)
         mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
@@ -116,7 +118,7 @@ class TestImaginaryCoherencyAgainstAnIndependentOracle:
         band_freqs = ref["freqs"][ref["mask"]]
         peak_i = int(np.argmax(ref["pxx"][ref["mask"]]))
         assert abs(band_freqs[peak_i] - 20.0) < 1.0, band_freqs[peak_i]
-        assert ref["im_per_bin"][peak_i] > 0.5, ref["im_per_bin"]
+        assert ref["im_per_bin"][peak_i] < -0.5, ref["im_per_bin"]
         # 3. The aggregate must be far enough from zero that a constant 0.0 disagrees.
         assert abs(ref["mean"]) > 0.05, f"oracle too close to zero to discriminate: {ref['mean']}"
         assert ref["abs_mean"] > 0.05, ref["abs_mean"]
@@ -130,16 +132,12 @@ class TestImaginaryCoherencyAgainstAnIndependentOracle:
     def test_a_phase_shifted_pair_produces_a_non_zero_estimate_of_the_right_sign(self):
         """The positive control the null-only coverage never had.
 
-        The sign follows from the estimator's definition, not from a run. The
-        implementation takes its cross spectrum from ``scipy.signal.csd(x, y, ...)``, and
-        scipy defines that as ``conj(X) * Y`` -- stated in the `csd` docstring ("Pxy is
-        computed with the conjugate FFT of X"), repeated as a comment in
-        `_spectral_py.py`, and implemented as ``np.conjugate(result) * result_y``. The
-        oracle above uses the same orientation. Under the opposite convention,
-        ``X * conj(Y)``, the correct expectation here would be negative.
+        The sign follows from the estimator's definition, not from a run. The cross
+        spectrum is ``X * conj(Y)``, the conjugate of ``scipy.signal.csd``, which is
+        ``conj(X) * Y``. The oracle above uses the same orientation.
 
         Given that orientation, with ``x = sin(wt)`` and ``y = sin(wt + pi/3)``, the cross
-        spectrum is ``|X|^2 * exp(i*pi/3)``, whose imaginary part is positive.
+        spectrum is ``|X|^2 * exp(-i*pi/3)``, whose imaginary part is negative: `y` leads.
 
         If this fails, the question is whether the estimator has a sign error -- not
         whether the expectation here should be flipped to match what it returned.
@@ -147,7 +145,25 @@ class TestImaginaryCoherencyAgainstAnIndependentOracle:
         x, y = self._phase_shifted_pair()
         out = jnwb.imaginary_coherency(x, y, fs=self.FS, freq_range=self.BAND)
         assert out["icoh_abs_mean"] > 0.05, out
-        assert out["icoh_mean"] > 0.05, out
+        assert out["icoh_mean"] < -0.05, out
+
+    @pytest.mark.parametrize("x_leads", [True, False])
+    def test_the_sign_agrees_with_phase_slope_index(self, x_leads):
+        """Positive means `x` leads for both functions, so a lead reads the same from either.
+
+        A broadband source delayed by 5 ms keeps the lag's phase below pi up to 100 Hz, so
+        Im(coherency) holds one sign across the band and the signed mean cannot cancel.
+        """
+        rng = np.random.default_rng(5)
+        n, delay = 16384, 5
+        src = rng.normal(size=n + delay)
+        lead, lag = src[delay:], src[:n] + 0.5 * rng.normal(size=n)
+        x, y = (lead, lag) if x_leads else (lag, lead)
+        band = (1.0, 90.0)
+        icoh = jnwb.imaginary_coherency(x, y, fs=1000.0, freq_range=band)["icoh_mean"]
+        psi = jnwb.phase_slope_index(x, y, fs=1000.0, bands=band).net
+        assert abs(icoh) > 0.3 and abs(psi) > 0.3, (icoh, psi)
+        assert np.sign(icoh) == np.sign(psi) == (1.0 if x_leads else -1.0), (icoh, psi)
 
 
 class TestBipolarReferenceHasAPinnedSign:

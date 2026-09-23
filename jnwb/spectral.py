@@ -1613,11 +1613,10 @@ def imaginary_coherency(
     a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
     near zero; a genuinely lagged shared source drives both up.
 
-    Sign convention: the cross-spectrum comes from :func:`scipy.signal.csd`, which
-    conjugates the first signal (``S_xy = E[conj(X) Y]``), so when `x` leads `y` the
-    imaginary part is negative wherever the lag's phase is below pi. That is the opposite
-    sign to the convention :func:`jnwb.phase_slope_index` follows, where positive means `x`
-    leads.
+    Sign convention: the cross-spectrum is ``S_xy = E[X conj(Y)]``, the conjugate of what
+    :func:`scipy.signal.csd` returns, so when `x` leads `y` the imaginary part is positive
+    wherever the lag's phase is below pi. :func:`jnwb.phase_slope_index` follows the same
+    convention: positive means `x` leads for both.
 
     References:
         Nolte, G., et al. (2004). Identifying true brain interaction from EEG data using the
@@ -1653,6 +1652,10 @@ def imaginary_coherency(
         freqs, pxx = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
         _, pyy = signal.welch(y, fs=fs, nperseg=nperseg, noverlap=noverlap)
         _, sxy = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+    # Both branches return scipy's orientation, E[conj(X) Y]. Its conjugate, E[X conj(Y)],
+    # has a positive imaginary part when `x` leads -- the sign `phase_slope_index` reports.
+    # Conjugation negates the imaginary part exactly and leaves every magnitude untouched.
+    sxy = np.conj(sxy)
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
     _require_band_bins(freqs, mask, freq_range, "imaginary_coherency")

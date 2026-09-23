@@ -509,7 +509,8 @@ class TestTheCudaCrossSpectrumAgreesWithScipy:
         gpu = imaginary_coherency(x, y, device="cuda", **kwargs)
         cpu = imaginary_coherency(x, y, device="cpu", **kwargs)
 
-        assert gpu["icoh_mean"] < 0.0, gpu["icoh_mean"]
+        # `x` leads `y` by pi/4, and positive means `x` leads.
+        assert gpu["icoh_mean"] > 0.0, gpu["icoh_mean"]
         assert np.sign(gpu["icoh_mean"]) == np.sign(cpu["icoh_mean"])
         assert abs(gpu["icoh_mean"] - cpu["icoh_mean"]) < 1e-12
         assert abs(gpu["coh_mag_mean"] - cpu["coh_mag_mean"]) < 1e-12

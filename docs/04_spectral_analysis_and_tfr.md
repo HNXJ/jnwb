@@ -205,6 +205,8 @@ coh_dict = jnwb.cross_area_coherence(
 Measures based on the imaginary cross-spectrum reduce sensitivity specifically to zero-phase-lag
 coupling (instantaneous volume conduction, shared reference contamination). They do not confer
 immunity to non-zero-lag common inputs, source mixing, or reference-induced phase structure.
+`icoh_mean` is signed: positive means the first signal leads, the convention
+`phase_slope_index` follows. `wpli` is unsigned.
 
 ```python
 # Imaginary coherency (Nolte et al. 2004)
