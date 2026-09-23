@@ -73,7 +73,9 @@ class TestCompareGroupsPairedContract:
         assert res["n1"] == 2
         assert res["n2"] == 2
         assert res["mean_diff_ci"]["observed_mean_diff"] == pytest.approx(0.0)
-        assert res["parametric"]["pval"] == pytest.approx(1.0)
+        # Every difference is zero, so the t statistic is 0/0: no test, not p = 1.
+        assert np.isnan(res["parametric"]["pval"])
+        assert res["significant_parametric"] is False
 
     def test_paired_insufficient_finite_pairs_raises(self):
         """When fewer than 2 pairs are mutually finite, ValueError must be raised."""

@@ -114,6 +114,22 @@ Carried by 0.2.6.
 
 ### Fixed
 
+- **A result with no estimate is NaN, not a number.** Four calls returned ordinary-looking
+  values where the data held no estimate:
+  - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,
+    `x_to_y` and `y_to_x` are now NaN, with `diagnostics['ok_for_interpretation']` False. When
+    some bands have a slope, `net` still sums those.
+  - `phase_locking_index` with no spike in the LFP window returned `pli` 0.0,
+    `preferred_phase` 0.0, `rayleigh_z` 0.0 and `rayleigh_pvalue` 1.0. All four, and
+    `peak_to_mean_contrast`, are now NaN, with `n_spikes` 0.
+  - `compare_groups` and `exploratory_compare` rewrote an undefined test as `statistic` 0.0 and
+    `pval` 1.0: an empty group, one value per group, or two identical constant groups. The test
+    now reports NaN, and its `significant_*` flag is False. An effect size with a zero or
+    undefined SD is NaN rather than 0.0, and a one-value group against a larger one gets its
+    Cohen's d instead of 0.0. `confirmatory_compare` gives a NaN `pval` a NaN q-value; the
+    other test's q is unchanged.
+  - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0
+    and `p_val` 1.0. Every field but `n_shuffle` is now NaN.
 - **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`
   returned an empty array; it returns the last element. A negative step on an outer axis, with
   the fastest axis read whole, raised "Internal streaming error"; it returns the slice. An entry

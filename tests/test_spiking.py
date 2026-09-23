@@ -84,10 +84,10 @@ class TestClassifyResponseSignificance:
 
 
 class TestPhaseLockingIndex:
-    def test_empty_spikes_returns_zeroed_defaults(self):
+    def test_empty_spikes_return_nan_values(self):
         result = phase_locking_index(np.array([]), np.array([0.0]), np.array([0.0]))
-        assert result["peak_to_mean_contrast"] == 0.0
-        assert result["pli"] == 0.0
+        assert np.isnan(result["peak_to_mean_contrast"])
+        assert np.isnan(result["pli"])
         assert result["n_spikes"] == 0
 
     def test_perfectly_locked_spikes_give_high_pli_and_low_pvalue(self):

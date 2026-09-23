@@ -95,7 +95,7 @@ class TestPhaseLockingExcludesOutOfRangeSpikes:
             res = phase_locking_index(np.linspace(500.0, 500.9, 10), phase, t)
         assert res["n_spikes"] == 0
         assert res["n_spikes_outside_lfp_window"] == 10
-        assert res["rayleigh_pvalue"] == 1.0
+        assert np.isnan(res["rayleigh_pvalue"]) and np.isnan(res["rayleigh_z"])
 
     def test_out_of_range_spikes_do_not_inflate_the_resultant(self):
         """Half in, half out reported p = 0.0234 where the five in-range spikes alone

@@ -11,9 +11,9 @@ Four outcomes, each settled by a real call into jnwb on small synthetic arrays:
 
 Every skill on disk is either tested for an outcome here or listed in ``NOT_REQUIRED`` with
 the reason it needs none; ``test_every_skill_outcome_is_tested_or_excused`` holds the two
-together. ``test_a_row_names_the_unflagged_case`` covers the places where the code returns a
-finite value for a case that has no estimate, and the routing row says so; when the code
-changes, the row and this test change with it.
+together. ``test_a_row_states_the_undefined_case`` covers calls that once returned a finite
+value for a case with no estimate: each now returns NaN with its flag, and the routing row
+states that value; when the code changes, the row and this test change with it.
 """
 
 from __future__ import annotations
@@ -446,40 +446,77 @@ def test_outcome(key, request):
         fn()
 
 
-def _psi_net_on_one_bin():
+def _psi_with_no_slope():
     x, y = _directed_pair()
-    return jnwb.phase_slope_index(x, y, fs=1000.0, bands=(19.5, 20.5)).net
+    res = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(19.5, 20.5))
+    # A band that has a slope still counts when another band has none.
+    mixed = jnwb.phase_slope_index(x, y, fs=1000.0, bands={"a": (19.5, 20.5), "beta": (13.0, 30.0)})
+    assert np.isfinite(mixed.net) and mixed.net == mixed.per_band["beta"]["value"]
+    values = {"net": res.net, "x_to_y": res.x_to_y, "y_to_x": res.y_to_x}
+    return values, {"ok_for_interpretation": res.diagnostics["ok_for_interpretation"]}
 
 
 def _pli_with_no_spikes():
     rng = np.random.default_rng(0)
     out = jnwb.phase_locking_index(np.array([]), rng.uniform(-np.pi, np.pi, 1000), np.arange(1000) / 1000.0)
-    assert out["n_spikes"] == 0
-    return out["pli"], out["preferred_phase"]
+    values = {k: out[k] for k in ("pli", "peak_to_mean_contrast", "preferred_phase", "rayleigh_z", "rayleigh_pvalue")}
+    return values, {"n_spikes": out["n_spikes"]}
 
 
 def _compare_with_an_empty_group():
-    res = jnwb.StatisticalAnalysis.exploratory_compare(np.array([]), np.arange(20.0), n_bootstrap=50)
-    assert res["n1"] == 0
-    return res["parametric"]["pval"], res["parametric"]["statistic"]
+    from scipy import stats
+
+    # One value against twenty is a defined test, and keeps its numbers.
+    one, twenty = np.array([5.0]), np.arange(20.0)
+    defined = jnwb.StatisticalAnalysis.exploratory_compare(one, twenty, n_bootstrap=50)["parametric"]
+    t = stats.ttest_ind(one, twenty)
+    assert defined["pval"] == pytest.approx(t.pvalue)
+    assert defined["effect_size"] == pytest.approx(t.statistic * np.sqrt(1 / 1 + 1 / 20))
+
+    res = jnwb.StatisticalAnalysis.confirmatory_compare(
+        np.array([]), twenty, hypothesis="the groups differ", n_bootstrap=50
+    )
+    values = {
+        f"{block}.{key}": res[block][key]
+        for block in ("parametric", "non_parametric") for key in ("statistic", "pval")
+    }
+    values.update(effect_size=res["parametric"]["effect_size"],
+                  q_parametric=res["q_parametric"], q_nonparametric=res["q_nonparametric"])
+    flags = {k: res[k] for k in ("n1", "significant_parametric", "significant_nonparametric",
+                                 "confirmed_parametric", "confirmed_nonparametric")}
+    return values, flags
+
+
+def _r2_with_one_class():
+    res = jnwb.shuffle_r2_ci(np.zeros(20), np.random.default_rng(0).normal(size=20), n_shuffle=50)
+    values = {k: v for k, v in res.items() if k != "n_shuffle"}
+    return values, {"n_shuffle": res["n_shuffle"]}
 
 
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize(
-    "skill, phrase, call, observed",
+    "skill, phrase, call, flags",
     [
-        ("jnwb-connectivity", "`net` sums the bands skipping NaN and reads 0.0",
-         _psi_net_on_one_bin, 0.0),
-        ("jnwb-spiking", "it reports `pli` 0.0 and `preferred_phase` 0.0 rather than NaN",
-         _pli_with_no_spikes, (0.0, 0.0)),
-        ("jnwb-statistics", "the parametric block reads `pval` 1.0 and `statistic` 0.0",
-         _compare_with_an_empty_group, (1.0, 0.0)),
+        ("jnwb-connectivity", "When no band has a slope, `net`, `x_to_y` and `y_to_x` are NaN",
+         _psi_with_no_slope, {"ok_for_interpretation": False}),
+        ("jnwb-spiking",
+         "`n_spikes` is 0 and `pli`, `preferred_phase`, `rayleigh_z` and `rayleigh_pvalue` are NaN",
+         _pli_with_no_spikes, {"n_spikes": 0}),
+        ("jnwb-statistics",
+         "the test it cannot support reads `statistic` and `pval` NaN, and its `significant_*` "
+         "flag is False",
+         _compare_with_an_empty_group,
+         {"n1": 0, "significant_parametric": False, "significant_nonparametric": False,
+          "confirmed_parametric": False, "confirmed_nonparametric": False}),
+        ("jnwb-statistics", "A single-class label or a constant score has no $R^2$",
+         _r2_with_one_class, {"n_shuffle": 50}),
     ],
-    ids=["psi-net", "pli-no-spikes", "compare-empty-group"],
+    ids=["psi-net", "pli-no-spikes", "compare-empty-group", "r2-one-class"],
 )
-def test_a_row_names_the_unflagged_case(skill, phrase, call, observed):
-    """The code returns a finite value where there is no estimate; the row must say so."""
+def test_a_row_states_the_undefined_case(skill, phrase, call, flags):
+    """A case with no estimate returns NaN in every value field, with its flag; the row says so."""
     assert_states(skill, phrase)
-    assert call() == observed, (
-        f"the call no longer returns {observed!r}; update the {skill} row that states it"
-    )
+    values, observed_flags = call()
+    finite = {k: v for k, v in values.items() if not np.isnan(v)}
+    assert not finite, f"no estimate exists, yet {finite} is reported; the {skill} row states NaN"
+    assert observed_flags == flags

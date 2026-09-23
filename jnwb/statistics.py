@@ -597,11 +597,14 @@ def shuffle_r2_ci(
 
     Returns:
         dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle.
+        A single-class label or a constant score has no R^2: every field but ``n_shuffle`` is
+        then NaN.
     """
     random_state = resolve_seed_alias(rng, random_state, alias_name='random_state', func_name='shuffle_r2_ci')
     def _r2(y, s):
+        # A constant label or score has no correlation to square; 0.0 would read as "none".
         if np.std(s) == 0 or np.std(y) == 0:
-            return 0.0
+            return float("nan")
         r = np.corrcoef(y, s)[0, 1]
         return float(r ** 2)
 
@@ -618,8 +621,9 @@ def shuffle_r2_ci(
     for i in range(n_shuffle):
         y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
         null[i] = _r2(y_perm, y_score)
+    # Every comparison against a NaN is False, which would put p at its floor, 1/(B+1).
     k = int(np.sum(null >= r2_obs))
-    p_val = float((1 + k) / (n_shuffle + 1))
+    p_val = float((1 + k) / (n_shuffle + 1)) if np.isfinite(r2_obs) else float("nan")
     return {
         "r2_observed": r2_obs,
         "r2_null_ci_lo": float(np.percentile(null, 2.5)),
@@ -822,6 +826,10 @@ class StatisticalAnalysis:
 
         Does **not** apply FDR to the two dual-test p-values.
 
+        A test the data cannot support -- an empty group, one observation per group, or two
+        identical constant groups -- reports its ``statistic`` and ``pval`` as NaN, and its
+        ``significant_*`` flag is False. An effect size whose SD is zero or undefined is NaN.
+
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
                 ``"nonparametric"``. Naming one runs only that test: the other is not
@@ -875,11 +883,13 @@ class StatisticalAnalysis:
                 df = len(valid1) - 1
                 diff = valid1 - valid2
                 sd_diff = np.std(diff, ddof=1) if len(valid1) > 1 else np.nan
-                cohens_dz = float(np.mean(diff) / sd_diff) if sd_diff and sd_diff > 0 else 0.0
+                cohens_dz = float(np.mean(diff) / sd_diff) if sd_diff > 0 else float("nan")
+                # An undefined test (e.g. identical groups) stays NaN rather than reading as
+                # statistic 0.0 and p 1.0, which is a measured null result.
                 result["parametric"] = {
                     "test": "paired_t_test",
-                    "statistic": float(t_stat) if not np.isnan(t_stat) else 0.0,
-                    "pval": float(t_pval) if not np.isnan(t_pval) else 1.0,
+                    "statistic": float(t_stat),
+                    "pval": float(t_pval),
                     "df": int(df),
                     "effect_size": cohens_dz,
                     "effect_size_name": "cohens_dz",
@@ -888,30 +898,28 @@ class StatisticalAnalysis:
                 w_stat, w_pval = stats.wilcoxon(valid1, valid2)
                 result["non_parametric"] = {
                     "test": "wilcoxon",
-                    "statistic": float(w_stat) if not np.isnan(w_stat) else 0.0,
-                    "pval": float(w_pval) if not np.isnan(w_pval) else 1.0,
+                    "statistic": float(w_stat),
+                    "pval": float(w_pval),
                 }
             paired_flag = True
         else:
             df = len(valid1) + len(valid2) - 2
             if run_param:
                 t_stat, t_pval = stats.ttest_ind(valid1, valid2)
-                pooled_std = (
-                    np.sqrt(
-                        ((len(valid1) - 1) * np.var(valid1, ddof=1)
-                         + (len(valid2) - 1) * np.var(valid2, ddof=1))
-                        / df
-                    )
-                    if df > 0
-                    else 0.0
-                )
+                # A one-observation group adds nothing to the pooled sum of squares; its
+                # ddof=1 variance is NaN, and 0 * NaN made the pooled SD NaN and d read 0.0.
+                ss1 = (len(valid1) - 1) * np.var(valid1, ddof=1) if len(valid1) > 1 else 0.0
+                ss2 = (len(valid2) - 1) * np.var(valid2, ddof=1) if len(valid2) > 1 else 0.0
+                pooled_std = np.sqrt((ss1 + ss2) / df) if df > 0 else 0.0
                 cohens_d = (
-                    (np.mean(valid1) - np.mean(valid2)) / pooled_std if pooled_std > 0 else 0.0
+                    (np.mean(valid1) - np.mean(valid2)) / pooled_std
+                    if len(valid1) and len(valid2) and pooled_std > 0
+                    else float("nan")
                 )
                 result["parametric"] = {
                     "test": "independent_t_test",
-                    "statistic": float(t_stat) if not np.isnan(t_stat) else 0.0,
-                    "pval": float(t_pval) if not np.isnan(t_pval) else 1.0,
+                    "statistic": float(t_stat),
+                    "pval": float(t_pval),
                     "df": int(df),
                     "effect_size": float(cohens_d),
                     "effect_size_name": "cohens_d_pooled",
@@ -920,8 +928,8 @@ class StatisticalAnalysis:
                 u_stat, u_pval = stats.mannwhitneyu(valid1, valid2, alternative="two-sided")
                 result["non_parametric"] = {
                     "test": "mann_whitney_u",
-                    "statistic": float(u_stat) if not np.isnan(u_stat) else 0.0,
-                    "pval": float(u_pval) if not np.isnan(u_pval) else 1.0,
+                    "statistic": float(u_stat),
+                    "pval": float(u_pval),
                 }
             paired_flag = False
 
@@ -1312,6 +1320,7 @@ class StatisticalAnalysis:
             Dict with all exploratory_compare keys plus:
                 ``hypothesis``, ``alpha``, ``q_parametric``, ``q_nonparametric``,
                 ``confirmed_parametric``, ``confirmed_nonparametric``, ``api``.
+            A test whose ``pval`` is NaN has a NaN q-value and is not confirmed.
         """
         if not isinstance(hypothesis, str) or not hypothesis.strip():
             raise ValueError(
@@ -1330,8 +1339,12 @@ class StatisticalAnalysis:
         )
         param_p = result["parametric"]["pval"]
         nonparam_p = result["non_parametric"]["pval"]
-        # BH-correct across the two dual-test p-values (minimal within-comparison family)
-        q_vals = StatisticalAnalysis.fdr_correct([param_p, nonparam_p])
+        # BH-correct across the two dual-test p-values (minimal within-comparison family).
+        # An undefined p enters the family as 1.0, the value it used to be reported as, so a
+        # defined partner's q is unchanged; its own q is NaN.
+        p_pair = np.array([param_p, nonparam_p], dtype=float)
+        q_vals = StatisticalAnalysis.fdr_correct(np.where(np.isnan(p_pair), 1.0, p_pair))
+        q_vals[np.isnan(p_pair)] = np.nan
         result.update(
             {
                 "hypothesis": hypothesis.strip(),

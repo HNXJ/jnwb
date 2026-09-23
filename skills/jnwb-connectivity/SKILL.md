@@ -12,7 +12,7 @@ Activate this skill when quantifying directional coupling, lag asymmetries, Gran
 ## 2. Task-to-Operation Routing Matrix
 - `jnwb.granger(X, Y, order="auto", n_surrogates=0, rng=0)`: Time-domain bivariate Granger causality with time-shift surrogate significance.
 - `jnwb.granger_spectral(X, Y, fs, order="auto", n_freqs=256, bands=None)`: Frequency-resolved spectral Granger causality.
-- `jnwb.phase_slope_index(X, Y, fs, bands)`: Phase Slope Index (PSI) quantifying frequency-dependent driver/receiver lag. A band holding fewer than two frequency bins has no slope: its `per_band` value is NaN and `diagnostics['ok_for_interpretation']` is False, but `net` sums the bands skipping NaN and reads 0.0, so read `per_band` before `net`.
+- `jnwb.phase_slope_index(X, Y, fs, bands)`: Phase Slope Index (PSI) quantifying frequency-dependent driver/receiver lag. A band holding fewer than two frequency bins has no slope: its `per_band` value is NaN and `diagnostics['ok_for_interpretation']` is False. When no band has a slope, `net`, `x_to_y` and `y_to_x` are NaN; when only some do, `net` sums the bands that have one, so read `per_band` before `net`.
 - `jnwb.transfer_entropy(X, Y, k=1, l=1, n_surrogates=...)`: Non-linear information-theoretic transfer entropy.
 - `jnwb.directed_connectivity(X, Y, method="granger")`: Pairwise directed measure between two signals (returns `DirectedResult`; method-specific kwargs forwarded). `method` names a directed estimator; an unsigned coupling measure such as `"wpli"` raises `ValueError`.
 - `jnwb.directed_network(signals, method="granger", labels=None, fdr=True, n_jobs=1)`: All-pairs directed coupling for a dict/array of channel signals.

@@ -180,7 +180,7 @@ Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or ver
 
 ```python
 # TRAP (receipt, seed=42, n_surrogates=50): a 20 Hz sinusoid with 10 ms delay
-# in a 19–21 Hz band gives net PSI = 0 and band z = nan (single frequency bin).
+# in a 19–21 Hz band gives net PSI = nan and band z = nan (single frequency bin).
 # The same delay on 15–30 Hz broadband noise gives net ≈ 0.93 and band z ≈ 9.8.
 ```
 
@@ -207,7 +207,7 @@ psi_broad = jnwb.phase_slope_index(
     noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
 )
 
-print("Narrow band net:", psi_narrow.net)          # ~0.0
+print("Narrow band net:", psi_narrow.net)          # nan: 19-21 Hz holds one bin, no slope
 print("Broad band net:", psi_broad.net)            # >> 0 for broadband noise + delay
 print("Broad band z:", psi_broad.per_band["band"]["z"])
 # Directional association only — not perturbational causality.

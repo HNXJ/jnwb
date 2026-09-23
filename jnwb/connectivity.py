@@ -1753,7 +1753,9 @@ def phase_slope_index(
         DirectedResult with ``unit='psi'``, ``per_band[name] = {value, z, sd,
         n_freq_bins, band_hz}``, and ``spectrum = {freqs, psi_per_freq, coherence}``.
         ``x_to_y`` is the summed PSI over the whole requested range with
-        ``y_to_x = -x_to_y``; ``net == x_to_y``.
+        ``y_to_x = -x_to_y``; ``net == x_to_y``. When no band holds the two frequency bins a
+        slope needs, ``x_to_y``, ``y_to_x`` and ``net`` are NaN and
+        ``diagnostics['ok_for_interpretation']`` is False.
 
     References:
         Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
@@ -1910,7 +1912,9 @@ def phase_slope_index(
                 else None
             )
 
-    total = float(np.nansum([v["value"] for v in per_band.values()]))
+    band_values = np.array([v["value"] for v in per_band.values()], dtype=float)
+    # np.nansum of an all-NaN array is 0.0, which reads as "no lead" when no band had a slope.
+    total = float(np.nansum(band_values)) if np.isfinite(band_values).any() else float("nan")
 
     # Top-level omnibus p-value extraction across evaluated bands (0.2.3-REV-08)
     p_top = None
