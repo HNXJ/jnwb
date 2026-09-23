@@ -23,6 +23,7 @@ than text so a sentence like the one above cannot satisfy or trip it.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import pathlib
 import subprocess
 import sys
@@ -62,6 +63,11 @@ class TestTheSubsetThatUsedToCrash:
         assert done.returncode == 0, done.stdout + done.stderr
         assert f"{SUBSET_SIZE} tests collected" in done.stdout, done.stdout
 
+    @pytest.mark.skipif(
+        importlib.util.find_spec("torch") is None,
+        reason="the crash needs torch: without it the fallback performs no import and the "
+               "subset passes whether or not any test evicts modules",
+    )
     def test_the_subset_survives_in_isolation(self):
         """Exit 0 and every test passing. A segfault gives 3221225477 on Windows and 139
         under a POSIX shell, and can arrive after pytest has already printed its summary,
@@ -81,22 +87,42 @@ class TestNoTestDestroysSysModules:
 
     @staticmethod
     def _sys_modules_patch_dict_calls(tree: ast.AST) -> list[int]:
+        """Line numbers of every `patch.dict` call whose target is `sys.modules`.
+
+        Names are resolved through the module's imports, so `patch as p`, `import sys as s`
+        and `from sys import modules as m` are seen, and the target may be the dict itself,
+        the string `"sys.modules"` that `patch.dict` also accepts, or the `in_dict` keyword.
+        """
+        patch_names, sys_names, modules_names = {"patch"}, {"sys"}, {"modules"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module in ("unittest.mock", "mock"):
+                patch_names |= {a.asname or a.name for a in node.names if a.name == "patch"}
+            elif isinstance(node, ast.ImportFrom) and node.module == "sys":
+                modules_names |= {a.asname or a.name for a in node.names if a.name == "modules"}
+            elif isinstance(node, ast.Import):
+                sys_names |= {a.asname for a in node.names if a.name == "sys" and a.asname}
+
+        def is_patch(owner: ast.AST) -> bool:
+            return ((isinstance(owner, ast.Name) and owner.id in patch_names)
+                    or (isinstance(owner, ast.Attribute) and owner.attr == "patch"))
+
+        def is_sys_modules(target: ast.AST) -> bool:
+            if isinstance(target, ast.Constant):
+                return target.value == "sys.modules"
+            if isinstance(target, ast.Name):
+                return target.id in modules_names
+            return (isinstance(target, ast.Attribute) and target.attr == "modules"
+                    and isinstance(target.value, ast.Name) and target.value.id in sys_names)
+
         hits = []
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            if not (isinstance(func, ast.Attribute) and func.attr == "dict"):
+            if not (isinstance(func, ast.Attribute) and func.attr == "dict" and is_patch(func.value)):
                 continue
-            owner = func.value
-            owner_name = getattr(owner, "id", None) or getattr(owner, "attr", None)
-            if owner_name != "patch":
-                continue
-            if not node.args:
-                continue
-            first = node.args[0]
-            target = ast.unparse(first)
-            if target in ("sys.modules", "modules"):
+            targets = node.args[:1] + [k.value for k in node.keywords if k.arg == "in_dict"]
+            if any(is_sys_modules(t) for t in targets):
                 hits.append(node.lineno)
         return hits
 
@@ -112,6 +138,21 @@ class TestNoTestDestroysSysModules:
 
         prose = ast.parse('"""Do not call patch.dict(sys.modules, {...}) here."""\n')
         assert self._sys_modules_patch_dict_calls(prose) == []
+
+    @pytest.mark.parametrize("source", [
+        "from unittest.mock import patch\npatch.dict('sys.modules', {'cupy': None})\n",
+        "from unittest.mock import patch as p\nimport sys\np.dict(sys.modules, {})\n",
+        "import unittest.mock as um\nimport sys\num.patch.dict(sys.modules, {})\n",
+        "from unittest import mock\nimport sys as s\nmock.patch.dict(s.modules, {})\n",
+        "from unittest.mock import patch\nfrom sys import modules as m\npatch.dict(m, {})\n",
+        "from unittest.mock import patch\nimport sys\npatch.dict(in_dict=sys.modules, values={})\n",
+    ])
+    def test_the_detector_sees_the_string_target_and_aliased_forms(self, source):
+        assert self._sys_modules_patch_dict_calls(ast.parse(source)) != [], source
+
+    def test_the_detector_ignores_patch_dict_on_another_mapping(self):
+        source = "from unittest.mock import patch\nimport os\npatch.dict(os.environ, {'X': '1'})\n"
+        assert self._sys_modules_patch_dict_calls(ast.parse(source)) == []
 
     def test_no_test_module_clears_sys_modules(self):
         offenders = []
