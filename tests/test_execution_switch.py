@@ -413,8 +413,33 @@ class TestTheDeviceDocumentationMatchesTheCode:
         assert len(gpu) == 1 and len(cpu) == 1
         assert _named_exports(gpu[0]) == set(CUDA_CAPABLE)
         assert _named_exports(cpu[0]) == CPU_ONLY
-        row = [line for line in lines if line.startswith("| `relative_power` |")]
-        assert len(row) == 1 and "CPU only" in row[0] and "CUDA via" not in row[0], row
+
+    def test_every_operation_row_states_the_measured_device(self):
+        """Each row's device cell agrees with the sets above: a CPU-only export says "CPU only"
+        and names no CUDA, a CUDA-capable one names CUDA, and a row with no `device` argument
+        claims no GPU."""
+        import re
+
+        text = (_DOCS / "10_operation_specifications.md").read_text(encoding="utf-8")
+        table = text.split("## 2. Operation Specifications", 1)[1]
+        rows = [[c.strip() for c in line.strip().strip("|").split("|")]
+                for line in table.splitlines() if line.startswith("|")]
+        header, body = rows[0], [r for r in rows[2:] if len(r) == len(rows[0])]
+        assert len(body) == len(rows) - 2, "a row has a different cell count from the header"
+        column = header.index("Randomness & Device")
+        checked = set()
+        for row in body:
+            match = re.fullmatch(r"`([A-Za-z_.]+)`", row[0])
+            name, cell = (match.group(1) if match else row[0]), row[column]
+            claims_gpu = "CUDA" in cell or "GPU" in cell
+            if name in CPU_ONLY:
+                assert "CPU only" in cell and not claims_gpu, (name, cell)
+            elif name in DEVICE_CALLS:
+                assert "CUDA" in cell, (name, cell)
+            else:
+                assert not claims_gpu, (name, cell)
+            checked.add(name)
+        assert CPU_ONLY & checked, "the table must hold at least one device-taking row"
 
 
 class TestMetal:
