@@ -36,7 +36,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -107,7 +107,7 @@ def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path])
     return True, f"PROVENANCE_VALID: Claim '{claim_name}' artifact exists: {path} ({path.stat().st_size} bytes)"
 
 
-def _is_inside_nested_checkout(skill: Path, root: Path, identities: Optional[Dict[Path, Any]] = None) -> bool:
+def _is_inside_nested_checkout(skill: Path, root: Path, identities: Optional[Dict[Any, Any]] = None) -> bool:
     """True when this ``SKILL.md`` belongs to a linked worktree of this repository nested in the tree.
 
     Such a worktree holds this same ``skills/`` tree seen through another checkout, not a second
@@ -184,20 +184,40 @@ def _canonical(path: Path) -> str:
     return os.path.normcase(str(Path(path).resolve()))
 
 
+def _run_git(directory: Path, *args: str) -> subprocess.CompletedProcess:
+    """``git -C directory *args`` with discovery redirection stripped; GitUnavailable if git cannot run."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_DISCOVERY_ENV}
+    try:
+        return subprocess.run(
+            ["git", "-C", str(directory), *args],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitUnavailable(f"git could not be run in {directory}: {exc}") from exc
+
+
+def _registered_worktrees(root: Path) -> FrozenSet[str]:
+    """Every worktree path ``git worktree list`` reports for ``root``'s repository, canonicalised.
+
+    Empty when git ran and does not recognise ``root``: such a root has no worktrees to excuse.
+    """
+    done = _run_git(root, "worktree", "list", "--porcelain")
+    if done.returncode != 0:
+        return frozenset()
+    return frozenset(
+        _canonical(Path(line[len("worktree "):]))
+        for line in done.stdout.splitlines()
+        if line.startswith("worktree ")
+    )
+
+
 def _git_identity(directory: Path) -> Optional[Tuple[str, str]]:
     """``(top level, common directory)`` as git resolves them from ``directory``, or None.
 
     None means git ran and refused the directory. :class:`GitUnavailable` means git did not run;
     answering that case from the shape of the ``.git`` entry is the proxy this replaces.
     """
-    env = {k: v for k, v in os.environ.items() if k not in _GIT_DISCOVERY_ENV}
-    try:
-        done = subprocess.run(
-            ["git", "-C", str(directory), "rev-parse", "--show-toplevel", "--git-common-dir"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=60,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise GitUnavailable(f"git could not be run in {directory}: {exc}") from exc
+    done = _run_git(directory, "rev-parse", "--show-toplevel", "--git-common-dir")
     lines = done.stdout.splitlines()
     if done.returncode != 0 or len(lines) != 2:
         return None
@@ -207,15 +227,24 @@ def _git_identity(directory: Path) -> Optional[Tuple[str, str]]:
     return _canonical(Path(lines[0])), _canonical(common)
 
 
-def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Path, Any]] = None) -> bool:
-    """True only when git says ``directory`` is a checkout of the same repository as ``root``.
+def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Any, Any]] = None) -> bool:
+    """True only when ``directory`` is a registered worktree of ``root``'s repository and git agrees.
 
-    Both must be their own top level, and both must resolve to one common git directory. The
-    shape of a ``.git`` entry was the test before this check: a zero-byte ``HEAD``, a ``gitdir:`` line
-    pointing at nothing, an unrelated ``git init`` and a worktree whose ``commondir`` was deleted
-    all passed it, and each hid a duplicate skill tree from gate 2. git rejects every one of them.
+    Two conditions, each closing a counterfeit the other admits:
 
-    ``identities`` caches :func:`_git_identity` per directory for the duration of one gate run.
+    * ``git worktree list`` for ``root`` names ``directory``. Asking git from inside the directory
+      is not enough: a ``.git`` file reading ``gitdir: <root>/.git`` makes git report the
+      directory as its own top level over the root's common directory, though no worktree was
+      ever registered there.
+    * git, run from ``directory``, reports it as its own top level over the root's common
+      directory. The listing alone keeps a registered worktree whose ``commondir`` was deleted,
+      which git no longer opens.
+
+    The shape of a ``.git`` entry was the test before either: a zero-byte ``HEAD``, a ``gitdir:``
+    line pointing at nothing and an unrelated ``git init`` each passed it and hid a duplicate
+    skill tree from gate 2.
+
+    ``identities`` caches every git answer for the duration of one gate run.
     """
     cache = {} if identities is None else identities
 
@@ -224,6 +253,11 @@ def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Path,
             cache[path] = _git_identity(path)
         return cache[path]
 
+    listing_key = ("worktree list", root)
+    if listing_key not in cache:
+        cache[listing_key] = _registered_worktrees(root)
+    if _canonical(directory) not in cache[listing_key]:
+        return False
     root_identity = identity(root)
     if root_identity is None or root_identity[0] != _canonical(root):
         return False  # a root git does not recognise has no worktrees to excuse
@@ -240,7 +274,7 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     """
     root = repo_root or REPO_ROOT
     violations = []
-    identities: Dict[Path, Any] = {}
+    identities: Dict[Any, Any] = {}
     git_unavailable: Optional[str] = None
     for skill in sorted(root.rglob("SKILL.md")):
         relative = skill.relative_to(root)

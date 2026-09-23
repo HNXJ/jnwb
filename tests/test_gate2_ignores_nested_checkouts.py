@@ -1,6 +1,6 @@
 """Gate 2 must tell a second checkout apart from a second skill tree.
 
-Recorded as P-27. Gate 2 globs ``SKILL.md`` off the filesystem rather than off the git index, so
+Gate 2 globs ``SKILL.md`` off the filesystem rather than off the git index, so
 every agent worktree under ``.claude/worktrees/`` read as a duplicate skill tree. It failed early:
 the harness gate aborted at gate 2 and gates 3 through 13 never ran, turning one false positive
 into twelve unrun checks and a red suite for the whole duration of any fan-out.
@@ -164,6 +164,17 @@ def _file_without_gitdir(repo: pathlib.Path):
     return repo / "docs" / ".git", "docs/skills/dup"
 
 
+def _gitdir_to_the_roots_own_git(repo: pathlib.Path):
+    (repo / "docs").mkdir()
+    (repo / "docs" / ".git").write_text(f"gitdir: {(repo / '.git').as_posix()}\n", encoding="utf-8")
+    # git itself accepts this counterfeit: it names docs its own top level over the root's common
+    # directory, so asking git from inside the directory cannot reject it. Only the root's worktree
+    # listing does.
+    _, root_common = harness_gate._git_identity(repo)
+    assert harness_gate._git_identity(repo / "docs") == (harness_gate._canonical(repo / "docs"), root_common)
+    return repo / "docs" / ".git", "docs/skills/dup"
+
+
 @pytest.mark.parametrize(
     "build, fools_shape",
     [
@@ -174,13 +185,15 @@ def _file_without_gitdir(repo: pathlib.Path):
         pytest.param(_nested_clone, True, id="nested-clone"),
         pytest.param(_empty_directory, False, id="empty-dir"),
         pytest.param(_file_without_gitdir, False, id="file-without-gitdir"),
+        pytest.param(_gitdir_to_the_roots_own_git, True, id="E-gitdir-to-the-roots-own-git"),
     ],
 )
 def test_a_git_entry_that_is_not_a_worktree_of_this_repository_stays_in_scope(tmp_path, build, fools_shape):
     """The other half of the pair. Each case is built exactly as named, inside a real repository.
 
-    A shape test accepted the first five (``fools_shape``): a directory holding ``HEAD``, or a
-    file starting ``gitdir:``. git accepts none of them as a worktree of the root's repository.
+    A shape test accepted every case marked ``fools_shape``: a directory holding ``HEAD``, or a
+    file starting ``gitdir:``. The root's worktree listing names none of them, and git run from
+    inside rejects every one except the last, which only the listing catches.
     A nested clone has its own object store, so it is a second tree an agent can read rather than
     this one seen twice, and git cannot tell a clone of this repository from an unrelated one.
     The root is a real repository so that a rejection comes from comparing against it, not from
