@@ -1,16 +1,17 @@
 # 05. Artifact Detection & Signal Repair
 
-This document details the public artifact detection and repair algorithms in `jnwb`, designed for high-density multi-channel electrophysiology and trial-segmented LFP/TFR data.
+Artifact detection and repair in `jnwb`, for multichannel electrophysiology and trial-segmented LFP/TFR data.
 
 ---
 
 ## 1. Overview & Repair Strategy
 
-High-channel-count probes (e.g. Neuropixels, multi-shank arrays) suffer from distinct artifact modalities:
-1. **Electrode Pop & Drift**: Single bad channels showing near-zero correlation or massive amplitude spikes.
-2. **Chewing / Movement / Optical Transients**: Synchronous, high-amplitude excursions spanning many or all channels simultaneously on specific trials.
+High-channel-count probes (e.g. Neuropixels, multi-shank arrays) carry two kinds of artifact:
 
-`jnwb` provides a two-stage strategy:
+- **Electrode Pop & Drift**: single bad channels showing near-zero correlation or large amplitude spikes.
+- **Chewing / Movement / Optical Transients**: synchronous, high-amplitude excursions spanning many or all channels on specific trials.
+
+`jnwb` handles them in two stages:
 - **Detection (`jnwb.artifact_detection`)**: Statistical identification of bad channels and trials via cross-correlation and amplitude z-scores.
 - **Repair (`jnwb.artifact_repair`)**: Substitution of artifact-corrupted samples with cross-trial medians to preserve array geometry without discarding entire trials.
 
@@ -36,7 +37,7 @@ trial, so what the substitution changed and what it left alone are read off one 
 
 ## 2. Artifact Detection (`jnwb.artifact_detection`)
 
-All 5 core artifact detection functions are exposed directly in the top-level `jnwb` namespace:
+The five detection functions below are top-level `jnwb` exports.
 
 ### Channel Correlation Matrix & Bad Channel Rejection
 Computes the inter-channel correlation matrix and identifies disconnected or noisy electrodes via median correlation z-scores:
@@ -127,15 +128,13 @@ to round-off (relative to the data, so the rule does not depend on power units) 
 
 !!! warning "`sided="both"` is not the conservative choice"
     The default `"upper"` flags power *increases* only. `"both"` also flags decreases — so when
-    the response under study **is** a power decrease, a two-sided detector flags genuine
-    decreases as artifacts and substitutes them away. The detector then eats the very effect it
-    was meant to protect. Choose `"both"` only when artifacts in your data genuinely go in both
-    directions.
+    the response under study **is** a power decrease, a two-sided detector flags that effect as
+    artifact and substitutes it away. Choose `"both"` only when artifacts in your data go in
+    both directions.
 
-    This is not hypothetical. A downstream reimplementation of this rule silently used a
-    two-sided test while its own docstring claimed parity with the one-sided library version.
-    The detector is exposed here precisely so the tail is an argument a caller states, rather
-    than a detail buried in a copy that can drift.
+    A downstream reimplementation of this rule silently used a two-sided test while its own
+    docstring claimed parity with the one-sided library version. The detector is exposed so the
+    tail is an argument a caller states, rather than a detail buried in a copy that can drift.
 
 `jnwb.DETECTION_TAILS` is the pair of accepted values, `("upper", "both")`, exported so a
 caller can validate a configured tail before the call rather than after it:
