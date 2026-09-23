@@ -1,10 +1,9 @@
 """NWB file I/O with scoped HDMF builder repairs for malformed files.
 
-Module-internal, with one exception: the module is not exported, but
-``MissingRequiredNWBFieldError`` is in ``jnwb.__all__`` and is meant to be caught by name. The
-sentence here used to claim otherwise, which told a reader hitting that raise that nothing in the
-file was catchable. Prefer the public metadata/compression helpers, which call ``nwb_read_io`` /
-``read_nwb`` internally.
+The module is not exported. Four of its names are, because a caller meets them without asking:
+``MissingRequiredNWBFieldError``, which a read raises; ``read_nwb`` and ``nwb_read_io``, whose
+``allow_missing`` waives that refusal; and ``SqueezedAttributeWarning``, which a read of a
+repaired file emits. Each is reachable as ``jnwb.<name>`` with nothing but ``import jnwb``.
 
 Repairs apply only while a jnwb-owned read is active. ``import jnwb`` does not alter
 HDMF global state.
@@ -39,6 +38,13 @@ _saved_construct: Any = None
 #: and out of the way of another thread reading a different file through the same patched method.
 _ALLOW_MISSING: ContextVar[frozenset] = ContextVar("_ALLOW_MISSING", default=frozenset())
 _SQUEEZED: ContextVar[list] = ContextVar("_SQUEEZED", default=[])
+
+#: Attribute recording which required fields a read actually waived, as opposed to the fields the
+#: caller offered to waive. Set on the ``NWBFile`` when the root builder is constructed, which is
+#: where the waiver happens, so every read-mode jnwb read carries it: :func:`read_nwb`,
+#: ``io.read()`` inside :func:`nwb_read_io`, and the path-taking public functions. An empty tuple
+#: in the ordinary case, so a caller can branch on it without a ``hasattr``.
+WAIVED_REQUIREMENTS_ATTR = "jnwb_waived_requirements"
 
 
 class SqueezedAttributeWarning(UserWarning):
@@ -87,8 +93,27 @@ class MissingRequiredNWBFieldError(Exception):
 _SEQUENCE_ATTRIBUTES = frozenset({"colnames"})
 
 
-def _repair_builder(builder: Any, orig_construct: Any) -> None:
+def _links_to_a_dataset(builder: Any, name: str) -> bool:
+    """Whether ``name`` under ``builder`` is a link that resolves to a dataset.
+
+    HDMF files a resolving soft or external link under ``links`` rather than ``datasets``, and
+    pynwb reads the target's value through it. A link that does not resolve never reaches the
+    builder at all: HDMF drops it with ``BrokenLinkWarning``, so it reads as absent.
+    """
+    from hdmf.build import DatasetBuilder
+
+    link = getattr(builder, "links", {}).get(name)
+    return link is not None and isinstance(getattr(link, "builder", None), DatasetBuilder)
+
+
+def _is_nwbfile_root(builder: Any) -> bool:
+    return hasattr(builder, "attributes") and builder.attributes.get("neurodata_type") == "NWBFile"
+
+
+def _repair_builder(builder: Any, orig_construct: Any) -> Tuple[str, ...]:
+    """Repair ``builder`` in place and return the required fields a waiver filled on it."""
     b_name = getattr(builder, "name", None)
+    waived: Tuple[str, ...] = ()
 
     if hasattr(builder, "attributes"):
         for key, value in builder.attributes.items():
@@ -104,9 +129,9 @@ def _repair_builder(builder: Any, orig_construct: Any) -> None:
                     _SQUEEZED.get().append(f"{b_name or '?'}.{key}")
 
     if (
-        hasattr(builder, "attributes")
-        and builder.attributes.get("neurodata_type") == "NWBFile"
+        _is_nwbfile_root(builder)
         and "session_description" not in builder.datasets
+        and not _links_to_a_dataset(builder, "session_description")
     ):
         if "session_description" not in _ALLOW_MISSING.get():
             raise MissingRequiredNWBFieldError("session_description")
@@ -120,6 +145,7 @@ def _repair_builder(builder: Any, orig_construct: Any) -> None:
         from hdmf.build import DatasetBuilder
 
         builder.set_dataset(DatasetBuilder("session_description", ""))
+        waived = ("session_description",)
 
     if b_name == "units":
         raw_colnames = builder.attributes.get("colnames", [])
@@ -154,6 +180,23 @@ def _repair_builder(builder: Any, orig_construct: Any) -> None:
         if b_name == "waveform_mean_index" and "data" in builder:
             builder["data"] = np.array(builder["data"], dtype=np.int64)
 
+    return waived
+
+
+def _record_waived(container: Any, waived: Tuple[str, ...]) -> None:
+    """Set the waiver record on a freshly constructed ``NWBFile``, once."""
+    if hasattr(container, WAIVED_REQUIREMENTS_ATTR):
+        # HDMF returns its cached container when a builder is constructed again, and by then the
+        # builder carries the filled field, so a second pass would see nothing to waive.
+        return
+    try:
+        setattr(container, WAIVED_REQUIREMENTS_ATTR, waived)
+    except (AttributeError, TypeError):  # pragma: no cover - pynwb container restriction
+        # Recording it is the point of the opt-in, so a read that waived something and cannot
+        # say so must not pass silently. An ordinary read loses nothing and carries on.
+        if waived:
+            raise
+
 
 def _make_patched_construct(orig_construct: Any) -> Any:
     def patched_construct(self: Any, *args: Any, **kwargs: Any) -> Any:
@@ -161,9 +204,13 @@ def _make_patched_construct(orig_construct: Any) -> Any:
             builder = args[0]
         else:
             builder = kwargs.get("builder")
+        waived: Tuple[str, ...] = ()
         if builder is not None:
-            _repair_builder(builder, orig_construct)
-        return orig_construct(self, *args, **kwargs)
+            waived = _repair_builder(builder, orig_construct)
+        container = orig_construct(self, *args, **kwargs)
+        if builder is not None and _is_nwbfile_root(builder):
+            _record_waived(container, waived)
+        return container
 
     patched_construct.__name__ = "jnwb_hdmf_repair_construct"
     return patched_construct
@@ -197,10 +244,10 @@ def hdmf_build_repair_context(
 ) -> Iterator[None]:
     """Enable malformed-builder repairs for the duration of a jnwb NWB read.
 
-    ``allow_missing`` names required fields whose absence is tolerated for this read. Nothing is
-    synthesized: the field stays absent on the returned object, exactly as it is absent on disk.
-    Ruled 2026-09-19, and the distinction is the whole point -- `artifacts/goal.md` section 4
-    forbids substituting a value, not reading a file that lacks one.
+    ``allow_missing`` names required fields whose absence is tolerated for this read. No
+    plausible value is substituted: pynwb cannot construct an ``NWBFile`` without
+    ``session_description``, so a waived ``session_description`` reads ``""`` on the constructed
+    object, and ``jnwb_waived_requirements`` on that object records whether the waiver was used.
     """
     global _patch_depth, _saved_construct
 
@@ -248,9 +295,18 @@ def nwb_read_io(
 ) -> Iterator[NWBHDF5IO]:
     """Open an NWB file; apply builder repairs on read paths only.
 
-    ``allow_missing`` is accepted only for ``mode='r'``: the repairs, and therefore the refusal it
-    waives, exist on the read path alone. Passing it for a write mode raises rather than being
-    quietly ignored.
+    Use this rather than :func:`read_nwb` to read data arrays: the file stays open until the
+    ``with`` block exits.
+
+        with jnwb.nwb_read_io(path, allow_missing=("session_description",)) as io:
+            nwbfile = io.read()
+            nwbfile.jnwb_waived_requirements   # ("session_description",) only if it was absent
+
+    ``allow_missing`` behaves as in :func:`read_nwb`: a waived ``session_description`` reads
+    ``""``, and ``jnwb_waived_requirements`` on the object ``io.read()`` returns records the
+    waivers the read used. It is accepted only for ``mode='r'``: the repairs, and therefore the
+    refusal it waives, exist on the read path alone. Passing it for a write mode raises rather than
+    being quietly ignored.
     """
     if mode != "r":
         if allow_missing:
@@ -266,12 +322,6 @@ def nwb_read_io(
             yield io
 
 
-#: Attribute recording which required fields a read tolerated. Present on every object returned by
-#: :func:`read_nwb`, empty tuple in the ordinary case, so a caller can branch on it without a
-#: ``hasattr`` and a receipt can state that the file was incomplete.
-WAIVED_REQUIREMENTS_ATTR = "jnwb_waived_requirements"
-
-
 def read_nwb(
     path: Any, allow_missing: Union[Sequence[str], str, None] = None, **kwargs: Any
 ) -> Any:
@@ -279,24 +329,22 @@ def read_nwb(
 
     By default a file missing a required field is refused, with
     :class:`MissingRequiredNWBFieldError`. ``allow_missing`` names fields to tolerate for this
-    read -- today only ``"session_description"``. Nothing is synthesized: the field is absent on
-    the returned object exactly as it is absent on disk, and
-    ``nwbfile.jnwb_waived_requirements`` records what was waived so a receipt written from this
-    read can say the file was incomplete.
+    read -- today only ``"session_description"``. No plausible value is substituted: pynwb cannot
+    construct an ``NWBFile`` without ``session_description``, so a waived one reads ``""``.
 
-        read_nwb(path, allow_missing=("session_description",))
+    ``nwbfile.jnwb_waived_requirements`` records the waivers this read used, not the ones it was
+    offered: a file that has the field reads ``()`` whatever ``allow_missing`` says, so a waived
+    field and a recorded empty string are told apart by this attribute alone.
+
+        nwbfile = jnwb.read_nwb(path, allow_missing=("session_description",))
+        nwbfile.jnwb_waived_requirements   # ("session_description",) only if it was absent
+
+    The file is closed when this returns, so values pynwb loaded while reading, such as
+    ``session_description``, are readable and HDF5-backed datasets are not. Read those inside
+    :func:`nwb_read_io`, which takes the same ``allow_missing``.
     """
-    waived: Tuple[str, ...] = tuple(sorted(_normalise_allow_missing(allow_missing)))
     with nwb_read_io(path, "r", allow_missing=allow_missing, **kwargs) as io:
-        nwbfile = io.read()
-    try:
-        setattr(nwbfile, WAIVED_REQUIREMENTS_ATTR, waived)
-    except (AttributeError, TypeError):  # pragma: no cover - pynwb container restriction
-        # Recording it is the point of the opt-in, so a read that tolerated something and cannot
-        # say so must not pass silently. An ordinary read loses nothing and carries on.
-        if waived:
-            raise
-    return nwbfile
+        return io.read()
 
 
 def _with_nwb(path_or_nwb: NWBInput, fn):

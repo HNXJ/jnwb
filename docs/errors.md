@@ -21,7 +21,7 @@ The messages below are the real ones, taken from a file written with plain pynwb
 | `IntervalTableNotFoundError` | `events`, `event_onsets`, `resolve_interval_table` | `table=` one of the names under `Available` |
 | `ColumnNotFoundError` | `events`, `event_onsets` | `code_column=` one of the listed columns |
 | `InvalidOnsetValueError` | `events`, `event_onsets`, `epoch_continuous` | Drop or repair the row the message names |
-| `MissingRequiredNWBFieldError` | any read | Nothing. Repair the file |
+| `MissingRequiredNWBFieldError` | any read | Repair the file, or waive the field with `read_nwb(path, allow_missing=(exc.field_name,))` |
 
 `NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
 directly. The rest of this page is why each refusal exists, which the table cannot carry.
@@ -157,13 +157,72 @@ on disk. The exception carries the missing field name as `exc.field_name`. jnwb 
 invent a value for a field the specification requires, because a synthesized
 `session_description` propagates into every figure caption and table that reads it.
 
+To open the file anyway, name the field you accept losing. Today `session_description` is the
+only field jnwb refuses on, and naming any other raises `ValueError`:
+
+```python
+try:
+    nwbfile = jnwb.read_nwb("recording.nwb")
+except jnwb.MissingRequiredNWBFieldError as exc:
+    nwbfile = jnwb.read_nwb("recording.nwb", allow_missing=(exc.field_name,))
+
+nwbfile.session_description        # "" -- pynwb cannot build the object without the field
+nwbfile.jnwb_waived_requirements   # ("session_description",)
+```
+
+`jnwb_waived_requirements` records the waivers the read used, not the ones it was offered. A
+file that has the field reads `()` under the same `allow_missing`, so passing the waiver across a
+whole corpus still tells each waived file apart from one that recorded an empty description.
+
+`read_nwb` closes the file before it returns, so its object holds metadata and no readable data
+arrays. To read data from a waived file, read inside `nwb_read_io`, which takes the same
+`allow_missing` and sets the same attribute:
+
+```python
+with jnwb.nwb_read_io("recording.nwb", allow_missing=("session_description",)) as io:
+    nwbfile = io.read()
+    spike_times = nwbfile.units["spike_times"][0]
+```
+
+The functions that take a path (`inspect`, `events`, `unit_spike_times`, ...) never waive.
+
+### What a read returns for each state of `session_description`
+
+"Default" is `read_nwb(path)`; "waived" is `read_nwb(path, allow_missing=("session_description",))`.
+"Flag" is `jnwb_waived_requirements` on the returned object.
+
+| On disk | Default | Waived |
+|---|---|---|
+| Absent | Raises `MissingRequiredNWBFieldError` | `""`, flag `("session_description",)` |
+| Explicit null: null dataspace, zero-length array or null reference | Raises an HDMF or h5py error | Raises the same error |
+| Empty string | `""`, flag `()` | `""`, flag `()` |
+| One-element string array | The element, flag `()`, no warning | The same |
+| Any other malformed value, such as an integer or a two-element array | Raises HDMF's `ConstructError` | Raises the same error |
+| Present and valid | The value, flag `()` | The same |
+| Soft or external link to a valid description | The linked value, flag `()` | The same |
+| Dangling soft link | Raises `MissingRequiredNWBFieldError`, with `BrokenLinkWarning` | `""`, flag `("session_description",)`, with `BrokenLinkWarning` |
+| External link to a missing file | Raises `MissingRequiredNWBFieldError`, with `BrokenLinkWarning` | `""`, flag `("session_description",)`, with `BrokenLinkWarning` |
+| Fixed-length string of NUL bytes | `""`, flag `()` | The same |
+
+Four rows collapse information the file holds, and the returned object cannot recover it:
+
+- **Damage reads as absence.** A dangling soft link and a broken external link return exactly
+  what an absent field returns. HDMF drops the link and emits `BrokenLinkWarning` during the
+  read; the returned object carries no trace of it. Record warnings at read time if damage and
+  incompleteness must be told apart.
+- **NUL bytes read as empty.** A fixed-length string loses its trailing NUL bytes when read, so
+  a field holding only NULs is indistinguishable from an empty one.
+- **A one-element array reads as its element.** pynwb flattens it on every read, with or without
+  jnwb, and it is indistinguishable from a scalar holding the same string.
+
 ## Warnings, not errors
 
-Two conditions warn rather than raise, because in both cases the caller gets something
+Three conditions warn rather than raise, because in each case the caller gets something
 usable and the risk is that it is silently wrong.
 
 | Condition | Raised by | What you get |
 |---|---|---|
+| A length-1 array attribute was collapsed to its scalar: `SqueezedAttributeWarning` | any read | The repaired value. The warning names the attributes, once per read, so a record written from the read can say the file needed repairing |
 | No `codes` column | `events`, `event_onsets` | The onsets, without codes |
 | Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 

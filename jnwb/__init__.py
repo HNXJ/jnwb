@@ -51,7 +51,7 @@ from .tfr_accumulator import TFRAccumulator, assert_mergeable
 
 # NWB fp32 compression (2026-08-09), per nwb_tfr_storage_spec.md Part 1.
 from .compression import compress_fp32
-from .nwb_io import MissingRequiredNWBFieldError
+from .nwb_io import MissingRequiredNWBFieldError, SqueezedAttributeWarning, nwb_read_io, read_nwb
 from .nwb_inspect import (
     AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
@@ -272,6 +272,9 @@ __all__ = [
     'ChannelIndexError',
     'UnitNotFoundError',
     'MissingRequiredNWBFieldError',
+    'read_nwb',
+    'nwb_read_io',
+    'SqueezedAttributeWarning',
     'events',
     'event_onsets',
     'EventTable',
