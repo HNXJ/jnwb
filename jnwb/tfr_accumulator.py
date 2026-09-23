@@ -81,10 +81,7 @@ def _is_trial_averaged(obj) -> bool:
             for item in obj
         )
     if not isinstance(obj, np.ndarray):
-        try:
-            obj = np.asarray(obj)  # a buffer-protocol object (memoryview, ...) becomes a view
-        except Exception:
-            return False
+        obj = np.asarray(obj)  # a buffer-protocol object (memoryview, ...) becomes a view
     # Memory overlap, not the `.base` chain: a view reached through a memoryview or
     # `as_strided` has a base that is not an ndarray. `may_share_memory` compares byte bounds,
     # O(ndim) per buffer, so the check is O(number of live registered buffers). Each registered
