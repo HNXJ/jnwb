@@ -152,11 +152,17 @@ def _delay_sentences(text: str) -> List[str]:
     One definition serves the spiking skill's safeguards section and `causal_exp_smooth`'s
     docstring, so the two faces of the rule are held to one reading rather than to two copies
     of it that can drift.
+
+    The delay is named four ways and the removal four, because the unscoped instruction this
+    guard exists for read "Never compare onset latencies without accounting for estimator
+    delay", which matched neither the old `(filter|group) delay` nor `subtract|remove|correct`.
+    "Shift" is left out: the docstring uses it as a noun ("a group delay and time shift") in a
+    sentence that instructs nothing.
     """
     return [
         s for s in _sentence_units(text)
-        if re.search(r"(filter|group)\s+delay", s, re.I)
-        and re.search(r"\b(subtract|remove|correct)", s, re.I)
+        if re.search(r"(filter|group|estimator|smoothing)\s+(delay|lag)", s, re.I)
+        and re.search(r"\b(subtract|remove|correct|account)", s, re.I)
     ]
 
 
@@ -1274,6 +1280,19 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
             "the added unscoped instruction was not seen as a second correction-giving "
             f"sentence, so this discriminator does not discriminate: {giving}"
         )
+
+    @pytest.mark.parametrize("instruction", [
+        "Never compare onset latencies without accounting for estimator delay.",
+        "Correct every onset for the smoothing lag before comparing conditions.",
+    ])
+    def test_the_original_unscoped_wordings_are_seen(self, instruction):
+        """P-110's own wording survived the guard: it names neither a filter nor a group delay
+        and says "accounting for" rather than subtract, remove or correct."""
+        from jnwb.onset_fitting import causal_exp_smooth
+
+        mutant = causal_exp_smooth.__doc__ + f"\n    {instruction}\n"
+        giving = [s for s in _delay_sentences(mutant) if "fit_exponential_onset" not in s]
+        assert len(giving) == 2, giving
 
     def test_tau_ms_is_still_held_fixed_across_compared_conditions(self):
         """The half of the original safeguard that was correct and is load-bearing."""

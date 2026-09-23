@@ -44,9 +44,9 @@ barrier above.
 
 | Wave | Items |
 |---|---|
-| W0 | 06-127, 06-99 |
+| W0 | 06-127 |
 | W1 | 06-05, 06-06, 06-16, 06-74, 06-86, 06-124, 06-33, 06-123, 06-137 |
-| W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120, 06-135 |
+| W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
@@ -80,19 +80,6 @@ Discriminator: a subprocess test with `plotly` blocked imports `jnwb` and gets t
 Accept: 18 PASS lines; CI green on every leg; the dispatcher adds the `AGENTS.md` §7 row, the
 `CHANGELOG.md` Added entry and the P-33 note; the skill count is ruled (twelve planned, P-180).
 Stop: a file pair under `packages/jnwb-vis/` differs from `jnwb/vis/`.
-
-### 06-99 Verify the container-type predicate against the corpus
-
-Release: required-0.2.6.
-Role: verifier. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
-Corpus read granted 2026-09-22: read the raw NWB on `D:`, write only to `E:` or the scratchpad,
-and copy no corpus identifier into `jnwb/`, `docs/`, `skills/` or `tests/`.
-P-54. The predicate fires when the declared type has a schema-fixed data unit and the stored unit
-differs. Record per session the declared `neurodata_type`, the stored `data` unit and the dtype of
-each acquisition container; read attributes only. P-54's own count (22 sessions against 24 files
-under `D:/nwb`) is under test.
-Accept: the predicate's behaviour on the corpus is stated with counts; P-54 closes `repaired`, or
-the predicate is corrected.
 
 ## W1. Freeze, sweeps and harness
 
@@ -304,14 +291,6 @@ P-91, ruled 2026-09-22: `exploratory_compare` and `exploratory_multi` results ga
 `correction: "none"`; `multiple_comparison` stays off the exploratory surface.
 Accept: both results carry the key with value `"none"` and neither carries `multiple_comparison`;
 P-91 closes; the packet hands back an Added entry.
-
-### 06-95 Close P-110 on the landed scope
-
-Release: required-0.2.6.
-Role: verifier. Skill: jnwb-spiking. Blocked by: none. Writes: none.
-The docstring repair landed as `917352fe`. The 06-93 mutant (a second, unscoped instruction
-leaving every word intact) must fail the pinned assertion.
-Accept: the mutant is killed on the landed code; P-110 closes `repaired`.
 
 ### 06-120 Gate 15 checks the stack's stated counts
 
@@ -531,7 +510,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

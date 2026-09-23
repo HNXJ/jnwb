@@ -68,12 +68,21 @@ def _n_jobs_is_one_everywhere() -> bool:
 
 
 def _uncovered(text: str, phrases: list[str]) -> list[str]:
-    return [
-        f"{n}: {line.strip()[:120]}"
-        for n, line in enumerate(text.splitlines(), 1)
-        if _MENTION.search(line.replace("default_rng", ""))
-        and not any(p in line for p in phrases)
-    ]
+    """Lines holding a mention of a default that no registered phrase accounts for.
+
+    Mention by mention, not line by line: each registered phrase is removed from the line and
+    whatever mention remains is uncovered. Exempting the whole line once any phrase was on it
+    let a second, false default ride on a registered one, and skill paragraphs are single
+    lines.
+    """
+    out = []
+    for n, line in enumerate(text.splitlines(), 1):
+        rest = line.replace("default_rng", "")
+        for phrase in phrases:
+            rest = rest.replace(phrase, "")
+        if _MENTION.search(rest):
+            out.append(f"{n}: {line.strip()[:120]}")
+    return out
 
 
 def test_every_default_a_skill_states_is_the_signature_default():
@@ -100,3 +109,9 @@ def test_the_check_fails_on_a_wrong_or_unregistered_default():
     assert _uncovered("`order` defaults to 5.\nrng = np.random.default_rng(0)\n", []) == [
         "1: `order` defaults to 5."
     ]
+    registered = "`normalize` defaults to **True**"
+    line = f"{registered}, and `freq_range` defaults to (4.0, 8.0)."
+    assert _uncovered(line, [registered]) == [f"1: {line}"], (
+        "a false default on the same line as a registered one was exempted with it"
+    )
+    assert _uncovered(f"{registered}.", [registered]) == []

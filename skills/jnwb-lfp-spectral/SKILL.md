@@ -31,7 +31,7 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 - `jnwb.spectral_tilt(lfp_trace, fs, freq_range=(1.0, 100.0))`: Aperiodic $1/f$ spectral slope parameterization.
 - `jnwb.bipolar_reference(channel_data, channel_order=None)`: Local differential referencing for spatial artifact reduction.
 
-- `jnwb.to_db(ratio)`: The single point where a power ratio becomes decibels. Average power, divide by baseline, take the logarithm exactly once -- never average decibels.
+- `jnwb.to_db(ratio)`: Turns a power ratio into decibels. Average power, divide by baseline, take the logarithm exactly once -- never average decibels. `relative_power(model="log_ratio")` takes the same logarithm itself.
 - `jnwb.relative_power(power, baseline, *, model="mean_of_ratios", axis=None, device="cpu")`: Power against baseline under an explicit estimand. `"mean_of_ratios"` and `"ratio_of_means"` are different quantities, not two routes to one. It returns a bare array and records no model, so nothing downstream can recover which estimand produced a value: carry the model yourself wherever the value is stored or reported.
 - `jnwb.compute_multitaper_psd(data, fs, nw=3.0, k_tapers=None, axis=-1)`: PSD by the DPSS multitaper method. `nw` sets the bandwidth-time product, so it sets the frequency resolution the estimate can support.
 - `jnwb.morlet_wavelet(f0, fs, n_cycles=5.0, normalization="amplitude", cutoff_sigma=4.0)`: The complex Morlet kernel underneath the TFR. `n_cycles` trades frequency resolution against time resolution at every frequency.
