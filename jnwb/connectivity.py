@@ -1635,6 +1635,34 @@ def _psi_from_spectra(
     return float(np.sum(np.imag(np.conj(c[:-1]) * c[1:])))
 
 
+def _psi_leave_one_out(fx: np.ndarray, fy: np.ndarray, idx: np.ndarray) -> np.ndarray:
+    """PSI over ``idx`` with each segment left out in turn: one replicate per segment.
+
+    Replicate ``i`` is ``_psi_from_spectra`` on every segment but ``i``. Its spectra are means
+    over the remaining segments, and each such sum is a prefix sum plus a suffix sum, so all
+    ``S`` replicates cost T(S * B) over the ``B`` bins in ``idx`` instead of T(S^2 * F) for
+    recomputing each from its segments. The two sums are added rather than one segment being
+    subtracted from the total: a subtraction cancels when one segment holds most of a bin's power.
+    """
+    ax = fx[:, idx]
+    ay = fy[:, idx]
+    n_seg = ax.shape[0]
+
+    def left_out_mean(v: np.ndarray) -> np.ndarray:
+        before = np.zeros_like(v)
+        np.cumsum(v[:-1], axis=0, out=before[1:])
+        after = np.zeros_like(v)
+        after[:-1] = np.cumsum(v[:0:-1], axis=0)[::-1]
+        return (before + after) / (n_seg - 1)
+
+    sxy = left_out_mean(ax * np.conj(ay))
+    sxx = left_out_mean(np.abs(ax) ** 2)
+    syy = left_out_mean(np.abs(ay) ** 2)
+    denom = np.sqrt(sxx * syy)
+    coh = np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
+    return np.sum(np.imag(np.conj(coh[:, :-1]) * coh[:, 1:]), axis=1)
+
+
 def phase_slope_index(
     X,
     Y,
@@ -1816,13 +1844,8 @@ def phase_slope_index(
 
         sd = float("nan")
         if jackknife and n_seg >= 3:
-            jk = np.empty(n_seg)
-            keep = np.ones(n_seg, dtype=bool)
-            for i in range(n_seg):
-                keep[i] = False
-                jk[i] = _psi_from_spectra(fx[keep], fy[keep], idx)
-                keep[i] = True
-            sd = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
+            jk = _psi_leave_one_out(fx, fy, idx)
+            sd =float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
             jk_per_band[name] = jk
         elif jackknife:
             warnings_all.append("jackknife_needs_at_least_3_segments")

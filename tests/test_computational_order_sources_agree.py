@@ -83,3 +83,32 @@ def test_the_checks_see_what_they_are_for():
     assert citation_defects(bench_ok, good) == []
     assert citation_defects("| INV-02 | inv | f: O(T) |\n", good) != []
     assert citation_defects("| INV-01 | inv | g: O(T) |\n", good) != []
+
+
+# An order reduction must compute what the slower path computed. The benchmark records the
+# reduced orders; these hold each reduced path to the definition it replaced.
+
+
+def test_the_linear_jackknife_equals_leaving_each_segment_out():
+    import numpy as np
+
+    from jnwb.connectivity import _psi_from_spectra, _psi_leave_one_out
+
+    rng = np.random.default_rng(5)
+    n_seg, n_freq = 40, 33
+    fx = rng.normal(size=(n_seg, n_freq)) + 1j * rng.normal(size=(n_seg, n_freq))
+    fy = 0.6 * fx * np.exp(0.3j * np.arange(n_freq)) + rng.normal(size=(n_seg, n_freq))
+    # One segment carrying almost all of the power: subtracting it from the total would cancel.
+    fx[17] *= 1e8
+    # A bin only one segment carries: leaving that segment out leaves no power there at all.
+    fx[:, 20] = 0.0
+    fx[3, 20] = 1.0 + 1.0j
+    idx = np.arange(4, 29)
+
+    direct = np.array(
+        [_psi_from_spectra(np.delete(fx, i, 0), np.delete(fy, i, 0), idx) for i in range(n_seg)]
+    )
+    fast = _psi_leave_one_out(fx, fy, idx)
+    assert fast.shape == (n_seg,)
+    assert np.ptp(direct) > 0.1, "the replicates must differ, or any constant passes"
+    np.testing.assert_allclose(fast, direct, rtol=1e-9, atol=1e-12)
