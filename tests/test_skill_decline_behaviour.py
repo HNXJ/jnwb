@@ -482,6 +482,11 @@ def _compare_with_an_empty_group():
     }
     values.update(effect_size=res["parametric"]["effect_size"],
                   q_parametric=res["q_parametric"], q_nonparametric=res["q_nonparametric"])
+    # Paired groups whose every difference is zero leave the signed-rank test no rank.
+    paired = jnwb.StatisticalAnalysis.exploratory_compare(
+        np.arange(5.0), np.arange(5.0), paired=True, n_bootstrap=50
+    )
+    values.update({f"paired.{k}": paired["non_parametric"][k] for k in ("statistic", "pval")})
     flags = {k: res[k] for k in ("n1", "significant_parametric", "significant_nonparametric",
                                  "confirmed_parametric", "confirmed_nonparametric")}
     return values, flags

@@ -826,9 +826,10 @@ class StatisticalAnalysis:
 
         Does **not** apply FDR to the two dual-test p-values.
 
-        A test the data cannot support -- an empty group, one observation per group, or two
-        identical constant groups -- reports its ``statistic`` and ``pval`` as NaN, and its
-        ``significant_*`` flag is False. An effect size whose SD is zero or undefined is NaN.
+        A test the data cannot support -- an empty group, one observation per group, two
+        identical constant groups, or paired groups whose every difference is zero -- reports
+        its ``statistic`` and ``pval`` as NaN, and its ``significant_*`` flag is False. An
+        effect size whose SD is zero or undefined is NaN.
 
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
@@ -896,6 +897,10 @@ class StatisticalAnalysis:
                 }
             if run_nonparam:
                 w_stat, w_pval = stats.wilcoxon(valid1, valid2)
+                # The default zero_method drops zero differences; with none left there is no
+                # rank to test, yet scipy returns statistic 0.0 and p 1.0.
+                if not np.any(valid1 != valid2):
+                    w_stat, w_pval = float("nan"), float("nan")
                 result["non_parametric"] = {
                     "test": "wilcoxon",
                     "statistic": float(w_stat),
@@ -952,6 +957,11 @@ class StatisticalAnalysis:
     ) -> Dict:
         """Compare multiple groups: ANOVA + Kruskal-Wallis (no 2-test FDR).
 
+        A test the data cannot support -- an empty group, one observation per group for the
+        ANOVA, or identical constant groups -- reports its ``statistic`` and ``pval`` as NaN,
+        and its ``significant_*`` flag is False. ``eta_squared`` is NaN when the data have no
+        variance.
+
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"``
                 (one-way ANOVA) or ``"nonparametric"`` (Kruskal-Wallis). Naming one runs
@@ -987,11 +997,12 @@ class StatisticalAnalysis:
             grand_mean = np.concatenate(group_data).mean() if len(group_data) > 0 else 0
             ss_between = sum(len(g) * (np.mean(g) - grand_mean) ** 2 for g in group_data)
             ss_total = sum(np.sum((g - grand_mean) ** 2) for g in group_data)
-            eta_squared = ss_between / ss_total if ss_total > 0 else 0
+            # No variance at all leaves no share of it to explain: 0/0, not 0.
+            eta_squared = ss_between / ss_total if ss_total > 0 else float("nan")
             result["parametric"] = {
                 "test": "one_way_anova",
-                "statistic": float(f_stat) if not np.isnan(f_stat) else 0.0,
-                "pval": float(f_pval) if not np.isnan(f_pval) else 1.0,
+                "statistic": float(f_stat),
+                "pval": float(f_pval),
                 "df_between": int(df_between),
                 "df_within": int(df_within),
                 "effect_size": float(eta_squared),
@@ -1001,8 +1012,8 @@ class StatisticalAnalysis:
             h_stat, h_pval = stats.kruskal(*group_data)
             result["non_parametric"] = {
                 "test": "kruskal_wallis",
-                "statistic": float(h_stat) if not np.isnan(h_stat) else 0.0,
-                "pval": float(h_pval) if not np.isnan(h_pval) else 1.0,
+                "statistic": float(h_stat),
+                "pval": float(h_pval),
             }
 
         result.update(

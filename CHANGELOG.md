@@ -124,10 +124,14 @@ Carried by 0.2.6.
     `peak_to_mean_contrast`, are now NaN, with `n_spikes` 0.
   - `compare_groups` and `exploratory_compare` rewrote an undefined test as `statistic` 0.0 and
     `pval` 1.0: an empty group, one value per group, or two identical constant groups. The test
-    now reports NaN, and its `significant_*` flag is False. An effect size with a zero or
-    undefined SD is NaN rather than 0.0, and a one-value group against a larger one gets its
-    Cohen's d instead of 0.0. `confirmatory_compare` gives a NaN `pval` a NaN q-value; the
+    now reports NaN, and its `significant_*` flag is False. A paired Wilcoxon test whose every
+    difference is zero reported scipy's statistic 0.0 and p 1.0; it is NaN. An effect size
+    with a zero or undefined SD is NaN rather than 0.0, and a one-value group against a larger
+    one gets its Cohen's d instead of 0.0. `confirmatory_compare` gives a NaN `pval` a NaN q-value; the
     other test's q is unchanged.
+  - `compare_multiple_groups` and `exploratory_multi` did the same for the ANOVA and
+    Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests
+    now report NaN with `significant_*` False, and `eta_squared` is NaN.
   - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0
     and `p_val` 1.0. Every field but `n_shuffle` is now NaN.
 - **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`

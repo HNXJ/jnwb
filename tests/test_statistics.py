@@ -1009,3 +1009,21 @@ class TestPermutationTestIsFlatAndSaysSo:
         assert doc is not None and len(doc) > 200
         assert doc == inspect.getdoc(StatisticalAnalysis.__dict__["permutation_test"].__func__)
 
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize(
+    "groups",
+    [
+        {"a": np.ones(5), "b": np.ones(5), "c": np.ones(5)},
+        {"a": np.array([]), "b": np.arange(5.0), "c": np.arange(5.0) + 1},
+    ],
+    ids=["identical-constant", "one-empty"],
+)
+def test_a_multi_group_comparison_with_no_test_reports_nan(groups):
+    """ANOVA and Kruskal-Wallis with no estimate are NaN, not statistic 0.0 and p 1.0."""
+    res = StatisticalAnalysis.exploratory_multi(groups)
+    for block in ("parametric", "non_parametric"):
+        assert np.isnan(res[block]["statistic"]) and np.isnan(res[block]["pval"])
+    assert np.isnan(res["parametric"]["effect_size"])
+    assert res["significant_parametric"] is False and res["significant_nonparametric"] is False
+
