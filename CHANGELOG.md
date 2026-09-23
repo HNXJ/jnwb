@@ -58,6 +58,9 @@ Carried by 0.2.6.
   frame without one used to receive `is_stable=False` on every unit, a label with no data
   behind it. The column is now absent in that case; `get_all_units_metadata` and the unit
   quality plot already treat it as optional.
+- **`JRSAResult.p` and `q` are 0-d for a single-lag result, like `value`.** They were shape
+  `(1,)`, so `float(res.p)` raised `TypeError` under NumPy >= 2. A multi-lag result gives
+  `(n_lags,)`, matching `value`, where it used to give `(n_lags, 1)`.
 
 ### Fixed
 
@@ -97,6 +100,9 @@ Carried by 0.2.6.
 
 ### Deprecated
 
+- **Indexing a 0-d `JRSAResult.p` or `q` with `[0]`.** It still returns the scalar in 0.2.6
+  and emits `FutureWarning`; 0.2.7 removes it and `[0]` raises `IndexError`. Use
+  `float(res.p)` or `res.p[()]`.
 - **The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata`.** It is an
   exact copy of `depth_class` and is removed in 0.2.7. A call that writes it emits
   `FutureWarning` (`get_all_units_metadata` once per call); pandas cannot warn when a column is
