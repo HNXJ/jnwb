@@ -5,8 +5,10 @@ Enforces:
 1. Pure Plotly engine (interactive HTML + camera-ready vector SVG and 300/600 DPI PNG).
 2. Collision-free relative domain coordinate mathematics ([x0, x1] x [y0, y1]).
 3. Triple-format default export (.svg, .png, .html) with epistemic sidecar (*_argument.json).
-4. Rigorous statistical standards (bootstrap CI ribbons via fill='tonexty', exact Clopper-Pearson error_y,
-   physiological scales, crossover markers at a depth the caller computed).
+4. Intervals, nulls and markers are inputs: ribbons (fill='tonexty') and error bars draw the bounds
+   the caller passes, and crossover markers sit at a depth the caller computed. Two panels compute
+   from data: the PSTH panel draws mean +/- 1.96 SEM across trials, and the hierarchy panel draws a
+   least-squares line.
 """
 
 from __future__ import annotations

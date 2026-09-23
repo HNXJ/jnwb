@@ -109,6 +109,7 @@ nav:
       - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
       - Directed Connectivity: 08_directed_connectivity_and_information.md
       - Decoding & Visual QC: 09_decoding_and_visual_qc.md
+      - Plotly Figures: vis.md
 
   - Troubleshooting:
       - Common Mistakes: common_mistakes.md

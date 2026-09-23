@@ -84,6 +84,10 @@ Carried by 0.2.6.
   shows the out-of-fold AUC and F1 the decoder returns. The spectral caption names the
   1/f-squared background the generator builds, and the quickstart caption names all six
   panels. The jRSA page no longer advertises a GPU path: `jrsa` computes on the CPU.
+- **The `jnwb.vis` PSTH ribbon is named for what it is.** `plot_multi_condition_raster_psth`
+  documented bootstrap CIs and draws mean ± 1.96 SEM across trials, clipped at 0 Hz; the
+  package docstring claimed Clopper-Pearson error bars nothing computes. Both now say that
+  every other interval is an input. A new page, "Plotly Figures", documents `jnwb.vis`.
 - **The fitted onset is not described as independent of smoothing.** The spike-analysis
   page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a
   step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are

@@ -46,7 +46,7 @@ barrier above.
 |---|---|
 | W0 | 06-127 |
 | W1 |  |
-| W2 | 06-114, 06-115, 06-135 |
+| W2 | 06-114, 06-115 |
 | W3 | 06-118, 06-30, 06-120 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
@@ -136,14 +136,6 @@ P-176. A stated item total that named no ids went stale twice and gate 15 passed
 longer states such totals; the gate makes their return fail.
 Discriminator: a summary sentence stating an item total that differs from the live count fails.
 Accept: P-176 closes.
-
-### 06-135 A page for `jnwb.vis`
-
-Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
-Writes: `docs/vis.md`, `mkdocs.yml`, `docs/install.md`.
-P-187, P-183. The public `jnwb.vis` is reachable only through an `install.md` line and its `api.md` row. Ruled 2026-09-22 (P-183): `vis` stays in `__all__`, so `from jnwb import *` without the extra raises an `ImportError` naming `pip install jnwb[vis]`; the page and `docs/install.md` say so.
-Accept: the page is in the navigation, shows one canvas built from supplied arrays, and the strict build passes; P-183 and P-187 close.
 
 ## W3. Statistics surface, diagrams and the open-data example
 
@@ -350,7 +342,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). P-43, P-45, P-46, P-157, P-158, P-202 (the waiver export at `8f78c37a`: `tests/test_public_api_reachability.py` and the `test_missingness_row_*` tests; judge the exclusion of `hdmf_build_repair_context` and the ten-row table against the six-state ruling). The architecture reachability test (`tests/test_architecture_page_reachability.py`, landed without an item after its own seven mutants were killed; judge whether the skill-authority and agent-precondition patterns are wide enough to mean anything). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). P-43, P-45, P-46, P-157, P-158, P-202 (the waiver export at `8f78c37a`: `tests/test_public_api_reachability.py` and the `test_missingness_row_*` tests; judge the exclusion of `hdmf_build_repair_context` and the ten-row table against the six-state ruling). The architecture reachability test (`tests/test_architecture_page_reachability.py`, landed without an item after its own seven mutants were killed; judge whether the skill-authority and agent-precondition patterns are wide enough to mean anything). P-183, P-187, P-222 (`docs/vis.md` in the navigation, its example run against the installed extra, the `docs/install.md` star-import sentence, and the `jnwb.vis` docstrings against what each panel computes). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

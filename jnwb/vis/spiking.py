@@ -2,7 +2,7 @@
 jnwb.vis.spiking -- Publication-grade spiking diversity, rasters, and PSTH primitives in pure Plotly.
 
 Implements Motif 2 (Westerberg 2024, Garrett 2020/2025, Siegle 2021):
-- Synchronized multi-condition raster (WebGL Scattergl) + PSTH (translucent bootstrap CI ribbons)
+- Synchronized multi-condition raster (WebGL Scattergl) + PSTH (translucent mean +/- 1.96 SEM ribbons)
 - Sorted population response heatmaps (N units x time, sorted by peak latency or response category)
 - Action potential waveform quality & cell-typing scatters (pyramidal vs. fast-spiking)
 """
@@ -34,7 +34,11 @@ def plot_multi_condition_raster_psth(
     title: Optional[str] = "Unit Spiking Activity",
 ) -> None:
     """
-    Render synchronized multi-condition raster and PSTH panels with bootstrap CIs.
+    Render synchronized multi-condition raster and PSTH panels.
+
+    The PSTH ribbon is mean +/- 1.96 SEM across trials, a normal approximation with its lower
+    bound clipped at 0 Hz, and is drawn only for a condition with more than one trial. It is not
+    a bootstrap interval.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
@@ -121,7 +125,7 @@ def plot_multi_condition_raster_psth(
 
         current_trial_offset += n_trials + 2
 
-        # 2. PSTH Mean & Bootstrap / SEM CI
+        # 2. PSTH mean and a +/- 1.96 SEM ribbon
         rate_hz = counts / (bin_ms / 1000.0)
         mean_rate = rate_hz.mean(axis=0)
 

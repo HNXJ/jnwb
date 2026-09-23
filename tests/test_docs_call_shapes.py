@@ -73,6 +73,7 @@ COVERED_PAGES = frozenset({
     "docs/errors.md",
     "docs/index.md",
     "docs/quickstart.md",
+    "docs/vis.md",
 })
 
 #: Receiver shapes the collector resolves. The third and fourth were added by 06-100; before

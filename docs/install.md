@@ -28,7 +28,8 @@ pip install "jnwb[all]"         # Complete dependency bundle
 
 `jnwb.vis` is the one export that needs an extra. Without `vis` installed, `import jnwb` and
 every other export work, and accessing `jnwb.vis` raises `ImportError` naming
-`pip install jnwb[vis]`.
+`pip install jnwb[vis]`. So does `from jnwb import *`, because `vis` is in `jnwb.__all__`.
+[Plotly Figures](vis.md) shows a canvas end to end.
 
 ### GPU and parallel execution
 
