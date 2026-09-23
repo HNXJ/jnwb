@@ -179,7 +179,7 @@ CASES: tuple[SemanticMutation, ...] = (
         ("tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels",),
         (
             "tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels"
-            "::test_the_accumulator_route_computes_ratio_of_means_whatever_how_names",
+            "::test_the_accumulator_route_computes_ratio_of_means",
         ),
         "a power ratio converts at 10*log10; 20*log10 is the amplitude convention",
     ),

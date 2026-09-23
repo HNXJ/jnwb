@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127 |
-| W1 | 06-16 |
+| W1 |  |
 | W2 | 06-07, 06-82, 06-114, 06-115, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -82,22 +82,6 @@ Accept: 18 PASS lines; CI green on every leg; the dispatcher adds the `AGENTS.md
 Stop: a file pair under `packages/jnwb-vis/` differs from `jnwb/vis/`.
 
 ## W1. Freeze, sweeps and harness
-
-### 06-16 Rename the geometric `layer` column
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/addressing.py`, `jnwb/metadata.py`, `tests/test_addressing.py`, `tests/test_metadata.py`, `tests/test_substitution_class_sweep.py`, `tests/test_composition_identifier_survival.py`, `tests/test_docs_smoke.py`, `docs/02_paths_addressing_metadata.md`, `skills/*/SKILL.md`.
-P-21, ruled 2026-09-23 (`artifacts/rulings/2026-09-23.md`): `enrich_units_dataframe` and
-`get_all_units_metadata` emit the geometric class as `depth_class`; `layer` stays in 0.2.6 as a
-duplicate whose read emits `FutureWarning`, and goes in 0.2.7. The scanner half landed 2026-09-23.
-Do: emit `depth_class`; keep `layer` equal to it behind the warning; update every doc and skill
-row that names the column; report the `CHANGELOG.md` Changed and Deprecated text to the dispatcher.
-Discriminator: `test_p21_reproduces_as_a_measured_vocabulary_collision` is replaced by a test that
-`depth_class` carries the geometric vocabulary and that reading `layer` warns and equals it;
-dropping the warning fails it.
-Accept: P-21 closes `repaired`; the 0.2.7 removal is recorded for the dispatcher.
-Stop: a consumer reads `layer` in a way a warning on read cannot reach; report the mechanism.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 
@@ -162,7 +146,7 @@ Stop: any selection rule other than an explicit path list.
 ### 06-115 `JRSAResult.p[0]` keeps working for one release
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: 06-16.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
 Writes: `jnwb/jrsa.py`, `tests/test_jrsa.py`.
 Ruled 2026-09-22 (06-101): `p` and `q` are 0-d on `dev` (`0617d120`); indexing `p[0]` or `q[0]`
 keeps returning the scalar in 0.2.6 with a `FutureWarning`, and 0.2.7 removes the shim.
@@ -394,7 +378,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`; the marker in `jnwb/tfr_accumulator.py`; three mutants killed). The Granger order validation (`tests/test_granger_order_validation.py`, all three calls; four mutants killed). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` (`d3d17871`) against `artifacts/direction.md`: the five topics, no internal vocabulary, both entry paths parallel. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py`; the two bounds restated for `phase_slope_index` and `stream_npz_array` against the code). P-118 (every magnitude in `composition_subset_proposal_0.2.6.md` names a committed test and seed; check each against the test). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge two choices: the warning fires on write because pandas has no read hook, and `unit_census_report`'s default grouping moved to `depth_class`). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`; the marker in `jnwb/tfr_accumulator.py`; three mutants killed). The Granger order validation (`tests/test_granger_order_validation.py`, all three calls; four mutants killed). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` (`d3d17871`) against `artifacts/direction.md`: the five topics, no internal vocabulary, both entry paths parallel. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py`; the two bounds restated for `phase_slope_index` and `stream_npz_array` against the code). P-118 (every magnitude in `composition_subset_proposal_0.2.6.md` names a committed test and seed; check each against the test). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -403,7 +387,7 @@ Accept: each listed row carries a receipt the verifier produced, or the breaking
 ### 06-34 Adversarial mutation pass
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-16, 06-17, 06-24, 06-25, 06-51, 06-53, 06-59. Writes: none.
+Role: critic. Skill: none. Blocked by: 06-17, 06-24, 06-25, 06-51, 06-53, 06-59. Writes: none.
 Seed known semantic defects and require the intended gate to catch each; every selector collects
 and passes pristine before a verdict counts.
 

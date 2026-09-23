@@ -46,7 +46,9 @@ holds the sequence, not the rules.
   per-trial ratios; 0.2.6 refuses it on trial-averaged input (P-114).
 - `nested_cv_linear_svm` gains keyword-only `groups=` for grouped outer folds (P-122).
 - The deprecated `layer` duplicate of `depth_class` is removed from `enrich_units_dataframe` and
-  `get_all_units_metadata` (ruled 2026-09-23, P-21).
+  `get_all_units_metadata` (ruled 2026-09-23, P-21): drop the warning helper and the plumbing that
+  reports whether `layer` was written, reword the first docstring lines that still say "layer", and
+  regenerate `docs/api.md`.
 
 ## Deferred from the 0.2.6 stack
 
@@ -83,8 +85,6 @@ be a release criterion without giving it a result to reach.
 | Scorer | A script, not a reviewer; its dimension references are written and committed before the task set is hashed |
 
 ## Capability-gated
-
-
 
 Each lands as API, documentation and tests first, or atomically with its skill. Neither skill is
 a required endpoint.

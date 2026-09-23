@@ -29,6 +29,12 @@ Carried by 0.2.6.
 
 ### Changed
 
+- **The geometric depth class is `depth_class`.** `enrich_units_dataframe` and
+  `get_all_units_metadata` write it ('Deep' / 'Superficial' / 'Unknown', a threshold on
+  electrode depth) to a new column `depth_class`; laminar identity from spectra remains
+  `label_layers`. `unit_census_report` with `group_by=None` groups by
+  `['session_id', 'area', 'depth_class']`, so the census carries `depth_class` where it carried
+  `layer`.
 - **`aggregate_to_db(how="mean_of_ratios")` refuses `TFRAccumulator.power()` output.** The
   accumulator has already averaged over trials, so a ratio of its output is a ratio of means
   whatever `how` names; the call used to return that under the other name. It now raises
@@ -59,6 +65,13 @@ Carried by 0.2.6.
   `container/series`. A bare name that two containers hold raises
   `AmbiguousAcquisitionError` listing the qualified names; in processing modules it used to
   return whichever module came first.
+
+### Deprecated
+
+- **The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata`.** It is an
+  exact copy of `depth_class` and is removed in 0.2.7. A call that writes it emits
+  `FutureWarning` (`get_all_units_metadata` once per call); pandas cannot warn when a column is
+  read, so the warning fires at the call whether or not `layer` is used. Read `depth_class`.
 
 ## [0.2.5] - 2026-09-19
 
