@@ -21,7 +21,9 @@ literal list on both sides is a fixed point that agrees with itself whatever the
 (P-151).
 """
 
+import pickle
 import re
+import warnings
 
 import numpy as np
 import pytest
@@ -116,6 +118,94 @@ def test_multiple_lags_still_give_a_vector_p():
     assert np.shape(res.value) == (len(lags),)
     assert np.shape(res.p) == np.shape(res.value)
     assert np.asarray(res.p).ndim == 1
+
+
+# ---------------------------------------------------------------------------
+# `p[0]` and `q[0]` keep answering for one release, with a FutureWarning
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def scalar_result(quickstart_inputs):
+    X, Y = quickstart_inputs
+    return jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+
+
+@pytest.mark.parametrize("name", ["p", "q"])
+def test_float_of_a_scalar_p_value_does_not_warn(scalar_result, name):
+    v = getattr(scalar_result, name)
+    assert v.shape == ()
+    assert isinstance(v, np.ndarray)
+    assert v.dtype == np.float64
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert isinstance(float(v), float)
+        assert v[()] == float(v)
+
+
+@pytest.mark.parametrize("name", ["p", "q"])
+def test_indexing_zero_returns_the_scalar_with_a_future_warning(scalar_result, name):
+    v = getattr(scalar_result, name)
+    with pytest.warns(FutureWarning, match=rf"JRSAResult\.{name} .*0\.2\.7"):
+        got = v[0]
+    assert type(got) is np.float64
+    assert got == float(v)
+
+
+@pytest.mark.parametrize("name", ["p", "q"])
+def test_any_other_index_on_a_scalar_p_value_still_raises(scalar_result, name):
+    with pytest.raises(IndexError):
+        getattr(scalar_result, name)[1]
+
+
+_OPS = {
+    "mul": lambda v: v * 2,
+    "radd": lambda v: 1.0 + v,
+    "neg": lambda v: -v,
+    "lt": lambda v: v < 0.05,
+    "eq": lambda v: v == v,
+    "isnan": np.isnan,
+    "log": np.log,
+    "nanmin": np.nanmin,
+    "mean": np.mean,
+    "sum": lambda v: v.sum(),
+    "where": lambda v: np.where(v < 1, v, 0.0),
+    "stack": lambda v: np.stack([v, v]),
+    "asarray": np.asarray,
+    "array": np.array,
+    "atleast_1d": lambda v: np.atleast_1d(v),
+    "repr": repr,
+    "str": str,
+    "pickle": lambda v: pickle.loads(pickle.dumps(v)),
+}
+
+
+@pytest.mark.parametrize("op", sorted(_OPS))
+@pytest.mark.parametrize("name", ["p", "q"])
+def test_a_scalar_p_value_computes_exactly_like_a_plain_array(scalar_result, name, op):
+    """Every result has the type, dtype and bytes it has for a plain 0-d ndarray."""
+    v = getattr(scalar_result, name)
+    plain = v.view(np.ndarray)
+    assert type(plain) is np.ndarray
+    got, want = _OPS[op](v), _OPS[op](plain)
+    assert type(got) is type(want), (op, type(got), type(want))
+    if isinstance(want, str):
+        assert got == want
+    else:
+        assert np.asarray(got).dtype == np.asarray(want).dtype
+        assert np.asarray(got).tobytes() == np.asarray(want).tobytes()
+
+
+def test_a_multi_lag_p_is_a_plain_vector_without_the_shim():
+    rng = np.random.default_rng(3)
+    a = rng.normal(size=(40, 6))
+    b = a + 0.4 * rng.normal(size=(40, 6))
+    res = jnwb.jrsa(a, b, metric="pearson", stats=True, permutations=50, rng=0, lag=[0, 1, 2])
+    for v in (res.p, res.q):
+        assert type(v) is np.ndarray
+        assert v.shape == (3,)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert v[0] == v.tolist()[0]
 
 
 def test_a_nonfinite_input_still_reports_a_scalar_nan():

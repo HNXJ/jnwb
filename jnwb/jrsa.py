@@ -1759,6 +1759,76 @@ def _make_exec_meta(backend_ctx, device, t0, random_state):
     }
 
 
+class _ScalarPValue(np.ndarray):
+    """0-d float array that still answers ``[0]``, with a `FutureWarning`, until 0.2.7.
+
+    `p` and `q` of a single-lag result used to be shape ``(1,)`` and are now 0-d like
+    `value`. A 0-d array raises `IndexError` on ``[0]``, which would break code written
+    against the old shape without notice. This view returns the scalar ``self[()]`` for
+    ``[0]`` and changes nothing else: every other index is the base ndarray's, and ufuncs
+    and NumPy functions receive a plain ndarray, so ``p * 2``, ``p < 0.05`` and
+    ``np.isnan(p)`` return exactly what they return for a plain 0-d array (a NumPy scalar).
+    It pickles as a plain ndarray, so a stored result does not depend on this class, which
+    0.2.7 removes.
+    """
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if "out" in kwargs:
+            kwargs["out"] = _plain_arrays(kwargs["out"])
+        return getattr(ufunc, method)(*_plain_arrays(inputs), **kwargs)
+
+    def __array_function__(self, func, types, args, kwargs):
+        return super().__array_function__(
+            func, (np.ndarray,), _plain_arrays(args), _plain_arrays(kwargs)
+        )
+
+    def __getitem__(self, key):
+        if (
+            self.ndim == 0
+            and isinstance(key, (int, np.integer))
+            and not isinstance(key, (bool, np.bool_))
+            and key == 0
+        ):
+            field_name = getattr(self, "_field_name", "p")
+            warnings.warn(
+                f"JRSAResult.{field_name} is 0-d; indexing it with [0] is deprecated and "
+                f"raises IndexError in 0.2.7. Use float(result.{field_name}) or "
+                f"result.{field_name}[()].",
+                FutureWarning,
+                stacklevel=2,
+            )
+            return super().__getitem__(())
+        return super().__getitem__(key)
+
+    def __repr__(self):
+        return repr(self.view(np.ndarray))
+
+    def __reduce_ex__(self, protocol):
+        return np.asarray(self).__reduce_ex__(protocol)
+
+
+def _plain_arrays(obj):
+    """Replace every `_ScalarPValue` in a (nested) tuple, list or dict with a plain view."""
+    if isinstance(obj, _ScalarPValue):
+        return obj.view(np.ndarray)
+    if isinstance(obj, tuple):
+        return tuple(_plain_arrays(o) for o in obj)
+    if isinstance(obj, list):
+        return [_plain_arrays(o) for o in obj]
+    if isinstance(obj, dict):
+        return {k: _plain_arrays(v) for k, v in obj.items()}
+    return obj
+
+
+def _scalar_p_value(a, field_name):
+    """Wrap a 0-d p-value array in `_ScalarPValue`; anything else is returned unchanged."""
+    if a is None or np.ndim(a) != 0:
+        return a
+    out = np.asarray(a).view(_ScalarPValue)
+    out._field_name = field_name
+    return out
+
+
 def _make_result(
     value, statistic, effect, p, q, df, ci,
     metric, axes, aligned_axes, labels, parameters,
@@ -1775,8 +1845,8 @@ def _make_result(
         value=_to_numpy(value) if value is not None else np.float64(np.nan),
         statistic=_to_numpy(statistic),
         effect=_to_numpy(effect),
-        p=_to_numpy(p),
-        q=_to_numpy(q),
+        p=_scalar_p_value(_to_numpy(p), "p"),
+        q=_scalar_p_value(_to_numpy(q), "q"),
         df=_to_numpy(df),
         ci=_to_numpy(ci),
         metric=metric,
