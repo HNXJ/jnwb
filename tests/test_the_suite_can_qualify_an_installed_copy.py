@@ -294,6 +294,9 @@ def test_this_file_would_have_caught_the_defects_it_documents() -> None:
         "import jnwb\nassert REPO_ROOT in Path(jnwb.__file__).parents\n",
         "import jnwb.connectivity as C\n"
         "assert os.path.abspath(C.__file__).startswith(here)\n",
+        "import jnwb\nPACKAGE_ROOT = pathlib.Path(jnwb.__file__).resolve().parent\n"
+        "def test():\n    here = pathlib.Path(__file__).resolve().parent.parent\n"
+        "    assert PACKAGE_ROOT == (here / 'jnwb').resolve()\n",
     ):
         assert _checkout_provenance_asserts(source, "old.py"), f"not seen: {source!r}"
     for source in (
@@ -335,16 +338,47 @@ def _jnwb_bound_names(tree: ast.Module) -> set[str]:
     return names
 
 
+#: The test module's own location: `__file__` not preceded by a name and a dot.
+_OWN_FILE = re.compile(r"(?<![\w.])__file__")
+
+
+def _names_pattern(names: set[str]) -> "re.Pattern[str] | None":
+    return re.compile(r"\b(" + "|".join(map(re.escape, sorted(names))) + r")\b") if names else None
+
+
 def _checkout_provenance_asserts(source: str, name: str) -> list[str]:
-    """Asserts that a jnwb module's `__file__` sits under a directory, however it is spelled."""
+    """Asserts that a jnwb module's `__file__` sits under a directory, however it is spelled.
+
+    Names are followed one assignment deep in both directions: a name bound from a jnwb
+    `__file__` stands for it, and a name bound from the test's own `__file__` stands for the
+    checkout. `PACKAGE_ROOT = Path(jnwb.__file__)...` compared with `here / "jnwb"` reached the
+    installed-wheel CI leg on 2026-09-23 through exactly that indirection.
+    """
     tree = ast.parse(source)
     watched = {f"{bound}.__file__" for bound in _jnwb_bound_names(tree) | {"jnwb"}}
+    aliases: set[str] = set()
+    checkout: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            value = ast.unparse(node.value)
+            names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+            if any(w in value for w in watched):
+                aliases |= names
+            elif _OWN_FILE.search(value):
+                checkout |= names
+    alias_re, checkout_re = _names_pattern(aliases), _names_pattern(checkout)
     offenders = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Assert):
             continue
         rendered = ast.unparse(node.test)
-        if any(w in rendered for w in watched) and _CONTAINMENT.search(rendered):
+        mentions = any(w in rendered for w in watched) or bool(alias_re and alias_re.search(rendered))
+        pinned = (
+            _CONTAINMENT.search(rendered)
+            or _OWN_FILE.search(rendered)
+            or (checkout_re and checkout_re.search(rendered))
+        )
+        if mentions and pinned:
             offenders.append(f"{name}:{node.lineno} asserts jnwb resolves under the checkout root")
     return offenders
 
