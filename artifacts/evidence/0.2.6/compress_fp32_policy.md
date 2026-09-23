@@ -10,7 +10,7 @@
 > | -- | **Section 5's P-29 and P-30**, both now `repaired`. |
 >
 > For the current fixture measurement of the generic candidates, and for the premise verdicts,
-> use `artifacts/compress_fp32_default_candidates.md` (baseline `c0d53a47`). This file remains
+> use `artifacts/evidence/0.2.6/compress_fp32_default_candidates.md` (baseline `c0d53a47`). This file remains
 > the only source for the 22-session corpus numbers.
 
 Evidence for the 06-13 ruling. Assembled by measurement; no cell is read off the source.

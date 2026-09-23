@@ -93,7 +93,7 @@ def resolve_working_dtype(dtype) -> np.dtype:
 
 
 #: Dotted name -> policy, for the declared high-risk subset of
-#: ``artifacts/composition_subset_0.2.6.md`` plus the functions item 06-55 repairs.
+#: ``artifacts/evidence/0.2.6/composition_subset_0.2.6.md`` plus the functions item 06-55 repairs.
 #:
 #: Every entry was measured rather than assumed. The two entries that look like a
 #: contradiction are the point: ``to_db`` and ``aggregate_to_db`` live in one module and are

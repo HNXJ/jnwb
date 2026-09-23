@@ -38,8 +38,8 @@ scientific choices are explicit caller inputs, and refusal boundaries are real. 
 execute operations; it may not decide scientific assumptions. Every skill ends a task in one of
 the four outcomes of `artifacts/direction.md`, declining included.
 
-Held by: the refusal tests of each module; skill routing tests for all four outcomes are 0.2.7
-work (`artifacts/planned_post_0.2.6.md`).
+Held by: the refusal tests of each module, and skill routing tests for all four outcomes
+(06-25; kept in 0.2.6 by ruling R-2 of 2026-09-22).
 
 ## 4. No invented data or metadata
 

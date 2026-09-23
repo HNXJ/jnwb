@@ -73,7 +73,7 @@ CONTRADICTED = """\
 ### 06-86 Something
 
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/computational_order.md`.
+Writes: `artifacts/evidence/0.2.6/computational_order.md`.
 Blocked on one ruling: does the inventory assert `O` or Theta? The answer decides whether six
 of the eight rows are defects.
 """

@@ -1,6 +1,6 @@
 """Aggregation order across two composition chains, pinned on composed values.
 
-Chains H5 and H6 of the subset ruled in `artifacts/composition_subset_0.2.6.md`:
+Chains H5 and H6 of the subset ruled in `artifacts/evidence/0.2.6/composition_subset_0.2.6.md`:
 
     H5  band_power -> aggregate_to_db
     H6  complex_tfr -> TFRAccumulator.add_trial / .power() -> aggregate_to_db, to_db

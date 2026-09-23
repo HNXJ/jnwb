@@ -1,7 +1,7 @@
 """Randomness propagation across two composition boundaries (06-23, chains H9a and H9b).
 
 Both chains are correct today. Neither was protected by a test that could fail, which is
-why they are in the ruled subset of `artifacts/composition_subset_0.2.6.md` as regression
+why they are in the ruled subset of `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` as regression
 guards rather than as repairs.
 
 H9a  `build_permutation_plan` -> `permute_labels`. The plan emits a `draw_manifest` whose

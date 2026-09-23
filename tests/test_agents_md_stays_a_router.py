@@ -22,7 +22,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 
-#: Measured on 2026-09-20 after 06-72, recorded in `artifacts/agents_md_duplication.md`.
+#: Measured on 2026-09-20 after 06-72, recorded in `artifacts/evidence/0.2.6/agents_md_duplication.md`.
 #: A ratchet, not a target: it may not rise. Zero is the floor and the target was reached, so
 #: from here the ratchet only defends the gain.
 BASELINE_DUPLICATED = 0
@@ -127,5 +127,5 @@ def test_the_baseline_is_lowered_when_it_is_beaten(measurement):
     """A ratchet nobody tightens is a ceiling. 06-72 drives these to zero."""
     assert measurement["duplicated"] >= BASELINE_DUPLICATED - 2, (
         f"duplicates dropped to {measurement['duplicated']}; lower BASELINE_DUPLICATED here and "
-        "in artifacts/agents_md_duplication.md so the gain cannot be given back silently"
+        "in artifacts/evidence/0.2.6/agents_md_duplication.md so the gain cannot be given back silently"
     )

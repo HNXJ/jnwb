@@ -2,7 +2,7 @@
 
 06-27. The deliverable is a **class list, not a mutation score**: each of the fourteen classes
 the item names is either demonstrated against the ten chains of
-``artifacts/composition_subset_0.2.6.md`` or recorded here as not applicable with a reason. No
+``artifacts/evidence/0.2.6/composition_subset_0.2.6.md`` or recorded here as not applicable with a reason. No
 aggregate count stands in for the list, and no test in this file asserts one.
 
 A class is demonstrated by a real mutation: the anchor is substituted in library source, the
@@ -92,7 +92,7 @@ HARNESS_SOURCE = REPO_ROOT / "scripts" / "mutation_harness.py"
 
 #: The ruled subset. Chains are read out of it rather than retyped, so a chain struck from the
 #: ruling cannot go on being cited here.
-SUBSET_DOC = REPO_ROOT / "artifacts" / "composition_subset_0.2.6.md"
+SUBSET_DOC = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "composition_subset_0.2.6.md"
 
 #: The fourteen classes, in the order 06-27 lists them. This is the deliverable.
 CLASSES: tuple[str, ...] = (

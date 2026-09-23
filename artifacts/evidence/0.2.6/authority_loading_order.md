@@ -343,9 +343,9 @@ to any packet that follows the skill's order.
 
 ### 6c. Scope note
 
-Todo item 06-70 declares `Writes: artifacts/authority_loading_order.md`. This packet's ALLOWED
+Todo item 06-70 declares `Writes: artifacts/evidence/0.2.6/authority_loading_order.md`. This packet's ALLOWED
 SCOPE forbids every write inside `C:\workspace\jnwb`. This table was therefore written to the
-scratchpad only, and `artifacts/authority_loading_order.md` does **not** exist. Promoting it is a
+scratchpad only, and `artifacts/evidence/0.2.6/authority_loading_order.md` does **not** exist. Promoting it is a
 separate authorized action.
 
 ---

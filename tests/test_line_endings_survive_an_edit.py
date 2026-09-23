@@ -2,7 +2,7 @@
 
 P-159. Gate 16 fails a file that **mixes** CRLF and bare LF. It cannot see a file whose
 convention was **converted**, and the conversion is the failure that actually happens: the
-dispatcher inserted a 13-line notice into `artifacts/compress_fp32_policy.md` with
+dispatcher inserted a 13-line notice into `artifacts/evidence/0.2.6/compress_fp32_policy.md` with
 `pathlib.Path.write_text`, which opens with ``newline=None`` and translates ``\\n`` to
 ``os.linesep`` on Windows. The file went from 206 LF lines and 0 CRLF to 0 LF and 219 CRLF --
 every line rewritten, a 425-line diff for a 13-line insertion, and the real change buried in

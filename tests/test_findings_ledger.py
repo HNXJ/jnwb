@@ -1,7 +1,7 @@
 """The 0.2.6 findings ledger resolves every imported review identifier, exactly once.
 
-`artifacts/alignment_review_0.2.5.md` carries 83 findings with stable identifiers of the form
-``<dimension>/<id>``. `artifacts/findings_0.2.6.md` carries an index table mapping each identifier
+`artifacts/archive/0.2.5/alignment_review_0.2.5.md` carries 83 findings with stable identifiers of the form
+``<dimension>/<id>``. `artifacts/evidence/0.2.6/findings_0.2.6.md` carries an index table mapping each identifier
 to one disposition. This module extracts both sets mechanically and asserts they are equal, so a
 finding cannot disappear by being dropped from the ledger.
 
@@ -13,8 +13,8 @@ import pathlib
 import re
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
-REVIEW_PATH = ROOT_DIR / "artifacts" / "alignment_review_0.2.5.md"
-LEDGER_PATH = ROOT_DIR / "artifacts" / "findings_0.2.6.md"
+REVIEW_PATH = ROOT_DIR / "artifacts" / "archive" / "0.2.5" / "alignment_review_0.2.5.md"
+LEDGER_PATH = ROOT_DIR / "artifacts" / "evidence" / "0.2.6" / "findings_0.2.6.md"
 
 #: The only dispositions the ledger may assign.
 DISPOSITIONS = frozenset(

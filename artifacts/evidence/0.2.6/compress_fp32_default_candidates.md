@@ -64,7 +64,7 @@ Real-corpus cells for every row: `UNRESOLVED (real corpus, not measurable here)`
 settle them: running the same predicates over the 22 sessions named in
 `artifacts/data/corpus_manifest.json` and recording on-disk dtype in bytes per element. A prior
 packet did this at baseline `577847f2` and its numbers are in
-`artifacts/compress_fp32_policy.md`; those are **not** re-measured here and predate 06-78 and
+`artifacts/evidence/0.2.6/compress_fp32_policy.md`; those are **not** re-measured here and predate 06-78 and
 06-79, both of which changed candidate behaviour.
 
 ### The nested-layout cell for C4 and C5 depends on where the attribute sits

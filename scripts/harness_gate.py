@@ -1767,7 +1767,7 @@ def _wholesale_conversions(root: Path) -> List[str]:
 
     **Gate 16 fails a file that MIXES the two conventions; it cannot see a file whose
     convention was CONVERTED wholesale, which is the failure that actually happens** (P-159).
-    The dispatcher inserted a 13-line notice into `artifacts/compress_fp32_policy.md` with
+    The dispatcher inserted a 13-line notice into `artifacts/evidence/0.2.6/compress_fp32_policy.md` with
     `pathlib.Path.write_text`, which opens with `newline=None` and translates `\\n` to
     `os.linesep` on Windows. The file was pure LF, 206 lines, 0 CRLF; afterwards it was 0 LF
     and 219 CRLF -- every line rewritten, a 425-line diff for a 13-line insertion, and the real

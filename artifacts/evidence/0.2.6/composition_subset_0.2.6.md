@@ -1,6 +1,6 @@
 # The declared high-risk composition subset for 0.2.6
 
-Ruled by Hamm, 2026-09-20, on the proposal at `artifacts/composition_subset_proposal_0.2.6.md`.
+Ruled by Hamm, 2026-09-20, on the proposal at `artifacts/evidence/0.2.6/composition_subset_proposal_0.2.6.md`.
 **All ten chains ratified as proposed.** Eleven exclusions ratified with them.
 
 This file is the ruled subset. It names the chains and records the ruling; the six fields per

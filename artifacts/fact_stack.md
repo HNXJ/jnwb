@@ -59,8 +59,9 @@ complexity to benefit from specialization, and cannot be handled more simply by 
 skill. Skill count is not an objective. A skill whose principal behaviour would be declining,
 or ad-hoc implementation of what no public API provides, is not created.
 
-The planned set is eleven: the nine of 0.2.6 plus `jnwb-paradigm` (experiment and timing
-semantics) and `jnwb-qc` (independent scientific and output QC). `jnwb-data-engineering` and
+The planned set is twelve: the ten of 0.2.6, `jnwb-landmark-viz` included (ruled 2026-09-22,
+P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent
+scientific and output QC). `jnwb-data-engineering` and
 `jnwb-compute` are gated on their public APIs, and neither is a required endpoint: if the
 router can route a capability cleanly, no skill is manufactured for it.
 
@@ -109,3 +110,5 @@ do not override package metadata.
 
 Release order: validate on `main` → tag → GitHub Release (non-prerelease) → production PyPI.
 A tag push alone validates build artifacts; it does not publish to production PyPI.
+Before production publication, the candidate is published to TestPyPI and verified from there in a
+clean environment; after it, the same check runs from PyPI (ruled 2026-09-22, R-3).
