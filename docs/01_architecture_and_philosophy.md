@@ -91,12 +91,20 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 | Module | Core Responsibility | Primary Public Symbols in `jnwb.__all__` |
 |--------|---------------------|------------------------------------------|
 | `paths` | Data root discovery & volume remap management | `paths` |
+| `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
+| `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
+| `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning` |
+| `continuous` | Epoching a continuous signal around event onsets | `epoch_continuous` |
+| `io` | Slices of NPZ arrays read without loading the whole archive | `io`, `stream_npz_array` |
 | `addressing` | Spatial channel-to-area addressing and a geometric depth class | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |
 | `metadata` | Unit quality classification, census, & SNR auditing | `get_all_units_metadata`, `classify_unit_quality`, `unit_census_report`, `get_snr_analysis`, `filter_by_criteria`, `audit_units`, `audit_electrodes`, `assign_quality_tier`, `electrode_inventory` |
 | `filtering` | Zero-phase & causal Butterworth bandpass and notch SOS filters | `bandpass_filter`, `notch_filter` |
 | `ontology` | Structured query objects and event referencing | `Query`, `Dataset`, `AlignedDataset`, `Alignment`, `EpochCollection`, `Question`, `Result`, `Interpretation`, `Figure`, `Provenance`, `Lineage` |
 | `jrsa` | Representational Similarity Analysis (RDMs, metrics) | `jrsa`, `JRSAResult` |
+| `rsa` | Representational dissimilarity matrices and their comparison | `rdm`, `rdm_similarity` |
 | `spectral` | Multi-taper spectral analysis, coherence, CSD, and PLV | `compute_psd`, `compute_multitaper_psd`, `band_power`, `spectral_tilt`, `voltage_curvature_1d`, `current_source_density_1d`, `harmonic_analysis`, `imaginary_coherency`, `cross_area_coherence`, `bipolar_reference`, `laplacian_reference`, `to_db`, `CANONICAL_BANDS` |
+| `tfr` | Complex Morlet time-frequency representation | `complex_tfr`, `morlet_wavelet`, `ComplexTFR` |
+| `laminar` | Depth profiles along a probe shaft from spectra, correlation blocks and phase gradients, and layer labels from an accepted profile | `vflip`, `vflip_from_lfp`, `xflip`, `zflip`, `label_layers`, `VFlipResult`, `XFlipResult`, `ZFlipResult` |
 | `tfr_accumulator` | Streaming trial-wise TFR accumulation | `TFRAccumulator`, `assert_mergeable` |
 | `compression` | NWB on-disk fp32 conversion (`compress_fp32` path I/O) | `compress_fp32` |
 | `analyzers` | High-level session analyzers | `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` |
@@ -111,3 +119,4 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 | `decoding` | Nested cross-validated linear SVM population decoding | `nested_cv_linear_svm`, `majority_baseline`, `fold_majority_baseline`, `assign_outer_folds`, `build_inner_validation_partitions`, `build_representation_ladder` |
 | `visual_qc` | Multi-panel unit waveform and session QC figures | `visual_qc` |
 | `viz` | Publication vector graphics standards & multi-panel saving | `setup_vector_graphics`, `apply_tight_auto_axis`, `save_figure_suite`, `resample_onsets`, `raster_psth` |
+| `vis` | Plotly figures; needs the optional `vis` extra ([Plotly Figures](vis.md)) | `vis` |
