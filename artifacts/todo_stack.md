@@ -120,17 +120,17 @@ Accept: `python scripts/docs_build.py` builds strict and the page is in the navi
 
 Release: required-0.2.6.
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `tests/test_substitution_class_sweep.py`, `jnwb/export.py`, `jnwb/jrsa.py`.
-Live hits repaired in `b541bb33` (`jrsa` `align`, `reduction`, `alternative`). Remaining:
-P-21 (two exports emit a `layer` column whose values are not layer labels, one reading `Unknown`),
-and the two scanner blind spots the critic measured: a selector chain nested in an `if` body is
-never scanned, and a chain with no `else` is skipped although that is the shape `_resample_axis`
-had before its repair.
-Discriminator: seeded instances of both blind-spot shapes are found; the live tree finds nothing
-unrepaired.
-Accept: P-21 closes; the instrument lists what it cannot see in `INSTRUMENT_BLIND_SPOTS`, and that
-list matches measurement.
-Stop: the `layer` exports live outside `jnwb/export.py`; name the file and widen deliberately.
+Writes: `tests/test_substitution_class_sweep.py`, `jnwb/addressing.py`, `jnwb/metadata.py`.
+Remaining: P-21 (two exports emit a `layer` column whose values are not layer labels, one
+reading `Unknown`). The Stop fired 2026-09-23: the exports are
+`jnwb/addressing.py::enrich_units_dataframe` and `jnwb/metadata.py::get_all_units_metadata`,
+and renaming a public output column is a ruling for Hamm. The scanner half landed 2026-09-23:
+nested chains and chains with no `else` are scanned and seeded, the widening found two sites in
+`exact_sign_flip` (accepted, validator driven), and `INSTRUMENT_BLIND_SPOTS` names `match`/`case`.
+Discriminator: after the ruling, `test_p21_reproduces_as_a_measured_vocabulary_collision` fails
+and is replaced by a test that the renamed column carries the geometric vocabulary.
+Accept: P-21 closes.
+Stop: the ruling keeps `layer` for the geometric class; then P-21 closes `accepted` with its reason.
 
 ### 06-86 Name the quantity each order document measures
 
@@ -498,7 +498,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

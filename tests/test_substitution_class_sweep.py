@@ -180,13 +180,26 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
     tree = ast.parse(source)
     found: List[Finding] = []
     seen: Set[int] = set()
+    # The statement after each `if`, so a chain with no `else` can be read against what runs
+    # when no arm matches.
+    following: Dict[int, ast.stmt | None] = {}
+    for parent in ast.walk(tree):
+        for field in ("body", "orelse", "finalbody"):
+            block = getattr(parent, field, None)
+            if isinstance(block, list):
+                for i, stmt in enumerate(block):
+                    following[id(stmt)] = block[i + 1] if i + 1 < len(block) else None
     for node in ast.walk(tree):
         if not isinstance(node, ast.If) or id(node) in seen:
             continue
         arms = _chain_tests(node)
-        for arm_node in ast.walk(node):
-            if isinstance(arm_node, ast.If):
-                seen.add(id(arm_node))
+        # Only the `elif` links belong to this chain. Marking every `if` in the subtree also
+        # marked chains nested inside an arm's body, and those were never scanned.
+        link: ast.If | None = node
+        while link is not None:
+            seen.add(id(link))
+            nxt = link.orelse
+            link = nxt[0] if len(nxt) == 1 and isinstance(nxt[0], ast.If) else None
         if len(arms) < 2:
             continue
         subjects = {s for s, _ in arms}
@@ -198,6 +211,21 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
             continue
         else_body = _terminal_else(node)
         if else_body is None:
+            # No `else`: an unmatched selector falls through to whatever follows the chain.
+            # That is the shape `_resample_axis` had before its repair, and it is the same
+            # substitution unless the next statement refuses.
+            after = following.get(id(node))
+            if isinstance(after, ast.Raise):
+                continue
+            found.append(
+                Finding(
+                    kind="CHAIN_NO_ELSE",
+                    module=module,
+                    key=(module, subject, tuple(literals)),
+                    detail=f"if/elif on {subject} over {literals}; no else, falls through",
+                    lineno=node.lineno,
+                )
+            )
             continue
         if any(isinstance(s, ast.Raise) for s in ast.walk(ast.Module(body=else_body, type_ignores=[]))):
             continue
@@ -329,6 +357,11 @@ What this instrument cannot see, stated rather than discovered later:
    is not reported as a defect because the NWB schema fixes that attribute's value to
    ``"seconds"``, so the written value is the only legal one -- but the scanner did not see
    it, and a site where the default were *not* schema-fixed would be equally invisible.
+8. A selector written as ``match``/``case``. The chain scanner reads ``if``/``elif`` only; no
+   ``jnwb/`` module uses ``match`` today, so this is unmeasured rather than clear.
+
+Chains nested inside another ``if`` arm, and chains with no ``else`` whose next statement
+does not refuse, were once invisible here too; both are now scanned and seeded.
 """
 
 
@@ -380,6 +413,52 @@ def _reduce(arr, op_str, ax):
         raise ValueError(f"Unrecognized reduction {op_str!r}.")
 '''
 
+SEED_NESTED_CHAIN_DEFECT = '''
+def _reduce(arr, op_str, ax, exact):
+    if exact:
+        if op_str == "mean":
+            return arr.mean(axis=ax)
+        elif op_str == "median":
+            return arr.median(axis=ax)
+        else:
+            return arr.mean(axis=ax)
+    return arr
+'''
+
+SEED_NESTED_CHAIN_REPAIRED = SEED_NESTED_CHAIN_DEFECT.replace(
+    "        else:\n            return arr.mean(axis=ax)\n",
+    "        else:\n            raise ValueError(op_str)\n",
+)
+
+SEED_NO_ELSE_DEFECT = '''
+def _resample_axis(x, align, n):
+    if align == "linear":
+        x = _interp(x, n, kind="linear")
+    elif align == "cubic":
+        x = _interp(x, n, kind="cubic")
+    return x
+'''
+
+SEED_NO_ELSE_REPAIRED = '''
+def _resample_axis(x, align, n):
+    if align == "linear":
+        x = _interp(x, n, kind="linear")
+    elif align == "cubic":
+        x = _interp(x, n, kind="cubic")
+    else:
+        raise ValueError(align)
+    return x
+'''
+
+SEED_NO_ELSE_REFUSED_AFTER = '''
+def _resample_axis(x, align, n):
+    if align == "linear":
+        return _interp(x, n, kind="linear")
+    elif align == "cubic":
+        return _interp(x, n, kind="cubic")
+    raise ValueError(align)
+'''
+
 SEED_HANDLER_DEFECT = '''
 def correct(p, method, alpha):
     try:
@@ -421,6 +500,21 @@ class TestTheInstrumentDetectsASeededInstance:
     def test_chain_scanner_clears_the_repaired_form(self):
         assert scan_selector_chain_fallthrough(SEED_CHAIN_REPAIRED, "seed") == []
 
+    def test_chain_scanner_finds_a_chain_nested_in_an_if_body(self):
+        """Every `if` below the outer one used to be marked seen, so this was never read."""
+        found = scan_selector_chain_fallthrough(SEED_NESTED_CHAIN_DEFECT, "seed")
+        assert [f.key for f in found] == [("seed", "op_str", ("mean", "median"))], found
+        assert scan_selector_chain_fallthrough(SEED_NESTED_CHAIN_REPAIRED, "seed") == []
+
+    def test_chain_scanner_finds_a_chain_with_no_else(self):
+        """The shape `_resample_axis` had before its repair: an unmatched selector falls
+        through and the input is returned as though it had been resampled."""
+        found = scan_selector_chain_fallthrough(SEED_NO_ELSE_DEFECT, "seed")
+        assert [(f.kind, f.key) for f in found] == [
+            ("CHAIN_NO_ELSE", ("seed", "align", ("cubic", "linear")))], found
+        assert scan_selector_chain_fallthrough(SEED_NO_ELSE_REPAIRED, "seed") == []
+        assert scan_selector_chain_fallthrough(SEED_NO_ELSE_REFUSED_AFTER, "seed") == []
+
     def test_handler_scanner_finds_the_planted_statsmodels_substitution(self):
         found = scan_recovering_handlers(SEED_HANDLER_DEFECT, "seed")
         assert len(found) == 1, found
@@ -449,10 +543,12 @@ class TestTheInstrumentDetectsASeededInstance:
 
     def test_every_scanner_is_exercised_by_a_seed(self):
         """A scanner added without a seed would otherwise sweep the tree unproven."""
-        scanners = {"OPTION_SET_GET", "CHAIN_ELSE", "HANDLER_RECOVERY", "VOCAB_COLLISION"}
+        scanners = {"OPTION_SET_GET", "CHAIN_ELSE", "CHAIN_NO_ELSE", "HANDLER_RECOVERY",
+                    "VOCAB_COLLISION"}
         seeded = set()
         seeded.update(f.kind for f in scan_option_set_fallbacks(SEED_OPTION_SET_DEFECT, "s"))
         seeded.update(f.kind for f in scan_selector_chain_fallthrough(SEED_CHAIN_DEFECT, "s"))
+        seeded.update(f.kind for f in scan_selector_chain_fallthrough(SEED_NO_ELSE_DEFECT, "s"))
         seeded.update(f.kind for f in scan_recovering_handlers(SEED_HANDLER_DEFECT, "s"))
         seeded.update(f.kind for f in scan_vocabulary_collisions(
             {"layer": {"a": frozenset({"x"}), "b": frozenset({"y"})}}))
@@ -512,6 +608,10 @@ ACCEPTED_CHAIN_ELSE = {
     ("statistics.py", "tail", ("greater", "less")):
         "tail is checked against ('both', 'greater', 'less') and raises; the else is the "
         "'both' branch.",
+    ("statistics.py", "alt", ("greater", "two-sided")):
+        "exact_sign_flip checks alt against ('two-sided', 'greater', 'less') and raises; the "
+        "else is the 'less' branch. Two sites (exact enumeration, Monte Carlo) share this key; "
+        "both sit inside an `if n <= 20` arm, which hid them until nested chains were scanned.",
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
@@ -652,6 +752,8 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         ("spectral.model", lambda: relative_power(
             np.array([1.0, 2.0]), np.array([1.0, 1.0]), model="bogus")),
         ("statistics.alternative", lambda: _require_alternative("bogus", "sweep")),
+        ("statistics.exact_sign_flip.alt", lambda: jnwb.exact_sign_flip(
+            np.array([0.1, -0.2, 0.3]), alternative="bogus")),
         ("statistics.tail", lambda: cluster_permutation_test(
             np.ones((6, 4)), np.zeros((6, 4)), n_permutations=10, tail="bogus")),
         ("jrsa.alternative", lambda: jnwb.jrsa(
