@@ -27,12 +27,13 @@ The core is what `pip install jnwb` installs: the operations, their documentatio
 that verify them. Skills are a routing layer over the core and add no second copy of its
 scientific interface.
 
-| Part | Role |
-|---|---|
-| Code | implements each operation |
-| Documentation | defines each operation: inputs, units, axes, estimator, failure behavior |
-| Tests | verify that the code does what the documentation defines |
-| Skills | route a task to operations, then discover, constrain, compose, execute and verify their use |
+```mermaid
+graph LR
+    D[Documentation] -->|defines inputs, units, axes, estimator, failure| O[Operation]
+    C[Code] -->|implements| O
+    T[Tests] -->|verify code against documentation| O
+    S[Skills] -->|route a task to, compose, verify use of| O
+```
 
 Code, documentation and tests constrain each other, so none of the three changes alone. Skills
 sit outside that relation and act on it. A skill names an operation; the documentation defines
@@ -42,22 +43,55 @@ it, so a skill restates neither a signature nor the mathematics.
 
 Every task a skill receives ends in one of four outcomes:
 
-| Task | Outcome |
-|---|---|
-| Supported | compose the operations and execute them |
-| Missing input | request the input |
-| Result not identifiable | report the failure |
-| Unsupported inference | decline |
+```mermaid
+flowchart LR
+    Q[Task] --> S{Inference supported?}
+    S -->|no| DC[Decline]
+    S -->|yes| I{Inputs present?}
+    I -->|no| RQ[Request the input]
+    I -->|yes| X[Compose and execute the operations]
+    X --> ID{Result identifiable?}
+    ID -->|no| RF[Report the failure]
+    ID -->|yes| RS[Return the verified result]
+```
 
 The skill decides how; the tested operation computes what. A failed estimate is never turned
 into a plausible finite number or label, and an unsupported question is never turned into a
 supported-looking answer. Declining is a correct outcome. The library's own refusals, and what
 to pass instead, are listed on [Errors](errors.md).
 
+## From NWB file to result
+
+`jnwb.inspect` reports what a session holds. The loaders read the chosen series, events and
+units; continuous data is cut into trials around the event onsets before an operation runs.
+
+```mermaid
+graph LR
+    F[NWB session] --> I[jnwb.inspect]
+    I -->|choose a series| A[jnwb.acquisition_channel]
+    I -->|choose events| E[jnwb.event_onsets]
+    I -->|choose a unit| U[jnwb.unit_spike_times]
+    A --> EP[jnwb.epoch_continuous]
+    E --> EP
+    E --> O[Operation]
+    U --> O
+    EP --> O
+    O --> V[Verification]
+```
+
 ## What belongs in jnwb
 
 jnwb owns generic, testable operations. Study-specific conditions, hypotheses and interpretation
-stay in the project that uses jnwb. An operation belongs in jnwb when all five hold:
+stay in the project that uses jnwb. The dependency runs one way:
+
+```mermaid
+graph LR
+    P[Project: conditions, hypotheses, findings] -->|imports| J[jnwb]
+    J -->|imports| L[NumPy, SciPy, pandas, pynwb]
+```
+
+jnwb imports nothing from a project and behaves identically whether one is installed or absent.
+An operation belongs in jnwb when all five hold:
 
 | Criterion | Holds when |
 |---|---|

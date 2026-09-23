@@ -97,6 +97,10 @@ Carried by 0.2.6.
 - **One glossary.** A "Glossary" page defines operation and workflow, session and recording,
   contact and channel, electrode and electrodes table, and trial and epoch; every page uses
   those terms, and the documentation examples name a whole NWB file `session.nwb`.
+- **The architecture page draws its structure.** Four diagrams replace two tables and add two
+  views: what defines, implements, verifies and routes to an operation; the four outcomes
+  of a task as a decision; the path from an NWB session to a verified result; and the
+  one-way dependency from a project to jnwb.
 - **The fitted onset is not described as independent of smoothing.** The spike-analysis
   page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a
   step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are
