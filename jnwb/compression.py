@@ -162,7 +162,7 @@ _PRESET_WARNING = (
 def _resolve_selection(src: h5py.File, select) -> list[str]:
     """The datasets to cast: the preset when ``select`` is None, otherwise exactly ``select``.
 
-    Every named path must be a dataset in ``src`` with a boolean, integer or floating dtype, and
+    Every named path must be a dataset in ``src`` with a floating dtype, and
     must not be a path convert() rewrites afterwards. Anything else raises before a byte is
     written, because it would otherwise end as a silent no-op or a receipt for a cast that did
     not happen.
@@ -186,9 +186,10 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
         obj = src[rel]
         if not isinstance(obj, h5py.Dataset):
             raise TypeError(f"select= names {rel}, which is a group, not a dataset")
-        if obj.dtype.kind not in "biuf":
+        if obj.dtype.kind != "f":
             raise TypeError(
-                f"select= names {rel}, whose dtype {obj.dtype} has no float32 representation"
+                f"select= names {rel}, whose dtype {obj.dtype} is not floating; "
+                "select= casts floating-point datasets only"
             )
     return paths
 
@@ -700,7 +701,7 @@ def compress_fp32(
         ValueError: ``select`` names ``spike_train`` or ``convolved_spike_train``, which are
             always rewritten at their source dtype.
         TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
-            not boolean, integer or floating.
+            not floating, an integer or boolean one included.
     """
     src = Path(src)
     if not src.exists():

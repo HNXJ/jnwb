@@ -619,10 +619,13 @@ class TestWrittenProvenanceResolves:
 PRESET = ["acquisition/probe_0_lfp/data", "acquisition/probe_1_muae/probe_1_muae_data/data"]
 OTHER = "scratch/extra/data"
 COUNTS = "scratch/counts/data"
+MASK = "scratch/mask/data"
+HALF = "scratch/half/data"
 
 
 def _selectable_file(path, seed=13):
-    """The two preset shapes, both guarded datasets, and two arrays outside the preset."""
+    """The two preset shapes, both guarded datasets, and arrays outside the preset: two
+    floating (float64, float16), one integer, one boolean and one string."""
     from jnwb.compression import CONVOLVED_PATH, SPIKE_TRAIN_PATH
 
     rng = np.random.default_rng(seed)
@@ -634,6 +637,8 @@ def _selectable_file(path, seed=13):
         f.create_dataset("scratch/labels", data=np.array([b"a", b"b"]))
         f.create_dataset(SPIKE_TRAIN_PATH, data=rng.integers(0, 5, size=(400, 4), dtype=np.int16))
         f.create_dataset(CONVOLVED_PATH, data=rng.normal(0.0, 1.0, size=(400, 4)))
+        f.create_dataset(MASK, data=rng.integers(0, 2, size=(400, 2)).astype(bool))
+        f.create_dataset(HALF, data=rng.normal(0.0, 1.0, size=(400, 2)).astype(np.float16))
     return path
 
 
@@ -735,15 +740,30 @@ class TestTheSelectionIsExplicit:
         with pytest.raises(error, match="select="):
             jnwb.compress_fp32(src, tmp_path / "bad.nwb", verify=False, select=select)
 
+    @pytest.mark.parametrize("path", [COUNTS, MASK], ids=["integer", "boolean"])
+    @pytest.mark.parametrize("entry", ["compress_fp32", "convert"])
+    def test_a_non_floating_dataset_is_refused_before_anything_is_written(
+        self, src, tmp_path, path, entry
+    ):
+        from jnwb.compression import convert
+
+        dst = tmp_path / "bad.nwb"
+        with pytest.raises(TypeError, match="select= casts floating-point datasets only"):
+            if entry == "convert":
+                convert(src, dst, select=[OTHER, path])
+            else:
+                jnwb.compress_fp32(src, dst, verify=False, select=[OTHER, path])
+        assert list(tmp_path.glob("bad*")) == []
+
     def test_the_note_names_the_dtype_that_was_cast(self, src, tmp_path):
-        dst = tmp_path / "counts.nwb"
-        jnwb.compress_fp32(src, dst, verify=False, select=[COUNTS, OTHER])
+        dst = tmp_path / "half.nwb"
+        jnwb.compress_fp32(src, dst, verify=False, select=[HALF, OTHER])
         with h5py.File(dst, "r") as d:
-            assert str(d[COUNTS].attrs["stored_dtype_note"]).startswith("cast from int16 to float32")
+            assert str(d[HALF].attrs["stored_dtype_note"]).startswith("cast from float16 to float32")
             assert str(d[OTHER].attrs["stored_dtype_note"]).startswith("cast from float64 to float32")
 
     def test_every_cast_note_sits_on_a_float32_dataset(self, src, tmp_path):
-        for i, select in enumerate([None, PRESET, [OTHER, COUNTS]]):
+        for i, select in enumerate([None, PRESET, [OTHER, HALF]]):
             dst = tmp_path / f"sweep{i}.nwb"
             jnwb.compress_fp32(src, dst, verify=False, select=select)
             notes = _cast_notes(dst)
