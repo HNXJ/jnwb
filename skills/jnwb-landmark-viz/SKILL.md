@@ -19,7 +19,7 @@ Activate this skill when:
 All figures are constructed using `plotly.graph_objects` (`go.Figure`, `go.Scatter`, `go.Scattergl`, `go.Heatmap`, `go.Contour`) and `plotly.subplots.make_subplots`.
 - **Interactive Web / HTML**: Full zoom, pan, hover inspection (unit ID, latency, $p$-value, firing rate), and trace toggles.
 - **Hardware-Accelerated WebGL**: High-density spike rasters and continuous LFPs use `go.Scattergl` for lag-free rendering of $>100{,}000$ points.
-- **Publication Vector Export**: Exports crisp vector SVG with editable `<text>` tags (via `kaleido`), 300/600 DPI PNG, and self-contained interactive HTML on every `save_and_seal` call.
+- **Publication Vector Export**: Exports crisp vector SVG with editable `<text>` tags (via `kaleido`), 300/600 DPI PNG, and interactive HTML on every `save_and_seal` call. The HTML loads plotly.js from a CDN, so it needs a network connection to render. `save_and_seal` returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths.
 
 ### 2.2 Collision-Free Relative Coordinate Engine
 Subplots and elements use strict non-overlapping relative domain coordinates:

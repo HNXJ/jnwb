@@ -10,10 +10,10 @@ description: Spike extraction, PSTH binning, physiological latency estimation, c
 Activate this skill when computing spike rasters, PSTHs, causal firing rate smoothing, physiological onset latencies, or unit response significance.
 
 ## 2. Task-to-Operation Routing Matrix
-- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Compute trial-aligned PSTH and SEM firing rates in Hz.
+- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)` → `(t_ms, rate_hz, sem_hz)`: Trial-averaged PSTH: bin centres in ms, mean and SEM firing rate in Hz. The SEM is NaN for a single trial, and both rates are NaN with no onsets.
 - `jnwb.causal_exp_smooth(rate, bin_ms, tau_ms)`: Apply forward-only finite exponential smoothing kernel ($5\tau$) with zero future leakage.
 - `jnwb.fit_exponential_onset(t_ms, rate, t0_bounds_ms=None, tau_bounds_ms=None)`: Grid-search + bounded nonlinear least-squares fit of onset latency $t_0$.
-- `jnwb.compute_response_metrics(spike_times, epoch_onsets, baseline_window=..., response_window=...)`: Baseline/response rates, modulation index, and z-score.
+- `jnwb.compute_response_metrics(spike_times, epoch_onsets, baseline_window_s=..., response_window_s=...)`: Windows in **seconds** relative to each onset. Returns `baseline_rate` and `response_rate` (spikes/s), `response_count`, `response_zscore` (the response rate against the across-trial baseline rate; NaN, not 0, when the baseline has no across-trial variance), the median first-spike `latency` in seconds (`None` without a response spike) and `n_trials`. It computes no modulation index. `baseline_window` and `response_window` are the older spellings of the same arguments.
 - `jnwb.classify_response_significance(metrics, zscore_threshold=1.96)`: Significance classification from precomputed response metrics.
 - `jnwb.phase_locking_index(unit_spike_times, lfp_phase, lfp_timestamps, n_bins=18)`: Spike-field phase locking index.
 

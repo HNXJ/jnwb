@@ -39,7 +39,9 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
 
 **Event code semantics:** codes are opaque interval-table labels (default column `codes`). jnwb
 does not interpret scientific meaning. When `codes=None`, no code filtering is performed and
-`code_column` is not required to exist. String and numeric codes compare without cross-type
+the column `codes` may be absent (`events` then warns and records `code_column=None`); a
+`code_column` named explicitly must exist, with or without `codes`, or `ColumnNotFoundError` is
+raised. String and numeric codes compare without cross-type
 coercion (`"1"` ≠ `1`). Empty code selection returns an empty array; missing table/column raises
 specific errors.
 
@@ -47,8 +49,8 @@ specific errors.
 Several continuous series + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
 
 **One schema:** `inspect(path)` and `inspect(nwb_object)` return the same dict for the same
-file, including `data_path`, `layout` and `series` on every continuous entry. Every key in
-`jnwb.nwb_inspect.CONTINUOUS_KEYS` is always present, `None` when unknown.
+file. Every continuous entry always carries `name`, `path`, `neurodata_type`, `packaging`,
+`series`, `data_path`, `data_shape`, `data_dtype`, `layout` and `rate_hz`, `None` when unknown.
 
 **Several series in one container:** an `LFP` wrapping more than one `ElectricalSeries` reports
 `series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and
@@ -87,8 +89,8 @@ use the public functions above in normal Python workflows.
 - `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` when the name is absent and `AmbiguousAcquisitionError` rather than picking one when it is ambiguous.
 - `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
 - `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
-- `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by session, area and `depth_class`, and warns when the frame has only the deprecated `layer`.
-- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
+- `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by `session_id`, `area` and `depth_class`, and warns when the frame has only the deprecated `layer`. It aggregates `firing_rate`, `waveform_duration` and `snr` and counts `unit_id` (or `cluster_id`), so it takes a frame as `get_all_units_metadata` builds it; a frame without those columns raises `KeyError`.
+- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. Quality 0 is `'mua'`; quality 1 is `'stable'` only when presence and SNR both strictly exceed their thresholds; everything else, including a missing value or a quality code other than 0 or 1, is `'unstable'`. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
 - `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
 - `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
 - `jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)` and `jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)`: Recording-structure labels -- cycle boundaries from a gap threshold, and temporal quantile buckets by `start_time` order. Both are grouping variables for `permute_labels` and `cluster_permutation_test`, not results.
@@ -99,7 +101,7 @@ use the public functions above in normal Python workflows.
 2. **Addressing robustness:** `map_peak_channel_to_area` reads only anatomical columns and
    returns `None` when the table has none. It does **not** fall back to `group_name`, which is the
    probe/shank label: an electrode table with no anatomical column used to return `'probeA'` as
-   the brain area of channel 0, a fabricated label indistinguishable from a real one (05-18).
+   the brain area of channel 0, a fabricated label indistinguishable from a real one.
 3. **NWB compression contract:** `compress_fp32` casts exactly the datasets named in `select=`
    to fp32, irreversibly; name them rather than relying on the preset. Verify with
    `verify=True` before deleting sources.

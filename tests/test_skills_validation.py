@@ -422,16 +422,12 @@ def test_every_inline_routing_call_is_reached_by_the_parser():
 #: about the API rather than routing to a function.
 _PACKAGE_METADATA = re.compile(r"^__\w+__$")
 
-#: Known breaches of the publicity invariant, owned elsewhere. Asserted by **equality**:
-#: a new private route fails, and repairing one of these without deleting its entry also
-#: fails, so the quarantine cannot outlive the defect.
-#:
-#: P-59: `skills/jnwb-nwb-data/SKILL.md` routes at `jnwb.nwb_inspect.CONTINUOUS_KEYS`.
-#: `nwb_inspect` is a submodule, reachable by attribute and absent from `__all__`. The
-#: skill file is not this lane's to edit; the proxy in this test was.
-_NON_PUBLIC_ROUTES_PENDING_REPAIR = {
-    ("jnwb-nwb-data", "nwb_inspect"),
-}
+#: Known breaches of the publicity invariant. Asserted by **equality**: a new private route
+#: fails, and repairing one of these without deleting its entry also fails, so the quarantine
+#: cannot outlive the defect. Empty since `jnwb-nwb-data` stopped routing at
+#: `jnwb.nwb_inspect.CONTINUOUS_KEYS` and wrote the keys out instead;
+#: `test_the_continuous_keys_the_skill_lists_are_the_live_ones` holds that list to the code.
+_NON_PUBLIC_ROUTES_PENDING_REPAIR: set = set()
 
 
 def test_all_referenced_symbols_exist():
@@ -657,6 +653,39 @@ def _probe_epoch_continuous():
                                  win_s=(-0.1, 0.3), fs=1000.0)
 
 
+class _ProbeSession:
+    """The two methods `build_time_resolved_matrix` reads from a session, and nothing else."""
+
+    def get_units(self, quality=None, area=None):
+        return pd.DataFrame({"area": ["V1"] * 3}, index=[0, 1, 2])
+
+    def get_spike_times(self, unit_id):
+        return np.sort(np.random.default_rng(unit_id).uniform(0.0, 10.0, 200))
+
+
+def _probe_build_time_resolved_matrix():
+    epochs = pd.DataFrame({"start_time": [1.0, 3.0, 5.0, 7.0]})
+    return jnwb.build_time_resolved_matrix(_ProbeSession(), "V1", epochs,
+                                           time_window_ms=(-100.0, 200.0))
+
+
+def _probe_repair_lfp_trials():
+    seg = np.random.default_rng(4).normal(0, 1, (12, 4, 200))
+    seg[3, :, 50:60] += 40.0
+    return jnwb.repair_lfp_trials(seg)
+
+
+def _probe_repair_band_artifacts():
+    power = np.random.default_rng(6).random((10, 5, 40)) + 1.0
+    return jnwb.repair_band_artifacts(power, np.linspace(5.0, 80.0, 5))
+
+
+def _probe_rdm_similarity():
+    rng = np.random.default_rng(8)
+    return jnwb.rdm_similarity(jnwb.rdm(rng.normal(size=(5, 8))),
+                               jnwb.rdm(rng.normal(size=(5, 8))))
+
+
 #: One executed call per routed symbol that makes a claim about its return's contents.
 #: The oracle is the returned object. A return *annotation* would be the same authors'
 #: second claim about the same thing, and `-> ComplexTFR` on a function that returns a
@@ -673,6 +702,15 @@ _RETURN_CONTENT_PROBES = {
     "event_onsets": _probe_event_onsets,
     "acquisition_channel": _probe_acquisition_channel,
     "epoch_continuous": _probe_epoch_continuous,
+    "raster_psth": lambda: jnwb.raster_psth(
+        np.sort(np.random.default_rng(1).uniform(0.0, 10.0, 200)),
+        np.array([1.0, 3.0, 5.0]), (-100.0, 400.0), 10.0),
+    "compute_psd": lambda: jnwb.compute_psd(np.random.default_rng(2).normal(size=2000), 1000.0),
+    "exact_sign_flip": lambda: jnwb.exact_sign_flip(np.random.default_rng(3).normal(0.5, 1, 10)),
+    "rdm_similarity": _probe_rdm_similarity,
+    "repair_lfp_trials": _probe_repair_lfp_trials,
+    "repair_band_artifacts": _probe_repair_band_artifacts,
+    "build_time_resolved_matrix": _probe_build_time_resolved_matrix,
 }
 
 
@@ -1440,3 +1478,206 @@ class TestClaimsTheSignatureCannotCarry:
         assert "**bits**" in text and "MI is symmetric" in text, (
             "the unit and symmetry claims this test executes are gone from the row"
         )
+
+
+def _row_text(skill: str, symbol: str) -> str:
+    """The one routing row in `skill` whose call opens with `jnwb.<symbol>(`, joined."""
+    content = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+    rows = [text for _, text in _logical_rows(content)
+            if re.match(rf"- `jnwb\.{re.escape(symbol)}\(", text)]
+    assert len(rows) == 1, f"{skill}: expected one routing row for jnwb.{symbol}, found {len(rows)}"
+    return rows[0]
+
+
+def test_the_continuous_keys_the_skill_lists_are_the_live_ones():
+    """The skill writes the continuous-entry keys out rather than routing at a private tuple.
+
+    A written-out list is a copy, and a copy drifts; this holds it to the code in both
+    directions and to what `inspect` actually returns. What would pass while the list is
+    wrong: comparing against the skill's own sentence, or only checking a subset.
+    """
+    from jnwb.nwb_inspect import CONTINUOUS_KEYS
+
+    text = (SKILLS_DIR / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")
+    sentence = re.search(r"Every continuous entry always carries(.*?)when unknown", text, re.S)
+    assert sentence, "the sentence listing the continuous-entry keys is gone"
+    listed = re.findall(r"`(\w+)`", sentence.group(1))
+    listed = [k for k in listed if k != "None"]
+    assert sorted(listed) == sorted(CONTINUOUS_KEYS), (listed, CONTINUOUS_KEYS)
+
+    entry = jnwb.inspect(_probe_nwb_path())["acquisitions"][0]
+    assert set(CONTINUOUS_KEYS) <= set(entry), sorted(set(CONTINUOUS_KEYS) - set(entry))
+
+
+def _deprecated_granger_causality():
+    rng = np.random.default_rng(11)
+    x = rng.normal(size=200)
+    y = np.r_[0.0, 0.5 * x[:-1]] + 0.5 * rng.normal(size=200)
+    with pytest.deprecated_call():
+        return jnwb.granger_causality(x, y, order=2)
+
+
+def _folds_frame(cycles):
+    n = len(cycles)
+    return pd.DataFrame({"session": ["s"] * n, "analysis": ["a"] * n, "slot_key": ["k"] * n,
+                         "cycle": cycles, "trial_id": np.arange(n)})
+
+
+class TestRowsAgainstTheLiveCall:
+    """Row claims about keys, units, axes and failure behaviour, each settled by a call.
+
+    `inspect.signature` sees none of these. Each case was wrong or unstated in a row before it
+    was checked here: `compute_response_metrics` promised a modulation index it does not
+    compute; `compute_psd` was described as producing `vflip`'s channels-by-frequency input at
+    an `axis` that reads the transpose; `apply_tight_auto_axis` was called auto-scaling while it
+    pins x and clips negative y; `resample_onsets` was called subsampling while it repeats
+    onsets when short.
+    """
+
+    @pytest.mark.parametrize("skill, symbol, call, keys", [
+        ("jnwb-spiking", "compute_response_metrics",
+         lambda: jnwb.compute_response_metrics(
+             np.sort(np.random.default_rng(0).uniform(0.0, 10.0, 400)),
+             np.array([1.0, 3.0, 5.0, 7.0]),
+             baseline_window_s=(-0.2, 0.0), response_window_s=(0.0, 0.2)),
+         ["baseline_rate", "response_rate", "response_count", "response_zscore", "latency",
+          "n_trials"]),
+        ("jnwb-population", "nested_cv_linear_svm",
+         lambda: jnwb.nested_cv_linear_svm(np.random.default_rng(6).normal(size=(40, 6)),
+                                           np.array([0, 1] * 20), 3),
+         ["accuracy", "fold_accuracies", "f1", "auc", "best_params",
+          "majority_baseline_accuracy"]),
+        ("jnwb-population", "compute_population_trajectory",
+         lambda: jnwb.compute_population_trajectory(
+             _ProbeSession(), "V1", pd.DataFrame({"start_time": [1.0, 3.0, 5.0, 7.0]}),
+             time_window_ms=(-100.0, 200.0)),
+         ["trajectory", "explained_variance", "unit_ids", "bin_centers"]),
+        ("jnwb-population", "build_representation_ladder",
+         lambda: jnwb.build_representation_ladder(np.random.default_rng(1).normal(size=(4, 3, 5))),
+         ["X_rate", "X_vec", "X_structured", "contract"]),
+        ("jnwb-population", "assign_outer_folds",
+         lambda: jnwb.assign_outer_folds(_folds_frame([0, 0, 1, 1])),
+         ["outer_fold", "outer_group", "outer_fold_status"]),
+        ("jnwb-connectivity", "granger_causality", _deprecated_granger_causality,
+         ["F_1_to_2", "F_2_to_1"]),
+    ])
+    def test_the_keys_a_row_names_are_returned(self, skill, symbol, call, keys):
+        """Both directions: the row names each key, and the call returns each key."""
+        row = _row_text(skill, symbol)
+        out = call()
+        unnamed = [k for k in keys if f"`{k}`" not in row]
+        missing = [k for k in keys if k not in out]
+        assert not unnamed, f"{skill} row for {symbol} no longer names {unnamed}"
+        assert not missing, f"jnwb.{symbol} no longer returns {missing}; keys: {list(out)}"
+        assert not [k for k in out if "modulation" in str(k)], (
+            f"jnwb.{symbol} now returns a modulation key the row says it does not compute"
+        )
+
+    def test_compute_psd_reads_time_along_axis_and_composes_with_vflip(self):
+        lfp = np.random.default_rng(16).normal(size=(16, 3000))
+        freqs, psd = jnwb.compute_psd(lfp, 1000.0, axis=-1)
+        assert psd.shape == (16, freqs.size) and freqs.size > 100
+
+        wrong_freqs, wrong_psd = jnwb.compute_psd(lfp, 1000.0)
+        assert wrong_freqs.size < 16 and wrong_psd.shape == (wrong_freqs.size, 3000), (
+            "a channels-by-time array at axis=0 no longer yields a few-bin spectrum over "
+            "channels, so the row's warning describes something that does not happen"
+        )
+
+        composed, direct = jnwb.vflip(psd, freqs), jnwb.vflip_from_lfp(lfp, 1000.0)
+        assert composed.support_score == pytest.approx(direct.support_score)
+        assert (composed.accepted, composed.crossover_contact) == (
+            direct.accepted, direct.crossover_contact)
+
+    def test_the_two_exponents_have_opposite_signs_and_a_batch_is_a_list(self):
+        """`exponent` means a positive decay rate in one function and a signed slope in the
+        other. A 1/f-like trace must give opposite signs, or the row's warning is wrong."""
+        trace = np.random.default_rng(21).normal(size=4000).cumsum()
+        tilt = jnwb.spectral_tilt(trace, fs=1000.0)
+        freqs, psd = jnwb.compute_psd(trace, 1000.0)
+        freqs, psd = freqs[1:], psd[1:]  # aperiodic_fit refuses the 0 Hz bin
+        fit = jnwb.aperiodic_fit(freqs, psd, (2.0, 100.0))
+        assert fit.accepted and fit.exponent > 0 > tilt["exponent"], (fit, tilt)
+
+        batch = jnwb.aperiodic_fit(freqs, np.stack([psd, psd, psd]), (2.0, 100.0))
+        assert isinstance(batch, list) and len(batch) == 3
+        assert all(isinstance(r, jnwb.AperiodicFitResult) for r in batch)
+
+    def test_plotting_helpers_do_what_their_rows_say(self):
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        try:
+            ax.plot([0.0, 5.0, 10.0], [-1.0, 1.0, 0.5])
+            jnwb.apply_tight_auto_axis(ax, x_span=(0.0, 10.0))
+            assert ax.get_xlim() == (0.0, 10.0)
+            assert ax.get_ylim()[0] == 0.0, "the lower y-limit is no longer floored at 0"
+            jnwb.apply_tight_auto_axis(ax)
+            assert ax.get_xlim() == (-500.0, 4124.0), "x is no longer pinned to x_span"
+        finally:
+            plt.close(fig)
+
+        short = jnwb.resample_onsets(np.arange(10.0), target_n=25)
+        assert short.size == 25 and np.unique(short).size <= 10
+        long = jnwb.resample_onsets(np.arange(50.0), target_n=20)
+        assert long.size == 20 and np.unique(long).size == 20
+
+        spikes = np.sort(np.random.default_rng(2).uniform(0.0, 5.0, 100))
+        _, rate, sem = jnwb.raster_psth(spikes, np.array([1.0]), (-100.0, 400.0), 10.0)
+        assert np.isfinite(rate).all() and np.isnan(sem).all()
+        _, rate, sem = jnwb.raster_psth(spikes, np.array([]), (-100.0, 400.0), 10.0)
+        assert np.isnan(rate).all() and np.isnan(sem).all()
+
+    def test_an_explicit_code_column_must_exist_and_the_implicit_one_need_not(self, tmp_path):
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        nwbfile = pynwb.NWBFile(session_description="s", identifier="i",
+                                session_start_time=datetime.now(timezone.utc))
+        for i in range(3):
+            nwbfile.add_trial(start_time=float(i), stop_time=float(i) + 0.5)
+        nwb = tmp_path / "no_codes.nwb"
+        with pynwb.NWBHDF5IO(str(nwb), "w") as io:
+            io.write(nwbfile)
+
+        assert jnwb.event_onsets(nwb).tolist() == [0.0, 1.0, 2.0]
+        with pytest.warns(UserWarning, match="codes"):
+            assert jnwb.events(nwb).code_column is None
+        with pytest.raises(jnwb.ColumnNotFoundError):
+            jnwb.event_onsets(nwb, code_column="label")
+        with pytest.raises(jnwb.ColumnNotFoundError):
+            jnwb.events(nwb, code_column="label")
+
+    def test_tiers_census_and_folds_refuse_or_label_what_their_rows_say(self):
+        tier = jnwb.assign_quality_tier(
+            pd.Series([0, 1, 1, 2, np.nan]),
+            pd.Series([0.99, 0.99, 0.98, 0.99, 0.99]),
+            pd.Series([1.0, 1.0, 1.0, 1.0, 1.0]),
+        )
+        assert tier.tolist() == ["mua", "stable", "unstable", "unstable", "unstable"]
+
+        with pytest.raises(KeyError):
+            jnwb.unit_census_report(pd.DataFrame(
+                {"session_id": ["s"], "area": ["V1"], "depth_class": ["Deep"], "unit_id": [0]}
+            ))
+
+        with pytest.raises(ValueError, match="trial_id"):
+            jnwb.assign_outer_folds(_folds_frame([0, 1]).drop(columns="trial_id"))
+        single = jnwb.assign_outer_folds(_folds_frame([0, 0, 0]))
+        assert set(single["outer_fold"]) == {-1}
+        assert set(single["outer_fold_status"]) == {"insufficient_groups"}
+
+    def test_exact_enumeration_uses_no_rng_and_shuffles_floor_at_one_over_n_plus_one(self):
+        diffs = np.random.default_rng(5).normal(0.5, 1.0, 12)
+        assert jnwb.exact_sign_flip(diffs, rng=1)[1] == jnwb.exact_sign_flip(diffs, rng=2)[1]
+
+        a, b = np.arange(20.0) + 100.0, np.arange(20.0)
+        for fn in (jnwb.shuffle_pvalue_paired, jnwb.shuffle_pvalue_unpaired):
+            assert fn(a, b, 49, np.random.default_rng(0))[1] == pytest.approx(1.0 / 50.0), fn
+
+        plan = jnwb.build_permutation_plan([0, 1, 0, 1], [1, 1, 2, 2], n_permutations=2, rng=3)
+        digests = plan["draw_manifest"]["label_digest"]
+        assert all(re.fullmatch(r"[0-9a-f]{64}", d) for d in digests), list(digests)
