@@ -30,8 +30,8 @@ page violates a rule, the fix goes to the generator or the script it includes.
 
 | # | Rule | How it is checked |
 |---|---|---|
-| F1 | Headings stop at `###`. | count `^#### ` — must be zero |
-| F2 | Three or more comparable facts of the same kind go in a table. | review, with a seeded-violation check |
+| F1 | Headings stop at `###`. | count headings of four or more `#` outside fenced code — must be zero |
+| F2 | Three or more comparable facts of the same kind go in a table. | a detector for one shape, below; review for every other shape |
 | F3 | An enumeration that makes no ordering claim is a list, not a paragraph. | review |
 | F4 | A paragraph carries reasoning. A paragraph that only enumerates violates F2 or F3. | review |
 | F5 | One surface form per concept, taken from the vocabulary list. | machine-checked against the [vocabulary list](#vocabulary) below |
@@ -41,6 +41,15 @@ page violates a rule, the fix goes to the generator or the script it includes.
 F1 had two violations, at `04_spectral_analysis_and_tfr.md:103` and
 `06_spikes_psth_and_onset_dynamics.md:74` — both a function name used as a heading, both now
 `###`. The count is zero and is machine-checked, so it stays zero without being watched.
+
+`scripts/docs_form_gate.py` runs F1, F5, the navigation rules N1, N2, N3 and N5, figure rule
+G2, and the F2 detector, and prints one PASS or FAIL line for each. The rows whose column reads
+review are checked by a reader: F3, F4, F6, F7, N4 and G3.
+
+The F2 detector reports a paragraph in which three or more inline-code names each open a clause
+with the same kind of verb, such as three functions each followed by "returns". It reads
+paragraphs only and counts only code-span subjects, so F2 stays a review item for facts with
+plain-English subjects, for a list of facts, and for facts spread across paragraphs.
 
 F2's hard case was `common_mistakes.md`: the largest authored page after the generated API
 reference, and until 2026-09-20 it carried zero tables across 2308 words. Three of its
@@ -126,7 +135,7 @@ sentence the rule asks for:
 |---|---|---|
 | N1 | Group depth is two. | parse `mkdocs.yml` |
 | N2 | No group holds a single page. | parse `mkdocs.yml` |
-| N3 | Every page is reachable in two clicks. | follows from N1 given every page is in a group |
+| N3 | Every page is reachable in two clicks. | follows from N1 given every page is in a group; a top-level page outside a group fails |
 | N4 | A top-level group is named for the question a reader arrives with, not for the material it contains. | review |
 | N5 | Every nav target resolves to a file on disk. | parse `mkdocs.yml` against the tree |
 
