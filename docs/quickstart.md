@@ -1,8 +1,8 @@
 # Quickstart
 
-Study **electrophysiology and NWB 2.0+ datasets** — trial-level artifact repair, time-frequency dynamics, directed information flow, single-unit spiking latencies, and cross-modal representational similarity — with dataset-agnostic, mathematically verified algorithms.
+A tour of jnwb on NWB 2.0+ electrophysiology. Every operation takes arrays or NWB structures and assumes no particular experiment.
 
-> Documentation tracks the `dev` branch public contract. Every operation works on array representations or NWB structures without experiment-specific assumptions.
+> Documentation tracks the `dev` branch public contract.
 
 ## NWB file workflow (start here)
 
@@ -28,11 +28,9 @@ import jnwb
 import numpy as np
 ```
 
-## Which Workflow Should I Use?
+## Which operation should I use?
 
-Pick the module for your analytical question:
-
-| Goal | Primary entry points | Core function / class | Output type |
+| Goal | Primary entry points | Method | Output type |
 |------|---------------------|------------------------|-------------|
 | **Trial QC & cleaning** | `jnwb.repair_lfp_trials`, `jnwb.bad_channels_from_correlation` | artifact repair + detection | `tuple`, masks |
 | **Spectral dynamics** | `jnwb.complex_tfr`, `jnwb.compute_multitaper_psd` | TFR + PSD | `ComplexTFR`, arrays |
@@ -45,17 +43,13 @@ Pick the module for your analytical question:
 
 ## Executable quickstart script (6-panel figure)
 
-`examples/quickstart_jnwb.py` is the authoritative smoke test: artifact repair, band power, onset fitting, label permutation, Granger causality and nested-CV decoding on synthetic data, one panel each.
+`examples/quickstart_jnwb.py` is the authoritative smoke test. Each panel of the figure below is one operation on synthetic data: artifact repair, band power, onset fitting, label permutation, Granger causality and nested-CV decoding.
 
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png#only-light)
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.dark.png#only-dark)
 
-Each of the six panels is one operation -- artifact repair, band power, onset fitting, a
-permutation test, Granger coupling and decoding -- drawn from a run on synthetic data that the
-command below reproduces. The figure is committed output, not a live render: if a panel disagrees with
+The figure is committed output from a run of the command below. If a panel disagrees with
 what the script prints on your machine, the script is authoritative.
-
-Run the complete quickstart script locally:
 
 ```bash
 python examples/quickstart_jnwb.py
@@ -65,15 +59,13 @@ python examples/quickstart_jnwb.py
 
 ---
 
-## Markdown API tour (extended examples)
+## Step-by-step tour
 
-The steps below are a separate, documentation-first walkthrough (artifact repair, TFR, PSI, jRSA). They are **not** the same panels as `examples/quickstart_jnwb.py`; run the script when you need the figure smoke test.
-
-## Step-by-Step Tour
+The steps below are a separate walkthrough, not the panels of `examples/quickstart_jnwb.py`; run the script when you need the figure smoke test.
 
 ### 1. Artifact Detection & Repair
 
-Detect and interpolate high-amplitude transients across multichannel LFP arrays without corrupting unaffected channels or neighboring time windows:
+Detect and interpolate high-amplitude transients across multichannel LFP arrays, leaving unaffected channels and neighboring time windows intact:
 
 ```python
 rng = np.random.default_rng(0)
@@ -102,9 +94,9 @@ print(f"TFR shape (channels, freqs, time): {tfr.shape}")
 print(f"Mean raw power: {tfr.power.mean():.4f}")
 ```
 
-### 3. Directed Information Flow (Phase Slope Index)
+### 3. Directed Interaction (Phase Slope Index)
 
-Compute robust, phase-slope directionality between two time series with phase-randomized surrogate significance testing:
+Phase slope index between two time series, with a surrogate test. For a single trial the surrogate is a circular shift of the second series; with three or more trials it is a trial permutation:
 
 ```python
 sig_a = rng.normal(size=1000)
@@ -116,7 +108,7 @@ print(f"PSI X->Y: {psi.x_to_y:.4f}, p-value: {psi.p_x_to_y:.4f}")
 
 ### 4. Spiking PSTH & Onset Dynamics
 
-Calculate PSTHs with bootstrap confidence intervals and fit parametric latency models:
+Calculate a PSTH with its standard error and fit a parametric latency model:
 
 ```python
 spk_times = np.sort(rng.uniform(0, 10, 200))
@@ -129,7 +121,7 @@ print(f"Estimated latency t0: {onset_fit['t0']:.2f} ms (status: {onset_fit['boun
 
 ### 5. Non-Parametric Statistical Testing
 
-Evaluate trial-level event comparisons using stratified shuffle permutations:
+Compare paired binary outcomes per trial. The p-value comes from a sign-flip shuffle of each trial's pair, and the risk-difference interval from a paired bootstrap:
 
 ```python
 fires_cond_a = np.array([True, True, False, True, False, True, True, False])

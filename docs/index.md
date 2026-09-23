@@ -13,8 +13,6 @@ Condition codes, task structure, and experimental hypotheses belong in project c
 **New to NWB in jnwb?** Start with the [Tutorials](tutorials/01_nwb_basics.md):
 `inspect` → `events` / `event_onsets` → align spikes/LFP → compose an analysis.
 
-[Architecture](architecture.md) · [Public API](api.md) (every exported symbol) · [Common mistakes](common_mistakes.md) · [Errors](errors.md) (what each refusal means and what to pass instead)
-
 ## Install
 
 ```bash
@@ -52,6 +50,8 @@ print(f"Beta band power: {beta_power:.4f}")
 - [Philosophy & boundary](01_architecture_and_philosophy.md) — scope, units, and dataset independence
 - [Addressing & metadata](02_paths_addressing_metadata.md)
 - [Public API](api.md) — every symbol in `jnwb.__all__`, gate-enforced
+- [Common mistakes](common_mistakes.md) — the failure modes jnwb guards against
+- [Errors](errors.md) — what each refusal means and what to pass instead
 - [Analyzing with an agent](agents.md) — what ships, the MCP server, and the skills
 - [References](references.md) — published sources for each method
 

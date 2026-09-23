@@ -8,23 +8,23 @@ pip install -U jnwb
 
 Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
 
-The current library release is dataset-agnostic. The public surface is documented in [Public API](api.md) and is the contents of `jnwb.__all__`.
+jnwb is dataset-agnostic. The public surface is the contents of `jnwb.__all__`, documented in [Public API](api.md).
 
 A wheel carries the library, and the sdist adds `AGENTS.md` and `skills/`. Neither carries `examples/`, so the executable tutorials the [Quickstart](quickstart.md) and [Tutorials](tutorials/01_nwb_basics.md) tell you to run need the [source checkout](#source-checkout) below. [What an agent gets](agents.md) has the full table.
 
-### Optional Acceleration Backends & Extras
+### Extras
 
-`jnwb` is structured with modular extras so production workflows install only what they need:
+Install an extra with `pip install "jnwb[<extra>]"`; combine them as `"jnwb[torch,gpu]"`.
 
-```bash
-pip install "jnwb[torch,gpu]"   # PyTorch, CuPy, and CUDA 12.x acceleration
-pip install "jnwb[mcp]"         # Model Context Protocol server tooling
-pip install "jnwb[vis]"         # Plotly figure engine jnwb.vis, with kaleido for SVG/PNG export
-pip install "jnwb[docs]"        # MkDocs documentation builder
-pip install "jnwb[test]"        # pytest and pytest-xdist, plus the build and notebook
-                               # tooling the release gate and the tutorial tests need
-pip install "jnwb[all]"         # Complete dependency bundle
-```
+| Extra | Adds |
+|---|---|
+| `torch` | PyTorch |
+| `gpu` | CuPy for CUDA 12.x acceleration, and JAX |
+| `mcp` | Model Context Protocol server tooling |
+| `vis` | the Plotly figure engine `jnwb.vis`, with kaleido for SVG/PNG export |
+| `docs` | the MkDocs documentation builder |
+| `test` | pytest and pytest-xdist, plus the build and notebook tooling the release gate and the tutorial tests need |
+| `all` | every extra above |
 
 `jnwb.vis` is the one export that needs an extra. Without `vis` installed, `import jnwb` and
 every other export work, and accessing `jnwb.vis` raises `ImportError` naming
@@ -61,9 +61,9 @@ An editable install writes a `.pth` file containing the **repository root**, not
 `jnwb/`. Every top-level package sitting beside `jnwb/` therefore becomes importable
 from any working directory, ahead of a package of the same name elsewhere on your path.
 
-A project cloned inside the jnwb checkout will shadow itself. The failure is silent:
-`import yourproject` returns a well-formed module, from the wrong copy, and no error is
-raised. `.gitignore` hides the directory from `git status`, which removes the last
+A project cloned inside the jnwb checkout will shadow itself, silently:
+`import yourproject` returns a well-formed module from the wrong copy.
+`.gitignore` hides the directory from `git status`, which removes the last
 signal you would get. This has happened in practice — two copies of one project
 disagreed on a label, and most importing files took the stale one.
 
@@ -86,7 +86,7 @@ time. The `visual_qc` and `vis` submodules are likewise deferred. This keeps `sc
 `matplotlib` and `joblib` out of the import while preserving the full public API in
 `jnwb.__all__`, which the suite verifies symbol by symbol.
 
-It does not make the import quick. `import jnwb` takes about 1.9 s, and about 1.8 s of that is
+The import still takes about 1.9 s, and about 1.8 s of that is
 `scipy`, `pandas` and `pynwb`, which the eager surface needs: roughly 1.1 s for the first `scipy`
 submodule imported, then 0.3 s each for `pandas` and `pynwb`, on top of 0.1 s for `numpy`. jnwb's
 own module bodies are about 0.05 s of it. Deferring any single module does not change this --
@@ -95,8 +95,6 @@ runs first is charged the shared cost and the rest are free. Import the package 
 start rather than per task.
 
 ## Verify
-
-Run the verification snippet in your Python environment:
 
 ```python
 import jnwb
