@@ -46,7 +46,7 @@ barrier above.
 |---|---|
 | W0 | 06-127 |
 | W1 |  |
-| W2 | 06-138, 06-139, 06-07, 06-82, 06-114, 06-115, 06-135 |
+| W2 | 06-07, 06-82, 06-114, 06-115, 06-135 |
 | W3 | 06-118, 06-30, 06-120 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
@@ -154,26 +154,6 @@ Discriminator: `float(res.p)` without a warning; `res.p[0]` returns the same val
 `FutureWarning`; `res.p.shape == ()`; a multi-lag result keeps shape `(n_lags,)` and no shim.
 Accept: the packet hands back a Changed entry (0-d `p`, `q`) and a Deprecated entry (indexing).
 Stop: the shim changes any value, dtype or arithmetic result of `p`.
-
-### 06-138 Gate 2 excuses only registered worktrees
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/test_gate2_ignores_nested_checkouts.py`.
-P-56. A file `docs/.git` reading `gitdir: <root>/.git` passes the git-identity check and hides a duplicate skill tree.
-Do: excuse a nested directory only when it is listed by `git -C <root> worktree list --porcelain`; keep `GIT_UNAVAILABLE` when git cannot run.
-Discriminator: the root-gitdir counterfeit is flagged; every earlier counterfeit stays flagged; a real linked worktree is not; the selector passes pristine first.
-Accept: P-56 closes `repaired` after the rolling verifier.
-
-### 06-139 STEP 0a sees every required item, whatever its heading level
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/release_gate.py`, `tests/test_release_requires_no_blocker.py`.
-P-195. An item under `####` carrying `Release: required-0.2.6` is invisible to `remaining_todo_items`.
-Do: read an item at any heading depth that carries a `Release:` field; fail closed on an item-shaped heading STEP 0a cannot parse.
-Discriminator: a `####` required item and a `#####` one each fail STEP 0a; the live stack passes.
-Accept: P-195 closes `repaired` after the rolling verifier.
 
 ### 06-120 Gate 15 checks the stack's stated counts
 
@@ -398,7 +378,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212, P-213, P-214, P-215 once repaired. The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
