@@ -113,6 +113,14 @@ Carried by 0.2.6.
 - **One glossary.** A "Glossary" page defines operation and workflow, session and recording,
   contact and channel, electrode and electrodes table, and trial and epoch; every page uses
   those terms, and the documentation examples name a whole NWB file `session.nwb`.
+- **Every cited method names the result jnwb implements.** `docs/references.md` is one table per
+  topic, each row giving the source, the result implemented and the functions that implement
+  it; a test holds the page and the docstrings to each other in both directions, and every DOI
+  was resolved on 2026-09-23. Docstrings state where jnwb departs from a reference: the
+  `imaginary_coherency` sign convention, `aperiodic_fit` without peak removal, the Morlet
+  cone-of-influence default, the phase-slope jackknife unit, equal-weight multitaper averaging,
+  NaN distance correlation for a constant input, and that `vflip` is not the published vFLIP.
+  The Mitra and Pesaran citation is removed from `compute_multitaper_psd`.
 - **Documentation states what it can support.** The fitted onset is described as moving with
   `tau_ms` on a graded rise rather than as the true takeoff time; the architecture page says the
   wheel installs the operations while documentation and tests live in the repository; the GPU
