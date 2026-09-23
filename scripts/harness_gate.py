@@ -30,6 +30,7 @@ Returns exit code 0 on PASS, 1 on FAIL.
 from __future__ import annotations
 
 import ast
+import itertools
 import os
 import re
 import subprocess
@@ -135,6 +136,11 @@ def _test_job_matrix(workflow_text: str) -> Optional[set]:
     something else. PyYAML is a hard dependency of mkdocs, which this repository already builds
     with, so parsing costs nothing new; the regex fallback exists so a YAML error degrades to the
     previous behaviour rather than to silence.
+
+    The versions returned are those of the legs CI runs: the matrix axes are expanded, every
+    `exclude` entry removes the legs it matches, and every `include` entry adds its version. The
+    `python-version` list alone is what the matrix declares, and an `exclude` can leave one of
+    its versions with no leg at all.
     """
     try:
         import yaml
@@ -143,9 +149,18 @@ def _test_job_matrix(workflow_text: str) -> Optional[set]:
     if yaml is not None:
         try:
             doc = yaml.safe_load(workflow_text)
-            versions = doc["jobs"]["test"]["strategy"]["matrix"]["python-version"]
-            return {str(v) for v in versions}
-        except (yaml.YAMLError, KeyError, TypeError):
+            matrix = doc["jobs"]["test"]["strategy"]["matrix"]
+            axes = {k: v for k, v in matrix.items()
+                    if k not in ("include", "exclude") and isinstance(v, list)}
+            if "python-version" not in axes:
+                return None
+            legs = [dict(zip(axes, combo)) for combo in itertools.product(*axes.values())]
+            for excluded in matrix.get("exclude") or []:
+                legs = [leg for leg in legs
+                        if not all(str(leg.get(k)) == str(v) for k, v in excluded.items())]
+            legs.extend(inc for inc in matrix.get("include") or [] if "python-version" in inc)
+            return {str(leg["python-version"]) for leg in legs}
+        except (yaml.YAMLError, KeyError, TypeError, AttributeError):
             return None
     matrix = re.search(r"python-version:\s*\[([^\]]*)\]", workflow_text)
     return set(re.findall(r'"(\d+\.\d+)"', matrix.group(1))) if matrix else None

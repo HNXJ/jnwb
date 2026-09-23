@@ -44,8 +44,8 @@ barrier above.
 
 | Wave | Items |
 |---|---|
-| W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-86, 06-124, 06-33, 06-123 |
+| W0 | 06-127, 06-99 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-86, 06-124, 06-33, 06-123, 06-137 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -81,55 +81,6 @@ Accept: 18 PASS lines; CI green on every leg; the dispatcher adds the `AGENTS.md
 `CHANGELOG.md` Added entry and the P-33 note; the skill count is ruled (twelve planned, P-180).
 Stop: a file pair under `packages/jnwb-vis/` differs from `jnwb/vis/`.
 
-### 06-122 Verify the repairs of 2026-09-22
-
-Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Covers P-53 and P-57 (gate 17, and `scripts/release_gate.py` STEP 0a for `Answered in`), P-61,
-P-62 (skill half), P-99, P-151 (gate 18), P-165, P-177, P-179, the `t0_bounds_ms` example in
-`skills/jnwb-spiking/SKILL.md`, P-181 (`skills/jnwb/SKILL.md` on `jrsa`), P-170 (the PSI spectrum sign), the open-data example (`09_open_data.py`, its excerpt builder and the clock derivation, `02502805`), P-174 (the journal read before replay, and release STEP 2a running `KNOWN_GAPS` in a detached worktree of HEAD), and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
-One packet per diff. An independent critic already ran mutants against gates 17 and 18 and the
-`jrsa` checks; its receipts are the starting point, not the verdict.
-Do: re-run each discriminator from the diff; show every selector passes pristine before counting a
-failure as a kill.
-Accept: each row's closure carries a receipt the verifier produced, or the verifier reports the
-case that breaks it.
-
-### 06-131 Attack every deferral
-
-Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: none. Writes: none.
-`AGENTS.md` §11 requires a second independent pass over every proposed `DEFERRED`. The 2026-09-22
-reorganization deferred seven items to 0.2.7 and reclassified P-84 and P-162 to `DEFERRED`.
-Do: for each `DEFERRED->0.2.7` row and each item moved to `artifacts/planned_post_0.2.6.md`, answer
-one question with evidence: could this defect make any evidence used to qualify this release
-falsely pass? P-162 first.
-Accept: every deferral is upheld with its answer, or restored to `BLOCKER` and given an item.
-
-### 06-64 Verify the repairs of 2026-09-19
-
-Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The seven repairs landed that day with their author's receipts only: gate 8 classifier versus
-matrix, the `jrsa.py` correction fallback, gates 2 and 4 on nested checkouts, `read_nwb`
-`allow_missing` and the squeeze warning, collect-all gate reporting, the test-provenance scanners,
-and the gate-order tests. P-37 names the shared risk: a proxy mistaken for the invariant.
-Do: re-run each discriminator from the diff, and for each ask whether the new check is the
-invariant or a better-shaped proxy.
-Accept: each claim independently reproduced, or the disagreement stated with its evidence.
-Stop: a repair cannot be verified without changing it.
-
-### 06-83 Verify the gate-2 administrative-entry repair
-
-Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: none. Writes: none.
-P-56. `_is_git_admin_entry` requires a directory holding `HEAD`, or a file whose first line is
-`gitdir:`. Establish whether that is the invariant: a directory holding an empty `HEAD`; a
-`gitdir:` file pointing at a missing path; a real worktree whose admin directory is unreadable;
-and, observed 2026-09-22 on this machine, an admin directory missing `commondir`.
-Accept: P-56 closes `repaired` with the evidence, or re-opens with the breaking case; the
-disposition is handed to the dispatcher.
-
 ### 06-99 Verify the container-type predicate against the corpus
 
 Release: required-0.2.6.
@@ -155,6 +106,17 @@ index verification uses a TestPyPI candidate before publication.
 Do: re-establish every line of the Acceptance section against the live tree; each line names the
 item or check that establishes it, and a line that names neither does not enter the set.
 Accept: the Acceptance section is dated as frozen, and the non-goals are part of it.
+
+### 06-137 Gate 2 asks git whether a nested `.git` is a checkout of this tree
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_gate2_ignores_nested_checkouts.py`.
+P-56. `_is_git_admin_entry` exempts anything shaped like a `.git` entry, so a zero-byte `HEAD`, a `gitdir:` file pointing nowhere, or an unrelated repository hides a duplicate skill tree from gate 2.
+Do: exempt a directory only when `git -C <parent> rev-parse --show-toplevel` is that parent and its `--git-common-dir` resolves to the root's common directory; rewrite the fixtures that write `gitdir: /elsewhere/...` or `gitdir: x` to use a real `git worktree add`.
+Discriminator: the zero-byte `HEAD`, the missing-`gitdir:` file, an unrelated `git init`, and a worktree with `commondir` deleted are each flagged; a real linked worktree is not; the selector passes pristine first.
+Accept: P-56 closes `repaired`.
+Stop: git is unavailable where the gate runs; report it rather than falling back to shape.
 
 ### 06-06 Publish the canonical architecture page
 
@@ -281,7 +243,7 @@ skill row agree with the implementation.
 Release: required-0.2.6.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/__init__.py`, `jnwb/nwb_io.py`, `docs/errors.md`, `tests/test_public_api_reachability.py`, `tests/test_nwb_read_tolerance_and_visibility.py`.
-P-43, P-45, P-46, P-157, P-158. `read_nwb`, `nwb_read_io`, `hdmf_build_repair_context` and
+P-43, P-45, P-46, P-157, P-158, P-202. `read_nwb`, `nwb_read_io`, `hdmf_build_repair_context` and
 `SqueezedAttributeWarning` are outside `__all__`, so the ruled waiver is reachable only through a
 submodule. A soft link to a valid description is refused. Ruled 2026-09-22 (06-67, option (d)):
 `jnwb_waived_requirements` records the waiver that happened on this read; no value changes and no
@@ -291,7 +253,7 @@ Do: export the remedy beside the error; resolve the soft link; document the miss
 link, NUL-byte string), one test per row.
 Discriminator: a caller catching `MissingRequiredNWBFieldError` reaches the waiver without a
 submodule import; the soft-link file opens with its description and no waiver.
-Accept: P-43, P-45, P-46, P-157 and P-158 close.
+Accept: P-43, P-45, P-46, P-157, P-158 and P-202 close; the `nwb_io` docstrings say the waived field reads `""`, and `test_the_opt_in_synthesizes_nothing` asserts `== ""`.
 
 ### 06-114 `compress_fp32` takes an explicit selection
 
@@ -569,7 +531,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-06-122 was dispatched at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). Deferrals to attack with 06-131's question: P-190, P-191, P-192.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -681,11 +643,11 @@ Frozen by 06-05. Each line names what establishes it.
 |---|---|
 | no known material defect under the 0.2.6 acceptance set | 06-34, 06-39 |
 | one canonical scientific model, published and reachable | 06-06, 06-07, 06-30 |
-| every public claim reproduced against the implementation that answers it | 06-17, 06-24, 06-122, 06-64 |
+| every public claim reproduced against the implementation that answers it | 06-17, 06-24, 06-136 |
 | skills route, decline, and are tested against live behaviour | 06-24, 06-25 |
 | cross-surface and compositional audit complete over the declared high-risk set | 06-124, `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` |
 | documentation assets render and are regenerable | 06-29, 06-36 |
-| one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified by 06-122), 06-32 |
+| one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified at `a9993322`; P-199 and P-200 carry its gaps), 06-32 |
 | published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
 | documentation low-verbosity and consistently formed, against a declared contract | 06-51, 06-52, 06-53, 06-119 |
 | one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56, 06-59 |

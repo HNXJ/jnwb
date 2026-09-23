@@ -62,6 +62,23 @@ def test_a_skewed_tested_set_fails(scratch, rel):
     assert any("PYTHON_DOC_CI_SKEW" in v and rel in v for v in violations), violations
 
 
+def test_a_version_every_leg_of_which_is_excluded_is_untested(scratch):
+    """The matrix list still names 3.13; an `exclude` leaves it no leg to run on."""
+    _skew(scratch, ".github/workflows/workflow.yml",
+          "      matrix:\n",
+          "      matrix:\n        exclude:\n          - python-version: \"3.13\"\n")
+    violations = check_python_floor_consistency(scratch)
+    assert any("3.13" in v and ("UNTESTED" in v or "CI_SKEW" in v) for v in violations), violations
+
+
+def test_an_exclude_that_leaves_the_version_a_leg_is_not_a_violation(scratch):
+    _skew(scratch, ".github/workflows/workflow.yml",
+          "      matrix:\n",
+          "      matrix:\n        exclude:\n          - python-version: \"3.13\"\n"
+          "            os: windows-latest\n")
+    assert check_python_floor_consistency(scratch) == []
+
+
 @pytest.mark.parametrize("rel", ["README.md", "docs/install.md"])
 def test_a_surface_that_stops_stating_the_floor_fails(scratch, rel):
     _skew(scratch, rel, "Requires Python **3.12 or newer**", "Requires a recent Python")

@@ -31,7 +31,7 @@ why, so the gaps read as decisions rather than as coverage.
 | `jnwb/__init__.py` | The public API: `__all__` is the authoritative symbol list |
 | `jnwb/` | Library source. `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
 | `tests/` | The suite. Run it before and after a change (§6) |
-| `scripts/harness_gate.py` | Repository gates 1–16 (§6) |
+| `scripts/harness_gate.py` | Repository gates; `GATES` in the script says how many (§6) |
 | `scripts/release_gate.py` | The pre-tag check (§6). `CONTRIBUTING.md` says what it does and when |
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
 | `artifacts/agents.md` | The agent entry page, linked from `README.md` |
@@ -210,7 +210,7 @@ unpushed. Do not cross a version boundary before sealing it.
 | Command | Asserts | A pass means |
 |---|---|---|
 | `python -m pytest tests/ -q` | The full suite | Every test passed on the interpreter you ran |
-| `python scripts/harness_gate.py` | Gates 1–16, in order | `CONTRIBUTING.md` names what each gate checks; `GATES` in the script is the authority for how many there are |
+| `python scripts/harness_gate.py` | Every gate in `GATES`, in order | `CONTRIBUTING.md` names what each gate checks; `GATES` in the script is the authority for how many there are |
 | `python scripts/release_gate.py` | Release readiness | Run before tagging |
 | `python scripts/docs_build.py` | Docs build (strict MkDocs via `sys.executable`) | A warning fails the publish; `CONTRIBUTING.md` says why. Do not call bare `mkdocs`; PATH may point at another interpreter. |
 

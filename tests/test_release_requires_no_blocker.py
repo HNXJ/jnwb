@@ -404,6 +404,25 @@ def test_a_deferred_problem_pointing_at_a_dead_item_fails(tmp_path):
     )
 
 
+@pytest.mark.parametrize("answered", [
+    "07-77",
+    f"{_GOOD_DEFER_REASON}. Claimed by 07-77; 07-70 closed",
+])
+def test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word(
+        tmp_path, answered):
+    """The ownership path had no discriminator: disabling it passed every test here.
+
+    A bare pointer and a `claimed by` phrase are ownership claims, and an owner must be live
+    however the rest of the cell reads. The other-mention path accepts a dead id once the cell
+    says something was retired, so without the ownership path the second cell passes, and the
+    first is reported only as a passing mention rather than as the owner it is.
+    """
+    root = _tree(tmp_path, open_rows=[_row("P-01", _DEFERRED, answered)],
+                 items=[_item("07-01", f"deferred-{NEXT_CYCLE}")])
+    violations = check_release_readiness(root, head=HEAD)
+    assert any("claims owner 07-77" in v for v in violations), violations
+
+
 def test_a_deferred_problem_pointing_at_a_live_item_passes(tmp_path):
     """The other side, so the test above cannot pass by failing every tree.
 
