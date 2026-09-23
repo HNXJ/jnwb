@@ -33,12 +33,19 @@ every other export work, and accessing `jnwb.vis` raises `ImportError` naming
 
 ### GPU and parallel execution
 
-Functions with a `device=` argument (see [Public API](api.md)) accept `'cpu'`, the default, or
-`'cuda'`. `'cuda'` runs on an NVIDIA GPU through [CuPy](https://docs.cupy.dev/en/stable/),
-installed by the `gpu` extra (CUDA 12.x). The device is resolved once per call: if CuPy or a
-GPU is missing, or the GPU run raises, the whole call runs on CPU and a `RuntimeWarning` names
-the function. Results record which device produced them: `device_used` in
-`cross_area_coherence`, `.device` on the `ComplexTFR` from `complex_tfr`.
+Functions with a `device=` argument (see [Public API](api.md)) accept `'cpu'`, the default,
+`'cuda'` and `'metal'`. `'cuda'` runs on an NVIDIA GPU in `complex_tfr`,
+`cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`,
+`harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`,
+`UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`, mostly through
+[CuPy](https://docs.cupy.dev/en/stable/), installed by the `gpu` extra (CUDA 12.x);
+`compute_population_trajectory` uses PyTorch, installed by the `torch` extra. `band_power`,
+`relative_power`, `rdm`, `vflip`, `vflip_from_lfp` and `jrsa` have no GPU path: `'cuda'` warns
+and they compute on the CPU. If the backend or a GPU is missing, or the GPU run raises, the call runs on
+the CPU and a `RuntimeWarning` names the function. Results record which device produced them:
+`.device` on the `ComplexTFR` from `complex_tfr`, `device_used` on the others. `'metal'` runs
+only in `complex_tfr` with `dtype=np.complex64`, through JAX; it is implemented and has not been
+run on Metal hardware. Every other function warns and computes on the CPU.
 
 Functions with an `n_jobs=` argument run independent work items in worker processes through
 [joblib](https://joblib.readthedocs.io/en/stable/). The default is 1 (serial) and -1 uses every

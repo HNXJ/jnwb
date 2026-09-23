@@ -12,10 +12,11 @@ Carried by 0.2.6.
 
 - **`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of
   dataset paths cast to float32, irreversibly (`select=["acquisition/probe_0_lfp/data"]`). A
-  missing path, a group, a dataset that is not floating-point, and `spike_train`
-  or `convolved_spike_train` (always rewritten at their source dtype) are refused before
-  anything is written; naming either of the last two used to leave a "cast to float32" note on
-  a dataset that was never cast. The result gains `cast_paths`, and verification checks exactly
+  missing path, a group, a dataset that is not floating-point, a scalar dataset, a regular
+  `timestamps` array (replaced by `starting_time` and `rate`), and `spike_train` or
+  `convolved_spike_train` (always rewritten at their source dtype) are refused before anything
+  is written; naming any of the last three used to report a float32 cast of a dataset that was
+  never cast or is absent from the output. The result gains `cast_paths`, and verification checks exactly
   those datasets.
 - **`correlate` and `exploratory_correlate` take `method=`.** Keyword-only: `"both"` (the
   default, the same values as before), `"pearson"` or `"spearman"`. Naming one computes only that
@@ -82,6 +83,14 @@ Carried by 0.2.6.
   slice's position (0.5 ms against 82 ms for the last 1000 of 1.6e7 float64). Output is
   byte-identical, and compressed archives are unchanged. A slice that skips part of a stored
   entry no longer verifies its CRC-32; read the whole array to verify the file.
+- **`stream_npz_array` indexes as NumPy does.** An integer index removes its axis:
+  `slice_tuple=(slice(1, 4), -1)` on shape `(5, 6, 7)` returns shape `(3, 7)`, where it returned
+  `(3, 1, 7)`, which broadcast silently against NumPy's result. Code that relied on the kept
+  axis must index with a length-1 slice (`slice(k, k + 1)`) instead. Too many indices and a
+  non-integer scalar index raise `IndexError`, as in NumPy, where they raised `ValueError`; a
+  zero-dimensional array reads with `slice_tuple=()`. Ellipsis, `None`, booleans, arrays and a
+  list, which NumPy reads as other kinds of index, raise `TypeError`; a boolean used to be read
+  as an integer and a list as a tuple.
 - **`imaginary_coherency` is signed like `phase_slope_index`: positive means `x` leads `y`.**
   The cross-spectrum is now `E[X conj(Y)]`, the conjugate of what `scipy.signal.csd` returns,
   on both devices. `icoh_mean` changes sign on every input; `icoh_abs_mean`, `coh_mag_mean` and
@@ -93,7 +102,8 @@ Carried by 0.2.6.
   whatever `how` names; the call used to return that under the other name. It now raises
   `ValueError` naming the per-trial route. `how="ratio_of_means"` on accumulator output, and
   `mean_of_ratios` on per-trial power, are unchanged. The refusal covers `power()`, `mean`, any
-  view of the mean buffer, NumPy function results over them and `tolist()`; values are
+  array sharing memory with the mean buffer (every view, including one reached through
+  `memoryview` or `as_strided`), NumPy function results over them and `tolist()`; values are
   unchanged. A copy NumPy makes without dispatch (`np.array`, assignment into another array)
   and a read back from `write()` carry no mark and are not refused.
 - **`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both
@@ -103,7 +113,7 @@ Carried by 0.2.6.
   still accepted.
 - **`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable
   value.** A frame without one, or with only NaN, None, blank entries or the text of a missing
-  value (`"nan"`, `"None"`, `"n/a"`), used to receive
+  value (`"nan"`, `"None"`, `"n/a"`, `"<NA>"`, `"NaT"`), used to receive
   `is_stable=False` on every unit, a label with no data behind it. The column is now absent in
   that case; the unit quality plot already treats it as optional, and
   `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a

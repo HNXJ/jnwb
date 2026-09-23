@@ -339,7 +339,8 @@ def aggregate_to_db(
             wrong number. It is a guard, not a proof -- an all-positive dB array cannot be
             distinguished from power by inspection, so the contract remains: pass power.
             Also raised for ``how="mean_of_ratios"`` on ``TFRAccumulator`` trial-mean power
-            (``power()``, ``mean``, their views, numpy results and ``tolist()``), which has
+            (``power()``, ``mean``, any array sharing their memory -- a view, including one
+            through ``memoryview`` or ``as_strided`` -- numpy results and ``tolist()``), which has
             already averaged over trials and so can only give a ratio of means. A copy made
             by ``np.array``, by assignment into another array, or read back from
             ``TFRAccumulator.write`` carries no mark and is not refused.
@@ -1560,7 +1561,8 @@ def imaginary_coherency(
         nperseg: Welch/CSD segment length; defaults to ``min(max(N // 8, 8), 1024)``,
             which keeps at least 2 segments so the ratio is identifiable.
         noverlap: defaults to nperseg // 2.
-        device: 'cpu' or 'cuda' (CuPy), mirroring ``band_power``'s dispatch pattern.
+        device: 'cpu' or 'cuda' (CuPy). A GPU failure warns and recomputes on the CPU;
+            ``device_used`` records which ran.
 
     Returns:
         dict with:
@@ -1890,7 +1892,7 @@ def _welch_csd_gpu(
         noverlap = nperseg // 2
     step = nperseg - noverlap
 
-    # 05-45: `harmonic_analysis`, `spectral_tilt` and `band_power` all call this as
+    # `harmonic_analysis` and `spectral_tilt` call this as
     # `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, so half of everything
     # below was a second copy of the first half. Reusing the first half is exact, not
     # an approximation: `y is x` means the two branches transfer the same bytes, gather
@@ -1915,7 +1917,7 @@ def _welch_csd_gpu(
     # a 16384-sample trace at nperseg=256 ran 127 iterations and about 762 kernel
     # launches before `cp.stack`. Launch overhead, not arithmetic, was the cost: the
     # whole call took 26.8 ms against 16.6 ms for the equivalent scipy calls, and even
-    # at nperseg=4096 -- 7 segments, which is what `spectral_tilt`, `band_power` and
+    # at nperseg=4096 -- 7 segments, which is what `spectral_tilt` and
     # `harmonic_analysis` ask for -- 2.6 ms of a 3.2 ms call was the loop, against a
     # fixed floor of 0.62 ms for the transfers, window and FFT together.
     #

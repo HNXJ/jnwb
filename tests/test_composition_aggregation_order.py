@@ -277,13 +277,15 @@ class TestH6AccumulatorToDecibels:
     @pytest.mark.parametrize("form", [
         "mean", "asarray", "asarray_of_mean", "stack", "stack_mean", "tolist", "list_of_rows",
         "asarray_of_row", "asarray_of_slice", "asarray_of_reshape", "asarray_of_transpose",
+        "asarray_of_memoryview", "memoryview", "as_strided", "as_strided_row",
     ])
     def test_every_markable_form_of_accumulator_power_is_refused(self, h6_chain, form):
         """The refusal follows the trial mean through the forms a caller reaches for.
 
         The baseline is a plain per-trial mean, so only the power argument can trigger it.
-        The last four are plain views of a sliced, reshaped or transposed marked view, whose
-        base chain passes through two marked links before it reaches the buffer.
+        Four are plain views of a sliced, reshaped or transposed marked view, whose base chain
+        passes through two marked links before it reaches the buffer. The memoryview and
+        `as_strided` forms share the buffer through a base that is not an ndarray at all.
         """
         acc = h6_chain["acc"]
         same = lambda b: b  # noqa: E731
@@ -299,12 +301,45 @@ class TestH6AccumulatorToDecibels:
             "asarray_of_slice": (lambda: np.asarray(acc.mean[..., 2:6]), lambda b: b[..., 2:6]),
             "asarray_of_reshape": (lambda: np.asarray(acc.mean.reshape(-1)), lambda b: b.reshape(-1)),
             "asarray_of_transpose": (lambda: np.asarray(acc.power().T), lambda b: b.T),
+            "asarray_of_memoryview": (lambda: np.asarray(memoryview(acc.power())), same),
+            "memoryview": (lambda: memoryview(acc.power()), same),
+            "as_strided": (
+                lambda: np.lib.stride_tricks.as_strided(
+                    acc.power(), shape=acc.shape, strides=acc.power().strides
+                ),
+                same,
+            ),
+            "as_strided_row": (
+                lambda: np.lib.stride_tricks.as_strided(
+                    acc.mean[1], shape=acc.shape[1:], strides=acc.mean.strides[1:]
+                ),
+                lambda b: b[1],
+            ),
         }[form]
         power = power()
         baseline = shape_baseline(h6_chain["baseline"].mean(axis=0))
         with pytest.raises(ValueError, match="needs per-trial power"):
             jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=None)
         jnwb.aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=None)
+
+    @pytest.mark.parametrize("form", ["np_array", "assignment", "astype"])
+    def test_a_real_copy_of_accumulator_power_is_not_refused(self, h6_chain, form):
+        """A copy owns new memory, carries no mark, and is accepted, as the docstring says.
+
+        This pins the other side of the refusal: a check that refused every array would pass
+        the refusal tests above.
+        """
+        acc = h6_chain["acc"]
+        if form == "np_array":
+            power = np.array(np.asarray(acc.power()))
+        elif form == "assignment":
+            power = np.empty(acc.shape)
+            power[...] = acc.power()
+        else:
+            power = np.asarray(acc.power()).astype(np.float32)
+        baseline = h6_chain["baseline"].mean(axis=0)
+        out = jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=None)
+        assert np.isfinite(out[h6_chain["interior"]]).all()
 
     def test_the_coi_mask_changes_the_edge_bins_and_leaves_the_interior_identical(self):
         """`add_trial(valid=coi_mask)` is not cosmetic: it removes the edge bins entirely.

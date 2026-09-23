@@ -371,8 +371,10 @@ def test_the_streaming_reader_walks_edge_slices_in_file_order(tmp_path):
     for save in (np.savez, np.savez_compressed):
         path = tmp_path / f"{save.__name__}.npz"
         save(path, a=arr)
-        np.testing.assert_array_equal(jnwb.io.stream_npz_array(path, "a", (-1,)), arr[-1:])
-        np.testing.assert_array_equal(jnwb.io.stream_npz_array(path, "a", (-7,)), arr[:1])
+        for edge in ((-1,), (-7,)):
+            np.testing.assert_array_equal(
+                jnwb.io.stream_npz_array(path, "a", edge), arr[edge], strict=True
+            )
         # An out-of-range integer is an error, as in numpy, not an empty result.
         for bad in ((7,), (-8,), (0, 40)):
             with pytest.raises(IndexError, match="out of bounds"):

@@ -347,8 +347,9 @@ def enrich_units_dataframe(
 
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
     membership in the accepted good labels otherwise -- and is not added when ``units_df``
-    has no ``quality`` column, or one holding only NaN, None or blank strings, because there
-    is nothing to derive it from.
+    has no ``quality`` column, or one holding only NaN, None, blank strings or the text of a
+    missing value (``"nan"``, ``"n/a"``, ``"<NA>"``, ``"NaT"``, ...), because there is
+    nothing to derive it from.
 
     Args:
         units_df: Raw NWB units DataFrame
@@ -446,8 +447,8 @@ def _enrich_units_dataframe(
     # for categorical quality labels, standard accepted good labels are stable.
     quality = df['quality'] if 'quality' in df.columns else None
     # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
-    # one ("nan", "None") rather than a real NaN.
-    _MISSING_TEXT = {"", "nan", "none", "null", "na", "n/a"}
+    # one ("nan", "None", and pandas' own "<NA>" and "NaT") rather than a real NaN.
+    _MISSING_TEXT = {"", "nan", "none", "null", "na", "n/a", "<na>", "nat"}
     if quality is not None and (
         quality.notna() & ~quality.astype(str).str.strip().str.lower().isin(_MISSING_TEXT)
     ).any():

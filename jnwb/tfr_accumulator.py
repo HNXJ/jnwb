@@ -35,9 +35,9 @@ class _TrialAveragedPower(np.ndarray):
     ``TFRAccumulator.power()`` and ``TFRAccumulator.mean`` return the mean as this view so that
     ``aggregate_to_db`` can refuse ``how="mean_of_ratios"`` on it: a ratio of trial means is
     ratio-of-means, whatever the call names. Values are unchanged. The mark survives ufuncs,
-    methods, numpy functions (``np.stack``, ``np.copy``, ...) and ``tolist()``. ``np.asarray``
-    returns a plain view, which :func:`_is_trial_averaged` still recognises through the
-    registered buffer it views. A copy numpy makes without dispatch (``np.array``, a cast in
+    methods, numpy functions (``np.stack``, ``np.copy``, ...) and ``tolist()``. A plain array
+    that shares memory with the registered buffer (``np.asarray``, a view through a
+    ``memoryview`` or ``as_strided``) is still recognised by :func:`_is_trial_averaged`. A copy numpy makes without dispatch (``np.array``, a cast in
     ``np.asarray``, assignment into another array) and a read back from :meth:`write` carry
     no mark.
     """
@@ -57,8 +57,8 @@ class _TrialAveragedList(list):
     """``tolist()`` of trial-averaged power, marked for the same refusal."""
 
 
-# Buffers that hold an accumulator's trial mean, by id. A view's `.base` is the buffer that owns
-# its memory, so every view of a registered buffer is recognised, whatever its type.
+# Buffers that hold an accumulator's trial mean, by id. Any array sharing memory with one is
+# recognised, whatever its type and however it was reached.
 _TRIAL_AVERAGED_BUFFERS: "weakref.WeakValueDictionary[int, np.ndarray]" = (
     weakref.WeakValueDictionary()
 )
@@ -75,19 +75,21 @@ def _is_trial_averaged(obj) -> bool:
     """True for accumulator trial-mean power in any form that can carry a mark."""
     if isinstance(obj, (_TrialAveragedPower, _TrialAveragedList)):
         return True
-    if isinstance(obj, np.ndarray):
-        # NumPy collapses a view's base chain to the owner only while every link is the same
-        # type, so a plain view of a sliced subclass view is three links from the buffer.
-        owner = obj
-        while isinstance(owner.base, np.ndarray):
-            owner = owner.base
-        return _TRIAL_AVERAGED_BUFFERS.get(id(owner)) is owner
     if isinstance(obj, (list, tuple)):
         return any(
             isinstance(item, (np.ndarray, _TrialAveragedList)) and _is_trial_averaged(item)
             for item in obj
         )
-    return False
+    if not isinstance(obj, np.ndarray):
+        try:
+            obj = np.asarray(obj)  # a buffer-protocol object (memoryview, ...) becomes a view
+        except Exception:
+            return False
+    # Memory overlap, not the `.base` chain: a view reached through a memoryview or
+    # `as_strided` has a base that is not an ndarray. `may_share_memory` compares byte bounds,
+    # O(ndim) per buffer, so the check is O(number of live registered buffers). Each registered
+    # buffer owns one contiguous allocation, so bounds overlap means shared memory.
+    return any(np.may_share_memory(obj, buffer) for buffer in list(_TRIAL_AVERAGED_BUFFERS.values()))
 
 
 class TFRAccumulator:

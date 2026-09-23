@@ -791,3 +791,82 @@ class TestTheSelectionIsExplicit:
             from jnwb.compression import CONVOLVED_PATH
 
             convert(src, tmp_path / "c3.nwb", select=[CONVOLVED_PATH])
+
+
+REGULAR_TS = "acquisition/regular/timestamps"
+REDUNDANT_TS = "acquisition/redundant/timestamps"
+IRREGULAR_TS = "acquisition/irregular/timestamps"
+SCALAR = "scratch/scalar"
+
+
+def _file_with_timestamps(path, n=400):
+    """`_selectable_file` plus three timestamps arrays the conversion treats differently -- one
+    it collapses, one it drops beside a matching `starting_time`, one it keeps -- and a scalar
+    float dataset."""
+    _selectable_file(path)
+    rng = np.random.default_rng(5)
+    with h5py.File(path, "a") as f:
+        f.create_dataset(REGULAR_TS, data=np.arange(n) / 1000.0)
+        f.create_dataset(REDUNDANT_TS, data=2.0 + np.arange(n) / 500.0)
+        start = f["acquisition/redundant"].create_dataset("starting_time", data=2.0)
+        start.attrs["rate"] = 500.0
+        f.create_dataset(IRREGULAR_TS, data=np.sort(rng.uniform(0.0, 1.0, n)))
+        f.create_dataset(SCALAR, data=np.float64(1.5))
+    return path
+
+
+class TestASelectionTheConversionDropsIsRefused:
+    """`select=` naming a dataset absent from the output, or one that cannot be cast, is refused
+    before anything is written, like the guarded paths.
+
+    The proxy to avoid: the call raising at all. A raise after the temporary file is created
+    leaves `*.bloated.tmp.nwb` behind, so every refusal also asserts the directory is empty; and
+    the kept timestamps array must still be castable, or refusing every `timestamps` would pass.
+    """
+
+    @pytest.fixture
+    def src(self, tmp_path):
+        return _file_with_timestamps(tmp_path / "ts.nwb")
+
+    @pytest.mark.parametrize("path", [REGULAR_TS, REDUNDANT_TS], ids=["collapsed", "redundant"])
+    @pytest.mark.parametrize("entry", ["compress_fp32", "convert"])
+    def test_a_timestamps_array_the_conversion_drops_is_refused(self, src, tmp_path, path, entry):
+        from jnwb.compression import convert
+
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="starting_time and rate"):
+            if entry == "convert":
+                convert(src, out / "bad.nwb", select=[OTHER, path])
+            else:
+                jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[OTHER, path])
+        assert list(out.iterdir()) == []
+
+    def test_without_the_selection_both_arrays_are_absent_from_the_output(self, src, tmp_path):
+        """The premise of the refusal: the conversion does drop both arrays."""
+        dst = tmp_path / "plain.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=[OTHER])
+        with h5py.File(dst, "r") as d:
+            assert REGULAR_TS not in d and REDUNDANT_TS not in d
+            assert IRREGULAR_TS in d
+        assert [p for p, _ in stats["timestamps_collapsed"]] == [REGULAR_TS]
+        assert [p for p, _ in stats["timestamps_redundant_dropped"]] == [REDUNDANT_TS]
+
+    def test_a_kept_timestamps_array_is_still_cast(self, src, tmp_path):
+        dst = tmp_path / "kept.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=[IRREGULAR_TS])
+        assert stats["cast_paths"] == ["/" + IRREGULAR_TS]
+        assert _cast_notes(dst) == {IRREGULAR_TS: np.dtype(np.float32)}
+
+    @pytest.mark.parametrize("entry", ["compress_fp32", "convert"])
+    def test_a_scalar_dataset_is_refused_before_anything_is_written(self, src, tmp_path, entry):
+        from jnwb.compression import convert
+
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="select= names scratch/scalar, a scalar"):
+            if entry == "convert":
+                convert(src, out / "bad.nwb", select=[SCALAR])
+            else:
+                jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[SCALAR])
+        assert list(out.iterdir()) == []

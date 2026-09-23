@@ -191,6 +191,18 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 f"select= names {rel}, whose dtype {obj.dtype} is not floating; "
                 "select= casts floating-point datasets only"
             )
+        if obj.ndim == 0:
+            raise ValueError(
+                f"select= names {rel}, a scalar (rank-0) dataset; select= casts arrays only"
+            )
+        if rel in _find_timestamp_paths(src) and _timestamps_fate(src, rel, obj)[0] in (
+            "collapsed", "redundant"
+        ):
+            raise ValueError(
+                f"select= names {rel}, a regular timestamps array that the conversion replaces "
+                "with starting_time and rate and drops; it cannot be cast to float32. Remove it "
+                "from select=."
+            )
     return paths
 
 # Every `timestamps` array in the source that is regular gets collapsed. Discovered by scan,
@@ -242,6 +254,30 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
             paths.append(name)
     f.visititems(w)
     return paths
+
+
+def _timestamps_fate(src: h5py.File, ts_path: str, data) -> tuple:
+    """What step 3 of :func:`convert` does with the ``timestamps`` array at ``ts_path``.
+
+    ``("irregular", None)`` and ``("inconsistent", err)`` keep it; ``("collapsed", rate)``
+    replaces it with ``starting_time`` + ``rate``; ``("redundant", err)`` drops it beside an
+    existing ``starting_time`` it agrees with. Decided from the source alone, because step 1
+    copies ``starting_time`` verbatim and ``select=`` cannot reach a scalar.
+    """
+    regular, rate = _is_regular(data)
+    if not regular:
+        return "irregular", None
+    group = src[posixpath.dirname("/" + ts_path) or "/"]
+    if "starting_time" not in group:
+        return "collapsed", rate
+    values = np.asarray(data[:])
+    existing = group["starting_time"]
+    existing_rate = existing.attrs.get("rate")
+    reconstructed = existing[()] + np.arange(len(values)) / existing_rate
+    err = float(np.max(np.abs(reconstructed - values))) if len(values) else 0.0
+    if existing_rate is not None and err < 1e-6:
+        return "redundant", err
+    return "inconsistent", err
 
 
 def _chunk_shape(shape, max_rows: int) -> tuple:
@@ -487,14 +523,9 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> di
         for ts_path in _find_timestamp_paths(src):
             full = "/" + ts_path
             data = src[ts_path][:]
-            regular, rate = _is_regular(data)
             group_path = posixpath.dirname(full) or "/"
             if group_path not in dst:
                 continue
-            if not regular:
-                stats["timestamps_kept_irregular"].append(ts_path)
-                continue
-
             # Some sessions ALREADY carry a
             # starting_time+rate dataset alongside an explicit (redundant) `timestamps` array
             # for the SAME TimeSeries, copied verbatim by Step 1. Creating a new starting_time
@@ -502,17 +533,18 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> di
             # array being collapsed before treating the timestamps array as redundant and
             # dropping it -- do not assume, since a genuine mismatch would mean they encode
             # different things and neither should be silently discarded.
-            if "starting_time" in dst[group_path]:
-                existing = dst[group_path]["starting_time"]
-                existing_rate = existing.attrs.get("rate")
-                reconstructed = existing[()] + np.arange(len(data)) / existing_rate
-                err = float(np.max(np.abs(reconstructed - data))) if len(data) else 0.0
-                if existing_rate is not None and err < 1e-6:
-                    del dst[ts_path]
-                    stats["timestamps_redundant_dropped"].append((ts_path, err))
-                else:
-                    stats["timestamps_inconsistent_kept"].append((ts_path, err))
+            fate, value = _timestamps_fate(src, ts_path, data)
+            if fate == "irregular":
+                stats["timestamps_kept_irregular"].append(ts_path)
                 continue
+            if fate == "redundant":
+                del dst[ts_path]
+                stats["timestamps_redundant_dropped"].append((ts_path, value))
+                continue
+            if fate == "inconsistent":
+                stats["timestamps_inconsistent_kept"].append((ts_path, value))
+                continue
+            rate = value
 
             del dst[ts_path]
             st_ds = dst[group_path].create_dataset("starting_time", data=np.float64(data[0]))
@@ -699,7 +731,9 @@ def compress_fp32(
             rather than silently skipping the affected arrays -- or ``select`` names a path that
             is not in ``src``.
         ValueError: ``select`` names ``spike_train`` or ``convolved_spike_train``, which are
-            always rewritten at their source dtype.
+            always rewritten at their source dtype; a regular ``timestamps`` array, which the
+            conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset.
+            Every ``select`` refusal comes before anything is written.
         TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
             not floating, an integer or boolean one included.
     """

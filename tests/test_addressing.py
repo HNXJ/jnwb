@@ -336,6 +336,7 @@ def test_a_quality_column_with_no_usable_value_adds_no_stability_label():
     """NaN, None, blank strings and the text of a missing value are no quality at all."""
     for quality in (
         [np.nan, np.nan], [None, None], ["", " "], [None, np.nan], ["nan", "None"], ["NaN", "n/a"],
+        ["<NA>", "NaT"], [" <na> ", None],
     ):
         units = pd.DataFrame({"unit_id": [0, 1], "quality": pd.Series(quality, dtype=object)})
         enriched = enrich_units_dataframe(units, None)

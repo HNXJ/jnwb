@@ -24,7 +24,18 @@ JAX's CPU platform and the Metal device itself is unverified.
 
 from __future__ import annotations
 
+# PyTorch is imported at collection, before any test can call into cupy.linalg. On Windows,
+# once CuPy has loaded its cuSPARSE, `import torch` fails to load torch's own
+# (WinError 127), so the PyTorch CUDA check below would pass, skip or fail by whichever test
+# ran first in the worker. `test_pytorch_loads_after_cupy_linalg` holds this.
+try:
+    import torch  # noqa: F401
+except Exception:  # absent, or broken: the fresh-process check below tells the two apart
+    pass
+
+import functools
 import inspect
+import subprocess
 import sys
 import warnings
 from dataclasses import fields, is_dataclass
@@ -188,6 +199,21 @@ def _worst_relative_gap(ref, got):
     return worst
 
 
+@functools.lru_cache(maxsize=None)
+def _torch_has_cuda_in_a_fresh_process() -> bool:
+    """Whether PyTorch reaches a CUDA device in an interpreter nothing else has touched.
+
+    The reference the in-process probe is held to: this process may have loaded CuPy's
+    libraries first, a fresh one has not.
+    """
+    probe = "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 3)"
+    try:
+        done = subprocess.run([sys.executable, "-c", probe], capture_output=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False
+    return done.returncode == 0
+
+
 @pytest.fixture
 def no_cuda(monkeypatch):
     monkeypatch.setattr(backend, "gpu_available", lambda prefer=None: False)
@@ -304,8 +330,14 @@ class TestCudaAgreesWithTheCpu:
 
     @pytest.mark.parametrize("name", CUDA_CAPABLE)
     def test_within_tolerance_and_recorded(self, name):
-        if name == "compute_population_trajectory" and not backend.torch_cuda_available():
-            pytest.skip("its CUDA path is PyTorch's, and PyTorch has no CUDA device here")
+        if name == "compute_population_trajectory":
+            # Its CUDA path is PyTorch's. Skip only when PyTorch has no CUDA device even in a
+            # fresh interpreter; if it has one there, it must have one here.
+            if not _torch_has_cuda_in_a_fresh_process():
+                pytest.skip("PyTorch is absent or reaches no CUDA device, in a fresh process")
+            assert backend.torch_cuda_available(), (
+                "PyTorch reaches CUDA in a fresh process but not in this one"
+            )
         cpu, _ = _runtime_messages(lambda: DEVICE_CALLS[name]("cpu"))
         cuda, messages = _runtime_messages(lambda: DEVICE_CALLS[name]("cuda"))
         assert not [m for m in messages if "device" in m or "GPU" in m], messages
@@ -332,6 +364,57 @@ class TestCudaAgreesWithTheCpu:
         assert got["device_used"] == "cpu"
         assert got["F_1_to_2"] == cpu["F_1_to_2"] and got["F_2_to_1"] == cpu["F_2_to_1"]
         assert got["order_1_to_2"] == cpu["order_1_to_2"]
+
+    def test_pytorch_loads_after_cupy_linalg(self):
+        """After a cupy.linalg call, PyTorch still reaches CUDA wherever a fresh process says it
+        can, so the PyTorch agreement check above runs whatever ran before it."""
+        import cupy
+
+        cupy.linalg.svd(cupy.ones((4, 3)), full_matrices=False)
+        cupy.cuda.Device().synchronize()
+        if not _torch_has_cuda_in_a_fresh_process():
+            pytest.skip("PyTorch is absent or reaches no CUDA device, in a fresh process")
+        assert backend.torch_cuda_available()
+
+
+_DOCS = __import__("pathlib").Path(__file__).resolve().parents[1] / "docs"
+
+
+def _named_exports(text):
+    """The exports in DEVICE_CALLS that `text` names in backticks."""
+    import re
+
+    return {name for name in re.findall(r"`([A-Za-z_.]+)`", text) if name in DEVICE_CALLS}
+
+
+class TestTheDeviceDocumentationMatchesTheCode:
+    """The pages that list which functions reach a GPU name the sets this module measures.
+
+    The proxy to avoid: checking that a stale phrase is gone. Each page's GPU list and its
+    CPU-only list must each equal the set the tests above hold to behaviour, so a function
+    that gains or loses a GPU path fails here until the pages say so.
+    """
+
+    def test_the_install_page(self):
+        text = (_DOCS / "install.md").read_text(encoding="utf-8")
+        section = text.split("### GPU and parallel execution", 1)[1].split("\n\n")[1]
+        sentences = " ".join(section.split()).split(". ")
+        gpu = [s for s in sentences if "runs on an NVIDIA GPU in" in s]
+        cpu = [s for s in sentences if "have no GPU path" in s]
+        assert len(gpu) == 1 and len(cpu) == 1, sentences
+        assert _named_exports(gpu[0]) == set(CUDA_CAPABLE)
+        assert _named_exports(cpu[0]) == CPU_ONLY
+
+    def test_the_operation_specifications(self):
+        text = (_DOCS / "10_operation_specifications.md").read_text(encoding="utf-8")
+        lines = text.splitlines()
+        gpu = [line for line in lines if line.startswith("- **GPU paths**")]
+        cpu = [line for line in lines if line.startswith("- **No GPU path**")]
+        assert len(gpu) == 1 and len(cpu) == 1
+        assert _named_exports(gpu[0]) == set(CUDA_CAPABLE)
+        assert _named_exports(cpu[0]) == CPU_ONLY
+        row = [line for line in lines if line.startswith("| `relative_power` |")]
+        assert len(row) == 1 and "CPU only" in row[0] and "CUDA via" not in row[0], row
 
 
 class TestMetal:

@@ -58,40 +58,43 @@ def _stream_slice(
     seekable: bool = False,
 ) -> np.ndarray:
     """Stream sliced elements from an open .npy stream in monotonic element order."""
-    if isinstance(slice_tuple, (slice, int, np.integer)):
-        slice_tuple = (slice_tuple,)
+    # NumPy validates the index against a zero-stride array of the same shape, which costs no
+    # memory, so every index NumPy rejects raises NumPy's own error (IndexError for too many
+    # indices, an out-of-range integer or a non-integer scalar; ValueError for a zero step).
+    np.broadcast_to(np.empty((), dtype=np.uint8), shape)[slice_tuple]
+    items = slice_tuple if isinstance(slice_tuple, tuple) else (slice_tuple,)
 
     slices = []
-    for s in slice_tuple:
-        if isinstance(s, (int, np.integer)):
-            # slice(-1, 0) is empty; the element at -1 runs to the end.
-            slices.append(slice(int(s), int(s) + 1 if int(s) != -1 else None, 1))
-        elif isinstance(s, slice):
+    for s, dim in zip(items, shape):
+        if isinstance(s, slice):
             slices.append(s)
+        elif isinstance(s, (int, np.integer)) and not isinstance(s, bool):
+            i = int(s) + dim if int(s) < 0 else int(s)
+            slices.append(slice(i, i + 1, 1))
         else:
-            raise TypeError(f"Indices in slice_tuple must be slice or int, got {type(s).__name__}")
-
-    if len(slices) > len(shape):
-        raise ValueError(
-            f"Too many indices for array: array is {len(shape)}-dimensional, but {len(slices)} were indexed"
-        )
-
-
-    for axis, s in enumerate(slice_tuple):
-        if isinstance(s, (int, np.integer)) and not -shape[axis] <= int(s) < shape[axis]:
-            raise IndexError(
-                f"index {int(s)} is out of bounds for axis {axis} with size {shape[axis]}"
+            raise TypeError(
+                "slice_tuple holds integers and slices only; got "
+                f"{type(s).__name__}, which NumPy reads as a different kind of index"
             )
 
     while len(slices) < len(shape):
         slices.append(slice(None))
+    # An integer index removes its axis, as in NumPy; the stream reads it as a length-1 slice.
+    drop_int_axes = tuple(
+        0 if isinstance(s, (int, np.integer)) else slice(None) for s in items
+    )
 
     indices = [s.indices(dim) for s, dim in zip(slices, shape)]
     out_shape = tuple(len(range(*idx)) for idx in indices)
     order = "F" if fortran_order else "C"
 
+    if not shape:
+        buf = bytearray(dtype.itemsize)
+        _read_exact(f, buf)
+        return np.frombuffer(buf, dtype=dtype).reshape(()).copy()
+
     if any(s == 0 for s in out_shape):
-        return np.empty(out_shape, dtype=dtype, order=order)
+        return np.empty(out_shape, dtype=dtype, order=order)[drop_int_axes]
 
     ndim = len(shape)
     if fortran_order:
@@ -181,7 +184,7 @@ def _stream_slice(
             curr_elem += 1
             out[out_idx] = np.frombuffer(item_buf, dtype=dtype)[0]
 
-    return out
+    return out[drop_int_axes]
 
 
 def stream_npz_array(
@@ -205,7 +208,9 @@ def stream_npz_array(
     Args:
         file_path: Path to the .npz archive on disk.
         key: Array key within the archive (with or without '.npy' suffix).
-        slice_tuple: Slice specification for the array (slice, int, or tuple of slices/ints).
+        slice_tuple: A slice, an integer, or a tuple of them, applied as NumPy applies it:
+            ``(slice(1, 4), -1)`` on shape ``(5, 6, 7)`` gives shape ``(3, 7)``, because an
+            integer removes its axis.
 
     Returns:
         np.ndarray: Sliced array with preserved dtype and memory order.
@@ -214,9 +219,13 @@ def stream_npz_array(
     Raises:
         FileNotFoundError: If file_path does not exist on disk.
         KeyError: If key is not present in the NPZ archive.
-        IndexError: If an integer index is out of bounds for its axis, as in NumPy.
+        IndexError: Where NumPy raises it: too many indices, an integer out of bounds for its
+                    axis, or a scalar index that is not an integer.
+        TypeError: For an index NumPy accepts that is not an integer or a slice (``...``,
+                   ``None``, a boolean, an array or a list).
         ValueError: If archive is corrupt, compression method is unsupported,
-                    array format/header is invalid, or layout is unsupported (e.g. object dtype).
+                    array format/header is invalid, or layout is unsupported (e.g. object dtype);
+                    and for a slice step of zero, as in NumPy.
     """
     path = Path(file_path)
     if not path.exists():
@@ -267,7 +276,7 @@ def stream_npz_array(
                     slice_tuple=slice_tuple,
                     seekable=info.compress_type == zipfile.ZIP_STORED and f.seekable(),
                 )
-        except (KeyError, ValueError, IndexError):
+        except (KeyError, ValueError, IndexError, TypeError):
             raise
         except Exception as exc:
             raise ValueError(f"Failed to stream array '{key}' from corrupt archive {path}: {exc}") from exc

@@ -69,7 +69,7 @@ class TestStreamNPZArrayParity:
         np.testing.assert_array_equal(r2, arr[s2])
 
         r3 = stream_npz_array(npz_file, "matrix", slice_tuple=(2,))
-        np.testing.assert_array_equal(r3, arr[2:3, :, :])
+        np.testing.assert_array_equal(r3, arr[2], strict=True)
 
         r4 = stream_npz_array(npz_file, "matrix", slice_tuple=(slice(1, 3),))
         np.testing.assert_array_equal(r4, arr[1:3, :, :])
@@ -132,11 +132,108 @@ class TestStreamNPZErrorConditions:
         with pytest.raises(ValueError, match="Unsupported array layout: object dtype"):
             stream_npz_array(npz_file, "obj_arr")
 
-    def test_too_many_indices_raises_valueerror(self, tmp_path: Path):
+    def test_too_many_indices_raises_indexerror_as_numpy_does(self, tmp_path: Path):
         npz_file = tmp_path / "2d.npz"
         np.savez(npz_file, arr=np.ones((5, 5)))
-        with pytest.raises(ValueError, match="Too many indices"):
+        with pytest.raises(IndexError, match="too many indices"):
             stream_npz_array(npz_file, "arr", slice_tuple=(slice(None), slice(None), slice(None)))
+
+
+NUMPY_SHAPE = (5, 6, 7)
+
+# Indices NumPy accepts, each compared in value, shape and dtype against NumPy itself.
+VALID_INDICES = {
+    "empty-tuple": (),
+    "int-first": (0,),
+    "int-last": (-1,),
+    "int-positive-last": (4,),
+    "slice-then-negative-int": (slice(1, 4), -1),
+    "int-slice-int": (2, slice(None), 3),
+    "all-ints": (-1, -1, -1),
+    "reversed": (slice(None, None, -1),),
+    "slice-past-end": (slice(10, 20),),
+    "clamped-slice-then-int": (slice(-100, 100), 2),
+    "numpy-integer": (np.int64(2),),
+    "bare-int": 3,
+    "bare-slice": slice(1, 3),
+    "reversed-step-then-int": (slice(None), slice(None, None, -2), -7),
+    "int-then-reversed": (1, slice(5, 1, -2)),
+    "empty-slice-then-int": (slice(2, 2), 3),
+}
+
+# Indices NumPy refuses, with the exception NumPy raises for each.
+INVALID_INDICES = {
+    "int-past-end": ((5,), IndexError),
+    "int-before-start": ((-6,), IndexError),
+    "too-many": ((0, 0, 0, 0), IndexError),
+    "float-in-tuple": ((1.0,), IndexError),
+    "int-out-of-range-on-axis-1": ((slice(None), 7), IndexError),
+    "bare-float": (1.5, IndexError),
+    "zero-step": ((slice(None, None, 0),), ValueError),
+}
+
+
+@pytest.fixture(scope="module")
+def numpy_reference_archives(tmp_path_factory):
+    """One array, stored and compressed, in C and Fortran order."""
+    root = tmp_path_factory.mktemp("numpy_indexing")
+    arr = np.arange(np.prod(NUMPY_SHAPE), dtype=np.float64).reshape(NUMPY_SHAPE)
+    archives = []
+    for order in ("C", "F"):
+        data = np.asarray(arr, order=order)
+        for save in (np.savez, np.savez_compressed):
+            path = root / f"{order}_{save.__name__}.npz"
+            save(path, a=data)
+            archives.append((path, data))
+    return archives
+
+
+class TestIndexingFollowsNumPy:
+    """The result of every index is what NumPy returns for it, including which axes remain.
+
+    The proxy to avoid: comparing values alone. `assert_array_equal` without `strict` broadcasts
+    a kept length-1 axis against a dropped one, which is how a kept axis goes unseen.
+    """
+
+    @pytest.mark.parametrize("index", list(VALID_INDICES.values()), ids=list(VALID_INDICES))
+    def test_the_result_is_what_numpy_returns(self, numpy_reference_archives, index):
+        for path, data in numpy_reference_archives:
+            got = stream_npz_array(path, "a", slice_tuple=index)
+            np.testing.assert_array_equal(got, data[index], strict=True, err_msg=str(path))
+
+    @pytest.mark.parametrize(
+        "index, error", list(INVALID_INDICES.values()), ids=list(INVALID_INDICES)
+    )
+    def test_an_index_numpy_refuses_raises_the_error_numpy_raises(
+        self, numpy_reference_archives, index, error
+    ):
+        _, data = numpy_reference_archives[0]
+        with pytest.raises(error):
+            data[index]
+        for path, _ in numpy_reference_archives:
+            with pytest.raises(error):
+                stream_npz_array(path, "a", slice_tuple=index)
+
+    @pytest.mark.parametrize(
+        "index",
+        [(Ellipsis,), (None,), (True,), [1, 2], (np.array([1, 2]),)],
+        ids=["ellipsis", "newaxis", "boolean", "list", "integer-array"],
+    )
+    def test_an_index_kind_it_does_not_stream_is_refused(self, numpy_reference_archives, index):
+        """NumPy reads each of these as something other than integers and slices; answering
+        with the integer reading would return a different array under the same call."""
+        path, _ = numpy_reference_archives[0]
+        with pytest.raises(TypeError, match="integers and slices only"):
+            stream_npz_array(path, "a", slice_tuple=index)
+
+    def test_a_zero_dimensional_array_reads_as_numpy_reads_it(self, tmp_path: Path):
+        path = tmp_path / "scalar.npz"
+        np.savez(path, a=np.float32(2.5))
+        np.testing.assert_array_equal(
+            stream_npz_array(path, "a", slice_tuple=()), np.asarray(np.float32(2.5)), strict=True
+        )
+        with pytest.raises(IndexError):
+            stream_npz_array(path, "a")
 
 
 class TestStreamNPZMemoryBounded:
