@@ -159,3 +159,23 @@ def test_a_stored_entry_shorter_than_its_header_still_fails(tmp_path):
     # Seeking clamps at the end of the entry; without a check this returns uninitialised memory.
     with pytest.raises(ValueError, match="corrupt"):
         jnwb.io.stream_npz_array(path, "a", (slice(900, 1000),))
+    # A read that runs off the end fails too, rather than leaving the rest of the output unset.
+    with pytest.raises(ValueError, match="corrupt"):
+        jnwb.io.stream_npz_array(path, "a", (slice(50, 1000),))
+
+
+def test_the_streaming_reader_walks_edge_slices_in_file_order(tmp_path):
+    """The reader moves forward only, so every slice has to be put into file order first."""
+    import numpy as np
+
+    import jnwb.io
+
+    arr = np.arange(7 * 40 * 33, dtype=np.int32).reshape(7, 40, 33)
+    for save in (np.savez, np.savez_compressed):
+        path = tmp_path / f"{save.__name__}.npz"
+        save(path, a=arr)
+        np.testing.assert_array_equal(jnwb.io.stream_npz_array(path, "a", (-1,)), arr[-1:])
+        reversed_outer = (slice(None, None, -1), slice(None, None, -3))
+        np.testing.assert_array_equal(
+            jnwb.io.stream_npz_array(path, "a", reversed_outer), arr[reversed_outer]
+        )

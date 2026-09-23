@@ -31,6 +31,12 @@ def _read_skip(f, n_bytes: int, chunk_size: int = 65536) -> None:
         n_bytes -= n_read
 
 
+def _read_exact(f, buf) -> None:
+    """Fill buf from the stream, failing if the entry ends first rather than leaving it unset."""
+    if f.readinto(buf) != memoryview(buf).nbytes:
+        raise EOFError("Unexpected EOF while streaming NPZ archive entry")
+
+
 def _seek_skip(f, n_bytes: int) -> None:
     """Advance a stored (uncompressed) archive entry by n_bytes without reading them.
 
@@ -58,7 +64,8 @@ def _stream_slice(
     slices = []
     for s in slice_tuple:
         if isinstance(s, (int, np.integer)):
-            slices.append(slice(int(s), int(s) + 1, 1))
+            # slice(-1, 0) is empty; the element at -1 runs to the end.
+            slices.append(slice(int(s), int(s) + 1 if int(s) != -1 else None, 1))
         elif isinstance(s, slice):
             slices.append(s)
         else:
@@ -125,7 +132,9 @@ def _stream_slice(
         # To preserve monotonic forward streaming, sort other_axes by descending stride so that
         # the dimension with smallest stride varies in the innermost loop of itertools.product.
         other_axes.sort(key=lambda ax: elem_strides[ax], reverse=True)
-        other_ranges = [ranges[ax] for ax in other_axes]
+        # Each outer axis is walked in ascending element order; a negative step is walked
+        # reversed and written to its output position, which the index below computes.
+        other_ranges = [ranges[ax] if ranges[ax].step > 0 else ranges[ax][::-1] for ax in other_axes]
         other_strides = [elem_strides[ax] for ax in other_axes]
 
         for outer_coords in itertools.product(*other_ranges):
@@ -145,10 +154,10 @@ def _stream_slice(
 
             dest_sub = out[tuple(out_slice)]
             if dest_sub.flags.c_contiguous or dest_sub.flags.f_contiguous:
-                f.readinto(dest_sub.data)
+                _read_exact(f, dest_sub.data)
             else:
                 buf = bytearray(block_bytes)
-                f.readinto(buf)
+                _read_exact(f, buf)
                 out[tuple(out_slice)] = np.frombuffer(buf, dtype=dtype)
             curr_elem += block_len
     else:
@@ -162,7 +171,7 @@ def _stream_slice(
         mv_item = memoryview(item_buf)
         for elem_offset, out_idx in flat_tasks:
             forward_to_elem(elem_offset)
-            f.readinto(mv_item)
+            _read_exact(f, mv_item)
             curr_elem += 1
             out[out_idx] = np.frombuffer(item_buf, dtype=dtype)[0]
 
