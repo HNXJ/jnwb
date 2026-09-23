@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+import pytest
 
 from jnwb.addressing import (
     map_peak_channel_to_area,
@@ -341,6 +342,27 @@ def test_a_quality_column_with_no_usable_value_adds_no_stability_label():
         units = pd.DataFrame({"unit_id": [0, 1], "quality": pd.Series(quality, dtype=object)})
         enriched = enrich_units_dataframe(units, None)
         assert "is_stable" not in enriched.columns, quality
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["#N/A", "#N/A N/A", "#NA", "-nan", "-NaN", "1.#IND", "-1.#IND", "1.#QNAN", "-1.#QNAN"],
+)
+def test_every_string_pandas_reads_as_missing_adds_no_stability_label(text):
+    """Strings `pandas.read_csv` turns into NaN by default are missing here too, not a label
+    that is never good."""
+    units = pd.DataFrame({"unit_id": [0, 1], "quality": pd.Series([text, None], dtype=object)})
+    assert "is_stable" not in enrich_units_dataframe(units, None).columns
+
+
+def test_the_copied_missing_strings_match_the_installed_pandas():
+    """The copy used when pandas moves its private name must not lag the real set."""
+    parsers = pytest.importorskip("pandas._libs.parsers")
+    if not hasattr(parsers, "STR_NA_VALUES"):
+        pytest.skip("this pandas does not expose STR_NA_VALUES")
+    from jnwb.addressing import _PANDAS_NA_FALLBACK
+
+    assert set(parsers.STR_NA_VALUES) <= _PANDAS_NA_FALLBACK
 
 
 def test_enrich_units_dataframe_no_fabricated_probeA():

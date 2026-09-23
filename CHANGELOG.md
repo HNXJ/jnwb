@@ -114,7 +114,8 @@ Carried by 0.2.6.
   still accepted.
 - **`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable
   value.** A frame without one, or with only NaN, None, blank entries or the text of a missing
-  value (`"nan"`, `"None"`, `"n/a"`, `"<NA>"`, `"NaT"`), used to receive
+  value (any string `pandas.read_csv` reads as missing by default, such as `"nan"`, `"n/a"`,
+  `"#N/A"` or `"-1.#IND"`, or `"NaT"`), used to receive
   `is_stable=False` on every unit, a label with no data behind it. The column is now absent in
   that case; the unit quality plot already treats it as optional, and
   `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a

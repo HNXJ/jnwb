@@ -16,6 +16,20 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
+# The strings pandas' own readers parse as missing by default. The set is a private pandas name,
+# so the copy below, taken from pandas 3.0.5, stands in if it moves.
+_PANDAS_NA_FALLBACK = frozenset({
+    "", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
+    "<NA>", "N/A", "NA", "NULL", "NaN", "None", "n/a", "nan", "null",
+})
+try:
+    from pandas._libs.parsers import STR_NA_VALUES as _PANDAS_NA_STRINGS
+except ImportError:
+    _PANDAS_NA_STRINGS = _PANDAS_NA_FALLBACK
+
+# Compared after strip() and lower(); "nat" is how a missing datetime prints.
+_MISSING_TEXT = frozenset(s.lower() for s in _PANDAS_NA_STRINGS) | {"nat"}
+
 
 def parse_probe_areas(label: str) -> tuple:
     """Split a multi-area probe label into ordered area names.
@@ -348,8 +362,10 @@ def enrich_units_dataframe(
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
     membership in the accepted good labels otherwise -- and is not added when ``units_df``
     has no ``quality`` column, or one holding only NaN, None, blank strings or the text of a
-    missing value (``"nan"``, ``"n/a"``, ``"<NA>"``, ``"NaT"``, ...), because there is
-    nothing to derive it from.
+    missing value, because there is nothing to derive it from. The text of a missing value is
+    any string ``pandas.read_csv`` reads as missing by default (``"nan"``, ``"n/a"``, ``"<NA>"``,
+    ``"#N/A"``, ``"-1.#IND"``, ...) or ``"NaT"``, compared case-insensitively after stripping
+    whitespace.
 
     Args:
         units_df: Raw NWB units DataFrame
@@ -447,8 +463,7 @@ def _enrich_units_dataframe(
     # for categorical quality labels, standard accepted good labels are stable.
     quality = df['quality'] if 'quality' in df.columns else None
     # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
-    # one ("nan", "None", and pandas' own "<NA>" and "NaT") rather than a real NaN.
-    _MISSING_TEXT = {"", "nan", "none", "null", "na", "n/a", "<na>", "nat"}
+    # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
     if quality is not None and (
         quality.notna() & ~quality.astype(str).str.strip().str.lower().isin(_MISSING_TEXT)
     ).any():
