@@ -918,6 +918,41 @@ def run_cmd(cmd: list[str], cwd: pathlib.Path = REPO_ROOT) -> None:
         log.info(res.stdout.strip())
 
 
+def _remove_tree(path: pathlib.Path) -> None:
+    """Delete a directory whose files git may have marked read-only."""
+    def _writable_then_retry(func, target, _exc):
+        os.chmod(target, 0o700)
+        func(target)
+    shutil.rmtree(path, onexc=_writable_then_retry)
+
+
+def check_known_gaps_hold(root: pathlib.Path = REPO_ROOT,
+                          runner=subprocess.run) -> Tuple[bool, str]:
+    """Run the recorded mutation gaps against HEAD in a throwaway worktree.
+
+    A gap that has closed is an UNEXPECTED-KILL, which the harness reports as a failed run; so
+    does a gap whose anchor has moved. Either way the record says something that is no longer
+    true, and the release waits until it is corrected. The mutation happens in a detached
+    worktree of HEAD, never in this checkout, because a mutant here is visible to anything else
+    reading the tree.
+    """
+    scratch = pathlib.Path(tempfile.mkdtemp(prefix="jnwb-known-gaps-"))
+    tree = scratch / "tree"
+    add = runner(["git", "worktree", "add", "--detach", str(tree), "HEAD"],
+                 cwd=str(root), capture_output=True, text=True)
+    if add.returncode != 0:
+        _remove_tree(scratch)
+        return False, f"could not create a worktree of HEAD: {add.stderr.strip()}"
+    try:
+        res = runner([sys.executable, str(tree / "scripts" / "mutation_harness.py"),
+                      "--known-gaps", "--worktree", str(tree)],
+                     cwd=str(tree), capture_output=True, text=True)
+        return res.returncode == 0, (res.stdout + res.stderr).strip()
+    finally:
+        _remove_tree(scratch)
+        runner(["git", "worktree", "prune"], cwd=str(root), capture_output=True, text=True)
+
+
 def _api_md_check_commands() -> List[List[str]]:
     """Return generate_api_md --check commands for the current and floor interpreters."""
     api_script = str(REPO_ROOT / "scripts" / "generate_api_md.py")
@@ -1340,6 +1375,13 @@ def main() -> None:
 
     log.info("=== STEP 2: Running harness pre-flight verification gate ===")
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])
+
+    log.info("=== STEP 2a: Recorded mutation gaps still hold at HEAD ===")
+    gaps_hold, gaps_report = check_known_gaps_hold()
+    log.info(gaps_report)
+    if not gaps_hold:
+        log.error("A recorded mutation gap no longer matches the measurement; update KNOWN_GAPS.")
+        sys.exit(1)
 
     for cmd in _api_md_check_commands():
         label = "current interpreter" if cmd[0] == sys.executable else "Python 3.12 floor"

@@ -776,6 +776,10 @@ class MutationSession:
             _posix_relative(p) for p in declared_modifications
         )
         self.tree_statement: TreeStatement | None = None
+        #: The journal as the session found it. Read before the replay, because the replay
+        #: rewrites the journal as ``[]`` and would turn "there was no journal" into "present,
+        #: nothing outstanding" in the statement of the tree.
+        self.journal_at_entry: JournalState | None = None
         self._lock_handle = None
 
     # -- lifecycle -------------------------------------------------------------------------
@@ -786,6 +790,7 @@ class MutationSession:
         try:
             # Replay first: a mutant this harness opened and was killed holding is *this*
             # session's to restore, and would otherwise be reported as somebody's surprise.
+            self.journal_at_entry = self.read_journal()
             self.replay_journal()
             self.tree_statement = self.state_tree()
             self.entry_status = self._porcelain()
@@ -979,7 +984,9 @@ class MutationSession:
             head=head.stdout.strip() if head.returncode == 0 else "unknown",
             tracked_modifications=tracked,
             declared=self.declared_modifications,
-            journal=self.read_journal(),
+            journal=(
+                self.journal_at_entry if self.journal_at_entry is not None else self.read_journal()
+            ),
         )
         if statement.undeclared:
             raise ConditionFailed(
@@ -1201,7 +1208,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    parser.add_argument("cases", type=Path, help="JSON file of mutation cases")
+    parser.add_argument("cases", type=Path, nargs="?", help="JSON file of mutation cases")
+    parser.add_argument(
+        "--known-gaps",
+        action="store_true",
+        help="run the recorded KNOWN_GAPS instead of a case file. A gap that has closed is an "
+        "UNEXPECTED-KILL and fails the run, so the record cannot go on claiming a gap that is gone.",
+    )
     parser.add_argument(
         "--worktree",
         type=Path,
@@ -1218,6 +1231,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "refuses the run: a mutant that suppresses a check cannot be caught by that check.",
     )
     args = parser.parse_args(argv)
+    if args.known_gaps == (args.cases is not None):
+        parser.error("give exactly one of a case file or --known-gaps")
+    cases = list(KNOWN_GAPS) if args.known_gaps else load_cases(args.cases)
 
     worktree = resolve_worktree(args.worktree)
     try:
@@ -1225,7 +1241,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             # Stated before the cases run, so a refusal further down is still attributable to a
             # named tree rather than to whatever the checkout happened to hold.
             print(session.tree_statement.describe() if session.tree_statement else "tree: unknown")
-            report = session.run_suite(load_cases(args.cases))
+            report = session.run_suite(cases)
     except MutationHarnessError as exc:
         print(f"REFUSED: {exc}")
         return 2

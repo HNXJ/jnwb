@@ -1206,3 +1206,58 @@ def test_the_conditions_are_declared_in_enforcement_order() -> None:
         "restore-byte-exact",
         "run-digest-clean",
     )
+
+
+def test_main_reports_a_missing_journal_as_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Through the command line, not the session object: the replay rewrote the journal as
+    ``[]`` before the tree was stated, so a first run printed "present, nothing outstanding"."""
+    import scripts.mutation_harness as harness
+
+    repo = _write_fixture_repo(tmp_path / "first_run")
+    monkeypatch.setattr(harness, "default_state_root", lambda: tmp_path / "state")
+    assert not state_dir_for(repo, tmp_path / "state").exists()
+    case = _case()
+    cases = tmp_path / "cases.json"
+    cases.write_text(json.dumps([{
+        "name": case.name, "path": case.path, "original": case.original,
+        "replacement": case.replacement, "selector": list(case.selector),
+        "must_fail": list(case.must_fail), "semantic_property": case.semantic_property,
+    }]), encoding="utf-8")
+
+    assert harness.main([str(cases), "--worktree", str(repo)]) == 0
+    out = capsys.readouterr().out
+    assert "journal: UNKNOWN (no journal file)" in out, out
+    assert "present, nothing outstanding" not in out, out
+
+
+def test_the_release_step_fails_when_the_gap_run_fails(tmp_path: Path) -> None:
+    """The recorded gaps are run by the release, so a gap that closed stops it (06-113)."""
+    from scripts.release_gate import check_known_gaps_hold
+
+    calls: list[list[str]] = []
+
+    def runner(harness_rc: int):
+        def run(cmd, **_kwargs):
+            calls.append(list(cmd))
+            rc = harness_rc if "--known-gaps" in cmd else 0
+            if cmd[:3] == ["git", "worktree", "add"]:
+                Path(cmd[4]).mkdir(parents=True)
+            return subprocess.CompletedProcess(cmd, rc, "UNEXPECTED-KILL x" if rc else "", "")
+        return run
+
+    ok, report = check_known_gaps_hold(tmp_path, runner=runner(1))
+    assert ok is False and "UNEXPECTED-KILL" in report
+    assert any("--known-gaps" in c and "--worktree" in c for c in calls)
+    assert calls[-1] == ["git", "worktree", "prune"], "the throwaway worktree must be pruned"
+    calls.clear()
+    assert check_known_gaps_hold(tmp_path, runner=runner(0))[0] is True
+
+
+def test_the_known_gaps_mode_needs_no_case_file() -> None:
+    """``--known-gaps`` and a case file are exclusive, so the release cannot run neither."""
+    import scripts.mutation_harness as harness
+
+    with pytest.raises(SystemExit):
+        harness.main(["--worktree", str(REPO_ROOT)])

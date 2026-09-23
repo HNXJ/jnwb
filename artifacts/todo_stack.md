@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-113, 06-105, 06-86, 06-124, 06-33, 06-123 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120 |
 | W3 | 06-118, 06-30, 06-31 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -86,7 +86,7 @@ Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
 Covers P-53 and P-57 (gate 17, and `scripts/release_gate.py` STEP 0a for `Answered in`), P-61,
 P-62 (skill half), P-99, P-151 (gate 18), P-165, P-177, P-179, the `t0_bounds_ms` example in
-`skills/jnwb-spiking/SKILL.md`, P-181 (`skills/jnwb/SKILL.md` on `jrsa`), P-170 (the PSI spectrum sign), and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
+`skills/jnwb-spiking/SKILL.md`, P-181 (`skills/jnwb/SKILL.md` on `jrsa`), P-170 (the PSI spectrum sign), P-174 (the journal read before replay, and release STEP 2a running `KNOWN_GAPS` in a detached worktree of HEAD), and the 06-95 docstring scope (P-110, cherry-picked as `917352fe`).
 One packet per diff. An independent critic already ran mutants against gates 17 and 18 and the
 `jrsa` checks; its receipts are the starting point, not the verdict.
 Do: re-run each discriminator from the diff; show every selector passes pristine before counting a
@@ -193,21 +193,6 @@ without testing anything; and the `patch.dict(sys.modules)` detector misses the 
 form and aliased imports.
 Accept: P-12 closes `repaired`, with the torch-absent case stated as skipped with a reason or
 exercised, and the detector covers both missed forms.
-
-### 06-113 A mutation run states the tree it ran against
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/mutation_harness.py`, `tests/test_mutation_harness_validity.py`, `scripts/release_gate.py`.
-P-174, landed in `b541bb33` except for two defects the critic observed. A missing journal is
-reported "present, nothing outstanding" through the session path, because `__enter__` replays
-and rewrites the journal before `state_tree()` reads it. And `KNOWN_GAPS` (expected survivors)
-is run by nothing: no CI job, release step or test executes it, so closing a gap fails nothing.
-Discriminator: a first run with no journal reports it as absent through `main()`; a known gap
-that starts being killed fails the release step.
-Accept: both defects repaired; P-174 closes.
-Stop: the release step would need to run a mutation harness over the main tree while another
-writer holds it.
 
 ### 06-105 Gate 8 reads every surface the goal names
 
