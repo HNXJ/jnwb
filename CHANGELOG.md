@@ -26,6 +26,14 @@ Carried by 0.2.6.
 - **Exploratory results say they are uncorrected.** `StatisticalAnalysis.exploratory_compare`
   and `exploratory_multi` results carry `correction: "none"`. Their p-values were already raw;
   the key states it in the result itself. Corrected values stay on `confirmatory_compare`.
+- **A read can waive a missing `session_description`, reachable from `import jnwb`.**
+  `jnwb.read_nwb(path, allow_missing=("session_description",))` opens a file that
+  `MissingRequiredNWBFieldError` refuses by default; the field reads `""`, and
+  `nwbfile.jnwb_waived_requirements` is `("session_description",)` only when the waiver was
+  used. A file that has the field reads `()` whatever `allow_missing` says. `jnwb.nwb_read_io`
+  takes the same `allow_missing` and keeps the file open for reading data.
+  `jnwb.SqueezedAttributeWarning` is exported so a repaired read can be caught by name.
+  `docs/errors.md` tabulates what a read returns for each on-disk state of the field.
 
 ### Changed
 
@@ -58,6 +66,8 @@ Carried by 0.2.6.
   used to fit a model with no history and return zero causality in both directions, which read
   as no coupling; `2.5` was truncated to `2` and `True` read as `1`. An integral float such as
   `3.0` is still accepted.
+- **A `session_description` stored as a soft or external link to a valid dataset is read
+  through** instead of raising `MissingRequiredNWBFieldError`, matching pynwb.
 - **An atlas layer label is one location.** `parse_probe_areas` and
   `map_peak_channel_to_area` read every `/` as a boundary between two areas, so the label
   `VISpm2/3` became the areas `VISpm2` and `3`, and a unit on that electrode was reported in

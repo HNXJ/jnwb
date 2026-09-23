@@ -70,10 +70,10 @@ class TestEveryErrorClassIsExplained:
         page = (DOCS / "errors.md").read_text(encoding="utf-8")
         assert _mentions(page, name)
 
-    def test_there_are_twelve_of_them(self):
+    def test_there_are_thirteen_of_them(self):
         """A count that fails when an error class is added without a paragraph. If this
         fails, add the class to docs/errors.md and change the number here."""
-        assert len(_exported_errors()) == 12, _exported_errors()
+        assert len(_exported_errors()) == 13, _exported_errors()
 
     def test_both_base_classes_are_named_so_a_caller_can_catch_a_family(self):
         page = (DOCS / "errors.md").read_text(encoding="utf-8")

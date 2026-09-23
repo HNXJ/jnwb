@@ -26,6 +26,14 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
   calibrated by `conversion` and `offset`).
+- `jnwb.read_nwb(path, allow_missing=None)`: Reads an NWB file through jnwb's repairs and closes
+  it, so read data arrays through `nwb_read_io`. A file missing `session_description` raises
+  `MissingRequiredNWBFieldError`; `allow_missing=("session_description",)` opens it with the field
+  `""`, and `nwbfile.jnwb_waived_requirements` is `("session_description",)` only when the waiver
+  was used.
+- `jnwb.nwb_read_io(path, mode="r", allow_missing=None)`: Context manager yielding the open
+  `NWBHDF5IO`; call `io.read()` and read data inside the block. Same `allow_missing` and waiver
+  record as `read_nwb`.
 - `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
   epochs from continuous signals aligned to event onsets.
 

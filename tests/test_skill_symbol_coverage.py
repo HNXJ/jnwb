@@ -41,6 +41,7 @@ ERRORS = [
     "MissingRequiredNWBFieldError",
     "NWBEventError",
     "NWBInspectError",
+    "SqueezedAttributeWarning",
     "UnitNotFoundError",
 ]
 

@@ -60,7 +60,7 @@ class SqueezedAttributeWarning(UserWarning):
 class ContainerTypeContradictionWarning(UserWarning):
     """A container's declared ``neurodata_type`` disagrees with what the file stores under it.
 
-    Ruled 2026-09-20 (06-84): jnwb reports the contradiction and reads the container unchanged.
+    Ruled 2026-09-20: jnwb reports the contradiction and reads the container unchanged.
     Refusing would make jnwb the arbiter of a corpus's metadata, against the dataset-agnostic
     rule, and would make a measured 9 of 22 real sessions unreadable without an override.
     Staying silent would let a container declared ``ElectricalSeries`` hand back an int16 array
@@ -86,7 +86,7 @@ class MissingRequiredNWBFieldError(Exception):
 
 #: Attributes the NWB schema specifies as sequences. A length-1 value of one of these is
 #: a one-element list, not a scalar that happens to be wrapped, so the repair below must
-#: leave it alone. 05-37: a units table with a single column carries
+#: leave it alone. A units table with a single column carries
 #: ``colnames = array(['spike_times'])``; collapsing that to the string ``'spike_times'``
 #: made the next ``list(...)`` spell it out, one character per column, and every jnwb
 #: entry point died on a file plain pynwb reads without complaint.

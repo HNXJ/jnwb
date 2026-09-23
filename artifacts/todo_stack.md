@@ -46,7 +46,7 @@ barrier above.
 |---|---|
 | W0 | 06-127 |
 | W1 |  |
-| W2 | 06-07, 06-82, 06-114, 06-115, 06-135 |
+| W2 | 06-07, 06-114, 06-115, 06-135 |
 | W3 | 06-118, 06-30, 06-120 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
@@ -110,23 +110,6 @@ researcher-through-AI chain; the public identity does not require an agent; no m
 describes skills as an implementation authority.
 Discriminator: reinsert the chain into a maintained page, or drop the nav entry; the test fails.
 Accept: behaviour-shaped assertions only; a whole-prose snapshot fails this item.
-
-### 06-82 Reach the waiver from the public API
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/__init__.py`, `jnwb/nwb_io.py`, `docs/errors.md`, `tests/test_public_api_reachability.py`, `tests/test_nwb_read_tolerance_and_visibility.py`.
-P-43, P-45, P-46, P-157, P-158, P-202. `read_nwb`, `nwb_read_io`, `hdmf_build_repair_context` and
-`SqueezedAttributeWarning` are outside `__all__`, so the ruled waiver is reachable only through a
-submodule. A soft link to a valid description is refused. Ruled 2026-09-22 (06-67, option (d)):
-`jnwb_waived_requirements` records the waiver that happened on this read; no value changes and no
-read starts or stops failing.
-Do: export the remedy beside the error; resolve the soft link; document the missingness table in
-`docs/errors.md` with the three integrity states P-45 names (dangling soft link, broken external
-link, NUL-byte string), one test per row.
-Discriminator: a caller catching `MissingRequiredNWBFieldError` reaches the waiver without a
-submodule import; the soft-link file opens with its description and no waiver.
-Accept: P-43, P-45, P-46, P-157, P-158 and P-202 close; the `nwb_io` docstrings say the waived field reads `""`, and `test_the_opt_in_synthesizes_nothing` asserts `== ""`.
 
 ### 06-114 `compress_fp32` takes an explicit selection
 
@@ -213,7 +196,7 @@ a tolerance wide enough to accept a changed figure.
 ### 06-24 Skill routing against live behaviour
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: per skill. Blocked by: 06-82, 06-114, 06-118.
+Role: jnwb-developer. Skill: per skill. Blocked by: 06-114, 06-118.
 Writes: `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
 One packet per skill. Every routing row: the callable exists, the signature matches, the return
 type and keys match, units match, failure behaviour matches, including conditional return
@@ -378,7 +361,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). P-43, P-45, P-46, P-157, P-158, P-202 (the waiver export at `8f78c37a`: `tests/test_public_api_reachability.py` and the `test_missingness_row_*` tests; judge the exclusion of `hdmf_build_repair_context` and the ten-row table against the six-state ruling). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -499,7 +482,7 @@ Frozen 2026-09-23 (06-05, closed), each line re-established against the live tre
 | documentation low-verbosity and consistently formed, against a declared contract | 06-51, 06-52, 06-53, 06-119 |
 | one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56, 06-59 |
 | every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
-| a read invents no metadata, and a named waiver is recorded as it happened | 06-82, `tests/test_nwb_read_tolerance_and_visibility.py` |
+| a read invents no metadata, and a named waiver is recorded as it happened | `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_public_api_reachability.py` |
 | `jnwb.vis` is an optional extra and `import jnwb` works without it | `tests/test_optional_vis_extra.py`, 06-37 |
 | suite wall time and the slowest tests measured before release | 06-121 |
 | no release-blocking problem and no required item remaining, confirmed by a blocker-focused pass | 06-60, `scripts/release_gate.py` STEP 0a |
