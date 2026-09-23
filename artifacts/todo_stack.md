@@ -54,7 +54,7 @@ barrier above.
 | W7 | 06-142, 06-129 |
 | W8 |  |
 | W9 |  |
-| W10 | 06-53 |
+| W10 |  |
 | Rolling | 06-136, re-dispatched at each wave barrier over the repairs landed since its last run |
 | Closure | 06-34, then 06-35 06-36 06-37 in any order, then 06-38, 06-39, 06-60, 06-130, 06-40 |
 
@@ -110,16 +110,6 @@ Stop: an identifier carries meaning a reader of the library needs; state the mea
 
 ## W9-W10. Documentation form
 
-### 06-53 Gate the documentation form
-
-Release: required-0.2.6.
-Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`.
-Vocabulary list, heading depth, nav shape, figure theme-independence, and a table where a page
-states more than two comparable facts in prose.
-Accept: every check fails on its own seeded violation and passes on the live tree; a rule that
-cannot be a check is recorded in the contract as a review item.
-
 ## Any wave. Confirmed findings
 
 ## Rolling verification
@@ -128,7 +118,7 @@ cannot be a check is recorded in the contract as a review item.
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. Current list: P-93 (on its own). P-114, P-104, P-239, P-272, P-261, P-215, P-243, P-273 (06-142). The four skill-routing mutants H03/H05 are P-279. The value repairs (06-141, now closed): P-250..P-253 and P-262 at `fef0d29b`, `785ff078`, `53ebda76`, `ec0ab24f` and `14ed1eb2`, including the NaN `df` ruling. The contract gate (06-59, now closed; `b524e5bf`) and P-263 (`a0fb1b5e`): seed each check's violation against the live tree. The findings answered by 06-17 (now closed; `6497ce5c`): the three repairs and their discriminators, and each of the ten `unsupported` answers against the line it cites (P-02). P-271 (`b7827b89`).
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. Current list: P-93 (on its own). P-114, P-104, P-239, P-272, P-261, P-215, P-243, P-273 (06-142). The four skill-routing mutants H03/H05 are P-279. The value repairs (06-141, now closed): P-250..P-253 and P-262 at `fef0d29b`, `785ff078`, `53ebda76`, `ec0ab24f` and `14ed1eb2`, including the NaN `df` ruling. The contract gate (06-59, now closed; `b524e5bf`) and P-263 (`a0fb1b5e`): seed each check's violation against the live tree. The findings answered by 06-17 (now closed; `6497ce5c`): the three repairs and their discriminators, and each of the ten `unsupported` answers against the line it cites (P-02). P-271 (`b7827b89`). The documentation form gate (06-53, now closed; `b98db071`): each of its five checks against a seeded page, and the F2 detector's stated limits.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -137,7 +127,7 @@ Accept: each listed row carries a receipt the verifier produced, or the breaking
 ### 06-34 Adversarial mutation pass
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-53, 06-129, 06-136, 06-142. Writes: none.
+Role: critic. Skill: none. Blocked by: 06-129, 06-136, 06-142. Writes: none.
 Seed known semantic defects and require the intended gate to catch each; every selector collects
 and passes pristine before a verdict counts.
 
@@ -250,7 +240,7 @@ Frozen 2026-09-23 (06-05, closed), each line re-established against the live tre
 | documentation assets render and are regenerable | `tests/test_generated_figures_are_maintained.py`, 06-36 |
 | one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified at `a9993322`; P-199 and P-200 carry its gaps), `tests/test_synthetic_figures_are_labelled.py` |
 | published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
-| documentation low-verbosity and consistently formed, against a declared contract | 06-51 (now closed), 06-53, `docs/glossary.md`, `tests/test_figure_form.py` |
+| documentation low-verbosity and consistently formed, against a declared contract | 06-51 (now closed), 06-53 (now closed), `scripts/docs_form_gate.py`, `docs/glossary.md`, `tests/test_figure_form.py` |
 | one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56 (now closed), 06-59 (now closed), `scripts/computational_contract_gate.py` |
 | every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
 | a read invents no metadata, and a named waiver is recorded as it happened | `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_public_api_reachability.py` |
