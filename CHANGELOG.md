@@ -37,6 +37,11 @@ Carried by 0.2.6.
 
 ### Fixed
 
+- **A fixed Granger order must be an integer >= 1.** `granger`, `granger_spectral` and
+  `granger_causality` raise `ValueError` on `order=0`, a fraction, a bool or NaN. `order=0`
+  used to fit a model with no history and return zero causality in both directions, which read
+  as no coupling; `2.5` was truncated to `2` and `True` read as `1`. An integral float such as
+  `3.0` is still accepted.
 - **An atlas layer label is one location.** `parse_probe_areas` and
   `map_peak_channel_to_area` read every `/` as a boundary between two areas, so the label
   `VISpm2/3` became the areas `VISpm2` and `3`, and a unit on that electrode was reported in

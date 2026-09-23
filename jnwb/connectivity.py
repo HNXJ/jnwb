@@ -66,6 +66,25 @@ log = logging.getLogger(__name__)
 from .spectral import CANONICAL_BANDS
 
 
+def _fixed_order(order: Any, func_name: str) -> int:
+    """A caller-fixed autoregressive order as an int, or ``ValueError``.
+
+    ``int()`` alone accepted ``0`` (a model with no history, returning zero causality),
+    truncated ``2.5`` to ``2`` and read ``True`` as ``1``. An integral float such as ``3.0``
+    is accepted as the integer it names.
+    """
+    if isinstance(order, (bool, np.bool_)) or isinstance(order, str):
+        raise ValueError(f"{func_name}: order must be 'auto' or an integer >= 1; got {order!r}")
+    try:
+        as_float = float(order)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{func_name}: order must be 'auto' or an integer >= 1; got {order!r}") from None
+    if not np.isfinite(as_float) or as_float != int(as_float) or as_float < 1:
+        raise ValueError(f"{func_name}: order must be 'auto' or an integer >= 1; got {order!r}")
+    return int(as_float)
+
+
 def _discrete_mi_from_labels(x: np.ndarray, y: np.ndarray) -> float:
     """Shannon MI (bits) between two discrete integer sequences of equal length."""
     x = np.asarray(x).ravel()
@@ -525,8 +544,7 @@ def granger_causality(
             context="granger_causality"
         )
     else:
-        order_2_to_1 = int(order)
-        order_1_to_2 = int(order)
+        order_2_to_1 = order_1_to_2 = _fixed_order(order, "granger_causality")
 
     var_r1, var_u1, res_r1, res_u1 = fit_var_bivariate(
         s1, s2, order_2_to_1, device=resolved, ridge=ridge, return_residuals=True,
@@ -1078,7 +1096,7 @@ def granger(
     # data and nothing raised. The missing quantity is within-trial extent.
     require_trial_length(
         x,
-        max_lag if isinstance(order, str) else int(order),
+        max_lag if isinstance(order, str) else _fixed_order(order, "granger"),
         "granger",
         history_name="max_lag" if isinstance(order, str) else "order",
         time_axis=time_axis,
@@ -1166,9 +1184,7 @@ def granger(
         order_xy = _select_order(x, y)
         order_yx = _select_order(y, x)
     else:
-        order_xy = order_yx = int(order)
-        if order_xy < 1:
-            raise ValueError(f"order must be >= 1; got {order}")
+        order_xy = order_yx = _fixed_order(order, "granger")
 
     fit_xy = _one_direction(x, y, order_xy)  # X -> Y
     fit_yx = _one_direction(y, x, order_yx)  # Y -> X
@@ -1375,7 +1391,7 @@ def granger_spectral(
     x, y = _pair_trials(X, Y, time_axis=time_axis)
     require_trial_length(
         x,
-        max_lag if isinstance(order, str) else int(order),
+        max_lag if isinstance(order, str) else _fixed_order(order, "granger_spectral"),
         "granger_spectral",
         history_name="max_lag" if isinstance(order, str) else "order",
         time_axis=time_axis,
@@ -1391,9 +1407,7 @@ def granger_spectral(
         )
         p = int(max(probe.params["order_x_to_y"], probe.params["order_y_to_x"]))
     else:
-        p = int(order)
-        if p < 1:
-            raise ValueError(f"order must be >= 1; got {order}")
+        p = _fixed_order(order, "granger_spectral")
 
     a, sigma, n_obs = _fit_var_matrix([x, y], p, ridge=ridge)
     radius = _var_spectral_radius(a)

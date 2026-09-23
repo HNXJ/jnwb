@@ -59,6 +59,10 @@ print(f"Y -> X: {result.y_to_x:.4f} (p={result.p_y_to_x:.4f})")
 print(f"Net: {result.net:.4f}")
 ```
 
+`order` is `"auto"` or a fixed integer >= 1. `granger`, `granger_spectral` and
+`granger_causality` raise `ValueError` on `0`, a fraction or a bool rather than fitting a model
+with no history, which would read as no coupling.
+
 ### Spectral Granger (`granger_spectral`)
 
 Frequency-resolved Granger with optional band summaries in `per_band`:
