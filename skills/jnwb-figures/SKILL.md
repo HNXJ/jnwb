@@ -9,7 +9,7 @@ description: Publication-grade vector graphics, raster PSTH plotting, tight auto
 ## 1. Trigger
 Activate this skill when generating publication figures, raster plots, PSTH visualizations, visual quality control suites, or vector graphics exports (SVG/PDF).
 
-## 2. Task-to-Primitive Routing Matrix
+## 2. Task-to-Operation Routing Matrix
 - `jnwb.setup_vector_graphics()`: Initialize publication rcParams for editable vector text (`svg.fonttype = 'none'`).
 - `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Auto-scale axes with controlled padding.
 - `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=["png", "pdf"])`: Export a **list** of figures with consistent naming, one `<basename>_page<N>.<fmt>` per figure per format. `figures` is iterated, so a single figure must be passed as `[fig]`; passing the figure itself raises `TypeError: 'Figure' object is not iterable`.

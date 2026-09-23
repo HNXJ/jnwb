@@ -9,7 +9,7 @@ description: LFP filtering, Morlet wavelet complex TFR, streaming accumulation, 
 ## 1. Trigger
 Activate this skill when computing continuous or trial-aligned LFP spectra, complex Time-Frequency Representations (TFR), multi-trial accumulation, cross-area coherence, or artifact detection and repair.
 
-## 2. Task-to-Primitive Routing Matrix
+## 2. Task-to-Operation Routing Matrix
 - `jnwb.complex_tfr(data, fs, freqs, n_cycles)`: Complex Morlet wavelet transform returning `ComplexTFR` with `z`, `freqs`, `times`, and `coi_mask`.
 - `jnwb.band_power(lfp_trace, fs=None, freq_range=(1.0, 90.0), normalize=True, baseline=None)`: Scalar Welch band power. `normalize` defaults to **True**, which requires a non-empty `baseline` and raises `ValueError` without one; pass `normalize=False` for linear power in the input's units squared.
 - `jnwb.aggregate_to_db(power, baseline, *, how="mean_of_ratios"|"ratio_of_means", aggregate_over=None)`: Decibels last — ratio aggregate then `10·log10` once. `how` is keyword-only and has no default: the estimand is named, not inherited.

@@ -81,6 +81,7 @@ without reporting itself as a page that uses one.
 | A cortical layer | `layer`, `layers` | `lamina`, `laminae` |
 | Spikes per second | `firing rate`, `firing rates` | `spike rate`, `spike rates` |
 | The time-frequency object | `TFR`, `time-frequency representation`, `time-frequency representations` | `time-frequency decomposition` |
+| An exported function | `operation`, `operations` | `primitive`, `primitives` |
 
 **What is deliberately not on this list.** Three kinds of near-synonym were measured across
 the corpus and left alone, because collapsing them would destroy a distinction rather than
@@ -92,6 +93,8 @@ enforce a convention.
 | `trial`, `epoch` | A trial is a row of an interval table; an epoch is the window cut around one. `epoch_continuous` turns the first into the second |
 | `unit`, `units`, `electrodes`, `acquisition`, `trials` | NWB's own nomenclature, fixed upstream. Adopted, not renamed |
 
+The pairs that name two things -- operation and workflow, session and recording, contact and
+channel, electrode and electrodes table -- are defined once on the [Glossary](glossary.md).
 Terms measured and found to be one concept under two spellings are on the first table. Terms
 measured and found to be two concepts — `shank` against `probe`, `region` against `area`,
 `site` against `channel` — are not, because every occurrence of each was the right word.

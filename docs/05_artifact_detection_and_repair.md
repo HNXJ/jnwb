@@ -33,7 +33,7 @@ trial, so what the substitution changed and what it left alone are read off one 
 
 ---
 
-## 2. Artifact Detection Primitives (`jnwb.artifact_detection`)
+## 2. Artifact Detection (`jnwb.artifact_detection`)
 
 All 5 core artifact detection functions are exposed directly in the top-level `jnwb` namespace:
 
@@ -83,7 +83,7 @@ consensus_mask, bad_fractions = jnwb.consensus_bad_trials(
 
 ---
 
-## 3. High-Level Trial Repair Pipelines (`jnwb.artifact_repair`)
+## 3. Trial Repair (`jnwb.artifact_repair`)
 
 ### `repair_lfp_trials`
 Performs time-resolved cross-channel synchrony detection on trial-segmented LFP tensors, replacing flagged artifact intervals with the condition-matched cross-trial median:

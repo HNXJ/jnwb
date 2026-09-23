@@ -261,13 +261,13 @@ For baseline-normalized relative power estimands:
 $$\text{RelPower}(f, t) = \frac{\bar{P}_{\text{response}}(f, t)}{\bar{P}_{\text{baseline}}(f)}$$
 $$\text{Decibels}(f, t) = 10 \log_{10}\left(\text{RelPower}(f, t)\right) = \text{jnwb.to\_db}(\text{RelPower})$$
 
-> **Design Note**: In relative power analyses, averaging raw power across trials before computing the ratio and applying `to_db` once at the end preserves the arithmetic mean of physical power. `jnwb` supplies the mathematical primitive `to_db` without enforcing a fixed aggregation pipeline on arbitrary workflows.
+> **Design Note**: In relative power analyses, averaging raw power across trials before computing the ratio and applying `to_db` once at the end preserves the arithmetic mean of physical power. `jnwb` supplies the operation `to_db` without fixing one aggregation for every workflow.
 
 ---
 
 ## 5. Complex Morlet Time-Frequency Representations & Accumulation
 
-### Complex Morlet Transform Primitive (`complex_tfr`, `morlet_wavelet`)
+### Complex Morlet Transform (`complex_tfr`, `morlet_wavelet`)
 
 `jnwb.complex_tfr` computes complex time-frequency coefficients via Morlet wavelets with discrete $L_1$ amplitude normalization:
 

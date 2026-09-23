@@ -96,10 +96,10 @@ parallelises over CPU workers. `res.execution` records what ran.
 
 ---
 
-## 5. Standalone RDM Primitives (`jnwb.rdm`, `jnwb.rdm_similarity`)
+## 5. Standalone RDM Operations (`jnwb.rdm`, `jnwb.rdm_similarity`)
 
 For workflows that build custom RDMs or compare precomputed dissimilarity matrices
-directly without running the full `jrsa` pipeline, `jnwb` exposes standalone primitives:
+directly without running `jrsa`, `jnwb` exposes standalone operations:
 
 ```python
 # Compute pairwise distance matrix (N conditions x D features)

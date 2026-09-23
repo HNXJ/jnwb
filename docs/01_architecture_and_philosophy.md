@@ -9,7 +9,7 @@ This document outlines the core architecture, scientific invariants, epistemic s
 ## 1. Core Philosophy: Generic Library Core vs. Domain Extensions
 
 A fundamental architectural principle of `jnwb` is the strict separation between:
-1. **Generic Electrophysiology Primitives (`jnwb/`)**: General mathematical operations, signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
+1. **Generic Electrophysiology Operations (`jnwb/`)**: Signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
 2. **Project-Specific Domain Extensions**: Task structures, custom condition codes, sequence slot timings, and project-specific unit classification taxonomies.
 
 The diagram below draws that boundary: only the dashed edge leaves the package.
@@ -78,7 +78,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 ### D. Mathematical vs. Analysis-Specific Conventions
 * `jnwb` provides generic mathematical transforms (e.g. `to_db(ratio) = 10 * log10(ratio)`, `compute_psd`, `band_power`).
-* Specific aggregation sequences (such as averaging raw power across trials before baseline ratio calculation, termed "Logarithm Last") are estimand-specific choices for particular relative power estimators; `jnwb` exposes the underlying primitives without hardcoding a specific project's aggregation pipeline.
+* Specific aggregation sequences (such as averaging raw power across trials before baseline ratio calculation, termed "Logarithm Last") are estimand-specific choices for particular relative power estimators; `jnwb` exposes the underlying operations without hardcoding a specific project's aggregation workflow.
 
 ### E. Unit of Inference & Hierarchical Structure
 * Statistical tests and degrees of freedom must declare their exact inferential unit: unit, channel, trial, or session/subject.

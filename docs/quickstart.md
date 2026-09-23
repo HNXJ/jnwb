@@ -2,18 +2,18 @@
 
 Study **electrophysiology and NWB 2.0+ datasets** — trial-level artifact repair, time-frequency dynamics, directed information flow, single-unit spiking latencies, and cross-modal representational similarity — with dataset-agnostic, mathematically verified algorithms.
 
-> Documentation tracks the `dev` branch public contract. Every primitive operates on array representations or NWB structures without experiment-specific assumptions.
+> Documentation tracks the `dev` branch public contract. Every operation works on array representations or NWB structures without experiment-specific assumptions.
 
 ## NWB file workflow (start here)
 
-For a new recording, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
+For a new session, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
 
 0. [Your own NWB file](tutorials/00_your_own_file.md) — discover the layout of a file you did not write.
 1. [`jnwb.inspect`](tutorials/01_nwb_basics.md) — list interval tables and columns (no default table).
 2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md) — select opaque event codes; onsets in **seconds**. `codes` is jnwb's default column name, not an NWB one, so pass `code_column=` with whatever `inspect` reported.
 3. [Spiking dynamics](tutorials/03_spiking.md) with `unit_spike_times`, `raster_psth`, `causal_exp_smooth`.
 4. [LFP and spectral](tutorials/04_lfp_and_spectral.md) with `acquisition_channel`, `epoch_continuous`, `compute_psd`, `wpli`.
-5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Pipeline](tutorials/08_end_to_end_pipeline.md).
+5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Workflow](tutorials/08_end_to_end_pipeline.md).
 
 Run locally: `python examples/tutorials/00_your_own_file.py` (add your own file path as an argument), then `01_nwb_basics.py` and `02`–`08`. `examples/` ships in neither the wheel nor the sdist, so these need a [clone](install.md#source-checkout), not `pip install jnwb`.
 
@@ -30,7 +30,7 @@ import numpy as np
 
 ## Which Workflow Should I Use?
 
-Pick the appropriate pipeline module for your analytical question:
+Pick the module for your analytical question:
 
 | Goal | Primary entry points | Core function / class | Output type |
 |------|---------------------|------------------------|-------------|

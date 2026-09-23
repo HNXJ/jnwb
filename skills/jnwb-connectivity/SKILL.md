@@ -9,7 +9,7 @@ description: Directed connectivity, bivariate Granger causality, phase slope ind
 ## 1. Trigger
 Activate this skill when quantifying directional coupling, lag asymmetries, Granger causality, phase slope index, or transfer entropy across brain regions or channels.
 
-## 2. Task-to-Primitive Routing Matrix
+## 2. Task-to-Operation Routing Matrix
 - `jnwb.granger(X, Y, order="auto", n_surrogates=0, rng=0)`: Time-domain bivariate Granger causality with time-shift surrogate significance.
 - `jnwb.granger_spectral(X, Y, fs, order="auto", n_freqs=256, bands=None)`: Frequency-resolved spectral Granger causality.
 - `jnwb.phase_slope_index(X, Y, fs, bands)`: Phase Slope Index (PSI) quantifying frequency-dependent driver/receiver lag.

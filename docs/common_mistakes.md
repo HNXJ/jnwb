@@ -247,13 +247,13 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 ## 9. Assuming a Schema the File Does Not Have
 
 ### The Mistake
-Carrying one recording's layout into the next one:
+Carrying one session's layout into the next one:
 
 ```python
 # WRONG: every one of these is an assumption, and none of them errors loudly
-onsets = jnwb.event_onsets("recording.nwb")                     # which interval table?
-table = jnwb.events("recording.nwb")                            # which column holds codes?
-lfp, fs = jnwb.acquisition_channel("recording.nwb", channel=0)  # which acquisition?
+onsets = jnwb.event_onsets("session.nwb")                     # which interval table?
+table = jnwb.events("session.nwb")                            # which column holds codes?
+lfp, fs = jnwb.acquisition_channel("session.nwb", channel=0)  # which acquisition?
 ```
 
 NWB constrains the container, not the contents. `codes` is a jnwb default rather than an NWB
@@ -275,7 +275,7 @@ Read the layout first and pass what you found:
 
 ```python
 # CORRECT: inspect reports the structure; every choice after it is explicit
-info = jnwb.inspect("recording.nwb")
+info = jnwb.inspect("session.nwb")
 
 for table in info["interval_tables"]:
     print(table["name"], [column["name"] for column in table["columns"]])
@@ -283,7 +283,7 @@ for acquisition in info["acquisitions"]:
     print(acquisition["name"], acquisition["data_shape"], acquisition["layout"], acquisition["rate_hz"])
 
 onsets = jnwb.event_onsets(
-    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+    "session.nwb", table="trials", code_column="stimulus", codes=["grating"],
 )
 ```
 
@@ -353,8 +353,8 @@ toolboxes that wrote the file you were handed. Nothing in the file says which, a
 difference is a factor of 1000 that every function downstream will accept:
 
 ```python
-# WRONG: the onsets are milliseconds, the file is a 1.0 s recording, nothing says so
-onsets = jnwb.event_onsets("recording.nwb", table="trials")   # [1000. 2000. ... 5000.]
+# WRONG: the onsets are milliseconds, the session is 1.0 s long, nothing says so
+onsets = jnwb.event_onsets("session.nwb", table="trials")   # [1000. 2000. ... 5000.]
 epochs, t = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.2, 0.6), fs=fs)
 epochs.shape          # (5, 800) -- the right shape
 np.all(np.isnan(epochs))   # True -- and not one number in it
@@ -368,9 +368,9 @@ in it reads as an error.
 Compare the onsets against the extent of the data before trusting either:
 
 ```python
-data, fs = jnwb.acquisition_channel("recording.nwb", channel=0)
+data, fs = jnwb.acquisition_channel("session.nwb", channel=0)
 duration_s = len(data) / fs
-onsets = jnwb.event_onsets("recording.nwb", table="trials")
+onsets = jnwb.event_onsets("session.nwb", table="trials")
 if onsets.max() > duration_s:
     onsets = onsets / 1000.0        # they were milliseconds; say so in the script
 epochs, t = jnwb.epoch_continuous(data, onsets, win_s=(-0.2, 0.6), fs=fs)

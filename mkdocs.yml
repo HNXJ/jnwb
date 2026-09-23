@@ -97,7 +97,7 @@ nav:
       - Statistical Inference: tutorials/05_statistics.md
       - Laminar Analysis: tutorials/06_laminar.md
       - Ensembles & Decoding: tutorials/07_ensembles.md
-      - End-to-End Pipeline: tutorials/08_end_to_end_pipeline.md
+      - End-to-End Workflow: tutorials/08_end_to_end_pipeline.md
       - Open Data: tutorials/09_open_data.md
 
   - Doing an analysis:
@@ -124,6 +124,7 @@ nav:
       - Architecture: architecture.md
       - Philosophy & Boundary: 01_architecture_and_philosophy.md
       - Documentation Form: documentation_form.md
+      - Glossary: glossary.md
 
 
 # extra.jnwb_version is injected at build time by the hook below, from jnwb.__version__.

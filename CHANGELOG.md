@@ -93,6 +93,9 @@ Carried by 0.2.6.
   documented bootstrap CIs and draws mean ± 1.96 SEM across trials, clipped at 0 Hz; the
   package docstring claimed Clopper-Pearson error bars nothing computes. Both now say that
   every other interval is an input. A new page, "Plotly Figures", documents `jnwb.vis`.
+- **One glossary.** A "Glossary" page defines operation and workflow, session and recording,
+  contact and channel, electrode and electrodes table, and trial and epoch; every page uses
+  those terms, and the documentation examples name a whole NWB file `session.nwb`.
 - **The fitted onset is not described as independent of smoothing.** The spike-analysis
   page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a
   step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are

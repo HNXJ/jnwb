@@ -8,7 +8,7 @@ description: Top-level router, scientific safeguard kernel, and memory bank for 
 ## 1. Trigger
 Activate this skill when the user asks for generic electrophysiology analysis, time-frequency analysis, spike dynamics, NWB processing, neural statistics, decoding, artifact rejection, or directed connectivity.
 
-## 2. Task-to-Primitive Routing Matrix
+## 2. Task-to-Operation Routing Matrix
 - **Substantial, multi-step, or consequential repository tasks**: (feature implementation, defect investigation, API modification, refactoring, release gates) -> delegate to `jnwb-fact-action` (enforces $F \to R \to A \to V \to S$, authority loading order, and role/domain separation).
 - **Simple, bounded domain queries**:
   - **NWB inspection, paths, metadata, electrodes, addressing, compression**: delegate to `jnwb-nwb-data`

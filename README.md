@@ -60,16 +60,16 @@ Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplot
 ```python
 import jnwb
 
-info = jnwb.inspect("recording.nwb")
+info = jnwb.inspect("session.nwb")
 
 # Read the layout off the inspection rather than assuming it.
 for table in info["interval_tables"]:
     print(table["name"], [column["name"] for column in table["columns"]])
 # trials ['id', 'start_time', 'stimulus', 'stop_time']
 
-table = jnwb.events("recording.nwb", table="trials", code_column="stimulus")
+table = jnwb.events("session.nwb", table="trials", code_column="stimulus")
 onsets = jnwb.event_onsets(
-    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+    "session.nwb", table="trials", code_column="stimulus", codes=["grating"],
 )
 ```
 
@@ -109,8 +109,8 @@ print(f"TFR shape: {tfr.shape}, beta power: {beta:.4f}")
 Read spikes and LFP for alignment after you have onsets:
 
 ```python
-spikes = jnwb.unit_spike_times("recording.nwb", unit_index=0)
-lfp, fs_hz = jnwb.acquisition_channel("recording.nwb", name="probe_0_lfp", channel=0)
+spikes = jnwb.unit_spike_times("session.nwb", unit_index=0)
+lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel=0)
 epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.1, 0.4), fs=fs_hz)
 ```
 

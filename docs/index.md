@@ -46,7 +46,7 @@ print(f"Beta band power: {beta_power:.4f}")
 
 ## Guides
 
-- [Quickstart](quickstart.md) — runnable tour of core primitives
+- [Quickstart](quickstart.md) — runnable tour of core operations
 - [Installation](install.md) — setup and verification
 - [Architecture](architecture.md) — the two entry paths, how skills route, and what belongs in jnwb
 - [Philosophy & boundary](01_architecture_and_philosophy.md) — scope, units, and dataset independence

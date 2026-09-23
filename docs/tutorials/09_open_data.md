@@ -2,7 +2,7 @@
 
 Read a public NWB dataset end to end: inspect it, derive its LFP clock from the data, run a PSTH
 by cortical layer and LFP band power by depth, check the result, and plot it. The steps apply to
-any shared recording; the example is one session of the Allen Institute OpenScope Global/Local
+any shared session; the example is one from the Allen Institute OpenScope Global/Local
 Oddball project.
 
 Run the executable tutorial:
@@ -97,8 +97,8 @@ spike-LFP timing claim at millisecond resolution from this file.
 ## Layers
 
 `location` holds atlas labels such as `VISpm4` and `VISpm2/3`, one layer each. The tutorial reads
-it by electrode id. `jnwb.map_peak_channel_to_area` treats `/` as a boundary between areas on a
-multi-area probe and returns `3` for a `VISpm2/3` contact, so it is not used here.
+it by electrode id. `jnwb.map_peak_channel_to_area` keeps `VISpm2/3` whole but still splits a label such as
+`VISp6a/b` into two areas, so it is not used here.
 
 ## What the tutorial checks
 

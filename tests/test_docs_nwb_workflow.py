@@ -57,7 +57,7 @@ def test_readme_nwb_workflow_block_executes(tmp_path, monkeypatch):
             start_time=onset, stop_time=onset + 0.05,
             stimulus="grating" if index % 2 == 0 else "blank",
         )
-    with NWBHDF5IO(str(tmp_path / "recording.nwb"), "w") as io:
+    with NWBHDF5IO(str(tmp_path / "session.nwb"), "w") as io:
         io.write(nwb)
 
     fence = "```python" + chr(10) + "(.*?)```"

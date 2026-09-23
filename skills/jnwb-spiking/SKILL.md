@@ -9,7 +9,7 @@ description: Spike extraction, PSTH binning, physiological latency estimation, c
 ## 1. Trigger
 Activate this skill when computing spike rasters, PSTHs, causal firing rate smoothing, physiological onset latencies, or unit response significance.
 
-## 2. Task-to-Primitive Routing Matrix
+## 2. Task-to-Operation Routing Matrix
 - `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Compute trial-aligned PSTH and SEM firing rates in Hz.
 - `jnwb.causal_exp_smooth(rate, bin_ms, tau_ms)`: Apply forward-only finite exponential smoothing kernel ($5\tau$) with zero future leakage.
 - `jnwb.fit_exponential_onset(t_ms, rate, t0_bounds_ms=None, tau_bounds_ms=None)`: Grid-search + bounded nonlinear least-squares fit of onset latency $t_0$.

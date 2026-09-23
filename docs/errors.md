@@ -45,7 +45,7 @@ table, and otherwise raises.
 [`inspect`](api.md) lists everything both of them can see:
 
 ```python
-info = jnwb.inspect("recording.nwb")
+info = jnwb.inspect("session.nwb")
 [a["name"] for a in info["acquisitions"]]
 [t["name"] for t in info["interval_tables"]]
 [c["name"] for c in info["interval_tables"][0]["columns"]]
@@ -162,9 +162,9 @@ only field jnwb refuses on, and naming any other raises `ValueError`:
 
 ```python
 try:
-    nwbfile = jnwb.read_nwb("recording.nwb")
+    nwbfile = jnwb.read_nwb("session.nwb")
 except jnwb.MissingRequiredNWBFieldError as exc:
-    nwbfile = jnwb.read_nwb("recording.nwb", allow_missing=(exc.field_name,))
+    nwbfile = jnwb.read_nwb("session.nwb", allow_missing=(exc.field_name,))
 
 nwbfile.session_description        # "" -- pynwb cannot build the object without the field
 nwbfile.jnwb_waived_requirements   # ("session_description",)
@@ -179,7 +179,7 @@ arrays. To read data from a waived file, read inside `nwb_read_io`, which takes 
 `allow_missing` and sets the same attribute:
 
 ```python
-with jnwb.nwb_read_io("recording.nwb", allow_missing=("session_description",)) as io:
+with jnwb.nwb_read_io("session.nwb", allow_missing=("session_description",)) as io:
     nwbfile = io.read()
     spike_times = nwbfile.units["spike_times"][0]
 ```

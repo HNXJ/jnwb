@@ -10,7 +10,7 @@ description: NWB inspection, event/onset extraction, path addressing, anatomical
 Activate when inspecting NWB files, extracting event onsets, resolving paths, mapping
 electrode channels to areas/layers, auditing unit quality, or compressing arrays.
 
-## 2. Task-to-Primitive Routing Matrix
+## 2. Task-to-Operation Routing Matrix
 
 ### Per-file discovery and events (canonical Python route)
 
