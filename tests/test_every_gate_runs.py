@@ -29,10 +29,20 @@ if str(REPO_ROOT) not in sys.path:
 from scripts import harness_gate  # noqa: E402
 
 
-def _seed_one_failing_gate(monkeypatch, number: int) -> None:
+def _stubbed_gates():
+    """Every gate number of the live table, each passing at once with its own PASS line.
+
+    The seeded-failure tests check the runner's loop, not the gates: the live run above is the
+    one that executes every real gate. Running all of them again under each of eighteen seeds
+    cost about four minutes of the suite for no additional claim.
+    """
+    return [(n, lambda: [], (lambda n=n: f"PASS: gate {n} (stubbed).")) for n, _, _ in harness_gate.GATES]
+
+
+def _seed_one_failing_gate(monkeypatch, number: int, stub_others: bool = False) -> None:
     """Replace one gate's runner with a guaranteed failure, leaving the others alone."""
     seeded = []
-    for gate_number, run, pass_line in harness_gate.GATES:
+    for gate_number, run, pass_line in (_stubbed_gates() if stub_others else harness_gate.GATES):
         if gate_number == number:
             seeded.append(
                 (gate_number, lambda: [("FAIL: seeded.", ["SEEDED_VIOLATION"])], pass_line)
@@ -71,7 +81,7 @@ def test_a_failure_at_gate_2_does_not_stop_the_gates_after_it(capsys):
 def test_any_single_gate_failing_still_runs_all_of_them(capsys, number):
     """Not just gate 2. No gate may be positioned such that its failure hides another."""
     with pytest.MonkeyPatch.context() as monkeypatch:
-        _seed_one_failing_gate(monkeypatch, number)
+        _seed_one_failing_gate(monkeypatch, number, stub_others=True)
         assert harness_gate.run_full_preflight() is False
         out = capsys.readouterr().out
 
@@ -88,7 +98,7 @@ def test_a_gate_that_raises_is_reported_and_does_not_stop_the_rest(capsys):
     with pytest.MonkeyPatch.context() as monkeypatch:
         seeded = [
             (n, explode if n == 5 else run, pass_line)
-            for n, run, pass_line in harness_gate.GATES
+            for n, run, pass_line in _stubbed_gates()
         ]
         monkeypatch.setattr(harness_gate, "GATES", seeded)
         assert harness_gate.run_full_preflight() is False

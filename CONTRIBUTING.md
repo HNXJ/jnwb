@@ -74,8 +74,9 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — builds the wheel, installs it in a clean venv, and smoke-tests
-  the installed package. It catches packaging mistakes (a module missing from the wheel, a
+- **`release_gate.py`** — runs the suite in parallel and prints its wall time and ten slowest
+  tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+  package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
   in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its

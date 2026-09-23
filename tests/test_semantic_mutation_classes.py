@@ -69,6 +69,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -743,41 +744,57 @@ def _describe(mutation: SemanticMutation, verdict: Verdict) -> list[str]:
 def test_every_class_is_demonstrated_over_the_declared_subset(tmp_path_factory) -> None:
     """Each class, on its chain: selector proven pristine, mutant observed, restore in bytes.
 
-    One test rather than fourteen because the cases share one clone and one harness session,
+    One test rather than fourteen because the cases share their clones and harness sessions,
     and under ``--dist load`` a module-scoped fixture is rebuilt in every worker that receives
     one of its tests. Every class is still asserted separately, and every failure is collected
     before anything is raised: a gate that stops at the first leaves the rest unrun.
-    """
-    clone = Path(
-        tempfile.mkdtemp(
-            prefix="jnwb-semantic-mutation-", dir=str(tmp_path_factory.mktemp("mutation"))
-        )
-    ) / "checkout"
 
-    try:
+    The cases are dealt round-robin over up to four clones, each with its own session, run at
+    once. Serially this one test was 347 s of a 1241 s suite; each case still runs its pristine
+    selector, its mutant and its restore in one clone, so no verdict depends on another group.
+    """
+    root = Path(tempfile.mkdtemp(prefix="jnwb-semantic-mutation-",
+                                 dir=str(tmp_path_factory.mktemp("mutation"))))
+    n_groups = max(1, min(4, os.cpu_count() or 1, len(CASES)))
+    groups = [CASES[i::n_groups] for i in range(n_groups)]
+
+    def run_group(index: int, cases) -> tuple[dict, dict, list]:
+        clone = root / f"checkout{index}"
         _clone_the_checkout(clone)
         _assert_the_clone_carries_this_checkouts_bytes(clone)
         imported = _assert_the_clone_imports_its_own_jnwb(clone)
-        print(f"\nmutation target: {imported}")
-
-        pre_run = {m.case.path: sha256_file(clone / m.case.path) for m in CASES}
-
+        print(f"\nmutation target {index}: {imported}")
+        pre_run = {m.case.path: sha256_file(clone / m.case.path) for m in cases}
         verdicts: dict[str, Verdict] = {}
         rejections: dict[str, str] = {}
         with MutationSession(clone) as session:
-            for mutation in CASES:
+            for mutation in cases:
                 try:
                     verdicts[mutation.case.name] = session.run_case(mutation.case)
                 except MutationHarnessError as exc:
-                    # Recorded, not raised: one refused case must not hide the sixteen after it.
+                    # Recorded, not raised: one refused case must not hide the ones after it.
                     rejections[mutation.case.name] = str(exc)
-
         # The restore, in bytes, independently of the harness's own receipt.
         left_behind = [
             f"{rel}: {sha256_file(clone / rel)} != {digest}"
             for rel, digest in pre_run.items()
             if sha256_file(clone / rel) != digest
         ]
+        return verdicts, rejections, left_behind
+
+    try:
+        with ThreadPoolExecutor(max_workers=n_groups) as pool:
+            results = list(pool.map(run_group, range(n_groups), groups))
+        verdicts: dict[str, Verdict] = {}
+        rejections: dict[str, str] = {}
+        left_behind: list[str] = []
+        for group_verdicts, group_rejections, group_left in results:
+            verdicts.update(group_verdicts)
+            rejections.update(group_rejections)
+            left_behind.extend(group_left)
+        assert set(verdicts) | set(rejections) == {m.case.name for m in CASES}, (
+            "a case was dealt to no group"
+        )
         assert not left_behind, (
             "a mutant is still on disk after the run: " + "; ".join(left_behind)
         )
@@ -806,7 +823,7 @@ def test_every_class_is_demonstrated_over_the_declared_subset(tmp_path_factory) 
             "over the declared subset:\n  " + "\n  ".join(failures)
         )
     finally:
-        _rmtree(clone.parent)
+        _rmtree(root)
 
 
 def _assert_the_checkout_was_never_written() -> None:

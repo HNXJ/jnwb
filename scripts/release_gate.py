@@ -27,6 +27,7 @@ import urllib.error
 import urllib.request
 import zipfile
 import tarfile
+import time
 import subprocess
 import logging
 import re
@@ -1442,7 +1443,12 @@ def main() -> None:
             sys.exit(1)
 
     log.info("=== STEP 1: Running full test suite ===")
-    run_cmd([sys.executable, "-m", "pytest", "-v", "tests/"])
+    # Parallel, because the serial run took over twenty minutes; the ten slowest tests and the
+    # wall time are printed so a cost that grows is seen at the release that grew it.
+    started = time.monotonic()
+    run_cmd([sys.executable, "-m", "pytest", "-q", "-n", "auto", "--durations=10",
+             "-p", "no:cacheprovider", "tests/"])
+    log.info("Suite wall time: %.0f s", time.monotonic() - started)
 
     log.info("=== STEP 2: Running harness pre-flight verification gate ===")
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])

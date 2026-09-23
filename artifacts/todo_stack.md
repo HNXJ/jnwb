@@ -44,7 +44,7 @@ barrier above.
 
 | Wave | Items |
 |---|---|
-| W0 | 06-127 |
+| W0 |  |
 | W1 |  |
 | W2 | 06-114 |
 | W3 | 06-118 |
@@ -52,7 +52,7 @@ barrier above.
 | W5 | 06-52, 06-56, 06-25 |
 | W6 | 06-58 |
 | W7 | 06-59, 06-129 |
-| W8 | 06-121 |
+| W8 |  |
 | W9 | 06-51 |
 | W10 | 06-53 |
 | Rolling | 06-136, re-dispatched at each wave barrier over the repairs landed since its last run |
@@ -62,24 +62,6 @@ barrier above.
 packets finish before 06-34.
 
 ## W0. Integration and verification
-
-### 06-127 `jnwb.vis` ships as the optional `vis` extra
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `pyproject.toml`, `.github/workflows/workflow.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/vis/*.py`, `packages/jnwb-vis/*`, `tests/test_vis.py`, `tests/test_docs_decoding_chain.py`, `tests/test_errors_documented.py`, `tests/test_skills_validation.py`, `skills/jnwb-landmark-viz/SKILL.md`.
-Ruled 2026-09-22: keep `jnwb.vis` in 0.2.6 as an optional extra. `178b1777` added it with an
-undeclared `plotly`, a byte-duplicate under `packages/jnwb-vis/` and a new skill, and turned CI red
-on all six legs (three modules fail collection) and gates 4, 5, 9 and 18.
-Do: declare `plotly` under `[project.optional-dependencies] vis`; `import jnwb` and every core
-export work without it, and `jnwb.vis` raises `ImportError` naming `pip install jnwb[vis]`;
-CI installs the extra; delete the duplicate after hashing every pair; add the skill to the
-canonical set and fix only rows that disagree with `inspect.signature`.
-Discriminator: a subprocess test with `plotly` blocked imports `jnwb` and gets the named
-`ImportError` from `jnwb.vis`; removing the guard fails it.
-Accept: 18 PASS lines; CI green on every leg; the dispatcher adds the `AGENTS.md` §7 row, the
-`CHANGELOG.md` Added entry and the P-33 note; the skill count is ruled (twelve planned, P-180).
-Stop: a file pair under `packages/jnwb-vis/` differs from `jnwb/vis/`.
 
 ## W1. Freeze, sweeps and harness
 
@@ -221,17 +203,6 @@ Accept: every check fails on its own seeded violation and passes on the live tre
 
 ## W8. Vocabulary and cost
 
-### 06-121 Suite cost is measured before release
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/release_gate.py`, `tests/test_semantic_mutation_classes.py`, `tests/test_every_gate_runs.py`, `CONTRIBUTING.md`.
-Goal section 8. The 2026-09-22 run took 1241 s; `test_every_class_is_demonstrated_over_the_declared_subset`
-took 347 s of it. Reduce the two heaviest tests without losing a demonstrated class or a gate;
-the release check prints wall time and the ten slowest tests.
-Discriminator: removing a class or a gate from either test still fails it.
-Accept: both measured before and after with `--durations`.
-
 ## W9-W10. Documentation form
 
 ### 06-51 Reduce verbosity against the contract
@@ -273,7 +244,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). P-43, P-45, P-46, P-157, P-158, P-202 (the waiver export at `8f78c37a`: `tests/test_public_api_reachability.py` and the `test_missingness_row_*` tests; judge the exclusion of `hdmf_build_repair_context` and the ten-row table against the six-state ruling). The architecture reachability test (`tests/test_architecture_page_reachability.py`, landed without an item after its own seven mutants were killed; judge whether the skill-authority and agent-precondition patterns are wide enough to mean anything). P-183, P-187, P-222 (`docs/vis.md` in the navigation, its example run against the installed extra, the `docs/install.md` star-import sentence, and the `jnwb.vis` docstrings against what each panel computes). P-217 and the fig09 half of P-212 (`tests/test_generated_figures_are_maintained.py`: judge the tolerance against its measurements and the minor-version skip as a hole). The `JRSAResult.p[0]` shim at `b96a653d` (`tests/test_jrsa.py -k "scalar_p_value or indexing_zero or multi_lag_p_is or any_other_index"`; judge `type(res.p) is np.ndarray` now being False against the ruling's stop condition). P-176 (gate 15 at `971f5414`, `tests/test_harness_adversarial_gates.py -k "StatedItemTotals or Gate15"`). The synthetic-figure labels (`tests/test_synthetic_figures_are_labelled.py`, landed without a problem row; judge whether the next paragraph is the right caption boundary). The four diagrams on `docs/architecture.md` (authority, decision, NWB to result, package boundary; judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). P-96 (`docs/glossary.md` and the sweep that applies it; judge each replaced `recording`, `primitive` and `pipeline` against the ruled senses). P-126 (`tests/test_module_docstrings_match_their_code.py -k ProseGateCounts`; judge whether the surfaces and the two count forms cover every place a gate count is stated). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). P-43, P-45, P-46, P-157, P-158, P-202 (the waiver export at `8f78c37a`: `tests/test_public_api_reachability.py` and the `test_missingness_row_*` tests; judge the exclusion of `hdmf_build_repair_context` and the ten-row table against the six-state ruling). The architecture reachability test (`tests/test_architecture_page_reachability.py`, landed without an item after its own seven mutants were killed; judge whether the skill-authority and agent-precondition patterns are wide enough to mean anything). P-183, P-187, P-222 (`docs/vis.md` in the navigation, its example run against the installed extra, the `docs/install.md` star-import sentence, and the `jnwb.vis` docstrings against what each panel computes). P-217 and the fig09 half of P-212 (`tests/test_generated_figures_are_maintained.py`: judge the tolerance against its measurements and the minor-version skip as a hole). The `JRSAResult.p[0]` shim at `b96a653d` (`tests/test_jrsa.py -k "scalar_p_value or indexing_zero or multi_lag_p_is or any_other_index"`; judge `type(res.p) is np.ndarray` now being False against the ruling's stop condition). P-176 (gate 15 at `971f5414`, `tests/test_harness_adversarial_gates.py -k "StatedItemTotals or Gate15"`). The synthetic-figure labels (`tests/test_synthetic_figures_are_labelled.py`, landed without a problem row; judge whether the next paragraph is the right caption boundary). The four diagrams on `docs/architecture.md` (authority, decision, NWB to result, package boundary; judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; measured 426 s to 131 s for the two modules; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (`docs/glossary.md` and the sweep that applies it; judge each replaced `recording`, `primitive` and `pipeline` against the ruled senses). P-126 (`tests/test_module_docstrings_match_their_code.py -k ProseGateCounts`; judge whether the surfaces and the two count forms cover every place a gate count is stated). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -342,8 +313,8 @@ Role: human. Skill: none. Blocked by: 06-60. AUTONOMY: none.
 Writes: none.
 P-180. `origin/main` is `9d738211`, a second copy of the `jnwb.vis` commit on top of the 0.2.5
 release merge, while `dev` carries the same content as `178b1777`. A merge of `dev` into `main`
-treats `packages/jnwb-vis/` as added on `main` and unchanged on `dev`, so the duplicate 06-127
-deletes comes back.
+treats `packages/jnwb-vis/` as added on `main` and unchanged on `dev`, so the duplicate that `dev`
+deleted comes back.
 Ruled 2026-09-22: revert on `main` first. `9d738211` is reverted on `main` in its own pull
 request, which Hamm authorizes and merges; the verifier then confirms the release merge tree
 equals `dev`.
@@ -396,7 +367,7 @@ Frozen 2026-09-23 (06-05, closed), each line re-established against the live tre
 | every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
 | a read invents no metadata, and a named waiver is recorded as it happened | `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_public_api_reachability.py` |
 | `jnwb.vis` is an optional extra and `import jnwb` works without it | `tests/test_optional_vis_extra.py`, 06-37 |
-| suite wall time and the slowest tests measured before release | 06-121 |
+| suite wall time and the slowest tests measured before release | `scripts/release_gate.py` STEP 1 |
 | no release-blocking problem and no required item remaining, confirmed by a blocker-focused pass | 06-60, `scripts/release_gate.py` STEP 0a |
 
 The form matches 0.2.5's closure: no known material defect under a stated acceptance set, not a
