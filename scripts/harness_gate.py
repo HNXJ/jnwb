@@ -107,23 +107,27 @@ def validate_receipt_provenance(claim_name: str, receipt_path: Union[str, Path])
     return True, f"PROVENANCE_VALID: Claim '{claim_name}' artifact exists: {path} ({path.stat().st_size} bytes)"
 
 
-def _is_inside_nested_checkout(skill: Path, root: Path) -> bool:
-    """True when this ``SKILL.md`` belongs to a second git checkout nested inside the tree.
+def _is_inside_nested_checkout(skill: Path, root: Path, identities: Optional[Dict[Path, Any]] = None) -> bool:
+    """True when this ``SKILL.md`` belongs to a linked worktree of this repository nested in the tree.
 
-    A git checkout root carries a ``.git`` entry: a directory for a clone, a file for a linked
-    worktree. What it contains is this same ``skills/`` tree seen through another checkout, not a
-    second tree, so gate 2 has nothing to say about it.
+    Such a worktree holds this same ``skills/`` tree seen through another checkout, not a second
+    tree, so gate 2 has nothing to say about it. Anything else below the root stays in scope,
+    including a nested clone or an unrelated repository: each has its own object store and is a
+    second tree an agent can read.
 
     This is detected rather than hardcoded. The agent fan-out this project runs puts worktrees
     under ``.claude/worktrees/`` today, but that is where this harness happens to place them and
     not a property of the thing being excluded; a path literal would stop working the moment they
     moved. Being untracked is deliberately *not* the test: a duplicate skill tree that is merely
     gitignored is still a tree an agent can read, which is the hazard gate 2 exists for.
+
+    git runs only for a parent that carries an entry named ``.git``, so a tree without nested
+    checkouts costs no subprocess.
     """
     for parent in skill.parents:
         if parent == root:
             return False
-        if _is_git_admin_entry(parent / ".git"):
+        if os.path.lexists(parent / ".git") and _is_checkout_of(parent, root, identities):
             return True
     return False
 
@@ -166,26 +170,65 @@ def _test_job_matrix(workflow_text: str) -> Optional[set]:
     return set(re.findall(r'"(\d+\.\d+)"', matrix.group(1))) if matrix else None
 
 
-def _is_git_admin_entry(entry: Path) -> bool:
-    """True only for a real git administrative entry, not for anything named ``.git``.
+#: Variables that redirect git's repository discovery. A gate run from a git hook inherits them,
+#: and every ``git -C`` below would then describe the hook's repository rather than the
+#: directory it names.
+_GIT_DISCOVERY_ENV = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
 
-    Existence by name was the test until 06-64 showed what it buys: a zero-byte file
-    ``.claude/.git`` or an empty directory ``docs/.git`` made a duplicate skill tree beneath it
-    invisible to gate 2, which is the exemption swallowing the rule it was carved out of.
-    Presence of the name is the proxy; being a checkout is the invariant.
 
-    A clone carries a directory holding ``HEAD``. A linked worktree carries a file whose first
-    line reads ``gitdir: <path>``. Nothing else is a checkout root.
+class GitUnavailable(RuntimeError):
+    """git could not be run, so whether a nested ``.git`` is a checkout of this tree is unknown."""
+
+
+def _canonical(path: Path) -> str:
+    return os.path.normcase(str(Path(path).resolve()))
+
+
+def _git_identity(directory: Path) -> Optional[Tuple[str, str]]:
+    """``(top level, common directory)`` as git resolves them from ``directory``, or None.
+
+    None means git ran and refused the directory. :class:`GitUnavailable` means git did not run;
+    answering that case from the shape of the ``.git`` entry is the proxy this replaces.
     """
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_DISCOVERY_ENV}
     try:
-        if entry.is_dir():
-            return (entry / "HEAD").is_file()
-        if entry.is_file():
-            with entry.open("r", encoding="utf-8", errors="replace") as handle:
-                return handle.readline().startswith("gitdir:")
-    except OSError:
-        return False
-    return False
+        done = subprocess.run(
+            ["git", "-C", str(directory), "rev-parse", "--show-toplevel", "--git-common-dir"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitUnavailable(f"git could not be run in {directory}: {exc}") from exc
+    lines = done.stdout.splitlines()
+    if done.returncode != 0 or len(lines) != 2:
+        return None
+    common = Path(lines[1])
+    if not common.is_absolute():
+        common = Path(directory) / common  # git prints it relative to the -C directory
+    return _canonical(Path(lines[0])), _canonical(common)
+
+
+def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Path, Any]] = None) -> bool:
+    """True only when git says ``directory`` is a checkout of the same repository as ``root``.
+
+    Both must be their own top level, and both must resolve to one common git directory. The
+    shape of a ``.git`` entry was the test until 06-137: a zero-byte ``HEAD``, a ``gitdir:`` line
+    pointing at nothing, an unrelated ``git init`` and a worktree whose ``commondir`` was deleted
+    all passed it, and each hid a duplicate skill tree from gate 2. git rejects every one of them.
+
+    ``identities`` caches :func:`_git_identity` per directory for the duration of one gate run.
+    """
+    cache = {} if identities is None else identities
+
+    def identity(path: Path) -> Optional[Tuple[str, str]]:
+        if path not in cache:
+            cache[path] = _git_identity(path)
+        return cache[path]
+
+    root_identity = identity(root)
+    if root_identity is None or root_identity[0] != _canonical(root):
+        return False  # a root git does not recognise has no worktrees to excuse
+    found = identity(directory)
+    return found is not None and found[0] == _canonical(directory) and found[1] == root_identity[1]
 
 
 def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
@@ -197,17 +240,28 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     """
     root = repo_root or REPO_ROOT
     violations = []
+    identities: Dict[Path, Any] = {}
+    git_unavailable: Optional[str] = None
     for skill in sorted(root.rglob("SKILL.md")):
         relative = skill.relative_to(root)
         if relative.parts[0] in EPHEMERAL_ROOT_DIRS:
             continue  # another package's skills inside a .venv are not this tree
-        if _is_inside_nested_checkout(skill, root):
-            continue  # a worktree is this tree seen twice, not two trees
+        if git_unavailable is None:
+            try:
+                if _is_inside_nested_checkout(skill, root, identities):
+                    continue  # a worktree is this tree seen twice, not two trees
+            except GitUnavailable as exc:
+                git_unavailable = str(exc)  # nothing is excused without git's answer
         if relative.parts[0] != "skills":
             violations.append(
                 f"DUPLICATE_SKILL_TREE: {relative.as_posix()} is a SKILL.md outside skills/. "
                 "The canonical tree is skills/; a second tree is what this gate exists for."
             )
+    if git_unavailable is not None:
+        violations.append(
+            f"GIT_UNAVAILABLE: {git_unavailable}. A nested .git entry is excused only when git "
+            "says it is a worktree of this repository, so every SKILL.md below one stayed in scope."
+        )
     return violations
 
 
