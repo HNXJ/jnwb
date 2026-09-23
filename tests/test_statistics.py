@@ -828,6 +828,99 @@ class TestCallerNamesThePrimaryTest:
         assert "q_parametric" in res and "q_nonparametric" in res
 
 
+# ── The caller names the correlation ─────────────────────────────────────────
+
+class TestCallerNamesTheCorrelation:
+    """`correlate` and `exploratory_correlate` take `method=`, so the number of correlations
+    performed is the caller's to declare.
+
+    What would pass while the invariant is violated: computing both and filtering the return.
+    Every key assertion holds for that, so `test_the_unnamed_correlation_is_never_computed`
+    checks the call, and it first proves its sabotage is live.
+    """
+
+    X = np.random.default_rng(31).normal(size=70)
+    Y = np.exp(0.8 * X) + np.random.default_rng(32).normal(size=70) * 0.3
+    FUNCS = ["correlate", "exploratory_correlate"]
+
+    @staticmethod
+    def _call(func_name, *args, **kwargs):
+        return getattr(StatisticalAnalysis, func_name)(*args, **kwargs)
+
+    @pytest.mark.parametrize("func_name", FUNCS)
+    def test_the_parameter_is_keyword_only_and_defaults_to_both(self, func_name):
+        import inspect
+
+        param = inspect.signature(getattr(StatisticalAnalysis, func_name)).parameters.get("method")
+        assert param is not None, f"{func_name} has no method= parameter"
+        assert param.kind is param.KEYWORD_ONLY
+        assert param.default == "both"
+
+    @pytest.mark.parametrize("func_name", FUNCS)
+    def test_both_is_the_scipy_pair_and_equals_passing_nothing(self, func_name):
+        """Value-identical to the dual report: each statistic is scipy's own, and passing
+        nothing is the same result as naming "both" (a changed default would split them)."""
+        from scipy import stats as sps
+
+        silent = self._call(func_name, self.X, self.Y)
+        named = self._call(func_name, self.X, self.Y, method="both")
+        assert silent == named
+        r, p = sps.pearsonr(self.X, self.Y)
+        rho, p_rho = sps.spearmanr(self.X, self.Y)
+        assert silent["parametric"]["statistic"] == float(r)
+        assert silent["parametric"]["pval"] == float(p)
+        assert silent["non_parametric"]["statistic"] == float(rho)
+        assert silent["non_parametric"]["pval"] == float(p_rho)
+        # The exploratory wrapper strips the multiple_comparison block; the producer keeps it.
+        if func_name == "correlate":
+            assert silent["multiple_comparison"]["n_tests"] == 2
+
+    @pytest.mark.parametrize("func_name", FUNCS)
+    @pytest.mark.parametrize(
+        "method, kept, dropped",
+        [("pearson", "parametric", "non_parametric"),
+         ("spearman", "non_parametric", "parametric")],
+    )
+    def test_naming_one_returns_only_its_statistic(self, func_name, method, kept, dropped):
+        both = self._call(func_name, self.X, self.Y)
+        one = self._call(func_name, self.X, self.Y, method=method)
+        assert one[kept] == both[kept], "naming one must not change its numbers"
+        assert dropped not in one
+        flag = {"parametric": "significant_parametric",
+                "non_parametric": "significant_nonparametric"}
+        assert flag[kept] in one and flag[dropped] not in one
+        if func_name == "correlate":
+            assert one["multiple_comparison"]["n_tests"] == 1
+
+    @pytest.mark.parametrize(
+        "method, skipped, partner",
+        [("pearson", "spearmanr", "spearman"), ("spearman", "pearsonr", "pearson")],
+    )
+    def test_the_unnamed_correlation_is_never_computed(self, monkeypatch, method, skipped, partner):
+        import jnwb.statistics as statistics_module
+
+        def boom(*args, **kwargs):
+            raise AssertionError(f"{skipped} was called for method={method!r}")
+
+        monkeypatch.setattr(statistics_module.stats, skipped, boom)
+        with pytest.raises(AssertionError, match=skipped):
+            StatisticalAnalysis.correlate(self.X, self.Y, method=partner)
+        with pytest.raises(AssertionError, match=skipped):
+            StatisticalAnalysis.correlate(self.X, self.Y)
+        StatisticalAnalysis.correlate(self.X, self.Y, method=method)
+
+    @pytest.mark.parametrize("func_name", FUNCS)
+    @pytest.mark.parametrize("bad", ["", "Pearson", "kendall", "parametric", "BOTH", None, 1, True])
+    def test_an_unknown_method_is_refused(self, func_name, bad):
+        with pytest.raises(ValueError, match="method must be one of"):
+            self._call(func_name, self.X, self.Y, method=bad)
+
+    def test_an_unknown_method_is_refused_even_when_there_is_too_little_data(self):
+        """The insufficient-sample return must not swallow a misspelt method."""
+        with pytest.raises(ValueError, match="method must be one of"):
+            StatisticalAnalysis.correlate([1.0, 2.0], [2.0, 1.0], method="kendall")
+
+
 # ── 06-46: permutation_test is a flat shuffle and must say so ─────────────────
 
 def _confounded_grouped_design():

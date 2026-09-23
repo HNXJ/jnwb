@@ -653,6 +653,7 @@ def coef_rows(
 
 
 _TEST_CHOICES = ("both", "parametric", "nonparametric")
+_CORRELATION_METHODS = ("both", "pearson", "spearman")
 
 
 def _resolve_test_choice(test: str, func_name: str) -> Tuple[bool, bool]:
@@ -988,8 +989,23 @@ class StatisticalAnalysis:
         return result
 
     @staticmethod
-    def correlate(x: np.ndarray, y: np.ndarray) -> Dict:
-        """Correlate two variables: Pearson r + Spearman rho (no 2-test FDR)."""
+    def correlate(x: np.ndarray, y: np.ndarray, *, method: str = "both") -> Dict:
+        """Correlate two variables: Pearson r + Spearman rho (no 2-test FDR).
+
+        Args:
+            method: Which correlation to compute -- ``"both"`` (default), ``"pearson"``
+                (returned under ``parametric``) or ``"spearman"`` (under ``non_parametric``).
+                Naming one computes only that one; the other is not computed and its keys
+                are absent. Name the correlation before seeing the data when the analysis
+                budgets one test per hypothesis; the default runs two and spends two.
+        """
+        if not isinstance(method, str) or method not in _CORRELATION_METHODS:
+            raise ValueError(
+                f"correlate: method must be one of {_CORRELATION_METHODS}; got {method!r}."
+            )
+        run_pearson = method in ("both", "pearson")
+        run_spearman = method in ("both", "spearman")
+
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
 
@@ -1000,13 +1016,11 @@ class StatisticalAnalysis:
         if len(x_valid) < 3:
             return {"error": "Insufficient valid samples"}
 
-        r_pearson, p_pearson = stats.pearsonr(x_valid, y_valid)
-        rho_spearman, p_spearman = stats.spearmanr(x_valid, y_valid)
         df = len(x_valid) - 2
-
-        result = {
-            "n": len(x_valid),
-            "parametric": {
+        result: Dict = {"n": len(x_valid)}
+        if run_pearson:
+            r_pearson, p_pearson = stats.pearsonr(x_valid, y_valid)
+            result["parametric"] = {
                 "test": "pearson_r",
                 # NaN (e.g. zero-variance input) is propagated, not rewritten to 0.0/1.0 --
                 # "undefined" and "measured zero correlation" are different claims.
@@ -1015,20 +1029,21 @@ class StatisticalAnalysis:
                 "df": int(df),
                 "effect_size": float(r_pearson**2),
                 "effect_size_name": "r_squared",
-            },
-            "non_parametric": {
+            }
+        if run_spearman:
+            rho_spearman, p_spearman = stats.spearmanr(x_valid, y_valid)
+            result["non_parametric"] = {
                 "test": "spearman_rho",
                 "statistic": float(rho_spearman),
                 "pval": float(p_spearman),
                 "df": int(df),
                 "effect_size": float(rho_spearman**2),
                 "effect_size_name": "rho_squared",
-            },
-        }
+            }
         result.update(
             StatisticalAnalysis._uncorrected_flags(
-                result["parametric"]["pval"],
-                result["non_parametric"]["pval"],
+                result["parametric"]["pval"] if run_pearson else None,
+                result["non_parametric"]["pval"] if run_spearman else None,
             )
         )
         return result
@@ -1202,15 +1217,18 @@ class StatisticalAnalysis:
         return result
 
     @staticmethod
-    def exploratory_correlate(x: np.ndarray, y: np.ndarray) -> Dict:
+    def exploratory_correlate(x: np.ndarray, y: np.ndarray, *, method: str = "both") -> Dict:
         """
         Dual Pearson r + Spearman rho for **exploratory analysis**.
+
+        Pass ``method="pearson"`` or ``method="spearman"`` to name one correlation; only
+        that one is computed and only its keys are returned. The default computes both.
 
         Returns raw p-values only — no deprecated flags, no FDR theatre.
         """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            result = StatisticalAnalysis.correlate(x, y)
+            result = StatisticalAnalysis.correlate(x, y, method=method)
         result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
         return result
