@@ -211,7 +211,7 @@ def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Path,
     """True only when git says ``directory`` is a checkout of the same repository as ``root``.
 
     Both must be their own top level, and both must resolve to one common git directory. The
-    shape of a ``.git`` entry was the test until 06-137: a zero-byte ``HEAD``, a ``gitdir:`` line
+    shape of a ``.git`` entry was the test before this check: a zero-byte ``HEAD``, a ``gitdir:`` line
     pointing at nothing, an unrelated ``git init`` and a worktree whose ``commondir`` was deleted
     all passed it, and each hid a duplicate skill tree from gate 2. git rejects every one of them.
 

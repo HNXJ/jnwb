@@ -64,7 +64,7 @@ def _worktree(repo: pathlib.Path, where: str) -> pathlib.Path:
 
 
 def _shaped_like_a_checkout(dot_git: pathlib.Path) -> bool:
-    """The predicate gate 2 used before 06-137, kept here only to prove each counterfeit below
+    """The predicate gate 2 used to apply, kept here only to prove each counterfeit below
     would have fooled it. A case that fails this is not a discriminator for that defect."""
     if dot_git.is_dir():
         return (dot_git / "HEAD").is_file()
@@ -110,7 +110,7 @@ def test_an_untracked_duplicate_tree_still_fails(tmp_path):
 def test_a_linked_worktree_of_this_repository_does_not_fail(tmp_path):
     """The case the exemption exists for, built by ``git worktree add`` rather than by hand.
 
-    Until 06-137 this fixture wrote ``gitdir: /elsewhere/...`` into a file and required the gate
+    This fixture once wrote ``gitdir: /elsewhere/...`` into a file and required the gate
     to excuse it: the missing-``gitdir:`` counterfeit below, named after a worktree.
     """
     repo = _repository(tmp_path / "repo")
@@ -265,7 +265,7 @@ def test_gate_4_accepts_dot_git_whichever_type_it_is(tmp_path, dot_git_is_a_file
     Allowlisted only as a directory, it made gate 4 reject every linked worktree and abort
     before gates 5 through 13. Three packets reported the same red suite independently. Both
     checkouts are real: gate 4 allowlists the root's own `.git` by name, and the fixture named
-    after a worktree was a hand-written `gitdir:` file until 06-137.
+    after a worktree was a hand-written `gitdir:` file.
     """
     repo = _repository(tmp_path / "repo")
     root = _worktree(repo, str(tmp_path / "agent-a")) if dot_git_is_a_file else repo

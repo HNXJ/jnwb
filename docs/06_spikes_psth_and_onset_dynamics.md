@@ -28,6 +28,10 @@ time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
 
 ![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png)
 
+Panel A of that figure is the raster over 30 trials and panel B is `jnwb.bin_spikes` on the same
+spikes. Both panels share one time axis, so what the binning discards is read off the pair; the
+bins are right-open, which is why a spike on a bin edge falls in the later bin.
+
 ### Response Metrics & Significance Classification
 
 ```python
@@ -142,6 +146,10 @@ print(f"Optimizer Bound Status: {fit['bound_status']}")
 ```
 
 ![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.png)
+
+That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed rate it was
+fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The
+gap between the two lines includes the estimator group delay the hazard above warns about.
 
 ### Boundary Status & Censoring Flags (`bound_status`)
 When an onset lies outside the search interval (e.g. pre-stimulus noise or unconstrained drift), nonlinear least squares pins $t_0$ against the outer bounds while reporting `converged: True`. `jnwb` reports `bound_status` to distinguish unconstrained interior fits from boundary-censored solutions:

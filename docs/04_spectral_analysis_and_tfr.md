@@ -122,6 +122,10 @@ linear and decibel representations.
 
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png)
 
+Panel A of that figure is the per-unit power ratios on the ratio scale. Panel B puts the two
+`jnwb.aggregate_to_db` contracts beside the mean of per-unit decibels, which is the Jensen error
+the log-last rule forbids, and prints all three in dB so the gap is a number rather than a claim.
+
 ### Spectral Tilt, Harmonic Analysis & Referencing
 
 ```python
@@ -155,6 +159,11 @@ which depth receives input, so check the convention before comparing against a f
 from elsewhere -- the opposite convention is also in common use. A sink at a given depth
 is evidence of current entering there, not of which structure supplied it.
 
+![Power Spectral Density and 1/f Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png)
+
+Panel A of that figure is a synthetic trace built as a 1/f background plus a 10 Hz rhythm, and
+panel B is `jnwb.spectral_tilt` recovering the aperiodic exponent from it.
+
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 
 Zero-phase (`zero_phase=True`, acausal forward-backward) and causal (`zero_phase=False`) filtering via Second-Order Sections (SOS):
@@ -166,8 +175,6 @@ beta_lfp = jnwb.bandpass_filter(lfp_trace, fs=1000.0, low_cut=14.0, high_cut=30.
 # 60 Hz line-noise notch filter
 clean_lfp = jnwb.notch_filter(lfp_trace, fs=1000.0, freq=60.0, q=30.0, zero_phase=True)
 ```
-
-![Power Spectral Density and 1/f Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png)
 
 ---
 
@@ -288,6 +295,10 @@ tfr_res = jnwb.complex_tfr(
 ```
 
 ![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png)
+
+Panel A of that figure is an LFP trace carrying one transient oscillatory burst and panel B is
+`jnwb.complex_tfr` on it with the cone of influence drawn, so the region the next paragraph
+excludes is visible as an outline rather than described.
 
 **What `coi_mask` excludes, and why the average comes after it.** Convolution runs with
 `mode="same"`, so near each edge part of the kernel hangs off the signal and is filled with

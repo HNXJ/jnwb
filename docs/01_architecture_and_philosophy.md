@@ -12,6 +12,8 @@ A fundamental architectural principle of `jnwb` is the strict separation between
 1. **Generic Electrophysiology Primitives (`jnwb/`)**: General mathematical operations, signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
 2. **Project-Specific Domain Extensions**: Task structures, custom condition codes, sequence slot timings, and project-specific unit classification taxonomies.
 
+The diagram below draws that boundary: only the dashed edge leaves the package.
+
 ```mermaid
 graph TD
     NWB[NWB 2.0+ Files / HDF5 Slabs] --> jnwb[jnwb Generic Core Library]

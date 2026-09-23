@@ -14,6 +14,9 @@ High-channel-count probes (e.g. Neuropixels, multi-shank arrays) suffer from dis
 - **Detection (`jnwb.artifact_detection`)**: Statistical identification of bad channels and trials via cross-correlation and amplitude z-scores.
 - **Repair (`jnwb.artifact_repair`)**: Substitution of artifact-corrupted samples with cross-trial medians to preserve array geometry without discarding entire trials.
 
+The diagram below is where the geometry is preserved: a mask enters the repair step and a tensor
+of the same shape leaves it.
+
 ```mermaid
 graph TD
     Raw[Raw Segmented LFP: N_trials x N_channels x N_times] --> Detect[Cross-Channel Synchrony & Amplitude Z-Score]
@@ -23,6 +26,10 @@ graph TD
 ```
 
 ![Multichannel LFP Artifact Detection and Repair](assets/figures/fig10_artifact_repair.png)
+
+Panel A of that figure is one trial carrying an injected synchronous excursion, with the peak
+synchrony z-score the detector reports; panel B overlays `jnwb.repair_lfp_trials` on the same
+trial, so what the substitution changed and what it left alone are read off one pair of traces.
 
 ---
 

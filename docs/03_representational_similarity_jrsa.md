@@ -8,6 +8,9 @@
 
 Representational Similarity Analysis (RSA) compares neural population geometry across experimental conditions without fitting arbitrary classification hyperplanes.
 
+The diagram below is the call order. Two response tensors enter, one `JRSAResult` leaves, and
+`summary` and `plot` are read off that result rather than recomputed from the tensors.
+
 ```mermaid
 graph LR
     P[Population Response Tensor: X1, X2] --> Dist[Pairwise Metric Estimator]

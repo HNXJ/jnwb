@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127 |
-| W1 | 06-05, 06-06, 06-16, 06-86, 06-124, 06-33, 06-123, 06-137 |
+| W1 | 06-06, 06-16, 06-86, 06-124, 06-33 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -83,28 +83,6 @@ Stop: a file pair under `packages/jnwb-vis/` differs from `jnwb/vis/`.
 
 ## W1. Freeze, sweeps and harness
 
-### 06-05 Freeze the acceptance set
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none. AUTONOMY: none.
-Writes: `artifacts/todo_stack.md`.
-Rulings R-2 and R-3 of 2026-09-22 settled the last two lines: "decline" stays in 0.2.6, and
-index verification uses a TestPyPI candidate before publication.
-Do: re-establish every line of the Acceptance section against the live tree; each line names the
-item or check that establishes it, and a line that names neither does not enter the set.
-Accept: the Acceptance section is dated as frozen, and the non-goals are part of it.
-
-### 06-137 Gate 2 asks git whether a nested `.git` is a checkout of this tree
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/test_gate2_ignores_nested_checkouts.py`.
-P-56. `_is_git_admin_entry` exempts anything shaped like a `.git` entry, so a zero-byte `HEAD`, a `gitdir:` file pointing nowhere, or an unrelated repository hides a duplicate skill tree from gate 2.
-Do: exempt a directory only when `git -C <parent> rev-parse --show-toplevel` is that parent and its `--git-common-dir` resolves to the root's common directory; rewrite the fixtures that write `gitdir: /elsewhere/...` or `gitdir: x` to use a real `git worktree add`.
-Discriminator: the zero-byte `HEAD`, the missing-`gitdir:` file, an unrelated `git init`, and a worktree with `commondir` deleted are each flagged; a real linked worktree is not; the selector passes pristine first.
-Accept: P-56 closes `repaired`.
-Stop: git is unavailable where the gate runs; report it rather than falling back to shape.
-
 ### 06-06 Publish the canonical architecture page
 
 Release: required-0.2.6.
@@ -116,21 +94,21 @@ entry paths, the code/documentation/tests relation with skills acting on it, the
 outcomes, the boundary test. No ruling or process language.
 Accept: `python scripts/docs_build.py` builds strict and the page is in the navigation.
 
-### 06-16 Sweep the substitution class
+### 06-16 Rename the geometric `layer` column
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `tests/test_substitution_class_sweep.py`, `jnwb/addressing.py`, `jnwb/metadata.py`.
-Remaining: P-21 (two exports emit a `layer` column whose values are not layer labels, one
-reading `Unknown`). The Stop fired 2026-09-23: the exports are
-`jnwb/addressing.py::enrich_units_dataframe` and `jnwb/metadata.py::get_all_units_metadata`,
-and renaming a public output column is a ruling for Hamm. The scanner half landed 2026-09-23:
-nested chains and chains with no `else` are scanned and seeded, the widening found two sites in
-`exact_sign_flip` (accepted, validator driven), and `INSTRUMENT_BLIND_SPOTS` names `match`/`case`.
-Discriminator: after the ruling, `test_p21_reproduces_as_a_measured_vocabulary_collision` fails
-and is replaced by a test that the renamed column carries the geometric vocabulary.
-Accept: P-21 closes.
-Stop: the ruling keeps `layer` for the geometric class; then P-21 closes `accepted` with its reason.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/addressing.py`, `jnwb/metadata.py`, `tests/test_addressing.py`, `tests/test_metadata.py`, `tests/test_substitution_class_sweep.py`, `tests/test_composition_identifier_survival.py`, `tests/test_docs_smoke.py`, `docs/02_paths_addressing_metadata.md`, `skills/*/SKILL.md`.
+P-21, ruled 2026-09-23 (`artifacts/rulings/2026-09-23.md`): `enrich_units_dataframe` and
+`get_all_units_metadata` emit the geometric class as `depth_class`; `layer` stays in 0.2.6 as a
+duplicate whose read emits `FutureWarning`, and goes in 0.2.7. The scanner half landed 2026-09-23.
+Do: emit `depth_class`; keep `layer` equal to it behind the warning; update every doc and skill
+row that names the column; report the `CHANGELOG.md` Changed and Deprecated text to the dispatcher.
+Discriminator: `test_p21_reproduces_as_a_measured_vocabulary_collision` is replaced by a test that
+`depth_class` carries the geometric vocabulary and that reading `layer` warns and equals it;
+dropping the warning fails it.
+Accept: P-21 closes `repaired`; the 0.2.7 removal is recorded for the dispatcher.
+Stop: a consumer reads `layer` in a way a warning on read cannot reach; report the mechanism.
 
 ### 06-86 Name the quantity each order document measures
 
@@ -164,16 +142,6 @@ Writes: `artifacts/planned_post_0.2.6.md`.
 Bring the ruled benchmark hypothesis to pre-registration quality: task set, scoring rubric, arms,
 repetitions, refusal scoring, inferential unit. It is a non-goal of 0.2.6 and gates nothing.
 Accept: every element is declared and the section states that none of it has run.
-
-### 06-123 Review the figure-form lane and close P-178
-
-Release: required-0.2.6.
-Role: critic. Skill: jnwb-figures. Blocked by: none. Writes: none.
-P-178. Triage of 2026-09-22 removed 48 worktrees whose work was on `dev`, and 06-95 was
-cherry-picked as `917352fe`. Left: lane `fig` (`C:/workspace/jnwb-lanes/fig`), which holds 06-52
-work that pins every failing raster as a known-failure list instead of repairing it.
-Do: say what in that lane is sound and belongs in 06-52, and what repeats the P-37 shape.
-Accept: a recommendation per file; P-178 closes when Hamm has ruled on it and the tree is removed.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 
@@ -360,8 +328,13 @@ happens, an undocumented one goes to the problem stack.
 ### 06-52 Figures that carry structure
 
 Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-29, 06-30, 06-123.
-Writes: `docs/*.md`, `docs/assets/*.svg`, `tests/test_figure_form.py`.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-29, 06-30.
+Writes: `docs/*.md`, `docs/assets/*.svg`, `docs/assets/*.png`, `docs/assets/figures/*.png`, `docs/generate_figures.py`, `docs/_theme_override.css`, `examples/quickstart_jnwb.py`, `tests/test_figure_form.py`.
+Widened 2026-09-23 by ruling (P-178): the figure captions are on `dev`; the known-failure lists
+of the retired lane were not taken. Repair, not pin: P-205 (opaque white rasters, the orphan
+quickstart SVG), P-206 (the theme stylesheet paints dark chrome under both schemes, so G2 is
+unobservable), P-207 (the fig08 title names `permute_labels`; the generator sign-flips), and the
+contract page's counts (nine raster pages, not seven) and item identifiers (P-208).
 Rules G1-G4 of `docs/documentation_form.md`. Place the canonical diagrams as inline SVG; the
 seven raster PNGs stay unless one fails G1 or G2, which is then fixed and named.
 Discriminator: switch the palette scheme; a figure with a hardcoded colour is caught.
@@ -498,7 +471,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -604,7 +577,7 @@ Frozen with the acceptance set. Each needs its own authorization.
 
 ## Acceptance
 
-Frozen by 06-05. Each line names what establishes it.
+Frozen 2026-09-23 (06-05, closed), each line re-established against the live tree; the non-goals under "Out of 0.2.6 scope" are frozen with it. Each line names what establishes it.
 
 | Line | Established by |
 |---|---|
@@ -618,6 +591,10 @@ Frozen by 06-05. Each line names what establishes it.
 | published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
 | documentation low-verbosity and consistently formed, against a declared contract | 06-51, 06-52, 06-53, 06-119 |
 | one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56, 06-59 |
+| every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
+| a read invents no metadata, and a named waiver is recorded as it happened | 06-82, `tests/test_nwb_read_tolerance_and_visibility.py` |
+| `jnwb.vis` is an optional extra and `import jnwb` works without it | `tests/test_optional_vis_extra.py`, 06-37 |
+| suite wall time and the slowest tests measured before release | 06-121 |
 | no release-blocking problem and no required item remaining, confirmed by a blocker-focused pass | 06-60, `scripts/release_gate.py` STEP 0a |
 
 The form matches 0.2.5's closure: no known material defect under a stated acceptance set, not a

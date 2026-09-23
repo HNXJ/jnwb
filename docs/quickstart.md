@@ -49,6 +49,10 @@ Pick the appropriate pipeline module for your analytical question:
 
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png)
 
+Each of the six panels is one of the four operations named above, drawn from the run the command
+below reproduces. The figure is committed output, not a live render: if a panel disagrees with
+what the script prints on your machine, the script is authoritative.
+
 Run the complete quickstart script locally:
 
 ```bash

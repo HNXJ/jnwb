@@ -8,6 +8,9 @@ This document details nested cross-validated population decoding, baselines, aut
 
 `jnwb.decoding` provides linear support vector machine (SVM) decoders with nested cross-validation and fold partitioning schemes designed to prevent temporal autocorrelation leakage.
 
+The diagram below has three entry points and no edge between them, which is the separation this
+page turns on: the partitioning chain on the trial table never reaches `nested_cv_linear_svm`.
+
 ```mermaid
 graph LR
     Trials[Trial table: trial_id, session, analysis, slot_key, cycle] --> Outer[assign_outer_folds: leave-one-group-out]
@@ -49,6 +52,11 @@ as a row-wise upper bound on the grouped number and report it as one, read again
 classes are balanced.
 
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png)
+
+Panel A of that figure is the per-fold accuracy drawn against `majority_baseline_accuracy`,
+which is the comparison the paragraph above asks for. Panel B is a ROC curve against chance. Both
+are row-wise folds on synthetic data, so the number is the upper bound described above, not a
+grouped result.
 
 ### Baselines & Fold Partitions
 
