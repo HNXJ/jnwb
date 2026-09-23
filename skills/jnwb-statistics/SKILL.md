@@ -26,7 +26,7 @@ Activate this skill when comparing neural responses across conditions, performin
 
 ## 3. Invariants & Safeguards
 1. **Exchangeability Preservation**: For grouped/hierarchical data (e.g. trials nested in sessions or blocks), use `scheme="within_group"` with explicit `groups`. Never use global permutations when trial structure induces correlation.
-2. **Exploratory vs Confirmatory**: `exploratory_compare` reports raw p-values. By default it performs two tests and reports both; pass `test=` to declare one primary test, which is what a pre-registered family budget has to be able to state. For multi-unit/multi-channel hypothesis families, run `fdr_correct()` across the collection.
+2. **Exploratory vs Confirmatory**: `exploratory_compare` and `exploratory_multi` report raw p-values, and their results carry `correction: "none"` to say so. By default it performs two tests and reports both; pass `test=` to declare one primary test, which is what a pre-registered family budget has to be able to state. For multi-unit/multi-channel hypothesis families, run `fdr_correct()` across the collection.
 3. **Explicit RNG**: Always supply an explicit `numpy.random.Generator` (e.g. `rng = np.random.default_rng(seed)`). Never mutate global seed state.
 
 ## 4. Minimal Workflow

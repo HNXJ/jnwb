@@ -92,6 +92,15 @@ class TestExploratoryMulti:
         assert r["api"] == "exploratory"
 
 
+@pytest.mark.parametrize("test", ["both", "parametric", "nonparametric"])
+def test_exploratory_results_say_they_are_uncorrected(test):
+    compared = StatisticalAnalysis.exploratory_compare(A, B, n_bootstrap=50, test=test)
+    multi = StatisticalAnalysis.exploratory_multi({"a": A, "b": B}, test=test)
+    for result in (compared, multi):
+        assert result["correction"] == "none"
+        assert "multiple_comparison" not in result
+
+
 # ── Confirmatory API ──────────────────────────────────────────────────────────
 
 class TestConfirmatoryCompare:

@@ -1186,7 +1186,9 @@ class StatisticalAnalysis:
         ``confirmatory_compare``. Do **not** cite these p-values as publication-level
         inference without applying ``fdr_correct()`` across the full hypothesis family.
 
-        Equivalent to ``compare_groups`` minus the ``multiple_comparison`` block.
+        Equivalent to ``compare_groups`` minus the ``multiple_comparison`` block. The result
+        carries ``correction: "none"``, so a consumer reading it can tell these p-values were
+        not corrected without knowing which entry point produced them.
         """
         # Re-use compare_groups and strip the multiple_comparison block
         with warnings.catch_warnings():
@@ -1196,6 +1198,7 @@ class StatisticalAnalysis:
             )
         result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
+        result["correction"] = "none"
         return result
 
     @staticmethod
@@ -1219,13 +1222,15 @@ class StatisticalAnalysis:
 
         Every p-value in the result is raw and no key in it claims otherwise. Pass
         ``test="parametric"`` or ``test="nonparametric"`` to name one primary test; only
-        that one is computed. The default runs both.
+        that one is computed. The default runs both. The result carries
+        ``correction: "none"``.
         """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             result = StatisticalAnalysis.compare_multiple_groups(groups, test=test)
         result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
+        result["correction"] = "none"
         return result
 
     # ─────────────────────────────────────────────────────────────────────────

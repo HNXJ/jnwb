@@ -23,6 +23,9 @@ Carried by 0.2.6.
   giving 1249.9987 Hz, with sample 0 placed within 10 ms -- then computes a PSTH by cortical
   layer and band power by depth. `scripts/build_open_data_excerpt.py` rebuilds the excerpt
   from the published assets after checking their SHA-256.
+- **Exploratory results say they are uncorrected.** `StatisticalAnalysis.exploratory_compare`
+  and `exploratory_multi` results carry `correction: "none"`. Their p-values were already raw;
+  the key states it in the result itself. Corrected values stay on `confirmatory_compare`.
 
 ### Changed
 
