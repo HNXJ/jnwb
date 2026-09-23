@@ -73,7 +73,7 @@ def gpu_pca(
     # doing any arithmetic -- the empty early return here, and the padding at the end --
     # both handed back float64 for a float32 matrix. The output dtype then depended on
     # whether the input happened to be empty, or on whether `n_components` happened to
-    # exceed the rank, rather than on the input dtype (P-137, P-145).
+    # exceed the rank, rather than on the input dtype.
     working = resolve_working_dtype(matrix.dtype)
 
     n_samples, n_features = matrix.shape
@@ -145,7 +145,7 @@ def gpu_pca(
     # If requested n_components > min(n_samples, n_features), pad output. The padding is
     # allocated in the working dtype: a bare np.zeros defaults to float64 and upcasts a
     # float32 result on assignment, so whether the caller got float32 back depended on
-    # whether the rank happened to cover n_components (P-145).
+    # whether the rank happened to cover n_components.
     if actual_components < n_components:
         pad_proj = np.zeros((n_samples, n_components), working)
         pad_proj[:, :actual_components] = proj_np

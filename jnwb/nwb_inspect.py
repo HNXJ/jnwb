@@ -105,7 +105,7 @@ def _series_members(group: h5py.Group) -> list[tuple[str | None, str, h5py.Datas
     """Every continuous series directly under one container, as
     ``(series_name, data_relpath, data_dataset, rate_hz)``.
 
-    05-39: the predecessor walked the whole subtree with ``visititems``, taking the first
+    The predecessor walked the whole subtree with ``visititems``, taking the first
     ``data`` leaf and the first ``rate`` leaf **independently**. On an `LFP` container
     holding `lfp_alpha` at 1000 Hz and `lfp_beta` at 500 Hz it reported `lfp_alpha`'s
     shape and path beside `lfp_beta`'s rate -- a sampling rate that belonged to a
@@ -220,7 +220,7 @@ def _pynwb_channel_count(series: Any) -> int | None:
 def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
     """Decide which axis of a 2-D continuous series holds channels.
 
-    05-38: this was ``shape[0] >= shape[1]``, which never consulted the electrode count.
+    This was ``shape[0] >= shape[1]``, which never consulted the electrode count.
     A 64-channel x 1000-sample recording came out ``channel_by_time`` only by accident of
     being wider than tall, and a 50-sample x 100-channel one came out ``channel_by_time``
     while the same ``inspect`` dict carried 100 electrodes.
@@ -310,7 +310,7 @@ def _warn_type_contradiction(
 ) -> None:
     """Report, once per container, every series in it whose declared type disagrees.
 
-    Ruled 2026-09-20 (06-84): warn, never refuse. The warning is the whole signal; no jnwb
+    Warn, never refuse. The warning is the whole signal; no jnwb
     operation branches on it and the container is read exactly as it would have been.
     """
     findings = _type_contradictions(container, members)
@@ -329,13 +329,13 @@ def _warn_type_contradiction(
 def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str, Any]:
     """One `processing_continuous`/`acquisitions` entry, from the file.
 
-    05-39: every key in `CONTINUOUS_KEYS` is always present, `None` where it is not
+    Every key in `CONTINUOUS_KEYS` is always present, `None` where it is not
     known, so `inspect` reports one schema rather than a key set that depends on what
     the file happened to contain.
     """
     ndt = _ndt(group)
     members = _series_members(group)
-    # 06-84: report a container whose declared type contradicts its contents, and proceed.
+    # Report a container whose declared type contradicts its contents, and proceed.
     # This sits on the h5py path because it is the only one that can witness the
     # contradiction: pynwb substitutes the schema's fixed `unit` on read, and drops an
     # untyped container from the object model entirely.
@@ -509,7 +509,7 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
                         f"Pass the qualified name container/series."
                     )
                 return name
-            # 05-39: both used to be true happily, and acquisition won by the order of
+            # Both used to be true happily, and acquisition won by the order of
             # these two `if`s. Nothing said so, and the two objects are different data.
             if in_acquisition and in_processing:
                 qualified = sorted(
@@ -548,7 +548,7 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
 def _electrical_series_from_acquisition(acq: Any, name: str | None = None):
     """Unwrap an `LFP` container to the series it holds.
 
-    05-39: this was ``next(iter(...))``, so a container holding two series silently
+    This was ``next(iter(...))``, so a container holding two series silently
     returned whichever came first, while `inspect` reported a third answer built from
     both. A container that holds more than one series is a question for the caller.
     """
@@ -707,7 +707,7 @@ def acquisition_channel(
                 )
             data = np.asarray(series.data[:], dtype=np.float64)
         elif len(shape) == 2:
-            # 05-38: this sliced axis 1 unconditionally and bounds-checked shape[1],
+            # This sliced axis 1 unconditionally and bounds-checked shape[1],
             # never consulting the layout its own sibling `inspect` reports. On a
             # channel-major (64, 1000) series with 64 electrodes, channel=0 returned
             # data[:, 0] -- 64 samples taken across channels at one instant -- as a
@@ -964,7 +964,7 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
     Discovery only: lists acquisitions, electrodes, units, and **all** interval
     tables with columns and sample values. Does not select a default event table.
 
-    Both call forms answer with one schema. 05-39: they used to be two independent
+    Both call forms answer with one schema. They used to be two independent
     walks, so ``inspect(path)`` and ``inspect(nwb)`` reported different keys, different
     column lists and different dtypes for the same file. An `NWBFile` that was read from
     a file is now described by that file, which is what makes passing an open handle --

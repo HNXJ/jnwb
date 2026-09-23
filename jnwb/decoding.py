@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 
 def _reject_missing_labels(labels: np.ndarray, func_name: str, name: str) -> np.ndarray:
-    """05-85: a missing label is not a class, and the two baselines disagreed about it.
+    """A missing label is not a class, and the two baselines disagreed about it.
 
     ``np.unique`` collects NaNs into one group, so ``majority_baseline`` counted "missing"
     as the majority class and scored it: eight labels of which six were NaN returned 0.75.
@@ -65,7 +65,7 @@ def majority_baseline(labels: np.ndarray) -> float:
     labels = _reject_missing_labels(labels, "majority_baseline", "labels")
     if len(labels) == 0:
         return float("nan")
-    # 05-36: `np.bincount(labels.astype(int))` requires contiguous non-negative integers.
+    # `np.bincount(labels.astype(int))` requires contiguous non-negative integers.
     # `np.unique` counts the classes that are present, whatever they are called, so
     # labels {1, 2}, {-1, 1} and {'a', 'b'} are counted rather than miscounted or refused.
     counts = np.unique(labels, return_counts=True)[1]
@@ -116,7 +116,7 @@ def nested_cv_linear_svm(
     """
     X = np.asarray(X, dtype=float)
     labels = np.asarray(labels)
-    # 05-36: this was `np.bincount(labels.astype(int)).min()`, which counts every integer
+    # This was `np.bincount(labels.astype(int)).min()`, which counts every integer
     # below the maximum as a class -- including ones that are absent. Labels {1, 2} scored
     # a class of size 0 and returned `status="insufficient_trials_for_cv"` for 20
     # separable trials per class; {-1, 1} and {'a', 'b'} raised out of `bincount` and
@@ -146,7 +146,7 @@ def nested_cv_linear_svm(
             "majority_baseline_accuracy": float("nan"),
         }
 
-    # 05-34: the partition was fixed at `random_state=42` in four places with no way to
+    # The partition was fixed at `random_state=42` in four places with no way to
     # vary it, so partition sensitivity could not be assessed at all. An int `rng` is
     # handed to scikit-learn unchanged, so the default reproduces the old folds exactly.
     random_state = sklearn_random_state(rng, func_name="nested_cv_linear_svm")
@@ -214,7 +214,7 @@ def nested_cv_linear_svm(
         f1 = float("nan")
         auc = float("nan")
     else:
-        # 05-36: both metrics were left to sklearn's `pos_label=1` default, which is a
+        # Both metrics were left to sklearn's `pos_label=1` default, which is a
         # different class depending on what the classes are called. Labels {0, 1} scored
         # f1 = 0.8571 and the same trials relabelled {1, 2} scored 0.8421, because 1 is
         # the higher class in one and the lower in the other; labels {0, 2} and
@@ -337,7 +337,7 @@ def build_inner_validation_partitions(
                                 if trial["outer_group"] == inner_group
                                 else "inner_train"
                             ),
-                            # 05-36: these were `int(...)`. `assign_outer_folds` accepts
+                            # These were `int(...)`. `assign_outer_folds` accepts
                             # string group ids and reports `outer_fold_status="valid"`,
                             # and then its own documented successor raised
                             # `invalid literal for int() with base 10: 'c2'` on that

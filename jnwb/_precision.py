@@ -29,8 +29,8 @@ The policies are exhaustive over the declared high-risk subset:
     rather than omitted: "measured, and there is nothing to state" and "nobody looked" are
     different facts, and only one of them is a pass.
 
-:data:`PRECISION_POLICY` is the stated function of input dtype and request that item 06-55
-accepts against. It is data, not prose: ``tests/test_precision_switch.py`` reads it and
+:data:`PRECISION_POLICY` states each registered function's output precision as a function of
+input dtype and request. It is data, not prose: ``tests/test_precision_switch.py`` reads it and
 holds every entry against the live function.
 """
 
@@ -69,8 +69,8 @@ WELFORD_32_BIT_TOLERANCE_BREACH = (43, 33973)
 class PrecisionNotSupportedError(ValueError):
     """A precision was requested that the function cannot deliver within its tolerance.
 
-    Raised instead of quietly returning the other precision. Item 06-55's stop clause: a
-    function that cannot honour 32 bits is recorded 64-bit only and says so, because a
+    Raised instead of quietly returning the other precision. A function that cannot honour
+    32 bits is recorded 64-bit only and says so, because a
     silent upcast is the caller asking for one thing and receiving another.
     """
 
@@ -92,8 +92,7 @@ def resolve_working_dtype(dtype) -> np.dtype:
     return single if np.dtype(dtype) == single else np.dtype(np.float64)
 
 
-#: Dotted name -> policy, for the declared high-risk subset of
-#: ``artifacts/evidence/0.2.6/composition_subset_0.2.6.md`` plus the functions item 06-55 repairs.
+#: Dotted name -> policy, for a declared high-risk subset of the public functions.
 #:
 #: Every entry was measured rather than assumed. The two entries that look like a
 #: contradiction are the point: ``to_db`` and ``aggregate_to_db`` live in one module and are

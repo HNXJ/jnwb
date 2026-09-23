@@ -218,7 +218,7 @@ def jrsa(
         holm-sidak | fdr_bh | fdr_by.
         Any other value raises `ValueError`; there is no fallback. This list used to end
         "| cluster | maxT", neither of which was ever implemented -- both raised -- so the
-        docstring advertised two methods a caller could not use (P-85).
+        docstring advertised two methods a caller could not use.
     alpha : float
         Significance threshold for the multiple-comparison correction. It does not set
         the width of `ci`, which is a fixed 95% percentile bootstrap interval.
@@ -308,7 +308,7 @@ def jrsa(
     # parameter actually set they give 0.2189 four times. So every accepted spelling is
     # popped explicitly here, and two that disagree raise.
     #
-    # 05-34 made `rng` canonical package-wide. An earlier repair declared `seed` the
+    # `rng` is the canonical package-wide spelling. An earlier repair declared `seed` the
     # package-wide spelling; that was true of 7 functions against 8 spelling it `rng`, and
     # the argument now accepts a Generator as well as an int, which `seed` would misname.
     _given = "rng"
@@ -995,7 +995,7 @@ def _p_from_null(value, null_dist, alternative):
     0-d: one scalar p-value wrapped in a length-1 axis. Under
     NumPy>=2 -- the floor `pyproject.toml` declares -- `float()` on that array raises
     `TypeError`, so the documented quickstart line
-    ``float(jrsa_res.p)`` did not run (P-83). This function reduces `value` to a single
+    ``float(jrsa_res.p)`` did not run. This function reduces `value` to a single
     scalar `obs` before it counts anything, so it has no vector-valued case to preserve;
     a vector-valued `p` still arises where it is real, from `_stack_lags` over multiple
     lags, which now yields shape ``(n_lags,)`` and so matches `value` there too instead

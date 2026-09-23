@@ -126,7 +126,7 @@ def epoch_continuous(
         raise ValueError(f"Unknown boundary_policy: '{boundary_policy}'. Expected 'nan', 'error', or 'drop'")
 
     onsets_f = onsets_arr.astype(np.float64)
-    # 05-40: a non-finite onset used to be cast to int64, which makes NaN INT64_MIN, and
+    # A non-finite onset used to be cast to int64, which makes NaN INT64_MIN, and
     # `idx + n_pre` then overflowed to a large positive start with a large negative end.
     # `0 <= start and end <= n_samples` is true of that pair, so the window took the
     # in-bounds branch and `arr[start:end]` returned an empty slice: one epoch of shape

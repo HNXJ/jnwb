@@ -429,7 +429,7 @@ class UnitAnalyzer:
         ragged window ``[lo_i, hi_i)``; flattening the whole chunk's windows into one
         index array turns "a histogram per spike" into "a histogram per chunk".
 
-        05-45: both previous paths were pathological in different ways. The CPU loop
+        Both previous paths were pathological in different ways. The CPU loop
         called :func:`numpy.histogram` once per spike, which is 41x to 46x slower than
         this for the same counts. The CUDA path below 30000 spikes built the full
         ``N x N`` difference matrix -- 6.71 GiB of device memory at 29999 spikes, just

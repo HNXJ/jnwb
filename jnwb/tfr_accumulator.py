@@ -110,9 +110,9 @@ class TFRAccumulator:
             PrecisionNotSupportedError: if a 32-bit precision is requested. Welford's
                 update subtracts two nearly equal numbers, and at 32 bits the surviving
                 variance misses the ``rtol=1e-8`` that ``tests/test_tfr_accumulator.py``
-                holds :meth:`var` to. Refusing is item 06-55's stop clause: returning
-                float64 from a float32 request would be the silent substitution the item
-                exists to remove, and offering a 32-bit path would ship a documented
+                holds :meth:`var` to. Refusing is deliberate: returning float64 from a
+                float32 request would silently substitute one precision for another, and
+                offering a 32-bit path would ship a documented
                 tolerance the code cannot meet.
         """
         if dtype is not None:

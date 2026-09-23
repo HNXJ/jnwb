@@ -1913,7 +1913,7 @@ def _welch_csd_gpu(
     # Periodic Hann window matching scipy.signal.get_window('hann', nperseg)
     window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
 
-    # 05-45: this was a Python `while` loop appending one device array per segment, so
+    # This was a Python `while` loop appending one device array per segment, so
     # a 16384-sample trace at nperseg=256 ran 127 iterations and about 762 kernel
     # launches before `cp.stack`. Launch overhead, not arithmetic, was the cost: the
     # whole call took 26.8 ms against 16.6 ms for the equivalent scipy calls, and even

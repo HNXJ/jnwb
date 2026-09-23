@@ -81,7 +81,7 @@ import numpy as np
 FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 
 # Stamped into every file this module writes, as `conversion_script` and inside each converted
-# dataset's `stored_dtype_note`. P-30: both used to name `scripts/convert_nwb_compressed.py`,
+# dataset's `stored_dtype_note`. Both used to name `scripts/convert_nwb_compressed.py`,
 # which has never existed in this repository -- 22 of 22 real sessions carry that dead path, and
 # nothing ever resolved it, which is how it survived a release. Provenance that names a script
 # nobody can run does not merely fail to help; it sends a reader somewhere that does not exist.
@@ -108,7 +108,7 @@ CONVERSION_ENTRY_POINT = "jnwb.compress_fp32"
 # create_dataset on a chunk-rank mismatch. Caught in the synthetic fixture before it could repeat
 # against a real 100+ GiB file.
 #
-# ANCHORED, and matched with `fullmatch` rather than `search` (P-29). The pattern used to end in
+# ANCHORED, and matched with `fullmatch` rather than `search`. The pattern used to end in
 # `/data$` and be applied with `.search()`, so it matched any path whose TAIL contained the
 # corpus name: `stimulus/probe_0_lfp/data`, `analysis/probe_0_lfp/data`,
 # `scratch/backup_probe_0_lfp/data`, `general/extra/probe_0_lfp/data`, `scratch/probe_0_muae/data`
@@ -122,10 +122,10 @@ CONVERSION_ENTRY_POINT = "jnwb.compress_fp32"
 # does not re-baseline what the corpus selects.
 #
 # `^` and `$` are redundant under `fullmatch` and are written anyway: they keep the invariant
-# true if the call site ever reverts to `search`, which is the exact slip this row is about. A
+# true if the call site ever reverts to `search`, which is the exact slip this comment is about. A
 # mutation run confirmed the need -- with the anchors absent, swapping `fullmatch` for `search`
 # reselected `scratch/acquisition/probe_0_lfp/data` and `acquisition/probe_0_lfp/datastore` while
-# every adversarial name recorded in P-29 still passed.
+# every adversarial name listed above still passed.
 _LFP_MUAE_RE = re.compile(r"^acquisition/(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
 
 
@@ -283,7 +283,7 @@ def _timestamps_fate(src: h5py.File, ts_path: str, data) -> tuple:
 def _chunk_shape(shape, max_rows: int) -> tuple:
     """Chunk shape for a dataset of ANY rank: cap the first axis, keep every other axis whole.
 
-    P-47. All three call sites used to build ``(min(max_rows, shape[0]), n)`` unconditionally --
+    All three call sites used to build ``(min(max_rows, shape[0]), n)`` unconditionally --
     a rank-2 tuple regardless of the dataset -- so a 1-D dataset raised ``ValueError: 'chunks'
     must have same rank as dataset shape`` out of ``create_dataset``, and a 3-D one raised it
     too. Latent only because today's selector cannot reach anything but 2-D arrays; load-bearing

@@ -469,7 +469,7 @@ def gaussian_smooth_rate(
     # at an array edge, so a boundary NaN spreads less far than an interior one and a computed
     # radius would overstate the loss at exactly the position where the loss actually occurs.
     # No `nan_policy` argument is offered here on purpose -- whether an additive public API
-    # change requires a CHANGELOG entry and a deprecation path is an open ruling (P-93), and
+    # change requires a CHANGELOG entry and a deprecation path is not yet decided, and
     # warning needs no new parameter.
     n_bad_in = int(np.count_nonzero(~np.isfinite(arr)))
     if n_bad_in:

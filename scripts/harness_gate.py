@@ -19,7 +19,8 @@ protected paths to skill-tree uniqueness without the list noticing.
   11. No shadow packages: nothing importable at the repository root that jnwb does not own.
   12. Project identifiers in jnwb/ code strings.
   13. NWB onboarding surface alignment across README, tutorials, skill, and MkDocs.
-  14. Internal process vocabulary kept out of public documentation.
+  14. Internal process vocabulary kept out of public documentation, and item or problem
+      identifiers out of jnwb/.
   15. Stack form consistency: declared write sets are comparable and problem rows keep shape.
   16. Line ending consistency: no tracked text file carries both conventions at once.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
@@ -1332,6 +1333,46 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     return violations
 
 
+#: An item or problem identifier from the coordination stacks: `P-29`, `P-C7`, `06-55`,
+#: `0.2.4-04`. The item form requires a leading zero because two-digit ranges are ordinary
+#: library prose (`14-30 Hz`, `50-80`), and every edge excludes a neighbouring word character,
+#: dot, slash or hyphen, so a date (`2026-09-23`), a version (`0.2.6`) and a DOI fragment
+#: (`s41593-020-00744-x`) never match.
+PROCESS_IDENTIFIER = re.compile(
+    r"(?<![\w./\-])(?:P-C?\d{1,3}|0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3})(?![\w\-])"
+)
+
+
+def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) -> List[str]:
+    """Part of gate 14: no item or problem identifier anywhere in `jnwb/**/*.py`.
+
+    The head rule of `AGENTS.md` keeps internal process terminology out of the library surface,
+    comments and docstrings included. Identifiers were the form it took there: behaviour was
+    explained by citing the stack row that changed it, which tells a library reader nothing.
+    The scan is textual, so comments, docstrings and string constants are all covered.
+    """
+    root = repo_root or REPO_ROOT
+    modules = sorted(
+        py for py in (root / "jnwb").rglob("*.py") if "__pycache__" not in py.parts
+    )
+    if not modules:
+        return [
+            f"PROCESS_IDENTIFIER: no library source found to scan under {root / 'jnwb'}; the "
+            "sweep is broken, not the tree"
+        ]
+    violations = []
+    for py in modules:
+        rel = py.relative_to(root).as_posix()
+        for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
+            for found in PROCESS_IDENTIFIER.finditer(line):
+                violations.append(
+                    f"PROCESS_IDENTIFIER: {rel}:{lineno} cites {found.group(0)!r}. State the "
+                    "behaviour it stands for instead; the identifier means nothing to a reader "
+                    "of the library."
+                )
+    return violations
+
+
 #: The two coordination stacks gate 15 reads. Both are tracked; a missing one is a broken
 #: sweep rather than a clean tree, and is reported as such.
 TODO_STACK = "artifacts/todo_stack.md"
@@ -2433,6 +2474,20 @@ def _api_reference_checks() -> List[Tuple[str, List[str]]]:
     return found
 
 
+def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
+    """Adapter, not a gate: public documentation and the library source under one PASS line."""
+    found: List[Tuple[str, List[str]]] = []
+    docs_violations = check_internal_process_vocabulary()
+    if docs_violations:
+        found.append(
+            ("FAIL: Internal process vocabulary found in public documentation:", docs_violations)
+        )
+    library_violations = check_no_process_identifiers_in_library()
+    if library_violations:
+        found.append(("FAIL: Item or problem identifiers found in jnwb/:", library_violations))
+    return found
+
+
 def _python_pass_line() -> str:
     return (
         f"PASS: Python >={PYTHON_FLOOR} floor, classifiers {list(PYTHON_SUPPORTED)}, "
@@ -2475,11 +2530,10 @@ GATES: List[Tuple[int, Any, Any]] = [
      lambda: "PASS: No project identifiers in jnwb/ code strings or names."),
     (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
      lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
-    (14, _one(check_internal_process_vocabulary,
-              "FAIL: Internal process vocabulary found in public documentation:"),
+    (14, _internal_vocabulary_checks,
      lambda: f"PASS: No internal process vocabulary in docs/ ({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
-             "among them)."),
+             "among them), and no item or problem identifier in jnwb/."),
     (15, _one(check_stack_form_consistency,
               "FAIL: Coordination stack form is not machine-readable:"),
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "

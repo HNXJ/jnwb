@@ -29,6 +29,7 @@ from scripts.harness_gate import (
     check_frozen_boundary,
     check_internal_process_vocabulary,
     check_line_ending_consistency,
+    check_no_process_identifiers_in_library,
     check_logarithm_last_rule,
     check_modality_isolation,
     check_api_md_member_types,
@@ -1213,6 +1214,68 @@ class TestGate14InternalProcessVocabulary:
             assert word not in INTERNAL_PROCESS_TERMS, (
                 f"{word!r} is a public capability; gating it rebuilds the rule 06-02 retired"
             )
+
+
+class TestGate14ProcessIdentifiersInLibrary:
+    """Gate 14's second half: stack identifiers stay out of `jnwb/`, and dates and versions pass."""
+
+    @staticmethod
+    def _library(tmp_path: Path, docstring_line: str) -> Path:
+        pkg = tmp_path / "jnwb"
+        pkg.mkdir()
+        (pkg / "module.py").write_text(
+            f'"""Module summary.\n\n{docstring_line}\n"""\n\nVALUE = 1\n', encoding="utf-8"
+        )
+        return tmp_path
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "The anchors were missing (P-12).",
+            "06-55: a 32-bit request is refused.",
+            "See P-C7 for why.",
+            "Recorded under 0.2.4-04.",
+        ],
+    )
+    def test_a_seeded_identifier_fails(self, tmp_path: Path, line: str):
+        violations = check_no_process_identifiers_in_library(self._library(tmp_path, line))
+        assert len(violations) == 1 and "jnwb/module.py:3" in violations[0], violations
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "Ruled 2026-09-23 and measured on 2026-08-08.",
+            "Recorded 09-23-2026 in month-first form.",
+            "Requires jnwb 0.2.6 or later.",
+            "The beta band is 14-30 Hz and gamma 50-80 Hz.",
+            "doi:10.1038/s41593-020-00744-x",
+            "The P-value is two-sided.",
+        ],
+    )
+    def test_dates_versions_and_ranges_pass(self, tmp_path: Path, line: str):
+        assert check_no_process_identifiers_in_library(self._library(tmp_path, line)) == []
+
+    def test_the_pristine_library_passes(self):
+        assert check_no_process_identifiers_in_library(REPO_ROOT) == []
+
+    def test_an_empty_library_tree_is_a_failure_and_not_a_pass(self, tmp_path: Path):
+        (tmp_path / "jnwb").mkdir()
+        violations = check_no_process_identifiers_in_library(tmp_path)
+        assert violations and "sweep is broken" in violations[0], violations
+
+    def test_the_runner_entry_runs_it(self, tmp_path: Path, monkeypatch):
+        """A check the runner never calls passes every test above and guards nothing."""
+        from scripts import harness_gate
+
+        root = self._library(tmp_path, "The anchors were missing (P-12).")
+        (root / "docs").mkdir()
+        (root / "docs" / "page.md").write_text("A public page.\n", encoding="utf-8")
+        monkeypatch.setattr(harness_gate, "REPO_ROOT", root)
+        run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
+        failures = run()
+        assert [header for header, _ in failures] == [
+            "FAIL: Item or problem identifiers found in jnwb/:"
+        ], failures
 
 
 class TestGate6RecursiveCoverage:

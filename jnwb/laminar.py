@@ -1138,7 +1138,7 @@ def _optimal_contiguous_partition(
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
-    # 05-47: the off-diagonal term below was already answered from `prefix` in constant
+    # The off-diagonal term below was already answered from `prefix` in constant
     # time while the diagonal term re-summed a slice on every call. `np.diag` returns a
     # view, so nothing was copied, but the call plus the slice plus the reduction cost
     # 4.82 of the 5.56 microseconds an `interval_w` call took -- 87% of it -- and the DP
