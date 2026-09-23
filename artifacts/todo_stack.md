@@ -45,8 +45,8 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127 |
-| W1 | 06-06, 06-16 |
-| W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-120, 06-135 |
+| W1 | 06-16 |
+| W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
@@ -82,17 +82,6 @@ Accept: 18 PASS lines; CI green on every leg; the dispatcher adds the `AGENTS.md
 Stop: a file pair under `packages/jnwb-vis/` differs from `jnwb/vis/`.
 
 ## W1. Freeze, sweeps and harness
-
-### 06-06 Publish the canonical architecture page
-
-Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb. Blocked by: none.
-Reads: `artifacts/direction.md`.
-Writes: `docs/architecture.md`, `mkdocs.yml`, `docs/index.md`, `docs/agents.md`.
-Do: carry the durable content of the direction ruling into a maintained page: identity, the two
-entry paths, the code/documentation/tests relation with skills acting on it, the four routing
-outcomes, the boundary test. No ruling or process language.
-Accept: `python scripts/docs_build.py` builds strict and the page is in the navigation.
 
 ### 06-16 Rename the geometric `layer` column
 
@@ -130,7 +119,7 @@ Stop: an identifier carries meaning a reader of the library needs; state the mea
 ### 06-07 Gate architecture reachability
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: 06-06.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_architecture_page_reachability.py`.
 Assert: the page is a navigation target; `docs/agents.md` links it; no maintained asset draws a
 researcher-through-AI chain; the public identity does not require an agent; no maintained asset
@@ -205,16 +194,6 @@ unchanged; per-trial input with `mean_of_ratios` is unchanged.
 Accept: P-114 closes; the packet hands back a Changed entry.
 Stop: recognising trial-averaged input needs a new public marker, which is an API decision.
 
-### 06-117 Exploratory results say they are uncorrected
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py`, `tests/test_statistics_api_split.py`, `skills/jnwb-statistics/SKILL.md`.
-P-91, ruled 2026-09-22: `exploratory_compare` and `exploratory_multi` results gain
-`correction: "none"`; `multiple_comparison` stays off the exploratory surface.
-Accept: both results carry the key with value `"none"` and neither carries `multiple_comparison`;
-P-91 closes; the packet hands back an Added entry.
-
 ### 06-120 Gate 15 checks the stack's stated counts
 
 Release: required-0.2.6.
@@ -238,7 +217,7 @@ Accept: the page is in the navigation, shows one canvas built from supplied arra
 ### 06-118 `correlate` names its method
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 06-117.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
 Writes: `jnwb/statistics.py`, `tests/test_statistics.py`, `skills/jnwb-statistics/SKILL.md`.
 P-92, P-93, ruled 2026-09-22. `correlate` and `exploratory_correlate` gain keyword-only `method=`
 (`"both"`, `"pearson"`, `"spearman"`), default `"both"`. Every additive public API change gets an
@@ -251,7 +230,7 @@ Accept: P-92 and P-93 close.
 ### 06-30 Produce the canonical diagrams
 
 Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-06.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/architecture.md`, `docs/assets/*.svg`.
 Dual entry; code, documentation and tests with skill routing over them; the four-outcome decision;
 NWB to analysis; the package boundary. One maintained source each, original to jnwb.
@@ -273,7 +252,7 @@ a tolerance wide enough to accept a changed figure.
 ### 06-24 Skill routing against live behaviour
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: per skill. Blocked by: 06-82, 06-114, 06-117, 06-118.
+Role: jnwb-developer. Skill: per skill. Blocked by: 06-82, 06-114, 06-118.
 Writes: `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
 One packet per skill. Every routing row: the callable exists, the signature matches, the return
 type and keys match, units match, failure behaviour matches, including conditional return
@@ -438,7 +417,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py`; the two bounds restated for `phase_slope_index` and `stream_npz_array` against the code). P-118 (every magnitude in `composition_subset_proposal_0.2.6.md` names a committed test and seed; check each against the test). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` (`d3d17871`) against `artifacts/direction.md`: the five topics, no internal vocabulary, both entry paths parallel. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py`; the two bounds restated for `phase_slope_index` and `stream_npz_array` against the code). P-118 (every magnitude in `composition_subset_proposal_0.2.6.md` names a committed test and seed; check each against the test). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -549,7 +528,7 @@ Frozen 2026-09-23 (06-05, closed), each line re-established against the live tre
 | Line | Established by |
 |---|---|
 | no known material defect under the 0.2.6 acceptance set | 06-34, 06-39 |
-| one canonical scientific model, published and reachable | 06-06, 06-07, 06-30 |
+| one canonical scientific model, published and reachable | `docs/architecture.md` (in the navigation since `d3d17871`), 06-07, 06-30 |
 | every public claim reproduced against the implementation that answers it | 06-17, 06-24, 06-136 |
 | skills route, decline, and are tested against live behaviour | 06-24, 06-25 |
 | cross-surface and compositional audit complete over the declared high-risk set | `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` and its proposal, every magnitude naming a committed test and seed (re-stamped 2026-09-23) |
