@@ -1,6 +1,6 @@
 # 02. Paths, Addressing, Metadata & Ontology
 
-This document provides a comprehensive guide to data path resolution, anatomical addressing (channel $\to$ area, depth $\to$ layer), unit quality auditing, and query ontology in `jnwb`.
+This document provides a comprehensive guide to data path resolution, anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality auditing, and query ontology in `jnwb`.
 
 ---
 
@@ -74,7 +74,7 @@ Also accessible as `jnwb.io.stream_npz_array`.
 
 ## 3. Spatial & Laminar Addressing (`jnwb/addressing.py`)
 
-`jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomically meaningful area and laminar (cortical layer) assignments.
+`jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomical area assignments and a geometric depth class.
 
 ### Peak Channel to Area Mapping (`map_peak_channel_to_area`)
 
@@ -85,23 +85,25 @@ import jnwb
 area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=electrodes_df)
 ```
 
-### Depth-to-Layer (Laminar) Resolution (`classify_layer_from_depth`)
+### Geometric Depth Class (`classify_layer_from_depth`)
 
-Translates probe electrode depth ($z$-coordinate) into cortical layer classification with explicit unit safety:
+Thresholds probe electrode depth ($z$-coordinate) into a geometric depth class, with explicit unit safety. The class is a cut on depth, not a cortical layer; the electrophysiological laminar identity is `jnwb.label_layers`.
 
 ```python
-# Classifies layer based on electrode z depth with explicit units ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
-layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df, depth_unit="um")
+# 'Superficial' for <= 1000 um, 'Deep' for > 1000 um, with explicit depth units
+depth_class = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df, depth_unit="um")
 # Returns: 'Superficial', 'Deep', or 'Unknown' (unknown/incompatible units return 'Unknown')
 ```
 
 ### Enriching Units DataFrame (`enrich_units_dataframe`)
 
-Attaches standardized `unit_id`, `area`, and `layer` columns directly to units tables:
+Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to units tables:
 
 ```python
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
+
+`layer` is a deprecated copy of `depth_class`, removed in the next release. The call emits `FutureWarning` whenever it writes `layer`; pandas cannot warn when a column is read, so the warning fires even if `layer` is never used. `jnwb.get_all_units_metadata` emits both columns the same way, with one warning per call, and `jnwb.unit_census_report` with `group_by=None` groups by `depth_class`.
 
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 

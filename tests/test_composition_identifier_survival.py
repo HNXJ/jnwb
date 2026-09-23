@@ -202,7 +202,7 @@ def test_the_mask_fixture_discriminates_between_the_two_index_spaces(two_bank):
 
 
 # --------------------------------------------------------------------------------------
-# peak_channel_id -> area / layer
+# peak_channel_id -> area / depth_class
 # --------------------------------------------------------------------------------------
 
 #: The electrode table is keyed by its index, with no channel_id column, so the identifier
@@ -271,12 +271,12 @@ def test_area_and_layer_follow_the_channel_identifier_not_the_electrode_row_posi
     natural = jnwb.enrich_units_dataframe(units, _electrodes([10, 11, 12, 13]))
     permuted = jnwb.enrich_units_dataframe(units, _electrodes(ELECTRODE_ROW_ORDER))
 
-    for column in ("area", "layer", "group_name"):
+    for column in ("area", "depth_class", "group_name"):
         assert list(natural[column]) == list(permuted[column]), (
             f"{column} moved when the electrode table was reordered"
         )
     assert list(permuted["area"]) == ["MT", "V1", "V4"]
-    assert list(permuted["layer"]) == ["Superficial", "Superficial", "Deep"]
+    assert list(permuted["depth_class"]) == ["Superficial", "Superficial", "Deep"]
     assert list(permuted["group_name"]) == ["probeD", "probeA", "probeC"]
 
 
@@ -290,7 +290,7 @@ def test_reordering_the_units_does_not_change_any_units_answer():
         _units([PEAK_CHANNEL_IDS[i] for i in order], [UNIT_IDS[i] for i in order]), electrodes
     )
 
-    for column in ("area", "layer"):
+    for column in ("area", "depth_class"):
         assert dict(zip(first["unit_id"], first[column])) == dict(
             zip(shuffled["unit_id"], shuffled[column])
         ), f"{column} followed the row position rather than unit_id"
@@ -304,5 +304,5 @@ def test_a_peak_channel_absent_from_the_electrode_table_yields_no_area():
 
     assert enriched["area"].iloc[0] == "MT"
     assert pd.isna(enriched["area"].iloc[1])
-    assert enriched["layer"].iloc[1] == "Unknown"
+    assert enriched["depth_class"].iloc[1] == "Unknown"
     assert enriched["area"].iloc[2] == "V4"

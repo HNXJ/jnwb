@@ -12,8 +12,9 @@ The shape has two halves, and a sweep that looks only at estimators sees only on
   or an ``except`` handler that recomputes instead of raising -- while the label recorded for the
   result still names what was asked for.
 * **In data.** A column or field is emitted under a name that denotes one vocabulary while
-  carrying another. P-21 is this half: two exports emit a column named ``layer`` whose values are
-  a geometric depth class, not the electrophysiological laminar identity the name denotes.
+  carrying another. Two exports emitted a column named ``layer`` whose values were a geometric
+  depth class, not the electrophysiological laminar identity the name denotes. That column is
+  now ``depth_class``; ``layer`` survives one release as a copy whose emission warns.
 
 Four scanners below are module-level functions, each driven twice: over **seeds** constructed to
 carry the defect, which each must find, and over the **live tree**, whose findings must match a
@@ -818,62 +819,77 @@ def _laminar_layer_vocabulary() -> FrozenSet[str]:
     return frozenset(label_layers(accepted, geom, granular_thickness_um=400.0).values())
 
 
-def measured_layer_vocabularies() -> Dict[str, Dict[str, FrozenSet[str]]]:
-    """Execute every producer of a ``layer`` name and record what it actually emits."""
+#: The deprecated ``layer`` copy must say what replaces it and when it goes.
+LEGACY_LAYER_WARNING = r"'layer'.*'depth_class'.*0\.2\.7"
+
+GEOMETRIC_VOCABULARY = frozenset({"Deep", "Superficial", "Unknown"})
+
+ENRICH = "addressing.enrich_units_dataframe"
+ENRICH_LEGACY_COPY = "addressing.enrich_units_dataframe (deprecated copy)"
+
+
+def _enrich_both_paths() -> Tuple[pd.DataFrame, pd.DataFrame]:
     units, electrodes = _units_and_electrodes()
-    with_elec = enrich_units_dataframe(units, electrodes, depth_unit="um")
-    without_elec = enrich_units_dataframe(units.drop(columns=["peak_channel_id"]), None)
+    with pytest.warns(FutureWarning, match=LEGACY_LAYER_WARNING):
+        with_elec = enrich_units_dataframe(units, electrodes, depth_unit="um")
+    with pytest.warns(FutureWarning, match=LEGACY_LAYER_WARNING):
+        without_elec = enrich_units_dataframe(units.drop(columns=["peak_channel_id"]), None)
+    return with_elec, without_elec
+
+
+def measured_vocabularies() -> Dict[str, Dict[str, FrozenSet[str]]]:
+    """Execute every producer of a depth or layer name and record what it actually emits.
+
+    One producer's two paths are one vocabulary: they are disjoint by construction (the
+    absent-electrode path can only say 'Unknown'), which is not a collision between producers.
+    """
+    frames = _enrich_both_paths()
     return {
+        "depth_class": {
+            ENRICH: frozenset().union(*(f["depth_class"].astype(str) for f in frames)),
+        },
         "layer": {
-            "addressing.enrich_units_dataframe (electrodes present)":
-                frozenset(with_elec["layer"].astype(str)),
-            "addressing.enrich_units_dataframe (electrodes absent)":
-                frozenset(without_elec["layer"].astype(str)),
-            "laminar.label_layers":
-                _laminar_layer_vocabulary(),
-        }
+            ENRICH_LEGACY_COPY: frozenset().union(*(f["layer"].astype(str) for f in frames)),
+            "laminar.label_layers": _laminar_layer_vocabulary(),
+        },
     }
 
 
 class TestTheDataHalfOfTheClass:
-    """P-21, reproduced by execution rather than by reading the two call sites."""
+    """The geometric depth class, measured by execution rather than by reading call sites."""
 
     def test_the_measured_vocabularies_are_what_the_producers_really_emit(self):
-        vocab = measured_layer_vocabularies()["layer"]
-        assert vocab["addressing.enrich_units_dataframe (electrodes present)"] <= {
-            "Deep", "Superficial", "Unknown"}
-        assert vocab["addressing.enrich_units_dataframe (electrodes absent)"] == {"Unknown"}
-        assert vocab["laminar.label_layers"] <= {"superficial", "input", "deep", "na"}
+        with_elec, without_elec = _enrich_both_paths()
+        assert set(with_elec["depth_class"]) == {"Deep", "Superficial"}
+        assert set(without_elec["depth_class"]) == {"Unknown"}
+        vocab = measured_vocabularies()
+        assert vocab["depth_class"][ENRICH] == GEOMETRIC_VOCABULARY
+        assert vocab["layer"]["laminar.label_layers"] <= {"superficial", "input", "deep", "na"}
 
-    def test_p21_reproduces_as_a_measured_vocabulary_collision(self):
-        """The column named ``layer`` carries two vocabularies that share no value.
+    def test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy(self):
+        """The geometric class is emitted under a name that says what it is.
 
-        ``enrich_units_dataframe`` emits a geometric depth class from a single 1000 um
-        threshold; ``label_layers`` emits the electrophysiological laminar identity. A reader
-        given a units table with a ``layer`` column cannot tell which one they have, and
-        ``metadata.get_all_units_metadata`` -- which calls ``enrich_units_dataframe`` with no
-        depth unit and so takes the ``Unknown`` path -- documents the column as ``layer`` in
-        its own return contract.
-
-        This assertion holds P-21 open by measurement. When the geometric column is renamed to
-        say what it carries, this test fails and is the thing that must be updated -- which is
-        the point: the repair cannot land silently.
+        ``enrich_units_dataframe`` thresholds electrode depth once; ``label_layers`` emits the
+        electrophysiological laminar identity. The two share no value, so the geometric class
+        is emitted as ``depth_class``. ``layer`` stays one release as an exact copy, and every
+        path that writes it must warn: a silent copy would leave the collision below in place
+        with nothing telling the reader which vocabulary they hold.
         """
-        collisions = scan_vocabulary_collisions(measured_layer_vocabularies())
-        details = {f.detail for f in collisions}
-        assert collisions, (
-            "P-21 no longer reproduces. If the geometric depth class has been renamed, remove "
-            "this test and close P-21; do not weaken it."
-        )
-        assert any("laminar.label_layers" in d and "enrich_units_dataframe" in d
-                   for d in details), details
+        with_elec, without_elec = _enrich_both_paths()
+        for out in (with_elec, without_elec):
+            assert set(out["depth_class"]) <= GEOMETRIC_VOCABULARY
+            assert not set(out["depth_class"]) & _laminar_layer_vocabulary()
+            pd.testing.assert_series_equal(out["layer"], out["depth_class"], check_names=False)
+        assert list(with_elec["depth_class"]) == ["Superficial", "Deep", "Superficial"]
+
+        collisions = scan_vocabulary_collisions(measured_vocabularies())
+        assert [f.key for f in collisions] == [
+            ("layer", ENRICH_LEGACY_COPY, "laminar.label_layers")], collisions
 
     def test_the_absent_electrode_path_is_unknown_and_not_a_plausible_label(self):
-        """The quiet half of P-21: no electrodes at all still yields a populated column."""
-        units, _ = _units_and_electrodes()
-        out = enrich_units_dataframe(units.drop(columns=["peak_channel_id"]), None)
-        assert "layer" in out.columns
-        assert set(out["layer"]) == {"Unknown"}, (
+        """No electrodes at all still yields a populated column, and its value is 'Unknown'."""
+        _, out = _enrich_both_paths()
+        assert set(out["depth_class"]) == {"Unknown"}, (
             "'Unknown' is the honest value here and must stay one; a geometric or laminar "
             "label on a table with no electrode geometry would be the class outright."
         )

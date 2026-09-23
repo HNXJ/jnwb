@@ -47,6 +47,26 @@ class TestNwbReadErrors:
                 getattr(jnwb, name)(missing)
 
 
+class TestDepthClassColumn:
+    def test_a_multi_file_read_emits_depth_class_and_warns_once_for_the_layer_copy(
+            self, tmp_path):
+        """Each file is enriched separately; the deprecated copy is announced once per call."""
+        from jnwb.testing.nwb_fixtures import write_synth_nwb
+
+        paths = [tmp_path / "ses-01_a.nwb", tmp_path / "ses-02_b.nwb"]
+        for path in paths:
+            write_synth_nwb(path)
+        with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'.*0\.2\.7") as record:
+            units = get_all_units_metadata(paths)
+        ours = [w for w in record if "depth_class" in str(w.message)]
+        assert len(ours) == 1, [str(w.message) for w in ours]
+        assert ours[0].filename == __file__
+        assert set(units["session_id"]) == {1, 2}
+        # The synthetic units carry no peak channel, so the class is the honest 'Unknown'.
+        assert set(units["depth_class"]) == {"Unknown"}
+        pd.testing.assert_series_equal(units["layer"], units["depth_class"], check_names=False)
+
+
 class TestPublicImport:
     def test_importable_from_top_level_jnwb(self):
         from jnwb import (
@@ -156,7 +176,9 @@ def _synthetic_units():
         "unit_id": [1, 2, 3, 4],
         "session_id": [100, 100, 101, 101],
         "area": ["FEF", "FEF", "PFC", "PFC"],
-        "layer": ["sup", "deep", "sup", "deep"],
+        "depth_class": ["Superficial", "Deep", "Superficial", "Deep"],
+        # A caller's own column of the old name, with values that differ from depth_class.
+        "layer": ["sup", "sup", "sup", "sup"],
         "quality": [1.0, 0.5, 1.0, 1.0],
         "snr": [2.0, 0.3, 1.5, 0.9],
         "firing_rate": [5.0, 0.05, 3.0, 0.2],
@@ -203,6 +225,10 @@ class TestUnitCensusReport:
         census = unit_census_report(_synthetic_units())
         assert set(census["session_id"]) == {100, 101}
         assert "n_units" in census.columns
+        # The default groups on the geometric depth class, not the deprecated column.
+        assert set(census["depth_class"]) == {"Superficial", "Deep"}
+        assert "layer" not in census.columns
+        assert (census["n_units"] == 1).all()
 
     def test_groups_by_custom_columns(self):
         census = unit_census_report(_synthetic_units(), group_by=["area"])
