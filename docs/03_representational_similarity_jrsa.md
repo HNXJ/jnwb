@@ -26,7 +26,7 @@ graph LR
    These last two are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats on flattened arrays.
 2. **Flexible Tensor Alignments**: Handles 2D, 3D, and 4D tensors with automatic trial/time alignment (`align="auto"`, `align_mode="fraction"`, `lag=0`).
 3. **Statistical Resampling**: Built-in permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
-4. **GPU / CuPy Hardware Acceleration**: Automatic acceleration (`backend="auto"` or `backend="gpu"`) on CUDA-enabled environments with CPU fallback.
+4. **CPU arithmetic**: every metric computes in NumPy on the CPU. `backend` accepts the input array types (`numpy`, `scipy`, `jax`, `torch`, `cupy`) and does not move the arithmetic; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`.
 
 ---
 
@@ -68,7 +68,7 @@ fig = result.plot()
 
 ---
 
-## 3. Sliding Windows, Lags & GPU Backends
+## 3. Sliding Windows and Lags
 
 ### Temporal Sliding Window Analysis
 
@@ -83,15 +83,11 @@ sliding_res = jnwb.jrsa(
 )
 ```
 
-### GPU Acceleration Backend
+### Execution
 
-`jnwb.jrsa` can use CuPy or other backends for large tensor comparisons via the
-``backend`` argument (resolved through ``jnwb._backend``):
-
-```python
-# Explicitly request a GPU-oriented backend where supported
-res_gpu = jnwb.jrsa(x1, x2, metric="rsa", backend="cupy")
-```
+`jrsa` has no GPU path. `backend` names the input array library it accepts and every metric
+converts to NumPy first, so `backend="cupy"` gives the same numbers on the CPU; `n_jobs`
+parallelises over CPU workers. `res.execution` records what ran.
 
 ## 4. Missing Condition Handling & Preprocessing Invariants
 

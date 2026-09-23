@@ -54,7 +54,7 @@ classes are balanced.
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png)
 
 Panel A of that figure is the per-fold accuracy drawn against `majority_baseline_accuracy`,
-which is the comparison the paragraph above asks for. Panel B is a ROC curve against chance. Both
+which is the comparison the paragraph above asks for. Panel B is the out-of-fold AUC and F1 against chance. Both
 are row-wise folds on synthetic data, so the number is the upper bound described above, not a
 grouped result.
 

@@ -21,7 +21,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_curve, auc
 
 import jnwb
 
@@ -344,15 +343,18 @@ def fig07_decoding():
     ax1.set_title("A. Cross-Validated Accuracy\n(jnwb.nested_cv_linear_svm)", pad=8)
     ax1.legend(frameon=False, loc="lower right", fontsize=7.2)
 
-    # Panel B: ROC Curve
-    # Generate synthetic scores reflecting the AUC
-    fpr = np.linspace(0, 1, 50)
-    tpr = np.minimum(1.0, fpr ** (1.0 / (res["auc"] / (1.0 - res["auc"] + 1e-6))))
-    ax2.plot(fpr, tpr, color=C_VIOLET, lw=1.8, label=f"Linear SVM (AUC = {res['auc']:.2f})")
-    ax2.plot([0, 1], [0, 1], color=C_GRAY, ls=":", lw=1.0, label="Chance (AUC = 0.50)")
-    ax2.set_xlabel("False Positive Rate")
-    ax2.set_ylabel("True Positive Rate")
-    ax2.set_title(f"B. Out-of-Fold Performance\n(F1 = {res['f1']:.2f})", pad=8)
+    # Panel B: the out-of-fold AUC and F1 the decoder returns, against chance. The result
+    # carries no decision scores, so no ROC curve can be drawn from it.
+    scores = [res["auc"], res["f1"]]
+    ax2.bar([0, 1], scores, color=C_VIOLET, width=0.5, edgecolor=C_DARK, lw=0.6)
+    for i, value in enumerate(scores):
+        ax2.text(i, value + 0.02, f"{value:.2f}", ha="center", va="bottom", fontsize=7.5)
+    ax2.axhline(0.5, color=C_GRAY, ls=":", lw=1.0, label="Chance (0.50)")
+    ax2.set_xticks([0, 1])
+    ax2.set_xticklabels(["AUC", "F1"])
+    ax2.set_ylim(0, 1.05)
+    ax2.set_ylabel("Out-of-fold score")
+    ax2.set_title("B. Out-of-Fold AUC and F1", pad=8)
     ax2.legend(frameon=False, loc="lower right", fontsize=7.5)
 
     fig.tight_layout()

@@ -46,6 +46,10 @@ Carried by 0.2.6.
   and `alternative='GREATER'`. The error names the valid set. The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`
   and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
   still accepted.
+- **`enrich_units_dataframe` adds `is_stable` only when there is a `quality` column.** A
+  frame without one used to receive `is_stable=False` on every unit, a label with no data
+  behind it. The column is now absent in that case; `get_all_units_metadata` and the unit
+  quality plot already treat it as optional.
 
 ### Fixed
 
@@ -65,6 +69,15 @@ Carried by 0.2.6.
   `container/series`. A bare name that two containers hold raises
   `AmbiguousAcquisitionError` listing the qualified names; in processing modules it used to
   return whichever module came first.
+- **Documentation figures and captions match what they draw.** Panel B of the decoding
+  figure drew a curve manufactured from the AUC value and labelled it a ROC curve; it now
+  shows the out-of-fold AUC and F1 the decoder returns. The spectral caption names the
+  1/f-squared background the generator builds, and the quickstart caption names all six
+  panels. The jRSA page no longer advertises a GPU path: `jrsa` computes on the CPU.
+- **The fitted onset is not described as independent of smoothing.** The spike-analysis
+  page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a
+  step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are
+  compared only between traces smoothed with the same `tau_ms`.
 
 ### Deprecated
 

@@ -116,7 +116,7 @@ A causal filter introduces an inherent, deterministic time delay:
 
 $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{estimator}}(\tau, \Delta t)$$
 
-> **Hazard Warning**: Never interpret cross-band or cross-area onset latency differences as biological timing differences without accounting for estimator group delay, especially if different $\tau$ values or varying bandpass filter kinetics are involved.
+> **Hazard Warning**: Compare onsets only between traces smoothed with the same `tau_ms`. The delays above belong to a latency read as a threshold crossing on the smoothed trace, and only such a latency is corrected by them. A fitted $t_0$ is not a crossing: on a step response it is independent of $\tau$, and on a graded rise it moves with $\tau$ by an amount that depends on the rise, so no fixed correction applies. A difference between traces smoothed at different $\tau$, or between bandpass envelopes with different rise kinetics, is a difference between the filters.
 
 ---
 
@@ -149,7 +149,7 @@ print(f"Optimizer Bound Status: {fit['bound_status']}")
 
 That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed rate it was
 fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The
-gap between the two lines includes the estimator group delay the hazard above warns about.
+gap between the two lines is the fit's bias on this rise; it depends on the rise as well as $\tau$, so it is not a filter delay to subtract.
 
 ### Boundary Status & Censoring Flags (`bound_status`)
 When an onset lies outside the search interval (e.g. pre-stimulus noise or unconstrained drift), nonlinear least squares pins $t_0$ against the outer bounds while reporting `converged: True`. `jnwb` reports `bound_status` to distinguish unconstrained interior fits from boundary-censored solutions:

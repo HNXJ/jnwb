@@ -306,8 +306,8 @@ def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
     assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
     assert list(enriched["layer"]) == ["Unknown", "Unknown"]
     assert enriched["group_name"].isna().all()
-    # No quality column provided -> defaults to not-stable, not a crash
-    assert list(enriched["is_stable"]) == [False, False]
+    # No quality column provided -> no stability label is invented
+    assert "is_stable" not in enriched.columns
     assert "stable_plus" not in enriched.columns
 
 

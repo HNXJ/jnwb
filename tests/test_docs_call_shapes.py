@@ -86,7 +86,7 @@ FORM_IMPORTED_ATTR = "<alias>.<name>(...) where the block imports <alias> from j
 #: calls were collected and two on the same page were not, so a check asking only whether
 #: the form occurs at all would have stayed green over the defect that was there.
 CALL_FORMS = {
-    FORM_TOP: 148,
+    FORM_TOP: 147,
     FORM_DOTTED: 8,
     FORM_IMPORTED: 10,
     FORM_IMPORTED_ATTR: 5,

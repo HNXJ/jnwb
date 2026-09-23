@@ -345,6 +345,10 @@ def enrich_units_dataframe(
     silenced with ``warnings.filterwarnings("ignore", message="The 'layer' column",
     category=FutureWarning)``.
 
+    ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
+    membership in the accepted good labels otherwise -- and is not added when ``units_df``
+    has no ``quality`` column, because there is nothing to derive it from.
+
     Args:
         units_df: Raw NWB units DataFrame
         electrodes_df: Raw NWB electrodes DataFrame
@@ -446,9 +450,8 @@ def _enrich_units_dataframe(
         else:
             _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
             df['is_stable'] = df['quality'].astype(str).str.strip().str.lower().isin(_GOOD_LABELS)
-    else:
-        if 'is_stable' not in df.columns:
-            df['is_stable'] = False
+    # With no quality column there is nothing to derive stability from, so no `is_stable` is
+    # added: an all-False column would be a label with no data behind it.
 
     # Force conversion of core types. snr/unit_id are stored as dtype=str
     # (object) on some sessions but float64 on others — the same cross-session dtype

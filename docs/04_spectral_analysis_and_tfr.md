@@ -159,10 +159,11 @@ which depth receives input, so check the convention before comparing against a f
 from elsewhere -- the opposite convention is also in common use. A sink at a given depth
 is evidence of current entering there, not of which structure supplied it.
 
-![Power Spectral Density and 1/f Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png)
+![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png)
 
-Panel A of that figure is a synthetic trace built as a 1/f background plus a 10 Hz rhythm, and
-panel B is `jnwb.spectral_tilt` recovering the aperiodic exponent from it.
+Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
+falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.spectral_tilt` recovering the
+aperiodic exponent from it, near -2.
 
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 

@@ -174,8 +174,8 @@ def check_clock(clock: Clock, data: dict, good: np.ndarray) -> dict:
 
 def location_of(peak_channel_id, electrodes) -> str:
     # A join on the electrode id. The locations here are atlas labels such as 'VISpm2/3',
-    # which name one layer; jnwb.map_peak_channel_to_area reads a '/' as a boundary between
-    # areas on a multi-area probe, so it is not used for these labels.
+    # which name one layer. jnwb.map_peak_channel_to_area keeps such a label whole but still
+    # splits a label such as 'VISp6a/b', so a plain join is used for these labels.
     return str(electrodes.loc[int(peak_channel_id), "location"])
 
 
