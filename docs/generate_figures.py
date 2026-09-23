@@ -5,10 +5,13 @@ with known ground truth, producing reproducible high-resolution figures
 for docs/assets/figures/.
 
 Usage:
-    python docs/generate_figures.py
+    python docs/generate_figures.py                     # rewrite docs/assets/figures/
+    python docs/generate_figures.py --out-dir DIR       # write elsewhere, e.g. to compare
+    python docs/generate_figures.py --only fig07_population_decoding.png
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -24,8 +27,8 @@ import pandas as pd
 
 import jnwb
 
-OUT_DIR = REPO_ROOT / "docs" / "assets" / "figures"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
+OUT_DIR = FIGURE_DIR
 
 # Theme Palette (Slate + Matte Violet + Matte Gold + Accents)
 C_VIOLET = "#7048e8"
@@ -188,7 +191,7 @@ def fig03_onset():
 
 
 def fig04_spectral_tilt():
-    """Figure 4: Power Spectral Density and 1/f aperiodic spectral tilt."""
+    """Figure 4: Power Spectral Density and aperiodic spectral tilt."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.0), dpi=180)
 
     fs = 1000.0
@@ -196,7 +199,7 @@ def fig04_spectral_tilt():
     t = np.arange(int(fs * duration)) / fs
     rng = np.random.default_rng(12)
 
-    # 1/f noise + 10 Hz rhythm
+    # Random-walk noise, whose spectrum falls as 1/f squared, + 10 Hz rhythm
     white = rng.standard_normal(len(t))
     pink = np.cumsum(white)
     pink -= pink.mean()
@@ -207,7 +210,7 @@ def fig04_spectral_tilt():
     ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. Raw LFP Time Series\n(1/f background + 10 Hz rhythm)", pad=8)
+    ax1.set_title("A. Raw LFP Time Series\n(random-walk background + 10 Hz rhythm)", pad=8)
 
     # Panel B: PSD + Tilt fit
     freqs, psd = jnwb.compute_psd(lfp, fs=fs)
@@ -218,10 +221,10 @@ def fig04_spectral_tilt():
     fitted_psd = tilt["offset"] * (f_fit ** tilt["exponent"])
 
     ax2.loglog(freqs[1:120], psd[1:120], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"1/f Fit: slope={tilt['exponent']:.2f}\n(R²={tilt['fit_quality']:.2f})")
+    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={tilt['exponent']:.2f}\n(R²={tilt['fit_quality']:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power Spectral Density")
-    ax2.set_title("B. 1/f Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)
+    ax2.set_title("B. Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)
     ax2.legend(frameon=False, loc="lower left", fontsize=7.2)
 
     fig.tight_layout()
@@ -421,7 +424,7 @@ def fig09_directed_connectivity():
 
     # Panel A: Granger causality
     gc = jnwb.granger(x_filt, y_trials, order=15)
-    bars = ax1.bar(["X → Y\n(True Feedforward)", "Y → X\n(Feedback)"], [gc.x_to_y, gc.y_to_x], color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
+    bars = ax1.bar(["X → Y\n(simulated lead)", "Y → X\n(none simulated)"], [gc.x_to_y, gc.y_to_x], color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
     for b_item, val, p_val in zip(bars, [gc.x_to_y, gc.y_to_x], [gc.p_x_to_y, gc.p_y_to_x]):
         p_str = "p < 0.001" if p_val < 0.001 else f"p = {p_val:.3f}"
         ax1.text(b_item.get_x() + b_item.get_width() / 2, val + 0.01, f"{val:.3f}\n({p_str})", ha="center", fontsize=7.2)
@@ -486,29 +489,35 @@ def fig10_artifact_repair():
     plt.close(fig)
 
 
-def main():
-    print("Generating 10 canonical documentation figures...")
-    fig01_addressing()
-    print("  [OK] Fig 01: Addressing & Laminar Depth")
-    fig02_spikes_psth()
-    print("  [OK] Fig 02: Spikes & PSTH")
-    fig03_onset()
-    print("  [OK] Fig 03: Onset Latency Fitting")
-    fig04_spectral_tilt()
-    print("  [OK] Fig 04: PSD & Spectral Tilt")
-    fig05_complex_tfr()
-    print("  [OK] Fig 05: Complex TFR & Cone of Influence")
-    fig06_aggregate_db()
-    print("  [OK] Fig 06: Decibel Aggregation")
-    fig07_decoding()
-    print("  [OK] Fig 07: Population Decoding")
-    fig08_permutation()
-    print("  [OK] Fig 08: Permutation Null")
-    fig09_directed_connectivity()
-    print("  [OK] Fig 09: Directed Connectivity")
-    fig10_artifact_repair()
-    print("  [OK] Fig 10: Artifact Repair")
-    print("All 10 figures successfully generated in docs/assets/figures/")
+#: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
+#: key here has no generator, and the maintenance test fails on it.
+FIGURES = {
+    "fig01_addressing_laminar.png": fig01_addressing,
+    "fig02_raster_psth.png": fig02_spikes_psth,
+    "fig03_onset_fitting.png": fig03_onset,
+    "fig04_psd_spectral_tilt.png": fig04_spectral_tilt,
+    "fig05_complex_tfr_coi.png": fig05_complex_tfr,
+    "fig06_aggregate_to_db.png": fig06_aggregate_db,
+    "fig07_population_decoding.png": fig07_decoding,
+    "fig08_permutation_null.png": fig08_permutation,
+    "fig09_directed_connectivity.png": fig09_directed_connectivity,
+    "fig10_artifact_repair.png": fig10_artifact_repair,
+}
+
+
+def main(argv=None):
+    global OUT_DIR
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--out-dir", type=Path, default=FIGURE_DIR)
+    parser.add_argument("--only", nargs="+", choices=sorted(FIGURES), default=sorted(FIGURES))
+    args = parser.parse_args(argv)
+    OUT_DIR = args.out_dir
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for name in args.only:
+        FIGURES[name]()
+        plt.close("all")
+        print(f"  [OK] {name}")
+    print(f"{len(args.only)} figure(s) written to {OUT_DIR}")
 
 
 if __name__ == "__main__":

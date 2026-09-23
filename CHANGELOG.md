@@ -83,7 +83,9 @@ Carried by 0.2.6.
   figure drew a curve manufactured from the AUC value and labelled it a ROC curve; it now
   shows the out-of-fold AUC and F1 the decoder returns. The spectral caption names the
   1/f-squared background the generator builds, and the quickstart caption names all six
-  panels. The jRSA page no longer advertises a GPU path: `jrsa` computes on the CPU.
+  panels. The jRSA page no longer advertises a GPU path: `jrsa` computes on the CPU. Five
+  figures that no longer matched their generator are regenerated, and a test now fails any
+  figure that `docs/generate_figures.py` would draw differently.
 - **The `jnwb.vis` PSTH ribbon is named for what it is.** `plot_multi_condition_raster_psth`
   documented bootstrap CIs and draws mean ± 1.96 SEM across trials, clipped at 0 Hz; the
   package docstring claimed Clopper-Pearson error bars nothing computes. Both now say that
