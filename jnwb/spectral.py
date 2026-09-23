@@ -1493,7 +1493,8 @@ def band_power(
     resolve_device(device, context="band_power", stacklevel=3, supports=(CPU,))
 
     def _welch(trace):
-        return signal.welch(trace, fs=fs, nperseg=min(len(trace), 4096))
+        nperseg = min(len(trace), 4096)
+        return signal.welch(trace, fs=fs, nperseg=nperseg)
 
     frequencies, pxx = _welch(lfp_trace)
 
