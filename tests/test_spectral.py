@@ -1726,8 +1726,8 @@ class TestImaginaryCoherencyIsScaleFree:
     """Coherency is invariant to the amplitude units of its inputs, so its numerical guard
     must be too. The denominator was clipped at an absolute 1e-30 on pxx*pyy, and the
     product of two PSDs scales as the fourth power of the signal amplitude, so a recording
-    stored in a smaller unit walked into the clip. On a genuinely coherent pair, icoh_mean
-    held at -0.5144 down to a scale of 1e-6, then fell to -0.000142 at 1e-8 and to zero
+    stored in a smaller unit walked into the clip. On a genuinely coherent pair, |icoh_mean|
+    held at 0.5144 down to a scale of 1e-6, then fell to 0.000142 at 1e-8 and to zero
     below that: a fabricated zero produced by the choice of unit alone.
     """
 

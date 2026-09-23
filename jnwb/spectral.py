@@ -1610,9 +1610,8 @@ def imaginary_coherency(
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
             yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
 
-    Validated against synthetic cases in scripts/validate_imaginary_coherency.py:
-    a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
-    near zero; a genuinely lagged shared source drives both up.
+    On synthetic data, a common zero-lag-mixed source drives coh_mag_mean up while
+    icoh_mean stays near zero; a genuinely lagged shared source drives both up.
 
     Sign convention: the cross-spectrum is ``S_xy = E[X conj(Y)]``, the conjugate of what
     :func:`scipy.signal.csd` returns, so when `x` leads `y` the imaginary part is positive
@@ -1664,8 +1663,8 @@ def imaginary_coherency(
     # Coherency is scale-invariant, so its guard must be too. An absolute floor of 1e-30 on
     # pxx*pyy is a statement about units: the product of two PSDs scales as the fourth power
     # of the signal amplitude, so a recording stored in a smaller unit walks into the clip
-    # and the estimate collapses. Measured on a genuinely coherent pair, icoh_mean held at
-    # -0.5144 down to a scale of 1e-6 and then fell to -0.000142 at 1e-8 and to zero below
+    # and the estimate collapses. Measured on a genuinely coherent pair, |icoh_mean| held at
+    # 0.5144 down to a scale of 1e-6 and then fell to 0.000142 at 1e-8 and to zero below
     # that -- a fabricated zero produced by the choice of unit alone. A floor relative to
     # the band's own largest product scales with the data and leaves the ratio untouched.
     prod = pxx[mask] * pyy[mask]

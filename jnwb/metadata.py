@@ -277,7 +277,8 @@ def unit_census_report(
         units_df: DataFrame from get_all_units_metadata
         group_by: Columns to group by (default: ['session_id', 'area', 'depth_class'],
             the geometric depth class; the deprecated ``layer`` copy is not read, and a
-            default call on a frame that has ``layer`` but no ``depth_class`` warns)
+            default call on a frame that has ``layer`` but no ``depth_class`` warns). An
+            explicit column the frame lacks is dropped with a ``UserWarning``.
 
     Returns:
         Summary DataFrame with counts and statistics
@@ -286,7 +287,16 @@ def unit_census_report(
         >>> census = unit_census_report(all_units)
         >>> by_area = unit_census_report(all_units, group_by=['area'])
     """
-    if group_by is None:
+    if group_by is not None:
+        absent = [col for col in group_by if col not in units_df.columns]
+        if absent:
+            warnings.warn(
+                f"unit_census_report: group_by names {absent}, which units_df does not "
+                "have; the census is grouped by the remaining columns only.",
+                UserWarning,
+                stacklevel=2,
+            )
+    else:
         group_by = ['session_id', 'area', 'depth_class']
         if 'depth_class' not in units_df.columns and 'layer' in units_df.columns:
             warnings.warn(

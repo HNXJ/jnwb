@@ -12,7 +12,7 @@ Carried by 0.2.6.
 
 - **`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of
   dataset paths cast to float32, irreversibly (`select=["acquisition/probe_0_lfp/data"]`). A
-  missing path, a group, a dataset that is not boolean, integer or floating, and `spike_train`
+  missing path, a group, a dataset that is not floating-point, and `spike_train`
   or `convolved_spike_train` (always rewritten at their source dtype) are refused before
   anything is written; naming either of the last two used to leave a "cast to float32" note on
   a dataset that was never cast. The result gains `cast_paths`, and verification checks exactly
@@ -37,9 +37,9 @@ Carried by 0.2.6.
   giving 1249.9987 Hz, with sample 0 placed within 10 ms -- then computes a PSTH by cortical
   layer and band power by depth. `scripts/build_open_data_excerpt.py` rebuilds the excerpt
   from the published assets after checking their SHA-256.
-- **Exploratory results say they are uncorrected.** `StatisticalAnalysis.exploratory_compare`
-  and `exploratory_multi` results carry `correction: "none"`. Their p-values were already raw;
-  the key states it in the result itself. Corrected values stay on `confirmatory_compare`.
+- **Exploratory results say they are uncorrected.** `StatisticalAnalysis.exploratory_compare`,
+  `exploratory_multi` and `exploratory_correlate` results carry `correction: "none"`. Their
+  p-values and `significant_*` flags were already raw; the key states it in the result itself. Corrected values stay on `confirmatory_compare`.
 - **A read can waive a missing `session_description`, reachable from `import jnwb`.**
   `jnwb.read_nwb(path, allow_missing=("session_description",))` opens a file that
   `MissingRequiredNWBFieldError` refuses by default; the field reads `""`, and
@@ -58,28 +58,47 @@ Carried by 0.2.6.
   electrode depth) to a new column `depth_class`; laminar identity from spectra remains
   `label_layers`. `unit_census_report` with `group_by=None` groups by
   `['session_id', 'area', 'depth_class']`, so the census carries `depth_class` where it carried
-  `layer`.
+  `layer`. Given a frame with `layer` and no `depth_class`, it does not read `layer`; it drops
+  the depth split and emits a `FutureWarning` naming both columns.
+- **`imaginary_coherency` is signed like `phase_slope_index`: positive means `x` leads `y`.**
+  The cross-spectrum is now `E[X conj(Y)]`, the conjugate of what `scipy.signal.csd` returns,
+  on both devices. `icoh_mean` changes sign on every input; `icoh_abs_mean`, `coh_mag_mean` and
+  `n_freqs` are unchanged. With `x` leading `y` by 5 ms, `icoh_mean` was -0.6255 while the phase
+  slope index was +1.7767. Code that read a negative `icoh_mean` as `x` leading must flip its
+  test.
 - **`aggregate_to_db(how="mean_of_ratios")` refuses `TFRAccumulator.power()` output.** The
   accumulator has already averaged over trials, so a ratio of its output is a ratio of means
   whatever `how` names; the call used to return that under the other name. It now raises
   `ValueError` naming the per-trial route. `how="ratio_of_means"` on accumulator output, and
-  `mean_of_ratios` on per-trial power, are unchanged. `power()` returns its mean as a private
-  `ndarray` subclass that carries this; values are unchanged and `np.asarray` drops it.
+  `mean_of_ratios` on per-trial power, are unchanged. The refusal covers `power()`, `mean`, any
+  view of the mean buffer, NumPy function results over them and `tolist()`; values are
+  unchanged. A copy NumPy makes without dispatch (`np.array`, assignment into another array)
+  and a read back from `write()` carry no mark and are not refused.
 - **`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both
   used to be accepted and echoed back as if applied, among them `reduction={'a': 'Mean'}`
   and `alternative='GREATER'`. The error names the valid set. The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`
   and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
   still accepted.
-- **`enrich_units_dataframe` adds `is_stable` only when there is a `quality` column.** A
-  frame without one used to receive `is_stable=False` on every unit, a label with no data
-  behind it. The column is now absent in that case; `get_all_units_metadata` and the unit
-  quality plot already treat it as optional.
+- **`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable
+  value.** A frame without one, or with only NaN, None or blank entries, used to receive
+  `is_stable=False` on every unit, a label with no data behind it. The column is now absent in
+  that case; the unit quality plot already treats it as optional, and
+  `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a
+  `RuntimeWarning` instead of passing them through.
 - **`JRSAResult.p` and `q` are 0-d for a single-lag result, like `value`.** They were shape
   `(1,)`, so `float(res.p)` raised `TypeError` under NumPy >= 2. A multi-lag result gives
   `(n_lags,)`, matching `value`, where it used to give `(n_lags, 1)`.
 
 ### Fixed
 
+- **`jrsa` converts its inputs by type.** It took `.data` from any input carrying one: a
+  `scipy.sparse` matrix became its stored non-zeros (CKA 0.011 against 0.801, RSA NaN, no
+  error), a CuPy array or a torch CUDA tensor raised, and a masked array lost its mask. Sparse,
+  CuPy and torch inputs on any device now convert to dense host values, and a masked array
+  with a masked element raises `TypeError`.
+- **`unit_census_report` warns when `group_by` names a column the frame lacks.** The column
+  was dropped silently, so the census was grouped by fewer columns than the call named. It is
+  still dropped, now with a `UserWarning` naming it.
 - **A fixed Granger order must be an integer >= 1.** `granger`, `granger_spectral` and
   `granger_causality` raise `ValueError` on `order=0`, a fraction, a bool or NaN. `order=0`
   used to fit a model with no history and return zero causality in both directions, which read
@@ -116,8 +135,7 @@ Carried by 0.2.6.
 - **Every cited method names the result jnwb implements.** `docs/references.md` is one table per
   topic, each row giving the source, the result implemented and the functions that implement
   it; a test holds the page and the docstrings to each other in both directions, and every DOI
-  was resolved on 2026-09-23. Docstrings state where jnwb departs from a reference: the
-  `imaginary_coherency` sign convention, `aperiodic_fit` without peak removal, the Morlet
+  was resolved on 2026-09-23. Docstrings state where jnwb departs from a reference: `aperiodic_fit` without peak removal, the Morlet
   cone-of-influence default, the phase-slope jackknife unit, equal-weight multitaper averaging,
   NaN distance correlation for a constant input, and that `vflip` is not the published vFLIP.
   The Mitra and Pesaran citation is removed from `compute_multitaper_psd`.

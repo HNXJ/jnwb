@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 |  |
-| W1 | 06-140 |
+| W1 |  |
 | W2 |  |
 | W3 |  |
 | W4 | 06-24 |
@@ -64,20 +64,6 @@ packets finish before 06-34.
 ## W0. Integration and verification
 
 ## W1. Freeze, sweeps and harness
-
-### 06-140 Repair the verifier's code blockers
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: per module. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `jnwb/statistics.py`, `jnwb/metadata.py`, `jnwb/tfr_accumulator.py`, `jnwb/spectral.py`, `scripts/release_gate.py`, `docs/03_representational_similarity_jrsa.md`, `skills/*/SKILL.md`, `tests/*.py`.
-P-223, P-214, P-224, P-215, P-114, P-195, found by the 06-136 pass at `c304432b`; each row carries
-its breaking case. Refuse or convert correctly what `jrsa` is handed, and make its page list only
-what works; `exploratory_correlate` says its result is uncorrected; an empty `quality` column
-warns or refuses instead of yielding all-False `is_stable`; every array view of accumulator input
-is refused; STEP 0a fails closed on each non-canonical `Release:` line and heading form.
-Discriminator: each row's breaking case fails before and passes after; selectors pass pristine.
-Accept: each row marked repaired pending 06-136, with a CHANGELOG line for each shipped change.
-Stop: a repair would change a ruled API semantic.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 
@@ -207,7 +193,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 and P-34 into 06-58. Current list: P-62 (the skill GPU line, re-worded after the second pass). P-118 (the H2 and H5 cells). P-212 (`docs/quickstart.md` panels; the fig04 image titles at `ae9248fc`; the fig09 half with P-217). P-213 (`docs/common_mistakes.md` and `docs/06` section 3). P-225 (`docs/architecture.md` against the wheel and `artifacts/direction.md`, including the "Generic" criterion). P-217 (the 0.001% slack and its one-digit self-test; the metadata-less PNG now fails). P-222 (the three further `jnwb.vis` docstrings). The reference citations (`docs/references.md`, `tests/test_references_resolve.py` and the docstring citation blocks; judge each claimed match against its source, and whether each documented divergence is stated where it happens). The figure form (`tests/test_figure_form.py`, the light and dark variants from `docs/generate_figures.py` and `examples/quickstart_jnwb.py`, `docs/_theme_override.css`; P-205, P-206, P-207, P-208 and P-26: judge each dark variant's legibility by eye and whether the contrast floor of 2 is a real G2 check). P-104, P-92, P-93 (`select=` on `compress_fp32` and `convert`, `method=` on the correlation functions, and the CHANGELOG entries; judge the acceptance of integer and boolean datasets in `select=`). The architecture reachability test, widened after the second pass (`tests/test_architecture_page_reachability.py`: spaced edge labels read, an unparseable diagram line fails, and the two phrase patterns cover `needs an agent` and `authoritative`; judge whether they are now wide enough). The four diagrams on `docs/architecture.md` (judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (the `docs/tutorials/09_open_data.md` leftover only). The rows 06-140 repairs join this list when it lands.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58. Current list: P-62 (the skill GPU line, re-worded after the second pass). P-118 (the H2 and H5 cells). P-212 (`docs/quickstart.md` panels; the fig04 image titles at `ae9248fc`; the fig09 half with P-217). P-213 (`docs/common_mistakes.md` and `docs/06` section 3). P-225 (`docs/architecture.md` against the wheel and `artifacts/direction.md`, including the "Generic" criterion). P-217 (the 0.001% slack and its one-digit self-test; the metadata-less PNG now fails). P-222 (the three further `jnwb.vis` docstrings). The reference citations (`docs/references.md`, `tests/test_references_resolve.py` and the docstring citation blocks; judge each claimed match against its source, and whether each documented divergence is stated where it happens). The figure form (`tests/test_figure_form.py`, the light and dark variants from `docs/generate_figures.py` and `examples/quickstart_jnwb.py`, `docs/_theme_override.css`; P-205, P-206, P-207, P-208 and P-26: judge each dark variant's legibility by eye and whether the contrast floor of 2 is a real G2 check). P-104, P-92, P-93 (`select=` on `compress_fp32` and `convert`, `method=` on the correlation functions, and the CHANGELOG entries; `select=` casts floating-point datasets only since `4f7e0996`, ruled 2026-09-23). The architecture reachability test, widened after the second pass (`tests/test_architecture_page_reachability.py`: spaced edge labels read, an unparseable diagram line fails, and the two phrase patterns cover `needs an agent` and `authoritative`; judge whether they are now wide enough). The four diagrams on `docs/architecture.md` (judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (the `docs/tutorials/09_open_data.md` leftover only). P-223, P-214, P-224, P-215, P-114, P-195 and P-233 (repaired by 06-140, now closed, at `dc6f71de`..`2c70be4d`, and the explicit-`group_by` warning at the integration commit; judge P-114's stated limit against the 2026-09-22 ruling). P-226 (the `imaginary_coherency` sign at `1fc7a910`, with `docs/references.md` and the CHANGELOG entry). The floats-only `select=` at `4f7e0996`.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

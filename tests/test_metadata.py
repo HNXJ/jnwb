@@ -268,8 +268,9 @@ class TestUnitCensusReport:
             census = unit_census_report(units)
         assert "layer" not in census.columns
 
-    def test_missing_group_columns_are_dropped_not_errored(self):
-        census = unit_census_report(_synthetic_units(), group_by=["area", "nonexistent_col"])
+    def test_missing_group_columns_are_dropped_with_a_warning(self):
+        with pytest.warns(UserWarning, match="nonexistent_col"):
+            census = unit_census_report(_synthetic_units(), group_by=["area", "nonexistent_col"])
         assert "area" in census.columns
         assert "nonexistent_col" not in census.columns
 
