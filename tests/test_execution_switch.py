@@ -190,6 +190,23 @@ def no_cuda(monkeypatch):
 
 
 @pytest.fixture
+def failing_gpu(monkeypatch):
+    """A device that probes as present and fails at the first upload, where an
+    out-of-memory surfaces. Without CuPy the GPU branch's own import fails instead."""
+    monkeypatch.setattr(backend, "gpu_available", lambda prefer=None: True)
+    monkeypatch.setattr(backend, "torch_cuda_available", lambda: False)
+
+    def out_of_memory(*args, **kwargs):
+        raise MemoryError("simulated")
+
+    for module, attr in (("cupy", "asarray"), ("torch", "as_tensor")):
+        try:
+            monkeypatch.setattr(__import__(module), attr, out_of_memory)
+        except ImportError:
+            pass
+
+
+@pytest.fixture
 def jax_cpu_as_metal(monkeypatch):
     """The Metal code path, run on JAX's CPU platform: what can be verified here."""
     jax = pytest.importorskip("jax")
@@ -212,11 +229,24 @@ class TestAnUnavailableDeviceIsAnnounced:
         with pytest.raises(ValueError, match="unrecognised device"):
             DEVICE_CALLS[name]("tpu")
 
+    @pytest.mark.parametrize("metal_present", [False, True], ids=["no-metal", "metal"])
     @pytest.mark.parametrize("name", sorted(DEVICE_CALLS))
-    def test_metal_without_a_metal_path_or_device_warns_and_names_the_cpu(self, name, monkeypatch):
-        monkeypatch.setattr(backend, "jax_metal_available", lambda: False)
-        _, messages = _runtime_messages(lambda: DEVICE_CALLS[name]("metal"))
+    def test_metal_warns_and_names_the_cpu_unless_the_function_runs_there(
+            self, name, metal_present, monkeypatch):
+        # With a Metal device present, every function but complex_tfr has no Metal path,
+        # and complex_tfr's default dtype is 64-bit, which Metal cannot compute.
+        monkeypatch.setattr(backend, "jax_metal_available", lambda: metal_present)
+        result, messages = _runtime_messages(lambda: DEVICE_CALLS[name]("metal"))
         assert any("device='metal'" in m and "CPU" in m for m in messages), messages
+        if name in RECORD:
+            assert RECORD[name](result) == "cpu"
+
+    @pytest.mark.parametrize("name", CUDA_CAPABLE)
+    def test_a_cuda_failure_midway_is_announced_and_recorded(self, name, failing_gpu):
+        result, messages = _runtime_messages(lambda: DEVICE_CALLS[name]("cuda"))
+        assert any("GPU computation failed" in m for m in messages), messages
+        if name in RECORD:
+            assert RECORD[name](result) == "cpu"
 
     @pytest.mark.parametrize("name", sorted(DEVICE_CALLS))
     def test_cuda_without_a_device_warns_and_names_the_cpu(self, name, no_cuda):
