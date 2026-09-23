@@ -66,13 +66,13 @@ from jnwb.vis.state_space import (
 @pytest.fixture
 def sample_argument_data():
     return {
-        "QUESTION": "Does omission evoke prediction error spiking across cortical hierarchy?",
-        "DATA": "Macaque E2 corpus (9,056 units across 10 areas)",
-        "ESTIMAND": "Prevalence P(O+ U O++) and spectrolaminar power",
-        "INFERENCE UNIT": "Sessions (n=22)",
-        "RESULT": "Scarcity bounded <5%; no monotonic hierarchy; LFP suppression",
-        "LICENSED CLAIM": "Omission spiking is cortex-wide scarce and non-hierarchical",
-        "BARRED CLAIM": "Spikes and fields are decoupled",
+        "QUESTION": "Does condition B change the firing rate relative to condition A?",
+        "DATA": "Synthetic test corpus (12 units across 3 areas)",
+        "ESTIMAND": "Fraction of units whose rate differs between conditions",
+        "INFERENCE UNIT": "Sessions (n=4)",
+        "RESULT": "Placeholder result for a rendering test",
+        "LICENSED CLAIM": "Placeholder licensed claim",
+        "BARRED CLAIM": "Placeholder barred claim",
         "SOURCE ARTIFACTS": ["test_source_receipt.json"],
     }
 
@@ -219,7 +219,7 @@ def test_spectrolaminar_map_primitive():
         rel_power=rel_power,
         freqs=freqs,
         depths=depths,
-        crossover_depth=0.405,
+        crossover_depth=0.4,
     )
 
     traces = canvas.fig.data
@@ -227,6 +227,24 @@ def test_spectrolaminar_map_primitive():
     assert len(heatmap_traces) == 1
     assert heatmap_traces[0].zmin == 0.0
     assert heatmap_traces[0].zmax == 1.0
+
+
+def test_no_crossover_depth_is_drawn_unless_the_caller_computed_one():
+    """The default used to draw one study's measured depth on every recording."""
+    freqs = np.linspace(1, 150, 150)
+    depths = np.linspace(0.0, 1.0, 32)
+    rel_power = np.random.default_rng(0).uniform(0.1, 1.0, size=(150, 32))
+
+    bare = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_spectrolaminar_map(canvas=bare, row=0, col=0, rel_power=rel_power, freqs=freqs,
+                            depths=depths)
+    assert not any("Crossover" in (a.text or "") for a in bare.fig.layout.annotations)
+    assert not any(isinstance(t, go.Scatter) for t in bare.fig.data)
+
+    given = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_spectrolaminar_map(canvas=given, row=0, col=0, rel_power=rel_power, freqs=freqs,
+                            depths=depths, crossover_depth=0.37)
+    assert any("Crossover (0.37)" in (a.text or "") for a in given.fig.layout.annotations)
 
 
 def test_opposing_gradients_primitive():
@@ -244,7 +262,7 @@ def test_opposing_gradients_primitive():
         gamma_power=gamma,
         alphabeta_power=alphabeta,
         depths=depths,
-        crossover_depth=0.405,
+        crossover_depth=0.4,
         ci_gamma=ci_gamma,
         ci_alphabeta=ci_ab,
     )
@@ -266,7 +284,7 @@ def test_csd_primitive():
         csd_matrix=csd,
         time_ms=time_ms,
         depths=depths,
-        layer_boundaries={"L4": 0.405, "L5/6": 0.65},
+        layer_boundaries={"L4": 0.4, "L5/6": 0.65},
     )
 
     traces = canvas.fig.data
@@ -277,8 +295,8 @@ def test_multi_condition_raster_psth_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=120.0, rows=2, cols=1, row_height_ratios=[1.2, 1.0])
     st = np.sort(np.random.uniform(0, 100, 500))
     onsets = {
-        "Standard": np.array([5.0, 15.0, 25.0, 35.0]),
-        "Omission": np.array([45.0, 55.0, 65.0, 75.0]),
+        "Condition A": np.array([5.0, 15.0, 25.0, 35.0]),
+        "Condition B": np.array([45.0, 55.0, 65.0, 75.0]),
     }
 
     plot_multi_condition_raster_psth(
@@ -308,7 +326,7 @@ def test_hierarchy_regression_primitive():
     values = np.array([1.2, 2.5, 3.1, 4.2, 3.8])
     ci_low = values - 0.5
     ci_high = values + 0.5
-    areas = ["V1", "V2", "V4", "8A", "PFC"]
+    areas = ["A1", "A2", "A3", "A4", "A5"]
 
     plot_hierarchy_regression(
         canvas=canvas,
@@ -333,7 +351,7 @@ def test_hierarchy_regression_primitive():
 
 def test_spectral_modulation_matrix_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
-    areas = ["V1", "V4", "PFC"]
+    areas = ["A1", "A2", "A3"]
     bands = ["θ", "α", "β", "γ"]
     delta_db = np.array([[-1.2, 0.5, -0.3, 2.1], [0.1, -1.8, -0.5, 1.4], [-0.2, 0.1, 1.5, -0.8]])
     sig_mask = np.array([[True, False, False, True], [False, True, False, True], [False, False, True, False]])

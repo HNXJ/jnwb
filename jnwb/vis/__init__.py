@@ -1,12 +1,12 @@
 """
-jnwb.vis -- Publication-grade non-human primate electrophysiology visualization engine in pure Plotly.
+jnwb.vis -- Publication-grade electrophysiology visualization engine in pure Plotly.
 
 Enforces:
 1. Pure Plotly engine (interactive HTML + camera-ready vector SVG and 300/600 DPI PNG).
 2. Collision-free relative domain coordinate mathematics ([x0, x1] x [y0, y1]).
 3. Triple-format default export (.svg, .png, .html) with epistemic sidecar (*_argument.json).
 4. Rigorous statistical standards (bootstrap CI ribbons via fill='tonexty', exact Clopper-Pearson error_y,
-   physiological scales, L4 crossover markers).
+   physiological scales, crossover markers at a depth the caller computed).
 """
 
 from __future__ import annotations

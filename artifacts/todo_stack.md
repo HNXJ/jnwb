@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123, 06-132 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -264,17 +264,6 @@ Discriminator: a seeded `P-12` in a `jnwb/` docstring fails the gate; the pristi
 Accept: P-182 closes.
 Stop: an identifier carries meaning a reader of the library needs; state the meaning instead.
 
-### 06-132 `jnwb.vis` carries no project vocabulary
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `jnwb/vis/*.py`, `tests/test_vis.py`, `skills/jnwb-landmark-viz/SKILL.md`.
-P-184. `jnwb/vis/spectral.py` defaults its labels to named cortical pathways, `jnwb/vis/theme.py` names a condition in a colour comment, and `tests/test_vis.py` and the skill's sidecar example carry one study's findings and corpus name. `AGENTS.md` §4.3 keeps condition codes, area vocabularies and findings out of `jnwb/`, `skills/` and `tests/`, and gate 6 did not see them.
-Do: replace each with neutral placeholders the caller overrides; hand the tokens that are corpus-specific by construction to 06-129, which extends the `jnwb/` scan.
-Discriminator: `git grep` over the Writes finds none of the reported tokens; `tests/test_vis.py` still exercises every panel.
-Accept: P-184 closes; `tests/test_vis.py` passes with the neutral fixtures.
-Stop: a default carries scientific meaning a caller relies on; name it and ask.
-
 ## W2. API repairs
 
 ### 06-07 Gate architecture reachability
@@ -387,7 +376,7 @@ Stop: 06-105 also writes `scripts/harness_gate.py`; the two run one after the ot
 ### 06-135 A page for `jnwb.vis`
 
 Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-132.
+Role: docs-harness. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/vis.md`, `mkdocs.yml`, `docs/install.md`.
 P-187, P-183. The public `jnwb.vis` is reachable only through an `install.md` line and its `api.md` row. Ruled 2026-09-22 (P-183): `vis` stays in `__all__`, so `from jnwb import *` without the extra raises an `ImportError` naming `pip install jnwb[vis]`; the page and `docs/install.md` say so.
 Accept: the page is in the navigation, shows one canvas built from supplied arrays, and the strict build passes; P-183 and P-187 close.
@@ -592,7 +581,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-06-122 was dispatched at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). Deferrals to attack with 06-131's question: P-190, P-191, P-192.
+06-122 was dispatched at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). Deferrals to attack with 06-131's question: P-190, P-191, P-192.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

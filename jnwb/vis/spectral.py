@@ -3,7 +3,7 @@ jnwb.vis.spectral -- Publication-grade spectral modulation and functional connec
 
 Implements Motif 4 (Bastos 2020, Mendoza-Halliday 2024, Westerberg 2024):
 - Area x Frequency Band modulation matrices with Benjamini-Hochberg FDR indicators
-- Directed Granger causality spectra (feedforward gamma vs. feedback alpha/beta with null ribbons)
+- Directed Granger causality spectra for both directions of a pair, with null ribbons
 - Phase-Amplitude Coupling (PAC) comodulograms
 """
 
@@ -118,8 +118,8 @@ def plot_granger_spectra(
     gc_ff: np.ndarray,
     gc_fb: np.ndarray,
     null_ribbon: Optional[np.ndarray] = None,
-    ff_label: str = "Feedforward (V1→V4)",
-    fb_label: str = "Feedback (V4→V1)",
+    ff_label: str = "A → B",
+    fb_label: str = "B → A",
     title: Optional[str] = "Directed Granger Causality",
 ) -> None:
     """
@@ -130,11 +130,11 @@ def plot_granger_spectra(
         row: Grid row index.
         col: Grid column index.
         freqs: 1D array of frequencies (Hz).
-        gc_ff: 1D array of feedforward Granger causality.
-        gc_fb: 1D array of feedback Granger causality.
+        gc_ff: 1D array of Granger causality in the first direction (A to B).
+        gc_fb: 1D array of Granger causality in the reverse direction (B to A).
         null_ribbon: [n_freqs, 2] array of [ci_lower, ci_upper] for shuffle null.
-        ff_label: Legend label for feedforward trace.
-        fb_label: Legend label for feedback trace.
+        ff_label: Legend label for the first-direction trace; name the areas here.
+        fb_label: Legend label for the reverse-direction trace.
         title: Panel title.
     """
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -173,7 +173,7 @@ def plot_granger_spectra(
             )
         )
 
-    # 2. Feedforward trace
+    # 2. First-direction trace
     canvas.fig.add_trace(
         go.Scatter(
             x=freqs,
@@ -183,11 +183,11 @@ def plot_granger_spectra(
             line=dict(color="#C0392B", width=1.5),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Freq: %{x:.1f} Hz<br>FF: %{y:.4f}<extra></extra>",
+            hovertemplate="Freq: %{x:.1f} Hz<br>" + ff_label + ": %{y:.4f}<extra></extra>",
         )
     )
 
-    # 3. Feedback trace
+    # 3. Reverse-direction trace
     canvas.fig.add_trace(
         go.Scatter(
             x=freqs,
@@ -197,7 +197,7 @@ def plot_granger_spectra(
             line=dict(color="#2980B9", width=1.5),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Freq: %{x:.1f} Hz<br>FB: %{y:.4f}<extra></extra>",
+            hovertemplate="Freq: %{x:.1f} Hz<br>" + fb_label + ": %{y:.4f}<extra></extra>",
         )
     )
 

@@ -47,8 +47,8 @@ OKABE_ITO = [
 # Nature Scientific Accents (High-contrast publication palette)
 NATURE_ACCENTS = [
     "#2C3E50",  # Midnight Blue / Neutral Dark
-    "#C0392B",  # Crimson / Strong Accent (e.g. Omission)
-    "#2980B9",  # Royal Blue / Standard Condition
+    "#C0392B",  # Crimson / Strong Accent (the condition of interest)
+    "#2980B9",  # Royal Blue / Reference Condition
     "#27AE60",  # Emerald Green
     "#8E44AD",  # Wisteria Purple
     "#D35400",  # Rust Orange

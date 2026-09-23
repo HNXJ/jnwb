@@ -25,7 +25,7 @@ def plot_spectrolaminar_map(
     rel_power: np.ndarray,
     freqs: np.ndarray,
     depths: np.ndarray,
-    crossover_depth: Optional[float] = 0.405,
+    crossover_depth: Optional[float] = None,
     cmap: str = "Magma",
     log_freq: bool = True,
     title: Optional[str] = "Spectrolaminar Power Map",
@@ -41,7 +41,10 @@ def plot_spectrolaminar_map(
         rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs].
         freqs: 1D array of frequencies (Hz).
         depths: 1D array of cortical depths (normalized 0.0-1.0 or micrometers).
-        crossover_depth: Canonical L4 crossover depth (default 0.405).
+        crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
+            recording (for example with ``jnwb.vflip``), in the units of ``depths``. No
+            marker is drawn when None; there is no default value because the depth is
+            a property of each recording, not a constant.
         cmap: Plotly colormap name (default 'Magma').
         log_freq: If True, set frequency axis to log scale.
         title: Panel title.
@@ -120,7 +123,7 @@ def plot_spectrolaminar_map(
             y=crossover_depth,
             xref=x_axis,
             yref=y_axis,
-            text="<b>L4 Crossover (0.405)</b>",
+            text=f"<b>Crossover ({crossover_depth:g})</b>",
             showarrow=False,
             xanchor="right",
             yanchor="bottom",
@@ -149,7 +152,7 @@ def plot_opposing_gradients(
     gamma_power: np.ndarray,
     alphabeta_power: np.ndarray,
     depths: np.ndarray,
-    crossover_depth: Optional[float] = 0.405,
+    crossover_depth: Optional[float] = None,
     ci_gamma: Optional[np.ndarray] = None,
     ci_alphabeta: Optional[np.ndarray] = None,
     gamma_color: str = "#C0392B",
@@ -166,7 +169,8 @@ def plot_opposing_gradients(
         gamma_power: 1D array of normalized gamma power along depth.
         alphabeta_power: 1D array of normalized alpha/beta power along depth.
         depths: 1D array of cortical depths.
-        crossover_depth: Canonical L4 crossover depth.
+        crossover_depth: Crossover depth computed from this recording, in the units of
+            ``depths``; no marker when None.
         ci_gamma: [n_depths, 2] array of [ci_lower, ci_upper] for gamma.
         ci_alphabeta: [n_depths, 2] array of [ci_lower, ci_upper] for alpha/beta.
         gamma_color: Hex color for gamma profile.

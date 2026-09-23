@@ -1,6 +1,6 @@
 ---
 name: jnwb-landmark-viz
-description: Publication-grade non-human primate electrophysiology visualization engine (pure Plotly) generating Nature/Neuron-standard multi-panel figures, laminar spectrolaminar/CSD maps, multi-condition rasters, hierarchy regressions, triple exports (SVG/PNG/HTML), and epistemic argument sidecars.
+description: Publication-grade electrophysiology visualization engine (pure Plotly) generating Nature/Neuron-standard multi-panel figures, laminar spectrolaminar/CSD maps, multi-condition rasters, hierarchy regressions, triple exports (SVG/PNG/HTML), and epistemic argument sidecars.
 ---
 
 # `jnwb-landmark-viz` — Publication-Grade Electrophysiology Visualization Engine (Plotly)
@@ -31,7 +31,7 @@ Subplots and elements use strict non-overlapping relative domain coordinates:
 - **Mandatory Confidence Intervals**: Every summary curve must feature a confidence envelope (e.g. 95% bootstrap CI, SEM) using Plotly's `fill='tonexty'` with translucent fills (`rgba(...)`).
 - **Explicit Error Bars**: Categorical points and prevalences use `error_y` with exact Clopper-Pearson binomial intervals.
 - **Physical Scales & Units**: Explicit unit declarations on every axis (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`).
-- **Anatomical Markers**: Canonical Layer 4 crossover depth ($d = 0.405$) displayed as a dashed horizontal reference line with annotation.
+- **Anatomical Markers**: a crossover depth computed from the recording (for example with `jnwb.vflip`) is displayed as a dashed horizontal reference line with annotation. No depth is drawn unless the caller passes one; it is a property of each recording, not a constant.
 - **Baseline References**: Dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$; chance line ($y = 0.5$) for binary decoders.
 - **Significance Thresholding**: Benjamini-Hochberg FDR indicators ($q_{\text{BH}} \le 0.05$) and non-parametric cluster-based permutation test bars.
 
@@ -58,7 +58,7 @@ jviz.laminar.plot_spectrolaminar_map(
     rel_power=rel_power_matrix,      # [150 freqs x 32 channels]
     freqs=np.arange(1, 151),
     depths=channel_depths_mm,
-    crossover_depth=0.405,
+    crossover_depth=crossover_depth,  # computed from this recording
     cmap="Magma"
 )
 
@@ -69,7 +69,7 @@ jviz.laminar.plot_opposing_gradients(
     gamma_power=gamma_profile,
     alphabeta_power=alphabeta_profile,
     depths=channel_depths_mm,
-    crossover_depth=0.405,
+    crossover_depth=crossover_depth,  # computed from this recording
     ci_gamma=gamma_ci,              # [32 x 2]
     ci_alphabeta=alphabeta_ci       # [32 x 2]
 )
@@ -79,13 +79,13 @@ canvas.save_and_seal(
     output_dir="outputs/figures",
     basename="fig_spectrolaminar",
     argument_object={
-        "QUESTION": "Is the spectrolaminar radical-sign motif preserved?",
-        "DATA": "Macaque E2 corpus (V4 and PFC linear arrays)",
-        "ESTIMAND": "Relative power P_rel(f, d) and L4 crossover depth",
-        "INFERENCE UNIT": "Sessions (n=22)",
-        "RESULT": "Gamma and alpha/beta intersect at d=0.405",
-        "LICENSED CLAIM": "Spectrolaminar motif is ubiquitous across sampled areas",
-        "BARRED CLAIM": "Omission reverses laminar spectral directionality",
+        "QUESTION": "<the question the figure answers>",
+        "DATA": "<dataset, areas and unit or channel counts>",
+        "ESTIMAND": "<the quantity plotted, e.g. relative power by depth>",
+        "INFERENCE UNIT": "<what n counts, e.g. sessions>",
+        "RESULT": "<the computed result, traced to the source artifact>",
+        "LICENSED CLAIM": "<what the result supports>",
+        "BARRED CLAIM": "<what it does not support>",
         "SOURCE ARTIFACTS": ["spectrolaminar_arrays.h5"]
     }
 )
