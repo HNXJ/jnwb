@@ -154,8 +154,15 @@ def test_a_moved_head_fails(
     assert sandbox_head[:12] in stale_outcome.stdout, stale_outcome.stdout
 
 
-def test_an_absent_file_fails(sandbox: pathlib.Path, sandbox_head: str) -> None:
-    """Absence must not read as freshness, and it is the state of every fresh checkout."""
+def test_an_absent_file_fails(
+    sandbox: pathlib.Path, sandbox_head: str, current_outcome: subprocess.CompletedProcess
+) -> None:
+    """Absence must not read as freshness, and it is the state of every fresh checkout.
+
+    `current_outcome` writes the file this test removes; without it, a worker that runs this
+    test first has nothing to remove.
+    """
+    assert current_outcome.returncode == 0, "the pristine case must pass before a kill counts"
     state = sandbox / "artifacts" / "state.md"
     state.unlink()
     outcome = _check(sandbox)
