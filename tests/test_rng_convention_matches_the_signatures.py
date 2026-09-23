@@ -241,11 +241,17 @@ def test_the_spec_page_names_every_function_whose_rng_default_is_none():
 
 
 def _probe_xflip():
+    # Thirty surrogates put each p-value on a 1/31 grid, and two fresh draws coincide on
+    # about 3% of pairs (measured: 30 distinct p-value sets in 40 calls). Up to three
+    # further calls are compared, so a false alarm needs four coincident draws, while a
+    # fixed seed still repeats on every call.
     data = np.random.default_rng(11).normal(size=(12, 3000))
-    return (
-        dict(jnwb.xflip(data, n_surrogates=30, rng=None).p_values),
-        dict(jnwb.xflip(data, n_surrogates=30, rng=None).p_values),
-    )
+    first = dict(jnwb.xflip(data, n_surrogates=30, rng=None).p_values)
+    for _ in range(3):
+        later = dict(jnwb.xflip(data, n_surrogates=30, rng=None).p_values)
+        if later != first:
+            break
+    return first, later
 
 
 def _probe_jrsa():
