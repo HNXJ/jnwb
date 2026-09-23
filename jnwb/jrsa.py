@@ -228,9 +228,11 @@ def jrsa(
         auto | numpy | scipy | jax | torch | cupy. Validated and recorded for API
         compatibility; every input is converted to NumPy whatever this names, so it does
         not change which inputs are accepted, where the arithmetic runs or what it returns.
+        'cupy', 'jax' and 'torch' emit a RuntimeWarning saying so.
     device : str
-        'cpu' or 'cuda', validated by the same `resolve_device` the rest of the package
-        uses -- an unknown name raises. `execution['device']` records the resolved device.
+        'cpu', 'cuda' or 'metal', validated by the same `resolve_device` the rest of the
+        package uses -- an unknown name raises, and 'cuda' or 'metal' warns that jrsa
+        computes on the CPU. `execution['device']` records the resolved device.
     n_jobs : int
         CPU workers. Default 1 (serial), the same default as everywhere else in the
         package; -1 means all cores. Opt in only when the serial work is large enough
@@ -1143,6 +1145,8 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
 # ===========================================================================
 
 _VALID_BACKENDS = ("auto", "numpy", "scipy", "cupy", "jax", "torch")
+#: The backends that name an accelerator library jrsa does not compute with.
+_ACCELERATOR_BACKENDS = ("cupy", "jax", "torch")
 
 
 def _get_backend(backend: str, device: str) -> dict:
@@ -1155,12 +1159,22 @@ def _get_backend(backend: str, device: str) -> dict:
     `_autodetect_backend` picked a name from what happened to be importable, which
     likewise changed the record and nothing else. `parameters['backend']` still carries
     what the caller asked for; `execution['backend']` now carries what ran.
+
+    Naming an accelerator library is a request that is not delivered, so it is announced
+    the way a denied ``device='cuda'`` is.
     """
     requested = str(backend).strip().lower()
     if requested not in _VALID_BACKENDS:
         raise ValueError(
             f"jrsa: unrecognised backend {backend!r}; expected one of "
             f"{sorted(_VALID_BACKENDS)}."
+        )
+    if requested in _ACCELERATOR_BACKENDS:
+        warnings.warn(
+            f"jrsa: backend={requested!r} was requested, but every jrsa metric computes in "
+            f"NumPy on the CPU; execution['backend'] records 'numpy'.",
+            RuntimeWarning,
+            stacklevel=3,
         )
     return {"name": "numpy", "requested": requested, "device": device}
 

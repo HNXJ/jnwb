@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -119,6 +119,7 @@ def compute_population_trajectory(
         - explained_variance: explained variance ratio of kept components
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
+        - device_used: 'cpu' or 'cuda', the device that performed the SVD
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
@@ -173,6 +174,7 @@ def compute_population_trajectory(
         except Exception as e:
             warn_device_fallback("compute_population_trajectory", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
+            resolved = CPU
             proj_np, V_np, S_np = _svd_numpy()
     else:
         proj_np, V_np, S_np = _svd_numpy()
@@ -204,5 +206,6 @@ def compute_population_trajectory(
         'trajectory': trajectory,
         'explained_variance': float(explained_variance),
         'unit_ids': unit_ids,
-        'bin_centers': bin_centers
+        'bin_centers': bin_centers,
+        'device_used': resolved,
     }

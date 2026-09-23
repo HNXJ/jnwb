@@ -242,6 +242,7 @@ def fit_var_bivariate(
     ridge: float = 0.0,
     return_residuals: bool = False,
     context: str = "fit_var_bivariate",
+    ran_on: Optional[list] = None,
 ) -> Union[Tuple[float, float], Tuple[float, float, np.ndarray, np.ndarray]]:
     """
     Fit restricted and unrestricted VAR(p) models for bivariate Granger causality.
@@ -259,6 +260,8 @@ def fit_var_bivariate(
         context: The public function the caller invoked, used in device warnings.
             `fit_var_bivariate` is not exported, so naming it sends the reader to code
             they did not call.
+        ran_on: When given, receives the device this fit ran on, so a caller that fits
+            many times can tell whether one of them fell back.
     """
     resolved = resolve_device(device, context=context, prefer="cupy")
     if resolved == CUDA and ridge > 0:
@@ -306,13 +309,17 @@ def fit_var_bivariate(
             )
 
             if return_residuals:
-                return (
+                result = (
                     var_restricted,
                     var_unrestricted,
                     cp.asnumpy(residuals_restr),
                     cp.asnumpy(residuals_unrestr),
                 )
-            return var_restricted, var_unrestricted
+            else:
+                result = (var_restricted, var_unrestricted)
+            if ran_on is not None:
+                ran_on.append(CUDA)
+            return result
         except Exception as e:
             warn_device_fallback(context, e)
             log.warning(f"CUDA VAR fitting failed: {e}. Falling back to CPU.")
@@ -346,6 +353,8 @@ def fit_var_bivariate(
     residuals_unrestr = target - XY_reg @ beta_unrestr
     var_unrestricted = _residual_variance(residuals_unrestr)
 
+    if ran_on is not None:
+        ran_on.append(CPU)
     if return_residuals:
         return var_restricted, var_unrestricted, residuals_restr, residuals_unrestr
     return float(var_restricted), float(var_unrestricted)
@@ -374,9 +383,13 @@ def select_optimal_lag(
     criterion: str = "aic",
     ridge: float = 0.0,
     context: str = "select_optimal_lag",
+    ran_on: Optional[list] = None,
 ) -> int:
     """
     Select optimal VAR order p using AIC, BIC, or HQIC on the unrestricted model.
+
+    ``ran_on``, when given, receives the device of every fit, as in
+    :func:`fit_var_bivariate`.
     """
     n = len(x)
     best_ic = float("inf")
@@ -398,7 +411,7 @@ def select_optimal_lag(
 
     for p in range(1, actual_max + 1):
         _, var_unrestricted = fit_var_bivariate(
-            x, y, p, device=resolved, ridge=ridge, context=context)
+            x, y, p, device=resolved, ridge=ridge, context=context, ran_on=ran_on)
         n_samples = n - p
         n_params = 2 * p + 1
         ic = _info_criterion(n_samples, var_unrestricted, n_params, criterion)
@@ -505,7 +518,8 @@ def granger_causality(
     F_1_to_2 is the directional causality from Signal 1 -> Signal 2
 
     Also returns residual diagnostics (lightweight ADF + Ljung–Box). Do not interpret
-    GC as biological directionality when diagnostics warn.
+    GC as biological directionality when diagnostics warn. ``device_used`` names the
+    device ('cpu' or 'cuda') that ran every fit.
 
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
@@ -536,28 +550,40 @@ def granger_causality(
             "the ridge-penalised solver has no GPU path (pass ridge=0 to use the GPU)")
         resolved = CPU
 
-    if order == "auto":
-        order_2_to_1 = select_optimal_lag(
-            s1, s2, device=resolved, criterion=criterion, ridge=ridge,
-            context="granger_causality"
+    def _fit_all(dev, ran_on):
+        if order == "auto":
+            o21 = select_optimal_lag(
+                s1, s2, device=dev, criterion=criterion, ridge=ridge,
+                context="granger_causality", ran_on=ran_on
+            )
+            o12 = select_optimal_lag(
+                s2, s1, device=dev, criterion=criterion, ridge=ridge,
+                context="granger_causality", ran_on=ran_on
+            )
+        else:
+            o21 = o12 = _fixed_order(order, "granger_causality")
+        fit21 = fit_var_bivariate(
+            s1, s2, o21, device=dev, ridge=ridge, return_residuals=True,
+            context="granger_causality", ran_on=ran_on
         )
-        order_1_to_2 = select_optimal_lag(
-            s2, s1, device=resolved, criterion=criterion, ridge=ridge,
-            context="granger_causality"
+        fit12 = fit_var_bivariate(
+            s2, s1, o12, device=dev, ridge=ridge, return_residuals=True,
+            context="granger_causality", ran_on=ran_on
         )
-    else:
-        order_2_to_1 = order_1_to_2 = _fixed_order(order, "granger_causality")
+        return o21, o12, fit21, fit12
 
-    var_r1, var_u1, res_r1, res_u1 = fit_var_bivariate(
-        s1, s2, order_2_to_1, device=resolved, ridge=ridge, return_residuals=True,
-        context="granger_causality"
-    )
+    # Every fit of one call runs on one device. A fit that fell back has already warned;
+    # the fits that did run on the GPU are discarded and the whole call recomputed on the
+    # CPU, so the order selection and both F statistics come from one estimator and
+    # `device_used` names it.
+    ran_on = []
+    order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(resolved, ran_on)
+    if resolved == CUDA and CPU in ran_on:
+        resolved = CPU
+        order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(CPU, None)
+    var_r1, var_u1, res_r1, res_u1 = fit21
+    var_r2, var_u2, res_r2, res_u2 = fit12
     f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else 0.0
-
-    var_r2, var_u2, res_r2, res_u2 = fit_var_bivariate(
-        s2, s1, order_1_to_2, device=resolved, ridge=ridge, return_residuals=True,
-        context="granger_causality"
-    )
     f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
 
     diag_2_to_1 = _series_diagnostics(s1, res_u1, order_2_to_1)
@@ -583,6 +609,7 @@ def granger_causality(
             "warnings": all_warnings,
             "ok_for_interpretation": len(all_warnings) == 0,
         },
+        "device_used": resolved,
     }
 
 

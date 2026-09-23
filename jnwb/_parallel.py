@@ -18,6 +18,7 @@ generator inside the loop would make the output depend on scheduling order.
 from __future__ import annotations
 
 import os
+import warnings
 from typing import Callable, Iterable, List, Optional, Sequence
 
 import numpy as np
@@ -79,8 +80,8 @@ def parallel_map(
     that calls twice in one process makes the floor disappear. Below that, leave
     `n_jobs=1`.
 
-    Falls back to a serial comprehension when joblib is missing, so parallelism is an
-    optimisation rather than a dependency. Result order always matches `items`.
+    Falls back to a serial comprehension, with a RuntimeWarning, when joblib cannot be
+    imported. Result order always matches `items`.
 
     Args:
         fn: Called with one element of `items`.
@@ -98,6 +99,13 @@ def parallel_map(
     try:
         from joblib import Parallel, delayed
     except ImportError:
+        # joblib is a declared dependency, so this is a broken install; say what ran.
+        warnings.warn(
+            f"n_jobs={n_jobs} asked for {workers} workers, but joblib is not importable; "
+            f"running serially on one worker. The result is unchanged.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
         return [fn(item) for item in items]
 
     n_chunks = max(1, min(len(items), workers * max(1, chunks_per_worker)))

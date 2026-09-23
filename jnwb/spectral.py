@@ -16,7 +16,7 @@ from scipy import optimize, signal, stats
 import pandas as pd
 
 from ._dictlike import DictAccessMixin
-from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._layout import require_channel_major
 from ._parallel import parallel_map
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
@@ -492,6 +492,7 @@ def harmonic_analysis(
         - frequencies: Frequency bins for spectrum
         - harmonic_ratio: P(fundamental) / (P(fundamental) + sum of P(orders 2..N)); 1.0
           when no higher order falls inside ``freq_range``
+        - device_used: 'cpu' or 'cuda', the device that computed the spectrum
 
         ``fundamental_freq`` and ``harmonic_ratio`` are NaN, and ``harmonics`` is empty, when
         no bin in ``freq_range`` has positive power (a constant trace).
@@ -526,6 +527,7 @@ def harmonic_analysis(
             frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
         except Exception as e:
             warn_device_fallback("harmonic_analysis", e, stacklevel=3)
+            device = CPU
             frequencies, pxx = signal.welch(
                 lfp_trace,
                 fs=fs,
@@ -542,6 +544,7 @@ def harmonic_analysis(
             noverlap=None
         )
 
+    result['device_used'] = device
     result['frequencies'] = frequencies
     result['spectral_profile'] = pxx
 
@@ -966,6 +969,7 @@ def spectral_tilt(
         - exponent: log-log slope (typically negative)
         - offset: power at 1 Hz (10^intercept)
         - fit_quality: R-squared of the linear fit
+        - device_used: 'cpu' or 'cuda', the device that computed the spectrum
 
         All three are NaN when fewer than two bins in ``freq_range`` have positive power (a
         constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
@@ -1007,6 +1011,7 @@ def spectral_tilt(
         except Exception as e:
             warn_device_fallback("spectral_tilt", e, stacklevel=3)
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            resolved = CPU
             frequencies, pxx = signal.welch(
                 lfp_trace,
                 fs=fs,
@@ -1018,6 +1023,7 @@ def spectral_tilt(
             fs=fs,
             nperseg=min(len(lfp_trace), 4096)
         )
+    result['device_used'] = resolved
 
     # Filter to range and remove DC. The 0.5 Hz floor is part of the estimand, not a
     # detail: `freq_range=(0.1, 100)` and `(0.5, 100)` returned a bit-identical exponent
@@ -1606,6 +1612,7 @@ def imaginary_coherency(
             comparison -- large gap between this and icoh indicates the raw
             coherence is dominated by zero-lag (volume-conduction-like) mixing.
           - ``n_freqs``: number of frequency bins averaged.
+          - ``device_used``: 'cpu' or 'cuda', the device that computed the spectra.
 
     Raises:
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
@@ -1681,6 +1688,7 @@ def imaginary_coherency(
         "icoh_abs_mean": float(np.mean(np.abs(im_part))),
         "coh_mag_mean": float(np.mean(coh_mag)),
         "n_freqs": int(np.sum(mask)),
+        "device_used": device,
     }
 
 
@@ -1732,6 +1740,7 @@ def wpli(
         - ``wpli_spectrum``: 1D array of standard wPLI across all frequencies.
         - ``n_segments``: Number of Welch segments evaluated.
         - ``n_freqs``: Number of frequency bins within `freq_range`.
+        - ``device_used``: `'cpu'` or `'cuda'`, the device that computed the spectra.
 
         A frequency whose segment cross-spectra are all exactly zero-lag reports 0. The
         estimate does not depend on the amplitude units of `x` and `y`.
@@ -1808,6 +1817,7 @@ def wpli(
         "wpli_spectrum": w_f,
         "n_segments": n_segments,
         "n_freqs": int(np.sum(mask)),
+        "device_used": device,
     }
 
 

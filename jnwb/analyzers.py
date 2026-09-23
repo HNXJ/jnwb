@@ -14,6 +14,7 @@ import logging
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
+from .gpu_pca import pin_component_signs
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -379,15 +380,20 @@ class UnitAnalyzer:
             device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
         Returns:
-            Dict with ACG, refractory p-value, is_single_unit flag
+            Dict with ACG, refractory p-value, is_single_unit flag, and ``device_used``,
+            the device that computed the histogram
         """
+        resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
         if len(spike_times) < 10:
             return {'error': 'Insufficient spikes for ACG', 'n_spikes': len(spike_times)}
 
         max_lag_sec = max_lag_ms / 1000
         bin_sec     = bin_size_ms / 1000
 
-        acg, lag_times = UnitAnalyzer._acg_vectorized(spike_times, max_lag_sec, bin_sec, device=device)
+        ran_on = []
+        acg, lag_times = UnitAnalyzer._acg_vectorized(
+            spike_times, max_lag_sec, bin_sec, device=resolved,
+            context='UnitAnalyzer.autocorrelogram', ran_on=ran_on)
 
         if len(acg) == 0:
             return {'error': 'ACG computation failed'}
@@ -407,6 +413,7 @@ class UnitAnalyzer:
             'is_single_unit':             bool(p_refractory < 0.05),
             'refr_count':                 int(ref_count),
             'baseline_count':             float(baseline_count),
+            'device_used':                ran_on[0],
         }
 
     # Pairs held on the device at once. 4.19e6 float64 differences is 32 MiB, which
@@ -462,7 +469,9 @@ class UnitAnalyzer:
 
     @staticmethod
     def _acg_vectorized(spike_times: np.ndarray,
-                        max_lag: float, bin_size: float, device: str = 'cpu') -> Tuple[np.ndarray, np.ndarray]:
+                        max_lag: float, bin_size: float, device: str = 'cpu',
+                        context: str = 'UnitAnalyzer.acg',
+                        ran_on: Optional[list] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Vectorized autocorrelogram via searchsorted — O(N log N) instead of O(N²).
 
@@ -472,24 +481,31 @@ class UnitAnalyzer:
         One implementation serves both devices, so they cannot drift apart: the CPU and
         CUDA results are bit-identical, and were verified so against the previous
         implementation at 500, 5000 and 35000 spikes.
+
+        ``context`` names the public caller in device warnings; ``ran_on``, when given,
+        receives the device that computed the histogram.
         """
         n_bins    = int(max_lag / bin_size)
         bin_edges = np.linspace(-max_lag, max_lag, 2 * n_bins + 2)
 
         acg = None
-        if resolve_device(device, context='UnitAnalyzer.acg', prefer='cupy') == CUDA:
+        used = CPU
+        if resolve_device(device, context=context, prefer='cupy') == CUDA:
             try:
                 import cupy as cp
                 acg = cp.asnumpy(
                     UnitAnalyzer._acg_histogram(cp, spike_times, max_lag, bin_edges,
                                                 n_bins))
+                used = CUDA
             except Exception as e:
-                warn_device_fallback("UnitAnalyzer.acg", e)
+                warn_device_fallback(context, e)
                 log.warning(f"CUDA ACG calculation failed: {e}. Falling back to CPU.")
                 acg = None
 
         if acg is None:
             acg = UnitAnalyzer._acg_histogram(np, spike_times, max_lag, bin_edges, n_bins)
+        if ran_on is not None:
+            ran_on.append(used)
 
         # Remove self-spike at t=0 (centre bin)
         centre = n_bins
@@ -722,6 +738,11 @@ class PopulationAnalyzer:
                 'explained_variance': shape (n_components,)
                 'explained_variance_ratio': shape (n_components,)
                 'device_used': 'cpu' or 'cuda' -- device that performed the SVD
+
+            Each component's largest-magnitude loading is positive
+            (:func:`jnwb.gpu_pca.pin_component_signs`). An SVD fixes a component only up to
+            sign, and cuSOLVER and LAPACK pick differently, so without the pin the CUDA
+            projection came back reflected through the origin relative to the CPU one.
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
@@ -741,6 +762,7 @@ class PopulationAnalyzer:
                 vt = cp.asnumpy(vt)
 
                 projection = X_centered @ vt.T[:, :n_components]
+                vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
                 explained_variance = (s ** 2) / (n_samples - 1)
                 total_variance = np.sum(explained_variance)
                 explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
@@ -770,6 +792,7 @@ class PopulationAnalyzer:
                         vt = v.cpu().numpy()
 
                         projection = X_centered @ vt.T[:, :n_components]
+                        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
                         explained_variance = (s ** 2) / (n_samples - 1)
                         total_variance = np.sum(explained_variance)
                         explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
@@ -792,6 +815,7 @@ class PopulationAnalyzer:
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
         projection = X_centered @ vt.T[:, :n_components]
+        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
         explained_variance = (s ** 2) / (n_samples - 1)
         total_variance = np.sum(explained_variance)
         explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance

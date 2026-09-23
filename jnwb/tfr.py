@@ -14,7 +14,8 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from scipy import signal
 
-from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
+from . import _backend
+from ._backend import CPU, CUDA, METAL, resolve_device, warn_device_fallback
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,7 @@ class ComplexTFR:
         fs: Sampling rate in Hz.
         n_cycles: 1D array of wavelet cycles per frequency bin.
         normalization: Normalization scheme applied ('amplitude' or 'energy').
-        device: 'cpu' or 'cuda', whichever computed `z`.
+        device: 'cpu', 'cuda' or 'metal', whichever computed `z`.
     """
 
     z: np.ndarray
@@ -156,6 +157,33 @@ def _convolve_gpu(arr, kernels, time_dim, out_shape, dtype):
     return z
 
 
+def _convolve_jax(arr, kernels, time_dim, out_shape, dtype, jax_device):
+    """Run every kernel's convolution through JAX on ``jax_device``, in 32 bits.
+
+    The Metal path. ``mode="same"`` is written out: a full linear convolution by FFT of
+    length ``n_times + len(w) - 1``, cropped to the ``n_times`` samples centred on the
+    input, which is the crop :func:`scipy.signal.fftconvolve` applies. Every kernel has odd
+    length ``2K + 1``, so the crop starts at ``K``.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    moved = np.moveaxis(np.asarray(arr, dtype=np.float32), time_dim, -1)
+    n_times = moved.shape[-1]
+    x = jax.device_put(moved, jax_device)
+    z = np.empty(out_shape, dtype=dtype)
+    for fi, w in enumerate(kernels):
+        w_flat = np.asarray(w, dtype=np.complex64).ravel()
+        n_full = n_times + w_flat.size - 1
+        start = (w_flat.size - 1) // 2
+        spectrum = jnp.fft.fft(x, n=n_full) * jnp.fft.fft(jax.device_put(w_flat, jax_device), n=n_full)
+        full = np.asarray(jnp.fft.ifft(spectrum))
+        sl = [slice(None)] * len(out_shape)
+        sl[time_dim] = fi
+        z[tuple(sl)] = np.moveaxis(full[..., start:start + n_times], -1, time_dim).astype(dtype)
+    return z
+
+
 def complex_tfr(
     data: np.ndarray,
     fs: float,
@@ -182,9 +210,12 @@ def complex_tfr(
             that `mode="same"` zero-padding reached. A float sets the region explicitly and
             warns if it is narrower than the kernel half-width, because the mask then marks
             contaminated samples as valid.
-        device: 'cpu' (default) or 'cuda'. 'cuda' convolves with CuPy and returns NumPy
-            arrays. Without a usable GPU, or if the GPU run fails, the whole transform
-            runs on CPU with a RuntimeWarning; `result.device` records which ran.
+        device: 'cpu' (default), 'cuda' or 'metal'. 'cuda' convolves with CuPy and
+            returns NumPy arrays. 'metal' convolves through JAX on Apple's GPU, and only
+            for ``dtype=np.complex64``, since Metal has no 64-bit floating point; it is
+            implemented and has not been run on Metal hardware. Without a usable device,
+            with 'metal' and a 64-bit dtype, or if the device run fails, the whole
+            transform runs on CPU with a RuntimeWarning; `result.device` records which ran.
 
     Returns:
         ComplexTFR containing complex coefficients tensor `z`, `freqs`, `times`, and `coi_mask`.
@@ -255,11 +286,17 @@ def complex_tfr(
         for fi in range(n_freqs)
     ]
 
-    device_used = resolve_device(device, context="complex_tfr", prefer="cupy")
+    device_used = resolve_device(
+        device, context="complex_tfr", prefer="cupy",
+        supports=(CPU, CUDA, METAL), working_dtype=dtype,
+    )
     z_out = None
-    if device_used == CUDA:
+    if device_used in (CUDA, METAL):
         try:
-            z_out = _convolve_gpu(arr, kernels, time_dim, out_shape, dtype)
+            if device_used == CUDA:
+                z_out = _convolve_gpu(arr, kernels, time_dim, out_shape, dtype)
+            else:
+                z_out = _convolve_jax(arr, kernels, time_dim, out_shape, dtype, _backend.jax_metal_device())
         except Exception as exc:
             warn_device_fallback("complex_tfr", exc)
             device_used = CPU
