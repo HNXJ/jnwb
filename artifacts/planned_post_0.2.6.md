@@ -57,7 +57,7 @@ every deferral before 0.2.6 closes. The full item text is in `artifacts/todo_sta
 | 06-26 | Skill examples use real NWB or deterministic arrays, and a test executes every example block | none |
 | 06-87 | One rule where order work is read: a loop nest is not evidence of the order it looks like | P-36 |
 | 06-89 | Document the unit-to-layer composition from existing exports | P-20 |
-| 06-90 | Enrichment that skips on an absent `peak_channel_id` says so | P-22 |
+| 06-90 | Enrichment that skips on an absent `peak_channel_id` says so | P-192 |
 | 06-97 | A documented call site for `xflip` | P-55 residue |
 | 06-110 | A type oracle for documented call shapes | P-167 |
 | 06-112 | A `--check`-only gate over `artifacts/state.md` when it is present | none |

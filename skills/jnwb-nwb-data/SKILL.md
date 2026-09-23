@@ -44,8 +44,11 @@ file, including `data_path`, `layout` and `series` on every continuous entry. Ev
 
 **Several series in one container:** an `LFP` wrapping more than one `ElectricalSeries` reports
 `series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and
-`acquisition_channel(name=<container>)` raises `AmbiguousAcquisitionError`. Name the series.
-A name that exists in both `/acquisition` and a processing module is refused the same way.
+`acquisition_channel(name=<container>)` raises `AmbiguousAcquisitionError`. Name the series,
+bare (`name="series"`) or qualified (`name="container/series"`); a bare name held by two
+containers is refused. A name that exists in both `/acquisition` and a processing module is
+refused the same way. A series stored with `timestamps` and no constant `rate` is refused
+rather than given a rate: read its timestamps and derive the rate against an independent clock.
 
 **Array orientation:** `inspect` reports `layout` per 2-D series, decided by the series' own
 electrode region rather than by which side is longer. `acquisition_channel` honors it, so
@@ -73,7 +76,7 @@ MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for
 use the public functions above in normal Python workflows.
 
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
-- `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` rather than picking one when the name is absent or ambiguous.
+- `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` when the name is absent and `AmbiguousAcquisitionError` rather than picking one when it is ambiguous.
 - `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
 - `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
 - `jnwb.unit_census_report(units_df, group_by=None)`: Census of units grouped by session, area or layer.

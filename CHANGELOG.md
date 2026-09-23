@@ -39,6 +39,12 @@ Carried by 0.2.6.
   `VISpm2/3` became the areas `VISpm2` and `3`, and a unit on that electrode was reported in
   `VISpm2`. A slash followed by a field that does not start with a letter now continues the
   label before it; `V1/V2` still names two areas.
+- **A series inside a container can be read by name.** On an `LFP` container holding several
+  series, `acquisition_channel` told the caller to name the series and then raised
+  `AcquisitionNotFoundError` for that name. A series name now resolves, bare or as
+  `container/series`. A bare name that two containers hold raises
+  `AmbiguousAcquisitionError` listing the qualified names; in processing modules it used to
+  return whichever module came first.
 
 ## [0.2.5] - 2026-09-19
 

@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123, 06-132, 06-134 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123, 06-132 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -274,17 +274,6 @@ Do: replace each with neutral placeholders the caller overrides; hand the tokens
 Discriminator: `git grep` over the Writes finds none of the reported tokens; `tests/test_vis.py` still exercises every panel.
 Accept: P-184 closes; `tests/test_vis.py` passes with the neutral fixtures.
 Stop: a default carries scientific meaning a caller relies on; name it and ask.
-
-### 06-134 A series named inside a container can be read
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_inspect.py`, `tests/test_acquisition_layout.py`, `skills/jnwb-nwb-data/SKILL.md`.
-P-189. `acquisition_channel` documents `name` as "the continuous series or container", and on a container wrapping several series raises `AmbiguousAcquisitionError` telling the caller to "Pass name=<series> explicitly"; passing the series name then raises `AcquisitionNotFoundError`, so none of the series is reachable (reproduced on `examples/data/dandi000253_excerpt.nwb`).
-Do: resolve a name that matches a series nested in an `LFP` or `FilteredEphys` container, in `/acquisition` and in processing modules; a name matching two nested series raises naming both.
-Discriminator: each of the excerpt's three nested series is returned by name; removing the nested lookup fails the test.
-Accept: P-189 closes; the returned rate for a series stored with timestamps is checked against the tutorial's derived rate, and a rate that cannot be derived is refused rather than returned (Hamm, 2026-09-22: never assume a sampling rate).
-Stop: resolving by nested name would change which series an existing call returns.
 
 ## W2. API repairs
 
@@ -603,7 +592,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-06-122 was dispatched at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`).
+06-122 was dispatched at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). Deferrals to attack with 06-131's question: P-190, P-191, P-192.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

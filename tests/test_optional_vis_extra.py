@@ -77,6 +77,19 @@ def test_vis_without_plotly_names_the_extra(access):
     assert "pip install jnwb[vis]" in result.stdout, result.stdout
 
 
+def test_the_release_gate_export_sweep_passes_without_plotly():
+    """The pre-tag check installs the wheel without extras and then sweeps `jnwb.__all__`.
+    A sweep by `hasattr` sees only AttributeError, so `jnwb.vis` failed it on every run."""
+    source = (Path(__file__).resolve().parents[1] / "scripts" / "release_gate.py").read_text(
+        encoding="utf-8"
+    )
+    start = source.index("# 3. Test all exported symbols in __all__")
+    sweep = source[start:source.index("# 4. Workflows", start)]
+    result = _run_without_plotly(sweep)
+    assert result.returncode == 0, result.stderr
+    assert "name their extra" in result.stdout, result.stdout
+
+
 def test_the_api_row_for_vis_is_the_one_an_import_would_render():
     """The generator reads `jnwb.vis`'s row from source so the page does not depend on Plotly.
     With Plotly present, that row must equal the row rendered from the imported module."""

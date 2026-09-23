@@ -56,8 +56,9 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        # `vis` so jnwb.vis is exercised on every leg. The build job below installs the wheel
-        # without it, which is where the suite runs with Plotly absent.
+        # `vis` so jnwb.vis is exercised on every leg. No leg runs the suite without Plotly: the
+        # build job's smoke step checks the wheel without the extra, and
+        # tests/test_optional_vis_extra.py blocks Plotly in a subprocess.
         run: |
           python -m pip install --upgrade pip
           python -m pip install ".[test,docs,vis]"

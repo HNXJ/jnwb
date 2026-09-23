@@ -1489,10 +1489,20 @@ assert 'site-packages' in str(pkg) or 'dist-packages' in str(pkg), f'expected in
 out_dir = jnwb.paths.outputs_dir()
 assert 'site-packages' not in str(out_dir) and 'dist-packages' not in str(out_dir)
 
-# 3. Test all exported symbols in __all__
-for sym in jnwb.__all__:
-    assert hasattr(jnwb, sym), f'Missing symbol: {sym}'
-print(f'PASS: All {len(jnwb.__all__)} symbols in jnwb.__all__ resolved.')
+# 3. Test all exported symbols in __all__. The wheel is installed without extras, so an
+# optional submodule must name its extra rather than resolve; `hasattr` sees only
+# AttributeError, and the ImportError it raises instead would fail this step every time.
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+missing = [s for s in jnwb.__all__ if s not in OPTIONAL_SUBMODULES and not hasattr(jnwb, s)]
+assert not missing, f'Missing symbols: {missing}'
+for name, extra in OPTIONAL_SUBMODULES.items():
+    try:
+        getattr(jnwb, name)
+    except ImportError as exc:
+        assert f'pip install jnwb[{extra}]' in str(exc), exc
+    else:
+        raise AssertionError(f'jnwb.{name} resolved without the {extra} extra')
+print(f'PASS: All {len(jnwb.__all__)} symbols in jnwb.__all__ resolved or name their extra.')
 
 # 4. Workflows
 rng = np.random.default_rng(42)

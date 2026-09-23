@@ -426,10 +426,15 @@ def _inspect_units_h5py(units: h5py.Group) -> dict[str, Any]:
     }
 
 
+#: Marks a bare series name that more than one processing container holds.
+_SHARED_BARE_NAME = object()
+
+
 def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
     """Return (lookup_dict, top_level_names) for continuous series in nwb.processing."""
     found: dict[str, Any] = {}
     top_level: list[str] = []
+    bare_series: dict[str, list[Any]] = {}
     if not nwb.processing:
         return found, top_level
     for mod_name, mod in nwb.processing.items():
@@ -442,6 +447,7 @@ def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
                 if cname not in top_level:
                     top_level.append(cname)
                 for sname, s in obj.electrical_series.items():
+                    bare_series.setdefault(sname, []).append(s)
                     if sname not in found:
                         found[sname] = s
                     found[f"{mod_name}/{cname}/{sname}"] = s
@@ -450,7 +456,29 @@ def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
                 found[f"{mod_name}/{cname}"] = obj
                 if cname not in top_level:
                     top_level.append(cname)
+    # A bare series name two containers share is marked rather than resolved to whichever
+    # container came first; `resolve_acquisition` refuses it and names the qualified forms.
+    for sname, held in bare_series.items():
+        if len(held) > 1 and any(found.get(sname) is s for s in held):
+            found[sname] = _SHARED_BARE_NAME
     return found, top_level
+
+
+def _acquisition_nested_series(nwb: NWBFile) -> dict[str, list[Any]]:
+    """Series held inside ``/acquisition`` containers (``LFP``, ``FilteredEphys``).
+
+    Keyed by the bare series name and by ``container/series``. A bare name held by two
+    containers maps to both, so the caller can refuse it rather than pick one.
+    """
+    found: dict[str, list[Any]] = {}
+    for cname, obj in (nwb.acquisition or {}).items():
+        wrapped = getattr(obj, "electrical_series", None)
+        if not wrapped or not hasattr(wrapped, "items"):
+            continue
+        for sname, series in wrapped.items():
+            found.setdefault(sname, []).append(series)
+            found.setdefault(f"{cname}/{sname}", []).append(series)
+    return found
 
 
 def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> str:
@@ -471,6 +499,16 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
         if name is not None:
             in_acquisition = bool(nwb.acquisition) and name in nwb.acquisition
             in_processing = name in proc_dict
+            nested = _acquisition_nested_series(nwb)
+            if name in nested and not in_acquisition:
+                qualified = sorted(k for k in nested if "/" in k and k.rsplit("/", 1)[-1] == name)
+                if len(nested[name]) > 1 or in_processing:
+                    raise AmbiguousAcquisitionError(
+                        f"'{name}' names a series in more than one container: "
+                        f"{qualified + (['a processing series'] if in_processing else [])}. "
+                        f"Pass the qualified name container/series."
+                    )
+                return name
             # 05-39: both used to be true happily, and acquisition won by the order of
             # these two `if`s. Nothing said so, and the two objects are different data.
             if in_acquisition and in_processing:
@@ -482,10 +520,20 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
                     f"{qualified or ['a processing series']}. "
                     f"Pass the qualified processing name to mean the latter."
                 )
+            if in_processing and proc_dict[name] is _SHARED_BARE_NAME:
+                qualified = sorted(
+                    k for k in proc_dict if "/" in k and k.rsplit("/", 1)[-1] == name
+                )
+                raise AmbiguousAcquisitionError(
+                    f"'{name}' names a series in more than one processing container: "
+                    f"{qualified}. Pass the qualified name."
+                )
             if in_acquisition or in_processing:
                 return name
+            nested_names = sorted(k for k in nested if "/" in k)
             raise AcquisitionNotFoundError(
                 f"Series '{name}' not found. Available: {all_available}"
+                + (f"; series inside containers: {nested_names}" if nested_names else "")
             )
 
         if len(all_available) == 1:
@@ -633,8 +681,11 @@ def acquisition_channel(
 
     def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:
         acq_name = resolve_acquisition(nwb, name)
+        nested = _acquisition_nested_series(nwb)
         if nwb.acquisition and acq_name in nwb.acquisition:
             container = nwb.acquisition[acq_name]
+        elif acq_name in nested:
+            container = nested[acq_name][0]
         else:
             proc_dict, _ = _find_processing_series(nwb)
             container = proc_dict[acq_name]
