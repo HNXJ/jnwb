@@ -345,8 +345,7 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
     trend[time] = median over trials (the shared evoked shape); resid = value - trend;
     scale = median(|resid|) POOLED over all (trial, time) in that band (a single global scale,
     not one per time bin -- a per-time-bin MAD is itself inflated during the evoked response and
-    would mask a real outlier there, the same fix validated for the raw-LFP cross-trial-median
-    detector in artifacts/.lab/lfp-movement-artifact-v198o-v182o-20260806.json). Any (trial,
+    would mask a real outlier there). Any (trial,
     time) with resid/scale beyond z_thresh has ALL channels and ALL of that band's frequency
     rows, at that time index only, replaced by the cross-trial median ("2 11 2 -> 2 2 2": median
     across trials at the same condition and time, not a temporal filter). Detection itself is
