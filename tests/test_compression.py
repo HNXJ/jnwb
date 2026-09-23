@@ -10,6 +10,10 @@ import jnwb
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
+# Most tests here exercise the preset on purpose, so its deprecation warning is expected noise.
+# `TestTheSelectionIsExplicit` asserts the warning itself, under filters it sets locally.
+pytestmark = pytest.mark.filterwarnings("ignore:no select= given:FutureWarning")
+
 # No `assert jnwb.__file__ is under REPO_ROOT` here, deliberately. Import provenance is real --
 # a by-path probe silently imports the INSTALLED jnwb from site-packages -- but asserting it in
 # this module makes an installed run impossible, and `tests/test_the_suite_can_qualify_an_
@@ -606,3 +610,164 @@ class TestWrittenProvenanceResolves:
         with h5py.File(written, "r") as f:
             version = str(f.attrs["conversion_script_version"])
         assert version == jnwb.__version__
+
+
+# --------------------------------------------------------------------------------------------
+# The float32 cast is selected by the caller: `select=` names the datasets to cast.
+# --------------------------------------------------------------------------------------------
+
+PRESET = ["acquisition/probe_0_lfp/data", "acquisition/probe_1_muae/probe_1_muae_data/data"]
+OTHER = "scratch/extra/data"
+COUNTS = "scratch/counts/data"
+
+
+def _selectable_file(path, seed=13):
+    """The two preset shapes, both guarded datasets, and two arrays outside the preset."""
+    from jnwb.compression import CONVOLVED_PATH, SPIKE_TRAIN_PATH
+
+    rng = np.random.default_rng(seed)
+    with h5py.File(path, "w") as f:
+        f.create_dataset(PRESET[0], data=rng.normal(0.0, 50.0, size=(400, 3)))
+        f.create_dataset(PRESET[1], data=rng.normal(0.0, 5.0, size=(400, 2)))
+        f.create_dataset(OTHER, data=rng.normal(0.0, 1.0, size=(400, 2)))
+        f.create_dataset(COUNTS, data=rng.integers(0, 9, size=(400, 2), dtype=np.int16))
+        f.create_dataset("scratch/labels", data=np.array([b"a", b"b"]))
+        f.create_dataset(SPIKE_TRAIN_PATH, data=rng.integers(0, 5, size=(400, 4), dtype=np.int16))
+        f.create_dataset(CONVOLVED_PATH, data=rng.normal(0.0, 1.0, size=(400, 4)))
+    return path
+
+
+def _cast_notes(path):
+    """{dataset path: dtype} for every dataset that carries a cast note."""
+    out = {}
+    with h5py.File(path, "r") as f:
+        f.visititems(
+            lambda name, obj: out.__setitem__(name, obj.dtype)
+            if isinstance(obj, h5py.Dataset) and "stored_dtype_note" in obj.attrs
+            else None
+        )
+    return out
+
+
+class TestTheSelectionIsExplicit:
+    """A call that names no selection keeps the anchored preset and warns that `select=` becomes
+    required; `select=` casts exactly the paths it names; a path the conversion rewrites at its
+    source dtype afterwards is refused.
+
+    The proxy to avoid: "the output has a float32 dataset with a cast note" passes while the note
+    sits on a dataset that was restored to float64 -- the false receipt this repair removes. So the
+    note is swept over the whole file and every note-bearing dataset must actually be float32.
+    """
+
+    @pytest.fixture
+    def src(self, tmp_path):
+        return _selectable_file(tmp_path / "sel.nwb")
+
+    @pytest.fixture(autouse=True)
+    def _fixed_date(self, monkeypatch):
+        # The stamps carry the date; pinning it keeps two conversions comparable in bytes even
+        # across midnight.
+        from jnwb import compression
+
+        monkeypatch.setattr(compression.time, "strftime", lambda fmt, *a: "2000-01-01")
+
+    def test_a_call_without_select_warns_that_it_becomes_required(self, src, tmp_path):
+        with pytest.warns(FutureWarning, match=r"select= becomes required in 0\.2\.7"):
+            jnwb.compress_fp32(src, tmp_path / "silent.nwb", verify=False)
+
+    def test_naming_the_preset_does_not_warn_and_writes_the_same_bytes(self, src, tmp_path):
+        import warnings
+
+        silent, named = tmp_path / "silent.nwb", tmp_path / "named.nwb"
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            jnwb.compress_fp32(src, silent, verify=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            jnwb.compress_fp32(src, named, verify=False, select=PRESET)
+        assert silent.read_bytes() == named.read_bytes()
+        assert set(_cast_notes(named)) == set(PRESET)
+
+    def test_select_casts_exactly_what_it_names(self, src, tmp_path):
+        dst = tmp_path / "other.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=["/" + OTHER])
+        assert stats["cast_paths"] == ["/" + OTHER]
+        assert _cast_notes(dst) == {OTHER: np.dtype(np.float32)}
+        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
+            for path in PRESET:
+                assert d[path].dtype == np.float64, f"{path} was cast without being named"
+                assert np.array_equal(s[path][:], d[path][:])
+
+    def test_an_empty_selection_casts_nothing_and_does_not_warn(self, src, tmp_path):
+        import warnings
+
+        dst = tmp_path / "none.nwb"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            jnwb.compress_fp32(src, dst, verify=False, select=[])
+        assert _cast_notes(dst) == {}
+
+    @pytest.mark.parametrize("which", ["spike_train", "convolved"])
+    @pytest.mark.parametrize("drop_convolved", [False, True])
+    def test_a_guarded_path_is_refused_before_anything_is_written(
+        self, src, tmp_path, which, drop_convolved
+    ):
+        from jnwb.compression import CONVOLVED_PATH, SPIKE_TRAIN_PATH
+
+        guarded = SPIKE_TRAIN_PATH if which == "spike_train" else CONVOLVED_PATH
+        dst = tmp_path / "guarded.nwb"
+        with pytest.raises(ValueError, match="source dtype"):
+            jnwb.compress_fp32(src, dst, verify=False, select=[PRESET[0], guarded],
+                               drop_convolved=drop_convolved)
+        assert list(tmp_path.glob("guarded*")) == []
+
+    @pytest.mark.parametrize(
+        "select, error",
+        [
+            (["scratch/absent/data"], KeyError),
+            (["scratch/extra"], TypeError),
+            (["scratch/labels"], TypeError),
+            (PRESET[0], TypeError),
+        ],
+        ids=["absent", "group", "string-dtype", "bare-string"],
+    )
+    def test_a_selection_that_cannot_be_cast_is_refused(self, src, tmp_path, select, error):
+        with pytest.raises(error, match="select="):
+            jnwb.compress_fp32(src, tmp_path / "bad.nwb", verify=False, select=select)
+
+    def test_the_note_names_the_dtype_that_was_cast(self, src, tmp_path):
+        dst = tmp_path / "counts.nwb"
+        jnwb.compress_fp32(src, dst, verify=False, select=[COUNTS, OTHER])
+        with h5py.File(dst, "r") as d:
+            assert str(d[COUNTS].attrs["stored_dtype_note"]).startswith("cast from int16 to float32")
+            assert str(d[OTHER].attrs["stored_dtype_note"]).startswith("cast from float64 to float32")
+
+    def test_every_cast_note_sits_on_a_float32_dataset(self, src, tmp_path):
+        for i, select in enumerate([None, PRESET, [OTHER, COUNTS]]):
+            dst = tmp_path / f"sweep{i}.nwb"
+            jnwb.compress_fp32(src, dst, verify=False, select=select)
+            notes = _cast_notes(dst)
+            assert notes, "the sweep must see at least one note to mean anything"
+            assert all(dt == np.float32 for dt in notes.values()), notes
+
+    def test_verification_checks_the_datasets_that_were_cast(self, src, tmp_path):
+        stats = jnwb.compress_fp32(src, tmp_path / "v.nwb", select=[OTHER])
+        names = [c["name"] for c in stats["verification"]["checks"]]
+        assert any(n.startswith("/" + OTHER) for n in names), names
+        assert not any(n.startswith("/" + p) for p in PRESET for n in names), names
+
+    def test_convert_takes_the_same_selection(self, src, tmp_path):
+        import warnings
+
+        from jnwb.compression import convert
+
+        with pytest.warns(FutureWarning, match="select= becomes required"):
+            convert(src, tmp_path / "c1.nwb")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            stats = convert(src, tmp_path / "c2.nwb", select=[OTHER])
+        assert stats["cast_paths"] == ["/" + OTHER]
+        with pytest.raises(ValueError, match="source dtype"):
+            from jnwb.compression import CONVOLVED_PATH
+
+            convert(src, tmp_path / "c3.nwb", select=[CONVOLVED_PATH])

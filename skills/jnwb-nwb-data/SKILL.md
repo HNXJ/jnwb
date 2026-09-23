@@ -78,7 +78,7 @@ electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
 - `jnwb.classify_unit_quality(units_df, thresholds=None)`
 - `jnwb.electrode_inventory(nwb_paths)`
-- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True)`
+- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select=None)`: `select=` lists the dataset paths to cast to float32. `select=None` falls back to the anchored LFP/MUAE preset and emits `FutureWarning`; `select=` becomes required in 0.2.7. Naming `spike_train` or `convolved_spike_train`, a missing path, a group, or a dataset that is not boolean, integer or floating raises.
 
 MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for agent hosts;
 use the public functions above in normal Python workflows.
@@ -100,8 +100,9 @@ use the public functions above in normal Python workflows.
    returns `None` when the table has none. It does **not** fall back to `group_name`, which is the
    probe/shank label: an electrode table with no anatomical column used to return `'probeA'` as
    the brain area of channel 0, a fabricated label indistinguishable from a real one (05-18).
-3. **NWB compression contract:** `compress_fp32` converts on-disk electrical series to fp32;
-   verify with `verify=True` before deleting sources.
+3. **NWB compression contract:** `compress_fp32` casts exactly the datasets named in `select=`
+   to fp32, irreversibly; name them rather than relying on the preset. Verify with
+   `verify=True` before deleting sources.
 
 ## 4. Minimal Workflow
 ```python
