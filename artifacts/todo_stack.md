@@ -242,6 +242,8 @@ deleted comes back.
 Ruled 2026-09-22: revert on `main` first. `9d738211` is reverted on `main` in its own pull
 request, which Hamm authorizes and merges; the verifier then confirms the release merge tree
 equals `dev`.
+Ruled 2026-09-23: opened ahead of the closure order as HNXJ/jnwb#20; the agent merges it
+once CI is green. What remains here is the release merge check.
 Accept: `git diff dev <merge>` is empty on the release pull request.
 
 ### 06-40 Release
