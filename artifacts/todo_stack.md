@@ -51,7 +51,7 @@ barrier above.
 | W4 |  |
 | W5 |  |
 | W6 |  |
-| W7 | 06-142, 06-129 |
+| W7 | 06-129 |
 | W8 |  |
 | W9 |  |
 | W10 |  |
@@ -64,20 +64,6 @@ packets finish before 06-34.
 ## W0. Integration and verification
 
 ## W1. Freeze, sweeps and harness
-
-### 06-142 Repair what the fourth verification pass broke
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `jnwb/tfr_accumulator.py`, `jnwb/compression.py`, `jnwb/io.py`, `jnwb/addressing.py`, `jnwb/nwb_events.py`, `jnwb/spectral.py`, `tests/test_*.py`, `docs/install.md`, `docs/10_operation_specifications.md`, `CHANGELOG.md`.
-P-114 (refuse any array sharing memory with a trial-averaged buffer, not only a `.base` chain),
-P-104 (refuse selecting a dataset the conversion rewrites, as `spike_train` is refused), P-239 (refuse
-a scalar dataset before writing, or correct the CHANGELOG line), P-272 (NumPy indexing semantics, as
-documented), P-261 (the CUDA agreement checks run whatever the worker order), P-215 (`<NA>`, `NaT`),
-P-243 (the `event_onsets` docstring), P-273 (device documentation).
-Discriminator: each repair has a test that fails with the repair reverted.
-Accept: each row is repaired pending verification.
-Stop: a repair needs a public API choice the documentation does not already make.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 
@@ -118,7 +104,7 @@ Stop: an identifier carries meaning a reader of the library needs; state the mea
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. Current list: P-93 (on its own). P-114, P-104, P-239, P-272, P-261, P-215, P-243, P-273 (06-142). The four skill-routing mutants H03/H05 are P-279. The value repairs (06-141, now closed): P-250..P-253 and P-262 at `fef0d29b`, `785ff078`, `53ebda76`, `ec0ab24f` and `14ed1eb2`, including the NaN `df` ruling. The contract gate (06-59, now closed; `b524e5bf`) and P-263 (`a0fb1b5e`): seed each check's violation against the live tree. The findings answered by 06-17 (now closed; `6497ce5c`): the three repairs and their discriminators, and each of the ten `unsupported` answers against the line it cites (P-02). P-271 (`b7827b89`). The documentation form gate (06-53, now closed; `b98db071`): each of its five checks against a seeded page, and the F2 detector's stated limits.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. Current list: P-93 (on its own). P-114, P-104, P-239, P-272, P-261, P-215, P-243, P-273 (06-142, now closed; `58407af8`/`e8bda1d1`). The four skill-routing mutants H03/H05 are P-279. The value repairs (06-141, now closed): P-250..P-253 and P-262 at `fef0d29b`, `785ff078`, `53ebda76`, `ec0ab24f` and `14ed1eb2`, including the NaN `df` ruling. The contract gate (06-59, now closed; `b524e5bf`) and P-263 (`a0fb1b5e`): seed each check's violation against the live tree. The findings answered by 06-17 (now closed; `6497ce5c`): the three repairs and their discriminators, and each of the ten `unsupported` answers against the line it cites (P-02). P-271 (`b7827b89`). The documentation form gate (06-53, now closed; `b98db071`): each of its five checks against a seeded page, and the F2 detector's stated limits.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -127,7 +113,7 @@ Accept: each listed row carries a receipt the verifier produced, or the breaking
 ### 06-34 Adversarial mutation pass
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-129, 06-136, 06-142. Writes: none.
+Role: critic. Skill: none. Blocked by: 06-129, 06-136. Writes: none.
 Seed known semantic defects and require the intended gate to catch each; every selector collects
 and passes pristine before a verdict counts.
 
