@@ -51,6 +51,19 @@ Carried by 0.2.6.
 
 ### Changed
 
+- **One execution switch.** `device='metal'` runs `complex_tfr` (with `dtype=np.complex64`)
+  through JAX on Apple GPUs; it is implemented and has not been run on Metal hardware. Every
+  other function warns and computes on the CPU, as do 64-bit requests on Metal.
+  `band_power` and `relative_power` no longer have GPU paths: `device='cuda'` or `'metal'`
+  warns and computes on the CPU, because their bare return values have nowhere to record the
+  device. `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`,
+  `granger_causality`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`
+  now return `device_used`. `granger_causality` recomputes on the CPU if any fit falls back,
+  where it used to mix GPU and CPU fits. `jrsa(backend='cupy'|'jax'|'torch')` and `n_jobs>1`
+  without joblib now warn instead of falling back silently.
+- **`PopulationAnalyzer.population_trajectory` makes each component's largest loading
+  positive**, so CPU and CUDA agree; the CUDA projection used to be the CPU one reflected
+  through the origin. Component and projection signs may flip compared with 0.2.5.
 - **The `stored_dtype_note` written by `compress_fp32` names the source dtype that was cast**
   (`cast from int16 to float32`). It used to say `float64` whatever the source was.
 - **The geometric depth class is `depth_class`.** `enrich_units_dataframe` and
