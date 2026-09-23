@@ -184,10 +184,9 @@ def test_the_order_check_fails_on_an_export_without_a_recorded_order():
     assert "rdm" in _flagged(set(stale) - set(baseline))
 
 
-#: Exports the order record does not yet place in any category, observed on this tree. The
-#: record, not this test, is where they belong; once it places them this set must shrink,
-#: and an export added without an order fails here immediately.
-UNRECORDED_ON_THIS_TREE = {"SqueezedAttributeWarning", "nwb_read_io", "read_nwb", "vis"}
+#: Exports the order record does not place in any category, observed on this tree. An export
+#: added without an order fails here immediately.
+UNRECORDED_ON_THIS_TREE = set()
 
 
 def test_the_live_tree():

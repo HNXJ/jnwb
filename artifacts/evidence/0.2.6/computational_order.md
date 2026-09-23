@@ -16,11 +16,11 @@ more than one input dimension and the orders differ between them.
 
 | Category | Exports | Evidence |
 |---|---|---|
-| `jnwb.__all__` | 156 | runtime probe with a provenance assertion |
+| `jnwb.__all__` | 160 | runtime probe with a provenance assertion |
 | Cost grows with input size -- measured | 106 | 189 sweeps, 189 completed |
-| Cost does not grow with input size -- excluded | 48 | section 7, one reason each |
-| Cost grows, input not buildable from this repository | 2 | section 8 |
-| **Total** | **156** | partition checked exact against a live `jnwb.__all__` |
+| Cost does not grow with input size -- excluded | 50 | section 7, one reason each |
+| Cost grows, input not buildable from this repository | 4 | section 8 |
+| **Total** | **160** | partition checked exact against a live `jnwb.__all__` |
 
 The three categories are disjoint and their union is `jnwb.__all__`; no export is in two,
 and none is in none. `classification: observed`.
@@ -683,15 +683,15 @@ algorithm column still describes the replaced code for both rows.
 | Category | Count |
 |---|---|
 | result container | 20 |
-| exception class | 12 |
+| exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
-| module | 3 |
+| module | 4 |
 | no input | 1 |
 | scalar input | 1 |
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
-| **Total** | **48** |
+| **Total** | **50** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -729,6 +729,7 @@ algorithm column still describes the replaced code for both rows.
 | `RELATIVE_POWER_MODELS` | constant | A 3-element tuple of str literals (jnwb/spectral.py:295). |
 | `Result` | result container | frozen dataclass, no __post_init__. |
 | `SKILLS_URL` | constant | A str literal. |
+| `SqueezedAttributeWarning` | exception class | Warning subclass; construction is O(1) in every input dimension. |
 | `StatisticalAnalysis` | stateful class | Namespace class: no own __init__ ('__init__' in vars(...) is False), signature (), 0.07 us to construct. |
 | `TFRAnalyzer` | stateful class | TFRAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `UnitAnalyzer` | stateful class | UnitAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
@@ -742,6 +743,7 @@ algorithm column still describes the replaced code for both rows.
 | `mann_whitney_p_floor` | scalar input, domain-capped | Cost DOES grow with the numeric value (math.comb is bignum work: 0.58 us at n=5, 48 us at n=512), but float(n_comb) caps the domain: the largest working n1=n2 is 514, and 515 raises OverflowError. At the domain ceiling one call costs 48 us, about 100x below the noise floor, so no admissible size reaches the timing band. |
 | `paths` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |
 | `setup_vector_graphics` | no input | Takes no data; sets 3 matplotlib rcParams. |
+| `vis` | module | Module-valued export (the optional `vis` extra): a namespace, not a callable. Nothing to scale. |
 | `visual_qc` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |
 
 ## 8. Exports whose cost grows but which cannot be measured here
@@ -750,6 +752,8 @@ algorithm column still describes the replaced code for both rows.
 |---|---|
 | `build_time_resolved_matrix` | An object satisfying the session protocol: get_units(quality=, area=) -> DataFrame whose ROW INDEX POSITION (not the unit_id column) is the spike-lookup key, carrying area and quality columns; plus get_spike_times(row_position) -> ndarray of seconds; plus an epochs DataFrame with a start_time column. All three must be parameterizable in unit count, trial count and spikes per unit. No such class exists in the package: grep 'def get_units' hits only tests/test_trajectory.py:37 and tests/test_pca_device_parity.py:210, both hard-coded mocks with no size parameter. tests/test_declared_return_shapes.py:37 already lists both names under NEEDS_A_SESSION. Writing a stand-in would mean choosing its per-unit spike count and get_units cost, which is the exact freedom that would corrupt the fitted exponent. |
 | `compute_population_trajectory` | The same session object -- it delegates to build_time_resolved_matrix on its first line -- plus, to measure the SVD stage independently, a way to supply X directly, which the signature does not offer. |
+| `nwb_read_io` | Cost grows with the number of NWB containers and attributes in the file; datasets are read lazily, so their size does not enter until the caller indexes them. A measurement needs NWB files generated at controlled container counts. No such generator exists in the package, and a test-only one would choose the per-container cost, which is the freedom that would corrupt the fitted exponent. It opens the file through the same repair context as `read_nwb`. |
+| `read_nwb` | Cost grows with the number of NWB containers and attributes in the file; datasets are read lazily, so their size does not enter until the caller indexes them. A measurement needs NWB files generated at controlled container counts. No such generator exists in the package, and a test-only one would choose the per-container cost, which is the freedom that would corrupt the fitted exponent. |
 
 ## 9. Blockers
 
