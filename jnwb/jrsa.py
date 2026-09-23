@@ -165,7 +165,9 @@ def jrsa(
     Parameters
     ----------
     x1 : array-like
-        First tensor (ndarray, cupy, torch, jax, or JNWB Signal).
+        First tensor: an ndarray or array-like, a scipy.sparse matrix (densified), a JAX
+        array, or a torch tensor or CuPy array on any device (copied to the host). A masked
+        array with a masked element raises.
     x2 : array-like or None
         Second tensor.  None → within-x1 analysis.
     adim : int | tuple | str | tuple[str]
@@ -223,9 +225,9 @@ def jrsa(
     alternative : str
         two-sided | greater | less.
     backend : str
-        auto | numpy | scipy | jax | torch | cupy. Accepted for API compatibility and for
-        the input types it lets you pass; every metric converts to NumPy on its first line,
-        so this does not change where the arithmetic runs or what it returns.
+        auto | numpy | scipy | jax | torch | cupy. Validated and recorded for API
+        compatibility; every input is converted to NumPy whatever this names, so it does
+        not change which inputs are accepted, where the arithmetic runs or what it returns.
     device : str
         'cpu' or 'cuda', validated by the same `resolve_device` the rest of the package
         uses -- an unknown name raises. `execution['device']` records the resolved device.
@@ -1164,27 +1166,42 @@ def _get_backend(backend: str, device: str) -> dict:
 
 
 def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
-    """Convert arbitrary array type to numpy (or backend tensor), placing on correct device."""
-    bk = backend_ctx.get("name", "numpy")
-    dev = backend_ctx.get("device", "cpu")
-    # Extract data from JNWB Signal objects
+    """Convert one input to a float64 NumPy array on the host, or raise.
+
+    Dispatch is by type, never by attribute: an ndarray's `.data` is a raw buffer, a CuPy
+    array's is a device pointer and a sparse matrix's is its stored non-zeros, so taking
+    `.data` from anything that has one returned a wrong array or raised. Accepted: NumPy
+    arrays and array-likes, scipy.sparse (densified), torch tensors on any device
+    (detached, copied to host), CuPy arrays (copied to host), JAX arrays, and a container
+    without `__array__` whose `.data` is one of these (a pynwb TimeSeries). A masked array
+    with a masked element raises, because no metric honours a mask.
+
+    jrsa is a NumPy estimator; `backend` and `device` are validated and recorded, and
+    change no number.
+    """
+    if isinstance(arr, np.ma.MaskedArray):
+        if np.ma.getmaskarray(arr).any():
+            raise TypeError(
+                "jrsa: a masked array with masked elements was passed, and no jrsa metric "
+                "honours a mask; converting it would compute on the masked values. Drop "
+                "or impute them first."
+            )
+        arr = np.ma.getdata(arr)
+    if isinstance(arr, np.ndarray):
+        return np.asarray(arr, dtype=np.float64)
+    library = type(arr).__module__.split(".")[0]
+    if library == "scipy":
+        import scipy.sparse
+        if scipy.sparse.issparse(arr):
+            return np.asarray(arr.toarray(), dtype=np.float64)
+    if library == "torch":
+        return arr.detach().cpu().double().numpy()
+    if library == "cupy":
+        return np.asarray(arr.get(), dtype=np.float64)
+    if hasattr(arr, "__array__") or isinstance(arr, (list, tuple)) or np.isscalar(arr):
+        return np.asarray(arr, dtype=np.float64)
     if hasattr(arr, "data"):
-        arr = arr.data
-    if hasattr(arr, "numpy"):
-        # torch or jax
-        try:
-            arr = arr.numpy()
-        except (RuntimeError, TypeError, ValueError):
-            arr = np.asarray(arr)
-    if hasattr(arr, "get"):
-        # cupy
-        arr = arr.get()
-    # Everything above normalizes whatever the caller passed -- Signal, torch, jax, cupy --
-    # down to something numpy can take, and that is the part that matters. The dispatch that
-    # used to follow re-uploaded to cupy/jax/torch, and then every one of the 14 metrics
-    # called `_ensure_np` on its first line and pulled it straight back, so the transfer was
-    # pure cost and `execution` recorded a GPU run that executed on the CPU. jrsa is a NumPy
-    # estimator; `backend` and `device` are validated and recorded, and change no number.
+        return _to_backend(arr.data, backend_ctx)
     return np.asarray(arr, dtype=np.float64)
 
 

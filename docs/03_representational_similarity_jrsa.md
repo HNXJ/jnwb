@@ -26,7 +26,7 @@ graph LR
    These last two are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats on flattened arrays.
 2. **Flexible Tensor Alignments**: Handles 2D, 3D, and 4D tensors with automatic trial/time alignment (`align="auto"`, `align_mode="fraction"`, `lag=0`).
 3. **Statistical Resampling**: Built-in permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
-4. **CPU arithmetic**: every metric computes in NumPy on the CPU. `backend` accepts the input array types (`numpy`, `scipy`, `jax`, `torch`, `cupy`) and does not move the arithmetic; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`.
+4. **CPU arithmetic**: every metric computes in NumPy on the CPU. Inputs may be NumPy arrays, `scipy.sparse` matrices (densified), JAX arrays, and torch tensors or CuPy arrays on any device (copied to the host); a masked array with a masked element raises. `backend` is recorded and moves no arithmetic; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`.
 
 ---
 
@@ -85,8 +85,8 @@ sliding_res = jnwb.jrsa(
 
 ### Execution
 
-`jrsa` has no GPU path. `backend` names the input array library it accepts and every metric
-converts to NumPy first, so `backend="cupy"` gives the same numbers on the CPU; `n_jobs`
+`jrsa` has no GPU path. Every input is converted to NumPy first, whatever `backend` names,
+so `backend="cupy"` gives the same numbers on the CPU; `n_jobs`
 parallelises over CPU workers. `res.execution` records what ran.
 
 ## 4. Missing Condition Handling & Preprocessing Invariants
