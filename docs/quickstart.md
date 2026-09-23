@@ -43,13 +43,15 @@ import numpy as np
 
 ## Executable quickstart script (6-panel figure)
 
-`examples/quickstart_jnwb.py` is the authoritative smoke test. Each panel of the figure below is one operation on synthetic data: artifact repair, band power, onset fitting, label permutation, Granger causality and nested-CV decoding.
+`examples/quickstart_jnwb.py` is the authoritative smoke test.
 
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png#only-light)
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.dark.png#only-dark)
 
-The figure is committed output from a run of the command below. If a panel disagrees with
-what the script prints on your machine, the script is authoritative.
+Each of the six panels is one operation on synthetic data: artifact repair, band power, onset
+fitting, label permutation, Granger causality and nested-CV decoding. The figure is committed
+output from a run of the command below; if a panel disagrees with what the script prints on
+your machine, the script is authoritative.
 
 ```bash
 python examples/quickstart_jnwb.py
