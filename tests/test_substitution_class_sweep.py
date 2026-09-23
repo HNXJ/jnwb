@@ -650,11 +650,9 @@ ACCEPTED_HANDLER_RECOVERY = {
         "least-squares linear detrend; scipy's own implementation is the same normal equations.",
     ("jrsa.py", "ImportError", ("arr",), False):
         "Same detrend equivalence on the non-GPU path.",
-    ("jrsa.py", "(RuntimeError, TypeError, ValueError)", ("arr",), False):
-        "tensor.numpy() -> np.asarray(tensor). A conversion of the same data, not a second "
-        "way of computing it.",
     ("jrsa.py", "(RuntimeError, TypeError, ValueError)", ("a",), False):
-        "Same conversion fallback inside _ensure_np.",
+        "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
+        "data, not a second way of computing it.",
     ("laminar.py", "np.linalg.LinAlgError", ("theta",), False):
         "OPEN, carried deliberately: a singular covariance is pseudo-inverted and the result "
         "is returned as a partial correlation with no indication. Reproduced -- a rank-2 "
