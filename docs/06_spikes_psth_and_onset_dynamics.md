@@ -122,7 +122,7 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{estimator}}(\tau, \Delta t)
 
 ## 3. Causality-Bounded Exponential Onset Fitting (`jnwb.onset_fitting`)
 
-`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the true physical takeoff time $t_0$:
+`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the takeoff time $t_0$ of the trace it is given; on a smoothed trace with a graded rise, $t_0$ moves with `tau_ms`:
 
 $$y(t) = \begin{cases} \text{baseline}, & t < t_0 \\ \text{baseline} + \text{amplitude} \cdot \left(1 - e^{-(t - t_0)/\tau}\right), & t \ge t_0 \end{cases}$$
 

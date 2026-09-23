@@ -261,7 +261,7 @@ def unit_census_report(
     group_by: Optional[List[str]] = None
 ) -> pd.DataFrame:
     """
-    Generate a census/summary report of units grouped by session/area/layer.
+    Generate a census/summary report of units grouped by session, area and depth class.
 
     Args:
         units_df: DataFrame from get_all_units_metadata

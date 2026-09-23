@@ -10,6 +10,20 @@ Carried by 0.2.6.
 
 ### Added
 
+- **`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of
+  dataset paths cast to float32, irreversibly (`select=["acquisition/probe_0_lfp/data"]`). A
+  missing path, a group, a dataset that is not boolean, integer or floating, and `spike_train`
+  or `convolved_spike_train` (always rewritten at their source dtype) are refused before
+  anything is written; naming either of the last two used to leave a "cast to float32" note on
+  a dataset that was never cast. The result gains `cast_paths`, and verification checks exactly
+  those datasets.
+- **`correlate` and `exploratory_correlate` take `method=`.** Keyword-only: `"both"` (the
+  default, the same values as before), `"pearson"` or `"spearman"`. Naming one computes only that
+  correlation and returns only its keys, so `n_tests` counts what was performed. An unknown
+  method raises `ValueError`.
+- **`compare_groups`, `compare_multiple_groups`, `exploratory_compare` and `exploratory_multi`
+  take `test=`.** Keyword-only: `"both"` (the default), `"parametric"` or `"nonparametric"`.
+  Naming one runs only that test and returns only its keys. An unknown name raises `ValueError`.
 - **`jnwb.vis`, a Plotly figure engine, as the optional `vis` extra.** Install it with
   `pip install jnwb[vis]`, which adds `plotly>=6.1.1` and `kaleido>=1.0.0`; kaleido writes the
   SVG and PNG that `PlotlyPublicationCanvas.save_and_seal` exports alongside the HTML. The core
@@ -37,6 +51,8 @@ Carried by 0.2.6.
 
 ### Changed
 
+- **The `stored_dtype_note` written by `compress_fp32` names the source dtype that was cast**
+  (`cast from int16 to float32`). It used to say `float64` whatever the source was.
 - **The geometric depth class is `depth_class`.** `enrich_units_dataframe` and
   `get_all_units_metadata` write it ('Deep' / 'Superficial' / 'Unknown', a threshold on
   electrode depth) to a new column `depth_class`; laminar identity from spectra remains
@@ -97,6 +113,10 @@ Carried by 0.2.6.
 - **One glossary.** A "Glossary" page defines operation and workflow, session and recording,
   contact and channel, electrode and electrodes table, and trial and epoch; every page uses
   those terms, and the documentation examples name a whole NWB file `session.nwb`.
+- **Documentation states what it can support.** The fitted onset is described as moving with
+  `tau_ms` on a graded rise rather than as the true takeoff time; the architecture page says the
+  wheel installs the operations while documentation and tests live in the repository; the GPU
+  line of the router skill names every function that computes on or records the device.
 - **The architecture page draws its structure.** Four diagrams replace two tables and add two
   views: what defines, implements, verifies and routes to an operation; the four outcomes
   of a task as a decision; the path from an NWB session to a verified result; and the
@@ -108,6 +128,9 @@ Carried by 0.2.6.
 
 ### Deprecated
 
+- **Calling `compress_fp32` or `convert` without `select=`.** It still casts the anchored LFP/MUAE
+  preset and writes the same bytes, but emits `FutureWarning`; `select=` becomes required in
+  0.2.7.
 - **Indexing a 0-d `JRSAResult.p` or `q` with `[0]`.** It still returns the scalar in 0.2.6
   and emits `FutureWarning`; 0.2.7 removes it and `[0]` raises `IndexError`. Use
   `float(res.p)` or `res.p[()]`.

@@ -45,7 +45,7 @@ Pick the module for your analytical question:
 
 ## Executable quickstart script (6-panel figure)
 
-`examples/quickstart_jnwb.py` is the authoritative smoke test: band power, label permutation, Granger causality, and nested-CV decoding on synthetic data, rendered as a six-panel figure.
+`examples/quickstart_jnwb.py` is the authoritative smoke test: artifact repair, band power, onset fitting, label permutation, Granger causality and nested-CV decoding on synthetic data, one panel each.
 
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png)
 

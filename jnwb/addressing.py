@@ -329,7 +329,7 @@ def enrich_units_dataframe(
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Enrich units DataFrame with standardized area, layer, and quality flags.
+    """Enrich units DataFrame with standardized area, depth class, and quality flags.
 
     Enforces SC-002: Terminology alignment (using unit_id and standard quality flags).
 

@@ -23,8 +23,8 @@ researcher starts at the [Quickstart](quickstart.md); an agent starts at
 
 ## Core and skills
 
-The core is what `pip install jnwb` installs: the operations, their documentation and the tests
-that verify them. Skills are a routing layer over the core and add no second copy of its
+The core is the operations, their documentation and the tests that verify them; `pip install
+jnwb` installs the operations, and the documentation and tests live in the source repository. Skills are a routing layer over the core and add no second copy of its
 scientific interface.
 
 ```mermaid
@@ -36,8 +36,9 @@ graph LR
 ```
 
 Code, documentation and tests constrain each other, so none of the three changes alone. Skills
-sit outside that relation and act on it. A skill names an operation; the documentation defines
-it, so a skill restates neither a signature nor the mathematics.
+sit outside that relation and act on it. A skill names an operation and quotes its call
+signature; the documentation defines it, and a test checks every quoted signature against the
+code, so a skill carries no second definition of the mathematics.
 
 ## Routing outcomes
 
@@ -68,9 +69,13 @@ units; continuous data is cut into trials around the event onsets before an oper
 ```mermaid
 graph LR
     F[NWB session] --> I[jnwb.inspect]
-    I -->|choose a series| A[jnwb.acquisition_channel]
-    I -->|choose events| E[jnwb.event_onsets]
-    I -->|choose a unit| U[jnwb.unit_spike_times]
+    I -->|reports| N[series, event and unit names]
+    F --> A[jnwb.acquisition_channel]
+    F --> E[jnwb.event_onsets]
+    F --> U[jnwb.unit_spike_times]
+    N -->|chosen by the caller| A
+    N --> E
+    N --> U
     A --> EP[jnwb.epoch_continuous]
     E --> EP
     E --> O[Operation]
@@ -98,7 +103,7 @@ An operation belongs in jnwb when all five hold:
 | Generic | it is about NWB data in general, not one dataset's structure |
 | Dataset-independent | it names no study, session or condition |
 | Scientifically stable | its definition does not move with a hypothesis |
-| Explicitly parameterized | every scientific choice is an explicit caller input |
+| Explicitly parameterized | every scientific choice is a caller input, not a default in hiding |
 | Independently testable | it can be verified without the study that motivated it |
 
 A question that existing operations answer in composition gets a composition, and new code is

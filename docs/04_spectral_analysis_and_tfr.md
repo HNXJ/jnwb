@@ -331,11 +331,14 @@ correct answer -- there is no uncontaminated estimate to report.
 ### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 
 - **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM.
-- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — rewrites electrical-series datasets to `float32` inside an NWB file (path I/O, not in-memory array quantization):
+- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). Omitting `select=` is deprecated: it falls back to a preset and warns:
 
 ```python
-# src and dst are filesystem paths to .nwb files
-report = jnwb.compress_fp32("raw_session.nwb", "compressed_session.nwb", verify=True)
+# src and dst are filesystem paths to .nwb files; select names datasets by their path in the file
+report = jnwb.compress_fp32(
+    "raw_session.nwb", "compressed_session.nwb",
+    select=["acquisition/probe_0_lfp/data"], verify=True,
+)
 assert report["verification"]["ok"] is True
 ```
 

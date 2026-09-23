@@ -45,9 +45,9 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 |  |
-| W1 |  |
-| W2 | 06-114 |
-| W3 | 06-118 |
+| W1 | 06-140 |
+| W2 |  |
+| W3 |  |
 | W4 | 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
 | W6 | 06-58 |
@@ -64,6 +64,20 @@ packets finish before 06-34.
 ## W0. Integration and verification
 
 ## W1. Freeze, sweeps and harness
+
+### 06-140 Repair the verifier's code blockers
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: per module. Blocked by: none.
+Writes: `jnwb/jrsa.py`, `jnwb/statistics.py`, `jnwb/metadata.py`, `jnwb/tfr_accumulator.py`, `jnwb/spectral.py`, `scripts/release_gate.py`, `docs/03_representational_similarity_jrsa.md`, `skills/*/SKILL.md`, `tests/*.py`.
+P-223, P-214, P-224, P-215, P-114, P-195, found by the 06-136 pass at `c304432b`; each row carries
+its breaking case. Refuse or convert correctly what `jrsa` is handed, and make its page list only
+what works; `exploratory_correlate` says its result is uncorrected; an empty `quality` column
+warns or refuses instead of yielding all-False `is_stable`; every array view of accumulator input
+is refused; STEP 0a fails closed on each non-canonical `Release:` line and heading form.
+Discriminator: each row's breaking case fails before and passes after; selectors pass pristine.
+Accept: each row marked repaired pending 06-136, with a CHANGELOG line for each shipped change.
+Stop: a repair would change a ruled API semantic.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 
@@ -82,42 +96,14 @@ Stop: an identifier carries meaning a reader of the library needs; state the mea
 
 ## W2. API repairs
 
-### 06-114 `compress_fp32` takes an explicit selection
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/test_compression.py`, `skills/jnwb-nwb-data/SKILL.md`.
-Ruled 2026-09-22 (06-13, option (b) staged). Keyword-only `select=` (dataset paths to cast) on
-`compress_fp32` and `convert`. A call naming no selection keeps the anchored preset and emits
-`FutureWarning` that `select=` becomes required in 0.2.7. A guarded path in `select=` raises
-instead of returning a no-op with a false provenance stamp (P-104).
-Discriminator: a silent call warns and its output is byte-identical to today's; `select=` naming
-the preset's paths does not warn and gives the same bytes; a guarded path raises.
-Accept: P-104 closes; the packet hands back an Added entry for `select=` and a Deprecated entry
-for the implicit preset.
-Stop: any selection rule other than an explicit path list.
-
 ## W3. Statistics surface, diagrams and the open-data example
-
-### 06-118 `correlate` names its method
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py`, `tests/test_statistics.py`, `skills/jnwb-statistics/SKILL.md`.
-P-92, P-93, ruled 2026-09-22. `correlate` and `exploratory_correlate` gain keyword-only `method=`
-(`"both"`, `"pearson"`, `"spearman"`), default `"both"`. Every additive public API change gets an
-Added entry and needs no deprecation path, so this packet also hands back the missing Added entry
-for 06-45's `method=`.
-Discriminator: each method returns only its statistic; `"both"` is value-identical to today; an
-unknown method raises.
-Accept: P-92 and P-93 close.
 
 ## W4. Maintained figures, skill routing and references
 
 ### 06-24 Skill routing against live behaviour
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: per skill. Blocked by: 06-114, 06-118.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
 One packet per skill. Every routing row: the callable exists, the signature matches, the return
 type and keys match, units match, failure behaviour matches, including conditional return
@@ -180,7 +166,9 @@ Accept: each skill satisfies this or is recorded as not requiring it.
 
 Release: required-0.2.6.
 Role: jnwb-developer. Skill: per module. Blocked by: 06-57.
-Writes: `scripts/measure_order.py`, `jnwb/connectivity.py`, `jnwb/io.py`.
+Writes: `scripts/measure_order.py`, `jnwb/connectivity.py`, `jnwb/io.py`, `artifacts/evidence/0.2.6/computational_order.md`, `tests/test_computational_order_sources_agree.py`.
+P-34's remainder: sections 6.1 and 6.2 are re-derived from the inventory's current bounds, and the
+agreement test checks each bound rather than only its label and operation name.
 The queue is section 10 of `artifacts/evidence/0.2.6/computational_order.md`. Two named:
 `phase_slope_index` measures +2.14 in `n_samples` against an admissible linear order through its
 default jackknife; `stream_npz_array` reads and discards instead of seeking, 710x slower at 1.6e7.
@@ -244,7 +232,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212 (captions), P-213, P-214, P-215 (repaired at `26e6f276`). P-56 (gate 2 at `53aa3921`: `tests/test_gate2_ignores_nested_checkouts.py`, the `E-gitdir-to-the-roots-own-git` case; judge whether the worktree-list check adds anything the identity check does not). P-195 (STEP 0a at `0f26e836`: `tests/test_release_requires_no_blocker.py`, the heading-depth and unreadable-heading cases; on a pass the remaining Gate 17 gaps return to `DEFERRED->0.2.7`, since each fails safe). P-43, P-45, P-46, P-157, P-158, P-202 (the waiver export at `8f78c37a`: `tests/test_public_api_reachability.py` and the `test_missingness_row_*` tests; judge the exclusion of `hdmf_build_repair_context` and the ten-row table against the six-state ruling). The architecture reachability test (`tests/test_architecture_page_reachability.py`, landed without an item after its own seven mutants were killed; judge whether the skill-authority and agent-precondition patterns are wide enough to mean anything). P-183, P-187, P-222 (`docs/vis.md` in the navigation, its example run against the installed extra, the `docs/install.md` star-import sentence, and the `jnwb.vis` docstrings against what each panel computes). P-217 and the fig09 half of P-212 (`tests/test_generated_figures_are_maintained.py`: judge the tolerance against its measurements and the minor-version skip as a hole). The `JRSAResult.p[0]` shim at `b96a653d` (`tests/test_jrsa.py -k "scalar_p_value or indexing_zero or multi_lag_p_is or any_other_index"`; judge `type(res.p) is np.ndarray` now being False against the ruling's stop condition). P-176 (gate 15 at `971f5414`, `tests/test_harness_adversarial_gates.py -k "StatedItemTotals or Gate15"`). The synthetic-figure labels (`tests/test_synthetic_figures_are_labelled.py`, landed without a problem row; judge whether the next paragraph is the right caption boundary). The four diagrams on `docs/architecture.md` (authority, decision, NWB to result, package boundary; judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; measured 426 s to 131 s for the two modules; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (`docs/glossary.md` and the sweep that applies it; judge each replaced `recording`, `primitive` and `pipeline` against the ruled senses). P-126 (`tests/test_module_docstrings_match_their_code.py -k ProseGateCounts`; judge whether the surfaces and the two count forms cover every place a gate count is stated). The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 and P-34 into 06-58. Current list: P-62 (the skill GPU line, re-worded after the second pass). P-118 (the H2 and H5 cells). P-212 (`docs/quickstart.md` panels; the fig04 image titles at `ae9248fc`; the fig09 half with P-217). P-213 (`docs/common_mistakes.md` and `docs/06` section 3). P-225 (`docs/architecture.md` against the wheel and `artifacts/direction.md`). P-104, P-92, P-93 (`select=` on `compress_fp32` and `convert`, `method=` on the correlation functions, and the CHANGELOG entries; judge the acceptance of integer and boolean datasets in `select=`). The architecture reachability test (`tests/test_architecture_page_reachability.py`; judge whether the skill-authority and agent-precondition patterns are wide enough to mean anything). The four diagrams on `docs/architecture.md` (judge each edge against the code and `artifacts/direction.md`, and whether the decision order, inference before inputs, is the one the skills follow). P-183, P-187, P-222 (`docs/vis.md` in the navigation, its example run against the installed extra, the `docs/install.md` star-import sentence, and the `jnwb.vis` docstrings against what each panel computes). P-217 (`tests/test_generated_figures_are_maintained.py`: judge the tolerance against its measurements and the minor-version skip as a hole). The `JRSAResult.p[0]` shim at `b96a653d` (`tests/test_jrsa.py -k "scalar_p_value or indexing_zero or multi_lag_p_is or any_other_index"`; judge `type(res.p) is np.ndarray` now being False against the ruling's stop condition). P-176 (gate 15 at `971f5414`, `tests/test_harness_adversarial_gates.py -k "StatedItemTotals or Gate15"`). The synthetic-figure labels (`tests/test_synthetic_figures_are_labelled.py`; judge whether the next paragraph is the right caption boundary). The suite-cost change (`tests/test_semantic_mutation_classes.py` dealt over four clones, `tests/test_every_gate_runs.py` seeding against stubbed gates, `scripts/release_gate.py` STEP 1; judge whether stubbing the other gates loses a claim the live test does not carry). P-96 (`docs/glossary.md` and the sweep that applies it; judge each replaced `recording`, `primitive` and `pipeline` against the ruled senses). P-126 (`tests/test_module_docstrings_match_their_code.py -k ProseGateCounts`; judge whether the surfaces and the two count forms cover every place a gate count is stated). The rows 06-140 repairs join this list when it lands.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 

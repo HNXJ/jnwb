@@ -239,7 +239,7 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 
 ### The Correct Pattern
 1. Fix $\tau$ and $\Delta t$ uniformly across all conditions being compared.
-2. Use causality-bounded parametric fitting (`jnwb.fit_exponential_onset`) which models $t_0$ as the true takeoff point rather than taking arbitrary threshold-crossing latencies.
+2. Use causality-bounded parametric fitting (`jnwb.fit_exponential_onset`), which fits $t_0$ to the whole rise rather than to one threshold crossing. On a graded rise the fitted $t_0$ still moves with `tau_ms`, which is why step 1 fixes it; no fixed filter-delay correction applies to it.
 3. Check `fit["bound_status"]` to confirm the estimate is not pinned to the outer parameter bounds.
 
 ---
