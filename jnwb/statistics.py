@@ -1241,13 +1241,15 @@ class StatisticalAnalysis:
         Pass ``method="pearson"`` or ``method="spearman"`` to name one correlation; only
         that one is computed and only its keys are returned. The default computes both.
 
-        Returns raw p-values only — no deprecated flags, no FDR theatre.
+        Every p-value in the result is raw, and so are the ``significant_*`` flags. The
+        result carries ``correction: "none"``, as ``exploratory_compare`` does.
         """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             result = StatisticalAnalysis.correlate(x, y, method=method)
         result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
+        result["correction"] = "none"
         return result
 
     @staticmethod

@@ -96,7 +96,9 @@ class TestExploratoryMulti:
 def test_exploratory_results_say_they_are_uncorrected(test):
     compared = StatisticalAnalysis.exploratory_compare(A, B, n_bootstrap=50, test=test)
     multi = StatisticalAnalysis.exploratory_multi({"a": A, "b": B}, test=test)
-    for result in (compared, multi):
+    correlated = StatisticalAnalysis.exploratory_correlate(
+        A, B, method={"both": "both", "parametric": "pearson", "nonparametric": "spearman"}[test])
+    for result in (compared, multi, correlated):
         assert result["correction"] == "none"
         assert "multiple_comparison" not in result
 
