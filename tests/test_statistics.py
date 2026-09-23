@@ -1035,3 +1035,24 @@ def test_a_multi_group_comparison_with_no_test_reports_nan(groups):
     assert (defined["df_between"], defined["df_within"]) == (2, 12)
     assert type(defined["df_between"]) is int and type(defined["df_within"]) is int
 
+
+@pytest.mark.filterwarnings("ignore")
+def test_one_observation_per_group_has_no_anova_but_an_eta_squared_of_one():
+    """With one value per group every deviation lies between groups, so the ANOVA has no
+    within-group variance to test against while eta_squared is 1.0; the changelog entry for the
+    no-estimate case says so rather than calling eta_squared NaN."""
+    import pathlib
+
+    res = StatisticalAnalysis.compare_multiple_groups(
+        {"a": np.array([1.0]), "b": np.array([2.0]), "c": np.array([4.0])}
+    )["parametric"]
+    assert np.isnan(res["statistic"]) and np.isnan(res["pval"])
+    assert np.isnan(res["df_between"]) and np.isnan(res["df_within"])
+    assert res["effect_size_name"] == "eta_squared" and res["effect_size"] == 1.0
+
+    changelog = (pathlib.Path(__file__).resolve().parents[1] / "CHANGELOG.md").read_text(
+        encoding="utf-8")
+    entry = changelog.split("  - `compare_multiple_groups` and `exploratory_multi`", 1)[1]
+    entry = entry.split("\n  - ", 1)[0]
+    assert "`eta_squared` is 1.0" in " ".join(entry.split()), entry
+

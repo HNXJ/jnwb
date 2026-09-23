@@ -144,8 +144,11 @@ Carried by 0.2.6.
     a NaN `pval` a NaN q-value; the other test's q is unchanged.
   - `compare_multiple_groups` and `exploratory_multi` did the same for the ANOVA and
     Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests
-    now report NaN with `significant_*` False, an ANOVA with no estimate reports `df_between`
-    and `df_within` as float NaN (`group_sizes` keeps the counts), and `eta_squared` is NaN.
+    now report NaN with `significant_*` False, and an ANOVA with no estimate reports
+    `df_between` and `df_within` as float NaN (`group_sizes` keeps the counts). `eta_squared` is
+    NaN for data with no variance or with an empty group; with one observation per group and
+    unequal values every deviation lies between groups, so `eta_squared` is 1.0 while the ANOVA
+    itself is NaN.
   - `correlate` and `exploratory_correlate` already reported a NaN correlation for a constant
     input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation
     keeps its integer `df`.
