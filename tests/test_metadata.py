@@ -244,7 +244,11 @@ class TestClassifyUnitQuality:
 
 class TestUnitCensusReport:
     def test_groups_by_default_columns(self):
-        census = unit_census_report(_synthetic_units())
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            census = unit_census_report(_synthetic_units())
         assert set(census["session_id"]) == {100, 101}
         assert "n_units" in census.columns
         # The default groups on the geometric depth class, not the deprecated column.
@@ -256,6 +260,13 @@ class TestUnitCensusReport:
         census = unit_census_report(_synthetic_units(), group_by=["area"])
         assert set(census["area"]) == {"FEF", "PFC"}
         assert (census["n_units"] == 2).all()
+
+    def test_a_default_call_on_a_frame_with_only_layer_warns_that_depth_is_not_split(self):
+        units = _synthetic_units().drop(columns="depth_class")
+        units["layer"] = ["Superficial", "Deep", "Superficial", "Deep"]
+        with pytest.warns(FutureWarning, match=r"'depth_class'.*'layer'"):
+            census = unit_census_report(units)
+        assert "layer" not in census.columns
 
     def test_missing_group_columns_are_dropped_not_errored(self):
         census = unit_census_report(_synthetic_units(), group_by=["area", "nonexistent_col"])

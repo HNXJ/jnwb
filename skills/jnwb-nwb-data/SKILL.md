@@ -87,7 +87,7 @@ use the public functions above in normal Python workflows.
 - `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` when the name is absent and `AmbiguousAcquisitionError` rather than picking one when it is ambiguous.
 - `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
 - `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
-- `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by session, area and `depth_class`.
+- `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by session, area and `depth_class`, and warns when the frame has only the deprecated `layer`.
 - `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
 - `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
 - `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.

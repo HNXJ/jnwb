@@ -276,7 +276,8 @@ def unit_census_report(
     Args:
         units_df: DataFrame from get_all_units_metadata
         group_by: Columns to group by (default: ['session_id', 'area', 'depth_class'],
-            the geometric depth class; the deprecated ``layer`` copy is not read)
+            the geometric depth class; the deprecated ``layer`` copy is not read, and a
+            default call on a frame that has ``layer`` but no ``depth_class`` warns)
 
     Returns:
         Summary DataFrame with counts and statistics
@@ -287,6 +288,16 @@ def unit_census_report(
     """
     if group_by is None:
         group_by = ['session_id', 'area', 'depth_class']
+        if 'depth_class' not in units_df.columns and 'layer' in units_df.columns:
+            warnings.warn(
+                "unit_census_report: units_df has no 'depth_class' column, so the census is "
+                "not split by depth. Its 'layer' column is the deprecated copy, which is not "
+                "read and is removed in jnwb 0.2.7. Rebuild the frame with "
+                "get_all_units_metadata or enrich_units_dataframe to get 'depth_class', or "
+                "pass group_by explicitly.",
+                FutureWarning,
+                stacklevel=2,
+            )
 
     # Filter to available columns
     group_by = [col for col in group_by if col in units_df.columns]
