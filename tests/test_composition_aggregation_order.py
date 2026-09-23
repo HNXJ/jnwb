@@ -274,6 +274,31 @@ class TestH6AccumulatorToDecibels:
         )
         assert np.isfinite(stacked[chain["interior"]]).all()
 
+    @pytest.mark.parametrize("form", [
+        "mean", "asarray", "asarray_of_mean", "stack", "stack_mean", "tolist", "list_of_rows",
+    ])
+    def test_every_markable_form_of_accumulator_power_is_refused(self, h6_chain, form):
+        """The refusal follows the trial mean through the forms a caller reaches for.
+
+        The baseline is a plain per-trial mean, so only the power argument can trigger it.
+        """
+        acc = h6_chain["acc"]
+        power = {
+            "mean": lambda: acc.mean,
+            "asarray": lambda: np.asarray(acc.power()),
+            "asarray_of_mean": lambda: np.asarray(acc.mean)[0],
+            "stack": lambda: np.stack([acc.power()])[0],
+            "stack_mean": lambda: np.stack([acc.power(), acc.power()]).mean(axis=0),
+            "tolist": lambda: acc.power().tolist(),
+            "list_of_rows": lambda: list(np.asarray(acc.power())),
+        }[form]()
+        baseline = h6_chain["baseline"].mean(axis=0)
+        if form == "asarray_of_mean":
+            baseline = baseline[0]
+        with pytest.raises(ValueError, match="needs per-trial power"):
+            jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=None)
+        jnwb.aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=None)
+
     def test_the_coi_mask_changes_the_edge_bins_and_leaves_the_interior_identical(self):
         """`add_trial(valid=coi_mask)` is not cosmetic: it removes the edge bins entirely.
 

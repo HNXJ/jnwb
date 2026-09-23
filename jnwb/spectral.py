@@ -338,8 +338,11 @@ def aggregate_to_db(
             values, so passing decibels in here fails loudly instead of computing a plausible
             wrong number. It is a guard, not a proof -- an all-positive dB array cannot be
             distinguished from power by inspection, so the contract remains: pass power.
-            Also raised for ``how="mean_of_ratios"`` on ``TFRAccumulator.power()`` output,
-            which has already averaged over trials and so can only give a ratio of means.
+            Also raised for ``how="mean_of_ratios"`` on ``TFRAccumulator`` trial-mean power
+            (``power()``, ``mean``, their views, numpy results and ``tolist()``), which has
+            already averaged over trials and so can only give a ratio of means. A copy made
+            by ``np.array``, by assignment into another array, or read back from
+            ``TFRAccumulator.write`` carries no mark and is not refused.
 
     Example:
         >>> import numpy as np
@@ -359,11 +362,9 @@ def aggregate_to_db(
     if nan_policy not in ("propagate", "omit"):
         raise ValueError(f"nan_policy must be 'propagate' or 'omit'; got {nan_policy!r}")
 
-    from .tfr_accumulator import _TrialAveragedPower
+    from .tfr_accumulator import _is_trial_averaged
 
-    if how == "mean_of_ratios" and any(
-        isinstance(arr, _TrialAveragedPower) for arr in (power, baseline)
-    ):
+    if how == "mean_of_ratios" and any(_is_trial_averaged(arr) for arr in (power, baseline)):
         raise ValueError(
             "how='mean_of_ratios' needs per-trial power, and TFRAccumulator.power() has already "
             "averaged over trials, so a ratio of its output is ratio_of_means whatever `how` "

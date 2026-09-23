@@ -18,6 +18,7 @@ the binding cost. Nothing here promised otherwise, but nothing said it either.
 
 from __future__ import annotations
 
+import weakref
 from typing import Dict, Optional
 
 import numpy as np
@@ -31,10 +32,58 @@ from ._precision import (
 class _TrialAveragedPower(np.ndarray):
     """Power that has already been averaged over trials.
 
-    ``TFRAccumulator.power()`` returns its mean as this view so that ``aggregate_to_db`` can
-    refuse ``how="mean_of_ratios"`` on it: a ratio of trial means is ratio-of-means, whatever
-    the call names. It behaves as a plain ``ndarray`` otherwise, and ``np.asarray`` drops it.
+    ``TFRAccumulator.power()`` and ``TFRAccumulator.mean`` return the mean as this view so that
+    ``aggregate_to_db`` can refuse ``how="mean_of_ratios"`` on it: a ratio of trial means is
+    ratio-of-means, whatever the call names. Values are unchanged. The mark survives ufuncs,
+    methods, numpy functions (``np.stack``, ``np.copy``, ...) and ``tolist()``. ``np.asarray``
+    returns a plain view, which :func:`_is_trial_averaged` still recognises through the
+    registered buffer it views. A copy numpy makes without dispatch (``np.array``, a cast in
+    ``np.asarray``, assignment into another array) and a read back from :meth:`write` carry
+    no mark.
     """
+
+    def __array_function__(self, func, types, args, kwargs):
+        result = super().__array_function__(func, types, args, kwargs)
+        if type(result) is np.ndarray and result.dtype.kind in "fc":
+            return result.view(_TrialAveragedPower)
+        return result
+
+    def tolist(self):
+        listed = super().tolist()
+        return _TrialAveragedList(listed) if isinstance(listed, list) else listed
+
+
+class _TrialAveragedList(list):
+    """``tolist()`` of trial-averaged power, marked for the same refusal."""
+
+
+# Buffers that hold an accumulator's trial mean, by id. A view's `.base` is the buffer that owns
+# its memory, so every view of a registered buffer is recognised, whatever its type.
+_TRIAL_AVERAGED_BUFFERS: "weakref.WeakValueDictionary[int, np.ndarray]" = (
+    weakref.WeakValueDictionary()
+)
+
+
+def _register_trial_averaged(buffer: np.ndarray) -> np.ndarray:
+    if buffer.base is not None:
+        raise ValueError("only a buffer that owns its memory can be registered")
+    _TRIAL_AVERAGED_BUFFERS[id(buffer)] = buffer
+    return buffer
+
+
+def _is_trial_averaged(obj) -> bool:
+    """True for accumulator trial-mean power in any form that can carry a mark."""
+    if isinstance(obj, (_TrialAveragedPower, _TrialAveragedList)):
+        return True
+    if isinstance(obj, np.ndarray):
+        owner = obj if obj.base is None else obj.base
+        return _TRIAL_AVERAGED_BUFFERS.get(id(owner)) is owner
+    if isinstance(obj, (list, tuple)):
+        return any(
+            isinstance(item, (np.ndarray, _TrialAveragedList)) and _is_trial_averaged(item)
+            for item in obj
+        )
+    return False
 
 
 class TFRAccumulator:
@@ -79,7 +128,7 @@ class TFRAccumulator:
                 )
         # shape = (n_channels, n_freqs, n_times)
         self.n = np.zeros(shape, np.int64)
-        self.mean = np.zeros(shape, np.float64)  # of |z|^2
+        self._mean = _register_trial_averaged(np.zeros(shape, np.float64))  # of |z|^2
         self.M2 = np.zeros(shape, np.float64)
         self.sum_z = np.zeros(shape, np.complex128)
         self.sum_unit_z = np.zeros(shape, np.complex128)
@@ -87,6 +136,15 @@ class TFRAccumulator:
     @property
     def shape(self) -> tuple:
         return self.n.shape
+
+    @property
+    def mean(self) -> np.ndarray:
+        """Trial-mean power, the same values as :meth:`power`."""
+        return self._mean.view(_TrialAveragedPower)
+
+    @mean.setter
+    def mean(self, value) -> None:
+        self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
     def add_trial(self, z: np.ndarray, valid: Optional[np.ndarray] = None) -> None:
         """z: complex (n_ch, n_freq, n_time) for ONE trial. valid: bool mask, same shape."""
@@ -96,10 +154,10 @@ class TFRAccumulator:
 
         # Welford update, masked
         n_new = self.n + valid
-        delta = np.where(valid, p - self.mean, 0.0)
+        delta = np.where(valid, p - self._mean, 0.0)
         inc = np.divide(delta, n_new, out=np.zeros_like(delta), where=n_new > 0)
-        self.mean += inc
-        self.M2 += np.where(valid, delta * (p - self.mean), 0.0)
+        self._mean += inc
+        self.M2 += np.where(valid, delta * (p - self._mean), 0.0)
         self.n = n_new
 
         mag = np.abs(z)
@@ -111,21 +169,22 @@ class TFRAccumulator:
     def merge(self, other: "TFRAccumulator") -> "TFRAccumulator":
         """Exact pooling. merge(A, B) == summarize(A union B)."""
         n = self.n + other.n
-        delta = other.mean - self.mean
+        delta = other._mean - self._mean
         w = np.divide(other.n, n, out=np.zeros_like(delta), where=n > 0)
-        mean = self.mean + delta * w
+        mean = self._mean + delta * w
         M2 = self.M2 + other.M2 + delta**2 * np.divide(
             self.n * other.n, n, out=np.zeros_like(delta), where=n > 0
         )
         out = TFRAccumulator(self.shape)
-        out.n, out.mean, out.M2 = n, mean, M2
+        out.n, out.M2 = n, M2
+        out._mean = _register_trial_averaged(mean)
         out.sum_z = self.sum_z + other.sum_z
         out.sum_unit_z = self.sum_unit_z + other.sum_unit_z
         return out
 
     # ---- derived quantities ----
     def power(self) -> np.ndarray:
-        return self.mean.view(_TrialAveragedPower)
+        return self._mean.view(_TrialAveragedPower)
 
     def var(self) -> np.ndarray:
         return np.divide(self.M2, self.n - 1, out=np.full_like(self.M2, np.nan), where=self.n > 1)
@@ -150,7 +209,7 @@ class TFRAccumulator:
         ch = (min(4, self.n.shape[0]), self.n.shape[1], min(256, self.n.shape[2]))
         filt = dict(compression="gzip", compression_opts=1, shuffle=True)
         h5group.create_dataset("n", data=self.n.astype(np.int32), chunks=ch, **filt)
-        h5group.create_dataset("mean", data=self.mean.astype(np.float32), chunks=ch, **filt)
+        h5group.create_dataset("mean", data=self._mean.astype(np.float32), chunks=ch, **filt)
         h5group.create_dataset("M2", data=self.M2.astype(np.float32), chunks=ch, **filt)
         h5group.create_dataset("sum_z", data=self.sum_z.astype(np.complex64), chunks=ch, **filt)
         h5group.create_dataset(
