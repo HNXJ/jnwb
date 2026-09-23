@@ -61,6 +61,7 @@ gallery_src/
 *.svg
 *.png
 !examples/figures/jnwb_quickstart.png
+!examples/figures/jnwb_quickstart.dark.png
 !examples/figures/jnwb_quickstart.svg
 # The committed open-data excerpt: the one tracked data directory and NWB file.
 !examples/data/
