@@ -56,13 +56,15 @@ python scripts/docs_build.py
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive.
-- **`harness_gate.py`** — 16 repository gates: the project boundary, skill-tree uniqueness,
+- **`harness_gate.py`** — 18 repository gates: the project boundary, skill-tree uniqueness,
   machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
   tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
-  floor and its classifier/CI agreement, `docs/api.md` against `__all__` and the generator,
+  floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
+  and `docs/install.md`, `docs/api.md` against `__all__` and the generator,
   docs versions derived from `__version__`, no unowned importable package at the root, project
   identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`,
-  stack form, and line-ending consistency. It fails on structure, not behaviour.
+  stack form, line-ending consistency, stack pointers that resolve, and the `docs/api.md` Type
+  column against the runtime object. It fails on structure, not behaviour.
 - **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.
   Read the Docs sets `fail_on_warning`, so a warning here is a failed publish.
 

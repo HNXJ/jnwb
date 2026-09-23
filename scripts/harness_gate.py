@@ -618,12 +618,17 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
        version goes untested -- every assertion in them is a containment or a membership,
        and all of them survive that edit. This check reads the two files and compares them
        to each other, so no edit to a constant can make it agree with a wrong tree.
+    6. `README.md` and `docs/install.md` state the floor `requires-python` declares and the
+       interpreter set the test matrix runs, compared with those files and not a constant.
     """
     root = repo_root or REPO_ROOT
     violations = []
     # Set by block 1 when pyproject.toml is readable; block 3 compares it against the
     # matrix. None means the classifiers are unknown, which block 1 has already reported.
     declared: Optional[set] = None
+    # Set by blocks 1 and 3 from the files themselves; block 4 holds the prose surfaces to them.
+    floor_declared: Optional[str] = None
+    tested: Optional[set] = None
 
     # 1. pyproject.toml: floor, no ceiling, classifiers == PYTHON_SUPPORTED
     # Each of the three blocks below used to be `if <file>.exists():` with no else, so an
@@ -651,6 +656,7 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
             # change a constant; it cannot make the lowest classifier stop being the lowest.
             stated_floor = re.search(r">=\s*(\d+\.\d+)", spec)
             if stated_floor is not None:
+                floor_declared = stated_floor.group(1)
                 declared_versions = sorted(
                     {
                         m.group(1)
@@ -750,6 +756,41 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
                         f"Python {unrun}, which no leg of the workflow.yml test matrix "
                         f"{sorted(tested)} runs. A claimed version is a tested version."
                     )
+
+    # 4. The prose surfaces a user reads before installing: README.md and docs/install.md each
+    # state the floor and the tested set, and both are held to the files above rather than to
+    # a constant. docs/install.md was once corrected by hand because nothing here read it.
+    for rel in ("README.md", "docs/install.md"):
+        path = root / rel
+        if not path.exists():
+            violations.append(f"PYTHON_FLOOR_INCONSISTENCY: {rel} not found")
+            continue
+        text = path.read_text(encoding="utf-8")
+        floor = re.search(r"Requires Python \**(\d+\.\d+) or newer", text)
+        if floor is None:
+            violations.append(
+                f"PYTHON_FLOOR_INCONSISTENCY: {rel} does not state the Python floor as "
+                "'Requires Python X.Y or newer'"
+            )
+        elif floor_declared is not None and floor.group(1) != floor_declared:
+            violations.append(
+                f"PYTHON_DOC_FLOOR_SKEW: {rel} says Python {floor.group(1)} or newer while "
+                f"requires-python declares >={floor_declared}"
+            )
+        listed = re.search(r"Tested in CI on ([\d., and]+\d)", text)
+        if listed is None:
+            violations.append(
+                f"PYTHON_FLOOR_INCONSISTENCY: {rel} does not state the tested interpreters as "
+                "'Tested in CI on ...'"
+            )
+            continue
+        stated = set(re.findall(r"\d+\.\d+", listed.group(1)))
+        reference = tested if tested is not None else declared
+        if reference is not None and stated != reference:
+            violations.append(
+                f"PYTHON_DOC_CI_SKEW: {rel} says CI tests {sorted(stated)} while the workflow "
+                f"matrix runs {sorted(reference)}"
+            )
 
     return violations
 
