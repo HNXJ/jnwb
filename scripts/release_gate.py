@@ -943,6 +943,14 @@ def check_known_gaps_hold(root: pathlib.Path = REPO_ROOT,
     if add.returncode != 0:
         _remove_tree(scratch)
         return False, f"could not create a worktree of HEAD: {add.stderr.strip()}"
+    # The administrative directory git keeps for the tree. On Windows it holds read-only
+    # directories that `git worktree prune` cannot delete, so it is removed here by force.
+    pointer = tree / ".git"
+    admin = None
+    if pointer.is_file():
+        first = pointer.read_text(encoding="utf-8").splitlines()[0]
+        if first.startswith("gitdir:"):
+            admin = pathlib.Path(first.split(":", 1)[1].strip())
     try:
         res = runner([sys.executable, str(tree / "scripts" / "mutation_harness.py"),
                       "--known-gaps", "--worktree", str(tree)],
@@ -950,6 +958,8 @@ def check_known_gaps_hold(root: pathlib.Path = REPO_ROOT,
         return res.returncode == 0, (res.stdout + res.stderr).strip()
     finally:
         _remove_tree(scratch)
+        if admin is not None and admin.is_dir():
+            _remove_tree(admin)
         runner(["git", "worktree", "prune"], cwd=str(root), capture_output=True, text=True)
 
 
