@@ -366,6 +366,42 @@ def test_an_item_stating_two_release_values_is_required(tmp_path):
     assert any("still required" in x and "99-901" in x for x in v), v
 
 
+@pytest.mark.parametrize("second", [
+    "**Release:** required-0.2.6.",
+    "  Release: required-0.2.6.",
+    "release: required-0.2.6.",
+    "1. Release: required-0.2.6.",
+])
+def test_a_deferred_item_with_a_noncanonical_second_release_line_fails_closed(tmp_path, second):
+    """Only the canonical line was read, so a second value in any other form went unseen."""
+    root = _tree(tmp_path, items=[_item("99-901", f"deferred-{NEXT_CYCLE}") + second + "\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-901" in x for x in v), v
+    assert any("cannot be read" in x and "99-901" in x for x in v), v
+
+
+@pytest.mark.parametrize("hidden", [
+    "> ### 99-902 A quoted item\n>\n> Release: required-0.2.6.\n",
+    "- ### 99-902 A listed item\n\n  Release: required-0.2.6.\n",
+])
+def test_a_contained_heading_after_a_deferred_item_is_read_as_an_item(tmp_path, hidden):
+    """A heading in a blockquote or list item was body text of the deferred item above it."""
+    root = _tree(tmp_path, items=[_item("99-901", f"deferred-{NEXT_CYCLE}") + "\n" + hidden])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-902" in x for x in v), v
+    assert not any("99-901" in x for x in v), v
+
+
+def test_a_release_field_before_the_first_heading_fails_closed(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-901", f"deferred-{NEXT_CYCLE}")])
+    assert check_release_readiness(root, head=HEAD) == []
+    todo = root / "artifacts" / "todo_stack.md"
+    todo.write_text("Release: required-0.2.6.\n\n" + todo.read_text(encoding="utf-8"),
+                    encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert any("before the first heading" in x for x in v), v
+
+
 @pytest.mark.parametrize("heading", [
     "### 99-901: A colon after the id",
     "#### 9-901 One digit before the hyphen",

@@ -1020,15 +1020,20 @@ def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
 # A heading of any depth. Matching only `### ` made an item written one level deeper invisible,
 # together with its `Release:` field, which then belonged to the item above it.
 _HEADING = re.compile(r"^ {0,3}(#+)(?:[ \t]+(.*?))?[ \t]*$")
+# A heading inside a blockquote or a list item still renders as a heading. Read as body text, it
+# and its field belonged to the section above, so a required item hid under a deferred one.
+_CONTAINED_HEADING = re.compile(
+    r"^[ \t]*(?:(?:>|[-*+]|\d+[.)])[ \t]*)+(#+)(?:[ \t]+(.*?))?[ \t]*$")
 # The one item-heading form STEP 0a reads an id from; the title may be empty.
 _ITEM_HEADING = re.compile(r"^(\d\d-\d+)(?:[ \t]+(.*))?$")
 # Anything that starts like an item id once leading markup is dropped, and is not an ISO date.
 # A heading of this shape that `_ITEM_HEADING` does not read is a violation, never a skip.
 _ITEM_SHAPED = re.compile(r"^[\s*_`\[(#]*\d+-\d+(?!\d|-\d)")
-# The value is read from the canonical form only. Detection is looser, so that a bold, listed or
-# indented field still marks its heading as an item rather than as prose.
+# The value is read from the canonical form only. Detection is looser, so that a bold, listed,
+# quoted, indented or lowercase field still marks its heading as an item rather than as prose,
+# and makes an item's release unreadable rather than letting its canonical line speak alone.
 _RELEASE_VALUE = re.compile(r"^Release:\s*(.*)$")
-_RELEASE_ANY = re.compile(r"^[\s>*_-]*Release[*_]*\s*:", re.IGNORECASE)
+_RELEASE_ANY = re.compile(r"^[\s>*_+`-]*(?:\d+[.)][\s>*_+`-]*)?Release[*_`]*\s*:", re.IGNORECASE)
 
 
 def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]:
@@ -1036,16 +1041,19 @@ def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]
 
     A section is a heading and the lines up to the next heading of any depth. It is an item when
     its heading reads as an id, or when its lines carry a ``Release:`` field, at any depth. The
-    release value is the section's own field: ``MISSING`` when it has none, and every distinct
-    value joined when it states more than one, so that neither reads as deferred.
+    release value is the section's own field: ``MISSING`` when it has none, every distinct
+    value joined when it states more than one, and ``NONCANONICAL`` when any of its ``Release:``
+    lines is not in the canonical form, so that none of these reads as deferred. A heading inside
+    a blockquote or list item opens a section like any other.
 
     ``unparseable`` names each section that is item-shaped, or carries a ``Release:`` field, but
-    whose id cannot be read. The caller reports these as violations: an item the parser cannot
-    identify is still work, and skipping it would report emptiness that was not established.
+    whose id cannot be read, and each item whose release cannot be read. The caller reports these
+    as violations: an item the parser cannot read is still work, and skipping it would report
+    emptiness that was not established.
     """
     sections: List[Tuple[Optional[str], List[str]]] = [(None, [])]
     for line in text.splitlines():
-        heading = _HEADING.match(line)
+        heading = _HEADING.match(line) or _CONTAINED_HEADING.match(line)
         if heading:
             sections.append(((heading.group(2) or "").strip(), []))
         else:
@@ -1065,6 +1073,14 @@ def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]
             # still required.
             value = ("MISSING" if not distinct else distinct[0] if len(distinct) == 1
                      else "CONFLICTING: " + " / ".join(distinct))
+            noncanonical = [line.strip() for line in body
+                            if _RELEASE_ANY.match(line) and not _RELEASE_VALUE.match(line)]
+            if noncanonical:
+                value = "NONCANONICAL"
+                unparseable.append(
+                    f"item {item.group(1)} has a Release: line not written 'Release: <value>' "
+                    f"at the start of a line, so its release cannot be read: "
+                    f"{noncanonical[0][:60]!r}")
             items.append((item.group(1), (item.group(2) or "").strip(), value))
         elif title is None:
             if has_field:
