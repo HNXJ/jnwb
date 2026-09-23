@@ -3,13 +3,12 @@ Anatomical addressing and cortical layer mapping for NWB electrode tables.
 
 Maps units/channels to areas and layers from electrode metadata, and standardizes
 units DataFrame fields (unit_id, area, layer, quality flags). Probe labels are
-split on comma or slash only; this module carries no area vocabulary and does not
-normalize spelling or aliases.
+split on comma or slash only, keeping a slash inside an atlas layer label; this module
+carries no area vocabulary and does not normalize spelling or aliases.
 """
 
 from dataclasses import dataclass
 import logging
-import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import pandas as pd
 import numpy as np
@@ -24,6 +23,11 @@ def parse_probe_areas(label: str) -> tuple:
     otherwise returns each label exactly as the NWB file wrote it. This resolves only
     SEPARATION; which channels fall in which area is decided afterwards, by position
     along the probe.
+
+    A slash followed by a field that does not start with a letter continues the label
+    before it rather than starting a new area, because atlas layer labels use a slash
+    inside one name: ``VISpm2/3`` is layer 2/3 of one area, not the two areas ``VISpm2``
+    and ``3``. A slash between two names that start with letters still separates areas.
 
     No vocabulary lives here, deliberately. Neither identity (is `DP` the same area as
     `V4`?) nor spelling (is `v3a` the same area as `V3a`?) is a question generic
@@ -45,11 +49,26 @@ def parse_probe_areas(label: str) -> tuple:
         ('V3A', 'V1')
         >>> parse_probe_areas("v3d,V2")
         ('v3d', 'V2')
+        >>> parse_probe_areas("VISpm2/3")
+        ('VISpm2/3',)
+        >>> parse_probe_areas("VISp2/3, VISp4")
+        ('VISp2/3', 'VISp4')
 
     Self-contained by design: jnwb must give identical scientific behaviour whether or not
     any project package is importable, so nothing here may depend on one being installed.
     """
-    return tuple(t for t in (p.strip() for p in re.split(r"[,/]", str(label))) if t)
+    fields: list[str] = []
+    for part in str(label).split(","):
+        merged: list[str] = []
+        for piece in (p.strip() for p in part.split("/")):
+            if not piece:
+                continue
+            if merged and not piece[0].isalpha():
+                merged[-1] = f"{merged[-1]}/{piece}"
+            else:
+                merged.append(piece)
+        fields.extend(merged)
+    return tuple(fields)
 
 
 def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):

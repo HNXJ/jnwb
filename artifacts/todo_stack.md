@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127, 06-122, 06-131, 06-64, 06-83, 06-99 |
-| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123, 06-132, 06-133, 06-134 |
+| W1 | 06-05, 06-06, 06-16, 06-74, 06-105, 06-86, 06-124, 06-33, 06-123, 06-132, 06-134 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-95, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -55,6 +55,7 @@ barrier above.
 | W8 | 06-119, 06-121 |
 | W9 | 06-51 |
 | W10 | 06-53 |
+| Rolling | 06-136, re-dispatched at each wave barrier over the repairs landed since its last run |
 | Closure | 06-34, then 06-35 06-36 06-37 in any order, then 06-38, 06-39, 06-60, 06-130, 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
@@ -273,17 +274,6 @@ Do: replace each with neutral placeholders the caller overrides; hand the tokens
 Discriminator: `git grep` over the Writes finds none of the reported tokens; `tests/test_vis.py` still exercises every panel.
 Accept: P-184 closes; `tests/test_vis.py` passes with the neutral fixtures.
 Stop: a default carries scientific meaning a caller relies on; name it and ask.
-
-### 06-133 An atlas layer label is one location, not two areas
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/addressing.py`, `tests/test_addressing.py`.
-P-188. `map_peak_channel_to_area` treats every `/` as a boundary between areas on one probe, so the atlas label `VISpm2/3` is split into `VISpm2` and `3` and resolved by channel position (reproduced 2026-09-22: `VISpm2/3 -> 'VISpm2'`, while `VISpm4 -> 'VISpm4'`).
-Do: a `/` segment that does not start with a letter continues the preceding label rather than naming an area, so `V1/V2` still splits and `VISpm2/3` does not.
-Discriminator: `VISpm2/3` resolves to itself; `V1/V2` still resolves by position; both fail on the other rule.
-Accept: P-188 closes; the docstring states the rule.
-Stop: a corpus label has a `/` segment that is a real area name starting with a digit.
 
 ### 06-134 A series named inside a container can be read
 
@@ -606,6 +596,16 @@ P-02. One packet per ledger entry in `artifacts/evidence/0.2.6/findings_0.2.6.md
 `reproduced` and claimed by no other item, highest consequence first; each packet declares its own
 paths from the finding's receipt.
 Accept: each returns `repaired` with a discriminator, or `unsupported` with evidence.
+
+## Rolling verification
+
+### 06-136 Verify the repairs landed after `a9993322`
+
+Release: required-0.2.6.
+Role: verifier. Skill: none. Blocked by: none. Writes: none.
+06-122 was dispatched at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`).
+Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
+Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
 ## Closure
 

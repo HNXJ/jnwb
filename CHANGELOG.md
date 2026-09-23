@@ -32,6 +32,14 @@ Carried by 0.2.6.
   and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
   still accepted.
 
+### Fixed
+
+- **An atlas layer label is one location.** `parse_probe_areas` and
+  `map_peak_channel_to_area` read every `/` as a boundary between two areas, so the label
+  `VISpm2/3` became the areas `VISpm2` and `3`, and a unit on that electrode was reported in
+  `VISpm2`. A slash followed by a field that does not start with a letter now continues the
+  label before it; `V1/V2` still names two areas.
+
 ## [0.2.5] - 2026-09-19
 
 ### Added

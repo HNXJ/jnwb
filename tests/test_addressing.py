@@ -608,3 +608,15 @@ class TestProbeGeometry:
         assert geom.is_linear is True
         assert geom.is_uniform is True
 
+
+
+def test_an_atlas_layer_label_is_one_location_and_two_areas_still_split():
+    """`VISpm2/3` is layer 2/3 of one area; `V1/V2` is two areas on one probe."""
+    assert parse_probe_areas("VISpm2/3") == ("VISpm2/3",)
+    assert parse_probe_areas("VISp2/3, VISp4") == ("VISp2/3", "VISp4")
+    assert parse_probe_areas("V1/V2") == ("V1", "V2")
+    elec = pd.DataFrame({"location": ["VISpm2/3", "VISpm4"]}, index=[1280, 1281])
+    assert map_peak_channel_to_area(1280, elec) == "VISpm2/3"
+    assert map_peak_channel_to_area(1281, elec) == "VISpm4"
+    probe = pd.DataFrame({"location": ["V1/V2"] * 4, "group_name": ["A"] * 4})
+    assert [map_peak_channel_to_area(i, probe) for i in range(4)] == ["V1", "V1", "V2", "V2"]
