@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 import shutil
 import subprocess
 import sys
@@ -131,7 +132,7 @@ class TestReleaseGateCoverage:
         """Mechanically enforce invariant:
         environment runs full tests => environment contains dependencies of full tests.
         Since test_docs_nwb_workflow.py runs test_mkdocs_strict_build in the full test suite,
-        the CI test matrix must install the [test,docs] extras.
+        the CI test matrix must install the [test,docs] extras, and [vis] for tests/test_vis.py.
         """
         import yaml
 
@@ -143,4 +144,8 @@ class TestReleaseGateCoverage:
         ]
         assert len(install_steps) == 1
         install_run = install_steps[0].get("run", "")
-        assert 'pip install ".[test,docs]"' in install_run or ".[test,docs]" in install_run
+        # The extras are a set, so they are compared as one rather than as a substring whose
+        # order and neighbours happen to match. `vis` because tests/test_vis.py skips without it.
+        specs = re.findall(r'pip install "\.\[([A-Za-z0-9_,-]+)\]"', install_run)
+        assert len(specs) == 1, install_run
+        assert {"test", "docs", "vis"} <= set(specs[0].split(",")), specs[0]

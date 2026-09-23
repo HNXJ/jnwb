@@ -1,6 +1,6 @@
 ---
 name: jnwb-landmark-viz
-description: Publication-grade non-human primate electrophysiology visualization engine (pure Plotly) generating Nature/Neuron-standard multi-panel figures, laminar spectrolaminar/CSD maps, multi-condition rasters, hierarchy regressions, triple default exports (SVG/PNG/HTML), and epistemic argument sidecars.
+description: Publication-grade non-human primate electrophysiology visualization engine (pure Plotly) generating Nature/Neuron-standard multi-panel figures, laminar spectrolaminar/CSD maps, multi-condition rasters, hierarchy regressions, triple exports (SVG/PNG/HTML), and epistemic argument sidecars.
 ---
 
 # `jnwb-landmark-viz` — Publication-Grade Electrophysiology Visualization Engine (Plotly)
@@ -19,7 +19,7 @@ Activate this skill when:
 All figures are constructed using `plotly.graph_objects` (`go.Figure`, `go.Scatter`, `go.Scattergl`, `go.Heatmap`, `go.Contour`) and `plotly.subplots.make_subplots`.
 - **Interactive Web / HTML**: Full zoom, pan, hover inspection (unit ID, latency, $p$-value, firing rate), and trace toggles.
 - **Hardware-Accelerated WebGL**: High-density spike rasters and continuous LFPs use `go.Scattergl` for lag-free rendering of $>100{,}000$ points.
-- **Publication Vector Export**: Exports crisp vector SVG with editable `<text>` tags (via `kaleido`), 300/600 DPI PNG, and self-contained interactive HTML by default.
+- **Publication Vector Export**: Exports crisp vector SVG with editable `<text>` tags (via `kaleido`), 300/600 DPI PNG, and self-contained interactive HTML on every `save_and_seal` call.
 
 ### 2.2 Collision-Free Relative Coordinate Engine
 Subplots and elements use strict non-overlapping relative domain coordinates:
@@ -39,7 +39,7 @@ Subplots and elements use strict non-overlapping relative domain coordinates:
 
 ```python
 import numpy as np
-import jnwb.viz as jviz
+import jnwb.vis as jviz
 
 # 1. Initialize canvas (2-column Nature width: 183 mm)
 canvas = jviz.PlotlyPublicationCanvas(
@@ -48,7 +48,7 @@ canvas = jviz.PlotlyPublicationCanvas(
     rows=1,
     cols=2,
     col_width_ratios=[1.2, 1.0],
-    tags=["A", "B"]
+    tags=[["A", "B"]]
 )
 
 # 2. Panel A: 2D Spectrolaminar Map (Mendoza-Halliday 2024 motif)
@@ -74,7 +74,7 @@ jviz.laminar.plot_opposing_gradients(
     ci_alphabeta=alphabeta_ci       # [32 x 2]
 )
 
-# 4. Triple Default Export & Epistemic Sidecar Seal
+# 4. Triple Export & Epistemic Sidecar Seal
 canvas.save_and_seal(
     output_dir="outputs/figures",
     basename="fig_spectrolaminar",

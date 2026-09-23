@@ -56,9 +56,11 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
+        # `vis` so jnwb.vis is exercised on every leg. The build job below installs the wheel
+        # without it, which is where the suite runs with Plotly absent.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test,docs]"
+          python -m pip install ".[test,docs,vis]"
 
       - name: Run pytest
         run: |
@@ -138,9 +140,18 @@ jobs:
           import jnwb
           print('Installed jnwb version:', jnwb.__version__)
           print('Installed location:', jnwb.__file__)
-          missing = [s for s in jnwb.__all__ if not hasattr(jnwb, s)]
+          # The wheel is installed without extras, so jnwb.vis must name its extra, not resolve.
+          from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+          missing = [s for s in jnwb.__all__ if s not in OPTIONAL_SUBMODULES and not hasattr(jnwb, s)]
           assert not missing, f'Missing exports: {missing}'
-          print(f'PASS: {len(jnwb.__all__)} public exports resolved')
+          for name, extra in OPTIONAL_SUBMODULES.items():
+              try:
+                  getattr(jnwb, name)
+              except ImportError as exc:
+                  assert f'pip install jnwb[{extra}]' in str(exc), exc
+              else:
+                  raise AssertionError(f'jnwb.{name} resolved without the {extra} extra')
+          print(f'PASS: {len(jnwb.__all__)} public exports resolved or name their extra')
 
           # Representative installed-package workflows across modules
           import numpy as np
@@ -168,12 +179,13 @@ jobs:
           # makes tests/test_import_provenance.py assert that the package under test is
           # the installed one, so a leg that quietly falls back to the checkout fails
           # instead of passing. The test tooling is read out of pyproject.toml rather
-          # than listed again here, and jnwb itself is not reinstalled from source.
+          # than listed again here, and jnwb itself is not reinstalled from source. `vis` is
+          # installed only now, after the smoke step above has checked the wheel without it.
           unset PYTHONPATH
           python - <<'PY'
           import pathlib, tomllib
           extras = tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']
-          requirements = extras['test'] + extras['docs']
+          requirements = extras['test'] + extras['docs'] + extras['vis']
           pathlib.Path('/tmp/test-requirements.txt').write_text('\n'.join(requirements))
           PY
           /tmp/clean_env/bin/pip install -r /tmp/test-requirements.txt

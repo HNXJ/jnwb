@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 156 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 157 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -15,6 +15,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.SKILLS_URL | constant | str |
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
+| jnwb.vis | module | *jnwb.vis -- Publication-grade non-human primate electrophysiology visualization engine in pure Plotly.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
 
 ## Module: jnwb.addressing

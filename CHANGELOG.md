@@ -4,6 +4,27 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Carried by 0.2.6.
+
+### Added
+
+- **`jnwb.vis`, a Plotly figure engine, as the optional `vis` extra.** Install it with
+  `pip install jnwb[vis]`, which adds `plotly>=6.1.1` and `kaleido>=1.0.0`; kaleido writes the
+  SVG and PNG that `PlotlyPublicationCanvas.save_and_seal` exports alongside the HTML. The core
+  dependencies are unchanged. Without the extra, `import jnwb` and every other export work,
+  and accessing `jnwb.vis` raises `ImportError` naming `pip install jnwb[vis]`.
+  `from jnwb import *` needs the extra, because `vis` is in `jnwb.__all__`.
+
+### Changed
+
+- **`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both
+  used to be accepted and echoed back as if applied, among them `reduction={'a': 'Mean'}`
+  and `alternative='GREATER'`. The error names the valid set. The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`
+  and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
+  still accepted.
+
 ## [0.2.5] - 2026-09-19
 
 ### Added

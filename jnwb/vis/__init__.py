@@ -11,6 +11,14 @@ Enforces:
 
 from __future__ import annotations
 
+try:
+    import plotly  # noqa: F401
+except ImportError as exc:
+    raise ImportError(
+        "jnwb.vis requires Plotly, which jnwb installs only with the optional 'vis' extra: "
+        "pip install jnwb[vis]"
+    ) from exc
+
 from .canvas import PlotlyPublicationCanvas
 from .sidecar import EpistemicArgumentObject, serialize_argument_sidecar
 from .theme import (

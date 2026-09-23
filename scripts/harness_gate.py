@@ -2158,8 +2158,24 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
         )
         return violations
 
+    from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+
     for name, declared in rows:
-        obj = getattr(jnwb, name)
+        try:
+            obj = getattr(jnwb, name)
+        except ImportError:
+            # An optional submodule whose extra is not installed here. Its import spec is
+            # what can be asked without the extra: an importable spec is a module.
+            if name not in OPTIONAL_SUBMODULES:
+                raise
+            import importlib.util
+
+            spec = importlib.util.find_spec(f"jnwb.{name}")
+            if spec is None:
+                violations.append(f"API_TYPE: jnwb.{name} has no importable source")
+                continue
+            # Built from the spec and never executed, so nothing it imports is needed.
+            obj = importlib.util.module_from_spec(spec)
         expected = api_member_kind(obj)
         if not declared:
             violations.append(f"API_TYPE: jnwb.{name} has an empty Type cell")

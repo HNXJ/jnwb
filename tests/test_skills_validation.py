@@ -41,6 +41,7 @@ CANONICAL_SKILLS = {
     "jnwb-population",
     "jnwb-connectivity",
     "jnwb-figures",
+    "jnwb-landmark-viz",
 }
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -175,7 +176,7 @@ def _fact_stack_writers(paths) -> List[str]:
 
 
 def test_canonical_skills_directories_exist():
-    """Verify exactly the 9 intended canonical skill directories exist."""
+    """Verify exactly the intended canonical skill directories exist."""
     assert SKILLS_DIR.exists(), f"Skills directory missing: {SKILLS_DIR}"
     actual_skills = {d.name for d in SKILLS_DIR.iterdir() if d.is_dir()}
     assert actual_skills == CANONICAL_SKILLS, f"Skills mismatch: {actual_skills ^ CANONICAL_SKILLS}"

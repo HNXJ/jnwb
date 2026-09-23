@@ -19,11 +19,16 @@ A wheel carries the library, and the sdist adds `AGENTS.md` and `skills/`. Neith
 ```bash
 pip install "jnwb[torch,gpu]"   # PyTorch, CuPy, and CUDA 12.x acceleration
 pip install "jnwb[mcp]"         # Model Context Protocol server tooling
+pip install "jnwb[vis]"         # Plotly figure engine jnwb.vis, with kaleido for SVG/PNG export
 pip install "jnwb[docs]"        # MkDocs documentation builder
 pip install "jnwb[test]"        # pytest and pytest-xdist, plus the build and notebook
                                # tooling the release gate and the tutorial tests need
 pip install "jnwb[all]"         # Complete dependency bundle
 ```
+
+`jnwb.vis` is the one export that needs an extra. Without `vis` installed, `import jnwb` and
+every other export work, and accessing `jnwb.vis` raises `ImportError` naming
+`pip install jnwb[vis]`.
 
 ### GPU and parallel execution
 
@@ -76,7 +81,7 @@ pip install -e . --config-settings editable_mode=strict
 `import jnwb` eagerly loads the core spectral, connectivity, and TFR surface. Symbols from
 `statistics`, `metadata`, `decoding`, `ontology`, `analyzers`, `onset_fitting`, and `viz` resolve
 on first access through `jnwb.__getattr__` without importing their submodules at package import
-time. The `visual_qc` submodule is likewise deferred. This keeps `scikit-learn`, `statsmodels`,
+time. The `visual_qc` and `vis` submodules are likewise deferred. This keeps `scikit-learn`, `statsmodels`,
 `matplotlib` and `joblib` out of the import while preserving the full public API in
 `jnwb.__all__`, which the suite verifies symbol by symbol.
 
@@ -97,7 +102,10 @@ import jnwb
 
 print(f"jnwb version: {jnwb.__version__}")
 print(f"Public surface: {len(jnwb.__all__)} symbols")
-missing = [name for name in jnwb.__all__ if not hasattr(jnwb, name)]
+# jnwb.vis resolves only where the vis extra is installed.
+from importlib.util import find_spec
+optional = set() if find_spec("plotly") else {"vis"}
+missing = [name for name in jnwb.__all__ if name not in optional and not hasattr(jnwb, name)]
 assert not missing, f"Unresolved public exports: {missing}"
 print("Verification passed successfully.")
 ```

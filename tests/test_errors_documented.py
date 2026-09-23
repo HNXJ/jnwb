@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 GENERATED = "api.md"
@@ -42,6 +43,9 @@ def _hand_written_text():
 def _exported_errors():
     out = []
     for name in jnwb.__all__:
+        if name in OPTIONAL_SUBMODULES:
+            # A submodule, so never an error class; importing it needs its optional extra.
+            continue
         obj = getattr(jnwb, name, None)
         if isinstance(obj, type) and issubclass(obj, BaseException):
             out.append(name)

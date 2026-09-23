@@ -64,6 +64,7 @@ import pandas as pd
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
@@ -73,8 +74,12 @@ MERMAID = re.compile(r"^```mermaid[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
 PYTHON = re.compile(r"^```python[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
 IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-#: Public callables, taken from the shipped symbol list rather than a list written here.
-PUBLIC = frozenset(n for n in jnwb.__all__ if callable(getattr(jnwb, n, None)))
+#: Public callables, taken from the shipped symbol list rather than a list written here. An
+#: optional submodule is a module, so it is never one of them, and is not imported to find out.
+PUBLIC = frozenset(
+    n for n in jnwb.__all__
+    if n not in OPTIONAL_SUBMODULES and callable(getattr(jnwb, n, None))
+)
 
 _ARROWS = ("-.->", "==>", "-->", "---", "--x", "--o")
 _CLOSERS = {"[": "]", "(": ")", "{": "}"}

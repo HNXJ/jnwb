@@ -61,10 +61,33 @@ def _canonical_type_name(module: str, qualname: str) -> str:
 
 
 def _first_doc_line(obj: Any) -> str:
-    doc = inspect.getdoc(obj) or ""
+    return _first_paragraph(inspect.getdoc(obj) or "")
+
+
+def _first_paragraph(doc: str) -> str:
     if not doc:
         return ""
     return doc.strip().split("\n\n")[0].replace("\n", " ").strip()
+
+
+def _optional_submodule_cell(name: str) -> str:
+    """The cell for a submodule whose dependencies are an optional extra, read from source.
+
+    Importing ``jnwb.vis`` needs Plotly, so rendering its row from the imported module would
+    make this page depend on which extras the generating environment has. The docstring is
+    read with ``ast.get_docstring``, which applies the same ``inspect.cleandoc`` that
+    ``inspect.getdoc`` applies to an imported module, so the row is the one an import would
+    have produced and is byte-identical with or without the extra.
+    """
+    import ast
+    import importlib.util
+
+    spec = importlib.util.find_spec(f"jnwb.{name}")
+    if spec is None or spec.origin is None:
+        raise RuntimeError(f"jnwb.{name} is declared optional but has no source to read")
+    tree = ast.parse(Path(spec.origin).read_text(encoding="utf-8"))
+    line = _first_paragraph(ast.get_docstring(tree) or "")
+    return f"*{line}*" if line else "*"
 
 
 def _format_default(value: Any) -> str:
@@ -197,6 +220,11 @@ def _format_cell(obj: Any, kind: str) -> str:
 
 
 def _module_for_symbol(jnwb: Any, name: str) -> str:
+    from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+
+    if name in OPTIONAL_SUBMODULES:
+        # A module carries no __module__, so an imported one groups under "jnwb" too.
+        return "jnwb"
     obj = getattr(jnwb, name)
     mod = getattr(obj, "__module__", "jnwb") or "jnwb"
     if mod == "jnwb":
@@ -213,6 +241,7 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     import jnwb
+    from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
     grouped: Dict[str, List[str]] = defaultdict(list)
     for name in jnwb.__all__:
@@ -235,6 +264,9 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
         lines.append("| Symbol | Type | Signature / Description |")
         lines.append("|---|---|---|")
         for symbol in sorted(grouped[module_name]):
+            if symbol in OPTIONAL_SUBMODULES:
+                lines.append(f"| jnwb.{symbol} | module | {_optional_submodule_cell(symbol)} |")
+                continue
             obj = getattr(jnwb, symbol)
             typ = _object_type_name(obj)
             lines.append(f"| jnwb.{symbol} | {typ} | {_format_cell(obj, typ)} |")

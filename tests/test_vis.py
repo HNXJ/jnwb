@@ -25,8 +25,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
-import plotly.graph_objects as go
 import pytest
+
+# jnwb.vis needs the optional `vis` extra; test_optional_vis_extra.py covers its absence.
+pytest.importorskip("plotly")
+import plotly.graph_objects as go  # noqa: E402
 
 from jnwb.vis.canvas import PlotlyPublicationCanvas, STANDARD_LAYOUT_WIDTHS_MM, MM_TO_PX
 from jnwb.vis.sidecar import EpistemicArgumentObject, serialize_argument_sidecar

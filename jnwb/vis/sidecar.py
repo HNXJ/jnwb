@@ -22,18 +22,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Sequence, Union
 
 
-REQUIRED_FIELDS = (
-    "QUESTION",
-    "DATA",
-    "ESTIMAND",
-    "INFERENCE UNIT",
-    "RESULT",
-    "LICENSED CLAIM",
-    "BARRED CLAIM",
-    "SOURCE ARTIFACTS",
-)
-
-
 @dataclass
 class EpistemicArgumentObject:
     """Canonical 8-field epistemic argument object for scientific figures."""
