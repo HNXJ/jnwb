@@ -15,7 +15,7 @@ Activate this skill when comparing neural responses across conditions, performin
 - `jnwb.permute_labels(y, scheme="within_group"|"global", groups=None, rng=...)`: Permute labels under an explicit exchangeability structure.
 - `jnwb.build_permutation_plan(labels, groups, n_permutations=..., rng=...)`: Generate an explicit within-group permutation manifest with SHA-256 digests.
 - `jnwb.cluster_permutation_test(X, Y, *, paired=False, groups=None, threshold=2.0, n_permutations=1000, rng=0, n_jobs=1)`: Mass-univariate testing over time or frequency with maximum-cluster FWER control. A significant cluster licenses "the conditions differ somewhere in the searched window" and nothing about where: the cluster's onset, offset, peak and width are not estimates, because `threshold` defined its edges.
-- `jnwb.StatisticalAnalysis.clopper_pearson_ci(k, n, alpha=0.05)`: Exact binomial confidence intervals via Beta-quantile inversion.
+- `jnwb.StatisticalAnalysis.clopper_pearson_ci(k, n, alpha=0.05)`: Exact (Clopper-Pearson) binomial confidence interval for `k` successes in `n` trials.
 - `jnwb.paired_fire_prob_test(fires_target, fires_null, n_shuffles, n_bootstrap, rng)`: Paired bootstrap test for firing-probability changes between conditions. All five are required and `rng` must be a `Generator`, not a seed. **Target first.** Swapping the first two arguments returns a valid result with `risk_difference` negated and `odds_ratio` inverted, and raises nothing.
 
 - `jnwb.clopper_pearson(k, n, alpha=0.05)`: The exact binomial interval as a free function; `StatisticalAnalysis.clopper_pearson_ci` is the method form of the same computation.

@@ -34,6 +34,7 @@ why, so the gaps read as decisions rather than as coverage.
 | `scripts/harness_gate.py` | Repository gates 1–16 (§6) |
 | `scripts/release_gate.py` | The pre-tag check (§6). `CONTRIBUTING.md` says what it does and when |
 | `skills/` | Task skills, one folder per area (§7). Load one before the work it covers |
+| `artifacts/agents.md` | The agent entry page, linked from `README.md` |
 | `artifacts/agents/` | Portable role definitions: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer`. Decoupled from domain skills (`role` $\perp$ `domain`). Parameterized via delegation packets |
 | `artifacts/todo_stack.md` | Remaining work, grouped by the version that carries it (§2). Finished items are deleted |
 | `artifacts/problem_stack.md` | Defects, contradictions and unknowns as they are found (§2). A release requires no `BLOCKER` entry — not an empty file (§11) |

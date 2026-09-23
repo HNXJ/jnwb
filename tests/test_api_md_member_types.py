@@ -11,14 +11,18 @@ Measured at 89e954a0 -- with `_object_type_name` returning the literal "BLINDSPO
 export and the page regenerated from it, all 156 rows declared a type true of nothing and the
 harness still reported `ALL HARNESS GATES PASSED. 16 of 16`.
 
-The oracle below is written out here rather than imported from `scripts.generate_api_md`;
-importing the generator's own classifier would rebuild that fixed point.
+The oracle is `scripts.harness_gate.api_member_kind`, and what matters is which module it is
+*not* imported from: `scripts.generate_api_md`. Importing the generator's own classifier would
+rebuild that fixed point. It lived in this file until 06-106 landed the gate half; it moved to
+`harness_gate.py` so that gate 18 and these tests share one definition rather than two that can
+drift, and this file kept the assertions.
 """
 
 from __future__ import annotations
 
 import inspect
 import re
+import sys
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Tuple
 
@@ -26,11 +30,18 @@ import jnwb
 
 # No `sys.path.insert(0, REPO_ROOT)` here, deliberately. Prepending the checkout re-shadows the
 # installed copy for the whole session, which is what P-39 recorded and what
-# `test_the_suite_can_qualify_an_installed_copy.py` fails the suite over. It is also redundant:
-# `pyproject.toml` sets pytest's `pythonpath = ["."]`, so the checkout is already importable,
-# and 63 other test modules import jnwb plainly. REPO_ROOT stays -- it locates the page on disk,
-# which is a file lookup rather than an import path.
+# `test_the_suite_can_qualify_an_installed_copy.py` fails the suite over. REPO_ROOT stays -- it
+# locates the page on disk, which is a file lookup rather than an import path.
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# `append`, for `scripts.` only. The wheel does not ship `scripts/`, so without this the module
+# fails collection in the wheel-qualification leg -- where, in a full run, it would be masked by
+# an earlier module's own append and the suite would look green.
+# `tests/test_test_imports_survive_the_wheel_leg.py` is what refuses that.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.harness_gate import API_MD_ROW, api_member_kind  # noqa: E402
 
 API_MD = REPO_ROOT / "docs" / "api.md"
 
@@ -38,10 +49,8 @@ API_MD = REPO_ROOT / "docs" / "api.md"
 #: contain one, from a rendered union such as `-> str | None`. The `$` anchor is what makes the
 #: closing pipe unambiguous -- measured, a non-greedy cell group parses all 156 rows
 #: identically, so the anchor carries this and the greediness does not.
-ROW = re.compile(
-    r"^\|\s*jnwb\.([A-Za-z_][A-Za-z0-9_]*)\s*\|([^|]*)\|(.*)\|\s*$",
-    re.MULTILINE,
-)
+#: Now gate 18's, so the page is parsed one way by the gate and by these tests.
+ROW = API_MD_ROW
 
 
 def parsed_rows() -> List[Tuple[str, str, str]]:
@@ -50,21 +59,11 @@ def parsed_rows() -> List[Tuple[str, str, str]]:
     return [(m.group(1), m.group(2).strip(), m.group(3).strip()) for m in ROW.finditer(text)]
 
 
-def expected_kind(obj: Any) -> str:
-    """What the object is, asked of the object.
-
-    A property rather than a list of known constant types. The defect this file pins existed
-    because the generator asked `isinstance(obj, (dict, tuple, frozenset, list))`: an
-    enumeration has to be maintained, and the one scalar constant in `__all__` was missing
-    from it.
-    """
-    if inspect.isclass(obj):
-        return "class"
-    if inspect.ismodule(obj):
-        return "module"
-    if callable(obj):
-        return "function"
-    return "constant"
+#: What the object is, asked of the object -- a property rather than a list of known constant
+#: types. The defect this file pins existed because the generator asked
+#: `isinstance(obj, (dict, tuple, frozenset, list))`: an enumeration has to be maintained, and
+#: the one scalar constant in `__all__` was missing from it. Gate 18's, as of 06-106.
+expected_kind = api_member_kind
 
 
 def constant_rows() -> Iterator[Tuple[str, Any, str]]:

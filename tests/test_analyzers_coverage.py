@@ -9,12 +9,39 @@ Focus areas:
 - StatisticalAnalysis: correlation methods
 """
 
+import contextlib
+import sys
 import unittest
 import numpy as np
 import pandas as pd
 
 from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
 from jnwb.statistics import StatisticalAnalysis
+
+
+@contextlib.contextmanager
+def blocked_import(name):
+    """Make `import <name>` fail, restoring only that one key.
+
+    `unittest.mock.patch.dict(sys.modules, ...)` cannot be used for this. Its restore is
+    `sys.modules.clear()` followed by `update(original)`, so every module imported inside
+    the block is evicted on exit. Blocking cupy here sends
+    `PopulationAnalyzer.population_trajectory` down its PyTorch fallback, which performs
+    the process's first `import torch` and adds ~730 `torch*` entries; the restore removed
+    all of them while torch's C extensions stayed loaded, and the next `import torch`
+    re-executed `torch/__init__.py` against an already-initialised `torch._C` and crashed
+    the interpreter with an access violation. That was P-12.
+    """
+    missing = object()
+    previous = sys.modules.get(name, missing)
+    sys.modules[name] = None
+    try:
+        yield
+    finally:
+        if previous is missing:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
 
 
 class TestTFRAnalyzerBandExtraction(unittest.TestCase):
@@ -363,12 +390,11 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
         self.assertIn(res['device_used'], ('cpu', 'cuda'))
 
     def test_fallback_warning_when_gpu_fails(self):
-        import sys
         import warnings
         from unittest.mock import patch
 
         with patch("jnwb.analyzers.resolve_device", return_value="cuda"):
-            with patch.dict(sys.modules, {"cupy": None}):
+            with blocked_import("cupy"):
                 with patch("jnwb.analyzers.torch_cuda_available", return_value=False):
                     with warnings.catch_warnings(record=True) as w:
                         warnings.simplefilter("always")

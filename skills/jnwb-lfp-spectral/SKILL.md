@@ -15,7 +15,7 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 - `jnwb.aggregate_to_db(power, baseline, *, how="mean_of_ratios"|"ratio_of_means", aggregate_over=None)`: Decibels last — ratio aggregate then `10·log10` once. `how` is keyword-only and has no default: the estimand is named, not inherited.
 - `jnwb.bandpass_filter(data, fs, low_cut, high_cut)`: Zero-phase Butterworth bandpass.
 - `jnwb.notch_filter(data, fs, freq=60.0, q=30.0)`: IIR notch for line noise.
-- `jnwb.TFRAccumulator(shape)`: Welford running variance accumulator for streaming multi-trial TFR without storing full $N \times C \times F \times T$ arrays in memory.
+- `jnwb.TFRAccumulator(shape)`: Streaming mean and variance of a multi-trial TFR without holding every trial in memory.
 - `jnwb.repair_lfp_trials(segments, times_ms, z_thresh=6.0)`: Cross-channel synchrony detection ($z > 6.0$) and cross-trial median substitution.
 - `jnwb.repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=6.0, sided="upper")`: TFR-domain outlier detection and interpolation.
 - `jnwb.channel_correlation_matrix(data_ch_by_time)` & `jnwb.bad_channels_from_correlation(corr, z_thresh=5.0)`: Detect disconnected or excessively noisy probe channels.
@@ -31,7 +31,7 @@ Activate this skill when computing continuous or trial-aligned LFP spectra, comp
 - `jnwb.spectral_tilt(lfp_trace, fs, freq_range=(1.0, 100.0))`: Aperiodic $1/f$ spectral slope parameterization.
 - `jnwb.bipolar_reference(channel_data, channel_order=None)`: Local differential referencing for spatial artifact reduction.
 
-- `jnwb.to_db(ratio)`: `10*log10(ratio)`, the single point every power-ratio-to-dB conversion passes through. Average power, divide by baseline, take the logarithm exactly once -- never average decibels.
+- `jnwb.to_db(ratio)`: The single point where a power ratio becomes decibels. Average power, divide by baseline, take the logarithm exactly once -- never average decibels.
 - `jnwb.relative_power(power, baseline, *, model="mean_of_ratios", axis=None, device="cpu")`: Power against baseline under an explicit estimand. `"mean_of_ratios"` and `"ratio_of_means"` are different quantities, not two routes to one. It returns a bare array and records no model, so nothing downstream can recover which estimand produced a value: carry the model yourself wherever the value is stored or reported.
 - `jnwb.compute_multitaper_psd(data, fs, nw=3.0, k_tapers=None, axis=-1)`: PSD by the DPSS multitaper method. `nw` sets the bandwidth-time product, so it sets the frequency resolution the estimate can support.
 - `jnwb.morlet_wavelet(f0, fs, n_cycles=5.0, normalization="amplitude", cutoff_sigma=4.0)`: The complex Morlet kernel underneath the TFR. `n_cycles` trades frequency resolution against time resolution at every frequency.

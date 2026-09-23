@@ -178,7 +178,8 @@ def jrsa(
     align_mode : str
         Correspondence rule: fraction | sample | timestamp | index.
     reduction : dict or None
-        Dimension reductions, e.g. {"trial": "mean"}.
+        Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
+        mean | median | sum | max | min; anything else raises rather than defaulting.
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
@@ -653,6 +654,11 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
     return x1, x2, tuple(aligned_axes_list)
 
 
+#: Alignment algorithms `_resample_axis` implements. `'none'` and `'dtw'` are handled by
+#: `_align_dimensions` before it gets here, so they are not members of this set.
+ALIGN_MODES = ("auto", "downsample", "upsample", "nearest", "interpolate", "linear", "cubic")
+
+
 def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
     """Resample one array along *axis* to match the other, respecting GPU/CPU."""
     xp1 = _get_xp(x1)
@@ -716,56 +722,66 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
                 x2 = _interp_cubic(x2, n2, target, axis)
         except ImportError:
             x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
+    else:
+        # The chain used to end here with no `else`, so an unrecognised `align` returned both
+        # arrays untouched while `_align_dimensions` still appended the axis to `aligned_axes`
+        # and `parameters['align']` echoed the request: a claim that an alignment happened,
+        # over data that was never aligned.
+        raise ValueError(
+            f"jrsa: unrecognized align {align!r}. "
+            f"Valid options: {list(ALIGN_MODES)}."
+        )
     return x1, x2
+
+
+#: Reductions `reduction={axis_name: op}` accepts. Written out rather than derived from the
+#: dispatch below, so a value the dispatch cannot handle is not silently a valid request.
+REDUCTION_OPS = ("mean", "median", "sum", "max", "min")
+
+
+def _reduce_one(arr, op_str: str, ax: int):
+    """Apply one named reduction along *ax*, on CPU or GPU."""
+    xp = _get_xp(arr)
+    if op_str == "mean":
+        return xp.mean(arr, axis=ax, keepdims=True)
+    if op_str == "median":
+        if xp.__name__ == "cupy":
+            try:
+                return xp.median(arr, axis=ax, keepdims=True)
+            except AttributeError:
+                # The 50th percentile with linear interpolation *is* the median: the same
+                # number by a different call, so the recorded 'median' stays true.
+                return xp.percentile(arr, 50, axis=ax, keepdims=True)
+        return np.median(arr, axis=ax, keepdims=True)
+    if op_str == "sum":
+        return xp.sum(arr, axis=ax, keepdims=True)
+    if op_str == "max":
+        return xp.max(arr, axis=ax, keepdims=True)
+    if op_str == "min":
+        return xp.min(arr, axis=ax, keepdims=True)
+    # Unreachable: _reduce_dimensions validates first. Kept as a raise rather than a
+    # fallthrough so the dispatch cannot regrow a default while the validator is edited.
+    raise ValueError(f"jrsa: unhandled reduction {op_str!r}.")
 
 
 def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
     """Apply reductions (mean, median, …) along named axes on CPU or GPU."""
     for name, op_str in reduction.items():
+        if op_str not in REDUCTION_OPS:
+            # This used to fall through to `mean` while `parameters['reduction']` kept
+            # echoing the request, so `reduction={'time': 'medain'}` returned a mean and was
+            # recorded as a median. A typo in a reduction is not a preference to be
+            # approximated -- the same principle as the correction method above.
+            raise ValueError(
+                f"jrsa: unrecognized reduction {op_str!r} for axis {name!r}. "
+                f"Valid options: {list(REDUCTION_OPS)}."
+            )
         ax = axis_map.get(name)
         if ax is None:
             continue
-
-        xp1 = _get_xp(x1)
-        if op_str == "mean":
-            x1 = xp1.mean(x1, axis=ax, keepdims=True)
-        elif op_str == "median":
-            if xp1.__name__ == "cupy":
-                try:
-                    x1 = xp1.median(x1, axis=ax, keepdims=True)
-                except AttributeError:
-                    x1 = xp1.percentile(x1, 50, axis=ax, keepdims=True)
-            else:
-                x1 = np.median(x1, axis=ax, keepdims=True)
-        elif op_str == "sum":
-            x1 = xp1.sum(x1, axis=ax, keepdims=True)
-        elif op_str == "max":
-            x1 = xp1.max(x1, axis=ax, keepdims=True)
-        elif op_str == "min":
-            x1 = xp1.min(x1, axis=ax, keepdims=True)
-        else:
-            x1 = xp1.mean(x1, axis=ax, keepdims=True)
-
+        x1 = _reduce_one(x1, op_str, ax)
         if x2 is not None:
-            xp2 = _get_xp(x2)
-            if op_str == "mean":
-                x2 = xp2.mean(x2, axis=ax, keepdims=True)
-            elif op_str == "median":
-                if xp2.__name__ == "cupy":
-                    try:
-                        x2 = xp2.median(x2, axis=ax, keepdims=True)
-                    except AttributeError:
-                        x2 = xp2.percentile(x2, 50, axis=ax, keepdims=True)
-                else:
-                    x2 = np.median(x2, axis=ax, keepdims=True)
-            elif op_str == "sum":
-                x2 = xp2.sum(x2, axis=ax, keepdims=True)
-            elif op_str == "max":
-                x2 = xp2.max(x2, axis=ax, keepdims=True)
-            elif op_str == "min":
-                x2 = xp2.min(x2, axis=ax, keepdims=True)
-            else:
-                x2 = xp2.mean(x2, axis=ax, keepdims=True)
+            x2 = _reduce_one(x2, op_str, ax)
     return x1, x2
 
 
@@ -942,6 +958,11 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwarg
     return np.asarray(null)
 
 
+#: Tail specifications `alternative=` accepts, written out rather than derived from the
+#: dispatch in `_p_from_null`.
+ALTERNATIVES = ("two-sided", "greater", "less")
+
+
 def _p_from_null(value, null_dist, alternative):
     """Compute p-value from null distribution.
 
@@ -961,6 +982,17 @@ def _p_from_null(value, null_dist, alternative):
     lags, which now yields shape ``(n_lags,)`` and so matches `value` there too instead
     of the former ``(n_lags, 1)``.
     """
+    if alternative not in ALTERNATIVES:
+        # This chain used to end in a bare `else` computing the *less* tail, so an
+        # unrecognised alternative -- including the case variant 'GREATER' -- returned the
+        # left-tail p-value while `parameters['alternative']` echoed the request. A one-sided
+        # test asked for in the wrong case came back as p = 1.0 where the right answer was
+        # 0.005. Same principle as the correction method and the reduction: a request the
+        # dispatch does not recognise is not a request to be approximated.
+        raise ValueError(
+            f"jrsa: unrecognized alternative {alternative!r}. "
+            f"Valid options: {list(ALTERNATIVES)} (lowercase)."
+        )
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)

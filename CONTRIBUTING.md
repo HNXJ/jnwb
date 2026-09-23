@@ -194,6 +194,74 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
   python scripts/docs_build.py
   ```
 
+## Skill rule
+
+A skill routes an agent to jnwb's public operations and constrains how it composes them. The
+operation's code, documentation and tests define what it computes; the skill names it and says
+when to use it (`artifacts/direction.md`: code implements, docs explain, skills route, tests
+verify).
+
+### When a skill is created
+
+Only when all three hold, per `artifacts/fact_stack.md` ("Skill creation is capability-gated"):
+
+1. a coherent **public** capability surface exists for it to route to;
+2. that surface has enough routing complexity to benefit from a specialist;
+3. no existing skill can carry it more simply.
+
+A skill whose main behaviour would be declining, or writing code no public API provides, is not
+created. The API, its documentation and its tests land first, or in the same change as the skill.
+Extending an existing skill is the default.
+
+### What a skill contains
+
+`skills/<name>/SKILL.md`, with frontmatter `name: <name>` and a one-sentence `description`, then:
+
+| Section | Holds |
+|---|---|
+| Trigger | The requests that should load this skill |
+| Routing | One row per operation: `jnwb.fn(args)` and when to use it |
+| Invariants | The scientific constraints composition must respect, each stated once |
+| Minimal workflow | One runnable example on synthetic data |
+| Verification | How an agent checks its result |
+| Documentation | Links to the `docs/` pages that define the operations |
+
+`skills/<name>/agents/openai.yaml` carries `interface.display_name` (equal to `<name>`),
+`interface.description`, and `policy.allow_implicit_invocation: true`.
+
+Every task a skill handles ends in one of four outcomes: compose and execute, request missing
+information, report non-identifiability or failure, or decline an unsupported inference. A skill
+that cannot decline is incomplete.
+
+### What a skill leaves out
+
+- Mathematics and estimator definitions: link the `docs/` page instead.
+- Implementation internals (pool mechanics, accumulator algorithms, solver details).
+- Counts of exports, tests or files.
+- Study-specific condition codes, session labels or area vocabularies (Gate 6).
+
+State a default only where it changes how the operation must be called, and give it a row in
+`tests/test_skill_default_claims_match_signatures.py`; an unregistered mention fails the suite.
+
+### What checks it
+
+`tests/test_skills_validation.py`, `tests/test_skill_default_claims_match_signatures.py` and
+harness Gate 2 check, on every run:
+
+- the skill directory is in `CANONICAL_SKILLS`, and `skills/` is the only skill tree;
+- frontmatter and `openai.yaml` match the shape above;
+- every routed `jnwb.` symbol is in `jnwb.__all__` and every routing row's arguments bind to
+  `inspect.signature` of the live function;
+- every default stated in prose equals the signature default;
+- every linked `docs/` path exists, and no hardcoded counts appear.
+
+A public API change updates the routing rows in the same commit (`AGENTS.md` §8); the signature
+check fails the suite otherwise. Adding a skill also adds its row to the router
+(`skills/jnwb/SKILL.md`) and to the skill table in `AGENTS.md` §7.
+
+Routing tests that exercise all four outcomes for every skill are planned for 0.2.7
+(`artifacts/planned_post_0.2.6.md`).
+
 ## Repository root freeze and `artifacts/` policy
 
 To maintain a clean, distributable repository structure, the repository root is **strictly frozen** to files and directories required for packaging, build, CI, documentation, tests, source, canonical skills, and core repository metadata:

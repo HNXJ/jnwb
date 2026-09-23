@@ -20,7 +20,7 @@ Activate this skill when computing spike rasters, PSTHs, causal firing rate smoo
 - `jnwb.bin_spikes(spike_times, window_s=None, bin_size_ms=10.0, trial_starts=None, output="count", return_centers=False)`, `jnwb.fires_in_window(spike_times, onset_s, window_ms)`, `jnwb.rate_in_window(spike_times, onset_s, window_ms)` and `jnwb.fire_indicator(spike_times, onsets_s, window_ms)`: The half-open binning family. Every window is `[start, end)`, so a spike on a boundary belongs to exactly one bin and adjacent windows cannot both count it -- the double count `docs/common_mistakes.md` section 2 exists for. Use these rather than open-ended comparisons.
 
 - `jnwb.gaussian_smooth_rate(rate, bin_ms, sigma_ms=20.0, axis=-1)`: Symmetrical **acausal** Gaussian smoothing of a binned rate. It moves signal backwards in time, so never measure an onset latency on a smoothed trace -- fit the unsmoothed rate.
-- `jnwb.onset_model(t, t0, tau, amplitude, baseline)`: The saturating-exponential form `fit_exponential_onset` fits -- `baseline` before `t0`, then `baseline + amplitude*(1 - exp(-(t - t0)/tau))`. Use it to draw a fit, not to estimate one.
+- `jnwb.onset_model(t, t0, tau, amplitude, baseline)`: The model `fit_exponential_onset` fits, defined in `docs/06_spikes_psth_and_onset_dynamics.md`. Use it to draw a fit, not to estimate one.
 
 ## 3. Invariants & Safeguards
 1. **Causal Filter Geometry**: Never use acausal Gaussian smoothing when estimating response latency. `causal_exp_smooth` strictly operates on past bins ($t \le t_0$).
@@ -39,7 +39,7 @@ events = np.array([1.0, 3.0, 5.0, 7.0])
 
 time_bins, rate_hz, sem_hz = jnwb.raster_psth(spikes, events, win_ms=(-100.0, 400.0), bin_ms=10.0)
 smooth_hz = jnwb.causal_exp_smooth(rate_hz, bin_ms=10.0, tau_ms=25.0)
-fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds=(0.0, 200.0))
+fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds_ms=(0.0, 200.0))
 ```
 
 ## 5. Verification

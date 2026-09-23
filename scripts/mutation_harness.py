@@ -23,11 +23,26 @@ answer* rather than an error:
   that merely went red is a :class:`ConditionFailed`, not a kill -- and a node that ``ERROR``\\ ed
   is not an observation either, because the test body never ran.
 
-The eight conditions in :data:`CONDITIONS` are enforced here, each at exactly one site, and each
+* **A mutant that breaks nothing, left live for three days** (P-174). ``test_no_broken_links``
+  ran with ``if False and`` wired into its own check and passed vacuously through four green
+  suite runs. The suite could not catch it: *a mutant that suppresses a check cannot be caught
+  by the check it suppresses.* Neither could the journal, which predates the mutant and answers
+  ``[]`` to "what is outstanding?" whether it has no records or no file. So a session now
+  **states the tree it ran against**: every tracked modification at entry is compared against the
+  set the caller declares it meant to make, and an undeclared one refuses the run by name. And a
+  journal that is missing or unparseable reports *unknown*, never *empty*.
+
+The nine conditions in :data:`CONDITIONS` are enforced here, each at exactly one site, and each
 raises a :class:`ConditionFailed` carrying its own ``condition`` name. A discriminator can drive a
 scenario and assert *which* guard stopped it, which is what makes each guard individually
 killable by mutation. A guard duplicated for safety is a guard that no test can prove is
 load-bearing.
+
+A case may also declare itself an **expected survivor** (:attr:`MutationCase.expected_survivor`).
+A ``Verdict`` with ``killed=False`` was otherwise only ever a failure, so a *measured* coverage
+gap had nowhere to live but a lane report, and a measured hole becomes a forgotten one (P-172).
+An expected survivor inverts the assertion: the gap is asserted to still be a gap, and the run
+fails when the mutant starts being killed and nobody updated the record.
 """
 
 from __future__ import annotations
@@ -43,11 +58,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
 
-#: The per-case conditions, in the order they are enforced. A verdict exists only if all eight
-#: held. These are not labels: each is the ``condition`` attribute of a real
-#: :class:`ConditionFailed`, so "every condition is reachable" is a checkable statement about
-#: behaviour rather than a claim about a docstring.
+#: The conditions, in the order they are enforced. ``tree-declared`` is enforced once at session
+#: entry and the rest per case; a verdict exists only if all nine held. These are not labels: each
+#: is the ``condition`` attribute of a real :class:`ConditionFailed`, so "every condition is
+#: reachable" is a checkable statement about behaviour rather than a claim about a docstring.
 CONDITIONS: tuple[str, ...] = (
+    "tree-declared",
     "pristine-collects",
     "pristine-passes",
     "lands-once",
@@ -108,6 +124,15 @@ class HarnessBusy(MutationHarnessError):
 
 class NotAWorktree(MutationHarnessError):
     """The path given is not inside a git worktree, so no worktree root can be derived."""
+
+
+class JournalUnreadable(MutationHarnessError):
+    """The journal file exists but cannot be read as a list of entries.
+
+    Distinct from "there is no journal", and from "the journal lists nothing outstanding". All
+    three used to be spelled ``[]`` (P-174), so a corrupted journal read as a clean bill of
+    health -- the one answer it must never give.
+    """
 
 
 class TreeNotPristine(MutationHarnessError):
@@ -227,6 +252,42 @@ def _normalize(node_id: str) -> str:
     return node_id.replace("\\", "/").strip()
 
 
+def _posix_relative(path: str | Path) -> str:
+    """A repository-relative path spelled the way ``git status --porcelain`` spells it.
+
+    The ``./`` prefix is stripped as a prefix, not as a character class. ``lstrip("./")`` also
+    eats the leading dot of a dotfile, so ``.github/workflows/ci.yml`` came back as
+    ``github/workflows/ci.yml``; because both sides of the comparison pass through here the check
+    still agreed with itself, and only the path it *named* in a refusal was wrong. A guard that
+    reports the wrong path is a guard the next reader does not believe.
+    """
+    text = str(path).replace("\\", "/").strip()
+    while text.startswith("./"):
+        text = text[2:]
+    return text
+
+
+def parse_porcelain(text: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Split ``git status --porcelain`` into (tracked modifications, untracked paths).
+
+    Only tracked paths feed the ``tree-declared`` refusal. An untracked file is caught by the
+    entry/exit status comparison instead, and refusing one at entry would reject every tree that
+    happens to hold a scratch file -- the gate nobody runs.
+    """
+    tracked: list[str] = []
+    untracked: list[str] = []
+    for raw in text.splitlines():
+        if len(raw) < 4:
+            continue
+        code, rest = raw[:2], raw[3:].strip()
+        # A rename prints "old -> new"; the new path is the one that is modified here.
+        if " -> " in rest:
+            rest = rest.split(" -> ", 1)[1]
+        rest = rest.strip('"')
+        (untracked if code == "??" else tracked).append(_posix_relative(rest))
+    return tuple(sorted(tracked)), tuple(sorted(untracked))
+
+
 def _looks_like_node_id(token: str) -> bool:
     return ".py::" in token or token.endswith(".py")
 
@@ -279,6 +340,14 @@ class MutationCase:
     selector: tuple[str, ...]
     must_fail: tuple[str, ...]
     semantic_property: str
+    #: True when this mutant is *known* not to be caught and the gap is on the record. The run
+    #: then fails if the mutant is killed, which is the only way a measured hole stops being a
+    #: narrated one (P-172).
+    expected_survivor: bool = False
+    #: Why the gap is tolerated, and where it is recorded. Required with ``expected_survivor``,
+    #: refused without it: a reason attached to a case nobody expects to survive is a note that
+    #: nothing checks.
+    survivor_reason: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "selector", tuple(self.selector))
@@ -297,6 +366,16 @@ class MutationCase:
             raise MutationHarnessError(
                 f"{self.name}: state the semantic property the mutant breaks; "
                 "'the tests go red' is not one."
+            )
+        if self.expected_survivor and not self.survivor_reason.strip():
+            raise MutationHarnessError(
+                f"{self.name}: an expected survivor must say why the gap is tolerated and where "
+                "it is recorded. A survivor with no reason is the narration this field replaces."
+            )
+        if self.survivor_reason.strip() and not self.expected_survivor:
+            raise MutationHarnessError(
+                f"{self.name}: survivor_reason is set but expected_survivor is False, so the "
+                "reason is a comment nothing asserts. Declare the expectation or drop the reason."
             )
         for token in (*self.selector, *self.must_fail):
             if not _looks_like_node_id(token):
@@ -354,6 +433,9 @@ class Verdict:
     pristine_digest: str
     mutant_digest: str
     restored_digest: str
+    #: Carried from the case, so a report can be partitioned without holding the cases too.
+    expected_survivor: bool = False
+    survivor_reason: str = ""
 
     def __post_init__(self) -> None:
         if type(self.proof) is not SelectorProof:
@@ -375,6 +457,94 @@ class Rejection:
     reason: str
 
 
+#: The journal exists and parses. Its entry list means what it says.
+JOURNAL_PRESENT = "present"
+#: There is no journal file. Nothing is known about what a previous run left behind.
+JOURNAL_ABSENT = "absent"
+#: A journal file exists and does not parse. Nothing is known, and something is wrong.
+JOURNAL_UNREADABLE = "unreadable"
+
+JOURNAL_STATUSES: tuple[str, ...] = (JOURNAL_PRESENT, JOURNAL_ABSENT, JOURNAL_UNREADABLE)
+
+
+@dataclass(frozen=True)
+class JournalState:
+    """What the journal says, and whether it is in a position to say anything (P-174).
+
+    The defect this replaces: ``_read_journal`` answered ``[]`` for a missing file, an
+    unparseable file, and a file recording nothing outstanding. "No mutant is open" and "I have
+    no idea" were the same sentence, so a report that the journal was empty carried no
+    information about the tree at all -- and a live mutant sat behind exactly that sentence for
+    three days.
+    """
+
+    status: str
+    entries: tuple[dict, ...] = ()
+    detail: str = ""
+
+    def __post_init__(self) -> None:
+        if self.status not in JOURNAL_STATUSES:
+            raise MutationHarnessError(
+                f"{self.status!r} is not one of the journal statuses {JOURNAL_STATUSES}"
+            )
+        object.__setattr__(self, "entries", tuple(self.entries))
+        if self.status != JOURNAL_PRESENT and self.entries:
+            raise MutationHarnessError(
+                f"a {self.status} journal cannot carry entries; it is the absence of an answer"
+            )
+
+    @property
+    def is_known(self) -> bool:
+        """True only when the journal is in a position to answer. Never true for an absence."""
+        return self.status == JOURNAL_PRESENT
+
+    def describe(self) -> str:
+        if self.status == JOURNAL_ABSENT:
+            return (
+                "journal: UNKNOWN (no journal file). This says nothing about whether a mutant is "
+                "live -- a harness that predates the journal leaves no record to be empty."
+            )
+        if self.status == JOURNAL_UNREADABLE:
+            return f"journal: UNKNOWN (unreadable: {self.detail})"
+        if not self.entries:
+            return "journal: present, nothing outstanding"
+        return f"journal: present, {len(self.entries)} mutation(s) outstanding"
+
+
+@dataclass(frozen=True)
+class TreeStatement:
+    """What the worktree looked like at session entry, and what the caller said to expect.
+
+    A run that cannot say which tree it ran against is not evidence about a tree. This is the
+    second half of the P-174 repair: the journal says what *this* harness opened, and this says
+    what is actually modified, so a mutant left by something else -- an older harness, a killed
+    editor, a hand edit -- is named rather than inherited.
+    """
+
+    head: str
+    tracked_modifications: tuple[str, ...] = ()
+    declared: tuple[str, ...] = ()
+    journal: JournalState | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "tracked_modifications", tuple(self.tracked_modifications))
+        object.__setattr__(self, "declared", tuple(self.declared))
+
+    @property
+    def undeclared(self) -> tuple[str, ...]:
+        return tuple(p for p in self.tracked_modifications if p not in self.declared)
+
+    def describe(self) -> str:
+        lines = [
+            f"tree: {self.head}",
+            f"tracked modifications: {list(self.tracked_modifications) or 'none'}",
+            f"declared: {list(self.declared) or 'none'}",
+        ]
+        if self.journal is not None:
+            lines.append(self.journal.describe())
+        return "\n".join(lines)
+
+
 @dataclass
 class SuiteReport:
     verdicts: list[Verdict] = field(default_factory=list)
@@ -382,26 +552,51 @@ class SuiteReport:
 
     @property
     def killed(self) -> list[Verdict]:
-        return [v for v in self.verdicts if v.killed]
+        """Mutants caught that were meant to be caught."""
+        return [v for v in self.verdicts if v.killed and not v.expected_survivor]
 
     @property
     def survived(self) -> list[Verdict]:
-        return [v for v in self.verdicts if not v.killed]
+        """Mutants nothing caught, and nobody said so in advance. Failures."""
+        return [v for v in self.verdicts if not v.killed and not v.expected_survivor]
+
+    @property
+    def expected_survivors(self) -> list[Verdict]:
+        """Declared gaps that are still gaps. The record agrees with the measurement."""
+        return [v for v in self.verdicts if not v.killed and v.expected_survivor]
+
+    @property
+    def unexpected_kills(self) -> list[Verdict]:
+        """Declared gaps that have closed. A failure, and the only kind that is good news.
+
+        Without this the record rots silently: someone adds the missing assertion, the gap is
+        gone, and the note saying it exists goes on saying so forever.
+        """
+        return [v for v in self.verdicts if v.killed and v.expected_survivor]
 
     def summary(self) -> str:
         lines = [
-            f"killed:    {len(self.killed)}",
-            f"survived:  {len(self.survived)}",
-            f"rejected:  {len(self.rejections)}  (never reached a verdict)",
+            f"killed:            {len(self.killed)}",
+            f"survived:          {len(self.survived)}",
+            f"expected survivor: {len(self.expected_survivors)}  (declared gaps, still open)",
+            f"unexpected kill:   {len(self.unexpected_kills)}  (declared gaps that closed)",
+            f"rejected:          {len(self.rejections)}  (never reached a verdict)",
         ]
         for v in self.survived:
             lines.append(f"  SURVIVED {v.case}")
+        for v in self.expected_survivors:
+            lines.append(f"  EXPECTED-SURVIVOR {v.case}: {v.survivor_reason}")
+        for v in self.unexpected_kills:
+            lines.append(
+                f"  UNEXPECTED-KILL {v.case}: recorded as a gap, but "
+                f"{list(v.observed_failures)} caught it. Update the record: {v.survivor_reason}"
+            )
         for r in self.rejections:
             lines.append(f"  REJECTED {r.case}: [{r.condition}] {r.reason}")
         return "\n".join(lines)
 
     def clean(self) -> bool:
-        return not self.survived and not self.rejections
+        return not self.survived and not self.rejections and not self.unexpected_kills
 
 
 # --------------------------------------------------------------------------------------------
@@ -561,7 +756,12 @@ class MutationSession:
     worktree's run at the main tree.
     """
 
-    def __init__(self, worktree: Path, state_root: Path | None = None) -> None:
+    def __init__(
+        self,
+        worktree: Path,
+        state_root: Path | None = None,
+        declared_modifications: Sequence[str] = (),
+    ) -> None:
         self.worktree = Path(worktree).resolve()
         self.state_dir = state_dir_for(self.worktree, state_root)
         self.backups = self.state_dir / "backups"
@@ -569,6 +769,13 @@ class MutationSession:
         self.digests: dict[Path, str] = {}
         self.report = SuiteReport()
         self.entry_status: str | None = None
+        #: Tracked paths the caller says it meant to have modified before the run. Empty by
+        #: default, which requires a clean tree -- the check has to be told nothing to be usable,
+        #: so it does not become the gate that must be handed an ignore list.
+        self.declared_modifications: tuple[str, ...] = tuple(
+            _posix_relative(p) for p in declared_modifications
+        )
+        self.tree_statement: TreeStatement | None = None
         self._lock_handle = None
 
     # -- lifecycle -------------------------------------------------------------------------
@@ -577,7 +784,10 @@ class MutationSession:
         self.backups.mkdir(parents=True, exist_ok=True)
         self._acquire_lock()
         try:
+            # Replay first: a mutant this harness opened and was killed holding is *this*
+            # session's to restore, and would otherwise be reported as somebody's surprise.
             self.replay_journal()
+            self.tree_statement = self.state_tree()
             self.entry_status = self._porcelain()
         except BaseException:
             self._release_lock()
@@ -664,13 +874,36 @@ class MutationSession:
 
     # -- journal ---------------------------------------------------------------------------
 
-    def _read_journal(self) -> list[dict]:
+    def read_journal(self) -> JournalState:
+        """What the journal is able to say -- which may be nothing, and says so (P-174).
+
+        Three answers, never one. An absent journal is *unknown*, not empty: the 0.2.5 harness
+        predates this file and journals nothing, so "all four journals read ``[]``" was true and
+        carried no information. An unparseable journal is unknown too, and additionally wrong.
+        """
         if not self.journal.is_file():
-            return []
+            return JournalState(JOURNAL_ABSENT, detail=f"{self.journal} does not exist")
         try:
-            return json.loads(self.journal.read_text(encoding="utf-8"))
-        except (ValueError, OSError):
-            return []
+            loaded = json.loads(self.journal.read_text(encoding="utf-8"))
+        except (ValueError, OSError) as exc:
+            return JournalState(JOURNAL_UNREADABLE, detail=f"{type(exc).__name__}: {exc}")
+        if not isinstance(loaded, list) or not all(isinstance(e, dict) for e in loaded):
+            return JournalState(
+                JOURNAL_UNREADABLE,
+                detail=f"expected a list of objects, got {type(loaded).__name__}",
+            )
+        return JournalState(JOURNAL_PRESENT, entries=tuple(loaded))
+
+    def _journal_entries(self) -> list[dict]:
+        """The outstanding entries, refusing to invent an empty list for an unknown journal."""
+        state = self.read_journal()
+        if state.status == JOURNAL_UNREADABLE:
+            raise JournalUnreadable(
+                f"{self.journal} exists and cannot be read ({state.detail}). It may record a live "
+                "mutant. Treating it as empty is the P-174 defect: restore the tree from version "
+                "control and delete the journal deliberately."
+            )
+        return list(state.entries)
 
     def _write_journal(self, entries: list[dict]) -> None:
         self.journal.write_text(json.dumps(entries, indent=2), encoding="utf-8")
@@ -679,14 +912,14 @@ class MutationSession:
         backup = self.backups / f"{digest}.bin"
         if not backup.is_file():
             backup.write_bytes(pristine)
-        entries = self._read_journal()
+        entries = self._journal_entries()
         entries.append({"path": str(path), "digest": digest, "backup": str(backup)})
         self._write_journal(entries)
 
     def _close_entry(self, path: Path, digest: str) -> None:
         entries = [
             e
-            for e in self._read_journal()
+            for e in self._journal_entries()
             if not (e.get("path") == str(path) and e.get("digest") == digest)
         ]
         self._write_journal(entries)
@@ -698,7 +931,7 @@ class MutationSession:
         must hash to the name they were stored under.
         """
         restored = []
-        for entry in self._read_journal():
+        for entry in self._journal_entries():
             path = ensure_inside_worktree(Path(entry["path"]), self.worktree)
             backup = Path(entry["backup"])
             digest = entry["digest"]
@@ -719,6 +952,45 @@ class MutationSession:
                 restored.append(str(path))
         self._write_journal([])
         return restored
+
+    # -- the tree this run ran against -------------------------------------------------------
+
+    def state_tree(self) -> TreeStatement:
+        """Say which tree the run is about, and refuse an undeclared modification (P-174).
+
+        The journal can only speak for mutations *this* harness opened. A mutant left by a
+        different harness, an interrupted editor or a hand edit is outside its knowledge, and the
+        one that mattered suppressed the very check that would have failed on it -- so the suite
+        could not speak for it either. ``git status`` can, in one second, and it is the only
+        reader here that does not depend on the mutant leaving something broken.
+
+        Only *tracked* modifications refuse. The declared set is empty by default: a clean tree
+        needs to declare nothing, so this does not become a gate that must be handed a list of
+        things to ignore.
+        """
+        head = _git(self.worktree, ["rev-parse", "HEAD"])
+        proc = _git(self.worktree, ["status", "--porcelain", "--untracked-files=all"])
+        if proc.returncode != 0:
+            raise NotAWorktree(
+                f"git status failed in {self.worktree}: {proc.stderr.strip() or 'git failed'}"
+            )
+        tracked, _untracked = parse_porcelain(proc.stdout)
+        statement = TreeStatement(
+            head=head.stdout.strip() if head.returncode == 0 else "unknown",
+            tracked_modifications=tracked,
+            declared=self.declared_modifications,
+            journal=self.read_journal(),
+        )
+        if statement.undeclared:
+            raise ConditionFailed(
+                "tree-declared",
+                "this run cannot say which tree it ran against: "
+                f"{list(statement.undeclared)} are modified in {self.worktree} and the caller did "
+                f"not declare them. Declared: {list(statement.declared) or 'none'}. A mutant that "
+                "suppresses a check cannot be caught by the check it suppresses, so a surprise "
+                "here is refused rather than run over.\n" + statement.describe(),
+            )
+        return statement
 
     # -- whole-run digest --------------------------------------------------------------------
 
@@ -820,6 +1092,8 @@ class MutationSession:
             pristine_digest=pristine_digest,
             mutant_digest=mutant_digest,
             restored_digest=restored_digest,
+            expected_survivor=case.expected_survivor,
+            survivor_reason=case.survivor_reason,
         )
         self.report.verdicts.append(verdict)
         return verdict
@@ -848,9 +1122,10 @@ def run_cases(
     cases: Sequence[MutationCase],
     worktree: Path,
     state_root: Path | None = None,
+    declared_modifications: Sequence[str] = (),
 ) -> SuiteReport:
     """One session, every case, digests verified on the way out. ``worktree`` is required."""
-    with MutationSession(worktree, state_root) as session:
+    with MutationSession(worktree, state_root, declared_modifications) as session:
         return session.run_suite(cases)
 
 
@@ -866,9 +1141,89 @@ def load_cases(path: Path) -> list[MutationCase]:
             selector=tuple(item["selector"]),
             must_fail=tuple(item["must_fail"]),
             semantic_property=item["semantic_property"],
+            expected_survivor=bool(item.get("expected_survivor", False)),
+            survivor_reason=item.get("survivor_reason", ""),
         )
         for item in raw
     ]
+
+
+# --------------------------------------------------------------------------------------------
+# the recorded gaps
+# --------------------------------------------------------------------------------------------
+
+#: Coverage gaps that were **measured**, not guessed, and are on the record rather than in prose.
+#:
+#: Each is a real mutation of library source that the test *named for the property* does not
+#: catch. Declaring them here is what P-172 asks for: the gap is asserted to still be a gap, so
+#: closing one without updating the record fails the run as an ``UNEXPECTED-KILL`` instead of
+#: leaving a note that quietly stops being true.
+#:
+#: These are not run by the fast suite -- a mutation of ``jnwb/`` has to happen in an isolated
+#: clone, because the suite runs under ``-n auto`` and a mutant in the shared checkout is visible
+#: to every other worker. ``tests/test_mutation_harness_validity.py`` holds them to what can be
+#: checked without mutating anything: the anchor still lands exactly once, and every node id they
+#: name still exists in the file it names.
+KNOWN_GAPS: tuple[MutationCase, ...] = (
+    MutationCase(
+        name="P-170 | the returned PSI spectrum's sign is pinned by nothing",
+        path="jnwb/connectivity.py",
+        original='            "psi_per_freq": psi_per_freq,\n',
+        replacement='            "psi_per_freq": -psi_per_freq,\n',
+        selector=(
+            "tests/test_connectivity.py::TestPsiInferenceIsNotOverstated"
+            "::test_the_sign_convention_is_unchanged",
+        ),
+        must_fail=(
+            "tests/test_connectivity.py::TestPsiInferenceIsNotOverstated"
+            "::test_the_sign_convention_is_unchanged",
+        ),
+        semantic_property=(
+            "the per-frequency PSI spectrum handed back to the caller carries the same sign "
+            "convention as the scalar net that is computed from it"
+        ),
+        expected_survivor=True,
+        survivor_reason=(
+            "P-170. The test named for the sign convention reads only `fwd.net` and `rev.net`, "
+            "which are computed before this dict is built, so the returned spectrum's sign is "
+            "unpinned. Recorded as measured, deliberately narrow: this is a statement about that "
+            "one selector. Closing it means a new assertion in tests/test_connectivity.py. "
+            "NOTE: P-170 is worded as a *conjugation* of psi_per_freq. That mutation is a "
+            "mathematical identity -- psi_per_freq is np.imag(...), a real array -- so it could "
+            "not be detected by any test and would be a vacuous survivor. The sign flip is the "
+            "same gap in a form that is actually observable."
+        ),
+    ),
+    MutationCase(
+        name="P-171 | density-versus-power is named by a test that measures a ratio",
+        path="jnwb/spectral.py",
+        original="        return signal.welch(trace, fs=fs, nperseg=nperseg)\n",
+        replacement=(
+            '        return signal.welch(trace, fs=fs, nperseg=nperseg, scaling="spectrum")\n'
+        ),
+        selector=(
+            "tests/test_spectral.py::TestBandPowerEstimandIsDocumented"
+            "::test_the_value_is_a_density_not_an_integrated_power",
+        ),
+        must_fail=(
+            "tests/test_spectral.py::TestBandPowerEstimandIsDocumented"
+            "::test_the_value_is_a_density_not_an_integrated_power",
+        ),
+        semantic_property=(
+            "band_power returns a spectral density in units^2/Hz, not an integrated power in "
+            "units^2 per bin"
+        ),
+        expected_survivor=True,
+        survivor_reason=(
+            "P-171. The test compares narrow/wide, a *ratio* of two means, and Welch's scaling "
+            "enters both sides as the same constant factor -- so it detects the bandwidth error "
+            "it is named for and not the scaling error. A P-37 proxy inside an existing test, "
+            "found by measurement. The mutation class itself is covered: "
+            "tests/test_semantic_mutation_classes.py kills it via "
+            "test_band_power_is_the_mean_psd_over_the_band. The naming is what is not covered."
+        ),
+    ),
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -883,10 +1238,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="the worktree to mutate. Required: there is no default, because defaulting to the "
         "checkout this module was imported from is the defect this harness exists to prevent.",
     )
+    parser.add_argument(
+        "--declare-modified",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="a tracked path you meant to have modified before the run. Anything else modified "
+        "refuses the run: a mutant that suppresses a check cannot be caught by that check.",
+    )
     args = parser.parse_args(argv)
 
     worktree = resolve_worktree(args.worktree)
-    report = run_cases(load_cases(args.cases), worktree=worktree)
+    try:
+        with MutationSession(worktree, declared_modifications=args.declare_modified) as session:
+            # Stated before the cases run, so a refusal further down is still attributable to a
+            # named tree rather than to whatever the checkout happened to hold.
+            print(session.tree_statement.describe() if session.tree_statement else "tree: unknown")
+            report = session.run_suite(load_cases(args.cases))
+    except MutationHarnessError as exc:
+        print(f"REFUSED: {exc}")
+        return 2
     print(report.summary())
     return 0 if report.clean() else 1
 

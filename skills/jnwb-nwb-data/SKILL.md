@@ -15,7 +15,7 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
 ### Per-file discovery and events (canonical Python route)
 
 - `jnwb.inspect(path_or_nwb)` → structured `dict` listing acquisitions, electrodes, units,
-  and **all** interval tables with column samples. Does **not** select a default event table.
+  and **all** interval tables with column samples. Selects no event table on the caller's behalf.
 - `jnwb.events(path_or_nwb, table=None, code_column="codes", onset_column="start_time")` →
   `EventTable` with all rows from one interval table. Onsets in **seconds**.
 - `jnwb.event_onsets(path_or_nwb, table=None, codes=None, code_column="codes",
@@ -85,8 +85,8 @@ use the public functions above in normal Python workflows.
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;
    pass `table=` explicitly when more than one task-like table exists.
-2. **Addressing robustness:** `map_peak_channel_to_area` checks `location`, then `area`, and
-   returns `None` when neither exists. It does **not** fall back to `group_name`, which is the
+2. **Addressing robustness:** `map_peak_channel_to_area` reads only anatomical columns and
+   returns `None` when the table has none. It does **not** fall back to `group_name`, which is the
    probe/shank label: an electrode table with no anatomical column used to return `'probeA'` as
    the brain area of channel 0, a fabricated label indistinguishable from a real one (05-18).
 3. **NWB compression contract:** `compress_fp32` converts on-disk electrical series to fp32;

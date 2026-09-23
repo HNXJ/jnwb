@@ -132,7 +132,7 @@ Setup, the checks to run, the branch model and the release procedure are in
 The queued work is in [artifacts/todo_stack.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/todo_stack.md), which is
 in the repository only -- `artifacts/` is pruned from the sdist.
 
-If you are an AI agent, read [AGENTS.md](https://github.com/HNXJ/jnwb/blob/main/AGENTS.md) first.
+For AI agents: see [artifacts/agents.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/agents.md).
 
 ## License
 

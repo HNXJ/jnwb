@@ -21,8 +21,8 @@ Activate this skill when the user asks for generic electrophysiology analysis, t
   - **Visual QC, raster PSTH plotting, multi-format figure export**: delegate to `jnwb-figures`
 
 ## 3. High-Performance Acceleration (CuPy & Joblib)
-- **GPU**: Operations supporting GPU execution accept `device='cuda'`, resolved once per call. If no CUDA device is present the call warns and runs on CPU; the result records which device produced it. Use `backend='cupy'` for distance-matrix speedups in `jrsa`.
-- **Parallel CPU**: `n_jobs` is available on `cluster_permutation_test`, `cross_area_coherence`, and the `jrsa` permutation/bootstrap paths. The default is 1 everywhere, `jrsa` included. Results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds: the first parallel call in a process costs several seconds, because each worker imports `jnwb` before it can unpickle the callable. Later calls reuse the pool, so a benchmark that calls twice in one process will not show this.
+- **GPU**: Operations whose signature takes `device` accept `device='cuda'`. Fallback is not yet uniform across them: some warn and record the device on the result, some fall back to CPU silently, and some results carry no device field. Treat a result as CPU-computed unless it records `device='cuda'`. Use `backend='cupy'` for distance-matrix speedups in `jrsa`.
+- **Parallel CPU**: `n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere, and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process has a start-up cost of several seconds.
 - **Artifact Rejection & Repair**: Pre-filter LFP matrices using `bad_channels_from_correlation`, `consensus_bad_trials`, and `repair_lfp_trials`.
 
 ## 4. Core Scientific Safeguards & Invariants

@@ -22,6 +22,16 @@ What would make these pass while the rule they name is violated, and what is don
 * Two guards for one condition would leave each individually unkillable, so each condition has
   exactly one enforcement site; :func:`test_every_declared_condition_has_an_enforcement_site`
   checks that against the source rather than against this docstring.
+* A probe planting a mutant the suite can see would prove the suite works, not that the tree
+  statement catches what the suite cannot. The P-174 mutant broke nothing, so
+  :func:`test_the_planted_mutant_really_is_the_silent_shape` runs the fixture's own tests with
+  the mutant in place and requires them to still pass before the refusal is probed at all.
+* Asserting that a missing journal is "unknown" and an empty one is "empty" could both pass while
+  the two still gave the same answer, so
+  :func:`test_a_missing_and_an_empty_journal_do_not_give_the_same_answer` compares them directly.
+* ``expected_survivor`` could be satisfied by making every survivor acceptable, so each of the
+  three outcomes -- declared gap still open, declared gap closed, undeclared survivor -- has its
+  own test and the middle one is a *failure*.
 """
 
 from __future__ import annotations
@@ -43,8 +53,14 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.mutation_harness import (  # noqa: E402
     CONDITIONS,
+    JOURNAL_ABSENT,
+    JOURNAL_PRESENT,
+    JOURNAL_UNREADABLE,
+    KNOWN_GAPS,
     ConditionFailed,
     HarnessBusy,
+    JournalState,
+    JournalUnreadable,
     MutationCase,
     MutationHarnessError,
     MutationSession,
@@ -55,6 +71,7 @@ from scripts.mutation_harness import (  # noqa: E402
     Verdict,
     apply_mutation,
     default_state_root,
+    parse_porcelain,
     resolve_worktree,
     restore_and_verify,
     sha256_bytes,
@@ -638,7 +655,11 @@ def test_an_already_modified_target_is_refused_before_it_is_read_as_pristine(
     """Otherwise the harness backs up the *mutant* and faithfully restores the tree to it."""
     repo = _write_fixture_repo(tmp_path / "own")
     (repo / CALC_REL).write_bytes(CALC_SOURCE.encode("utf-8") + b"# another writer\n")
-    with MutationSession(repo, state_root=tmp_path / "state") as active:
+    # Declared, so ``tree-declared`` lets the run start: this test is about the *next* guard,
+    # the one that refuses to read an already-modified target as the pristine bytes.
+    with MutationSession(
+        repo, state_root=tmp_path / "state", declared_modifications=[CALC_REL]
+    ) as active:
         with pytest.raises(TreeNotPristine):
             active.run_case(_case())
         active.entry_status = None  # the tree was dirty on purpose; do not re-report it on exit
@@ -684,6 +705,8 @@ def test_a_verdict_cannot_be_constructed_without_a_proof() -> None:
         ({"semantic_property": ""}, "semantic property"),
         ({"selector": ("test_scale_multiplies",)}, "not a pytest node id"),
         ({"must_fail": ("test_scale_multiplies",)}, "not a pytest node id"),
+        ({"expected_survivor": True}, "must say why the gap is tolerated"),
+        ({"survivor_reason": "because"}, "expected_survivor is False"),
     ],
 )
 def test_an_underspecified_case_cannot_be_constructed(overrides, fragment) -> None:
@@ -740,7 +763,7 @@ def test_every_declared_condition_has_an_enforcement_site() -> None:
         f"declared but never raised: {sorted(set(CONDITIONS) - set(raised))}; "
         f"raised but not declared: {sorted(set(raised) - set(CONDITIONS))}"
     )
-    assert len(CONDITIONS) == 8
+    assert len(CONDITIONS) == 9
 
 
 def test_an_undeclared_condition_cannot_be_raised() -> None:
@@ -749,9 +772,430 @@ def test_an_undeclared_condition_cannot_be_raised() -> None:
         ConditionFailed("not-a-condition", "x")
 
 
+# ---------------------------------------------------------------------------------------------
+# P-174, half one: a journal that cannot answer says so, instead of saying "empty"
+# ---------------------------------------------------------------------------------------------
+
+
+def test_a_missing_journal_is_unknown_rather_than_empty(tmp_path: Path) -> None:
+    """The defect verbatim: "no record exists" and "nothing is outstanding" were one answer.
+
+    A lane reported "all four harness journals on this machine read ``[]``" -- true, and empty
+    of meaning, while a live mutant sat in the tree for three days.
+    """
+    repo = _write_fixture_repo(tmp_path / "no_journal")
+    session = MutationSession(repo, state_root=tmp_path / "state")
+    assert not session.journal.exists()
+
+    state = session.read_journal()
+    assert state.status == JOURNAL_ABSENT
+    assert state.is_known is False, "an absent journal must not claim to know anything"
+    assert state.entries == ()
+    assert "UNKNOWN" in state.describe()
+
+
+def test_an_empty_journal_is_known_and_says_nothing_is_outstanding(tmp_path: Path) -> None:
+    """The other side of the same coin. Without this, 'unknown' could be the only answer."""
+    repo = _write_fixture_repo(tmp_path / "empty_journal")
+    session = MutationSession(repo, state_root=tmp_path / "state")
+    session.journal.parent.mkdir(parents=True, exist_ok=True)
+    session.journal.write_text("[]", encoding="utf-8")
+
+    state = session.read_journal()
+    assert state.status == JOURNAL_PRESENT
+    assert state.is_known is True
+    assert state.entries == ()
+    assert "UNKNOWN" not in state.describe()
+
+
+def test_a_missing_and_an_empty_journal_do_not_give_the_same_answer(tmp_path: Path) -> None:
+    """The discriminator for the defect itself, stated as the one comparison that must differ.
+
+    Both of the tests above would still pass if ``read_journal`` returned the same status for
+    both cases and the two assertions happened to be written loosely. This one cannot.
+    """
+    repo = _write_fixture_repo(tmp_path / "both")
+    absent = MutationSession(repo, state_root=tmp_path / "absent").read_journal()
+    present = MutationSession(repo, state_root=tmp_path / "present")
+    present.journal.parent.mkdir(parents=True, exist_ok=True)
+    present.journal.write_text("[]", encoding="utf-8")
+
+    assert absent.entries == present.read_journal().entries == ()
+    assert absent.status != present.read_journal().status, (
+        "a missing journal and a journal recording nothing outstanding give the same answer "
+        "again. That is P-174: an absence of records read as an absence of mutants."
+    )
+    assert absent.is_known is not present.read_journal().is_known
+
+
+@pytest.mark.parametrize(
+    "contents", ["{not json", '{"path": "x"}', '["a string, not an object"]']
+)
+def test_an_unparseable_journal_refuses_the_run_rather_than_reading_as_empty(
+    tmp_path: Path, contents: str
+) -> None:
+    """A corrupted journal may record a live mutant. Treating it as empty is the defect."""
+    repo = _write_fixture_repo(tmp_path / f"corrupt_{abs(hash(contents))}")
+    state_root = tmp_path / "state"
+    session = MutationSession(repo, state_root=state_root)
+    session.journal.parent.mkdir(parents=True, exist_ok=True)
+    session.journal.write_text(contents, encoding="utf-8")
+
+    assert session.read_journal().status == JOURNAL_UNREADABLE
+    with pytest.raises(JournalUnreadable):
+        with MutationSession(repo, state_root=state_root):
+            pass
+
+
+def test_a_journal_state_that_is_not_known_cannot_carry_entries() -> None:
+    """Otherwise an 'unknown' journal could still hand back records, which is a third meaning."""
+    with pytest.raises(MutationHarnessError):
+        JournalState(JOURNAL_ABSENT, entries=({"path": "x"},))
+    with pytest.raises(MutationHarnessError):
+        JournalState("invented-status")
+
+
+# ---------------------------------------------------------------------------------------------
+# P-174, half two: a run states the tree it ran against
+# ---------------------------------------------------------------------------------------------
+
+#: The exact shape of the mutant that survived three days and four green suite runs: it disables
+#: a check and breaks nothing, so no run of the suite can see it. ``if False and`` in the original
+#: defect; ``assert True or`` here, because the fixture's check is an assert.
+SILENT_MUTANT_PATH = "tests/test_calc.py"
+SILENT_ANCHOR = b"    assert mean([1, 2, 3]) == 2\n"
+SILENT_MUTANT = b"    assert True or mean([1, 2, 3]) == 2\n"
+
+
+def _plant_the_silent_mutant(repo: Path) -> bytes:
+    target = repo / SILENT_MUTANT_PATH
+    pristine = target.read_bytes()
+    assert pristine.count(SILENT_ANCHOR) == 1, "the silent-mutant anchor moved"
+    target.write_bytes(pristine.replace(SILENT_ANCHOR, SILENT_MUTANT, 1))
+    return pristine
+
+
+def _suite_is_green(repo: Path) -> bool:
+    """Run the tests that hold the suppressed check, and say whether they passed.
+
+    ``tests/test_broken.py`` is red by design -- it exists so ``pristine-passes`` has something
+    real to refuse -- so the fixture's whole suite is never green and asking about it would make
+    this probe answer False for a reason that has nothing to do with the mutant. The question is
+    narrower and it is the right one: does running the file whose check the mutant disables still
+    pass?
+    """
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", SILENT_MUTANT_PATH],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    return proc.returncode == 0
+
+
+def test_the_planted_mutant_really_is_the_silent_shape(tmp_path: Path) -> None:
+    """The discriminator is vacuous unless the mutant is one no test run can see.
+
+    06-113 says so explicitly: the 0.2.5 D13 mutant narrowed a glob, broke something, and the
+    full suite caught it. This one disables an ``if`` and breaks nothing, and the suite did not.
+    A probe planting a *noisy* mutant would prove the suite works, not that the tree statement
+    catches what the suite cannot.
+    """
+    repo = _write_fixture_repo(tmp_path / "silent_shape")
+    assert _suite_is_green(repo), "the fixture suite is not green before the mutant"
+    pristine = _plant_the_silent_mutant(repo)
+    try:
+        assert (repo / SILENT_MUTANT_PATH).read_bytes() != pristine
+        assert _suite_is_green(repo), (
+            "the planted mutant breaks a test, so it is the D13 shape and not the P-174 shape. "
+            "A mutant the suite catches proves nothing about a check the suite cannot catch."
+        )
+    finally:
+        (repo / SILENT_MUTANT_PATH).write_bytes(pristine)
+
+
+def test_an_undeclared_modification_refuses_the_run_and_names_the_path(tmp_path: Path) -> None:
+    """P-174, as a gate: the silent mutant is invisible to the suite and to the journal alike."""
+    repo = _write_fixture_repo(tmp_path / "surprise")
+    pristine = _plant_the_silent_mutant(repo)
+    try:
+        with pytest.raises(ConditionFailed) as caught:
+            with MutationSession(repo, state_root=tmp_path / "state"):
+                pass
+        assert caught.value.condition == "tree-declared"
+        assert SILENT_MUTANT_PATH in caught.value.detail, (
+            "the refusal must name the offending path, not merely say the tree is dirty; "
+            f"got {caught.value.detail!r}"
+        )
+    finally:
+        (repo / SILENT_MUTANT_PATH).write_bytes(pristine)
+
+
+def test_the_same_tree_proceeds_once_the_modification_is_restored(tmp_path: Path) -> None:
+    """The other half of the discriminator: refusing always would satisfy the test above."""
+    repo = _write_fixture_repo(tmp_path / "restored")
+    pristine = _plant_the_silent_mutant(repo)
+    (repo / SILENT_MUTANT_PATH).write_bytes(pristine)
+
+    with MutationSession(repo, state_root=tmp_path / "state") as active:
+        assert active.tree_statement is not None
+        assert active.tree_statement.tracked_modifications == ()
+        assert active.tree_statement.undeclared == ()
+
+
+def test_a_declared_modification_is_allowed_through(tmp_path: Path) -> None:
+    """A caller that says what it meant to change is not blocked by its own edit."""
+    repo = _write_fixture_repo(tmp_path / "declared")
+    pristine = _plant_the_silent_mutant(repo)
+    try:
+        with MutationSession(
+            repo, state_root=tmp_path / "state", declared_modifications=[SILENT_MUTANT_PATH]
+        ) as active:
+            assert active.tree_statement is not None
+            assert active.tree_statement.tracked_modifications == (SILENT_MUTANT_PATH,)
+            assert active.tree_statement.undeclared == ()
+            active.entry_status = None  # dirty on purpose; not drift this session caused
+    finally:
+        (repo / SILENT_MUTANT_PATH).write_bytes(pristine)
+
+
+def test_an_untracked_file_does_not_refuse_the_run(tmp_path: Path) -> None:
+    """A gate that must be handed an ignore list is a gate nobody runs -- 06-113's stop clause.
+
+    Scratch files are the normal state of a working tree. Only *tracked* modifications refuse;
+    a stray untracked file is still caught, on the way out, by the entry/exit status comparison.
+    """
+    repo = _write_fixture_repo(tmp_path / "untracked")
+    stray = repo / "scratch_note.txt"
+    stray.write_bytes(b"not a mutant\n")
+    try:
+        with MutationSession(repo, state_root=tmp_path / "state") as active:
+            assert active.tree_statement is not None
+            assert active.tree_statement.tracked_modifications == ()
+    finally:
+        stray.unlink()
+
+
+def test_the_tree_statement_names_the_commit_and_the_journal(tmp_path: Path) -> None:
+    """'A run states the tree it ran against' has to be a statement, not just a refusal."""
+    repo = _write_fixture_repo(tmp_path / "statement")
+    with MutationSession(repo, state_root=tmp_path / "state") as active:
+        statement = active.tree_statement
+        assert statement is not None
+        assert len(statement.head) == 40 and all(c in "0123456789abcdef" for c in statement.head)
+        assert statement.journal is not None
+        described = statement.describe()
+        assert statement.head in described
+        assert "journal:" in described
+
+
+def test_a_crashed_session_is_replayed_before_the_tree_is_judged(tmp_path: Path) -> None:
+    """Order is load-bearing: this harness's own open mutant is not somebody else's surprise.
+
+    If the tree were judged first, every crash recovery would be refused as an undeclared
+    modification and the replay would never run -- turning the repair into a deadlock.
+    """
+    repo = _write_fixture_repo(tmp_path / "replay_order")
+    state_root = tmp_path / "state"
+    pristine = _stage_a_crashed_mutation(repo, state_root)
+
+    with MutationSession(repo, state_root=state_root) as active:
+        assert active.tree_statement is not None
+        assert active.tree_statement.undeclared == ()
+    assert (repo / CALC_REL).read_bytes() == pristine
+
+
+@pytest.mark.parametrize(
+    "porcelain, tracked, untracked",
+    [
+        (" M jnwb/spectral.py\n", ("jnwb/spectral.py",), ()),
+        ("?? scratch.txt\n", (), ("scratch.txt",)),
+        ("M  a.py\n?? b.txt\n", ("a.py",), ("b.txt",)),
+        ("R  old.py -> new.py\n", ("new.py",), ()),
+        ('?? "with space.txt"\n', (), ("with space.txt",)),
+        ("", (), ()),
+        # A dotfile keeps its dot. ``lstrip("./")`` strips a character class, not a prefix, and
+        # turned ``.github/workflows/ci.yml`` into ``github/workflows/ci.yml``. Both sides of the
+        # comparison normalise through the same function, so the check went on agreeing with
+        # itself and only the path named in a refusal was wrong.
+        (" M .github/workflows/ci.yml\n", (".github/workflows/ci.yml",), ()),
+        ("?? .claude/settings.json\n", (), (".claude/settings.json",)),
+        (" M ./jnwb/spectral.py\n", ("jnwb/spectral.py",), ()),
+    ],
+)
+def test_porcelain_is_split_into_tracked_and_untracked(porcelain, tracked, untracked) -> None:
+    """Parsed, not grepped. A rename prints two paths and only the new one is modified."""
+    assert parse_porcelain(porcelain) == (tracked, untracked)
+
+
+def test_a_declared_dotfile_path_is_matched_rather_than_mangled() -> None:
+    """A declaration and git's own spelling must normalise to the same string.
+
+    This is the side a caller controls: declaring ``.github/workflows/ci.yml`` has to match what
+    git reports for it, or the declaration silently fails to cover the file it names.
+    """
+    from scripts.mutation_harness import _posix_relative
+
+    for path in (".github/workflows/ci.yml", ".claude/settings.json", ".gitignore"):
+        assert _posix_relative(path) == path, f"{path} was mangled to {_posix_relative(path)!r}"
+    assert _posix_relative("./jnwb/spectral.py") == "jnwb/spectral.py"
+    assert _posix_relative("jnwb\\spectral.py") == "jnwb/spectral.py"
+
+
+# ---------------------------------------------------------------------------------------------
+# P-172: a measured gap can be recorded, and stops being a gap loudly
+# ---------------------------------------------------------------------------------------------
+
+
+def _expected_survivor_case(**overrides) -> MutationCase:
+    base = dict(
+        name="commuted-product-is-a-known-gap",
+        original=SCALE_BODY,
+        replacement="return [factor * v for v in values]",
+        selector=(T_MULTIPLIES,),
+        must_fail=(T_MULTIPLIES,),
+        semantic_property="scaling multiplies each element by the factor",
+        expected_survivor=True,
+        survivor_reason="commuting the product is an identity over the reals; recorded as P-XXX",
+    )
+    base.update(overrides)
+    return _case(**base)
+
+
+def test_a_declared_gap_that_is_still_a_gap_does_not_fail_the_run(session) -> None:
+    """The whole point: a measured hole can live in the suite instead of in a lane report."""
+    verdict = session.run_case(_expected_survivor_case())
+    assert verdict.killed is False
+    assert verdict.expected_survivor is True
+    assert session.report.expected_survivors == [verdict]
+    assert session.report.survived == [], "a declared gap must not be reported as a failure"
+    assert session.report.clean() is True
+    assert "EXPECTED-SURVIVOR" in session.report.summary()
+
+
+def test_a_declared_gap_that_has_closed_fails_the_run(session) -> None:
+    """The discriminator the item names: an expected survivor that starts being killed fails.
+
+    Without this the record rots in the other direction -- somebody adds the missing assertion,
+    the gap closes, and the note saying it is open goes on saying so forever.
+    """
+    verdict = session.run_case(
+        _expected_survivor_case(
+            name="mean-becomes-sum-wrongly-recorded-as-a-gap",
+            original=MEAN_BODY,
+            replacement="return sum(values)",
+            selector=(T_MEAN,),
+            must_fail=(T_MEAN,),
+            semantic_property="the mean of a sample is its sum divided by its count",
+            survivor_reason="recorded as a gap, but the suite does catch it",
+        )
+    )
+    assert verdict.killed is True
+    assert verdict.expected_survivor is True
+    assert session.report.unexpected_kills == [verdict]
+    assert session.report.killed == [], "a declared gap that closed is not an ordinary kill"
+    assert session.report.clean() is False, (
+        "closing a recorded gap without updating the record must fail the run"
+    )
+    assert "UNEXPECTED-KILL" in session.report.summary()
+
+
+def test_an_undeclared_survivor_is_still_a_failure(session) -> None:
+    """The negative control. ``expected_survivor`` must not turn every survivor into a pass."""
+    verdict = session.run_case(
+        _case(
+            name="commuted-product-nobody-declared",
+            original=SCALE_BODY,
+            replacement="return [factor * v for v in values]",
+            selector=(T_MULTIPLIES,),
+            must_fail=(T_MULTIPLIES,),
+            semantic_property="scaling multiplies each element by the factor",
+        )
+    )
+    assert verdict.expected_survivor is False
+    assert session.report.survived == [verdict]
+    assert session.report.expected_survivors == []
+    assert session.report.clean() is False
+
+
+# ---------------------------------------------------------------------------------------------
+# The two gaps 06-27 measured, held to the checkout rather than to prose
+# ---------------------------------------------------------------------------------------------
+
+
+def _resolve_node_id(node_id: str) -> bool:
+    """True when every ``::`` segment of a pytest node id exists in the file it names.
+
+    Over the AST, not by running pytest: collecting ``tests/test_spectral.py`` costs a
+    subprocess and a full ``jnwb`` import, and this file is one of the fast ones. The limit is
+    stated rather than hidden -- this resolves classes and functions, so it would not notice a
+    parametrisation change. Neither gap names a parametrised node.
+    """
+    parts = node_id.replace("\\", "/").split("::")
+    source = REPO_ROOT / parts[0]
+    if not source.is_file():
+        return False
+    body = ast.parse(source.read_text(encoding="utf-8")).body
+    for segment in parts[1:]:
+        match = next(
+            (
+                n
+                for n in body
+                if isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                and n.name == segment.split("[")[0]
+            ),
+            None,
+        )
+        if match is None:
+            return False
+        body = match.body
+    return True
+
+
+def test_the_two_measured_gaps_are_recorded_as_expected_survivors() -> None:
+    """06-27 measured P-170 and P-171 and could only narrate them. They are declared now."""
+    assert len(KNOWN_GAPS) == 2
+    recorded = {gap.name.split(" | ")[0] for gap in KNOWN_GAPS}
+    assert recorded == {"P-170", "P-171"}, recorded
+    for gap in KNOWN_GAPS:
+        assert gap.expected_survivor is True
+        assert len(gap.survivor_reason.split()) >= 15, (
+            f"{gap.name}: the reason does not say why the gap is tolerated"
+        )
+
+
+def test_every_recorded_gap_still_lands_on_this_checkout() -> None:
+    """A gap whose anchor has moved is not a gap on the record, it is a stale sentence.
+
+    This is the cheap half of holding the record honest, and the half that runs in the fast
+    suite: the anchor must still occur exactly once, in bytes, and every node id the gap names
+    must still exist. Whether the mutant still survives is measured by an isolated-clone run,
+    because a mutation of ``jnwb/`` in this checkout is visible to every other ``-n auto`` worker.
+    """
+    problems: list[str] = []
+    for gap in KNOWN_GAPS:
+        target = REPO_ROOT / gap.path
+        if not target.is_file():
+            problems.append(f"{gap.name}: {gap.path} does not exist")
+            continue
+        count = target.read_bytes().count(gap.original.encode("utf-8"))
+        if count != 1:
+            problems.append(f"{gap.name}: the anchor occurs {count} times in {gap.path}, not once")
+        if gap.original == gap.replacement:
+            problems.append(f"{gap.name}: the replacement is byte-identical to the anchor")
+        for node in {*gap.selector, *gap.must_fail}:
+            if not _resolve_node_id(node):
+                problems.append(f"{gap.name}: {node} does not resolve in this checkout")
+    assert not problems, (
+        "recorded gaps no longer describe this checkout:\n  " + "\n  ".join(problems)
+    )
+
+
 def test_the_conditions_are_declared_in_enforcement_order() -> None:
     """The order is load-bearing: a later guard must not be reachable before an earlier one."""
     assert CONDITIONS == (
+        "tree-declared",
         "pristine-collects",
         "pristine-passes",
         "lands-once",

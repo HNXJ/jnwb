@@ -444,6 +444,67 @@ _CLAIM_CARRIES = re.compile(r"\b(?:named|recorded) in the result\b", re.I)
 _CLAIM_BARE_ARRAY = re.compile(r"\bbare array\b", re.I)
 _CLAIM_RECORDS_NO = re.compile(r"\brecords no (\w+)\b", re.I)
 
+#: `jnwb-nwb-data` states its returns as ``call` → `Type``, which none of the sentence
+#: patterns above can match -- they all require the word "return". Every one of that file's
+#: seven arrow rows was therefore invisible to this harness: `inspect` → `dict`, `events` →
+#: `EventTable`, `event_onsets` → `numpy.ndarray` and two tuple returns were carried by the
+#: skill and checked by nothing here. The arrow must follow the row's closing backtick, so
+#: the `trials` → `sole table` resolution chain inside `resolve_interval_table`'s prose is
+#: not read as a return type.
+_CLAIM_ARROW_TYPE = re.compile(r"`\s*→\s*(?:structured\s+)?`([A-Za-z_][\w.]*)`")
+#: The same form when the return is a tuple written out: ``→ `(data, rate_hz)``.
+_CLAIM_ARROW_TUPLE = re.compile(r"`\s*→\s*`\(([^`)]*)\)`")
+#: A routing row written as an arrow, counted independently of what the patterns above
+#: extract from it, so a row that yields no claim is named rather than skipped.
+_ARROW_ROW = re.compile(r"^- `jnwb\.((?:\w+\.)*\w+)\([^`]*\)`\s*(?:.*?)→")
+
+#: Arrow rows whose text after the arrow is prose rather than a return type, so there is no
+#: type claim to execute. Asserted by **equality**: a new prose arrow row fails here, and
+#: rewriting one of these to name a type without deleting its entry also fails.
+#:
+#: `resolve_interval_table` writes a resolution *order* after its arrow ("table name using
+#: `trials` → sole table → `AmbiguousIntervalTableError`"); `unit_spike_times` writes
+#: "spike times in seconds", a unit rather than a type.
+_ARROW_ROWS_WITHOUT_A_TYPE_CLAIM = {
+    ("jnwb-nwb-data", "resolve_interval_table"),
+    ("jnwb-nwb-data", "unit_spike_times"),
+}
+
+
+def _resolve_type_name(name: str):
+    """The class a row names, or None when the token names nothing importable."""
+    import builtins
+
+    if "." in name:
+        head, _, tail = name.partition(".")
+        module = {"numpy": np, "np": np, "pandas": pd, "pd": pd}.get(head)
+        return getattr(module, tail, None) if module is not None else None
+    return getattr(builtins, name, None) or getattr(jnwb, name, None)
+
+
+def _logical_rows(content: str):
+    """(first line number, joined text) for each ``- `` bullet and its continuation lines.
+
+    Reading the file line by line split every wrapped row in half, and a claim landing on
+    the second half was attributed to no symbol at all -- `jnwb.events(...)` ends its first
+    line on the arrow itself, so the `EventTable` it returns sat on a line with no row head
+    above it and was never read.
+    """
+    rows, start, buf = [], None, []
+    for line_no, line in enumerate(content.splitlines(), 1):
+        if line.startswith("- "):
+            if buf:
+                rows.append((start, " ".join(buf)))
+            start, buf = line_no, [line]
+        elif buf and line.startswith("  ") and line.strip():
+            buf.append(line.strip())
+        elif buf:
+            rows.append((start, " ".join(buf)))
+            start, buf = None, []
+    if buf:
+        rows.append((start, " ".join(buf)))
+    return rows
+
 
 def _probe_complex_tfr():
     rng = np.random.default_rng(7)
@@ -489,6 +550,66 @@ def _probe_relative_power():
                                model="mean_of_ratios", axis=1)
 
 
+#: Built once and reused: the arrow rows all take the same file, and writing it per claim
+#: would rebuild it five times for one assertion each.
+_NWB_FIXTURE: List[Path] = []
+
+
+def _probe_nwb_path() -> Path:
+    """A small real NWB file with one acquisition, one interval table and one unit."""
+    if _NWB_FIXTURE:
+        return _NWB_FIXTURE[0]
+    import tempfile
+    from datetime import datetime, timezone
+
+    import pynwb
+    from pynwb.ecephys import ElectricalSeries
+
+    rng = np.random.default_rng(19)
+    path = Path(tempfile.mkdtemp(prefix="skill_routing_")) / "probe.nwb"
+    nwb = pynwb.NWBFile(session_description="s", identifier="i",
+                        session_start_time=datetime.now(timezone.utc))
+    device = nwb.create_device(name="probeA")
+    group = nwb.create_electrode_group(name="shank0", description="d", location="V1",
+                                       device=device)
+    for i in range(4):
+        nwb.add_electrode(x=0.0, y=0.0, z=float(i) * 100.0, imp=1.0, location="V1",
+                          filtering="none", group=group, group_name="shank0")
+    region = nwb.create_electrode_table_region(list(range(4)), "all")
+    nwb.add_acquisition(ElectricalSeries(name="lfp", data=rng.normal(size=(1000, 4)),
+                                         electrodes=region, rate=1000.0, starting_time=0.0))
+    nwb.add_trial_column(name="codes", description="c")
+    for i in range(5):
+        nwb.add_trial(start_time=float(i), stop_time=float(i) + 0.4, codes=f"c{i % 2}")
+    nwb.add_unit(spike_times=np.sort(rng.uniform(0.0, 5.0, 30)))
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    _NWB_FIXTURE.append(path)
+    return path
+
+
+def _probe_inspect():
+    return jnwb.inspect(_probe_nwb_path())
+
+
+def _probe_events():
+    return jnwb.events(_probe_nwb_path())
+
+
+def _probe_event_onsets():
+    return jnwb.event_onsets(_probe_nwb_path())
+
+
+def _probe_acquisition_channel():
+    return jnwb.acquisition_channel(_probe_nwb_path())
+
+
+def _probe_epoch_continuous():
+    rng = np.random.default_rng(23)
+    return jnwb.epoch_continuous(rng.normal(size=5000), np.array([1.0, 2.0, 3.0]),
+                                 win_s=(-0.1, 0.3), fs=1000.0)
+
+
 #: One executed call per routed symbol that makes a claim about its return's contents.
 #: The oracle is the returned object. A return *annotation* would be the same authors'
 #: second claim about the same thing, and `-> ComplexTFR` on a function that returns a
@@ -500,6 +621,11 @@ _RETURN_CONTENT_PROBES = {
     "aperiodic_fit": _probe_aperiodic_fit,
     "directed_connectivity": _probe_directed_connectivity,
     "relative_power": _probe_relative_power,
+    "inspect": _probe_inspect,
+    "events": _probe_events,
+    "event_onsets": _probe_event_onsets,
+    "acquisition_channel": _probe_acquisition_channel,
+    "epoch_continuous": _probe_epoch_continuous,
 }
 
 
@@ -512,7 +638,7 @@ def _return_content_claims():
     """(skill, line, symbol, kind, payload) for every claim a row makes about its return."""
     for skill_name in sorted(CANONICAL_SKILLS):
         content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
-        for line_no, line in enumerate(content.splitlines(), 1):
+        for line_no, line in _logical_rows(content):
             head = re.match(r"- `jnwb\.((?:\w+\.)*\w+)\(", line)
             if not head:
                 continue
@@ -526,6 +652,13 @@ def _return_content_claims():
                 yield skill_name, line_no, sym, "bare", None
             for m in _CLAIM_RECORDS_NO.finditer(line):
                 yield skill_name, line_no, sym, "records_no", m.group(1)
+            arrow_type = _CLAIM_ARROW_TYPE.search(line)
+            if arrow_type:
+                yield skill_name, line_no, sym, "arrow_type", arrow_type.group(1)
+            arrow_tuple = _CLAIM_ARROW_TUPLE.search(line)
+            if arrow_tuple:
+                names = [p.strip() for p in arrow_tuple.group(1).split(",") if p.strip()]
+                yield skill_name, line_no, sym, "arrow_tuple", names
 
 
 def test_skill_return_contents_claims_match_runtime():
@@ -586,6 +719,60 @@ def test_skill_return_contents_claims_match_runtime():
                 f"{where} says the return records no {payload!r}; the returned "
                 f"{type(out).__name__} has that attribute, so the row is stale"
             )
+        elif kind == "arrow_type":
+            cls = _resolve_type_name(payload)
+            assert cls is not None, (
+                f"{where} says it returns `{payload}`, which names no importable type -- "
+                f"a row whose type token cannot be resolved is a row nothing can check"
+            )
+            assert isinstance(out, cls), (
+                f"{where} says it returns `{payload}`; the call returns "
+                f"{type(out).__name__}"
+            )
+        elif kind == "arrow_tuple":
+            assert isinstance(out, tuple), (
+                f"{where} writes its return as the tuple {tuple(payload)!r}; the call "
+                f"returns {type(out).__name__}"
+            )
+            assert len(out) == len(payload), (
+                f"{where} writes {len(payload)} return values {tuple(payload)!r}; the call "
+                f"returns {len(out)}"
+            )
+
+
+def test_every_arrow_row_states_a_return_the_harness_executes():
+    """`jnwb-nwb-data` writes returns after an arrow, and nothing used to read them.
+
+    The claim patterns all require the word "return", so a whole skill file's return
+    contract -- seven rows -- produced zero claims and passed
+    `test_skill_return_contents_claims_match_runtime` by being invisible to it. Counting
+    arrow rows here independently of what the claim patterns extract means a row that stops
+    being read is named, instead of quietly leaving the corpus.
+    """
+    claimed = {
+        (skill, sym) for skill, _, sym, kind, _ in _return_content_claims()
+        if kind in ("arrow_type", "arrow_tuple")
+    }
+    silent = set()
+    arrow_rows = 0
+    for skill_name in sorted(CANONICAL_SKILLS):
+        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        for line_no, line in _logical_rows(content):
+            row = _ARROW_ROW.match(line)
+            if not row:
+                continue
+            arrow_rows += 1
+            if (skill_name, row.group(1)) not in claimed:
+                silent.add((skill_name, row.group(1)))
+
+    assert arrow_rows >= 7, (
+        f"only {arrow_rows} arrow rows found in the skill corpus; a pattern that stops "
+        f"matching passes this test by finding nothing to check"
+    )
+    assert silent == _ARROW_ROWS_WITHOUT_A_TYPE_CLAIM, (
+        f"arrow rows yielding no executable return claim: {sorted(silent)}; the declared "
+        f"set is {sorted(_ARROW_ROWS_WITHOUT_A_TYPE_CLAIM)}"
+    )
 
 
 def test_all_referenced_docs_paths_exist():
@@ -985,4 +1172,139 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
             "the instruction to hold tau_ms fixed across compared conditions was dropped; a "
             "latency difference between two traces smoothed at different tau_ms is a "
             f"difference between the filters (found {len(fixed)})"
+        )
+
+
+class TestClaimsTheSignatureCannotCarry:
+    """Rows whose defect survives every check above, because none of it is in the call.
+
+    `inspect.signature` reads names, kinds and defaults, so a row can be signature-perfect
+    and still tell an agent something false about what the call does with what it is given,
+    what units come back, or which keys exist under which branch. Each test here names the
+    sentence it is checking, so rewording the row moves the sentence check rather than
+    leaving an assertion that no longer corresponds to anything the skill says.
+    """
+
+    def _skill(self, name: str) -> str:
+        return (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_a_single_figure_is_not_a_figure_suite(self, tmp_path: Path):
+        """`save_figure_suite` iterates `figures`; the row used to say "one or more".
+
+        The signature is `figures: List[plt.Figure]` and the body is a `for` loop, so one
+        figure passed as itself raises `TypeError: 'Figure' object is not iterable` before
+        anything is written. The row read as though the singular case worked, and every
+        check in this file passed it -- the parameter exists, is positional, and is first.
+        """
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+        try:
+            with pytest.raises(TypeError):
+                jnwb.save_figure_suite(fig, tmp_path, "solo")
+            assert not list(tmp_path.iterdir()), (
+                "a rejected call still wrote files, so the row's singular reading is only "
+                "half wrong and the failure is partial"
+            )
+
+            jnwb.save_figure_suite([fig], tmp_path, "solo")
+            assert sorted(p.name for p in tmp_path.iterdir()) == [
+                "solo_page1.pdf", "solo_page1.png"
+            ], "the default `formats` in the row no longer describe what lands on disk"
+        finally:
+            plt.close("all")
+
+        row = [
+            line for line in self._skill("jnwb-figures").splitlines()
+            if line.startswith("- `jnwb.save_figure_suite(")
+        ]
+        assert len(row) == 1 and "list" in row[0].lower() and "[fig]" in row[0], (
+            f"the row no longer says a list is required, so a reader is back where they "
+            f"started: {row!r}"
+        )
+
+    def test_naming_a_primary_test_drops_the_other_block(self):
+        """`exploratory_compare`'s `test` argument changes the returned keys.
+
+        The row says "`test` names the primary test and the other is then not computed",
+        which is a claim about the return schema under a branch -- the class of defect
+        `cross_modal_comparison` was repaired for in 0.2.5, where a key existed only under
+        an unstated branch. Here the branch is stated and the keys really do disappear, so
+        the check is that they disappear in both directions rather than that the sentence
+        exists.
+        """
+        rng = np.random.default_rng(12)
+        g1, g2 = rng.normal(1.0, 1.0, 25), rng.normal(0.0, 1.0, 25)
+        both = jnwb.StatisticalAnalysis.exploratory_compare(g1, g2)
+        parametric = jnwb.StatisticalAnalysis.exploratory_compare(g1, g2, test="parametric")
+        nonparametric = jnwb.StatisticalAnalysis.exploratory_compare(
+            g1, g2, test="nonparametric"
+        )
+
+        assert {"parametric", "non_parametric"} <= set(both), (
+            f"the default no longer runs two tests; keys: {sorted(both)}"
+        )
+        assert set(both) - set(parametric) == {"non_parametric", "significant_nonparametric"}, (
+            f"test='parametric' no longer withholds exactly the non-parametric block: "
+            f"{sorted(set(both) - set(parametric))}"
+        )
+        assert set(both) - set(nonparametric) == {"parametric", "significant_parametric"}, (
+            f"test='nonparametric' no longer withholds exactly the parametric block: "
+            f"{sorted(set(both) - set(nonparametric))}"
+        )
+
+        # The other half of the same row: what separates this entry point from its sibling.
+        confirmatory = jnwb.StatisticalAnalysis.compare_groups(g1, g2)
+        assert set(confirmatory) - set(both) == {"multiple_comparison"}, (
+            f"the row says `exploratory_compare` is `compare_groups` without the "
+            f"`multiple_comparison` block; the live difference is "
+            f"{sorted(set(confirmatory) - set(both))}"
+        )
+
+        text = self._skill("jnwb-statistics")
+        assert "the other is then not computed" in text, (
+            "the conditional-schema sentence this test executes is gone from the row"
+        )
+
+    @pytest.mark.parametrize("spelling", [
+        "spike_mutual_information",
+        "binary_occupancy_mutual_information",
+        "spike_count_mutual_information",
+    ])
+    def test_mutual_information_is_reported_in_bits_and_is_symmetric(self, spelling):
+        """The row's two claims about the number, neither of them in the signature.
+
+        "in **bits** ($\\log_2$)" is a unit, and a unit is invisible to
+        `inspect.signature`: the same call returning nats would satisfy every other check
+        in this file. Two spike trains occupying exactly the same bins carry 1 bit of
+        mutual information under $\\log_2$ and 0.693 under $\\ln$, which is what makes this
+        a discriminator rather than a range check.
+        """
+        fn = getattr(jnwb, spelling)
+        rng = np.random.default_rng(4)
+        bin_s, n_bins = 0.010, 2000
+        centres = (np.arange(n_bins) + 0.5) * bin_s
+        occupied = rng.random(n_bins) < 0.5
+        same = centres[occupied]
+        window = (0.0, n_bins * bin_s)
+
+        mi = fn(same, same.copy(), time_window_s=window, bin_size_ms=10.0)
+        assert mi == pytest.approx(1.0, abs=0.01), (
+            f"{spelling}: identical occupancy carries {mi} -- 1.0 in bits, 0.693 in nats"
+        )
+
+        other = centres[rng.random(n_bins) < 0.5]
+        ab = fn(same, other, time_window_s=window, bin_size_ms=10.0)
+        ba = fn(other, same, time_window_s=window, bin_size_ms=10.0)
+        assert ab == pytest.approx(ba), (
+            f"{spelling}: the row says MI carries no direction however the arguments are "
+            f"ordered, but {ab} != {ba}"
+        )
+
+        text = self._skill("jnwb-connectivity")
+        assert "**bits**" in text and "MI is symmetric" in text, (
+            "the unit and symmetry claims this test executes are gone from the row"
         )

@@ -112,7 +112,7 @@ The review's own adversarial pass refuted four findings that read as solid.
 
 ## Dispatch map
 
-Re-measured 2026-09-21 against the live stack: **37 of the 57 items below have no blocker**, so
+Re-measured 2026-09-22 against the live stack: **41 of the 56 items below have no blocker**, so
 the plan is not blocked, it is unparallelized. Reading 1200 lines to find the next safe piece of
 work is the cost this section removes.
 
@@ -136,28 +136,20 @@ A lane assignment is derived per wave from the live `Writes:` fields and is not 
 is not kept here. Two agents may run at once exactly when their `Writes:` sets are disjoint **by
 resolved path and closed under generation** -- a lane that generates a file conflicts with one
 that reads it, even though neither names the other's paths. Derive the wave, dispatch it, and
-discard the assignment; what stays below are the four observations that outlived the table.
+discard the assignment; what stays below are the three observations that outlived the table.
 
-Four things the map makes visible that the batches did not:
+Three things the map makes visible that the batches did not:
 
-1. **The compression lane runs before 06-13's ruling, not after.** `select=` is not implementable
-   until 06-79 makes the chunk shape follow the dataset rank, and "the existing contract survives
-   R1, R2 and R4" is unfalsifiable until 06-78 gives that contract a test. Whatever is ruled, these
-   four come first.
-2. **The docs lane is the critical path.** 06-49 blocks 06-51 and 06-53, so it is serial and must
+1. **The docs lane is the critical path.** 06-49 blocks 06-51 and 06-53, so it is serial and must
    start first while other lanes fill the time.
-3. **`AGENTS.md` is a single-writer surface.** 06-62, 06-72, 06-68 and 06-91 all write it, so they
+2. **`AGENTS.md` is a single-writer surface.** 06-62, 06-72, 06-68 and 06-91 all write it, so they
    are one lane and never concurrent, whatever batch they are filed under.
-4. **The dispatcher writes the stacks.** 06-80 and 06-83 name `artifacts/*_stack.md` in their work;
+3. **The dispatcher writes the stacks.** 06-80 and 06-83 name `artifacts/*_stack.md` in their work;
    a packet does not edit them. It reports the disposition it believes a row has earned.
 
-Five items are ruling items in their own right -- 06-05, 06-13, 06-67, 06-92 and 06-101 -- and four more are blocked on authority Hamm holds: 06-31 and 06-32 on the corpus grant, 06-86 and 06-99 on a ruling and that grant respectively. None gates more than one other item, so the decision frontier is
-no longer the largest single unblock -- **as of 2026-09-20 it is not the binding constraint on this
-release.** 06-18 was the one that gated six, and it is ruled and closed; 06-84 and 06-85 are closed
-too. Three further rulings exist as problem rows with no item and are not counted here: P-114
-(`aggregate_to_db` and `mean_of_ratios`), P-122 (whether the decoder gains `groups`) and the
-`O`-versus-`Θ` question under P-34 and P-127. 06-99 is blocked on corpus access, which is also
-Hamm's to grant.
+No item waits on a ruling. The rulings of 2026-09-22 (`artifacts/rulings_2026-09-22.md`) decided every
+open one; each became an implementation item below or a 0.2.7 entry in
+`artifacts/planned_post_0.2.6.md`. What still needs Hamm is 06-40, the release.
 
 ## Batch 0. Goal and authority
 
@@ -171,100 +163,12 @@ wording, the AI-native positioning and the topology figure in particular.
 
 Batch 0 completes before any substantive edit elsewhere. 06-01 and 06-02 were ruled on
 2026-09-19, and `artifacts/goal.md` plus the vocabulary rule at the head of `AGENTS.md` carry
-those rulings. What remains of this batch is two items Hamm must decide (`AUTONOMY: none`) --
-06-67 and 06-05 -- and the read-only packets that assemble the evidence each decision needs.
-The items are named rather than only counted so the count is checkable: gate 15 recomputes it,
-and the sentence said three while two remained (P-133).
+those rulings, and the rulings of 2026-09-22 (`artifacts/rulings_2026-09-22.md`) decided 06-67 and the terms
+06-05 freezes under. What remains of this batch is executable: 06-64 verifies, 06-05 freezes.
 
 The basis reconstruction and the findings disposition are done and therefore deleted. Their
 results live in `artifacts/findings_0.2.6.md`, which resolves all 83 review identifiers, and in
 `artifacts/problem_stack.md`, which carries what they found and could not repair.
-
-### 06-67 Rule the missingness truth table for the read path
-
-Release: required-0.2.6.
-Role: human ruling. Skill: none. Blocked by: none. AUTONOMY: none.
-Writes: `artifacts/problem_stack.md`.
-**Write set corrected 2026-09-20.** It previously read `jnwb/nwb_io.py`, `artifacts/goal.md`,
-`docs/errors.md` and a bare `tests/`, with `AUTONOMY: none.` spliced into the middle of the
-list -- a full stop that made every entry after it invisible to any parser bounded by a
-sentence. Two defects in one field: the ruling declared an implementation write set it does
-not perform, and three of its four entries could not be read. **06-82 already owns**
-`jnwb/nwb_io.py`, `docs/*.md` and the test; this item produces a decision, and 06-82 applies
-it. See P-125.
-The opt-in shipped on 2026-09-19 and one cell of its behaviour is undecided. Stating it as a table
-first, because sentinel semantics decided after implementation are decided by the implementation.
-
-One correction to how this was framed. There is **no prior competing specification** for the empty
-string; nothing in jnwb assigned it a meaning before this session. It was chosen here as the
-least-deceptive value once pynwb made true absence impossible -- `NWBFile.__init__` takes
-`session_description` as a required positional argument, so waiving jnwb's check alone leaves the
-file unopenable. The question is therefore whether to introduce the overload at all, not how to
-reconcile two requests.
-
-| On disk | `allow_missing` | Today | Ruled? |
-|---|---|---|---|
-| present, non-empty | default | the value | yes, unchanged |
-| absent | default | `MissingRequiredNWBFieldError` | yes, unchanged |
-| absent | field named | opens; field reads `""`; `jnwb_waived_requirements == ("session_description",)` | **the open cell** |
-| **present and empty on disk** | default | opens; field reads `""`; `jnwb_waived_requirements == ()` | **the ambiguity** |
-| present, wrong type | either | **measured, and it is not undefined**: a `(1,)` string array opens silently and returns the scalar, byte-identically to a genuine value. Other encodings refuse. | **falsified 2026-09-20 -- it is a case, and a silent one.** P-158 |
-| field named that jnwb never refuses on | either | `ValueError`, rejected rather than silently doing nothing | yes, unchanged |
-
-Rows three and four are the problem: **a file that genuinely records an empty description is
-value-identical to one whose description was waived.** They are distinguishable only by
-`jnwb_waived_requirements`, and only for a caller who reads it. A caller who checks
-`nwbfile.session_description` alone cannot tell them apart.
-
-**Measured 2026-09-20, and it is worse than two rows in two ways** (`artifacts/missingness_table.md`):
-- **Six states collapse, not two.** Under a defensive waiver, absent, genuinely-empty vlen,
-  genuinely-empty fixed `S1`, a NUL-byte `S2` dataset, a dangling `SoftLink` and a broken
-  `ExternalLink` all return an identical `''` with an identical waiver flag. The last three are
-  not in the table above. The only discriminator across all six is a transient
-  `BrokenLinkWarning` for the two link states, which is not an observable on the returned object.
-- **The named discriminator does not discriminate.** `jnwb_waived_requirements` records the
-  **request, not the event**: a *valid* file read with the same waiver also reports
-  `('session_description',)`. So it cannot separate a waived file from a valid one, which is the
-  pair option (a) depends on it for. That is **P-157**, and it is a defect independent of this
-  ruling.
-Rule between: (a) keep `""` and rely on the waiver attribute, documenting that the value alone
-does not distinguish the two; (b) use a sentinel that cannot occur on disk, which trades
-"indistinguishable from empty" for "a value no NWB reader expects"; (c) refuse a file whose
-`session_description` is present and empty, making `""` unambiguously jnwb's mark -- which
-changes behaviour for files that open today; (d) something else.
-
-**All four were run on 2026-09-20 and (d) is occupied.** Each row is an executed read, not a
-design sketch:
-
-| Option | As measured | Tells absent from empty? | Cost |
-|---|---|---|---|
-| **(a)** | `c3a` status quo | **No** under a defensive waiver -- every observable is equal. Yes only if the caller waives *per file, after a default read already raised*, which distinguishes them only for a caller who already knew | none, and it does not work |
-| **(b)** text sentinel | `c3b1` | Yes, via `sd` itself | `sd` stops being falsy for a waived file, and a synthesized value appears on an object whose contract says nothing is synthesized |
-| **(b)** str subclass | `c3b2` | Yes, via `type(sd)`; `sd == ''` and `bool(sd) is False` still hold | invisible to `repr`, to logging, and to anything round-tripping through `str()` |
-| **(c)** refuse empty | `c3c` | Yes -- state 3 stops opening | **the only candidate that breaks a currently-working read**, and the waiver cannot rescue it |
-| **(d)** event flag | `c3d` | **Yes**, via `jnwb_waived_requirements` made to record what was *actually* waived rather than what was *requested* | **no value changes and no read starts or stops failing** -- and it repairs P-157 as a side effect, since the flag stops lying on valid files |
-
-This does not rule. It records that (d) is not empty: `c3d` is the only measured candidate that
-separates the states without changing a value or breaking a read, and it is the one option the
-item's own text did not name.
-
-**A fact that bears on whether the cell is worth ruling at all: the opt-in is unreachable from
-the public API.** No public entry point accepts `allow_missing`; `jnwb.inspect`, `events`,
-`event_onsets`, `unit_spike_times` and `acquisition_channel` all raise
-`MissingRequiredNWBFieldError` on a waived file. `MissingRequiredNWBFieldError` is exported and
-in `__all__`; `read_nwb` and `nwb_read_io` are neither. **The error is public and the opt-in that
-clears it is not** -- the only route is importing `jnwb.nwb_io`, a module whose own docstring
-calls itself module-internal. A two-step workaround exists and was measured.
-Accept: the ruled cell, the table written into `docs/errors.md`, and a test per row.
-Evidence, which this item did not cite before 2026-09-20 (P-155):
-
-| Source | Carries |
-|---|---|
-| `artifacts/missingness_table.md` | all six states executed at baseline `577847f2`, on both the worktree and the installed copy, which disagree; five candidates for row 3 and three for row 4; three further collapsing states; every fixture confirmed in raw bytes and by decoded object-header dataspace messages, not by asking h5py |
-| P-157 | the waiver flag records the request rather than the event, so option (a)'s discriminator reports a waiver on files that waived nothing |
-| P-158 | a `(1,)` string array is silently flattened to a scalar, so "present, wrong type" is a live silent case rather than "not yet a case" |
-
-Stop: no agent takes this item.
 
 ### 06-64 Verify the repairs of 2026-09-19
 
@@ -295,12 +199,12 @@ Stop: a repair cannot be verified without changing it. Say so; do not change it.
 ### 06-05 Freeze the acceptance set and the non-goals
 
 Release: required-0.2.6.
-Role: human ruling. Skill: none. Blocked by: 06-13. AUTONOMY: none.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/todo_stack.md`.
-06-01 and 06-02 were ruled on 2026-09-19 and are no longer blockers; 06-13 is the last one.
-Freeze the set from **live reproduced state**, not by copying the planning text: each condition
-is re-established against this tree at the moment of freezing, and one that cannot be reproduced
-does not enter the set.
+Ruled 2026-09-22: freeze the Acceptance section below as written. 06-13's ruling now has its
+implementation item, 06-114, which was the last condition. Freeze from **live reproduced
+state**, not by copying the planning text: each line must name the check or the item that
+establishes it, and a line that names neither does not enter the set.
 Accept: the frozen set is dated and the non-goals section below is part of it.
 
 ## Batch 1. Public truth and reachability
@@ -336,114 +240,6 @@ Accept: behaviour-shaped assertions only. A whole-prose snapshot fails this item
 breaks on rewording and passes on a reversed meaning.
 
 ## Batch 2. Scientific defects
-
-### 06-13 Rule the default selection of compress_fp32
-
-Release: required-0.2.6.
-Role: human ruling. Skill: none. Blocked by: **a Hamm ruling on the no-argument default, and
-the `D:` grant for the real-corpus cells.** Re-marked 2026-09-21; the field said `none` while
-the item's own text said "It is blocked on one thing only" and named the same `D:` grant that
-06-99 and 06-31 wait on. Found by gate 15's contradiction check, which is P-149's shape in a
-third item. Writes: this file, then an implementation item. AUTONOMY: none.
-The item's named stop condition fired, and it was proven mechanically rather than asserted. The
-mechanical split -- generic mechanics, with selection as an explicit `select=` caller input -- is
-designed and ready. It is blocked on one thing only: what happens when the caller says nothing.
-
-`compress_fp32` currently selects `acquisition/probe_0_lfp/data` via the corpus pattern
-`probe_\d+_(?:lfp|muae)`. Four candidate dataset-independent defaults were measured against the
-corpus fixtures and **every one changes what is lost**:
-
-| Candidate default | Diverges by |
-|---|---|
-| float64 and 2-D | newly downcasts `eye_position` and `convolved_spike_train` |
-| float64 and basename `data` | the same two |
-| float64, under `acquisition/`, basename `data` | newly downcasts `eye_position` |
-| parent `neurodata_type == ElectricalSeries` | no longer casts `probe_0_lfp`, which `tests/test_compression.py:73` asserts is float32 |
-
-**Superseded 2026-09-20.** Four candidates became seven, measured end to end rather than by
-divergence, and the line reference above predates 06-78, which took `tests/test_compression.py`
-from 15 tests to 61. The table below carries the current measurement.
-
-Two measured facts close off the obvious escapes -- **and all three of this paragraph's claims
-were re-measured on 2026-09-20: one confirmed, one confirmed-for-the-selector but refuted as an
-outcome, one found half true** (`artifacts/compress_fp32_default_candidates.md` section 6).
-- The corpus fixtures carry **zero** `neurodata_type` attributes, so type-based selection
-  selects nothing there. **Confirmed** on both fixture populations. But on the *real* corpus the
-  attribute is not vacuous, it is **inconsistent**: the same logical series is `ElectricalSeries`
-  in 9 of 22 sessions, `TimeSeries` in 12, untyped in 1 -- and where it fires it selects the
-  series the docstring preserves, one of them **int16**. Casting int16 spike counts to float32 is
-  a type change in a different family, not a precision downcast. See P-54.
-- `convolved_spike_train` is float64 and *deliberately* not downcast, so dtype and rank cannot
-  separate it from LFP. **Confirmed for the selector, refuted as an outcome.** `convert()`
-  rewrites the guarded paths at source dtype *after* the selector loop, so C1 and C2 do not in
-  fact downcast it -- they leave a **false provenance stamp** on a bit-identical float64 dataset.
-  That is **P-104**, and it is why option (b) needs a disposition for the override layer as well
-  as the default: a caller naming a guarded path in `select=` gets a no-op plus a false receipt,
-  so `select=` would not mean what its name says.
-- A standard NWB file is refused outright with `KeyError`. **Half true, and the true half is not
-  about `ElectricalSeries`.** A standard file whose `processing/` is empty converts successfully;
-  the refusal comes from the `SPIKE_TRAIN_PATH`/`CONVOLVED_PATH` guard firing on *any* non-empty
-  `processing/`. That is the spike-train-constants layer, which option (b) does not touch -- so
-  this premise is not evidence that the tool is corpus-bound at the selection layer.
-
-Rule between: (a) the default becomes a named, caller-overridable corpus preset -- status quo,
-honest about itself, but a dataset-specific literal still governs when the caller is silent;
-(b) the default becomes `None` and selection is required, which breaks every existing caller;
-(c) the default becomes a generic rule, which changes what is lost, including for a series the
-docstring promises to preserve.
-
-The governing principle, ruled 2026-09-19: **irreversible lossy selection must be explicit where
-no generic semantic rule exists.** No candidate is semantics-preserving, so genericity alone is
-not a reason to pick one. That points at (b), with a compatibility path only if its behaviour can
-be documented precisely.
-**The required table was delivered on 2026-09-20 and this item never absorbed it. See P-155.**
-It is `artifacts/compress_fp32_default_candidates.md`, written at baseline `c0d53a47` with
-exactly the columns named here, seven candidate rows rather than four (C0-C6; C5 and C6 were
-added and are justified in its section 3), and every cell an executed outcome rather than a
-reading of the selector. Its section 8 measures each candidate against the current
-`tests/test_compression.py`, so the candidates are comparable on one contract:
-
-| Candidate | Contract | Candidate | Contract |
-|---|---|---|---|
-| **C0** status quo (anchored preset) | **61 passed** | C4 parent `neurodata_type` | 15 failed, 46 passed |
-| C1 float64 and 2-D | 17 failed, 44 passed | C5 `electrodes` sibling | 15 failed, 46 passed |
-| C2 float64 and basename `data` | 11 failed, 50 passed | C6 cast measured bit-exact | 21 failed, 40 passed |
-| **C3** float64, `acquisition/`, basename | **3 failed, 58 passed** -- least breakage | | |
-
-The last two columns of the required table -- "the ruling" -- are filled there for every row.
-What they show: **no candidate loses nothing new while preserving nothing newly**, so none is the
-status quo under another name, and the governing principle finds no generic rule to defer to.
-C4, C5 and C6 each **drop all three** datasets the status quo casts; C1, C2 and C3 each **add**
-behavioural or arbitrary series to the irreversible cast. C3's three failures are all the P-29
-shape -- reaching too far by name -- rather than dropping LFP. C6, the only candidate that could
-be semantics-preserving in the sense the governing principle uses, **selects nothing on any
-fixture**, so it compresses nothing.
-
-Real-corpus cells are `UNRESOLVED` there, blocked on the same `D:` grant as 06-99 and 06-31. An
-earlier packet measured them at baseline `577847f2` in `artifacts/compress_fp32_policy.md`, whose
-header now carries a supersession notice naming which of its rows still hold. **Its C-1 finding
-is the one that most changes this ruling: across all 22 real sessions, every dataset today's rule
-selects is already float32, so the cast is the identity there.** What the default governs is
-future and non-corpus files, not the data now on disk.
-
-**What is still unmeasured is options (a) and (b), not (c).** Both were measured only at
-`577847f2`, against a suite of 15 tests that is now 61, as rows R4 and R3 of the older artifact.
-A measurement packet for them is out. Until it returns, option (b)'s cost to the existing
-contract is not known at this baseline -- and at the old one it broke `verify_roundtrip` for
-already-compressed files, which is the compatibility question the ruling turns on.
-Accept: the ruling, then an implementation item written against it. The table condition is **met
-for option (c)** and **outstanding for (a) and (b)**.
-Evidence, none of which this item cited before 2026-09-20:
-
-| Source | Carries |
-|---|---|
-| `artifacts/compress_fp32_default_candidates.md` | the required table, C0-C6, at baseline `c0d53a47`; the contract cost of each; the premise verdicts in its section 6 |
-| `artifacts/compress_fp32_policy.md` | the 22-session real-corpus measurements at `577847f2`, and options (a)/(b) as R4/R3 against the old 15-test suite. Superseded in part -- read its header first |
-| P-104 | the override layer is broken independently of the ruling: a guarded path in `select=` is a no-op plus a false provenance stamp |
-| P-54 | `neurodata_type` is inconsistent across the real corpus, which is what makes C4 unreliable rather than merely vacuous |
-
-Stop: no agent takes this item. See also P-29 and P-30, both now `repaired`, which were
-independent of this ruling; the older artifact's section 5 still discusses them as open.
 
 ### 06-14 granger_causality order validation
 
@@ -588,10 +384,13 @@ here, not restated.
 ### 06-31 One real NWB end-to-end example
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: **data-access authority, which is Hamm's to grant** -- re-marked 2026-09-20 after
-the item stopped on its own Stop clause. See P-149.
-All four routes to a real NWB file are closed, measured rather than assumed: the `D:` corpus
-**exists and is denied by policy** (`jnwb.paths.describe()` resolves it; a read was refused);
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: **a Hamm ruling between the two routes
+below.** The corpus read granted 2026-09-22 (`artifacts/rulings_2026-09-22.md`) does not unblock
+this item: the example must use a redistributable dataset, and the grant keeps every corpus
+identifier out of `docs/`. The routes are a public dataset, which needs download permission,
+or the rescope described below.
+Before the grant, all four routes to a real NWB file were closed: the `D:` corpus
+**existed and was denied by policy** (`jnwb.paths.describe()` resolves it; a read was refused);
 downloading requires user permission that has not been given; remote streaming needs `ros3`
 (absent from this h5py build), or `remfile`/`dandi` (not importable), or a declared `fsspec`
 dependency -- and `pyproject.toml` is **not in this item's write set**, so the item cannot
@@ -622,8 +421,7 @@ a synthetic one and calling it an example.
 ### 06-32 Separate empirical from synthetic
 
 Release: required-0.2.6.
-Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31, and **transitively on the same data-access grant** -- recorded 2026-09-20,
-see P-149. Writes: `docs/*.md`, `examples/*.py`,
+Role: docs-harness. Skill: jnwb-figures. Blocked by: 06-31. Writes: `docs/*.md`, `examples/*.py`,
 `tests/test_synthetic_figures_are_labelled.py`.
 Visibly and structurally, in the documentation tree and in the figures.
 Accept: a check that a page carrying a synthetic figure says so.
@@ -932,8 +730,9 @@ notation is the defect and it is repaired first.
 ### 06-82 Reach the waiver from the public API
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: 06-67. Writes: `jnwb/__init__.py`,
-`jnwb/nwb_io.py`, `docs/*.md`, `tests/test_public_api_reachability.py`.
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none. Writes: `jnwb/__init__.py`,
+`jnwb/nwb_io.py`, `docs/*.md`, `tests/test_public_api_reachability.py`,
+`tests/test_nwb_read_tolerance_and_visibility.py`.
 P-43 and P-46. `MissingRequiredNWBFieldError` is exported and documented; `read_nwb`, `nwb_read_io`,
 `hdmf_build_repair_context` and `SqueezedAttributeWarning` are in neither `__all__` nor
 `dir(jnwb)`, and `read_nwb(path, allow_missing=...)` is reachable only by importing the submodule
@@ -942,16 +741,17 @@ whose report produced the ruling cannot use what was ruled. Separately, a soft l
 description is refused outright by default and with `ValueError: already exists in root.links`
 when waived, although the value is on disk and reachable: refusing a file whose required field
 **is** present is a false refusal, not a conservative default.
-Blocked by 06-67 because the shape of the export depends on what a waiver is ruled to mean.
+06-67 was ruled on 2026-09-22, option (d): `jnwb_waived_requirements` records the waiver that
+actually happened on this read, not the one requested; no value changes and no read starts or
+stops failing. This item therefore also repairs P-157, and adds the six-state missingness table
+to `docs/errors.md` with one test per row in `tests/test_nwb_read_tolerance_and_visibility.py`.
 Reproduce: `import jnwb; jnwb.read_nwb` and record the `AttributeError`; then open the soft-link
 file both ways and record both failures.
 Do: export the remedy beside the error, document it on the page that documents the error, and
 make the soft-link case resolve the link rather than refuse it.
 Discriminator: a caller who catches `MissingRequiredNWBFieldError` can reach the waiver without
 importing a submodule; the soft-link file opens with the correct description and no waiver.
-Accept: P-43 and P-46 close.
-Stop: 06-67 rules that a waived field must be represented in a way the current signature cannot
-express. Then the signature is the item, and this one waits.
+Accept: P-43, P-46, P-157 and P-158 close.
 
 ### 06-83 Verify the gate-2 administrative-entry repair
 
@@ -975,10 +775,10 @@ Stop: none. A verifier that finds nothing reports finding nothing.
 ### 06-86 Resolve the two sources that disagree about computational order
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: **a Hamm ruling -- does the inventory assert `O` or
-Theta?** Re-marked 2026-09-21; the field said `none` while the item's own text said "Blocked on
-one ruling" and its Accept clause said P-34 closes only once that ruling is recorded. The
-scheduler offered it as dispatchable. See P-163, and P-34/P-127 for the ruling itself.
+Role: jnwb-developer. Skill: none. Blocked by: none. Ruled 2026-09-22 (P-34, P-127): the
+inventory records `O` upper bounds justified by the algorithm and its published reference, and
+drops "verified"; timed exponents stay a separate, labelled benchmark with at least three input
+scales per row.
 Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/computational_order.md`,
 `tests/test_computational_order_sources_agree.py`.
 Not 06-58, which reads like it: that item reduces measured orders in
@@ -1009,13 +809,11 @@ and count were wrong**. One correction to the lane's report, re-derived on integ
 receipt `artifacts/benchmarks/baseline_performance.json` is committed and well-formed, with
 timings, heap figures and a full provenance block. The receipt is not the defect. The
 coverage is -- 6 of 14 rows absent, 13 of 14 single-scale.
-Blocked on one ruling: does the inventory assert `O` or `Θ`? Its notation says upper
-bound, its "Dominant Kernel" column hints at tightness, and the answer decides whether six
-of the eight rows are defects or correct. That is an `AGENTS.md` section 12 stop.
+The ruling this waited on is recorded (2026-09-22): the inventory asserts `O` upper bounds
+justified by the reference, which decides the six rows it names.
 Accept: the word "verified" appears only where a method is named and a scale range exists
 to support it, and a row with no measurement says so rather than being covered by a blanket
-clause. P-34 closes only once the `O`-versus-Θ ruling is recorded, since its count
-depends on it.
+clause. P-34 and P-127 close with it.
 Stop: the script that produced the inventory no longer exists or cannot be run. Then the
 inventory's claims are unfalsifiable, which is a stronger finding than a disagreement, and it is
 reported rather than patched.
@@ -1076,29 +874,6 @@ than counting columns.
 Accept: P-22 closes on its restated wording.
 Stop: making the skip loud breaks a caller who relies on the silent path. Record the caller.
 
-### 06-92 Rule the fact-slot sentence on CI coverage
-
-Release: required-0.2.6.
-Role: human ruling. Skill: none. Blocked by: none. **AUTONOMY: none.**
-Writes: `artifacts/fact_stack.md`, after the ruling only.
-P-41. `artifacts/fact_stack.md:58` reads "CI tests the declared floor and newest supported
-version." Three sources falsify it, and the important one is not the workflow:
-
-| Source | What it says |
-|---|---|
-| `.github/workflows/workflow.yml:41-46` | `os: [ubuntu-latest, windows-latest]` x `python-version: ["3.12","3.13","3.14"]` -- six legs, all three declared versions |
-| `AGENTS.md:200-202` | the 2026-09-19 amendment that retired this policy, with its stated reason. Read it there -- restating it here would give the claim a second home, which is P-15 |
-| `artifacts/goal.md` | "Every claimed version is exercised in CI" |
-
-The last is the one that matters: `goal` and `fact` are both slots Hamm rules, and they state
-incompatible policies about the same thing. An agent loading both in the order `AGENTS.md` §3
-prescribes receives two authoritative and contradictory claims.
-The `fact` slot is not agent-editable, so this item assembles and does not write. Hamm's own
-instruction stands: the replacement records observed policy and state, rather than merely
-inverting the stale wording.
-Accept: the sentence is replaced by Hamm, and `goal.md` and `fact_stack.md` agree.
-Stop: this item writes nothing to `artifacts/fact_stack.md` before the ruling.
-
 ### 06-95 Scope the estimator-delay identity in the smoother's docstring
 
 Release: required-0.2.6.
@@ -1147,7 +922,7 @@ Stop: this item adds no consumer and does not change what `xflip` returns.
 ### 06-99 Verify the container-type predicate against the corpus
 
 Release: required-0.2.6.
-Role: verifier. Skill: `jnwb-nwb-data`. Blocked by: **corpus access, which is Hamm's to grant.**
+Role: verifier. Skill: `jnwb-nwb-data`. Blocked by: none. Corpus read granted 2026-09-22 (`artifacts/rulings_2026-09-22.md`): read the raw NWB on `D:`, write outputs only to `E:` or the session scratchpad, and copy no corpus identifier into `jnwb/`, `docs/`, `skills/` or `tests/`.
 Writes: `artifacts/problem_stack.md`.
 P-54's remaining condition, and the only one. 06-84 implemented the ruling and proved it with ten
 killed mutants, including a refuse-instead-of-warn mutant, so warn-never-refuse is tested rather
@@ -1191,26 +966,6 @@ Accept: the gate count rises by one, the new PASS line is counted by `grep -c '^
 than read off the verdict line, and the mutant is recorded in the item.
 Stop: the wiring would require importing the generator to build the oracle. That reintroduces
 the fixed point and is the one thing this item exists to prevent.
-
-### 06-101 Rule which surface is wrong when the quickstart's last line raises
-
-Release: required-0.2.6.
-Role: human ruling. Skill: none. Blocked by: none.
-Writes: `artifacts/problem_stack.md`.
-P-83, and it is on the newcomer path: `docs/quickstart.md:151` prints `float(jrsa_res.p)` and
-raises. With `stats=True`, `JRSAResult.p` is shape `(1,)` while `value`, `statistic` and `ci` are
-0-d, and `float()` on a 1-element array is an error under NumPy >= 2, which
-`pyproject.toml:42` (`numpy>=1.26.0`) admits. `q` is a second instance, same shape.
-The two repairs are not equivalent and neither is free:
-| Repair | Cost |
-|---|---|
-| Fix the page -- wrap in `.item()` or index | `p` stays asymmetric with its own siblings, and the next reader writes the same line again |
-| Fix the field -- make `p` and `q` 0-d like the others | A public-API shape change; any caller indexing `p[0]` breaks |
-Rule between them. The evidence is assembled and this item writes no code either way.
-Accept: the ruling is recorded, P-83 gains an owning item under it, and whichever surface is
-chosen gains a test that fails if the shapes drift apart again.
-Stop: do not repair the page before the ruling. A page edit would close the visible symptom and
-leave the asymmetry that caused it.
 
 ### 06-113 A run states the tree it ran against
 
@@ -1317,7 +1072,7 @@ Release: required-0.2.6.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 **Unblocked 2026-09-20:** 06-94 closed, so the gate script is free. The previous wording recorded this item as blocking **itself** -- a typo for "06-94, since it and this item both write the gate script". Do not run concurrently with 06-103, which writes the same file.
 Writes: `scripts/harness_gate.py`, `tests/test_gate8_covers_every_version_surface.py`.
-P-68. `artifacts/goal.md:70` claims gate 8 enforces convergence across `requires-python`, the
+P-68. `artifacts/goal.md` "Supported interpreters" claims gate 8 enforces convergence across `requires-python`, the
 classifiers, the CI matrix, the install documentation, the README and release material. **Gate 8
 reads three files**: `.github/`, `.readthedocs.yaml`, `pyproject.toml`. No README, no
 `docs/install.md`. P-C4 is the evidence that nothing mechanical holds the rest -- it records
@@ -1331,10 +1086,119 @@ Do: extend gate 8 to the two surfaces it omits. Derive the expected version from
 Discriminator: a version is skewed in the README, and separately in `docs/install.md`, and the
 gate fails for each. **Prove the selector passes pristine first** -- a gate that reads a file it
 cannot find also reports zero violations.
-Accept: every surface `artifacts/goal.md:70` names is read by gate 8, and P-68 closes as
+Accept: every surface `artifacts/goal.md` "Supported interpreters" names is read by gate 8, and P-68 closes as
 `repaired` without `artifacts/goal.md` being edited. If some named surface genuinely cannot be
 checked mechanically, say which and why, and P-68 then needs Hamm rather than this item.
 Stop: do not edit `artifacts/goal.md`. If the claim cannot be made true, report that and stop.
+
+### 06-114 `compress_fp32` takes an explicit selection
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: `jnwb-nwb-data`. Blocked by: none.
+Writes: `jnwb/compression.py`, `tests/test_compression.py`,
+`skills/jnwb-nwb-data/SKILL.md`, `CHANGELOG.md`.
+06-13 ruled 2026-09-22, option (b) staged. Add keyword-only `select=` (dataset paths to cast) to
+`compress_fp32` and `convert`. A call naming no selection keeps today's anchored preset and emits
+`FutureWarning` saying `select=` becomes required in 0.2.7. A guarded path named in `select=`
+raises instead of returning a no-op with a false provenance stamp (P-104).
+Discriminator: a silent call warns and its output is byte-identical to today's; `select=` naming
+the preset's paths does not warn and gives the same bytes; a guarded path in `select=` raises.
+Accept: P-104, P-105 and P-107 close; `CHANGELOG.md` carries an Added entry for `select=` and a
+Deprecated entry for the implicit preset.
+Stop: any selection rule other than an explicit path list. That is 0.2.7's to design.
+
+### 06-115 `JRSAResult.p[0]` keeps working for one release
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: `jnwb-population`. Blocked by: none.
+Writes: `jnwb/jrsa.py`, `tests/test_jrsa.py`, `CHANGELOG.md`.
+06-101 ruled 2026-09-22: fix the field, staged. The field is already fixed on `dev` (`0617d120`):
+`p` and `q` are 0-d, matching `value`, `statistic` and `ci`. What the ruling adds is the stage:
+indexing `p[0]` or `q[0]`, which worked on 0.2.5's shape-`(1,)` arrays, keeps returning the
+scalar in 0.2.6 and emits `FutureWarning`; 0.2.7 removes the shim.
+Discriminator: `float(res.p)` works without a warning; `res.p[0]` returns the same value with a
+`FutureWarning`; `res.p.shape == ()`; a multi-lag result keeps shape `(n_lags,)` and no shim.
+Accept: `CHANGELOG.md` carries a Changed entry (0-d `p`, `q`) and a Deprecated entry (indexing).
+Stop: a shim that changes any value, dtype or arithmetic result of `p`.
+
+### 06-116 `aggregate_to_db` refuses an estimand it cannot deliver
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: `jnwb-lfp-spectral`. Blocked by: none.
+Writes: `jnwb/spectral.py`, `tests/test_tfr_accumulator.py`, `CHANGELOG.md`.
+P-114, ruled 2026-09-22: refuse now, deliver in 0.2.7. `aggregate_to_db(how="mean_of_ratios")` on
+input a `TFRAccumulator` has already averaged over trials raises `ValueError` naming the estimand
+it cannot deliver and the per-trial route that can.
+Discriminator: the accumulator route with `mean_of_ratios` raises; `ratio_of_means` through the
+same route is unchanged; per-trial input with `mean_of_ratios` is unchanged.
+Accept: P-114 closes; `CHANGELOG.md` Changed entry.
+Stop: the input cannot be recognised as trial-averaged without a new public marker. Then the
+marker is a public API decision, and this item reports it.
+
+### 06-117 Exploratory results say they are uncorrected
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: `jnwb-statistics`. Blocked by: none.
+Writes: `jnwb/statistics.py`, `tests/test_statistics_api_split.py`, `skills/jnwb-statistics/SKILL.md`,
+`CHANGELOG.md`.
+P-91, ruled 2026-09-22. `exploratory_compare` and `exploratory_multi` results gain
+`correction: "none"`; the `multiple_comparison` block stays off the exploratory surface.
+Discriminator: both results carry the key with value `"none"`; neither carries
+`multiple_comparison`.
+Accept: P-91 closes; `CHANGELOG.md` Added entry.
+
+### 06-118 `correlate` names its method
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: `jnwb-statistics`. Blocked by: none.
+Writes: `jnwb/statistics.py`, `tests/test_statistics.py`,
+`skills/jnwb-statistics/SKILL.md`, `CHANGELOG.md`.
+P-92 and P-93, ruled 2026-09-22. `correlate` and `exploratory_correlate` gain keyword-only
+`method=` (`"both"`, `"pearson"`, `"spearman"`), defaulting to `"both"` so current results are
+unchanged. Every additive public API change gets a `CHANGELOG.md` Added entry and needs no
+deprecation path, so this item also writes the missing Added entry for 06-45's `method=`.
+Discriminator: each method returns only its own statistic; `"both"` is value-identical to the
+current output; an unknown method raises.
+Accept: P-92 and P-93 close.
+
+### 06-119 One glossary
+
+Release: required-0.2.6.
+Role: docs-harness. Skill: none. Blocked by: none.
+Writes: `docs/glossary.md`, `docs/*.md`, `mkdocs.yml`.
+P-96, ruled 2026-09-22. Define both terms of each pair once, on one page: operation; workflow
+(jnwb ships no pipeline); session is one NWB file and recording is a continuous series within
+it; contact is a physical site and channel is a data row; electrode is one row and electrodes
+table is the NWB table. Each page then uses the defined term.
+Accept: P-96 closes; the page is in the MkDocs nav and `python scripts/docs_build.py` passes.
+
+### 06-120 Gate 15 checks the dispatch map's count
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`,
+`artifacts/todo_stack.md`.
+P-176. The dispatch map stated "37 of the 57 items below" while the stack held 52, and gate 15,
+which claims every summary count agrees with its items, passed: the count names no ids, so the
+enumerated-form rule cannot see it. Either derive the count at check time and compare, or remove
+the number from the prose.
+Discriminator: a stack whose stated total differs from its `### 06-` count fails the gate.
+Accept: P-176 closes.
+
+### 06-121 Suite cost is measured before release
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/release_gate.py`, `tests/test_semantic_mutation_classes.py`,
+`tests/test_every_gate_runs.py`, `CONTRIBUTING.md`.
+Goal section 8. The release check records suite wall time and the ten slowest
+tests. Two tests cost about 37% of a 1120 s run: the semantic-mutation class demonstration
+(326 s) and `test_every_gate_runs` parametrized over every gate (about 85 s). Reduce both
+without losing a demonstrated class or a gate.
+Discriminator: removing a class from the demonstration, or a gate from the parametrization, still
+fails.
+Accept: both tests are measured before and after with `--durations`, and the release check
+prints wall time.
 
 ## Reported and not admitted
 

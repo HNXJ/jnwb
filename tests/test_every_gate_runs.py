@@ -16,6 +16,7 @@ A first failure makes every later gate *unknown*. The defect was treating unknow
 
 from __future__ import annotations
 
+import io
 import pathlib
 import sys
 
@@ -178,6 +179,23 @@ def test_a_failing_pass_line_does_not_abort_the_run(capsys):
     assert "NOT RUN" not in out, f"gates were skipped by a formatter error:\n{out}"
 
 
+def test_a_violation_the_console_cannot_encode_is_still_reported(monkeypatch):
+    """A cp1252 console and a `Θ` in a violation turned gate 15's findings into one ERROR line."""
+    buffer = io.BytesIO()
+    console = io.TextIOWrapper(buffer, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", console)
+    monkeypatch.setattr(
+        harness_gate, "GATES", [(1, lambda: [("FAIL: gate one", ["O or Θ"])], lambda: "")]
+    )
+    verdict = harness_gate.run_full_preflight()
+    console.flush()
+    out = buffer.getvalue().decode("cp1252")
+
+    assert verdict is False
+    assert "  - O or \\u0398" in out and "ERROR" not in out, out
+    assert "failed: [1];" in out, out
+
+
 def test_pass_requires_every_gate_and_not_merely_no_failures(capsys):
     """Pins the contract itself, so a later refactor cannot make PASS mean 'nothing complained'."""
     with pytest.MonkeyPatch.context() as monkeypatch:
@@ -188,5 +206,6 @@ def test_pass_requires_every_gate_and_not_merely_no_failures(capsys):
     # An empty gate list trivially passes, which is why the count is asserted separately here and
     # in test_the_live_repository_passes_every_gate rather than inferred from the verdict line.
     # Deliberately a literal: deriving it from GATES would compare the value to itself and
-    # assert nothing. Adding a gate means bumping it -- 14 -> 16 when 06-94 and 06-98 landed.
-    assert len(harness_gate.GATES) == 16
+    # assert nothing. Adding a gate means bumping it -- 14 -> 16 when 06-94 and 06-98 landed,
+    # and 16 -> 18 when 06-80 (stack pointers) and 06-106 (api.md Type column) landed.
+    assert len(harness_gate.GATES) == 18
