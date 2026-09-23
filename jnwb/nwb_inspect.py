@@ -464,15 +464,39 @@ def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
     return found, top_level
 
 
+# Containers that wrap their series, and the attribute that holds them. `LFP` and
+# `FilteredEphys` hold ElectricalSeries; the behavior containers hold SpatialSeries or
+# TimeSeries the same way, so eye, pupil and position channels unwrap like LFP.
+_WRAPPED_SERIES_ATTR = {
+    "LFP": "electrical_series",
+    "FilteredEphys": "electrical_series",
+    "EyeTracking": "spatial_series",
+    "Position": "spatial_series",
+    "CompassDirection": "spatial_series",
+    "PupilTracking": "time_series",
+    "BehavioralTimeSeries": "time_series",
+}
+
+
+def _wrapped_series(obj: Any) -> Any:
+    """The series mapping a container holds: its `_WRAPPED_SERIES_ATTR` attribute, else
+    `electrical_series` (any other type exposing one, as before), else ``None``."""
+    ndt = getattr(obj, "neurodata_type", type(obj).__name__)
+    if ndt in _WRAPPED_SERIES_ATTR:
+        return getattr(obj, _WRAPPED_SERIES_ATTR[ndt], None)
+    return getattr(obj, "electrical_series", None)
+
+
 def _acquisition_nested_series(nwb: NWBFile) -> dict[str, list[Any]]:
-    """Series held inside ``/acquisition`` containers (``LFP``, ``FilteredEphys``).
+    """Series held inside ``/acquisition`` containers (``LFP``, ``FilteredEphys`` and the
+    behavior containers in ``_WRAPPED_SERIES_ATTR``).
 
     Keyed by the bare series name and by ``container/series``. A bare name held by two
     containers maps to both, so the caller can refuse it rather than pick one.
     """
     found: dict[str, list[Any]] = {}
     for cname, obj in (nwb.acquisition or {}).items():
-        wrapped = getattr(obj, "electrical_series", None)
+        wrapped = _wrapped_series(obj)
         if not wrapped or not hasattr(wrapped, "items"):
             continue
         for sname, series in wrapped.items():
@@ -546,24 +570,27 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
 
 
 def _electrical_series_from_acquisition(acq: Any, name: str | None = None):
-    """Unwrap an `LFP` container to the series it holds.
+    """Unwrap a wrapping container (`LFP`, `FilteredEphys`, or a behavior container such
+    as `EyeTracking`) to the series it holds; any other object is returned as is.
 
     This was ``next(iter(...))``, so a container holding two series silently
     returned whichever came first, while `inspect` reported a third answer built from
     both. A container that holds more than one series is a question for the caller.
     """
     ndt = getattr(acq, "neurodata_type", type(acq).__name__)
-    if ndt != "LFP":
+    attr = _WRAPPED_SERIES_ATTR.get(ndt)
+    if attr is None:
         return acq
-    wrapped = getattr(acq, "electrical_series", None) or {}
-    label = name or getattr(acq, "name", "LFP")
+    wrapped = getattr(acq, attr, None) or {}
+    label = name or getattr(acq, "name", ndt)
+    kind = "electrical series" if attr == "electrical_series" else "series"
     if not wrapped:
         raise AcquisitionNotFoundError(
-            f"Container '{label}' holds no electrical series"
+            f"Container '{label}' holds no {kind}"
         )
     if len(wrapped) > 1:
         raise AmbiguousAcquisitionError(
-            f"Container '{label}' wraps {len(wrapped)} electrical series: "
+            f"Container '{label}' wraps {len(wrapped)} {kind}: "
             f"{sorted(wrapped)}. Pass name=<series> explicitly."
         )
     return next(iter(wrapped.values()))
@@ -652,6 +679,9 @@ def acquisition_channel(
     Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and
     ``LFP`` containers with nested electrical series from both
     ``/acquisition`` and processing modules (e.g. ``processing/ecephys/LFP``).
+    In ``/acquisition``, behavior containers (``EyeTracking``, ``PupilTracking``,
+    ``BehavioralTimeSeries``, ``Position``, ``CompassDirection``) and ``FilteredEphys``
+    unwrap to the series they hold the same way.
 
     Parameters
     ----------

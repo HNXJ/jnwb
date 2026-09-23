@@ -145,6 +145,55 @@ class TestNWBReadHelpers:
         assert len(data) > 0
         assert fs_hz == receipt.fs_hz
 
+    @pytest.mark.parametrize("kind", ["EyeTracking", "PupilTracking", "BehavioralTimeSeries"])
+    def test_behavior_container_acquisition_channel(self, tmp_path, kind):
+        """A series wrapped in a behavior container is read like one wrapped in `LFP`:
+        by container name, bare series name or `container/series`. These used to
+        raise AcquisitionNotFoundError because only `LFP` was unwrapped."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile, behavior
+
+        data = np.arange(20.0).reshape(10, 2) if kind == "EyeTracking" else np.arange(10.0)
+        nwb = NWBFile("s", "behavior", datetime(2026, 1, 1, tzinfo=tzutc()))
+        container = getattr(behavior, kind)(name="tracking")
+        if kind == "EyeTracking":
+            container.create_spatial_series(name="tracking_data", data=data, rate=1000.0,
+                                            reference_frame="screen", unit="degrees",
+                                            conversion=2.0)
+        else:
+            container.create_timeseries(name="tracking_data", data=data, rate=1000.0,
+                                        unit="a.u.", conversion=2.0)
+        nwb.add_acquisition(container)
+        path = tmp_path / "behavior.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+
+        expected = 2.0 * (data[:, 1] if data.ndim == 2 else data)
+        for name in ("tracking", "tracking_data", "tracking/tracking_data"):
+            got, fs_hz = acquisition_channel(path, name=name, channel=1 if data.ndim == 2 else 0)
+            np.testing.assert_array_equal(got, expected)
+            assert fs_hz == 1000.0
+
+    def test_behavior_container_with_two_series_is_ambiguous(self, tmp_path):
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile
+        from pynwb.behavior import PupilTracking
+
+        nwb = NWBFile("s", "two", datetime(2026, 1, 1, tzinfo=tzutc()))
+        pupil = PupilTracking(name="pupil")
+        for sname in ("left", "right"):
+            pupil.create_timeseries(name=sname, data=np.zeros(5), rate=100.0, unit="a.u.")
+        nwb.add_acquisition(pupil)
+        path = tmp_path / "two.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+        with pytest.raises(AmbiguousAcquisitionError, match="wraps 2 series"):
+            acquisition_channel(path, name="pupil")
+        got, _ = acquisition_channel(path, name="pupil/right")
+        assert got.size == 5
+
     def test_1d_electrical_series_channel_access(self, tmp_path):
         from datetime import datetime
         from dateutil.tz import tzutc

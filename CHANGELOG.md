@@ -157,6 +157,14 @@ Carried by 0.2.6.
     keeps its integer `df`.
   - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0
     and `p_val` 1.0. Every field but `n_shuffle` is now NaN.
+- **`acquisition_channel` reads series wrapped in behavior containers.** An `EyeTracking`,
+  `PupilTracking`, `BehavioralTimeSeries`, `Position` or `CompassDirection` container in
+  `/acquisition` raised `AcquisitionNotFoundError` ("has no readable data array"), and its bare
+  series name was not found, although `inspect` reported the series, its path and its rate. Only
+  `LFP` was unwrapped. These containers now unwrap the way `LFP` does: by container name, bare
+  series name or `container/series`, and a container holding several series raises
+  `AmbiguousAcquisitionError`. A `FilteredEphys` container in `/acquisition`, which raised the same
+  way when named by its container, is unwrapped too.
 - **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`
   returned an empty array; it returns the last element. A negative step on an outer axis, with
   the fastest axis read whole, raised "Internal streaming error"; it returns the slice. An entry
