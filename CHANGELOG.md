@@ -134,6 +134,9 @@ Carried by 0.2.6.
     Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests
     now report NaN with `significant_*` False, an ANOVA with no estimate reports `df_between`
     and `df_within` as float NaN (`group_sizes` keeps the counts), and `eta_squared` is NaN.
+  - `correlate` and `exploratory_correlate` already reported a NaN correlation for a constant
+    input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation
+    keeps its integer `df`.
   - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0
     and `p_val` 1.0. Every field but `n_shuffle` is now NaN.
 - **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`

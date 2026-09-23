@@ -277,7 +277,12 @@ def _():
         )
     for block in ("parametric", "non_parametric"):
         assert np.isnan(res[block]["statistic"]) and np.isnan(res[block]["pval"])
+        assert np.isnan(res[block]["df"])
     assert res["significant_parametric"] is False and res["significant_nonparametric"] is False
+    # A defined correlation keeps its integer degrees of freedom.
+    defined = jnwb.StatisticalAnalysis.exploratory_correlate(np.arange(10.0), np.arange(10.0) ** 2)
+    for block in ("parametric", "non_parametric"):
+        assert type(defined[block]["df"]) is int and defined[block]["df"] == 8
 
 
 @case("jnwb-statistics", "decline")

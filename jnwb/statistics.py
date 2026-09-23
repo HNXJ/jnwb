@@ -1031,6 +1031,10 @@ class StatisticalAnalysis:
     def correlate(x: np.ndarray, y: np.ndarray, *, method: str = "both") -> Dict:
         """Correlate two variables: Pearson r + Spearman rho (no 2-test FDR).
 
+        A constant input has no correlation: that block reports ``statistic``, ``pval``,
+        ``effect_size`` and ``df`` as float NaN, and its ``significant_*`` flag is False. A
+        defined correlation keeps its integer ``df``.
+
         Args:
             method: Which correlation to compute -- ``"both"`` (default), ``"pearson"``
                 (returned under ``parametric``) or ``"spearman"`` (under ``non_parametric``).
@@ -1065,7 +1069,8 @@ class StatisticalAnalysis:
                 # "undefined" and "measured zero correlation" are different claims.
                 "statistic": float(r_pearson),
                 "pval": float(p_pearson),
-                "df": int(df),
+                # A correlation with no estimate has no degrees of freedom either.
+                "df": float("nan") if np.isnan(r_pearson) else int(df),
                 "effect_size": float(r_pearson**2),
                 "effect_size_name": "r_squared",
             }
@@ -1075,7 +1080,7 @@ class StatisticalAnalysis:
                 "test": "spearman_rho",
                 "statistic": float(rho_spearman),
                 "pval": float(p_spearman),
-                "df": int(df),
+                "df": float("nan") if np.isnan(rho_spearman) else int(df),
                 "effect_size": float(rho_spearman**2),
                 "effect_size_name": "rho_squared",
             }
