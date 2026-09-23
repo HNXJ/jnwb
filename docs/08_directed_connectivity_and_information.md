@@ -103,7 +103,7 @@ if psi_res.spectrum is not None:
 
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png)
 
-Panel A of that figure is `jnwb.granger` at order 15 on a pair with a known lead, and panel B is
+Panel A of that figure is `jnwb.granger` at order 15 on a synthetic pair with a known lead, and panel B is
 `jnwb.phase_slope_index` on the same pair. Both name a direction in the statistics, and neither
 names one in the tissue, which is the invariant stated above.
 

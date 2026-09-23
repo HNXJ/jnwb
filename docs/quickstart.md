@@ -50,8 +50,8 @@ Pick the module for your analytical question:
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png)
 
 Each of the six panels is one operation -- artifact repair, band power, onset fitting, a
-permutation test, Granger coupling and decoding -- drawn from the run the command
-below reproduces. The figure is committed output, not a live render: if a panel disagrees with
+permutation test, Granger coupling and decoding -- drawn from a run on synthetic data that the
+command below reproduces. The figure is committed output, not a live render: if a panel disagrees with
 what the script prints on your machine, the script is authoritative.
 
 Run the complete quickstart script locally:

@@ -214,7 +214,7 @@ assert plan["n_permutations"] == 1000
 
 ![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.png)
 
-That figure is a within-pair sign-flip null over 2000 draws, with the observed mean difference,
+That figure is a within-pair sign-flip null over 2000 draws on synthetic paired differences, with the observed mean difference,
 the 95th percentile and the $(1 + \Sigma)/(N + 1)$ p-value drawn on it. The exchangeability the
 flips assume is what the plan above pins: a different grouping is a different null.
 

@@ -122,7 +122,7 @@ linear and decibel representations.
 
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png)
 
-Panel A of that figure is the per-unit power ratios on the ratio scale. Panel B puts the two
+Panel A of that figure is synthetic per-unit power ratios on the ratio scale. Panel B puts the two
 `jnwb.aggregate_to_db` contracts beside the mean of per-unit decibels, which is the Jensen error
 the log-last rule forbids, and prints all three in dB so the gap is a number rather than a claim.
 
@@ -297,7 +297,7 @@ tfr_res = jnwb.complex_tfr(
 
 ![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png)
 
-Panel A of that figure is an LFP trace carrying one transient oscillatory burst and panel B is
+Panel A of that figure is a synthetic LFP trace carrying one transient oscillatory burst and panel B is
 `jnwb.complex_tfr` on it with the cone of influence drawn, so the region the next paragraph
 excludes is visible as an outline rather than described.
 

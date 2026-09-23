@@ -28,7 +28,7 @@ time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
 
 ![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png)
 
-Panel A of that figure is the raster over 30 trials and panel B is `jnwb.bin_spikes` on the same
+Panel A of that figure is a synthetic raster over 30 trials and panel B is `jnwb.bin_spikes` on the same
 spikes. Both panels share one time axis, so what the binning discards is read off the pair; the
 bins are right-open, which is why a spike on a bin edge falls in the later bin.
 
@@ -147,8 +147,8 @@ print(f"Optimizer Bound Status: {fit['bound_status']}")
 
 ![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.png)
 
-That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed rate it was
-fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The
+That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed synthetic rate it
+was fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The
 gap between the two lines is the fit's bias on this rise; it depends on the rise as well as $\tau$, so it is not a filter delay to subtract.
 
 ### Boundary Status & Censoring Flags (`bound_status`)
