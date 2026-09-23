@@ -1,12 +1,12 @@
 # 03. Representational Similarity Analysis (JRSA)
 
-`jnwb.jrsa` provides a representational similarity analysis (RSA) engine tailored for high-dimensional neural time series, multi-channel LFP arrays, and population firing rate tensors.
+`jnwb.jrsa` runs representational similarity analysis (RSA) on neural time series: population firing rate tensors, multichannel LFP arrays, or any response tensor.
 
 ---
 
 ## 1. Overview & Core Architecture
 
-Representational Similarity Analysis (RSA) compares neural population geometry across experimental conditions without fitting arbitrary classification hyperplanes.
+RSA compares neural population geometry across experimental conditions without fitting a classifier.
 
 The diagram below is the call order. Two response tensors enter, one `JRSAResult` leaves, and
 `summary` and `plot` are read off that result rather than recomputed from the tensors.
@@ -21,12 +21,12 @@ graph LR
 ```
 
 ### Key Capabilities
-1. **Multivariate Distance Metrics**: Supports 14 metrics spanning linear, rank, geometric, and information-theoretic geometry:
-   `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`, `"granger_ssr_ftest"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
-   These last two are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats on flattened arrays.
-2. **Flexible Tensor Alignments**: Handles 2D, 3D, and 4D tensors with automatic trial/time alignment (`align="auto"`, `align_mode="fraction"`, `lag=0`).
-3. **Statistical Resampling**: Built-in permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
-4. **CPU arithmetic**: every metric computes in NumPy on the CPU. Inputs may be NumPy arrays, `scipy.sparse` matrices (densified), JAX arrays, and torch tensors or CuPy arrays on any device (copied to the host); a masked array with a masked element raises. `backend` is recorded and moves no arithmetic; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`.
+- **Metrics** (14):
+  `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`, `"granger_ssr_ftest"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
+  `"granger_ssr_ftest"` and `"transfer_entropy_histogram_nats"` are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats on flattened arrays.
+- **Tensor alignment**: 2D, 3D, and 4D tensors, with automatic trial/time alignment (`align="auto"`, `align_mode="fraction"`, `lag=0`).
+- **Resampling**: permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
+- **CPU arithmetic**: `jrsa` has no GPU path; every metric computes in NumPy on the CPU. Inputs may be NumPy arrays, `scipy.sparse` matrices (densified), JAX arrays, and torch tensors or CuPy arrays on any device (copied to the host); a masked array with a masked element raises. `backend` is recorded and moves no arithmetic, so `backend="cupy"` gives the same numbers on the CPU; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`. `n_jobs` parallelises over CPU workers, and `res.execution` records what ran.
 
 ---
 
@@ -83,23 +83,16 @@ sliding_res = jnwb.jrsa(
 )
 ```
 
-### Execution
-
-`jrsa` has no GPU path. Every input is converted to NumPy first, whatever `backend` names,
-so `backend="cupy"` gives the same numbers on the CPU; `n_jobs`
-parallelises over CPU workers. `res.execution` records what ran.
-
 ## 4. Missing Condition Handling & Preprocessing Invariants
 
-1. **Missing Data Policy (`nan_policy`)**: If specific conditions lack trials, `nan_policy="omit"` propagates `NaN` across affected RDM pairs rather than fabricating zeros.
-2. **Preprocessing Invariants**: Z-scoring or standardizing features prior to correlation-distance RSA is mathematically redundant (correlation is intrinsically mean-centered and scale-invariant).
+- **Missing data (`nan_policy`)**: if conditions lack trials, `nan_policy="omit"` propagates `NaN` across the affected RDM pairs rather than fabricating zeros.
+- **Preprocessing**: standardizing each condition's pattern before correlation-distance RSA changes nothing, because correlation centers and scales each pattern itself. Z-scoring each feature across conditions does change the RDM.
 
 ---
 
 ## 5. Standalone RDM Operations (`jnwb.rdm`, `jnwb.rdm_similarity`)
 
-For workflows that build custom RDMs or compare precomputed dissimilarity matrices
-directly without running `jrsa`, `jnwb` exposes standalone operations:
+To build RDMs or compare precomputed dissimilarity matrices without running `jrsa`:
 
 ```python
 # Compute pairwise distance matrix (N conditions x D features)
