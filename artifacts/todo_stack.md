@@ -46,8 +46,8 @@ barrier above.
 |---|---|
 | W0 | 06-127 |
 | W1 |  |
-| W2 | 06-07, 06-82, 06-114, 06-115, 06-120, 06-135 |
-| W3 | 06-118, 06-30 |
+| W2 | 06-138, 06-139, 06-07, 06-82, 06-114, 06-115, 06-135 |
+| W3 | 06-118, 06-30, 06-120 |
 | W4 | 06-29, 06-24, 06-57 |
 | W5 | 06-52, 06-56, 06-25 |
 | W6 | 06-58, 06-32 |
@@ -154,6 +154,26 @@ Discriminator: `float(res.p)` without a warning; `res.p[0]` returns the same val
 `FutureWarning`; `res.p.shape == ()`; a multi-lag result keeps shape `(n_lags,)` and no shim.
 Accept: the packet hands back a Changed entry (0-d `p`, `q`) and a Deprecated entry (indexing).
 Stop: the shim changes any value, dtype or arithmetic result of `p`.
+
+### 06-138 Gate 2 excuses only registered worktrees
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_gate2_ignores_nested_checkouts.py`.
+P-56. A file `docs/.git` reading `gitdir: <root>/.git` passes the git-identity check and hides a duplicate skill tree.
+Do: excuse a nested directory only when it is listed by `git -C <root> worktree list --porcelain`; keep `GIT_UNAVAILABLE` when git cannot run.
+Discriminator: the root-gitdir counterfeit is flagged; every earlier counterfeit stays flagged; a real linked worktree is not; the selector passes pristine first.
+Accept: P-56 closes `repaired` after the rolling verifier.
+
+### 06-139 STEP 0a sees every required item, whatever its heading level
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/release_gate.py`, `tests/test_release_requires_no_blocker.py`.
+P-195. An item under `####` carrying `Release: required-0.2.6` is invisible to `remaining_todo_items`.
+Do: read an item at any heading depth that carries a `Release:` field; fail closed on an item-shaped heading STEP 0a cannot parse.
+Discriminator: a `####` required item and a `#####` one each fail STEP 0a; the live stack passes.
+Accept: P-195 closes `repaired` after the rolling verifier.
 
 ### 06-120 Gate 15 checks the stack's stated counts
 
@@ -378,7 +398,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge two choices: the warning fires on write because pandas has no read hook, and `unit_census_report`'s default grouping moved to `depth_class`). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`; the marker in `jnwb/tfr_accumulator.py`; three mutants killed). The Granger order validation (`tests/test_granger_order_validation.py`, all three calls; four mutants killed). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` (`d3d17871`) against `artifacts/direction.md`: the five topics, no internal vocabulary, both entry paths parallel. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py`; the two bounds restated for `phase_slope_index` and `stream_npz_array` against the code). P-118 (every magnitude in `composition_subset_proposal_0.2.6.md` names a committed test and seed; check each against the test). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed P-188, P-189, P-186, P-184, P-194, P-68, P-57, P-201, P-99, P-110, P-12 and the substitution-sweep widening, and re-opened P-56 and P-195. Current list: P-62 skill half (the GPU line in `skills/jnwb/SKILL.md`, re-worded 2026-09-23 after the pass found it incomplete). P-21 (`tests/test_substitution_class_sweep.py::test_depth_class_carries_the_geometric_vocabulary_and_layer_is_a_warned_copy` and `tests/test_metadata.py::TestDepthClassColumn`; judge the warning on write and the census default). P-114 (`tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels::test_the_route_refuses_the_estimand_it_cannot_deliver`). The Granger order validation (`tests/test_granger_order_validation.py`). P-91 (`tests/test_statistics_api_split.py::test_exploratory_results_say_they_are_uncorrected`). The architecture page `docs/architecture.md` against `artifacts/direction.md`. P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py` and the two restated bounds). P-118 (each magnitude in `composition_subset_proposal_0.2.6.md` against its named test). P-211, P-212, P-213, P-214, P-215 once repaired. The figure captions from lane `fig` other than those P-212 names were verified at `9cecf53c`.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
