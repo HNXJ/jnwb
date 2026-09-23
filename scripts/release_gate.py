@@ -1012,10 +1012,74 @@ def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
     # form matched none of them. Measured at 1be7c144: 46 of 57 items counted, 11 invisible --
     # including 06-101, an unresolved human ruling. Under the pre-amendment condition that made
     # STEP 0a able to pass with eleven items outstanding.
-    return [
-        m.group(0).lstrip("# ").strip()
-        for m in re.finditer(r"^### \d\d-\d+ .+$", path.read_text(encoding="utf-8"), re.MULTILINE)
-    ]
+    items, _ = _parse_todo_stack(path.read_text(encoding="utf-8"))
+    return [f"{ident} {title}".strip() for ident, title, _ in items]
+
+
+# A heading of any depth. Matching only `### ` made an item written one level deeper invisible,
+# together with its `Release:` field, which then belonged to the item above it.
+_HEADING = re.compile(r"^ {0,3}(#+)(?:[ \t]+(.*?))?[ \t]*$")
+# The one item-heading form STEP 0a reads an id from; the title may be empty.
+_ITEM_HEADING = re.compile(r"^(\d\d-\d+)(?:[ \t]+(.*))?$")
+# Anything that starts like an item id once leading markup is dropped, and is not an ISO date.
+# A heading of this shape that `_ITEM_HEADING` does not read is a violation, never a skip.
+_ITEM_SHAPED = re.compile(r"^[\s*_`\[(#]*\d+-\d+(?!\d|-\d)")
+# The value is read from the canonical form only. Detection is looser, so that a bold, listed or
+# indented field still marks its heading as an item rather than as prose.
+_RELEASE_VALUE = re.compile(r"^Release:\s*(.*)$")
+_RELEASE_ANY = re.compile(r"^[\s>*_-]*Release[*_]*\s*:", re.IGNORECASE)
+
+
+def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]:
+    """``(items, unparseable)`` read from todo-stack text.
+
+    A section is a heading and the lines up to the next heading of any depth. It is an item when
+    its heading reads as an id, or when its lines carry a ``Release:`` field, at any depth. The
+    release value is the section's own field: ``MISSING`` when it has none, and every distinct
+    value joined when it states more than one, so that neither reads as deferred.
+
+    ``unparseable`` names each section that is item-shaped, or carries a ``Release:`` field, but
+    whose id cannot be read. The caller reports these as violations: an item the parser cannot
+    identify is still work, and skipping it would report emptiness that was not established.
+    """
+    sections: List[Tuple[Optional[str], List[str]]] = [(None, [])]
+    for line in text.splitlines():
+        heading = _HEADING.match(line)
+        if heading:
+            sections.append(((heading.group(2) or "").strip(), []))
+        else:
+            sections[-1][1].append(line)
+    items: List[Tuple[str, str, str]] = []
+    unparseable: List[str] = []
+    for title, body in sections:
+        values = [m.group(1).strip().rstrip(".").strip()
+                  for m in map(_RELEASE_VALUE.match, body) if m]
+        has_field = any(_RELEASE_ANY.match(line) for line in body)
+        item = _ITEM_HEADING.match(title) if title is not None else None
+        if item:
+            distinct = list(dict.fromkeys(values))
+            # Capture to end of line and strip one trailing sentence period. Stopping at the
+            # first `.` would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value
+            # compares unequal to the deferred marker -- so every deferred item would read as
+            # still required.
+            value = ("MISSING" if not distinct else distinct[0] if len(distinct) == 1
+                     else "CONFLICTING: " + " / ".join(distinct))
+            items.append((item.group(1), (item.group(2) or "").strip(), value))
+        elif title is None:
+            if has_field:
+                unparseable.append("a Release: field appears before the first heading")
+        elif has_field or _ITEM_SHAPED.match(title):
+            unparseable.append(f"heading {title[:60]!r} is item-shaped or carries a Release: "
+                               "field, but no item id can be read from it")
+    return items, unparseable
+
+
+def unparseable_todo_headings(root: pathlib.Path = REPO_ROOT) -> List[str]:
+    """Todo-stack sections that look like items but whose id STEP 0a cannot read."""
+    path = root / "artifacts" / "todo_stack.md"
+    if not path.exists():
+        return []
+    return _parse_todo_stack(path.read_text(encoding="utf-8"))[1]
 
 
 RELEASE_CYCLE = "0.2.6"
@@ -1114,20 +1178,11 @@ def open_problem_dispositions(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str,
 
 
 def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
-    """``(id, title, release)`` for every item heading in the todo stack."""
+    """``(id, title, release)`` for every item in the todo stack, at any heading depth."""
     path = root / "artifacts" / "todo_stack.md"
     if not path.exists():
         return []
-    text = path.read_text(encoding="utf-8")
-    out = []
-    for m in re.finditer(r"^### (\d\d-\d+) ([^\n]*)\n(.*?)(?=\n### |\n## |\Z)", text, re.S | re.M):
-        # Capture to end of line and strip one trailing sentence period. Stopping at the first
-        # `.` would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value compares
-        # unequal to the deferred marker -- so every deferred item would read as still required.
-        field = re.search(r"^Release:\s*([^\n]*)", m.group(3), re.M)
-        value = field.group(1).strip().rstrip(".").strip() if field else "MISSING"
-        out.append((m.group(1), m.group(2).strip(), value))
-    return out
+    return _parse_todo_stack(path.read_text(encoding="utf-8"))[0]
 
 
 def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[str], Optional[int]]:
@@ -1185,6 +1240,12 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         violations.append(
             f"{len(required)} todo item(s) are still required for {RELEASE_CYCLE}: "
             + "; ".join(required[:8]) + (" ..." if len(required) > 8 else ""))
+    unreadable = unparseable_todo_headings(root)
+    if unreadable:
+        violations.append(
+            f"{len(unreadable)} todo section(s) look like items but cannot be read, so whether "
+            f"they are required for {RELEASE_CYCLE} is unknown: " + "; ".join(unreadable[:8])
+            + (" ..." if len(unreadable) > 8 else ""))
 
     # 4. every DEFERRED names a destination and a reason
     thin = [i for i, d, ans in rows

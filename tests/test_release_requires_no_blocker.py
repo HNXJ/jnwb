@@ -322,9 +322,80 @@ def test_an_item_id_of_any_digit_width_is_counted(tmp_path, ident):
 
 
 def test_the_live_item_count_agrees_between_both_parsers():
-    """Two parsers counted the live stack differently for days and neither was cross-checked."""
-    from scripts.release_gate import remaining_todo_items
-    assert len(remaining_todo_items(REPO_ROOT)) == len(todo_release_fields(REPO_ROOT))
+    """Two parsers counted the live stack differently for days and neither was cross-checked.
+
+    Both now read through one parser, so their agreement alone is a tautology. The raw count of
+    id-led headings at any depth is the independent side, and the live stack must hold no
+    section that looks like an item but cannot be read.
+    """
+    from scripts.release_gate import remaining_todo_items, unparseable_todo_headings
+    text = (REPO_ROOT / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")
+    raw = re.findall(r"^ {0,3}#+[ \t]+\d\d-\d+(?:[ \t]|$)", text, re.M)
+    assert len(remaining_todo_items(REPO_ROOT)) == len(todo_release_fields(REPO_ROOT)) == len(raw)
+    assert unparseable_todo_headings(REPO_ROOT) == []
+
+
+def _nested(depth, parent_release="Release: deferred-0.2.7.\n", child_release="required-0.2.6"):
+    return (f"### 99-900 A parent\n\n{parent_release}\n"
+            f"{depth} 99-901 A nested item\n\nRelease: {child_release}.\n")
+
+
+@pytest.mark.parametrize("depth", ["##", "###", "####", "#####", "######"])
+def test_a_required_item_is_seen_at_any_heading_depth(tmp_path, depth):
+    """Only `### ` was read, so an item one level deeper was invisible and its `Release:` field
+    was read as its parent's, which kept the parent deferred and the release check clean."""
+    root = _tree(tmp_path, items=[_nested(depth)])
+    fields = {i: r for i, _, r in todo_release_fields(root)}
+    assert fields == {"99-900": f"deferred-{NEXT_CYCLE}", "99-901": "required-0.2.6"}
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-901" in x for x in v), v
+
+
+def test_a_parent_does_not_inherit_a_nested_items_release_field(tmp_path):
+    """The other direction: a parent with no field read the deferred value of the item below."""
+    root = _tree(tmp_path, items=[_nested("####", parent_release="",
+                                          child_release=f"deferred-{NEXT_CYCLE}")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-900" in x for x in v), v
+
+
+def test_an_item_stating_two_release_values_is_required(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-901", f"deferred-{NEXT_CYCLE}")
+                                  + "Release: required-0.2.6.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-901" in x for x in v), v
+
+
+@pytest.mark.parametrize("heading", [
+    "### 99-901: A colon after the id",
+    "#### 9-901 One digit before the hyphen",
+    "### **99-901** A bold id",
+    "##### 99-901a A suffixed id",
+    "#### A heading with no id",
+])
+def test_an_item_whose_id_cannot_be_read_fails_closed(tmp_path, heading):
+    """A section STEP 0a cannot identify is reported, never skipped as prose."""
+    root = _tree(tmp_path, items=[f"{heading}\n\nRelease: required-0.2.6.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("cannot be read" in x and heading.lstrip("# ")[:20] in x for x in v), v
+
+
+@pytest.mark.parametrize("heading", ["### 99-901: A colon", "#### 99-901a A suffix"])
+def test_an_item_shaped_heading_fails_closed_without_a_release_field(tmp_path, heading):
+    """A readable id with no field reads as required; an unreadable one must not read as prose."""
+    root = _tree(tmp_path, items=[f"{heading}\n\nRole: jnwb-developer.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("cannot be read" in x and heading.lstrip("# ") in x for x in v), v
+
+
+def test_headings_that_are_not_items_add_no_violation(tmp_path):
+    """The other side of the fail-closed check, measured on a tree that is otherwise compliant."""
+    root = _tree(tmp_path, items=[
+        "## W9-W10. A group heading\n",
+        "### 2026-09-23 A dated note\n\nNo field here.\n",
+        _item("07-01", f"deferred-{NEXT_CYCLE}") + "\n#### Notes\n\nProse only.\n",
+    ])
+    assert check_release_readiness(root, head=HEAD) == []
 
 
 @pytest.mark.parametrize(
