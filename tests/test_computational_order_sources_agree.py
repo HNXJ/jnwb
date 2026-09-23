@@ -363,6 +363,7 @@ def test_a_stored_entry_shorter_than_its_header_still_fails(tmp_path):
 def test_the_streaming_reader_walks_edge_slices_in_file_order(tmp_path):
     """The reader moves forward only, so every slice has to be put into file order first."""
     import numpy as np
+    import pytest
 
     import jnwb.io
 
@@ -371,6 +372,11 @@ def test_the_streaming_reader_walks_edge_slices_in_file_order(tmp_path):
         path = tmp_path / f"{save.__name__}.npz"
         save(path, a=arr)
         np.testing.assert_array_equal(jnwb.io.stream_npz_array(path, "a", (-1,)), arr[-1:])
+        np.testing.assert_array_equal(jnwb.io.stream_npz_array(path, "a", (-7,)), arr[:1])
+        # An out-of-range integer is an error, as in numpy, not an empty result.
+        for bad in ((7,), (-8,), (0, 40)):
+            with pytest.raises(IndexError, match="out of bounds"):
+                jnwb.io.stream_npz_array(path, "a", bad)
         reversed_outer = (slice(None, None, -1), slice(None, None, -3))
         np.testing.assert_array_equal(
             jnwb.io.stream_npz_array(path, "a", reversed_outer), arr[reversed_outer]

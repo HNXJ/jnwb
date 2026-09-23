@@ -615,8 +615,8 @@ other does not follow fails the suite.
 | INV-03 | `artifacts/benchmarks/complexity_inventory.md` | compute_psd: O(C . T log N_perseg) | `compute_psd[n_channels]` | +1.00 | +1.08 | within bound |
 |  |  |  | `compute_psd[n_samples]` | +1.00 | +0.99 | within bound |
 | INV-04 | `artifacts/benchmarks/complexity_inventory.md` | wpli: O(T log N_perseg) | `wpli` | +1.00 | +0.96 | within bound |
-| INV-05 | `artifacts/benchmarks/complexity_inventory.md` | phase_slope_index: O(T log N_perseg + K_seg^2 . F) | `phase_slope_index[n_samples]` | +2.00 | +1.02 | within bound; the spec runs `jackknife=False`, which drops the `K_seg^2` term |
-|  |  |  | `phase_slope_index[n_samples_jackknife]` | +2.00 | +1.05 | within bound; re-measured after the change in section 6.2 |
+| INV-05 | `artifacts/benchmarks/complexity_inventory.md` | phase_slope_index: O(T log N_perseg + K_seg . F) | `phase_slope_index[n_samples]` | +1.00 | +1.02 | within bound; the spec runs `jackknife=False`, which drops the jackknife term |
+|  |  |  | `phase_slope_index[n_samples_jackknife]` | +1.00 | +1.05 | within bound; re-measured after the change in section 6.2 |
 | INV-06 | `artifacts/benchmarks/complexity_inventory.md` | granger: O(T . P^2 + P^3) | `granger[model_order]` | +3.00 | +1.07 | within bound |
 |  |  |  | `granger[n_samples]` | +1.00 | +1.08 | within bound |
 |  |  |  | `granger_causality[model_order]` | +3.00 | +1.11 | within bound |
@@ -655,12 +655,13 @@ other does not follow fails the suite.
 None. Eight measurements were recorded here as contradictions while the inventory was read as
 stating exponents. Read as upper bounds, six measure below theirs. Two exceeded the bounds as then
 written, and the inventory was restated to the cost the code had: the jackknife's `K_seg^2 . F`
-term in `INV-05`, and the position bound `O(E)` in `INV-14`. The code then removed both costs, and
-both rows were re-measured with `scripts/measure_order.py` at `19a8496d`:
+term in `INV-05`, and the position bound `O(E)` in `INV-14`. The code then removed both costs, the
+inventory was restated to the new code (`INV-05` linear in `K_seg`; `INV-14` still `O(E)`, the
+compressed case), and both rows were re-measured with `scripts/measure_order.py` at `19a8496d`:
 
 | Claim | What it says | Spec | Bound admits | Before the change | Measured | Verdict |
 |---|---|---|---|---|---|---|
-| INV-05 | phase_slope_index: O(T log N_perseg + K_seg^2 . F) | `phase_slope_index[n_samples_jackknife]` | +2.00 | +2.21, +2.02, +2.16 | +1.05 | within bound |
+| INV-05 | phase_slope_index: O(T log N_perseg + K_seg . F) | `phase_slope_index[n_samples_jackknife]` | +1.00 | +2.21, +2.02, +2.16 | +1.05 | within bound |
 | INV-14 | stream_npz_array: O(E) | `stream_npz_array[n_elements_in_file]` | +1.00 | +0.86, +0.86, +0.87 | +0.01 | within bound |
 
 `Before the change` is three runs at `30bf969c` on the section 3 ladders; `Measured` is the median

@@ -60,6 +60,15 @@ Carried by 0.2.6.
   `['session_id', 'area', 'depth_class']`, so the census carries `depth_class` where it carried
   `layer`. Given a frame with `layer` and no `depth_class`, it does not read `layer`; it drops
   the depth split and emits a `FutureWarning` naming both columns.
+- **The `phase_slope_index` jackknife runs in time linear in the number of segments.** It was
+  quadratic. `value` and the spectra are unchanged; `sd`, `z` and the p-values agree with the
+  previous implementation to 1e-11 relative. At 50 000 samples with `nperseg=256` a call takes
+  12 ms instead of 800 ms.
+- **`stream_npz_array` seeks inside an uncompressed archive.** A slice of an `np.savez` entry
+  skips the elements before it instead of reading them, so time no longer grows with the
+  slice's position (0.5 ms against 82 ms for the last 1000 of 1.6e7 float64). Output is
+  byte-identical, and compressed archives are unchanged. A slice that skips part of a stored
+  entry no longer verifies its CRC-32; read the whole array to verify the file.
 - **`imaginary_coherency` is signed like `phase_slope_index`: positive means `x` leads `y`.**
   The cross-spectrum is now `E[X conj(Y)]`, the conjugate of what `scipy.signal.csd` returns,
   on both devices. `icoh_mean` changes sign on every input; `icoh_abs_mean`, `coh_mag_mean` and
@@ -91,6 +100,11 @@ Carried by 0.2.6.
 
 ### Fixed
 
+- **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`
+  returned an empty array; it returns the last element. A negative step on an outer axis, with
+  the fastest axis read whole, raised "Internal streaming error"; it returns the slice. An entry
+  shorter than its header declared returned uninitialized memory; it raises `ValueError`. An
+  out-of-range integer index returned an empty array; it raises `IndexError`.
 - **`jrsa` converts its inputs by type.** It took `.data` from any input carrying one: a
   `scipy.sparse` matrix became its stored non-zeros (CKA 0.011 against 0.801, RSA NaN, no
   error), a CuPy array or a torch CUDA tensor raised, and a masked array lost its mask. Sparse,

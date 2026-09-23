@@ -77,6 +77,12 @@ def _stream_slice(
         )
 
 
+    for axis, s in enumerate(slice_tuple):
+        if isinstance(s, (int, np.integer)) and not -shape[axis] <= int(s) < shape[axis]:
+            raise IndexError(
+                f"index {int(s)} is out of bounds for axis {axis} with size {shape[axis]}"
+            )
+
     while len(slices) < len(shape):
         slices.append(slice(None))
 
@@ -208,6 +214,7 @@ def stream_npz_array(
     Raises:
         FileNotFoundError: If file_path does not exist on disk.
         KeyError: If key is not present in the NPZ archive.
+        IndexError: If an integer index is out of bounds for its axis, as in NumPy.
         ValueError: If archive is corrupt, compression method is unsupported,
                     array format/header is invalid, or layout is unsupported (e.g. object dtype).
     """
@@ -260,7 +267,7 @@ def stream_npz_array(
                     slice_tuple=slice_tuple,
                     seekable=info.compress_type == zipfile.ZIP_STORED and f.seekable(),
                 )
-        except (KeyError, ValueError):
+        except (KeyError, ValueError, IndexError):
             raise
         except Exception as exc:
             raise ValueError(f"Failed to stream array '{key}' from corrupt archive {path}: {exc}") from exc
