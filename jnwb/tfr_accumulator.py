@@ -28,6 +28,15 @@ from ._precision import (
 )
 
 
+class _TrialAveragedPower(np.ndarray):
+    """Power that has already been averaged over trials.
+
+    ``TFRAccumulator.power()`` returns its mean as this view so that ``aggregate_to_db`` can
+    refuse ``how="mean_of_ratios"`` on it: a ratio of trial means is ratio-of-means, whatever
+    the call names. It behaves as a plain ``ndarray`` otherwise, and ``np.asarray`` drops it.
+    """
+
+
 class TFRAccumulator:
     """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
@@ -116,7 +125,7 @@ class TFRAccumulator:
 
     # ---- derived quantities ----
     def power(self) -> np.ndarray:
-        return self.mean
+        return self.mean.view(_TrialAveragedPower)
 
     def var(self) -> np.ndarray:
         return np.divide(self.M2, self.n - 1, out=np.full_like(self.M2, np.nan), where=self.n > 1)

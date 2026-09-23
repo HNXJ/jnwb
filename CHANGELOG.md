@@ -29,6 +29,12 @@ Carried by 0.2.6.
 
 ### Changed
 
+- **`aggregate_to_db(how="mean_of_ratios")` refuses `TFRAccumulator.power()` output.** The
+  accumulator has already averaged over trials, so a ratio of its output is a ratio of means
+  whatever `how` names; the call used to return that under the other name. It now raises
+  `ValueError` naming the per-trial route. `how="ratio_of_means"` on accumulator output, and
+  `mean_of_ratios` on per-trial power, are unchanged. `power()` returns its mean as a private
+  `ndarray` subclass that carries this; values are unchanged and `np.asarray` drops it.
 - **`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both
   used to be accepted and echoed back as if applied, among them `reduction={'a': 'Mean'}`
   and `alternative='GREATER'`. The error names the valid set. The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`

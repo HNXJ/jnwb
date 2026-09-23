@@ -114,6 +114,9 @@ class TestDerivedQuantities:
         expected_sem = np.sqrt(expected_var / trials.shape[0])
 
         np.testing.assert_allclose(acc.power(), expected_mean, rtol=1e-9)
+        # The trial-averaged marker changes no value and is dropped by asarray.
+        assert type(np.asarray(acc.power())) is np.ndarray
+        assert np.array_equal(np.asarray(acc.power()), acc.mean)
         np.testing.assert_allclose(acc.var(), expected_var, rtol=1e-8)
         np.testing.assert_allclose(acc.sem(), expected_sem, rtol=1e-8)
 

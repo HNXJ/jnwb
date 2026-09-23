@@ -201,7 +201,7 @@ class TestH5BandPowerToAggregateToDb:
 class TestH6AccumulatorToDecibels:
     """`complex_tfr` -> `TFRAccumulator` -> `aggregate_to_db`: what the route computes."""
 
-    def test_the_accumulator_route_computes_ratio_of_means_whatever_how_names(self, h6_chain):
+    def test_the_accumulator_route_computes_ratio_of_means(self, h6_chain):
         """`power()` has already averaged over trials, so the ratio is formed on the means.
 
         This pins behaviour and presumes no repair. The identity alone would also hold on an
@@ -216,7 +216,7 @@ class TestH6AccumulatorToDecibels:
         through_accumulator = jnwb.aggregate_to_db(
             chain["acc"].power(),
             chain["baseline_acc"].power(),
-            how="mean_of_ratios",
+            how="ratio_of_means",
             aggregate_over=None,
         )
         stacked_ratio_of_means = jnwb.aggregate_to_db(
@@ -244,7 +244,7 @@ class TestH6AccumulatorToDecibels:
         through_accumulator = jnwb.aggregate_to_db(
             chain["acc"].power(),
             chain["baseline_acc"].power(),
-            how="mean_of_ratios",
+            how="ratio_of_means",
             aggregate_over=None,
         )
         stacked_mean_of_ratios = jnwb.aggregate_to_db(
@@ -255,40 +255,24 @@ class TestH6AccumulatorToDecibels:
         # Jensen holds cellwise against the log-last value over the same trials.
         assert np.all(per_trial_db[interior] <= stacked_mean_of_ratios[interior] + 1e-12)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "P-114: the accumulator has "
-            "consumed the trial axis, so how='mean_of_ratios' names an estimand the input can "
-            "no longer support. Whether aggregate_to_db should refuse the combination or "
-            "deliver it is a public-API semantics choice and an AGENTS.md 12 stop, so this "
-            "accepts either resolution."
-        ),
-    )
-    def test_the_route_delivers_the_estimand_it_names_or_refuses_it(self, h6_chain):
-        """Strict, so whichever repair lands, this xpasses and forces the marker's removal.
+    def test_the_route_refuses_the_estimand_it_cannot_deliver(self, h6_chain):
+        """`how="mean_of_ratios"` on accumulator output raises instead of returning a ratio of means.
 
-        A non-strict xfail would let the defect be repaired with nobody noticing, which is
-        this repository's dominant failure class. Refusal is caught narrowly: a bare `except
-        Exception` would turn any future unrelated error into a silent pass.
+        Both argument positions are checked, and the per-trial route with the same `how` still
+        runs, so the refusal is about the input and not about the estimand.
         """
         chain = h6_chain
-        interior = chain["interior"]
-        stacked_mean_of_ratios = jnwb.aggregate_to_db(
+        for power, baseline in (
+            (chain["acc"].power(), chain["baseline_acc"].power()),
+            (chain["power"].mean(axis=0), chain["baseline_acc"].power()),
+            (chain["acc"].power(), chain["baseline"].mean(axis=0)),
+        ):
+            with pytest.raises(ValueError, match="needs per-trial power"):
+                jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=None)
+        stacked = jnwb.aggregate_to_db(
             chain["power"], chain["baseline"], how="mean_of_ratios", aggregate_over=0
         )
-        try:
-            through_accumulator = jnwb.aggregate_to_db(
-                chain["acc"].power(),
-                chain["baseline_acc"].power(),
-                how="mean_of_ratios",
-                aggregate_over=None,
-            )
-        except (TypeError, ValueError):
-            return  # refusing to name an estimand it cannot form is an acceptable resolution
-        np.testing.assert_allclose(
-            through_accumulator[interior], stacked_mean_of_ratios[interior], atol=DB_TOL
-        )
+        assert np.isfinite(stacked[chain["interior"]]).all()
 
     def test_the_coi_mask_changes_the_edge_bins_and_leaves_the_interior_identical(self):
         """`add_trial(valid=coi_mask)` is not cosmetic: it removes the edge bins entirely.
