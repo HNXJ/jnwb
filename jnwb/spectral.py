@@ -432,6 +432,7 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     arr = _require_finite_nonempty_trace(lfp_data, "compute_psd", name="lfp_data")
     if not (np.isfinite(fs) and fs > 0):
@@ -505,6 +506,7 @@ def harmonic_analysis(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
     lfp_trace = _require_finite_nonempty_trace(lfp_trace, "harmonic_analysis")
@@ -702,6 +704,7 @@ def cross_area_coherence(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "cross_area_coherence")
     # INTENTIONAL BREAK (0.1.4). None used to mean CANONICAL_BANDS, so the band
@@ -978,6 +981,7 @@ def spectral_tilt(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
     lfp_trace = _require_finite_nonempty_trace(lfp_trace, "spectral_tilt")
@@ -1150,6 +1154,11 @@ def aperiodic_fit(
     References:
         Donoghue, T., et al. (2020). Parameterizing neural power spectra into periodic and
         aperiodic components. Nature Neuroscience. doi:10.1038/s41593-020-00744-x
+        -- the aperiodic component of Methods eq. 3; `'fixed'` is its k = 0 case. The
+        paper's algorithm fits the aperiodic component after detecting and removing
+        periodic peaks. This function fits it to every bin in `freq_range` and removes
+        nothing, so an oscillatory peak inside the range steepens or flattens the fitted
+        exponent; choose a range without peaks.
     """
     if mode not in ("fixed", "knee"):
         raise ValueError(f"Invalid mode '{mode}'. Must be 'fixed' or 'knee'.")
@@ -1497,6 +1506,7 @@ def band_power(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
     lfp_trace = _require_finite_nonempty_trace(lfp_trace, "band_power")
@@ -1603,11 +1613,20 @@ def imaginary_coherency(
     a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
     near zero; a genuinely lagged shared source drives both up.
 
+    Sign convention: the cross-spectrum comes from :func:`scipy.signal.csd`, which
+    conjugates the first signal (``S_xy = E[conj(X) Y]``), so when `x` leads `y` the
+    imaginary part is negative wherever the lag's phase is below pi. That is the opposite
+    sign to the convention :func:`jnwb.phase_slope_index` follows, where positive means `x`
+    leads.
+
     References:
         Nolte, G., et al. (2004). Identifying true brain interaction from EEG data using the
         imaginary part of coherency. Clin. Neurophysiol. doi:10.1016/j.clinph.2004.04.029
+        -- the imaginary part of coherency, which non-interacting sources mixed at zero lag
+        leave at zero.
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
     _require_1d_pair(x, y, "imaginary_coherency")
@@ -1720,7 +1739,9 @@ def wpli(
     References:
         Vinck, M., et al. (2011). An improved index of phase-synchronization for
         electrophysiological data in the presence of volume-conduction, noise and
-        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055
+        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055 -- the weighted
+        phase lag index above and the debiased estimator of squared wPLI. An imaginary part
+        no larger than 1e-10 times its cross-spectrum's magnitude counts as zero lag.
     """
     fs = _resolve_fs(fs, sampling_rate, "wpli")
     _require_1d_pair(x, y, "wpli")
@@ -1976,8 +1997,8 @@ def compute_multitaper_psd(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.
 
-    Multitaper spectral estimation (Thomson, 1982; Mitra & Pesaran, 1999) averages eigenspectra
-    modulated by orthogonal Slepian tapers, optimal for minimizing spectral leakage in finite-length
+    Multitaper spectral estimation (Thomson, 1982) averages eigenspectra modulated by
+    orthogonal Slepian tapers, optimal for minimizing spectral leakage in finite-length
     physiological epochs.
 
     Contract & Normalization:
@@ -2002,6 +2023,11 @@ def compute_multitaper_psd(
 
     Raises:
         ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains NaNs.
+
+    References:
+        Thomson, D. J. (1982). Spectrum estimation and harmonic analysis. Proc. IEEE.
+        doi:10.1109/PROC.1982.12433 -- the multitaper estimate from DPSS tapers. The K
+        eigenspectra are averaged with equal weight; no adaptive weighting is applied.
     """
     if fs <= 0:
         raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
@@ -2094,6 +2120,12 @@ def voltage_curvature_1d(
 
     Raises:
         ValueError: If `pitch_um <= 0` or number of channels along `axis` is less than 3.
+
+    References:
+        Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis
+        and determination of conductivity tensor for anuran cerebellum. J. Neurophysiol.
+        doi:10.1152/jn.1975.38.2.356 -- the second spatial derivative of the potential
+        that current source density scales by -sigma, here as the three-point difference.
     """
     if pitch_um <= 0:
         raise ValueError(f"Electrode pitch must be strictly positive; got {pitch_um} um.")
@@ -2161,6 +2193,12 @@ def current_source_density_1d(
 
     Raises:
         ValueError: If `pitch_um <= 0`, `conductivity_s_per_m <= 0`, or channel count < 3.
+
+    References:
+        Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis
+        and determination of conductivity tensor for anuran cerebellum. J. Neurophysiol.
+        doi:10.1152/jn.1975.38.2.356 -- current source density as -sigma times the second
+        spatial derivative of the potential, in one dimension with homogeneous conductivity.
     """
     if conductivity_s_per_m <= 0:
         raise ValueError(

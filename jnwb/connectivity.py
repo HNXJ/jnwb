@@ -509,7 +509,9 @@ def granger_causality(
 
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
-        and cross-spectral methods. Econometrica. doi:10.2307/1912791
+        and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
+        causality: one series causes another when its past improves the prediction of
+        the other beyond the other's own past.
     """
     warnings.warn(
         "granger_causality is deprecated; use jnwb.granger, which returns DirectedResult.",
@@ -1082,9 +1084,16 @@ def granger(
 
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
-        and cross-spectral methods. Econometrica. doi:10.2307/1912791
+        and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
+        causality: X causes Y when the past of X improves the prediction of Y beyond the
+        past of Y.
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
-        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
+        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the measure
+        of linear feedback, the log ratio of restricted to unrestricted residual variance,
+        which is ``x_to_y``.
+        Geweke, J. F. (1984). Measures of conditional linear dependence and feedback
+        between time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1984.10477110
+        -- the conditional measure, with the past of `Z` in both models.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     if criterion not in ("aic", "bic", "hqic"):
@@ -1382,7 +1391,9 @@ def granger_spectral(
 
     References:
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
-        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
+        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the
+        frequency decomposition of the measure of linear feedback, from the transfer
+        function of the fitted VAR.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     if fs is None or not np.isfinite(fs) or fs <= 0:
@@ -1692,6 +1703,10 @@ def phase_slope_index(
     References:
         Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
         complex physical systems. Phys. Rev. Lett. doi:10.1103/PhysRevLett.100.234101
+        -- PSI, eq. 3, summed over the coherency of eq. 4 with the cross-spectrum
+        ``S_xy = <X Y*>`` of eq. 2; ``z`` is the normalization of eq. 6. The paper's
+        jackknife leaves out one epoch, a block of several segments, at a time; this one
+        leaves out one Welch segment, and adjacent segments overlap by ``noverlap``.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     if fs is None or not np.isfinite(fs) or fs <= 0:
@@ -2086,7 +2101,15 @@ def transfer_entropy(
 
     References:
         Schreiber, T. (2000). Measuring information transfer. Phys. Rev. Lett.
-        doi:10.1103/PhysRevLett.85.461
+        doi:10.1103/PhysRevLett.85.461 -- transfer entropy, eq. 4, with target history
+        `k` and source history `l`; ``delay=1`` is the paper's alignment.
+        Bandt, C., & Pompe, B. (2002). Permutation entropy: a natural complexity measure for
+        time series. Phys. Rev. Lett. doi:10.1103/PhysRevLett.88.174102 -- the ordinal
+        patterns used as states by ``estimator='symbolic'``.
+        Marschinski, R., & Kantz, H. (2002). Eur. Phys. J. B.
+        doi:10.1140/epjb/e2002-00379-2 -- effective transfer entropy, the raw value minus
+        the surrogate mean, reported as ``bias_corrected_*``. The surrogates here permute
+        trials or circularly shift the source, which keeps its autocorrelation.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
     if estimator not in ("quantile", "uniform", "discrete", "symbolic"):
@@ -2294,6 +2317,14 @@ def directed_network(
         diagonal NaN), ``p_matrix``, ``q_matrix`` (NaN when ``fdr=False`` or no
         p-values), ``labels``, ``results`` (the full DirectedResult per ordered
         pair), ``method``, and ``warnings``.
+
+    References:
+        Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
+        Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x -- the step-up procedure
+        behind ``q_matrix`` (``fdr_method='bh'``).
+        Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in
+        multiple testing under dependency. Ann. Stat. doi:10.1214/aos/1013699998
+        -- ``fdr_method='by'``, valid under arbitrary dependence.
     """
     if isinstance(signals, dict):
         labels = list(signals.keys())

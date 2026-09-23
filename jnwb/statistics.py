@@ -57,6 +57,11 @@ def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
 
     Raises:
         ValueError: If n <= 0, k < 0, k > n, or alpha is not in (0, 1).
+
+    References:
+        Clopper, C. J., & Pearson, E. S. (1934). The use of confidence or fiducial limits
+        illustrated in the case of the binomial. Biometrika. doi:10.1093/biomet/26.4.404
+        -- the exact binomial interval, computed here from Beta quantiles.
     """
     try:
         k_int = int(k)
@@ -240,6 +245,14 @@ def fdr_correct(
 
     Returns:
         np.ndarray: FDR-adjusted q-values, same shape as input (flattened 1-D).
+
+    References:
+        Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
+        Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x -- the step-up procedure,
+        returned as adjusted p-values (``method='bh'``).
+        Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in
+        multiple testing under dependency. Ann. Stat. doi:10.1214/aos/1013699998
+        -- ``method='by'``, valid under arbitrary dependence.
     """
     return StatisticalAnalysis.fdr_correct(p_values, method=method)
 
@@ -704,7 +717,11 @@ class StatisticalAnalysis:
 
         References:
             Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
-            Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x
+            Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x -- the step-up
+            procedure, returned as adjusted p-values (``method='bh'``).
+            Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate
+            in multiple testing under dependency. Ann. Stat. doi:10.1214/aos/1013699998
+            -- ``method='by'``, valid under arbitrary dependence.
         """
         p = np.asarray(p_values, dtype=float).ravel()
         if p.size == 0:
@@ -1674,7 +1691,12 @@ def cluster_permutation_test(
 
     References:
         Maris, E., & Oostenveld, R. (2007). Nonparametric statistical testing of EEG- and
-        MEG-data. J. Neurosci. Methods. doi:10.1016/j.jneumeth.2007.03.024
+        MEG-data. J. Neurosci. Methods. doi:10.1016/j.jneumeth.2007.03.024 -- the
+        cluster-based permutation test: the sum of t within each suprathreshold cluster,
+        tested against the permutation distribution of the largest cluster statistic.
+        Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be zero.
+        Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585 -- the p-value
+        ``(1 + k) / (B + 1)`` over B random permutations.
     """
     from scipy import ndimage
 

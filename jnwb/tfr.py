@@ -104,6 +104,14 @@ def morlet_wavelet(
         at DC. Without it the truncated kernel had ``|sum(w)| = 1.21`` at ``n_cycles=1``,
         and a constant offset entered the transform as oscillatory amplitude: a unit
         cosine on a 1000-unit offset reported a peak ``|z|`` of 1214 instead of 1.
+
+    References:
+        Torrence, C., & Compo, G. P. (1998). A practical guide to wavelet analysis. Bull.
+        Am. Meteorol. Soc. doi:10.1175/1520-0477(1998)079<0061:APGTWA>2.0.CO;2
+        -- the Morlet wavelet, a plane wave under a Gaussian (section 3b, eq. 1), with
+        ``sigma_t = n_cycles / (2 pi f0)``. ``normalization='energy'`` is the paper's
+        unit-energy normalization (section 3c, eq. 6); the default ``'amplitude'`` is
+        this function's own, chosen so a unit cosine reads as amplitude 1.
     """
     if f0 <= 0:
         raise ValueError(f"f0 must be positive, got {f0}")
@@ -184,6 +192,10 @@ def complex_tfr(
     References:
         Torrence, C., & Compo, G. P. (1998). A practical guide to wavelet analysis. Bull.
         Am. Meteorol. Soc. doi:10.1175/1520-0477(1998)079<0061:APGTWA>2.0.CO;2
+        -- the Morlet transform (section 3b) and the cone of influence (section 3g). The
+        paper draws the cone at the e-folding time sqrt(2) s of the Morlet wavelet
+        (Table 1), which is ``coi_sigma=np.sqrt(2)`` here. The default masks every sample
+        the kernel's zero padding reaches, 4 sigma_t by default, which is wider.
     """
     arr = np.asarray(data)
     if not np.issubdtype(arr.dtype, np.number):

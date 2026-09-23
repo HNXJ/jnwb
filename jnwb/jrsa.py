@@ -275,9 +275,24 @@ def jrsa(
     ----------
     Kriegeskorte, N., et al. (2008). Representational similarity analysis: connecting the
     branches of systems neuroscience. Front. Syst. Neurosci. doi:10.3389/neuro.06.004.2008
-    (``metric='rsa'``).
+    (``metric='rsa'``) -- dissimilarity matrices of correlation distance ("Step 2"),
+    compared by Spearman rank correlation ("Step 4").
     Gretton, A., et al. (2005). Measuring statistical dependence with Hilbert-Schmidt
-    norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``).
+    norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``)
+    -- the empirical HSIC ``(m - 1)**-2 tr(KHLH)`` of Definition 2, eq. 9, with a Gaussian
+    kernel of width ``sigma``.
+    Kornblith, S., et al. (2019). Similarity of neural network representations revisited.
+    arXiv:1905.00414. doi:10.48550/arXiv.1905.00414 (``metric='cka'``) -- linear CKA,
+    ``||Y'X||_F**2 / (||X'X||_F ||Y'Y||_F)`` on column-centered inputs (Table 1).
+    Robert, P., & Escoufier, Y. (1976). A unifying tool for linear multivariate statistical
+    methods: the RV-coefficient. Appl. Stat. doi:10.2307/2347233 (``metric='rv'``) -- the
+    RV coefficient. On column-centered data it equals linear CKA (Kornblith et al. 2019,
+    section 3), and the two metrics return the same number.
+    Szekely, G. J., Rizzo, M. L., & Bakirov, N. K. (2007). Measuring and testing
+    dependence by correlation of distances. Ann. Stat. doi:10.1214/009053607000000505
+    (``metric='distance_correlation'``) -- the empirical distance correlation of
+    Definitions 4 and 5, eqs. 2.8-2.10. The paper sets it to 0 when an input is constant;
+    this returns NaN there.
     """
     t0 = time.perf_counter()
 

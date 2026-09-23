@@ -9,7 +9,14 @@ Provides validated computational primitives for cortical depth and laminar analy
 References:
     Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
     potential power across the primate cortex. Nature Neuroscience.
-    doi:10.1038/s41593-023-01554-7
+    doi:10.1038/s41593-023-01554-7 -- the motif `vflip` tests for: gamma relative power
+    peaks superficially, alpha-beta deep, and their crossover marks layer 4.
+    `vflip` is not the paper's FLIP or its frequency-variable vFLIP, which share the name.
+    The paper divides each frequency by the power of the channel with the highest power,
+    uses 10-19 Hz and 75-150 Hz, and fits linear regressions over the channel range that
+    maximizes a goodness of fit; vFLIP also searches over band pairs. `vflip` normalizes
+    by the range across contacts, uses fixed default bands and scores the fit by its
+    support score Omega, so its crossover is not a FLIP or vFLIP crossover.
 """
 from __future__ import annotations
 
@@ -639,9 +646,12 @@ def vflip_from_lfp(
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
         potential power across the primate cortex. Nature Neuroscience.
-        doi:10.1038/s41593-023-01554-7
+        doi:10.1038/s41593-023-01554-7 -- the spectrolaminar motif :func:`vflip` tests for;
+        the :mod:`jnwb.laminar` module docstring says how its estimator differs from the
+        paper's FLIP and vFLIP.
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     # 1. Validate inputs
     fs = float(fs)
@@ -781,7 +791,9 @@ def label_layers(
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
         potential power across the primate cortex. Nature Neuroscience.
-        doi:10.1038/s41593-023-01554-7
+        doi:10.1038/s41593-023-01554-7 -- the alpha-beta/gamma crossover as the layer 4
+        marker. The paper places layers 2/3 at the gamma peak and 5/6 at the alpha-beta
+        peak; the fixed-width input zone of `granular_thickness_um` is this function's rule.
     """
     # 1. Parameter validation
     #
@@ -1788,6 +1800,12 @@ def zflip(
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
             fewer than 2 segments.
+
+    References:
+        Vinck, M., et al. (2011). An improved index of phase-synchronization for
+        electrophysiological data in the presence of volume-conduction, noise and
+        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055 -- the weighted
+        phase lag index of each adjacent contact pair, as in :func:`jnwb.wpli`.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
     lfp = np.asarray(lfp_matrix, dtype=float)

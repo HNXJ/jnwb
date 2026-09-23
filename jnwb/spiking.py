@@ -387,6 +387,8 @@ def pairwise_phase_consistency(
     References:
         Vinck, M., et al. (2010). The pairwise phase consistency: a bias-free measure of
         rhythmic neuronal synchronization. NeuroImage. doi:10.1016/j.neuroimage.2010.01.073
+        -- the PPC, the mean cosine of the phase difference over all pairs of observations,
+        computed through the resultant formula above.
     """
     arr = np.asarray(phases, dtype=float)
     n = arr.shape[axis] if arr.ndim > 0 else 0
