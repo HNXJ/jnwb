@@ -347,7 +347,8 @@ def enrich_units_dataframe(
 
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
     membership in the accepted good labels otherwise -- and is not added when ``units_df``
-    has no ``quality`` column, because there is nothing to derive it from.
+    has no ``quality`` column, or one holding only NaN, None or blank strings, because there
+    is nothing to derive it from.
 
     Args:
         units_df: Raw NWB units DataFrame
@@ -443,15 +444,17 @@ def _enrich_units_dataframe(
     # 3. Handle quality and stable flags
     # Standard quality cutoff: quality >= 1.0 is stable for numeric metrics;
     # for categorical quality labels, standard accepted good labels are stable.
-    if 'quality' in df.columns:
-        q_num = pd.to_numeric(df['quality'], errors='coerce')
+    quality = df['quality'] if 'quality' in df.columns else None
+    if quality is not None and (quality.notna() & (quality.astype(str).str.strip() != '')).any():
+        q_num = pd.to_numeric(quality, errors='coerce')
         if q_num.notna().any():
             df['is_stable'] = q_num >= 1.0
         else:
             _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
-            df['is_stable'] = df['quality'].astype(str).str.strip().str.lower().isin(_GOOD_LABELS)
-    # With no quality column there is nothing to derive stability from, so no `is_stable` is
-    # added: an all-False column would be a label with no data behind it.
+            df['is_stable'] = quality.astype(str).str.strip().str.lower().isin(_GOOD_LABELS)
+    # With no quality column, or one holding only NaN, None or blank strings, there is nothing
+    # to derive stability from, so no `is_stable` is added: an all-False column would be a
+    # label with no data behind it.
 
     # Force conversion of core types. snr/unit_id are stored as dtype=str
     # (object) on some sessions but float64 on others — the same cross-session dtype

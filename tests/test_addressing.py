@@ -332,6 +332,14 @@ def test_enrich_units_dataframe_categorical_quality():
     assert list(enriched["is_stable"]) == [True, False, True, False]
 
 
+def test_a_quality_column_with_no_usable_value_adds_no_stability_label():
+    """NaN, None and blank strings are no quality at all, as an absent column is."""
+    for quality in ([np.nan, np.nan], [None, None], ["", " "], [None, np.nan]):
+        units = pd.DataFrame({"unit_id": [0, 1], "quality": pd.Series(quality, dtype=object)})
+        enriched = enrich_units_dataframe(units, None)
+        assert "is_stable" not in enriched.columns, quality
+
+
 def test_enrich_units_dataframe_no_fabricated_probeA():
     # electrodes_df with no probe or group_name column
     elec = pd.DataFrame({"location": ["V1"], "z": [500.0], "depth_unit": ["um"]}, index=[0])

@@ -7,6 +7,7 @@ peak_channel_id, ...) exposed by any file.
 """
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Literal, Optional, List, Dict, Tuple, Union
 import numpy as np
@@ -123,6 +124,15 @@ def get_all_units_metadata(
                         units_df = units_df[q_num >= quality_threshold]
                     elif 'is_stable' in units_df.columns:
                         units_df = units_df[units_df['is_stable']]
+                    else:
+                        warnings.warn(
+                            f"{session_id}: filter_quality=True, but the 'quality' column "
+                            f"holds no usable value, so none of its {len(units_df)} units "
+                            f"can pass the filter and all are excluded.",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
+                        units_df = units_df.iloc[0:0]
                     log.info(f"  Filtered to {len(units_df)} units with quality >= {quality_threshold}")
 
                 all_units.append(units_df)
