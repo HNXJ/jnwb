@@ -1,7 +1,7 @@
 # Analyzing with an Agent
 
 `jnwb` is usable by a coding agent, but almost none of that is automatic. This page says
-exactly what reaches your machine from `pip install jnwb`, what does not, and how to supply
+what reaches your machine from `pip install jnwb`, what does not, and how to supply
 the rest. [Architecture](architecture.md) shows where skills sit relative to the library and
 the four outcomes a skill can end a task in.
 
@@ -22,7 +22,7 @@ asymmetry a cause. Those live in the skills and in
 
 ## The MCP server
 
-Three tools, all of them ingest: the server reads NWB files and returns what it found. It writes nothing, and it has no tool that registers another tool. The table below is the whole surface -- it is checked against the server's live registry, so a tool without a row here is a failure, not an omission.
+Three tools, all of them ingest: the server reads NWB files and returns what it found. It writes nothing, and it has no tool that registers another tool. The table below is the whole surface, checked against the server's live registry: a tool without a row here fails that check.
 
 Install the extra and run the module:
 
@@ -59,14 +59,13 @@ to the real layout instead of an assumed one.
 
 Ten skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
 repository, and in the sdist. Each is a `SKILL.md` with a description and routing rules,
-alongside an `agents/openai.yaml` manifest. They are not in the wheel: the canonical tree is
-`skills/`, and a copy under `jnwb/` would be a second tree, which the repository's own gates
-forbid. To use them, clone the repository or unpack the sdist and point your agent at that
-directory.
+alongside an `agents/openai.yaml` manifest. The canonical tree is `skills/`, and a copy under
+`jnwb/` would be a second tree, which the repository's own gates forbid. To use them, clone the
+repository or unpack the sdist and point your agent at that directory.
 
-`pip install jnwb` does not deliver them either way, including from the sdist: the build
-installs `jnwb/` and discards everything beside it. An installed copy therefore carries a
-pointer rather than the files. `jnwb.SKILLS_URL` names the skills tree for the tag matching
+`pip install jnwb` does not deliver them, from the wheel or the sdist: the build installs
+`jnwb/` and discards everything beside it. An installed copy therefore carries a pointer
+rather than the files. `jnwb.SKILLS_URL` names the skills tree for the tag matching
 the installed version, so an agent that has only the package can find the skills written
 against the API it is holding:
 
@@ -94,12 +93,15 @@ The pointer above is the route that works from anywhere.
 | `jnwb-landmark-viz` | Plotly figures through `jnwb.vis` (the optional `vis` extra) |
 
 The router skill carries the safeguards worth reading even if you never install a skill:
-spikes and LFP are distinct observables and are not pooled; association, directionality and
-causality are three different claims; raw power is averaged before any logarithm; wavelet
-coefficients inside the cone of influence are masked; smoothing is causal so that no future
-leaks into an onset; a `Generator` is passed explicitly and the global RNG is never mutated;
-and measures built on the imaginary cross-spectrum reduce sensitivity to zero-lag coupling
-without conferring immunity to volume conduction.
+
+- spikes and LFP are distinct observables and are not pooled;
+- association, directionality and causality are three different claims;
+- raw power is averaged before any logarithm;
+- wavelet coefficients inside the cone of influence are masked;
+- smoothing is causal so that no future leaks into an onset;
+- a `Generator` is passed explicitly and the global RNG is never mutated;
+- measures built on the imaginary cross-spectrum reduce sensitivity to zero-lag coupling
+  without conferring immunity to volume conduction.
 
 ## Without any of that
 

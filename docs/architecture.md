@@ -24,8 +24,8 @@ researcher starts at the [Quickstart](quickstart.md); an agent starts at
 ## Core and skills
 
 The core is the operations, their documentation and the tests that verify them; `pip install
-jnwb` installs the operations, and the documentation and tests live in the source repository. Skills are a routing layer over the core and add no second copy of its
-scientific interface.
+jnwb` installs the operations, and the documentation and tests live in the source repository.
+Skills are a routing layer over the core.
 
 ```mermaid
 graph LR
@@ -38,7 +38,7 @@ graph LR
 Code, documentation and tests constrain each other, so none of the three changes alone. Skills
 sit outside that relation and act on it. A skill names an operation and quotes its call
 signature; the documentation defines it, and a test checks every quoted signature against the
-code, so a skill carries no second definition of the mathematics.
+code, so a skill carries no second copy of the operation's scientific interface.
 
 ## Routing outcomes
 
