@@ -198,7 +198,7 @@ def fig03_onset():
     smoothed = jnwb.causal_exp_smooth(noisy_rate, bin_ms=bin_ms, tau_ms=25.0)
 
     # jnwb bounded onset fitting
-    fit = jnwb.fit_exponential_onset(t, smoothed, t0_bounds=(0.0, 250.0))
+    fit = jnwb.fit_exponential_onset(t, smoothed, t0_bounds_ms=(0.0, 250.0))
     pred = jnwb.onset_model(t, fit["t0"], fit["tau"], fit["amplitude"], fit["baseline"])
 
     ax.scatter(t, noisy_rate, color=C_LIGHT_GRAY, s=12, label="Binned Rate (raw counts)", zorder=2)

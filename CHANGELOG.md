@@ -89,7 +89,8 @@ Carried by 0.2.6.
   and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
   still accepted.
 - **`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable
-  value.** A frame without one, or with only NaN, None or blank entries, used to receive
+  value.** A frame without one, or with only NaN, None, blank entries or the text of a missing
+  value (`"nan"`, `"None"`, `"n/a"`), used to receive
   `is_stable=False` on every unit, a label with no data behind it. The column is now absent in
   that case; the unit quality plot already treats it as optional, and
   `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a
@@ -110,6 +111,14 @@ Carried by 0.2.6.
   error), a CuPy array or a torch CUDA tensor raised, and a masked array lost its mask. Sparse,
   CuPy and torch inputs on any device now convert to dense host values, and a masked array
   with a masked element raises `TypeError`.
+- **Skill routing rows and docstrings state what the call does.** Every routing row in
+  `skills/` was checked by calling the function. Among the corrections: `compute_response_metrics`
+  computes no peak rate or modulation index (also corrected on the spike-analysis page);
+  `compute_psd` needs `axis=-1` for the input `vflip` expects; `spectral_tilt` and
+  `aperiodic_fit` report `exponent` with opposite signs; `granger_causality` is deprecated;
+  `resample_onsets` repeats onsets when there are too few; `apply_tight_auto_axis` floors the y
+  axis at 0. The `event_onsets`, `save_and_seal`, `repair_lfp_trials` and `aperiodic_fit`
+  docstrings no longer overclaim.
 - **`unit_census_report` warns when `group_by` names a column the frame lacks.** The column
   was dropped silently, so the census was grouped by fewer columns than the call named. It is
   still dropped, now with a `UserWarning` naming it.

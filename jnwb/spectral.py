@@ -1132,8 +1132,9 @@ def aperiodic_fit(
           In contrast, unconstrained linear slope in :func:`spectral_tilt` is negative.
           The mathematical equivalence is `exponent_aperiodic == -slope_spectral_tilt`
           and `offset_aperiodic == log10(offset_spectral_tilt)`.
-        - Valid inputs with non-converging or ill-conditioned fits return
-          `accepted=False` rather than raising unhandled exceptions or fabricating parameters.
+        - A fit whose optimizer fails returns `accepted=False` rather than raising or
+          fabricating parameters. An ill-conditioned fit that converges is still
+          `accepted=True`; read `r_squared` before trusting it.
 
     Args:
         freqs: 1D array of strictly increasing, finite frequency coordinates in Hz, shape `(n_freqs,)`.

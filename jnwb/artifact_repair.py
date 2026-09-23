@@ -184,7 +184,7 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
     frac_flagged : float
         Fraction of (trial, time) cells flagged and substituted.
     diagnostics : dict
-        n_trials, n_channels, n_times, n_flagged_cells, exclude_excluded_cells,
+        n_trials, n_channels, n_times, n_flagged_cells, reward_excluded_cells,
         synchrony_z_max, z_thresh, exclude_window_ms, reward_window_ms,
         max_trial_fraction, n_time_locked_samples_protected,
         max_fraction_trials_flagged_at_a_sample, warnings.

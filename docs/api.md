@@ -298,7 +298,7 @@ All 160 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.apply_tight_auto_axis | function | (ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12)<br>*Apply tight temporal bounds and auto-scale y-axis without empty margins.* |
+| jnwb.apply_tight_auto_axis | function | (ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12)<br>*Pin the x-axis to ``x_span`` and fit the y-axis to the plotted lines.* |
 | jnwb.raster_psth | function | (st, onsets, win_ms, bin_ms: float = 10.0)<br>*Trial-averaged PSTH (mean + SEM firing rate per bin) for a raw spike-time array against an explicit onset array -- raw arrays in, no session/unit_id lookup. Distinct from :func:`jnwb.spiking.compute_response_metrics`'s single-response-window-scalar contract: this returns the full time-binned PSTH curve.* |
 | jnwb.resample_onsets | function | (onsets: numpy.ndarray, target_n: int = 100, rng: int | numpy.random._generator.Generator | None = 42, random_state: typing.Any = 42) -> numpy.ndarray<br>*Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there are fewer than ``target_n`` available), for a consistent raster trial count across units with different trial counts.* |
 | jnwb.save_figure_suite | function | (figures: List[matplotlib.figure.Figure], output_dir: str | pathlib.Path, basename: str, dpi: int = 300, formats: List[str] = ['png', 'pdf']) -> None<br>*Save a suite of figures to disk with consistent naming.* |

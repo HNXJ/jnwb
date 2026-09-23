@@ -1,12 +1,10 @@
 # 06. Spike Extraction, PSTH & Onset Dynamics
 
-This document details firing rate extraction, Peristimulus Time Histogram (PSTH) generation, response significance classification, spike-LFP phase locking, causal smoothing latency physics, causality-bounded exponential onset fitting, and neural population trajectories in `jnwb`.
+PSTHs, response metrics, spike-LFP phase locking, causal smoothing, onset fitting and population trajectories.
 
 ---
 
 ## 1. Spike Analysis, Response Metrics & Phase Locking (`jnwb.spiking`, `jnwb.viz`)
-
-`jnwb.spiking` and `jnwb.viz` provide fast, vectorized operations for binning spike timestamps, computing response metrics, and analyzing spike-LFP phase alignment.
 
 ### Raster & PSTH Construction (`raster_psth`)
 
@@ -36,11 +34,10 @@ bins are right-open, which is why a spike on a bin edge falls in the later bin.
 ### Response Metrics & Significance Classification
 
 ```python
-# Compute peak firing rate, baseline rate, modulation index, and latency.
-# The window arguments are in SECONDS and say so in their names; the
-# raster_psth(win_ms=) call above is in milliseconds, and both take a float
-# 2-tuple, so the suffix is the only thing standing between you and a factor
-# of 1000.
+# Returns baseline_rate, response_rate, response_count, response_zscore, latency
+# and n_trials. The windows are in SECONDS, as their names say; raster_psth(win_ms=)
+# above is in milliseconds, and both take a float 2-tuple, so the suffix is the
+# only guard against a factor of 1000.
 metrics = jnwb.compute_response_metrics(
     spike_times=spike_times_s,
     epoch_onsets=trial_onsets_s,
@@ -135,8 +132,8 @@ import jnwb
 fit = jnwb.fit_exponential_onset(
     t_ms,
     rate,
-    t0_bounds=(0.0, 400.0),          # Physical causality boundaries
-    baseline_window=(-100.0, 0.0)    # Pre-stimulus baseline interval
+    t0_bounds_ms=(0.0, 400.0),          # Physical causality boundaries
+    baseline_window_ms=(-100.0, 0.0)    # Pre-stimulus baseline interval
 )
 
 print(f"Onset t0: {fit['t0']:.2f} ms")

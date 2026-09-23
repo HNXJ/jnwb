@@ -323,7 +323,8 @@ class PlotlyPublicationCanvas:
         Outputs:
         1. <basename>.svg  (pure vector text)
         2. <basename>.png  (high-resolution raster preview at png_dpi)
-        3. <basename>.html (self-contained interactive WebGL widget)
+        3. <basename>.html (interactive WebGL widget; loads plotly.js from a CDN, so it
+           needs a network connection to render)
         4. <basename>_argument.json (canonical 8-field epistemic argument sidecar)
 
         Returns:

@@ -26,7 +26,11 @@ def setup_vector_graphics():
 
 
 def apply_tight_auto_axis(ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12):
-    """Apply tight temporal bounds and auto-scale y-axis without empty margins."""
+    """Pin the x-axis to ``x_span`` and fit the y-axis to the plotted lines.
+
+    The y lower limit is floored at 0, so negative values in the lines are drawn outside the
+    axes and not shown. Do not use it on signed data such as z-scores or LFP.
+    """
     ax.set_xlim(x_span)
     lines = ax.get_lines()
     if lines:

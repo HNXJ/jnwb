@@ -1,8 +1,6 @@
 # 01. Architecture & Design Philosophy
 
-`jnwb` is a dataset-agnostic, object-oriented, high-performance Python library designed for large-scale electrophysiology and Neurodata Without Borders (NWB 2.0+) analysis.
-
-This document outlines the core architecture, scientific invariants, epistemic standards, and repository boundaries governing `jnwb`.
+`jnwb` is a Python library for electrophysiology analysis on Neurodata Without Borders (NWB 2.0+) files, written against no particular dataset. This page covers its package boundary and the scientific invariants its operations hold.
 
 ---
 
@@ -18,7 +16,7 @@ The diagram below draws that boundary: only the dashed edge leaves the package.
 graph TD
     NWB[NWB 2.0+ Files / HDF5 Slabs] --> jnwb[jnwb Generic Core Library]
     jnwb --> Paths[paths: Root & Volume Resolution]
-    jnwb --> Addr[addressing: Channel -> Area & Layer]
+    jnwb --> Addr[addressing: Channel -> Area & Depth Class]
     jnwb --> Meta[metadata: Unit Quality & QC]
     jnwb --> JRSA[jrsa: Representational Similarity]
     jnwb --> Spectral[spectral / tfr_accumulator: TFR & Coherence]
@@ -56,8 +54,6 @@ in [References](references.md#data-format).
 
 ## 2. Scientific & Epistemic Invariants
 
-`jnwb` is built around rigorous physical and statistical invariants:
-
 ### A. Signal Class Independence
 * **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates (pupil dilation, eye gaze, lick traces) represent distinct physical observables.
 * **No Modality Pooling**: Analyses never aggregate or pool signals across distinct modalities without explicit, intermediate transformation and declared units.
@@ -78,7 +74,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 ### D. Mathematical vs. Analysis-Specific Conventions
 * `jnwb` provides generic mathematical transforms (e.g. `to_db(ratio) = 10 * log10(ratio)`, `compute_psd`, `band_power`).
-* Specific aggregation sequences (such as averaging raw power across trials before baseline ratio calculation, termed "Logarithm Last") are estimand-specific choices for particular relative power estimators; `jnwb` exposes the underlying operations without hardcoding a specific project's aggregation workflow.
+* The logarithm comes last: `aggregate_to_db` owns the ratio-aggregate-log sequence and makes the caller name the estimand (`how="mean_of_ratios"` or `"ratio_of_means"`), so the order is enforced without fixing one project's aggregation.
 
 ### E. Unit of Inference & Hierarchical Structure
 * Statistical tests and degrees of freedom must declare their exact inferential unit: unit, channel, trial, or session/subject.
@@ -90,20 +86,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 ---
 
-## 3. Epistemic Claim Discipline
-
-Every assertion in `jnwb` documentation, metadata, and test reports follows strict epistemic categorization:
-$$\text{claim} \in \{\text{observed}, \text{derived}, \text{inferred}, \text{assumed}, \text{unknown}\}$$
-
-1. **Observed**: Directly read from physical instrumentation or verified raw data files on disk.
-2. **Derived**: Computed via deterministic mathematical operations from observed data without parameter fitting.
-3. **Inferred**: Statistical estimates resulting from model fits, optimization, or hypothesis tests with specified assumptions and confidence bounds.
-4. **Assumed**: Axiomatic priors, boundary constraints, or sampling window conventions.
-5. **Unknown**: Quantities not empirically verified or where conflicting evidence remains unresolved.
-
----
-
-## 4. Module Map & Architecture Summary
+## 3. Module Map & Architecture Summary
 
 | Module | Core Responsibility | Primary Public Symbols in `jnwb.__all__` |
 |--------|---------------------|------------------------------------------|

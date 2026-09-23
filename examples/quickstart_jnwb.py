@@ -126,7 +126,7 @@ def panel_onset(ax) -> str:
     rate = 5.0 + 20.0 * np.where(t >= t0_true, 1 - np.exp(-(t - t0_true) / tau_true), 0.0)
     noisy = rate + rng.normal(0, 1.5, t.size)
     sm = jnwb.causal_exp_smooth(noisy, bin_ms=bin_ms, tau_ms=30.0)
-    fit = jnwb.fit_exponential_onset(t, sm, t0_bounds=(0.0, None))
+    fit = jnwb.fit_exponential_onset(t, sm, t0_bounds_ms=(0.0, None))
 
     ax.plot(t, noisy, color=FAINT, lw=0.7, label="simulated rate")
     ax.plot(t, sm, color=ACCENT, lw=1.4, label="causal_exp_smooth")

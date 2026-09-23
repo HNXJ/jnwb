@@ -123,7 +123,7 @@ spk_times = np.sort(rng.uniform(0, 10, 200))
 event_onsets = np.array([1.0, 3.0, 5.0, 7.0])
 
 time_bins, rate, sem = jnwb.raster_psth(spk_times, event_onsets, win_ms=(-100.0, 400.0), bin_ms=10.0)
-onset_fit = jnwb.fit_exponential_onset(time_bins, rate, t0_bounds=(0.0, 250.0))
+onset_fit = jnwb.fit_exponential_onset(time_bins, rate, t0_bounds_ms=(0.0, 250.0))
 print(f"Estimated latency t0: {onset_fit['t0']:.2f} ms (status: {onset_fit['bound_status']})")
 ```
 

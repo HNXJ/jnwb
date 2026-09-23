@@ -95,7 +95,7 @@ spikes = np.sort(np.concatenate([rng.uniform(0.0, 21.5, 110),   # homogeneous ba
 
 time_bins, rate_hz, _ = jnwb.raster_psth(spikes, events, win_ms=(-100.0, 400.0), bin_ms=10.0)
 smooth_hz = jnwb.causal_exp_smooth(rate_hz, bin_ms=10.0, tau_ms=25.0)
-fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds=(0.0, 200.0))
+fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds_ms=(0.0, 200.0))
 print(f"Onset t0: {fit['t0']:.1f} ms of a true 60.0 "
       f"(R2={fit['r2']:.2f}, {fit['bound_status'] or 'interior'})")
 
