@@ -1,9 +1,10 @@
 """The order inventory states bounds with their references; the timed benchmark cites it by label.
 
 The inventory is an upper-bound document and the benchmark is a measurement. They agree only if
-every label the benchmark cites names the row it means, and the inventory carries no measured
-exponent of its own -- an exponent there would have no fitting method, scale set or receipt behind
-it.
+every label the benchmark cites names the row it means and quotes the bound that row states, every
+exponent the benchmark says a bound admits is the one that bound gives in the swept parameter, and
+the inventory carries no measured exponent of its own -- an exponent there would have no fitting
+method, scale set or receipt behind it.
 """
 import re
 from pathlib import Path
@@ -45,6 +46,36 @@ def inventory_defects(text):
     return defects
 
 
+_LATEX = (
+    (r"\$", ""),
+    (r"\\mathcal\{O\}", "O"),
+    (r"\\cdot", "."),
+    (r"\\log", "log"),
+    (r"\\text\{([^}]*)\}", r"\1"),
+    (r"_\{([^}]*)\}", r"_\1"),
+)
+
+
+def plain_bound(latex):
+    """The inventory's LaTeX bound in the benchmark's notation, e.g. ``O(C . F . T log T)``."""
+    for pattern, replacement in _LATEX:
+        latex = re.sub(pattern, replacement, latex)
+    return " ".join(latex.split())
+
+
+def quoted_bound(line, primitive):
+    """The bound ``line`` quotes as ``primitive: O(...)``, parentheses balanced, or None."""
+    match = re.search(rf"(?<!\w)`?{re.escape(primitive)}`?: O\(", line)
+    if not match:
+        return None
+    depth = 0
+    for i in range(match.end() - 1, len(line)):
+        depth += {"(": 1, ")": -1}.get(line[i], 0)
+        if depth == 0:
+            return " ".join(line[match.end() - 2 : i + 1].split())
+    return None
+
+
 def citation_defects(benchmark_text, inventory_text):
     rows = inventory_rows(inventory_text)
     defects = []
@@ -59,7 +90,96 @@ def citation_defects(benchmark_text, inventory_text):
         primitive = rows[label][1].strip("`")
         if primitive not in line:
             defects.append(f"{label} cited for something other than `{primitive}`")
+            continue
+        stated = plain_bound(rows[label][3])
+        quoted = quoted_bound(line, primitive)
+        if quoted is None:
+            defects.append(f"{label} quotes no bound for `{primitive}`")
+        elif quoted.replace(" ", "") != stated.replace(" ", ""):
+            defects.append(f"{label} quotes {quoted}; the inventory states {stated}")
+    for label in sorted(set(re.findall(r"\bINV-\d{2}\b", benchmark_text)) - set(rows)):
+        defects.append(f"{label} cited in the text but absent from the inventory")
     return defects
+
+
+#: The inventory symbols that grow with each swept parameter. Welch segments grow with the
+#: samples at a fixed segment length, so a sweep in samples grows both ``T`` and ``K_seg``.
+_SWEPT = {
+    "n_channels": ("C",),
+    "n_freqs": ("F",),
+    "n_samples": ("T", "K_seg"),
+    "model_order": ("P",),
+    "n_surrogates": ("S",),
+    "n_conditions": ("N",),
+    "n_features": ("D",),
+    "n_folds": ("K",),
+    "n_trials": ("R",),
+    # One stream spec slices the tail of a growing file, the other a growing slice from the
+    # start; both grow the offset of the last selected element.
+    "n_elements_in_file": ("E",),
+    "n_elements_sliced": ("E",),
+}
+
+
+def admitted_degree(bound, symbols):
+    """Largest degree of ``symbols`` over the bound's terms, and whether that term logs one."""
+    best = (0, False)
+    for term in bound.strip()[2:-1].split("+"):
+        tokens = term.replace(".", " ").split()
+        degree, logged = 0, False
+        for i, token in enumerate(tokens):
+            base, _, power = token.partition("^")
+            if i and tokens[i - 1] == "log":
+                logged = logged or base in symbols
+            elif base in symbols:
+                degree += int(power or 1)
+        best = max(best, (degree, logged))
+    return best
+
+
+def table_rows(text, required):
+    """Each body row, as {column: cell}, of every table whose header has ``required`` columns."""
+    header = None
+    for line in text.splitlines():
+        if not line.startswith("|"):
+            header = None
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if header is None:
+            header = cells if set(required) <= set(cells) else []
+        elif header and not all(re.fullmatch(r":?-+:?", c) for c in cells):
+            if len(cells) == len(header):
+                yield dict(zip(header, cells))
+
+
+def bound_defects(benchmark_text, inventory_text):
+    """Every exponent a bound is said to admit, and every verdict drawn from it, re-derived."""
+    rows = inventory_rows(inventory_text)
+    parameter = {r["spec"].strip("`"): r["parameter"]
+                 for r in table_rows(benchmark_text, ("spec", "parameter", "exp"))}
+    defects, checked, label = [], 0, None
+    for row in table_rows(benchmark_text, ("Claim", "Spec", "Bound admits", "Measured", "Verdict")):
+        label = row["Claim"] or label
+        if label not in rows or not _EXPONENT.fullmatch(row["Bound admits"]):
+            continue
+        spec = row["Spec"].strip("`")
+        swept = _SWEPT.get(parameter.get(spec))
+        if swept is None:
+            defects.append(f"{label} {spec}: no inventory symbol for its swept parameter")
+            continue
+        degree, logged = admitted_degree(plain_bound(rows[label][3]), swept)
+        admits = float(row["Bound admits"])
+        if not degree <= admits <= degree + (0.2 if logged else 0.0):
+            defects.append(f"{label} {spec}: says the bound admits {admits:+.2f}, it gives {degree}"
+                           + (" plus a log" if logged else ""))
+        measured = float(_EXPONENT.search(row["Measured"]).group())
+        # Two exponents agree within 0.25, the resolution section 2.5 of the benchmark sets.
+        within = measured <= admits + 0.25
+        if row["Verdict"].startswith("within") != within:
+            defects.append(f"{label} {spec}: verdict '{row['Verdict']}' for {measured:+.2f} "
+                           f"against {admits:+.2f}")
+        checked += 1
+    return defects, checked
 
 
 def test_the_inventory_states_bounds_with_their_references():
@@ -70,6 +190,41 @@ def test_every_label_the_benchmark_cites_names_its_row():
     bench = BENCHMARK.read_text(encoding="utf-8")
     assert re.search(r"^\| INV-\d{2} \|", bench, re.M), "the benchmark cites no label; the check is vacuous"
     assert citation_defects(bench, INVENTORY.read_text(encoding="utf-8")) == []
+
+
+def test_every_exponent_a_bound_admits_is_the_one_it_gives():
+    defects, checked = bound_defects(
+        BENCHMARK.read_text(encoding="utf-8"), INVENTORY.read_text(encoding="utf-8")
+    )
+    assert checked >= 20, f"only {checked} rows checked; the table was not found"
+    assert defects == []
+
+
+def test_the_bound_checks_see_what_they_are_for():
+    header = "| ID | Primitive | Module | Time | Memory | Algorithm | Reference |\n|---|---|---|---|---|---|---|\n"
+    inv = header + "| INV-01 | `g` | `m` | $\\mathcal{O}(T \\cdot P^2 + P^3)$ | x | a | r |\n"
+    inv += "| INV-02 | `s` | `m` | $\\mathcal{O}(N^2 \\log N)$ | x | a | r |\n"
+    sweeps = (
+        "| spec | parameter | exp |\n|---|---|---|\n"
+        "| `g[model_order]` | model_order | +1.00 |\n| `s[n_conditions]` | n_conditions | +2.10 |\n\n"
+    )
+    table = "| Claim | What it says | Spec | Bound admits | Measured | Verdict |\n|---|---|---|---|---|---|\n"
+
+    def bench(g_row, s_row="| INV-02 | s: O(N^2 log N) | `s[n_conditions]` | +2.16 | +2.11 | within bound |"):
+        return sweeps + table + g_row + "\n" + s_row + "\n"
+
+    good = "| INV-01 | g: O(T . P^2 + P^3) | `g[model_order]` | +3.00 | +1.07 | within bound |"
+    assert citation_defects(bench(good), inv) == []
+    assert bound_defects(bench(good), inv) == ([], 2)
+    assert citation_defects(bench(good.replace(" + P^3", "")), inv) != []
+    assert citation_defects(bench(good.replace("g: O(T . P^2 + P^3)", "g")), inv) != []
+    assert citation_defects(bench(good) + "INV-07 is cited in prose.\n", inv) != []
+    assert bound_defects(bench(good.replace("+3.00", "+2.00")), inv)[0] != []
+    assert bound_defects(bench(good.replace("within bound", "exceeds bound")), inv)[0] != []
+    assert bound_defects(bench(good.replace("+1.07", "+3.40")), inv)[0] != []
+    logged = "| INV-02 | s: O(N^2 log N) | `s[n_conditions]` | {} | +2.11 | within bound |"
+    assert bound_defects(bench(good, logged.format("+2.40")), inv)[0] != []
+    assert bound_defects(bench(good, logged.format("+1.90")), inv)[0] != []
 
 
 def test_the_checks_see_what_they_are_for():
@@ -83,6 +238,7 @@ def test_the_checks_see_what_they_are_for():
     assert citation_defects(bench_ok, good) == []
     assert citation_defects("| INV-02 | inv | f: O(T) |\n", good) != []
     assert citation_defects("| INV-01 | inv | g: O(T) |\n", good) != []
+    assert citation_defects("| INV-01 | inv | f: O(1) |\n", good) != []
 
 
 # An order reduction must compute what the slower path computed. The benchmark records the

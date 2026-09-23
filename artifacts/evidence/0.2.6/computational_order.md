@@ -189,13 +189,15 @@ contradicts a written claim it appears in section 6.
 | `granger_spectral[n_samples]` | n_samples | 8000, 30000, 120000, 400000, 1000000 | 5.95, 14.3, 52.9, 203.2, 556.6 | +0.95 | 0.991 | 94x | O(n) | T(N*d^2*p) | derived | agree |
 | `network_topology[n_nodes]` | n_nodes | 800, 1600, 3000, 5000, 8000 | 8.45, 33.2, 115.7, 320.2, 814.8 | +1.98 | 1.000 | 96x | O(n^2) | T(n^2) | derived | agree |
 | `phase_slope_index[n_samples]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 8.69, 39.9, 123.6, 334.0, 692.1 | +1.02 | 0.996 | 80x | O(n) | T(N log L) | derived | agree |
-| `phase_slope_index[n_samples_jackknife]` | n_samples | 5000, 12000, 22000, 35000, 50000 | 15.0, 51.6, 153.8, 801.3, 1986 | +2.14 | 0.964 | 132x | O(n^2) | T(S*L) | derived | ORDER |
+| `phase_slope_index[n_samples_jackknife]` | n_samples | 60000, 200000, 700000, 2000000, 4000000 | 13.06, 59.15, 197.2, 555.3, 1151 | +1.05 | 0.997 | 88x | O(n) | T(S*L) | derived | agree |
 | `spike_count_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 11.0, 55.3, 228.2, 562.6, 1138 | +1.01 | 1.000 | 104x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `spike_mutual_information[n_bins]` | n_bins | 10000, 50000, 200000, 800000, 2000000 | 23.1, 31.5, 78.3, 289.1, 800.8 | +0.68 | 0.933 | 35x | sub-linear | T(n_spikes + n_bins) | derived | ORDER |
 | `spike_mutual_information[n_spikes]` | n_spikes | 100000, 500000, 2000000, 5000000, 10000000 | 9.72, 49.9, 208.7, 534.8, 1066 | +1.02 | 1.000 | 110x | O(n) | T(n_spikes + n_bins) | derived | ORDER |
 | `transfer_entropy[n_samples]` | n_samples | 1500, 6000, 25000, 80000, 150000 | 13.0, 51.4, 278.1, 1079, 2184 | +1.13 | 0.999 | 169x | O(n) | T(N*(k+l)) expected | derived | ORDER |
 | `transfer_entropy[source_history_l]` | source_history_l | 1, 8, 50, 200, 500 | 106.1, 171.8, 411.8, 638.5, 1190 | +0.39 | 0.976 | 11x | sub-linear | T(N*(k+l)) | derived | agree |
 | `transfer_entropy[target_history_k]` | target_history_k | 1, 8, 50, 200, 500 | 98.6, 166.9, 389.8, 651.1, 1213 | +0.40 | 0.979 | 12x | sub-linear | T(N*(k+l)) | derived | agree |
+
+`phase_slope_index[n_samples_jackknife]` was re-measured at `19a8496d` after the change in section 6.2, on a ladder 80x wider because the reduced path no longer reaches the timing band over 5000 to 50000. At `f23d96ce` it read +2.14 over that narrower ladder, T(S^2*L).
 
 ### `jnwb.continuous`
 
@@ -234,8 +236,10 @@ contradicts a written claim it appears in section 6.
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `stream_npz_array[n_elements_in_file]` | n_elements_in_file | 100000, 1000000, 4000000, 16000000 | 1.39, 7.15, 25.2, 96.4 | +0.83 | 0.994 | 69x | O(n) | T(k) for ZIP_STORED | observed | ORDER |
+| `stream_npz_array[n_elements_in_file]` | n_elements_in_file | 100000, 1000000, 4000000, 16000000 | 0.4878, 0.5071, 0.5166, 0.5172 | +0.01 | 0.919 | 1x | O(1) (NOT SEPARATED) | T(k) for ZIP_STORED | observed | agree |
 | `stream_npz_array[n_elements_sliced]` | n_elements_sliced | 1000, 10000, 100000, 1000000, 4000000 | 0.87, 0.85, 1.37, 13.9, 45.9 | +0.49 | 0.830 | 53x | sub-linear (POOR FIT) | T(k) | derived | agree |
+
+`stream_npz_array[n_elements_in_file]` was re-measured at `19a8496d` after the change in section 6.2. At `f23d96ce` it read +0.83, T(n): the leading elements were read and discarded.
 
 ### `jnwb.jrsa`
 
@@ -458,7 +462,7 @@ Three verdicts need reading carefully:
 | spec | parameter | pred ach | pred adm | MEASURED | verdict | what the implementation does | admissible order |
 |---|---|---|---|---|---|---|---|
 | `exact_sign_flip[n_samples_exact]` | n_samples | - | - | +2.47 [POOR FIT] | see note (predicted after this group's sweep had run). EXPONENTIAL in N, not polynomial: a power-law exponent is not the right summary. The raw times, which should roughly double per added sample, are the evidence. | Exhaustive enumeration of all 2^N sign vectors, T(2^N*N): an exponential-exponent gap against the best known algorithm. | O(2^(N/2)*N) known; true lower bound unknown |
-| `phase_slope_index[n_samples_jackknife]` | n_samples | +2.00 | +1.00 | +2.14 | **gap confirmed**. | A Python loop of S iterations, each taking a fancy-index COPY fx[keep] of an (S-1, L/2+1) complex array and recomputing three full-frequency means from scratch: T(S^2*L) = T(N^2/L). This is the DEFAULT path (jackknife=True at jnwb/connectivity.py:1604). | T(S*L) |
+| `phase_slope_index[n_samples_jackknife]` | n_samples | +2.00 | +1.00 | +2.14 | **gap confirmed**, then closed: +1.05 after the change (section 6.2). | Before the change: a Python loop of S iterations, each taking a fancy-index COPY fx[keep] of an (S-1, L/2+1) complex array and recomputing three full-frequency means from scratch: T(S^2*L) = T(N^2/L). This is the DEFAULT path (jackknife=True at jnwb/connectivity.py:1604). | T(S*L) |
 | `granger_spectral[model_order]` | model_order | +2.00 | +1.00 | +1.19 | **no gap** -- measurement matches the admissible order. | Same. | T(N*p + p^2 + F log F) |
 | `granger_causality[model_order]` | model_order | +2.00 | +1.00 | +1.11 | **no gap** -- measurement matches the admissible order. | Same SVD least-squares route. | T(N*p + p^2) |
 | `granger[model_order]` | model_order | +2.00 | +1.00 | +1.07 | **no gap** -- measurement matches the admissible order. | A design matrix of (N-p) x (1+2p) is materialised and solved by SVD least squares (LAPACK gelsd), giving T(N p^2 + p^3): a factor p in the data term and p in the solve above the recursion. | T(N*p + p^2) at d=2 |
@@ -470,7 +474,7 @@ Three verdicts need reading carefully:
 | `phase_locking_index[n_lfp_samples]` | n_lfp_samples | +1.00 | +0.00 | +0.88 | **gap confirmed**. | np.cos and np.sin are taken over the ENTIRE LFP trace before interpolating at S spike times: T(m) trig for S << m spikes. | T(1) in m with a uniform grid; T(log m) per spike by binary search |
 | `assign_outer_folds[n_strata]` | n_strata | +1.00 | +0.00 | +0.86 | **gap confirmed**. | A Python loop over strata with three .loc assignments and a .map per stratum, about 1.25 ms per stratum: T(S) where T(1) in S is available. | T(1) in S with n fixed |
 | `gaussian_smooth_rate[sigma_ms]` | sigma_ms | +1.00 | +0.00 | +0.85 | **gap confirmed**. | scipy.ndimage.gaussian_filter1d uses a direct FIR correlation whose tap count grows as about 8*sigma, so the cost is T(n*sigma). | T(n), independent of sigma |
-| `stream_npz_array[n_elements_in_file]` | n_elements_in_file | +1.00 | +0.00 | +0.83 | **gap confirmed**. | _read_skip READS AND DISCARDS the (n-k) leading elements through a 64 KiB memoryview on a ZipExtFile -- a sequential forward skip with no seek. T(n) achieved against T(k) admissible; 710x slower than seek-then-read at n=1.6e7. | T(k) for ZIP_STORED |
+| `stream_npz_array[n_elements_in_file]` | n_elements_in_file | +1.00 | +0.00 | +0.83 | **gap confirmed**, then closed: +0.01 after the change (section 6.2). | Before the change: _read_skip READS AND DISCARDS the (n-k) leading elements through a 64 KiB memoryview on a ZipExtFile -- a sequential forward skip with no seek. T(n) achieved against T(k) admissible; 710x slower than seek-then-read at n=1.6e7. | T(k) for ZIP_STORED |
 | `causal_exp_smooth[tau_ms]` | tau_ms | +1.00 | +0.00 | +0.73 | **neither** -- measured +0.73. | np.convolve with a truncated exponential of 5*tau/bin taps, so T(n*tau). | T(n), independent of tau |
 | `get_snr_analysis[n_sessions]` | n_sessions | +1.00 | +0.00 | +0.67 | **neither** -- measured +0.67. | A Python loop over sessions doing a FULL-TABLE boolean scan per session (jnwb/metadata.py:332-341): T(S*m). | T(m + S) |
 | `classify_layer_from_depth` | n_electrodes | +1.00 | +0.00 | +0.65 | **neither** -- measured +0.65. | _resolve_electrode_row does a FULL LINEAR SCAN, electrodes_df.index[electrodes_df[id_col] == val] at jnwb/addressing.py:78: T(e). When no explicit id column exists the code already falls through to the T(1) hash path at line 83, so the slow branch is the one the code PREFERS -- and jnwb/addressing.py:60-64 documents why it prefers it, to avoid row-index/channel-ID substitution. | T(1) expected |
@@ -581,54 +585,59 @@ plausible one is worse than none.
 
 ## 6. Reconciliation with complexity claims already in the repository
 
-`artifacts/benchmarks/complexity_inventory.md` already records Big-O bounds for 14
-primitives as upper bounds justified by their algorithms and published references, and
-labels each row `INV-01` to `INV-14`. It does not claim to be timed. Timing existed before
-this file: `artifacts/benchmarks/baseline_performance.json` records `time_ms` for its 21
-entries, but at one input scale each, which fixes no exponent. This file times them over at
-least three scales. A measured exponent below its bound agrees with it; only one above it is
-a contradiction, and after the bounds were restated the two that remain above theirs
-(`INV-05` without its jackknife term, `INV-14` bounded by slice rather than position) were
-corrected in the inventory rather than here.
+`artifacts/benchmarks/complexity_inventory.md` records upper bounds on time for 14 primitives,
+each justified by the algorithm the implementation runs and a published reference, and labels
+each row `INV-01` to `INV-14`. It does not claim to be timed. Timing existed before this file:
+`artifacts/benchmarks/baseline_performance.json` records `time_ms` for its 21 entries, but at one
+input scale each, which fixes no exponent. This file times them over at least three scales.
 
-Per the item's stop condition, where a measurement contradicts a documented claim **both**
-are recorded and neither is picked. Those rows are problem-stack entries, not judgement
-calls; they are collected in section 6.2.
+A bound is compared as a bound, and the columns are derived from it as follows.
+
+| Column | Derivation |
+|---|---|
+| What it says | The inventory's time bound, quoted in this file's notation |
+| Bound admits | The largest degree of the swept symbol over the bound's additive terms, every other symbol held. Where that term carries a log of the swept symbol, the least-squares exponent of the log factor over the spec's own sizes is added. A sweep in samples grows `K_seg` with `T`, because the segment length is held |
+| Measured | The section 3 exponent |
+| Verdict | `within bound` when Measured is at most Bound admits + 0.25 (section 2.5), `exceeds bound` otherwise |
+
+`tests/test_computational_order_sources_agree.py` re-derives every quoted bound, every
+`Bound admits` value and every verdict from the inventory, so an edit to either file that the
+other does not follow fails the suite.
 
 ### 6.1 Claim-by-claim
 
-| Claim | Source | What it says | Spec | Claim predicts | Measured | Verdict |
+| Claim | Source | What it says | Spec | Bound admits | Measured | Verdict |
 |---|---|---|---|---|---|---|
-| INV-01 | `artifacts/benchmarks/complexity_inventory.md` | complex_tfr: O(C . F . T log T) | `complex_tfr[n_channels]` | +1.00 | +0.95 | agrees |
-|  |  |  | `complex_tfr[n_freqs]` | +1.00 | +0.83 | agrees |
-|  |  |  | `complex_tfr[n_samples]` | +1.08 | +1.13 | agrees |
-| INV-02 | `artifacts/benchmarks/complexity_inventory.md` | TFRAccumulator: O(R . C . F . T), streaming Welford; avoids storing R trials | -- | -- | -- | not tested here: The claim is about the ACCUMULATE loop over R trials. The only public export is the constructor, whose cost is allocation. Different subject: recorded, not scored. |
-| INV-03 | `artifacts/benchmarks/complexity_inventory.md` | compute_psd: O(C . T log N_perseg) | `compute_psd[n_channels]` | +1.00 | +1.08 | agrees |
-|  |  |  | `compute_psd[n_samples]` | +1.00 | +0.99 | agrees |
-| INV-04 | `artifacts/benchmarks/complexity_inventory.md` | wpli: O(T log N_perseg) | `wpli` | +1.00 | +0.96 | agrees |
-| INV-05 | `artifacts/benchmarks/complexity_inventory.md` | phase_slope_index: O(T log N_perseg + F) | `phase_slope_index[n_samples]` | +1.00 | +1.02 | agrees |
-|  |  |  | `phase_slope_index[n_samples_jackknife]` | +1.00 | +2.14 | **CONTRADICTS** -- claim predicts +1.00, measured +2.14 |
-| INV-06 | `artifacts/benchmarks/complexity_inventory.md` | granger: O(T . P^2 + P^3), bivariate VAR(P) OLS regression (P << T) | `granger[model_order]` | +2.00 | +1.07 | **CONTRADICTS** -- claim predicts +2.00, measured +1.07 |
-|  |  |  | `granger[n_samples]` | +1.00 | +1.08 | agrees |
-|  |  |  | `granger_causality[model_order]` | +2.00 | +1.11 | **CONTRADICTS** -- claim predicts +2.00, measured +1.11 |
-|  |  |  | `granger_causality[n_samples]` | +1.00 | +1.11 | agrees |
-| INV-07 | `artifacts/benchmarks/complexity_inventory.md` | transfer_entropy: O(S . T), discrete binning and Markov lag conditional MI | `transfer_entropy[n_samples]` | +1.00 | +1.13 | agrees |
-| INV-08 | `artifacts/benchmarks/complexity_inventory.md` | vflip: O(C . F) | `vflip[n_channels]` | +1.00 | +1.07 | agrees |
-|  |  |  | `vflip[n_freqs]` | +1.00 | +0.62 | **CONTRADICTS** -- claim predicts +1.00, measured +0.62 |
-| INV-09 | `artifacts/benchmarks/complexity_inventory.md` | xflip: O(C^2 . T + S . C^2) | `xflip[n_channels]` | +2.00 | +1.78 | agrees |
-|  |  |  | `xflip[n_samples]` | +1.00 | +0.88 | agrees |
-|  |  |  | `xflip[n_surrogates]` | +1.00 | +0.94 | agrees |
-| INV-10 | `artifacts/benchmarks/complexity_inventory.md` | zflip: O(C . T log N_perseg + S . C . F) | `zflip[n_channels]` | +1.00 | +1.03 | agrees |
-|  |  |  | `zflip[n_samples]` | +1.00 | +0.86 | agrees |
-|  |  |  | `zflip[n_surrogates]` | +1.00 | +0.92 | agrees |
-| INV-11 | `artifacts/benchmarks/complexity_inventory.md` | rdm: O(N^2 . D) | `rdm[n_conditions]` | +2.00 | +1.89 | agrees |
-|  |  |  | `rdm[n_features]` | +1.00 | +1.15 | agrees |
-| INV-12 | `artifacts/benchmarks/complexity_inventory.md` | rdm_similarity: O(N^2 log(N^2)) | `rdm_similarity[n_conditions]` | +2.10 | +2.11 | agrees |
-| INV-13 | `artifacts/benchmarks/complexity_inventory.md` | nested_cv_linear_svm: O(K . N_C . R^2 . D) | `nested_cv_linear_svm[n_features]` | +1.00 | +0.47 | **CONTRADICTS** -- claim predicts +1.00, measured +0.47 |
-|  |  |  | `nested_cv_linear_svm[n_folds]` | +1.00 | +1.01 | agrees |
-|  |  |  | `nested_cv_linear_svm[n_trials]` | +2.00 | +0.54 | **CONTRADICTS** -- claim predicts +2.00, measured +0.54 |
-| INV-14 | `artifacts/benchmarks/complexity_inventory.md` | stream_npz_array: O(slice volume), direct chunk/slice I/O without full RAM load | `stream_npz_array[n_elements_in_file]` | +0.00 | +0.83 | **CONTRADICTS** -- claim predicts +0.00, measured +0.83 |
-|  |  |  | `stream_npz_array[n_elements_sliced]` | +1.00 | +0.49 | **CONTRADICTS** -- claim predicts +1.00, measured +0.49 |
+| INV-01 | `artifacts/benchmarks/complexity_inventory.md` | complex_tfr: O(C . F . T log T) | `complex_tfr[n_channels]` | +1.00 | +0.95 | within bound |
+|  |  |  | `complex_tfr[n_freqs]` | +1.00 | +0.83 | within bound |
+|  |  |  | `complex_tfr[n_samples]` | +1.10 | +1.13 | within bound |
+| INV-02 | `artifacts/benchmarks/complexity_inventory.md` | TFRAccumulator: O(R . C . F . T) | -- | -- | -- | not tested here: the bound is on the accumulate loop over R trials. The only public export is the constructor, whose cost is allocation. |
+| INV-03 | `artifacts/benchmarks/complexity_inventory.md` | compute_psd: O(C . T log N_perseg) | `compute_psd[n_channels]` | +1.00 | +1.08 | within bound |
+|  |  |  | `compute_psd[n_samples]` | +1.00 | +0.99 | within bound |
+| INV-04 | `artifacts/benchmarks/complexity_inventory.md` | wpli: O(T log N_perseg) | `wpli` | +1.00 | +0.96 | within bound |
+| INV-05 | `artifacts/benchmarks/complexity_inventory.md` | phase_slope_index: O(T log N_perseg + K_seg^2 . F) | `phase_slope_index[n_samples]` | +2.00 | +1.02 | within bound; the spec runs `jackknife=False`, which drops the `K_seg^2` term |
+|  |  |  | `phase_slope_index[n_samples_jackknife]` | +2.00 | +1.05 | within bound; re-measured after the change in section 6.2 |
+| INV-06 | `artifacts/benchmarks/complexity_inventory.md` | granger: O(T . P^2 + P^3) | `granger[model_order]` | +3.00 | +1.07 | within bound |
+|  |  |  | `granger[n_samples]` | +1.00 | +1.08 | within bound |
+|  |  |  | `granger_causality[model_order]` | +3.00 | +1.11 | within bound |
+|  |  |  | `granger_causality[n_samples]` | +1.00 | +1.11 | within bound |
+| INV-07 | `artifacts/benchmarks/complexity_inventory.md` | transfer_entropy: O(S . T) | `transfer_entropy[n_samples]` | +1.00 | +1.13 | within bound |
+| INV-08 | `artifacts/benchmarks/complexity_inventory.md` | vflip: O(C . F) | `vflip[n_channels]` | +1.00 | +1.07 | within bound |
+|  |  |  | `vflip[n_freqs]` | +1.00 | +0.62 | within bound |
+| INV-09 | `artifacts/benchmarks/complexity_inventory.md` | xflip: O(C^2 . T + S . C^2) | `xflip[n_channels]` | +2.00 | +1.78 | within bound |
+|  |  |  | `xflip[n_samples]` | +1.00 | +0.88 | within bound |
+|  |  |  | `xflip[n_surrogates]` | +1.00 | +0.94 | within bound |
+| INV-10 | `artifacts/benchmarks/complexity_inventory.md` | zflip: O(C . T log N_perseg + S . C . F) | `zflip[n_channels]` | +1.00 | +1.03 | within bound |
+|  |  |  | `zflip[n_samples]` | +1.00 | +0.86 | within bound |
+|  |  |  | `zflip[n_surrogates]` | +1.00 | +0.92 | within bound |
+| INV-11 | `artifacts/benchmarks/complexity_inventory.md` | rdm: O(N^2 . D) | `rdm[n_conditions]` | +2.00 | +1.89 | within bound |
+|  |  |  | `rdm[n_features]` | +1.00 | +1.15 | within bound |
+| INV-12 | `artifacts/benchmarks/complexity_inventory.md` | rdm_similarity: O(N^2 log N) | `rdm_similarity[n_conditions]` | +2.16 | +2.11 | within bound |
+| INV-13 | `artifacts/benchmarks/complexity_inventory.md` | nested_cv_linear_svm: O(K . N_C . R^2 . D) | `nested_cv_linear_svm[n_features]` | +1.00 | +0.47 | within bound |
+|  |  |  | `nested_cv_linear_svm[n_folds]` | +1.00 | +1.01 | within bound |
+|  |  |  | `nested_cv_linear_svm[n_trials]` | +2.00 | +0.54 | within bound |
+| INV-14 | `artifacts/benchmarks/complexity_inventory.md` | stream_npz_array: O(E) | `stream_npz_array[n_elements_in_file]` | +1.00 | +0.01 | within bound; re-measured after the change in section 6.2 |
+|  |  |  | `stream_npz_array[n_elements_sliced]` | +1.00 | +0.49 | within bound |
 | DOC-01 | `jnwb/rsa.py:70-72` | Complexity: Time: O(N^2 . D); Memory: O(N^2) for condensed or full matrix representation. | `rdm[n_conditions]` | +2.00 | +1.89 | agrees |
 |  |  |  | `rdm[n_features]` | +1.00 | +1.15 | agrees |
 | DOC-02 | `jnwb/spiking.py:373-375` | Uses the exact O(N) resultant formulation ... mathematically identical to the O(N^2) double sum over all unique pairs. | `pairwise_phase_consistency[n_samples]` | +1.00 | +0.99 | agrees |
@@ -641,26 +650,32 @@ calls; they are collected in section 6.2.
 | DOC-09 | `docs/02_paths_addressing_metadata.md:52` | Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead | -- | -- | -- | not tested here: Same: a memory claim, not contradicted. Time is a separate question and INV-14 is the claim that speaks to it. |
 | DOC-10 | `jnwb/_backend.py:5` | Eighteen call sites across nine modules route through here. | -- | -- | -- | not tested here: Not a complexity claim. Re-counted: 18 resolve_device call sites across 9 files in jnwb/, excluding the definition. The documentation is accurate. |
 
-### 6.2 Contradictions -- for the problem stack, not for a judgement here
+### 6.2 Measurements above their bound
 
-8 measurement(s) contradicted a documented claim when the inventory was read as stating
-exponents. Read as upper bounds, which is what it now states, six are agreements: each
-measures below its bound. Two measured above theirs and were corrected in the inventory:
-`phase_slope_index[n_samples_jackknife]` (+2.14 against a bound that omitted the
-jackknife's quadratic term) and `stream_npz_array[n_elements_in_file]` (+0.83 against a
-bound by slice volume, where the forward pass is bounded by position). The rows keep the
-original comparison as measured.
+None. Eight measurements were recorded here as contradictions while the inventory was read as
+stating exponents. Read as upper bounds, six measure below theirs. Two exceeded the bounds as then
+written, and the inventory was restated to the cost the code had: the jackknife's `K_seg^2 . F`
+term in `INV-05`, and the position bound `O(E)` in `INV-14`. The code then removed both costs, and
+both rows were re-measured with `scripts/measure_order.py` at `19a8496d`:
 
-| Claim | Source | Spec | Claim predicts | Measured | r2 | t-span | Both sides |
-|---|---|---|---|---|---|---|---|
-| INV-05 | `artifacts/benchmarks/complexity_inventory.md` | `phase_slope_index[n_samples_jackknife]` | +1.00 | +2.14 | 0.964 | 132x | The document says "phase_slope_index: O(T log N_perseg + F)". The measurement, single-threaded over 5000, 12000, 22000, 35000, 50000, fits +2.14. |
-| INV-06 | `artifacts/benchmarks/complexity_inventory.md` | `granger[model_order]` | +2.00 | +1.07 | 0.974 | 45x | The document says "granger: O(T . P^2 + P^3), bivariate VAR(P) OLS regression (P << T)". The measurement, single-threaded over 2, 6, 18, 40, 70, fits +1.07. |
-| INV-06 | `artifacts/benchmarks/complexity_inventory.md` | `granger_causality[model_order]` | +2.00 | +1.11 | 0.981 | 50x | The document says "granger: O(T . P^2 + P^3), bivariate VAR(P) OLS regression (P << T)". The measurement, single-threaded over 2, 6, 18, 40, 70, fits +1.11. |
-| INV-08 | `artifacts/benchmarks/complexity_inventory.md` | `vflip[n_freqs]` | +1.00 | +0.62 | 0.911 | 28x | The document says "vflip: O(C . F)". The measurement, single-threaded over 64, 512, 4096, 16384, fits +0.62. |
-| INV-13 | `artifacts/benchmarks/complexity_inventory.md` | `nested_cv_linear_svm[n_features]` | +1.00 | +0.47 | 0.878 | 9x | The document says "nested_cv_linear_svm: O(K . N_C . R^2 . D)". The measurement, single-threaded over 50, 250, 1250, 5000, fits +0.47. |
-| INV-13 | `artifacts/benchmarks/complexity_inventory.md` | `nested_cv_linear_svm[n_trials]` | +2.00 | +0.54 | 0.783 | 11x | The document says "nested_cv_linear_svm: O(K . N_C . R^2 . D)". The measurement, single-threaded over 40, 200, 800, 3000, fits +0.54. |
-| INV-14 | `artifacts/benchmarks/complexity_inventory.md` | `stream_npz_array[n_elements_in_file]` | +0.00 | +0.83 | 0.994 | 69x | The document says "stream_npz_array: O(slice volume), direct chunk/slice I/O without full RAM load". The measurement, single-threaded over 100000, 1000000, 4000000, 16000000, fits +0.83. |
-| INV-14 | `artifacts/benchmarks/complexity_inventory.md` | `stream_npz_array[n_elements_sliced]` | +1.00 | +0.49 | 0.830 | 53x | The document says "stream_npz_array: O(slice volume), direct chunk/slice I/O without full RAM load". The measurement, single-threaded over 1000, 10000, 100000, 1000000, 4000000, fits +0.49. |
+| Claim | What it says | Spec | Bound admits | Before the change | Measured | Verdict |
+|---|---|---|---|---|---|---|
+| INV-05 | phase_slope_index: O(T log N_perseg + K_seg^2 . F) | `phase_slope_index[n_samples_jackknife]` | +2.00 | +2.21, +2.02, +2.16 | +1.05 | within bound |
+| INV-14 | stream_npz_array: O(E) | `stream_npz_array[n_elements_in_file]` | +1.00 | +0.86, +0.86, +0.87 | +0.01 | within bound |
+
+`Before the change` is three runs at `30bf969c` on the section 3 ladders; `Measured` is the median
+of three runs at `19a8496d`. Host: Intel64 Family 6 Model 85, 24 logical CPUs, Python 3.14.3, NumPy
+2.4.6, OpenBLAS pinned to one thread and verified; the section 2.4 calibration on this host
+recovered `np.add` +1.04, a Python double loop +2.14 and `np.matmul` +2.88. The host is shared: total CPU load sampled after each of the three runs was 37%, 26% and 52%, against single-threaded sweeps.
+
+| Spec | Change | Receipt at `19a8496d` |
+|---|---|---|
+| `phase_slope_index[n_samples_jackknife]` | Each left-out mean is a prefix sum plus a suffix sum over the band's bins, T(S*B), where each replicate had copied the S-1 remaining segments and recomputed three spectra over every frequency, T(S^2*F). One segment is still left out per replicate | +1.05, +1.05, +1.04 over 60000 to 4000000 samples; at 50000 samples 12.34 ms against 803.6 ms before (65x) |
+| `stream_npz_array[n_elements_in_file]` | A stored entry seeks past the elements a slice skips; a compressed entry still decompresses up to the last selected element | +0.01, +0.00, +0.02 over 1e5 to 1.6e7 elements; at 1.6e7 elements 0.5172 ms against 82.11 ms before (159x) |
+
+Both bounds are now looser than the code. The jackknife costs `K_seg . F` rather than
+`K_seg^2 . F`, and a stored archive costs the slice rather than its position; the inventory's
+algorithm column still describes the replaced code for both rows.
 
 ## 7. Exports excluded because their cost does not grow with input size
 
@@ -780,7 +795,7 @@ particular caller. Nothing here is applied under 06-54.
 
 | Rank | Spec | Measured | Exponent gap | Admissible | The change |
 |---|---|---|---|---|---|
-| 1 | `phase_slope_index[n_samples_jackknife]` | +2.14 in `n_samples` | +1.14 | T(S*L) | A Python loop of S iterations, each taking a fancy-index COPY fx[keep] of an (S-1, L/2+1) complex array and recomputing three full-frequency means from scratch: T(S^2*L) = T(N^2/L). This is the DEFAULT path (jackknife=True at jnwb/connectivity.py:1604). |
+| 1 | `phase_slope_index[n_samples_jackknife]` | +2.14 in `n_samples` | +1.14 | T(S*L) | **Applied**, +1.05 after (section 6.2). Was: a Python loop of S iterations, each taking a fancy-index COPY fx[keep] of an (S-1, L/2+1) complex array and recomputing three full-frequency means from scratch: T(S^2*L) = T(N^2/L). This is the DEFAULT path (jackknife=True at jnwb/connectivity.py:1604). |
 | 2 | `jrsa[n_lags]` | +0.99 in `n_lags` | +0.99 | T(1) in L; T(n log n) total for all lags | A Python loop over lags, each doing a full metric call: T(L*n log n). |
 | 3 | `rate_in_window` | +0.99 in `n_spikes` | +0.99 | T(log n) | Same per-call whole-array guard. |
 | 4 | `fires_in_window` | +0.98 in `n_spikes` | +0.98 | T(log n) per query on already-validated sorted input | A per-call sortedness and finiteness guard scans the whole array, T(n), and dominates. Verifying sortedness is genuinely Omega(n), so the cost is avoidable only by validating once rather than per query. |
@@ -788,10 +803,13 @@ particular caller. Nothing here is applied under 06-54.
 | 6 | `phase_locking_index[n_lfp_samples]` | +0.88 in `n_lfp_samples` | +0.88 | T(1) in m with a uniform grid; T(log m) per spike by binary search | np.cos and np.sin are taken over the ENTIRE LFP trace before interpolating at S spike times: T(m) trig for S << m spikes. |
 | 7 | `assign_outer_folds[n_strata]` | +0.86 in `n_strata` | +0.86 | T(1) in S with n fixed | A Python loop over strata with three .loc assignments and a .map per stratum, about 1.25 ms per stratum: T(S) where T(1) in S is available. |
 | 8 | `gaussian_smooth_rate[sigma_ms]` | +0.85 in `sigma_ms` | +0.85 | T(n), independent of sigma | scipy.ndimage.gaussian_filter1d uses a direct FIR correlation whose tap count grows as about 8*sigma, so the cost is T(n*sigma). |
-| 9 | `stream_npz_array[n_elements_in_file]` | +0.83 in `n_elements_in_file` | +0.83 | T(k) for ZIP_STORED | _read_skip READS AND DISCARDS the (n-k) leading elements through a 64 KiB memoryview on a ZipExtFile -- a sequential forward skip with no seek. T(n) achieved against T(k) admissible; 710x slower than seek-then-read at n=1.6e7. |
+| 9 | `stream_npz_array[n_elements_in_file]` | +0.83 in `n_elements_in_file` | +0.83 | T(k) for ZIP_STORED | **Applied**, +0.01 after (section 6.2). Was: _read_skip READS AND DISCARDS the (n-k) leading elements through a 64 KiB memoryview on a ZipExtFile -- a sequential forward skip with no seek. T(n) achieved against T(k) admissible; 710x slower than seek-then-read at n=1.6e7. |
 
 ---
 
 Generated from 189 timing sweeps over 106 exports at `f23d96ceb4b1`.
 Raw per-size medians are in the tables above; the harness, the spec definitions and the
 calibration scripts were scratch files and are not part of the repository.
+`scripts/measure_order.py` is the committed harness for the four `phase_slope_index` and
+`stream_npz_array` sweeps and for the calibration, and re-measured the two rows section 6.2
+names at `19a8496d`. The other 185 sweeps have no committed generator.
