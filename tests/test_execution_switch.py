@@ -101,12 +101,16 @@ DEVICE_RECORDS = {"ComplexTFR"}
 #: Exports whose ``backend`` is a record, likewise.
 BACKEND_RECORDS = {"Provenance"}
 
-#: Exports with a CUDA path, for the agreement measurement. rdm, vflip and jrsa have none
-#: and say so; compute_population_trajectory reaches CUDA only through PyTorch.
-CUDA_CAPABLE = sorted(set(DEVICE_CALLS) - {"rdm", "vflip", "vflip_from_lfp", "jrsa"})
+#: Exports with no CUDA path, which say so and compute on the CPU. band_power and
+#: relative_power return a bare float and array, which have nowhere to record a device, so
+#: they compute on the CPU rather than on a device they could not name.
+CPU_ONLY = {"rdm", "vflip", "vflip_from_lfp", "jrsa", "band_power", "relative_power"}
 
-#: Where each result records the device, for the exports that record one. band_power and
-#: relative_power return a bare float and array, which have nowhere to carry it.
+#: Exports with a CUDA path, for the agreement measurement. compute_population_trajectory
+#: reaches CUDA only through PyTorch.
+CUDA_CAPABLE = sorted(set(DEVICE_CALLS) - CPU_ONLY)
+
+#: Where each result records the device, for the exports that record one.
 RECORD = {
     "complex_tfr": lambda r: r.device,
     "jrsa": lambda r: r.execution["device"],
@@ -254,6 +258,15 @@ class TestAnUnavailableDeviceIsAnnounced:
         assert any("device='cuda'" in m and "CPU" in m for m in messages), messages
         if name in RECORD:
             assert RECORD[name](result) == "cpu"
+
+    @pytest.mark.parametrize("name", ["band_power", "relative_power"])
+    def test_a_bare_return_computes_on_the_cpu_even_with_a_gpu_present(self, name, failing_gpu):
+        # A usable GPU is exactly the case that used to run there with no record. The GPU
+        # here fails at its first upload, so a GPU attempt would show as a fallback warning.
+        result, messages = _runtime_messages(lambda: DEVICE_CALLS[name]("cuda"))
+        assert any("no CUDA implementation" in m and "CPU" in m for m in messages), messages
+        assert not [m for m in messages if "GPU computation failed" in m], messages
+        assert np.array_equal(result, DEVICE_CALLS[name]("cpu"))
 
     def test_jrsa_says_an_accelerator_backend_was_not_used(self):
         result, messages = _runtime_messages(

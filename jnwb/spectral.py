@@ -1353,8 +1353,9 @@ def relative_power(
             If ``None`` and ``model="mean_of_ratios"``, computes elementwise ratio :math:`P / B` without reduction.
             If ``None`` and ``model="ratio_of_means"``, reduces across all elements (:math:`\\sum P / \\sum B`).
             For ``model="log_ratio"``, ``axis`` must be ``None`` (elementwise dB transform).
-        device: Hardware device to use: ``"cpu"`` or ``"cuda"``. Resolved via :func:`resolve_device`.
-            If ``"cuda"`` is requested but unavailable, falls back to CPU with a diagnostic warning.
+        device: ``"cpu"`` (default). ``"cuda"`` and ``"metal"`` are accepted and computed on the
+            CPU with a RuntimeWarning: the return is a bare array, which has nowhere to record the
+            device that produced it.
 
     Returns:
         :class:`numpy.ndarray` of relative power values matching broadcast/reduced shape.
@@ -1389,8 +1390,7 @@ def relative_power(
             f"got axis={axis!r}. For aggregated decibels, use jnwb.aggregate_to_db."
         )
 
-    # Resolve device with observable fallback
-    resolved_dev = resolve_device(device, context="relative_power", prefer="cupy", stacklevel=3)
+    resolve_device(device, context="relative_power", stacklevel=3, supports=(CPU,))
 
     p_arr = np.asarray(power, dtype=np.float64)
     b_arr = np.asarray(baseline, dtype=np.float64)
@@ -1418,33 +1418,6 @@ def relative_power(
     if np.any(b_broadcast == 0):
         raise ValueError("baseline contains zero values resulting in division by zero.")
 
-    # Execute computation
-    if resolved_dev == CUDA:
-        try:
-            import cupy as cp
-
-            p_gpu = cp.asarray(p_arr)
-            b_gpu = cp.asarray(b_arr)
-            b_gpu_broadcast = cp.broadcast_to(b_gpu, p_gpu.shape)
-
-            if model == "mean_of_ratios":
-                if axis is None:
-                    res_gpu = p_gpu / b_gpu_broadcast
-                else:
-                    res_gpu = cp.mean(p_gpu / b_gpu_broadcast, axis=axis)
-            elif model == "ratio_of_means":
-                num = cp.sum(p_gpu, axis=axis)
-                den = cp.sum(b_gpu_broadcast, axis=axis)
-                res_gpu = num / den
-            else:  # log_ratio
-                res_gpu = 10.0 * cp.log10(p_gpu / b_gpu_broadcast)
-
-            return cp.asnumpy(res_gpu)
-        except Exception as exc:
-            warn_device_fallback("relative_power", exc, stacklevel=3)
-            # Wholesale CPU fallback below
-
-    # CPU path
     if model == "mean_of_ratios":
         if axis is None:
             return p_arr / b_broadcast
@@ -1485,16 +1458,9 @@ def band_power(
         freq_range: (min_freq, max_freq) in Hz, inclusive at both ends
         normalize: If True, return as dB relative to baseline
         baseline: Baseline time series for normalization (optional)
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
-            route below roughly 22500 samples. At that size the Welch helper's fixed
-            cost -- one host-to-device transfer, the window, the FFT plan and the
-            copies back -- is most of the call, and there is too little arithmetic left
-            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
-            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
-            crossover is documented rather than applied automatically: the CPU and CUDA
-            Welch paths do not agree bit for bit, so routing on input length would make
-            the answer depend on how long the trace is, which invariant 6 forbids. See
-            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
+        device: 'cpu' (default). 'cuda' and 'metal' are accepted and computed on the CPU
+            with a RuntimeWarning: the return is a bare float, which has nowhere to record
+            the device that produced it.
 
     Returns:
         Mean PSD over the band in input-units^2/Hz, or, with ``normalize=True``,
@@ -1524,17 +1490,10 @@ def band_power(
                 "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
             )
         baseline = _require_finite_nonempty_trace(baseline, "band_power", name="baseline")
-    device = resolve_device(device, context="band_power", prefer="cupy", stacklevel=3)
+    resolve_device(device, context="band_power", stacklevel=3, supports=(CPU,))
 
     def _welch(trace):
-        nperseg = min(len(trace), 4096)
-        if device == CUDA:
-            try:
-                freqs, pxx, _, _ = _welch_csd_gpu(trace, trace, fs, nperseg)
-                return freqs, pxx
-            except Exception as e:
-                warn_device_fallback("band_power", e, stacklevel=4)
-        return signal.welch(trace, fs=fs, nperseg=nperseg)
+        return signal.welch(trace, fs=fs, nperseg=min(len(trace), 4096))
 
     frequencies, pxx = _welch(lfp_trace)
 

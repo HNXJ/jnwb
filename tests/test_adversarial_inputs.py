@@ -76,32 +76,24 @@ class TestSpectralSummaries:
         with pytest.raises(ValueError):
             getattr(jnwb, func)(TRACE, fs=FS, device="gpu0", **kwargs)
 
-    @pytest.mark.parametrize("func", ["band_power", "harmonic_analysis"])
-    def test_gpu_failure_warns_and_matches_cpu(self, func, monkeypatch):
-        kwargs = {"normalize": False, "freq_range": (8.0, 30.0)} if func == "band_power" else {}
-
+    # band_power has no GPU path (it returns a bare float with nowhere to record a device);
+    # tests/test_execution_switch.py holds it to computing on the CPU with a warning.
+    def test_gpu_failure_warns_and_matches_cpu(self, monkeypatch):
         def boom(*args, **kwds):
             raise RuntimeError("simulated CUDA failure")
 
-        cpu = getattr(jnwb, func)(TRACE, fs=FS, **kwargs)
+        cpu = jnwb.harmonic_analysis(TRACE, fs=FS)
         monkeypatch.setattr(spectral, "resolve_device", lambda *a, **k: spectral.CUDA)
         monkeypatch.setattr(spectral, "_welch_csd_gpu", boom)
         with pytest.warns(RuntimeWarning, match="simulated CUDA failure"):
-            fallback = getattr(jnwb, func)(TRACE, fs=FS, device="cuda", **kwargs)
-        if func == "band_power":
-            assert fallback == cpu
-        else:
-            assert fallback["fundamental_freq"] == cpu["fundamental_freq"]
+            fallback = jnwb.harmonic_analysis(TRACE, fs=FS, device="cuda")
+        assert fallback["fundamental_freq"] == cpu["fundamental_freq"]
 
     @pytest.mark.skipif(not _backend.cupy_available(), reason="needs CuPy with a CUDA device")
     def test_cuda_executes_and_matches_cpu(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
-            gpu_power = jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), normalize=False, device="cuda")
             gpu_profile = jnwb.harmonic_analysis(TRACE, fs=FS, device="cuda")["spectral_profile"]
-        assert gpu_power == pytest.approx(
-            jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), normalize=False), rel=1e-10
-        )
         np.testing.assert_allclose(
             np.asarray(gpu_profile), jnwb.harmonic_analysis(TRACE, fs=FS)["spectral_profile"], rtol=1e-10
         )
