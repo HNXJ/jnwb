@@ -241,6 +241,46 @@ def test_the_checks_see_what_they_are_for():
     assert citation_defects("| INV-01 | inv | f: O(1) |\n", good) != []
 
 
+def test_the_harness_behind_the_benchmark_measures_what_it_says(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    import pytest
+    import threadpoolctl
+
+    # Appended, never prepended: this suite also qualifies an installed jnwb.
+    if str(ROOT) not in sys.path:
+        sys.path.append(str(ROOT))
+    from scripts import measure_order
+
+    sizes = [100, 1_000, 10_000]
+    assert abs(measure_order.fit(sizes, [1e-9 * s**2 for s in sizes])["exp"] - 2.0) < 1e-9
+    short = measure_order.Spec("n", (100, 900), "", lambda n, tmp: (lambda: None))
+    with pytest.raises(SystemExit, match="less than a decade"):
+        measure_order.sweep("short", short, 1, None, tmp_path)
+
+    limiter = measure_order.pin_threads()
+    try:
+        assert {p["num_threads"] for p in threadpoolctl.threadpool_info()} <= {1}
+    finally:
+        limiter.restore_original_limits()
+
+    bench = BENCHMARK.read_text(encoding="utf-8")
+    remeasured = set(re.findall(r"`(\w+\[\w+\])`", bench[bench.index("### 6.2"):bench.index("## 7.")]))
+    assert remeasured and remeasured <= set(measure_order.SPECS)
+
+    script = [sys.executable, str(ROOT / "scripts" / "measure_order.py"), "--list"]
+    listed = subprocess.run(script, capture_output=True, text=True, check=True).stdout
+    assert all(name in listed for name in measure_order.SPECS)
+    # A jnwb that shadows the checkout's is refused rather than timed.
+    (tmp_path / "jnwb").mkdir()
+    (tmp_path / "jnwb" / "__init__.py").write_text("", encoding="utf-8")
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(tmp_path), str(ROOT)]))
+    shadowed = subprocess.run(script, capture_output=True, text=True, env=env)
+    assert shadowed.returncode != 0 and "refusing to time it" in shadowed.stderr
+
+
 # An order reduction must compute what the slower path computed. The benchmark records the
 # reduced orders; these hold each reduced path to the definition it replaced.
 

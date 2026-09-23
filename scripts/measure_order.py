@@ -38,16 +38,25 @@ import time
 from pathlib import Path
 from typing import Callable, Dict, List, NamedTuple, Sequence
 
+import numpy as np
+import threadpoolctl
+
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
 
-import numpy as np  # noqa: E402
-import threadpoolctl  # noqa: E402
 
-import jnwb  # noqa: E402
+def import_checkout_jnwb():
+    """Import jnwb from this checkout, or refuse. Called by ``main``, never at import time.
 
-if ROOT not in Path(jnwb.__file__).resolve().parents:
-    raise SystemExit(f"jnwb imported from {jnwb.__file__}, not from {ROOT}; refusing to time it")
+    Importing this module must not touch ``sys.path``: a test that imports it while qualifying an
+    installed jnwb would otherwise start timing, or testing, the checkout instead.
+    """
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    import jnwb
+
+    if ROOT not in Path(jnwb.__file__).resolve().parents:
+        raise SystemExit(f"jnwb imported from {jnwb.__file__}, not from {ROOT}; refusing to time it")
+    return jnwb
 
 
 class Spec(NamedTuple):
@@ -61,6 +70,8 @@ class Spec(NamedTuple):
 
 def _psi(jackknife: bool) -> Callable[[int, Path], Callable[[], object]]:
     def build(n: int, _tmp: Path) -> Callable[[], object]:
+        import jnwb
+
         rng = np.random.default_rng(0)
         x = rng.normal(size=n)
         y = np.roll(x, 5) + rng.normal(size=n)
@@ -72,6 +83,8 @@ def _psi(jackknife: bool) -> Callable[[int, Path], Callable[[], object]]:
 
 
 def _npz(n_file: int, n_slice: int, at_end: bool, tmp: Path) -> Callable[[], object]:
+    import jnwb
+
     path = tmp / f"stored_{n_file}.npz"
     if not path.exists():
         np.savez(path, a=np.random.default_rng(0).normal(size=n_file))
@@ -189,7 +202,7 @@ def markdown(row: Dict) -> str:
             f"{row['r2']:.3f} | {row['t_span']:.0f}x |")
 
 
-def provenance() -> Dict[str, object]:
+def provenance(jnwb) -> Dict[str, object]:
     try:
         head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True,
                               text=True, check=True).stdout.strip()
@@ -220,7 +233,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--json", type=Path, help="also write every row and the provenance here")
     args = ap.parse_args(argv)
 
+    jnwb = import_checkout_jnwb()
     if args.list:
+        print(f"jnwb: {jnwb.__file__}")
         for name, spec in SPECS.items():
             print(f"{name}: {spec.held}")
         return 0
@@ -230,7 +245,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     limiter = pin_threads()
     try:
-        prov = provenance()
+        prov = provenance(jnwb)
         print(json.dumps(prov, indent=1))
         rows: List[Dict] = []
         with tempfile.TemporaryDirectory() as tmp:
