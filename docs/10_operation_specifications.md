@@ -12,7 +12,7 @@ These are contracts for callers. The rules for *adding* an operation are in
 
 ## 1. Cross-Cutting Architectural Invariants
 
-Every operation added in 0.2 conforms to the following universal library conventions:
+Every operation added in 0.2 follows these conventions.
 
 ### 1. RNG Convention
 - Functions consuming stochasticity accept `rng`: an `int` seed, a `np.random.Generator`, or `None`.
@@ -25,18 +25,18 @@ Every operation added in 0.2 conforms to the following universal library convent
 - **`None` means fresh OS entropy**, as in NumPy. Three public functions default to it because
   drawing fresh per call is their contract: `cross_modal_comparison`, `jrsa` and `xflip`.
 - **Generator Preservation & Resolution**:
-  If `isinstance(rng, np.random.Generator)`, the caller-provided generator is used directly, preserving its exact mutation state and sequence progression. If `rng` is an integer seed or `None`, it is converted via:
+  If `isinstance(rng, np.random.Generator)`, the caller's generator is used directly, so the call advances the caller's stream. If `rng` is an integer seed or `None`, it is converted via:
   ```python
   local_rng = rng if isinstance(rng, np.random.Generator) else np.random.default_rng(rng)
   ```
 - **Prohibited**: Never call `np.random.seed()`, `random.seed()`, or manipulate global RNG state.
-- **Parallel Workers**: When delegating stochastic work across processes via `_parallel.py`, parent seeds must be spawned into child seeds using `np.random.SeedSequence(seed).spawn(n_jobs)` to guarantee deterministic reproducibility across worker counts.
+- **Parallel Workers**: When delegating stochastic work across processes via `_parallel.py`, parent seeds must be spawned into child seeds using `np.random.SeedSequence(seed).spawn(n_jobs)` so the result is identical at every worker count.
 
 ### 2. Device Convention
 - Functions supporting hardware acceleration accept:
   `device: str = "cpu"` (with valid options `"cpu"`, `"cuda"`).
 - Resolution occurs through `jnwb._backend.resolve_device(device, context=...)`.
-- **Fallback Observability**: When `"cuda"` is requested but unavailable, the runtime falls back to CPU and **must emit a `RuntimeWarning`** via `jnwb._backend.warn_device_fallback(context, exc)`. Silent fallback without diagnostic warning is strictly prohibited.
+- **Fallback Observability**: When `"cuda"` is requested but unavailable, the runtime falls back to CPU and **must emit a `RuntimeWarning`** via `jnwb._backend.warn_device_fallback(context, exc)`.
 - For structured analysis results where hardware acceleration was requested, the return object records the device actually used in a `device: str` attribute.
 
 ### 3. Missing/Invalid Data vs Non-Identifiability
@@ -76,11 +76,11 @@ Every operation added in 0.2 conforms to the following universal library convent
 ### 7. Estimand Disambiguation: Population Trajectory PCA
 - `PopulationAnalyzer.population_trajectory(X)`: Unstandardized covariance PCA (centering only, $\mathbf{X} - \boldsymbol{\mu}$). Features with higher firing rates dominate variance.
 - `compute_population_trajectory(session, ...)`: Standardized correlation PCA (z-score scaling, $(\mathbf{X} - \boldsymbol{\mu})/\boldsymbol{\sigma}$). Units contribute equally regardless of baseline rate.
-- Both estimators represent valid, mathematically distinct estimands. They are documented with their specific standardization policy and must not be conflated or silently substituted.
+- The two are distinct estimands and must not be substituted for each other.
 
 ### 8. Synthetic Data Policy (`testing.synth`)
 - Synthetic generators and null fixtures belong in `jnwb/testing/` (e.g. `jnwb/testing/synth.py`).
-- Synthetic generators are designated solely as verification and test infrastructure, never presented as empirical observations.
+- Synthetic generators are test infrastructure and are never presented as empirical observations.
 
 ---
 
