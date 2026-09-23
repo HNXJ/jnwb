@@ -582,9 +582,14 @@ plausible one is worse than none.
 ## 6. Reconciliation with complexity claims already in the repository
 
 `artifacts/benchmarks/complexity_inventory.md` already records Big-O bounds for 14
-primitives, and its own header says they are "derived from mathematical algorithms and
-verified against empirical heap allocations" -- that is, derived and checked against
-**memory**, not timed. This file is the first time they are timed.
+primitives as upper bounds justified by their algorithms and published references, and
+labels each row `INV-01` to `INV-14`. It does not claim to be timed. Timing existed before
+this file: `artifacts/benchmarks/baseline_performance.json` records `time_ms` for its 21
+entries, but at one input scale each, which fixes no exponent. This file times them over at
+least three scales. A measured exponent below its bound agrees with it; only one above it is
+a contradiction, and after the bounds were restated the two that remain above theirs
+(`INV-05` without its jackknife term, `INV-14` bounded by slice rather than position) were
+corrected in the inventory rather than here.
 
 Per the item's stop condition, where a measurement contradicts a documented claim **both**
 are recorded and neither is picked. Those rows are problem-stack entries, not judgement
@@ -638,8 +643,13 @@ calls; they are collected in section 6.2.
 
 ### 6.2 Contradictions -- for the problem stack, not for a judgement here
 
-8 measurement(s) contradict a documented claim. Each records both
-sides. Resolving them is not in this item's scope.
+8 measurement(s) contradicted a documented claim when the inventory was read as stating
+exponents. Read as upper bounds, which is what it now states, six are agreements: each
+measures below its bound. Two measured above theirs and were corrected in the inventory:
+`phase_slope_index[n_samples_jackknife]` (+2.14 against a bound that omitted the
+jackknife's quadratic term) and `stream_npz_array[n_elements_in_file]` (+0.83 against a
+bound by slice volume, where the forward pass is bounded by position). The rows keep the
+original comparison as measured.
 
 | Claim | Source | Spec | Claim predicts | Measured | r2 | t-span | Both sides |
 |---|---|---|---|---|---|---|---|

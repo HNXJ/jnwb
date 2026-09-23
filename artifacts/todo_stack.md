@@ -45,7 +45,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 | 06-127 |
-| W1 | 06-06, 06-16, 06-86, 06-124, 06-33 |
+| W1 | 06-06, 06-16 |
 | W2 | 06-07, 06-14, 06-82, 06-114, 06-115, 06-116, 06-117, 06-120, 06-135 |
 | W3 | 06-118, 06-30 |
 | W4 | 06-29, 06-24, 06-57 |
@@ -109,39 +109,6 @@ Discriminator: `test_p21_reproduces_as_a_measured_vocabulary_collision` is repla
 dropping the warning fails it.
 Accept: P-21 closes `repaired`; the 0.2.7 removal is recorded for the dispatcher.
 Stop: a consumer reads `layer` in a way a warning on read cannot reach; report the mechanism.
-
-### 06-86 Name the quantity each order document measures
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/benchmarks/complexity_inventory.md`, `artifacts/evidence/0.2.6/computational_order.md`, `tests/test_computational_order_sources_agree.py`.
-Ruled 2026-09-22 (P-34, P-127): the inventory records `O` upper bounds justified by the algorithm
-and its published reference, and drops "verified"; timed exponents stay a separate, labelled
-benchmark with at least three input scales per row.
-Do: apply the ruling; resolve the 23 `INV-` labels cited from `computational_order.md` (P-128),
-and repair the sentence P-132 names. Do not re-baseline either document to the other.
-Discriminator: a row stating an exponent with no named method fails the new test.
-Accept: P-34, P-127, P-128 and P-132 close.
-
-### 06-124 Re-stamp the high-risk subset from committed generators
-
-Release: required-0.2.6.
-Role: jnwb-developer. Skill: per chain. Blocked by: none.
-Writes: `artifacts/evidence/0.2.6/composition_subset_proposal_0.2.6.md`.
-P-118. Every magnitude cited from the uncommitted `probe_axis*` and `probe_tfr` receipts is
-replaced by the value a committed test produces, naming the test and its seed; a cell with no
-committed generator is marked unmeasured.
-Discriminator: `probe_axis` and `probe_tfr` no longer occur in the file.
-Accept: P-118 closes, and the Acceptance line on the high-risk set names this file.
-
-### 06-33 Retain the benchmark design as explicitly unrun
-
-Release: required-0.2.6.
-Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `artifacts/planned_post_0.2.6.md`.
-Bring the ruled benchmark hypothesis to pre-registration quality: task set, scoring rubric, arms,
-repetitions, refusal scoring, inferential unit. It is a non-goal of 0.2.6 and gates nothing.
-Accept: every element is declared and the section states that none of it has run.
 
 ### 06-129 Problem identifiers stay out of `jnwb/`
 
@@ -368,7 +335,7 @@ Accept: each skill satisfies this or is recorded as not requiring it.
 ### 06-58 Reduce the orders the inventory named
 
 Release: required-0.2.6.
-Role: jnwb-developer. Skill: per module. Blocked by: 06-57, 06-86.
+Role: jnwb-developer. Skill: per module. Blocked by: 06-57.
 Writes: `scripts/measure_order.py`, `jnwb/connectivity.py`, `jnwb/io.py`.
 The queue is section 10 of `artifacts/evidence/0.2.6/computational_order.md`. Two named:
 `phase_slope_index` measures +2.14 in `n_samples` against an admissible linear order through its
@@ -471,7 +438,7 @@ Accept: each returns `repaired` with a discriminator, or `unsupported` with evid
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
+The 2026-09-22 repairs were verified at `a9993322`. Every repair landed after it is verified here, by a verifier that implemented none of them, before its row closes. Current list: P-188 (`parse_probe_areas` keeps a slash inside an atlas layer label; `tests/test_addressing.py::test_an_atlas_layer_label_is_one_location_and_two_areas_still_split`); P-189 (series inside containers resolve by name; `tests/test_acquisition_layout.py::TestASeriesInsideAnAcquisitionContainerIsReachableByName`); P-186 (release-gate STEP 7 passes without the `vis` extra; `tests/test_optional_vis_extra.py::test_the_release_gate_export_sweep_passes_without_plotly`). P-184 (`jnwb.vis` vocabulary; `git grep` the reported tokens over `jnwb/vis/`, `tests/test_vis.py` and `skills/jnwb-landmark-viz/SKILL.md`); P-194 (no default crossover depth; `tests/test_vis.py::test_no_crossover_depth_is_drawn_unless_the_caller_computed_one`). P-68 (gate 8 reads `README.md` and `docs/install.md`; `tests/test_gate8_covers_every_version_surface.py`). P-57 (STEP 0a's ownership path; `tests/test_release_requires_no_blocker.py::test_an_ownership_claim_on_a_dead_item_fails_even_beside_a_retirement_word`). P-201 (gate 8 reads the legs CI runs; `tests/test_gate8_covers_every_version_surface.py::test_a_version_every_leg_of_which_is_excluded_is_untested`). P-99 (defaults checked mention by mention; `tests/test_skill_default_claims_match_signatures.py`); P-110 (the delay guard sees estimator and smoothing delay; `tests/test_skills_validation.py::TestCausalFilterDelayIsScopedToAThresholdCrossing`, including the 06-93 mutant); P-62 skill half (the GPU line in `skills/jnwb/SKILL.md` against a `device='cuda'` run). P-12 (`tests/test_collection_order_stability.py`: the torch-absent skip and the widened detector). P-56 (gate 2 asks git; `tests/test_gate2_ignores_nested_checkouts.py`, including the claim that a nested clone of this repository is now in scope). P-34, P-127, P-128, P-132 (`tests/test_computational_order_sources_agree.py`; the two bounds restated for `phase_slope_index` and `stream_npz_array` against the code). P-118 (every magnitude in `composition_subset_proposal_0.2.6.md` names a committed test and seed; check each against the test). The figure captions from lane `fig` (`docs/0*.md`, `docs/quickstart.md`) against what `docs/generate_figures.py` draws. The 06-16 scanner half (`tests/test_substitution_class_sweep.py`: nested chains, chains with no `else`, the two `exact_sign_flip` sites). Deferrals to attack with the deferral question of `AGENTS.md` §11: P-190, P-191, P-192, P-195, P-196, P-197, P-198, P-199, P-200, P-203, P-204.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -585,7 +552,7 @@ Frozen 2026-09-23 (06-05, closed), each line re-established against the live tre
 | one canonical scientific model, published and reachable | 06-06, 06-07, 06-30 |
 | every public claim reproduced against the implementation that answers it | 06-17, 06-24, 06-136 |
 | skills route, decline, and are tested against live behaviour | 06-24, 06-25 |
-| cross-surface and compositional audit complete over the declared high-risk set | 06-124, `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` |
+| cross-surface and compositional audit complete over the declared high-risk set | `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` and its proposal, every magnitude naming a committed test and seed (re-stamped 2026-09-23) |
 | documentation assets render and are regenerable | 06-29, 06-36 |
 | one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified at `a9993322`; P-199 and P-200 carry its gaps), 06-32 |
 | published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
