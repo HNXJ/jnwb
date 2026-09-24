@@ -175,19 +175,26 @@ class TestNWBReadHelpers:
             np.testing.assert_array_equal(got, expected)
             assert fs_hz == 1000.0
 
-    def test_a_series_without_electrodes_is_time_first(self, tmp_path):
-        """A behavior series has no electrode region to arbitrate its layout, and the NWB
-        schema puts time on the first axis of every TimeSeries: five samples of ten values
-        are read as ten channels of five samples, whichever side is longer."""
+    @pytest.mark.parametrize("kind", ["TimeSeries", "AbstractFeatureSeries"])
+    def test_a_series_without_electrodes_is_time_first(self, tmp_path, kind):
+        """A series with no electrode region has nothing to arbitrate its layout, and the NWB
+        schema puts time on the first axis of every TimeSeries subtype: five samples of ten
+        values are read as ten channels of five samples, whichever side is longer."""
         from datetime import datetime
         from dateutil.tz import tzutc
-        from pynwb import NWBHDF5IO, NWBFile
+        from pynwb import NWBHDF5IO, NWBFile, TimeSeries
         from pynwb.behavior import BehavioralTimeSeries
+        from pynwb.misc import AbstractFeatureSeries
 
         data = np.arange(50.0).reshape(5, 10)
         nwb = NWBFile("s", "short", datetime(2026, 1, 1, tzinfo=tzutc()))
-        container = BehavioralTimeSeries(name="behavior")
-        container.create_timeseries(name="values", data=data, rate=100.0, unit="a.u.")
+        if kind == "TimeSeries":
+            series = TimeSeries(name="values", data=data, rate=100.0, unit="a.u.")
+        else:
+            series = AbstractFeatureSeries(name="values", data=data, rate=100.0,
+                                           features=[f"f{i}" for i in range(10)],
+                                           feature_units=["a.u."] * 10)
+        container = BehavioralTimeSeries(name="behavior", time_series=series)
         nwb.add_acquisition(container)
         path = tmp_path / "short.nwb"
         with NWBHDF5IO(path, "w") as io:

@@ -217,10 +217,12 @@ def _pynwb_channel_count(series: Any) -> int | None:
     return int(n) or None
 
 
-#: Series types with no electrode region. The NWB schema puts time on the first axis of every
-#: TimeSeries, and with no electrode count to contradict it that rule is the answer; the shape
-#: guess would read five samples of ten values as five channels.
-_TIME_FIRST_TYPES = frozenset({"TimeSeries", "SpatialSeries"})
+#: Series types that carry an electrode region. The NWB schema puts time on the first axis of
+#: every TimeSeries; only these types have an electrode count that can contradict it, and a
+#: file of theirs that lacks the region falls back to the shape guess. Every other typed series
+#: is read time-first, since the shape guess would read five samples of ten values as five
+#: channels.
+_ELECTRODE_TYPES = frozenset({"ElectricalSeries", "SpikeEventSeries"})
 
 
 def _resolve_layout(
@@ -246,7 +248,7 @@ def _resolve_layout(
         # Both sides match (a square array) or neither does. Guessing here is exactly how
         # a slice across channels gets returned as a channel's time course.
         return AMBIGUOUS_LAYOUT, "electrode_count"
-    if neurodata_type in _TIME_FIRST_TYPES:
+    if neurodata_type is not None and neurodata_type not in _ELECTRODE_TYPES:
         return TIME_BY_CHANNEL, "schema"
     # Nothing to arbitrate with. The shape heuristic is the only answer available.
     return (TIME_BY_CHANNEL if rows >= cols else CHANNEL_BY_TIME), "shape"

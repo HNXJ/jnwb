@@ -982,6 +982,23 @@ class TestALinkAliasIsTheDatasetItNames:
             jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[OTHER, alias])
         assert list(out.iterdir()) == []
 
+    def test_an_external_link_is_refused_before_anything_is_written(self, src, tmp_path):
+        """An external link opens a dataset in another file, whose name is a path in that file;
+        resolving it by name cast the source's own dataset at that path, which nobody named."""
+        other = tmp_path / "other.h5"
+        with h5py.File(other, "w") as f:
+            f.create_dataset(OTHER, data=np.zeros(4))
+        with h5py.File(src, "a") as f:
+            f["aliases/ext_other"] = h5py.ExternalLink(str(other), "/" + OTHER)
+        with h5py.File(src, "r") as f:
+            assert isinstance(f.get("aliases/ext_other", getlink=True), h5py.ExternalLink)
+            assert f["aliases/ext_other"].name == "/" + OTHER
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="another file"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=["aliases/ext_other"])
+        assert list(out.iterdir()) == []
+
     @pytest.mark.parametrize("link", ["hard", "soft"])
     def test_an_alias_of_a_castable_dataset_is_still_cast(self, src, tmp_path, link):
         alias = f"aliases/{link}_other"

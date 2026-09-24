@@ -164,10 +164,12 @@ Carried by 0.2.6.
   `LFP` was unwrapped. These containers now unwrap the way `LFP` does: by container name, bare
   series name or `container/series`, and a container holding several series raises
   `AmbiguousAcquisitionError`. A `FilteredEphys` container in `/acquisition`, which raised the same
-  way when named by its container, is unwrapped too. A `TimeSeries` or `SpatialSeries` has no
-  electrode region to decide which axis holds channels, so its layout follows the NWB schema's
-  time-first rule rather than a guess from which side is longer, in `acquisition_channel` and in
-  `inspect`'s `layout`.
+  way when named by its container, is unwrapped too. A series whose type carries no electrode
+  region (every `TimeSeries` subtype except `ElectricalSeries` and `SpikeEventSeries`) has
+  nothing to decide which axis holds channels, so its layout follows the NWB schema's time-first
+  rule rather than a guess from which side is longer, in `acquisition_channel` and in
+  `inspect`'s `layout`. An `ExternalLink` in `compress_fp32(select=)` is refused: it opens a
+  dataset in another file, and resolving it by name cast this file's dataset at the same path.
 - **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`
   returned an empty array; it returns the last element. A negative step on an outer axis, with
   the fastest axis read whole, raised "Internal streaming error"; it returns the slice. An entry

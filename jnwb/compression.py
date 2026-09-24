@@ -186,7 +186,16 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
             raise KeyError(
                 f"select= names {str(entry)}, which is not in {Path(src.filename).name}"
             )
-        resolved.add(src[requested].name)
+        obj = src[requested]
+        # An external link opens a dataset in another file, and its name is a path there:
+        # resolving it by name would cast whatever this file holds at that path.
+        if Path(obj.file.filename).resolve() != Path(src.filename).resolve():
+            raise ValueError(
+                f"select= names {str(entry)}, an external link into another file "
+                f"({Path(obj.file.filename).name}); compress_fp32 casts datasets of "
+                f"{Path(src.filename).name} only."
+            )
+        resolved.add(obj.name)
     paths = sorted(resolved)
     guarded = [src[g] for g in sorted(_GUARDED_PATHS) if g in src]
     timestamp_paths = _find_timestamp_paths(src)
