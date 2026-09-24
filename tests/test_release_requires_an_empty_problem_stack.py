@@ -6,7 +6,8 @@ The problem stack holds only problems not yet triaged, and a release requires:
   2. no todo item is still required for this cycle, and every item's release is readable; this
      cycle's release step, which completes only after the tag, is not required;
   3. the independent blocker-focused closure receipt exists and reports zero, and its commit is
-     HEAD or an ancestor that differs from HEAD only in the receipt and the todo stack.
+     HEAD or an ancestor that differs from HEAD only in the receipt and the todo stack, and no
+     item held open at the receipt's commit carries another release at HEAD.
 
 Every test drives the check over a constructed tree and is measured against
 ``test_a_compliant_tree_passes``: the compliant tree passes, and breaking exactly one thing fails.
@@ -411,6 +412,78 @@ def test_a_receipt_commit_the_repository_does_not_know_fails(tmp_path):
     head = _commit(root, "record a closure pass against an unknown commit")
     v = check_release_readiness(root, head=head)
     assert len(v) == 1 and "does not know" in v[0], v
+
+
+REQUIRED = f"required-{RELEASE_CYCLE}"
+
+
+def _relabel(tmp_path, before, after):
+    """Violations once the receipt names a commit whose stack holds ``before`` and the commit
+    recording it leaves ``after``. ``None`` leaves the stack out of that commit."""
+    todo = tmp_path / "artifacts" / "todo_stack.md"
+    root = _tree(tmp_path, items=before or (), receipt=False)
+    _git(root, "init", "-q")
+    for step, items in enumerate((before, after)):
+        if items is None:
+            todo.unlink(missing_ok=True)
+        else:
+            todo.write_text(_TODOS.format(cycle=NEXT_CYCLE, items="\n".join(items)),
+                            encoding="utf-8")
+        if step == 0:
+            passed = _commit(root, "the tree the closure pass reads")
+            _record_receipt(root, passed)
+    return check_release_readiness(root, head=_commit(root, "record the closure pass"))
+
+
+@pytest.mark.parametrize("was, now", [
+    (REQUIRED, DEFERRED),
+    (REQUIRED, RELEASE_STEP),
+    (f"deferred-{RELEASE_CYCLE}", DEFERRED),
+], ids=["required-to-deferred", "required-to-release-step", "wrong-cycle-to-deferred"])
+def test_relabelling_a_held_item_after_the_receipt_fails(tmp_path, was, now):
+    """The closure pass judged what stays required; a later commit may delete, not relabel."""
+    v = _relabel(tmp_path, [_item("99-930", was), _item("99-931", DEFERRED)],
+                 [_item("99-930", now), _item("99-931", DEFERRED)])
+    assert len(v) == 1 and "held open" in v[0] and f"99-930: {was} -> {now}" in v[0], v
+    assert "99-931" not in v[0], v
+
+
+def test_a_held_item_deleted_after_the_receipt_is_done(tmp_path):
+    assert _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-931", DEFERRED)],
+                    [_item("99-931", DEFERRED)]) == []
+
+
+def test_an_unchanged_held_item_is_condition_2s_to_refuse(tmp_path):
+    items = [_item("99-930", REQUIRED), _item("99-931", DEFERRED)]
+    v = _relabel(tmp_path, items, items)
+    assert len(v) == 1 and "still required" in v[0] and "99-930" in v[0], v
+
+
+def test_an_item_added_after_the_receipt_is_judged_by_condition_2(tmp_path):
+    assert _relabel(tmp_path, [_item("99-930", REQUIRED)], [_item("99-932", DEFERRED)]) == []
+
+
+@pytest.mark.parametrize("absent", ["receipt", "head"])
+def test_a_todo_stack_absent_at_either_commit_fails(tmp_path, absent):
+    items = [_item("99-931", DEFERRED)]
+    v = _relabel(tmp_path, None if absent == "receipt" else items,
+                 None if absent == "head" else items)
+    where = "the receipt's commit" if absent == "receipt" else "at HEAD"
+    assert any("does not exist" in x and where in x for x in v), v
+
+
+def test_a_todo_stack_unreadable_at_the_receipt_commit_fails(tmp_path):
+    v = _relabel(tmp_path, [f"### 99-930: A colon\n\nRelease: {REQUIRED}.\n"],
+                 [_item("99-930", DEFERRED)])
+    assert len(v) == 1 and "cannot be read" in v[0] and "receipt's commit" in v[0], v
+
+
+def test_a_missing_todo_stack_fails(tmp_path):
+    """Deleting the stack must not read as zero required items."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    (root / "artifacts" / "todo_stack.md").unlink()
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "todo_stack.md is missing" in v[0], v
 
 
 def test_a_receipt_cannot_be_tied_to_an_unresolved_head(tmp_path):

@@ -1229,6 +1229,43 @@ def receipt_commit_violation(root: pathlib.Path, commit: str,
     return None
 
 
+def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
+    """The todo stack's text at ``rev``, or ``None`` when git cannot show it there."""
+    shown = subprocess.run(["git", "show", f"{rev}:{TODO_PATH}"], cwd=root, capture_output=True)
+    return shown.stdout.decode("utf-8", errors="replace") if shown.returncode == 0 else None
+
+
+def relabelled_after_receipt(root: pathlib.Path, commit: str, head: str) -> List[str]:
+    """Why the todo stack at HEAD does not carry the receipt's release values forward.
+
+    The todo stack may change after the closure pass so that finished items can be deleted, but
+    the pass judged what stays required. An item this cycle's release waited on at the receipt's
+    commit (any value but the deferred and release-step ones) must carry the same value at HEAD,
+    or be gone: a deleted item is done. Items added after the receipt are judged by condition 2
+    alone. A stack absent at either commit, or unreadable at the receipt's, is refused.
+    """
+    at_receipt, at_head = _todo_stack_at(root, commit), _todo_stack_at(root, head)
+    if at_receipt is None or at_head is None:
+        where = (f"the receipt's commit {commit[:12]}" if at_receipt is None
+                 else f"HEAD {head[:12]}")
+        return [f"{TODO_PATH} does not exist at {where}, so whether an item required for "
+                f"{RELEASE_CYCLE} was relabelled after the closure pass is unknown"]
+    before, unreadable = _parse_todo_stack(at_receipt)
+    if unreadable:
+        return [f"{len(unreadable)} section(s) of {TODO_PATH} at the receipt's commit "
+                f"{commit[:12]} cannot be read, so whether one was relabelled after the closure "
+                "pass is unknown: " + "; ".join(unreadable[:4])]
+    held = {i: r for i, _, r in before if r not in (DEFERRED_VALUE, RELEASE_STEP_VALUE)}
+    changed = [f"{i}: {held[i][:40]} -> {r[:40]}"
+               for i, _, r in _parse_todo_stack(at_head)[0] if i in held and r != held[i]]
+    if not changed:
+        return []
+    return [f"{len(changed)} todo item(s) held open for {RELEASE_CYCLE} at the receipt's commit "
+            f"{commit[:12]} carry another release at HEAD {head[:12]}; only a new closure pass "
+            "may relabel an item it judged, so finish and delete it or record a new receipt: "
+            + "; ".join(changed[:8]) + (" ..." if len(changed) > 8 else "")]
+
+
 def check_release_readiness(root: pathlib.Path = REPO_ROOT,
                             head: Optional[str] = None) -> List[str]:
     """AGENTS.md section 11 condition 3, as amended 2026-09-23.
@@ -1244,7 +1281,7 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          cycle's release step, which completes only after the tag;
       3. the independent blocker-focused closure receipt exists and reports zero, and its
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
-         the todo stack.
+         the todo stack, where no item held open at the receipt's commit changed its release.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1267,6 +1304,9 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             + (" ..." if len(rows) > 8 else ""))
 
     # 2. no required item remains
+    if not (root / TODO_PATH).exists():
+        violations.append(f"{TODO_PATH} is missing, so whether any item is still required for "
+                          f"{RELEASE_CYCLE} is unknown")
     items = todo_release_fields(root)
     # A value other than this cycle's `required-` is named, so a release step or a deferral
     # written for the wrong cycle says why it still counts.
@@ -1293,6 +1333,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         stale = receipt_commit_violation(root, commit, head)
         if stale:
             violations.append(stale)
+        elif commit != head:
+            violations.extend(relabelled_after_receipt(root, commit, head))
     if found is None:
         violations.append(f"{RECEIPT_PATH} does not state how many new release-blocking "
                           "problems the closure pass found")
@@ -1318,7 +1360,8 @@ def main() -> None:
             "A release requires: an empty problem stack; zero todo items still required for "
             "this cycle; and a blocker-focused closure receipt reporting zero new blockers, "
             "recorded at HEAD or at an ancestor that differs from HEAD only in the receipt and "
-            "%s. Work deferred to %s, and %s items, stay in the todo stack.",
+            "%s, with no item it held open relabelled since. Work deferred to %s, and %s "
+            "items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)
     releases = [r for _, _, r in todo_release_fields()]
