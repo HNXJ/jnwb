@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import plotly.graph_objects as go
 
+from ..viz import _whole_bin_count
 from .canvas import PlotlyPublicationCanvas
 from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
 
@@ -25,7 +26,7 @@ def plot_multi_condition_raster_psth(
     col_psth: int,
     st: np.ndarray,
     onsets: Dict[str, np.ndarray],
-    win_ms: Tuple[float, float] = (-250.0, 531.0),
+    win_ms: Tuple[float, float] = (-250.0, 530.0),
     colors: Optional[Dict[str, str]] = None,
     stim_dur_ms: float = 250.0,
     bin_ms: float = 10.0,
@@ -47,13 +48,19 @@ def plot_multi_condition_raster_psth(
         col_psth: Grid column for PSTH panel.
         st: 1D array of spike timestamps (seconds).
         onsets: Dict mapping condition name to 1D array of onset timestamps (seconds).
-        win_ms: Window relative to onset in ms (start_ms, end_ms).
+        win_ms: Window relative to onset in ms (start_ms, end_ms). Its span must be a whole
+            number of ``bin_ms`` bins.
         colors: Dict mapping condition name to hex color.
         stim_dur_ms: Stimulus duration in ms for shaded event box.
         bin_ms: Bin width for PSTH in ms.
         max_raster_trials: Maximum trials to plot per condition in raster.
         title: Title for the combined panel.
+
+    Raises:
+        ValueError: If the span of ``win_ms`` is not a whole multiple of ``bin_ms``, before
+            anything is drawn; the message names the nearest valid windows.
     """
+    n_bins = _whole_bin_count(win_ms, bin_ms, "plot_multi_condition_raster_psth")
     st = np.asarray(st, dtype=float)
     x_rast, y_rast = canvas.get_axis_names(row_raster, col_raster)
     x_psth, y_psth = canvas.get_axis_names(row_psth, col_psth)
@@ -69,7 +76,7 @@ def plot_multi_condition_raster_psth(
     getattr(canvas.fig.layout, xaxis_rast_name)["showticklabels"] = False
 
     # PSTH time bins
-    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
+    edges = win_ms[0] + bin_ms * np.arange(n_bins + 1)
     centers = edges[:-1] + bin_ms / 2.0
 
     current_trial_offset = 0

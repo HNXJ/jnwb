@@ -291,6 +291,19 @@ def test_csd_primitive():
     assert any(isinstance(t, go.Heatmap) for t in traces)
 
 
+def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():
+    """The default window spanned 781 ms at 10 ms bins, so its last bin held 1 ms of spikes
+    divided by 10 ms and a steady 1000 Hz train drew a dip to about 100 Hz at the end."""
+    steady = np.arange(0.0005, 10.0, 0.001)
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=120.0, rows=2, cols=1)
+    plot_multi_condition_raster_psth(canvas, 0, 0, 1, 0, steady, {"A": np.array([2.0, 4.0])})
+    line = [t for t in canvas.fig.data if isinstance(t, go.Scatter) and t.name == "A"][0]
+    assert np.allclose(line.y, 1000.0)
+    with pytest.raises(ValueError, match="rates would be wrong"):
+        plot_multi_condition_raster_psth(
+            canvas, 0, 0, 1, 0, steady, {"A": np.array([2.0])}, win_ms=(-100.0, 305.0))
+
+
 def test_multi_condition_raster_psth_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=120.0, rows=2, cols=1, row_height_ratios=[1.2, 1.0])
     st = np.sort(np.random.uniform(0, 100, 500))

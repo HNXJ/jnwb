@@ -18,6 +18,28 @@ from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 log = logging.getLogger(__name__)
 
 
+def _whole_bin_count(win_ms, bin_ms, func_name: str, param: str = "win_ms") -> int:
+    """Number of ``bin_ms`` bins spanning ``win_ms``, refusing a span that is not whole bins.
+
+    A partial last bin holds less than ``bin_ms`` of data but its rate is still divided by
+    the full ``bin_ms``; a window stretched or shrunk to whole bins divides every bin by a
+    width it does not have. The error names the nearest valid windows with the same start.
+    """
+    start, end = float(win_ms[0]), float(win_ms[1])
+    n = (end - start) / float(bin_ms)
+    n_whole = int(round(n))
+    if abs(n - n_whole) > 1e-9 or n_whole < 1:
+        nearest = [(start, start + k * bin_ms) for k in (int(np.floor(n)), int(np.ceil(n))) if k >= 1]
+        raise ValueError(
+            f"{func_name}: {param}={(start, end)} spans {end - start:g} ms, which is {n:g} "
+            f"bins of {bin_ms:g} ms, so not every bin would be {bin_ms:g} ms wide and the "
+            "rates would be wrong. Use "
+            + " or ".join(f"{param}=({a:g}, {b:g})" for a, b in nearest)
+            + ", or a bin width that divides the span."
+        )
+    return n_whole
+
+
 def setup_vector_graphics():
     """Enforce editable vector SVG font rendering in Adobe Illustrator / Inkscape."""
     plt.rcParams['svg.fonttype'] = 'none'
@@ -127,21 +149,25 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     Args:
         st: 1D array of spike times (seconds).
         onsets: 1D array of trial onset times (seconds).
-        win_ms: (start_ms, end_ms) window relative to each onset.
+        win_ms: (start_ms, end_ms) window relative to each onset. Its span must be a whole
+            number of ``bin_ms`` bins.
         bin_ms: bin width in ms.
 
     Returns:
         (bin_centers_ms, mean_rate_hz, sem_rate_hz). With no onsets the mean and SEM are NaN.
 
     Raises:
-        ValueError: If ``win_ms`` is not finite with end > start, or ``bin_ms`` is not positive.
+        ValueError: If ``win_ms`` is not finite with end > start, ``bin_ms`` is not positive,
+            or the span of ``win_ms`` is not a whole multiple of ``bin_ms``; the message names
+            the nearest valid windows.
     """
     if not (np.all(np.isfinite(win_ms)) and win_ms[1] > win_ms[0]):
         raise ValueError(f"raster_psth: win_ms={tuple(win_ms)} must be finite with end > start")
     if not (np.isfinite(bin_ms) and bin_ms > 0):
         raise ValueError(f"raster_psth: bin_ms must be positive and finite, got {bin_ms}")
+    n_bins = _whole_bin_count(win_ms, bin_ms, "raster_psth")
     onsets = np.asarray(onsets, dtype=float)
-    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
+    edges = win_ms[0] + bin_ms * np.arange(n_bins + 1)
     centers = edges[:-1] + bin_ms / 2.0
     if onsets.size == 0:
         # No trials, so no trial average. This returned zeros, which reads as a silent unit.

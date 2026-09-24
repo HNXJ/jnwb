@@ -225,10 +225,17 @@ class TestFinalAuditRecurrence:
 
         st = np.sort(np.random.default_rng(0).uniform(0, 0.6, 50))
         psth = UnitAnalyzer.psth(
-            st, trial_onsets=np.array([0.3]), window_ms=(-100, 500), bin_size_ms=7,
+            st, trial_onsets=np.array([0.3]), window_ms=(-100, 530), bin_size_ms=7,
         )
-        bs = bin_spikes(st, window=(-0.1, 0.5), bin_size_ms=7)
+        bs = bin_spikes(st, window=(-0.1, 0.53), bin_size_ms=7)
         assert len(psth["psth"]) == bs.shape[-1]
+
+    def test_psth_refuses_a_window_that_is_not_whole_bins(self):
+        """600 ms at 7 ms made 86 bins 6.98 ms wide, each rate divided by 7 ms."""
+        from jnwb.analyzers import UnitAnalyzer
+
+        with pytest.raises(ValueError, match=r"window_ms=\(-100, 495\) or window_ms=\(-100, 502\)"):
+            UnitAnalyzer.psth(np.array([0.31]), np.array([0.3]), bin_size_ms=7, window_ms=(-100, 500))
 
     def test_compare_groups_paired_single_pair_raises(self):
         with pytest.raises(ValueError, match="at least two paired"):

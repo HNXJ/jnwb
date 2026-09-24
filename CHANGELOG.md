@@ -129,6 +129,15 @@ Carried by 0.2.6.
 
 ### Fixed
 
+- **A PSTH window must be whole bins.** `raster_psth` built a last bin that ran past
+  `win_ms[1]` when the span was not a multiple of `bin_ms`, and divided its partial count by the
+  full `bin_ms`: a steady 1000 Hz train read 500 Hz in the last bin of `win_ms=(-200, 505)` at
+  10 ms. Such a window now raises `ValueError` naming the nearest valid windows
+  (`win_ms=(-200, 500)` or `(-200, 510)`); every valid call returns what it did.
+  `jnwb.vis.plot_multi_condition_raster_psth` had the same last bin and refuses the same way,
+  and its default window is `(-250, 530)` where it was `(-250, 531)`, whose last bin held 1 ms.
+  `UnitAnalyzer.psth` stretched such a window into bins that were not `bin_size_ms` wide and
+  divided each by `bin_size_ms`; it refuses the window as well.
 - **A result with no estimate is NaN, not a number.** Four calls returned ordinary-looking
   values where the data held no estimate:
   - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,
