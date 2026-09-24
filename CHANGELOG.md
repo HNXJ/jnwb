@@ -204,16 +204,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     equality: the computed SD of a constant 0.3 is about 1e-17, so two constant 0.3 groups kept
     `statistic` 0.0 and `pval` 1.0, and constant groups at 0.3 and 0.7 read t -2.2e16 and d
     -9.7e15. Constant groups at one value now read NaN, and at different values t -inf or
-    +inf, `pval` 0.0 and d NaN, whatever the values; a paired difference that is one non-zero
-    constant reads the same way, with d_z NaN.
+    +inf, `pval` 0.0 and d NaN, whatever the finite values; a paired difference that is one
+    non-zero constant reads the same way, with d_z NaN. A group constant at inf or -inf, such
+    as a silent channel in decibels, has no test and reads NaN.
   - `compare_multiple_groups` and `exploratory_multi` did the same for the ANOVA and
     Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests
     now report NaN with `significant_*` False, and an ANOVA with no estimate reports
     `df_between` and `df_within` as float NaN (`group_sizes` keeps the counts). `eta_squared` is
     NaN for data with no variance or with an empty group; with one observation per group and
     unequal values every deviation lies between groups, so `eta_squared` is 1.0 while the ANOVA
-    itself is NaN. Both cases are decided by exact equality: constant groups at 0.1 of sizes 3
-    and 4 reported `eta_squared` 2.29, and constant groups at distinct values
+    itself is NaN. Both cases are decided by exact equality on finite data: constant groups at
+    0.1 of sizes 3 and 4 reported `eta_squared` 2.29, and constant groups at distinct values
     1.0000000000000004.
   - `correlate` and `exploratory_correlate` already reported a NaN correlation for a constant
     input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation

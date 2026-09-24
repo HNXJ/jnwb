@@ -1160,3 +1160,36 @@ def test_cluster_t_map_recognises_constant_points_whatever_the_value():
     assert np.isnan(unpaired[2]) and unpaired[3] == 0.0
     assert np.all(np.isfinite(np.delete(unpaired, [2, 3])))
 
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("a, b", [(-np.inf, -np.inf), (np.inf, np.inf), (-np.inf, 1.0),
+                                  (1.0, np.inf)])
+def test_constant_groups_at_a_non_finite_value_have_no_test(a, b):
+    """A silent channel in decibels is -inf in every trial. The unbounded t is for finite
+    constants: a group constant at inf or -inf has no t-test and no eta_squared."""
+    from jnwb.statistics import cluster_permutation_test
+
+    res = StatisticalAnalysis.exploratory_compare(np.full(6, a), np.full(6, b), n_bootstrap=20)
+    par = res["parametric"]
+    assert np.isnan(par["statistic"]) and np.isnan(par["pval"]), par
+    assert res["significant_parametric"] is False
+    eta = StatisticalAnalysis.compare_multiple_groups(
+        {"a": np.full(6, a), "b": np.full(4, b)})["parametric"]["effect_size"]
+    assert np.isnan(eta)
+    # The paired and cluster paths drop or refuse non-finite values before any t is formed.
+    with pytest.raises(ValueError, match="at least two paired observations"):
+        StatisticalAnalysis.compare_groups(np.full(6, a), np.full(6, b), paired=True)
+    with pytest.raises(ValueError, match="infinite"):
+        cluster_permutation_test(np.full((6, 3), a), np.full((6, 3), b), n_permutations=20,
+                                 rng=0)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("paired", [False, True])
+def test_a_finite_difference_too_large_to_represent_keeps_its_sign(paired):
+    """1e308 - (-1e308) overflows to inf, but both values are finite and the difference is
+    positive, so the zero-spread t is +inf, not an absent test."""
+    par = StatisticalAnalysis.compare_groups(np.full(6, 1e308), np.full(6, -1e308),
+                                             paired=paired)["parametric"]
+    assert par["statistic"] == np.inf and par["pval"] == 0.0, par
+

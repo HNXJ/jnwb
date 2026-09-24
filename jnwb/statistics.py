@@ -422,13 +422,15 @@ def _require_shuffle_inputs(a: np.ndarray, b: np.ndarray, n_shuffles: int, func_
         raise ValueError(f"{func_name}: n_shuffles must be a positive integer, got {n_shuffles!r}")
 
 
-def _zero_spread_t(difference: float) -> Tuple[float, float]:
-    """(t, p) of a t-test whose data have no spread: no test for a zero difference, and an
-    unbounded t with p 0.0 otherwise, which is what scipy returns when the spread computes to
-    exactly zero."""
-    if difference == 0:
+def _zero_spread_t(a: float, b: float) -> Tuple[float, float]:
+    """(t, p) of a t-test whose data have no spread, `a` and `b` being the constant values
+    compared: no test when they are equal, and an unbounded t with p 0.0 otherwise, which is
+    what scipy returns when the spread computes to exactly zero. A constant at inf or -inf has
+    no test either; the check is on the values, so a finite difference too large to represent
+    keeps its sign."""
+    if a == b or not (math.isfinite(a) and math.isfinite(b)):
         return float("nan"), float("nan")
-    return math.copysign(math.inf, difference), 0.0
+    return math.copysign(math.inf, a - b), 0.0
 
 
 def shuffle_pvalue_paired(
@@ -898,7 +900,7 @@ class StatisticalAnalysis:
                 diff = valid1 - valid2
                 if _is_constant(diff):
                     # Zero spread, tested exactly; scipy sees it only when the computed SD is 0.
-                    t_stat, t_pval = _zero_spread_t(diff[0])
+                    t_stat, t_pval = _zero_spread_t(valid1[0], valid2[0])
                     cohens_dz = float("nan")
                 else:
                     sd_diff = np.std(diff, ddof=1)
@@ -933,7 +935,7 @@ class StatisticalAnalysis:
                 both_constant = bool(len(valid1) and len(valid2)
                                      and _is_constant(valid1) and _is_constant(valid2))
                 if both_constant and df > 0:
-                    t_stat, t_pval = _zero_spread_t(valid1[0] - valid2[0])
+                    t_stat, t_pval = _zero_spread_t(valid1[0], valid2[0])
                 # A one-observation group adds nothing to the pooled sum of squares; its
                 # ddof=1 variance is NaN, and 0 * NaN made the pooled SD NaN and d read 0.0.
                 ss1 = (len(valid1) - 1) * np.var(valid1, ddof=1) if len(valid1) > 1 else 0.0
@@ -1024,8 +1026,9 @@ class StatisticalAnalysis:
             # No variance at all leaves no share of it to explain: 0/0, not 0.
             eta_squared = ss_between / ss_total if ss_total > 0 else float("nan")
             # The sums of squares of constant data are rounding residue, not zero; decide the
-            # two degenerate cases exactly. An empty group keeps the NaN computed above.
-            if group_data and all(len(g) for g in group_data):
+            # two degenerate cases exactly. An empty group, or a non-finite value, keeps the NaN
+            # computed above.
+            if group_data and all(len(g) and np.all(np.isfinite(g)) for g in group_data):
                 if _is_constant(np.concatenate(group_data)):
                     eta_squared = float("nan")
                 elif all(_is_constant(g) for g in group_data):
