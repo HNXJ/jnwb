@@ -833,8 +833,10 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
         "layout": None,
         "rate_hz": None,
     }
-    if ndt == "LFP":
-        wrapped = dict(getattr(obj, "electrical_series", None) or {})
+    # Every wrapping container unwraps, as the file walk does, not only `LFP`.
+    held = _wrapped_series(obj)
+    if held is not None and hasattr(held, "items"):
+        wrapped = dict(held)
         entry["series"] = sorted(wrapped) or None
         if len(wrapped) != 1:
             return entry

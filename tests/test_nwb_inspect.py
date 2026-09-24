@@ -219,6 +219,42 @@ class TestNWBReadHelpers:
         entry = next(e for e in inspect(nwb)["acquisitions"] if e["name"] == "values")
         assert entry["layout"] == "time_by_channel"
 
+    def test_both_call_forms_unwrap_a_behavior_container_alike(self, tmp_path):
+        """The object walk unwrapped only `LFP`, so an in-memory behavior container reported no
+        series, shape or layout, and one in a processing module was left out, while the file
+        form of the same file reported all of them."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+        from pynwb.behavior import BehavioralTimeSeries, PupilTracking
+        from jnwb.nwb_inspect import CONTINUOUS_KEYS
+
+        def build():
+            nwb = NWBFile("s", "forms", datetime(2026, 1, 1, tzinfo=tzutc()))
+            nwb.add_acquisition(BehavioralTimeSeries(name="behavior", time_series=TimeSeries(
+                name="values", data=np.arange(50.0).reshape(5, 10), rate=100.0, unit="a.u.")))
+            pupil = PupilTracking(name="pupil")
+            for side in ("left", "right"):
+                pupil.create_timeseries(name=side, data=np.zeros(5), rate=100.0, unit="a.u.")
+            nwb.add_acquisition(pupil)
+            nwb.create_processing_module("behavior", "processed").add(BehavioralTimeSeries(
+                name="speed", time_series=TimeSeries(name="speed", data=np.zeros(8), rate=50.0,
+                                                     unit="m/s")))
+            return nwb
+
+        def view(info):
+            return {key: {e["name"]: {k: e[k] for k in CONTINUOUS_KEYS} for e in info[key]}
+                    for key in ("acquisitions", "processing_continuous")}
+
+        path = tmp_path / "forms.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(build())
+        from_file = view(inspect(path))
+        assert from_file["acquisitions"]["behavior"]["layout"] == "time_by_channel"
+        assert from_file["acquisitions"]["pupil"]["series"] == ["left", "right"]
+        assert set(from_file["processing_continuous"]) == {"speed"}
+        assert view(inspect(build())) == from_file
+
     def test_behavior_container_with_two_series_is_ambiguous(self, tmp_path):
         from datetime import datetime
         from dateutil.tz import tzutc

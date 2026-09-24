@@ -164,7 +164,10 @@ Carried by 0.2.6.
   `LFP` was unwrapped. These containers now unwrap the way `LFP` does: by container name, bare
   series name or `container/series`, and a container holding several series raises
   `AmbiguousAcquisitionError`. A `FilteredEphys` container in `/acquisition`, which raised the same
-  way when named by its container, is unwrapped too. A series whose type carries no electrode
+  way when named by its container, is unwrapped too. `inspect` on an `NWBFile` with no file
+  behind it unwrapped only `LFP`, so it reported these containers with no series, shape or
+  layout, and left those in processing modules out, where `inspect` of the file reported them;
+  both forms now report them alike. A series whose type carries no electrode
   region (every `TimeSeries` subtype except `ElectricalSeries` and `SpikeEventSeries`) has
   nothing to decide which axis holds channels, so its layout follows the NWB schema's time-first
   rule rather than a guess from which side is longer, in `acquisition_channel` and in
