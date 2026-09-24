@@ -685,6 +685,10 @@ ACCEPTED_HANDLER_RECOVERY = {
         "carrying its own cause.",
     ("connectivity.py", "Exception", (), True):
         "Returns float('nan'). Absence, and NaN propagates rather than reading as a value.",
+    ("io.py", "Exception", (), True):
+        "_stored_seek_is_reliable returns False when its zipfile probe raises, so a stored "
+        "entry is read forward, the path that needs no seek. Same bytes either way; only time "
+        "differs.",
     ("jrsa.py", "ImportError", (), True):
         "statsmodels absent -> warns and returns NaN for Granger causality. It declines "
         "rather than substituting another estimator, which is 06-15's repair in this module.",
