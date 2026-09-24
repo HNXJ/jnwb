@@ -129,8 +129,8 @@ class TestTheFixIsNotOverbroad:
         """
         # NUL-separated, in bytes, both directions. Not decoration: with `text=True` the
         # subprocess stdin wrapper translates each "\n" to "\r\n" on Windows, git then sees
-        # ".claude/agents/jnwb-actor.md\r", that no longer matches the "!.claude/agents/*.md"
-        # re-inclusion, and this check reports two tracked files as ignored that are not.
+        # each path with a trailing "\r", which no longer matches a "!" re-inclusion rule,
+        # and this check reports tracked files as ignored that are not.
         listing = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "ls-files", "-z"], capture_output=True
         )
