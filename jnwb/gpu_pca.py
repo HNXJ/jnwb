@@ -29,7 +29,15 @@ def pin_component_signs(
     so the convention is pinned in the library rather than left to whichever routine ran.
 
     Any rule fixed by the data works; this is the one `sklearn.utils.extmath.svd_flip`
-    uses. A component of all zeros has no largest loading and is left alone.
+    uses, with ties broken by index. A component of all zeros has no largest loading and
+    is left alone.
+
+    Ties: loadings whose magnitudes agree to within ``sqrt(eps)`` of the component's dtype,
+    relative to the largest, are treated as tied, and the lowest-index one is the pivot.
+    Plain ``argmax`` let rounding choose among tied loadings, and ties are routine: two
+    z-scored features always give components ``[1, 1]/sqrt(2)`` and ``[1, -1]/sqrt(2)``,
+    where LAPACK and cuSOLVER round the two magnitudes differently and so pinned opposite
+    signs in 32 of 200 matrices.
 
     Args:
         components: ``(n_components, n_features)`` right singular vectors.
@@ -41,7 +49,11 @@ def pin_component_signs(
     """
     if components.size == 0:
         return components, projections
-    pivot = np.argmax(np.abs(components), axis=1)
+    magnitude = np.abs(components)
+    dtype = components.dtype if np.issubdtype(components.dtype, np.floating) else np.float64
+    tol = np.sqrt(np.finfo(dtype).eps)
+    tied = magnitude >= magnitude.max(axis=1, keepdims=True) * (1.0 - tol)
+    pivot = np.argmax(tied, axis=1)
     signs = np.sign(components[np.arange(components.shape[0]), pivot])
     signs[signs == 0.0] = 1.0
     return components * signs[:, None], projections * signs[None, :]

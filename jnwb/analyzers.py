@@ -761,7 +761,8 @@ class PopulationAnalyzer:
                 'explained_variance_ratio': shape (n_components,)
                 'device_used': 'cpu' or 'cuda' -- device that performed the SVD
 
-            Each component's largest-magnitude loading is positive
+            Each component's largest-magnitude loading is positive, the lowest-index one
+            among loadings tied in magnitude
             (:func:`jnwb.gpu_pca.pin_component_signs`). An SVD fixes a component only up to
             sign, and cuSOLVER and LAPACK pick each component's sign independently, so
             without the pin a CUDA component and its projection could have the opposite sign

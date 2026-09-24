@@ -378,6 +378,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conditioned the target's past on `l` and the source's past on `k`; `transfer_entropy` uses
   `k` for the target history and `l` for the source history, so a reader who set them from the
   page fitted a different model.
+- **`compute_population_trajectory`, `PopulationAnalyzer.population_trajectory` and `gpu_pca`
+  agree between CPU and CUDA when loadings tie.** The sign pin took the largest-magnitude
+  loading by `argmax`, so among loadings tied in magnitude rounding chose the pivot, and the
+  two devices round differently: with two z-scored features every loading ties, and `gpu_pca`
+  pinned opposite signs on 32 of 200 matrices while a two-unit trajectory differed by 8.5 in
+  one component on 4 of 60 sessions. Loadings within `sqrt(eps)` of the largest now count as
+  tied and the lowest-index one is the pivot, on both devices.
 - **The `jrsa` docstring, the jRSA page and the population skill state the direction of each
   directed metric.** `granger_ssr_ftest` and `transfer_entropy_histogram_nats` measure x2 -> x1,
   the reverse of `granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads x2. No
