@@ -441,3 +441,39 @@ class TestAlternativeWithoutPermutations:
                     permutations=0)
         # The message says why, not only that.
         assert "upper-tail F-test" in str(err.value) and "halving" in str(err.value)
+
+
+class TestDirectedMetricsStateTheDirectionTheyMeasure:
+    """The SSR F-test and histogram TE measure x2 -> x1, the reverse of
+    `connectivity.granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads.
+    No public text said so; the docstring now does, and this holds it to the numbers."""
+
+    @staticmethod
+    def _lead_lag():
+        rng = np.random.default_rng(0)
+        lead = rng.normal(size=2000)
+        # One sample: the histogram TE conditions on one past sample of each series, so a
+        # longer lead would leave it nothing to see in either direction.
+        lag = 0.9 * np.r_[0.0, lead[:-1]] + 0.4 * rng.normal(size=2000)
+        return lead, lag
+
+    @pytest.mark.parametrize("metric", ["granger_ssr_ftest", "transfer_entropy_histogram_nats"])
+    def test_the_x2_to_x1_metrics_are_large_when_x2_leads(self, metric):
+        lead, lag = self._lead_lag()
+        x2_leads = float(oa.jrsa(lag, lead, metric=metric, stats=False).value)
+        x1_leads = float(oa.jrsa(lead, lag, metric=metric, stats=False).value)
+        assert x2_leads > 2 * x1_leads, (x2_leads, x1_leads)
+        g = oa.granger(lead, lag)
+        assert g.x_to_y > g.y_to_x, "connectivity.granger no longer reads x_to_y as X -> Y"
+
+    def test_phase_slope_is_positive_when_x1_leads(self):
+        lead, lag = self._lead_lag()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            assert float(oa.jrsa(lead, lag, metric="phase_slope", stats=False).value) > 0
+
+    def test_the_docstring_says_so(self):
+        doc = " ".join(oa.jrsa.__doc__.split())
+        assert ("``granger_ssr_ftest`` and ``transfer_entropy_histogram_nats`` measure "
+                "x2 -> x1") in doc
+        assert "``phase_slope`` is positive when x1 leads x2" in doc

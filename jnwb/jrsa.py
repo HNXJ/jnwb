@@ -191,6 +191,10 @@ def jrsa(
         procrustes, granger_ssr_ftest, transfer_entropy_histogram_nats, phase_slope.
         The SSR F-test and histogram TE metrics are distinct from connectivity
         ``granger`` and ``transfer_entropy``.
+        Direction of the directed metrics: ``granger_ssr_ftest`` and
+        ``transfer_entropy_histogram_nats`` measure x2 -> x1 (how much x2's past predicts
+        x1), the reverse of ``jnwb.granger(X, Y).x_to_y``; ``phase_slope`` is positive
+        when x1 leads x2, as ``jnwb.phase_slope_index(x, y).x_to_y`` is when x leads y.
     lag : int | tuple | array-like
         Temporal lag(s).
     window : tuple | int or None

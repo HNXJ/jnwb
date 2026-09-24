@@ -369,6 +369,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conditioned the target's past on `l` and the source's past on `k`; `transfer_entropy` uses
   `k` for the target history and `l` for the source history, so a reader who set them from the
   page fitted a different model.
+- **The `jrsa` docstring, the jRSA page and the population skill state the direction of each
+  directed metric.** `granger_ssr_ftest` and `transfer_entropy_histogram_nats` measure x2 -> x1,
+  the reverse of `granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads x2. No
+  public text said so. The numbers are unchanged.
 
 ### Deprecated
 
