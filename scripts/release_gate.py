@@ -1154,6 +1154,15 @@ NEXT_CYCLE = "{}.{}.{}".format(
     *(int(p) + (i == 2) for i, p in enumerate(
         re.match(r"(\d+)\.(\d+)\.(\d+)", RELEASE_CYCLE).groups())))
 RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
+TODO_PATH = "artifacts/todo_stack.md"
+# The files a commit may change after the closure pass without invalidating it. A committed
+# receipt cannot name its own commit, so it names the one the pass ran against, and the commit
+# that records it -- together with the todo-stack update the pass produced -- follows.
+RECEIPT_MAY_FOLLOW = frozenset({RECEIPT_PATH, TODO_PATH})
+# The two release values that do not hold this cycle open. A release step completes only after
+# the tag, so STEP 0a cannot wait for it; any other cycle's value is not this cycle's.
+DEFERRED_VALUE = f"deferred-{NEXT_CYCLE}"
+RELEASE_STEP_VALUE = f"release-step-{RELEASE_CYCLE}"
 
 
 def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
@@ -1165,7 +1174,11 @@ def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, 
 
 
 def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[str], Optional[int]]:
-    """``(commit, new_blockers)`` from the closure-pass receipt, or ``(None, None)``."""
+    """``(commit, new_blockers)`` from the closure-pass receipt, or ``(None, None)``.
+
+    ``commit`` is the commit the pass ran against. A committed receipt cannot name its own
+    commit, so :func:`receipt_commit_violation` decides whether it still stands for HEAD.
+    """
     path = root / RECEIPT_PATH
     if not path.exists():
         return None, None
@@ -1174,6 +1187,46 @@ def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[s
     found = re.search(r"^\|\s*new release-blocking problems found\s*\|\s*(\d+)\s*\|", text, re.M)
     return (commit.group(1) if commit else None,
             int(found.group(1)) if found else None)
+
+
+def receipt_commit_violation(root: pathlib.Path, commit: str,
+                             head: Optional[str]) -> Optional[str]:
+    """Why the receipt's commit does not stand for HEAD, or ``None`` when it does.
+
+    It stands for HEAD when it is HEAD, or when it is an ancestor of HEAD and the only files
+    changed since are the receipt and the todo stack (``git diff --name-only <commit> HEAD``).
+    An unresolvable HEAD, an unknown commit and a commit off HEAD's history are refused.
+    """
+    if head is None:
+        return (f"HEAD could not be resolved, so whether the closure pass recorded in "
+                f"{RECEIPT_PATH} ran against the tree being released is unknown")
+    if commit == head:
+        return None
+
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+
+    if git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+        return (f"{RECEIPT_PATH} records commit {commit[:12]}, which this repository does not "
+                "know, so the closure pass cannot be tied to the tree being released")
+    ancestry = git("merge-base", "--is-ancestor", commit, head)
+    if ancestry.returncode == 1:
+        return (f"{RECEIPT_PATH} records commit {commit[:12]}, which is not an ancestor of HEAD "
+                f"{head[:12]}: the closure pass ran against a different history")
+    if ancestry.returncode != 0:
+        return (f"whether {RECEIPT_PATH}'s commit {commit[:12]} is an ancestor of HEAD "
+                f"{head[:12]} could not be determined: {ancestry.stderr.strip()[:120]}")
+    diff = git("diff", "--name-only", "-z", commit, head)
+    if diff.returncode != 0:
+        return (f"the files changed between {RECEIPT_PATH}'s commit {commit[:12]} and HEAD "
+                f"{head[:12]} could not be listed: {diff.stderr.strip()[:120]}")
+    outside = sorted(set(filter(None, diff.stdout.split("\0"))) - RECEIPT_MAY_FOLLOW)
+    if outside:
+        return (f"{RECEIPT_PATH} records commit {commit[:12]}, and {len(outside)} file(s) other "
+                f"than the receipt and {TODO_PATH} changed between it and HEAD {head[:12]}, so "
+                "the closure pass did not run against the tree being released: "
+                + ", ".join(outside[:8]) + (" ..." if len(outside) > 8 else ""))
+    return None
 
 
 def check_release_readiness(root: pathlib.Path = REPO_ROOT,
@@ -1186,8 +1239,12 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
 
       1. the problem stack exists, its ``## Open`` section holds nothing but the table header
          and separator, and no other section holds a problem row;
-      2. no todo item is still required for this cycle, and every item's release is readable;
-      3. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
+      2. no todo item is still required for this cycle, and every item's release is readable.
+         An item is not required when it is deferred to the next cycle, or when it is this
+         cycle's release step, which completes only after the tag;
+      3. the independent blocker-focused closure receipt exists and reports zero, and its
+         commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
+         the todo stack.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1211,7 +1268,10 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
 
     # 2. no required item remains
     items = todo_release_fields(root)
-    required = [f"{i} {t[:34]}" for i, t, r in items if r != f"deferred-{NEXT_CYCLE}"]
+    # A value other than this cycle's `required-` is named, so a release step or a deferral
+    # written for the wrong cycle says why it still counts.
+    required = [f"{i} {t[:34]}" + ("" if r == f"required-{RELEASE_CYCLE}" else f" [{r[:40]}]")
+                for i, t, r in items if r not in (DEFERRED_VALUE, RELEASE_STEP_VALUE)]
     if required:
         violations.append(
             f"{len(required)} todo item(s) are still required for {RELEASE_CYCLE}: "
@@ -1229,10 +1289,10 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         violations.append(
             f"{RECEIPT_PATH} is missing or states no commit; the blocker-focused fixpoint pass "
             "has not been recorded")
-    elif head is not None and commit != head:
-        violations.append(
-            f"{RECEIPT_PATH} records commit {commit[:12]}, but HEAD is {head[:12]}: the closure "
-            "pass did not run against the tree being released")
+    else:
+        stale = receipt_commit_violation(root, commit, head)
+        if stale:
+            violations.append(stale)
     if found is None:
         violations.append(f"{RECEIPT_PATH} does not state how many new release-blocking "
                           "problems the closure pass found")
@@ -1256,13 +1316,17 @@ def main() -> None:
             log.error(violation)
         log.error(
             "A release requires: an empty problem stack; zero todo items still required for "
-            "this cycle; and a blocker-focused closure receipt at HEAD reporting zero new "
-            "blockers. Work deferred to %s stays in the todo stack.", NEXT_CYCLE)
+            "this cycle; and a blocker-focused closure receipt reporting zero new blockers, "
+            "recorded at HEAD or at an ancestor that differs from HEAD only in the receipt and "
+            "%s. Work deferred to %s, and %s items, stay in the todo stack.",
+            TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)
-    deferred = len(todo_release_fields())
+    releases = [r for _, _, r in todo_release_fields()]
     log.info(
         "PASS: the problem stack is empty and no required item remains; %d todo item(s) are "
-        "deferred to %s.", deferred, NEXT_CYCLE)
+        "deferred to %s and %d are %s, completing after the tag.",
+        releases.count(DEFERRED_VALUE), NEXT_CYCLE, releases.count(RELEASE_STEP_VALUE),
+        RELEASE_STEP_VALUE)
 
     log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
     missing = verify_declared_environment()

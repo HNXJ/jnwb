@@ -3,8 +3,10 @@
 The problem stack holds only problems not yet triaged, and a release requires:
 
   1. the problem stack exists and holds no problem row, in any section;
-  2. no todo item is still required for this cycle, and every item's release is readable;
-  3. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
+  2. no todo item is still required for this cycle, and every item's release is readable; this
+     cycle's release step, which completes only after the tag, is not required;
+  3. the independent blocker-focused closure receipt exists and reports zero, and its commit is
+     HEAD or an ancestor that differs from HEAD only in the receipt and the todo stack.
 
 Every test drives the check over a constructed tree and is measured against
 ``test_a_compliant_tree_passes``: the compliant tree passes, and breaking exactly one thing fails.
@@ -16,6 +18,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import subprocess
 import sys
 
 import pytest
@@ -33,6 +36,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.release_gate import (  # noqa: E402
     NEXT_CYCLE,
+    RELEASE_CYCLE,
     blocker_fixpoint_receipt,
     check_release_readiness,
     problem_rows,
@@ -40,6 +44,7 @@ from scripts.release_gate import (  # noqa: E402
 )
 HEAD = "a" * 40
 DEFERRED = f"deferred-{NEXT_CYCLE}"
+RELEASE_STEP = f"release-step-{RELEASE_CYCLE}"
 
 _PROBLEMS = """# Problem stack
 
@@ -184,6 +189,34 @@ def test_an_item_deferred_to_any_cycle_but_the_next_fails(tmp_path, release):
     assert len(v) == 1 and "1 todo item(s) are still required" in v[0] and "99-903" in v[0], v
 
 
+def test_this_cycles_release_step_is_not_required(tmp_path):
+    """A release step completes only after the tag, so STEP 0a cannot wait for it."""
+    root = _tree(tmp_path, items=[_item("99-910", RELEASE_STEP), _item("99-911", DEFERRED)])
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+@pytest.mark.parametrize("release", [
+    f"release-step-{NEXT_CYCLE}",
+    "release-step-",
+    "release-step",
+    f"release-step-{RELEASE_CYCLE}-rc1",
+    f"Release-step-{RELEASE_CYCLE}",
+])
+def test_a_release_step_for_any_other_cycle_or_in_any_other_form_is_required(tmp_path, release):
+    root = _tree(tmp_path, items=[_item("99-912", release), _item("99-913", RELEASE_STEP)])
+    v = check_release_readiness(root, head=HEAD)
+    assert (len(v) == 1 and "1 todo item(s) are still required" in v[0] and "99-912" in v[0]
+            and f"[{release}]" in v[0]), v
+
+
+def test_a_required_item_beside_a_release_step_still_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-914", RELEASE_STEP),
+                                  _item("99-915", f"required-{RELEASE_CYCLE}")])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "1 todo item(s) are still required" in v[0], v
+    assert "99-915" in v[0] and "99-914" not in v[0], v
+
+
 def test_an_item_with_no_release_field_fails(tmp_path):
     root = _tree(tmp_path, items=["### 06-98 Something\n\nRole: jnwb-developer.\n"])
     v = check_release_readiness(root, head=HEAD)
@@ -308,17 +341,89 @@ def test_a_missing_receipt_fails(tmp_path):
     assert v and all("blocker_fixpoint_receipt" in x for x in v), v
 
 
-def test_a_receipt_from_a_different_commit_fails(tmp_path):
-    """A closure pass that ran against other bytes is not evidence about these bytes."""
-    root = _tree(tmp_path, commit="b" * 40)
-    v = check_release_readiness(root, head=HEAD)
-    assert any("did not run against the tree being released" in x for x in v)
+def _git(root, *args):
+    return subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=jnwb-test", "-c",
+         "user.email=test@example.invalid", "-c", "commit.gpgsign=false", *args],
+        capture_output=True, text=True, check=True).stdout.strip()
 
 
-def test_a_receipt_reporting_new_blockers_fails(tmp_path):
-    root = _tree(tmp_path, found=2)
+def _commit(root, message):
+    _git(root, "add", "--all")
+    _git(root, "commit", "-q", "--allow-empty", "-m", message)
+    return _git(root, "rev-parse", "HEAD")
+
+
+def _repository(tmp_path):
+    """A committed compliant tree with no receipt yet: the commit the closure pass runs against."""
+    root = _tree(tmp_path, items=[_item("99-920", DEFERRED), _item("99-921", DEFERRED)],
+                 receipt=False)
+    _git(root, "init", "-q")
+    return root, _commit(root, "the tree the closure pass reads")
+
+
+def _record_receipt(root, commit, found=0):
+    (root / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
+        _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
+
+
+def test_a_receipt_at_an_ancestor_followed_only_by_the_receipt_and_todo_stack_passes(tmp_path):
+    """A committed receipt cannot name its own commit, so it names the one before it."""
+    root, passed = _repository(tmp_path)
+    _record_receipt(root, passed)
+    todo = root / "artifacts" / "todo_stack.md"
+    todo.write_text(todo.read_text(encoding="utf-8").replace(_item("99-921", DEFERRED), ""),
+                    encoding="utf-8")
+    head = _commit(root, "record the closure pass")
+    assert _git(root, "diff", "--name-only", passed, head).split() == [
+        "artifacts/blocker_fixpoint_receipt.md", "artifacts/todo_stack.md"]
+    assert check_release_readiness(root, head=head) == []
+
+
+@pytest.mark.parametrize("later", [False, True], ids=["with-the-receipt", "in-a-later-commit"])
+def test_a_code_change_after_the_receipt_commit_fails(tmp_path, later):
+    root, passed = _repository(tmp_path)
+    _record_receipt(root, passed)
+    if later:
+        _commit(root, "record the closure pass")
+    (root / "jnwb").mkdir()
+    (root / "jnwb" / "x.py").write_text("x = 1\n", encoding="utf-8")
+    head = _commit(root, "a change the closure pass never read")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "1 file(s) other than the receipt" in v[0] and "jnwb/x.py" in v[0], v
+
+
+def test_a_receipt_commit_off_heads_history_fails(tmp_path):
+    root, _ = _repository(tmp_path)
+    trunk = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    _git(root, "checkout", "-q", "-b", "side")
+    elsewhere = _commit(root, "a commit HEAD never descends from")
+    _git(root, "checkout", "-q", trunk)
+    _record_receipt(root, elsewhere)
+    head = _commit(root, "record a closure pass from another history")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "is not an ancestor of HEAD" in v[0], v
+
+
+def test_a_receipt_commit_the_repository_does_not_know_fails(tmp_path):
+    root, _ = _repository(tmp_path)
+    _record_receipt(root, "b" * 40)
+    head = _commit(root, "record a closure pass against an unknown commit")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "does not know" in v[0], v
+
+
+def test_a_receipt_cannot_be_tied_to_an_unresolved_head(tmp_path):
+    root = _tree(tmp_path)
+    v = check_release_readiness(root, head=None)
+    assert len(v) == 1 and "HEAD could not be resolved" in v[0], v
+
+
+@pytest.mark.parametrize("found", [1, 2])
+def test_a_receipt_reporting_new_blockers_fails(tmp_path, found):
+    root = _tree(tmp_path, found=found)
     v = check_release_readiness(root, head=HEAD)
-    assert any("found 2 new release-blocking" in x for x in v)
+    assert len(v) == 1 and f"found {found} new release-blocking" in v[0], v
 
 
 def test_the_fixpoint_is_new_blockers_and_not_new_observations(tmp_path):

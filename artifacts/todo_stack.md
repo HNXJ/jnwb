@@ -129,7 +129,7 @@ Stop: a new blocker needs a human ruling; it is not reclassified to close the cy
 
 ### 06-130 Reconcile `main` with `dev` before the release pull request
 
-Release: required-0.2.6.
+Release: release-step-0.2.6.
 Role: human. Skill: none. Blocked by: 06-60. AUTONOMY: none.
 Writes: none.
 P-180. `origin/main` is `9d738211`, a second copy of the `jnwb.vis` commit on top of the 0.2.5
@@ -148,7 +148,7 @@ Accept: `git diff dev <merge>` is empty on the release pull request, and the REA
 
 ### 06-40 Release
 
-Release: required-0.2.6.
+Release: release-step-0.2.6.
 Role: human. Skill: none. Blocked by: 06-130. AUTONOMY: none.
 Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`.
 dev green; pull request and `main` green; TestPyPI candidate (06-38); tag validates without
