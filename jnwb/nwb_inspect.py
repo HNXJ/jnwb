@@ -217,7 +217,15 @@ def _pynwb_channel_count(series: Any) -> int | None:
     return int(n) or None
 
 
-def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
+#: Series types with no electrode region. The NWB schema puts time on the first axis of every
+#: TimeSeries, and with no electrode count to contradict it that rule is the answer; the shape
+#: guess would read five samples of ten values as five channels.
+_TIME_FIRST_TYPES = frozenset({"TimeSeries", "SpatialSeries"})
+
+
+def _resolve_layout(
+    shape: Any, n_channels: int | None, neurodata_type: str | None = None
+) -> tuple[str, str]:
     """Decide which axis of a 2-D continuous series holds channels.
 
     This was ``shape[0] >= shape[1]``, which never consulted the electrode count.
@@ -238,6 +246,8 @@ def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
         # Both sides match (a square array) or neither does. Guessing here is exactly how
         # a slice across channels gets returned as a channel's time course.
         return AMBIGUOUS_LAYOUT, "electrode_count"
+    if neurodata_type in _TIME_FIRST_TYPES:
+        return TIME_BY_CHANNEL, "schema"
     # Nothing to arbitrate with. The shape heuristic is the only answer available.
     return (TIME_BY_CHANNEL if rows >= cols else CHANNEL_BY_TIME), "shape"
 
@@ -360,8 +370,10 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
         entry["data_shape"] = list(data_ds.shape)
         entry["data_dtype"] = str(data_ds.dtype)
         if len(data_ds.shape) == 2:
+            node = _series_group(group, relpath)
             entry["layout"] = _resolve_layout(
-                data_ds.shape, _h5_channel_count(group, relpath))[0]
+                data_ds.shape, _h5_channel_count(group, relpath),
+                _ndt(node) if node is not None else None)[0]
         entry["rate_hz"] = rate
     return entry
 
@@ -745,7 +757,8 @@ def acquisition_channel(
             # channel=1000 raised "out of range ... with 1000 channels" for a file
             # that has 64 of them.
             n_channels = _pynwb_channel_count(series)
-            layout, basis = _resolve_layout(shape, n_channels)
+            layout, basis = _resolve_layout(
+                shape, n_channels, getattr(series, "neurodata_type", None))
             if layout == AMBIGUOUS_LAYOUT:
                 raise AmbiguousLayoutError(
                     f"Cannot tell which axis of series '{acq_name}' holds channels: "
@@ -843,7 +856,8 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
     entry["data_shape"] = list(shape)
     entry["data_dtype"] = str(dtype)
     if len(shape) == 2:
-        entry["layout"] = _resolve_layout(shape, _pynwb_channel_count(series))[0]
+        entry["layout"] = _resolve_layout(
+            shape, _pynwb_channel_count(series), getattr(series, "neurodata_type", None))[0]
     rate = getattr(series, "rate", None)
     if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
         entry["rate_hz"] = float(rate)

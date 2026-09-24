@@ -175,6 +175,29 @@ class TestNWBReadHelpers:
             np.testing.assert_array_equal(got, expected)
             assert fs_hz == 1000.0
 
+    def test_a_series_without_electrodes_is_time_first(self, tmp_path):
+        """A behavior series has no electrode region to arbitrate its layout, and the NWB
+        schema puts time on the first axis of every TimeSeries: five samples of ten values
+        are read as ten channels of five samples, whichever side is longer."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile
+        from pynwb.behavior import BehavioralTimeSeries
+
+        data = np.arange(50.0).reshape(5, 10)
+        nwb = NWBFile("s", "short", datetime(2026, 1, 1, tzinfo=tzutc()))
+        container = BehavioralTimeSeries(name="behavior")
+        container.create_timeseries(name="values", data=data, rate=100.0, unit="a.u.")
+        nwb.add_acquisition(container)
+        path = tmp_path / "short.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+
+        got, _ = acquisition_channel(path, name="values", channel=3)
+        np.testing.assert_array_equal(got, data[:, 3])
+        entry = next(e for e in inspect(path)["acquisitions"] if e["name"] == "behavior")
+        assert entry["layout"] == "time_by_channel"
+
     def test_behavior_container_with_two_series_is_ambiguous(self, tmp_path):
         from datetime import datetime
         from dateutil.tz import tzutc
