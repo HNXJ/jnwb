@@ -124,7 +124,7 @@ P-37: the pass also hunts the root pattern, a proxy mistaken for the invariant i
 fifteen instances are enumerated in the P-37 row of the problem stack at `f140e20e`, and the
 pattern closes when one full pass adds none.
 Accept: the receipt names the commit it ran against and reports zero new release-blocking
-problems; `scripts/release_gate.py` STEP 0a accepts it only at HEAD.
+problems; `scripts/release_gate.py` STEP 0a accepts it when the only files changed since that commit are the receipt and this stack.
 Stop: a new blocker needs a human ruling; it is not reclassified to close the cycle.
 
 ### 06-130 Reconcile `main` with `dev` before the release pull request
@@ -276,6 +276,7 @@ leaves this item as a `required-0.2.6` item.
 - P-324: `compress_fp32(select=)` on a same-file SoftLink writes an independent float32 copy under the link's name while the target stays float64. Waits: nothing requested is miscast; a test pins the behaviour.
 - P-325: The `FutureWarning` for `compress_fp32` without `select=` advises a path that raises `TypeError` on an int16 LFP, so an int16 LFP has no non-deprecated route. Waits: the floats-only rule is ruled; only the advice is wrong.
 - P-326: `composition_subset_0.2.6.md` still reads "Live defect" for H1-H7, repaired since. Waits: stale internal evidence text.
+- P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Waits: the release runs from a clean tree, checked by hand before tagging.
 
 ## Reported and not admitted
 
