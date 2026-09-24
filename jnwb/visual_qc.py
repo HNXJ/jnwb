@@ -112,6 +112,7 @@ def plot_unit_quality_distribution(
     Plot quality metric distributions (multi-panel).
 
     Visualizes: firing rate, SNR, waveform duration, quality flag distribution.
+    A metric whose column is absent leaves its panel empty, titled as absent.
 
     Args:
         units_df: DataFrame with unit metrics (from get_all_units_metadata)
@@ -131,46 +132,29 @@ def plot_unit_quality_distribution(
     fig, axes = plt.subplots(2, 3, figsize=figsize)
     fig.suptitle('Unit Quality Distribution', fontsize=14, fontweight='bold')
 
-    # Firing rate
-    ax = axes[0, 0]
-    fr_vals = pd.to_numeric(units_df.get('firing_rate', []), errors='coerce').dropna()
-    ax.hist(fr_vals, bins=30, edgecolor='black', alpha=0.7)
-    ax.set_xlabel('Firing Rate (spikes/sec)')
-    ax.set_ylabel('Count')
-    ax.set_title(f'Firing Rate (n={len(fr_vals)})')
-    ax.axvline(fr_vals.mean(), color='r', linestyle='--', label=f'Mean: {fr_vals.mean():.1f}')
-    ax.legend()
-
-    # SNR
-    ax = axes[0, 1]
-    snr_vals = pd.to_numeric(units_df.get('snr', []), errors='coerce').dropna()
-    ax.hist(snr_vals, bins=30, edgecolor='black', alpha=0.7)
-    ax.set_xlabel('SNR')
-    ax.set_ylabel('Count')
-    ax.set_title(f'SNR (n={len(snr_vals)})')
-    ax.axvline(snr_vals.mean(), color='r', linestyle='--', label=f'Mean: {snr_vals.mean():.2f}')
-    ax.axvline(1.0, color='g', linestyle=':', label='Threshold: 1.0')
-    ax.legend()
-
-    # Waveform duration
-    ax = axes[0, 2]
-    wd_vals = pd.to_numeric(units_df.get('waveform_duration', []), errors='coerce').dropna()
-    ax.hist(wd_vals, bins=30, edgecolor='black', alpha=0.7)
-    ax.set_xlabel('Waveform Duration (μs)')
-    ax.set_ylabel('Count')
-    ax.set_title(f'Waveform Duration (n={len(wd_vals)})')
-    ax.axvline(wd_vals.mean(), color='r', linestyle='--', label=f'Mean: {wd_vals.mean():.0f}')
-    ax.legend()
-
-    # Quality score
-    ax = axes[1, 0]
-    q_vals = pd.to_numeric(units_df.get('quality', []), errors='coerce').dropna()
-    ax.hist(q_vals, bins=20, edgecolor='black', alpha=0.7)
-    ax.set_xlabel('Quality')
-    ax.set_ylabel('Count')
-    ax.set_title(f'Quality Score (n={len(q_vals)})')
-    ax.axvline(1.0, color='g', linestyle=':', label='Good threshold: 1.0')
-    ax.legend()
+    # Metric histograms: (axis, column, x label, title, bins, mean format, threshold label).
+    # A panel whose column is absent is left empty and says so, as the area and
+    # stability panels below already are.
+    histograms = [
+        (axes[0, 0], 'firing_rate', 'Firing Rate (spikes/sec)', 'Firing Rate', 30, '.1f', None),
+        (axes[0, 1], 'snr', 'SNR', 'SNR', 30, '.2f', 'Threshold: 1.0'),
+        (axes[0, 2], 'waveform_duration', 'Waveform Duration (μs)', 'Waveform Duration', 30, '.0f', None),
+        (axes[1, 0], 'quality', 'Quality', 'Quality Score', 20, None, 'Good threshold: 1.0'),
+    ]
+    for ax, col, xlabel, title, bins, mean_fmt, threshold in histograms:
+        if col not in units_df.columns:
+            ax.set_title(f'{title} ({col} absent)')
+            continue
+        vals = pd.to_numeric(units_df[col], errors='coerce').dropna()
+        ax.hist(vals, bins=bins, edgecolor='black', alpha=0.7)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Count')
+        ax.set_title(f'{title} (n={len(vals)})')
+        if mean_fmt is not None:
+            ax.axvline(vals.mean(), color='r', linestyle='--', label=f'Mean: {vals.mean():{mean_fmt}}')
+        if threshold is not None:
+            ax.axvline(1.0, color='g', linestyle=':', label=threshold)
+        ax.legend()
 
     # Quality by area
     ax = axes[1, 1]
@@ -195,15 +179,16 @@ def plot_unit_quality_distribution(
     ax = axes[1, 2]
     if 'is_stable' in units_df.columns or 'stable_plus' in units_df.columns:
         stable_col = 'stable_plus' if 'stable_plus' in units_df.columns else 'is_stable'
-        counts = units_df[stable_col].value_counts()
-        labels = ['Unstable', 'Stable']
-        ax.bar(range(len(counts)), counts.values)
-        ax.set_xticks(range(len(counts)))
-        ax.set_xticklabels([labels[i] if i < len(labels) else str(counts.index[i]) for i in range(len(counts))])
+        # Each bar is counted from its own class, so an absent class plots as zero.
+        stable = units_df[stable_col].dropna().astype(bool)
+        counts = [int((~stable).sum()), int(stable.sum())]
+        ax.bar(range(2), counts)
+        ax.set_xticks(range(2))
+        ax.set_xticklabels(['Unstable', 'Stable'])
         ax.set_ylabel('Count')
         ax.set_title('Unit Stability Distribution')
 
-        for i, v in enumerate(counts.values):
+        for i, v in enumerate(counts):
             ax.text(i, v, str(v), ha='center', va='bottom')
 
     plt.tight_layout()

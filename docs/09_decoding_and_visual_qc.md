@@ -105,7 +105,7 @@ groups for you.
 ```python
 import jnwb
 
-# Multi-panel distribution of unit SNR, firing rates, and isolation distance.
+# Six panels: firing rate, SNR, waveform duration, quality, quality by area, stability.
 # `session_ids` filters rows; there is no `group_by` parameter.
 fig_dist = jnwb.visual_qc.plot_unit_quality_distribution(units_df, session_ids=[1, 2])
 

@@ -247,6 +247,12 @@ Carried by 0.2.6.
   page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a
   step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are
   compared only between traces smoothed with the same `tau_ms`.
+- **`visual_qc.plot_unit_quality_distribution` labels each stability bar by its own class.**
+  The labels followed the bar order of `value_counts()`, which sorts by count: 7 stable and 3
+  unstable units plotted as 7 unstable and 3 stable, and 5 stable units as 5 unstable. Both
+  classes are now always drawn, an absent one as zero. A units table without one of
+  `firing_rate`, `snr`, `waveform_duration` or `quality` raised `AttributeError`; that panel is
+  now left empty and titled as absent.
 
 ### Deprecated
 
