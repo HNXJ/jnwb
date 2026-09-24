@@ -365,6 +365,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   classes are now always drawn, an absent one as zero. A units table without one of
   `firing_rate`, `snr`, `waveform_duration` or `quality` raised `AttributeError`; that panel is
   now left empty and titled as absent.
+- **The transfer-entropy formula on the directed-connectivity page matches the code.** It
+  conditioned the target's past on `l` and the source's past on `k`; `transfer_entropy` uses
+  `k` for the target history and `l` for the source history, so a reader who set them from the
+  page fitted a different model.
 
 ### Deprecated
 

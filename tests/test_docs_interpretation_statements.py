@@ -75,6 +75,19 @@ def test_transfer_entropy_is_documented_in_the_unit_it_returns():
     assert "nats" in te_section, "the page does not distinguish the base it is not using"
 
 
+def test_the_transfer_entropy_formula_gives_k_to_the_target_and_l_to_the_source():
+    """The page wrote `k` on the source past and `l` on the target past; the code does the
+    reverse, so a reader who set `k` and `l` from the page ran a different model."""
+    doc = inspect.getdoc(jnwb.transfer_entropy)
+    assert "k: target history length" in doc and "l: source history length" in doc, (
+        "the implementation's history convention changed; the check below now tests nothing"
+    )
+    page = _page("08_directed_connectivity_and_information.md")
+    formula = next(line for line in page.splitlines() if line.startswith("$$T_{X \\to Y}"))
+    assert re.findall(r"Y_\{t-1:t-(\w)\}", formula) == ["k", "k"], formula
+    assert re.findall(r"X_\{t-u:t-u-(\w)[^}]*\}", formula) == ["l"], formula
+
+
 def test_the_decoder_page_does_not_promise_group_holdout_from_a_call_that_has_none():
     params = inspect.signature(jnwb.nested_cv_linear_svm).parameters
     assert "groups" not in params, (

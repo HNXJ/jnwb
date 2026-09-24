@@ -110,7 +110,9 @@ names one in the tissue, which is the invariant stated above.
 
 Information-theoretic directed coupling with explicit discretization strategy:
 
-$$T_{X \to Y} = H(Y_t | Y_{t-1:t-l}) - H(Y_t | Y_{t-1:t-l}, X_{t-u:t-u-k})$$
+$$T_{X \to Y} = H(Y_t | Y_{t-1:t-k}) - H(Y_t | Y_{t-1:t-k}, X_{t-u:t-u-l+1})$$
+
+`k` is the target history, `l` the source history and $u$ is `delay`, as in Schreiber (2000), eq. 4.
 
 ```python
 te_res = jnwb.transfer_entropy(
