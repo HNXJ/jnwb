@@ -257,6 +257,21 @@ class TestShuffleR2Ci:
         result = shuffle_r2_ci(y, score, groups=groups, n_shuffle=50, random_state=0)
         assert "r2_observed" in result
 
+    @pytest.mark.parametrize("const", [0.3, 0.1, 2.7, 1e-3, 0.5])
+    def test_a_constant_score_has_no_r2_whatever_its_value(self, const):
+        """np.std of a constant 0.3 is about 5.6e-17, not 0, so a spread test read that score as
+        varying and reported r2 0.0 and p 1.0; 0.5, whose std is exactly 0, gave NaN."""
+        y = np.array([0, 1] * 10, dtype=float)
+        res = shuffle_r2_ci(y, np.full(y.size, const), n_shuffle=20, rng=0)
+        assert all(np.isnan(v) for k, v in res.items() if k != "n_shuffle"), res
+        # The same guard covers the label.
+        res = shuffle_r2_ci(np.full(20, const), np.arange(20.0), n_shuffle=20, rng=0)
+        assert np.isnan(res["r2_observed"]) and np.isnan(res["p_val"])
+        # A real correlation is still estimated.
+        score = y + np.random.default_rng(1).normal(0, 0.5, y.size)
+        assert shuffle_r2_ci(y, score, n_shuffle=50, rng=0)["r2_observed"] == pytest.approx(
+            0.7851, abs=1e-4)
+
 
 class TestCrossModalComparison:
     def test_none_inputs_return_error(self):

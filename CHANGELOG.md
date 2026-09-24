@@ -199,7 +199,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation
     keeps its integer `df`.
   - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0
-    and `p_val` 1.0. Every field but `n_shuffle` is now NaN.
+    and `p_val` 1.0. Every field but `n_shuffle` is now NaN. Constancy is tested by exact
+    equality, so a constant 0.3, whose `np.std` is 5.6e-17 rather than 0, is caught as a
+    constant 0.5 is.
 - **`acquisition_channel` reads series wrapped in behavior containers.** An `EyeTracking`,
   `PupilTracking`, `BehavioralTimeSeries`, `Position` or `CompassDirection` container in
   `/acquisition` raised `AcquisitionNotFoundError` ("has no readable data array"), and its bare

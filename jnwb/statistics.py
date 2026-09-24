@@ -421,6 +421,18 @@ def _require_shuffle_inputs(a: np.ndarray, b: np.ndarray, n_shuffles: int, func_
         raise ValueError(f"{func_name}: n_shuffles must be a positive integer, got {n_shuffles!r}")
 
 
+def _is_constant(a: np.ndarray, axis: Optional[int] = None) -> Union[bool, np.ndarray]:
+    """True where every value equals the first, compared exactly.
+
+    ``np.std`` and ``np.var`` are no test of constancy: the mean of a constant 0.3 is not 0.3 in
+    floating point, so its std is about 5.6e-17 rather than 0 and a ``> 0`` guard passes.
+    """
+    a = np.asarray(a)
+    if axis is None:
+        return bool(a.size == 0 or np.all(a == a.flat[0]))
+    return np.all(a == np.take(a, [0], axis=axis), axis=axis)
+
+
 def shuffle_pvalue_paired(
     a: np.ndarray,
     b: np.ndarray,
@@ -603,7 +615,7 @@ def shuffle_r2_ci(
     random_state = resolve_seed_alias(rng, random_state, alias_name='random_state', func_name='shuffle_r2_ci')
     def _r2(y, s):
         # A constant label or score has no correlation to square; 0.0 would read as "none".
-        if np.std(s) == 0 or np.std(y) == 0:
+        if _is_constant(s) or _is_constant(y):
             return float("nan")
         r = np.corrcoef(y, s)[0, 1]
         return float(r ** 2)
