@@ -1746,12 +1746,6 @@ class TestImaginaryCoherencyIsScaleFree:
         assert scaled["icoh_mean"] == pytest.approx(reference["icoh_mean"], rel=1e-9)
         assert scaled["coh_mag_mean"] == pytest.approx(reference["coh_mag_mean"], rel=1e-9)
 
-    def test_a_constant_channel_still_reports_zero_rather_than_dividing_by_zero(self):
-        x, _ = self._coherent()
-        res = imaginary_coherency(x, np.zeros_like(x), fs=1000.0, freq_range=(5.0, 100.0))
-        assert res["icoh_mean"] == 0.0 and res["coh_mag_mean"] == 0.0
-        assert np.isfinite(res["icoh_abs_mean"])
-
 
 class TestSpectralTiltBandIsHonest:
     """No bin guard, and a hidden 0.5 Hz floor that silently narrowed the request."""

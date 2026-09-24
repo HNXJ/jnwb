@@ -1589,6 +1589,10 @@ def imaginary_coherency(
           - ``n_freqs``: number of frequency bins averaged.
           - ``device_used``: 'cpu' or 'cuda', the device that computed the spectra.
 
+        When `x` or `y` is constant, all-zero included, ``icoh_mean``, ``icoh_abs_mean``
+        and ``coh_mag_mean`` are NaN: coherency with a channel that does not vary is
+        undefined.
+
     Raises:
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
             yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
@@ -1616,7 +1620,7 @@ def imaginary_coherency(
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
     _require_finite_nonempty_pair(x, y, "imaginary_coherency")
-    x, y = _flat_as_zero(x), _flat_as_zero(y)
+    flat = _is_constant(x) or _is_constant(y)
     n = len(x)
 
     if nperseg is None:
@@ -1658,6 +1662,8 @@ def imaginary_coherency(
     coherency = sxy[mask] / denom
     im_part = np.imag(coherency)
     coh_mag = np.abs(coherency) ** 2
+    if flat:
+        im_part = coh_mag = np.full(int(np.sum(mask)), np.nan)
 
     return {
         "icoh_mean": float(np.mean(im_part)),
@@ -1719,7 +1725,9 @@ def wpli(
         - ``device_used``: `'cpu'` or `'cuda'`, the device that computed the spectra.
 
         A frequency whose segment cross-spectra are all exactly zero-lag reports 0. The
-        estimate does not depend on the amplitude units of `x` and `y`.
+        estimate does not depend on the amplitude units of `x` and `y`. When `x` or `y` is
+        constant, all-zero included, ``wpli``, ``wpli_debiased_sq`` and every entry of
+        ``wpli_spectrum`` are NaN: phase lag with a channel that does not vary is undefined.
 
     Raises:
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
@@ -1738,6 +1746,7 @@ def wpli(
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "wpli")
     _require_finite_nonempty_pair(x, y, "wpli")
+    flat = _is_constant(x) or _is_constant(y)
     n = len(x)
 
     if nperseg is None:
@@ -1780,6 +1789,11 @@ def wpli(
         )
         w_f, w_deb_sq_f = _wpli_from_cross_spectra(np.conj(Zx) * Zy)  # (n_freqs, n_segments)
         n_segments = Zx.shape[1]
+    if flat:
+        # Neither STFT removes the mean, so a constant trace keeps rounding residue in the
+        # bins above DC, and wPLI, being scale-free, turned that residue into a value.
+        w_f = np.full(len(freqs), np.nan)
+        w_deb_sq_f = np.full(len(freqs), np.nan)
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
     _require_band_bins(freqs, mask, freq_range, "wpli")

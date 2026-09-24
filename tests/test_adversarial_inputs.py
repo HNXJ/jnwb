@@ -52,12 +52,27 @@ class TestSpectralSummaries:
         assert jnwb.band_power(flat, fs=FS, freq_range=(8.0, 30.0), normalize=False) == 0.0
         with pytest.raises(ValueError, match="no power"):
             jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), baseline=np.full(8192, level))
-        # A flat channel's detrended spectra are exactly zero, as an all-zero channel's are;
-        # the residue gave a flat 0.3 channel icoh_abs_mean 0.17 against noise.
-        for pair_flat, pair_zero in (((TRACE[:4096], flat), (TRACE[:4096], np.zeros(4096))),
-                                     ((flat, TRACE[:4096]), (np.zeros(4096), TRACE[:4096]))):
-            assert (jnwb.imaginary_coherency(*pair_flat, fs=FS, freq_range=(4.0, 80.0))
-                    == jnwb.imaginary_coherency(*pair_zero, fs=FS, freq_range=(4.0, 80.0)))
+
+    @pytest.mark.parametrize("level", [0.0, 2.0, 0.3, 6389.565])
+    @pytest.mark.parametrize("side", ["x", "y"])
+    def test_coupling_with_a_constant_channel_is_nan(self, level, side):
+        """Coupling with a channel that does not vary is undefined, on either side.
+
+        What would pass while a flat channel still yields a number: comparing a flat channel
+        with an all-zero one, which both reported 0.0 from imaginary_coherency; wpli gave the
+        flat one a value from the rounding residue its undetrended STFT keeps. The one-ulp
+        control fails a constancy test that carries a tolerance.
+        """
+        flat = np.full(4096, level)
+        bumped = flat.copy()
+        bumped[100] = np.nextafter(level, np.inf)
+        for channel, undefined in ((flat, True), (bumped, False)):
+            pair = (channel, TRACE[:4096]) if side == "x" else (TRACE[:4096], channel)
+            icoh = jnwb.imaginary_coherency(*pair, fs=FS, freq_range=(4.0, 80.0))
+            w = jnwb.wpli(*pair, fs=FS, freq_range=(4.0, 80.0))
+            values = [icoh["icoh_mean"], icoh["icoh_abs_mean"], icoh["coh_mag_mean"],
+                      w["wpli"], w["wpli_debiased_sq"], *w["wpli_spectrum"]]
+            assert np.all(np.isnan(values)) if undefined else np.all(np.isfinite(values))
 
     def test_harmonic_ratio_does_not_count_the_fundamental_twice(self):
         t = np.arange(4000) / FS

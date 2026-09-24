@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   positive**, so CPU and CUDA agree; LAPACK and cuSOLVER used to choose each component's sign
   independently, so a CUDA component and its projection could have the opposite sign to the
   CPU one. Component and projection signs may flip compared with 0.2.5.
+- **`wpli` and `imaginary_coherency` return NaN when either channel is constant**, all-zero
+  included: `wpli`, `wpli_debiased_sq` and every `wpli_spectrum` entry, and `icoh_mean`,
+  `icoh_abs_mean` and `coh_mag_mean`. `imaginary_coherency` returned 0.0 there. `wpli` returned
+  0 for an all-zero channel and 0.14 to 0.18 for any other constant, from the rounding residue
+  its STFT keeps because it does not detrend. The constancy test is exact: one sample one ulp
+  away makes a channel non-constant.
 - **The `stored_dtype_note` written by `compress_fp32` names the source dtype that was cast**
   (`cast from int16 to float32`). It used to say `float64` whatever the source was.
 - **The geometric depth class is `depth_class`.** `enrich_units_dataframe` and
