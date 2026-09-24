@@ -109,16 +109,12 @@ def build() -> str:
 
     sys.path.insert(0, str(REPO_ROOT))
     try:
-        from scripts.release_gate import open_problem_dispositions, open_problems
+        from scripts.release_gate import problem_rows
 
-        problems = len(open_problems(REPO_ROOT))
-        _rows = open_problem_dispositions(REPO_ROOT)
-        blockers = sum(1 for _, d, _ in _rows if d == "BLOCKER")
-        unclassified = sum(1 for _, d, _ in _rows
-                           if d not in ("BLOCKER", "DEFERRED->0.2.7", "ACCEPTED"))
+        _rows = problem_rows(REPO_ROOT)
+        problems = "UNRESOLVED (file absent)" if _rows is None else len(_rows)
     except Exception as exc:  # pragma: no cover - defensive
         problems = f"UNRESOLVED ({type(exc).__name__})"
-        blockers = unclassified = f"UNRESOLVED ({type(exc).__name__})"
 
     matrix = run("git", "grep", "-h", "-m1", "python-version:", "--", ".github/workflows")
     upstream = run("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
@@ -188,16 +184,14 @@ that also has jnwb installed imports the installed copy; the probe fails rather 
 
 ## Release readiness
 
-`AGENTS.md` section 11, as amended 2026-09-21, does **not** require either stack to be empty. It
-requires no release-blocking problem, no item still required this cycle, and an independent
-blocker-focused pass finding no new blocker. Open rows carry forward by design: the problem stack
-is a record of discovered truth, and emptying it was the criterion that could not terminate.
+`AGENTS.md` section 11, as amended 2026-09-23, requires an empty problem stack, no item still
+required this cycle, and an independent blocker-focused pass finding no new blocker. Deferred
+work stays in the todo stack.
 
 | Stack | Remaining |
 |---|---|
 | `artifacts/todo_stack.md` | {todo_items} items |
-| `artifacts/problem_stack.md` | {problems} open rows, of which **{blockers} BLOCKER** |
-| unclassified rows | {unclassified} (each must carry a disposition before a release opens) |
+| `artifacts/problem_stack.md` | {problems} problem rows (0 at release) |
 """
 
 

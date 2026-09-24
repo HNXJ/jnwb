@@ -975,33 +975,24 @@ def _api_md_check_commands() -> List[List[str]]:
     return commands
 
 
-PROBLEM_DISPOSITIONS = frozenset({"open", "repaired", "accepted", "not-a-defect"})
+PROBLEM_STACK = "artifacts/problem_stack.md"
+# A problem row as it would render: a table line whose first cell starts with `P-`. Matched
+# whatever section it sits in and however its cells are counted, so a row under a stray heading
+# or with a missing cell still counts.
+_PROBLEM_ROW = re.compile(r"^\s*\|\s*P-")
 
 
-def open_problems(root: pathlib.Path = REPO_ROOT) -> List[str]:
-    """Rows in the problem stack's ``## Open`` section.
+def problem_rows(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
+    """Every problem row in the problem stack, or ``None`` when the file is missing.
 
-    A count of what is recorded and unresolved, which is NOT the release condition. Since the
-    2026-09-21 amendment a release requires no *release-blocking* problem, and open rows carry
-    forward by design -- see :func:`check_release_readiness`. The section is still the unit for
-    open-versus-closed: a row moves to ``## Closed`` with a disposition when it is answered, so
-    a row under ``## Open`` is open whatever its text says.
+    A release requires the stack to hold none: a problem leaves it by being repaired, by being
+    shown false, or by moving into the todo stack as an item.
     """
-    path = root / "artifacts" / "problem_stack.md"
-    if not path.exists():
-        return [f"{path} is missing; condition 3 cannot be evaluated"]
-    rows, section = [], None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        heading = re.match(r"^## (?P<title>.+?)\s*$", line)
-        if heading:
-            section = heading.group("title")
-            continue
-        if section != "Open":
-            continue
-        row = re.match(r"^\|\s*(?P<id>P-\d+)\s*\|\s*(?P<statement>.+?)\s*\|", line)
-        if row:
-            rows.append(f"{row.group('id')}: {row.group('statement')[:110]}")
-    return rows
+    path = root / PROBLEM_STACK
+    if not path.is_file():
+        return None
+    return [line.strip()[:120] for line in path.read_text(encoding="utf-8").splitlines()
+            if _PROBLEM_ROW.match(line)]
 
 
 def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
@@ -1110,97 +1101,7 @@ def unparseable_todo_headings(root: pathlib.Path = REPO_ROOT) -> List[str]:
 
 RELEASE_CYCLE = "0.2.6"
 NEXT_CYCLE = "0.2.7"
-DISPOSITIONS = ("BLOCKER", f"DEFERRED->{NEXT_CYCLE}", "ACCEPTED")
 RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
-_UNESCAPED_PIPE = re.compile(r"(?<!\\)\|")
-
-# A todo-item reference, and NOT a fragment of an ISO date. `\b(\d\d-\d+)\b` matched `09-20`
-# inside `2026-09-20`, so a row whose `Answered in` cell said "Repaired 2026-09-20, closed by
-# 06-83" reported a dangling reference to item `09-20`. Measured live at 30c425cf on P-56 and
-# P-69, both of which carry a repair date next to a real item id.
-#
-# The narrowing must not be `\b(0\d-\d+)\b`: `09` also begins with a zero, so that form matches
-# the date fragment identically and only looks like a repair. Measured -- it changes nothing on
-# all four failing cases. Neither may it become `\d\d-\d\d`, which is P-175: item ids reached
-# three digits at 06-100 and the two-digit form matched none of them.
-#
-# The distinguishing feature of a date fragment is the character before it: a hyphen or a digit.
-# Rejecting both ends keeps every id width (`07-5`, `06-36`, `06-100`) and drops every date.
-_ITEM_REF = re.compile(r"(?<![\d-])(\d\d-\d+)(?![\d-])")
-
-
-# An item id in OWNERSHIP position: the row is claiming that item carries the problem, so the
-# id is a pointer and must resolve to a live item. One phrase may name several ids, as P-09's
-# "Claimed by 06-81 and 06-35" does, so the trailing group absorbs a comma/`and` list.
-#
-# This distinction is not cosmetic. Resolving *every* id in the cell treats "06-72 closed and
-# left the stack" -- an accurate statement about a retired item -- as a dangling pointer, which
-# is the same mistake in the opposite direction: "any id in the cell" is a proxy for "the owning
-# item". Measured when the vacuous `BLOCKER` guard was removed: 21 references flagged, of which
-# 4 were ownership claims on retired items and 17 were correct history.
-_OWNERSHIP_REF = re.compile(
-    r"(?:owned by|claimed by|belongs to)\s+((?:\d\d-\d+)(?:\s*(?:,|and|\s)\s*\d\d-\d+)*)",
-    re.IGNORECASE,
-)
-
-# A row is allowed to name a retired item, but only by saying so. Without this, narrowing the
-# check to ownership position would leave every other mention unchecked -- and stale prose that
-# discusses a deleted item as though it were live is exactly what goes unnoticed. A cell that
-# names a non-live id must carry one of these words, so the retirement is stated rather than
-# assumed by the reader.
-_RETIREMENT_MARKER = re.compile(
-    r"\b(retired|closed|gone|deleted|withdrawn|left the stack|superseded|renumbered)\b",
-    re.IGNORECASE,
-)
-
-
-# A cell that is nothing but item ids -- `06-17`, or `06-17, 06-35` -- is a bare pointer. The
-# column is named `Answered in`, so an id standing alone in it IS the ownership claim; there is
-# no prose for it to be a passing mention of. Measured: P-02, P-04 and P-06 each carry exactly
-# one id and nothing else.
-#
-# Recognising only the phrases (`owned by`, `claimed by`, `belongs to`) missed the commonest
-# form and made the check narrower than the invariant, which is the same mistake in the same
-# direction as the `BLOCKER` guard it replaced -- a proxy for "the owning item" that happened to
-# match most of the examples in front of it.
-_BARE_POINTER = re.compile(r"^[\s,;.]*\d\d-\d+(?:[\s,;]+(?:and\s+)?\d\d-\d+)*[\s,;.]*$")
-
-
-def ownership_refs(cell: str) -> List[str]:
-    """Item ids this cell claims as owners, in order of appearance."""
-    if _BARE_POINTER.match(cell):
-        return re.findall(r"\d\d-\d+", cell)
-    out: List[str] = []
-    for group in _OWNERSHIP_REF.findall(cell):
-        out.extend(re.findall(r"\d\d-\d+", group))
-    return out
-
-
-def open_problem_dispositions(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
-    """``(id, disposition, answered_in)`` for every row under ``## Open``.
-
-    The disposition is a COLUMN, not a prefix parsed out of prose. A status inferred from the
-    beginning of a sentence is a proxy for the status, and this repository has spent a cycle
-    paying for proxies (P-37). Cells are split on unescaped ``|`` only, because GFM splits
-    cells before it parses inline code and a ``|`` inside backticks must be written ``\\|``.
-    """
-    path = root / "artifacts" / "problem_stack.md"
-    if not path.exists():
-        return []
-    rows, section = [], None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        heading = re.match(r"^## (?P<title>.+?)\s*$", line)
-        if heading:
-            section = heading.group("title")
-            continue
-        if section != "Open" or not line.startswith("| P-"):
-            continue
-        cells = [c.strip() for c in _UNESCAPED_PIPE.split(line)]
-        if len(cells) != 7:          # '' | id | problem | found by | disposition | answered | ''
-            rows.append((cells[1] if len(cells) > 1 else "?", "MALFORMED", ""))
-            continue
-        rows.append((cells[1], cells[4], cells[5]))
-    return rows
 
 
 def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
@@ -1225,41 +1126,33 @@ def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[s
 
 def check_release_readiness(root: pathlib.Path = REPO_ROOT,
                             head: Optional[str] = None) -> List[str]:
-    """AGENTS.md section 11 condition 3, as amended 2026-09-21.
+    """AGENTS.md section 11 condition 3, as amended 2026-09-23.
 
-    Not "both stacks are empty". A known issue is not a release-blocking issue, and requiring
-    the record of discovered truth to reach zero rewards not discovering and not recording.
-    What is required instead, mechanically:
+    The problem stack holds only problems not yet triaged; the record of a triaged problem is
+    its repair, the commit that showed it false, or its todo entry. What is required,
+    mechanically:
 
-      1. every open problem carries an explicit disposition;
-      2. no `BLOCKER` remains;
-      3. no todo item is still required for this cycle;
-      4. every `DEFERRED` names a destination and a reason;
-      5. no dangling problem <-> todo reference;
-      6. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
+      1. the problem stack exists and holds no problem row, in any section;
+      2. no todo item is still required for this cycle, and every item's release is readable;
+      3. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
 
-    Deliberately still not a harness gate, for the original reason: this is false for almost
-    all of a cycle, and a gate that fails every day is a gate people learn to skip.
+    Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
+    fails every day is a gate people learn to skip.
     """
     violations: List[str] = []
-    rows = open_problem_dispositions(root)
 
-    # 1. explicit disposition on every open row
-    unclassified = [f"{i} ({d})" for i, d, _ in rows if d not in DISPOSITIONS]
-    if unclassified:
+    # 1. the problem stack is empty
+    rows = problem_rows(root)
+    if rows is None:
         violations.append(
-            f"{len(unclassified)} open problem(s) carry no valid disposition "
-            f"(need one of {', '.join(DISPOSITIONS)}): " + "; ".join(unclassified[:10])
-            + (" ..." if len(unclassified) > 10 else ""))
-
-    # 2. no blocker remains
-    blockers = [i for i, d, _ in rows if d == "BLOCKER"]
-    if blockers:
+            f"{PROBLEM_STACK} is missing, so whether any problem is untriaged is unknown")
+    elif rows:
         violations.append(
-            f"{len(blockers)} release-blocking problem(s) remain: " + "; ".join(blockers[:12])
-            + (" ..." if len(blockers) > 12 else ""))
+            f"{len(rows)} problem row(s) remain in {PROBLEM_STACK}; each must be repaired, "
+            "shown false, or moved into the todo stack: " + "; ".join(r[:40] for r in rows[:8])
+            + (" ..." if len(rows) > 8 else ""))
 
-    # 3. no required item remains
+    # 2. no required item remains
     items = todo_release_fields(root)
     required = [f"{i} {t[:34]}" for i, t, r in items if r != f"deferred-{NEXT_CYCLE}"]
     if required:
@@ -1273,58 +1166,7 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"they are required for {RELEASE_CYCLE} is unknown: " + "; ".join(unreadable[:8])
             + (" ..." if len(unreadable) > 8 else ""))
 
-    # 4. every DEFERRED names a destination and a reason
-    thin = [i for i, d, ans in rows
-            if d == f"DEFERRED->{NEXT_CYCLE}" and (NEXT_CYCLE not in ans or len(ans) < 40)]
-    if thin:
-        violations.append(
-            f"{len(thin)} deferred problem(s) do not name a destination and reason in their "
-            f"`Answered in` cell: " + "; ".join(thin[:10]))
-
-    # 5. no dangling reference in either direction
-    live_items = {i for i, _, _ in items}
-    known_problems = set(re.findall(
-        r"^\|\s*(P-\d+)\s*\|", (root / "artifacts" / "problem_stack.md").read_text(
-            encoding="utf-8") if (root / "artifacts" / "problem_stack.md").exists() else "", re.M))
-    dangling = []
-    for pid, disp, ans in rows:
-        # Every open row, not only the `BLOCKER` ones. The guard here read
-        # `if disp == "BLOCKER" and ref not in live_items`, which made this check vacuous in
-        # exactly the state that matters: condition 2 above requires zero `BLOCKER` rows, so at
-        # the moment conditions 1 and 2 are both satisfied -- the only state in which the
-        # release qualifies -- this loop body could not execute, and the check reported zero
-        # dangling references unconditionally. Measured at the time it was found: 21 dangling
-        # `Answered in` values sat in open rows and the gate reported none.
-        #
-        # It also made `_ITEM_REF` dead code for this direction. That regex carries a
-        # documented repair for ISO-date false positives, tested by calling the pattern
-        # directly rather than by running the gate -- which is why the tests passed while the
-        # code path they were defending could never run.
-        #
-        # A deferred problem's references matter *more* than a blocker's, not less: deferral is
-        # granted on the condition that the problem's evidence is preserved for the next cycle,
-        # and a pointer to an item that no longer exists is precisely that condition failing.
-        owned = set(ownership_refs(ans))
-        for ref in sorted(owned):
-            if ref not in live_items:
-                dangling.append(
-                    f"{pid} ({disp}) claims owner {ref}, which is not in the stack")
-        # Every other mention must admit that the item is gone.
-        others = set(_ITEM_REF.findall(ans)) - owned
-        for ref in sorted(others):
-            if ref not in live_items and not _RETIREMENT_MARKER.search(ans):
-                dangling.append(
-                    f"{pid} ({disp}) names {ref} as though it were live; the item is not in "
-                    f"the stack and the cell does not say it was retired")
-    todo_text = (root / "artifacts" / "todo_stack.md").read_text(encoding="utf-8") \
-        if (root / "artifacts" / "todo_stack.md").exists() else ""
-    for ref in sorted(set(re.findall(r"\b(P-\d+)\b", todo_text))):
-        if ref not in known_problems:
-            dangling.append(f"todo stack -> {ref} (no such problem row)")
-    if dangling:
-        violations.append(f"{len(dangling)} dangling reference(s): " + "; ".join(dangling[:10]))
-
-    # 6. the independent closure receipt
+    # 3. the independent closure receipt
     commit, found = blocker_fixpoint_receipt(root)
     if commit is None:
         violations.append(
@@ -1356,19 +1198,14 @@ def main() -> None:
         for violation in stack_violations:
             log.error(violation)
         log.error(
-            "A release requires: every open problem explicitly disposed; zero BLOCKER problems; "
-            "zero todo items still required for this cycle; every DEFERRED naming its "
-            "destination and reason; no dangling references; and a blocker-focused closure "
-            "receipt at HEAD reporting zero new blockers. A known issue is not a blocking issue, "
-            "but the record of it is not allowed to be silent about which it is.")
+            "A release requires: an empty problem stack; zero todo items still required for "
+            "this cycle; and a blocker-focused closure receipt at HEAD reporting zero new "
+            "blockers. Work deferred to %s stays in the todo stack.", NEXT_CYCLE)
         sys.exit(1)
-    rows = open_problem_dispositions()
-    deferred = sum(1 for _, d, _ in rows if d.startswith("DEFERRED"))
-    accepted = sum(1 for _, d, _ in rows if d == "ACCEPTED")
+    deferred = len(todo_release_fields())
     log.info(
-        "PASS: no release-blocking problem and no required item remain. %d open problem(s) "
-        "carry forward (%d deferred to %s, %d accepted); the record is preserved, not emptied.",
-        len(rows), deferred, NEXT_CYCLE, accepted)
+        "PASS: the problem stack is empty and no required item remains; %d todo item(s) are "
+        "deferred to %s.", deferred, NEXT_CYCLE)
 
     log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
     missing = verify_declared_environment()

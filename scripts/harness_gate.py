@@ -2148,9 +2148,7 @@ SKILL_PLACEHOLDERS = frozenset({"none", "per skill", "per module", "per finding"
 #: `human, with verifier receipts` is `human` plus a qualifier.
 ROLE_PLACEHOLDERS = frozenset({"human", "human ruling", "none"})
 
-#: The three fields gate 17 resolves. `Reads:` and `Writes:` name paths and are gate 15's; the
-#: `Answered in` direction is `scripts/release_gate.py` STEP 0a condition 5's and is deliberately
-#: not repeated here -- see the gate's docstring.
+#: The three fields gate 17 resolves. `Reads:` and `Writes:` name paths and are gate 15's.
 _RESOLVED_FIELDS = ("Skill", "Role", "Blocked by")
 
 
@@ -2207,20 +2205,15 @@ def check_stack_pointers_resolve(repo_root: Optional[Path] = None) -> List[str]:
     resolution against the tree catches it, which is what this does.
 
     P-57 widened it to the cross-references. Of the three directions that widening names, one is
-    implemented here and two are already implemented elsewhere, which was established by reading
-    them rather than by assuming they were missing:
+    implemented here and two no longer exist:
 
     * ``Blocked by:`` -> a live item is **here**. Nothing resolved it before: P-161's parenthesis
       "the blocker direction is checked" refers to a sweep somebody ran, not to a check in any
-      script, and `scripts/release_gate.py` walks only the problem-to-item direction.
-    * A problem row's ``Answered in`` -> a live item is `scripts/release_gate.py` STEP 0a
-      condition 5, which reads that cell **only**. Repeating it here would duplicate canonical
-      truth and, worse, re-litigate a narrowing this repository has already paid for: a whole-row
-      scan false-flags P-14, whose Problem cell records a superseded claim on the retired 06-61
-      while its binding claim is the live 06-64. Measured before writing this gate: a whole-row
-      rule reports 39 violations on a pristine tree, every one of them a correct historical
-      mention.
-    * The todo stack's ``P-NN`` -> a live problem row is the same condition 5.
+      script.
+    * A problem row's ``Answered in`` -> a live item: `scripts/release_gate.py` STEP 0a requires
+      the problem stack to hold no row at release, so no such cell is left to resolve.
+    * The todo stack's ``P-NN`` -> a problem row: the id labels a row that has left the problem
+      stack, and it resolves through that file's git history rather than against the tree.
 
     **What this gate cannot see**, stated because narrowing a check is how blind spots are made:
     it resolves the *name* and not the *fit*. ``Skill: jnwb-spiking`` on an item about spectra

@@ -1999,18 +1999,6 @@ class TestStackPointersResolve:
         found = check_stack_pointers_resolve(root)
         assert found and "no item found" in found[0], found
 
-    def test_it_does_not_repeat_the_problem_to_item_direction(self):
-        """P-57's third direction is `scripts/release_gate.py` STEP 0a condition 5, and it is
-        deliberately not restated here. Repeating it would duplicate canonical truth and
-        re-litigate a narrowing already paid for: a whole-row scan false-flags P-14, whose
-        Problem cell records a superseded claim on the retired 06-61 while its binding claim is
-        the live 06-64."""
-        source = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
-        assert "Answered in" in source and "ownership_refs" in source, (
-            "the problem-to-item direction is no longer in release_gate.py; gate 17 leaves that "
-            "direction to it, so if it has moved, gate 17's docstring is now false"
-        )
-
 
 class TestApiMdMemberTypes:
     """Gate 18. P-151: gate 9 is a fixed point and this is the way out of it."""
