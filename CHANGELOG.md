@@ -416,7 +416,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose exact two-sided p is 0.1, `permutation_test` gave p < 0.05 in 16 of 200 seeds, and one
   set of five positive paired differences gave `shuffle_pvalue_paired` its floor, 0.0002, where
   the exact p is 0.0625. Each comparison now allows the largest rounding difference two
-  evaluations of the statistic can have, 8 eps times the sum of the absolute values.
+  evaluations of the statistic can have, 8 eps times the sum of the absolute values. The two
+  unpaired tests take that sum over the pooled values centred on their mean, because a
+  difference of means ignores a common offset: the raw sum turned distinct splits into ties
+  and gave p 1.0 against 0.487 at an offset of 1e10 times the spread.
 - **`exact_sign_flip` gives the same p in any units.** It counted a null mean within an
   absolute 1e-12 of the observed one as a tie, so differences of order 1e-12, ordinary band
   powers in V^2/Hz, made every flip a tie: one set of twelve differences gave p 0.0049 in

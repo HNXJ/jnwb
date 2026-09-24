@@ -169,6 +169,30 @@ class TestADrawThatReproducesTheObservedSplitCountsItself:
         assert p_neg == pytest.approx(exact, abs=0.015), (p_neg, exact)
 
 
+class TestACommonOffsetLeavesThePValueUnchanged:
+    """A difference of means does not see a common offset, so neither may the tie width.
+    Scaled by the raw values, the width at an offset of 1e9 times the spread counted
+    genuinely different splits as ties: p 0.538 against 0.487 at offset 0."""
+
+    @staticmethod
+    def _p(name: str, offset: float) -> float:
+        from jnwb import StatisticalAnalysis
+
+        rng = np.random.default_rng(1000)
+        x = rng.normal(1.5 / np.sqrt(1000), 1.0, 1000) + offset
+        y = rng.normal(0.0, 1.0, 1000) + offset
+        if name == "permutation_test":
+            return StatisticalAnalysis.permutation_test(x, y, n_permutations=1000, rng=0)["pval"]
+        func = shuffle_pvalue_unpaired if name == "unpaired" else shuffle_pvalue_paired
+        return func(x, y, 1000, np.random.default_rng(0))[1]
+
+    @pytest.mark.parametrize("name", ["unpaired", "permutation_test", "paired"])
+    def test_offset_1e9(self, name: str):
+        p0 = self._p(name, 0.0)
+        assert 0.05 < p0 < 0.95, p0
+        assert self._p(name, 1e9) == p0
+
+
 class TestTheIncidentalGuardIsStillThere:
     """If the folding test's guard is ever relaxed, this file is what remains."""
 

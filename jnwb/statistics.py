@@ -437,6 +437,11 @@ def _tie_tolerance(values: np.ndarray) -> float:
     less than twice that, so two evaluations differ by less than ``4 * eps * sum(|v|)``;
     the tolerance doubles that bound. It scales with the data, so a change of units leaves
     every comparison unchanged.
+
+    A difference of means ignores a common offset and ``sum(|v|)`` does not, so the unpaired
+    callers centre the pooled values on their mean before computing the statistic, the null
+    and this width. Uncentred, n = 1000 per group at an offset of 1e10 times the spread
+    counted every split as a tie and returned p 1.0 where the exact rank was 0.487.
     """
     return 8.0 * float(np.finfo(float).eps) * float(np.sum(np.abs(values)))
 
@@ -537,9 +542,10 @@ def shuffle_pvalue_unpaired(
     if len(a) < 2 or len(b) < 2:
         return float("nan"), float("nan")
     alt = _require_alternative(alternative, "shuffle_pvalue_unpaired")
-    obs = float(np.mean(a) - np.mean(b))
     pooled = np.concatenate([a, b])
+    pooled = pooled - np.mean(pooled)  # see _tie_tolerance
     n_a = len(a)
+    obs = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
     null = np.empty(n_shuffles)
     for i in range(n_shuffles):
         rng.shuffle(pooled)
@@ -1249,10 +1255,10 @@ class StatisticalAnalysis:
                 "n_y": len(y),
             }
 
-        obs_diff = np.mean(x) - np.mean(y)
-
         combined = np.concatenate([x, y])
+        combined = combined - np.mean(combined)  # see _tie_tolerance
         n_x = len(x)
+        obs_diff = np.mean(combined[:n_x]) - np.mean(combined[n_x:])
 
         perm_diffs = np.empty(n_permutations)
         for i in range(n_permutations):
