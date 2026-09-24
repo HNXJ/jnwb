@@ -146,6 +146,19 @@ Carried by 0.2.6.
   and its default window is `(-250, 530)` where it was `(-250, 531)`, whose last bin held 1 ms.
   `UnitAnalyzer.psth` stretched such a window into bins that were not `bin_size_ms` wide and
   divided each by `bin_size_ms`; it refuses the window as well.
+- **A `bin_spikes` window must be whole bins.** `bin_spikes` made `round(span / bin)` bins.
+  Rounded up, the last bin ran past the window end and `output="rate"` divided its partial
+  count by the full width: a steady 1000 Hz train read 600 Hz in the last bin of
+  `window_s=(0, 0.306)` at 10 ms. Rounded down, spikes between the last edge and the window end
+  were dropped: `(0, 0.305)` counted 300 of 305. Such a window now raises `ValueError` naming
+  the nearest valid windows (`window_s=(0, 0.3)` or `(0, 0.31)`); every valid call returns what
+  it did. `spike_mutual_information` and its two aliases refuse the same windows under
+  `time_window_s`, and now bin both trains through `bin_spikes`: their own histogram closed the
+  last bin on the right, so a spike exactly on the window end was counted.
+  `build_time_resolved_matrix` (and `compute_population_trajectory` through it) stretched such a
+  window into bins not `bin_size_ms` wide; it refuses the window as well. The whole-bin check
+  scales its floating-point tolerance with the window's endpoints, so an absolute window hours
+  into a recording is not refused for rounding.
 - **A result with no estimate is NaN, not a number.** Four calls returned ordinary-looking
   values where the data held no estimate:
   - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,

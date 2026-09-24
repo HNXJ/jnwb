@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
+from ._bins import whole_bin_count
 from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -32,7 +33,8 @@ def build_time_resolved_matrix(
         session: Generic session container or interface providing get_units() and get_spike_times()
         area: Brain area to select units from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
-        time_window_ms: (start_ms, end_ms) relative to epoch onset
+        time_window_ms: (start_ms, end_ms) relative to epoch onset. Its span must be a whole
+            number of ``bin_size_ms`` bins.
         bin_size_ms: Width of time bins in ms
         quality: Filter units by quality tier ('stable_plus', 'stable', etc.)
 
@@ -41,12 +43,15 @@ def build_time_resolved_matrix(
         unit_ids: List of unit identities (raw units_df row-index positions, matching
             the session's get_spike_times primary lookup convention) represented in the rows/columns of X
         bin_centers: Center times of bins relative to trial onset in ms
+
+    Raises:
+        ValueError: If the span of ``time_window_ms`` is not a whole multiple of
+            ``bin_size_ms``; the message names the nearest valid windows.
     """
-    # Calculate bin edges
+    n_bins = whole_bin_count(time_window_ms, bin_size_ms, "build_time_resolved_matrix",
+                             "time_window_ms")
     start_sec = time_window_ms[0] / 1000.0
     end_sec = time_window_ms[1] / 1000.0
-    bin_sec = bin_size_ms / 1000.0
-    n_bins = int(round((end_sec - start_sec) / bin_sec))
     bin_edges = np.linspace(start_sec, end_sec, n_bins + 1)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0 * 1000.0
 

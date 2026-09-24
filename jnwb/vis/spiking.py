@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import plotly.graph_objects as go
 
-from ..viz import _whole_bin_count
+from .._bins import whole_bin_count
 from .canvas import PlotlyPublicationCanvas
 from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
 
@@ -60,7 +60,7 @@ def plot_multi_condition_raster_psth(
         ValueError: If the span of ``win_ms`` is not a whole multiple of ``bin_ms``, before
             anything is drawn; the message names the nearest valid windows.
     """
-    n_bins = _whole_bin_count(win_ms, bin_ms, "plot_multi_condition_raster_psth")
+    n_bins = whole_bin_count(win_ms, bin_ms, "plot_multi_condition_raster_psth")
     st = np.asarray(st, dtype=float)
     x_rast, y_rast = canvas.get_axis_names(row_raster, col_raster)
     x_psth, y_psth = canvas.get_axis_names(row_psth, col_psth)

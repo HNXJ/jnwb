@@ -72,6 +72,14 @@ def test_build_time_resolved_matrix():
     assert X[:, 1, :].sum() == 4  # unit at row 1 has 4 mock spikes
 
 
+def test_build_time_resolved_matrix_refuses_a_window_that_is_not_whole_bins():
+    """110 ms at 20 ms made six bins 18.3 ms wide, reported as 20 ms bins."""
+    session = MockSession()
+    with pytest.raises(ValueError, match=r"time_window_ms=\(0, 100\) or time_window_ms=\(0, 120\)"):
+        build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                   time_window_ms=(0.0, 110.0), bin_size_ms=20.0)
+
+
 def test_compute_population_trajectory():
     session = MockSession()
     

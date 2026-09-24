@@ -112,7 +112,7 @@ class TestSpikeMIBinGrid:
         rng = np.random.default_rng(0)
         s1 = np.sort(rng.uniform(0, 1, 50))
         s2 = np.sort(rng.uniform(0, 1, 50))
-        window = (0.0, 1.0)
+        window = (0.0, 1.05)  # 30 whole bins; a partial last bin is refused
         bin_ms = 35.0
         n_bins = bin_spikes(s1, window=window, bin_size_ms=bin_ms).shape[1]
         spike_mutual_information(s1, s2, time_window=window, bin_size_ms=bin_ms)

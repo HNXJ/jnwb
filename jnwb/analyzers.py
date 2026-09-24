@@ -347,9 +347,9 @@ class UnitAnalyzer:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
                 ``bin_size_ms``; the message names the nearest valid windows.
         """
-        from .viz import _whole_bin_count
+        from ._bins import whole_bin_count
 
-        n_bins   = _whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms")
+        n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)

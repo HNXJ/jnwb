@@ -54,6 +54,7 @@ from ._backend import (
 )
 from ._parallel import parallel_map
 from ._units import resolve_unit_alias
+from ._bins import whole_bin_count
 from ._layout import require_trial_length
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import stats
@@ -151,16 +152,10 @@ def spike_mutual_information(
             "spike_mutual_information requires non-empty spike_times1 and spike_times2"
         )
 
-    bins1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)
-    n_bins = bins1.shape[-1]
-    if n_bins <= 1:
-        return 0.0
-
-    t_start, t_end = time_window_s
-    bin_sec = bin_size_ms / 1000.0
-    bin_edges = float(t_start) + bin_sec * np.arange(n_bins + 1)
-    hist1, _ = np.histogram(np.sort(spike_times1), bins=bin_edges)
-    hist2, _ = np.histogram(np.sort(spike_times2), bins=bin_edges)
+    whole_bin_count(time_window_s, bin_size_ms / 1000.0, "spike_mutual_information",
+                    "time_window_s", unit="s")
+    hist1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)[0]
+    hist2 = bin_spikes(spike_times2, window_s=time_window_s, bin_size_ms=bin_size_ms)[0]
 
     if estimator == "binary_occupancy":
         x = (hist1 > 0).astype(int)
@@ -896,8 +891,9 @@ def bin_spikes(
 
     Temporal Axis Contract
     ----------------------
-    - **Bins**: $K = \operatorname{round}((t_1 - t_0) / \Delta)$ intervals, where
+    - **Bins**: $K = (t_1 - t_0) / \Delta$ intervals, where
       $t_0, t_1 = \text{window}$ (seconds) and $\Delta = \text{bin\_size\_ms} / 1000$ (seconds).
+      $K$ must be a whole number, so every bin is $\Delta$ wide.
       Each bin $k \in \{0, \dots, K-1\}$ covers the right-open interval:
       $$[t_k, t_{k+1}) = [t_0 + k\Delta,\; t_0 + (k+1)\Delta)$$
     - **Boundary Exclusion**: Spikes strictly prior to $t_0$ ($t < t_0$) or at/beyond
@@ -920,6 +916,10 @@ def bin_spikes(
 
     Returns:
         ``(n_trials, n_bins)`` float array, or ``(array, centers)`` if ``return_centers=True``.
+
+    Raises:
+        ValueError: If the span of ``window_s`` is not a whole multiple of ``bin_size_ms``;
+            the message names the nearest valid windows.
     """
     # `window` named no unit while its neighbour `bin_size_ms` did, in the same call.
     # Both are times, one in seconds and one in milliseconds, and only one said so.
@@ -933,10 +933,10 @@ def bin_spikes(
     if not t1 > t0:
         raise ValueError(f"window_s must satisfy end > start; got {window_s}")
     bin_sec = float(bin_size_ms) / 1000.0
-    n_bins = int(round((t1 - t0) / bin_sec))
+    n_bins = whole_bin_count((t0, t1), bin_sec, "bin_spikes", "window_s", unit="s")
     if n_bins < 2:
         raise ValueError(
-            f"window {window} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
+            f"window_s {window_s} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
         )
     edges = t0 + bin_sec * np.arange(n_bins + 1)
 

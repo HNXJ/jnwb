@@ -13,31 +13,10 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ._bins import whole_bin_count
 from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
-
-
-def _whole_bin_count(win_ms, bin_ms, func_name: str, param: str = "win_ms") -> int:
-    """Number of ``bin_ms`` bins spanning ``win_ms``, refusing a span that is not whole bins.
-
-    A partial last bin holds less than ``bin_ms`` of data but its rate is still divided by
-    the full ``bin_ms``; a window stretched or shrunk to whole bins divides every bin by a
-    width it does not have. The error names the nearest valid windows with the same start.
-    """
-    start, end = float(win_ms[0]), float(win_ms[1])
-    n = (end - start) / float(bin_ms)
-    n_whole = int(round(n))
-    if abs(n - n_whole) > 1e-9 or n_whole < 1:
-        nearest = [(start, start + k * bin_ms) for k in (int(np.floor(n)), int(np.ceil(n))) if k >= 1]
-        raise ValueError(
-            f"{func_name}: {param}={(start, end)} spans {end - start:g} ms, which is {n:g} "
-            f"bins of {bin_ms:g} ms, so not every bin would be {bin_ms:g} ms wide and the "
-            "rates would be wrong. Use "
-            + " or ".join(f"{param}=({a:g}, {b:g})" for a, b in nearest)
-            + ", or a bin width that divides the span."
-        )
-    return n_whole
 
 
 def setup_vector_graphics():
@@ -165,7 +144,7 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
         raise ValueError(f"raster_psth: win_ms={tuple(win_ms)} must be finite with end > start")
     if not (np.isfinite(bin_ms) and bin_ms > 0):
         raise ValueError(f"raster_psth: bin_ms must be positive and finite, got {bin_ms}")
-    n_bins = _whole_bin_count(win_ms, bin_ms, "raster_psth")
+    n_bins = whole_bin_count(win_ms, bin_ms, "raster_psth")
     onsets = np.asarray(onsets, dtype=float)
     edges = win_ms[0] + bin_ms * np.arange(n_bins + 1)
     centers = edges[:-1] + bin_ms / 2.0
