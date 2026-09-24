@@ -1,15 +1,14 @@
 """Canonical label-permutation primitive for null construction.
 
-Added 2026-08-10 after an audit found a downstream decoder using leave-one-cycle-out CV for
-its observed statistic but a naive, ungrouped `rng.permutation(y)` for its null -- an
-exchangeability mismatch between the
-test statistic and the null it was compared against. This module provides a single, shared,
-explicit-scheme primitive so grouped nulls cannot silently fall back to ungrouped shuffles.
+A decoder scored with grouped cross-validation (for example leave-one-cycle-out) but compared
+against an ungrouped `rng.permutation(y)` null has an exchangeability mismatch between the test
+statistic and its null. This module provides a single, shared, explicit-scheme primitive so
+grouped nulls cannot silently fall back to ungrouped shuffles.
 
 Every call site MUST name a `scheme` explicitly -- there is no default. A bare
-`rng.permutation(y)` inside grouped/session-structured decoding is what created this bug in the
-first place; `tests/test_permutation_lint.py` greps the decoding-relevant modules and fails if
-one shows up outside this module's own `scheme="global"` path.
+`rng.permutation(y)` inside grouped/session-structured decoding produces that mismatch;
+`tests/test_permutation_lint.py` greps the decoding-relevant modules and fails if one shows up
+outside this module's own `scheme="global"` path.
 """
 from __future__ import annotations
 
@@ -45,8 +44,8 @@ def permute_labels(
         scheme: "within_group" (permute inside each group independently, group composition
             preserved) or "global" (permute across all samples, ignoring groups -- only valid
             when there is no grouping structure the CV scheme depends on; passing this scheme
-            for grouped/LOCO-style CV reproduces the audit-flagged bug and should be treated as
-            a code-review red flag, not a default).
+            for grouped/LOCO-style CV reproduces the exchangeability mismatch and should be
+            treated as a code-review red flag, not a default).
         rng: an explicit numpy.random.Generator -- no implicit global RNG state.
 
     Returns:

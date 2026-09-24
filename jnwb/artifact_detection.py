@@ -4,7 +4,7 @@ jnwb.artifact_detection -- bad-channel and bad-trial DETECTION (exclusion), for 
 Distinct from jnwb.artifact_repair (interpolation/substitution within kept trials). This
 module decides what to DROP entirely: whole channels, whole trials.
 
-Method (Hamm, 2026-08-17):
+Method:
 
 Bad channels: correlate every channel's raw trace against every other channel
 (channel x channel Pearson correlation matrix, pooled across all trials/time). A channel whose
@@ -19,9 +19,8 @@ Bad trials: for a single GOOD channel, correlate every trial's waveform against 
 trial's waveform (trial x trial Pearson correlation matrix). A trial contaminated by a
 transient artifact (movement, chewing, cable jerk) looks different from the bulk of trials for
 that channel, so it separates out as a low-correlation outlier the same way a bad channel does
--- plus its own max |amplitude| is an outlier high. Per spec: "artifacts appear in all good
-channels always, if they exist" -- a genuine artifact is a shared physical event, not a
-single-channel quirk, so a trial is only called bad by CONSENSUS across multiple good channels'
+-- plus its own max |amplitude| is an outlier high. A genuine artifact is a shared physical
+event that appears on every good channel, not a single-channel quirk, so a trial is only called bad by CONSENSUS across multiple good channels'
 independent flags, not from one channel's flag alone (a single flagged channel more likely means
 that channel is itself imperfectly screened, not that the trial is bad).
 """

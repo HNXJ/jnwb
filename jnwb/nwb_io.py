@@ -60,12 +60,12 @@ class SqueezedAttributeWarning(UserWarning):
 class ContainerTypeContradictionWarning(UserWarning):
     """A container's declared ``neurodata_type`` disagrees with what the file stores under it.
 
-    Ruled 2026-09-20: jnwb reports the contradiction and reads the container unchanged.
-    Refusing would make jnwb the arbiter of a corpus's metadata, against the dataset-agnostic
-    rule, and would make a measured 9 of 22 real sessions unreadable without an override.
-    Staying silent would let a container declared ``ElectricalSeries`` hand back an int16 array
-    that is not extracellular voltage, substituting a signal class across a jnwb boundary with
-    nothing said -- which is what the fact-slot rule forbids. Warning satisfies both.
+    jnwb reports the contradiction and reads the container unchanged. Refusing would make jnwb
+    the arbiter of a corpus's metadata and would leave files with this contradiction
+    unreadable without an override. Staying silent would let a container declared
+    ``ElectricalSeries`` hand back an int16 array that is not extracellular voltage,
+    substituting a signal class across a jnwb boundary with nothing said. The warning names the
+    contradiction and leaves the data as stored.
 
     Raised once per container rather than once per series, for the same reason
     :class:`SqueezedAttributeWarning` is raised once per read: a warning nobody can read through
