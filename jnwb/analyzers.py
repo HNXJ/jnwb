@@ -11,6 +11,7 @@ Changes vs. previous version:
 """
 
 import logging
+import warnings
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
@@ -283,7 +284,7 @@ class UnitAnalyzer:
     Methods:
     - raster(spike_times, epochs) → Raster plot data
     - psth(spike_times, epochs, bin_size) → PSTH with CI
-    - autocorrelogram(spike_times, max_lag) → ACG with significance
+    - autocorrelogram(spike_times, max_lag) → ACG
     - quality_metrics(spike_times, amplitudes) → Quality scores
     - firing_rate(spike_times, window) → FR over time
     """
@@ -377,12 +378,19 @@ class UnitAnalyzer:
     def autocorrelogram(spike_times: np.ndarray, max_lag_ms: float = 100,
                         bin_size_ms: float = 1, device: str = 'cpu') -> Dict:
         """
-        Autocorrelogram with refractory period significance test.
+        Autocorrelogram of one spike train.
 
         Bins are ``bin_size_ms`` wide and centred on multiples of it. With ``n`` the number
         of whole bins in ``max_lag_ms``, the histogram spans ``±(n + 1/2) * bin_size_ms``,
         and ``acg`` holds the ``n`` positive-lag bins centred on ``lag_times_ms``,
         ``bin_size_ms * (1, ..., n)``.
+
+        The refractory test this returned is withdrawn: it took the Poisson upper tail of
+        one bin near 5 ms, so an over-filled refractory bin read as a single unit and a
+        clean one did not. Its keys ``refractory_period_violation``, ``refr_count`` and
+        ``baseline_count`` are ``NaN`` and ``is_single_unit`` is ``None``, with a
+        ``FutureWarning``; they are removed in 0.2.7. The single-unit check is
+        :meth:`quality_metrics`, from inter-spike intervals under 2 ms.
 
         Args:
             spike_times: Spike times in seconds
@@ -391,8 +399,8 @@ class UnitAnalyzer:
             device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
         Returns:
-            Dict with ACG, refractory p-value, is_single_unit flag, and ``device_used``,
-            the device that computed the histogram
+            Dict with ``acg``, ``lag_times_ms``, ``device_used`` (the device that computed
+            the histogram) and the four withdrawn keys above.
         """
         resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
         if len(spike_times) < 10:
@@ -409,21 +417,22 @@ class UnitAnalyzer:
         if len(acg) == 0:
             return {'error': 'ACG computation failed'}
 
-        ref_period_idx       = min(int(5 / bin_size_ms), len(acg) - 1)
-        baseline_idx_start   = min(int(10 / bin_size_ms), len(acg) - 1)
-        baseline_idx_end     = min(int(15 / bin_size_ms), len(acg))
-
-        ref_count      = acg[ref_period_idx]
-        baseline_count = np.mean(acg[baseline_idx_start:baseline_idx_end])
-        p_refractory   = stats.poisson.sf(ref_count, max(baseline_count, 1e-9))
-
+        warnings.warn(
+            "UnitAnalyzer.autocorrelogram: the refractory test is withdrawn because it was "
+            "inverted (an over-filled refractory bin read as a single unit). "
+            "'refractory_period_violation', 'refr_count' and 'baseline_count' are NaN and "
+            "'is_single_unit' is None; these keys are removed in 0.2.7. Use "
+            "UnitAnalyzer.quality_metrics (ISI < 2 ms) as the single-unit check.",
+            FutureWarning,
+            stacklevel=2,
+        )
         return {
             'acg':                        acg,
             'lag_times_ms':               lag_times * 1000,
-            'refractory_period_violation': float(p_refractory),
-            'is_single_unit':             bool(p_refractory < 0.05),
-            'refr_count':                 int(ref_count),
-            'baseline_count':             float(baseline_count),
+            'refractory_period_violation': float('nan'),
+            'is_single_unit':             None,
+            'refr_count':                 float('nan'),
+            'baseline_count':             float('nan'),
             'device_used':                ran_on[0],
         }
 

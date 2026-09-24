@@ -168,8 +168,7 @@ Carried by 0.2.6.
   4 ms. Bins are now centred on multiples of `bin_size_ms`, the histogram spans
   `±(n + 1/2) * bin_size_ms`, and `lag_times_ms` is `bin_size_ms * (1, ..., n)`, the centres;
   the same train peaks at 5 ms. `n`, the whole bins in `max_lag_ms`, no longer loses one to
-  rounding (9 ms at 0.1 ms made 89 bins). The refractory test reads the same bin indices as
-  before, so its counts move only by the change in bin edges.
+  rounding (9 ms at 0.1 ms made 89 bins). Its refractory test is withdrawn (Deprecated, below).
 - **`build_time_resolved_matrix` bins are right-open.** Its last bin was closed on the right, so
   a spike exactly on `time_window_ms[1]` was counted there; `bin_spikes` and every other spike
   binner exclude it. It now bins through the same rule as `bin_spikes`.
@@ -314,6 +313,15 @@ Carried by 0.2.6.
   exact copy of `depth_class` and is removed in 0.2.7. A call that writes it emits
   `FutureWarning` (`get_all_units_metadata` once per call); pandas cannot warn when a column is
   read, so the warning fires at the call whether or not `layer` is used. Read `depth_class`.
+- **The refractory test of `UnitAnalyzer.autocorrelogram`.** It was inverted: it took the
+  Poisson upper tail of the count in one bin near 5 ms against the mean of the bins near 10 to
+  15 ms, so an over-filled refractory bin read `is_single_unit=True` and a clean dip read
+  `False`. A train in which every spike has a partner 6 ms later read as a single unit; a train
+  with a 10 ms dead time did not. `refractory_period_violation`, `refr_count` and
+  `baseline_count` are now `NaN` and `is_single_unit` is `None`, each call emits
+  `FutureWarning`, and the keys are removed in 0.2.7. `acg`, `lag_times_ms` and `device_used`
+  are unchanged. The single-unit check is `UnitAnalyzer.quality_metrics`, from inter-spike
+  intervals under 2 ms.
 
 ## [0.2.5] - 2026-09-19
 
