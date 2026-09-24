@@ -1074,6 +1074,45 @@ class TestSharedTimestampsSurvive:
         """The same file with the link guard switched off reproduces the dangling link, and the
         call must raise rather than hand back ``ok=False``."""
         import jnwb.compression as compression
-        monkeypatch.setattr(compression, "_is_link_target", lambda f, path: False)
+        monkeypatch.setattr(compression, "_is_link_target", lambda f, path, soft_targets: False)
         with pytest.raises(RuntimeError, match="verification check"):
             jnwb.compress_fp32(src, tmp_path / "out.nwb", select=["acquisition/C/data"])
+
+    def test_the_link_scan_is_linear_in_the_number_of_series(self, tmp_path, monkeypatch):
+        """Finding which ``timestamps`` arrays a link opens scans the file once, not once per array.
+
+        Counted as group walks (``visit*`` and member iteration, on source and output alike)
+        rather than timed. Any cost ``a + b*n`` satisfies ``f(4n) <= 4 f(n)``; a scan per array
+        adds ``c*n**2`` and breaks it. What would pass while the scan stays quadratic: a rescan
+        that reaches the groups by some route other than these four methods.
+        """
+        from datetime import datetime, timezone
+        from pynwb import NWBFile, NWBHDF5IO, TimeSeries
+
+        walks = [0]
+        for name in ("visit", "visititems", "visit_links", "visititems_links", "__iter__"):
+            original = getattr(h5py.Group, name)
+
+            def counted(self, *args, _original=original, **kwargs):
+                walks[0] += 1
+                return _original(self, *args, **kwargs)
+
+            monkeypatch.setattr(h5py.Group, name, counted)
+
+        def cost(n):
+            nwb = NWBFile(session_description="n", identifier=f"n{n}",
+                          session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+            for i in range(n):
+                nwb.add_acquisition(TimeSeries(name=f"s{i}", data=np.zeros(20), unit="V",
+                                               timestamps=1.0 + np.arange(20) / 100.0))
+            src = tmp_path / f"many_{n}.nwb"
+            with NWBHDF5IO(str(src), "w") as io:
+                io.write(nwb)
+            walks[0] = 0
+            stats = jnwb.compress_fp32(src, tmp_path / f"out_{n}.nwb", verify=False,
+                                       select=["acquisition/s0/data"])
+            assert len(stats["timestamps_collapsed"]) == n
+            return walks[0]
+
+        small, large = cost(6), cost(24)
+        assert large <= 4 * small, (small, large)

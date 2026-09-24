@@ -199,6 +199,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
     paths = sorted(resolved)
     guarded = [src[g] for g in sorted(_GUARDED_PATHS) if g in src]
     timestamp_paths = _find_timestamp_paths(src)
+    soft_targets = _soft_link_targets(src)
     for path in paths:
         rel = path[1:]
         obj = src[path]
@@ -222,7 +223,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
             )
         # The fate is decided at the array's own path, whose group holds any starting_time.
         ts = next((t for t in timestamp_paths if src[t] == obj), None)
-        fate = _timestamps_fate(src, ts, src[ts])[0] if ts is not None else None
+        fate = _timestamps_fate(src, ts, src[ts], soft_targets)[0] if ts is not None else None
         if fate == "linked" and _is_regular(src[ts])[0]:
             link = f", a link to {ts}" if ts != rel else ""
             raise ValueError(
@@ -291,30 +292,42 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
     return paths
 
 
-def _is_link_target(f: h5py.File, path: str) -> bool:
-    """Does any link other than ``path`` itself open the dataset at ``path``?
+def _soft_link_targets(f: h5py.File) -> set:
+    """Every object that a soft link in ``f`` opens, each resolved relative to its group.
 
-    A second hard link raises the object's reference count; a soft link is found by resolving
-    every soft link in the file, relative to the group that holds it. Deleting such a dataset
-    leaves the other name dangling or pointing at nothing -- pynwb writes one series'
-    ``timestamps`` as a soft link to another's.
+    One pass over the file, O(groups + links). Built once per file and handed to every
+    :func:`_is_link_target` call, because rescanning the file for each ``timestamps`` array
+    made the conversion quadratic in the number of series.
     """
-    target = f[path]
-    if h5py.h5o.get_info(target.id).rc > 1:
-        return True
     groups = [f]
     f.visititems(lambda _name, obj: groups.append(obj) if isinstance(obj, h5py.Group) else None)
+    targets = set()
     for group in groups:
         for name in group:
             link = group.get(name, getlink=True)
             if isinstance(link, h5py.SoftLink):
                 resolved = group.get(link.path)
-                if resolved is not None and resolved == target:
-                    return True
-    return False
+                if resolved is not None:
+                    targets.add(resolved)
+    return targets
 
 
-def _timestamps_fate(src: h5py.File, ts_path: str, data) -> tuple:
+def _is_link_target(f: h5py.File, path: str, soft_targets: set) -> bool:
+    """Does any link other than ``path`` itself open the dataset at ``path``?
+
+    A second hard link raises the object's reference count; a soft link is found in
+    ``soft_targets``, the set :func:`_soft_link_targets` built for ``f`` (h5py objects hash and
+    compare as the HDF5 object they open). Deleting such a dataset leaves the other name
+    dangling or pointing at nothing -- pynwb writes one series' ``timestamps`` as a soft link
+    to another's.
+    """
+    target = f[path]
+    if h5py.h5o.get_info(target.id).rc > 1:
+        return True
+    return target in soft_targets
+
+
+def _timestamps_fate(src: h5py.File, ts_path: str, data, soft_targets: set) -> tuple:
     """What step 3 of :func:`convert` does with the ``timestamps`` array at ``ts_path``.
 
     ``("linked", None)``, ``("irregular", None)`` and ``("inconsistent", err)`` keep it;
@@ -322,9 +335,9 @@ def _timestamps_fate(src: h5py.File, ts_path: str, data) -> tuple:
     drops it beside an existing ``starting_time`` it agrees with. ``linked`` is a dataset that
     another link also opens, which neither of the last two may delete. Decided from the source
     alone, because step 1 copies ``starting_time`` and every link verbatim and ``select=`` cannot
-    reach a scalar.
+    reach a scalar. ``soft_targets`` is :func:`_soft_link_targets` of ``src``.
     """
-    if _is_link_target(src, ts_path):
+    if _is_link_target(src, ts_path, soft_targets):
         return "linked", None
     regular, rate = _is_regular(data)
     if not regular:
@@ -583,6 +596,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> di
         print("Step 3/3: collapsing regular timestamp arrays to starting_time+rate ...")
         stats["timestamps_redundant_dropped"] = []
         stats["timestamps_inconsistent_kept"] = []
+        soft_targets = _soft_link_targets(src)
         for ts_path in _find_timestamp_paths(src):
             full = "/" + ts_path
             data = src[ts_path][:]
@@ -596,7 +610,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> di
             # array being collapsed before treating the timestamps array as redundant and
             # dropping it -- do not assume, since a genuine mismatch would mean they encode
             # different things and neither should be silently discarded.
-            fate, value = _timestamps_fate(src, ts_path, data)
+            fate, value = _timestamps_fate(src, ts_path, data, soft_targets)
             if fate == "linked":
                 stats["timestamps_kept_linked"].append(ts_path)
                 continue
