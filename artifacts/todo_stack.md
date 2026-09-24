@@ -57,7 +57,7 @@ barrier above.
 | W9 |  |
 | W10 |  |
 | Rolling | 06-136, re-dispatched at each wave barrier over the repairs landed since its last run |
-| Closure | 06-34, then 06-35 06-36 06-37 in any order, then 06-38, 06-39, 06-60, 06-130, 06-40 |
+| Closure | 06-145 and 06-146, then 06-35, 06-38, 06-39, 06-60, 06-130, 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
 packets finish before 06-34.
@@ -102,12 +102,20 @@ Role: actor. Skill: jnwb-spiking. Blocked by: none. Writes: `jnwb/connectivity.p
 Do: refuse the window with the nearest valid windows named; find every internal caller that can pass such a window and make it pass a valid one; a discriminator that fails before the repair.
 Accept: a steady train binned over a whole-bin window reads its rate in every bin, a partial-bin window raises, and the full suite passes.
 
+### 06-146 `stream_npz_array` reads an uncompressed archive on Python 3.12.0
+
+Release: required-0.2.6.
+Role: actor. Skill: none. Blocked by: none. Writes: `jnwb/io.py`, `tests/test_io*.py`, `CHANGELOG.md`.
+On CPython 3.12.0 the seek path for a stored entry raises "corrupt archive ... Unexpected EOF" for a valid uncompressed `np.savez` archive whenever the index skips; 3.12.14, 3.13 and 3.14 read it. `Requires-Python >=3.12` includes 3.12.0 and no CI leg runs it. Found by 06-35 at `f657fce7`.
+Accept: 3.12.0 reads every index the other interpreters read, a discriminator fails without the repair on any interpreter, and the full suite passes.
+
 ## Closure
 
 ### 06-35 Clean-environment matrix
 
 Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: 06-136. Writes: none.
+Role: verifier. Skill: none. Blocked by: 06-146. Writes: none.
+The pass at `f657fce7` collected 4655 tests with zero collection errors on 3.12.0, 3.13.15 and 3.14.3 and on all six CI legs, with `jnwb.__file__` in each venv; 3.13 passed, 3.14 failed only P-254's flake, and 3.12.0 failed 14 tests on 06-146's defect. What remains is 3.12.0 after 06-146 lands.
 P-06, P-09. Every declared interpreter on Ubuntu and Windows, from a fresh environment; record
 `jnwb.__file__` for each, because `C:\Python314\Lib\site-packages` holds a 0.2.5 copy and a backup.
 P-06: `.venv\Scripts\python.exe` collected 2841 tests with one error (statsmodels absent) where
@@ -115,28 +123,11 @@ P-06: `.venv\Scripts\python.exe` collected 2841 tests with one error (statsmodel
 collection errors. P-09: that site-packages copy differs from this checkout in `jrsa.py` and
 `nwb_io.py`, so a probe that omits the path insert measures other code.
 
-### 06-36 Documentation qualification
-
-Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: 06-136. Writes: none.
-Strict build; diagrams render as diagrams, asserted against built output; generated assets
-current, with `tests/test_generated_figures_are_maintained.py` run where the figures were
-generated and reporting zero skips; links resolve; no stale version claim; the architecture page reachable.
-
-### 06-37 Distribution qualification
-
-Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: 06-136. Writes: none.
-P-04. Build the sdist and wheel into the scratchpad, not `dist/`, and point the distribution
-checks at that build: contents, metadata, imports, exports, `SKILLS_URL`, the `vis` extra,
-representative workflows, no checkout shadowing, no `examples/data` in the wheel. P-04: `dist/`
-holds 0.1.1, 0.1.3 and 0.2.4 and no 0.2.5 build, so the distribution-cleanliness test inspected
-superseded releases and never the one that shipped.
-
 ### 06-38 Verify the candidate from TestPyPI
 
 Release: required-0.2.6.
-Role: verifier. Skill: jnwb-nwb-data. Blocked by: 06-35, 06-36, 06-37. Writes: none.
+Role: verifier. Skill: jnwb-nwb-data. Blocked by: 06-35. Writes: none.
+06-37's distribution checks passed on the `f657fce7` build labelled 0.2.5 (receipts under the qualification lane's scratch) and 06-36's documentation checks passed at the same commit; both re-run on the 0.2.6 candidate: contents, metadata, `__all__`, the `vis` extra, the quickstart outside the checkout, the suite against the installed copy, and the strict docs build. `SKILLS_URL` resolves only once the tag exists.
 Ruled 2026-09-22 (R-3). The candidate is published to TestPyPI (authorized as part of 06-40's
 sequence); in a clean environment install it from TestPyPI, open an NWB file, analyse, verify.
 After production publication the same check runs from PyPI.
@@ -294,12 +285,16 @@ leaves this item as a `required-0.2.6` item.
 - P-304: Mutation-pass coverage gaps with correct code at HEAD: Gate 9's api.md sync is not tested against a same-length drift, the contract gate does not test an export recorded in two order categories, and documented `win_ms=` literals are not checked against `bin_ms`. Waits: no current evidence passes falsely.
 - P-305: `tests/test_semantic_mutation_classes.py` fails on any uncommitted byte change to its target modules, so a full-suite mutation oracle must deselect it, and the CUDA agreement tests kill device mutants only on a GPU machine. Waits: 06-34 accounted for both; a recipe note for the next pass.
 - P-306: `trajectory.py` bins with `linspace(start, end, round(n) + 1)`, so a window that is not whole bins gets bins narrower or wider than `bin_size_ms`. Waits: it returns counts, not rates, so no value is misscaled.
+- P-307: No CI leg or fresh environment compares the documentation figures: every venv and CI leg has Matplotlib 3.11.2 against figures written by 3.10.8, so all 20 comparisons skip there. Waits: a skip is reported, and the figures pass where they were generated.
+- P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Waits: 06-146 is verified on 3.12.0 by hand; the durable leg changes the CI matrix and Gate 8.
+- P-309: The distribution tests read only `<repo>/dist`, no variable points them at an external build, and `forbidden_entries` rejects no `examples` or `data` component, so keeping `examples/data` out of the wheel rests on a configuration check. Waits: 06-37's byte comparison held at `f657fce7`.
+- P-310: The sdist ships `AGENTS.md`, the repository's internal working rules, by `MANIFEST.in`. Waits: deliberate; whether it belongs in a distributed artifact needs a ruling.
 
 ## Reported and not admitted
 
 Recorded so that nothing reported disappears by not being chosen.
 
-- `dist/` holds only 0.1.1, 0.1.3 and 0.2.4 artifacts; 06-37 builds fresh.
+- `dist/` holds only 0.1.1, 0.1.3 and 0.2.4 artifacts; 06-38 builds fresh.
 - The ninth unreadable consumer file fails at `root/units` with `Columns must be the same
   length`, separately from the eight that fail on device attributes.
 
