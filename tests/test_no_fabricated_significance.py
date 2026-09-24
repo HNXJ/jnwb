@@ -1,4 +1,4 @@
-"""05-15: undefined statistics must not return the most significant p a test can emit.
+"""Undefined statistics must not return the most significant p a test can emit.
 
 ``np.abs(nan) >= np.abs(nan)`` is False, so a non-finite observed statistic made every
 null comparison False, the exceedance count 0, and the p-value ``1/(B+1)`` -- the floor of

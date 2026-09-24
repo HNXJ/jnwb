@@ -100,7 +100,7 @@ def test_compress_fp32_synthetic_hdf5_conversion(tmp_path):
 
 
 class TestTimestampRegularityGate:
-    """05-14: `_is_regular` gated on relative jitter, a proxy insensitive to slow drift,
+    """`_is_regular` gated on relative jitter, a proxy insensitive to slow drift,
     and then the source timestamps were deleted. The assertion that licenses the deletion
     is the reconstruction error, so that is what must be gated."""
 
@@ -164,7 +164,7 @@ class TestTimestampRegularityGate:
 
 
 class TestVerifyRoundtripDoesNotDisableWarnings:
-    """05-22: `warnings.filterwarnings("ignore")` at function scope, unscoped and never
+    """`warnings.filterwarnings("ignore")` at function scope, unscoped and never
     restored, on the default path of `compress_fp32` (`verify: bool = True`)."""
 
     def test_the_interpreter_warning_filters_survive_a_verify(self, tmp_path):

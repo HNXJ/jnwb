@@ -37,7 +37,7 @@ def test_jrsa_cupy_gpu_execution():
     assert res_cpu.value is not None
     assert res_cpu.execution["device"] == "cpu"
 
-    # Run with CuPy (GPU) requested. 05-26: jrsa does not execute on the GPU -- every
+    # Run with CuPy (GPU) requested. jrsa does not execute on the GPU -- every
     # metric calls `_ensure_np` on its first line, so the upload was converted straight
     # back and the arithmetic ran on the CPU. This used to assert
     # `execution["device"] == "cuda"`, which is what made the false provenance look
@@ -51,7 +51,7 @@ def test_jrsa_cupy_gpu_execution():
     assert res_gpu.parameters["backend"] == "auto"
 
     # The values agree exactly, not merely to rtol: it is the same code path.
-    # `AGENTS.md` invariant 6 -- the device never changes a number.
+    # The device never changes a number.
     np.testing.assert_array_equal(np.asarray(res_cpu.value), np.asarray(res_gpu.value))
     
     # Test spearman correlation consistency

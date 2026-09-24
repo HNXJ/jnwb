@@ -1,4 +1,4 @@
-"""05-40: onsets in milliseconds were read as seconds and returned a confident array.
+"""Onsets in milliseconds were read as seconds and returned a confident array.
 
 A file whose interval table holds onsets 1000-5000 against a 1.0 s recording -- which is
 what milliseconds look like when the reader assumes seconds -- produced:

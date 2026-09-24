@@ -533,7 +533,7 @@ class TestFDRCorrect:
         assert not np.allclose(by, correct(self.UNSORTED_P, method="bh"))
 
 
-# ── 06-44: no key may assert a correction it did not apply ────────────────────
+# ── No key may assert a correction it did not apply ────────────────────
 #
 # These names are written out here on purpose. They are NOT read from
 # `jnwb.statistics` -- not from the keys the exploratory wrappers strip, not from any
@@ -570,7 +570,7 @@ def _walk_keys(obj, prefix=""):
 
 
 class TestNoKeyAssertsAnUncorrectedCorrection:
-    """06-44. A key whose name asserts a correction must not carry an uncorrected value.
+    """A key whose name asserts a correction must not carry an uncorrected value.
 
     What would make these pass while the invariant is violated: running them only on the
     ``exploratory_*`` wrappers. Those wrappers strip keys on the way out, so a badly named
@@ -697,10 +697,10 @@ class TestNoKeyAssertsAnUncorrectedCorrection:
         assert "fdr_pval_nonparametric" not in src
 
 
-# ── 06-45: the caller names the primary test ──────────────────────────────────
+# ── The caller names the primary test ──────────────────────────────────
 
 class TestCallerNamesThePrimaryTest:
-    """06-45. How many tests were performed must be the caller's to declare.
+    """How many tests were performed must be the caller's to declare.
 
     A pre-registered family budget is a statement about tests performed. Filtering a dual
     result on the way out would satisfy every key-presence assertion below while still
@@ -950,7 +950,7 @@ class TestCallerNamesTheCorrelation:
             StatisticalAnalysis.correlate([1.0, 2.0], [2.0, 1.0], method="kendall")
 
 
-# ── 06-46: permutation_test is a flat shuffle and must say so ─────────────────
+# ── Permutation_test is a flat shuffle and must say so ─────────────────
 
 def _confounded_grouped_design():
     """Two sessions, zero true condition effect, conditions unbalanced across sessions.
@@ -970,7 +970,7 @@ def _confounded_grouped_design():
 
 
 class TestPermutationTestIsFlatAndSaysSo:
-    """06-46. A caller reading only this method's own documentation must not be able to
+    """A caller reading only this method's own documentation must not be able to
     apply it to grouped data believing it is correct."""
 
     def test_a_flat_shuffle_and_a_within_group_shuffle_disagree_materially(self):

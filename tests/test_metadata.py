@@ -24,7 +24,7 @@ class TestNwbReadErrors:
             get_all_units_metadata(bad, on_read_error="raise")
 
     def test_every_path_failing_is_not_an_empty_cohort(self, tmp_path):
-        """05-23. `on_read_error='skip'` is for carrying on with a partial result in a
+        """`on_read_error='skip'` is for carrying on with a partial result in a
         multi-file call. With nothing read there is no partial result, and the empty frame
         this used to return claimed an empty cohort instead of a failed read -- reported
         only through `log.error`, which `pytest.warns` and `-W error` cannot see.

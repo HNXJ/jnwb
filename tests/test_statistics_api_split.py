@@ -437,7 +437,7 @@ class TestClusterPermutation:
             cluster_permutation_test(bad_x, Y)
         with pytest.raises(ValueError, match="within_group"):
             cluster_permutation_test(X, Y, scheme="within_group", groups=None)
-        # 05-35: an int is now a seed, not a type error -- the function used to refuse
+        # An int is now a seed, not a type error -- the function used to refuse
         # `rng=42` while seeding itself with `default_rng(0)` whenever `rng` was omitted.
         # A type that names no stream still raises.
         for bad in ("not_an_rng", 3.5, [0]):

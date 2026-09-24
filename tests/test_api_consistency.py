@@ -1,4 +1,4 @@
-"""05-27, 05-28, 05-30, 05-31: siblings that answer the same question differently.
+"""Siblings that answer the same question differently.
 
 Each of these is a pair of functions a user reaches in one workflow, where one validates
 and the other does not, or where the two disagree on a default. The defect is the
@@ -51,7 +51,7 @@ def _write_nwb_with_trials(path):
 
 
 class TestResolversTakeTheSameInput:
-    """05-27. `resolve_interval_table` was the only exported NWB function requiring an
+    """`resolve_interval_table` was the only exported NWB function requiring an
     already-open `NWBFile`, with `table` required positionally. A path gave
     `AttributeError: 'str' object has no attribute 'intervals'`, against its exact
     sibling `resolve_acquisition(path_or_nwb, name=None)`.
@@ -94,7 +94,7 @@ class TestResolversTakeTheSameInput:
 
 
 class TestExceptionBasesAreReachable:
-    """05-28. `NWBEventError` had four exported subclasses and was not in `__all__`;
+    """`NWBEventError` had four exported subclasses and was not in `__all__`;
     `MissingRequiredNWBFieldError` is documented at `docs/01:50` and was neither based nor
     exported; `ChannelIndexError` inherited `IndexError` while its three siblings
     inherited `Exception`, so no one `except` caught the family.
@@ -136,7 +136,7 @@ class TestExceptionBasesAreReachable:
 
 
 class TestAlternativeAndAlpha:
-    """05-30. An `if/elif/else` whose fallthrough was two-sided."""
+    """An `if/elif/else` whose fallthrough was two-sided."""
 
     @staticmethod
     def _ab():
@@ -191,7 +191,7 @@ class TestAlternativeAndAlpha:
 
 
 class TestSpectralSurfaceValidatesIdentically:
-    """05-31. `_resolve_fs` never checked positivity, so each caller failed in its own way
+    """`_resolve_fs` never checked positivity, so each caller failed in its own way
     further down -- or not at all -- and `imaginary_coherency` ravelled 2-D input that
     `cross_area_coherence` refuses.
     """

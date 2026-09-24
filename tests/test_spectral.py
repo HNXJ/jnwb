@@ -1754,7 +1754,7 @@ class TestImaginaryCoherencyIsScaleFree:
 
 
 class TestSpectralTiltBandIsHonest:
-    """05-09: no bin guard, and a hidden 0.5 Hz floor that silently narrowed the request."""
+    """No bin guard, and a hidden 0.5 Hz floor that silently narrowed the request."""
 
     @staticmethod
     def _pink(n=4000, seed=0):
@@ -1797,7 +1797,7 @@ class TestSpectralTiltBandIsHonest:
 
 
 class TestBandPowerEstimandIsDocumented:
-    """05-13: the docstring said "power in a frequency band" while the function returned
+    """The docstring said "power in a frequency band" while the function returned
     `mean(PSD[mask])`, a bandwidth-independent density. Nothing numerical changed; these
     pin the estimand so the documented claim and the returned quantity cannot drift apart.
     """

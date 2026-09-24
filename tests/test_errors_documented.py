@@ -1,4 +1,4 @@
-"""05-41: the errors a first-time reader meets were explained nowhere but the generated
+"""The errors a first-time reader meets were explained nowhere but the generated
 reference.
 
 `docs/api.md` is generated from `jnwb.__all__`, so it contains every export by

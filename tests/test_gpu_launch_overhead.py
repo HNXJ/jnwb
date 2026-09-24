@@ -1,4 +1,4 @@
-"""05-45: two CUDA paths were slower than their CPU siblings, one by 24x.
+"""Two CUDA paths were slower than their CPU siblings, one by 24x.
 
 Both were Python loops issuing one kernel launch per element, and in both cases the
 launches -- not the host/device transfers the audit blamed -- were the cost.
@@ -239,7 +239,7 @@ class TestItNoLongerHistogramsOncePerSpike:
 @requires_cuda
 class TestTheTwoDevicesAgreeExactly:
     """One implementation runs under both `numpy` and `cupy`, so they cannot drift.
-    `AGENTS.md` invariant 6: the device never changes a number."""
+    The device never changes a number."""
 
     @pytest.mark.parametrize("n", [500, 5000, 35000])
     def test_the_acg_is_bit_identical_across_devices(self, n):
@@ -335,7 +335,7 @@ class TestWelchBuildsItsSegmentsInOneIndex:
         shift is smaller than the CUDA path's pre-existing disagreement with scipy on
         the same input, which runs from 2.6e-15 at nperseg 256 to 4.1e-13 at 2048. It
         does not widen the gap between the two devices, which is the invariant that
-        matters (`AGENTS.md` 6)."""
+        matters: the device never changes a number."""
         from jnwb.spectral import _welch_csd_gpu
 
         x, y = self._signals()

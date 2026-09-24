@@ -1,6 +1,6 @@
-"""05-34 and 05-35: who controls the randomness, and where the seed is written down.
+"""Who controls the randomness, and where the seed is written down.
 
-05-35. Five functions declared `rng: Optional[np.random.Generator] = None` and then ran
+Five functions declared `rng: Optional[np.random.Generator] = None` and then ran
 `np.random.default_rng(42)` -- `default_rng(0)` in `cluster_permutation_test` -- when the
 caller left it out. `None` reads as "fresh randomness", so two calls a caller believed
 were independent shared a null distribution and agreed to the last digit. Reproduced at
@@ -10,7 +10,7 @@ stale). Two forwarders, `compare_groups` and the `StatisticalAnalysis.exact_sign
 staticmethod, defaulted to `None` and passed it down, so they are repaired too -- without
 them, omitting `rng` would have started drawing fresh entropy.
 
-05-34. `nested_cv_linear_svm(X, labels, n_splits)` had no randomness parameter and
+`nested_cv_linear_svm(X, labels, n_splits)` had no randomness parameter and
 hardcoded `random_state=42` at `decoding.py:86, 91, 113, 124`, so nobody could ask whether
 a decoding accuracy survived a different partition of the same trials.
 

@@ -1,7 +1,7 @@
-"""05-43: the device changed the number, twice over.
+"""The device changed the number, twice over.
 
-`AGENTS.md` invariant 6 says device and worker count never change a number. Two SVD
-paths broke it on a live RTX A4000:
+Device and worker count must never change a number. Two SVD paths broke that on a live
+RTX A4000:
 
 `gpu_pca(X(4000, 60), n_components=3)` returned float64 on CPU and float32 on CUDA, and
 neither path pinned a sign, so `max|cpu - cuda|` on the projections was **8.005**. Align

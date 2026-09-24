@@ -436,8 +436,8 @@ def test_all_referenced_symbols_exist():
     This asserted `hasattr(jnwb, symbol)` and nothing else. Every submodule satisfies that,
     so the test green-lit `jnwb.nwb_inspect.CONTINUOUS_KEYS` -- a private constant behind a
     submodule that `__all__` does not export and `docs/` does not document. Reachability is
-    the proxy; membership of `__all__` is the invariant, because `__all__` is what
-    `AGENTS.md` section 0 calls the authoritative symbol list and what the API docs are
+    the proxy; membership of `__all__` is the invariant, because `__all__` is the
+    authoritative symbol list and what the API docs are
     generated from. An import that works today and is renamed tomorrow without a
     deprecation is exactly what routing an agent at a non-export buys.
 
@@ -1247,7 +1247,7 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         )
 
     def test_the_docstring_carries_the_same_scope_as_the_skill(self):
-        """P-110/06-95: the skill was scoped and the docstring next to the code was not.
+        """The skill was scoped and the docstring next to the code was not.
 
         `causal_exp_smooth`'s docstring stated `t_observed = t_signal + t_estimator` as a
         general identity and then told the reader not to compare latencies without accounting

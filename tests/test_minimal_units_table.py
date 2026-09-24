@@ -1,4 +1,4 @@
-"""05-37: jnwb could not read a units table that plain pynwb reads.
+"""Jnwb could not read a units table that plain pynwb reads.
 
 The smallest units table a foreign lab writes has one column, `spike_times`, which on
 disk is `colnames = array(['spike_times'])`. jnwb's builder repair scalarizes any

@@ -1,4 +1,4 @@
-"""05-36: `decoding` refused valid label sets and made false claims about the data.
+"""`decoding` refused valid label sets and made false claims about the data.
 
 `np.bincount(labels.astype(int))` counts every integer below the maximum as a class,
 including ones that are absent, and refuses anything that is not a contiguous

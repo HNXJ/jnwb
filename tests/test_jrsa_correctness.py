@@ -301,7 +301,7 @@ _OBS_AXIS_0_FEATURE_INVARIANT = ["cka", "rv", "distance_correlation", "procruste
 
 
 class TestBootstrapResamplesObservations:
-    """05-05: `perm_axis` was computed and then ignored by both `_bootstrap` call sites,
+    """`perm_axis` was computed and then ignored by both `_bootstrap` call sites,
     which hardcoded axis=-1. For the six observation-axis-0 metrics the interval therefore
     answered "how much does this depend on which columns I measured" rather than "on which
     observations I sampled"."""
@@ -341,7 +341,7 @@ class TestBootstrapResamplesObservations:
 
 
 class TestPermutationPWins:
-    """05-06: `if p_raw is None` let the metric's own cell-wise parametric p pre-empt the
+    """`if p_raw is None` let the metric's own cell-wise parametric p pre-empt the
     permutation p that had already been computed. `oa.jrsa(..., metric="rsa")` returned the
     identical value at permutations=10 and permutations=2000 -- it was
     `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:167 states is not a valid test

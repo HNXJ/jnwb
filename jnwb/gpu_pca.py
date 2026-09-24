@@ -24,9 +24,9 @@ def pin_component_signs(
     same subspace and explain the same variance, and LAPACK and cuSOLVER routinely
     choose differently for the same matrix, component by component. Callers saw that as
     components whose sign disagreed between devices, with ``max|cpu - cuda| / |cpu| == 2``
-    -- the exact signature of a flipped component, and indistinguishable from a real disagreement until you align the signs by
-    hand. `AGENTS.md` invariant 6 says the device never changes a number, so the
-    convention has to be pinned in the library rather than left to whichever routine ran.
+    -- the exact signature of a flipped component, and indistinguishable from a real
+    disagreement until you align the signs by hand. The device must never change a number,
+    so the convention is pinned in the library rather than left to whichever routine ran.
 
     Any rule fixed by the data works; this is the one `sklearn.utils.extmath.svd_flip`
     uses. A component of all zeros has no largest loading and is left alone.

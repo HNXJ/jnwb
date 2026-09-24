@@ -1,6 +1,6 @@
 """Fourteen semantic mutation classes, exercised over the ruled composition subset.
 
-06-27. The deliverable is a **class list, not a mutation score**: each of the fourteen classes
+The deliverable is a **class list, not a mutation score**: each of the fourteen classes
 the item names is either demonstrated against the ten chains of
 ``artifacts/evidence/0.2.6/composition_subset_0.2.6.md`` or recorded here as not applicable with a reason. No
 aggregate count stands in for the list, and no test in this file asserts one.

@@ -1,4 +1,4 @@
-"""05-29: a time parameter whose name carries no unit puts a 1000x error one keystroke
+"""A time parameter whose name carries no unit puts a 1000x error one keystroke
 away.
 
 `examples/tutorials/03_spiking.py` calls `raster_psth(..., win_ms=(-100., 400.))` at line

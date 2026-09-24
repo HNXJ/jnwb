@@ -1,4 +1,4 @@
-"""05-85: `bin_ms` selects between two estimators, and the skill claimed only one.
+"""`bin_ms` selects between two estimators, and the skill claimed only one.
 
 `skills/jnwb-connectivity/SKILL.md` routed `cross_modal_comparison` as a best-lag
 correlation, showed `bin_ms=None` in the routing signature, and told the reader to "Read

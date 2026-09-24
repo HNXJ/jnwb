@@ -523,7 +523,7 @@ class TestCrossModalLagSearchPaysForItself:
 
 
 class TestPsiInferenceIsNotOverstated:
-    """05-10: a 10-segment jackknife reported p = 0.0, and overlapping bands were summed
+    """A 10-segment jackknife reported p = 0.0, and overlapping bands were summed
     twice into the headline estimate."""
 
     @staticmethod
@@ -602,7 +602,7 @@ class TestPsiInferenceIsNotOverstated:
 
 
 class TestGrangerNotTestedIsNotPassed:
-    """05-11 / 05-12: an untested assumption and a degenerate fit were both reported as
+    """An untested assumption and a degenerate fit were both reported as
     interpretable results."""
 
     # `sys.path[0]` for a script is the script's own directory, not the cwd, so without

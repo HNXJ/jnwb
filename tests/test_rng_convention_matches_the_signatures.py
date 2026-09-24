@@ -310,7 +310,7 @@ def test_none_really_means_fresh_entropy(name):
 
 
 def test_cross_area_coherence_draws_the_stream_its_signature_advertises():
-    """06-107: the successor to the test that pinned the deviation.
+    """The successor to the test that pinned the deviation.
 
     Its predecessor asserted the *deviation* -- that `rng=None` resolved to a fixed seed --
     by calling the function twice. That technique is the point, and it is the only one of

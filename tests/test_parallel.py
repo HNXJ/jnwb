@@ -165,7 +165,7 @@ class TestNJobsDoesNotChangeResults:
 
 
 class TestTheDefaultIsSerialEverywhere:
-    """05-46: `jrsa` defaulted to `n_jobs=-1`, the only public function in the package
+    """`jrsa` defaulted to `n_jobs=-1`, the only public function in the package
     that did, and it made an unqualified call slower rather than faster.
 
     The first parallel call in a process costs about 4.5 s. Only 0.77 s of that is
@@ -274,7 +274,7 @@ class TestTheDefaultIsSerialEverywhere:
         assert built == [2], f"expected one pool for two workers, got {built}"
 
     def test_jrsa_gives_the_same_numbers_with_and_without_workers(self):
-        """`n_jobs` is a speed knob (`AGENTS.md` 6). This is the invariant that lets the
+        """`n_jobs` is a speed knob and never changes a number. This is the invariant that lets the
         default change at all, and it was not covered anywhere before."""
         from jnwb import jrsa
 

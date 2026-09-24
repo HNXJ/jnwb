@@ -197,7 +197,7 @@ class TestComplexTFRProbes:
     def test_probe09_edge_and_coi_exact_boundary(self, fs):
         """Probe 9: by default the COI mask bounds exactly the kernel support.
 
-        05-85. It used to be built from `coi_sigma` (2.0) while the kernel was truncated at
+        It used to be built from `coi_sigma` (2.0) while the kernel was truncated at
         `cutoff_sigma` (4.0), so it cleared at half the region zero-padding actually
         reached: 96 against a kernel half-width of 191 at `n_cycles=3`.
         """
@@ -382,7 +382,7 @@ class TestComplexTFRProbes:
 
 
 class TestMorletAdmissibilityAndDtype:
-    """05-03 / 05-04: a wavelet that responds to DC, and a real dtype that discarded half
+    """A wavelet that responds to DC, and a real dtype that discarded half
     the transform. Both used to be reachable through the public signature."""
 
     @pytest.mark.parametrize("n_cycles", [1.0, 2.0, 3.0, 5.0, 10.0])

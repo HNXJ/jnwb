@@ -122,13 +122,13 @@ def test_compute_population_trajectory():
 
 
 def test_compute_population_trajectory_empty():
-    """05-25. An explicitly requested population with no observations yields an
+    """An explicitly requested population with no observations yields an
     *unavailable* estimate, never zero. Zeros are a point in state space like any other, so
     the fabricated version put the population at the origin and reported
     `explained_variance == 0.0` -- "PCA ran and explained nothing" rather than "PCA did not
     run". `TFRAnalyzer.average_across_channels` already answers NaN for the same condition
     (`test_analyzers_coverage.py::test_empty_layer_mask_returns_nan_not_zeros`); this is
-    the package-wide policy, and `AGENTS.md` invariant 1.
+    the package-wide policy: missing data fails loudly rather than reading as a value.
     """
     session = MockSession()
 

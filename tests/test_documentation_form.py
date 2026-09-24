@@ -1,4 +1,4 @@
-"""06-49: the rules of `docs/documentation_form.md` that are machine-checkable, checked.
+"""The rules of `docs/documentation_form.md` that are machine-checkable, checked.
 
 The contract's "How it is checked" column names five rules a machine can settle: F1 by
 counting, F5 against a vocabulary list, and N1, N2 and N5 by parsing `mkdocs.yml`. N5 is

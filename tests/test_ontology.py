@@ -1,4 +1,4 @@
-"""05-32: `jnwb.ontology` -- the 11 exported objects, and what they actually promise.
+"""`jnwb.ontology` -- the 11 exported objects, and what they actually promise.
 
 The audit reported this module as 11 public symbols with zero call sites, zero behavioural
 tests, and zero mentions outside `docs/`, and proposed removal. The 2026-09-16 ruling
@@ -23,7 +23,7 @@ were false, and this file is the test half of the repair:
 
 The three `create_*` factories forward to the constructor of the same name and add
 nothing, so they fail "distinct useful operation". They were never in `__all__`. They are
-deprecated here rather than deleted, per `AGENTS.md` section 8.
+deprecated here rather than deleted, so callers have a path.
 """
 
 from __future__ import annotations
@@ -203,7 +203,7 @@ class TestEpochCollectionCompares:
 
 
 class TestTheSerializationContractIsStatedTruthfully:
-    """05-32. "SW-004: Result serializable" was unconditional and false."""
+    """"SW-004: Result serializable" was unconditional and false."""
 
     def test_to_dict_is_a_plain_nested_dict(self, parts):
         d = parts["Result"].to_dict()
@@ -297,7 +297,7 @@ class TestFrozenDoesNotFreezeWhatTheFieldsPointAt:
 
 class TestDeprecatedFactoriesWarnAndStillWork:
     """They forward to the constructor and add nothing -- they fail "distinct useful
-    operation". Deprecated, not deleted: `AGENTS.md` section 8 requires a path."""
+    operation". Deprecated, not deleted: a public API change carries a deprecation path."""
 
     @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
     def test_the_factory_is_not_and_never_was_part_of_the_declared_surface(self, name):
@@ -343,7 +343,7 @@ class TestDeprecatedFactoriesWarnAndStillWork:
         # installed wheel this read site-packages and failed.
         changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.md"
         assert name in changelog.read_text(encoding="utf-8"), (
-            f"AGENTS.md section 8: a public API change is announced in CHANGELOG.md"
+            "a public API change is announced in CHANGELOG.md"
         )
 
 
@@ -362,7 +362,7 @@ class TestTheModuleImportsOnlyWhatItUses:
 
 
 class TestProvenanceRecordsThePackageThatRan:
-    """05-50. `software_version` is the caller's claim and nothing derived it, so a
+    """`software_version` is the caller's claim and nothing derived it, so a
     record could name a version that never executed -- and, being frozen, keep it. A
     version alone cannot identify an implementation either: an editable install of a
     development tree and a release in site-packages report theirs the same way.

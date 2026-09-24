@@ -1,4 +1,4 @@
-"""05-16..05-20: a measured zero, an extrapolated spike, a fabricated label, an artifact
+"""A measured zero, an extrapolated spike, a fabricated label, an artifact
 used as its own repair reference, and a protection reported but never applied.
 
 Each test fails when its repair is reverted.
@@ -24,7 +24,7 @@ from jnwb.viz import raster_psth
 
 
 class TestNoFabricatedCertaintyAtOneTrial:
-    """05-16: one trial has no dispersion to measure. `sem` returned exactly 0.0 and
+    """One trial has no dispersion to measure. `sem` returned exactly 0.0 and
     `response_zscore` returned 0.0, so `classify_response_significance` reported
     confidence 'none' with pvalue 1.0 -- where the two-trial case correctly reported
     'undefined' and NaN.
@@ -79,7 +79,7 @@ class TestNoFabricatedCertaintyAtOneTrial:
 
 
 class TestPhaseLockingExcludesOutOfRangeSpikes:
-    """05-17: `np.interp` clamps, so every spike outside the LFP window received the
+    """`np.interp` clamps, so every spike outside the LFP window received the
     identical endpoint phase. Ten spikes 500 s past the end of a 10 s recording reported
     rayleigh_z 10.0 -- exactly n, the maximal resultant -- with p = 0.0.
     """
@@ -121,7 +121,7 @@ class TestPhaseLockingExcludesOutOfRangeSpikes:
 
 
 class TestAreaLookupDoesNotFabricate:
-    """05-18: `group_name` is the probe label, not an anatomical area."""
+    """`group_name` is the probe label, not an anatomical area."""
 
     def test_a_table_without_an_area_column_returns_no_area(self):
         electrodes = pd.DataFrame(
@@ -148,7 +148,7 @@ class TestAreaLookupDoesNotFabricate:
 
 
 class TestInterpolateIntervalsDoesNotPropagate:
-    """05-19: `s = max(s, 1)` and `e = min(e, n - 1)` pulled the anchors *inside* the
+    """`s = max(s, 1)` and `e = min(e, n - 1)` pulled the anchors *inside* the
     flagged region whenever the interval touched an edge, so the artifact became its own
     repair reference: [100, 0, 0, 100, 100, 100, 0, 0, 0, 100] over (0, 10) came back as
     ten copies of 100.
@@ -181,7 +181,7 @@ class TestInterpolateIntervalsDoesNotPropagate:
 
 
 class TestRepairLfpTrialsDoesNotAssertUnappliedProtection:
-    """05-20: `exclude_window_ms` was dropped when `times_ms` was None, while the
+    """`exclude_window_ms` was dropped when `times_ms` was None, while the
     diagnostics echoed it back with reward_excluded_cells 0 and an empty warnings list.
     """
 

@@ -1,4 +1,4 @@
-"""06-15: the jrsa correction fallback recorded a run as corrected a way it was not.
+"""The jrsa correction fallback recorded a run as corrected a way it was not.
 
 `_multiple_correction` routed every method but `bonferroni` to Benjamini-Hochberg when
 `statsmodels` could not be imported, while `parameters['correction']` kept echoing the

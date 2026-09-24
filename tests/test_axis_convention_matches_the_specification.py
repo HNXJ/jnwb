@@ -1,4 +1,4 @@
-"""05-85: the axis vocabulary the specification declares must be the one the code uses.
+"""The axis vocabulary the specification declares must be the one the code uses.
 
 `docs/10_operation_specifications.md` section 5 is consulted precisely when a function's own
 docstring is silent, so a wrong line there is worse than no line. Until 0.2.5 it declared one

@@ -360,7 +360,7 @@ class TestXFlipContainer:
 
 
 class TestTheContiguousPartitionIsStillTheArgmax:
-    """05-47: `interval_w` answered its off-diagonal term from a 2-D prefix sum in
+    """`interval_w` answered its off-diagonal term from a 2-D prefix sum in
     constant time, then re-summed `np.diag(corr)[u:v]` on every call. `np.diag` returns
     a view so nothing was copied, but the call, slice and reduction cost 4.82 of the
     5.56 microseconds a call took -- 87% -- and the DP makes about 93000 calls at

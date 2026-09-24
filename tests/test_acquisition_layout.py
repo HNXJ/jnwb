@@ -1,4 +1,4 @@
-"""05-38: acquisition_channel sliced axis 1 whatever orientation the file was in.
+"""Acquisition_channel sliced axis 1 whatever orientation the file was in.
 
 The channel axis was decided by ``shape[0] >= shape[1]`` -- whichever side is longer --
 and ``acquisition_channel`` did not consult even that. It always sliced ``data[:, channel]``

@@ -142,7 +142,7 @@ def test_jrsa_delegation_parity():
     assert np.isclose(res_jrsa.value, rho)
 
     # The *statistic* delegates; the p-value deliberately does not. This used to assert
-    # np.isclose(res_jrsa.p, p), which pinned the defect repaired as 05-06: `jrsa` returned
+    # np.isclose(res_jrsa.p, p), which pinned a since-repaired defect: `jrsa` returned
     # rdm_similarity's cell-wise parametric p (here 1.4e-161), which rsa.py:167 states "is
     # not a valid test of RDM relatedness", while the permutation null it had already
     # computed was discarded. The permutation p cannot resolve below 1/(permutations+1),

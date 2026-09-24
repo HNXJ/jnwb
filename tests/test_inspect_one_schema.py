@@ -1,4 +1,4 @@
-"""05-39: `inspect(path)` and `inspect(NWBFile)` were two implementations, two schemas.
+"""`inspect(path)` and `inspect(NWBFile)` were two implementations, two schemas.
 
 An h5py walk and a pynwb walk, written independently, with nothing holding them to the
 same answer. For one file they disagreed on which keys exist (`data_path`, `layout`),
