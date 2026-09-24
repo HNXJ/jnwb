@@ -1344,12 +1344,13 @@ PROCESS_IDENTIFIER = re.compile(
 
 
 def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) -> List[str]:
-    """Part of gate 14: no item or problem identifier anywhere in `jnwb/**/*.py`.
+    """Part of gate 14: no item or problem identifier in `jnwb/**/*.py` or `docs/**/*.md`.
 
     The head rule of `AGENTS.md` keeps internal process terminology out of the library surface,
-    comments and docstrings included. Identifiers were the form it took there: behaviour was
-    explained by citing the stack row that changed it, which tells a library reader nothing.
-    The scan is textual, so comments, docstrings and string constants are all covered.
+    comments and docstrings included, and out of the published pages. Identifiers were the form
+    it took there: behaviour was explained by citing the stack row that changed it, which tells a
+    reader nothing. The scan is textual, so comments, docstrings and string constants are all
+    covered.
     """
     root = repo_root or REPO_ROOT
     modules = sorted(
@@ -1361,7 +1362,7 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
             "sweep is broken, not the tree"
         ]
     violations = []
-    for py in modules:
+    for py in modules + sorted((root / "docs").rglob("*.md")):
         rel = py.relative_to(root).as_posix()
         for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
             for found in PROCESS_IDENTIFIER.finditer(line):
@@ -2477,7 +2478,8 @@ def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
         )
     library_violations = check_no_process_identifiers_in_library()
     if library_violations:
-        found.append(("FAIL: Item or problem identifiers found in jnwb/:", library_violations))
+        found.append(
+            ("FAIL: Item or problem identifiers found in jnwb/ or docs/:", library_violations))
     return found
 
 
@@ -2526,7 +2528,7 @@ GATES: List[Tuple[int, Any, Any]] = [
     (14, _internal_vocabulary_checks,
      lambda: f"PASS: No internal process vocabulary in docs/ ({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
-             "among them), and no item or problem identifier in jnwb/."),
+             "among them), and no item or problem identifier in jnwb/ or docs/."),
     (15, _one(check_stack_form_consistency,
               "FAIL: Coordination stack form is not machine-readable:"),
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "

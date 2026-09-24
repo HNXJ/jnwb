@@ -1274,8 +1274,16 @@ class TestGate14ProcessIdentifiersInLibrary:
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()
         assert [header for header, _ in failures] == [
-            "FAIL: Item or problem identifiers found in jnwb/:"
+            "FAIL: Item or problem identifiers found in jnwb/ or docs/:"
         ], failures
+
+    @pytest.mark.parametrize("line", ["Fixed under 06-55.", "The anchors were missing (P-12)."])
+    def test_a_seeded_identifier_in_a_published_page_fails(self, tmp_path: Path, line: str):
+        root = self._library(tmp_path, "Module text.")
+        (root / "docs" / "nested").mkdir(parents=True)
+        (root / "docs" / "nested" / "page.md").write_text(f"# Page\n\n{line}\n", encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "docs/nested/page.md:3" in violations[0], violations
 
 
 class TestGate6RecursiveCoverage:
