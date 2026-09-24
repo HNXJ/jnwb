@@ -370,3 +370,34 @@ class TestNWBReadHelpers:
         np.testing.assert_allclose(data, expected)
         assert fs == 1000.0
 
+    def test_channel_conversion_scales_each_channel(self, tmp_path):
+        """NWB: physical = data * conversion * channel_conversion[ch] + offset.
+
+        The same stored count on three channels must come back as three different voltages.
+        What would pass while the factor is ignored: a test whose factors are all 1, or one
+        that reads only channel 0.
+        """
+        from datetime import datetime, timezone
+        from pynwb import NWBFile, NWBHDF5IO
+        from pynwb.ecephys import ElectricalSeries
+
+        path = tmp_path / "channel_conversion.nwb"
+        nwb = NWBFile(session_description="cc", identifier="cc",
+                      session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc))
+        dev = nwb.create_device(name="d")
+        grp = nwb.create_electrode_group(name="g", description="g", location="x", device=dev)
+        for _ in range(3):
+            nwb.add_electrode(group=grp, location="x")
+        region = nwb.create_electrode_table_region([0, 1, 2], "all")
+        factors, conversion, offset = [1.0, 2.0, 0.5], 1e-6, 1e-3
+        raw = np.full((50, 3), 100, dtype=np.int16)
+        nwb.add_acquisition(ElectricalSeries(
+            name="es", data=raw, electrodes=region, rate=1000.0, conversion=conversion,
+            offset=offset, channel_conversion=factors))
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+
+        for ch, factor in enumerate(factors):
+            data, _ = acquisition_channel(path, name="es", channel=ch)
+            np.testing.assert_allclose(data, 100 * conversion * factor + offset, rtol=0, atol=1e-15)
+

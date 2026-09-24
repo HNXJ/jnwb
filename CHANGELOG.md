@@ -153,6 +153,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`acquisition_channel` applies `channel_conversion`.** An `ElectricalSeries` may store a
+  per-channel factor, and the NWB specification computes the physical value as
+  `data * conversion * channel_conversion[ch] + offset`. The factor was ignored, so a file
+  storing `channel_conversion=[1, 2, 0.5]` returned the same voltage on all three channels where
+  pynwb returns 1e-4, 2e-4 and 5e-5 V. A `channel_conversion` whose length is not the channel
+  count raises `ValueError`.
 - **A PSTH window must be whole bins.** `raster_psth` built a last bin that ran past
   `win_ms[1]` when the span was not a multiple of `bin_ms`, and divided its partial count by the
   full `bin_ms`: a steady 1000 Hz train read 500 Hz in the last bin of `win_ms=(-200, 505)` at

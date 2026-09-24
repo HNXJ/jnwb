@@ -27,7 +27,7 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
   or a series wrapped in `FilteredEphys` or a behavior container -- `EyeTracking`, `PupilTracking`,
   `BehavioralTimeSeries`, `Position`, `CompassDirection` -- in acquisitions; calibrated by
-  `conversion` and `offset`).
+  `conversion`, the channel's `channel_conversion` factor and `offset`).
 - `jnwb.read_nwb(path, allow_missing=None)`: Reads an NWB file through jnwb's repairs and closes
   it, so read data arrays through `nwb_read_io`. A file missing `session_description` raises
   `MissingRequiredNWBFieldError`; `allow_missing=("session_description",)` opens it with the field

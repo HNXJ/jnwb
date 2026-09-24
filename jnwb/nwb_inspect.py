@@ -716,7 +716,9 @@ def acquisition_channel(
     -------
     data:
         1D ``float64`` array of physically scaled samples according to the NWB
-        specification (:math:`x_{\mathrm{physical}} = \mathrm{conversion} \cdot x_{\mathrm{stored}} + \mathrm{offset}`).
+        specification (:math:`x_{\mathrm{physical}} = \mathrm{conversion} \cdot c_k \cdot x_{\mathrm{stored}} + \mathrm{offset}`,
+        where :math:`c_k` is the series' ``channel_conversion`` entry for the channel, 1 when absent).
+        A ``channel_conversion`` whose length is not the channel count raises ``ValueError``.
         Units match the series ``unit`` attribute (typically ``"volts"`` for
         :class:`~pynwb.ecephys.ElectricalSeries`).
     rate_hz:
@@ -789,6 +791,20 @@ def acquisition_channel(
             c_val = float(conversion)
             if c_val != 1.0:
                 data = data * c_val
+        # `channel_conversion` is the per-channel factor of an ElectricalSeries, applied after
+        # `conversion` and before `offset`; indexed on the channel axis, like `channel`.
+        channel_conversion = getattr(series, "channel_conversion", None)
+        if channel_conversion is not None:
+            factors = np.asarray(channel_conversion[:], dtype=np.float64).ravel()
+            n_expected = 1 if len(shape) == 1 else n
+            if factors.size != n_expected:
+                raise ValueError(
+                    f"Series '{acq_name}' stores {factors.size} channel_conversion factors "
+                    f"for {n_expected} channels; the physical value of channel {channel} "
+                    f"cannot be computed"
+                )
+            if factors[channel] != 1.0:
+                data = data * factors[channel]
         if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
             o_val = float(offset)
             if o_val != 0.0:
