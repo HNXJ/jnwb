@@ -1,10 +1,9 @@
 """
-jnwb.vis.state_space -- Publication-grade population state-space geometry, RSA, and decoding in pure Plotly.
+jnwb.vis.state_space -- Decoding and representational similarity panels in pure Plotly.
 
-Implements Motif 5 (Fiser 2023, Garrett 2025, Grand Draft 2026):
-- Population state-space trajectories (2D/3D PCA/GPFA with time arrows and condition markers)
-- Representational Similarity Matrices (RSM) with hierarchical clustering dendrograms
-- Cross-validated decoding time courses with cluster-based permutation test significance bars
+- ``plot_decoding_timecourse``: a cross-validated decoding time course with a CI ribbon and
+  bars over caller-supplied significant clusters.
+- ``plot_rsm_heatmap``: a representational similarity or dissimilarity matrix heatmap.
 """
 
 from __future__ import annotations

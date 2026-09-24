@@ -1,9 +1,8 @@
 """
 jnwb.vis.sidecar -- Epistemic argument object serialization and schema enforcement.
 
-Enforces Paper2Agent and Nature-grade scientific reproducibility:
-Every publication figure produced by jnwb.vis must be accompanied by an 8-field
-machine-readable epistemic argument sidecar (*_argument.json):
+Validates and writes the machine-readable sidecar (*_argument.json) that accompanies every
+figure jnwb.vis exports. It holds eight fields:
 1. QUESTION: Explicit hypothesis or scientific question addressed.
 2. DATA: Underlying empirical dataset, recording modality, sample counts, and QC filters.
 3. ESTIMAND: Mathematical definition of the plotted metric.

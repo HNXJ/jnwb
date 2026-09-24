@@ -8,7 +8,10 @@ keeps them in step, so this module holds them to each other in both directions:
 * every row names a result, not only a source;
 * every function a row lists exists and cites that row's DOI in its docstring;
 * every DOI cited anywhere in `jnwb/` is on the page;
-* every public function whose docstring cites a DOI is listed on that DOI's row.
+* every public function whose docstring cites a DOI is listed on that DOI's row;
+* every author-year citation in a `jnwb/vis` docstring names a row of the page. Those
+  modules cite by author and year rather than by DOI, and `jnwb.vis` is a module that the
+  public-callable walk skips, so the DOI checks above cannot see them.
 
 Whether a DOI is registered needs the network, which the suite does not use. The page states
 the date its DOIs were resolved; this module checks that what it lists is shaped like a DOI and
@@ -17,6 +20,7 @@ that the docstrings agree with it.
 
 from __future__ import annotations
 
+import ast
 import inspect
 import re
 import urllib.parse
@@ -37,6 +41,11 @@ DOI_SHAPE = re.compile(r"^10\.\d{4,9}/[-._;()/:<>A-Za-z0-9]+$")
 PAGE_LINK = re.compile(r"\[doi:([^\]]+)\]\(https://doi\.org/((?:[^()\s]|\([^()\s]*\))+)\)")
 SOURCE_DOI = re.compile(r"doi:(10\.[^\s`'\"]+)")
 CODE_SPAN = re.compile(r"`([^`]+)`")
+#: A surname, optionally followed by "et al." or "& Coauthor", then a year.
+AUTHOR_YEAR = re.compile(
+    r"\b([A-Z][\w'-]+)(?:\s+et al\.?|\s+(?:&|and)\s+[A-Z][\w'-]+)?,?\s+\(?((?:19|20)\d{2})\b"
+)
+ROW_YEAR = re.compile(r"\(((?:19|20)\d{2})\)")
 
 
 def _norm(doi: str) -> str:
@@ -166,6 +175,24 @@ def test_every_citing_function_is_listed_on_its_row(rows):
                 f"`{name}` cites doi:{doi}, but docs/references.md does not list it there"
             )
     assert checked >= 20, f"only {checked} citations found in public docstrings; the walk is wrong"
+
+
+def test_every_author_year_citation_in_vis_is_on_the_page(rows):
+    on_page = set()
+    for reference, _, _ in rows:
+        year = ROW_YEAR.search(reference)
+        if year:
+            on_page.add((reference.split(",")[0].strip().lower(), year.group(1)))
+    cited = []
+    for path in sorted((PACKAGE / "vis").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                for surname, year in AUTHOR_YEAR.findall(ast.get_docstring(node) or ""):
+                    cited.append((surname, year, path.relative_to(ROOT).as_posix()))
+    assert cited, "no author-year citation found in jnwb/vis; the scan is wrong"
+    missing = [c for c in cited if (c[0].lower(), c[1]) not in on_page]
+    assert not missing, f"cited in jnwb/vis but absent from docs/references.md: {missing}"
 
 
 def test_a_malformed_doi_is_rejected():

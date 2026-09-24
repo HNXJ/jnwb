@@ -1,10 +1,8 @@
 """
-jnwb.vis.hierarchy -- Publication-grade cortical hierarchy and multi-area alignment in pure Plotly.
+jnwb.vis.hierarchy -- Cortical hierarchy panels in pure Plotly.
 
-Implements Motif 3 (Siegle 2021, Westerberg 2024, Grand Draft 2026):
-- Hierarchy latency & prevalence regressions with error bars, linear fit, and permutation ribbons
-- Simultaneous multi-area time-aligned cascades
-- Pairwise functional latency / delay matrices
+- ``plot_hierarchy_regression``: a per-area metric (latency, prevalence) against hierarchy
+  rank, with caller-supplied error bars and null ribbon and a least-squares line.
 """
 
 from __future__ import annotations

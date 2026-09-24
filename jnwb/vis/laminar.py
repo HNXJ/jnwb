@@ -1,10 +1,10 @@
 """
-jnwb.vis.laminar -- Publication-grade laminar electrophysiology primitives in pure Plotly.
+jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
-Implements Motif 1 (Mendoza-Halliday 2024, Westerberg 2024, Buzsáki 2019):
-- 2D Spectrolaminar relative power maps (radical-sign motif, 1-150 Hz x depth)
-- Opposing laminar power gradients (Gamma vs. Alpha/Beta with L4 crossover and CI ribbons)
-- Current Source Density (CSD) profiles with zero-crossing contour lines and layer boundaries
+- ``plot_spectrolaminar_map``: relative power over frequency x depth.
+- ``plot_opposing_gradients``: gamma and alpha/beta power against depth, with caller-supplied
+  intervals and crossover depth.
+- ``plot_csd``: a current source density depth x time profile with layer boundaries.
 """
 
 from __future__ import annotations

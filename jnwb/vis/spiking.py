@@ -1,10 +1,9 @@
 """
-jnwb.vis.spiking -- Publication-grade spiking diversity, rasters, and PSTH primitives in pure Plotly.
+jnwb.vis.spiking -- Raster, PSTH and population heatmap panels in pure Plotly.
 
-Implements Motif 2 (Westerberg 2024, Garrett 2020/2025, Siegle 2021):
-- Synchronized multi-condition raster (WebGL Scattergl) + PSTH (translucent mean +/- 1.96 SEM ribbons)
-- Sorted population response heatmaps (N units x time, sorted by peak latency or response category)
-- Action potential waveform quality & cell-typing scatters (pyramidal vs. fast-spiking)
+- ``plot_multi_condition_raster_psth``: a multi-condition raster (WebGL ``Scattergl``) above a
+  PSTH with mean +/- 1.96 SEM ribbons across trials.
+- ``plot_sorted_heatmap``: a units x time response heatmap in a caller-supplied row order.
 """
 
 from __future__ import annotations

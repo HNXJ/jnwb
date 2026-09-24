@@ -1,12 +1,12 @@
 """
-jnwb.vis.spectral -- Publication-grade spectral modulation and functional connectivity in pure Plotly.
+jnwb.vis.spectral -- Spectral modulation and directed connectivity panels in pure Plotly.
 
-Implements Motif 4 (Bastos 2020, Mendoza-Halliday 2024, Westerberg 2024):
-- Area x Frequency Band modulation matrices with significance markers from a caller-supplied mask
-- Directed Granger causality spectra for both directions of a pair, with caller-supplied null ribbons
+- ``plot_spectral_modulation_matrix``: an area x frequency-band matrix with significance
+  markers from a caller-supplied mask.
+- ``plot_granger_spectra``: Granger spectra for both directions of a pair, with
+  caller-supplied null ribbons.
 
 No statistic is computed here: every mask, interval and null is a caller input.
-- Phase-Amplitude Coupling (PAC) comodulograms
 """
 
 from __future__ import annotations
