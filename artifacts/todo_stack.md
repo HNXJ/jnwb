@@ -90,25 +90,16 @@ packets finish before 06-34.
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. The pass at `f39136cb` closed P-93, P-114, P-239, P-272, P-261, P-243, P-250, P-251, P-252, P-253, P-263 and P-271 and verified the contract gate, the documentation form gate, and 06-17's repairs and six of its answers; it broke P-104 and 06-17's tenth answer (P-286), and left P-215, P-273 and P-262's CHANGELOG line partial. The pass at `185e44d4` verified P-215, P-262, P-273 and P-286 and P-182's rewrite, AST identity, gate extension and xflip receipt (the gate's evasions go to 07-01 as P-295); P-02's MCP-and-skills answers cite `artifacts/goal.md:19-20`, the line that decides them, and its other re-cited answers hold at `artifacts/rulings/2026-09-22.md:22-23`. It broke P-104 through an external link and the time-first rule for `TimeSeries` subtypes other than the two it named. Current list, one entry per repair. P-104: each `select=` entry of `compress_fp32` resolves to the dataset it opens before any guard compares it (`55fabfb3`), a hard or soft link to a refused dataset is refused like its target (`08fd43d8`), and an external link into another file is refused before anything is written (`c8477fea`). Behavior containers (`8b039e68`, `185e44d4`, `c8477fea`): `acquisition_channel` unwraps `EyeTracking`, `PupilTracking`, `BehavioralTimeSeries`, `Position`, `CompassDirection` and `FilteredEphys` in `/acquisition`, and every typed series without an electrode region (all but `ElectricalSeries` and `SpikeEventSeries`) is read time-first in `acquisition_channel` and in `inspect`'s `layout`. P-178: no worktree holds uncommitted work absent from `dev`; lane `fig` was removed on 2026-09-23. P-185 (06-57, now closed): the `jnwb/vis` docstrings cite only entries in `docs/references.md`, and the `sidecar.py` docstring names no external project as its source. P-208: `docs/documentation_form.md` cites no item id and states nine raster pages; Gate 14 scans `docs/**/*.md` for item and problem identifiers with the library's pattern (06-144, now closed). P-210 (06-51, now closed): `docs/documentation_form.md` gives `docs/architecture.md` a kind and a word ceiling and counts it among the pages.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. The pass at `f39136cb` closed P-93, P-114, P-239, P-272, P-261, P-243, P-250, P-251, P-252, P-253, P-263 and P-271 and verified the contract gate, the documentation form gate, and 06-17's repairs and six of its answers; it broke P-104 and 06-17's tenth answer (P-286), and left P-215, P-273 and P-262's CHANGELOG line partial. The pass at `185e44d4` verified P-215, P-262, P-273 and P-286 and P-182's rewrite, AST identity, gate extension and xflip receipt (the gate's evasions go to 07-01 as P-295); P-02's MCP-and-skills answers cite `artifacts/goal.md:19-20`, the line that decides them, and its other re-cited answers hold at `artifacts/rulings/2026-09-22.md:22-23`. It broke P-104 through an external link and the time-first rule for `TimeSeries` subtypes other than the two it named. The pass at `b1de90dd` verified P-104's external-link refusal, the behavior-container unwrap and time-first rule, P-178 and P-210; it broke P-185, whose repair had never landed, and found P-208's gate blind to included snippets, STEP 0a evadable, a mislabelled stability plot and a false length table. 06-34 ran 48 mutants at `b1de90dd` (42 killed); three survivors on shipped or release-evidence behaviour need tests, and the pass found the PSTH partial-bin defect. Current list, one entry per repair. `plot_unit_quality_distribution` labels each stability bar by its own class and leaves an absent metric's panel empty (`95b462e4`). P-185: `jnwb/vis` docstrings cite only `docs/references.md` entries, no external project is named as a source, and `tests/test_references_resolve.py` checks author-year citations in `jnwb/vis/**` (`7f0da0ce`). P-208: Gate 14 follows every `--8<--` include of a `docs/` page, and the published tutorial snippet cites no identifier (`9b3b022f`). STEP 0a refuses every line under `## Open` but its header and separator, and Gate 15 rejects the evasion forms (`c4488427`). `docs/documentation_form.md`'s length section measures true, `docs/01` sits under its ceiling, and a test recomputes the stated counts (`9a621f20`). The same-file external link, the electrode-free `ElectricalSeries` and `inspect`'s object path each have a killing test (`2befd4c0`), and `inspect` of an in-memory file unwraps every wrapping container (`fb3177da`). P-270: `README.md` links `artifacts/agents.md` on `main`, which resolves only after the release merge; 06-130 confirms it.
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
 ## Closure
 
-### 06-34 Adversarial mutation pass
-
-Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: none. Writes: none.
-Runs at `b1de90dd` beside 06-136's seventh pass, for speed; a repair landing after that
-baseline is attacked again by 06-39.
-Seed known semantic defects and require the intended gate to catch each; every selector collects
-and passes pristine before a verdict counts.
-
 ### 06-35 Clean-environment matrix
 
 Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: 06-34. Writes: none.
+Role: verifier. Skill: none. Blocked by: 06-136. Writes: none.
 P-06, P-09. Every declared interpreter on Ubuntu and Windows, from a fresh environment; record
 `jnwb.__file__` for each, because `C:\Python314\Lib\site-packages` holds a 0.2.5 copy and a backup.
 P-06: `.venv\Scripts\python.exe` collected 2841 tests with one error (statsmodels absent) where
@@ -119,7 +110,7 @@ collection errors. P-09: that site-packages copy differs from this checkout in `
 ### 06-36 Documentation qualification
 
 Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: 06-34. Writes: none.
+Role: verifier. Skill: none. Blocked by: 06-136. Writes: none.
 Strict build; diagrams render as diagrams, asserted against built output; generated assets
 current, with `tests/test_generated_figures_are_maintained.py` run where the figures were
 generated and reporting zero skips; links resolve; no stale version claim; the architecture page reachable.
@@ -127,7 +118,7 @@ generated and reporting zero skips; links resolve; no stale version claim; the a
 ### 06-37 Distribution qualification
 
 Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: 06-34. Writes: none.
+Role: verifier. Skill: none. Blocked by: 06-136. Writes: none.
 P-04. Build the sdist and wheel into the scratchpad, not `dist/`, and point the distribution
 checks at that build: contents, metadata, imports, exports, `SKILLS_URL`, the `vis` extra,
 representative workflows, no checkout shadowing, no `examples/data` in the wheel. P-04: `dist/`
@@ -179,7 +170,9 @@ equals `dev`.
 Ruled 2026-09-23: opened ahead of the closure order as HNXJ/jnwb#20 and merged at `5e8ff14d`;
 `main`'s tree equals `efdba807`, and `git merge-tree --write-tree origin/main origin/dev` at
 `679e70a9` equals `dev`. What remains here is the same check on the release pull request.
-Accept: `git diff dev <merge>` is empty on the release pull request.
+P-270: `README.md` links `blob/main/artifacts/agents.md`, which `main` lacks until the release
+merge; confirm the link resolves once the merge lands.
+Accept: `git diff dev <merge>` is empty on the release pull request, and the README's agent link resolves.
 
 ### 06-40 Release
 
@@ -288,6 +281,13 @@ leaves this item as a `required-0.2.6` item.
 - P-297: The `compare_multiple_groups` docstring omits that `eta_squared` is NaN for an empty group. Deferred: the value is a loud NaN and the CHANGELOG states it.
 - P-298: `_find_timestamp_paths` walks with `visititems`, which visits an object once under its first name, so a regular timestamps array with an earlier hard-link name is neither collapsed nor refused, and is cast and kept. Deferred: the receipt stays consistent; older than this cycle.
 - P-299: `inspect` reports `packaging` `direct` for wrapped behavior and `FilteredEphys` containers whose `data_path` is nested. Deferred: vocabulary only.
+- P-285: The xflip calibration receipt hashes the estimator's source text including comments, so a comment edit forces a 130 s recalibration. Waits: it can only fail when nothing is wrong, never pass when something is.
+- P-300: `AGENTS.md` says "P-153's row carries why", which now resolves only through git history; the STEP 0a message truncates item titles. Waits: wording only.
+- P-301: No test pins the removal of an external project's name from `jnwb/vis/sidecar.py`; the author-year check cannot see a project name. Waits: the live tree is clean.
+- P-302: Outside `## Open`, a problem-shaped row with its id in column 2 or no id is not counted by STEP 0a. Waits: the Open section, the only place a problem is recorded, is fully checked.
+- P-303: `inspect` of an in-memory file unwraps the known container types while the file walk unwraps any group holding series, so an unknown container type can differ between the two forms. Waits: known types agree; older than this cycle.
+- P-304: Mutation-pass coverage gaps with correct code at HEAD: Gate 9's api.md sync is not tested against a same-length drift, the contract gate does not test an export recorded in two order categories, and documented `win_ms=` literals are not checked against `bin_ms`. Waits: no current evidence passes falsely.
+- P-305: `tests/test_semantic_mutation_classes.py` fails on any uncommitted byte change to its target modules, so a full-suite mutation oracle must deselect it, and the CUDA agreement tests kill device mutants only on a GPU machine. Waits: 06-34 accounted for both; a recipe note for the next pass.
 
 ## Reported and not admitted
 

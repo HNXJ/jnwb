@@ -439,9 +439,9 @@ those terms. A packet may never say "not my defect" because its own diff did not
 *first* failure -- that ordering is an artifact of the runner, not a finding. Ruled 2026-09-19
 after one false positive at gate 2 of 13 left eleven gates unrun and the tree looking clean.
 
-**A problem closes unfixed only when it is shown false or cannot be retested**, as a shipped
-artifact cannot. The commit message that deletes the row carries the reason, which must survive a
-hostile reader; an inconvenient repair is never one.
+**A problem closes unfixed only when it is shown false.** The commit message that deletes the row
+carries the evidence, which must survive a hostile reader. Anything else that cannot be repaired
+now moves into the todo stack; an inconvenient repair is never a reason to delete a row.
 
 ### Why this is written down
 
