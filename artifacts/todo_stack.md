@@ -56,8 +56,8 @@ barrier above.
 | W8 |  |
 | W9 |  |
 | W10 |  |
-| Rolling | Verification ran through `1d5e8b81`; 06-60 verifies 06-148's repairs |
-| Closure | 06-148, then 06-60, then 06-40 |
+| Rolling | Verification ran through `6c651511`; the receipt records it |
+| Closure | 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
 packets finish before 06-34.
@@ -88,25 +88,10 @@ packets finish before 06-34.
 
 ## Closure
 
-### 06-148 Repair the fourteen blockers the closure pass found at `1d5e8b81`
-
-Release: required-0.2.6.
-Role: actor. Skill: none. Blocked by: none. Writes: `jnwb/**/*.py`, `tests/test_*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `scripts/release_gate.py`, `CHANGELOG.md`.
-Ruled 2026-09-23: fix all fourteen, verify, release. All fourteen landed on `dev` by `c7949748`; B5-B7, B14 and B8-B13 verified with kills, B1-B4 and the follow-up repairs under verification. Statistics and spectral: permutation p recomputed in shuffled order falls one ulp short of the observed statistic; `TFRAccumulator` reports 0.0 where no trial was valid; `exact_sign_flip`'s absolute tie tolerance makes p depend on units; a flat non-zero trace passes the `> 0` guards of `spectral_tilt`, `harmonic_analysis` and `band_power`. NWB and release check: `channel_conversion` is ignored; `starting_time` is dropped (ruled: report it in `inspect` and warn in `acquisition_channel`); `compress_fp32` deletes linked timestamps; STEP 0a reads the working tree. Direction and parameters: `zflip.directionality` names a direction from row order; docs/08 swaps TE's k and l; the directed `jrsa` metrics state no direction; `jrsa(sliding=True)` and TE `k=` are ignored (ruled: refuse `sliding`); a two-unit PCA sign flips on CUDA.
-Accept: each repair has a discriminator that fails without it, and the full suite passes.
-
-### 06-60 Verify the fourteen repairs and record the receipt
-
-Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-148.
-Writes: `artifacts/blocker_fixpoint_receipt.md`.
-Condition 3 of `AGENTS.md` §11, amended for 0.2.6 by the 2026-09-23 ruling on the closure at `1d5e8b81`: that pass found fourteen blockers (06-148), and an independent verification of each repair with a kill replaces a further open-ended pass. A regression from the repairs is a blocker; anything else it finds goes to 0.2.7. At `1d5e8b81` the independent critic's remaining check passed on every repair after `4fb3d5f2`, and the wheel built from that commit matched git byte for byte, installed cleanly and passed the suite against the installed copy.
-Accept: every 06-148 repair verified with a kill and no regression; every entry of `artifacts/frozen_validated.json` (gate 19, landed at `84fbe2ef` with its author's kills) re-killed by a verifier who did not write it, or removed; the receipt names the commit it ran against and reports zero new release-blocking problems, and STEP 0a accepts it.
-
 ### 06-40 Full 0.2.6 release
 
 Release: release-step-0.2.6.
-Role: human. Skill: none. Blocked by: 06-60. AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: none. AUTONOMY: none.
 Writes: none.
 Released by the agent once done (ruled 2026-09-23); Hamm approves the PyPI deployment. The release pull request merges `dev` into `main` with a merge commit through the `main` ruleset's seven checks, and `git diff dev <merge>` is empty (P-180: `main` was reconciled in HNXJ/jnwb#20). Tag `v0.2.6`; publish the GitHub Release, whose `publish-pypi` job waits in the `pypi` environment for Hamm's approval and which Zenodo archives. Then verify from PyPI in a clean environment: TestPyPI's 0.2.6 at `8e90a4ad` and the local wheel at `1d5e8b81` already passed, so this is the last leg of the artifact check.
 Accept: PyPI serves 0.2.6 and its wheel's `jnwb/` equals the tag byte for byte; a clean install opens and analyses an NWB file; `SKILLS_URL` and the README's `artifacts/agents.md` link (P-270) resolve; Zenodo shows a DOI.
