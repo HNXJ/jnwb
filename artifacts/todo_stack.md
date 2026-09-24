@@ -99,7 +99,9 @@ Accept: each listed row carries a receipt the verifier produced, or the breaking
 ### 06-34 Adversarial mutation pass
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-136. Writes: none.
+Role: critic. Skill: none. Blocked by: none. Writes: none.
+Runs at `b1de90dd` beside 06-136's seventh pass, for speed; a repair landing after that
+baseline is attacked again by 06-39.
 Seed known semantic defects and require the intended gate to catch each; every selector collects
 and passes pristine before a verdict counts.
 
