@@ -130,30 +130,37 @@ class TestTheUnpairedPValueIsTheRankItClaimsToBe:
 
 class TestADrawThatReproducesTheObservedSplitCountsItself:
     """Recomputing the observed split in shuffled order can land an ulp below the observed
-    statistic. With these values it does for both the unpaired mean difference and the
-    identity sign flip, and the p-value fell to a third of the exact one (unpaired) or to
-    its floor (paired). Separated groups make the exact p a count of two draws."""
+    statistic. With these values it does for both the unpaired mean difference (after the
+    pooled values are centred) and the identity sign flip, and without the tie width the
+    p-value falls well below the exact one (unpaired) or to its floor (paired). Separated
+    groups make the exact p a count of two draws. The unpaired cases also run at a common
+    offset of 1e9, where a statistic taken from the uncentred values drops p to its floor."""
 
-    X = np.array([17.9, 10.5, 12.3])
-    Y = np.array([7.0, 5.7, 5.1])
+    X = np.array([14.9, 18.9, 19.3])
+    Y = np.array([4.8, 5.9, 4.6])
     D = np.array([1.53, 2.55, 2.07, 2.9, 1.42])
 
+    @pytest.mark.parametrize("offset", [0.0, 1e9])
     @pytest.mark.parametrize("alternative, exact", [("two-sided", 0.1), ("greater", 0.05)])
-    def test_unpaired(self, alternative: str, exact: float):
+    def test_unpaired(self, alternative: str, exact: float, offset: float):
         _, p = shuffle_pvalue_unpaired(
-            self.X, self.Y, N_SHUFFLES, np.random.default_rng(0), alternative=alternative
+            self.X + offset, self.Y + offset, N_SHUFFLES, np.random.default_rng(0),
+            alternative=alternative,
         )
         assert p == pytest.approx(exact, abs=0.02), (p, exact)
         _, p_neg = shuffle_pvalue_unpaired(
-            -self.X, -self.Y, N_SHUFFLES, np.random.default_rng(0),
+            -self.X - offset, -self.Y - offset, N_SHUFFLES, np.random.default_rng(0),
             alternative="less" if alternative == "greater" else alternative,
         )
         assert p_neg == pytest.approx(exact, abs=0.02), (p_neg, exact)
 
-    def test_permutation_test(self):
+    @pytest.mark.parametrize("offset", [0.0, 1e9])
+    def test_permutation_test(self, offset: float):
         from jnwb import StatisticalAnalysis
 
-        p = StatisticalAnalysis.permutation_test(self.X, self.Y, n_permutations=N_SHUFFLES, rng=0)["pval"]
+        p = StatisticalAnalysis.permutation_test(
+            self.X + offset, self.Y + offset, n_permutations=N_SHUFFLES, rng=0
+        )["pval"]
         assert p == pytest.approx(0.1, abs=0.02), p
 
     @pytest.mark.parametrize("alternative, exact", [("two-sided", 2 / 32), ("greater", 1 / 32)])
