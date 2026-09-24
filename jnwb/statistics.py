@@ -33,6 +33,7 @@ import numpy as np
 from ._parallel import parallel_map, spawn_seeds
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._spread import is_constant as _is_constant
 import pandas as pd
 from scipy import stats
 
@@ -419,18 +420,6 @@ def _require_shuffle_inputs(a: np.ndarray, b: np.ndarray, n_shuffles: int, func_
         raise ValueError(f"{func_name}: a and b must be finite; drop or repair NaN or Inf values first")
     if isinstance(n_shuffles, bool) or not isinstance(n_shuffles, (int, np.integer)) or n_shuffles < 1:
         raise ValueError(f"{func_name}: n_shuffles must be a positive integer, got {n_shuffles!r}")
-
-
-def _is_constant(a: np.ndarray, axis: Optional[int] = None) -> Union[bool, np.ndarray]:
-    """True where every value equals the first, compared exactly.
-
-    ``np.std`` and ``np.var`` are no test of constancy: the mean of a constant 0.3 is not 0.3 in
-    floating point, so its std is about 5.6e-17 rather than 0 and a ``> 0`` guard passes.
-    """
-    a = np.asarray(a)
-    if axis is None:
-        return bool(a.size == 0 or np.all(a == a.flat[0]))
-    return np.all(a == np.take(a, [0], axis=axis), axis=axis)
 
 
 def _zero_spread_t(difference: float) -> Tuple[float, float]:

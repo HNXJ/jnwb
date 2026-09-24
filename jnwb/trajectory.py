@@ -12,6 +12,7 @@ import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._bins import bin_edges, right_open_counts, whole_bin_count
+from ._spread import zscore
 from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -102,7 +103,8 @@ def compute_population_trajectory(
     .. note::
         This function computes standardized PCA (correlation PCA): features across units
         are centered and z-scored to unit variance before SVD. Units contribute equally
-        to total variance regardless of baseline firing rate. This contrasts with
+        to total variance regardless of baseline firing rate; a unit whose rate never
+        changes contributes nothing. This contrasts with
         :meth:`jnwb.analyzers.UnitAnalyzer.population_trajectory` which computes
         unstandardized covariance PCA (centering only).
 
@@ -146,11 +148,8 @@ def compute_population_trajectory(
     # Reshape X to (n_trials * n_bins, n_units) to perform PCA over the unit dimension
     X_flat = X.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
     
-    # Scale and center features
-    mean = np.mean(X_flat, axis=0, keepdims=True)
-    std = np.std(X_flat, axis=0, keepdims=True)
-    std[std == 0.0] = 1.0
-    X_scaled = (X_flat - mean) / std
+    # Scale and center features; a constant unit is exactly 0 and takes no component.
+    X_scaled = zscore(X_flat, axis=0)
 
     actual_components = min(n_components, X_flat.shape[0], n_units)
 

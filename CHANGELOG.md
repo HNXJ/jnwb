@@ -227,6 +227,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     of 0.3 at every observation read t 1.8e16 where a constant non-zero difference is NaN, and
     two groups of 7 and 12 equal to 0.3 read t 3.3, enough to form a cluster at the default
     threshold, where equal constant groups read 0.0.
+- **Standardisation takes a constant to 0.** The computed std of a constant 0.3 is rounding
+  residue rather than 0, and dividing the centred values, the same residue, by it turned the
+  constant into a column of ones. A constant column in `gpu_pca` and a unit with an unchanging
+  rate in `compute_population_trajectory` each took a whole principal component; a constant
+  row under `jrsa(standardize=True)`, a constant trial under `detrend='zscore'` (the `granger`
+  and `granger_spectral` default) and a constant signal in the deprecated `granger_causality`
+  entered the analysis as ones. Each is now exactly 0, on CPU and CUDA alike, whatever the
+  constant's value. `compute_response_metrics` with the same baseline count in every trial
+  read `response_zscore` about 1e15 in size (-2.1e15 for 7 spikes in 0.15 s over 20 trials)
+  where no across-trial variance gives NaN; it is NaN. Constant model residuals read a
+  Ljung-Box p of 0.0 and the warning `residual_autocorrelation_ljung_box_p<0.05`; the test is
+  now not run, with `residual_whiteness_not_tested`.
 - **`acquisition_channel` reads series wrapped in behavior containers.** An `EyeTracking`,
   `PupilTracking`, `BehavioralTimeSeries`, `Position` or `CompassDirection` container in
   `/acquisition` raised `AcquisitionNotFoundError` ("has no readable data array"), and its bare

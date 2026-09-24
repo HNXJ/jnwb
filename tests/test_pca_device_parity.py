@@ -230,9 +230,11 @@ class TestTrajectoryPinsItsSigns:
             session, "V1", epochs, (-1000.0, 2000.0), 20.0, None)
         n_trials, n_units, n_bins = x.shape
         flat = x.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
-        std = flat.std(0, keepdims=True)
-        std[std == 0.0] = 1.0
-        scaled = (flat - flat.mean(0, keepdims=True)) / std
+        # A constant unit (largest value == smallest) is 0; `std == 0` misses one whose
+        # computed std is rounding residue.
+        constant = flat.max(0, keepdims=True) == flat.min(0, keepdims=True)
+        std = np.where(constant, 1.0, flat.std(0, keepdims=True))
+        scaled = np.where(constant, 0.0, (flat - flat.mean(0, keepdims=True)) / std)
         _, _, vt = np.linalg.svd(scaled, full_matrices=False)
         return scaled, vt[:3, :], (n_trials, n_bins)
 

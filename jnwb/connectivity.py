@@ -53,6 +53,7 @@ from ._backend import (
     warn_no_gpu_path,
 )
 from ._parallel import parallel_map
+from ._spread import is_constant, zscore
 from ._units import resolve_unit_alias
 from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._layout import require_trial_length
@@ -458,7 +459,9 @@ def _ljung_box_pvalue(residuals: np.ndarray, nlags: int = 10) -> float:
     """Ljung–Box portmanteau test p-value on residual autocorrelations."""
     r = np.asarray(residuals, dtype=float).ravel()
     n = len(r)
-    if n < nlags + 2:
+    # Constant residuals have no autocorrelation to test; centred, they were rounding residue
+    # whose "autocorrelation" was 1 at every lag, and p read 0.0.
+    if n < nlags + 2 or is_constant(r):
         return float("nan")
     r = r - np.mean(r)
     denom = np.dot(r, r)
@@ -530,10 +533,8 @@ def granger_causality(
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
 
-    std1 = np.std(s1)
-    std2 = np.std(s2)
-    s1 = (s1 - np.mean(s1)) / std1 if std1 > 0 else np.zeros_like(s1)
-    s2 = (s2 - np.mean(s2)) / std2 if std2 > 0 else np.zeros_like(s2)
+    s1 = zscore(s1.astype(float), axis=0)
+    s2 = zscore(s2.astype(float), axis=0)
 
     # One device decision for the whole call, announced under the name the caller used.
     # With order='auto' this function reaches `fit_var_bivariate` up to 2*max_lag + 2
@@ -853,10 +854,7 @@ def _detrend_trials(a: np.ndarray, mode: Optional[str]) -> np.ndarray:
     if mode == "demean":
         return a - a.mean(axis=1, keepdims=True)
     if mode == "zscore":
-        mu = a.mean(axis=1, keepdims=True)
-        sd = a.std(axis=1, keepdims=True)
-        sd = np.where(sd > 0, sd, 1.0)
-        return (a - mu) / sd
+        return zscore(a, axis=1)
     if mode == "linear":
         n = a.shape[1]
         t = np.linspace(-1.0, 1.0, n)

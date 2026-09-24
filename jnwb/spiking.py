@@ -11,6 +11,7 @@ import warnings
 from typing import Optional, Tuple, Dict, List, Union
 import numpy as np
 
+from ._spread import is_constant
 from ._units import resolve_unit_alias
 import pandas as pd
 from scipy import stats
@@ -54,8 +55,9 @@ def compute_response_metrics(
         - response_count: Total spikes in response window
         - response_zscore: Z-score of the response FIRING RATE relative to the baseline
           firing rate across trials. Rates, not counts, so unequal window lengths do not
-          manufacture a response. NaN when the baseline has no across-trial variance (for
-          example a silent baseline), where the normal approximation is undefined; use a
+          manufacture a response. NaN when the baseline has no across-trial variance (the
+          same count in every trial, silent or not), where the normal approximation is
+          undefined; use a
           Poisson rate-ratio test for those units rather than reading NaN as zero.
         - latency: Time to first spike after response window start (or None)
 
@@ -149,7 +151,9 @@ def compute_response_metrics(
         response_rates = np.array(response_spikes, dtype=float) / response_duration
 
         baseline_std = np.std(baseline_rates)
-        if baseline_std > 0:
+        # Constancy by exact equality: 7 spikes in 0.15 s is 46.67 Hz in every trial, yet the
+        # computed std is 7e-15, which made z about 1e15.
+        if not is_constant(baseline_rates) and baseline_std > 0:
             response_zscore = (np.mean(response_rates) - np.mean(baseline_rates)) / baseline_std
             metrics['response_zscore'] = float(response_zscore)
         else:

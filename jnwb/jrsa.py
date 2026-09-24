@@ -22,6 +22,7 @@ import numpy as np
 from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
 from ._rng import Default, RNGLike, resolve_seed_alias
+from ._spread import is_constant, zscore
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -204,7 +205,7 @@ def jrsa(
     normalize : bool
         Normalise each input to [0, 1].
     standardize : bool
-        Z-score each input.
+        Z-score each input along the last axis; a constant row becomes 0.
     detrend : bool
         Linear-detrend each input.
     nan_policy : str
@@ -857,11 +858,9 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
                 except ImportError:
                     arr = arr - np.polyval(np.polyfit(np.arange(arr.shape[-1]), arr.T, 1), np.arange(arr.shape[-1]))
         if standardize:
-            mu = xp.nanmean(arr, axis=-1, keepdims=True)
-            sd = xp.nanstd(arr, axis=-1, keepdims=True)
-            # A constant row stays 0 after centring; the 1e-12 offset this replaces biased
-            # the scale of small-amplitude rows.
-            arr = (arr - mu) / xp.where(sd > 0, sd, 1.0)
+            # A constant row is exactly 0, decided by exact equality; the 1e-12 offset an
+            # earlier version used biased the scale of small-amplitude rows.
+            arr = zscore(arr, axis=-1, ignore_nan=True, xp=xp)
         if normalize:
             lo = xp.nanmin(arr, axis=-1, keepdims=True)
             hi = xp.nanmax(arr, axis=-1, keepdims=True)
@@ -1308,9 +1307,10 @@ def _pearson(x1, x2, axis=-1, **kwargs):
             b_mean = cp.mean(b)
             a_std = cp.std(a)
             b_std = cp.std(b)
-            # NaN for a constant vector, as on the CPU path. The absolute cutoff and offset this
-            # replaces reported 0.0 there and shrank r at small amplitude (-0.007 for -0.27).
-            if float(a_std) == 0.0 or float(b_std) == 0.0:
+            # NaN for a constant vector, as on the CPU path, decided by exact equality: cp.std
+            # of 100 values of 2.7 is 4.4e-16. The absolute cutoff and offset an earlier
+            # version used reported 0.0 there and shrank r at small amplitude.
+            if is_constant(a, xp=cp) or is_constant(b, xp=cp):
                 r = cp.array(cp.nan)
             else:
                 r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std)

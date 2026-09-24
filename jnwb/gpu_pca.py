@@ -10,6 +10,7 @@ import numpy as np
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
 from ._precision import resolve_working_dtype
+from ._spread import zscore
 
 log = logging.getLogger(__name__)
 
@@ -84,11 +85,8 @@ def gpu_pca(
             0.0
         )
 
-    # Scale and center
-    mean = np.mean(matrix, axis=0, keepdims=True)
-    std = np.std(matrix, axis=0, keepdims=True)
-    std[std == 0.0] = 1.0
-    scaled = (matrix - mean) / std
+    # Scale and center; a constant column is exactly 0 and takes no component.
+    scaled = zscore(matrix, axis=0)
 
     # The CUDA branch used to cast to float32 while `_svd_numpy` stayed in float64, so
     # `device=` changed the result by ~1e-4 on top of any sign flip. The working dtype is
