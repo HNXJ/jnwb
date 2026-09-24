@@ -1037,7 +1037,11 @@ def problem_rows(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
     path = root / PROBLEM_STACK
     if not path.is_file():
         return None
-    text = path.read_text(encoding="utf-8")
+    return _problem_rows_in(path.read_text(encoding="utf-8"))
+
+
+def _problem_rows_in(text: str) -> List[str]:
+    """:func:`problem_rows` for the text of a problem stack."""
     rows = dict(open_section_content(text) or [])
     for lineno, line in enumerate(text.splitlines(), 1):
         if _PROBLEM_ROW.match(line):
@@ -1182,7 +1186,11 @@ def blocker_fixpoint_receipt(root: pathlib.Path = REPO_ROOT) -> Tuple[Optional[s
     path = root / RECEIPT_PATH
     if not path.exists():
         return None, None
-    text = path.read_text(encoding="utf-8")
+    return _receipt_fields(path.read_text(encoding="utf-8"))
+
+
+def _receipt_fields(text: str) -> Tuple[Optional[str], Optional[int]]:
+    """:func:`blocker_fixpoint_receipt` for the text of a receipt."""
     commit = re.search(r"^\|\s*commit\s*\|\s*`([0-9a-f]{40})`\s*\|", text, re.M)
     found = re.search(r"^\|\s*new release-blocking problems found\s*\|\s*(\d+)\s*\|", text, re.M)
     return (commit.group(1) if commit else None,
@@ -1229,10 +1237,36 @@ def receipt_commit_violation(root: pathlib.Path, commit: str,
     return None
 
 
+def _text_at(root: pathlib.Path, rev: str, path: str) -> Optional[str]:
+    """``path``'s committed text at ``rev``, or ``None`` when git cannot show it there."""
+    shown = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=root, capture_output=True)
+    return shown.stdout.decode("utf-8", errors="replace") if shown.returncode == 0 else None
+
+
 def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
     """The todo stack's text at ``rev``, or ``None`` when git cannot show it there."""
-    shown = subprocess.run(["git", "show", f"{rev}:{TODO_PATH}"], cwd=root, capture_output=True)
-    return shown.stdout.decode("utf-8", errors="replace") if shown.returncode == 0 else None
+    return _text_at(root, rev, TODO_PATH)
+
+
+#: What STEP 0a reads. It reads each from HEAD, never from the working copy: an uncommitted edit
+#: that deletes required items and adds a receipt would otherwise pass condition 3 for a commit
+#: whose stacks still hold them.
+STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, RECEIPT_PATH)
+
+
+def uncommitted_step_0a_paths(root: pathlib.Path) -> Optional[List[str]]:
+    """The paths of :data:`STEP_0A_PATHS` whose working copy differs from HEAD, untracked and
+    deleted ones included, or ``None`` when git cannot say."""
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "-z", "--untracked-files=all", "--", *STEP_0A_PATHS],
+        cwd=root, capture_output=True, text=True)
+    if status.returncode != 0:
+        return None
+    named = set()
+    for entry in filter(None, status.stdout.split("\0")):
+        # `XY path`, and a rename's source follows as its own entry without the `XY ` prefix.
+        named.update({entry[3:], entry})
+    return [p for p in STEP_0A_PATHS if p in named]
 
 
 def relabelled_after_receipt(root: pathlib.Path, commit: str, head: str) -> List[str]:
@@ -1285,29 +1319,46 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
+
+    The three files are read as committed at HEAD, and an uncommitted change to any of them is
+    itself a violation: the release is of a commit, and a working-copy edit is not in it.
     """
     violations: List[str] = []
 
-    # 1. the problem stack is empty
-    rows = problem_rows(root)
-    if rows is None:
+    # 0. the evidence is what HEAD commits
+    dirty = uncommitted_step_0a_paths(root)
+    if dirty is None:
         violations.append(
-            f"{PROBLEM_STACK} is missing, so whether any problem is untriaged is unknown")
-    elif open_section_content((root / PROBLEM_STACK).read_text(encoding="utf-8")) is None:
+            f"git cannot report whether {', '.join(STEP_0A_PATHS)} have uncommitted changes, so "
+            "whether the stacks STEP 0a reads from HEAD are the ones in the working copy is "
+            "unknown")
+    elif dirty:
+        violations.append(
+            f"{len(dirty)} file(s) STEP 0a reads have uncommitted changes: {', '.join(dirty)}. "
+            "STEP 0a reads them as committed at HEAD; commit or discard the changes")
+
+    # 1. the problem stack is empty
+    problems = _text_at(root, "HEAD", PROBLEM_STACK)
+    if problems is None:
+        violations.append(
+            f"{PROBLEM_STACK} is missing at HEAD, so whether any problem is untriaged is unknown")
+    elif open_section_content(problems) is None:
         violations.append(
             f"{PROBLEM_STACK} has no '## Open' section, so whether any problem is untriaged "
             "is unknown")
-    elif rows:
+    elif _problem_rows_in(problems):
+        rows = _problem_rows_in(problems)
         violations.append(
             f"{len(rows)} problem row(s) remain in {PROBLEM_STACK}; each must be repaired, "
             "shown false, or moved into the todo stack: " + "; ".join(r[:40] for r in rows[:8])
             + (" ..." if len(rows) > 8 else ""))
 
     # 2. no required item remains
-    if not (root / TODO_PATH).exists():
-        violations.append(f"{TODO_PATH} is missing, so whether any item is still required for "
-                          f"{RELEASE_CYCLE} is unknown")
-    items = todo_release_fields(root)
+    todo = _text_at(root, "HEAD", TODO_PATH)
+    if todo is None:
+        violations.append(f"{TODO_PATH} is missing at HEAD, so whether any item is still "
+                          f"required for {RELEASE_CYCLE} is unknown")
+    items, unreadable = _parse_todo_stack(todo) if todo is not None else ([], [])
     # A value other than this cycle's `required-` is named, so a release step or a deferral
     # written for the wrong cycle says why it still counts.
     required = [f"{i} {t[:34]}" + ("" if r == f"required-{RELEASE_CYCLE}" else f" [{r[:40]}]")
@@ -1316,7 +1367,6 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         violations.append(
             f"{len(required)} todo item(s) are still required for {RELEASE_CYCLE}: "
             + "; ".join(required[:8]) + (" ..." if len(required) > 8 else ""))
-    unreadable = unparseable_todo_headings(root)
     if unreadable:
         violations.append(
             f"{len(unreadable)} todo section(s) look like items but cannot be read, so whether "
@@ -1324,11 +1374,12 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             + (" ..." if len(unreadable) > 8 else ""))
 
     # 3. the independent closure receipt
-    commit, found = blocker_fixpoint_receipt(root)
+    receipt = _text_at(root, "HEAD", RECEIPT_PATH)
+    commit, found = _receipt_fields(receipt) if receipt is not None else (None, None)
     if commit is None:
         violations.append(
-            f"{RECEIPT_PATH} is missing or states no commit; the blocker-focused fixpoint pass "
-            "has not been recorded")
+            f"{RECEIPT_PATH} is missing at HEAD or states no commit; the blocker-focused "
+            "fixpoint pass has not been recorded")
     else:
         stale = receipt_commit_violation(root, commit, head)
         if stale:
@@ -1364,7 +1415,7 @@ def main() -> None:
             "items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)
-    releases = [r for _, _, r in todo_release_fields()]
+    releases = [r for _, _, r in _parse_todo_stack(_text_at(REPO_ROOT, "HEAD", TODO_PATH))[0]]
     log.info(
         "PASS: the problem stack is empty and no required item remains; %d todo item(s) are "
         "deferred to %s and %d are %s, completing after the tag.",

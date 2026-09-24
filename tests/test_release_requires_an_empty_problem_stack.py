@@ -73,7 +73,22 @@ _RECEIPT = """# Blocker fixpoint receipt
 """
 
 
+def _git(root, *args):
+    return subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=jnwb-test", "-c",
+         "user.email=test@example.invalid", "-c", "commit.gpgsign=false", *args],
+        capture_output=True, text=True, check=True).stdout.strip()
+
+
+def _commit(root, message):
+    _git(root, "add", "--all")
+    _git(root, "commit", "-q", "--allow-empty", "-m", message)
+    return _git(root, "rev-parse", "HEAD")
+
+
 def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt=True):
+    """The stacks and receipt, committed: STEP 0a reads them from HEAD, not the working copy.
+    ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against."""
     (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
     (tmp_path / "artifacts" / "problem_stack.md").write_text(
         _PROBLEMS.format(rows="\n".join(rows)) + tail, encoding="utf-8")
@@ -82,6 +97,8 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
     if receipt:
         (tmp_path / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
             _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
+    _git(tmp_path, "init", "-q")
+    _commit(tmp_path, "the tree")
     return tmp_path
 
 
@@ -160,6 +177,7 @@ def test_a_problem_stack_with_no_open_section_fails_both(tmp_path):
     stack = root / "artifacts" / "problem_stack.md"
     stack.write_text(stack.read_text(encoding="utf-8").replace("## Open", "## Triage"),
                      encoding="utf-8")
+    _commit(root, "rename the section")
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 1 and "## Open" in v[0], v
     assert _open_findings(root), "gate 15 passed a problem stack with no ## Open section"
@@ -169,6 +187,7 @@ def test_a_missing_problem_stack_fails(tmp_path):
     """A condition satisfied by deleting its own evidence is worse than none."""
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
     (root / "artifacts" / "problem_stack.md").unlink()
+    _commit(root, "delete the problem stack")
     assert problem_rows(root) is None
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 1 and "problem_stack.md is missing" in v[0], v
@@ -299,6 +318,7 @@ def test_a_release_field_before_the_first_heading_fails_closed(tmp_path):
     todo = root / "artifacts" / "todo_stack.md"
     todo.write_text("Release: required-0.2.6.\n\n" + todo.read_text(encoding="utf-8"),
                     encoding="utf-8")
+    _commit(root, "a release field before the first heading")
     v = check_release_readiness(root, head=HEAD)
     assert any("before the first heading" in x for x in v), v
 
@@ -342,17 +362,49 @@ def test_a_missing_receipt_fails(tmp_path):
     assert v and all("blocker_fixpoint_receipt" in x for x in v), v
 
 
-def _git(root, *args):
-    return subprocess.run(
-        ["git", "-C", str(root), "-c", "user.name=jnwb-test", "-c",
-         "user.email=test@example.invalid", "-c", "commit.gpgsign=false", *args],
-        capture_output=True, text=True, check=True).stdout.strip()
+# --- 0. the evidence is what HEAD commits ------------------------------------------------------
+
+def test_an_uncommitted_edit_cannot_pass_a_commit_whose_stack_holds_required_items(tmp_path):
+    """The committed stack holds a required item; the working copy deletes it and adds a receipt
+    at HEAD. Reading the working copy reported no violation at all. What would pass while the
+    working copy is still read: checking only that some violation is reported, because the
+    uncommitted-change refusal alone would supply one."""
+    root = _tree(tmp_path, items=[_item("99-940", REQUIRED), _item("99-941", DEFERRED)],
+                 receipt=False)
+    head = _git(root, "rev-parse", "HEAD")
+    todo = root / "artifacts" / "todo_stack.md"
+    todo.write_text(todo.read_text(encoding="utf-8").replace(_item("99-940", REQUIRED), ""),
+                    encoding="utf-8")
+    _record_receipt(root, head)
+    v = check_release_readiness(root, head=head)
+    assert any("still required" in x and "99-940" in x for x in v), v
+    assert any("receipt" in x and "missing at HEAD" in x for x in v), v
+    dirty = [x for x in v if "uncommitted changes" in x]
+    assert len(dirty) == 1 and "artifacts/todo_stack.md" in dirty[0], v
+    assert "artifacts/blocker_fixpoint_receipt.md" in dirty[0], v
+    assert "problem_stack" not in dirty[0], v
 
 
-def _commit(root, message):
-    _git(root, "add", "--all")
-    _git(root, "commit", "-q", "--allow-empty", "-m", message)
-    return _git(root, "rev-parse", "HEAD")
+def test_a_problem_row_committed_at_head_is_seen_when_the_working_copy_drops_it(tmp_path):
+    root = _tree(tmp_path, rows=["| P-950 | a defect | x |"], items=[_item("07-01", DEFERRED)])
+    stack = root / "artifacts" / "problem_stack.md"
+    stack.write_text(stack.read_text(encoding="utf-8").replace("| P-950 | a defect | x |", ""),
+                     encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert any("problem row(s) remain" in x and "P-950" in x for x in v), v
+
+
+@pytest.mark.parametrize("path", ["problem_stack.md", "todo_stack.md",
+                                  "blocker_fixpoint_receipt.md"])
+def test_an_uncommitted_change_to_any_file_step_0a_reads_is_named(tmp_path, path):
+    """A compliant committed tree fails on an uncommitted edit to any one of the three files,
+    even an edit that changes no verdict, and only that file is named."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    assert check_release_readiness(root, head=HEAD) == []
+    target = root / "artifacts" / path
+    target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "uncommitted changes: artifacts/" + path + "." in v[0], v
 
 
 def _repository(tmp_path):
@@ -482,6 +534,7 @@ def test_a_missing_todo_stack_fails(tmp_path):
     """Deleting the stack must not read as zero required items."""
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
     (root / "artifacts" / "todo_stack.md").unlink()
+    _commit(root, "delete the todo stack")
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 1 and "todo_stack.md is missing" in v[0], v
 
