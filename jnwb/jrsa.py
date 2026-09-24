@@ -231,8 +231,8 @@ def jrsa(
         is counted on the null. Without one, `p` is the metric's parametric p, which is
         two-sided; a one-sided alternative halves it when `value` lies on the requested
         side and gives ``1 - p/2`` otherwise. The `granger_ssr_ftest` parametric p is an
-        upper-tail F-test, so that metric raises for a one-sided alternative without a
-        permutation null.
+        upper-tail F-test of a non-negative F, which has no side to halve on, so that metric
+        raises for a one-sided alternative without a permutation null.
     backend : str
         auto | numpy | scipy | jax | torch | cupy. Validated and recorded for API
         compatibility; every input is converted to NumPy whatever this names, so it does
@@ -338,9 +338,10 @@ def jrsa(
     if (alternative != "two-sided" and not permutation_p
             and str(metric).lower() in _UPPER_TAIL_PARAMETRIC_P):
         raise ValueError(
-            f"jrsa: metric {metric!r} reports an upper-tail F-test p, which has no "
-            f"{alternative!r} form; use alternative='two-sided', or a permutation null "
-            "(stats=True, permutations > 0)."
+            f"jrsa: alternative={alternative!r} needs a one-sided p, and metric {metric!r} "
+            "reports an upper-tail F-test p. F is non-negative and has no side, so the "
+            "one-sided p cannot be formed by halving, as it is for a signed statistic. Use "
+            "alternative='two-sided', or a permutation null (stats=True, permutations > 0)."
         )
 
     # --- collect parameter snapshot -------------------------------------------

@@ -430,6 +430,8 @@ class TestAlternativeWithoutPermutations:
 
     def test_an_upper_tail_f_test_refuses_a_one_sided_request(self):
         """The SSR F-test p is upper-tail already; halving it would be wrong."""
-        with pytest.raises(ValueError, match="granger_ssr_ftest"):
+        with pytest.raises(ValueError, match="granger_ssr_ftest") as err:
             oa.jrsa(self.x1, self.x2, metric="granger_ssr_ftest", alternative="less",
                     permutations=0)
+        # The message says why, not only that.
+        assert "upper-tail F-test" in str(err.value) and "halving" in str(err.value)
