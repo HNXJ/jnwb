@@ -56,8 +56,8 @@ barrier above.
 | W8 |  |
 | W9 |  |
 | W10 |  |
-| Rolling | Verification ran through `c52a9649`; a repair landed later is verified by a verifier that did not make it before 06-60 runs |
-| Closure | 06-38, 06-39, 06-60, 06-130, 06-40 |
+| Rolling | Verification ran through `1d5e8b81`; 06-60 verifies 06-148's repairs |
+| Closure | 06-148 and 06-149, then 06-60, then 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
 packets finish before 06-34.
@@ -88,64 +88,35 @@ packets finish before 06-34.
 
 ## Closure
 
-### 06-38 Verify the candidate from TestPyPI
+### 06-148 Repair the fourteen blockers the closure pass found at `1d5e8b81`
 
 Release: required-0.2.6.
-Role: verifier. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
-The TestPyPI 0.2.6 built by CI run 36012625010 at `8e90a4ad` passed: hashes equal CI's artifact, the wheel's `jnwb/` equals git byte for byte, clean installs on 3.12.0, 3.13.15 and 3.14.3 open and analyse the DANDI 000253 excerpt with the sampling rate derived from the file, the suite against the installed copy passes, and the strict docs build reads 0.2.6. Ruled 2026-09-23: TestPyPI cannot take 0.2.6 again, so what remains is the same checks on a wheel built by the CI build job from the final commit, and the check from production PyPI after 06-40 publishes.
-Ruled 2026-09-22 (R-3). The candidate is published to TestPyPI (authorized as part of 06-40's
-sequence); in a clean environment install it from TestPyPI, open an NWB file, analyse, verify.
-After production publication the same check runs from PyPI.
+Role: actor. Skill: none. Blocked by: none. Writes: `jnwb/**/*.py`, `tests/test_*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `scripts/release_gate.py`, `CHANGELOG.md`.
+Ruled 2026-09-23: fix all fourteen, verify, release. Statistics and spectral: permutation p recomputed in shuffled order falls one ulp short of the observed statistic; `TFRAccumulator` reports 0.0 where no trial was valid; `exact_sign_flip`'s absolute tie tolerance makes p depend on units; a flat non-zero trace passes the `> 0` guards of `spectral_tilt`, `harmonic_analysis` and `band_power`. NWB and release check: `channel_conversion` is ignored; `starting_time` is dropped (ruled: report it in `inspect` and warn in `acquisition_channel`); `compress_fp32` deletes linked timestamps; STEP 0a reads the working tree. Direction and parameters: `zflip.directionality` names a direction from row order; docs/08 swaps TE's k and l; the directed `jrsa` metrics state no direction; `jrsa(sliding=True)` and TE `k=` are ignored (ruled: refuse `sliding`); a two-unit PCA sign flips on CUDA.
+Accept: each repair has a discriminator that fails without it, and the full suite passes.
 
-### 06-39 Independent critic
+### 06-149 Register frozen-validated functions
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: none. Writes: none.
-A reviewer that implemented none of the repairs, over the acceptance set, the unresolved unknowns,
-the mutation evidence, the public claims and the release artifacts.
-The pass at `8e90a4ad` held every other acceptance row, upheld every 07-01 deferral it attacked, reproduced every other Changed, Deprecated and numeric Fixed entry, and killed 13 of 14 sampled mutants; it found 06-147's four blockers. The pass at `4fb3d5f2` verified the constant-score, jrsa and STEP 0a repairs and the wording corrections, and found the zero-spread repair reporting significance for two groups constant at -inf. What remains is an independent pass over the repairs landed after it: the non-finite zero-spread fix (`959a0d18`), standardisation by exact constancy through `jnwb/_spread.py` (`fecd2e63`, `62d82fa6`), the granger refusal wording (`10a9947b`), the process-reference removal (`cab53056`), the mixed-sign jrsa fixture (`74b8a461`), the receipt-relabel refusal (`af68434b`) and `CITATION.cff` (`3d4b1f8d`).
+Role: actor. Skill: none. Blocked by: none. Writes: `artifacts/frozen_validated.json`, `scripts/harness_gate.py`, `tests/test_frozen_validated.py`, `CONTRIBUTING.md`, `AGENTS.md`.
+Asked for by Hamm on 2026-09-24 so later passes stop re-auditing settled code. Each entry names a function, the SHA-256 of its AST without docstrings or comments, the commit it was verified at, and the tests that killed a mutant of it; a gate recomputes every hash and fails on a changed body, which must be re-verified or unfrozen. A function is admitted only with an independent verification and a mutation kill this cycle, no open 07-01 entry naming it, and no change since; closure passes skip entries whose hash matches.
+Accept: the gate passes on the register, a seeded body change to a frozen function fails it, and every entry cites its verification commit and a killing test.
 
-### 06-60 No blocker remains, confirmed by a pass that finds no new one
+### 06-60 Verify the fourteen repairs and record the receipt
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-39.
+Role: critic. Skill: none. Blocked by: 06-148.
 Writes: `artifacts/blocker_fixpoint_receipt.md`.
-Condition 3 of `AGENTS.md` §11. One independent pass over the documentation, the code and both
-stacks applying the blocker predicate. A new blocker becomes a `required-0.2.6` item and re-opens
-the owning wave; a new non-blocking observation becomes a `deferred-0.2.7` entry and does not.
-P-37: the pass also hunts the root pattern, a proxy mistaken for the invariant it stands for;
-fifteen instances are enumerated in the P-37 row of the problem stack at `f140e20e`, and the
-pattern closes when one full pass adds none.
-Accept: the receipt names the commit it ran against and reports zero new release-blocking
-problems; `scripts/release_gate.py` STEP 0a accepts it when the only files changed since that commit are the receipt and this stack.
-Stop: a new blocker needs a human ruling; it is not reclassified to close the cycle.
+Condition 3 of `AGENTS.md` §11, amended for 0.2.6 by the 2026-09-23 ruling on the closure at `1d5e8b81`: that pass found fourteen blockers (06-148), and an independent verification of each repair with a kill replaces a further open-ended pass. A regression from the repairs is a blocker; anything else it finds goes to 0.2.7. At `1d5e8b81` the independent critic's remaining check passed on every repair after `4fb3d5f2`, and the wheel built from that commit matched git byte for byte, installed cleanly and passed the suite against the installed copy.
+Accept: every 06-148 repair verified with a kill and no regression; the receipt names the commit it ran against and reports zero new release-blocking problems, and STEP 0a accepts it.
 
-### 06-130 Reconcile `main` with `dev` before the release pull request
+### 06-40 Full 0.2.6 release
 
 Release: release-step-0.2.6.
-Role: human. Skill: none. Blocked by: 06-60. AUTONOMY: none.
+Role: human. Skill: none. Blocked by: 06-60, 06-149. AUTONOMY: none.
 Writes: none.
-P-180. `origin/main` is `9d738211`, a second copy of the `jnwb.vis` commit on top of the 0.2.5
-release merge, while `dev` carries the same content as `178b1777`. A merge of `dev` into `main`
-treats `packages/jnwb-vis/` as added on `main` and unchanged on `dev`, so the duplicate that `dev`
-deleted comes back.
-Ruled 2026-09-22: revert on `main` first. `9d738211` is reverted on `main` in its own pull
-request, which Hamm authorizes and merges; the verifier then confirms the release merge tree
-equals `dev`.
-Ruled 2026-09-23: opened ahead of the closure order as HNXJ/jnwb#20 and merged at `5e8ff14d`;
-`main`'s tree equals `efdba807`, and `git merge-tree --write-tree origin/main origin/dev` at
-`679e70a9` equals `dev`. What remains here is the same check on the release pull request.
-P-270: `README.md` links `blob/main/artifacts/agents.md`, which `main` lacks until the release
-merge; confirm the link resolves once the merge lands.
-Accept: `git diff dev <merge>` is empty on the release pull request, and the README's agent link resolves.
-
-### 06-40 Release
-
-Release: release-step-0.2.6.
-Role: human. Skill: none. Blocked by: 06-130. AUTONOMY: none.
-Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`.
-dev green; pull request and `main` green; TestPyPI candidate (06-38); tag validates without
-publishing; GitHub Release; production PyPI; verification from PyPI in a clean environment.
+Released by the agent once done (ruled 2026-09-23); Hamm approves the PyPI deployment. The release pull request merges `dev` into `main` with a merge commit through the `main` ruleset's seven checks, and `git diff dev <merge>` is empty (P-180: `main` was reconciled in HNXJ/jnwb#20). Tag `v0.2.6`; publish the GitHub Release, whose `publish-pypi` job waits in the `pypi` environment for Hamm's approval and which Zenodo archives. Then verify from PyPI in a clean environment: TestPyPI's 0.2.6 at `8e90a4ad` and the local wheel at `1d5e8b81` already passed, so this is the last leg of the artifact check.
+Accept: PyPI serves 0.2.6 and its wheel's `jnwb/` equals the tag byte for byte; a clean install opens and analyses an NWB file; `SKILLS_URL` and the README's `artifacts/agents.md` link (P-270) resolve; Zenodo shows a DOI.
 
 ## 0.2.7
 
@@ -274,6 +245,9 @@ leaves this item as a `required-0.2.6` item.
 - P-329: A paired difference built by arithmetic (`a` against `a - 0.3`) is not exactly constant, so the paired t is about 6e15 rather than inf. Waits: outside the exact-equality rule the docstring states, and significant either way.
 - P-330: STEP 0a matches items by id across the receipt, so renaming a required item's id to a new deferred one after the receipt reads as one item done and one added. Waits: it takes a deliberate rename; P-327's clean-tree check and a rule against new ids after the receipt would close it.
 - P-331: Zero-spread guards that exact equality cannot reach: the PSI jackknife gives z about 2.5e10 and p 0 for identical segments, `jrsa` standardises the residue of a detrended constant or linear row, the coherence and Granger residual-variance `> 0` guards see the same residue, and `bilinear`'s `std < 1e-9` cutoff is a fixed tolerance. Waits: each needs a numerical tolerance, which is a choice, and identical segments are degenerate input.
+- P-332: Twelve observations of the closure pass at `1d5e8b81`: wPLI and icoh report coupling with one flat channel; `quality_metrics` accepts unsorted spike times; `cross_modal_comparison` does not report its seed; flat input in `fit_exponential_onset`, `population_trajectory` and `rdm`; `UnitAnalyzer.psth` right-edge rounding and the sklearn multi-class error; the docs/10 `zflip` row says it raises on zero imaginary coherency; `cka` and `rv` give about 1e-33 on a constant pattern; project-history text in `nam.py` and `bilinear.py`; the `imaginary_coherency` docstring and docs/04 sign sentence; `_phase_slope`'s docstring says normal-approximation p where the code uses t; `plot_sorted_heatmap(category_labels)` is ignored; `jrsa(align='bogus')` is accepted when lengths are equal. Waits: each is loud, degenerate input, display or wording.
+- P-333: No test catches `is_constant(ignore_nan=True)` regressing to plain max/min, because its NaN case sits in a row whose std is exactly 0. Waits: the code is verified correct.
+- P-334: `_spread.zscore` on a slice holding plus or minus inf returns `[-inf, -inf, nan]` where the removed per-module code returned NaN. Waits: only non-finite input, where neither output meant anything.
 
 ## Reported and not admitted
 
