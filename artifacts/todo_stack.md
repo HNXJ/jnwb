@@ -57,7 +57,7 @@ barrier above.
 | W9 |  |
 | W10 |  |
 | Rolling | Verification ran through `c52a9649`; a repair landed later is verified by a verifier that did not make it before 06-60 runs |
-| Closure | 06-147, then 06-38, 06-39, 06-60, 06-130, 06-40 |
+| Closure | 06-38, 06-39, 06-60, 06-130, 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
 packets finish before 06-34.
@@ -86,13 +86,6 @@ packets finish before 06-34.
 
 ## Rolling verification
 
-### 06-147 Repair the blockers the critic found at `8e90a4ad`
-
-Release: required-0.2.6.
-Role: actor. Skill: jnwb-statistics. Blocked by: none. Writes: `jnwb/statistics.py`, `jnwb/jrsa.py`, `jnwb/analyzers.py`, `scripts/release_gate.py`, `scripts/harness_gate.py`, `tests/test_statistics*.py`, `tests/test_jrsa*.py`, `tests/test_release_requires_an_empty_problem_stack.py`, `CHANGELOG.md`, `CONTRIBUTING.md`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-population/SKILL.md`.
-`shuffle_r2_ci` and `compare_groups` read a constant input as spread when the constant is not exactly representable (`np.std` is about 1e-17), so they return p = 1 or an effect size near 1e16 where the CHANGELOG promises NaN. `jrsa` without permutations accepts a misspelt `alternative` and ignores a one-sided one; ruled 2026-09-23 to apply it parametrically. STEP 0a can pass on no committed tree; ruled 2026-09-23 to accept a receipt whose commit differs from HEAD only by the receipt and the todo stack, with 06-130 and 06-40 as the release step.
-Accept: each repair has a discriminator that fails without it, and the full suite passes.
-
 ## Closure
 
 ### 06-38 Verify the candidate from TestPyPI
@@ -107,10 +100,10 @@ After production publication the same check runs from PyPI.
 ### 06-39 Independent critic
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-147. Writes: none.
+Role: critic. Skill: none. Blocked by: none. Writes: none.
 A reviewer that implemented none of the repairs, over the acceptance set, the unresolved unknowns,
 the mutation evidence, the public claims and the release artifacts.
-The pass at `8e90a4ad` held every other acceptance row, upheld every 07-01 deferral it attacked, reproduced every other Changed, Deprecated and numeric Fixed entry, and killed 13 of 14 sampled mutants; it found 06-147's four blockers. What remains is an independent pass over 06-147's repairs and the wording corrections that came with them.
+The pass at `8e90a4ad` held every other acceptance row, upheld every 07-01 deferral it attacked, reproduced every other Changed, Deprecated and numeric Fixed entry, and killed 13 of 14 sampled mutants; it found 06-147's four blockers. The pass at `4fb3d5f2` verified the constant-score, jrsa and STEP 0a repairs and the wording corrections, and found the zero-spread repair reporting significance for two groups constant at -inf. What remains is an independent pass over the repairs landed after it: the non-finite zero-spread fix (`959a0d18`), standardisation by exact constancy through `jnwb/_spread.py` (`fecd2e63`, `62d82fa6`), the granger refusal wording (`10a9947b`), the process-reference removal (`cab53056`), the mixed-sign jrsa fixture (`74b8a461`), the receipt-relabel refusal (`af68434b`) and `CITATION.cff` (`3d4b1f8d`).
 
 ### 06-60 No blocker remains, confirmed by a pass that finds no new one
 
@@ -280,6 +273,7 @@ leaves this item as a `required-0.2.6` item.
 - P-328: The workflow pins `actions/checkout`, `setup-python`, `upload-artifact` and `download-artifact` to tags, so the repository's SHA-pin requirement for Actions stays off. Waits: those are GitHub-owned and allow-listed; pin them to commits, then turn the requirement on.
 - P-329: A paired difference built by arithmetic (`a` against `a - 0.3`) is not exactly constant, so the paired t is about 6e15 rather than inf. Waits: outside the exact-equality rule the docstring states, and significant either way.
 - P-330: STEP 0a matches items by id across the receipt, so renaming a required item's id to a new deferred one after the receipt reads as one item done and one added. Waits: it takes a deliberate rename; P-327's clean-tree check and a rule against new ids after the receipt would close it.
+- P-331: Zero-spread guards that exact equality cannot reach: the PSI jackknife gives z about 2.5e10 and p 0 for identical segments, `jrsa` standardises the residue of a detrended constant or linear row, the coherence and Granger residual-variance `> 0` guards see the same residue, and `bilinear`'s `std < 1e-9` cutoff is a fixed tolerance. Waits: each needs a numerical tolerance, which is a choice, and identical segments are degenerate input.
 
 ## Reported and not admitted
 
