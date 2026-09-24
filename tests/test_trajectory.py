@@ -80,6 +80,21 @@ def test_build_time_resolved_matrix_refuses_a_window_that_is_not_whole_bins():
                                    time_window_ms=(0.0, 110.0), bin_size_ms=20.0)
 
 
+def test_build_time_resolved_matrix_bins_are_right_open_like_bin_spikes():
+    """A spike exactly on the window end is outside ``[start, end)``; the last bin was
+    closed on the right and counted it. Both boundaries are exact in binary."""
+    session = MockSession()
+    session.spikes = {0: np.array([1.0, 1.125]), 1: np.array([2.0625])}
+    X, _, _ = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                         time_window_ms=(0.0, 125.0), bin_size_ms=25.0)
+    assert X[0, 0].tolist() == [1, 0, 0, 0, 0]
+    assert X[1, 1].tolist() == [0, 0, 1, 0, 0]
+    # A one-bin window still gives a trials-by-units count matrix.
+    X1, _, centers = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                                time_window_ms=(0.0, 125.0), bin_size_ms=125.0)
+    assert X1.shape == (4, 2, 1) and X1[0, 0, 0] == 1 and centers.tolist() == [62.5]
+
+
 def test_compute_population_trajectory():
     session = MockSession()
     

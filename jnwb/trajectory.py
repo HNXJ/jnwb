@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
-from ._bins import whole_bin_count
+from ._bins import bin_edges, right_open_counts, whole_bin_count
 from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,8 @@ def build_time_resolved_matrix(
         area: Brain area to select units from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
         time_window_ms: (start_ms, end_ms) relative to epoch onset. Its span must be a whole
-            number of ``bin_size_ms`` bins.
+            number of ``bin_size_ms`` bins. Every bin is right-open, as in
+            :func:`jnwb.bin_spikes`, so a spike on ``end_ms`` is outside the window.
         bin_size_ms: Width of time bins in ms
         quality: Filter units by quality tier ('stable_plus', 'stable', etc.)
 
@@ -52,8 +53,8 @@ def build_time_resolved_matrix(
                              "time_window_ms")
     start_sec = time_window_ms[0] / 1000.0
     end_sec = time_window_ms[1] / 1000.0
-    bin_edges = np.linspace(start_sec, end_sec, n_bins + 1)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0 * 1000.0
+    bin_sec = bin_size_ms / 1000.0
+    bin_centers = (bin_edges(start_sec, bin_sec, n_bins)[:-1] + bin_sec / 2.0) * 1000.0
 
     units_df = session.get_units(quality=quality, area=area)
     if len(units_df) == 0:
@@ -76,13 +77,10 @@ def build_time_resolved_matrix(
         spike_times = session.get_spike_times(unit_id)
         if len(spike_times) == 0:
             continue
-        # Sort spike times for searchsorted speed
-        st = np.sort(spike_times)
-        for i, onset in enumerate(onsets):
-            # Map spike times to relative window
-            rel_spikes = st - onset
-            counts, _ = np.histogram(rel_spikes, bins=bin_edges)
-            X[i, j, :] = counts
+        # The same right-open bins as `bin_spikes`: a spike on the window end is outside.
+        st = np.asarray(spike_times, dtype=float)
+        X[:, j, :] = right_open_counts((st - onset for onset in onsets),
+                                       start_sec, end_sec, bin_sec, n_bins)
 
     return X, unit_ids, bin_centers
 

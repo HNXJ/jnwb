@@ -26,6 +26,24 @@ def bins_within(span, bin_width) -> int:
     return int(np.floor(span / width + _count_tolerance(0.0, span, width)))
 
 
+def bin_edges(start, bin_width, n_bins: int) -> np.ndarray:
+    """The ``n_bins + 1`` edges ``start + k * bin_width``."""
+    return float(start) + float(bin_width) * np.arange(n_bins + 1)
+
+
+def right_open_counts(trains, start, end, bin_width, n_bins: int) -> np.ndarray:
+    """Spike counts of each train in ``n_bins`` bins from ``start``, every bin right-open.
+
+    A spike at or past ``end`` is excluded, including one on the last edge, which
+    :func:`numpy.histogram` alone would count because it closes its last bin on the right.
+    Returns a float array ``(n_trains, n_bins)``.
+    """
+    start, end = float(start), float(end)
+    edges = bin_edges(start, bin_width, n_bins)
+    rows = [np.histogram(s[(s >= start) & (s < end)], bins=edges)[0] for s in trains]
+    return np.asarray(rows, dtype=float).reshape(len(rows), n_bins)
+
+
 def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
                     unit: str = "ms") -> int:
     """Number of ``bin_width`` bins spanning ``window``, refusing a span that is not whole bins.

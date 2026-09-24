@@ -54,7 +54,7 @@ from ._backend import (
 )
 from ._parallel import parallel_map
 from ._units import resolve_unit_alias
-from ._bins import whole_bin_count
+from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._layout import require_trial_length
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import stats
@@ -938,7 +938,7 @@ def bin_spikes(
         raise ValueError(
             f"window_s {window_s} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
         )
-    edges = t0 + bin_sec * np.arange(n_bins + 1)
+    edges = bin_edges(t0, bin_sec, n_bins)
 
     n_nonfinite = _count_nonfinite_spikes(spike_times, trial_starts)
     if n_nonfinite:
@@ -954,24 +954,15 @@ def bin_spikes(
 
     if trial_starts is not None:
         st = np.asarray(spike_times, dtype=float).ravel()
-        rows = []
-        for start in np.asarray(trial_starts, dtype=float).ravel():
-            rel = st - float(start)
-            rel = rel[(rel >= t0) & (rel < t1)]
-            rows.append(np.histogram(rel, bins=edges)[0])
+        trains = (st - float(start) for start in np.asarray(trial_starts, dtype=float).ravel())
+    elif isinstance(spike_times, (list, tuple)) and (
+        len(spike_times) == 0 or np.ndim(spike_times[0]) >= 1
+    ):
+        trains = [np.asarray(s, dtype=float).ravel() for s in spike_times]
     else:
-        if isinstance(spike_times, (list, tuple)) and (
-            len(spike_times) == 0 or np.ndim(spike_times[0]) >= 1
-        ):
-            trains = [np.asarray(s, dtype=float).ravel() for s in spike_times]
-        else:
-            trains = [np.asarray(spike_times, dtype=float).ravel()]
-        rows = []
-        for s in trains:
-            filtered = s[(s >= t0) & (s < t1)]
-            rows.append(np.histogram(filtered, bins=edges)[0])
+        trains = [np.asarray(spike_times, dtype=float).ravel()]
 
-    counts = np.asarray(rows, dtype=float)
+    counts = right_open_counts(trains, t0, t1, bin_sec, n_bins)
     if counts.size == 0:
         raise ValueError("bin_spikes produced no trials")
     out = counts / bin_sec if output == "rate" else counts

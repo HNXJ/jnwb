@@ -170,6 +170,9 @@ Carried by 0.2.6.
   the same train peaks at 5 ms. `n`, the whole bins in `max_lag_ms`, no longer loses one to
   rounding (9 ms at 0.1 ms made 89 bins). The refractory test reads the same bin indices as
   before, so its counts move only by the change in bin edges.
+- **`build_time_resolved_matrix` bins are right-open.** Its last bin was closed on the right, so
+  a spike exactly on `time_window_ms[1]` was counted there; `bin_spikes` and every other spike
+  binner exclude it. It now bins through the same rule as `bin_spikes`.
 - **A result with no estimate is NaN, not a number.** Four calls returned ordinary-looking
   values where the data held no estimate:
   - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,
