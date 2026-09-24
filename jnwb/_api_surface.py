@@ -65,6 +65,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "_parallel": "module-internal",
     "_precision": "module-internal",
     "_rng": "module-internal",
+    "_spread": "module-internal",
     "_units": "module-internal",
     "gpu_pca": "module-internal",
     "nwb_io": "module-internal",
