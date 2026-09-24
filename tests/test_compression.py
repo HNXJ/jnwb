@@ -1019,3 +1019,61 @@ class TestALinkAliasIsTheDatasetItNames:
         stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[alias])
         assert stats["cast_paths"] == ["/" + alias]
         assert _cast_notes(tmp_path / "ok.nwb") == {alias: np.dtype(np.float32)}
+
+    @pytest.mark.parametrize("link", ["hard", "soft"])
+    def test_a_regular_timestamps_array_another_link_opens_is_kept(self, src, tmp_path, link):
+        """Collapsing it would delete what the alias opens; each link kind is tested alone."""
+        with h5py.File(src, "a") as f:
+            del f["aliases/" + ("soft_ts" if link == "hard" else "hard_ts")]
+            expected = f[REGULAR_TS][:]
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[OTHER])
+        assert stats["timestamps_kept_linked"] == [REGULAR_TS], stats
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            np.testing.assert_array_equal(f[f"aliases/{link}_ts"][:], expected)
+            np.testing.assert_array_equal(f[REGULAR_TS][:], expected)
+
+
+class TestSharedTimestampsSurvive:
+    """pynwb writes a series' shared ``timestamps`` as a soft link to another series' array.
+
+    Collapsing that array deleted the link's target: the output failed to read in pynwb and the
+    only signal was ``ok=False`` in the returned dict. What would pass while the link dangles:
+    checking only that the link object exists, or reading the output with h5py alone.
+    """
+
+    @pytest.fixture
+    def src(self, tmp_path):
+        from datetime import datetime, timezone
+        from pynwb import NWBFile, NWBHDF5IO, TimeSeries
+
+        path = tmp_path / "shared_ts.nwb"
+        nwb = NWBFile(session_description="shared", identifier="shared",
+                      session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        a = TimeSeries(name="A", data=np.arange(500.0), unit="V",
+                       timestamps=10.0 + np.arange(500) / 1000.0)   # regular
+        nwb.add_acquisition(a)
+        nwb.add_acquisition(TimeSeries(name="B", data=np.arange(500.0), unit="V", timestamps=a))
+        nwb.add_acquisition(TimeSeries(name="C", data=np.arange(500.0), unit="V", rate=1000.0))
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        with h5py.File(path, "r") as f:
+            assert isinstance(f["acquisition/B"].get("timestamps", getlink=True), h5py.SoftLink)
+        return path
+
+    def test_a_linked_timestamps_array_is_kept_and_the_output_reads(self, src, tmp_path):
+        dst = tmp_path / "out.nwb"
+        stats = jnwb.compress_fp32(src, dst, select=["acquisition/C/data"])
+        assert stats["timestamps_kept_linked"] == ["acquisition/A/timestamps"]
+        assert stats["timestamps_collapsed"] == []
+        assert stats["verification"]["ok"] is True
+        with jnwb.nwb_read_io(str(dst)) as io:
+            np.testing.assert_array_equal(io.read().acquisition["B"].timestamps[:],
+                                          10.0 + np.arange(500) / 1000.0)
+
+    def test_a_failed_verification_raises(self, src, tmp_path, monkeypatch):
+        """The same file with the link guard switched off reproduces the dangling link, and the
+        call must raise rather than hand back ``ok=False``."""
+        import jnwb.compression as compression
+        monkeypatch.setattr(compression, "_is_link_target", lambda f, path: False)
+        with pytest.raises(RuntimeError, match="verification check"):
+            jnwb.compress_fp32(src, tmp_path / "out.nwb", select=["acquisition/C/data"])

@@ -91,7 +91,7 @@ electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
 - `jnwb.classify_unit_quality(units_df, thresholds=None)`
 - `jnwb.electrode_inventory(nwb_paths)`
-- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select=None)`: `select=` lists the dataset paths to cast to float32. `select=None` falls back to the anchored LFP/MUAE preset and emits `FutureWarning`; `select=` becomes required in 0.2.7. Naming `spike_train` or `convolved_spike_train`, a regular `timestamps` array (replaced by `starting_time` and `rate`), a missing path, a group, a scalar dataset, or a dataset whose dtype is not floating (integer and boolean included) raises before anything is written.
+- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select=None)`: `select=` lists the dataset paths to cast to float32. `select=None` falls back to the anchored LFP/MUAE preset and emits `FutureWarning`; `select=` becomes required in 0.2.7. Naming `spike_train` or `convolved_spike_train`, a regular `timestamps` array (replaced by `starting_time` and `rate`), a missing path, a group, a scalar dataset, or a dataset whose dtype is not floating (integer and boolean included) raises before anything is written. A regular `timestamps` array that another link also opens (pynwb's shared timestamps) is kept as it is, so the link stays valid. With `verify=True` a failed check raises `RuntimeError` naming it, and the written `dst` is left for inspection.
 
 MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for agent hosts;
 use the public functions above in normal Python workflows.

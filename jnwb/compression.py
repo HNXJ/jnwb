@@ -222,7 +222,16 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
             )
         # The fate is decided at the array's own path, whose group holds any starting_time.
         ts = next((t for t in timestamp_paths if src[t] == obj), None)
-        if ts is not None and _timestamps_fate(src, ts, src[ts])[0] in ("collapsed", "redundant"):
+        fate = _timestamps_fate(src, ts, src[ts])[0] if ts is not None else None
+        if fate == "linked" and _is_regular(src[ts])[0]:
+            link = f", a link to {ts}" if ts != rel else ""
+            raise ValueError(
+                f"select= names {rel}{link}, a regular timestamps array that another link also "
+                "opens; the conversion keeps it at its source dtype instead of replacing it "
+                "with starting_time and rate, so the link stays valid, and it cannot be cast "
+                "to float32. Remove it from select=."
+            )
+        if fate in ("collapsed", "redundant"):
             link = f", a link to {ts}" if ts != rel else ""
             raise ValueError(
                 f"select= names {rel}{link}, a regular timestamps array that the conversion "
@@ -282,14 +291,41 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
     return paths
 
 
+def _is_link_target(f: h5py.File, path: str) -> bool:
+    """Does any link other than ``path`` itself open the dataset at ``path``?
+
+    A second hard link raises the object's reference count; a soft link is found by resolving
+    every soft link in the file, relative to the group that holds it. Deleting such a dataset
+    leaves the other name dangling or pointing at nothing -- pynwb writes one series'
+    ``timestamps`` as a soft link to another's.
+    """
+    target = f[path]
+    if h5py.h5o.get_info(target.id).rc > 1:
+        return True
+    groups = [f]
+    f.visititems(lambda _name, obj: groups.append(obj) if isinstance(obj, h5py.Group) else None)
+    for group in groups:
+        for name in group:
+            link = group.get(name, getlink=True)
+            if isinstance(link, h5py.SoftLink):
+                resolved = group.get(link.path)
+                if resolved is not None and resolved == target:
+                    return True
+    return False
+
+
 def _timestamps_fate(src: h5py.File, ts_path: str, data) -> tuple:
     """What step 3 of :func:`convert` does with the ``timestamps`` array at ``ts_path``.
 
-    ``("irregular", None)`` and ``("inconsistent", err)`` keep it; ``("collapsed", rate)``
-    replaces it with ``starting_time`` + ``rate``; ``("redundant", err)`` drops it beside an
-    existing ``starting_time`` it agrees with. Decided from the source alone, because step 1
-    copies ``starting_time`` verbatim and ``select=`` cannot reach a scalar.
+    ``("linked", None)``, ``("irregular", None)`` and ``("inconsistent", err)`` keep it;
+    ``("collapsed", rate)`` replaces it with ``starting_time`` + ``rate``; ``("redundant", err)``
+    drops it beside an existing ``starting_time`` it agrees with. ``linked`` is a dataset that
+    another link also opens, which neither of the last two may delete. Decided from the source
+    alone, because step 1 copies ``starting_time`` and every link verbatim and ``select=`` cannot
+    reach a scalar.
     """
+    if _is_link_target(src, ts_path):
+        return "linked", None
     regular, rate = _is_regular(data)
     if not regular:
         return "irregular", None
@@ -446,7 +482,8 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> di
               "asked explicitly.", file=sys.stderr)
 
     stats = {"max_float32_err": 0.0, "cast_paths": list(cast_paths),
-             "timestamps_collapsed": [], "timestamps_kept_irregular": []}
+             "timestamps_collapsed": [], "timestamps_kept_irregular": [],
+             "timestamps_kept_linked": []}
     t0 = time.time()
 
     # Imported at call time, not module scope: `jnwb/__init__.py` imports this module, so a
@@ -560,6 +597,9 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> di
             # dropping it -- do not assume, since a genuine mismatch would mean they encode
             # different things and neither should be silently discarded.
             fate, value = _timestamps_fate(src, ts_path, data)
+            if fate == "linked":
+                stats["timestamps_kept_linked"].append(ts_path)
+                continue
             if fate == "irregular":
                 stats["timestamps_kept_irregular"].append(ts_path)
                 continue
@@ -750,7 +790,10 @@ def compress_fp32(
         dict of conversion stats -- ``src_bytes``, ``dst_bytes``, ``ratio``, ``elapsed_s``,
         ``cast_paths``, ``max_float32_err``, ``compaction_reclaimed_bytes``, the timestamp
         dispositions, and (when ``verify``) ``verification`` with per-check results and an
-        overall ``ok`` flag.
+        overall ``ok`` flag. ``ok`` is True in every returned dict: a failed check raises.
+        A regular ``timestamps`` array that another link also opens (pynwb writes shared
+        timestamps as a soft link) is kept as it is and listed in ``timestamps_kept_linked``,
+        so the link still resolves.
 
     Raises:
         FileNotFoundError: ``src`` does not exist.
@@ -765,6 +808,8 @@ def compress_fp32(
             ``select`` refusal comes before anything is written.
         TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
             not floating, an integer or boolean one included.
+        RuntimeError: ``verify`` is True and a verification check failed. ``dst`` has been
+            written and is left in place for inspection; the message names every failed check.
     """
     src = Path(src)
     if not src.exists():
@@ -785,4 +830,12 @@ def compress_fp32(
             src, dst, n_check=n_check, collapsed=stats["timestamps_collapsed"],
             cast=stats["cast_paths"],
         )
+        if not stats["verification"]["ok"]:
+            failed = [f"{c['name']}: {c['detail']}" for c in stats["verification"]["checks"]
+                      if not c["ok"]]
+            raise RuntimeError(
+                f"compress_fp32 wrote {dst}, and {len(failed)} verification check(s) failed; "
+                f"the file is left in place for inspection and must not replace {src.name}: "
+                + " | ".join(d[:300] for d in failed)
+            )
     return stats

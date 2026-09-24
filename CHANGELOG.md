@@ -163,6 +163,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`compress_fp32` keeps shared timestamps, and a failed verification raises.** pynwb writes a
+  series' shared `timestamps` as a soft link to another series' array. When that array was
+  regular, the conversion replaced it with `starting_time` and `rate` and deleted it, leaving
+  the link dangling and the output unreadable by pynwb (`ConstructError`); the only signal was
+  `verification["ok"] == False` in the returned dict. A regular `timestamps` array that any
+  other hard or soft link opens is now kept as it is, listed in `timestamps_kept_linked`, and
+  refused by `select=` like any regular timestamps array. With `verify=True` a failed check
+  raises `RuntimeError` naming each failed check, and the written file is left in place for
+  inspection, so `ok` is True in every returned result.
 - **`acquisition_channel` applies `channel_conversion`.** An `ElectricalSeries` may store a
   per-channel factor, and the NWB specification computes the physical value as
   `data * conversion * channel_conversion[ch] + offset`. The factor was ignored, so a file
