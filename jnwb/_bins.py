@@ -49,9 +49,9 @@ def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
     """Number of ``bin_width`` bins spanning ``window``, refusing a span that is not whole bins.
 
     ``window`` and ``bin_width`` are in the same ``unit``, which the message names. A partial
-    last bin holds less than ``bin_width`` of data but its rate is still divided by the full
-    width; a window stretched or shrunk to whole bins divides every bin by a width it does not
-    have. The error names the nearest valid windows with the same start.
+    last bin holds less than ``bin_width`` of data, so its count is short and a rate divided by
+    the full width reads low; a window stretched or shrunk to whole bins has no bin of the
+    stated width. The error names the nearest valid windows with the same start.
     """
     start, end = float(window[0]), float(window[1])
     width = float(bin_width)
@@ -61,8 +61,7 @@ def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
         nearest = [(start, start + k * width) for k in (int(np.floor(n)), int(np.ceil(n))) if k >= 1]
         raise ValueError(
             f"{func_name}: {param}=({start:.10g}, {end:.10g}) spans {end - start:.10g} {unit}, "
-            f"which is {n:g} bins of {width:g} {unit}, so not every bin would be {width:g} "
-            f"{unit} wide and the rates would be wrong. Use "
+            f"which is {n:g} bins of {width:g} {unit}, so the last bin would be partial. Use "
             + " or ".join(f"{param}=({a:.10g}, {b:.10g})" for a, b in nearest)
             + ", or a bin width that divides the span."
         )

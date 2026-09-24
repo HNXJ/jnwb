@@ -75,9 +75,11 @@ def test_build_time_resolved_matrix():
 def test_build_time_resolved_matrix_refuses_a_window_that_is_not_whole_bins():
     """110 ms at 20 ms made six bins 18.3 ms wide, reported as 20 ms bins."""
     session = MockSession()
-    with pytest.raises(ValueError, match=r"time_window_ms=\(0, 100\) or time_window_ms=\(0, 120\)"):
+    with pytest.raises(ValueError, match=r"time_window_ms=\(0, 100\) or time_window_ms=\(0, 120\)") as err:
         build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
                                    time_window_ms=(0.0, 110.0), bin_size_ms=20.0)
+    # It returns counts, so the refusal names the partial bin rather than a wrong rate.
+    assert "the last bin would be partial" in str(err.value) and "rate" not in str(err.value)
 
 
 def test_build_time_resolved_matrix_bins_are_right_open_like_bin_spikes():

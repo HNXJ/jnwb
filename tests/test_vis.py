@@ -299,7 +299,7 @@ def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_ref
     plot_multi_condition_raster_psth(canvas, 0, 0, 1, 0, steady, {"A": np.array([2.0, 4.0])})
     line = [t for t in canvas.fig.data if isinstance(t, go.Scatter) and t.name == "A"][0]
     assert np.allclose(line.y, 1000.0)
-    with pytest.raises(ValueError, match="rates would be wrong"):
+    with pytest.raises(ValueError, match="the last bin would be partial"):
         plot_multi_condition_raster_psth(
             canvas, 0, 0, 1, 0, steady, {"A": np.array([2.0])}, win_ms=(-100.0, 305.0))
 
