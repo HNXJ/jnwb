@@ -16,15 +16,21 @@ class TestMonteCarloPValueConvention:
         g1 = np.array([0.0, 0.1, 0.2, 0.3])
         g2 = np.array([1.0, 1.1, 1.2, 1.3])
         res = StatisticalAnalysis.permutation_test(g1, g2, n_permutations=99, rng=rng)
-        obs = res["observed_difference"]
-        combined = np.concatenate([g1, g2])
+        # Exact rational arithmetic: a float recomputation of a split in shuffled order can
+        # land an ulp either side of the observed statistic and miscount the extreme draws.
+        from fractions import Fraction
+
+        combined = [Fraction(float(v)) for v in np.concatenate([g1, g2])]
         n_x = len(g1)
+
+        def diff(idx):
+            left = [combined[i] for i in idx[:n_x]]
+            right = [combined[i] for i in idx[n_x:]]
+            return abs(sum(left) / len(left) - sum(right) / len(right))
+
+        obs = diff(np.arange(len(combined)))
         local_rng = np.random.default_rng(0)
-        null = []
-        for _ in range(99):
-            idx = local_rng.permutation(len(combined))
-            null.append(np.mean(combined[idx[:n_x]]) - np.mean(combined[idx[n_x:]]))
-        k = int(np.sum(np.abs(null) >= abs(obs)))
+        k = sum(diff(local_rng.permutation(len(combined))) >= obs for _ in range(99))
         expected = (1 + k) / (99 + 1)
         assert res["pval"] == pytest.approx(expected)
 
