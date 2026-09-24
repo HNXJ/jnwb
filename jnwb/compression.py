@@ -169,7 +169,9 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
 
     Each entry is resolved to the name HDF5 gives the object it opens, and every check compares
     that name rather than the caller's spelling: ``a//b``, ``a/./b`` and ``a/b/`` all open
-    ``/a/b``, and a check on the spelling would let them past a guard that ``a/b`` meets.
+    ``/a/b``, and a check on the spelling would let them past a guard that ``a/b`` meets. The
+    refusals also compare the object itself (h5py objects compare equal when they are the same
+    HDF5 object), because a hard or soft link opens its target under the link's own name.
     """
     if select is None:
         return _find_lfp_muae_paths(src)
@@ -186,14 +188,18 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
             )
         resolved.add(src[requested].name)
     paths = sorted(resolved)
+    guarded = [src[g] for g in sorted(_GUARDED_PATHS) if g in src]
+    timestamp_paths = _find_timestamp_paths(src)
     for path in paths:
         rel = path[1:]
-        if rel in _GUARDED_PATHS:
-            raise ValueError(
-                f"select= names {rel}, which compress_fp32 always rewrites at its source dtype; "
-                "it cannot be cast to float32. Remove it from select=."
-            )
         obj = src[path]
+        same = next((g.name[1:] for g in guarded if g == obj), None)
+        if rel in _GUARDED_PATHS or same is not None:
+            link = f", a link to {same}" if same not in (None, rel) else ""
+            raise ValueError(
+                f"select= names {rel}{link}, which compress_fp32 always rewrites at its source "
+                "dtype; it cannot be cast to float32. Remove it from select=."
+            )
         if not isinstance(obj, h5py.Dataset):
             raise TypeError(f"select= names {rel}, which is a group, not a dataset")
         if obj.dtype.kind != "f":
@@ -205,13 +211,14 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
             raise ValueError(
                 f"select= names {rel}, a scalar (rank-0) dataset; select= casts arrays only"
             )
-        if rel in _find_timestamp_paths(src) and _timestamps_fate(src, rel, obj)[0] in (
-            "collapsed", "redundant"
-        ):
+        # The fate is decided at the array's own path, whose group holds any starting_time.
+        ts = next((t for t in timestamp_paths if src[t] == obj), None)
+        if ts is not None and _timestamps_fate(src, ts, src[ts])[0] in ("collapsed", "redundant"):
+            link = f", a link to {ts}" if ts != rel else ""
             raise ValueError(
-                f"select= names {rel}, a regular timestamps array that the conversion replaces "
-                "with starting_time and rate and drops; it cannot be cast to float32. Remove it "
-                "from select=."
+                f"select= names {rel}{link}, a regular timestamps array that the conversion "
+                "replaces with starting_time and rate and drops; it cannot be cast to float32. "
+                "Remove it from select=."
             )
     return paths
 
@@ -720,8 +727,9 @@ def compress_fp32(
         select: dataset paths to cast to float32, such as
             ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
             nothing. Each path is checked, cast and reported under the name of the dataset it
-            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE
-            preset and emits ``FutureWarning``; ``select=`` becomes required in 0.2.7.
+            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is
+            IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE preset and emits
+            ``FutureWarning``; ``select=`` becomes required in 0.2.7.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
             to regenerate it from) -- see point 7 in the module docstring. Warns loudly.
@@ -743,8 +751,9 @@ def compress_fp32(
             is not in ``src``.
         ValueError: ``select`` names ``spike_train`` or ``convolved_spike_train``, which are
             always rewritten at their source dtype; a regular ``timestamps`` array, which the
-            conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset.
-            Every ``select`` refusal comes before anything is written.
+            conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset. A
+            hard or soft link to either of the first two is refused like its target. Every
+            ``select`` refusal comes before anything is written.
         TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
             not floating, an integer or boolean one included.
     """

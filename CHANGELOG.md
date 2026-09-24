@@ -18,7 +18,8 @@ Carried by 0.2.6.
   is written; naming any of the last three used to report a float32 cast of a dataset that was
   never cast or is absent from the output. Each path is checked under the name of the dataset it
   opens, so `a//b`, `a/./b` and `a/b/` meet the same refusals as `a/b` and are cast once under
-  that name. The result gains `cast_paths`, and verification checks exactly those datasets.
+  that name, and a hard or soft link to a refused dataset is refused like the dataset. The
+  result gains `cast_paths`, and verification checks exactly those datasets.
 - **`correlate` and `exploratory_correlate` take `method=`.** Keyword-only: `"both"` (the
   default, the same values as before), `"pearson"` or `"spearman"`. Naming one computes only that
   correlation and returns only its keys, so `n_tests` counts what was performed. An unknown

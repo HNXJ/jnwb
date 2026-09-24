@@ -927,3 +927,65 @@ class TestASelectionIsResolvedBeforeItIsCompared:
         assert stats["cast_paths"] == ["/" + OTHER]
         assert _cast_notes(dst) == {OTHER: np.dtype(np.float32)}
         assert list(tmp_path.glob("*.tmp*")) == []
+
+
+def _file_with_aliases(path):
+    """`_file_with_timestamps` plus a hard and a soft link to `convolved_spike_train`, to the
+    regular timestamps array and to a castable array, each under a name of its own."""
+    from jnwb.compression import CONVOLVED_PATH
+
+    _file_with_timestamps(path)
+    with h5py.File(path, "a") as f:
+        for target, stem in ((CONVOLVED_PATH, "conv"), (REGULAR_TS, "ts"), (OTHER, "other")):
+            f[f"aliases/hard_{stem}"] = f[target]
+            f[f"aliases/soft_{stem}"] = h5py.SoftLink("/" + target)
+    return path
+
+
+class TestALinkAliasIsTheDatasetItNames:
+    """A hard or soft link names the same object as its target, so it meets the target's refusal.
+
+    The proxy to avoid: a fixture whose links do not resolve to the target, which would let a
+    guard on names alone pass. Each test first asserts the alias is the link kind it is named
+    after and compares equal to its target; a castable alias must still be cast, or refusing
+    every link would pass.
+    """
+
+    @pytest.fixture
+    def src(self, tmp_path):
+        return _file_with_aliases(tmp_path / "alias.nwb")
+
+    @staticmethod
+    def _assert_alias(src, alias, target):
+        kind = h5py.HardLink if alias.startswith("aliases/hard_") else h5py.SoftLink
+        with h5py.File(src, "r") as f:
+            assert isinstance(f.get(alias, getlink=True), kind), alias
+            assert f[alias] == f[target] and f[alias].name != f[target].name
+            assert f[alias] != f[OTHER if target != OTHER else REGULAR_TS]
+
+    @pytest.mark.parametrize("link", ["hard", "soft"])
+    @pytest.mark.parametrize(
+        "stem, match",
+        [("conv", "source dtype"), ("ts", "starting_time and rate")],
+        ids=["convolved", "regular-timestamps"],
+    )
+    def test_an_alias_of_a_refused_dataset_is_refused_before_anything_is_written(
+        self, src, tmp_path, link, stem, match
+    ):
+        from jnwb.compression import CONVOLVED_PATH
+
+        alias = f"aliases/{link}_{stem}"
+        self._assert_alias(src, alias, CONVOLVED_PATH if stem == "conv" else REGULAR_TS)
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match=match):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[OTHER, alias])
+        assert list(out.iterdir()) == []
+
+    @pytest.mark.parametrize("link", ["hard", "soft"])
+    def test_an_alias_of_a_castable_dataset_is_still_cast(self, src, tmp_path, link):
+        alias = f"aliases/{link}_other"
+        self._assert_alias(src, alias, OTHER)
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[alias])
+        assert stats["cast_paths"] == ["/" + alias]
+        assert _cast_notes(tmp_path / "ok.nwb") == {alias: np.dtype(np.float32)}
