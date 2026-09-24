@@ -80,29 +80,29 @@ def test_zflip_input_validation():
     """zflip validates shapes, channel counts, and sampling rate."""
     # 1D array
     with pytest.raises(ValueError, match="2D array"):
-        jnwb.zflip(np.random.randn(100), fs=1000.0)
+        jnwb.zflip(np.random.randn(100), orientation="superficial_to_deep", fs=1000.0)
 
     # 3D array (e.g. pre-averaged C x C x F tensor)
     with pytest.raises(ValueError, match="2D array"):
-        jnwb.zflip(np.random.randn(8, 8, 50), fs=1000.0)
+        jnwb.zflip(np.random.randn(8, 8, 50), orientation="superficial_to_deep", fs=1000.0)
 
     # Fewer than 3 channels
     with pytest.raises(ValueError, match="at least 3 channels"):
-        jnwb.zflip(np.random.randn(2, 1000), fs=1000.0)
+        jnwb.zflip(np.random.randn(2, 1000), orientation="superficial_to_deep", fs=1000.0)
 
     # Invalid fs
     with pytest.raises(ValueError, match="fs must be strictly positive"):
-        jnwb.zflip(np.random.randn(8, 1000), fs=-10.0)
+        jnwb.zflip(np.random.randn(8, 1000), orientation="superficial_to_deep", fs=-10.0)
 
     # Invalid pitch
     with pytest.raises(ValueError, match="pitch_um must be strictly positive"):
-        jnwb.zflip(np.random.randn(8, 1000), fs=1000.0, pitch_um=-50.0)
+        jnwb.zflip(np.random.randn(8, 1000), orientation="superficial_to_deep", fs=1000.0, pitch_um=-50.0)
 
 
 def test_zflip_insufficient_freq_bins():
     """Narrow band with < 3 bins fails gracefully with unidentifiable status."""
     data = np.random.randn(8, 1000)
-    res = jnwb.zflip(data, fs=1000.0, freq_range=(20.0, 21.0), nperseg=128)
+    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, freq_range=(20.0, 21.0), nperseg=128)
     assert not res.accepted
     assert not res.delay_identifiable
     assert res.directionality == "unidentifiable"
@@ -135,6 +135,7 @@ def test_zflip_clean_traveling_wave_recovery():
 
     res = jnwb.zflip(
         data,
+        orientation="superficial_to_deep",
         fs=fs,
         freq_range=(18.0, 32.0),
         pitch_um=pitch_um,
@@ -174,6 +175,7 @@ def test_zflip_reverse_direction():
 
     res = jnwb.zflip(
         data,
+        orientation="superficial_to_deep",
         fs=fs,
         freq_range=(18.0, 32.0),
         pitch_um=pitch_um,
@@ -197,14 +199,14 @@ def test_zflip_adversarial_zero_lag_injection():
 
     # 1. Pure zero-lag identical signal across all channels
     data_pure = np.tile(common_signal, (n_channels, 1))
-    res_pure = jnwb.zflip(data_pure, fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=20, seed=42)
+    res_pure = jnwb.zflip(data_pure, orientation="superficial_to_deep", fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=20, seed=42)
     assert not res_pure.accepted
     assert res_pure.mean_wpli == 0.0
     assert "below min_wpli" in res_pure.rejection_reason
 
     # 2. Zero-lag common signal plus independent contact noise
     data_noisy = data_pure + 0.1 * rng.normal(size=(n_channels, n_samples))
-    res_noisy = jnwb.zflip(data_noisy, fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=20, seed=42)
+    res_noisy = jnwb.zflip(data_noisy, orientation="superficial_to_deep", fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=20, seed=42)
     assert not res_noisy.accepted
     assert not res_noisy.delay_identifiable
     assert res_noisy.p_value > 0.05  # not distinguishable from phase-scrambled null
@@ -233,6 +235,7 @@ def test_zflip_adversarial_nonlinear_delay():
 
     res = jnwb.zflip(
         data,
+        orientation="superficial_to_deep",
         fs=fs,
         freq_range=(15.0, 35.0),
         min_linearity_r2=0.80,
@@ -271,7 +274,7 @@ def test_zflip_adversarial_opposing_waves():
             + rng.normal(0, 0.1, size=n_samples)
         )
 
-    res = jnwb.zflip(data, fs=fs, freq_range=(18.0, 32.0), n_surrogates=15, seed=42)
+    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=fs, freq_range=(18.0, 32.0), n_surrogates=15, seed=42)
     # Opposing waves destroy monotonic cumulative phase gradient
     assert res.directionality == "unidentifiable" or not res.accepted
 
@@ -279,7 +282,7 @@ def test_zflip_adversarial_opposing_waves():
 def test_zflip_container_access_and_to_dict():
     """ZFlipResult supports dataclass attributes, dict access, and serialization."""
     data = np.random.randn(5, 1000)
-    res = jnwb.zflip(data, fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=5, seed=42)
+    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, freq_range=(15.0, 35.0), n_surrogates=5, seed=42)
 
     # Attribute access
     assert hasattr(res, "adjacent_wpli")

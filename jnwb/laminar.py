@@ -1666,11 +1666,12 @@ class ZFlipResult(DictAccessMixin):
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
             under the fitted linear model (v = pitch_m / tau_per_channel), or None if
             unidentifiable or pitch_um was not provided.
-        tau_per_channel_s: Spatial delay gradient in seconds per contact (positive means
-            superficial leads deep in input order), or NaN if unidentifiable.
-        directionality: String classifying propagation direction:
-            - "superficial_to_deep" (tau_per_channel_s > 0)
-            - "deep_to_superficial" (tau_per_channel_s < 0)
+        tau_per_channel_s: Spatial delay gradient in seconds per contact, in input row
+            order: positive means the lower-index contact leads. NaN if unidentifiable.
+        directionality: Propagation direction in depth, named from the sign of
+            ``tau_per_channel_s`` and the ``orientation`` the caller stated:
+            - "superficial_to_deep" (the superficial end leads)
+            - "deep_to_superficial" (the deep end leads)
             - "unidentifiable" (delay identifiability criteria not satisfied)
         delay_identifiable: Boolean indicating whether the phase-frequency relationship
             satisfies the identifiability gate across contacts.
@@ -1682,6 +1683,8 @@ class ZFlipResult(DictAccessMixin):
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
         n_channels: Number of channels evaluated.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
+        orientation: The contact order the caller stated: ``'superficial_to_deep'`` (row 0
+            superficial) or ``'deep_to_superficial'`` (row 0 deep).
     """
 
     adjacent_wpli: np.ndarray
@@ -1698,6 +1701,7 @@ class ZFlipResult(DictAccessMixin):
     rejection_reason: Optional[str]
     n_channels: int
     pitch_um: Optional[float] = None
+    orientation: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1716,13 +1720,18 @@ class ZFlipResult(DictAccessMixin):
             "rejection_reason": self.rejection_reason,
             "n_channels": int(self.n_channels),
             "pitch_um": float(self.pitch_um) if self.pitch_um is not None else None,
+            "orientation": self.orientation,
         }
+
+
+_ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
 
 
 def zflip(
     lfp_matrix: np.ndarray,
     fs: float,
     *,
+    orientation: str,
     freq_range: Tuple[float, float] = (15.0, 35.0),
     pitch_um: Optional[float] = None,
     nperseg: Optional[int] = None,
@@ -1773,10 +1782,17 @@ def zflip(
        single-wave model.
 
     Args:
-        lfp_matrix: 2D array of shape `(n_channels, n_samples)` ordered along the probe shaft.
-            Minimum 3 channels required. Pre-averaged :math:`C \times C \times F` tensors
+        lfp_matrix: 2D array of shape `(n_channels, n_samples)` ordered along the probe shaft,
+            in the direction `orientation` names. Minimum 3 channels required. Pre-averaged :math:`C \times C \times F` tensors
             are rejected with ValueError because segment information is required for wPLI.
         fs: Sampling frequency in Hz (must be strictly positive).
+        orientation: Required. Which end of the shaft row 0 is: ``'superficial_to_deep'``
+            (row 0 is the most superficial contact) or ``'deep_to_superficial'`` (row 0 is
+            the deepest, as in a tip-first electrode table). ``directionality`` names an
+            anatomical direction from this and the sign of the row-order delay gradient,
+            so the wrong value reverses it; nothing in the LFP can detect that. It has no
+            default, because the row order alone says nothing about depth; any other value
+            raises ValueError.
         freq_range: `(min_freq, max_freq)` in Hz over which the linear phase slope is fitted.
         pitch_um: Inter-contact spacing along the shaft in micrometers (optional).
         nperseg: Welch segment length for STFT; defaults to ``min(max(N // 2, 8), 256)``,
@@ -1796,7 +1812,9 @@ def zflip(
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
 
     Raises:
-        ValueError: If input is not a finite 2D array of at least 3 channels, `fs <= 0`,
+        TypeError: If `orientation` is not given.
+        ValueError: If `orientation` is not one of the two orders, input is not
+            a finite 2D array of at least 3 channels, `fs <= 0`,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
             fewer than 2 segments.
@@ -1808,6 +1826,13 @@ def zflip(
         phase lag index of each adjacent contact pair, as in :func:`jnwb.wpli`.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
+    if orientation not in _ZFLIP_ORIENTATIONS:
+        raise ValueError(
+            f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
+            f"contact) or 'deep_to_superficial' (row 0 is the deepest); got {orientation!r}. "
+            "directionality names a direction in depth from row order, and the row order of "
+            "an electrode table can run either way."
+        )
     lfp = np.asarray(lfp_matrix, dtype=float)
     if lfp.ndim != 2:
         raise ValueError(
@@ -1869,6 +1894,7 @@ def zflip(
             rejection_reason=f"Insufficient frequency bins in freq_range {freq_range} (got {n_freq_bins} bins, need >= 3)",
             n_channels=n_channels,
             pitch_um=pitch_um,
+            orientation=orientation,
         )
 
     f_band = freqs[mask]
@@ -1923,10 +1949,16 @@ def zflip(
             apparent_velocity = None
             directionality = "unidentifiable"
         else:
-            if tau_per_channel > 0:
-                directionality = "superficial_to_deep"
-            elif tau_per_channel < 0:
-                directionality = "deep_to_superficial"
+            # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
+            # order, which is the anatomical direction the caller named for row order.
+            if tau_per_channel > 0 or tau_per_channel < 0:
+                row_order_leads = tau_per_channel > 0
+                if orientation == "superficial_to_deep":
+                    directionality = ("superficial_to_deep" if row_order_leads
+                                      else "deep_to_superficial")
+                else:
+                    directionality = ("deep_to_superficial" if row_order_leads
+                                      else "superficial_to_deep")
             else:
                 delay_identifiable = False
                 tau_per_channel = float("nan")
@@ -1996,6 +2028,7 @@ def zflip(
         rejection_reason=rejection_reason,
         n_channels=n_channels,
         pitch_um=pitch_um,
+        orientation=orientation,
     )
 
 

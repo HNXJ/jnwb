@@ -45,7 +45,7 @@ def _wave(n_channels=12, dt=DT, seed=0, noise=0.05):
 
 
 def _zflip(lfp, **kwargs):
-    params = dict(fs=FS, pitch_um=PITCH_UM, freq_range=BAND, n_surrogates=19, seed=1)
+    params = dict(orientation="superficial_to_deep", fs=FS, pitch_um=PITCH_UM, freq_range=BAND, n_surrogates=19, seed=1)
     params.update(kwargs)
     return jnwb.zflip(lfp, **params)
 
@@ -70,6 +70,26 @@ class TestGroundTruth:
         assert rev.directionality == "deep_to_superficial"
         assert rev.tau_per_channel_s == pytest.approx(-fwd.tau_per_channel_s, rel=1e-9)
         assert rev.apparent_velocity_m_s == pytest.approx(fwd.apparent_velocity_m_s, rel=1e-9)
+
+    def test_a_tip_first_table_names_the_same_anatomical_direction(self, wave):
+        """`wave` runs from row 0, so with row 0 superficial the superficial end leads. The
+        same recording read from a tip-first electrode table has its rows reversed; the
+        direction was named from row order alone, so that table was reported as
+        deep-to-superficial and accepted."""
+        tip_first = _zflip(wave[::-1], orientation="deep_to_superficial")
+        assert tip_first.accepted
+        assert tip_first.directionality == "superficial_to_deep"
+        assert tip_first.orientation == "deep_to_superficial"
+        assert tip_first.to_dict()["orientation"] == "deep_to_superficial"
+
+    @pytest.mark.parametrize("orientation", [None, "auto", "tip_first"])
+    def test_a_direction_in_depth_needs_the_contact_order(self, wave, orientation):
+        with pytest.raises(ValueError, match="row 0 is the most superficial"):
+            _zflip(wave, orientation=orientation)
+
+    def test_the_contact_order_has_no_default(self, wave):
+        with pytest.raises(TypeError, match="orientation"):
+            jnwb.zflip(wave, fs=FS, freq_range=BAND, n_surrogates=0)
 
     def test_pitch_scales_velocity_not_delay(self, wave):
         a, b = _zflip(wave), _zflip(wave, pitch_um=2 * PITCH_UM)
@@ -196,12 +216,12 @@ class TestUnavailableStates:
 
     def test_single_segment_is_rejected(self):
         with pytest.raises(ValueError, match=r"not identifiable from 1 Welch segment"):
-            jnwb.zflip(np.random.default_rng(0).normal(size=(6, 2048)), fs=FS, nperseg=2048)
+            jnwb.zflip(np.random.default_rng(0).normal(size=(6, 2048)), orientation="superficial_to_deep", fs=FS, nperseg=2048)
 
     @pytest.mark.parametrize("n_samples", [256, 511])
     def test_short_default_segmentation_does_not_saturate_wpli(self, n_samples):
         lfp = np.random.default_rng(1).normal(size=(6, n_samples))
-        res = jnwb.zflip(lfp, fs=FS, freq_range=BAND, n_surrogates=19, seed=0)
+        res = jnwb.zflip(lfp, orientation="superficial_to_deep", fs=FS, freq_range=BAND, n_surrogates=19, seed=0)
         assert res.mean_wpli < 0.999
         assert not res.accepted
 

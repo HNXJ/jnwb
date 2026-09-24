@@ -1777,7 +1777,7 @@ assert wpli_res['freqs'].shape == wpli_res['wpli_spectrum'].shape
 assert 1 <= wpli_res['n_freqs'] <= wpli_res['freqs'].size
 assert wpli_res['n_segments'] >= 2
 
-zflip_res = jnwb.zflip(rng.normal(size=(8, 1000)), fs=1000.0, pitch_um=20.0, freq_range=(15.0, 35.0), seed=42)
+zflip_res = jnwb.zflip(rng.normal(size=(8, 1000)), fs=1000.0, orientation="superficial_to_deep", pitch_um=20.0, freq_range=(15.0, 35.0), seed=42)
 assert isinstance(zflip_res.delay_identifiable, bool) and isinstance(zflip_res.accepted, bool)
 # White noise carries no travelling wave: the estimator must decline it and say why.
 assert zflip_res.accepted is False and zflip_res.rejection_reason

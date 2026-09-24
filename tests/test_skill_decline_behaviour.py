@@ -161,7 +161,7 @@ def _():
 @case("jnwb-lfp-spectral", "supported")
 def _():
     # 2 samples at 1 kHz per 100 um contact: 2 ms per channel, 0.05 m/s apparent velocity.
-    res = jnwb.zflip(_propagating_lfp(), fs=1000.0, pitch_um=100.0, n_surrogates=39)
+    res = jnwb.zflip(_propagating_lfp(), orientation="superficial_to_deep", fs=1000.0, pitch_um=100.0, n_surrogates=39)
     assert res.accepted and res.directionality == "superficial_to_deep"
     assert res.apparent_velocity_m_s == pytest.approx(0.05, rel=0.05)
 
@@ -180,7 +180,7 @@ def _():
     # even though the six good pairs alone would give a clean, plausible velocity.
     lfp = _propagating_lfp()
     lfp[-1] += np.random.default_rng(5).normal(size=lfp.shape[1])
-    res = jnwb.zflip(lfp, fs=1000.0, pitch_um=100.0, n_surrogates=39)
+    res = jnwb.zflip(lfp, orientation="superficial_to_deep", fs=1000.0, pitch_um=100.0, n_surrogates=39)
     assert list(res.adjacent_identifiable) == [True] * 6 + [False]
     assert not res.accepted and not res.delay_identifiable
     assert res.directionality == "unidentifiable" and res.apparent_velocity_m_s is None

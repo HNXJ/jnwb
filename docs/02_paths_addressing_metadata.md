@@ -131,6 +131,7 @@ Estimates cortical depth phase gradients, the per-contact delay, and an apparent
 z_res = jnwb.zflip(
     lfp_matrix,
     fs=1000.0,
+    orientation="superficial_to_deep",   # row 0 is the most superficial contact
     freq_range=(15.0, 35.0),
     pitch_um=geom.nominal_pitch,
     n_surrogates=50,
@@ -146,8 +147,10 @@ gradient expressed as a speed in meters per second, using `pitch_um` for the spa
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
 shape is produced by axonal conduction, but also by two sources with a fixed phase offset,
 by a traveling wave in the local field, and by volume conduction from a single distant
-generator. `directionality` names the sign of the gradient along the contact ordering, so
-it is a direction in *depth*, not a direction of causal influence. Reporting any of the
+generator. `directionality` is a direction in *depth*, not a direction of causal influence.
+It comes from the sign of the gradient along the rows and the `orientation` you state, which has
+no default: an electrode table can list contacts from either end, and the LFP cannot say which.
+Pass `"deep_to_superficial"` when row 0 is the deepest contact. Reporting any of the
 three as a conduction speed or as evidence that one layer drives another is the
 association-to-causality step that [Architecture &
 Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules out.

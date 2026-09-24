@@ -169,6 +169,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (0.040111 on one input). It now raises `TypeError` like any unknown option; the estimator
   conditions on one past sample of each series. `jnwb.transfer_entropy` takes history lengths.
   Every other metric-specific option `jrsa` accepts changes the result.
+- **INTENTIONAL BREAK: `zflip` requires `orientation`.** `directionality` named a direction in
+  depth from row order alone, and nothing required row 0 to be superficial: a tip-first
+  electrode table of a wave running superficial to deep was reported as `deep_to_superficial`
+  and accepted. `orientation='superficial_to_deep'` (row 0 is the most superficial contact) or
+  `'deep_to_superficial'` (row 0 is the deepest) is now a keyword with no default; a call
+  without it raises `TypeError` and any other value raises `ValueError`. Code that passed
+  superficial-first rows adds `orientation='superficial_to_deep'` and gets the numbers it got
+  before. `tau_per_channel_s` stays in row order (positive when the lower-index contact leads),
+  and `ZFlipResult.orientation` records the order stated.
 
 ### Fixed
 

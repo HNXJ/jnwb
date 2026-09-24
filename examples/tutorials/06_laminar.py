@@ -64,10 +64,12 @@ def main() -> None:
     print(f"vFLIP result: accepted={vflip_res.accepted}, crossover={vflip_res.crossover_contact}, score={vflip_res.support_score:.2f}")
 
     # 4. zFLIP Inter-Contact Traveling Wave Analysis
-    # Fits linear phase slope dphi/df and computes apparent phase velocity
+    # Fits linear phase slope dphi/df and computes apparent phase velocity. `orientation`
+    # says which end row 0 is; here channel 0 is the most superficial contact.
     zflip_res = jnwb.zflip(
         lfp,
         fs=fs,
+        orientation="superficial_to_deep",
         pitch_um=100.0,
         freq_range=(15.0, 25.0),
         n_surrogates=20,
@@ -76,6 +78,7 @@ def main() -> None:
     assert isinstance(zflip_res, jnwb.ZFlipResult)
     print("zFLIP traveling wave result:")
     print(f"  Delay identifiable: {zflip_res.delay_identifiable}")
+    print(f"  Direction in depth: {zflip_res.directionality}")
     print(f"  Apparent velocity: {zflip_res.apparent_velocity_m_s}")
     print(f"  Accepted: {zflip_res.accepted}")
     print(f"  Surrogate null p-value: {zflip_res.p_value:.3f}")
