@@ -6,7 +6,8 @@ history. The previous cycle's record is `artifacts/archive/0.2.5/todo_stack_0.2.
 
 0.2.6 is a coherence, reachability and evidence release. It is measured against
 `artifacts/goal.md` and opens under the three conditions of `AGENTS.md` §11. Deferred work and the
-0.2.7 sequence are in `artifacts/planned_post_0.2.6.md`. Rulings are in `artifacts/rulings/`.
+0.2.7 sequence are in `artifacts/planned_post_0.2.6.md`, and findings deferred from the problem
+stack are 07-01. Rulings are in `artifacts/rulings/`.
 
 ## How this stack is executed
 
@@ -45,7 +46,7 @@ barrier above.
 | Wave | Items |
 |---|---|
 | W0 |  |
-| W1 |  |
+| W1 | 06-144 |
 | W2 |  |
 | W3 |  |
 | W4 |  |
@@ -64,6 +65,18 @@ packets finish before 06-34.
 ## W0. Integration and verification
 
 ## W1. Freeze, sweeps and harness
+
+### 06-144 Gate 14 scans `docs/` for item and problem identifiers
+
+Release: required-0.2.6.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`.
+P-208's gate half. Gate 14 applies `PROCESS_IDENTIFIER` to `jnwb/**/*.py` only and scans
+`docs/**/*.md` for internal terms, so an item or problem id in a published page passes;
+`docs/documentation_form.md` carried one until it was removed by hand.
+Discriminator: an item id and a problem id planted in a page under `docs/` each fail the gate.
+Accept: the planted ids fail, the live `docs/` passes, and the page scan shares the library
+scan's pattern.
 
 ## W2. API repairs
 
@@ -89,7 +102,7 @@ packets finish before 06-34.
 
 Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. The pass at `f39136cb` closed P-93, P-114, P-239, P-272, P-261, P-243, P-250, P-251, P-252, P-253, P-263 and P-271 and verified the contract gate, the documentation form gate, and 06-17's repairs and six of its answers; it broke P-104 and 06-17's tenth answer (P-286), and left P-215, P-273 and P-262's CHANGELOG line partial. Current list: P-182 (06-129, now closed): the identifier rewrite, the AST identity, the Gate 14 extension and the refreshed xflip receipt. P-104, P-215, P-273, P-262 and P-286 (06-143, now closed; `55fabfb3`..`08fd43d8`). P-02's re-cited answers against `artifacts/rulings/2026-09-22.md:22-23`.
+Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. The pass at `f39136cb` closed P-93, P-114, P-239, P-272, P-261, P-243, P-250, P-251, P-252, P-253, P-263 and P-271 and verified the contract gate, the documentation form gate, and 06-17's repairs and six of its answers; it broke P-104 and 06-17's tenth answer (P-286), and left P-215, P-273 and P-262's CHANGELOG line partial. Current list, one entry per repair. P-02 (06-17, now closed): the four answers re-cited to `artifacts/rulings/2026-09-22.md:22-23` (#2, #5, #7, #9) hold. P-104 (06-143, now closed): each `select=` entry of `compress_fp32` and `convert` resolves to the dataset it opens before any guard compares it, so `processing//...`, `processing/./...` and a trailing `/` are refused with no temp file written (`55fabfb3`), and a hard or soft link to a refused dataset is refused like its target (`08fd43d8`). P-178: no worktree holds uncommitted work absent from `dev`; lane `fig` was removed on 2026-09-23. P-182 (06-129, now closed): the identifier rewrite, the AST identity, the Gate 14 extension to `jnwb/**/*.py` and the refreshed xflip receipt. P-185 (06-57, now closed): the `jnwb/vis` docstrings cite only entries in `docs/references.md`, and the `sidecar.py` docstring names no external project as its source. P-208: `docs/documentation_form.md` cites no item id and states nine raster pages; the gate half is 06-144. P-210 (06-51, now closed): `docs/documentation_form.md` gives `docs/architecture.md` a kind and a word ceiling and counts it among the pages. P-215: `enrich_units_dataframe` adds no `is_stable` when `quality` holds no usable value, reading missing-value text from pandas' `STR_NA_VALUES` with a copied fallback (`cd5eda55`); a NaN unit inside a partly usable column is 07-01's P-236. P-262: the CHANGELOG entry states `eta_squared` 1.0 with one observation per group, and a test pins both (`7b02c73f`). P-273: `docs/10` gives `vflip` and `vflip_from_lfp` CPU only, and a test holds every row's device column to the measured set (`d814ac0d`); a break carries to 07-01 as deferred-0.2.7. P-286: `nwb_read_io` raises `ValueError` for any mode but `'r'` before opening the file, and a test pins bytes and mtime for `"w"`, `"a"` and `"r+"` (`56b79598`).
 Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
 Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
@@ -108,6 +121,10 @@ Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: 06-34. Writes: none.
 P-06, P-09. Every declared interpreter on Ubuntu and Windows, from a fresh environment; record
 `jnwb.__file__` for each, because `C:\Python314\Lib\site-packages` holds a 0.2.5 copy and a backup.
+P-06: `.venv\Scripts\python.exe` collected 2841 tests with one error (statsmodels absent) where
+`C:\Python314` collected 2879, so each environment reports its collected count and zero
+collection errors. P-09: that site-packages copy differs from this checkout in `jrsa.py` and
+`nwb_io.py`, so a probe that omits the path insert measures other code.
 
 ### 06-36 Documentation qualification
 
@@ -123,7 +140,9 @@ Release: required-0.2.6.
 Role: verifier. Skill: none. Blocked by: 06-34. Writes: none.
 P-04. Build the sdist and wheel into the scratchpad, not `dist/`, and point the distribution
 checks at that build: contents, metadata, imports, exports, `SKILLS_URL`, the `vis` extra,
-representative workflows, no checkout shadowing, no `examples/data` in the wheel.
+representative workflows, no checkout shadowing, no `examples/data` in the wheel. P-04: `dist/`
+holds 0.1.1, 0.1.3 and 0.2.4 and no 0.2.5 build, so the distribution-cleanliness test inspected
+superseded releases and never the one that shipped.
 
 ### 06-38 Verify the candidate from TestPyPI
 
@@ -146,8 +165,11 @@ Release: required-0.2.6.
 Role: critic. Skill: none. Blocked by: 06-39.
 Writes: `artifacts/blocker_fixpoint_receipt.md`.
 Condition 3 of `AGENTS.md` §11. One independent pass over the documentation, the code and both
-stacks applying the blocker predicate. A new blocker re-opens the owning wave; a new non-blocking
-observation is recorded `DEFERRED->0.2.7` and does not.
+stacks applying the blocker predicate. A new blocker becomes a `required-0.2.6` item and re-opens
+the owning wave; a new non-blocking observation becomes a `deferred-0.2.7` entry and does not.
+P-37: the pass also hunts the root pattern, a proxy mistaken for the invariant it stands for;
+fifteen instances are enumerated in the P-37 row of the problem stack at `f140e20e`, and the
+pattern closes when one full pass adds none.
 Accept: the receipt names the commit it ran against and reports zero new release-blocking
 problems; `scripts/release_gate.py` STEP 0a accepts it only at HEAD.
 Stop: a new blocker needs a human ruling; it is not reclassified to close the cycle.
@@ -176,6 +198,99 @@ Role: human. Skill: none. Blocked by: 06-130. AUTONOMY: none.
 Writes: `jnwb/__init__.py`, `CHANGELOG.md`, `README.md`.
 dev green; pull request and `main` green; TestPyPI candidate (06-38); tag validates without
 publishing; GitHub Release; production PyPI; verification from PyPI in a clean environment.
+
+## 0.2.7
+
+### 07-01 Findings carried from 0.2.6
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per finding. Blocked by: none.
+Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
+Each finding below was deferred under `AGENTS.md` section 11 during 0.2.6. A packet takes one
+finding and narrows the write set to its paths; a finding shown to meet the blocker predicate
+leaves this item as a `required-0.2.6` item.
+
+- P-01: `scripts/docs_build.py` writes `site/` inside the repository, and the test suite also creates `site/` mid-run with no build invoked, so no read-only packet can establish that the strict docs build passes while keeping the tree clean. Deferred: changes no shipped behaviour and invalidates no release evidence; 06-36 builds into a temporary directory.
+- P-08: Two reproduced review findings carry wrong counts: `doc-assets/module-map-omits-nwb-entry-points` says 36 omitted exports where a probe counts 35, and `ai-plumbing/agent-roles-exist-but-ship-nowhere` says five roles where six exist. Deferred: record counts only.
+- P-20: The unit-to-layer composition works through existing exports and no document or skill shows it. Deferred: documentation only; planned as 06-89 in `artifacts/planned_post_0.2.6.md`.
+- P-36: Reading computational order off the source was wrong on six specs: five predicted a gap the measurement did not find, and one exponential case a reading of the loop structure would miss; a nested loop is not evidence of the order it looks like. Deferred: a method finding, not a code defect; planned as 06-87.
+- P-63: 30 public exports are named in no skill, including `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` and the `Query`/`Question`/`Result`/`Interpretation`/`Lineage`/`Provenance` cluster; the seven domain skills otherwise partition 110 operations with one overlap. Deferred: a routing gap that changes no behaviour or evidence.
+- P-69: The problem stack's rule section stated a hand-written count of closing dispositions that contradicted its own table and `AGENTS.md` section 2; the sentence was repaired, and nothing checks hand-written counts in that file. Deferred: only the missing check remained, and the 2026-09-23 rewrite of that section removed the counted sentence.
+- P-76: `examples/quickstart_jnwb.py` writes two tracked files and `docs/quickstart.md:55` tells the reader to run it; the SVG carries a `<dc:date>` and random `<path id=...>` hashes, so every run dirties the checkout. `rcParams["svg.hashsalt"]` plus `metadata={"Date": None}` gives byte-identical SVG, and the PNG is already deterministic (re-measured 2026-09-23). Deferred: no shipped behaviour or evidence; `docs/generate_figures.py` is already held to its outputs by a test.
+- P-84: `tests/test_docs_call_shapes.py` missed documented calls that raise: its arity check was one-sided, dotted receivers were skipped, and `docs/10` had no fences. The code half is landed (`Signature.bind`, a per-page import map, receivers at any depth, a `docs/10` table collector that fails on an unresolved row). Deferred, upheld by the deferral attack on 2026-09-23: what remains is P-167's record correction and the type oracle.
+- P-90: 06-44 declared its write target in prose ("the documentation page that names the keys"), and no page names `fdr_pval`: a pointer born wrong, and no gate resolves prose write targets. Deferred: a prose target cannot be resolved mechanically; the repair is a gate that rejects a `Writes:` field naming a path outside backticks.
+- P-97: `README.md:132` links `artifacts/todo_stack.md` from its Contributing section, so the most public file points at private coordination state; Gate 14 scans only `docs/**`, and a test forbids dropping `todo_stack.md` from its term list. Deferred: needs a boundary ruling (the same link as P-260).
+- P-100: Gate 14 gates 2 of the 6 agent role names: `authority`, `critic`, `actor` and `verifier` are ordinary English, the gap is documented in the constant's comment, and a test keeps those four ungated. Deferred: deliberate; recorded so it is not rediscovered as a defect.
+- P-101: `checked >= 65` in the skills signature test sits against 116 rows, so only mass deletion trips it. Deferred: cheap to tighten now that the concurrent lanes have landed, and the coverage test makes the weak floor's failure nearly unreachable.
+- P-102: The repository mixed line-ending conventions with no rule and no check (`artifacts/*.md` and three `skills/*/SKILL.md` CRLF; `AGENTS.md`, `scripts/`, `tests/` and `docs/` LF): a byte-mode edit anchored with the wrong ending matches nothing, and `git apply` refuses mismatched context. `.gitattributes` now declares `-text` and Gate 16 fails a mixed file; the wholesale conversion Gate 16 cannot see is P-159. Deferred: whether to level the conventions is a ruling.
+- P-119: Three lanes (06-19, 06-21, 06-22) each read the highest problem id as P-107 and wrote `P-108` into an `xfail` reason for three different defects; a worktree cannot see ids allocated after it was cut, and the packet contract allocates none. All four references were renumbered on integration. Deferred: the repair is a packet that carries the allocated id or a named placeholder.
+- P-154: Scheduling fields carried prose that quoted field labels, so neither parsed: 11 defects across 10 items in one pass; the shapes were notes spliced into a `Blocked by:` field (06-30, 06-36, 06-27, 06-06), prose quoting a label inside its own item (06-31, 06-80), and five stale blockers hidden behind them, including 06-105 naming itself. All 11 were repaired by hand. Deferred: the durable half is a gate 15 check for a blocker naming no live item, an item naming itself, and a second field label in one item.
+- P-155: Ruling items 06-13 and 06-67 asked for evidence that committed artifacts already held (`artifacts/evidence/0.2.6/compress_fp32_default_candidates.md`, `compress_fp32_policy.md`, `missingness_table.md`), because each artifact named its item and the item never named it back; the unread missingness table held unrecorded defects (P-157, P-158) and a fourth candidate, `c3d`. Deferred: the durable half is a backlink check (an artifact naming a live todo id in its first 12 lines that the item does not name back), measured at 3 links with 2 broken, then 0 after repair.
+- P-162: Lane concurrency compared `Writes:` strings, so `docs/*.md` and `docs/08_directed_connectivity_and_information.md` read as disjoint though they name one file: 33 string-disjoint pairs of dispatchable work shared a tracked file, and a greedy batch of eighteen split into six once tokens were resolved against `git ls-files`. The parser also invented the write set `repaired` for 06-17. Deferred, upheld by the deferral attack on 2026-09-23: the 0.2.6 waves are scheduled on resolved paths; the gate expands each token with `fnmatch` against `git ls-files`, fails a token matching nothing, and fails an empty field unless the Role is `verifier` or `human ruling`.
+- P-167: P-84's record was partly wrong: the corpus did reach `docs/02`, `docs/07` and `docs/09` (25, 17 and 9 calls); a fourth cause was the per-fence import map (why P-78 survived, found when mutant M3 survived the repair of the three recorded causes); `docs/10` has no fences of any kind; and the module docstring was right about P-82. The code half is repaired. Deferred: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly and need a type oracle, planned as 06-110.
+- P-171: `test_the_value_is_a_density_not_an_integrated_power` does not catch `signal.welch(..., scaling="spectrum")`, though it catches `mean -> sum`; the scaling mutant is killed by `test_band_power_is_the_mean_psd_over_the_band` instead. Deferred: the class is covered and only the test's name misleads.
+- P-190: `acquisition_channel` raises `AcquisitionNotFoundError` for a series found with `timestamps` and no constant `rate`, so a caller catching "not found" to try another name reads a present series as absent. Deferred: the message says "has no constant sampling rate" and no rate is invented; a new exception class is a public API decision.
+- P-191: A contributor install without the `vis` extra fails the tests that sweep `jnwb.__all__` (19 counted by one lane, 21 by another in a git-less export). Deferred: false failures, never false passes; the test legs install the extra, and the CI smoke step and release-gate STEP 7 check the no-extra state.
+- P-192: `enrich_units_dataframe` on a units table without `peak_channel_id` fills `area=None`, `layer='Unknown'` and `group_name=None` on every row with no warning, and `docs/02_paths_addressing_metadata.md` does not state the prerequisite. Deferred: unknown values rather than wrong labels, ratified by `tests/test_substitution_class_sweep.py`; planned as 06-90.
+- P-196: No test pins `psi_freqs` or `psi_per_freq[0]` of `phase_slope_index`: zeroing the first bin or shifting the frequencies by half a bin survives every PSI-touching module. Deferred: the output is correct and its sign and spectrum are pinned.
+- P-197: The checkout-provenance scanners miss ten spellings (an annotated alias, a two-step alias, `jnwb.__path__`, `inspect.getfile`, `Path.cwd()`, tuple unpacking, `pathlib.Path('skills/..')`, `open('docs/..')`, `Path('./skills')`, `os.path.join('scripts', ..)`), and the test-path scanner accepts five more (`sys.path[:0] = [ROOT]`, `insert(1, ROOT)`, `insert(0, ROOT / 'scripts' / '..')`, `import sys as _s; _s.path.insert(0, ...)`, and any plant in `tests/__init__.py`). No live instance. Deferred: the installed-wheel CI leg, with `test_import_provenance.py`, fails a checkout-pinned test.
+- P-198: `run_full_preflight` records a failed gate once and nothing pins it: removing the de-duplication passes all 26 tests. Deferred: reachable only when a gate fails and then raises, and a duplicate record cannot hide a failure.
+- P-199: `examples/tutorials/09_open_data.py` checks the tick rate across three segments and nothing pins it: checking only the `window` segment passes all 5 tests. Deferred: the rate derivation is pinned; the unpinned part is a redundant cross-check.
+- P-200: `examples/tutorials/09_open_data.py` says the recording starts within a millisecond of its first spike; the page measures 6 to 9 ms against its enforced 10 ms bound. Deferred: wording only, and the bound is enforced.
+- P-203: `relative_power(model="log_ratio")` computes `10*log10` in `jnwb/spectral.py` instead of calling `to_db`, a retyped copy of the rule invariant 7 of `AGENTS.md` section 4 asks callers to reuse. Deferred: the same formula, so no number differs.
+- P-204: `ContainerTypeContradictionWarning` fires on LFP `ElectricalSeries` stored in `uV` (pynwb reports volts with `conversion=1.0`, so values are out by 1e6) and blames the declared type when only the unit is wrong: 78 of 96 corpus warnings. Deferred: it errs toward caution, and separating a unit-scale error from a type error is a public message choice.
+- P-209: Comments and docstrings in `scripts/` and `tests/` carry item identifiers (for example around the gate 8 and gate 14 helpers in `scripts/harness_gate.py`), which the head rule of `AGENTS.md` keeps out, and no gate scans them. Deferred: neither tree ships, and a comment cannot make a gate or test pass falsely (measured in full as P-284).
+- P-216: Branches that behave correctly and that no test pins, found by surviving mutants: the `/acquisition` bare-name ambiguity refusal, the gradients crossover default in `jnwb.vis`, a second contradicting interpreter sentence (gate 8 reads the first), `Claimed by: X; Y closed` spellings in STEP 0a (moot: that check was removed on 2026-09-23), a paraphrase of the unscoped delay instruction, direct `sys.modules.clear()` in the collection-order detector, the `jnwb.vis` vocabulary beyond a grep, and `VISp6a/b` splitting into a spurious area. Deferred: every branch behaves correctly on the live tree, and `VISp6a/b` is an edge no corpus here carries.
+- P-218: Gate 2 still excuses a directory at the path of a stale worktree registration: a deleted worktree re-created with a `.git` file pointing at the root's `.git` or another worktree's admin directory is listed, not prunable, and passes the identity check. Deferred: it needs a counterfeit at a stale registration's exact path and none exists here; the repair checks that the admin `gitdir` file points back at the directory.
+- P-219: Gate 2's PASS message reads `(no .agents/skills/ duplicate)` though the gate checks every `SKILL.md` outside `skills/`. Deferred: the check is wider than its message and no verdict changes.
+- P-220: An empty group named `session_description`, read with the waiver, raises `ValueError: already exists in root.groups` instead of reading `""` or raising `MissingRequiredNWBFieldError`, and the missingness table has no row for it. Deferred: the read still fails loudly on a malformed file; the repair is a table row and a named error.
+- P-221: `ContainerTypeContradictionWarning` is raised through public reads and not exported, so filtering it by name needs a submodule import. Deferred: emitted and documented, and it changes no value; exporting it is a decision.
+- P-227: The `phase_slope_index` jackknife leaves out one segment rather than one epoch, so its z is conservative under the null: 400 null draws give sd 0.669 and P(|z|>2) = 0.005 at the default overlap; the divergence is documented at the function. Deferred: conservative, so it cannot make evidence falsely pass; the repair is an epoch-level jackknife.
+- P-228: The name `vflip` collides with the published vFLIP of Mendoza-Halliday 2024, a different procedure; the `jnwb/laminar.py` module docstring states the difference. Deferred: a rename changes public API and needs a ruling.
+- P-229: The vflip calibration receipt hashes `inspect.getsource` of the estimator, docstrings included, so a documentation-only edit invalidates it. Deferred: it fails closed; the repair hashes code without docstrings.
+- P-230: `aperiodic_fit` fits without removing peaks first, unlike Donoghue 2020: a 10 Hz peak moves the exponent from 2.000 to 2.157; the function documents this and advises fitting a peak-free range. Deferred: documented use is correct, and changing the fit changes shipped values, which needs a ruling.
+- P-231: The `phase_locking_index` Rayleigh p-value comment quotes the second-order formula while the code computes the first-order one; at n = 10 the two and a Monte Carlo reference differ by at most 0.0004. Deferred: the code is correct; the comment is to be aligned.
+- P-232: Gate 15 and gate 17 read only `### 06-` item headings while STEP 0a reads items at any heading depth and any id, so they disagree on an item under `####`, and neither gate reads this item. Deferred: STEP 0a is the wider reader, so the gates can only under-read; the repair shares one parser.
+- P-234: The `JRSAResult` 0-d shim warns under the name `JRSAResult.p` when a copied `q` is indexed, and `p[-1]` raises without a deprecation warning. Deferred: values, dtype and arithmetic are unaffected; carried with the shim's removal.
+- P-235: The stated-gate-count test scans the instruction surfaces but not `skills/` or `docs/`, and matches digits but not number words or "Gates 1 to N". Deferred: the one live stated count is covered and correct.
+- P-236: `enrich_units_dataframe` writes `is_stable=False` for a unit whose `quality` is NaN, None or blank when other units in the column carry a usable value; a bool column cannot hold unknown, so the repair is a nullable dtype or a separate `quality_known` column. Deferred: the dtype is public API; `filter_quality=True` excludes such a unit either way, and the label is conservative.
+- P-238: `scripts/mutation_harness.py`'s `collect_selector` drops every node id containing a space, so such a parametrized discriminator cannot be named in `must_fail`. Deferred: it fails closed (the selector is rejected) and cannot produce a false kill.
+- P-240: With transparent figure backgrounds, legends lost their opaque box and overlap data: fig07 panel A (text over bars 4-5, both variants) and fig10 panel B. Deferred: legibility only; no value or label changes.
+- P-241: The contrast check in `tests/test_figure_form.py` exempts each generator's `THEMES` table and parses only 6-digit hex and `white/black/k/w`, so a dark `fg` of `#202020` or a named color such as `navy` passes. Deferred: this release's dark variants were checked by eye, all 11 legible.
+- P-242: `unit_census_report` with the default grouping, on a frame lacking `area` or `depth_class` and with no `layer`, drops those columns without a warning. Deferred: this matches the documented filter to available columns and gives no wrong number; an explicit `group_by` warns.
+- P-244: `apply_tight_auto_axis` floors the y lower limit at 0, so negative values in signed data (z-scores, LFP) are drawn outside the axes. Deferred: display only; the docstring and skill row state it.
+- P-245: `assign_quality_tier` maps an unknown quality code (anything but 0 or 1) to `'unstable'` instead of refusing it. Deferred: conservative and stated in the skill row; refusing it is an API change.
+- P-246: `paired_fire_prob_test(rng=<int>)` raises `AttributeError` rather than a checked `TypeError`. Deferred: a loud failure with no wrong value.
+- P-254: `Canvas.save_and_seal` and the `docs/vis.md` export block fail with kaleido's "Couldn't close or kill browser subprocess" when several kaleido exports run at once on this machine (two or more concurrent suites; a 24-way stress run also hung); CI runs the suite serially and has not shown it. Deferred: it fails loudly; a red local run naming this test is re-run alone before it is read.
+- P-255: `causal_exp_smooth(tau_ms=0)` returns all NaN with only a RuntimeWarning instead of raising. Deferred: loud, with no plausible-looking value.
+- P-256: Three errors name the wrong thing: `binary_occupancy_mutual_information` and `spike_count_mutual_information` name `spike_mutual_information`; `build_permutation_plan(labels, None)` raises a bare `TypeError` without naming `groups`; and a series with no constant rate raises `AcquisitionNotFoundError` although it exists (P-190). Deferred: each raises, so this is message quality only.
+- P-257: `ComplexTFR(device=...)` accepts any string as its device record. Deferred: only a hand-built `ComplexTFR` can carry a false record; `complex_tfr` sets it from the resolver.
+- P-258: The `_backend.py` row of `tests/test_substitution_class_sweep.py` gives `gpu_available` as its reason but now also covers `jax_metal_available`. Deferred: a reason string; the sweep's check is unchanged.
+- P-259: Rule F7 of the documentation contract (no fact that no gate or test enforces) conflicts with 06-51's "no fact present before is absent after"; the import timings in `docs/install.md` are the example, kept. Deferred: needs a ruling on which rule wins, and keeping the facts cannot mislead.
+- P-260: `README.md`, which is the PyPI description, links `artifacts/todo_stack.md`, private coordination state, and Gate 14 scans only `docs/`. Deferred: the link may be deliberate and needs a ruling (the same link as P-97).
+- P-264: `phase_slope_index` with some bands undefined sums `net` over the defined bands while its docstring says "the whole requested range". Deferred: flagged by `ok_for_interpretation` and stated in the skill row.
+- P-265: With one value per group the ANOVA is NaN but `eta_squared` reads 1.0 beside it. Deferred: the arithmetic is right (no within-group variation) and cannot make a p or a flag pass.
+- P-266: `scripts/computational_contract_gate.py` tracks argument aliases without regard to order, so an argument overwritten before it reaches the switch counts as reaching it, and its static checks accept one correct path among several. Deferred: stated in the gate's docstring; no live export has the shape, and `tests/test_execution_switch.py` and `tests/test_precision_switch.py` hold the live behaviour.
+- P-267: No skill routes the `jnwb.ontology` objects, and the exclusion comment in `tests/test_skill_symbol_coverage.py` points to a workflow no skill has. Deferred: the exclusion is deliberate and tested; routing belongs to the skills `artifacts/fact_stack.md` plans beyond the ten of 0.2.6.
+- P-268: No single maintained capability map covers the public surface. Deferred: a capability-by-capability matrix is frozen out of 0.2.6, and the module map is checked against the exports.
+- P-269: No diagram shows the scientific-semantics distinctions (magnitude, direction, delay, inference). Deferred: the goal requires none; the four diagrams on `docs/architecture.md` meet the canonical-model line.
+- P-274: STEP 0a leaves four HTML heading forms unparsed: a `<b>`-wrapped id, an anchor before the id, a heading over three lines, and `Release&#58;`. Deferred: the stack uses no HTML heading.
+- P-275: `tests/test_vis_draws_no_default_landmark.py` misses a negative default (`UnaryOp`) and a body fallback such as `0.5 if crossover_depth is None`. Deferred: the code has a default of neither form.
+- P-276: The figure-form self-test does not pin the changed-pixel slack: raising it from 1e-5 to 2e-4 passes, and a real one-digit edit changes 8.1e-5 to 9.1e-5 of the pixels. Deferred: the constant at HEAD is 1e-5.
+- P-277: The architecture reachability test misses an agent named only in an edge label, nodes labelled "Assistant" or "LLM", and phrases such as "requires an LLM agent", and it fails a legitimate `subgraph` line. Deferred: the current pages violate none of these.
+- P-278: In `docs/architecture.md` the routing diagram asks "inference supported?" before "inputs present?", an order no skill or `artifacts/direction.md` states, and the dependency diagram omits h5py, hdmf, matplotlib, scikit-learn, statsmodels and joblib. Deferred: a presentation choice and an incomplete list, not a wrong edge.
+- P-279: The tuple check in `tests/test_skills_validation.py` counts elements only, so a swapped return order in `rdm_similarity` or `exact_sign_flip` survives it. Deferred: `tests/test_rsa.py` and `tests/test_statistics.py` kill both swaps.
+- P-280: Minor text: the open-data example's "within a millisecond" (6-9 ms measured); `plot_decoding_timecourse` promises a CI ribbon and cluster bars the caller supplies; `rdm_similarity`'s Step 5 and wPLI's zero-lag threshold are stated only in docstrings; `correlate`'s note says `test=` for `method=`; the quickstart's "single trial" PSI wording; `population_trajectory` warns under a short context name. Deferred: none changes a value or a documented contract.
+- P-281: `TestJrsaIsUnitFree::test_cuda_matches_cpu` compares CPU with CPU. Deferred: `jrsa` has no GPU path and warns on a device request.
+- P-282: `scripts/docs_form_gate.py` and the older tests (`tests/test_documentation_form.py`, `tests/test_docs_user_navigation.py`, `tests/test_figure_form.py`) assert F1, F5, N1, N2, N5 and G2 on the live tree twice, with only the corpus and vocabulary readers shared; the gate imports private helpers from two test modules; the old F1 test misses `#####`. Deferred: both copies must pass, so nothing passes falsely, and the gate covers the `#####` gap.
+- P-283: In `_timestamps_fate`, a regular `timestamps` array beside a `starting_time` with no `rate` attribute does arithmetic with `None`, so `convert` raises `TypeError`, now also through `select=`. Deferred: a loud failure with no wrong value.
+- P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence.
+- P-287: The trial-mean view check reads a list one level deep: `[[P[0]],[P[1]]]` and a list of memoryviews pass. Deferred: `np.asarray` copies these, under the copy limit ruled acceptable on 2026-09-23.
+- P-288: `scripts/docs_form_gate.py` leaves `docs/tutorials/*.md` outside F1, F5 and F2, and misses a `####` heading indented one to three spaces. Deferred: measured with the gate's own functions, the live tree has 0 violations of either.
+- P-289: The MCP writes-nothing test snapshots only the file's directory and the working directory, and the no-`jnwb.testing` check is static and misses `importlib.import_module`. Deferred: no current code path writes or imports that way.
+- P-290: `CONTRIBUTING.md:265-266` says four-outcome routing tests are planned for 0.2.7 while `tests/test_skill_decline_behaviour.py` has them, and the ruled test taxonomy (`CONTRIBUTING.md:154`) is enforced by nothing. Deferred: a contributor page understates coverage; no evidence depends on it.
+- P-291: `stream_npz_array` accepts `Ellipsis` on a 0-d array where its docstring says it raises `TypeError`. Deferred: NumPy accepts it too, so the value is right and the docstring is wrong.
+- P-292: After a `cupy.linalg` call in a plain script, `compute_population_trajectory(device='cuda')` computes on the CPU and warns "no usable CUDA device was found via PyTorch". Deferred: `device_used` is `cpu` and invariant 6 holds; the wording misstates the cause (P-261's DLL conflict).
 
 ## Reported and not admitted
 

@@ -52,8 +52,9 @@ holds the sequence, not the rules.
 
 ## Deferred from the 0.2.6 stack
 
-Moved here on 2026-09-22. Each is `DEFERRED->0.2.7` under `AGENTS.md` §11, and 06-131 attacks
-every deferral before 0.2.6 closes. The full item text is in `artifacts/todo_stack.md` at
+Moved here on 2026-09-22. Each is `deferred-0.2.7` under `AGENTS.md` §11 and faces the second
+pass that section requires before 0.2.6 closes; a named row still open on 2026-09-23 is a
+bullet of 07-01 in `artifacts/todo_stack.md`. The full item text is in `artifacts/todo_stack.md` at
 `917352fe`.
 
 | Item | Work | Row |
