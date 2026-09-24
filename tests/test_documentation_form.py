@@ -512,3 +512,59 @@ def test_no_group_holds_a_single_page():
             for title, children in _nav_groups()
             if len(_pages_under(children)) < 2]
     assert not thin, f"nav groups holding fewer than two pages: {thin}"
+
+
+# ------------------------------------------------------------------------ Length
+
+_NUMBER_WORDS = {w: n for n, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve".split())}
+_KIND_ROW = re.compile(r"^\| (.+?) \| (\d+) words \| (.+?) \|$", re.M)
+_EXCESS_ROW = re.compile(r"^\| `(\w+)` \| (\d+) \|", re.M)
+_PAGE_RANGE = re.compile(r"`(\d\d)`–`(\d\d)`")
+
+
+def _wc_words(path: Path) -> int:
+    """The `wc -w` count the Length section says it measured: runs between ASCII whitespace."""
+    return len(path.read_bytes().split())
+
+
+def _kind_pages(cell: str, docs: Path) -> list[Path]:
+    pages = [page for lo, hi in _PAGE_RANGE.findall(cell) for n in range(int(lo), int(hi) + 1)
+             for page in sorted(docs.glob(f"{n:02d}_*.md"))]
+    for name in re.findall(r"`([^`]+)`", _PAGE_RANGE.sub("", cell)):
+        pages.append(docs / (name if name.endswith(".md") else f"{name}.md"))
+    return pages
+
+
+def length_claim_mismatches(docs: Path) -> list[str]:
+    """Every word count and page tally the Length section states, recomputed from the pages."""
+    text = (docs / "documentation_form.md").read_text(encoding="utf-8")
+    section = text.split("\n## Length\n", 1)[1].split("\n## ", 1)[0]
+    kinds, wrong, over = _KIND_ROW.findall(section), [], {}
+    assert len(kinds) >= 3, f"only {len(kinds)} ceiling rows parsed; the parser is wrong"
+    for kind, ceiling, why in kinds:
+        pages = _kind_pages(kind, docs)
+        assert pages and all(p.is_file() for p in pages), f"{kind} names a missing page"
+        counts = {p.stem: _wc_words(p) for p in pages}
+        over.update({name: n for name, n in counts.items() if n > int(ceiling)})
+        for name, stated in re.findall(r"`(\w+)` at (\d+)", why):
+            if counts[name] != int(stated):
+                wrong.append(f"`{name}` is stated at {stated} words and measures {counts[name]}")
+        tally = re.search(r"(\w+) of the (\w+) sit under it", why)
+        under = sum(n <= int(ceiling) for n in counts.values())
+        if tally and (_NUMBER_WORDS[tally[1]], _NUMBER_WORDS[tally[2]]) != (under, len(counts)):
+            wrong.append(f"'{tally[0]}': {under} of {len(counts)} sit under {ceiling}")
+    table = {name: int(n) for name, n in _EXCESS_ROW.findall(section)}
+    if set(table) != set(over):
+        wrong.append(f"over their ceiling: {sorted(over)}; the table lists {sorted(table)}")
+    wrong += [f"`{name}` is tabled at {n} words and measures {over[name]}"
+              for name, n in table.items() if name in over and over[name] != n]
+    stated = re.search(r"(\w+) pages sit over their ceiling", section)
+    if not stated or _NUMBER_WORDS.get(stated[1].lower()) != len(over):
+        wrong.append(f"{len(over)} pages sit over their ceiling; the section says otherwise")
+    return wrong
+
+
+def test_the_length_section_states_what_the_pages_measure():
+    """Counts in prose go stale silently; these are recomputed on every run."""
+    assert length_claim_mismatches(DOCS) == []

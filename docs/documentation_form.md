@@ -1,8 +1,8 @@
 # Documentation form
 
 The contract every jnwb documentation page is measured against. It exists because a verbosity or
-formatting judgment made page by page is a preference, and twenty-seven pages edited to
-twenty-seven preferences is worse than leaving them alone.
+formatting judgment made page by page is a preference, and pages each edited to their own
+preference are worse than pages left alone.
 
 Every rule below is checkable by reading one page against it and getting the same answer twice.
 A rule that needed taste was removed rather than softened, and the removals are recorded at the
@@ -113,7 +113,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 772, `quickstart` at 766 and `agents` at 876 sit under it |
+| Task (`install`, `quickstart`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 837, `quickstart` at 766 and `agents` at 876 sit under it |
 | Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | nine of the eleven sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
@@ -124,7 +124,7 @@ sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2300 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
+| `common_mistakes` | 2307 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1555 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
 | `04_spectral_analysis_and_tfr` | 1863 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
 | `errors` | 1679 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
@@ -187,5 +187,5 @@ Kept here so they are not re-proposed as improvements.
 |---|---|
 | A global word ceiling across all pages | fails the reference pages for being long, which is what a reference is |
 | "Prefer active voice" | not checkable twice with the same answer |
-| "Every page opens with a summary paragraph" | would add words to the four pages already shortest than their ceiling |
+| "Every page opens with a summary paragraph" | would add words to the four pages already over their ceiling |
 | "Figures are inline SVG, never raster" | forbids what nine pages do today, which is the signal that the rule is wrong rather than the pages |

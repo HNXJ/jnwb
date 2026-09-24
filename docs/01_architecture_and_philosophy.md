@@ -6,11 +6,11 @@
 
 ## 1. Core Philosophy: Generic Library Core vs. Domain Extensions
 
-A fundamental architectural principle of `jnwb` is the strict separation between:
+`jnwb` keeps two things apart:
 1. **Generic Electrophysiology Operations (`jnwb/`)**: Signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
 2. **Project-Specific Domain Extensions**: Task structures, custom condition codes, sequence slot timings, and project-specific unit classification taxonomies.
 
-The diagram below draws that boundary: only the dashed edge leaves the package.
+The diagram draws that boundary: only the dashed edge leaves the package.
 
 ```mermaid
 graph TD
@@ -31,35 +31,32 @@ graph TD
 ```
 
 ### The `jnwb/` Boundary Invariant
-`jnwb` does not encode experiment-specific condition codes, task sequence rules, or manuscript
-findings in library code — those belong in downstream project packages.
-- `jnwb` never imports from downstream project directories.
-- This invariant is mechanically enforced by automated regression gates.
-- Downstream projects consume `jnwb` as an imported library dependency.
+Project-specific extensions and manuscript findings live in downstream project packages, which
+import `jnwb`. `jnwb` never imports from them, and a regression gate enforces it.
 
 ### NWB, PyNWB and HDMF
 
-NWB (Neurodata Without Borders) is a data standard for neurophysiology: an HDF5 layout plus a
-schema for acquisitions, electrodes, units, trials and intervals (Teeters et al., 2015; Rübel
-et al., 2022). jnwb reads NWB files through PyNWB, the reference Python API, which uses HDMF
-for the schema and HDF5 input and output. Public NWB datasets are shared on the DANDI Archive.
+NWB is a data standard for neurophysiology: an HDF5 layout plus a schema for acquisitions,
+electrodes, units, trials and intervals (Teeters et al., 2015; Rübel et al., 2022). jnwb reads
+NWB files through PyNWB, the reference Python API, which uses HDMF for the schema and HDF5 input
+and output. Public NWB datasets are shared on the DANDI Archive.
 
-jnwb-owned NWB reads (`jnwb.nwb_io.read_nwb` and `nwb_read_io`) temporarily enable HDMF
-builder repairs for malformed unit and index builders. Repairs are scoped to the read: they do
-not alter `BuildManager.construct` at import, and a missing required `session_description`
-raises `MissingRequiredNWBFieldError` rather than synthesizing a value. Citations and links are
-in [References](references.md#data-format).
+jnwb-owned NWB reads (`jnwb.nwb_io.read_nwb` and `nwb_read_io`) repair malformed unit and
+index builders through HDMF for that read only; `BuildManager.construct` is not altered at
+import, and a missing required `session_description` raises `MissingRequiredNWBFieldError`
+rather than synthesizing a value. Citations and links are in
+[References](references.md#data-format).
 
 ---
 
 ## 2. Scientific & Epistemic Invariants
 
 ### A. Signal Class Independence
-* **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates (pupil dilation, eye gaze, lick traces) represent distinct physical observables.
-* **No Modality Pooling**: Analyses never aggregate or pool signals across distinct modalities without explicit, intermediate transformation and declared units.
+* **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates (pupil dilation, eye gaze, lick traces) are distinct observables.
+* **No Modality Pooling**: Signals of distinct modalities are never pooled without an explicit transformation and declared units.
 
 ### B. Estimand Disambiguation
-Every analytical estimator computes a specific estimand:
+Each estimator computes one estimand:
 $$\text{Prevalence} \neq \text{Magnitude} \neq \text{Information} \neq \text{Mechanism}$$
 * **Prevalence**: Fraction of responsive or selective units/channels in a population.
 * **Magnitude**: Absolute or normalized effect size (e.g., $\Delta\text{Hz}$, $\Delta\text{dB}$, SNR).
@@ -70,7 +67,7 @@ $$\text{Prevalence} \neq \text{Magnitude} \neq \text{Information} \neq \text{Mec
 $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 * Linear correlation and mutual information establish non-directional association.
 * Granger causality, phase slope index, and transfer entropy establish statistical temporal predictability.
-* Perturbational manipulations (optogenetics, pharmacology, lesions) establish physical causality. We never use stronger causal verbs to describe weaker statistical associations.
+* Perturbational manipulations (optogenetics, pharmacology, lesions) establish physical causality. A weaker result is never described with a stronger causal verb.
 
 ### D. Mathematical vs. Analysis-Specific Conventions
 * `jnwb` provides generic mathematical transforms (e.g. `to_db(ratio) = 10 * log10(ratio)`, `compute_psd`, `band_power`).
@@ -81,8 +78,8 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 * When trials nest within sessions or subjects, exchangeability schemes (`within_group` permutations, grouped CV) must respect that structure; hierarchical or cluster-bootstrap analyses are the project's choice when the inferential unit is above the trial.
 
 ### F. Valid Nulls & No Synthetic Science
-* A null finding ($p \ge \alpha$) is an empirical scientific observation, not an error. Analysis parameters, frequency bands, or temporal windows are never retrofitted to achieve significance.
-* Outputs must never contain synthetic or placeholder values. Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
+* A null finding ($p \ge \alpha$) is an observation, not an error. Parameters, frequency bands and windows are never retrofitted to reach significance.
+* Outputs hold no synthetic or placeholder values. Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
 
 ---
 
