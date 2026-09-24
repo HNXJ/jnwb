@@ -112,7 +112,8 @@ def plot_unit_quality_distribution(
     Plot quality metric distributions (multi-panel).
 
     Visualizes: firing rate, SNR, waveform duration, quality flag distribution.
-    A metric whose column is absent leaves its panel empty, titled as absent.
+    A metric whose column is absent leaves its panel empty, titled as absent. A unit whose
+    stability is ``<NA>`` is counted in neither stability bar; the panel title gives how many.
 
     Args:
         units_df: DataFrame with unit metrics (from get_all_units_metadata)
@@ -181,12 +182,14 @@ def plot_unit_quality_distribution(
         stable_col = 'stable_plus' if 'stable_plus' in units_df.columns else 'is_stable'
         # Each bar is counted from its own class, so an absent class plots as zero.
         stable = units_df[stable_col].dropna().astype(bool)
+        n_unknown = len(units_df) - len(stable)
         counts = [int((~stable).sum()), int(stable.sum())]
         ax.bar(range(2), counts)
         ax.set_xticks(range(2))
         ax.set_xticklabels(['Unstable', 'Stable'])
         ax.set_ylabel('Count')
-        ax.set_title('Unit Stability Distribution')
+        ax.set_title('Unit Stability Distribution'
+                     + (f' ({n_unknown} unknown)' if n_unknown else ''))
 
         for i, v in enumerate(counts):
             ax.text(i, v, str(v), ha='center', va='bottom')

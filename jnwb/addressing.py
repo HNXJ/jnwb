@@ -365,7 +365,9 @@ def enrich_units_dataframe(
     missing value, because there is nothing to derive it from. The text of a missing value is
     any string ``pandas.read_csv`` reads as missing by default (``"nan"``, ``"n/a"``, ``"<NA>"``,
     ``"#N/A"``, ``"-1.#IND"``, ...) or ``"NaT"``, compared case-insensitively after stripping
-    whitespace.
+    whitespace. When it is added, ``is_stable`` has pandas' nullable ``"boolean"`` dtype, and a
+    unit whose own quality is missing, or is not a number in a numeric column, is ``<NA>``:
+    its stability is unknown, not ``False``.
 
     Args:
         units_df: Raw NWB units DataFrame
@@ -464,17 +466,18 @@ def _enrich_units_dataframe(
     quality = df['quality'] if 'quality' in df.columns else None
     # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
     # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
-    if quality is not None and (
-        quality.notna() & ~quality.astype(str).str.strip().str.lower().isin(_MISSING_TEXT)
-    ).any():
+    text = quality.astype(str).str.strip().str.lower() if quality is not None else None
+    if quality is not None and (quality.notna() & ~text.isin(_MISSING_TEXT)).any():
         q_num = pd.to_numeric(quality, errors='coerce')
         if q_num.notna().any():
-            df['is_stable'] = q_num >= 1.0
+            usable, stable = q_num.notna(), q_num >= 1.0
         else:
             _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
-            df['is_stable'] = quality.astype(str).str.strip().str.lower().isin(_GOOD_LABELS)
+            usable, stable = quality.notna() & ~text.isin(_MISSING_TEXT), text.isin(_GOOD_LABELS)
+        # A unit with no usable quality is <NA>: unknown, not unstable.
+        df['is_stable'] = stable.astype('boolean').mask(~usable)
     # With no quality column, or one holding only NaN, None or blank strings, there is nothing
-    # to derive stability from, so no `is_stable` is added: an all-False column would be a
+    # to derive stability from, so no `is_stable` is added: an all-<NA> column would be a
     # label with no data behind it.
 
     # Force conversion of core types. snr/unit_id are stored as dtype=str

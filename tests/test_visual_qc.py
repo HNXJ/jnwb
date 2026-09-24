@@ -88,6 +88,15 @@ def test_stability_bars_are_labelled_by_their_own_class():
     assert _stability_bars([True] * 5) == [("Unstable", 0), ("Stable", 5)]
 
 
+def test_a_unit_of_unknown_stability_is_in_neither_bar_and_counted_in_the_title():
+    stable = pd.array([True, True, False, pd.NA, pd.NA], dtype="boolean")
+    assert _stability_bars(stable) == [("Unstable", 1), ("Stable", 2)]
+    units = _units_df(n=5).drop(columns=["stable_plus"]).assign(is_stable=stable)
+    fig = plot_unit_quality_distribution(units)
+    assert "2 unknown" in fig.axes[5].get_title()
+    plt.close(fig)
+
+
 def test_quality_distribution_skips_an_absent_metric_panel():
     units = _units_df().drop(columns=["waveform_duration"])
     fig = plot_unit_quality_distribution(units)

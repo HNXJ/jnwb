@@ -123,6 +123,14 @@ Carried by 0.2.6.
   that case; the unit quality plot already treats it as optional, and
   `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a
   `RuntimeWarning` instead of passing them through.
+- **`is_stable` is a nullable boolean: `<NA>` where a unit's own quality is missing.**
+  `enrich_units_dataframe` and `get_all_units_metadata` write it with pandas' `"boolean"` dtype.
+  A unit whose `quality` is NaN, None, blank or the text of a missing value, or is not a number
+  in a numeric column, used to read `False`, unstable, when other units had usable values; it
+  reads `<NA>`. `filter_quality=True` still excludes it. `plot_unit_quality_distribution` counts
+  it in neither stability bar and gives the number of unknown units in the panel title. Code
+  that negates the column (`~df["is_stable"]`) now keeps `<NA>` where it kept `True`; use
+  `df["is_stable"].eq(False)` to select units known to be unstable.
 - **`JRSAResult.p` and `q` are 0-d for a single-lag result, like `value`.** They were shape
   `(1,)`, so `float(res.p)` raised `TypeError` under NumPy >= 2. A multi-lag result gives
   `(n_lags,)`, matching `value`, where it used to give `(n_lags, 1)`.

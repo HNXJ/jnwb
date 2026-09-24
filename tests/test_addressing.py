@@ -333,6 +333,20 @@ def test_enrich_units_dataframe_categorical_quality():
     assert list(enriched["is_stable"]) == [True, False, True, False]
 
 
+@pytest.mark.parametrize("quality", [
+    [2.0, np.nan, 0.0, None],
+    ["good", None, "mua", " n/a "],
+    ["1", "", "0", "nan"],
+])
+def test_a_unit_with_no_usable_quality_has_unknown_stability(quality):
+    """A missing quality is no evidence of instability: the unit is <NA>, not False."""
+    units = pd.DataFrame({"unit_id": [0, 1, 2, 3], "quality": pd.Series(quality, dtype=object)})
+    stable = enrich_units_dataframe(units, None)["is_stable"]
+    assert stable.dtype == "boolean"
+    assert stable.isna().tolist() == [False, True, False, True]
+    assert stable.dropna().tolist() == [True, False]
+
+
 def test_a_quality_column_with_no_usable_value_adds_no_stability_label():
     """NaN, None, blank strings and the text of a missing value are no quality at all."""
     for quality in (

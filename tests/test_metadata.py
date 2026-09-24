@@ -89,6 +89,25 @@ def test_a_quality_filter_with_no_usable_quality_excludes_every_unit_loudly(tmp_
     assert len(get_all_units_metadata(path)) == 3
 
 
+def test_a_quality_filter_excludes_a_unit_of_unknown_stability(tmp_path):
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    nwb = pynwb.NWBFile(session_description="q", identifier="q-2",
+                        session_start_time=datetime.now(timezone.utc))
+    nwb.add_unit_column(name="quality", description="quality")
+    for i, label in enumerate(["good", "", "mua"]):
+        nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=label)
+    path = tmp_path / "ses-01_q.nwb"
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+    every = get_all_units_metadata(path)
+    assert every["is_stable"].isna().tolist() == [False, True, False]
+    assert get_all_units_metadata(path, filter_quality=True)["quality"].tolist() == ["good"]
+
+
 class TestPublicImport:
     def test_importable_from_top_level_jnwb(self):
         from jnwb import (
