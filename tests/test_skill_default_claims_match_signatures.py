@@ -30,6 +30,8 @@ CLAIMS = [
      "how", NO_DEFAULT),
     ("jnwb-lfp-spectral", "`max_trial_fraction` argument (default 0.5)", jnwb.repair_lfp_trials,
      "max_trial_fraction", 0.5),
+    ("jnwb-lfp-spectral", "`orientation` has no default", jnwb.zflip, "orientation",
+     NO_DEFAULT),
     ("jnwb-nwb-data", "(default column `codes`)", jnwb.events, "code_column", "codes"),
     ("jnwb-nwb-data", "(default column `codes`)", jnwb.event_onsets, "code_column", "codes"),
     ("jnwb-population", "`n_splits` has no default", jnwb.nested_cv_linear_svm, "n_splits",
