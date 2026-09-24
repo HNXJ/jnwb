@@ -86,7 +86,10 @@ Carried by 0.2.6.
   skips the elements before it instead of reading them, so time no longer grows with the
   slice's position (0.5 ms against 82 ms for the last 1000 of 1.6e7 float64). Output is
   byte-identical, and compressed archives are unchanged. A slice that skips part of a stored
-  entry no longer verifies its CRC-32; read the whole array to verify the file.
+  entry no longer verifies its CRC-32; read the whole array to verify the file. CPython 3.12.0
+  keeps reading the skipped elements: its `zipfile` ends a stored entry early after a seek into
+  the read buffer, which failed valid archives as corrupt. A check of `zipfile` on first use
+  picks the path.
 - **`stream_npz_array` indexes as NumPy does.** An integer index removes its axis:
   `slice_tuple=(slice(1, 4), -1)` on shape `(5, 6, 7)` returns shape `(3, 7)`, where it returned
   `(3, 1, 7)`, which broadcast silently against NumPy's result. Code that relied on the kept

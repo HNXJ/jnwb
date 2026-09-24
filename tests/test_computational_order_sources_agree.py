@@ -329,10 +329,51 @@ def test_a_stored_entry_seeks_and_a_compressed_one_reads(tmp_path, monkeypatch):
     monkeypatch.setattr(jnwb.io, "_read_skip", counting_read_skip)
     tail = (slice(49_000, None),)
     np.testing.assert_array_equal(jnwb.io.stream_npz_array(stored, "a", tail), arr[tail])
-    assert read == [], "a stored entry was read through to skip its leading elements"
+    if jnwb.io._stored_seek_is_reliable():
+        assert read == [], "a stored entry was read through to skip its leading elements"
+    else:
+        assert read == [49_000 * 8], "a stored entry was seeked where zipfile seeks it wrongly"
+    read.clear()
     np.testing.assert_array_equal(jnwb.io.stream_npz_array(deflated, "a", tail), arr[tail])
     # A compressed entry cannot seek; zipfile would emulate it with reads of up to 16 MiB.
     assert read == [49_000 * 8]
+
+
+def test_a_stored_entry_reads_forward_where_zipfile_seeks_wrongly(tmp_path, monkeypatch):
+    """A seek that lands and then ends the entry early must not make a valid archive corrupt."""
+    import os
+    import sys
+    import zipfile
+
+    import numpy as np
+
+    import jnwb.io
+
+    arr = np.arange(24 * 7, dtype=np.float64).reshape(24, 7)
+    path = tmp_path / "s.npz"
+    np.savez(path, a=arr)
+    real_seek = zipfile.ZipExtFile.seek
+
+    def seek_then_end_early(self, offset, whence=os.SEEK_SET):
+        # The observable failure of CPython 3.12.0: the position is right, the reads are short.
+        landed = real_seek(self, offset, whence)
+        self.read = lambda n=-1: b""
+        self.readinto = lambda b: 0
+        return landed
+
+    reliable = jnwb.io._stored_seek_is_reliable
+    reliable.cache_clear()
+    monkeypatch.setattr(zipfile.ZipExtFile, "seek", seek_then_end_early)
+    try:
+        for index in ((3,), (slice(2, 9), 4), (-1,), (slice(None, None, -1), 2)):
+            np.testing.assert_array_equal(jnwb.io.stream_npz_array(path, "a", index), arr[index])
+        assert reliable() is False
+    finally:
+        monkeypatch.undo()
+        reliable.cache_clear()
+    # CPython 3.12.0 is the one declared interpreter whose zipfile fails the probe; a probe that
+    # failed everywhere would pass everything above and drop the seek on every interpreter.
+    assert reliable() is (sys.version_info[:3] != (3, 12, 0))
 
 
 def test_a_stored_entry_shorter_than_its_header_still_fails(tmp_path):

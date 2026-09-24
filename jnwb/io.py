@@ -6,6 +6,8 @@ and memory layouts.
 """
 from __future__ import annotations
 
+import functools
+import io
 import itertools
 import os
 import zipfile
@@ -47,6 +49,26 @@ def _seek_skip(f, n_bytes: int) -> None:
     target = f.tell() + n_bytes
     if f.seek(target) != target:
         raise EOFError("Unexpected EOF while streaming NPZ archive entry")
+
+
+@functools.lru_cache(maxsize=None)
+def _stored_seek_is_reliable() -> bool:
+    """Whether this interpreter's ``ZipExtFile.seek`` reads a stored entry correctly afterwards.
+
+    CPython 3.12.0 loses count of the bytes left in a stored entry after a seek that lands inside
+    its read buffer, so the reads that follow end early and a valid archive fails as truncated.
+    One such seek on an in-memory archive decides it; where it fails, skipped bytes are read.
+    """
+    payload = bytes(range(256)) * 32
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("probe", payload)
+    try:
+        with zipfile.ZipFile(raw) as zf, zf.open("probe") as f:
+            f.read(1)
+            return f.seek(2) == 2 and f.read() == payload[2:]
+    except Exception:
+        return False
 
 
 def _stream_slice(
@@ -203,7 +225,8 @@ def stream_npz_array(
     skips, so time follows the number of elements read. A compressed archive
     (``np.savez_compressed``) is decompressed from the start of the array to its last selected
     element. Seeking means the entry's CRC-32 is checked only when the slice skips nothing;
-    read the whole array to verify the file.
+    read the whole array to verify the file. Where the interpreter's ``zipfile`` miscounts a
+    stored entry after a seek (CPython 3.12.0), a stored archive is read forward instead.
 
     Args:
         file_path: Path to the .npz archive on disk.
@@ -274,7 +297,11 @@ def stream_npz_array(
                     fortran_order=fortran_order,
                     dtype=dtype,
                     slice_tuple=slice_tuple,
-                    seekable=info.compress_type == zipfile.ZIP_STORED and f.seekable(),
+                    seekable=(
+                        info.compress_type == zipfile.ZIP_STORED
+                        and f.seekable()
+                        and _stored_seek_is_reliable()
+                    ),
                 )
         except (KeyError, ValueError, IndexError, TypeError):
             raise
