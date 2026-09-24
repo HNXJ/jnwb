@@ -176,6 +176,14 @@ def test_an_item_still_required_this_cycle_fails(tmp_path):
     assert any("still required" in x and "06-99" in x for x in v)
 
 
+@pytest.mark.parametrize("release", ["deferred-0.2.8", "deferred-0.2.6"])
+def test_an_item_deferred_to_any_cycle_but_the_next_fails(tmp_path, release):
+    """Only the next cycle's stack carries deferred work; any other `deferred-*` is not deferred."""
+    root = _tree(tmp_path, items=[_item("99-903", release), _item("99-904", DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "1 todo item(s) are still required" in v[0] and "99-903" in v[0], v
+
+
 def test_an_item_with_no_release_field_fails(tmp_path):
     root = _tree(tmp_path, items=["### 06-98 Something\n\nRole: jnwb-developer.\n"])
     v = check_release_readiness(root, head=HEAD)
