@@ -388,3 +388,48 @@ class TestPermutationPWins:
         parametric = rdm_similarity(rdm(a), rdm(b), "spearman")[1]
         res = oa.jrsa(a, b, metric="rsa", permutations=0, random_state=2)
         assert float(np.atleast_1d(res.p)[0]) == pytest.approx(parametric)
+
+
+class TestAlternativeWithoutPermutations:
+    """With no permutation null, `alternative` used to be echoed in `parameters` while the
+    reported p stayed the metric's two-sided one, and a misspelt alternative was accepted."""
+
+    rng = np.random.default_rng(3)
+    x1 = rng.normal(size=(15, 8))
+    x2 = -x1 + 0.4 * rng.normal(size=(15, 8))      # r = -0.949
+
+    @pytest.mark.parametrize("kw", [{}, {"permutations": 0}, {"stats": False},
+                                    {"lag": [0, 1], "permutations": 0}])
+    def test_a_misspelt_alternative_raises_before_anything_is_computed(self, kw):
+        with pytest.raises(ValueError, match="alternative 'GREATER'"):
+            oa.jrsa(self.x1, self.x2, metric="pearson", alternative="GREATER", rng=0, **kw)
+        # Refused ahead of the metric, which is checked later in the pipeline.
+        with pytest.raises(ValueError, match="alternative"):
+            oa.jrsa(self.x1, self.x2, metric="bogus", alternative="GREATER", **kw)
+
+    @pytest.mark.parametrize("kw", [{"permutations": 0}, {"stats": False}])
+    def test_a_one_sided_alternative_halves_the_parametric_p_on_its_side(self, kw):
+        from scipy import stats as sps
+
+        r, p2 = sps.pearsonr(self.x1.ravel(), self.x2.ravel())
+        two = oa.jrsa(self.x1, self.x2, metric="pearson", rng=0, **kw)
+        assert float(two.value) == pytest.approx(r) and r < -0.9
+        assert float(two.p) == pytest.approx(p2, rel=1e-9)
+        less = oa.jrsa(self.x1, self.x2, metric="pearson", alternative="less", rng=0, **kw)
+        greater = oa.jrsa(self.x1, self.x2, metric="pearson", alternative="greater", rng=0,
+                          **kw)
+        assert float(less.p) == pytest.approx(p2 / 2, rel=1e-9) and float(less.p) < 1e-50
+        assert float(greater.p) == 1.0 - p2 / 2
+        # Per lag, on each lag's own sign.
+        lagged = oa.jrsa(self.x1, self.x2, metric="pearson", lag=[0, 3], alternative="greater",
+                         rng=0, **kw)
+        base = oa.jrsa(self.x1, self.x2, metric="pearson", lag=[0, 3], rng=0, **kw)
+        v, pb = np.asarray(base.value), np.asarray(base.p)
+        expected = np.where(v > 0, pb / 2, 1 - pb / 2)
+        np.testing.assert_allclose(np.asarray(lagged.p), expected, rtol=1e-12)
+
+    def test_an_upper_tail_f_test_refuses_a_one_sided_request(self):
+        """The SSR F-test p is upper-tail already; halving it would be wrong."""
+        with pytest.raises(ValueError, match="granger_ssr_ftest"):
+            oa.jrsa(self.x1, self.x2, metric="granger_ssr_ftest", alternative="less",
+                    permutations=0)

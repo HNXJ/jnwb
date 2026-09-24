@@ -61,7 +61,7 @@ fig = result.plot()
 
 `jnwb.JRSAResult` encapsulates:
 - `result.value`: Scalar or array of estimated similarities.
-- `result.p`: Resampling p-value (when `stats=True`).
+- `result.p`: Permutation p-value when `stats=True` and `permutations > 0`; otherwise the metric's parametric p-value, or `None` for a metric without one. `alternative` sets its tail in both cases.
 - `result.ci`: Bootstrap confidence intervals `(lower, upper)` when requested.
 - `result.statistic`: Test statistic accompanying `p` when applicable.
 - `result.null_distribution`: Array of surrogate permutation values when computed.

@@ -40,7 +40,9 @@ class JRSAResult:
     effect : np.ndarray | None
         Effect size.
     p : np.ndarray | None
-        Raw p-values.
+        Raw p-values, in the tail `alternative` names: the permutation p when a permutation
+        null was formed, otherwise the metric's parametric p, or None for a metric that has
+        none.
     q : np.ndarray | None
         Corrected p-values (after multiple-comparison correction).
     df : np.ndarray | None
@@ -223,7 +225,13 @@ def jrsa(
         Significance threshold for the multiple-comparison correction. It does not set
         the width of `ci`, which is a fixed 95% percentile bootstrap interval.
     alternative : str
-        two-sided | greater | less.
+        two-sided | greater | less; anything else raises before any computation. It sets
+        the tail of `p`. With a permutation null (`stats=True`, `permutations > 0`) the tail
+        is counted on the null. Without one, `p` is the metric's parametric p, which is
+        two-sided; a one-sided alternative halves it when `value` lies on the requested
+        side and gives ``1 - p/2`` otherwise. The `granger_ssr_ftest` parametric p is an
+        upper-tail F-test, so that metric raises for a one-sided alternative without a
+        permutation null.
     backend : str
         auto | numpy | scipy | jax | torch | cupy. Validated and recorded for API
         compatibility; every input is converted to NumPy whatever this names, so it does
@@ -322,6 +330,18 @@ def jrsa(
     random_state = resolve_seed_alias(rng, Default(None), alias_name="seed",
                                       func_name="jrsa")
 
+    # The tail applies to the parametric p as well as the permutation one, so it is checked
+    # here rather than only where a permutation null is formed.
+    _require_alternative(alternative)
+    permutation_p = bool(stats and permutations > 0)
+    if (alternative != "two-sided" and not permutation_p
+            and str(metric).lower() in _UPPER_TAIL_PARAMETRIC_P):
+        raise ValueError(
+            f"jrsa: metric {metric!r} reports an upper-tail F-test p, which has no "
+            f"{alternative!r} form; use alternative='two-sided', or a permutation null "
+            "(stats=True, permutations > 0)."
+        )
+
     # --- collect parameter snapshot -------------------------------------------
     params = dict(
         adim=adim, labels=labels, align=align, align_mode=align_mode,
@@ -419,8 +439,10 @@ def jrsa(
         )
         null_dist = None
         ci = None
+        if not permutation_p:
+            p_raw = _one_sided_parametric_p(value, p_raw, alternative)
 
-        if stats and permutations > 0:
+        if permutation_p:
             null_dist = _permutation_test(
                 x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
             )
@@ -454,6 +476,8 @@ def jrsa(
         for l in lags:
             x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l)
             v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
+            if not permutation_p:
+                p = _one_sided_parametric_p(v, p, alternative)
             val_list.append(v)
             stat_list.append(s)
             eff_list.append(e)
@@ -462,7 +486,7 @@ def jrsa(
             
             nd = None
             c_val = None
-            if stats and permutations > 0:
+            if permutation_p:
                 nd = _permutation_test(
                     x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
                 )
@@ -981,6 +1005,38 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwarg
 #: dispatch in `_p_from_null`.
 ALTERNATIVES = ("two-sided", "greater", "less")
 
+#: Metrics whose parametric p is an upper-tail test of a non-negative statistic rather than
+#: a two-sided test of a signed one, so a one-sided p cannot be formed from it by halving.
+_UPPER_TAIL_PARAMETRIC_P = frozenset({"granger_ssr_ftest"})
+
+
+def _require_alternative(alternative):
+    if alternative not in ALTERNATIVES:
+        # This chain used to end in a bare `else` computing the *less* tail, so an
+        # unrecognised alternative -- including the case variant 'GREATER' -- returned the
+        # left-tail p-value while `parameters['alternative']` echoed the request. A one-sided
+        # test asked for in the wrong case came back as p = 1.0 where the right answer was
+        # 0.005. Same principle as the correction method and the reduction: a request the
+        # dispatch does not recognise is not a request to be approximated.
+        raise ValueError(
+            f"jrsa: unrecognized alternative {alternative!r}. "
+            f"Valid options: {list(ALTERNATIVES)} (lowercase)."
+        )
+
+
+def _one_sided_parametric_p(value, p, alternative):
+    """One-sided p from a metric's two-sided parametric p: ``p / 2`` when ``value`` lies on
+    the requested side, ``1 - p / 2`` otherwise, and NaN where ``value`` is not finite."""
+    if p is None or alternative == "two-sided":
+        return p
+    if hasattr(value, "get"):
+        value = value.get()
+    v = np.asarray(value, dtype=np.float64)
+    p2 = np.asarray(p, dtype=np.float64)
+    on_side = v > 0 if alternative == "greater" else v < 0
+    out = np.where(np.isfinite(v), np.where(on_side, p2 / 2.0, 1.0 - p2 / 2.0), np.nan)
+    return np.float64(out) if out.ndim == 0 else out
+
 
 def _p_from_null(value, null_dist, alternative):
     """Compute p-value from null distribution.
@@ -1001,17 +1057,7 @@ def _p_from_null(value, null_dist, alternative):
     lags, which now yields shape ``(n_lags,)`` and so matches `value` there too instead
     of the former ``(n_lags, 1)``.
     """
-    if alternative not in ALTERNATIVES:
-        # This chain used to end in a bare `else` computing the *less* tail, so an
-        # unrecognised alternative -- including the case variant 'GREATER' -- returned the
-        # left-tail p-value while `parameters['alternative']` echoed the request. A one-sided
-        # test asked for in the wrong case came back as p = 1.0 where the right answer was
-        # 0.005. Same principle as the correction method and the reduction: a request the
-        # dispatch does not recognise is not a request to be approximated.
-        raise ValueError(
-            f"jrsa: unrecognized alternative {alternative!r}. "
-            f"Valid options: {list(ALTERNATIVES)} (lowercase)."
-        )
+    _require_alternative(alternative)
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)

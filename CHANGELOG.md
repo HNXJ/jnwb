@@ -115,9 +115,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a read back from `write()` carry no mark and are not refused.
 - **`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both
   used to be accepted and echoed back as if applied, among them `reduction={'a': 'Mean'}`
-  and `alternative='GREATER'`. The error names the valid set. The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`
+  and `alternative='GREATER'`. The error names the valid set, and an unrecognised
+  `alternative` is refused before anything is computed, with or without a permutation null.
+  The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`
   and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
   still accepted.
+- **`jrsa(alternative=)` sets the tail of the parametric p.** With `permutations=0` or
+  `stats=False`, `p` is the metric's own two-sided p, and `alternative='greater'` or `'less'`
+  was echoed in `parameters` without changing it. The one-sided p is now the two-sided p
+  halved when `value` lies on the requested side and `1 - p/2` otherwise: for a Pearson r of
+  -0.949, `'greater'` gives 1.0 where it gave 5.2e-61. `granger_ssr_ftest`, whose parametric
+  p is an upper-tail F-test, raises `ValueError` for a one-sided alternative without a
+  permutation null.
 - **`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable
   value.** A frame without one, or with only NaN, None, blank entries or the text of a missing
   value (any string `pandas.read_csv` reads as missing by default, such as `"nan"`, `"n/a"`,
