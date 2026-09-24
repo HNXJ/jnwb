@@ -114,6 +114,32 @@ def _at_lag_zero(namespace, epochs_name, t_name):
     return namespace[epochs_name][:, int(np.argmin(np.abs(t)))]
 
 
+@pytest.mark.parametrize("start_s", [0.0, 100.0])
+def test_readme_alignment_block_puts_each_epoch_on_its_onset(tmp_path, monkeypatch, start_s):
+    """The README's alignment block, run after its NWB block, on a series that starts late.
+
+    What would pass while the offset is lost: a series that starts at 0, which is why the
+    block ran green before it subtracted ``starting_time``.
+    """
+    import warnings
+
+    _clock_session(tmp_path / "session.nwb", start_s)
+    blocks = re.findall("```python" + chr(10) + "(.*?)```",
+                        README.read_text(encoding="utf-8"), re.S)
+    workflow = [b for b in blocks if "jnwb.inspect(" in b and "event_onsets(" in b]
+    alignment = [b for b in blocks if "epoch_continuous(" in b and "acquisition_channel(" in b]
+    assert len(workflow) == 1 and len(alignment) == 1, (len(workflow), len(alignment))
+
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        exec(compile(workflow[0], "README.md", "exec"), namespace)
+        exec(compile(alignment[0], "README.md", "exec"), namespace)
+    np.testing.assert_allclose(_at_lag_zero(namespace, "epochs", "t_axis_s"),
+                               start_s + np.array([0.5, 1.5]), rtol=0, atol=1e-9)
+
+
 @pytest.mark.parametrize(("start_s", "scale"), [(0.0, 1.0), (100.0, 1.0), (100.0, 1000.0)])
 def test_common_mistakes_clock_pattern_puts_each_epoch_on_its_onset(tmp_path, monkeypatch,
                                                                     start_s, scale):

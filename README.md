@@ -106,12 +106,14 @@ beta = jnwb.band_power(lfp, fs=fs, freq_range=jnwb.CANONICAL_BANDS["beta"], norm
 print(f"TFR shape: {tfr.shape}, beta power: {beta:.4f}")
 ```
 
-Read spikes and LFP for alignment after you have onsets:
+Read spikes and LFP for alignment after you have onsets. Onsets are session time; sample 0
+of the LFP is at its `starting_time`:
 
 ```python
 spikes = jnwb.unit_spike_times("session.nwb", unit_index=0)
 lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel=0)
-epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.1, 0.4), fs=fs_hz)
+start_s = next(a["starting_time"] for a in info["acquisitions"] if a["name"] == "probe_0_lfp")
+epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets - start_s, win_s=(-0.1, 0.4), fs=fs_hz)
 ```
 
 Unit and electrode census:
