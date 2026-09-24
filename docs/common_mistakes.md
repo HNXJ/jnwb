@@ -362,15 +362,18 @@ array is the correct shape with the correct dtype beside a correct time axis, so
 in it reads as an error.
 
 ### The Correct Pattern
-Compare the onsets against the extent of the data before trusting either:
+Compare the onsets against the extent of the data before trusting either. Onsets are
+session time and sample 0 is at the series' `starting_time`, so the data span
+`starting_time` to `starting_time + duration`:
 
 ```python
-data, fs = jnwb.acquisition_channel("session.nwb", channel=0)
-duration_s = len(data) / fs
+series = jnwb.inspect("session.nwb")["acquisitions"][0]
+data, fs = jnwb.acquisition_channel("session.nwb", name=series["name"], channel=0)
+start_s = series["starting_time"]
 onsets = jnwb.event_onsets("session.nwb", table="trials")
-if onsets.max() > duration_s:
+if onsets.max() > start_s + len(data) / fs:
     onsets = onsets / 1000.0        # they were milliseconds; say so in the script
-epochs, t = jnwb.epoch_continuous(data, onsets, win_s=(-0.2, 0.6), fs=fs)
+epochs, t = jnwb.epoch_continuous(data, onsets - start_s, win_s=(-0.2, 0.6), fs=fs)
 ```
 
 `epoch_continuous` warns when most epochs fall entirely outside the data under
