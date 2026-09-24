@@ -110,6 +110,55 @@ def test_any_problem_row_fails_whatever_it_says_or_wherever_it_sits(tmp_path, ro
     assert len(v) == 1 and v[0].startswith("1 problem row(s) remain"), v
 
 
+#: Problems written in a form a row-shaped pattern does not read. Under `## Open` any line but
+#: the header and separator is untriaged work, whatever its shape.
+EVASIONS = {
+    "bold-id": "| **P-300** | a defect | x |",
+    "code-id": "| `P-300` | a defect | x |",
+    "lowercase-id": "| p-300 | a defect | x |",
+    "blockquoted-table": "> | ID | Problem | Found by |\n> |---|---|---|\n> | P-300 | a defect | x |",
+    "bullet": "- P-300: a defect",
+    "id-in-column-2": "| x | P-300 | a defect |",
+    "unnumbered-row": "| | a defect | x |",
+    "prose": "A defect nobody has triaged yet.",
+    "second-header": "| ID | Problem | Found by |\n|---|---|---|",
+}
+
+
+@pytest.mark.parametrize("line", list(EVASIONS.values()), ids=list(EVASIONS))
+def test_any_content_under_open_fails_step_0a(tmp_path, line):
+    root = _tree(tmp_path, rows=[line], items=[_item("07-01", DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "problem row(s) remain" in v[0], v
+
+
+def _open_findings(root):
+    from scripts.harness_gate import check_stack_form_consistency
+    return [v for v in check_stack_form_consistency(root) if "## Open" in v]
+
+
+@pytest.mark.parametrize("line", list(EVASIONS.values()), ids=list(EVASIONS))
+def test_any_noncanonical_content_under_open_fails_gate_15(tmp_path, line):
+    root = _tree(tmp_path, rows=[line], items=[_item("07-01", DEFERRED)])
+    assert _open_findings(root), f"gate 15 read {line!r} under ## Open as well formed"
+
+
+def test_gate_15_passes_an_empty_open_section_and_a_canonical_row(tmp_path):
+    """Gate 15 checks form; a recorded, well-formed problem is STEP 0a's to refuse, not its."""
+    assert _open_findings(_tree(tmp_path, items=[_item("07-01", DEFERRED)])) == []
+    assert _open_findings(_tree(tmp_path, rows=["| P-300 | a defect | x |"])) == []
+
+
+def test_a_problem_stack_with_no_open_section_fails_both(tmp_path):
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    stack = root / "artifacts" / "problem_stack.md"
+    stack.write_text(stack.read_text(encoding="utf-8").replace("## Open", "## Triage"),
+                     encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "## Open" in v[0], v
+    assert _open_findings(root), "gate 15 passed a problem stack with no ## Open section"
+
+
 def test_a_missing_problem_stack_fails(tmp_path):
     """A condition satisfied by deleting its own evidence is worse than none."""
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])

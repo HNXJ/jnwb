@@ -1435,15 +1435,15 @@ class TestDeclaredEnvironmentPreflight:
 
 # ------------------------------------------------- gate 15: coordination stack form
 
-#: A problem stack with both tables well formed. Four columns each, but not the same four --
-#: which is the whole reason a row moving between them acquires the wrong shape.
+#: A problem stack with both tables well formed and of different widths, so a row moving
+#: between them acquires the wrong shape. `## Open` carries its pinned header.
 CLEAN_PROBLEM_STACK = """# Problem stack
 
 ## Open
 
-| ID | Problem | Found by | Answered in |
-|---|---|---|---|
-| P-1 | A defect | this session | Open -- unowned |
+| ID | Problem | Found by |
+|---|---|---|
+| P-1 | A defect | this session |
 
 ## Closed
 
@@ -1590,22 +1590,22 @@ directory such as `docs/` cannot be compared against `docs/api.md`.
 
 
 class TestGate15ProblemRowsKeepTheirTableShape:
-    """`Open` is `ID | Problem | Found by | Answered in`; `Closed` swaps the last two columns.
+    """Each problem table is held to its own header.
 
-    Four columns each and not the same four, so a row moving between the tables acquires the
-    wrong shape. One session repaired this in P-38, P-39 and P-40, then wrote a `Found by`
-    cell into a `Closed` row anyway, and separately shipped unescaped pipes in P-29, P-81 and
-    P-114. Five instances, one mistake.
+    When `Open` and `Closed` were both four columns but not the same four, a row moving between
+    the tables acquired the wrong shape. One session repaired this in P-38, P-39 and P-40, then
+    wrote a `Found by` cell into a `Closed` row anyway, and separately shipped unescaped pipes
+    in P-29, P-81 and P-114. Five instances, one mistake.
     """
 
     def test_a_row_missing_a_cell_is_rejected(self, tmp_path: Path):
         seeded = CLEAN_PROBLEM_STACK.replace(
-            "| P-1 | A defect | this session | Open -- unowned |",
-            "| P-1 | A defect | Open -- unowned |",
+            "| P-1 | A defect | this session |",
+            "| P-1 | A defect |",
         )
         found = check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, seeded))
         assert len(found) == 1, found
-        assert "4 cell delimiters against the 5" in found[0], found
+        assert "3 cell delimiters against the 4" in found[0], found
 
     def test_an_unescaped_pipe_inside_a_code_span_is_rejected(self, tmp_path: Path):
         """GFM splits a row into cells before it parses inline code, so backticks do not protect."""
@@ -1614,7 +1614,7 @@ class TestGate15ProblemRowsKeepTheirTableShape:
         )
         found = check_stack_form_consistency(_stack_tree(tmp_path, CLEAN_TODO_STACK, seeded))
         assert len(found) == 1, found
-        assert "6 cell delimiters against the 5" in found[0], found
+        assert "5 cell delimiters against the 4" in found[0], found
 
     def test_an_escaped_pipe_inside_a_code_span_is_content(self, tmp_path: Path):
         r"""The control for the case above: `a\|b` is one cell, and P-114 relies on it."""

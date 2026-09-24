@@ -20,8 +20,9 @@ protected paths to skill-tree uniqueness without the list noticing.
   12. Project identifiers in jnwb/ code strings.
   13. NWB onboarding surface alignment across README, tutorials, skill, and MkDocs.
   14. Internal process vocabulary kept out of public documentation, and item or problem
-      identifiers out of jnwb/.
-  15. Stack form consistency: declared write sets are comparable and problem rows keep shape.
+      identifiers out of jnwb/, docs/ and the files its pages include.
+  15. Stack form consistency: declared write sets are comparable, problem rows keep shape, and
+      the problem stack's Open section holds only its table.
   16. Line ending consistency: no tracked text file carries both conventions at once.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
   18. API member types: each docs/api.md Type cell is true of the runtime object.
@@ -1962,6 +1963,10 @@ GENERATED_FROM = (
 )
 
 
+#: A problem row as the `## Open` table writes one: the id alone and unmarked in the first cell.
+_CANONICAL_OPEN_ROW = re.compile(r"^\| P-\d+ \|")
+
+
 def _row_delimiters(line: str) -> int:
     return _ESCAPED_PIPE.sub("", line).count("|")
 
@@ -1979,10 +1984,17 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
     half the work (P-108). A glob passes, because `docs/*.md` conflicts honestly with
     `docs/api.md` while `docs/` conflicts with everything and says nothing.
 
-    **Every problem row carries its own table's column count.** The open table is
-    `ID | Problem | Found by | Answered in` and the closed table is
-    `ID | Problem | Disposition | Evidence` -- four columns each, but not the same four, so a
-    row moving between them acquires the wrong shape. This shipped five times in one session.
+    **Every problem row carries its own table's column count.** Each table in the problem stack
+    is held to its own header, so a row with a missing cell, or an unescaped `|` inside a code
+    span, is reported. This shipped five times in one session, when the stack had two tables of
+    four columns each but not the same four.
+
+    **`## Open` holds one table and nothing else.** The section exists, its only table has the
+    header `ID | Problem | Found by` and its separator, and every other non-blank line in it is
+    a row whose first cell is a bare `P-<n>`. `scripts/release_gate.py` STEP 0a reads every
+    other line there as an untriaged problem; this check says which of them are not in the form
+    a reader of the table can see. A well-formed row passes here, because recording a problem
+    is how it gets triaged, and refusing it is the release's job.
     """
     root = repo_root or REPO_ROOT
     violations: List[str] = []
@@ -2078,6 +2090,22 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
             )
     if not rows:
         violations.append(f"STACK_FORM: no table row found in {PROBLEM_STACK}; the sweep is broken")
+
+    from scripts.release_gate import OPEN_HEADER, open_section_content
+
+    open_content = open_section_content(problem_path.read_text(encoding="utf-8"))
+    if open_content is None:
+        violations.append(
+            f"STACK_FORM: {PROBLEM_STACK} has no '## Open' section, so STEP 0a cannot say whether "
+            "any problem is untriaged"
+        )
+    for lineno, line in open_content or []:
+        if not _CANONICAL_OPEN_ROW.match(line):
+            violations.append(
+                f"STACK_FORM: {PROBLEM_STACK}:{lineno} under '## Open' is neither the "
+                f"'{' | '.join(OPEN_HEADER)}' header, its separator, nor a row whose first cell "
+                f"is a bare P-<n>: {line[:80]!r}. Write the problem as a row of that table."
+            )
 
     # The generation closure is a file that points at other files, so it goes stale without
     # erroring: a generator that is renamed or a derived path that moves leaves a declaration
@@ -2647,6 +2675,7 @@ GATES: List[Tuple[int, Any, Any]] = [
              "its own item's text; every summary count agrees with the items it names; "
              "no summary states an item total the stack does not hold; "
              "every problem row carries its own table's column count; "
+             "'## Open' holds only its header, separator and well-formed rows; "
              "every GENERATED_FROM entry resolves against the tree)."),
     (16, _one(check_line_ending_consistency,
               "FAIL: Tracked files carry both line-ending conventions:"),

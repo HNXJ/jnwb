@@ -976,23 +976,73 @@ def _api_md_check_commands() -> List[List[str]]:
 
 
 PROBLEM_STACK = "artifacts/problem_stack.md"
-# A problem row as it would render: a table line whose first cell starts with `P-`. Matched
-# whatever section it sits in and however its cells are counted, so a row under a stray heading
-# or with a missing cell still counts.
-_PROBLEM_ROW = re.compile(r"^\s*\|\s*P-")
+# A problem row as it would render in any section: a table line, optionally blockquoted, whose
+# first cell starts with a `P-` id in any case and under any inline markup. Matched however its
+# cells are counted, so a row under a stray heading or with a missing cell still counts.
+_PROBLEM_ROW = re.compile(r"^[ \t>]*\|[ \t*`_~]*P-\w", re.IGNORECASE)
+#: The header of the one table `## Open` may hold. Pinned, so a problem cannot stand in as it.
+OPEN_HEADER = ("ID", "Problem", "Found by")
+_OPEN_HEADING = re.compile(r"^ {0,3}##[ \t]+Open[ \t]*$")
+_SECTION_END = re.compile(r"^ {0,3}#{1,2}(?:[ \t]|$)")
+_SEPARATOR_CELL = re.compile(r"^:?-+:?$")
+
+
+def _cells(line: str) -> Optional[List[str]]:
+    stripped = line.strip()
+    if not stripped.startswith("|"):
+        return None
+    return [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+def open_section_content(text: str) -> Optional[List[Tuple[int, str]]]:
+    """``(line number, line)`` for every line under ``## Open`` that is not blank and is not
+    the table's one header row or the separator row directly below it; ``None`` when the stack
+    has no ``## Open`` section.
+
+    Under ``## Open`` anything else is an untriaged problem, whatever form it takes. Reading
+    only row-shaped lines let a bold, code-spanned or lower-case id, a blockquoted table, a
+    bullet, an id in the second column and a row with no id all stand in the section unseen.
+    """
+    found: Optional[List[Tuple[int, str]]] = None
+    in_open, expect = False, None
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if _OPEN_HEADING.match(line):
+            found = [] if found is None else found
+            in_open, expect = True, "header"
+            continue
+        if in_open and _SECTION_END.match(line):
+            in_open = False
+        if not in_open or not line.strip():
+            continue
+        cells = _cells(line)
+        if expect == "header" and cells is not None and tuple(cells) == OPEN_HEADER:
+            expect = "separator"
+            continue
+        if expect == "separator" and cells and all(_SEPARATOR_CELL.match(c) for c in cells):
+            expect = None
+            continue
+        expect = None
+        found.append((lineno, line.strip()))
+    return found
 
 
 def problem_rows(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
-    """Every problem row in the problem stack, or ``None`` when the file is missing.
+    """Every problem in the problem stack, or ``None`` when the file is missing.
 
-    A release requires the stack to hold none: a problem leaves it by being repaired, by being
-    shown false, or by moving into the todo stack as an item.
+    That is every line under ``## Open`` other than its header and separator, and every
+    problem-shaped table row in any other section. A release requires the stack to hold none:
+    a problem leaves it by being repaired, by being shown false, or by moving into the todo
+    stack as an item.
     """
     path = root / PROBLEM_STACK
     if not path.is_file():
         return None
-    return [line.strip()[:120] for line in path.read_text(encoding="utf-8").splitlines()
-            if _PROBLEM_ROW.match(line)]
+    text = path.read_text(encoding="utf-8")
+    rows = dict(open_section_content(text) or [])
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if _PROBLEM_ROW.match(line):
+            rows.setdefault(lineno, line.strip())
+    return [rows[n][:120] for n in sorted(rows)]
 
 
 def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
@@ -1132,7 +1182,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     its repair, the commit that showed it false, or its todo entry. What is required,
     mechanically:
 
-      1. the problem stack exists and holds no problem row, in any section;
+      1. the problem stack exists, its ``## Open`` section holds nothing but the table header
+         and separator, and no other section holds a problem row;
       2. no todo item is still required for this cycle, and every item's release is readable;
       3. the independent blocker-focused closure receipt exists, is at HEAD, and reports zero.
 
@@ -1146,6 +1197,10 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     if rows is None:
         violations.append(
             f"{PROBLEM_STACK} is missing, so whether any problem is untriaged is unknown")
+    elif open_section_content((root / PROBLEM_STACK).read_text(encoding="utf-8")) is None:
+        violations.append(
+            f"{PROBLEM_STACK} has no '## Open' section, so whether any problem is untriaged "
+            "is unknown")
     elif rows:
         violations.append(
             f"{len(rows)} problem row(s) remain in {PROBLEM_STACK}; each must be repaired, "
