@@ -368,9 +368,8 @@ class TestH6AccumulatorToDecibels:
         masked_power, unmasked_power = masked.power(), unmasked.power()
 
         assert np.all(unmasked_power[edge] > 0.0)
-        assert np.all(masked_power[edge] == 0.0)
-        relative_change = np.abs(masked_power[edge] - unmasked_power[edge]) / unmasked_power[edge]
-        np.testing.assert_allclose(relative_change, 1.0, atol=0.0)
+        # No trial is valid at the edge, so there is no estimate there.
+        assert np.all(np.isnan(masked_power[edge]))
 
         assert np.all(masked_power[coi_mask] > 0.0)
         np.testing.assert_array_equal(masked_power[coi_mask], unmasked_power[coi_mask])

@@ -307,7 +307,8 @@ mean_power = tfr_res.power.mean(axis=-1)
 masked = np.where(tfr_res.coi_mask, tfr_res.power, np.nan)
 mean_power = np.nanmean(masked, axis=-1)
 
-# Streaming: TFRAccumulator takes the mask directly and keeps a per-cell count
+# Streaming: TFRAccumulator takes the mask directly and keeps a per-cell count;
+# power(), evoked() and itc() are NaN where that count is zero, as nanmean is
 acc.add_trial(tfr_res.z, valid=tfr_res.coi_mask)
 ```
 

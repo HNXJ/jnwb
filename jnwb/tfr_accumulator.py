@@ -143,7 +143,7 @@ class TFRAccumulator:
     @property
     def mean(self) -> np.ndarray:
         """Trial-mean power, the same values as :meth:`power`."""
-        return self._mean.view(_TrialAveragedPower)
+        return self.power()
 
     @mean.setter
     def mean(self, value) -> None:
@@ -186,8 +186,13 @@ class TFRAccumulator:
         return out
 
     # ---- derived quantities ----
+    # A cell no valid trial reached has no estimate, so power, evoked power and ITC are NaN
+    # there, as var() and sem() already were. Zero read as measured silence and entered
+    # every downstream mean.
     def power(self) -> np.ndarray:
-        return self._mean.view(_TrialAveragedPower)
+        """Trial-mean power; NaN where no trial was valid."""
+        out = _register_trial_averaged(np.where(self.n > 0, self._mean, np.nan))
+        return out.view(_TrialAveragedPower)
 
     def var(self) -> np.ndarray:
         return np.divide(self.M2, self.n - 1, out=np.full_like(self.M2, np.nan), where=self.n > 1)
@@ -198,14 +203,18 @@ class TFRAccumulator:
         )
 
     def evoked(self) -> np.ndarray:
+        """Power of the trial-mean ``z``; NaN where no trial was valid."""
         return (
-            np.abs(np.divide(self.sum_z, self.n, out=np.zeros_like(self.sum_z), where=self.n > 0))
+            np.abs(np.divide(self.sum_z, self.n, out=np.full_like(self.sum_z, np.nan), where=self.n > 0))
             ** 2
         )
 
     def itc(self) -> np.ndarray:
+        """Inter-trial phase coherence; NaN where no trial was valid."""
         return np.abs(
-            np.divide(self.sum_unit_z, self.n, out=np.zeros_like(self.sum_unit_z), where=self.n > 0)
+            np.divide(
+                self.sum_unit_z, self.n, out=np.full_like(self.sum_unit_z, np.nan), where=self.n > 0
+            )
         )
 
     def write(self, h5group, meta: Dict) -> None:

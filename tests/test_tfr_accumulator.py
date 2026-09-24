@@ -155,6 +155,22 @@ class TestDerivedQuantities:
             acc.add_trial(np.array([[np.exp(1j * p) * 2.0]]))
         assert acc.itc()[0, 0] < 0.05  # expected ~1/sqrt(n) ~ 0.014
 
+    def test_a_cell_no_valid_trial_reached_has_no_estimate(self):
+        """n == 0 is missing data: every derived quantity is NaN there, never 0.0, and the
+        cells a trial did reach are unchanged by the mask."""
+        shape = (2, 3)
+        trials = _random_trials(4, shape, seed=9)
+        valid = np.ones((4, *shape), bool)
+        valid[:, 0, 0] = False
+        acc = _summarize(trials, valid)
+        empty = acc.n == 0
+        assert empty.sum() == 1
+        for name, value in (("power", acc.power()), ("mean", acc.mean), ("evoked", acc.evoked()),
+                            ("itc", acc.itc()), ("var", acc.var()), ("sem", acc.sem())):
+            assert np.all(np.isnan(value[empty])), name
+            assert np.all(np.isfinite(value[~empty])), name
+        np.testing.assert_allclose(acc.power()[~empty], (np.abs(trials) ** 2).mean(axis=0)[~empty])
+
 
 class TestNumericalStability:
     """Spec's stated reason to prefer Chan/Welford over sum/sumsq: catastrophic cancellation

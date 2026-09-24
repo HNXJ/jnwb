@@ -411,6 +411,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   powers in V^2/Hz, made every flip a tie: one set of twelve differences gave p 0.0049 in
   uV^2/Hz and 1.0 in V^2/Hz. The tie width is now the rounding bound above, which scales with
   the differences.
+- **`TFRAccumulator` reports no estimate where no trial was valid.** `power()`, `mean`,
+  `evoked()` and `itc()` returned 0.0 in cells whose count is zero, such as the samples
+  `coi_mask` excludes in every trial, where `var()` and `sem()` already returned NaN. They are
+  now NaN there too, matching `np.nanmean` over the masked per-trial power. Cells with at least
+  one valid trial are unchanged.
 
 ### Deprecated
 
