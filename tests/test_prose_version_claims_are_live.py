@@ -76,6 +76,7 @@ HISTORICAL_MENTIONS = {
     ("docs/08_directed_connectivity_and_information.md",
      "`granger_causality` (dict return type) is deprecated in 0.1.7"),
     ("docs/install.md", "## Deferred imports (0.1.6+)"),
+    ("docs/10_operation_specifications.md", "until 0.2.5 and named the minority"),
 }
 
 

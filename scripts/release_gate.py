@@ -1149,8 +1149,10 @@ def unparseable_todo_headings(root: pathlib.Path = REPO_ROOT) -> List[str]:
     return _parse_todo_stack(path.read_text(encoding="utf-8"))[1]
 
 
-RELEASE_CYCLE = "0.2.6"
-NEXT_CYCLE = "0.2.7"
+RELEASE_CYCLE = jnwb_source_version()
+NEXT_CYCLE = "{}.{}.{}".format(
+    *(int(p) + (i == 2) for i, p in enumerate(
+        re.match(r"(\d+)\.(\d+)\.(\d+)", RELEASE_CYCLE).groups())))
 RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
 
 

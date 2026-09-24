@@ -72,7 +72,7 @@ against the API it is holding:
 ```python
 import jnwb
 
-jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.5/skills'
+jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.6/skills'
 ```
 
 Inside an unpacked sdist the skill files are present but their links to `docs/` are not:

@@ -12,7 +12,7 @@ condition codes and hypotheses belong in downstream project code, not here.
 """
 
 __version__ = '0.2.6'
-__release_date__ = '2026-09-19'
+__release_date__ = '2026-09-24'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
