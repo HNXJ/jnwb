@@ -168,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   option and never read it: `k=1`, `2` and `5` all returned the one-sample-history answer
   (0.040111 on one input). It now raises `TypeError` like any unknown option; the estimator
   conditions on one past sample of each series. `jnwb.transfer_entropy` takes history lengths.
-  Every other metric-specific option `jrsa` accepts changes the result.
+  Every other metric-specific option `jrsa` accepts with more than one legal value changes the
+  result.
 - **INTENTIONAL BREAK: `zflip` requires `orientation`.** `directionality` named a direction in
   depth from row order alone, and nothing required row 0 to be superficial: a tip-first
   electrode table of a wave running superficial to deep was reported as `deep_to_superficial`

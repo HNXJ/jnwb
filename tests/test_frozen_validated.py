@@ -66,3 +66,10 @@ def test_a_missing_function_or_killing_test_fails(tmp_path):
         killed_by=("tests/test_box.py::test_gone",)))
     assert any("no such function" in v for v in violations), violations
     assert any("test_gone does not exist" in v for v in violations), violations
+
+
+def test_an_empty_register_fails(tmp_path):
+    repo = _repo(tmp_path)
+    for empty in ('{"functions": []}', '{"functions": {}}'):
+        (repo / "artifacts" / "frozen_validated.json").write_text(empty, encoding="utf-8")
+        assert check_frozen_validated(repo) != [], empty

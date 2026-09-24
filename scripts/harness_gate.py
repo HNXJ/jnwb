@@ -2697,6 +2697,8 @@ def check_frozen_validated(repo_root: Optional[Path] = None) -> List[str]:
         entries = json.loads(path.read_text(encoding="utf-8"))["functions"]
     except (ValueError, KeyError, TypeError) as exc:
         return [f"{FROZEN_REGISTER} does not parse: {exc}"]
+    if not isinstance(entries, list) or not entries:
+        return [f"{FROZEN_REGISTER} lists no functions, so this gate would check nothing"]
     violations: List[str] = []
     seen = set()
     for entry in entries:
