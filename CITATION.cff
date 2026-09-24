@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use jnwb, please cite it using the metadata below."
+type: software
+title: "jnwb: analysis operations for Neurodata Without Borders electrophysiology"
+abstract: >-
+  jnwb is a Python toolbox for analysing Neurodata Without Borders (NWB)
+  electrophysiology data: composable, tested operations over NWB files, arrays
+  and metadata, usable directly or by coding agents through skills.
+authors:
+  - family-names: Nejat
+    given-names: Hamed
+license: MIT
+repository-code: "https://github.com/HNXJ/jnwb"
+url: "https://jnwb.readthedocs.io"
+keywords:
+  - neuroscience
+  - electrophysiology
+  - NWB
+  - Neurodata Without Borders
+  - spikes
+  - LFP

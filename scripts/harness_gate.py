@@ -390,7 +390,7 @@ TOOL_ROOT_DIRS = {".claude"}
 ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS | TOOL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitattributes",
-    ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md",
+    ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CITATION.cff", "CLAUDE.md",
     "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
     # CLAUDE.md is git-ignored and untracked: AGENTS.md is the only repository-level
     # instruction file. It stays on this list so a contributor's own ignored copy does

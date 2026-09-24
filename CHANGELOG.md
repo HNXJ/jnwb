@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`CITATION.cff`.** Citation metadata for GitHub's "Cite this repository" and for archiving
+  each GitHub Release on Zenodo.
 - **`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of
   dataset paths cast to float32, irreversibly (`select=["acquisition/probe_0_lfp/data"]`). A
   missing path, a group, a dataset that is not floating-point, a scalar dataset, a regular
