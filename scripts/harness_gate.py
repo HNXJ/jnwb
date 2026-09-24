@@ -1331,12 +1331,13 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
 
 
 #: An item or problem identifier from the coordination stacks: `P-29`, `P-C7`, `06-55`,
-#: `0.2.4-04`. The item form requires a leading zero because two-digit ranges are ordinary
-#: library prose (`14-30 Hz`, `50-80`), and every edge excludes a neighbouring word character,
-#: dot, slash or hyphen, so a date (`2026-09-23`), a version (`0.2.6`) and a DOI fragment
-#: (`s41593-020-00744-x`) never match.
+#: `0.2.4-04`, and a review finding: `REV-07`, `0.2.3-REV-07`, `EXT-REV-003`. The item form
+#: requires a leading zero because two-digit ranges are ordinary library prose (`14-30 Hz`,
+#: `50-80`), and every edge excludes a neighbouring word character, dot, slash or hyphen, so a
+#: date (`2026-09-23`), a version (`0.2.6`) and a DOI fragment (`s41593-020-00744-x`) never match.
 PROCESS_IDENTIFIER = re.compile(
-    r"(?<![\w./\-])(?:P-C?\d{1,3}|0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3})(?![\w\-])"
+    r"(?<![\w./\-])(?:P-C?\d{1,3}|0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3}"
+    r"|(?:\d+\.\d+\.\d+-|[A-Z]{2,}-)?REV-\d{2,3})(?![\w\-])"
 )
 
 

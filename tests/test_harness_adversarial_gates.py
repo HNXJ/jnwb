@@ -1242,6 +1242,8 @@ class TestGate14ProcessIdentifiersInLibrary:
             "06-55: a 32-bit request is refused.",
             "See P-C7 for why.",
             "Recorded under 0.2.4-04.",
+            "Normalized by N (0.2.3-REV-07).",
+            "Density-normalized (EXT-REV-003).",
         ],
     )
     def test_a_seeded_identifier_fails(self, tmp_path: Path, line: str):

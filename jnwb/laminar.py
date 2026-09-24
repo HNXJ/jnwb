@@ -494,7 +494,7 @@ def vflip(
                 crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
-    # Density-normalized to eliminate systematic channel-count scaling (EXT-REV-003).
+    # Density-normalized so the score does not scale with the number of channels.
     # Uses canonical 24-contact reference baseline (N_ref = 24):
     # - band_dist is normalized by sqrt(n_channels / 24) (RMS profile scaling)
     # - sep_metric is normalized by (n_channels / 24) (fractional span scaling)

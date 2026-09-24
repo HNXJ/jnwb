@@ -211,7 +211,7 @@ def spike_count_mutual_information(
 
 
 def _residual_variance(residuals: np.ndarray) -> float:
-    """Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07).
+    """Maximum-likelihood residual variance: RSS divided by the sample count N.
 
     Took an ``n_params`` argument until 0.2.5 and never read it, so both call sites passed a
     parameter count into a divisor that was always ``N``. Removed rather than honoured: the
@@ -1170,7 +1170,7 @@ def granger(
         rss_u, res_u = _ols_rss(d_u, yy, ridge)
         df_u = n_obs - d_u.shape[1]
         df_extra = d_u.shape[1] - d_r.shape[1]
-        # Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)
+        # Maximum-likelihood residual variance, RSS / N, as in `_residual_variance`
         sig2_r = rss_r / max(n_obs, 1)
         sig2_u = rss_u / max(n_obs, 1)
         # A zero unrestricted residual variance means the VAR could not be fitted, not
@@ -1916,7 +1916,7 @@ def phase_slope_index(
     # np.nansum of an all-NaN array is 0.0, which reads as "no lead" when no band had a slope.
     total = float(np.nansum(band_values)) if np.isfinite(band_values).any() else float("nan")
 
-    # Top-level omnibus p-value extraction across evaluated bands (0.2.3-REV-08)
+    # One top-level p-value across the evaluated bands
     p_top = None
     if len(per_band) == 1:
         single = next(iter(per_band.values()))

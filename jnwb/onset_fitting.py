@@ -23,7 +23,7 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
     Same kernel construction (finite window of 5*tau_ms, normalized, left-edge-padded
     causal convolution using edge-value rate[0]), generalized to operate on a pre-binned rate array
     rather than raw spike times. Edge-padding preserves constant baseline firing rates without
-    artificial startup depression (0.2.3-REV-09).
+    artificial startup depression.
 
     ESTIMATOR LATENCY PROPERTIES & HAZARD:
     A causal filter introduces an intrinsic group delay and time shift:
