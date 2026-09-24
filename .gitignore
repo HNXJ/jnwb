@@ -79,6 +79,7 @@ gallery_src/
 *.json
 !artifacts/benchmarks/*.json
 !examples/data/*.provenance.json
+!artifacts/frozen_validated.json
 *.asv
 *.mexw64
 *.mlx

@@ -56,7 +56,7 @@ python scripts/docs_build.py
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive.
-- **`harness_gate.py`** — 18 repository gates: the project boundary, skill-tree uniqueness,
+- **`harness_gate.py`** — 19 repository gates: the project boundary, skill-tree uniqueness,
   machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
   tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
   floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
@@ -64,8 +64,18 @@ python scripts/docs_build.py
   docs versions derived from `__version__`, no unowned importable package at the root, project
   identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`
   and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
-  stack form, line-ending consistency, stack pointers that resolve, and the `docs/api.md` Type
-  column against the runtime object. It fails on structure, not behaviour.
+  stack form, line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
+  column against the runtime object, and frozen-validated functions against their verified
+  bodies. It fails on structure, not behaviour.
+
+**Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
+was verified by someone other than its author and had a mutant killed by the tests it names.
+Each entry records the SHA-256 of the function's syntax tree without docstrings or comments,
+so rewording a docstring or reformatting leaves it frozen and any change to the code does not.
+Gate 19 fails when a frozen body changes. Such a change either carries a new independent
+verification and kill, recording the new hash and commit, or removes the entry. A function is
+admitted only with that verification, a kill, and no open todo entry naming it; reviews may
+skip an entry whose hash still matches.
 - **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.
   Read the Docs sets `fail_on_warning`, so a warning here is a failed publish.
 
