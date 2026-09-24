@@ -128,6 +128,47 @@ class TestTheUnpairedPValueIsTheRankItClaimsToBe:
         assert ps[0] > 0.1, ps
 
 
+class TestADrawThatReproducesTheObservedSplitCountsItself:
+    """Recomputing the observed split in shuffled order can land an ulp below the observed
+    statistic. With these values it does for both the unpaired mean difference and the
+    identity sign flip, and the p-value fell to a third of the exact one (unpaired) or to
+    its floor (paired). Separated groups make the exact p a count of two draws."""
+
+    X = np.array([17.9, 10.5, 12.3])
+    Y = np.array([7.0, 5.7, 5.1])
+    D = np.array([1.53, 2.55, 2.07, 2.9, 1.42])
+
+    @pytest.mark.parametrize("alternative, exact", [("two-sided", 0.1), ("greater", 0.05)])
+    def test_unpaired(self, alternative: str, exact: float):
+        _, p = shuffle_pvalue_unpaired(
+            self.X, self.Y, N_SHUFFLES, np.random.default_rng(0), alternative=alternative
+        )
+        assert p == pytest.approx(exact, abs=0.02), (p, exact)
+        _, p_neg = shuffle_pvalue_unpaired(
+            -self.X, -self.Y, N_SHUFFLES, np.random.default_rng(0),
+            alternative="less" if alternative == "greater" else alternative,
+        )
+        assert p_neg == pytest.approx(exact, abs=0.02), (p_neg, exact)
+
+    def test_permutation_test(self):
+        from jnwb import StatisticalAnalysis
+
+        p = StatisticalAnalysis.permutation_test(self.X, self.Y, n_permutations=N_SHUFFLES, rng=0)["pval"]
+        assert p == pytest.approx(0.1, abs=0.02), p
+
+    @pytest.mark.parametrize("alternative, exact", [("two-sided", 2 / 32), ("greater", 1 / 32)])
+    def test_paired(self, alternative: str, exact: float):
+        _, p = shuffle_pvalue_paired(
+            self.D, np.zeros_like(self.D), N_SHUFFLES, np.random.default_rng(0), alternative=alternative
+        )
+        assert p == pytest.approx(exact, abs=0.015), (p, exact)
+        _, p_neg = shuffle_pvalue_paired(
+            -self.D, np.zeros_like(self.D), N_SHUFFLES, np.random.default_rng(0),
+            alternative="less" if alternative == "greater" else alternative,
+        )
+        assert p_neg == pytest.approx(exact, abs=0.015), (p_neg, exact)
+
+
 class TestTheIncidentalGuardIsStillThere:
     """If the folding test's guard is ever relaxed, this file is what remains."""
 

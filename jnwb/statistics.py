@@ -422,6 +422,22 @@ def _require_shuffle_inputs(a: np.ndarray, b: np.ndarray, n_shuffles: int, func_
         raise ValueError(f"{func_name}: n_shuffles must be a positive integer, got {n_shuffles!r}")
 
 
+def _tie_tolerance(values: np.ndarray) -> float:
+    """Width within which two evaluations of one permutation statistic are the same number.
+
+    The statistic is a mean, or a difference of means over disjoint subsets, of ``values``
+    (or of ``values`` with signs flipped). A draw that reproduces the observed split sums the
+    same terms in another order and can land an ulp below the observed statistic, so a bare
+    ``>=`` fails to count it and the p-value comes out too small: 3 v 3 separated groups,
+    exact p 0.1, gave p < 0.05 in 16 of 200 seeds. Summing in any order moves a subset mean
+    by less than ``eps * sum(|v|)`` over that subset, and the difference of two means by
+    less than twice that, so two evaluations differ by less than ``4 * eps * sum(|v|)``;
+    the tolerance doubles that bound. It scales with the data, so a change of units leaves
+    every comparison unchanged.
+    """
+    return 8.0 * float(np.finfo(float).eps) * float(np.sum(np.abs(values)))
+
+
 def _zero_spread_t(a: float, b: float) -> Tuple[float, float]:
     """(t, p) of a t-test whose data have no spread, `a` and `b` being the constant values
     compared: no test when they are equal, and an unbounded t with p 0.0 otherwise, which is
@@ -465,12 +481,13 @@ def shuffle_pvalue_paired(
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
+    tol = _tie_tolerance(diff)
     if alt == "greater":
-        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
     elif alt == "less":
-        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
     else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
     return obs, float(p)
 
 
@@ -524,12 +541,13 @@ def shuffle_pvalue_unpaired(
     for i in range(n_shuffles):
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
+    tol = _tie_tolerance(pooled)
     if alt == "greater":
-        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
     elif alt == "less":
-        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
     else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
     return obs, float(p)
 
 
@@ -1240,7 +1258,7 @@ class StatisticalAnalysis:
             perm_y = combined[perm_idx[n_x:]]
             perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
 
-        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff)))
+        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff) - _tie_tolerance(combined)))
         p_value = (1 + k) / (n_permutations + 1)
 
         return {

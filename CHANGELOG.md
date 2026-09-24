@@ -398,6 +398,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directed metric.** `granger_ssr_ftest` and `transfer_entropy_histogram_nats` measure x2 -> x1,
   the reverse of `granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads x2. No
   public text said so. The numbers are unchanged.
+- **A shuffle that reproduces the observed split counts as at least as extreme.**
+  `StatisticalAnalysis.permutation_test`, `shuffle_pvalue_unpaired` and
+  `shuffle_pvalue_paired` recomputed the observed statistic in shuffled order, which can land
+  an ulp below it and fail the `>=` count, so p came out too small: for 3 v 3 separated groups,
+  whose exact two-sided p is 0.1, `permutation_test` gave p < 0.05 in 16 of 200 seeds, and one
+  set of five positive paired differences gave `shuffle_pvalue_paired` its floor, 0.0002, where
+  the exact p is 0.0625. Each comparison now allows the largest rounding difference two
+  evaluations of the statistic can have, 8 eps times the sum of the absolute values.
 
 ### Deprecated
 
