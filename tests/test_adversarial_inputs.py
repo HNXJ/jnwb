@@ -40,11 +40,24 @@ class TestSpectralSummaries:
         with pytest.raises(ValueError, match=match):
             call(bad)
 
-    def test_constant_trace_has_no_tilt_and_no_fundamental(self):
-        tilt = jnwb.spectral_tilt(np.full(4096, 2.0), fs=FS)
+    # 2.0 has an exact mean; 0.3 and 6389.565 do not, so Welch's detrend leaves rounding
+    # residue that a `> 0` power guard reads as a spectrum.
+    @pytest.mark.parametrize("level", [2.0, 0.3, 6389.565])
+    def test_constant_trace_has_no_tilt_no_fundamental_and_no_band_power(self, level):
+        flat = np.full(4096, level)
+        tilt = jnwb.spectral_tilt(flat, fs=FS)
         assert all(np.isnan(tilt[k]) for k in ("exponent", "offset", "fit_quality"))
-        harmonics = jnwb.harmonic_analysis(np.full(4096, 2.0), fs=FS)
+        harmonics = jnwb.harmonic_analysis(flat, fs=FS)
         assert np.isnan(harmonics["fundamental_freq"]) and harmonics["harmonics"] == {}
+        assert jnwb.band_power(flat, fs=FS, freq_range=(8.0, 30.0), normalize=False) == 0.0
+        with pytest.raises(ValueError, match="no power"):
+            jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), baseline=np.full(8192, level))
+        # A flat channel's detrended spectra are exactly zero, as an all-zero channel's are;
+        # the residue gave a flat 0.3 channel icoh_abs_mean 0.17 against noise.
+        for pair_flat, pair_zero in (((TRACE[:4096], flat), (TRACE[:4096], np.zeros(4096))),
+                                     ((flat, TRACE[:4096]), (np.zeros(4096), TRACE[:4096]))):
+            assert (jnwb.imaginary_coherency(*pair_flat, fs=FS, freq_range=(4.0, 80.0))
+                    == jnwb.imaginary_coherency(*pair_zero, fs=FS, freq_range=(4.0, 80.0)))
 
     def test_harmonic_ratio_does_not_count_the_fundamental_twice(self):
         t = np.arange(4000) / FS

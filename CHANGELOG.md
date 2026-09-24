@@ -416,6 +416,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `coi_mask` excludes in every trial, where `var()` and `sem()` already returned NaN. They are
   now NaN there too, matching `np.nanmean` over the masked per-trial power. Cells with at least
   one valid trial are unchanged.
+- **A flat trace has no spectrum, at any level.** Welch removes each segment's mean, and for a
+  constant such as 0.3 that leaves rounding residue rather than zero, which the `> 0` power
+  guards read as a spectrum: `spectral_tilt` fitted an exponent, `harmonic_analysis` reported a
+  fundamental, `band_power` against a flat 0.3 baseline returned 561 dB instead of raising, and
+  `imaginary_coherency` against a flat channel gave `icoh_abs_mean` 0.17. A constant trace is
+  now treated as the all-zero trace its detrended spectrum is, so these return what an all-zero
+  trace returns: NaN tilt and fundamental, band power 0.0, a raise for the baseline, and the
+  all-zero channel's coherency.
 
 ### Deprecated
 

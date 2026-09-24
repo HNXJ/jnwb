@@ -20,6 +20,7 @@ from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._layout import require_channel_major
 from ._parallel import parallel_map
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._spread import is_constant as _is_constant
 
 log = logging.getLogger(__name__)
 
@@ -109,6 +110,17 @@ def _require_finite_nonempty_trace(x: np.ndarray, func_name: str, name: str = "l
             f"{func_name}: {name} must be finite; remove or repair NaN or Inf samples first."
         )
     return arr
+
+
+def _flat_as_zero(x: np.ndarray) -> np.ndarray:
+    """A constant trace replaced by the zeros its mean-detrended spectrum is.
+
+    Welch removes each segment's mean, which for a constant 0.3 leaves rounding residue
+    rather than 0, so a ``> 0`` power guard read a flat trace as carrying power: its tilt
+    was fitted and a flat baseline gave a dB value. Use only ahead of an estimator that
+    detrends each segment by its mean, where this changes nothing but the residue.
+    """
+    return np.zeros_like(x) if _is_constant(x) else x
 
 
 #: Imaginary cross-spectral terms below this fraction of their cross-spectral magnitude are
@@ -512,7 +524,7 @@ def harmonic_analysis(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
-    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "harmonic_analysis")
+    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "harmonic_analysis"))
     result = {
         'fundamental_freq': float('nan'),
         'harmonics': {},
@@ -990,7 +1002,7 @@ def spectral_tilt(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
-    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "spectral_tilt")
+    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "spectral_tilt"))
     # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
     # a measured flat spectrum.
     result = {
@@ -1466,7 +1478,8 @@ def band_power(
     Returns:
         Mean PSD over the band in input-units^2/Hz, or, with ``normalize=True``,
         ``10 * log10(band / baseline_band)`` in dB -- a ratio of two densities over the
-        same band, so the per-Hz normalization cancels.
+        same band, so the per-Hz normalization cancels. A constant trace, whatever its level,
+        has band power 0.0; a constant baseline has no power and raises.
 
     Raises:
         ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or
@@ -1484,13 +1497,13 @@ def band_power(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
-    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "band_power")
+    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "band_power"))
     if normalize:
         if baseline is None or np.size(baseline) == 0:
             raise ValueError(
                 "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
             )
-        baseline = _require_finite_nonempty_trace(baseline, "band_power", name="baseline")
+        baseline = _flat_as_zero(_require_finite_nonempty_trace(baseline, "band_power", name="baseline"))
     resolve_device(device, context="band_power", stacklevel=3, supports=(CPU,))
 
     def _welch(trace):
@@ -1603,6 +1616,7 @@ def imaginary_coherency(
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
     _require_finite_nonempty_pair(x, y, "imaginary_coherency")
+    x, y = _flat_as_zero(x), _flat_as_zero(y)
     n = len(x)
 
     if nperseg is None:
