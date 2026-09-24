@@ -56,7 +56,7 @@ barrier above.
 | W8 |  |
 | W9 |  |
 | W10 |  |
-| Rolling | 06-136, re-dispatched at each wave barrier over the repairs landed since its last run |
+| Rolling | Verification ran through `c52a9649`; a repair landed later is verified by a verifier that did not make it before 06-60 runs |
 | Closure | 06-35, 06-38, 06-39, 06-60, 06-130, 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
@@ -85,14 +85,6 @@ packets finish before 06-34.
 ## Any wave. Confirmed findings
 
 ## Rolling verification
-
-### 06-136 Verify the repairs landed after `a9993322`
-
-Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: none. Writes: none.
-Every repair landed after `a9993322` is verified here, by a verifier that implemented none of them, before its row closes. The pass at `9cecf53c` closed twelve rows; the pass at `a01cea1c` closed P-183, P-187, P-176 and P-126 and the `JRSAResult.p[0]` shim and synthetic-figure labels; the pass at `c304432b` closed P-21, P-91, P-127, P-128, P-132, P-211, P-56, P-43, P-45, P-158, P-202, P-46 and P-157 and the Granger order validation, and re-opened P-214, P-215, P-195 and P-114 into 06-140 (now closed) and P-34 into 06-58 (now closed); the pass at `aae8e027` closed P-223, P-214, P-224, P-233, P-226, P-205, P-206, P-207 and P-26, and re-opened P-114, P-215 and P-195. The pass at `fc7a0cb5` closed P-62, P-248, P-249, P-131, P-34, P-237, P-247, P-225, P-180, P-96, P-212, P-213, P-222, P-118, P-92, P-195 and P-217 and verified the Metal claim, the trimmed adversarial cases, the decline tests, the suite-cost change and the reference citations; it broke P-114 and P-104, left P-215 and P-243 partial, and re-disposed P-261. The pass at `f39136cb` closed P-93, P-114, P-239, P-272, P-261, P-243, P-250, P-251, P-252, P-253, P-263 and P-271 and verified the contract gate, the documentation form gate, and 06-17's repairs and six of its answers; it broke P-104 and 06-17's tenth answer (P-286), and left P-215, P-273 and P-262's CHANGELOG line partial. The pass at `185e44d4` verified P-215, P-262, P-273 and P-286 and P-182's rewrite, AST identity, gate extension and xflip receipt (the gate's evasions go to 07-01 as P-295); P-02's MCP-and-skills answers cite `artifacts/goal.md:19-20`, the line that decides them, and its other re-cited answers hold at `artifacts/rulings/2026-09-22.md:22-23`. It broke P-104 through an external link and the time-first rule for `TimeSeries` subtypes other than the two it named. The pass at `b1de90dd` verified P-104's external-link refusal, the behavior-container unwrap and time-first rule, P-178 and P-210; it broke P-185, whose repair had never landed, and found P-208's gate blind to included snippets, STEP 0a evadable, a mislabelled stability plot and a false length table. 06-34 ran 48 mutants at `b1de90dd` (42 killed); three survivors on shipped or release-evidence behaviour need tests, and the pass found the PSTH partial-bin defect. The pass at `3f533574` verified the stability-bar labels, P-185, P-208, STEP 0a's `## Open` reader and wrong-cycle refusal, the length table, the three mutant-killing tests, `inspect`'s in-memory unwrap for the seven known container types (P-303 holds the rest), the PSTH whole-bin refusal, P-236, P-97 and P-260, `fdr_correct`'s order and BY method, Gate 14's `REV-` form, the docstring rewrite and the vFLIP receipt, each with a kill; P-270 is 06-130's check. Current list, one entry per repair. 06-145: `bin_spikes`, `spike_mutual_information` and `build_time_resolved_matrix` refuse a window that is not whole bins through `jnwb._bins`, whose tolerance scales with the window's endpoints, and `spike_mutual_information` bins through `bin_spikes`, so a spike on the window end is excluded (`eea0c8d0`, `d792de4d`). 06-146: `stream_npz_array` seeks a stored entry only where a once-per-process probe shows `ZipExtFile.seek` lands correctly, and reads forward otherwise, so 3.12.0 reads every index (`e1adb2c8`, `2da3ca50`). The autocorrelogram's bins are `bin_size` wide and centred on their lags, with the bin count read through `jnwb._bins.bins_within` (`18ab302e`); `build_time_resolved_matrix` bins are right-open (`080583d2`); the whole-bin refusal says the last bin would be partial (`c01c12c1`). The autocorrelogram's inverted refractory test is withdrawn: its four keys are NaN (`None` for `is_single_unit`) with one `FutureWarning`, as ruled 2026-09-23 (`4c095e09`).
-Do: re-run each discriminator against the exact diff; show the selector passes pristine before counting a kill; try one input the check should catch.
-Accept: each listed row carries a receipt the verifier produced, or the breaking case is reported; the list is empty when this item is deleted.
 
 ## Closure
 
@@ -280,6 +272,8 @@ leaves this item as a `required-0.2.6` item.
 - P-316: STEP 0a does not see a todo section with no item id and no release field, nor a required bullet inside a deferred item. Waits: neither is an item under the stack's format, the basis of P-302.
 - P-317: `docs/02_paths_addressing_metadata.md` says a stored entry is seeked past what a slice skips; on 3.12.0 it is read forward instead, so the cost grows with the slice's position there. Waits: values are correct, the docstring and CHANGELOG state the exception, and the page is at its tabled length.
 - P-318: `UnitAnalyzer.autocorrelogram` keeps `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` in 0.2.6 as NaN with a `FutureWarning` (ruled 2026-09-23); 0.2.7 removes them. Waits: the removal is scheduled by the ruling.
+- P-319: The test of the withdrawn refractory keys uses `assertWarnsRegex`, which accepts any number of warnings, so a second `FutureWarning` per call survives it. Waits: shipped behaviour warns once in 60 of 60 calls.
+- P-320: At large absolute times the whole-bin refusal prints the refused and the suggested window as the same text (`.10g`), and `{n:g}` can print a whole bin count for a window 1e-6 of a bin off. Waits: error path only; the refusal is correct.
 
 ## Reported and not admitted
 

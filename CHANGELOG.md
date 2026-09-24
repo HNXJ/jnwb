@@ -314,7 +314,7 @@ Carried by 0.2.6.
   `FutureWarning` (`get_all_units_metadata` once per call); pandas cannot warn when a column is
   read, so the warning fires at the call whether or not `layer` is used. Read `depth_class`.
 - **The refractory test of `UnitAnalyzer.autocorrelogram`.** It was inverted: it took the
-  Poisson upper tail of the count in one bin near 5 ms against the mean of the bins near 10 to
+  Poisson upper tail of the count in one bin near 6 ms against the mean of the bins near 11 to
   15 ms, so an over-filled refractory bin read `is_single_unit=True` and a clean dip read
   `False`. A train in which every spike has a partner 6 ms later read as a single unit; a train
   with a 10 ms dead time did not. `refractory_period_violation`, `refr_count` and
