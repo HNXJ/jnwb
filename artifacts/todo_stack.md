@@ -242,6 +242,11 @@ leaves this item as a `required-0.2.6` item.
 - P-333: No test catches `is_constant(ignore_nan=True)` regressing to plain max/min, because its NaN case sits in a row whose std is exactly 0. Waits: the code is verified correct.
 - P-334: `_spread.zscore` on a slice holding plus or minus inf returns `[-inf, -inf, nan]` where the removed per-module code returned NaN. Waits: only non-finite input, where neither output meant anything.
 - P-335: Review the omission project's laminar curation pull request (ruled 2026-09-24): composable public parts plus a thin orchestrator, every threshold a parameter with a cited default, new WM and outside-cortex labels, a discriminator per rule, units in micrometres, and no project vocabulary. Waits: new capability, arriving after the 0.2.6 tag.
+- P-336: Two refusals have no test: `acquisition_channel` on a `channel_conversion` whose length is not the channel count (a mutant removing the check survived 121 tests), and STEP 0a when `git status` itself fails (a mutant reading that as clean survived 100). Waits: both behave correctly today, and the stacks are read from HEAD either way.
+- P-337: `acquisition_channel`'s unit-contradiction warning names only `conversion=` although `channel_conversion` is applied too, and its `starting_time` warning points at `nwb_inspect.py` rather than the caller's line. Waits: the messages are true and complete in substance.
+- P-338: `compress_fp32(select=)` can still cast an irregular timestamps array that a second link opens; through a hard link the two names then disagree by up to 2.4e-7 s. Waits: opt-in, unchanged since 0.2.5, and recorded in `stored_dtype_note`.
+- P-339: The MCP tool `prepare_signal_reference` tells an agent to slice raw `/data` without `conversion`, `channel_conversion`, `offset` or `starting_time`, and guesses layout from the shape. Waits: unchanged since it shipped, and `acquisition_channel` is the documented reader.
+- P-340: `compute_psd` and `compute_multitaper_psd` return rounding residue (1e-33 to 1e-23) for a constant trace instead of zero. Waits: they return arrays with no positivity guard to mislead.
 
 ## Reported and not admitted
 
