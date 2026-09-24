@@ -406,6 +406,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   set of five positive paired differences gave `shuffle_pvalue_paired` its floor, 0.0002, where
   the exact p is 0.0625. Each comparison now allows the largest rounding difference two
   evaluations of the statistic can have, 8 eps times the sum of the absolute values.
+- **`exact_sign_flip` gives the same p in any units.** It counted a null mean within an
+  absolute 1e-12 of the observed one as a tie, so differences of order 1e-12, ordinary band
+  powers in V^2/Hz, made every flip a tie: one set of twelve differences gave p 0.0049 in
+  uV^2/Hz and 1.0 in V^2/Hz. The tie width is now the rounding bound above, which scales with
+  the differences.
 
 ### Deprecated
 

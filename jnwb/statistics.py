@@ -142,6 +142,9 @@ def exact_sign_flip(
       No RNG is used or required.
     - For N > 20: Monte Carlo sign-flip sampling with caller-controlled `rng`.
 
+    A null mean within rounding of the observed one counts as a tie. That width is
+    proportional to the differences, so rescaling them (a change of units) leaves p unchanged.
+
     Args:
         diffs: 1D array-like of paired differences (e.g. condition A - condition B).
         alternative: "two-sided" (|mean_null| >= |mean_obs|),
@@ -182,7 +185,7 @@ def exact_sign_flip(
     else:
         p_floor = 0.0
 
-    tol = 1e-12
+    tol = _tie_tolerance(arr)
 
     if n <= 20:
         # Exact direct enumeration of all 2^N combinations

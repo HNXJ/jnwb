@@ -466,6 +466,17 @@ class TestExactSignFlip:
         expected_p = float(np.mean(np.abs(all_means) >= abs(obs) - 1e-12))
         assert p_val == pytest.approx(expected_p, abs=1e-12)
 
+    @pytest.mark.parametrize("n", [12, 30])
+    def test_the_p_value_does_not_depend_on_the_units(self, n):
+        """Differences of 1e-13..1e-11 are ordinary band powers in V^2/Hz; an absolute tie
+        tolerance of 1e-12 counted every flip as a tie there, and p went from 0.0049 in
+        uV^2/Hz to 1.0 for the same data. n = 30 takes the Monte Carlo branch."""
+        base = np.random.default_rng(3).normal(0.8, 0.5, n)
+        for alternative in ("two-sided", "greater", "less"):
+            ps = {exact_sign_flip(base * scale, alternative=alternative, rng=7)[1]
+                  for scale in (1.0, 1e-12, 1e12)}
+            assert len(ps) == 1, (alternative, ps)
+
     def test_exact_sign_flip_n1(self):
         obs, p_val, p_floor = exact_sign_flip([5.0], alternative="two-sided")
         assert obs == 5.0
