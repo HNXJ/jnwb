@@ -183,8 +183,8 @@ def compute_population_trajectory(
         proj_np, V_np, S_np = _svd_numpy()
 
     # Both branches already agree to 1e-13 in float64; what differed was the sign LAPACK
-    # and cuSOLVER happened to pick, which showed up as a trajectory reflected through
-    # the origin. See :func:`jnwb.gpu_pca.pin_component_signs`.
+    # and cuSOLVER happened to pick for each component, which showed up as trajectory
+    # components of opposite sign. See :func:`jnwb.gpu_pca.pin_component_signs`.
     V_np, proj_np = pin_component_signs(V_np, proj_np)
 
     # Calculate variance explained ratio

@@ -204,8 +204,8 @@ class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
 
 
 class TestAutocorrelogramRefractoryTestIsWithdrawn(unittest.TestCase):
-    """The test took the Poisson upper tail of one bin near 5 ms, so an over-filled bin read
-    as a single unit and an empty one did not."""
+    """The test took the Poisson upper tail of the bin covering about 5.5 to 6.5 ms (centre
+    about 6 ms), so an over-filled bin read as a single unit and an empty one did not."""
 
     KEYS = ('refractory_period_violation', 'refr_count', 'baseline_count')
 

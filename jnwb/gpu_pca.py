@@ -21,9 +21,9 @@ def pin_component_signs(
 
     An SVD determines each component only up to a sign: ``V`` and ``-V`` describe the
     same subspace and explain the same variance, and LAPACK and cuSOLVER routinely
-    choose differently for the same matrix. Callers saw that as a trajectory reflected
-    through the origin, with ``max|cpu - cuda| / |cpu| == 2`` -- the exact signature of a
-    flip, and indistinguishable from a real disagreement until you align the signs by
+    choose differently for the same matrix, component by component. Callers saw that as
+    components whose sign disagreed between devices, with ``max|cpu - cuda| / |cpu| == 2``
+    -- the exact signature of a flipped component, and indistinguishable from a real disagreement until you align the signs by
     hand. `AGENTS.md` invariant 6 says the device never changes a number, so the
     convention has to be pinned in the library rather than left to whichever routine ran.
 

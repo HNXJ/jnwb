@@ -386,8 +386,8 @@ class UnitAnalyzer:
         ``bin_size_ms * (1, ..., n)``.
 
         The refractory test this returned is withdrawn: it took the Poisson upper tail of
-        one bin near 5 ms, so an over-filled refractory bin read as a single unit and a
-        clean one did not. Its keys ``refractory_period_violation``, ``refr_count`` and
+        the bin covering about 5.5 to 6.5 ms (centre about 6 ms), so an over-filled
+        refractory bin read as a single unit and a clean one did not. Its keys ``refractory_period_violation``, ``refr_count`` and
         ``baseline_count`` are ``NaN`` and ``is_single_unit`` is ``None``, with a
         ``FutureWarning``; they are removed in 0.2.7. The single-unit check is
         :meth:`quality_metrics`, from inter-spike intervals under 2 ms.
@@ -763,8 +763,9 @@ class PopulationAnalyzer:
 
             Each component's largest-magnitude loading is positive
             (:func:`jnwb.gpu_pca.pin_component_signs`). An SVD fixes a component only up to
-            sign, and cuSOLVER and LAPACK pick differently, so without the pin the CUDA
-            projection came back reflected through the origin relative to the CPU one.
+            sign, and cuSOLVER and LAPACK pick each component's sign independently, so
+            without the pin a CUDA component and its projection could have the opposite sign
+            to the CPU one.
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean

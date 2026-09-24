@@ -8,9 +8,9 @@ neither path pinned a sign, so `max|cpu - cuda|` on the projections was **8.005*
 the signs by hand and it drops to 6.5e-04 -- the float32 residue. Both defects were live
 at once, and the second hid the first.
 
-`compute_population_trajectory` was already float64 on both devices; only the sign
-differed, which showed as `max_rel = 2.0` -- a trajectory reflected through the origin,
-and the exact signature of a flip. Sign-aligned agreement was 6.5e-13.
+`compute_population_trajectory` was already float64 on both devices; only component signs
+differed, which showed as `max_rel = 2.0` -- the exact signature of a flipped component.
+Sign-aligned agreement was 6.5e-13.
 
 The audit reported both as one item and prescribed "match the CPU dtype on the CUDA
 branch" for both. That is wrong for `trajectory.py`, which uses `torch.as_tensor` and

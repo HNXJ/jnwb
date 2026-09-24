@@ -67,8 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   where it used to mix GPU and CPU fits. `jrsa(backend='cupy'|'jax'|'torch')` and `n_jobs>1`
   without joblib now warn instead of falling back silently.
 - **`PopulationAnalyzer.population_trajectory` makes each component's largest loading
-  positive**, so CPU and CUDA agree; the CUDA projection used to be the CPU one reflected
-  through the origin. Component and projection signs may flip compared with 0.2.5.
+  positive**, so CPU and CUDA agree; LAPACK and cuSOLVER used to choose each component's sign
+  independently, so a CUDA component and its projection could have the opposite sign to the
+  CPU one. Component and projection signs may flip compared with 0.2.5.
 - **The `stored_dtype_note` written by `compress_fp32` names the source dtype that was cast**
   (`cast from int16 to float32`). It used to say `float64` whatever the source was.
 - **The geometric depth class is `depth_class`.** `enrich_units_dataframe` and
@@ -91,8 +92,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the read buffer, which failed valid archives as corrupt. A check of `zipfile` on first use
   picks the path.
 - **`stream_npz_array` indexes as NumPy does.** An integer index removes its axis:
-  `slice_tuple=(slice(1, 4), -1)` on shape `(5, 6, 7)` returns shape `(3, 7)`, where it returned
-  `(3, 1, 7)`, which broadcast silently against NumPy's result. Code that relied on the kept
+  `slice_tuple=(slice(1, 4), 2)` on shape `(5, 6, 7)` returns shape `(3, 7)`, where it returned
+  `(3, 1, 7)`, which broadcast silently against NumPy's result; with `-1` in place of `2` it
+  returned `(3, 0, 7)`, an empty array. Code that relied on the kept
   axis must index with a length-1 slice (`slice(k, k + 1)`) instead. Too many indices and a
   non-integer scalar index raise `IndexError`, as in NumPy, where they raised `ValueError`; a
   zero-dimensional array reads with `slice_tuple=()`. Ellipsis, `None`, booleans, arrays and a
