@@ -84,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CPU one. Component and projection signs may flip compared with 0.2.5.
 - **`wpli` and `imaginary_coherency` return NaN when either channel is constant**, all-zero
   included: `wpli`, `wpli_debiased_sq` and every `wpli_spectrum` entry, and `icoh_mean`,
-  `icoh_abs_mean` and `coh_mag_mean`. `imaginary_coherency` returned 0.0 there. `wpli` returned
+  `icoh_abs_mean` and `coh_mag_mean`. In 0.2.5 `imaginary_coherency` returned 0.0 for an all-zero
+  channel and a rounding-residue value for other constants (0.14 at 0.3). `wpli` returned
   0 for an all-zero channel and 0.14 to 0.18 for any other constant, from the rounding residue
   its STFT keeps because it does not detrend. The constancy test is exact: one sample one ulp
   away makes a channel non-constant. `zflip` applies the same rule to its adjacent wPLI: a
@@ -432,8 +433,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fundamental, `band_power` against a flat 0.3 baseline returned 561 dB instead of raising, and
   `imaginary_coherency` against a flat channel gave `icoh_abs_mean` 0.17. A constant trace is
   now treated as the all-zero trace its detrended spectrum is, so these return what an all-zero
-  trace returns: NaN tilt and fundamental, band power 0.0, a raise for the baseline, and the
-  all-zero channel's coherency.
+  trace returns: NaN tilt and fundamental, band power 0.0, a raise for the baseline, and NaN
+  coherency, as for any constant channel.
 
 ### Deprecated
 
