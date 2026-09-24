@@ -503,6 +503,20 @@ class TestFDRCorrect:
         assert np.all(q >= p_vals)
         assert np.all(q <= 1.0)
 
+    # By hand, m = 3. BH: sorted p 0.001, 0.04, 0.2 scale by 3/1, 3/2, 3/3 to 0.003, 0.06, 0.2,
+    # already monotone. BY multiplies BH by 1 + 1/2 + 1/3 = 11/6.
+    UNSORTED_P = [0.04, 0.001, 0.2]
+
+    @pytest.mark.parametrize("correct", [fdr_correct, StatisticalAnalysis.fdr_correct])
+    def test_q_values_come_back_in_input_order(self, correct):
+        np.testing.assert_allclose(correct(self.UNSORTED_P), [0.06, 0.003, 0.2], rtol=1e-12)
+
+    @pytest.mark.parametrize("correct", [fdr_correct, StatisticalAnalysis.fdr_correct])
+    def test_by_is_benjamini_yekutieli_and_not_bh(self, correct):
+        by = correct(self.UNSORTED_P, method="by")
+        np.testing.assert_allclose(by, [0.11, 0.0055, 0.2 * 11 / 6], rtol=1e-12)
+        assert not np.allclose(by, correct(self.UNSORTED_P, method="bh"))
+
 
 # ── 06-44: no key may assert a correction it did not apply ────────────────────
 #
