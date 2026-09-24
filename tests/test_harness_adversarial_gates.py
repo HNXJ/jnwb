@@ -1157,6 +1157,13 @@ class TestGate14InternalProcessVocabulary:
             f"independently: {subsumed}"
         )
 
+    def test_the_readme_is_scanned_like_a_docs_page(self, tmp_path: Path):
+        """README.md is the PyPI description, the most public page there is."""
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "README.md").write_text("Queued work: artifacts/todo_stack.md\n", encoding="utf-8")
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "README.md:1" in violations[0], violations
+
     def test_the_live_docs_tree_passes(self):
         """The four pages that legitimately describe agent-assisted use stay unedited."""
         assert check_internal_process_vocabulary(REPO_ROOT) == []

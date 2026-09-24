@@ -1295,14 +1295,9 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     Scope is `docs/**/*.md`, which is the surface 06-02 and 06-68 both name. A generated or
     included page is scanned like any other, and its fix goes to the generator.
 
-    `README.md` is deliberately **not** in scope, and the reason is a measurement rather than an
-    oversight. Scanning it too was tried first and it fails on one line: `README.md:132` links
-    `artifacts/todo_stack.md` from the Contributing section, to tell a contributor where the
-    queued work is. Whether the most public file in the repository may point at private
-    coordination state is a boundary question for the ruling that owns the boundary, not
-    something a gate should settle by being widened until it wins. Widen the scope here once that
-    line is ruled on -- and do not instead drop `todo_stack.md` from the term list, which is the
-    edit that would make this pass while the boundary moved.
+    `README.md` is scanned as well: it is the PyPI description, the most public page there is.
+    It was held out while it linked `artifacts/todo_stack.md` from its Contributing section; the
+    2026-09-23 ruling removed the link, so the page is held to the same terms as `docs/`.
     """
     root = repo_root or REPO_ROOT
     violations = []
@@ -1317,6 +1312,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
             "INTERNAL_VOCABULARY: no public documentation found to scan under "
             f"{docs_dir}; the sweep is broken, not the tree"
         ]
+    pages += [page for page in (root / "README.md",) if page.is_file()]
 
     patterns = [(term, _internal_term_pattern(term)) for term in INTERNAL_PROCESS_TERMS]
     for page in pages:
@@ -2664,7 +2660,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
      lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
     (14, _internal_vocabulary_checks,
-     lambda: f"PASS: No internal process vocabulary in docs/ ({len(INTERNAL_PROCESS_TERMS)} "
+     lambda: "PASS: No internal process vocabulary in docs/ or README.md "
+             f"({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
              "among them), and no item or problem identifier in jnwb/, docs/ or a file a page "
              "includes."),
