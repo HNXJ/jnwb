@@ -142,12 +142,19 @@ class TFRAccumulator:
 
     @property
     def mean(self) -> np.ndarray:
-        """Trial-mean power, the same values as :meth:`power`."""
+        """Trial-mean power, the same values as :meth:`power`.
+
+        Returns a copy, NaN where no trial was valid, so ``acc.mean[...] = x`` does not write
+        through; assign the whole array instead. The setter stores 0.0 where no trial was
+        valid, the running mean's starting value, so ``acc.mean = acc.mean`` leaves later
+        :meth:`add_trial` and :meth:`merge` calls able to fill those cells.
+        """
         return self.power()
 
     @mean.setter
     def mean(self, value) -> None:
-        self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
+        value = np.asarray(value, dtype=np.float64)
+        self._mean = _register_trial_averaged(np.where(self.n > 0, value, 0.0))
 
     def add_trial(self, z: np.ndarray, valid: Optional[np.ndarray] = None) -> None:
         """z: complex (n_ch, n_freq, n_time) for ONE trial. valid: bool mask, same shape."""

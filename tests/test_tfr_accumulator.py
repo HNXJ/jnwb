@@ -171,6 +171,28 @@ class TestDerivedQuantities:
             assert np.all(np.isfinite(value[~empty])), name
         np.testing.assert_allclose(acc.power()[~empty], (np.abs(trials) ** 2).mean(axis=0)[~empty])
 
+    def test_mean_round_trip_keeps_an_empty_cell_fillable(self):
+        """`acc.mean = acc.mean` must not store the NaN the getter reports at n == 0 into the
+        running mean, or a later trial or merge can never fill that cell."""
+        shape = (2, 3)
+        trials = _random_trials(5, shape, seed=4)
+        valid = np.ones((5, *shape), bool)
+        valid[:4, 0, 0] = False  # only the last trial reaches (0, 0)
+        expected = _summarize(trials, valid).power()
+
+        acc = _summarize(trials[:4], valid[:4])
+        acc.mean[0, 1] = -1.0  # a copy: writes nothing through
+        before = acc.power()
+        acc.mean = acc.mean
+        np.testing.assert_array_equal(acc.power(), before)
+        other = _summarize(trials[4:], valid[4:])
+
+        merged = acc.merge(other)
+        acc.add_trial(trials[4], valid=valid[4])
+        for got in (acc.power(), merged.power()):
+            assert np.isfinite(got[0, 0])
+            np.testing.assert_allclose(got, expected, rtol=1e-12)
+
 
 class TestNumericalStability:
     """Spec's stated reason to prefer Chan/Welford over sum/sumsq: catastrophic cancellation
