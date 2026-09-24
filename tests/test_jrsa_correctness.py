@@ -420,13 +420,19 @@ class TestAlternativeWithoutPermutations:
                           **kw)
         assert float(less.p) == pytest.approx(p2 / 2, rel=1e-9) and float(less.p) < 1e-50
         assert float(greater.p) == 1.0 - p2 / 2
-        # Per lag, on each lag's own sign.
-        lagged = oa.jrsa(self.x1, self.x2, metric="pearson", lag=[0, 3], alternative="greater",
-                         rng=0, **kw)
-        base = oa.jrsa(self.x1, self.x2, metric="pearson", lag=[0, 3], rng=0, **kw)
+        # Per lag, on each lag's own sign. The fixture needs lags of both signs: with one
+        # sign throughout, taking every lag's side from the first lag would pass too.
+        g = np.random.default_rng(11)
+        s = g.normal(size=400)
+        u = -s + 1.5 * np.roll(s, 2) + 0.3 * g.normal(size=400)
+        base = oa.jrsa(s, u, metric="pearson", lag=[0, 1, 2, 3], rng=0, **kw)
         v, pb = np.asarray(base.value), np.asarray(base.p)
-        expected = np.where(v > 0, pb / 2, 1 - pb / 2)
-        np.testing.assert_allclose(np.asarray(lagged.p), expected, rtol=1e-12)
+        assert (v > 0).any() and (v < 0).any(), v
+        for alt, on_side in (("greater", v > 0), ("less", v < 0)):
+            lagged = oa.jrsa(s, u, metric="pearson", lag=[0, 1, 2, 3], alternative=alt, rng=0,
+                             **kw)
+            np.testing.assert_allclose(np.asarray(lagged.p),
+                                       np.where(on_side, pb / 2, 1 - pb / 2), rtol=1e-12)
 
     def test_an_upper_tail_f_test_refuses_a_one_sided_request(self):
         """The SSR F-test p is upper-tail already; halving it would be wrong."""
