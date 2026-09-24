@@ -168,8 +168,9 @@ Carried by 0.2.6.
   region (every `TimeSeries` subtype except `ElectricalSeries` and `SpikeEventSeries`) has
   nothing to decide which axis holds channels, so its layout follows the NWB schema's time-first
   rule rather than a guess from which side is longer, in `acquisition_channel` and in
-  `inspect`'s `layout`. An `ExternalLink` in `compress_fp32(select=)` is refused: it opens a
-  dataset in another file, and resolving it by name cast this file's dataset at the same path.
+  `inspect`'s `layout`. An `ExternalLink` in `compress_fp32(select=)` that points into another
+  file is refused: it opens a dataset there, and resolving it by name cast this file's dataset at
+  the same path. One that points back into the source file is cast as an alias of its target.
 - **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`
   returned an empty array; it returns the last element. A negative step on an outer axis, with
   the fastest axis read whole, raised "Internal streaming error"; it returns the slice. An entry

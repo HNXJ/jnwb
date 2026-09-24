@@ -205,6 +205,20 @@ class TestNWBReadHelpers:
         entry = next(e for e in inspect(path)["acquisitions"] if e["name"] == "behavior")
         assert entry["layout"] == "time_by_channel"
 
+    def test_an_in_memory_series_without_electrodes_is_time_first(self):
+        """The object walk, which only an `NWBFile` with no file behind it reaches, applies the
+        same time-first rule as the file walk above."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBFile, TimeSeries
+
+        nwb = NWBFile("s", "short", datetime(2026, 1, 1, tzinfo=tzutc()))
+        nwb.add_acquisition(TimeSeries(name="values", data=np.arange(50.0).reshape(5, 10),
+                                       rate=100.0, unit="a.u."))
+        assert getattr(nwb, "container_source", None) is None  # else inspect reads the file
+        entry = next(e for e in inspect(nwb)["acquisitions"] if e["name"] == "values")
+        assert entry["layout"] == "time_by_channel"
+
     def test_behavior_container_with_two_series_is_ambiguous(self, tmp_path):
         from datetime import datetime
         from dateutil.tz import tzutc

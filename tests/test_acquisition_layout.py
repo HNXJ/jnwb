@@ -220,6 +220,16 @@ class TestTheResolverItself:
     def test_a_zero_length_electrode_region_is_not_an_arbiter(self):
         assert _resolve_layout((64, 1000), 0) == (CHANNEL_BY_TIME, "shape")
 
+    @pytest.mark.parametrize("ndt,expected", [
+        ("ElectricalSeries", (CHANNEL_BY_TIME, "shape")),
+        ("SpikeEventSeries", (CHANNEL_BY_TIME, "shape")),
+        ("TimeSeries", (TIME_BY_CHANNEL, "schema")),
+    ])
+    def test_only_a_type_without_an_electrode_region_is_read_time_first(self, ndt, expected):
+        """An electrode-bearing type whose file lacks the region falls back to the shape
+        guess; the schema's time-first rule is for types that have no region to consult."""
+        assert _resolve_layout((64, 1000), None, ndt) == expected
+
 
 class TestOneDimensionalSeriesAreUntouched:
 
