@@ -53,7 +53,15 @@ Several continuous series + omitted `name` in `acquisition_channel` → `Ambiguo
 
 **One schema:** `inspect(path)` and `inspect(nwb_object)` return the same dict for the same
 file. Every continuous entry always carries `name`, `path`, `neurodata_type`, `packaging`,
-`series`, `data_path`, `data_shape`, `data_dtype`, `layout` and `rate_hz`, `None` when unknown.
+`series`, `data_path`, `data_shape`, `data_dtype`, `layout`, `rate_hz` and `starting_time`
+(seconds, and None for a series stored with timestamps), `None` when unknown.
+
+**Aligning events to a series:** event times in the interval tables are session times, and
+sample 0 of an `acquisition_channel` array is at the series' `starting_time`. Add
+`starting_time` to the signal's time axis, which is the same as subtracting it from the onsets
+before `epoch_continuous`:
+`epoch_continuous(data, onsets - entry["starting_time"], win_s=..., fs=rate_hz)`.
+`acquisition_channel` warns when `starting_time` is not 0.
 
 **Several series in one container:** an `LFP` wrapping more than one `ElectricalSeries` reports
 `series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and

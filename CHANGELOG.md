@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`inspect` reports each continuous series' `starting_time`, and `acquisition_channel` warns
+  when it is not 0.** Sample 0 of an `acquisition_channel` array is at the series'
+  `starting_time`, while interval-table onsets are session times; nothing reported the offset,
+  so on a series starting at 5 s the documented `acquisition_channel` → `event_onsets` →
+  `epoch_continuous` path epoched 5 s away from every event and measured -0.0001 mV for a
+  1 mV evoked deflection. Every continuous entry, from a path or an in-memory file, gains
+  `starting_time` in seconds (`None` for a series stored with timestamps).
+  `acquisition_channel` raises `UserWarning` naming the shift when it is non-zero; its return
+  is unchanged. Tutorials 00, 04 and 08 and the NWB-data skill subtract it from the onsets
+  before epoching.
 - **`CITATION.cff`.** Citation metadata for GitHub's "Cite this repository" and for archiving
   each GitHub Release on Zenodo.
 - **`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of

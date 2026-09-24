@@ -256,8 +256,17 @@ def _resolve_layout(
 
 CONTINUOUS_KEYS = (
     "name", "path", "neurodata_type", "packaging", "series",
-    "data_path", "data_shape", "data_dtype", "layout", "rate_hz",
+    "data_path", "data_shape", "data_dtype", "layout", "rate_hz", "starting_time",
 )
+
+
+def _starting_time_s(series: Any) -> float | None:
+    """A series' ``starting_time`` in seconds, or ``None`` when it has none (timestamps)."""
+    start = getattr(series, "starting_time", None)
+    if start is None:
+        return None
+    start = float(start)
+    return None if np.isnan(start) else start
 
 #: Data units the NWB core schema pins to a declared type. These are *fixed values* in the
 #: standard, not defaults -- ``ElectricalSeries.data.unit`` carries ``value: volts``, which is
@@ -363,6 +372,7 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
         "data_dtype": None,
         "layout": None,
         "rate_hz": None,
+        "starting_time": None,
     }
     # Several series under one container is a question, not an answer: which one is "the"
     # rate, shape and path? The caller names the series it wants.
@@ -371,12 +381,16 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
         entry["data_path"] = f"{path}/{relpath}"
         entry["data_shape"] = list(data_ds.shape)
         entry["data_dtype"] = str(data_ds.dtype)
+        node = _series_group(group, relpath)
         if len(data_ds.shape) == 2:
-            node = _series_group(group, relpath)
             entry["layout"] = _resolve_layout(
                 data_ds.shape, _h5_channel_count(group, relpath),
                 _ndt(node) if node is not None else None)[0]
         entry["rate_hz"] = rate
+        st = node.get("starting_time") if node is not None else None
+        if isinstance(st, h5py.Dataset) and st.shape == ():
+            start = float(st[()])
+            entry["starting_time"] = None if np.isnan(start) else start
     return entry
 
 
@@ -723,6 +737,13 @@ def acquisition_channel(
         :class:`~pynwb.ecephys.ElectricalSeries`).
     rate_hz:
         Sampling rate in Hz.
+
+    Warns
+    -----
+    UserWarning
+        When the series' ``starting_time`` is not 0. Sample 0 is at ``starting_time`` in
+        session time, so subtract it from session-time event onsets before
+        :func:`epoch_continuous`. :func:`inspect` reports it per series as ``starting_time``.
     """
 
     def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:
@@ -815,6 +836,17 @@ def acquisition_channel(
             raise AcquisitionNotFoundError(
                 f"Series '{acq_name}' has no constant sampling rate"
             )
+        start = _starting_time_s(series)
+        if start is not None and start != 0.0:
+            warnings.warn(
+                f"acquisition_channel: series '{acq_name}' has starting_time={start!r} s, so "
+                f"sample 0 of the returned array is at {start!r} s in session time. Event "
+                f"times from the file's interval tables are session times: subtract "
+                f"{start!r} s from them before epoch_continuous, or every epoch is misaligned "
+                f"by {start!r} s.",
+                UserWarning,
+                stacklevel=3,
+            )
         return data, float(rate)
 
     return _with_nwb(path_or_nwb, _read)
@@ -848,6 +880,7 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
         "data_dtype": None,
         "layout": None,
         "rate_hz": None,
+        "starting_time": None,
     }
     # Every wrapping container unwraps, as the file walk does, not only `LFP`.
     held = _wrapped_series(obj)
@@ -881,6 +914,7 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
     rate = getattr(series, "rate", None)
     if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
         entry["rate_hz"] = float(rate)
+    entry["starting_time"] = _starting_time_s(series)
     return entry
 
 

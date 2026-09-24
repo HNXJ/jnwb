@@ -43,6 +43,10 @@ def main() -> None:
         lfp, fs_hz = jnwb.acquisition_channel(path, name="probe_0_lfp", channel=0)
         assert fs_hz == receipt.fs_hz
         onsets = jnwb.event_onsets(path, table=TASK_TABLE, codes=[CODE_LABEL_A])
+        # Onsets are session times, and sample 0 of `lfp` is at the series' starting_time
+        # (0 s in this file). Add it to the signal's time axis by subtracting it from the onsets.
+        series = next(a for a in jnwb.inspect(path)["acquisitions"] if a["name"] == "probe_0_lfp")
+        onsets = onsets - (series["starting_time"] or 0.0)
         print(f"Loaded continuous LFP: {lfp.size} samples at {fs_hz} Hz")
 
         # 2. Continuous Epoching

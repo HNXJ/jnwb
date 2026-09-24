@@ -401,3 +401,56 @@ class TestNWBReadHelpers:
             data, _ = acquisition_channel(path, name="es", channel=ch)
             np.testing.assert_allclose(data, 100 * conversion * factor + offset, rtol=0, atol=1e-15)
 
+
+def _series_starting_at(start_s):
+    """An in-memory NWB file whose one ElectricalSeries starts at ``start_s`` seconds."""
+    from datetime import datetime, timezone
+    from pynwb import NWBFile
+    from pynwb.ecephys import ElectricalSeries
+
+    nwb = NWBFile(session_description="st", identifier="st",
+                  session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    dev = nwb.create_device(name="d")
+    grp = nwb.create_electrode_group(name="g", description="g", location="x", device=dev)
+    for _ in range(2):
+        nwb.add_electrode(group=grp, location="x")
+    region = nwb.create_electrode_table_region([0, 1], "all")
+    nwb.add_acquisition(ElectricalSeries(name="lfp", data=np.zeros((100, 2)), electrodes=region,
+                                         rate=1000.0, starting_time=start_s))
+    return nwb
+
+
+class TestStartingTime:
+    """Sample 0 of an acquisition_channel array is at the series' starting_time, and event
+    times are session times. jnwb reports the offset and warns; it does not shift anything.
+    What would pass while the offset is lost: checking only a series that starts at 0."""
+
+    @pytest.mark.parametrize("start_s", [0.0, 5.0])
+    def test_inspect_reports_starting_time_in_both_forms(self, tmp_path, start_s):
+        from pynwb import NWBHDF5IO
+        nwb = _series_starting_at(start_s)
+        in_memory = inspect(nwb)["acquisitions"][0]["starting_time"]
+        path = tmp_path / "st.nwb"
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        assert in_memory == inspect(path)["acquisitions"][0]["starting_time"] == start_s
+
+    def test_a_nonzero_starting_time_warns_and_a_zero_one_does_not(self, tmp_path):
+        import warnings
+        from pynwb import NWBHDF5IO
+        for start_s in (0.0, 5.0):
+            path = tmp_path / f"st{start_s}.nwb"
+            with NWBHDF5IO(str(path), "w") as io:
+                io.write(_series_starting_at(start_s))
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                data, _ = acquisition_channel(path, name="lfp", channel=0)
+            ours = [w for w in caught if "starting_time" in str(w.message)]
+            assert data.shape == (100,)
+            if start_s == 0.0:
+                assert ours == [], [str(w.message) for w in ours]
+            else:
+                assert len(ours) == 1 and issubclass(ours[0].category, UserWarning)
+                assert "5.0 s" in str(ours[0].message)
+                assert "epoch_continuous" in str(ours[0].message)
+

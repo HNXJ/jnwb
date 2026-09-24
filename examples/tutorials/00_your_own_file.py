@@ -218,7 +218,12 @@ def main() -> None:
             except jnwb.NWBInspectError as err:
                 print(f"{name}: {err}")
                 continue
-            epochs, _ = jnwb.epoch_continuous(signal, onsets, win_s=(-0.2, 0.6), fs=fs_hz)
+            # Onsets are session times, and sample 0 of `signal` is at the series'
+            # starting_time, which inspect reports per series. Add it to the signal's time
+            # axis by subtracting it from the onsets; acquisition_channel warns when it is not 0.
+            start_s = entry.get("starting_time") or 0.0
+            epochs, _ = jnwb.epoch_continuous(
+                signal, onsets - start_s, win_s=(-0.2, 0.6), fs=fs_hz)
             freqs, psd = jnwb.compute_psd(signal, fs=fs_hz)
             print(
                 f"{name}: {epochs.shape[0]} epochs of {epochs.shape[1]} samples, "
