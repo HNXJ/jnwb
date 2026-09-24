@@ -172,7 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`build_time_resolved_matrix` bins are right-open.** Its last bin was closed on the right, so
   a spike exactly on `time_window_ms[1]` was counted there; `bin_spikes` and every other spike
   binner exclude it. It now bins through the same rule as `bin_spikes`.
-- **A result with no estimate is NaN, not a number.** Four calls returned ordinary-looking
+- **A result with no estimate is NaN, not a number.** These calls returned ordinary-looking
   values where the data held no estimate:
   - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,
     `x_to_y` and `y_to_x` are now NaN, with `diagnostics['ok_for_interpretation']` False. When
@@ -187,14 +187,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     Wilcoxon test whose every difference is zero reported scipy's statistic 0.0 and p 1.0; it
     is NaN. An effect size with a zero or undefined SD is NaN rather than 0.0, and a one-value
     group against a larger one gets its Cohen's d instead of 0.0. `confirmatory_compare` gives
-    a NaN `pval` a NaN q-value; the other test's q is unchanged.
+    a NaN `pval` a NaN q-value; the other test's q is unchanged. Zero spread is tested by exact
+    equality: the computed SD of a constant 0.3 is about 1e-17, so two constant 0.3 groups kept
+    `statistic` 0.0 and `pval` 1.0, and constant groups at 0.3 and 0.7 read t -2.2e16 and d
+    -9.7e15. Constant groups at one value now read NaN, and at different values t -inf or
+    +inf, `pval` 0.0 and d NaN, whatever the values; a paired difference that is one non-zero
+    constant reads the same way, with d_z NaN.
   - `compare_multiple_groups` and `exploratory_multi` did the same for the ANOVA and
     Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests
     now report NaN with `significant_*` False, and an ANOVA with no estimate reports
     `df_between` and `df_within` as float NaN (`group_sizes` keeps the counts). `eta_squared` is
     NaN for data with no variance or with an empty group; with one observation per group and
     unequal values every deviation lies between groups, so `eta_squared` is 1.0 while the ANOVA
-    itself is NaN.
+    itself is NaN. Both cases are decided by exact equality: constant groups at 0.1 of sizes 3
+    and 4 reported `eta_squared` 2.29, and constant groups at distinct values
+    1.0000000000000004.
   - `correlate` and `exploratory_correlate` already reported a NaN correlation for a constant
     input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation
     keeps its integer `df`.
@@ -202,6 +209,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     and `p_val` 1.0. Every field but `n_shuffle` is now NaN. Constancy is tested by exact
     equality, so a constant 0.3, whose `np.std` is 5.6e-17 rather than 0, is caught as a
     constant 0.5 is.
+  - `cluster_permutation_test` reads a point's zero standard error from its data, compared
+    exactly. The computed spread of a constant 0.3 is rounding residue, so a paired difference
+    of 0.3 at every observation read t 1.8e16 where a constant non-zero difference is NaN, and
+    two groups of 7 and 12 equal to 0.3 read t 3.3, enough to form a cluster at the default
+    threshold, where equal constant groups read 0.0.
 - **`acquisition_channel` reads series wrapped in behavior containers.** An `EyeTracking`,
   `PupilTracking`, `BehavioralTimeSeries`, `Position` or `CompassDirection` container in
   `/acquisition` raised `AcquisitionNotFoundError` ("has no readable data array"), and its bare

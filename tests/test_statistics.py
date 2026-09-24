@@ -1085,3 +1085,78 @@ def test_one_observation_per_group_has_no_anova_but_an_eta_squared_of_one():
     entry = entry.split("\n  - ", 1)[0]
     assert "`eta_squared` is 1.0" in " ".join(entry.split()), entry
 
+
+# np.std and np.var of a constant 0.3 are about 1e-17, not 0: the mean of ten 0.3 is not 0.3 in
+# floating point. Each case below pairs values whose spread is exactly 0 (0.5, 1.0, 0.0) with
+# values whose computed spread is not (0.3, 0.1, 2.7, 1e-3); both must give the same answer.
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("a, b", [(0.3, 0.3), (0.1, 0.1), (2.7, 2.7), (1e-3, 1e-3), (0.5, 0.5)])
+def test_identical_constant_groups_have_no_t_test_whatever_the_value(a, b):
+    res = StatisticalAnalysis.exploratory_compare(np.full(10, a), np.full(10, b), n_bootstrap=20)
+    par = res["parametric"]
+    assert all(np.isnan(par[k]) for k in ("statistic", "pval", "df", "effect_size")), par
+    assert type(par["df"]) is float and res["significant_parametric"] is False
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("a, b, n_a", [(0.3, 0.7, 10), (0.3, 0.7, 3), (0.1, 2.7, 4),
+                                        (0.5, 1.0, 10)])
+def test_distinct_constant_groups_give_an_unbounded_t_whatever_the_value(a, b, n_a):
+    """Zero within-group spread and a non-zero difference: t is -inf and p 0.0, as scipy gives
+    when the spread computes to exactly 0, and Cohen's d, whose SD is zero, is NaN."""
+    par = StatisticalAnalysis.compare_groups(np.full(n_a, a), np.full(10, b),
+                                             n_bootstrap=20)["parametric"]
+    assert par["statistic"] == -np.inf and par["pval"] == 0.0, par
+    assert par["df"] == n_a + 8 and type(par["df"]) is int
+    assert np.isnan(par["effect_size"])
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("a, b", [(0.3, 0.0), (2.7, 0.1), (0.5, 0.0)])
+def test_a_constant_paired_difference_gives_an_unbounded_t_whatever_the_value(a, b):
+    par = StatisticalAnalysis.compare_groups(np.full(10, a), np.full(10, b), paired=True,
+                                             n_bootstrap=20)["parametric"]
+    assert par["statistic"] == np.inf and par["pval"] == 0.0 and par["df"] == 9, par
+    assert np.isnan(par["effect_size"])
+
+
+@pytest.mark.filterwarnings("ignore")
+def test_constant_groups_leave_real_data_and_eta_squared_exact():
+    from scipy import stats as sps
+
+    rng = np.random.default_rng(7)
+    g1, g2 = rng.normal(0.0, 1.0, 12), rng.normal(0.8, 1.0, 9)
+    for paired, ref in ((False, sps.ttest_ind(g1, g2)), (True, sps.ttest_rel(g1[:9], g2))):
+        par = StatisticalAnalysis.compare_groups(g1[:9] if paired else g1, g2, paired=paired,
+                                                 n_bootstrap=20)["parametric"]
+        assert (par["statistic"], par["pval"]) == (float(ref.statistic), float(ref.pvalue))
+    # Two identical constant groups have no variance to share out; a 0.1 group of 3 against one
+    # of 4 reported eta_squared 2.29.
+    eta = StatisticalAnalysis.compare_multiple_groups(
+        {"a": np.full(3, 0.1), "b": np.full(4, 0.1)})["parametric"]["effect_size"]
+    assert np.isnan(eta)
+    # Constant groups at distinct values put every deviation between groups: exactly 1.0.
+    eta = StatisticalAnalysis.compare_multiple_groups(
+        {"a": np.full(5, 0.3), "b": np.full(6, 0.7), "c": np.full(7, 0.9)})["parametric"]
+    assert eta["effect_size"] == 1.0
+    # The permutation-null correlation reads 0.0 for a constant input, as its docstring says.
+    from jnwb.statistics import _abs_pearson
+    assert _abs_pearson(np.full(10, 0.3), g1[:10]) == 0.0
+
+
+@pytest.mark.filterwarnings("ignore")
+def test_cluster_t_map_recognises_constant_points_whatever_the_value():
+    """A constant non-zero paired difference is NaN and two equal constant groups are 0.0 at
+    that point, as the zero-standard-error rule says; at 0.3 they read 1.8e16 and 3.3."""
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(0)
+    X, Y = rng.normal(size=(12, 6)), rng.normal(size=(12, 6))
+    X[:, 2], Y[:, 2] = 0.3, 0.0
+    X[:, 3], Y[:, 3] = 0.3, 0.3
+    paired = cluster_permutation_test(X, Y, paired=True, n_permutations=20, rng=0)["stat_map"]
+    assert np.isnan(paired[2]) and paired[3] == 0.0
+    unpaired = cluster_permutation_test(X[:7], Y, n_permutations=20, rng=0)["stat_map"]
+    assert np.isnan(unpaired[2]) and unpaired[3] == 0.0
+    assert np.all(np.isfinite(np.delete(unpaired, [2, 3])))
+

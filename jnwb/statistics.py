@@ -433,6 +433,15 @@ def _is_constant(a: np.ndarray, axis: Optional[int] = None) -> Union[bool, np.nd
     return np.all(a == np.take(a, [0], axis=axis), axis=axis)
 
 
+def _zero_spread_t(difference: float) -> Tuple[float, float]:
+    """(t, p) of a t-test whose data have no spread: no test for a zero difference, and an
+    unbounded t with p 0.0 otherwise, which is what scipy returns when the spread computes to
+    exactly zero."""
+    if difference == 0:
+        return float("nan"), float("nan")
+    return math.copysign(math.inf, difference), 0.0
+
+
 def shuffle_pvalue_paired(
     a: np.ndarray,
     b: np.ndarray,
@@ -842,6 +851,9 @@ class StatisticalAnalysis:
         identical constant groups, or paired groups whose every difference is zero -- reports
         its ``statistic`` and ``pval`` as NaN, a t-test's ``df`` as float NaN, and its
         ``significant_*`` flag is False. An effect size whose SD is zero or undefined is NaN.
+        Constant groups at different values, or paired groups whose differences are one
+        non-zero constant, have no spread: the t-test's ``statistic`` is -inf or +inf and its
+        ``pval`` 0.0. Constancy is tested by exact equality, so 0.3 and 0.5 behave alike.
 
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
@@ -895,8 +907,13 @@ class StatisticalAnalysis:
                 t_stat, t_pval = stats.ttest_rel(valid1, valid2)
                 df = len(valid1) - 1
                 diff = valid1 - valid2
-                sd_diff = np.std(diff, ddof=1) if len(valid1) > 1 else np.nan
-                cohens_dz = float(np.mean(diff) / sd_diff) if sd_diff > 0 else float("nan")
+                if _is_constant(diff):
+                    # Zero spread, tested exactly; scipy sees it only when the computed SD is 0.
+                    t_stat, t_pval = _zero_spread_t(diff[0])
+                    cohens_dz = float("nan")
+                else:
+                    sd_diff = np.std(diff, ddof=1)
+                    cohens_dz = float(np.mean(diff) / sd_diff) if sd_diff > 0 else float("nan")
                 # An undefined test (e.g. identical groups) stays NaN rather than reading as
                 # statistic 0.0 and p 1.0, which is a measured null result.
                 result["parametric"] = {
@@ -924,6 +941,10 @@ class StatisticalAnalysis:
             df = len(valid1) + len(valid2) - 2
             if run_param:
                 t_stat, t_pval = stats.ttest_ind(valid1, valid2)
+                both_constant = bool(len(valid1) and len(valid2)
+                                     and _is_constant(valid1) and _is_constant(valid2))
+                if both_constant and df > 0:
+                    t_stat, t_pval = _zero_spread_t(valid1[0] - valid2[0])
                 # A one-observation group adds nothing to the pooled sum of squares; its
                 # ddof=1 variance is NaN, and 0 * NaN made the pooled SD NaN and d read 0.0.
                 ss1 = (len(valid1) - 1) * np.var(valid1, ddof=1) if len(valid1) > 1 else 0.0
@@ -931,7 +952,7 @@ class StatisticalAnalysis:
                 pooled_std = np.sqrt((ss1 + ss2) / df) if df > 0 else 0.0
                 cohens_d = (
                     (np.mean(valid1) - np.mean(valid2)) / pooled_std
-                    if len(valid1) and len(valid2) and pooled_std > 0
+                    if not both_constant and len(valid1) and len(valid2) and pooled_std > 0
                     else float("nan")
                 )
                 result["parametric"] = {
@@ -1013,6 +1034,13 @@ class StatisticalAnalysis:
             ss_total = sum(np.sum((g - grand_mean) ** 2) for g in group_data)
             # No variance at all leaves no share of it to explain: 0/0, not 0.
             eta_squared = ss_between / ss_total if ss_total > 0 else float("nan")
+            # The sums of squares of constant data are rounding residue, not zero; decide the
+            # two degenerate cases exactly. An empty group keeps the NaN computed above.
+            if group_data and all(len(g) for g in group_data):
+                if _is_constant(np.concatenate(group_data)):
+                    eta_squared = float("nan")
+                elif all(_is_constant(g) for g in group_data):
+                    eta_squared = 1.0
             result["parametric"] = {
                 "test": "one_way_anova",
                 "statistic": float(f_stat),
@@ -1438,7 +1466,7 @@ def _lag_align(x: np.ndarray, y: np.ndarray, shift: int) -> Tuple[np.ndarray, np
 
 def _abs_pearson(a: np.ndarray, b: np.ndarray) -> float:
     """|Pearson r| without the p-value, for permutation nulls. 0.0 if either is constant."""
-    if len(a) < 3:
+    if len(a) < 3 or _is_constant(a) or _is_constant(b):
         return 0.0
     a = a - a.mean()
     b = b - b.mean()
@@ -1814,19 +1842,25 @@ def cluster_permutation_test(
                 raise ValueError("scheme='within_group' requires groups to be specified.")
             pooled_groups = None
 
-    def _finite_t(m: np.ndarray, se: np.ndarray) -> np.ndarray:
-        """t = m / se, with the se == 0 points answered rather than zero-filled.
+    def _finite_t(m: np.ndarray, se: np.ndarray, constant: np.ndarray,
+                  exact_m: np.ndarray) -> np.ndarray:
+        """t = m / se, with the zero-standard-error points answered rather than zero-filled.
 
         Zero standard error makes the statistic 0/0. A difference that is exactly zero in
         every observation is an *observed* zero and stays 0.0. A constant non-zero
         difference is perfectly consistent and its t is unbounded; 0.0 was the most wrong
         available answer there, reporting the strongest possible effect as no effect, so
         that point is now NaN and is reported as non-estimable instead.
+
+        ``constant`` marks the points whose data have no spread, tested exactly, and
+        ``exact_m`` is their difference: the computed ``se`` and ``m`` of constant data are
+        rounding residue (about 1e-17 for 0.3), which made the t there 1e16 or any value.
         """
-        t = np.divide(m, se, out=np.zeros_like(m), where=se > 0)
-        degenerate = ~(se > 0)
+        degenerate = constant | ~(se > 0)
+        t = np.divide(m, se, out=np.zeros_like(m), where=~degenerate)
         if np.any(degenerate):
-            t = np.where(degenerate, np.where(m == 0, 0.0, np.nan), t)
+            m_d = np.where(constant, exact_m, m)
+            t = np.where(degenerate, np.where(m_d == 0, 0.0, np.nan), t)
         return t
 
     def _calc_t_paired(d: np.ndarray) -> np.ndarray:
@@ -1834,14 +1868,15 @@ def cluster_permutation_test(
         m = np.mean(d, axis=0)
         v = np.var(d, axis=0, ddof=1)
         se = np.sqrt(v / n)
-        return _finite_t(m, se)
+        return _finite_t(m, se, _is_constant(d, axis=0), d[0])
 
     def _calc_t_unpaired(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         n_a, n_b = x1.shape[0], x2.shape[0]
         m1, m2 = np.mean(x1, axis=0), np.mean(x2, axis=0)
         v1, v2 = np.var(x1, axis=0, ddof=1), np.var(x2, axis=0, ddof=1)
         se = np.sqrt(v1 / n_a + v2 / n_b)
-        return _finite_t(m1 - m2, se)
+        constant = _is_constant(x1, axis=0) & _is_constant(x2, axis=0)
+        return _finite_t(m1 - m2, se, constant, x1[0] - x2[0])
 
     def _extract_clusters(t_map: np.ndarray) -> List[Tuple[float, np.ndarray]]:
         found = []
