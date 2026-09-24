@@ -145,17 +145,15 @@ class TFRAccumulator:
         """Trial-mean power, the same values as :meth:`power`.
 
         Returns a copy, NaN where no trial was valid, so ``acc.mean[...] = x`` does not write
-        through; assign the whole array instead. The setter stores 0.0 for a NaN in a cell
-        where no trial was valid, the running mean's starting value, so ``acc.mean = acc.mean``
-        leaves later :meth:`add_trial` and :meth:`merge` calls able to fill those cells. Every
-        other value is stored as given, so a reload may set ``mean`` before or after ``n``.
+        through; assign the whole array instead. The setter stores what it is given, so a
+        reload may set ``mean`` before or after ``n``; :meth:`add_trial` and :meth:`merge` start
+        a cell with no valid trial from zero, so ``acc.mean = acc.mean`` leaves it fillable.
         """
         return self.power()
 
     @mean.setter
     def mean(self, value) -> None:
-        value = np.asarray(value, dtype=np.float64)
-        self._mean = _register_trial_averaged(np.where(np.isnan(value) & (self.n == 0), 0.0, value))
+        self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
     def add_trial(self, z: np.ndarray, valid: Optional[np.ndarray] = None) -> None:
         """z: complex (n_ch, n_freq, n_time) for ONE trial. valid: bool mask, same shape."""
@@ -163,7 +161,9 @@ class TFRAccumulator:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2
 
-        # Welford update, masked
+        # Welford update, masked; an empty cell's running mean starts from zero whatever was
+        # assigned to it.
+        self._mean[self.n == 0] = 0.0
         n_new = self.n + valid
         delta = np.where(valid, p - self._mean, 0.0)
         inc = np.divide(delta, n_new, out=np.zeros_like(delta), where=n_new > 0)
@@ -180,9 +180,10 @@ class TFRAccumulator:
     def merge(self, other: "TFRAccumulator") -> "TFRAccumulator":
         """Exact pooling. merge(A, B) == summarize(A union B)."""
         n = self.n + other.n
-        delta = other._mean - self._mean
+        mine = np.where(self.n > 0, self._mean, 0.0)
+        delta = np.where(other.n > 0, other._mean, 0.0) - mine
         w = np.divide(other.n, n, out=np.zeros_like(delta), where=n > 0)
-        mean = self._mean + delta * w
+        mean = mine + delta * w
         M2 = self.M2 + other.M2 + delta**2 * np.divide(
             self.n * other.n, n, out=np.zeros_like(delta), where=n > 0
         )

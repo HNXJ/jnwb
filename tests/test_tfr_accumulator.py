@@ -188,8 +188,9 @@ class TestDerivedQuantities:
         other = _summarize(trials[4:], valid[4:])
 
         merged = acc.merge(other)
+        reverse = other.merge(acc)
         acc.add_trial(trials[4], valid=valid[4])
-        for got in (acc.power(), merged.power()):
+        for got in (acc.power(), merged.power(), reverse.power()):
             assert np.isfinite(got[0, 0])
             np.testing.assert_allclose(got, expected, rtol=1e-12)
 
@@ -197,19 +198,22 @@ class TestDerivedQuantities:
                                        ("n", "M2", "mean", "sum_unit_z", "sum_z")])
     def test_a_reload_restores_power_whatever_order_mean_and_n_are_set(self, order):
         """h5py iterates keys by name, so a restore loop sets `mean` before `n`; the setter must
-        not read the fresh accumulator's zero `n` as every cell being empty."""
+        not read the fresh accumulator's zero `n` as every cell being empty. A cell with trials
+        whose mean is NaN (an infinite sample declared valid) must reload as NaN, not 0.0."""
         shape = (2, 3)
         trials = _random_trials(4, shape, seed=6)
+        trials[0, 0, 1] = np.inf
         valid = np.ones((4, *shape), bool)
         valid[:, 1, 2] = False
         acc = _summarize(trials, valid)
+        assert np.isnan(acc.power()[0, 1]) and acc.n[0, 1] == 4
         saved = {name: np.array(getattr(acc, name)) for name in order}
 
         restored = TFRAccumulator(shape)
         for name in order:
             setattr(restored, name, saved[name])
         np.testing.assert_array_equal(restored.power(), acc.power())
-        assert np.isnan(restored.power()[1, 2])
+        assert np.isnan(restored.power()[1, 2]) and np.isnan(restored.power()[0, 1])
 
 
 class TestNumericalStability:

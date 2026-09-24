@@ -430,9 +430,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `coi_mask` excludes in every trial, where `var()` and `sem()` already returned NaN. They are
   now NaN there too, matching `np.nanmean` over the masked per-trial power. Cells with at least
   one valid trial are unchanged. `mean` returns a copy, so `acc.mean[...] = x` no longer writes
-  through, and its setter stores 0.0 for a NaN where the count is zero, so `acc.mean = acc.mean`
-  leaves those cells fillable by a later `add_trial` or `merge`; other values are stored as
-  given, so a reload may set `mean` before `n`.
+  through. Its setter stores what it is given, so a reload may set `mean` before or after `n`,
+  and `add_trial` and `merge` start a cell with no valid trial from zero, so `acc.mean =
+  acc.mean` leaves those cells fillable.
 - **A flat trace has no spectrum, at any level.** Welch removes each segment's mean, and for a
   constant such as 0.3 that leaves rounding residue rather than zero, which the `> 0` power
   guards read as a spectrum: `spectral_tilt` fitted an exponent, `harmonic_analysis` reported a
