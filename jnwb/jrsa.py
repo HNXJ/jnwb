@@ -280,10 +280,13 @@ def jrsa(
     verbose : bool
         Print progress.
     **kwargs
-        Metric-specific keyword arguments (for example ``sigma`` for ``metric='hsic'``,
-        ``kernel`` for ``'cka'``, ``rdm_metric`` for ``'rsa'``, ``bins`` for
-        ``'mutual_information'``). A keyword the chosen metric does not declare raises
-        TypeError rather than being silently ignored.
+        Metric-specific keyword arguments: ``rdm_metric`` for ``'rsa'``, ``kernel`` for
+        ``'cka'`` (``'linear'`` only), ``sigma`` for ``'hsic'``, ``bins`` for
+        ``'mutual_information'`` and ``'transfer_entropy_histogram_nats'``, ``max_lag`` for
+        ``'granger_ssr_ftest'``, and ``fs``, ``nperseg``, ``noverlap``, ``bands`` and
+        ``jackknife`` for ``'phase_slope'``. A keyword the chosen metric does not declare
+        raises TypeError rather than being silently ignored. The histogram TE conditions on
+        one past sample of each series and takes no history length.
 
     Returns
     -------
@@ -1715,8 +1718,14 @@ def _entropy(probs):
     return -np.sum(probs * np.log(probs))
 
 
-def _transfer_entropy(x1, x2, axis=-1, k=1, bins=10, **kwargs):
-    """Transfer entropy (x2 → x1) via plug-in histogram estimator."""
+def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
+    """Transfer entropy (x2 → x1) via plug-in histogram estimator.
+
+    The history is one past sample of each series and is not configurable. A `k` option
+    used to be declared here and never read, so `jrsa(..., k=5)` passed the keyword check
+    and returned the one-sample answer; without it, `k` is refused like any unknown option.
+    `jnwb.transfer_entropy` takes the target and source history lengths.
+    """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
     b = x2.ravel()[:len(a)]

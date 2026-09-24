@@ -266,14 +266,54 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
             oa.jrsa(x1, x2, metric="hsic", permutations=10, bootstrap=0, stats=True,
                     kernel="linear")
 
-    def test_the_metrics_own_options_still_reach_it(self):
-        """The guard must reject typos without disabling real options."""
-        x1, x2 = self._pair()
-        a = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
-                                   stats=False, sigma=0.5).value)[0])
-        b = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
-                                   stats=False, sigma=4.0).value)[0])
-        assert a != b, "sigma reached the metric but changed nothing"
+    # The guard must reject typos without disabling real options. Every option a metric
+    # declares, with two values that must give different output. Passing the keyword check is not evidence the option is read: the histogram TE
+    # declared `k` and never used it, so k=1, 2 and 5 all returned 0.040111.
+    _OPTIONS = {
+        ("rsa", "rdm_metric"): ("correlation", "euclidean"),
+        ("hsic", "sigma"): (0.5, 4.0),
+        ("mutual_information", "bins"): (4, 16),
+        ("transfer_entropy_histogram_nats", "bins"): (4, 10),
+        ("granger_ssr_ftest", "max_lag"): (1, 5),
+        ("phase_slope", "fs"): (100.0, 200.0),
+        ("phase_slope", "nperseg"): (64, 256),
+        ("phase_slope", "noverlap"): (0, 48),
+        ("phase_slope", "bands"): ((5.0, 15.0), (20.0, 40.0)),
+        ("phase_slope", "jackknife"): (True, False),
+    }
+    # `kernel` has one legal value; any other raises, which is tested where cka is.
+    _SINGLE_VALUED = {("cka", "kernel")}
+
+    def test_the_table_covers_every_declared_option(self):
+        from jnwb.jrsa import _METRIC_DISPATCH, _metric_kwargs
+
+        declared = {(m, k) for m, fn in _METRIC_DISPATCH.items() for k in _metric_kwargs(fn)}
+        assert declared == set(self._OPTIONS) | self._SINGLE_VALUED
+
+    @pytest.mark.parametrize("metric,option", sorted(_OPTIONS))
+    def test_every_declared_option_changes_the_output(self, metric, option):
+        rng = np.random.default_rng(3)
+        if metric in ("rsa", "hsic"):
+            x1, x2 = rng.standard_normal((30, 8)), rng.standard_normal((30, 8))
+        else:
+            x2 = rng.normal(size=2000)
+            x1 = 0.6 * np.r_[0.0, 0.0, 0.0, x2[:-3]] + rng.normal(size=2000)
+        base = {"fs": 100.0, "nperseg": 128, "bands": (10.0, 30.0)} if metric == "phase_slope" else {}
+        out = []
+        for value in self._OPTIONS[(metric, option)]:
+            kw = {**base, option: value}
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                r = oa.jrsa(x1, x2, metric=metric, permutations=0, **kw)
+            out.append(np.array([np.nan if a is None else float(np.ravel(a)[0])
+                                 for a in (r.value, r.statistic, r.p)]))
+        assert not np.array_equal(out[0], out[1], equal_nan=True), (
+            f"{metric}: {option} passed the keyword check and changed nothing: {out}")
+
+    def test_the_histogram_te_refuses_a_history_length(self):
+        with pytest.raises(TypeError, match=r"\['k'\]"):
+            oa.jrsa(np.arange(50.0), np.arange(50.0)[::-1],
+                    metric="transfer_entropy_histogram_nats", k=2, stats=False)
 
     def test_passing_both_spellings_is_refused(self):
         """05-34 made `rng` canonical and routed jrsa through the package's shared alias

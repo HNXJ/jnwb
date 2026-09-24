@@ -164,6 +164,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   p were identical to `sliding=False`, with no warning, while the jRSA page presented it as
   sliding-window analysis. The error names the alternative, one call per
   `window=(start, stop)`, and the page shows that loop.
+- **`jrsa(metric='transfer_entropy_histogram_nats')` refuses `k`.** The metric declared a `k`
+  option and never read it: `k=1`, `2` and `5` all returned the one-sample-history answer
+  (0.040111 on one input). It now raises `TypeError` like any unknown option; the estimator
+  conditions on one past sample of each series. `jnwb.transfer_entropy` takes history lengths.
+  Every other metric-specific option `jrsa` accepts changes the result.
 
 ### Fixed
 
