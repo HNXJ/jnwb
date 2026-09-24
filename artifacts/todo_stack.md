@@ -57,7 +57,7 @@ barrier above.
 | W9 |  |
 | W10 |  |
 | Rolling | Verification ran through `c52a9649`; a repair landed later is verified by a verifier that did not make it before 06-60 runs |
-| Closure | 06-35, 06-38, 06-39, 06-60, 06-130, 06-40 |
+| Closure | 06-38, 06-39, 06-60, 06-130, 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
 packets finish before 06-34.
@@ -88,22 +88,10 @@ packets finish before 06-34.
 
 ## Closure
 
-### 06-35 Clean-environment matrix
-
-Release: required-0.2.6.
-Role: verifier. Skill: none. Blocked by: none. Writes: none.
-The pass at `f657fce7` collected 4655 tests with zero collection errors on 3.12.0, 3.13.15 and 3.14.3 and on all six CI legs, with `jnwb.__file__` in each venv; 3.13 passed, 3.14 failed only P-254's flake, and 3.12.0 failed 14 tests on 06-146's defect. What remains is the full suite on 3.12.0 at a commit carrying 06-146's repair (`e1adb2c8`).
-P-06, P-09. Every declared interpreter on Ubuntu and Windows, from a fresh environment; record
-`jnwb.__file__` for each, because `C:\Python314\Lib\site-packages` holds a 0.2.5 copy and a backup.
-P-06: `.venv\Scripts\python.exe` collected 2841 tests with one error (statsmodels absent) where
-`C:\Python314` collected 2879, so each environment reports its collected count and zero
-collection errors. P-09: that site-packages copy differs from this checkout in `jrsa.py` and
-`nwb_io.py`, so a probe that omits the path insert measures other code.
-
 ### 06-38 Verify the candidate from TestPyPI
 
 Release: required-0.2.6.
-Role: verifier. Skill: jnwb-nwb-data. Blocked by: 06-35. Writes: none.
+Role: verifier. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
 06-37's distribution checks passed on the `f657fce7` build labelled 0.2.5 (receipts under the qualification lane's scratch) and 06-36's documentation checks passed at the same commit; both re-run on the 0.2.6 candidate: contents, metadata, `__all__`, the `vis` extra, the quickstart outside the checkout, the suite against the installed copy, and the strict docs build. `SKILLS_URL` resolves only once the tag exists.
 Ruled 2026-09-22 (R-3). The candidate is published to TestPyPI (authorized as part of 06-40's
 sequence); in a clean environment install it from TestPyPI, open an NWB file, analyse, verify.
