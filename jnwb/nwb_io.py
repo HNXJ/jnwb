@@ -293,7 +293,7 @@ def nwb_read_io(
     allow_missing: Union[Sequence[str], str, None] = None,
     **kwargs: Any,
 ) -> Iterator[NWBHDF5IO]:
-    """Open an NWB file; apply builder repairs on read paths only.
+    """Open an NWB file for reading, with jnwb's builder repairs applied.
 
     Use this rather than :func:`read_nwb` to read data arrays: the file stays open until the
     ``with`` block exits.
@@ -304,19 +304,16 @@ def nwb_read_io(
 
     ``allow_missing`` behaves as in :func:`read_nwb`: a waived ``session_description`` reads
     ``""``, and ``jnwb_waived_requirements`` on the object ``io.read()`` returns records the
-    waivers the read used. It is accepted only for ``mode='r'``: the repairs, and therefore the
-    refusal it waives, exist on the read path alone. Passing it for a write mode raises rather than
-    being quietly ignored.
+    waivers the read used.
+
+    ``mode`` must be ``"r"``. Any other mode raises ``ValueError`` before the file is opened, so
+    ``"w"`` cannot truncate it; write with ``pynwb.NWBHDF5IO``.
     """
     if mode != "r":
-        if allow_missing:
-            raise ValueError(
-                f"allow_missing is a read-path option and mode is {mode!r}. jnwb applies builder "
-                "repairs only when reading, so tolerating a missing field here would do nothing."
-            )
-        with NWBHDF5IO(path, mode, **kwargs) as io:
-            yield io
-        return
+        raise ValueError(
+            f"nwb_read_io is a reader and mode is {mode!r}; it opens files with mode='r' only. "
+            "Write NWB files with pynwb.NWBHDF5IO."
+        )
     with hdmf_build_repair_context(allow_missing=allow_missing):
         with NWBHDF5IO(path, mode, **kwargs) as io:
             yield io

@@ -47,7 +47,9 @@ Carried by 0.2.6.
   `MissingRequiredNWBFieldError` refuses by default; the field reads `""`, and
   `nwbfile.jnwb_waived_requirements` is `("session_description",)` only when the waiver was
   used. A file that has the field reads `()` whatever `allow_missing` says. `jnwb.nwb_read_io`
-  takes the same `allow_missing` and keeps the file open for reading data.
+  takes the same `allow_missing` and keeps the file open for reading data. It is a reader: any
+  `mode` other than `"r"` raises `ValueError` before the file is opened, where `"w"` used to
+  truncate it and `"a"` and `"r+"` opened it for writing. Write with `pynwb.NWBHDF5IO`.
   `jnwb.SqueezedAttributeWarning` is exported so a repaired read can be caught by name.
   `docs/errors.md` tabulates what a read returns for each on-disk state of the field.
 

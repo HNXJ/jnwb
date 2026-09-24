@@ -178,7 +178,7 @@ All 160 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
-| jnwb.nwb_read_io | function | (path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'<br>*Open an NWB file; apply builder repairs on read paths only.* |
+| jnwb.nwb_read_io | function | (path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
 | jnwb.read_nwb | function | (path: 'Any', allow_missing: 'Union[Sequence[str], str, None]' = None, kwargs: 'Any') -> 'Any'<br>*Read an NWB file through jnwb's scoped HDMF builder repairs.* |
 
 ## Module: jnwb.onset_fitting

@@ -22,6 +22,7 @@ absent, crossed with a device attribute scalar or a length-1 object array.
 
 from __future__ import annotations
 
+import os
 import shutil
 import warnings
 
@@ -125,10 +126,23 @@ def test_a_field_jnwb_never_refuses_on_is_rejected_not_ignored():
         read_nwb("unread.nwb", allow_missing=("sesion_description",))
 
 
-def test_the_opt_in_is_refused_on_a_write_mode():
-    with pytest.raises(ValueError, match="read-path option"):
-        with nwb_read_io("unread.nwb", "w", allow_missing=("session_description",)):
+@pytest.mark.parametrize("allow_missing", [None, ("session_description",)])
+@pytest.mark.parametrize("mode", ["w", "a", "r+"])
+def test_a_mode_other_than_read_is_refused_before_the_file_opens(
+    base_file, tmp_path, mode, allow_missing
+):
+    """`nwb_read_io` is a reader. The proxy to avoid is the raise alone: a refusal that came
+    after `NWBHDF5IO` opened the file in "w" would already have truncated it, so the file's bytes
+    and mtime are compared across the call."""
+    path = tmp_path / "target.nwb"
+    shutil.copy(base_file, path)
+    os.utime(path, ns=(10**18, 10**18))
+    before, mtime = path.read_bytes(), path.stat().st_mtime_ns
+    with pytest.raises(ValueError, match=r"pynwb\.NWBHDF5IO"):
+        with nwb_read_io(str(path), mode, allow_missing=allow_missing):
             pass  # pragma: no cover - the raise happens before the body
+    assert path.read_bytes() == before
+    assert path.stat().st_mtime_ns == mtime
 
 
 def test_a_squeezed_attribute_warns_and_names_itself(base_file, tmp_path):

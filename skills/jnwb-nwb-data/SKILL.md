@@ -33,7 +33,8 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   was used.
 - `jnwb.nwb_read_io(path, mode="r", allow_missing=None)`: Context manager yielding the open
   `NWBHDF5IO`; call `io.read()` and read data inside the block. Same `allow_missing` and waiver
-  record as `read_nwb`.
+  record as `read_nwb`. Read-only: any other `mode` raises `ValueError`; write with
+  `pynwb.NWBHDF5IO`.
 - `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
   epochs from continuous signals aligned to event onsets.
 
