@@ -205,7 +205,9 @@ def jrsa(
         which on a 6-sample axis clamped to the whole axis and returned the unwindowed
         answer with no warning.
     sliding : bool
-        Use sliding window.
+        Only ``False`` is supported. ``True`` raises NotImplementedError: it used to be
+        accepted and ignored. For a sliding-window analysis, call ``jrsa`` once per
+        window, e.g. ``[jrsa(x1, x2, window=(s, s + w)) for s in range(0, n - w + 1, step)]``.
     normalize : bool
         Normalise each input to [0, 1].
     standardize : bool
@@ -334,6 +336,14 @@ def jrsa(
                 _given = _alias
     random_state = resolve_seed_alias(rng, Default(None), alias_name="seed",
                                       func_name="jrsa")
+
+    if sliding:
+        raise NotImplementedError(
+            "jrsa(sliding=True) is not implemented; it used to be accepted and ignored. "
+            "Loop over windows instead, one call per window: "
+            "[jrsa(x1, x2, window=(s, s + w), ...) for s in range(0, n - w + 1, step)], "
+            "where `window` is in sample indices along the aligned axis."
+        )
 
     # The tail applies to the parametric p as well as the permutation one, so it is checked
     # here rather than only where a permutation null is formed.
@@ -875,7 +885,7 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
 
 
 def _make_windows(x1, x2, axis_map, window, sliding):
-    """Extract window or build sliding windows.
+    """Extract the analysis window. `jrsa` refuses `sliding=True` before this runs.
 
     `window` is in sample indices along the aligned axis. The clamping below used to be
     silent in both directions: `(-500, 500)` on a 6-sample axis became `(0, 6)` -- the

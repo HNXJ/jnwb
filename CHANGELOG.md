@@ -160,6 +160,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`JRSAResult.p` and `q` are 0-d for a single-lag result, like `value`.** They were shape
   `(1,)`, so `float(res.p)` raised `TypeError` under NumPy >= 2. A multi-lag result gives
   `(n_lags,)`, matching `value`, where it used to give `(n_lags, 1)`.
+- **`jrsa(sliding=True)` raises `NotImplementedError`.** It was accepted and ignored: value and
+  p were identical to `sliding=False`, with no warning, while the jRSA page presented it as
+  sliding-window analysis. The error names the alternative, one call per
+  `window=(start, stop)`, and the page shows that loop.
 
 ### Fixed
 

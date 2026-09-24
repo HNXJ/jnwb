@@ -75,20 +75,28 @@ fig = result.plot()
 
 ---
 
-## 3. Sliding Windows and Lags
+## 3. Windows and Lags
 
-### Temporal Sliding Window Analysis
+### Sliding Windows
+
+`jrsa` analyses one window per call; `sliding=True` raises `NotImplementedError`. `window` is a
+`(start, stop)` pair of sample indices along the aligned axis, so a sliding-window analysis is a
+loop over windows:
 
 ```python
-# Compute sliding-window representational similarity across time
-sliding_res = jnwb.jrsa(
-    x1, x2,
-    metric="pearson",
-    window=(10, 30),
-    sliding=True,
-    lag=5
-)
+# x1, x2: (12 conditions, 100 units, 50 timepoints); the aligned axis is time
+width, step = 20, 5
+n_times = x1.shape[-1]
+starts = range(0, n_times - width + 1, step)
+per_window = [
+    jnwb.jrsa(x1, x2, metric="pearson", window=(s, s + width), lag=5, rng=0)
+    for s in starts
+]
+values = np.array([float(r.value) for r in per_window])   # one value per window
 ```
+
+Each call forms its own permutation null, so correct the per-window p-values together
+(for example with `jnwb.StatisticalAnalysis.fdr_correct`) before reading any one of them.
 
 ## 4. Missing Condition Handling & Preprocessing Invariants
 
