@@ -57,7 +57,7 @@ barrier above.
 | W9 |  |
 | W10 |  |
 | Rolling | Verification ran through `c52a9649`; a repair landed later is verified by a verifier that did not make it before 06-60 runs |
-| Closure | 06-38, 06-39, 06-60, 06-130, 06-40 |
+| Closure | 06-147, then 06-38, 06-39, 06-60, 06-130, 06-40 |
 
 06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
 packets finish before 06-34.
@@ -86,13 +86,20 @@ packets finish before 06-34.
 
 ## Rolling verification
 
+### 06-147 Repair the blockers the critic found at `8e90a4ad`
+
+Release: required-0.2.6.
+Role: actor. Skill: jnwb-statistics. Blocked by: none. Writes: `jnwb/statistics.py`, `jnwb/jrsa.py`, `jnwb/analyzers.py`, `scripts/release_gate.py`, `scripts/harness_gate.py`, `tests/test_statistics*.py`, `tests/test_jrsa*.py`, `tests/test_release_requires_an_empty_problem_stack.py`, `CHANGELOG.md`, `CONTRIBUTING.md`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-population/SKILL.md`.
+`shuffle_r2_ci` and `compare_groups` read a constant input as spread when the constant is not exactly representable (`np.std` is about 1e-17), so they return p = 1 or an effect size near 1e16 where the CHANGELOG promises NaN. `jrsa` without permutations accepts a misspelt `alternative` and ignores a one-sided one; ruled 2026-09-23 to apply it parametrically. STEP 0a can pass on no committed tree; ruled 2026-09-23 to accept a receipt whose commit differs from HEAD only by the receipt and the todo stack, with 06-130 and 06-40 as the release step.
+Accept: each repair has a discriminator that fails without it, and the full suite passes.
+
 ## Closure
 
 ### 06-38 Verify the candidate from TestPyPI
 
 Release: required-0.2.6.
 Role: verifier. Skill: jnwb-nwb-data. Blocked by: none. Writes: none.
-06-37's distribution checks passed on the `f657fce7` build labelled 0.2.5 (receipts under the qualification lane's scratch) and 06-36's documentation checks passed at the same commit; both re-run on the 0.2.6 candidate: contents, metadata, `__all__`, the `vis` extra, the quickstart outside the checkout, the suite against the installed copy, and the strict docs build. `SKILLS_URL` resolves only once the tag exists.
+The TestPyPI 0.2.6 built by CI run 36012625010 at `8e90a4ad` passed: hashes equal CI's artifact, the wheel's `jnwb/` equals git byte for byte, clean installs on 3.12.0, 3.13.15 and 3.14.3 open and analyse the DANDI 000253 excerpt with the sampling rate derived from the file, the suite against the installed copy passes, and the strict docs build reads 0.2.6. Ruled 2026-09-23: TestPyPI cannot take 0.2.6 again, so what remains is the same checks on a wheel built by the CI build job from the final commit, and the check from production PyPI after 06-40 publishes.
 Ruled 2026-09-22 (R-3). The candidate is published to TestPyPI (authorized as part of 06-40's
 sequence); in a clean environment install it from TestPyPI, open an NWB file, analyse, verify.
 After production publication the same check runs from PyPI.
@@ -100,9 +107,10 @@ After production publication the same check runs from PyPI.
 ### 06-39 Independent critic
 
 Release: required-0.2.6.
-Role: critic. Skill: none. Blocked by: 06-38. Writes: none.
+Role: critic. Skill: none. Blocked by: 06-147. Writes: none.
 A reviewer that implemented none of the repairs, over the acceptance set, the unresolved unknowns,
 the mutation evidence, the public claims and the release artifacts.
+The pass at `8e90a4ad` held every other acceptance row, upheld every 07-01 deferral it attacked, reproduced every other Changed, Deprecated and numeric Fixed entry, and killed 13 of 14 sampled mutants; it found 06-147's four blockers. What remains is an independent pass over 06-147's repairs and the wording corrections that came with them.
 
 ### 06-60 No blocker remains, confirmed by a pass that finds no new one
 
@@ -262,6 +270,12 @@ leaves this item as a `required-0.2.6` item.
 - P-318: `UnitAnalyzer.autocorrelogram` keeps `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` in 0.2.6 as NaN with a `FutureWarning` (ruled 2026-09-23); 0.2.7 removes them. Waits: the removal is scheduled by the ruling.
 - P-319: The test of the withdrawn refractory keys uses `assertWarnsRegex`, which accepts any number of warnings, so a second `FutureWarning` per call survives it. Waits: shipped behaviour warns once in 60 of 60 calls.
 - P-320: At large absolute times the whole-bin refusal prints the refused and the suggested window as the same text (`.10g`), and `{n:g}` can print a whole bin count for a window 1e-6 of a bin off. Waits: error path only; the refusal is correct.
+- P-321: `confirmatory_compare` returns `correction: "none"` beside BH `q_*` values and `confirmed_*` flags. Waits: the key describes the raw `pval` fields beside it, and the q-values are named separately.
+- P-322: `get_all_units_metadata(filter_quality=True)` on a file with no `quality` column raises a `KeyError` handled as a read failure, where the CHANGELOG says a `RuntimeWarning`. Waits: loud, and those units would be excluded anyway.
+- P-323: `compute_population_trajectory` leaves out `device_used` when the area has no units. Waits: no trajectory is computed.
+- P-324: `compress_fp32(select=)` on a same-file SoftLink writes an independent float32 copy under the link's name while the target stays float64. Waits: nothing requested is miscast; a test pins the behaviour.
+- P-325: The `FutureWarning` for `compress_fp32` without `select=` advises a path that raises `TypeError` on an int16 LFP, so an int16 LFP has no non-deprecated route. Waits: the floats-only rule is ruled; only the advice is wrong.
+- P-326: `composition_subset_0.2.6.md` still reads "Live defect" for H1-H7, repaired since. Waits: stale internal evidence text.
 
 ## Reported and not admitted
 
