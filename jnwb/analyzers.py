@@ -14,6 +14,7 @@ import logging
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
+from ._bins import bins_within, whole_bin_count
 from .gpu_pca import pin_component_signs
 import pandas as pd
 from scipy import signal, stats
@@ -347,8 +348,6 @@ class UnitAnalyzer:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
                 ``bin_size_ms``; the message names the nearest valid windows.
         """
-        from ._bins import whole_bin_count
-
         n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
@@ -379,6 +378,11 @@ class UnitAnalyzer:
                         bin_size_ms: float = 1, device: str = 'cpu') -> Dict:
         """
         Autocorrelogram with refractory period significance test.
+
+        Bins are ``bin_size_ms`` wide and centred on multiples of it. With ``n`` the number
+        of whole bins in ``max_lag_ms``, the histogram spans ``±(n + 1/2) * bin_size_ms``,
+        and ``acg`` holds the ``n`` positive-lag bins centred on ``lag_times_ms``,
+        ``bin_size_ms * (1, ..., n)``.
 
         Args:
             spike_times: Spike times in seconds
@@ -429,11 +433,12 @@ class UnitAnalyzer:
     _ACG_PAIR_BUDGET = 1 << 22
 
     @staticmethod
-    def _acg_histogram(xp, spike_times, max_lag: float, bin_edges, n_bins: int):
+    def _acg_histogram(xp, spike_times, bin_edges):
         """Sum the in-window difference histogram, one histogram per chunk.
 
         The same source runs under ``numpy`` and ``cupy``. Each spike contributes the
-        ragged window ``[lo_i, hi_i)``; flattening the whole chunk's windows into one
+        ragged window of spikes whose difference from it lies within the outer edges of
+        ``bin_edges``, so the search window and the histogram cannot disagree; flattening the whole chunk's windows into one
         index array turns "a histogram per spike" into "a histogram per chunk".
 
         Both previous paths were pathological in different ways. The CPU loop
@@ -447,15 +452,16 @@ class UnitAnalyzer:
         22.4 s against 0.93 s on the CPU. The kernel launches, not the transfers, were
         76% of the accounted time.
         """
+        lowest, highest = float(bin_edges[0]), float(bin_edges[-1])
         st = xp.sort(xp.asarray(spike_times))
         edges = xp.asarray(bin_edges)
-        acg = xp.zeros(2 * n_bins + 1, dtype=xp.int64)
+        acg = xp.zeros(len(bin_edges) - 1, dtype=xp.int64)
         n = int(st.size)
         if n == 0:
             return acg
 
-        lo_all = xp.searchsorted(st, st - max_lag, side="left")
-        hi_all = xp.searchsorted(st, st + max_lag, side="right")
+        lo_all = xp.searchsorted(st, st + lowest, side="left")
+        hi_all = xp.searchsorted(st, st + highest, side="right")
         counts_all = hi_all - lo_all
         widest = int(counts_all.max())
         chunk = max(1, UnitAnalyzer._ACG_PAIR_BUDGET // max(widest, 1))
@@ -482,27 +488,30 @@ class UnitAnalyzer:
         """
         Vectorized autocorrelogram via searchsorted — O(N log N) instead of O(N²).
 
-        For each spike i, find all spikes j within ±max_lag using searchsorted,
+        For each spike i, find all spikes j within the binned span using searchsorted,
         then histogram the differences.  Avoids the outer Python loop over all pairs.
 
+        Bins are ``bin_size`` wide and centred on ``k * bin_size`` for
+        ``k = -n, ..., n``, where ``n`` is the number of whole bins in ``max_lag``, so the
+        histogram spans ``±(n + 1/2) * bin_size``. The zero-lag bin holds every spike's
+        match with itself and is dropped. Returns the positive half, ``n`` counts, and
+        their lags ``bin_size * (1, ..., n)``, the bin centres.
+
         One implementation serves both devices, so they cannot drift apart: the CPU and
-        CUDA results are bit-identical, and were verified so against the previous
-        implementation at 500, 5000 and 35000 spikes.
+        CUDA results are bit-identical.
 
         ``context`` names the public caller in device warnings; ``ran_on``, when given,
         receives the device that computed the histogram.
         """
-        n_bins    = int(max_lag / bin_size)
-        bin_edges = np.linspace(-max_lag, max_lag, 2 * n_bins + 2)
+        n_bins    = bins_within(max_lag, bin_size)
+        bin_edges = bin_size * (np.arange(-n_bins, n_bins + 2) - 0.5)
 
         acg = None
         used = CPU
         if resolve_device(device, context=context, prefer='cupy') == CUDA:
             try:
                 import cupy as cp
-                acg = cp.asnumpy(
-                    UnitAnalyzer._acg_histogram(cp, spike_times, max_lag, bin_edges,
-                                                n_bins))
+                acg = cp.asnumpy(UnitAnalyzer._acg_histogram(cp, spike_times, bin_edges))
                 used = CUDA
             except Exception as e:
                 warn_device_fallback(context, e)
@@ -510,16 +519,13 @@ class UnitAnalyzer:
                 acg = None
 
         if acg is None:
-            acg = UnitAnalyzer._acg_histogram(np, spike_times, max_lag, bin_edges, n_bins)
+            acg = UnitAnalyzer._acg_histogram(np, spike_times, bin_edges)
         if ran_on is not None:
             ran_on.append(used)
 
-        # Remove self-spike at t=0 (centre bin)
-        centre = n_bins
-        acg[centre] = 0
-        # Return positive-lag half only (symmetric)
-        lag_times = np.linspace(0, max_lag, n_bins + 1)[:-1]
-        return acg[centre + 1:], lag_times
+        # Positive-lag half only (the ACG is symmetric); index n_bins is the zero-lag bin.
+        lag_times = bin_size * np.arange(1, n_bins + 1)
+        return acg[n_bins + 1:], lag_times
 
     # Keep old name as alias for any existing call sites
     _acg_pearson = _acg_vectorized

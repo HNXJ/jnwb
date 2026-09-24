@@ -162,6 +162,14 @@ Carried by 0.2.6.
   window into bins not `bin_size_ms` wide; it refuses the window as well. The whole-bin check
   scales its floating-point tolerance with the window's endpoints, so an absolute window hours
   into a recording is not refused for rounding.
+- **`UnitAnalyzer.autocorrelogram` bins are `bin_size_ms` wide and centred on their lags.**
+  They were `2 * max_lag / (2n + 1)` wide, 0.99 ms at the default 1 ms, and `lag_times_ms`
+  labelled each bin one bin below where it sat: a train firing every 5 ms peaked at the label
+  4 ms. Bins are now centred on multiples of `bin_size_ms`, the histogram spans
+  `±(n + 1/2) * bin_size_ms`, and `lag_times_ms` is `bin_size_ms * (1, ..., n)`, the centres;
+  the same train peaks at 5 ms. `n`, the whole bins in `max_lag_ms`, no longer loses one to
+  rounding (9 ms at 0.1 ms made 89 bins). The refractory test reads the same bin indices as
+  before, so its counts move only by the change in bin edges.
 - **A result with no estimate is NaN, not a number.** Four calls returned ordinary-looking
   values where the data held no estimate:
   - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,

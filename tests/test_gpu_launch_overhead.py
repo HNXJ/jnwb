@@ -55,18 +55,19 @@ def spikes(n, seed=0, span_per_spike=1 / 40.0):
 
 
 def naive_acg(spike_times, max_lag=MAX_LAG, bin_size=BIN):
-    """The shape the CPU branch used to have: one histogram per spike."""
-    n_bins = int(max_lag / bin_size)
-    edges = np.linspace(-max_lag, max_lag, 2 * n_bins + 2)
+    """The shape the CPU branch used to have: one histogram per spike, over bins
+    ``bin_size`` wide centred on each multiple of ``bin_size`` out to ``max_lag``."""
+    n_bins = round(max_lag / bin_size)
+    half_span = (n_bins + 0.5) * bin_size
+    edges = np.arange(-n_bins - 0.5, n_bins + 1.0, 1.0) * bin_size
     acg = np.zeros(2 * n_bins + 1, dtype=np.int64)
     st = np.sort(spike_times)
     for t in st:
-        lo = np.searchsorted(st, t - max_lag, side="left")
-        hi = np.searchsorted(st, t + max_lag, side="right")
+        lo = np.searchsorted(st, t - half_span, side="left")
+        hi = np.searchsorted(st, t + half_span, side="right")
         hist, _ = np.histogram(st[lo:hi] - t, bins=edges)
         acg += hist
-    acg[n_bins] = 0
-    return acg[n_bins + 1:], np.linspace(0, max_lag, n_bins + 1)[:-1]
+    return acg[n_bins + 1:], np.arange(1, n_bins + 1) * bin_size
 
 
 class TestTheFlattenedAcgIsTheSameEstimator:
@@ -99,15 +100,13 @@ class TestTheFlattenedAcgIsTheSameEstimator:
         assert np.array_equal(a, b)
 
     def test_the_returned_half_starts_one_bin_past_centre(self):
-        """Every spike matches itself, so the centre bin holds at least N counts. It is
-        the slice that drops them, not the ``acg[centre] = 0`` above it: that statement
-        writes the one index the slice already excludes, so it cannot change any
-        returned number. Mutation-checked -- deleting it kills nothing, and the boundary
-        below is what actually carries the self-count removal."""
-        n_bins = int(MAX_LAG / BIN)
-        edges = np.linspace(-MAX_LAG, MAX_LAG, 2 * n_bins + 2)
+        """Every spike matches itself, so the zero-lag bin holds at least N counts, and
+        the slice past it is what drops them."""
+        n_bins = 100
+        edges = BIN * (np.arange(-n_bins, n_bins + 2) - 0.5)
+        assert edges[n_bins] < 0.0 < edges[n_bins + 1], "index n_bins is not the zero-lag bin"
         st = spikes(400)
-        full = UnitAnalyzer._acg_histogram(np, st, MAX_LAG, edges, n_bins)
+        full = UnitAnalyzer._acg_histogram(np, st, edges)
 
         assert full[n_bins] >= len(st)
 
@@ -117,11 +116,9 @@ class TestTheFlattenedAcgIsTheSameEstimator:
         assert np.array_equal(got, full[n_bins + 1:])
 
     def test_a_pair_exactly_at_max_lag_is_counted(self):
-        """Both replaced branches bounded the window with ``side='right'`` -- and the
-        broadcast branch with ``diffs <= max_lag`` -- so a pair separated by exactly
-        ``max_lag`` falls in the last bin rather than off the end. Random float spike
-        times never land on that boundary, so it needs a train that does: unit spacing
-        makes ``st[i] + 10.0`` bit-equal to ``st[i + 10]``."""
+        """A pair separated by exactly ``max_lag`` falls in the last bin, which is centred
+        on it, rather than off the end. Unit spacing makes ``st[i] + 10.0`` bit-equal to
+        ``st[i + 10]``."""
         max_lag, bin_size = 10.0, 1.0
         train = np.arange(40, dtype=float)
         assert np.all(train[:30] + max_lag == train[10:]), "boundary not exact"
@@ -137,13 +134,54 @@ class TestTheFlattenedAcgIsTheSameEstimator:
                                                  device="cpu")
 
         assert got.sum() == 0
-        assert len(lags) == int(MAX_LAG / BIN)
+        assert len(lags) == 100
 
     def test_a_single_spike_counts_only_itself(self):
         got, _ = UnitAnalyzer._acg_vectorized(np.array([1.0]), MAX_LAG, BIN,
                                               device="cpu")
 
         assert got.sum() == 0
+
+
+class TestAcgBinsAreBinSizeWideAndCentredOnTheirLags:
+    """The bins were ``2 max_lag / (2n + 1)`` wide, 0.99 ms at 1 ms, and bin ``k`` of the
+    returned half sat near lag ``k + 1`` bins while its label said ``k``."""
+
+    @staticmethod
+    def _index_of(d, max_lag=0.02, bin_size=0.001):
+        got, lags = UnitAnalyzer._acg_vectorized(np.array([1.0, 1.0 + d]), max_lag, bin_size,
+                                                 device="cpu")
+        hit = np.flatnonzero(got)
+        return (lags[hit[0]] if hit.size else None), lags
+
+    @pytest.mark.parametrize("lag_ms", [1, 10, 20])
+    def test_a_bin_holds_exactly_the_lags_within_half_a_bin_of_its_label(self, lag_ms):
+        lag = lag_ms / 1000.0
+        for offset in (-0.49, 0.0, 0.49):
+            got, _ = self._index_of(lag + offset * 0.001)
+            assert got == pytest.approx(lag), (lag_ms, offset)
+        below, _ = self._index_of(lag - 0.51 * 0.001)
+        if lag_ms == 1:
+            assert below is None, "0.49 ms belongs to the dropped zero-lag bin"
+        else:
+            assert below == pytest.approx(lag - 0.001)
+
+    def test_the_lags_are_the_bin_centres(self):
+        _, lags = self._index_of(0.005)
+        np.testing.assert_allclose(lags, 0.001 * np.arange(1, 21))
+
+    def test_a_periodic_train_peaks_at_its_period(self):
+        train = np.arange(0.0, 10.0, 0.005)  # one spike every 5 ms
+        got, lags = UnitAnalyzer._acg_vectorized(train, 0.02, 0.001, device="cpu")
+        np.testing.assert_allclose(lags[got > 0], [0.005, 0.010, 0.015, 0.020])
+
+    def test_a_max_lag_of_whole_bins_is_not_shortened_by_rounding(self):
+        # 9 ms at 0.1 ms is 89.99999999999999 bins in seconds, which int() truncated to 89.
+        max_lag, bin_size = 9.0 / 1000, 0.1 / 1000
+        assert int(max_lag / bin_size) == 89, "the fixture no longer rounds down"
+        _, lags = UnitAnalyzer._acg_vectorized(np.array([1.0, 1.001]), max_lag, bin_size,
+                                               device="cpu")
+        assert len(lags) == 90
 
 
 class TestItNoLongerHistogramsOncePerSpike:
@@ -178,8 +216,8 @@ class TestItNoLongerHistogramsOncePerSpike:
         scale the allocation with the firing rate."""
         sparse = spikes(4000, span_per_spike=1 / 40.0)
         dense = spikes(4000, span_per_spike=1 / 4000.0)
-        n_bins = int(MAX_LAG / BIN)
-        edges = np.linspace(-MAX_LAG, MAX_LAG, 2 * n_bins + 2)
+        n_bins = 100
+        edges = BIN * (np.arange(-n_bins, n_bins + 2) - 0.5)
 
         widest_sparse = int(np.max(
             np.searchsorted(sparse, sparse + MAX_LAG, side="right")
@@ -194,8 +232,7 @@ class TestItNoLongerHistogramsOncePerSpike:
         assert budget // max(widest_dense, 1) < budget // max(widest_sparse, 1)
         # and it still computes the right answer on the dense train
         expected, _ = naive_acg(dense)
-        got = UnitAnalyzer._acg_histogram(np, dense, MAX_LAG, edges, n_bins)
-        got[n_bins] = 0
+        got = UnitAnalyzer._acg_histogram(np, dense, edges)
         assert np.array_equal(got[n_bins + 1:], expected)
 
 
